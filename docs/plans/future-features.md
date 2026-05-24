@@ -582,7 +582,8 @@ Questions to resolve before graduation:
 - which workflows require stronger isolation than Level 1
 - whether later backends should add broader/cross-version Apple Container
   features, Firecracker, remote builders, hosted sandbox services, or explicit
-  image-management workflows beyond v0.36's approved-local-image requirement
+  image-management workflows beyond v0.36's approved-local-image build/verify
+  task
 - how Allbert maps host paths to sandbox paths without over-mounting
   user-owned data
 - whether workspace mounts are read-only, read-write, or copy-in/copy-out

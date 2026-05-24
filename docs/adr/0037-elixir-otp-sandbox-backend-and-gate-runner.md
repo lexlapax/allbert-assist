@@ -118,7 +118,10 @@ settings, secrets, database, memory files, caches, or arbitrary host paths.
 
 Sandbox runs never pull images. `sandbox.elixir.image` must resolve to an
 approved local image reference or digest during doctor/bundle preparation, or
-execution fails closed.
+execution fails closed. v0.36 also owns the explicit local image-preparation
+workflow for the default sandbox image. That workflow may build the approved
+local image as an operator setup step, but sandbox command execution remains
+local-image-only and uses `--pull=never`.
 
 Draft source and trial files are statically scanned before backend execution.
 Known dangerous constructs (`System.cmd`, `Port.open`, `:os.cmd`,

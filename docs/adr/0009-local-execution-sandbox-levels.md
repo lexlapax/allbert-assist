@@ -127,6 +127,9 @@ closed when no on-platform backend is available. Firecracker, remote builders,
 broader/cross-version Apple Container features beyond the optional v0.36
 adapter, package-manager execution, implicit image pulls, multi-language
 targets, and untrusted script/package-install workflows remain future work.
+v0.36 includes an explicit local image build/verify setup task for the default
+approved Docker image; sandbox gate execution itself still never pulls images
+and fails closed when the approved local image is missing or invalid.
 
 The v0.36 sandbox produces bounded redacted reports only. It does not load
 generated modules into the core node, register actions, grant permissions,

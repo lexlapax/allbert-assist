@@ -106,8 +106,9 @@ alone does not authorize package registry/package-spec access.
 - Treat Level 1 shell/script execution as host execution with policy controls,
   not OS isolation.
 - Treat the v0.36 Elixir/OTP sandbox as default-off, report-only OS isolation
-  for generated draft trials. Use approved local images only and keep network
-  disabled.
+  for generated draft trials. Use approved local images only, prepare them
+  through `mix allbert.sandbox image build` / `image verify`, and keep network
+  disabled for sandbox gate runs.
 - Treat v0.10 network access as approved resource acquisition, not a browser,
   crawler, or arbitrary document summarizer.
 - Treat remembered resource grants as Settings Central approval memory, not
