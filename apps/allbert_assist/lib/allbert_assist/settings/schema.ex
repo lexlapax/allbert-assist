@@ -107,6 +107,14 @@ defmodule AllbertAssist.Settings.Schema do
     "package_installs.git_dependencies_allowed",
     "package_installs.global_installs_allowed",
     "package_installs.manager_profiles",
+    "sandbox.elixir.enabled",
+    "sandbox.elixir.backend",
+    "sandbox.elixir.image",
+    "sandbox.elixir.network",
+    "sandbox.elixir.cpu_limit",
+    "sandbox.elixir.memory_mb",
+    "sandbox.elixir.timeout_ms",
+    "sandbox.elixir.output_bytes",
     "resource_grants.remembered",
     "skills.online_import.enabled",
     "skills.online_import.require_confirmation",
@@ -1237,6 +1245,60 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false
     },
+    "sandbox.elixir.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "sandbox.elixir.backend" => %{
+      type: :enum,
+      default: "auto",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["auto", "apple_container", "docker", "podman_rootless", "docker_runsc"]
+    },
+    "sandbox.elixir.image" => %{
+      type: :string,
+      default: "allbert-elixir-otp:local",
+      writable?: true,
+      sensitive?: false
+    },
+    "sandbox.elixir.network" => %{
+      type: :enum,
+      default: "none",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["none"]
+    },
+    "sandbox.elixir.cpu_limit" => %{
+      type: :bounded_float,
+      default: 1.0,
+      writable?: true,
+      sensitive?: false,
+      min: 0.25,
+      max: 8.0
+    },
+    "sandbox.elixir.memory_mb" => %{
+      type: :bounded_integer,
+      default: 1024,
+      writable?: true,
+      sensitive?: false,
+      min: 128,
+      max: 8192
+    },
+    "sandbox.elixir.timeout_ms" => %{
+      type: :timeout_ms,
+      default: 120_000,
+      writable?: true,
+      sensitive?: false
+    },
+    "sandbox.elixir.output_bytes" => %{
+      type: :positive_integer,
+      default: 65_536,
+      writable?: true,
+      sensitive?: false
+    },
     "resource_grants.remembered" => %{
       type: :resource_grants,
       default: [],
@@ -1590,6 +1652,18 @@ defmodule AllbertAssist.Settings.Schema do
       "git_dependencies_allowed" => false,
       "global_installs_allowed" => false,
       "manager_profiles" => %{}
+    },
+    "sandbox" => %{
+      "elixir" => %{
+        "enabled" => false,
+        "backend" => "auto",
+        "image" => "allbert-elixir-otp:local",
+        "network" => "none",
+        "cpu_limit" => 1.0,
+        "memory_mb" => 1024,
+        "timeout_ms" => 120_000,
+        "output_bytes" => 65_536
+      }
     },
     "resource_grants" => %{
       "remembered" => []
