@@ -140,6 +140,56 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("objectives.trace_detail", "verbose", %{audit?: false})
   end
 
+  test "sandbox settings resolve defaults and validate writes" do
+    assert {:ok, false} = Settings.get("sandbox.elixir.enabled")
+    assert {:ok, "auto"} = Settings.get("sandbox.elixir.backend")
+    assert {:ok, "allbert-elixir-otp:local"} = Settings.get("sandbox.elixir.image")
+    assert {:ok, "none"} = Settings.get("sandbox.elixir.network")
+    assert {:ok, 1.0} = Settings.get("sandbox.elixir.cpu_limit")
+    assert {:ok, 1024} = Settings.get("sandbox.elixir.memory_mb")
+    assert {:ok, 120_000} = Settings.get("sandbox.elixir.timeout_ms")
+    assert {:ok, 65_536} = Settings.get("sandbox.elixir.output_bytes")
+
+    assert {:ok, enabled} = Settings.put("sandbox.elixir.enabled", true, %{audit?: false})
+    assert enabled.value == true
+
+    assert {:ok, backend} =
+             Settings.put("sandbox.elixir.backend", "docker_runsc", %{audit?: false})
+
+    assert backend.value == "docker_runsc"
+
+    assert {:ok, image} =
+             Settings.put("sandbox.elixir.image", "allbert-elixir-otp@sha256:abc", %{
+               audit?: false
+             })
+
+    assert image.value == "allbert-elixir-otp@sha256:abc"
+
+    assert {:ok, cpu} = Settings.put("sandbox.elixir.cpu_limit", 2.5, %{audit?: false})
+    assert cpu.value == 2.5
+
+    assert {:ok, memory} = Settings.put("sandbox.elixir.memory_mb", 2048, %{audit?: false})
+    assert memory.value == 2048
+
+    assert {:ok, timeout} = Settings.put("sandbox.elixir.timeout_ms", 60_000, %{audit?: false})
+    assert timeout.value == 60_000
+
+    assert {:ok, output} = Settings.put("sandbox.elixir.output_bytes", 131_072, %{audit?: false})
+    assert output.value == 131_072
+
+    assert {:error, {:invalid_setting, "sandbox.elixir.backend", _reason}} =
+             Settings.put("sandbox.elixir.backend", "firecracker", %{audit?: false})
+
+    assert {:error, {:invalid_setting, "sandbox.elixir.network", _reason}} =
+             Settings.put("sandbox.elixir.network", "host", %{audit?: false})
+
+    assert {:error, {:invalid_setting, "sandbox.elixir.cpu_limit", _reason}} =
+             Settings.put("sandbox.elixir.cpu_limit", 99.0, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "sandbox.elixir.memory_mb", _reason}} =
+             Settings.put("sandbox.elixir.memory_mb", 64, %{audit?: false})
+  end
+
   test "workspace settings resolve defaults and validate writes" do
     assert {:ok, "system"} = Settings.get("workspace.theme.mode")
     assert {:ok, "system"} = Settings.get("workspace.theme")

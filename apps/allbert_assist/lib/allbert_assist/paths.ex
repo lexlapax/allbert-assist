@@ -51,6 +51,10 @@ defmodule AllbertAssist.Paths do
       package_installs_root(),
       Path.join(package_installs_root(), "audit"),
       Path.join(package_installs_root(), "runs"),
+      sandbox_root(),
+      sandbox_bundles_root(),
+      sandbox_reports_root(),
+      sandbox_cache_root(),
       external_root(),
       Path.join(external_root(), "audit"),
       external_cache_root(),
@@ -132,6 +136,24 @@ defmodule AllbertAssist.Paths do
       Path.join(execution_root(), "package-installs")
     )
   end
+
+  @doc "Return the v0.36 Elixir/OTP sandbox root."
+  @spec sandbox_root() :: String.t()
+  def sandbox_root do
+    first_path([configured(:sandbox_root)], Path.join(home(), "sandbox"))
+  end
+
+  @doc "Return the v0.36 sandbox bundle root."
+  @spec sandbox_bundles_root() :: String.t()
+  def sandbox_bundles_root, do: Path.join(sandbox_root(), "bundles")
+
+  @doc "Return the v0.36 sandbox report root."
+  @spec sandbox_reports_root() :: String.t()
+  def sandbox_reports_root, do: Path.join(sandbox_root(), "reports")
+
+  @doc "Return the v0.36 sandbox cache root."
+  @spec sandbox_cache_root() :: String.t()
+  def sandbox_cache_root, do: Path.join(sandbox_root(), "cache")
 
   @doc "Return the external service adapter root."
   @spec external_root() :: String.t()
