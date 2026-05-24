@@ -575,9 +575,10 @@ Candidate levels:
 Questions to resolve before graduation:
 
 - which workflows require stronger isolation than Level 1
-- whether later backends should add Firecracker, broad Apple Container support,
-  remote builders, or hosted sandbox services after the v0.36 Docker/Podman
-  baseline
+- v0.36 ships an OS-aware resolver and a doctor-gated Apple `container` adapter
+  for macOS alongside the Docker/Podman/runsc backends; remaining future work is
+  whether later backends should add broader/cross-version Apple Container
+  features, Firecracker, remote builders, or hosted sandbox services
 - how Allbert maps host paths to sandbox paths without over-mounting
   user-owned data
 - whether workspace mounts are read-only, read-write, or copy-in/copy-out
