@@ -26,6 +26,11 @@ Capability acquisition is objective-owned:
   are registered actions with Security Central decisions; integration and
   rollback require mandatory operator confirmation.
 
+Draft lifecycle state is file-backed under
+`<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/` with metadata, provenance,
+source hashes, diagnostics, and sandbox reports. It is not stored in Settings
+Central and is not placed in ordinary plugin discovery roots while untrusted.
+
 v0.37 defines draft trust tiers:
 
 - `:draft` - inert generated source;

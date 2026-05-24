@@ -502,10 +502,11 @@ plugins under `./plugins`, but it does not install remote plugins, resolve
 dependencies, automatically compile arbitrary `./plugins/*/lib` directories,
 compile code from `<ALLBERT_HOME>/plugins`, hot-reload code-bearing plugins,
 or sandbox untrusted plugin execution. v0.36 adds a local Elixir/OTP
-sandbox/gate runner only; v0.37 adds local dynamic draft generation and gated
-live integration; neither is remote distribution. v0.38 may scaffold plugin
-source for developer review, compile, and test, but marketplace distribution
-and arbitrary runtime loading remain parked here.
+sandbox/gate runner only; v0.37 adds local dynamic draft generation under
+`<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/` plus gated live integration;
+neither is remote distribution. v0.38 may scaffold plugin source for developer
+review, compile, and test, but marketplace distribution, remote template
+catalogs, and arbitrary runtime loading remain parked here.
 
 Needed before planning:
 
@@ -555,10 +556,14 @@ That is useful for a first local shell adapter, but it is not OS isolation and
 should not be described as protecting the host from hostile code.
 
 v0.36 will add the first narrow sandbox/gate backend for generated Elixir/OTP
-drafts and explicit gate commands. Broader future work should still add deeper
-execution backends when Allbert needs to run untrusted scripts, package
-installs, broad coding workflows, online skill bootstrap, multi-user workloads,
-or network-heavy adapters.
+drafts and explicit gate commands. It uses approved local images only, static
+source-policy checks, copy-in/copy-out bundles, no default network, and a
+doctor-gated backend resolver. `docker_runsc` / gVisor is preferred over plain
+Docker when installed; Apple `container` is included only as an optional
+doctor-gated macOS backend and is not release-blocking. Broader future work
+should still add deeper execution backends when Allbert needs to run untrusted
+scripts, package installs, broad coding workflows, online skill bootstrap,
+multi-user workloads, or network-heavy adapters.
 
 Candidate levels:
 
@@ -575,10 +580,9 @@ Candidate levels:
 Questions to resolve before graduation:
 
 - which workflows require stronger isolation than Level 1
-- v0.36 ships an OS-aware resolver and a doctor-gated Apple `container` adapter
-  for macOS alongside the Docker/Podman/runsc backends; remaining future work is
-  whether later backends should add broader/cross-version Apple Container
-  features, Firecracker, remote builders, or hosted sandbox services
+- whether later backends should add broader/cross-version Apple Container
+  features, Firecracker, remote builders, hosted sandbox services, or explicit
+  image-management workflows beyond v0.36's approved-local-image requirement
 - how Allbert maps host paths to sandbox paths without over-mounting
   user-owned data
 - whether workspace mounts are read-only, read-write, or copy-in/copy-out

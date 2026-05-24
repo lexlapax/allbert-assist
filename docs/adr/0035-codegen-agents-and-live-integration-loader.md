@@ -56,6 +56,10 @@ running node without a restart only when the ADR 0032 gate is satisfied:
 The loader:
 
 - verifies source hash, provenance, and manifest-declared module set;
+- enforces generated namespace rules and rejects replacement of core/static
+  modules, undeclared modules, dynamic protocols, router edits, application env
+  mutation, migrations, dependency additions, NIFs, ports, and package-manager
+  hooks;
 - recompiles the operator-reviewed source in core, not an opaque sandbox-built
   binary;
 - registers a runtime-mutable actions overlay on
@@ -66,6 +70,11 @@ The loader:
 - supports rollback by stopping children, unregistering entries, and purging
   loaded modules where safe.
 
+The actions overlay denies collisions rather than shadowing static, plugin,
+app, or other dynamic actions. Rollback requires operator confirmation and
+guarantees removal of authority surfaces; BEAM module purge/delete is attempted
+and audited as best effort.
+
 Page-route surfaces still require a restart; panel/destination apps integrate
 fully live.
 
@@ -73,7 +82,9 @@ fully live.
 
 Generation and sandbox trial may run proactively on a detected gap because they
 grant no live authority. Integration and rollback require operator confirmation
-at the Security Central boundary.
+at the Security Central boundary. Draft metadata, provenance, repair history,
+and sandbox reports are file-backed under
+`<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/`.
 
 ## Consequences
 
@@ -82,8 +93,8 @@ at the Security Central boundary.
 - The actions registry gains a runtime-mutable overlay that must preserve all
   existing capability/permission/app-scope semantics.
 - Security evals must prove untrusted core-load attempts, gate skip,
-  unapproved/auto integration, loader tampering, rollback failure, and
-  exfiltration fail closed.
+  unapproved/auto integration, loader tampering, core-module replacement,
+  action shadowing, rollback failure, and exfiltration fail closed.
 
 ## Non-Goals
 
