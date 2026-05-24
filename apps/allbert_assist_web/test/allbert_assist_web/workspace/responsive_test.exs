@@ -9,7 +9,8 @@ defmodule AllbertAssistWeb.Workspace.ResponsiveTest do
     assert css =~ "@media (min-width: 768px)"
     assert css =~ "@media (max-width: 767.98px)"
     assert css =~ "grid-template-areas:"
-    assert css =~ ~s("chat resizer canvas")
+    assert css =~ ~s("nav chat resizer canvas")
+    refute css =~ ~s("chat resizer canvas")
     assert css =~ ~s(#workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-chat)
     assert css =~ "--workspace-chat-ratio"
     assert css =~ "#workspace-split-resizer"
