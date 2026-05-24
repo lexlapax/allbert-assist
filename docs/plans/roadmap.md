@@ -181,8 +181,10 @@ Dependency order from here:
     conversationally through the v0.33 handoff.
 34. v0.35 User theming and layout overrides from Allbert Home after the workspace
     panel/zone contract and app-intent descriptor path are proven.
-35. v0.36 Elixir/OTP sandbox and gate runner: a default-off Docker/Podman
-    sandbox for generated Elixir/OTP drafts and explicit gate commands, with
+35. v0.36 Elixir/OTP sandbox and gate runner: a default-off, OS-aware sandbox
+    (pluggable backend registry + `:auto` resolver — Apple `container` on
+    supported macOS, Podman/Docker on Linux, Docker fallback, optional `runsc`)
+    for generated Elixir/OTP drafts and explicit gate commands, with
     copy-in/copy-out bundles, no network/secrets/real-home access, bounded
     reports, and no live loading.
 36. v0.37 Dynamic code & config generation and live capability integration:
@@ -1889,10 +1891,12 @@ generated drafts plus explicit shell-command gate profiles only. It produces
 reports, not trust grants.
 
 Prerequisite: v0.31 paths/redaction/audit/settings/typed-response facades and a
-local Docker or Podman-capable host. Optional Docker+runsc/gVisor is a hardened
-backend when configured; Firecracker, remote builders, broad Apple Container
-support, multi-language targets, and package-manager execution remain future
-work.
+local container/VM-capable host. Backend selection is OS-aware (`backend=auto`):
+Apple `container` on supported macOS (Apple silicon, macOS 26+), rootless Podman
+or Docker on Linux, Docker as the cross-platform fallback, and optional
+Docker+runsc/gVisor when configured. Firecracker, remote builders,
+broader/cross-version Apple Container features, multi-language targets, and
+package-manager execution remain future work.
 
 Expected direction:
 
@@ -1900,8 +1904,10 @@ Expected direction:
 - Build copy-in/copy-out sandbox bundles with a disposable Allbert Home.
 - Run only structured `mix` / `elixir` / `erl` argv commands for compile, test,
   Credo, Dialyzer, and security-eval gate profiles.
-- Implement Docker and Podman-rootless backends; optionally support Docker
-  `runsc` / gVisor if installed.
+- Register backends through a common behaviour/registry with an OS-aware
+  `:auto` resolver; implement Docker, Podman-rootless, and the doctor-gated
+  macOS Apple `container` backends; optionally support Docker `runsc` / gVisor
+  if installed.
 - Deny network, secrets, real Allbert Home, package managers, migrations, NIFs,
   ports, arbitrary shell strings, shell chaining, host Docker socket, and
   untrusted core-node module loading.

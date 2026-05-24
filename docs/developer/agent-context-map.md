@@ -227,8 +227,10 @@ Do not load every section by default.
   Output is the neutral destination, `app:allbert` is not a layout destination,
   launcher/layout state is view-only, AppBar is fixed chrome, Settings/Output
   are non-hideable, and `active_app` remains handoff-only.
-- v0.36 (planned): Elixir/OTP Sandbox And Gate Runner. Adds the default-off
-  Docker/Podman sandbox facade, copy-in/copy-out bundles, explicit `mix` /
+- v0.36 (planned): Elixir/OTP Sandbox And Gate Runner. Adds the default-off,
+  OS-aware sandbox facade (pluggable backend registry + `:auto` resolver: Apple
+  `container` on supported macOS, Podman/Docker on Linux, Docker fallback,
+  optional `runsc`), copy-in/copy-out bundles, explicit `mix` /
   `elixir` / `erl` gate commands, bounded reports, and fail-closed denial of
   network, secrets, real Allbert Home, package-manager execution, NIFs, ports,
   shell strings, and untrusted core loading. Per ADR 0037 and ADR 0009.

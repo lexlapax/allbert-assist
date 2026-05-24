@@ -117,11 +117,14 @@ sandbox in a deliberately narrow form: generated Elixir/OTP drafts and the
 explicit `mix` / `elixir` / `erl` argv commands needed to compile, test, and
 gate them.
 
-This does not create a broad coding-agent sandbox. v0.36 remains default-off,
-uses Docker/Podman as the implementable baseline, supports Docker `runsc` /
-gVisor only as optional hardening when configured, and fails closed when no
-backend is available. Firecracker, remote builders, broad Apple Container
-support, package-manager execution, multi-language targets, and untrusted
+This does not create a broad coding-agent sandbox. v0.36 remains default-off and
+selects a backend in an OS-aware way (`backend=auto`): Apple `container` on
+supported macOS (Apple silicon, macOS 26+, VM-per-container), rootless Podman or
+Docker on Linux, Docker as the cross-platform fallback, and Docker `runsc` /
+gVisor as optional hardening when configured. Backends register through a common
+behaviour/registry, and the runner fails closed when no on-platform backend is
+available. Firecracker, remote builders, broader/cross-version Apple Container
+features, package-manager execution, multi-language targets, and untrusted
 script/package-install workflows remain future work.
 
 The v0.36 sandbox produces bounded redacted reports only. It does not load
