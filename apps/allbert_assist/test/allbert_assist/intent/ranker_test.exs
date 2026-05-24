@@ -113,6 +113,60 @@ defmodule AllbertAssist.Intent.RankerTest do
     assert ranked.trace_metadata.ranking_reason == :action_text_match
   end
 
+  test "descriptor matching prefers exact phrases over generic words in labels" do
+    run_analysis =
+      EvalFixtures.candidate(
+        kind: :app_intent,
+        id: "stocksage:run_analysis",
+        label: "Run StockSage analysis",
+        action_name: "run_analysis",
+        source: :app,
+        status: :candidate,
+        selected?: false,
+        score: 0.2,
+        app_id: :stocksage,
+        trace_metadata: %{
+          descriptor: %{
+            label: "Run StockSage analysis",
+            action_name: "run_analysis",
+            examples: ["analyze AAPL"],
+            synonyms: ["analyze", "stock analysis"]
+          }
+        }
+      )
+
+    queue_analysis =
+      EvalFixtures.candidate(
+        kind: :app_intent,
+        id: "stocksage:queue_analysis",
+        label: "Queue StockSage analysis",
+        action_name: "queue_analysis",
+        source: :app,
+        status: :candidate,
+        selected?: false,
+        score: 0.2,
+        app_id: :stocksage,
+        trace_metadata: %{
+          descriptor: %{
+            label: "Queue StockSage analysis",
+            action_name: "queue_analysis",
+            examples: ["queue analysis for AAPL"],
+            synonyms: ["queue analysis", "add to queue"]
+          }
+        }
+      )
+
+    assert [%{id: "stocksage:queue_analysis"} = ranked | rest] =
+             Ranker.rank([run_analysis, queue_analysis], %{text: "queue analysis for AAPL"})
+
+    assert ranked.trace_metadata.ranking_reason == :descriptor_text_match
+
+    assert Enum.all?(
+             rest,
+             &(Map.get(&1.trace_metadata, :ranking_reason) != :descriptor_text_match)
+           )
+  end
+
   test "channel and job keywords boost their candidate kinds" do
     channel =
       EvalFixtures.candidate(

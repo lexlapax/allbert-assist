@@ -4,7 +4,7 @@ description: Queue a StockSage analysis request as a local durable row without r
 allowed-tools: allbert:action:queue_analysis
 metadata:
   allbert.kind: native_action
-  allbert.version: "0.20.0"
+  allbert.version: "0.33.1"
   allbert.actions: queue_analysis
   allbert.permissions: stocksage_write
   allbert.confirmation: not_required

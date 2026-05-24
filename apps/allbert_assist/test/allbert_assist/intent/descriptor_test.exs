@@ -72,4 +72,29 @@ defmodule AllbertAssist.Intent.DescriptorTest do
              missing_slots: [:ticker]
            }
   end
+
+  test "extracts optional slots without making them required" do
+    assert {:ok, descriptor} =
+             Descriptor.normalize(%{
+               app_id: :stocksage,
+               action_name: "get_trends",
+               label: "Show StockSage trends",
+               optional_slots: [:symbol],
+               slot_extractors: %{symbol: :ticker_symbol}
+             })
+
+    assert descriptor.required_slots == []
+    assert descriptor.optional_slots == [:symbol]
+    assert descriptor.slot_extractors == %{symbol: :ticker_symbol}
+
+    assert Descriptor.extract_slots(descriptor, "show trends for AAPL") == %{
+             extracted_slots: %{symbol: "AAPL"},
+             missing_slots: []
+           }
+
+    assert Descriptor.extract_slots(descriptor, "show trends") == %{
+             extracted_slots: %{},
+             missing_slots: []
+           }
+  end
 end

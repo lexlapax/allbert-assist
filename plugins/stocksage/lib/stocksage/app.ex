@@ -30,7 +30,7 @@ defmodule StockSage.App do
   # v0.32 M6 moves StockSage dashboard/list/queue/trend UI into the shared
   # workspace panel substrate.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.33.0"
+  def version, do: "0.33.1"
 
   @impl true
   def validate(_opts), do: :ok
@@ -125,6 +125,47 @@ defmodule StockSage.App do
         ],
         required_slots: [:ticker],
         slot_extractors: %{ticker: :ticker_symbol},
+        handoff_required?: true
+      },
+      %{
+        app_id: :stocksage,
+        action_name: "get_trends",
+        label: "Show StockSage trends",
+        examples: [
+          "show StockSage trends",
+          "show trends for AAPL",
+          "get trends for TSLA"
+        ],
+        synonyms: [
+          "show trends",
+          "get trends",
+          "outcome trends",
+          "performance trends",
+          "stock trends",
+          "trends"
+        ],
+        required_slots: [],
+        optional_slots: [:symbol],
+        slot_extractors: %{symbol: :ticker_symbol},
+        handoff_required?: true
+      },
+      %{
+        app_id: :stocksage,
+        action_name: "queue_analysis",
+        label: "Queue StockSage analysis",
+        examples: [
+          "queue analysis for AAPL",
+          "queue StockSage analysis for TSLA",
+          "add CIEN to the StockSage queue"
+        ],
+        synonyms: [
+          "queue analysis",
+          "queue stocksage analysis",
+          "add to stocksage queue",
+          "add to queue"
+        ],
+        required_slots: [:symbol],
+        slot_extractors: %{symbol: :ticker_symbol},
         handoff_required?: true
       }
     ]

@@ -23,13 +23,15 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is the released `v0.33.0`. `/workspace` is the
+The current implementation is the released `v0.33.1`. `/workspace` is the
 only operator home, and neutral workspace chat can now recognize reviewed
 app-owned capabilities without silently running them. Plain questions use the
 side-effect-free direct-answer path; neutral app-like prompts such as
 `analyze CIEN` render an explicit StockSage handoff or targeted clarification;
 accepting the handoff sets active app context before the normal confirmation
-flow begins.
+flow begins. StockSage `run_analysis`, `get_trends`, and `queue_analysis`
+conversational routing now all use app-contributed intent descriptors rather
+than core StockSage symbol-parsing shortcuts.
 
 Recent platform contracts now in place:
 
@@ -44,9 +46,10 @@ Recent platform contracts now in place:
   theming, dynamic draft, and generator arc.
 - `v0.32.0`: workspace-only app UI and Settings Central, with app UI composed
   through host-owned panel zones in `/workspace`.
-- `v0.33.0`: conversational app intent handoff and direct-answer foundation,
+- `v0.33.1`: conversational app intent handoff and direct-answer foundation,
   with app-contributed intent descriptors, explicit neutral handoff, targeted
-  clarification, and advisory-only classifier selection.
+  clarification, advisory-only classifier selection, and descriptor-backed
+  StockSage analysis/trend/queue prompts.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -94,14 +97,18 @@ Near-term milestones:
 - `v0.33`: conversational app intent handoff and direct-answer foundation —
   implemented as the current release; neutral workspace prompts can propose
   app handoff or clarification without silently executing app-owned actions.
-- `v0.34`: user theming and layout overrides from `~/.allbert`, with token
+- `v0.34`: workspace UX refresh — chat-centered shell, a view-only left
+  launcher, a single-destination Canvas, and routing context set
+  conversationally through the v0.33 handoff (no permanent Tools column or
+  floating panel band).
+- `v0.35`: user theming and layout overrides from `~/.allbert`, with token
   themes, opt-in sanitized CSS snippets, and validated workspace layout data.
-- `v0.35`: dynamic plugin/app generation and sandboxed module loading for
+- `v0.36`: dynamic plugin/app generation and sandboxed module loading for
   inert local drafts under Allbert Home, compiled and tried only out of node.
-- `v0.36`: plugin/app generator, scaffolding the surface, panel, settings,
+- `v0.37`: plugin/app generator, scaffolding the surface, panel, settings,
   intent descriptor, memory, action, objective, canvas, theming, and
   dynamic-draft review contracts after they have been proven manually.
-- Post-`v0.36`: broader UI protocol interop, richer generated app workflows,
+- Post-`v0.37`: broader UI protocol interop, richer generated app workflows,
   and additional reviewed app/plugin surfaces.
 
 ## Start Here
@@ -118,7 +125,7 @@ Near-term milestones:
 - [docs/plans/v0.33-plan.md](docs/plans/v0.33-plan.md): current implemented
   milestone plan.
 - [docs/plans/v0.33-request-flow.md](docs/plans/v0.33-request-flow.md):
-  request flows and manual verification notes for `v0.33.0`.
+  request flows and manual verification notes for `v0.33.1`.
 
 ## Local Development
 
