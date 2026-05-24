@@ -20,6 +20,7 @@ defmodule AllbertAssist.Workspace.EmittersTest do
 
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+    AllbertAssist.StockSageRegistryCase.setup()
     Guard.reset_for_test()
 
     on_exit(fn ->

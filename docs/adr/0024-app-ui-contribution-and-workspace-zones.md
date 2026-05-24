@@ -19,7 +19,8 @@ v0.34 (`docs/plans/v0.34-plan.md`) revises the v0.32 zone model after the
 shipped shell proved too dense (left rail, a floating app/objectives band,
 chat, a permanent Canvas column, and a permanent Tools column at once) and after
 v0.33 made conversational handoff the way to enter app context. The revision is
-composition/navigation only; it adds no new authority, route, or catalog atom.
+implemented in `v0.34.0` as composition/navigation only; it adds no new
+authority, route, or catalog atom.
 
 - `:nav_apps` becomes a **view-only launcher** (Threads, Apps, Output, and
   Workspace tools/Settings). Launcher selection sets only the Canvas

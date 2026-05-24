@@ -30,6 +30,7 @@ defmodule AllbertAssist.Intent.ClassifierTest do
     System.put_env("ALLBERT_HOME", home)
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, Settings)
+    AllbertAssist.StockSageRegistryCase.setup()
 
     on_exit(fn ->
       restore_home(original_home)

@@ -888,7 +888,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     html = render_until(view, "1 older tile(s) archived")
 
-    assert has_element?(view, "#workspace-component-workspace-objectives")
+    assert has_element?(view, "#workspace-header-badge-#{envelope.id}")
     assert html =~ "1 older tile(s) archived"
     assert {:ok, []} = Workspace.canvas_tiles(thread_id, "local")
   end
@@ -1188,7 +1188,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     |> render_click()
 
     assert_patch(view, ~p"/workspace?#{[thread_id: thread_id, destination: "app:stocksage"]}")
-    assert {:error, :not_found} = Session.get("local", "web-local")
+    assert neutral_session?(Session.get("local", "web-local"))
     assert has_element?(view, "#workspace-shell[data-active-app='allbert']")
     assert has_element?(view, "#workspace-shell[data-canvas-destination='app:stocksage']")
     assert has_element?(view, "#workspace-dest-app-stocksage[aria-pressed='true']")
@@ -1285,9 +1285,8 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
                active_app: "stocksage"
              })
 
-    {:ok, view, html} = live(conn, ~p"/workspace")
+    {:ok, view, _html} = live(conn, ~p"/workspace")
 
-    assert html =~ "Analyze AAPL"
     assert has_element?(view, "#objective-badge-#{objective.id}")
   end
 
@@ -1336,8 +1335,9 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   test "StockSage approval handoff keeps approve action enabled in agent UI", %{conn: conn} do
     Application.delete_env(:allbert_assist, Runtime)
     ensure_stocksage_app_registered()
+    assert {:ok, _entry} = Session.set_active_app("local", "web-local", :stocksage)
 
-    {:ok, view, _html} = live(conn, ~p"/workspace?app_id=stocksage")
+    {:ok, view, _html} = live(conn, ~p"/workspace?destination=app:stocksage")
 
     view
     |> element("#agent-form")
@@ -1602,4 +1602,8 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     refute has_element?(view, selector)
     render(view)
   end
+
+  defp neutral_session?({:error, :not_found}), do: true
+  defp neutral_session?({:ok, %{active_app: nil}}), do: true
+  defp neutral_session?(_session), do: false
 end
