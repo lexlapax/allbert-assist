@@ -53,6 +53,7 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 | M7 | `AllbertAssist.Surface.Catalog` | Implemented single Surface component/catalog/renderer authority. |
 | M8 | `AllbertAssist.Settings.Fragment` | Implemented per-context/app/plugin settings schema fragment contract. |
 | M8 | `AllbertAssist.Settings.Fragments` | Implemented settings schema fragment registry and composition facade. |
+| v0.36 | `AllbertAssist.Sandbox` | Planned report-only facade for doctor, bundle, command, gate, and cleanup. |
 
 ## Compatibility Shims And Exit Criteria
 
@@ -96,6 +97,11 @@ the public compatibility facade used by current callers, but its schema,
 defaults, and safe-write key assembly now come from core/app/plugin fragments.
 `AllbertAssist.Security.PermissionGate` remains a compatibility shim over
 Security Central until a future parity pass migrates the remaining live callers.
+
+v0.36 adds `AllbertAssist.Sandbox` as the public sandbox/gate-runner facade.
+Sandbox reports are evidence only; they do not load modules, register actions,
+grant permissions, enable skills, mutate routing context, or authorize v0.37
+live integration.
 
 ## Internal Modules
 
