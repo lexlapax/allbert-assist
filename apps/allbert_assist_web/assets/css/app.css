@@ -887,6 +887,23 @@ a.allbert-chip-link:focus-visible,
   opacity: 1;
 }
 
+.allbert-chip-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: inherit;
+}
+
+.allbert-chip-action:hover,
+.allbert-chip-action:focus-visible {
+  background: var(--workspace-panel-muted);
+}
+
 .workspace-mono {
   font-family:
     ui-monospace,

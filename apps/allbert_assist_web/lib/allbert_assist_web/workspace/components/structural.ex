@@ -1026,10 +1026,26 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
             </button>
           </div>
         </div>
-        <span id="workspace-active-app-chip" class="allbert-chip" title="Active app">
+        <div
+          id="workspace-context-indicator"
+          class="allbert-chip"
+          title="Routing context"
+          data-active-app={active_app_attribute(@active_app)}
+        >
           <.icon name="hero-squares-2x2-micro" class="size-4" />
-          {active_app_label(@active_app)}
-        </span>
+          <span>{context_label(@active_app)}</span>
+          <button
+            :if={app_context?(@active_app)}
+            id="workspace-context-exit"
+            type="button"
+            class="allbert-chip-action"
+            phx-click="exit_app_context"
+            aria-label="Leave app context"
+            title="Leave app context"
+          >
+            <.icon name="hero-x-mark-micro" class="size-4" />
+          </button>
+        </div>
         <.link
           id="workspace-objective-count-chip"
           navigate="/objectives"
@@ -1148,9 +1164,23 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
   defp theme_toggle_label("light"), do: "Theme: light (switch to system)"
   defp theme_toggle_label(_theme), do: "Switch workspace theme"
 
-  defp active_app_label(app) when is_atom(app), do: Atom.to_string(app)
-  defp active_app_label(app) when is_binary(app), do: app
-  defp active_app_label(_app), do: "allbert"
+  defp active_app_attribute(app) when is_atom(app), do: Atom.to_string(app)
+  defp active_app_attribute(app) when is_binary(app), do: app
+  defp active_app_attribute(_app), do: "allbert"
+
+  defp context_label(app) do
+    if app_context?(app), do: humanize_app(app), else: "Neutral"
+  end
+
+  defp app_context?(app), do: active_app_attribute(app) not in ["", "allbert"]
+
+  defp humanize_app(:stocksage), do: "StockSage"
+  defp humanize_app(app) when is_atom(app), do: app |> Atom.to_string() |> humanize_app()
+
+  defp humanize_app(app) when is_binary(app),
+    do: String.replace(app, "_", " ") |> String.capitalize()
+
+  defp humanize_app(_app), do: "App"
 
   defp short_thread_id(nil), do: "thread"
 
