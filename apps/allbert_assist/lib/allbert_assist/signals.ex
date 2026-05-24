@@ -17,6 +17,16 @@ defmodule AllbertAssist.Signals do
   @runtime_turn_started "allbert.runtime.turn.started"
   @runtime_turn_completed "allbert.runtime.turn.completed"
 
+  @sandbox_signal_types %{
+    backend_resolved: "allbert.sandbox.backend_resolved",
+    command_started: "allbert.sandbox.command.started",
+    command_completed: "allbert.sandbox.command.completed",
+    command_denied: "allbert.sandbox.command.denied",
+    gate_started: "allbert.sandbox.gate.started",
+    gate_completed: "allbert.sandbox.gate.completed",
+    cleanup: "allbert.sandbox.cleanup"
+  }
+
   @objective_signal_types %{
     created: "allbert.objective.created",
     updated: "allbert.objective.updated",
@@ -59,6 +69,25 @@ defmodule AllbertAssist.Signals do
   @doc "Return objective lifecycle signal names."
   @spec objective_signal_types() :: %{atom() => String.t()}
   def objective_signal_types, do: @objective_signal_types
+
+  @doc "Return sandbox lifecycle signal names."
+  @spec sandbox_signal_types() :: %{atom() => String.t()}
+  def sandbox_signal_types, do: @sandbox_signal_types
+
+  @doc "Create a sandbox lifecycle signal."
+  @spec sandbox_lifecycle(atom(), map()) :: {:ok, Signal.t()} | {:error, term()}
+  def sandbox_lifecycle(kind, metadata) when is_atom(kind) and is_map(metadata) do
+    with {:ok, type} <- Map.fetch(@sandbox_signal_types, kind) do
+      Signal.new(
+        type,
+        Redactor.redact(metadata),
+        source: "/allbert/sandbox/#{kind}",
+        subject: Map.get(metadata, :operator_id) || Map.get(metadata, "operator_id")
+      )
+    else
+      :error -> {:error, {:unknown_sandbox_signal, kind}}
+    end
+  end
 
   @doc "Create a channel lifecycle signal."
   @spec channel_lifecycle(atom(), map()) :: {:ok, Signal.t()} | {:error, term()}

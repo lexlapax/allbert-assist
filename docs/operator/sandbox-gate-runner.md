@@ -30,6 +30,7 @@ enable skills, change routes, or set app routing context.
 | `sandbox.elixir.memory_mb` | `1024` | Memory limit passed to the backend. |
 | `sandbox.elixir.timeout_ms` | `120000` | Default wall-clock command timeout. |
 | `sandbox.elixir.output_bytes` | `65536` | stdout/stderr report cap per command. |
+| `permissions.sandbox_trial` | `allowed` | Security Central action boundary for report-only sandbox actions. |
 
 Enable only in a disposable smoke home:
 
@@ -85,6 +86,11 @@ Allbert creates these roots under Allbert Home:
 Each bundle receives a disposable sandbox home inside the bundle. The real
 operator home is never mounted into the container. Reports are copied out to
 the sandbox report root and surfaced read-only.
+
+Registered internal runtime actions mirror the lifecycle:
+`sandbox_doctor`, `build_sandbox_bundle`, `run_sandbox_command`,
+`run_sandbox_gate`, and `discard_sandbox_bundle`. They return reports only and
+do not grant integration authority.
 
 ## Failure States
 
