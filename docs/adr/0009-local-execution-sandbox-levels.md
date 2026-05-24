@@ -109,3 +109,22 @@ Security Central, Settings Central, trace, or audit contracts.
   isolation should be denied or deferred to Level 3 or Level 4 sandbox work.
 - Future container and remote sandbox work is tracked in
   `docs/plans/future-features.md`, not smuggled into v0.08.
+
+## v0.36 Amendment: Narrow Level-3 Elixir/OTP Sandbox
+
+v0.36 (`docs/plans/v0.36-plan.md`, ADR 0037) graduates the first Level-3
+sandbox in a deliberately narrow form: generated Elixir/OTP drafts and the
+explicit `mix` / `elixir` / `erl` argv commands needed to compile, test, and
+gate them.
+
+This does not create a broad coding-agent sandbox. v0.36 remains default-off,
+uses Docker/Podman as the implementable baseline, supports Docker `runsc` /
+gVisor only as optional hardening when configured, and fails closed when no
+backend is available. Firecracker, remote builders, broad Apple Container
+support, package-manager execution, multi-language targets, and untrusted
+script/package-install workflows remain future work.
+
+The v0.36 sandbox produces bounded redacted reports only. It does not load
+generated modules into the core node, register actions, grant permissions,
+enable skills, run migrations, or install dependencies. v0.37 may consume those
+reports as evidence for a separate operator-confirmed live integration gate.

@@ -526,11 +526,13 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.35: User Theming And Layout Overrides — operators retheme and re-layout
   `/workspace` from Allbert Home using token YAML, opt-in sanitized CSS
   snippets, and validated layout data.
-- v0.36: Dynamic Plugin/App Generation And Sandboxed Module Loading — Allbert
-  can generate inert local plugin/app drafts for objective-owned capability
-  gaps, compile and try them only in an out-of-node sandbox, and report
-  redacted results without loading generated modules into the core node.
-- v0.37: Allbert plugin and app generator.
+- v0.36: Elixir/OTP Sandbox And Gate Runner — Allbert can compile and test
+  generated Elixir/OTP drafts in a default-off OS sandbox and return redacted
+  reports without loading generated modules into the core node.
+- v0.37: Dynamic Code & Config Generation And Live Capability Integration —
+  Allbert can generate Elixir/OTP code/config for capability gaps and integrate
+  only after the v0.36 gate plus operator confirmation.
+- v0.38: Allbert plugin and app generator / templated creation.
 
 ## Deferred Until The Foundation Settles
 

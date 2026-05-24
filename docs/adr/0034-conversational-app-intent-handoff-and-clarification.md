@@ -147,4 +147,4 @@ as a fragment conflict.
 - Owns settings through: ADR 0031 (Settings Schema Fragments And Authority) —
   the new `intent.*` handoff/clarify/direct-answer keys live in the intent
   settings fragment and are written only through Settings Central actions.
-- Enables: v0.37 generator scaffolding for app intent descriptors.
+- Enables: v0.38 template scaffolding for app intent descriptors.

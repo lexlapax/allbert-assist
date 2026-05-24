@@ -54,4 +54,4 @@ DOM handles through the shared catalog path.
 - Under: ADR 0026 facade discipline.
 - Distinct from ADR 0027's action registry (see ADR 0027 "Terminology").
 - Enables: ADR 0024 (v0.32 panels/zones extend this one catalog/registry path)
-  and the v0.37 generator contribution shape.
+  and the v0.38 generator contribution shape.
