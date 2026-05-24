@@ -139,13 +139,15 @@ Use these as starting points, then narrow further from the active task:
   generated files never grant permission by themselves.
 - Do not auto-generate, compile, or load Elixir modules from arbitrary skill,
   plugin, YAML, or user-created folders.
-  v0.36 (ADR 0032, ADR 0033, ADR 0035) defines the only exceptions: generated
-  code/config is first compiled and trialed in an OS-level sandbox (container
-  default), and may be hot-loaded into the core node only after it passes the
-  full warning gate in the sandbox and the operator explicitly confirms — an
-  audited, reversible integration. Untrusted/arbitrary loading, integration
-  without the gate, and integration authorized by advisory/agent output remain
-  fully forbidden. Until v0.36 ships, no dynamic loading is permitted.
+  v0.36 (ADR 0037) plans only the Elixir/OTP sandbox and gate runner: generated
+  code may be compiled/tested in a configured OS sandbox, but that produces a
+  report only and grants no live authority. v0.37 (ADR 0032, ADR 0033, ADR
+  0035) defines the only planned hot-load exception: a generated artifact may be
+  loaded into the core node only after the v0.36 gate passes and the operator
+  explicitly confirms an audited, reversible integration. Untrusted/arbitrary
+  loading, integration without the gate, and integration authorized by
+  advisory/agent output remain fully forbidden. Until v0.37 ships, no dynamic
+  loading is permitted.
 - Do not execute skill scripts, shell commands, external installs, network
   adapters, bridge processes, or provider calls unless a plan explicitly adds
   the permission, confirmation, sandbox, and trace story.

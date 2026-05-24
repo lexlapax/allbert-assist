@@ -181,13 +181,17 @@ Dependency order from here:
     conversationally through the v0.33 handoff.
 34. v0.35 User theming and layout overrides from Allbert Home after the workspace
     panel/zone contract and app-intent descriptor path are proven.
-35. v0.36 Dynamic code & config generation and live capability integration:
-    LLM agents generate to proven shapes, trial in an OS sandbox, and — after the
-    warning gate plus operator confirmation — hot-load into the live runtime
-    without a restart (audited, reversible).
-36. v0.37 Templated creation: vetted plugin/app/LLM-tool/code templates via Mix
-    tasks, operator workspace flows, and a Canvas Create surface, reusing the
-    v0.36 engine.
+35. v0.36 Elixir/OTP sandbox and gate runner: a default-off Docker/Podman
+    sandbox for generated Elixir/OTP drafts and explicit gate commands, with
+    copy-in/copy-out bundles, no network/secrets/real-home access, bounded
+    reports, and no live loading.
+36. v0.37 Dynamic code & config generation and live capability integration:
+    LLM agents generate to proven shapes, trial through the v0.36 sandbox, and
+    — after the warning gate plus operator confirmation — hot-load into the live
+    runtime without a restart (audited, reversible).
+37. v0.38 Templated creation: vetted plugin/app/LLM-tool/scheduled-flow/code
+    templates via Mix tasks, operator workspace flows, and a Canvas Create
+    surface, reusing the v0.36 sandbox and v0.37 loader.
 
 `config.exs` remains deployment and boot configuration. It should not become
 the user/operator settings surface. `ALLBERT_HOME` is bootstrap configuration:
@@ -1376,7 +1380,7 @@ Shipped direction:
 - **Internal `AllbertAssist.Workspace.AGUI.Bridge`** translates curated
   Allbert signals to AG-UI event shape for test-only semantic mapping.
   NOT exposed over HTTP. Public AG-UI / A2UI / MCP Apps interop is
-  post-v0.37 (per Future Features Post-v0.37 UI Protocol Interop).
+  post-v0.38 (per Future Features Post-v0.38 UI Protocol Interop).
 - **`StockSage.Actions.RunAnalysis`** + objective engine + v0.25 native
   specialist agents emit Fragments rendering as canvas tiles + ephemeral
   approval cards. Operator sees the analysis stream in real-time as
@@ -1402,7 +1406,7 @@ Shipped direction:
   at v0.26 M20 with all binding decisions.
 - Defer to v0.27+: drag-drop tile reordering, real StockSage card
   rendering. Plugin-contributed workspace regions graduated to v0.32
-  (ADR 0024). Defer to post-v0.37: multi-user collaborative cursors,
+  (ADR 0024). Defer to post-v0.38: multi-user collaborative cursors,
   public AG-UI HTTP endpoint, A2UI / MCP Apps interop, canvas snapshot /
   undo / time-travel.
 
@@ -1578,7 +1582,7 @@ Risk reassessment for the next contracts:
 - v0.30 canvas work should reuse the v0.26/v0.28-audited fragment and canvas
   mechanism. It should not introduce a new renderer contract, bypass app
   surface catalogs, or persist unaudited component atoms.
-- v0.37 generator scaffolding should emit inert-by-default SurfaceProvider,
+- v0.38 generator scaffolding should emit inert-by-default SurfaceProvider,
   memory namespace, action/objective, and canvas stubs only because the
   contracts were manually proven first. Generated files and metadata still do
   not grant permission.
@@ -1696,7 +1700,7 @@ Implemented so far:
   compatibility shim over Security Central for remaining live callers.
 - M9: bumped release metadata to `0.31.0`, accepted ADR 0026-0031, updated
   README/CHANGELOG/roadmap/request-flow/developer context, and reconciled
-  downstream v0.32-v0.37 handoffs.
+  downstream v0.32-v0.38 handoffs.
 
 ## v0.32: Workspace-Only App UI And Settings Central
 
@@ -1872,82 +1876,104 @@ Expected direction:
 - Add CSP regression coverage and Chrome verification for desktop/narrow
   workspace retinting, snippet blocking, and layout fallback behavior.
 
-## v0.36: Dynamic Code & Config Generation and Live Capability Integration
+## v0.36: Elixir/OTP Sandbox And Gate Runner
 
 Plan: `docs/plans/v0.36-plan.md`
 Request flow: `docs/plans/v0.36-request-flow.md`
-ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
-`docs/adr/0033-capability-gap-acquisition-and-trust-tiers.md`,
-`docs/adr/0035-codegen-agents-and-live-integration-loader.md`
+ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
+`docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`
 
-Status: research (unstarted). Reframed into the self-extending-runtime engine:
-LLM code/config generation + OS-sandbox trial + gated live in-core integration.
-Highest-capability and highest-risk milestone; its safety rests on a strict
-untrusted-trial vs gated-integration separation. v0.37 (Templated Creation)
-builds the deterministic developer/operator generator on this engine.
+Status: research (unstarted). Inserted as the concrete sandbox substrate before
+dynamic generation/live integration. v0.36 is deliberately narrow: Elixir/OTP
+generated drafts plus explicit shell-command gate profiles only. It produces
+reports, not trust grants.
 
-Prerequisite: v0.24 objective runtime and v0.31 consolidated runtime substrates
-(hard dependencies); the v0.25 native-agent + Jido.AI pattern; the v0.27–v0.35
-contract shapes (generation targets); and a concrete OS-level sandbox backend
-(container default; ADR 0032 and the parked Level-2/Level-3 execution-sandbox
-work).
+Prerequisite: v0.31 paths/redaction/audit/settings/typed-response facades and a
+local Docker or Podman-capable host. Optional Docker+runsc/gVisor is a hardened
+backend when configured; Firecracker, remote builders, broad Apple Container
+support, multi-language targets, and package-manager execution remain future
+work.
 
 Expected direction:
 
-- Detect a capability gap through the objective runtime; an advisory LLM code-gen
-  agent committee generates code and config to the proven contract shapes.
-- Compile and trial generated artifacts only in an OS-level sandbox (container
-  default; gVisor/Firecracker microVMs the stronger future tier). Generation and
-  trial may run proactively and grant no authority.
-- Gate integration on a full warning gate inside the sandbox
-  (compile-warnings-as-errors, Credo, Dialyzer, tests, security evals) plus
-  explicit operator confirmation — the only trust grant.
-- Hot-load and register a gate-passing, operator-confirmed artifact into the live
-  core node without a restart (tier `:integrated`), via an audited, reversible
-  loader that recompiles the operator-reviewed source in core; roll back live.
-  Route-based pages still need a restart; panel/destination apps integrate fully
-  live.
+- Add Settings Central keys and `mix allbert.sandbox doctor`.
+- Build copy-in/copy-out sandbox bundles with a disposable Allbert Home.
+- Run only structured `mix` / `elixir` / `erl` argv commands for compile, test,
+  Credo, Dialyzer, and security-eval gate profiles.
+- Implement Docker and Podman-rootless backends; optionally support Docker
+  `runsc` / gVisor if installed.
+- Deny network, secrets, real Allbert Home, package managers, migrations, NIFs,
+  ports, arbitrary shell strings, shell chaining, host Docker socket, and
+  untrusted core-node module loading.
+- Return bounded redacted reports. A sandbox pass grants no authority.
+
+## v0.37: Dynamic Code & Config Generation and Live Capability Integration
+
+Plan: `docs/plans/v0.37-plan.md`
+Request flow: `docs/plans/v0.37-request-flow.md`
+ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
+`docs/adr/0033-capability-gap-acquisition-and-trust-tiers.md`,
+`docs/adr/0035-codegen-agents-and-live-integration-loader.md`,
+`docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`
+
+Status: research (unstarted). The self-extending-runtime engine: LLM
+code/config generation + v0.36 sandbox trial/gate + gated live in-core
+integration. Highest-capability and highest-risk milestone; its safety rests on
+the v0.36 sandbox evidence plus operator-confirmed integration.
+
+Prerequisite: v0.36 sandbox/gate runner; v0.24 objective runtime; v0.31
+consolidated runtime substrates; v0.25 native-agent + Jido.AI pattern; and the
+v0.27-v0.35 contract shapes.
+
+Expected direction:
+
+- Detect a capability gap through the objective runtime.
+- Use advisory code-gen agents to generate Elixir/OTP code and config to the
+  proven contract shapes.
+- Compile, trial, and gate generated artifacts only through the v0.36 sandbox.
+- Integrate only after v0.36 gate pass, v0.37 integrity/static checks, and
+  explicit operator confirmation.
+- Hot-load and register a gate-passing artifact live without restart through an
+  audited reversible loader; route-page surfaces remain restart-required.
 - Forbid dependencies, package-manager execution, migrations, NIFs, secrets,
   unrestricted network, untrusted in-core loading, and integration without the
   gate or operator confirmation.
 
-## v0.37: Templated Creation: Plugins, Apps, Tools, and Code Patterns
+## v0.38: Templated Creation: Plugins, Apps, Tools, and Code Patterns
 
-Plan: `docs/plans/v0.37-plan.md`
-Request flow: `docs/plans/v0.37-request-flow.md`
+Plan: `docs/plans/v0.38-plan.md`
+Request flow: `docs/plans/v0.38-request-flow.md`
 ADRs: `docs/adr/0036-templated-creation-and-pattern-registry.md`,
 `docs/adr/0035-codegen-agents-and-live-integration-loader.md`,
+`docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`,
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`,
 `docs/adr/0017-allbert-plugin-contract.md`
 
 Status: research (unstarted). The curated, deterministic creation experience
-that sits on top of the v0.36 engine: a registry of vetted templates exposed
-through Mix tasks, operator-facing workspace flows, and a Canvas creation
-surface. Reuses the v0.36 sandbox/gate/loader and adds no new integration
-authority.
+that sits on top of the v0.36 sandbox and v0.37 loader: vetted templates exposed
+through Mix tasks, operator-facing workspace flows, and a Canvas Create surface.
 
-Prerequisite: the v0.36 generation engine (sandbox, warning gate, loader); the
-v0.27–v0.35 contract shapes; the v0.25 Jido.AI pattern (LLM-tool template); and
-the v0.34 Canvas/destination model.
+Prerequisite: v0.36 sandbox/gate runner; v0.37 generation/loader engine; the
+v0.27-v0.35 contract shapes; the v0.25 Jido.AI pattern; and the v0.34 Canvas
+destination model.
 
 Expected direction:
 
 - A `TemplatePattern` registry of vetted, parameterized patterns: plugin, app,
-  LLM tool, and extensible "templated code" patterns to the proven shapes.
+  LLM tool, scheduled/chron flow, objective workflow, and extensible templated
+  code patterns.
 - Mix tasks for developers: `mix allbert.gen.plugin` / `gen.app` / `gen.tool` /
-  `gen.<pattern>`, and `mix allbert.validate_app` (passes on first run).
+  `gen.flow` / `gen.<pattern>`, and `mix allbert.validate_app`.
 - A guided operator creation flow in `/workspace` and a Canvas **Create**
   destination (`workspace:create`): template gallery → parameter form → preview
   → validate → developer-scaffold or operator live integration.
 - Two output modes: developer scaffold (inert source under `./plugins/<name>/`,
-  no integration) and operator templated creation (reuses the v0.36 gated
-  sandbox/warning-gate/loader path, operator-confirmed and reversible).
+  no integration) and operator templated creation (reuses the v0.36/v0.37 gated
+  path, operator-confirmed and reversible).
 - Generated output is inert by default: no automatic compile-path change, trust,
   skill enablement, route authority, permission grant, or execution authority.
-- Optionally add `mix allbert.publish_skills` for publishing app `SKILL.md`
-  files after the local app contract is proven.
 
-Post-v0.37 candidates remain in `docs/plans/future-features.md` until
+Post-v0.38 candidates remain in `docs/plans/future-features.md` until
 promoted.
 
 ## Future: Distillation And Self-Improvement
