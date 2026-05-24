@@ -181,10 +181,13 @@ Dependency order from here:
     conversationally through the v0.33 handoff.
 34. v0.35 User theming and layout overrides from Allbert Home after the workspace
     panel/zone contract and app-intent descriptor path are proven.
-35. v0.36 Dynamic plugin/app generation and sandboxed module loading for
-    inert local drafts under Allbert Home, compiled and tried only out of node.
-36. v0.37 Plugin and app generator encoding only the shape already proven end
-    to end.
+35. v0.36 Dynamic code & config generation and live capability integration:
+    LLM agents generate to proven shapes, trial in an OS sandbox, and — after the
+    warning gate plus operator confirmation — hot-load into the live runtime
+    without a restart (audited, reversible).
+36. v0.37 Templated creation: vetted plugin/app/LLM-tool/code templates via Mix
+    tasks, operator workspace flows, and a Canvas Create surface, reusing the
+    v0.36 engine.
 
 `config.exs` remains deployment and boot configuration. It should not become
 the user/operator settings surface. `ALLBERT_HOME` is bootstrap configuration:
@@ -1869,77 +1872,80 @@ Expected direction:
 - Add CSP regression coverage and Chrome verification for desktop/narrow
   workspace retinting, snippet blocking, and layout fallback behavior.
 
-## v0.36: Dynamic Plugin/App Generation And Sandboxed Module Loading
+## v0.36: Dynamic Code & Config Generation and Live Capability Integration
 
 Plan: `docs/plans/v0.36-plan.md`
 Request flow: `docs/plans/v0.36-request-flow.md`
 ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
-`docs/adr/0033-capability-gap-acquisition-and-trust-tiers.md`
+`docs/adr/0033-capability-gap-acquisition-and-trust-tiers.md`,
+`docs/adr/0035-codegen-agents-and-live-integration-loader.md`
 
-Status: research (unstarted). Graduated from
-`docs/plans/future-features.md` with a bounded sandbox architecture.
+Status: research (unstarted). Reframed into the self-extending-runtime engine:
+LLM code/config generation + OS-sandbox trial + gated live in-core integration.
+Highest-capability and highest-risk milestone; its safety rests on a strict
+untrusted-trial vs gated-integration separation. v0.37 (Templated Creation)
+builds the deterministic developer/operator generator on this engine.
 
 Prerequisite: v0.24 objective runtime and v0.31 consolidated runtime substrates
-(hard dependencies), plus a concrete OS-level sandbox backend (ADR 0032 and the
-parked Level-2/Level-3 execution-sandbox work). v0.32 through v0.35 precede
-v0.36 in order but are sequencing context, not hard technical prerequisites.
+(hard dependencies); the v0.25 native-agent + Jido.AI pattern; the v0.27–v0.35
+contract shapes (generation targets); and a concrete OS-level sandbox backend
+(container default; ADR 0032 and the parked Level-2/Level-3 execution-sandbox
+work).
 
 Expected direction:
 
-- Detect missing capability through the objective runtime and propose a local
-  generated plugin/app draft as an operator-confirmed acquisition option.
-- Write inert draft source under `<ALLBERT_HOME>/plugins/<slug>` without
-  trust, compile-path changes, route authority, skill enablement, settings
-  authority, permissions, or child supervision.
-- Compile and load generated modules only in an out-of-node sandbox/trial
-  runner; the core Allbert BEAM node must not dynamically compile, evaluate,
-  or load generated Elixir code.
-- Run bounded sandbox trial scenarios and return redacted diagnostics.
-- Let the operator discard the draft or mark it as a promotion candidate.
+- Detect a capability gap through the objective runtime; an advisory LLM code-gen
+  agent committee generates code and config to the proven contract shapes.
+- Compile and trial generated artifacts only in an OS-level sandbox (container
+  default; gVisor/Firecracker microVMs the stronger future tier). Generation and
+  trial may run proactively and grant no authority.
+- Gate integration on a full warning gate inside the sandbox
+  (compile-warnings-as-errors, Credo, Dialyzer, tests, security evals) plus
+  explicit operator confirmation — the only trust grant.
+- Hot-load and register a gate-passing, operator-confirmed artifact into the live
+  core node without a restart (tier `:integrated`), via an audited, reversible
+  loader that recompiles the operator-reviewed source in core; roll back live.
+  Route-based pages still need a restart; panel/destination apps integrate fully
+  live.
 - Forbid dependencies, package-manager execution, migrations, NIFs, secrets,
-  unrestricted network, and automatic promotion.
+  unrestricted network, untrusted in-core loading, and integration without the
+  gate or operator confirmation.
 
-## v0.37: Allbert Plugin And App Generator
+## v0.37: Templated Creation: Plugins, Apps, Tools, and Code Patterns
 
 Plan: `docs/plans/v0.37-plan.md`
 Request flow: `docs/plans/v0.37-request-flow.md`
+ADRs: `docs/adr/0036-templated-creation-and-pattern-registry.md`,
+`docs/adr/0035-codegen-agents-and-live-integration-loader.md`,
+`docs/adr/0015-allbert-app-contract-and-surface-dsl.md`,
+`docs/adr/0017-allbert-plugin-contract.md`
 
-Status: research (unstarted). Shifted from v0.33 so v0.31 consolidation,
-v0.32 workspace panels, v0.33 intent descriptors/handoff, v0.34
-launcher/Canvas destination UX, v0.35 theming/layout hooks, and v0.36
-dynamic-draft trial substrate are proven before scaffolding.
+Status: research (unstarted). The curated, deterministic creation experience
+that sits on top of the v0.36 engine: a registry of vetted templates exposed
+through Mix tasks, operator-facing workspace flows, and a Canvas creation
+surface. Reuses the v0.36 sandbox/gate/loader and adds no new integration
+authority.
 
-Prerequisite: StockSage proves the plugin/app path in v0.20, the app surface
-contract in v0.27, the app memory/outcomes contract in v0.29, the app canvas
-contract in v0.30, the runtime/UI-substrate contract in v0.31, the
-workspace-panel/settings contract in v0.32, the app-intent descriptor/handoff
-contract in v0.33, the launcher/Canvas destination contract in v0.34, the
-theming/layout contract in v0.35, and the dynamic-draft trial contract in
-v0.36.
+Prerequisite: the v0.36 generation engine (sandbox, warning gate, loader); the
+v0.27–v0.35 contract shapes; the v0.25 Jido.AI pattern (LLM-tool template); and
+the v0.34 Canvas/destination model.
 
 Expected direction:
 
-- `mix allbert.gen.plugin MyPlugin` scaffolds `./plugins/my_plugin/` with a
-  manifest, plugin module, sample skill root, diagnostics, validation docs,
-  and explicit compile-path/project-integration instructions.
-- `mix allbert.gen.app MyApp` scaffolds an app plugin that includes the
-  app/surface contract layers, including panel surface stubs, Settings Central
-  schema-fragment stub, v0.34 destination metadata, intent descriptor stub,
-  and a memory namespace stub.
-- Generated app-plugin output includes a plugin module, app module, app
-  supervision wiring, sample `AllbertAssist.Action` action, sample `SKILL.md`,
-  sample panel surface, optional page surface notes, sample Ecto domain stub,
-  optional objective scaffolding for multi-step capabilities, canvas wiring
-  stub, app-intent descriptor examples, theming/layout docs, dynamic-draft
-  review notes, and validation docs.
-- `mix allbert.validate_app MyApp` passes on first run.
-- Generated code is inert by default: no automatic compile-path changes,
-  trust, skill enablement, publishing, route authority, permission grants, or
-  execution authority.
-- Optionally inspect a v0.36 promotion-candidate draft as reviewed-source
-  input, without promoting it automatically.
+- A `TemplatePattern` registry of vetted, parameterized patterns: plugin, app,
+  LLM tool, and extensible "templated code" patterns to the proven shapes.
+- Mix tasks for developers: `mix allbert.gen.plugin` / `gen.app` / `gen.tool` /
+  `gen.<pattern>`, and `mix allbert.validate_app` (passes on first run).
+- A guided operator creation flow in `/workspace` and a Canvas **Create**
+  destination (`workspace:create`): template gallery → parameter form → preview
+  → validate → developer-scaffold or operator live integration.
+- Two output modes: developer scaffold (inert source under `./plugins/<name>/`,
+  no integration) and operator templated creation (reuses the v0.36 gated
+  sandbox/warning-gate/loader path, operator-confirmed and reversible).
+- Generated output is inert by default: no automatic compile-path change, trust,
+  skill enablement, route authority, permission grant, or execution authority.
 - Optionally add `mix allbert.publish_skills` for publishing app `SKILL.md`
-  files to agentskills.io after the local app contract is proven.
+  files after the local app contract is proven.
 
 Post-v0.37 candidates remain in `docs/plans/future-features.md` until
 promoted.
