@@ -2,8 +2,7 @@
 
 This guide is the operator-facing entry path for trying Allbert from a fresh
 checkout. It is not a release test matrix. Release-specific smoke commands live
-in the matching request-flow document, especially
-`docs/plans/v0.10-request-flow.md` for v0.10.
+in the matching request-flow document.
 
 ## Orientation
 
@@ -13,10 +12,10 @@ Read these first:
 - `CHANGELOG.md` for release status, safety notes, verification summary, and
   expected tag.
 - `docs/plans/roadmap.md` for version sequencing.
-- `docs/plans/v0.10-plan.md` and `docs/plans/v0.10-request-flow.md` for the
-  current v0.10 release scope and smoke matrix.
-- `docs/plans/v0.11-plan.md` for the next execution-aware Approval Handoff and
-  Resource Access Security Posture work.
+- `docs/plans/v0.36-plan.md` and `docs/plans/v0.36-request-flow.md` for the
+  current sandbox and gate-runner implementation contract.
+- `docs/operator/sandbox-gate-runner.md` when testing risky generated
+  Elixir/OTP draft execution.
 
 ## First Local Run
 
@@ -37,8 +36,7 @@ mix phx.server
 Open the local operator surfaces:
 
 ```text
-http://localhost:4000/agent
-http://localhost:4000/settings
+http://localhost:4000/workspace
 ```
 
 Try the CLI surface:
@@ -55,8 +53,8 @@ mix allbert.confirmations list
 - Runtime-facing work goes through registered Jido actions and the shared
   action runner.
 - Risky work pauses as durable confirmation records before execution.
-- CLI and `/settings` render the same confirmation records and call the same
-  approval/denial actions.
+- CLI and `/workspace` render runtime state through the same action/context
+  boundaries.
 - Allbert Home contains the local runtime data for settings, confirmations,
   memory, traces, caches, and audits.
 
@@ -69,6 +67,8 @@ release request-flow smoke matrix with a disposable home and workspace:
 - v0.09 trusted skill script execution: `docs/plans/v0.09-request-flow.md`
 - v0.10 external service, package install, and online skill import:
   `docs/plans/v0.10-request-flow.md`
+- v0.36 generated Elixir/OTP sandbox gate runner:
+  `docs/plans/v0.36-request-flow.md`
 
 v0.10 external-network testing should confirm that approval and target
 execution are distinct. If a source HTTP/transport failure happens after
@@ -105,6 +105,9 @@ alone does not authorize package registry/package-spec access.
 - Keep imported skills disabled and untrusted until reviewed separately.
 - Treat Level 1 shell/script execution as host execution with policy controls,
   not OS isolation.
+- Treat the v0.36 Elixir/OTP sandbox as default-off, report-only OS isolation
+  for generated draft trials. Use approved local images only and keep network
+  disabled.
 - Treat v0.10 network access as approved resource acquisition, not a browser,
   crawler, or arbitrary document summarizer.
 - Treat remembered resource grants as Settings Central approval memory, not
