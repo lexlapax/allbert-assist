@@ -1051,7 +1051,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
         </div>
         <.link
           id="workspace-objective-count-chip"
-          navigate="/objectives"
+          patch={workspace_destination_path(@thread_id, "workspace:objectives")}
           class="allbert-chip allbert-chip-link"
           title="Open objectives"
         >
@@ -1133,9 +1133,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
               {theme_toggle_label(@workspace_theme)}
             </button>
             <.link
+              id="workspace-overflow-settings-link"
               role="menuitem"
               class="workspace-tile-menu-item"
-              navigate="/workspace"
+              patch={workspace_destination_path(@thread_id, "workspace:settings")}
             >
               <.icon name="hero-adjustments-horizontal-micro" class="size-4" /> Workspace settings
             </.link>
@@ -1147,9 +1148,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
               <.icon name="hero-clock-micro" class="size-4" /> Scheduled jobs
             </.link>
             <.link
+              id="workspace-overflow-objectives-link"
               role="menuitem"
               class="workspace-tile-menu-item"
-              navigate="/objectives"
+              patch={workspace_destination_path(@thread_id, "workspace:objectives")}
             >
               <.icon name="hero-flag-micro" class="size-4" /> Objectives
             </.link>
@@ -1175,6 +1177,26 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
   defp theme_toggle_label("dark"), do: "Theme: dark (switch to light)"
   defp theme_toggle_label("light"), do: "Theme: light (switch to system)"
   defp theme_toggle_label(_theme), do: "Switch workspace theme"
+
+  defp workspace_destination_path(thread_id, destination) do
+    query =
+      []
+      |> maybe_put_thread_id(thread_id)
+      |> maybe_put_destination(destination)
+
+    ~p"/workspace?#{query}"
+  end
+
+  defp maybe_put_thread_id(query, thread_id) when is_binary(thread_id) and thread_id != "" do
+    Keyword.put(query, :thread_id, thread_id)
+  end
+
+  defp maybe_put_thread_id(query, _thread_id), do: query
+
+  defp maybe_put_destination(query, "output"), do: query
+
+  defp maybe_put_destination(query, destination),
+    do: Keyword.put(query, :destination, destination)
 
   defp active_app_attribute(app) when is_atom(app), do: Atom.to_string(app)
   defp active_app_attribute(app) when is_binary(app), do: app
