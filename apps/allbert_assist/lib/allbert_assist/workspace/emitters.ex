@@ -58,14 +58,17 @@ defmodule AllbertAssist.Workspace.Emitters do
   @spec intent_proposal(Handoff.t() | map(), map()) :: :ok
   def intent_proposal(handoff, context) when is_map(context) do
     safe_emit(fn ->
+      canvas_destination = string_value(context, :canvas_destination)
+
       with {:ok, %Handoff{} = handoff} <- normalize_handoff(handoff),
            {:ok, context} <-
              context(string_value(context, :user_id), string_value(context, :thread_id)) do
         handoff = scope_intent_handoff(handoff, context.thread_id)
+        same_app? = same_app_destination?(handoff, canvas_destination)
 
         emit_fragment(%{
           id: handoff.surface_id,
-          surface: intent_surface(handoff),
+          surface: intent_surface(handoff, same_app?),
           emitter_id: @intent_emitter,
           user_id: context.user_id,
           thread_id: context.thread_id,
@@ -199,9 +202,9 @@ defmodule AllbertAssist.Workspace.Emitters do
     )
   end
 
-  defp intent_surface(%Handoff{} = handoff) do
+  defp intent_surface(%Handoff{} = handoff, same_app?) do
     handoff_map = Handoff.to_map(handoff)
-    body = Handoff.message(handoff)
+    body = intent_body(handoff, same_app?)
 
     surface(
       :workspace_intent_handoff,
@@ -214,6 +217,31 @@ defmodule AllbertAssist.Workspace.Emitters do
       %{source: "intent_handoff", handoff: handoff_map}
     )
   end
+
+  defp intent_body(%Handoff{kind: :app_handoff} = handoff, true) do
+    label = handoff.label || "Run #{app_label(handoff.app_id)}"
+    slot_summary = inline_slot_summary(handoff.extracted_slots)
+    "#{label}#{slot_summary}? Accept to continue."
+  end
+
+  defp intent_body(%Handoff{} = handoff, _same_app?), do: Handoff.message(handoff)
+
+  defp same_app_destination?(%Handoff{app_id: app_id}, "app:" <> app_destination) do
+    Atom.to_string(app_id) == app_destination
+  end
+
+  defp same_app_destination?(_handoff, _canvas_destination), do: false
+
+  defp inline_slot_summary(slots) when is_map(slots) do
+    Enum.find_value([:ticker, "ticker", :symbol, "symbol"], "", fn key ->
+      case Map.get(slots, key) do
+        value when is_binary(value) and value != "" -> " for #{value}"
+        _value -> nil
+      end
+    end)
+  end
+
+  defp inline_slot_summary(_slots), do: ""
 
   defp intent_nodes(%Handoff{kind: :app_handoff} = handoff, handoff_map, body) do
     [
