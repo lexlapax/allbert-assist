@@ -32,12 +32,14 @@ changes:
 | `plugins.registration_enabled` | `false` | New plugin contribution registration. |
 | `app_registry.registration_enabled` | `false` | New app contract registration. |
 | `workspace.fragment.emission_enabled` | `false` | Workspace fragment emission and receiver persistence. |
+| `sandbox.elixir.enabled` | `false` | v0.36 Elixir/OTP sandbox and gate runner. |
 
 Example:
 
 ```sh
 mix allbert.settings set external_services.enabled false
 mix allbert.settings set workspace.fragment.emission_enabled false
+mix allbert.settings set sandbox.elixir.enabled false
 ```
 
 ## Deployment Posture
@@ -52,6 +54,9 @@ mix allbert.settings set workspace.fragment.emission_enabled false
   authority by themselves.
 - Treat OTP processes and Ports as cooperative runtime boundaries, not OS
   sandboxes. Security decisions happen at registered action boundaries.
+- Treat the v0.36 Elixir/OTP sandbox as report-only OS isolation for generated
+  draft trials. It stays disabled by default, never pulls images during a run,
+  uses `sandbox.elixir.network=none`, and must not mount the real Allbert Home.
 
 ## Channel Pairing
 
@@ -81,3 +86,16 @@ mix allbert.settings set workspace.fragment.emission_enabled false
 - Memory and trace markdown are inspectable durable data; automated promotion
   of advisory output into markdown memory remains blocked unless an operator
   explicitly confirms a write path.
+
+## Sandbox Gate Runner
+
+Use [sandbox-gate-runner.md](sandbox-gate-runner.md) when testing generated
+Elixir/OTP drafts or future dynamic code paths. Emergency posture is:
+
+```sh
+mix allbert.settings set sandbox.elixir.enabled false
+mix allbert.sandbox doctor
+mix allbert.security review --recent --limit 25
+```
+
+The sandbox result is evidence only. It never grants live runtime authority.
