@@ -16,7 +16,7 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 - Metadata, generated files, plugin manifests, settings fragments, and Surface
   catalog entries never grant authority by themselves.
 - v0.31 is behavior-preserving. Route removal, app-intent handoff, theming,
-  dynamic drafts, and the generator belong to v0.32-v0.36.
+  dynamic drafts, and the generator belong to v0.32-v0.37.
 
 ## Current Public Facades
 
