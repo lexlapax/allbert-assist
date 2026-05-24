@@ -8,11 +8,11 @@ defmodule AllbertAssist.Theme.Status do
 
   alias AllbertAssist.Runtime.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.Theme.Snippets
   alias AllbertAssist.Theme.Tokens
 
   @max_diagnostics 8
   @max_message_length 180
-  @safe_basename ~r/^[A-Za-z0-9_.-]+$/
 
   @type status :: %{
           token: map(),
@@ -42,20 +42,9 @@ defmodule AllbertAssist.Theme.Status do
   end
 
   defp snippets_status do
-    enabled? = setting("workspace.theme.snippets_enabled", false)
-    names = setting("workspace.theme.enabled_snippets", [])
+    status = Snippets.selected()
 
-    if enabled? do
-      {items, diagnostics} =
-        names
-        |> Enum.map(&snippet_item/1)
-        |> Enum.unzip()
-
-      {%{enabled?: true, items: items, status: snippets_state(items)},
-       cap_diagnostics(diagnostics)}
-    else
-      {%{enabled?: false, items: [], status: :disabled}, []}
-    end
+    {Map.drop(status, [:css, :diagnostics]), status.diagnostics}
   end
 
   defp layout_status do
@@ -73,19 +62,6 @@ defmodule AllbertAssist.Theme.Status do
          mtime: nil,
          status: :disabled
        }, []}
-    end
-  end
-
-  defp snippet_item(name) do
-    case css_basename(name) do
-      {:error, reason} ->
-        {%{basename: nil, fingerprint: nil, mtime: nil, status: :invalid_selection},
-         "Snippet selection ignored: #{reason}."}
-
-      basename ->
-        path = Path.join(Paths.theme_snippets_root(), basename)
-        {status, diagnostics} = file_status(path, basename, :snippet)
-        {status, List.first(diagnostics)}
     end
   end
 
@@ -107,39 +83,6 @@ defmodule AllbertAssist.Theme.Status do
            status: :present
          }, []}
     end
-  end
-
-  defp snippets_state([]), do: :empty
-
-  defp snippets_state(items) do
-    if Enum.any?(items, &(&1.status == :present)), do: :present, else: :unavailable
-  end
-
-  defp css_basename(value) when is_binary(value) do
-    value = String.trim(value)
-
-    cond do
-      value == "" ->
-        {:error, "empty snippet name"}
-
-      unsafe_path?(value) ->
-        {:error, "unsafe snippet name"}
-
-      not Regex.match?(@safe_basename, value) ->
-        {:error, "snippet name has unsupported characters"}
-
-      String.ends_with?(value, ".css") ->
-        value
-
-      true ->
-        value <> ".css"
-    end
-  end
-
-  defp css_basename(_value), do: {:error, "snippet name must be text"}
-
-  defp unsafe_path?(value) do
-    String.contains?(value, ["/", "\\"]) or Path.basename(value) != value or value in [".", ".."]
   end
 
   defp setting(key, default) do

@@ -81,6 +81,73 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
     assert response(conn, 200) =~ "no active token overrides"
   end
 
+  test "GET /theme/snippets.css serves only enabled sanitized snippets", %{conn: conn, home: home} do
+    File.write!(
+      Path.join([home, "themes", "snippets", "compact.css"]),
+      """
+      @import "https://example.com/theme.css";
+      #workspace-shell .workspace-chat-pane {
+        font-size: 0.95rem;
+        background-image: url("https://example.com/a.png");
+      }
+      """
+    )
+
+    assert {:ok, _setting} =
+             Settings.put("workspace.theme.enabled_snippets", ["compact"], %{audit?: false})
+
+    disabled = get(conn, ~p"/theme/snippets.css")
+    assert response(disabled, 200) == ""
+
+    assert {:ok, _setting} =
+             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+
+    enabled = conn |> recycle() |> get(~p"/theme/snippets.css")
+    css = response(enabled, 200)
+
+    assert get_resp_header(enabled, "content-type") == ["text/css; charset=utf-8"]
+    assert css =~ "#workspace-shell .workspace-chat-pane"
+    assert css =~ "font-size: 0.95rem"
+    refute css =~ "@import"
+    refute css =~ "url("
+    refute css =~ "https://example.com"
+  end
+
+  test "GET /theme/snippets/:name is gated by enabled settings", %{conn: conn, home: home} do
+    File.write!(
+      Path.join([home, "themes", "snippets", "compact.css"]),
+      "#workspace-shell { --allbert-radius: 0.25rem; }\n"
+    )
+
+    assert response(get(conn, ~p"/theme/snippets/compact.css"), 404) == ""
+
+    assert {:ok, _setting} =
+             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+
+    assert response(conn |> recycle() |> get(~p"/theme/snippets/compact.css"), 404) == ""
+
+    assert {:ok, _setting} =
+             Settings.put("workspace.theme.enabled_snippets", ["compact"], %{audit?: false})
+
+    assert response(conn |> recycle() |> get(~p"/theme/snippets/compact.css"), 200) =~
+             "--allbert-radius"
+  end
+
+  test "snippet route rejects traversal and non-css names", %{conn: conn} do
+    assert {:ok, _setting} =
+             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("workspace.theme.enabled_snippets", ["../secret", "notes.txt"], %{
+               audit?: false
+             })
+
+    traversal = get(conn, "/theme/snippets/%2E%2E%2Fsecret.css")
+    assert traversal.status == 404
+
+    assert response(conn |> recycle() |> get(~p"/theme/snippets/notes.txt"), 404) == ""
+  end
+
   test "stylesheet version changes when selected token file changes", %{home: home} do
     path = Path.join([home, "themes", "midnight.yaml"])
 
@@ -94,14 +161,34 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
     assert Version.stylesheet_version() != first_version
   end
 
+  test "stylesheet version changes when enabled snippet file changes", %{home: home} do
+    path = Path.join([home, "themes", "snippets", "compact.css"])
+
+    File.write!(path, "#workspace-shell { --allbert-radius: 0.5rem; }\n")
+
+    assert {:ok, _setting} =
+             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("workspace.theme.enabled_snippets", ["compact"], %{audit?: false})
+
+    first_version = Version.stylesheet_version()
+
+    File.write!(path, "#workspace-shell { --allbert-radius: 0.25rem; }\n")
+
+    assert Version.stylesheet_version() != first_version
+  end
+
   test "root layout links token stylesheet after app.css", %{conn: conn} do
     conn = get(conn, ~p"/")
     html = html_response(conn, 200)
 
     assert html =~ ~s(/assets/css/app.css?)
     assert html =~ ~s(/theme/user.css?)
+    assert html =~ ~s(/theme/snippets.css?)
     refute html =~ "<script>"
     assert :binary.match(html, "/assets/css/app.css") < :binary.match(html, "/theme/user.css")
+    assert :binary.match(html, "/theme/user.css") < :binary.match(html, "/theme/snippets.css")
   end
 
   test "workspace and theme responses carry CSP headers", %{conn: conn} do
