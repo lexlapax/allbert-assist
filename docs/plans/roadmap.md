@@ -1917,6 +1917,8 @@ Expected direction:
   ports, arbitrary shell strings, shell chaining, host Docker socket, and
   untrusted core-node module loading.
 - Return bounded redacted reports. A sandbox pass grants no authority.
+- Emit signals and bounded/redacted trace/audit records for backend resolution,
+  run, gate, denial, and cleanup through the signal-driven runtime.
 - Ship operator/developer docs for the new boundary:
   `docs/operator/sandbox-gate-runner.md`,
   `docs/developer/sandbox-gate-runner.md`, security-hardening/onboarding
