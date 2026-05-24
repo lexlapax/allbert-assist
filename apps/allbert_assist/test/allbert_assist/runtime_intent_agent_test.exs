@@ -93,11 +93,11 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
              })
 
     assert response.status == :completed
-    assert response.message =~ "Updated workspace.theme"
+    assert response.message =~ "Updated workspace.theme.mode"
     assert response.decision.selected_action == "update_setting"
     assert response.decision.trace_metadata.intent_candidates.selected.id == "update_setting"
     assert [%{name: "update_setting"}] = response.actions
-    assert {:ok, "dark"} = Settings.get("workspace.theme")
+    assert {:ok, "dark"} = Settings.get("workspace.theme.mode")
   end
 
   test "default runtime refuses generic secret-shaped setting prompts without echoing value" do

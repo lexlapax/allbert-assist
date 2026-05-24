@@ -141,7 +141,12 @@ defmodule AllbertAssist.SettingsTest do
   end
 
   test "workspace settings resolve defaults and validate writes" do
+    assert {:ok, "system"} = Settings.get("workspace.theme.mode")
     assert {:ok, "system"} = Settings.get("workspace.theme")
+    assert {:ok, nil} = Settings.get("workspace.theme.active")
+    assert {:ok, false} = Settings.get("workspace.theme.snippets_enabled")
+    assert {:ok, []} = Settings.get("workspace.theme.enabled_snippets")
+    assert {:ok, false} = Settings.get("workspace.layout.override_enabled")
     assert {:ok, 64} = Settings.get("workspace.canvas.max_tiles_per_thread")
     assert {:ok, 65_536} = Settings.get("workspace.canvas.tile_body_max_bytes")
     assert {:ok, 16} = Settings.get("workspace.ephemeral.max_active_per_thread")
@@ -157,8 +162,33 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, true} = Settings.get("workspace.agui_bridge.enabled")
     assert {:ok, true} = Settings.get("workspace.signal_bridge.log_dropped_fragments")
 
-    assert {:ok, theme} = Settings.put("workspace.theme", "dark", %{audit?: false})
+    assert {:ok, theme} = Settings.put("workspace.theme.mode", "dark", %{audit?: false})
     assert theme.value == "dark"
+    assert theme.key == "workspace.theme.mode"
+
+    assert {:ok, legacy_theme} = Settings.put("workspace.theme", "light", %{audit?: false})
+    assert legacy_theme.value == "light"
+    assert legacy_theme.key == "workspace.theme.mode"
+
+    assert {:ok, active_theme} =
+             Settings.put("workspace.theme.active", "midnight", %{audit?: false})
+
+    assert active_theme.value == "midnight"
+
+    assert {:ok, snippets_enabled} =
+             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+
+    assert snippets_enabled.value == true
+
+    assert {:ok, enabled_snippets} =
+             Settings.put("workspace.theme.enabled_snippets", ["compact"], %{audit?: false})
+
+    assert enabled_snippets.value == ["compact"]
+
+    assert {:ok, layout_enabled} =
+             Settings.put("workspace.layout.override_enabled", true, %{audit?: false})
+
+    assert layout_enabled.value == true
 
     assert {:ok, max_tiles} =
              Settings.put("workspace.canvas.max_tiles_per_thread", 3, %{audit?: false})
@@ -196,14 +226,29 @@ defmodule AllbertAssist.SettingsTest do
                audit?: false
              })
 
-    assert {:error, {:invalid_setting, "workspace.theme", _reason}} =
-             Settings.put("workspace.theme", "sepia", %{audit?: false})
+    assert {:error, {:invalid_setting, "workspace.theme.mode", _reason}} =
+             Settings.put("workspace.theme.mode", "sepia", %{audit?: false})
 
     assert {:error, {:invalid_setting, "workspace.canvas.max_tiles_per_thread", _reason}} =
              Settings.put("workspace.canvas.max_tiles_per_thread", 0, %{audit?: false})
 
     assert {:error, {:read_only_setting, "workspace.mobile.breakpoint_px"}} =
              Settings.put("workspace.mobile.breakpoint_px", 200, %{audit?: false})
+  end
+
+  test "legacy workspace.theme stored value is normalized to workspace.theme.mode" do
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "workspace" => %{
+                 "theme" => "dark"
+               }
+             })
+
+    assert {:ok, "dark"} = Settings.get("workspace.theme.mode")
+    assert {:ok, "dark"} = Settings.get("workspace.theme")
+
+    assert {:ok, settings} = Settings.read_user_settings()
+    assert get_in(settings, ["workspace", "theme", "mode"]) == "dark"
   end
 
   test "core settings schema is assembled from fragments" do
@@ -218,11 +263,15 @@ defmodule AllbertAssist.SettingsTest do
 
     workspace = Enum.find(fragments, &(&1.id == "core:workspace"))
     assert workspace.source == :core
-    assert Map.has_key?(workspace.schema, "workspace.theme")
-    assert "workspace.theme" in workspace.safe_write_keys
-    assert get_in(workspace.defaults, ["workspace", "theme"]) == "system"
+    assert Map.has_key?(workspace.schema, "workspace.theme.mode")
+    assert "workspace.theme.mode" in workspace.safe_write_keys
+    assert "workspace.theme.active" in workspace.safe_write_keys
+    assert "workspace.theme.snippets_enabled" in workspace.safe_write_keys
+    assert "workspace.theme.enabled_snippets" in workspace.safe_write_keys
+    assert "workspace.layout.override_enabled" in workspace.safe_write_keys
+    assert get_in(workspace.defaults, ["workspace", "theme", "mode"]) == "system"
 
-    assert {:ok, ^workspace} = Fragments.fragment_for_key("workspace.theme")
+    assert {:ok, ^workspace} = Fragments.fragment_for_key("workspace.theme.mode")
   end
 
   test "memory review settings are writable and validate bounds" do

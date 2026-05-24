@@ -13,6 +13,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
   alias AllbertAssist.Confirmations.ResourceMetadata
   alias AllbertAssist.Confirmations.ShellCommandMetadata
   alias AllbertAssist.Confirmations.SkillScriptMetadata
+  alias AllbertAssist.Theme.Status, as: ThemeStatus
 
   @default_key "operator.communication_style"
 
@@ -283,6 +284,53 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
               <p :if={@last_audit_path} id="settings-audit" class="mt-2 text-xs text-base-content/60">
                 Audit: {@last_audit_path}
               </p>
+            </section>
+
+            <section id="workspace-theme-diagnostics" class="space-y-3">
+              <h2 class="text-lg font-medium">Workspace Appearance</h2>
+              <div class="grid gap-3 md:grid-cols-3">
+                <div
+                  id="workspace-theme-token-status"
+                  class="rounded border border-base-300 p-3 text-sm"
+                >
+                  <h3 class="font-medium">Token Theme</h3>
+                  <div>File: {status_value(@theme_status.token.basename)}</div>
+                  <div>Status: {@theme_status.token.status}</div>
+                  <div>Fingerprint: {status_value(@theme_status.token.fingerprint)}</div>
+                  <div>Modified: {status_value(@theme_status.token.mtime)}</div>
+                </div>
+
+                <div
+                  id="workspace-theme-snippet-status"
+                  class="rounded border border-base-300 p-3 text-sm"
+                >
+                  <h3 class="font-medium">Snippets</h3>
+                  <div>Enabled: {inspect(@theme_status.snippets.enabled?)}</div>
+                  <div>Status: {@theme_status.snippets.status}</div>
+                  <div :for={snippet <- @theme_status.snippets.items}>
+                    {status_value(snippet.basename)}: {snippet.status} {status_value(
+                      snippet.fingerprint
+                    )}
+                  </div>
+                </div>
+
+                <div id="workspace-layout-status" class="rounded border border-base-300 p-3 text-sm">
+                  <h3 class="font-medium">Layout</h3>
+                  <div>Enabled: {inspect(@theme_status.layout.enabled?)}</div>
+                  <div>File: {@theme_status.layout.basename}</div>
+                  <div>Status: {@theme_status.layout.status}</div>
+                  <div>Fingerprint: {status_value(@theme_status.layout.fingerprint)}</div>
+                  <div>Modified: {status_value(@theme_status.layout.mtime)}</div>
+                </div>
+              </div>
+
+              <div
+                :if={@theme_status.diagnostics != []}
+                id="workspace-theme-diagnostics-list"
+                class="rounded border border-base-300 p-3 text-sm"
+              >
+                <div :for={diagnostic <- @theme_status.diagnostics}>{diagnostic}</div>
+              </div>
             </section>
 
             <section id="security-status" class="space-y-4">
@@ -698,6 +746,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
     |> assign(:providers, providers)
     |> assign(:models, models)
     |> assign(:security_status, security_status)
+    |> assign(:theme_status, ThemeStatus.summary())
     |> assign(:pending_confirmations, pending_response.confirmations)
     |> assign(:resolved_confirmations, recently_resolved(resolved_response.confirmations))
     |> assign(:resource_grants, resource_grants_response.grants)
@@ -740,6 +789,9 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
 
   defp form_value(value) when is_binary(value), do: value
   defp form_value(value), do: inspect(value)
+
+  defp status_value(nil), do: "none"
+  defp status_value(value), do: to_string(value)
 
   defp permission_form(policy) do
     to_form(
