@@ -10,6 +10,53 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.34.0 - Workspace UX Refresh
+
+Status: release-ready. Version metadata is `0.34.0`.
+
+Plan: `docs/plans/v0.34-plan.md`.
+Request flow: `docs/plans/v0.34-request-flow.md`.
+ADR: `docs/adr/0024-app-ui-contribution-and-workspace-zones.md` (v0.34
+revision).
+
+### Added (v0.34.0)
+
+- View-only workspace launcher destinations for Output, registered apps, and
+  workspace tools.
+- `canvas_destination` routing for Canvas presentation state, persisted through
+  a view-only `destination` query param.
+- Passive top-bar context indicator with an exit-to-neutral affordance through
+  the registered action path.
+- Mobile launcher sheet with Chat/Canvas tabs and an in-flow bottom shellbar.
+
+### Changed (v0.34.0)
+
+- `/workspace` is now chat-primary with a single-destination Canvas instead of
+  simultaneous app band, Canvas, and permanent Tools column regions.
+- Launcher selection never sets `active_app`, grants permission, or runs an
+  action; conversational handoff remains the only app-context setter.
+- Settings, Jobs, Objectives, Confirmations, and Security render as Canvas
+  destinations while keeping their writes behind registered actions.
+- StockSage dashboard/recent/queue/trends panels render inside Canvas as the
+  `app:stocksage` destination.
+- Stale `app_id` / `active_app` URL params no longer set routing context.
+- `AllbertAssist.App.CoreApp.version/0`, umbrella metadata, child app
+  metadata, `StockSage.App.version/0`, `StockSage.Plugin.version/0`,
+  `plugins/stocksage/allbert_plugin.json`, and affected StockSage skill
+  metadata are bumped to `0.34.0`.
+
+### Verification (v0.34.0)
+
+- Milestones M0-M6 were implemented, focused-tested, and committed separately.
+- Chrome extension verification covered desktop launcher/Canvas behavior,
+  StockSage Canvas panels, and a 390px narrow frame for mobile launcher sheet,
+  Chat/Canvas tabs, Settings destination, and bottom-shellbar non-overlap.
+- Focused LiveView, workspace catalog, StockSage panel, and handoff/context
+  tests passed during milestone work.
+- Final release gate passed: `mix compile --warnings-as-errors`,
+  `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
+  `git diff --check`.
+
 ## v0.33.1 - Descriptorized Remaining StockSage Intent Actions
 
 Status: released. Version metadata is `0.33.1`; release tag `v0.33.1` exists.
