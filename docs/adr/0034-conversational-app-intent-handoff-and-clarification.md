@@ -113,7 +113,10 @@ StockSage `get_trends` and `queue_analysis` conversational routing onto
 app-contributed descriptors. The remaining core StockSage symbol regex was
 removed from `IntentAgent`; neutral queue prompts now hand off or clarify,
 while active StockSage trend and queue prompts pass descriptor-extracted
-symbols through the registered runner path.
+symbols through the registered runner path. Workspace handoff surface ids are
+thread-scoped at persistence time so the same descriptor handoff can be
+rendered independently in multiple threads without treating the later proposal
+as a fragment conflict.
 
 ## References
 

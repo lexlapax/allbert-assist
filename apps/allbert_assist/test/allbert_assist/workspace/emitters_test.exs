@@ -2,6 +2,7 @@ defmodule AllbertAssist.Workspace.EmittersTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Intent.Handoff
   alias AllbertAssist.Objectives.Objective
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
@@ -103,6 +104,41 @@ defmodule AllbertAssist.Workspace.EmittersTest do
     assert node.component == :objective_card
     assert node.props.objective_id == "obj_workspace_emit"
     assert node.props.body == "Evidence gathered."
+  end
+
+  test "intent proposal surface ids are scoped by thread" do
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.fragment.emitted")
+
+    handoff =
+      Handoff.new!(%{
+        kind: :app_handoff,
+        app_id: :stocksage,
+        action_name: "queue_analysis",
+        label: "Queue StockSage analysis",
+        source_text: "queue analysis for AAPL",
+        extracted_slots: %{symbol: "AAPL"}
+      })
+
+    assert :ok = Emitters.intent_proposal(handoff, %{user_id: "alice", thread_id: "thr_one"})
+    assert :ok = Emitters.intent_proposal(handoff, %{user_id: "alice", thread_id: "thr_two"})
+
+    [first, second] = 2 |> collect_fragment_signals() |> Enum.map(& &1.data.envelope)
+
+    assert first.id != second.id
+    assert String.starts_with?(first.id, handoff.surface_id <> "_")
+    assert String.starts_with?(second.id, handoff.surface_id <> "_")
+    assert first.metadata.source_surface_id == handoff.surface_id
+    assert second.metadata.source_surface_id == handoff.surface_id
+
+    assert {:ok, [first_surface]} = Workspace.ephemeral_surfaces("thr_one", "alice")
+    assert {:ok, [second_surface]} = Workspace.ephemeral_surfaces("thr_two", "alice")
+    assert first_surface.id == first.id
+    assert second_surface.id == second.id
+
+    [_card, accept, decline] = first.surface.nodes
+    assert accept.props.surface_id == first.id
+    assert decline.props.surface_id == first.id
   end
 
   test "StockSage completion emits durable analysis and native progress canvas tiles" do
