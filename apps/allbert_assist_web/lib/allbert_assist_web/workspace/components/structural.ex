@@ -78,6 +78,9 @@ defmodule AllbertAssistWeb.Workspace.Components.NavRail do
       class="workspace-nav-rail-shell"
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
+      phx-click-away="close_workspace_launcher"
+      phx-window-keydown="close_workspace_launcher"
+      phx-key="escape"
       aria-labelledby={Base.component_title_id(@node)}
     >
       <div class="workspace-rail-head">

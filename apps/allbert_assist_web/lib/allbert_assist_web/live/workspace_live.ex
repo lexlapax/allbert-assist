@@ -194,11 +194,20 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     {:noreply, assign(socket, :thread_switcher_open?, false)}
   end
 
+  def handle_event("toggle_workspace_launcher", _params, socket) do
+    {:noreply, update(socket, :workspace_launcher_open?, &(!&1))}
+  end
+
+  def handle_event("close_workspace_launcher", _params, socket) do
+    {:noreply, assign(socket, :workspace_launcher_open?, false)}
+  end
+
   def handle_event("switch_workspace_thread", %{"thread-id" => thread_id}, socket)
       when is_binary(thread_id) and thread_id != "" do
     {:noreply,
      socket
      |> assign(:thread_switcher_open?, false)
+     |> assign(:workspace_launcher_open?, false)
      |> push_navigate(to: workspace_path(thread_id, socket.assigns.canvas_destination))}
   end
 
@@ -214,6 +223,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         {:noreply,
          socket
          |> assign(:thread_switcher_open?, false)
+         |> assign(:workspace_launcher_open?, false)
          |> push_navigate(to: workspace_path(thread.id, socket.assigns.canvas_destination))}
 
       {:error, reason} ->
@@ -269,6 +279,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     {:noreply,
      socket
      |> assign(canvas_destination: destination, workspace_mobile_tab: "canvas")
+     |> assign(:workspace_launcher_open?, false)
      |> refresh_workspace()
      |> push_patch(to: workspace_path(socket.assigns.thread_id, destination))}
   end
@@ -489,6 +500,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         data-high-contrast={bool_attribute(@workspace_high_contrast?)}
         data-reduce-motion={bool_attribute(@workspace_reduce_motion?)}
         data-mobile-tab={@workspace_mobile_tab}
+        data-launcher-open={bool_attribute(@workspace_launcher_open?)}
         data-maximized-pane={@workspace_maximized_pane}
         data-canvas-focus={bool_attribute(@canvas_focus?)}
         data-offline-enabled={bool_attribute(@workspace_offline_enabled?)}
@@ -509,29 +521,42 @@ defmodule AllbertAssistWeb.WorkspaceLive do
           {offline_banner_text(@workspace_offline_enabled?)}
         </div>
 
-        <nav
-          id="workspace-mobile-tabs"
-          class="workspace-mobile-tabs"
-          role="tablist"
-          aria-label="Workspace sections"
-        >
+        <div id="workspace-mobile-shellbar" class="workspace-mobile-shellbar">
           <button
-            :for={tab <- workspace_mobile_tabs()}
-            id={"workspace-mobile-tab-#{tab.id}"}
+            id="workspace-launcher-toggle"
             type="button"
-            class={[
-              "workspace-mobile-tab",
-              @workspace_mobile_tab == tab.id && "workspace-mobile-tab-active"
-            ]}
-            role="tab"
-            aria-selected={bool_attribute(@workspace_mobile_tab == tab.id)}
-            aria-controls={tab.controls}
-            phx-click="select_workspace_mobile_tab"
-            phx-value-tab={tab.id}
+            class="workspace-mobile-launcher-button"
+            phx-click="toggle_workspace_launcher"
+            aria-label="Open workspace launcher"
+            aria-controls="workspace-node-workspace-nav-rail"
+            aria-expanded={bool_attribute(@workspace_launcher_open?)}
           >
-            {tab.label}
+            <.icon name="hero-bars-3-micro" class="size-5" />
           </button>
-        </nav>
+          <nav
+            id="workspace-mobile-tabs"
+            class="workspace-mobile-tabs"
+            role="tablist"
+            aria-label="Workspace sections"
+          >
+            <button
+              :for={tab <- workspace_mobile_tabs()}
+              id={"workspace-mobile-tab-#{tab.id}"}
+              type="button"
+              class={[
+                "workspace-mobile-tab",
+                @workspace_mobile_tab == tab.id && "workspace-mobile-tab-active"
+              ]}
+              role="tab"
+              aria-selected={bool_attribute(@workspace_mobile_tab == tab.id)}
+              aria-controls={tab.controls}
+              phx-click="select_workspace_mobile_tab"
+              phx-value-tab={tab.id}
+            >
+              {tab.label}
+            </button>
+          </nav>
+        </div>
 
         <.live_component
           module={WorkspaceRenderer}
@@ -1259,7 +1284,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       composer_max_bytes: assigns.composer_max_bytes,
       workspace_overflow_open?: assigns.workspace_overflow_open?,
       workspace_maximized_pane: assigns.workspace_maximized_pane,
-      canvas_focus?: assigns.canvas_focus?
+      canvas_focus?: assigns.canvas_focus?,
+      workspace_launcher_open?: assigns.workspace_launcher_open?
     }
   end
 
