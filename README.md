@@ -112,17 +112,20 @@ Near-term milestones:
   the current milestone with token themes, opt-in sanitized CSS snippets,
   validated workspace layout data, Settings accountability, and CSP checks.
 - `v0.36`: Elixir/OTP sandbox and gate runner — a default-off, OS-aware sandbox
-  (pluggable backend registry + `:auto` resolver: Apple `container` on supported
-  macOS, Podman/Docker on Linux, Docker fallback, optional `runsc`) for
-  generated Elixir/OTP drafts and explicit gate commands, producing bounded
+  (pluggable backend registry + `"auto"` resolver: optional doctor-gated Apple
+  `container`, rootless Podman, Docker+runsc/gVisor preferred over plain
+  Docker, Docker fallback) for generated Elixir/OTP drafts and explicit gate
+  commands, using approved local images, source-policy checks, and bounded
   reports without live loading.
 - `v0.37`: dynamic code & config generation and live capability integration —
-  LLM code-gen agents generate to the proven shapes, trial through the v0.36
-  sandbox, and (after the warning gate plus operator confirmation) hot-load into
-  the live runtime without a restart (audited and reversible).
+  LLM code-gen agents generate to the proven shapes, store file-backed draft
+  metadata under Allbert Home, trial through the v0.36 sandbox, and (after the
+  warning gate plus operator confirmation) hot-load into the live runtime
+  without a restart (audited and reversible).
 - `v0.38`: templated creation — vetted plugin/app/LLM-tool/scheduled-flow/code
-  templates via Mix tasks, operator workspace flows, and a Canvas Create
-  surface, reusing the v0.36 sandbox and v0.37 loader.
+  templates via Mix tasks (`--target` defaults to `./plugins/<name>`), operator
+  workspace flows, and a Canvas Create surface, reusing the v0.36 sandbox and
+  v0.37 loader.
 - Post-`v0.38`: broader UI protocol interop, richer generated app workflows,
   and additional reviewed app/plugin surfaces.
 

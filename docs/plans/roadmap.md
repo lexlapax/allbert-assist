@@ -182,9 +182,10 @@ Dependency order from here:
 34. v0.35 User theming and layout overrides from Allbert Home after the workspace
     panel/zone contract and app-intent descriptor path are proven.
 35. v0.36 Elixir/OTP sandbox and gate runner: a default-off, OS-aware sandbox
-    (pluggable backend registry + `:auto` resolver — Apple `container` on
-    supported macOS, Podman/Docker on Linux, Docker fallback, optional `runsc`)
-    for generated Elixir/OTP drafts and explicit gate commands, with
+    (pluggable backend registry + `"auto"` resolver — optional doctor-gated
+    Apple `container`, rootless Podman, Docker+runsc/gVisor preferred over
+    plain Docker, Docker fallback) for generated Elixir/OTP drafts and explicit
+    gate commands, with approved local images only, source-policy checks,
     copy-in/copy-out bundles, no network/secrets/real-home access, bounded
     reports, and no live loading.
 36. v0.37 Dynamic code & config generation and live capability integration:
@@ -1885,33 +1886,41 @@ Request flow: `docs/plans/v0.36-request-flow.md`
 ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
 `docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`
 
-Status: research (unstarted). Inserted as the concrete sandbox substrate before
-dynamic generation/live integration. v0.36 is deliberately narrow: Elixir/OTP
-generated drafts plus explicit shell-command gate profiles only. It produces
-reports, not trust grants.
+Status: final-pass implementation-ready (unstarted). Inserted as the concrete
+sandbox substrate before dynamic generation/live integration. v0.36 is
+deliberately narrow: Elixir/OTP generated drafts plus explicit shell-command
+gate profiles only. It produces reports, not trust grants.
 
 Prerequisite: v0.31 paths/redaction/audit/settings/typed-response facades and a
 local container/VM-capable host. Backend selection is OS-aware (`backend=auto`):
-Apple `container` on supported macOS (Apple silicon, macOS 26+), rootless Podman
-or Docker on Linux, Docker as the cross-platform fallback, and optional
-Docker+runsc/gVisor when configured. Firecracker, remote builders,
-broader/cross-version Apple Container features, multi-language targets, and
-package-manager execution remain future work.
+optional doctor-gated Apple `container` on supported macOS (Apple silicon,
+macOS 26+), rootless Podman where available, Docker+runsc/gVisor preferred over
+plain Docker when configured, and Docker as the fallback. Firecracker, remote
+builders, broader/cross-version Apple Container features, multi-language
+targets, implicit image pulls, and package-manager execution remain future
+work.
 
 Expected direction:
 
 - Add Settings Central keys and `mix allbert.sandbox doctor`.
 - Build copy-in/copy-out sandbox bundles with a disposable Allbert Home.
+- Require approved local images; sandbox runs never pull from registries.
+- Add static `SourcePolicy` checks for dangerous Elixir constructs before
+  backend execution.
 - Run only structured `mix` / `elixir` / `erl` argv commands for compile, test,
   Credo, Dialyzer, and security-eval gate profiles.
 - Register backends through a common behaviour/registry with an OS-aware
-  `:auto` resolver; implement Docker, Podman-rootless, and the doctor-gated
-  macOS Apple `container` backends; optionally support Docker `runsc` / gVisor
-  if installed.
+  `"auto"` resolver; implement Docker and Podman-rootless as baseline, prefer
+  Docker `runsc` / gVisor over plain Docker when installed, and include Apple
+  `container` as an optional doctor-gated backend that is not release-blocking.
 - Deny network, secrets, real Allbert Home, package managers, migrations, NIFs,
   ports, arbitrary shell strings, shell chaining, host Docker socket, and
   untrusted core-node module loading.
 - Return bounded redacted reports. A sandbox pass grants no authority.
+- Ship operator/developer docs for the new boundary:
+  `docs/operator/sandbox-gate-runner.md`,
+  `docs/developer/sandbox-gate-runner.md`, security-hardening/onboarding
+  updates, runtime-boundary-map updates, and agent-context-map updates.
 
 ## v0.37: Dynamic Code & Config Generation and Live Capability Integration
 
@@ -1922,10 +1931,10 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 `docs/adr/0035-codegen-agents-and-live-integration-loader.md`,
 `docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`
 
-Status: research (unstarted). The self-extending-runtime engine: LLM
-code/config generation + v0.36 sandbox trial/gate + gated live in-core
-integration. Highest-capability and highest-risk milestone; its safety rests on
-the v0.36 sandbox evidence plus operator-confirmed integration.
+Status: final-pass implementation-ready (unstarted). The self-extending-runtime
+engine: LLM code/config generation + v0.36 sandbox trial/gate + gated live
+in-core integration. Highest-capability and highest-risk milestone; its safety
+rests on the v0.36 sandbox evidence plus operator-confirmed integration.
 
 Prerequisite: v0.36 sandbox/gate runner; v0.24 objective runtime; v0.31
 consolidated runtime substrates; v0.25 native-agent + Jido.AI pattern; and the
@@ -1936,14 +1945,24 @@ Expected direction:
 - Detect a capability gap through the objective runtime.
 - Use advisory code-gen agents to generate Elixir/OTP code and config to the
   proven contract shapes.
+- Store draft metadata, source, provenance, repair history, and sandbox reports
+  file-backed under `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/`, separate
+  from ordinary plugin discovery roots.
 - Compile, trial, and gate generated artifacts only through the v0.36 sandbox.
 - Integrate only after v0.36 gate pass, v0.37 integrity/static checks, and
   explicit operator confirmation.
 - Hot-load and register a gate-passing artifact live without restart through an
-  audited reversible loader; route-page surfaces remain restart-required.
+  audited reversible loader; rollback also requires operator confirmation and
+  removes live authority; route-page surfaces remain restart-required.
 - Forbid dependencies, package-manager execution, migrations, NIFs, secrets,
-  unrestricted network, untrusted in-core loading, and integration without the
-  gate or operator confirmation.
+  unrestricted network, core/static module replacement, action shadowing,
+  untrusted in-core loading, and integration without the gate or operator
+  confirmation.
+- Ship operator/developer docs for the new live-integration boundary:
+  `docs/operator/dynamic-capability-integration.md`,
+  `docs/developer/dynamic-plugin-drafts.md`, security-hardening/onboarding
+  updates, app-creation guide updates, runtime-boundary-map updates, and
+  agent-context-map updates.
 
 ## v0.38: Templated Creation: Plugins, Apps, Tools, and Code Patterns
 
@@ -1955,9 +1974,10 @@ ADRs: `docs/adr/0036-templated-creation-and-pattern-registry.md`,
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`,
 `docs/adr/0017-allbert-plugin-contract.md`
 
-Status: research (unstarted). The curated, deterministic creation experience
-that sits on top of the v0.36 sandbox and v0.37 loader: vetted templates exposed
-through Mix tasks, operator-facing workspace flows, and a Canvas Create surface.
+Status: final-pass implementation-ready (unstarted). The curated,
+deterministic creation experience that sits on top of the v0.36 sandbox and
+v0.37 loader: vetted templates exposed through Mix tasks, operator-facing
+workspace flows, and a Canvas Create surface.
 
 Prerequisite: v0.36 sandbox/gate runner; v0.37 generation/loader engine; the
 v0.27-v0.35 contract shapes; the v0.25 Jido.AI pattern; and the v0.34 Canvas
@@ -1969,7 +1989,9 @@ Expected direction:
   LLM tool, scheduled/chron flow, objective workflow, and extensible templated
   code patterns.
 - Mix tasks for developers: `mix allbert.gen.plugin` / `gen.app` / `gen.tool` /
-  `gen.flow` / `gen.<pattern>`, and `mix allbert.validate_app`.
+  `gen.flow` / `gen.<pattern>`, and `mix allbert.validate_app`; `--target`
+  defaults to `./plugins/<name>` and existing roots require explicit `--force`
+  plus preview/diff.
 - A guided operator creation flow in `/workspace` and a Canvas **Create**
   destination (`workspace:create`): template gallery → parameter form → preview
   → validate → developer-scaffold or operator live integration.
@@ -1978,6 +2000,13 @@ Expected direction:
   path, operator-confirmed and reversible).
 - Generated output is inert by default: no automatic compile-path change, trust,
   skill enablement, route authority, permission grant, or execution authority.
+  Generated theme/snippet/layout stubs are disabled by default.
+- Ship operator/developer docs for creation workflows:
+  `docs/operator/templated-creation.md`,
+  `docs/developer/template-patterns.md`, generator-first updates to
+  `docs/developer/how-to-create-an-allbert-app.md`, security-hardening/
+  onboarding updates, runtime-boundary-map updates, and agent-context-map
+  updates.
 
 Post-v0.38 candidates remain in `docs/plans/future-features.md` until
 promoted.

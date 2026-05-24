@@ -33,10 +33,10 @@ Research summary:
 - Apple's `container` / Containerization stack runs one lightweight VM per
   container, giving hypervisor-grade host isolation that is stronger than a
   shared-VM Docker Desktop on macOS and well suited to untrusted code. It is
-  Apple-silicon-only, needs macOS 26 (Tahoe) for full networking/isolation
-  support, is OCI-compatible, and is still pre-1.0 (breaking changes between
-  minor versions). v0.36 therefore adopts it as a doctor-gated macOS adapter,
-  not the cross-platform baseline.
+  Apple-silicon-only, needs macOS 26 (Tahoe) for full support, is
+  OCI-compatible, and is still pre-1.0 (breaking changes between minor
+  versions). v0.36 therefore adopts it only as an optional doctor-gated macOS
+  adapter, not as release-blocking scope or the cross-platform baseline.
 
 References:
 
@@ -74,11 +74,12 @@ editing the facade or the resolver. The behaviour exposes `id/0`,
 
 v0.36 ships these backends:
 
-- `apple_container` — Apple `container` on supported macOS (doctor-gated:
-  Apple silicon + macOS 26+ + policy enforcement);
+- `apple_container` — optional Apple `container` on supported macOS
+  (doctor-gated: Apple silicon + macOS 26+ + policy enforcement);
 - `docker` — hardened Docker invocation (cross-platform fallback);
 - `podman_rootless` — rootless Podman where available;
-- `docker_runsc` — optional Docker + `runsc` / gVisor when configured.
+- `docker_runsc` — optional Docker + `runsc` / gVisor when configured, preferred
+  over plain Docker whenever doctor-green.
 
 Every backend must enforce the same Allbert policy: no network by default, no
 host Docker socket, no privileged mode, no host PID/user/network namespace, no
@@ -89,19 +90,21 @@ selected.
 
 ### 3. Backend selection is OS-aware and fails closed
 
-`sandbox.elixir.backend` defaults to `:auto`. An
-`AllbertAssist.Sandbox.Backend.Resolver` resolves `:auto` through a
+`sandbox.elixir.backend` is stored as a string and defaults to `"auto"`. An
+`AllbertAssist.Sandbox.Backend.Resolver` resolves `"auto"` through a
 deterministic, doctor-checked fallback chain:
 
-- macOS (Apple silicon, macOS 26+): `apple_container` → `docker`;
-- macOS (older or Intel): `docker`;
-- Linux: `podman_rootless` → `docker` → `docker_runsc` (when configured).
+- macOS (Apple silicon, macOS 26+): `apple_container` when doctor-green →
+  `docker_runsc` when Docker exposes `runsc` → `docker`;
+- macOS (older or Intel): `docker_runsc` when Docker exposes `runsc` →
+  `docker`;
+- Linux: `podman_rootless` → `docker_runsc` when configured → `docker`.
 
-Operators may pin an explicit backend instead of `:auto`. `doctor` reports the
+Operators may pin an explicit backend instead of `"auto"`. `doctor` reports the
 resolved backend and why each candidate passed or failed, so selection is
 inspectable. If no on-platform backend is available, sandbox actions fail
 closed. There is no fallback to BEAM processes, hidden nodes, ports, or host
-execution for untrusted generated code. `:auto` does not weaken the default-off
+execution for untrusted generated code. `"auto"` does not weaken the default-off
 posture: nothing runs until `sandbox.elixir.enabled=true` and doctor is green.
 
 ### 4. Copy-in/copy-out is mandatory
@@ -111,14 +114,27 @@ draft, and test inputs plus a disposable `ALLBERT_HOME`. Reports are copied out
 as bounded structured data. The sandbox never receives the operator's real
 settings, secrets, database, memory files, caches, or arbitrary host paths.
 
-### 5. Gate reports are evidence, not trust
+### 5. Image and source policy are mandatory
+
+Sandbox runs never pull images. `sandbox.elixir.image` must resolve to an
+approved local image reference or digest during doctor/bundle preparation, or
+execution fails closed.
+
+Draft source and trial files are statically scanned before backend execution.
+Known dangerous constructs (`System.cmd`, `Port.open`, `:os.cmd`,
+`Code.eval_*`, `Code.compile_*`, `Code.require_*`, `Mix.install`,
+`:erlang.load_nif`, broad file traversal, and real-home access attempts) are
+denied with bounded diagnostics. This is defense-in-depth; backend isolation is
+still required.
+
+### 6. Gate reports are evidence, not trust
 
 A successful sandbox gate report does not load modules, register actions, alter
 routes, grant permissions, enable skills, or set routing context. v0.37 may use
 the report as one prerequisite for an operator-confirmed trust grant, but v0.36
 itself grants nothing.
 
-### 6. Settings Central owns operator policy
+### 7. Settings Central owns operator policy
 
 All enablement, backend selection, image selection, and resource bounds are
 Settings Central keys with audit records. Raw reports and draft files are local
@@ -130,14 +146,14 @@ Allbert Home data, surfaced read-only.
   higher-risk v0.37 live-loader work starts.
 - v0.37 and v0.38 can consume one concrete sandbox/gate-runner interface instead
   of inventing sandbox behavior inside code-gen agents or UI flows.
-- gVisor can be adopted opportunistically without making it a hard requirement
-  for every developer machine.
+- gVisor can be adopted opportunistically and, when configured, outranks plain
+  Docker without becoming a hard requirement for every developer machine.
 - The backend registry plus OS-aware resolver let future engines (broader Apple
   Container support, Firecracker, remote/microVM) plug in without reworking the
   facade, gate runner, or operator surface.
-- Apple `container` gives macOS developers VM-per-container isolation by default
-  when their host qualifies, but its pre-1.0 churn is contained behind the
-  doctor gate and the Docker fallback.
+- Apple `container` gives macOS developers VM-per-container isolation when their
+  host qualifies, but its pre-1.0 churn is contained behind the doctor gate and
+  fallback candidates. Missing Apple support does not block v0.36 release.
 - Broader untrusted execution, package-manager execution, remote builders,
   Firecracker, and multi-language targets remain future work.
 
@@ -145,8 +161,8 @@ Allbert Home data, surfaced read-only.
 
 - No LLM code generation agents.
 - No live in-core hot-loading.
-- No package-manager/dependency installation, migrations, NIFs, or unrestricted
-  network.
+- No package-manager/dependency installation, implicit image pulls, migrations,
+  NIFs, or unrestricted network.
 - No remote sandbox or microVM backend.
 - No broad shell automation outside explicit Elixir/OTP gate CommandSpecs.
 
