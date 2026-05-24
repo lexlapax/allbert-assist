@@ -273,6 +273,46 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
     },
     %{
+      id: "launcher-destination-context-001",
+      milestone: :m7,
+      surface: :surface_workspace_namespace,
+      scenario: "v0.34 launcher app destination selection attempts to set active_app or execute",
+      boundary: :workspace_launcher_destination,
+      expected: :denied,
+      assert: [:denied, :no_active_app_mutation, :no_action_executed],
+      test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
+    },
+    %{
+      id: "canvas-app-scope-bypass-001",
+      milestone: :m7,
+      surface: :surface_workspace_namespace,
+      scenario: "v0.34 Canvas app destination attempts to execute StockSage without app scope",
+      boundary: :runner_app_scope,
+      expected: :denied,
+      assert: [:denied, :canvas_destination_not_authority],
+      test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
+    },
+    %{
+      id: "workspace-settings-action-boundary-001",
+      milestone: :m7,
+      surface: :surface_workspace_namespace,
+      scenario: "v0.34 Settings Canvas destination attempts a denied Settings Central write",
+      boundary: :settings_central_action,
+      expected: :denied,
+      assert: [:denied, :settings_destination_not_authority],
+      test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
+    },
+    %{
+      id: "stale-url-handoff-bypass-001",
+      milestone: :m7,
+      surface: :workspace_live_navigation,
+      scenario: "stale v0.32 URL app context params attempt to bypass v0.33 handoff",
+      boundary: :workspace_url_params,
+      expected: :denied,
+      assert: [:denied, :handoff_required, :neutral_runtime_context],
+      test_module: "AllbertAssistWeb.WorkspaceLiveTest"
+    },
+    %{
       id: "objective-authority-001",
       milestone: :m6,
       surface: :objective_financial_bridge,
