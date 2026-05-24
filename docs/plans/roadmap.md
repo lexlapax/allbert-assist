@@ -1425,10 +1425,10 @@ bridge, offline editor) untouched.
 - Every catalog card renders a status pill driven by emitter
   `prop(:status)` and a copy chip for its external id; tile kebab gains
   "Copy tile id" (M33).
-- AppBar chips wire real interactions (objective → /objectives, tile →
-  canvas anchor, ephemeral → ephemeral anchor); 3-state theme cycle
-  (system → dark → light); overflow menu opens with theme cycle +
-  workspace settings + jobs + objectives links (M34).
+- AppBar chips wire real interactions (objective → workspace Objectives
+  Canvas destination, tile → canvas anchor, ephemeral → ephemeral anchor);
+  3-state theme cycle (system → dark → light); overflow menu opens with theme
+  cycle + workspace settings + jobs + objectives links (M34).
 - Bumped `App.CoreApp.version/0` + umbrella + child app metadata to
   `0.26.1`; CHANGELOG entry + this roadmap row.
 - Defer to a follow-up: real tile inspector modal (M33 footed at "expand
@@ -1815,9 +1815,9 @@ v0.33 conversational app-intent handoff (the only way to set `active_app`).
 
 Delivered:
 
-- The left rail is a view-only launcher. Threads switch chat; Apps, Output,
-  and Workspace tools/Settings render in Canvas. Launcher selection never
-  changes routing context.
+- The left rail is a view-only launcher. Output, registered non-Allbert Apps,
+  and Workspace tools/Settings render in Canvas; Threads switch chat. Launcher
+  selection never changes routing context.
 - Canvas is a replace-model destination host. Output (durable tiles) is the
   default; `app:<app_id>` renders that app's panels; `workspace:<tool>` renders
   the mapped CoreApp tool panel.

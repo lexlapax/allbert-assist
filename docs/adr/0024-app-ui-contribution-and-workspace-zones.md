@@ -22,9 +22,13 @@ v0.33 made conversational handoff the way to enter app context. The revision is
 implemented in `v0.34.0` as composition/navigation only; it adds no new
 authority, route, or catalog atom.
 
-- `:nav_apps` becomes a **view-only launcher** (Threads, Apps, Output, and
+- `:nav_apps` becomes a **view-only launcher** (Output, Threads, Apps, and
   Workspace tools/Settings). Launcher selection sets only the Canvas
   destination; it never sets `active_app`, grants permission, or executes.
+- The Allbert/default context is represented by the passive **Neutral** context
+  indicator and the **Output** destination. The Apps section lists registered
+  non-Allbert app destinations; `app:allbert` is normalized to Output rather
+  than rendered as a duplicate home.
 - `:canvas_panels` becomes a **single-destination Canvas** (replace model). The
   durable v0.30 tiles are the "Output" destination and the default view.
 - `:utility_drawer` is **retired as a region**. Settings and workspace tools
