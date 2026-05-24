@@ -502,7 +502,6 @@
     grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.9fr);
     grid-template-areas:
       "header header"
-      "badges badges"
       "chat canvas"
       "ephemeral ephemeral";
     gap: 1rem;
@@ -511,10 +510,6 @@
 
   #workspace-node-workspace-header {
     grid-area: header;
-  }
-
-  #workspace-node-workspace-objectives {
-    grid-area: badges;
   }
 
   #workspace-node-workspace-chat {
@@ -540,7 +535,6 @@
   }
 
   #workspace-node-workspace-header,
-  #workspace-node-workspace-objectives,
   #workspace-node-workspace-chat,
   #workspace-node-workspace-canvas-region,
   #workspace-node-workspace-ephemeral-region {
@@ -550,9 +544,7 @@
   #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-canvas-region,
   #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-ephemeral-region,
   #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-chat,
-  #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-ephemeral-region,
-  #workspace-shell[data-mobile-tab="ephemeral"] #workspace-node-workspace-chat,
-  #workspace-shell[data-mobile-tab="ephemeral"] #workspace-node-workspace-canvas-region {
+  #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-ephemeral-region {
     display: none;
   }
 
@@ -1538,7 +1530,6 @@ a.allbert-chip-link:focus-visible,
     grid-template-columns: minmax(20rem, var(--workspace-chat-ratio)) 12px minmax(20rem, 1fr);
     grid-template-areas:
       "header header header"
-      "badges badges badges"
       "chat resizer canvas"
       "ephemeral ephemeral ephemeral";
     gap: 1rem;
@@ -1671,9 +1662,9 @@ a.allbert-chip-link:focus-visible,
 
 @media (min-width: 768px) {
   #workspace-shell #workspace-node-workspace-root > .workspace-root-grid {
-    /* The chat/canvas row takes the remaining height; header + badges +
-       ephemeral rows stay auto-sized. */
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    /* The chat/canvas row takes the remaining height; header and ephemeral
+       rows stay auto-sized. */
+    grid-template-rows: auto minmax(0, 1fr) auto;
     align-items: stretch;
   }
 
@@ -1705,6 +1696,15 @@ a.allbert-chip-link:focus-visible,
 
   #workspace-shell[data-maximized-pane="canvas"] #workspace-node-workspace-canvas-region {
     grid-column: 1 / -1;
+  }
+
+  #workspace-shell[data-canvas-focus="true"] #workspace-node-workspace-chat,
+  #workspace-shell[data-canvas-focus="true"] #workspace-split-resizer {
+    display: none;
+  }
+
+  #workspace-shell[data-canvas-focus="true"] #workspace-node-workspace-canvas-region {
+    grid-column: 2 / -1;
   }
 }
 
@@ -1930,12 +1930,11 @@ a.allbert-chip-link:focus-visible,
   #workspace-shell #workspace-node-workspace-root > .workspace-root-grid {
     grid-template-columns:
       minmax(11rem, 14rem)
-      minmax(18rem, var(--workspace-chat-ratio))
+      minmax(24rem, var(--workspace-chat-ratio))
       12px
       minmax(18rem, 1fr);
     grid-template-areas:
       "header header header header"
-      "badges badges badges badges"
       "nav chat resizer canvas"
       "ephemeral ephemeral ephemeral ephemeral";
   }
@@ -1944,29 +1943,9 @@ a.allbert-chip-link:focus-visible,
     grid-area: nav;
   }
 
-  #workspace-node-workspace-utility-drawer {
+  #workspace-node-workspace-utility-drawer,
+  #workspace-node-workspace-objectives {
     display: none;
-  }
-}
-
-@media (min-width: 1280px) {
-  #workspace-shell #workspace-node-workspace-root > .workspace-root-grid {
-    grid-template-columns:
-      minmax(12rem, 15rem)
-      minmax(20rem, var(--workspace-chat-ratio))
-      12px
-      minmax(22rem, 1fr)
-      minmax(18rem, 22rem);
-    grid-template-areas:
-      "header header header header header"
-      "badges badges badges badges badges"
-      "nav chat resizer canvas utility"
-      "ephemeral ephemeral ephemeral ephemeral ephemeral";
-  }
-
-  #workspace-node-workspace-utility-drawer {
-    display: flex;
-    grid-area: utility;
   }
 }
 
@@ -1976,57 +1955,28 @@ a.allbert-chip-link:focus-visible,
     display: none;
   }
 
-  #workspace-shell[data-mobile-tab="utility"]
-    #workspace-node-workspace-root
-    > .workspace-root-grid {
-    grid-template-columns:
-      minmax(11rem, 14rem)
-      minmax(18rem, var(--workspace-chat-ratio))
-      12px
-      minmax(28rem, 1fr);
-    grid-template-areas:
-      "header header header header"
-      "badges badges badges badges"
-      "nav chat resizer utility"
-      "ephemeral ephemeral ephemeral ephemeral";
-  }
-
-  #workspace-shell[data-mobile-tab="utility"] #workspace-node-workspace-canvas-region {
+  #workspace-shell[data-canvas-focus="true"] #workspace-node-workspace-nav-rail {
     display: none;
-  }
-
-  #workspace-shell[data-mobile-tab="utility"] #workspace-node-workspace-utility-drawer {
-    display: flex;
-    grid-area: utility;
   }
 }
 
 @media (max-width: 767.98px) {
   #workspace-node-workspace-nav-rail,
-  #workspace-node-workspace-utility-drawer {
+  #workspace-node-workspace-utility-drawer,
+  #workspace-node-workspace-objectives {
     margin-top: 1rem;
   }
 
-  #workspace-shell[data-mobile-tab="nav"] #workspace-node-workspace-chat,
-  #workspace-shell[data-mobile-tab="nav"] #workspace-node-workspace-canvas-region,
-  #workspace-shell[data-mobile-tab="nav"] #workspace-node-workspace-utility-drawer,
-  #workspace-shell[data-mobile-tab="nav"] #workspace-node-workspace-ephemeral-region,
   #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-nav-rail,
   #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-canvas-region,
   #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-utility-drawer,
+  #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-objectives,
   #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-ephemeral-region,
   #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-nav-rail,
   #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-chat,
   #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-utility-drawer,
-  #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-ephemeral-region,
-  #workspace-shell[data-mobile-tab="utility"] #workspace-node-workspace-nav-rail,
-  #workspace-shell[data-mobile-tab="utility"] #workspace-node-workspace-chat,
-  #workspace-shell[data-mobile-tab="utility"] #workspace-node-workspace-canvas-region,
-  #workspace-shell[data-mobile-tab="utility"] #workspace-node-workspace-ephemeral-region,
-  #workspace-shell[data-mobile-tab="ephemeral"] #workspace-node-workspace-nav-rail,
-  #workspace-shell[data-mobile-tab="ephemeral"] #workspace-node-workspace-chat,
-  #workspace-shell[data-mobile-tab="ephemeral"] #workspace-node-workspace-canvas-region,
-  #workspace-shell[data-mobile-tab="ephemeral"] #workspace-node-workspace-utility-drawer {
+  #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-objectives,
+  #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-ephemeral-region {
     display: none;
   }
 }
