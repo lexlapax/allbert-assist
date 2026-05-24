@@ -27,6 +27,8 @@ ADR: `docs/adr/0034-conversational-app-intent-handoff-and-clarification.md`.
   existing `run_analysis` descriptor.
 - Regression coverage for neutral queue handoff, missing-symbol
   clarification, active-app trend filtering, and active-app queue writes.
+- Regression coverage that repeated neutral handoff proposals for the same
+  app/action/slot set render independently across workspace threads.
 
 ### Changed (v0.33.1)
 
@@ -34,6 +36,9 @@ ADR: `docs/adr/0034-conversational-app-intent-handoff-and-clarification.md`.
   route through descriptor-extracted params.
 - Neutral `queue analysis for AAPL` now proposes an inert StockSage handoff;
   neutral `queue analysis` asks for the missing symbol.
+- Workspace handoff ephemeral surface ids are scoped by thread, while their
+  source handoff id remains in metadata, so repeated handoffs do not collide
+  across threads.
 - Removed the remaining core StockSage symbol regex from
   `AllbertAssist.Agents.IntentAgent`; StockSage conversational slot extraction
   now lives behind app descriptors.
@@ -50,8 +55,9 @@ ADR: `docs/adr/0034-conversational-app-intent-handoff-and-clarification.md`.
   trends, descriptor-selected queue writes, neutral handoff, neutral
   clarification, and `run_analysis` regression coverage.
 - Chrome extension verification covered neutral queue handoff, neutral
-  missing-symbol clarification, active StockSage trend execution, and active
-  StockSage queue execution.
+  queue handoff repeat across fresh threads, neutral missing-symbol
+  clarification, active StockSage trend execution, and active StockSage queue
+  execution.
 - Final release gate passed: `mix compile --warnings-as-errors`,
   `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
   `git diff --check`.
