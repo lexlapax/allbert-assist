@@ -319,13 +319,15 @@ actions and known permission classes through Security Central. Do not
 auto-generate, compile, or load Elixir modules from arbitrary skill folders. If
 a new side effect is needed, add or scaffold ordinary Elixir action code,
 review it, test it, compile it, and register it before a skill can invoke it.
-v0.36 (ADR 0032, ADR 0033, ADR 0035) defines the only exceptions: generated
-code/config is compiled and trialed in an OS-level sandbox (container default),
-and may be hot-loaded into the core node only after passing the full warning
-gate in the sandbox plus explicit operator confirmation, as an audited,
-reversible integration. Arbitrary/untrusted generated module loading, and
-integration without the gate or operator confirmation, remain forbidden; until
-v0.36 ships, no dynamic loading is permitted.
+v0.36 (ADR 0037) plans only the Elixir/OTP sandbox and gate runner: generated
+code/config may be compiled and tested in a configured OS sandbox, but that
+produces a report only and grants no live authority. v0.37 (ADR 0032, ADR 0033,
+ADR 0035) defines the only planned hot-load exception: code may be loaded into
+the core node only after the v0.36 gate passes plus explicit operator
+confirmation, as an audited, reversible integration. Arbitrary/untrusted
+generated module loading, and integration without the gate or operator
+confirmation, remain forbidden; until v0.37 ships, no dynamic loading is
+permitted.
 
 v0.07 confirmation workflow stores durable pending action requests under
 Allbert Home and resolves them through registered Jido actions. Approval,
@@ -658,10 +660,11 @@ constraints, document the exact blocker and ask before deferring it.
   re-checked.
 - No arbitrary skill script execution.
 - No arbitrary Elixir module loading from YAML or skill files.
-- Planned v0.36 dynamic code/config generation remains forbidden until ADR 0032,
-  ADR 0033, and ADR 0035 are implemented; the trial phase is OS-sandbox-only, and
-  in-core hot-load integration is permitted only after the full warning gate plus
-  explicit operator confirmation (audited and reversible).
+- Planned v0.36 sandboxing remains report-only until ADR 0037 is implemented;
+  planned v0.37 dynamic code/config generation and hot-load integration remain
+  forbidden until ADR 0032, ADR 0033, and ADR 0035 are implemented. In-core
+  hot-load integration is permitted only after the v0.36 gate plus explicit
+  operator confirmation (audited and reversible).
 - No raw secret display.
 - No hidden subsystem-specific settings roots.
 - No destructive changes to user-owned data without explicit user instruction.
