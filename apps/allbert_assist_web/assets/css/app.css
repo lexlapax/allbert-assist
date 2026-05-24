@@ -1784,6 +1784,10 @@ a.allbert-chip-link:focus-visible,
   text-transform: uppercase;
 }
 
+.workspace-rail-section-spaced {
+  margin-top: 1rem;
+}
+
 .workspace-rail-list,
 .workspace-utility-actions {
   display: flex;

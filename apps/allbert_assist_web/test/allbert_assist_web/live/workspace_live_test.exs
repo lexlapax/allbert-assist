@@ -83,6 +83,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#workspace-renderer")
     assert has_element?(view, "#allbert-appbar")
     assert has_element?(view, "#workspace-node-workspace-nav-rail")
+    assert has_element?(view, "#workspace-launcher")
     assert has_element?(view, "#workspace-component-workspace-thread-list")
     assert has_element?(view, "#workspace-component-workspace-app-launcher")
     refute has_element?(view, "#workspace-node-workspace-utility-drawer")
@@ -108,6 +109,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#workspace-node-workspace-canvas-region")
     assert has_element?(view, "#workspace-component-workspace-canvas-region")
     assert has_element?(view, "#workspace-canvas-cap-chip")
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='output']")
     assert html =~ "canvas"
     refute html =~ "Workspace shell"
     refute html =~ "Prompt composer"
@@ -189,7 +191,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert html =~ "Started a new workspace thread"
     assert html =~ "thr_missing_manual"
     refute html =~ "do not reuse this thread"
-    assert_patch(view, "/workspace?app_id=allbert&thread_id=#{thread_id}")
+    assert_patch(view, ~p"/workspace?thread_id=#{thread_id}")
     refute has_element?(view, "#agent-error")
     refute html =~ "Workspace thread fallback"
     refute html =~ ~s({:thread_not_found, "thr_missing_manual"})
@@ -414,7 +416,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     |> element("#workspace-thread-item-#{other_thread.id}")
     |> render_click()
 
-    assert_redirect(view, "/workspace?app_id=allbert&thread_id=#{other_thread.id}")
+    assert_redirect(view, ~p"/workspace?thread_id=#{other_thread.id}")
 
     {:ok, new_view, _html} = live(conn, ~p"/workspace?thread_id=#{current_thread.id}")
 
@@ -427,7 +429,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     |> render_click()
 
     {redirected_to, _flash} = assert_redirect(new_view)
-    assert redirected_to =~ "/workspace?app_id=allbert&thread_id="
+    assert redirected_to =~ "/workspace?thread_id="
     [_, new_thread_id] = Regex.run(~r/thread_id=([^&]+)/, redirected_to)
     assert new_thread_id != current_thread.id
     assert {:ok, thread} = Conversations.get_thread("local", new_thread_id)
@@ -1087,7 +1089,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#agent-signal")
   end
 
-  test "submits explicit active app context through the runtime boundary", %{conn: conn} do
+  test "stale app query params do not set runtime active app context", %{conn: conn} do
     ensure_stocksage_app_registered()
 
     {:ok, view, _html} = live(conn, ~p"/workspace?app_id=stocksage")
@@ -1102,25 +1104,26 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert_receive {:runtime_request, request}
     assert request.thread_id == thread_id
     assert request.session_id == "web-local"
-    assert request.active_app == :stocksage
+    assert request.active_app == :allbert
   end
 
-  test "app launcher selection sets active app through session action", %{conn: conn} do
+  test "app launcher selection changes only canvas destination", %{conn: conn} do
     ensure_stocksage_app_registered()
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
     thread_id = workspace_thread_id(view)
 
-    assert has_element?(view, "#workspace-app-launcher-stocksage")
+    assert has_element?(view, "#workspace-dest-app-stocksage[data-destination='app:stocksage']")
 
     view
-    |> element("#workspace-app-launcher-stocksage")
+    |> element("#workspace-dest-app-stocksage")
     |> render_click()
 
-    assert_patch(view, "/workspace?app_id=stocksage&thread_id=#{thread_id}")
-    assert {:ok, %{active_app: :stocksage}} = Session.get("local", "web-local")
-    assert has_element?(view, "#workspace-shell[data-active-app='stocksage']")
-    assert has_element?(view, "#workspace-app-launcher-stocksage[aria-pressed='true']")
+    assert_patch(view, ~p"/workspace?#{[thread_id: thread_id, destination: "app:stocksage"]}")
+    assert {:error, :not_found} = Session.get("local", "web-local")
+    assert has_element?(view, "#workspace-shell[data-active-app='allbert']")
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='app:stocksage']")
+    assert has_element?(view, "#workspace-dest-app-stocksage[aria-pressed='true']")
 
     view
     |> element("#agent-form")
@@ -1131,7 +1134,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert_receive {:runtime_request, request}
     assert request.thread_id == thread_id
     assert request.session_id == "web-local"
-    assert request.active_app == :stocksage
+    assert request.active_app == :allbert
   end
 
   test "app launcher selection renders hydrated StockSage workspace panels", %{conn: conn} do
