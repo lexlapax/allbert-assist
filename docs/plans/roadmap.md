@@ -1842,8 +1842,9 @@ Plan: `docs/plans/v0.35-plan.md`
 Request flow: `docs/plans/v0.35-request-flow.md`
 ADR: `docs/adr/0025-user-theming-and-override-security.md`
 
-Status: research (unstarted). Shifted from v0.33 so v0.31 consolidation,
-v0.32 workspace composition, and v0.33 app-intent descriptors land first.
+Status: second-pass implementation-ready; unimplemented. Shifted from v0.33 so
+v0.31 consolidation, v0.32 workspace composition, and v0.33 app-intent
+descriptors land first.
 
 Prerequisite: v0.31 shared paths/settings fragments, v0.32 workspace-only app
 UI and panel-surface substrate, v0.33 app intent descriptor/handoff behavior,
@@ -1861,7 +1862,9 @@ Expected direction:
 - Add validated `<ALLBERT_HOME>/workspace/layout.yaml` for v0.34 launcher
   destination ordering, hiding, default Canvas destination, and panel pins.
 - Add Settings Central keys for theme selection, snippets, and layout override;
-  expose them inside the v0.34 Settings Canvas destination.
+  audit those gates/selections, keep raw CSS/YAML in Allbert Home, and expose
+  read-only fingerprints/status/diagnostics inside the v0.34 Settings Canvas
+  destination.
 - Add CSP regression coverage and Chrome verification for desktop/narrow
   workspace retinting, snippet blocking, and layout fallback behavior.
 

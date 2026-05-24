@@ -10,6 +10,8 @@ the security posture for serving operator-supplied styling. It pairs with ADR
 v0.34 launcher/Canvas destination model that the layout-override layer
 reorders. ADR 0025 does not block v0.31 or v0.32, and it does not change the
 v0.33 app-intent handoff contract or v0.34 handoff-only routing context.
+It remains Proposed during planning; v0.35 M1 accepts/finalizes it before
+implementation work depends on the contract.
 
 ## Context
 
@@ -40,7 +42,7 @@ CSS injection, PortSwigger inline-style exfiltration). Jupyter's opt-in
 ### 1. Three override layers under `<ALLBERT_HOME>`
 
 A new `AllbertAssist.Runtime.Paths.themes_root/0` →
-`<ALLBERT_HOME>/themes` (and `themes_snippets_root/0` →
+`<ALLBERT_HOME>/themes` (and `theme_snippets_root/0` →
 `<ALLBERT_HOME>/themes/snippets`), both created by `ensure_home!/0`, hold
 operator styling. A new
 `AllbertAssistWeb.ThemeController` serves it (because `Plug.Static` cannot reach
@@ -49,8 +51,10 @@ the home dir). Each layer is gated by Settings Central `workspace.theme.*`:
 1. **Design tokens (default, safe).** `themes/<name>.yaml` is a constrained
    token map (colors, spacing, fonts, radii). The host emits a `:root` variable
    block served at `/theme/user.css`, linked after `app.css`. Reassigns existing
-   `--allbert-*`/`--color-*` tokens; retints the whole UI with no rebuild.
-   Selected via `workspace.theme.active`.
+   presentational `#workspace-shell` `--allbert-*` tokens only; it does not
+   reassign Tailwind/daisyUI `--color-*` tokens, root-grid tracks, AppBar
+   geometry, route selectors, or other structural variables. Selected via
+   `workspace.theme.active`.
 2. **CSS snippets (opt-in).** `themes/snippets/*.css`, enabled per-file via
    `workspace.theme.enabled_snippets`, gated by
    `workspace.theme.snippets_enabled` (default false). Served last, outside
@@ -97,27 +101,45 @@ behavior. All v0.35 keys (`workspace.theme.mode/active/snippets_enabled/
 enabled_snippets`, `workspace.layout.override_enabled`) are owned by a new
 `Settings.Fragments.WorkspaceAppearance` fragment under the v0.31 contract.
 
-### 6. Token theme is a single set over the current mode
+### 6. Settings accountability without storing raw override blobs
+
+Settings Central owns and audits the switches/selections that make local
+override files active: mode, active token theme basename, snippet master
+switch, enabled snippet basenames, and layout override enablement. Raw token
+YAML, snippet CSS, and layout YAML remain file-backed operator data under
+Allbert Home and are not copied into Settings Central.
+
+The v0.34 Settings Canvas displays read-only accountability status for the
+active override files: safe basenames, fingerprints or mtimes, parse/
+sanitizer/layout status, and bounded diagnostics. Diagnostics are capped,
+redacted, and avoid raw file contents, secrets, and unsafe absolute path
+exposure. This preserves Settings Central auditability without turning
+operator CSS/YAML into hundreds of settings keys.
+
+### 7. Token theme is a single set over the current mode
 
 The dark/light/system mode sets the base palette; the selected token theme is a
 single set that retints on top of whichever mode is active. `/theme/user.css`
 loads after `app.css` in both modes; snippets load last. v0.35 adds no per-mode
 token variants. The themeable allow-list is the presentational `--allbert-*`
 variables only; layout-structural variables (root-grid track sizes, rail/canvas
-widths, AppBar geometry) are excluded so tokens cannot break the v0.34 shell.
+widths, AppBar geometry), route selectors, and Tailwind/daisyUI `--color-*`
+variables are excluded so tokens cannot break the v0.34 shell or globally
+retint unrelated UI.
 
-### 7. Layout validates against a pinned source; no lockout; AppBar is fixed
+### 8. Layout validates against a pinned source; no lockout; AppBar is fixed
 
 Layout override validates against an enumerable destination/panel source that
 v0.35 must add (`Workspace.Catalog.known_destinations/1`, with the grammar
 `output` | `app:<id>` | `workspace:<tool>`), registered panel surface ids, and
 the catalog's retained zone labels (including the v0.34-demounted
 `:utility_drawer` / `:context_rail` labels, which validate but cannot re-mount a
-region). The **AppBar is fixed chrome**: its brand, context indicator, theme
-toggle, and destination quick-links are out of scope for layout override.
-**Settings and Output are non-hideable** launcher destinations, and the
-`workspace.layout.override_enabled` master switch (UI or CLI) always disables
-overrides — together preventing self-lockout.
+region). `app:allbert` is not a v0.35 layout destination; neutral Allbert
+output is represented by `output`. The **AppBar is fixed chrome**: its brand,
+context indicator, theme toggle, and destination quick-links are out of scope
+for layout override. **Settings and Output are non-hideable** launcher
+destinations, and the `workspace.layout.override_enabled` master switch (UI or
+CLI) always disables overrides — together preventing self-lockout.
 
 ## Consequences
 
@@ -125,6 +147,10 @@ overrides — together preventing self-lockout.
   rebuild and no core edits.
 - The powerful, riskier paths (raw CSS, layout) are opt-in and bounded;
   unsanitized CSS is never served, and CSP backs the sanitizer.
+- Settings Central audits gates and selections, while raw override file
+  contents remain under Allbert Home. The Settings Canvas surfaces derived
+  fingerprints/status/diagnostics for accountability without storing CSS/YAML
+  blobs as settings.
 - Layout override changes view composition only. It cannot create components,
   routes, action bindings, permissions, or `active_app` routing context, and it
   cannot restore the retired v0.32 utility drawer or context rail as authority
@@ -137,8 +163,10 @@ overrides — together preventing self-lockout.
   eval rows: `theme-snippet-import-reject-001`, `theme-snippet-url-strip-001`,
   `theme-css-exfil-001`, `theme-path-traversal-001`, `theme-csp-regression-001`,
   `layout-override-authority-001`, and `layout-hide-settings-lockout-001`.
-- A future milestone may add a file watcher for live reload and an OS-keychain/
-  remote theme source; v0.35 recomputes on request with a version stamp.
+- A future milestone may add a file watcher for live reload. Remote theme
+  sources or marketplaces remain parked future work and would require a new
+  security/design pass; v0.35 recomputes local files on request with a version
+  stamp.
 
 ## Relates To
 
