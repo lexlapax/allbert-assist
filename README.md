@@ -23,14 +23,16 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is `v0.35.0`, ready for operator manual
+The current implementation is `v0.36.0`, ready for operator manual
 verification. `/workspace` is the only operator home: chat is the primary
 spine, the left rail is a view-only launcher, and Canvas shows one destination
 at a time (Output, an app, or a workspace tool). Operators can retheme and
 re-lay-out the workspace from local Allbert Home files through Settings
-Central-accountable gates, while neutral workspace chat can recognize reviewed
-app-owned capabilities without silently running them. App routing context is
-still set only by accepting an explicit conversational handoff.
+Central-accountable gates, while the runtime now has a default-off,
+report-only Elixir/OTP sandbox and gate runner for future generated drafts.
+Neutral workspace chat can recognize reviewed app-owned capabilities without
+silently running them, and app routing context is still set only by accepting
+an explicit conversational handoff.
 
 Recent platform contracts now in place:
 
@@ -57,6 +59,12 @@ Recent platform contracts now in place:
   presentational token YAML, opt-in sanitized CSS snippets, validated launcher
   and Canvas destination layout data, Settings Canvas accountability, and CSP
   regression coverage.
+- `v0.36.0`: Elixir/OTP sandbox and gate runner, with default-off Settings
+  Central policy, OS-aware backend resolution, disposable copy-in/copy-out
+  bundles, source-policy checks, hardened Docker/Podman/runsc backend command
+  builders, optional doctor-gated Apple `container` detection, internal
+  sandbox actions, gate profiles, bounded redacted reports, and security evals
+  proving denied paths stay denied.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -67,7 +75,9 @@ Allbert can accept operator input through CLI and the `/workspace` Phoenix
 LiveView, route effectful work through registered Jido actions, require durable
 confirmations, store local conversation history, run scheduled jobs, frame
 cross-turn objectives, inspect traces, review markdown memory, and host
-reviewed plugin apps through workspace panels.
+reviewed plugin apps through workspace panels. It can also build disposable
+Elixir/OTP sandbox bundles and produce report-only sandbox/gate evidence when
+the operator enables the v0.36 sandbox in a disposable Allbert Home.
 
 StockSage is the reference plugin app. It exercises the app, objective,
 security, native-agent, LiveView surface, memory-sync, and canvas contracts
@@ -108,15 +118,16 @@ Near-term milestones:
   view-only left launcher, a single-destination Canvas, and routing context set
   conversationally through the v0.33 handoff (no permanent Tools column or
   floating panel band).
-- `v0.35`: user theming and layout overrides from `~/.allbert` — implemented as
-  the current milestone with token themes, opt-in sanitized CSS snippets,
-  validated workspace layout data, Settings accountability, and CSP checks.
+- `v0.35`: user theming and layout overrides from `~/.allbert` — implemented
+  with token themes, opt-in sanitized CSS snippets, validated workspace layout
+  data, Settings accountability, and CSP checks.
 - `v0.36`: Elixir/OTP sandbox and gate runner — a default-off, OS-aware sandbox
   (pluggable backend registry + `"auto"` resolver: optional doctor-gated Apple
   `container`, rootless Podman, Docker+runsc/gVisor preferred over plain
   Docker, Docker fallback) for generated Elixir/OTP drafts and explicit gate
   commands, using approved local images, source-policy checks, and bounded
-  reports without live loading.
+  reports without live loading; implemented as `v0.36.0` and ready for
+  operator manual verification.
 - `v0.37`: dynamic code & config generation and live capability integration —
   LLM code-gen agents generate to the proven shapes, store file-backed draft
   metadata under Allbert Home, trial through the v0.36 sandbox, and (after the
@@ -140,10 +151,10 @@ Near-term milestones:
   milestones.
 - [CHANGELOG.md](CHANGELOG.md): released-history details.
 - [docs/adr](docs/adr): architectural decisions.
-- [docs/plans/v0.35-plan.md](docs/plans/v0.35-plan.md): current implemented
+- [docs/plans/v0.36-plan.md](docs/plans/v0.36-plan.md): current implemented
   milestone plan.
-- [docs/plans/v0.35-request-flow.md](docs/plans/v0.35-request-flow.md):
-  request flows and manual verification notes for `v0.35.0`.
+- [docs/plans/v0.36-request-flow.md](docs/plans/v0.36-request-flow.md):
+  request flows and manual verification notes for `v0.36.0`.
 
 ## Local Development
 

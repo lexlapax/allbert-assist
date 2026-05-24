@@ -40,6 +40,7 @@ Example:
 mix allbert.settings set external_services.enabled false
 mix allbert.settings set workspace.fragment.emission_enabled false
 mix allbert.settings set sandbox.elixir.enabled false
+mix allbert.settings set permissions.sandbox_trial denied
 ```
 
 ## Deployment Posture
@@ -94,6 +95,7 @@ Elixir/OTP drafts or future dynamic code paths. Emergency posture is:
 
 ```sh
 mix allbert.settings set sandbox.elixir.enabled false
+mix allbert.settings set permissions.sandbox_trial denied
 mix allbert.sandbox doctor
 mix allbert.security review --recent --limit 25
 ```

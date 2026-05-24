@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed for v0.36 Elixir/OTP Sandbox And Gate Runner
+Accepted for v0.36 Elixir/OTP Sandbox And Gate Runner
 (`docs/plans/v0.36-plan.md`). This ADR graduates a narrow ADR 0009 Level-3
 container sandbox for generated Elixir/OTP drafts and explicit gate commands.
 It is the prerequisite for v0.37 Dynamic Code & Config Generation and Live

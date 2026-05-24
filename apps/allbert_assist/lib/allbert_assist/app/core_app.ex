@@ -15,10 +15,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.35 adds Settings-
-  # accountable local appearance and layout hooks to the workspace shell.
+  # the app (release-pinned, not semantic-per-app). v0.36 adds internal
+  # report-only sandbox actions to the core runtime boundary.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.35.0"
+  def version, do: "0.36.0"
 
   @impl true
   def validate(_opts), do: :ok
