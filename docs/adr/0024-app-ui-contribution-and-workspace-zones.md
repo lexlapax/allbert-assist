@@ -11,6 +11,34 @@ into the workspace utility drawer. Conversational app-intent inference is not
 part of this ADR; v0.33 / ADR 0034 adds explicit handoff and clarification
 after the workspace app selector exists.
 
+### v0.34 Revision (2026-05-23): Workspace UX refresh
+
+v0.34 (`docs/plans/v0.34-plan.md`) revises the v0.32 zone model after the
+shipped shell proved too dense (left rail, a floating app/objectives band,
+chat, a permanent Canvas column, and a permanent Tools column at once) and after
+v0.33 made conversational handoff the way to enter app context. The revision is
+composition/navigation only; it adds no new authority, route, or catalog atom.
+
+- `:nav_apps` becomes a **view-only launcher** (Threads, Apps, Output, and
+  Workspace tools/Settings). Launcher selection sets only the Canvas
+  destination; it never sets `active_app`, grants permission, or executes.
+- `:canvas_panels` becomes a **single-destination Canvas** (replace model). The
+  durable v0.30 tiles are the "Output" destination and the default view.
+- `:utility_drawer` is **retired as a region**. Settings and workspace tools
+  become launcher destinations rendered in Canvas; their writes still flow
+  through registered Settings Central / Security actions.
+- `:context_rail` is **retired as a region**. Routing context moves to a passive
+  top-bar **context indicator** (`Neutral` vs the active app, with
+  exit-to-neutral via `Session.clear_active_app`); it displays but never sets
+  context. Compact app status folds into the Canvas header.
+- `:ephemeral` is unchanged and remains the home for the v0.33 handoff /
+  clarification and scoped app pop-ups.
+
+Authority rules from this ADR and ADR 0034 are unchanged: metadata grants no
+authority, app-scoped actions still require explicit `active_app` at the runner,
+Settings writes stay action-gated, and `active_app` is set only by accepting a
+v0.33 handoff.
+
 ## Context
 
 Before v0.32, Allbert had several operator UI surfaces:
@@ -149,5 +177,5 @@ Panels and zones add no new authority:
 - Constrained by: ADR 0019 and ADR 0021 (metadata is not authority), ADR 0017
   (plugin contract), and v0.28 security posture.
 - Enables: ADR 0034 / v0.33 app intent handoff and clarification, ADR 0025 /
-  v0.34 user theming and layout overrides, v0.35 dynamic plugin/app draft
-  trials, then v0.36 Plugin And App Generator.
+  v0.35 user theming and layout overrides, v0.36 dynamic plugin/app draft
+  trials, then v0.37 Plugin And App Generator.

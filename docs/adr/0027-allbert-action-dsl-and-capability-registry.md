@@ -69,5 +69,5 @@ Three "registry"-like concepts are distinct and must not be conflated:
 - Refines: ADR 0006 (permission classes and safety floors), ADR 0007 (action
   runner boundary), ADR 0015 (app-scoped actions).
 - Under: ADR 0026 facade discipline.
-- Enables: v0.36 generator scaffolds `use AllbertAssist.Action`; v0.35 generated
+- Enables: v0.37 generator scaffolds `use AllbertAssist.Action`; v0.36 generated
   drafts use the same shape.

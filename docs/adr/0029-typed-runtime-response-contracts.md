@@ -38,9 +38,9 @@ confirmation semantics, or transport protocol fields.
 ## Consequences
 
 - v0.32 panels can render action/objective status without special cases.
-- v0.35 capability-gap and sandbox-trial reports can attach structured
+- v0.36 capability-gap and sandbox-trial reports can attach structured
   diagnostics.
-- v0.36 generated actions can return the approved response shape.
+- v0.37 generated actions can return the approved response shape.
 
 ## Non-Goals
 
@@ -53,4 +53,4 @@ confirmation semantics, or transport protocol fields.
 - Builds on: ADR 0007 (action runner result/lifecycle metadata).
 - Under: ADR 0026 facade discipline.
 - Consumed by: ADR 0030 (panels render action/objective status), ADR 0033
-  (sandbox-trial structured diagnostics); v0.32 through v0.36.
+  (sandbox-trial structured diagnostics); v0.32 through v0.37.

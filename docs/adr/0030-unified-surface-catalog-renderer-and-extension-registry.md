@@ -11,7 +11,7 @@ Surface component truth is currently spread across the Surface DSL, workspace
 catalog helpers, web renderer dispatch, app surface catalog metadata, and
 StockSage-specific rendering paths. App and plugin registries also expose
 related contribution data through separate facades. v0.32 workspace panels and
-v0.36 generation should not depend on several overlapping sources of truth.
+v0.37 generation should not depend on several overlapping sources of truth.
 
 ## Decision
 
@@ -36,7 +36,7 @@ DOM handles through the shared catalog path.
 ## Consequences
 
 - v0.32 adds workspace panels by extending one catalog/registry path.
-- v0.36 scaffolds one contribution shape.
+- v0.37 scaffolds one contribution shape.
 - StockSage renderers can participate in the same catalog mechanism as core
   workspace components.
 
@@ -54,4 +54,4 @@ DOM handles through the shared catalog path.
 - Under: ADR 0026 facade discipline.
 - Distinct from ADR 0027's action registry (see ADR 0027 "Terminology").
 - Enables: ADR 0024 (v0.32 panels/zones extend this one catalog/registry path)
-  and the v0.36 generator contribution shape.
+  and the v0.37 generator contribution shape.

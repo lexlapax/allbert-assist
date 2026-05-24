@@ -10,6 +10,52 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.33.1 - Descriptorized Remaining StockSage Intent Actions
+
+Status: released. Version metadata is `0.33.1`; release tag `v0.33.1` exists.
+
+Plan: `docs/plans/v0.33-plan.md`.
+Request flow: `docs/plans/v0.33-request-flow.md`.
+ADR: `docs/adr/0034-conversational-app-intent-handoff-and-clarification.md`.
+
+### Added (v0.33.1)
+
+- Optional slots for inert app intent descriptors, allowing read-only
+  descriptor routes such as StockSage trends to accept an optional ticker
+  without making it required.
+- StockSage descriptors for `get_trends` and `queue_analysis`, alongside the
+  existing `run_analysis` descriptor.
+- Regression coverage for neutral queue handoff, missing-symbol
+  clarification, active-app trend filtering, and active-app queue writes.
+
+### Changed (v0.33.1)
+
+- Active StockSage `show trends for AAPL` and `queue analysis for AAPL` now
+  route through descriptor-extracted params.
+- Neutral `queue analysis for AAPL` now proposes an inert StockSage handoff;
+  neutral `queue analysis` asks for the missing symbol.
+- Removed the remaining core StockSage symbol regex from
+  `AllbertAssist.Agents.IntentAgent`; StockSage conversational slot extraction
+  now lives behind app descriptors.
+- `AllbertAssist.App.CoreApp.version/0`, umbrella metadata, child app
+  metadata, `StockSage.App.version/0`, `StockSage.Plugin.version/0`,
+  `plugins/stocksage/allbert_plugin.json`, and affected StockSage skill
+  metadata are bumped to `0.33.1`.
+
+### Verification (v0.33.1)
+
+- Focused intent tests passed for descriptor normalization, ranking, engine
+  decisions, classifier summaries, and `IntentAgent` routing.
+- Focused StockSage tests passed for action execution, descriptor-selected
+  trends, descriptor-selected queue writes, neutral handoff, neutral
+  clarification, and `run_analysis` regression coverage.
+- Chrome extension verification covered neutral queue handoff, neutral
+  missing-symbol clarification, active StockSage trend execution, and active
+  StockSage queue execution.
+- Final release gate passed: `mix compile --warnings-as-errors`,
+  `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
+  `git diff --check`.
+
 ## v0.33.0 - Conversational App Intent Handoff And Direct Answer Foundation
 
 Status: released. Version metadata is `0.33.0`; release tag `v0.33.0` exists.

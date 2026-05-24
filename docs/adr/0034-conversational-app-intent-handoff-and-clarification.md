@@ -108,6 +108,13 @@ StockSage owns its missing analysis-date default before confirmation. The
 StockSage objective-framing helpers remain intentionally deferred carryover and
 still require active StockSage app context.
 
+M6 implementation on 2026-05-23 added optional descriptor slots and moved
+StockSage `get_trends` and `queue_analysis` conversational routing onto
+app-contributed descriptors. The remaining core StockSage symbol regex was
+removed from `IntentAgent`; neutral queue prompts now hand off or clarify,
+while active StockSage trend and queue prompts pass descriptor-extracted
+symbols through the registered runner path.
+
 ## References
 
 - Amazon Lex Intent Disambiguation:
@@ -137,4 +144,4 @@ still require active StockSage app context.
 - Owns settings through: ADR 0031 (Settings Schema Fragments And Authority) —
   the new `intent.*` handoff/clarify/direct-answer keys live in the intent
   settings fragment and are written only through Settings Central actions.
-- Enables: v0.36 generator scaffolding for app intent descriptors.
+- Enables: v0.37 generator scaffolding for app intent descriptors.
