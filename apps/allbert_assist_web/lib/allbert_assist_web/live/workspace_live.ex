@@ -1096,7 +1096,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       operator_id: socket.assigns.user_id,
       thread_id: socket.assigns.thread_id,
       session_id: socket.assigns.session_id,
-      active_app: socket.assigns.active_app
+      active_app: socket.assigns.active_app,
+      canvas_destination: socket.assigns.canvas_destination
     }
 
     socket

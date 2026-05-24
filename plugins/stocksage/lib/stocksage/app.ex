@@ -172,7 +172,7 @@ defmodule StockSage.App do
   end
 
   defp dashboard_panel(children),
-    do: panel(@dashboard_panel_id, "StockSage dashboard", :context_rail, 100, children)
+    do: panel(@dashboard_panel_id, "StockSage dashboard", :canvas_panels, 100, children)
 
   defp recent_analyses_panel(children),
     do: panel(@recent_panel_id, "Recent analyses", :canvas_panels, 110, children)
@@ -354,7 +354,6 @@ defmodule StockSage.App do
   defp panel_root_id(@queue_panel_id), do: "queue"
   defp panel_root_id(@trends_panel_id), do: "trends"
 
-  defp zone_label(:context_rail), do: "context"
   defp zone_label(:canvas_panels), do: "canvas"
 
   defp context_value(context, key),
