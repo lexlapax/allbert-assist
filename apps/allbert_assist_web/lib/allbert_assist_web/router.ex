@@ -24,6 +24,8 @@ defmodule AllbertAssistWeb.Router do
     pipe_through :theme_css
 
     get "/theme/user.css", ThemeController, :user
+    get "/theme/snippets.css", ThemeController, :snippets
+    get "/theme/snippets/:name", ThemeController, :snippet
   end
 
   scope "/", AllbertAssistWeb do
