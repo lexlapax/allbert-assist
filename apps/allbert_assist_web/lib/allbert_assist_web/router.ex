@@ -8,13 +8,21 @@ defmodule AllbertAssistWeb.Router do
     plug :put_root_layout, html: {AllbertAssistWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug AllbertAssistWeb.Plugs.ContentSecurityPolicy, :browser
   end
 
   pipeline :api do
     plug :accepts, ["json"]
   end
 
+  pipeline :theme_css do
+    plug :put_secure_browser_headers
+    plug AllbertAssistWeb.Plugs.ContentSecurityPolicy, :theme
+  end
+
   scope "/", AllbertAssistWeb do
+    pipe_through :theme_css
+
     get "/theme/user.css", ThemeController, :user
   end
 
