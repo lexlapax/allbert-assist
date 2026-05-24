@@ -36,13 +36,15 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   @default_user_id "local"
   @default_session_id "web-local"
   @default_prompt_placeholder "Ask Allbert anything…"
+  @workspace_tools ~w(jobs objectives confirmations security settings)
 
   @impl true
   def mount(params, _session, socket) do
     user_id = @default_user_id
     session_id = @default_session_id
     {thread_id, thread_notice, sync_thread_url?} = resolve_workspace_thread(params, user_id)
-    active_app = resolve_workspace_active_app(params, user_id, session_id)
+    active_app = resolve_workspace_active_app(user_id, session_id)
+    canvas_destination = resolve_canvas_destination(params)
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, SignalBridge.topic_for(user_id))
@@ -62,6 +64,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         thread_id: thread_id,
         session_id: session_id,
         active_app: active_app,
+        canvas_destination: canvas_destination,
         workspace_theme: workspace_theme(),
         workspace_high_contrast?: workspace_high_contrast?(),
         workspace_reduce_motion?: workspace_reduce_motion?(),
@@ -86,25 +89,28 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         open_tile_menu_id: nil,
         open_tile_inspector_id: nil,
         thread_switcher_open?: false,
+        workspace_launcher_open?: false,
         workspace_badges: [],
         composer_max_bytes: workspace_canvas_tile_body_max_bytes(),
         workspace_overflow_open?: false,
         workspace_maximized_pane: nil,
         canvas_focus?: false
       )
-      |> assign(workspace_assigns(user_id, thread_id, [], active_app))
-      |> maybe_sync_thread_url(sync_thread_url?, thread_id, active_app)
+      |> assign(workspace_assigns(user_id, thread_id, [], active_app, canvas_destination))
+      |> maybe_sync_thread_url(sync_thread_url?, thread_id, canvas_destination)
 
     {:ok, socket}
   end
 
   @impl true
-  def handle_params(%{"tab" => tab}, _uri, socket)
-      when tab in ["chat", "canvas"] do
-    {:noreply, assign(socket, :workspace_mobile_tab, tab)}
-  end
+  def handle_params(%{} = params, _uri, socket) do
+    socket =
+      socket
+      |> assign_canvas_destination(resolve_canvas_destination(params))
+      |> maybe_assign_mobile_tab(param(params, "tab"))
 
-  def handle_params(_params, _uri, socket), do: {:noreply, socket}
+    {:noreply, socket}
+  end
 
   @impl true
   def handle_event("ask", %{"prompt" => prompt}, socket) do
@@ -127,7 +133,9 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         |> assign(active_app: active_app, workspace_mobile_tab: "chat", error: nil)
         |> dismiss_intent_surface(params, "handoff_accepted")
         |> refresh_workspace()
-        |> push_patch(to: workspace_path(socket.assigns.thread_id, active_app))
+        |> push_patch(
+          to: workspace_path(socket.assigns.thread_id, socket.assigns.canvas_destination)
+        )
         |> submit_workspace_prompt(source_text)
 
       {:noreply, socket}
@@ -191,7 +199,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     {:noreply,
      socket
      |> assign(:thread_switcher_open?, false)
-     |> push_navigate(to: workspace_path(thread_id, socket.assigns.active_app))}
+     |> push_navigate(to: workspace_path(thread_id, socket.assigns.canvas_destination))}
   end
 
   def handle_event("switch_workspace_thread", _params, socket), do: {:noreply, socket}
@@ -206,7 +214,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         {:noreply,
          socket
          |> assign(:thread_switcher_open?, false)
-         |> push_navigate(to: workspace_path(thread.id, socket.assigns.active_app))}
+         |> push_navigate(to: workspace_path(thread.id, socket.assigns.canvas_destination))}
 
       {:error, reason} ->
         {:noreply, assign(socket, :error, "Could not start a new thread: #{inspect(reason)}")}
@@ -254,23 +262,22 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   def handle_event("select_workspace_mobile_tab", _params, socket), do: {:noreply, socket}
 
+  def handle_event("select_destination", %{"destination" => destination}, socket)
+      when is_binary(destination) do
+    destination = normalize_canvas_destination(destination)
+
+    {:noreply,
+     socket
+     |> assign(canvas_destination: destination, workspace_mobile_tab: "canvas")
+     |> refresh_workspace()
+     |> push_patch(to: workspace_path(socket.assigns.thread_id, destination))}
+  end
+
+  def handle_event("select_destination", _params, socket), do: {:noreply, socket}
+
   def handle_event("select_workspace_app", %{"app-id" => app_id}, socket)
       when is_binary(app_id) and app_id != "" do
-    case run_workspace_action(socket, "set_active_app", %{
-           user_id: socket.assigns.user_id,
-           session_id: socket.assigns.session_id,
-           app_id: app_id
-         }) do
-      {:ok, %{status: :completed, session: %{active_app: active_app}}} ->
-        {:noreply,
-         socket
-         |> assign(active_app: active_app, workspace_mobile_tab: "chat")
-         |> refresh_workspace()
-         |> push_patch(to: workspace_path(socket.assigns.thread_id, active_app))}
-
-      {:ok, response} ->
-        {:noreply, assign(socket, :error, Map.get(response, :message, inspect(response)))}
-    end
+    handle_event("select_destination", %{"destination" => "app:#{app_id}"}, socket)
   end
 
   def handle_event("select_workspace_app", _params, socket), do: {:noreply, socket}
@@ -394,10 +401,10 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     {:noreply, refresh_objectives(socket)}
   end
 
-  def handle_info({:sync_workspace_thread_url, thread_id, active_app}, socket) do
+  def handle_info({:sync_workspace_thread_url, thread_id, canvas_destination}, socket) do
     {:noreply,
      push_patch(socket,
-       to: ~p"/workspace?#{[thread_id: thread_id, app_id: active_app_attribute(active_app)]}",
+       to: workspace_path(thread_id, canvas_destination),
        replace: true
      )}
   end
@@ -456,6 +463,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         data-thread-id={@thread_id}
         data-session-id={@session_id}
         data-active-app={active_app_attribute(@active_app)}
+        data-canvas-destination={@canvas_destination}
         data-high-contrast={bool_attribute(@workspace_high_contrast?)}
         data-reduce-motion={bool_attribute(@workspace_reduce_motion?)}
         data-mobile-tab={@workspace_mobile_tab}
@@ -665,45 +673,60 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     end
   end
 
-  defp maybe_sync_thread_url(socket, true, thread_id, active_app) do
+  defp maybe_sync_thread_url(socket, true, thread_id, canvas_destination) do
     if connected?(socket) do
-      Process.send_after(self(), {:sync_workspace_thread_url, thread_id, active_app}, 0)
+      Process.send_after(self(), {:sync_workspace_thread_url, thread_id, canvas_destination}, 0)
     end
 
     socket
   end
 
-  defp maybe_sync_thread_url(socket, _sync?, _thread_id, _active_app), do: socket
+  defp maybe_sync_thread_url(socket, _sync?, _thread_id, _canvas_destination), do: socket
 
-  defp resolve_workspace_active_app(params, user_id, session_id) do
-    requested_app = param(params, "app_id") || param(params, "active_app")
-
-    case requested_app do
-      app_id when is_binary(app_id) and app_id != "" ->
-        maybe_persist_known_active_app(user_id, session_id, app_id)
-        app_id
-
-      _other ->
-        session_active_app(user_id, session_id) || :allbert
-    end
+  defp resolve_workspace_active_app(user_id, session_id) do
+    session_active_app(user_id, session_id) || :allbert
   end
 
-  defp maybe_persist_known_active_app(user_id, session_id, app_id) do
+  defp resolve_canvas_destination(params) do
+    params
+    |> param("destination")
+    |> normalize_canvas_destination()
+  end
+
+  defp normalize_canvas_destination(nil), do: "output"
+  defp normalize_canvas_destination("output"), do: "output"
+
+  defp normalize_canvas_destination("workspace:" <> tool) when tool in @workspace_tools do
+    "workspace:#{tool}"
+  end
+
+  defp normalize_canvas_destination("app:" <> app_id) do
     case AppRegistry.normalize_app_id(app_id) do
-      {:ok, nil} ->
-        _ = Session.clear_active_app(user_id, session_id)
-        :ok
-
-      {:ok, normalized} ->
-        _ = Session.set_active_app(user_id, session_id, normalized)
-        :ok
-
-      {:error, :unknown_app} ->
-        :ok
+      {:ok, nil} -> "output"
+      {:ok, normalized} -> "app:#{normalized}"
+      {:error, :unknown_app} -> "output"
     end
   catch
-    :exit, _reason -> :ok
+    :exit, _reason -> "output"
   end
+
+  defp normalize_canvas_destination(_destination), do: "output"
+
+  defp assign_canvas_destination(socket, destination) do
+    if Map.get(socket.assigns, :canvas_destination) == destination do
+      socket
+    else
+      socket
+      |> assign(:canvas_destination, destination)
+      |> refresh_workspace()
+    end
+  end
+
+  defp maybe_assign_mobile_tab(socket, tab) when tab in ["chat", "canvas"] do
+    assign(socket, :workspace_mobile_tab, tab)
+  end
+
+  defp maybe_assign_mobile_tab(socket, _tab), do: socket
 
   defp session_active_app(user_id, session_id) do
     case Session.get(user_id, session_id, touch?: true) do
@@ -788,12 +811,13 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         socket.assigns.user_id,
         socket.assigns.thread_id,
         socket.assigns.workspace_badges,
-        socket.assigns.active_app
+        socket.assigns.active_app,
+        socket.assigns.canvas_destination
       )
     )
   end
 
-  defp workspace_assigns(user_id, thread_id, workspace_badges, active_app) do
+  defp workspace_assigns(user_id, thread_id, workspace_badges, active_app, canvas_destination) do
     tiles = canvas_tiles(thread_id, user_id)
     surfaces = ephemeral_surfaces(thread_id, user_id)
 
@@ -802,7 +826,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         user_id: user_id,
         thread_id: thread_id,
         session_id: @default_session_id,
-        active_app: active_app
+        active_app: active_app,
+        canvas_destination: canvas_destination
       })
 
     %{
@@ -820,6 +845,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
           ephemeral_surfaces: surfaces,
           workspace_badges: workspace_badges,
           active_app: active_app,
+          canvas_destination: canvas_destination,
           panel_surfaces: surface_context.panel_surfaces,
           surface_catalogs: surface_context.surface_catalogs
         )
@@ -1195,6 +1221,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       recent_threads: assigns.recent_threads,
       registered_apps: assigns.registered_apps,
       workspace_mobile_tab: assigns.workspace_mobile_tab,
+      canvas_destination: assigns.canvas_destination,
       canvas_tiles: assigns.canvas_tiles,
       ephemeral_surfaces: assigns.ephemeral_surfaces,
       workspace_badges: assigns.workspace_badges,
@@ -1232,7 +1259,14 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     }
   end
 
-  defp workspace_path(thread_id, active_app) do
-    ~p"/workspace?#{[thread_id: thread_id, app_id: active_app_attribute(active_app)]}"
+  defp workspace_path(thread_id, canvas_destination) do
+    query =
+      if canvas_destination == "output" do
+        [thread_id: thread_id]
+      else
+        [thread_id: thread_id, destination: canvas_destination]
+      end
+
+    ~p"/workspace?#{query}"
   end
 end

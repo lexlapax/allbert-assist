@@ -74,7 +74,7 @@ defmodule AllbertAssistWeb.Workspace.Components.NavRail do
   def render(assigns) do
     ~H"""
     <aside
-      id={"workspace-component-#{@node.id}"}
+      id="workspace-launcher"
       class="workspace-nav-rail-shell"
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
@@ -178,7 +178,7 @@ defmodule AllbertAssistWeb.Workspace.Components.AppLauncher do
      socket
      |> Base.assign_defaults(assigns)
      |> assign(
-       active_app: Map.get(context, :active_app, :allbert),
+       canvas_destination: Map.get(context, :canvas_destination, "output"),
        registered_apps: Map.get(context, :registered_apps, [])
      )}
   end
@@ -193,23 +193,48 @@ defmodule AllbertAssistWeb.Workspace.Components.AppLauncher do
       data-workspace-renderer="component"
       aria-labelledby={Base.component_title_id(@node)}
     >
-      <h3 id={Base.component_title_id(@node)} class="workspace-rail-section-title">
-        Apps
-      </h3>
+      <h3 id={Base.component_title_id(@node)} class="workspace-rail-section-title">Output</h3>
       <div class="workspace-rail-list" role="list">
         <button
-          :for={app <- workspace_apps(@registered_apps)}
-          id={"workspace-app-launcher-#{app_id(app)}"}
           type="button"
           role="listitem"
           class={[
-            "workspace-rail-item workspace-app-launcher-item",
-            active_app?(app, @active_app) && "workspace-rail-item-active"
+            "workspace-rail-item workspace-destination-item",
+            destination_active?("output", @canvas_destination) && "workspace-rail-item-active"
           ]}
-          phx-click="select_workspace_app"
-          phx-value-app-id={app_id(app)}
+          id="workspace-dest-output"
+          phx-click="select_destination"
+          phx-value-destination="output"
+          data-destination="output"
+          aria-pressed={bool_attribute(destination_active?("output", @canvas_destination))}
+          title="Output"
+        >
+          <span class="workspace-app-icon" aria-hidden="true">
+            <.icon name="hero-rectangle-stack-micro" class="size-4" />
+          </span>
+          <span class="workspace-rail-item-title">Output</span>
+        </button>
+      </div>
+
+      <h3 class="workspace-rail-section-title workspace-rail-section-spaced">Apps</h3>
+      <div class="workspace-rail-list" role="list">
+        <button
+          :for={app <- workspace_apps(@registered_apps)}
+          id={"workspace-dest-app-#{app_id(app)}"}
+          type="button"
+          role="listitem"
+          class={[
+            "workspace-rail-item workspace-app-launcher-item workspace-destination-item",
+            destination_active?(app_destination(app), @canvas_destination) &&
+              "workspace-rail-item-active"
+          ]}
+          phx-click="select_destination"
+          phx-value-destination={app_destination(app)}
+          data-destination={app_destination(app)}
           data-app-id={app_id(app)}
-          aria-pressed={bool_attribute(active_app?(app, @active_app))}
+          aria-pressed={
+            bool_attribute(destination_active?(app_destination(app), @canvas_destination))
+          }
           title={app_label(app)}
         >
           <span class="workspace-app-icon" aria-hidden="true">
@@ -218,14 +243,73 @@ defmodule AllbertAssistWeb.Workspace.Components.AppLauncher do
           <span class="workspace-rail-item-title">{app_label(app)}</span>
         </button>
       </div>
+
+      <h3 class="workspace-rail-section-title workspace-rail-section-spaced">Workspace</h3>
+      <div class="workspace-rail-list" role="list">
+        <button
+          :for={destination <- workspace_destinations()}
+          id={"workspace-dest-#{destination.dom_id}"}
+          type="button"
+          role="listitem"
+          class={[
+            "workspace-rail-item workspace-destination-item",
+            destination_active?(destination.id, @canvas_destination) && "workspace-rail-item-active"
+          ]}
+          phx-click="select_destination"
+          phx-value-destination={destination.id}
+          data-destination={destination.id}
+          aria-pressed={bool_attribute(destination_active?(destination.id, @canvas_destination))}
+          title={destination.label}
+        >
+          <span class="workspace-app-icon" aria-hidden="true">
+            <.icon name={destination.icon} class="size-4" />
+          </span>
+          <span class="workspace-rail-item-title">{destination.label}</span>
+        </button>
+      </div>
     </section>
     """
   end
 
-  defp workspace_apps([]), do: [%{app_id: :allbert, display_name: "Allbert"}]
-  defp workspace_apps(apps), do: apps
+  defp workspace_apps(apps) do
+    apps
+    |> List.wrap()
+    |> Enum.reject(&(app_id(&1) == "allbert"))
+  end
 
-  defp active_app?(app, active_app), do: app_id(app) == app_id(%{app_id: active_app})
+  defp app_destination(app), do: "app:#{app_id(app)}"
+
+  defp destination_active?(destination, active_destination), do: destination == active_destination
+
+  defp workspace_destinations do
+    [
+      %{id: "workspace:jobs", dom_id: "workspace-jobs", label: "Jobs", icon: "hero-clock-micro"},
+      %{
+        id: "workspace:objectives",
+        dom_id: "workspace-objectives",
+        label: "Objectives",
+        icon: "hero-flag-micro"
+      },
+      %{
+        id: "workspace:confirmations",
+        dom_id: "workspace-confirmations",
+        label: "Confirmations",
+        icon: "hero-shield-check-micro"
+      },
+      %{
+        id: "workspace:security",
+        dom_id: "workspace-security",
+        label: "Security",
+        icon: "hero-shield-exclamation-micro"
+      },
+      %{
+        id: "workspace:settings",
+        dom_id: "workspace-settings",
+        label: "Settings",
+        icon: "hero-adjustments-horizontal-micro"
+      }
+    ]
+  end
 
   defp app_id(app), do: app |> field(:app_id, :allbert) |> to_string()
   defp app_label(app), do: field(app, :display_name, app_id(app)) |> to_string()
