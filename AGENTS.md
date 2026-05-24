@@ -139,7 +139,7 @@ Use these as starting points, then narrow further from the active task:
   generated files never grant permission by themselves.
 - Do not auto-generate, compile, or load Elixir modules from arbitrary skill,
   plugin, YAML, or user-created folders.
-  v0.36 (ADR 0037) plans only the Elixir/OTP sandbox and gate runner: generated
+  v0.36 (ADR 0037) implements only the Elixir/OTP sandbox and gate runner: generated
   code may be compiled/tested in a configured OS sandbox with approved local
   images and source-policy checks, but that produces a report only and grants no
   live authority. v0.37 (ADR 0032, ADR 0033, ADR 0035) defines the only planned

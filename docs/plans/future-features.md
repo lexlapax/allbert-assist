@@ -64,7 +64,7 @@ Source: origin note, ADR 0003, v0.03 through v0.06 non-goals, v0.37 dynamic
 code/config generation planning, and v0.38 templated-creation planning.
 
 Allbert should eventually help create new skills from traces, repeated tasks,
-corrections, or explicit user requests. v0.36 covers the narrow Elixir/OTP
+corrections, or explicit user requests. v0.36 implements the narrow Elixir/OTP
 sandbox/gate substrate; v0.37 covers operator-confirmed dynamic generation and
 gated live integration for explicit capability gaps; v0.38 covers templated
 creation (vetted plugin/app/tool/flow/code templates via Mix tasks, operator
@@ -555,7 +555,7 @@ policy, Security Central decisions, output limits, redaction, and trace/audit.
 That is useful for a first local shell adapter, but it is not OS isolation and
 should not be described as protecting the host from hostile code.
 
-v0.36 will add the first narrow sandbox/gate backend for generated Elixir/OTP
+v0.36 implements the first narrow sandbox/gate backend for generated Elixir/OTP
 drafts and explicit gate commands. It uses approved local images only, static
 source-policy checks, copy-in/copy-out bundles, no default network, and a
 doctor-gated backend resolver. `docker_runsc` / gVisor is preferred over plain
