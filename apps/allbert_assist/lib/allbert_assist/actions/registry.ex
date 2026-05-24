@@ -57,6 +57,11 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Resources.RememberResourceGrant
   alias AllbertAssist.Actions.Resources.RevokeResourceGrant
   alias AllbertAssist.Actions.Resources.ShowResourceGrant
+  alias AllbertAssist.Actions.Sandbox.BuildBundle, as: BuildSandboxBundle
+  alias AllbertAssist.Actions.Sandbox.DiscardBundle, as: DiscardSandboxBundle
+  alias AllbertAssist.Actions.Sandbox.Doctor, as: SandboxDoctor
+  alias AllbertAssist.Actions.Sandbox.RunCommand, as: RunSandboxCommand
+  alias AllbertAssist.Actions.Sandbox.RunGate, as: RunSandboxGate
   alias AllbertAssist.Actions.Security.Review, as: SecurityReview
   alias AllbertAssist.Actions.Security.Status, as: SecurityStatus
   alias AllbertAssist.Actions.Session.ClearActiveApp
@@ -127,6 +132,11 @@ defmodule AllbertAssist.Actions.Registry do
     ImportLocalSkill,
     SecurityStatus,
     SecurityReview,
+    SandboxDoctor,
+    BuildSandboxBundle,
+    RunSandboxCommand,
+    RunSandboxGate,
+    DiscardSandboxBundle,
     ListConfirmations,
     ShowConfirmation,
     ApproveConfirmation,

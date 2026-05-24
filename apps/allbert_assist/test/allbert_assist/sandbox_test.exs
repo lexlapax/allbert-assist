@@ -13,6 +13,8 @@ defmodule AllbertAssist.SandboxTest do
   alias AllbertAssist.Sandbox.CommandSpec
   alias AllbertAssist.Sandbox.Host
   alias AllbertAssist.Sandbox.Policy
+  alias AllbertAssist.Sandbox.Report
+  alias AllbertAssist.Sandbox.ReportWriter
   alias AllbertAssist.Sandbox.SourcePolicy
   alias AllbertAssist.Settings
 
@@ -79,6 +81,55 @@ defmodule AllbertAssist.SandboxTest do
     def available?(_policy), do: raise("should not run")
     def doctor(_policy), do: raise("should not run")
     def run(_bundle, _command), do: {:error, :not_used}
+    def cleanup(_bundle), do: :ok
+  end
+
+  defmodule CompletingDocker do
+    @behaviour AllbertAssist.Sandbox.Backend
+
+    alias AllbertAssist.Sandbox.CommandSpec
+    alias AllbertAssist.Sandbox.Report
+    alias AllbertAssist.Sandbox.ReportWriter
+
+    def id, do: :docker
+    def platforms, do: [:linux, :macos]
+    def available?(_policy), do: true
+    def doctor(_policy), do: %{id: id(), status: :available, reason: :doctor_green}
+
+    def run(bundle, command) do
+      ReportWriter.write(bundle, %Report{
+        status: :completed,
+        backend: id(),
+        command: CommandSpec.summary(command),
+        metadata: %{fixture_backend?: true}
+      })
+    end
+
+    def cleanup(_bundle), do: :ok
+  end
+
+  defmodule FailingDocker do
+    @behaviour AllbertAssist.Sandbox.Backend
+
+    alias AllbertAssist.Sandbox.CommandSpec
+    alias AllbertAssist.Sandbox.Report
+    alias AllbertAssist.Sandbox.ReportWriter
+
+    def id, do: :docker
+    def platforms, do: [:linux, :macos]
+    def available?(_policy), do: true
+    def doctor(_policy), do: %{id: id(), status: :available, reason: :doctor_green}
+
+    def run(bundle, command) do
+      ReportWriter.write(bundle, %Report{
+        status: :failed,
+        backend: id(),
+        command: CommandSpec.summary(command),
+        exit_status: 1,
+        diagnostics: [%{reason: :fixture_failure}]
+      })
+    end
+
     def cleanup(_bundle), do: :ok
   end
 
@@ -473,6 +524,65 @@ defmodule AllbertAssist.SandboxTest do
     assert File.exists?(report.report_path)
   end
 
+  test "run_command denies disabled sandbox before backend execution" do
+    project = fixture_project("run-disabled")
+    {:ok, bundle} = Sandbox.build_bundle(%{project_root: project, project_paths: ["mix.exs"]})
+    policy = policy("docker", %Host{os: :linux, arch: :x86_64})
+    spec = compile_spec!(bundle, policy)
+
+    assert {:ok, report} = Sandbox.run_command(bundle, spec, backends: [ExplodingBackend])
+    assert report.status == :denied
+    assert [%{reason: :sandbox_disabled, policy: _policy}] = report.diagnostics
+    assert File.exists?(report.report_path)
+  end
+
+  test "run_command resolves backend and writes command report" do
+    enable_sandbox!()
+
+    project = fixture_project("run-command")
+    {:ok, bundle} = Sandbox.build_bundle(%{project_root: project, project_paths: ["mix.exs"]})
+
+    assert {:ok, report} =
+             Sandbox.run_command(bundle, compile_params(),
+               backends: [CompletingDocker],
+               host: %Host{os: :linux, arch: :x86_64}
+             )
+
+    assert report.status == :completed
+    assert report.backend == :docker
+    assert report.metadata.fixture_backend?
+    assert File.exists?(report.report_path)
+  end
+
+  test "run_gate aggregates reviewed profiles and halts on first failing report" do
+    enable_sandbox!()
+
+    project = fixture_project("run-gate")
+    {:ok, bundle} = Sandbox.build_bundle(%{project_root: project, project_paths: ["mix.exs"]})
+
+    assert {:ok, passed} =
+             Sandbox.run_gate(bundle,
+               profiles: [:compile, :credo],
+               backends: [CompletingDocker],
+               host: %Host{os: :linux, arch: :x86_64}
+             )
+
+    assert passed.status == :completed
+    assert passed.backend == :gate_runner
+    assert passed.metadata.step_count == 2
+
+    assert {:ok, failed} =
+             Sandbox.run_gate(bundle,
+               profiles: [:compile, :credo],
+               backends: [FailingDocker],
+               host: %Host{os: :linux, arch: :x86_64}
+             )
+
+    assert failed.status == :failed
+    assert failed.metadata.step_count == 1
+    assert [%{reason: :fixture_failure}] = failed.diagnostics
+  end
+
   defp policy(backend, host) do
     %Policy{
       enabled?: true,
@@ -488,10 +598,24 @@ defmodule AllbertAssist.SandboxTest do
     }
   end
 
-  defp compile_spec!(bundle, policy) do
-    params = %{executable: "mix", argv: ["compile", "--warnings-as-errors"], profile: :compile}
+  defp enable_sandbox! do
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "sandbox" => %{
+                 "elixir" => %{
+                   "enabled" => true,
+                   "backend" => "docker",
+                   "image" => "fixture:local"
+                 }
+               }
+             })
+  end
 
-    assert {:ok, spec} = CommandSpec.normalize(params, policy: policy, bundle: bundle)
+  defp compile_params,
+    do: %{executable: "mix", argv: ["compile", "--warnings-as-errors"], profile: :compile}
+
+  defp compile_spec!(bundle, policy) do
+    assert {:ok, spec} = CommandSpec.normalize(compile_params(), policy: policy, bundle: bundle)
 
     spec
   end

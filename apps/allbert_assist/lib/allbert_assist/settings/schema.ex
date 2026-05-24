@@ -65,6 +65,7 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.confirmation_decide",
     "permissions.objective_write",
     "permissions.workspace_canvas_write",
+    "permissions.sandbox_trial",
     "permissions.stocksage_write",
     "permissions.stocksage_analyze",
     "permissions.stocksage_evidence_fetch",
@@ -970,6 +971,13 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
+    "permissions.sandbox_trial" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "denied"]
+    },
     "permissions.stocksage_write" => %{
       type: :enum,
       default: "allowed",
@@ -1570,6 +1578,7 @@ defmodule AllbertAssist.Settings.Schema do
       "confirmation_decide" => "allowed",
       "objective_write" => "allowed",
       "workspace_canvas_write" => "allowed",
+      "sandbox_trial" => "allowed",
       "stocksage_write" => "allowed",
       "stocksage_analyze" => "needs_confirmation",
       "stocksage_evidence_fetch" => "allowed"

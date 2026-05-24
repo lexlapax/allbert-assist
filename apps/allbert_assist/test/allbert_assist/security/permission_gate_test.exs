@@ -18,6 +18,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :confirmation_decide,
              :objective_write,
              :workspace_canvas_write,
+             :sandbox_trial,
              :stocksage_write,
              :stocksage_analyze,
              :stocksage_evidence_fetch,
@@ -44,13 +45,14 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     assert decision.decision in [:needs_confirmation, :denied]
   end
 
-  test "allows read-only, memory-write intent, command planning, and StockSage local writes" do
+  test "allows read-only, memory-write intent, command planning, sandbox trials, and local writes" do
     for permission <- [
           :read_only,
           :memory_write,
           :command_plan,
           :objective_write,
           :workspace_canvas_write,
+          :sandbox_trial,
           :stocksage_write
         ] do
       decision = PermissionGate.authorize(permission, %{})

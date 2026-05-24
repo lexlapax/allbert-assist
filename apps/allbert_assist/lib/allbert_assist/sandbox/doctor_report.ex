@@ -56,4 +56,19 @@ defmodule AllbertAssist.Sandbox.DoctorReport do
       diagnostics: Map.get(resolution, :diagnostics, [])
     }
   end
+
+  @spec to_map(t()) :: map()
+  def to_map(%__MODULE__{} = report) do
+    %{
+      status: report.status,
+      enabled?: report.enabled?,
+      configured_backend: report.configured_backend,
+      resolved_backend: report.resolved_backend,
+      candidates: report.candidates,
+      settings: report.settings,
+      roots: report.roots,
+      host: report.host,
+      diagnostics: report.diagnostics
+    }
+  end
 end
