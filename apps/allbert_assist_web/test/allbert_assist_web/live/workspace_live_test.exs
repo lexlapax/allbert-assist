@@ -283,6 +283,58 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#workspace-shell[data-mobile-tab='canvas']")
   end
 
+  test "AppBar destination links open workspace Canvas destinations", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    thread_id = workspace_thread_id(view)
+
+    view
+    |> element("#workspace-objective-count-chip")
+    |> render_click()
+
+    assert_patch(
+      view,
+      ~p"/workspace?#{[thread_id: thread_id, destination: "workspace:objectives"]}"
+    )
+
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:objectives']")
+    assert has_element?(view, "#workspace-canvas[data-destination='workspace:objectives']")
+
+    view
+    |> element("#workspace-overflow-menu")
+    |> render_click()
+
+    assert has_element?(view, "#workspace-overflow-settings-link")
+
+    view
+    |> element("#workspace-overflow-settings-link")
+    |> render_click()
+
+    assert_patch(
+      view,
+      ~p"/workspace?#{[thread_id: thread_id, destination: "workspace:settings"]}"
+    )
+
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:settings']")
+    refute has_element?(view, "#workspace-overflow-menu-items")
+
+    view
+    |> element("#workspace-overflow-menu")
+    |> render_click()
+
+    assert has_element?(view, "#workspace-overflow-objectives-link")
+
+    view
+    |> element("#workspace-overflow-objectives-link")
+    |> render_click()
+
+    assert_patch(
+      view,
+      ~p"/workspace?#{[thread_id: thread_id, destination: "workspace:objectives"]}"
+    )
+
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:objectives']")
+  end
+
   test "workspace settings destination renders Settings Central and updates through actions",
        %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/workspace")
