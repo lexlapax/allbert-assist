@@ -531,8 +531,8 @@ defmodule AllbertAssist.Intent.Engine do
          true <- get_in_trace(top, :ranking_reason) == :descriptor_text_match,
          score <- Ranker.score(top),
          true <- score >= clarify_floor() do
-      case descriptor_decision_kind(top, candidates) do
-        :app_handoff ->
+      case descriptor_action_kind(top) do
+        :registry_action ->
           descriptor_registry_action_attrs(top, request, app_context, classifier_diagnostic)
 
         :clarify_intent ->
@@ -656,6 +656,13 @@ defmodule AllbertAssist.Intent.Engine do
 
       true ->
         :clarify_intent
+    end
+  end
+
+  defp descriptor_action_kind(candidate) do
+    case get_in_trace(candidate, :missing_slots) || [] do
+      [] -> :registry_action
+      _missing -> :clarify_intent
     end
   end
 

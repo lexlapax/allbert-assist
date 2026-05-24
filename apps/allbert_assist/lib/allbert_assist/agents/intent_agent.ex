@@ -951,28 +951,17 @@ defmodule AllbertAssist.Agents.IntentAgent do
     Runner.run(action_name, params, runner_context)
   end
 
-  defp registry_action_params(action_name, text, %{request: request} = context) do
+  defp registry_action_params(action_name, _text, %{request: request} = context) do
     %{}
     |> maybe_put_param(:user_id, Map.get(request, :user_id))
     |> maybe_put_param(:thread_id, Map.get(request, :thread_id))
     |> maybe_put_param(:session_id, Map.get(request, :session_id))
     |> Map.merge(descriptor_params(action_name, context))
-    |> maybe_put_symbol(action_name, text)
   end
 
   defp maybe_put_param(params, _key, nil), do: params
   defp maybe_put_param(params, _key, ""), do: params
   defp maybe_put_param(params, key, value), do: Map.put(params, key, value)
-
-  defp maybe_put_symbol(params, action_name, text)
-       when action_name in ["get_trends", "queue_analysis"] do
-    case stock_symbol_from_text(text) do
-      nil -> params
-      symbol -> Map.put(params, :symbol, symbol)
-    end
-  end
-
-  defp maybe_put_symbol(params, _action_name, _text), do: params
 
   defp descriptor_params(action_name, request) do
     request
@@ -1002,15 +991,6 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp normalize_param_key(key), do: key
-
-  defp stock_symbol_from_text(text) do
-    ~r/\b[A-Z]{1,5}\b/
-    |> Regex.run(text)
-    |> case do
-      [symbol] -> symbol
-      _other -> nil
-    end
-  end
 
   defp intent_handoff_decision?(%Decision{intent: intent})
        when intent in [:app_handoff, :clarify_intent],

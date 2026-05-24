@@ -199,6 +199,8 @@ defmodule AllbertAssist.Intent.Ranker do
   defp descriptor_phrase_match?(text, value) when is_binary(value) do
     normalized_text = normalize_text(text)
     normalized_value = normalize_text(value)
+    text_tokens = String.split(normalized_text, " ", trim: true)
+    value_tokens = String.split(normalized_value, " ", trim: true)
 
     cond do
       normalized_value == "" ->
@@ -207,18 +209,12 @@ defmodule AllbertAssist.Intent.Ranker do
       phrase_token_match?(normalized_text, normalized_value) ->
         true
 
-      true ->
-        normalized_value
-        |> String.split(" ", trim: true)
-        |> Enum.reject(&(String.length(&1) < 4))
-        |> case do
-          [] ->
-            false
+      length(value_tokens) == 1 ->
+        [token] = value_tokens
+        String.length(token) >= 4 and token in text_tokens
 
-          tokens ->
-            text_tokens = String.split(normalized_text, " ", trim: true)
-            Enum.any?(tokens, &(&1 in text_tokens))
-        end
+      true ->
+        false
     end
   end
 
