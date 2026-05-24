@@ -130,6 +130,14 @@ Existing canvas and ephemeral behaviors from ADR 0023 remain: signed Fragment
 emission, durable tile persistence, multi-tab sync, accessibility, mobile
 responsiveness, and offline editing.
 
+Implementation note for v0.34: keeping a structural atom in the allow-list does
+not keep the region alive. `:utility_drawer` and `:context_rail` may remain
+recognized so historical surfaces validate and older docs stay intelligible,
+but the v0.34 CoreApp shell must not render them as permanent regions. Their
+former content is reached by host-owned Canvas destinations, and any stale
+`app_id` / `active_app` URL or launcher path is treated as a migration seam,
+not a preserved context-setting authority.
+
 ### 5. Settings Central is a workspace destination
 
 Settings Central renders inside `/workspace`. In v0.32 it rendered through the
