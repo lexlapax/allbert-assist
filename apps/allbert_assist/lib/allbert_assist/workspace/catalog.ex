@@ -17,6 +17,14 @@ defmodule AllbertAssist.Workspace.Catalog do
   alias AllbertAssist.Surface.Catalog, as: SurfaceCatalog
   alias AllbertAssist.Surface.Node
 
+  @workspace_tool_panels %{
+    "jobs" => :core_jobs_panel,
+    "objectives" => :core_objectives_panel,
+    "confirmations" => :core_confirmations_panel,
+    "security" => :core_security_panel,
+    "settings" => :core_settings_panel
+  }
+
   @spec known_components() :: [AllbertAssist.Surface.component(), ...]
   def known_components, do: SurfaceCatalog.known_components()
 
@@ -105,7 +113,8 @@ defmodule AllbertAssist.Workspace.Catalog do
     case validate_panel_surface(surface, catalogs) do
       {:ok, %Surface{zone: zone} = surface} ->
         if panel_visible?(surface, context) do
-          {[%{surface: surface, zone: zone, index: index} | entries], diagnostics}
+          entry = %{surface: surface, zone: render_zone(surface, context, zone), index: index}
+          {[entry | entries], diagnostics}
         else
           {entries, diagnostics}
         end
@@ -222,6 +231,19 @@ defmodule AllbertAssist.Workspace.Catalog do
   end
 
   defp panel_visible?(%Surface{} = surface, context) do
+    case canvas_destination(context) do
+      {:output} ->
+        surface.zone == :ephemeral and legacy_panel_visible?(surface, context)
+
+      {:app, app_id} ->
+        normalize_app_id(surface.app_id) == app_id and app_id != "allbert"
+
+      {:workspace, tool} ->
+        surface.id == Map.get(@workspace_tool_panels, tool)
+    end
+  end
+
+  defp legacy_panel_visible?(%Surface{} = surface, context) do
     case visible_when(surface) do
       :always -> true
       :active_app -> active_app_surface?(surface, context)
@@ -230,6 +252,40 @@ defmodule AllbertAssist.Workspace.Catalog do
       :operator_opened -> operator_opened_surface?(surface, context)
     end
   end
+
+  defp render_zone(%Surface{zone: :ephemeral}, _context, zone), do: zone
+
+  defp render_zone(%Surface{}, context, zone) do
+    case canvas_destination(context) do
+      {:output} -> zone
+      {:app, _app_id} -> :canvas_panels
+      {:workspace, _tool} -> :canvas_panels
+    end
+  end
+
+  defp canvas_destination(context) do
+    context
+    |> Map.get(:canvas_destination, "output")
+    |> normalize_canvas_destination()
+  end
+
+  defp normalize_canvas_destination("output"), do: {:output}
+
+  defp normalize_canvas_destination("app:" <> app_id) do
+    app_id = normalize_app_id(app_id)
+
+    if app_id in [nil, "", "allbert"] do
+      {:output}
+    else
+      {:app, app_id}
+    end
+  end
+
+  defp normalize_canvas_destination("workspace:" <> tool) do
+    if Map.has_key?(@workspace_tool_panels, tool), do: {:workspace, tool}, else: {:output}
+  end
+
+  defp normalize_canvas_destination(_destination), do: {:output}
 
   defp visible_when(%Surface{metadata: metadata}) do
     case metadata_value(metadata, :visible_when) do
@@ -286,17 +342,18 @@ defmodule AllbertAssist.Workspace.Catalog do
   end
 
   defp inject_runtime_node(%Node{component: :canvas} = node, context, panel_context) do
-    tiles = Map.get(context, :canvas_tiles, [])
+    destination = canvas_destination(context)
+    tiles = if destination == {:output}, do: Map.get(context, :canvas_tiles, []), else: []
     panels = Map.get(panel_context.nodes_by_zone, :canvas_panels, [])
 
     if tiles == [] and panels == [] do
-      node
+      %{node | props: Map.merge(node.props || %{}, %{destination: destination_prop(destination)})}
     else
       runtime_children =
-        if tiles == [] do
-          node.children
-        else
-          tile_nodes(tiles)
+        cond do
+          tiles != [] -> tile_nodes(tiles)
+          panels != [] -> panels
+          true -> node.children
         end
 
       %{
@@ -304,9 +361,10 @@ defmodule AllbertAssist.Workspace.Catalog do
         | props:
             Map.merge(node.props || %{}, %{
               empty?: false,
+              destination: destination_prop(destination),
               zones: [:canvas_panels]
             }),
-          children: runtime_children ++ panels
+          children: runtime_children
       }
     end
   end
@@ -330,11 +388,10 @@ defmodule AllbertAssist.Workspace.Catalog do
     end
   end
 
-  defp inject_runtime_node(%Node{component: :badge_strip} = node, context, panel_context) do
+  defp inject_runtime_node(%Node{component: :badge_strip} = node, context, _panel_context) do
     badges = Map.get(context, :workspace_badges, [])
-    panels = Map.get(panel_context.nodes_by_zone, :context_rail, [])
 
-    if badges == [] and panels == [] do
+    if badges == [] do
       node
     else
       %{
@@ -343,9 +400,9 @@ defmodule AllbertAssist.Workspace.Catalog do
             Map.merge(node.props || %{}, %{
               title: "Workspace notices",
               body: "#{length(badges)} active notice(s)",
-              zones: [:context_rail]
+              zones: []
             }),
-          children: badge_nodes(badges) ++ panels
+          children: badge_nodes(badges)
       }
     end
   end
@@ -383,6 +440,10 @@ defmodule AllbertAssist.Workspace.Catalog do
   defp inject_runtime_node(%Node{children: children} = node, context, panel_context) do
     %{node | children: inject_runtime_nodes(children, context, panel_context)}
   end
+
+  defp destination_prop({:output}), do: "output"
+  defp destination_prop({:app, app_id}), do: "app:#{app_id}"
+  defp destination_prop({:workspace, tool}), do: "workspace:#{tool}"
 
   defp tile_nodes(tiles) do
     tiles

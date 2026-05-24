@@ -64,7 +64,7 @@ defmodule AllbertAssist.App.CoreApp do
 
   defp core_panel_surfaces do
     [
-      panel_surface(:core_objectives_panel, "Objectives", :context_rail, 10, [
+      panel_surface(:core_objectives_panel, "Objectives", :canvas_panels, 10, [
         panel_node("core-objectives", "Objectives", "Active work and next steps.", [
           %Node{
             id: "objective-card",
@@ -73,7 +73,7 @@ defmodule AllbertAssist.App.CoreApp do
           }
         ])
       ]),
-      panel_surface(:core_jobs_panel, "Jobs", :utility_drawer, 20, [
+      panel_surface(:core_jobs_panel, "Jobs", :canvas_panels, 20, [
         panel_node("core-jobs", "Jobs", "Scheduled and manual runtime work.", [
           %Node{
             id: "job-card",
@@ -87,7 +87,7 @@ defmodule AllbertAssist.App.CoreApp do
           }
         ])
       ]),
-      panel_surface(:core_confirmations_panel, "Confirmations", :utility_drawer, 30, [
+      panel_surface(:core_confirmations_panel, "Confirmations", :canvas_panels, 30, [
         panel_node("core-confirmations", "Confirmations", "Pending operator decisions.", [
           %Node{
             id: "confirmation-card",
@@ -100,7 +100,7 @@ defmodule AllbertAssist.App.CoreApp do
           }
         ])
       ]),
-      panel_surface(:core_security_panel, "Security", :utility_drawer, 40, [
+      panel_surface(:core_security_panel, "Security", :canvas_panels, 40, [
         panel_node("core-security", "Security", "Settings, grants, and policy status.", [
           %Node{
             id: "security-card",
@@ -109,12 +109,12 @@ defmodule AllbertAssist.App.CoreApp do
           }
         ])
       ]),
-      panel_surface(:core_settings_panel, "Settings Central", :utility_drawer, 50, [
+      panel_surface(:core_settings_panel, "Settings Central", :canvas_panels, 50, [
         panel_node("core-settings", "Settings Central", "Workspace settings and credentials.", [
           %Node{
             id: "settings-central",
             component: :settings_panel,
-            props: %{zone: "utility_drawer", title: "Settings Central"}
+            props: %{zone: "canvas", title: "Settings Central"}
           }
         ])
       ])
