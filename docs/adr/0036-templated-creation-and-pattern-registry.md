@@ -24,15 +24,19 @@ Creation patterns are vetted, parameterized skeletons registered through a
 pattern declares a parameter schema, reviewed file set, output roots, target
 contract shapes, optional validation/gate profile, and whether live integration
 is supported. Resolution is deterministic parameter substitution into reviewed
-files, not free LLM authoring.
+files, not free LLM authoring. If a renderer such as EEx is used, only shipped
+reviewed templates are evaluated; operator/developer parameters are escaped and
+normalized data, never executable template code.
 
 Templates and parameters are metadata and grant no authority.
 
 ### 2. Two output modes
 
-- **Developer scaffold:** write inert source under `./plugins/<name>/` for
-  human review, compile, and test. No live integration, trust, compile-path
-  change, route, permission grant, or schedule enablement.
+- **Developer scaffold:** write inert source under `--target`, defaulting to
+  `./plugins/<name>/`, for human review, compile, and test. Existing target
+  roots are not overwritten without explicit `--force` and preview/diff. No
+  live integration, trust, compile-path change, route, permission grant, or
+  schedule enablement.
 - **Operator templated creation:** render a template, run validation and the
   v0.36 sandbox gate, then optionally integrate through the v0.37
   operator-confirmed loader. v0.38 adds no new sandbox or integration
@@ -46,6 +50,11 @@ creation surface (`workspace:create`) serves operators: template gallery →
 parameter form → preview → validate → developer scaffold or operator live
 integration. The surface is view/compose only; every effectful step runs
 through registered actions and Security Central.
+
+Parameter normalization produces reviewed slugs, module namespaces, app ids,
+destination ids, schedule ids, and paths. Raw params never create atoms
+directly. Generated v0.35 theme/snippet/layout stubs are inert and disabled by
+default.
 
 ### 4. Shipped patterns
 
@@ -65,8 +74,8 @@ Future patterns register through the same behaviour without granting authority.
   validation.
 - The pattern registry is the extension point for future templated code.
 - Security evals must prove template parameter injection, traversal, authority
-  bypass, scheduled-flow escalation, and ungated/unconfirmed integration fail
-  closed.
+  bypass, overwrite denial, scheduled-flow escalation, and
+  ungated/unconfirmed integration fail closed.
 
 ## Non-Goals
 
@@ -75,6 +84,8 @@ Future patterns register through the same behaviour without granting authority.
 - No autonomous creation from traces.
 - No dependency/migration/NIF additions.
 - No multi-language templates beyond Elixir/OTP.
+- No overwrite of existing user/project files without explicit force and
+  preview/diff.
 
 ## Relates To
 

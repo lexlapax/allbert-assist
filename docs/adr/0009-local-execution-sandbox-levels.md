@@ -118,14 +118,15 @@ explicit `mix` / `elixir` / `erl` argv commands needed to compile, test, and
 gate them.
 
 This does not create a broad coding-agent sandbox. v0.36 remains default-off and
-selects a backend in an OS-aware way (`backend=auto`): Apple `container` on
-supported macOS (Apple silicon, macOS 26+, VM-per-container), rootless Podman or
-Docker on Linux, Docker as the cross-platform fallback, and Docker `runsc` /
-gVisor as optional hardening when configured. Backends register through a common
-behaviour/registry, and the runner fails closed when no on-platform backend is
-available. Firecracker, remote builders, broader/cross-version Apple Container
-features, package-manager execution, multi-language targets, and untrusted
-script/package-install workflows remain future work.
+selects a backend in an OS-aware way (`backend=auto`): optional doctor-gated
+Apple `container` on supported macOS (Apple silicon, macOS 26+,
+VM-per-container), rootless Podman where available, Docker `runsc` / gVisor
+preferred over plain Docker when configured, and Docker as the fallback.
+Backends register through a common behaviour/registry, and the runner fails
+closed when no on-platform backend is available. Firecracker, remote builders,
+broader/cross-version Apple Container features beyond the optional v0.36
+adapter, package-manager execution, implicit image pulls, multi-language
+targets, and untrusted script/package-install workflows remain future work.
 
 The v0.36 sandbox produces bounded redacted reports only. It does not load
 generated modules into the core node, register actions, grant permissions,
