@@ -85,7 +85,8 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#workspace-node-workspace-nav-rail")
     assert has_element?(view, "#workspace-component-workspace-thread-list")
     assert has_element?(view, "#workspace-component-workspace-app-launcher")
-    assert has_element?(view, "#workspace-node-workspace-utility-drawer")
+    refute has_element?(view, "#workspace-node-workspace-utility-drawer")
+    refute has_element?(view, "#workspace-node-workspace-objectives")
     assert has_element?(view, "#workspace-active-app-chip")
     assert has_element?(view, "#workspace-thread-switcher-toggle")
     assert has_element?(view, "#workspace-chat-region")
@@ -235,10 +236,10 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   test "workspace mobile tab toggle switches active section", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
-    assert has_element?(view, "#workspace-shell[data-mobile-tab='nav']")
+    assert has_element?(view, "#workspace-shell[data-mobile-tab='chat']")
     assert has_element?(view, "#workspace-mobile-tabs[role='tablist']")
-    assert has_element?(view, "#workspace-mobile-tab-nav[aria-selected='true']")
-    assert has_element?(view, "#workspace-mobile-tab-chat[aria-selected='false']")
+    refute has_element?(view, "#workspace-mobile-tab-nav")
+    assert has_element?(view, "#workspace-mobile-tab-chat[aria-selected='true']")
     assert has_element?(view, "#workspace-mobile-tab-canvas[aria-selected='false']")
 
     html =
@@ -249,22 +250,8 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert html =~ ~s(data-mobile-tab="canvas")
     assert has_element?(view, "#workspace-mobile-tab-chat[aria-selected='false']")
     assert has_element?(view, "#workspace-mobile-tab-canvas[aria-selected='true']")
-
-    html =
-      view
-      |> element("#workspace-mobile-tab-utility")
-      |> render_click()
-
-    assert html =~ ~s(data-mobile-tab="utility")
-    assert has_element?(view, "#workspace-mobile-tab-utility[aria-selected='true']")
-
-    html =
-      view
-      |> element("#workspace-mobile-tab-ephemeral")
-      |> render_click()
-
-    assert html =~ ~s(data-mobile-tab="ephemeral")
-    assert has_element?(view, "#workspace-mobile-tab-ephemeral[aria-selected='true']")
+    refute has_element?(view, "#workspace-mobile-tab-utility")
+    refute has_element?(view, "#workspace-mobile-tab-ephemeral")
   end
 
   test "workspace utility drawer renders Settings Central and updates a safe setting through actions",

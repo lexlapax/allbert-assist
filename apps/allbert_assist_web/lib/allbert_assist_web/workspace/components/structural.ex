@@ -337,7 +337,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Canvas do
        canvas_tiles: Map.get(context, :canvas_tiles, []),
        max_tiles: Map.get(context, :workspace_canvas_max_tiles_per_thread, 64),
        workspace_badges: Map.get(context, :workspace_badges, []),
-       maximized_pane: Map.get(context, :workspace_maximized_pane)
+       canvas_focus?: Map.get(context, :canvas_focus?, false)
      )}
   end
 
@@ -372,18 +372,17 @@ defmodule AllbertAssistWeb.Workspace.Components.Canvas do
           {length(@workspace_badges)} notice(s)
         </span>
         <button
-          id="workspace-canvas-maximize"
+          id="workspace-canvas-focus"
           type="button"
           class="allbert-icon-button workspace-pane-maximize"
-          phx-click="toggle_workspace_maximize"
-          phx-value-pane="canvas"
-          aria-pressed={bool_attribute(@maximized_pane == "canvas")}
-          aria-label={maximize_label(@maximized_pane)}
-          title={maximize_label(@maximized_pane)}
+          phx-click="toggle_canvas_focus"
+          aria-pressed={bool_attribute(@canvas_focus?)}
+          aria-label={focus_label(@canvas_focus?)}
+          title={focus_label(@canvas_focus?)}
         >
           <.icon
             name={
-              if @maximized_pane == "canvas",
+              if @canvas_focus?,
                 do: "hero-arrows-pointing-in-micro",
                 else: "hero-arrows-pointing-out-micro"
             }
@@ -395,8 +394,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Canvas do
     """
   end
 
-  defp maximize_label("canvas"), do: "Restore split view"
-  defp maximize_label(_other), do: "Maximize canvas"
+  defp focus_label(true), do: "Restore split view"
+  defp focus_label(false), do: "Focus canvas"
 
   defp bool_attribute(true), do: "true"
   defp bool_attribute(false), do: "false"

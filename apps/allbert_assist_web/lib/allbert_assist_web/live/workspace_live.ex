@@ -65,7 +65,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         workspace_theme: workspace_theme(),
         workspace_high_contrast?: workspace_high_contrast?(),
         workspace_reduce_motion?: workspace_reduce_motion?(),
-        workspace_mobile_tab: "nav",
+        workspace_mobile_tab: "chat",
         workspace_offline_enabled?: workspace_offline_enabled?(),
         workspace_indexeddb_quota_bytes: workspace_indexeddb_quota_bytes(),
         workspace_canvas_max_tiles_per_thread: workspace_canvas_max_tiles_per_thread(),
@@ -89,7 +89,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         workspace_badges: [],
         composer_max_bytes: workspace_canvas_tile_body_max_bytes(),
         workspace_overflow_open?: false,
-        workspace_maximized_pane: nil
+        workspace_maximized_pane: nil,
+        canvas_focus?: false
       )
       |> assign(workspace_assigns(user_id, thread_id, [], active_app))
       |> maybe_sync_thread_url(sync_thread_url?, thread_id, active_app)
@@ -99,7 +100,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   @impl true
   def handle_params(%{"tab" => tab}, _uri, socket)
-      when tab in ["nav", "chat", "canvas", "utility", "ephemeral"] do
+      when tab in ["chat", "canvas"] do
     {:noreply, assign(socket, :workspace_mobile_tab, tab)}
   end
 
@@ -230,6 +231,10 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   def handle_event("toggle_workspace_maximize", _params, socket), do: {:noreply, socket}
 
+  def handle_event("toggle_canvas_focus", _params, socket) do
+    {:noreply, update(socket, :canvas_focus?, &(!&1))}
+  end
+
   def handle_event("toggle_workspace_theme", _params, socket) do
     next_theme = next_workspace_theme(socket.assigns.workspace_theme)
 
@@ -243,7 +248,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   def handle_event("select_workspace_mobile_tab", %{"tab" => tab}, socket)
-      when tab in ["nav", "chat", "canvas", "utility", "ephemeral"] do
+      when tab in ["chat", "canvas"] do
     {:noreply, assign(socket, :workspace_mobile_tab, tab)}
   end
 
@@ -455,6 +460,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         data-reduce-motion={bool_attribute(@workspace_reduce_motion?)}
         data-mobile-tab={@workspace_mobile_tab}
         data-maximized-pane={@workspace_maximized_pane}
+        data-canvas-focus={bool_attribute(@canvas_focus?)}
         data-offline-enabled={bool_attribute(@workspace_offline_enabled?)}
         data-service-worker-url={~p"/workspace-sw.js"}
         data-service-worker-scope="/workspace"
@@ -1155,15 +1161,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp workspace_mobile_tabs do
     [
-      %{id: "nav", label: "Nav", controls: "workspace-node-workspace-nav-rail"},
       %{id: "chat", label: "Chat", controls: "workspace-node-workspace-chat"},
-      %{id: "canvas", label: "Canvas", controls: "workspace-node-workspace-canvas-region"},
-      %{id: "utility", label: "Tools", controls: "workspace-node-workspace-utility-drawer"},
-      %{
-        id: "ephemeral",
-        label: "Ephemeral",
-        controls: "workspace-node-workspace-ephemeral-region"
-      }
+      %{id: "canvas", label: "Canvas", controls: "workspace-node-workspace-canvas-region"}
     ]
   end
 
@@ -1209,7 +1208,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       active_app: assigns.active_app,
       composer_max_bytes: assigns.composer_max_bytes,
       workspace_overflow_open?: assigns.workspace_overflow_open?,
-      workspace_maximized_pane: assigns.workspace_maximized_pane
+      workspace_maximized_pane: assigns.workspace_maximized_pane,
+      canvas_focus?: assigns.canvas_focus?
     }
   end
 
