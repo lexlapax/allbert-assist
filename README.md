@@ -23,12 +23,12 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is the release-ready `v0.34.0`. `/workspace` is the
-only operator home: chat is the primary spine, the left rail is a view-only
-launcher, and Canvas shows one destination at a time (Output, an app, or a
-workspace tool). Neutral workspace chat can recognize reviewed app-owned
-capabilities without silently running them; app routing context is still set
-only by accepting an explicit conversational handoff.
+The current implementation is the released `v0.34.0`. `/workspace` is the only
+operator home: chat is the primary spine, the left rail is a view-only launcher,
+and Canvas shows one destination at a time (Output, an app, or a workspace
+tool). Neutral workspace chat can recognize reviewed app-owned capabilities
+without silently running them; app routing context is still set only by
+accepting an explicit conversational handoff.
 
 Recent platform contracts now in place:
 

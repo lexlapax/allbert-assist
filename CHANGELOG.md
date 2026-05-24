@@ -12,7 +12,8 @@ changelog entries or release notes.
 
 ## v0.34.0 - Workspace UX Refresh
 
-Status: release-ready. Version metadata is `0.34.0`.
+Status: released and tagged as `v0.34.0` on 2026-05-24. Version metadata is
+`0.34.0`.
 
 Plan: `docs/plans/v0.34-plan.md`.
 Request flow: `docs/plans/v0.34-request-flow.md`.
@@ -47,6 +48,8 @@ revision).
   instead of dead `/objectives` or root `/workspace` links.
 - Desktop workspace root-grid CSS now has one effective four-column layout rule
   guarded by the responsive regression test.
+- The retired `:utility_drawer` renderer is inert if mounted, so historical
+  surface validation cannot resurrect the old Tools column links.
 - `AllbertAssist.App.CoreApp.version/0`, umbrella metadata, child app
   metadata, `StockSage.App.version/0`, `StockSage.Plugin.version/0`,
   `plugins/stocksage/allbert_plugin.json`, and affected StockSage skill
@@ -62,6 +65,8 @@ revision).
   tests passed during milestone work.
 - Post-check focused suites passed for the extended security eval harness,
   Workspace LiveView destination links, and responsive root-grid CSS.
+- Final validation cleanup passed for the inert UtilityDrawer renderer and
+  request-flow deep-link clarification, followed by operator manual acceptance.
 - Final release gate passed: `mix compile --warnings-as-errors`,
   `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
   `git diff --check`.
