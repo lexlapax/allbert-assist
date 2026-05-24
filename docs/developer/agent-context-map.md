@@ -46,8 +46,9 @@ Do not load every section by default.
 | Conversational app intent handoff, clarification, and direct answer | ADR 0034, ADR 0019, ADR 0021, `docs/plans/v0.33-plan.md` | v0.33 |
 | Workspace UX refresh: chat-primary shell, view-only launcher, single-destination Canvas, conversational context indicator | ADR 0024 (v0.34 revision), `docs/plans/v0.34-plan.md`, `docs/plans/v0.34-request-flow.md` | v0.34 |
 | User theming and layout overrides | ADR 0025, ADR 0024, `docs/plans/v0.35-plan.md`, `docs/plans/v0.35-request-flow.md` | v0.35 |
-| Dynamic code & config generation, code-gen agents, OS-sandbox trial, gated live integration | ADR 0032, ADR 0033, ADR 0035, ADR 0009, ADR 0021, ADR 0027, `docs/plans/v0.36-plan.md`, `docs/plans/v0.36-request-flow.md` | v0.36 |
-| Templated creation: plugin/app/LLM-tool/code templates, Mix tasks, operator flows, Canvas Create surface | ADR 0036, ADR 0035, ADR 0017, ADR 0015, `docs/plans/v0.37-plan.md`, `docs/plans/v0.37-request-flow.md` | v0.37 |
+| Elixir/OTP sandbox and gate runner | ADR 0037, ADR 0009, `docs/plans/v0.36-plan.md`, `docs/plans/v0.36-request-flow.md` | v0.36 |
+| Dynamic code & config generation, code-gen agents, v0.36 sandbox trial, gated live integration | ADR 0032, ADR 0033, ADR 0035, ADR 0037, ADR 0021, ADR 0027, `docs/plans/v0.37-plan.md`, `docs/plans/v0.37-request-flow.md` | v0.37 |
+| Templated creation: plugin/app/LLM-tool/scheduled-flow/code templates, Mix tasks, operator flows, Canvas Create surface | ADR 0036, ADR 0035, ADR 0037, ADR 0017, ADR 0015, `docs/plans/v0.38-plan.md`, `docs/plans/v0.38-request-flow.md` | v0.38 |
 
 ## Version Map
 
@@ -226,16 +227,19 @@ Do not load every section by default.
   Output is the neutral destination, `app:allbert` is not a layout destination,
   launcher/layout state is view-only, AppBar is fixed chrome, Settings/Output
   are non-hideable, and `active_app` remains handoff-only.
-- v0.36 (planned): Dynamic Plugin/App Generation And Sandboxed Module Loading.
-  Generates inert local plugin/app drafts under `<ALLBERT_HOME>/plugins`,
-  compiles and tries them only in an out-of-node sandbox, reports redacted
-  diagnostics, and never loads generated modules into the core node. Per ADR
-  0032 and ADR 0033.
-- v0.37 (planned): Allbert Plugin And App Generator. Scaffolds the proven
-  plugin/app shape, now including post-v0.31 action/settings/catalog shapes,
-  panel surfaces, named zones, workspace settings hooks, intent descriptors, the
-  `/apps/<app_id>` route convention for rare pages, memory/action/objective/
-  canvas stubs, v0.35 theming docs, and v0.36 dynamic-draft review notes.
+- v0.36 (planned): Elixir/OTP Sandbox And Gate Runner. Adds the default-off
+  Docker/Podman sandbox facade, copy-in/copy-out bundles, explicit `mix` /
+  `elixir` / `erl` gate commands, bounded reports, and fail-closed denial of
+  network, secrets, real Allbert Home, package-manager execution, NIFs, ports,
+  shell strings, and untrusted core loading. Per ADR 0037 and ADR 0009.
+- v0.37 (planned): Dynamic Code & Config Generation And Live Capability
+  Integration. Generates Elixir/OTP code/config through advisory agents, trials
+  and gates it through v0.36, and hot-loads/registers it live only after the
+  warning gate plus operator confirmation, with rollback. Per ADR 0032, ADR
+  0033, and ADR 0035.
+- v0.38 (planned): Templated Creation. Scaffolds the proven plugin/app/tool/flow
+  shapes through Mix tasks and a `workspace:create` Canvas destination, reusing
+  the v0.36 sandbox and v0.37 loader for optional live integration.
 
 ## Area Notes
 
@@ -263,7 +267,7 @@ scope fails closed, and non-interactive jobs/objectives must propagate trusted
 active-app context before reaching `Actions.Runner.run/3`.
 
 The `to_a2ui` redaction eval is a stub tripwire until protocol emission is
-implemented after v0.37; do not treat it as full redaction coverage. Advisory
+implemented after v0.38; do not treat it as full redaction coverage. Advisory
 or proposer-origin memory writes must be stamped centrally by the objective or
 memory-sync boundary, not by scattered callers.
 
@@ -438,7 +442,7 @@ LiveView to the shipped **agentic workspace shell**:
 - Internal `AllbertAssist.Workspace.AGUI.Bridge` translates curated
   Allbert signals to AG-UI event shape for test-only semantic
   mapping; NOT exposed over HTTP. Public AG-UI / A2UI / MCP Apps
-  interop is post-v0.37 (per Future Features UI Protocol
+  interop is post-v0.38 (per Future Features UI Protocol
   Interop).
 
 In v0.26, sibling routes (`/objectives/:id`, `/jobs`, `/settings`) remain

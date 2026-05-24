@@ -176,11 +176,11 @@ CLI) always disables overrides — together preventing self-lockout.
   Allbert Home / v0.31 runtime path precedence model, and Settings Central.
 - Constrained by: ADR 0006 (Security Central) redaction/audit posture and the
   "no arbitrary model-generated HTML/JS" rule from ADR 0023.
-- Enables: v0.37 Plugin And App Generator scaffolds inert token-theme, snippet,
+- Enables: v0.38 Templated Creation scaffolds inert token-theme, snippet,
   and `layout.yaml` stubs from the contracts this ADR pins.
-- Bounds with: v0.36 (Dynamic Plugin/App Generation) — theme roots under
-  `<ALLBERT_HOME>` are operator styling data, never executable drafts; the v0.36
-  sandbox must not compile or load them as code.
-- Revisit: the CSP baseline must be reconciled with any post-v0.37 external UI
+- Bounds with: v0.36/v0.37 dynamic work — theme roots under `<ALLBERT_HOME>` are
+  operator styling data, never executable drafts; the v0.36 sandbox and v0.37
+  generator must not compile or load them as code.
+- Revisit: the CSP baseline must be reconciled with any post-v0.38 external UI
   protocol bridge (AG-UI/A2UI/MCP Apps) before such a bridge is exposed.
 - New net work: not previously parked in `docs/plans/future-features.md`.

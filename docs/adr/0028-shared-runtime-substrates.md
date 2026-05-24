@@ -9,9 +9,9 @@ Accepted in v0.31 M3-M4 Runtime And UI-Substrate Consolidation
 
 Path resolution, redaction, audit, trace, and persistence logic are used by
 many subsystems. Several local helper variants exist because features landed
-incrementally. The v0.36 dynamic-plugin trial path will need especially clear
-substrates for Allbert Home roots, redacted output, sandbox audit events, and
-copy-in/copy-out persistence.
+incrementally. The v0.36 Elixir/OTP sandbox and v0.37 dynamic-plugin trial path
+will need especially clear substrates for Allbert Home roots, redacted output,
+sandbox audit events, and copy-in/copy-out persistence.
 
 ## Decision
 
@@ -31,8 +31,8 @@ separate migration plan is accepted.
 ## Consequences
 
 - v0.32 workspace UI, v0.33 intent handoff, v0.34 workspace UX refresh,
-  v0.35 theming, v0.36 dynamic trials, and v0.37 generator work reuse one path
-  and redaction model.
+  v0.35 theming, v0.36 sandboxing, v0.37 dynamic trials, and v0.38 generator
+  work reuse one path and redaction model.
 - Audit and trace behavior becomes easier to test consistently.
 - Data format changes remain out of scope for the consolidation release.
 
@@ -57,5 +57,6 @@ separate migration plan is accepted.
   redaction, audit, trace, and persistence.
 - Builds on: the Allbert Home / `AllbertAssist.Paths` model and ADR 0006
   (Security Central redaction).
-- Enables: ADR 0032 / ADR 0033 (v0.36 sandbox-trial paths, redaction, and audit)
-  and v0.32 through v0.37 reuse of one path and redaction model.
+- Enables: ADR 0037 (v0.36 sandbox paths), ADR 0032 / ADR 0033 (v0.37
+  sandbox-trial paths, redaction, and audit), and v0.32 through v0.38 reuse of
+  one path and redaction model.

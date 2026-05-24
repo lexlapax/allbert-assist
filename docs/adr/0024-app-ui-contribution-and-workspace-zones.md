@@ -210,5 +210,6 @@ Panels and zones add no new authority:
 - Constrained by: ADR 0019 and ADR 0021 (metadata is not authority), ADR 0017
   (plugin contract), and v0.28 security posture.
 - Enables: ADR 0034 / v0.33 app intent handoff and clarification, ADR 0025 /
-  v0.35 user theming and layout overrides, v0.36 dynamic plugin/app draft
-  trials, then v0.37 Plugin And App Generator.
+  v0.35 user theming and layout overrides, v0.36 sandboxed draft gates, v0.37
+  dynamic plugin/app generation and live integration, then v0.38 Templated
+  Creation.

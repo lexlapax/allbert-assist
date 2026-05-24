@@ -47,10 +47,11 @@ homes:
 - Conversational app intent handoff and direct-answer foundation: v0.33.
 - Workspace UX refresh (chat-primary shell, view-only launcher, single Canvas): v0.34.
 - User theming and layout overrides: v0.35.
-- Dynamic code & config generation, OS-sandbox trial, and gated live capability
-  integration: v0.36.
-- Templated creation (plugin/app/LLM-tool/code templates, Mix tasks, operator
-  flows, Canvas Create surface): v0.37.
+- Elixir/OTP sandbox and gate runner: v0.36.
+- Dynamic code & config generation, v0.36 sandbox trial, and gated live
+  capability integration: v0.37.
+- Templated creation (plugin/app/LLM-tool/scheduled-flow/code templates, Mix
+  tasks, operator flows, Canvas Create surface): v0.38.
 
 Do not duplicate those here unless the future feature is broader than the
 existing plan.
@@ -59,20 +60,22 @@ existing plan.
 
 ### Autonomous Skill Creation
 
-Source: origin note, ADR 0003, v0.03 through v0.06 non-goals, v0.36 dynamic
-code/config generation planning, and v0.37 templated-creation planning.
+Source: origin note, ADR 0003, v0.03 through v0.06 non-goals, v0.37 dynamic
+code/config generation planning, and v0.38 templated-creation planning.
 
 Allbert should eventually help create new skills from traces, repeated tasks,
-corrections, or explicit user requests. v0.36 covers operator-confirmed dynamic
-generation, sandbox trial, and gated live integration for explicit capability
-gaps; v0.37 covers templated creation (vetted plugin/app/tool/code templates via
-Mix tasks, operator flows, and a Canvas surface). Neither milestone autonomously
-infers, trusts, enables, publishes, or activates new capabilities from traces.
+corrections, or explicit user requests. v0.36 covers the narrow Elixir/OTP
+sandbox/gate substrate; v0.37 covers operator-confirmed dynamic generation and
+gated live integration for explicit capability gaps; v0.38 covers templated
+creation (vetted plugin/app/tool/flow/code templates via Mix tasks, operator
+flows, and a Canvas surface). None of these milestones autonomously infers,
+trusts, enables, publishes, or activates new capabilities from traces.
 
 Needed before planning:
 
-- v0.36 dynamic draft trial substrate accepted through user testing
-- v0.37 manual plugin/app generator accepted
+- v0.36 sandbox/gate runner accepted through user testing
+- v0.37 dynamic generation/live-loader accepted through user testing
+- v0.38 manual plugin/app/template generator accepted
   through user testing
 - review and trust workflow
 - trace-to-skill draft workflow
@@ -245,7 +248,7 @@ Needed before planning:
 - secret entry UX
 - accessibility and mobile behavior
 
-### Post-v0.37 UI Protocol Interop
+### Post-v0.38 UI Protocol Interop
 
 Source: operator UI discussion, v0.16 channel planning, v0.21 memory review,
 v0.19 intent enrichment, v0.28 (formerly v0.26) security hardening, and
@@ -292,7 +295,7 @@ The documented v0.26 internal mapping (per ADR 0023 §8):
 | `allbert.action.completed` | `TOOL_CALL_END` |
 | `allbert.action.failed` | `TOOL_CALL_ERROR` |
 
-Needed before broader post-v0.37 planning:
+Needed before broader post-v0.38 planning:
 
 - v0.24 local workspace and surface contracts accepted through user testing
 - v0.26 workspace shell + canvas + ephemeral substrate accepted through user
@@ -317,7 +320,7 @@ Needed before broader post-v0.37 planning:
   UI protocol bridge is exposed, since such bridges may need additional sources.
 - cross-client fallback, redaction, provenance, and accessibility rules
   (v0.26 ships fallback text, redaction, accessibility; cross-client
-  provenance for federated workspaces is the post-v0.37 surface)
+  provenance for federated workspaces is the post-v0.38 surface)
 - Multi-user collaborative cursors (deferred from v0.26; reserved as
   "Cursor" vocabulary in ADR 0023 §1)
 - Plugin-contributed workspace regions and workspace Settings Central —
@@ -326,7 +329,7 @@ Needed before broader post-v0.37 planning:
 - User theming/layout override (local Allbert Home tokens, sanitized snippets,
   Settings-accountable gates/selections, and v0.34 launcher/Canvas destination
   layout config) - graduated to v0.35.0 (ADR 0025). Remote theme marketplaces,
-  federated UI-protocol styling, and CSP source expansion remain post-v0.37
+  federated UI-protocol styling, and CSP source expansion remain post-v0.38
   work and require a separate security/design pass.
 - Canvas snapshot / undo / time-travel (deferred from v0.26; "Canvas
   Snapshot" reserved in ADR 0023 §1; signal topic
@@ -491,24 +494,26 @@ Needed before planning:
 
 ### Remote Plugin Marketplace And Code-Bearing Plugin Distribution
 
-Source: v0.17 plugin substrate, v0.36 dynamic draft planning, and v0.37
-generator planning.
+Source: v0.17 plugin substrate, v0.36 sandbox planning, v0.37 dynamic draft
+planning, and v0.38 generator planning.
 
 v0.17 creates local plugin discovery and ships Telegram/email as source-tree
 plugins under `./plugins`, but it does not install remote plugins, resolve
 dependencies, automatically compile arbitrary `./plugins/*/lib` directories,
 compile code from `<ALLBERT_HOME>/plugins`, hot-reload code-bearing plugins,
-or sandbox untrusted plugin execution. v0.36 adds local sandboxed draft trials
-only; it is not remote distribution. v0.37 may scaffold plugin source for
-developer review, compile, and test, but marketplace distribution and arbitrary
-runtime loading remain parked here.
+or sandbox untrusted plugin execution. v0.36 adds a local Elixir/OTP
+sandbox/gate runner only; v0.37 adds local dynamic draft generation and gated
+live integration; neither is remote distribution. v0.38 may scaffold plugin
+source for developer review, compile, and test, but marketplace distribution
+and arbitrary runtime loading remain parked here.
 
 Needed before planning:
 
 - v0.17 plugin registry accepted through user testing
 - v0.26 plugin-boundary security evals accepted
-- v0.36 local sandboxed dynamic draft substrate accepted through user testing
-- v0.37 plugin/app generator accepted through user
+- v0.36 sandbox/gate runner accepted through user testing
+- v0.37 dynamic generation/live-loader accepted through user testing
+- v0.38 plugin/app generator accepted through user
   testing
 - dependency install/update policy
 - plugin signing, provenance, versioning, and rollback model
@@ -549,11 +554,11 @@ policy, Security Central decisions, output limits, redaction, and trace/audit.
 That is useful for a first local shell adapter, but it is not OS isolation and
 should not be described as protecting the host from hostile code.
 
-v0.36 will add the first narrow sandbox/trial backend for local generated
-plugin/app drafts. Broader future work should still add deeper execution
-backends when Allbert needs to run untrusted scripts, package installs, broad
-coding workflows, online skill bootstrap, multi-user workloads, or
-network-heavy adapters.
+v0.36 will add the first narrow sandbox/gate backend for generated Elixir/OTP
+drafts and explicit gate commands. Broader future work should still add deeper
+execution backends when Allbert needs to run untrusted scripts, package
+installs, broad coding workflows, online skill bootstrap, multi-user workloads,
+or network-heavy adapters.
 
 Candidate levels:
 
@@ -570,8 +575,9 @@ Candidate levels:
 Questions to resolve before graduation:
 
 - which workflows require stronger isolation than Level 1
-- whether the first container backend should be Docker, Podman, Mac containers,
-  a Linux-only container adapter, or a remote sandbox
+- whether later backends should add Firecracker, broad Apple Container support,
+  remote builders, or hosted sandbox services after the v0.36 Docker/Podman
+  baseline
 - how Allbert maps host paths to sandbox paths without over-mounting
   user-owned data
 - whether workspace mounts are read-only, read-write, or copy-in/copy-out
