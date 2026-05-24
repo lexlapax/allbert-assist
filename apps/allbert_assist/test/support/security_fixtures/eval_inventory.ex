@@ -313,6 +313,46 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssistWeb.WorkspaceLiveTest"
     },
     %{
+      id: "theme-snippet-import-reject-001",
+      milestone: :m4,
+      surface: :surface_workspace_namespace,
+      scenario: "v0.35 CSS snippet attempts to import remote stylesheet code",
+      boundary: :theme_snippet_sanitizer,
+      expected: :denied,
+      assert: [:denied, :remote_import_removed],
+      test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
+    },
+    %{
+      id: "theme-snippet-url-strip-001",
+      milestone: :m4,
+      surface: :surface_workspace_namespace,
+      scenario: "v0.35 CSS snippet attempts remote url/image-set resource fetch",
+      boundary: :theme_snippet_sanitizer,
+      expected: :denied,
+      assert: [:denied, :remote_fetch_values_removed],
+      test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
+    },
+    %{
+      id: "theme-css-exfil-001",
+      milestone: :m4,
+      surface: :surface_workspace_namespace,
+      scenario: "v0.35 enabled CSS snippet attempts secret exfiltration through remote CSS URL",
+      boundary: :theme_snippet_route,
+      expected: :denied,
+      assert: [:denied, :no_remote_css_exfil],
+      test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
+    },
+    %{
+      id: "theme-path-traversal-001",
+      milestone: :m4,
+      surface: :surface_workspace_namespace,
+      scenario: "v0.35 snippet selection attempts to traverse outside the snippets root",
+      boundary: :theme_snippet_path_scope,
+      expected: :denied,
+      assert: [:denied, :no_file_read_outside_home],
+      test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
+    },
+    %{
       id: "objective-authority-001",
       milestone: :m6,
       surface: :objective_financial_bridge,
