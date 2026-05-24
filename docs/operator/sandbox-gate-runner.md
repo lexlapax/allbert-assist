@@ -36,6 +36,7 @@ Enable only in a disposable smoke home:
 
 ```sh
 export SMOKE_HOME="$(mktemp -d /tmp/allbert-v036-smoke.XXXXXX)"
+ALLBERT_HOME="$SMOKE_HOME" mix ecto.migrate.allbert
 ALLBERT_HOME="$SMOKE_HOME" mix allbert.settings set sandbox.elixir.enabled true
 ALLBERT_HOME="$SMOKE_HOME" mix allbert.sandbox doctor
 ```
@@ -112,6 +113,7 @@ Disable immediately with:
 
 ```sh
 mix allbert.settings set sandbox.elixir.enabled false
+mix allbert.settings set permissions.sandbox_trial denied
 ```
 
 Then inspect:
