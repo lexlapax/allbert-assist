@@ -107,6 +107,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     socket =
       socket
       |> assign_canvas_destination(resolve_canvas_destination(params))
+      |> assign(:workspace_overflow_open?, false)
       |> maybe_assign_mobile_tab(param(params, "tab"))
 
     {:noreply, socket}
@@ -1304,7 +1305,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       approval_lines: assigns.approval_lines,
       approval_result: assigns.approval_result,
       show_approval_details?: assigns.show_approval_details?,
-      thread_switcher_open?: assigns.thread_switcher_open?
+      thread_switcher_open?: assigns.thread_switcher_open?,
+      workspace_overflow_open?: assigns.workspace_overflow_open?
     }
   end
 

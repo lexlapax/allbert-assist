@@ -516,17 +516,6 @@
     display: none;
   }
 
-  #workspace-node-workspace-root > .workspace-node-children {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.9fr);
-    grid-template-areas:
-      "header header"
-      "chat canvas"
-      "ephemeral ephemeral";
-    gap: 1rem;
-    align-items: start;
-  }
-
   #workspace-node-workspace-header {
     grid-area: header;
   }
@@ -1564,17 +1553,6 @@ a.allbert-chip-link:focus-visible,
     --workspace-chat-ratio: 55%;
   }
 
-  #workspace-node-workspace-root > .workspace-root-grid {
-    display: grid;
-    grid-template-columns: minmax(20rem, var(--workspace-chat-ratio)) 12px minmax(20rem, 1fr);
-    grid-template-areas:
-      "header header header"
-      "chat resizer canvas"
-      "ephemeral ephemeral ephemeral";
-    gap: 1rem;
-    align-items: stretch;
-  }
-
   #workspace-split-resizer {
     display: flex;
     grid-area: resizer;
@@ -1978,6 +1956,7 @@ a.allbert-chip-link:focus-visible,
 
 @media (min-width: 768px) {
   #workspace-shell #workspace-node-workspace-root > .workspace-root-grid {
+    display: grid;
     grid-template-columns:
       minmax(11rem, 14rem)
       minmax(24rem, var(--workspace-chat-ratio))
@@ -1987,6 +1966,8 @@ a.allbert-chip-link:focus-visible,
       "header header header header"
       "nav chat resizer canvas"
       "ephemeral ephemeral ephemeral ephemeral";
+    gap: 1rem;
+    align-items: stretch;
   }
 
   #workspace-node-workspace-nav-rail {
