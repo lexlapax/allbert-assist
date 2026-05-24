@@ -23,10 +23,11 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is `v0.36.0`, with release readiness reopened for
-the local sandbox image-preparation task. `/workspace` is the only operator
-home: chat is the primary spine, the left rail is a view-only launcher, and
-Canvas shows one destination at a time (Output, an app, or a workspace tool).
+The current implementation is `v0.36.0`, with release gate in progress after
+adding the local sandbox image-preparation task. `/workspace` is the only
+operator home: chat is the primary spine, the left rail is a view-only
+launcher, and Canvas shows one destination at a time (Output, an app, or a
+workspace tool).
 Operators can retheme and re-lay-out the workspace from local Allbert Home
 files through Settings Central-accountable gates, while the runtime now has a
 default-off, report-only Elixir/OTP sandbox and gate runner for future
@@ -65,8 +66,8 @@ Recent platform contracts now in place:
   bundles, source-policy checks, hardened Docker/Podman/runsc backend command
   builders, optional doctor-gated Apple `container` detection, internal
   sandbox actions, gate profiles, bounded redacted reports, and security evals
-  proving denied paths stay denied. Release readiness is reopened to add
-  Allbert-owned local image build/verify tasks for `allbert-elixir-otp:local`.
+  proving denied paths stay denied, plus Allbert-owned local image build/verify
+  tasks for `allbert-elixir-otp:local`.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -129,7 +130,7 @@ Near-term milestones:
   Docker, Docker fallback) for generated Elixir/OTP drafts and explicit gate
   commands, using approved local images, source-policy checks, and bounded
   reports without live loading; implemented as `v0.36.0` with local image
-  preparation being added before release-ready manual verification.
+  preparation added before release-ready manual verification.
 - `v0.37`: dynamic code & config generation and live capability integration —
   LLM code-gen agents generate to the proven shapes, store file-backed draft
   metadata under Allbert Home, trial through the v0.36 sandbox, and (after the

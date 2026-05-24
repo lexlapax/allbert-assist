@@ -10,6 +10,7 @@ defmodule AllbertAssist.Sandbox.Backends.DockerRunsc do
   alias AllbertAssist.Sandbox.Backends.ContainerRunner
   alias AllbertAssist.Sandbox.Bundle
   alias AllbertAssist.Sandbox.CommandSpec
+  alias AllbertAssist.Sandbox.Image
   alias AllbertAssist.Sandbox.Policy
 
   @impl true
@@ -28,12 +29,12 @@ defmodule AllbertAssist.Sandbox.Backends.DockerRunsc do
            command_ok(docker, ["version", "--format", "{{.Server.Version}}"], :docker_unavailable),
          {:ok, runtimes} <- docker_runtimes(docker),
          :ok <- runsc_present(runtimes),
-         :ok <-
-           command_ok(docker, ["image", "inspect", policy.image], {:image_missing, policy.image}) do
+         {:ok, image_metadata} <- Image.local_status(policy, docker) do
       available(%{
         executable: docker,
         runtime: "runsc",
         image: policy.image,
+        image_metadata: image_metadata,
         runtimes: runtimes,
         network: policy.network
       })
