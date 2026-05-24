@@ -62,6 +62,24 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
     refute html =~ "component not implemented"
   end
 
+  test "retired utility drawer renderer is inert if rendered" do
+    html =
+      render_component(Renderer,
+        id: "utility-drawer-renderer",
+        node: %Node{id: "workspace-utility-drawer", component: :utility_drawer, props: %{}},
+        renderer_context: renderer_context(),
+        workspace_state: workspace_state()
+      )
+
+    assert html =~ ~s(data-workspace-component="utility_drawer")
+    assert html =~ ~s(data-retired="true")
+    assert html =~ "Retired workspace utility drawer"
+    refute html =~ ~s(href="/jobs")
+    refute html =~ "/objectives/"
+    refute html =~ "workspace-utility-link"
+    refute html =~ ">Tools<"
+  end
+
   test "tile and ephemeral nodes expose semantic accessibility roles" do
     tile_html =
       render_component(Renderer,
