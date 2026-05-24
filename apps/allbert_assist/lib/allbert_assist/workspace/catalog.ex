@@ -12,10 +12,41 @@ defmodule AllbertAssist.Workspace.Catalog do
   """
 
   alias AllbertAssist.App.CoreApp
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Runtime.Persistence
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Catalog, as: SurfaceCatalog
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.Theme.Layout
+
+  @workspace_tool_destinations [
+    %{id: "workspace:jobs", tool: "jobs", label: "Jobs", dom_id: "workspace-jobs"},
+    %{
+      id: "workspace:objectives",
+      tool: "objectives",
+      label: "Objectives",
+      dom_id: "workspace-objectives"
+    },
+    %{
+      id: "workspace:confirmations",
+      tool: "confirmations",
+      label: "Confirmations",
+      dom_id: "workspace-confirmations"
+    },
+    %{
+      id: "workspace:security",
+      tool: "security",
+      label: "Security",
+      dom_id: "workspace-security"
+    },
+    %{
+      id: "workspace:settings",
+      tool: "settings",
+      label: "Settings",
+      dom_id: "workspace-settings",
+      non_hideable?: true
+    }
+  ]
 
   @workspace_tool_panels %{
     "jobs" => :core_jobs_panel,
@@ -28,9 +59,28 @@ defmodule AllbertAssist.Workspace.Catalog do
   @spec known_components() :: [AllbertAssist.Surface.component(), ...]
   def known_components, do: SurfaceCatalog.known_components()
 
+  @spec known_destinations(keyword() | map()) :: [map()]
+  def known_destinations(context \\ %{}) do
+    context = context_map(context)
+
+    [
+      %{
+        id: "output",
+        section: :output,
+        label: "Output",
+        dom_id: "output",
+        non_hideable?: true
+      }
+    ] ++
+      app_destinations(registered_apps(context)) ++
+      Enum.map(@workspace_tool_destinations, &Map.put(&1, :section, :workspace))
+  end
+
   @spec workspace_tree(keyword() | map()) :: Surface.t()
   def workspace_tree(context \\ %{}) do
     context = context_map(context)
+    layout = Map.get(context, :workspace_layout) || Layout.current(context)
+    context = Map.put(context, :workspace_layout, layout)
     panel_context = panel_context(context)
 
     :workspace
@@ -52,14 +102,55 @@ defmodule AllbertAssist.Workspace.Catalog do
 
     metadata = %{workspace: workspace}
 
-    case panel_context.diagnostics do
-      [] -> metadata
-      diagnostics -> Map.put(metadata, :panel_diagnostics, diagnostics)
-    end
+    metadata
+    |> Map.put(:layout, Map.drop(Map.get(context, :workspace_layout, %{}), [:panel_pins]))
+    |> maybe_put_panel_diagnostics(panel_context.diagnostics)
   end
 
   defp context_map(context) when is_list(context), do: Map.new(context)
   defp context_map(context) when is_map(context), do: context
+
+  defp maybe_put_panel_diagnostics(metadata, []), do: metadata
+
+  defp maybe_put_panel_diagnostics(metadata, diagnostics),
+    do: Map.put(metadata, :panel_diagnostics, diagnostics)
+
+  defp registered_apps(%{registered_apps: apps}) when is_list(apps), do: apps
+
+  defp registered_apps(_context) do
+    AppRegistry.registered_apps()
+  catch
+    :exit, _reason -> []
+  end
+
+  defp app_destinations(apps) do
+    apps
+    |> List.wrap()
+    |> Enum.reject(&(app_id(&1) == "allbert"))
+    |> Enum.map(fn app ->
+      app_id = app_id(app)
+
+      %{
+        id: "app:#{app_id}",
+        section: :apps,
+        label: app_label(app),
+        dom_id: "app-#{app_id}",
+        app_id: app_id
+      }
+    end)
+  end
+
+  defp app_id(app) when is_map(app), do: app |> field(:app_id, :allbert) |> to_string()
+  defp app_id(_app), do: "allbert"
+
+  defp app_label(app) when is_map(app),
+    do: app |> field(:display_name, app_id(app)) |> to_string()
+
+  defp app_label(_app), do: "Allbert"
+
+  defp field(map, key, fallback) when is_map(map) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key), fallback)
+  end
 
   defp panel_context(context) do
     catalogs = Map.get(context, :surface_catalogs, %{})
@@ -231,7 +322,21 @@ defmodule AllbertAssist.Workspace.Catalog do
   end
 
   defp panel_visible?(%Surface{} = surface, context) do
-    case canvas_destination(context) do
+    destination = canvas_destination(context)
+
+    if Layout.panel_pinned?(
+         Map.get(context, :workspace_layout),
+         destination_prop(destination),
+         surface
+       ) do
+      true
+    else
+      panel_visible_for_destination?(surface, context, destination)
+    end
+  end
+
+  defp panel_visible_for_destination?(%Surface{} = surface, context, destination) do
+    case destination do
       {:output} ->
         surface.zone == :ephemeral and legacy_panel_visible?(surface, context)
 
@@ -405,6 +510,13 @@ defmodule AllbertAssist.Workspace.Catalog do
           children: badge_nodes(badges)
       }
     end
+  end
+
+  defp inject_runtime_node(%Node{component: :app_launcher} = node, context, _panel_context) do
+    %{
+      node
+      | props: Map.merge(node.props || %{}, %{layout: Map.get(context, :workspace_layout)})
+    }
   end
 
   defp inject_runtime_node(%Node{component: :nav_rail} = node, context, panel_context) do

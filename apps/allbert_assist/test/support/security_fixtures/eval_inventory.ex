@@ -353,6 +353,26 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
     },
     %{
+      id: "layout-override-authority-001",
+      milestone: :m5,
+      surface: :surface_workspace_namespace,
+      scenario: "v0.35 layout YAML attempts to set active_app or create action/routing authority",
+      boundary: :workspace_layout_validation,
+      expected: :denied,
+      assert: [:denied, :layout_data_not_authority],
+      test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
+    },
+    %{
+      id: "layout-hide-settings-lockout-001",
+      milestone: :m5,
+      surface: :surface_workspace_namespace,
+      scenario: "v0.35 layout YAML attempts to hide Settings and Output escape hatches",
+      boundary: :workspace_layout_validation,
+      expected: :denied,
+      assert: [:denied, :settings_output_non_hideable],
+      test_module: "AllbertAssist.Security.SurfaceWorkspaceEvalTest"
+    },
+    %{
       id: "objective-authority-001",
       milestone: :m6,
       surface: :objective_financial_bridge,

@@ -40,6 +40,32 @@ defmodule AllbertAssist.Workspace.CatalogTest do
            )
   end
 
+  test "known destinations enumerate output apps and workspace tools without app:allbert" do
+    destinations =
+      Catalog.known_destinations(
+        registered_apps: [
+          %{app_id: :allbert, display_name: "Allbert"},
+          %{app_id: :stocksage, display_name: "StockSage"}
+        ]
+      )
+
+    ids = Enum.map(destinations, & &1.id)
+
+    assert ids == [
+             "output",
+             "app:stocksage",
+             "workspace:jobs",
+             "workspace:objectives",
+             "workspace:confirmations",
+             "workspace:security",
+             "workspace:settings"
+           ]
+
+    assert Enum.find(destinations, &(&1.id == "output")).non_hideable?
+    assert Enum.find(destinations, &(&1.id == "workspace:settings")).non_hideable?
+    refute "app:allbert" in ids
+  end
+
   test "workspace tree returns the v0.34 core /workspace surface" do
     surface = Catalog.workspace_tree(user_id: "local", thread_id: "thread-1")
 
@@ -175,6 +201,31 @@ defmodule AllbertAssist.Workspace.CatalogTest do
 
     refute canvas_panel?(hidden, :stocksage_fixture_panel)
     assert canvas_panel?(shown, :stocksage_fixture_panel)
+  end
+
+  test "workspace tree applies layout panel pins without changing active app authority" do
+    surface =
+      Catalog.workspace_tree(
+        active_app: :allbert,
+        canvas_destination: "workspace:settings",
+        workspace_layout: %{
+          enabled?: true,
+          status: :present,
+          panel_pins: %{"workspace:settings" => MapSet.new(["fixture_app.fixture_panel"])},
+          diagnostics: []
+        },
+        panel_surfaces: [
+          panel_surface(%{
+            id: :fixture_panel,
+            app_id: :fixture_app,
+            metadata: %{visible_when: :selected_app, order: 10}
+          })
+        ]
+      )
+
+    assert canvas_panel?(surface, :fixture_panel)
+    assert surface.metadata.layout.enabled?
+    assert surface.metadata.layout.status == :present
   end
 
   test "workspace tree drops invalid panel surfaces with bounded diagnostics" do
