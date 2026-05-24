@@ -342,15 +342,7 @@ defmodule AllbertAssistWeb.Workspace.Components.UtilityDrawer do
 
   @impl true
   def update(assigns, socket) do
-    context = Map.get(assigns, :renderer_context, %{})
-
-    {:ok,
-     socket
-     |> Base.assign_defaults(assigns)
-     |> assign(
-       active_objectives: Map.get(context, :active_objectives, []),
-       workspace_badges: Map.get(context, :workspace_badges, [])
-     )}
+    {:ok, Base.assign_defaults(socket, assigns)}
   end
 
   @impl true
@@ -358,45 +350,21 @@ defmodule AllbertAssistWeb.Workspace.Components.UtilityDrawer do
     ~H"""
     <aside
       id={"workspace-component-#{@node.id}"}
-      class="workspace-utility-drawer-shell"
+      class="workspace-utility-drawer-shell workspace-utility-drawer-retired"
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
+      data-retired="true"
       aria-labelledby={Base.component_title_id(@node)}
+      aria-hidden="true"
+      hidden
     >
-      <div class="workspace-utility-head">
-        <h2 id={Base.component_title_id(@node)} class="workspace-rail-title">Tools</h2>
-        <span class="allbert-chip">
-          <.icon name="hero-bell-alert-micro" class="size-4" />
-          {length(@workspace_badges)}
-        </span>
-      </div>
-      <div class="workspace-utility-actions">
-        <.link navigate="/jobs" class="workspace-utility-link">
-          <.icon name="hero-clock-micro" class="size-4" /> Jobs
-        </.link>
-        <.link
-          :if={first_objective_id(@active_objectives)}
-          navigate={~p"/objectives/#{first_objective_id(@active_objectives)}"}
-          class="workspace-utility-link"
-        >
-          <.icon name="hero-flag-micro" class="size-4" /> Objectives
-        </.link>
-        <span
-          :if={!first_objective_id(@active_objectives)}
-          class="workspace-utility-link workspace-utility-link-disabled"
-        >
-          <.icon name="hero-flag-micro" class="size-4" /> Objectives
-        </span>
-      </div>
+      <h2 id={Base.component_title_id(@node)} class="sr-only">Retired workspace utility drawer</h2>
+      <p class="sr-only">
+        Workspace tools now render through Canvas destinations in the v0.34 shell.
+      </p>
     </aside>
     """
   end
-
-  defp first_objective_id([%{id: id} | _rest]) when is_binary(id), do: id
-  defp first_objective_id([%{"id" => id} | _rest]) when is_binary(id), do: id
-  defp first_objective_id([%{objective_id: id} | _rest]) when is_binary(id), do: id
-  defp first_objective_id([%{"objective_id" => id} | _rest]) when is_binary(id), do: id
-  defp first_objective_id(_objectives), do: nil
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.WorkspacePanel do
