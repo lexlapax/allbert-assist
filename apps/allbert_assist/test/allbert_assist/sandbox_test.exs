@@ -639,6 +639,7 @@ defmodule AllbertAssist.SandboxTest do
 
   defp fixture_project(name) do
     root = temp_path("project-#{name}")
+    File.rm_rf!(root)
 
     File.mkdir_p!(Path.join(root, "lib"))
     File.mkdir_p!(Path.join(root, "drafts"))
