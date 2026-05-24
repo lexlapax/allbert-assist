@@ -23,13 +23,17 @@ defmodule AllbertAssist.Settings.Store do
     path = settings_path()
 
     if File.exists?(path) do
-      YamlCodec.read_file(path)
+      with {:ok, settings} <- YamlCodec.read_file(path) do
+        {:ok, normalize_user_settings(settings)}
+      end
     else
       {:ok, %{}}
     end
   end
 
   def write_user_settings(settings, opts \\ []) when is_map(settings) and is_list(opts) do
+    settings = normalize_user_settings(settings)
+
     with {:ok, merged} <- merge_user_settings(settings),
          :ok <- Schema.validate_settings(merged) do
       ensure_root!()
@@ -66,6 +70,7 @@ defmodule AllbertAssist.Settings.Store do
   end
 
   def merge_user_settings(user_settings) when is_map(user_settings) do
+    user_settings = normalize_user_settings(user_settings)
     {:ok, deep_merge(Schema.defaults(), user_settings)}
   end
 
@@ -106,4 +111,15 @@ defmodule AllbertAssist.Settings.Store do
   defp deep_merge(_left, right), do: right
 
   defp reason(error, _reason), do: error
+
+  defp normalize_user_settings(settings) when is_map(settings) do
+    case get_in(settings, ["workspace", "theme"]) do
+      value when is_binary(value) ->
+        settings
+        |> put_in(["workspace", "theme"], %{"mode" => value})
+
+      _other ->
+        settings
+    end
+  end
 end

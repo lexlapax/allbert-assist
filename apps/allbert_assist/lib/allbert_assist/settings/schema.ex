@@ -177,7 +177,11 @@ defmodule AllbertAssist.Settings.Schema do
     "memory.max_entries_per_category",
     "memory.index_enabled",
     "memory.max_index_entries",
-    "workspace.theme",
+    "workspace.theme.mode",
+    "workspace.theme.active",
+    "workspace.theme.snippets_enabled",
+    "workspace.theme.enabled_snippets",
+    "workspace.layout.override_enabled",
     "workspace.canvas.max_tiles_per_thread",
     "workspace.canvas.tile_body_max_bytes",
     "workspace.ephemeral.max_active_per_thread",
@@ -739,12 +743,36 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false
     },
-    "workspace.theme" => %{
+    "workspace.theme.mode" => %{
       type: :enum,
       default: "system",
       writable?: true,
       sensitive?: false,
       allowed_values: ["light", "dark", "system"]
+    },
+    "workspace.theme.active" => %{
+      type: :string_or_nil,
+      default: nil,
+      writable?: true,
+      sensitive?: false
+    },
+    "workspace.theme.snippets_enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "workspace.theme.enabled_snippets" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "workspace.layout.override_enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
     },
     "workspace.canvas.max_tiles_per_thread" => %{
       type: :bounded_integer,
@@ -1633,7 +1661,15 @@ defmodule AllbertAssist.Settings.Schema do
       "max_index_entries" => 1000
     },
     "workspace" => %{
-      "theme" => "system",
+      "theme" => %{
+        "mode" => "system",
+        "active" => nil,
+        "snippets_enabled" => false,
+        "enabled_snippets" => []
+      },
+      "layout" => %{
+        "override_enabled" => false
+      },
       "canvas" => %{
         "max_tiles_per_thread" => 64,
         "tile_body_max_bytes" => 65_536

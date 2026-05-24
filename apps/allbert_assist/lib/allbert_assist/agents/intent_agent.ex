@@ -449,7 +449,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp setting_route_key?(key) do
-    key in Settings.safe_write_keys() or Map.has_key?(Settings.schema(), key)
+    Settings.safe_write_key?(key) or Settings.known_key?(key)
   rescue
     _exception -> false
   end

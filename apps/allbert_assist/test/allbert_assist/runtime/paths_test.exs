@@ -64,11 +64,14 @@ defmodule AllbertAssist.Runtime.PathsTest do
              workspace: Path.join(home, "workspace"),
              workspace_canvas: Path.join([home, "workspace", "canvas"]),
              workspace_ephemeral: Path.join([home, "workspace", "ephemeral"]),
-             workspace_secrets: Path.join([home, "workspace", "secrets"])
+             workspace_secrets: Path.join([home, "workspace", "secrets"]),
+             themes: Path.join(home, "themes"),
+             theme_snippets: Path.join([home, "themes", "snippets"])
            }
 
     assert Paths.root(:workspace_canvas) == LegacyPaths.workspace_canvas_root()
     assert Paths.root(:database) == LegacyPaths.db_path()
+    assert Paths.root(:themes) == LegacyPaths.themes_root()
   end
 
   test "runtime ensure_home! preserves current directory creation behavior" do
@@ -92,7 +95,9 @@ defmodule AllbertAssist.Runtime.PathsTest do
           :workspace,
           :workspace_canvas,
           :workspace_ephemeral,
-          :workspace_secrets
+          :workspace_secrets,
+          :themes,
+          :theme_snippets
         ] do
       assert File.dir?(Paths.root(root))
     end

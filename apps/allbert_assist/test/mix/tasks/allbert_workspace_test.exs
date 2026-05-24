@@ -50,7 +50,7 @@ defmodule Mix.Tasks.Allbert.WorkspaceTest do
   end
 
   test "inspects the resolved workspace surface tree" do
-    assert {:ok, _setting} = Settings.put("workspace.theme", "dark", %{audit?: false})
+    assert {:ok, _setting} = Settings.put("workspace.theme.mode", "dark", %{audit?: false})
 
     output =
       capture_io(fn ->
@@ -59,7 +59,7 @@ defmodule Mix.Tasks.Allbert.WorkspaceTest do
 
     assert output =~ "Resolved workspace Surface tree"
     assert output =~ "Surface: :workspace /workspace kind=workspace"
-    assert output =~ "workspace.theme=dark"
+    assert output =~ "workspace.theme.mode=dark"
     assert output =~ "user_id=local thread_id=thread-1"
     assert output =~ "- workspace-root workspace_shell"
     assert output =~ "  - workspace-canvas-region canvas"
