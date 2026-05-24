@@ -25,6 +25,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Session
   alias AllbertAssist.Settings
+  alias AllbertAssist.Theme.Layout
   alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
   alias AllbertAssist.Workspace.Fragment.Envelope
@@ -741,7 +742,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     |> normalize_canvas_destination()
   end
 
-  defp normalize_canvas_destination(nil), do: "output"
+  defp normalize_canvas_destination(nil), do: Layout.default_destination()
   defp normalize_canvas_destination("output"), do: "output"
 
   defp normalize_canvas_destination("workspace:" <> tool) when tool in @workspace_tools do
@@ -868,6 +869,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   defp workspace_assigns(user_id, thread_id, workspace_badges, active_app, canvas_destination) do
     tiles = canvas_tiles(thread_id, user_id)
     surfaces = ephemeral_surfaces(thread_id, user_id)
+    apps = registered_apps()
 
     surface_context =
       registered_surface_context(%{
@@ -883,7 +885,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       ephemeral_surfaces: surfaces,
       conversation_messages: conversation_messages(thread_id, user_id),
       recent_threads: recent_threads(user_id),
-      registered_apps: registered_apps(),
+      registered_apps: apps,
       workspace_badges: workspace_badges,
       workspace_surface:
         WorkspaceCatalog.workspace_tree(
@@ -894,6 +896,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
           workspace_badges: workspace_badges,
           active_app: active_app,
           canvas_destination: canvas_destination,
+          registered_apps: apps,
           panel_surfaces: surface_context.panel_surfaces,
           surface_catalogs: surface_context.surface_catalogs
         )

@@ -10,6 +10,7 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Encoder
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.Theme.Layout
   alias AllbertAssist.Theme.Snippets
   alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
@@ -755,6 +756,133 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
     refute eval.trace.outside_file_read?
   end
 
+  test "layout-override-authority-001: layout YAML cannot create routing or action authority" do
+    fixture = EvalInventory.row!("layout-override-authority-001")
+    Paths.ensure_home!()
+
+    File.write!(
+      Path.join([Paths.home(), "workspace", "layout.yaml"]),
+      """
+      default_destination: app:allbert
+      launcher_order:
+        - output
+        - app:allbert
+        - workspace:settings
+      active_app: stocksage
+      route: /objectives
+      action: run_analysis
+      component: approval_card
+      """
+    )
+
+    assert {:ok, _setting} =
+             Settings.put("workspace.layout.override_enabled", true, %{audit?: false})
+
+    eval =
+      run_eval(
+        Map.merge(fixture, %{
+          run: fn fixture ->
+            layout = Layout.current()
+
+            tree =
+              WorkspaceCatalog.workspace_tree(
+                active_app: :allbert,
+                canvas_destination: layout.default_destination,
+                workspace_layout: layout
+              )
+
+            %{
+              decision:
+                if(
+                  layout.default_destination == "output" and
+                    not layout_creates_authority?(layout, tree),
+                  do: :denied,
+                  else: :allowed
+                ),
+              result: %{layout: layout, tree_metadata: tree.metadata},
+              trace: %{
+                fixture_id: fixture.id,
+                boundary: :workspace_layout_validation,
+                side_effect_ran?: false,
+                active_app_before: :allbert,
+                active_app_after: :allbert
+              }
+            }
+          end
+        })
+      )
+
+    assert_denied(eval, no_side_effect?: true)
+    assert eval.result.layout.default_destination == "output"
+    assert Enum.any?(eval.result.layout.diagnostics, &(&1 =~ "app:allbert"))
+    assert Enum.any?(eval.result.layout.diagnostics, &(&1 =~ "active_app ignored"))
+    assert Enum.any?(eval.result.layout.diagnostics, &(&1 =~ "route ignored"))
+    assert Enum.any?(eval.result.layout.diagnostics, &(&1 =~ "action ignored"))
+    assert Enum.any?(eval.result.layout.diagnostics, &(&1 =~ "component ignored"))
+  end
+
+  test "layout-hide-settings-lockout-001: Settings and Output cannot be hidden" do
+    fixture = EvalInventory.row!("layout-hide-settings-lockout-001")
+    Paths.ensure_home!()
+
+    File.write!(
+      Path.join([Paths.home(), "workspace", "layout.yaml"]),
+      """
+      launcher_order:
+        - workspace:settings
+        - output
+        - workspace:security
+      hidden_destinations:
+        - output
+        - workspace:settings
+        - workspace:jobs
+      """
+    )
+
+    assert {:ok, _setting} =
+             Settings.put("workspace.layout.override_enabled", true, %{audit?: false})
+
+    eval =
+      run_eval(
+        Map.merge(fixture, %{
+          run: fn fixture ->
+            layout = Layout.current()
+
+            destinations =
+              layout
+              |> Layout.launcher_destinations(WorkspaceCatalog.known_destinations())
+              |> Enum.map(& &1.id)
+
+            escape_hatches_present? =
+              "output" in destinations and "workspace:settings" in destinations
+
+            %{
+              decision: if(escape_hatches_present?, do: :denied, else: :allowed),
+              result: %{layout: layout, destinations: destinations},
+              trace: %{
+                fixture_id: fixture.id,
+                boundary: :workspace_layout_validation,
+                side_effect_ran?: false
+              }
+            }
+          end
+        })
+      )
+
+    assert_denied(eval, no_side_effect?: true)
+    assert "output" in eval.result.destinations
+    assert "workspace:settings" in eval.result.destinations
+    refute "workspace:jobs" in eval.result.destinations
+    refute "output" in eval.result.layout.hidden_destinations
+    refute "workspace:settings" in eval.result.layout.hidden_destinations
+    assert Enum.any?(eval.result.layout.diagnostics, &(&1 =~ "output is non-hideable"))
+
+    assert Enum.any?(
+             eval.result.layout.diagnostics,
+             &(&1 =~ "workspace:settings is non-hideable")
+           )
+  end
+
   defp fragment_attrs(attrs \\ %{}) do
     Map.merge(
       %{
@@ -826,6 +954,19 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
     |> Enum.find(&(&1.component == :canvas))
     |> Map.get(:children, [])
     |> Enum.any?(&(&1.props[:surface_id] == surface_id))
+  end
+
+  defp layout_creates_authority?(layout, tree) do
+    layout.default_destination == "app:allbert" or
+      value_contains?(layout, "run_analysis") or
+      value_contains?(tree, "run_analysis") or
+      value_contains?(tree, "/objectives")
+  end
+
+  defp value_contains?(value, needle) do
+    value
+    |> inspect()
+    |> String.contains?(needle)
   end
 
   defp ensure_stocksage_plugin! do
