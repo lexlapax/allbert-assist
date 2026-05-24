@@ -53,7 +53,7 @@ defmodule AllbertAssist.Theme.StatusTest do
 
     File.write!(theme_path, "tokens:\n  allbert-surface-0: \"#101820\"\n")
     File.write!(snippet_path, "#workspace-shell { --allbert-space-2: 0.25rem; }\n")
-    File.write!(layout_path, "launcher:\n  collapsed: false\n")
+    File.write!(layout_path, "launcher_order:\n  - output\n  - workspace:settings\n")
 
     assert {:ok, _setting} = Settings.put("workspace.theme.active", "midnight", %{audit?: false})
 

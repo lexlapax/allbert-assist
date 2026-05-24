@@ -171,18 +171,28 @@ defmodule AllbertAssistWeb.Workspace.Components.AppLauncher do
     description: "Workspace app launcher",
     custom?: true
 
+  alias AllbertAssist.Theme.Layout
+  alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
   alias AllbertAssistWeb.Workspace.Components.Base
 
   @impl true
   def update(assigns, socket) do
     context = Map.get(assigns, :renderer_context, %{})
+    registered_apps = Map.get(context, :registered_apps, [])
+    layout = Base.prop(Map.get(assigns, :node), :layout, %{})
+
+    destinations =
+      layout
+      |> Layout.launcher_destinations(
+        WorkspaceCatalog.known_destinations(%{registered_apps: registered_apps})
+      )
 
     {:ok,
      socket
      |> Base.assign_defaults(assigns)
      |> assign(
        canvas_destination: Map.get(context, :canvas_destination, "output"),
-       registered_apps: Map.get(context, :registered_apps, [])
+       destinations: destinations
      )}
   end
 
@@ -196,137 +206,75 @@ defmodule AllbertAssistWeb.Workspace.Components.AppLauncher do
       data-workspace-renderer="component"
       aria-labelledby={Base.component_title_id(@node)}
     >
-      <h3 id={Base.component_title_id(@node)} class="workspace-rail-section-title">Output</h3>
-      <div class="workspace-rail-list" role="list">
-        <button
-          type="button"
-          role="listitem"
+      <div :for={{section, destinations} <- launcher_sections(@destinations)}>
+        <h3
+          id={if section == :output, do: Base.component_title_id(@node), else: nil}
           class={[
-            "workspace-rail-item workspace-destination-item",
-            destination_active?("output", @canvas_destination) && "workspace-rail-item-active"
+            "workspace-rail-section-title",
+            section != :output && "workspace-rail-section-spaced"
           ]}
-          id="workspace-dest-output"
-          phx-click="select_destination"
-          phx-value-destination="output"
-          data-destination="output"
-          aria-pressed={bool_attribute(destination_active?("output", @canvas_destination))}
-          title="Output"
         >
-          <span class="workspace-app-icon" aria-hidden="true">
-            <.icon name="hero-rectangle-stack-micro" class="size-4" />
-          </span>
-          <span class="workspace-rail-item-title">Output</span>
-        </button>
-      </div>
-
-      <h3 class="workspace-rail-section-title workspace-rail-section-spaced">Apps</h3>
-      <div class="workspace-rail-list" role="list">
-        <button
-          :for={app <- workspace_apps(@registered_apps)}
-          id={"workspace-dest-app-#{app_id(app)}"}
-          type="button"
-          role="listitem"
-          class={[
-            "workspace-rail-item workspace-app-launcher-item workspace-destination-item",
-            destination_active?(app_destination(app), @canvas_destination) &&
-              "workspace-rail-item-active"
-          ]}
-          phx-click="select_destination"
-          phx-value-destination={app_destination(app)}
-          data-destination={app_destination(app)}
-          data-app-id={app_id(app)}
-          aria-pressed={
-            bool_attribute(destination_active?(app_destination(app), @canvas_destination))
-          }
-          title={app_label(app)}
-        >
-          <span class="workspace-app-icon" aria-hidden="true">
-            <.icon name={app_icon(app)} class="size-4" />
-          </span>
-          <span class="workspace-rail-item-title">{app_label(app)}</span>
-        </button>
-      </div>
-
-      <h3 class="workspace-rail-section-title workspace-rail-section-spaced">Workspace</h3>
-      <div class="workspace-rail-list" role="list">
-        <button
-          :for={destination <- workspace_destinations()}
-          id={"workspace-dest-#{destination.dom_id}"}
-          type="button"
-          role="listitem"
-          class={[
-            "workspace-rail-item workspace-destination-item",
-            destination_active?(destination.id, @canvas_destination) && "workspace-rail-item-active"
-          ]}
-          phx-click="select_destination"
-          phx-value-destination={destination.id}
-          data-destination={destination.id}
-          aria-pressed={bool_attribute(destination_active?(destination.id, @canvas_destination))}
-          title={destination.label}
-        >
-          <span class="workspace-app-icon" aria-hidden="true">
-            <.icon name={destination.icon} class="size-4" />
-          </span>
-          <span class="workspace-rail-item-title">{destination.label}</span>
-        </button>
+          {section_label(section)}
+        </h3>
+        <div class="workspace-rail-list" role="list">
+          <button
+            :for={destination <- destinations}
+            id={"workspace-dest-#{destination.dom_id}"}
+            type="button"
+            role="listitem"
+            class={[
+              "workspace-rail-item workspace-destination-item",
+              destination.section == :apps && "workspace-app-launcher-item",
+              destination_active?(destination.id, @canvas_destination) &&
+                "workspace-rail-item-active"
+            ]}
+            phx-click="select_destination"
+            phx-value-destination={destination.id}
+            data-destination={destination.id}
+            data-app-id={Map.get(destination, :app_id)}
+            aria-pressed={bool_attribute(destination_active?(destination.id, @canvas_destination))}
+            title={destination.label}
+          >
+            <span class="workspace-app-icon" aria-hidden="true">
+              <.icon name={destination_icon(destination)} class="size-4" />
+            </span>
+            <span class="workspace-rail-item-title">{destination.label}</span>
+          </button>
+        </div>
       </div>
     </section>
     """
   end
 
-  defp workspace_apps(apps) do
-    apps
-    |> List.wrap()
-    |> Enum.reject(&(app_id(&1) == "allbert"))
-  end
-
-  defp app_destination(app), do: "app:#{app_id(app)}"
-
   defp destination_active?(destination, active_destination), do: destination == active_destination
 
-  defp workspace_destinations do
-    [
-      %{id: "workspace:jobs", dom_id: "workspace-jobs", label: "Jobs", icon: "hero-clock-micro"},
-      %{
-        id: "workspace:objectives",
-        dom_id: "workspace-objectives",
-        label: "Objectives",
-        icon: "hero-flag-micro"
-      },
-      %{
-        id: "workspace:confirmations",
-        dom_id: "workspace-confirmations",
-        label: "Confirmations",
-        icon: "hero-shield-check-micro"
-      },
-      %{
-        id: "workspace:security",
-        dom_id: "workspace-security",
-        label: "Security",
-        icon: "hero-shield-exclamation-micro"
-      },
-      %{
-        id: "workspace:settings",
-        dom_id: "workspace-settings",
-        label: "Settings",
-        icon: "hero-adjustments-horizontal-micro"
-      }
-    ]
+  defp launcher_sections(destinations) do
+    destinations
+    |> Enum.chunk_by(& &1.section)
+    |> Enum.map(fn entries ->
+      {hd(entries).section, entries}
+    end)
   end
 
-  defp app_id(app), do: app |> field(:app_id, :allbert) |> to_string()
-  defp app_label(app), do: field(app, :display_name, app_id(app)) |> to_string()
+  defp section_label(:output), do: "Output"
+  defp section_label(:apps), do: "Apps"
+  defp section_label(:workspace), do: "Workspace"
 
-  defp app_icon(app) do
-    case app_id(app) do
+  defp destination_icon(%{id: "output"}), do: "hero-rectangle-stack-micro"
+  defp destination_icon(%{id: "workspace:jobs"}), do: "hero-clock-micro"
+  defp destination_icon(%{id: "workspace:objectives"}), do: "hero-flag-micro"
+  defp destination_icon(%{id: "workspace:confirmations"}), do: "hero-shield-check-micro"
+  defp destination_icon(%{id: "workspace:security"}), do: "hero-shield-exclamation-micro"
+  defp destination_icon(%{id: "workspace:settings"}), do: "hero-adjustments-horizontal-micro"
+
+  defp destination_icon(%{section: :apps, app_id: app_id}) do
+    case app_id do
       "stocksage" -> "hero-chart-bar-micro"
       _app_id -> "hero-squares-2x2-micro"
     end
   end
 
-  defp field(map, key, fallback) when is_map(map) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key), fallback)
-  end
+  defp destination_icon(_destination), do: "hero-squares-2x2-micro"
 
   defp bool_attribute(true), do: "true"
   defp bool_attribute(false), do: "false"
