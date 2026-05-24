@@ -88,7 +88,14 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#workspace-component-workspace-app-launcher")
     refute has_element?(view, "#workspace-node-workspace-utility-drawer")
     refute has_element?(view, "#workspace-node-workspace-objectives")
-    assert has_element?(view, "#workspace-active-app-chip")
+
+    assert has_element?(
+             view,
+             "#workspace-context-indicator[data-active-app='allbert']",
+             "Neutral"
+           )
+
+    refute has_element?(view, "#workspace-context-exit")
     assert has_element?(view, "#workspace-thread-switcher-toggle")
     assert has_element?(view, "#workspace-chat-region")
     assert has_element?(view, "#agent-form")
@@ -609,6 +616,8 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     html = render_until(view, "Runtime LiveView response: analyze CIEN")
     assert html =~ ~s(data-active-app="stocksage")
+    assert has_element?(view, "#workspace-context-indicator[data-active-app='stocksage']")
+    assert has_element?(view, "#workspace-context-exit")
     assert {:ok, []} = Workspace.ephemeral_surfaces(thread.id, "local")
   end
 
@@ -645,6 +654,47 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert {:ok, []} = Workspace.ephemeral_surfaces(thread.id, "local")
     refute_received {:runtime_request, _request}
     assert render(view) =~ ~s(data-active-app="allbert")
+
+    assert has_element?(
+             view,
+             "#workspace-context-indicator[data-active-app='allbert']",
+             "Neutral"
+           )
+  end
+
+  test "context indicator exit clears active app without changing canvas destination", %{
+    conn: conn
+  } do
+    ensure_stocksage_app_registered()
+    assert {:ok, _entry} = Session.set_active_app("local", "web-local", :stocksage)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?destination=app:stocksage")
+
+    assert has_element?(view, "#workspace-context-indicator[data-active-app='stocksage']")
+    assert has_element?(view, "#workspace-context-exit")
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='app:stocksage']")
+
+    subscribe_actions()
+
+    html =
+      view
+      |> element("#workspace-context-exit")
+      |> render_click()
+
+    assert html =~ ~s(data-active-app="allbert")
+
+    assert has_element?(
+             view,
+             "#workspace-context-indicator[data-active-app='allbert']",
+             "Neutral"
+           )
+
+    refute has_element?(view, "#workspace-context-exit")
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='app:stocksage']")
+
+    action_signal = receive_action_completed("clear_active_app")
+    assert action_signal.data.status == :completed
+    assert {:ok, %{active_app: nil}} = Session.get("local", "web-local")
   end
 
   test "canvas tile controls route through the workspace action boundary", %{conn: conn} do
