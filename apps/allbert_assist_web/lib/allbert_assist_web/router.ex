@@ -15,6 +15,10 @@ defmodule AllbertAssistWeb.Router do
   end
 
   scope "/", AllbertAssistWeb do
+    get "/theme/user.css", ThemeController, :user
+  end
+
+  scope "/", AllbertAssistWeb do
     pipe_through :browser
 
     get "/", PageController, :home
