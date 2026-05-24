@@ -61,6 +61,8 @@ defmodule AllbertAssist.Workspace.Emitters do
       with {:ok, %Handoff{} = handoff} <- normalize_handoff(handoff),
            {:ok, context} <-
              context(string_value(context, :user_id), string_value(context, :thread_id)) do
+        handoff = scope_intent_handoff(handoff, context.thread_id)
+
         emit_fragment(%{
           id: handoff.surface_id,
           surface: intent_surface(handoff),
@@ -75,7 +77,8 @@ defmodule AllbertAssist.Workspace.Emitters do
               source: "intent_handoff",
               kind: handoff.kind,
               app_id: handoff.app_id,
-              action_name: handoff.action_name
+              action_name: handoff.action_name,
+              source_surface_id: base_intent_surface_id(handoff.surface_id)
             })
         })
       end
@@ -279,6 +282,23 @@ defmodule AllbertAssist.Workspace.Emitters do
 
   defp intent_surface_title(%Handoff{kind: :app_handoff}), do: "App Handoff"
   defp intent_surface_title(%Handoff{kind: :clarify_intent}), do: "Clarification"
+
+  defp scope_intent_handoff(%Handoff{} = handoff, thread_id) do
+    %{handoff | surface_id: scoped_intent_surface_id(handoff.surface_id, thread_id)}
+  end
+
+  defp scoped_intent_surface_id(surface_id, thread_id) do
+    digest =
+      :crypto.hash(:sha256, to_string(thread_id))
+      |> Base.encode16(case: :lower)
+      |> binary_part(0, 12)
+
+    "#{surface_id}_#{digest}"
+  end
+
+  defp base_intent_surface_id(surface_id) when is_binary(surface_id) do
+    Regex.replace(~r/_[a-f0-9]{12}$/, surface_id, "")
+  end
 
   defp objective_surface(kind, objective, metadata) do
     objective_id = Map.get(objective, :id)
