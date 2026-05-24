@@ -1803,40 +1803,37 @@ Plan: `docs/plans/v0.34-plan.md`
 Request flow: `docs/plans/v0.34-request-flow.md`
 ADR: `docs/adr/0024-app-ui-contribution-and-workspace-zones.md` (v0.34 revision)
 
-Status: research (unstarted). Inserted after v0.33 because the shipped v0.32
-workspace shell renders too many simultaneous regions (left rail, a floating
-app/objectives band, chat, a permanent Canvas column, and a permanent Tools
-column) with no clear primary, and v0.33 made conversational handoff the way to
-enter app context. v0.34 restructures the shell around that model without
-changing domain behavior, security, or routing authority.
+Status: release-ready as `v0.34.0`. Inserted after v0.33 because the shipped
+v0.32 workspace shell rendered too many simultaneous regions (left rail, a
+floating app/objectives band, chat, a permanent Canvas column, and a permanent
+Tools column) with no clear primary, and v0.33 made conversational handoff the
+way to enter app context. v0.34 restructures the shell around that model
+without changing domain behavior, security, or routing authority.
 
 Prerequisite: v0.32 workspace route, panels, named zones, and Settings Central;
 v0.33 conversational app-intent handoff (the only way to set `active_app`).
 
-Expected direction:
+Delivered:
 
-- Keep the left rail and the center chat spine; make the chat the visual
-  primary.
-- Make the left rail a view-only launcher (Threads switch chat; Apps, Output,
-  and Workspace tools/Settings are destinations that render in Canvas).
-  Launcher selection never changes routing context.
-- Collapse the right side to a single Canvas that shows exactly one selected
-  destination at a time (replace model); Output (durable tiles) is the default
-  view. Chat pushes narrower when Canvas is open; a focus toggle collapses chat
-  to a strip for a full app view.
-- Remove the permanent Tools column and the floating top band. Settings/Tools
-  become launcher destinations; `:utility_drawer` is retired as a region.
-- Set routing context (`active_app`) conversationally only, via the v0.33
-  handoff. A passive top-bar context indicator shows Neutral vs the active app
-  with an exit-to-neutral affordance; it does not set context.
-- Apps (e.g., StockSage) work inside Canvas and take input through the chat
-  composer or scoped pop-ups; no app-private shell chrome returns.
-- Make desktop and mobile first-class: side-by-side on wide screens, a single
-  surface with `[Chat | Canvas]` tabs and a launcher sheet on narrow screens.
+- The left rail is a view-only launcher. Threads switch chat; Apps, Output,
+  and Workspace tools/Settings render in Canvas. Launcher selection never
+  changes routing context.
+- Canvas is a replace-model destination host. Output (durable tiles) is the
+  default; `app:<app_id>` renders that app's panels; `workspace:<tool>` renders
+  the mapped CoreApp tool panel.
+- The permanent Tools column and floating app band are gone. Settings/tools
+  are Canvas destinations; `:utility_drawer` remains a compatibility atom but
+  is not a rendered v0.34 region.
+- Routing context (`active_app`) remains conversational and handoff-only. The
+  passive top-bar indicator shows Neutral vs the active app and exits through
+  the registered `clear_active_app` action path.
+- StockSage dashboard/recent/queue/trends panels render inside Canvas without
+  restoring app-private shell chrome.
+- Desktop and mobile are first-class: wide screens keep launcher + chat +
+  Canvas with a Canvas focus toggle; narrow screens use a hamburger launcher
+  sheet plus Chat/Canvas tabs.
 - No new domain behavior, analysis engine, theming system, dynamic code,
-  generator, route compatibility shim, or new Surface catalog atom. This is a
-  composition/navigation refresh of the v0.32 shell, amending ADR 0024's zone
-  model.
+  generator, route compatibility shim, or new Surface catalog atom shipped.
 
 ## v0.35: User Theming And Layout Overrides
 

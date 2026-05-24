@@ -31,16 +31,17 @@ defmodule AllbertAssistWeb.Workspace.ResponsiveTest do
              ~r/\.workspace-chat-pane[^{}]*\.workspace-canvas-node\s*\{[^}]*overflow:\s*hidden/m
   end
 
-  # v0.26a M31: the mobile tab strip stays accessible just below the
-  # sticky AppBar and the active pane fills the remaining viewport.
-  test "mobile tab strip is sticky and panes account for chrome height" do
+  # v0.34 M6: the mobile shellbar participates in shell flow so it remains
+  # reachable without overlaying the active pane.
+  test "mobile shellbar stays in flow and panes account for chrome height" do
     css = File.read!(@css_path)
 
     assert css =~ ~r/@media \(max-width: 767\.98px\)/
-    assert css =~ ~r/#workspace-mobile-tabs\s*\{[^}]*position:\s*sticky/m
+    assert css =~ ~r/\.workspace-mobile-shellbar\s*\{[^}]*order:\s*3/m
+    assert css =~ ~r/\.workspace-mobile-shellbar\s*\{[^}]*flex:\s*0 0 auto/m
 
     assert css =~
-             ~r/\.workspace-chat-pane[^{}]*\.workspace-canvas-node\s*\{[^}]*max-height:\s*calc\(100dvh - 9rem\)/m
+             ~r/\.workspace-chat-pane[^{}]*\.workspace-canvas-node\s*\{[^}]*max-height:\s*clamp\(18rem,\s*calc\(100dvh - 24rem\),\s*34rem\)/m
   end
 
   # v0.26a M29: the composer counter exists in the stylesheet so the warning

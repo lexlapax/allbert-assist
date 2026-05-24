@@ -1,22 +1,11 @@
 defmodule AllbertAssist.Intent.HandoffTest do
   use AllbertAssist.DataCase, async: false
 
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Intent.Handoff
 
-  setup do
-    app_registered? = AppRegistry.known_app_id?(:stocksage)
+  setup :setup_stocksage_registry
 
-    unless app_registered? do
-      assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
-    end
-
-    on_exit(fn ->
-      unless app_registered?, do: AppRegistry.unregister(:stocksage)
-    end)
-
-    :ok
-  end
+  defp setup_stocksage_registry(context), do: AllbertAssist.StockSageRegistryCase.setup(context)
 
   test "normalizes a handoff proposal without granting authority" do
     assert {:ok, handoff} =
