@@ -7,6 +7,8 @@ defmodule AllbertAssist.Sandbox.Backend.Resolver do
   alias AllbertAssist.Sandbox.Host
   alias AllbertAssist.Sandbox.Policy
 
+  @type backend_id :: :apple_container | :docker | :docker_runsc | :podman_rootless
+
   @spec resolve(Policy.t(), keyword()) :: map()
   def resolve(%Policy{} = policy, opts \\ []) do
     host = Keyword.get(opts, :host, policy.host)
@@ -22,7 +24,7 @@ defmodule AllbertAssist.Sandbox.Backend.Resolver do
     }
   end
 
-  @spec auto_candidate_ids(Host.t()) :: [atom()]
+  @spec auto_candidate_ids(Host.t()) :: [backend_id()]
   def auto_candidate_ids(%Host{} = host) do
     cond do
       Host.macos_apple_container_capable?(host) -> [:apple_container, :docker_runsc, :docker]

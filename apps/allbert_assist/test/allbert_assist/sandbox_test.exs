@@ -5,6 +5,10 @@ defmodule AllbertAssist.SandboxTest do
   alias AllbertAssist.Sandbox
   alias AllbertAssist.Sandbox.Backend.Registry
   alias AllbertAssist.Sandbox.Backend.Resolver
+  alias AllbertAssist.Sandbox.Backends.ContainerRunner
+  alias AllbertAssist.Sandbox.Backends.Docker
+  alias AllbertAssist.Sandbox.Backends.DockerRunsc
+  alias AllbertAssist.Sandbox.Backends.PodmanRootless
   alias AllbertAssist.Sandbox.Bundle
   alias AllbertAssist.Sandbox.CommandSpec
   alias AllbertAssist.Sandbox.Host
@@ -357,6 +361,118 @@ defmodule AllbertAssist.SandboxTest do
     assert {:ok, %{status: :allowed, diagnostics: []}} = SourcePolicy.scan(bundle)
   end
 
+  test "docker backend argv uses a local, networkless, read-only container contract" do
+    project = fixture_project("docker-argv")
+    {:ok, bundle} = Sandbox.build_bundle(%{project_root: project, project_paths: ["mix.exs"]})
+    policy = policy("docker", %Host{os: :linux, arch: :x86_64})
+    spec = compile_spec!(bundle, policy)
+
+    argv = Docker.argv(bundle, spec, policy)
+
+    assert Enum.take(argv, 2) == ["run", "--rm"]
+    assert ["--pull", "never"] = argv_pair(argv, "--pull")
+    assert ["--network", "none"] = argv_pair(argv, "--network")
+    assert "--read-only" in argv
+    assert ["--cap-drop", "ALL"] = argv_pair(argv, "--cap-drop")
+    assert ["--security-opt", "no-new-privileges"] = argv_pair(argv, "--security-opt")
+    assert ["--pids-limit", "256"] = argv_pair(argv, "--pids-limit")
+    assert ["--memory", "1024m"] = argv_pair(argv, "--memory")
+    assert ["--cpus", "1.0"] = argv_pair(argv, "--cpus")
+    assert argv_pair(argv, "--workdir") == ["--workdir", "/workspace/project"]
+    assert "--tmpfs" in argv
+
+    assert mount_arg(argv, bundle.project_path) =~ "target=/workspace/project,readonly"
+    assert mount_arg(argv, bundle.drafts_path) =~ "target=/workspace/drafts,readonly"
+    assert mount_arg(argv, bundle.tests_path) =~ "target=/workspace/tests,readonly"
+    refute mount_arg(argv, bundle.sandbox_home) =~ "readonly"
+    refute mount_arg(argv, bundle.reports_path) =~ "readonly"
+
+    assert ["--env", "ALLBERT_HOME=/workspace/allbert_home"] = argv_pair(argv, "--env")
+    assert Enum.slice(argv, -4, 4) == ["fixture:local", "mix", "compile", "--warnings-as-errors"]
+    refute Enum.any?(argv, &String.contains?(&1, "docker.sock"))
+    refute Enum.any?(argv, &(&1 in ["-i", "-t", "-it"]))
+  end
+
+  test "docker runsc backend argv pins the gVisor runtime" do
+    project = fixture_project("docker-runsc-argv")
+    {:ok, bundle} = Sandbox.build_bundle(%{project_root: project, project_paths: ["mix.exs"]})
+    policy = policy("docker_runsc", %Host{os: :linux, arch: :x86_64})
+    spec = compile_spec!(bundle, policy)
+
+    argv = DockerRunsc.argv(bundle, spec, policy)
+
+    assert ["--runtime", "runsc"] = argv_pair(argv, "--runtime")
+    assert ["--network", "none"] = argv_pair(argv, "--network")
+    assert Enum.slice(argv, -4, 4) == ["fixture:local", "mix", "compile", "--warnings-as-errors"]
+  end
+
+  test "podman backend argv uses rootless-friendly local image settings" do
+    project = fixture_project("podman-argv")
+    {:ok, bundle} = Sandbox.build_bundle(%{project_root: project, project_paths: ["mix.exs"]})
+    policy = policy("podman_rootless", %Host{os: :linux, arch: :x86_64})
+    spec = compile_spec!(bundle, policy)
+
+    argv = PodmanRootless.argv(bundle, spec, policy)
+
+    assert "--pull=never" in argv
+    assert ["--network", "none"] = argv_pair(argv, "--network")
+    assert "--read-only" in argv
+    assert ["--cap-drop", "ALL"] = argv_pair(argv, "--cap-drop")
+    assert mount_arg(argv, bundle.project_path) =~ "target=/workspace/project,readonly"
+    assert Enum.slice(argv, -4, 4) == ["fixture:local", "mix", "compile", "--warnings-as-errors"]
+  end
+
+  test "container runner writes bounded reports for successful backend execution", %{home: home} do
+    project = fixture_project("container-runner-success")
+
+    {:ok, bundle} =
+      Sandbox.build_bundle(%{
+        project_root: project,
+        project_paths: ["mix.exs"],
+        draft_paths: ["drafts/generated.ex"]
+      })
+
+    policy = policy("docker", %Host{os: :linux, arch: :x86_64})
+    spec = compile_spec!(bundle, policy)
+    echo = System.find_executable("echo") || "/bin/echo"
+
+    assert {:ok, report} = ContainerRunner.run(:docker, echo, ["sandbox ok"], bundle, spec)
+    assert report.status == :completed
+    assert report.exit_status == 0
+    assert report.stdout =~ "sandbox ok"
+    assert report.metadata.engine_argv == ["sandbox ok"]
+    assert File.exists?(report.report_path)
+
+    persisted = report.report_path |> File.read!() |> Jason.decode!()
+    assert persisted["status"] == "completed"
+    refute inspect(persisted) =~ home
+    assert inspect(persisted) =~ "<ALLBERT_HOME>"
+  end
+
+  test "container runner writes denied reports before invoking backend execution" do
+    project = fixture_project("container-runner-denied")
+    malicious = Path.join([project, "drafts", "generated.ex"])
+    File.write!(malicious, "defmodule Generated, do: def run, do: System.cmd(\"sh\", [])\n")
+
+    {:ok, bundle} =
+      Sandbox.build_bundle(%{
+        project_root: project,
+        project_paths: ["mix.exs"],
+        draft_paths: ["drafts/generated.ex"]
+      })
+
+    policy = policy("docker", %Host{os: :linux, arch: :x86_64})
+    spec = compile_spec!(bundle, policy)
+
+    assert {:ok, report} =
+             ContainerRunner.run(:docker, "/definitely/missing", ["should-not-run"], bundle, spec)
+
+    assert report.status == :denied
+    assert report.exit_status == nil
+    assert [%{reason: :system_cmd}] = report.diagnostics
+    assert File.exists?(report.report_path)
+  end
+
   defp policy(backend, host) do
     %Policy{
       enabled?: true,
@@ -370,6 +486,31 @@ defmodule AllbertAssist.SandboxTest do
       roots: %{},
       host: host
     }
+  end
+
+  defp compile_spec!(bundle, policy) do
+    params = %{executable: "mix", argv: ["compile", "--warnings-as-errors"], profile: :compile}
+
+    assert {:ok, spec} = CommandSpec.normalize(params, policy: policy, bundle: bundle)
+
+    spec
+  end
+
+  defp argv_pair(argv, flag) do
+    index = Enum.find_index(argv, &(&1 == flag))
+    Enum.slice(argv, index, 2)
+  end
+
+  defp mount_arg(argv, source) do
+    argv
+    |> Enum.chunk_every(2, 1, :discard)
+    |> Enum.find_value(fn
+      ["--mount", mount] ->
+        if String.contains?(mount, "source=#{source},"), do: mount
+
+      _chunk ->
+        nil
+    end)
   end
 
   defp fixture_project(name) do

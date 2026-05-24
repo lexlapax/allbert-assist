@@ -6,6 +6,11 @@ defmodule AllbertAssist.Sandbox.Backends.Docker do
   @behaviour AllbertAssist.Sandbox.Backend
 
   alias AllbertAssist.Sandbox.Backends.Command
+  alias AllbertAssist.Sandbox.Backends.ContainerArgs
+  alias AllbertAssist.Sandbox.Backends.ContainerRunner
+  alias AllbertAssist.Sandbox.Bundle
+  alias AllbertAssist.Sandbox.CommandSpec
+  alias AllbertAssist.Sandbox.Policy
 
   @impl true
   def id, do: :docker
@@ -30,7 +35,16 @@ defmodule AllbertAssist.Sandbox.Backends.Docker do
   end
 
   @impl true
-  def run(_bundle, _command_spec), do: {:error, :not_implemented_until_m3}
+  def run(bundle, command_spec) do
+    policy = Policy.load!()
+    argv = argv(bundle, command_spec, policy)
+    docker = System.find_executable("docker") || "docker"
+
+    ContainerRunner.run(id(), docker, argv, bundle, command_spec)
+  end
+
+  @spec argv(Bundle.t(), CommandSpec.t(), Policy.t()) :: [String.t(), ...]
+  def argv(bundle, command_spec, policy), do: ContainerArgs.docker(bundle, command_spec, policy)
 
   @impl true
   def cleanup(_bundle), do: :ok

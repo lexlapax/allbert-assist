@@ -105,6 +105,13 @@ All backends receive normalized bundle and command structs. Backends must use
 explicit executable plus argv to invoke the container engine and must not call
 a shell.
 
+Docker-family backends must build their engine argv as data and preserve these
+constraints: no image pull, no network, no host Docker socket, read-only root
+filesystem, dropped capabilities, `no-new-privileges`, bounded CPU/memory/PID
+limits, read-only project/draft/test mounts, writable bundle-local
+`sandbox_home` and `reports` mounts, and `ALLBERT_HOME` set to the container
+sandbox-home path. Docker+runsc is the same contract with `--runtime runsc`.
+
 ## Gate Profiles
 
 `AllbertAssist.Sandbox.GateRunner` maps named profiles to data:
@@ -133,6 +140,8 @@ Reports include:
 
 Reports must redact secrets, real-home absolute paths, and oversized output.
 Reports are evidence for later operator review, not authority.
+Backend runners write report JSON into the bundle report root for completed,
+failed, denied, timed-out, and unavailable outcomes.
 
 ## Fixture Expectations
 
