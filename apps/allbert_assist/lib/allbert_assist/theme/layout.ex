@@ -127,7 +127,7 @@ defmodule AllbertAssist.Theme.Layout do
           )
         end)
 
-      {:ok, _yaml} ->
+      {:error, {:settings_parse_failed, {:expected_map, _other}}} ->
         result(:invalid, %{
           diagnostics: ["Layout file layout.yaml ignored: root must be a map."],
           enabled?: true
@@ -236,14 +236,7 @@ defmodule AllbertAssist.Theme.Layout do
     |> Enum.reduce({[], [], false}, fn value, {items, diagnostics, valid?} ->
       case validate_destination(value, known_ids) do
         {:ok, destination} ->
-          if non_hideable_destination?(destination) do
-            {items,
-             diagnostics ++
-               ["Layout hidden_destinations entry ignored: #{destination} is non-hideable."],
-             valid?}
-          else
-            {append_unique(items, destination), diagnostics, true}
-          end
+          add_hidden_destination(destination, items, diagnostics, valid?)
 
         {:error, reason} ->
           {items, diagnostics ++ ["Layout hidden_destinations entry ignored: #{reason}."], valid?}
@@ -255,6 +248,16 @@ defmodule AllbertAssist.Theme.Layout do
   defp validate_hidden_destinations(_values, _known_ids),
     do: {[], false, ["Layout hidden_destinations ignored: value must be a list."]}
 
+  defp add_hidden_destination(destination, items, diagnostics, valid?) do
+    if non_hideable_destination?(destination) do
+      {items,
+       diagnostics ++
+         ["Layout hidden_destinations entry ignored: #{destination} is non-hideable."], valid?}
+    else
+      {append_unique(items, destination), diagnostics, true}
+    end
+  end
+
   defp validate_panel_pins(nil, _known_ids, _panel_refs), do: {%{}, false, []}
 
   defp validate_panel_pins(pins, known_ids, panel_refs) when is_map(pins) do
@@ -262,11 +265,7 @@ defmodule AllbertAssist.Theme.Layout do
     |> Enum.reduce({%{}, [], false}, fn {destination, values}, {acc, diagnostics, valid?} ->
       with {:ok, destination} <- validate_destination(destination, known_ids),
            {:ok, refs, pin_diagnostics} <- validate_panel_pin_list(values, panel_refs) do
-        if Enum.empty?(refs) do
-          {acc, diagnostics ++ pin_diagnostics, valid?}
-        else
-          {Map.put(acc, destination, MapSet.new(refs)), diagnostics ++ pin_diagnostics, true}
-        end
+        add_panel_pins(destination, refs, pin_diagnostics, acc, diagnostics, valid?)
       else
         {:error, reason} ->
           {acc, diagnostics ++ ["Layout panel_pins destination ignored: #{reason}."], valid?}
@@ -277,6 +276,14 @@ defmodule AllbertAssist.Theme.Layout do
 
   defp validate_panel_pins(_pins, _known_ids, _panel_refs),
     do: {%{}, false, ["Layout panel_pins ignored: value must be a map."]}
+
+  defp add_panel_pins(destination, refs, pin_diagnostics, acc, diagnostics, valid?) do
+    if Enum.empty?(refs) do
+      {acc, diagnostics ++ pin_diagnostics, valid?}
+    else
+      {Map.put(acc, destination, MapSet.new(refs)), diagnostics ++ pin_diagnostics, true}
+    end
+  end
 
   defp validate_panel_pin_list(values, panel_refs) when is_list(values) do
     {refs, diagnostics} =

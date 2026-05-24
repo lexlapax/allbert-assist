@@ -23,12 +23,14 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is the released `v0.34.0`. `/workspace` is the only
-operator home: chat is the primary spine, the left rail is a view-only launcher,
-and Canvas shows one destination at a time (Output, an app, or a workspace
-tool). Neutral workspace chat can recognize reviewed app-owned capabilities
-without silently running them; app routing context is still set only by
-accepting an explicit conversational handoff.
+The current implementation is `v0.35.0`, ready for operator manual
+verification. `/workspace` is the only operator home: chat is the primary
+spine, the left rail is a view-only launcher, and Canvas shows one destination
+at a time (Output, an app, or a workspace tool). Operators can retheme and
+re-lay-out the workspace from local Allbert Home files through Settings
+Central-accountable gates, while neutral workspace chat can recognize reviewed
+app-owned capabilities without silently running them. App routing context is
+still set only by accepting an explicit conversational handoff.
 
 Recent platform contracts now in place:
 
@@ -51,6 +53,10 @@ Recent platform contracts now in place:
   single-destination Canvas, Settings/tools in Canvas, passive context
   indicator, desktop Canvas focus, and mobile launcher sheet + Chat/Canvas
   tabs.
+- `v0.35.0`: user theming and layout overrides from Allbert Home, with
+  presentational token YAML, opt-in sanitized CSS snippets, validated launcher
+  and Canvas destination layout data, Settings Canvas accountability, and CSP
+  regression coverage.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -98,12 +104,13 @@ Near-term milestones:
 - `v0.33`: conversational app intent handoff and direct-answer foundation —
   neutral workspace prompts can propose app handoff or clarification without
   silently executing app-owned actions.
-- `v0.34`: workspace UX refresh — implemented as the current release with a
-  chat-centered shell, a view-only left launcher, a single-destination Canvas,
-  and routing context set conversationally through the v0.33 handoff (no
-  permanent Tools column or floating panel band).
-- `v0.35`: user theming and layout overrides from `~/.allbert`, with token
-  themes, opt-in sanitized CSS snippets, and validated workspace layout data.
+- `v0.34`: workspace UX refresh — implemented with a chat-centered shell, a
+  view-only left launcher, a single-destination Canvas, and routing context set
+  conversationally through the v0.33 handoff (no permanent Tools column or
+  floating panel band).
+- `v0.35`: user theming and layout overrides from `~/.allbert` — implemented as
+  the current milestone with token themes, opt-in sanitized CSS snippets,
+  validated workspace layout data, Settings accountability, and CSP checks.
 - `v0.36`: dynamic plugin/app generation and sandboxed module loading for
   inert local drafts under Allbert Home, compiled and tried only out of node.
 - `v0.37`: plugin/app generator, scaffolding the surface, panel, settings,
@@ -123,10 +130,10 @@ Near-term milestones:
   milestones.
 - [CHANGELOG.md](CHANGELOG.md): released-history details.
 - [docs/adr](docs/adr): architectural decisions.
-- [docs/plans/v0.34-plan.md](docs/plans/v0.34-plan.md): current implemented
+- [docs/plans/v0.35-plan.md](docs/plans/v0.35-plan.md): current implemented
   milestone plan.
-- [docs/plans/v0.34-request-flow.md](docs/plans/v0.34-request-flow.md):
-  request flows and manual verification notes for `v0.34.0`.
+- [docs/plans/v0.35-request-flow.md](docs/plans/v0.35-request-flow.md):
+  request flows and manual verification notes for `v0.35.0`.
 
 ## Local Development
 

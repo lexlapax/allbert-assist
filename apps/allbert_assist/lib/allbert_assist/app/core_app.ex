@@ -15,10 +15,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.32 moves CoreApp
-  # domain cards into the shared workspace panel path.
+  # the app (release-pinned, not semantic-per-app). v0.35 adds Settings-
+  # accountable local appearance and layout hooks to the workspace shell.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.34.0"
+  def version, do: "0.35.0"
 
   @impl true
   def validate(_opts), do: :ok
