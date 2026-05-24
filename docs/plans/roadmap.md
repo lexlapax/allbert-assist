@@ -1842,9 +1842,10 @@ Plan: `docs/plans/v0.35-plan.md`
 Request flow: `docs/plans/v0.35-request-flow.md`
 ADR: `docs/adr/0025-user-theming-and-override-security.md`
 
-Status: second-pass implementation-ready; unimplemented. Shifted from v0.33 so
-v0.31 consolidation, v0.32 workspace composition, and v0.33 app-intent
-descriptors land first.
+Status: implemented and release-ready as `v0.35.0` on 2026-05-24; ready for
+operator manual verification. Shifted from v0.33 so v0.31 consolidation,
+v0.32 workspace composition, v0.33 app-intent descriptors, and v0.34 workspace
+UX landed first.
 
 Prerequisite: v0.31 shared paths/settings fragments, v0.32 workspace-only app
 UI and panel-surface substrate, v0.33 app intent descriptor/handoff behavior,

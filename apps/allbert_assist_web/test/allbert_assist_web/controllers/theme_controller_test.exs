@@ -2,6 +2,8 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
   use AllbertAssistWeb.ConnCase
 
   alias AllbertAssist.Paths
+  alias AllbertAssist.SecurityEvalCase
+  alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
   alias AllbertAssist.Theme.Version
 
@@ -205,6 +207,49 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
     assert theme_csp =~ "default-src 'none'"
     assert theme_csp =~ "script-src 'none'"
     assert theme_csp =~ "style-src 'self'"
+  end
+
+  test "theme-csp-regression-001: CSP keeps remote style and image sources blocked", %{
+    conn: conn
+  } do
+    fixture = EvalInventory.row!("theme-csp-regression-001")
+
+    workspace = get(conn, ~p"/workspace")
+    assert [workspace_csp] = get_resp_header(workspace, "content-security-policy")
+
+    theme = conn |> recycle() |> get(~p"/theme/user.css")
+    assert [theme_csp] = get_resp_header(theme, "content-security-policy")
+
+    eval =
+      SecurityEvalCase.run_eval(
+        Map.merge(fixture, %{
+          run: fn fixture ->
+            remote_allowed? =
+              remote_source_allowed?(workspace_csp) or remote_source_allowed?(theme_csp)
+
+            %{
+              decision: if(remote_allowed?, do: :allowed, else: :denied),
+              result: %{workspace_csp: workspace_csp, theme_csp: theme_csp},
+              trace: %{
+                fixture_id: fixture.id,
+                boundary: :workspace_theme_csp,
+                remote_source_allowed?: remote_allowed?
+              }
+            }
+          end
+        })
+      )
+
+    assert eval.decision == :denied
+    refute remote_source_allowed?(workspace_csp)
+    refute remote_source_allowed?(theme_csp)
+    refute workspace_csp =~ "unsafe-inline"
+    assert theme_csp =~ "default-src 'none'"
+    assert theme_csp =~ "connect-src 'none'"
+  end
+
+  defp remote_source_allowed?(csp) do
+    csp =~ "http:" or csp =~ "https:" or csp =~ "*"
   end
 
   defp temp_path(name) do
