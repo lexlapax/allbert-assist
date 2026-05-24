@@ -429,18 +429,20 @@ defmodule AllbertAssistWeb.Workspace.Components.Canvas do
   def render(assigns) do
     ~H"""
     <section
-      id={"workspace-component-#{@node.id}"}
+      id="workspace-canvas"
       class="workspace-pane-header workspace-canvas-header"
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
+      data-workspace-canvas-node={@node.id}
+      data-destination={Base.prop(@node, :destination, "output")}
       aria-labelledby={Base.component_title_id(@node)}
     >
       <div class="workspace-pane-title-block">
         <h2 id={Base.component_title_id(@node)} class="workspace-pane-title">
-          Canvas
+          {destination_label(Base.prop(@node, :destination, "output"))}
         </h2>
         <p class="workspace-pane-subtitle">
-          Persistent workspace output for this thread.
+          {destination_summary(Base.prop(@node, :destination, "output"))}
         </p>
       </div>
       <div class="workspace-pane-actions" aria-label="Canvas state">
@@ -480,6 +482,23 @@ defmodule AllbertAssistWeb.Workspace.Components.Canvas do
 
   defp focus_label(true), do: "Restore split view"
   defp focus_label(false), do: "Focus canvas"
+
+  defp destination_label("output"), do: "Output"
+  defp destination_label("app:" <> app_id), do: app_id |> humanize_destination()
+  defp destination_label("workspace:" <> tool), do: tool |> humanize_destination()
+  defp destination_label(_destination), do: "Output"
+
+  defp destination_summary("output"), do: "Persistent workspace output for this thread."
+  defp destination_summary("app:" <> _app_id), do: "App dashboard and workspace panels."
+  defp destination_summary("workspace:" <> _tool), do: "Workspace tool panel."
+  defp destination_summary(_destination), do: "Persistent workspace output for this thread."
+
+  defp humanize_destination(value) do
+    value
+    |> String.replace(["_", "-"], " ")
+    |> String.split(" ", trim: true)
+    |> Enum.map_join(" ", &String.capitalize/1)
+  end
 
   defp bool_attribute(true), do: "true"
   defp bool_attribute(false), do: "false"
