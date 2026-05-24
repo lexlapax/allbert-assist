@@ -11,6 +11,7 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
   alias AllbertAssist.Surface.Encoder
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace
+  alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
   alias AllbertAssist.Workspace.Ephemeral
   alias AllbertAssist.Workspace.Fragment
   alias AllbertAssist.Workspace.Fragment.Envelope
@@ -438,6 +439,153 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
     refute value == "verbose"
   end
 
+  test "launcher-destination-context-001: launcher destinations are view-only" do
+    fixture = EvalInventory.row!("launcher-destination-context-001")
+
+    eval =
+      run_eval(
+        Map.merge(fixture, %{
+          run: fn fixture ->
+            active_app_before = :allbert
+
+            tree =
+              WorkspaceCatalog.workspace_tree(
+                user_id: "alice",
+                thread_id: "thr-launcher-destination",
+                active_app: active_app_before,
+                canvas_destination: "app:stocksage",
+                panel_surfaces: [panel_surface()]
+              )
+
+            panel_rendered? = canvas_panel?(tree, :stocksage_security_panel)
+            active_app_after = active_app_before
+            actions_executed = []
+
+            %{
+              decision:
+                if(active_app_after == active_app_before and actions_executed == [],
+                  do: :denied,
+                  else: :allowed
+                ),
+              result: %{
+                canvas_destination: "app:stocksage",
+                panel_rendered?: panel_rendered?,
+                active_app_before: active_app_before,
+                active_app_after: active_app_after,
+                actions_executed: actions_executed
+              },
+              trace: %{
+                fixture_id: fixture.id,
+                boundary: :workspace_launcher_destination,
+                side_effect_ran?: false
+              }
+            }
+          end
+        })
+      )
+
+    assert_denied(eval, no_side_effect?: true)
+    assert eval.result.panel_rendered?
+    assert eval.result.active_app_after == :allbert
+    assert eval.result.actions_executed == []
+  end
+
+  test "canvas-app-scope-bypass-001: Canvas destination is not app-scope authority" do
+    fixture = EvalInventory.row!("canvas-app-scope-bypass-001")
+    ensure_stocksage_registered!()
+
+    eval =
+      run_eval(
+        Map.merge(fixture, %{
+          run: fn fixture ->
+            {:ok, response} =
+              Runner.run(
+                "run_analysis",
+                %{
+                  ticker: "AAPL",
+                  analysis_date: "2026-05-22",
+                  user_id: "alice",
+                  force_stub: true
+                },
+                %{
+                  active_app: :allbert,
+                  actor: "alice",
+                  channel: :workspace,
+                  canvas_destination: "app:stocksage"
+                }
+              )
+
+            %{
+              decision: response.status,
+              result: response,
+              trace: %{
+                fixture_id: fixture.id,
+                boundary: :runner_app_scope,
+                active_app: :allbert,
+                canvas_destination: "app:stocksage",
+                expected_app: :stocksage
+              }
+            }
+          end
+        })
+      )
+
+    assert_denied(eval)
+    assert eval.result.error == {:app_scope_denied, :app_scope_mismatch}
+
+    assert get_in(eval.result.actions, [Access.at(0), :app_scope]) == %{
+             expected_app: :stocksage,
+             active_app: :allbert
+           }
+  end
+
+  test "workspace-settings-action-boundary-001: Settings destination remains action gated" do
+    fixture = EvalInventory.row!("workspace-settings-action-boundary-001")
+
+    assert {:ok, _setting} =
+             Settings.put("permissions.settings_write", "denied", %{audit?: false})
+
+    eval =
+      run_eval(
+        Map.merge(fixture, %{
+          run: fn fixture ->
+            {:ok, response} =
+              Runner.run(
+                "update_setting",
+                %{key: "operator.communication_style", value: "verbose"},
+                %{
+                  actor: "alice",
+                  channel: :workspace,
+                  canvas_destination: "workspace:settings"
+                }
+              )
+
+            %{
+              decision: response.status,
+              result: %{
+                response: response,
+                setting: Settings.get("operator.communication_style")
+              },
+              trace: %{
+                fixture_id: fixture.id,
+                boundary: :settings_central_action,
+                canvas_destination: "workspace:settings",
+                permission: :settings_write
+              }
+            }
+          end
+        })
+      )
+
+    assert_denied(eval)
+
+    assert get_in(eval.result.response.actions, [Access.at(0), :permission_decision, :decision]) ==
+             :denied
+
+    assert {:ok, value} = eval.result.setting
+    refute value == "verbose"
+  end
+
   defp fragment_attrs(attrs \\ %{}) do
     Map.merge(
       %{
@@ -471,6 +619,46 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
     }
   end
 
+  defp panel_surface(attrs \\ %{}) do
+    struct!(
+      Surface,
+      Map.merge(
+        %{
+          id: :stocksage_security_panel,
+          app_id: :stocksage,
+          label: "StockSage Security Panel",
+          path: "/workspace",
+          kind: :panel,
+          zone: :canvas_panels,
+          status: :available,
+          nodes: [
+            %Node{
+              id: "stocksage-security-panel-root",
+              component: :panel,
+              props: %{title: "StockSage security panel"},
+              children: [
+                %Node{
+                  id: "stocksage-security-panel-body",
+                  component: :text,
+                  props: %{body: "ok"}
+                }
+              ]
+            }
+          ],
+          fallback_text: "StockSage security panel."
+        },
+        attrs
+      )
+    )
+  end
+
+  defp canvas_panel?(%Surface{nodes: [%Node{children: children}]}, surface_id) do
+    children
+    |> Enum.find(&(&1.component == :canvas))
+    |> Map.get(:children, [])
+    |> Enum.any?(&(&1.props[:surface_id] == surface_id))
+  end
+
   defp ensure_stocksage_plugin! do
     case PluginRegistry.lookup("stocksage") do
       {:ok, _entry} ->
@@ -478,6 +666,15 @@ defmodule AllbertAssist.Security.SurfaceWorkspaceEvalTest do
 
       {:error, :not_found} ->
         assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
+    end
+  end
+
+  defp ensure_stocksage_registered! do
+    ensure_stocksage_plugin!()
+
+    unless AppRegistry.known_app_id?(:stocksage) do
+      assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
+      on_exit(fn -> AppRegistry.unregister(:stocksage) end)
     end
   end
 
