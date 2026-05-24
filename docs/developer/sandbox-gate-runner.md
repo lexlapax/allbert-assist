@@ -1,0 +1,142 @@
+# Elixir Sandbox And Gate Runner Developer Contract
+
+Status: v0.36 implementation contract.
+
+v0.36 adds a narrow sandbox substrate for generated Elixir/OTP drafts. It is
+not a broad coding-agent shell, package installer, or live integration loader.
+Future v0.37 and v0.38 code must call `AllbertAssist.Sandbox` or registered
+sandbox actions; they must not construct container commands directly.
+
+## Public Facade
+
+The public context is `AllbertAssist.Sandbox`:
+
+- `doctor/0`
+- `build_bundle/1`
+- `run_command/2`
+- `run_gate/1`
+- `cleanup/1`
+
+Runtime-facing calls also have registered actions:
+
+- `SandboxDoctor`
+- `BuildSandboxBundle`
+- `RunSandboxCommand`
+- `RunSandboxGate`
+- `DiscardSandboxBundle`
+
+These actions produce report data only. No action may load generated code into
+the core BEAM node or grant authority.
+
+## CommandSpec
+
+`AllbertAssist.Sandbox.CommandSpec` is a struct, not a shell string.
+
+Required fields:
+
+- `executable`: one of `"mix"`, `"elixir"`, or `"erl"`;
+- `argv`: explicit list of binary args;
+- `cwd`: path inside the sandbox bundle;
+- `profile`: one of `:compile`, `:focused_tests`, `:credo`, `:dialyzer`,
+  `:security_evals`, `:precommit`, or `:ad_hoc`;
+- `timeout_ms` and `output_bytes`, capped by Settings Central;
+- `env`, filtered to a bounded allow-list.
+
+Reject before backend execution:
+
+- shell strings, `sh -c`, chaining, pipes, redirects, glob expansion,
+  substitutions, background jobs, PTY, and daemon control;
+- `mix deps.get`, `mix archive.install`, migrations, package managers, Hex,
+  npm, cargo, pip, git clone, curl/wget installers, NIF builds, ports, broad
+  eval, and network setup;
+- argv that tries to access host paths outside the bundle.
+
+## Bundle Shape
+
+`AllbertAssist.Sandbox.Bundle` owns copy-in/copy-out state:
+
+```text
+bundle_root/
+  project/
+  drafts/
+  tests/
+  sandbox_home/
+  reports/
+  metadata.json
+```
+
+The bundle builder may copy only bounded allow-listed Elixir project files,
+draft files, and focused tests. It must exclude `.git`, the live Allbert Home,
+settings, secrets, databases, caches, Docker socket paths, host temp roots, and
+symlink/traversal escapes.
+
+## SourcePolicy
+
+`AllbertAssist.Sandbox.SourcePolicy` is defense in depth. It statically scans
+draft and trial files before backend execution and denies known hostile
+constructs including:
+
+- `System.cmd`, `System.shell`, `Port.open`, and `:os.cmd`;
+- `Code.eval_*`, `Code.compile_*`, and `Code.require_*`;
+- `Mix.install`;
+- `:erlang.load_nif`;
+- broad file traversal or attempts to read real Allbert Home paths;
+- attempts to load modules into the core node.
+
+Backend isolation remains mandatory even when source policy passes.
+
+## Backend Behaviour
+
+Backends implement `AllbertAssist.Sandbox.Backend`:
+
+- `id/0`
+- `platforms/0`
+- `available?/1`
+- `doctor/1`
+- `run/2`
+- `cleanup/1`
+
+They register with `AllbertAssist.Sandbox.Backend.Registry`. The registry is a
+static module-owned registry in v0.36 unless future state is required; if a
+state-bearing registry is introduced, its moduledoc must state why
+Jido.Agent or GenServer was chosen.
+
+All backends receive normalized bundle and command structs. Backends must use
+explicit executable plus argv to invoke the container engine and must not call
+a shell.
+
+## Gate Profiles
+
+`AllbertAssist.Sandbox.GateRunner` maps named profiles to data:
+
+| Profile | Command |
+|---|---|
+| `:compile` | `mix compile --warnings-as-errors` |
+| `:focused_tests` | configured `mix test` files |
+| `:credo` | `mix credo --strict` |
+| `:dialyzer` | `mix dialyzer` |
+| `:security_evals` | configured security eval tests |
+| `:precommit` | `mix precommit` |
+
+Profiles are reviewed code, not operator-supplied command text.
+
+## Report Contract
+
+Reports include:
+
+- status, exit status, duration, timeout flag, and output truncation flag;
+- capped stdout/stderr;
+- backend id and backend metadata;
+- command summary and source-policy diagnostics;
+- redaction diagnostics;
+- report path.
+
+Reports must redact secrets, real-home absolute paths, and oversized output.
+Reports are evidence for later operator review, not authority.
+
+## Fixture Expectations
+
+Tests should cover unavailable backends without requiring Docker, Podman,
+gVisor, or Apple `container` on CI. Backend command assembly should be tested
+as data. Real engine smoke tests belong in manual verification or explicitly
+tagged local-only tests.

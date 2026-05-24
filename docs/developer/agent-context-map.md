@@ -46,7 +46,7 @@ Do not load every section by default.
 | Conversational app intent handoff, clarification, and direct answer | ADR 0034, ADR 0019, ADR 0021, `docs/plans/v0.33-plan.md` | v0.33 |
 | Workspace UX refresh: chat-primary shell, view-only launcher, single-destination Canvas, conversational context indicator | ADR 0024 (v0.34 revision), `docs/plans/v0.34-plan.md`, `docs/plans/v0.34-request-flow.md` | v0.34 |
 | User theming and layout overrides | ADR 0025, ADR 0024, `docs/plans/v0.35-plan.md`, `docs/plans/v0.35-request-flow.md` | v0.35 |
-| Elixir/OTP sandbox and gate runner | ADR 0037, ADR 0009, `docs/plans/v0.36-plan.md`, `docs/plans/v0.36-request-flow.md` | v0.36 |
+| Elixir/OTP sandbox and gate runner | ADR 0037, ADR 0009, `docs/plans/v0.36-plan.md`, `docs/plans/v0.36-request-flow.md`, `docs/developer/sandbox-gate-runner.md`, `docs/operator/sandbox-gate-runner.md` | v0.36 |
 | Dynamic code & config generation, code-gen agents, v0.36 sandbox trial, gated live integration | ADR 0032, ADR 0033, ADR 0035, ADR 0037, ADR 0021, ADR 0027, `docs/plans/v0.37-plan.md`, `docs/plans/v0.37-request-flow.md` | v0.37 |
 | Templated creation: plugin/app/LLM-tool/scheduled-flow/code templates, Mix tasks, operator flows, Canvas Create surface | ADR 0036, ADR 0035, ADR 0037, ADR 0017, ADR 0015, `docs/plans/v0.38-plan.md`, `docs/plans/v0.38-request-flow.md` | v0.38 |
 
@@ -227,7 +227,7 @@ Do not load every section by default.
   Output is the neutral destination, `app:allbert` is not a layout destination,
   launcher/layout state is view-only, AppBar is fixed chrome, Settings/Output
   are non-hideable, and `active_app` remains handoff-only.
-- v0.36 (planned): Elixir/OTP Sandbox And Gate Runner. Adds the default-off,
+- v0.36 (implementation in progress): Elixir/OTP Sandbox And Gate Runner. Adds the default-off,
   OS-aware sandbox facade (pluggable backend registry + `"auto"` resolver:
   optional doctor-gated Apple `container`, rootless Podman, Docker+runsc/gVisor
   preferred over plain Docker, Docker fallback), approved local images only,
