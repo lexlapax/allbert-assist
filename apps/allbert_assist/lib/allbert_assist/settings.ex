@@ -8,6 +8,10 @@ defmodule AllbertAssist.Settings do
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Store
 
+  @legacy_key_aliases %{
+    "workspace.theme" => "workspace.theme.mode"
+  }
+
   defdelegate root(), to: Store
   defdelegate ensure_root!(), to: Store
   defdelegate read_user_settings(), to: Store
@@ -16,6 +20,11 @@ defmodule AllbertAssist.Settings do
   def defaults, do: Schema.defaults()
   def schema, do: Schema.schema()
   def safe_write_keys, do: Schema.safe_write_keys()
+
+  def known_key?(key) when is_binary(key), do: key |> canonical_key() |> Schema.known_key?()
+
+  def safe_write_key?(key) when is_binary(key),
+    do: key |> canonical_key() |> Schema.safe_write_key?()
 
   def list(namespace_or_opts \\ []) do
     namespace = namespace(namespace_or_opts)
@@ -39,6 +48,8 @@ defmodule AllbertAssist.Settings do
   end
 
   def put(key, value, context \\ %{}) when is_binary(key) do
+    key = canonical_key(key)
+
     with {:ok, settings, user_settings, diagnostics} <-
            Store.put_user_setting(key, value, context) do
       diagnostics = diagnostics ++ post_write_diagnostics(key, value, context)
@@ -52,6 +63,8 @@ defmodule AllbertAssist.Settings do
   end
 
   def resolve(key, _context \\ %{}) when is_binary(key) do
+    key = canonical_key(key)
+
     with {:ok, settings, user_settings} <- Store.resolved_settings() do
       if Schema.known_key?(key) do
         {:ok, resolved_setting(key, Schema.get_dotted(settings, key), settings, user_settings)}
@@ -66,6 +79,7 @@ defmodule AllbertAssist.Settings do
   def validate(settings_or_key_value, opts \\ [])
 
   def validate({key, value}, opts) when is_binary(key) do
+    key = canonical_key(key)
     settings = Keyword.get(opts, :settings, defaults())
     Schema.validate_key_value(key, value, settings)
   end
@@ -176,6 +190,8 @@ defmodule AllbertAssist.Settings do
   defp namespace(opts) when is_list(opts), do: Keyword.get(opts, :namespace)
   defp namespace(namespace) when is_binary(namespace), do: namespace
   defp namespace(_namespace), do: nil
+
+  defp canonical_key(key), do: Map.get(@legacy_key_aliases, key, key)
 
   defp sanitize_context(context) when is_map(context) do
     Map.drop(context, [:secret, "secret", :api_key, "api_key", :token, "token"])

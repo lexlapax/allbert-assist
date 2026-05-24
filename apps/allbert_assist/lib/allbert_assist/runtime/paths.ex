@@ -29,6 +29,8 @@ defmodule AllbertAssist.Runtime.Paths do
           | :workspace_canvas
           | :workspace_ephemeral
           | :workspace_secrets
+          | :themes
+          | :theme_snippets
 
   @doc "Return the canonical Allbert Home."
   @spec home() :: String.t()
@@ -106,6 +108,14 @@ defmodule AllbertAssist.Runtime.Paths do
   @spec workspace_secrets_root() :: String.t()
   defdelegate workspace_secrets_root(), to: Paths
 
+  @doc "Return the operator theme root."
+  @spec themes_root() :: String.t()
+  defdelegate themes_root(), to: Paths
+
+  @doc "Return the operator CSS snippet root."
+  @spec theme_snippets_root() :: String.t()
+  defdelegate theme_snippets_root(), to: Paths
+
   @doc "Return a named root path."
   @spec root(root_name()) :: String.t()
   def root(:home), do: home()
@@ -126,6 +136,8 @@ defmodule AllbertAssist.Runtime.Paths do
   def root(:workspace_canvas), do: workspace_canvas_root()
   def root(:workspace_ephemeral), do: workspace_ephemeral_root()
   def root(:workspace_secrets), do: workspace_secrets_root()
+  def root(:themes), do: themes_root()
+  def root(:theme_snippets), do: theme_snippets_root()
 
   @doc "Return the current standard root vocabulary as a map."
   @spec roots() :: %{root_name() => String.t()}
@@ -148,7 +160,9 @@ defmodule AllbertAssist.Runtime.Paths do
       workspace: workspace_root(),
       workspace_canvas: workspace_canvas_root(),
       workspace_ephemeral: workspace_ephemeral_root(),
-      workspace_secrets: workspace_secrets_root()
+      workspace_secrets: workspace_secrets_root(),
+      themes: themes_root(),
+      theme_snippets: theme_snippets_root()
     }
   end
 end
