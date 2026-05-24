@@ -14,7 +14,9 @@ defmodule AllbertAssist.Sandbox.Backend.Registry do
 
   @backends [AppleContainer, PodmanRootless, DockerRunsc, Docker]
 
-  @spec backends() :: [module()]
+  @type backend_module :: AppleContainer | Docker | DockerRunsc | PodmanRootless
+
+  @spec backends() :: [backend_module(), ...]
   def backends, do: @backends
 
   @spec ids() :: [atom()]
