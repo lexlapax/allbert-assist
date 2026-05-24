@@ -141,6 +141,34 @@ defmodule AllbertAssist.Workspace.EmittersTest do
     assert decline.props.surface_id == first.id
   end
 
+  test "intent proposal uses lighter wording when already viewing the same app" do
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.fragment.emitted")
+
+    handoff =
+      Handoff.new!(%{
+        kind: :app_handoff,
+        app_id: :stocksage,
+        action_name: "run_analysis",
+        label: "Run StockSage analysis",
+        source_text: "analyze CIEN",
+        extracted_slots: %{ticker: "CIEN"}
+      })
+
+    assert :ok =
+             Emitters.intent_proposal(handoff, %{
+               user_id: "alice",
+               thread_id: "thr_same_app",
+               canvas_destination: "app:stocksage"
+             })
+
+    envelope = receive_signal("allbert.workspace.fragment.emitted").data.envelope
+    [card | _buttons] = envelope.surface.nodes
+
+    assert card.props.body =~ "Run StockSage analysis for CIEN?"
+    refute card.props.body =~ "hand this to StockSage"
+  end
+
   test "StockSage completion emits durable analysis and native progress canvas tiles" do
     assert {:ok, _subscription_id} =
              Bus.subscribe(AllbertAssist.SignalBus, "allbert.workspace.fragment.emitted")

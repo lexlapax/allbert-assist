@@ -17,6 +17,8 @@ defmodule StockSage.AppPanelsTest do
 
     assert Enum.all?(surfaces, &match?(%Surface{path: "/workspace", kind: :panel}, &1))
     assert Enum.all?(surfaces, &(&1.metadata.visible_when == :selected_app))
+    assert Enum.all?(surfaces, &(&1.zone == :canvas_panels))
+    assert Enum.all?(surfaces, &(&1.metadata.zone == :canvas_panels))
 
     assert Enum.all?(
              surfaces,
