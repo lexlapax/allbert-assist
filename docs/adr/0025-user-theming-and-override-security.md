@@ -85,6 +85,40 @@ default. Missing, invalid, or partially invalid files fall back to defaults
 per-key with bounded warnings, never a crash. Theming reads only
 `<ALLBERT_HOME>`; no remote theme fetching.
 
+### 5. Settings key migration: `workspace.theme` → `workspace.theme.mode`
+
+v0.34 shipped a scalar `workspace.theme` key (light/dark/system mode, reached
+from the AppBar `#workspace-theme-toggle`). To let the token/snippet keys share
+the `workspace.theme.*` namespace without a scalar-vs-prefix collision, v0.35
+renames it to `workspace.theme.mode` with a compatibility read (a legacy stored
+`workspace.theme` value normalizes to `workspace.theme.mode`), audited like any
+settings change. This is presentational only and changes no routing or domain
+behavior. All v0.35 keys (`workspace.theme.mode/active/snippets_enabled/
+enabled_snippets`, `workspace.layout.override_enabled`) are owned by a new
+`Settings.Fragments.WorkspaceAppearance` fragment under the v0.31 contract.
+
+### 6. Token theme is a single set over the current mode
+
+The dark/light/system mode sets the base palette; the selected token theme is a
+single set that retints on top of whichever mode is active. `/theme/user.css`
+loads after `app.css` in both modes; snippets load last. v0.35 adds no per-mode
+token variants. The themeable allow-list is the presentational `--allbert-*`
+variables only; layout-structural variables (root-grid track sizes, rail/canvas
+widths, AppBar geometry) are excluded so tokens cannot break the v0.34 shell.
+
+### 7. Layout validates against a pinned source; no lockout; AppBar is fixed
+
+Layout override validates against an enumerable destination/panel source that
+v0.35 must add (`Workspace.Catalog.known_destinations/1`, with the grammar
+`output` | `app:<id>` | `workspace:<tool>`), registered panel surface ids, and
+the catalog's retained zone labels (including the v0.34-demounted
+`:utility_drawer` / `:context_rail` labels, which validate but cannot re-mount a
+region). The **AppBar is fixed chrome**: its brand, context indicator, theme
+toggle, and destination quick-links are out of scope for layout override.
+**Settings and Output are non-hideable** launcher destinations, and the
+`workspace.layout.override_enabled` master switch (UI or CLI) always disables
+overrides — together preventing self-lockout.
+
 ## Consequences
 
 - Operators can fully retheme and re-lay-out the UI from their home dir with no
@@ -99,8 +133,10 @@ per-key with bounded warnings, never a crash. Theming reads only
   the sanitizer + CSP + opt-in keep it from becoming a regression as channels
   and multi-user scenarios arrive.
 - New `workspace.theme.*` / `workspace.layout.*` Settings Central keys and a new
-  served route surface (`/theme/*`) are added; both are covered by v0.28 eval
-  additions (sanitizer bypass, CSP regression, exfiltration attempts).
+  served route surface (`/theme/*`) are added; both are covered by named v0.28
+  eval rows: `theme-snippet-import-reject-001`, `theme-snippet-url-strip-001`,
+  `theme-css-exfil-001`, `theme-path-traversal-001`, `theme-csp-regression-001`,
+  `layout-override-authority-001`, and `layout-hide-settings-lockout-001`.
 - A future milestone may add a file watcher for live reload and an OS-keychain/
   remote theme source; v0.35 recomputes on request with a version stamp.
 
@@ -113,4 +149,11 @@ per-key with bounded warnings, never a crash. Theming reads only
   Allbert Home / v0.31 runtime path precedence model, and Settings Central.
 - Constrained by: ADR 0006 (Security Central) redaction/audit posture and the
   "no arbitrary model-generated HTML/JS" rule from ADR 0023.
+- Enables: v0.37 Plugin And App Generator scaffolds inert token-theme, snippet,
+  and `layout.yaml` stubs from the contracts this ADR pins.
+- Bounds with: v0.36 (Dynamic Plugin/App Generation) — theme roots under
+  `<ALLBERT_HOME>` are operator styling data, never executable drafts; the v0.36
+  sandbox must not compile or load them as code.
+- Revisit: the CSP baseline must be reconciled with any post-v0.37 external UI
+  protocol bridge (AG-UI/A2UI/MCP Apps) before such a bridge is exposed.
 - New net work: not previously parked in `docs/plans/future-features.md`.
