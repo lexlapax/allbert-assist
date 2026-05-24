@@ -149,6 +149,7 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, 1024} = Settings.get("sandbox.elixir.memory_mb")
     assert {:ok, 120_000} = Settings.get("sandbox.elixir.timeout_ms")
     assert {:ok, 65_536} = Settings.get("sandbox.elixir.output_bytes")
+    assert {:ok, "allowed"} = Settings.get("permissions.sandbox_trial")
 
     assert {:ok, enabled} = Settings.put("sandbox.elixir.enabled", true, %{audit?: false})
     assert enabled.value == true
@@ -177,6 +178,11 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, output} = Settings.put("sandbox.elixir.output_bytes", 131_072, %{audit?: false})
     assert output.value == 131_072
 
+    assert {:ok, sandbox_trial} =
+             Settings.put("permissions.sandbox_trial", "denied", %{audit?: false})
+
+    assert sandbox_trial.value == "denied"
+
     assert {:error, {:invalid_setting, "sandbox.elixir.backend", _reason}} =
              Settings.put("sandbox.elixir.backend", "firecracker", %{audit?: false})
 
@@ -188,6 +194,9 @@ defmodule AllbertAssist.SettingsTest do
 
     assert {:error, {:invalid_setting, "sandbox.elixir.memory_mb", _reason}} =
              Settings.put("sandbox.elixir.memory_mb", 64, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "permissions.sandbox_trial", _reason}} =
+             Settings.put("permissions.sandbox_trial", "needs_confirmation", %{audit?: false})
   end
 
   test "workspace settings resolve defaults and validate writes" do

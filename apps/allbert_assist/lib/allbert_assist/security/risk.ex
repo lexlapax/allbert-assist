@@ -26,6 +26,7 @@ defmodule AllbertAssist.Security.Risk do
   def tier(:confirmation_decide), do: :medium
   def tier(:objective_write), do: :low
   def tier(:workspace_canvas_write), do: :low
+  def tier(:sandbox_trial), do: :high
   def tier(:stocksage_write), do: :low
   def tier(:stocksage_analyze), do: :high
   def tier(:stocksage_evidence_fetch), do: :medium
@@ -46,6 +47,7 @@ defmodule AllbertAssist.Security.Risk do
   defp reasons(:confirmation_decide, _tier, _context), do: ["operator confirmation decision"]
   defp reasons(:objective_write, _tier, _context), do: ["local objective lifecycle write"]
   defp reasons(:workspace_canvas_write, _tier, _context), do: ["local workspace canvas write"]
+  defp reasons(:sandbox_trial, _tier, _context), do: ["default-off container sandbox trial"]
   defp reasons(:stocksage_write, _tier, _context), do: ["local StockSage SQLite domain write"]
 
   defp reasons(:stocksage_analyze, _tier, _context),
