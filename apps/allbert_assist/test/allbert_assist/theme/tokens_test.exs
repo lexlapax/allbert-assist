@@ -94,6 +94,27 @@ defmodule AllbertAssist.Theme.TokensTest do
     assert Tokens.user_css() =~ "no active token overrides"
   end
 
+  test "remote fetch constructs are rejected from token values", %{home: home} do
+    File.write!(
+      Path.join([home, "themes", "remote.yaml"]),
+      """
+      tokens:
+        allbert-surface-0: "url(https://example.com/theme.css)"
+        allbert-accent: "image-set(https://example.com/a.png 1x)"
+      """
+    )
+
+    assert {:ok, _setting} = Settings.put("workspace.theme.active", "remote", %{audit?: false})
+
+    selected = Tokens.selected()
+
+    assert selected.status == :invalid
+    assert selected.declarations == %{}
+    assert Enum.all?(selected.diagnostics, &(not String.contains?(&1, "https://example.com")))
+    refute Tokens.user_css() =~ "url("
+    refute Tokens.user_css() =~ "image-set("
+  end
+
   test "unsafe theme selection never resolves outside Allbert Home" do
     assert {:ok, _setting} = Settings.put("workspace.theme.active", "../secret", %{audit?: false})
 
