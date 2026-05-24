@@ -2,8 +2,8 @@
 
 ## Status
 
-Proposed for v0.35 Dynamic Plugin/App Generation And Sandboxed Module Loading
-(`docs/plans/v0.35-plan.md`).
+Proposed for v0.36 Dynamic Plugin/App Generation And Sandboxed Module Loading
+(`docs/plans/v0.36-plan.md`).
 
 ## Context
 
@@ -19,7 +19,7 @@ local capability when no existing plugin/app/action can satisfy a request.
 
 ## Decision
 
-v0.35 defines a narrow exception to the no-dynamic-code rule:
+v0.36 defines a narrow exception to the no-dynamic-code rule:
 
 - generated plugin/app source may be written inertly under
   `<ALLBERT_HOME>/plugins/<slug>`;
@@ -59,10 +59,10 @@ manifests, remote plugins, or arbitrary user-created code.
 with dropped privileges and restricted filesystem/network access, or a
 container/VM. It does **not** mean a separate or hidden BEAM/distributed-Erlang
 node, and not an in-VM "disposable process," because BEAM processes share the
-host VM's privileges (ADR 0009). v0.35 must select a concrete backend that
+host VM's privileges (ADR 0009). v0.36 must select a concrete backend that
 provides an OS-level boundary before sandbox compilation lands; the parked
 "Container And Remote Execution Sandboxes" Level-2/Level-3 work is a
-prerequisite of v0.35, not an implementation detail. If no OS-level backend is
+prerequisite of v0.36, not an implementation detail. If no OS-level backend is
 available on the host, dynamic trials remain disabled rather than degrading to
 an in-VM process.
 

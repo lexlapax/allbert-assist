@@ -2,8 +2,8 @@
 
 ## Status
 
-Proposed for v0.35 Dynamic Plugin/App Generation And Sandboxed Module Loading
-(`docs/plans/v0.35-plan.md`).
+Proposed for v0.36 Dynamic Plugin/App Generation And Sandboxed Module Loading
+(`docs/plans/v0.36-plan.md`).
 
 ## Context
 
@@ -22,7 +22,7 @@ Capability acquisition is objective-owned:
   or marking it as a promotion candidate are registered actions with explicit
   Security Central decisions and operator confirmation.
 
-v0.35 defines draft trust tiers:
+v0.36 defines draft trust tiers:
 
 - `:draft` - inert generated source;
 - `:sandbox_compiled` - compiled outside the core node;
@@ -38,8 +38,8 @@ skill enablement, child supervision, or core-node module loading.
 - Dynamic generation remains part of the objective runtime instead of becoming
   a hidden goal loop inside an app, plugin, or LiveView.
 - Operator review is explicit at each authority boundary.
-- v0.36 can consume promotion-candidate drafts as review input without making
-  v0.35 a generator-promotion feature.
+- v0.37 can consume promotion-candidate drafts as review input without making
+  v0.36 a generator-promotion feature.
 
 ## Non-Goals
 
@@ -57,5 +57,5 @@ skill enablement, child supervision, or core-node module loading.
   0026-0031 (v0.31 facades), and the objective runtime (ADR 0021).
 - Constrained by: ADR 0006 (Security Central) and existing confirmation /
   Resource Access policy.
-- Hands off to: v0.36 generator, which may consume promotion-candidate drafts as
+- Hands off to: v0.37 generator, which may consume promotion-candidate drafts as
   review input.
