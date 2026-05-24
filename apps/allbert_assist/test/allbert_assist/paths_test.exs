@@ -84,6 +84,10 @@ defmodule AllbertAssist.PathsTest do
     assert Paths.tmp_root() == Path.join(home, "tmp")
     assert Paths.themes_root() == Path.join(home, "themes")
     assert Paths.theme_snippets_root() == Path.join([home, "themes", "snippets"])
+    assert Paths.sandbox_root() == Path.join(home, "sandbox")
+    assert Paths.sandbox_bundles_root() == Path.join([home, "sandbox", "bundles"])
+    assert Paths.sandbox_reports_root() == Path.join([home, "sandbox", "reports"])
+    assert Paths.sandbox_cache_root() == Path.join([home, "sandbox", "cache"])
   end
 
   test "specific root overrides take precedence over derived home paths" do
@@ -136,6 +140,10 @@ defmodule AllbertAssist.PathsTest do
           Path.join([home, "execution", "package-installs"]),
           Path.join([home, "execution", "package-installs", "audit"]),
           Path.join([home, "execution", "package-installs", "runs"]),
+          Path.join(home, "sandbox"),
+          Path.join([home, "sandbox", "bundles"]),
+          Path.join([home, "sandbox", "reports"]),
+          Path.join([home, "sandbox", "cache"]),
           Path.join(home, "external"),
           Path.join([home, "external", "audit"]),
           Path.join(home, "memory"),
