@@ -219,8 +219,13 @@ Do not load every section by default.
   0024's v0.34 revision.
 - v0.35 (planned): User Theming And Layout Overrides. Adds Allbert Home theme
   roots, token YAML, opt-in sanitized CSS snippets, validated v0.34
-  launcher/Canvas-destination layout YAML, Settings Central keys, and CSP
-  regression coverage for `/workspace`. Per ADR 0025.
+  launcher/Canvas-destination layout YAML, Settings Central-accountable gates
+  and selections, and CSP regression coverage for `/workspace`. Start with ADR
+  0025 plus `docs/plans/v0.35-plan.md` /
+  `docs/plans/v0.35-request-flow.md`, and carry forward v0.34 constraints:
+  Output is the neutral destination, `app:allbert` is not a layout destination,
+  launcher/layout state is view-only, AppBar is fixed chrome, Settings/Output
+  are non-hideable, and `active_app` remains handoff-only.
 - v0.36 (planned): Dynamic Plugin/App Generation And Sandboxed Module Loading.
   Generates inert local plugin/app drafts under `<ALLBERT_HOME>/plugins`,
   compiles and tries them only in an out-of-node sandbox, reports redacted
