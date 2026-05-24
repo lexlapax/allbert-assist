@@ -5,8 +5,11 @@ defmodule AllbertAssist.SandboxTest do
   alias AllbertAssist.Sandbox
   alias AllbertAssist.Sandbox.Backend.Registry
   alias AllbertAssist.Sandbox.Backend.Resolver
+  alias AllbertAssist.Sandbox.Bundle
+  alias AllbertAssist.Sandbox.CommandSpec
   alias AllbertAssist.Sandbox.Host
   alias AllbertAssist.Sandbox.Policy
+  alias AllbertAssist.Sandbox.SourcePolicy
   alias AllbertAssist.Settings
 
   defmodule AvailableDocker do
@@ -205,6 +208,155 @@ defmodule AllbertAssist.SandboxTest do
     assert [%{id: :docker, status: :available}] = report.candidates
   end
 
+  test "bundle builder copies only allowed project, draft, and test inputs", %{home: home} do
+    project = fixture_project("copy")
+    File.mkdir_p!(Path.join(project, ".git"))
+    File.write!(Path.join([project, ".git", "config"]), "secret repo metadata")
+    File.mkdir_p!(Path.join(project, "deps"))
+    File.write!(Path.join([project, "deps", "ignored.ex"]), "defmodule Ignored, do: nil")
+
+    assert {:ok, %Bundle{} = bundle} =
+             Sandbox.build_bundle(%{
+               id: "copy-bundle",
+               project_root: project,
+               project_paths: ["mix.exs", "lib"],
+               draft_paths: ["drafts/generated.ex"],
+               test_paths: ["test/generated_test.exs"]
+             })
+
+    assert File.exists?(Path.join([bundle.project_path, "mix.exs"]))
+    assert File.exists?(Path.join([bundle.project_path, "lib", "safe.ex"]))
+    assert File.exists?(Path.join([bundle.drafts_path, "drafts", "generated.ex"]))
+    assert File.exists?(Path.join([bundle.tests_path, "test", "generated_test.exs"]))
+    refute File.exists?(Path.join([bundle.project_path, ".git", "config"]))
+    refute File.exists?(Path.join([bundle.project_path, "deps", "ignored.ex"]))
+    assert bundle.sandbox_home == Path.join(bundle.root, "sandbox_home")
+    assert String.starts_with?(bundle.root, Path.join([home, "sandbox", "bundles"]))
+    assert File.exists?(bundle.metadata_path)
+  end
+
+  test "bundle builder fails closed on traversal, real home, and symlink escapes", %{home: home} do
+    project = fixture_project("denied")
+    outside = Path.join(Path.dirname(project), "outside.ex")
+    File.write!(outside, "defmodule Outside, do: nil")
+
+    assert {:error, %{reason: {:path_outside_project, _path}}} =
+             Sandbox.build_bundle(%{project_root: project, draft_paths: [outside]})
+
+    assert {:error, %{reason: :real_home_not_allowed}} =
+             Sandbox.build_bundle(%{project_root: home})
+
+    link = Path.join(project, "link.ex")
+    File.ln_s!(outside, link)
+
+    assert {:error, %{reason: {:symlink_not_allowed, _path}}} =
+             Sandbox.build_bundle(%{project_root: project, draft_paths: [link]})
+  end
+
+  test "command spec accepts only explicit Elixir gate argv shapes" do
+    project = fixture_project("command")
+    {:ok, bundle} = Sandbox.build_bundle(%{project_root: project, project_paths: ["mix.exs"]})
+    policy = policy("docker", %Host{os: :linux, arch: :x86_64})
+
+    assert {:ok, compile} =
+             CommandSpec.normalize(
+               %{executable: "mix", argv: ["compile", "--warnings-as-errors"], profile: :compile},
+               policy: policy,
+               bundle: bundle
+             )
+
+    assert CommandSpec.allowed?(compile)
+    assert compile.cwd == bundle.project_path
+
+    assert {:error, denied_shell} =
+             CommandSpec.normalize(
+               %{executable: "mix", argv: ["test", "&&", "curl"], profile: :ad_hoc},
+               policy: policy,
+               bundle: bundle
+             )
+
+    assert denied_shell.denial_reason == :shell_syntax_not_allowed
+
+    assert {:error, denied_deps} =
+             CommandSpec.normalize(
+               %{executable: "mix", argv: ["deps.get"], profile: :ad_hoc},
+               policy: policy,
+               bundle: bundle
+             )
+
+    assert denied_deps.denial_reason == :mix_command_not_allowed
+
+    assert {:error, denied_env} =
+             CommandSpec.normalize(
+               %{
+                 executable: "mix",
+                 argv: ["compile", "--warnings-as-errors"],
+                 profile: :compile,
+                 env: %{"OPENAI_API_KEY" => "sk-test"}
+               },
+               policy: policy,
+               bundle: bundle
+             )
+
+    assert denied_env.denial_reason == :secret_env_not_allowed
+
+    assert {:error, denied_cwd} =
+             CommandSpec.normalize(
+               %{
+                 executable: "mix",
+                 argv: ["compile", "--warnings-as-errors"],
+                 profile: :compile,
+                 cwd: Path.dirname(bundle.root)
+               },
+               policy: policy,
+               bundle: bundle
+             )
+
+    assert {:cwd_outside_bundle, _path} = denied_cwd.denial_reason
+  end
+
+  test "source policy denies dangerous Elixir constructs before backend execution" do
+    project = fixture_project("source-policy")
+    malicious = Path.join([project, "drafts", "generated.ex"])
+
+    File.write!(malicious, """
+    defmodule Generated do
+      def run do
+        System.cmd("sh", ["-c", "curl example.com"])
+        Port.open({:spawn, "sh"}, [])
+        Mix.install([:req])
+      end
+    end
+    """)
+
+    {:ok, bundle} =
+      Sandbox.build_bundle(%{
+        project_root: project,
+        project_paths: ["mix.exs"],
+        draft_paths: ["drafts/generated.ex"]
+      })
+
+    assert {:error, report} = SourcePolicy.scan(bundle)
+    reasons = Enum.map(report.diagnostics, & &1.reason)
+    assert :system_cmd in reasons
+    assert :port_open in reasons
+    assert :mix_install in reasons
+    refute inspect(report) =~ Paths.home()
+  end
+
+  test "source policy allows safe draft source" do
+    project = fixture_project("source-safe")
+
+    {:ok, bundle} =
+      Sandbox.build_bundle(%{
+        project_root: project,
+        project_paths: ["mix.exs"],
+        draft_paths: ["drafts/generated.ex"]
+      })
+
+    assert {:ok, %{status: :allowed, diagnostics: []}} = SourcePolicy.scan(bundle)
+  end
+
   defp policy(backend, host) do
     %Policy{
       enabled?: true,
@@ -218,6 +370,36 @@ defmodule AllbertAssist.SandboxTest do
       roots: %{},
       host: host
     }
+  end
+
+  defp fixture_project(name) do
+    root = temp_path("project-#{name}")
+
+    File.mkdir_p!(Path.join(root, "lib"))
+    File.mkdir_p!(Path.join(root, "drafts"))
+    File.mkdir_p!(Path.join(root, "test"))
+
+    File.write!(Path.join(root, "mix.exs"), """
+    defmodule Fixture.MixProject do
+      use Mix.Project
+      def project, do: [app: :fixture, version: "0.1.0", elixir: "~> 1.19"]
+      def application, do: []
+    end
+    """)
+
+    File.write!(Path.join([root, "lib", "safe.ex"]), "defmodule Safe, do: def ok, do: :ok\n")
+
+    File.write!(
+      Path.join([root, "drafts", "generated.ex"]),
+      "defmodule Generated, do: def ok, do: :ok\n"
+    )
+
+    File.write!(
+      Path.join([root, "test", "generated_test.exs"]),
+      "defmodule GeneratedTest, do: use ExUnit.Case\n"
+    )
+
+    root
   end
 
   defp temp_path(name) do
