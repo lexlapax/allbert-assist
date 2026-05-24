@@ -282,6 +282,28 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   def handle_event("select_workspace_app", _params, socket), do: {:noreply, socket}
 
+  def handle_event("exit_app_context", _params, socket) do
+    case run_workspace_action(socket, "clear_active_app", %{
+           user_id: socket.assigns.user_id,
+           session_id: socket.assigns.session_id
+         }) do
+      {:ok, %{status: :completed, session: %{active_app: active_app}}} ->
+        {:noreply,
+         socket
+         |> assign(active_app: active_app || :allbert, error: nil)
+         |> refresh_workspace()}
+
+      {:ok, %{status: :not_found}} ->
+        {:noreply,
+         socket
+         |> assign(active_app: :allbert, error: nil)
+         |> refresh_workspace()}
+
+      {:ok, response} ->
+        {:noreply, assign(socket, :error, Map.get(response, :message, inspect(response)))}
+    end
+  end
+
   def handle_event("workspace_tile_editor_sync", params, socket) do
     {:reply, workspace_tile_editor_reply(params, socket), socket}
   end
