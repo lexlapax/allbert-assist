@@ -28,6 +28,35 @@ import {IndexeddbPersistence} from "y-indexeddb"
 import {fromUint8Array} from "js-base64"
 import topbar from "../vendor/topbar"
 
+const setupAllbertTheme = () => {
+  const storageKey = "allbert:theme"
+
+  const setTheme = theme => {
+    if (theme === "system") {
+      localStorage.removeItem(storageKey)
+      document.documentElement.removeAttribute("data-theme")
+    } else {
+      localStorage.setItem(storageKey, theme)
+      document.documentElement.setAttribute("data-theme", theme)
+    }
+  }
+
+  if (!document.documentElement.hasAttribute("data-theme")) {
+    setTheme(localStorage.getItem(storageKey) || "system")
+  }
+
+  window.addEventListener("storage", event => {
+    if (event.key === storageKey) setTheme(event.newValue || "system")
+  })
+
+  window.addEventListener("allbert:set-theme", event => {
+    const target = event.target instanceof HTMLElement ? event.target : null
+    setTheme(event.detail?.theme || target?.dataset?.allbertTheme || "system")
+  })
+}
+
+setupAllbertTheme()
+
 const focusableSelector = [
   "a[href]",
   "button:not([disabled])",

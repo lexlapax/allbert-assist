@@ -15,26 +15,6 @@
     <link rel="stylesheet" href={~p"/theme/user.css?#{[v: theme_asset_version()]}"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
-    <script>
-      (() => {
-        const storageKey = "allbert:theme";
-        const setTheme = (theme) => {
-          if (theme === "system") {
-            localStorage.removeItem(storageKey);
-            document.documentElement.removeAttribute("data-theme");
-          } else {
-            localStorage.setItem(storageKey, theme);
-            document.documentElement.setAttribute("data-theme", theme);
-          }
-        };
-        if (!document.documentElement.hasAttribute("data-theme")) {
-          setTheme(localStorage.getItem(storageKey) || "system");
-        }
-        window.addEventListener("storage", (e) => e.key === storageKey && setTheme(e.newValue || "system"));
-
-        window.addEventListener("allbert:set-theme", (e) => setTheme(e.target.dataset.allbertTheme));
-      })();
-    </script>
   </head>
   <body>
     {@inner_content}
