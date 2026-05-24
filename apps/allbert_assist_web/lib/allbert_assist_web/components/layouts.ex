@@ -113,4 +113,6 @@ defmodule AllbertAssistWeb.Layouts do
     |> Application.spec(:vsn)
     |> to_string()
   end
+
+  defp theme_asset_version, do: AllbertAssist.Theme.Version.stylesheet_version()
 end

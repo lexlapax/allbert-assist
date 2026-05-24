@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed for v0.35 User Theming And Layout Overrides
+Accepted for v0.35 User Theming And Layout Overrides
 (`docs/plans/v0.35-plan.md`). This ADR pins how operators retheme and
 re-lay-out the Allbert UI from `<ALLBERT_HOME>` without editing core code, and
 the security posture for serving operator-supplied styling. It pairs with ADR
@@ -10,8 +10,7 @@ the security posture for serving operator-supplied styling. It pairs with ADR
 v0.34 launcher/Canvas destination model that the layout-override layer
 reorders. ADR 0025 does not block v0.31 or v0.32, and it does not change the
 v0.33 app-intent handoff contract or v0.34 handoff-only routing context.
-It remains Proposed during planning; v0.35 M1 accepts/finalizes it before
-implementation work depends on the contract.
+It was accepted in v0.35 M1 before token-theme implementation began.
 
 ## Context
 
