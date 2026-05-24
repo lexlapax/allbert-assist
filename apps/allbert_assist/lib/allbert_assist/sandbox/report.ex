@@ -20,7 +20,7 @@ defmodule AllbertAssist.Sandbox.Report do
             metadata: %{}
 
   @type t :: %__MODULE__{
-          status: :completed | :failed | :denied | :timed_out | :not_started,
+          status: :completed | :failed | :denied | :timed_out | :not_started | :unavailable,
           backend: atom() | nil,
           command: map() | nil,
           exit_status: non_neg_integer() | nil,
@@ -33,4 +33,22 @@ defmodule AllbertAssist.Sandbox.Report do
           diagnostics: [map()],
           metadata: map()
         }
+
+  @spec to_map(t()) :: map()
+  def to_map(%__MODULE__{} = report) do
+    %{
+      status: report.status,
+      backend: report.backend,
+      command: report.command,
+      exit_status: report.exit_status,
+      duration_ms: report.duration_ms,
+      timed_out?: report.timed_out?,
+      truncated?: report.truncated?,
+      stdout: report.stdout,
+      stderr: report.stderr,
+      report_path: report.report_path,
+      diagnostics: report.diagnostics,
+      metadata: report.metadata
+    }
+  end
 end
