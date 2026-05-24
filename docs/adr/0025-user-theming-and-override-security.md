@@ -68,7 +68,7 @@ the home dir). Each layer is gated by Settings Central `workspace.theme.*`:
 
 ### 2. Strip-and-warn sanitization for snippets
 
-`AllbertAssist.Theme.Sanitizer` processes snippet CSS before serving: it
+`AllbertAssist.Theme.Snippets` processes snippet CSS before serving: it
 **rejects `@import`** outright and **strips `url()` and `image-set()`** values,
 emitting an operator-visible warning that names what was removed. A snippet that
 is entirely unsafe serves as empty with a warning. Snippet content can never
@@ -97,8 +97,10 @@ renames it to `workspace.theme.mode` with a compatibility read (a legacy stored
 `workspace.theme` value normalizes to `workspace.theme.mode`), audited like any
 settings change. This is presentational only and changes no routing or domain
 behavior. All v0.35 keys (`workspace.theme.mode/active/snippets_enabled/
-enabled_snippets`, `workspace.layout.override_enabled`) are owned by a new
-`Settings.Fragments.WorkspaceAppearance` fragment under the v0.31 contract.
+enabled_snippets`, `workspace.layout.override_enabled`) are owned by the
+shipped core `workspace` Settings Central schema fragment (`core:workspace`),
+assembled from `AllbertAssist.Settings.Schema` through the v0.31
+`AllbertAssist.Settings.Fragments` facade.
 
 ### 6. Settings accountability without storing raw override blobs
 
