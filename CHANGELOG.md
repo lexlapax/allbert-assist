@@ -12,9 +12,8 @@ changelog entries or release notes.
 
 ## v0.36.0 - Elixir/OTP Sandbox And Gate Runner
 
-Status: implementation reopened for local sandbox image preparation on
-2026-05-24. Version metadata is `0.36.0`; release readiness now requires
-`mix allbert.sandbox image build` and `mix allbert.sandbox image verify`.
+Status: implemented as `0.36.0`; release gate in progress after adding local
+sandbox image preparation on 2026-05-24.
 
 Plan: `docs/plans/v0.36-plan.md`.
 Request flow: `docs/plans/v0.36-request-flow.md`.
@@ -40,6 +39,8 @@ ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
 - Public `AllbertAssist.Sandbox` facade, reviewed gate profiles, sandbox
   lifecycle signals, internal sandbox actions, and bounded redacted report
   writing.
+- `mix allbert.sandbox image build` and `mix allbert.sandbox image verify` for
+  preparing the default approved local image before sandbox gate execution.
 - v0.36 security eval rows for disabled/missing backends, backend resolver
   fail-closed behavior, no image pulls, source policy, shell denial, network
   denial, secret denial, home isolation, package-manager denial, NIF/port
@@ -55,6 +56,8 @@ ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
 - Operator, developer, roadmap, onboarding, security-hardening,
   runtime-boundary, agent-context, and future-feature docs now point at the
   implemented v0.36 sandbox contract and report-only authority boundary.
+- Docker-family doctor checks now validate the local image labels and point to
+  the image-preparation task when the image is missing or invalid.
 
 ### Verification (v0.36.0)
 
@@ -64,9 +67,7 @@ ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
   suites passed during milestone work.
 - No UI/UX behavior changed in v0.36, so Chrome extension browser verification
   was not required for this release.
-- Final release gate passed: `mix compile --warnings-as-errors`,
-  `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
-  `git diff --check`.
+- Final release gate pending after the M7 image-preparation correction.
 
 ## v0.35.0 - User Theming And Layout Overrides
 

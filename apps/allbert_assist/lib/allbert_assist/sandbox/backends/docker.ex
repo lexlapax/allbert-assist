@@ -10,6 +10,7 @@ defmodule AllbertAssist.Sandbox.Backends.Docker do
   alias AllbertAssist.Sandbox.Backends.ContainerRunner
   alias AllbertAssist.Sandbox.Bundle
   alias AllbertAssist.Sandbox.CommandSpec
+  alias AllbertAssist.Sandbox.Image
   alias AllbertAssist.Sandbox.Policy
 
   @impl true
@@ -26,9 +27,13 @@ defmodule AllbertAssist.Sandbox.Backends.Docker do
     with {:ok, docker} <- find_executable("docker"),
          :ok <-
            command_ok(docker, ["version", "--format", "{{.Server.Version}}"], :docker_unavailable),
-         :ok <-
-           command_ok(docker, ["image", "inspect", policy.image], {:image_missing, policy.image}) do
-      available(%{executable: docker, image: policy.image, network: policy.network})
+         {:ok, image_metadata} <- Image.local_status(policy, docker) do
+      available(%{
+        executable: docker,
+        image: policy.image,
+        image_metadata: image_metadata,
+        network: policy.network
+      })
     else
       {:error, reason} -> unavailable(reason)
     end
