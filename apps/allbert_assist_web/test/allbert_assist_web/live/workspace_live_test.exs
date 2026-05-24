@@ -246,6 +246,9 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
     assert has_element?(view, "#workspace-shell[data-mobile-tab='chat']")
+    assert has_element?(view, "#workspace-shell[data-launcher-open='false']")
+    assert has_element?(view, "#workspace-mobile-shellbar")
+    assert has_element?(view, "#workspace-launcher-toggle[aria-expanded='false']")
     assert has_element?(view, "#workspace-mobile-tabs[role='tablist']")
     refute has_element?(view, "#workspace-mobile-tab-nav")
     assert has_element?(view, "#workspace-mobile-tab-chat[aria-selected='true']")
@@ -261,6 +264,22 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#workspace-mobile-tab-canvas[aria-selected='true']")
     refute has_element?(view, "#workspace-mobile-tab-utility")
     refute has_element?(view, "#workspace-mobile-tab-ephemeral")
+
+    html =
+      view
+      |> element("#workspace-launcher-toggle")
+      |> render_click()
+
+    assert html =~ ~s(data-launcher-open="true")
+    assert has_element?(view, "#workspace-launcher-toggle[aria-expanded='true']")
+
+    html =
+      view
+      |> element("#workspace-dest-output")
+      |> render_click()
+
+    assert html =~ ~s(data-launcher-open="false")
+    assert has_element?(view, "#workspace-shell[data-mobile-tab='canvas']")
   end
 
   test "workspace settings destination renders Settings Central and updates through actions",
