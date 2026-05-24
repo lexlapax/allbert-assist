@@ -30,8 +30,13 @@ Research summary:
   host setup and platform compatibility.
 - Firecracker requires Linux KVM plus kernel/rootfs/jailer setup and is too
   heavy for the first local sandbox milestone.
-- Apple's `container` / Containerization stack is promising on Apple silicon
-  but currently macOS-version-specific and should remain a future adapter.
+- Apple's `container` / Containerization stack runs one lightweight VM per
+  container, giving hypervisor-grade host isolation that is stronger than a
+  shared-VM Docker Desktop on macOS and well suited to untrusted code. It is
+  Apple-silicon-only, needs macOS 26 (Tahoe) for full networking/isolation
+  support, is OCI-compatible, and is still pre-1.0 (breaking changes between
+  minor versions). v0.36 therefore adopts it as a doctor-gated macOS adapter,
+  not the cross-platform baseline.
 
 References:
 
@@ -59,38 +64,61 @@ The allowed command surface is a structured executable plus argv for `mix`,
 no `sh -c`, no chaining, no redirection, no glob expansion, no PTY, no daemon
 control, and no broad shell automation.
 
-### 2. Backend contract is container-first
+### 2. Backend contract is pluggable and inspectable
 
-The first supported backends are:
+Backends are not a hard-coded list. They implement a common
+`AllbertAssist.Sandbox.Backend` behaviour and register with
+`AllbertAssist.Sandbox.Backend.Registry`, so future engines plug in without
+editing the facade or the resolver. The behaviour exposes `id/0`,
+`platforms/0`, `available?/1`, `doctor/1`, `run/2`, and `cleanup/1`.
 
-- Docker;
-- rootless Podman where available;
-- optional Docker + `runsc` / gVisor when configured.
+v0.36 ships these backends:
+
+- `apple_container` — Apple `container` on supported macOS (doctor-gated:
+  Apple silicon + macOS 26+ + policy enforcement);
+- `docker` — hardened Docker invocation (cross-platform fallback);
+- `podman_rootless` — rootless Podman where available;
+- `docker_runsc` — optional Docker + `runsc` / gVisor when configured.
 
 Every backend must enforce the same Allbert policy: no network by default, no
 host Docker socket, no privileged mode, no host PID/user/network namespace, no
 real Allbert Home mount, no secrets, dropped capabilities, resource limits,
-output limits, cleanup, and typed audit metadata.
+output limits, cleanup, and typed audit metadata. A backend whose host cannot
+enforce that policy reports unavailable through `doctor/1` and is never
+selected.
 
-If no backend is configured or available, sandbox actions fail closed. There is
-no fallback to BEAM processes, hidden nodes, ports, or host execution for
-untrusted generated code.
+### 3. Backend selection is OS-aware and fails closed
 
-### 3. Copy-in/copy-out is mandatory
+`sandbox.elixir.backend` defaults to `:auto`. An
+`AllbertAssist.Sandbox.Backend.Resolver` resolves `:auto` through a
+deterministic, doctor-checked fallback chain:
+
+- macOS (Apple silicon, macOS 26+): `apple_container` → `docker`;
+- macOS (older or Intel): `docker`;
+- Linux: `podman_rootless` → `docker` → `docker_runsc` (when configured).
+
+Operators may pin an explicit backend instead of `:auto`. `doctor` reports the
+resolved backend and why each candidate passed or failed, so selection is
+inspectable. If no on-platform backend is available, sandbox actions fail
+closed. There is no fallback to BEAM processes, hidden nodes, ports, or host
+execution for untrusted generated code. `:auto` does not weaken the default-off
+posture: nothing runs until `sandbox.elixir.enabled=true` and doctor is green.
+
+### 4. Copy-in/copy-out is mandatory
 
 The sandbox receives a disposable bundle containing only allow-listed project,
 draft, and test inputs plus a disposable `ALLBERT_HOME`. Reports are copied out
 as bounded structured data. The sandbox never receives the operator's real
 settings, secrets, database, memory files, caches, or arbitrary host paths.
 
-### 4. Gate reports are evidence, not trust
+### 5. Gate reports are evidence, not trust
 
 A successful sandbox gate report does not load modules, register actions, alter
 routes, grant permissions, enable skills, or set routing context. v0.37 may use
 the report as one prerequisite for an operator-confirmed trust grant, but v0.36
 itself grants nothing.
 
-### 5. Settings Central owns operator policy
+### 6. Settings Central owns operator policy
 
 All enablement, backend selection, image selection, and resource bounds are
 Settings Central keys with audit records. Raw reports and draft files are local
@@ -104,8 +132,14 @@ Allbert Home data, surfaced read-only.
   of inventing sandbox behavior inside code-gen agents or UI flows.
 - gVisor can be adopted opportunistically without making it a hard requirement
   for every developer machine.
+- The backend registry plus OS-aware resolver let future engines (broader Apple
+  Container support, Firecracker, remote/microVM) plug in without reworking the
+  facade, gate runner, or operator surface.
+- Apple `container` gives macOS developers VM-per-container isolation by default
+  when their host qualifies, but its pre-1.0 churn is contained behind the
+  doctor gate and the Docker fallback.
 - Broader untrusted execution, package-manager execution, remote builders,
-  Firecracker, Apple Container, and multi-language targets remain future work.
+  Firecracker, and multi-language targets remain future work.
 
 ## Non-Goals
 

@@ -111,9 +111,11 @@ Near-term milestones:
 - `v0.35`: user theming and layout overrides from `~/.allbert` — implemented as
   the current milestone with token themes, opt-in sanitized CSS snippets,
   validated workspace layout data, Settings accountability, and CSP checks.
-- `v0.36`: Elixir/OTP sandbox and gate runner — a default-off Docker/Podman
-  sandbox for generated Elixir/OTP drafts and explicit gate commands, producing
-  bounded reports without live loading.
+- `v0.36`: Elixir/OTP sandbox and gate runner — a default-off, OS-aware sandbox
+  (pluggable backend registry + `:auto` resolver: Apple `container` on supported
+  macOS, Podman/Docker on Linux, Docker fallback, optional `runsc`) for
+  generated Elixir/OTP drafts and explicit gate commands, producing bounded
+  reports without live loading.
 - `v0.37`: dynamic code & config generation and live capability integration —
   LLM code-gen agents generate to the proven shapes, trial through the v0.36
   sandbox, and (after the warning gate plus operator confirmation) hot-load into
