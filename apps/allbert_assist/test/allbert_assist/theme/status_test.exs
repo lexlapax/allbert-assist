@@ -51,7 +51,7 @@ defmodule AllbertAssist.Theme.StatusTest do
     snippet_path = Path.join([home, "themes", "snippets", "compact.css"])
     layout_path = Path.join([home, "workspace", "layout.yaml"])
 
-    File.write!(theme_path, "tokens:\n  background: \"#101820\"\n")
+    File.write!(theme_path, "tokens:\n  allbert-surface-0: \"#101820\"\n")
     File.write!(snippet_path, "#workspace-shell { --allbert-space-2: 0.25rem; }\n")
     File.write!(layout_path, "launcher:\n  collapsed: false\n")
 
