@@ -12,8 +12,8 @@ changelog entries or release notes.
 
 ## v0.36.0 - Elixir/OTP Sandbox And Gate Runner
 
-Status: implemented as `0.36.0`; release gate in progress after adding local
-sandbox image preparation on 2026-05-24.
+Status: implemented and release-ready as `0.36.0` on 2026-05-24. Local
+sandbox image preparation is included in the release scope.
 
 Plan: `docs/plans/v0.36-plan.md`.
 Request flow: `docs/plans/v0.36-request-flow.md`.
@@ -67,7 +67,15 @@ ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
   suites passed during milestone work.
 - No UI/UX behavior changed in v0.36, so Chrome extension browser verification
   was not required for this release.
-- Final release gate pending after the M7 image-preparation correction.
+- Final release gate passed after the M7 image-preparation correction:
+  `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
+- Disposable-home manual smoke confirmed `mix allbert.sandbox image verify`
+  writes an image verification report, Docker `28.5.1` is reachable outside the
+  Codex sandbox, and enabled doctor resolves `backend=auto` to `docker` when
+  `allbert-elixir-otp:local` has valid labels. `docker_runsc` remains
+  unavailable when `runsc` is not configured, and Apple `container` remains
+  unavailable until its policy-proof path is implemented.
 
 ## v0.35.0 - User Theming And Layout Overrides
 
