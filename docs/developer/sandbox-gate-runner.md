@@ -114,6 +114,12 @@ limits, read-only project/draft/test mounts, writable bundle-local
 `sandbox_home` and `reports` mounts, and `ALLBERT_HOME` set to the container
 sandbox-home path. Docker+runsc is the same contract with `--runtime runsc`.
 
+Image preparation is a separate v0.36 setup path. `mix allbert.sandbox image
+build` may build the approved local Docker image, and `mix allbert.sandbox
+image verify` may run a tiny local-only verification command. Backend `run/2`
+and gate execution must still use local image inspection plus `--pull=never`;
+they do not build, pull, or repair images.
+
 ## Gate Profiles
 
 `AllbertAssist.Sandbox.GateRunner` maps named profiles to data:

@@ -58,6 +58,8 @@ mix allbert.settings set permissions.sandbox_trial denied
 - Treat the v0.36 Elixir/OTP sandbox as report-only OS isolation for generated
   draft trials. It stays disabled by default, never pulls images during a run,
   uses `sandbox.elixir.network=none`, and must not mount the real Allbert Home.
+  Prepare images only through the explicit `mix allbert.sandbox image build`
+  and `mix allbert.sandbox image verify` setup path.
 
 ## Channel Pairing
 
