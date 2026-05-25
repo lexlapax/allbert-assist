@@ -4,7 +4,6 @@ defmodule AllbertAssist.Security.SandboxEvalTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Sandbox
   alias AllbertAssist.Sandbox.Backend.Resolver
-  alias AllbertAssist.Sandbox.Backends.ContainerRunner
   alias AllbertAssist.Sandbox.Backends.Docker
   alias AllbertAssist.Sandbox.Bundle
   alias AllbertAssist.Sandbox.CommandSpec
@@ -23,7 +22,7 @@ defmodule AllbertAssist.Security.SandboxEvalTest do
     def available?(_policy), do: true
     def doctor(_policy), do: %{id: id(), status: :available, reason: :doctor_green}
 
-    def run(bundle, command) do
+    def run(bundle, command, _policy) do
       ReportWriter.write(bundle, %Report{
         status: :completed,
         backend: id(),
@@ -42,7 +41,7 @@ defmodule AllbertAssist.Security.SandboxEvalTest do
     def platforms, do: [:macos]
     def available?(_policy), do: true
     def doctor(_policy), do: %{id: id(), status: :available, reason: :doctor_green}
-    def run(_bundle, _command), do: {:error, :should_not_run}
+    def run(_bundle, _command, _policy), do: {:error, :should_not_run}
     def cleanup(_bundle), do: :ok
   end
 
@@ -139,6 +138,8 @@ defmodule AllbertAssist.Security.SandboxEvalTest do
   end
 
   test "sandbox-source-policy-001 denies dangerous generated source before execution" do
+    enable_sandbox!()
+
     bundle =
       malicious_bundle!("source-policy", """
       defmodule Generated do
@@ -149,7 +150,11 @@ defmodule AllbertAssist.Security.SandboxEvalTest do
     spec = compile_spec!(bundle)
 
     assert {:ok, report} =
-             ContainerRunner.run(:docker, "/definitely/missing", ["should-not-run"], bundle, spec)
+             Sandbox.run_command(bundle, spec,
+               policy: policy("docker", %Host{os: :linux, arch: :x86_64}),
+               backends: [EvalDocker],
+               host: %Host{os: :linux, arch: :x86_64}
+             )
 
     assert report.status == :denied
     assert Enum.any?(report.diagnostics, &(&1.reason == :system_cmd))
@@ -279,6 +284,28 @@ defmodule AllbertAssist.Security.SandboxEvalTest do
     assert :port_open in reasons
     assert :nif_load in reasons
     assert :code_require in reasons
+
+    enable_sandbox!()
+
+    module_name =
+      Module.concat([
+        AllbertAssist.SandboxEvalInjected,
+        :"M#{System.unique_integer([:positive])}"
+      ])
+
+    source = "defmodule #{inspect(module_name)} do\n  def loaded?, do: true\nend\n"
+    report_only_bundle = malicious_bundle!("report-only-core-load", source)
+    spec = compile_spec!(report_only_bundle)
+
+    assert {:ok, report} =
+             Sandbox.run_command(report_only_bundle, spec,
+               policy: policy("docker", %Host{os: :linux, arch: :x86_64}),
+               backends: [EvalDocker],
+               host: %Host{os: :linux, arch: :x86_64}
+             )
+
+    assert report.status == :completed
+    refute Code.ensure_loaded?(module_name)
   end
 
   test "sandbox-report-redaction-001 redacts report paths and secrets" do

@@ -37,7 +37,7 @@ defmodule AllbertAssist.Actions.Sandbox.BuildBundle do
     permission_decision = PermissionGate.authorize(:sandbox_trial, context)
 
     with true <- PermissionGate.allowed?(permission_decision),
-         {:ok, bundle} <- Sandbox.build_bundle(params) do
+         {:ok, bundle} <- Sandbox.build_bundle(params, sandbox_opts(context)) do
       summary = Bundle.summary(bundle)
 
       {:ok,
@@ -64,6 +64,21 @@ defmodule AllbertAssist.Actions.Sandbox.BuildBundle do
       permission_decision: permission_decision,
       actions: [action(:denied, permission_decision, %{})]
     }
+  end
+
+  defp sandbox_opts(context) do
+    context
+    |> operator_id()
+    |> case do
+      nil -> []
+      operator_id -> [operator_id: operator_id]
+    end
+  end
+
+  defp operator_id(context) do
+    Map.get(context, :operator_id) || Map.get(context, "operator_id") ||
+      Map.get(context, :user_id) || Map.get(context, "user_id") ||
+      Map.get(context, :actor) || Map.get(context, "actor")
   end
 
   defp failed(permission_decision, reason) do

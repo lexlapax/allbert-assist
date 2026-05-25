@@ -36,7 +36,8 @@ defmodule AllbertAssist.Actions.Sandbox.RunCommand do
 
     with true <- PermissionGate.allowed?(permission_decision),
          {:ok, bundle} <- fetch_bundle(params),
-         {:ok, report} <- Sandbox.run_command(bundle, Map.fetch!(params, :command)) do
+         {:ok, report} <-
+           Sandbox.run_command(bundle, Map.fetch!(params, :command), sandbox_opts(context)) do
       {:ok, completed(permission_decision, report)}
     else
       false ->
@@ -49,6 +50,21 @@ defmodule AllbertAssist.Actions.Sandbox.RunCommand do
 
   defp fetch_bundle(%{bundle: %Bundle{} = bundle}), do: {:ok, bundle}
   defp fetch_bundle(_params), do: {:error, :bundle_required}
+
+  defp sandbox_opts(context) do
+    context
+    |> operator_id()
+    |> case do
+      nil -> []
+      operator_id -> [operator_id: operator_id]
+    end
+  end
+
+  defp operator_id(context) do
+    Map.get(context, :operator_id) || Map.get(context, "operator_id") ||
+      Map.get(context, :user_id) || Map.get(context, "user_id") ||
+      Map.get(context, :actor) || Map.get(context, "actor")
+  end
 
   defp completed(permission_decision, %Report{} = report) do
     report_map = Report.to_map(report)

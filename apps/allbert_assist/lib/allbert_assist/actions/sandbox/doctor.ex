@@ -31,7 +31,7 @@ defmodule AllbertAssist.Actions.Sandbox.Doctor do
     permission_decision = PermissionGate.authorize(:sandbox_trial, context)
 
     if PermissionGate.allowed?(permission_decision) do
-      report = Sandbox.doctor()
+      report = Sandbox.doctor(sandbox_opts(context))
 
       {:ok,
        %{
@@ -58,6 +58,21 @@ defmodule AllbertAssist.Actions.Sandbox.Doctor do
       doctor: %{},
       actions: [action(:denied, permission_decision, %{})]
     }
+  end
+
+  defp sandbox_opts(context) do
+    context
+    |> operator_id()
+    |> case do
+      nil -> []
+      operator_id -> [operator_id: operator_id]
+    end
+  end
+
+  defp operator_id(context) do
+    Map.get(context, :operator_id) || Map.get(context, "operator_id") ||
+      Map.get(context, :user_id) || Map.get(context, "user_id") ||
+      Map.get(context, :actor) || Map.get(context, "actor")
   end
 
   defp action(status, permission_decision, metadata) do

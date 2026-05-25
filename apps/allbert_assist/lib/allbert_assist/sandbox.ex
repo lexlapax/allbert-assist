@@ -8,6 +8,7 @@ defmodule AllbertAssist.Sandbox do
   """
 
   alias AllbertAssist.Paths
+  alias AllbertAssist.Sandbox.Audit
   alias AllbertAssist.Sandbox.Backend.Registry
   alias AllbertAssist.Sandbox.Backend.Resolver
   alias AllbertAssist.Sandbox.Bundle
@@ -17,6 +18,7 @@ defmodule AllbertAssist.Sandbox do
   alias AllbertAssist.Sandbox.Policy
   alias AllbertAssist.Sandbox.Report
   alias AllbertAssist.Sandbox.ReportWriter
+  alias AllbertAssist.Sandbox.SourcePolicy
   alias AllbertAssist.Signals
 
   @doc "Return a fail-closed sandbox doctor report."
@@ -24,21 +26,39 @@ defmodule AllbertAssist.Sandbox do
   def doctor(opts \\ []) do
     Paths.ensure_home!()
     policy = Policy.load!(opts)
+    operator_id = Keyword.get(opts, :operator_id)
 
-    if policy.enabled? do
-      policy
-      |> Resolver.resolve(opts)
-      |> DoctorReport.from_resolution(policy)
-    else
-      DoctorReport.disabled(policy)
-    end
+    report =
+      if policy.enabled? do
+        policy
+        |> Resolver.resolve(opts)
+        |> DoctorReport.from_resolution(policy)
+      else
+        DoctorReport.disabled(policy)
+      end
+
+    log_sandbox(:doctor, %{operator_id: operator_id, status: report.status})
+    report
   end
 
   @doc "Build a disposable copy-in/copy-out sandbox bundle."
   @spec build_bundle(map(), keyword()) :: {:ok, Bundle.t()} | {:error, map()}
   def build_bundle(params, opts \\ []) when is_map(params) do
     Paths.ensure_home!()
-    Bundle.build(params, opts)
+
+    case Bundle.build(params, opts) do
+      {:ok, bundle} = result ->
+        log_sandbox(:bundle_built, %{
+          operator_id: Keyword.get(opts, :operator_id),
+          bundle_id: bundle.id,
+          root: bundle.root
+        })
+
+        result
+
+      error ->
+        error
+    end
   end
 
   @doc "Run one sandbox command through the configured backend."
@@ -49,20 +69,22 @@ defmodule AllbertAssist.Sandbox do
     policy = Keyword.get(opts, :policy) || Policy.load!(opts)
 
     with {:ok, spec} <- normalize_command(command_spec, bundle, policy),
-         :ok <- ensure_enabled(policy, bundle, spec),
+         :ok <- ensure_enabled(policy, bundle, spec, opts),
+         :ok <- ensure_source_policy(bundle, spec, opts),
          {:ok, backend} <- resolve_backend(policy, bundle, spec, opts) do
       log_sandbox(:command_started, %{
+        operator_id: Keyword.get(opts, :operator_id),
         backend: backend.id(),
         bundle_id: bundle.id,
         command: CommandSpec.summary(spec)
       })
 
       backend
-      |> apply(:run, [bundle, spec])
-      |> tap_command_completion(bundle, backend, spec)
+      |> apply(:run, [bundle, spec, policy])
+      |> tap_command_completion(bundle, backend, spec, opts)
     else
       {:error, %CommandSpec{} = denied_spec} ->
-        denied_report(bundle, denied_spec, :command_spec_denied, denied_spec.diagnostics)
+        denied_report(bundle, denied_spec, :command_spec_denied, denied_spec.diagnostics, opts)
 
       {:error, {:sandbox_denied, report}} ->
         {:ok, report}
@@ -77,9 +99,14 @@ defmodule AllbertAssist.Sandbox do
   def run_gate(params, opts \\ [])
 
   def run_gate(%Bundle{} = bundle, opts) do
-    log_sandbox(:gate_started, %{bundle_id: bundle.id, profiles: Keyword.get(opts, :profiles)})
+    log_sandbox(:gate_started, %{
+      operator_id: Keyword.get(opts, :operator_id),
+      bundle_id: bundle.id,
+      profiles: Keyword.get(opts, :profiles)
+    })
+
     result = GateRunner.run(bundle, opts)
-    tap_gate_completion(result, bundle)
+    tap_gate_completion(result, bundle, opts)
   end
 
   def run_gate(params, opts) when is_map(params) do
@@ -158,19 +185,37 @@ defmodule AllbertAssist.Sandbox do
     match?({:ok, %File.Stat{type: :directory}}, File.lstat(path))
   end
 
-  defp ensure_enabled(%Policy{enabled?: true}, _bundle, _spec), do: :ok
+  defp ensure_enabled(%Policy{enabled?: true}, _bundle, _spec, _opts), do: :ok
 
-  defp ensure_enabled(%Policy{} = policy, bundle, spec) do
-    denied_report(bundle, spec, :sandbox_disabled, [
-      %{reason: :sandbox_disabled, policy: Policy.summary(policy)}
-    ])
+  defp ensure_enabled(%Policy{} = policy, bundle, spec, opts) do
+    denied_report(
+      bundle,
+      spec,
+      :sandbox_disabled,
+      [
+        %{reason: :sandbox_disabled, policy: Policy.summary(policy)}
+      ],
+      opts
+    )
     |> sandbox_denied()
+  end
+
+  defp ensure_source_policy(bundle, spec, opts) do
+    case SourcePolicy.scan(bundle) do
+      {:ok, _report} ->
+        :ok
+
+      {:error, report} ->
+        denied_report(bundle, spec, :source_policy_denied, report.diagnostics, opts)
+        |> sandbox_denied()
+    end
   end
 
   defp resolve_backend(policy, bundle, spec, opts) do
     resolution = Resolver.resolve(policy, opts)
 
     log_sandbox(:backend_resolved, %{
+      operator_id: Keyword.get(opts, :operator_id),
       bundle_id: bundle.id,
       resolved_backend: resolution.resolved_backend,
       candidates: Enum.map(resolution.candidates, &Map.take(&1, [:id, :status, :reason]))
@@ -181,7 +226,7 @@ defmodule AllbertAssist.Sandbox do
       {:ok, module}
     else
       _other ->
-        denied_report(bundle, spec, :no_available_backend, resolution.diagnostics)
+        denied_report(bundle, spec, :no_available_backend, resolution.diagnostics, opts)
         |> sandbox_denied()
     end
   end
@@ -201,8 +246,9 @@ defmodule AllbertAssist.Sandbox do
     end
   end
 
-  defp denied_report(bundle, spec, reason, diagnostics) do
+  defp denied_report(bundle, spec, reason, diagnostics, opts) do
     log_sandbox(:command_denied, %{
+      operator_id: Keyword.get(opts, :operator_id),
       bundle_id: bundle.id,
       reason: reason,
       command: CommandSpec.summary(spec)
@@ -220,8 +266,9 @@ defmodule AllbertAssist.Sandbox do
   defp sandbox_denied({:ok, report}), do: {:error, {:sandbox_denied, report}}
   defp sandbox_denied({:error, reason}), do: {:error, reason}
 
-  defp tap_command_completion({:ok, %Report{} = report} = result, bundle, backend, spec) do
+  defp tap_command_completion({:ok, %Report{} = report} = result, bundle, backend, spec, opts) do
     log_sandbox(:command_completed, %{
+      operator_id: Keyword.get(opts, :operator_id),
       backend: backend.id(),
       bundle_id: bundle.id,
       command: CommandSpec.summary(spec),
@@ -232,10 +279,11 @@ defmodule AllbertAssist.Sandbox do
     result
   end
 
-  defp tap_command_completion(result, _bundle, _backend, _spec), do: result
+  defp tap_command_completion(result, _bundle, _backend, _spec, _opts), do: result
 
-  defp tap_gate_completion({:ok, %Report{} = report} = result, bundle) do
+  defp tap_gate_completion({:ok, %Report{} = report} = result, bundle, opts) do
     log_sandbox(:gate_completed, %{
+      operator_id: Keyword.get(opts, :operator_id),
       bundle_id: bundle.id,
       status: report.status,
       report_path: report.report_path
@@ -244,7 +292,7 @@ defmodule AllbertAssist.Sandbox do
     result
   end
 
-  defp tap_gate_completion(result, _bundle), do: result
+  defp tap_gate_completion(result, _bundle, _opts), do: result
 
   defp gate_opts(params, opts) do
     opts
@@ -266,6 +314,8 @@ defmodule AllbertAssist.Sandbox do
   end
 
   defp log_sandbox(kind, metadata) do
+    _audit = Audit.append(kind, metadata)
+
     kind
     |> Signals.sandbox_lifecycle(metadata)
     |> case do

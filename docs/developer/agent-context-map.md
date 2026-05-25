@@ -228,11 +228,12 @@ Do not load every section by default.
   launcher/layout state is view-only, AppBar is fixed chrome, Settings/Output
   are non-hideable, and `active_app` remains handoff-only.
 - v0.36 (implemented as `v0.36.0`): Elixir/OTP Sandbox And Gate Runner. Adds the default-off,
-  OS-aware sandbox facade (pluggable backend registry + `"auto"` resolver:
+  OS-aware sandbox facade (static reviewed backend registry + `"auto"` resolver:
   optional doctor-gated Apple `container`, rootless Podman, Docker+runsc/gVisor
-  preferred over plain Docker, Docker fallback), approved local images only,
-  source-policy checks, copy-in/copy-out bundles, explicit `mix` /
-  `elixir` / `erl` gate commands, bounded reports, and fail-closed denial of
+  preferred over plain Docker, Docker fallback), approved local images only
+  with dependency cache/source prepared by image setup, facade-level
+  source-policy checks, copy-in/copy-out bundles, explicit reviewed `mix` gate
+  commands, bounded reports and sandbox audit records, and fail-closed denial of
   network, secrets, real Allbert Home, package-manager execution, NIFs, ports,
   shell strings, and untrusted core loading. Per ADR 0037 and ADR 0009.
 - v0.37 (planned): Dynamic Code & Config Generation And Live Capability

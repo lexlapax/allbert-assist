@@ -18,7 +18,7 @@ defmodule Mix.Tasks.Allbert.Sandbox do
   def run(["doctor"]) do
     Mix.Task.run("app.start")
 
-    Sandbox.doctor()
+    Sandbox.doctor(operator_id: "mix")
     |> print_doctor()
 
     :ok

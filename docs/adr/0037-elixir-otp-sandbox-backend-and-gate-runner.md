@@ -59,20 +59,24 @@ v0.36 adds a narrow, default-off OS sandbox runner for Elixir/OTP gate work.
 
 ### 1. Scope is Elixir/OTP plus explicit gate commands
 
-The allowed command surface is a structured executable plus argv for `mix`,
-`elixir`, and `erl` gate profiles. There is no shell-string command execution,
-no `sh -c`, no chaining, no redirection, no glob expansion, no PTY, no daemon
-control, and no broad shell automation. The sandbox facade revalidates
+The runtime gate command surface is a structured executable plus reviewed argv
+for `mix` profiles only. `elixir --version` is used by the separate image
+verification task, not by sandbox gate execution; `elixir` and `erl` are not
+accepted gate executables in v0.36. There is no shell-string command
+execution, no `sh -c`, no chaining, no redirection, no glob expansion, no PTY,
+no daemon control, and no broad shell automation. The sandbox facade revalidates
 `%CommandSpec{}` structs before execution; caller-controlled status fields are
 never authority.
 
-### 2. Backend contract is pluggable and inspectable
+### 2. Backend contract is reviewed and inspectable
 
-Backends are not a hard-coded list. They implement a common
-`AllbertAssist.Sandbox.Backend` behaviour and register with
-`AllbertAssist.Sandbox.Backend.Registry`, so future engines plug in without
-editing the facade or the resolver. The behaviour exposes `id/0`,
-`platforms/0`, `available?/1`, `doctor/1`, `run/2`, and `cleanup/1`.
+Backends implement a common `AllbertAssist.Sandbox.Backend` behaviour and are
+listed in a static reviewed `AllbertAssist.Sandbox.Backend.Registry`. Future
+engines require a reviewed registry/resolver update, but callers do not bypass
+the facade or gate runner. The behaviour exposes `id/0`, `platforms/0`,
+`available?/1`, `doctor/1`, `run/3`, and `cleanup/1`; `run/3` receives the
+resolved `Sandbox.Policy` so validation, backend resolution, image choice, and
+resource bounds share one policy snapshot.
 
 v0.36 ships these backends:
 
@@ -89,10 +93,12 @@ real Allbert Home mount, no secrets, dropped capabilities, resource limits,
 output limits, cleanup, and typed audit metadata. The implemented Docker path
 runs as UID/GID `65532:65532`; the rootless Podman path uses
 `--userns=keep-id`; Docker-family writable `/tmp` and `/run` mounts are sized
-tmpfs mounts. v0.36 bounds copied input, tmpfs, process, output, and wall-clock
-usage; it does not claim a backend-wide disk quota for read-only bind-mounted
-inputs. A backend whose host cannot enforce the policy reports unavailable
-through `doctor/1` and is never selected.
+tmpfs mounts. Docker/Podman runs also get protected container-local Mix
+home/build/cache environment and a generated container name for best-effort
+timeout cleanup. v0.36 bounds copied input, tmpfs, process, output, and
+wall-clock usage; it does not claim a backend-wide disk quota for read-only
+bind-mounted inputs. A backend whose host cannot enforce the policy reports
+unavailable through `doctor/1` and is never selected.
 
 ### 3. Backend selection is OS-aware and fails closed
 
@@ -130,11 +136,14 @@ Sandbox runs never pull images. `sandbox.elixir.image` must resolve to an
 approved local image reference or digest during doctor/bundle preparation, or
 execution fails closed. v0.36 also owns the explicit local image-preparation
 workflow for the default sandbox image. That workflow may build the approved
-local image as an operator setup step, but sandbox command execution remains
-local-image-only and uses `--pull=never`.
+local image as an operator setup step, copies dependency manifests into the
+build context, and prepares dependency cache/source with `mix deps.get --only
+test` and `mix deps.compile`; sandbox command execution remains
+local-image-only, no-network, and uses `--pull=never`.
 
-Draft source and trial files are statically scanned before backend execution.
-Known dangerous constructs (`System.cmd`, `Port.open`, `:os.cmd`,
+Draft source and trial files are statically scanned in the sandbox facade
+before backend resolution or execution. Known dangerous constructs
+(`System.cmd`, `Port.open`, `:os.cmd`,
 `Code.eval_*`, `Code.compile_*`, `Code.require_*`, `Mix.install`,
 `:erlang.load_nif`, broad file traversal, and real-home access attempts) are
 denied with bounded diagnostics. This is defense-in-depth; backend isolation is
@@ -150,8 +159,9 @@ itself grants nothing.
 ### 7. Settings Central owns operator policy
 
 All enablement, backend selection, image selection, and resource bounds are
-Settings Central keys with audit records. Raw reports and draft files are local
-Allbert Home data, surfaced read-only.
+Settings Central keys with audit records. Facade-level sandbox lifecycle events
+also append bounded durable records under `<ALLBERT_HOME>/sandbox/audit`.
+Raw reports and draft files are local Allbert Home data, surfaced read-only.
 
 ## Consequences
 
@@ -161,9 +171,10 @@ Allbert Home data, surfaced read-only.
   of inventing sandbox behavior inside code-gen agents or UI flows.
 - gVisor can be adopted opportunistically and, when configured, outranks plain
   Docker without becoming a hard requirement for every developer machine.
-- The backend registry plus OS-aware resolver let future engines (broader Apple
-  Container support, Firecracker, remote/microVM) plug in without reworking the
-  facade, gate runner, or operator surface.
+- The backend behaviour plus OS-aware resolver keep future engines (broader
+  Apple Container support, Firecracker, remote/microVM) behind the facade and
+  gate runner, but v0.36 intentionally uses a static reviewed registry/resolver
+  rather than settings-driven dynamic backend discovery.
 - Apple `container` gives macOS developers VM-per-container isolation when their
   host qualifies, but its pre-1.0 churn is contained behind the doctor gate and
   fallback candidates. Missing Apple support does not block v0.36 release.

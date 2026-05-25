@@ -6,29 +6,23 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerRunner do
   alias AllbertAssist.Sandbox.CommandSpec
   alias AllbertAssist.Sandbox.Report
   alias AllbertAssist.Sandbox.ReportWriter
-  alias AllbertAssist.Sandbox.SourcePolicy
 
   @spec run(atom(), String.t(), [String.t()], Bundle.t(), CommandSpec.t()) ::
           {:ok, Report.t()} | {:error, term()}
   def run(backend_id, engine, argv, %Bundle{} = bundle, %CommandSpec{} = spec) do
     started_at = System.monotonic_time(:millisecond)
 
-    with {:source_policy, {:ok, source_report}} <- {:source_policy, SourcePolicy.scan(bundle)},
-         {:engine, {:ok, result}} <-
+    with {:engine, {:ok, result}} <-
            {:engine,
             Command.run(engine, argv,
               timeout_ms: spec.timeout_ms,
-              max_output_bytes: spec.output_bytes
+              max_output_bytes: spec.output_bytes,
+              on_timeout: fn -> cleanup_timed_out_container(engine, argv) end
             )} do
       backend_id
-      |> report_from_result(spec, argv, result, started_at, source_report)
+      |> report_from_result(spec, argv, result, started_at)
       |> write(bundle)
     else
-      {:source_policy, {:error, source_report}} ->
-        backend_id
-        |> denied_report(spec, argv, started_at, source_report.diagnostics)
-        |> write(bundle)
-
       {:engine, {:error, :timeout}} ->
         backend_id
         |> timeout_report(spec, argv, started_at)
@@ -41,7 +35,7 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerRunner do
     end
   end
 
-  defp report_from_result(backend_id, spec, argv, result, started_at, source_report) do
+  defp report_from_result(backend_id, spec, argv, result, started_at) do
     exit_status = result.exit_status
 
     %Report{
@@ -54,19 +48,8 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerRunner do
       truncated?: result.truncated?,
       stdout: result.output,
       stderr: "",
-      diagnostics: source_report.diagnostics,
+      diagnostics: [],
       metadata: %{engine_argv: argv, stderr_merged?: true, output_bytes: result.output_bytes}
-    }
-  end
-
-  defp denied_report(backend_id, spec, argv, started_at, diagnostics) do
-    %Report{
-      status: :denied,
-      backend: backend_id,
-      command: CommandSpec.summary(spec),
-      duration_ms: duration_ms(started_at),
-      diagnostics: diagnostics,
-      metadata: %{engine_argv: argv}
     }
   end
 
@@ -96,4 +79,22 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerRunner do
   defp write(report, bundle), do: ReportWriter.write(bundle, report)
 
   defp duration_ms(started_at), do: System.monotonic_time(:millisecond) - started_at
+
+  defp cleanup_timed_out_container(engine, argv) do
+    with {:ok, name} <- container_name(argv) do
+      _cleanup = System.cmd(engine, ["rm", "-f", name], stderr_to_stdout: true)
+      :ok
+    else
+      _other -> :ok
+    end
+  rescue
+    _exception -> :ok
+  end
+
+  defp container_name(argv) do
+    case Enum.find_index(argv, &(&1 == "--name")) do
+      nil -> {:error, :missing_container_name}
+      index -> Enum.fetch(argv, index + 1)
+    end
+  end
 end
