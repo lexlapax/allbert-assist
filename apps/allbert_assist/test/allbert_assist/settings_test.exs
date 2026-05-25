@@ -217,8 +217,7 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, 32} = Settings.get("dynamic_codegen.max_files")
     assert {:ok, 262_144} = Settings.get("dynamic_codegen.max_bytes")
 
-    assert {:ok, ["action", "panel", "settings_fragment"]} =
-             Settings.get("dynamic_codegen.allowed_targets")
+    assert {:ok, ["action"]} = Settings.get("dynamic_codegen.allowed_targets")
 
     assert {:ok, ["read_only"]} = Settings.get("dynamic_codegen.allowed_action_permissions")
     assert {:ok, false} = Settings.get("dynamic_codegen.live_loader_enabled")
@@ -236,17 +235,6 @@ defmodule AllbertAssist.SettingsTest do
 
     assert provider_profile.value == "local"
 
-    assert {:ok, permissions} =
-             Settings.put(
-               "dynamic_codegen.allowed_action_permissions",
-               ["read_only", "memory_write"],
-               %{
-                 audit?: false
-               }
-             )
-
-    assert permissions.value == ["read_only", "memory_write"]
-
     assert {:ok, surfaces} =
              Settings.put("dynamic_codegen.integration_approval_surfaces", ["cli"], %{
                audit?: false
@@ -259,6 +247,15 @@ defmodule AllbertAssist.SettingsTest do
                audit?: false
              })
 
+    assert {:error, {:invalid_setting, "dynamic_codegen.allowed_action_permissions", _reason}} =
+             Settings.put(
+               "dynamic_codegen.allowed_action_permissions",
+               ["read_only", "memory_write"],
+               %{
+                 audit?: false
+               }
+             )
+
     assert {:error, {:invalid_setting, "dynamic_codegen.integration_approval_surfaces", _reason}} =
              Settings.put("dynamic_codegen.integration_approval_surfaces", ["telegram"], %{
                audit?: false
@@ -267,8 +264,24 @@ defmodule AllbertAssist.SettingsTest do
     assert {:error, {:invalid_setting, "dynamic_codegen.allowed_targets", _reason}} =
              Settings.put("dynamic_codegen.allowed_targets", ["route"], %{audit?: false})
 
+    assert {:error, {:invalid_setting, "dynamic_codegen.allowed_targets", _reason}} =
+             Settings.put("dynamic_codegen.allowed_targets", ["panel"], %{audit?: false})
+
     assert {:error, {:invalid_setting, "dynamic_codegen.max_files", _reason}} =
              Settings.put("dynamic_codegen.max_files", 0, %{audit?: false})
+  end
+
+  test "legacy dynamic codegen future-scope settings normalize to shipped scope" do
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "dynamic_codegen" => %{
+                 "allowed_targets" => ["action", "panel", "settings_fragment"],
+                 "allowed_action_permissions" => ["read_only", "memory_write"]
+               }
+             })
+
+    assert {:ok, ["action"]} = Settings.get("dynamic_codegen.allowed_targets")
+    assert {:ok, ["read_only"]} = Settings.get("dynamic_codegen.allowed_action_permissions")
   end
 
   test "workspace settings resolve defaults and validate writes" do

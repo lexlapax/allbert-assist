@@ -1379,7 +1379,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "dynamic_codegen.allowed_targets" => %{
       type: :string_list,
-      default: ["action", "panel", "settings_fragment"],
+      default: ["action"],
       writable?: true,
       sensitive?: false
     },
@@ -1785,7 +1785,7 @@ defmodule AllbertAssist.Settings.Schema do
       "max_provider_usage_units_per_gap" => 20_000,
       "max_files" => 32,
       "max_bytes" => 262_144,
-      "allowed_targets" => ["action", "panel", "settings_fragment"],
+      "allowed_targets" => ["action"],
       "allowed_action_permissions" => ["read_only"],
       "live_loader_enabled" => false,
       "integration_approval_surfaces" => ["cli", "liveview"],
@@ -2369,26 +2369,13 @@ defmodule AllbertAssist.Settings.Schema do
            validate_dynamic_codegen_list(
              settings,
              "dynamic_codegen.allowed_targets",
-             [
-               "action",
-               "app",
-               "panel",
-               "settings_fragment",
-               "memory_namespace",
-               "objective_wiring"
-             ]
+             ["action"]
            ),
          :ok <-
            validate_dynamic_codegen_list(
              settings,
              "dynamic_codegen.allowed_action_permissions",
-             [
-               "read_only",
-               "external_network",
-               "memory_write",
-               "objective_write",
-               "workspace_canvas_write"
-             ]
+             ["read_only"]
            ) do
       validate_dynamic_codegen_list(
         settings,
