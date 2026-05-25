@@ -95,6 +95,11 @@ Each bundle receives a disposable sandbox home inside the bundle. The real
 operator home is never mounted into the container. Reports are copied out to
 the sandbox report root and surfaced read-only.
 
+Bundle ids and explicit roots are confined to the sandbox bundle root. Bundle
+discard only removes marked bundle directories that contain `metadata.json`;
+arbitrary host paths, the bundle root itself, and unmarked directories fail
+closed.
+
 Registered internal runtime actions mirror the lifecycle:
 `sandbox_doctor`, `build_sandbox_bundle`, `run_sandbox_command`,
 `run_sandbox_gate`, and `discard_sandbox_bundle`. They return reports only and
@@ -109,6 +114,9 @@ Treat these as expected fail-closed results:
 - pinned backend unavailable;
 - configured image is missing or not approved locally;
 - image labels or local verification do not match v0.36 policy;
+- malformed bundle id, bundle root traversal, explicit bundle root outside
+  `<ALLBERT_HOME>/sandbox/bundles`, or cleanup pointed at an unmarked path;
+- forged command specs with caller-set allowed status;
 - command is not `mix`, `elixir`, or `erl`;
 - argv shape requests package installs, migrations, shell syntax, eval,
   daemon control, network, NIFs, ports, or core-node loading;
