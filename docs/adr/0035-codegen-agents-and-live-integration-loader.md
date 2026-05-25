@@ -61,6 +61,11 @@ private durable goal loops, private objective tables, or private objective
 engines; objective identifiers remain correlation data and never grant
 authority.
 
+Generated panel UI in v0.37 is declarative `AllbertAssist.Surface` data backed
+by existing catalog components. Custom Phoenix components, LiveViews, HEEx
+sigils, and route modules are outside the v0.37 generated allowlist unless a
+later plan adds an explicit reviewed contract.
+
 ### 3. The live-integration loader is gated, audited, and reversible
 
 `AllbertAssist.DynamicPlugins.Loader` integrates an approved artifact into the
@@ -75,6 +80,10 @@ The loader:
   mutation, migrations, dependency additions, NIFs, ports, package-manager
   hooks, top-level side effects, `@on_load`, dynamic compile/eval/require, and
   generated macro code that would run during trusted compilation;
+- reconciles manifest-declared modules with parsed `defmodule` declarations in
+  both directions;
+- validates generated action metadata, body call targets, and response action
+  metadata against the generated-permission ceiling;
 - reruns v0.37 static/integrity validation over the reviewed source immediately
   before trusted compile;
 - recompiles the operator-reviewed source in core, not an opaque sandbox-built
@@ -93,20 +102,62 @@ The loader:
 The trusted-phase validator is AST-allowlist based, not the v0.36 regex
 `SourcePolicy` scanner. The loader parses reviewed generated source without
 executing it (`Code.string_to_quoted!/2` or equivalent) and walks the quoted
-tree. Allowed forms are limited to generated-namespace `defmodule`, normal
-`def`/`defp` function bodies, a fixed set of inert module attributes, and
-`alias`/`use`/`import`/`require` only for reviewed allowlisted modules. The
-validator rejects top-level expression execution, `@on_load`, dynamic module
-construction, `apply/3` escape routes to forbidden modules, custom `@compile`
-hooks, unapproved macros, generated protocols, router edits, application env
-mutation, dependency/package hooks, and any construct outside the allowlist.
+tree with default-deny semantics. Unknown AST forms are denial. Allowed forms
+are limited to generated-namespace `defmodule`, normal `def`/`defp` function
+bodies, a fixed set of inert module attributes, and `alias`/`use`/`import`/
+`require` only for reviewed allowlisted modules. The manifest and AST must
+reconcile bidirectionally: every parsed `defmodule` is generated-namespace
+scoped and declared, and every declared module is present in reviewed source.
+
+The generated macro/use allowlist is enumerated: `use AllbertAssist.Action` for
+generated action modules and `use AllbertAssist.App` for generated app modules.
+Macro options, action DSL options, schema entries, tags, module attributes, and
+manifest values must be inert literals. Compile-time expressions in options or
+attributes are denial. The validator rejects top-level expression execution,
+`@on_load`, dynamic module construction, `apply/3` escape routes to forbidden
+modules, custom `@compile` hooks, unapproved macros, generated protocols, router
+edits, application env mutation, dependency/package hooks, and any construct
+outside the allowlist.
+
+The same validator scans all generated call sites inside function bodies,
+callbacks, helper modules, action `run/2`, app callbacks, surface data builders,
+and child process callbacks. It allows only local generated calls plus an
+explicit module/function allowlist of side-effect-free Elixir/Allbert helpers or
+approved runtime facades. Direct calls to protected authority surfaces are
+denial, including shell/process execution, package and skill execution, sandbox
+actions, Settings writes, secret reads/writes, confirmations, Resource grants,
+Repo writes, integration/rollback/disablement, distributed Erlang, dynamic
+dispatch to protected targets, and core table mutation.
+
+Generated action permissions have a hard ceiling. `:read_only` is allowed by
+default. `:external_network`, `:memory_write`, `:objective_write`, and
+`:workspace_canvas_write` may be operator-enabled only when call-target
+validation proves the generated body delegates through the matching reviewed
+registered action/facade and the existing Security Central floor still applies.
+Settings may select a subset of this ceiling but cannot expand the hard-coded
+ceiling. Generated actions are hard-denied from host execution, package install,
+skill import/script execution, sandbox trial, secret read/write, confirmation
+decisions, Security Central trust control, dynamic integration, rollback,
+disablement, direct Settings mutation, and Resource-grant mutation. Declared
+permission, confirmation metadata, response action metadata, and body call
+targets must agree; mismatch is denial.
+
+Generated actions are `resumable?: false` in v0.37. Dynamic confirmation resume
+adapters are deferred because the existing confirmation approval path resumes a
+reviewed set of static action names.
+
+Generated child processes are state-only in v0.37. A generated child may start
+only if its callbacks pass the same call-target validator and do not create
+autonomous timers, network calls, shell/package/script execution, durable goal
+loops, or direct protected-subsystem writes.
 
 This validator is a trusted-loader control, not an isolation boundary. v0.37's
 trust model is sandbox gate plus operator review plus AST allowlist plus
-Security Central confirmation. It protects the core node from advisory-agent
-mistakes, unsafe generated source, and obvious injection before live authority
-is granted. It does not protect against an operator or local attacker who
-already controls Allbert Home, the Security Central store, or the source tree.
+runtime call-target validation plus generated-permission ceiling plus Security
+Central confirmation. It protects the core node from advisory-agent mistakes,
+unsafe generated source, and obvious injection before live authority is granted.
+It does not protect against an operator or local attacker who already controls
+Allbert Home, the Security Central store, or the source tree.
 
 The actions overlay merges through the same public seams callers already use:
 `modules/0`, `agent_modules/0`, `capabilities/0`, `agent_capabilities/0`,
@@ -120,6 +171,11 @@ collisions rather than shadowing static, plugin, app, or other dynamic actions;
 a denied contribution appears in diagnostics and is not partially registered.
 Only reviewed dynamic actions with `exposure: :agent` enter intent-agent
 capabilities.
+
+Generated actions are registered only after the loader validates their
+capability metadata against the generated-permission ceiling. Dynamic overlay
+registration also denies `resumable?: true` in v0.37 and denies any action whose
+body can reach a higher-authority call target than its declared permission.
 
 Integration is all-or-nothing. If source copy, trusted validation, compile,
 actions overlay registration, app/panel registration, child start, or audit
@@ -175,10 +231,13 @@ sandbox reports are file-backed under
   existing capability/permission/app-scope semantics.
 - Security evals must prove untrusted core-load attempts, unscanned compile
   paths, gate skip, unapproved/auto integration, trusted-compile side effects,
-  AST allowlist bypass, loader tampering, core-module replacement, action
-  shadowing, partial-integration unwind, revision supersede bypass,
-  emergency-disable bypass, restart reconciliation tamper, private objective
-  loops, rollback failure, and exfiltration fail closed.
+  AST allowlist bypass, macro literal-option bypass, manifest/module mismatch,
+  generated runtime protected-call bypass, generated permission-ceiling bypass,
+  permission/body mismatch, generated resumability, dynamic child effects,
+  loader tampering, core-module replacement, action shadowing,
+  partial-integration unwind, revision supersede bypass, emergency-disable
+  bypass, restart reconciliation tamper, private objective loops, rollback
+  failure, generation budget exhaustion, and exfiltration fail closed.
 
 ## Non-Goals
 
@@ -186,6 +245,9 @@ sandbox reports are file-backed under
 - No agent or auto-trial authority over enablement, trust, or permissions.
 - No remote marketplace, dependency/migration/NIF additions, package-manager
   execution, or untrusted binary loading.
+- No generated host execution, package install, skill/script execution, sandbox
+  execution, secret access, confirmation decisions, integration control, or
+  direct protected-subsystem writes hidden behind a lower declared permission.
 - No multi-language target beyond Elixir/OTP.
 - No template gallery, Mix generator UX, or Canvas Create destination; that is
   v0.38.
