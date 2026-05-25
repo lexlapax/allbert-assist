@@ -66,7 +66,10 @@ defmodule AllbertAssist.Runtime.PathsTest do
              workspace_ephemeral: Path.join([home, "workspace", "ephemeral"]),
              workspace_secrets: Path.join([home, "workspace", "secrets"]),
              themes: Path.join(home, "themes"),
-             theme_snippets: Path.join([home, "themes", "snippets"])
+             theme_snippets: Path.join([home, "themes", "snippets"]),
+             dynamic_plugins: Path.join(home, "dynamic_plugins"),
+             dynamic_plugins_drafts: Path.join([home, "dynamic_plugins", "drafts"]),
+             dynamic_plugins_integrated: Path.join([home, "dynamic_plugins", "integrated"])
            }
 
     assert Paths.root(:workspace_canvas) == LegacyPaths.workspace_canvas_root()
@@ -97,7 +100,10 @@ defmodule AllbertAssist.Runtime.PathsTest do
           :workspace_ephemeral,
           :workspace_secrets,
           :themes,
-          :theme_snippets
+          :theme_snippets,
+          :dynamic_plugins,
+          :dynamic_plugins_drafts,
+          :dynamic_plugins_integrated
         ] do
       assert File.dir?(Paths.root(root))
     end
