@@ -48,7 +48,8 @@ Generated code has three phases:
    loader reruns v0.37 AST-allowlist static/integrity checks immediately before
    trusted compile and rejects top-level side effects, `@on_load`, generated
    macro execution that would run during compile, dynamic module construction,
-   dynamic compile/eval/require, application environment mutation, and other
+   dynamic compile/eval/require, application environment mutation, protected
+   runtime call targets, generated-permission ceiling violations, and other
    forbidden constructs.
 
 Route-based Phoenix page surfaces still require a restart or a later route
@@ -66,6 +67,7 @@ manifests, remote plugins, or arbitrary user-created code.
 - Security evals must prove core-load attempts, unscanned compile paths, gate
   skip, operator-confirm bypass, trusted-compile side effects, core-module
   replacement, action shadowing, dependency injection, migration injection,
+  generated runtime protected-call bypass, generated permission-ceiling bypass,
   secret access, sandbox bypass, emergency-disable bypass, restart
   reconciliation tamper, Security Central confirmation tamper, and loader
   integrity tamper all fail closed.
@@ -82,6 +84,10 @@ manifests, remote plugins, or arbitrary user-created code.
   alone.
 - No generated module replacement of core/static modules, dynamic protocol or
   router generation, application env mutation, or action shadowing.
+- No generated action body may hide host execution, package install, skill/script
+  execution, sandbox execution, secret access, confirmation decisions,
+  integration control, or direct protected-subsystem writes behind a lower
+  declared permission.
 - No template gallery or Mix generator UX; that is v0.38.
 
 ## Sandbox Isolation Requirement
@@ -104,6 +110,11 @@ reviewed, gate-passing source into
 `<ALLBERT_HOME>/dynamic_plugins/integrated/<slug>/<revision>/` after operator
 confirmation; ordinary plugin discovery still ignores both draft and integrated
 dynamic roots. Registration authority belongs only to the live loader.
+
+Generated tests in the staged project are functional evidence only. They are
+authored by the advisory code-gen workflow and cannot substitute for the
+trusted-phase AST/body validator, generated-permission ceiling, operator review,
+or Security Central confirmation.
 
 Boot reconciliation must validate the operator confirmation and any rollback
 state against Security Central's durable confirmation/audit store. Draft or

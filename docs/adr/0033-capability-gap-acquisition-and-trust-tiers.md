@@ -53,9 +53,11 @@ v0.37 defines draft trust tiers:
 - `:discarded` - no longer active.
 
 Only `:integrated` grants live core-node loading and registration, and only via
-the ADR 0032 gate. No other tier grants action permissions, route authority,
-settings authority, skill enablement, child supervision, or core-node module
-loading. No tier is reached by advisory/agent output alone.
+the ADR 0032 gate. Even at `:integrated`, generated authority is limited to the
+v0.37 generated-permission ceiling, validated runtime call targets, and normal
+registered action/app boundaries. No other tier grants action permissions, route
+authority, settings authority, skill enablement, child supervision, or core-node
+module loading. No tier is reached by advisory/agent output alone.
 
 Legal tier transitions are explicit:
 
@@ -86,6 +88,9 @@ defers atomic supersede. `:discarded` is terminal for that revision.
 - Operator review is explicit at each authority boundary.
 - A gate-passed draft is evidence, not a trust grant; reaching `:integrated`
   requires operator confirmation and is never automatic.
+- Trust tiers do not override the generated-permission ceiling. A live dynamic
+  action can only expose permissions and runtime call targets accepted by the
+  loader validator.
 
 ## Non-Goals
 
