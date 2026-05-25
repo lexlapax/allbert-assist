@@ -18,6 +18,9 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Confirmations.ExpireConfirmations
   alias AllbertAssist.Actions.Confirmations.ListConfirmations
   alias AllbertAssist.Actions.Confirmations.ShowConfirmation
+  alias AllbertAssist.Actions.DynamicPlugins.ListDynamicDrafts
+  alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicDraft
+  alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicIntegration
   alias AllbertAssist.Actions.Intent.ActivateSkill
   alias AllbertAssist.Actions.Intent.AppendMemory
   alias AllbertAssist.Actions.Intent.DirectAnswer
@@ -175,7 +178,10 @@ defmodule AllbertAssist.Actions.Registry do
     RevertTileRevision,
     RecordOfflineUpdate,
     DismissEphemeral,
-    SetTheme
+    SetTheme,
+    ListDynamicDrafts,
+    ShowDynamicDraft,
+    ShowDynamicIntegration
   ]
 
   @actions @agent_actions ++ @internal_actions

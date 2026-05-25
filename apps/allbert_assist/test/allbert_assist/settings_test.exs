@@ -199,6 +199,69 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("permissions.sandbox_trial", "needs_confirmation", %{audit?: false})
   end
 
+  test "dynamic codegen settings resolve defaults and validate writes" do
+    assert {:ok, false} = Settings.get("dynamic_codegen.enabled")
+    assert {:ok, nil} = Settings.get("dynamic_codegen.provider_profile")
+    assert {:ok, 2} = Settings.get("dynamic_codegen.max_repair_iterations")
+    assert {:ok, 8} = Settings.get("dynamic_codegen.max_provider_calls_per_gap")
+    assert {:ok, 20_000} = Settings.get("dynamic_codegen.max_provider_usage_units_per_gap")
+    assert {:ok, 32} = Settings.get("dynamic_codegen.max_files")
+    assert {:ok, 262_144} = Settings.get("dynamic_codegen.max_bytes")
+
+    assert {:ok, ["action", "panel", "settings_fragment"]} =
+             Settings.get("dynamic_codegen.allowed_targets")
+
+    assert {:ok, ["read_only"]} = Settings.get("dynamic_codegen.allowed_action_permissions")
+    assert {:ok, false} = Settings.get("dynamic_codegen.live_loader_enabled")
+
+    assert {:ok, ["cli", "liveview"]} =
+             Settings.get("dynamic_codegen.integration_approval_surfaces")
+
+    assert {:ok, 30} = Settings.get("dynamic_codegen.retention_days")
+
+    assert {:ok, enabled} = Settings.put("dynamic_codegen.enabled", true, %{audit?: false})
+    assert enabled.value == true
+
+    assert {:ok, provider_profile} =
+             Settings.put("dynamic_codegen.provider_profile", "local", %{audit?: false})
+
+    assert provider_profile.value == "local"
+
+    assert {:ok, permissions} =
+             Settings.put(
+               "dynamic_codegen.allowed_action_permissions",
+               ["read_only", "memory_write"],
+               %{
+                 audit?: false
+               }
+             )
+
+    assert permissions.value == ["read_only", "memory_write"]
+
+    assert {:ok, surfaces} =
+             Settings.put("dynamic_codegen.integration_approval_surfaces", ["cli"], %{
+               audit?: false
+             })
+
+    assert surfaces.value == ["cli"]
+
+    assert {:error, {:invalid_setting, "dynamic_codegen.allowed_action_permissions", _reason}} =
+             Settings.put("dynamic_codegen.allowed_action_permissions", ["command_execute"], %{
+               audit?: false
+             })
+
+    assert {:error, {:invalid_setting, "dynamic_codegen.integration_approval_surfaces", _reason}} =
+             Settings.put("dynamic_codegen.integration_approval_surfaces", ["telegram"], %{
+               audit?: false
+             })
+
+    assert {:error, {:invalid_setting, "dynamic_codegen.allowed_targets", _reason}} =
+             Settings.put("dynamic_codegen.allowed_targets", ["route"], %{audit?: false})
+
+    assert {:error, {:invalid_setting, "dynamic_codegen.max_files", _reason}} =
+             Settings.put("dynamic_codegen.max_files", 0, %{audit?: false})
+  end
+
   test "workspace settings resolve defaults and validate writes" do
     assert {:ok, "system"} = Settings.get("workspace.theme.mode")
     assert {:ok, "system"} = Settings.get("workspace.theme")
