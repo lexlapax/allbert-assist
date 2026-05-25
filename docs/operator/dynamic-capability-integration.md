@@ -7,6 +7,10 @@ live runtime authority. It is default-off, local-only, and reversible. A draft
 can become live only after sandbox evidence, trusted validation, and an
 operator confirmation.
 
+The shipped v0.37 loader integrates reviewed read-only actions only. Generated
+apps, panels, settings fragments, memory namespaces, objective wiring, route
+pages, and children remain rejected live targets until later validators exist.
+
 ## Authority Model
 
 Keep these states separate when reviewing a dynamic capability:
@@ -95,6 +99,7 @@ only from high-trust operator surfaces allowed by
 `dynamic_codegen.integration_approval_surfaces`:
 
 ```sh
+mix allbert.dynamic drafts integrate <slug>
 mix allbert.confirmations list
 mix allbert.confirmations show <confirmation-id>
 mix allbert.confirmations approve <confirmation-id> --reason "reviewed v0.37 gate evidence"
@@ -119,14 +124,15 @@ static, plugin, app, or other dynamic action names.
 Rollback also requires Security Central confirmation:
 
 ```sh
+mix allbert.dynamic integrations rollback <slug>
 mix allbert.confirmations list
 mix allbert.confirmations approve <confirmation-id> --reason "rollback dynamic capability"
 mix allbert.dynamic integrations show <slug>
 ```
 
-Rollback removes action/app/child authority and records the result. Module
-purge/delete is attempted and audited, but old code can remain in the VM while
-old references drain.
+Rollback removes dynamic action authority and records the result. Module
+purge/delete is attempted, but old code can remain in the VM while old
+references drain.
 
 Same-name upgrades require rollback first. v0.37 does not replace a live
 revision in place.
@@ -136,7 +142,7 @@ revision in place.
 Disable live authority without deleting source:
 
 ```sh
-mix allbert.settings set dynamic_codegen.live_loader_enabled false
+mix allbert.dynamic integrations disable
 mix allbert.security review --recent --limit 25
 ```
 
@@ -153,9 +159,8 @@ mix allbert.settings set sandbox.elixir.enabled false
 mix allbert.settings set permissions.sandbox_trial denied
 ```
 
-Emergency disablement must block or unregister dynamic actions/apps/children
-through the same audited authority-removal path used by rollback. It does not
-delete draft or integrated source.
+Emergency disablement clears live dynamic actions. It does not delete draft or
+integrated source.
 
 ## Manual Verification Checklist
 
@@ -168,4 +173,4 @@ delete draft or integrated source.
 - Tampering with reviewed source after the gate blocks integration.
 - A dynamic action can run only after registration through the overlay.
 - `dynamic_codegen.live_loader_enabled=false` removes or blocks live authority.
-- Rollback removes action/app/child authority and leaves inspectable metadata.
+- Rollback removes dynamic action authority and leaves inspectable metadata.

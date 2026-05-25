@@ -19,6 +19,7 @@ defmodule AllbertAssist.Security.Policy do
     objective_write: "permissions.objective_write",
     workspace_canvas_write: "permissions.workspace_canvas_write",
     sandbox_trial: "permissions.sandbox_trial",
+    dynamic_integration: "permissions.dynamic_integration",
     stocksage_write: "permissions.stocksage_write",
     stocksage_analyze: "permissions.stocksage_analyze",
     stocksage_evidence_fetch: "permissions.stocksage_evidence_fetch"
@@ -39,6 +40,7 @@ defmodule AllbertAssist.Security.Policy do
     objective_write: :allowed,
     workspace_canvas_write: :allowed,
     sandbox_trial: :allowed,
+    dynamic_integration: :needs_confirmation,
     stocksage_write: :allowed,
     stocksage_analyze: :needs_confirmation,
     stocksage_evidence_fetch: :allowed,
@@ -63,6 +65,7 @@ defmodule AllbertAssist.Security.Policy do
           | :objective_write
           | :workspace_canvas_write
           | :sandbox_trial
+          | :dynamic_integration
           | :stocksage_write
           | :stocksage_analyze
           | :stocksage_evidence_fetch
@@ -87,6 +90,7 @@ defmodule AllbertAssist.Security.Policy do
       :objective_write,
       :workspace_canvas_write,
       :sandbox_trial,
+      :dynamic_integration,
       :stocksage_write,
       :stocksage_analyze,
       :stocksage_evidence_fetch,
@@ -150,6 +154,7 @@ defmodule AllbertAssist.Security.Policy do
   def safety_floor(:package_install), do: :needs_confirmation
   def safety_floor(:online_skill_import), do: :needs_confirmation
   def safety_floor(:skill_script_execute), do: :needs_confirmation
+  def safety_floor(:dynamic_integration), do: :needs_confirmation
   def safety_floor(:stocksage_analyze), do: :needs_confirmation
   def safety_floor(:stocksage_evidence_fetch), do: :needs_confirmation
   def safety_floor(:settings_secret_read), do: :denied
@@ -297,6 +302,13 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:sandbox_trial, :denied, _configured, _floor, _context),
     do: "Sandbox trial execution is denied by current policy."
+
+  defp reason(:dynamic_integration, :needs_confirmation, _configured, _floor, _context),
+    do:
+      "Dynamic integration hot-loads reviewed code into the core node and requires operator confirmation."
+
+  defp reason(:dynamic_integration, :denied, _configured, _floor, _context),
+    do: "Dynamic integration is denied by current policy."
 
   defp reason(:stocksage_write, :allowed, _configured, _floor, _context),
     do: "Local StockSage domain writes are allowed through registered StockSage actions."

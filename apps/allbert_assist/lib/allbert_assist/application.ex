@@ -26,6 +26,7 @@ defmodule AllbertAssist.Application do
       ]
       |> maybe_add_plugin_supervisor()
       |> maybe_add_app_supervisor()
+      |> maybe_add_dynamic_plugins_supervisor()
       |> maybe_add_workspace_fragment_guard()
       |> maybe_add_jido_backed_supervisor()
       |> maybe_add_session_scratchpad()
@@ -52,6 +53,11 @@ defmodule AllbertAssist.Application do
     else
       children ++ [{AllbertAssist.App.Supervisor, Keyword.put(opts, :enabled?, false)}]
     end
+  end
+
+  defp maybe_add_dynamic_plugins_supervisor(children) do
+    opts = Application.get_env(:allbert_assist, AllbertAssist.DynamicPlugins.Supervisor, [])
+    children ++ [{AllbertAssist.DynamicPlugins.Supervisor, opts}]
   end
 
   defp maybe_add_workspace_fragment_guard(children) do

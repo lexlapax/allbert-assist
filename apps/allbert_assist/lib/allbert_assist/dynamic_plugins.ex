@@ -10,6 +10,7 @@ defmodule AllbertAssist.DynamicPlugins do
   """
 
   alias AllbertAssist.DynamicPlugins.Draft
+  alias AllbertAssist.DynamicPlugins.Loader
   alias AllbertAssist.DynamicPlugins.MetadataStore
   alias AllbertAssist.DynamicPlugins.SandboxBridge
   alias AllbertAssist.DynamicPlugins.Staging
@@ -86,4 +87,16 @@ defmodule AllbertAssist.DynamicPlugins do
 
   @doc "Run warning-gate evidence for one draft through the v0.36 sandbox."
   defdelegate run_draft_gate(slug, opts \\ []), to: SandboxBridge, as: :run_gate
+
+  @doc "Integrate one gate-passed draft after an approved confirmation."
+  defdelegate integrate_draft(slug, opts \\ []), to: Loader, as: :integrate
+
+  @doc "Rollback one live integration after an approved confirmation."
+  defdelegate rollback_integration(slug, revision \\ nil, opts \\ []), to: Loader, as: :rollback
+
+  @doc "Emergency-disable the live loader and clear dynamic authority."
+  defdelegate disable_live_loader(opts \\ []), to: Loader, as: :disable
+
+  @doc "Reconcile integrated metadata into the runtime overlay."
+  defdelegate reconcile_integrations(opts \\ []), to: Loader, as: :reconcile
 end
