@@ -162,6 +162,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "record_workspace_offline_update",
              "dismiss_workspace_ephemeral",
              "set_workspace_theme",
+             "request_dynamic_draft",
              "integrate_dynamic_draft",
              "rollback_dynamic_integration",
              "disable_dynamic_live_loader",
@@ -257,6 +258,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "record_workspace_offline_update",
              "dismiss_workspace_ephemeral",
              "set_workspace_theme",
+             "request_dynamic_draft",
              "integrate_dynamic_draft",
              "rollback_dynamic_integration",
              "disable_dynamic_live_loader",
@@ -422,6 +424,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert integrate_dynamic_draft.exposure == :internal
     assert integrate_dynamic_draft.confirmation == :required
     assert integrate_dynamic_draft.resumable?
+
+    assert {:ok, request_dynamic_draft} = Registry.capability("request_dynamic_draft")
+    assert request_dynamic_draft.permission == :skill_write
+    assert request_dynamic_draft.execution_mode == :dynamic_codegen
+    assert request_dynamic_draft.exposure == :internal
+    assert request_dynamic_draft.confirmation == :not_required
 
     assert {:ok, rollback_dynamic_integration} =
              Registry.capability("rollback_dynamic_integration")

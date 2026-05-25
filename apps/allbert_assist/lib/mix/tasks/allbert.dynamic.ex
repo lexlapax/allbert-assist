@@ -6,6 +6,7 @@ defmodule Mix.Tasks.Allbert.Dynamic do
 
       mix allbert.dynamic drafts list
       mix allbert.dynamic drafts show SLUG
+      mix allbert.dynamic drafts request SLUG SUMMARY...
       mix allbert.dynamic drafts integrate SLUG
       mix allbert.dynamic integrations show SLUG [REVISION]
       mix allbert.dynamic integrations rollback SLUG [REVISION]
@@ -36,6 +37,19 @@ defmodule Mix.Tasks.Allbert.Dynamic do
   defp dispatch(["drafts", "show", slug]) do
     with {:ok, response} <- completed_action("show_dynamic_draft", %{slug: slug}) do
       {:ok, {:draft, response.draft}}
+    end
+  end
+
+  defp dispatch(["drafts", "request", slug | summary_parts]) when summary_parts != [] do
+    params = %{
+      slug: slug,
+      summary: Enum.join(summary_parts, " "),
+      source: "operator",
+      explicit_generation?: true
+    }
+
+    with {:ok, response} <- completed_action("request_dynamic_draft", params) do
+      {:ok, {:requested, response}}
     end
   end
 
@@ -109,6 +123,11 @@ defmodule Mix.Tasks.Allbert.Dynamic do
     Mix.shell().info("  mix allbert.confirmations approve #{response.confirmation_id}")
   end
 
+  defp print_result({:ok, {:requested, response}}) do
+    Mix.shell().info(response.message)
+    Mix.shell().info("Draft root: #{response.draft.root}")
+  end
+
   defp print_result({:ok, {:integrated, response}}) do
     Mix.shell().info(response.message)
   end
@@ -154,6 +173,7 @@ defmodule Mix.Tasks.Allbert.Dynamic do
     Usage:
       mix allbert.dynamic drafts list
       mix allbert.dynamic drafts show SLUG
+      mix allbert.dynamic drafts request SLUG SUMMARY...
       mix allbert.dynamic drafts integrate SLUG
       mix allbert.dynamic integrations show SLUG [REVISION]
       mix allbert.dynamic integrations rollback SLUG [REVISION]

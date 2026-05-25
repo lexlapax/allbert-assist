@@ -80,6 +80,56 @@ Legal tiers are `draft`, `sandbox_compiled`, `sandbox_trialed`, `gate_passed`,
 Repair creates a new revision. It must not mutate the evidence for an older
 revision.
 
+## Capability Gaps And Codegen Producer
+
+`AllbertAssist.DynamicPlugins.request_draft/3` is the producer-neutral entrypoint
+for v0.37 capability gaps. It routes through
+`AllbertAssist.DynamicPlugins.Codegen.Agent`, a `JidoBacked` coordinator, and
+then through `Codegen.Producer`. Durable authority still lives in draft metadata
+and objective events; the agent keeps only rebuildable diagnostics.
+
+The request vocabulary is normalized by
+`AllbertAssist.DynamicPlugins.Codegen.CapabilityGap`:
+
+- `slug`
+- `summary` or `requested_capability`
+- `objective_id` and optional `step_id`
+- `source` (`operator` or `objective` for explicit generation)
+- `target_shapes`
+- `confidence`
+- `provider_calls_requested` and `provider_usage_units_requested`
+
+The shipped v0.37 producer scaffold is deliberately inert. It requires:
+
+- `dynamic_codegen.enabled=true`
+- a resolvable `dynamic_codegen.provider_profile`
+- an enabled provider profile, with any required credential configured
+- target shapes allowed by `dynamic_codegen.allowed_targets`
+- provider-call and usage requests within
+  `dynamic_codegen.max_provider_calls_per_gap` and
+  `dynamic_codegen.max_provider_usage_units_per_gap`
+- an explicit operator/objective source
+
+It writes a `draft` tier metadata record with `producer: codegen_scaffold`,
+`gate.status: not_run`, no source hashes, no compiled paths, and a zero-used
+budget. It does not call advisory providers, trust model output, run a sandbox
+gate, or integrate live code. If an objective id is present, it records an
+`observed` objective event whose payload stage is
+`dynamic_codegen_draft_requested`.
+
+Operator-facing wrappers:
+
+```sh
+mix allbert.dynamic drafts request <slug> <summary...>
+```
+
+```elixir
+AllbertAssist.Actions.Runner.run("request_dynamic_draft", params, context)
+```
+
+Low-confidence intent ranking and advisory/agent output may suggest a capability
+gap to an operator, but they cannot start generation through this entrypoint.
+
 ## Generated Namespace
 
 Generated modules must live under:
