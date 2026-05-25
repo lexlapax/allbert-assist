@@ -116,7 +116,8 @@ alone does not authorize package registry/package-spec access.
   through `mix allbert.sandbox image build` / `image verify`, and keep network
   disabled for sandbox gate runs.
 - Treat v0.37 dynamic generation and live loading as separate default-off
-  switches. `dynamic_codegen.enabled=true` may create inert drafts only;
+  switches. `dynamic_codegen.enabled=true` may create source-bearing read-only
+  action drafts, but those drafts remain untrusted evidence;
   `dynamic_codegen.live_loader_enabled=true` still cannot register authority
   without a v0.36 gate pass, trusted validation, and Security Central
   confirmation from a high-trust operator surface.
