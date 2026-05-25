@@ -7,6 +7,7 @@ defmodule AllbertAssist.DynamicPlugins.SandboxBridge do
   runtime authority.
   """
 
+  alias AllbertAssist.DynamicPlugins.Audit
   alias AllbertAssist.DynamicPlugins.Draft
   alias AllbertAssist.DynamicPlugins.MetadataStore
   alias AllbertAssist.DynamicPlugins.Staging
@@ -16,6 +17,8 @@ defmodule AllbertAssist.DynamicPlugins.SandboxBridge do
   alias AllbertAssist.Settings
 
   @sandbox_opts [:backends, :host, :operator_id, :policy]
+  @diagnostic_history_limit 20
+  @report_history_limit 5
 
   @doc "Run compile/focused-test trial evidence for one draft."
   def run_trial(slug, opts \\ []) when is_binary(slug) do
@@ -101,6 +104,7 @@ defmodule AllbertAssist.DynamicPlugins.SandboxBridge do
     report_map = report |> Report.to_map() |> stringify_nested()
     status = evidence_status(kind, report.status)
     tier = evidence_tier(kind, report.status, profiles(kind, staging, opts), draft.tier)
+    original_draft = draft
 
     with {:ok, draft} <- maybe_transition(draft, tier, opts) do
       gate =
@@ -118,8 +122,64 @@ defmodule AllbertAssist.DynamicPlugins.SandboxBridge do
           "updated_at" => timestamp()
         })
 
-      updated = %{draft | gate: gate, diagnostics: stringify_nested(report.diagnostics)}
-      MetadataStore.put_draft(updated)
+      updated = %{
+        draft
+        | gate: Map.put(gate, "reports", append_history(gate_reports(draft), report_entry(gate))),
+          diagnostics: append_diagnostics(stringify_nested(report.diagnostics), draft.diagnostics)
+      }
+
+      with {:ok, updated} <- MetadataStore.put_draft(updated),
+           :ok <- audit_report(kind, updated, staging, bundle, report, gate, opts),
+           :ok <- audit_tier_transition(original_draft, updated, kind, report, opts) do
+        {:ok, updated}
+      end
+    end
+  end
+
+  defp audit_report(
+         kind,
+         %Draft{} = draft,
+         %Staging{} = staging,
+         %Bundle{} = bundle,
+         report,
+         gate,
+         opts
+       ) do
+    with {:ok, _path} <-
+           Audit.append(:sandbox_report_recorded, %{
+             slug: draft.slug,
+             revision: draft.revision,
+             tier: draft.tier,
+             kind: kind,
+             status: report.status,
+             gate_status: Map.get(gate, "status"),
+             sandbox_report_id: Map.get(gate, "sandbox_report_id"),
+             bundle_id: bundle.id,
+             profiles: Map.get(gate, "profiles", []),
+             focused_test_paths: staging.focused_test_paths,
+             security_eval_paths: staging.security_eval_paths,
+             diagnostics: stringify_nested(report.diagnostics),
+             operator_id: Keyword.get(opts, :operator_id)
+           }) do
+      :ok
+    end
+  end
+
+  defp audit_tier_transition(%Draft{tier: tier}, %Draft{tier: tier}, _kind, _report, _opts),
+    do: :ok
+
+  defp audit_tier_transition(%Draft{} = before, %Draft{} = after_draft, kind, report, opts) do
+    with {:ok, _path} <-
+           Audit.append(:tier_transition, %{
+             slug: after_draft.slug,
+             revision: after_draft.revision,
+             from_tier: before.tier,
+             to_tier: after_draft.tier,
+             kind: kind,
+             status: report.status,
+             operator_id: Keyword.get(opts, :operator_id)
+           }) do
+      :ok
     end
   end
 
@@ -140,6 +200,37 @@ defmodule AllbertAssist.DynamicPlugins.SandboxBridge do
   end
 
   defp evidence_tier(_kind, _status, _profiles, current), do: current
+
+  defp gate_reports(%Draft{} = draft) do
+    case Map.get(draft.gate, "reports") do
+      reports when is_list(reports) -> reports
+      _other -> []
+    end
+  end
+
+  defp report_entry(gate) do
+    Map.take(gate, [
+      "status",
+      "kind",
+      "sandbox_report_id",
+      "sandbox_report_path",
+      "bundle_id",
+      "bundle_report_path",
+      "profiles",
+      "updated_at"
+    ])
+  end
+
+  defp append_history(existing, entry) do
+    [entry | existing]
+    |> Enum.take(@report_history_limit)
+  end
+
+  defp append_diagnostics(new, existing) do
+    List.wrap(new)
+    |> Kernel.++(List.wrap(existing))
+    |> Enum.take(@diagnostic_history_limit)
+  end
 
   defp copy_report(%Draft{} = draft, %Report{report_path: path}) when is_binary(path) do
     if File.regular?(path) do

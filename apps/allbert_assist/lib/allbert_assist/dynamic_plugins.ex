@@ -18,12 +18,18 @@ defmodule AllbertAssist.DynamicPlugins do
   alias AllbertAssist.Paths
 
   @doc "Return dynamic plugin roots."
-  @spec roots() :: %{root: String.t(), drafts: String.t(), integrated: String.t()}
+  @spec roots() :: %{
+          root: String.t(),
+          drafts: String.t(),
+          integrated: String.t(),
+          audit: String.t()
+        }
   def roots do
     %{
       root: Paths.dynamic_plugins_root(),
       drafts: Paths.dynamic_plugins_drafts_root(),
-      integrated: Paths.dynamic_plugins_integrated_root()
+      integrated: Paths.dynamic_plugins_integrated_root(),
+      audit: Paths.dynamic_plugins_audit_root()
     }
   end
 

@@ -27,6 +27,25 @@ defmodule AllbertAssist.Signals do
     cleanup: "allbert.sandbox.cleanup"
   }
 
+  @dynamic_codegen_signal_types %{
+    draft_requested: "allbert.dynamic_codegen.draft_requested",
+    sandbox_report_recorded: "allbert.dynamic_codegen.sandbox_report_recorded",
+    tier_transition: "allbert.dynamic_codegen.tier_transition",
+    discarded: "allbert.dynamic_codegen.discarded",
+    integration_attempted: "allbert.dynamic_codegen.integration_attempted",
+    trusted_validation_passed: "allbert.dynamic_codegen.trusted_validation_passed",
+    compiled: "allbert.dynamic_codegen.compiled",
+    registered: "allbert.dynamic_codegen.registered",
+    integrated: "allbert.dynamic_codegen.integrated",
+    integration_denied: "allbert.dynamic_codegen.integration_denied",
+    rollback_requested: "allbert.dynamic_codegen.rollback_requested",
+    rolled_back: "allbert.dynamic_codegen.rolled_back",
+    rollback_denied: "allbert.dynamic_codegen.rollback_denied",
+    live_loader_disabled: "allbert.dynamic_codegen.live_loader_disabled",
+    reconcile_completed: "allbert.dynamic_codegen.reconcile_completed",
+    reconcile_denied: "allbert.dynamic_codegen.reconcile_denied"
+  }
+
   @objective_signal_types %{
     created: "allbert.objective.created",
     updated: "allbert.objective.updated",
@@ -74,6 +93,10 @@ defmodule AllbertAssist.Signals do
   @spec sandbox_signal_types() :: %{atom() => String.t()}
   def sandbox_signal_types, do: @sandbox_signal_types
 
+  @doc "Return dynamic codegen lifecycle signal names."
+  @spec dynamic_codegen_signal_types() :: %{atom() => String.t()}
+  def dynamic_codegen_signal_types, do: @dynamic_codegen_signal_types
+
   @doc "Create a sandbox lifecycle signal."
   @spec sandbox_lifecycle(atom(), map()) :: {:ok, Signal.t()} | {:error, term()}
   def sandbox_lifecycle(kind, metadata) when is_atom(kind) and is_map(metadata) do
@@ -86,6 +109,21 @@ defmodule AllbertAssist.Signals do
       )
     else
       :error -> {:error, {:unknown_sandbox_signal, kind}}
+    end
+  end
+
+  @doc "Create a dynamic codegen lifecycle signal."
+  @spec dynamic_codegen_lifecycle(atom(), map()) :: {:ok, Signal.t()} | {:error, term()}
+  def dynamic_codegen_lifecycle(kind, metadata) when is_atom(kind) and is_map(metadata) do
+    with {:ok, type} <- Map.fetch(@dynamic_codegen_signal_types, kind) do
+      Signal.new(
+        type,
+        Redactor.redact(metadata),
+        source: "/allbert/dynamic_codegen/#{kind}",
+        subject: Map.get(metadata, :operator_id) || Map.get(metadata, "operator_id")
+      )
+    else
+      :error -> {:error, {:unknown_dynamic_codegen_signal, kind}}
     end
   end
 

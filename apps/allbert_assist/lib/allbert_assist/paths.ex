@@ -59,6 +59,7 @@ defmodule AllbertAssist.Paths do
       dynamic_plugins_root(),
       dynamic_plugins_drafts_root(),
       dynamic_plugins_integrated_root(),
+      dynamic_plugins_audit_root(),
       external_root(),
       Path.join(external_root(), "audit"),
       external_cache_root(),
@@ -176,6 +177,10 @@ defmodule AllbertAssist.Paths do
   @doc "Return the v0.37 reviewed dynamic integration root."
   @spec dynamic_plugins_integrated_root() :: String.t()
   def dynamic_plugins_integrated_root, do: Path.join(dynamic_plugins_root(), "integrated")
+
+  @doc "Return the v0.37 dynamic plugin lifecycle audit root."
+  @spec dynamic_plugins_audit_root() :: String.t()
+  def dynamic_plugins_audit_root, do: Path.join(dynamic_plugins_root(), "audit")
 
   @doc "Return the external service adapter root."
   @spec external_root() :: String.t()

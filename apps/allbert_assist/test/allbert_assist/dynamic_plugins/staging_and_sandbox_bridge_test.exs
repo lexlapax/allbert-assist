@@ -3,6 +3,7 @@ defmodule AllbertAssist.DynamicPlugins.StagingAndSandboxBridgeTest do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.DynamicPlugins
+  alias AllbertAssist.DynamicPlugins.Audit
   alias AllbertAssist.DynamicPlugins.MetadataStore
   alias AllbertAssist.DynamicPlugins.Staging
   alias AllbertAssist.Paths
@@ -162,7 +163,7 @@ defmodule AllbertAssist.DynamicPlugins.StagingAndSandboxBridgeTest do
     enable_dynamic_codegen_and_sandbox!()
 
     project = fixture_project("gate-failed")
-    draft = write_valid_draft("gate_failed")
+    draft = write_valid_draft("gate_failed", diagnostics: [%{reason: :existing}])
 
     assert {:ok, result} =
              DynamicPlugins.run_draft_gate(draft.slug,
@@ -178,7 +179,10 @@ defmodule AllbertAssist.DynamicPlugins.StagingAndSandboxBridgeTest do
 
     assert {:ok, updated} = DynamicPlugins.get_draft(draft.slug)
     assert updated.gate["status"] == "failed"
-    assert [%{"reason" => "fixture_failure"}] = updated.diagnostics
+    assert inspect(updated.diagnostics) =~ "fixture_failure"
+    assert inspect(updated.diagnostics) =~ "existing"
+    assert [%{"kind" => "gate", "status" => "failed"} | _] = updated.gate["reports"]
+    assert File.read!(Audit.audit_path()) =~ "sandbox_report_recorded"
   end
 
   test "trial and gate pass advance only evidence tiers" do
@@ -214,6 +218,8 @@ defmodule AllbertAssist.DynamicPlugins.StagingAndSandboxBridgeTest do
     assert {:ok, updated} = DynamicPlugins.get_draft(draft.slug)
     assert updated.gate["status"] == "passed"
     assert updated.gate["sandbox_report_id"]
+    assert [%{"kind" => "gate"}, %{"kind" => "trial"}] = updated.gate["reports"]
+    assert File.read!(Audit.audit_path()) =~ "tier_transition"
   end
 
   test "registered dynamic draft trial action routes through Security Central and sandbox bridge" do
@@ -294,7 +300,8 @@ defmodule AllbertAssist.DynamicPlugins.StagingAndSandboxBridgeTest do
                target_shapes: ["action"],
                source_hashes: source_hashes,
                compiled_paths: [source_compiled, test_compiled],
-               scan_paths: scan_paths
+               scan_paths: scan_paths,
+               diagnostics: Keyword.get(opts, :diagnostics, [])
              })
 
     assert :ok =
