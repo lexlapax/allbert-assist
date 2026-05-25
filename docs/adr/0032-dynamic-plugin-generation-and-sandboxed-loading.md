@@ -21,6 +21,15 @@ capability when no existing plugin/app/action can satisfy a request. The v0.36
 sandbox milestone proves how generated Elixir/OTP drafts are compiled and gated
 outside the core node. v0.37 uses that evidence to add a gated integration path.
 
+The vision defers "self-recompilation/bootstrapping" and "fully autonomous skill
+creation with broad execution permissions" until the foundation settles
+(`docs/plans/allbert-jido-vision.md`). v0.37 is the bounded realization of the
+first: generation is advisory, integration is operator-confirmed, generated
+authority is narrow (the ADR 0033 generated-permission ceiling), and autonomy is
+excluded. The vision also prefers declarative, validated surfaces over opaque
+generated code, so a capability gap resolves by reuse/composition of existing
+actions, then a declarative surface, and only then generated code.
+
 ## Decision
 
 Generated code has three phases:
