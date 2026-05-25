@@ -135,6 +135,7 @@ defmodule AllbertAssist.Settings do
       name: name,
       provider: provider,
       provider_type: Map.get(provider_attrs, "type"),
+      provider_base_url: Map.get(provider_attrs, "base_url"),
       model: Map.get(attrs, "model"),
       temperature: Map.get(attrs, "temperature"),
       max_tokens: Map.get(attrs, "max_tokens"),
