@@ -25,7 +25,8 @@ Two substrates are needed:
 
 ### 1. Code-gen agents are advisory proposers
 
-A committee of supervised `Jido.Agent` agents, reusing the v0.25 StockSage
+A committee of supervised `Jido.Agent` agents, built on the shared
+`AllbertAssist.JidoBacked` substrate and reusing the v0.25 StockSage
 native-agent + Jido.AI pattern, authors drafts:
 
 - `Codegen.Planner` - capability gap to generation spec;
@@ -37,7 +38,10 @@ native-agent + Jido.AI pattern, authors drafts:
 Per ADR 0021, agent output is never authority. It cannot enable, trust,
 integrate, grant permissions, or bypass confirmation. The deterministic
 template path is v0.38 and reuses this engine only when live integration is
-selected.
+selected. Draft creation is therefore a pluggable producer: the committee is one
+producer and v0.38 templates are another, while the draft lifecycle from
+`:draft` onward (metadata store, staging, trial, gate, loader, overlay,
+rollback) is producer-agnostic and records the producer in provenance.
 
 ### 2. Generation targets Elixir/OTP code and config
 
@@ -198,6 +202,14 @@ surfaces: actions no longer resolve, app/panel destinations disappear from
 registries, and declared children stop. BEAM module purge/delete is attempted
 and audited as best effort.
 
+Integration and rollback confirmations are restricted to high-trust operator
+surfaces. The channel-aware confirmation model (ADR 0008/0016) would otherwise
+let any enabled approver — CLI, LiveView, Telegram, email, or cross-channel —
+resolve the confirmation. Because integration hot-loads code into the core node,
+the loader accepts integration/rollback approval only from the surfaces in
+`dynamic_codegen.integration_approval_surfaces` and rejects low-trust channel and
+cross-channel approval regardless of `confirmations.allow_cross_channel_approval`.
+
 On boot, the loader reconciles only still-valid integrated revisions whose
 metadata, source hash, gate evidence, Security Central confirmation/audit
 record, current settings, and loader policy all match. `metadata.yaml` may cache
@@ -236,8 +248,9 @@ sandbox reports are file-backed under
   permission/body mismatch, generated resumability, dynamic child effects,
   loader tampering, core-module replacement, action shadowing,
   partial-integration unwind, revision supersede bypass, emergency-disable
-  bypass, restart reconciliation tamper, private objective loops, rollback
-  failure, generation budget exhaustion, and exfiltration fail closed.
+  bypass, integration-approval-surface bypass, restart reconciliation tamper,
+  private objective loops, rollback failure, generation budget exhaustion, and
+  exfiltration fail closed.
 
 ## Non-Goals
 
