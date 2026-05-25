@@ -78,11 +78,6 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
       end
     end
 
-    defp response_object(%{object: object}) when is_map(object), do: {:ok, object}
-    defp response_object(%{"object" => object}) when is_map(object), do: {:ok, object}
-    defp response_object(object) when is_map(object), do: {:ok, object}
-    defp response_object(_other), do: {:error, :empty_dynamic_codegen_object}
-
     defp normalize_object(object, result) do
       object
       |> Map.take(["action_name", "description", "source", "test_source", "notes", "usage_units"])
@@ -92,9 +87,6 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
     end
 
     defp response_usage(%ReqLLM.Response{} = response), do: ReqLLM.Response.usage(response) || %{}
-    defp response_usage(%{usage: usage}) when is_map(usage), do: usage
-    defp response_usage(%{"usage" => usage}) when is_map(usage), do: usage
-    defp response_usage(_result), do: %{}
 
     defp model_option(%{model: model, provider_type: provider_type})
          when is_binary(model) and model != "" do

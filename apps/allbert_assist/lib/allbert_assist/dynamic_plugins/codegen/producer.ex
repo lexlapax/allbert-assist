@@ -166,22 +166,20 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
     source_compiled = ActionTarget.compiled_source_path(gap.slug)
     test_compiled = ActionTarget.compiled_test_path(gap.slug)
 
+    target = %{
+      module: module,
+      action_name: action_name,
+      source_rel: source_rel,
+      source_compiled: source_compiled,
+      test_rel: test_rel,
+      test_compiled: test_compiled
+    }
+
     with :ok <- write_file(source_abs, source),
          :ok <- write_file(test_abs, test_source),
          {:ok, source_hash} <- MetadataStore.hash_file(source_abs),
          {:ok, test_hash} <- MetadataStore.hash_file(test_abs),
-         manifest <-
-           manifest(
-             gap,
-             module,
-             action_name,
-             source_rel,
-             source_compiled,
-             test_rel,
-             test_compiled,
-             generated,
-             role_packets
-           ),
+         manifest <- manifest(gap, target, generated, role_packets),
          {:ok, draft} <-
            DynamicPlugins.put_draft(%{
              slug: gap.slug,
@@ -338,35 +336,25 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
     end
   end
 
-  defp manifest(
-         gap,
-         module,
-         action_name,
-         source_rel,
-         source_compiled,
-         test_rel,
-         test_compiled,
-         generated,
-         role_packets
-       ) do
+  defp manifest(gap, target, generated, role_packets) do
     %{
       "target_shapes" => ["action"],
-      "modules" => [module],
+      "modules" => [target.module],
       "actions" => [
         %{
-          "name" => action_name,
-          "module" => module,
+          "name" => target.action_name,
+          "module" => target.module,
           "permission" => "read_only",
           "exposure" => "internal"
         }
       ],
       "files" => [
-        %{"source_path" => source_rel, "compiled_path" => source_compiled}
+        %{"source_path" => target.source_rel, "compiled_path" => target.source_compiled}
       ],
       "tests" => [
-        %{"source_path" => test_rel, "compiled_path" => test_compiled}
+        %{"source_path" => target.test_rel, "compiled_path" => target.test_compiled}
       ],
-      "focused_test_paths" => [test_compiled],
+      "focused_test_paths" => [target.test_compiled],
       "generation" => %{
         "gap_id" => gap.id,
         "description" => Map.get(generated, "description"),

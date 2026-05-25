@@ -241,10 +241,10 @@ Do not load every section by default.
   shell strings, and untrusted core loading. Per ADR 0037 and ADR 0009.
 - v0.37 (implemented as `v0.37.0`): Dynamic Code & Config Generation And Live
   Capability Integration. Adds file-backed dynamic draft metadata under
-  `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/`, an inert explicit
-  capability-gap request scaffold, v0.36 sandbox trial/gate handoff, trusted
-  validation, and hot-load registration for gate-passed read-only action
-  artifacts only after operator confirmation. Rollback also requires
+  `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/`, an explicit source-bearing
+  read-only action generator for capability gaps, v0.36 sandbox trial/gate
+  handoff, trusted validation, and hot-load registration for gate-passed
+  read-only action artifacts only after operator confirmation. Rollback also requires
   confirmation and removes live authority; module purge is best-effort/audited.
   Per ADR 0032, ADR 0033, and ADR 0035. Implementation docs live in
   `docs/developer/dynamic-plugin-drafts.md` and

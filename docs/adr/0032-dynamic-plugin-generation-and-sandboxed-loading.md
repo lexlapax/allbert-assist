@@ -7,10 +7,10 @@ Integration (`docs/plans/v0.37-plan.md`) on 2026-05-25. Revised after the
 v0.36 second pass: v0.36 owns only the Elixir/OTP sandbox backend and gate
 runner (ADR 0037). This ADR owns the generated-draft lifecycle and the narrow,
 gated exception that lets an operator-confirmed artifact be loaded into the core
-node. The shipped v0.37.1 implementation is deliberately conservative: inert
-draft request metadata, v0.36 staging/gate evidence, trusted validation, and a
-read-only dynamic action live loader. Broader generated app/config targets are
-deferred.
+node. The shipped v0.37.2 implementation is deliberately conservative:
+source-bearing read-only action draft generation, v0.36 staging/gate evidence,
+trusted validation, and a read-only dynamic action live loader. Broader
+generated app/config targets are deferred.
 
 ## Context
 
@@ -65,7 +65,7 @@ Generated artifacts have three phases:
    runtime call targets, generated-permission ceiling violations, and other
    forbidden constructs.
 
-The shipped v0.37.1 trusted phase live-loads reviewed read-only action modules
+The shipped v0.37.2 trusted phase live-loads reviewed read-only action modules
 only. Generated apps, panels, settings fragments, memory namespaces, objective
 wiring, route pages, and child processes remain rejected live targets until a
 later ADR/plan adds reviewed validators and registration paths for them.

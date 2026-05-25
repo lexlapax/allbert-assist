@@ -14,7 +14,6 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Roles do
   @required_generated_fields ~w[description source test_source]
 
   @doc "Run the bounded role pipeline for one read-only action draft."
-  @spec run(CapabilityGap.t(), map(), map(), map()) :: {:ok, [map()], map()} | {:error, term()}
   def run(%CapabilityGap{} = gap, profile, budget, context)
       when is_map(profile) and is_map(budget) and is_map(context) do
     with {:ok, planner} <- plan(gap, profile, budget, context),

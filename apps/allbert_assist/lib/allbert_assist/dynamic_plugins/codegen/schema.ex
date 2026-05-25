@@ -8,7 +8,6 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Schema do
   """
 
   @doc "JSON-schema shape for one read-only action draft generation packet."
-  @spec action_draft_schema() :: map()
   def action_draft_schema do
     %{
       type: "object",
