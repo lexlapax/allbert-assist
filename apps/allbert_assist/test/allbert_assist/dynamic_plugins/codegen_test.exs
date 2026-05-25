@@ -2,9 +2,13 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.DynamicPlugins
+  alias AllbertAssist.DynamicPlugins.Codegen.LLM
+  alias AllbertAssist.DynamicPlugins.MetadataStore
+  alias AllbertAssist.DynamicPlugins.TrustedValidator
   alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.DynamicCodegenFakeProvider
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR", "ALLBERT_SETTINGS_ROOT"]
 
@@ -12,15 +16,18 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
+    original_llm_config = Application.get_env(:allbert_assist, LLM)
     home = temp_path("home")
 
     Enum.each(@env_vars, &System.delete_env/1)
     Application.delete_env(:allbert_assist, Settings)
     Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, LLM, provider: DynamicCodegenFakeProvider)
 
     on_exit(fn ->
       restore_app_env(Paths, original_paths_config)
       restore_app_env(Settings, original_settings_config)
+      restore_app_env(LLM, original_llm_config)
       restore_env(original_env)
       File.rm_rf!(home)
     end)
@@ -76,7 +83,7 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
              })
   end
 
-  test "explicit objective generation creates inert draft metadata and an objective event" do
+  test "explicit objective generation creates source-bearing draft metadata and an objective event" do
     enable_dynamic_codegen!("local")
 
     assert {:ok, objective} =
@@ -100,12 +107,41 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
 
     assert result.draft.slug == "objective_gap"
     assert result.draft.tier == "draft"
-    assert result.draft.producer == "codegen_scaffold"
-    assert result.budget["provider_calls_used"] == 0
+    assert result.draft.producer == "codegen_llm"
+    assert result.budget["provider_calls_used"] == 1
+    assert result.budget["provider_usage_units_used"] == 123
+
+    assert result.manifest["modules"] == [
+             "AllbertAssist.DynamicPlugins.Generated.ObjectiveGap.Action"
+           ]
 
     assert {:ok, shown} = DynamicPlugins.show_draft("objective_gap")
     assert shown.tier == "draft"
     assert shown.gate_status == "not_run"
+    assert shown.diagnostics |> List.first() |> Map.get("status") == "source_generated"
+
+    assert {:ok, draft} = DynamicPlugins.get_draft("objective_gap")
+    assert :ok = MetadataStore.verify_source_hashes(draft)
+    assert {:ok, manifest} = MetadataStore.get_manifest("objective_gap")
+    assert {:ok, _validation} = TrustedValidator.validate(draft, manifest)
+    assert File.read!(Path.join(draft.root, "source/lib/action.ex")) =~ "defmodule"
+    assert File.read!(Path.join(draft.root, "source/test/action_test.exs")) =~ "Ada: high"
+
+    assert {:ok, staging} =
+             DynamicPlugins.stage_draft("objective_gap",
+               project_root: project_root(),
+               project_paths: [
+                 "mix.exs",
+                 "mix.lock",
+                 ".formatter.exs",
+                 "apps/allbert_assist/mix.exs",
+                 "apps/allbert_assist/lib",
+                 "apps/allbert_assist/test/support"
+               ]
+             )
+
+    assert length(staging.generated_files) == 2
+    assert staging.focused_test_paths == manifest["focused_test_paths"]
 
     assert Enum.any?(Objectives.list_events(objective.id), fn event ->
              event.kind == "observed" and
@@ -131,6 +167,8 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
   defp context do
     %{actor: "local", channel: :cli, surface: "cli", explicit_generation?: true}
   end
+
+  defp project_root, do: Path.expand("../../../../..", __DIR__)
 
   defp temp_path(name) do
     Path.join(

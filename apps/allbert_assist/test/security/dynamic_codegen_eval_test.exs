@@ -6,12 +6,14 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.DynamicPlugins
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
+  alias AllbertAssist.DynamicPlugins.Codegen.LLM
   alias AllbertAssist.DynamicPlugins.Loader
   alias AllbertAssist.DynamicPlugins.MetadataStore
   alias AllbertAssist.DynamicPlugins.TrustedValidator
   alias AllbertAssist.Paths
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.DynamicCodegenFakeProvider
 
   @v037_eval_ids [
     "codegen-core-load-untrusted-001",
@@ -52,10 +54,12 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
+    original_llm_config = Application.get_env(:allbert_assist, LLM)
     home = temp_path("home")
 
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(home, "confirmations"))
+    Application.put_env(:allbert_assist, LLM, provider: DynamicCodegenFakeProvider)
     Application.delete_env(:allbert_assist, Settings)
     ActionsOverlay.clear()
 
@@ -64,6 +68,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
       restore_app_env(Confirmations, original_confirmations_config)
       restore_app_env(Paths, original_paths_config)
       restore_app_env(Settings, original_settings_config)
+      restore_app_env(LLM, original_llm_config)
       File.rm_rf!(home)
     end)
 
