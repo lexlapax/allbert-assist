@@ -18,10 +18,70 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
 
   @allowed_remote_calls %{
     "Atom" => [:to_string],
-    "Integer" => [:to_string],
-    "Map" => [:get, :put, :take, :has_key?],
-    "String" => [:trim, :length, :downcase, :upcase],
-    "List" => [:first, :last]
+    "Date" => [:add, :compare, :diff, :to_iso8601],
+    "DateTime" => [:compare, :diff, :to_date, :to_iso8601, :to_time, :truncate],
+    "Enum" => [
+      :all?,
+      :any?,
+      :at,
+      :chunk_every,
+      :count,
+      :drop,
+      :empty?,
+      :filter,
+      :find,
+      :flat_map,
+      :join,
+      :map,
+      :max,
+      :min,
+      :reject,
+      :reverse,
+      :sort,
+      :sum,
+      :take,
+      :uniq,
+      :with_index
+    ],
+    "Float" => [:ceil, :floor, :parse, :round, :to_string],
+    "Integer" => [:digits, :floor_div, :mod, :parse, :to_string],
+    "Kernel" => [:inspect, :to_string],
+    "Keyword" => [:delete, :drop, :get, :has_key?, :keys, :merge, :new, :put, :take, :values],
+    "List" => [
+      :delete,
+      :delete_at,
+      :first,
+      :flatten,
+      :insert_at,
+      :last,
+      :replace_at,
+      :to_tuple,
+      :wrap,
+      :zip
+    ],
+    "Map" => [:delete, :drop, :get, :has_key?, :keys, :merge, :new, :put, :take, :values],
+    "String" => [
+      :capitalize,
+      :contains?,
+      :downcase,
+      :duplicate,
+      :ends_with?,
+      :first,
+      :graphemes,
+      :join,
+      :last,
+      :length,
+      :replace,
+      :slice,
+      :split,
+      :starts_with?,
+      :trim,
+      :trim_leading,
+      :trim_trailing,
+      :upcase
+    ],
+    "Time" => [:add, :compare, :diff, :to_iso8601, :truncate],
+    "Tuple" => [:append, :delete_at, :duplicate, :insert_at, :to_list]
   }
 
   @protected_remote_prefixes [
@@ -76,19 +136,45 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
   @allowed_local_calls [
     :{},
     :%{},
+    :!,
+    :!=,
+    :!==,
+    :&&,
+    :*,
+    :+,
+    :++,
+    :-,
+    :--,
+    :..,
+    :/,
+    :<,
+    :<=,
+    :<>,
     :=,
+    :==,
+    :===,
+    :=~,
+    :>,
+    :>=,
     :case,
     :cond,
     :if,
     :in,
+    :and,
     :is_atom,
     :is_binary,
     :is_boolean,
+    :is_float,
+    :is_function,
     :is_integer,
+    :is_list,
     :is_map,
     :is_nil,
     :is_number,
-    :not
+    :is_tuple,
+    :not,
+    :or,
+    :to_string
   ]
 
   @type validation :: %{
@@ -361,6 +447,14 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
     validate_each(values, &validate_expression(&1, local_defs))
   end
 
+  defp validate_expression({:<<>>, _meta, parts}, local_defs) do
+    validate_each(parts, &validate_expression(&1, local_defs))
+  end
+
+  defp validate_expression({:"::", _meta, [value, _type]}, local_defs) do
+    validate_expression(value, local_defs)
+  end
+
   defp validate_expression({left, right}, local_defs) do
     with :ok <- validate_expression(left, local_defs) do
       validate_expression(right, local_defs)
@@ -379,10 +473,39 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
     end
   end
 
+  defp validate_expression({:cond, _meta, [[do: clauses]]}, local_defs) do
+    validate_each(clauses, &validate_condition_clause(&1, local_defs))
+  end
+
   defp validate_expression({:if, _meta, [condition, clauses]}, local_defs) do
     with :ok <- validate_expression(condition, local_defs) do
       validate_each(Keyword.values(clauses), &validate_expression(&1, local_defs))
     end
+  end
+
+  defp validate_expression({:with, _meta, clauses}, local_defs) do
+    {body, clauses} = Keyword.pop(clauses, :do)
+    {_else_body, clauses} = Keyword.pop(clauses, :else)
+
+    with :ok <- validate_each(clauses, &validate_with_clause(&1, local_defs)) do
+      validate_expression(body, local_defs)
+    end
+  end
+
+  defp validate_expression({:for, _meta, clauses}, local_defs) do
+    {body, clauses} = Keyword.pop(clauses, :do)
+
+    with :ok <- validate_each(clauses, &validate_for_clause(&1, local_defs)) do
+      validate_expression(body, local_defs)
+    end
+  end
+
+  defp validate_expression({:fn, _meta, clauses}, local_defs) do
+    validate_each(clauses, &validate_fn_clause(&1, local_defs))
+  end
+
+  defp validate_expression({:&, _meta, [capture]}, local_defs) do
+    validate_capture(capture, local_defs)
   end
 
   defp validate_expression({:__block__, _meta, expressions}, local_defs) do
@@ -429,6 +552,9 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
 
   defp validate_pattern({name, _meta, context}) when is_atom(name) and is_atom(context), do: :ok
 
+  defp validate_pattern(values) when is_list(values),
+    do: validate_each(values, &validate_pattern/1)
+
   defp validate_pattern({:%{}, _meta, pairs}) do
     validate_each(pairs, fn {key, value} ->
       with :ok <- validate_expression(key, []) do
@@ -453,6 +579,75 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
       validate_expression(body, local_defs)
     end
   end
+
+  defp validate_condition_clause({:->, _meta, [[condition], body]}, local_defs) do
+    with :ok <- validate_expression(condition, local_defs) do
+      validate_expression(body, local_defs)
+    end
+  end
+
+  defp validate_condition_clause(other, _local_defs),
+    do: {:error, {:unsupported_condition_clause, form_name(other)}}
+
+  defp validate_fn_clause({:->, _meta, [patterns, body]}, local_defs) do
+    with :ok <- validate_each(List.wrap(patterns), &validate_pattern/1) do
+      validate_expression(body, local_defs)
+    end
+  end
+
+  defp validate_fn_clause(other, _local_defs),
+    do: {:error, {:unsupported_fn_clause, form_name(other)}}
+
+  defp validate_with_clause({:<-, _meta, [pattern, expression]}, local_defs) do
+    with :ok <- validate_pattern(pattern) do
+      validate_expression(expression, local_defs)
+    end
+  end
+
+  defp validate_with_clause({:=, _meta, [pattern, expression]}, local_defs) do
+    with :ok <- validate_pattern(pattern) do
+      validate_expression(expression, local_defs)
+    end
+  end
+
+  defp validate_with_clause(expression, local_defs),
+    do: validate_expression(expression, local_defs)
+
+  defp validate_for_clause({:<-, _meta, [pattern, expression]}, local_defs) do
+    with :ok <- validate_pattern(pattern) do
+      validate_expression(expression, local_defs)
+    end
+  end
+
+  defp validate_for_clause({:<<>>, _meta, _parts} = expression, local_defs) do
+    validate_expression(expression, local_defs)
+  end
+
+  defp validate_for_clause(expression, local_defs),
+    do: validate_expression(expression, local_defs)
+
+  defp validate_capture({:&, _meta, [index]}, _local_defs) when is_integer(index), do: :ok
+
+  defp validate_capture(
+         {:/, _meta, [{{:., _dot_meta, [module_ast, function]}, _call_meta, []}, arity]},
+         _local_defs
+       )
+       when is_atom(function) and is_integer(arity) and arity >= 0 do
+    module = module_name(module_ast)
+
+    cond do
+      protected_remote?(module) ->
+        {:error, {:protected_remote_call, module, function}}
+
+      allowed_remote_call?(module, function) or generated_module_name?(module) ->
+        :ok
+
+      true ->
+        {:error, {:unsupported_remote_call, module, function}}
+    end
+  end
+
+  defp validate_capture(expression, local_defs), do: validate_expression(expression, local_defs)
 
   defp validate_action_use_options(args) do
     opts =

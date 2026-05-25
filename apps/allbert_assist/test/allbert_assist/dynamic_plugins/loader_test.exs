@@ -8,6 +8,7 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
   alias AllbertAssist.DynamicPlugins.Audit
   alias AllbertAssist.DynamicPlugins.MetadataStore
+  alias AllbertAssist.DynamicPlugins.TrustedValidator
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
 
@@ -76,6 +77,58 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
     assert audit =~ "integrated"
     assert audit =~ "rolled_back"
     refute audit =~ home
+  end
+
+  test "integrates and runs a useful read-only action with pure generated logic" do
+    enable_live_loader!()
+    fixture = write_gate_passed_action_draft("loader_useful", source_kind: :useful_pure)
+
+    assert {:ok, %{status: :needs_confirmation, confirmation_id: integration_id}} =
+             Runner.run("integrate_dynamic_draft", %{slug: fixture.slug}, cli_context())
+
+    assert {:ok, %{status: :completed, confirmation: %{"status" => "approved"}}} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: integration_id, reason: "reviewed useful generated logic"},
+               cli_context()
+             )
+
+    assert {:ok,
+            %{
+              status: :completed,
+              message: "Spuri: high score=12 tags=ALPHA, BETA",
+              actions: []
+            }} =
+             Runner.run(
+               fixture.action_name,
+               %{name: " Spuri ", score: 10, tags: ["alpha", "beta"]},
+               cli_context()
+             )
+  end
+
+  test "trusted validator keeps effectful neighbors denied while pure stdlib is allowed" do
+    pure = write_gate_passed_action_draft("loader_pure_validation", source_kind: :useful_pure)
+    unsafe_atom = write_gate_passed_action_draft("loader_to_atom", source_kind: :string_to_atom)
+
+    unsafe_fun =
+      write_gate_passed_action_draft("loader_effectful_fun", source_kind: :effectful_fun)
+
+    assert {:ok, pure_manifest} = MetadataStore.get_manifest(pure.slug)
+    assert {:ok, _validation} = TrustedValidator.validate(pure.draft, pure_manifest)
+
+    assert {:ok, atom_manifest} = MetadataStore.get_manifest(unsafe_atom.slug)
+
+    assert {:error,
+            {:trusted_validation_failed, "source/lib/action.ex",
+             {:unsupported_remote_call, "String", :to_atom}}} =
+             TrustedValidator.validate(unsafe_atom.draft, atom_manifest)
+
+    assert {:ok, fun_manifest} = MetadataStore.get_manifest(unsafe_fun.slug)
+
+    assert {:error,
+            {:trusted_validation_failed, "source/lib/action.ex",
+             {:protected_remote_call, "System", :cmd}}} =
+             TrustedValidator.validate(unsafe_fun.draft, fun_manifest)
   end
 
   test "trusted validator denies protected runtime calls" do
@@ -279,7 +332,7 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
                "tests" => []
              })
 
-    %{slug: draft.slug, module: module, action_name: action_name}
+    %{slug: draft.slug, module: module, action_name: action_name, draft: draft}
   end
 
   defp source_body(module, action_name, :valid) do
@@ -333,6 +386,109 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
       @impl true
       def run(_params, _context) do
         System.cmd("echo", ["no"])
+        {:ok, %{message: "no", status: :completed, actions: []}}
+      end
+    end
+    """
+  end
+
+  defp source_body(module, action_name, :useful_pure) do
+    """
+    defmodule #{module} do
+      use AllbertAssist.Action,
+        permission: :read_only,
+        exposure: :internal,
+        execution_mode: :read_only,
+        skill_backed?: false,
+        confirmation: :not_required,
+        name: "#{action_name}",
+        description: "Dynamic loader useful pure fixture.",
+        category: "dynamic_plugins",
+        tags: ["dynamic", "fixture"],
+        schema: [
+          name: [type: :string, required: false],
+          score: [type: :integer, required: false],
+          tags: [type: {:list, :string}, required: false]
+        ],
+        output_schema: [
+          message: [type: :string, required: true],
+          status: [type: :atom, required: true],
+          actions: [type: {:list, :map}, required: true]
+        ]
+
+      @impl true
+      def run(params, _context) do
+        name = String.trim(Map.get(params, :name, "item"))
+        tags = Map.get(params, :tags, [])
+        normalized_tags = Enum.map(tags, fn tag -> String.upcase(to_string(tag)) end)
+        adjusted_score = Map.get(params, :score, 0) + Enum.count(normalized_tags)
+
+        tier =
+          if adjusted_score >= 10 do
+            "high"
+          else
+            "normal"
+          end
+
+        message = "\#{name}: \#{tier} score=\#{adjusted_score} tags=\#{Enum.join(normalized_tags, ", ")}"
+        {:ok, %{message: message, status: :completed, actions: []}}
+      end
+    end
+    """
+  end
+
+  defp source_body(module, action_name, :string_to_atom) do
+    """
+    defmodule #{module} do
+      use AllbertAssist.Action,
+        permission: :read_only,
+        exposure: :internal,
+        execution_mode: :read_only,
+        skill_backed?: false,
+        confirmation: :not_required,
+        name: "#{action_name}",
+        description: "Dynamic loader unsafe atom fixture.",
+        category: "dynamic_plugins",
+        tags: ["dynamic", "fixture"],
+        schema: [],
+        output_schema: [
+          message: [type: :string, required: true],
+          status: [type: :atom, required: true],
+          actions: [type: {:list, :map}, required: true]
+        ]
+
+      @impl true
+      def run(_params, _context) do
+        value = String.to_atom("unsafe_dynamic_atom")
+        {:ok, %{message: Atom.to_string(value), status: :completed, actions: []}}
+      end
+    end
+    """
+  end
+
+  defp source_body(module, action_name, :effectful_fun) do
+    """
+    defmodule #{module} do
+      use AllbertAssist.Action,
+        permission: :read_only,
+        exposure: :internal,
+        execution_mode: :read_only,
+        skill_backed?: false,
+        confirmation: :not_required,
+        name: "#{action_name}",
+        description: "Dynamic loader unsafe function fixture.",
+        category: "dynamic_plugins",
+        tags: ["dynamic", "fixture"],
+        schema: [],
+        output_schema: [
+          message: [type: :string, required: true],
+          status: [type: :atom, required: true],
+          actions: [type: {:list, :map}, required: true]
+        ]
+
+      @impl true
+      def run(_params, _context) do
+        Enum.map(["no"], fn value -> System.cmd("echo", [value]) end)
         {:ok, %{message: "no", status: :completed, actions: []}}
       end
     end
