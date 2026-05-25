@@ -31,6 +31,7 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
          {:ok, validation} <- TrustedValidator.validate(draft, manifest),
          {:ok, integrated_root} <- copy_to_integration_root(draft),
          integrated_draft <- put_root(draft, integrated_root),
+         :ok <- purge_generated_modules(validation.modules),
          {:ok, modules} <- compile_sources(validation.source_files),
          :ok <- ensure_compiled_modules(validation.modules, modules),
          {:ok, entries} <- overlay_entries(draft, validation, modules),
@@ -116,6 +117,7 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
          {:ok, manifest} <-
            MetadataStore.get_integration_manifest(integration.slug, integration.revision),
          {:ok, validation} <- TrustedValidator.validate(integration, manifest),
+         :ok <- purge_generated_modules(validation.modules),
          {:ok, modules} <- compile_sources(validation.source_files),
          :ok <- ensure_compiled_modules(validation.modules, modules),
          {:ok, entries} <- overlay_entries(integration, validation, modules),
@@ -513,6 +515,25 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
 
     :ok
   end
+
+  defp purge_generated_modules(module_names) when is_list(module_names) do
+    module_names
+    |> Enum.map(&generated_module_from_string/1)
+    |> Enum.reject(&is_nil/1)
+    |> purge_modules()
+  end
+
+  defp generated_module_from_string(
+         "AllbertAssist.DynamicPlugins.Generated." <> _rest = module_name
+       ) do
+    module_name
+    |> String.split(".")
+    |> Module.safe_concat()
+  rescue
+    _exception -> nil
+  end
+
+  defp generated_module_from_string(_module_name), do: nil
 
   defp put_validation(%Draft{} = draft, status, validation) do
     modules = Map.get(validation, :modules, [])
