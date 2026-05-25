@@ -3,6 +3,7 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
 
   alias AllbertAssist.DynamicPlugins
   alias AllbertAssist.DynamicPlugins.Codegen.LLM
+  alias AllbertAssist.DynamicPlugins.Codegen.Schema
   alias AllbertAssist.DynamicPlugins.MetadataStore
   alias AllbertAssist.DynamicPlugins.TrustedValidator
   alias AllbertAssist.Objectives
@@ -81,6 +82,27 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
                source: "intent_suggestion",
                confidence: 0.31
              })
+  end
+
+  test "action draft schema satisfies strict structured-output provider requirements" do
+    schema = Schema.action_draft_schema()
+    property_names = schema.properties |> Map.keys() |> Enum.sort()
+
+    assert schema.additionalProperties == false
+    assert Enum.sort(schema.required) == property_names
+    assert schema.properties["action_name"].type == "string"
+    assert schema.properties["notes"].type == "array"
+    assert schema.properties["usage_units"].type == "integer"
+
+    assert {:ok, %{schema: compiled_schema}} = ReqLLM.Schema.compile(schema)
+
+    strict_json =
+      compiled_schema
+      |> Jason.encode!()
+      |> Jason.decode!()
+
+    assert strict_json["additionalProperties"] == false
+    assert Enum.sort(strict_json["required"]) == property_names
   end
 
   test "explicit objective generation creates source-bearing draft metadata and an objective event" do

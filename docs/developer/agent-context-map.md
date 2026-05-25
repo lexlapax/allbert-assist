@@ -47,7 +47,7 @@ Do not load every section by default.
 | Workspace UX refresh: chat-primary shell, view-only launcher, single-destination Canvas, conversational context indicator | ADR 0024 (v0.34 revision), `docs/plans/v0.34-plan.md`, `docs/plans/v0.34-request-flow.md` | v0.34 |
 | User theming and layout overrides | ADR 0025, ADR 0024, `docs/plans/v0.35-plan.md`, `docs/plans/v0.35-request-flow.md` | v0.35 |
 | Elixir/OTP sandbox and gate runner | ADR 0037, ADR 0009, `docs/plans/v0.36-plan.md`, `docs/plans/v0.36-request-flow.md`, `docs/developer/sandbox-gate-runner.md`, `docs/operator/sandbox-gate-runner.md` | v0.36 |
-| Dynamic code & config generation, code-gen agents, v0.36 sandbox trial, gated live integration | ADR 0032, ADR 0033, ADR 0035, ADR 0037, ADR 0021, ADR 0027, `docs/plans/v0.37-plan.md`, `docs/plans/v0.37-request-flow.md`, `docs/developer/dynamic-plugin-drafts.md`, `docs/operator/dynamic-capability-integration.md` | v0.37 |
+| Dynamic code & config generation, code-gen agents, bounded model-backed repair loop, v0.36 sandbox trial, gated live integration | ADR 0032, ADR 0033, ADR 0035, ADR 0037, ADR 0021, ADR 0027, `docs/plans/v0.37-plan.md`, `docs/plans/v0.37-request-flow.md`, `docs/research/codegen-agent-loop-research.md`, `docs/developer/dynamic-plugin-drafts.md`, `docs/operator/dynamic-capability-integration.md` | v0.37 |
 | Templated creation: plugin/app/LLM-tool/scheduled-flow/code templates, Mix tasks, operator flows, Canvas Create surface | ADR 0036, ADR 0035, ADR 0037, ADR 0017, ADR 0015, `docs/plans/v0.38-plan.md`, `docs/plans/v0.38-request-flow.md` | v0.38 |
 
 ## Version Map
@@ -244,8 +244,10 @@ Do not load every section by default.
   `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/`, an explicit source-bearing
   read-only action generator for capability gaps, v0.36 sandbox trial/gate
   handoff, trusted validation, and hot-load registration for gate-passed
-  read-only action artifacts only after operator confirmation. Rollback also requires
-  confirmation and removes live authority; module purge is best-effort/audited.
+  read-only action artifacts only after operator confirmation. v0.37.2 remains
+  open until the generator uses bounded Planner/Author/TrialAuthor/Critic/Repair
+  packets. Rollback also requires confirmation and removes live authority;
+  module purge is best-effort/audited.
   Per ADR 0032, ADR 0033, and ADR 0035. Implementation docs live in
   `docs/developer/dynamic-plugin-drafts.md` and
   `docs/operator/dynamic-capability-integration.md`.
