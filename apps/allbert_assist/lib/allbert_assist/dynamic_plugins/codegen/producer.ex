@@ -9,6 +9,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
   """
 
   alias AllbertAssist.DynamicPlugins
+  alias AllbertAssist.DynamicPlugins.Audit
   alias AllbertAssist.DynamicPlugins.Codegen.Budget
   alias AllbertAssist.DynamicPlugins.Codegen.CapabilityGap
   alias AllbertAssist.DynamicPlugins.Draft
@@ -26,6 +27,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
          :ok <- ensure_provider_ready(profile),
          {:ok, budget} <- budget_for(attrs, gap),
          {:ok, draft} <- write_draft(gap, profile, budget),
+         :ok <- audit_draft_requested(gap, draft, profile, budget, context),
          :ok <- record_objective_event(gap, draft, profile, budget) do
       {:ok,
        %{
@@ -126,6 +128,28 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
     end
   end
 
+  defp audit_draft_requested(%CapabilityGap{} = gap, %Draft{} = draft, profile, budget, context) do
+    with {:ok, _path} <-
+           Audit.append(:draft_requested, %{
+             slug: draft.slug,
+             revision: draft.revision,
+             producer: draft.producer,
+             tier: draft.tier,
+             target_shapes: draft.target_shapes,
+             gap_id: gap.id,
+             source: gap.source,
+             objective_id: gap.objective_id,
+             step_id: gap.step_id,
+             provider_profile: profile.name,
+             budget: budget,
+             operator_id: context_value(context, :operator_id) || context_value(context, :actor),
+             channel: context_value(context, :channel),
+             surface: context_value(context, :surface)
+           }) do
+      :ok
+    end
+  end
+
   defp diagnostics(%CapabilityGap{} = gap, profile) do
     [
       %{
@@ -169,4 +193,6 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
       "credential_status" => profile.credential_status
     }
   end
+
+  defp context_value(context, key), do: Map.get(context, key) || Map.get(context, to_string(key))
 end

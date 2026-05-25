@@ -12,6 +12,7 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
+  alias AllbertAssist.DynamicPlugins.Audit
   alias AllbertAssist.DynamicPlugins.Draft
   alias AllbertAssist.DynamicPlugins.MetadataStore
   alias AllbertAssist.DynamicPlugins.TrustedValidator
@@ -25,20 +26,25 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
          {:ok, draft} <- MetadataStore.get_draft(slug),
          :ok <- ensure_gate_passed(draft),
          :ok <- ensure_confirmation(draft, "integration_id", context),
+         :ok <- audit_event(:integration_attempted, draft, context_metadata(context)),
          :ok <- ensure_no_live_revision(draft),
          :ok <- MetadataStore.verify_source_hashes(draft),
          {:ok, manifest} <- MetadataStore.get_manifest(slug),
          {:ok, validation} <- TrustedValidator.validate(draft, manifest),
+         :ok <- audit_event(:trusted_validation_passed, draft, validation_metadata(validation)),
          {:ok, integrated_root} <- copy_to_integration_root(draft),
          integrated_draft <- put_root(draft, integrated_root),
          :ok <- purge_generated_modules(validation.modules),
          {:ok, modules} <- compile_sources(validation.source_files),
+         :ok <- audit_event(:compiled, draft, %{modules: validation.modules}),
          :ok <- ensure_compiled_modules(validation.modules, modules),
          {:ok, entries} <- overlay_entries(draft, validation, modules),
          :ok <- ActionsOverlay.register_many(entries, existing_names: existing_action_names()),
+         :ok <- audit_event(:registered, draft, %{actions: Enum.map(entries, & &1.name)}),
          {:ok, integrated_draft} <-
            persist_integrated(draft, integrated_draft, manifest, validation),
-         {:ok, draft} <- persist_draft_integrated(draft, validation) do
+         {:ok, draft} <- persist_draft_integrated(draft, validation),
+         :ok <- audit_event(:integrated, draft, validation_metadata(validation)) do
       {:ok,
        %{
          slug: slug,
@@ -51,8 +57,9 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
        }}
     else
       {:error, reason} ->
-        _ = unwind_failed_integration(slug, draft_revision(slug))
+        _ = unwind_failed_integration(slug, draft_revision(slug), reason)
         record_validation_failure(slug, reason)
+        _ = audit_denied(:integration_denied, slug, reason, context)
         {:error, reason}
     end
   end
@@ -63,10 +70,15 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
 
     with {:ok, integration} <- MetadataStore.get_integration(slug, revision),
          :ok <- ensure_confirmation(integration, "rollback_id", context),
+         :ok <- audit_event(:rollback_requested, integration, context_metadata(context)),
          {:ok, removed} <- ActionsOverlay.unregister(slug, integration.revision),
          :ok <- purge_modules(Enum.map(removed, & &1.module)),
          {:ok, integration} <- persist_rolled_back_integration(integration),
-         {:ok, draft} <- persist_rolled_back_draft(slug, integration.revision) do
+         {:ok, draft} <- persist_rolled_back_draft(slug, integration.revision),
+         :ok <-
+           audit_event(:rolled_back, integration, %{
+             removed_actions: Enum.map(removed, & &1.name)
+           }) do
       {:ok,
        %{
          slug: slug,
@@ -76,6 +88,10 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
          integration: Draft.summary(integration),
          draft: maybe_summary(draft)
        }}
+    else
+      {:error, reason} ->
+        _ = audit_denied(:rollback_denied, slug, reason, context)
+        {:error, reason}
     end
   end
 
@@ -88,10 +104,17 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
            Settings.put(
              "dynamic_codegen.live_loader_enabled",
              false,
-             Map.put(context, :audit?, false)
+             context
            ) do
       :ok = ActionsOverlay.clear()
-      {:ok, %{status: :completed, live_loader_enabled: false}}
+
+      with {:ok, _path} <-
+             Audit.append(
+               :live_loader_disabled,
+               Map.merge(%{cleared_overlay?: true}, context_metadata(context))
+             ) do
+        {:ok, %{status: :completed, live_loader_enabled: false}}
+      end
     end
   end
 
@@ -121,10 +144,18 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
          {:ok, modules} <- compile_sources(validation.source_files),
          :ok <- ensure_compiled_modules(validation.modules, modules),
          {:ok, entries} <- overlay_entries(integration, validation, modules),
-         :ok <- ActionsOverlay.register_many(entries, existing_names: existing_action_names()) do
+         :ok <- ActionsOverlay.register_many(entries, existing_names: existing_action_names()),
+         :ok <-
+           audit_event(:reconcile_completed, integration, %{
+             actions: Enum.map(entries, & &1.name)
+           }) do
       %{slug: integration.slug, revision: integration.revision, status: :completed}
     else
       {:error, reason} ->
+        _ = ActionsOverlay.unregister(integration.slug, integration.revision)
+        _ = purge_generated_modules(manifest_module_names(integration.slug))
+        _ = audit_event(:reconcile_denied, integration, %{reason: inspect(reason)})
+
         %{
           slug: integration.slug,
           revision: integration.revision,
@@ -469,22 +500,25 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
     end
   end
 
-  defp unwind_failed_integration(slug, revision) do
-    _ = ActionsOverlay.unregister(slug, revision)
+  defp unwind_failed_integration(slug, revision, reason) do
+    {:ok, removed} = ActionsOverlay.unregister(slug, revision)
+    _ = purge_modules(Enum.map(removed, & &1.module))
 
-    case revision do
-      nil ->
+    unless preserve_loaded_modules?(reason) do
+      _ = purge_generated_modules(manifest_module_names(slug))
+    end
+
+    cond do
+      is_nil(revision) ->
         :ok
 
-      revision ->
-        case MetadataStore.get_integration(slug, revision) do
-          {:ok, %Draft{tier: "integrated"}} ->
-            :ok
+      match?({:integration_root_exists, _root}, reason) ->
+        :ok
 
-          _other ->
-            root = MetadataStore.integration_root_for(slug, revision)
-            remove_integration_root(root)
-        end
+      true ->
+        slug
+        |> MetadataStore.integration_root_for(revision)
+        |> remove_integration_root()
     end
   end
 
@@ -534,6 +568,65 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
   end
 
   defp generated_module_from_string(_module_name), do: nil
+
+  defp preserve_loaded_modules?({:dynamic_integration_already_live, _slug, _revision}), do: true
+  defp preserve_loaded_modules?({:integration_root_exists, _root}), do: true
+  defp preserve_loaded_modules?(_reason), do: false
+
+  defp manifest_module_names(slug) do
+    case MetadataStore.get_manifest(slug) do
+      {:ok, %{"modules" => modules}} when is_list(modules) -> modules
+      {:ok, %{modules: modules}} when is_list(modules) -> modules
+      _other -> []
+    end
+  end
+
+  defp audit_event(event, %Draft{} = draft, metadata) when is_map(metadata) do
+    with {:ok, _path} <-
+           Audit.append(event, Map.merge(draft_metadata(draft), metadata)) do
+      :ok
+    end
+  end
+
+  defp audit_denied(event, slug, reason, context) do
+    Audit.append(
+      event,
+      Map.merge(context_metadata(context), %{
+        slug: slug,
+        reason: inspect(reason)
+      })
+    )
+  end
+
+  defp draft_metadata(%Draft{} = draft) do
+    %{
+      slug: draft.slug,
+      revision: draft.revision,
+      tier: draft.tier,
+      target_shapes: draft.target_shapes,
+      gate_status: Map.get(draft.gate, "status"),
+      integration_confirmation_id: get_in(draft.confirmations, ["integration_id"]),
+      rollback_confirmation_id: get_in(draft.confirmations, ["rollback_id"])
+    }
+  end
+
+  defp validation_metadata(validation) do
+    %{
+      modules: Map.get(validation, :modules, []),
+      actions: validation |> Map.get(:actions, []) |> Enum.map(&Map.take(&1, [:name, :module]))
+    }
+  end
+
+  defp context_metadata(context) when is_map(context) do
+    %{
+      operator_id: Map.get(context, :operator_id) || Map.get(context, "operator_id"),
+      actor: Map.get(context, :actor) || Map.get(context, "actor"),
+      channel: Map.get(context, :channel) || Map.get(context, "channel"),
+      surface: Map.get(context, :surface) || Map.get(context, "surface")
+    }
+  end
+
+  defp context_metadata(_context), do: %{}
 
   defp put_validation(%Draft{} = draft, status, validation) do
     modules = Map.get(validation, :modules, [])

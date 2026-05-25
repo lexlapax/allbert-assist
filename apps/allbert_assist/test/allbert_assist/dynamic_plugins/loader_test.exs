@@ -6,6 +6,7 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.DynamicPlugins
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
+  alias AllbertAssist.DynamicPlugins.Audit
   alias AllbertAssist.DynamicPlugins.MetadataStore
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
@@ -29,7 +30,9 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
     {:ok, home: home}
   end
 
-  test "integrates a gate-passed read-only action and rollback removes authority" do
+  test "integrates a gate-passed read-only action and rollback removes authority", %{
+    home: home
+  } do
     enable_live_loader!()
     fixture = write_gate_passed_action_draft("loader_happy")
 
@@ -67,6 +70,12 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
 
     assert {:ok, rolled_back} = DynamicPlugins.show_integration(fixture.slug)
     assert rolled_back.tier == "rolled_back"
+
+    audit = File.read!(Audit.audit_path())
+    assert audit =~ "registered"
+    assert audit =~ "integrated"
+    assert audit =~ "rolled_back"
+    refute audit =~ home
   end
 
   test "trusted validator denies protected runtime calls" do
@@ -99,6 +108,36 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
 
     assert {:ok, draft} = DynamicPlugins.get_draft(fixture.slug)
     assert draft.static_validation["status"] == "failed"
+    assert File.read!(Audit.audit_path()) =~ "integration_denied"
+  end
+
+  test "disable and reconcile decisions are audited", %{home: home} do
+    enable_live_loader!()
+    fixture = write_gate_passed_action_draft("loader_disable_audit")
+
+    assert {:ok, %{status: :needs_confirmation, confirmation_id: integration_id}} =
+             Runner.run("integrate_dynamic_draft", %{slug: fixture.slug}, cli_context())
+
+    assert {:ok, %{status: :completed}} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: integration_id, reason: "reviewed"},
+               cli_context()
+             )
+
+    assert {:ok, %{status: :completed}} =
+             Runner.run("disable_dynamic_live_loader", %{}, cli_context())
+
+    enable_live_loader!()
+    ActionsOverlay.clear()
+
+    assert {:ok, %{integrations: [%{status: :completed}]}} =
+             DynamicPlugins.reconcile_integrations()
+
+    audit = File.read!(Audit.audit_path())
+    assert audit =~ "live_loader_disabled"
+    assert audit =~ "reconcile_completed"
+    refute audit =~ home
   end
 
   test "integration approvals are restricted to high-trust same-channel surfaces" do
