@@ -26,7 +26,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.CapabilityGap do
             source: nil,
             confidence: nil,
             explicit?: false,
-            producer: "codegen_scaffold",
+            producer: "codegen_llm",
             constraints: %{},
             context: %{},
             budget: %{}
