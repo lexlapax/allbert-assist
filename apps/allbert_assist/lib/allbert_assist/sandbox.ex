@@ -21,6 +21,8 @@ defmodule AllbertAssist.Sandbox do
   alias AllbertAssist.Sandbox.SourcePolicy
   alias AllbertAssist.Signals
 
+  require Logger
+
   @doc "Return a fail-closed sandbox doctor report."
   @spec doctor(keyword()) :: DoctorReport.t()
   def doctor(opts \\ []) do
@@ -212,7 +214,8 @@ defmodule AllbertAssist.Sandbox do
   end
 
   defp resolve_backend(policy, bundle, spec, opts) do
-    resolution = Resolver.resolve(policy, opts)
+    resolution =
+      Resolver.resolve(policy, Keyword.put_new(opts, :project_root, bundle.project_root))
 
     log_sandbox(:backend_resolved, %{
       operator_id: Keyword.get(opts, :operator_id),
@@ -314,7 +317,13 @@ defmodule AllbertAssist.Sandbox do
   end
 
   defp log_sandbox(kind, metadata) do
-    _audit = Audit.append(kind, metadata)
+    case Audit.append(kind, metadata) do
+      {:ok, _path} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("sandbox audit append failed: #{inspect(reason)}")
+    end
 
     kind
     |> Signals.sandbox_lifecycle(metadata)

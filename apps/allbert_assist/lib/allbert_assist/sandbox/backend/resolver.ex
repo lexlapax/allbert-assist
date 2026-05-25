@@ -14,7 +14,7 @@ defmodule AllbertAssist.Sandbox.Backend.Resolver do
     host = Keyword.get(opts, :host, policy.host)
     backends = Keyword.get(opts, :backends, Registry.backends())
     candidates = candidate_modules(policy.backend, host, backends)
-    evaluated = Enum.map(candidates, &evaluate_candidate(&1, policy, host))
+    evaluated = Enum.map(candidates, &evaluate_candidate(&1, policy, host, opts))
     selected = Enum.find(evaluated, &(&1.status == :available))
 
     %{
@@ -52,16 +52,16 @@ defmodule AllbertAssist.Sandbox.Backend.Resolver do
     end
   end
 
-  defp evaluate_candidate({:missing, id}, _policy, _host) do
+  defp evaluate_candidate({:missing, id}, _policy, _host, _opts) do
     %{id: id, status: :unavailable, reason: :unknown_backend, diagnostics: []}
   end
 
-  defp evaluate_candidate(module, policy, host) do
+  defp evaluate_candidate(module, policy, host, opts) do
     id = module.id()
 
     if host.os in module.platforms() do
       module
-      |> apply(:doctor, [policy])
+      |> doctor(policy, opts)
       |> Map.put_new(:id, id)
     else
       %{
@@ -79,6 +79,14 @@ defmodule AllbertAssist.Sandbox.Backend.Resolver do
         reason: {:doctor_error, exception.__struct__, Exception.message(exception)},
         diagnostics: []
       }
+  end
+
+  defp doctor(module, policy, opts) do
+    if function_exported?(module, :doctor, 2) do
+      apply(module, :doctor, [policy, opts])
+    else
+      apply(module, :doctor, [policy])
+    end
   end
 
   defp diagnostics(policy, candidates, nil) do

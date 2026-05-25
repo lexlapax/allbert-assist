@@ -165,11 +165,40 @@ defmodule AllbertAssist.Sandbox.Image do
         HEX_HOME=/opt/allbert/hex \\
         REBAR_CACHE_DIR=/opt/allbert/rebar
 
-    RUN mkdir -p /opt/allbert/deps /opt/allbert/_build /opt/allbert/mix /opt/allbert/hex /opt/allbert/rebar
+    RUN if ! command -v cc >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then \\
+          apt-get update && \\
+          apt-get install -y --no-install-recommends build-essential ca-certificates git && \\
+          rm -rf /var/lib/apt/lists/*; \\
+        fi
+    RUN mkdir -p /opt/allbert/deps /opt/allbert/_build /opt/allbert/mix /opt/allbert/hex /opt/allbert/rebar /opt/allbert/bin
+    RUN printf '%s\\n' \\
+        '#!/bin/sh' \\
+        'set -eu' \\
+        'seed_dir() {' \\
+        '  src="$1"' \\
+        '  dest="$2"' \\
+        '  marker="$dest/.allbert_seeded"' \\
+        '  if [ -d "$src" ] && [ ! -e "$marker" ]; then' \\
+        '    mkdir -p "$dest"' \\
+        '    cp -R "$src/." "$dest/"' \\
+        '    chmod -R u+rwX "$dest"' \\
+        '    touch "$marker"' \\
+        '  fi' \\
+        '}' \\
+        'seed_dir /opt/allbert/deps "${MIX_DEPS_PATH:-/workspace/allbert_home/deps}"' \\
+        'seed_dir /opt/allbert/_build "${MIX_BUILD_PATH:-/workspace/allbert_home/_build}"' \\
+        'seed_dir /opt/allbert/mix "${MIX_HOME:-/workspace/allbert_home/mix}"' \\
+        'seed_dir /opt/allbert/hex "${HEX_HOME:-/workspace/allbert_home/hex}"' \\
+        'seed_dir /opt/allbert/rebar "${REBAR_CACHE_DIR:-/workspace/allbert_home/rebar}"' \\
+        'mkdir -p /workspace/allbert_home/db' \\
+        'exec "$@"' \\
+        > /opt/allbert/bin/allbert-sandbox-run && chmod 0755 /opt/allbert/bin/allbert-sandbox-run
     WORKDIR /opt/allbert/project
     COPY project/ ./
     RUN mix deps.get --only test || (mix local.hex --force && mix local.rebar --force && mix deps.get --only test)
     RUN mix deps.compile
+    RUN if mix help dialyzer >/dev/null 2>&1; then mix dialyzer --plt; else true; fi
+    RUN chmod -R a+rX /opt/allbert
     WORKDIR /workspace/project
     """
 
