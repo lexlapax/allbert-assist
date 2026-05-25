@@ -1,15 +1,18 @@
 defmodule AllbertAssist.DynamicPlugins do
   @moduledoc """
-  Public v0.37 facade for dynamic draft metadata and inspection.
+  Public v0.37 facade for dynamic draft metadata, inspection, and evidence runs.
 
-  M1 is intentionally file-backed and read-only for operator inspection, except
-  for operator-owned metadata writes through this facade. Sandbox trial, trusted
-  validation, live loading, and rollback arrive in later v0.37 milestones and
-  must continue to use this facade instead of ordinary plugin discovery.
+  Dynamic drafts are file-backed Allbert Home data. Sandbox trial and gate
+  evidence flows through the v0.36 sandbox facade and still grants no live
+  authority; trusted validation, live loading, and rollback arrive in later
+  v0.37 milestones and must continue to use this facade instead of ordinary
+  plugin discovery.
   """
 
   alias AllbertAssist.DynamicPlugins.Draft
   alias AllbertAssist.DynamicPlugins.MetadataStore
+  alias AllbertAssist.DynamicPlugins.SandboxBridge
+  alias AllbertAssist.DynamicPlugins.Staging
   alias AllbertAssist.Paths
 
   @doc "Return dynamic plugin roots."
@@ -69,4 +72,18 @@ defmodule AllbertAssist.DynamicPlugins do
       MetadataStore.verify_source_hashes(draft)
     end
   end
+
+  @doc "Build a disposable staged project for one draft."
+  @spec stage_draft(String.t(), keyword()) :: {:ok, Staging.t()} | {:error, term()}
+  def stage_draft(slug, opts \\ []) do
+    with {:ok, draft} <- MetadataStore.get_draft(slug) do
+      Staging.build(draft, opts)
+    end
+  end
+
+  @doc "Run compile/focused-test evidence for one draft through the v0.36 sandbox."
+  defdelegate run_draft_trial(slug, opts \\ []), to: SandboxBridge, as: :run_trial
+
+  @doc "Run warning-gate evidence for one draft through the v0.36 sandbox."
+  defdelegate run_draft_gate(slug, opts \\ []), to: SandboxBridge, as: :run_gate
 end

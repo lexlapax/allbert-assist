@@ -110,8 +110,8 @@ defmodule AllbertAssist.DynamicPlugins.Draft do
       static_validation: map_value(attrs, "static_validation", %{"status" => "not_run"}),
       confirmations:
         map_value(attrs, "confirmations", %{"integration_id" => nil, "rollback_id" => nil}),
-      diagnostics: list_value(attrs, "diagnostics"),
-      repair_history: list_value(attrs, "repair_history"),
+      diagnostics: data_list_value(attrs, "diagnostics"),
+      repair_history: data_list_value(attrs, "repair_history"),
       timestamps: timestamps(attrs, now),
       root: value(attrs, "root")
     }
@@ -218,6 +218,13 @@ defmodule AllbertAssist.DynamicPlugins.Draft do
   defp list_value(map, key) do
     case value(map, key, []) do
       values when is_list(values) -> Enum.map(values, &to_string/1)
+      _other -> []
+    end
+  end
+
+  defp data_list_value(map, key) do
+    case value(map, key, []) do
+      values when is_list(values) -> Enum.map(values, &stringify_nested/1)
       _other -> []
     end
   end
