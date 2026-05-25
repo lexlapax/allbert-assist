@@ -35,7 +35,7 @@ defmodule AllbertAssist.Sandbox.Backends.AppleContainer do
   end
 
   @impl true
-  def run(_bundle, _command_spec), do: {:error, :not_implemented_until_m4}
+  def run(_bundle, _command_spec, _policy), do: {:error, :apple_container_run_not_supported}
 
   @impl true
   def cleanup(_bundle), do: :ok

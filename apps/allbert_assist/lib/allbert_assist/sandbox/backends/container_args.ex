@@ -11,6 +11,7 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerArgs do
   @tests "/workspace/tests"
   @sandbox_home "/workspace/allbert_home"
   @reports "/workspace/reports"
+  @image_deps "/opt/allbert/deps"
 
   @spec docker(Bundle.t(), CommandSpec.t(), Policy.t(), keyword()) :: [String.t()]
   def docker(bundle, spec, policy, opts \\ []) do
@@ -23,6 +24,8 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerArgs do
     [
       "run",
       "--rm",
+      "--name",
+      container_name(bundle),
       "--pull",
       "never",
       "--network",
@@ -54,6 +57,8 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerArgs do
     [
       "run",
       "--rm",
+      "--name",
+      container_name(bundle),
       "--pull=never",
       "--network",
       "none",
@@ -96,13 +101,33 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerArgs do
   end
 
   defp env_args(spec) do
-    [{"ALLBERT_HOME", @sandbox_home} | Enum.sort(spec.env)]
+    spec.env
+    |> Map.new()
+    |> Map.merge(protected_env())
+    |> Enum.sort()
     |> Enum.flat_map(fn {key, value} -> ["--env", "#{key}=#{value}"] end)
+  end
+
+  defp protected_env do
+    %{
+      "ALLBERT_HOME" => @sandbox_home,
+      "HOME" => @sandbox_home,
+      "MIX_HOME" => Path.join(@sandbox_home, "mix"),
+      "HEX_HOME" => Path.join(@sandbox_home, "hex"),
+      "MIX_BUILD_PATH" => Path.join(@sandbox_home, "_build"),
+      "MIX_DEPS_PATH" => @image_deps,
+      "REBAR_CACHE_DIR" => Path.join(@sandbox_home, "rebar")
+    }
   end
 
   defp mount(source, target, opts \\ []) do
     readonly = if Keyword.get(opts, :readonly?, false), do: ",readonly", else: ""
     "type=bind,source=#{source},target=#{target}#{readonly}"
+  end
+
+  defp container_name(bundle) do
+    suffix = System.unique_integer([:positive])
+    "allbert-sandbox-#{bundle.id}-#{suffix}"
   end
 
   defp container_cwd(bundle, cwd) do

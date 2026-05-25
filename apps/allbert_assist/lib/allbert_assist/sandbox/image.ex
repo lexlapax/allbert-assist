@@ -145,17 +145,31 @@ defmodule AllbertAssist.Sandbox.Image do
   end
 
   defp build_context(base_image, opts) do
+    project_root = Keyword.get(opts, :project_root, File.cwd!())
+
     root =
       Keyword.get(opts, :context_root) ||
         Path.join(Paths.sandbox_cache_root(), "image-build-#{System.unique_integer([:positive])}")
 
     File.mkdir_p!(root)
+    copy_dependency_context!(project_root, Path.join(root, "project"))
 
     dockerfile = """
     ARG BASE_IMAGE=#{base_image}
     FROM ${BASE_IMAGE}
 
-    ENV MIX_ENV=test
+    ENV MIX_ENV=test \\
+        MIX_DEPS_PATH=/opt/allbert/deps \\
+        MIX_BUILD_PATH=/opt/allbert/_build \\
+        MIX_HOME=/opt/allbert/mix \\
+        HEX_HOME=/opt/allbert/hex \\
+        REBAR_CACHE_DIR=/opt/allbert/rebar
+
+    RUN mkdir -p /opt/allbert/deps /opt/allbert/_build /opt/allbert/mix /opt/allbert/hex /opt/allbert/rebar
+    WORKDIR /opt/allbert/project
+    COPY project/ ./
+    RUN mix deps.get --only test || (mix local.hex --force && mix local.rebar --force && mix deps.get --only test)
+    RUN mix deps.compile
     WORKDIR /workspace/project
     """
 
@@ -164,6 +178,31 @@ defmodule AllbertAssist.Sandbox.Image do
   rescue
     exception ->
       {:error, {:context_write_failed, exception.__struct__, Exception.message(exception)}}
+  end
+
+  defp copy_dependency_context!(project_root, target_root) do
+    File.rm_rf!(target_root)
+    File.mkdir_p!(target_root)
+
+    project_root
+    |> dependency_manifest_paths()
+    |> Enum.each(fn source ->
+      relative = Path.relative_to(source, project_root)
+      target = Path.join(target_root, relative)
+      File.mkdir_p!(Path.dirname(target))
+      File.cp!(source, target)
+    end)
+  end
+
+  defp dependency_manifest_paths(project_root) do
+    ([
+       Path.join(project_root, "mix.exs"),
+       Path.join(project_root, "mix.lock")
+     ] ++
+       Path.wildcard(Path.join([project_root, "apps", "*", "mix.exs"])) ++
+       Path.wildcard(Path.join([project_root, "config", "*.exs"])))
+    |> Enum.filter(&File.regular?/1)
+    |> Enum.uniq()
   end
 
   defp cleanup_context(context, opts) do

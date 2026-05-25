@@ -44,9 +44,10 @@ ALLBERT_HOME="$SMOKE_HOME" mix allbert.sandbox doctor
 ```
 
 `image build` prepares the configured approved local image
-(`allbert-elixir-otp:local` by default). `image verify` checks the local image
-and runs a small local-only container check. Sandbox gate runs still never pull
-images; they use `--pull=never` and fail closed if the image is absent.
+(`allbert-elixir-otp:local` by default), including dependency cache/source from
+the current project manifests. `image verify` checks the local image and runs a
+small local-only container check. Sandbox gate runs still never pull images;
+they use `--pull=never` and fail closed if the image is absent.
 
 ## Backend Selection
 
@@ -89,11 +90,13 @@ Allbert creates these roots under Allbert Home:
 <ALLBERT_HOME>/sandbox/bundles
 <ALLBERT_HOME>/sandbox/reports
 <ALLBERT_HOME>/sandbox/cache
+<ALLBERT_HOME>/sandbox/audit
 ```
 
 Each bundle receives a disposable sandbox home inside the bundle. The real
 operator home is never mounted into the container. Reports are copied out to
-the sandbox report root and surfaced read-only.
+the sandbox report root and surfaced read-only. Facade-level sandbox lifecycle
+events append bounded audit entries under the sandbox audit root.
 
 Bundle ids and explicit roots are confined to the sandbox bundle root. Bundle
 discard only removes marked bundle directories that contain `metadata.json`;
@@ -117,11 +120,27 @@ Treat these as expected fail-closed results:
 - malformed bundle id, bundle root traversal, explicit bundle root outside
   `<ALLBERT_HOME>/sandbox/bundles`, or cleanup pointed at an unmarked path;
 - forged command specs with caller-set allowed status;
-- command is not `mix`, `elixir`, or `erl`;
+- command is not `mix`;
 - argv shape requests package installs, migrations, shell syntax, eval,
   daemon control, network, NIFs, ports, or core-node loading;
 - source policy finds forbidden Elixir constructs;
 - output exceeds the configured cap or command exceeds timeout.
+
+## Local Docker Compile Smoke
+
+When Docker is available and the operator wants to prove the green path, run:
+
+```sh
+ALLBERT_DOCKER_SANDBOX_TEST=1 mix test apps/allbert_assist/test/allbert_assist/sandbox_test.exs --only docker_sandbox
+```
+
+If the base Elixir image is not present locally and the host is allowed to pull
+it, set `ALLBERT_DOCKER_BASE_IMAGE=<image>` and `ALLBERT_DOCKER_PULL_BASE=1`
+for that smoke. By default the smoke uses the approved local
+`allbert-elixir-otp:local` image as its base so it can verify the gate path
+without requiring a registry pull. The resulting report must show a completed
+`:compile` gate for a trivial fixture. Failure means the local sandbox setup is
+not release-ready for v0.37 trust preconditions.
 
 ## Emergency Posture
 

@@ -36,7 +36,7 @@ backend command can run.
 
 Required fields:
 
-- `executable`: one of `"mix"`, `"elixir"`, or `"erl"`;
+- `executable`: `"mix"` for v0.36 runtime gate profiles;
 - `argv`: explicit list of binary args;
 - `cwd`: path inside the sandbox bundle;
 - `profile`: one of `:compile`, `:focused_tests`, `:credo`, `:dialyzer`,
@@ -84,7 +84,8 @@ the path must be a direct directory inside the sandbox bundle root and contain
 ## SourcePolicy
 
 `AllbertAssist.Sandbox.SourcePolicy` is defense in depth. It statically scans
-draft and trial files before backend execution and denies known hostile
+draft and trial files in the `AllbertAssist.Sandbox` facade before backend
+resolution/execution and denies known hostile
 constructs including:
 
 - `System.cmd`, `System.shell`, `Port.open`, and `:os.cmd`;
@@ -104,7 +105,7 @@ Backends implement `AllbertAssist.Sandbox.Backend`:
 - `platforms/0`
 - `available?/1`
 - `doctor/1`
-- `run/2`
+- `run/3`
 - `cleanup/1`
 
 They register with `AllbertAssist.Sandbox.Backend.Registry`. The registry is a
@@ -112,26 +113,34 @@ static module-owned registry in v0.36 unless future state is required; if a
 state-bearing registry is introduced, its moduledoc must state why
 Jido.Agent or GenServer was chosen.
 
-All backends receive normalized bundle and command structs. Backends must use
-explicit executable plus argv to invoke the container engine and must not call
-a shell.
+All backends receive normalized bundle and command structs plus the resolved
+`Sandbox.Policy`. Backends must use explicit executable plus argv to invoke the
+container engine and must not call a shell. They must not reload Settings
+Central mid-run for image, backend, CPU, memory, or timeout policy.
 
 Docker-family backends must build their engine argv as data and preserve these
 constraints: no image pull, no network, no host Docker socket, read-only root
 filesystem, dropped capabilities, `no-new-privileges`, bounded CPU/memory/PID
 limits, read-only project/draft/test mounts, writable bundle-local
-`sandbox_home` and `reports` mounts, and `ALLBERT_HOME` set to the container
-sandbox-home path. Docker+runsc is the same contract with `--runtime runsc`.
+`sandbox_home` and `reports` mounts, protected container-local Mix env
+(`ALLBERT_HOME`, `HOME`, `MIX_BUILD_PATH`, `MIX_HOME`, `HEX_HOME`,
+`REBAR_CACHE_DIR`, and `MIX_DEPS_PATH`), and `ALLBERT_HOME` set to the
+container sandbox-home path. Docker+runsc is the same contract with
+`--runtime runsc`.
 The implemented Docker path runs as UID/GID `65532:65532`; the rootless Podman
 path uses `--userns=keep-id`. Both size the writable `/tmp` and `/run` tmpfs
 mounts. v0.36 caps copied input, tmpfs, process, output, and wall-clock usage;
 it does not claim a backend-wide disk quota for bind-mounted read-only inputs.
+Docker/Podman argv includes a generated container name so timeout handling can
+attempt best-effort `rm -f` cleanup after the BEAM-side timeout fires.
 
 Image preparation is a separate v0.36 setup path. `mix allbert.sandbox image
 build` may build the approved local Docker image, and `mix allbert.sandbox
-image verify` may run a tiny local-only verification command. Backend `run/2`
-and gate execution must still use local image inspection plus `--pull=never`;
-they do not build, pull, or repair images.
+image verify` may run a tiny local-only verification command. The build task
+copies dependency manifests into the image context and prepares dependency
+cache/source with `mix deps.get --only test` and `mix deps.compile`. Backend
+`run/3` and gate execution must still use local image inspection plus
+`--pull=never`; they do not build, pull, or repair images.
 
 ## Gate Profiles
 
@@ -165,9 +174,22 @@ persisted JSON. Reports are evidence for later operator review, not authority.
 Backend runners write report JSON into the bundle report root for completed,
 failed, denied, timed-out, and unavailable outcomes.
 
+Facade-level sandbox lifecycle events also append bounded markdown audit
+records under `<ALLBERT_HOME>/sandbox/audit`. Action-runner observability still
+applies when callers invoke registered sandbox actions, but direct facade calls
+must not rely on action audit alone.
+
 ## Fixture Expectations
 
 Tests should cover unavailable backends without requiring Docker, Podman,
 gVisor, or Apple `container` on CI. Backend command assembly should be tested
 as data. Real engine smoke tests belong in manual verification or explicitly
-tagged local-only tests.
+tagged local-only tests. The v0.36 Docker-gated compile smoke is selected with:
+
+```sh
+ALLBERT_DOCKER_SANDBOX_TEST=1 mix test apps/allbert_assist/test/allbert_assist/sandbox_test.exs --only docker_sandbox
+```
+
+The smoke defaults to `allbert-elixir-otp:local` as its base image. Set
+`ALLBERT_DOCKER_BASE_IMAGE=<image>` and `ALLBERT_DOCKER_PULL_BASE=1` only when
+you intentionally want the smoke to pull or refresh a remote base image.

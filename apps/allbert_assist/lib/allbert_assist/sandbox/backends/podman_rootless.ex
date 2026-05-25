@@ -35,8 +35,7 @@ defmodule AllbertAssist.Sandbox.Backends.PodmanRootless do
   end
 
   @impl true
-  def run(bundle, command_spec) do
-    policy = Policy.load!()
+  def run(bundle, command_spec, policy) do
     argv = argv(bundle, command_spec, policy)
     podman = System.find_executable("podman") || "podman"
 

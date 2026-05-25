@@ -55,6 +55,7 @@ defmodule AllbertAssist.Paths do
       sandbox_bundles_root(),
       sandbox_reports_root(),
       sandbox_cache_root(),
+      sandbox_audit_root(),
       external_root(),
       Path.join(external_root(), "audit"),
       external_cache_root(),
@@ -154,6 +155,10 @@ defmodule AllbertAssist.Paths do
   @doc "Return the v0.36 sandbox cache root."
   @spec sandbox_cache_root() :: String.t()
   def sandbox_cache_root, do: Path.join(sandbox_root(), "cache")
+
+  @doc "Return the v0.36 sandbox audit root."
+  @spec sandbox_audit_root() :: String.t()
+  def sandbox_audit_root, do: Path.join(sandbox_root(), "audit")
 
   @doc "Return the external service adapter root."
   @spec external_root() :: String.t()

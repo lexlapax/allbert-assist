@@ -114,8 +114,9 @@ Security Central, Settings Central, trace, or audit contracts.
 
 v0.36 (`docs/plans/v0.36-plan.md`, ADR 0037) graduates the first Level-3
 sandbox in a deliberately narrow form: generated Elixir/OTP drafts and the
-explicit `mix` / `elixir` / `erl` argv commands needed to compile, test, and
-gate them.
+explicit reviewed `mix` argv commands needed to compile, test, and gate them.
+`elixir --version` is used only by the explicit image-verification setup task,
+not by runtime sandbox gate profiles.
 
 This does not create a broad coding-agent sandbox. v0.36 remains default-off and
 selects a backend in an OS-aware way (`backend=auto`): optional doctor-gated
@@ -128,8 +129,10 @@ broader/cross-version Apple Container features beyond the optional v0.36
 adapter, package-manager execution, implicit image pulls, multi-language
 targets, and untrusted script/package-install workflows remain future work.
 v0.36 includes an explicit local image build/verify setup task for the default
-approved Docker image; sandbox gate execution itself still never pulls images
-and fails closed when the approved local image is missing or invalid.
+approved Docker image, including dependency cache/source preparation from the
+project manifests; sandbox gate execution itself still never pulls images or
+runs package-manager commands, and fails closed when the approved local image
+is missing or invalid.
 
 The v0.36 sandbox produces bounded redacted reports only. It does not load
 generated modules into the core node, register actions, grant permissions,
