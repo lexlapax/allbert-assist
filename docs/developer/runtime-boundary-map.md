@@ -110,11 +110,14 @@ mutate routing context, or authorize v0.37 live integration.
 
 v0.37 adds `AllbertAssist.DynamicPlugins` as the public dynamic-draft facade.
 The draft store is file-backed under Allbert Home and is producer-agnostic;
-ordinary plugin discovery never scans dynamic draft or integrated roots. The
-trusted loader is the only path that may compile reviewed generated source in
-core, and only after gate evidence plus Security Central confirmation. Dynamic
-actions merge through `Actions.Registry` via the actions overlay and never
-shadow static or source-tree plugin/app actions.
+ordinary plugin discovery never scans dynamic draft or integrated roots.
+`DynamicPlugins.Codegen.Agent` is a JidoBacked coordinator for explicit
+capability-gap draft requests; `Codegen.Producer` can write only inert draft
+metadata and objective observations. The trusted loader is the only path that
+may compile reviewed generated source in core, and only after gate evidence plus
+Security Central confirmation. Dynamic actions merge through `Actions.Registry`
+via the actions overlay and never shadow static or source-tree plugin/app
+actions.
 
 ## Internal Modules
 

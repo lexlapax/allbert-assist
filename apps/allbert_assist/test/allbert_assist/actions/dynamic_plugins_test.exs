@@ -5,14 +5,24 @@ defmodule AllbertAssist.Actions.DynamicPluginsTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.DynamicPlugins
   alias AllbertAssist.Paths
+  alias AllbertAssist.Settings
+
+  @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR", "ALLBERT_SETTINGS_ROOT"]
 
   setup do
+    original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
     home = temp_path("home")
+
+    Enum.each(@env_vars, &System.delete_env/1)
+    Application.delete_env(:allbert_assist, Settings)
     Application.put_env(:allbert_assist, Paths, home: home)
 
     on_exit(fn ->
       restore_app_env(Paths, original_paths_config)
+      restore_app_env(Settings, original_settings_config)
+      restore_env(original_env)
       File.rm_rf!(home)
     end)
 
@@ -52,7 +62,30 @@ defmodule AllbertAssist.Actions.DynamicPluginsTest do
              Runner.run("show_dynamic_draft", %{slug: "missing"}, context())
   end
 
+  test "request dynamic draft through the runner creates inert metadata" do
+    enable_dynamic_codegen!("local")
+
+    assert {:ok, %{status: :completed, draft: draft, budget: budget}} =
+             Runner.run(
+               "request_dynamic_draft",
+               %{slug: "runner_codegen", summary: "Need a read-only diagnostic action"},
+               context()
+             )
+
+    assert draft.slug == "runner_codegen"
+    assert draft.tier == "draft"
+    assert draft.producer == "codegen_scaffold"
+    assert budget["provider_calls_used"] == 0
+  end
+
   defp context, do: %{actor: "local", channel: :cli}
+
+  defp enable_dynamic_codegen!(profile) do
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "dynamic_codegen" => %{"enabled" => true, "provider_profile" => profile}
+             })
+  end
 
   defp temp_path(name) do
     Path.join(
@@ -63,4 +96,11 @@ defmodule AllbertAssist.Actions.DynamicPluginsTest do
 
   defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+
+  defp restore_env(original_env) do
+    Enum.each(original_env, fn
+      {key, nil} -> System.delete_env(key)
+      {key, value} -> System.put_env(key, value)
+    end)
+  end
 end
