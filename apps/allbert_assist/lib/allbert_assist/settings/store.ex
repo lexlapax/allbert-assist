@@ -113,10 +113,37 @@ defmodule AllbertAssist.Settings.Store do
   defp reason(error, _reason), do: error
 
   defp normalize_user_settings(settings) when is_map(settings) do
+    settings
+    |> normalize_legacy_workspace_theme()
+    |> normalize_dynamic_codegen_scope()
+  end
+
+  defp normalize_legacy_workspace_theme(settings) do
     case get_in(settings, ["workspace", "theme"]) do
-      value when is_binary(value) ->
-        settings
-        |> put_in(["workspace", "theme"], %{"mode" => value})
+      value when is_binary(value) -> put_in(settings, ["workspace", "theme"], %{"mode" => value})
+      _other -> settings
+    end
+  end
+
+  defp normalize_dynamic_codegen_scope(settings) do
+    settings
+    |> normalize_dynamic_codegen_list("allowed_targets", ["action"])
+    |> normalize_dynamic_codegen_list("allowed_action_permissions", ["read_only"])
+  end
+
+  defp normalize_dynamic_codegen_list(settings, key, allowed) do
+    case get_in(settings, ["dynamic_codegen", key]) do
+      values when is_list(values) ->
+        normalized =
+          values
+          |> Enum.map(&to_string/1)
+          |> Enum.filter(&(&1 in allowed))
+          |> case do
+            [] -> allowed
+            values -> Enum.uniq(values)
+          end
+
+        put_in(settings, ["dynamic_codegen", key], normalized)
 
       _other ->
         settings

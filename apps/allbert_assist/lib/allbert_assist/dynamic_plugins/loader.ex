@@ -159,37 +159,99 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
         {:error, {:confirmation_mismatch, %{expected: expected_id, actual: approved_id}}}
 
       true ->
-        ensure_confirmation_record_resumable(expected_id)
+        ensure_confirmation_record_resumable(expected_id, expected_confirmation_action(field))
     end
   end
 
   defp ensure_stored_confirmation(%Draft{} = draft, field) do
     case get_in(draft.confirmations, [field]) do
-      id when is_binary(id) and id != "" -> ensure_confirmation_record_approved(id)
-      _other -> {:error, {:missing_confirmation, field}}
+      id when is_binary(id) and id != "" ->
+        ensure_confirmation_record_approved(id, expected_confirmation_action(field))
+
+      _other ->
+        {:error, {:missing_confirmation, field}}
     end
   end
 
-  defp ensure_confirmation_record_approved(id) do
+  defp ensure_confirmation_record_approved(id, expected_action) do
     case Confirmations.read(id) do
-      {:ok, %{"status" => "approved"}} -> :ok
-      {:ok, %{"status" => status}} -> {:error, {:confirmation_not_approved, id, status}}
-      {:error, reason} -> {:error, {:confirmation_not_found, id, reason}}
-    end
-  end
-
-  defp ensure_confirmation_record_resumable(id) do
-    case Confirmations.read(id) do
-      {:ok, %{"status" => status}} when status in ["pending", "approved"] ->
-        :ok
+      {:ok, %{"status" => "approved"} = record} ->
+        ensure_dynamic_confirmation_record(record, expected_action)
 
       {:ok, %{"status" => status}} ->
-        {:error, {:confirmation_not_resumable, id, status}}
+        {:error, {:confirmation_not_approved, id, status}}
 
       {:error, reason} ->
         {:error, {:confirmation_not_found, id, reason}}
     end
   end
+
+  defp ensure_confirmation_record_resumable(id, expected_action) do
+    case Confirmations.read(id) do
+      {:ok, %{"status" => "approved"} = record} ->
+        with :ok <- ensure_dynamic_confirmation_record(record, expected_action) do
+          ensure_dynamic_confirmation_resuming(record)
+        end
+
+      {:ok, %{"status" => status}} ->
+        {:error, {:confirmation_not_approved_for_dynamic_resume, id, status}}
+
+      {:error, reason} ->
+        {:error, {:confirmation_not_found, id, reason}}
+    end
+  end
+
+  defp ensure_dynamic_confirmation_record(record, expected_action) do
+    cond do
+      get_in(record, ["target_action", "name"]) != expected_action ->
+        {:error,
+         {:dynamic_confirmation_target_mismatch,
+          %{expected: expected_action, actual: get_in(record, ["target_action", "name"])}}}
+
+      Map.get(record, "target_permission") != "dynamic_integration" ->
+        {:error,
+         {:dynamic_confirmation_permission_mismatch, Map.get(record, "target_permission")}}
+
+      Map.get(record, "target_execution_mode") != "dynamic_loader" ->
+        {:error,
+         {:dynamic_confirmation_execution_mode_mismatch, Map.get(record, "target_execution_mode")}}
+
+      true ->
+        ensure_dynamic_confirmation_resolution(record)
+    end
+  end
+
+  defp ensure_dynamic_confirmation_resolution(record) do
+    resolution = Map.get(record, "operator_resolution", %{}) || %{}
+    resolver_surface = normalize_dynamic_surface(Map.get(resolution, "resolver_surface"))
+
+    cond do
+      resolution == %{} ->
+        {:error, {:dynamic_confirmation_resolution_missing, Map.get(record, "id")}}
+
+      resolver_surface not in allowed_dynamic_surfaces() ->
+        {:error, {:dynamic_integration_approval_surface_denied, resolver_surface}}
+
+      Map.get(resolution, "same_channel?") != true ->
+        {:error, :dynamic_integration_cross_channel_approval_denied}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp ensure_dynamic_confirmation_resuming(record) do
+    resolution = Map.get(record, "operator_resolution", %{}) || %{}
+
+    case Map.get(resolution, "target_status") do
+      "resuming" -> :ok
+      status -> {:error, {:dynamic_confirmation_not_resuming, Map.get(record, "id"), status}}
+    end
+  end
+
+  defp expected_confirmation_action("integration_id"), do: "integrate_dynamic_draft"
+  defp expected_confirmation_action("rollback_id"), do: "rollback_dynamic_integration"
+  defp expected_confirmation_action(field), do: field
 
   defp approved_confirmation_id(context) do
     cond do
@@ -203,6 +265,26 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
         nil
     end
   end
+
+  defp allowed_dynamic_surfaces do
+    case Settings.get("dynamic_codegen.integration_approval_surfaces") do
+      {:ok, surfaces} when is_list(surfaces) ->
+        Enum.map(surfaces, &normalize_dynamic_surface/1)
+
+      _other ->
+        ["cli", "liveview"]
+    end
+  end
+
+  defp normalize_dynamic_surface("live_view"), do: "liveview"
+  defp normalize_dynamic_surface("liveview"), do: "liveview"
+  defp normalize_dynamic_surface(:liveview), do: "liveview"
+  defp normalize_dynamic_surface(:live_view), do: "liveview"
+  defp normalize_dynamic_surface(:cli), do: "cli"
+  defp normalize_dynamic_surface("cli"), do: "cli"
+  defp normalize_dynamic_surface(value) when is_atom(value), do: Atom.to_string(value)
+  defp normalize_dynamic_surface(value) when is_binary(value), do: value
+  defp normalize_dynamic_surface(value), do: inspect(value)
 
   defp ensure_no_live_revision(%Draft{} = draft) do
     case MetadataStore.get_integration(draft.slug, nil) do
