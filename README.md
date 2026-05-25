@@ -23,7 +23,7 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is `v0.36.0`. `/workspace` is the operator home:
+The current implementation is `v0.37.0`. `/workspace` is the operator home:
 chat is the primary spine, the launcher is view-only, and Canvas shows one
 destination at a time (Output, an app, or a workspace tool).
 
@@ -31,8 +31,9 @@ Allbert now has the runtime contracts needed for local assistant work:
 registered Jido actions and agents, durable confirmations, Settings Central,
 Security Central, local traces, markdown memory, jobs, objectives, reviewed
 plugin apps, StockSage as the reference app, Allbert Home-based theming/layout
-overrides, and a default-off report-only Elixir/OTP sandbox and gate runner for
-future generated drafts.
+overrides, a default-off report-only Elixir/OTP sandbox and gate runner, and a
+default-off dynamic draft/live integration path for reviewed read-only action
+artifacts.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -44,8 +45,9 @@ LiveView, route effectful work through registered Jido actions, require durable
 confirmations, store local conversation history, run scheduled jobs, frame
 cross-turn objectives, inspect traces, review markdown memory, and host
 reviewed plugin apps through workspace panels. It can also build disposable
-Elixir/OTP sandbox bundles and produce report-only sandbox/gate evidence when
-the operator enables the v0.36 sandbox in a disposable Allbert Home.
+Elixir/OTP sandbox bundles, produce report-only sandbox/gate evidence, record
+dynamic draft requests, and live-register gate-passed read-only dynamic actions
+after explicit operator confirmation in a disposable Allbert Home.
 
 StockSage is the reference plugin app. It exercises the app, objective,
 security, native-agent, LiveView surface, memory-sync, and canvas contracts
@@ -73,11 +75,6 @@ manually proven first.
 
 Near-term milestones:
 
-- `v0.37`: dynamic code & config generation and live capability integration —
-  LLM code-gen agents generate to the proven shapes, store file-backed draft
-  metadata under Allbert Home, trial through the v0.36 sandbox, and (after the
-  warning gate plus operator confirmation) hot-load into the live runtime
-  without a restart (audited and reversible).
 - `v0.38`: templated creation — vetted plugin/app/LLM-tool/scheduled-flow/code
   templates via Mix tasks (`--target` defaults to `./plugins/<name>`), operator
   workspace flows, and a Canvas Create surface, reusing the v0.36 sandbox and
@@ -98,8 +95,8 @@ Near-term milestones:
 - [docs/adr](docs/adr): architectural decisions.
 - [docs/plans/v0.36-plan.md](docs/plans/v0.36-plan.md): implemented sandbox
   and gate-runner contract.
-- [docs/plans/v0.37-plan.md](docs/plans/v0.37-plan.md): next dynamic
-  generation and gated live-integration milestone.
+- [docs/plans/v0.37-plan.md](docs/plans/v0.37-plan.md): implemented dynamic
+  draft and gated live-integration milestone.
 - [docs/plans/v0.38-plan.md](docs/plans/v0.38-plan.md): templated creation
   milestone after v0.37.
 

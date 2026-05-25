@@ -1951,10 +1951,14 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 `docs/adr/0035-codegen-agents-and-live-integration-loader.md`,
 `docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`
 
-Status: final-pass implementation-ready (unstarted). The self-extending-runtime
-engine: LLM code/config generation + v0.36 sandbox trial/gate + gated live
-in-core integration. Highest-capability and highest-risk milestone; its safety
-rests on the v0.36 sandbox evidence plus operator-confirmed integration.
+Status: implemented as `v0.37.0` and ready for operator manual verification on
+2026-05-25. The self-extending-runtime engine now has file-backed dynamic
+drafts, inert explicit capability-gap request scaffolding, v0.36 sandbox
+trial/gate handoff, trusted validation, and gated live in-core integration for
+read-only action artifacts. Full advisory provider authoring remains behind
+the producer-neutral scaffold for a later implementation. Highest-capability
+and highest-risk milestone; its safety rests on the v0.36 sandbox evidence plus
+operator-confirmed integration.
 
 Prerequisite: v0.36 sandbox/gate runner; v0.24 objective runtime; v0.31
 consolidated runtime substrates; v0.25 native-agent + Jido.AI pattern; and the
@@ -1963,8 +1967,8 @@ v0.27-v0.35 contract shapes.
 Expected direction:
 
 - Detect a capability gap through the objective runtime.
-- Use advisory code-gen agents to generate Elixir/OTP code and config to the
-  proven contract shapes.
+- Use producer-neutral codegen scaffolding for explicit capability-gap draft
+  requests; future advisory authoring must enter through this guarded path.
 - Store draft metadata, source, provenance, repair history, and sandbox reports
   file-backed under `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/`, separate
   from ordinary plugin discovery roots.
