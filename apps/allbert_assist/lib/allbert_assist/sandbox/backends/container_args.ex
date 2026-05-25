@@ -32,6 +32,8 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerArgs do
       "ALL",
       "--security-opt",
       "no-new-privileges",
+      "--user",
+      "65532:65532",
       "--pids-limit",
       "256",
       "--memory",
@@ -39,9 +41,9 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerArgs do
       "--cpus",
       to_string(policy.cpu_limit),
       "--tmpfs",
-      "/tmp",
+      "/tmp:rw,nosuid,nodev,size=256m,mode=1777",
       "--tmpfs",
-      "/run"
+      "/run:rw,nosuid,nodev,size=32m,mode=1777"
     ] ++
       runtime_args ++
       common_mount_env_args(bundle, spec) ++ [policy.image, spec.executable | spec.argv]
@@ -60,6 +62,7 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerArgs do
       "ALL",
       "--security-opt",
       "no-new-privileges",
+      "--userns=keep-id",
       "--pids-limit",
       "256",
       "--memory",
@@ -67,9 +70,9 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerArgs do
       "--cpus",
       to_string(policy.cpu_limit),
       "--tmpfs",
-      "/tmp",
+      "/tmp:rw,nosuid,nodev,size=256m,mode=1777",
       "--tmpfs",
-      "/run"
+      "/run:rw,nosuid,nodev,size=32m,mode=1777"
     ] ++ common_mount_env_args(bundle, spec) ++ [policy.image, spec.executable | spec.argv]
   end
 

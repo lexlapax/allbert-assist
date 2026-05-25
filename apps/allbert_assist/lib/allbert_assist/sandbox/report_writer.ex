@@ -3,8 +3,6 @@ defmodule AllbertAssist.Sandbox.ReportWriter do
   Writes bounded v0.36 sandbox reports into the disposable bundle report root.
   """
 
-  alias AllbertAssist.Paths
-  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Sandbox.Bundle
   alias AllbertAssist.Sandbox.Report
 
@@ -23,8 +21,6 @@ defmodule AllbertAssist.Sandbox.ReportWriter do
     body =
       report
       |> Report.to_map()
-      |> redact_paths()
-      |> Redactor.redact(:sandbox_trial)
       |> Jason.encode!(pretty: true)
 
     with :ok <- File.write(path, body) do
@@ -33,19 +29,4 @@ defmodule AllbertAssist.Sandbox.ReportWriter do
   rescue
     exception -> {:error, {exception.__struct__, Exception.message(exception)}}
   end
-
-  defp redact_paths(value) when is_map(value) do
-    value
-    |> Enum.map(fn {key, val} -> {key, redact_paths(val)} end)
-    |> Map.new()
-  end
-
-  defp redact_paths(value) when is_list(value), do: Enum.map(value, &redact_paths/1)
-
-  defp redact_paths(value) when is_binary(value) do
-    home = Paths.home()
-    String.replace(value, home, "<ALLBERT_HOME>")
-  end
-
-  defp redact_paths(value), do: value
 end

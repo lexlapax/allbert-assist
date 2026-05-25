@@ -44,7 +44,8 @@ ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
 - v0.36 security eval rows for disabled/missing backends, backend resolver
   fail-closed behavior, no image pulls, source policy, shell denial, network
   denial, secret denial, home isolation, package-manager denial, NIF/port
-  denial, core-load denial, and report redaction.
+  denial, forged command-spec struct revalidation, cleanup root confinement,
+  core-load denial, and report redaction.
 
 ### Changed (v0.36.0)
 
@@ -58,6 +59,10 @@ ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
   implemented v0.36 sandbox contract and report-only authority boundary.
 - Docker-family doctor checks now validate the local image labels and point to
   the image-preparation task when the image is missing or invalid.
+- Post-audit hardening revalidates `%CommandSpec{}` structs at the sandbox
+  facade, confines bundle ids, explicit bundle roots, and cleanup targets to
+  marked sandbox bundle directories, returns redacted report maps from sandbox
+  actions, and records Docker/Podman non-root/tmpfs backend argv expectations.
 
 ### Verification (v0.36.0)
 
@@ -70,12 +75,15 @@ ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
 - Final release gate passed after the M7 image-preparation correction:
   `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
   `mix precommit`, and `git diff --check`.
+- Post-audit hardening passed focused sandbox/security/action/image tests plus
+  `mix format --check-formatted`, `mix compile --warnings-as-errors`,
+  `mix credo --strict`, `mix dialyzer`, and `mix precommit`.
 - Disposable-home manual smoke confirmed `mix allbert.sandbox image verify`
   writes an image verification report, Docker `28.5.1` is reachable outside the
-  Codex sandbox, and enabled doctor resolves `backend=auto` to `docker` when
-  `allbert-elixir-otp:local` has valid labels. `docker_runsc` remains
-  unavailable when `runsc` is not configured, and Apple `container` remains
-  unavailable until its policy-proof path is implemented.
+  restricted execution sandbox, and enabled doctor resolves `backend=auto` to
+  `docker` when `allbert-elixir-otp:local` has valid labels. `docker_runsc`
+  remains unavailable when `runsc` is not configured, and Apple `container`
+  remains unavailable until its policy-proof path is implemented.
 
 ## v0.35.0 - User Theming And Layout Overrides
 
