@@ -69,6 +69,18 @@ defmodule AllbertAssist.DynamicPlugins.MetadataStore do
     end
   end
 
+  @doc "Persist integrated artifact metadata under the integrated root."
+  @spec put_integration(Draft.t(), keyword()) :: {:ok, Draft.t()} | {:error, term()}
+  def put_integration(%Draft{} = draft, _opts \\ []) do
+    root = integration_root_for(draft.slug, draft.revision)
+    draft = %{draft | root: root}
+
+    with :ok <- File.mkdir_p(root),
+         :ok <- write_yaml(Path.join(root, @metadata_file), Draft.to_metadata_map(draft)) do
+      {:ok, draft}
+    end
+  end
+
   @doc "List all readable integrated metadata entries."
   @spec list_integrations() :: [Draft.t()]
   def list_integrations do
@@ -148,10 +160,28 @@ defmodule AllbertAssist.DynamicPlugins.MetadataStore do
     end
   end
 
+  @doc "Write manifest data beside integrated metadata."
+  def put_integration_manifest(slug, revision, manifest)
+      when is_binary(slug) and is_binary(revision) and is_map(manifest) do
+    with :ok <- validate_slug(slug),
+         root <- integration_root_for(slug, revision),
+         :ok <- File.mkdir_p(root) do
+      write_yaml(Path.join(root, @manifest_file), manifest)
+    end
+  end
+
   @doc "Read manifest data beside metadata."
   def get_manifest(slug) when is_binary(slug) do
     with :ok <- validate_slug(slug) do
       read_yaml(Path.join(draft_root(slug), @manifest_file))
+    end
+  end
+
+  @doc "Read manifest data beside integrated metadata."
+  def get_integration_manifest(slug, revision) when is_binary(slug) do
+    with :ok <- validate_slug(slug),
+         {:ok, root} <- integration_root(slug, revision) do
+      read_yaml(Path.join(root, @manifest_file))
     end
   end
 
@@ -166,6 +196,10 @@ defmodule AllbertAssist.DynamicPlugins.MetadataStore do
   @doc "Return the dynamic integrated root."
   @spec integrated_root() :: String.t()
   def integrated_root, do: Paths.dynamic_plugins_integrated_root()
+
+  @doc "Return integrated root for one slug/revision."
+  @spec integration_root_for(String.t(), String.t()) :: String.t()
+  def integration_root_for(slug, revision), do: Path.join([integrated_root(), slug, revision])
 
   defp read_integration_root(root) do
     case read_yaml(Path.join(root, @metadata_file)) do
@@ -188,7 +222,7 @@ defmodule AllbertAssist.DynamicPlugins.MetadataStore do
   end
 
   defp integration_root(slug, revision) when is_binary(revision) do
-    root = Path.join([integrated_root(), slug, revision])
+    root = integration_root_for(slug, revision)
 
     if File.dir?(root), do: {:ok, root}, else: {:error, :integration_not_found}
   end

@@ -162,6 +162,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "record_workspace_offline_update",
              "dismiss_workspace_ephemeral",
              "set_workspace_theme",
+             "integrate_dynamic_draft",
+             "rollback_dynamic_integration",
+             "disable_dynamic_live_loader",
              "run_dynamic_draft_trial",
              "run_dynamic_draft_gate",
              "list_dynamic_drafts",
@@ -254,6 +257,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "record_workspace_offline_update",
              "dismiss_workspace_ephemeral",
              "set_workspace_theme",
+             "integrate_dynamic_draft",
+             "rollback_dynamic_integration",
+             "disable_dynamic_live_loader",
              "run_dynamic_draft_trial",
              "run_dynamic_draft_gate",
              "list_dynamic_drafts",
@@ -410,6 +416,25 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert set_workspace_theme.exposure == :internal
     assert set_workspace_theme.confirmation == :not_required
 
+    assert {:ok, integrate_dynamic_draft} = Registry.capability("integrate_dynamic_draft")
+    assert integrate_dynamic_draft.permission == :dynamic_integration
+    assert integrate_dynamic_draft.execution_mode == :dynamic_loader
+    assert integrate_dynamic_draft.exposure == :internal
+    assert integrate_dynamic_draft.confirmation == :required
+    assert integrate_dynamic_draft.resumable?
+
+    assert {:ok, rollback_dynamic_integration} =
+             Registry.capability("rollback_dynamic_integration")
+
+    assert rollback_dynamic_integration.permission == :dynamic_integration
+    assert rollback_dynamic_integration.resumable?
+
+    assert {:ok, disable_dynamic_live_loader} =
+             Registry.capability("disable_dynamic_live_loader")
+
+    assert disable_dynamic_live_loader.permission == :settings_write
+    assert disable_dynamic_live_loader.confirmation == :not_required
+
     assert {:ok, explain_intent} = Registry.capability("explain_intent")
     assert explain_intent.permission == :read_only
     assert explain_intent.execution_mode == :read_only
@@ -481,6 +506,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert Registry.resumable?("delete_memory_entry")
     assert Registry.resumable?("prune_memory_entries")
     assert Registry.resumable?("promote_conversation_turn")
+    assert Registry.resumable?("integrate_dynamic_draft")
+    assert Registry.resumable?("rollback_dynamic_integration")
 
     refute Registry.resumable?("direct_answer")
     refute Registry.resumable?("plan_package_install")

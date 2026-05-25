@@ -18,7 +18,10 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Confirmations.ExpireConfirmations
   alias AllbertAssist.Actions.Confirmations.ListConfirmations
   alias AllbertAssist.Actions.Confirmations.ShowConfirmation
+  alias AllbertAssist.Actions.DynamicPlugins.DisableLiveLoader, as: DisableDynamicLiveLoader
+  alias AllbertAssist.Actions.DynamicPlugins.IntegrateDraft, as: IntegrateDynamicDraft
   alias AllbertAssist.Actions.DynamicPlugins.ListDynamicDrafts
+  alias AllbertAssist.Actions.DynamicPlugins.RollbackIntegration, as: RollbackDynamicIntegration
   alias AllbertAssist.Actions.DynamicPlugins.RunDraftGate, as: RunDynamicDraftGate
   alias AllbertAssist.Actions.DynamicPlugins.RunDraftTrial, as: RunDynamicDraftTrial
   alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicDraft
@@ -95,6 +98,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Workspace.RevertTileRevision
   alias AllbertAssist.Actions.Workspace.SetTheme
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.DynamicPlugins.ActionsOverlay
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
 
   @agent_actions [
@@ -181,6 +185,9 @@ defmodule AllbertAssist.Actions.Registry do
     RecordOfflineUpdate,
     DismissEphemeral,
     SetTheme,
+    IntegrateDynamicDraft,
+    RollbackDynamicIntegration,
+    DisableDynamicLiveLoader,
     RunDynamicDraftTrial,
     RunDynamicDraftGate,
     ListDynamicDrafts,
@@ -192,7 +199,7 @@ defmodule AllbertAssist.Actions.Registry do
 
   @doc "Return registered runtime action modules in stable display order."
   @spec modules() :: nonempty_list(module())
-  def modules, do: @actions ++ plugin_actions()
+  def modules, do: @actions ++ plugin_actions() ++ dynamic_actions()
 
   @doc "Return action modules that can be exposed to the intent agent."
   @spec agent_modules() :: nonempty_list(module())
@@ -205,7 +212,7 @@ defmodule AllbertAssist.Actions.Registry do
           {:ok, attrs} -> attrs.exposure == :agent
           {:error, _reason} -> false
         end
-      end)
+      end) ++ ActionsOverlay.agent_modules()
   end
 
   @doc "Return registered action names in stable display order."
@@ -228,7 +235,15 @@ defmodule AllbertAssist.Actions.Registry do
         module in agent_modules()
       end)
 
-    Enum.map(@internal_actions ++ internal_plugin_actions, &capability_for_module!/1)
+    dynamic_internal_actions =
+      Enum.reject(dynamic_actions(), fn module ->
+        module in ActionsOverlay.agent_modules()
+      end)
+
+    Enum.map(
+      @internal_actions ++ internal_plugin_actions ++ dynamic_internal_actions,
+      &capability_for_module!/1
+    )
   end
 
   @doc "Return action capabilities contributed by one registered app."
@@ -236,6 +251,7 @@ defmodule AllbertAssist.Actions.Registry do
   def capabilities_for_app(app_id) when is_atom(app_id) do
     app_id
     |> AppRegistry.actions_for()
+    |> Kernel.++(ActionsOverlay.actions_for_app(app_id))
     |> Enum.map(&capability_for_module!/1)
   end
 
@@ -292,7 +308,7 @@ defmodule AllbertAssist.Actions.Registry do
 
   @doc "Return action registry diagnostics, including plugin action collisions."
   @spec diagnostics() :: [map()]
-  def diagnostics, do: plugin_action_diagnostics()
+  def diagnostics, do: plugin_action_diagnostics() ++ ActionsOverlay.diagnostics()
 
   defp resolve_name(name, original) do
     normalized = normalize_name(name)
@@ -339,6 +355,8 @@ defmodule AllbertAssist.Actions.Registry do
     |> Enum.reject(&plugin_action_duplicate?/1)
     |> Enum.map(& &1.module)
   end
+
+  defp dynamic_actions, do: ActionsOverlay.modules()
 
   defp plugin_action_entries do
     PluginRegistry.registered_plugins()
