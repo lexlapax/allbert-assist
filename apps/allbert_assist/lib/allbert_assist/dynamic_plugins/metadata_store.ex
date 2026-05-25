@@ -7,6 +7,7 @@ defmodule AllbertAssist.DynamicPlugins.MetadataStore do
   useful state-machine successor.
   """
 
+  alias AllbertAssist.DynamicPlugins.Audit
   alias AllbertAssist.DynamicPlugins.Draft
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings.YamlCodec
@@ -105,7 +106,13 @@ defmodule AllbertAssist.DynamicPlugins.MetadataStore do
 
   @doc "Mark a non-integrated draft as discarded."
   @spec discard_draft(String.t(), keyword()) :: {:ok, Draft.t()} | {:error, term()}
-  def discard_draft(slug, opts \\ []), do: transition_tier(slug, "discarded", opts)
+  def discard_draft(slug, opts \\ []) do
+    with {:ok, before} <- get_draft(slug),
+         {:ok, discarded} <- transition_tier(slug, "discarded", opts),
+         :ok <- audit_discard(before, discarded, opts) do
+      {:ok, discarded}
+    end
+  end
 
   @doc "Return current source hashes for the paths declared by a draft."
   @spec source_hashes(Draft.t()) :: {:ok, map()} | {:error, term()}
@@ -271,6 +278,19 @@ defmodule AllbertAssist.DynamicPlugins.MetadataStore do
     case Draft.new(%{"slug" => slug, "revision" => "validation"}) do
       {:ok, _draft} -> :ok
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp audit_discard(%Draft{} = before, %Draft{} = discarded, opts) do
+    with {:ok, _path} <-
+           Audit.append(:discarded, %{
+             slug: discarded.slug,
+             revision: discarded.revision,
+             from_tier: before.tier,
+             to_tier: discarded.tier,
+             operator_id: Keyword.get(opts, :operator_id)
+           }) do
+      :ok
     end
   end
 end
