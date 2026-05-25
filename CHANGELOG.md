@@ -13,8 +13,10 @@ changelog entries or release notes.
 ## v0.37.0 - Dynamic Code & Config Generation and Live Capability Integration
 
 Status: implemented as `0.37.0` on 2026-05-25. v0.37.1
-post-implementation audit hardening and final gates completed on 2026-05-25;
-release remains ready for operator manual verification before tagging.
+post-implementation audit hardening and final gates completed on 2026-05-25.
+v0.37.2 capability-first generator work reopened the release before tagging so
+the milestone ships a real source-bearing read-only action generator, not only
+an inert scaffold.
 
 Plan: `docs/plans/v0.37-plan.md`.
 Request flow: `docs/plans/v0.37-request-flow.md`.
@@ -59,6 +61,22 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 - Bounded sandbox report history in draft `gate.reports`, preserving repeated
   report evidence and diagnostics instead of replacing all previous entries.
 
+### Added (v0.37.2 generator)
+
+- Source-bearing `codegen_llm` producer for explicit capability gaps. It calls
+  the configured Jido.AI structured-generation profile, writes generated
+  read-only action source and focused tests under the draft root, records source
+  hashes/scan paths/compiled paths/manifest entries, and consumes provider-call
+  and provider-usage budgets without granting live authority.
+- Injectable `AllbertAssist.DynamicPlugins.Codegen.LLM` provider boundary,
+  JSON-schema packet contract, deterministic action target naming/path helpers,
+  and fake-provider test support for warning-gate-safe deterministic coverage.
+- Trusted validator support for useful pure read-only action logic, including
+  arithmetic, comparisons, string interpolation/concatenation, comprehensions,
+  anonymous functions/captures, and curated pure standard-library calls while
+  continuing to deny protected runtime, file, system, dynamic atom, and compile
+  targets.
+
 ### Changed (v0.37.0)
 
 - Umbrella, core app, and web app version metadata are bumped to `0.37.0`
@@ -91,6 +109,21 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
   scaffold from deferred advisory provider authoring and broader generated
   app/config targets.
 
+### Changed (v0.37.2 generator)
+
+- Dynamic draft requests now produce source-bearing read-only action drafts
+  when `dynamic_codegen.enabled`, `dynamic_codegen.provider_profile`, provider
+  enablement, credentials, and budgets all pass. `codegen_scaffold` is now
+  historical metadata; new generated drafts use `producer: codegen_llm`.
+- Remote provider smoke instructions source `.env` for keys and enable the
+  Settings Central `fast` model profile's OpenAI provider without printing
+  secrets. The runtime also honors `.env` credentials as an operator-provided
+  preflight source when Settings Central secret storage is not used for smoke
+  testing.
+- Operator, developer, ADR, plan, request-flow, runtime-boundary, and onboarding
+  docs now describe source-bearing read-only action generation plus gated live
+  integration.
+
 ### Verification (v0.37.0)
 
 - M0-M4 were implemented, focused-tested, documented, and committed separately.
@@ -114,6 +147,19 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 - Final release gates passed `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `git diff --check`, and `mix precommit` after documentation reconciliation.
+
+### Verification (v0.37.2 generator)
+
+- Focused codegen, dynamic action, Mix task, security eval, loader, and settings
+  suites passed during generator work.
+- Final release gates passed `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
+  `git diff --check`, and `mix precommit`.
+- `.env` contains remote provider credentials and the remote OpenAI smoke
+  workflow is documented. The automated run from this agent session was blocked
+  by external-provider transfer policy after sandbox retry; operator manual
+  verification requires explicit approval to send the bounded generation prompt
+  to the configured remote LLM.
 
 ## v0.36.0 - Elixir/OTP Sandbox And Gate Runner
 

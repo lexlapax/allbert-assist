@@ -3,8 +3,8 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.CapabilityGap do
   Normalized capability-gap request for v0.37 dynamic draft generation.
 
   This is producer-neutral request vocabulary, not authority. A gap may lead to
-  inert draft metadata, but it cannot enable codegen, trust a draft, run a
-  sandbox gate, or integrate runtime actions.
+  source-bearing draft files and metadata, but it cannot enable live loading,
+  trust a draft, run a sandbox gate, or integrate runtime actions.
   """
 
   alias AllbertAssist.Runtime.Redactor

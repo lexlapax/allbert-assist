@@ -10,7 +10,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.RequestDraft do
     skill_backed?: false,
     confirmation: :not_required,
     name: "request_dynamic_draft",
-    description: "Create inert dynamic draft metadata for an explicit capability gap.",
+    description: "Create a source-bearing dynamic draft for an explicit capability gap.",
     category: "dynamic_plugins",
     tags: ["dynamic_plugins", "drafts", "codegen", "internal"],
     schema: [

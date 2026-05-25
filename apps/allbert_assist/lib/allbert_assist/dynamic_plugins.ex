@@ -1,6 +1,6 @@
 defmodule AllbertAssist.DynamicPlugins do
   @moduledoc """
-  Public v0.37 facade for dynamic draft metadata, inspection, and evidence runs.
+  Public v0.37 facade for dynamic draft generation, inspection, and evidence runs.
 
   Dynamic drafts are file-backed Allbert Home data. Sandbox trial and gate
   evidence flows through the v0.36 sandbox facade and still grants no live
@@ -81,7 +81,7 @@ defmodule AllbertAssist.DynamicPlugins do
     end
   end
 
-  @doc "Request inert draft metadata for an explicit capability gap."
+  @doc "Request a source-bearing read-only action draft for an explicit capability gap."
   @spec request_draft(map(), map(), keyword()) :: {:ok, map()} | {:error, term()}
   defdelegate request_draft(attrs, context \\ %{}, opts \\ []), to: Codegen.Agent
 
