@@ -5,6 +5,15 @@ metadata to the Allbert runtime. They do not gain authority by registering.
 Actions still run through `AllbertAssist.Actions.Runner`, Security Central,
 confirmations, traces, and audits.
 
+This guide is for reviewed source-tree apps and plugin-contributed apps that
+are compiled with the project. v0.37 generated drafts are different: they live
+under Allbert Home, are not scanned by ordinary plugin discovery, must pass the
+v0.36 sandbox gate, and may integrate live only through
+`AllbertAssist.DynamicPlugins.Loader` after Security Central confirmation. For
+generated app work, use
+`docs/developer/dynamic-plugin-drafts.md` instead of copying the source-tree
+workflow below.
+
 ## Minimal Plugin-Contributed App
 
 ```elixir
@@ -129,3 +138,8 @@ mix allbert.validate_app MyPlugin.App
 Expected output includes the app id, version, action count, skill path count,
 agent count, settings schema count, signal counts, and surface ids/paths. The
 task prints summaries only; it does not dump raw node trees or secrets.
+
+Reviewed source-tree apps can add route surfaces when the host router has a
+reviewed route for them. v0.37 generated app drafts cannot add Phoenix routes,
+custom LiveViews, custom components, or HEEx. They can contribute only validated
+panel/destination data through the dynamic loader.

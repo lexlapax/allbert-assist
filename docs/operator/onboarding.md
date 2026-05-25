@@ -12,10 +12,14 @@ Read these first:
 - `CHANGELOG.md` for release status, safety notes, verification summary, and
   expected tag.
 - `docs/plans/roadmap.md` for version sequencing.
+- `docs/plans/v0.37-plan.md` and `docs/plans/v0.37-request-flow.md` for the
+  current dynamic capability integration implementation contract.
 - `docs/plans/v0.36-plan.md` and `docs/plans/v0.36-request-flow.md` for the
-  current sandbox and gate-runner implementation contract.
+  sandbox and gate-runner prerequisite.
 - `docs/operator/sandbox-gate-runner.md` when testing risky generated
   Elixir/OTP draft execution.
+- `docs/operator/dynamic-capability-integration.md` when reviewing generated
+  draft evidence, live integration, rollback, or emergency disablement.
 
 ## First Local Run
 
@@ -69,6 +73,8 @@ release request-flow smoke matrix with a disposable home and workspace:
   `docs/plans/v0.10-request-flow.md`
 - v0.36 generated Elixir/OTP sandbox gate runner:
   `docs/plans/v0.36-request-flow.md`
+- v0.37 generated capability integration:
+  `docs/plans/v0.37-request-flow.md`
 
 v0.10 external-network testing should confirm that approval and target
 execution are distinct. If a source HTTP/transport failure happens after
@@ -109,6 +115,11 @@ alone does not authorize package registry/package-spec access.
   for generated draft trials. Use approved local images only, prepare them
   through `mix allbert.sandbox image build` / `image verify`, and keep network
   disabled for sandbox gate runs.
+- Treat v0.37 dynamic generation and live loading as separate default-off
+  switches. `dynamic_codegen.enabled=true` may create inert drafts only;
+  `dynamic_codegen.live_loader_enabled=true` still cannot register authority
+  without a v0.36 gate pass, trusted validation, and Security Central
+  confirmation from a high-trust operator surface.
 - Treat v0.10 network access as approved resource acquisition, not a browser,
   crawler, or arbitrary document summarizer.
 - Treat remembered resource grants as Settings Central approval memory, not
