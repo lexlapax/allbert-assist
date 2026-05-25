@@ -123,6 +123,13 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
     assert {:ok, draft} = DynamicPlugins.get_draft("objective_gap")
     assert :ok = MetadataStore.verify_source_hashes(draft)
     assert {:ok, manifest} = MetadataStore.get_manifest("objective_gap")
+    roles = get_in(manifest, ["generation", "roles"])
+    assert Enum.map(roles, & &1["role"]) == ~w[planner author trial_author critic repair]
+    assert Enum.all?(roles, &(&1["authority"] == "none"))
+
+    assert Enum.map(draft.repair_history, & &1["role"]) ==
+             ~w[planner author trial_author critic repair]
+
     assert {:ok, _validation} = TrustedValidator.validate(draft, manifest)
     assert File.read!(Path.join(draft.root, "source/lib/action.ex")) =~ "defmodule"
     assert File.read!(Path.join(draft.root, "source/test/action_test.exs")) =~ "Ada: high"
