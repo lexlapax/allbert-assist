@@ -4,8 +4,10 @@ defmodule Mix.Tasks.Allbert.DynamicTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.DynamicPlugins
+  alias AllbertAssist.DynamicPlugins.Codegen.LLM
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.DynamicCodegenFakeProvider
   alias Mix.Tasks.Allbert.Dynamic, as: DynamicTask
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR", "ALLBERT_SETTINGS_ROOT"]
@@ -14,15 +16,18 @@ defmodule Mix.Tasks.Allbert.DynamicTest do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
+    original_llm_config = Application.get_env(:allbert_assist, LLM)
     home = temp_path("home")
 
     Enum.each(@env_vars, &System.delete_env/1)
     Application.delete_env(:allbert_assist, Settings)
     Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, LLM, provider: DynamicCodegenFakeProvider)
 
     on_exit(fn ->
       restore_app_env(Paths, original_paths_config)
       restore_app_env(Settings, original_settings_config)
+      restore_app_env(LLM, original_llm_config)
       restore_env(original_env)
       Mix.Task.reenable("allbert.dynamic")
       File.rm_rf!(home)
@@ -51,7 +56,7 @@ defmodule Mix.Tasks.Allbert.DynamicTest do
     assert show_output =~ "Tier: draft"
   end
 
-  test "draft request prints created inert metadata" do
+  test "draft request prints generated source metadata" do
     enable_dynamic_codegen!("local")
 
     output =
@@ -72,7 +77,7 @@ defmodule Mix.Tasks.Allbert.DynamicTest do
     assert output =~ "Dynamic draft requested for task_codegen."
     assert output =~ "Draft root:"
 
-    assert {:ok, %{slug: "task_codegen", producer: "codegen_scaffold"}} =
+    assert {:ok, %{slug: "task_codegen", producer: "codegen_llm"}} =
              DynamicPlugins.show_draft("task_codegen")
   end
 

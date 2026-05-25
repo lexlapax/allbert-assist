@@ -4,8 +4,10 @@ defmodule AllbertAssist.Actions.DynamicPluginsTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.DynamicPlugins
+  alias AllbertAssist.DynamicPlugins.Codegen.LLM
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.DynamicCodegenFakeProvider
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR", "ALLBERT_SETTINGS_ROOT"]
 
@@ -13,15 +15,18 @@ defmodule AllbertAssist.Actions.DynamicPluginsTest do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
+    original_llm_config = Application.get_env(:allbert_assist, LLM)
     home = temp_path("home")
 
     Enum.each(@env_vars, &System.delete_env/1)
     Application.delete_env(:allbert_assist, Settings)
     Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, LLM, provider: DynamicCodegenFakeProvider)
 
     on_exit(fn ->
       restore_app_env(Paths, original_paths_config)
       restore_app_env(Settings, original_settings_config)
+      restore_app_env(LLM, original_llm_config)
       restore_env(original_env)
       File.rm_rf!(home)
     end)
@@ -62,7 +67,7 @@ defmodule AllbertAssist.Actions.DynamicPluginsTest do
              Runner.run("show_dynamic_draft", %{slug: "missing"}, context())
   end
 
-  test "request dynamic draft through the runner creates inert metadata" do
+  test "request dynamic draft through the runner creates generated source metadata" do
     enable_dynamic_codegen!("local")
 
     assert {:ok, %{status: :completed, draft: draft, budget: budget}} =
@@ -74,8 +79,8 @@ defmodule AllbertAssist.Actions.DynamicPluginsTest do
 
     assert draft.slug == "runner_codegen"
     assert draft.tier == "draft"
-    assert draft.producer == "codegen_scaffold"
-    assert budget["provider_calls_used"] == 0
+    assert draft.producer == "codegen_llm"
+    assert budget["provider_calls_used"] == 1
   end
 
   defp context, do: %{actor: "local", channel: :cli}
