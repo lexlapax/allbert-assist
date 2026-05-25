@@ -65,7 +65,7 @@ defmodule AllbertAssist.SecurityEvalCaseTest do
     for row <- rows do
       assert is_binary(row.id)
       assert row.id =~ "-"
-      assert row.milestone in [:m2, :m3, :m4, :m5, :m6, :m7, :v036]
+      assert row.milestone in [:m2, :m3, :m4, :m5, :m6, :m7, :v036, :v037]
       assert row.expected in [:allowed, :needs_confirmation, :denied, :dropped, :error]
       assert is_binary(row.scenario) and byte_size(row.scenario) > 12
       assert is_atom(row.boundary)
