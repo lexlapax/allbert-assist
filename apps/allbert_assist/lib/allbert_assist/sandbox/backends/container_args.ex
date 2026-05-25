@@ -10,8 +10,10 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerArgs do
   @drafts "/workspace/drafts"
   @tests "/workspace/tests"
   @sandbox_home "/workspace/allbert_home"
+  @sandbox_database "/workspace/allbert_home/db/allbert_test.sqlite3"
+  @sandbox_deps "/workspace/allbert_home/deps"
   @reports "/workspace/reports"
-  @image_deps "/opt/allbert/deps"
+  @runner "/opt/allbert/bin/allbert-sandbox-run"
 
   @spec docker(Bundle.t(), CommandSpec.t(), Policy.t(), keyword()) :: [String.t()]
   def docker(bundle, spec, policy, opts \\ []) do
@@ -49,7 +51,7 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerArgs do
       "/run:rw,nosuid,nodev,size=32m,mode=1777"
     ] ++
       runtime_args ++
-      common_mount_env_args(bundle, spec) ++ [policy.image, spec.executable | spec.argv]
+      common_mount_env_args(bundle, spec) ++ [policy.image, @runner, spec.executable | spec.argv]
   end
 
   @spec podman(Bundle.t(), CommandSpec.t(), Policy.t()) :: [String.t()]
@@ -78,7 +80,8 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerArgs do
       "/tmp:rw,nosuid,nodev,size=256m,mode=1777",
       "--tmpfs",
       "/run:rw,nosuid,nodev,size=32m,mode=1777"
-    ] ++ common_mount_env_args(bundle, spec) ++ [policy.image, spec.executable | spec.argv]
+    ] ++
+      common_mount_env_args(bundle, spec) ++ [policy.image, @runner, spec.executable | spec.argv]
   end
 
   defp common_mount_env_args(bundle, spec) do
@@ -111,11 +114,12 @@ defmodule AllbertAssist.Sandbox.Backends.ContainerArgs do
   defp protected_env do
     %{
       "ALLBERT_HOME" => @sandbox_home,
+      "DATABASE_PATH" => @sandbox_database,
       "HOME" => @sandbox_home,
       "MIX_HOME" => Path.join(@sandbox_home, "mix"),
       "HEX_HOME" => Path.join(@sandbox_home, "hex"),
       "MIX_BUILD_PATH" => Path.join(@sandbox_home, "_build"),
-      "MIX_DEPS_PATH" => @image_deps,
+      "MIX_DEPS_PATH" => @sandbox_deps,
       "REBAR_CACHE_DIR" => Path.join(@sandbox_home, "rebar")
     }
   end

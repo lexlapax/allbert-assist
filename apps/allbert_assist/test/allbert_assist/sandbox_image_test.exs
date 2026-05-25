@@ -35,9 +35,20 @@ defmodule AllbertAssist.SandboxImageTest do
 
       assert File.exists?(Path.join(context, "Dockerfile"))
       assert File.exists?(Path.join([context, "project", "mix.exs"]))
+
+      assert dockerfile =~
+               "apt-get install -y --no-install-recommends build-essential ca-certificates git"
+
       assert dockerfile =~ "MIX_DEPS_PATH=/opt/allbert/deps"
+      assert dockerfile =~ "/opt/allbert/bin/allbert-sandbox-run"
+      assert dockerfile =~ ~s(chmod -R u+rwX "$dest")
+      assert dockerfile =~ "seed_dir /opt/allbert/deps"
+      assert dockerfile =~ "seed_dir /opt/allbert/_build"
+      assert dockerfile =~ "mkdir -p /workspace/allbert_home/db"
       assert dockerfile =~ "mix deps.get --only test"
       assert dockerfile =~ "mix deps.compile"
+      assert dockerfile =~ "mix dialyzer --plt"
+      assert dockerfile =~ "chmod -R a+rX /opt/allbert"
 
       {:ok, %{exit_status: 0, output: "built image", truncated?: false, output_bytes: 11}}
     end

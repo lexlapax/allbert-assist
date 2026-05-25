@@ -1,12 +1,16 @@
 import Config
 
+database_path =
+  System.get_env("DATABASE_PATH") ||
+    Path.expand("../allbert_assist_test.db", __DIR__)
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
 config :allbert_assist, AllbertAssist.Repo,
-  database: Path.expand("../allbert_assist_test.db", __DIR__),
+  database: database_path,
   pool_size: 5,
   pool: Ecto.Adapters.SQL.Sandbox
 
