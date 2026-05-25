@@ -161,7 +161,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "revert_tile_revision",
              "record_workspace_offline_update",
              "dismiss_workspace_ephemeral",
-             "set_workspace_theme"
+             "set_workspace_theme",
+             "list_dynamic_drafts",
+             "show_dynamic_draft",
+             "show_dynamic_integration"
            ]
 
     assert Registry.duplicate_names() == []
@@ -248,7 +251,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "revert_tile_revision",
              "record_workspace_offline_update",
              "dismiss_workspace_ephemeral",
-             "set_workspace_theme"
+             "set_workspace_theme",
+             "list_dynamic_drafts",
+             "show_dynamic_draft",
+             "show_dynamic_integration"
            ]
 
     assert {:ok, append_memory} = Registry.capability("append_memory")
