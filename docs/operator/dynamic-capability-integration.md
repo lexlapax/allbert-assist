@@ -49,6 +49,7 @@ Enable v0.37 generation and live integration separately:
 mix allbert.settings set dynamic_codegen.enabled true
 mix allbert.settings set dynamic_codegen.provider_profile local
 mix allbert.settings set dynamic_codegen.live_loader_enabled true
+mix allbert.settings set dynamic_codegen.allowed_targets '["action"]'
 mix allbert.settings set dynamic_codegen.allowed_action_permissions '["read_only"]'
 ```
 
@@ -113,6 +114,12 @@ The integrated root is:
 <ALLBERT_HOME>/dynamic_plugins/integrated/<slug>/<revision>/
 ```
 
+The lifecycle audit file is:
+
+```text
+<ALLBERT_HOME>/dynamic_plugins/audit/YYYY-MM.md
+```
+
 Ordinary plugin discovery must not scan either root.
 
 ## Confirm Integration
@@ -137,6 +144,12 @@ After approval, inspect the registration state:
 ```sh
 mix allbert.dynamic integrations show <slug>
 mix allbert.security review --recent --limit 25
+```
+
+Also inspect the dynamic lifecycle audit for compile/load/register events:
+
+```sh
+cat "$ALLBERT_HOME/dynamic_plugins/audit/$(date -u +%Y-%m).md"
 ```
 
 Integrated actions resolve through `AllbertAssist.Actions.Registry` and run
@@ -198,3 +211,5 @@ integrated source.
 - A dynamic action can run only after registration through the overlay.
 - `dynamic_codegen.live_loader_enabled=false` removes or blocks live authority.
 - Rollback removes dynamic action authority and leaves inspectable metadata.
+- Integration, denial, rollback, disablement, and reconcile decisions appear in
+  the dynamic lifecycle audit.
