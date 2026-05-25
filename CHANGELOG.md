@@ -12,8 +12,8 @@ changelog entries or release notes.
 
 ## v0.36.0 - Elixir/OTP Sandbox And Gate Runner
 
-Status: implemented and release-ready as `0.36.0` on 2026-05-24. Local
-sandbox image preparation is included in the release scope.
+Status: released and tagged as `v0.36.0` on 2026-05-25. Local sandbox image
+preparation and M10 full-gate remediation are included in the release scope.
 
 Plan: `docs/plans/v0.36-plan.md`.
 Request flow: `docs/plans/v0.36-request-flow.md`.
@@ -98,9 +98,11 @@ ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
   `mix credo --strict`, `mix dialyzer`, and `mix precommit`.
 - M9 corrective pass passed focused sandbox/image/security/action tests, the
   Docker-gated compile smoke when available, and the final warning gate.
-- M10 corrective pass passed focused sandbox/image tests and keeps the
-  Docker-gated full-default-gate smoke behind
-  `ALLBERT_DOCKER_FULL_GATE_TEST=1` for local toolchain hosts.
+- M10 corrective pass passed focused sandbox/image/security/action tests, the
+  Docker-gated full-default-gate smoke
+  (`ALLBERT_DOCKER_FULL_GATE_TEST=1 mix test apps/allbert_assist/test/allbert_assist/sandbox_test.exs --only docker_full_gate`),
+  `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
+  `mix precommit`, and `git diff --check`.
 - Disposable-home manual smoke confirmed `mix allbert.sandbox image verify`
   writes an image verification report, Docker `28.5.1` is reachable outside the
   restricted execution sandbox, and enabled doctor resolves `backend=auto` to

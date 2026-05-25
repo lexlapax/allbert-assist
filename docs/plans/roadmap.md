@@ -1887,10 +1887,11 @@ Request flow: `docs/plans/v0.36-request-flow.md`
 ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
 `docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`
 
-Status: implemented and release-ready as `v0.36.0` on 2026-05-24 after local
-sandbox image preparation was added. The default approved local image can now
-be built and verified through Allbert-owned Mix tasks. Inserted as the concrete
-sandbox substrate before dynamic generation/live integration. v0.36 is
+Status: released and tagged as `v0.36.0` on 2026-05-25 after local sandbox
+image preparation and M10 full-gate remediation were added. The default
+approved local image can now be built and verified through Allbert-owned Mix
+tasks. Inserted as the concrete sandbox substrate before dynamic
+generation/live integration. v0.36 is
 deliberately narrow: Elixir/OTP generated drafts plus explicit shell-command
 gate profiles only. It produces reports, not trust grants.
 
