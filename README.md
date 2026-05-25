@@ -23,51 +23,16 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is `v0.36.0`, ready for operator manual
-verification after adding the local sandbox image-preparation task.
-`/workspace` is the only operator home: chat is the primary spine, the left
-rail is a view-only launcher, and Canvas shows one destination at a time
-(Output, an app, or a workspace tool).
-Operators can retheme and re-lay-out the workspace from local Allbert Home
-files through Settings Central-accountable gates, while the runtime now has a
-default-off, report-only Elixir/OTP sandbox and gate runner for future
-generated drafts.
-Neutral workspace chat can recognize reviewed app-owned capabilities without
-silently running them, and app routing context is still set only by accepting
-an explicit conversational handoff.
+The current implementation is `v0.36.0`. `/workspace` is the operator home:
+chat is the primary spine, the launcher is view-only, and Canvas shows one
+destination at a time (Output, an app, or a workspace tool).
 
-Recent platform contracts now in place:
-
-- `v0.26.2`: workspace UX closeout for the `/agent` canvas shell.
-- `v0.27.0`: app surface contract, proven through StockSage-owned LiveViews.
-- `v0.28.0`: security hardening and adversarial evals across app surfaces,
-  workspace fragments, objectives, resource access, and StockSage boundaries.
-- `v0.29.0`: app memory and outcomes contract, proven through StockSage.
-- `v0.30.0`: app canvas contract, proven through durable StockSage canvas
-  tiles in `/agent`.
-- `v0.31.0`: runtime and UI-substrate consolidation before the workspace UI,
-  theming, dynamic draft, and generator arc.
-- `v0.32.0`: workspace-only app UI and Settings Central, with app UI composed
-  through host-owned panel zones in `/workspace`.
-- `v0.33.1`: conversational app intent handoff and direct-answer foundation,
-  with app-contributed intent descriptors, explicit neutral handoff, targeted
-  clarification, advisory-only classifier selection, and descriptor-backed
-  StockSage analysis/trend/queue prompts.
-- `v0.34.0`: workspace UX refresh with chat-primary shell, view-only launcher,
-  single-destination Canvas, Settings/tools in Canvas, passive context
-  indicator, desktop Canvas focus, and mobile launcher sheet + Chat/Canvas
-  tabs.
-- `v0.35.0`: user theming and layout overrides from Allbert Home, with
-  presentational token YAML, opt-in sanitized CSS snippets, validated launcher
-  and Canvas destination layout data, Settings Canvas accountability, and CSP
-  regression coverage.
-- `v0.36.0`: Elixir/OTP sandbox and gate runner, with default-off Settings
-  Central policy, OS-aware backend resolution, disposable copy-in/copy-out
-  bundles, source-policy checks, hardened Docker/Podman/runsc backend command
-  builders, optional doctor-gated Apple `container` detection, internal
-  sandbox actions, gate profiles, bounded redacted reports, and security evals
-  proving denied paths stay denied, plus Allbert-owned local image build/verify
-  tasks for `allbert-elixir-otp:local`.
+Allbert now has the runtime contracts needed for local assistant work:
+registered Jido actions and agents, durable confirmations, Settings Central,
+Security Central, local traces, markdown memory, jobs, objectives, reviewed
+plugin apps, StockSage as the reference app, Allbert Home-based theming/layout
+overrides, and a default-off report-only Elixir/OTP sandbox and gate runner for
+future generated drafts.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -108,29 +73,6 @@ manually proven first.
 
 Near-term milestones:
 
-- `v0.31`: runtime and UI-substrate consolidation — action DSL, unified
-  surface/catalog/registry paths, settings fragments, typed responses, and
-  shared path/redaction/audit/persistence facades.
-- `v0.32`: workspace-only app UI — `/workspace` is the operator home,
-  Settings Central is in the workspace, and apps contribute panels instead of
-  separate app shells.
-- `v0.33`: conversational app intent handoff and direct-answer foundation —
-  neutral workspace prompts can propose app handoff or clarification without
-  silently executing app-owned actions.
-- `v0.34`: workspace UX refresh — implemented with a chat-centered shell, a
-  view-only left launcher, a single-destination Canvas, and routing context set
-  conversationally through the v0.33 handoff (no permanent Tools column or
-  floating panel band).
-- `v0.35`: user theming and layout overrides from `~/.allbert` — implemented
-  with token themes, opt-in sanitized CSS snippets, validated workspace layout
-  data, Settings accountability, and CSP checks.
-- `v0.36`: Elixir/OTP sandbox and gate runner — a default-off, OS-aware sandbox
-  (pluggable backend registry + `"auto"` resolver: optional doctor-gated Apple
-  `container`, rootless Podman, Docker+runsc/gVisor preferred over plain
-  Docker, Docker fallback) for generated Elixir/OTP drafts and explicit gate
-  commands, using approved local images, source-policy checks, and bounded
-  reports without live loading; implemented as `v0.36.0` with local image
-  preparation added before release-ready manual verification.
 - `v0.37`: dynamic code & config generation and live capability integration —
   LLM code-gen agents generate to the proven shapes, store file-backed draft
   metadata under Allbert Home, trial through the v0.36 sandbox, and (after the
@@ -154,10 +96,12 @@ Near-term milestones:
   milestones.
 - [CHANGELOG.md](CHANGELOG.md): released-history details.
 - [docs/adr](docs/adr): architectural decisions.
-- [docs/plans/v0.36-plan.md](docs/plans/v0.36-plan.md): current implemented
-  milestone plan.
-- [docs/plans/v0.36-request-flow.md](docs/plans/v0.36-request-flow.md):
-  request flows and manual verification notes for `v0.36.0`.
+- [docs/plans/v0.36-plan.md](docs/plans/v0.36-plan.md): implemented sandbox
+  and gate-runner contract.
+- [docs/plans/v0.37-plan.md](docs/plans/v0.37-plan.md): next dynamic
+  generation and gated live-integration milestone.
+- [docs/plans/v0.38-plan.md](docs/plans/v0.38-plan.md): templated creation
+  milestone after v0.37.
 
 ## Local Development
 

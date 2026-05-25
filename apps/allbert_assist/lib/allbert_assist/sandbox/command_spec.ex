@@ -11,7 +11,7 @@ defmodule AllbertAssist.Sandbox.CommandSpec do
   alias AllbertAssist.Sandbox.Policy
 
   @executables ~w[mix elixir erl]
-  @profiles ~w[compile focused_tests credo dialyzer security_evals precommit ad_hoc]a
+  @profiles ~w[compile focused_tests credo dialyzer security_evals precommit]a
   @env_allowlist ~w[LANG LC_ALL MIX_ENV]
   @shell_tokens ~w[&& || ; | > >> < &]
   @forbidden_mix_prefixes [
@@ -87,7 +87,7 @@ defmodule AllbertAssist.Sandbox.CommandSpec do
          executable: nil,
          argv: [],
          cwd: "",
-         profile: :ad_hoc,
+         profile: :compile,
          timeout_ms: policy.timeout_ms,
          output_bytes: policy.output_bytes,
          env: %{}
@@ -232,7 +232,6 @@ defmodule AllbertAssist.Sandbox.CommandSpec do
       else: {:error, deny(spec, :test_path_not_allowed)}
   end
 
-  defp validate_profile(%{profile: :ad_hoc} = spec), do: {:ok, spec}
   defp validate_profile(spec), do: {:error, deny(spec, :argv_profile_mismatch)}
 
   defp forbidden_mix?(argv) do
@@ -263,7 +262,7 @@ defmodule AllbertAssist.Sandbox.CommandSpec do
   defp default_cwd(%Bundle{} = bundle), do: bundle.project_path
   defp default_cwd(_bundle), do: "."
 
-  defp normalize_profile(nil), do: :ad_hoc
+  defp normalize_profile(nil), do: :invalid
   defp normalize_profile(profile) when is_atom(profile), do: profile
 
   defp normalize_profile(profile) when is_binary(profile) do

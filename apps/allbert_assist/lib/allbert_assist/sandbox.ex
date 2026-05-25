@@ -106,16 +106,20 @@ defmodule AllbertAssist.Sandbox do
   def cleanup(%Bundle{root: root}), do: cleanup(root)
 
   def cleanup(root) when is_binary(root) do
-    log_sandbox(:cleanup, %{root: root})
+    with {:ok, root} <- normalize_cleanup_root(root) do
+      log_sandbox(:cleanup, %{root: root})
 
-    case File.rm_rf(root) do
-      {:ok, _paths} -> :ok
-      {:error, reason, path} -> {:error, {reason, path}}
+      case File.rm_rf(root) do
+        {:ok, _paths} -> :ok
+        {:error, reason, path} -> {:error, {reason, path}}
+      end
     end
   end
 
-  defp normalize_command(%CommandSpec{} = spec, _bundle, _policy) do
-    if CommandSpec.allowed?(spec), do: {:ok, spec}, else: {:error, spec}
+  defp normalize_command(%CommandSpec{} = spec, bundle, policy) do
+    spec
+    |> Map.from_struct()
+    |> normalize_command(bundle, policy)
   end
 
   defp normalize_command(params, bundle, policy) when is_map(params) do
@@ -124,6 +128,34 @@ defmodule AllbertAssist.Sandbox do
 
   defp normalize_command(_params, bundle, policy) do
     CommandSpec.normalize(%{}, policy: policy, bundle: bundle)
+  end
+
+  defp normalize_cleanup_root(root) do
+    expanded = Path.expand(root)
+    bundles_root = Path.expand(Paths.sandbox_bundles_root())
+
+    cond do
+      expanded == bundles_root ->
+        {:error, :sandbox_bundle_root_required}
+
+      not inside_root?(expanded, bundles_root) ->
+        {:error, {:sandbox_bundle_root_outside_sandbox, expanded}}
+
+      not direct_directory?(expanded) ->
+        {:error, {:sandbox_bundle_root_invalid, expanded}}
+
+      not File.regular?(Path.join(expanded, "metadata.json")) ->
+        {:error, {:sandbox_bundle_metadata_missing, expanded}}
+
+      true ->
+        {:ok, expanded}
+    end
+  end
+
+  defp inside_root?(path, root), do: path == root or String.starts_with?(path, root <> "/")
+
+  defp direct_directory?(path) do
+    match?({:ok, %File.Stat{type: :directory}}, File.lstat(path))
   end
 
   defp ensure_enabled(%Policy{enabled?: true}, _bundle, _spec), do: :ok

@@ -40,9 +40,13 @@ Required fields:
 - `argv`: explicit list of binary args;
 - `cwd`: path inside the sandbox bundle;
 - `profile`: one of `:compile`, `:focused_tests`, `:credo`, `:dialyzer`,
-  `:security_evals`, `:precommit`, or `:ad_hoc`;
+  `:security_evals`, or `:precommit`;
 - `timeout_ms` and `output_bytes`, capped by Settings Central;
 - `env`, filtered to a bounded allow-list.
+
+The `AllbertAssist.Sandbox` facade revalidates map input and `%CommandSpec{}`
+input before backend execution. Caller-supplied struct fields such as
+`status: :allowed` are never authority.
 
 Reject before backend execution:
 
@@ -71,6 +75,11 @@ The bundle builder may copy only bounded allow-listed Elixir project files,
 draft files, and focused tests. It must exclude `.git`, the live Allbert Home,
 settings, secrets, databases, caches, Docker socket paths, host temp roots, and
 symlink/traversal escapes.
+
+Bundle ids and explicit bundle roots are confined under
+`<ALLBERT_HOME>/sandbox/bundles`. `cleanup/1` only removes marked bundle roots:
+the path must be a direct directory inside the sandbox bundle root and contain
+`metadata.json`.
 
 ## SourcePolicy
 
@@ -113,6 +122,10 @@ filesystem, dropped capabilities, `no-new-privileges`, bounded CPU/memory/PID
 limits, read-only project/draft/test mounts, writable bundle-local
 `sandbox_home` and `reports` mounts, and `ALLBERT_HOME` set to the container
 sandbox-home path. Docker+runsc is the same contract with `--runtime runsc`.
+The implemented Docker path runs as UID/GID `65532:65532`; the rootless Podman
+path uses `--userns=keep-id`. Both size the writable `/tmp` and `/run` tmpfs
+mounts. v0.36 caps copied input, tmpfs, process, output, and wall-clock usage;
+it does not claim a backend-wide disk quota for bind-mounted read-only inputs.
 
 Image preparation is a separate v0.36 setup path. `mix allbert.sandbox image
 build` may build the approved local Docker image, and `mix allbert.sandbox
@@ -147,7 +160,8 @@ Reports include:
 - report path.
 
 Reports must redact secrets, real-home absolute paths, and oversized output.
-Reports are evidence for later operator review, not authority.
+`Report.to_map/1` is the redacted representation used for action responses and
+persisted JSON. Reports are evidence for later operator review, not authority.
 Backend runners write report JSON into the bundle report root for completed,
 failed, denied, timed-out, and unavailable outcomes.
 

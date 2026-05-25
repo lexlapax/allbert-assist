@@ -523,6 +523,16 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.SandboxEvalTest"
     },
     %{
+      id: "sandbox-command-struct-revalidate-001",
+      milestone: :v036,
+      surface: :elixir_sandbox,
+      scenario: "caller forges an allowed CommandSpec struct with unsupported executable",
+      boundary: :sandbox_command_spec,
+      expected: :denied,
+      assert: [:denied, :struct_revalidated],
+      test_module: "AllbertAssist.Security.SandboxEvalTest"
+    },
+    %{
       id: "sandbox-network-deny-001",
       milestone: :v036,
       surface: :elixir_sandbox,
@@ -550,6 +560,16 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       boundary: :sandbox_bundle_mounts,
       expected: :denied,
       assert: [:denied, :disposable_home_only],
+      test_module: "AllbertAssist.Security.SandboxEvalTest"
+    },
+    %{
+      id: "sandbox-cleanup-root-confine-001",
+      milestone: :v036,
+      surface: :elixir_sandbox,
+      scenario: "sandbox cleanup is pointed at a non-bundle host path",
+      boundary: :sandbox_cleanup,
+      expected: :denied,
+      assert: [:denied, :cleanup_root_confined],
       test_module: "AllbertAssist.Security.SandboxEvalTest"
     },
     %{

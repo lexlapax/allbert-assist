@@ -75,9 +75,11 @@ defmodule AllbertAssist.Security.SandboxEvalTest do
              "sandbox-image-local-only-001",
              "sandbox-source-policy-001",
              "sandbox-command-shell-deny-001",
+             "sandbox-command-struct-revalidate-001",
              "sandbox-network-deny-001",
              "sandbox-secret-deny-001",
              "sandbox-home-isolation-001",
+             "sandbox-cleanup-root-confine-001",
              "sandbox-package-manager-deny-001",
              "sandbox-nif-port-deny-001",
              "sandbox-core-load-deny-001",
@@ -159,7 +161,7 @@ defmodule AllbertAssist.Security.SandboxEvalTest do
 
     assert {:error, shell} =
              CommandSpec.normalize(
-               %{executable: "mix", argv: ["test", "&&", "curl"], profile: :ad_hoc},
+               %{executable: "mix", argv: ["test", "&&", "curl"], profile: :focused_tests},
                policy: policy,
                bundle: bundle
              )
@@ -168,12 +170,47 @@ defmodule AllbertAssist.Security.SandboxEvalTest do
 
     assert {:error, deps} =
              CommandSpec.normalize(
-               %{executable: "mix", argv: ["deps.get"], profile: :ad_hoc},
+               %{executable: "mix", argv: ["deps.get"], profile: :compile},
                policy: policy,
                bundle: bundle
              )
 
     assert deps.denial_reason == :mix_command_not_allowed
+  end
+
+  test "sandbox-command-struct-revalidate-001 revalidates forged allowed structs" do
+    enable_sandbox!()
+    bundle = safe_bundle!("struct-revalidate")
+
+    forged = %CommandSpec{
+      executable: "curl",
+      argv: ["https://example.com"],
+      cwd: bundle.project_path,
+      profile: :compile,
+      timeout_ms: 120_000,
+      output_bytes: 65_536,
+      status: :allowed
+    }
+
+    assert {:ok, report} =
+             Sandbox.run_command(bundle, forged,
+               backends: [EvalDocker],
+               host: %Host{os: :linux, arch: :x86_64}
+             )
+
+    eval =
+      run_eval(%{
+        id: "sandbox-command-struct-revalidate-001",
+        expected: :denied,
+        eval_result: %{
+          decision: report.status,
+          result: report,
+          trace: %{side_effect_ran?: report.metadata[:side_effect_ran?]}
+        }
+      })
+
+    assert_denied(eval, no_side_effect?: true)
+    assert [%{reason: :executable_not_allowed}] = report.diagnostics
   end
 
   test "sandbox-secret-deny-001 blocks secret env passthrough" do
@@ -200,6 +237,29 @@ defmodule AllbertAssist.Security.SandboxEvalTest do
     refute Enum.any?(mount_args, &String.contains?(&1, "source=#{Paths.home()},"))
     assert Enum.any?(mount_args, &String.contains?(&1, "source=#{bundle.sandbox_home},"))
     assert bundle.sandbox_home != Paths.home()
+  end
+
+  test "sandbox-cleanup-root-confine-001 denies cleanup outside marked bundle roots" do
+    outside = temp_path("cleanup-outside")
+    File.mkdir_p!(outside)
+    File.write!(Path.join(outside, "keep.txt"), "keep")
+
+    result = Sandbox.cleanup(outside)
+
+    eval =
+      run_eval(%{
+        id: "sandbox-cleanup-root-confine-001",
+        expected: :denied,
+        eval_result: %{
+          decision: if(match?({:error, _}, result), do: :denied, else: :allowed),
+          result: result,
+          trace: %{side_effect_ran?: not File.exists?(Path.join(outside, "keep.txt"))}
+        }
+      })
+
+    assert_denied(eval, no_side_effect?: true)
+    assert {:error, {:sandbox_bundle_root_outside_sandbox, _path}} = result
+    assert File.exists?(Path.join(outside, "keep.txt"))
   end
 
   test "sandbox-nif-port-deny-001 and core-load-deny block native/core loading attempts" do
