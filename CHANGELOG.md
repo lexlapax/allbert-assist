@@ -10,6 +10,71 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.37.0 - Dynamic Code & Config Generation and Live Capability Integration
+
+Status: implemented as `0.37.0` on 2026-05-25 and ready for operator manual
+verification before tagging.
+
+Plan: `docs/plans/v0.37-plan.md`.
+Request flow: `docs/plans/v0.37-request-flow.md`.
+ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
+`docs/adr/0033-capability-gap-acquisition-and-trust-tiers.md`,
+`docs/adr/0035-codegen-agents-and-live-integration-loader.md`,
+`docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`.
+
+### Added (v0.37.0)
+
+- Default-off `dynamic_codegen.*` Settings Central policy, dynamic draft and
+  integrated roots under Allbert Home, and `AllbertAssist.DynamicPlugins` as
+  the public facade for file-backed dynamic draft metadata.
+- Draft metadata structs and store helpers for tiers, source hashes, manifests,
+  diagnostics, discard rules, read-only draft/integration inspection, and
+  `mix allbert.dynamic drafts|integrations` status commands.
+- Project-shaped staging and `AllbertAssist.DynamicPlugins.SandboxBridge` for
+  v0.36 sandbox compile/trial/gate evidence, scanned-vs-compiled byte
+  matching, report copy-back, and evidence tier transitions.
+- Trusted AST/body validator, dynamic actions overlay, live loader,
+  all-or-nothing integration unwind, boot reconciliation, rollback, emergency
+  disablement, and high-trust integration/rollback confirmation resumption.
+- Internal actions for draft requests, trial/gate runs, integration, rollback,
+  disablement, and read-only status. Runtime-facing calls still resolve through
+  `Actions.Registry` and execute through `Actions.Runner`.
+- `Codegen.*` scaffold for explicit capability-gap draft requests:
+  JidoBacked coordinator, producer-neutral gap vocabulary, provider-profile
+  resolution, provider-call/usage budget checks, fail-closed diagnostics, and
+  optional objective observation events.
+
+### Changed (v0.37.0)
+
+- Umbrella, core app, and web app version metadata are bumped to `0.37.0`
+  because v0.37 adds dynamic draft, sandbox bridge, live-loader, rollback, and
+  request-scaffold actions to the core runtime boundary.
+- The v0.37 shipped live loader integrates reviewed gate-passed read-only
+  action artifacts only. Generated apps, panels, settings fragments, memory
+  namespaces, objective wiring, route pages, and child processes remain rejected
+  live targets until future validators exist.
+- `Actions.Registry` now merges the dynamic action overlay across public
+  registry seams while denying static/plugin/app/dynamic name collisions.
+- Development, operator, runtime-boundary, agent-context, onboarding,
+  security-hardening, roadmap, and dynamic-draft docs now describe the
+  implemented v0.37 authority boundary and manual verification workflow.
+
+### Verification (v0.37.0)
+
+- M0-M4 were implemented, focused-tested, documented, and committed separately.
+- Focused settings/path/metadata/action/CLI/staging/sandbox bridge/loader/
+  confirmation/security/codegen suites passed during milestone work.
+- M4 final gate passed `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
+  `git diff --check`, and `mix precommit`.
+- M5 release closeout passed `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
+  `git diff --check`, and `mix precommit`.
+- No workspace or LiveView UI behavior changed in v0.37, so Chrome extension
+  browser verification was not required.
+- Manual verification should use a disposable Allbert Home and follow
+  `docs/plans/v0.37-request-flow.md#manual-release-verification`.
+
 ## v0.36.0 - Elixir/OTP Sandbox And Gate Runner
 
 Status: released and tagged as `v0.36.0` on 2026-05-25. Local sandbox image

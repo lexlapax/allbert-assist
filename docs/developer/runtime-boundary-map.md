@@ -54,9 +54,10 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 | M8 | `AllbertAssist.Settings.Fragment` | Implemented per-context/app/plugin settings schema fragment contract. |
 | M8 | `AllbertAssist.Settings.Fragments` | Implemented settings schema fragment registry and composition facade. |
 | v0.36 | `AllbertAssist.Sandbox` | Implemented report-only facade for doctor, bundle, command, gate, source-policy enforcement, audit, and cleanup. |
-| v0.37 | `AllbertAssist.DynamicPlugins` | Planned facade for file-backed dynamic drafts, gate evidence, trusted validation, loader integration, rollback, and read-only status. |
-| v0.37 | `AllbertAssist.DynamicPlugins.ActionsOverlay` | Planned runtime overlay merged by `Actions.Registry`; collision denial, no shadowing. |
-| v0.37 | `AllbertAssist.DynamicPlugins.TrustedValidator` | Planned trusted-phase AST/body validator before in-core compile. |
+| v0.37 | `AllbertAssist.DynamicPlugins` | Implemented facade for file-backed dynamic drafts, gate evidence, request scaffolding, trusted validation, loader integration, rollback, and read-only status. |
+| v0.37 | `AllbertAssist.DynamicPlugins.Codegen.Agent` | Implemented JidoBacked coordinator for explicit inert capability-gap draft requests. |
+| v0.37 | `AllbertAssist.DynamicPlugins.ActionsOverlay` | Implemented runtime overlay merged by `Actions.Registry`; collision denial, no shadowing. |
+| v0.37 | `AllbertAssist.DynamicPlugins.TrustedValidator` | Implemented trusted-phase AST/body validator before in-core compile. |
 
 ## Compatibility Shims And Exit Criteria
 
