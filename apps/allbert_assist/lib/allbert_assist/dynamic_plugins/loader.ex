@@ -256,7 +256,7 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
 
   defp ensure_dynamic_confirmation_resolution(record) do
     resolution = Map.get(record, "operator_resolution", %{}) || %{}
-    resolver_surface = normalize_dynamic_surface(Map.get(resolution, "resolver_surface"))
+    resolver_surface = dynamic_surface_from_resolution(resolution)
 
     cond do
       resolution == %{} ->
@@ -270,6 +270,14 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
 
       true ->
         :ok
+    end
+  end
+
+  defp dynamic_surface_from_resolution(resolution) when is_map(resolution) do
+    case normalize_dynamic_surface(Map.get(resolution, "resolver_channel")) do
+      "cli" -> "cli"
+      "liveview" -> "liveview"
+      _other -> normalize_dynamic_surface(Map.get(resolution, "resolver_surface"))
     end
   end
 
