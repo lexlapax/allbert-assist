@@ -21,6 +21,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.DynamicPlugins.DisableLiveLoader, as: DisableDynamicLiveLoader
   alias AllbertAssist.Actions.DynamicPlugins.IntegrateDraft, as: IntegrateDynamicDraft
   alias AllbertAssist.Actions.DynamicPlugins.ListDynamicDrafts
+  alias AllbertAssist.Actions.DynamicPlugins.RequestDraft, as: RequestDynamicDraft
   alias AllbertAssist.Actions.DynamicPlugins.RollbackIntegration, as: RollbackDynamicIntegration
   alias AllbertAssist.Actions.DynamicPlugins.RunDraftGate, as: RunDynamicDraftGate
   alias AllbertAssist.Actions.DynamicPlugins.RunDraftTrial, as: RunDynamicDraftTrial
@@ -185,6 +186,7 @@ defmodule AllbertAssist.Actions.Registry do
     RecordOfflineUpdate,
     DismissEphemeral,
     SetTheme,
+    RequestDynamicDraft,
     IntegrateDynamicDraft,
     RollbackDynamicIntegration,
     DisableDynamicLiveLoader,

@@ -15,7 +15,8 @@ pages, and children remain rejected live targets until later validators exist.
 
 Keep these states separate when reviewing a dynamic capability:
 
-- Advisory generation writes draft files and metadata. It grants no authority.
+- Advisory generation writes draft files and metadata. The shipped v0.37
+  request scaffold records inert draft metadata only. It grants no authority.
 - v0.36 sandbox trial and gate reports are evidence. They grant no authority.
 - `:gate_passed` means the draft is eligible for operator review only.
 - Security Central confirmation is the trust grant.
@@ -52,8 +53,31 @@ mix allbert.settings set dynamic_codegen.allowed_action_permissions '["read_only
 ```
 
 The workflow still fails closed if the provider profile cannot resolve, the
-provider is disabled, credentials are missing, the sandbox doctor is not green,
-or the live loader switch is false.
+provider is disabled, a required credential is missing, the sandbox doctor is
+not green, or the live loader switch is false.
+
+## Request A Draft
+
+The v0.37 advisory producer is a guarded scaffold. It creates producer-neutral
+draft metadata for an explicit operator or objective request and records
+provider/budget diagnostics, but it does not call a provider or write live
+source in the shipped implementation.
+
+```sh
+mix allbert.dynamic drafts request weather_summary "Create a read-only weather summary action"
+```
+
+Equivalent runtime entrypoint:
+
+```elixir
+AllbertAssist.Actions.Runner.run(
+  "request_dynamic_draft",
+  %{slug: "weather_summary", summary: "Create a read-only weather summary action"},
+  %{actor: "local", channel: :cli, surface: "cli"}
+)
+```
+
+Low-confidence intent or advisory output cannot call this path by itself.
 
 ## Evidence Review
 
