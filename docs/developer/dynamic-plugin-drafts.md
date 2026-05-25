@@ -30,6 +30,12 @@ Integrated artifacts are reviewed source snapshots:
   reports/
 ```
 
+Lifecycle audit records are append-only markdown:
+
+```text
+<ALLBERT_HOME>/dynamic_plugins/audit/YYYY-MM.md
+```
+
 `AllbertAssist.Plugin.Discovery` and ordinary app/plugin bootstrap must not scan
 either root. Registration authority belongs only to
 `AllbertAssist.DynamicPlugins.Loader`.
@@ -138,18 +144,21 @@ Generated modules must live under:
 AllbertAssist.DynamicPlugins.Generated.<Slug>
 ```
 
-The loader rejects:
+The shipped loader accepts reviewed read-only action modules only. It rejects:
 
 - core/static module replacement;
 - undeclared modules;
+- generated apps, panels, settings fragments, memory namespaces, objective
+  wiring, route pages, and child processes;
 - generated protocols;
 - router edits or route-page integration;
 - migrations and dependency changes;
 - NIFs, ports, package-manager hooks, and application env mutation.
 
-`manifest.yaml` must list every generated module, action, app, surface,
-settings fragment, and child. Manifest declarations and parsed `defmodule`
-forms reconcile in both directions.
+`manifest.yaml` must list every generated module and action. Manifest
+declarations and parsed `defmodule` forms reconcile in both directions. Future
+app, surface, settings-fragment, memory-namespace, objective-wiring, or child
+target shapes require their own trusted validators before they can become live.
 
 ## Staging And Sandbox Gate
 
@@ -204,14 +213,13 @@ ceiling.
 `AllbertAssist.DynamicPlugins.TrustedValidator` parses reviewed generated source
 without executing it and walks the AST with default-deny semantics.
 
-Allowed forms:
+Allowed forms in v0.37.1:
 
 - generated-namespace `defmodule`;
 - `def` and `defp`;
 - inert literal module attributes from a small allowlist;
 - `alias`, `require`, `import`, and `use` for reviewed allowlisted targets only;
-- `use AllbertAssist.Action`;
-- `use AllbertAssist.App`.
+- `use AllbertAssist.Action`.
 
 All macro options, action DSL options, schema entries, tags, attributes, and
 manifest values must be inert literals.
@@ -227,23 +235,25 @@ Denied forms include:
 - application env mutation, migrations, dependencies, package managers, NIFs,
   ports, and shell/process execution.
 
-The validator scans call targets in action `run/2`, helpers, app callbacks,
-surface data builders, and child callbacks. It allows local generated calls plus
-an explicit allowlist of side-effect-free Elixir helpers and approved Allbert
-facades. Direct calls to Settings writes, secrets, confirmations, Resource
-grants, Repo writes, sandbox actions, integration/rollback/disable actions,
-distributed Erlang, shell/process runners, package/skill execution, and trust
-control are denied.
+The shipped validator scans call targets in action `run/2` and helpers. Future
+app callbacks, surface data builders, and child callbacks must use the same
+rules before those target shapes can become live. It allows local generated
+calls plus an explicit allowlist of side-effect-free Elixir helpers and approved
+Allbert facades. Direct calls to Settings writes, secrets, confirmations,
+Resource grants, Repo writes, sandbox actions, integration/rollback/disable
+actions, distributed Erlang, shell/process runners, package/skill execution,
+and trust control are denied.
 
 ## Permission Ceiling
 
 Generated actions are `resumable?: false`.
 
-Allowed by default:
+Allowed in the shipped v0.37.1 live loader:
 
 - `:read_only`
 
-Potentially allowed only when both Settings Central and the validator agree:
+Deferred until both Settings Central and the validator add an explicit reviewed
+intersection:
 
 - `:external_network`
 - `:memory_write`
@@ -285,7 +295,8 @@ The loader must:
 7. compile reviewed source in core;
 8. register action overlay entries;
 9. mark the revision `integrated`;
-10. audit each step.
+10. audit each step under `<ALLBERT_HOME>/dynamic_plugins/audit/` and emit
+    dynamic codegen lifecycle signals.
 
 The attempt is all-or-nothing. If any step fails before stable integration, the
 loader unregisters action/modules from the attempt, removes unstable integration
@@ -334,6 +345,9 @@ current policy all still match.
 If `dynamic_codegen.live_loader_enabled=false`, reconciliation must not register
 dynamic authority. The registered `disable_dynamic_live_loader` action turns the
 switch off and clears the live action overlay without deleting source.
+
+Both reconcile keep/deny decisions and emergency disablement are audited in the
+dynamic plugin audit file.
 
 ## Rollback And Upgrade
 

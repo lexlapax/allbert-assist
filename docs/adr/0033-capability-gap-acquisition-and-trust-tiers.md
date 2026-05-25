@@ -2,10 +2,12 @@
 
 ## Status
 
-Proposed for v0.37 Dynamic Code & Config Generation and Live Capability
-Integration (`docs/plans/v0.37-plan.md`). Revised after the v0.36 second pass:
-v0.36 owns the sandbox evidence states; v0.37 owns capability-gap acquisition,
-dynamic draft trust tiers, gated integration, and rollback.
+Accepted for v0.37 Dynamic Code & Config Generation and Live Capability
+Integration (`docs/plans/v0.37-plan.md`) on 2026-05-25. Revised after the
+v0.36 second pass: v0.36 owns the sandbox evidence states; v0.37 owns
+capability-gap acquisition, dynamic draft trust tiers, gated integration, and
+rollback. The shipped v0.37.1 live target is reviewed read-only actions only;
+broader generated app/config targets remain future work.
 
 ## Context
 
@@ -62,11 +64,11 @@ v0.37 defines draft trust tiers:
 - `:discarded` - no longer active.
 
 Only `:integrated` grants live core-node loading and registration, and only via
-the ADR 0032 gate. Even at `:integrated`, generated authority is limited to the
-v0.37 generated-permission ceiling, validated runtime call targets, and normal
-registered action/app boundaries. No other tier grants action permissions, route
-authority, settings authority, skill enablement, child supervision, or core-node
-module loading. No tier is reached by advisory/agent output alone.
+the ADR 0032 gate. In v0.37.1, generated live authority is limited to reviewed
+read-only actions, validated runtime call targets, and the normal registered
+action boundary. No other tier grants action permissions, route authority,
+settings authority, skill enablement, child supervision, or core-node module
+loading. No tier is reached by advisory/agent output alone.
 
 Legal tier transitions are explicit:
 
