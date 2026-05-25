@@ -35,6 +35,15 @@ candidate diagnostics, or classifier output. Those signals may suggest that
 generation is available, but proactive auto-acquisition from ranking confidence
 is deferred.
 
+The lifecycle maps onto the `Objectives.Engine` seven-stage state machine rather
+than a private loop. The capability gap and acquisition options surface in the
+propose/evaluate stages; `GenerateDraft`/`RunDraftTrial`/`RunDraftGate` are
+advisory/evidence steps that grant no authority; and
+`IntegrateDraft`/`RollbackIntegration` are the authorize-then-execute steps gated
+by mandatory Security Central confirmation. Each transition is recorded as an
+`objective_event`, and `objective_id`/`step_id` remain correlation data, never
+authority.
+
 Draft lifecycle state is file-backed under
 `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/` with metadata, provenance,
 source hashes, diagnostics, and sandbox reports. It is not stored in Settings
