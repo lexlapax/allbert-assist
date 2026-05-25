@@ -14,8 +14,8 @@ Drafts are inert file-backed data under Allbert Home:
 <ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/
   metadata.yaml
   manifest.yaml
-  source/
-  tests/
+  source/lib/action.ex
+  source/test/action_test.exs
   reports/
   diagnostics/
 ```
@@ -53,18 +53,21 @@ schema_version: 1
 slug: weather_summary
 revision: rev_2026_05_25_001
 tier: draft
-producer: codegen_committee
+producer: codegen_llm
 provider_profile: local
 target_shapes: [action]
 source_hashes:
-  source/lib/allbert_assist/dynamic_plugins/generated/weather_summary/action.ex: sha256:...
+  source/lib/action.ex: sha256:...
+  source/test/action_test.exs: sha256:...
 compiled_paths:
-  - lib/allbert_assist/dynamic_plugins/generated/weather_summary/action.ex
+  - apps/allbert_assist/lib/allbert_assist/dynamic_plugins/generated/weather_summary/action.ex
+  - apps/allbert_assist/test/allbert_assist/dynamic_plugins/generated/weather_summary/action_test.exs
 scan_paths:
-  - source/lib/allbert_assist/dynamic_plugins/generated/weather_summary/action.ex
+  - source/lib/action.ex
+  - source/test/action_test.exs
 budget:
-  provider_calls_used: 0
-  provider_usage_units_used: 0
+  provider_calls_used: 1
+  provider_usage_units_used: 1234
 gate:
   status: not_run
   sandbox_report_id: null
@@ -105,7 +108,8 @@ The request vocabulary is normalized by
 - `confidence`
 - `provider_calls_requested` and `provider_usage_units_requested`
 
-The shipped v0.37 producer scaffold is deliberately inert. It requires:
+The shipped v0.37.2 producer is a deliberately bounded source generator. It
+requires:
 
 - `dynamic_codegen.enabled=true`
 - a resolvable `dynamic_codegen.provider_profile`
@@ -116,12 +120,13 @@ The shipped v0.37 producer scaffold is deliberately inert. It requires:
   `dynamic_codegen.max_provider_usage_units_per_gap`
 - an explicit operator/objective source
 
-It writes a `draft` tier metadata record with `producer: codegen_scaffold`,
-`gate.status: not_run`, no source hashes, no compiled paths, and a zero-used
-budget. It does not call advisory providers, trust model output, run a sandbox
-gate, or integrate live code. If an objective id is present, it records an
-`observed` objective event whose payload stage is
-`dynamic_codegen_draft_requested`.
+It writes a `draft` tier metadata record with `producer: codegen_llm`,
+`gate.status: not_run`, source/test hashes, compile-visible source/test paths,
+scan paths, diagnostics, repair history, and consumed provider budget. It calls
+the configured Jido.AI structured-generation provider to author one read-only
+action draft, but it does not trust model output, run a sandbox gate, or
+integrate live code. If an objective id is present, it records an `observed`
+objective event whose payload stage is `dynamic_codegen_draft_requested`.
 
 Operator-facing wrappers:
 
@@ -135,6 +140,46 @@ AllbertAssist.Actions.Runner.run("request_dynamic_draft", params, context)
 
 Low-confidence intent ranking and advisory/agent output may suggest a capability
 gap to an operator, but they cannot start generation through this entrypoint.
+
+## LLM Generation Contract
+
+`AllbertAssist.DynamicPlugins.Codegen.LLM` is the injectable provider boundary.
+Production calls `Jido.AI.generate_object/3` with a JSON schema requiring:
+
+- `description`
+- `source`
+- `test_source`
+
+Generated packets may also include `action_name`, `notes`, and `usage_units`.
+The production adapter records token usage from the Jido/ReqLLM response when
+available; deterministic tests inject a fake provider with the same
+`generate_action/4` callback.
+
+The producer records explicit role packets in `manifest.yaml` and
+`repair_history`:
+
+- `planner`
+- `author`
+- `trial_author`
+- `critic`
+- `repair`
+
+In v0.37.2 these roles are deterministic wrappers around the structured LLM
+call and local packet checks. They grant no authority and do not start a durable
+repair loop; they preserve the contract shape for later deeper committee
+behavior.
+
+Generated source must use placeholders rather than fixed names:
+
+- `{{MODULE}}`
+- `{{TEST_MODULE}}`
+- `{{ACTION_NAME}}`
+- `{{SLUG}}`
+
+`Codegen.Targets.Action` stamps those placeholders into the reserved generated
+namespace and records deterministic compile paths. The producer records
+`producer: codegen_llm`; older `codegen_scaffold` metadata remains historical
+only.
 
 ## Generated Namespace
 
@@ -192,7 +237,7 @@ files:
   - source_path: source/lib/action.ex
     compiled_path: apps/allbert_assist/lib/allbert_assist/dynamic_plugins/generated/weather_summary/action.ex
 tests:
-  - source_path: tests/action_test.exs
+  - source_path: source/test/action_test.exs
     compiled_path: apps/allbert_assist/test/allbert_assist/dynamic_plugins/generated/weather_summary/action_test.exs
 focused_test_paths:
   - apps/allbert_assist/test/allbert_assist/dynamic_plugins/generated/weather_summary/action_test.exs
@@ -213,13 +258,19 @@ ceiling.
 `AllbertAssist.DynamicPlugins.TrustedValidator` parses reviewed generated source
 without executing it and walks the AST with default-deny semantics.
 
-Allowed forms in v0.37.1:
+Allowed forms in v0.37.2:
 
 - generated-namespace `defmodule`;
 - `def` and `defp`;
 - inert literal module attributes from a small allowlist;
 - `alias`, `require`, `import`, and `use` for reviewed allowlisted targets only;
-- `use AllbertAssist.Action`.
+- `use AllbertAssist.Action`;
+- normal pure action logic, including arithmetic, comparisons, boolean
+  operators, string concatenation/interpolation, `case`/`cond`/`if`/`with`/`for`,
+  anonymous functions/captures whose bodies validate, and a curated per-function
+  allowlist from pure standard modules such as `Enum`, `String`, `Map`,
+  `Keyword`, `List`, `Integer`, `Float`, `Tuple`, `Date`, `Time`, and
+  `DateTime`.
 
 All macro options, action DSL options, schema entries, tags, attributes, and
 manifest values must be inert literals.
@@ -248,7 +299,7 @@ and trust control are denied.
 
 Generated actions are `resumable?: false`.
 
-Allowed in the shipped v0.37.1 live loader:
+Allowed in the shipped v0.37.2 live loader:
 
 - `:read_only`
 
