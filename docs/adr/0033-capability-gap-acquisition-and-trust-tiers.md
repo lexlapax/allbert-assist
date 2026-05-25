@@ -17,14 +17,23 @@ safely propose generation in response to a missing capability.
 
 Capability acquisition is objective-owned:
 
-- intent or action planning may report a missing capability;
-- the objective runtime records a capability gap;
+- intent or action planning may report a missing capability, but that report is
+  advisory;
+- the objective runtime records a capability gap only after an explicit
+  operator request to create/generate a missing capability or an explicit
+  objective step proposal that no existing registered action/app can satisfy;
 - acquisition options are advisory proposals, not authority;
 - generating a draft, compiling it in the v0.36 sandbox, and running a trial may
-  run proactively only while confined to the untrusted sandbox phase;
+  run only from that explicit operator/objective gap while confined to the
+  untrusted sandbox phase;
 - integrating a draft into the live core node, discarding it, or rolling it back
   are registered actions with Security Central decisions; integration and
   rollback require mandatory operator confirmation.
+
+v0.37 does not start generation solely from low intent confidence, rejected
+candidate diagnostics, or classifier output. Those signals may suggest that
+generation is available, but proactive auto-acquisition from ranking confidence
+is deferred.
 
 Draft lifecycle state is file-backed under
 `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/` with metadata, provenance,
@@ -52,7 +61,7 @@ Legal tier transitions are explicit:
 
 | From | To | Requirement |
 |---|---|---|
-| none | `:draft` | Objective-owned gap proposal plus enabled workflow and valid advisory provider profile |
+| none | `:draft` | Explicit operator/objective gap proposal plus enabled workflow and valid advisory provider profile |
 | `:draft` | `:sandbox_compiled` | v0.36 sandbox compile evidence over scanned, staged source |
 | `:sandbox_compiled` | `:sandbox_trialed` | v0.36 sandbox trial evidence over the same draft revision |
 | `:sandbox_trialed` | `:gate_passed` | v0.36 warning gate plus v0.37 static/integrity checks pass |
@@ -66,7 +75,9 @@ revision with a parent-revision pointer. It does not mutate the evidence for an
 older revision or move an old `:gate_passed` artifact backward in place. A
 rolled-back artifact cannot be re-integrated directly; restoring a capability
 requires a new or revalidated draft revision to pass the gate and receive a new
-operator confirmation. `:discarded` is terminal for that revision.
+operator confirmation. A same-name replacement revision cannot integrate while
+the older revision is still `:integrated`; v0.37 requires rollback first and
+defers atomic supersede. `:discarded` is terminal for that revision.
 
 ## Consequences
 
