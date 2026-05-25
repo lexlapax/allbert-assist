@@ -3,6 +3,7 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.DynamicPlugins
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
   alias AllbertAssist.DynamicPlugins.MetadataStore
@@ -75,7 +76,18 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
     assert {:ok, %{status: :needs_confirmation, confirmation_id: integration_id}} =
              Runner.run("integrate_dynamic_draft", %{slug: fixture.slug}, cli_context())
 
-    assert {:ok, %{status: :completed, confirmation: %{"status" => "denied"}}} =
+    assert {:ok,
+            %{
+              status: :completed,
+              confirmation: %{
+                "status" => "approved",
+                "operator_resolution" => %{
+                  "target_resumed?" => false,
+                  "target_status" => "denied",
+                  "target_result" => %{"status" => "denied"}
+                }
+              }
+            }} =
              Runner.run(
                "approve_confirmation",
                %{id: integration_id, reason: "unsafe call"},
@@ -106,6 +118,63 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
 
     action_name = fixture.action_name
     assert {:error, {:unknown_action, ^action_name}} = Registry.resolve(fixture.action_name)
+  end
+
+  test "direct integration resume cannot spoof approval context while confirmation is pending" do
+    enable_live_loader!()
+    fixture = write_gate_passed_action_draft("loader_spoof")
+
+    assert {:ok, %{status: :needs_confirmation, confirmation_id: integration_id}} =
+             Runner.run("integrate_dynamic_draft", %{slug: fixture.slug}, cli_context())
+
+    assert {:ok,
+            %{
+              status: :denied,
+              error: {:confirmation_not_approved_for_dynamic_resume, ^integration_id, "pending"}
+            }} =
+             Runner.run(
+               "integrate_dynamic_draft",
+               %{slug: fixture.slug},
+               Map.put(cli_context(), :confirmation, %{approved?: true, id: integration_id})
+             )
+
+    assert {:ok, %{"status" => "pending"}} = Confirmations.read(integration_id)
+
+    action_name = fixture.action_name
+    assert {:error, {:unknown_action, ^action_name}} = Registry.resolve(fixture.action_name)
+  end
+
+  test "direct rollback resume cannot spoof approval context while confirmation is pending" do
+    enable_live_loader!()
+    fixture = write_gate_passed_action_draft("loader_rollback_spoof")
+
+    assert {:ok, %{status: :needs_confirmation, confirmation_id: integration_id}} =
+             Runner.run("integrate_dynamic_draft", %{slug: fixture.slug}, cli_context())
+
+    assert {:ok, %{status: :completed}} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: integration_id, reason: "reviewed"},
+               cli_context()
+             )
+
+    assert {:ok, %{status: :needs_confirmation, confirmation_id: rollback_id}} =
+             Runner.run("rollback_dynamic_integration", %{slug: fixture.slug}, cli_context())
+
+    assert {:ok,
+            %{
+              status: :denied,
+              error: {:confirmation_not_approved_for_dynamic_resume, ^rollback_id, "pending"}
+            }} =
+             Runner.run(
+               "rollback_dynamic_integration",
+               %{slug: fixture.slug},
+               Map.put(cli_context(), :confirmation, %{approved?: true, id: rollback_id})
+             )
+
+    assert {:ok, %{"status" => "pending"}} = Confirmations.read(rollback_id)
+    assert {:ok, module} = Registry.resolve(fixture.action_name)
+    assert inspect(module) == fixture.module
   end
 
   defp enable_live_loader! do
