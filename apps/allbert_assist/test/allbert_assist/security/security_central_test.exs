@@ -79,6 +79,7 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert Risk.classify(:confirmation_decide).tier == :medium
     assert Risk.classify(:objective_write).tier == :low
     assert Risk.classify(:workspace_canvas_write).tier == :low
+    assert Risk.classify(:dynamic_integration).tier == :critical
     assert Risk.classify(:stocksage_write).tier == :low
     assert Risk.classify(:skill_script_execute).tier == :high
     assert Risk.classify(:external_network).tier == :high
@@ -101,6 +102,7 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert Policy.resolve(:confirmation_decide).effective == :allowed
     assert Policy.resolve(:objective_write).effective == :allowed
     assert Policy.resolve(:workspace_canvas_write).effective == :allowed
+    assert Policy.resolve(:dynamic_integration).effective == :needs_confirmation
     assert Policy.resolve(:stocksage_write).effective == :allowed
     assert Policy.resolve(:settings_secret_read).effective == :denied
     assert Policy.resolve(:unknown_permission).effective == :denied
@@ -113,6 +115,7 @@ defmodule AllbertAssist.SecurityCentralTest do
                  "memory_write" => "denied",
                  "command_execute" => "allowed",
                  "skill_script_execute" => "allowed",
+                 "dynamic_integration" => "denied",
                  "package_install" => "allowed",
                  "online_skill_import" => "allowed"
                }
@@ -134,6 +137,10 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert script_policy.configured_decision == :allowed
     assert script_policy.effective == :needs_confirmation
     assert script_policy.capped?
+
+    dynamic_policy = Policy.resolve(:dynamic_integration)
+    assert dynamic_policy.configured == "denied"
+    assert dynamic_policy.effective == :denied
 
     package_policy = Policy.resolve(:package_install)
     assert package_policy.configured == "allowed"

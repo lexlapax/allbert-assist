@@ -19,6 +19,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :objective_write,
              :workspace_canvas_write,
              :sandbox_trial,
+             :dynamic_integration,
              :stocksage_write,
              :stocksage_analyze,
              :stocksage_evidence_fetch,
@@ -43,6 +44,17 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     # weaken the decision.
     decision = PermissionGate.authorize(:stocksage_analyze, %{})
     assert decision.decision in [:needs_confirmation, :denied]
+  end
+
+  test "requires confirmation for dynamic integration hot-loading" do
+    decision = PermissionGate.authorize(:dynamic_integration, %{})
+
+    assert decision.permission == :dynamic_integration
+    assert decision.decision == :needs_confirmation
+    assert decision.requires_confirmation
+    assert decision.risk.tier == :critical
+    refute PermissionGate.allowed?(decision)
+    assert PermissionGate.response_status(decision) == :needs_confirmation
   end
 
   test "allows read-only, memory-write intent, command planning, sandbox trials, and local writes" do

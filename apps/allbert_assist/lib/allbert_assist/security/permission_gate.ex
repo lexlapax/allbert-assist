@@ -29,6 +29,7 @@ defmodule AllbertAssist.Security.PermissionGate do
           | :objective_write
           | :workspace_canvas_write
           | :sandbox_trial
+          | :dynamic_integration
           | :stocksage_write
           | :stocksage_analyze
           | :stocksage_evidence_fetch
