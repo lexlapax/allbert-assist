@@ -162,6 +162,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "record_workspace_offline_update",
              "dismiss_workspace_ephemeral",
              "set_workspace_theme",
+             "run_dynamic_draft_trial",
+             "run_dynamic_draft_gate",
              "list_dynamic_drafts",
              "show_dynamic_draft",
              "show_dynamic_integration"
@@ -252,6 +254,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "record_workspace_offline_update",
              "dismiss_workspace_ephemeral",
              "set_workspace_theme",
+             "run_dynamic_draft_trial",
+             "run_dynamic_draft_gate",
              "list_dynamic_drafts",
              "show_dynamic_draft",
              "show_dynamic_integration"
