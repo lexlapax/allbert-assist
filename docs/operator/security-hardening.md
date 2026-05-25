@@ -59,7 +59,8 @@ mix allbert.settings set permissions.sandbox_trial denied
   draft trials. It stays disabled by default, never pulls images during a run,
   uses `sandbox.elixir.network=none`, and must not mount the real Allbert Home.
   Prepare images only through the explicit `mix allbert.sandbox image build`
-  and `mix allbert.sandbox image verify` setup path.
+  and `mix allbert.sandbox image verify` setup path. Inspect bounded sandbox
+  audit entries under `<ALLBERT_HOME>/sandbox/audit` alongside report files.
 
 ## Channel Pairing
 

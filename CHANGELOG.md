@@ -30,7 +30,7 @@ ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
 - Copy-in/copy-out sandbox bundle builder with a disposable sandbox
   `ALLBERT_HOME`, bounded metadata, symlink/traversal denial, real-home
   exclusion, and report roots.
-- Strict `CommandSpec` validation for explicit `mix`, `elixir`, and `erl` argv
+- Strict `CommandSpec` validation for explicit reviewed `mix` gate argv
   commands, plus `SourcePolicy` checks for dangerous Elixir/OTP constructs.
 - Hardened Docker/Podman/runsc command builders that use approved local images,
   `--network none`, dropped capabilities, `no-new-privileges`, bounded
@@ -41,6 +41,8 @@ ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
   writing.
 - `mix allbert.sandbox image build` and `mix allbert.sandbox image verify` for
   preparing the default approved local image before sandbox gate execution.
+- Durable bounded sandbox lifecycle audit records under
+  `<ALLBERT_HOME>/sandbox/audit`.
 - v0.36 security eval rows for disabled/missing backends, backend resolver
   fail-closed behavior, no image pulls, source policy, shell denial, network
   denial, secret denial, home isolation, package-manager denial, NIF/port
@@ -63,6 +65,13 @@ ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
   facade, confines bundle ids, explicit bundle roots, and cleanup targets to
   marked sandbox bundle directories, returns redacted report maps from sandbox
   actions, and records Docker/Podman non-root/tmpfs backend argv expectations.
+- M9 post-audit correction makes the gate green path executable by preparing
+  dependency cache/source in the approved image, using writable
+  container-local Mix build/home paths at runtime, keeping runtime gate
+  executables to reviewed `mix` profiles, moving SourcePolicy to the sandbox
+  facade, passing one resolved policy snapshot into backends, avoiding atom
+  creation from backend setting strings, naming Docker/Podman containers for
+  timeout cleanup, and adding a Docker-gated compile integration smoke.
 
 ### Verification (v0.36.0)
 
@@ -78,6 +87,8 @@ ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
 - Post-audit hardening passed focused sandbox/security/action/image tests plus
   `mix format --check-formatted`, `mix compile --warnings-as-errors`,
   `mix credo --strict`, `mix dialyzer`, and `mix precommit`.
+- M9 corrective pass passed focused sandbox/image/security/action tests, the
+  Docker-gated compile smoke when available, and the final warning gate.
 - Disposable-home manual smoke confirmed `mix allbert.sandbox image verify`
   writes an image verification report, Docker `28.5.1` is reachable outside the
   restricted execution sandbox, and enabled doctor resolves `backend=auto` to

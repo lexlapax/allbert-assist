@@ -38,7 +38,7 @@ defmodule AllbertAssist.Actions.Sandbox.RunGate do
 
     with true <- PermissionGate.allowed?(permission_decision),
          {:ok, bundle} <- fetch_bundle(params),
-         {:ok, report} <- Sandbox.run_gate(bundle, gate_opts(params)) do
+         {:ok, report} <- Sandbox.run_gate(bundle, gate_opts(params, context)) do
       {:ok, completed(permission_decision, report)}
     else
       false ->
@@ -52,10 +52,17 @@ defmodule AllbertAssist.Actions.Sandbox.RunGate do
   defp fetch_bundle(%{bundle: %Bundle{} = bundle}), do: {:ok, bundle}
   defp fetch_bundle(_params), do: {:error, :bundle_required}
 
-  defp gate_opts(params) do
+  defp gate_opts(params, context) do
     params
     |> Map.take([:profiles, :focused_test_paths, :security_eval_paths])
+    |> Map.put(:operator_id, operator_id(context))
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+  end
+
+  defp operator_id(context) do
+    Map.get(context, :operator_id) || Map.get(context, "operator_id") ||
+      Map.get(context, :user_id) || Map.get(context, "user_id") ||
+      Map.get(context, :actor) || Map.get(context, "actor")
   end
 
   defp completed(permission_decision, %Report{} = report) do

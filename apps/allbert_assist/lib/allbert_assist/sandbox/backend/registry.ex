@@ -23,14 +23,17 @@ defmodule AllbertAssist.Sandbox.Backend.Registry do
   def ids, do: Enum.map(@backends, & &1.id())
 
   @spec module_for(atom() | String.t()) :: {:ok, module()} | {:error, {:unknown_backend, term()}}
-  def module_for(id) when is_binary(id), do: id |> String.to_atom() |> module_for()
+  def module_for(id) when is_binary(id) do
+    case Enum.find(@backends, &(Atom.to_string(&1.id()) == id)) do
+      nil -> {:error, {:unknown_backend, id}}
+      module -> {:ok, module}
+    end
+  end
 
   def module_for(id) when is_atom(id) do
     case Enum.find(@backends, &(&1.id() == id)) do
       nil -> {:error, {:unknown_backend, id}}
       module -> {:ok, module}
     end
-  rescue
-    ArgumentError -> {:error, {:unknown_backend, id}}
   end
 end

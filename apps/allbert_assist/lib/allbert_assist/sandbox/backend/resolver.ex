@@ -46,14 +46,10 @@ defmodule AllbertAssist.Sandbox.Backend.Resolver do
   end
 
   defp candidate_modules(backend, _host, backends) when is_binary(backend) do
-    id = String.to_atom(backend)
-
-    case Enum.find(backends, &(&1.id() == id)) do
-      nil -> [{:missing, id}]
+    case Enum.find(backends, &(Atom.to_string(&1.id()) == backend)) do
+      nil -> [{:missing, backend}]
       module -> [module]
     end
-  rescue
-    ArgumentError -> [{:missing, backend}]
   end
 
   defp evaluate_candidate({:missing, id}, _policy, _host) do

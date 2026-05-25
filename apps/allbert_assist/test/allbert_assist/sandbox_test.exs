@@ -3,6 +3,7 @@ defmodule AllbertAssist.SandboxTest do
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Sandbox
+  alias AllbertAssist.Sandbox.Audit
   alias AllbertAssist.Sandbox.Backend.Registry
   alias AllbertAssist.Sandbox.Backend.Resolver
   alias AllbertAssist.Sandbox.Backends.ContainerRunner
@@ -25,7 +26,7 @@ defmodule AllbertAssist.SandboxTest do
     def platforms, do: [:linux, :macos]
     def available?(_policy), do: true
     def doctor(_policy), do: %{id: id(), status: :available, reason: :doctor_green}
-    def run(_bundle, _command), do: {:error, :not_used}
+    def run(_bundle, _command, _policy), do: {:error, :not_used}
     def cleanup(_bundle), do: :ok
   end
 
@@ -36,7 +37,7 @@ defmodule AllbertAssist.SandboxTest do
     def platforms, do: [:linux, :macos]
     def available?(_policy), do: true
     def doctor(_policy), do: %{id: id(), status: :available, reason: :doctor_green}
-    def run(_bundle, _command), do: {:error, :not_used}
+    def run(_bundle, _command, _policy), do: {:error, :not_used}
     def cleanup(_bundle), do: :ok
   end
 
@@ -47,7 +48,7 @@ defmodule AllbertAssist.SandboxTest do
     def platforms, do: [:linux]
     def available?(_policy), do: false
     def doctor(_policy), do: %{id: id(), status: :unavailable, reason: :podman_missing}
-    def run(_bundle, _command), do: {:error, :not_used}
+    def run(_bundle, _command, _policy), do: {:error, :not_used}
     def cleanup(_bundle), do: :ok
   end
 
@@ -58,7 +59,7 @@ defmodule AllbertAssist.SandboxTest do
     def platforms, do: [:linux]
     def available?(_policy), do: true
     def doctor(_policy), do: %{id: id(), status: :available, reason: :doctor_green}
-    def run(_bundle, _command), do: {:error, :not_used}
+    def run(_bundle, _command, _policy), do: {:error, :not_used}
     def cleanup(_bundle), do: :ok
   end
 
@@ -69,7 +70,7 @@ defmodule AllbertAssist.SandboxTest do
     def platforms, do: [:macos]
     def available?(_policy), do: true
     def doctor(_policy), do: %{id: id(), status: :available, reason: :doctor_green}
-    def run(_bundle, _command), do: {:error, :not_used}
+    def run(_bundle, _command, _policy), do: {:error, :not_used}
     def cleanup(_bundle), do: :ok
   end
 
@@ -80,7 +81,7 @@ defmodule AllbertAssist.SandboxTest do
     def platforms, do: [:linux]
     def available?(_policy), do: raise("should not run")
     def doctor(_policy), do: raise("should not run")
-    def run(_bundle, _command), do: {:error, :not_used}
+    def run(_bundle, _command, _policy), do: {:error, :not_used}
     def cleanup(_bundle), do: :ok
   end
 
@@ -96,7 +97,7 @@ defmodule AllbertAssist.SandboxTest do
     def available?(_policy), do: true
     def doctor(_policy), do: %{id: id(), status: :available, reason: :doctor_green}
 
-    def run(bundle, command) do
+    def run(bundle, command, _policy) do
       ReportWriter.write(bundle, %Report{
         status: :completed,
         backend: id(),
@@ -120,13 +121,41 @@ defmodule AllbertAssist.SandboxTest do
     def available?(_policy), do: true
     def doctor(_policy), do: %{id: id(), status: :available, reason: :doctor_green}
 
-    def run(bundle, command) do
+    def run(bundle, command, _policy) do
       ReportWriter.write(bundle, %Report{
         status: :failed,
         backend: id(),
         command: CommandSpec.summary(command),
         exit_status: 1,
         diagnostics: [%{reason: :fixture_failure}]
+      })
+    end
+
+    def cleanup(_bundle), do: :ok
+  end
+
+  defmodule PolicyCapturingDocker do
+    @behaviour AllbertAssist.Sandbox.Backend
+
+    alias AllbertAssist.Sandbox.CommandSpec
+    alias AllbertAssist.Sandbox.Report
+    alias AllbertAssist.Sandbox.ReportWriter
+
+    def id, do: :docker
+    def platforms, do: [:linux, :macos]
+    def available?(_policy), do: true
+    def doctor(_policy), do: %{id: id(), status: :available, reason: :doctor_green}
+
+    def run(bundle, command, policy) do
+      ReportWriter.write(bundle, %Report{
+        status: :completed,
+        backend: id(),
+        command: CommandSpec.summary(command),
+        metadata: %{
+          image: policy.image,
+          cpu_limit: policy.cpu_limit,
+          memory_mb: policy.memory_mb
+        }
       })
     end
 
@@ -154,6 +183,10 @@ defmodule AllbertAssist.SandboxTest do
     assert Registry.ids() == [:apple_container, :podman_rootless, :docker_runsc, :docker]
     assert {:ok, AllbertAssist.Sandbox.Backends.Docker} = Registry.module_for(:docker)
     assert {:ok, AllbertAssist.Sandbox.Backends.DockerRunsc} = Registry.module_for("docker_runsc")
+
+    assert {:error, {:unknown_backend, "unknown_backend"}} =
+             Registry.module_for("unknown_backend")
+
     assert {:error, {:unknown_backend, :firecracker}} = Registry.module_for(:firecracker)
   end
 
@@ -220,7 +253,7 @@ defmodule AllbertAssist.SandboxTest do
 
     assert result.resolved_backend == nil
 
-    assert [%{id: :firecracker, status: :unavailable, reason: :unknown_backend}] =
+    assert [%{id: "firecracker", status: :unavailable, reason: :unknown_backend}] =
              result.candidates
 
     assert [%{reason: :no_available_backend}] = result.diagnostics
@@ -386,6 +419,15 @@ defmodule AllbertAssist.SandboxTest do
 
     assert denied_deps.denial_reason == :mix_command_not_allowed
 
+    assert {:error, denied_elixir} =
+             CommandSpec.normalize(
+               %{executable: "elixir", argv: ["--version"], profile: :compile},
+               policy: policy,
+               bundle: bundle
+             )
+
+    assert denied_elixir.denial_reason == :executable_not_allowed
+
     assert {:error, denied_env} =
              CommandSpec.normalize(
                %{
@@ -501,6 +543,7 @@ defmodule AllbertAssist.SandboxTest do
     argv = Docker.argv(bundle, spec, policy)
 
     assert Enum.take(argv, 2) == ["run", "--rm"]
+    assert ["--name", "allbert-sandbox-" <> _] = argv_pair(argv, "--name")
     assert ["--pull", "never"] = argv_pair(argv, "--pull")
     assert ["--network", "none"] = argv_pair(argv, "--network")
     assert "--read-only" in argv
@@ -521,6 +564,12 @@ defmodule AllbertAssist.SandboxTest do
     refute mount_arg(argv, bundle.reports_path) =~ "readonly"
 
     assert ["--env", "ALLBERT_HOME=/workspace/allbert_home"] = argv_pair(argv, "--env")
+    assert env_arg(argv, "HOME") == "HOME=/workspace/allbert_home"
+    assert env_arg(argv, "MIX_BUILD_PATH") == "MIX_BUILD_PATH=/workspace/allbert_home/_build"
+    assert env_arg(argv, "MIX_DEPS_PATH") == "MIX_DEPS_PATH=/opt/allbert/deps"
+    assert env_arg(argv, "MIX_HOME") == "MIX_HOME=/workspace/allbert_home/mix"
+    assert env_arg(argv, "HEX_HOME") == "HEX_HOME=/workspace/allbert_home/hex"
+    assert env_arg(argv, "REBAR_CACHE_DIR") == "REBAR_CACHE_DIR=/workspace/allbert_home/rebar"
     assert Enum.slice(argv, -4, 4) == ["fixture:local", "mix", "compile", "--warnings-as-errors"]
     refute Enum.any?(argv, &String.contains?(&1, "docker.sock"))
     refute Enum.any?(argv, &(&1 in ["-i", "-t", "-it"]))
@@ -548,6 +597,7 @@ defmodule AllbertAssist.SandboxTest do
     argv = PodmanRootless.argv(bundle, spec, policy)
 
     assert "--pull=never" in argv
+    assert ["--name", "allbert-sandbox-" <> _] = argv_pair(argv, "--name")
     assert ["--network", "none"] = argv_pair(argv, "--network")
     assert "--read-only" in argv
     assert ["--cap-drop", "ALL"] = argv_pair(argv, "--cap-drop")
@@ -603,7 +653,9 @@ defmodule AllbertAssist.SandboxTest do
     assert inspect(persisted) =~ "<ALLBERT_HOME>"
   end
 
-  test "container runner writes denied reports before invoking backend execution" do
+  test "run_command applies source policy before backend execution" do
+    enable_sandbox!()
+
     project = fixture_project("container-runner-denied")
     malicious = Path.join([project, "drafts", "generated.ex"])
     File.write!(malicious, "defmodule Generated, do: def run, do: System.cmd(\"sh\", [])\n")
@@ -619,7 +671,11 @@ defmodule AllbertAssist.SandboxTest do
     spec = compile_spec!(bundle, policy)
 
     assert {:ok, report} =
-             ContainerRunner.run(:docker, "/definitely/missing", ["should-not-run"], bundle, spec)
+             Sandbox.run_command(bundle, spec,
+               policy: policy,
+               backends: [ExplodingBackend],
+               host: %Host{os: :linux, arch: :x86_64}
+             )
 
     assert report.status == :denied
     assert report.exit_status == nil
@@ -657,6 +713,42 @@ defmodule AllbertAssist.SandboxTest do
     assert File.exists?(report.report_path)
   end
 
+  test "run_command passes the resolved policy to the backend" do
+    enable_sandbox!()
+
+    project = fixture_project("run-policy")
+    {:ok, bundle} = Sandbox.build_bundle(%{project_root: project, project_paths: ["mix.exs"]})
+
+    command_policy =
+      policy("docker", %Host{os: :linux, arch: :x86_64})
+      |> Map.merge(%{image: "policy-specific:local", cpu_limit: 0.5, memory_mb: 256})
+
+    assert {:ok, report} =
+             Sandbox.run_command(bundle, compile_params(),
+               policy: command_policy,
+               backends: [PolicyCapturingDocker],
+               host: %Host{os: :linux, arch: :x86_64}
+             )
+
+    assert report.status == :completed
+    assert report.metadata.image == "policy-specific:local"
+    assert report.metadata.cpu_limit == 0.5
+    assert report.metadata.memory_mb == 256
+  end
+
+  test "sandbox facade writes durable audit records" do
+    report = Sandbox.doctor(operator_id: "operator-audit")
+
+    assert report.status == :disabled
+
+    audit_path = Audit.audit_path()
+    assert File.exists?(audit_path)
+
+    audit = File.read!(audit_path)
+    assert audit =~ "doctor"
+    assert audit =~ "operator-audit"
+  end
+
   test "run_gate aggregates reviewed profiles and halts on first failing report" do
     enable_sandbox!()
 
@@ -684,6 +776,58 @@ defmodule AllbertAssist.SandboxTest do
     assert failed.status == :failed
     assert failed.metadata.step_count == 1
     assert [%{reason: :fixture_failure}] = failed.diagnostics
+  end
+
+  if System.get_env("ALLBERT_DOCKER_SANDBOX_TEST") == "1" do
+    @tag :docker_sandbox
+    @tag timeout: 360_000
+    test "docker sandbox compiles a trivial fixture green" do
+      docker = System.find_executable("docker") || flunk("docker executable is required")
+      project = fixture_project("docker-green")
+      image = "allbert-sandbox-fixture:#{System.unique_integer([:positive])}"
+      base_image = System.get_env("ALLBERT_DOCKER_BASE_IMAGE") || "allbert-elixir-otp:local"
+
+      on_exit(fn ->
+        System.cmd(docker, ["rmi", "-f", image], stderr_to_stdout: true)
+      end)
+
+      policy = %{
+        policy("docker", %Host{os: :linux, arch: :x86_64})
+        | image: image,
+          timeout_ms: 300_000
+      }
+
+      # credo:disable-for-lines:3 Credo.Check.Design.AliasUsage
+      assert {:ok, _image_report} =
+               AllbertAssist.Sandbox.Image.build(
+                 policy: policy,
+                 docker: docker,
+                 image: image,
+                 base_image: base_image,
+                 project_root: project,
+                 pull_base?: System.get_env("ALLBERT_DOCKER_PULL_BASE") == "1"
+               )
+
+      {:ok, bundle} =
+        Sandbox.build_bundle(%{project_root: project, project_paths: ["mix.exs", "lib"]})
+
+      assert {:ok, report} =
+               Sandbox.run_gate(bundle,
+                 profiles: [:compile],
+                 policy: policy,
+                 backends: [Docker],
+                 host: %Host{os: :linux, arch: :x86_64}
+               )
+
+      assert report.status == :completed, inspect(Report.to_map(report), pretty: true)
+      assert report.metadata.step_count == 1
+    end
+  else
+    @tag :docker_sandbox
+    @tag skip: "set ALLBERT_DOCKER_SANDBOX_TEST=1 to run the local Docker sandbox smoke"
+    test "docker sandbox compiles a trivial fixture green" do
+      :ok
+    end
   end
 
   defp policy(backend, host) do
@@ -740,6 +884,18 @@ defmodule AllbertAssist.SandboxTest do
     end)
   end
 
+  defp env_arg(argv, key) do
+    argv
+    |> Enum.chunk_every(2, 1, :discard)
+    |> Enum.find_value(fn
+      ["--env", env] ->
+        if String.starts_with?(env, key <> "="), do: env
+
+      _chunk ->
+        nil
+    end)
+  end
+
   defp fixture_project(name) do
     root = temp_path("project-#{name}")
     File.rm_rf!(root)
@@ -751,12 +907,15 @@ defmodule AllbertAssist.SandboxTest do
     File.write!(Path.join(root, "mix.exs"), """
     defmodule Fixture.MixProject do
       use Mix.Project
-      def project, do: [app: :fixture, version: "0.1.0", elixir: "~> 1.19"]
+      def project, do: [app: :fixture, version: "0.1.0", elixir: ">= 1.15.0"]
       def application, do: []
     end
     """)
 
-    File.write!(Path.join([root, "lib", "safe.ex"]), "defmodule Safe, do: def ok, do: :ok\n")
+    File.write!(
+      Path.join([root, "lib", "safe.ex"]),
+      "defmodule Safe do\n  def ok, do: :ok\nend\n"
+    )
 
     File.write!(
       Path.join([root, "drafts", "generated.ex"]),

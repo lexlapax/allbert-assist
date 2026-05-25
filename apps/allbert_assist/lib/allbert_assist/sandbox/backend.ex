@@ -12,6 +12,6 @@ defmodule AllbertAssist.Sandbox.Backend do
   @callback platforms() :: [atom()]
   @callback available?(Policy.t()) :: boolean()
   @callback doctor(Policy.t()) :: map()
-  @callback run(term(), term()) :: {:ok, term()} | {:error, term()}
+  @callback run(term(), term(), Policy.t()) :: {:ok, term()} | {:error, term()}
   @callback cleanup(term()) :: :ok | {:error, term()}
 end

@@ -40,8 +40,7 @@ defmodule AllbertAssist.Sandbox.Backends.Docker do
   end
 
   @impl true
-  def run(bundle, command_spec) do
-    policy = Policy.load!()
+  def run(bundle, command_spec, policy) do
     argv = argv(bundle, command_spec, policy)
     docker = System.find_executable("docker") || "docker"
 

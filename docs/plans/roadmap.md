@@ -182,12 +182,13 @@ Dependency order from here:
 34. v0.35 User theming and layout overrides from Allbert Home after the workspace
     panel/zone contract and app-intent descriptor path are proven.
 35. v0.36 Elixir/OTP sandbox and gate runner: a default-off, OS-aware sandbox
-    (pluggable backend registry + `"auto"` resolver — optional doctor-gated
-    Apple `container`, rootless Podman, Docker+runsc/gVisor preferred over
-    plain Docker, Docker fallback) for generated Elixir/OTP drafts and explicit
-    gate commands, with approved local images only, source-policy checks,
-    copy-in/copy-out bundles, no network/secrets/real-home access, bounded
-    reports, and no live loading.
+    (static reviewed backend registry + `"auto"` resolver — optional
+    doctor-gated Apple `container`, rootless Podman, Docker+runsc/gVisor
+    preferred over plain Docker, Docker fallback) for generated Elixir/OTP
+    drafts and explicit reviewed `mix` gate commands, with approved local
+    images only, facade-level source-policy checks, copy-in/copy-out bundles,
+    no network/secrets/real-home access, bounded reports/audit, and no live
+    loading.
 36. v0.37 Dynamic code & config generation and live capability integration:
     LLM agents generate to proven shapes, trial through the v0.36 sandbox, and
     — after the warning gate plus operator confirmation — hot-load into the live
@@ -1909,20 +1910,22 @@ Implemented:
   so the default approved local image is not an undocumented prerequisite.
 - Build copy-in/copy-out sandbox bundles with a disposable Allbert Home.
 - Require approved local images; sandbox runs never pull from registries.
-- Add static `SourcePolicy` checks for dangerous Elixir constructs before
-  backend execution.
-- Run only structured `mix` / `elixir` / `erl` argv commands for compile, test,
-  Credo, Dialyzer, and security-eval gate profiles.
-- Register backends through a common behaviour/registry with an OS-aware
-  `"auto"` resolver; implement Docker and Podman-rootless as baseline, prefer
-  Docker `runsc` / gVisor over plain Docker when installed, and include Apple
-  `container` as an optional doctor-gated backend that is not release-blocking.
+- Add static `SourcePolicy` checks for dangerous Elixir constructs in the
+  sandbox facade before backend resolution/execution.
+- Run only structured reviewed `mix` argv commands for compile, test, Credo,
+  Dialyzer, and security-eval gate profiles; `elixir --version` is limited to
+  the image-verification setup task.
+- Register backends through a static reviewed behaviour/registry with an
+  OS-aware `"auto"` resolver; implement Docker and Podman-rootless as
+  baseline, prefer Docker `runsc` / gVisor over plain Docker when installed,
+  and include Apple `container` as an optional doctor-gated backend that is not
+  release-blocking.
 - Deny network, secrets, real Allbert Home, package managers, migrations, NIFs,
   ports, arbitrary shell strings, shell chaining, host Docker socket, and
   untrusted core-node module loading.
 - Return bounded redacted reports. A sandbox pass grants no authority.
-- Emit signals and bounded/redacted trace/audit records for backend resolution,
-  run, gate, denial, and cleanup through the signal-driven runtime.
+- Emit signals and bounded/redacted sandbox audit records for backend
+  resolution, run, gate, denial, and cleanup through the signal-driven runtime.
 - Ship operator/developer docs for the new boundary:
   `docs/operator/sandbox-gate-runner.md`,
   `docs/developer/sandbox-gate-runner.md`, security-hardening/onboarding
