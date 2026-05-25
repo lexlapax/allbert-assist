@@ -12,6 +12,7 @@ defmodule AllbertAssist.DynamicPlugins.Supervisor do
   @impl true
   def init(opts) do
     children = [
+      {AllbertAssist.DynamicPlugins.Codegen.Agent, Keyword.get(opts, :codegen, [])},
       {AllbertAssist.DynamicPlugins.ActionsOverlay, Keyword.get(opts, :actions_overlay, [])},
       {AllbertAssist.DynamicPlugins.Reconciler, Keyword.get(opts, :reconciler, [])}
     ]

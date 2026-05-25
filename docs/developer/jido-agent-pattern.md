@@ -22,6 +22,13 @@ v0.23 converted:
 
 Both are supervised by `AllbertAssist.JidoBacked.Supervisor`.
 
+v0.37 adds `AllbertAssist.DynamicPlugins.Codegen.Agent` as a subsystem-owned
+JidoBacked coordinator under `AllbertAssist.DynamicPlugins.Supervisor`. Its
+durable truth is still file-backed draft metadata plus objective events; the
+agent stores only bounded request diagnostics. This is the preferred placement
+when a JidoBacked coordinator belongs wholly to a subsystem supervisor rather
+than the shared core `JidoBacked.Supervisor`.
+
 ## File Map
 
 - `apps/allbert_assist/lib/allbert_assist/jido_backed.ex`
@@ -34,6 +41,9 @@ Both are supervised by `AllbertAssist.JidoBacked.Supervisor`.
 - `apps/allbert_assist/lib/allbert_assist/jobs/scheduler/agent.ex`
 - `apps/allbert_assist/lib/allbert_assist/jobs/scheduler/commands.ex`
 - `apps/allbert_assist/lib/allbert_assist/jobs/scheduler/executor.ex`
+- `apps/allbert_assist/lib/allbert_assist/dynamic_plugins/codegen/agent.ex`
+- `apps/allbert_assist/lib/allbert_assist/dynamic_plugins/codegen/commands.ex`
+- `apps/allbert_assist/lib/allbert_assist/dynamic_plugins/codegen/producer.ex`
 
 ## Shape
 
@@ -118,6 +128,12 @@ coordinators. It is not a plugin contribution point in v0.23.
 Later core milestones can append JidoBacked children with the supervisor's
 `:extra_children` option without replacing the v0.23 confirmation and
 scheduler agents. Use the full `:children` override only in focused tests.
+
+Subsystem-owned JidoBacked coordinators may live under that subsystem's
+supervisor when their lifecycle is inseparable from subsystem state. v0.37 uses
+this for dynamic codegen because the coordinator depends on
+`AllbertAssist.DynamicPlugins.Supervisor` and its file-backed draft roots, not
+on a shared core scheduling or confirmation lifecycle.
 
 The scheduler is started only through `JidoBacked.Supervisor`; do not also
 start `AllbertAssist.Jobs.Scheduler` as a separate application child. The

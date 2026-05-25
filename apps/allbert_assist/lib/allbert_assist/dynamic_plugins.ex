@@ -4,11 +4,12 @@ defmodule AllbertAssist.DynamicPlugins do
 
   Dynamic drafts are file-backed Allbert Home data. Sandbox trial and gate
   evidence flows through the v0.36 sandbox facade and still grants no live
-  authority; trusted validation, live loading, and rollback arrive in later
-  v0.37 milestones and must continue to use this facade instead of ordinary
-  plugin discovery.
+  authority. Trusted validation, live loading, rollback, and codegen draft
+  requests must continue to use this facade instead of ordinary plugin
+  discovery.
   """
 
+  alias AllbertAssist.DynamicPlugins.Codegen
   alias AllbertAssist.DynamicPlugins.Draft
   alias AllbertAssist.DynamicPlugins.Loader
   alias AllbertAssist.DynamicPlugins.MetadataStore
@@ -73,6 +74,10 @@ defmodule AllbertAssist.DynamicPlugins do
       MetadataStore.verify_source_hashes(draft)
     end
   end
+
+  @doc "Request inert draft metadata for an explicit capability gap."
+  @spec request_draft(map(), map(), keyword()) :: {:ok, map()} | {:error, term()}
+  defdelegate request_draft(attrs, context \\ %{}, opts \\ []), to: Codegen.Agent
 
   @doc "Build a disposable staged project for one draft."
   @spec stage_draft(String.t(), keyword()) :: {:ok, Staging.t()} | {:error, term()}
