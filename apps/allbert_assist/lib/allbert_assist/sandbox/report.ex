@@ -6,6 +6,9 @@ defmodule AllbertAssist.Sandbox.Report do
   command, and gate runner execution.
   """
 
+  alias AllbertAssist.Paths
+  alias AllbertAssist.Runtime.Redactor
+
   defstruct status: :not_started,
             backend: nil,
             command: nil,
@@ -34,8 +37,18 @@ defmodule AllbertAssist.Sandbox.Report do
           metadata: map()
         }
 
+  @doc "Return the report as a redacted map safe for action responses and persisted reports."
   @spec to_map(t()) :: map()
   def to_map(%__MODULE__{} = report) do
+    report
+    |> raw_map()
+    |> redact_paths()
+    |> Redactor.redact(:sandbox_trial)
+  end
+
+  @doc "Return the internal report shape without redaction."
+  @spec raw_map(t()) :: map()
+  def raw_map(%__MODULE__{} = report) do
     %{
       status: report.status,
       backend: report.backend,
@@ -51,4 +64,18 @@ defmodule AllbertAssist.Sandbox.Report do
       metadata: report.metadata
     }
   end
+
+  defp redact_paths(value) when is_map(value) do
+    value
+    |> Enum.map(fn {key, val} -> {key, redact_paths(val)} end)
+    |> Map.new()
+  end
+
+  defp redact_paths(value) when is_list(value), do: Enum.map(value, &redact_paths/1)
+
+  defp redact_paths(value) when is_binary(value) do
+    String.replace(value, Paths.home(), "<ALLBERT_HOME>")
+  end
+
+  defp redact_paths(value), do: value
 end

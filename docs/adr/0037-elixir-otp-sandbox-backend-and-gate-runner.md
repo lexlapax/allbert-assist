@@ -62,7 +62,9 @@ v0.36 adds a narrow, default-off OS sandbox runner for Elixir/OTP gate work.
 The allowed command surface is a structured executable plus argv for `mix`,
 `elixir`, and `erl` gate profiles. There is no shell-string command execution,
 no `sh -c`, no chaining, no redirection, no glob expansion, no PTY, no daemon
-control, and no broad shell automation.
+control, and no broad shell automation. The sandbox facade revalidates
+`%CommandSpec{}` structs before execution; caller-controlled status fields are
+never authority.
 
 ### 2. Backend contract is pluggable and inspectable
 
@@ -84,9 +86,13 @@ v0.36 ships these backends:
 Every backend must enforce the same Allbert policy: no network by default, no
 host Docker socket, no privileged mode, no host PID/user/network namespace, no
 real Allbert Home mount, no secrets, dropped capabilities, resource limits,
-output limits, cleanup, and typed audit metadata. A backend whose host cannot
-enforce that policy reports unavailable through `doctor/1` and is never
-selected.
+output limits, cleanup, and typed audit metadata. The implemented Docker path
+runs as UID/GID `65532:65532`; the rootless Podman path uses
+`--userns=keep-id`; Docker-family writable `/tmp` and `/run` mounts are sized
+tmpfs mounts. v0.36 bounds copied input, tmpfs, process, output, and wall-clock
+usage; it does not claim a backend-wide disk quota for read-only bind-mounted
+inputs. A backend whose host cannot enforce the policy reports unavailable
+through `doctor/1` and is never selected.
 
 ### 3. Backend selection is OS-aware and fails closed
 
@@ -113,6 +119,10 @@ The sandbox receives a disposable bundle containing only allow-listed project,
 draft, and test inputs plus a disposable `ALLBERT_HOME`. Reports are copied out
 as bounded structured data. The sandbox never receives the operator's real
 settings, secrets, database, memory files, caches, or arbitrary host paths.
+Bundle ids and explicit bundle roots are confined under
+`<ALLBERT_HOME>/sandbox/bundles`. Cleanup only removes direct marked bundle
+directories containing `metadata.json`; arbitrary host paths and unmarked
+directories fail closed.
 
 ### 5. Image and source policy are mandatory
 

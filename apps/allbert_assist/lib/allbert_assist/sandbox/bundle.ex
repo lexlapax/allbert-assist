@@ -14,6 +14,7 @@ defmodule AllbertAssist.Sandbox.Bundle do
   @blocked_segments ~w[.git _build deps node_modules priv/static assets vendor .elixir_ls]
   @max_file_bytes 512 * 1024
   @max_total_bytes 64 * 1024 * 1024
+  @id_pattern ~r/\A[A-Za-z0-9][A-Za-z0-9._-]{0,119}\z/
 
   @enforce_keys [
     :id,
@@ -233,14 +234,46 @@ defmodule AllbertAssist.Sandbox.Bundle do
 
   defp allocate_root(params, opts) do
     id = value(params, :id) || "bundle-#{System.unique_integer([:positive])}"
-    root = Keyword.get(opts, :root) || Path.join(Paths.sandbox_bundles_root(), id)
+    bundles_root = Path.expand(Paths.sandbox_bundles_root())
 
-    if File.exists?(root) do
-      {:error, {:bundle_root_exists, root}}
-    else
-      {:ok, Path.expand(root)}
+    with :ok <- validate_id(id),
+         {:ok, root} <- requested_root(Keyword.get(opts, :root), bundles_root, id) do
+      if File.exists?(root) do
+        {:error, {:bundle_root_exists, root}}
+      else
+        {:ok, root}
+      end
     end
   end
+
+  defp validate_id(id) when is_binary(id) do
+    if Regex.match?(@id_pattern, id) and id not in [".", ".."] do
+      :ok
+    else
+      {:error, {:invalid_bundle_id, id}}
+    end
+  end
+
+  defp validate_id(id), do: {:error, {:invalid_bundle_id, id}}
+
+  defp requested_root(nil, bundles_root, id), do: {:ok, Path.join(bundles_root, id)}
+
+  defp requested_root(root, bundles_root, _id) when is_binary(root) do
+    expanded = Path.expand(root)
+
+    cond do
+      expanded == bundles_root ->
+        {:error, :sandbox_bundle_root_required}
+
+      same_or_inside?(expanded, bundles_root) ->
+        {:ok, expanded}
+
+      true ->
+        {:error, {:bundle_root_outside_sandbox, redact_path(expanded)}}
+    end
+  end
+
+  defp requested_root(root, _bundles_root, _id), do: {:error, {:invalid_bundle_root, root}}
 
   defp copy_bundle(root, project_root, manifest, params) do
     id = value(params, :id) || Path.basename(root)
@@ -256,6 +289,8 @@ defmodule AllbertAssist.Sandbox.Bundle do
     File.mkdir_p!(tests_path)
     File.mkdir_p!(sandbox_home)
     File.mkdir_p!(reports_path)
+    File.chmod!(sandbox_home, 0o777)
+    File.chmod!(reports_path, 0o777)
 
     project_copies = copy_files!(manifest.project, project_path)
     draft_copies = copy_files!(manifest.drafts, drafts_path)

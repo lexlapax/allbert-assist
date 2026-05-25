@@ -308,6 +308,51 @@ defmodule AllbertAssist.SandboxTest do
              Sandbox.build_bundle(%{project_root: project, draft_paths: [link]})
   end
 
+  test "bundle builder confines bundle ids and explicit roots to the sandbox bundle root" do
+    project = fixture_project("root-confined")
+    outside_root = temp_path("outside-root")
+
+    assert {:error, %{reason: {:invalid_bundle_id, "../escape"}}} =
+             Sandbox.build_bundle(%{
+               id: "../escape",
+               project_root: project,
+               project_paths: ["mix.exs"]
+             })
+
+    assert {:error, %{reason: {:bundle_root_outside_sandbox, _path}}} =
+             Sandbox.build_bundle(
+               %{project_root: project, project_paths: ["mix.exs"]},
+               root: outside_root
+             )
+  end
+
+  test "cleanup only removes marked sandbox bundle roots" do
+    project = fixture_project("cleanup-confined")
+    outside = temp_path("cleanup-outside")
+    File.mkdir_p!(outside)
+    File.write!(Path.join(outside, "keep.txt"), "keep")
+
+    assert {:error, {:sandbox_bundle_root_outside_sandbox, _path}} = Sandbox.cleanup(outside)
+    assert File.exists?(Path.join(outside, "keep.txt"))
+
+    unmarked = Path.join(Paths.sandbox_bundles_root(), "unmarked")
+    File.mkdir_p!(unmarked)
+    File.write!(Path.join(unmarked, "keep.txt"), "keep")
+
+    assert {:error, {:sandbox_bundle_metadata_missing, _path}} = Sandbox.cleanup(unmarked)
+    assert File.exists?(Path.join(unmarked, "keep.txt"))
+
+    {:ok, bundle} =
+      Sandbox.build_bundle(%{
+        project_root: project,
+        project_paths: ["mix.exs"],
+        id: "cleanup-confined"
+      })
+
+    assert :ok = Sandbox.cleanup(bundle)
+    refute File.exists?(bundle.root)
+  end
+
   test "command spec accepts only explicit Elixir gate argv shapes" do
     project = fixture_project("command")
     {:ok, bundle} = Sandbox.build_bundle(%{project_root: project, project_paths: ["mix.exs"]})
@@ -325,7 +370,7 @@ defmodule AllbertAssist.SandboxTest do
 
     assert {:error, denied_shell} =
              CommandSpec.normalize(
-               %{executable: "mix", argv: ["test", "&&", "curl"], profile: :ad_hoc},
+               %{executable: "mix", argv: ["test", "&&", "curl"], profile: :focused_tests},
                policy: policy,
                bundle: bundle
              )
@@ -334,7 +379,7 @@ defmodule AllbertAssist.SandboxTest do
 
     assert {:error, denied_deps} =
              CommandSpec.normalize(
-               %{executable: "mix", argv: ["deps.get"], profile: :ad_hoc},
+               %{executable: "mix", argv: ["deps.get"], profile: :compile},
                policy: policy,
                bundle: bundle
              )
@@ -368,6 +413,41 @@ defmodule AllbertAssist.SandboxTest do
              )
 
     assert {:cwd_outside_bundle, _path} = denied_cwd.denial_reason
+
+    assert {:error, missing_profile} =
+             CommandSpec.normalize(
+               %{executable: "mix", argv: ["compile", "--warnings-as-errors"]},
+               policy: policy,
+               bundle: bundle
+             )
+
+    assert missing_profile.denial_reason == :profile_not_allowed
+  end
+
+  test "run_command revalidates forged command spec structs before backend execution" do
+    enable_sandbox!()
+
+    project = fixture_project("forged-spec")
+    {:ok, bundle} = Sandbox.build_bundle(%{project_root: project, project_paths: ["mix.exs"]})
+
+    forged = %CommandSpec{
+      executable: "curl",
+      argv: ["https://example.com"],
+      cwd: bundle.project_path,
+      profile: :compile,
+      timeout_ms: 120_000,
+      output_bytes: 65_536,
+      status: :allowed
+    }
+
+    assert {:ok, report} =
+             Sandbox.run_command(bundle, forged,
+               backends: [CompletingDocker],
+               host: %Host{os: :linux, arch: :x86_64}
+             )
+
+    assert report.status == :denied
+    assert [%{reason: :executable_not_allowed}] = report.diagnostics
   end
 
   test "source policy denies dangerous Elixir constructs before backend execution" do
@@ -426,11 +506,13 @@ defmodule AllbertAssist.SandboxTest do
     assert "--read-only" in argv
     assert ["--cap-drop", "ALL"] = argv_pair(argv, "--cap-drop")
     assert ["--security-opt", "no-new-privileges"] = argv_pair(argv, "--security-opt")
+    assert ["--user", "65532:65532"] = argv_pair(argv, "--user")
     assert ["--pids-limit", "256"] = argv_pair(argv, "--pids-limit")
     assert ["--memory", "1024m"] = argv_pair(argv, "--memory")
     assert ["--cpus", "1.0"] = argv_pair(argv, "--cpus")
     assert argv_pair(argv, "--workdir") == ["--workdir", "/workspace/project"]
-    assert "--tmpfs" in argv
+    assert Enum.any?(argv, &(&1 == "/tmp:rw,nosuid,nodev,size=256m,mode=1777"))
+    assert Enum.any?(argv, &(&1 == "/run:rw,nosuid,nodev,size=32m,mode=1777"))
 
     assert mount_arg(argv, bundle.project_path) =~ "target=/workspace/project,readonly"
     assert mount_arg(argv, bundle.drafts_path) =~ "target=/workspace/drafts,readonly"
@@ -469,8 +551,29 @@ defmodule AllbertAssist.SandboxTest do
     assert ["--network", "none"] = argv_pair(argv, "--network")
     assert "--read-only" in argv
     assert ["--cap-drop", "ALL"] = argv_pair(argv, "--cap-drop")
+    assert "--userns=keep-id" in argv
     assert mount_arg(argv, bundle.project_path) =~ "target=/workspace/project,readonly"
     assert Enum.slice(argv, -4, 4) == ["fixture:local", "mix", "compile", "--warnings-as-errors"]
+  end
+
+  test "report maps redact home paths and sensitive metadata while structs keep file paths" do
+    project = fixture_project("report-map-redaction")
+    {:ok, bundle} = Sandbox.build_bundle(%{project_root: project, project_paths: ["mix.exs"]})
+
+    assert {:ok, report} =
+             ReportWriter.write(bundle, %Report{
+               status: :completed,
+               backend: :docker,
+               metadata: %{engine_argv: [bundle.project_path], api_key: "sk-test-secret"}
+             })
+
+    assert File.exists?(report.report_path)
+    redacted = Report.to_map(report)
+
+    refute inspect(redacted) =~ bundle.project_path
+    refute inspect(redacted) =~ "sk-test-secret"
+    assert inspect(redacted) =~ "<ALLBERT_HOME>"
+    assert inspect(redacted) =~ "[REDACTED]"
   end
 
   test "container runner writes bounded reports for successful backend execution", %{home: home} do
