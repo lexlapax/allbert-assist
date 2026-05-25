@@ -6,6 +6,36 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
   ExUnit tests without rediscovering the threat catalog.
   """
 
+  @type assertion ::
+          atom()
+          | {:trace_records, [atom()]}
+          | {:fixture_transport_calls, atom(), non_neg_integer()}
+
+  @type expected :: :allowed | :denied | :dropped | :error | :needs_confirmation
+  @type milestone :: :m2 | :m3 | :m4 | :m5 | :m6 | :m7 | :v036
+
+  @type required_surface ::
+          :resource_execution
+          | :identity_context
+          | :plugin_app_registry
+          | :surface_workspace_namespace
+          | :objective_financial_bridge
+          | :elixir_sandbox
+          | :operator_review
+
+  @type surface :: required_surface() | :workspace_live_navigation
+
+  @type row :: %{
+          id: String.t(),
+          milestone: milestone(),
+          surface: surface(),
+          scenario: String.t(),
+          boundary: atom(),
+          expected: expected(),
+          assert: [assertion(), ...],
+          test_module: String.t()
+        }
+
   @rows [
     %{
       id: "prompt-injection-001",
@@ -624,16 +654,16 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
     :operator_review
   ]
 
-  @spec rows() :: [map()]
+  @spec rows() :: [row()]
   def rows, do: @rows
 
-  @spec required_surfaces() :: [atom()]
+  @spec required_surfaces() :: [required_surface(), ...]
   def required_surfaces, do: @required_surfaces
 
-  @spec rows_for_milestone(atom()) :: [map()]
+  @spec rows_for_milestone(milestone()) :: [row()]
   def rows_for_milestone(milestone), do: Enum.filter(@rows, &(&1.milestone == milestone))
 
-  @spec row!(String.t()) :: map()
+  @spec row!(String.t()) :: row()
   def row!(id) do
     Enum.find(@rows, &(&1.id == id)) || raise ArgumentError, "unknown security eval row #{id}"
   end

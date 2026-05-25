@@ -41,7 +41,14 @@ defmodule AllbertAssist.Sandbox.GateRunner do
 
   defp steps_for(:focused_tests, opts) do
     paths = Keyword.get(opts, :focused_test_paths, [])
-    [%{executable: "mix", argv: ["test" | paths], profile: :focused_tests}]
+
+    [
+      test_step(
+        ["test" | paths],
+        :focused_tests,
+        Keyword.get(opts, :focused_test_cwd) || Keyword.get(opts, :test_cwd)
+      )
+    ]
   end
 
   defp steps_for(:credo, _opts) do
@@ -54,7 +61,14 @@ defmodule AllbertAssist.Sandbox.GateRunner do
 
   defp steps_for(:security_evals, opts) do
     paths = Keyword.get(opts, :security_eval_paths, @security_eval_paths)
-    [%{executable: "mix", argv: ["test" | paths], profile: :security_evals}]
+
+    [
+      test_step(
+        ["test" | paths],
+        :security_evals,
+        Keyword.get(opts, :security_eval_cwd) || Keyword.get(opts, :test_cwd)
+      )
+    ]
   end
 
   defp steps_for(:precommit, _opts) do
@@ -62,6 +76,11 @@ defmodule AllbertAssist.Sandbox.GateRunner do
   end
 
   defp steps_for(other, _opts), do: raise(ArgumentError, "unknown sandbox gate profile #{other}")
+
+  defp test_step(argv, profile, nil), do: %{executable: "mix", argv: argv, profile: profile}
+
+  defp test_step(argv, profile, cwd),
+    do: %{executable: "mix", argv: argv, profile: profile, cwd: cwd}
 
   defp run_steps(bundle, steps, opts) do
     Enum.reduce_while(steps, {:completed, []}, fn step, {_status, reports} ->

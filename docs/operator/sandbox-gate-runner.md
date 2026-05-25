@@ -128,7 +128,8 @@ Treat these as expected fail-closed results:
 
 ## Local Docker Compile Smoke
 
-When Docker is available and the operator wants to prove the green path, run:
+When Docker is available and the operator wants to prove the small compile
+fixture green path, run:
 
 ```sh
 ALLBERT_DOCKER_SANDBOX_TEST=1 mix test apps/allbert_assist/test/allbert_assist/sandbox_test.exs --only docker_sandbox
@@ -137,10 +138,27 @@ ALLBERT_DOCKER_SANDBOX_TEST=1 mix test apps/allbert_assist/test/allbert_assist/s
 If the base Elixir image is not present locally and the host is allowed to pull
 it, set `ALLBERT_DOCKER_BASE_IMAGE=<image>` and `ALLBERT_DOCKER_PULL_BASE=1`
 for that smoke. By default the smoke uses the approved local
-`allbert-elixir-otp:local` image as its base so it can verify the gate path
+`allbert-elixir-otp:local` image as its base so it can verify the compile path
 without requiring a registry pull. The resulting report must show a completed
-`:compile` gate for a trivial fixture. Failure means the local sandbox setup is
-not release-ready for v0.37 trust preconditions.
+`:compile` gate for a trivial fixture.
+
+## Local Docker Full-Gate Smoke
+
+The v0.37 trust precondition needs the real default gate, not just the trivial
+fixture. When Docker is available, run:
+
+```sh
+ALLBERT_DOCKER_FULL_GATE_TEST=1 mix test apps/allbert_assist/test/allbert_assist/sandbox_test.exs --only docker_full_gate
+```
+
+This opt-in smoke builds an approved local image for the current umbrella,
+including the build toolchain needed by C/NIF deps, compiled dependency
+artifacts, and Dialyzer PLT state when Dialyxir is present. Runtime gate
+containers seed writable dependency/build/cache paths and the writable test DB
+directory from the baked image state, then run the full default gate: compile,
+focused tests, Credo, Dialyzer, and security evals.
+Passing this smoke is the local proof that the sandbox gate is ready to support
+v0.37 trust decisions.
 
 ## Emergency Posture
 

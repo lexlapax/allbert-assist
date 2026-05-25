@@ -28,10 +28,12 @@ defmodule AllbertAssist.Umbrella.MixProject do
   end
 
   defp dialyzer do
+    build_path = System.get_env("MIX_BUILD_PATH") || "_build/#{Mix.env()}"
+
     [
       plt_add_apps: [:mix, :ex_unit],
-      plt_core_path: "_build/#{Mix.env()}",
-      plt_local_path: "_build/#{Mix.env()}/dialyxir.plt",
+      plt_core_path: build_path,
+      plt_local_path: Path.join(build_path, "dialyxir.plt"),
       ignore_warnings: ".dialyzer_ignore.exs",
       list_unused_filters: true,
       flags: [:error_handling, :missing_return, :extra_return, :underspecs]
