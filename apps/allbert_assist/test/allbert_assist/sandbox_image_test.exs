@@ -30,7 +30,15 @@ defmodule AllbertAssist.SandboxImageTest do
 
     runner = fn docker, argv, opts ->
       send(test_pid, {:build_command, docker, argv, opts})
-      assert File.exists?(Path.join(List.last(argv), "Dockerfile"))
+      context = List.last(argv)
+      dockerfile = File.read!(Path.join(context, "Dockerfile"))
+
+      assert File.exists?(Path.join(context, "Dockerfile"))
+      assert File.exists?(Path.join([context, "project", "mix.exs"]))
+      assert dockerfile =~ "MIX_DEPS_PATH=/opt/allbert/deps"
+      assert dockerfile =~ "mix deps.get --only test"
+      assert dockerfile =~ "mix deps.compile"
+
       {:ok, %{exit_status: 0, output: "built image", truncated?: false, output_bytes: 11}}
     end
 
@@ -153,6 +161,15 @@ defmodule AllbertAssist.SandboxImageTest do
     root = temp_path("project-#{name}")
     File.rm_rf!(root)
     File.mkdir_p!(root)
+
+    File.write!(Path.join(root, "mix.exs"), """
+    defmodule Fixture.MixProject do
+      use Mix.Project
+      def project, do: [app: :fixture, version: "0.1.0", elixir: ">= 1.15.0", deps: []]
+      def application, do: []
+    end
+    """)
+
     File.write!(Path.join(root, "mix.lock"), "%{\"dep\" => :lock}\n")
     root
   end

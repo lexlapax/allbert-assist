@@ -10,7 +10,7 @@ defmodule AllbertAssist.Sandbox.CommandSpec do
   alias AllbertAssist.Sandbox.Bundle
   alias AllbertAssist.Sandbox.Policy
 
-  @executables ~w[mix elixir erl]
+  @executables ~w[mix]
   @profiles ~w[compile focused_tests credo dialyzer security_evals precommit]a
   @env_allowlist ~w[LANG LC_ALL MIX_ENV]
   @shell_tokens ~w[&& || ; | > >> < &]
@@ -198,15 +198,6 @@ defmodule AllbertAssist.Sandbox.CommandSpec do
     if forbidden_mix?(spec.argv),
       do: {:error, deny(spec, :mix_command_not_allowed)},
       else: {:ok, spec}
-  end
-
-  defp validate_executable_args(%{executable: executable} = spec)
-       when executable in ["elixir", "erl"] do
-    if spec.argv == [] do
-      {:ok, spec}
-    else
-      {:error, deny(spec, :runtime_eval_not_allowed)}
-    end
   end
 
   defp validate_profile(

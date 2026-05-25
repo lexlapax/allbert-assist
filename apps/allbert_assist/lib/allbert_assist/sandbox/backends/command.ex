@@ -6,10 +6,11 @@ defmodule AllbertAssist.Sandbox.Backends.Command do
   @spec run(String.t(), [String.t()], keyword()) :: {:ok, map()} | {:error, term()}
   def run(executable, args, opts \\ []) when is_binary(executable) and is_list(args) do
     timeout_ms = Keyword.get(opts, :timeout_ms, 3000)
+    on_timeout = Keyword.get(opts, :on_timeout, fn -> :ok end)
 
     executable
     |> run_task(args, opts)
-    |> await(timeout_ms)
+    |> await(timeout_ms, on_timeout)
   end
 
   defp run_task(executable, args, opts) do
@@ -42,12 +43,24 @@ defmodule AllbertAssist.Sandbox.Backends.Command do
     end)
   end
 
-  defp await(task, timeout_ms) do
+  defp await(task, timeout_ms, on_timeout) do
     case Task.yield(task, timeout_ms) || Task.shutdown(task, :brutal_kill) do
-      {:ok, {:ok, result}} -> {:ok, result}
-      {:ok, {:error, reason}} -> {:error, reason}
-      nil -> {:error, :timeout}
+      {:ok, {:ok, result}} ->
+        {:ok, result}
+
+      {:ok, {:error, reason}} ->
+        {:error, reason}
+
+      nil ->
+        safe_timeout_callback(on_timeout)
+        {:error, :timeout}
     end
+  end
+
+  defp safe_timeout_callback(on_timeout) do
+    on_timeout.()
+  rescue
+    _exception -> :ok
   end
 
   defp maybe_put_cd(opts, nil), do: opts

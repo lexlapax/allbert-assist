@@ -53,7 +53,7 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 | M7 | `AllbertAssist.Surface.Catalog` | Implemented single Surface component/catalog/renderer authority. |
 | M8 | `AllbertAssist.Settings.Fragment` | Implemented per-context/app/plugin settings schema fragment contract. |
 | M8 | `AllbertAssist.Settings.Fragments` | Implemented settings schema fragment registry and composition facade. |
-| v0.36 | `AllbertAssist.Sandbox` | Implemented report-only facade for doctor, bundle, command, gate, and cleanup. |
+| v0.36 | `AllbertAssist.Sandbox` | Implemented report-only facade for doctor, bundle, command, gate, source-policy enforcement, audit, and cleanup. |
 
 ## Compatibility Shims And Exit Criteria
 
@@ -99,9 +99,11 @@ defaults, and safe-write key assembly now come from core/app/plugin fragments.
 Security Central until a future parity pass migrates the remaining live callers.
 
 v0.36 adds `AllbertAssist.Sandbox` as the public sandbox/gate-runner facade.
-Sandbox reports are evidence only; they do not load modules, register actions,
-grant permissions, enable skills, mutate routing context, or authorize v0.37
-live integration.
+Runtime gate commands are reviewed `mix` profiles only, SourcePolicy runs in
+the facade before backend resolution, and sandbox lifecycle events append
+bounded audit records under Allbert Home. Sandbox reports are evidence only;
+they do not load modules, register actions, grant permissions, enable skills,
+mutate routing context, or authorize v0.37 live integration.
 
 ## Internal Modules
 
