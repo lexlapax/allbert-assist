@@ -1951,14 +1951,16 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 `docs/adr/0035-codegen-agents-and-live-integration-loader.md`,
 `docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`
 
-Status: implemented as `v0.37.0` and ready for operator manual verification on
-2026-05-25. The self-extending-runtime engine now has file-backed dynamic
-drafts, inert explicit capability-gap request scaffolding, v0.36 sandbox
-trial/gate handoff, trusted validation, and gated live in-core integration for
-read-only action artifacts. Full advisory provider authoring remains behind
-the producer-neutral scaffold for a later implementation. Highest-capability
-and highest-risk milestone; its safety rests on the v0.36 sandbox evidence plus
-operator-confirmed integration.
+Status: implemented as `v0.37.0`; v0.37.1 post-implementation audit hardening
+and final gates completed on 2026-05-25; awaiting operator manual verification
+before tagging. The self-extending-runtime engine now has
+file-backed dynamic drafts, inert explicit capability-gap request scaffolding,
+v0.36 sandbox trial/gate handoff, trusted validation, dynamic lifecycle
+audit/signals, and gated live in-core integration for read-only action
+artifacts. Full advisory provider authoring and broader generated app/config
+targets remain behind the producer-neutral scaffold for later implementations.
+Highest-capability and highest-risk milestone; its safety rests on the v0.36
+sandbox evidence plus operator-confirmed integration.
 
 Prerequisite: v0.36 sandbox/gate runner; v0.24 objective runtime; v0.31
 consolidated runtime substrates; v0.25 native-agent + Jido.AI pattern; and the
@@ -1975,9 +1977,11 @@ Expected direction:
 - Compile, trial, and gate generated artifacts only through the v0.36 sandbox.
 - Integrate only after v0.36 gate pass, v0.37 integrity/static checks, and
   explicit operator confirmation.
-- Hot-load and register a gate-passing artifact live without restart through an
-  audited reversible loader; rollback also requires operator confirmation and
-  removes live authority; route-page surfaces remain restart-required.
+- Hot-load and register a gate-passing read-only action artifact live without
+  restart through an audited reversible loader; rollback also requires operator
+  confirmation and removes live authority. Route pages, panels, settings
+  fragments, memory namespaces, objective wiring, and child processes remain
+  deferred live targets.
 - Forbid dependencies, package-manager execution, migrations, NIFs, secrets,
   unrestricted network, core/static module replacement, action shadowing,
   untrusted in-core loading, and integration without the gate or operator

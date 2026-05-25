@@ -12,8 +12,9 @@ changelog entries or release notes.
 
 ## v0.37.0 - Dynamic Code & Config Generation and Live Capability Integration
 
-Status: implemented as `0.37.0` on 2026-05-25 and ready for operator manual
-verification before tagging.
+Status: implemented as `0.37.0` on 2026-05-25. v0.37.1
+post-implementation audit hardening and final gates completed on 2026-05-25;
+release remains ready for operator manual verification before tagging.
 
 Plan: `docs/plans/v0.37-plan.md`.
 Request flow: `docs/plans/v0.37-request-flow.md`.
@@ -44,6 +45,20 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
   resolution, provider-call/usage budget checks, fail-closed diagnostics, and
   optional objective observation events.
 
+### Added (v0.37.1 hardening)
+
+- Executable v0.37 `codegen-*` security eval inventory rows covering untrusted
+  load, sandbox bypass, gate skip, unconfirmed/advisory integration, trusted
+  validator denials, action shadowing, rollback, emergency disablement, restart
+  reconcile, redaction, generation budgets, and approval-surface denial.
+- Dynamic lifecycle audit records under
+  `<ALLBERT_HOME>/dynamic_plugins/audit/YYYY-MM.md` plus
+  `allbert.dynamic_codegen.*` lifecycle signals for draft request, sandbox
+  report consumption, tier transition, integration, rollback, disablement, and
+  reconcile decisions.
+- Bounded sandbox report history in draft `gate.reports`, preserving repeated
+  report evidence and diagnostics instead of replacing all previous entries.
+
 ### Changed (v0.37.0)
 
 - Umbrella, core app, and web app version metadata are bumped to `0.37.0`
@@ -58,6 +73,23 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 - Development, operator, runtime-boundary, agent-context, onboarding,
   security-hardening, roadmap, and dynamic-draft docs now describe the
   implemented v0.37 authority boundary and manual verification workflow.
+
+### Changed (v0.37.1 hardening)
+
+- Dynamic integration and rollback resume now verify the stored approved
+  confirmation record, target action, dynamic-loader permission/execution mode,
+  high-trust resolver surface, same-channel rule, and resuming target status
+  instead of trusting caller-supplied context flags.
+- Settings Central and the trusted validator are aligned to the shipped scope:
+  `dynamic_codegen.allowed_targets == ["action"]` and
+  `dynamic_codegen.allowed_action_permissions == ["read_only"]`.
+- Failed mid-integration cleanup removes unstable integration roots and overlay
+  entries from the attempted revision while preserving an existing live revision
+  when a replacement is denied before compile.
+- ADRs, roadmap, request-flow, operator guide, developer guide, and changelog
+  now distinguish the shipped read-only action lifecycle plus inert codegen
+  scaffold from deferred advisory provider authoring and broader generated
+  app/config targets.
 
 ### Verification (v0.37.0)
 
@@ -74,6 +106,14 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
   browser verification was not required.
 - Manual verification should use a disposable Allbert Home and follow
   `docs/plans/v0.37-request-flow.md#manual-release-verification`.
+
+### Verification (v0.37.1 hardening)
+
+- Focused dynamic plugin, settings, confirmation/security, and v0.37 security
+  eval suites passed during hardening milestones.
+- Final release gates passed `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
+  `git diff --check`, and `mix precommit` after documentation reconciliation.
 
 ## v0.36.0 - Elixir/OTP Sandbox And Gate Runner
 

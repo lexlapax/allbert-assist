@@ -2,18 +2,21 @@
 
 ## Status
 
-Proposed for v0.37 Dynamic Code & Config Generation and Live Capability
-Integration (`docs/plans/v0.37-plan.md`). Pairs with ADR 0032 (untrusted trial
-and gated integration), ADR 0033 (trust tiers), and ADR 0037 (v0.36 Elixir/OTP
-sandbox/gate runner).
+Accepted for v0.37 Dynamic Code & Config Generation and Live Capability
+Integration (`docs/plans/v0.37-plan.md`) on 2026-05-25. Pairs with ADR 0032
+(untrusted trial and gated integration), ADR 0033 (trust tiers), and ADR 0037
+(v0.36 Elixir/OTP sandbox/gate runner). The shipped v0.37.1 implementation
+delivers the producer-neutral inert request scaffold and reviewed read-only
+action live loader; advisory provider authoring and broader generated app/config
+targets are deferred.
 
 ## Context
 
-With v0.36 providing the sandbox/gate runner, v0.37 can add the
-self-extending-runtime layer: detect a capability gap, generate Elixir/OTP code
-and config to proven v0.27-v0.35 shapes, trial it in the sandbox, and — after
-the gate plus operator confirmation — hot-load it into the live core node
-without a restart.
+With v0.36 providing the sandbox/gate runner, v0.37 adds the
+self-extending-runtime foundation: record an explicit capability gap, stage and
+gate reviewed generated Elixir/OTP source, and after the gate plus operator
+confirmation hot-load a narrowly validated read-only action into the live core
+node without a restart.
 
 Two substrates are needed:
 
@@ -25,9 +28,9 @@ Two substrates are needed:
 
 ### 1. Code-gen agents are advisory proposers
 
-A committee of supervised `Jido.Agent` agents, built on the shared
-`AllbertAssist.JidoBacked` substrate and reusing the v0.25 StockSage
-native-agent + Jido.AI pattern, authors drafts:
+The planned advisory producer is a committee of supervised `Jido.Agent` agents,
+built on the shared `AllbertAssist.JidoBacked` substrate and reusing the v0.25
+StockSage native-agent + Jido.AI pattern:
 
 - `Codegen.Planner` - capability gap to generation spec;
 - `Codegen.Author` - spec to code/config;
@@ -36,20 +39,23 @@ native-agent + Jido.AI pattern, authors drafts:
 - `Codegen.Repair` - sandbox/gate diagnostics to re-author loop.
 
 Per ADR 0021, agent output is never authority. It cannot enable, trust,
-integrate, grant permissions, or bypass confirmation. The deterministic
-template path is v0.38 and reuses this engine only when live integration is
-selected. Draft creation is therefore a pluggable producer: the committee is one
-producer and v0.38 templates are another, while the draft lifecycle from
-`:draft` onward (metadata store, staging, trial, gate, loader, overlay,
-rollback) is producer-agnostic and records the producer in provenance.
+integrate, grant permissions, or bypass confirmation. v0.37.1 ships the
+producer-neutral request path, budget checks, JidoBacked coordinator, metadata
+writer, and diagnostics, but it does not call advisory providers or author
+source. The deterministic template path is v0.38 and reuses this lifecycle only
+when live integration is selected. Draft creation is therefore a pluggable
+producer: the committee is one future producer and v0.38 templates are another,
+while the draft lifecycle from `:draft` onward (metadata store, staging, trial,
+gate, loader, overlay, rollback) is producer-agnostic and records the producer
+in provenance.
 
 ### 2. Generation targets Elixir/OTP code and config
 
-Generated artifacts cover the reviewed Allbert contract surface: plugin/app
-manifest, modules, `AllbertAssist.Action` actions, panel surfaces, intent
-descriptors, settings fragments, memory namespace, objective wiring, and
-theming/layout stubs. v0.37 ships only the Elixir/OTP target. Other languages
-remain parked.
+The long-term target surface includes plugin/app manifest data, modules,
+`AllbertAssist.Action` actions, panel surfaces, intent descriptors, settings
+fragments, memory namespace, objective wiring, and theming/layout stubs.
+v0.37.1 ships only the Elixir/OTP read-only action target. Other languages and
+broader generated app/config targets remain parked.
 
 Generated settings fragments are schema declarations only. They cannot write
 operator settings, secrets, provider credentials, permission policy, resource
@@ -65,10 +71,11 @@ private durable goal loops, private objective tables, or private objective
 engines; objective identifiers remain correlation data and never grant
 authority.
 
-Generated panel UI in v0.37 is declarative `AllbertAssist.Surface` data backed
-by existing catalog components. Custom Phoenix components, LiveViews, HEEx
-sigils, and route modules are outside the v0.37 generated allowlist unless a
-later plan adds an explicit reviewed contract.
+Generated panel UI is not live-loaded in v0.37.1. Future support must be
+declarative `AllbertAssist.Surface` data backed by existing catalog components.
+Custom Phoenix components, LiveViews, HEEx sigils, and route modules remain
+outside the generated allowlist unless a later plan adds an explicit reviewed
+contract.
 
 ### 3. The live-integration loader is gated, audited, and reversible
 
@@ -94,14 +101,12 @@ The loader:
   binary;
 - registers a runtime-mutable actions overlay through
   `AllbertAssist.Actions.Registry`;
-- registers app/panel entries through `AllbertAssist.App.Registry.register/2`;
-  v0.34 Canvas destination visibility is derived through the existing
-  `AllbertAssist.Workspace.Catalog.known_destinations/1` model after app
-  registration;
-- starts declared children through a `DynamicSupervisor`;
+- rejects generated app/panel entries, settings fragments, memory namespaces,
+  objective wiring, route pages, and child processes in v0.37.1;
 - emits audit events for compile, load, register, and rollback;
-- supports rollback by stopping children, unregistering entries, and purging
-  loaded modules where safe.
+- supports rollback by unregistering dynamic action entries and purging loaded
+  modules where safe. Future child/app support must extend the same reversible
+  authority-removal path.
 
 The trusted-phase validator is AST-allowlist based, not the v0.36 regex
 `SourcePolicy` scanner. Implement it as a named trusted-loader component, for
@@ -116,8 +121,8 @@ manifest and AST must reconcile bidirectionally: every parsed `defmodule` is
 generated-namespace scoped and declared, and every declared module is present in
 reviewed source.
 
-The generated macro/use allowlist is enumerated: `use AllbertAssist.Action` for
-generated action modules and `use AllbertAssist.App` for generated app modules.
+The shipped generated macro/use allowlist is enumerated:
+`use AllbertAssist.Action` for generated action modules.
 Macro options, action DSL options, schema entries, tags, module attributes, and
 manifest values must be inert literals. Compile-time expressions in options or
 attributes are denial. The validator rejects top-level expression execution,
@@ -126,9 +131,10 @@ modules, custom `@compile` hooks, unapproved macros, generated protocols, router
 edits, application env mutation, dependency/package hooks, and any construct
 outside the allowlist.
 
-The same validator scans all generated call sites inside function bodies,
-callbacks, helper modules, action `run/2`, app callbacks, surface data builders,
-and child process callbacks. It allows only local generated calls plus an
+The shipped validator scans generated call sites inside function bodies,
+helpers, and action `run/2`. Future app callbacks, surface data builders, and
+child process callbacks must use the same call-target rules before those target
+shapes can become live. The validator allows only local generated calls plus an
 explicit module/function allowlist of side-effect-free Elixir/Allbert helpers or
 approved runtime facades. Direct calls to protected authority surfaces are
 denial, including shell/process execution, package and skill execution, sandbox
@@ -136,27 +142,26 @@ actions, Settings writes, secret reads/writes, confirmations, Resource grants,
 Repo writes, integration/rollback/disablement, distributed Erlang, dynamic
 dispatch to protected targets, and core table mutation.
 
-Generated action permissions have a hard ceiling. `:read_only` is allowed by
-default. `:external_network`, `:memory_write`, `:objective_write`, and
-`:workspace_canvas_write` may be operator-enabled only when call-target
-validation proves the generated body delegates through the matching reviewed
-registered action/facade and the existing Security Central floor still applies.
-Settings may select a subset of this ceiling but cannot expand the hard-coded
-ceiling. Generated actions are hard-denied from host execution, package install,
-skill import/script execution, sandbox trial, secret read/write, confirmation
-decisions, Security Central trust control, dynamic integration, rollback,
-disablement, direct Settings mutation, and Resource-grant mutation. Declared
-permission, confirmation metadata, response action metadata, and body call
-targets must agree; mismatch is denial.
+Generated action permissions have a hard ceiling. In v0.37.1, `:read_only` is
+the only live permission accepted by both Settings Central and the trusted
+validator. `:external_network`, `:memory_write`, `:objective_write`, and
+`:workspace_canvas_write` are deferred until a later plan wires matching
+call-target validation and existing Security Central floors. Generated actions
+are hard-denied from host execution, package install, skill import/script
+execution, sandbox trial, secret read/write, confirmation decisions, Security
+Central trust control, dynamic integration, rollback, disablement, direct
+Settings mutation, and Resource-grant mutation. Declared permission,
+confirmation metadata, response action metadata, and body call targets must
+agree; mismatch is denial.
 
 Generated actions are `resumable?: false` in v0.37. Dynamic confirmation resume
 adapters are deferred because the existing confirmation approval path resumes a
 reviewed set of static action names.
 
-Generated child processes are state-only in v0.37. A generated child may start
-only if its callbacks pass the same call-target validator and do not create
-autonomous timers, network calls, shell/package/script execution, durable goal
-loops, or direct protected-subsystem writes.
+Generated child processes are not live-loaded in v0.37.1. Future support must
+remain state-only: callbacks pass the same call-target validator and do not
+create autonomous timers, network calls, shell/package/script execution, durable
+goal loops, or direct protected-subsystem writes.
 
 This validator is a trusted-loader control, not an isolation boundary. v0.37's
 trust model is sandbox gate plus operator review plus AST allowlist plus
@@ -185,11 +190,12 @@ registration also denies `resumable?: true` in v0.37 and denies any action whose
 body can reach a higher-authority call target than its declared permission.
 
 Integration is all-or-nothing. If source copy, trusted validation, compile,
-actions overlay registration, app/panel registration, child start, or audit
-append fails before stable `:integrated`, the loader unwinds registrations,
-children, and loaded modules from that attempt and leaves the draft at
-`:gate_passed` with diagnostics. Operator-confirmed rollback is required only
-after stable live authority has been granted.
+actions overlay registration, or audit append fails before stable
+`:integrated`, the loader unwinds registrations, unstable integration root data,
+and loaded modules from that attempt and leaves the draft at `:gate_passed` with
+diagnostics. Future app/panel registration or child start support must join the
+same unwind path. Operator-confirmed rollback is required only after stable live
+authority has been granted.
 
 Integration copies the reviewed source into
 `<ALLBERT_HOME>/dynamic_plugins/integrated/<slug>/<revision>/`; ordinary plugin
@@ -200,10 +206,9 @@ integrate over a live revision; v0.37 requires operator-confirmed rollback of
 the live revision before the replacement revision can integrate. Atomic
 supersede is deferred.
 
-Rollback requires operator confirmation and guarantees removal of authority
-surfaces: actions no longer resolve, app/panel destinations disappear from
-registries, and declared children stop. BEAM module purge/delete is attempted
-and audited as best effort.
+Rollback requires operator confirmation and guarantees removal of v0.37.1 live
+authority surfaces: dynamic actions no longer resolve. BEAM module purge/delete
+is attempted and audited as best effort.
 
 Integration and rollback confirmations are restricted to high-trust operator
 surfaces. The channel-aware confirmation model (ADR 0008/0016) would otherwise
@@ -224,8 +229,8 @@ authority-removal path as rollback. These checks anchor trust inside Allbert's
 local boundary; they do not make Allbert Home tamper-proof against a local
 operator with write access.
 
-Page-route surfaces still require a restart; panel/destination apps integrate
-fully live.
+Page-route, panel/destination app, settings fragment, memory namespace,
+objective wiring, and child targets are deferred and rejected live in v0.37.1.
 
 ### 4. Proactive trial, confirmed integration
 
@@ -240,7 +245,7 @@ sandbox reports are file-backed under
 
 ## Consequences
 
-- Allbert can stand up a new plugin/app capability live after the operator
+- Allbert can stand up a new read-only action capability live after the operator
   grants trust.
 - The actions registry gains a runtime-mutable overlay that must preserve all
   existing capability/permission/app-scope semantics.
