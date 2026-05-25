@@ -1554,7 +1554,7 @@ defmodule AllbertAssist.Settings.Schema do
   @provider_schema %{
     "type" => %{
       type: :enum,
-      allowed_values: ["openai", "openai_compatible", "anthropic", "local"]
+      allowed_values: ["openai", "openai_compatible", "anthropic", "openrouter", "local"]
     },
     "enabled" => %{type: :boolean},
     "base_url" => %{type: :url_or_nil},
@@ -1618,6 +1618,16 @@ defmodule AllbertAssist.Settings.Schema do
         "type" => "openai",
         "api_key_ref" => "secret://providers/openai/api_key",
         "enabled" => false
+      },
+      "anthropic" => %{
+        "type" => "anthropic",
+        "api_key_ref" => "secret://providers/anthropic/api_key",
+        "enabled" => false
+      },
+      "openrouter" => %{
+        "type" => "openrouter",
+        "api_key_ref" => "secret://providers/openrouter/api_key",
+        "enabled" => false
       }
     },
     "model_profiles" => %{
@@ -1634,6 +1644,20 @@ defmodule AllbertAssist.Settings.Schema do
         "temperature" => 0.2,
         "max_tokens" => 1024,
         "timeout_ms" => 30_000
+      },
+      "anthropic_fast" => %{
+        "provider" => "anthropic",
+        "model" => "claude-haiku-4-5",
+        "temperature" => 0.2,
+        "max_tokens" => 4096,
+        "timeout_ms" => 45_000
+      },
+      "openrouter_fast" => %{
+        "provider" => "openrouter",
+        "model" => "openai/gpt-4o-mini",
+        "temperature" => 0.2,
+        "max_tokens" => 4096,
+        "timeout_ms" => 45_000
       }
     },
     "agents" => %{

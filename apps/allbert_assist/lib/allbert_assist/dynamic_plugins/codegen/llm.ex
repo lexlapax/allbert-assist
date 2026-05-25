@@ -51,6 +51,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
                  timeout: Map.get(profile, :timeout_ms) || 30_000
                ]
                |> maybe_put_base_url(profile)
+               |> maybe_put_provider_options(profile)
              ),
            {:ok, object} <- response_object(result) do
         {:ok, normalize_object(object, result)}
@@ -124,6 +125,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
     defp req_llm_provider("openai_compatible"), do: "openai"
     defp req_llm_provider("local"), do: "openai"
     defp req_llm_provider("anthropic"), do: "anthropic"
+    defp req_llm_provider("openrouter"), do: "openrouter"
     defp req_llm_provider(_provider_type), do: nil
 
     defp model_alias_or_spec("fast"), do: :fast
@@ -145,6 +147,15 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
 
     defp maybe_put_base_url(opts, _profile), do: opts
 
+    defp maybe_put_provider_options(opts, %{provider_type: "openrouter"}) do
+      Keyword.put(opts, :provider_options,
+        openrouter_structured_output_mode: :json_schema,
+        openrouter_usage: %{include: true}
+      )
+    end
+
+    defp maybe_put_provider_options(opts, _profile), do: opts
+
     defp system_prompt do
       """
       You generate one Allbert dynamic read-only action draft.
@@ -158,7 +169,9 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
       %{message: string, status: :completed, actions: []}. Do not use System,
       File, Code, Mix, Application, Process, Port, Node, Repo, Settings,
       confirmations, resources, network calls, dependencies, macros, @on_load,
-      or dynamic atoms.
+      or dynamic atoms. Every schema field is required: use an empty string for
+      action_name when the default name is fine, [] for notes when there are no
+      notes, and 0 for usage_units when provider usage is unavailable.
       """
     end
 

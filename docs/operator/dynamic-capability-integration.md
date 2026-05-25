@@ -16,8 +16,11 @@ pages, and children remain rejected live targets until later validators exist.
 Keep these states separate when reviewing a dynamic capability:
 
 - Advisory generation writes source-bearing draft files and metadata. The
-  shipped v0.37.2 generator can author read-only action source, generated
-  tests, a manifest, hashes, and budget diagnostics. It grants no authority.
+  v0.37.2 release target is a bounded model-backed committee: Planner, Author,
+  TrialAuthor, Critic, and Repair emit separate packets with redacted
+  provenance. The release remains open until that committee can author read-only
+  action source, generated tests, a manifest, hashes, repair history, and budget
+  diagnostics. It grants no authority.
 - v0.36 sandbox trial and gate reports are evidence. They grant no authority.
 - `:gate_passed` means the draft is eligible for operator review only.
 - Security Central confirmation is the trust grant.
@@ -25,8 +28,8 @@ Keep these states separate when reviewing a dynamic capability:
   source hash.
 - Rollback removes live authority. BEAM module purge is best effort and audited.
 
-Agent output, passing generated tests, and a green sandbox gate cannot integrate
-or roll back code by themselves.
+Agent output, Critic acceptance, passing generated tests, and a green sandbox
+gate cannot integrate or roll back code by themselves.
 
 ## Enablement
 
@@ -44,21 +47,44 @@ mix allbert.settings set sandbox.elixir.enabled true
 mix allbert.sandbox doctor
 ```
 
-Enable v0.37 generation and live integration separately. For remote OpenAI
-smoke work, source `.env` before starting `mix` and enable the `fast` model
-profile's provider:
+Enable v0.37 generation and live integration separately. For remote smoke work,
+source `.env` before starting `mix`, enable the provider you are testing, and
+select the matching model profile:
 
 ```sh
 set -a
 source .env
 set +a
 mix allbert.settings set dynamic_codegen.enabled true
+```
+
+Choose exactly one provider profile for each smoke run:
+
+```sh
+# OpenAI-backed smoke
 mix allbert.settings set providers.openai.enabled true
 mix allbert.settings set dynamic_codegen.provider_profile fast
+
+# Anthropic-backed smoke
+mix allbert.settings set providers.anthropic.enabled true
+mix allbert.settings set dynamic_codegen.provider_profile anthropic_fast
+
+# OpenRouter-backed smoke
+mix allbert.settings set providers.openrouter.enabled true
+mix allbert.settings set dynamic_codegen.provider_profile openrouter_fast
+```
+
+Then finish the shared v0.37 capability-generation settings:
+
+```sh
 mix allbert.settings set dynamic_codegen.live_loader_enabled true
 mix allbert.settings set dynamic_codegen.allowed_targets '["action"]'
 mix allbert.settings set dynamic_codegen.allowed_action_permissions '["read_only"]'
 ```
+
+Use only one `dynamic_codegen.provider_profile` value per smoke run. The
+default profiles are `fast` for OpenAI, `anthropic_fast` for Anthropic, and
+`openrouter_fast` for OpenRouter.
 
 For local Ollama smoke work, keep `dynamic_codegen.provider_profile local` and
 make sure `OLLAMA_BASE_URL` is set in `.env` when it differs from
@@ -74,8 +100,11 @@ The v0.37.2 advisory producer is a guarded source generator. It creates a
 producer-neutral draft for an explicit operator or objective request, calls the
 configured model profile through Jido.AI structured generation, writes reviewed
 read-only action source plus a focused test, and records provider/budget
-diagnostics. The draft is still untrusted until the sandbox gate, trusted
-validation, and operator confirmation pass.
+diagnostics. Before v0.37 acceptance, this must deepen into the documented
+Planner/Author/TrialAuthor/Critic/Repair committee, where failed validation or
+sandbox evidence can drive Repair until the configured iteration and provider
+budgets are exhausted. The draft is still untrusted until the sandbox gate,
+trusted validation, and operator confirmation pass.
 
 ```sh
 mix allbert.dynamic drafts request weather_summary "Create a read-only weather summary action"

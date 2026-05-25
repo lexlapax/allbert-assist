@@ -16,7 +16,9 @@ Status: implemented as `0.37.0` on 2026-05-25. v0.37.1
 post-implementation audit hardening and final gates completed on 2026-05-25.
 v0.37.2 capability-first generator work reopened the release before tagging so
 the milestone ships a real source-bearing read-only action generator, not only
-an inert scaffold.
+an inert scaffold. The v0.37.2 research correction keeps the release open until
+the generator uses a bounded model-backed Planner/Author/TrialAuthor/Critic/
+Repair loop rather than a single Author LLM call plus deterministic wrappers.
 
 Plan: `docs/plans/v0.37-plan.md`.
 Request flow: `docs/plans/v0.37-request-flow.md`.
@@ -115,14 +117,21 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
   when `dynamic_codegen.enabled`, `dynamic_codegen.provider_profile`, provider
   enablement, credentials, and budgets all pass. `codegen_scaffold` is now
   historical metadata; new generated drafts use `producer: codegen_llm`.
-- Remote provider smoke instructions source `.env` for keys and enable the
-  Settings Central `fast` model profile's OpenAI provider without printing
-  secrets. The runtime also honors `.env` credentials as an operator-provided
-  preflight source when Settings Central secret storage is not used for smoke
-  testing.
+- The action-draft output schema now uses strict provider-compatible structured
+  output semantics: every declared property is required, optional values use
+  concrete empty defaults, and OpenRouter uses JSON Schema structured output
+  mode.
+- Remote provider smoke instructions source `.env` for keys and cover OpenAI,
+  Anthropic, and OpenRouter model profiles without printing secrets. The runtime
+  also honors `.env` credentials as an operator-provided preflight source when
+  Settings Central secret storage is not used for smoke testing.
 - Operator, developer, ADR, plan, request-flow, runtime-boundary, and onboarding
   docs now describe source-bearing read-only action generation plus gated live
   integration.
+- Research reconciliation now requires v0.37.2 to use separate model-backed
+  Planner, Author, TrialAuthor, Critic, and Repair packets with bounded repair
+  over sandbox/gate evidence. Critic output remains advisory; deterministic
+  validators, sandbox tests/gates, and operator confirmation remain authority.
 
 ### Verification (v0.37.0)
 
@@ -151,15 +160,17 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 ### Verification (v0.37.2 generator)
 
 - Focused codegen, dynamic action, Mix task, security eval, loader, and settings
-  suites passed during generator work.
-- Final release gates passed `mix compile --warnings-as-errors`,
+  suites passed during the initial generator work, before the model-backed
+  committee correction.
+- Final release gates must be rerun after the Planner/Author/TrialAuthor/
+  Critic/Repair loop lands: `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `git diff --check`, and `mix precommit`.
-- `.env` contains remote provider credentials and the remote OpenAI smoke
-  workflow is documented. The automated run from this agent session was blocked
-  by external-provider transfer policy after sandbox retry; operator manual
-  verification requires explicit approval to send the bounded generation prompt
-  to the configured remote LLM.
+- `.env` contains remote provider credentials and the remote OpenAI, Anthropic,
+  and OpenRouter smoke workflows are documented. The automated run from this
+  agent session was blocked by external-provider transfer policy after sandbox
+  retry; operator manual verification requires explicit approval to send the
+  bounded generation prompt to the configured remote LLM.
 
 ## v0.36.0 - Elixir/OTP Sandbox And Gate Runner
 

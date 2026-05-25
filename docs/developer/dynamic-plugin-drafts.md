@@ -108,7 +108,7 @@ The request vocabulary is normalized by
 - `confidence`
 - `provider_calls_requested` and `provider_usage_units_requested`
 
-The shipped v0.37.2 producer is a deliberately bounded source generator. It
+The v0.37.2 producer contract is a deliberately bounded source generator. It
 requires:
 
 - `dynamic_codegen.enabled=true`
@@ -124,9 +124,12 @@ It writes a `draft` tier metadata record with `producer: codegen_llm`,
 `gate.status: not_run`, source/test hashes, compile-visible source/test paths,
 scan paths, diagnostics, repair history, and consumed provider budget. It calls
 the configured Jido.AI structured-generation provider to author one read-only
-action draft, but it does not trust model output, run a sandbox gate, or
-integrate live code. If an objective id is present, it records an `observed`
-objective event whose payload stage is `dynamic_codegen_draft_requested`.
+action draft, but it does not trust model output or integrate live code.
+Sandbox/gate execution remains an explicit evidence step. Before v0.37
+acceptance, this producer must deepen into bounded Planner/Author/TrialAuthor/
+Critic/Repair packets that can repair from validation and sandbox evidence. If
+an objective id is present, it records an `observed` objective event whose
+payload stage is `dynamic_codegen_draft_requested`.
 
 Operator-facing wrappers:
 
@@ -155,6 +158,12 @@ The production adapter records token usage from the Jido/ReqLLM response when
 available; deterministic tests inject a fake provider with the same
 `generate_action/4` callback.
 
+The v0.37.2 release-blocking committee target adds role-specific schemas:
+Planner emits the generation spec and acceptance criteria, TrialAuthor emits
+focused tests, Critic emits advisory findings over static and sandbox evidence,
+and Repair emits a new full source/test packet or patch packet for a new
+revision.
+
 The producer records explicit role packets in `manifest.yaml` and
 `repair_history`:
 
@@ -164,10 +173,13 @@ The producer records explicit role packets in `manifest.yaml` and
 - `critic`
 - `repair`
 
-In v0.37.2 these roles are deterministic wrappers around the structured LLM
-call and local packet checks. They grant no authority and do not start a durable
-repair loop; they preserve the contract shape for later deeper committee
-behavior.
+The current code records these role packets for provenance, but only Author is
+LLM-backed. That is not sufficient for v0.37 acceptance. The release-blocking
+target is model-backed but advisory roles bounded by
+`dynamic_codegen.max_repair_iterations`, provider-call budget, provider-usage
+budget, wall-clock timeout, and repeated-identical-failure detection. Critic
+output can request repair, but it cannot trust a draft, advance tiers, or
+authorize integration.
 
 Generated source must use placeholders rather than fixed names:
 
