@@ -190,9 +190,10 @@ Dependency order from here:
     no network/secrets/real-home access, bounded reports/audit, and no live
     loading.
 36. v0.37 Dynamic code & config generation and live capability integration:
-    LLM agents generate to proven shapes, trial through the v0.36 sandbox, and
-    — after the warning gate plus operator confirmation — hot-load into the live
-    runtime without a restart (audited, reversible).
+    implements ADR 0021's reserved capability-gap/acquisition vocabulary, lets
+    LLM agents generate to proven shapes, trials project-shaped drafts through
+    the v0.36 sandbox, and — after the warning gate plus operator confirmation
+    — hot-loads into the live runtime without a restart (audited, reversible).
 37. v0.38 Templated creation: vetted plugin/app/LLM-tool/scheduled-flow/code
     templates via Mix tasks, operator workspace flows, and a Canvas Create
     surface, reusing the v0.36 sandbox and v0.37 loader.
