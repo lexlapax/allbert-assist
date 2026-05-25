@@ -33,6 +33,8 @@ changes:
 | `app_registry.registration_enabled` | `false` | New app contract registration. |
 | `workspace.fragment.emission_enabled` | `false` | Workspace fragment emission and receiver persistence. |
 | `sandbox.elixir.enabled` | `false` | v0.36 Elixir/OTP sandbox and gate runner. |
+| `dynamic_codegen.enabled` | `false` | v0.37 advisory dynamic draft generation. |
+| `dynamic_codegen.live_loader_enabled` | `false` | v0.37 operator-confirmed live dynamic integration. |
 
 Example:
 
@@ -40,6 +42,8 @@ Example:
 mix allbert.settings set external_services.enabled false
 mix allbert.settings set workspace.fragment.emission_enabled false
 mix allbert.settings set sandbox.elixir.enabled false
+mix allbert.settings set dynamic_codegen.enabled false
+mix allbert.settings set dynamic_codegen.live_loader_enabled false
 mix allbert.settings set permissions.sandbox_trial denied
 ```
 
@@ -61,6 +65,13 @@ mix allbert.settings set permissions.sandbox_trial denied
   Prepare images only through the explicit `mix allbert.sandbox image build`
   and `mix allbert.sandbox image verify` setup path. Inspect bounded sandbox
   audit entries under `<ALLBERT_HOME>/sandbox/audit` alongside report files.
+- Treat v0.37 dynamic code as two separately disabled capabilities:
+  `dynamic_codegen.enabled` controls advisory draft generation, while
+  `dynamic_codegen.live_loader_enabled` controls operator-confirmed live
+  registration. A green sandbox gate remains evidence only. Generated actions
+  cannot shadow static/plugin/app actions, cannot replace core modules, cannot
+  be resumable, and cannot exceed the generated-permission ceiling validated by
+  the loader.
 
 ## Channel Pairing
 
@@ -104,3 +115,20 @@ mix allbert.security review --recent --limit 25
 ```
 
 The sandbox result is evidence only. It never grants live runtime authority.
+
+## Dynamic Capability Integration
+
+Use [dynamic-capability-integration.md](dynamic-capability-integration.md) when
+reviewing v0.37 generated drafts. Emergency posture is:
+
+```sh
+mix allbert.settings set dynamic_codegen.live_loader_enabled false
+mix allbert.settings set dynamic_codegen.enabled false
+mix allbert.settings set sandbox.elixir.enabled false
+mix allbert.security review --recent --limit 25
+```
+
+Live dynamic integration is denied unless the draft is `:gate_passed`, source
+hashes match the gated bytes, trusted validation passes, and Security Central
+records an approval from an allowed high-trust operator surface. Telegram,
+email, and cross-channel approval are excluded for integration and rollback.

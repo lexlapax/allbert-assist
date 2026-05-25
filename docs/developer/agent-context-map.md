@@ -47,7 +47,7 @@ Do not load every section by default.
 | Workspace UX refresh: chat-primary shell, view-only launcher, single-destination Canvas, conversational context indicator | ADR 0024 (v0.34 revision), `docs/plans/v0.34-plan.md`, `docs/plans/v0.34-request-flow.md` | v0.34 |
 | User theming and layout overrides | ADR 0025, ADR 0024, `docs/plans/v0.35-plan.md`, `docs/plans/v0.35-request-flow.md` | v0.35 |
 | Elixir/OTP sandbox and gate runner | ADR 0037, ADR 0009, `docs/plans/v0.36-plan.md`, `docs/plans/v0.36-request-flow.md`, `docs/developer/sandbox-gate-runner.md`, `docs/operator/sandbox-gate-runner.md` | v0.36 |
-| Dynamic code & config generation, code-gen agents, v0.36 sandbox trial, gated live integration | ADR 0032, ADR 0033, ADR 0035, ADR 0037, ADR 0021, ADR 0027, `docs/plans/v0.37-plan.md`, `docs/plans/v0.37-request-flow.md` | v0.37 |
+| Dynamic code & config generation, code-gen agents, v0.36 sandbox trial, gated live integration | ADR 0032, ADR 0033, ADR 0035, ADR 0037, ADR 0021, ADR 0027, `docs/plans/v0.37-plan.md`, `docs/plans/v0.37-request-flow.md`, `docs/developer/dynamic-plugin-drafts.md`, `docs/operator/dynamic-capability-integration.md` | v0.37 |
 | Templated creation: plugin/app/LLM-tool/scheduled-flow/code templates, Mix tasks, operator flows, Canvas Create surface | ADR 0036, ADR 0035, ADR 0037, ADR 0017, ADR 0015, `docs/plans/v0.38-plan.md`, `docs/plans/v0.38-request-flow.md` | v0.38 |
 
 ## Version Map
@@ -239,14 +239,16 @@ Do not load every section by default.
   records, and fail-closed denial of
   network, secrets, real Allbert Home, package-manager execution, NIFs, ports,
   shell strings, and untrusted core loading. Per ADR 0037 and ADR 0009.
-- v0.37 (planned): Dynamic Code & Config Generation And Live Capability
+- v0.37 (active implementation): Dynamic Code & Config Generation And Live Capability
   Integration. Generates Elixir/OTP code/config through advisory agents, stores
   file-backed draft metadata under
   `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/`, trials and gates it through
   v0.36, and hot-loads/registers it live only after the warning gate plus
   operator confirmation. Rollback also requires confirmation and removes live
   authority; module purge is best-effort/audited. Per ADR 0032, ADR 0033, and
-  ADR 0035.
+  ADR 0035. Implementation docs live in
+  `docs/developer/dynamic-plugin-drafts.md` and
+  `docs/operator/dynamic-capability-integration.md`.
 - v0.38 (planned): Templated Creation. Scaffolds the proven plugin/app/tool/flow
   shapes through Mix tasks (`--target` defaults to `./plugins/<name>` and
   existing roots require `--force` plus preview/diff) and a `workspace:create`
@@ -288,6 +290,14 @@ produce bounded reports only; v0.37 file-backed dynamic drafts can integrate
 only after the v0.36 gate plus Security Central confirmation; v0.38 templates
 add deterministic creation surfaces, not new sandbox, loader, permission, route,
 or `active_app` authority.
+
+For v0.37 code, start with `docs/developer/dynamic-plugin-drafts.md`. Use
+`AllbertAssist.DynamicPlugins` as the public facade, keep
+`DynamicPlugins.MetadataStore` file-backed under Allbert Home, keep
+`DynamicPlugins.ActionsOverlay` behind `Actions.Registry`, and keep
+`DynamicPlugins.TrustedValidator` separate from the v0.36 regex/source-policy
+scanner. Dynamic integration and rollback confirmations must verify resolver
+surface against `dynamic_codegen.integration_approval_surfaces`.
 
 ### Memory
 
