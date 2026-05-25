@@ -54,6 +54,9 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 | M8 | `AllbertAssist.Settings.Fragment` | Implemented per-context/app/plugin settings schema fragment contract. |
 | M8 | `AllbertAssist.Settings.Fragments` | Implemented settings schema fragment registry and composition facade. |
 | v0.36 | `AllbertAssist.Sandbox` | Implemented report-only facade for doctor, bundle, command, gate, source-policy enforcement, audit, and cleanup. |
+| v0.37 | `AllbertAssist.DynamicPlugins` | Planned facade for file-backed dynamic drafts, gate evidence, trusted validation, loader integration, rollback, and read-only status. |
+| v0.37 | `AllbertAssist.DynamicPlugins.ActionsOverlay` | Planned runtime overlay merged by `Actions.Registry`; collision denial, no shadowing. |
+| v0.37 | `AllbertAssist.DynamicPlugins.TrustedValidator` | Planned trusted-phase AST/body validator before in-core compile. |
 
 ## Compatibility Shims And Exit Criteria
 
@@ -105,6 +108,14 @@ bounded audit records under Allbert Home. Sandbox reports are evidence only;
 they do not load modules, register actions, grant permissions, enable skills,
 mutate routing context, or authorize v0.37 live integration.
 
+v0.37 adds `AllbertAssist.DynamicPlugins` as the public dynamic-draft facade.
+The draft store is file-backed under Allbert Home and is producer-agnostic;
+ordinary plugin discovery never scans dynamic draft or integrated roots. The
+trusted loader is the only path that may compile reviewed generated source in
+core, and only after gate evidence plus Security Central confirmation. Dynamic
+actions merge through `Actions.Registry` via the actions overlay and never
+shadow static or source-tree plugin/app actions.
+
 ## Internal Modules
 
 Internal modules are still tested and may remain public in Elixir visibility
@@ -114,6 +125,8 @@ terms, but downstream plans should not target them as contracts. Examples:
   and lower schema helpers.
 - `AllbertAssist.Plugin.Entry`, `Plugin.Manifest`, `Plugin.Discovery`, and
   validators behind `Plugin.Registry`.
+- `AllbertAssist.DynamicPlugins.MetadataStore`, staging helpers, loader step
+  helpers, and generated manifest parsers behind `AllbertAssist.DynamicPlugins`.
 - `AllbertAssist.App.Validator`, app bootstrap helpers, and dynamic supervisor
   helpers behind `App.Registry`.
 - `AllbertAssist.Workspace.Fragment.*`, body stores, signing secrets, and
