@@ -72,6 +72,15 @@ ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
   facade, passing one resolved policy snapshot into backends, avoiding atom
   creation from backend setting strings, naming Docker/Podman containers for
   timeout cleanup, and adding a Docker-gated compile integration smoke.
+- M10 full-gate readiness hardening installs the minimal build toolchain for
+  C/NIF deps during image preparation, pre-bakes compiled deps and Dialyzer PLT
+  state when available, normalizes baked artifact permissions for the non-root
+  runtime user, seeds writable runtime dependency/build/cache paths and test DB
+  roots through a fixed image-owned runner, makes seeded PLT/build copies
+  writable inside the disposable sandbox home, teaches root Dialyxir config to
+  honor `MIX_BUILD_PATH`, includes source-tree plugins and root warning-gate
+  config in default bundles, warns on sandbox audit append failures, and adds an
+  opt-in Docker full-default-gate smoke for the current umbrella.
 
 ### Verification (v0.36.0)
 
@@ -89,6 +98,9 @@ ADRs: `docs/adr/0009-local-execution-sandbox-levels.md`,
   `mix credo --strict`, `mix dialyzer`, and `mix precommit`.
 - M9 corrective pass passed focused sandbox/image/security/action tests, the
   Docker-gated compile smoke when available, and the final warning gate.
+- M10 corrective pass passed focused sandbox/image tests and keeps the
+  Docker-gated full-default-gate smoke behind
+  `ALLBERT_DOCKER_FULL_GATE_TEST=1` for local toolchain hosts.
 - Disposable-home manual smoke confirmed `mix allbert.sandbox image verify`
   writes an image verification report, Docker `28.5.1` is reachable outside the
   restricted execution sandbox, and enabled doctor resolves `backend=auto` to

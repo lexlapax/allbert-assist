@@ -137,9 +137,18 @@ approved local image reference or digest during doctor/bundle preparation, or
 execution fails closed. v0.36 also owns the explicit local image-preparation
 workflow for the default sandbox image. That workflow may build the approved
 local image as an operator setup step, copies dependency manifests into the
-build context, and prepares dependency cache/source with `mix deps.get --only
-test` and `mix deps.compile`; sandbox command execution remains
-local-image-only, no-network, and uses `--pull=never`.
+build context, installs the minimal C/git toolchain needed by real Allbert
+deps, prepares dependency cache/source with `mix deps.get --only test` and
+`mix deps.compile`, pre-bakes Dialyzer PLT state when Dialyxir is present, and
+normalizes baked artifact permissions for the non-root runtime user.
+Runtime container commands use a fixed image-owned runner that seeds writable
+bundle-local dependency, build, Mix, Hex, and Rebar paths from the baked image
+state before execing reviewed `mix` argv. The same sandbox home owns the
+writable `DATABASE_PATH` used by test DB setup, and seeded PLT/build copies are
+writable only inside that disposable home. Root Dialyxir config must honor
+`MIX_BUILD_PATH` so PLT state does not target the read-only project mount.
+Sandbox command execution remains local-image-only, no-network, and uses
+`--pull=never`.
 
 Draft source and trial files are statically scanned in the sandbox facade
 before backend resolution or execution. Known dangerous constructs

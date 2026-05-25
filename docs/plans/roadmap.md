@@ -1908,7 +1908,13 @@ Implemented:
 - Add Settings Central keys and `mix allbert.sandbox doctor`.
 - Add `mix allbert.sandbox image build` and `mix allbert.sandbox image verify`
   so the default approved local image is not an undocumented prerequisite.
+- Build the approved image with the minimal C/git toolchain needed by real
+  Allbert deps, pre-bake compiled dependency artifacts and Dialyzer PLT state
+  when available, and seed writable runtime dependency/build/cache paths and
+  test DB roots from that baked state.
 - Build copy-in/copy-out sandbox bundles with a disposable Allbert Home.
+- Include root warning-gate config in default bundles so sandbox Credo and
+  Dialyzer use the same policy as host gates.
 - Require approved local images; sandbox runs never pull from registries.
 - Add static `SourcePolicy` checks for dangerous Elixir constructs in the
   sandbox facade before backend resolution/execution.
@@ -1924,6 +1930,9 @@ Implemented:
   ports, arbitrary shell strings, shell chaining, host Docker socket, and
   untrusted core-node module loading.
 - Return bounded redacted reports. A sandbox pass grants no authority.
+- Keep the opt-in Docker full-gate smoke
+  (`ALLBERT_DOCKER_FULL_GATE_TEST=1`) as the local proof that v0.37 can rely on
+  a real in-sandbox warning gate pass.
 - Emit signals and bounded/redacted sandbox audit records for backend
   resolution, run, gate, denial, and cleanup through the signal-driven runtime.
 - Ship operator/developer docs for the new boundary:

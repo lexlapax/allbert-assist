@@ -76,6 +76,11 @@ draft files, and focused tests. It must exclude `.git`, the live Allbert Home,
 settings, secrets, databases, caches, Docker socket paths, host temp roots, and
 symlink/traversal escapes.
 
+Default project bundles include the root Mix files, formatter/Credo/Dialyzer
+config, root config, app source, and reviewed source-tree plugins needed by the
+current umbrella compile and warning-gate path. They still exclude build,
+dependency, VCS, generated static, and vendor directories.
+
 Bundle ids and explicit bundle roots are confined under
 `<ALLBERT_HOME>/sandbox/bundles`. `cleanup/1` only removes marked bundle roots:
 the path must be a direct directory inside the sandbox bundle root and contain
@@ -124,9 +129,9 @@ filesystem, dropped capabilities, `no-new-privileges`, bounded CPU/memory/PID
 limits, read-only project/draft/test mounts, writable bundle-local
 `sandbox_home` and `reports` mounts, protected container-local Mix env
 (`ALLBERT_HOME`, `HOME`, `MIX_BUILD_PATH`, `MIX_HOME`, `HEX_HOME`,
-`REBAR_CACHE_DIR`, and `MIX_DEPS_PATH`), and `ALLBERT_HOME` set to the
-container sandbox-home path. Docker+runsc is the same contract with
-`--runtime runsc`.
+`REBAR_CACHE_DIR`, and `MIX_DEPS_PATH`), a protected writable `DATABASE_PATH`
+for test DB creation, and `ALLBERT_HOME` set to the container sandbox-home
+path. Docker+runsc is the same contract with `--runtime runsc`.
 The implemented Docker path runs as UID/GID `65532:65532`; the rootless Podman
 path uses `--userns=keep-id`. Both size the writable `/tmp` and `/run` tmpfs
 mounts. v0.36 caps copied input, tmpfs, process, output, and wall-clock usage;
@@ -138,9 +143,27 @@ Image preparation is a separate v0.36 setup path. `mix allbert.sandbox image
 build` may build the approved local Docker image, and `mix allbert.sandbox
 image verify` may run a tiny local-only verification command. The build task
 copies dependency manifests into the image context and prepares dependency
-cache/source with `mix deps.get --only test` and `mix deps.compile`. Backend
-`run/3` and gate execution must still use local image inspection plus
-`--pull=never`; they do not build, pull, or repair images.
+cache/source with `mix deps.get --only test` and `mix deps.compile`. The image
+prep path installs the minimal C/git toolchain needed by real Allbert deps,
+pre-bakes compiled dependency artifacts under `/opt/allbert/_build`, and
+pre-bakes Dialyzer PLT state when Dialyxir is present. It then normalizes
+artifact permissions so the non-root runtime user can read dependency source,
+compiled artifacts, and PLTs. Backend `run/3` and gate execution must still use
+local image inspection plus `--pull=never`; they do not build, pull, or repair
+images.
+
+Docker/Podman runtime argv invokes the fixed image-owned
+`/opt/allbert/bin/allbert-sandbox-run` wrapper before the reviewed `mix`
+command. That wrapper does not parse operator command text; it seeds writable
+bundle-local deps, build, Mix, Hex, and Rebar paths from the baked image state,
+creates the writable sandbox DB directory, and then `exec`s the argv it was
+given. This preserves the explicit-argv contract while avoiding cold dependency
+recompiles during every gate run, keeping dependency `priv` symlinks valid, and
+letting Dialyxir validate or refresh PLT files inside the disposable sandbox
+home.
+
+The root Dialyxir config must keep honoring `MIX_BUILD_PATH`; hard-coded
+project `_build` PLT paths will fail in the read-only sandbox project mount.
 
 ## Gate Profiles
 
@@ -193,3 +216,14 @@ ALLBERT_DOCKER_SANDBOX_TEST=1 mix test apps/allbert_assist/test/allbert_assist/s
 The smoke defaults to `allbert-elixir-otp:local` as its base image. Set
 `ALLBERT_DOCKER_BASE_IMAGE=<image>` and `ALLBERT_DOCKER_PULL_BASE=1` only when
 you intentionally want the smoke to pull or refresh a remote base image.
+
+The real-project full gate is a separate opt-in smoke:
+
+```sh
+ALLBERT_DOCKER_FULL_GATE_TEST=1 mix test apps/allbert_assist/test/allbert_assist/sandbox_test.exs --only docker_full_gate
+```
+
+It builds a local image for the current umbrella and runs the default gate
+profiles end to end. Keep it opt-in because it is host- and Docker-dependent,
+but treat a passing run as required evidence before starting v0.37 trust-path
+implementation.

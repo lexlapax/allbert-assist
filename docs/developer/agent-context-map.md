@@ -231,9 +231,12 @@ Do not load every section by default.
   OS-aware sandbox facade (static reviewed backend registry + `"auto"` resolver:
   optional doctor-gated Apple `container`, rootless Podman, Docker+runsc/gVisor
   preferred over plain Docker, Docker fallback), approved local images only
-  with dependency cache/source prepared by image setup, facade-level
-  source-policy checks, copy-in/copy-out bundles, explicit reviewed `mix` gate
-  commands, bounded reports and sandbox audit records, and fail-closed denial of
+  with dependency cache/source, compiled deps, and Dialyzer PLT state prepared
+  by image setup when available, runtime dependency/build/cache paths and test
+  DB roots seeded by a fixed image-owned runner, facade-level source-policy
+  checks, copy-in/copy-out bundles that include root warning-gate config,
+  explicit reviewed `mix` gate commands, bounded reports and sandbox audit
+  records, and fail-closed denial of
   network, secrets, real Allbert Home, package-manager execution, NIFs, ports,
   shell strings, and untrusted core loading. Per ADR 0037 and ADR 0009.
 - v0.37 (planned): Dynamic Code & Config Generation And Live Capability

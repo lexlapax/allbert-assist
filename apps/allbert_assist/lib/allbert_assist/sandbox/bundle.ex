@@ -129,7 +129,16 @@ defmodule AllbertAssist.Sandbox.Bundle do
   end
 
   defp default_project_files(project_root) do
-    ["mix.exs", "mix.lock", ".formatter.exs", "config", "apps"]
+    [
+      "mix.exs",
+      "mix.lock",
+      ".formatter.exs",
+      ".credo.exs",
+      ".dialyzer_ignore.exs",
+      "config",
+      "apps",
+      "plugins"
+    ]
     |> Enum.map(&Path.join(project_root, &1))
     |> Enum.filter(&File.exists?/1)
     |> classified_files(project_root)

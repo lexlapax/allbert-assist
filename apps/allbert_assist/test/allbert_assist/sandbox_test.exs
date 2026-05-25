@@ -323,6 +323,21 @@ defmodule AllbertAssist.SandboxTest do
     assert File.exists?(bundle.metadata_path)
   end
 
+  test "bundle builder default project files include root warning-gate config" do
+    project = fixture_project("default-project-files")
+    File.write!(Path.join(project, ".credo.exs"), "%{}\n")
+    File.write!(Path.join(project, ".dialyzer_ignore.exs"), "[]\n")
+
+    assert {:ok, %Bundle{} = bundle} =
+             Sandbox.build_bundle(%{
+               id: "default-project-files-bundle",
+               project_root: project
+             })
+
+    assert File.exists?(Path.join([bundle.project_path, ".credo.exs"]))
+    assert File.exists?(Path.join([bundle.project_path, ".dialyzer_ignore.exs"]))
+  end
+
   test "bundle builder fails closed on traversal, real home, and symlink escapes", %{home: home} do
     project = fixture_project("denied")
     outside = Path.join(Path.dirname(project), "outside.ex")
@@ -564,13 +579,25 @@ defmodule AllbertAssist.SandboxTest do
     refute mount_arg(argv, bundle.reports_path) =~ "readonly"
 
     assert ["--env", "ALLBERT_HOME=/workspace/allbert_home"] = argv_pair(argv, "--env")
+
+    assert env_arg(argv, "DATABASE_PATH") ==
+             "DATABASE_PATH=/workspace/allbert_home/db/allbert_test.sqlite3"
+
     assert env_arg(argv, "HOME") == "HOME=/workspace/allbert_home"
     assert env_arg(argv, "MIX_BUILD_PATH") == "MIX_BUILD_PATH=/workspace/allbert_home/_build"
-    assert env_arg(argv, "MIX_DEPS_PATH") == "MIX_DEPS_PATH=/opt/allbert/deps"
+    assert env_arg(argv, "MIX_DEPS_PATH") == "MIX_DEPS_PATH=/workspace/allbert_home/deps"
     assert env_arg(argv, "MIX_HOME") == "MIX_HOME=/workspace/allbert_home/mix"
     assert env_arg(argv, "HEX_HOME") == "HEX_HOME=/workspace/allbert_home/hex"
     assert env_arg(argv, "REBAR_CACHE_DIR") == "REBAR_CACHE_DIR=/workspace/allbert_home/rebar"
-    assert Enum.slice(argv, -4, 4) == ["fixture:local", "mix", "compile", "--warnings-as-errors"]
+
+    assert Enum.slice(argv, -5, 5) == [
+             "fixture:local",
+             "/opt/allbert/bin/allbert-sandbox-run",
+             "mix",
+             "compile",
+             "--warnings-as-errors"
+           ]
+
     refute Enum.any?(argv, &String.contains?(&1, "docker.sock"))
     refute Enum.any?(argv, &(&1 in ["-i", "-t", "-it"]))
   end
@@ -585,7 +612,14 @@ defmodule AllbertAssist.SandboxTest do
 
     assert ["--runtime", "runsc"] = argv_pair(argv, "--runtime")
     assert ["--network", "none"] = argv_pair(argv, "--network")
-    assert Enum.slice(argv, -4, 4) == ["fixture:local", "mix", "compile", "--warnings-as-errors"]
+
+    assert Enum.slice(argv, -5, 5) == [
+             "fixture:local",
+             "/opt/allbert/bin/allbert-sandbox-run",
+             "mix",
+             "compile",
+             "--warnings-as-errors"
+           ]
   end
 
   test "podman backend argv uses rootless-friendly local image settings" do
@@ -603,7 +637,14 @@ defmodule AllbertAssist.SandboxTest do
     assert ["--cap-drop", "ALL"] = argv_pair(argv, "--cap-drop")
     assert "--userns=keep-id" in argv
     assert mount_arg(argv, bundle.project_path) =~ "target=/workspace/project,readonly"
-    assert Enum.slice(argv, -4, 4) == ["fixture:local", "mix", "compile", "--warnings-as-errors"]
+
+    assert Enum.slice(argv, -5, 5) == [
+             "fixture:local",
+             "/opt/allbert/bin/allbert-sandbox-run",
+             "mix",
+             "compile",
+             "--warnings-as-errors"
+           ]
   end
 
   test "report maps redact home paths and sensitive metadata while structs keep file paths" do
@@ -778,7 +819,66 @@ defmodule AllbertAssist.SandboxTest do
     assert [%{reason: :fixture_failure}] = failed.diagnostics
   end
 
+  test "run_gate defaults to the full v0.37 warning precondition profile set" do
+    enable_sandbox!()
+
+    project = fixture_project("run-gate-defaults")
+    {:ok, bundle} = Sandbox.build_bundle(%{project_root: project, project_paths: ["mix.exs"]})
+
+    assert {:ok, report} =
+             Sandbox.run_gate(bundle,
+               backends: [CompletingDocker],
+               host: %Host{os: :linux, arch: :x86_64}
+             )
+
+    assert report.status == :completed
+    assert report.metadata.step_count == 5
+
+    profiles =
+      report.metadata.steps
+      |> Enum.map(&get_in(&1, [:command, :profile]))
+
+    assert profiles == [:compile, :focused_tests, :credo, :dialyzer, :security_evals]
+  end
+
+  test "run_gate can scope focused tests and security evals to an app cwd" do
+    enable_sandbox!()
+
+    project = fixture_project("run-gate-test-cwd")
+    File.mkdir_p!(Path.join(project, "apps/allbert_assist"))
+
+    {:ok, bundle} =
+      Sandbox.build_bundle(%{project_root: project, project_paths: ["mix.exs", "apps"]})
+
+    assert {:ok, report} =
+             Sandbox.run_gate(bundle,
+               profiles: [:focused_tests, :security_evals],
+               focused_test_cwd: "apps/allbert_assist",
+               focused_test_paths: ["test/focused_test.exs"],
+               security_eval_cwd: "apps/allbert_assist",
+               security_eval_paths: ["test/security/eval_test.exs"],
+               backends: [CompletingDocker],
+               host: %Host{os: :linux, arch: :x86_64}
+             )
+
+    assert report.status == :completed
+
+    [focused, security] =
+      report.metadata.steps
+      |> Enum.map(& &1.command)
+
+    assert focused.profile == :focused_tests
+    assert focused.argv == ["test", "test/focused_test.exs"]
+    assert String.ends_with?(focused.cwd, "/project/apps/allbert_assist")
+
+    assert security.profile == :security_evals
+    assert security.argv == ["test", "test/security/eval_test.exs"]
+    assert String.ends_with?(security.cwd, "/project/apps/allbert_assist")
+  end
+
   if System.get_env("ALLBERT_DOCKER_SANDBOX_TEST") == "1" do
+    alias AllbertAssist.Sandbox.Image
+
     @tag :docker_sandbox
     @tag timeout: 360_000
     test "docker sandbox compiles a trivial fixture green" do
@@ -799,7 +899,7 @@ defmodule AllbertAssist.SandboxTest do
 
       # credo:disable-for-lines:3 Credo.Check.Design.AliasUsage
       assert {:ok, _image_report} =
-               AllbertAssist.Sandbox.Image.build(
+               Image.build(
                  policy: policy,
                  docker: docker,
                  image: image,
@@ -826,6 +926,78 @@ defmodule AllbertAssist.SandboxTest do
     @tag :docker_sandbox
     @tag skip: "set ALLBERT_DOCKER_SANDBOX_TEST=1 to run the local Docker sandbox smoke"
     test "docker sandbox compiles a trivial fixture green" do
+      :ok
+    end
+  end
+
+  if System.get_env("ALLBERT_DOCKER_FULL_GATE_TEST") == "1" do
+    alias AllbertAssist.Sandbox.Image
+
+    @tag :docker_sandbox
+    @tag :docker_full_gate
+    @tag timeout: 1_200_000
+    test "docker sandbox runs the full default gate for the current umbrella" do
+      docker = System.find_executable("docker") || flunk("docker executable is required")
+      project = Path.expand("../../../..", __DIR__)
+      image = "allbert-sandbox-full-gate:#{System.unique_integer([:positive])}"
+
+      base_image =
+        System.get_env("ALLBERT_DOCKER_BASE_IMAGE") ||
+          "elixir:#{System.version()}-otp-#{:erlang.system_info(:otp_release)}-slim"
+
+      on_exit(fn ->
+        System.cmd(docker, ["rmi", "-f", image], stderr_to_stdout: true)
+      end)
+
+      build_policy = %{
+        policy("docker", %Host{os: :linux, arch: :x86_64})
+        | image: image,
+          timeout_ms: 900_000,
+          memory_mb: 4096
+      }
+
+      assert {:ok, _image_report} =
+               Image.build(
+                 policy: build_policy,
+                 docker: docker,
+                 image: image,
+                 base_image: base_image,
+                 project_root: project,
+                 pull_base?: System.get_env("ALLBERT_DOCKER_PULL_BASE") == "1"
+               )
+
+      gate_policy = %{build_policy | timeout_ms: 120_000}
+      {:ok, bundle} = Sandbox.build_bundle(%{project_root: project})
+
+      assert {:ok, report} =
+               Sandbox.run_gate(bundle,
+                 policy: gate_policy,
+                 backends: [Docker],
+                 host: %Host{os: :linux, arch: :x86_64},
+                 focused_test_cwd: "apps/allbert_assist",
+                 focused_test_paths: [
+                   "test/allbert_assist/sandbox_image_test.exs"
+                 ],
+                 security_eval_cwd: "apps/allbert_assist",
+                 security_eval_paths: [
+                   "test/security/sandbox_eval_test.exs"
+                 ]
+               )
+
+      assert report.status == :completed,
+             inspect(Report.to_map(report),
+               pretty: true,
+               limit: :infinity,
+               printable_limit: :infinity
+             )
+
+      assert report.metadata.step_count == 5
+    end
+  else
+    @tag :docker_sandbox
+    @tag :docker_full_gate
+    @tag skip: "set ALLBERT_DOCKER_FULL_GATE_TEST=1 to run the full local Docker gate smoke"
+    test "docker sandbox runs the full default gate for the current umbrella" do
       :ok
     end
   end

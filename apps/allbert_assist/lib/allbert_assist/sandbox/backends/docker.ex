@@ -23,11 +23,14 @@ defmodule AllbertAssist.Sandbox.Backends.Docker do
   def available?(policy), do: doctor(policy).status == :available
 
   @impl true
-  def doctor(policy) do
+  def doctor(policy), do: doctor(policy, [])
+
+  @impl true
+  def doctor(policy, opts) do
     with {:ok, docker} <- find_executable("docker"),
          :ok <-
            command_ok(docker, ["version", "--format", "{{.Server.Version}}"], :docker_unavailable),
-         {:ok, image_metadata} <- Image.local_status(policy, docker) do
+         {:ok, image_metadata} <- Image.local_status(policy, docker, opts) do
       available(%{
         executable: docker,
         image: policy.image,
