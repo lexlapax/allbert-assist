@@ -31,6 +31,9 @@ defmodule AllbertAssist.Runtime.Paths do
           | :workspace_secrets
           | :themes
           | :theme_snippets
+          | :dynamic_plugins
+          | :dynamic_plugins_drafts
+          | :dynamic_plugins_integrated
 
   @doc "Return the canonical Allbert Home."
   @spec home() :: String.t()
@@ -116,6 +119,18 @@ defmodule AllbertAssist.Runtime.Paths do
   @spec theme_snippets_root() :: String.t()
   defdelegate theme_snippets_root(), to: Paths
 
+  @doc "Return the dynamic plugin substrate root."
+  @spec dynamic_plugins_root() :: String.t()
+  defdelegate dynamic_plugins_root(), to: Paths
+
+  @doc "Return the inert dynamic draft root."
+  @spec dynamic_plugins_drafts_root() :: String.t()
+  defdelegate dynamic_plugins_drafts_root(), to: Paths
+
+  @doc "Return the reviewed dynamic integration root."
+  @spec dynamic_plugins_integrated_root() :: String.t()
+  defdelegate dynamic_plugins_integrated_root(), to: Paths
+
   @doc "Return a named root path."
   @spec root(root_name()) :: String.t()
   def root(:home), do: home()
@@ -138,6 +153,9 @@ defmodule AllbertAssist.Runtime.Paths do
   def root(:workspace_secrets), do: workspace_secrets_root()
   def root(:themes), do: themes_root()
   def root(:theme_snippets), do: theme_snippets_root()
+  def root(:dynamic_plugins), do: dynamic_plugins_root()
+  def root(:dynamic_plugins_drafts), do: dynamic_plugins_drafts_root()
+  def root(:dynamic_plugins_integrated), do: dynamic_plugins_integrated_root()
 
   @doc "Return the current standard root vocabulary as a map."
   @spec roots() :: %{root_name() => String.t()}
@@ -162,7 +180,10 @@ defmodule AllbertAssist.Runtime.Paths do
       workspace_ephemeral: workspace_ephemeral_root(),
       workspace_secrets: workspace_secrets_root(),
       themes: themes_root(),
-      theme_snippets: theme_snippets_root()
+      theme_snippets: theme_snippets_root(),
+      dynamic_plugins: dynamic_plugins_root(),
+      dynamic_plugins_drafts: dynamic_plugins_drafts_root(),
+      dynamic_plugins_integrated: dynamic_plugins_integrated_root()
     }
   end
 end

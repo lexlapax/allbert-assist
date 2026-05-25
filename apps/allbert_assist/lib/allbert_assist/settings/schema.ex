@@ -116,6 +116,18 @@ defmodule AllbertAssist.Settings.Schema do
     "sandbox.elixir.memory_mb",
     "sandbox.elixir.timeout_ms",
     "sandbox.elixir.output_bytes",
+    "dynamic_codegen.enabled",
+    "dynamic_codegen.provider_profile",
+    "dynamic_codegen.max_repair_iterations",
+    "dynamic_codegen.max_provider_calls_per_gap",
+    "dynamic_codegen.max_provider_usage_units_per_gap",
+    "dynamic_codegen.max_files",
+    "dynamic_codegen.max_bytes",
+    "dynamic_codegen.allowed_targets",
+    "dynamic_codegen.allowed_action_permissions",
+    "dynamic_codegen.live_loader_enabled",
+    "dynamic_codegen.integration_approval_surfaces",
+    "dynamic_codegen.retention_days",
     "resource_grants.remembered",
     "skills.online_import.enabled",
     "skills.online_import.require_confirmation",
@@ -1307,6 +1319,88 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false
     },
+    "dynamic_codegen.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "dynamic_codegen.provider_profile" => %{
+      type: :string_or_nil,
+      default: nil,
+      writable?: true,
+      sensitive?: false
+    },
+    "dynamic_codegen.max_repair_iterations" => %{
+      type: :bounded_integer,
+      default: 2,
+      writable?: true,
+      sensitive?: false,
+      min: 0,
+      max: 8
+    },
+    "dynamic_codegen.max_provider_calls_per_gap" => %{
+      type: :bounded_integer,
+      default: 8,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 40
+    },
+    "dynamic_codegen.max_provider_usage_units_per_gap" => %{
+      type: :non_negative_integer_or_nil,
+      default: 20_000,
+      writable?: true,
+      sensitive?: false
+    },
+    "dynamic_codegen.max_files" => %{
+      type: :bounded_integer,
+      default: 32,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 200
+    },
+    "dynamic_codegen.max_bytes" => %{
+      type: :bounded_integer,
+      default: 262_144,
+      writable?: true,
+      sensitive?: false,
+      min: 1024,
+      max: 5_242_880
+    },
+    "dynamic_codegen.allowed_targets" => %{
+      type: :string_list,
+      default: ["action", "panel", "settings_fragment"],
+      writable?: true,
+      sensitive?: false
+    },
+    "dynamic_codegen.allowed_action_permissions" => %{
+      type: :string_list,
+      default: ["read_only"],
+      writable?: true,
+      sensitive?: false
+    },
+    "dynamic_codegen.live_loader_enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "dynamic_codegen.integration_approval_surfaces" => %{
+      type: :string_list,
+      default: ["cli", "liveview"],
+      writable?: true,
+      sensitive?: false
+    },
+    "dynamic_codegen.retention_days" => %{
+      type: :bounded_integer,
+      default: 30,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 365
+    },
     "resource_grants.remembered" => %{
       type: :resource_grants,
       default: [],
@@ -1674,6 +1768,20 @@ defmodule AllbertAssist.Settings.Schema do
         "output_bytes" => 65_536
       }
     },
+    "dynamic_codegen" => %{
+      "enabled" => false,
+      "provider_profile" => nil,
+      "max_repair_iterations" => 2,
+      "max_provider_calls_per_gap" => 8,
+      "max_provider_usage_units_per_gap" => 20_000,
+      "max_files" => 32,
+      "max_bytes" => 262_144,
+      "allowed_targets" => ["action", "panel", "settings_fragment"],
+      "allowed_action_permissions" => ["read_only"],
+      "live_loader_enabled" => false,
+      "integration_approval_surfaces" => ["cli", "liveview"],
+      "retention_days" => 30
+    },
     "resource_grants" => %{
       "remembered" => []
     },
@@ -1831,6 +1939,7 @@ defmodule AllbertAssist.Settings.Schema do
          :ok <- validate_providers(settings),
          :ok <- validate_model_profiles(settings),
          :ok <- validate_runtime_refs(settings),
+         :ok <- validate_dynamic_codegen(settings),
          :ok <- validate_channels(settings) do
       :ok
     end
@@ -2234,12 +2343,69 @@ defmodule AllbertAssist.Settings.Schema do
     if value >= 0 and value <= 200_000, do: :ok, else: {:error, :out_of_range}
   end
 
+  defp validate_value(%{type: :non_negative_integer_or_nil}, nil, _key, _settings), do: :ok
+
+  defp validate_value(%{type: :non_negative_integer_or_nil}, value, key, settings),
+    do: validate_value(%{type: :non_negative_integer}, value, key, settings)
+
   defp validate_value(%{type: :timeout_ms}, value, _key, _settings) when is_integer(value) do
     if value >= 1_000 and value <= 600_000, do: :ok, else: {:error, :out_of_range}
   end
 
   defp validate_value(schema, value, _key, _settings),
     do: {:error, {:invalid_value, schema.type, value}}
+
+  defp validate_dynamic_codegen(settings) do
+    with :ok <-
+           validate_dynamic_codegen_list(
+             settings,
+             "dynamic_codegen.allowed_targets",
+             [
+               "action",
+               "app",
+               "panel",
+               "settings_fragment",
+               "memory_namespace",
+               "objective_wiring"
+             ]
+           ),
+         :ok <-
+           validate_dynamic_codegen_list(
+             settings,
+             "dynamic_codegen.allowed_action_permissions",
+             [
+               "read_only",
+               "external_network",
+               "memory_write",
+               "objective_write",
+               "workspace_canvas_write"
+             ]
+           ) do
+      validate_dynamic_codegen_list(
+        settings,
+        "dynamic_codegen.integration_approval_surfaces",
+        ["cli", "liveview"]
+      )
+    end
+  end
+
+  defp validate_dynamic_codegen_list(settings, key, allowed_values) do
+    values = get_dotted(settings, key)
+
+    cond do
+      not is_list(values) ->
+        {:error, {:invalid_setting, key, {:expected_string_list, values}}}
+
+      values == [] ->
+        {:error, {:invalid_setting, key, :empty_list}}
+
+      not Enum.all?(values, &(&1 in allowed_values)) ->
+        {:error, {:invalid_setting, key, {:allowed_values, allowed_values}}}
+
+      true ->
+        :ok
+    end
+  end
 
   defp validate_channels(settings) do
     with :ok <- validate_enabled_telegram(settings),

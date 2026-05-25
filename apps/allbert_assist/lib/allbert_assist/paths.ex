@@ -56,6 +56,9 @@ defmodule AllbertAssist.Paths do
       sandbox_reports_root(),
       sandbox_cache_root(),
       sandbox_audit_root(),
+      dynamic_plugins_root(),
+      dynamic_plugins_drafts_root(),
+      dynamic_plugins_integrated_root(),
       external_root(),
       Path.join(external_root(), "audit"),
       external_cache_root(),
@@ -159,6 +162,20 @@ defmodule AllbertAssist.Paths do
   @doc "Return the v0.36 sandbox audit root."
   @spec sandbox_audit_root() :: String.t()
   def sandbox_audit_root, do: Path.join(sandbox_root(), "audit")
+
+  @doc "Return the v0.37 dynamic plugin root under Allbert Home."
+  @spec dynamic_plugins_root() :: String.t()
+  def dynamic_plugins_root do
+    first_path([configured(:dynamic_plugins_root)], Path.join(home(), "dynamic_plugins"))
+  end
+
+  @doc "Return the v0.37 inert dynamic draft root."
+  @spec dynamic_plugins_drafts_root() :: String.t()
+  def dynamic_plugins_drafts_root, do: Path.join(dynamic_plugins_root(), "drafts")
+
+  @doc "Return the v0.37 reviewed dynamic integration root."
+  @spec dynamic_plugins_integrated_root() :: String.t()
+  def dynamic_plugins_integrated_root, do: Path.join(dynamic_plugins_root(), "integrated")
 
   @doc "Return the external service adapter root."
   @spec external_root() :: String.t()
