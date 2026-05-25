@@ -104,14 +104,17 @@ The loader:
   loaded modules where safe.
 
 The trusted-phase validator is AST-allowlist based, not the v0.36 regex
-`SourcePolicy` scanner. The loader parses reviewed generated source without
-executing it (`Code.string_to_quoted!/2` or equivalent) and walks the quoted
-tree with default-deny semantics. Unknown AST forms are denial. Allowed forms
-are limited to generated-namespace `defmodule`, normal `def`/`defp` function
-bodies, a fixed set of inert module attributes, and `alias`/`use`/`import`/
-`require` only for reviewed allowlisted modules. The manifest and AST must
-reconcile bidirectionally: every parsed `defmodule` is generated-namespace
-scoped and declared, and every declared module is present in reviewed source.
+`SourcePolicy` scanner. Implement it as a named trusted-loader component, for
+example `AllbertAssist.DynamicPlugins.TrustedValidator`, rather than burying the
+policy inside one loader function. The loader parses reviewed generated source
+without executing it (`Code.string_to_quoted!/2` or equivalent) and walks the
+quoted tree with default-deny semantics. Unknown AST forms are denial. Allowed
+forms are limited to generated-namespace `defmodule`, normal `def`/`defp`
+function bodies, a fixed set of inert module attributes, and
+`alias`/`use`/`import`/`require` only for reviewed allowlisted modules. The
+manifest and AST must reconcile bidirectionally: every parsed `defmodule` is
+generated-namespace scoped and declared, and every declared module is present in
+reviewed source.
 
 The generated macro/use allowlist is enumerated: `use AllbertAssist.Action` for
 generated action modules and `use AllbertAssist.App` for generated app modules.
