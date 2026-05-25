@@ -5,9 +5,10 @@
 Accepted for v0.37 Dynamic Code & Config Generation and Live Capability
 Integration (`docs/plans/v0.37-plan.md`) on 2026-05-25. Pairs with ADR 0032
 (untrusted trial and gated integration), ADR 0033 (trust tiers), and ADR 0037
-(v0.36 Elixir/OTP sandbox/gate runner). The shipped v0.37.2 implementation
-delivers source-bearing read-only action generation and the reviewed read-only
-action live loader; broader generated app/config targets are deferred.
+(v0.36 Elixir/OTP sandbox/gate runner). The v0.37.2 implementation is amended
+before release tagging to require source-bearing read-only action generation
+through a bounded model-backed committee and the reviewed read-only action live
+loader; broader generated app/config targets are deferred.
 
 ## Context
 
@@ -40,13 +41,28 @@ StockSage native-agent + Jido.AI pattern:
 Per ADR 0021, agent output is never authority. It cannot enable, trust,
 integrate, grant permissions, or bypass confirmation. v0.37.2 ships the
 producer-neutral request path, budget checks, JidoBacked coordinator, metadata
-writer, diagnostics, and an injectable Jido.AI structured-generation provider
-that authors one source-bearing read-only action draft. The deterministic
-template path is v0.38 and reuses this lifecycle only when live integration is
-selected. Draft creation is therefore pluggable: the v0.37.2 LLM action
-producer is the first producer and v0.38 templates are another, while the draft
-lifecycle from `:draft` onward (metadata store, staging, trial, gate, loader,
-overlay, rollback) is producer-agnostic and records the producer in provenance.
+writer, diagnostics, and injectable Jido.AI structured-generation providers.
+The committee must not collapse into a single LLM Author call with deterministic
+role labels. Planner, Author, TrialAuthor, Critic, and Repair each emit a
+schema-constrained packet with authority `none`; v0.37.2 may use one configured
+provider profile for all roles, but provider-call/usage accounting and
+provenance remain per role.
+
+The draft loop is bounded and evidence-driven. Planner creates the generation
+spec and acceptance criteria, Author creates source, TrialAuthor creates focused
+tests, deterministic validators and the v0.36 sandbox produce evidence, Critic
+summarizes static/sandbox findings and may request repair, and Repair creates a
+new revision. The loop stops on deterministic acceptance or on configured
+iteration, provider-call, provider-usage, wall-clock, or repeated-failure
+limits. Critic output is advisory only; it cannot advance trust tiers or
+authorize integration.
+
+The deterministic template path is v0.38 and reuses this lifecycle only when
+live integration is selected. Draft creation is therefore pluggable: the v0.37.2
+LLM action committee is the first producer and v0.38 templates are another,
+while the draft lifecycle from `:draft` onward (metadata store, staging, trial,
+gate, loader, overlay, rollback) is producer-agnostic and records the producer
+in provenance.
 
 ### 2. Generation targets Elixir/OTP code and config
 
@@ -256,8 +272,9 @@ sandbox reports are file-backed under
   loader tampering, core-module replacement, action shadowing,
   partial-integration unwind, revision supersede bypass, emergency-disable
   bypass, integration-approval-surface bypass, restart reconciliation tamper,
-  private objective loops, rollback failure, generation budget exhaustion, and
-  exfiltration fail closed.
+  private objective loops, rollback failure, generation budget exhaustion,
+  critic-authority bypass, repair-loop budget bypass, and exfiltration fail
+  closed.
 
 ## Non-Goals
 

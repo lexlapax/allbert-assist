@@ -878,11 +878,21 @@ defmodule AllbertAssist.SettingsTest do
   test "provider and model profiles resolve with redacted credential status" do
     assert {:ok, providers} = Settings.list_provider_profiles()
     assert Enum.any?(providers, &(&1.name == "openai" and &1.credential_status == :missing))
+    assert Enum.any?(providers, &(&1.name == "anthropic" and &1.credential_status == :missing))
+    assert Enum.any?(providers, &(&1.name == "openrouter" and &1.credential_status == :missing))
 
     assert {:ok, profile} = Settings.resolve_model_profile("fast")
     assert profile.provider == "openai"
     assert profile.credential_status == :missing
     refute Map.has_key?(profile, :api_key)
+
+    assert {:ok, anthropic} = Settings.resolve_model_profile("anthropic_fast")
+    assert anthropic.provider == "anthropic"
+    assert anthropic.provider_type == "anthropic"
+
+    assert {:ok, openrouter} = Settings.resolve_model_profile("openrouter_fast")
+    assert openrouter.provider == "openrouter"
+    assert openrouter.provider_type == "openrouter"
   end
 
   test "secret writes encrypt raw value and store only secret ref in settings", %{home: home} do

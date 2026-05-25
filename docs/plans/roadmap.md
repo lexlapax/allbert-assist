@@ -1953,13 +1953,15 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 
 Status: implemented as `v0.37.0`; v0.37.1 post-implementation audit hardening
 and final gates completed on 2026-05-25. Reopened for v0.37.2
-capability-first generator implementation before tagging. The
+capability-first generator and bounded model-backed committee implementation
+before tagging. The
 self-extending-runtime engine now has file-backed dynamic drafts, v0.36 sandbox
 trial/gate handoff, trusted validation, dynamic lifecycle audit/signals, and
 gated live in-core integration for read-only action artifacts. v0.37.2 must add
-source-bearing LLM-backed read-only action generation and prove the full
-generate -> gate -> approve -> live run -> rollback loop. Broader generated
-app/config targets remain deferred until their validators exist.
+source-bearing LLM-backed read-only action generation through separate
+Planner/Author/TrialAuthor/Critic/Repair packets and prove the full
+generate -> repair -> gate -> approve -> live run -> rollback loop. Broader
+generated app/config targets remain deferred until their validators exist.
 Highest-capability and highest-risk milestone; its safety rests on the v0.36
 sandbox evidence plus operator-confirmed integration.
 
@@ -1973,6 +1975,10 @@ Expected direction:
 - Use producer-neutral codegen scaffolding for explicit capability-gap draft
   requests, and implement the v0.37.2 LLM-backed action producer through this
   guarded path.
+- Keep Planner, Author, TrialAuthor, Critic, and Repair model-backed but
+  advisory. Deterministic validators, v0.36 sandbox tests/gates, and operator
+  confirmation remain authority; Critic output can request repair but cannot
+  trust or integrate a draft.
 - Store draft metadata, source, provenance, repair history, and sandbox reports
   file-backed under `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/`, separate
   from ordinary plugin discovery roots.

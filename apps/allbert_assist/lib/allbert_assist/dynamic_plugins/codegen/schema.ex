@@ -20,7 +20,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Schema do
         "notes" => %{type: "array", items: %{type: "string"}},
         "usage_units" => %{type: "integer"}
       },
-      required: ["description", "source", "test_source"]
+      required: ["action_name", "description", "source", "test_source", "notes", "usage_units"]
     }
   end
 end
