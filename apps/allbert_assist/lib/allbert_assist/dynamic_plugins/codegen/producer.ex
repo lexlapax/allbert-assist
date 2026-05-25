@@ -12,7 +12,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
   alias AllbertAssist.DynamicPlugins.Audit
   alias AllbertAssist.DynamicPlugins.Codegen.Budget
   alias AllbertAssist.DynamicPlugins.Codegen.CapabilityGap
-  alias AllbertAssist.DynamicPlugins.Codegen.LLM
+  alias AllbertAssist.DynamicPlugins.Codegen.Roles
   alias AllbertAssist.DynamicPlugins.Codegen.Targets.Action, as: ActionTarget
   alias AllbertAssist.DynamicPlugins.Draft
   alias AllbertAssist.DynamicPlugins.MetadataStore
@@ -29,9 +29,9 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
          {:ok, profile} <- dynamic_provider_profile(context),
          :ok <- ensure_provider_ready(profile),
          {:ok, budget} <- budget_for(attrs, gap),
-         {:ok, generated} <- LLM.generate_action(gap, profile, budget, context),
+         {:ok, role_packets, generated} <- Roles.run(gap, profile, budget, context),
          {:ok, budget} <- consume_budget(budget, generated),
-         {:ok, draft, manifest} <- write_draft(gap, profile, budget, generated),
+         {:ok, draft, manifest} <- write_draft(gap, profile, budget, generated, role_packets),
          :ok <- audit_draft_requested(gap, draft, profile, budget, context),
          :ok <- record_objective_event(gap, draft, profile, budget) do
       {:ok,
@@ -140,7 +140,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
     end
   end
 
-  defp write_draft(%CapabilityGap{} = gap, profile, budget, generated) do
+  defp write_draft(%CapabilityGap{} = gap, profile, budget, generated, role_packets) do
     module = ActionTarget.module_name(gap.slug)
     test_module = ActionTarget.test_module_name(gap.slug)
     action_name = ActionTarget.action_name(gap.slug, Map.get(generated, "action_name"))
@@ -179,7 +179,8 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
              source_compiled,
              test_rel,
              test_compiled,
-             generated
+             generated,
+             role_packets
            ),
          {:ok, draft} <-
            DynamicPlugins.put_draft(%{
@@ -191,8 +192,8 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
              compiled_paths: [source_compiled, test_compiled],
              scan_paths: [source_rel, test_rel],
              budget: budget,
-             diagnostics: diagnostics(gap, profile, generated),
-             repair_history: repair_history(generated),
+             diagnostics: diagnostics(gap, profile, generated, role_packets),
+             repair_history: repair_history(generated, role_packets),
              static_validation: %{"status" => "not_run"},
              gate: %{"status" => "not_run", "sandbox_report_id" => nil}
            }),
@@ -239,7 +240,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
     end
   end
 
-  defp diagnostics(%CapabilityGap{} = gap, profile, generated) do
+  defp diagnostics(%CapabilityGap{} = gap, profile, generated, role_packets) do
     [
       %{
         "source" => "dynamic_codegen",
@@ -249,7 +250,8 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
         "gap_id" => gap.id,
         "provider_profile" => profile.name,
         "authority" => "none",
-        "notes" => normalize_list(Map.get(generated, "notes"))
+        "notes" => normalize_list(Map.get(generated, "notes")),
+        "roles" => role_summary(role_packets)
       }
     ]
     |> Redactor.redact()
@@ -344,7 +346,8 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
          source_compiled,
          test_rel,
          test_compiled,
-         generated
+         generated,
+         role_packets
        ) do
     %{
       "target_shapes" => ["action"],
@@ -367,20 +370,19 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
       "generation" => %{
         "gap_id" => gap.id,
         "description" => Map.get(generated, "description"),
-        "notes" => normalize_list(Map.get(generated, "notes"))
+        "notes" => normalize_list(Map.get(generated, "notes")),
+        "roles" => role_summary(role_packets)
       }
     }
   end
 
-  defp repair_history(generated) do
-    [
-      %{
-        "role" => "author",
-        "status" => "generated",
-        "description" => Map.get(generated, "description"),
-        "notes" => normalize_list(Map.get(generated, "notes"))
-      }
-    ]
+  defp repair_history(generated, role_packets) do
+    role_packets
+    |> Enum.map(fn packet ->
+      packet
+      |> Map.take(["role", "status", "authority", "metadata"])
+      |> Map.put_new("description", Map.get(generated, "description"))
+    end)
     |> Redactor.redact()
   end
 
@@ -396,4 +398,8 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
 
   defp normalize_list(values) when is_list(values), do: Enum.map(values, &to_string/1)
   defp normalize_list(_values), do: []
+
+  defp role_summary(role_packets) do
+    Enum.map(role_packets, &Map.take(&1, ["role", "status", "authority"]))
+  end
 end
