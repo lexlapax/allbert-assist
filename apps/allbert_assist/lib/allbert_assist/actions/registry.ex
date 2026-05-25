@@ -19,6 +19,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Confirmations.ListConfirmations
   alias AllbertAssist.Actions.Confirmations.ShowConfirmation
   alias AllbertAssist.Actions.DynamicPlugins.ListDynamicDrafts
+  alias AllbertAssist.Actions.DynamicPlugins.RunDraftGate, as: RunDynamicDraftGate
+  alias AllbertAssist.Actions.DynamicPlugins.RunDraftTrial, as: RunDynamicDraftTrial
   alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicDraft
   alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicIntegration
   alias AllbertAssist.Actions.Intent.ActivateSkill
@@ -179,6 +181,8 @@ defmodule AllbertAssist.Actions.Registry do
     RecordOfflineUpdate,
     DismissEphemeral,
     SetTheme,
+    RunDynamicDraftTrial,
+    RunDynamicDraftGate,
     ListDynamicDrafts,
     ShowDynamicDraft,
     ShowDynamicIntegration

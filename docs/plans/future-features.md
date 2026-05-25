@@ -58,6 +58,57 @@ existing plan.
 
 ## Unassigned Future Features
 
+
+### system memory
+was `Small-Model Memory Or Personality Distillation`
+
+need to think about not just user/operator memory, but the allbert system memory as the use of allbert evolves with the operators request .. things like
+- common agent use, action use signal use patterns, could be codified into intents or workflows rather than rediscovery it every time
+- suggestions to create skills based on repeated prompts
+- suggestion to create llm use tools to codify certain system commands or web searches or data access that can be more deterministic
+etc..
+
+Source: origin note and roadmap future research.
+
+The origin note imagines compiled memory, nightly distillation, or a small
+personal model. This remains research until memory review, trace quality, and
+retrieval are stable.
+
+Needed before planning:
+
+- v0.21 reviewed markdown memory corpus
+- rebuildable derived artifacts
+- evals for personality and recall quality
+- privacy and deletion policy
+- training cost and reproducibility policy
+
+
+### Remote Secrets Manager
+
+Source: v0.02 non-goals.
+
+v0.02 uses an encrypted local Settings Central secret store. A future milestone
+may add an adapter for an OS keychain, cloud secret manager, or enterprise
+vault.
+
+Needed before planning:
+
+- local secret store stability
+- provider abstraction for secret backends
+- migration/export policy
+- offline behavior
+- redaction and audit consistency across backends
+- v0.28 (formerly v0.26) security evals covering secret redaction regressions
+
+
+### Operator first run onboarding.
+when the user first downloads from git, the allbert runtime, what to run, is it a guided run.. the run should also be made up of agents, actions, signals etc, so that it can be run from the command line or any other channel, like the web.
+
+- ask to set up keys for remote llms or local llm configs
+- ask for default workflows and intent styles
+- ask to set up default recurring crons
+- other things (like sandboxes etc)
+
 ### Autonomous Skill Creation
 
 Source: origin note, ADR 0003, v0.03 through v0.06 non-goals, v0.37 dynamic
@@ -82,44 +133,6 @@ Needed before planning:
 - explicit operator approval before enabling
 - evals for generated skill quality and unsafe capability requests
 - policy for instruction-only drafts versus generated app/action code
-
-### Additional Remote Channel Adapters
-
-Source: origin note, allbert-jido vision, and v0.16 dual-channel planning.
-
-v0.16 proves the channel adapter boundary with Telegram (Bot API long polling,
-inline buttons) and email (IMAP polling, SMTP replies, typed-command approvals).
-v0.17 makes Telegram and email shipped source-tree channel plugins under
-`./plugins`. The remaining remote channels named in the vision, including
-Discord, WhatsApp-style chat, SMS, and Slack-style team chat, are still parked
-here until promoted to their own implementation-ready milestone. They should
-reuse the v0.16 channel context, identity mapping posture, durable event
-dedupe, runtime submission flow, Approval Handoff rendering, confirmation
-callback/command pattern, redaction rules, and v0.17 plugin contribution model
-instead of inventing provider-specific runtimes.
-
-Each remaining provider still needs a focused design pass because the security
-and UX surfaces differ:
-
-- SMS needs phone-number mapping, short-message truncation, cost/rate limits,
-  and provider delivery failure handling.
-- Discord, WhatsApp-style chat, and Slack-style team chat need workspace/server
-  identity mapping, group/channel authorization, mention handling, threaded
-  replies, callback affordances, and team-channel privacy rules.
-
-Needed before planning:
-
-- v0.16 Telegram and email adapters accepted through user testing
-- v0.17 channel plugin contribution model accepted through user testing
-- v0.16 channel event and identity-map contracts stable
-- provider-specific Settings Central schema and secret policy
-- provider-specific delivery, retry, dedupe, and callback model
-- v0.28 (formerly v0.26) security evals for cross-channel spoofing, replay,
-  group leakage, command injection in reply bodies, and resource approval
-  scope leakage
-- operator UX for mapping, disabling, and inspecting external identities
-- clear decision on whether a provider starts as inbound-only, response-only,
-  or full request/response with confirmation callbacks
 
 
 ### Intents vs Objective for agent tasks (graduated)
@@ -161,75 +174,43 @@ These remain parked here as a single line in `docs/plans/future-features.md`
 "Advisory Providers And World Models" entry below until a real consumer
 arrives.
 
-### Advisory Providers And World Models
+### Additional Remote Channel Adapters
 
-Source: v0.24 reserved vocabulary in ADR 0021.
+Source: origin note, allbert-jido vision, and v0.16 dual-channel planning.
 
-v0.24 ships one deterministic step proposer and one deterministic
-acceptance evaluator. The advisory provider umbrella (intent provider,
-route provider, capability provider, resource decision provider,
-world-model provider, diffusion proposal provider, probabilistic
-inference provider, market allocator provider, critic evaluator
-provider) is reserved vocabulary in ADR 0021. The first behaviour
-extraction happens when at least two providers of the same role exist.
+v0.16 proves the channel adapter boundary with Telegram (Bot API long polling,
+inline buttons) and email (IMAP polling, SMTP replies, typed-command approvals).
+v0.17 makes Telegram and email shipped source-tree channel plugins under
+`./plugins`. The remaining remote channels named in the vision, including
+Discord, WhatsApp-style chat, SMS, and Slack-style team chat, are still parked
+here until promoted to their own implementation-ready milestone. They should
+reuse the v0.16 channel context, identity mapping posture, durable event
+dedupe, runtime submission flow, Approval Handoff rendering, confirmation
+callback/command pattern, redaction rules, and v0.17 plugin contribution model
+instead of inventing provider-specific runtimes.
 
-v0.33 graduates the narrow app-intent descriptor, handoff, and clarification
-subset as a concrete intent/route advisory consumer. This entry remains for
-broader advisory provider extraction, world models, learned schedulers,
-capability providers, and resource decision providers.
+Each remaining provider still needs a focused design pass because the security
+and UX surfaces differ:
 
-Hard rules that apply to any future advisory provider (carry into
-planning):
-
-- No advisory output authorizes execution.
-- World-model output is predictive/counterfactual, not observed fact.
-- Predictions about user behavior never short-circuit confirmation.
-- All effectful work flows through `Actions.Runner.run/3`, Security
-  Central, confirmations, resource access posture, traces, and audits.
-- Settings Central config, Security Central posture, redaction,
-  traces, and evals gate any provider call.
+- SMS needs phone-number mapping, short-message truncation, cost/rate limits,
+  and provider delivery failure handling.
+- Discord, WhatsApp-style chat, and Slack-style team chat need workspace/server
+  identity mapping, group/channel authorization, mention handling, threaded
+  replies, callback affordances, and team-channel privacy rules.
 
 Needed before planning:
 
-- A concrete consumer (e.g., an LLM-assisted step proposer in
-  StockSage v0.25+, or a learned scheduler in a later release).
-- Eval coverage for the rules above.
-- Settings Central schema for provider config and timeouts.
-- Trace/audit shape for advisory output.
-
-### StockSage Native/Python Parity Tuning
-
-Source: v0.25 post-remediation parity runs against Python TradingAgents using
-matched provider/model settings.
-
-v0.25 makes native StockSage the default operational engine and adds explicit
-Python comparison through `--engine python` and `--engine both`. The native
-graph now preserves research-manager, trader-plan, risk-debate, and final
-decision-synthesizer handoffs, and records a parity diff for comparison runs.
-That is enough for operator inspection and v0.26/v0.27 rendering work, but it
-is not a claim of exact rating parity with Python TradingAgents.
-
-Future parity tuning should improve the native graph against a larger stock
-matrix by comparing like-for-like provider/model runs, inspecting evidence
-coverage, and tuning role prompts and agent boundaries. It must avoid
-ticker-specific overrides, deterministic rating floors, silent post-processing
-of final ratings, and automatic native-to-Python fallback. Python remains an
-explicit reference/comparison path, not a hidden recovery engine.
-
-Needed before planning:
-
-- accepted v0.25 native specialist-agent release and operator smoke
-- reproducible comparison harness that records provider, model, evidence mode,
-  run time, final rating, confidence, and per-agent summaries for both native
-  and Python
-- representative ticker matrix, including large-cap, high-growth, OTC/GSE,
-  low-data, and ambiguous/risk-managed names
-- evidence-source parity audit for price, fundamentals, financial statements,
-  news, sentiment, and unavailable-data semantics
-- prompt and role-boundary review focused on portfolio-posture semantics
-  (`Buy`/`Overweight`/`Hold`/`Underweight`/`Sell`)
-- eval policy that distinguishes acceptable stochastic disagreement from
-  native graph defects
+- v0.16 Telegram and email adapters accepted through user testing
+- v0.17 channel plugin contribution model accepted through user testing
+- v0.16 channel event and identity-map contracts stable
+- provider-specific Settings Central schema and secret policy
+- provider-specific delivery, retry, dedupe, and callback model
+- v0.28 (formerly v0.26) security evals for cross-channel spoofing, replay,
+  group leakage, command injection in reply bodies, and resource approval
+  scope leakage
+- operator UX for mapping, disabling, and inspecting external identities
+- clear decision on whether a provider starts as inbound-only, response-only,
+  or full request/response with confirmation callbacks
 
 ### Full Settings UI Polish
 
@@ -338,6 +319,77 @@ Needed before broader post-v0.38 planning:
   reconciliation. v0.26 deliberately keeps Yjs in the browser and stores
   opaque bounded update blobs plus readable snapshots server-side.
 
+
+### Advisory Providers And World Models
+
+Source: v0.24 reserved vocabulary in ADR 0021.
+
+v0.24 ships one deterministic step proposer and one deterministic
+acceptance evaluator. The advisory provider umbrella (intent provider,
+route provider, capability provider, resource decision provider,
+world-model provider, diffusion proposal provider, probabilistic
+inference provider, market allocator provider, critic evaluator
+provider) is reserved vocabulary in ADR 0021. The first behaviour
+extraction happens when at least two providers of the same role exist.
+
+v0.33 graduates the narrow app-intent descriptor, handoff, and clarification
+subset as a concrete intent/route advisory consumer. This entry remains for
+broader advisory provider extraction, world models, learned schedulers,
+capability providers, and resource decision providers.
+
+Hard rules that apply to any future advisory provider (carry into
+planning):
+
+- No advisory output authorizes execution.
+- World-model output is predictive/counterfactual, not observed fact.
+- Predictions about user behavior never short-circuit confirmation.
+- All effectful work flows through `Actions.Runner.run/3`, Security
+  Central, confirmations, resource access posture, traces, and audits.
+- Settings Central config, Security Central posture, redaction,
+  traces, and evals gate any provider call.
+
+Needed before planning:
+
+- A concrete consumer (e.g., an LLM-assisted step proposer in
+  StockSage v0.25+, or a learned scheduler in a later release).
+- Eval coverage for the rules above.
+- Settings Central schema for provider config and timeouts.
+- Trace/audit shape for advisory output.
+
+### StockSage Native/Python Parity Tuning
+
+Source: v0.25 post-remediation parity runs against Python TradingAgents using
+matched provider/model settings.
+
+v0.25 makes native StockSage the default operational engine and adds explicit
+Python comparison through `--engine python` and `--engine both`. The native
+graph now preserves research-manager, trader-plan, risk-debate, and final
+decision-synthesizer handoffs, and records a parity diff for comparison runs.
+That is enough for operator inspection and v0.26/v0.27 rendering work, but it
+is not a claim of exact rating parity with Python TradingAgents.
+
+Future parity tuning should improve the native graph against a larger stock
+matrix by comparing like-for-like provider/model runs, inspecting evidence
+coverage, and tuning role prompts and agent boundaries. It must avoid
+ticker-specific overrides, deterministic rating floors, silent post-processing
+of final ratings, and automatic native-to-Python fallback. Python remains an
+explicit reference/comparison path, not a hidden recovery engine.
+
+Needed before planning:
+
+- accepted v0.25 native specialist-agent release and operator smoke
+- reproducible comparison harness that records provider, model, evidence mode,
+  run time, final rating, confidence, and per-agent summaries for both native
+  and Python
+- representative ticker matrix, including large-cap, high-growth, OTC/GSE,
+  low-data, and ambiguous/risk-managed names
+- evidence-source parity audit for price, fundamentals, financial statements,
+  news, sentiment, and unavailable-data semantics
+- prompt and role-boundary review focused on portfolio-posture semantics
+  (`Buy`/`Overweight`/`Hold`/`Underweight`/`Sell`)
+- eval policy that distinguishes acceptable stochastic disagreement from
+  native graph defects
+
 ### Browser/Search Capture
 
 Source: origin note and v0.16 channel adapter foundation.
@@ -408,22 +460,6 @@ Needed before planning:
 - agent endpoint discovery, authentication, and trust model
 - channel-native Approval Handoff consumption from v0.16
 
-### Small-Model Memory Or Personality Distillation
-
-Source: origin note and roadmap future research.
-
-The origin note imagines compiled memory, nightly distillation, or a small
-personal model. This remains research until memory review, trace quality, and
-retrieval are stable.
-
-Needed before planning:
-
-- v0.21 reviewed markdown memory corpus
-- rebuildable derived artifacts
-- evals for personality and recall quality
-- privacy and deletion policy
-- training cost and reproducibility policy
-
 ### Native UI Surface
 
 Source: origin note and v0.16 channel adapter foundation.
@@ -441,22 +477,6 @@ Needed before planning:
 - confirmation handoff behavior
 - packaging/release approach
 
-### Remote Secrets Manager
-
-Source: v0.02 non-goals.
-
-v0.02 uses an encrypted local Settings Central secret store. A future milestone
-may add an adapter for an OS keychain, cloud secret manager, or enterprise
-vault.
-
-Needed before planning:
-
-- local secret store stability
-- provider abstraction for secret backends
-- migration/export policy
-- offline behavior
-- redaction and audit consistency across backends
-- v0.28 (formerly v0.26) security evals covering secret redaction regressions
 
 ### Remote Sync And Profile Export/Import
 
