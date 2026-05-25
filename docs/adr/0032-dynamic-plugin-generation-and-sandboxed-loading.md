@@ -2,11 +2,15 @@
 
 ## Status
 
-Proposed for v0.37 Dynamic Code & Config Generation and Live Capability
-Integration (`docs/plans/v0.37-plan.md`). Revised after the v0.36 second pass:
-v0.36 now owns only the Elixir/OTP sandbox backend and gate runner (ADR 0037).
-This ADR owns the later generated-draft lifecycle and the narrow, gated
-exception that lets an operator-confirmed artifact be loaded into the core node.
+Accepted for v0.37 Dynamic Code & Config Generation and Live Capability
+Integration (`docs/plans/v0.37-plan.md`) on 2026-05-25. Revised after the
+v0.36 second pass: v0.36 owns only the Elixir/OTP sandbox backend and gate
+runner (ADR 0037). This ADR owns the generated-draft lifecycle and the narrow,
+gated exception that lets an operator-confirmed artifact be loaded into the core
+node. The shipped v0.37.1 implementation is deliberately conservative: inert
+draft request metadata, v0.36 staging/gate evidence, trusted validation, and a
+read-only dynamic action live loader. Broader generated app/config targets are
+deferred.
 
 ## Context
 
@@ -32,7 +36,7 @@ actions, then a declarative surface, and only then generated code.
 
 ## Decision
 
-Generated code has three phases:
+Generated artifacts have three phases:
 
 1. **Untrusted phase.** Generated source is written inertly under
    `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/`, with file-backed
@@ -61,8 +65,10 @@ Generated code has three phases:
    runtime call targets, generated-permission ceiling violations, and other
    forbidden constructs.
 
-Route-based Phoenix page surfaces still require a restart or a later route
-bridge. Panel/destination apps integrate live.
+The shipped v0.37.1 trusted phase live-loads reviewed read-only action modules
+only. Generated apps, panels, settings fragments, memory namespaces, objective
+wiring, route pages, and child processes remain rejected live targets until a
+later ADR/plan adds reviewed validators and registration paths for them.
 
 This exception does not weaken the rule for skill folders, YAML agents, plugin
 manifests, remote plugins, or arbitrary user-created code.
@@ -71,8 +77,8 @@ manifests, remote plugins, or arbitrary user-created code.
 
 - Allbert can experiment with a generated local capability without granting it
   in-process authority during the untrusted phase.
-- v0.37 adds a precise reviewed integration path instead of a broad dynamic
-  loading loophole.
+- v0.37 adds a precise reviewed read-only action integration path instead of a
+  broad dynamic loading loophole.
 - Security evals must prove core-load attempts, unscanned compile paths, gate
   skip, operator-confirm bypass, trusted-compile side effects, core-module
   replacement, action shadowing, dependency injection, migration injection,

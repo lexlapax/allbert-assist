@@ -89,7 +89,7 @@ defmodule AllbertAssist.DynamicPlugins.ActionsOverlay do
     end
   end
 
-  @doc "Clear all live dynamic action registrations."
+  @doc "Clear all live dynamic action registrations and transient diagnostics."
   @spec clear(keyword()) :: :ok
   def clear(opts \\ []) do
     server = Keyword.get(opts, :server, __MODULE__)
@@ -153,7 +153,7 @@ defmodule AllbertAssist.DynamicPlugins.ActionsOverlay do
   end
 
   def handle_call(:clear, _from, state) do
-    {:reply, :ok, %{state | entries: %{}}}
+    {:reply, :ok, %{state | entries: %{}, diagnostics: []}}
   end
 
   defp call_or_default(server, message, default) do
