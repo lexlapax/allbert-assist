@@ -212,6 +212,41 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
     assert {:error, {:unknown_action, ^action_name}} = Registry.resolve(fixture.action_name)
   end
 
+  test "same-channel LiveView approval can resume integration and rollback" do
+    enable_live_loader!()
+    fixture = write_gate_passed_action_draft("loader_liveview")
+
+    assert {:ok, %{status: :needs_confirmation, confirmation_id: integration_id}} =
+             Runner.run("integrate_dynamic_draft", %{slug: fixture.slug}, live_view_context())
+
+    assert {:ok, %{status: :completed, confirmation: %{"status" => "approved"}}} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: integration_id, reason: "reviewed in workspace"},
+               live_view_context()
+             )
+
+    assert {:ok, module} = Registry.resolve(fixture.action_name)
+    assert inspect(module) == fixture.module
+
+    assert {:ok, %{status: :needs_confirmation, confirmation_id: rollback_id}} =
+             Runner.run(
+               "rollback_dynamic_integration",
+               %{slug: fixture.slug},
+               live_view_context()
+             )
+
+    assert {:ok, %{status: :completed, confirmation: %{"status" => "approved"}}} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: rollback_id, reason: "rollback reviewed in workspace"},
+               live_view_context()
+             )
+
+    action_name = fixture.action_name
+    assert {:error, {:unknown_action, ^action_name}} = Registry.resolve(fixture.action_name)
+  end
+
   test "direct integration resume cannot spoof approval context while confirmation is pending" do
     enable_live_loader!()
     fixture = write_gate_passed_action_draft("loader_spoof")
@@ -496,6 +531,15 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
   end
 
   defp cli_context, do: %{actor: "local", channel: :cli, surface: "cli"}
+
+  defp live_view_context do
+    %{
+      actor: "local",
+      operator_id: "local",
+      channel: :live_view,
+      surface: "AllbertAssistWeb.WorkspaceLive"
+    }
+  end
 
   defp temp_path(name) do
     Path.join(
