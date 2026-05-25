@@ -123,6 +123,28 @@ will compile. Compiled-path hashes and scanned-path hashes must match. A gate
 report from unscanned bytes, or from scanned bytes that are not compile-visible,
 is invalid evidence.
 
+M2 implements this through `AllbertAssist.DynamicPlugins.Staging` and
+`AllbertAssist.DynamicPlugins.SandboxBridge`. `manifest.yaml` declares each
+generated source/test file with `source_path` under the draft root and
+`compiled_path` under the staged project:
+
+```yaml
+files:
+  - source_path: source/lib/action.ex
+    compiled_path: apps/allbert_assist/lib/allbert_assist/dynamic_plugins/generated/weather_summary/action.ex
+tests:
+  - source_path: tests/action_test.exs
+    compiled_path: apps/allbert_assist/test/allbert_assist/dynamic_plugins/generated/weather_summary/action_test.exs
+focused_test_paths:
+  - apps/allbert_assist/test/allbert_assist/dynamic_plugins/generated/weather_summary/action_test.exs
+```
+
+`source_hashes`, `scan_paths`, `compiled_paths`, and the manifest must describe
+the same file set. Missing hashes fail as unscanned compile paths; extra scanned
+hashes fail as scanned-but-not-compiled evidence. The bridge copies v0.36 sandbox
+reports back into the draft `reports/` directory and updates the evidence tier;
+it still does not load code or register runtime authority.
+
 Generated tests are evidence only. They do not replace trusted validation,
 operator review, Security Central confirmation, or the generated-permission
 ceiling.
