@@ -6,7 +6,10 @@ defmodule Mix.Tasks.Allbert.Dynamic do
 
       mix allbert.dynamic drafts list
       mix allbert.dynamic drafts show SLUG
+      mix allbert.dynamic drafts integrate SLUG
       mix allbert.dynamic integrations show SLUG [REVISION]
+      mix allbert.dynamic integrations rollback SLUG [REVISION]
+      mix allbert.dynamic integrations disable
   """
 
   use Mix.Task
@@ -36,6 +39,14 @@ defmodule Mix.Tasks.Allbert.Dynamic do
     end
   end
 
+  defp dispatch(["drafts", "integrate", slug]) do
+    case Runner.run("integrate_dynamic_draft", %{slug: slug}, context()) do
+      {:ok, %{status: :completed} = response} -> {:ok, {:integrated, response}}
+      {:ok, %{status: :needs_confirmation} = response} -> {:ok, {:confirmation, response}}
+      {:ok, response} -> {:error, response_error(response)}
+    end
+  end
+
   defp dispatch(["integrations", "show", slug]) do
     with {:ok, response} <- completed_action("show_dynamic_integration", %{slug: slug}) do
       {:ok, {:integration, response.integration}}
@@ -46,6 +57,20 @@ defmodule Mix.Tasks.Allbert.Dynamic do
     with {:ok, response} <-
            completed_action("show_dynamic_integration", %{slug: slug, revision: revision}) do
       {:ok, {:integration, response.integration}}
+    end
+  end
+
+  defp dispatch(["integrations", "rollback", slug]) do
+    rollback(slug, nil)
+  end
+
+  defp dispatch(["integrations", "rollback", slug, revision]) do
+    rollback(slug, revision)
+  end
+
+  defp dispatch(["integrations", "disable"]) do
+    with {:ok, response} <- completed_action("disable_dynamic_live_loader", %{}) do
+      {:ok, {:disabled, response}}
     end
   end
 
@@ -78,15 +103,47 @@ defmodule Mix.Tasks.Allbert.Dynamic do
     Mix.shell().info("Root: #{integration.root}")
   end
 
+  defp print_result({:ok, {:confirmation, response}}) do
+    Mix.shell().info(response.message)
+    Mix.shell().info("Approve with:")
+    Mix.shell().info("  mix allbert.confirmations approve #{response.confirmation_id}")
+  end
+
+  defp print_result({:ok, {:integrated, response}}) do
+    Mix.shell().info(response.message)
+  end
+
+  defp print_result({:ok, {:rolled_back, response}}) do
+    Mix.shell().info(response.message)
+  end
+
+  defp print_result({:ok, {:disabled, response}}) do
+    Mix.shell().info(response.message)
+  end
+
   defp print_result({:error, reason}) do
     Mix.raise("Dynamic metadata command failed: #{inspect(reason)}")
   end
 
   defp completed_action(action_name, params) do
-    case Runner.run(action_name, params, %{actor: "local", channel: :cli, surface: "cli"}) do
+    case Runner.run(action_name, params, context()) do
       {:ok, %{status: :completed} = response} -> {:ok, response}
       {:ok, response} -> {:error, response_error(response)}
     end
+  end
+
+  defp rollback(slug, revision) do
+    params = if is_nil(revision), do: %{slug: slug}, else: %{slug: slug, revision: revision}
+
+    case Runner.run("rollback_dynamic_integration", params, context()) do
+      {:ok, %{status: :completed} = response} -> {:ok, {:rolled_back, response}}
+      {:ok, %{status: :needs_confirmation} = response} -> {:ok, {:confirmation, response}}
+      {:ok, response} -> {:error, response_error(response)}
+    end
+  end
+
+  defp context do
+    %{actor: "local", channel: :cli, surface: "cli"}
   end
 
   defp response_error(%{error: error}), do: error
@@ -97,7 +154,10 @@ defmodule Mix.Tasks.Allbert.Dynamic do
     Usage:
       mix allbert.dynamic drafts list
       mix allbert.dynamic drafts show SLUG
+      mix allbert.dynamic drafts integrate SLUG
       mix allbert.dynamic integrations show SLUG [REVISION]
+      mix allbert.dynamic integrations rollback SLUG [REVISION]
+      mix allbert.dynamic integrations disable
     """
   end
 end

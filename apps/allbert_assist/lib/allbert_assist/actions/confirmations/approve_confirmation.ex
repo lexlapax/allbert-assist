@@ -45,6 +45,18 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     import_local_skill
   ]
 
+  @dynamic_integration_action_names ~w[
+    integrate_dynamic_draft
+    rollback_dynamic_integration
+  ]
+
+  @memory_action_names ~w[
+    delete_memory_entry
+    prune_memory_entries
+    promote_conversation_turn
+    sync_app_lesson
+  ]
+
   @impl true
   def run(%{id: id} = params, context) do
     permission_decision = PermissionGate.authorize(:confirmation_decide, context)
@@ -136,62 +148,124 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
          permission_decision,
          target_decision,
          action_name
-       ) do
-    case action_name do
-      "external_network_request" ->
-        resume_external_network_request(
-          record,
-          reason,
-          context,
-          permission_decision,
-          target_decision
-        )
-
-      "run_shell_command" ->
-        resume_shell_command(record, reason, context, permission_decision, target_decision)
-
-      "run_package_install" ->
-        resume_package_install(record, reason, context, permission_decision, target_decision)
-
-      action_name when action_name in @online_action_names ->
-        resume_online_action(
-          record,
-          reason,
-          context,
-          permission_decision,
-          target_decision,
-          action_name
-        )
-
-      "run_skill_script" ->
-        resume_skill_script(record, reason, context, permission_decision, target_decision)
-
+       )
+       when action_name in @dynamic_integration_action_names do
+    resume_dynamic_integration_action(
+      record,
+      reason,
+      context,
+      permission_decision,
+      target_decision,
       action_name
-      when action_name in [
-             "delete_memory_entry",
-             "prune_memory_entries",
-             "promote_conversation_turn",
-             "sync_app_lesson"
-           ] ->
-        resume_memory_action(
-          record,
-          reason,
-          context,
-          permission_decision,
-          target_decision,
-          action_name
-        )
+    )
+  end
 
-      "run_analysis" ->
-        resume_run_analysis(record, reason, context, permission_decision, target_decision)
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
+         "external_network_request"
+       ) do
+    resume_external_network_request(record, reason, context, permission_decision, target_decision)
+  end
 
-      _other ->
-        resolve_status(record, :adapter_unavailable, reason, context, permission_decision, %{
-          target_policy_decision: target_decision,
-          target_resumed?: false,
-          adapter_unavailable?: true
-        })
-    end
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
+         "run_shell_command"
+       ) do
+    resume_shell_command(record, reason, context, permission_decision, target_decision)
+  end
+
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
+         "run_package_install"
+       ) do
+    resume_package_install(record, reason, context, permission_decision, target_decision)
+  end
+
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
+         action_name
+       )
+       when action_name in @online_action_names do
+    resume_online_action(
+      record,
+      reason,
+      context,
+      permission_decision,
+      target_decision,
+      action_name
+    )
+  end
+
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
+         "run_skill_script"
+       ) do
+    resume_skill_script(record, reason, context, permission_decision, target_decision)
+  end
+
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
+         action_name
+       )
+       when action_name in @memory_action_names do
+    resume_memory_action(
+      record,
+      reason,
+      context,
+      permission_decision,
+      target_decision,
+      action_name
+    )
+  end
+
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
+         "run_analysis"
+       ) do
+    resume_run_analysis(record, reason, context, permission_decision, target_decision)
+  end
+
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
+         _action_name
+       ) do
+    resolve_status(record, :adapter_unavailable, reason, context, permission_decision, %{
+      target_policy_decision: target_decision,
+      target_resumed?: false,
+      adapter_unavailable?: true
+    })
   end
 
   defp resume_external_network_request(
@@ -606,6 +680,54 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     end
   end
 
+  defp resume_dynamic_integration_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
+         action_name
+       ) do
+    target_context =
+      record
+      |> target_context(context)
+      |> put_in([:confirmation, :approved?], true)
+
+    case Runner.run(action_name, Map.get(record, "resume_params_ref", %{}), target_context) do
+      {:ok, %{status: :completed} = response} ->
+        target_result = Map.get(response, :dynamic_plugin_metadata, %{status: :completed})
+
+        resolve_status(record, :approved, reason, context, permission_decision, %{
+          target_policy_decision: target_decision,
+          target_resumed?: true,
+          target_status: :completed,
+          target_result: target_result
+        })
+
+      {:ok, response} ->
+        target_result =
+          Map.get(response, :dynamic_plugin_metadata, %{
+            status: Map.get(response, :status),
+            error: Map.get(response, :error)
+          })
+
+        resolve_status(
+          record,
+          :denied,
+          reason || "#{action_name} target did not run: #{inspect(Map.get(response, :status))}",
+          context,
+          permission_decision,
+          %{
+            target_policy_decision: target_decision,
+            target_resumed?: false,
+            target_status: Map.get(response, :status, :denied),
+            target_result: target_result,
+            blocked_by_policy?: Map.get(response, :status) == :denied
+          }
+        )
+    end
+  end
+
   defp live_view_async_run_analysis?(resume_params, context) do
     channel_key(channel(context)) == "live_view" and
       !truthy?(param_value(resume_params, "force_stub")) and
@@ -896,10 +1018,77 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
 
   defp approval_surface_allowed(record, context) do
     with :ok <- approval_channel_allowed(context),
+         :ok <- dynamic_integration_approval_allowed(record, context),
          :ok <- cross_channel_allowed(record, context) do
       :ok
     end
   end
+
+  defp dynamic_integration_approval_allowed(record, context) do
+    if target_action_name(record) in @dynamic_integration_action_names do
+      with :ok <- dynamic_approval_surface_allowed(context) do
+        dynamic_same_channel_allowed(record, context)
+      end
+    else
+      :ok
+    end
+  end
+
+  defp dynamic_approval_surface_allowed(context) do
+    resolver_surface = dynamic_surface(context)
+    allowed = allowed_dynamic_surfaces()
+
+    if resolver_surface in allowed do
+      :ok
+    else
+      {:error, {:dynamic_integration_approval_surface_denied, resolver_surface}}
+    end
+  end
+
+  defp dynamic_same_channel_allowed(record, context) do
+    origin_channel =
+      record
+      |> Map.get("origin", %{})
+      |> Map.get("channel")
+      |> channel_key()
+
+    resolver_channel = context |> channel() |> channel_key()
+
+    if origin_channel == resolver_channel do
+      :ok
+    else
+      {:error, :dynamic_integration_cross_channel_approval_denied}
+    end
+  end
+
+  defp allowed_dynamic_surfaces do
+    case Settings.get("dynamic_codegen.integration_approval_surfaces") do
+      {:ok, surfaces} when is_list(surfaces) ->
+        Enum.map(surfaces, &normalize_dynamic_surface/1)
+
+      _other ->
+        ["cli", "liveview"]
+    end
+  end
+
+  defp dynamic_surface(context) do
+    case channel_key(channel(context)) do
+      "cli" -> "cli"
+      "live_view" -> "liveview"
+      "liveview" -> "liveview"
+      _other -> normalize_dynamic_surface(surface(context))
+    end
+  end
+
+  defp normalize_dynamic_surface("live_view"), do: "liveview"
+  defp normalize_dynamic_surface("liveview"), do: "liveview"
+  defp normalize_dynamic_surface(:liveview), do: "liveview"
+  defp normalize_dynamic_surface(:live_view), do: "liveview"
+  defp normalize_dynamic_surface(:cli), do: "cli"
+  defp normalize_dynamic_surface("cli"), do: "cli"
+  defp normalize_dynamic_surface(value) when is_atom(value), do: Atom.to_string(value)
+  defp normalize_dynamic_surface(value) when is_binary(value), do: value
+  defp normalize_dynamic_surface(value), do: inspect(value)
 
   defp approval_channel_allowed(context) do
     case channel_key(channel(context)) do

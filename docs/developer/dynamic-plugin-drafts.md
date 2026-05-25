@@ -218,7 +218,13 @@ call targets must agree. Mismatch is denial.
 
 ## Loader Lifecycle
 
-`AllbertAssist.DynamicPlugins.Loader.integrate/2` must:
+`AllbertAssist.DynamicPlugins.Loader.integrate/2` currently integrates
+read-only action artifacts only. Generated apps, panels, settings fragments,
+memory namespaces, objective wiring, route pages, and child processes are
+explicitly rejected in v0.37 until they have their own trusted validators and
+registration paths.
+
+The loader must:
 
 1. verify settings allow live loading;
 2. verify tier is `gate_passed`;
@@ -228,14 +234,12 @@ call targets must agree. Mismatch is denial.
 6. copy reviewed source to the integrated root;
 7. compile reviewed source in core;
 8. register action overlay entries;
-9. register app/panel entries through `AllbertAssist.App.Registry`;
-10. start declared state-only children;
-11. mark the revision `integrated`;
-12. audit each step.
+9. mark the revision `integrated`;
+10. audit each step.
 
 The attempt is all-or-nothing. If any step fails before stable integration, the
-loader unregisters actions/apps/children/modules from the attempt and leaves the
-draft at `gate_passed` with bounded diagnostics.
+loader unregisters action/modules from the attempt, removes unstable integration
+root data, and leaves the draft at `gate_passed` with bounded diagnostics.
 
 ## Actions Overlay
 
@@ -260,12 +264,16 @@ functions: `modules/0`, `agent_modules/0`, `capabilities/0`,
 Precedence is static actions, reviewed source-tree plugin/app actions, then
 dynamic actions. Collision is denial, not shadowing.
 
-## Children
+## Unsupported Live Targets
 
-Generated children are disabled unless declared as state-only children. Their
-callbacks must pass the same call-target validator and must not start
-autonomous timers, network calls, shell/package/script execution, durable goal
-loops, or protected subsystem writes.
+Generated apps, panels, settings fragments, memory namespaces, objective
+wiring, route pages, and children are not live-loaded by the v0.37
+implementation. Drafts may record those future target shapes for planning, but
+the trusted validator rejects them before core compilation. Future child support
+must keep the documented state-only constraint: callbacks pass the same
+call-target validator and must not start autonomous timers, network calls,
+shell/package/script execution, durable goal loops, or protected subsystem
+writes.
 
 ## Reconciliation And Disablement
 
@@ -274,13 +282,12 @@ source hash, gate evidence, Security Central confirmation, current settings, and
 current policy all still match.
 
 If `dynamic_codegen.live_loader_enabled=false`, reconciliation must not register
-dynamic authority. If the switch turns false while dynamic authority is live,
-Allbert removes or blocks dynamic actions/apps/children through the audited
-authority-removal path.
+dynamic authority. The registered `disable_dynamic_live_loader` action turns the
+switch off and clears the live action overlay without deleting source.
 
 ## Rollback And Upgrade
 
-Rollback requires operator confirmation and removes action/app/child authority.
+Rollback requires operator confirmation and removes dynamic action authority.
 Module purge/delete is best effort and audited.
 
 Same-name upgrades require rollback before integrating a new revision. v0.37
