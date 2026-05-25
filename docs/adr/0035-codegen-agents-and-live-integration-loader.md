@@ -5,10 +5,9 @@
 Accepted for v0.37 Dynamic Code & Config Generation and Live Capability
 Integration (`docs/plans/v0.37-plan.md`) on 2026-05-25. Pairs with ADR 0032
 (untrusted trial and gated integration), ADR 0033 (trust tiers), and ADR 0037
-(v0.36 Elixir/OTP sandbox/gate runner). The shipped v0.37.1 implementation
-delivers the producer-neutral inert request scaffold and reviewed read-only
-action live loader; advisory provider authoring and broader generated app/config
-targets are deferred.
+(v0.36 Elixir/OTP sandbox/gate runner). The shipped v0.37.2 implementation
+delivers source-bearing read-only action generation and the reviewed read-only
+action live loader; broader generated app/config targets are deferred.
 
 ## Context
 
@@ -39,22 +38,22 @@ StockSage native-agent + Jido.AI pattern:
 - `Codegen.Repair` - sandbox/gate diagnostics to re-author loop.
 
 Per ADR 0021, agent output is never authority. It cannot enable, trust,
-integrate, grant permissions, or bypass confirmation. v0.37.1 ships the
+integrate, grant permissions, or bypass confirmation. v0.37.2 ships the
 producer-neutral request path, budget checks, JidoBacked coordinator, metadata
-writer, and diagnostics, but it does not call advisory providers or author
-source. The deterministic template path is v0.38 and reuses this lifecycle only
-when live integration is selected. Draft creation is therefore a pluggable
-producer: the committee is one future producer and v0.38 templates are another,
-while the draft lifecycle from `:draft` onward (metadata store, staging, trial,
-gate, loader, overlay, rollback) is producer-agnostic and records the producer
-in provenance.
+writer, diagnostics, and an injectable Jido.AI structured-generation provider
+that authors one source-bearing read-only action draft. The deterministic
+template path is v0.38 and reuses this lifecycle only when live integration is
+selected. Draft creation is therefore pluggable: the v0.37.2 LLM action
+producer is the first producer and v0.38 templates are another, while the draft
+lifecycle from `:draft` onward (metadata store, staging, trial, gate, loader,
+overlay, rollback) is producer-agnostic and records the producer in provenance.
 
 ### 2. Generation targets Elixir/OTP code and config
 
 The long-term target surface includes plugin/app manifest data, modules,
 `AllbertAssist.Action` actions, panel surfaces, intent descriptors, settings
 fragments, memory namespace, objective wiring, and theming/layout stubs.
-v0.37.1 ships only the Elixir/OTP read-only action target. Other languages and
+v0.37.2 ships only the Elixir/OTP read-only action target. Other languages and
 broader generated app/config targets remain parked.
 
 Generated settings fragments are schema declarations only. They cannot write
@@ -71,7 +70,7 @@ private durable goal loops, private objective tables, or private objective
 engines; objective identifiers remain correlation data and never grant
 authority.
 
-Generated panel UI is not live-loaded in v0.37.1. Future support must be
+Generated panel UI is not live-loaded in v0.37.2. Future support must be
 declarative `AllbertAssist.Surface` data backed by existing catalog components.
 Custom Phoenix components, LiveViews, HEEx sigils, and route modules remain
 outside the generated allowlist unless a later plan adds an explicit reviewed
@@ -102,7 +101,7 @@ The loader:
 - registers a runtime-mutable actions overlay through
   `AllbertAssist.Actions.Registry`;
 - rejects generated app/panel entries, settings fragments, memory namespaces,
-  objective wiring, route pages, and child processes in v0.37.1;
+  objective wiring, route pages, and child processes in v0.37.2;
 - emits audit events for compile, load, register, and rollback;
 - supports rollback by unregistering dynamic action entries and purging loaded
   modules where safe. Future child/app support must extend the same reversible
@@ -142,7 +141,7 @@ actions, Settings writes, secret reads/writes, confirmations, Resource grants,
 Repo writes, integration/rollback/disablement, distributed Erlang, dynamic
 dispatch to protected targets, and core table mutation.
 
-Generated action permissions have a hard ceiling. In v0.37.1, `:read_only` is
+Generated action permissions have a hard ceiling. In v0.37.2, `:read_only` is
 the only live permission accepted by both Settings Central and the trusted
 validator. `:external_network`, `:memory_write`, `:objective_write`, and
 `:workspace_canvas_write` are deferred until a later plan wires matching
@@ -158,7 +157,7 @@ Generated actions are `resumable?: false` in v0.37. Dynamic confirmation resume
 adapters are deferred because the existing confirmation approval path resumes a
 reviewed set of static action names.
 
-Generated child processes are not live-loaded in v0.37.1. Future support must
+Generated child processes are not live-loaded in v0.37.2. Future support must
 remain state-only: callbacks pass the same call-target validator and do not
 create autonomous timers, network calls, shell/package/script execution, durable
 goal loops, or direct protected-subsystem writes.
@@ -206,7 +205,7 @@ integrate over a live revision; v0.37 requires operator-confirmed rollback of
 the live revision before the replacement revision can integrate. Atomic
 supersede is deferred.
 
-Rollback requires operator confirmation and guarantees removal of v0.37.1 live
+Rollback requires operator confirmation and guarantees removal of v0.37.2 live
 authority surfaces: dynamic actions no longer resolve. BEAM module purge/delete
 is attempted and audited as best effort.
 
@@ -230,7 +229,7 @@ local boundary; they do not make Allbert Home tamper-proof against a local
 operator with write access.
 
 Page-route, panel/destination app, settings fragment, memory namespace,
-objective wiring, and child targets are deferred and rejected live in v0.37.1.
+objective wiring, and child targets are deferred and rejected live in v0.37.2.
 
 ### 4. Proactive trial, confirmed integration
 

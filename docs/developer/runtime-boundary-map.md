@@ -54,8 +54,8 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 | M8 | `AllbertAssist.Settings.Fragment` | Implemented per-context/app/plugin settings schema fragment contract. |
 | M8 | `AllbertAssist.Settings.Fragments` | Implemented settings schema fragment registry and composition facade. |
 | v0.36 | `AllbertAssist.Sandbox` | Implemented report-only facade for doctor, bundle, command, gate, source-policy enforcement, audit, and cleanup. |
-| v0.37 | `AllbertAssist.DynamicPlugins` | Implemented facade for file-backed dynamic drafts, gate evidence, request scaffolding, trusted validation, loader integration, rollback, and read-only status. |
-| v0.37 | `AllbertAssist.DynamicPlugins.Codegen.Agent` | Implemented JidoBacked coordinator for explicit inert capability-gap draft requests. |
+| v0.37 | `AllbertAssist.DynamicPlugins` | Implemented facade for file-backed dynamic draft generation, gate evidence, trusted validation, loader integration, rollback, and read-only status. |
+| v0.37 | `AllbertAssist.DynamicPlugins.Codegen.Agent` | Implemented JidoBacked coordinator for explicit source-bearing capability-gap draft requests. |
 | v0.37 | `AllbertAssist.DynamicPlugins.ActionsOverlay` | Implemented runtime overlay merged by `Actions.Registry`; collision denial, no shadowing. |
 | v0.37 | `AllbertAssist.DynamicPlugins.TrustedValidator` | Implemented trusted-phase AST/body validator before in-core compile. |
 
@@ -113,12 +113,12 @@ v0.37 adds `AllbertAssist.DynamicPlugins` as the public dynamic-draft facade.
 The draft store is file-backed under Allbert Home and is producer-agnostic;
 ordinary plugin discovery never scans dynamic draft or integrated roots.
 `DynamicPlugins.Codegen.Agent` is a JidoBacked coordinator for explicit
-capability-gap draft requests; `Codegen.Producer` can write only inert draft
-metadata and objective observations. The trusted loader is the only path that
-may compile reviewed generated source in core, and only after gate evidence plus
-Security Central confirmation. Dynamic actions merge through `Actions.Registry`
-via the actions overlay and never shadow static or source-tree plugin/app
-actions.
+capability-gap draft requests; `Codegen.Producer` can write source-bearing
+read-only action drafts through the bounded Jido.AI generator, plus objective
+observations. The trusted loader is the only path that may compile reviewed
+generated source in core, and only after gate evidence plus Security Central
+confirmation. Dynamic actions merge through `Actions.Registry` via the actions
+overlay and never shadow static or source-tree plugin/app actions.
 
 ## Internal Modules
 

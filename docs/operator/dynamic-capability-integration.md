@@ -15,8 +15,9 @@ pages, and children remain rejected live targets until later validators exist.
 
 Keep these states separate when reviewing a dynamic capability:
 
-- Advisory generation writes draft files and metadata. The shipped v0.37
-  request scaffold records inert draft metadata only. It grants no authority.
+- Advisory generation writes source-bearing draft files and metadata. The
+  shipped v0.37.2 generator can author read-only action source, generated
+  tests, a manifest, hashes, and budget diagnostics. It grants no authority.
 - v0.36 sandbox trial and gate reports are evidence. They grant no authority.
 - `:gate_passed` means the draft is eligible for operator review only.
 - Security Central confirmation is the trust grant.
@@ -43,15 +44,25 @@ mix allbert.settings set sandbox.elixir.enabled true
 mix allbert.sandbox doctor
 ```
 
-Enable v0.37 generation and live integration separately:
+Enable v0.37 generation and live integration separately. For remote OpenAI
+smoke work, source `.env` before starting `mix` and enable the `fast` model
+profile's provider:
 
 ```sh
+set -a
+source .env
+set +a
 mix allbert.settings set dynamic_codegen.enabled true
-mix allbert.settings set dynamic_codegen.provider_profile local
+mix allbert.settings set providers.openai.enabled true
+mix allbert.settings set dynamic_codegen.provider_profile fast
 mix allbert.settings set dynamic_codegen.live_loader_enabled true
 mix allbert.settings set dynamic_codegen.allowed_targets '["action"]'
 mix allbert.settings set dynamic_codegen.allowed_action_permissions '["read_only"]'
 ```
+
+For local Ollama smoke work, keep `dynamic_codegen.provider_profile local` and
+make sure `OLLAMA_BASE_URL` is set in `.env` when it differs from
+`http://localhost:11434/v1`.
 
 The workflow still fails closed if the provider profile cannot resolve, the
 provider is disabled, a required credential is missing, the sandbox doctor is
@@ -59,10 +70,12 @@ not green, or the live loader switch is false.
 
 ## Request A Draft
 
-The v0.37 advisory producer is a guarded scaffold. It creates producer-neutral
-draft metadata for an explicit operator or objective request and records
-provider/budget diagnostics, but it does not call a provider or write live
-source in the shipped implementation.
+The v0.37.2 advisory producer is a guarded source generator. It creates a
+producer-neutral draft for an explicit operator or objective request, calls the
+configured model profile through Jido.AI structured generation, writes reviewed
+read-only action source plus a focused test, and records provider/budget
+diagnostics. The draft is still untrusted until the sandbox gate, trusted
+validation, and operator confirmation pass.
 
 ```sh
 mix allbert.dynamic drafts request weather_summary "Create a read-only weather summary action"
@@ -204,6 +217,8 @@ integrated source.
 - Workflow is disabled by default.
 - Sandbox doctor failure blocks trial, gate, and integration.
 - Missing or unresolved provider profile blocks generation.
+- Missing `.env`/Settings credentials for a required remote provider block
+  generation without printing secrets.
 - Draft metadata lives under Allbert Home, not Settings Central.
 - Gate pass without confirmation cannot integrate.
 - Confirmation from a disallowed surface is denied and audited.
