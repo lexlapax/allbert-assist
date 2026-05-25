@@ -48,6 +48,26 @@ the ADR 0032 gate. No other tier grants action permissions, route authority,
 settings authority, skill enablement, child supervision, or core-node module
 loading. No tier is reached by advisory/agent output alone.
 
+Legal tier transitions are explicit:
+
+| From | To | Requirement |
+|---|---|---|
+| none | `:draft` | Objective-owned gap proposal plus enabled workflow and valid advisory provider profile |
+| `:draft` | `:sandbox_compiled` | v0.36 sandbox compile evidence over scanned, staged source |
+| `:sandbox_compiled` | `:sandbox_trialed` | v0.36 sandbox trial evidence over the same draft revision |
+| `:sandbox_trialed` | `:gate_passed` | v0.36 warning gate plus v0.37 static/integrity checks pass |
+| `:gate_passed` | `:integrated` | Mandatory Security Central confirmation and ADR 0032/0035 loader success |
+| `:integrated` | `:rolled_back` | Mandatory Security Central confirmation and audited authority removal |
+| any non-`:integrated` tier | `:discarded` | Registered discard action; `:integrated` artifacts must roll back first |
+| `:rolled_back` | `:discarded` | Registered discard action after live authority has been removed |
+
+Repair after sandbox, gate, review, or loader failure creates a new draft
+revision with a parent-revision pointer. It does not mutate the evidence for an
+older revision or move an old `:gate_passed` artifact backward in place. A
+rolled-back artifact cannot be re-integrated directly; restoring a capability
+requires a new or revalidated draft revision to pass the gate and receive a new
+operator confirmation. `:discarded` is terminal for that revision.
+
 ## Consequences
 
 - Dynamic generation remains part of the objective runtime instead of a hidden
