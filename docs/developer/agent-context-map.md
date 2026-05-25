@@ -239,14 +239,14 @@ Do not load every section by default.
   records, and fail-closed denial of
   network, secrets, real Allbert Home, package-manager execution, NIFs, ports,
   shell strings, and untrusted core loading. Per ADR 0037 and ADR 0009.
-- v0.37 (active implementation): Dynamic Code & Config Generation And Live Capability
-  Integration. Generates Elixir/OTP code/config through advisory agents, stores
-  file-backed draft metadata under
-  `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/`, trials and gates it through
-  v0.36, and hot-loads/registers it live only after the warning gate plus
-  operator confirmation. Rollback also requires confirmation and removes live
-  authority; module purge is best-effort/audited. Per ADR 0032, ADR 0033, and
-  ADR 0035. Implementation docs live in
+- v0.37 (implemented as `v0.37.0`): Dynamic Code & Config Generation And Live
+  Capability Integration. Adds file-backed dynamic draft metadata under
+  `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/`, an inert explicit
+  capability-gap request scaffold, v0.36 sandbox trial/gate handoff, trusted
+  validation, and hot-load registration for gate-passed read-only action
+  artifacts only after operator confirmation. Rollback also requires
+  confirmation and removes live authority; module purge is best-effort/audited.
+  Per ADR 0032, ADR 0033, and ADR 0035. Implementation docs live in
   `docs/developer/dynamic-plugin-drafts.md` and
   `docs/operator/dynamic-capability-integration.md`.
 - v0.38 (planned): Templated Creation. Scaffolds the proven plugin/app/tool/flow
