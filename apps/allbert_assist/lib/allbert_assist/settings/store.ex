@@ -128,10 +128,21 @@ defmodule AllbertAssist.Settings.Store do
   defp normalize_dynamic_codegen_scope(settings) do
     settings
     |> normalize_dynamic_codegen_list("allowed_targets", ["action"])
-    |> normalize_dynamic_codegen_list("allowed_action_permissions", ["read_only"])
+    |> normalize_dynamic_codegen_list("allowed_action_permissions", [
+      "read_only",
+      "memory_write",
+      "external_network"
+    ])
+    |> normalize_dynamic_codegen_list(
+      "allowed_facades",
+      ["append_memory", "external_network_request"],
+      allow_empty?: true
+    )
   end
 
-  defp normalize_dynamic_codegen_list(settings, key, allowed) do
+  defp normalize_dynamic_codegen_list(settings, key, allowed, opts \\ []) do
+    allow_empty? = Keyword.get(opts, :allow_empty?, false)
+
     case get_in(settings, ["dynamic_codegen", key]) do
       values when is_list(values) ->
         normalized =
@@ -139,7 +150,8 @@ defmodule AllbertAssist.Settings.Store do
           |> Enum.map(&to_string/1)
           |> Enum.filter(&(&1 in allowed))
           |> case do
-            [] -> allowed
+            [] when allow_empty? -> []
+            [] -> [List.first(allowed)]
             values -> Enum.uniq(values)
           end
 

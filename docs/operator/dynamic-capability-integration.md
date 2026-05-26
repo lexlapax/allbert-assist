@@ -7,24 +7,28 @@ live runtime authority. It is default-off, local-only, and reversible. A draft
 can become live only after sandbox evidence, trusted validation, and an
 operator confirmation.
 
-The shipped v0.37 loader integrates reviewed read-only actions only. Generated
-apps, panels, settings fragments, memory namespaces, objective wiring, route
-pages, and children remain rejected live targets until later validators exist.
+The shipped v0.37 loader integrates reviewed action artifacts only: pure
+`:read_only` actions and delegated `:memory_write` / `:external_network`
+actions. Generated apps, panels, settings fragments, memory namespaces,
+objective wiring, route pages, and children remain rejected live targets until
+later validators exist.
 
 ## Authority Model
 
 Keep these states separate when reviewing a dynamic capability:
 
 - Advisory generation writes source-bearing draft files and metadata. The
-  v0.37.2 generator is a bounded model-backed committee: Planner, Author,
-  TrialAuthor, Critic, and invoked Repair calls emit separate packets with
-  redacted provenance. It can author read-only action source, generated tests, a
-  manifest, hashes, repair history, and budget diagnostics. The provider-call
-  cap applies to the whole workflow, not one fixed call per role. It grants no
-  authority.
+  generator is a bounded model-backed committee: Planner, Author, TrialAuthor,
+  Critic, and invoked Repair calls emit separate packets with redacted
+  provenance. It can author pure read-only action source or delegated
+  memory/network action source, generated tests, a manifest, hashes, repair
+  history, and budget diagnostics. The provider-call cap applies to the whole
+  workflow, not one fixed call per role. It grants no authority.
 - v0.36 sandbox trial and gate reports are evidence. They grant no authority.
 - `:gate_passed` means the draft is eligible for operator review only.
-- Security Central confirmation is the trust grant.
+- Security Central confirmation is the integration trust grant. Delegated
+  facade writes still use the facade's ordinary Security Central behavior at
+  invocation time.
 - The loader registers only the reviewed source that still matches the gated
   source hash.
 - Rollback removes live authority. BEAM module purge is best effort and audited.
@@ -80,7 +84,7 @@ Then finish the shared v0.37 capability-generation settings:
 ```sh
 mix allbert.settings set dynamic_codegen.live_loader_enabled true
 mix allbert.settings set dynamic_codegen.allowed_targets action
-mix allbert.settings set dynamic_codegen.allowed_action_permissions '["read_only"]'
+mix allbert.settings set dynamic_codegen.allowed_action_permissions read_only
 ```
 
 Use only one `dynamic_codegen.provider_profile` value per smoke run. The
@@ -95,20 +99,34 @@ The workflow still fails closed if the provider profile cannot resolve, the
 provider is disabled, a required credential is missing, the sandbox doctor is
 not green, or the live loader switch is false.
 
+Delegated writes are closed by default. Enable them only for a smoke that needs
+them, and only with the reviewed facade names you intend to allow:
+
+```sh
+mix allbert.settings set dynamic_codegen.allowed_action_permissions read_only,memory_write,external_network
+mix allbert.settings set dynamic_codegen.allowed_facades append_memory,external_network_request
+```
+
 ## Request A Draft
 
-The v0.37.2 advisory producer is a guarded source generator. It creates a
+The advisory producer is a guarded source generator. It creates a
 producer-neutral draft for an explicit operator or objective request, calls the
 configured model profile through Jido.AI structured generation, writes reviewed
-read-only action source plus a focused test, and records provider/budget
-diagnostics. Before v0.37 acceptance, this must deepen into the documented
-Planner/Author/TrialAuthor/Critic/Repair committee, where failed validation or
-sandbox evidence can drive Repair until the configured iteration and provider
-budgets are exhausted. The draft is still untrusted until the sandbox gate,
-trusted validation, and operator confirmation pass.
+action source plus a focused test, and records provider/budget diagnostics.
+Failed validation or sandbox evidence can drive Repair until the configured
+iteration and provider budgets are exhausted. The draft is still untrusted until
+the sandbox gate, trusted validation, and operator confirmation pass.
 
 ```sh
 mix allbert.dynamic drafts request weather_summary "Create a read-only weather summary action"
+```
+
+For delegated memory or network actions, the generated action must declare the
+matching permission and call the reviewed facade through a literal
+`AllbertAssist.DynamicPlugins.Delegate.run/3` facade name:
+
+```sh
+mix allbert.dynamic drafts request delegated_memory "Create a memory_write action that appends operator-reviewed memory by delegating to append_memory"
 ```
 
 Equivalent runtime entrypoint:
@@ -143,7 +161,8 @@ Review:
   `AllbertAssist.DynamicPlugins.Generated.<Slug>` namespace.
 - Generated focused tests as functional evidence only.
 - Static validation diagnostics for denied AST forms, protected calls,
-  undeclared modules, permission/body mismatch, and collision checks.
+  undeclared modules, permission/body mismatch, non-literal delegate facade
+  names, non-allowlisted facades, and collision checks.
 
 The draft root is:
 
@@ -168,8 +187,9 @@ Ordinary plugin discovery must not scan either root.
 ## Confirm Integration
 
 Integration is requested through the registered `integrate_dynamic_draft`
-action. When it needs trust, it creates a Security Central confirmation. Approve
-only from high-trust operator surfaces allowed by
+action. When it needs trust, it creates a Security Central confirmation for
+hot-loading the reviewed source. Approve only from high-trust operator surfaces
+allowed by
 `dynamic_codegen.integration_approval_surfaces`:
 
 ```sh
@@ -181,6 +201,10 @@ mix allbert.confirmations approve <confirmation-id> --reason "reviewed v0.37 gat
 
 The integration action denies approval from Telegram, email, or cross-channel
 surfaces even when global confirmation settings would otherwise permit them.
+That surface restriction is only for integration and rollback. If an integrated
+dynamic action delegates to `append_memory` or `external_network_request`, the
+facade creates and resolves any per-invocation confirmation through its normal
+Security Central policy.
 
 After approval, inspect the registration state:
 
@@ -254,6 +278,10 @@ integrated source.
 - Confirmation from a disallowed surface is denied and audited.
 - Tampering with reviewed source after the gate blocks integration.
 - A dynamic action can run only after registration through the overlay.
+- Delegated writes require both an enabled generated permission and a literal
+  facade name present in `dynamic_codegen.allowed_facades`.
+- Delegated facade calls create or complete the same confirmations the reviewed
+  facade would create outside dynamic code.
 - `dynamic_codegen.live_loader_enabled=false` removes or blocks live authority.
 - Rollback removes dynamic action authority and leaves inspectable metadata.
 - Integration, denial, rollback, disablement, and reconcile decisions appear in

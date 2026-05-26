@@ -19,8 +19,8 @@ the milestone ships a real source-bearing read-only action generator, not only
 an inert scaffold. The v0.37.2 research correction requires a bounded
 model-backed Planner/Author/TrialAuthor/Critic flow plus invoked Repair calls
 over deterministic evidence, rather than a single Author LLM call plus
-deterministic wrappers. v0.37.3 delegated-write work reopens the release again
-before tagging so generated actions can declare `:memory_write` or
+deterministic wrappers. v0.37.3 delegated-write work closes the remaining scope
+gap before tagging: generated actions can declare `:memory_write` or
 `:external_network` only by routing effects through reviewed facades with their
 normal Security Central behavior.
 
@@ -144,16 +144,25 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
   sandbox or validator evidence into bounded Repair, and returns only evidence
   until the existing operator-confirmed integration flow is approved.
 
-### Planned (v0.37.3 delegated writes)
+### Added (v0.37.3 delegated writes)
 
-- Generated action authority will expand from pure read-only computation to the
-  shipped action-only ceiling of `read_only`, `memory_write`, and
-  `external_network`, defaulting closed through
-  `dynamic_codegen.allowed_action_permissions`.
-- Effectful generated actions must delegate through
+- `dynamic_codegen.allowed_facades` Settings Central policy, defaulting closed,
+  with a hard ceiling of `append_memory` and `external_network_request`.
+- `AllbertAssist.DynamicPlugins.Delegate.run/3`, a reviewed shim that resolves
+  only operator-enabled facades through `Actions.Registry` and executes them
+  through `Actions.Runner.run/3`.
+- Trusted-validator enforcement for the generated action permission ceiling:
+  `read_only`, `memory_write`, and `external_network`, defaulting closed
+  through `dynamic_codegen.allowed_action_permissions`.
+- Validator checks that non-read-only generated actions delegate through
   `AllbertAssist.DynamicPlugins.Delegate.run/3` to a literal reviewed facade
-  name in `dynamic_codegen.allowed_facades`. The initial facade ceiling is
-  `append_memory` and `external_network_request`.
+  name in `dynamic_codegen.allowed_facades`, and that source permission,
+  response action metadata, and facade permission all match.
+- Codegen prompts, deterministic fake provider support, and manifest permission
+  derivation for pure read-only and delegated memory/network action drafts.
+
+### Changed (v0.37.3 delegated writes)
+
 - Generated actions remain `resumable?: false`; facade-owned confirmations keep
   the facade's existing Security Central approval and resume path. The
   `dynamic_codegen.integration_approval_surfaces` setting remains scoped to
@@ -203,6 +212,20 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
   agent session was blocked by external-provider transfer policy after sandbox
   retry; operator manual verification requires explicit approval to send the
   bounded generation prompt to the configured remote LLM.
+
+### Verification (v0.37.3 delegated writes)
+
+- Focused settings, delegate, trusted-validator, loader, codegen, dynamic
+  actions, external-network confirmation, metadata, and sandbox bridge
+  regression suites passed.
+- A real `.env` OpenAI-backed LLM smoke produced a delegated `memory_write`
+  draft that called
+  `AllbertAssist.DynamicPlugins.Delegate.run("append_memory", ...)`, and trusted
+  validation accepted the generated source after the validator allowed pipe
+  syntax used by the model.
+- Final gates passed `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `git diff --check`, `mix credo --strict`,
+  `mix dialyzer`, and `mix precommit`.
 
 ## v0.36.0 - Elixir/OTP Sandbox And Gate Runner
 

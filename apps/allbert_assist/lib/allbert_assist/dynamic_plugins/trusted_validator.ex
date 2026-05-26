@@ -4,17 +4,21 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
 
   The validator parses reviewed source into AST without executing it, then
   applies a deliberately small allowlist before the loader may compile the
-  source into the core node. v0.37's live path accepts read-only generated
-  actions only; apps, panels, children, settings fragments, and route-like
-  surfaces remain rejected until they have their own trusted validators.
+  source into the core node. v0.37's live path accepts generated action targets
+  only: pure read-only actions plus tightly delegated memory/network actions.
+  Apps, panels, children, settings fragments, and route-like surfaces remain
+  rejected until they have their own trusted validators.
   """
 
   alias AllbertAssist.Action
+  alias AllbertAssist.DynamicPlugins.Delegate
   alias AllbertAssist.DynamicPlugins.Draft
+  alias AllbertAssist.Settings
 
   @generated_prefix "AllbertAssist.DynamicPlugins.Generated"
   @allowed_targets ["action"]
-  @allowed_action_permissions ["read_only"]
+  @action_permission_ceiling ["read_only", "memory_write", "external_network"]
+  @delegate_module "AllbertAssist.DynamicPlugins.Delegate"
 
   @allowed_remote_calls %{
     "Atom" => [:to_string],
@@ -174,6 +178,7 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
     :is_tuple,
     :not,
     :or,
+    :|>,
     :to_string
   ]
 
@@ -198,7 +203,8 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
          :ok <- validate_declared_modules(draft.slug, declared_modules),
          :ok <- validate_action_specs(action_specs, declared_modules),
          {:ok, source_files} <- parse_sources(root, draft.slug, files),
-         :ok <- validate_manifest_modules(source_files, declared_modules) do
+         :ok <- validate_manifest_modules(source_files, declared_modules),
+         :ok <- validate_action_source_contracts(action_specs, source_files) do
       {:ok,
        %{
          modules: discovered_modules(source_files),
@@ -299,8 +305,10 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
   end
 
   defp validate_action_specs(actions, declared_modules) do
+    allowed_permissions = allowed_action_permissions()
+
     cond do
-      Enum.any?(actions, &(&1.permission not in @allowed_action_permissions)) ->
+      Enum.any?(actions, &(&1.permission not in allowed_permissions)) ->
         {:error, {:unsupported_dynamic_action_permissions, Enum.map(actions, & &1.permission)}}
 
       Enum.any?(actions, &(&1.exposure not in ["agent", "internal"])) ->
@@ -337,13 +345,13 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
     forms = top_level_forms(ast)
     prefix = generated_slug_prefix(slug)
 
-    modules =
-      Enum.flat_map(forms, fn
+    module_validations =
+      Enum.map(forms, fn
         {:defmodule, _meta, [module_ast, [do: body]]} ->
           module = module_name(module_ast)
 
           case validate_module_body(module, prefix, body) do
-            :ok -> [module]
+            {:ok, validation} -> validation
             {:error, reason} -> throw({:error, reason})
           end
 
@@ -351,7 +359,16 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
           throw({:error, {:unsupported_top_level_form, form_name(other)}})
       end)
 
-    {:ok, %{path: path, source_path: file.source_path, source: source, modules: modules}}
+    modules = Enum.map(module_validations, & &1.module)
+
+    {:ok,
+     %{
+       path: path,
+       source_path: file.source_path,
+       source: source,
+       modules: modules,
+       module_validations: module_validations
+     }}
   catch
     {:error, reason} -> {:error, reason}
   end
@@ -367,7 +384,11 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
       true ->
         forms = top_level_forms(body)
         local_defs = local_defs(forms)
-        validate_module_forms(forms, module, local_defs)
+
+        with :ok <- validate_module_forms(forms, module, local_defs),
+             {:ok, action_contract} <- module_action_contract(forms) do
+          {:ok, %{module: module, action_contract: action_contract}}
+        end
     end
   end
 
@@ -512,20 +533,31 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
     validate_each(expressions, &validate_expression(&1, local_defs))
   end
 
+  defp validate_expression(
+         {{:., _meta, [module_ast, :run]}, _call_meta, [facade_ast, params_ast, context_ast]},
+         local_defs
+       ) do
+    case module_name(module_ast) do
+      @delegate_module ->
+        with {:ok, facade_name} <- literal_binary(facade_ast),
+             :ok <- validate_delegate_facade(facade_name),
+             :ok <- validate_expression(params_ast, local_defs) do
+          validate_expression(context_ast, local_defs)
+        end
+
+      _other ->
+        validate_remote_expression(
+          module_ast,
+          :run,
+          [facade_ast, params_ast, context_ast],
+          local_defs
+        )
+    end
+  end
+
   defp validate_expression({{:., _meta, [module_ast, function]}, _call_meta, args}, local_defs)
        when is_atom(function) and is_list(args) do
-    module = module_name(module_ast)
-
-    cond do
-      protected_remote?(module) ->
-        {:error, {:protected_remote_call, module, function}}
-
-      allowed_remote_call?(module, function) or generated_module_name?(module) ->
-        validate_each(args, &validate_expression(&1, local_defs))
-
-      true ->
-        {:error, {:unsupported_remote_call, module, function}}
-    end
+    validate_remote_expression(module_ast, function, args, local_defs)
   end
 
   defp validate_expression({name, _meta, context}, _local_defs)
@@ -657,10 +689,12 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
       |> Map.new()
 
     capability_opts = Map.take(opts, Action.capability_keys())
+    permission = Map.get(capability_opts, :permission)
+    permission_name = if is_atom(permission), do: Atom.to_string(permission)
 
     cond do
-      Map.get(capability_opts, :permission) != :read_only ->
-        {:error, {:dynamic_action_permission_ceiling, Map.get(capability_opts, :permission)}}
+      permission_name not in allowed_action_permissions() ->
+        {:error, {:dynamic_action_permission_ceiling, permission}}
 
       Map.get(capability_opts, :confirmation) != :not_required ->
         {:error, {:dynamic_action_confirmation_denied, Map.get(capability_opts, :confirmation)}}
@@ -676,6 +710,201 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
           {:ok, _attrs} -> :ok
           {:error, reason} -> {:error, {:invalid_dynamic_action_capability, reason}}
         end
+    end
+  end
+
+  defp module_action_contract(forms) do
+    contracts =
+      forms
+      |> Enum.flat_map(fn
+        {:use, _meta, [target | args]} ->
+          if module_name(target) == "AllbertAssist.Action" do
+            [action_contract_from_use(args, forms)]
+          else
+            []
+          end
+
+        _other ->
+          []
+      end)
+
+    case contracts do
+      [] -> {:ok, nil}
+      [{:ok, contract}] -> {:ok, contract}
+      [{:error, reason}] -> {:error, reason}
+      _many -> {:error, :multiple_dynamic_action_declarations}
+    end
+  end
+
+  defp action_contract_from_use(args, forms) do
+    opts =
+      args
+      |> List.flatten()
+      |> Enum.filter(&match?({key, _value} when is_atom(key), &1))
+      |> Map.new()
+
+    permission = Map.get(opts, :permission)
+    delegated_facades = delegated_facades(forms)
+    response_permissions = response_action_permissions(forms)
+
+    with :ok <- validate_delegated_permissions(permission, delegated_facades),
+         :ok <- validate_response_permissions(permission, response_permissions) do
+      {:ok,
+       %{
+         permission: permission,
+         delegated_facades: delegated_facades,
+         response_permissions: response_permissions
+       }}
+    end
+  end
+
+  defp validate_delegated_permissions(permission, delegated_facades) do
+    cond do
+      permission == :read_only and delegated_facades != [] ->
+        {:error,
+         {:dynamic_delegate_permission_mismatch,
+          %{permission: permission, facades: delegated_facades}}}
+
+      permission != :read_only and delegated_facades == [] ->
+        {:error, {:dynamic_delegate_required, permission}}
+
+      true ->
+        validate_each(delegated_facades, &validate_delegated_facade_permission(permission, &1))
+    end
+  end
+
+  defp validate_delegated_facade_permission(permission, facade_name) do
+    case Delegate.facade_permission(facade_name) do
+      {:ok, ^permission} ->
+        :ok
+
+      {:ok, facade_permission} ->
+        {:error,
+         {:dynamic_delegate_permission_mismatch,
+          %{
+            permission: permission,
+            facade: facade_name,
+            facade_permission: facade_permission
+          }}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp validate_response_permissions(_permission, []), do: :ok
+
+  defp validate_response_permissions(permission, response_permissions) do
+    mismatched =
+      response_permissions
+      |> Enum.reject(&(&1 == permission))
+      |> Enum.uniq()
+
+    if mismatched == [] do
+      :ok
+    else
+      {:error,
+       {:dynamic_action_response_permission_mismatch,
+        %{permission: permission, response_permissions: mismatched}}}
+    end
+  end
+
+  defp delegated_facades(forms) do
+    {_forms, facades} =
+      Macro.prewalk(forms, [], &collect_delegated_facade/2)
+
+    facades |> Enum.reverse() |> Enum.uniq()
+  end
+
+  defp collect_delegated_facade(
+         {{:., _meta, [module_ast, :run]}, _call_meta, [facade_ast, _params_ast, _context_ast]} =
+           node,
+         acc
+       ) do
+    if module_name(module_ast) == @delegate_module do
+      collect_literal_delegate_facade(node, acc, facade_ast)
+    else
+      {node, acc}
+    end
+  end
+
+  defp collect_delegated_facade(node, acc), do: {node, acc}
+
+  defp collect_literal_delegate_facade(node, acc, facade_ast) do
+    case literal_binary(facade_ast) do
+      {:ok, facade_name} -> {node, [facade_name | acc]}
+      {:error, _reason} -> {node, acc}
+    end
+  end
+
+  defp response_action_permissions(forms) do
+    {_forms, permissions} =
+      Macro.prewalk(forms, [], fn
+        {:%{}, _meta, pairs} = node, acc ->
+          case literal_map_permission(pairs) do
+            nil -> {node, acc}
+            permission -> {node, [permission | acc]}
+          end
+
+        node, acc ->
+          {node, acc}
+      end)
+
+    permissions |> Enum.reverse() |> Enum.uniq()
+  end
+
+  defp literal_map_permission(pairs) do
+    Enum.find_value(pairs, fn
+      {key, value} ->
+        if literal_permission_key?(key), do: literal_permission(value), else: nil
+
+      _other ->
+        nil
+    end)
+  end
+
+  defp literal_permission_key?(:permission), do: true
+  defp literal_permission_key?("permission"), do: true
+  defp literal_permission_key?(_key), do: false
+
+  defp literal_permission(permission) when is_atom(permission), do: permission
+
+  defp literal_permission(permission) when is_binary(permission) do
+    if permission in @action_permission_ceiling do
+      String.to_existing_atom(permission)
+    else
+      nil
+    end
+  end
+
+  defp literal_permission(_permission), do: nil
+
+  defp validate_action_source_contracts(action_specs, source_files) do
+    contracts =
+      source_files
+      |> Enum.flat_map(& &1.module_validations)
+      |> Map.new(fn validation -> {validation.module, validation.action_contract} end)
+
+    validate_each(action_specs, &validate_action_source_contract(&1, contracts))
+  end
+
+  defp validate_action_source_contract(action, contracts) do
+    case Map.get(contracts, action.module) do
+      %{permission: source_permission} ->
+        validate_action_source_permission(action, source_permission)
+
+      nil ->
+        {:error, {:dynamic_action_module_missing_action_declaration, action.module}}
+    end
+  end
+
+  defp validate_action_source_permission(action, source_permission) do
+    if Atom.to_string(source_permission) == action.permission do
+      :ok
+    else
+      {:error,
+       {:dynamic_action_manifest_permission_mismatch,
+        %{module: action.module, manifest: action.permission, source: source_permission}}}
     end
   end
 
@@ -724,6 +953,59 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
 
   defp generated_module_name?(_module), do: false
 
+  defp validate_remote_expression(module_ast, function, args, local_defs) do
+    module = module_name(module_ast)
+
+    cond do
+      protected_remote?(module) ->
+        {:error, {:protected_remote_call, module, function}}
+
+      allowed_remote_call?(module, function) or generated_module_name?(module) ->
+        validate_each(args, &validate_expression(&1, local_defs))
+
+      true ->
+        {:error, {:unsupported_remote_call, module, function}}
+    end
+  end
+
+  defp validate_delegate_facade(facade_name) do
+    with {:ok, _permission} <- Delegate.facade_permission(facade_name) do
+      if facade_name in allowed_facades() do
+        :ok
+      else
+        {:error, {:dynamic_delegate_facade_not_allowed, facade_name}}
+      end
+    end
+  end
+
+  defp allowed_action_permissions do
+    case Settings.get("dynamic_codegen.allowed_action_permissions") do
+      {:ok, permissions} when is_list(permissions) ->
+        permissions
+        |> Enum.map(&to_string/1)
+        |> Enum.filter(&(&1 in @action_permission_ceiling))
+        |> Enum.uniq()
+
+      _other ->
+        ["read_only"]
+    end
+  end
+
+  defp allowed_facades do
+    hard_facades = Delegate.hard_facades()
+
+    case Settings.get("dynamic_codegen.allowed_facades") do
+      {:ok, facades} when is_list(facades) ->
+        facades
+        |> Enum.map(&to_string/1)
+        |> Enum.filter(&(&1 in hard_facades))
+        |> Enum.uniq()
+
+      _other ->
+        []
+    end
+  end
+
   defp generated_or_action_module?("AllbertAssist.Action"), do: true
   defp generated_or_action_module?(module), do: generated_module_name?(module)
 
@@ -760,6 +1042,9 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
   defp literal?(value) when is_atom(value) or is_binary(value), do: true
   defp literal?(value) when is_number(value) or is_boolean(value), do: true
   defp literal?(_value), do: false
+
+  defp literal_binary(value) when is_binary(value), do: {:ok, value}
+  defp literal_binary(_value), do: {:error, :dynamic_delegate_facade_name_not_literal}
 
   defp validate_each(values, fun) do
     Enum.reduce_while(values, :ok, fn value, :ok ->

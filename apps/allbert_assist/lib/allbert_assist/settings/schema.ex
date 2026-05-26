@@ -126,6 +126,7 @@ defmodule AllbertAssist.Settings.Schema do
     "dynamic_codegen.max_bytes",
     "dynamic_codegen.allowed_targets",
     "dynamic_codegen.allowed_action_permissions",
+    "dynamic_codegen.allowed_facades",
     "dynamic_codegen.live_loader_enabled",
     "dynamic_codegen.integration_approval_surfaces",
     "dynamic_codegen.retention_days",
@@ -1389,6 +1390,12 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false
     },
+    "dynamic_codegen.allowed_facades" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
     "dynamic_codegen.live_loader_enabled" => %{
       type: :boolean,
       default: false,
@@ -1811,6 +1818,7 @@ defmodule AllbertAssist.Settings.Schema do
       "max_bytes" => 262_144,
       "allowed_targets" => ["action"],
       "allowed_action_permissions" => ["read_only"],
+      "allowed_facades" => [],
       "live_loader_enabled" => false,
       "integration_approval_surfaces" => ["cli", "liveview"],
       "retention_days" => 30
@@ -2399,7 +2407,14 @@ defmodule AllbertAssist.Settings.Schema do
            validate_dynamic_codegen_list(
              settings,
              "dynamic_codegen.allowed_action_permissions",
-             ["read_only"]
+             ["read_only", "memory_write", "external_network"]
+           ),
+         :ok <-
+           validate_dynamic_codegen_list(
+             settings,
+             "dynamic_codegen.allowed_facades",
+             ["append_memory", "external_network_request"],
+             allow_empty?: true
            ) do
       validate_dynamic_codegen_list(
         settings,
@@ -2409,14 +2424,15 @@ defmodule AllbertAssist.Settings.Schema do
     end
   end
 
-  defp validate_dynamic_codegen_list(settings, key, allowed_values) do
+  defp validate_dynamic_codegen_list(settings, key, allowed_values, opts \\ []) do
     values = get_dotted(settings, key)
+    allow_empty? = Keyword.get(opts, :allow_empty?, false)
 
     cond do
       not is_list(values) ->
         {:error, {:invalid_setting, key, {:expected_string_list, values}}}
 
-      values == [] ->
+      values == [] and not allow_empty? ->
         {:error, {:invalid_setting, key, :empty_list}}
 
       not Enum.all?(values, &(&1 in allowed_values)) ->

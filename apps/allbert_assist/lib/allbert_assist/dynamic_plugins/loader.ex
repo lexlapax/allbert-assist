@@ -2,11 +2,11 @@ defmodule AllbertAssist.DynamicPlugins.Loader do
   @moduledoc """
   Trusted v0.37 live loader for integrated dynamic action artifacts.
 
-  The loader accepts only gate-passed, operator-confirmed, read-only action
-  drafts. It copies reviewed source into the integrated root, validates AST
-  allowlists, compiles the reviewed source, registers action modules in the
-  runtime overlay, and can remove that authority through rollback or emergency
-  disable.
+  The loader accepts only gate-passed, operator-confirmed action drafts that
+  pass the trusted validator's generated-permission and call-target rules. It
+  copies reviewed source into the integrated root, validates AST allowlists,
+  compiles the reviewed source, registers action modules in the runtime overlay,
+  and can remove that authority through rollback or emergency disable.
   """
 
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry

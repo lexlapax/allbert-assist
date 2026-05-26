@@ -220,6 +220,7 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, ["action"]} = Settings.get("dynamic_codegen.allowed_targets")
 
     assert {:ok, ["read_only"]} = Settings.get("dynamic_codegen.allowed_action_permissions")
+    assert {:ok, []} = Settings.get("dynamic_codegen.allowed_facades")
     assert {:ok, false} = Settings.get("dynamic_codegen.live_loader_enabled")
 
     assert {:ok, ["cli", "liveview"]} =
@@ -242,19 +243,33 @@ defmodule AllbertAssist.SettingsTest do
 
     assert surfaces.value == ["cli"]
 
+    assert {:ok, action_permissions} =
+             Settings.put(
+               "dynamic_codegen.allowed_action_permissions",
+               ["read_only", "memory_write", "external_network"],
+               %{audit?: false}
+             )
+
+    assert action_permissions.value == ["read_only", "memory_write", "external_network"]
+
+    assert {:ok, facades} =
+             Settings.put(
+               "dynamic_codegen.allowed_facades",
+               ["append_memory", "external_network_request"],
+               %{audit?: false}
+             )
+
+    assert facades.value == ["append_memory", "external_network_request"]
+
     assert {:error, {:invalid_setting, "dynamic_codegen.allowed_action_permissions", _reason}} =
              Settings.put("dynamic_codegen.allowed_action_permissions", ["command_execute"], %{
                audit?: false
              })
 
-    assert {:error, {:invalid_setting, "dynamic_codegen.allowed_action_permissions", _reason}} =
-             Settings.put(
-               "dynamic_codegen.allowed_action_permissions",
-               ["read_only", "memory_write"],
-               %{
-                 audit?: false
-               }
-             )
+    assert {:error, {:invalid_setting, "dynamic_codegen.allowed_facades", _reason}} =
+             Settings.put("dynamic_codegen.allowed_facades", ["run_shell_command"], %{
+               audit?: false
+             })
 
     assert {:error, {:invalid_setting, "dynamic_codegen.integration_approval_surfaces", _reason}} =
              Settings.put("dynamic_codegen.integration_approval_surfaces", ["telegram"], %{
@@ -276,12 +291,22 @@ defmodule AllbertAssist.SettingsTest do
              Settings.write_user_settings(%{
                "dynamic_codegen" => %{
                  "allowed_targets" => ["action", "panel", "settings_fragment"],
-                 "allowed_action_permissions" => ["read_only", "memory_write"]
+                 "allowed_action_permissions" => ["read_only", "memory_write"],
+                 "allowed_facades" => [
+                   "append_memory",
+                   "run_shell_command",
+                   "external_network_request"
+                 ]
                }
              })
 
     assert {:ok, ["action"]} = Settings.get("dynamic_codegen.allowed_targets")
-    assert {:ok, ["read_only"]} = Settings.get("dynamic_codegen.allowed_action_permissions")
+
+    assert {:ok, ["read_only", "memory_write"]} =
+             Settings.get("dynamic_codegen.allowed_action_permissions")
+
+    assert {:ok, ["append_memory", "external_network_request"]} =
+             Settings.get("dynamic_codegen.allowed_facades")
   end
 
   test "workspace settings resolve defaults and validate writes" do
