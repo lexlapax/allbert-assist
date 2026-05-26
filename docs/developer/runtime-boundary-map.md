@@ -115,12 +115,11 @@ ordinary plugin discovery never scans dynamic draft or integrated roots.
 `DynamicPlugins.Codegen.Agent` is a JidoBacked coordinator for explicit
 capability-gap draft requests; `Codegen.Producer` can write source-bearing
 read-only action drafts through Jido.AI structured generation plus objective
-observations. The v0.37.2 release remains open until that producer uses bounded
-Planner, Author, TrialAuthor, Critic, and Repair packets. The trusted loader is
-the only path that may compile reviewed generated source in core, and only
-after gate evidence plus Security Central confirmation. Dynamic actions merge
-through `Actions.Registry` via the actions overlay and never shadow static or
-source-tree plugin/app actions.
+observations. The producer uses bounded Planner, Author, TrialAuthor, Critic,
+and Repair packets. The trusted loader is the only path that may compile
+reviewed generated source in core, and only after gate evidence plus Security
+Central confirmation. Dynamic actions merge through `Actions.Registry` via the
+actions overlay and never shadow static or source-tree plugin/app actions.
 
 ## Internal Modules
 

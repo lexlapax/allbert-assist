@@ -1951,18 +1951,18 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 `docs/adr/0035-codegen-agents-and-live-integration-loader.md`,
 `docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`
 
-Status: implemented as `v0.37.0`; v0.37.1 post-implementation audit hardening
+Status: implemented as `v0.37.4`; v0.37.1 post-implementation audit hardening
 and final gates completed on 2026-05-25. Reopened for v0.37.2
 capability-first generator and bounded model-backed committee implementation
 before tagging, then reopened for v0.37.3 delegated generated writes before
 tagging, then reopened for v0.37.4 audit hardening before tagging. The
 self-extending-runtime engine now has file-backed dynamic drafts, v0.36 sandbox
 trial/gate handoff, trusted validation, dynamic lifecycle audit/signals, and
-gated live in-core integration for action artifacts. v0.37.2 must add
+gated live in-core integration for action artifacts. v0.37.2 added
 source-bearing LLM-backed read-only action generation through separate
-Planner/Author/TrialAuthor/Critic packets plus invoked Repair packets and prove
-the full generate -> repair -> gate -> approve -> live run -> rollback loop.
-The M16 closeout adds the explicit `request_draft_with_gate/3` workflow facade
+Planner/Author/TrialAuthor/Critic packets plus invoked Repair packets and
+proved the full generate -> repair -> gate -> approve -> live run -> rollback
+loop. The M16 closeout adds the explicit `request_draft_with_gate/3` workflow facade
 so sandbox trial/gate reports and trusted-validation failures can drive bounded
 Repair until deterministic evidence passes or workflow-wide limits stop the
 attempt.
