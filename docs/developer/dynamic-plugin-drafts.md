@@ -306,14 +306,18 @@ Denied forms include:
 - application env mutation, migrations, dependencies, package managers, NIFs,
   ports, and shell/process execution.
 
-The shipped validator scans call targets in action `run/2` and helpers. Future
-app callbacks, surface data builders, and child callbacks must use the same
-rules before those target shapes can become live. It allows local generated
-calls, an explicit allowlist of side-effect-free Elixir helpers, and the
-delegation shim only. Direct calls to Settings writes, secrets, confirmations,
-Resource grants, Repo writes, sandbox actions, integration/rollback/disable
-actions, distributed Erlang, shell/process runners, package/skill execution,
-and trust control are denied.
+The shipped validator scans all generated function bodies for protected runtime
+calls, but delegated-effect evidence and response action permission metadata are
+accepted only inside action `run/2`. `Delegate.run/3` in helpers is denied, even
+when the helper is never called, so a generated permission cannot be justified
+by dead code. Future app callbacks, surface data builders, and child callbacks
+must use the same rules before those target shapes can become live. It allows
+local generated calls, an explicit allowlist of side-effect-free Elixir helpers,
+literal `@spec`/`@type`/`@typep` attributes, and the delegation shim only.
+Direct calls to Settings writes, secrets, confirmations, Resource grants, Repo
+writes, sandbox actions, integration/rollback/disable actions, distributed
+Erlang, shell/process runners, package/skill execution, and trust control are
+denied.
 
 ## Permission Ceiling
 
@@ -424,6 +428,8 @@ current policy all still match.
 If `dynamic_codegen.live_loader_enabled=false`, reconciliation must not register
 dynamic authority. The registered `disable_dynamic_live_loader` action turns the
 switch off and clears the live action overlay without deleting source.
+It uses `:settings_write` with no confirmation because it only reduces live
+authority and is intended as an emergency stop.
 
 Both reconcile keep/deny decisions and emergency disablement are audited in the
 dynamic plugin audit file.
