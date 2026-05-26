@@ -17,6 +17,7 @@ defmodule AllbertAssist.DynamicPlugins.Audit do
 
   @type event ::
           :draft_requested
+          | :draft_repaired
           | :sandbox_report_recorded
           | :tier_transition
           | :discarded
