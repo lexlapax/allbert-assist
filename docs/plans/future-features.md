@@ -195,8 +195,8 @@ Still parked:
 
 Status: parked.
 
-v0.49 public protocol interop is local/public-surface exposure, not a
-distributed runtime.
+v0.49b MCP server mode is local/public-surface exposure, not a distributed
+runtime.
 
 Still parked:
 
@@ -204,6 +204,202 @@ Still parked:
 - cluster state replication;
 - hosted scheduler/worker coordination;
 - distributed confirmation ownership.
+
+### Public Protocol Interop (Non-MCP)
+
+Status: parked. Added in the post-v0.37 planning pass after the v0.49 split.
+
+v0.49b ships MCP server mode as the single 1.0 protocol surface (per ADR
+0044). The original v0.49 plan bundled three additional protocol surfaces
+that did not survive the post-v0.37 acceptance-matrix trim.
+
+Still parked:
+
+- OpenAI-compatible local HTTP API;
+- ACP (Agent Client Protocol) server mode;
+- public AG-UI / A2UI HTTP/WS bridge promoted from the v0.26 internal
+  semantic-mapping bridge;
+- shared auth/rate-limit/CSP/redaction policy beyond MCP server scope.
+
+Each surface requires its own operator-demand evidence, its own auth/CSP
+review, and its own export/import/eval coverage before promotion.
+
+### iMessage Channel Adapter
+
+Status: parked. Moved from v0.49 to parking in the post-v0.37 planning pass.
+
+iMessage requires a macOS-only adapter, opt-in platform constraint, and
+device-pairing recovery story distinct from WhatsApp/Signal/Matrix.
+
+Still parked:
+
+- macOS-only platform policy;
+- device-pairing UX and recovery;
+- App Store / signing implications;
+- backup/restore behavior for paired sessions.
+
+### Native Plugin Variants For Calendar / Mail / GitHub (v0.41.x Follow-On)
+
+Status: post-1.0 follow-on candidates. Promoted from v0.41 scope in the
+post-v0.37 planning pass.
+
+v0.41 ships calendar / mail / GitHub as MCP-server-configured workspace
+panels driven by the v0.40 MCP client. Native plugin variants land only when
+MCP coverage proves insufficient for a specific workspace surface, memory
+namespace, or intent-descriptor need.
+
+Per-integration follow-on candidates:
+
+- `./plugins/allbert.calendar/` — native plugin if a memory namespace or
+  workspace surface beyond MCP coverage is needed;
+- `./plugins/allbert.mail/` — native plugin extending v0.16 email channel
+  with mail-as-app surface;
+- `./plugins/allbert.github/` — native plugin if richer workspace UI or
+  intent descriptors beyond the official GitHub MCP server are needed.
+
+Each follow-on is a small focused release. None block v1.0.
+
+### Marketplace Community Submission / Review Governance
+
+Status: parked. Added in the post-v0.37 planning pass.
+
+v0.45 marketplace lite ships single-vendor (Allbert-author seed bundles
+only). A submission/review process for community contributions requires:
+
+- submission workflow (PR against an index repo? hosted form?);
+- reviewer ownership and rotation policy;
+- revocation / takedown process;
+- provenance + signing requirements for community submissions;
+- trust-tier for community-reviewed vs Allbert-author-reviewed bundles.
+
+Promote post-1.0 when the project decides on governance.
+
+### Proactive Notifications Policy
+
+Status: parked. Added in the post-v0.37 planning pass.
+
+Allbert is reactive through v1.0. Operators may want Allbert to message them
+first when a meeting starts, a job completes, an MCP server disconnects, a
+confirmation expires, or a self-improvement suggestion is ready.
+
+Still parked:
+
+- per-channel proactive-message authority;
+- operator-opt-in policy per notification class;
+- rate-limit and quiet-hours policy;
+- abuse prevention for runaway notifications;
+- proactive-message audit and revocation.
+
+### Unified Cost Dashboard And Budget Enforcement
+
+Status: parked. Added in the post-v0.37 planning pass.
+
+Voice (v0.47) and vision (v0.48) ship per-feature cost visibility at
+confirmation time. Power operators will want a unified cross-provider
+dashboard.
+
+Still parked:
+
+- per-provider, per-model, per-app, per-channel spend rollups;
+- daily/weekly/monthly budget enforcement;
+- spend-limit confirmation workflows;
+- cost forecast for objectives before approval;
+- export of spend audit logs.
+
+### Anonymous Telemetry Policy
+
+Status: parked. Added in the post-v0.37 planning pass.
+
+Allbert is local-first. Default-off anonymous telemetry is a reasonable post-
+1.0 question once the project decides what data, if any, helps maintainers
+prioritize work.
+
+Still parked:
+
+- explicit opt-in mechanism;
+- what data is collected (definitively no prompts, secrets, memory content);
+- aggregation and retention policy;
+- self-host endpoint vs vendor endpoint;
+- operator-visible audit of every telemetry payload.
+
+### Conversation History Full-Text Search
+
+Status: parked. Added in the post-v0.37 planning pass.
+
+Markdown memory has full-text search through v0.21. SQLite `Thread`/`Message`
+conversation history does not. Operators may want to search prior threads.
+
+Still parked:
+
+- SQLite FTS5 over Message bodies;
+- per-user and per-app filter;
+- redaction-aware indexing;
+- thread context retrieval into Active Memory (related to "Cross-Thread /
+  Cross-App Memory Retrieval" below).
+
+### Cross-Thread / Cross-App Memory Retrieval
+
+Status: parked. Added in the post-v0.37 planning pass.
+
+v0.39b Active Memory retrieval is scoped to `{thread_id, active_app,
+identity_namespace}`. Operators may want assistant context drawn from prior
+threads or across apps.
+
+Still parked:
+
+- cross-thread retrieval scope and ranking policy;
+- privacy/redaction policy when surfacing other-thread chunks;
+- across-app namespace mixing rules (notes_files chunks in a StockSage
+  thread, etc.);
+- operator-visible scope controls in the workspace.
+
+### Plugin Auto-Update Story
+
+Status: parked. Added in the post-v0.37 planning pass.
+
+Reviewed plugins (Allbert-author and, post-1.0, community-submitted) will
+release new versions over time. v0.45 marketplace ships single-snapshot
+catalogs; updating means upgrading Allbert.
+
+Still parked:
+
+- version pinning per plugin;
+- reviewed-upgrade workflow;
+- rollback after a regression;
+- breaking-change deprecation policy for plugin contracts.
+
+### Model Fallback / Degradation Policy
+
+Status: parked. Added in the post-v0.37 planning pass after the v0.39 plan
+dropped the unspecified "explicit operator opt-in" wording.
+
+Operators may want graceful degradation when the primary LLM provider is
+down, rate-limited, or returning unusable output.
+
+Still parked:
+
+- explicit operator opt-in surface for fallback;
+- per-provider failure detection policy;
+- fallback-chain configuration (primary → secondary → local);
+- audit/trace of fallback events;
+- abuse prevention (prevent silent expensive failovers).
+
+### Workspace Canvas Snapshot / Undo / Time-Travel
+
+Status: parked. Promoted from "post-v0.38 deferred" to an explicit
+parking-lot entry in the post-v0.37 planning pass.
+
+v0.26 canvas substrate persists tiles but has no snapshot, undo, or
+time-travel mechanism. If an operator loses canvas state they want back,
+there's no recovery.
+
+Still parked:
+
+- snapshot trigger policy (manual, per-objective, periodic);
+- snapshot storage layout in `<ALLBERT_HOME>/workspace/snapshots/`;
+- undo/redo UX in the workspace shell;
+- time-travel scope (per-thread, per-app, global);
+- retention and pruning policy.
 
 ## Review Cadence
 

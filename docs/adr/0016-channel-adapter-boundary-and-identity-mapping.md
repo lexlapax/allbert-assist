@@ -189,3 +189,84 @@ list.
 - Media/document download and deep remote document extraction.
 - Proactive broadcast and scheduled outbound messaging.
 - UI protocol interop and workspace-native channel surfaces.
+
+## v0.43 Amendment: Channel Approval Primitives
+
+Status: Proposed for v0.43 Channel Pack 1 - Discord And Slack
+(`docs/plans/v0.43-plan.md`). Becomes binding for v0.43 and all later
+channel adapters including v0.49 mobile channels.
+
+### Context
+
+v0.16 shipped two adapters with two different approval-rendering shapes:
+Telegram inline keyboard buttons and email typed commands. v0.17 packaged
+both as plugin adapters but did not formalize the rendering contract. By
+v0.43 (Discord + Slack), the field needs Discord buttons / Slack Block Kit;
+v0.49 mobile channels need WhatsApp typed commands, Signal typed commands,
+and Matrix buttons-or-typed-commands. Without a formal primitive set, each
+adapter would re-invent its own Approval Handoff rendering.
+
+### Decision
+
+Approval Handoff renders through one of four standardized primitives. Every
+channel adapter declares its supported subset in its plugin descriptor:
+
+- **`:list`** — render the pending request as text plus a numbered list of
+  options (approve, deny, show, defer). Operator picks by number in a reply.
+  Universal fallback; every adapter supports `:list` so Approval Handoff
+  always has a delivery path.
+- **`:button`** — render an interactive button affordance (Telegram inline
+  keyboard, Discord component, Slack Block Kit, Matrix message buttons).
+  Operator taps a button; callback resolves the confirmation.
+- **`:typed_command`** — render a textual command syntax (`ALLBERT:APPROVE:<id>`)
+  the operator types back in a reply. Email and text-first messaging
+  surfaces (Signal, WhatsApp without Business interactive buttons).
+- **`:link`** — render a deep-link into the operator's workspace surface so
+  approval happens out-of-channel. Mobile channels with limited
+  interactivity often render this alongside `:typed_command`.
+
+### Selection Rule
+
+`AllbertAssist.Approval.Handoff.render/2` (or its equivalent boundary) selects
+the highest-fidelity primitive the adapter declares, in order:
+`:button > :typed_command > :link > :list`.
+
+### Adapter Declarations
+
+Adapter declarations as of v0.49:
+
+| Adapter   | Declared primitives                                  |
+|-----------|------------------------------------------------------|
+| CLI       | `:list`                                              |
+| LiveView  | `:button` (workspace modal)                          |
+| Telegram  | `:button`, `:typed_command`, `:list`                 |
+| Email     | `:typed_command`, `:list`                            |
+| Discord   | `:button`, `:typed_command`, `:list`                 |
+| Slack     | `:button`, `:typed_command`, `:list`                 |
+| WhatsApp  | `:typed_command`, `:link`, `:list`                   |
+| Signal    | `:typed_command`, `:link`, `:list`                   |
+| Matrix    | `:button` (bot rooms), `:typed_command`, `:list`     |
+
+Adapters MUST always declare `:list` as a fallback. Adapters that ship without
+declaring the supported set MUST be rejected by the channel registry.
+
+### Non-Goals For This Amendment
+
+- No channel-specific approval logic in core. The primitive set is closed; new
+  primitives require an ADR amendment, not adapter-level invention.
+- No new permission classes or confirmation shapes.
+- No bypass of `Actions.Runner.run/3`, Security Central, or the durable
+  confirmation store.
+- No primitive that returns rich operator input beyond the four
+  approve/deny/show/defer verbs.
+
+### Consequences
+
+- v0.43 lands Discord and Slack with `:button` rendering through the same
+  Approval Handoff path as Telegram.
+- v0.49 lands WhatsApp/Signal/Matrix with explicit primitive declarations
+  rather than ad-hoc rendering.
+- The v0.50 cross-surface eval sweep adds an `approval-primitive-honor`
+  check per adapter.
+- v1.0 freezes the channel-adapter boundary including this primitive
+  contract.
