@@ -85,6 +85,10 @@ defmodule AllbertAssist.DynamicPlugins do
   @spec request_draft(map(), map(), keyword()) :: {:ok, map()} | {:error, term()}
   defdelegate request_draft(attrs, context \\ %{}, opts \\ []), to: Codegen.Agent
 
+  @doc "Repair a source-bearing draft from bounded validation or sandbox evidence."
+  @spec repair_draft(String.t(), map(), map()) :: {:ok, map()} | {:error, term()}
+  defdelegate repair_draft(slug, evidence, context \\ %{}), to: Codegen.Producer
+
   @doc "Build a disposable staged project for one draft."
   @spec stage_draft(String.t(), keyword()) :: {:ok, Staging.t()} | {:error, term()}
   def stage_draft(slug, opts \\ []) do

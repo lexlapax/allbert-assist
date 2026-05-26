@@ -20,6 +20,9 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
 
+  @metadata_file "metadata.yaml"
+  @manifest_file "manifest.yaml"
+
   @doc "Request a source-bearing read-only action draft for a normalized capability gap."
   @spec request_draft(map(), map()) :: {:ok, map()} | {:error, term()}
   def request_draft(attrs, context \\ %{}) when is_map(attrs) and is_map(context) do
@@ -45,6 +48,40 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
     end
   end
 
+  @doc "Repair a source-bearing draft from bounded validation or sandbox evidence."
+  @spec repair_draft(String.t(), map(), map()) :: {:ok, map()} | {:error, term()}
+  def repair_draft(slug, evidence, context \\ %{})
+      when is_binary(slug) and is_map(evidence) and is_map(context) do
+    with :ok <- ensure_enabled(),
+         {:ok, draft} <- MetadataStore.get_draft(slug),
+         :ok <- ensure_repairable_draft(draft),
+         {:ok, manifest} <- MetadataStore.get_manifest(slug),
+         {:ok, generated} <- current_generated(draft, manifest),
+         {:ok, gap} <- repair_gap(draft, manifest, context),
+         {:ok, profile} <- provider_profile(draft.provider_profile, context),
+         :ok <- ensure_provider_ready(profile),
+         {:ok, role_packets, repaired, budget} <-
+           Roles.repair_from_evidence(gap, profile, draft.budget, context, generated, evidence),
+         :ok <- archive_revision(draft, manifest),
+         {:ok, repaired_draft, repaired_manifest} <-
+           write_draft(gap, profile, budget, repaired, role_packets,
+             previous_draft: draft,
+             evidence: evidence
+           ),
+         :ok <- audit_draft_repaired(draft, repaired_draft, profile, budget, evidence, context),
+         :ok <- record_repair_objective_event(gap, repaired_draft, profile, budget, evidence) do
+      {:ok,
+       %{
+         draft: Draft.summary(repaired_draft),
+         gap: CapabilityGap.summary(gap),
+         provider_profile: provider_summary(profile),
+         budget: budget,
+         manifest: manifest_summary(repaired_manifest),
+         diagnostics: repaired_draft.diagnostics
+       }}
+    end
+  end
+
   defp ensure_enabled do
     case Settings.get("dynamic_codegen.enabled") do
       {:ok, true} -> :ok
@@ -55,16 +92,22 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
   defp dynamic_provider_profile(context) do
     case Settings.get("dynamic_codegen.provider_profile") do
       {:ok, name} when is_binary(name) and name != "" ->
-        case Settings.resolve_model_profile(name, context) do
-          {:ok, profile} -> {:ok, profile}
-          {:error, :not_found} -> {:error, {:dynamic_codegen_provider_profile_not_found, name}}
-          {:error, reason} -> {:error, reason}
-        end
+        provider_profile(name, context)
 
       _other ->
         {:error, :missing_dynamic_codegen_provider_profile}
     end
   end
+
+  defp provider_profile(name, context) when is_binary(name) and name != "" do
+    case Settings.resolve_model_profile(name, context) do
+      {:ok, profile} -> {:ok, profile}
+      {:error, :not_found} -> {:error, {:dynamic_codegen_provider_profile_not_found, name}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp provider_profile(_name, _context), do: {:error, :missing_dynamic_codegen_provider_profile}
 
   defp ensure_provider_ready(%{provider: provider}) when is_binary(provider) do
     with {:ok, providers} <- Settings.list_provider_profiles() do
@@ -107,7 +150,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
     |> Budget.check()
   end
 
-  defp write_draft(%CapabilityGap{} = gap, profile, budget, generated, role_packets) do
+  defp write_draft(%CapabilityGap{} = gap, profile, budget, generated, role_packets, opts \\ []) do
     module = ActionTarget.module_name(gap.slug)
     test_module = ActionTarget.test_module_name(gap.slug)
     action_name = ActionTarget.action_name(gap.slug, Map.get(generated, "action_name"))
@@ -142,26 +185,35 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
       test_compiled: test_compiled
     }
 
+    previous_draft = Keyword.get(opts, :previous_draft)
+
     with :ok <- write_file(source_abs, source),
          :ok <- write_file(test_abs, test_source),
          {:ok, source_hash} <- MetadataStore.hash_file(source_abs),
          {:ok, test_hash} <- MetadataStore.hash_file(test_abs),
          manifest <- manifest(gap, target, generated, role_packets),
          {:ok, draft} <-
-           DynamicPlugins.put_draft(%{
-             slug: gap.slug,
-             producer: "codegen_llm",
-             provider_profile: profile.name,
-             target_shapes: gap.target_shapes,
-             source_hashes: %{source_rel => source_hash, test_rel => test_hash},
-             compiled_paths: [source_compiled, test_compiled],
-             scan_paths: [source_rel, test_rel],
-             budget: budget,
-             diagnostics: diagnostics(gap, profile, generated, role_packets),
-             repair_history: repair_history(generated, role_packets),
-             static_validation: %{"status" => "not_run"},
-             gate: %{"status" => "not_run", "sandbox_report_id" => nil}
-           }),
+           DynamicPlugins.put_draft(
+             %{
+               slug: gap.slug,
+               producer: "codegen_llm",
+               provider_profile: profile.name,
+               target_shapes: gap.target_shapes,
+               source_hashes: %{source_rel => source_hash, test_rel => test_hash},
+               compiled_paths: [source_compiled, test_compiled],
+               scan_paths: [source_rel, test_rel],
+               budget: budget,
+               diagnostics:
+                 diagnostics(gap, profile, generated, role_packets,
+                   previous_draft: previous_draft,
+                   evidence: Keyword.get(opts, :evidence)
+                 ),
+               repair_history: repair_history(generated, role_packets, previous_draft),
+               static_validation: %{"status" => "not_run"},
+               gate: gate_for(previous_draft)
+             },
+             put_draft_opts(previous_draft)
+           ),
          :ok <- MetadataStore.put_manifest(gap.slug, manifest) do
       {:ok, draft, manifest}
     end
@@ -177,6 +229,34 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
            kind: "observed",
            summary: "Dynamic codegen draft requested for #{draft.slug}.",
            payload: objective_event_payload(gap, draft, profile, budget)
+         }) do
+      {:ok, _event} -> :ok
+      {:error, reason} -> {:error, {:dynamic_codegen_objective_event_failed, reason}}
+    end
+  end
+
+  defp record_repair_objective_event(
+         %CapabilityGap{objective_id: nil},
+         _draft,
+         _profile,
+         _budget,
+         _evidence
+       ),
+       do: :ok
+
+  defp record_repair_objective_event(
+         %CapabilityGap{} = gap,
+         %Draft{} = draft,
+         profile,
+         budget,
+         evidence
+       ) do
+    case Objectives.create_event(%{
+           objective_id: gap.objective_id,
+           step_id: gap.step_id,
+           kind: "observed",
+           summary: "Dynamic codegen draft repaired for #{draft.slug}.",
+           payload: objective_repair_event_payload(gap, draft, profile, budget, evidence)
          }) do
       {:ok, _event} -> :ok
       {:error, reason} -> {:error, {:dynamic_codegen_objective_event_failed, reason}}
@@ -205,20 +285,56 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
     end
   end
 
-  defp diagnostics(%CapabilityGap{} = gap, profile, generated, role_packets) do
+  defp audit_draft_repaired(
+         %Draft{} = previous,
+         %Draft{} = draft,
+         profile,
+         budget,
+         evidence,
+         context
+       ) do
+    with {:ok, _path} <-
+           Audit.append(:draft_repaired, %{
+             slug: draft.slug,
+             revision: draft.revision,
+             previous_revision: previous.revision,
+             producer: draft.producer,
+             tier: draft.tier,
+             provider_profile: profile.name,
+             budget: budget,
+             evidence: bounded_evidence(evidence),
+             operator_id: context_value(context, :operator_id) || context_value(context, :actor),
+             channel: context_value(context, :channel),
+             surface: context_value(context, :surface)
+           }) do
+      :ok
+    end
+  end
+
+  defp diagnostics(%CapabilityGap{} = gap, profile, generated, role_packets, opts) do
+    previous_draft = Keyword.get(opts, :previous_draft)
+    evidence = Keyword.get(opts, :evidence)
+
     [
       %{
         "source" => "dynamic_codegen",
-        "status" => "source_generated",
+        "status" => if(previous_draft, do: "source_repaired", else: "source_generated"),
         "message" =>
-          "Read-only action draft source generated; live authority remains unavailable until sandbox gate and explicit integration.",
+          if previous_draft do
+            "Read-only action draft source repaired from bounded evidence; live authority remains unavailable until sandbox gate and explicit integration."
+          else
+            "Read-only action draft source generated; live authority remains unavailable until sandbox gate and explicit integration."
+          end,
         "gap_id" => gap.id,
         "provider_profile" => profile.name,
         "authority" => "none",
         "notes" => normalize_list(Map.get(generated, "notes")),
-        "roles" => role_summary(role_packets)
+        "roles" => role_summary(role_packets),
+        "previous_revision" => previous_draft && previous_draft.revision,
+        "evidence" => bounded_evidence(evidence)
       }
     ]
+    |> Kernel.++(if(previous_draft, do: previous_draft.diagnostics, else: []))
     |> Redactor.redact()
   end
 
@@ -237,6 +353,18 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
         "provider_usage_units_used" => budget["provider_usage_units_used"]
       }
     }
+  end
+
+  defp objective_repair_event_payload(
+         %CapabilityGap{} = gap,
+         %Draft{} = draft,
+         profile,
+         budget,
+         evidence
+       ) do
+    objective_event_payload(gap, draft, profile, budget)
+    |> Map.put("stage", "dynamic_codegen_draft_repaired")
+    |> Map.put("evidence", bounded_evidence(evidence))
   end
 
   defp provider_summary(profile) do
@@ -313,13 +441,17 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
     }
   end
 
-  defp repair_history(generated, role_packets) do
-    role_packets
-    |> Enum.map(fn packet ->
-      packet
-      |> Map.take(["role", "status", "authority", "metadata"])
-      |> Map.put_new("description", Map.get(generated, "description"))
-    end)
+  defp repair_history(generated, role_packets, previous_draft) do
+    new_history =
+      role_packets
+      |> Enum.map(fn packet ->
+        packet
+        |> Map.take(["role", "status", "authority", "metadata"])
+        |> Map.put_new("description", Map.get(generated, "description"))
+      end)
+
+    if(previous_draft, do: previous_draft.repair_history, else: [])
+    |> Kernel.++(new_history)
     |> Redactor.redact()
   end
 
@@ -338,5 +470,145 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
 
   defp role_summary(role_packets) do
     Enum.map(role_packets, &Map.take(&1, ["role", "status", "authority"]))
+  end
+
+  defp ensure_repairable_draft(%Draft{producer: producer}) when producer != "codegen_llm" do
+    {:error, {:dynamic_codegen_repair_not_supported, producer}}
+  end
+
+  defp ensure_repairable_draft(%Draft{tier: tier}) when tier in ["integrated", "discarded"] do
+    {:error, {:draft_tier_not_repairable, tier}}
+  end
+
+  defp ensure_repairable_draft(%Draft{}), do: :ok
+
+  defp repair_gap(%Draft{} = draft, manifest, context) do
+    attrs = %{
+      slug: draft.slug,
+      summary:
+        get_in(manifest, ["generation", "description"]) ||
+          "Repair generated read-only action #{draft.slug}",
+      source: "operator",
+      target_shapes: draft.target_shapes,
+      objective_id: context_value(context, :objective_id),
+      step_id: context_value(context, :step_id)
+    }
+
+    CapabilityGap.new(attrs, Map.put(context, :explicit_generation?, true))
+  end
+
+  defp current_generated(%Draft{} = draft, manifest) do
+    with {:ok, source_path} <- manifest_source_path(manifest, "files"),
+         {:ok, test_path} <- manifest_source_path(manifest, "tests"),
+         {:ok, source_abs} <- safe_join(draft.root, source_path),
+         {:ok, test_abs} <- safe_join(draft.root, test_path),
+         {:ok, source} <- File.read(source_abs),
+         {:ok, test_source} <- File.read(test_abs) do
+      {:ok,
+       %{
+         "action_name" => get_in(manifest, ["actions", Access.at(0), "name"]) || "",
+         "description" => get_in(manifest, ["generation", "description"]) || "",
+         "source" => source,
+         "test_source" => test_source,
+         "notes" => []
+       }}
+    else
+      {:error, reason} -> {:error, {:dynamic_codegen_current_source_unavailable, reason}}
+    end
+  end
+
+  defp manifest_source_path(manifest, key) do
+    case get_in(manifest, [key, Access.at(0), "source_path"]) do
+      path when is_binary(path) and path != "" -> {:ok, path}
+      _other -> {:error, {:manifest_source_path_missing, key}}
+    end
+  end
+
+  defp archive_revision(%Draft{} = draft, manifest) do
+    archive_root = Path.join([draft.root, "revisions", draft.revision])
+
+    with :ok <- File.mkdir_p(archive_root),
+         :ok <-
+           copy_if_regular(
+             Path.join(draft.root, @metadata_file),
+             Path.join(archive_root, @metadata_file)
+           ),
+         :ok <-
+           copy_if_regular(
+             Path.join(draft.root, @manifest_file),
+             Path.join(archive_root, @manifest_file)
+           ),
+         :ok <- archive_source_files(draft, manifest, archive_root) do
+      :ok
+    end
+  end
+
+  defp archive_source_files(%Draft{} = draft, manifest, archive_root) do
+    paths =
+      (Map.keys(draft.source_hashes) ++
+         manifest_paths(manifest, "files") ++
+         manifest_paths(manifest, "tests"))
+      |> Enum.uniq()
+
+    Enum.reduce_while(paths, :ok, fn relative_path, :ok ->
+      with {:ok, source} <- safe_join(draft.root, relative_path),
+           target <- Path.join(archive_root, relative_path),
+           :ok <- File.mkdir_p(Path.dirname(target)),
+           :ok <- copy_if_regular(source, target) do
+        {:cont, :ok}
+      else
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp manifest_paths(manifest, key) do
+    manifest
+    |> Map.get(key, [])
+    |> Enum.map(&(Map.get(&1, "source_path") || Map.get(&1, :source_path)))
+    |> Enum.filter(&is_binary/1)
+  end
+
+  defp copy_if_regular(source, target) do
+    if File.regular?(source), do: File.cp(source, target), else: :ok
+  end
+
+  defp safe_join(root, relative_path) when is_binary(root) and is_binary(relative_path) do
+    path = Path.expand(relative_path, root)
+    root = Path.expand(root)
+
+    if path == root or String.starts_with?(path, root <> "/") do
+      {:ok, path}
+    else
+      {:error, {:path_escape, relative_path}}
+    end
+  end
+
+  defp gate_for(nil), do: %{"status" => "not_run", "sandbox_report_id" => nil}
+
+  defp gate_for(%Draft{} = previous) do
+    %{
+      "status" => "not_run",
+      "sandbox_report_id" => nil,
+      "repaired_from_revision" => previous.revision,
+      "previous_reports" => Map.get(previous.gate, "reports", [])
+    }
+  end
+
+  defp put_draft_opts(nil), do: []
+
+  defp put_draft_opts(%Draft{} = previous) do
+    case DateTime.from_iso8601(Map.get(previous.timestamps, "updated_at", "")) do
+      {:ok, previous_time, _offset} -> [now: DateTime.add(previous_time, 1, :second)]
+      _other -> []
+    end
+  end
+
+  defp bounded_evidence(nil), do: nil
+
+  defp bounded_evidence(evidence) do
+    evidence
+    |> Redactor.redact()
+    |> inspect(limit: 20, printable_limit: 2_000)
   end
 end
