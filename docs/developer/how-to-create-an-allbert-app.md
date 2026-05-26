@@ -14,6 +14,41 @@ generated app work, use
 `docs/developer/dynamic-plugin-drafts.md` instead of copying the source-tree
 workflow below.
 
+## Recommended Path: `mix allbert.gen.app` (planned v0.38)
+
+Once v0.38 ships, the primary developer path is the generator. It writes the
+inert reviewed skeleton under `--target` and is non-destructive by default:
+
+```sh
+mix allbert.gen.app my_app
+# writes ./plugins/my_app/ (default --target)
+
+mix allbert.gen.app my_app --target ./plugins/my_app
+# explicit target; identical behavior
+
+mix allbert.gen.app my_app --force
+# overwrite an existing root only after confirming the preview/diff
+```
+
+Companion generators ship together: `mix allbert.gen.plugin` (source-tree
+plugin), `mix allbert.gen.tool` (LLM-backed tool/agent), and
+`mix allbert.gen.flow` (scheduled/chron flow; pass `--pattern objective` for
+the objective-workflow scaffold). Generated output is **inert**: no compile
+path change, trust grant, permission grant, route addition, skill enablement,
+or live registration. Generated theme/snippet/layout stubs respect the
+v0.34/v0.35 constraints — they document the contracts and stay disabled by
+default. Path traversal, oversize outputs, and existing-root overwrites
+without `--force` are denied. Run `mix allbert.validate_app my_app` after the
+generator to confirm the scaffold validates on first run; the task already
+exists and v0.38 does not introduce it, only guarantees first-run pass.
+
+The detailed `TemplatePattern` behaviour, parameter schema rules, deterministic
+rendering contract, and per-pattern `live_integration?` declarations live in
+`docs/developer/template-patterns.md` (created at v0.38 implementation time).
+The hand-written source below is what the generator produces and what reviewed
+apps continue to look like; the generator is an accelerator, not a runtime
+authority.
+
 ## Minimal Plugin-Contributed App
 
 ```elixir
