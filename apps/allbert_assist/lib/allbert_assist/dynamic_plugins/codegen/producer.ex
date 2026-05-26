@@ -2,7 +2,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
   @moduledoc """
   Producer-neutral v0.37 draft request entrypoint.
 
-  The v0.37.2 implementation writes source-bearing read-only action drafts
+  The v0.37 implementation writes source-bearing action drafts
   after explicit operator/objective requests pass settings, provider-profile,
   and budget checks. The generated source remains untrusted draft evidence until
   sandbox gate, trusted validation, and operator-confirmed integration pass.
@@ -23,7 +23,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
   @metadata_file "metadata.yaml"
   @manifest_file "manifest.yaml"
 
-  @doc "Request a source-bearing read-only action draft for a normalized capability gap."
+  @doc "Request a source-bearing action draft for a normalized capability gap."
   @spec request_draft(map(), map()) :: {:ok, map()} | {:error, term()}
   def request_draft(attrs, context \\ %{}) when is_map(attrs) and is_map(context) do
     with :ok <- ensure_enabled(),
@@ -176,18 +176,20 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
     source_compiled = ActionTarget.compiled_source_path(gap.slug)
     test_compiled = ActionTarget.compiled_test_path(gap.slug)
 
-    target = %{
-      module: module,
-      action_name: action_name,
-      source_rel: source_rel,
-      source_compiled: source_compiled,
-      test_rel: test_rel,
-      test_compiled: test_compiled
-    }
-
     previous_draft = Keyword.get(opts, :previous_draft)
 
-    with :ok <- write_file(source_abs, source),
+    with {:ok, permission} <- source_permission(source),
+         target <-
+           %{
+             module: module,
+             action_name: action_name,
+             permission: permission,
+             source_rel: source_rel,
+             source_compiled: source_compiled,
+             test_rel: test_rel,
+             test_compiled: test_compiled
+           },
+         :ok <- write_file(source_abs, source),
          :ok <- write_file(test_abs, test_source),
          {:ok, source_hash} <- MetadataStore.hash_file(source_abs),
          {:ok, test_hash} <- MetadataStore.hash_file(test_abs),
@@ -321,9 +323,9 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
         "status" => if(previous_draft, do: "source_repaired", else: "source_generated"),
         "message" =>
           if previous_draft do
-            "Read-only action draft source repaired from bounded evidence; live authority remains unavailable until sandbox gate and explicit integration."
+            "Action draft source repaired from bounded evidence; live authority remains unavailable until sandbox gate and explicit integration."
           else
-            "Read-only action draft source generated; live authority remains unavailable until sandbox gate and explicit integration."
+            "Action draft source generated; live authority remains unavailable until sandbox gate and explicit integration."
           end,
         "gap_id" => gap.id,
         "provider_profile" => profile.name,
@@ -421,7 +423,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
         %{
           "name" => target.action_name,
           "module" => target.module,
-          "permission" => "read_only",
+          "permission" => target.permission,
           "exposure" => "internal"
         }
       ],
@@ -440,6 +442,54 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
       }
     }
   end
+
+  defp source_permission(source) when is_binary(source) do
+    with {:ok, ast} <- Code.string_to_quoted(source),
+         {:ok, permission} <- parsed_action_permission(ast) do
+      {:ok, Atom.to_string(permission)}
+    else
+      {:error, reason} -> {:error, {:dynamic_codegen_source_permission_unavailable, reason}}
+    end
+  end
+
+  defp parsed_action_permission(ast) do
+    {_ast, permissions} =
+      Macro.prewalk(ast, [], fn
+        {:use, _meta, [target | args]} = node, acc ->
+          if module_name(target) == "AllbertAssist.Action" do
+            {node, [action_use_permission(args) | acc]}
+          else
+            {node, acc}
+          end
+
+        node, acc ->
+          {node, acc}
+      end)
+
+    permissions =
+      permissions
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    case permissions do
+      [permission] -> {:ok, permission}
+      [] -> {:error, :missing_action_permission}
+      many -> {:error, {:multiple_action_permissions, many}}
+    end
+  end
+
+  defp action_use_permission(args) do
+    args
+    |> List.flatten()
+    |> Enum.find_value(fn
+      {:permission, permission} when is_atom(permission) -> permission
+      _other -> nil
+    end)
+  end
+
+  defp module_name({:__aliases__, _meta, parts}), do: Enum.map_join(parts, ".", &to_string/1)
+  defp module_name(module) when is_atom(module), do: inspect(module)
+  defp module_name(_module), do: nil
 
   defp repair_history(generated, role_packets, previous_draft) do
     new_history =
@@ -487,7 +537,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
       slug: draft.slug,
       summary:
         get_in(manifest, ["generation", "description"]) ||
-          "Repair generated read-only action #{draft.slug}",
+          "Repair generated action #{draft.slug}",
       source: "operator",
       target_shapes: draft.target_shapes,
       objective_id: context_value(context, :objective_id),

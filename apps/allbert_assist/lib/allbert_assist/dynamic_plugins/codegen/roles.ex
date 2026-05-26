@@ -1,6 +1,6 @@
 defmodule AllbertAssist.DynamicPlugins.Codegen.Roles do
   @moduledoc """
-  Bounded v0.37.2 generator role pipeline.
+  Bounded v0.37 generator role pipeline.
 
   Planner, Author, TrialAuthor, Critic, and Repair are advisory LLM-backed
   roles. Their packets can explain, veto, or request repair, but they never
@@ -9,13 +9,14 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Roles do
 
   alias AllbertAssist.DynamicPlugins.Codegen.CapabilityGap
   alias AllbertAssist.DynamicPlugins.Codegen.LLM
+  alias AllbertAssist.DynamicPlugins.Delegate
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
 
   @required_generated_fields ~w[description source test_source]
   @max_wall_clock_ms 120_000
 
-  @doc "Run the bounded role pipeline for one read-only action draft."
+  @doc "Run the bounded role pipeline for one action draft."
   def run(%CapabilityGap{} = gap, profile, budget, context)
       when is_map(profile) and is_map(budget) and is_map(context) do
     started_at = System.monotonic_time(:millisecond)
@@ -309,8 +310,9 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Roles do
       require_placeholder(Map.get(generated, "test_source"), "{{TEST_MODULE}}"),
       require_placeholder(Map.get(generated, "test_source"), "{{MODULE}}"),
       require_source_marker(generated, "use AllbertAssist.Action"),
-      require_source_marker(generated, "permission: :read_only"),
-      require_source_marker(generated, "confirmation: :not_required")
+      require_allowed_source_permission(generated),
+      require_source_marker(generated, "confirmation: :not_required"),
+      require_delegation_contract(generated)
     ]
 
     failures =
@@ -462,6 +464,187 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Roles do
       :ok
     else
       {:error, %{"missing_source_marker" => marker}}
+    end
+  end
+
+  defp require_allowed_source_permission(generated) do
+    with {:ok, permission} <- source_action_permission(Map.get(generated, "source")) do
+      if Atom.to_string(permission) in allowed_action_permissions() do
+        :ok
+      else
+        {:error,
+         %{
+           "unsupported_action_permission" => Atom.to_string(permission),
+           "allowed" => allowed_action_permissions()
+         }}
+      end
+    else
+      {:error, reason} -> {:error, %{"invalid_action_permission" => inspect(reason)}}
+    end
+  end
+
+  defp require_delegation_contract(generated) do
+    source = Map.get(generated, "source")
+
+    with {:ok, permission} <- source_action_permission(source),
+         {:ok, facades} <- source_delegate_facades(source) do
+      cond do
+        permission == :read_only and facades == [] ->
+          :ok
+
+        permission == :read_only ->
+          {:error, %{"read_only_delegate_denied" => facades}}
+
+        facades == [] ->
+          {:error, %{"missing_delegate_facade" => Atom.to_string(permission)}}
+
+        true ->
+          validate_source_facades(permission, facades)
+      end
+    else
+      {:error, reason} -> {:error, %{"invalid_delegate_contract" => inspect(reason)}}
+    end
+  end
+
+  defp validate_source_facades(permission, facades) do
+    allowed_facades = allowed_facades()
+
+    Enum.reduce_while(facades, :ok, fn facade, :ok ->
+      case validate_source_facade(permission, facade, allowed_facades) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp validate_source_facade(permission, facade, allowed_facades) do
+    case Delegate.facade_permission(facade) do
+      {:ok, ^permission} ->
+        validate_source_facade_allowed(facade, allowed_facades)
+
+      {:ok, facade_permission} ->
+        {:error, delegate_permission_mismatch(permission, facade, facade_permission)}
+
+      {:error, reason} ->
+        {:error, %{"delegate_facade_not_supported" => inspect(reason)}}
+    end
+  end
+
+  defp validate_source_facade_allowed(facade, allowed_facades) do
+    if facade in allowed_facades do
+      :ok
+    else
+      {:error, %{"delegate_facade_not_allowed" => facade}}
+    end
+  end
+
+  defp delegate_permission_mismatch(permission, facade, facade_permission) do
+    %{
+      "delegate_permission_mismatch" => %{
+        "facade" => facade,
+        "facade_permission" => Atom.to_string(facade_permission),
+        "action_permission" => Atom.to_string(permission)
+      }
+    }
+  end
+
+  defp source_action_permission(source) when is_binary(source) do
+    with {:ok, ast} <- quoted_source(source),
+         {:ok, permission} <- parsed_action_permission(ast) do
+      {:ok, permission}
+    end
+  end
+
+  defp source_action_permission(_source), do: {:error, :missing_source}
+
+  defp source_delegate_facades(source) when is_binary(source) do
+    with {:ok, ast} <- quoted_source(source) do
+      {_ast, facades} =
+        Macro.prewalk(ast, [], &collect_source_delegate_facade/2)
+
+      {:ok, facades |> Enum.reverse() |> Enum.uniq()}
+    end
+  end
+
+  defp source_delegate_facades(_source), do: {:error, :missing_source}
+
+  defp collect_source_delegate_facade(
+         {{:., _meta, [module_ast, :run]}, _call_meta, [facade_name, _params, _context]} = node,
+         acc
+       )
+       when is_binary(facade_name) do
+    if module_name(module_ast) == "AllbertAssist.DynamicPlugins.Delegate" do
+      {node, [facade_name | acc]}
+    else
+      {node, acc}
+    end
+  end
+
+  defp collect_source_delegate_facade(node, acc), do: {node, acc}
+
+  defp quoted_source(source) do
+    source
+    |> String.replace("{{MODULE}}", "AllbertAssist.DynamicPlugins.Generated.Placeholder.Action")
+    |> Code.string_to_quoted()
+  end
+
+  defp parsed_action_permission(ast) do
+    {_ast, permissions} =
+      Macro.prewalk(ast, [], fn
+        {:use, _meta, [target | args]} = node, acc ->
+          if module_name(target) == "AllbertAssist.Action" do
+            {node, [action_use_permission(args) | acc]}
+          else
+            {node, acc}
+          end
+
+        node, acc ->
+          {node, acc}
+      end)
+
+    permissions =
+      permissions
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    case permissions do
+      [permission] -> {:ok, permission}
+      [] -> {:error, :missing_action_permission}
+      many -> {:error, {:multiple_action_permissions, many}}
+    end
+  end
+
+  defp action_use_permission(args) do
+    args
+    |> List.flatten()
+    |> Enum.find_value(fn
+      {:permission, permission} when is_atom(permission) -> permission
+      _other -> nil
+    end)
+  end
+
+  defp module_name({:__aliases__, _meta, parts}), do: Enum.map_join(parts, ".", &to_string/1)
+  defp module_name(module) when is_atom(module), do: inspect(module)
+  defp module_name(_module), do: nil
+
+  defp allowed_action_permissions do
+    case Settings.get("dynamic_codegen.allowed_action_permissions") do
+      {:ok, values} when is_list(values) -> Enum.map(values, &to_string/1)
+      _other -> ["read_only"]
+    end
+  end
+
+  defp allowed_facades do
+    hard_facades = Delegate.hard_facades()
+
+    case Settings.get("dynamic_codegen.allowed_facades") do
+      {:ok, values} when is_list(values) ->
+        values
+        |> Enum.map(&to_string/1)
+        |> Enum.filter(&(&1 in hard_facades))
+
+      _other ->
+        []
     end
   end
 

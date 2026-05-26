@@ -1966,7 +1966,7 @@ The M16 closeout adds the explicit `request_draft_with_gate/3` workflow facade
 so sandbox trial/gate reports and trusted-validation failures can drive bounded
 Repair until deterministic evidence passes or workflow-wide limits stop the
 attempt.
-v0.37.3 must let generated action artifacts declare `:memory_write` or
+v0.37.3 lets generated action artifacts declare `:memory_write` or
 `:external_network` only when effectful work delegates through a literal,
 operator-allowlisted reviewed facade (`append_memory` or
 `external_network_request` initially). The delegated facade keeps its normal

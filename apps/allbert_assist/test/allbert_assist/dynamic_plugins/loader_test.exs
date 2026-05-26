@@ -9,21 +9,25 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
   alias AllbertAssist.DynamicPlugins.Audit
   alias AllbertAssist.DynamicPlugins.MetadataStore
   alias AllbertAssist.DynamicPlugins.TrustedValidator
+  alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_memory_config = Application.get_env(:allbert_assist, Memory)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     home = temp_path("home")
 
     Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, Memory, root: home)
     Application.delete_env(:allbert_assist, Settings)
     ActionsOverlay.clear()
 
     on_exit(fn ->
       ActionsOverlay.clear()
       restore_app_env(Paths, original_paths_config)
+      restore_app_env(Memory, original_memory_config)
       restore_app_env(Settings, original_settings_config)
       File.rm_rf!(home)
     end)
@@ -104,6 +108,43 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
                %{name: " Spuri ", score: 10, tags: ["alpha", "beta"]},
                cli_context()
              )
+  end
+
+  test "integrates and runs a delegated memory_write action through a reviewed facade" do
+    enable_live_loader!()
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "dynamic_codegen.allowed_action_permissions",
+               ["read_only", "memory_write"],
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} =
+             Settings.put("dynamic_codegen.allowed_facades", ["append_memory"], %{audit?: false})
+
+    fixture =
+      write_gate_passed_action_draft("loader_delegate_memory", source_kind: :delegated_memory)
+
+    assert {:ok, %{status: :needs_confirmation, confirmation_id: integration_id}} =
+             Runner.run("integrate_dynamic_draft", %{slug: fixture.slug}, cli_context())
+
+    assert {:ok, %{status: :completed, confirmation: %{"status" => "approved"}}} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: integration_id, reason: "reviewed delegated memory write"},
+               cli_context()
+             )
+
+    assert {:ok, response} =
+             Runner.run(
+               fixture.action_name,
+               %{memory: "Prefer terse release notes.", source_text: "remember"},
+               cli_context()
+             )
+
+    assert response.status == :completed
+    assert [%{name: "append_memory", permission: :memory_write, durable: true}] = response.actions
   end
 
   test "trusted validator keeps effectful neighbors denied while pure stdlib is allowed" do
@@ -329,10 +370,8 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
 
     File.mkdir_p!(Path.dirname(source_abs))
 
-    File.write!(
-      source_abs,
-      source_body(module, action_name, Keyword.get(opts, :source_kind, :valid))
-    )
+    source_kind = Keyword.get(opts, :source_kind, :valid)
+    File.write!(source_abs, source_body(module, action_name, source_kind))
 
     assert {:ok, source_hash} = MetadataStore.hash_file(source_abs)
 
@@ -357,7 +396,7 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
                  %{
                    "name" => action_name,
                    "module" => module,
-                   "permission" => "read_only",
+                   "permission" => source_permission(source_kind),
                    "exposure" => "internal"
                  }
                ],
@@ -472,6 +511,43 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
     """
   end
 
+  defp source_body(module, action_name, :delegated_memory) do
+    """
+    defmodule #{module} do
+      use AllbertAssist.Action,
+        permission: :memory_write,
+        exposure: :internal,
+        execution_mode: :memory_write,
+        skill_backed?: false,
+        confirmation: :not_required,
+        resumable?: false,
+        name: "#{action_name}",
+        description: "Dynamic loader delegated memory fixture.",
+        category: "dynamic_plugins",
+        tags: ["dynamic", "fixture", "delegated"],
+        schema: [
+          memory: [type: :string, required: true],
+          source_text: [type: :string, required: false]
+        ],
+        output_schema: [
+          message: [type: :string, required: true],
+          status: [type: :atom, required: true],
+          actions: [type: {:list, :map}, required: true]
+        ]
+
+      @impl true
+      def run(params, context) do
+        delegate_params = %{
+          memory: Map.get(params, :memory, ""),
+          source_text: Map.get(params, :source_text)
+        }
+
+        AllbertAssist.DynamicPlugins.Delegate.run("append_memory", delegate_params, context)
+      end
+    end
+    """
+  end
+
   defp source_body(module, action_name, :string_to_atom) do
     """
     defmodule #{module} do
@@ -529,6 +605,9 @@ defmodule AllbertAssist.DynamicPlugins.LoaderTest do
     end
     """
   end
+
+  defp source_permission(:delegated_memory), do: "memory_write"
+  defp source_permission(_source_kind), do: "read_only"
 
   defp cli_context, do: %{actor: "local", channel: :cli, surface: "cli"}
 
