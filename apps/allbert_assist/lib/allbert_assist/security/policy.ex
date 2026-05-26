@@ -14,6 +14,7 @@ defmodule AllbertAssist.Security.Policy do
     online_skill_import: "permissions.online_skill_import",
     settings_write: "permissions.settings_write",
     skill_write: "permissions.skill_write",
+    dynamic_codegen_request: "permissions.dynamic_codegen_request",
     skill_script_execute: "permissions.skill_script_execute",
     confirmation_decide: "permissions.confirmation_decide",
     objective_write: "permissions.objective_write",
@@ -35,6 +36,7 @@ defmodule AllbertAssist.Security.Policy do
     online_skill_import: :denied,
     settings_write: :allowed,
     skill_write: :allowed,
+    dynamic_codegen_request: :allowed,
     skill_script_execute: :denied,
     confirmation_decide: :allowed,
     objective_write: :allowed,
@@ -60,6 +62,7 @@ defmodule AllbertAssist.Security.Policy do
           | :online_skill_import
           | :settings_write
           | :skill_write
+          | :dynamic_codegen_request
           | :skill_script_execute
           | :confirmation_decide
           | :objective_write
@@ -85,6 +88,7 @@ defmodule AllbertAssist.Security.Policy do
       :online_skill_import,
       :settings_write,
       :skill_write,
+      :dynamic_codegen_request,
       :skill_script_execute,
       :confirmation_decide,
       :objective_write,
@@ -274,6 +278,12 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:skill_write, :allowed, _configured, _floor, _context),
     do: "Local skill scaffold writes are allowed through registered skill actions."
+
+  defp reason(:dynamic_codegen_request, :allowed, _configured, _floor, _context),
+    do: "Explicit dynamic draft requests are allowed through the codegen request action."
+
+  defp reason(:dynamic_codegen_request, :denied, _configured, _floor, _context),
+    do: "Dynamic draft requests are denied by current policy."
 
   defp reason(:skill_script_execute, :denied, _configured, _floor, _context),
     do: "Skill script execution is denied until explicitly enabled and confirmed."

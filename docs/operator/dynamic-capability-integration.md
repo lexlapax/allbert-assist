@@ -116,6 +116,8 @@ action source plus a focused test, and records provider/budget diagnostics.
 Failed validation or sandbox evidence can drive Repair until the configured
 iteration and provider budgets are exhausted. The draft is still untrusted until
 the sandbox gate, trusted validation, and operator confirmation pass.
+The request action is controlled by `permissions.dynamic_codegen_request`
+(default `allowed`), separate from historical `permissions.skill_write`.
 
 ```sh
 mix allbert.dynamic drafts request weather_summary "Create a read-only weather summary action"

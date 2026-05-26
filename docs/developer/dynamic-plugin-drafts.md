@@ -136,6 +136,9 @@ facade. It does not trust model output or integrate live code. Sandbox/gate
 execution remains an explicit evidence step. If an objective id is present, it
 records an `observed` objective event whose payload stage is
 `dynamic_codegen_draft_requested`.
+The registered request action uses `:dynamic_codegen_request` and
+`permissions.dynamic_codegen_request`, not `:skill_write`, so skill scaffold
+policy and LLM-backed draft generation can be audited and disabled separately.
 
 Operator-facing wrappers:
 

@@ -24,6 +24,7 @@ defmodule AllbertAssist.Security.PermissionGate do
           | :online_skill_import
           | :settings_write
           | :skill_write
+          | :dynamic_codegen_request
           | :skill_script_execute
           | :confirmation_decide
           | :objective_write
