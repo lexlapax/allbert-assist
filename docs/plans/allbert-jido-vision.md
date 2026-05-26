@@ -226,7 +226,7 @@ permission metadata, structured results, and observable errors.
 Skills are the user-readable bundles around those capabilities. A skill can
 declare its purpose, prompts, examples, required actions, security posture, and
 expected outputs. v0.38 makes supervised creation deterministic through vetted
-templates, and v0.48 plans reviewed marketplace-lite discovery. The v0.49 safe
+templates, and v0.49 plans reviewed marketplace-lite discovery. The v0.45 safe
 precursor can suggest trace-to-skill drafts when repeated operator patterns
 appear, but the drafts remain inert until reviewed, validated, and explicitly
 enabled by the operator.
@@ -356,7 +356,7 @@ event dedupe model, and Approval Handoff rendering contract. v0.17 moves
 Telegram and email into shipped source-tree channel plugins so later channels
 can arrive through the same extension path. The v1.0 arc now makes that path
 concrete: Discord and Slack land in v0.43; WhatsApp, Signal, iMessage, and
-Matrix land in v0.47. SMS, native packaged UI, hosted channel fan-out, and
+Matrix land in v0.48. SMS, native packaged UI, hosted channel fan-out, and
 other broad distribution paths remain parked until after the channel packs
 prove the substrate. Each channel should translate external input into signals
 and render agent output back into the medium without owning the agent logic.
@@ -387,7 +387,7 @@ The app/surface contract exists so the workspace shell does not invent app
 discovery or arbitrary node shapes. `AllbertAssist.App.Registry` provides app
 navigation and lookup. `AllbertAssist.Surface` defines validated component
 nodes. `AllbertAssist.App.SurfaceProvider` lets apps produce task surfaces as
-signals or registered action results. v0.48 plans public API, ACP, MCP-server,
+signals or registered action results. v0.49 plans public API, ACP, MCP-server,
 and AG-UI/A2UI bridge exposure behind auth, CSP, redaction, trace, and audit
 policy. MCP Apps iframe compatibility remains parked; Allbert's primary stance
 is still declarative, catalog-bound surfaces over arbitrary remote UI code.
@@ -563,18 +563,20 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.44: Plan/Build Mode And Operator Workflow YAML. Objective Runtime becomes
   an operator-visible plan/review/execute surface; YAML is declarative input,
   not an execution engine.
-- v0.45: Voice Modality. Voice input/output composes with existing channels as
+- v0.45: Operator-Supervised Self-Improvement. Trace-to-skill, workflow,
+  template, and dynamic capability draft suggestions remain inert until
+  operator review and the existing sandbox/gate/confirmation path. Lands
+  early so MCP, integration, browser, and team-channel traces from
+  v0.40-v0.44 feed the suggestion queue across the rest of the 1.0 arc.
+- v0.46: Voice Modality. Voice input/output composes with existing channels as
   audio resources and registered STT/TTS actions.
-- v0.46: Vision And Image Generation. Image and screenshot resources plus
+- v0.47: Vision And Image Generation. Image and screenshot resources plus
   provider-backed image generation expand workspace media capability.
-- v0.47: Channel Pack 2 - WhatsApp, Signal, iMessage, And Matrix. Mobile and
+- v0.48: Channel Pack 2 - WhatsApp, Signal, iMessage, And Matrix. Mobile and
   personal messaging channels arrive after the team-channel pattern is proven.
-- v0.48: Marketplace Lite And API/ACP/Protocol Interop. Reviewed skill/template
+- v0.49: Marketplace Lite And API/ACP/Protocol Interop. Reviewed skill/template
   discovery and external protocol surfaces arrive behind shared auth, CSP,
   redaction, trace, and audit policy.
-- v0.49: Operator-Supervised Self-Improvement. Trace-to-skill,
-  workflow, template, and dynamic capability draft suggestions remain inert
-  until operator review and the existing sandbox/gate/confirmation path.
 - v0.50: Hardening, Export/Import, And Final RC. No new user-facing capability;
   portability, docs, security evals including self-improvement, and
   release-candidate evidence.
@@ -605,10 +607,11 @@ bucket.
   everyday integrations, browser research, channels, Plan/Build, voice,
   vision, marketplace-lite discovery, and public protocol interop.
 
-### Planned v0.49: Operator-Supervised Self-Improvement
+### Planned v0.45: Operator-Supervised Self-Improvement
 
-Before v1.0 freezes the public contracts, the final feature milestone should
-add operator-supervised draft creation from observed use:
+Early in the 1.0 capability arc, while operators are first generating rich
+trace patterns from MCP, integrations, browser research, team channels, and
+Plan/Build, Allbert adds operator-supervised draft creation from observed use:
 
 - Trace-to-skill draft suggestions from repeated prompts, repeated action
   chains, failed intents, corrections, or manually marked examples.
@@ -620,8 +623,9 @@ add operator-supervised draft creation from observed use:
 These suggestions are advisory only. They do not enable skills, grant
 permissions, install packages, compile arbitrary folders, publish plugins, or
 load code. Review, validation, sandbox/gate evidence where relevant, and
-operator confirmation remain mandatory. The planning home is
-`docs/plans/v0.49-plan.md`.
+operator confirmation remain mandatory. Marketplace-driven reviewed-skill /
+template discovery integration is deferred to a small follow-on after v0.49
+marketplace-lite ships. The planning home is `docs/plans/v0.45-plan.md`.
 
 ### Still Research / Explicitly Not v1.0
 

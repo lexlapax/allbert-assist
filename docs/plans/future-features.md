@@ -10,66 +10,10 @@ here.
 
 ## Already Planned Elsewhere
 
-These are deferred from v0.03 or earlier planning but already have roadmap
-homes:
-
-- Jido Runtime Convergence Refactor: v0.04.
-- Security Central foundation: v0.05.
-- Action-backed Allbert skills: v0.06.
-- Confirmation workflow: v0.07.
-- Local execution sandbox and shell adapter: v0.08.
-- Skill script runner: v0.09.
-- External services, package installs, online skill import, and the first
-  Resource Access Security Posture substrate: v0.10.
-- Execution-aware intent contract, Approval Handoff, and resource access
-  posture consumers: v0.11.
-- Local workspace identity and conversation history: v0.12.
-- Scheduled jobs: v0.13.
-- Session scratchpad and active app context: v0.14.
-- Minimal app registration contract: v0.15.
-- Telegram channel adapter, email channel adapter, and reusable channel foundation: v0.16.
-- Plugin contract and shipped source-tree channel plugins: v0.17.
-- Full app contract and Surface DSL: v0.18.
-- Cross-surface intent enrichment: v0.19.
-- StockSage shipped plugin app and domain: v0.20.
-- Memory review and retrieval: v0.21.
-- StockSage Python bridge: v0.22.
-- Jido State-Machine Convergence (Confirmations.Store + Jobs.Scheduler to Jido.Agent): v0.23.
-- Objective Runtime Foundation (durable multi-step work substrate): v0.24.
-- Native Jido trading agents: v0.25 (formerly v0.23 before the project-direction rethink).
-- Agentic workspace surface and local ephemeral UI substrate: v0.26 (formerly v0.24).
-- App Surface Contract - StockSage LiveViews: v0.27 (formerly v0.25).
-- Security hardening and evals: v0.28 (formerly v0.26).
-- StockSage polish, outcomes, and trends: v0.29 (formerly v0.27).
-- StockSage canvas integration: v0.30 (formerly v0.28).
-- Runtime and UI-substrate consolidation: v0.31.
-- Workspace-only plugin UI, named workspace zones, and workspace Settings Central: v0.32.
-- Conversational app intent handoff and direct-answer foundation: v0.33.
-- Workspace UX refresh (chat-primary shell, view-only launcher, single Canvas): v0.34.
-- User theming and layout overrides: v0.35.
-- Elixir/OTP sandbox and gate runner: v0.36.
-- Dynamic code & config generation, v0.36 sandbox trial, and gated live
-  capability integration: v0.37.
-- Templated creation (plugin/app/LLM-tool/scheduled-flow/code templates, Mix
-  tasks, operator flows, Canvas Create surface): v0.38.
-- First-run onboarding, provider control, identity slot, and deterministic
-  Active Memory precursor: v0.39.
-- MCP client integration: v0.40.
-- Everyday Integration Pack 1 (calendar, mail, GitHub, notes/files): v0.41.
-- Browser and web research with bounded HTML/markdown/text/PDF extraction:
-  v0.42.
-- Discord and Slack channel plugins: v0.43.
-- Plan/Build Mode and operator workflow YAML: v0.44.
-- Voice modality: v0.45.
-- Vision and image generation: v0.46.
-- WhatsApp, Signal, iMessage, and Matrix channel plugins: v0.47.
-- Marketplace lite plus API/ACP/protocol interop: v0.48.
-- Operator-supervised self-improvement: v0.49.
-- Hardening, export/import, and final RC: v0.50.
-- Stability release and public contract freeze: v1.0.
-
-Do not duplicate those here unless the future feature is broader than the
-existing plan.
+See `docs/plans/roadmap.md` for the full milestone list (v0.01 through v1.0).
+Recently graduated parking-lot items are flagged with **Status: graduated to
+vX.Y** headers in their entries below; do not duplicate them here unless the
+future feature is broader than the existing plan.
 
 ## Unassigned Future Features
 
@@ -80,7 +24,7 @@ was `Small-Model Memory Or Personality Distillation`
 Status: split. A deterministic Active Memory precursor is planned for v0.39:
 it reuses reviewed-memory retrieval before replies and does not train,
 distill, or generate a system model. Operator-supervised trace pattern
-suggestions are planned for v0.49 in `docs/plans/v0.49-plan.md`.
+suggestions are planned for v0.45 in `docs/plans/v0.45-plan.md`.
 Small-model memory/personality distillation remains parked here as research.
 
 need to think about not just user/operator memory, but the allbert system memory as the use of allbert evolves with the operators request .. things like
@@ -141,7 +85,7 @@ Source: origin note, ADR 0003, v0.03 through v0.06 non-goals, v0.37 dynamic
 code/config generation planning, and v0.38 templated-creation planning.
 
 Status: split. A safe trace-to-skill draft suggestion precursor is planned for
-v0.49 in `docs/plans/v0.49-plan.md`. Fully autonomous skill creation remains
+v0.45 in `docs/plans/v0.45-plan.md`. Fully autonomous skill creation remains
 parked here.
 
 Allbert should eventually help create new skills from traces, repeated tasks,
@@ -149,7 +93,7 @@ corrections, or explicit user requests. v0.36 implements the narrow Elixir/OTP
 sandbox/gate substrate; v0.37 covers operator-confirmed dynamic generation and
 gated live integration for explicit capability gaps; v0.38 covers templated
 creation (vetted plugin/app/tool/flow/code templates via Mix tasks, operator
-flows, and a Canvas surface). v0.49 can propose inert drafts from trace
+flows, and a Canvas surface). v0.45 can propose inert drafts from trace
 patterns and route them into those reviewed paths. None of these
 milestones autonomously infers, trusts, enables, publishes, or activates new
 capabilities from traces.
@@ -160,7 +104,7 @@ Needed before scheduling autonomous creation:
 - v0.37 dynamic generation/live-loader accepted through user testing
 - v0.38 manual plugin/app/template generator accepted
   through user testing
-- v0.49 supervised suggestion precursor accepted through user testing
+- v0.45 supervised suggestion precursor accepted through user testing
 - review and trust workflow
 - trace-to-skill draft workflow
 - explicit operator approval before enabling
@@ -173,7 +117,7 @@ Source: v0.37 implementation audits, v0.37.5 release closeout, and v0.38
 templated-creation planning.
 
 Status: split. v0.36-v0.38 already define the current supervised dynamic
-capability path. v0.49 connects that path to trace-derived capability-gap
+capability path. v0.45 connects that path to trace-derived capability-gap
 suggestions. Unsupervised self-recompilation and compiler-loop bootstrapping
 remain research.
 
@@ -198,7 +142,7 @@ Potential directions:
 - surface `dynamic_codegen_delegate` provenance in CLI, LiveView, email, and
   channel confirmation cards so operators can see which generated action caused
   a reviewed facade confirmation.
-- analyze repeated capability gaps in v0.49 and propose inert dynamic draft
+- analyze repeated capability gaps in v0.45 and propose inert dynamic draft
   requests that still enter the v0.36/v0.37/v0.38 review path.
 
 Needed before scheduling broader dynamic expansion:
@@ -256,7 +200,7 @@ arrives.
 Source: origin note, allbert-jido vision, and v0.16 dual-channel planning.
 
 Status: split. Discord and Slack are planned for v0.43. WhatsApp, Signal,
-iMessage, and Matrix are planned for v0.47. SMS remains parked here until a
+iMessage, and Matrix are planned for v0.48. SMS remains parked here until a
 dedicated cost, truncation, phone-number mapping, and provider-delivery design
 exists.
 
@@ -296,6 +240,11 @@ Needed before planning:
 
 ### Full Settings UI Polish
 
+**Status: largely subsumed by v0.32 (workspace Settings Central) plus v0.39
+(provider/model control surface). Remaining polish — search, accessibility,
+mobile-specific layout, and secret-entry UX — stays parked here for a
+post-1.0 product/UI milestone.**
+
 Source: v0.02 non-goals.
 
 The v0.02 settings LiveView is functional by design. A future product/UI
@@ -319,92 +268,30 @@ research into A2UI, AG-UI, MCP Apps, ChatGPT Canvas, Claude Artifacts,
 Google Gemini generative UI, BISCUIT, and Athena.
 
 Status: split. Public API, ACP, MCP-server, and AG-UI/A2UI bridge exposure is
-planned for v0.48. MCP Apps sandboxed-iframe compatibility remains parked here
-because it conflicts with Allbert's declarative/catalog-bound Surface stance
-and needs a separate trust-policy ADR.
+planned for v0.49 (`docs/plans/v0.49-plan.md`, ADRs 0043 and 0044). MCP Apps
+sandboxed-iframe compatibility remains parked here because it conflicts with
+Allbert's declarative/catalog-bound Surface stance and needs a separate
+trust-policy ADR.
 
-v0.18, v0.26, and v0.30 (formerly v0.18, v0.24, and v0.28) own the local
-Allbert-native app contract, surface DSL, workspace, ephemeral UI, canvas, and
-StockSage canvas proof. The remaining
-unassigned work is external protocol interoperability and richer generated UI
-interfaces after the local substrate is boring and safe.
+The v0.26 internal `AllbertAssist.Workspace.AGUI.Bridge` (ADR 0023 §8) is
+authoritative for the signal → AG-UI event mapping that any public bridge
+must preserve. The v0.49 public bridge inherits that mapping; see ADR 0023
+§8 for the table.
 
-**v0.26 status update (2026-05-18 M20 closeout):** v0.26 ships an
-**internal** `AllbertAssist.Workspace.AGUI.Bridge` (per ADR 0023 §8) that
-translates a curated subset of Allbert SignalBus events to AG-UI event shape
-for test-only semantic mapping validation. The bridge is NOT exposed over
-HTTP / WebSocket / SSE in v0.26; it exists to validate the mapping contract
-early so future external bridge work has a tested foundation. The
-`AllbertAssist.Surface.Encoder.to_a2ui/1` stub remains returning
-`{:error, :not_implemented}`. The MCP Apps sandboxed-iframe model remains
-explicitly out of scope for v0.26 per the "no arbitrary model-generated
-HTML/JS" rule. The shipped workspace substrate also confirms the local
-Surface-tree renderer, signed Fragment pipeline, browser-side Yjs/IndexedDB
-offline editing, and conflict/revert UX that future protocol adapters must
-preserve.
+Still parked here:
 
-**v0.28 pre-tag note:** the current `to_a2ui/1` security eval is a tripwire
-that asserts the encoder remains unimplemented. The first milestone that turns
-on real A2UI/protocol encoding must replace that tripwire with positive
-redaction coverage before exposing encoded fields.
-
-The documented v0.26 internal mapping (per ADR 0023 §8):
-
-| Allbert signal | AG-UI event |
-|---|---|
-| `allbert.runtime.turn.started` | `LIFECYCLE_START` |
-| `allbert.runtime.turn.completed` | `LIFECYCLE_END` |
-| `allbert.confirmation.requested` | `INTERRUPT` |
-| `allbert.confirmation.approved` | `INTERRUPT_RESPONSE` (approve) |
-| `allbert.confirmation.denied` | `INTERRUPT_RESPONSE` (reject) |
-| `allbert.objective.observed` | `STATE_DELTA` |
-| `allbert.objective.completed` | `STATE_SNAPSHOT` |
-| `allbert.action.requested` | `TOOL_CALL_START` |
-| `allbert.action.completed` | `TOOL_CALL_END` |
-| `allbert.action.failed` | `TOOL_CALL_ERROR` |
-
-Needed before broader post-v0.38 planning:
-
-- v0.24 local workspace and surface contracts accepted through user testing
-- v0.26 workspace shell + canvas + ephemeral substrate accepted through user
-  testing (ADR 0023 binding decisions, dynamic Surface tree rendering,
-  42-component catalog, signed-envelope fragment emission, full UX
-  qualities including browser-side Yjs + IndexedDB offline editing)
-- v0.30 app canvas integration accepted through StockSage user testing
-- v0.28 security evals proving generated surfaces cannot invent
-  actions, permissions, resources, scripts, URLs, or secret-bearing output
-- AG-UI public HTTP bridge implementation (v0.26 ships internal-only;
-  public exposure needs auth, rate limits, multi-client coordination, and
-  the inverse direction — AG-UI client emits events into Allbert as
-  registered-action calls)
-- A2UI renderer compatibility assessment (Allbert's `Surface` struct
-  already aligns with A2UI's declarative-component-tree model; the wire
-  format adapter is the missing piece)
-- MCP Apps sandboxing and third-party UI trust policy (Allbert's
-  "declarative + catalog-bound" stance explicitly rejects MCP Apps'
-  sandboxed-iframe model; reconciling the two requires a trust-policy ADR)
-- CSP reconciliation: the v0.35 Content-Security-Policy baseline (ADR 0025,
-  `style-src 'self'`, no remote fetch) must be re-evaluated before any external
-  UI protocol bridge is exposed, since such bridges may need additional sources.
-- cross-client fallback, redaction, provenance, and accessibility rules
-  (v0.26 ships fallback text, redaction, accessibility; cross-client
-  provenance for federated workspaces is the post-v0.38 surface)
-- Multi-user collaborative cursors (deferred from v0.26; reserved as
-  "Cursor" vocabulary in ADR 0023 §1)
-- Plugin-contributed workspace regions and workspace Settings Central —
-  graduated to v0.32 (ADR 0024); formerly "Workspace Hooks" reserved in ADR
-  0023 §1.
-- User theming/layout override (local Allbert Home tokens, sanitized snippets,
-  Settings-accountable gates/selections, and v0.34 launcher/Canvas destination
-  layout config) - graduated to v0.35.0 (ADR 0025). Remote theme marketplaces,
-  federated UI-protocol styling, and CSP source expansion remain post-v0.38
-  work and require a separate security/design pass.
-- Canvas snapshot / undo / time-travel (deferred from v0.26; "Canvas
-  Snapshot" reserved in ADR 0023 §1; signal topic
-  `allbert.workspace.canvas.snapshot.requested` reserved as v0.26 no-op)
-- Server-side CRDT interpretation, compaction, or Rust/NIF-backed Yjs
-  reconciliation. v0.26 deliberately keeps Yjs in the browser and stores
+- **MCP Apps sandboxed-iframe trust policy.** Conflicts with the declarative
+  + catalog-bound Surface stance; would need its own trust-policy ADR.
+- **Multi-user collaborative cursors.** Deferred from v0.26; "Cursor"
+  vocabulary reserved in ADR 0023 §1.
+- **Canvas snapshot / undo / time-travel.** Deferred from v0.26; signal
+  topic `allbert.workspace.canvas.snapshot.requested` reserved as v0.26
+  no-op.
+- **Server-side CRDT interpretation, compaction, or Rust/NIF-backed Yjs
+  reconciliation.** v0.26 deliberately keeps Yjs in the browser and stores
   opaque bounded update blobs plus readable snapshots server-side.
+- **Remote theme marketplaces and federated UI-protocol styling beyond the
+  v0.35 sanitized override path.** Needs a separate security/design pass.
 
 
 ### Advisory Providers And World Models
@@ -622,7 +509,7 @@ Needed before planning:
 Source: v0.17 plugin substrate, v0.36 sandbox planning, v0.37 dynamic draft
 planning, and v0.38 generator planning.
 
-Status: split. Marketplace lite is planned for v0.48: reviewed-skill discovery,
+Status: split. Marketplace lite is planned for v0.49: reviewed-skill discovery,
 reviewed-source plugin index metadata, and template catalog metadata. Arbitrary
 remote code-bearing plugin install, dependency resolution, hot-loading, remote
 theme/snippet distribution, and binary/plugin package distribution remain
