@@ -281,7 +281,8 @@ mix allbert.settings set permissions.sandbox_trial denied
 ```
 
 Emergency disablement clears live dynamic actions. It does not delete draft or
-integrated source.
+integrated source. It uses the `:settings_write` permission and does not require
+confirmation because it only reduces live dynamic authority.
 
 ## Manual Verification Checklist
 
