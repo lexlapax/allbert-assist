@@ -81,6 +81,23 @@ defmodule Mix.Tasks.Allbert.DynamicTest do
              DynamicPlugins.show_draft("task_codegen")
   end
 
+  test "draft discard prints discarded state" do
+    assert {:ok, _draft} =
+             DynamicPlugins.put_draft(%{
+               slug: "task_discard",
+               revision: "rev_test",
+               producer: "test"
+             })
+
+    output =
+      capture_io(fn ->
+        assert :ok = DynamicTask.run(["drafts", "discard", "task_discard"])
+      end)
+
+    assert output =~ "Dynamic draft task_discard discarded."
+    assert {:ok, %{tier: "discarded"}} = DynamicPlugins.show_draft("task_discard")
+  end
+
   test "unknown subcommand raises usage" do
     assert_raise Mix.Error, ~r/mix allbert.dynamic drafts list/, fn ->
       DynamicTask.run(["wat"])
