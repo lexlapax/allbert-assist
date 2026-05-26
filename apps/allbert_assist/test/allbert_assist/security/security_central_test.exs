@@ -77,6 +77,7 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert Risk.classify(:settings_write).tier == :medium
     assert Risk.classify(:skill_write).tier == :medium
     assert Risk.classify(:dynamic_codegen_request).tier == :medium
+    assert Risk.classify(:dynamic_codegen_discard).tier == :medium
     assert Risk.classify(:confirmation_decide).tier == :medium
     assert Risk.classify(:objective_write).tier == :low
     assert Risk.classify(:workspace_canvas_write).tier == :low
@@ -100,6 +101,7 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert Policy.resolve(:online_skill_import).effective == :denied
     assert Policy.resolve(:skill_write).effective == :allowed
     assert Policy.resolve(:dynamic_codegen_request).effective == :allowed
+    assert Policy.resolve(:dynamic_codegen_discard).effective == :allowed
     assert Policy.resolve(:skill_script_execute).effective == :denied
     assert Policy.resolve(:confirmation_decide).effective == :allowed
     assert Policy.resolve(:objective_write).effective == :allowed
@@ -223,6 +225,7 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert Enum.any?(status.permission_defaults, &(&1.permission == :online_skill_import))
     assert Enum.any?(status.permission_defaults, &(&1.permission == :skill_write))
     assert Enum.any?(status.permission_defaults, &(&1.permission == :dynamic_codegen_request))
+    assert Enum.any?(status.permission_defaults, &(&1.permission == :dynamic_codegen_discard))
     assert Enum.any?(status.permission_defaults, &(&1.permission == :skill_script_execute))
     assert Enum.any?(status.permission_defaults, &(&1.permission == :confirmation_decide))
     assert Enum.any?(status.safety_floors, &(&1.permission == :unknown and &1.floor == :denied))

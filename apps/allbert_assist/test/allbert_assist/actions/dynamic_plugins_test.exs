@@ -81,6 +81,43 @@ defmodule AllbertAssist.Actions.DynamicPluginsTest do
     assert discarded_again.tier == "discarded"
   end
 
+  test "discard dynamic draft is controlled by dynamic codegen discard permission" do
+    assert {:ok, _draft} =
+             DynamicPlugins.put_draft(%{
+               slug: "runner_discard_denied",
+               revision: "rev_test",
+               producer: "test"
+             })
+
+    assert {:ok, _setting} =
+             Settings.put("permissions.dynamic_codegen_discard", "denied", %{audit?: false})
+
+    assert {:ok, response} =
+             Runner.run("discard_dynamic_draft", %{slug: "runner_discard_denied"}, context())
+
+    assert response.status == :denied
+    assert response.error == :permission_denied
+    assert response.permission_decision.permission == :dynamic_codegen_discard
+  end
+
+  test "discard dynamic draft tombstones gate-passed draft without confirmation" do
+    assert {:ok, _draft} =
+             DynamicPlugins.put_draft(%{
+               slug: "runner_discard_gate_passed",
+               revision: "rev_test",
+               tier: "gate_passed",
+               producer: "test"
+             })
+
+    assert {:ok, response} =
+             Runner.run("discard_dynamic_draft", %{slug: "runner_discard_gate_passed"}, context())
+
+    assert response.status == :completed
+    assert response.draft.tier == "discarded"
+    assert response.permission_decision.permission == :dynamic_codegen_discard
+    refute Map.has_key?(response, :confirmation_id)
+  end
+
   test "discard dynamic draft requires rollback before integrated draft" do
     assert {:ok, _draft} =
              DynamicPlugins.put_draft(%{

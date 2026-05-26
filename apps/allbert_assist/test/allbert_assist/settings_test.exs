@@ -152,6 +152,7 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, "allowed"} = Settings.get("permissions.sandbox_trial")
     assert {:ok, "needs_confirmation"} = Settings.get("permissions.dynamic_integration")
     assert {:ok, "allowed"} = Settings.get("permissions.dynamic_codegen_request")
+    assert {:ok, "allowed"} = Settings.get("permissions.dynamic_codegen_discard")
 
     assert {:ok, enabled} = Settings.put("sandbox.elixir.enabled", true, %{audit?: false})
     assert enabled.value == true
@@ -212,6 +213,11 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("permissions.dynamic_codegen_request", "denied", %{audit?: false})
 
     assert dynamic_codegen_request.value == "denied"
+
+    assert {:ok, dynamic_codegen_discard} =
+             Settings.put("permissions.dynamic_codegen_discard", "denied", %{audit?: false})
+
+    assert dynamic_codegen_discard.value == "denied"
   end
 
   test "dynamic codegen settings resolve defaults and validate writes" do

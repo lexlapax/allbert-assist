@@ -1,16 +1,18 @@
 defmodule AllbertAssist.Actions.DynamicPlugins.DiscardDraft do
   @moduledoc false
 
+  @permission :dynamic_codegen_discard
+
   use AllbertAssist.Action,
-    permission: :settings_write,
+    permission: :dynamic_codegen_discard,
     exposure: :internal,
-    execution_mode: :settings_write,
+    execution_mode: :dynamic_codegen_discard,
     skill_backed?: false,
     confirmation: :not_required,
     name: "discard_dynamic_draft",
     description: "Discard an inert or rolled-back dynamic draft.",
     category: "dynamic_plugins",
-    tags: ["dynamic_plugins", "drafts", "discard", "settings_write"],
+    tags: ["dynamic_plugins", "drafts", "discard", "dynamic_codegen_discard"],
     schema: [
       slug: [type: :string, required: true]
     ],
@@ -28,7 +30,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.DiscardDraft do
 
   @impl true
   def run(%{slug: slug}, context) when is_binary(slug) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = PermissionGate.authorize(@permission, context)
 
     with true <- PermissionGate.allowed?(permission_decision),
          {:ok, draft} <- DynamicPlugins.discard_draft(slug, operator_id: operator_id(context)) do
@@ -40,7 +42,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.DiscardDraft do
   end
 
   def run(_params, context) do
-    permission_decision = PermissionGate.authorize(:settings_write, context)
+    permission_decision = PermissionGate.authorize(@permission, context)
     {:ok, denied(permission_decision, :slug_required)}
   end
 
@@ -70,7 +72,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.DiscardDraft do
     %{
       name: "discard_dynamic_draft",
       status: status,
-      permission: :settings_write,
+      permission: @permission,
       permission_decision: permission_decision,
       dynamic_plugins_metadata: metadata
     }

@@ -1951,11 +1951,12 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 `docs/adr/0035-codegen-agents-and-live-integration-loader.md`,
 `docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`
 
-Status: implemented as `v0.37.4`; v0.37.1 post-implementation audit hardening
+Status: implemented as `v0.37.5`; v0.37.1 post-implementation audit hardening
 and final gates completed on 2026-05-25. Reopened for v0.37.2
 capability-first generator and bounded model-backed committee implementation
 before tagging, then reopened for v0.37.3 delegated generated writes before
-tagging, then reopened for v0.37.4 audit hardening before tagging. The
+tagging, then reopened for v0.37.4 audit hardening before tagging, then
+reopened for v0.37.5 fourth-audit closeout before tagging. The
 self-extending-runtime engine now has file-backed dynamic drafts, v0.36 sandbox
 trial/gate handoff, trusted validation, dynamic lifecycle audit/signals, and
 gated live in-core integration for action artifacts. v0.37.2 added
@@ -1979,6 +1980,10 @@ workflow, delegated-write security eval coverage, separate
 `:dynamic_codegen_request` permission with default `allowed`, validator
 coherence for delegated calls under `run/2`, explicit delegated approval-surface
 docs, version metadata closeout, and final release gates.
+v0.37.5 moves discard to dedicated `:dynamic_codegen_discard` policy, records
+dynamic delegate provenance in facade confirmations, and makes the delegated
+facade approval policy explicit without blocking generated actions from running
+through reviewed facades.
 Highest-capability and highest-risk milestone; its safety rests on the v0.36
 sandbox evidence plus operator-confirmed integration.
 

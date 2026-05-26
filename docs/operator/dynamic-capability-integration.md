@@ -203,10 +203,12 @@ mix allbert.confirmations approve <confirmation-id> --reason "reviewed v0.37 gat
 
 The integration action denies approval from Telegram, email, or cross-channel
 surfaces even when global confirmation settings would otherwise permit them.
-That surface restriction is only for integration and rollback. If an integrated
-dynamic action delegates to `append_memory` or `external_network_request`, the
-facade creates and resolves any per-invocation confirmation through its normal
-Security Central policy.
+That surface restriction is intentionally only for integration and rollback. If
+an integrated dynamic action delegates to `append_memory` or
+`external_network_request`, the reviewed facade creates and resolves any
+per-invocation confirmation through its normal Security Central channel policy.
+The confirmation records dynamic delegate provenance in runner metadata for
+audit, but it does not inherit the integration approval-surface restriction.
 
 After approval, inspect the registration state:
 
@@ -255,8 +257,11 @@ mix allbert.dynamic drafts show <slug>
 
 Discard is terminal for that draft revision. Integrated artifacts must be rolled
 back first, because discard never removes live authority by itself. The action
-uses the same safety-reducing cleanup posture as emergency disablement: it is a
-local lifecycle/settings write and does not require a separate confirmation.
+uses `permissions.dynamic_codegen_discard` / `:dynamic_codegen_discard`,
+defaults to `allowed`, and does not require confirmation for any non-integrated
+tier. Discarding a `:gate_passed` draft can irreversibly remove reviewed source,
+sandbox reports, and gate evidence; operators who want to preserve that work
+should roll it forward or archive the draft root before discarding.
 
 ## Emergency Disablement
 
