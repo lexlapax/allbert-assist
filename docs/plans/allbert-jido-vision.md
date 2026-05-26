@@ -546,26 +546,35 @@ historical aliases only and remain in old reference notes for continuity.
   Allbert can generate Elixir/OTP code/config for capability gaps and integrate
   only after the v0.36 gate plus operator confirmation.
 - v0.38: Allbert plugin and app generator / templated creation.
-- v0.39: First-run onboarding, provider control, identity slot, and Active
-  Memory. This is the first operator-usability milestone after templates:
-  guided setup, model/profile selection, optional inert identity memory, and
-  deterministic reviewed-memory retrieval before replies.
+- v0.39: First-run onboarding and provider control. Guided setup over
+  registered objective + Settings Central, and a provider doctor with explicit
+  branches for credentialed-remote and local-endpoint providers.
+- v0.39b: Identity slot and Active Memory. Optional inert `identity` memory
+  namespace plus deterministic recency-weighted pre-reply retrieval scoped
+  to `{thread, active_app, identity}`. Split from v0.39 so the algorithm has
+  room to land carefully (see `docs/research/active-memory-retrieval.md`).
 - v0.40: MCP Client Integration. MCP servers become configured resources and
   tools under Allbert's action, Resource Access, confirmation, trace, and audit
   boundaries.
-- v0.41: Everyday Integration Pack 1. Calendar, mail, GitHub, and notes/files
-  land as MCP-first or native-plugin-second app surfaces.
+- v0.41: MCP-first Integration Pack 1. Calendar, mail, GitHub, and notes/files
+  ship as **MCP-server-configured workspace panels**. The notes/files surface
+  also ships as a native reference plugin to give plugin authors a starter
+  scaffold; StockSage remains the depth reference. Native plugins for the
+  other integrations are post-1.0 follow-on (v0.41.x).
 - v0.42: Browser And Web Research. Browser sessions become Resource Access
   resources, with research/extract/screenshot first and broader account
   operation deferred.
 - v0.43: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
-  through the existing channel adapter and plugin contracts.
+  through the existing channel adapter and plugin contracts; v0.43 also amends
+  ADR 0016 to lock the channel approval-primitive contract before mobile
+  channels need it.
 - v0.44: Plan/Build Mode And Operator Workflow YAML. Objective Runtime becomes
-  an operator-visible plan/review/execute surface; YAML is declarative input,
-  not an execution engine.
-- v0.45: Marketplace Lite. Reviewed skill/template discovery, reviewed-source
-  plugin index metadata, and template catalog metadata arrive without remote
-  code-bearing plugin install.
+  an operator-visible plan/review/execute surface; YAML is declarative input
+  under `<ALLBERT_HOME>/workflows/`, not an execution engine.
+- v0.45: Marketplace Lite — data shape + Allbert-author seeds only. Catalog
+  schema, install path, provenance/hash/version/rollback metadata, with
+  Allbert-author bundles seeding the catalog. Community-submission governance
+  is parked. Drafting begins on ADR 0046 for settings schema migration.
 - v0.46: Operator-Supervised Self-Improvement. Trace-to-skill, workflow,
   template, and dynamic capability draft suggestions consume v0.45 marketplace
   metadata plus v0.40-v0.44 traces; reviewed memory/workflow draft facades are
@@ -574,15 +583,22 @@ historical aliases only and remain in old reference notes for continuity.
   audio resources and registered STT/TTS actions.
 - v0.48: Vision And Image Generation. Image and screenshot resources plus
   provider-backed image generation expand workspace media capability.
-- v0.49: Channel Pack 2 And Public Protocol Interop. Mobile and personal
-  messaging channels plus external protocol surfaces arrive behind shared auth,
-  CSP, redaction, trace, and audit policy.
-- v0.50: Hardening, Export/Import, And Final RC. No new user-facing capability;
-  portability, docs, security evals including self-improvement, and
+- v0.49: Channel Pack 2 - WhatsApp, Signal, and Matrix. iMessage parked
+  (macOS-only platform constraint).
+- v0.49b: MCP Server Mode. Allbert exposes registered actions as MCP tools and
+  memory namespaces as MCP resources. Single protocol surface. OpenAI-compatible
+  API, ACP server mode, and public AG-UI/A2UI bridge are parked post-1.0.
+- v0.50: Hardening, Export/Import, Settings Migration, And Final RC. No new
+  user-facing capability; portability, settings schema migration tool per ADR
+  0046, security evals including self-improvement and MCP server, and
   release-candidate evidence.
-- v1.0: Stability Release And Public Contract Freeze. No new features; freeze
-  public runtime, action, plugin, app, surface, resource, workspace, channel,
-  Settings Central, and Allbert Home contracts.
+- v1.0: Stability Release And **Tiered Public Contract Freeze**. No new
+  features. Tier 1 freezes Runtime, Actions/permissions, Plugin, App, Settings
+  Central schema shape, Allbert Home layout, Channel adapter boundary, and
+  Resource Access URI/grants. Tier 2 freezes SurfaceProvider, Surface DSL with
+  additive-only carve-out, and workspace canvas/ephemeral substrate minus
+  single-consumer components. ADR 0021 advisory-provider vocabulary is
+  reserved but not frozen.
 
 The v0.39-to-v1.0 arc is capability delivery over the safety substrate already
 proven through v0.37 and accelerated by v0.38. The goal is not a rewrite; it is
