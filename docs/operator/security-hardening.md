@@ -35,6 +35,7 @@ changes:
 | `sandbox.elixir.enabled` | `false` | v0.36 Elixir/OTP sandbox and gate runner. |
 | `dynamic_codegen.enabled` | `false` | v0.37 advisory dynamic draft generation. |
 | `dynamic_codegen.live_loader_enabled` | `false` | v0.37 operator-confirmed live dynamic integration. |
+| `templates.create.enabled` | `false` | v0.38 operator `workspace:create` template gallery / live-integration surface. |
 
 Example:
 
@@ -44,6 +45,7 @@ mix allbert.settings set workspace.fragment.emission_enabled false
 mix allbert.settings set sandbox.elixir.enabled false
 mix allbert.settings set dynamic_codegen.enabled false
 mix allbert.settings set dynamic_codegen.live_loader_enabled false
+mix allbert.settings set templates.create.enabled false
 mix allbert.settings set permissions.sandbox_trial denied
 ```
 
@@ -72,6 +74,19 @@ mix allbert.settings set permissions.sandbox_trial denied
   cannot shadow static/plugin/app actions, cannot replace core modules, cannot
   be resumable, and cannot exceed the generated-permission ceiling validated by
   the loader.
+- Treat v0.38 templated creation as a separate default-off operator surface:
+  `templates.create.enabled=false` keeps the `workspace:create` gallery and
+  `CreateFromTemplate` action denied. Templates and their parameters grant no
+  authority, and developer Mix-task scaffolds remain inert source under
+  `./plugins/<name>/` regardless of runtime settings. Operator live integration
+  of a templated artifact is the same v0.36/v0.37 gated path — and is
+  available only for the LLM-tool (action) pattern in v0.38 because the
+  v0.37.5 loader still rejects generated apps, panels, settings fragments,
+  memory namespaces, objective wiring, jobs, and route pages as live targets.
+  Existing project/draft roots cannot be overwritten without explicit `--force`
+  plus preview/diff, and the Telegram/email/cross-channel approval-surface
+  exclusion (`dynamic_codegen.integration_approval_surfaces`) applies
+  unchanged.
 
 ## Planned v1.0 Threat Surfaces
 
