@@ -14,6 +14,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :online_skill_import,
              :settings_write,
              :skill_write,
+             :dynamic_codegen_request,
              :skill_script_execute,
              :confirmation_decide,
              :objective_write,
@@ -124,10 +125,11 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     end
   end
 
-  test "allows safe settings writes, skill scaffolds, confirmation decisions, and explicit secret writes" do
+  test "allows safe settings writes, skill scaffolds, dynamic draft requests, confirmation decisions, and explicit secret writes" do
     for permission <- [
           :settings_write,
           :skill_write,
+          :dynamic_codegen_request,
           :confirmation_decide,
           :settings_secret_write
         ] do

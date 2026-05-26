@@ -102,13 +102,20 @@ defmodule AllbertAssist.Actions.DynamicPluginsTest do
   test "request dynamic draft through the runner creates generated source metadata" do
     enable_dynamic_codegen!("local")
 
-    assert {:ok, %{status: :completed, draft: draft, budget: budget}} =
+    assert {:ok,
+            %{
+              status: :completed,
+              draft: draft,
+              budget: budget,
+              permission_decision: permission_decision
+            }} =
              Runner.run(
                "request_dynamic_draft",
                %{slug: "runner_codegen", summary: "Need a read-only diagnostic action"},
                context()
              )
 
+    assert permission_decision.permission == :dynamic_codegen_request
     assert draft.slug == "runner_codegen"
     assert draft.tier == "draft"
     assert draft.producer == "codegen_llm"

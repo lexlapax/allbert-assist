@@ -25,6 +25,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
     "codegen-unscanned-compile-path-001",
     "codegen-scanned-but-not-compiled-001",
     "codegen-low-confidence-autogen-001",
+    "codegen-request-permission-001",
     "codegen-trusted-compile-side-effect-001",
     "codegen-trusted-ast-allowlist-001",
     "codegen-macro-literal-options-001",
@@ -110,6 +111,61 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
       end)
 
     assert_denied(low_confidence)
+
+    request_permission =
+      run_eval(
+        fixture("codegen-request-permission-001", %{
+          run: fn fixture ->
+            assert {:ok, _setting} =
+                     Settings.put("permissions.skill_write", "denied", %{audit?: false})
+
+            {:ok, allowed_response} =
+              Runner.run(
+                "request_dynamic_draft",
+                %{
+                  slug: "request_permission_allowed",
+                  summary: "Need a read-only diagnostic action"
+                },
+                cli_context()
+              )
+
+            assert {:ok, _setting} =
+                     Settings.put("permissions.dynamic_codegen_request", "denied", %{
+                       audit?: false
+                     })
+
+            assert {:ok, _setting} =
+                     Settings.put("permissions.skill_write", "allowed", %{audit?: false})
+
+            {:ok, denied_response} =
+              Runner.run(
+                "request_dynamic_draft",
+                %{
+                  slug: "request_permission_denied",
+                  summary: "Need another read-only diagnostic action"
+                },
+                cli_context()
+              )
+
+            separated? =
+              allowed_response.status == :completed and
+                allowed_response.permission_decision.permission == :dynamic_codegen_request and
+                denied_response.status == :denied and
+                denied_response.permission_decision.permission == :dynamic_codegen_request
+
+            %{
+              decision: if(separated?, do: :allowed, else: :denied),
+              result: %{allowed: allowed_response, denied: denied_response},
+              trace: %{fixture_id: fixture.id}
+            }
+          end
+        })
+      )
+
+    assert_allowed(request_permission)
+
+    assert {:ok, _setting} =
+             Settings.put("permissions.dynamic_codegen_request", "allowed", %{audit?: false})
 
     assert {:ok, _setting} =
              Settings.put("dynamic_codegen.max_provider_calls_per_gap", 1, %{audit?: false})
