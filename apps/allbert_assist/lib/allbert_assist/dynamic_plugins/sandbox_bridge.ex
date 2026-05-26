@@ -8,6 +8,7 @@ defmodule AllbertAssist.DynamicPlugins.SandboxBridge do
   """
 
   alias AllbertAssist.DynamicPlugins.Audit
+  alias AllbertAssist.DynamicPlugins.Codegen.Producer
   alias AllbertAssist.DynamicPlugins.Draft
   alias AllbertAssist.DynamicPlugins.MetadataStore
   alias AllbertAssist.DynamicPlugins.Staging
@@ -59,14 +60,15 @@ defmodule AllbertAssist.DynamicPlugins.SandboxBridge do
     with {:ok, bundle} <- Sandbox.build_bundle(Staging.bundle_params(staging), sandbox_opts(opts)),
          {:ok, %Report{} = report} <- Sandbox.run_gate(bundle, gate_opts(kind, staging, opts)),
          {:ok, updated_draft} <- record_report(kind, draft, staging, bundle, report, opts) do
-      {:ok,
-       %{
-         status: report.status,
-         draft: Draft.summary(updated_draft),
-         report: Report.to_map(report),
-         staging: Staging.summary(staging),
-         bundle: Bundle.summary(bundle)
-       }}
+      result = %{
+        status: report.status,
+        draft: Draft.summary(updated_draft),
+        report: Report.to_map(report),
+        staging: Staging.summary(staging),
+        bundle: Bundle.summary(bundle)
+      }
+
+      maybe_repair_from_evidence(kind, updated_draft, result, opts)
     end
   end
 
@@ -244,6 +246,39 @@ defmodule AllbertAssist.DynamicPlugins.SandboxBridge do
         _reason -> nil
       end
     end
+  end
+
+  defp maybe_repair_from_evidence(_kind, _draft, %{status: :completed} = result, _opts),
+    do: {:ok, result}
+
+  defp maybe_repair_from_evidence(kind, %Draft{} = draft, result, opts) do
+    if Keyword.get(opts, :auto_repair?, false) do
+      evidence = %{
+        "source" => "sandbox_#{kind}",
+        "status" => Atom.to_string(result.status),
+        "draft_revision" => draft.revision,
+        "report" => result.report
+      }
+
+      case Producer.repair_draft(draft.slug, evidence, repair_context(opts)) do
+        {:ok, repair} -> {:ok, Map.put(result, :repair, repair)}
+        {:error, reason} -> {:ok, Map.put(result, :repair_error, reason)}
+      end
+    else
+      {:ok, result}
+    end
+  end
+
+  defp repair_context(opts) do
+    %{
+      actor: Keyword.get(opts, :operator_id),
+      operator_id: Keyword.get(opts, :operator_id),
+      channel: Keyword.get(opts, :channel, :sandbox),
+      surface: Keyword.get(opts, :surface, "sandbox_bridge"),
+      explicit_generation?: true,
+      objective_id: Keyword.get(opts, :objective_id),
+      step_id: Keyword.get(opts, :step_id)
+    }
   end
 
   defp report_id(nil), do: nil
