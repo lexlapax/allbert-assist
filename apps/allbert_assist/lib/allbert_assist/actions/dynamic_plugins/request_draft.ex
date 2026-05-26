@@ -3,8 +3,10 @@ defmodule AllbertAssist.Actions.DynamicPlugins.RequestDraft do
   Internal action for explicit v0.37 dynamic draft requests.
   """
 
+  @permission :dynamic_codegen_request
+
   use AllbertAssist.Action,
-    permission: :skill_write,
+    permission: :dynamic_codegen_request,
     exposure: :internal,
     execution_mode: :dynamic_codegen,
     skill_backed?: false,
@@ -42,7 +44,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.RequestDraft do
 
   @impl true
   def run(params, context) do
-    permission_decision = PermissionGate.authorize(:skill_write, context)
+    permission_decision = PermissionGate.authorize(@permission, context)
 
     with true <- PermissionGate.allowed?(permission_decision),
          {:ok, result} <- DynamicPlugins.request_draft(params, request_context(context)) do
@@ -116,7 +118,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.RequestDraft do
     %{
       name: "request_dynamic_draft",
       status: status,
-      permission: :skill_write,
+      permission: @permission,
       permission_decision: permission_decision,
       dynamic_plugin_metadata: metadata
     }

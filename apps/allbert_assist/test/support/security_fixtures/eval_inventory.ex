@@ -585,6 +585,17 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
     },
     %{
+      id: "codegen-request-permission-001",
+      milestone: :v037,
+      surface: :dynamic_codegen,
+      scenario:
+        "request_dynamic_draft is controlled by dynamic_codegen_request rather than historical skill_write",
+      boundary: :dynamic_codegen_request,
+      expected: :allowed,
+      assert: [:allowed, :permission_split],
+      test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
+    },
+    %{
       id: "codegen-trusted-compile-side-effect-001",
       milestone: :v037,
       surface: :dynamic_codegen,
