@@ -80,7 +80,10 @@ Near-term milestones:
 - `v0.38`: templated creation — vetted plugin/app/LLM-tool/scheduled-flow/code
   templates via Mix tasks (`--target` defaults to `./plugins/<name>`), operator
   workspace flows, and a Canvas Create surface, reusing the v0.36 sandbox and
-  v0.37 loader.
+  v0.37 loader. Live integration in v0.38 covers the LLM-tool (action) template
+  only; plugin, app, scheduled/chron flow, and objective workflow patterns are
+  developer-scaffold-only because the v0.37.5 loader still rejects their
+  artifact shapes as live targets.
 - Post-`v0.38`: the planned 1.0 arc shifts from substrate work to operator
   reach: first-run onboarding and provider control (`v0.39`), MCP client
   integration (`v0.40`), everyday integrations (`v0.41`), browser research
