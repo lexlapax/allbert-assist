@@ -82,13 +82,18 @@ Near-term milestones:
   workspace flows, and a Canvas Create surface, reusing the v0.36 sandbox and
   v0.37 loader.
 - Post-`v0.38`: the planned 1.0 arc shifts from substrate work to operator
-  reach: first-run onboarding and provider control (`v0.39`), MCP client
-  integration (`v0.40`), everyday integrations (`v0.41`), browser research
-  (`v0.42`), Discord/Slack channels (`v0.43`), Plan/Build workflows (`v0.44`),
-  marketplace lite (`v0.45`), operator-supervised self-improvement (`v0.46`),
-  voice and vision (`v0.47`/`v0.48`), mobile messaging plus protocol interop
-  (`v0.49`), final hardening/export-import/RC evidence (`v0.50`), and a
-  no-new-features public contract freeze at `v1.0`.
+  reach: first-run onboarding and provider control (`v0.39`), identity slot
+  and deterministic Active Memory retrieval (`v0.39b`), MCP client integration
+  (`v0.40`), MCP-first integration pack with calendar/mail/GitHub panels plus
+  notes/files native reference plugin (`v0.41`), browser research (`v0.42`),
+  Discord/Slack channels with the channel-approval-primitive contract
+  (`v0.43`), Plan/Build workflows under `<ALLBERT_HOME>/workflows/` (`v0.44`),
+  marketplace lite — data shape + Allbert-author seeds only (`v0.45`),
+  operator-supervised self-improvement (`v0.46`), voice (`v0.47`), vision
+  (`v0.48`), mobile messaging WhatsApp/Signal/Matrix (`v0.49`), MCP server
+  mode (`v0.49b`), final hardening/export-import/settings-schema-migration/RC
+  evidence (`v0.50`), and a no-new-features **tiered** public contract freeze
+  at `v1.0`.
 
 ## Start Here
 
