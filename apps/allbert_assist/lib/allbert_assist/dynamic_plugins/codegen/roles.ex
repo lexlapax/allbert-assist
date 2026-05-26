@@ -61,126 +61,122 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Roles do
   end
 
   defp attempt_loop(gap, profile, budget, context, planner, started_at) do
-    max_repairs = max_repair_iterations()
-    loop(gap, profile, budget, context, planner, started_at, 0, max_repairs, MapSet.new())
+    %{
+      gap: gap,
+      profile: profile,
+      budget: budget,
+      context: context,
+      planner: planner,
+      started_at: started_at,
+      attempt: 0,
+      max_repairs: max_repair_iterations(),
+      failures: MapSet.new()
+    }
+    |> initial_attempt()
   end
 
-  defp loop(gap, profile, budget, context, planner, started_at, attempt, max_repairs, failures) do
-    with :ok <- ensure_wall_clock(started_at),
-         {:ok, author, author_output, budget} <- author(gap, profile, budget, context, planner),
+  defp initial_attempt(%{} = state) do
+    with :ok <- ensure_wall_clock(state.started_at),
+         {:ok, author, author_output, budget} <-
+           author(state.gap, state.profile, state.budget, state.context, state.planner),
+         state <- %{state | budget: budget},
          {:ok, trial_author, trial_output, budget} <-
-           trial_author(gap, profile, budget, context, planner, author_output),
+           trial_author(
+             state.gap,
+             state.profile,
+             state.budget,
+             state.context,
+             state.planner,
+             author_output
+           ),
+         state <- %{state | budget: budget},
          generated <- merge_generated(author_output, trial_output),
          evidence <- deterministic_evidence(generated),
          {:ok, critic, budget} <-
-           critic(gap, profile, budget, context, planner, generated, evidence),
-         {:decision, decision} <- {:decision, decision(evidence, critic)} do
-      cond do
-        decision == :accepted ->
-          {:ok, [author, trial_author, critic], generated, budget}
-
-        attempt >= max_repairs ->
-          {:error,
-           {:dynamic_codegen_repair_impasse,
-            %{
-              "reason" => "repair_iteration_limit",
-              "iterations_used" => attempt,
-              "limit" => max_repairs,
-              "evidence" => evidence_summary(evidence)
-            }}}
-
-        MapSet.member?(failures, failure_fingerprint(evidence, critic)) ->
-          {:error,
-           {:dynamic_codegen_repair_impasse,
-            %{
-              "reason" => "repeated_identical_failure",
-              "iterations_used" => attempt,
-              "evidence" => evidence_summary(evidence)
-            }}}
-
-        true ->
-          with {:ok, repair, repaired, budget} <-
-                 repair(gap, profile, budget, context, planner, generated, evidence, critic),
-               :ok <- ensure_repaired(repair) do
-            repair_loop(
-              gap,
-              profile,
-              budget,
-              context,
-              planner,
-              repaired,
-              started_at,
-              attempt + 1,
-              max_repairs,
-              MapSet.put(failures, failure_fingerprint(evidence, critic)),
-              [author, trial_author, critic, repair]
-            )
-          end
-      end
+           critic(
+             state.gap,
+             state.profile,
+             state.budget,
+             state.context,
+             state.planner,
+             generated,
+             evidence
+           ),
+         state <- %{state | budget: budget} do
+      continue_or_finish(state, generated, evidence, critic, [author, trial_author, critic])
     end
   end
 
-  defp repair_loop(
-         gap,
-         profile,
-         budget,
-         context,
-         planner,
-         generated,
-         started_at,
-         attempt,
-         max_repairs,
-         failures,
-         packets
-       ) do
-    with :ok <- ensure_wall_clock(started_at),
+  defp repair_loop(%{} = state, generated, packets) do
+    with :ok <- ensure_wall_clock(state.started_at),
          evidence <- deterministic_evidence(generated),
          {:ok, critic, budget} <-
-           critic(gap, profile, budget, context, planner, generated, evidence),
-         {:decision, decision} <- {:decision, decision(evidence, critic)} do
-      cond do
-        decision == :accepted ->
-          {:ok, packets ++ [critic], generated, budget}
-
-        attempt >= max_repairs ->
-          {:error,
-           {:dynamic_codegen_repair_impasse,
-            %{
-              "reason" => "repair_iteration_limit",
-              "iterations_used" => attempt,
-              "limit" => max_repairs,
-              "evidence" => evidence_summary(evidence)
-            }}}
-
-        MapSet.member?(failures, failure_fingerprint(evidence, critic)) ->
-          {:error,
-           {:dynamic_codegen_repair_impasse,
-            %{
-              "reason" => "repeated_identical_failure",
-              "iterations_used" => attempt,
-              "evidence" => evidence_summary(evidence)
-            }}}
-
-        true ->
-          with {:ok, repair, repaired, budget} <-
-                 repair(gap, profile, budget, context, planner, generated, evidence, critic),
-               :ok <- ensure_repaired(repair) do
-            repair_loop(
-              gap,
-              profile,
-              budget,
-              context,
-              planner,
-              repaired,
-              started_at,
-              attempt + 1,
-              max_repairs,
-              MapSet.put(failures, failure_fingerprint(evidence, critic)),
-              packets ++ [critic, repair]
-            )
-          end
-      end
+           critic(
+             state.gap,
+             state.profile,
+             state.budget,
+             state.context,
+             state.planner,
+             generated,
+             evidence
+           ),
+         state <- %{state | budget: budget} do
+      continue_or_finish(state, generated, evidence, critic, packets ++ [critic])
     end
+  end
+
+  defp continue_or_finish(state, generated, evidence, critic, packets) do
+    cond do
+      decision(evidence, critic) == :accepted ->
+        {:ok, packets, generated, state.budget}
+
+      state.attempt >= state.max_repairs ->
+        repair_impasse("repair_iteration_limit", state, evidence)
+
+      MapSet.member?(state.failures, failure_fingerprint(evidence, critic)) ->
+        repair_impasse("repeated_identical_failure", state, evidence)
+
+      true ->
+        repair_and_continue(state, generated, evidence, critic, packets)
+    end
+  end
+
+  defp repair_and_continue(state, generated, evidence, critic, packets) do
+    with {:ok, repair, repaired, budget} <-
+           repair(
+             state.gap,
+             state.profile,
+             state.budget,
+             state.context,
+             state.planner,
+             generated,
+             evidence,
+             critic
+           ),
+         :ok <- ensure_repaired(repair) do
+      state
+      |> Map.put(:budget, budget)
+      |> Map.update!(:attempt, &(&1 + 1))
+      |> Map.update!(:failures, &MapSet.put(&1, failure_fingerprint(evidence, critic)))
+      |> repair_loop(repaired, packets ++ [repair])
+    end
+  end
+
+  defp repair_impasse(reason, state, evidence) do
+    payload = %{
+      "reason" => reason,
+      "iterations_used" => state.attempt,
+      "evidence" => evidence_summary(evidence)
+    }
+
+    payload =
+      if reason == "repair_iteration_limit" do
+        Map.put(payload, "limit", state.max_repairs)
+      else
+        payload
+      end
+
+    {:error, {:dynamic_codegen_repair_impasse, payload}}
   end
 
   defp author(%CapabilityGap{} = gap, profile, budget, context, planner) do
