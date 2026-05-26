@@ -80,7 +80,7 @@ defmodule AllbertAssist.Actions.DynamicPluginsTest do
     assert draft.slug == "runner_codegen"
     assert draft.tier == "draft"
     assert draft.producer == "codegen_llm"
-    assert budget["provider_calls_used"] == 1
+    assert budget["provider_calls_used"] == 4
   end
 
   defp context, do: %{actor: "local", channel: :cli}
