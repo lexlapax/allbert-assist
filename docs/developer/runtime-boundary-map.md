@@ -58,6 +58,10 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 | v0.37 | `AllbertAssist.DynamicPlugins.Codegen.Agent` | Implemented JidoBacked coordinator for explicit source-bearing capability-gap draft requests. |
 | v0.37 | `AllbertAssist.DynamicPlugins.ActionsOverlay` | Implemented runtime overlay merged by `Actions.Registry`; collision denial, no shadowing. |
 | v0.37 | `AllbertAssist.DynamicPlugins.TrustedValidator` | Implemented trusted-phase AST/body validator before in-core compile. |
+| v0.38 | `AllbertAssist.Templates` | Planned templated-creation facade exposing the `TemplatePattern` registry, parameter validation, deterministic rendering, and per-pattern `live_integration?` declarations. Templates and parameters grant no authority. |
+| v0.38 | `AllbertAssist.Templates.Pattern` | Planned behaviour for vetted parameterized skeletons (plugin, app, LLM tool, scheduled/chron flow, objective workflow). |
+| v0.38 | `AllbertAssist.Templates.{Plugin,App,Tool,Flow,Objective}` | Planned reviewed pattern implementations. LLM tool declares `live_integration?: true` and routes any provider/network or memory effect through `DynamicPlugins.Delegate.run/3`; the others are developer-scaffold-only because v0.37.5 loader rejects their artifact shapes. |
+| v0.38 | `RenderTemplate`, `ValidateTemplate`, `ScaffoldTemplate`, `CreateFromTemplate` | Planned registered actions used by the operator `workspace:create` Canvas destination. |
 
 ## Post-v0.38 Planned Facades
 
