@@ -212,6 +212,53 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
            end)
   end
 
+  test "repair creates a new revision from bounded sandbox evidence" do
+    enable_dynamic_codegen!("local")
+
+    assert {:ok, generated} =
+             DynamicPlugins.request_draft(
+               %{
+                 slug: "repair_gap",
+                 summary: "Need a read-only diagnostic action",
+                 target_shapes: ["action"]
+               },
+               context()
+             )
+
+    original_revision = generated.draft.revision
+
+    assert {:ok, repaired} =
+             DynamicPlugins.repair_draft(
+               "repair_gap",
+               %{
+                 "source" => "sandbox_gate",
+                 "status" => "failed",
+                 "diagnostics" => [%{"reason" => "fixture_failure"}]
+               },
+               context()
+             )
+
+    assert repaired.draft.revision != original_revision
+    assert repaired.budget["provider_calls_used"] == 7
+    assert repaired.budget["provider_usage_units_used"] == 153
+
+    assert {:ok, draft} = DynamicPlugins.get_draft("repair_gap")
+    assert draft.gate["status"] == "not_run"
+    assert draft.gate["repaired_from_revision"] == original_revision
+    assert File.regular?(Path.join([draft.root, "revisions", original_revision, "metadata.yaml"]))
+    assert File.regular?(Path.join([draft.root, "revisions", original_revision, "manifest.yaml"]))
+
+    assert Enum.map(draft.repair_history, & &1["role"]) ==
+             ~w[planner author trial_author critic planner critic repair]
+
+    assert {:ok, manifest} = MetadataStore.get_manifest("repair_gap")
+
+    assert Enum.map(get_in(manifest, ["generation", "roles"]), & &1["role"]) ==
+             ~w[planner critic repair]
+
+    assert :ok = MetadataStore.verify_source_hashes(draft)
+  end
+
   defp enable_dynamic_codegen!(profile \\ nil) do
     settings =
       %{"dynamic_codegen" => %{"enabled" => true}}
