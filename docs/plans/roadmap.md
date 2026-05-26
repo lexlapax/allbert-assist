@@ -1961,6 +1961,10 @@ gated live in-core integration for read-only action artifacts. v0.37.2 must add
 source-bearing LLM-backed read-only action generation through separate
 Planner/Author/TrialAuthor/Critic packets plus invoked Repair packets and prove
 the full generate -> repair -> gate -> approve -> live run -> rollback loop.
+The M16 closeout adds the explicit `request_draft_with_gate/3` workflow facade
+so sandbox trial/gate reports and trusted-validation failures can drive bounded
+Repair until deterministic evidence passes or workflow-wide limits stop the
+attempt.
 Broader generated app/config targets remain deferred until their validators
 exist.
 Highest-capability and highest-risk milestone; its safety rests on the v0.36

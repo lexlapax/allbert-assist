@@ -1,17 +1,69 @@
 defmodule AllbertAssist.DynamicPlugins.CodegenTest do
   use AllbertAssist.DataCase, async: false
 
+  alias AllbertAssist.Actions.Registry
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.DynamicPlugins
+  alias AllbertAssist.DynamicPlugins.ActionsOverlay
   alias AllbertAssist.DynamicPlugins.Codegen.LLM
   alias AllbertAssist.DynamicPlugins.Codegen.Schema
   alias AllbertAssist.DynamicPlugins.MetadataStore
   alias AllbertAssist.DynamicPlugins.TrustedValidator
   alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
+  alias AllbertAssist.Sandbox.Host
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.DynamicCodegenFakeProvider
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR", "ALLBERT_SETTINGS_ROOT"]
+
+  defmodule CompletingDocker do
+    @behaviour AllbertAssist.Sandbox.Backend
+
+    alias AllbertAssist.Sandbox.CommandSpec
+    alias AllbertAssist.Sandbox.Report
+    alias AllbertAssist.Sandbox.ReportWriter
+
+    def id, do: :docker
+    def platforms, do: [:linux, :macos]
+    def available?(_policy), do: true
+    def doctor(_policy), do: %{id: id(), status: :available, reason: :doctor_green}
+
+    def run(bundle, command, _policy) do
+      ReportWriter.write(bundle, %Report{
+        status: :completed,
+        backend: id(),
+        command: CommandSpec.summary(command),
+        metadata: %{fixture_backend?: true}
+      })
+    end
+
+    def cleanup(_bundle), do: :ok
+  end
+
+  defmodule FailingDocker do
+    @behaviour AllbertAssist.Sandbox.Backend
+
+    alias AllbertAssist.Sandbox.CommandSpec
+    alias AllbertAssist.Sandbox.Report
+    alias AllbertAssist.Sandbox.ReportWriter
+
+    def id, do: :docker
+    def platforms, do: [:linux, :macos]
+    def available?(_policy), do: true
+    def doctor(_policy), do: %{id: id(), status: :available, reason: :doctor_green}
+
+    def run(bundle, command, _policy) do
+      ReportWriter.write(bundle, %Report{
+        status: :failed,
+        backend: id(),
+        command: CommandSpec.summary(command),
+        diagnostics: [%{reason: :fixture_failure}]
+      })
+    end
+
+    def cleanup(_bundle), do: :ok
+  end
 
   setup do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
@@ -24,8 +76,10 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
     Application.delete_env(:allbert_assist, Settings)
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, LLM, provider: DynamicCodegenFakeProvider)
+    ActionsOverlay.clear()
 
     on_exit(fn ->
+      ActionsOverlay.clear()
       restore_app_env(Paths, original_paths_config)
       restore_app_env(Settings, original_settings_config)
       restore_app_env(LLM, original_llm_config)
@@ -259,10 +313,96 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
     assert :ok = MetadataStore.verify_source_hashes(draft)
   end
 
-  defp enable_dynamic_codegen!(profile \\ nil) do
+  test "workflow requests, gates, integrates, runs, and rolls back a generated action" do
+    enable_dynamic_codegen!("local", sandbox?: true, live_loader?: true)
+
+    assert {:ok, result} =
+             DynamicPlugins.request_draft_with_gate(
+               %{
+                 slug: "full_loop_gap",
+                 summary: "Need a read-only action that formats name, score, and tags",
+                 source: "operator",
+                 target_shapes: ["action"]
+               },
+               context(),
+               workflow_opts(CompletingDocker)
+             )
+
+    assert result.status == :gate_passed
+    assert result.repair_count == 0
+    assert result.trial.status == :completed
+    assert result.gate.status == :completed
+
+    assert result.trusted_validation.modules == [
+             "AllbertAssist.DynamicPlugins.Generated.FullLoopGap.Action"
+           ]
+
+    assert result.draft.tier == "gate_passed"
+
+    assert {:ok, %{status: :needs_confirmation, confirmation_id: integration_id}} =
+             Runner.run("integrate_dynamic_draft", %{slug: result.slug}, context())
+
+    assert {:ok, %{status: :completed}} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: integration_id, reason: "reviewed generated full loop"},
+               context()
+             )
+
+    assert {:ok,
+            %{
+              status: :completed,
+              message: "Ada: high score=10 tags=MATH, CODE",
+              actions: []
+            }} =
+             Runner.run(
+               "dynamic_full_loop_gap",
+               %{name: " Ada ", score: 8, tags: ["math", "code"]},
+               context()
+             )
+
+    assert {:ok, %{status: :needs_confirmation, confirmation_id: rollback_id}} =
+             Runner.run("rollback_dynamic_integration", %{slug: result.slug}, context())
+
+    assert {:ok, %{status: :completed}} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: rollback_id, reason: "rollback generated full loop"},
+               context()
+             )
+
+    assert {:error, {:unknown_action, "dynamic_full_loop_gap"}} =
+             Registry.resolve("dynamic_full_loop_gap")
+  end
+
+  test "workflow stops instead of repeatedly repairing identical sandbox evidence" do
+    enable_dynamic_codegen!("local", sandbox?: true)
+
+    assert {:error,
+            {:dynamic_codegen_repair_impasse,
+             %{
+               "reason" => "repeated_identical_failure",
+               "stage" => "trial",
+               "iterations_used" => 1
+             }}} =
+             DynamicPlugins.request_draft_with_gate(
+               %{
+                 slug: "repeated_gate_failure",
+                 summary: "Need a read-only action that formats name, score, and tags",
+                 source: "operator",
+                 target_shapes: ["action"]
+               },
+               context(),
+               workflow_opts(FailingDocker)
+             )
+  end
+
+  defp enable_dynamic_codegen!(profile \\ nil, opts \\ []) do
     settings =
       %{"dynamic_codegen" => %{"enabled" => true}}
       |> maybe_put_profile(profile)
+      |> maybe_enable_sandbox(opts)
+      |> maybe_enable_live_loader(opts)
 
     assert {:ok, _settings} = Settings.write_user_settings(settings)
   end
@@ -273,11 +413,46 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
     put_in(settings, ["dynamic_codegen", "provider_profile"], profile)
   end
 
+  defp maybe_enable_sandbox(settings, opts) do
+    if Keyword.get(opts, :sandbox?, false) do
+      Map.put(settings, "sandbox", %{
+        "elixir" => %{"enabled" => true, "backend" => "docker", "image" => "fixture:local"}
+      })
+    else
+      settings
+    end
+  end
+
+  defp maybe_enable_live_loader(settings, opts) do
+    if Keyword.get(opts, :live_loader?, false) do
+      put_in(settings, ["dynamic_codegen", "live_loader_enabled"], true)
+    else
+      settings
+    end
+  end
+
   defp context do
     %{actor: "local", channel: :cli, surface: "cli", explicit_generation?: true}
   end
 
   defp project_root, do: Path.expand("../../../../..", __DIR__)
+
+  defp workflow_opts(backend) do
+    [
+      project_root: project_root(),
+      project_paths: [
+        "mix.exs",
+        "mix.lock",
+        ".formatter.exs",
+        "apps/allbert_assist/mix.exs",
+        "apps/allbert_assist/lib",
+        "apps/allbert_assist/test/support"
+      ],
+      profiles: [:compile],
+      backends: [backend],
+      host: %Host{os: :linux, arch: :x86_64}
+    ]
+  end
 
   defp temp_path(name) do
     Path.join(
