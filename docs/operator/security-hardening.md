@@ -73,6 +73,30 @@ mix allbert.settings set permissions.sandbox_trial denied
   be resumable, and cannot exceed the generated-permission ceiling validated by
   the loader.
 
+## Planned v1.0 Threat Surfaces
+
+The v0.39-to-v1.0 roadmap promotes several future capability classes that are
+not implemented yet. When those milestones land, the security review and eval
+surface must expand to cover:
+
+- MCP client and server tool/resource confusion, prompt injection, server
+  impersonation, and secret/env leakage.
+- Browser session state, navigation grants, screenshots, downloads, cookies,
+  and page-content prompt injection.
+- Discord, Slack, WhatsApp, Signal, iMessage, and Matrix identity mapping,
+  replay, pairing, group leakage, and callback ownership.
+- Voice, image, screenshot, and generated media resource retention, redaction,
+  provider cost, and cloud-upload policy.
+- Marketplace-lite provenance, disabled/untrusted defaults, and denial of
+  code-bearing remote plugin install.
+- API, ACP, MCP-server, and AG-UI/A2UI public protocol auth, rate limits,
+  CSP reconciliation, redaction, and confirmation ownership.
+- Operator-supervised self-improvement suggestion authority, disabled/untrusted
+  draft defaults, repeated-use non-grants, and v0.36/v0.37/v0.38 gate handoff.
+
+These are planned eval areas only; they do not imply the capabilities exist in
+the current release.
+
 ## Channel Pairing
 
 - CLI and LiveView are local operator channels.
