@@ -1955,7 +1955,7 @@ Status: implemented as `v0.37.0`; v0.37.1 post-implementation audit hardening
 and final gates completed on 2026-05-25. Reopened for v0.37.2
 capability-first generator and bounded model-backed committee implementation
 before tagging, then reopened for v0.37.3 delegated generated writes before
-tagging. The
+tagging, then reopened for v0.37.4 audit hardening before tagging. The
 self-extending-runtime engine now has file-backed dynamic drafts, v0.36 sandbox
 trial/gate handoff, trusted validation, dynamic lifecycle audit/signals, and
 gated live in-core integration for action artifacts. v0.37.2 must add
@@ -1974,6 +1974,11 @@ Security Central approval behavior; the dynamic action itself remains
 non-resumable.
 Broader generated app/config targets remain deferred until their validators
 exist.
+v0.37.4 closes the remaining release-readiness gaps: registered discard
+workflow, delegated-write security eval coverage, separate
+`:dynamic_codegen_request` permission with default `allowed`, validator
+coherence for delegated calls under `run/2`, explicit delegated approval-surface
+docs, version metadata closeout, and final release gates.
 Highest-capability and highest-risk milestone; its safety rests on the v0.36
 sandbox evidence plus operator-confirmed integration.
 
