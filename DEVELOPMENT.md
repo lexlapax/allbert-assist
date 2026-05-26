@@ -319,13 +319,14 @@ actions and known permission classes through Security Central. Do not
 auto-generate, compile, or load Elixir modules from arbitrary skill folders. If
 a new side effect is needed, add or scaffold ordinary Elixir action code,
 review it, test it, compile it, and register it before a skill can invoke it.
-v0.36 (ADR 0037) implements only the Elixir/OTP sandbox and gate runner: generated
-code/config may be compiled and tested in a configured OS sandbox with approved
-local images and source-policy checks, but that produces a report only and
-grants no live authority. v0.37 (ADR 0032, ADR 0033, ADR 0035) defines the only
-narrow hot-load exception: file-backed draft code under Allbert Home may be
-loaded into the core node only after the v0.36 gate passes plus explicit
-operator confirmation, as an audited, reversible integration.
+v0.36 (ADR 0037) implements only the Elixir/OTP sandbox and gate runner:
+generated code/config may be compiled and tested in a configured OS sandbox
+with approved local images and source-policy checks, but that produces a report
+only and grants no live authority. v0.37 (ADR 0032, ADR 0033, ADR 0035) defines
+the only narrow hot-load exception: file-backed draft code under Allbert Home
+may be loaded into the core node only through the implemented dynamic-loader
+path after `dynamic_codegen.enabled`, `dynamic_codegen.live_loader_enabled`, the
+v0.36 gate, trusted validation, and explicit operator confirmation all pass.
 Arbitrary/untrusted generated module loading, and integration without the gate
 or operator confirmation, remain forbidden.
 
