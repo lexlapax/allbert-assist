@@ -29,8 +29,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
          {:ok, profile} <- dynamic_provider_profile(context),
          :ok <- ensure_provider_ready(profile),
          {:ok, budget} <- budget_for(attrs, gap),
-         {:ok, role_packets, generated} <- Roles.run(gap, profile, budget, context),
-         {:ok, budget} <- consume_budget(budget, generated),
+         {:ok, role_packets, generated, budget} <- Roles.run(gap, profile, budget, context),
          {:ok, draft, manifest} <- write_draft(gap, profile, budget, generated, role_packets),
          :ok <- audit_draft_requested(gap, draft, profile, budget, context),
          :ok <- record_objective_event(gap, draft, profile, budget) do
@@ -106,38 +105,6 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
     ])
     |> Map.merge(gap.budget)
     |> Budget.check()
-  end
-
-  defp consume_budget(budget, generated) do
-    calls_used = Map.get(budget, "provider_calls_used", 0) + 1
-    usage_used = Map.get(budget, "provider_usage_units_used", 0) + usage_units(generated)
-
-    cond do
-      calls_used > Map.get(budget, "provider_calls_budget", calls_used) ->
-        {:error,
-         {:dynamic_codegen_budget_exhausted,
-          %{
-            "budget" => "provider_calls",
-            "requested" => calls_used,
-            "limit" => Map.get(budget, "provider_calls_budget")
-          }}}
-
-      is_integer(Map.get(budget, "provider_usage_units_budget")) and
-          usage_used > Map.get(budget, "provider_usage_units_budget") ->
-        {:error,
-         {:dynamic_codegen_budget_exhausted,
-          %{
-            "budget" => "provider_usage_units",
-            "requested" => usage_used,
-            "limit" => Map.get(budget, "provider_usage_units_budget")
-          }}}
-
-      true ->
-        {:ok,
-         budget
-         |> Map.put("provider_calls_used", calls_used)
-         |> Map.put("provider_usage_units_used", usage_used)}
-    end
   end
 
   defp write_draft(%CapabilityGap{} = gap, profile, budget, generated, role_packets) do
@@ -285,25 +252,6 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
   end
 
   defp context_value(context, key), do: Map.get(context, key) || Map.get(context, to_string(key))
-
-  defp usage_units(generated) do
-    cond do
-      is_integer(Map.get(generated, "usage_units")) ->
-        Map.get(generated, "usage_units")
-
-      is_integer(get_in(generated, ["usage", "total_tokens"])) ->
-        get_in(generated, ["usage", "total_tokens"])
-
-      is_integer(get_in(generated, ["usage", :total_tokens])) ->
-        get_in(generated, ["usage", :total_tokens])
-
-      is_integer(get_in(generated, [:usage, :total_tokens])) ->
-        get_in(generated, [:usage, :total_tokens])
-
-      true ->
-        0
-    end
-  end
 
   defp env_credential_available?(provider, provider_type) do
     env_keys =

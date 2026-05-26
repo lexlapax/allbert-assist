@@ -103,6 +103,36 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
 
     assert strict_json["additionalProperties"] == false
     assert Enum.sort(strict_json["required"]) == property_names
+
+    for role <- [:planner, :author, :trial_author, :critic, :repair] do
+      role_schema = Schema.role_schema(role)
+      role_property_names = role_schema.properties |> Map.keys() |> Enum.sort()
+
+      assert role_schema.additionalProperties == false
+      assert Enum.sort(role_schema.required) == role_property_names
+      assert {:ok, _compiled_schema} = ReqLLM.Schema.compile(role_schema)
+    end
+  end
+
+  test "provider-call budget caps the whole model-backed workflow" do
+    enable_dynamic_codegen!("local")
+
+    assert {:ok, _setting} =
+             Settings.put("dynamic_codegen.max_provider_calls_per_gap", 3, %{audit?: false})
+
+    assert {:error,
+            {:dynamic_codegen_budget_exhausted,
+             %{
+               "budget" => "provider_calls",
+               "role" => "critic",
+               "requested" => 4,
+               "limit" => 3
+             }}} =
+             DynamicPlugins.request_draft(%{
+               slug: "role_budget_gap",
+               summary: "Need a read-only diagnostic action",
+               target_shapes: ["action"]
+             })
   end
 
   test "explicit objective generation creates source-bearing draft metadata and an objective event" do
@@ -130,8 +160,8 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
     assert result.draft.slug == "objective_gap"
     assert result.draft.tier == "draft"
     assert result.draft.producer == "codegen_llm"
-    assert result.budget["provider_calls_used"] == 1
-    assert result.budget["provider_usage_units_used"] == 123
+    assert result.budget["provider_calls_used"] == 4
+    assert result.budget["provider_usage_units_used"] == 110
 
     assert result.manifest["modules"] == [
              "AllbertAssist.DynamicPlugins.Generated.ObjectiveGap.Action"
@@ -146,11 +176,14 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
     assert :ok = MetadataStore.verify_source_hashes(draft)
     assert {:ok, manifest} = MetadataStore.get_manifest("objective_gap")
     roles = get_in(manifest, ["generation", "roles"])
-    assert Enum.map(roles, & &1["role"]) == ~w[planner author trial_author critic repair]
+    assert Enum.map(roles, & &1["role"]) == ~w[planner author trial_author critic]
     assert Enum.all?(roles, &(&1["authority"] == "none"))
 
+    assert Enum.map(roles, & &1["status"]) ==
+             ~w[planned generated test_authored accepted]
+
     assert Enum.map(draft.repair_history, & &1["role"]) ==
-             ~w[planner author trial_author critic repair]
+             ~w[planner author trial_author critic]
 
     assert {:ok, _validation} = TrustedValidator.validate(draft, manifest)
     assert File.read!(Path.join(draft.root, "source/lib/action.ex")) =~ "defmodule"
