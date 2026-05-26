@@ -55,10 +55,10 @@ Do not load every section by default.
 | Browser and web research | ADR 0012, ADR 0013, ADR 0023, ADR 0025, ADR 0040, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
 | Discord and Slack channel plugins | ADR 0016, ADR 0017, `docs/plans/v0.43-plan.md`, `docs/plans/v0.43-request-flow.md` | v0.43 |
 | Plan/Build mode and operator workflow YAML | ADR 0021, ADR 0027, ADR 0041, `docs/plans/v0.44-plan.md`, `docs/plans/v0.44-request-flow.md` | v0.44 |
-| Operator-supervised self-improvement, trace-to-skill draft suggestions, dynamic capability review loops | ADR 0045, `docs/plans/v0.45-plan.md`, `docs/plans/v0.45-request-flow.md`, `docs/plans/future-features.md`, ADR 0032, ADR 0035, ADR 0037 | v0.45 |
-| Voice, vision, and media resources | ADR 0042, `docs/plans/v0.46-plan.md`, `docs/plans/v0.46-request-flow.md`, `docs/plans/v0.47-plan.md`, `docs/plans/v0.47-request-flow.md` | v0.46-v0.47 |
-| WhatsApp, Signal, iMessage, and Matrix channel plugins | ADR 0016, ADR 0017, `docs/plans/v0.48-plan.md`, `docs/plans/v0.48-request-flow.md` | v0.48 |
-| Marketplace lite and public protocol interop | ADR 0043, ADR 0044, `docs/plans/v0.49-plan.md`, `docs/plans/v0.49-request-flow.md` | v0.49 |
+| Marketplace lite | ADR 0043, `docs/plans/v0.45-plan.md`, `docs/plans/v0.45-request-flow.md` | v0.45 |
+| Operator-supervised self-improvement, trace-to-skill draft suggestions, dynamic capability review loops | ADR 0045, `docs/plans/v0.46-plan.md`, `docs/plans/v0.46-request-flow.md`, `docs/plans/future-features.md`, ADR 0032, ADR 0035, ADR 0037 | v0.46 |
+| Voice, vision, and media resources | ADR 0042, `docs/plans/v0.47-plan.md`, `docs/plans/v0.47-request-flow.md`, `docs/plans/v0.48-plan.md`, `docs/plans/v0.48-request-flow.md` | v0.47-v0.48 |
+| WhatsApp, Signal, iMessage, Matrix, and public protocol interop | ADR 0016, ADR 0017, ADR 0044, `docs/plans/v0.49-plan.md`, `docs/plans/v0.49-request-flow.md` | v0.49 |
 | Release candidate hardening and 1.0 contract freeze | `docs/plans/v0.50-plan.md`, `docs/plans/v0.50-request-flow.md`, `docs/plans/v1.0-plan.md`, `docs/plans/v1.0-request-flow.md` | v0.50-v1.0 |
 
 ## Version Map
@@ -283,24 +283,26 @@ Do not load every section by default.
 - v0.44 (planned): Plan/Build Mode And Operator Workflow YAML. Exposes
   Objective Runtime as a plan/review/execute surface and treats YAML as
   declarative objective-step input.
-- v0.45 (planned): Operator-Supervised Self-Improvement. Adds no autonomous
+- v0.45 (planned): Marketplace Lite. Adds reviewed skill/template discovery,
+  reviewed-source plugin index metadata, and template catalog metadata without
+  remote code-bearing plugin install.
+- v0.46 (planned): Operator-Supervised Self-Improvement. Adds no autonomous
   authority; proposes inert trace-to-skill, workflow, template, and dynamic
   capability drafts that must still route through v0.36 sandbox/gate, v0.37
   dynamic integration, v0.38 templates, Security Central, confirmations, traces,
-  and audits. Lands early so MCP, integration, browser, and team-channel
-  traces from v0.40-v0.44 feed the suggestion queue across the rest of the
-  1.0 arc.
-- v0.46 (planned): Voice Modality. Adds STT/TTS as media resources and
+  and audits. May add reviewed memory promotion/update draft facades and
+  objective/workflow draft-write facades only.
+- v0.47 (planned): Voice Modality. Adds STT/TTS as media resources and
   registered actions.
-- v0.47 (planned): Vision And Image Generation. Adds image/screenshot resources
+- v0.48 (planned): Vision And Image Generation. Adds image/screenshot resources
   and provider-backed image generation.
-- v0.48 (planned): Channel Pack 2 - WhatsApp, Signal, iMessage, And Matrix.
-  Adds mobile/personal messaging plugins after the team-channel pattern.
-- v0.49 (planned): Marketplace Lite And API/ACP/Protocol Interop. Adds reviewed
-  skill/template discovery and external protocol surfaces behind shared policy.
+- v0.49 (planned): Channel Pack 2 And Public Protocol Interop. Adds
+  WhatsApp/Signal/iMessage/Matrix plugins plus API, ACP, MCP-server, and
+  AG-UI/A2UI protocol surfaces behind shared policy.
 - v0.50 (planned): Hardening, Export/Import, And Final RC. Adds no new
-  features; proves portability, security evals including v0.45
-  self-improvement, CSP, docs, gates, and release-candidate evidence.
+  features; proves portability, security evals including v0.45 marketplace,
+  v0.46 self-improvement, v0.49 channels/protocols, CSP, docs, gates, and
+  release-candidate evidence.
 - v1.0 (planned): Stability Release And Public Contract Freeze. Adds no new
   features; freezes public runtime/action/plugin/app/surface/resource/workspace/
   channel/settings/home contracts.

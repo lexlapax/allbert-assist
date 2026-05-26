@@ -92,7 +92,8 @@ surface must expand to cover:
 - API, ACP, MCP-server, and AG-UI/A2UI public protocol auth, rate limits,
   CSP reconciliation, redaction, and confirmation ownership.
 - Operator-supervised self-improvement suggestion authority, disabled/untrusted
-  draft defaults, repeated-use non-grants, and v0.36/v0.37/v0.38 gate handoff.
+  draft defaults, repeated-use non-grants, reviewed memory/workflow draft
+  facades, and v0.36/v0.37/v0.38 gate handoff.
 
 These are planned eval areas only; they do not imply the capabilities exist in
 the current release.

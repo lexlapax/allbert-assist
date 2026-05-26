@@ -2,8 +2,8 @@
 
 ## Status
 
-Proposed for v0.46 Voice Modality and v0.47 Vision And Image Generation
-(`docs/plans/v0.46-plan.md`, `docs/plans/v0.47-plan.md`).
+- Proposed for v0.47 Voice Modality (`docs/plans/v0.47-plan.md`)
+- Proposed for v0.48 Vision And Image Generation (`docs/plans/v0.48-plan.md`)
 
 ## Context
 

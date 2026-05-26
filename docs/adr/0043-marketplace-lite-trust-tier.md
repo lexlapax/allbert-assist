@@ -2,8 +2,7 @@
 
 ## Status
 
-Proposed for v0.49 Marketplace Lite And API/ACP/Protocol Interop
-(`docs/plans/v0.49-plan.md`).
+Proposed for v0.45 Marketplace Lite (`docs/plans/v0.45-plan.md`).
 
 ## Context
 

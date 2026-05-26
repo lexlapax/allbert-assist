@@ -215,23 +215,21 @@ Dependency order from here:
 43. v0.44 Plan/Build mode and operator workflow YAML: workspace and channel UX
     over Objective Runtime, declarative workflow input, plan preview, and
     subagent delegation visibility.
-44. v0.45 Operator-supervised self-improvement: trace-to-skill, workflow,
-    template, and dynamic capability draft suggestions that remain inert
-    until operator review and the existing sandbox/gate/confirmation path.
-    Lands early so MCP, integration, browser, and team-channel traces from
-    v0.40-v0.44 feed the suggestion queue across the rest of the 1.0 arc.
-45. v0.46 Voice modality: experimental STT/TTS resource/action path for CLI,
+44. v0.45 Marketplace lite: reviewed skill/template discovery, reviewed-source
+    plugin index metadata, template catalog metadata, and disabled/untrusted
+    defaults without arbitrary remote code install.
+45. v0.46 Operator-supervised self-improvement: marketplace-aware
+    trace-to-skill, workflow, template, and dynamic capability draft
+    suggestions plus reviewed memory/workflow draft facades; no autonomous
+    authority.
+46. v0.47 Voice modality: experimental STT/TTS resource/action path for CLI,
     workspace, Discord voice, and Telegram voice-note ingestion.
-46. v0.47 Vision and image generation: image/screenshot resource classes,
+47. v0.48 Vision and image generation: image/screenshot resource classes,
     vision model profile checks, image-generation action, workspace rendering,
     retention, redaction, and cost visibility.
-47. v0.48 Channel Pack 2: WhatsApp, Signal, iMessage, and Matrix channel
-    plugins with provider-specific pairing, identity, retry, and privacy
-    policy.
-48. v0.49 Marketplace lite and API/ACP/protocol interop: reviewed skill
-    discovery, reviewed-source/plugin index metadata, template catalog
-    metadata, OpenAI-compatible API, ACP, MCP server, and public AG-UI/A2UI
-    bridge behind shared auth/rate-limit/CSP/redaction policy.
+48. v0.49 Channel Pack 2 and protocol interop: WhatsApp, Signal, iMessage, and
+    Matrix channels plus OpenAI-compatible API, ACP, MCP server, and public
+    AG-UI/A2UI bridge behind shared auth/rate-limit/CSP/redaction policy.
 49. v0.50 Hardening, export/import, and final RC: no new user-facing
     capability; Allbert Home portability, cross-surface security eval sweep,
     operator docs, performance hardening, CSP reconciliation, and
@@ -2211,31 +2209,46 @@ Expected direction:
 - Render plan previews, required capabilities/resources, confirmation points,
   subagent delegation, and background objective progress.
 
-## v0.45: Operator-Supervised Self-Improvement
+## v0.45: Marketplace Lite
 
 Plan: `docs/plans/v0.45-plan.md`
 Request flow: `docs/plans/v0.45-request-flow.md`
+ADR: `docs/adr/0043-marketplace-lite-trust-tier.md`
+
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
+not implemented.
+
+Expected direction:
+
+- Add reviewed skill/template discovery and install into disabled/untrusted
+  local state.
+- Add reviewed-source plugin index metadata without automatic code install.
+- Add template catalog metadata for `workspace:create`.
+- Keep arbitrary remote code-bearing plugin install, remote dependency
+  resolution, remote theme/snippet distribution, and MCP Apps iframe execution
+  out of 1.0.
+
+## v0.46: Operator-Supervised Self-Improvement
+
+Plan: `docs/plans/v0.46-plan.md`
+Request flow: `docs/plans/v0.46-request-flow.md`
 ADR: `docs/adr/0045-operator-supervised-self-improvement-trust-tier.md`
 
 Status: planned. Promoted from the v1.0 planning follow-up; not implemented.
 
 Expected direction:
 
-- Land the safe self-improvement precursor early in the 1.0 arc, while
-  operators are first generating rich trace patterns from MCP, everyday
-  integrations, browser research, team channels, and Plan/Build workflows.
+- Consume v0.45 marketplace-lite metadata plus v0.40-v0.44 traces as
+  suggestion sources.
 - Add trace-to-skill draft suggestions from repeated prompts, repeated action
   chains, corrections, failed intents, or operator-marked examples.
 - Add workflow/intention draft suggestions that turn repeated objective
   patterns into inert workflow YAML or v0.38 template inputs.
-- Connect the origin-note self-recompilation idea to the current safe path:
-  v0.36 sandbox/gate reports, v0.37 dynamic code/config generation and gated
-  live integration, and v0.38 deterministic templates.
+- Add reviewed memory promotion/update draft facades and objective/workflow
+  draft-write facades only.
 - Keep every suggestion advisory and inert until the operator reviews it and
   sends it through the existing creation, sandbox/gate, confirmation, trace,
   and audit paths.
-- Defer marketplace-driven reviewed-skill/template discovery to a small
-  follow-on after v0.49 marketplace-lite ships.
 
 Non-goals:
 
@@ -2245,12 +2258,14 @@ Non-goals:
 - No small-model/personality distillation or learned system-memory authority.
 - No unsupervised self-recompilation, compiler-loop bootstrapping, or runtime
   mutation outside the v0.36/v0.37/v0.38 review path.
+- No settings, secrets, shell, package, confirmation-decision, trust-control,
+  or live workspace/canvas write facades.
 - No distributed multi-node or hosted multi-user execution model.
 
-## v0.46: Voice Modality
+## v0.47: Voice Modality
 
-Plan: `docs/plans/v0.46-plan.md`
-Request flow: `docs/plans/v0.46-request-flow.md`
+Plan: `docs/plans/v0.47-plan.md`
+Request flow: `docs/plans/v0.47-request-flow.md`
 ADR: `docs/adr/0042-audio-image-and-media-resource-classes.md`
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
@@ -2264,10 +2279,10 @@ Expected direction:
 - Keep captured audio bounded, redacted from traces by default, and retained
   only by explicit operator policy.
 
-## v0.47: Vision And Image Generation
+## v0.48: Vision And Image Generation
 
-Plan: `docs/plans/v0.47-plan.md`
-Request flow: `docs/plans/v0.47-request-flow.md`
+Plan: `docs/plans/v0.48-plan.md`
+Request flow: `docs/plans/v0.48-request-flow.md`
 ADR: `docs/adr/0042-audio-image-and-media-resource-classes.md`
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
@@ -2279,10 +2294,11 @@ Expected direction:
 - Add image generation as a registered action with provider profile, cost
   visibility, workspace rendering, retention, and redaction.
 
-## v0.48: Channel Pack 2 - WhatsApp, Signal, iMessage, And Matrix
+## v0.49: Channel Pack 2 And Public Protocol Interop
 
-Plan: `docs/plans/v0.48-plan.md`
-Request flow: `docs/plans/v0.48-request-flow.md`
+Plan: `docs/plans/v0.49-plan.md`
+Request flow: `docs/plans/v0.49-request-flow.md`
+ADR: `docs/adr/0044-public-protocol-exposure.md`
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
 
@@ -2294,22 +2310,6 @@ Expected direction:
   privacy behavior explicit in Settings Central and operator docs.
 - Keep SMS parked outside 1.0 until cost, truncation, and phone-number policy
   have a dedicated design.
-
-## v0.49: Marketplace Lite And API/ACP/Protocol Interop
-
-Plan: `docs/plans/v0.49-plan.md`
-Request flow: `docs/plans/v0.49-request-flow.md`
-ADRs: `docs/adr/0043-marketplace-lite-trust-tier.md`,
-`docs/adr/0044-public-protocol-exposure.md`
-
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
-
-Expected direction:
-
-- Add reviewed-skill-only discovery/install, reviewed-source-only plugin index
-  metadata, and template catalog metadata.
-- Exclude arbitrary remote code-bearing plugin install, remote theme/snippet
-  distribution, and MCP Apps iframe execution from 1.0.
 - Add OpenAI-compatible local HTTP API, ACP server mode, MCP server mode, and
   public AG-UI/A2UI bridge behind one auth/rate-limit/CSP/redaction policy.
 
@@ -2318,16 +2318,16 @@ Expected direction:
 Plan: `docs/plans/v0.50-plan.md`
 Request flow: `docs/plans/v0.50-request-flow.md`
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md` and updated after
-v0.45 self-improvement was placed early in the arc; not implemented.
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
+not implemented.
 
 Expected direction:
 
 - Add no new user-facing capability.
 - Prove Allbert Home export/import dry runs, secret migration policy, schema
   metadata, rollback docs, and identical behavior on a second machine.
-- Run the full security eval sweep across self-improvement, MCP, integrations,
-  browser, channels, Plan/Build, voice, vision, marketplace, API, ACP, and
+- Run the full security eval sweep across MCP, integrations, browser, channels,
+  Plan/Build, marketplace, self-improvement, voice, vision, API, ACP, and
   protocol interop.
 - Gather final RC evidence for the v1.0 contract freeze.
 
@@ -2352,10 +2352,9 @@ Allbert is not behind OpenClaw or Hermes on architecture; it is ahead on
 architecture and behind on shipped capability. The v0.38-to-v1.0 arc is a
 delivery push over already-proven substrates: templates first, onboarding and
 provider control next, then MCP, everyday integrations, browser research,
-team channels, Plan/Build, operator-supervised self-improvement (placed early
-so the rest of the arc feeds its suggestion queue), media, mobile channels,
-marketplace/protocol interop, hardening/export, final RC evidence, and a
-contract freeze.
+team channels, Plan/Build, marketplace-lite, operator-supervised
+self-improvement, media, mobile channels/protocol interop, hardening/export,
+final RC evidence, and a contract freeze.
 
 1.0 acceptance requires disposable-home proof that:
 
@@ -2381,7 +2380,7 @@ Expected direction:
 
 - Explore small-model memory/personality distillation only after memory,
   deletion, trace quality, reproducibility, and evals are trustworthy.
-- Explore autonomous skill creation only after the v0.49 supervised precursor
+- Explore autonomous skill creation only after the v0.46 supervised precursor
   proves suggestion quality, review ergonomics, and safety invariants.
 - Explore deeper self-modification only if it remains reviewable, reversible,
   auditable, and bounded by explicit operator authority.
