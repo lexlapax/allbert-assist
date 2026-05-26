@@ -1,6 +1,6 @@
 defmodule AllbertAssist.DynamicPlugins.Codegen.Targets.Action do
   @moduledoc """
-  Path and source helpers for generated read-only action drafts.
+  Path and source helpers for generated action drafts.
 
   This module is deterministic. It normalizes names and stamps the reserved
   dynamic namespace onto advisory source before the source enters draft storage.

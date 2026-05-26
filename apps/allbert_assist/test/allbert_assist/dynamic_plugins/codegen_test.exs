@@ -266,6 +266,42 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
            end)
   end
 
+  test "fake provider can author a delegated memory_write draft when policy allows it" do
+    enable_dynamic_codegen!("local")
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "dynamic_codegen.allowed_action_permissions",
+               ["read_only", "memory_write"],
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} =
+             Settings.put("dynamic_codegen.allowed_facades", ["append_memory"], %{audit?: false})
+
+    assert {:ok, result} =
+             DynamicPlugins.request_draft(
+               %{
+                 slug: "delegated_memory_gap",
+                 summary: "Create a generated action to remember a memory note",
+                 source: "operator",
+                 target_shapes: ["action"]
+               },
+               context()
+             )
+
+    assert result.draft.slug == "delegated_memory_gap"
+
+    assert {:ok, draft} = DynamicPlugins.get_draft("delegated_memory_gap")
+    assert {:ok, manifest} = MetadataStore.get_manifest("delegated_memory_gap")
+    assert get_in(manifest, ["actions", Access.at(0), "permission"]) == "memory_write"
+    assert {:ok, _validation} = TrustedValidator.validate(draft, manifest)
+
+    source = File.read!(Path.join(draft.root, "source/lib/action.ex"))
+    assert source =~ "permission: :memory_write"
+    assert source =~ ~s(AllbertAssist.DynamicPlugins.Delegate.run("append_memory")
+  end
+
   test "repair creates a new revision from bounded sandbox evidence" do
     enable_dynamic_codegen!("local")
 

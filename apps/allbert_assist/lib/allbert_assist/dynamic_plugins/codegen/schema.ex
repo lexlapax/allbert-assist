@@ -7,7 +7,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Schema do
   sandbox, trusted validation, and operator confirmation before live use.
   """
 
-  @doc "JSON-schema shape for one read-only action draft generation packet."
+  @doc "JSON-schema shape for one action draft generation packet."
   def action_draft_schema do
     author_schema()
     |> put_in([:properties, "test_source"], %{type: "string"})
