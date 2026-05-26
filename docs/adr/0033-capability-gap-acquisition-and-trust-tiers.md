@@ -7,7 +7,9 @@ Integration (`docs/plans/v0.37-plan.md`) on 2026-05-25. Revised after the
 v0.36 second pass: v0.36 owns the sandbox evidence states; v0.37 owns
 capability-gap acquisition, dynamic draft trust tiers, gated integration, and
 rollback. The shipped v0.37.1 live target is reviewed read-only actions only;
-broader generated app/config targets remain future work.
+v0.37.3 extends the action-only live target to delegated `:memory_write` and
+`:external_network` actions whose effects route through reviewed facades.
+Broader generated app/config targets remain future work.
 
 ## Context
 
@@ -64,11 +66,14 @@ v0.37 defines draft trust tiers:
 - `:discarded` - no longer active.
 
 Only `:integrated` grants live core-node loading and registration, and only via
-the ADR 0032 gate. In v0.37.1, generated live authority is limited to reviewed
-read-only actions, validated runtime call targets, and the normal registered
-action boundary. No other tier grants action permissions, route authority,
-settings authority, skill enablement, child supervision, or core-node module
-loading. No tier is reached by advisory/agent output alone.
+the ADR 0032 gate. Generated live authority is limited to reviewed action
+targets, validated runtime call targets, and the normal registered action
+boundary. A delegated generated write action's effective authority is the
+validator-proven pairing of its declared permission with a reviewed facade
+permission; model output, draft metadata, and trust tier names do not grant that
+authority by themselves. No other tier grants action permissions, route
+authority, settings authority, skill enablement, child supervision, or core-node
+module loading. No tier is reached by advisory/agent output alone.
 
 Legal tier transitions are explicit:
 
@@ -101,7 +106,8 @@ defers atomic supersede. `:discarded` is terminal for that revision.
   requires operator confirmation and is never automatic.
 - Trust tiers do not override the generated-permission ceiling. A live dynamic
   action can only expose permissions and runtime call targets accepted by the
-  loader validator.
+  loader validator, and a delegated write must match a reviewed allowlisted
+  facade permission.
 
 ## Non-Goals
 
