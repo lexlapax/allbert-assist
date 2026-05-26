@@ -197,46 +197,62 @@ Dependency order from here:
 37. v0.38 Templated creation: vetted plugin/app/LLM-tool/scheduled-flow/code
     templates via Mix tasks, operator workspace flows, and a Canvas Create
     surface, reusing the v0.36 sandbox and v0.37 loader.
-38. v0.39 First-run onboarding, provider control, identity slot, and Active
-    Memory: guided operator setup over existing objectives/actions/settings,
-    model/provider selection, optional inert identity memory, and deterministic
-    pre-reply reviewed-memory retrieval.
-39. v0.40 MCP client integration: explicit MCP server configuration, trust
+38. v0.39 First-run onboarding and provider control: guided operator setup
+    over existing objectives/actions/settings, model/provider selection, and
+    provider doctor (credentialed-remote + local-endpoint branches). Active
+    Memory and identity slot moved to v0.39b.
+39. v0.39b Identity slot and Active Memory: optional inert `identity` memory
+    namespace plus deterministic pre-reply reviewed-memory retrieval scoped to
+    `{thread_id, active_app, identity}`. Algorithm spec'd in
+    `docs/research/active-memory-retrieval.md`.
+40. v0.40 MCP client integration: explicit MCP server configuration, trust
     tier, Resource Access mapping for `mcp://` resources, and registered MCP
     actions under Security Central.
-40. v0.41 Everyday Integration Pack 1: calendar, mail, GitHub, and notes/files
-    as plugin/app surfaces that use MCP where useful and native plugins when a
-    richer workspace surface or memory namespace is needed.
-41. v0.42 Browser and web research: browser-session Resource Access policy,
+41. v0.41 MCP-first Integration Pack 1: workspace summary panels for calendar,
+    mail, GitHub, and notes/files **using MCP servers only**. Plus the
+    `notes/files` native reference plugin as a starter scaffold for plugin
+    authors (does NOT replace StockSage as the depth reference). Native
+    integration plugins for the other three are post-1.0 follow-on (v0.41.x).
+42. v0.42 Browser and web research: browser-session Resource Access policy,
     sandboxed browser plugin, research/extract/screenshot actions, and bounded
     HTML/markdown/text/PDF extraction.
-42. v0.43 Channel Pack 1: Discord and Slack channel plugins reusing the v0.16
-    adapter boundary and v0.17 plugin contract.
-43. v0.44 Plan/Build mode and operator workflow YAML: workspace and channel UX
-    over Objective Runtime, declarative workflow input, plan preview, and
-    subagent delegation visibility.
-44. v0.45 Marketplace lite: reviewed skill/template discovery, reviewed-source
-    plugin index metadata, template catalog metadata, and disabled/untrusted
-    defaults without arbitrary remote code install.
-45. v0.46 Operator-supervised self-improvement: marketplace-aware
+43. v0.43 Channel Pack 1 (Discord and Slack) + ADR 0016 amendment for the
+    channel approval-primitive contract (`{list, button, typed_command, link}`).
+    Locks the channel approval shape before mobile channels need it.
+44. v0.44 Plan/Build mode and operator workflow YAML: workspace and channel UX
+    over Objective Runtime, declarative workflow input (lives under
+    `<ALLBERT_HOME>/workflows/`), plan preview, and subagent delegation
+    visibility.
+45. v0.45 Marketplace lite — data shape + Allbert-author seeds only: catalog
+    schema, install path, provenance/hash/version/rollback metadata, with
+    Allbert-author bundles only. Community-submission governance is parked.
+    Starts the v0.50 ADR for settings schema migration policy (ADR 0046).
+46. v0.46 Operator-supervised self-improvement: marketplace-aware
     trace-to-skill, workflow, template, and dynamic capability draft
     suggestions plus reviewed memory/workflow draft facades; no autonomous
     authority.
-46. v0.47 Voice modality: experimental STT/TTS resource/action path for CLI,
+47. v0.47 Voice modality: experimental STT/TTS resource/action path for CLI,
     workspace, Discord voice, and Telegram voice-note ingestion.
-47. v0.48 Vision and image generation: image/screenshot resource classes,
+48. v0.48 Vision and image generation: image/screenshot resource classes,
     vision model profile checks, image-generation action, workspace rendering,
     retention, redaction, and cost visibility.
-48. v0.49 Channel Pack 2 and protocol interop: WhatsApp, Signal, iMessage, and
-    Matrix channels plus OpenAI-compatible API, ACP, MCP server, and public
-    AG-UI/A2UI bridge behind shared auth/rate-limit/CSP/redaction policy.
-49. v0.50 Hardening, export/import, and final RC: no new user-facing
-    capability; Allbert Home portability, cross-surface security eval sweep,
-    operator docs, performance hardening, CSP reconciliation, and
+49. v0.49 Channel Pack 2 — WhatsApp, Signal, and Matrix. iMessage is parked
+    (macOS-only platform constraint).
+50. v0.49b MCP Server Mode: Allbert exposes registered actions as MCP tools
+    and memory namespaces as MCP resources. Single protocol surface only.
+    OpenAI-compatible API, ACP server, and public AG-UI/A2UI bridge are parked
+    post-1.0.
+51. v0.50 Hardening, export/import, settings schema migration substrate, and
+    final RC: no new user-facing capability; Allbert Home portability,
+    cross-surface security eval sweep, operator docs, performance hardening,
+    CSP reconciliation, settings schema migration tool (per ADR 0046), and
     release-candidate closeout.
-50. v1.0 Stability release and public contract freeze: no new features; freeze
-    runtime, action, plugin, app, surface, resource, workspace, channel,
-    Settings Central, and Allbert Home contracts.
+52. v1.0 Stability release and **tiered public contract freeze**: no new
+    features; freeze Tier 1 (Runtime, Actions/permissions, Plugin, App,
+    Settings Central schema shape, Allbert Home layout, Channel adapter
+    boundary, Resource Access URI/grants) and Tier 2 (SurfaceProvider, Surface
+    DSL with additive-only carve-out, workspace canvas/ephemeral substrate
+    minus single-consumer components).
 
 `config.exs` remains deployment and boot configuration. It should not become
 the user/operator settings surface. `ALLBERT_HOME` is bootstrap configuration:
@@ -2109,12 +2125,15 @@ Expected direction:
   onboarding updates, runtime-boundary-map updates, and agent-context-map
   updates.
 
-## v0.39: First-Run Onboarding, Provider Control, Identity Slot, And Active Memory
+## v0.39: First-Run Onboarding And Provider Control
 
 Plan: `docs/plans/v0.39-plan.md`
 Request flow: `docs/plans/v0.39-request-flow.md`
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not
+implemented. Split from the original "Onboarding + Provider + Identity + Active
+Memory" bundle — identity slot and Active Memory now ship in v0.39b so each
+sub-milestone has its own focused scope.
 
 Expected direction:
 
@@ -2122,10 +2141,38 @@ Expected direction:
   `/workspace`.
 - Add provider/model control-plane UX over existing Settings Central
   provider/model profile schema.
-- Add an optional inert `identity` memory namespace for operator-editable
-  personality/context material.
-- Add deterministic pre-reply Active Memory retrieval using the existing memory
-  review/retrieval substrate.
+- Provider doctor has two code paths: `:credentialed_remote` (bounded probe
+  with redacted summary) and `:local_endpoint` (reachability + model presence
+  via `/api/tags` or equivalent). Both return the same redacted summary shape.
+- Doctor reports model availability, context window, deprecation hints, and
+  recent rate-limit signals — not just credential validity.
+- Drop the placeholder "no hidden failover; explicit operator opt-in only"
+  wording. Model fallback policy is parked (see `future-features.md`).
+
+## v0.39b: Identity Slot And Active Memory
+
+Plan: `docs/plans/v0.39b-plan.md`
+Request flow: `docs/plans/v0.39b-request-flow.md`
+Research note: `docs/research/active-memory-retrieval.md`
+
+Status: planned. New slot split off from v0.39 in the post-v0.37 planning
+pass. Active Memory retrieval has architectural risk that v0.39's onboarding
+should not block.
+
+Expected direction:
+
+- Add an optional inert `identity` memory namespace under
+  `<ALLBERT_HOME>/memory/identity/` for operator-editable personality/context
+  material. Inert content; never grants permission or executes.
+- Add deterministic pre-reply Active Memory retrieval using the existing v0.21
+  memory review/retrieval substrate. Scope: `{thread_id, active_app, identity}`.
+- Algorithm: deterministic recency-weighted lexical scoring over
+  reviewed-promoted entries. Top-K bounded (default K=5 chunks, ≤2KB each). No
+  embeddings; same query + same memory state returns the same chunks
+  byte-for-byte (replayable from traces). Embedding-backed retrieval is a
+  future advisory provider per ADR 0021, not v0.39b.
+- Trace metadata renders the retrieved chunk ids, scoring breakdown, and any
+  excluded candidates so retrieval is operator-auditable.
 
 ## v0.40: MCP Client Integration
 
@@ -2145,22 +2192,32 @@ Expected direction:
 - Validate the first MCP client path against GitHub, Notion, Google Drive, and
   Postgres server shapes.
 
-## v0.41: Everyday Integration Pack 1
+## v0.41: MCP-First Integration Pack 1
 
 Plan: `docs/plans/v0.41-plan.md`
 Request flow: `docs/plans/v0.41-request-flow.md`
 ADR: `docs/adr/0039-mcp-first-native-plugin-second-integrations.md`
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
+not implemented. Tightened in the post-v0.37 planning pass to **MCP-configured
+only** plus one native reference plugin (notes/files). Native plugins for the
+other integrations move to v0.41.x follow-on releases.
 
 Expected direction:
 
-- Ship calendar, mail, GitHub, and notes/files plugin/app surfaces.
-- Prefer MCP configuration where it is enough, and native plugin/app surfaces
-  only when richer workspace panels, intent descriptors, or memory namespaces
-  are needed.
+- Ship workspace summary panels for **calendar, mail, GitHub, and notes/files**
+  driven entirely by **MCP servers configured in v0.40**. No native plugin
+  surface for calendar/mail/GitHub in v0.41.
+- Ship a **`notes/files` native reference plugin** as a starter scaffold for
+  plugin authors: minimal app+SurfaceProvider+memory-namespace+intent-descriptor
+  example. This is the developer-onboarding reference; StockSage remains the
+  depth reference.
+- Ship intent descriptors per integration so v0.33 handoff works.
 - Keep integration effects behind registered actions, Resource Access,
   Security Central, confirmations, traces, and audits.
+- Native integration plugins for calendar/mail/GitHub graduate to **v0.41.x
+  follow-on releases** only when MCP coverage proves insufficient for a
+  specific workspace surface or memory-namespace need. Not 1.0-blocking.
 
 ## v0.42: Browser And Web Research
 
@@ -2182,8 +2239,13 @@ Expected direction:
 
 Plan: `docs/plans/v0.43-plan.md`
 Request flow: `docs/plans/v0.43-request-flow.md`
+ADR: `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
+(v0.43 amendment for approval primitives)
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
+not implemented. Broadened in the post-v0.37 planning pass to lock the
+channel-approval primitive contract here (before v0.49 mobile channels need
+it).
 
 Expected direction:
 
@@ -2192,6 +2254,12 @@ Expected direction:
   Handoff, and redaction boundaries.
 - Prove workspace/server identity mapping, group/channel authorization, mention
   handling, threaded replies, and callback affordances.
+- **Amend ADR 0016** to declare the four standardized approval primitives —
+  `{list, button, typed_command, link}` — each channel adapter declares its
+  supported subset in its plugin descriptor; `Approval.Handoff` picks the
+  highest-fidelity primitive available. Telegram: button. Email: typed_command.
+  Discord: button. Slack: button. Mobile channels (v0.49) inherit the same
+  contract.
 
 ## v0.44: Plan/Build Mode And Operator Workflow YAML
 
@@ -2199,34 +2267,52 @@ Plan: `docs/plans/v0.44-plan.md`
 Request flow: `docs/plans/v0.44-request-flow.md`
 ADR: `docs/adr/0041-plan-build-and-operator-workflow-yaml.md`
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
+not implemented. Workflow YAML location clarified in the post-v0.37 planning
+pass.
 
 Expected direction:
 
 - Add Plan/Build as an operator surface over Objective Runtime.
 - Treat workflow YAML as declarative input that produces objective steps, not a
   new execution engine.
+- **User-authored workflow YAML lives under
+  `<ALLBERT_HOME>/workflows/<workflow-id>.yaml`**. Each file validates against
+  the v0.44 schema; unknown keys fail closed. Workflows are inert data; the
+  runtime never executes them — it expands them into objective steps at
+  request time.
 - Render plan previews, required capabilities/resources, confirmation points,
   subagent delegation, and background objective progress.
 
-## v0.45: Marketplace Lite
+## v0.45: Marketplace Lite (Data Shape + Allbert-Author Seeds)
 
 Plan: `docs/plans/v0.45-plan.md`
 Request flow: `docs/plans/v0.45-request-flow.md`
 ADR: `docs/adr/0043-marketplace-lite-trust-tier.md`
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
-not implemented.
+not implemented. Tightened in the post-v0.37 planning pass to ship the
+**data shape and Allbert-author seed bundles only**; community-submission
+governance is parked.
 
 Expected direction:
 
-- Add reviewed skill/template discovery and install into disabled/untrusted
-  local state.
+- Ship the catalog **schema**, install path, provenance/hash/version/rollback
+  metadata, and disabled/untrusted-on-install default.
+- Ship **Allbert-author seed bundles only** for the v0.45 catalog (no
+  community submissions, no external reviewers). Operators see a small but
+  fully-reviewed catalog.
+- Community submission/review process is parked in `future-features.md` under
+  "Marketplace Community Submission / Review Governance"; promote post-1.0
+  when the project decides on governance.
 - Add reviewed-source plugin index metadata without automatic code install.
 - Add template catalog metadata for `workspace:create`.
 - Keep arbitrary remote code-bearing plugin install, remote dependency
   resolution, remote theme/snippet distribution, and MCP Apps iframe execution
   out of 1.0.
+- **Start drafting ADR 0046** (Settings Central schema migration policy) here
+  because marketplace adds new settings fragments; ADR is accepted before
+  v0.50 implements the migration tool.
 
 ## v0.46: Operator-Supervised Self-Improvement
 
@@ -2294,41 +2380,80 @@ Expected direction:
 - Add image generation as a registered action with provider profile, cost
   visibility, workspace rendering, retention, and redaction.
 
-## v0.49: Channel Pack 2 And Public Protocol Interop
+## v0.49: Channel Pack 2 - WhatsApp, Signal, And Matrix
 
 Plan: `docs/plans/v0.49-plan.md`
 Request flow: `docs/plans/v0.49-request-flow.md`
-ADR: `docs/adr/0044-public-protocol-exposure.md`
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
+not implemented. Scope tightened in the post-v0.37 planning pass: **iMessage
+parked** (macOS-only platform constraint), public protocol interop split into
+v0.49b (MCP server mode only).
 
 Expected direction:
 
-- Add WhatsApp, Signal, iMessage, and Matrix plugins after the Discord/Slack
-  channel patterns are proven.
+- Add WhatsApp, Signal, and Matrix plugins after the Discord/Slack channel
+  patterns are proven.
+- Reuse the v0.43 ADR 0016 amendment for channel approval primitives. WhatsApp
+  and Signal declare `typed_command` support; Matrix declares `button` for
+  bot-room contexts and `typed_command` otherwise.
 - Keep provider-specific pairing, delivery/retry/dedupe, platform limits, and
   privacy behavior explicit in Settings Central and operator docs.
-- Keep SMS parked outside 1.0 until cost, truncation, and phone-number policy
-  have a dedicated design.
-- Add OpenAI-compatible local HTTP API, ACP server mode, MCP server mode, and
-  public AG-UI/A2UI bridge behind one auth/rate-limit/CSP/redaction policy.
+- Keep SMS and iMessage parked. iMessage moves to `future-features.md` because
+  its macOS-only platform constraint warrants a dedicated platform-policy
+  decision rather than 1.0-arc bundling.
 
-## v0.50: Hardening, Export/Import, And Final RC
+## v0.49b: MCP Server Mode
+
+Plan: `docs/plans/v0.49b-plan.md`
+Request flow: `docs/plans/v0.49b-request-flow.md`
+ADR: `docs/adr/0044-public-protocol-exposure.md` (rewritten to MCP-server-only
+scope)
+
+Status: planned. New slot split from the original v0.49 protocol-interop
+bundle in the post-v0.37 planning pass.
+
+Expected direction:
+
+- Allbert exposes its registered actions as MCP **tools** and memory
+  namespaces (per app) as MCP **resources**. Symmetric to the v0.40 MCP client
+  work.
+- Single protocol surface. **OpenAI-compatible local HTTP API, ACP server
+  mode, and public AG-UI/A2UI bridge are parked** in `future-features.md`
+  until concrete operator demand and explicit auth/CSP policy decisions exist.
+- External MCP clients (Claude Desktop, Cursor, ChatGPT MCP, other agents)
+  never receive more authority than local workspace users.
+- External MCP clients cannot approve their own confirmations; Approval
+  Handoff remains operator-owned and renders through the workspace or origin
+  channel.
+- All effectful work still routes through `Actions.Runner.run/3`, Security
+  Central, confirmations, Resource Access, traces, and audits.
+
+## v0.50: Hardening, Export/Import, Settings Migration, And Final RC
 
 Plan: `docs/plans/v0.50-plan.md`
 Request flow: `docs/plans/v0.50-request-flow.md`
+ADR: `docs/adr/0046-settings-schema-migration-policy.md` (accepted here;
+drafted in v0.45)
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
-not implemented.
+not implemented. Settings schema migration substrate added in the post-v0.37
+planning pass.
 
 Expected direction:
 
 - Add no new user-facing capability.
 - Prove Allbert Home export/import dry runs, secret migration policy, schema
   metadata, rollback docs, and identical behavior on a second machine.
-- Run the full security eval sweep across MCP, integrations, browser, channels,
-  Plan/Build, marketplace, self-improvement, voice, vision, API, ACP, and
-  protocol interop.
+- **Implement the Settings Central schema migration tool** per ADR 0046:
+  per-fragment `schema_version`, additive-only between minor releases,
+  one-release deprecation window, `mix allbert.settings.migrate` runner,
+  operator-visible pending-migration report on boot.
+- Run the full security eval sweep across MCP client, integrations, browser,
+  channels (Discord/Slack and WhatsApp/Signal/Matrix), Plan/Build,
+  marketplace, self-improvement, voice, vision, and MCP server mode. (OpenAI
+  API / ACP / AG-UI/A2UI evals are out of 1.0 scope per the parked protocol
+  decision.)
 - Gather final RC evidence for the v1.0 contract freeze.
 
 ## v1.0: Stability Release And Public Contract Freeze
@@ -2351,26 +2476,65 @@ Expected direction:
 Allbert is not behind OpenClaw or Hermes on architecture; it is ahead on
 architecture and behind on shipped capability. The v0.38-to-v1.0 arc is a
 delivery push over already-proven substrates: templates first, onboarding and
-provider control next, then MCP, everyday integrations, browser research,
-team channels, Plan/Build, marketplace-lite, operator-supervised
-self-improvement, media, mobile channels/protocol interop, hardening/export,
-final RC evidence, and a contract freeze.
+provider control next, identity slot + Active Memory, then MCP client,
+MCP-first integrations, browser research, team channels, Plan/Build,
+marketplace seed, operator-supervised self-improvement, media, mobile
+channels, MCP server mode, hardening/export with settings migration, final RC
+evidence, and a tiered contract freeze.
 
-1.0 acceptance requires disposable-home proof that:
+The strategic moat is the safety architecture (Security Central, durable
+confirmations, Resource Access posture, sandbox/gate runner, reversible
+dynamic loader). The 1.0 commitment is to add user-visible capability under
+that authority boundary without compromising it.
 
-- first-run setup succeeds on macOS, Linux, and Windows/WSL2;
-- the operator can choose local Ollama, OpenAI, Anthropic, or OpenRouter;
-- at least one remote channel is connected;
-- at least one everyday integration runs;
-- at least one MCP server runs under policy;
-- a web target can be researched with approved navigation scope;
-- a multi-step plan can be reviewed and approved before execution;
-- voice, screenshot, reviewed-skill marketplace, ACP/editor, and export/import
-  flows work through their planned surfaces;
-- trace-to-skill, trace-to-workflow, template, and dynamic capability
-  suggestions remain inert until operator review and the existing
-  sandbox/gate/confirmation path;
-- all warning, security, precommit, and cross-surface eval gates pass.
+### 1.0 Acceptance Matrix (freeze-blocking)
+
+Tightened in the post-v0.37 planning pass to 8 criteria. Each item is a
+disposable-home checkpoint the release cannot ship without:
+
+1. First-run setup succeeds on macOS, Linux, and Windows/WSL2 (v0.39).
+2. Operator can choose local Ollama, OpenAI, Anthropic, or OpenRouter through
+   the provider doctor (v0.39).
+3. Operator can connect at least one remote channel — Telegram, email,
+   Discord, Slack, WhatsApp, Signal, or Matrix (v0.16 / v0.43 / v0.49).
+4. Operator can configure and use at least one MCP server under policy
+   (v0.40).
+5. Operator can ask Allbert to research a web target with approved navigation
+   scope (v0.42).
+6. Operator can review and approve a multi-step plan before execution
+   (v0.44).
+7. Operator can export Allbert Home and re-import on a second machine with
+   identical behavior, including settings migration (v0.50 + ADR 0046).
+8. All warning, security, precommit, and cross-surface eval gates pass
+   (v0.50).
+
+### Capabilities That Ship In The Arc But Are Not Freeze-Blocking
+
+These are part of the 1.0 release but do not block the freeze if their
+acceptance criteria are subjective or provider-dependent:
+
+- Identity slot + Active Memory (v0.39b) — algorithm is deterministic but
+  retrieval quality is subjective.
+- MCP-first integration panels + notes/files reference plugin (v0.41).
+- Marketplace seed catalog (v0.45) — content scarcity is honest; the data
+  shape is the deliverable.
+- Self-improvement suggestion quality (v0.46) — quality bar is subjective.
+- Voice (v0.47) — explicitly experimental.
+- Vision and image generation (v0.48) — provider-dependent quality.
+- MCP Server Mode (v0.49b) — external-client interop is verifiable but
+  ecosystem maturity varies.
+
+### Capabilities Parked Post-1.0
+
+Moved out of the 1.0 arc into `future-features.md`:
+
+- OpenAI-compatible local HTTP API.
+- ACP server mode.
+- Public AG-UI/A2UI bridge.
+- iMessage channel adapter.
+- Native plugin variants for calendar / mail / GitHub integrations beyond MCP
+  (v0.41.x follow-on if needed).
+- Marketplace community submission / review governance.
 
 ## Future: Distillation, Autonomy, And Distributed Operation
 
