@@ -239,7 +239,7 @@ Do not load every section by default.
   records, and fail-closed denial of
   network, secrets, real Allbert Home, package-manager execution, NIFs, ports,
   shell strings, and untrusted core loading. Per ADR 0037 and ADR 0009.
-- v0.37 (implemented as `v0.37.5`): Dynamic Code & Config Generation And Live
+- v0.37 (released as `v0.37.5`): Dynamic Code & Config Generation And Live
   Capability Integration. Adds file-backed dynamic draft metadata under
   `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/`, an explicit source-bearing
   read-only/delegated action generator for capability gaps, v0.36 sandbox

@@ -32,8 +32,8 @@ registered Jido actions and agents, durable confirmations, Settings Central,
 Security Central, local traces, markdown memory, jobs, objectives, reviewed
 plugin apps, StockSage as the reference app, Allbert Home-based theming/layout
 overrides, a default-off report-only Elixir/OTP sandbox and gate runner, and a
-default-off dynamic draft/live integration path for reviewed read-only action
-artifacts.
+default-off dynamic draft/live integration path for reviewed read-only and
+delegated memory/network action artifacts.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -46,8 +46,10 @@ confirmations, store local conversation history, run scheduled jobs, frame
 cross-turn objectives, inspect traces, review markdown memory, and host
 reviewed plugin apps through workspace panels. It can also build disposable
 Elixir/OTP sandbox bundles, produce report-only sandbox/gate evidence, record
-dynamic draft requests, and live-register gate-passed read-only dynamic actions
-after explicit operator confirmation in a disposable Allbert Home.
+dynamic draft requests, and live-register gate-passed dynamic actions after
+explicit operator confirmation in a disposable Allbert Home. Generated actions
+can be pure read-only or delegate memory/network effects through reviewed
+facades with their normal confirmations.
 
 StockSage is the reference plugin app. It exercises the app, objective,
 security, native-agent, LiveView surface, memory-sync, and canvas contracts
@@ -95,8 +97,8 @@ Near-term milestones:
 - [docs/adr](docs/adr): architectural decisions.
 - [docs/plans/v0.36-plan.md](docs/plans/v0.36-plan.md): implemented sandbox
   and gate-runner contract.
-- [docs/plans/v0.37-plan.md](docs/plans/v0.37-plan.md): implemented dynamic
-  draft and gated live-integration milestone.
+- [docs/plans/v0.37-plan.md](docs/plans/v0.37-plan.md): released dynamic
+  draft, delegated facade, and gated live-integration milestone.
 - [docs/plans/v0.38-plan.md](docs/plans/v0.38-plan.md): templated creation
   milestone after v0.37.
 
