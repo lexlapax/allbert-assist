@@ -71,9 +71,10 @@ milestones implement and document them.
 | v0.40 | MCP client facade | Expected to consume `mcp://` resources through registered MCP actions and ADR 0038 trust-tier policy. |
 | v0.42 | Browser/research facade | Expected to live in a plugin-owned browser boundary with `browser://session/<id>` Resource Access. |
 | v0.44 | Plan/Build surface and workflow YAML parser | Expected to produce objective steps only; not an execution engine. |
-| v0.45 | Self-improvement suggestion facade | Expected to produce inert trace-derived suggestions and draft handoffs only; not authority, enablement, or live integration. |
-| v0.46-v0.47 | Media resource facades | Expected to model audio, image, and screenshot resources plus registered provider-backed actions. |
-| v0.49 | Marketplace/protocol facades | Expected to expose marketplace-lite metadata plus API, ACP, MCP-server, and AG-UI/A2UI bridges under shared auth/CSP/redaction policy. |
+| v0.45 | Marketplace-lite facade | Expected to expose reviewed skill/template discovery and metadata only; not remote code authority. |
+| v0.46 | Self-improvement suggestion facade | Expected to produce inert trace-derived suggestions, reviewed memory/workflow draft facades, and draft handoffs only; not authority, enablement, or live integration. |
+| v0.47-v0.48 | Media resource facades | Expected to model audio, image, and screenshot resources plus registered provider-backed actions. |
+| v0.49 | Channel/protocol facades | Expected to expose mobile channel adapters plus API, ACP, MCP-server, and AG-UI/A2UI bridges under shared auth/CSP/redaction policy. |
 
 ## Compatibility Shims And Exit Criteria
 
