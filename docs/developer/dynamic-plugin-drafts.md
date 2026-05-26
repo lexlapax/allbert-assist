@@ -108,13 +108,17 @@ The request vocabulary is normalized by
 - `confidence`
 - `provider_calls_requested` and `provider_usage_units_requested`
 
-The v0.37.2 producer contract is a deliberately bounded source generator. It
+The v0.37.3 producer contract is a deliberately bounded source generator. It
 requires:
 
 - `dynamic_codegen.enabled=true`
 - a resolvable `dynamic_codegen.provider_profile`
 - an enabled provider profile, with any required credential configured
 - target shapes allowed by `dynamic_codegen.allowed_targets`
+- requested generated permissions allowed by
+  `dynamic_codegen.allowed_action_permissions`
+- for delegated writes, literal facade names allowed by
+  `dynamic_codegen.allowed_facades`
 - provider-call and usage requests within
   `dynamic_codegen.max_provider_calls_per_gap` and
   `dynamic_codegen.max_provider_usage_units_per_gap`
@@ -124,9 +128,11 @@ It writes a `draft` tier metadata record with `producer: codegen_llm`,
 `gate.status: not_run`, source/test hashes, compile-visible source/test paths,
 scan paths, diagnostics, repair history, and consumed provider budget. It calls
 the configured Jido.AI structured-generation provider through bounded
-Planner/Author/TrialAuthor/Critic role packets to author one read-only action
-draft, and invokes Repair only when deterministic evidence or Critic requests
-repair. It does not trust model output or integrate live code. Sandbox/gate
+Planner/Author/TrialAuthor/Critic role packets to author one action draft, and
+invokes Repair only when deterministic evidence or Critic requests repair. The
+action can be pure `:read_only`, or it can declare `:memory_write` /
+`:external_network` only when its effect path delegates through a reviewed
+facade. It does not trust model output or integrate live code. Sandbox/gate
 execution remains an explicit evidence step. If an objective id is present, it
 records an `observed` objective event whose payload stage is
 `dynamic_codegen_draft_requested`.
@@ -198,7 +204,7 @@ Generated modules must live under:
 AllbertAssist.DynamicPlugins.Generated.<Slug>
 ```
 
-The shipped loader accepts reviewed read-only action modules only. It rejects:
+The shipped loader accepts reviewed action modules only. It rejects:
 
 - core/static module replacement;
 - undeclared modules;
@@ -267,7 +273,7 @@ ceiling.
 `AllbertAssist.DynamicPlugins.TrustedValidator` parses reviewed generated source
 without executing it and walks the AST with default-deny semantics.
 
-Allowed forms in v0.37.2:
+Allowed forms in v0.37.3:
 
 - generated-namespace `defmodule`;
 - `def` and `defp`;
@@ -279,7 +285,9 @@ Allowed forms in v0.37.2:
   anonymous functions/captures whose bodies validate, and a curated per-function
   allowlist from pure standard modules such as `Enum`, `String`, `Map`,
   `Keyword`, `List`, `Integer`, `Float`, `Tuple`, `Date`, `Time`, and
-  `DateTime`.
+  `DateTime`;
+- exact calls to `AllbertAssist.DynamicPlugins.Delegate.run/3` for delegated
+  writes, with a binary string literal facade name.
 
 All macro options, action DSL options, schema entries, tags, attributes, and
 manifest values must be inert literals.
@@ -298,8 +306,8 @@ Denied forms include:
 The shipped validator scans call targets in action `run/2` and helpers. Future
 app callbacks, surface data builders, and child callbacks must use the same
 rules before those target shapes can become live. It allows local generated
-calls plus an explicit allowlist of side-effect-free Elixir helpers and approved
-Allbert facades. Direct calls to Settings writes, secrets, confirmations,
+calls, an explicit allowlist of side-effect-free Elixir helpers, and the
+delegation shim only. Direct calls to Settings writes, secrets, confirmations,
 Resource grants, Repo writes, sandbox actions, integration/rollback/disable
 actions, distributed Erlang, shell/process runners, package/skill execution,
 and trust control are denied.
@@ -308,15 +316,21 @@ and trust control are denied.
 
 Generated actions are `resumable?: false`.
 
-Allowed in the shipped v0.37.2 live loader:
+Allowed by the shipped v0.37.3 generated-action ceiling:
 
 - `:read_only`
-
-Deferred until both Settings Central and the validator add an explicit reviewed
-intersection:
-
-- `:external_network`
 - `:memory_write`
+- `:external_network`
+
+The default Settings Central value remains `["read_only"]`. Operators must
+enable `memory_write` or `external_network` in
+`dynamic_codegen.allowed_action_permissions` and enable the matching reviewed
+facade in `dynamic_codegen.allowed_facades` before either can validate.
+`append_memory` carries `:memory_write`; `external_network_request` carries
+`:external_network`.
+
+Deferred until future validators and delegation ceilings exist:
+
 - `:objective_write`
 - `:workspace_canvas_write`
 
@@ -333,13 +347,15 @@ Hard-denied:
 - direct Settings mutation;
 - Resource-grant mutation.
 
-Declared permission, confirmation metadata, response action metadata, and body
-call targets must agree. Mismatch is denial.
+Declared permission, confirmation metadata, response action metadata, body call
+targets, and delegated facade permission must agree. Mismatch is denial.
+Generated actions remain `resumable?: false`; facade-owned confirmations keep
+the reviewed facade's ordinary resume path.
 
 ## Loader Lifecycle
 
 `AllbertAssist.DynamicPlugins.Loader.integrate/2` currently integrates
-read-only action artifacts only. Generated apps, panels, settings fragments,
+reviewed action artifacts only. Generated apps, panels, settings fragments,
 memory namespaces, objective wiring, route pages, and child processes are
 explicitly rejected in v0.37 until they have their own trusted validators and
 registration paths.

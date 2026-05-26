@@ -34,7 +34,9 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
     @moduledoc false
 
     alias AllbertAssist.DynamicPlugins.Codegen.Schema
+    alias AllbertAssist.DynamicPlugins.Delegate
     alias AllbertAssist.Runtime.Redactor
+    alias AllbertAssist.Settings
 
     @spec generate_role(atom(), map(), map(), map(), map()) ::
             {:ok, map()} | {:error, term()}
@@ -177,9 +179,11 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
       You are the Planner in Allbert's dynamic code generation committee.
 
       Return only the requested structured object. Convert the explicit
-      capability gap into an implementation spec for one read-only action.
-      The target_shape must be "action" and permission_ceiling must be
-      "read_only". Do not request new permissions, settings writes, secrets,
+      capability gap into an implementation spec for one action. The target_shape
+      must be "action". The permission_ceiling must be one of the configured
+      generated action permissions. If the plan needs memory or external network
+      effects, it must require delegation through one configured reviewed facade;
+      otherwise use read_only. Do not request settings writes, secrets, direct
       network calls, dependencies, package installs, sandbox execution, routes,
       child processes, or durable private loops. Every schema field is required:
       use [] for empty lists and 0 for usage_units when provider usage is
@@ -194,13 +198,17 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
       Return only the requested structured object. The source and test_source
       are separate role outputs; return source only. Use placeholders
       {{MODULE}} and {{ACTION_NAME}} instead of hard-coded module/action names.
-      The action must use AllbertAssist.Action with permission :read_only,
-      exposure :internal, execution_mode :read_only, skill_backed?: false,
-      confirmation :not_required, and output
-      %{message: string, status: :completed, actions: []}. Do not use System,
-      File, Code, Mix, Application, Process, Port, Node, Repo, Settings,
-      confirmations, resources, network calls, dependencies, @on_load, or
-      dynamic atoms. The only allowed macro is the required
+      The action must use AllbertAssist.Action with one configured permission,
+      exposure :internal, execution_mode matching that permission, skill_backed?:
+      false, confirmation :not_required, and resumable?: false. Pure read-only
+      actions must output %{message: string, status: :completed, actions: []}.
+      Effectful actions must call only
+      AllbertAssist.DynamicPlugins.Delegate.run("facade_name", params, context)
+      with a literal configured facade name; they must not call any Allbert
+      action, Settings, confirmation, resource, memory, network, or protected
+      subsystem directly. Do not use System, File, Code, Mix, Application,
+      Process, Port, Node, Repo, dependencies, @on_load, dynamic atoms, or direct
+      network calls. The only allowed macro is the required
       `use AllbertAssist.Action` declaration. Every schema field is required:
       use an empty string for action_name when the default name is fine, [] for
       notes when there are no notes, and 0 for usage_units when provider usage
@@ -215,9 +223,11 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
       Return only the requested structured object. Write one focused ExUnit test
       file for the generated action. Use placeholders {{TEST_MODULE}} and
       {{MODULE}} instead of hard-coded module names. The test must call
-      {{MODULE}}.run/2 directly, assert a completed read-only response, and stay
-      deterministic. Every schema field is required: use [] for empty lists and
-      0 for usage_units when provider usage is unavailable.
+      {{MODULE}}.run/2 directly, assert the expected deterministic response, and
+      stay deterministic. For delegated writes, assert the delegated facade
+      response shape without bypassing facade policy. Every schema field is
+      required: use [] for empty lists and 0 for usage_units when provider usage
+      is unavailable.
       """
     end
 
@@ -228,8 +238,9 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
       Return only the requested structured object. Review the plan, source,
       test, and deterministic validation evidence. Your output is advisory: it
       can accept, reject, or request repair, but it cannot trust, integrate, or
-      authorize anything. Request repair if placeholders, read-only action
-      metadata, deterministic behavior, or validation diagnostics are not clean.
+      authorize anything. Request repair if placeholders, action metadata,
+      literal delegation, deterministic behavior, or validation diagnostics are
+      not clean.
       Every schema field is required: use an empty repair_instructions string
       when accepted, [] for empty lists, and 0 for usage_units when provider
       usage is unavailable.
@@ -244,18 +255,20 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
       return status "not_needed" and empty source/test_source. If repair is
       possible, return status "repaired" with complete replacement source and
       test_source. Use placeholders {{MODULE}}, {{TEST_MODULE}}, and
-      {{ACTION_NAME}}. Do not broaden permissions or introduce any protected
-      runtime authority. The source must include the literal text
-      `use AllbertAssist.Action`, `permission: :read_only`, and
-      `confirmation: :not_required`. Every schema field is required: use empty
-      strings for unused source fields, [] for empty lists, and 0 for
-      usage_units when provider usage is unavailable.
+      {{ACTION_NAME}}. Do not broaden permissions beyond the configured policy
+      or introduce any protected runtime authority. The source must include the
+      literal text `use AllbertAssist.Action` and
+      `confirmation: :not_required`; non-read-only effects must use only
+      AllbertAssist.DynamicPlugins.Delegate.run/3 with a literal configured
+      facade. Every schema field is required: use empty strings for unused
+      source fields, [] for empty lists, and 0 for usage_units when provider
+      usage is unavailable.
       """
     end
 
     defp prompt(:planner, input, budget, context) do
       """
-      Plan one read-only Allbert action for this explicit capability gap.
+      Plan one Allbert action for this explicit capability gap.
 
       Gap:
       #{Jason.encode!(Map.get(input, "gap", %{}))}
@@ -265,6 +278,9 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
 
       Request context:
       #{Jason.encode!(Redactor.redact(Map.take(context, [:actor, :channel, :surface])))}
+
+      Dynamic codegen policy:
+      #{Jason.encode!(generation_policy())}
       """
     end
 
@@ -278,14 +294,22 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
       Gap:
       #{Jason.encode!(Map.get(input, "gap", %{}))}
 
+      Dynamic codegen policy:
+      #{Jason.encode!(generation_policy())}
+
       Requirements:
-      - Generate normal pure Elixir logic. It may format strings, do
-        arithmetic/comparison, and iterate lists.
-      - The action body must be deterministic and read-only.
-      - Adapt this exact source skeleton; keep the literal placeholders
-        {{MODULE}} and {{ACTION_NAME}} in the source field:
+      - Generate normal deterministic Elixir logic. It may format strings, do
+        arithmetic/comparison, iterate lists, and call Delegate.run/3 only when
+        the selected permission/facade policy requires a reviewed effect.
+      - For read_only, keep the action body pure.
+      - For memory_write, use only Delegate.run("append_memory", params, context).
+      - For external_network, use only Delegate.run("external_network_request", params, context).
+      - Adapt one of these source skeletons; keep the literal placeholders
+        {{MODULE}} and {{ACTION_NAME}} in the source field.
 
       #{required_action_template()}
+
+      #{required_delegated_action_template()}
 
       - Keep source under 160 lines.
       """
@@ -293,13 +317,16 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
 
     defp prompt(:trial_author, input, _budget, _context) do
       """
-      Write focused ExUnit tests for this generated read-only action.
+      Write focused ExUnit tests for this generated action.
 
       Plan:
       #{Jason.encode!(Map.get(input, "planner", %{}))}
 
       Source summary:
       #{Jason.encode!(Map.get(input, "source_summary", %{}))}
+
+      Dynamic codegen policy:
+      #{Jason.encode!(generation_policy())}
 
       Requirements:
       - Include one focused ExUnit test that calls {{MODULE}}.run/2 directly.
@@ -314,7 +341,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
 
     defp prompt(:critic, input, _budget, _context) do
       """
-      Review this generated read-only action attempt.
+      Review this generated action attempt.
 
       Plan:
       #{Jason.encode!(Map.get(input, "planner", %{}))}
@@ -327,12 +354,15 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
 
       Test summary:
       #{Jason.encode!(Map.get(input, "test_summary", %{}))}
+
+      Dynamic codegen policy:
+      #{Jason.encode!(generation_policy())}
       """
     end
 
     defp prompt(:repair, input, _budget, _context) do
       """
-      Repair this generated read-only action attempt if needed.
+      Repair this generated action attempt if needed.
 
       Plan:
       #{Jason.encode!(Map.get(input, "planner", %{}))}
@@ -352,6 +382,9 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
       Replacement source skeleton:
       #{required_action_template()}
 
+      Replacement delegated source skeleton:
+      #{required_delegated_action_template()}
+
       Replacement test_source skeleton:
       #{required_test_template()}
       """
@@ -361,6 +394,8 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
 
     defp required_action_template do
       ~S"""
+      Pure read-only template:
+
       defmodule {{MODULE}} do
         use AllbertAssist.Action,
           permission: :read_only,
@@ -413,6 +448,47 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
       """
     end
 
+    defp required_delegated_action_template do
+      ~S"""
+      Delegated reviewed-facade template:
+
+      defmodule {{MODULE}} do
+        use AllbertAssist.Action,
+          permission: :memory_write,
+          exposure: :internal,
+          execution_mode: :memory_write,
+          skill_backed?: false,
+          confirmation: :not_required,
+          resumable?: false,
+          name: "{{ACTION_NAME}}",
+          description: "Delegate a reviewed memory write.",
+          category: "dynamic_plugins",
+          tags: ["dynamic", "generated", "delegated"],
+          schema: [
+            memory: [type: :string, required: true],
+            source_text: [type: :string, required: false]
+          ],
+          output_schema: [
+            message: [type: :string, required: true],
+            status: [type: :atom, required: true],
+            actions: [type: {:list, :map}, required: true]
+          ]
+
+        @impl true
+        def run(params, context) do
+          memory = params |> Map.get(:memory, "") |> to_string() |> String.trim()
+
+          delegate_params = %{
+            memory: memory,
+            source_text: Map.get(params, :source_text)
+          }
+
+          AllbertAssist.DynamicPlugins.Delegate.run("append_memory", delegate_params, context)
+        end
+      end
+      """
+    end
+
     defp required_test_template do
       ~S"""
       defmodule {{TEST_MODULE}} do
@@ -426,6 +502,44 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
         end
       end
       """
+    end
+
+    defp generation_policy do
+      allowed_facades = allowed_facades()
+
+      %{
+        "allowed_action_permissions" => allowed_action_permissions(),
+        "allowed_facades" =>
+          Enum.map(allowed_facades, fn facade ->
+            {:ok, permission} = Delegate.facade_permission(facade)
+            %{"name" => facade, "permission" => Atom.to_string(permission)}
+          end),
+        "delegation_rules" => %{
+          "append_memory" => "Use only with permission :memory_write.",
+          "external_network_request" => "Use only with permission :external_network."
+        }
+      }
+    end
+
+    defp allowed_action_permissions do
+      case Settings.get("dynamic_codegen.allowed_action_permissions") do
+        {:ok, values} when is_list(values) -> Enum.map(values, &to_string/1)
+        _other -> ["read_only"]
+      end
+    end
+
+    defp allowed_facades do
+      hard_facades = Delegate.hard_facades()
+
+      case Settings.get("dynamic_codegen.allowed_facades") do
+        {:ok, values} when is_list(values) ->
+          values
+          |> Enum.map(&to_string/1)
+          |> Enum.filter(&(&1 in hard_facades))
+
+        _other ->
+          []
+      end
     end
 
     defp prompt_hash(prompt) do
