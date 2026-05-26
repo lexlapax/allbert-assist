@@ -542,7 +542,10 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
       requested_signal_id: Map.get(context, :runner_requested_signal_id),
       selected_skill: Map.get(context, :selected_skill),
       selected_action: Map.get(context, :selected_action),
-      action_capability: Map.get(context, :action_capability)
+      action_capability: Map.get(context, :action_capability),
+      dynamic_codegen_delegate: Map.get(context, :dynamic_codegen_delegate)
     }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
   end
 end

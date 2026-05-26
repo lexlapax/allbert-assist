@@ -434,8 +434,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert request_dynamic_draft.confirmation == :not_required
 
     assert {:ok, discard_dynamic_draft} = Registry.capability("discard_dynamic_draft")
-    assert discard_dynamic_draft.permission == :settings_write
-    assert discard_dynamic_draft.execution_mode == :settings_write
+    assert discard_dynamic_draft.permission == :dynamic_codegen_discard
+    assert discard_dynamic_draft.execution_mode == :dynamic_codegen_discard
     assert discard_dynamic_draft.exposure == :internal
     assert discard_dynamic_draft.confirmation == :not_required
 

@@ -62,6 +62,7 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.settings_write",
     "permissions.skill_write",
     "permissions.dynamic_codegen_request",
+    "permissions.dynamic_codegen_discard",
     "permissions.skill_script_execute",
     "permissions.confirmation_decide",
     "permissions.objective_write",
@@ -965,6 +966,13 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
+    "permissions.dynamic_codegen_discard" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
     "permissions.skill_script_execute" => %{
       type: :enum,
       default: "denied",
@@ -1716,6 +1724,7 @@ defmodule AllbertAssist.Settings.Schema do
       "settings_write" => "allowed_safe_keys",
       "skill_write" => "allowed",
       "dynamic_codegen_request" => "allowed",
+      "dynamic_codegen_discard" => "allowed",
       "skill_script_execute" => "denied",
       "confirmation_decide" => "allowed",
       "objective_write" => "allowed",

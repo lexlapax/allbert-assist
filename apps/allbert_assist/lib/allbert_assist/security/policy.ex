@@ -15,6 +15,7 @@ defmodule AllbertAssist.Security.Policy do
     settings_write: "permissions.settings_write",
     skill_write: "permissions.skill_write",
     dynamic_codegen_request: "permissions.dynamic_codegen_request",
+    dynamic_codegen_discard: "permissions.dynamic_codegen_discard",
     skill_script_execute: "permissions.skill_script_execute",
     confirmation_decide: "permissions.confirmation_decide",
     objective_write: "permissions.objective_write",
@@ -37,6 +38,7 @@ defmodule AllbertAssist.Security.Policy do
     settings_write: :allowed,
     skill_write: :allowed,
     dynamic_codegen_request: :allowed,
+    dynamic_codegen_discard: :allowed,
     skill_script_execute: :denied,
     confirmation_decide: :allowed,
     objective_write: :allowed,
@@ -63,6 +65,7 @@ defmodule AllbertAssist.Security.Policy do
           | :settings_write
           | :skill_write
           | :dynamic_codegen_request
+          | :dynamic_codegen_discard
           | :skill_script_execute
           | :confirmation_decide
           | :objective_write
@@ -89,6 +92,7 @@ defmodule AllbertAssist.Security.Policy do
       :settings_write,
       :skill_write,
       :dynamic_codegen_request,
+      :dynamic_codegen_discard,
       :skill_script_execute,
       :confirmation_decide,
       :objective_write,
@@ -284,6 +288,12 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:dynamic_codegen_request, :denied, _configured, _floor, _context),
     do: "Dynamic draft requests are denied by current policy."
+
+  defp reason(:dynamic_codegen_discard, :allowed, _configured, _floor, _context),
+    do: "Dynamic draft discard is allowed for non-integrated draft lifecycle cleanup."
+
+  defp reason(:dynamic_codegen_discard, :denied, _configured, _floor, _context),
+    do: "Dynamic draft discard is denied by current policy."
 
   defp reason(:skill_script_execute, :denied, _configured, _floor, _context),
     do: "Skill script execution is denied until explicitly enabled and confirmed."
