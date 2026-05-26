@@ -25,7 +25,10 @@ gap before tagging: generated actions can declare `:memory_write` or
 normal Security Central behavior. v0.37.4 audit-remediation work closes the
 final reviewer gaps before tagging: discard workflow, delegated security eval
 coverage, a dedicated dynamic-codegen request permission, validator coherence,
-and release-facing version/docs alignment.
+and release-facing version/docs alignment. v0.37.5 fourth-audit closeout moves
+discard to a dedicated lifecycle permission, records dynamic delegate
+provenance in facade confirmations, and explicitly preserves normal facade
+approval policy for delegated invocations.
 
 Plan: `docs/plans/v0.37-plan.md`.
 Request flow: `docs/plans/v0.37-request-flow.md`.
@@ -91,7 +94,7 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 - Umbrella, core app, and web app version metadata were initially bumped to
   `0.37.0` because v0.37 adds dynamic draft, sandbox bridge, live-loader,
   rollback, and request-scaffold actions to the core runtime boundary. The
-  pre-tag release candidate now reports `0.37.4` after audit remediation.
+  pre-tag release candidate now reports `0.37.5` after audit remediation.
 - The v0.37 shipped live loader integrates reviewed gate-passed read-only
   action artifacts only. Generated apps, panels, settings fragments, memory
   namespaces, objective wiring, route pages, and child processes remain rejected
@@ -201,6 +204,32 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 - Umbrella, core app, and web app version metadata are bumped to `0.37.4` for
   the pre-tag release candidate.
 
+### Added (v0.37.5 fourth-audit closeout)
+
+- Dedicated `:dynamic_codegen_discard` permission and
+  `permissions.dynamic_codegen_discard` Settings Central key, default
+  `allowed`, so terminal draft cleanup is audited separately from settings
+  writes.
+- Dynamic delegate provenance is now persisted in facade confirmation runner
+  metadata when generated actions delegate to reviewed facades.
+- Security eval coverage for normal facade approval policy on delegated network
+  confirmations, dynamic delegate metadata, discard permission denial, and
+  confirmation-free gate-passed discard.
+
+### Changed (v0.37.5 fourth-audit closeout)
+
+- `discard_dynamic_draft` now authorizes `:dynamic_codegen_discard` and uses
+  execution mode `:dynamic_codegen_discard` instead of `:settings_write`.
+- Operator/developer docs now state that
+  `dynamic_codegen.integration_approval_surfaces` applies only to integration
+  and rollback; delegated facade confirmations intentionally follow normal
+  facade channel policy.
+- Discard docs now explicitly state that `:gate_passed` drafts can be discarded
+  without confirmation, which may remove gate evidence but never removes live
+  authority.
+- Umbrella, core app, and web app version metadata are bumped to `0.37.5` for
+  the pre-tag release candidate.
+
 ### Verification (v0.37.0)
 
 - M0-M4 were implemented, focused-tested, documented, and committed separately.
@@ -267,6 +296,15 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 - M23 release closeout passed `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `git diff --check`, `mix credo --strict`,
   `mix dialyzer`, and `mix precommit`.
+
+### Verification (v0.37.5 fourth-audit closeout)
+
+- M24 docs-first plan update passed `git diff --check` and was committed/pushed.
+- M25 passed focused settings, Security Central, PermissionGate, registry,
+  dynamic-plugin action, and security-eval tests, then passed
+  `mix compile --warnings-as-errors`, `mix format --check-formatted`,
+  `git diff --check`, `mix credo --strict`, `mix dialyzer`, and
+  `mix precommit`.
 
 ## v0.36.0 - Elixir/OTP Sandbox And Gate Runner
 

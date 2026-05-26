@@ -443,10 +443,14 @@ Rollback requires operator confirmation and removes dynamic action authority.
 `discard_dynamic_draft` and `mix allbert.dynamic drafts discard <slug>` are the
 operator-facing discard surfaces. They call the file-backed draft store's
 terminal `:discarded` transition for non-integrated or already rolled-back
-drafts. Integrated artifacts must roll back before discard. Discard is a
-safety-reducing cleanup path: it cannot register actions, cannot preserve live
-authority, and records the same dynamic lifecycle audit/signal event as the
-store helper.
+drafts. Integrated artifacts must roll back before discard. Discard uses
+`:dynamic_codegen_discard` / `permissions.dynamic_codegen_discard`, defaults to
+`allowed`, and does not require confirmation for any non-integrated tier,
+including `:gate_passed`. Discarding a gate-passed draft can irreversibly throw
+away reviewed source, sandbox reports, and gate evidence, but it cannot remove
+or preserve live authority.
+The action records the same dynamic lifecycle audit/signal event as the store
+helper.
 Module purge/delete is best effort and audited.
 
 Same-name upgrades require rollback before integrating a new revision. v0.37

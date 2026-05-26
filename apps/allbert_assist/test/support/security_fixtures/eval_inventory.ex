@@ -732,6 +732,17 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
     },
     %{
+      id: "codegen-delegated-network-normal-approval-001",
+      milestone: :v037,
+      surface: :dynamic_codegen,
+      scenario:
+        "delegated network confirmation keeps normal facade approval policy and records dynamic delegate metadata",
+      boundary: :dynamic_delegate,
+      expected: :allowed,
+      assert: [:allowed, :normal_facade_approval, :dynamic_delegate_metadata],
+      test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
+    },
+    %{
       id: "codegen-delegated-runtime-facade-disabled-001",
       milestone: :v037,
       surface: :dynamic_codegen,
@@ -901,7 +912,22 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         "operator discards non-integrated draft and cannot discard a live artifact before rollback",
       boundary: :dynamic_draft_lifecycle,
       expected: :allowed,
-      assert: [:allowed, :discard_terminal, :rollback_required_for_live],
+      assert: [
+        :allowed,
+        :discard_terminal,
+        :gate_passed_no_confirmation,
+        :rollback_required_for_live
+      ],
+      test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
+    },
+    %{
+      id: "codegen-discard-permission-001",
+      milestone: :v037,
+      surface: :dynamic_codegen,
+      scenario: "dynamic draft discard is governed by permissions.dynamic_codegen_discard",
+      boundary: :dynamic_draft_lifecycle,
+      expected: :denied,
+      assert: [:denied, :dynamic_codegen_discard_permission],
       test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
     },
     %{

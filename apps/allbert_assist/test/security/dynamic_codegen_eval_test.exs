@@ -16,6 +16,8 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.DynamicCodegenFakeProvider
 
+  setup {Req.Test, :verify_on_exit!}
+
   @v037_eval_ids [
     "codegen-core-load-untrusted-001",
     "codegen-gate-skip-001",
@@ -39,6 +41,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
     "codegen-delegated-permission-match-001",
     "codegen-delegated-memory-allow-001",
     "codegen-delegated-network-confirmation-001",
+    "codegen-delegated-network-normal-approval-001",
     "codegen-delegated-runtime-facade-disabled-001",
     "codegen-delegated-rollback-authority-001",
     "codegen-delegate-only-effects-001",
@@ -56,6 +59,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
     "codegen-rollback-001",
     "codegen-emergency-disable-001",
     "codegen-discard-draft-001",
+    "codegen-discard-permission-001",
     "codegen-restart-reconcile-001",
     "codegen-v036-sandbox-bypass-001",
     "codegen-exfil-001",
@@ -627,11 +631,14 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
               )
 
             {:ok, pending} = Confirmations.read(response.confirmation_id)
+            delegate = get_in(pending, ["runner_metadata", "dynamic_codegen_delegate"])
 
             normal_facade_confirmation? =
               response.status == :needs_confirmation and
                 pending["target_action"]["name"] == "external_network_request" and
-                pending["target_permission"] == "external_network"
+                pending["target_permission"] == "external_network" and
+                delegate["facade_name"] == "external_network_request" and
+                delegate["facade_permission"] == "external_network"
 
             %{
               decision: if(normal_facade_confirmation?, do: :allowed, else: :denied),
@@ -643,6 +650,58 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
       )
 
     assert_allowed(network_confirmation)
+
+    delegated_normal_approval =
+      run_eval(
+        fixture("codegen-delegated-network-normal-approval-001", %{
+          run: fn fixture ->
+            assert {:ok, _setting} =
+                     Settings.put("dynamic_codegen.integration_approval_surfaces", ["cli"], %{
+                       audit?: false
+                     })
+
+            Req.Test.expect(__MODULE__, fn conn ->
+              Plug.Conn.send_resp(conn, 200, "ok")
+            end)
+
+            {:ok, response} =
+              Runner.run(
+                network_fixture.action_name,
+                %{url: "https://example.com/status"},
+                cli_context()
+              )
+
+            {:ok, pending} = Confirmations.read(response.confirmation_id)
+            delegate = get_in(pending, ["runner_metadata", "dynamic_codegen_delegate"])
+
+            {:ok, approved} =
+              Runner.run(
+                "approve_confirmation",
+                %{id: response.confirmation_id, reason: "normal facade approval"},
+                %{
+                  actor: "local",
+                  channel: :telegram,
+                  surface: "telegram",
+                  external: %{req_plug: {Req.Test, __MODULE__}}
+                }
+              )
+
+            normal_policy? =
+              delegate["facade_name"] == "external_network_request" and
+                approved.status == :completed and
+                approved.confirmation["status"] == "approved" and
+                approved.confirmation["operator_resolution"]["target_resumed?"] == true
+
+            %{
+              decision: if(normal_policy?, do: :allowed, else: :denied),
+              result: %{pending: pending, approved: approved},
+              trace: %{fixture_id: fixture.id, confirmation_id: response.confirmation_id}
+            }
+          end
+        })
+      )
+
+    assert_allowed(delegated_normal_approval)
 
     disabled_fixture =
       integrate_fixture!("delegated_disabled", "dynamic_delegated_disabled_eval",
@@ -877,6 +936,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
     assert_allowed(disable)
 
     discard_fixture = write_action_draft("discard_eval", tier: "draft")
+    gate_passed_discard_fixture = write_action_draft("discard_gate_eval", tier: "gate_passed")
     live_discard_fixture = write_action_draft("discard_live_eval", tier: "integrated")
 
     discard =
@@ -897,15 +957,29 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
                 cli_context()
               )
 
+            {:ok, gate_passed_discarded} =
+              Runner.run(
+                "discard_dynamic_draft",
+                %{slug: gate_passed_discard_fixture.slug},
+                cli_context()
+              )
+
             %{
               decision:
                 if(
                   discarded.status == :completed and discarded.draft.tier == "discarded" and
+                    gate_passed_discarded.status == :completed and
+                    gate_passed_discarded.draft.tier == "discarded" and
+                    not Map.has_key?(gate_passed_discarded, :confirmation_id) and
                     live_denied.status == :denied and live_denied.error == :rollback_required,
                   do: :allowed,
                   else: :denied
                 ),
-              result: %{discarded: discarded, live_denied: live_denied},
+              result: %{
+                discarded: discarded,
+                gate_passed_discarded: gate_passed_discarded,
+                live_denied: live_denied
+              },
               trace: %{fixture_id: fixture.id}
             }
           end
@@ -913,6 +987,37 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
       )
 
     assert_allowed(discard)
+
+    discard_permission_fixture = write_action_draft("discard_permission_eval", tier: "draft")
+
+    discard_permission =
+      run_eval(
+        fixture("codegen-discard-permission-001", %{
+          run: fn fixture ->
+            assert {:ok, _setting} =
+                     Settings.put("permissions.dynamic_codegen_discard", "denied", %{
+                       audit?: false
+                     })
+
+            {:ok, response} =
+              Runner.run(
+                "discard_dynamic_draft",
+                %{slug: discard_permission_fixture.slug},
+                cli_context()
+              )
+
+            %{
+              decision: if(response.status == :denied, do: :denied, else: :allowed),
+              result: response,
+              trace: %{fixture_id: fixture.id}
+            }
+          end
+        })
+      )
+
+    assert_denied(discard_permission)
+    assert discard_permission.result.permission_decision.permission == :dynamic_codegen_discard
+    assert discard_permission.result.error == :permission_denied
 
     enable_live_loader!()
     reconcile_fixture = integrate_fixture!("reconcile", "dynamic_reconcile_eval")
