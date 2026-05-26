@@ -1,6 +1,6 @@
 # Dynamic Plugin Drafts Developer Contract
 
-Status: v0.37 implementation contract.
+Status: v0.37.5 release contract.
 
 This guide defines the implementation shape for dynamic capability drafts. It is
 the developer companion to `docs/operator/dynamic-capability-integration.md` and
@@ -108,8 +108,8 @@ The request vocabulary is normalized by
 - `confidence`
 - `provider_calls_requested` and `provider_usage_units_requested`
 
-The v0.37.3 producer contract is a deliberately bounded source generator. It
-requires:
+The released v0.37.5 producer contract is a deliberately bounded source
+generator. It requires:
 
 - `dynamic_codegen.enabled=true`
 - a resolvable `dynamic_codegen.provider_profile`
@@ -276,7 +276,7 @@ ceiling.
 `AllbertAssist.DynamicPlugins.TrustedValidator` parses reviewed generated source
 without executing it and walks the AST with default-deny semantics.
 
-Allowed forms in v0.37.3:
+Allowed forms in released v0.37.5:
 
 - generated-namespace `defmodule`;
 - `def` and `defp`;
@@ -323,7 +323,7 @@ denied.
 
 Generated actions are `resumable?: false`.
 
-Allowed by the shipped v0.37.3 generated-action ceiling:
+Allowed by the shipped v0.37.5 generated-action ceiling:
 
 - `:read_only`
 - `:memory_write`

@@ -134,6 +134,41 @@ Needed before planning:
 - evals for generated skill quality and unsafe capability requests
 - policy for instruction-only drafts versus generated app/action code
 
+### Dynamic Capability Expansion
+
+Source: v0.37 implementation audits, v0.37.5 release closeout, and v0.38
+templated-creation planning.
+
+v0.37.5 ships the first runnable dynamic-code path: explicit capability gaps
+can produce pure read-only actions or delegated memory/network actions through
+the reviewed `append_memory` and `external_network_request` facades. Future
+enablement work can broaden that surface without changing the core rule that
+generated code gains authority only through reviewed contracts, sandbox/gate
+evidence, and operator-controlled integration.
+
+Potential directions:
+
+- add reviewed delegate facades for operations such as memory update/promotion
+  once their operator contract, permission class, validator mapping, and
+  security eval rows are explicit;
+- extend the generated permission ceiling to additional reviewed domains such
+  as objective or workspace-canvas writes after matching facades and validators
+  exist;
+- add a `mix allbert.dynamic.enable` helper, optionally with an
+  `--allow-writes` mode, to flip a coherent operator setup bundle with clear
+  warnings instead of requiring several manual settings changes;
+- surface `dynamic_codegen_delegate` provenance in CLI, LiveView, email, and
+  channel confirmation cards so operators can see which generated action caused
+  a reviewed facade confirmation.
+
+Needed before planning:
+
+- v0.37.5 dynamic generation/live-loader accepted through manual operator
+  testing
+- reviewed facade contracts for each new delegated operation
+- security eval rows proving permission/facade/confirmation behavior
+- operator documentation for any setup helper or new delegated approval surface
+
 
 ### Intents vs Objective for agent tasks (graduated)
 
