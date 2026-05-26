@@ -79,7 +79,7 @@ Then finish the shared v0.37 capability-generation settings:
 
 ```sh
 mix allbert.settings set dynamic_codegen.live_loader_enabled true
-mix allbert.settings set dynamic_codegen.allowed_targets '["action"]'
+mix allbert.settings set dynamic_codegen.allowed_targets action
 mix allbert.settings set dynamic_codegen.allowed_action_permissions '["read_only"]'
 ```
 
