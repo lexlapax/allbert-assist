@@ -2,9 +2,10 @@
 
 ## Status
 
-Proposed for v0.38 Templated Creation (`docs/plans/v0.38-plan.md`). Builds on
-the v0.36 sandbox/gate runner (ADR 0037), the v0.37 generation/live-loader
-engine (ADR 0032/0033/0035), and the plugin/app contracts (ADR 0015/0017).
+Accepted for v0.38 Templated Creation (`docs/plans/v0.38-plan.md`) on
+2026-05-26. Builds on the v0.36 sandbox/gate runner (ADR 0037), the v0.37
+generation/live-loader engine (ADR 0032/0033/0035), and the plugin/app
+contracts (ADR 0015/0017).
 
 ## Context
 
