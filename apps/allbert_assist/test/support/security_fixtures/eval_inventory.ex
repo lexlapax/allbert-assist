@@ -638,7 +638,8 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       id: "codegen-permission-ceiling-001",
       milestone: :v037,
       surface: :dynamic_codegen,
-      scenario: "generated action declares authority above the read-only ceiling",
+      scenario:
+        "generated action declares authority above the default read-only generated-permission ceiling",
       boundary: :trusted_validator,
       expected: :denied,
       assert: [:denied, :permission_ceiling],
@@ -652,6 +653,103 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       boundary: :trusted_validator,
       expected: :denied,
       assert: [:denied, :body_permission_mismatch],
+      test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
+    },
+    %{
+      id: "codegen-delegated-write-001",
+      milestone: :v037,
+      surface: :dynamic_codegen,
+      scenario:
+        "generated memory and network write permissions are accepted only through matching reviewed facades",
+      boundary: :trusted_validator,
+      expected: :allowed,
+      assert: [:allowed, :delegated_write_only],
+      test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
+    },
+    %{
+      id: "codegen-facade-allowlist-001",
+      milestone: :v037,
+      surface: :dynamic_codegen,
+      scenario:
+        "generated delegation to a reviewed facade is denied until the operator enables it",
+      boundary: :trusted_validator,
+      expected: :denied,
+      assert: [:denied, :facade_allowlist],
+      test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
+    },
+    %{
+      id: "codegen-facade-name-literal-001",
+      milestone: :v037,
+      surface: :dynamic_codegen,
+      scenario: "generated delegation requires a literal binary facade name",
+      boundary: :trusted_validator,
+      expected: :denied,
+      assert: [:denied, :literal_facade_name],
+      test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
+    },
+    %{
+      id: "codegen-delegated-permission-match-001",
+      milestone: :v037,
+      surface: :dynamic_codegen,
+      scenario:
+        "generated permission, response action metadata, and delegated facade permission must match",
+      boundary: :trusted_validator,
+      expected: :denied,
+      assert: [:denied, :delegated_permission_match],
+      test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
+    },
+    %{
+      id: "codegen-delegated-memory-allow-001",
+      milestone: :v037,
+      surface: :dynamic_codegen,
+      scenario:
+        "delegated memory write validates only when generated permission and append_memory facade are enabled",
+      boundary: :trusted_validator,
+      expected: :allowed,
+      assert: [:allowed, :delegated_memory_allowed],
+      test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
+    },
+    %{
+      id: "codegen-delegated-network-confirmation-001",
+      milestone: :v037,
+      surface: :dynamic_codegen,
+      scenario:
+        "delegated network action creates the normal external_network_request confirmation through the facade",
+      boundary: :dynamic_delegate,
+      expected: :allowed,
+      assert: [:allowed, :facade_confirmation_created],
+      test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
+    },
+    %{
+      id: "codegen-delegated-runtime-facade-disabled-001",
+      milestone: :v037,
+      surface: :dynamic_codegen,
+      scenario:
+        "runtime delegation fails closed when an operator disables the facade after integration",
+      boundary: :dynamic_delegate,
+      expected: :denied,
+      assert: [:denied, :runtime_facade_disabled],
+      test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
+    },
+    %{
+      id: "codegen-delegated-rollback-authority-001",
+      milestone: :v037,
+      surface: :dynamic_codegen,
+      scenario: "rollback removes delegated dynamic action authority from the registry",
+      boundary: :dynamic_loader,
+      expected: :allowed,
+      assert: [:allowed, :delegated_rollback_removes_authority],
+      test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
+    },
+    %{
+      id: "codegen-delegate-only-effects-001",
+      milestone: :v037,
+      surface: :dynamic_codegen,
+      scenario:
+        "generated write permission still cannot call protected write, trust-control, or runtime authorities directly",
+      boundary: :trusted_validator,
+      expected: :denied,
+      assert: [:denied, :direct_effect_denied],
       test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
     },
     %{
