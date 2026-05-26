@@ -23,6 +23,7 @@ defmodule AllbertAssist.Security.Risk do
   def tier(:command_plan), do: :low
   def tier(:settings_write), do: :medium
   def tier(:skill_write), do: :medium
+  def tier(:dynamic_codegen_request), do: :medium
   def tier(:confirmation_decide), do: :medium
   def tier(:objective_write), do: :low
   def tier(:workspace_canvas_write), do: :low
@@ -45,6 +46,10 @@ defmodule AllbertAssist.Security.Risk do
   defp reasons(:command_plan, _tier, _context), do: ["non-executing command planning"]
   defp reasons(:settings_write, _tier, _context), do: ["operator-visible settings change"]
   defp reasons(:skill_write, _tier, _context), do: ["local skill scaffold write"]
+
+  defp reasons(:dynamic_codegen_request, _tier, _context),
+    do: ["LLM-backed dynamic source draft request"]
+
   defp reasons(:confirmation_decide, _tier, _context), do: ["operator confirmation decision"]
   defp reasons(:objective_write, _tier, _context), do: ["local objective lifecycle write"]
   defp reasons(:workspace_canvas_write, _tier, _context), do: ["local workspace canvas write"]
