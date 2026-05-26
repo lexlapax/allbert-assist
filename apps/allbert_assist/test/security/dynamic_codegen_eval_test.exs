@@ -322,23 +322,38 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
 
   test "trusted validator evals reject unsafe generated contracts" do
     cases = [
-      {"codegen-trusted-compile-side-effect-001", :on_load, []},
-      {"codegen-trusted-ast-allowlist-001", :try_expression, []},
-      {"codegen-macro-literal-options-001", :non_literal_options, []},
-      {"codegen-manifest-defmodule-reconcile-001", :valid, manifest_modules: :wrong},
-      {"codegen-generated-runtime-call-deny-001", :protected_call, []},
-      {"codegen-permission-ceiling-001", :memory_write_permission, []},
-      {"codegen-permission-body-mismatch-001", :protected_call, []},
-      {"codegen-generated-resumable-deny-001", :resumable_action, []},
-      {"codegen-dynamic-child-effect-deny-001", :valid, target_shapes: ["child"]},
-      {"codegen-undeclared-module-001", :extra_module, []},
-      {"codegen-core-module-replace-001", :core_module_replace, []},
-      {"codegen-route-page-live-deny-001", :valid, target_shapes: ["route_page"]},
-      {"codegen-settings-fragment-authority-001", :valid, target_shapes: ["settings_fragment"]},
-      {"codegen-private-objective-loop-001", :valid, target_shapes: ["objective_wiring"]}
+      {"codegen-trusted-compile-side-effect-001", :on_load, [],
+       {:source_reason, {:forbidden_module_attribute, :on_load}}},
+      {"codegen-trusted-ast-allowlist-001", :try_expression, [],
+       {:source_reason, {:forbidden_local_call, :try}}},
+      {"codegen-macro-literal-options-001", :non_literal_options, [],
+       {:source_reason, :non_literal_action_use_options}},
+      {"codegen-manifest-defmodule-reconcile-001", :valid, [manifest_modules: :wrong],
+       {:direct_reason,
+        {:dynamic_module_outside_namespace,
+         ["AllbertAssist.DynamicPlugins.Generated.Wrong.Action"]}}},
+      {"codegen-generated-runtime-call-deny-001", :protected_call, [],
+       {:source_reason, {:protected_remote_call, "System", :cmd}}},
+      {"codegen-permission-ceiling-001", :memory_write_permission, [],
+       {:source_reason, {:dynamic_action_permission_ceiling, :memory_write}}},
+      {"codegen-permission-body-mismatch-001", :permission_body_mismatch, [],
+       {:source_reason, {:protected_remote_call, "AllbertAssist.Settings", :put}}},
+      {"codegen-generated-resumable-deny-001", :resumable_action, [],
+       {:source_reason, :dynamic_action_resumable_denied}},
+      {"codegen-dynamic-child-effect-deny-001", :valid, [target_shapes: ["child"]],
+       {:direct_reason, {:unsupported_dynamic_target_shapes, ["child"]}}},
+      {"codegen-undeclared-module-001", :extra_module, [], :denied},
+      {"codegen-core-module-replace-001", :core_module_replace, [],
+       {:source_reason, {:dynamic_module_outside_namespace, "AllbertAssist.Settings"}}},
+      {"codegen-route-page-live-deny-001", :valid, [target_shapes: ["route_page"]],
+       {:direct_reason, {:unsupported_dynamic_target_shapes, ["route_page"]}}},
+      {"codegen-settings-fragment-authority-001", :valid, [target_shapes: ["settings_fragment"]],
+       {:direct_reason, {:unsupported_dynamic_target_shapes, ["settings_fragment"]}}},
+      {"codegen-private-objective-loop-001", :valid, [target_shapes: ["objective_wiring"]],
+       {:direct_reason, {:unsupported_dynamic_target_shapes, ["objective_wiring"]}}}
     ]
 
-    for {id, source_kind, opts} <- cases do
+    for {id, source_kind, opts, expected_denial} <- cases do
       eval =
         run_eval(
           fixture(id, %{
@@ -355,6 +370,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
         )
 
       assert_denied(eval)
+      assert_denial_reason(eval.result, expected_denial)
     end
   end
 
@@ -582,6 +598,19 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
   defp decision_for_error({:ok, _result}), do: :allowed
   defp decision_for_error(_result), do: :error
 
+  defp assert_denial_reason(_result, :denied), do: :ok
+
+  defp assert_denial_reason(
+         {:error, {:trusted_validation_failed, "source/lib/action.ex", reason}},
+         {:source_reason, expected_reason}
+       ) do
+    assert reason == expected_reason
+  end
+
+  defp assert_denial_reason({:error, reason}, {:direct_reason, expected_reason}) do
+    assert reason == expected_reason
+  end
+
   defp registry_denied?(action_name) do
     case Registry.resolve(action_name) do
       {:error, {:unknown_action, ^action_name}} -> :denied
@@ -764,6 +793,18 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
         @impl true
         def run(_params, _context) do
           System.cmd("echo", ["no"])
+          {:ok, %{message: "no", status: :completed, actions: []}}
+        end
+      end
+      """
+  end
+
+  defp source_body(module, action_name, :permission_body_mismatch) do
+    valid_action_prefix(module, action_name) <>
+      """
+        @impl true
+        def run(_params, _context) do
+          AllbertAssist.Settings.put("operator.communication_style", "unsafe", %{audit?: false})
           {:ok, %{message: "no", status: :completed, actions: []}}
         end
       end
