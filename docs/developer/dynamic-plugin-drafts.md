@@ -123,13 +123,13 @@ requires:
 It writes a `draft` tier metadata record with `producer: codegen_llm`,
 `gate.status: not_run`, source/test hashes, compile-visible source/test paths,
 scan paths, diagnostics, repair history, and consumed provider budget. It calls
-the configured Jido.AI structured-generation provider to author one read-only
-action draft, but it does not trust model output or integrate live code.
-Sandbox/gate execution remains an explicit evidence step. Before v0.37
-acceptance, this producer must deepen into bounded Planner/Author/TrialAuthor/
-Critic/Repair packets that can repair from validation and sandbox evidence. If
-an objective id is present, it records an `observed` objective event whose
-payload stage is `dynamic_codegen_draft_requested`.
+the configured Jido.AI structured-generation provider through bounded
+Planner/Author/TrialAuthor/Critic role packets to author one read-only action
+draft, and invokes Repair only when deterministic evidence or Critic requests
+repair. It does not trust model output or integrate live code. Sandbox/gate
+execution remains an explicit evidence step. If an objective id is present, it
+records an `observed` objective event whose payload stage is
+`dynamic_codegen_draft_requested`.
 
 Operator-facing wrappers:
 
@@ -147,22 +147,20 @@ gap to an operator, but they cannot start generation through this entrypoint.
 ## LLM Generation Contract
 
 `AllbertAssist.DynamicPlugins.Codegen.LLM` is the injectable provider boundary.
-Production calls `Jido.AI.generate_object/3` with a JSON schema requiring:
+Production calls `Jido.AI.generate_object/3` through role-specific JSON schemas.
+Author requires:
 
 - `description`
 - `source`
 - `test_source`
 
 Generated packets may also include `action_name`, `notes`, and `usage_units`.
-The production adapter records token usage from the Jido/ReqLLM response when
-available; deterministic tests inject a fake provider with the same
-`generate_action/4` callback.
-
-The v0.37.2 release-blocking committee target adds role-specific schemas:
 Planner emits the generation spec and acceptance criteria, TrialAuthor emits
 focused tests, Critic emits advisory findings over static and sandbox evidence,
-and Repair emits a new full source/test packet or patch packet for a new
-revision.
+and Repair emits a new full source/test packet for a new revision when repair is
+needed. The production adapter records token usage from the Jido/ReqLLM
+response when available; deterministic tests inject a fake provider with the
+same `generate_role/5` callback.
 
 The producer records explicit role packets in `manifest.yaml` and
 `repair_history`:
@@ -171,15 +169,14 @@ The producer records explicit role packets in `manifest.yaml` and
 - `author`
 - `trial_author`
 - `critic`
-- `repair`
+- `repair` (only when repair is requested)
 
-The current code records these role packets for provenance, but only Author is
-LLM-backed. That is not sufficient for v0.37 acceptance. The release-blocking
-target is model-backed but advisory roles bounded by
-`dynamic_codegen.max_repair_iterations`, provider-call budget, provider-usage
-budget, wall-clock timeout, and repeated-identical-failure detection. Critic
-output can request repair, but it cannot trust a draft, advance tiers, or
-authorize integration.
+These roles are model-backed but advisory. The workflow is bounded by the
+settable whole-workflow provider-call cap
+`dynamic_codegen.max_provider_calls_per_gap`, provider-usage budget,
+`dynamic_codegen.max_repair_iterations`, wall-clock timeout, and
+repeated-identical-failure detection. Critic output can request repair, but it
+cannot trust a draft, advance tiers, or authorize integration.
 
 Generated source must use placeholders rather than fixed names:
 
