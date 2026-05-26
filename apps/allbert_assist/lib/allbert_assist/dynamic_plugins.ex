@@ -10,6 +10,7 @@ defmodule AllbertAssist.DynamicPlugins do
   """
 
   alias AllbertAssist.DynamicPlugins.Codegen
+  alias AllbertAssist.DynamicPlugins.Codegen.Workflow
   alias AllbertAssist.DynamicPlugins.Draft
   alias AllbertAssist.DynamicPlugins.Loader
   alias AllbertAssist.DynamicPlugins.MetadataStore
@@ -84,6 +85,11 @@ defmodule AllbertAssist.DynamicPlugins do
   @doc "Request a source-bearing read-only action draft for an explicit capability gap."
   @spec request_draft(map(), map(), keyword()) :: {:ok, map()} | {:error, term()}
   defdelegate request_draft(attrs, context \\ %{}, opts \\ []), to: Codegen.Agent
+
+  @doc "Request a draft, then run trial/gate evidence with bounded repair."
+  @spec request_draft_with_gate(map(), map(), keyword()) ::
+          {:ok, Workflow.result()} | {:error, term()}
+  defdelegate request_draft_with_gate(attrs, context \\ %{}, opts \\ []), to: Workflow
 
   @doc "Repair a source-bearing draft from bounded validation or sandbox evidence."
   @spec repair_draft(String.t(), map(), map()) :: {:ok, map()} | {:error, term()}
