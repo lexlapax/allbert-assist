@@ -2,12 +2,12 @@
 
 ## Status
 
-Proposed for v0.48 Marketplace Lite And API/ACP/Protocol Interop
-(`docs/plans/v0.48-plan.md`).
+Proposed for v0.49 Marketplace Lite And API/ACP/Protocol Interop
+(`docs/plans/v0.49-plan.md`).
 
 ## Context
 
-v0.48 plans OpenAI-compatible API, ACP, MCP server, and public AG-UI/A2UI
+v0.49 plans OpenAI-compatible API, ACP, MCP server, and public AG-UI/A2UI
 bridge surfaces. These expose Allbert to external clients and therefore need a
 shared policy rather than per-protocol ad hoc authority.
 

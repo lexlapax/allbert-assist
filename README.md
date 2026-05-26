@@ -85,10 +85,11 @@ Near-term milestones:
   reach: first-run onboarding and provider control (`v0.39`), MCP client
   integration (`v0.40`), everyday integrations (`v0.41`), browser research
   (`v0.42`), Discord/Slack channels (`v0.43`), Plan/Build workflows (`v0.44`),
-  voice and vision (`v0.45`/`v0.46`), mobile messaging channels (`v0.47`),
-  marketplace lite and protocol interop (`v0.48`), operator-supervised
-  self-improvement (`v0.49`), final hardening/export-import/RC evidence
-  (`v0.50`), and a no-new-features public contract freeze at `v1.0`.
+  operator-supervised self-improvement (`v0.45`) placed early so the rest of
+  the arc feeds its suggestion queue, voice and vision (`v0.46`/`v0.47`),
+  mobile messaging channels (`v0.48`), marketplace lite and protocol interop
+  (`v0.49`), final hardening/export-import/RC evidence (`v0.50`), and a
+  no-new-features public contract freeze at `v1.0`.
 
 ## Start Here
 
