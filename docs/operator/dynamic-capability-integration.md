@@ -16,11 +16,12 @@ pages, and children remain rejected live targets until later validators exist.
 Keep these states separate when reviewing a dynamic capability:
 
 - Advisory generation writes source-bearing draft files and metadata. The
-  v0.37.2 release target is a bounded model-backed committee: Planner, Author,
-  TrialAuthor, Critic, and Repair emit separate packets with redacted
-  provenance. The release remains open until that committee can author read-only
-  action source, generated tests, a manifest, hashes, repair history, and budget
-  diagnostics. It grants no authority.
+  v0.37.2 generator is a bounded model-backed committee: Planner, Author,
+  TrialAuthor, Critic, and invoked Repair calls emit separate packets with
+  redacted provenance. It can author read-only action source, generated tests, a
+  manifest, hashes, repair history, and budget diagnostics. The provider-call
+  cap applies to the whole workflow, not one fixed call per role. It grants no
+  authority.
 - v0.36 sandbox trial and gate reports are evidence. They grant no authority.
 - `:gate_passed` means the draft is eligible for operator review only.
 - Security Central confirmation is the trust grant.
