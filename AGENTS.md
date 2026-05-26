@@ -147,8 +147,10 @@ Use these as starting points, then narrow further from the active task:
   the core node only after the v0.36 gate passes and the operator explicitly
   confirms an audited, reversible integration. Untrusted/arbitrary loading,
   integration without the gate, and integration authorized by advisory/agent
-  output remain fully forbidden. Until v0.37 ships, no dynamic loading is
-  permitted.
+  output remain fully forbidden. Dynamic loading is permitted only through the
+  implemented v0.37 path after `dynamic_codegen.enabled`,
+  `dynamic_codegen.live_loader_enabled`, sandbox/gate evidence, trusted
+  validation, and operator confirmation are all present.
 - Do not execute skill scripts, shell commands, external installs, network
   adapters, bridge processes, or provider calls unless a plan explicitly adds
   the permission, confirmation, sandbox, and trace story.

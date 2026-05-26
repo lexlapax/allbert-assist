@@ -22,7 +22,10 @@ over deterministic evidence, rather than a single Author LLM call plus
 deterministic wrappers. v0.37.3 delegated-write work closes the remaining scope
 gap before tagging: generated actions can declare `:memory_write` or
 `:external_network` only by routing effects through reviewed facades with their
-normal Security Central behavior.
+normal Security Central behavior. v0.37.4 audit-remediation work closes the
+final reviewer gaps before tagging: discard workflow, delegated security eval
+coverage, a dedicated dynamic-codegen request permission, validator coherence,
+and release-facing version/docs alignment.
 
 Plan: `docs/plans/v0.37-plan.md`.
 Request flow: `docs/plans/v0.37-request-flow.md`.
@@ -85,9 +88,10 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 
 ### Changed (v0.37.0)
 
-- Umbrella, core app, and web app version metadata are bumped to `0.37.0`
-  because v0.37 adds dynamic draft, sandbox bridge, live-loader, rollback, and
-  request-scaffold actions to the core runtime boundary.
+- Umbrella, core app, and web app version metadata were initially bumped to
+  `0.37.0` because v0.37 adds dynamic draft, sandbox bridge, live-loader,
+  rollback, and request-scaffold actions to the core runtime boundary. The
+  pre-tag release candidate now reports `0.37.4` after audit remediation.
 - The v0.37 shipped live loader integrates reviewed gate-passed read-only
   action artifacts only. Generated apps, panels, settings fragments, memory
   namespaces, objective wiring, route pages, and child processes remain rejected
@@ -168,6 +172,35 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
   `dynamic_codegen.integration_approval_surfaces` setting remains scoped to
   integration and rollback hot-load confirmations.
 
+### Added (v0.37.4 audit remediation)
+
+- Registered `discard_dynamic_draft` action and `mix allbert.dynamic drafts
+  discard <slug>` command for terminal discard of non-integrated or rolled-back
+  dynamic drafts.
+- Dedicated `:dynamic_codegen_request` permission and
+  `permissions.dynamic_codegen_request` Settings Central key, default
+  `allowed`, so LLM-backed draft generation is audited separately from
+  historical `:skill_write`.
+- Security eval rows for discard, request-permission splitting, delegated
+  memory/network allowance, facade allowlists, literal facade names,
+  delegated-permission coherence, runtime facade disablement, delegated
+  rollback authority removal, and direct-effect denial.
+
+### Changed (v0.37.4 audit remediation)
+
+- `request_dynamic_draft` now authorizes `:dynamic_codegen_request` instead of
+  `:skill_write`; denying `permissions.skill_write` no longer blocks dynamic
+  generation, while denying `permissions.dynamic_codegen_request` does.
+- Trusted validation now treats delegated facade evidence and response action
+  permission metadata as valid only inside generated `run/2`; helper-only
+  delegation is denied so dead code cannot justify generated write permission.
+- Generated `AllbertAssist.Action` capability options are pinned for
+  permission, exposure, execution mode, confirmation, `skill_backed?`, and
+  `resumable?`; literal `@spec`/`@type`/`@typep` attributes and `||` are
+  allowed.
+- Umbrella, core app, and web app version metadata are bumped to `0.37.4` for
+  the pre-tag release candidate.
+
 ### Verification (v0.37.0)
 
 - M0-M4 were implemented, focused-tested, documented, and committed separately.
@@ -224,6 +257,14 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
   validation accepted the generated source after the validator allowed pipe
   syntax used by the model.
 - Final gates passed `mix compile --warnings-as-errors`,
+  `mix format --check-formatted`, `git diff --check`, `mix credo --strict`,
+  `mix dialyzer`, and `mix precommit`.
+
+### Verification (v0.37.4 audit remediation)
+
+- M19-M22 each passed focused regression suites, warning gates, and a milestone
+  commit/push. M21 and M22 also passed full `mix precommit` before push.
+- M23 release closeout passed `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `git diff --check`, `mix credo --strict`,
   `mix dialyzer`, and `mix precommit`.
 
