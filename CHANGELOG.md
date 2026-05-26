@@ -135,6 +135,11 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
   whole-workflow cap, not one fixed call per role. Critic output remains
   advisory; deterministic validators, sandbox tests/gates, and operator
   confirmation remain authority.
+- The generated-action workflow now has an explicit
+  `DynamicPlugins.request_draft_with_gate/3` facade that requests the draft,
+  runs v0.36 trial/gate evidence, runs trusted validation, feeds failed
+  sandbox or validator evidence into bounded Repair, and returns only evidence
+  until the existing operator-confirmed integration flow is approved.
 
 ### Verification (v0.37.0)
 
@@ -166,9 +171,15 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
   suites passed during the initial generator work, before the model-backed
   committee correction. M10/M11 add model-backed role packets and evidence
   repair; final release gates still need closeout.
-- Final release gates must be rerun after closeout: `mix compile --warnings-as-errors`,
-  `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
-  `git diff --check`, and `mix precommit`.
+- M16 adds deterministic fake-backend coverage for the full generated action
+  loop through draft, sandbox trial/gate, trusted validation, operator
+  integration confirmation, live `Actions.Runner.run/3`, rollback confirmation,
+  and registry removal, plus tighter validator eval denial assertions.
+- M16 closeout passed focused codegen/security eval suites, the broader
+  dynamic-plugin focused suite, real OpenAI `.env` draft-generation smoke,
+  `mix compile --warnings-as-errors`, `mix format --check-formatted`,
+  `git diff --check`, `mix credo --strict`, `mix dialyzer`, and
+  `mix precommit`.
 - `.env` contains remote provider credentials and the remote OpenAI, Anthropic,
   and OpenRouter smoke workflows are documented. The automated run from this
   agent session was blocked by external-provider transfer policy after sandbox
