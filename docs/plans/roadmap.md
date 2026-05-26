@@ -2098,7 +2098,12 @@ Expected direction:
   → validate → developer-scaffold or operator live integration.
 - Two output modes: developer scaffold (inert source under `./plugins/<name>/`,
   no integration) and operator templated creation (reuses the v0.36/v0.37 gated
-  path, operator-confirmed and reversible).
+  path, operator-confirmed and reversible). Live integration in v0.38 covers
+  the LLM-tool (action) template only; plugin, app, scheduled/chron flow, and
+  objective workflow patterns are developer-scaffold-only because v0.37.5
+  loader scope rejects those artifact shapes as live targets. Templated
+  drafts share `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/` with v0.37
+  codegen drafts and record `producer: "template_pattern"`.
 - Generated output is inert by default: no automatic compile-path change, trust,
   skill enablement, route authority, permission grant, or execution authority.
   Generated theme/snippet/layout stubs are disabled by default.
