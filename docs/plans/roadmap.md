@@ -1959,9 +1959,10 @@ self-extending-runtime engine now has file-backed dynamic drafts, v0.36 sandbox
 trial/gate handoff, trusted validation, dynamic lifecycle audit/signals, and
 gated live in-core integration for read-only action artifacts. v0.37.2 must add
 source-bearing LLM-backed read-only action generation through separate
-Planner/Author/TrialAuthor/Critic/Repair packets and prove the full
-generate -> repair -> gate -> approve -> live run -> rollback loop. Broader
-generated app/config targets remain deferred until their validators exist.
+Planner/Author/TrialAuthor/Critic packets plus invoked Repair packets and prove
+the full generate -> repair -> gate -> approve -> live run -> rollback loop.
+Broader generated app/config targets remain deferred until their validators
+exist.
 Highest-capability and highest-risk milestone; its safety rests on the v0.36
 sandbox evidence plus operator-confirmed integration.
 
@@ -1975,10 +1976,12 @@ Expected direction:
 - Use producer-neutral codegen scaffolding for explicit capability-gap draft
   requests, and implement the v0.37.2 LLM-backed action producer through this
   guarded path.
-- Keep Planner, Author, TrialAuthor, Critic, and Repair model-backed but
-  advisory. Deterministic validators, v0.36 sandbox tests/gates, and operator
-  confirmation remain authority; Critic output can request repair but cannot
-  trust or integrate a draft.
+- Keep Planner, Author, TrialAuthor, Critic, and invoked Repair calls
+  model-backed but advisory. `dynamic_codegen.max_provider_calls_per_gap` is a
+  settable whole-workflow cap, not a one-call-per-role limit. Deterministic
+  validators, v0.36 sandbox tests/gates, and operator confirmation remain
+  authority; Critic output can request repair but cannot trust or integrate a
+  draft.
 - Store draft metadata, source, provenance, repair history, and sandbox reports
   file-backed under `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/`, separate
   from ordinary plugin discovery roots.

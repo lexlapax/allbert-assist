@@ -16,9 +16,10 @@ Status: implemented as `0.37.0` on 2026-05-25. v0.37.1
 post-implementation audit hardening and final gates completed on 2026-05-25.
 v0.37.2 capability-first generator work reopened the release before tagging so
 the milestone ships a real source-bearing read-only action generator, not only
-an inert scaffold. The v0.37.2 research correction keeps the release open until
-the generator uses a bounded model-backed Planner/Author/TrialAuthor/Critic/
-Repair loop rather than a single Author LLM call plus deterministic wrappers.
+an inert scaffold. The v0.37.2 research correction requires a bounded
+model-backed Planner/Author/TrialAuthor/Critic flow plus invoked Repair calls
+over deterministic evidence, rather than a single Author LLM call plus
+deterministic wrappers.
 
 Plan: `docs/plans/v0.37-plan.md`.
 Request flow: `docs/plans/v0.37-request-flow.md`.
@@ -129,9 +130,11 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
   docs now describe source-bearing read-only action generation plus gated live
   integration.
 - Research reconciliation now requires v0.37.2 to use separate model-backed
-  Planner, Author, TrialAuthor, Critic, and Repair packets with bounded repair
-  over sandbox/gate evidence. Critic output remains advisory; deterministic
-  validators, sandbox tests/gates, and operator confirmation remain authority.
+  Planner, Author, TrialAuthor, Critic, and invoked Repair packets with bounded
+  repair over sandbox/gate evidence. The provider-call cap is a settable
+  whole-workflow cap, not one fixed call per role. Critic output remains
+  advisory; deterministic validators, sandbox tests/gates, and operator
+  confirmation remain authority.
 
 ### Verification (v0.37.0)
 
@@ -161,9 +164,9 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 
 - Focused codegen, dynamic action, Mix task, security eval, loader, and settings
   suites passed during the initial generator work, before the model-backed
-  committee correction.
-- Final release gates must be rerun after the Planner/Author/TrialAuthor/
-  Critic/Repair loop lands: `mix compile --warnings-as-errors`,
+  committee correction. M10/M11 add model-backed role packets and evidence
+  repair; final release gates still need closeout.
+- Final release gates must be rerun after closeout: `mix compile --warnings-as-errors`,
   `mix format --check-formatted`, `mix credo --strict`, `mix dialyzer`,
   `git diff --check`, and `mix precommit`.
 - `.env` contains remote provider credentials and the remote OpenAI, Anthropic,
