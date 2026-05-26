@@ -10,25 +10,17 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
-## v0.37.0 - Dynamic Code & Config Generation and Live Capability Integration
+## v0.37.5 - Dynamic Code & Config Generation and Live Capability Integration
 
-Status: implemented as `0.37.0` on 2026-05-25. v0.37.1
-post-implementation audit hardening and final gates completed on 2026-05-25.
-v0.37.2 capability-first generator work reopened the release before tagging so
-the milestone ships a real source-bearing read-only action generator, not only
-an inert scaffold. The v0.37.2 research correction requires a bounded
-model-backed Planner/Author/TrialAuthor/Critic flow plus invoked Repair calls
-over deterministic evidence, rather than a single Author LLM call plus
-deterministic wrappers. v0.37.3 delegated-write work closes the remaining scope
-gap before tagging: generated actions can declare `:memory_write` or
-`:external_network` only by routing effects through reviewed facades with their
-normal Security Central behavior. v0.37.4 audit-remediation work closes the
-final reviewer gaps before tagging: discard workflow, delegated security eval
-coverage, a dedicated dynamic-codegen request permission, validator coherence,
-and release-facing version/docs alignment. v0.37.5 fourth-audit closeout moves
-discard to a dedicated lifecycle permission, records dynamic delegate
-provenance in facade confirmations, and explicitly preserves normal facade
-approval policy for delegated invocations.
+Status: released and tagged as `v0.37.5` on 2026-05-26. The v0.37 line was
+first implemented as `0.37.0` on 2026-05-25, then reopened before the release
+tag for v0.37.1 post-implementation audit hardening, v0.37.2 capability-first
+generation, v0.37.3 delegated generated writes, v0.37.4 audit remediation, and
+v0.37.5 fourth-audit closeout. The final release ships the full explicit
+capability-gap loop: bounded model-backed planning/authoring/critique/repair,
+v0.36 sandbox evidence, trusted validation, operator-confirmed live
+integration, live action invocation, delegated memory/network effects through
+reviewed facades, rollback, discard, lifecycle audit, and release docs.
 
 Plan: `docs/plans/v0.37-plan.md`.
 Request flow: `docs/plans/v0.37-request-flow.md`.
@@ -94,11 +86,12 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 - Umbrella, core app, and web app version metadata were initially bumped to
   `0.37.0` because v0.37 adds dynamic draft, sandbox bridge, live-loader,
   rollback, and request-scaffold actions to the core runtime boundary. The
-  pre-tag release candidate now reports `0.37.5` after audit remediation.
-- The v0.37 shipped live loader integrates reviewed gate-passed read-only
-  action artifacts only. Generated apps, panels, settings fragments, memory
-  namespaces, objective wiring, route pages, and child processes remain rejected
-  live targets until future validators exist.
+  tagged release reports `0.37.5` after pre-tag audit remediation.
+- The v0.37 shipped live loader integrates reviewed gate-passed action
+  artifacts only: pure read-only actions plus delegated memory/network actions
+  whose effects route through reviewed facades. Generated apps, panels,
+  settings fragments, memory namespaces, objective wiring, route pages, and
+  child processes remain rejected live targets until future validators exist.
 - `Actions.Registry` now merges the dynamic action overlay across public
   registry seams while denying static/plugin/app/dynamic name collisions.
 - Development, operator, runtime-boundary, agent-context, onboarding,
@@ -228,7 +221,7 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
   without confirmation, which may remove gate evidence but never removes live
   authority.
 - Umbrella, core app, and web app version metadata are bumped to `0.37.5` for
-  the pre-tag release candidate.
+  the released v0.37 build.
 
 ### Verification (v0.37.0)
 
@@ -259,7 +252,7 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 - Focused codegen, dynamic action, Mix task, security eval, loader, and settings
   suites passed during the initial generator work, before the model-backed
   committee correction. M10/M11 add model-backed role packets and evidence
-  repair; final release gates still need closeout.
+  repair; later M16 closeout ran the final generator gates.
 - M16 adds deterministic fake-backend coverage for the full generated action
   loop through draft, sandbox trial/gate, trusted validation, operator
   integration confirmation, live `Actions.Runner.run/3`, rollback confirmation,
@@ -305,6 +298,10 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
   `mix compile --warnings-as-errors`, `mix format --check-formatted`,
   `git diff --check`, `mix credo --strict`, `mix dialyzer`, and
   `mix precommit`.
+- M26 release-doc closeout reconciled README, CHANGELOG, roadmap,
+  plan/request-flow, runtime-boundary, agent-context, and future-feature
+  parking-lot wording for the `v0.37.5` tag. Docs-only verification passed
+  `git diff --check`.
 
 ## v0.36.0 - Elixir/OTP Sandbox And Gate Runner
 
