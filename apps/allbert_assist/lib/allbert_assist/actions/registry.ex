@@ -19,6 +19,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Confirmations.ListConfirmations
   alias AllbertAssist.Actions.Confirmations.ShowConfirmation
   alias AllbertAssist.Actions.DynamicPlugins.DisableLiveLoader, as: DisableDynamicLiveLoader
+  alias AllbertAssist.Actions.DynamicPlugins.DiscardDraft, as: DiscardDynamicDraft
   alias AllbertAssist.Actions.DynamicPlugins.IntegrateDraft, as: IntegrateDynamicDraft
   alias AllbertAssist.Actions.DynamicPlugins.ListDynamicDrafts
   alias AllbertAssist.Actions.DynamicPlugins.RequestDraft, as: RequestDynamicDraft
@@ -187,6 +188,7 @@ defmodule AllbertAssist.Actions.Registry do
     DismissEphemeral,
     SetTheme,
     RequestDynamicDraft,
+    DiscardDynamicDraft,
     IntegrateDynamicDraft,
     RollbackDynamicIntegration,
     DisableDynamicLiveLoader,

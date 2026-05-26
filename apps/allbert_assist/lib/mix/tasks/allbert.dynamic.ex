@@ -7,6 +7,7 @@ defmodule Mix.Tasks.Allbert.Dynamic do
       mix allbert.dynamic drafts list
       mix allbert.dynamic drafts show SLUG
       mix allbert.dynamic drafts request SLUG SUMMARY...
+      mix allbert.dynamic drafts discard SLUG
       mix allbert.dynamic drafts integrate SLUG
       mix allbert.dynamic integrations show SLUG [REVISION]
       mix allbert.dynamic integrations rollback SLUG [REVISION]
@@ -58,6 +59,12 @@ defmodule Mix.Tasks.Allbert.Dynamic do
       {:ok, %{status: :completed} = response} -> {:ok, {:integrated, response}}
       {:ok, %{status: :needs_confirmation} = response} -> {:ok, {:confirmation, response}}
       {:ok, response} -> {:error, response_error(response)}
+    end
+  end
+
+  defp dispatch(["drafts", "discard", slug]) do
+    with {:ok, response} <- completed_action("discard_dynamic_draft", %{slug: slug}) do
+      {:ok, {:discarded, response}}
     end
   end
 
@@ -128,6 +135,10 @@ defmodule Mix.Tasks.Allbert.Dynamic do
     Mix.shell().info("Draft root: #{response.draft.root}")
   end
 
+  defp print_result({:ok, {:discarded, response}}) do
+    Mix.shell().info(response.message)
+  end
+
   defp print_result({:ok, {:integrated, response}}) do
     Mix.shell().info(response.message)
   end
@@ -174,6 +185,7 @@ defmodule Mix.Tasks.Allbert.Dynamic do
       mix allbert.dynamic drafts list
       mix allbert.dynamic drafts show SLUG
       mix allbert.dynamic drafts request SLUG SUMMARY...
+      mix allbert.dynamic drafts discard SLUG
       mix allbert.dynamic drafts integrate SLUG
       mix allbert.dynamic integrations show SLUG [REVISION]
       mix allbert.dynamic integrations rollback SLUG [REVISION]

@@ -62,6 +62,38 @@ defmodule AllbertAssist.Actions.DynamicPluginsTest do
     assert shown.revision == "rev_test"
   end
 
+  test "discard dynamic draft through the runner tombstones non-live draft" do
+    assert {:ok, _draft} =
+             DynamicPlugins.put_draft(%{
+               slug: "runner_discard",
+               revision: "rev_test",
+               producer: "test"
+             })
+
+    assert {:ok, %{status: :completed, draft: discarded}} =
+             Runner.run("discard_dynamic_draft", %{slug: "runner_discard"}, context())
+
+    assert discarded.tier == "discarded"
+
+    assert {:ok, %{status: :completed, draft: discarded_again}} =
+             Runner.run("discard_dynamic_draft", %{slug: "runner_discard"}, context())
+
+    assert discarded_again.tier == "discarded"
+  end
+
+  test "discard dynamic draft requires rollback before integrated draft" do
+    assert {:ok, _draft} =
+             DynamicPlugins.put_draft(%{
+               slug: "runner_discard_live",
+               revision: "rev_test",
+               tier: "integrated",
+               producer: "test"
+             })
+
+    assert {:ok, %{status: :denied, error: :rollback_required}} =
+             Runner.run("discard_dynamic_draft", %{slug: "runner_discard_live"}, context())
+  end
+
   test "show missing dynamic draft fails closed" do
     assert {:ok, %{status: :denied, error: {:metadata_not_found, _path}}} =
              Runner.run("show_dynamic_draft", %{slug: "missing"}, context())

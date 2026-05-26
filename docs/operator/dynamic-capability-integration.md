@@ -241,6 +241,21 @@ references drain.
 Same-name upgrades require rollback first. v0.37 does not replace a live
 revision in place.
 
+## Discard
+
+Discard an untrusted, failed, or already rolled-back draft when you no longer
+want it to be eligible for gate or integration:
+
+```sh
+mix allbert.dynamic drafts discard <slug>
+mix allbert.dynamic drafts show <slug>
+```
+
+Discard is terminal for that draft revision. Integrated artifacts must be rolled
+back first, because discard never removes live authority by itself. The action
+uses the same safety-reducing cleanup posture as emergency disablement: it is a
+local lifecycle/settings write and does not require a separate confirmation.
+
 ## Emergency Disablement
 
 Disable live authority without deleting source:
