@@ -199,10 +199,12 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
       confirmation :not_required, and output
       %{message: string, status: :completed, actions: []}. Do not use System,
       File, Code, Mix, Application, Process, Port, Node, Repo, Settings,
-      confirmations, resources, network calls, dependencies, macros, @on_load,
-      or dynamic atoms. Every schema field is required: use an empty string for
-      action_name when the default name is fine, [] for notes when there are no
-      notes, and 0 for usage_units when provider usage is unavailable.
+      confirmations, resources, network calls, dependencies, @on_load, or
+      dynamic atoms. The only allowed macro is the required
+      `use AllbertAssist.Action` declaration. Every schema field is required:
+      use an empty string for action_name when the default name is fine, [] for
+      notes when there are no notes, and 0 for usage_units when provider usage
+      is unavailable.
       """
     end
 
@@ -243,9 +245,11 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
       possible, return status "repaired" with complete replacement source and
       test_source. Use placeholders {{MODULE}}, {{TEST_MODULE}}, and
       {{ACTION_NAME}}. Do not broaden permissions or introduce any protected
-      runtime authority. Every schema field is required: use empty strings for
-      unused source fields, [] for empty lists, and 0 for usage_units when
-      provider usage is unavailable.
+      runtime authority. The source must include the literal text
+      `use AllbertAssist.Action`, `permission: :read_only`, and
+      `confirmation: :not_required`. Every schema field is required: use empty
+      strings for unused source fields, [] for empty lists, and 0 for
+      usage_units when provider usage is unavailable.
       """
     end
 
@@ -278,6 +282,11 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
       - Generate normal pure Elixir logic. It may format strings, do
         arithmetic/comparison, and iterate lists.
       - The action body must be deterministic and read-only.
+      - Adapt this exact source skeleton; keep the literal placeholders
+        {{MODULE}} and {{ACTION_NAME}} in the source field:
+
+      #{required_action_template()}
+
       - Keep source under 160 lines.
       """
     end
@@ -294,6 +303,11 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
 
       Requirements:
       - Include one focused ExUnit test that calls {{MODULE}}.run/2 directly.
+      - Adapt this exact test skeleton; keep the literal placeholders
+        {{TEST_MODULE}} and {{MODULE}} in the test_source field:
+
+      #{required_test_template()}
+
       - Keep test_source under 120 lines.
       """
     end
@@ -334,10 +348,85 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
 
       Current test_source:
       #{Map.get(input, "test_source", "")}
+
+      Replacement source skeleton:
+      #{required_action_template()}
+
+      Replacement test_source skeleton:
+      #{required_test_template()}
       """
     end
 
     defp prompt(_role, input, _budget, _context), do: Jason.encode!(input)
+
+    defp required_action_template do
+      ~S"""
+      defmodule {{MODULE}} do
+        use AllbertAssist.Action,
+          permission: :read_only,
+          exposure: :internal,
+          execution_mode: :read_only,
+          skill_backed?: false,
+          confirmation: :not_required,
+          name: "{{ACTION_NAME}}",
+          description: "Summarize a name, score, and tags.",
+          category: "dynamic_plugins",
+          tags: ["dynamic", "generated"],
+          schema: [
+            name: [type: :string, required: false],
+            score: [type: :integer, required: false],
+            tags: [type: {:list, :string}, required: false]
+          ],
+          output_schema: [
+            message: [type: :string, required: true],
+            status: [type: :atom, required: true],
+            actions: [type: {:list, :map}, required: true]
+          ]
+
+        @impl true
+        def run(params, _context) do
+          name = params |> Map.get(:name, "item") |> to_string() |> String.trim()
+          tags = Map.get(params, :tags, [])
+          normalized_tags = Enum.map(tags, fn tag -> tag |> to_string() |> String.upcase() end)
+          score = Map.get(params, :score, 0)
+          adjusted_score = score + Enum.count(normalized_tags)
+
+          tier =
+            if adjusted_score >= 10 do
+              "high"
+            else
+              "normal"
+            end
+
+          message =
+            name <>
+              ": " <>
+              tier <>
+              " score=" <>
+              Integer.to_string(adjusted_score) <>
+              " tags=" <>
+              Enum.join(normalized_tags, ", ")
+
+          {:ok, %{message: message, status: :completed, actions: []}}
+        end
+      end
+      """
+    end
+
+    defp required_test_template do
+      ~S"""
+      defmodule {{TEST_MODULE}} do
+        use ExUnit.Case, async: true
+
+        test "generated read-only action summarizes params" do
+          assert {:ok, %{status: :completed, message: message, actions: []}} =
+                   {{MODULE}}.run(%{name: " Ada ", score: 8, tags: ["math", "code"]}, %{})
+
+          assert message == "Ada: high score=10 tags=MATH, CODE"
+        end
+      end
+      """
+    end
 
     defp prompt_hash(prompt) do
       hash =
