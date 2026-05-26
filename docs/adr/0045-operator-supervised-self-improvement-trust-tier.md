@@ -1,6 +1,6 @@
 # ADR 0045: Operator-Supervised Self-Improvement Trust Tier
 
-Status: Proposed for v0.45.
+Status: Proposed for v0.46.
 
 ## Context
 
@@ -17,7 +17,7 @@ plugins, package execution, or live code.
 
 ## Decision
 
-Introduce an operator-supervised self-improvement trust tier for v0.45:
+Introduce an operator-supervised self-improvement trust tier for v0.46:
 
 - Pattern discovery is read-only and runs through registered actions.
 - Suggestion packets are advisory metadata only.
@@ -25,9 +25,15 @@ Introduce an operator-supervised self-improvement trust tier for v0.45:
 - Instruction-only skill drafts are disabled and untrusted by default.
 - Workflow YAML drafts are declarative objective input only.
 - Template inputs may hand off to the v0.38 templated creation path.
+- Marketplace-lite metadata from v0.45 may inform suggestions but remains
+  descriptive only.
+- Reviewed memory promotion/update draft facades and objective/workflow
+  draft-write facades may be added, but they write draft state only.
 - Code-bearing drafts must hand off to the v0.36 sandbox/gate and v0.37
   trusted-validation/live-integration path before any live authority can be
   requested.
+- Settings, secrets, shell, package-install, confirmation-decision,
+  trust-control, and live workspace/canvas write facades are out of scope.
 - Enablement, integration, publish, rollback, and marketplace submission still
   require normal registered actions, Security Central, durable confirmation,
   traces, and audits.
@@ -47,6 +53,7 @@ The implementation must add evals for:
 - suggestion packets carrying no authority;
 - disabled/untrusted draft creation;
 - code-bearing draft gate requirements;
+- memory/workflow facade draft-only behavior;
 - repeated-use non-grants;
 - unsafe capability-request denial;
 - marketplace/publish confirmation.
