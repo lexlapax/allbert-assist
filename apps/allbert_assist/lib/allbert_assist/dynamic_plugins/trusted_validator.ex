@@ -902,6 +902,7 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
     if bodies == [], do: {:error, :dynamic_action_missing_run}, else: {:ok, bodies}
   end
 
+  # Accepts either a single quoted body wrapped in a list or a list of run/2 bodies.
   defp delegated_facades(forms) do
     {_forms, facades} =
       Macro.prewalk(forms, [], &collect_delegated_facade/2)

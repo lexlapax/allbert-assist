@@ -24,6 +24,7 @@ defmodule AllbertAssist.Security.Risk do
   def tier(:settings_write), do: :medium
   def tier(:skill_write), do: :medium
   def tier(:dynamic_codegen_request), do: :medium
+  def tier(:dynamic_codegen_discard), do: :medium
   def tier(:confirmation_decide), do: :medium
   def tier(:objective_write), do: :low
   def tier(:workspace_canvas_write), do: :low
@@ -49,6 +50,9 @@ defmodule AllbertAssist.Security.Risk do
 
   defp reasons(:dynamic_codegen_request, _tier, _context),
     do: ["LLM-backed dynamic source draft request"]
+
+  defp reasons(:dynamic_codegen_discard, _tier, _context),
+    do: ["dynamic source draft lifecycle discard"]
 
   defp reasons(:confirmation_decide, _tier, _context), do: ["operator confirmation decision"]
   defp reasons(:objective_write, _tier, _context), do: ["local objective lifecycle write"]

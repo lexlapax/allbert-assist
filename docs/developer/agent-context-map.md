@@ -239,7 +239,7 @@ Do not load every section by default.
   records, and fail-closed denial of
   network, secrets, real Allbert Home, package-manager execution, NIFs, ports,
   shell strings, and untrusted core loading. Per ADR 0037 and ADR 0009.
-- v0.37 (implemented as `v0.37.4`): Dynamic Code & Config Generation And Live
+- v0.37 (implemented as `v0.37.5`): Dynamic Code & Config Generation And Live
   Capability Integration. Adds file-backed dynamic draft metadata under
   `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/`, an explicit source-bearing
   read-only/delegated action generator for capability gaps, v0.36 sandbox
@@ -299,7 +299,9 @@ For v0.37 code, start with `docs/developer/dynamic-plugin-drafts.md`. Use
 `DynamicPlugins.ActionsOverlay` behind `Actions.Registry`, and keep
 `DynamicPlugins.TrustedValidator` separate from the v0.36 regex/source-policy
 scanner. Dynamic integration and rollback confirmations must verify resolver
-surface against `dynamic_codegen.integration_approval_surfaces`.
+surface against `dynamic_codegen.integration_approval_surfaces`; delegated
+facade confirmations from integrated dynamic actions intentionally follow the
+reviewed facade's normal confirmation policy.
 
 ### Memory
 

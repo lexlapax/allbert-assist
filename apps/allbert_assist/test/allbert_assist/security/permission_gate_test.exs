@@ -15,6 +15,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :settings_write,
              :skill_write,
              :dynamic_codegen_request,
+             :dynamic_codegen_discard,
              :skill_script_execute,
              :confirmation_decide,
              :objective_write,
@@ -130,6 +131,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
           :settings_write,
           :skill_write,
           :dynamic_codegen_request,
+          :dynamic_codegen_discard,
           :confirmation_decide,
           :settings_secret_write
         ] do
