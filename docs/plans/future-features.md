@@ -52,6 +52,21 @@ homes:
   capability integration: v0.37.
 - Templated creation (plugin/app/LLM-tool/scheduled-flow/code templates, Mix
   tasks, operator flows, Canvas Create surface): v0.38.
+- First-run onboarding, provider control, identity slot, and deterministic
+  Active Memory precursor: v0.39.
+- MCP client integration: v0.40.
+- Everyday Integration Pack 1 (calendar, mail, GitHub, notes/files): v0.41.
+- Browser and web research with bounded HTML/markdown/text/PDF extraction:
+  v0.42.
+- Discord and Slack channel plugins: v0.43.
+- Plan/Build Mode and operator workflow YAML: v0.44.
+- Voice modality: v0.45.
+- Vision and image generation: v0.46.
+- WhatsApp, Signal, iMessage, and Matrix channel plugins: v0.47.
+- Marketplace lite plus API/ACP/protocol interop: v0.48.
+- Operator-supervised self-improvement: v0.49.
+- Hardening, export/import, and final RC: v0.50.
+- Stability release and public contract freeze: v1.0.
 
 Do not duplicate those here unless the future feature is broader than the
 existing plan.
@@ -62,6 +77,12 @@ existing plan.
 ### system memory
 was `Small-Model Memory Or Personality Distillation`
 
+Status: split. A deterministic Active Memory precursor is planned for v0.39:
+it reuses reviewed-memory retrieval before replies and does not train,
+distill, or generate a system model. Operator-supervised trace pattern
+suggestions are planned for v0.49 in `docs/plans/v0.49-plan.md`.
+Small-model memory/personality distillation remains parked here as research.
+
 need to think about not just user/operator memory, but the allbert system memory as the use of allbert evolves with the operators request .. things like
 - common agent use, action use signal use patterns, could be codified into intents or workflows rather than rediscovery it every time
 - suggestions to create skills based on repeated prompts
@@ -71,8 +92,10 @@ etc..
 Source: origin note and roadmap future research.
 
 The origin note imagines compiled memory, nightly distillation, or a small
-personal model. This remains research until memory review, trace quality, and
-retrieval are stable.
+personal model. The safe near-term interpretation is deterministic retrieval
+and trace-derived draft suggestions. Training, distillation, or learned
+system-memory authority remains research until memory review, trace quality,
+retrieval, deletion policy, reproducibility, and evals are stable.
 
 Needed before planning:
 
@@ -102,6 +125,9 @@ Needed before planning:
 
 
 ### Operator first run onboarding.
+**Status: graduated to v0.39 First-Run Onboarding + Provider Control +
+Identity Slot + Active Memory.**
+
 when the user first downloads from git, the allbert runtime, what to run, is it a guided run.. the run should also be made up of agents, actions, signals etc, so that it can be run from the command line or any other channel, like the web.
 
 - ask to set up keys for remote llms or local llm configs
@@ -114,20 +140,27 @@ when the user first downloads from git, the allbert runtime, what to run, is it 
 Source: origin note, ADR 0003, v0.03 through v0.06 non-goals, v0.37 dynamic
 code/config generation planning, and v0.38 templated-creation planning.
 
+Status: split. A safe trace-to-skill draft suggestion precursor is planned for
+v0.49 in `docs/plans/v0.49-plan.md`. Fully autonomous skill creation remains
+parked here.
+
 Allbert should eventually help create new skills from traces, repeated tasks,
 corrections, or explicit user requests. v0.36 implements the narrow Elixir/OTP
 sandbox/gate substrate; v0.37 covers operator-confirmed dynamic generation and
 gated live integration for explicit capability gaps; v0.38 covers templated
 creation (vetted plugin/app/tool/flow/code templates via Mix tasks, operator
-flows, and a Canvas surface). None of these milestones autonomously infers,
-trusts, enables, publishes, or activates new capabilities from traces.
+flows, and a Canvas surface). v0.49 can propose inert drafts from trace
+patterns and route them into those reviewed paths. None of these
+milestones autonomously infers, trusts, enables, publishes, or activates new
+capabilities from traces.
 
-Needed before planning:
+Needed before scheduling autonomous creation:
 
 - v0.36 sandbox/gate runner accepted through user testing
 - v0.37 dynamic generation/live-loader accepted through user testing
 - v0.38 manual plugin/app/template generator accepted
   through user testing
+- v0.49 supervised suggestion precursor accepted through user testing
 - review and trust workflow
 - trace-to-skill draft workflow
 - explicit operator approval before enabling
@@ -138,6 +171,11 @@ Needed before planning:
 
 Source: v0.37 implementation audits, v0.37.5 release closeout, and v0.38
 templated-creation planning.
+
+Status: split. v0.36-v0.38 already define the current supervised dynamic
+capability path. v0.49 connects that path to trace-derived capability-gap
+suggestions. Unsupervised self-recompilation and compiler-loop bootstrapping
+remain research.
 
 v0.37.5 ships the first runnable dynamic-code path: explicit capability gaps
 can produce pure read-only actions or delegated memory/network actions through
@@ -160,11 +198,15 @@ Potential directions:
 - surface `dynamic_codegen_delegate` provenance in CLI, LiveView, email, and
   channel confirmation cards so operators can see which generated action caused
   a reviewed facade confirmation.
+- analyze repeated capability gaps in v0.49 and propose inert dynamic draft
+  requests that still enter the v0.36/v0.37/v0.38 review path.
 
-Needed before planning:
+Needed before scheduling broader dynamic expansion:
 
 - v0.37.5 dynamic generation/live-loader accepted through manual operator
   testing
+- v0.38 templates accepted through operator use
+- v1.0 public contracts frozen
 - reviewed facade contracts for each new delegated operation
 - security eval rows proving permission/facade/confirmation behavior
 - operator documentation for any setup helper or new delegated approval surface
@@ -212,6 +254,11 @@ arrives.
 ### Additional Remote Channel Adapters
 
 Source: origin note, allbert-jido vision, and v0.16 dual-channel planning.
+
+Status: split. Discord and Slack are planned for v0.43. WhatsApp, Signal,
+iMessage, and Matrix are planned for v0.47. SMS remains parked here until a
+dedicated cost, truncation, phone-number mapping, and provider-delivery design
+exists.
 
 v0.16 proves the channel adapter boundary with Telegram (Bot API long polling,
 inline buttons) and email (IMAP polling, SMTP replies, typed-command approvals).
@@ -270,6 +317,11 @@ Source: operator UI discussion, v0.16 channel planning, v0.21 memory review,
 v0.19 intent enrichment, v0.28 (formerly v0.26) security hardening, and
 research into A2UI, AG-UI, MCP Apps, ChatGPT Canvas, Claude Artifacts,
 Google Gemini generative UI, BISCUIT, and Athena.
+
+Status: split. Public API, ACP, MCP-server, and AG-UI/A2UI bridge exposure is
+planned for v0.48. MCP Apps sandboxed-iframe compatibility remains parked here
+because it conflicts with Allbert's declarative/catalog-bound Surface stance
+and needs a separate trust-policy ADR.
 
 v0.18, v0.26, and v0.30 (formerly v0.18, v0.24, and v0.28) own the local
 Allbert-native app contract, surface DSL, workspace, ephemeral UI, canvas, and
@@ -429,6 +481,12 @@ Needed before planning:
 
 Source: origin note and v0.16 channel adapter foundation.
 
+Status: split. Browser and web research are planned for v0.42 with a
+browser-session Resource Access policy, plugin-owned browser supervisor,
+research/extract/screenshot actions, and bounded HTML/markdown/text/PDF
+extraction. Broader browser capture, memory promotion from browsing, and
+authenticated-account operations remain parked here.
+
 The origin note describes capturing searches or browsing activity and turning
 useful context into memory. v0.11 owns the Resource Access Security Posture for
 approved URL/document consumers, and v0.16 proves the channel adapter boundary
@@ -450,6 +508,10 @@ Needed before planning:
 ### Deep Remote Document Extraction
 
 Source: v0.11 Resource Access Security Posture planning.
+
+Status: split. v0.42 plans bounded HTML, markdown, plain text, and PDF
+extraction for browser/web research. Broader Office, archive, unknown-binary,
+and deep extractor support remains parked here.
 
 v0.11 should let the system represent and approve requests like "check this
 URL and summarize it" through resource access posture. That does not mean every
@@ -475,6 +537,10 @@ Needed before planning:
 
 Source: v0.10 URI-first resource identity planning and v0.11 Approval Handoff
 planning.
+
+Status: split. MCP client execution is planned for v0.40. Future `agent://`
+and `agent+https://` endpoint execution, MCP Apps UI, and broader agent
+endpoint discovery/authentication remain parked here.
 
 MCP resources and future agent endpoints should be modeled as URI-addressed
 resources before they gain execution authority. `mcp://`, `agent://`, and
@@ -517,6 +583,10 @@ Needed before planning:
 
 Source: v0.02 non-goals and ADR 0005 consequences.
 
+Status: split. Local-first profile export/import dry runs are planned for
+v0.50. Broad remote sync service remains parked here as a separate product
+decision.
+
 Allbert Home gives a clear local boundary for backup and migration, but there
 is no remote sync or full profile import/export plan yet.
 
@@ -551,6 +621,12 @@ Needed before planning:
 
 Source: v0.17 plugin substrate, v0.36 sandbox planning, v0.37 dynamic draft
 planning, and v0.38 generator planning.
+
+Status: split. Marketplace lite is planned for v0.48: reviewed-skill discovery,
+reviewed-source plugin index metadata, and template catalog metadata. Arbitrary
+remote code-bearing plugin install, dependency resolution, hot-loading, remote
+theme/snippet distribution, and binary/plugin package distribution remain
+parked here.
 
 v0.17 creates local plugin discovery and ships Telegram/email as source-tree
 plugins under `./plugins`, but it does not install remote plugins, resolve

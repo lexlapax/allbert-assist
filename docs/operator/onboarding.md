@@ -51,6 +51,14 @@ mix allbert.security status
 mix allbert.confirmations list
 ```
 
+## Planned v0.39 First-Run Onboarding
+
+`docs/plans/v0.39-plan.md` promotes first-run onboarding, provider/model
+control, an optional identity memory slot, and deterministic Active Memory into
+the planned 1.0 arc. That flow is not implemented yet. Until v0.39 ships, use
+the manual setup commands in this guide and the release-specific request-flow
+documents.
+
 ## What To Notice
 
 - User input enters the runtime, not the UI layer.

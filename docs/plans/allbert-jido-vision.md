@@ -167,9 +167,9 @@ user's request, choose the right skill or action, decide when to ask for
 confirmation, and hand work to specialist agents when useful.
 
 Specialist agents should be narrow and purposeful: coding, memory curation,
-research, scheduling, skill creation, diagnostics, and later channel-specific
-assistants. Background agents can respond to scheduled signals, summarize
-traces, prune memory, and prepare daily context.
+research, scheduling, operator-supervised skill drafting, diagnostics, and
+later channel-specific assistants. Background agents can respond to scheduled
+signals, summarize traces, prune memory, and prepare daily context.
 
 The important rule is that agents coordinate and decide. They do not become
 unbounded bags of side effects.
@@ -225,8 +225,11 @@ permission metadata, structured results, and observable errors.
 
 Skills are the user-readable bundles around those capabilities. A skill can
 declare its purpose, prompts, examples, required actions, security posture, and
-expected outputs. Over time, Allbert should be able to discover skills, suggest
-them, and help create new ones when no existing skill fits.
+expected outputs. v0.38 makes supervised creation deterministic through vetted
+templates, and v0.48 plans reviewed marketplace-lite discovery. The v0.49 safe
+precursor can suggest trace-to-skill drafts when repeated operator patterns
+appear, but the drafts remain inert until reviewed, validated, and explicitly
+enabled by the operator.
 
 The security gate belongs at this boundary. Before an action mutates files,
 runs commands, spends money, contacts outside services, or sends messages,
@@ -298,9 +301,12 @@ context packs. Memory pruning should be deliberate: preserve the durable record,
 compress repetitive traces, and promote stable preferences into higher-signal
 files.
 
-Nightly distillation or small-model retraining can remain a future research
-track. First, Allbert needs trustworthy memory capture, retrieval, review, and
-pruning.
+v0.39 Active Memory is the planned safe precursor for this direction:
+deterministic reviewed-memory retrieval before replies, scoped by thread,
+active app, and identity namespace. It is not nightly training, personality
+distillation, or a generated system model. Small-model retraining and learned
+system-memory distillation remain post-v1.0 research until memory capture,
+retrieval, review, pruning, deletion, and eval quality are trustworthy.
 
 Allbert also needs structured conversation history, but it is a different
 artifact. SQLite `Thread` and `Message` rows preserve ordered turns,
@@ -348,10 +354,12 @@ and email (IMAP polling, SMTP replies, typed-command confirmations). Both
 adapters share the same channel substrate, identity mapping posture, durable
 event dedupe model, and Approval Handoff rendering contract. v0.17 moves
 Telegram and email into shipped source-tree channel plugins so later channels
-can arrive through the same extension path. Later channels can include Discord,
-WhatsApp-style chat, SMS, browser/search capture, and native UI surfaces. Each
-channel should translate external input into signals and render agent output
-back into the medium without owning the agent logic.
+can arrive through the same extension path. The v1.0 arc now makes that path
+concrete: Discord and Slack land in v0.43; WhatsApp, Signal, iMessage, and
+Matrix land in v0.47. SMS, native packaged UI, hosted channel fan-out, and
+other broad distribution paths remain parked until after the channel packs
+prove the substrate. Each channel should translate external input into signals
+and render agent output back into the medium without owning the agent logic.
 
 Scheduled work should follow the same pattern. Cron-like jobs, recurring
 summaries, memory maintenance, health checks, and daily briefings should emit
@@ -379,9 +387,10 @@ The app/surface contract exists so the workspace shell does not invent app
 discovery or arbitrary node shapes. `AllbertAssist.App.Registry` provides app
 navigation and lookup. `AllbertAssist.Surface` defines validated component
 nodes. `AllbertAssist.App.SurfaceProvider` lets apps produce task surfaces as
-signals or registered action results. AG-UI, A2UI, MCP Apps, and similar
-protocols are research references and future adapters, not hard dependencies
-for the first local LiveView substrate.
+signals or registered action results. v0.48 plans public API, ACP, MCP-server,
+and AG-UI/A2UI bridge exposure behind auth, CSP, redaction, trace, and audit
+policy. MCP Apps iframe compatibility remains parked; Allbert's primary stance
+is still declarative, catalog-bound surfaces over arbitrary remote UI code.
 
 StockSage LiveViews start as standard app surfaces. v0.27 proves real
 StockSage renderers in StockSage-owned `/stocksage/...` surfaces. After the
@@ -447,7 +456,11 @@ The user's experience should feel natural:
   instead of trusting opaque generated code.
 
 That loop should work the same whether the user is in the terminal, the web UI,
-or a future messaging channel.
+or a future messaging channel. The v1.0 arc widens what can happen inside that
+loop: provider control, MCP tools, everyday integrations, browser research,
+Plan/Build review, media resources, more channels, marketplace-lite discovery,
+protocol interop, and operator-supervised self-improvement all arrive over the
+same authority boundary.
 
 ## Unified Release Sequence
 
@@ -533,19 +546,94 @@ historical aliases only and remain in old reference notes for continuity.
   Allbert can generate Elixir/OTP code/config for capability gaps and integrate
   only after the v0.36 gate plus operator confirmation.
 - v0.38: Allbert plugin and app generator / templated creation.
+- v0.39: First-run onboarding, provider control, identity slot, and Active
+  Memory. This is the first operator-usability milestone after templates:
+  guided setup, model/profile selection, optional inert identity memory, and
+  deterministic reviewed-memory retrieval before replies.
+- v0.40: MCP Client Integration. MCP servers become configured resources and
+  tools under Allbert's action, Resource Access, confirmation, trace, and audit
+  boundaries.
+- v0.41: Everyday Integration Pack 1. Calendar, mail, GitHub, and notes/files
+  land as MCP-first or native-plugin-second app surfaces.
+- v0.42: Browser And Web Research. Browser sessions become Resource Access
+  resources, with research/extract/screenshot first and broader account
+  operation deferred.
+- v0.43: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
+  through the existing channel adapter and plugin contracts.
+- v0.44: Plan/Build Mode And Operator Workflow YAML. Objective Runtime becomes
+  an operator-visible plan/review/execute surface; YAML is declarative input,
+  not an execution engine.
+- v0.45: Voice Modality. Voice input/output composes with existing channels as
+  audio resources and registered STT/TTS actions.
+- v0.46: Vision And Image Generation. Image and screenshot resources plus
+  provider-backed image generation expand workspace media capability.
+- v0.47: Channel Pack 2 - WhatsApp, Signal, iMessage, And Matrix. Mobile and
+  personal messaging channels arrive after the team-channel pattern is proven.
+- v0.48: Marketplace Lite And API/ACP/Protocol Interop. Reviewed skill/template
+  discovery and external protocol surfaces arrive behind shared auth, CSP,
+  redaction, trace, and audit policy.
+- v0.49: Operator-Supervised Self-Improvement. Trace-to-skill,
+  workflow, template, and dynamic capability draft suggestions remain inert
+  until operator review and the existing sandbox/gate/confirmation path.
+- v0.50: Hardening, Export/Import, And Final RC. No new user-facing capability;
+  portability, docs, security evals including self-improvement, and
+  release-candidate evidence.
+- v1.0: Stability Release And Public Contract Freeze. No new features; freeze
+  public runtime, action, plugin, app, surface, resource, workspace, channel,
+  Settings Central, and Allbert Home contracts.
 
-## Deferred Until The Foundation Settles
+The v0.39-to-v1.0 arc is capability delivery over the safety substrate already
+proven through v0.37 and accelerated by v0.38. The goal is not a rewrite; it is
+to make Allbert reachable and useful while preserving the action/security
+authority boundary that makes it inspectable.
+
+## Planned Capability Arc And Research Backlog
 
 The origin note names several powerful future directions. They should stay in
-view, but not lead the first architecture pass:
+view, but they now split into three categories instead of one vague deferred
+bucket.
 
-- Self-recompilation and bootstrapping through compiler workflows.
-- Nightly small-model training or personality distillation.
-- Fully autonomous skill creation with broad execution permissions.
-- Complex distributed multi-node operation.
+### Graduated Into The v1.0 Arc
 
-These ideas become safer once the supervised runtime, signal model, memory
-system, actions, permissions, traces, and basic channels are boring and solid.
+- Dynamic capability work now has a supervised spine: v0.36 sandbox/gate
+  reports, v0.37 operator-confirmed dynamic code/config integration, and
+  v0.38 deterministic templates. This is the safe precursor to the
+  self-recompilation idea, not autonomous self-rewriting.
+- Active Memory in v0.39 is the safe precursor to system memory: reviewed
+  retrieval before replies, not model training or distillation.
+- Capability reach lands through planned, authority-bounded surfaces: MCP,
+  everyday integrations, browser research, channels, Plan/Build, voice,
+  vision, marketplace-lite discovery, and public protocol interop.
+
+### Planned v0.49: Operator-Supervised Self-Improvement
+
+Before v1.0 freezes the public contracts, the final feature milestone should
+add operator-supervised draft creation from observed use:
+
+- Trace-to-skill draft suggestions from repeated prompts, repeated action
+  chains, failed intents, corrections, or manually marked examples.
+- Workflow/intention suggestions that turn common multi-step objective patterns
+  into inert workflow YAML or v0.38 template inputs.
+- Dynamic capability review loops that connect capability-gap detection to the
+  existing v0.36 sandbox, v0.37 gate/loader, and v0.38 templates.
+
+These suggestions are advisory only. They do not enable skills, grant
+permissions, install packages, compile arbitrary folders, publish plugins, or
+load code. Review, validation, sandbox/gate evidence where relevant, and
+operator confirmation remain mandatory. The planning home is
+`docs/plans/v0.49-plan.md`.
+
+### Still Research / Explicitly Not v1.0
+
+- Nightly small-model training, personality distillation, learned system
+  memory, and any generated model that becomes hidden runtime authority.
+- Fully autonomous skill creation, auto-enable, auto-publish, or broad
+  execution permissions derived from traces.
+- Unsupervised self-recompilation, compiler-loop bootstrapping, or runtime
+  mutation that bypasses the v0.36/v0.37/v0.38 review path.
+- Complex distributed multi-node operation, hosted multi-user authorization,
+  broad remote sync, or cluster behavior beyond explicit local API/protocol
+  surfaces.
 
 ## North Star
 
