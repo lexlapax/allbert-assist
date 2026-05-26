@@ -43,10 +43,10 @@ integrate, grant permissions, or bypass confirmation. v0.37.2 ships the
 producer-neutral request path, budget checks, JidoBacked coordinator, metadata
 writer, diagnostics, and injectable Jido.AI structured-generation providers.
 The committee must not collapse into a single LLM Author call with deterministic
-role labels. Planner, Author, TrialAuthor, Critic, and Repair each emit a
-schema-constrained packet with authority `none`; v0.37.2 may use one configured
-provider profile for all roles, but provider-call/usage accounting and
-provenance remain per role.
+role labels. Planner, Author, TrialAuthor, Critic, and invoked Repair calls emit
+schema-constrained packets with authority `none`; v0.37.2 may use one configured
+provider profile for all roles, but provider-call/usage accounting is a
+settable whole-workflow cap and provenance remains per invocation.
 
 The draft loop is bounded and evidence-driven. Planner creates the generation
 spec and acceptance criteria, Author creates source, TrialAuthor creates focused
