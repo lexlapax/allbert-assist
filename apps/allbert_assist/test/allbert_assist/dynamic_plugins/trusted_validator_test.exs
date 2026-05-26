@@ -103,6 +103,67 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidatorTest do
              TrustedValidator.validate(fixture.draft, fixture.manifest)
   end
 
+  test "accepts literal typespec attributes and || in generated run body" do
+    allow_permissions!(["read_only", "memory_write"])
+    allow_facades!(["append_memory"])
+
+    fixture =
+      write_action_draft(
+        "validator_typespec_or",
+        :delegate_memory_with_typespec_or,
+        "memory_write"
+      )
+
+    assert {:ok, validation} = TrustedValidator.validate(fixture.draft, fixture.manifest)
+    assert validation.actions == [fixture.action_spec]
+  end
+
+  test "rejects delegated evidence outside generated run/2" do
+    allow_permissions!(["read_only", "memory_write"])
+    allow_facades!(["append_memory"])
+
+    fixture =
+      write_action_draft(
+        "validator_delegate_dead_helper",
+        :delegate_in_dead_helper,
+        "memory_write"
+      )
+
+    assert {:error,
+            {:trusted_validation_failed, "source/lib/action.ex", :dynamic_delegate_outside_run}} =
+             TrustedValidator.validate(fixture.draft, fixture.manifest)
+  end
+
+  test "rejects generated action capability options outside the pinned contract" do
+    allow_permissions!(["read_only", "memory_write"])
+    allow_facades!(["append_memory"])
+
+    execution_fixture =
+      write_action_draft(
+        "validator_execution_mismatch",
+        :execution_mode_mismatch,
+        "memory_write"
+      )
+
+    assert {:error,
+            {:trusted_validation_failed, "source/lib/action.ex",
+             {:dynamic_action_execution_mode_mismatch,
+              %{permission: :memory_write, execution_mode: :read_only}}}} =
+             TrustedValidator.validate(execution_fixture.draft, execution_fixture.manifest)
+
+    exposure_fixture =
+      write_action_draft(
+        "validator_exposure_mismatch",
+        :agent_exposure,
+        "memory_write"
+      )
+
+    assert {:error,
+            {:trusted_validation_failed, "source/lib/action.ex",
+             {:dynamic_action_exposure_denied, :agent}}} =
+             TrustedValidator.validate(exposure_fixture.draft, exposure_fixture.manifest)
+  end
+
   defp allow_permissions!(permissions) do
     assert {:ok, _setting} =
              Settings.put("dynamic_codegen.allowed_action_permissions", permissions, %{
@@ -164,57 +225,14 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidatorTest do
   end
 
   defp source_body(module, action_name, source_kind) do
-    permission =
-      case source_kind do
-        :delegate_external -> :memory_write
-        _other -> :memory_write
-      end
-
-    run_body =
-      case source_kind do
-        :delegate_memory ->
-          """
-              delegate_params = %{
-                memory: Map.get(params, :memory, ""),
-                source_text: Map.get(params, :source_text)
-              }
-
-              AllbertAssist.DynamicPlugins.Delegate.run("append_memory", delegate_params, context)
-          """
-
-        :delegate_variable_facade ->
-          """
-              facade = "append_memory"
-              delegate_params = %{memory: Map.get(params, :memory, "")}
-              AllbertAssist.DynamicPlugins.Delegate.run(facade, delegate_params, context)
-          """
-
-        :delegate_external ->
-          """
-              delegate_params = %{url: Map.get(params, :url, "https://example.com/status")}
-              AllbertAssist.DynamicPlugins.Delegate.run("external_network_request", delegate_params, context)
-          """
-
-        :delegate_response_mismatch ->
-          """
-              delegate_params = %{memory: Map.get(params, :memory, "")}
-
-              case AllbertAssist.DynamicPlugins.Delegate.run("append_memory", delegate_params, context) do
-                {:ok, response} ->
-                  {:ok, Map.put(response, :actions, [%{name: "wrong", permission: :external_network}])}
-
-                {:error, reason} ->
-                  {:error, reason}
-              end
-          """
-      end
+    permission = :memory_write
 
     """
     defmodule #{module} do
       use AllbertAssist.Action,
         permission: :#{permission},
-        exposure: :internal,
-        execution_mode: :#{permission},
+        exposure: :#{source_exposure(source_kind)},
+        execution_mode: :#{source_execution_mode(source_kind, permission)},
         skill_backed?: false,
         confirmation: :not_required,
         resumable?: false,
@@ -233,13 +251,103 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidatorTest do
           actions: [type: {:list, :map}, required: true]
         ]
 
+    #{source_typespec_attrs(source_kind)}
       @impl true
       def run(params, context) do
-    #{run_body}
+    #{source_run_body(source_kind)}
       end
+    #{source_extra_defs(source_kind)}
     end
     """
   end
+
+  defp source_exposure(:agent_exposure), do: :agent
+  defp source_exposure(_source_kind), do: :internal
+
+  defp source_execution_mode(:execution_mode_mismatch, _permission), do: :read_only
+  defp source_execution_mode(_source_kind, permission), do: permission
+
+  defp source_typespec_attrs(:delegate_memory_with_typespec_or) do
+    """
+      @type score :: integer()
+      @typep label :: binary()
+      @spec run(map(), map()) :: {:ok, map()} | {:error, term()}
+    """
+  end
+
+  defp source_typespec_attrs(_source_kind), do: ""
+
+  defp source_run_body(:delegate_memory) do
+    """
+        delegate_params = %{
+          memory: Map.get(params, :memory, ""),
+          source_text: Map.get(params, :source_text)
+        }
+
+        AllbertAssist.DynamicPlugins.Delegate.run("append_memory", delegate_params, context)
+    """
+  end
+
+  defp source_run_body(:delegate_memory_with_typespec_or) do
+    """
+        memory = Map.get(params, :memory) || Map.get(params, :source_text) || ""
+
+        delegate_params = %{
+          memory: memory,
+          source_text: Map.get(params, :source_text)
+        }
+
+        AllbertAssist.DynamicPlugins.Delegate.run("append_memory", delegate_params, context)
+    """
+  end
+
+  defp source_run_body(:delegate_variable_facade) do
+    """
+        facade = "append_memory"
+        delegate_params = %{memory: Map.get(params, :memory, "")}
+        AllbertAssist.DynamicPlugins.Delegate.run(facade, delegate_params, context)
+    """
+  end
+
+  defp source_run_body(:delegate_external) do
+    """
+        delegate_params = %{url: Map.get(params, :url, "https://example.com/status")}
+        AllbertAssist.DynamicPlugins.Delegate.run("external_network_request", delegate_params, context)
+    """
+  end
+
+  defp source_run_body(:delegate_response_mismatch) do
+    """
+        delegate_params = %{memory: Map.get(params, :memory, "")}
+
+        case AllbertAssist.DynamicPlugins.Delegate.run("append_memory", delegate_params, context) do
+          {:ok, response} ->
+            {:ok, Map.put(response, :actions, [%{name: "wrong", permission: :external_network}])}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+    """
+  end
+
+  defp source_run_body(source_kind)
+       when source_kind in [:delegate_in_dead_helper, :execution_mode_mismatch, :agent_exposure] do
+    """
+        {:ok, %{message: "ok", status: :completed, actions: []}}
+    """
+  end
+
+  defp source_extra_defs(:delegate_in_dead_helper) do
+    """
+
+      defp unused_delegate(params, context) do
+        delegate_params = %{memory: Map.get(params, :memory, "")}
+        AllbertAssist.DynamicPlugins.Delegate.run("append_memory", delegate_params, context)
+      end
+    """
+  end
+
+  defp source_extra_defs(_source_kind), do: ""
 
   defp temp_path(name) do
     Path.join(

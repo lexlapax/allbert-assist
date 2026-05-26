@@ -88,6 +88,10 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
     "Tuple" => [:append, :delete_at, :duplicate, :insert_at, :to_list]
   }
 
+  # Delegate.run/3 is deliberately special-cased in validate_expression/2 so
+  # generated actions can reach only reviewed, operator-enabled facade actions.
+  # Keep it out of the broad protected-prefix list or the special case cannot
+  # perform its literal-facade and permission-coherence checks.
   @protected_remote_prefixes [
     "AllbertAssist.Actions",
     "AllbertAssist.Confirmations",
@@ -144,6 +148,7 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
     :!=,
     :!==,
     :&&,
+    :||,
     :*,
     :+,
     :++,
@@ -406,6 +411,13 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
     if literal_list?(args), do: :ok, else: {:error, {:non_literal_module_attribute, attr}}
   end
 
+  defp validate_module_form({:@, _meta, [{attr, _attr_meta, args}]}, _module, _local_defs)
+       when attr in [:spec, :type, :typep] do
+    if static_typespec_args?(args),
+      do: :ok,
+      else: {:error, {:non_literal_module_attribute, attr}}
+  end
+
   defp validate_module_form({:@, _meta, [{attr, _attr_meta, _args}]}, _module, _local_defs)
        when attr in [:on_load, :compile] do
     {:error, {:forbidden_module_attribute, attr}}
@@ -437,7 +449,9 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
          local_defs
        )
        when kind in [:def, :defp] and is_atom(name) and is_list(args) do
-    validate_expression(body, local_defs)
+    with :ok <- validate_expression(body, local_defs) do
+      validate_non_run_contract_body(name, args, body)
+    end
   end
 
   defp validate_module_form({kind, _meta, _args}, _module, _local_defs)
@@ -689,27 +703,75 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
       |> Map.new()
 
     capability_opts = Map.take(opts, Action.capability_keys())
+
+    with :ok <- validate_dynamic_action_permission(capability_opts),
+         :ok <- validate_dynamic_action_exposure(capability_opts),
+         :ok <- validate_dynamic_action_execution_mode(capability_opts),
+         :ok <- validate_dynamic_action_confirmation(capability_opts),
+         :ok <- validate_dynamic_action_resumable(capability_opts),
+         :ok <- validate_dynamic_action_skill_backed(capability_opts) do
+      validate_dynamic_action_capability(capability_opts)
+    end
+  end
+
+  defp validate_dynamic_action_permission(capability_opts) do
     permission = Map.get(capability_opts, :permission)
     permission_name = if is_atom(permission), do: Atom.to_string(permission)
 
-    cond do
-      permission_name not in allowed_action_permissions() ->
-        {:error, {:dynamic_action_permission_ceiling, permission}}
+    if permission_name in allowed_action_permissions() do
+      :ok
+    else
+      {:error, {:dynamic_action_permission_ceiling, permission}}
+    end
+  end
 
-      Map.get(capability_opts, :confirmation) != :not_required ->
-        {:error, {:dynamic_action_confirmation_denied, Map.get(capability_opts, :confirmation)}}
+  defp validate_dynamic_action_exposure(capability_opts) do
+    case Map.get(capability_opts, :exposure) do
+      :internal -> :ok
+      exposure -> {:error, {:dynamic_action_exposure_denied, exposure}}
+    end
+  end
 
-      Map.get(capability_opts, :resumable?, false) != false ->
-        {:error, :dynamic_action_resumable_denied}
+  defp validate_dynamic_action_execution_mode(capability_opts) do
+    permission = Map.get(capability_opts, :permission)
+    execution_mode = Map.get(capability_opts, :execution_mode)
 
-      Map.get(capability_opts, :skill_backed?) != false ->
-        {:error, :dynamic_action_skill_backed_denied}
+    if execution_mode == permission do
+      :ok
+    else
+      {:error,
+       {:dynamic_action_execution_mode_mismatch,
+        %{permission: permission, execution_mode: execution_mode}}}
+    end
+  end
 
-      true ->
-        case Action.validate_capability(capability_opts) do
-          {:ok, _attrs} -> :ok
-          {:error, reason} -> {:error, {:invalid_dynamic_action_capability, reason}}
-        end
+  defp validate_dynamic_action_confirmation(capability_opts) do
+    case Map.get(capability_opts, :confirmation) do
+      :not_required -> :ok
+      confirmation -> {:error, {:dynamic_action_confirmation_denied, confirmation}}
+    end
+  end
+
+  defp validate_dynamic_action_resumable(capability_opts) do
+    if Map.get(capability_opts, :resumable?, false) == false do
+      :ok
+    else
+      {:error, :dynamic_action_resumable_denied}
+    end
+  end
+
+  defp validate_dynamic_action_skill_backed(capability_opts) do
+    if Map.get(capability_opts, :skill_backed?) == false do
+      :ok
+    else
+      {:error, :dynamic_action_skill_backed_denied}
+    end
+  end
+
+  defp validate_dynamic_action_capability(capability_opts) do
+    case Action.validate_capability(capability_opts) do
+      {:ok, _attrs} -> :ok
+      {:error, reason} -> {:error, {:invalid_dynamic_action_capability, reason}}
     end
   end
 
@@ -744,17 +806,35 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
       |> Map.new()
 
     permission = Map.get(opts, :permission)
-    delegated_facades = delegated_facades(forms)
-    response_permissions = response_action_permissions(forms)
 
-    with :ok <- validate_delegated_permissions(permission, delegated_facades),
-         :ok <- validate_response_permissions(permission, response_permissions) do
-      {:ok,
-       %{
-         permission: permission,
-         delegated_facades: delegated_facades,
-         response_permissions: response_permissions
-       }}
+    with {:ok, run_bodies} <- run2_bodies(forms) do
+      delegated_facades = delegated_facades(run_bodies)
+      response_permissions = response_action_permissions(run_bodies)
+
+      with :ok <- validate_delegated_permissions(permission, delegated_facades),
+           :ok <- validate_response_permissions(permission, response_permissions) do
+        {:ok,
+         %{
+           permission: permission,
+           delegated_facades: delegated_facades,
+           response_permissions: response_permissions
+         }}
+      end
+    end
+  end
+
+  defp validate_non_run_contract_body(:run, args, _body) when length(args) == 2, do: :ok
+
+  defp validate_non_run_contract_body(_name, _args, body) do
+    cond do
+      delegated_facades([body]) != [] ->
+        {:error, :dynamic_delegate_outside_run}
+
+      response_action_permissions([body]) != [] ->
+        {:error, :dynamic_response_permission_outside_run}
+
+      true ->
+        :ok
     end
   end
 
@@ -807,6 +887,19 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
        {:dynamic_action_response_permission_mismatch,
         %{permission: permission, response_permissions: mismatched}}}
     end
+  end
+
+  defp run2_bodies(forms) do
+    bodies =
+      Enum.flat_map(forms, fn
+        {:def, _meta, [{:run, _name_meta, args}, [do: body]]} when is_list(args) ->
+          if length(args) == 2, do: [body], else: []
+
+        _other ->
+          []
+      end)
+
+    if bodies == [], do: {:error, :dynamic_action_missing_run}, else: {:ok, bodies}
   end
 
   defp delegated_facades(forms) do
@@ -1031,6 +1124,22 @@ defmodule AllbertAssist.DynamicPlugins.TrustedValidator do
 
   defp literal_list?(values) when is_list(values), do: Enum.all?(values, &literal?/1)
   defp literal_list?(_values), do: false
+
+  defp static_typespec_args?(args) when is_list(args), do: Enum.all?(args, &static_typespec?/1)
+  defp static_typespec_args?(_args), do: false
+
+  defp static_typespec?({:@, _meta, _args}), do: false
+  defp static_typespec?({:unquote, _meta, _args}), do: false
+  defp static_typespec?({:__block__, _meta, values}), do: static_typespec_args?(values)
+  defp static_typespec?({left, right}), do: static_typespec?(left) and static_typespec?(right)
+
+  defp static_typespec?({name, meta, args}) when is_atom(name) and is_list(meta),
+    do: static_typespec?(args)
+
+  defp static_typespec?(values) when is_list(values), do: Enum.all?(values, &static_typespec?/1)
+  defp static_typespec?(value) when is_atom(value) or is_binary(value), do: true
+  defp static_typespec?(value) when is_number(value) or is_boolean(value), do: true
+  defp static_typespec?(_value), do: false
 
   defp literal?({key, value}) when is_atom(key), do: literal?(value)
   defp literal?({:{}, _meta, values}), do: literal_list?(values)
