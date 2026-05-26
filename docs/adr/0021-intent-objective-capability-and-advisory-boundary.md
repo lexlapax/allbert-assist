@@ -688,6 +688,54 @@ They do not recursively call `JidoBacked.dispatch/4` against the same engine
 agent. This preserves state projection semantics and avoids re-entering the
 same `AgentServer` while it is handling a command.
 
+### A20. Reserved advisory-provider vocabulary is NOT part of the 1.0 freeze
+
+Status: amendment added in the post-v0.37 planning pass for v1.0 closeout.
+
+The 1.0 stability release (`docs/plans/v1.0-plan.md`) uses a tiered freeze
+policy. This amendment records that the reserved advisory-provider vocabulary
+in Section 3 (Vocabulary) and Section 6 (Engine state machine) is **not**
+part of the 1.0 frozen contract.
+
+Specifically, the following names are reserved in ADR 0021 but are not
+implemented in v1.0 and are not protected by the v1.0 contract freeze:
+
+- `WorldModelProvider`
+- `DiffusionProposalProvider`
+- `MarketAllocatorProvider`
+- `ProbabilisticInferenceProvider`
+- `CriticEvaluatorProvider`
+- `ResourceDecisionProvider`
+- `CapabilityProvider`
+- `RouteProvider`
+
+`IntentProvider` (implemented via `Intent.Classifier`) is the only advisory
+provider role implemented in v1.0; its shape ships under the v1.0 Tier 1
+freeze through the Runtime/Actions surface.
+
+The first concrete implementation of any other reserved role MAY amend this
+ADR and is allowed to alter the role's behaviour shape, parameter list,
+return shape, or naming. v1.0 does not promise these names are stable.
+
+### Rationale
+
+ADR 0021 Section 3 itself enforces "first behaviour extraction waits until
+at least two providers of the same role exist." That rule is incompatible
+with freezing the role's contract before two providers exist. Promoting any
+reserved role to Tier 1 (frozen) requires a separate post-1.0 ADR after the
+second concrete provider proves the shape.
+
+### Consequences
+
+- Allbert 1.0 ships with one advisory provider implementation (`IntentProvider`
+  via classifier). Operators and plugin authors do not see the reserved
+  vocabulary as a binding API.
+- Post-1.0 work that introduces a `WorldModelProvider` (or any other reserved
+  role) is free to choose the contract shape based on the concrete second
+  provider, not on the v0.21 vocabulary draft.
+- The v1.0 freeze notes in `docs/plans/v1.0-plan.md` cross-link this
+  amendment so the reserved-vocabulary status is operator-visible.
+
 ## Consequences
 
 ### What changes
