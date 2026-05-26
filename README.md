@@ -81,8 +81,14 @@ Near-term milestones:
   templates via Mix tasks (`--target` defaults to `./plugins/<name>`), operator
   workspace flows, and a Canvas Create surface, reusing the v0.36 sandbox and
   v0.37 loader.
-- Post-`v0.38`: broader UI protocol interop, richer generated app workflows,
-  and additional reviewed app/plugin surfaces.
+- Post-`v0.38`: the planned 1.0 arc shifts from substrate work to operator
+  reach: first-run onboarding and provider control (`v0.39`), MCP client
+  integration (`v0.40`), everyday integrations (`v0.41`), browser research
+  (`v0.42`), Discord/Slack channels (`v0.43`), Plan/Build workflows (`v0.44`),
+  voice and vision (`v0.45`/`v0.46`), mobile messaging channels (`v0.47`),
+  marketplace lite and protocol interop (`v0.48`), operator-supervised
+  self-improvement (`v0.49`), final hardening/export-import/RC evidence
+  (`v0.50`), and a no-new-features public contract freeze at `v1.0`.
 
 ## Start Here
 

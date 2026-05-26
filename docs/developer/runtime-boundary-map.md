@@ -59,6 +59,22 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 | v0.37 | `AllbertAssist.DynamicPlugins.ActionsOverlay` | Implemented runtime overlay merged by `Actions.Registry`; collision denial, no shadowing. |
 | v0.37 | `AllbertAssist.DynamicPlugins.TrustedValidator` | Implemented trusted-phase AST/body validator before in-core compile. |
 
+## Post-v0.38 Planned Facades
+
+The v0.39-to-v1.0 arc is planned future work. The names below are routing
+anchors for planning only; they are not current public facades until their
+milestones implement and document them.
+
+| Milestone | Planned boundary | Notes |
+|---|---|---|
+| v0.39 | Onboarding and model/profile control | Expected to wrap Objective Runtime, Settings Central, provider profiles, and reviewed memory retrieval. |
+| v0.40 | MCP client facade | Expected to consume `mcp://` resources through registered MCP actions and ADR 0038 trust-tier policy. |
+| v0.42 | Browser/research facade | Expected to live in a plugin-owned browser boundary with `browser://session/<id>` Resource Access. |
+| v0.44 | Plan/Build surface and workflow YAML parser | Expected to produce objective steps only; not an execution engine. |
+| v0.45-v0.46 | Media resource facades | Expected to model audio, image, and screenshot resources plus registered provider-backed actions. |
+| v0.48 | Marketplace/protocol facades | Expected to expose marketplace-lite metadata plus API, ACP, MCP-server, and AG-UI/A2UI bridges under shared auth/CSP/redaction policy. |
+| v0.49 | Self-improvement suggestion facade | Expected to produce inert trace-derived suggestions and draft handoffs only; not authority, enablement, or live integration. |
+
 ## Compatibility Shims And Exit Criteria
 
 | Shim | Owning milestone | Exit criteria |

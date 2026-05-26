@@ -197,6 +197,46 @@ Dependency order from here:
 37. v0.38 Templated creation: vetted plugin/app/LLM-tool/scheduled-flow/code
     templates via Mix tasks, operator workspace flows, and a Canvas Create
     surface, reusing the v0.36 sandbox and v0.37 loader.
+38. v0.39 First-run onboarding, provider control, identity slot, and Active
+    Memory: guided operator setup over existing objectives/actions/settings,
+    model/provider selection, optional inert identity memory, and deterministic
+    pre-reply reviewed-memory retrieval.
+39. v0.40 MCP client integration: explicit MCP server configuration, trust
+    tier, Resource Access mapping for `mcp://` resources, and registered MCP
+    actions under Security Central.
+40. v0.41 Everyday Integration Pack 1: calendar, mail, GitHub, and notes/files
+    as plugin/app surfaces that use MCP where useful and native plugins when a
+    richer workspace surface or memory namespace is needed.
+41. v0.42 Browser and web research: browser-session Resource Access policy,
+    sandboxed browser plugin, research/extract/screenshot actions, and bounded
+    HTML/markdown/text/PDF extraction.
+42. v0.43 Channel Pack 1: Discord and Slack channel plugins reusing the v0.16
+    adapter boundary and v0.17 plugin contract.
+43. v0.44 Plan/Build mode and operator workflow YAML: workspace and channel UX
+    over Objective Runtime, declarative workflow input, plan preview, and
+    subagent delegation visibility.
+44. v0.45 Voice modality: experimental STT/TTS resource/action path for CLI,
+    workspace, Discord voice, and Telegram voice-note ingestion.
+45. v0.46 Vision and image generation: image/screenshot resource classes,
+    vision model profile checks, image-generation action, workspace rendering,
+    retention, redaction, and cost visibility.
+46. v0.47 Channel Pack 2: WhatsApp, Signal, iMessage, and Matrix channel
+    plugins with provider-specific pairing, identity, retry, and privacy
+    policy.
+47. v0.48 Marketplace lite and API/ACP/protocol interop: reviewed skill
+    discovery, reviewed-source/plugin index metadata, template catalog
+    metadata, OpenAI-compatible API, ACP, MCP server, and public AG-UI/A2UI
+    bridge behind shared auth/rate-limit/CSP/redaction policy.
+48. v0.49 Operator-supervised self-improvement: trace-to-skill,
+    workflow, template, and dynamic capability draft suggestions that remain
+    inert until operator review and the existing sandbox/gate/confirmation path.
+49. v0.50 Hardening, export/import, and final RC: no new user-facing
+    capability; Allbert Home portability, cross-surface security eval sweep,
+    operator docs, performance hardening, CSP reconciliation, and
+    release-candidate closeout.
+50. v1.0 Stability release and public contract freeze: no new features; freeze
+    runtime, action, plugin, app, surface, resource, workspace, channel,
+    Settings Central, and Allbert Home contracts.
 
 `config.exs` remains deployment and boot configuration. It should not become
 the user/operator settings surface. `ALLBERT_HOME` is bootstrap configuration:
@@ -2069,17 +2109,274 @@ Expected direction:
   onboarding updates, runtime-boundary-map updates, and agent-context-map
   updates.
 
-Post-v0.38 candidates remain in `docs/plans/future-features.md` until
-promoted.
+## v0.39: First-Run Onboarding, Provider Control, Identity Slot, And Active Memory
 
-## Future: Distillation And Self-Improvement
+Plan: `docs/plans/v0.39-plan.md`
+Request flow: `docs/plans/v0.39-request-flow.md`
+
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+
+Expected direction:
+
+- Add onboarding as a registered objective that can run from CLI or
+  `/workspace`.
+- Add provider/model control-plane UX over existing Settings Central
+  provider/model profile schema.
+- Add an optional inert `identity` memory namespace for operator-editable
+  personality/context material.
+- Add deterministic pre-reply Active Memory retrieval using the existing memory
+  review/retrieval substrate.
+
+## v0.40: MCP Client Integration
+
+Plan: `docs/plans/v0.40-plan.md`
+Request flow: `docs/plans/v0.40-request-flow.md`
+ADR: `docs/adr/0038-mcp-client-trust-tier.md`
+
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+
+Expected direction:
+
+- Add Settings Central MCP server configuration and secret refs.
+- Consume the reserved `mcp://` resource identity scheme through explicit
+  registered actions.
+- Keep MCP server schemas descriptive only; Security Central and confirmations
+  remain authority.
+- Validate the first MCP client path against GitHub, Notion, Google Drive, and
+  Postgres server shapes.
+
+## v0.41: Everyday Integration Pack 1
+
+Plan: `docs/plans/v0.41-plan.md`
+Request flow: `docs/plans/v0.41-request-flow.md`
+ADR: `docs/adr/0039-mcp-first-native-plugin-second-integrations.md`
+
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+
+Expected direction:
+
+- Ship calendar, mail, GitHub, and notes/files plugin/app surfaces.
+- Prefer MCP configuration where it is enough, and native plugin/app surfaces
+  only when richer workspace panels, intent descriptors, or memory namespaces
+  are needed.
+- Keep integration effects behind registered actions, Resource Access,
+  Security Central, confirmations, traces, and audits.
+
+## v0.42: Browser And Web Research
+
+Plan: `docs/plans/v0.42-plan.md`
+Request flow: `docs/plans/v0.42-request-flow.md`
+ADR: `docs/adr/0040-browser-session-and-web-research-policy.md`
+
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+
+Expected direction:
+
+- Add browser-session Resource Access policy and a plugin-owned browser
+  supervisor.
+- Start with research, extraction, and screenshots; defer arbitrary form fill
+  and authenticated account operation until the policy UI is proven.
+- Include bounded extraction for HTML, markdown, plain text, and PDF.
+
+## v0.43: Channel Pack 1 - Discord And Slack
+
+Plan: `docs/plans/v0.43-plan.md`
+Request flow: `docs/plans/v0.43-request-flow.md`
+
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+
+Expected direction:
+
+- Add Discord and Slack source-tree channel plugins.
+- Reuse v0.16 channel identity, event dedupe, runtime submission, Approval
+  Handoff, and redaction boundaries.
+- Prove workspace/server identity mapping, group/channel authorization, mention
+  handling, threaded replies, and callback affordances.
+
+## v0.44: Plan/Build Mode And Operator Workflow YAML
+
+Plan: `docs/plans/v0.44-plan.md`
+Request flow: `docs/plans/v0.44-request-flow.md`
+ADR: `docs/adr/0041-plan-build-and-operator-workflow-yaml.md`
+
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+
+Expected direction:
+
+- Add Plan/Build as an operator surface over Objective Runtime.
+- Treat workflow YAML as declarative input that produces objective steps, not a
+  new execution engine.
+- Render plan previews, required capabilities/resources, confirmation points,
+  subagent delegation, and background objective progress.
+
+## v0.45: Voice Modality
+
+Plan: `docs/plans/v0.45-plan.md`
+Request flow: `docs/plans/v0.45-request-flow.md`
+ADR: `docs/adr/0042-audio-image-and-media-resource-classes.md`
+
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+
+Expected direction:
+
+- Add experimental STT/TTS capability as media resources and registered actions,
+  not as a separate runtime.
+- Add CLI voice mode, workspace microphone affordance, Discord voice support,
+  and Telegram voice-note ingestion as transcribed runtime input.
+- Keep captured audio bounded, redacted from traces by default, and retained
+  only by explicit operator policy.
+
+## v0.46: Vision And Image Generation
+
+Plan: `docs/plans/v0.46-plan.md`
+Request flow: `docs/plans/v0.46-request-flow.md`
+ADR: `docs/adr/0042-audio-image-and-media-resource-classes.md`
+
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+
+Expected direction:
+
+- Add image and screenshot resources for paste/upload/capture workflows.
+- Add vision-capable provider/model checks to the provider doctor path.
+- Add image generation as a registered action with provider profile, cost
+  visibility, workspace rendering, retention, and redaction.
+
+## v0.47: Channel Pack 2 - WhatsApp, Signal, iMessage, And Matrix
+
+Plan: `docs/plans/v0.47-plan.md`
+Request flow: `docs/plans/v0.47-request-flow.md`
+
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+
+Expected direction:
+
+- Add WhatsApp, Signal, iMessage, and Matrix plugins after the Discord/Slack
+  channel patterns are proven.
+- Keep provider-specific pairing, delivery/retry/dedupe, platform limits, and
+  privacy behavior explicit in Settings Central and operator docs.
+- Keep SMS parked outside 1.0 until cost, truncation, and phone-number policy
+  have a dedicated design.
+
+## v0.48: Marketplace Lite And API/ACP/Protocol Interop
+
+Plan: `docs/plans/v0.48-plan.md`
+Request flow: `docs/plans/v0.48-request-flow.md`
+ADRs: `docs/adr/0043-marketplace-lite-trust-tier.md`,
+`docs/adr/0044-public-protocol-exposure.md`
+
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+
+Expected direction:
+
+- Add reviewed-skill-only discovery/install, reviewed-source-only plugin index
+  metadata, and template catalog metadata.
+- Exclude arbitrary remote code-bearing plugin install, remote theme/snippet
+  distribution, and MCP Apps iframe execution from 1.0.
+- Add OpenAI-compatible local HTTP API, ACP server mode, MCP server mode, and
+  public AG-UI/A2UI bridge behind one auth/rate-limit/CSP/redaction policy.
+
+## v0.49: Operator-Supervised Self-Improvement
+
+Plan: `docs/plans/v0.49-plan.md`
+Request flow: `docs/plans/v0.49-request-flow.md`
+ADR: `docs/adr/0045-operator-supervised-self-improvement-trust-tier.md`
+
+Status: planned. Promoted from the v1.0 planning follow-up; not implemented.
+
+Expected direction:
+
+- Add trace-to-skill draft suggestions from repeated prompts, repeated action
+  chains, corrections, failed intents, or operator-marked examples.
+- Add workflow/intention draft suggestions that turn repeated objective
+  patterns into inert workflow YAML or v0.38 template inputs.
+- Connect the origin-note self-recompilation idea to the current safe path:
+  v0.36 sandbox/gate reports, v0.37 dynamic code/config generation and gated
+  live integration, and v0.38 deterministic templates.
+- Keep every suggestion advisory and inert until the operator reviews it and
+  sends it through the existing creation, sandbox/gate, confirmation, trace,
+  and audit paths.
+
+Non-goals:
+
+- No autonomous skill creation.
+- No auto-enable, auto-publish, package install, or remote plugin install from
+  trace patterns.
+- No small-model/personality distillation or learned system-memory authority.
+- No unsupervised self-recompilation, compiler-loop bootstrapping, or runtime
+  mutation outside the v0.36/v0.37/v0.38 review path.
+- No distributed multi-node or hosted multi-user execution model.
+
+## v0.50: Hardening, Export/Import, And Final RC
+
+Plan: `docs/plans/v0.50-plan.md`
+Request flow: `docs/plans/v0.50-request-flow.md`
+
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md` and updated after
+v0.49 self-improvement was inserted; not implemented.
+
+Expected direction:
+
+- Add no new user-facing capability.
+- Prove Allbert Home export/import dry runs, secret migration policy, schema
+  metadata, rollback docs, and identical behavior on a second machine.
+- Run the full security eval sweep across MCP, browser, channels, voice,
+  vision, marketplace, API, ACP, protocol interop, and v0.49
+  self-improvement.
+- Gather final RC evidence for the v1.0 contract freeze.
+
+## v1.0: Stability Release And Public Contract Freeze
+
+Plan: `docs/plans/v1.0-plan.md`
+Request flow: `docs/plans/v1.0-request-flow.md`
+
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+
+Expected direction:
+
+- Add no new features.
+- Freeze public contracts for Runtime, actions, plugin/app/surface/resource
+  APIs, workspace canvas/ephemeral surfaces, channel adapters, Settings
+  Central, and Allbert Home layout.
+- Treat 1.0 as the stable platform commitment, not a feature ceiling.
+
+## v1.0 Strategic Frame And Acceptance Matrix
+
+Allbert is not behind OpenClaw or Hermes on architecture; it is ahead on
+architecture and behind on shipped capability. The v0.38-to-v1.0 arc is a
+delivery push over already-proven substrates: templates first, onboarding and
+provider control next, then MCP, everyday integrations, browser research,
+channels, Plan/Build, media, marketplace/protocol interop,
+operator-supervised self-improvement, hardening/export, final RC evidence, and
+a contract freeze.
+
+1.0 acceptance requires disposable-home proof that:
+
+- first-run setup succeeds on macOS, Linux, and Windows/WSL2;
+- the operator can choose local Ollama, OpenAI, Anthropic, or OpenRouter;
+- at least one remote channel is connected;
+- at least one everyday integration runs;
+- at least one MCP server runs under policy;
+- a web target can be researched with approved navigation scope;
+- a multi-step plan can be reviewed and approved before execution;
+- voice, screenshot, reviewed-skill marketplace, ACP/editor, and export/import
+  flows work through their planned surfaces;
+- trace-to-skill, trace-to-workflow, template, and dynamic capability
+  suggestions remain inert until operator review and the existing
+  sandbox/gate/confirmation path;
+- all warning, security, precommit, and cross-surface eval gates pass.
+
+## Future: Distillation, Autonomy, And Distributed Operation
 
 Status: research.
 
 Expected direction:
 
-- Explore small-model memory/personality distillation after memory and traces
-  are trustworthy.
-- Explore scripting or self-modification only after the action permission model
-  is robust.
-- Keep all self-improvement paths reviewable, reversible, and traceable.
+- Explore small-model memory/personality distillation only after memory,
+  deletion, trace quality, reproducibility, and evals are trustworthy.
+- Explore autonomous skill creation only after the v0.49 supervised precursor
+  proves suggestion quality, review ergonomics, and safety invariants.
+- Explore deeper self-modification only if it remains reviewable, reversible,
+  auditable, and bounded by explicit operator authority.
+- Keep hosted multi-user authorization, broad remote sync, and complex
+  distributed multi-node operation parked until a concrete deployment need
+  exists.
