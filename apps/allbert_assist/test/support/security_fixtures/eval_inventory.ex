@@ -785,6 +785,17 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
     },
     %{
+      id: "codegen-discard-draft-001",
+      milestone: :v037,
+      surface: :dynamic_codegen,
+      scenario:
+        "operator discards non-integrated draft and cannot discard a live artifact before rollback",
+      boundary: :dynamic_draft_lifecycle,
+      expected: :allowed,
+      assert: [:allowed, :discard_terminal, :rollback_required_for_live],
+      test_module: "AllbertAssist.Security.DynamicCodegenEvalTest"
+    },
+    %{
       id: "codegen-restart-reconcile-001",
       milestone: :v037,
       surface: :dynamic_codegen,

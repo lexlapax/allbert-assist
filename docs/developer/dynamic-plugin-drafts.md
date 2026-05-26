@@ -428,6 +428,16 @@ dynamic plugin audit file.
 ## Rollback And Upgrade
 
 Rollback requires operator confirmation and removes dynamic action authority.
+
+## Discard
+
+`discard_dynamic_draft` and `mix allbert.dynamic drafts discard <slug>` are the
+operator-facing discard surfaces. They call the file-backed draft store's
+terminal `:discarded` transition for non-integrated or already rolled-back
+drafts. Integrated artifacts must roll back before discard. Discard is a
+safety-reducing cleanup path: it cannot register actions, cannot preserve live
+authority, and records the same dynamic lifecycle audit/signal event as the
+store helper.
 Module purge/delete is best effort and audited.
 
 Same-name upgrades require rollback before integrating a new revision. v0.37

@@ -44,6 +44,7 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
     "codegen-integration-approval-surface-001",
     "codegen-rollback-001",
     "codegen-emergency-disable-001",
+    "codegen-discard-draft-001",
     "codegen-restart-reconcile-001",
     "codegen-v036-sandbox-bypass-001",
     "codegen-exfil-001",
@@ -528,6 +529,44 @@ defmodule AllbertAssist.Security.DynamicCodegenEvalTest do
       )
 
     assert_allowed(disable)
+
+    discard_fixture = write_action_draft("discard_eval", tier: "draft")
+    live_discard_fixture = write_action_draft("discard_live_eval", tier: "integrated")
+
+    discard =
+      run_eval(
+        fixture("codegen-discard-draft-001", %{
+          run: fn fixture ->
+            {:ok, discarded} =
+              Runner.run(
+                "discard_dynamic_draft",
+                %{slug: discard_fixture.slug},
+                cli_context()
+              )
+
+            {:ok, live_denied} =
+              Runner.run(
+                "discard_dynamic_draft",
+                %{slug: live_discard_fixture.slug},
+                cli_context()
+              )
+
+            %{
+              decision:
+                if(
+                  discarded.status == :completed and discarded.draft.tier == "discarded" and
+                    live_denied.status == :denied and live_denied.error == :rollback_required,
+                  do: :allowed,
+                  else: :denied
+                ),
+              result: %{discarded: discarded, live_denied: live_denied},
+              trace: %{fixture_id: fixture.id}
+            }
+          end
+        })
+      )
+
+    assert_allowed(discard)
 
     enable_live_loader!()
     reconcile_fixture = integrate_fixture!("reconcile", "dynamic_reconcile_eval")
