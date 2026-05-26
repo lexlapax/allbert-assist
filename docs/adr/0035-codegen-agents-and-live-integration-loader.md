@@ -8,15 +8,20 @@ Integration (`docs/plans/v0.37-plan.md`) on 2026-05-25. Pairs with ADR 0032
 (v0.36 Elixir/OTP sandbox/gate runner). The v0.37.2 implementation is amended
 before release tagging to require source-bearing read-only action generation
 through a bounded model-backed committee and the reviewed read-only action live
-loader; broader generated app/config targets are deferred.
+loader. v0.37.3 further amends the release before tagging so generated actions
+may declare delegated `:memory_write` and `:external_network` capabilities only
+when their effects route through reviewed facade actions; broader generated
+app/config targets are deferred.
 
 ## Context
 
 With v0.36 providing the sandbox/gate runner, v0.37 adds the
 self-extending-runtime foundation: record an explicit capability gap, stage and
 gate reviewed generated Elixir/OTP source, and after the gate plus operator
-confirmation hot-load a narrowly validated read-only action into the live core
-node without a restart.
+confirmation hot-load a narrowly validated action into the live core node
+without a restart. Pure read-only actions are valid live targets, and v0.37.3
+adds delegated write actions whose effectful work must pass through reviewed
+facades and normal Security Central action boundaries.
 
 Two substrates are needed:
 
@@ -69,8 +74,10 @@ in provenance.
 The long-term target surface includes plugin/app manifest data, modules,
 `AllbertAssist.Action` actions, panel surfaces, intent descriptors, settings
 fragments, memory namespace, objective wiring, and theming/layout stubs.
-v0.37.2 ships only the Elixir/OTP read-only action target. Other languages and
-broader generated app/config targets remain parked.
+v0.37.2 ships the Elixir/OTP read-only action target. v0.37.3 keeps the target
+shape action-only and adds delegated `:memory_write` and `:external_network`
+actions. Other languages and broader generated app/config targets remain
+parked.
 
 Generated settings fragments are schema declarations only. They cannot write
 operator settings, secrets, provider credentials, permission policy, resource
@@ -157,21 +164,25 @@ actions, Settings writes, secret reads/writes, confirmations, Resource grants,
 Repo writes, integration/rollback/disablement, distributed Erlang, dynamic
 dispatch to protected targets, and core table mutation.
 
-Generated action permissions have a hard ceiling. In v0.37.2, `:read_only` is
-the only live permission accepted by both Settings Central and the trusted
-validator. `:external_network`, `:memory_write`, `:objective_write`, and
-`:workspace_canvas_write` are deferred until a later plan wires matching
-call-target validation and existing Security Central floors. Generated actions
-are hard-denied from host execution, package install, skill import/script
-execution, sandbox trial, secret read/write, confirmation decisions, Security
-Central trust control, dynamic integration, rollback, disablement, direct
-Settings mutation, and Resource-grant mutation. Declared permission,
-confirmation metadata, response action metadata, and body call targets must
-agree; mismatch is denial.
+Generated action permissions have a hard ceiling. In v0.37.3, the live action
+permission ceiling is `:read_only`, `:memory_write`, and `:external_network`,
+with Settings Central selecting a subset through
+`dynamic_codegen.allowed_action_permissions`. Non-read-only generated actions
+are accepted only when their effect path delegates through
+`AllbertAssist.DynamicPlugins.Delegate.run/3` to a binary string literal facade
+name selected from `dynamic_codegen.allowed_facades`. The shipped facade ceiling
+is `append_memory` and `external_network_request`; settings may narrow this set
+but cannot add shell, package, sandbox, secret, Settings, confirmation-decision,
+trust-control, or other protected facades. The validator must prove the
+generated action permission, response action metadata, body call target, and
+reviewed facade permission agree. Direct protected calls and any mismatch are
+denial.
 
-Generated actions are `resumable?: false` in v0.37. Dynamic confirmation resume
-adapters are deferred because the existing confirmation approval path resumes a
-reviewed set of static action names.
+Generated actions are `resumable?: false` in v0.37. v0.37.3 deliberately does
+not add a generic dynamic-action confirmation resume adapter. If a delegated
+reviewed facade creates a confirmation, the existing facade-specific approval
+and resume path owns it and uses that facade's normal Security Central policy
+and approval surfaces.
 
 Generated child processes are not live-loaded in v0.37.2. Future support must
 remain state-only: callbacks pass the same call-target validator and do not
@@ -260,16 +271,19 @@ sandbox reports are file-backed under
 
 ## Consequences
 
-- Allbert can stand up a new read-only action capability live after the operator
-  grants trust.
+- Allbert can stand up a new action capability live after the operator grants
+  trust. Non-read-only generated actions gain effective authority only through
+  reviewed facade delegation and the facade's existing Security Central
+  behavior.
 - The actions registry gains a runtime-mutable overlay that must preserve all
   existing capability/permission/app-scope semantics.
 - Security evals must prove untrusted core-load attempts, unscanned compile
   paths, gate skip, unapproved/auto integration, trusted-compile side effects,
   AST allowlist bypass, macro literal-option bypass, manifest/module mismatch,
   generated runtime protected-call bypass, generated permission-ceiling bypass,
-  permission/body mismatch, generated resumability, dynamic child effects,
-  loader tampering, core-module replacement, action shadowing,
+  permission/body mismatch, delegated facade allowlist bypass, delegated facade
+  name computation, generated resumability, dynamic child effects, loader
+  tampering, core-module replacement, action shadowing,
   partial-integration unwind, revision supersede bypass, emergency-disable
   bypass, integration-approval-surface bypass, restart reconciliation tamper,
   private objective loops, rollback failure, generation budget exhaustion,

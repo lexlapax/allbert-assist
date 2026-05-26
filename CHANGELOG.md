@@ -19,7 +19,10 @@ the milestone ships a real source-bearing read-only action generator, not only
 an inert scaffold. The v0.37.2 research correction requires a bounded
 model-backed Planner/Author/TrialAuthor/Critic flow plus invoked Repair calls
 over deterministic evidence, rather than a single Author LLM call plus
-deterministic wrappers.
+deterministic wrappers. v0.37.3 delegated-write work reopens the release again
+before tagging so generated actions can declare `:memory_write` or
+`:external_network` only by routing effects through reviewed facades with their
+normal Security Central behavior.
 
 Plan: `docs/plans/v0.37-plan.md`.
 Request flow: `docs/plans/v0.37-request-flow.md`.
@@ -140,6 +143,21 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
   runs v0.36 trial/gate evidence, runs trusted validation, feeds failed
   sandbox or validator evidence into bounded Repair, and returns only evidence
   until the existing operator-confirmed integration flow is approved.
+
+### Planned (v0.37.3 delegated writes)
+
+- Generated action authority will expand from pure read-only computation to the
+  shipped action-only ceiling of `read_only`, `memory_write`, and
+  `external_network`, defaulting closed through
+  `dynamic_codegen.allowed_action_permissions`.
+- Effectful generated actions must delegate through
+  `AllbertAssist.DynamicPlugins.Delegate.run/3` to a literal reviewed facade
+  name in `dynamic_codegen.allowed_facades`. The initial facade ceiling is
+  `append_memory` and `external_network_request`.
+- Generated actions remain `resumable?: false`; facade-owned confirmations keep
+  the facade's existing Security Central approval and resume path. The
+  `dynamic_codegen.integration_approval_surfaces` setting remains scoped to
+  integration and rollback hot-load confirmations.
 
 ### Verification (v0.37.0)
 

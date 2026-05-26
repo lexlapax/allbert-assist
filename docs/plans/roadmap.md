@@ -1954,10 +1954,11 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 Status: implemented as `v0.37.0`; v0.37.1 post-implementation audit hardening
 and final gates completed on 2026-05-25. Reopened for v0.37.2
 capability-first generator and bounded model-backed committee implementation
-before tagging. The
+before tagging, then reopened for v0.37.3 delegated generated writes before
+tagging. The
 self-extending-runtime engine now has file-backed dynamic drafts, v0.36 sandbox
 trial/gate handoff, trusted validation, dynamic lifecycle audit/signals, and
-gated live in-core integration for read-only action artifacts. v0.37.2 must add
+gated live in-core integration for action artifacts. v0.37.2 must add
 source-bearing LLM-backed read-only action generation through separate
 Planner/Author/TrialAuthor/Critic packets plus invoked Repair packets and prove
 the full generate -> repair -> gate -> approve -> live run -> rollback loop.
@@ -1965,6 +1966,12 @@ The M16 closeout adds the explicit `request_draft_with_gate/3` workflow facade
 so sandbox trial/gate reports and trusted-validation failures can drive bounded
 Repair until deterministic evidence passes or workflow-wide limits stop the
 attempt.
+v0.37.3 must let generated action artifacts declare `:memory_write` or
+`:external_network` only when effectful work delegates through a literal,
+operator-allowlisted reviewed facade (`append_memory` or
+`external_network_request` initially). The delegated facade keeps its normal
+Security Central approval behavior; the dynamic action itself remains
+non-resumable.
 Broader generated app/config targets remain deferred until their validators
 exist.
 Highest-capability and highest-risk milestone; its safety rests on the v0.36
@@ -1992,11 +1999,13 @@ Expected direction:
 - Compile, trial, and gate generated artifacts only through the v0.36 sandbox.
 - Integrate only after v0.36 gate pass, v0.37 integrity/static checks, and
   explicit operator confirmation.
-- Hot-load and register a gate-passing read-only action artifact live without
-  restart through an audited reversible loader; rollback also requires operator
-  confirmation and removes live authority. Route pages, panels, settings
-  fragments, memory namespaces, objective wiring, and child processes remain
-  deferred live targets.
+- Hot-load and register a gate-passing action artifact live without restart
+  through an audited reversible loader; rollback also requires operator
+  confirmation and removes live authority. v0.37.3 action authority is either
+  pure read-only or delegated to reviewed `append_memory` /
+  `external_network_request` facades. Route pages, panels, settings fragments,
+  memory namespaces, objective wiring, and child processes remain deferred live
+  targets.
 - Forbid dependencies, package-manager execution, migrations, NIFs, secrets,
   unrestricted network, core/static module replacement, action shadowing,
   untrusted in-core loading, and integration without the gate or operator
