@@ -4,7 +4,7 @@ defmodule Mix.Tasks.Allbert.Gen.Plugin do
 
   ## Usage
 
-      mix allbert.gen.plugin NAME [--target PATH] [--force]
+      mix allbert.gen.plugin NAME [--target PATH] [--force] [--smoke]
   """
 
   use Mix.Task
@@ -21,7 +21,7 @@ defmodule Mix.Tasks.Allbert.Gen.Plugin do
   defp usage do
     """
     Usage:
-      mix allbert.gen.plugin NAME [--target PATH] [--force]
+      mix allbert.gen.plugin NAME [--target PATH] [--force] [--smoke]
     """
   end
 end

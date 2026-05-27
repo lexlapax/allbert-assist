@@ -11,7 +11,7 @@ defmodule Mix.Tasks.Allbert.Gen.Tool do
   @usage """
   Usage:
 
-      mix allbert.gen.tool NAME [--target PATH] [--force]
+      mix allbert.gen.tool NAME [--target PATH] [--force] [--smoke]
       mix allbert.gen.tool NAME [--permission read_only|memory_write|external_network]
 
   Generated output is inert source for review. Operator live integration of the

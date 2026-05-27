@@ -28,11 +28,17 @@ mix allbert.gen.app my_app --target ./plugins/my_app
 
 mix allbert.gen.app my_app --force
 # overwrite an existing root only after confirming the preview/diff
+
+mix allbert.gen.app my_app --smoke
+# disposable validation output under $ALLBERT_HOME/template-smoke/my_app/
 ```
 
 v0.38 also ships `mix allbert.gen.plugin` for source-tree plugin scaffolds,
 `mix allbert.gen.tool` for LLM-tool action scaffolds, and
 `mix allbert.gen.flow` for scheduled-flow and objective-workflow scaffolds.
+Set `ALLBERT_TEMPLATE_SMOKE=1` during manual validation to apply the same
+disposable Allbert Home target to every generator command without adding
+`--smoke` each time.
 Generated output is **inert**: no compile path change, trust grant, permission
 grant, route addition, skill enablement, or live registration. Generated
 theme/snippet/layout stubs respect the v0.34/v0.35 constraints — they document
