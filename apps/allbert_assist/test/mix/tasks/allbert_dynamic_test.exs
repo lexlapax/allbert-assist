@@ -47,6 +47,7 @@ defmodule Mix.Tasks.Allbert.DynamicTest do
     list_output = capture_io(fn -> assert :ok = DynamicTask.run(["drafts", "list"]) end)
     assert list_output =~ "task_draft"
     assert list_output =~ "tier=draft"
+    assert list_output =~ "producer=test"
 
     show_output =
       capture_io(fn -> assert :ok = DynamicTask.run(["drafts", "show", "task_draft"]) end)
@@ -54,6 +55,28 @@ defmodule Mix.Tasks.Allbert.DynamicTest do
     assert show_output =~ "Slug: task_draft"
     assert show_output =~ "Revision: rev_test"
     assert show_output =~ "Tier: draft"
+    assert show_output =~ "Producer: test"
+  end
+
+  test "draft list and show include templated producer provenance" do
+    assert {:ok, _draft} =
+             DynamicPlugins.put_draft(%{
+               slug: "templated_task",
+               revision: "rev_template",
+               producer: "template_pattern",
+               template_pattern_id: "llm_tool"
+             })
+
+    list_output = capture_io(fn -> assert :ok = DynamicTask.run(["drafts", "list"]) end)
+    assert list_output =~ "templated_task"
+    assert list_output =~ "producer=template_pattern"
+    assert list_output =~ "pattern=llm_tool"
+
+    show_output =
+      capture_io(fn -> assert :ok = DynamicTask.run(["drafts", "show", "templated_task"]) end)
+
+    assert show_output =~ "Producer: template_pattern"
+    assert show_output =~ "Template pattern: llm_tool"
   end
 
   test "draft request prints generated source metadata" do

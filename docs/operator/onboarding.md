@@ -67,15 +67,17 @@ scaffold reviewed plugin/app/LLM-tool/scheduled-flow/objective patterns through
 `./plugins/<name>`; `--force` plus preview/diff is required to overwrite an
 existing root), and operators open a separate `workspace:create` Canvas
 destination to render a vetted template, preview, validate, and choose
-developer-scaffold or supported live-integration intent. The current surface is
-view/compose only until the registered template actions land, so it writes no
-project tree or dynamic draft from the UI. In v0.38, only the LLM-tool (action)
+developer-scaffold or supported live-integration intent. The Create surface
+routes effectful work through registered template actions: developer-scaffold
+mode writes inert reviewed source, while supported live-integration mode writes
+only a v0.37 draft and returns the explicit trial/gate/integration next steps.
+In v0.38, only the LLM-tool (action)
 template can live-integrate; the other patterns are developer-scaffold-only
 because the v0.37.5 loader does not accept generated apps, panels, settings
 fragments, memory namespaces, or objective wiring as live targets. Templated
 drafts share
 `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/` with v0.37 codegen drafts and
-are inspectable through `mix allbert.dynamic list/show/disable`. See
+are inspectable through `mix allbert.dynamic drafts list/show/discard`. See
 `docs/operator/templated-creation.md` for the operator flow. The v0.39
 onboarding destination is a separate planned Canvas destination, not the same
 as `workspace:create`.

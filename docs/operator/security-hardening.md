@@ -78,15 +78,17 @@ mix allbert.settings set permissions.sandbox_trial denied
   `templates.create.enabled=false` keeps the `workspace:create` gallery and
   `CreateFromTemplate` action denied. Templates and their parameters grant no
   authority, and developer Mix-task scaffolds remain inert source under
-  `./plugins/<name>/` regardless of runtime settings. Operator live integration
-  of a templated artifact is the same v0.36/v0.37 gated path — and is
-  available only for the LLM-tool (action) pattern in v0.38 because the
+  `./plugins/<name>/` regardless of runtime settings. `CreateFromTemplate`
+  creates only a v0.37 draft; sandbox trial, gate, trusted validation, and
+  confirmed integration remain separate v0.36/v0.37 steps. Operator live
+  integration of a templated artifact is available only for the LLM-tool
+  (action) pattern in v0.38 because the
   v0.37.5 loader still rejects generated apps, panels, settings fragments,
   memory namespaces, objective wiring, jobs, and route pages as live targets.
-  Existing project/draft roots cannot be overwritten without explicit `--force`
-  plus preview/diff, and the Telegram/email/cross-channel approval-surface
-  exclusion (`dynamic_codegen.integration_approval_surfaces`) applies
-  unchanged.
+  Existing project roots cannot be overwritten without explicit `--force` plus
+  preview/diff, existing dynamic draft roots are denied rather than
+  overwritten, and the Telegram/email/cross-channel approval-surface exclusion
+  (`dynamic_codegen.integration_approval_surfaces`) applies unchanged.
 
 ## Planned v1.0 Threat Surfaces
 

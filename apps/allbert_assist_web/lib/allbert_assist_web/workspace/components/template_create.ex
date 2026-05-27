@@ -2,13 +2,13 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
   @moduledoc """
   Workspace Create surface for reviewed v0.38 template patterns.
 
-  This LiveComponent is view/compose only. It renders vetted template previews
-  and bounded validation diagnostics; effectful scaffold writes or live
-  integration must route through registered actions.
+  This LiveComponent renders vetted template previews and calls registered
+  template actions for effectful scaffold writes or v0.37 draft creation.
   """
 
   use AllbertAssistWeb, :live_component
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Settings
   alias AllbertAssist.Templates
   alias AllbertAssist.Templates.Scaffold
@@ -85,15 +85,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
   end
 
   def handle_event("attempt_template_create", _params, socket) do
-    attempt =
-      create_attempt(
-        socket.assigns.enabled?,
-        socket.assigns.selected_pattern,
-        socket.assigns.output_mode,
-        socket.assigns.preview
-      )
-
-    {:noreply, assign(socket, :create_attempt, attempt)}
+    {:noreply, assign(socket, :create_attempt, create_attempt(socket))}
   end
 
   @impl true
@@ -435,46 +427,88 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
     "Rendered #{Enum.join(shapes, ", ")}; #{live_status}."
   end
 
-  defp create_attempt(false, _pattern, _mode, _preview) do
+  defp create_attempt(%{assigns: %{enabled?: false}}) do
     %{
       status: :denied,
       message: "Denied by templates.create.enabled=false."
     }
   end
 
-  defp create_attempt(true, nil, _mode, %{status: status}) do
+  defp create_attempt(%{assigns: %{selected_pattern: nil, preview: %{status: status}}}) do
     %{
       status: :denied,
       message: "No template pattern is selected; status=#{inspect(status)}."
     }
   end
 
-  defp create_attempt(true, _pattern, _mode, %{status: status}) when status != :ready do
+  defp create_attempt(%{assigns: %{preview: %{status: status}}}) when status != :ready do
     %{
       status: :denied,
       message: "Template preview is not ready."
     }
   end
 
-  defp create_attempt(true, %{live_integration?: false} = pattern, "live_integration", _preview) do
+  defp create_attempt(%{
+         assigns: %{
+           selected_pattern: %{live_integration?: false} = pattern,
+           output_mode: "live_integration"
+         }
+       }) do
     %{
       status: :denied,
       message: "#{pattern.id} templates are developer-scaffold-only in v0.38."
     }
   end
 
-  defp create_attempt(true, _pattern, "live_integration", _preview) do
+  defp create_attempt(%{assigns: %{output_mode: "live_integration"}} = socket) do
+    run_template_action("create_from_template", socket)
+  end
+
+  defp create_attempt(socket) do
+    run_template_action("scaffold_template", socket)
+  end
+
+  defp run_template_action(action_name, socket) do
+    params = %{
+      pattern_id: socket.assigns.selected_pattern_id,
+      params: socket.assigns.template_params,
+      mode: socket.assigns.output_mode
+    }
+
+    case Runner.run(action_name, params, action_context(socket.assigns)) do
+      {:ok, response} -> attempt_from_response(response)
+    end
+  end
+
+  defp attempt_from_response(%{status: :completed, message: message} = response) do
     %{
-      status: :denied,
-      message:
-        "Live integration requires the v0.36 gate and v0.37 confirmation path through the registered template action boundary."
+      status: :completed,
+      message: message,
+      draft: Map.get(response, :draft),
+      scaffold: Map.get(response, :scaffold),
+      next_actions: Map.get(response, :next_actions, [])
     }
   end
 
-  defp create_attempt(true, _pattern, _mode, _preview) do
+  defp attempt_from_response(%{status: status, message: message} = response) do
     %{
-      status: :denied,
-      message: "Developer scaffold writes require the registered template action boundary."
+      status: status,
+      message: "#{message} #{bounded_error(Map.get(response, :error))}" |> String.trim(),
+      error: Map.get(response, :error)
+    }
+  end
+
+  defp action_context(assigns) do
+    context = Map.get(assigns, :renderer_context, %{})
+
+    %{
+      actor: Map.get(context, :user_id) || "local",
+      operator_id: Map.get(context, :user_id) || "local",
+      user_id: Map.get(context, :user_id) || "local",
+      thread_id: Map.get(context, :thread_id),
+      channel: :live_view,
+      surface: "/workspace",
+      canvas_destination: Map.get(context, :canvas_destination)
     }
   end
 
@@ -520,6 +554,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
   defp status_label(status), do: to_string(status)
 
   defp attempt_class(:denied), do: "border border-error/30 bg-error/10"
+  defp attempt_class(:completed), do: "border border-success/30 bg-success/10"
   defp attempt_class(_status), do: "border border-base-300 bg-base-200/60"
 
   defp bounded_reason(reason) do
@@ -527,6 +562,9 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
     |> inspect(limit: 6, printable_limit: 220)
     |> String.slice(0, 320)
   end
+
+  defp bounded_error(nil), do: ""
+  defp bounded_error(reason), do: bounded_reason(reason)
 
   defp humanize(name) do
     name

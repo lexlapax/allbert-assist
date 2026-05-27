@@ -102,7 +102,7 @@ defmodule Mix.Tasks.Allbert.Dynamic do
   defp print_result({:ok, {:drafts, drafts}}) do
     Enum.each(drafts, fn draft ->
       Mix.shell().info(
-        "#{draft.slug} revision=#{draft.revision} tier=#{draft.tier} gate=#{draft.gate_status || "not_run"}"
+        "#{draft.slug} revision=#{draft.revision} tier=#{draft.tier} producer=#{draft.producer}#{pattern_label(draft)} gate=#{draft.gate_status || "not_run"}"
       )
     end)
   end
@@ -112,6 +112,10 @@ defmodule Mix.Tasks.Allbert.Dynamic do
     Mix.shell().info("Revision: #{draft.revision}")
     Mix.shell().info("Tier: #{draft.tier}")
     Mix.shell().info("Producer: #{draft.producer}")
+
+    if draft.template_pattern_id,
+      do: Mix.shell().info("Template pattern: #{draft.template_pattern_id}")
+
     Mix.shell().info("Gate: #{draft.gate_status || "not_run"}")
     Mix.shell().info("Static validation: #{draft.static_validation_status || "not_run"}")
     Mix.shell().info("Root: #{draft.root}")
@@ -178,6 +182,9 @@ defmodule Mix.Tasks.Allbert.Dynamic do
 
   defp response_error(%{error: error}), do: error
   defp response_error(%{message: message}), do: message
+
+  defp pattern_label(%{template_pattern_id: nil}), do: ""
+  defp pattern_label(%{template_pattern_id: pattern_id}), do: " pattern=#{pattern_id}"
 
   defp usage do
     """

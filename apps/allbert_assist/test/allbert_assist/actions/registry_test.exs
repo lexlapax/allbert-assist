@@ -171,7 +171,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "run_dynamic_draft_gate",
              "list_dynamic_drafts",
              "show_dynamic_draft",
-             "show_dynamic_integration"
+             "show_dynamic_integration",
+             "render_template",
+             "validate_template",
+             "scaffold_template",
+             "create_from_template"
            ]
 
     assert Registry.duplicate_names() == []
@@ -268,7 +272,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "run_dynamic_draft_gate",
              "list_dynamic_drafts",
              "show_dynamic_draft",
-             "show_dynamic_integration"
+             "show_dynamic_integration",
+             "render_template",
+             "validate_template",
+             "scaffold_template",
+             "create_from_template"
            ]
 
     assert {:ok, append_memory} = Registry.capability("append_memory")
@@ -438,6 +446,22 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert discard_dynamic_draft.execution_mode == :dynamic_codegen_discard
     assert discard_dynamic_draft.exposure == :internal
     assert discard_dynamic_draft.confirmation == :not_required
+
+    assert {:ok, render_template} = Registry.capability("render_template")
+    assert render_template.permission == :read_only
+    assert render_template.execution_mode == :template_render
+
+    assert {:ok, validate_template} = Registry.capability("validate_template")
+    assert validate_template.permission == :read_only
+    assert validate_template.execution_mode == :template_validate
+
+    assert {:ok, scaffold_template} = Registry.capability("scaffold_template")
+    assert scaffold_template.permission == :skill_write
+    assert scaffold_template.execution_mode == :template_scaffold
+
+    assert {:ok, create_from_template} = Registry.capability("create_from_template")
+    assert create_from_template.permission == :dynamic_codegen_request
+    assert create_from_template.execution_mode == :template_dynamic_draft
 
     assert {:ok, rollback_dynamic_integration} =
              Registry.capability("rollback_dynamic_integration")

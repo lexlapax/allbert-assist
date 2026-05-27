@@ -4,7 +4,8 @@ Status: v0.38 implementation in progress. M1 implemented the registry and
 deterministic renderer. M2 implemented the `plugin` and `app` developer
 scaffolds. M3 implemented the `llm_tool`, `flow`, and `objective` scaffolds
 plus `mix allbert.gen.tool` and `mix allbert.gen.flow`. M4 implemented the
-`workspace:create` operator Create surface as view/compose only.
+`workspace:create` operator Create surface. M5 implemented registered template
+actions and LLM-tool dynamic-draft creation.
 
 Template patterns are vetted, parameterized skeletons that produce Allbert
 plugin/app/action/objective artifacts. They are an accelerator over the
@@ -143,13 +144,16 @@ Checklist for adding a future templated pattern without granting authority:
 - `mix allbert.validate_app APP_ID_OR_MODULE` — first-run app validation after
   the generated module is compiled; safe app-id lookup does not create atoms
   from raw input.
-- `mix allbert.dynamic list/show/disable` — inspects templated drafts beside
-  v0.37 codegen drafts; `producer: "template_pattern"` distinguishes them.
+- `mix allbert.dynamic drafts list/show/discard` — inspects templated drafts
+  beside v0.37 codegen drafts; `producer: "template_pattern"` distinguishes
+  them.
 - `workspace:create` — implemented operator Canvas destination with gallery,
-  parameter form, preview, validation, disabled-state rendering, and bounded
-  create-attempt diagnostics. Gated by `templates.create.enabled` (default
-  off); `templates.allowed_patterns` filters the gallery. It is view/compose
-  only until registered template actions land. Operator live integration also
+  parameter form, preview, validation, disabled-state rendering, and registered
+  action execution. Gated by `templates.create.enabled` (default off);
+  `templates.allowed_patterns` filters the gallery. Developer scaffold mode
+  calls `scaffold_template`; live-integration mode calls
+  `create_from_template`, which creates a v0.37 draft only and returns the
+  explicit trial/gate/integration next actions. Operator live integration also
   requires `dynamic_codegen.enabled`,
   `dynamic_codegen.live_loader_enabled`, and `sandbox.elixir.enabled`. The
   `dynamic_codegen.integration_approval_surfaces` allowlist (default
