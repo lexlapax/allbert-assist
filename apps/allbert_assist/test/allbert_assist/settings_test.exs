@@ -298,6 +298,36 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("dynamic_codegen.max_files", 0, %{audit?: false})
   end
 
+  test "template creation settings resolve defaults and validate writes" do
+    assert {:ok, false} = Settings.get("templates.create.enabled")
+
+    assert {:ok, ["plugin", "app", "llm_tool", "flow", "objective"]} =
+             Settings.get("templates.allowed_patterns")
+
+    assert {:ok, enabled} =
+             Settings.put("templates.create.enabled", true, %{audit?: false})
+
+    assert enabled.value == true
+
+    assert {:ok, allowed_patterns} =
+             Settings.put("templates.allowed_patterns", ["llm_tool", "plugin"], %{
+               audit?: false
+             })
+
+    assert allowed_patterns.value == ["llm_tool", "plugin"]
+
+    assert {:ok, no_patterns} =
+             Settings.put("templates.allowed_patterns", [], %{audit?: false})
+
+    assert no_patterns.value == []
+
+    assert {:error, {:invalid_setting, "templates.allowed_patterns", _reason}} =
+             Settings.put("templates.allowed_patterns", ["route_page"], %{audit?: false})
+
+    assert {:error, {:invalid_setting, "templates.allowed_patterns", _reason}} =
+             Settings.put("templates.allowed_patterns", "llm_tool", %{audit?: false})
+  end
+
   test "legacy dynamic codegen future-scope settings normalize to shipped scope" do
     assert {:ok, _settings} =
              Settings.write_user_settings(%{
