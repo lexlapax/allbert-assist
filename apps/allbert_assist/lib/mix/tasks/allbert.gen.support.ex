@@ -1,11 +1,14 @@
 defmodule Mix.Tasks.Allbert.Gen.Support do
   @moduledoc false
 
+  alias AllbertAssist.Paths
+  alias AllbertAssist.Templates.Parameters
   alias AllbertAssist.Templates.Scaffold
 
   @switches [
     target: :string,
     force: :boolean,
+    smoke: :boolean,
     description: :string,
     version: :string,
     permission: :string,
@@ -24,10 +27,10 @@ defmodule Mix.Tasks.Allbert.Gen.Support do
 
     case OptionParser.parse(args, strict: @switches, aliases: @aliases) do
       {opts, [name], []} ->
-        params = params(name, Keyword.drop(opts, [:target, :force] ++ ignore_opts))
+        params = params(name, Keyword.drop(opts, [:target, :force, :smoke] ++ ignore_opts))
 
         case Scaffold.write(pattern_id, params,
-               target: Keyword.get(opts, :target),
+               target: scaffold_target(name, opts),
                force?: Keyword.get(opts, :force, false)
              ) do
           {:ok, result} ->
@@ -53,10 +56,10 @@ defmodule Mix.Tasks.Allbert.Gen.Support do
     case OptionParser.parse(args, strict: @switches, aliases: @aliases) do
       {opts, [name], []} ->
         pattern_id = flow_pattern_id(Keyword.get(opts, :pattern, "flow"))
-        params = params(name, Keyword.drop(opts, [:target, :force, :pattern]))
+        params = params(name, Keyword.drop(opts, [:target, :force, :smoke, :pattern]))
 
         case Scaffold.write(pattern_id, params,
-               target: Keyword.get(opts, :target),
+               target: scaffold_target(name, opts),
                force?: Keyword.get(opts, :force, false)
              ) do
           {:ok, result} ->
@@ -86,6 +89,30 @@ defmodule Mix.Tasks.Allbert.Gen.Support do
 
   defp put_optional(map, _key, nil), do: map
   defp put_optional(map, key, value), do: Map.put(map, key, value)
+
+  defp scaffold_target(name, opts) do
+    cond do
+      target = Keyword.get(opts, :target) ->
+        target
+
+      Keyword.get(opts, :smoke, false) or smoke_env?() ->
+        smoke_target(name)
+
+      true ->
+        nil
+    end
+  end
+
+  defp smoke_env? do
+    System.get_env("ALLBERT_TEMPLATE_SMOKE") in ~w[1 true TRUE yes YES on ON]
+  end
+
+  defp smoke_target(name) do
+    case Parameters.slug(name) do
+      {:ok, slug} -> Path.join([Paths.home(), "template-smoke", slug])
+      {:error, reason} -> Mix.raise("Template generation failed: #{inspect(reason)}")
+    end
+  end
 
   defp flow_pattern_id("objective"), do: "objective"
   defp flow_pattern_id("flow"), do: "flow"

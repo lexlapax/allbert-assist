@@ -78,9 +78,12 @@ mix allbert.settings set permissions.sandbox_trial denied
   `templates.create.enabled=false` keeps the `workspace:create` gallery and
   `CreateFromTemplate` action denied. Templates and their parameters grant no
   authority, and developer Mix-task scaffolds remain inert source under
-  `./plugins/<name>/` regardless of runtime settings. `CreateFromTemplate`
-  creates only a v0.37 draft; sandbox trial, gate, trusted validation, and
-  confirmed integration remain separate v0.36/v0.37 steps. Operator live
+  `./plugins/<name>/` by default, or under
+  `<ALLBERT_HOME>/template-smoke/<name>/` for disposable smoke validation when
+  `--smoke` or `ALLBERT_TEMPLATE_SMOKE=1` is set. Runtime settings do not grant
+  authority to either output. `CreateFromTemplate` creates only a v0.37 draft;
+  sandbox trial, gate, trusted validation, and confirmed integration remain
+  separate v0.36/v0.37 steps. Operator live
   integration of a templated artifact is available only for the LLM-tool
   (action) pattern in v0.38 because the
   v0.37.5 loader still rejects generated apps, panels, settings fragments,

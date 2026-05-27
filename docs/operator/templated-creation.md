@@ -21,7 +21,7 @@ v0.37 operator-confirmed loader, with no new authority.
 
 | Mode | Where output lands | Authority |
 |---|---|---|
-| Developer scaffold | `--target` (default `./plugins/<name>/`) | None. Inert source for human review/compile/test. |
+| Developer scaffold | `--target` (default `./plugins/<name>/`); disposable smoke mode uses `<ALLBERT_HOME>/template-smoke/<name>/` | None. Inert source for human review/compile/test. |
 | Operator live integration | `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/` | None until v0.36 gate + v0.37 loader + Security Central confirmation. Available only for the LLM-tool pattern in v0.38. |
 
 ## What Each Pattern Does
@@ -97,6 +97,7 @@ mix allbert.security review --recent --limit 25
 ## Developer Flow Through Mix
 
 ```sh
+export ALLBERT_TEMPLATE_SMOKE=1
 mix allbert.gen.plugin my_plugin
 mix allbert.gen.app my_app
 mix allbert.gen.tool my_tool
@@ -108,8 +109,10 @@ mix allbert.validate_app my_app
 
 `--target PATH` overrides the default `./plugins/<name>/`. `--force` is
 required to overwrite an existing target root and triggers preview/diff
-confirmation. Developer scaffolds never touch Allbert Home and never integrate
-live. `mix allbert.validate_app my_app` works after the generated app module is
+confirmation. `--smoke` or `ALLBERT_TEMPLATE_SMOKE=1` sends disposable
+validation scaffolds to `<ALLBERT_HOME>/template-smoke/<name>/`; `--target`
+still wins when both are supplied. Developer scaffolds never integrate live.
+`mix allbert.validate_app my_app` works after the generated app module is
 compiled; the task resolves loaded app modules by safe app id or by module
 name.
 
@@ -132,8 +135,9 @@ Templated drafts show `template_pattern`; v0.37 LLM-authored drafts show
 ## Manual Smoke
 
 - Disposable Allbert Home: `export ALLBERT_HOME="$(mktemp -d /tmp/allbert.XXXXXX)"`.
+- Disposable scaffold target: `export ALLBERT_TEMPLATE_SMOKE=1`.
 - Run `mix allbert.gen.plugin my_plugin` → confirm inert tree under
-  `./plugins/my_plugin/` and `--force`-only overwrite.
+  `$ALLBERT_HOME/template-smoke/my_plugin/` and `--force`-only overwrite.
 - Run `mix allbert.gen.app my_app` then `mix allbert.validate_app my_app` →
   confirm first-run validation pass.
 - Run `mix allbert.gen.tool my_tool` and confirm the output contains
@@ -157,6 +161,8 @@ Templated drafts show `template_pattern`; v0.37 LLM-authored drafts show
 - Roll back the integration and confirm capability is removed.
 - Disable `templates.create.enabled` and confirm the Create destination is
   denied with a bounded diagnostic.
+- Cleanup disposable scaffolds with `rm -rf "$ALLBERT_HOME/template-smoke"` or
+  remove the whole temporary Allbert Home after validation.
 
 ## Authority Invariants
 

@@ -22,6 +22,7 @@ defmodule AllbertAssist.Templates.ScaffoldTest do
     File.mkdir_p!(tmp)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
+    original_smoke_env = System.get_env("ALLBERT_TEMPLATE_SMOKE")
 
     Application.put_env(:allbert_assist, Paths, home: Path.join(tmp, "home"))
     Application.delete_env(:allbert_assist, Settings)
@@ -29,6 +30,7 @@ defmodule AllbertAssist.Templates.ScaffoldTest do
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
+      restore_env_var("ALLBERT_TEMPLATE_SMOKE", original_smoke_env)
       File.rm_rf!(tmp)
       Mix.Task.reenable("allbert.gen.plugin")
       Mix.Task.reenable("allbert.gen.app")
@@ -163,6 +165,39 @@ defmodule AllbertAssist.Templates.ScaffoldTest do
     assert app_output =~ "Generated app scaffold."
     assert File.regular?(Path.join(plugin_target, "allbert_plugin.json"))
     assert File.regular?(Path.join(app_target, "lib/task_app/app.ex"))
+  end
+
+  test "Mix generator smoke mode writes under Allbert Home template-smoke", %{tmp: tmp} do
+    smoke_target = Path.join([Paths.home(), "template-smoke", "smoke_plugin"])
+
+    output =
+      File.cd!(tmp, fn ->
+        capture_io(fn ->
+          assert :ok = GenPluginTask.run(["Smoke Plugin", "--smoke"])
+        end)
+      end)
+
+    assert output =~ "Generated plugin scaffold."
+    assert output =~ smoke_target
+    assert File.regular?(Path.join(smoke_target, "allbert_plugin.json"))
+    refute File.exists?(Path.join([tmp, "plugins", "smoke_plugin"]))
+  end
+
+  test "ALLBERT_TEMPLATE_SMOKE defaults generators to the smoke root", %{tmp: tmp} do
+    System.put_env("ALLBERT_TEMPLATE_SMOKE", "1")
+    smoke_target = Path.join([Paths.home(), "template-smoke", "env_smoke_tool"])
+
+    output =
+      File.cd!(tmp, fn ->
+        capture_io(fn ->
+          assert :ok = GenToolTask.run(["Env Smoke Tool"])
+        end)
+      end)
+
+    assert output =~ "Generated llm_tool scaffold."
+    assert output =~ smoke_target
+    assert File.regular?(Path.join(smoke_target, "source/lib/action.ex"))
+    refute File.exists?(Path.join([tmp, "plugins", "env_smoke_tool"]))
   end
 
   test "LLM-tool scaffold is action-shaped and read-only variants need no delegate", %{tmp: tmp} do
@@ -354,4 +389,6 @@ defmodule AllbertAssist.Templates.ScaffoldTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+  defp restore_env_var(key, nil), do: System.delete_env(key)
+  defp restore_env_var(key, value), do: System.put_env(key, value)
 end

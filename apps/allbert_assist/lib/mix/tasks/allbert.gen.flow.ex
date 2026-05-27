@@ -11,8 +11,8 @@ defmodule Mix.Tasks.Allbert.Gen.Flow do
   @usage """
   Usage:
 
-      mix allbert.gen.flow NAME [--target PATH] [--force]
-      mix allbert.gen.flow NAME --pattern objective [--target PATH] [--force]
+      mix allbert.gen.flow NAME [--target PATH] [--force] [--smoke]
+      mix allbert.gen.flow NAME --pattern objective [--target PATH] [--force] [--smoke]
 
   Generated output is inert source for review. v0.38 does not live-integrate
   scheduled jobs or objective wiring.
