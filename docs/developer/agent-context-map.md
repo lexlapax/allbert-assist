@@ -264,11 +264,13 @@ Do not load every section by default.
   Per ADR 0032, ADR 0033, and ADR 0035. Implementation docs live in
   `docs/developer/dynamic-plugin-drafts.md` and
   `docs/operator/dynamic-capability-integration.md`.
-- v0.38 (planned): Templated Creation. Scaffolds the proven plugin/app/tool/flow
-  shapes through Mix tasks (`--target` defaults to `./plugins/<name>` and
-  existing roots require `--force` plus preview/diff) and a `workspace:create`
-  Canvas destination, reusing the v0.36 sandbox and v0.37 loader for optional
-  live integration.
+- v0.38 (implemented as `v0.38.0`): Templated Creation. Scaffolds the proven
+  plugin/app/tool/flow shapes through Mix tasks (`--target` defaults to
+  `./plugins/<name>` and existing roots require `--force` plus preview/diff)
+  and a `workspace:create` Canvas destination, reusing the v0.36 sandbox and
+  v0.37 loader for optional live integration. Live integration is shipped only
+  for the LLM-tool/action pattern; other patterns are inert developer
+  scaffolds.
 - v0.39 (planned): First-Run Onboarding And Provider Control. Adds guided
   setup and a two-branch provider doctor (credentialed-remote +
   local-endpoint). Split from the original "Onboarding + Provider + Identity

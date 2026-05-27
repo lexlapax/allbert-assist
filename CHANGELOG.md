@@ -10,6 +10,90 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.38.0 - Templated Creation
+
+Status: implemented as `v0.38.0` on 2026-05-27 and ready for operator manual
+verification. The release ships deterministic, reviewed template patterns for
+plugin, app, LLM-tool, scheduled-flow, and objective-workflow scaffolds.
+Developer outputs are inert source. Operator live creation writes only
+LLM-tool/action dynamic drafts and then reuses the v0.36 sandbox gate and the
+v0.37 operator-confirmed live loader.
+
+Plan: `docs/plans/v0.38-plan.md`.
+Request flow: `docs/plans/v0.38-request-flow.md`.
+ADRs: `docs/adr/0036-templated-creation-and-pattern-registry.md`,
+`docs/adr/0035-codegen-agents-and-live-integration-loader.md`,
+`docs/adr/0037-elixir-otp-sandbox-backend-and-gate-runner.md`,
+`docs/adr/0015-allbert-app-contract-and-surface-dsl.md`,
+`docs/adr/0017-allbert-plugin-contract.md`.
+
+### Added
+
+- `AllbertAssist.Templates` facade, `TemplatePattern` behaviour, registry,
+  parameter validation/normalization, safe relative-path checks, and
+  deterministic reviewed-file rendering.
+- Reviewed `plugin`, `app`, `llm_tool`, `flow`, and `objective` patterns with
+  checked-in scaffold files under `apps/allbert_assist/priv/templates/v0_38`.
+- Developer generator tasks:
+  `mix allbert.gen.plugin`, `mix allbert.gen.app`, `mix allbert.gen.tool`, and
+  `mix allbert.gen.flow`; generated app scaffolds validate through the existing
+  `mix allbert.validate_app` task after compilation.
+- `workspace:create` Canvas destination with template gallery, parameter form,
+  preview tree, validation status, settings gates, and bounded diagnostics.
+- Registered template actions:
+  `render_template`, `validate_template`, `scaffold_template`, and
+  `create_from_template`.
+- Deterministic LLM-tool template live-draft creation through
+  `AllbertAssist.Templates.LiveDraft`, storing `producer: "template_pattern"`
+  and `template_pattern_id` in v0.37 draft metadata.
+- `mix allbert.dynamic drafts list/show` producer and pattern labels for
+  templated drafts beside `codegen_llm` drafts.
+- Executable v0.38 security eval rows and
+  `AllbertAssist.Security.TemplateCreationEvalTest` coverage for disabled
+  creation, malicious params, path traversal, overwrite denial, authority
+  bypass, integration-gate bypass, Canvas action-boundary denial,
+  scheduled-flow escalation, and unsupported live targets.
+
+### Changed
+
+- Umbrella, core app, and web app version metadata are bumped to `0.38.0`.
+- `docs/developer/how-to-create-an-allbert-app.md` now leads with
+  generator-first app creation and links the pattern registry docs.
+- Operator, security-hardening, onboarding, runtime-boundary, agent-context,
+  roadmap, and future-features docs now describe v0.38 templated creation as
+  implemented.
+- `workspace:create` remains default-off behind `templates.create.enabled`;
+  developer Mix-task scaffolds remain inert regardless of runtime settings.
+
+### Security
+
+- Templates and parameters grant no authority. Developer scaffolds never
+  integrate live, do not alter compile paths, and cannot auto-enable jobs,
+  routes, skills, providers, settings, or permissions.
+- Existing scaffold roots require explicit `--force`; existing dynamic draft
+  roots are denied rather than overwritten.
+- Live integration is available only for the LLM-tool/action pattern because
+  the v0.37.5 loader rejects plugin, app, panel, settings-fragment, memory,
+  objective, job, route-page, and child-process artifact shapes.
+- Templated live integration writes a draft only. Sandbox trial, sandbox gate,
+  trusted validation, confirmation, live registration, and rollback remain the
+  v0.36/v0.37 actions and approval surfaces.
+
+### Verification
+
+- Focused milestone coverage covered template rendering/scaffolding, generator
+  tasks, registered template actions, dynamic draft inspection, Settings
+  Central gates, workspace Create rendering, and the v0.38 security evals.
+- Chrome extension browser control verified the `workspace:create` gallery,
+  LLM-tool form, preview, enabled create action, templated draft output, and
+  absence of browser console errors during M4/M5 UI closeout.
+- Release closeout ran the project warning gate:
+  `mix compile --warnings-as-errors`, `mix credo --strict`, `mix dialyzer`,
+  and `mix precommit`.
+
+Manual verification instructions live in
+`docs/operator/templated-creation.md`.
+
 ## v0.37.5 - Dynamic Code & Config Generation and Live Capability Integration
 
 Status: released and tagged as `v0.37.5` on 2026-05-26. The v0.37 line was
