@@ -1,6 +1,7 @@
 # Operator Guide: Templated Creation
 
-Status: implemented in v0.38.0 and ready for operator manual verification.
+Status: released and tagged as v0.38.1 on 2026-05-27 after operator manual
+verification.
 Developer scaffolds, Mix tasks, registered template actions, the `/workspace`
 `workspace:create` operator surface, LLM-tool dynamic-draft creation, and
 security eval coverage are implemented. `CreateFromTemplate` creates a v0.37
@@ -135,37 +136,127 @@ Templated drafts show `template_pattern`; v0.37 LLM-authored drafts show
 
 ## Manual Smoke
 
-- Disposable Allbert Home: `export ALLBERT_HOME="$(mktemp -d /tmp/allbert.XXXXXX)"`.
-- Disposable scaffold target: `export ALLBERT_TEMPLATE_SMOKE=1`.
-- Run `mix allbert.gen.plugin my_plugin` → confirm inert tree under
-  `$ALLBERT_HOME/template-smoke/my_plugin/` and `--force`-only overwrite.
-- Run `mix allbert.gen.app my_app` → confirm the inert app contract files under
-  `$ALLBERT_HOME/template-smoke/my_app/`. After moving the generated app module
-  onto a project compile path, run `mix allbert.validate_app my_app` to confirm
-  first-run validation pass.
-- Run `mix allbert.gen.tool my_tool` and confirm the output contains
-  `dynamic_manifest.json` plus `source/lib/action.ex`; `--permission
-  memory_write` and `--permission external_network` must route through
-  `AllbertAssist.DynamicPlugins.Delegate.run/3`.
-- Run `mix allbert.gen.flow morning_brief` and `mix allbert.gen.flow
-  nightly_review --pattern objective`; confirm both outputs are inert and mark
-  their generated job/workflow JSON as disabled.
-- Enable `templates.create.enabled=true` and open `/workspace` Create → confirm
-  gallery renders, parameter form validates through the registered
-  `validate_template` action, and the live-integration toggle is disabled for
-  plugin/app/flow/objective patterns.
-- For the live-draft smoke, also enable `dynamic_codegen.enabled=true`,
-  `dynamic_codegen.live_loader_enabled=true`, and `sandbox.elixir.enabled=true`;
-  disabling any one of those switches must deny before a draft is written.
-- Pick the LLM-tool pattern, create a draft, confirm `metadata.yaml` records
-  `producer: template_pattern` and `template_pattern_id: llm_tool`, then run
-  the sandbox trial/gate and confirm integration from CLI or LiveView.
-- Confirm Telegram and email approval are denied for the same draft.
-- Roll back the integration and confirm capability is removed.
-- Disable `templates.create.enabled` and confirm the Create destination is
-  denied with a bounded diagnostic.
-- Cleanup disposable scaffolds with `rm -rf "$ALLBERT_HOME/template-smoke"` or
-  remove the whole temporary Allbert Home after validation.
+v0.38.1 was accepted with this disposable manual-validation path. Use one
+temporary Allbert Home for both CLI and Phoenix validation. Do not set
+`DATABASE_PATH` for this dev-server run; `config/dev.exs` derives the SQLite
+path from `ALLBERT_HOME`, and the root `mix phx.server` alias creates and
+migrates a missing or empty dev SQLite database before Phoenix starts. Set
+`ALLBERT_DEV_AUTO_MIGRATE=1` to also run pending migrations for an existing
+dev database, or `ALLBERT_DEV_AUTO_MIGRATE=0` to disable the dev bootstrap.
+
+Terminal A:
+
+```sh
+cd /Users/spuri/projects/lexlapax/allbert-assist
+
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v038-manual.XXXXXX)"
+export ALLBERT_TEMPLATE_SMOKE=1
+
+echo "$ALLBERT_HOME"
+
+mix phx.server
+```
+
+Terminal B:
+
+```sh
+cd /Users/spuri/projects/lexlapax/allbert-assist
+
+export ALLBERT_HOME="/tmp/allbert-v038-manual.XXXXXX"
+export ALLBERT_TEMPLATE_SMOKE=1
+```
+
+Replace the `ALLBERT_HOME` value with the one printed by Terminal A.
+
+CLI generator smoke:
+
+```sh
+mix allbert.gen.plugin cli_plugin_smoke
+mix allbert.gen.app cli_app_smoke
+mix allbert.gen.tool cli_tool_smoke
+mix allbert.gen.tool cli_remember_preference_smoke --permission memory_write
+mix allbert.gen.flow cli_morning_brief_smoke
+mix allbert.gen.flow cli_nightly_review_smoke --pattern objective
+```
+
+Expected:
+
+```sh
+test -d "$ALLBERT_HOME/template-smoke/cli_plugin_smoke"
+test -d "$ALLBERT_HOME/template-smoke/cli_app_smoke"
+test -d "$ALLBERT_HOME/template-smoke/cli_tool_smoke"
+test ! -d plugins/cli_plugin_smoke
+test ! -d plugins/cli_app_smoke
+test ! -d plugins/cli_tool_smoke
+```
+
+Web disabled-state smoke:
+
+1. Open `http://localhost:4000/workspace?destination=workspace:create`.
+2. Confirm the Create surface says template creation is disabled.
+3. In Terminal B run `mix allbert.settings set templates.create.enabled true`.
+4. Refresh the browser and confirm the gallery, parameter form, preview, and
+   validation panels render.
+
+Web developer-scaffold smoke:
+
+1. Select each pattern and keep **Developer scaffold** selected.
+2. Use these names: `web_plugin_smoke`, `web_app_smoke`, `web_tool_smoke`,
+   `web_flow_smoke`, and `web_objective_smoke`.
+3. Click **Create** for each pattern.
+4. Confirm preview targets include `template-smoke/<name>`.
+5. Confirm live integration is disabled for plugin, app, flow, and objective
+   patterns and enabled only for the LLM-tool pattern.
+
+Expected:
+
+```sh
+test -f "$ALLBERT_HOME/template-smoke/web_plugin_smoke/allbert_plugin.json"
+test -f "$ALLBERT_HOME/template-smoke/web_app_smoke/allbert_plugin.json"
+test -f "$ALLBERT_HOME/template-smoke/web_tool_smoke/dynamic_manifest.json"
+test -f "$ALLBERT_HOME/template-smoke/web_flow_smoke/priv/jobs/web_flow_smoke.json"
+test -f "$ALLBERT_HOME/template-smoke/web_objective_smoke/priv/objectives/web_objective_smoke.json"
+
+test ! -d plugins/web_plugin_smoke
+test ! -d plugins/web_app_smoke
+test ! -d plugins/web_tool_smoke
+```
+
+Web live-draft smoke:
+
+```sh
+mix allbert.settings set dynamic_codegen.enabled true
+mix allbert.settings set dynamic_codegen.live_loader_enabled true
+mix allbert.settings set sandbox.elixir.enabled true
+```
+
+In the browser, select **LLM tool**, set the name to `web_live_tool_smoke`,
+choose **Live integration**, and click **Create**.
+
+Expected:
+
+```sh
+mix allbert.dynamic drafts list
+mix allbert.dynamic drafts show web_live_tool_smoke
+test -d "$ALLBERT_HOME/dynamic_plugins/drafts/web_live_tool_smoke"
+test ! -d plugins/web_live_tool_smoke
+```
+
+Final pollution check:
+
+```sh
+git status --short
+find plugins -maxdepth 1 -type d \( -name '*smoke*' -o -name my_app -o -name my_plugin -o -name my_tool -o -name morning_brief -o -name nightly_review -o -name remember_preference \) -print
+```
+
+Both commands should produce no generated validation artifacts. Stop Phoenix
+with `Ctrl-C` twice, then clean up:
+
+```sh
+rm -rf "$ALLBERT_HOME"
+unset ALLBERT_TEMPLATE_SMOKE
+unset ALLBERT_HOME
+```
 
 ## Authority Invariants
 

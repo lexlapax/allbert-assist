@@ -2091,11 +2091,14 @@ ADRs: `docs/adr/0036-templated-creation-and-pattern-registry.md`,
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`,
 `docs/adr/0017-allbert-plugin-contract.md`
 
-Status: implemented as `v0.38.0` through M6 closeout on 2026-05-27 and ready
-for operator manual verification. The curated, deterministic creation
-experience sits on top of the v0.36 sandbox and v0.37 loader: vetted templates
-are exposed through Mix tasks, operator-facing workspace flows, and a Canvas
-Create surface.
+Status: released and tagged as `v0.38.1` on 2026-05-27 after M6 closeout,
+operator manual verification, disposable-validation cleanup, and workspace
+form-contrast polish. Fresh manual-validation homes are bootstrapped by root
+`mix phx.server` when `ALLBERT_HOME` or `ALLBERT_HOME_DIR` is set and
+`DATABASE_PATH` is absent. The curated, deterministic creation experience sits
+on top of the v0.36 sandbox and v0.37 loader: vetted templates are exposed
+through Mix tasks, operator-facing workspace flows, and a Canvas Create
+surface.
 
 Prerequisite: v0.36 sandbox/gate runner; v0.37 generation/loader engine; the
 v0.27-v0.35 contract shapes; the v0.25 Jido.AI pattern; and the v0.34 Canvas
@@ -2108,8 +2111,10 @@ Shipped direction:
   code patterns.
 - Mix tasks for developers: `mix allbert.gen.plugin` / `gen.app` / `gen.tool` /
   `gen.flow` / `gen.<pattern>`, and `mix allbert.validate_app`; `--target`
-  defaults to `./plugins/<name>` and existing roots require explicit `--force`
-  plus preview/diff.
+  defaults to `./plugins/<name>`, disposable validation can set
+  `ALLBERT_TEMPLATE_SMOKE=1` to use
+  `<ALLBERT_HOME>/template-smoke/<name>`, and existing roots require explicit
+  `--force` plus preview/diff.
 - A guided operator creation flow in `/workspace` and a Canvas **Create**
   destination (`workspace:create`): template gallery → parameter form → preview
   → validate → developer-scaffold or operator live integration.

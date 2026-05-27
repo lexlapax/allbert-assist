@@ -4,7 +4,7 @@ defmodule AllbertAssist.Umbrella.MixProject do
   def project do
     [
       apps_path: "apps",
-      version: "0.38.0",
+      version: "0.38.1",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
@@ -79,6 +79,7 @@ defmodule AllbertAssist.Umbrella.MixProject do
       setup: ["cmd mix setup"],
       "ecto.migrate": ["do --app allbert_assist cmd mix ecto.migrate.allbert"],
       "ecto.migrate.allbert": ["do --app allbert_assist cmd mix ecto.migrate.allbert"],
+      "phx.server": [&maybe_bootstrap_dev_database/1, "do --app allbert_assist_web phx.server"],
       precommit: [
         "compile --warnings-as-errors",
         "deps.unlock --unused",
@@ -91,5 +92,111 @@ defmodule AllbertAssist.Umbrella.MixProject do
       ],
       check: ["format --check-formatted", "credo --strict", "dialyzer"]
     ]
+  end
+
+  defp maybe_bootstrap_dev_database(_args) do
+    cond do
+      Mix.env() != :dev ->
+        :ok
+
+      dev_auto_migrate_disabled?() ->
+        :ok
+
+      explicit_database_path?() ->
+        :ok
+
+      is_nil(allbert_home_env()) ->
+        :ok
+
+      dev_auto_migrate_enabled?() ->
+        run_dev_database_bootstrap(:migrate)
+
+      missing_or_empty_dev_database?() ->
+        run_dev_database_bootstrap(:bootstrap)
+
+      true ->
+        :ok
+    end
+  end
+
+  defp run_dev_database_bootstrap(mode) do
+    database_path = dev_database_path!()
+
+    File.mkdir_p!(Path.dirname(database_path))
+
+    message =
+      if mode == :bootstrap do
+        "Bootstrapping Allbert dev database at #{database_path}"
+      else
+        "Migrating Allbert dev database at #{database_path}"
+      end
+
+    Mix.shell().info(message)
+    Mix.Task.reenable("do")
+
+    Mix.Task.run("do", [
+      "--app",
+      "allbert_assist",
+      "ecto.migrate.allbert",
+      "--quiet",
+      "--pool-size",
+      "1"
+    ])
+  end
+
+  defp missing_or_empty_dev_database? do
+    database_path = dev_database_path!()
+
+    not File.exists?(database_path) or File.stat!(database_path).size == 0
+  end
+
+  defp dev_database_path! do
+    case Application.get_env(:allbert_assist, AllbertAssist.Repo, [])[:database] do
+      database_path when is_binary(database_path) -> Path.expand(database_path)
+      _ -> Mix.raise("Allbert dev database path is not configured")
+    end
+  end
+
+  defp allbert_home_env do
+    System.get_env("ALLBERT_HOME") || System.get_env("ALLBERT_HOME_DIR")
+  end
+
+  defp explicit_database_path? do
+    present_env?("DATABASE_PATH")
+  end
+
+  defp dev_auto_migrate_enabled? do
+    truthy_env?("ALLBERT_DEV_AUTO_MIGRATE")
+  end
+
+  defp dev_auto_migrate_disabled? do
+    falsy_env?("ALLBERT_DEV_AUTO_MIGRATE")
+  end
+
+  defp truthy_env?(name) do
+    System.get_env(name)
+    |> normalize_env_value()
+    |> Kernel.in(["1", "true", "yes", "on"])
+  end
+
+  defp falsy_env?(name) do
+    System.get_env(name)
+    |> normalize_env_value()
+    |> Kernel.in(["0", "false", "no", "off"])
+  end
+
+  defp present_env?(name) do
+    case System.get_env(name) do
+      nil -> false
+      value -> String.trim(value) != ""
+    end
+  end
+
+  defp normalize_env_value(nil), do: nil
+
+  defp normalize_env_value(value) do
+    value
+    |> String.trim()
+    |> String.downcase()
   end
 end
