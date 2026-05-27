@@ -75,9 +75,11 @@ mix allbert.security review --recent --limit 25
 4. Preview the generated tree and validation status.
 5. Choose output:
    - **Developer scaffold** — Allbert renders to the default
-     `./plugins/<name>/` target from the workspace surface and stops. Inert.
-     Existing roots are denied in the workspace surface. `--target` and
-     `--force` are CLI-only Mix task controls.
+     `./plugins/<name>/` target from the workspace surface and stops, or to
+     `<ALLBERT_HOME>/template-smoke/<name>/` when the server process has
+     `ALLBERT_TEMPLATE_SMOKE=1`. Inert. Existing roots are denied in the
+     workspace surface. `--target` and `--force` are CLI-only Mix task
+     controls.
    - **Operator live integration** (LLM-tool only in v0.38) — Allbert writes
      the draft under `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/` with
      `producer: "template_pattern"` and `template_pattern_id: "llm_tool"`.
