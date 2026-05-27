@@ -1,12 +1,10 @@
 # Operator Guide: Templated Creation
 
-Status: v0.38 implementation in progress. Developer scaffolds and Mix tasks
-are implemented for plugin, app, LLM-tool, scheduled-flow, and objective
-patterns. The `/workspace` `workspace:create` operator surface is implemented
-as a view/compose panel with gallery, parameter form, preview, validation, and
-bounded create-attempt diagnostics. Effectful scaffold writes and live
-integration land behind registered template actions in a later v0.38
-milestone.
+Status: v0.38 implementation in progress. Developer scaffolds, Mix tasks,
+registered template actions, the `/workspace` `workspace:create` operator
+surface, and LLM-tool dynamic-draft creation are implemented. `CreateFromTemplate`
+creates a v0.37 draft only; sandbox trial, gate, and confirmed integration
+remain explicit v0.37 actions.
 
 ## What It Is
 
@@ -79,17 +77,18 @@ mix allbert.security review --recent --limit 25
      `--force` plus preview/diff confirmation.
    - **Operator live integration** (LLM-tool only in v0.38) — Allbert writes
      the draft under `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/` with
-     `producer: "template_pattern"`, runs the v0.36 sandbox trial/gate, and
-     records evidence.
-   The M4 surface is preview-only; choosing **Create** reports the action
-   boundary required for the selected mode and writes no project files or
-   dynamic draft files.
-6. For live integration, approve the v0.37 confirmation record from a
+     `producer: "template_pattern"` and `template_pattern_id: "llm_tool"`.
+     It returns the next explicit actions:
+     `run_dynamic_draft_trial`, `run_dynamic_draft_gate`, and
+     `integrate_dynamic_draft`.
+6. Run the v0.36 sandbox trial/gate for live integration, then request
+   integration through the v0.37 dynamic loader.
+7. Approve the v0.37 confirmation record from a
    permitted surface (`cli` or `liveview`); Telegram/email/cross-channel
    approval is denied.
-7. On approval, the v0.37 loader integrates the action live, audits the
+8. On approval, the v0.37 loader integrates the action live, audits the
    event, and exposes the new capability through the normal action runner.
-8. Rollback remains available through `RollbackIntegration` and is also
+9. Rollback remains available through `RollbackIntegration` and is also
    gated to permitted approval surfaces.
 
 ## Developer Flow Through Mix
@@ -117,15 +116,15 @@ Templated drafts that enter the v0.37 lifecycle are inspectable through the
 existing dynamic-plugin tooling:
 
 ```sh
-mix allbert.dynamic list
-mix allbert.dynamic show <slug>
-mix allbert.dynamic disable <slug>
+mix allbert.dynamic drafts list
+mix allbert.dynamic drafts show <slug>
+mix allbert.dynamic drafts discard <slug>
 mix allbert.security review --recent --limit 25
 ```
 
-`mix allbert.dynamic list` shows the `producer` field for each draft.
+`mix allbert.dynamic drafts list` shows the `producer` field for each draft.
 Templated drafts show `template_pattern`; v0.37 LLM-authored drafts show
-`codegen_committee`.
+`codegen_llm`.
 
 ## Manual Smoke
 
@@ -144,8 +143,9 @@ Templated drafts show `template_pattern`; v0.37 LLM-authored drafts show
 - Enable `templates.create.enabled=true` and open `/workspace` Create → confirm
   gallery renders, parameter form validates, live-integration toggle is
   disabled for plugin/app/flow/objective patterns.
-- Pick the LLM-tool pattern, render a draft, run the sandbox trial/gate, and
-  confirm integration from CLI or LiveView.
+- Pick the LLM-tool pattern, create a draft, confirm `metadata.yaml` records
+  `producer: template_pattern` and `template_pattern_id: llm_tool`, then run
+  the sandbox trial/gate and confirm integration from CLI or LiveView.
 - Confirm Telegram and email approval are denied for the same draft.
 - Roll back the integration and confirm capability is removed.
 - Disable `templates.create.enabled` and confirm the Create destination is
@@ -157,8 +157,9 @@ Templated drafts show `template_pattern`; v0.37 LLM-authored drafts show
 - Developer scaffolds never integrate live.
 - Operator templated integration is exactly the v0.36 + v0.37 gated path; no
   parallel sandbox, no parallel loader, no parallel approval surface.
-- Existing project/draft roots cannot be overwritten without explicit
-  `--force` plus preview/diff confirmation.
+- Existing project roots cannot be overwritten without explicit `--force` plus
+  preview/diff confirmation; existing dynamic draft roots are denied rather
+  than overwritten.
 - Live integration in v0.38 covers only the LLM-tool (action) pattern;
   plugin/app/flow/objective patterns are developer-scaffold-only until a
   future milestone widens v0.37 loader scope.

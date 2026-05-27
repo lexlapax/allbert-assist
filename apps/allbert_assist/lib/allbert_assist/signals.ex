@@ -29,6 +29,7 @@ defmodule AllbertAssist.Signals do
 
   @dynamic_codegen_signal_types %{
     draft_requested: "allbert.dynamic_codegen.draft_requested",
+    template_draft_created: "allbert.dynamic_codegen.template_draft_created",
     sandbox_report_recorded: "allbert.dynamic_codegen.sandbox_report_recorded",
     tier_transition: "allbert.dynamic_codegen.tier_transition",
     discarded: "allbert.dynamic_codegen.discarded",
