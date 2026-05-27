@@ -39,6 +39,8 @@ defmodule AllbertAssist.Actions.Templates.CreateFromTemplate do
     with :ok <- ensure_mode(params),
          :ok <- ensure_template_create_enabled(),
          :ok <- ensure_dynamic_codegen_enabled(),
+         :ok <- ensure_dynamic_live_loader_enabled(),
+         :ok <- ensure_sandbox_elixir_enabled(),
          true <- PermissionGate.allowed?(permission_decision),
          {:ok, result} <-
            LiveDraft.create(pattern_id(params), template_params(params), live_draft_opts(context)) do
@@ -82,6 +84,20 @@ defmodule AllbertAssist.Actions.Templates.CreateFromTemplate do
     case Settings.get("dynamic_codegen.enabled") do
       {:ok, true} -> :ok
       _other -> {:error, :dynamic_codegen_disabled}
+    end
+  end
+
+  defp ensure_dynamic_live_loader_enabled do
+    case Settings.get("dynamic_codegen.live_loader_enabled") do
+      {:ok, true} -> :ok
+      _other -> {:error, :dynamic_live_loader_disabled}
+    end
+  end
+
+  defp ensure_sandbox_elixir_enabled do
+    case Settings.get("sandbox.elixir.enabled") do
+      {:ok, true} -> :ok
+      _other -> {:error, :sandbox_elixir_disabled}
     end
   end
 
