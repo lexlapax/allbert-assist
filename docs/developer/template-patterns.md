@@ -2,7 +2,8 @@
 
 Status: v0.38 implementation in progress. M1 implemented the registry and
 deterministic renderer. M2 implemented the `plugin` and `app` developer
-scaffolds plus `mix allbert.gen.plugin` and `mix allbert.gen.app`.
+scaffolds. M3 implemented the `llm_tool`, `flow`, and `objective` scaffolds
+plus `mix allbert.gen.tool` and `mix allbert.gen.flow`.
 
 Template patterns are vetted, parameterized skeletons that produce Allbert
 plugin/app/action/objective artifacts. They are an accelerator over the
@@ -84,31 +85,31 @@ integration is available only for patterns whose `live_integration?` is `true`.
 
 v0.38 shipped pattern status:
 
-| Pattern id | M2 status | `live_integration?` | Reason |
+| Pattern id | Status | `live_integration?` | Reason |
 |---|---|:-:|---|
 | `plugin` | implemented | false | v0.37 loader rejects generated plugin manifests/apps/settings fragments. |
 | `app` | implemented | false | v0.37 loader rejects generated apps, panels, settings fragments, memory namespaces, and objective wiring. |
-| `llm_tool` | planned M3 | true | Action artifacts are the only v0.37.5 live-loadable shape. |
-| `flow` | planned M3 | false | Jobs and objective wiring are deferred v0.37 live targets. |
-| `objective` | planned M3 | false | Objective wiring is a deferred v0.37 live target. |
+| `llm_tool` | implemented | true | Action artifacts are the only v0.37.5 live-loadable shape. |
+| `flow` | implemented | false | Jobs and objective wiring are deferred v0.37 live targets. |
+| `objective` | implemented | false | Objective wiring is a deferred v0.37 live target. |
 
 When a future milestone widens v0.37 loader scope, individual patterns can
 flip `live_integration?` to `true` without ADR change.
 
 ## LLM-Tool Pattern And Delegated Effects
 
-The LLM-tool pattern produces a Jido.AI-backed action. Two effect modes are
-supported:
+The LLM-tool pattern produces a reviewed dynamic action scaffold with an
+instruction-bearing read-only path and bounded delegated-effect variants:
 
-- **Developer scaffold** may call `Jido.AI` directly in the action body
-  because the source is reviewed by the human before compile.
-- **Operator live integration** must route any `:external_network` or
-  `:memory_write` effect through
+- **Read-only** generated actions do not delegate and pass the v0.37 trusted
+  validator without extra facade settings.
+- **Memory-write** and **external-network** generated actions must route
+  through
   `AllbertAssist.DynamicPlugins.Delegate.run/3` to an operator-allowlisted
   reviewed facade (v0.37.3 ceiling: `external_network_request` and
-  `append_memory`). `:read_only` LLM-tool actions can call inert helpers
-  directly. Delegated-effect validation runs in the v0.37 trusted validator
-  before in-core compile.
+  `append_memory`). Delegated-effect validation runs in the v0.37 trusted
+  validator before in-core compile. The reviewed developer scaffold is still
+  inert until a human compiles it or the v0.36/v0.37 live path accepts it.
 
 ## Adding A Future Pattern
 
@@ -132,7 +133,12 @@ Checklist for adding a future templated pattern without granting authority:
 
 - `mix allbert.gen.plugin NAME [--target PATH] [--force]` — implemented M2.
 - `mix allbert.gen.app NAME [--target PATH] [--force]` — implemented M2.
-- `mix allbert.gen.{tool,flow}` — planned M3.
+- `mix allbert.gen.tool NAME [--target PATH] [--force]
+  [--permission read_only|memory_write|external_network]` — implemented M3.
+- `mix allbert.gen.flow NAME [--target PATH] [--force]` — implemented M3
+  scheduled/chron flow scaffold.
+- `mix allbert.gen.flow NAME --pattern objective [--target PATH] [--force]`
+  — implemented M3 objective-workflow scaffold.
 - `mix allbert.validate_app APP_ID_OR_MODULE` — first-run app validation after
   the generated module is compiled; safe app-id lookup does not create atoms
   from raw input.

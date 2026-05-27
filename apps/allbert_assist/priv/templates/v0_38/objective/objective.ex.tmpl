@@ -1,0 +1,23 @@
+defmodule {{objective_module}} do
+  @moduledoc """
+  Inert v0.38 objective-workflow blueprint.
+
+  Multi-step work must use the shared Allbert objective runtime. This module
+  only returns reviewed data for a developer to inspect.
+  """
+
+  @description {{description_literal}}
+  @objective {{objective_literal}}
+  @steps {{steps_literal}}
+
+  @doc "Return a review-ready objective workflow map."
+  def workflow_blueprint do
+    %{
+      id: "{{workflow_id}}",
+      description: @description,
+      objective: @objective,
+      steps: @steps,
+      enabled?: false
+    }
+  end
+end

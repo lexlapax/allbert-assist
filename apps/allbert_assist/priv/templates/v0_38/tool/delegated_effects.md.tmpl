@@ -1,0 +1,13 @@
+# Delegated Effects
+
+This template declares permission `{{permission}}`.
+
+- `read_only` actions must not delegate to effectful facades.
+- `memory_write` actions may call only
+  `AllbertAssist.DynamicPlugins.Delegate.run("append_memory", params, context)`.
+- `external_network` actions may call only
+  `AllbertAssist.DynamicPlugins.Delegate.run("external_network_request", params, context)`.
+
+The trusted validator checks the literal facade name, action permission,
+execution mode, exposure, and response metadata before the v0.37 loader can
+compile a templated action into the core node.
