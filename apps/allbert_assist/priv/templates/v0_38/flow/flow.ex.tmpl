@@ -1,0 +1,26 @@
+defmodule {{flow_module}} do
+  @moduledoc """
+  Inert v0.38 scheduled-flow blueprint.
+
+  This module returns reviewed data for a future scheduled job. It deliberately
+  does not call AllbertAssist.Jobs, start child processes, or register actions.
+  """
+
+  @description {{description_literal}}
+  @objective {{objective_literal}}
+  @schedule {{schedule_literal}}
+
+  @doc "Return a review-ready scheduled job map. The caller must create it through registered actions."
+  def job_blueprint do
+    %{
+      name: "{{slug}}",
+      description: @description,
+      objective: @objective,
+      schedule: @schedule,
+      timezone: "{{timezone}}",
+      enabled?: false,
+      target_type: "runtime_prompt",
+      thread_mode: "new_thread"
+    }
+  end
+end
