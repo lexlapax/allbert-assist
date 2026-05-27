@@ -7,9 +7,12 @@ defmodule AllbertAssist.Templates.Registry do
   """
 
   alias AllbertAssist.Templates.Patterns.App
+  alias AllbertAssist.Templates.Patterns.Flow
+  alias AllbertAssist.Templates.Patterns.Objective
   alias AllbertAssist.Templates.Patterns.Plugin
+  alias AllbertAssist.Templates.Patterns.Tool
 
-  @default_patterns [Plugin, App]
+  @default_patterns [Plugin, App, Tool, Flow, Objective]
 
   @doc "Return registered pattern modules."
   @spec modules(keyword()) :: [module()]

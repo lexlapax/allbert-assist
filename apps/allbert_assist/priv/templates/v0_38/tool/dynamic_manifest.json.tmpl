@@ -1,0 +1,19 @@
+{
+  "target_shapes": ["action"],
+  "modules": [{{json_action_module}}],
+  "actions": [
+    {
+      "name": {{json_action_name}},
+      "module": {{json_action_module}},
+      "permission": {{json_permission}},
+      "exposure": "internal"
+    }
+  ],
+  "files": [
+    {
+      "source_path": "source/lib/action.ex",
+      "compiled_path": {{json_compiled_path}}
+    }
+  ],
+  "tests": []
+}
