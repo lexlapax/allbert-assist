@@ -1,10 +1,11 @@
 # Operator Guide: Templated Creation
 
-Status: v0.38 implementation in progress. Developer scaffolds, Mix tasks,
-registered template actions, the `/workspace` `workspace:create` operator
-surface, and LLM-tool dynamic-draft creation are implemented. `CreateFromTemplate`
-creates a v0.37 draft only; sandbox trial, gate, and confirmed integration
-remain explicit v0.37 actions.
+Status: implemented in v0.38.0 and ready for operator manual verification.
+Developer scaffolds, Mix tasks, registered template actions, the `/workspace`
+`workspace:create` operator surface, LLM-tool dynamic-draft creation, and
+security eval coverage are implemented. `CreateFromTemplate` creates a v0.37
+draft only; sandbox trial, gate, and confirmed integration remain explicit
+v0.37 actions.
 
 ## What It Is
 

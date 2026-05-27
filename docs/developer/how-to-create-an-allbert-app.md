@@ -45,8 +45,8 @@ modules by safe app id without creating atoms from raw input.
 
 The detailed `TemplatePattern` behaviour, parameter schema rules, deterministic
 rendering contract, and per-pattern `live_integration?` declarations live in
-`docs/developer/template-patterns.md` (created at v0.38 implementation time).
-The hand-written source below remains the minimal reviewed app shape; the
+`docs/developer/template-patterns.md`. The hand-written source below remains
+the minimal reviewed app shape; the
 generator produces a fuller plugin-contributed scaffold with panel, settings,
 intent, memory, objective/canvas, and theme/layout stubs. The generator is an
 accelerator, not a runtime authority.
