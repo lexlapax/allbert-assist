@@ -86,6 +86,26 @@ defmodule AllbertAssist.Templates.ScaffoldTest do
     assert entry.status == :enabled
   end
 
+  test "ALLBERT_TEMPLATE_SMOKE redirects direct scaffold writes to Allbert Home", %{tmp: tmp} do
+    System.put_env("ALLBERT_TEMPLATE_SMOKE", "1")
+    smoke_target = Path.join([Paths.home(), "template-smoke", "shared_smoke"])
+
+    result =
+      File.cd!(tmp, fn ->
+        assert {:ok, result} =
+                 Scaffold.write("plugin", %{
+                   "name" => "Shared Smoke",
+                   "description" => "A disposable scaffold."
+                 })
+
+        result
+      end)
+
+    assert result.target_root == smoke_target
+    assert File.regular?(Path.join(smoke_target, "allbert_plugin.json"))
+    refute File.exists?(Path.join([tmp, "plugins", "shared_smoke"]))
+  end
+
   test "app scaffold validates after the generated reviewed module is compiled", %{tmp: tmp} do
     unique = System.unique_integer([:positive])
     name = "M2 Generated App #{unique}"
