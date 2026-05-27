@@ -1,5 +1,5 @@
 defmodule AllbertAssistWeb.Workspace.RendererTest do
-  use AllbertAssistWeb.ConnCase, async: true
+  use AllbertAssistWeb.ConnCase, async: false
 
   import Phoenix.LiveViewTest
 

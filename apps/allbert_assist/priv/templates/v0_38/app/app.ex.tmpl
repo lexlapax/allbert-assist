@@ -1,0 +1,108 @@
+defmodule {{app_module}} do
+  @moduledoc {{description_literal}}
+
+  use AllbertAssist.App
+  use AllbertAssist.App.SurfaceProvider
+
+  alias AllbertAssist.Surface
+  alias AllbertAssist.Surface.Node
+
+  @impl true
+  def app_id, do: :{{app_id}}
+
+  @impl true
+  def display_name, do: {{display_name_literal}}
+
+  @impl true
+  def version, do: "{{version}}"
+
+  @impl true
+  def validate(_opts), do: :ok
+
+  @impl true
+  def actions, do: []
+
+  @impl true
+  def agents, do: []
+
+  @impl true
+  def signals do
+    %{
+      emits: ["allbert.{{app_id}}.surface_opened"],
+      subscribes: []
+    }
+  end
+
+  @impl true
+  def skill_paths do
+    [Path.expand("../../skills", __DIR__)]
+  end
+
+  @impl true
+  def settings_schema do
+    [
+      %{
+        key: "apps.{{app_id}}.enabled",
+        type: :boolean,
+        default: false,
+        description: "Enable " <> display_name() <> " app behavior after review.",
+        secret?: false
+      }
+    ]
+  end
+
+  @impl true
+  def memory_namespace do
+    %{
+      app_id: :{{app_id}},
+      namespace: :{{app_id}},
+      writable: false,
+      description: "Reviewed memory namespace for " <> display_name() <> "."
+    }
+  end
+
+  @impl true
+  def surfaces do
+    [
+      %Surface{
+        id: :{{panel_surface_id}},
+        app_id: :{{app_id}},
+        label: display_name(),
+        path: "/workspace",
+        kind: :panel,
+        zone: :canvas_panels,
+        status: :available,
+        nodes: [
+          %Node{
+            id: "{{slug}}-panel",
+            component: :panel,
+            props: %{
+              title: display_name(),
+              body: {{description_literal}}
+            },
+            children: [
+              %Node{
+              id: "{{slug}}-summary",
+              component: :text,
+              props: %{
+                title: "Status",
+                  body: "Generated app scaffold. Review and wire domain behavior before enabling."
+                }
+              }
+            ]
+          }
+        ],
+        fallback_text: display_name() <> " is available as a workspace panel.",
+        metadata: %{visible_when: :selected_app, order: 100}
+      }
+    ]
+  end
+
+  def surface_catalog, do: []
+
+  def fallback_surface(:{{panel_surface_id}}) do
+    {:ok, display_name() <> " is available as a workspace panel."}
+  end
+
+  def fallback_surface(_surface_id), do: {:error, :not_found}
+end

@@ -1,10 +1,8 @@
-# Allbert Template Patterns (planned v0.38)
+# Allbert Template Patterns
 
-Status: planned. This document is the developer-facing contract for the v0.38
-templated creation milestone (`docs/plans/v0.38-plan.md`, ADR 0036). It will be
-expanded with concrete code, examples, and module references as v0.38 lands. It
-is added at planning time so the implementation milestones can reference a
-stable doc path.
+Status: v0.38 implementation in progress. M1 implemented the registry and
+deterministic renderer. M2 implemented the `plugin` and `app` developer
+scaffolds plus `mix allbert.gen.plugin` and `mix allbert.gen.app`.
 
 Template patterns are vetted, parameterized skeletons that produce Allbert
 plugin/app/action/objective artifacts. They are an accelerator over the
@@ -27,27 +25,25 @@ parameters are **metadata** — they grant no authority by themselves.
 ## `TemplatePattern` Behaviour
 
 A pattern is an Elixir module that implements `AllbertAssist.Templates.Pattern`
-and is registered in the `AllbertAssist.Templates` registry. A pattern
-declares:
+and is registered in `AllbertAssist.Templates.Registry`. A pattern declares:
 
-- `pattern_id/0` — stable atom slug, e.g. `:plugin`, `:app`, `:llm_tool`,
-  `:flow`, `:objective`.
-- `display_name/0` — short human-readable name for the gallery.
+- `id/0` — stable string slug, e.g. `"plugin"`, `"app"`, `"llm_tool"`,
+  `"flow"`, `"objective"`.
+- `label/0` and `description/0` — short human-readable gallery metadata.
 - `parameter_schema/0` — validated parameter schema; values are data and
   cannot become atoms or filesystem paths without explicit normalization.
-- `reviewed_files/0` — the static, in-tree file set the pattern is allowed to
-  render. Files outside this set are never written.
-- `output_roots/0` — `{:project, "./plugins/<name>/"}` for developer scaffolds
-  and `{:allbert_home, "dynamic_plugins/drafts/<slug>/"}` for operator
-  templated drafts.
-- `target_contract_shapes/0` — declared output shapes (action, app, panel,
-  settings_fragment, memory_namespace, objective_wiring, jobs, route_page,
-  child_process). Used to compute the effective `live_integration?` against
-  v0.37 loader scope.
+- `files/0` — the static, in-tree file set the pattern is allowed to render.
+  Files outside this set are never written.
+- `target_shapes/0` — declared output shapes (action, app, panel,
+  settings_fragment, memory_namespace, objective_wiring, jobs, route_page, child
+  process). Used to compute effective `live_integration?` against v0.37 loader
+  scope.
 - `live_integration?/0` — boolean. Patterns whose target shapes the v0.37
   loader rejects must declare `false`.
 - `validation_profile/0` — optional reviewed validation/gate profile for the
   generated artifact (e.g. `mix allbert.validate_app`).
+- `normalize_params/1` — optional pattern-specific normalization layered on top
+  of common slug/display/module-name derivation.
 
 ## Parameter Schema And Normalization
 
@@ -56,9 +52,9 @@ declares:
   Identifier-bearing parameters route through normalization helpers that
   validate against existing atoms / registry entries (app id, destination id,
   schedule id) or generate fresh, bounded slugs.
-- Paths derived from parameters route through
-  `AllbertAssist.Paths`/`Runtime.Paths` joiners that reject traversal,
-  absolute escapes, and dotfile-only names.
+- Template file paths route through the deterministic renderer's safe relative
+  path checks, and developer scaffold target roots reject parent traversal
+  before writing. Only files declared by the reviewed pattern are written.
 - Module namespaces are reviewed and bounded — generated modules live under
   `AllbertAssist.DynamicPlugins.Generated.*` (operator drafts) or the
   developer-chosen plugin namespace (developer scaffolds).
@@ -86,15 +82,15 @@ Operator templated drafts enter the v0.37 lifecycle at `:draft` with
 `producer: "template_pattern"` and the pattern id in `metadata.yaml`. Live
 integration is available only for patterns whose `live_integration?` is `true`.
 
-v0.38 shipped patterns:
+v0.38 shipped pattern status:
 
-| Pattern id | `live_integration?` | Reason |
-|---|:-:|---|
-| `:plugin` | false | v0.37 loader rejects generated plugin manifests/apps/settings fragments. |
-| `:app` | false | v0.37 loader rejects generated apps, panels, settings fragments, memory namespaces, and objective wiring. |
-| `:llm_tool` | true | Action artifacts are the only v0.37.5 live-loadable shape. |
-| `:flow` | false | Jobs and objective wiring are deferred v0.37 live targets. |
-| `:objective` | false | Objective wiring is a deferred v0.37 live target. |
+| Pattern id | M2 status | `live_integration?` | Reason |
+|---|---|:-:|---|
+| `plugin` | implemented | false | v0.37 loader rejects generated plugin manifests/apps/settings fragments. |
+| `app` | implemented | false | v0.37 loader rejects generated apps, panels, settings fragments, memory namespaces, and objective wiring. |
+| `llm_tool` | planned M3 | true | Action artifacts are the only v0.37.5 live-loadable shape. |
+| `flow` | planned M3 | false | Jobs and objective wiring are deferred v0.37 live targets. |
+| `objective` | planned M3 | false | Objective wiring is a deferred v0.37 live target. |
 
 When a future milestone widens v0.37 loader scope, individual patterns can
 flip `live_integration?` to `true` without ADR change.
@@ -118,7 +114,7 @@ supported:
 
 Checklist for adding a future templated pattern without granting authority:
 
-- [ ] Implement `AllbertAssist.Templates.Pattern` with a stable `pattern_id`.
+- [ ] Implement `AllbertAssist.Templates.Pattern` with a stable `id`.
 - [ ] Add a reviewed file set under the templates source root. Files outside
       this set are not rendered.
 - [ ] Define a parameter schema with explicit validators and normalization;
@@ -134,8 +130,12 @@ Checklist for adding a future templated pattern without granting authority:
 
 ## Inspection And Operator Surfaces
 
-- `mix allbert.gen.{plugin,app,tool,flow}` — developer scaffolding.
-- `mix allbert.validate_app` — existing first-run validation, reused.
+- `mix allbert.gen.plugin NAME [--target PATH] [--force]` — implemented M2.
+- `mix allbert.gen.app NAME [--target PATH] [--force]` — implemented M2.
+- `mix allbert.gen.{tool,flow}` — planned M3.
+- `mix allbert.validate_app APP_ID_OR_MODULE` — first-run app validation after
+  the generated module is compiled; safe app-id lookup does not create atoms
+  from raw input.
 - `mix allbert.dynamic list/show/disable` — inspects templated drafts beside
   v0.37 codegen drafts; `producer: "template_pattern"` distinguishes them.
 - `workspace:create` — operator Canvas destination. Gated by

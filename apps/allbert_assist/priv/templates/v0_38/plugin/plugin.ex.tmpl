@@ -1,0 +1,22 @@
+defmodule {{plugin_module}} do
+  @moduledoc {{description_literal}}
+
+  use AllbertAssist.Plugin
+
+  @impl true
+  def plugin_id, do: "{{plugin_id}}"
+
+  @impl true
+  def display_name, do: {{display_name_literal}}
+
+  @impl true
+  def version, do: "{{version}}"
+
+  @impl true
+  def validate(_opts), do: :ok
+
+  @impl true
+  def skill_paths do
+    [Path.expand("../../skills", __DIR__)]
+  end
+end

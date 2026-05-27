@@ -8,10 +8,10 @@ defmodule AllbertAssist.DataCase do
 
   Finally, if the test case interacts with the database,
   we enable the SQL sandbox, so changes done to the database
-  are reverted at the end of every test. If you are using
-  PostgreSQL, you can even run database tests asynchronously
-  by setting `use AllbertAssist.DataCase, async: true`, although
-  this option is not recommended for other databases.
+  are reverted at the end of every test. Allbert uses SQLite
+  in test, so database tests must stay synchronous; SQLite's
+  single-writer model does not pair safely with async sandbox
+  tests.
   """
 
   use ExUnit.CaseTemplate

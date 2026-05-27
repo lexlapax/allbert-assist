@@ -38,7 +38,7 @@ defmodule Mix.Tasks.Allbert.ValidateApp do
     normalized = String.trim(module_name)
 
     candidate_modules()
-    |> Enum.find(&module_matches?(&1, normalized))
+    |> Enum.find(&(module_matches?(&1, normalized) or app_id_matches?(&1, normalized)))
     |> case do
       nil -> {:error, {:unknown_module, module_name}}
       module -> {:ok, module}
@@ -66,6 +66,17 @@ defmodule Mix.Tasks.Allbert.ValidateApp do
     short_name = String.replace_prefix(full_name, "Elixir.", "")
 
     name in [full_name, short_name]
+  end
+
+  defp app_id_matches?(module, name) do
+    safe_app_id?(name) and function_exported?(module, :app_id, 0) and
+      module.app_id() |> Atom.to_string() == name
+  rescue
+    _exception -> false
+  end
+
+  defp safe_app_id?(name) when is_binary(name) do
+    Regex.match?(~r/^[a-z][a-z0-9_]*$/, name)
   end
 
   defp print_success(attrs) do
