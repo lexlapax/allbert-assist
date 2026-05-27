@@ -182,6 +182,7 @@ defmodule AllbertAssist.Templates.ScaffoldTest do
     source = File.read!(Path.join(target, "source/lib/action.ex"))
     assert source =~ "permission: :read_only"
     refute source =~ "DynamicPlugins.Delegate.run"
+    assert File.regular?(Path.join(target, "source/test/action_test.exs"))
 
     assert [{module, _binary}] = Code.compile_file(Path.join(target, "source/lib/action.ex"))
     assert module.name() == result.params["action_name"]
@@ -313,6 +314,7 @@ defmodule AllbertAssist.Templates.ScaffoldTest do
     assert flow_output =~ "Generated flow scaffold."
     assert objective_output =~ "Generated objective scaffold."
     assert File.regular?(Path.join(tool_target, "source/lib/action.ex"))
+    assert File.regular?(Path.join(tool_target, "source/test/action_test.exs"))
     assert File.regular?(Path.join(flow_target, "priv/jobs/task_flow.json"))
     assert File.regular?(Path.join(objective_target, "priv/objectives/task_objective.json"))
   end

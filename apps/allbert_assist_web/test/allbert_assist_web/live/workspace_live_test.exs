@@ -533,7 +533,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#workspace-create-mode-live[disabled]")
   end
 
-  test "workspace create submit does not write or integrate without registered action", %{
+  test "workspace create live submit fails closed when dynamic codegen is disabled", %{
     conn: conn
   } do
     assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
@@ -561,17 +561,50 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
       |> element("#workspace-create-run")
       |> render_click()
 
-    assert html =~
-             "Live integration requires the v0.36 gate and v0.37 confirmation path through the registered template action boundary."
+    assert html =~ "Template live draft was denied or unavailable"
+    assert html =~ "dynamic_codegen_disabled"
 
     refute File.exists?(scaffold_target)
     refute File.exists?(draft_target)
 
-    refute_received {:signal,
-                     %{
-                       type: "allbert.action.completed",
-                       data: %{action_name: "create_from_template"}
-                     }}
+    action_signal = receive_action_completed("create_from_template")
+    assert action_signal.data.status == :denied
+  end
+
+  test "workspace create live submit writes only a templated dynamic draft", %{
+    conn: conn
+  } do
+    assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = Settings.put("dynamic_codegen.enabled", true, %{audit?: false})
+
+    slug = "new_llm_tool"
+    scaffold_target = Path.join(File.cwd!(), "plugins/#{slug}")
+    draft_target = Path.join([Paths.home(), "dynamic_plugins", "drafts", slug])
+
+    refute File.exists?(scaffold_target)
+    refute File.exists?(draft_target)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:create")
+    subscribe_actions()
+
+    view
+    |> element("#workspace-create-mode-live")
+    |> render_click()
+
+    html =
+      view
+      |> element("#workspace-create-run")
+      |> render_click()
+
+    assert html =~ "Templated dynamic draft #{slug} created."
+    refute File.exists?(scaffold_target)
+    assert File.regular?(Path.join(draft_target, "metadata.yaml"))
+
+    assert File.read!(Path.join(draft_target, "metadata.yaml")) =~
+             "template_pattern_id: llm_tool"
+
+    action_signal = receive_action_completed("create_from_template")
+    assert action_signal.data.status == :completed
   end
 
   test "workspace Settings Central approves, denies, and revokes through registered actions",

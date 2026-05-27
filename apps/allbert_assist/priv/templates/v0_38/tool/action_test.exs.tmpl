@@ -1,0 +1,11 @@
+defmodule {{test_module}} do
+  use ExUnit.Case, async: true
+
+  alias {{action_module}}, as: Action
+
+  test "declares reviewed action metadata" do
+    assert Action.name() == "{{action_name}}"
+    assert Action.capability().permission == :{{permission_atom}}
+    assert Action.capability().exposure == :internal
+  end
+end
