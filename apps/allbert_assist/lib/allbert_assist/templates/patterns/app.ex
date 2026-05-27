@@ -101,6 +101,7 @@ defmodule AllbertAssist.Templates.Patterns.App do
      |> Map.put("action_name", action_name)
      |> Map.put("panel_surface_id", "#{slug}_panel")
      |> Map.put("version", version)
+     |> Map.put("version_literal", inspect(version))
      |> Map.put("json_display_name", Jason.encode!(display_name))
      |> Map.put("json_description", Jason.encode!(description))
      |> Map.put("json_plugin_id", Jason.encode!(slug))

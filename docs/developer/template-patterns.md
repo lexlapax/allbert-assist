@@ -151,7 +151,9 @@ Checklist for adding a future templated pattern without granting authority:
   parameter form, preview, validation, disabled-state rendering, and registered
   action execution. Gated by `templates.create.enabled` (default off);
   `templates.allowed_patterns` filters the gallery. Developer scaffold mode
-  calls `scaffold_template`; live-integration mode calls
+  calls `scaffold_template` against the default `./plugins/<slug>` target and
+  denies existing roots; `--target` and `--force` remain CLI-only Mix task
+  controls. Live-integration mode calls
   `create_from_template`, which creates a v0.37 draft only and returns the
   explicit trial/gate/integration next actions. Operator live integration also
   requires `dynamic_codegen.enabled`,

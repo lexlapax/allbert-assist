@@ -571,11 +571,48 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert action_signal.data.status == :denied
   end
 
+  test "workspace create live submit fails closed when live loader is disabled", %{
+    conn: conn
+  } do
+    assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = Settings.put("dynamic_codegen.enabled", true, %{audit?: false})
+
+    slug = "new_llm_tool"
+    draft_target = Path.join([Paths.home(), "dynamic_plugins", "drafts", slug])
+
+    refute File.exists?(draft_target)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:create")
+    subscribe_actions()
+
+    view
+    |> element("#workspace-create-mode-live")
+    |> render_click()
+
+    html =
+      view
+      |> element("#workspace-create-run")
+      |> render_click()
+
+    assert html =~ "Template live draft was denied or unavailable"
+    assert html =~ "dynamic_live_loader_disabled"
+
+    refute File.exists?(draft_target)
+
+    action_signal = receive_action_completed("create_from_template")
+    assert action_signal.data.status == :denied
+  end
+
   test "workspace create live submit writes only a templated dynamic draft", %{
     conn: conn
   } do
     assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
     assert {:ok, _setting} = Settings.put("dynamic_codegen.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("dynamic_codegen.live_loader_enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} = Settings.put("sandbox.elixir.enabled", true, %{audit?: false})
 
     slug = "new_llm_tool"
     scaffold_target = Path.join(File.cwd!(), "plugins/#{slug}")

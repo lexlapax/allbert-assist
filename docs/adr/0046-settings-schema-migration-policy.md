@@ -13,7 +13,7 @@ releases (v0.02 base, v0.05 security, v0.06 skill-write, v0.07 confirmations,
 v0.08 execution, v0.10 external/package/online-import, v0.13 jobs, v0.15 apps,
 v0.16 channels, v0.21 memory, v0.24 objectives, v0.26 workspace, v0.31
 settings-fragment substrate, v0.32 panels/zones, v0.34 launcher, v0.35
-theming, v0.36 sandbox, v0.37 dynamic codegen).
+theming, v0.36 sandbox, v0.37 dynamic codegen, v0.38 templated creation).
 
 v0.31 introduced `AllbertAssist.Settings.Fragment` so per-app and per-plugin
 schema declarations could be registered into the central schema. But the
@@ -42,8 +42,10 @@ Settings Central schema fragments adopt the following migration policy:
 ### 1. Per-fragment schema_version integer
 
 Every registered settings fragment declares an integer `schema_version`.
-v0.31 substrate is `schema_version: 1` for all existing fragments. New
-fragment schema changes increment the version.
+v0.31 substrate is `schema_version: 1` for all existing fragments. The v0.38
+template fragment (`templates.create.enabled`, `templates.allowed_patterns`)
+also enters this policy at `schema_version: 1`. New fragment schema changes
+increment the version.
 
 ```elixir
 defmodule Allbert.Settings.Fragment.Mcp do
