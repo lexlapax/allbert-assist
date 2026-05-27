@@ -90,9 +90,10 @@ mix allbert.security review --recent --limit 25
 ```sh
 mix allbert.gen.plugin my_plugin
 mix allbert.gen.app my_app
-mix allbert.gen.tool my_tool                  # planned M3
-mix allbert.gen.flow morning_brief            # planned M3
-mix allbert.gen.flow nightly_review --pattern objective  # planned M3
+mix allbert.gen.tool my_tool
+mix allbert.gen.tool remember_preference --permission memory_write
+mix allbert.gen.flow morning_brief
+mix allbert.gen.flow nightly_review --pattern objective
 mix allbert.validate_app my_app
 ```
 
@@ -126,6 +127,13 @@ Templated drafts show `template_pattern`; v0.37 LLM-authored drafts show
   `./plugins/my_plugin/` and `--force`-only overwrite.
 - Run `mix allbert.gen.app my_app` then `mix allbert.validate_app my_app` →
   confirm first-run validation pass.
+- Run `mix allbert.gen.tool my_tool` and confirm the output contains
+  `dynamic_manifest.json` plus `source/lib/action.ex`; `--permission
+  memory_write` and `--permission external_network` must route through
+  `AllbertAssist.DynamicPlugins.Delegate.run/3`.
+- Run `mix allbert.gen.flow morning_brief` and `mix allbert.gen.flow
+  nightly_review --pattern objective`; confirm both outputs are inert and mark
+  their generated job/workflow JSON as disabled.
 - Enable `templates.create.enabled=true` and open `/workspace` Create → confirm
   gallery renders, parameter form validates, live-integration toggle is
   disabled for plugin/app/flow/objective patterns.

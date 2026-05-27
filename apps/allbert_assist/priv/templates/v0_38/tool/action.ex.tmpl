@@ -1,0 +1,33 @@
+defmodule {{action_module}} do
+  @moduledoc """
+  Reviewed v0.38 LLM-tool action scaffold.
+
+  This module is inert until it is compiled by a reviewed source-tree plugin or
+  accepted through the v0.36 sandbox gate and v0.37 dynamic loader.
+  """
+
+  use AllbertAssist.Action,
+    permission: :{{permission_atom}},
+    exposure: :internal,
+    execution_mode: :{{permission_atom}},
+    skill_backed?: false,
+    confirmation: :not_required,
+    resumable?: false,
+    name: "{{action_name}}",
+    description: {{description_literal}},
+    category: "templated_creation",
+    tags: ["template", "v0_38", "{{permission}}"],
+    schema: [
+{{schema_fields}}
+    ],
+    output_schema: [
+      message: [type: :string, required: true],
+      status: [type: :atom, required: true],
+      actions: [type: {:list, :map}, required: true]
+    ]
+
+  @impl true
+  def run(params, context) do
+{{run_body}}
+  end
+end
