@@ -74,7 +74,8 @@ milestones implement and document them.
 
 | Milestone | Planned boundary | Notes |
 |---|---|---|
-| v0.39 | Onboarding and model/profile control | Expected to wrap Objective Runtime, Settings Central, provider profiles, and reviewed memory retrieval. |
+| v0.39 | Onboarding and model/profile control | Expected to wrap Objective Runtime, Settings Central, model profiles, provider profiles, and ADR 0047 redacted diagnostics. |
+| v0.39b | Identity slot and Active Memory | Expected to wrap non-app system memory namespaces and direct-answer retrieval over reviewed `:kept` memory. |
 | v0.40 | MCP client facade | Expected to consume `mcp://` resources through registered MCP actions and ADR 0038 trust-tier policy. |
 | v0.42 | Browser/research facade | Expected to live in a plugin-owned browser boundary with `browser://session/<id>` Resource Access. |
 | v0.44 | Plan/Build surface and workflow YAML parser | Expected to produce objective steps only; not an execution engine. |

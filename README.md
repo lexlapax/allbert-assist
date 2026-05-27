@@ -102,9 +102,10 @@ Next milestones:
   setup objective, the new `providers.*.endpoint_kind` field, and a
   two-branch provider doctor (credentialed-remote + local-endpoint) with
   the redacted return shape pinned by ADR 0047 as a Tier-1 freeze
-  candidate; identity slot (declared as a system memory namespace, surfaced
-  as a 5th `Memory` category) and deterministic Active Memory retrieval
-  (`v0.39b`); MCP client integration (`v0.40`); MCP-first integration pack
+  candidate; identity slot (declared as a non-app system memory namespace,
+  surfaced as a 5th `Memory` category) and deterministic direct-answer Active
+  Memory retrieval over reviewed `:kept` entries (`v0.39b`); MCP client
+  integration (`v0.40`); MCP-first integration pack
   with calendar/mail/GitHub panels plus notes/files native reference plugin
   (`v0.41`); browser research (`v0.42`); Discord/Slack channels with the
   channel-approval-primitive contract (`v0.43`); Plan/Build workflows under

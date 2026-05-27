@@ -2,8 +2,8 @@
 
 ## Status
 
-Proposed. Accepted at v0.39 First-Run Onboarding And Provider Control M1
-closeout. Becomes a Tier-1 freeze candidate at v1.0.
+Proposed; intended for acceptance at v0.39 First-Run Onboarding And Provider
+Control M1 closeout. Becomes a Tier-1 freeze candidate at v1.0.
 
 ## Context
 
@@ -36,9 +36,14 @@ preserve.
 
 ## Decision
 
-The v0.39 provider doctor and all downstream doctors (v0.40, v0.47, v0.48)
-share a single canonical return shape, share one redaction policy, and
-evolve additive-only.
+The v0.39 model-profile doctor and downstream doctors that opt into the same
+diagnostic pattern (v0.40, v0.47, v0.48) share a single canonical return
+shape, share one redaction policy, and evolve additive-only.
+
+The public v0.39 action is `doctor_model_profile`: callers pass a model
+profile name, and the action resolves `model_profiles.<name>.provider` to the
+provider profile. Branch selection still belongs to the provider profile's
+`endpoint_kind` field.
 
 ### 1. Branch selection: explicit `endpoint_kind`
 
@@ -54,7 +59,8 @@ key).
 
 Branch selection is **not** derived from `base_url` heuristics, **not**
 derived from provider type alone, and **not** decided inside the doctor
-module. The Settings Central field is authority; the doctor module reads it.
+module. The Settings Central field is authority; the doctor module reads it
+after resolving the model profile's referenced provider.
 
 ### 2. Canonical return shape
 
@@ -95,20 +101,30 @@ Doctors **may** return:
 - operator-readable messages capped at 256 bytes per `diagnostics` entry,
   rendered from a fixed catalog of strings (no dynamic raw-input pass-through);
 - host-only URL fragments;
-- additive provider-specific informational fields per §2.
+- additive domain-specific informational fields per §2.
 
 ### 4. Execution boundary
 
 Doctors run as registered Jido actions under Security Central:
 
-- v0.39: `doctor_provider_profile` (`:read_only`, `:not_required`).
+- v0.39: `doctor_model_profile` (`:read_only`, `:not_required`).
 - v0.40: `mcp_doctor_server` (`:read_only`, `:not_required`).
 - v0.47: `doctor_voice_provider` (`:read_only`, `:not_required`).
 - v0.48: `doctor_vision_provider` (`:read_only`, `:not_required`).
 
-All effectful network calls inside the doctor go through `Req` and respect
-the same SSRF/timeout/response-cap policy as `external_network_request`
-(per ADR 0011). Doctors do not bypass Resource Access Security Posture.
+The v0.39 doctor is read-only but network-observable. It is allowed to probe
+only the configured host of the provider resolved from a configured model
+profile. It never accepts raw URLs, model-output-selected targets, or
+operator-supplied one-off probe destinations. It does not create remembered
+Resource Access grants.
+
+All effectful network calls inside the doctor go through `Req` and respect a
+doctor-specific subset of the `external_network_request` posture: SSRF
+blocking, bounded timeouts, bounded response bodies, no credential-bearing
+redirect following, no unbounded retries, and host-only redaction. Doctors do
+not bypass Resource Access Security Posture; future doctors that need
+free-form URLs or arbitrary targets must use explicit resource confirmation
+instead of this read-only doctor boundary.
 
 ### 5. Tier-1 freeze candidate
 
@@ -130,6 +146,10 @@ change between v1.0 and the next major release without an ADR amendment.
 - `providers.*.endpoint_kind` becomes part of the v1.0 Tier-1 schema
   freeze; renaming or removing it requires an ADR amendment and an
   ADR 0046 settings migration.
+- The action name intentionally follows the operator input (`model profile`)
+  while the branch semantics follow the resolved provider profile. This avoids
+  a CLI/action mismatch where `mix allbert.model doctor local` would be backed
+  by an action named as if it accepted only provider profile names.
 
 ## Alternatives Considered
 

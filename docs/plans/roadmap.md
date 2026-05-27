@@ -207,10 +207,9 @@ Dependency order from here:
     identity slot moved to v0.39b.
 39. v0.39b Identity slot and Active Memory: optional inert `identity` memory
     namespace declared through a new system-namespace declarer, `:identity`
-    added as a 5th `Memory` category, plus deterministic pre-reply
-    reviewed-memory retrieval scoped to
-    `{thread_id, active_app, identity}` with `### Active Memory` trace
-    metadata. Algorithm spec'd in
+    added as a 5th `Memory` category, plus deterministic direct-answer
+    `:kept` memory retrieval scoped to `{thread_id, active_app, identity}`
+    with `## Active Memory` trace metadata. Algorithm spec'd in
     `docs/research/active-memory-retrieval.md`.
 40. v0.40 MCP client integration: explicit MCP server configuration, trust
     tier, Resource Access mapping for `mcp://` resources, and registered MCP
@@ -2173,8 +2172,10 @@ Expected direction:
 - Doctor reports model availability, context window, deprecation hints, and
   recent rate-limit signals — not just credential validity.
 - Bump the shipped `model_profiles.local.model` default from the fictional
-  `gemma4:26b` to a real, commonly-available Ollama model so a fresh-install
-  doctor passes without manual model-pulling.
+  `gemma4:26b` to `llama3.2:3b`, a real small Ollama model. A fresh Ollama
+  endpoint without that model reports `model_available: false` with fixed
+  remediation; the pass row runs after the operator explicitly pulls the
+  shipped default. v0.39 does not auto-run `ollama pull`.
 - Onboarding's last optional step toggles `intent.model_assist_enabled`
   (default `false` today) explicitly so picking a profile actually wires up
   model-assisted intent ranking.
@@ -2202,27 +2203,30 @@ Expected direction:
   `<ALLBERT_HOME>/memory/identity/` for operator-editable personality/context
   material. Inert content; never grants permission or executes.
 - Declare `identity` as a **system memory namespace** through a new
-  `AllbertAssist.Memory.SystemNamespaces` module registered via the existing
-  app registry namespace surface with a reserved `:_system` app id. Extends
-  but preserves the v0.27 app-namespace contract.
+  `AllbertAssist.Memory.SystemNamespaces` module. System namespace
+  declarations are merged by a memory namespace facade and use
+  `origin: :system`, `app_id: nil`; `:_system` is not an app id and is not
+  passed through app validation. This extends but preserves the v0.27
+  app-namespace contract.
 - Add `:identity` as a 5th value in `AllbertAssist.Memory.@categories`
   alongside `:notes`, `:preferences`, `:traces`, `:skills`.
   `<ALLBERT_HOME>/memory/identity/` becomes the category root; entries are
   ordinary markdown files surfaced through existing `Memory` helpers.
-- Add deterministic pre-reply Active Memory retrieval using the existing v0.21
-  memory review/retrieval substrate. Scope: `{thread_id, active_app, identity}`.
-  Neutral context (`active_app: nil`) surfaces identity + general chunks only,
+- Add deterministic direct-answer Active Memory retrieval using the existing
+  v0.21 memory review/retrieval substrate. Scope:
+  `{thread_id, active_app, identity}`. Neutral/core context
+  (`active_app: nil` or `:allbert`) surfaces identity + general chunks only,
   excluding app-tagged chunks for non-active apps.
 - Algorithm: deterministic recency-weighted lexical scoring over
-  reviewed-promoted entries. Top-K bounded (default K=5 chunks, ≤2KB each). No
-  embeddings; same query + same memory state returns the same chunks
+  `review_status: :kept` entries. Top-K bounded (default K=5 chunks, <=2KB
+  each). No embeddings; same query + same memory state returns the same chunks
   byte-for-byte (replayable from traces). Snapshot rule: concurrent v0.21
-  promotions during scoring land on the next turn. Embedding-backed retrieval
-  is a future advisory provider per ADR 0021, not v0.39b.
+  review changes during scoring land on the next turn. Embedding-backed
+  retrieval is a future advisory provider per ADR 0021, not v0.39b.
 - Trace metadata renders the retrieved chunk ids, scoring breakdown, and any
-  excluded candidates so retrieval is operator-auditable. `### Active Memory`
-  subsection is placed after `### Intent Candidates` and before
-  `### Memory Review` in the per-turn trace.
+  excluded candidates so retrieval is operator-auditable. `## Active Memory`
+  section is placed after `## Intent Candidates` and before
+  `## Memory Review` in the per-turn trace.
 - Extends `mix allbert.memory` with `list --namespace` / `list --category`
   flags and a new `mix allbert.memory retrieve --query` developer/operator
   helper.
@@ -2547,7 +2551,8 @@ disposable-home checkpoint the release cannot ship without:
 
 1. First-run setup succeeds on macOS, Linux, and Windows/WSL2 (v0.39).
 2. Operator can choose local Ollama, OpenAI, Anthropic, or OpenRouter through
-   the provider doctor (v0.39). The doctor return shape is pinned by
+   model/profile control and the doctor (v0.39). The doctor return shape is
+   pinned by
    ADR 0047 and becomes a Tier-1 freeze contract at v1.0.
 3. Operator can connect at least one remote channel — Telegram, email,
    Discord, Slack, WhatsApp, Signal, or Matrix (v0.16 / v0.43 / v0.49).

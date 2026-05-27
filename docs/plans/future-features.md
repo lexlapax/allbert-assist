@@ -14,10 +14,10 @@ here.
 Status: parked.
 
 v0.39b plans the deterministic precursor: an inert `identity` system
-memory namespace (declared via the new system-namespace declarer and
+memory namespace (declared via the new non-app system-namespace declarer and
 surfaced as a 5th `Memory` category under
 `<ALLBERT_HOME>/memory/identity/`) plus deterministic recency-weighted
-lexical Active Memory retrieval scoped to
+lexical Active Memory retrieval over reviewed `:kept` entries scoped to
 `{thread_id, active_app, identity_namespace}`. Replayable from traces.
 No embeddings; no learned ranking.
 
@@ -351,8 +351,9 @@ Still parked:
 Status: parked. Added in the post-v0.37 planning pass.
 
 v0.39b Active Memory retrieval is scoped to `{thread_id, active_app,
-identity_namespace}`. Operators may want assistant context drawn from prior
-threads or across apps.
+identity_namespace}` with neutral/core context limited to identity + general
+chunks. Operators may want assistant context drawn from prior threads or
+across apps.
 
 Still parked:
 
