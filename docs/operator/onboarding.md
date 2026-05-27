@@ -71,8 +71,10 @@ separate `workspace:create` Canvas
 destination to render a vetted template, preview, validate, and choose
 developer-scaffold or supported live-integration intent. The Create surface
 routes effectful work through registered template actions: developer-scaffold
-mode writes inert reviewed source to the default workspace target and denies
-existing roots (`--target` and `--force` are CLI-only Mix task controls), while
+mode writes inert reviewed source to the default workspace target, or to
+`<ALLBERT_HOME>/template-smoke/<name>` when the server runs with
+`ALLBERT_TEMPLATE_SMOKE=1`, and denies existing roots (`--target` and `--force`
+are CLI-only Mix task controls), while
 supported live-integration mode requires the template, dynamic-codegen,
 live-loader, and sandbox switches before it writes only a v0.37 draft and
 returns the explicit trial/gate/integration next steps.
