@@ -111,7 +111,7 @@ defmodule AllbertAssist.Actions.TemplateActionsTest do
 
   test "create_from_template writes a v0.37 templated dynamic draft" do
     enable_template_create!()
-    enable_dynamic_codegen!()
+    enable_live_template_stack!()
 
     assert {:ok, response} =
              Runner.run(
@@ -186,7 +186,42 @@ defmodule AllbertAssist.Actions.TemplateActionsTest do
     assert disabled.error == :template_create_disabled
 
     enable_template_create!()
+
+    assert {:ok, codegen_disabled} =
+             Runner.run(
+               "create_from_template",
+               %{pattern_id: "llm_tool", params: %{"name" => "Codegen Disabled Tool"}},
+               context()
+             )
+
+    assert codegen_disabled.status == :denied
+    assert codegen_disabled.error == :dynamic_codegen_disabled
+
     enable_dynamic_codegen!()
+
+    assert {:ok, live_loader_disabled} =
+             Runner.run(
+               "create_from_template",
+               %{pattern_id: "llm_tool", params: %{"name" => "Loader Disabled Tool"}},
+               context()
+             )
+
+    assert live_loader_disabled.status == :denied
+    assert live_loader_disabled.error == :dynamic_live_loader_disabled
+
+    enable_dynamic_live_loader!()
+
+    assert {:ok, sandbox_disabled} =
+             Runner.run(
+               "create_from_template",
+               %{pattern_id: "llm_tool", params: %{"name" => "Sandbox Disabled Tool"}},
+               context()
+             )
+
+    assert sandbox_disabled.status == :denied
+    assert sandbox_disabled.error == :sandbox_elixir_disabled
+
+    enable_sandbox_elixir!()
 
     assert {:ok, unsupported} =
              Runner.run(
@@ -210,6 +245,21 @@ defmodule AllbertAssist.Actions.TemplateActionsTest do
 
   defp enable_dynamic_codegen! do
     assert {:ok, _setting} = Settings.put("dynamic_codegen.enabled", true, %{audit?: false})
+  end
+
+  defp enable_dynamic_live_loader! do
+    assert {:ok, _setting} =
+             Settings.put("dynamic_codegen.live_loader_enabled", true, %{audit?: false})
+  end
+
+  defp enable_sandbox_elixir! do
+    assert {:ok, _setting} = Settings.put("sandbox.elixir.enabled", true, %{audit?: false})
+  end
+
+  defp enable_live_template_stack! do
+    enable_dynamic_codegen!()
+    enable_dynamic_live_loader!()
+    enable_sandbox_elixir!()
   end
 
   defp context,

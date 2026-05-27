@@ -69,8 +69,11 @@ existing root), and operators open a separate `workspace:create` Canvas
 destination to render a vetted template, preview, validate, and choose
 developer-scaffold or supported live-integration intent. The Create surface
 routes effectful work through registered template actions: developer-scaffold
-mode writes inert reviewed source, while supported live-integration mode writes
-only a v0.37 draft and returns the explicit trial/gate/integration next steps.
+mode writes inert reviewed source to the default workspace target and denies
+existing roots (`--target` and `--force` are CLI-only Mix task controls), while
+supported live-integration mode requires the template, dynamic-codegen,
+live-loader, and sandbox switches before it writes only a v0.37 draft and
+returns the explicit trial/gate/integration next steps.
 In v0.38, only the LLM-tool (action)
 template can live-integrate; the other patterns are developer-scaffold-only
 because the v0.37.5 loader does not accept generated apps, panels, settings

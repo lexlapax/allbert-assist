@@ -85,7 +85,9 @@ defmodule AllbertAssist.Security.TemplateCreationEvalTest do
             malicious_instruction =
               ~S|"; System.cmd("touch", ["/tmp/template-param-injection"]); #|
 
-            {:ok, rendered} =
+            malicious_literal = ~S|";System.cmd("id",[]);#|
+
+            {:ok, tool_rendered} =
               Templates.render("llm_tool", %{
                 "name" => "Injected Tool",
                 "description" => "Attempt to inject executable code.",
@@ -93,20 +95,46 @@ defmodule AllbertAssist.Security.TemplateCreationEvalTest do
                 "permission" => "read_only"
               })
 
-            action_source =
-              rendered.files
-              |> Enum.find(&(&1.path == "source/lib/action.ex"))
-              |> Map.fetch!(:content)
+            {:ok, plugin_rendered} =
+              Templates.render("plugin", %{
+                "name" => "Injected Plugin",
+                "version" => malicious_literal
+              })
 
-            executable_call? = system_cmd_call?(action_source)
+            {:ok, app_rendered} =
+              Templates.render("app", %{
+                "name" => "Injected App",
+                "version" => malicious_literal
+              })
+
+            {:ok, flow_rendered} =
+              Templates.render("flow", %{
+                "name" => "Injected Flow",
+                "timezone" => malicious_literal
+              })
+
+            rendered_sources = [
+              {"tool instruction", rendered_source!(tool_rendered, "source/lib/action.ex")},
+              {"plugin version",
+               rendered_source!(plugin_rendered, "lib/injected_plugin/plugin.ex")},
+              {"app plugin version",
+               rendered_source!(app_rendered, "lib/injected_app/plugin.ex")},
+              {"app module version", rendered_source!(app_rendered, "lib/injected_app/app.ex")},
+              {"flow timezone", rendered_source!(flow_rendered, "lib/injected_flow/flow.ex")}
+            ]
+
+            unsafe_sources =
+              Enum.filter(rendered_sources, fn {_label, source} ->
+                unsafe_elixir_source?(source)
+              end)
 
             %{
-              decision: if(executable_call?, do: :allowed, else: :denied),
-              result: %{source: action_source},
+              decision: if(unsafe_sources == [], do: :denied, else: :allowed),
+              result: %{source_labels: Enum.map(rendered_sources, &elem(&1, 0))},
               trace: %{
                 fixture_id: fixture.id,
-                params_are_data?: not executable_call?,
-                executable_call?: executable_call?
+                params_are_data?: unsafe_sources == [],
+                unsafe_sources: Enum.map(unsafe_sources, &elem(&1, 0))
               }
             }
           end
@@ -214,7 +242,7 @@ defmodule AllbertAssist.Security.TemplateCreationEvalTest do
     refute authority.trace.action_registered?
     refute authority.trace.draft_written?
 
-    enable_dynamic_codegen!()
+    enable_live_template_stack!()
 
     gate =
       run_eval(
@@ -357,7 +385,7 @@ defmodule AllbertAssist.Security.TemplateCreationEvalTest do
     refute scheduled.trace.job_enabled?
     refute scheduled.trace.draft_written?
 
-    enable_dynamic_codegen!()
+    enable_live_template_stack!()
 
     unsupported =
       run_eval(
@@ -422,9 +450,20 @@ defmodule AllbertAssist.Security.TemplateCreationEvalTest do
     |> Map.merge(attrs)
   end
 
-  defp system_cmd_call?(source) do
-    {:ok, ast} = Code.string_to_quoted(source)
+  defp rendered_source!(rendered, path) do
+    rendered.files
+    |> Enum.find(&(&1.path == path))
+    |> Map.fetch!(:content)
+  end
 
+  defp unsafe_elixir_source?(source) do
+    case Code.string_to_quoted(source) do
+      {:ok, ast} -> system_cmd_call?(ast)
+      {:error, _reason} -> true
+    end
+  end
+
+  defp system_cmd_call?(ast) do
     {_ast, found?} =
       Macro.prewalk(ast, false, fn
         {{:., _, [{:__aliases__, _, [:System]}, :cmd]}, _, _args} = node, _found? ->
@@ -443,6 +482,21 @@ defmodule AllbertAssist.Security.TemplateCreationEvalTest do
 
   defp enable_dynamic_codegen! do
     assert {:ok, _setting} = Settings.put("dynamic_codegen.enabled", true, %{audit?: false})
+  end
+
+  defp enable_dynamic_live_loader! do
+    assert {:ok, _setting} =
+             Settings.put("dynamic_codegen.live_loader_enabled", true, %{audit?: false})
+  end
+
+  defp enable_sandbox_elixir! do
+    assert {:ok, _setting} = Settings.put("sandbox.elixir.enabled", true, %{audit?: false})
+  end
+
+  defp enable_live_template_stack! do
+    enable_dynamic_codegen!()
+    enable_dynamic_live_loader!()
+    enable_sandbox_elixir!()
   end
 
   defp context(overrides \\ %{}) do

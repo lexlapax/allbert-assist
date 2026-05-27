@@ -4,8 +4,9 @@ Status: implemented in v0.38.0 and ready for operator manual verification.
 Developer scaffolds, Mix tasks, registered template actions, the `/workspace`
 `workspace:create` operator surface, LLM-tool dynamic-draft creation, and
 security eval coverage are implemented. `CreateFromTemplate` creates a v0.37
-draft only; sandbox trial, gate, and confirmed integration remain explicit
-v0.37 actions.
+draft only after the template, dynamic-codegen, live-loader, and sandbox
+switches are all enabled; sandbox trial, gate, and confirmed integration remain
+explicit v0.37 actions.
 
 ## What It Is
 
@@ -65,17 +66,18 @@ mix allbert.security review --recent --limit 25
 
 1. Open `/workspace` and pick the **Create** destination.
 2. Browse the template gallery. Patterns whose `live_integration?` is `false`
-   show the live-integration toggle as disabled with a short tooltip pointing
-   to the developer-scaffold path.
+   show the live-integration toggle as disabled and continue through the
+   developer-scaffold path.
 3. Pick a pattern. The Canvas renders a parameter form. Validation is
    bounded; unknown keys, traversal-laden names, oversize input, and
    parameter values that would create new atoms are denied with a
    short diagnostic.
 4. Preview the generated tree and validation status.
 5. Choose output:
-   - **Developer scaffold** — Allbert renders to `--target` (default
-     `./plugins/<name>/`) and stops. Inert. Existing roots require explicit
-     `--force` plus preview/diff confirmation.
+   - **Developer scaffold** — Allbert renders to the default
+     `./plugins/<name>/` target from the workspace surface and stops. Inert.
+     Existing roots are denied in the workspace surface. `--target` and
+     `--force` are CLI-only Mix task controls.
    - **Operator live integration** (LLM-tool only in v0.38) — Allbert writes
      the draft under `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/` with
      `producer: "template_pattern"` and `template_pattern_id: "llm_tool"`.
@@ -142,8 +144,12 @@ Templated drafts show `template_pattern`; v0.37 LLM-authored drafts show
   nightly_review --pattern objective`; confirm both outputs are inert and mark
   their generated job/workflow JSON as disabled.
 - Enable `templates.create.enabled=true` and open `/workspace` Create → confirm
-  gallery renders, parameter form validates, live-integration toggle is
-  disabled for plugin/app/flow/objective patterns.
+  gallery renders, parameter form validates through the registered
+  `validate_template` action, and the live-integration toggle is disabled for
+  plugin/app/flow/objective patterns.
+- For the live-draft smoke, also enable `dynamic_codegen.enabled=true`,
+  `dynamic_codegen.live_loader_enabled=true`, and `sandbox.elixir.enabled=true`;
+  disabling any one of those switches must deny before a draft is written.
 - Pick the LLM-tool pattern, create a draft, confirm `metadata.yaml` records
   `producer: template_pattern` and `template_pattern_id: llm_tool`, then run
   the sandbox trial/gate and confirm integration from CLI or LiveView.

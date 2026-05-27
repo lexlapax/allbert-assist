@@ -69,6 +69,7 @@ defmodule AllbertAssist.Templates.Patterns.Plugin do
      |> Map.put("module_path", slug)
      |> Map.put("plugin_module", plugin_module)
      |> Map.put("version", version)
+     |> Map.put("version_literal", inspect(version))
      |> Map.put("json_display_name", Jason.encode!(display_name))
      |> Map.put("json_description", Jason.encode!(description))
      |> Map.put("json_plugin_id", Jason.encode!(slug))
