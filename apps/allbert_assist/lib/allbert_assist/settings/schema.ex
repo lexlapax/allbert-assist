@@ -132,6 +132,8 @@ defmodule AllbertAssist.Settings.Schema do
     "dynamic_codegen.live_loader_enabled",
     "dynamic_codegen.integration_approval_surfaces",
     "dynamic_codegen.retention_days",
+    "templates.create.enabled",
+    "templates.allowed_patterns",
     "resource_grants.remembered",
     "skills.online_import.enabled",
     "skills.online_import.require_confirmation",
@@ -1432,6 +1434,18 @@ defmodule AllbertAssist.Settings.Schema do
       min: 1,
       max: 365
     },
+    "templates.create.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "templates.allowed_patterns" => %{
+      type: :string_list,
+      default: ["plugin", "app", "llm_tool", "flow", "objective"],
+      writable?: true,
+      sensitive?: false
+    },
     "resource_grants.remembered" => %{
       type: :resource_grants,
       default: [],
@@ -1841,6 +1855,12 @@ defmodule AllbertAssist.Settings.Schema do
       "integration_approval_surfaces" => ["cli", "liveview"],
       "retention_days" => 30
     },
+    "templates" => %{
+      "create" => %{
+        "enabled" => false
+      },
+      "allowed_patterns" => ["plugin", "app", "llm_tool", "flow", "objective"]
+    },
     "resource_grants" => %{
       "remembered" => []
     },
@@ -1999,6 +2019,7 @@ defmodule AllbertAssist.Settings.Schema do
          :ok <- validate_model_profiles(settings),
          :ok <- validate_runtime_refs(settings),
          :ok <- validate_dynamic_codegen(settings),
+         :ok <- validate_templates(settings),
          :ok <- validate_channels(settings) do
       :ok
     end
@@ -2455,6 +2476,24 @@ defmodule AllbertAssist.Settings.Schema do
 
       not Enum.all?(values, &(&1 in allowed_values)) ->
         {:error, {:invalid_setting, key, {:allowed_values, allowed_values}}}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_templates(settings) do
+    allowed_values = ~w[plugin app llm_tool flow objective]
+    values = get_dotted(settings, "templates.allowed_patterns") || []
+
+    cond do
+      not is_list(values) ->
+        {:error,
+         {:invalid_setting, "templates.allowed_patterns", {:expected_string_list, values}}}
+
+      not Enum.all?(values, &(&1 in allowed_values)) ->
+        {:error,
+         {:invalid_setting, "templates.allowed_patterns", {:allowed_values, allowed_values}}}
 
       true ->
         :ok

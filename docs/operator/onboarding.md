@@ -59,23 +59,24 @@ the planned 1.0 arc. That flow is not implemented yet. Until v0.39 ships, use
 the manual setup commands in this guide and the release-specific request-flow
 documents.
 
-## Planned v0.38 Templated Creation
+## v0.38 Templated Creation
 
 `docs/plans/v0.38-plan.md` promotes deterministic creation patterns: developers
 scaffold reviewed plugin/app/LLM-tool/scheduled-flow/objective patterns through
 `mix allbert.gen.{plugin,app,tool,flow}` (`--target` defaults to
 `./plugins/<name>`; `--force` plus preview/diff is required to overwrite an
 existing root), and operators open a separate `workspace:create` Canvas
-destination to render a vetted template, preview, validate, and either export
-the developer scaffold or hand a supported pattern to the v0.36/v0.37 gated
-path. In v0.38, only the LLM-tool (action) template can live-integrate; the
-other patterns are developer-scaffold-only because the v0.37.5 loader does not
-accept generated apps, panels, settings fragments, memory namespaces, or
-objective wiring as live targets. Templated drafts share
+destination to render a vetted template, preview, validate, and choose
+developer-scaffold or supported live-integration intent. The current surface is
+view/compose only until the registered template actions land, so it writes no
+project tree or dynamic draft from the UI. In v0.38, only the LLM-tool (action)
+template can live-integrate; the other patterns are developer-scaffold-only
+because the v0.37.5 loader does not accept generated apps, panels, settings
+fragments, memory namespaces, or objective wiring as live targets. Templated
+drafts share
 `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/` with v0.37 codegen drafts and
 are inspectable through `mix allbert.dynamic list/show/disable`. See
-`docs/operator/templated-creation.md` for the full operator flow once v0.38
-ships; until then this section is a forward reference, and the v0.39
+`docs/operator/templated-creation.md` for the operator flow. The v0.39
 onboarding destination is a separate planned Canvas destination, not the same
 as `workspace:create`.
 

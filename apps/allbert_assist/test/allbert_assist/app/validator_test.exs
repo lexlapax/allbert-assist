@@ -563,6 +563,7 @@ defmodule AllbertAssist.App.ValidatorTest do
     assert Enum.any?(core_surfaces, &match?(%Surface{id: :workspace, kind: :workspace}, &1))
 
     assert [
+             :core_create_panel,
              :core_objectives_panel,
              :core_jobs_panel,
              :core_confirmations_panel,

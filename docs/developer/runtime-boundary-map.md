@@ -60,9 +60,10 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 | v0.37 | `AllbertAssist.DynamicPlugins.TrustedValidator` | Implemented trusted-phase AST/body validator before in-core compile. |
 | v0.38 | `AllbertAssist.Templates` | Implemented templated-creation facade exposing the pattern registry, parameter validation, deterministic rendering, preview, and per-pattern `live_integration?` declarations. Templates and parameters grant no authority. |
 | v0.38 | `AllbertAssist.Templates.Pattern` | Implemented behaviour for vetted parameterized skeletons. |
-| v0.38 | `AllbertAssist.Templates.Patterns.{Plugin,App}` | Implemented reviewed developer-scaffold patterns. Plugin/app patterns are developer-scaffold-only because v0.37.5 loader rejects their artifact shapes. LLM tool, flow, and objective patterns land later in v0.38. |
+| v0.38 | `AllbertAssist.Templates.Patterns.{Plugin,App,Tool,Flow,Objective}` | Implemented reviewed developer-scaffold patterns. Plugin/app/flow/objective patterns are developer-scaffold-only because v0.37.5 loader rejects their artifact shapes; LLM-tool action artifacts declare live-integration eligibility for the later v0.38 gated path. |
 | v0.38 | `AllbertAssist.Templates.Scaffold` | Implemented inert developer scaffold writer. Existing roots require explicit `--force`, and every rendered file path is confined under the target root. |
-| v0.38 | `RenderTemplate`, `ValidateTemplate`, `ScaffoldTemplate`, `CreateFromTemplate` | Planned registered actions used by the operator `workspace:create` Canvas destination. |
+| v0.38 | `workspace:create` / `TemplateCreate` | Implemented view/compose-only operator Canvas destination with Settings Central gating, gallery filtering, parameter editing, preview, validation status, and bounded create-attempt diagnostics. |
+| v0.38 | `RenderTemplate`, `ValidateTemplate`, `ScaffoldTemplate`, `CreateFromTemplate` | Planned registered actions used by the operator `workspace:create` Canvas destination for effectful writes and gated live integration. |
 
 ## Post-v0.38 Planned Facades
 

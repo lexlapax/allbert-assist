@@ -27,6 +27,7 @@ defmodule AllbertAssist.Surface.Catalog do
     :utility_drawer,
     :workspace_panel,
     :settings_panel,
+    :template_create_panel,
     :workspace,
     :canvas,
     :tile,
@@ -87,6 +88,7 @@ defmodule AllbertAssist.Surface.Catalog do
     :utility_drawer,
     :workspace_panel,
     :settings_panel,
+    :template_create_panel,
     :workspace,
     :canvas,
     :tile,
@@ -127,6 +129,8 @@ defmodule AllbertAssist.Surface.Catalog do
     utility_drawer: {:live_component, AllbertAssistWeb.Workspace.Components.UtilityDrawer},
     workspace_panel: {:live_component, AllbertAssistWeb.Workspace.Components.WorkspacePanel},
     settings_panel: {:live_component, AllbertAssistWeb.Workspace.Components.SettingsCentral},
+    template_create_panel:
+      {:live_component, AllbertAssistWeb.Workspace.Components.TemplateCreate},
     workspace: {:live_component, AllbertAssistWeb.Workspace.Components.Workspace},
     canvas: {:live_component, AllbertAssistWeb.Workspace.Components.Canvas},
     tile: {:live_component, AllbertAssistWeb.Workspace.Components.Tile},
@@ -184,7 +188,8 @@ defmodule AllbertAssist.Surface.Catalog do
     app_launcher: "hero-squares-2x2-micro",
     utility_drawer: "hero-wrench-screwdriver-micro",
     workspace_panel: "hero-rectangle-group-micro",
-    settings_panel: "hero-adjustments-horizontal-micro"
+    settings_panel: "hero-adjustments-horizontal-micro",
+    template_create_panel: "hero-plus-circle-micro"
   }
 
   @placeholder_renderer {:live_component, AllbertAssistWeb.Workspace.Components.Placeholder}

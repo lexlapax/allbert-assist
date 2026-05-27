@@ -65,6 +65,15 @@ defmodule AllbertAssist.App.CoreApp do
 
   defp core_panel_surfaces do
     [
+      panel_surface(:core_create_panel, "Create", :canvas_panels, 5, [
+        panel_node("core-create", "Create", "Template gallery and preview.", [
+          %Node{
+            id: "template-create",
+            component: :template_create_panel,
+            props: %{zone: "canvas", title: "Create"}
+          }
+        ])
+      ]),
       panel_surface(:core_objectives_panel, "Objectives", :canvas_panels, 10, [
         panel_node("core-objectives", "Objectives", "Active work and next steps.", [
           %Node{

@@ -3,7 +3,8 @@
 Status: v0.38 implementation in progress. M1 implemented the registry and
 deterministic renderer. M2 implemented the `plugin` and `app` developer
 scaffolds. M3 implemented the `llm_tool`, `flow`, and `objective` scaffolds
-plus `mix allbert.gen.tool` and `mix allbert.gen.flow`.
+plus `mix allbert.gen.tool` and `mix allbert.gen.flow`. M4 implemented the
+`workspace:create` operator Create surface as view/compose only.
 
 Template patterns are vetted, parameterized skeletons that produce Allbert
 plugin/app/action/objective artifacts. They are an accelerator over the
@@ -144,8 +145,11 @@ Checklist for adding a future templated pattern without granting authority:
   from raw input.
 - `mix allbert.dynamic list/show/disable` — inspects templated drafts beside
   v0.37 codegen drafts; `producer: "template_pattern"` distinguishes them.
-- `workspace:create` — operator Canvas destination. Gated by
-  `templates.create.enabled` (default off). Operator live integration also
+- `workspace:create` — implemented operator Canvas destination with gallery,
+  parameter form, preview, validation, disabled-state rendering, and bounded
+  create-attempt diagnostics. Gated by `templates.create.enabled` (default
+  off); `templates.allowed_patterns` filters the gallery. It is view/compose
+  only until registered template actions land. Operator live integration also
   requires `dynamic_codegen.enabled`,
   `dynamic_codegen.live_loader_enabled`, and `sandbox.elixir.enabled`. The
   `dynamic_codegen.integration_approval_surfaces` allowlist (default
