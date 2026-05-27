@@ -1,10 +1,8 @@
-# Operator Guide: Templated Creation (planned v0.38)
+# Operator Guide: Templated Creation
 
-Status: planned. This document is the operator-facing guide for the v0.38
-templated creation milestone (`docs/plans/v0.38-plan.md`, ADR 0036). It is
-added at planning time so the v0.38 implementation milestones can reference a
-stable doc path. Concrete CLI transcripts and screenshots will be added during
-implementation.
+Status: v0.38 implementation in progress. Developer plugin/app scaffolds and
+their Mix tasks are implemented. The `/workspace` `workspace:create` operator
+surface lands in a later v0.38 milestone.
 
 ## What It Is
 
@@ -92,16 +90,18 @@ mix allbert.security review --recent --limit 25
 ```sh
 mix allbert.gen.plugin my_plugin
 mix allbert.gen.app my_app
-mix allbert.gen.tool my_tool
-mix allbert.gen.flow morning_brief
-mix allbert.gen.flow nightly_review --pattern objective
+mix allbert.gen.tool my_tool                  # planned M3
+mix allbert.gen.flow morning_brief            # planned M3
+mix allbert.gen.flow nightly_review --pattern objective  # planned M3
 mix allbert.validate_app my_app
 ```
 
 `--target PATH` overrides the default `./plugins/<name>/`. `--force` is
 required to overwrite an existing target root and triggers preview/diff
-confirmation. Developer scaffolds never touch Allbert Home and never
-integrate live.
+confirmation. Developer scaffolds never touch Allbert Home and never integrate
+live. `mix allbert.validate_app my_app` works after the generated app module is
+compiled; the task resolves loaded app modules by safe app id or by module
+name.
 
 ## Inspecting Templated Drafts
 

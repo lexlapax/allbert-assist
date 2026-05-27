@@ -1,5 +1,5 @@
 defmodule AllbertAssistWeb.SettingsRouteRemovalTest do
-  use AllbertAssistWeb.ConnCase, async: true
+  use AllbertAssistWeb.ConnCase, async: false
 
   test "/settings is not an operator route in v0.32", %{conn: conn} do
     conn = get(conn, "/settings")

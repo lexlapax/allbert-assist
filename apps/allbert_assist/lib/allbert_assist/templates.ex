@@ -15,7 +15,8 @@ defmodule AllbertAssist.Templates do
   defdelegate list_patterns(opts \\ []), to: Registry, as: :list
 
   @doc "Resolve a reviewed template pattern by id."
-  @spec resolve_pattern(String.t() | atom(), keyword()) :: {:ok, module()} | {:error, term()}
+  @spec resolve_pattern(String.t() | atom(), keyword()) ::
+          {:ok, atom()} | {:error, {:unknown_template_pattern, term()}}
   defdelegate resolve_pattern(id, opts \\ []), to: Registry, as: :resolve
 
   @doc "Render a reviewed template pattern into an ordered file preview."
@@ -31,7 +32,16 @@ defmodule AllbertAssist.Templates do
   def render(_pattern_id, _params, _opts), do: {:error, :invalid_render_input}
 
   @doc "Return rendered file paths and sizes without writing anything."
-  @spec preview(String.t() | atom(), map(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec preview(String.t() | atom(), map(), keyword()) ::
+          {:ok,
+           %{
+             pattern_id: term(),
+             params: term(),
+             live_integration?: term(),
+             target_shapes: term(),
+             files: [map()]
+           }}
+          | {:error, term()}
   def preview(pattern_id, params, opts \\ []) do
     with {:ok, rendered} <- render(pattern_id, params, opts) do
       {:ok,

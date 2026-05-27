@@ -1,5 +1,5 @@
 defmodule StockSageWeb.RouteRemovalTest do
-  use AllbertAssistWeb.ConnCase, async: true
+  use AllbertAssistWeb.ConnCase, async: false
 
   test "old StockSage operator routes are absent in v0.32", %{conn: conn} do
     for path <- [

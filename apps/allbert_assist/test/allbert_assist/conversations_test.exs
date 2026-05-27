@@ -1,5 +1,5 @@
 defmodule AllbertAssist.ConversationsTest do
-  use AllbertAssist.DataCase, async: true
+  use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.Message
