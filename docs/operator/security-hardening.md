@@ -103,17 +103,19 @@ surface must expand to cover:
   doctor output, doctor-no-leak (no raw error bodies, no full URLs, no
   credential fragments — per ADR 0047), onboarding-action-boundary,
   safe-keys-only writes during onboarding, `endpoint_kind` derivation and
-  override behavior, default-model-profile doctor pass against a fresh
-  Ollama install, identity-slot preview step writes nothing (v0.39b adds
-  the write path).
+  override behavior, default local model is real and missing-model diagnostics
+  are fixed/cataloged, local-model-present doctor pass after the operator
+  explicitly pulls the shipped default, identity-slot preview step writes
+  nothing (v0.39b adds the write path).
 - Identity slot and Active Memory (v0.39b): identity-namespace not
   app-owned isolation, identity-memory inert (never grants authority),
   Active Memory read-only, no automatic promotion from retrieved chunks,
-  no cross-namespace leak, deterministic replay (same query + same state
-  → same chunks), neutral-context retrieval excludes app-tagged chunks
-  for non-active apps, `### Active Memory` trace section placement is
-  deterministic, snapshot rule (concurrent v0.21 writes during scoring
-  land on the next turn).
+  kept-only retrieval, no cross-namespace leak, deterministic replay (same
+  query + same state → same chunks), neutral/core-context retrieval excludes
+  app-tagged chunks for non-active apps, the intent classifier never receives
+  raw Active Memory chunks, `## Active Memory` trace section placement is
+  deterministic, snapshot rule (concurrent v0.21 writes during scoring land
+  on the next turn).
 - MCP client and server tool/resource confusion, prompt injection, server
   impersonation, and secret/env leakage.
 - Browser session state, navigation grants, screenshots, downloads, cookies,

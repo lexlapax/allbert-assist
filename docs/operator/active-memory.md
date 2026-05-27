@@ -28,24 +28,36 @@ boundaries) that Active Memory retrieval can surface before each reply.
   `:notes`, `:preferences`, `:traces`, `:skills`).
 - **Authoring shape**: a single `persona.md` or many small files
   (`persona.md`, `style.md`, `boundaries.md`); both work. Each markdown
-  file is one `Memory.Entry`.
+  file is one `Memory.Entry`. Files under the identity root derive
+  `namespace: :identity`, `origin: :system`, and `app_id: nil` unless the
+  file contains conflicting metadata, in which case it is not eligible for
+  Active Memory until corrected.
 - **Write path**: through the existing v0.21 memory review surface (`mix
-  allbert.memory review`). v0.39b does not add a new authoring UX.
+  allbert.memory review`) after the operator creates or edits local markdown
+  files. v0.39b does not add a rich authoring UX.
 - **Authority**: identity content is **inert**. It never grants permission,
   never executes, never authorizes an action, and never becomes runtime
   authority. It is operator-edited context only.
 - **Namespace ownership**: declared as a **system** memory namespace
   through a new `AllbertAssist.Memory.SystemNamespaces` declarer
-  (reserved `:_system` app id). This is distinct from app-owned
-  namespaces like StockSage's; the v0.27 app-namespace contract is
-  preserved unchanged.
+  (`origin: :system`, `app_id: nil`). This is distinct from app-owned
+  namespaces like StockSage's; `:_system` is not an app id and the v0.27
+  app-namespace contract is preserved unchanged.
 
 ## Active Memory Retrieval (Planned, v0.39b)
 
-Before each model call, Allbert runs a deterministic top-K retrieval pass
-over reviewed-promoted memory scoped to
-`{thread_id, active_app, identity_namespace}`. The retrieved chunks are
-added to the model context as advisory data.
+Prerequisite for operator-visible model behavior:
+`intent.direct_answer_model_enabled=true` and a usable direct-answer model
+profile. Active Memory itself is enabled separately by `active_memory.enabled`.
+
+When `intent.direct_answer_model_enabled` is true, Allbert runs a
+deterministic top-K retrieval pass before each direct-answer model call over
+`review_status: :kept` memory scoped to
+`{thread_id, active_app, identity_namespace}`. The retrieved chunks are added
+to the model context as advisory data. Intent ranking and the optional intent
+classifier run before Active Memory and do not receive raw retrieved chunks.
+When the direct-answer model is disabled, Active Memory is skipped for that
+turn.
 
 - **Algorithm**: deterministic recency-weighted lexical scoring. No
   embeddings; no learned ranking; no LLM-driven scoring. Same query +
@@ -59,20 +71,17 @@ added to the model context as advisory data.
   - **Active app** (e.g., `:stocksage` after a v0.33 handoff): retrieval
     upweights chunks tagged with that app while still surfacing identity
     and general chunks.
-  - **Neutral** (`active_app: nil`): retrieval surfaces identity +
-    general chunks only. App-tagged chunks for non-active apps are
-    excluded so app-private context does not leak into neutral turns.
+  - **Neutral/core** (`active_app: nil` or `:allbert`): retrieval surfaces
+    identity + general chunks only. App-tagged chunks for non-active apps
+    are excluded so app-private context does not leak into neutral turns.
 - **Snapshot rule**: candidate set is snapshotted once per turn.
-  Concurrent v0.21 promotions during scoring land on the next turn.
-- **Operator-pin metadata**: chunks the operator pinned during v0.21
-  review get an additional score boost via
-  `active_memory.score_weights.explicit_pin`.
+  Concurrent v0.21 review/update changes during scoring land on the next turn.
 
 ## Trace Visibility
 
-Each runtime turn that runs retrieval renders an `### Active Memory`
-subsection in the turn's markdown trace, placed after `### Intent
-Candidates` and before `### Memory Review`. The subsection includes:
+Each runtime turn that runs retrieval renders a `## Active Memory` section in
+the turn's markdown trace, placed after `## Intent Candidates` and before
+`## Memory Review`. The section includes:
 
 - normalized query terms;
 - retrieval scope (`thread_id`, `active_app`, identity namespace);
@@ -87,7 +96,8 @@ the same deterministic top-K for ad-hoc inspection.
 
 All `active_memory.*` settings are safe-keys writable through
 `update_setting`. Defaults match the v0.39b plan body and the research
-note.
+note. Score weights are bounded positive numbers; implementation must validate
+them as retrieval weights, not as unrelated model-temperature values.
 
 | Key | Default | Notes |
 | --- | --- | --- |
@@ -95,9 +105,10 @@ note.
 | `active_memory.top_k` | `5` | Top-K bound. |
 | `active_memory.chunk_max_bytes` | `2048` | Per-chunk byte cap. |
 | `active_memory.score_weights.recency_half_life_days` | `30` | Half-life for exponential decay. |
-| `active_memory.score_weights.thread_affinity` | `%{same_thread: 1.0, same_app: 0.6, general: 0.3}` | Per-scope weight. |
+| `active_memory.score_weights.thread_affinity.same_thread` | `1.0` | Current-thread weight. |
+| `active_memory.score_weights.thread_affinity.same_app` | `0.6` | Active-app weight. |
+| `active_memory.score_weights.thread_affinity.general` | `0.3` | General-memory weight. |
 | `active_memory.score_weights.identity_inclusion` | `1.5` | Boost for identity-namespace chunks. |
-| `active_memory.score_weights.explicit_pin` | `2.0` | Boost for operator-pinned chunks. |
 
 ## Safety Defaults
 
@@ -114,8 +125,8 @@ note.
 
 ## What's Not In v0.39b
 
-- No operator-pinning UX (pin metadata is honored by the scorer, but
-  v0.21 owns the pin write path).
+- No operator-pinning UX and no pin-score boost. Pinning can be added later
+  only after the review/write path owns a real `pinned` metadata field.
 - No cross-thread or cross-app retrieval (parked under
   "Cross-Thread / Cross-App Memory Retrieval" in `future-features.md`).
 - No nightly distillation, personality training, or learned system-memory
