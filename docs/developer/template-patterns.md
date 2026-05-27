@@ -78,7 +78,7 @@ and is registered in `AllbertAssist.Templates.Registry`. A pattern declares:
 
 | Mode | Where output lands | Authority grant |
 |---|---|---|
-| Developer scaffold | `--target` (default `./plugins/<name>/`) | None. Inert source for human review/compile/test. |
+| Developer scaffold | `--target` (default `./plugins/<name>/`); `--smoke` or `ALLBERT_TEMPLATE_SMOKE=1` uses `<ALLBERT_HOME>/template-smoke/<name>/` | None. Inert source for human review/compile/test. |
 | Operator templated draft | `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/` | None until v0.36 gate + v0.37 loader + Security Central confirmation. |
 
 Operator templated drafts enter the v0.37 lifecycle at `:draft` with
@@ -133,14 +133,19 @@ Checklist for adding a future templated pattern without granting authority:
 
 ## Inspection And Operator Surfaces
 
-- `mix allbert.gen.plugin NAME [--target PATH] [--force]` — implemented M2.
-- `mix allbert.gen.app NAME [--target PATH] [--force]` — implemented M2.
-- `mix allbert.gen.tool NAME [--target PATH] [--force]
+- `mix allbert.gen.plugin NAME [--target PATH] [--force] [--smoke]` — implemented M2.
+- `mix allbert.gen.app NAME [--target PATH] [--force] [--smoke]` — implemented M2.
+- `mix allbert.gen.tool NAME [--target PATH] [--force] [--smoke]
   [--permission read_only|memory_write|external_network]` — implemented M3.
-- `mix allbert.gen.flow NAME [--target PATH] [--force]` — implemented M3
+- `mix allbert.gen.flow NAME [--target PATH] [--force] [--smoke]` — implemented M3
   scheduled/chron flow scaffold.
-- `mix allbert.gen.flow NAME --pattern objective [--target PATH] [--force]`
+- `mix allbert.gen.flow NAME --pattern objective [--target PATH] [--force]
+  [--smoke]`
   — implemented M3 objective-workflow scaffold.
+- `ALLBERT_TEMPLATE_SMOKE=1` applies the same disposable target as `--smoke`
+  to generator commands, so manual validation can write to
+  `<ALLBERT_HOME>/template-smoke/<slug>/` instead of the in-development
+  `./plugins/` tree.
 - `mix allbert.validate_app APP_ID_OR_MODULE` — first-run app validation after
   the generated module is compiled; safe app-id lookup does not create atoms
   from raw input.
