@@ -44,8 +44,9 @@ Still parked:
 
 Status: parked.
 
-v0.36-v0.38 define the supervised dynamic capability path. v0.46 may add only
-reviewed delegate facades for memory promotion/update drafts and
+v0.36-v0.38 now define the supervised dynamic capability path: sandbox/gate
+evidence, dynamic action integration, and templated creation. v0.46 may add
+only reviewed delegate facades for memory promotion/update drafts and
 objective/workflow draft writes.
 
 Still parked:

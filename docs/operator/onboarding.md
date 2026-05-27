@@ -61,7 +61,7 @@ documents.
 
 ## v0.38 Templated Creation
 
-`docs/plans/v0.38-plan.md` promotes deterministic creation patterns: developers
+`docs/plans/v0.38-plan.md` ships deterministic creation patterns: developers
 scaffold reviewed plugin/app/LLM-tool/scheduled-flow/objective patterns through
 `mix allbert.gen.{plugin,app,tool,flow}` (`--target` defaults to
 `./plugins/<name>`; `--force` plus preview/diff is required to overwrite an
@@ -78,7 +78,8 @@ fragments, memory namespaces, or objective wiring as live targets. Templated
 drafts share
 `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/` with v0.37 codegen drafts and
 are inspectable through `mix allbert.dynamic drafts list/show/discard`. See
-`docs/operator/templated-creation.md` for the operator flow. The v0.39
+`docs/operator/templated-creation.md` for the operator flow and manual smoke.
+The v0.39
 onboarding destination is a separate planned Canvas destination, not the same
 as `workspace:create`.
 
