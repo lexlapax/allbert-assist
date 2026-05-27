@@ -53,11 +53,42 @@ mix allbert.confirmations list
 
 ## Planned v0.39 First-Run Onboarding
 
-`docs/plans/v0.39-plan.md` promotes first-run onboarding, provider/model
-control, an optional identity memory slot, and deterministic Active Memory into
-the planned 1.0 arc. That flow is not implemented yet. Until v0.39 ships, use
-the manual setup commands in this guide and the release-specific request-flow
-documents.
+`docs/plans/v0.39-plan.md` promotes first-run onboarding and provider/model
+control into the planned 1.0 arc, split across two sub-milestones:
+
+- **v0.39** ships the guided onboarding objective (`mix allbert.onboard`,
+  `workspace:onboard`), the provider/model control plane
+  (`mix allbert.model {list,use,doctor}`), the two-branch provider doctor
+  (credentialed-remote + local-endpoint) with the redacted return shape
+  pinned by ADR 0047, optional channel registration (telegram or email
+  via the existing `mix allbert.channels` task), and an optional
+  `intent.model_assist_enabled` toggle. v0.39 satisfies items 1 and 2 of
+  the v1.0 acceptance matrix.
+- **v0.39b** ships the inert `identity` memory namespace (declared
+  through a new system-namespace declarer; surfaced as a 5th `Memory`
+  category under `<ALLBERT_HOME>/memory/identity/`) and the deterministic
+  pre-reply Active Memory retrieval pass with `### Active Memory` trace
+  metadata. See `docs/operator/active-memory.md` for the operator-facing
+  story.
+
+Neither sub-milestone is implemented yet. Until v0.39 ships, use the
+manual setup commands in this guide and the release-specific
+request-flow documents.
+
+### Planned Cross-OS Quick-Start (v0.39)
+
+Per the v1.0 acceptance matrix item 1, v0.39 onboarding must succeed on
+macOS, Linux, and Windows/WSL2.
+
+- **macOS / Linux**: `mix allbert.onboard` reads selections from the
+  terminal; secrets are entered with echo disabled. Default local
+  provider expects Ollama on `http://localhost:11434`.
+- **Windows/WSL2**: run `mix allbert.onboard` inside the WSL2 shell;
+  `localhost` reaches the WSL2-side Ollama instance directly. Reaching a
+  Windows-host Ollama instance from WSL2 is documented but not required
+  for acceptance.
+- **Non-interactive runs** (CI, piped stdin) fail fast with a usable
+  message; onboarding is interactive-only in v0.39.
 
 ## v0.38 Templated Creation
 

@@ -13,9 +13,17 @@ here.
 
 Status: parked.
 
-v0.39 plans deterministic Active Memory retrieval. v0.46 plans
-operator-supervised trace-derived draft suggestions. Neither trains,
-distills, or creates a learned system-memory authority.
+v0.39b plans the deterministic precursor: an inert `identity` system
+memory namespace (declared via the new system-namespace declarer and
+surfaced as a 5th `Memory` category under
+`<ALLBERT_HOME>/memory/identity/`) plus deterministic recency-weighted
+lexical Active Memory retrieval scoped to
+`{thread_id, active_app, identity_namespace}`. Replayable from traces.
+No embeddings; no learned ranking.
+
+v0.46 plans operator-supervised trace-derived draft suggestions. Neither
+v0.39b nor v0.46 trains, distills, or creates a learned system-memory
+authority.
 
 Still parked:
 
@@ -372,7 +380,11 @@ Still parked:
 ### Model Fallback / Degradation Policy
 
 Status: parked. Added in the post-v0.37 planning pass after the v0.39 plan
-dropped the unspecified "explicit operator opt-in" wording.
+dropped the unspecified "explicit operator opt-in" wording. Reaffirmed in
+the post-v0.38 readiness review on 2026-05-27: v0.39 ships the two-branch
+provider doctor (per ADR 0047) which reports availability but does **not**
+implement runtime failover. Operators see doctor output and switch profiles
+manually.
 
 Operators may want graceful degradation when the primary LLM provider is
 down, rate-limited, or returning unusable output.
