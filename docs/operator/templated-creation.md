@@ -104,7 +104,6 @@ mix allbert.gen.tool my_tool
 mix allbert.gen.tool remember_preference --permission memory_write
 mix allbert.gen.flow morning_brief
 mix allbert.gen.flow nightly_review --pattern objective
-mix allbert.validate_app my_app
 ```
 
 `--target PATH` overrides the default `./plugins/<name>/`. `--force` is
@@ -138,8 +137,10 @@ Templated drafts show `template_pattern`; v0.37 LLM-authored drafts show
 - Disposable scaffold target: `export ALLBERT_TEMPLATE_SMOKE=1`.
 - Run `mix allbert.gen.plugin my_plugin` → confirm inert tree under
   `$ALLBERT_HOME/template-smoke/my_plugin/` and `--force`-only overwrite.
-- Run `mix allbert.gen.app my_app` then `mix allbert.validate_app my_app` →
-  confirm first-run validation pass.
+- Run `mix allbert.gen.app my_app` → confirm the inert app contract files under
+  `$ALLBERT_HOME/template-smoke/my_app/`. After moving the generated app module
+  onto a project compile path, run `mix allbert.validate_app my_app` to confirm
+  first-run validation pass.
 - Run `mix allbert.gen.tool my_tool` and confirm the output contains
   `dynamic_manifest.json` plus `source/lib/action.ex`; `--permission
   memory_write` and `--permission external_network` must route through
