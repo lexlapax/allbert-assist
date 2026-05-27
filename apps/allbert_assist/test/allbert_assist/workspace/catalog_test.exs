@@ -10,7 +10,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
   test "known components returns the v0.32 workspace allow-list" do
     components = Catalog.known_components()
 
-    assert length(components) == 49
+    assert length(components) == 50
     assert Enum.uniq(components) == components
 
     assert Enum.all?(
@@ -27,6 +27,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
                :utility_drawer,
                :workspace_panel,
                :settings_panel,
+               :template_create_panel,
                :workspace,
                :canvas,
                :tile,
@@ -54,6 +55,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
     assert ids == [
              "output",
              "app:stocksage",
+             "workspace:create",
              "workspace:jobs",
              "workspace:objectives",
              "workspace:confirmations",
@@ -63,6 +65,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
 
     assert Enum.find(destinations, &(&1.id == "output")).non_hideable?
     assert Enum.find(destinations, &(&1.id == "workspace:settings")).non_hideable?
+    refute Map.get(Enum.find(destinations, &(&1.id == "workspace:create")), :non_hideable?)
     refute "app:allbert" in ids
   end
 
@@ -147,6 +150,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
              Enum.find(children, &(&1.component == :canvas))
 
     refute find_node(canvas_children, :objective_card, :core_objectives_panel)
+    refute find_node(canvas_children, :template_create_panel, :core_create_panel)
     refute find_node(canvas_children, :job_card, :core_jobs_panel)
     refute find_node(canvas_children, :confirmation_card, :core_confirmations_panel)
     refute find_node(canvas_children, :settings_card, :core_security_panel)
@@ -170,6 +174,24 @@ defmodule AllbertAssist.Workspace.CatalogTest do
     assert find_node(canvas_children, :settings_panel, :core_settings_panel)
     refute find_node(canvas_children, :job_card, :core_jobs_panel)
     refute find_node(canvas_children, :objective_card, :core_objectives_panel)
+  end
+
+  test "workspace tree renders Create as a selected workspace tool destination" do
+    surface =
+      Catalog.workspace_tree(
+        user_id: "local",
+        thread_id: "thread-1",
+        canvas_destination: "workspace:create"
+      )
+
+    assert [%Node{component: :workspace_shell, children: children}] = surface.nodes
+
+    assert %Node{component: :canvas, children: canvas_children} =
+             Enum.find(children, &(&1.component == :canvas))
+
+    assert find_node(canvas_children, :template_create_panel, :core_create_panel)
+    refute find_node(canvas_children, :settings_panel, :core_settings_panel)
+    refute find_node(canvas_children, :job_card, :core_jobs_panel)
   end
 
   test "workspace tree filters app panels by canvas destination, not active app" do

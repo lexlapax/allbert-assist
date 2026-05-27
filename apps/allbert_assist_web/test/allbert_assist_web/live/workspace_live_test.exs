@@ -380,6 +380,22 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert action_signal.data.permission_decision.permission == :settings_write
   end
 
+  test "workspace create gallery only exposes Settings Central allowed patterns", %{conn: conn} do
+    assert {:ok, _setting} =
+             Settings.put("templates.create.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("templates.allowed_patterns", ["llm_tool"], %{audit?: false})
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?#{[destination: "workspace:create"]}")
+
+    assert has_element?(view, "#workspace-create-pattern-llm_tool")
+    refute has_element?(view, "#workspace-create-pattern-plugin")
+    refute has_element?(view, "#workspace-create-pattern-app")
+    assert has_element?(view, "#workspace-create-param-permission")
+    assert has_element?(view, "#workspace-create-mode-live:not([disabled])")
+  end
+
   test "layout override sets default Canvas destination and reorders launcher only", %{conn: conn} do
     Paths.ensure_home!()
 
@@ -449,6 +465,113 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     action_signal = receive_action_completed("set_provider_credential")
     assert action_signal.data.status == :completed
     assert action_signal.data.permission_decision.permission == :settings_secret_write
+  end
+
+  test "workspace create destination is denied when disabled", %{conn: conn} do
+    {:ok, view, html} = live(conn, ~p"/workspace?destination=workspace:create")
+
+    assert has_element?(view, "#workspace-dest-create")
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:create']")
+    assert has_element?(view, "#workspace-canvas[data-destination='workspace:create']")
+    assert has_element?(view, "#workspace-create-panel[data-enabled='false']")
+    assert has_element?(view, "#workspace-create-gallery")
+    assert has_element?(view, "#workspace-create-params")
+    assert has_element?(view, "#workspace-create-preview")
+    assert has_element?(view, "#workspace-create-validate[data-validation-status='denied']")
+    assert html =~ "Template creation is disabled by Settings Central."
+  end
+
+  test "workspace create renders gallery, params, preview, and validation", %{conn: conn} do
+    assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:create")
+
+    assert has_element?(view, "#workspace-create-panel[data-enabled='true']")
+    assert has_element?(view, "#workspace-create-gallery")
+    assert has_element?(view, "#workspace-create-params")
+    assert has_element?(view, "#workspace-create-preview")
+    assert has_element?(view, "#workspace-create-validate[data-validation-status='ready']")
+
+    assert has_element?(
+             view,
+             "#workspace-create-pattern-llm_tool.workspace-create-pattern-active"
+           )
+
+    assert has_element?(view, "#workspace-create-mode-live:not([disabled])")
+
+    html =
+      view
+      |> element("#workspace-create-params")
+      |> render_change(%{
+        "template" => %{
+          "pattern_id" => "llm_tool",
+          "mode" => "developer_scaffold",
+          "name" => "custom_weather_tool",
+          "description" => "Reviewed weather lookup.",
+          "instruction" => "Return a concise response.",
+          "permission" => "read_only",
+          "version" => "0.1.0"
+        }
+      })
+
+    assert html =~ "dynamic_manifest.json"
+    assert html =~ "source/lib/action.ex"
+    assert has_element?(view, "#workspace-create-validate[data-validation-status='ready']")
+  end
+
+  test "workspace create disables unsupported live mode", %{
+    conn: conn
+  } do
+    assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:create")
+
+    view
+    |> element("#workspace-create-pattern-plugin")
+    |> render_click()
+
+    assert has_element?(view, "#workspace-create-mode-live[disabled]")
+  end
+
+  test "workspace create submit does not write or integrate without registered action", %{
+    conn: conn
+  } do
+    assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
+
+    slug = "new_llm_tool"
+    scaffold_target = Path.join(File.cwd!(), "plugins/#{slug}")
+    draft_target = Path.join([Paths.home(), "dynamic_plugins", "drafts", slug])
+
+    refute File.exists?(scaffold_target)
+    refute File.exists?(draft_target)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:create")
+    subscribe_actions()
+
+    mode_html =
+      view
+      |> element("#workspace-create-mode-live")
+      |> render_click()
+
+    assert mode_html =~ ~s(data-output-mode="live_integration")
+    assert has_element?(view, "#workspace-create-run:not([disabled])")
+
+    html =
+      view
+      |> element("#workspace-create-run")
+      |> render_click()
+
+    assert html =~
+             "Live integration requires the v0.36 gate and v0.37 confirmation path through the registered template action boundary."
+
+    refute File.exists?(scaffold_target)
+    refute File.exists?(draft_target)
+
+    refute_received {:signal,
+                     %{
+                       type: "allbert.action.completed",
+                       data: %{action_name: "create_from_template"}
+                     }}
   end
 
   test "workspace Settings Central approves, denies, and revokes through registered actions",
