@@ -6,9 +6,10 @@ Status: research, not binding. Implementation plan lives in
 ## Purpose
 
 Specify the deterministic retrieval algorithm for v0.39b Active Memory. The
-v0.21 memory review/retrieval substrate provides reviewed-promoted memory
-chunks; v0.39b runs a deterministic scoring pass before each reply to surface
-top-K chunks scoped to `{thread_id, active_app, identity_namespace}`.
+v0.21 memory review/retrieval substrate provides reviewed memory chunks;
+v0.39b runs a deterministic scoring pass before each direct-answer model reply
+to surface top-K `review_status: :kept` chunks scoped to
+`{thread_id, active_app, identity_namespace}`.
 
 This note captures the algorithm so v0.39b's plan can reference it and so
 operators can audit and replay retrieval decisions.
@@ -29,15 +30,14 @@ operators can audit and replay retrieval decisions.
 
 ## Scoring Function
 
-For each candidate chunk in scope `{thread_id, active_app,
-identity_namespace}`:
+For each candidate chunk with `review_status: :kept` in scope
+`{thread_id, active_app, identity_namespace}`:
 
 ```
 score(chunk, query) =
   recency_decay(chunk.updated_at)
   × thread_affinity_boost(chunk, thread_id)
   × identity_inclusion_boost(chunk, identity_namespace)
-  × explicit_pin_boost(chunk)
   × lexical_match(query, chunk)
 ```
 
@@ -61,14 +61,20 @@ recency_decay(t) = 2 ^ (- (now - t) / half_life)
 
 ### Factor 2: `thread_affinity_boost(chunk, thread_id)`
 
-- 1.0 if `chunk.metadata.thread_id == thread_id` (chunk was written in or
-  promoted from the current thread).
-- 0.6 if `chunk.metadata.active_app == active_app` (chunk is app-scoped but
-  not thread-scoped).
+- 1.0 if the chunk carries the current thread through the v0.21 promotion
+  `source_ref`/metadata convention (chunk was written in or promoted from the
+  current thread).
+- 0.6 if the chunk's normalized `app_id` matches `active_app` (chunk is
+  app-scoped but not thread-scoped).
 - 0.3 otherwise (general operator memory).
 
-Tunable via `active_memory.score_weights.thread_affinity` map. Defaults shown
-above.
+Tunable via flattened settings:
+
+- `active_memory.score_weights.thread_affinity.same_thread`
+- `active_memory.score_weights.thread_affinity.same_app`
+- `active_memory.score_weights.thread_affinity.general`
+
+Defaults shown above.
 
 ### Factor 3: `identity_inclusion_boost(chunk, identity_namespace)`
 
@@ -80,14 +86,7 @@ Tunable via `active_memory.score_weights.identity_inclusion`. The default
 1.5 is a deliberate small boost so identity chunks tend to surface for
 identity-relevant queries without dominating.
 
-### Factor 4: `explicit_pin_boost(chunk)`
-
-- 2.0 if `chunk.metadata.pinned == true` (operator-pinned during v0.21 review).
-- 1.0 otherwise.
-
-Tunable via `active_memory.score_weights.explicit_pin`.
-
-### Factor 5: `lexical_match(query, chunk)`
+### Factor 4: `lexical_match(query, chunk)`
 
 Simple term-overlap fraction:
 
@@ -112,20 +111,26 @@ Floor: `lexical_match = 0.0` excludes the chunk from the result set entirely
 
 ## Top-K Selection
 
-1. Filter candidates by scope `{thread_id, active_app, identity_namespace}`.
-2. Filter candidates by `recency_decay > 0` floor.
-3. Filter candidates by `lexical_match > 0`.
-4. Compute full score for each remaining candidate.
-5. Sort descending by score; **stable sort** on `chunk.id` as tiebreaker so
+1. Filter candidates to `review_status: :kept`.
+2. Filter candidates by scope `{thread_id, active_app, identity_namespace}`.
+   Identity-root entries are treated as system `identity` chunks only when
+   they derive or declare `origin: :system`, `namespace: :identity`, and
+   `app_id: nil`.
+   Neutral/core context means `active_app` is `nil` or `:allbert`; in that
+   mode only identity chunks and general chunks are eligible.
+3. Filter candidates by `recency_decay > 0` floor.
+4. Filter candidates by `lexical_match > 0`.
+5. Compute full score for each remaining candidate.
+6. Sort descending by score; **stable sort** on `chunk.id` as tiebreaker so
    determinism is preserved across runs.
-6. Take top `active_memory.top_k` (default 5).
-7. Trim each chunk body to `active_memory.chunk_max_bytes` (default 2048)
+7. Take top `active_memory.top_k` (default 5).
+8. Trim each chunk body to `active_memory.chunk_max_bytes` (default 2048)
    bytes; truncation is deterministic (truncate at byte boundary, append
    ellipsis only if truncated).
 
 ## Trace Metadata
 
-Each retrieval emits a `### Active Memory` subsection in the runtime turn
+Each retrieval emits a `## Active Memory` section in the runtime turn
 trace with:
 
 - `query_terms_normalized` — the term list after `normalize/1`.
@@ -135,9 +140,14 @@ trace with:
 - `candidate_count_after_filter` — count after scope + decay + lexical
   filters.
 - `retrieved_chunks` — list of `{chunk_id, score, recency_decay,
-  thread_affinity, identity_inclusion, explicit_pin, lexical_match}`.
+  thread_affinity, identity_inclusion, lexical_match}`.
 - `excluded_chunks_sample` — bounded sample of up to 5 highest-scoring
   candidates that didn't make the top-K, for operator debugging.
+
+The section is placed after `## Intent Candidates` and before
+`## Memory Review`. The intent classifier and intent candidate scorer do not
+receive raw Active Memory chunks; retrieval runs only after direct-answer
+selection and before direct-answer model prompt composition.
 
 ## Determinism Test
 
@@ -154,7 +164,7 @@ order across runs. This is the v0.39b acceptance gate for the algorithm.
   becomes hard.
 - Markdown-first inspectability is a core Allbert principle; opaque
   embedding-scored retrieval is harder to operator-audit.
-- The deterministic lexical scorer is sufficient for ~95% of "remember this
+- The deterministic lexical scorer is sufficient for most "remember this
   preference / surface the right context" cases. Embedding retrieval should
   enter as a v0.46+ advisory provider per ADR 0021 once the deterministic
   baseline is calibrated.
@@ -171,6 +181,8 @@ post-1.0 advisory-provider work per ADR 0021:
 - LLM-based query expansion before retrieval.
 - Adaptive top-K based on query length or model context window.
 - Recency curves other than exponential decay.
+- Operator memory pinning and pin-score boosts, after the memory review/write
+  path owns a real `pinned` metadata field.
 
 ## References
 
