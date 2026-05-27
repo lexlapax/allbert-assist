@@ -98,18 +98,22 @@ Recent milestone:
 Next milestones:
 
 - Post-`v0.38`: the planned 1.0 arc shifts from substrate work to operator
-  reach: first-run onboarding and provider control (`v0.39`), identity slot
-  and deterministic Active Memory retrieval (`v0.39b`), MCP client integration
-  (`v0.40`), MCP-first integration pack with calendar/mail/GitHub panels plus
-  notes/files native reference plugin (`v0.41`), browser research (`v0.42`),
-  Discord/Slack channels with the channel-approval-primitive contract
-  (`v0.43`), Plan/Build workflows under `<ALLBERT_HOME>/workflows/` (`v0.44`),
-  marketplace lite — data shape + Allbert-author seeds only (`v0.45`),
-  operator-supervised self-improvement (`v0.46`), voice (`v0.47`), vision
-  (`v0.48`), mobile messaging WhatsApp/Signal/Matrix (`v0.49`), MCP server
-  mode (`v0.49b`), final hardening/export-import/settings-schema-migration/RC
-  evidence (`v0.50`), and a no-new-features **tiered** public contract freeze
-  at `v1.0`.
+  reach: first-run onboarding and provider control (`v0.39`) — a guided
+  setup objective, the new `providers.*.endpoint_kind` field, and a
+  two-branch provider doctor (credentialed-remote + local-endpoint) with
+  the redacted return shape pinned by ADR 0047 as a Tier-1 freeze
+  candidate; identity slot (declared as a system memory namespace, surfaced
+  as a 5th `Memory` category) and deterministic Active Memory retrieval
+  (`v0.39b`); MCP client integration (`v0.40`); MCP-first integration pack
+  with calendar/mail/GitHub panels plus notes/files native reference plugin
+  (`v0.41`); browser research (`v0.42`); Discord/Slack channels with the
+  channel-approval-primitive contract (`v0.43`); Plan/Build workflows under
+  `<ALLBERT_HOME>/workflows/` (`v0.44`); marketplace lite — data shape +
+  Allbert-author seeds only (`v0.45`); operator-supervised self-improvement
+  (`v0.46`); voice (`v0.47`); vision (`v0.48`); mobile messaging
+  WhatsApp/Signal/Matrix (`v0.49`); MCP server mode (`v0.49b`); final
+  hardening/export-import/settings-schema-migration/RC evidence (`v0.50`);
+  and a no-new-features **tiered** public contract freeze at `v1.0`.
 
 ## Start Here
 

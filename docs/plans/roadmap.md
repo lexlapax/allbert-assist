@@ -198,12 +198,19 @@ Dependency order from here:
     templates via Mix tasks, operator workspace flows, and a Canvas Create
     surface, reusing the v0.36 sandbox and v0.37 loader.
 38. v0.39 First-run onboarding and provider control: guided operator setup
-    over existing objectives/actions/settings, model/provider selection, and
-    provider doctor (credentialed-remote + local-endpoint branches). Active
-    Memory and identity slot moved to v0.39b.
+    over existing objectives/actions/settings, model/provider selection,
+    explicit `providers.*.endpoint_kind` field, two-branch provider doctor
+    (credentialed-remote + local-endpoint) with shared redacted return shape
+    pinned by ADR 0047, optional channel registration, optional
+    `intent.model_assist_enabled` toggle, default-profile hygiene fix, and
+    cross-OS first-run smoke (macOS, Linux, Windows/WSL2). Active Memory and
+    identity slot moved to v0.39b.
 39. v0.39b Identity slot and Active Memory: optional inert `identity` memory
-    namespace plus deterministic pre-reply reviewed-memory retrieval scoped to
-    `{thread_id, active_app, identity}`. Algorithm spec'd in
+    namespace declared through a new system-namespace declarer, `:identity`
+    added as a 5th `Memory` category, plus deterministic pre-reply
+    reviewed-memory retrieval scoped to
+    `{thread_id, active_app, identity}` with `### Active Memory` trace
+    metadata. Algorithm spec'd in
     `docs/research/active-memory-retrieval.md`.
 40. v0.40 MCP client integration: explicit MCP server configuration, trust
     tier, Resource Access mapping for `mcp://` resources, and registered MCP
@@ -2140,8 +2147,10 @@ Shipped direction:
 
 Plan: `docs/plans/v0.39-plan.md`
 Request flow: `docs/plans/v0.39-request-flow.md`
+ADR: `docs/adr/0047-provider-doctor-contract.md`
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not
+Status: planned; first revision after the post-v0.38 readiness review on
+2026-05-27. Promoted from `docs/archives/version-1.0-planning-03.md`; not
 implemented. Split from the original "Onboarding + Provider + Identity + Active
 Memory" bundle — identity slot and Active Memory now ship in v0.39b so each
 sub-milestone has its own focused scope.
@@ -2149,14 +2158,28 @@ sub-milestone has its own focused scope.
 Expected direction:
 
 - Add onboarding as a registered objective that can run from CLI or
-  `/workspace`.
+  `/workspace?destination=workspace:onboard` (new entry in `@workspace_tools`).
 - Add provider/model control-plane UX over existing Settings Central
   provider/model profile schema.
-- Provider doctor has two code paths: `:credentialed_remote` (bounded probe
-  with redacted summary) and `:local_endpoint` (reachability + model presence
-  via `/api/tags` or equivalent). Both return the same redacted summary shape.
+- Add explicit `providers.*.endpoint_kind` field
+  (`:credentialed_remote | :local_endpoint`) with derivation default and
+  operator-overridable safe-key write. Branch selection is field-driven, not
+  heuristic.
+- Provider doctor has two code paths matching `endpoint_kind`:
+  `:credentialed_remote` (bounded probe with redacted summary) and
+  `:local_endpoint` (reachability + model presence via `/api/tags` or
+  equivalent). Both return the same redacted summary shape pinned by
+  ADR 0047 (Tier-1 freeze candidate for v1.0).
 - Doctor reports model availability, context window, deprecation hints, and
   recent rate-limit signals — not just credential validity.
+- Bump the shipped `model_profiles.local.model` default from the fictional
+  `gemma4:26b` to a real, commonly-available Ollama model so a fresh-install
+  doctor passes without manual model-pulling.
+- Onboarding's last optional step toggles `intent.model_assist_enabled`
+  (default `false` today) explicitly so picking a profile actually wires up
+  model-assisted intent ranking.
+- Cross-OS first-run on macOS, Linux, and Windows/WSL2 is a v0.39
+  acceptance requirement per the v1.0 acceptance matrix items 1 and 2.
 - Drop the placeholder "no hidden failover; explicit operator opt-in only"
   wording. Model fallback policy is parked (see `future-features.md`).
 
@@ -2165,9 +2188,12 @@ Expected direction:
 Plan: `docs/plans/v0.39b-plan.md`
 Request flow: `docs/plans/v0.39b-request-flow.md`
 Research note: `docs/research/active-memory-retrieval.md`
+Operator doc: `docs/operator/active-memory.md` (stub shipped with the v0.39
+plan first revision; filled in during v0.39b M5).
 
-Status: planned. New slot split off from v0.39 in the post-v0.37 planning
-pass. Active Memory retrieval has architectural risk that v0.39's onboarding
+Status: planned; first revision after the post-v0.38 readiness review on
+2026-05-27. New slot split off from v0.39 in the post-v0.37 planning pass.
+Active Memory retrieval has architectural risk that v0.39's onboarding
 should not block.
 
 Expected direction:
@@ -2175,15 +2201,31 @@ Expected direction:
 - Add an optional inert `identity` memory namespace under
   `<ALLBERT_HOME>/memory/identity/` for operator-editable personality/context
   material. Inert content; never grants permission or executes.
+- Declare `identity` as a **system memory namespace** through a new
+  `AllbertAssist.Memory.SystemNamespaces` module registered via the existing
+  app registry namespace surface with a reserved `:_system` app id. Extends
+  but preserves the v0.27 app-namespace contract.
+- Add `:identity` as a 5th value in `AllbertAssist.Memory.@categories`
+  alongside `:notes`, `:preferences`, `:traces`, `:skills`.
+  `<ALLBERT_HOME>/memory/identity/` becomes the category root; entries are
+  ordinary markdown files surfaced through existing `Memory` helpers.
 - Add deterministic pre-reply Active Memory retrieval using the existing v0.21
   memory review/retrieval substrate. Scope: `{thread_id, active_app, identity}`.
+  Neutral context (`active_app: nil`) surfaces identity + general chunks only,
+  excluding app-tagged chunks for non-active apps.
 - Algorithm: deterministic recency-weighted lexical scoring over
   reviewed-promoted entries. Top-K bounded (default K=5 chunks, ≤2KB each). No
   embeddings; same query + same memory state returns the same chunks
-  byte-for-byte (replayable from traces). Embedding-backed retrieval is a
-  future advisory provider per ADR 0021, not v0.39b.
+  byte-for-byte (replayable from traces). Snapshot rule: concurrent v0.21
+  promotions during scoring land on the next turn. Embedding-backed retrieval
+  is a future advisory provider per ADR 0021, not v0.39b.
 - Trace metadata renders the retrieved chunk ids, scoring breakdown, and any
-  excluded candidates so retrieval is operator-auditable.
+  excluded candidates so retrieval is operator-auditable. `### Active Memory`
+  subsection is placed after `### Intent Candidates` and before
+  `### Memory Review` in the per-turn trace.
+- Extends `mix allbert.memory` with `list --namespace` / `list --category`
+  flags and a new `mix allbert.memory retrieve --query` developer/operator
+  helper.
 
 ## v0.40: MCP Client Integration
 
@@ -2505,7 +2547,8 @@ disposable-home checkpoint the release cannot ship without:
 
 1. First-run setup succeeds on macOS, Linux, and Windows/WSL2 (v0.39).
 2. Operator can choose local Ollama, OpenAI, Anthropic, or OpenRouter through
-   the provider doctor (v0.39).
+   the provider doctor (v0.39). The doctor return shape is pinned by
+   ADR 0047 and becomes a Tier-1 freeze contract at v1.0.
 3. Operator can connect at least one remote channel — Telegram, email,
    Discord, Slack, WhatsApp, Signal, or Matrix (v0.16 / v0.43 / v0.49).
 4. Operator can configure and use at least one MCP server under policy
