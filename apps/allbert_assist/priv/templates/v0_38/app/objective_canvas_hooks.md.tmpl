@@ -1,0 +1,7 @@
+# {{display_name}} Objective And Canvas Hooks
+
+This scaffold does not start private goal loops, schedules, workers, or canvas
+writers. Future objective work should use `AllbertAssist.Objectives` or
+registered objective actions. Future canvas work should emit through the
+workspace fragment/canvas boundary and the `:workspace_canvas_write`
+permission class where writes are required.

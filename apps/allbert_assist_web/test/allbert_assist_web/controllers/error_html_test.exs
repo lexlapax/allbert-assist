@@ -1,5 +1,5 @@
 defmodule AllbertAssistWeb.ErrorHTMLTest do
-  use AllbertAssistWeb.ConnCase, async: true
+  use AllbertAssistWeb.ConnCase, async: false
 
   # Bring render_to_string/4 for testing custom views
   import Phoenix.Template, only: [render_to_string: 4]
