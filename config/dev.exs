@@ -1,9 +1,15 @@
 import Config
 
 database_path =
-  case System.get_env("DATABASE_PATH") || System.get_env("ALLBERT_HOME") do
-    nil -> Path.expand("../allbert_assist_dev.db", __DIR__)
-    home -> Path.join(home, "allbert_assist_dev.db")
+  cond do
+    path = System.get_env("DATABASE_PATH") ->
+      Path.expand(path)
+
+    home = System.get_env("ALLBERT_HOME") || System.get_env("ALLBERT_HOME_DIR") ->
+      Path.join(home, "allbert_assist_dev.db")
+
+    true ->
+      Path.expand("../allbert_assist_dev.db", __DIR__)
   end
 
 # Configure your database

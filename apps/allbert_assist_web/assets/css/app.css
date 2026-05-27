@@ -128,6 +128,11 @@
   --workspace-muted: var(--allbert-text-soft);
   --workspace-accent: var(--allbert-accent);
   --workspace-focus: var(--allbert-accent);
+  --workspace-field-bg: #f7fbff;
+  --workspace-field-bg-disabled: #e8f0f8;
+  --workspace-field-border: #b8c8da;
+  --workspace-field-fg: #0f172a;
+  --workspace-field-placeholder: #64748b;
   background: var(--workspace-bg);
   color: var(--workspace-fg);
   font-family: var(--allbert-font-family);
@@ -148,6 +153,11 @@
   --allbert-warn-soft: #422006;
   --allbert-danger: #f87171;
   --allbert-success: #4ade80;
+  --workspace-field-bg: #eef6ff;
+  --workspace-field-bg-disabled: #d8e4f0;
+  --workspace-field-border: #8da2ba;
+  --workspace-field-fg: #0b1220;
+  --workspace-field-placeholder: #475569;
 }
 
 #workspace-shell[data-high-contrast="true"] {
@@ -160,6 +170,11 @@
   --allbert-accent: #123a5a;
   --allbert-accent-contrast: #ffffff;
   --allbert-accent-soft: #dbeafe;
+  --workspace-field-bg: #ffffff;
+  --workspace-field-bg-disabled: #f1f5f9;
+  --workspace-field-border: #000000;
+  --workspace-field-fg: #000000;
+  --workspace-field-placeholder: #111827;
   border-width: 2px;
 }
 
@@ -173,6 +188,11 @@
   --allbert-accent: #bfdbfe;
   --allbert-accent-contrast: #000000;
   --allbert-accent-soft: #172554;
+  --workspace-field-bg: #ffffff;
+  --workspace-field-bg-disabled: #e5e7eb;
+  --workspace-field-border: #ffffff;
+  --workspace-field-fg: #000000;
+  --workspace-field-placeholder: #111827;
 }
 
 #workspace-shell .workspace-header,
@@ -189,6 +209,39 @@
 #workspace-shell .text-base-content\/60,
 #workspace-shell .text-base-content\/70 {
   color: var(--workspace-muted);
+}
+
+#workspace-shell
+  :where(
+    input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea,
+    .input,
+    .select,
+    .textarea
+  ) {
+  border-color: var(--workspace-field-border);
+  background-color: var(--workspace-field-bg);
+  color: var(--workspace-field-fg);
+  caret-color: var(--workspace-field-fg);
+  color-scheme: light;
+}
+
+#workspace-shell :where(input, textarea)::placeholder {
+  color: var(--workspace-field-placeholder);
+  opacity: 1;
+}
+
+#workspace-shell :where(select option) {
+  background: #ffffff;
+  color: var(--workspace-field-fg);
+}
+
+#workspace-shell :where(input, select, textarea):disabled {
+  border-color: color-mix(in srgb, var(--workspace-field-border) 65%, transparent);
+  background-color: var(--workspace-field-bg-disabled);
+  color: color-mix(in srgb, var(--workspace-field-fg) 58%, transparent);
+  opacity: 1;
 }
 
 .allbert-appbar {

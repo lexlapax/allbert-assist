@@ -23,7 +23,7 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is `v0.38.0`. `/workspace` is the operator home:
+The current implementation is `v0.38.1`. `/workspace` is the operator home:
 chat is the primary spine, the launcher is view-only, and Canvas shows one
 destination at a time (Output, an app, or a workspace tool).
 
@@ -38,7 +38,11 @@ creation for reviewed plugin, app, LLM-tool, scheduled-flow, and objective
 workflow patterns through developer Mix tasks and the default-off
 `workspace:create` Canvas destination. Templated live integration writes only
 LLM-tool action drafts and still requires the v0.36 sandbox gate plus the
-v0.37 operator-confirmed loader.
+v0.37 operator-confirmed loader. Disposable v0.38 validation runs can set
+`ALLBERT_TEMPLATE_SMOKE=1` so generator and workspace developer scaffolds write
+under `$ALLBERT_HOME/template-smoke/` instead of the in-development `plugins/`
+tree. With an explicit `ALLBERT_HOME` or `ALLBERT_HOME_DIR`, `mix phx.server`
+also bootstraps a missing or empty dev SQLite database before Phoenix starts.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).

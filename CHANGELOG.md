@@ -10,14 +10,51 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.38.1 - Templated Creation Release Polish
+
+Status: released and tagged as `v0.38.1` on 2026-05-27 after operator manual
+validation.
+
+### Changed
+
+- Centralized disposable template validation output in
+  `AllbertAssist.Templates.Scaffold`: `ALLBERT_TEMPLATE_SMOKE=1` now redirects
+  default developer scaffolds to `<ALLBERT_HOME>/template-smoke/<slug>/` for
+  both Mix generator smoke runs and the `/workspace` Create developer-scaffold
+  path. Explicit `--target` still wins for CLI generators.
+- Updated operator and release docs with the accepted manual-validation path:
+  disposable Allbert Home, Phoenix server startup, CLI generator checks,
+  `/workspace` Create checks, live LLM-tool draft checks, and cleanup.
+- Added dev-server bootstrap for fresh manual-validation homes: when
+  `ALLBERT_HOME` or `ALLBERT_HOME_DIR` is set and `DATABASE_PATH` is not set,
+  `mix phx.server` now creates and migrates a missing or empty dev SQLite
+  database before Phoenix starts. `ALLBERT_DEV_AUTO_MIGRATE=1` also runs
+  pending migrations for an existing dev database.
+- Adjusted workspace LiveView form controls so text inputs, textareas, and
+  selects use light blue/gray field surfaces with dark text across normal and
+  dark workspace themes.
+- Umbrella, core app, and web app version metadata are bumped to `0.38.1`.
+
+### Verification
+
+- Operator manual validation accepted the v0.38 CLI and web Create paths with
+  disposable output under Allbert Home and no generated scaffold pollution in
+  the repo `plugins/` tree.
+- Fresh-home Phoenix startup was verified through `mix phx.server` without a
+  separate operator migration command.
+- Release gates passed after the disposable-scaffold and shared-writer updates:
+  focused scaffold coverage, `mix compile --warnings-as-errors`,
+  `mix credo --strict`, `mix dialyzer`, and `mix precommit`.
+
 ## v0.38.0 - Templated Creation
 
-Status: implemented as `v0.38.0` on 2026-05-27 and ready for operator manual
-verification. The release ships deterministic, reviewed template patterns for
-plugin, app, LLM-tool, scheduled-flow, and objective-workflow scaffolds.
-Developer outputs are inert source. Operator live creation writes only
-LLM-tool/action dynamic drafts and then reuses the v0.36 sandbox gate and the
-v0.37 operator-confirmed live loader.
+Status: initial `v0.38.0` implementation tagged on 2026-05-27, superseded by
+the `v0.38.1` manual-validation polish release. The release ships
+deterministic, reviewed template patterns for plugin, app, LLM-tool,
+scheduled-flow, and objective-workflow scaffolds. Developer outputs are inert
+source. Operator live creation writes only LLM-tool/action dynamic drafts and
+then reuses the v0.36 sandbox gate and the v0.37 operator-confirmed live
+loader.
 
 Plan: `docs/plans/v0.38-plan.md`.
 Request flow: `docs/plans/v0.38-request-flow.md`.
