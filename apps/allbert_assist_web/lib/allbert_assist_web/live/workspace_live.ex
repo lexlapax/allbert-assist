@@ -37,7 +37,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   @default_user_id "local"
   @default_session_id "web-local"
   @default_prompt_placeholder "Ask Allbert anything…"
-  @workspace_tools ~w(jobs objectives confirmations security settings)
+  @workspace_tools ~w(create jobs objectives confirmations security settings)
 
   @impl true
   def mount(params, _session, socket) do

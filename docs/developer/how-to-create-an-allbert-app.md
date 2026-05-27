@@ -30,8 +30,9 @@ mix allbert.gen.app my_app --force
 # overwrite an existing root only after confirming the preview/diff
 ```
 
-M2 also ships `mix allbert.gen.plugin` for source-tree plugin scaffolds.
-`mix allbert.gen.tool` and `mix allbert.gen.flow` are planned later in v0.38.
+v0.38 also ships `mix allbert.gen.plugin` for source-tree plugin scaffolds,
+`mix allbert.gen.tool` for LLM-tool action scaffolds, and
+`mix allbert.gen.flow` for scheduled-flow and objective-workflow scaffolds.
 Generated output is **inert**: no compile path change, trust grant, permission
 grant, route addition, skill enablement, or live registration. Generated
 theme/snippet/layout stubs respect the v0.34/v0.35 constraints — they document

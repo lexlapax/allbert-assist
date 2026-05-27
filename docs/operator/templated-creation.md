@@ -1,8 +1,12 @@
 # Operator Guide: Templated Creation
 
-Status: v0.38 implementation in progress. Developer plugin/app scaffolds and
-their Mix tasks are implemented. The `/workspace` `workspace:create` operator
-surface lands in a later v0.38 milestone.
+Status: v0.38 implementation in progress. Developer scaffolds and Mix tasks
+are implemented for plugin, app, LLM-tool, scheduled-flow, and objective
+patterns. The `/workspace` `workspace:create` operator surface is implemented
+as a view/compose panel with gallery, parameter form, preview, validation, and
+bounded create-attempt diagnostics. Effectful scaffold writes and live
+integration land behind registered template actions in a later v0.38
+milestone.
 
 ## What It Is
 
@@ -77,6 +81,9 @@ mix allbert.security review --recent --limit 25
      the draft under `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/` with
      `producer: "template_pattern"`, runs the v0.36 sandbox trial/gate, and
      records evidence.
+   The M4 surface is preview-only; choosing **Create** reports the action
+   boundary required for the selected mode and writes no project files or
+   dynamic draft files.
 6. For live integration, approve the v0.37 confirmation record from a
    permitted surface (`cli` or `liveview`); Telegram/email/cross-channel
    approval is denied.
