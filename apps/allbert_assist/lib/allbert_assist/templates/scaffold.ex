@@ -7,6 +7,7 @@ defmodule AllbertAssist.Templates.Scaffold do
   file set and verifies every destination stays under the target root.
   """
 
+  alias AllbertAssist.Paths
   alias AllbertAssist.Templates
 
   @doc "Render and write a developer scaffold."
@@ -57,11 +58,26 @@ defmodule AllbertAssist.Templates.Scaffold do
   defp target_root(params, opts) do
     target = Keyword.get(opts, :target)
     slug = Map.fetch!(params, "slug")
-    raw = target || Path.join(["plugins", slug])
+
+    raw =
+      cond do
+        target ->
+          target
+
+        Keyword.get(opts, :smoke?, false) or smoke_env?() ->
+          Path.join([Paths.home(), "template-smoke", slug])
+
+        true ->
+          Path.join(["plugins", slug])
+      end
 
     with :ok <- reject_parent_segments(raw) do
       {:ok, Path.expand(raw, File.cwd!())}
     end
+  end
+
+  defp smoke_env? do
+    System.get_env("ALLBERT_TEMPLATE_SMOKE") in ~w[1 true TRUE yes YES on ON]
   end
 
   defp reject_parent_segments(path) when is_binary(path) do
