@@ -1,11 +1,11 @@
 # Allbert Template Patterns
 
-Status: v0.38 implementation in progress. M1 implemented the registry and
-deterministic renderer. M2 implemented the `plugin` and `app` developer
-scaffolds. M3 implemented the `llm_tool`, `flow`, and `objective` scaffolds
-plus `mix allbert.gen.tool` and `mix allbert.gen.flow`. M4 implemented the
-`workspace:create` operator Create surface. M5 implemented registered template
-actions and LLM-tool dynamic-draft creation.
+Status: implemented in v0.38.0 and ready for operator manual verification.
+The release ships the registry and deterministic renderer, `plugin` and `app`
+developer scaffolds, `llm_tool`, `flow`, and `objective` scaffolds,
+`mix allbert.gen.{plugin,app,tool,flow}`, the `workspace:create` operator
+Create surface, registered template actions, LLM-tool dynamic-draft creation,
+and executable v0.38 security eval coverage.
 
 Template patterns are vetted, parameterized skeletons that produce Allbert
 plugin/app/action/objective artifacts. They are an accelerator over the

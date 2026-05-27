@@ -23,7 +23,7 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is `v0.37.5`. `/workspace` is the operator home:
+The current implementation is `v0.38.0`. `/workspace` is the operator home:
 chat is the primary spine, the launcher is view-only, and Canvas shows one
 destination at a time (Output, an app, or a workspace tool).
 
@@ -33,7 +33,12 @@ Security Central, local traces, markdown memory, jobs, objectives, reviewed
 plugin apps, StockSage as the reference app, Allbert Home-based theming/layout
 overrides, a default-off report-only Elixir/OTP sandbox and gate runner, and a
 default-off dynamic draft/live integration path for reviewed read-only and
-delegated memory/network action artifacts.
+delegated memory/network action artifacts. v0.38 adds deterministic templated
+creation for reviewed plugin, app, LLM-tool, scheduled-flow, and objective
+workflow patterns through developer Mix tasks and the default-off
+`workspace:create` Canvas destination. Templated live integration writes only
+LLM-tool action drafts and still requires the v0.36 sandbox gate plus the
+v0.37 operator-confirmed loader.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -44,12 +49,13 @@ Allbert can accept operator input through CLI and the `/workspace` Phoenix
 LiveView, route effectful work through registered Jido actions, require durable
 confirmations, store local conversation history, run scheduled jobs, frame
 cross-turn objectives, inspect traces, review markdown memory, and host
-reviewed plugin apps through workspace panels. It can also build disposable
-Elixir/OTP sandbox bundles, produce report-only sandbox/gate evidence, record
-dynamic draft requests, and live-register gate-passed dynamic actions after
-explicit operator confirmation in a disposable Allbert Home. Generated actions
-can be pure read-only or delegate memory/network effects through reviewed
-facades with their normal confirmations.
+reviewed plugin apps through workspace panels. It can also scaffold reviewed
+plugin/app/tool/flow patterns, build disposable Elixir/OTP sandbox bundles,
+produce report-only sandbox/gate evidence, record dynamic draft requests, and
+live-register gate-passed dynamic actions after explicit operator confirmation
+in a disposable Allbert Home. Generated actions can be pure read-only or
+delegate memory/network effects through reviewed facades with their normal
+confirmations.
 
 StockSage is the reference plugin app. It exercises the app, objective,
 security, native-agent, LiveView surface, memory-sync, and canvas contracts
@@ -75,15 +81,18 @@ reviewed surfaces, actions remain policy-bound, objectives carry long-running
 work, memory stays inspectable, and generated apps inherit contracts that were
 manually proven first.
 
-Near-term milestones:
+Recent milestone:
 
-- `v0.38`: templated creation — vetted plugin/app/LLM-tool/scheduled-flow/code
+- `v0.38`: templated creation - vetted plugin/app/LLM-tool/scheduled-flow/code
   templates via Mix tasks (`--target` defaults to `./plugins/<name>`), operator
   workspace flows, and a Canvas Create surface, reusing the v0.36 sandbox and
   v0.37 loader. Live integration in v0.38 covers the LLM-tool (action) template
   only; plugin, app, scheduled/chron flow, and objective workflow patterns are
   developer-scaffold-only because the v0.37.5 loader still rejects their
   artifact shapes as live targets.
+
+Next milestones:
+
 - Post-`v0.38`: the planned 1.0 arc shifts from substrate work to operator
   reach: first-run onboarding and provider control (`v0.39`), identity slot
   and deterministic Active Memory retrieval (`v0.39b`), MCP client integration
@@ -113,8 +122,8 @@ Near-term milestones:
   and gate-runner contract.
 - [docs/plans/v0.37-plan.md](docs/plans/v0.37-plan.md): released dynamic
   draft, delegated facade, and gated live-integration milestone.
-- [docs/plans/v0.38-plan.md](docs/plans/v0.38-plan.md): templated creation
-  milestone after v0.37.
+- [docs/plans/v0.38-plan.md](docs/plans/v0.38-plan.md): implemented templated
+  creation milestone after v0.37.
 
 ## Local Development
 

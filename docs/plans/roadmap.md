@@ -2091,16 +2091,17 @@ ADRs: `docs/adr/0036-templated-creation-and-pattern-registry.md`,
 `docs/adr/0015-allbert-app-contract-and-surface-dsl.md`,
 `docs/adr/0017-allbert-plugin-contract.md`
 
-Status: final-pass implementation-ready (unstarted). The curated,
-deterministic creation experience that sits on top of the v0.36 sandbox and
-v0.37 loader: vetted templates exposed through Mix tasks, operator-facing
-workspace flows, and a Canvas Create surface.
+Status: implemented as `v0.38.0` through M6 closeout on 2026-05-27 and ready
+for operator manual verification. The curated, deterministic creation
+experience sits on top of the v0.36 sandbox and v0.37 loader: vetted templates
+are exposed through Mix tasks, operator-facing workspace flows, and a Canvas
+Create surface.
 
 Prerequisite: v0.36 sandbox/gate runner; v0.37 generation/loader engine; the
 v0.27-v0.35 contract shapes; the v0.25 Jido.AI pattern; and the v0.34 Canvas
 destination model.
 
-Expected direction:
+Shipped direction:
 
 - A `TemplatePattern` registry of vetted, parameterized patterns: plugin, app,
   LLM tool, scheduled/chron flow, objective workflow, and extensible templated
