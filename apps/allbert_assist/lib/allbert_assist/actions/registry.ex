@@ -93,6 +93,10 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Skills.SearchOnlineSkills
   alias AllbertAssist.Actions.Skills.ShowOnlineSkill
   alias AllbertAssist.Actions.Skills.ValidateSkill
+  alias AllbertAssist.Actions.Templates.CreateFromTemplate
+  alias AllbertAssist.Actions.Templates.RenderTemplate
+  alias AllbertAssist.Actions.Templates.ScaffoldTemplate
+  alias AllbertAssist.Actions.Templates.ValidateTemplate
   alias AllbertAssist.Actions.Trace.RecordTrace
   alias AllbertAssist.Actions.Workspace.DismissEphemeral
   alias AllbertAssist.Actions.Workspace.ManageTile
@@ -196,7 +200,11 @@ defmodule AllbertAssist.Actions.Registry do
     RunDynamicDraftGate,
     ListDynamicDrafts,
     ShowDynamicDraft,
-    ShowDynamicIntegration
+    ShowDynamicIntegration,
+    RenderTemplate,
+    ValidateTemplate,
+    ScaffoldTemplate,
+    CreateFromTemplate
   ]
 
   @actions @agent_actions ++ @internal_actions

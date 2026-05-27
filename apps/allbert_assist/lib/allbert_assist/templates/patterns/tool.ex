@@ -48,6 +48,7 @@ defmodule AllbertAssist.Templates.Patterns.Tool do
       %{source: "tool/README.md.tmpl", target: "README.md"},
       %{source: "tool/dynamic_manifest.json.tmpl", target: "dynamic_manifest.json"},
       %{source: "tool/action.ex.tmpl", target: "source/lib/action.ex"},
+      %{source: "tool/action_test.exs.tmpl", target: "source/test/action_test.exs"},
       %{source: "tool/delegated_effects.md.tmpl", target: "docs/delegated-effects.md"}
     ]
   end
@@ -66,6 +67,7 @@ defmodule AllbertAssist.Templates.Patterns.Tool do
     slug = Map.fetch!(params, "slug")
     module_basename = Parameters.module_basename(slug)
     action_module = "AllbertAssist.DynamicPlugins.Generated.#{module_basename}.Action"
+    test_module = "AllbertAssist.DynamicPlugins.Generated.#{module_basename}.ActionTest"
     action_name = "template_#{slug}"
     permission = Map.fetch!(params, "permission")
     description = Map.get(params, "description", "")
@@ -77,7 +79,9 @@ defmodule AllbertAssist.Templates.Patterns.Tool do
      |> Map.put("pattern_id", id())
      |> Map.put("action_name", action_name)
      |> Map.put("action_module", action_module)
+     |> Map.put("test_module", test_module)
      |> Map.put("compiled_path", compiled_path(slug))
+     |> Map.put("test_compiled_path", test_compiled_path(slug))
      |> Map.put("permission", permission)
      |> Map.put("permission_atom", permission)
      |> Map.put("facade_name", facade_name(permission))
@@ -86,15 +90,21 @@ defmodule AllbertAssist.Templates.Patterns.Tool do
      |> Map.put("version", version)
      |> Map.put("json_action_name", Jason.encode!(action_name))
      |> Map.put("json_action_module", Jason.encode!(action_module))
+     |> Map.put("json_test_module", Jason.encode!(test_module))
      |> Map.put("json_description", Jason.encode!(description))
      |> Map.put("json_permission", Jason.encode!(permission))
      |> Map.put("json_compiled_path", Jason.encode!(compiled_path(slug)))
+     |> Map.put("json_test_compiled_path", Jason.encode!(test_compiled_path(slug)))
      |> Map.put("description_literal", inspect(description))
      |> Map.put("instruction_literal", inspect(instruction))}
   end
 
   defp compiled_path(slug) do
     "apps/allbert_assist/lib/allbert_assist/dynamic_plugins/generated/#{slug}/action.ex"
+  end
+
+  defp test_compiled_path(slug) do
+    "apps/allbert_assist/test/allbert_assist/dynamic_plugins/generated/#{slug}/action_test.exs"
   end
 
   defp facade_name("memory_write"), do: "append_memory"
