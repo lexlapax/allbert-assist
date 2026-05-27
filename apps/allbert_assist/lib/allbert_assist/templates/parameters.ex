@@ -11,18 +11,28 @@ defmodule AllbertAssist.Templates.Parameters do
   @doc "Validate a pattern parameter schema against raw params."
   @spec validate([map()], map()) :: {:ok, map()} | {:error, term()}
   def validate(schema, params) when is_list(schema) and is_map(params) do
-    Enum.reduce_while(schema, {:ok, %{}}, fn entry, {:ok, acc} ->
-      with {:ok, entry} <- normalize_entry(entry),
-           {:ok, value} <- value_for(entry, params),
-           {:ok, value} <- validate_value(entry, value) do
-        {:cont, {:ok, Map.put(acc, entry.name, value)}}
-      else
+    with {:ok, entries} <- normalize_schema(schema),
+         :ok <- reject_unknown_params(entries, params) do
+      validate_entries(entries, params)
+    end
+  end
+
+  def validate(_schema, _params), do: {:error, :invalid_parameter_input}
+
+  defp validate_entries(entries, params) do
+    Enum.reduce_while(entries, {:ok, %{}}, fn entry, {:ok, acc} ->
+      case validate_entry(entry, params) do
+        {:ok, value} -> {:cont, {:ok, Map.put(acc, entry.name, value)}}
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
   end
 
-  def validate(_schema, _params), do: {:error, :invalid_parameter_input}
+  defp validate_entry(entry, params) do
+    with {:ok, value} <- value_for(entry, params) do
+      validate_value(entry, value)
+    end
+  end
 
   @doc "Add common string identifiers derived from a validated `name` value."
   @spec derive_common(map()) :: {:ok, map()} | {:error, term()}
@@ -76,6 +86,34 @@ defmodule AllbertAssist.Templates.Parameters do
     slug
     |> String.split("_", trim: true)
     |> Enum.map_join("", &capitalize_segment/1)
+  end
+
+  defp normalize_schema(schema) do
+    Enum.reduce_while(schema, {:ok, []}, fn entry, {:ok, acc} ->
+      case normalize_entry(entry) do
+        {:ok, entry} -> {:cont, {:ok, [entry | acc]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, entries} -> {:ok, Enum.reverse(entries)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp reject_unknown_params(entries, params) do
+    allowed = entries |> Enum.map(& &1.name) |> MapSet.new()
+
+    unknown =
+      params
+      |> Map.keys()
+      |> Enum.map(&normalize_name/1)
+      |> Enum.reject(&(is_binary(&1) and MapSet.member?(allowed, &1)))
+
+    case unknown do
+      [] -> :ok
+      values -> {:error, {:unknown_template_parameters, values}}
+    end
   end
 
   defp normalize_entry(entry) when is_map(entry) do
@@ -178,15 +216,12 @@ defmodule AllbertAssist.Templates.Parameters do
   defp validate_pattern(_entry, _value), do: :ok
 
   defp fetch_param(params, name) do
-    cond do
-      Map.has_key?(params, name) ->
-        {:ok, Map.fetch!(params, name)}
+    if Map.has_key?(params, name) do
+      {:ok, Map.fetch!(params, name)}
+    else
+      atom_name = String.to_existing_atom(name)
 
-      Map.has_key?(params, String.to_atom(name)) ->
-        {:ok, Map.fetch!(params, String.to_atom(name))}
-
-      true ->
-        :error
+      if Map.has_key?(params, atom_name), do: {:ok, Map.fetch!(params, atom_name)}, else: :error
     end
   rescue
     ArgumentError -> :error

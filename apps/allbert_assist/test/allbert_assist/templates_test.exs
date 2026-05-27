@@ -48,6 +48,38 @@ defmodule AllbertAssist.TemplatesTest do
     def live_integration?, do: false
   end
 
+  defmodule OversizePattern do
+    @behaviour AllbertAssist.Templates.Pattern
+
+    @impl true
+    def id, do: "oversize"
+
+    @impl true
+    def label, do: "Oversize"
+
+    @impl true
+    def description, do: "Oversize fixture for renderer limit tests."
+
+    @impl true
+    def parameter_schema, do: [%{name: "name", type: :string, required: true}]
+
+    @impl true
+    def files do
+      [
+        %{
+          target: "big.txt",
+          content: String.duplicate("x", 128 * 1024 + 1)
+        }
+      ]
+    end
+
+    @impl true
+    def target_shapes, do: ["fixture"]
+
+    @impl true
+    def live_integration?, do: false
+  end
+
   test "registry lists and resolves reviewed pattern modules" do
     opts = [patterns: [FixturePattern, String]]
 
@@ -87,6 +119,9 @@ defmodule AllbertAssist.TemplatesTest do
 
     assert {:error, {:invalid_enum_parameter, "mode", "shell", ["read_only", "write"]}} =
              Templates.render("fixture", %{"name" => "safe", "mode" => "shell"}, opts)
+
+    assert {:error, {:unknown_template_parameters, ["extra"]}} =
+             Templates.render("fixture", %{"name" => "safe", "extra" => "nope"}, opts)
   end
 
   test "renders deterministically without writing files" do
@@ -112,5 +147,13 @@ defmodule AllbertAssist.TemplatesTest do
     assert Renderer.safe_relative_path?("safe/lib/file.ex")
     refute Renderer.safe_relative_path?("../escape.ex")
     refute Renderer.safe_relative_path?("/tmp/escape.ex")
+  end
+
+  test "denies oversize rendered files" do
+    opts = [patterns: [OversizePattern]]
+    max_file_bytes = 128 * 1024
+
+    assert {:error, {:rendered_file_too_large, "big.txt", ^max_file_bytes}} =
+             Templates.render("oversize", %{"name" => "large"}, opts)
   end
 end

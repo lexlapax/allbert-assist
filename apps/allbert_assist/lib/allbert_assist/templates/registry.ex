@@ -6,7 +6,10 @@ defmodule AllbertAssist.Templates.Registry do
   descriptive and never grants runtime authority.
   """
 
-  @default_patterns []
+  alias AllbertAssist.Templates.Patterns.App
+  alias AllbertAssist.Templates.Patterns.Plugin
+
+  @default_patterns [Plugin, App]
 
   @doc "Return registered pattern modules."
   @spec modules(keyword()) :: [module()]
@@ -37,7 +40,15 @@ defmodule AllbertAssist.Templates.Registry do
   end
 
   @doc "Return a bounded summary for one pattern module."
-  @spec summary(module()) :: map()
+  @spec summary(atom()) :: %{
+          id: term(),
+          label: term(),
+          description: term(),
+          target_shapes: term(),
+          live_integration?: term(),
+          validation_profile: term(),
+          parameters: term()
+        }
   def summary(module) do
     %{
       id: module.id(),

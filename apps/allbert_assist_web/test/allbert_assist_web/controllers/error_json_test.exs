@@ -1,5 +1,5 @@
 defmodule AllbertAssistWeb.ErrorJSONTest do
-  use AllbertAssistWeb.ConnCase, async: true
+  use AllbertAssistWeb.ConnCase, async: false
 
   test "renders 404" do
     assert AllbertAssistWeb.ErrorJSON.render("404.json", %{}) == %{errors: %{detail: "Not Found"}}

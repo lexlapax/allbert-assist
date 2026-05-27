@@ -1,5 +1,5 @@
 defmodule StockSageWeb.Components.CardsTest do
-  use AllbertAssistWeb.ConnCase, async: true
+  use AllbertAssistWeb.ConnCase, async: false
 
   import Phoenix.LiveViewTest
 
