@@ -73,6 +73,7 @@ defmodule AllbertAssist.Templates.Patterns.Flow do
     description = Map.get(params, "description", "")
     objective = Map.get(params, "objective", "")
     schedule = Map.get(params, "schedule", "manual")
+    timezone = Map.get(params, "timezone", "Etc/UTC")
 
     {:ok,
      params
@@ -87,7 +88,8 @@ defmodule AllbertAssist.Templates.Patterns.Flow do
      |> Map.put("json_display_name", Jason.encode!(Map.fetch!(params, "display_name")))
      |> Map.put("json_description", Jason.encode!(description))
      |> Map.put("json_objective", Jason.encode!(objective))
-     |> Map.put("json_timezone", Jason.encode!(Map.get(params, "timezone", "Etc/UTC")))
+     |> Map.put("json_timezone", Jason.encode!(timezone))
+     |> Map.put("timezone_literal", inspect(timezone))
      |> Map.put("description_literal", inspect(description))
      |> Map.put("objective_literal", inspect(objective))}
   end

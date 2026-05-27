@@ -17,17 +17,25 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
 
   @impl true
   def update(assigns, socket) do
+    socket = assign(socket, assigns)
     enabled? = create_enabled?()
     patterns = visible_patterns()
     selected_pattern_id = selected_pattern_id(socket.assigns, patterns)
     selected_pattern = pattern_by_id(patterns, selected_pattern_id)
     template_params = template_params(socket.assigns, selected_pattern)
     output_mode = output_mode(socket.assigns, selected_pattern)
-    preview = preview(selected_pattern_id, template_params, enabled?)
+
+    preview =
+      preview(
+        selected_pattern_id,
+        template_params,
+        output_mode,
+        enabled?,
+        action_context(socket.assigns)
+      )
 
     {:ok,
      socket
-     |> assign(assigns)
      |> assign(
        enabled?: enabled?,
        patterns: patterns,
@@ -371,12 +379,14 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
       preview(
         socket.assigns.selected_pattern_id,
         socket.assigns.template_params,
-        socket.assigns.enabled?
+        socket.assigns.output_mode,
+        socket.assigns.enabled?,
+        action_context(socket.assigns)
       )
     )
   end
 
-  defp preview(nil, _params, _enabled?) do
+  defp preview(nil, _params, _mode, _enabled?, _context) do
     %{
       status: :denied,
       files: [],
@@ -385,7 +395,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
     }
   end
 
-  defp preview(_pattern_id, _params, false) do
+  defp preview(_pattern_id, _params, _mode, false, _context) do
     %{
       status: :denied,
       files: [],
@@ -394,15 +404,10 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
     }
   end
 
-  defp preview(pattern_id, params, true) do
+  defp preview(pattern_id, params, mode, true, context) do
     case Scaffold.preview(pattern_id, params) do
-      {:ok, preview} ->
-        %{
-          status: :ready,
-          files: preview.files,
-          message: target_message(preview),
-          validation: validation_message(preview)
-        }
+      {:ok, scaffold_preview} ->
+        validate_preview(scaffold_preview, pattern_id, params, mode, context)
 
       {:error, reason} ->
         %{
@@ -410,6 +415,30 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
           files: [],
           message: "Preview could not be rendered.",
           validation: bounded_reason(reason)
+        }
+    end
+  end
+
+  defp validate_preview(scaffold_preview, pattern_id, params, mode, context) do
+    action_params = %{pattern_id: pattern_id, params: params, mode: mode}
+
+    case Runner.run("validate_template", action_params, context) do
+      {:ok, %{status: :completed} = response} ->
+        %{
+          status: :ready,
+          files: scaffold_preview.files,
+          message: target_message(scaffold_preview),
+          validation: Map.get(response, :message) || validation_message(scaffold_preview)
+        }
+
+      {:ok, %{status: status} = response} ->
+        %{
+          status: status,
+          files: scaffold_preview.files,
+          message: target_message(scaffold_preview),
+          validation:
+            "#{Map.get(response, :message, "Template validation was denied.")} #{bounded_error(Map.get(response, :error))}"
+            |> String.trim()
         }
     end
   end
@@ -493,9 +522,21 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
   defp attempt_from_response(%{status: status, message: message} = response) do
     %{
       status: status,
-      message: "#{message} #{bounded_error(Map.get(response, :error))}" |> String.trim(),
+      message: response_message(message, Map.get(response, :error)),
       error: Map.get(response, :error)
     }
+  end
+
+  defp response_message(message, nil), do: message
+
+  defp response_message(message, reason) do
+    error = bounded_error(reason)
+
+    if String.contains?(message, error) do
+      message
+    else
+      "#{message} #{error}" |> String.trim()
+    end
   end
 
   defp action_context(assigns) do
