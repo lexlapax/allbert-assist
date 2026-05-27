@@ -64,8 +64,10 @@ documents.
 `docs/plans/v0.38-plan.md` ships deterministic creation patterns: developers
 scaffold reviewed plugin/app/LLM-tool/scheduled-flow/objective patterns through
 `mix allbert.gen.{plugin,app,tool,flow}` (`--target` defaults to
-`./plugins/<name>`; `--force` plus preview/diff is required to overwrite an
-existing root), and operators open a separate `workspace:create` Canvas
+`./plugins/<name>`; `--smoke` or `ALLBERT_TEMPLATE_SMOKE=1` writes disposable
+validation output to `<ALLBERT_HOME>/template-smoke/<name>`; `--force` plus
+preview/diff is required to overwrite an existing root), and operators open a
+separate `workspace:create` Canvas
 destination to render a vetted template, preview, validate, and choose
 developer-scaffold or supported live-integration intent. The Create surface
 routes effectful work through registered template actions: developer-scaffold
