@@ -50,7 +50,7 @@ Do not load every section by default.
 | Dynamic code & config generation, code-gen agents, bounded model-backed repair loop, v0.36 sandbox trial, gated live integration | ADR 0032, ADR 0033, ADR 0035, ADR 0037, ADR 0021, ADR 0027, `docs/plans/v0.37-plan.md`, `docs/plans/v0.37-request-flow.md`, `docs/research/codegen-agent-loop-research.md`, `docs/developer/dynamic-plugin-drafts.md`, `docs/operator/dynamic-capability-integration.md` | v0.37 |
 | Templated creation: plugin/app/LLM-tool/scheduled-flow/code templates, Mix tasks, operator flows, Canvas Create surface | ADR 0036, ADR 0035, ADR 0037, ADR 0017, ADR 0015, `docs/plans/v0.38-plan.md`, `docs/plans/v0.38-request-flow.md` | v0.38 |
 | First-run onboarding and provider control (two-branch doctor, `endpoint_kind` field, ADR 0047 doctor contract) | ADR 0004, ADR 0005, ADR 0014, ADR 0047, `docs/plans/v0.39-plan.md`, `docs/plans/v0.39-request-flow.md` | v0.39 |
-| Identity slot (system memory namespace + new `:identity` category) and deterministic Active Memory retrieval | ADR 0021, `docs/plans/v0.39b-plan.md`, `docs/plans/v0.39b-request-flow.md`, `docs/research/active-memory-retrieval.md`, `docs/operator/active-memory.md` | v0.39b |
+| Identity slot (non-app system memory namespace + new `:identity` category) and deterministic direct-answer Active Memory retrieval | ADR 0015, ADR 0021, `docs/plans/v0.39b-plan.md`, `docs/plans/v0.39b-request-flow.md`, `docs/research/active-memory-retrieval.md`, `docs/operator/active-memory.md` | v0.39b |
 | MCP client integration and trust tier | ADR 0012, ADR 0013, ADR 0038, `docs/plans/v0.40-plan.md`, `docs/plans/v0.40-request-flow.md` | v0.40 |
 | MCP-first integration pack 1: calendar/mail/GitHub MCP panels + notes/files native reference plugin | ADR 0015, ADR 0017, ADR 0039, `docs/plans/v0.41-plan.md`, `docs/plans/v0.41-request-flow.md` | v0.41 |
 | Browser and web research | ADR 0012, ADR 0013, ADR 0023, ADR 0025, ADR 0040, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
@@ -281,12 +281,12 @@ Do not load every section by default.
   Identity + Active Memory" bundle in the post-v0.37 planning pass.
 - v0.39b (planned; first revision after post-v0.38 readiness review):
   Identity Slot And Active Memory. Adds optional inert `identity` memory
-  namespace declared through a new system-namespace declarer, adds
+  namespace declared through a non-app system-namespace declarer, adds
   `:identity` as a 5th `Memory` category, and adds deterministic
-  recency-weighted pre-reply retrieval scoped to
-  `{thread, active_app, identity}` with neutral-context behavior and a
-  `### Active Memory` trace subsection at a pinned placement. Algorithm
-  spec'd in `docs/research/active-memory-retrieval.md`; operator doc at
+  recency-weighted direct-answer retrieval over `:kept` entries scoped to
+  `{thread, active_app, identity}` with neutral/core-context behavior and a
+  `## Active Memory` trace section at a pinned placement. Algorithm spec'd in
+  `docs/research/active-memory-retrieval.md`; operator doc at
   `docs/operator/active-memory.md`.
 - v0.40 (planned): MCP Client Integration. Adds MCP server configuration,
   `mcp://` Resource Access consumption, registered MCP actions, and trust-tier

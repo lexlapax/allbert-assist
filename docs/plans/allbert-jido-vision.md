@@ -301,12 +301,13 @@ context packs. Memory pruning should be deliberate: preserve the durable record,
 compress repetitive traces, and promote stable preferences into higher-signal
 files.
 
-v0.39 Active Memory is the planned safe precursor for this direction:
-deterministic reviewed-memory retrieval before replies, scoped by thread,
-active app, and identity namespace. It is not nightly training, personality
-distillation, or a generated system model. Small-model retraining and learned
-system-memory distillation remain post-v1.0 research until memory capture,
-retrieval, review, pruning, deletion, and eval quality are trustworthy.
+v0.39b Active Memory is the planned safe precursor for this direction:
+deterministic direct-answer retrieval over reviewed `:kept` memory, scoped by
+thread, active app, and identity namespace. It is not nightly training,
+personality distillation, or a generated system model. Small-model retraining
+and learned system-memory distillation remain post-v1.0 research until memory
+capture, retrieval, review, pruning, deletion, and eval quality are
+trustworthy.
 
 Allbert also needs structured conversation history, but it is a different
 artifact. SQLite `Thread` and `Message` rows preserve ordered turns,
@@ -550,9 +551,10 @@ historical aliases only and remain in old reference notes for continuity.
   registered objective + Settings Central, and a provider doctor with explicit
   branches for credentialed-remote and local-endpoint providers.
 - v0.39b: Identity slot and Active Memory. Optional inert `identity` memory
-  namespace plus deterministic recency-weighted pre-reply retrieval scoped
-  to `{thread, active_app, identity}`. Split from v0.39 so the algorithm has
-  room to land carefully (see `docs/research/active-memory-retrieval.md`).
+  namespace plus deterministic recency-weighted direct-answer retrieval over
+  reviewed `:kept` entries scoped to `{thread, active_app, identity}`. Split
+  from v0.39 so the algorithm has room to land carefully (see
+  `docs/research/active-memory-retrieval.md`).
 - v0.40: MCP Client Integration. MCP servers become configured resources and
   tools under Allbert's action, Resource Access, confirmation, trace, and audit
   boundaries.

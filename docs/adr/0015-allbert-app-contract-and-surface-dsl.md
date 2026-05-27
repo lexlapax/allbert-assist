@@ -18,7 +18,9 @@ contributed into host-owned `/workspace` zones, the `/apps/<app_id>` page-route
 convention for rare app pages, and host structural catalog atoms for the
 workspace shell, app launcher, utility drawer, and workspace panels. ADR 0024
 also makes `/workspace` the canonical operator route and removes `/agent`,
-`/settings`, and `/stocksage/*` compatibility.
+`/settings`, and `/stocksage/*` compatibility. Amended during the v0.39b
+readiness pass (2026-05-27) to clarify that operator-owned system memory
+namespaces are not app ids and must not be validated as apps.
 
 ## Context
 
@@ -109,6 +111,26 @@ the action runner, Security Central, confirmations, traces, and audits.
 
 Cross-app duplicate route paths produce registry diagnostics but do not fail
 registration. Same-app duplicate surface ids are validation failures.
+
+### System Memory Namespaces
+
+The app contract owns app-contributed memory namespace declarations only.
+Operator-owned system memory namespaces, starting with v0.39b's `identity`
+namespace, are declared by `AllbertAssist.Memory.SystemNamespaces` and merged
+by a memory namespace facade for memory read/write authorization.
+
+System namespace declarations use `origin: :system`, `app_id: nil`, and a
+normal namespace atom such as `:identity`. They are not app registrations,
+they do not have child supervision, actions, skills, surfaces, settings schema,
+or app lifecycle callbacks, and they must not be passed through
+`AllbertAssist.App.Validator` or `App.Registry.normalize_app_id/2`.
+
+This keeps the v0.27 app namespace contract intact: apps continue to declare
+namespaces through `AllbertAssist.App.memory_namespace/0`, while memory code
+that needs both app and system namespaces consumes the combined memory
+namespace facade. A fake reserved app id such as `:_system` is explicitly
+rejected because it would conflict with app-id validation and blur ownership in
+audits.
 
 ### Settings Schema Merge
 
