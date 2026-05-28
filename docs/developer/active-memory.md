@@ -1,6 +1,6 @@
 # Active Memory Retrieval Contract
 
-Status: v0.39b M3 implementation note.
+Status: v0.39b M3-M4 implementation note.
 
 Active Memory is a deterministic, read-only retrieval pass for direct-answer
 model context. It is intentionally not an advisory provider, embedding index,
@@ -65,3 +65,17 @@ safe-write keys:
 The returned `chunks` include body text for direct-answer prompt composition.
 Action metadata and future trace rendering use `retrieved_chunks`, which omits
 chunk bodies and keeps score breakdowns inspectable.
+
+## Trace And CLI Surfaces
+
+- Runtime traces render `## Active Memory` after `## Intent Candidates` and
+  before `## Memory Review` when direct-answer model mode retrieved Active
+  Memory.
+- The trace section renders chunk ids, paths, scores, score-factor
+  breakdowns, scope, normalized query terms, and excluded-candidate samples.
+  It does not render chunk body text.
+- `mix allbert.memory list --namespace identity` filters identity namespace
+  entries; `--category identity` filters the identity category root.
+- `mix allbert.memory retrieve --query "..."` invokes
+  `retrieve_active_memory` through the action runner and prints the same
+  retrieved chunk ids and score breakdown shape used by trace metadata.

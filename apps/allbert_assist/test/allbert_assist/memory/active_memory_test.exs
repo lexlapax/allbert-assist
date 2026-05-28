@@ -28,7 +28,7 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
       File.rm_rf!(home)
     end)
 
-    :ok
+    {:ok, home: home}
   end
 
   test "retrieves kept identity and general chunks without neutral app leakage" do
@@ -181,6 +181,25 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
       |> get_in([:active_memory, :retrieved_chunks])
 
     assert Enum.all?(metadata_chunks, &(not Map.has_key?(&1, :body)))
+  end
+
+  test "replayability fixture returns byte-identical chunks for same state", %{home: home} do
+    fixture = Path.expand("../../fixtures/v0.39b/active_memory_identity.md", __DIR__)
+    destination = Path.join([home, "memory", "identity", "active_memory_identity.md"])
+
+    File.mkdir_p!(Path.dirname(destination))
+    File.cp!(fixture, destination)
+
+    opts = [user_id: "alice", active_app: nil, now: @now]
+
+    assert {:ok, first} = ActiveMemory.retrieve("concise release reports", opts)
+    assert {:ok, second} = ActiveMemory.retrieve("concise release reports", opts)
+
+    assert first.chunks != []
+    assert :erlang.term_to_binary(first.chunks) == :erlang.term_to_binary(second.chunks)
+
+    assert :erlang.term_to_binary(first.retrieved_chunks) ==
+             :erlang.term_to_binary(second.retrieved_chunks)
   end
 
   defp append(actor, body) do

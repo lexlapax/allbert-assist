@@ -190,6 +190,7 @@ defmodule AllbertAssist.Trace do
     ## Intent Candidates
 
     #{intent_candidates_text(response)}
+    #{active_memory_section(response)}
 
     ## Memory Review
 
@@ -895,6 +896,111 @@ defmodule AllbertAssist.Trace do
       "- #{candidate_line(candidate)} category=#{map_value(trace, :category) || "unknown"} review_status=#{map_value(trace, :review_status) || "unknown"} timestamp=#{map_value(trace, :timestamp) || "unknown"} path=#{map_value(trace, :path) || "unknown"}"
     end)
     |> Enum.join("\n")
+  end
+
+  defp active_memory_section(response) do
+    case active_memory_metadata(response) do
+      nil ->
+        ""
+
+      metadata ->
+        """
+
+        ## Active Memory
+
+        #{active_memory_text(metadata)}
+        """
+    end
+  end
+
+  defp active_memory_metadata(response) do
+    map_value(response, :direct_answer)
+    |> map_value(:active_memory)
+    |> case do
+      nil ->
+        response
+        |> map_value(:actions)
+        |> List.wrap()
+        |> Enum.find_value(&action_active_memory/1)
+
+      metadata ->
+        metadata
+    end
+  end
+
+  defp action_active_memory(action) do
+    map_value(action, :active_memory) ||
+      action
+      |> map_value(:direct_answer)
+      |> map_value(:active_memory)
+  end
+
+  defp active_memory_text(metadata) do
+    [
+      "- Status: #{active_memory_value(metadata, :status, "unknown")}",
+      "- Enabled: #{active_memory_value(metadata, :enabled?, "unknown")}",
+      "- Candidate entries before filter: #{active_memory_value(metadata, :candidate_count_before_filter, 0)}",
+      "- Candidate chunks before filter: #{active_memory_value(metadata, :candidate_chunk_count_before_filter, 0)}",
+      "- Candidate chunks after filter: #{active_memory_value(metadata, :candidate_count_after_filter, 0)}",
+      "- Query terms: #{active_memory_terms(metadata)}",
+      "- Scope: #{bounded_inspect(map_value(metadata, :scope))}",
+      "",
+      "Retrieved chunks:",
+      active_memory_chunk_lines(map_value(metadata, :retrieved_chunks)),
+      "",
+      "Excluded candidates:",
+      active_memory_chunk_lines(map_value(metadata, :excluded_chunks_sample))
+    ]
+    |> Enum.join("\n")
+  end
+
+  defp active_memory_value(metadata, key, default) do
+    case map_value(metadata, key) do
+      nil -> default
+      value -> value
+    end
+  end
+
+  defp active_memory_terms(metadata) do
+    metadata
+    |> map_value(:query_terms_normalized)
+    |> List.wrap()
+    |> case do
+      [] -> "none"
+      terms -> Enum.join(terms, ", ")
+    end
+  end
+
+  defp active_memory_chunk_lines(nil), do: "none"
+  defp active_memory_chunk_lines([]), do: "none"
+
+  defp active_memory_chunk_lines(chunks) when is_list(chunks) do
+    chunks
+    |> Enum.map(&active_memory_chunk_line/1)
+    |> Enum.join("\n")
+  end
+
+  defp active_memory_chunk_lines(_chunks), do: "none"
+
+  defp active_memory_chunk_line(chunk) do
+    safe_chunk = Redactor.redact(Map.drop(chunk, [:body, "body"]))
+
+    "- #{active_memory_chunk_value(safe_chunk, :chunk_id)} #{active_memory_score_text(safe_chunk)} #{active_memory_scope_text(safe_chunk)} excluded=#{active_memory_chunk_value(safe_chunk, :excluded_reason, "none")}"
+  end
+
+  defp active_memory_score_text(chunk) do
+    "score=#{active_memory_chunk_value(chunk, :score)} recency=#{active_memory_chunk_value(chunk, :recency_decay)} thread=#{active_memory_chunk_value(chunk, :thread_affinity)} identity=#{active_memory_chunk_value(chunk, :identity_inclusion)} lexical=#{active_memory_chunk_value(chunk, :lexical_match)}"
+  end
+
+  defp active_memory_scope_text(chunk) do
+    "category=#{active_memory_chunk_value(chunk, :category)} namespace=#{active_memory_chunk_value(chunk, :namespace, "none")} path=#{active_memory_chunk_value(chunk, :entry_path)}"
+  end
+
+  defp active_memory_chunk_value(chunk, key, default \\ "unknown") do
+    case map_value(chunk, key) do
+      nil -> default
+      value -> value
+    end
   end
 
   defp memory_review_text(actions) do

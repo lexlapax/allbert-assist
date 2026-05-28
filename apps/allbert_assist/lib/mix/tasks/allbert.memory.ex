@@ -4,13 +4,14 @@ defmodule Mix.Tasks.Allbert.Memory do
 
   ## Usage
 
-      mix allbert.memory list [--category notes] [--status unreviewed] [--limit 20]
+      mix allbert.memory list [--category notes] [--namespace identity] [--status unreviewed] [--limit 20]
       mix allbert.memory show PATH
       mix allbert.memory review PATH --status kept|flagged|prune_nominated [--note "..."]
       mix allbert.memory update PATH [--summary "..."] [--body "..."] [--note "..."]
       mix allbert.memory delete PATH
       mix allbert.memory prune [--dry-run] [--write]
       mix allbert.memory search QUERY [--category notes] [--limit 10]
+      mix allbert.memory retrieve --query "..."
       mix allbert.memory compile-index
       mix allbert.memory summarize --category notes
       mix allbert.memory promote-turn --thread-id THREAD --message-id MESSAGE [--category notes]
@@ -36,6 +37,7 @@ defmodule Mix.Tasks.Allbert.Memory do
       OptionParser.parse(args,
         strict: [
           category: :string,
+          namespace: :string,
           status: :string,
           limit: :integer,
           since: :string,
@@ -52,6 +54,7 @@ defmodule Mix.Tasks.Allbert.Memory do
       %{
         user_id: user_id,
         category: opts[:category],
+        namespace: opts[:namespace],
         review_status: opts[:status],
         limit: opts[:limit],
         since: opts[:since]
@@ -186,6 +189,42 @@ defmodule Mix.Tasks.Allbert.Memory do
     end
   end
 
+  defp dispatch(["retrieve" | args]) do
+    {opts, rest, invalid} =
+      OptionParser.parse(args,
+        strict: [
+          query: :string,
+          user: :string,
+          operator: :string,
+          thread_id: :string,
+          active_app: :string,
+          identity_namespace: :string,
+          now: :string
+        ]
+      )
+
+    reject_invalid!(invalid)
+    reject_rest!(rest, "retrieve")
+    user_id = user_id!(opts)
+    query = opts[:query] || Mix.raise("retrieve requires --query")
+
+    params =
+      %{
+        query: query,
+        user_id: user_id,
+        thread_id: opts[:thread_id],
+        active_app: opts[:active_app],
+        identity_namespace: opts[:identity_namespace],
+        now: opts[:now]
+      }
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+      |> Map.new()
+
+    with {:ok, response} <- completed_action("retrieve_active_memory", params, user_id) do
+      {:ok, {:retrieve, response.active_memory}}
+    end
+  end
+
   defp dispatch(["compile-index" | args]) do
     {opts, rest, invalid} =
       OptionParser.parse(args, strict: [user: :string, operator: :string])
@@ -254,15 +293,16 @@ defmodule Mix.Tasks.Allbert.Memory do
   defp dispatch(_args) do
     Mix.raise("""
     Usage:
-      mix allbert.memory list [--category notes|preferences|traces|skills] [--status unreviewed|kept|flagged|prune_nominated] [--limit N] [--since YYYY-MM-DD] [--user USER]
+      mix allbert.memory list [--category notes|preferences|traces|skills|identity] [--namespace identity] [--status unreviewed|kept|flagged|prune_nominated] [--limit N] [--since YYYY-MM-DD] [--user USER]
       mix allbert.memory show PATH [--user USER]
       mix allbert.memory review PATH --status kept|flagged|prune_nominated [--note "..."] [--user USER]
       mix allbert.memory update PATH [--summary "..."] [--body "..."] [--note "..."] [--user USER]
       mix allbert.memory delete PATH [--user USER]
-      mix allbert.memory prune [--category notes|preferences|traces|skills] [--dry-run] [--write] [--user USER]
-      mix allbert.memory search QUERY [--category notes|preferences|traces|skills] [--limit N] [--user USER]
+      mix allbert.memory prune [--category notes|preferences|traces|skills|identity] [--dry-run] [--write] [--user USER]
+      mix allbert.memory search QUERY [--category notes|preferences|traces|skills|identity] [--limit N] [--user USER]
+      mix allbert.memory retrieve --query "..." [--thread-id THREAD_ID] [--active-app APP_ID] [--identity-namespace identity] [--now ISO8601] [--user USER]
       mix allbert.memory compile-index [--user USER]
-      mix allbert.memory summarize --category notes|preferences|traces|skills [--user USER]
+      mix allbert.memory summarize --category notes|preferences|traces|skills|identity [--user USER]
       mix allbert.memory promote-turn --thread-id THREAD_ID --message-id MESSAGE_ID [--category notes] [--summary "..."] [--user USER]
     """)
   end
@@ -339,6 +379,35 @@ defmodule Mix.Tasks.Allbert.Memory do
     end)
   end
 
+  defp print_result({:ok, {:retrieve, active_memory}}) do
+    Mix.shell().info(
+      "Active Memory chunks: #{length(Map.get(active_memory, :retrieved_chunks, []))}"
+    )
+
+    Mix.shell().info("Status: #{Map.get(active_memory, :status, :unknown)}")
+    Mix.shell().info("Enabled: #{Map.get(active_memory, :enabled?, :unknown)}")
+    Mix.shell().info("Terms: #{retrieve_terms(active_memory)}")
+    Mix.shell().info("Scope: #{inspect(Map.get(active_memory, :scope, %{}), pretty: true)}")
+
+    Mix.shell().info(
+      "Candidate chunks before filter: #{Map.get(active_memory, :candidate_chunk_count_before_filter, 0)}"
+    )
+
+    Mix.shell().info(
+      "Candidate chunks after filter: #{Map.get(active_memory, :candidate_count_after_filter, 0)}"
+    )
+
+    active_memory
+    |> Map.get(:retrieved_chunks, [])
+    |> case do
+      [] ->
+        Mix.shell().info("No Active Memory chunks retrieved.")
+
+      chunks ->
+        Enum.each(chunks, &print_retrieved_chunk/1)
+    end
+  end
+
   defp print_result({:ok, {:compiled_index, result}}) do
     Mix.shell().info("Index: #{result.path}")
     Mix.shell().info("Entries: #{result.entry_count}")
@@ -363,6 +432,25 @@ defmodule Mix.Tasks.Allbert.Memory do
 
   defp print_result({:error, reason}) do
     Mix.raise("Memory command failed: #{inspect(reason)}")
+  end
+
+  defp retrieve_terms(active_memory) do
+    active_memory
+    |> Map.get(:query_terms_normalized, [])
+    |> case do
+      [] -> "none"
+      terms -> Enum.join(terms, ", ")
+    end
+  end
+
+  defp print_retrieved_chunk(chunk) do
+    Mix.shell().info(
+      "#{chunk.chunk_id} score=#{chunk.score} recency=#{chunk.recency_decay} thread=#{chunk.thread_affinity} identity=#{chunk.identity_inclusion} lexical=#{chunk.lexical_match}"
+    )
+
+    Mix.shell().info(
+      "  #{chunk.category} namespace=#{chunk.namespace || "none"} #{chunk.summary} #{chunk.entry_path}"
+    )
   end
 
   defp completed_action(action_name, params, user_id) do
