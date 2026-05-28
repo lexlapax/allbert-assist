@@ -59,6 +59,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Objectives.DelegateAgent
   alias AllbertAssist.Actions.Objectives.ListObjectives
   alias AllbertAssist.Actions.Objectives.ShowObjective
+  alias AllbertAssist.Actions.Onboarding.StepComplete, as: OnboardingStepComplete
   alias AllbertAssist.Actions.Packages.PlanPackageInstall
   alias AllbertAssist.Actions.Packages.RunPackageInstall
   alias AllbertAssist.Actions.Plugins.ListPlugins
@@ -78,11 +79,13 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Session.SetActiveApp
   alias AllbertAssist.Actions.Session.ShowSessionScratchpad
   alias AllbertAssist.Actions.Settings.ExplainSetting
+  alias AllbertAssist.Actions.Settings.DoctorModelProfile
   alias AllbertAssist.Actions.Settings.ListModelProfiles
   alias AllbertAssist.Actions.Settings.ListProviderProfiles
   alias AllbertAssist.Actions.Settings.ListSettings
   alias AllbertAssist.Actions.Settings.ReadSetting
   alias AllbertAssist.Actions.Settings.SetProviderCredential
+  alias AllbertAssist.Actions.Settings.SetActiveModelProfile
   alias AllbertAssist.Actions.Settings.UpdateSetting
   alias AllbertAssist.Actions.Skills.AuditOnlineSkill
   alias AllbertAssist.Actions.Skills.CreateSkill
@@ -128,6 +131,8 @@ defmodule AllbertAssist.Actions.Registry do
     ListProviderProfiles,
     ListModelProfiles,
     SetProviderCredential,
+    DoctorModelProfile,
+    SetActiveModelProfile,
     ListChannels,
     ShowChannel,
     ListApps,
@@ -184,6 +189,7 @@ defmodule AllbertAssist.Actions.Registry do
     CancelObjective,
     ContinueObjective,
     DelegateAgent,
+    OnboardingStepComplete,
     RegistryHealth,
     TraceSummary,
     ManageTile,

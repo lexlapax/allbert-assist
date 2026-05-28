@@ -102,6 +102,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "list_provider_profiles",
              "list_model_profiles",
              "set_provider_credential",
+             "doctor_model_profile",
+             "set_active_model_profile",
              "list_channels",
              "show_channel",
              "list_apps",
@@ -155,6 +157,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "cancel_objective",
              "continue_objective",
              "delegate_agent",
+             "onboarding_step_complete",
              "registry_health",
              "trace_summary",
              "manage_workspace_tile",
@@ -256,6 +259,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "cancel_objective",
              "continue_objective",
              "delegate_agent",
+             "onboarding_step_complete",
              "registry_health",
              "trace_summary",
              "manage_workspace_tile",
@@ -297,6 +301,16 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert list_objectives.exposure == :internal
     assert list_objectives.execution_mode == :objectives_read
 
+    assert {:ok, doctor_model_profile} = Registry.capability("doctor_model_profile")
+    assert doctor_model_profile.permission == :read_only
+    assert doctor_model_profile.exposure == :agent
+    assert doctor_model_profile.execution_mode == :settings_read
+
+    assert {:ok, set_active_model_profile} = Registry.capability("set_active_model_profile")
+    assert set_active_model_profile.permission == :settings_write
+    assert set_active_model_profile.exposure == :agent
+    assert set_active_model_profile.execution_mode == :settings_write
+
     assert {:ok, cancel_objective} = Registry.capability("cancel_objective")
     assert cancel_objective.permission == :objective_write
     assert cancel_objective.exposure == :internal
@@ -305,6 +319,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert {:ok, delegate_agent} = Registry.capability("delegate_agent")
     assert delegate_agent.permission == :objective_write
     assert delegate_agent.execution_mode == :objective_delegate
+
+    assert {:ok, onboarding_step_complete} = Registry.capability("onboarding_step_complete")
+    assert onboarding_step_complete.permission == :objective_write
+    assert onboarding_step_complete.exposure == :internal
+    assert onboarding_step_complete.execution_mode == :objectives_write
 
     assert {:ok, run_skill_script} = Registry.capability("run_skill_script")
     assert run_skill_script.permission == :skill_script_execute
