@@ -40,6 +40,14 @@ defmodule AllbertAssist.Settings.Schema do
     "intent.clarify_floor",
     "intent.direct_answer_model_enabled",
     "intent.direct_answer_model_profile",
+    "active_memory.enabled",
+    "active_memory.top_k",
+    "active_memory.chunk_max_bytes",
+    "active_memory.score_weights.recency_half_life_days",
+    "active_memory.score_weights.thread_affinity.same_thread",
+    "active_memory.score_weights.thread_affinity.same_app",
+    "active_memory.score_weights.thread_affinity.general",
+    "active_memory.score_weights.identity_inclusion",
     "providers.*.enabled",
     "providers.*.endpoint_kind",
     "providers.*.base_url",
@@ -426,6 +434,68 @@ defmodule AllbertAssist.Settings.Schema do
       default: "fast",
       writable?: true,
       sensitive?: false
+    },
+    "active_memory.enabled" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "active_memory.top_k" => %{
+      type: :bounded_integer,
+      default: 5,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 20
+    },
+    "active_memory.chunk_max_bytes" => %{
+      type: :bounded_integer,
+      default: 2048,
+      writable?: true,
+      sensitive?: false,
+      min: 128,
+      max: 8192
+    },
+    "active_memory.score_weights.recency_half_life_days" => %{
+      type: :bounded_integer,
+      default: 30,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 3650
+    },
+    "active_memory.score_weights.thread_affinity.same_thread" => %{
+      type: :bounded_float,
+      default: 1.0,
+      writable?: true,
+      sensitive?: false,
+      min: 0.000001,
+      max: 10.0
+    },
+    "active_memory.score_weights.thread_affinity.same_app" => %{
+      type: :bounded_float,
+      default: 0.6,
+      writable?: true,
+      sensitive?: false,
+      min: 0.000001,
+      max: 10.0
+    },
+    "active_memory.score_weights.thread_affinity.general" => %{
+      type: :bounded_float,
+      default: 0.3,
+      writable?: true,
+      sensitive?: false,
+      min: 0.000001,
+      max: 10.0
+    },
+    "active_memory.score_weights.identity_inclusion" => %{
+      type: :bounded_float,
+      default: 1.5,
+      writable?: true,
+      sensitive?: false,
+      min: 0.000001,
+      max: 10.0
     },
     "channels.cli.response_style" => %{
       type: :enum,
@@ -1927,6 +1997,20 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "sessions" => %{
       "scratchpad_ttl_minutes" => 30
+    },
+    "active_memory" => %{
+      "enabled" => true,
+      "top_k" => 5,
+      "chunk_max_bytes" => 2048,
+      "score_weights" => %{
+        "recency_half_life_days" => 30,
+        "thread_affinity" => %{
+          "same_thread" => 1.0,
+          "same_app" => 0.6,
+          "general" => 0.3
+        },
+        "identity_inclusion" => 1.5
+      }
     },
     "memory" => %{
       "review_cadence" => "manual",

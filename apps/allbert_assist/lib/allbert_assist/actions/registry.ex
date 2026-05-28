@@ -49,6 +49,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Memory.PromoteConversationTurn
   alias AllbertAssist.Actions.Memory.PruneMemoryEntries
   alias AllbertAssist.Actions.Memory.ReadMemoryEntry
+  alias AllbertAssist.Actions.Memory.RetrieveActiveMemory
   alias AllbertAssist.Actions.Memory.ReviewMemoryEntry
   alias AllbertAssist.Actions.Memory.SearchMemory
   alias AllbertAssist.Actions.Memory.SummarizeMemoryCategory
@@ -182,6 +183,7 @@ defmodule AllbertAssist.Actions.Registry do
     CompileMemoryIndex,
     SummarizeMemoryCategory,
     ListMemoryCategorySummary,
+    RetrieveActiveMemory,
     PromoteConversationTurn,
     SyncAppLesson,
     ListObjectives,
