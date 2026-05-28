@@ -100,6 +100,46 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
     assert path == reviewed.path
   end
 
+  test "operator-authored plain identity markdown can be reviewed and retrieved", %{home: home} do
+    path = Path.join([home, "memory", "identity", "persona.md"])
+
+    File.mkdir_p!(Path.dirname(path))
+
+    File.write!(path, """
+    # Persona
+
+    I prefer concise release reports with clear validation notes.
+    """)
+
+    assert {:ok, entry} = Memory.read_entry(path, user_id: "local")
+    assert entry.actor == "local"
+    assert entry.summary == "Persona"
+    assert entry.body =~ "concise release reports"
+    assert entry.origin == "system"
+    assert entry.namespace == "identity"
+    assert entry.app_id == nil
+
+    assert {:ok, reviewed} =
+             Memory.review_entry(
+               path,
+               %{status: :kept, reviewed_at: @now, reviewed_by: "local"},
+               user_id: "local"
+             )
+
+    assert reviewed.review_status == :kept
+
+    assert {:ok, result} =
+             ActiveMemory.retrieve("concise release reports",
+               user_id: "local",
+               active_app: nil,
+               now: @now
+             )
+
+    assert result.candidate_count_before_filter == 1
+    assert result.candidate_chunk_count_before_filter == 1
+    assert [%{entry_path: ^path, namespace: "identity", origin: "system"}] = result.chunks
+  end
+
   test "excludes identity-root files with conflicting app-owned metadata" do
     {:ok, entry} =
       Memory.append(%{
