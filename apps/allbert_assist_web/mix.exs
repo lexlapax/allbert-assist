@@ -4,7 +4,7 @@ defmodule AllbertAssistWeb.MixProject do
   def project do
     [
       app: :allbert_assist_web,
-      version: "0.38.1",
+      version: "0.39.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",

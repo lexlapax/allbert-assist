@@ -7,7 +7,14 @@ defmodule Mix.Tasks.Allbert.ModelTest do
   alias Mix.Tasks.Allbert.Model, as: ModelTask
 
   setup do
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
+    root = temp_path("settings")
+
+    Application.put_env(:allbert_assist, Settings, root: root)
+
     on_exit(fn ->
+      restore_env(Settings, original_settings_config)
+      File.rm_rf!(root)
       Mix.Task.reenable("allbert.model")
     end)
 
@@ -47,4 +54,14 @@ defmodule Mix.Tasks.Allbert.ModelTest do
     assert output =~ "credential_ok=false"
     assert output =~ "diagnostic=credential_missing"
   end
+
+  defp temp_path(name) do
+    Path.join(
+      System.tmp_dir!(),
+      "allbert-model-task-#{name}-#{System.unique_integer([:positive])}"
+    )
+  end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 end

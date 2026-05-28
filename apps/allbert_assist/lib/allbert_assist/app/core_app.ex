@@ -15,11 +15,11 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.37 adds dynamic draft,
-  # sandbox bridge, and operator-confirmed live-loader actions to the core
-  # runtime boundary.
+  # the app (release-pinned, not semantic-per-app). v0.39 adds first-run
+  # onboarding, provider/model controls, and the workspace onboarding panel to
+  # the core app boundary.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.37.0"
+  def version, do: "0.39.0"
 
   @impl true
   def validate(_opts), do: :ok

@@ -144,119 +144,92 @@ defmodule AllbertAssist.Settings.ModelDoctor do
     end
   end
 
-  defp local_response_summary(uri, model, response) do
+  defp local_response_summary(uri, model, %{status: status} = response) when status in 200..299 do
     host = redacted_host(uri)
     rate_limit_hint = rate_limit_hint(response)
 
-    cond do
-      response.status in 200..299 ->
-        case decode_json(response.body) do
-          {:ok, body} ->
-            case find_model(body, model) do
-              nil ->
-                summary(:local_endpoint, host,
-                  credential_ok: nil,
-                  endpoint_ok: true,
-                  model_available: false,
-                  last_seen_rate_limit_hint: rate_limit_hint,
-                  diagnostics: [
-                    diagnostic(
-                      :local_model_missing,
-                      "Local model #{model} is not installed. Run `ollama pull #{model}` and retry."
-                    )
-                  ]
-                )
-
-              entry ->
-                summary(:local_endpoint, host,
-                  credential_ok: nil,
-                  endpoint_ok: true,
-                  model_available: true,
-                  context_window: context_window(entry),
-                  deprecation_warning: deprecation_warning(entry),
-                  last_seen_rate_limit_hint: rate_limit_hint,
-                  diagnostics: []
-                )
-            end
-
-          {:error, _reason} ->
-            summary(:local_endpoint, host,
-              credential_ok: nil,
-              endpoint_ok: true,
-              model_available: :unknown,
-              last_seen_rate_limit_hint: rate_limit_hint,
-              diagnostics: [
-                diagnostic(
-                  :invalid_catalog_response,
-                  "Local endpoint returned an unreadable model list."
-                )
-              ]
-            )
-        end
-
-      true ->
-        summary(:local_endpoint, host,
-          credential_ok: nil,
-          endpoint_ok: false,
-          model_available: :unknown,
-          last_seen_rate_limit_hint: rate_limit_hint,
-          diagnostics: [
-            diagnostic(:endpoint_http_error, "Local endpoint returned HTTP #{response.status}.")
-          ]
-        )
-    end
+    response.body
+    |> decode_json()
+    |> local_catalog_summary(host, model, rate_limit_hint)
   end
 
-  defp remote_response_summary(uri, model, response) do
+  defp local_response_summary(uri, _model, response) do
+    host = redacted_host(uri)
+
+    summary(:local_endpoint, host,
+      credential_ok: nil,
+      endpoint_ok: false,
+      model_available: :unknown,
+      last_seen_rate_limit_hint: rate_limit_hint(response),
+      diagnostics: [
+        diagnostic(:endpoint_http_error, "Local endpoint returned HTTP #{response.status}.")
+      ]
+    )
+  end
+
+  defp local_catalog_summary({:ok, body}, host, model, rate_limit_hint) do
+    body
+    |> find_model(model)
+    |> local_model_summary(host, model, rate_limit_hint)
+  end
+
+  defp local_catalog_summary({:error, _reason}, host, _model, rate_limit_hint) do
+    summary(:local_endpoint, host,
+      credential_ok: nil,
+      endpoint_ok: true,
+      model_available: :unknown,
+      last_seen_rate_limit_hint: rate_limit_hint,
+      diagnostics: [
+        diagnostic(
+          :invalid_catalog_response,
+          "Local endpoint returned an unreadable model list."
+        )
+      ]
+    )
+  end
+
+  defp local_model_summary(nil, host, model, rate_limit_hint) do
+    summary(:local_endpoint, host,
+      credential_ok: nil,
+      endpoint_ok: true,
+      model_available: false,
+      last_seen_rate_limit_hint: rate_limit_hint,
+      diagnostics: [
+        diagnostic(
+          :local_model_missing,
+          "Local model #{model} is not installed. Run `ollama pull #{model}` and retry."
+        )
+      ]
+    )
+  end
+
+  defp local_model_summary(entry, host, _model, rate_limit_hint) do
+    summary(:local_endpoint, host,
+      credential_ok: nil,
+      endpoint_ok: true,
+      model_available: true,
+      context_window: context_window(entry),
+      deprecation_warning: deprecation_warning(entry),
+      last_seen_rate_limit_hint: rate_limit_hint,
+      diagnostics: []
+    )
+  end
+
+  defp remote_response_summary(uri, model, %{status: status} = response)
+       when status in 200..299 do
+    host = redacted_host(uri)
+    rate_limit_hint = rate_limit_hint(response)
+
+    response.body
+    |> decode_json()
+    |> remote_catalog_summary(host, model, rate_limit_hint)
+  end
+
+  defp remote_response_summary(uri, _model, response) do
     host = redacted_host(uri)
     rate_limit_hint = rate_limit_hint(response)
 
     cond do
-      response.status in 200..299 ->
-        case decode_json(response.body) do
-          {:ok, body} ->
-            case find_model(body, model) do
-              nil ->
-                summary(:credentialed_remote, host,
-                  credential_ok: true,
-                  endpoint_ok: true,
-                  model_available: false,
-                  last_seen_rate_limit_hint: rate_limit_hint,
-                  diagnostics: [
-                    diagnostic(
-                      :model_not_listed,
-                      "Configured model #{model} was not listed by provider."
-                    )
-                  ]
-                )
-
-              entry ->
-                summary(:credentialed_remote, host,
-                  credential_ok: true,
-                  endpoint_ok: true,
-                  model_available: true,
-                  context_window: context_window(entry),
-                  deprecation_warning: deprecation_warning(entry),
-                  last_seen_rate_limit_hint: rate_limit_hint,
-                  diagnostics: []
-                )
-            end
-
-          {:error, _reason} ->
-            summary(:credentialed_remote, host,
-              credential_ok: true,
-              endpoint_ok: true,
-              model_available: :unknown,
-              last_seen_rate_limit_hint: rate_limit_hint,
-              diagnostics: [
-                diagnostic(
-                  :invalid_catalog_response,
-                  "Provider returned an unreadable model list."
-                )
-              ]
-            )
-        end
-
       response.status in [401, 403] ->
         summary(:credentialed_remote, host,
           credential_ok: false,
@@ -291,6 +264,54 @@ defmodule AllbertAssist.Settings.ModelDoctor do
           ]
         )
     end
+  end
+
+  defp remote_catalog_summary({:ok, body}, host, model, rate_limit_hint) do
+    body
+    |> find_model(model)
+    |> remote_model_summary(host, model, rate_limit_hint)
+  end
+
+  defp remote_catalog_summary({:error, _reason}, host, _model, rate_limit_hint) do
+    summary(:credentialed_remote, host,
+      credential_ok: true,
+      endpoint_ok: true,
+      model_available: :unknown,
+      last_seen_rate_limit_hint: rate_limit_hint,
+      diagnostics: [
+        diagnostic(
+          :invalid_catalog_response,
+          "Provider returned an unreadable model list."
+        )
+      ]
+    )
+  end
+
+  defp remote_model_summary(nil, host, model, rate_limit_hint) do
+    summary(:credentialed_remote, host,
+      credential_ok: true,
+      endpoint_ok: true,
+      model_available: false,
+      last_seen_rate_limit_hint: rate_limit_hint,
+      diagnostics: [
+        diagnostic(
+          :model_not_listed,
+          "Configured model #{model} was not listed by provider."
+        )
+      ]
+    )
+  end
+
+  defp remote_model_summary(entry, host, _model, rate_limit_hint) do
+    summary(:credentialed_remote, host,
+      credential_ok: true,
+      endpoint_ok: true,
+      model_available: true,
+      context_window: context_window(entry),
+      deprecation_warning: deprecation_warning(entry),
+      last_seen_rate_limit_hint: rate_limit_hint,
+      diagnostics: []
+    )
   end
 
   defp provider_credential(%{api_key_ref: nil} = provider),
@@ -562,8 +583,6 @@ defmodule AllbertAssist.Settings.ModelDoctor do
       {String.downcase(to_string(key)), value}
     end)
   end
-
-  defp normalize_headers(_headers), do: %{}
 
   defp base_summary(endpoint_kind, host, diagnostics) do
     summary(endpoint_kind, host,
