@@ -27,7 +27,8 @@ Planned modules under `AllbertAssist.Mcp.*` (project acronym convention is
 - `AllbertAssist.Mcp` — facade for resolving servers and dispatching client ops.
 - `AllbertAssist.Mcp.ServerConfig` — resolves an `mcp.servers.*` entry from
   Settings Central and resolves `secret://mcp/...` refs at call time.
-- `AllbertAssist.Mcp.Client` — per-server client (Hermes-backed; see Codec).
+- `AllbertAssist.Mcp.Client` — per-server client (Hermes-backed only if the M1
+  spike proves Allbert-owned egress control; otherwise native JSON-RPC).
 - `AllbertAssist.Mcp.Transport` — routes egress through Allbert-owned transports.
 - `AllbertAssist.Mcp.Doctor` — reuses `AllbertAssist.Settings.ModelDoctor`'s
   ADR 0047 envelope.
@@ -46,14 +47,43 @@ Actions under `AllbertAssist.Actions.Mcp.*`, registered in
 CLI surface: `Mix.Tasks.Allbert.Mcp` (`doctor`, `tools`, `resources`, `read`,
 `call`).
 
+Capability execution modes added in v0.40:
+
+- `:mcp_doctor`
+- `:mcp_discovery`
+- `:mcp_resource_read`
+- `:mcp_tool_call`
+
+Action parameter schemas:
+
+| Action | Required params | Optional params |
+|---|---|---|
+| `mcp_doctor_server` | `server_id` | `include_discovery` |
+| `mcp_list_tools` | `server_id` | `cursor`, `limit` |
+| `mcp_list_resources` | `server_id` | `cursor`, `limit` |
+| `mcp_read_resource` | `server_id`, `uri` | `resource_uri`, `scope_kind`, `downstream_consumer`, `remember_scope` |
+| `mcp_call_tool` | `server_id`, `tool_name`, `arguments` | `downstream_consumer`, `idempotency_key` |
+
+`uri` is the server-native resource URI. `resource_uri` may be the canonical
+`mcp://<server-id>/<encoded-uri>` form. `arguments` is a decoded JSON object/map
+and CLI parsing fails closed on invalid JSON.
+
 ## Settings
 
 `mcp.servers.<server-id>` in `AllbertAssist.Settings.Schema`. Per-transport
 validation: `streamable_http`/`sse` require `base_url` (no `command`); `stdio`
-requires `command` (no `base_url`). Secret-bearing `env`/`headers` values and
-`auth_ref` must be `secret://mcp/<server-id>/<name>` refs. `confirmation` is
-tighten-only (`required` | `denied`). See `docs/plans/v0.40-plan.md` for the
-full key list and validation rules.
+requires `command` (no `base_url`) and the command must match
+`mcp.stdio.allowed_launchers`, which defaults to an empty deny-all list.
+Secret-bearing `env`/`headers` values and `auth_ref` must be
+`secret://mcp/<server-id>/<name>` refs. `confirmation` is tighten-only
+(`required` | `denied`). See `docs/plans/v0.40-plan.md` for the full key list
+and validation rules.
+
+MCP map/list settings (`args`, `env`, `headers`, allow/deny lists) must be
+configurable through the implementation-documented input path: either JSON-aware
+`mix allbert.settings set` parsing for known keys or dedicated
+`mix allbert.mcp config ...` helpers. Keep the operator guide examples in lock
+step with that choice.
 
 ## Permission And Operation Classes
 
@@ -83,6 +113,9 @@ security boundary (ADR 0011): a read grant never authorizes a tool call.
 lossless. `agent://` and `agent+https://` stay unsupported.
 `AllbertAssist.Resources.Grants` matches grants on the canonical `mcp://` URI,
 operation class, and scope kind.
+`mcp_read_resource` uses the existing `AllbertAssist.Resources.GrantHandoff` /
+`remember_resource_grant` path for first-access approval. MCP must not introduce
+a private remembered-grant store.
 
 ## Transports
 
@@ -97,11 +130,13 @@ Both transports are bounded adapters; neither carries authority.
 
 ## Codec And Dependency
 
-v0.40 uses `hermes_mcp` for MCP protocol framing/codec only, with an
-Allbert-owned transport so traffic stays inside the posture above. The M1 spike
-proves the transport can be constrained; if not, v0.40 falls back to a minimal
-native JSON-RPC MCP client over `Req`. Either way, MCP is a protocol-generic
-dependency, not a provider SDK, so it does not violate ADR 0039.
+v0.40 uses `hermes_mcp` for MCP protocol framing/codec only if the M1 spike
+proves Hermes can be constrained behind Allbert-owned HTTP/SSE and stdio egress.
+Current Hermes docs confirm the needed client operations and built-in transports,
+but the implementation must prove a custom transport hook or equivalent control
+point. If not, v0.40 falls back to a minimal native JSON-RPC MCP client over
+`Req` plus an Allbert-owned stdio process adapter. Either way, MCP is a
+protocol-generic dependency, not a provider SDK, so it does not violate ADR 0039.
 
 ## Doctor
 
@@ -119,6 +154,9 @@ dependency, not a provider SDK, so it does not violate ADR 0039.
 3. For CI, add a deterministic mock server fixture under `test/support` rather
    than depending on a live server. v0.40 validates GitHub, calendar, and mail
    shapes (the v0.41 consumers) plus mocks.
+4. Record whether the data v0.41 needs for summary panels is exposed as MCP
+   resources or only as MCP tools. Tool-only summary reads remain per-call
+   confirmed unless ADR 0038 is explicitly amended.
 
 ## Testing And Security Evals
 
