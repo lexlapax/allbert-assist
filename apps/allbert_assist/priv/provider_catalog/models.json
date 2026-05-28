@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "checked_at": "2026-05-28",
+  "sources": [
+    "https://platform.claude.com/docs/en/about-claude/models/overview",
+    "https://docs.anthropic.com/en/api/models",
+    "https://github.com/anthropics/anthropic-sdk-typescript"
+  ],
+  "providers": {
+    "local_ollama": {
+      "type": "openai_compatible",
+      "base_url": "http://localhost:11434/v1",
+      "api_key_ref": null,
+      "endpoint_kind": "local_endpoint",
+      "enabled": true
+    },
+    "openai": {
+      "type": "openai",
+      "api_key_ref": "secret://providers/openai/api_key",
+      "endpoint_kind": "credentialed_remote",
+      "enabled": false
+    },
+    "anthropic": {
+      "type": "anthropic",
+      "api_key_ref": "secret://providers/anthropic/api_key",
+      "endpoint_kind": "credentialed_remote",
+      "enabled": false
+    },
+    "openrouter": {
+      "type": "openrouter",
+      "api_key_ref": "secret://providers/openrouter/api_key",
+      "endpoint_kind": "credentialed_remote",
+      "enabled": false
+    }
+  },
+  "model_profiles": {
+    "local": {
+      "provider": "local_ollama",
+      "model": "llama3.2:3b",
+      "temperature": 0.2,
+      "max_tokens": 1024,
+      "timeout_ms": 30000
+    },
+    "fast": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "temperature": 0.2,
+      "max_tokens": 1024,
+      "timeout_ms": 30000
+    },
+    "anthropic_fast": {
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "temperature": 0.2,
+      "max_tokens": 4096,
+      "timeout_ms": 45000
+    },
+    "openrouter_fast": {
+      "provider": "openrouter",
+      "model": "openai/gpt-4o-mini",
+      "temperature": 0.2,
+      "max_tokens": 4096,
+      "timeout_ms": 45000
+    }
+  },
+  "jido_model_aliases": {
+    "fast": "anthropic:claude-haiku-4-5-20251001",
+    "capable": "anthropic:claude-sonnet-4-6",
+    "slow": "anthropic:claude-sonnet-4-6",
+    "thinking": "anthropic:claude-opus-4-8",
+    "gpt": "openai:gpt-4o-mini",
+    "local": "openai:gemma4:26b"
+  },
+  "models": {
+    "anthropic": [
+      {
+        "id": "claude-haiku-4-5-20251001",
+        "aliases": ["claude-haiku-4-5"],
+        "display_name": "Claude Haiku 4.5",
+        "role": "fast",
+        "context_window": 200000,
+        "max_output_tokens": 64000
+      },
+      {
+        "id": "claude-sonnet-4-6",
+        "aliases": [],
+        "display_name": "Claude Sonnet 4.6",
+        "role": "capable",
+        "context_window": 1000000,
+        "max_output_tokens": 64000
+      },
+      {
+        "id": "claude-opus-4-8",
+        "aliases": [],
+        "display_name": "Claude Opus 4.8",
+        "role": "thinking",
+        "context_window": 1000000,
+        "max_output_tokens": 128000
+      }
+    ]
+  }
+}
