@@ -95,12 +95,27 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, 0.6} = Settings.get("intent.handoff_threshold")
     assert {:ok, 0.15} = Settings.get("intent.handoff_margin")
     assert {:ok, 0.3} = Settings.get("intent.clarify_floor")
+    assert {:ok, true} = Settings.get("active_memory.enabled")
+    assert {:ok, 5} = Settings.get("active_memory.top_k")
+    assert {:ok, 2048} = Settings.get("active_memory.chunk_max_bytes")
+    assert {:ok, 30} = Settings.get("active_memory.score_weights.recency_half_life_days")
+    assert {:ok, 1.0} = Settings.get("active_memory.score_weights.thread_affinity.same_thread")
+    assert {:ok, 0.6} = Settings.get("active_memory.score_weights.thread_affinity.same_app")
+    assert {:ok, 0.3} = Settings.get("active_memory.score_weights.thread_affinity.general")
+    assert {:ok, 1.5} = Settings.get("active_memory.score_weights.identity_inclusion")
 
     assert {:ok, resolved} =
              Settings.put("intent.max_candidates", 120, %{audit?: false})
 
     assert resolved.value == 120
     assert {:ok, 120} = Settings.get("intent.max_candidates")
+
+    assert {:ok, resolved} =
+             Settings.put("active_memory.score_weights.identity_inclusion", 2.0, %{
+               audit?: false
+             })
+
+    assert resolved.value == 2.0
 
     assert {:error, {:invalid_setting, "intent.model_min_confidence", _reason}} =
              Settings.put("intent.model_min_confidence", 1.5, %{audit?: false})
@@ -110,6 +125,14 @@ defmodule AllbertAssist.SettingsTest do
 
     assert {:error, {:invalid_setting, "intent.max_candidates", _reason}} =
              Settings.put("intent.max_candidates", 0, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "active_memory.top_k", _reason}} =
+             Settings.put("active_memory.top_k", 0, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "active_memory.score_weights.identity_inclusion", _reason}} =
+             Settings.put("active_memory.score_weights.identity_inclusion", 0.0, %{
+               audit?: false
+             })
   end
 
   test "objective runtime settings resolve defaults and validate writes" do
