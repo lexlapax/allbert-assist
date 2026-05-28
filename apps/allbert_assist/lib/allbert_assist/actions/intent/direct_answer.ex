@@ -128,7 +128,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
       user_id: context_value(context, :user_id) || context_value(context, :actor),
       thread_id: context_value(context, :thread_id),
       active_app: context_value(context, :active_app),
-      now: DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+      now: active_memory_now(context)
     }
 
     case Runner.run("retrieve_active_memory", params, context) do
@@ -163,6 +163,36 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
       get_in(context, [:request, key]) ||
       get_in(context, [:request, Atom.to_string(key)])
   end
+
+  defp active_memory_now(context) do
+    [:now, :request_started_at, :started_at, :requested_at]
+    |> Enum.find_value(&context_timestamp(context, &1))
+    |> case do
+      nil -> DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+      timestamp -> timestamp
+    end
+  end
+
+  defp context_timestamp(context, key) do
+    context
+    |> context_value(key)
+    |> normalize_timestamp()
+  end
+
+  defp normalize_timestamp(%DateTime{} = datetime) do
+    datetime
+    |> DateTime.truncate(:second)
+    |> DateTime.to_iso8601()
+  end
+
+  defp normalize_timestamp(value) when is_binary(value) do
+    case DateTime.from_iso8601(value) do
+      {:ok, datetime, _offset} -> normalize_timestamp(datetime)
+      _error -> nil
+    end
+  end
+
+  defp normalize_timestamp(_value), do: nil
 
   defp fallback(reason) do
     {
