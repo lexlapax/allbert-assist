@@ -493,19 +493,19 @@ defmodule AllbertAssist.Memory do
     %{
       path: path,
       category: category,
-      timestamp: metadata(content, "Timestamp"),
-      source_signal_id: metadata(content, "Source signal"),
-      actor: metadata(content, "Actor"),
-      agent: metadata(content, "Agent"),
-      channel: metadata(content, "Channel"),
+      timestamp: entry_metadata(category, path, content, "Timestamp"),
+      source_signal_id: entry_metadata(category, path, content, "Source signal"),
+      actor: entry_metadata(category, path, content, "Actor"),
+      agent: entry_metadata(category, path, content, "Agent"),
+      channel: entry_metadata(category, path, content, "Channel"),
       origin: identity_metadata.origin,
       app_id: identity_metadata.app_id,
       namespace: identity_metadata.namespace,
       kind: metadata(content, "Kind"),
       idempotency_key: metadata(content, "Idempotency key"),
       source_ref: metadata(content, "Source ref"),
-      summary: summary_from_content(content),
-      body: body_from_content(content),
+      summary: summary_from_content(category, path, content),
+      body: body_from_content(category, content),
       content: content,
       review_status: review.review_status,
       reviewed_at: review.reviewed_at,
@@ -522,6 +522,34 @@ defmodule AllbertAssist.Memory do
     |> String.to_existing_atom()
   rescue
     ArgumentError -> :notes
+  end
+
+  defp entry_metadata(category, path, content, key) do
+    content
+    |> metadata(key)
+    |> default_entry_metadata(category, path, key)
+  end
+
+  defp default_entry_metadata("", :identity, path, "Timestamp"), do: file_timestamp(path)
+  defp default_entry_metadata("", :identity, _path, "Source signal"), do: "operator_file"
+  defp default_entry_metadata("", :identity, _path, "Actor"), do: "local"
+  defp default_entry_metadata("", :identity, _path, "Agent"), do: "AllbertAssist.SystemMemory"
+  defp default_entry_metadata("", :identity, _path, "Channel"), do: "filesystem"
+  defp default_entry_metadata(value, _category, _path, _key), do: value
+
+  defp file_timestamp(path) do
+    case File.stat(path, time: :posix) do
+      {:ok, %{mtime: mtime}} ->
+        mtime
+        |> DateTime.from_unix!()
+        |> DateTime.truncate(:second)
+        |> DateTime.to_iso8601()
+
+      {:error, _reason} ->
+        DateTime.utc_now()
+        |> DateTime.truncate(:second)
+        |> DateTime.to_iso8601()
+    end
   end
 
   defp metadata(content, key) do
@@ -554,14 +582,23 @@ defmodule AllbertAssist.Memory do
   defp default_blank("", default), do: default
   defp default_blank(value, _default), do: value
 
-  defp summary_from_content(content) do
+  defp summary_from_content(category, path, content) do
     case Regex.run(~r/^# Memory: (.+)$/m, content) do
       [_, summary] -> String.trim(summary)
-      _match -> ""
+      _match -> summary_fallback(category, path, content)
     end
   end
 
-  defp body_from_content(content) do
+  defp summary_fallback(:identity, path, content) do
+    case Regex.run(~r/^#\s+(.+)$/m, content) do
+      [_, summary] -> String.trim(summary)
+      _match -> path |> Path.basename(".md") |> String.replace(["-", "_"], " ")
+    end
+  end
+
+  defp summary_fallback(_category, _path, _content), do: ""
+
+  defp body_from_content(category, content) do
     case String.split(content, "## Body", parts: 2) do
       [_prefix, body] ->
         body
@@ -570,9 +607,12 @@ defmodule AllbertAssist.Memory do
         |> String.trim()
 
       _other ->
-        ""
+        body_fallback(category, content)
     end
   end
+
+  defp body_fallback(:identity, content), do: Review.strip_review(content)
+  defp body_fallback(_category, _content), do: ""
 
   defp update_entry_content(content, attrs) do
     body = Map.get(attrs, :body, Map.get(attrs, "body"))

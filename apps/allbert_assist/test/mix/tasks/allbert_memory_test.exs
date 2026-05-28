@@ -242,6 +242,56 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
     assert retrieve_output =~ entry.path
   end
 
+  test "quick smoke retrieves a plain identity markdown file", %{home: home} do
+    path = Path.join([home, "memory", "identity", "persona.md"])
+
+    File.mkdir_p!(Path.dirname(path))
+
+    File.write!(path, """
+    # Persona
+
+    I prefer concise release reports with clear validation notes.
+    """)
+
+    review_output =
+      capture_io(fn ->
+        assert :ok =
+                 MemoryTask.run([
+                   "review",
+                   path,
+                   "--user",
+                   "local",
+                   "--status",
+                   "kept",
+                   "--note",
+                   "Operator-authored identity"
+                 ])
+      end)
+
+    assert review_output =~ "reviewed:"
+    assert review_output =~ "Review status: kept"
+
+    Mix.Task.reenable("allbert.memory")
+
+    retrieve_output =
+      capture_io(fn ->
+        assert :ok =
+                 MemoryTask.run([
+                   "retrieve",
+                   "--user",
+                   "local",
+                   "--query",
+                   "concise release reports",
+                   "--now",
+                   "2026-05-28T12:00:00Z"
+                 ])
+      end)
+
+    assert retrieve_output =~ "Active Memory chunks: 1"
+    assert retrieve_output =~ "namespace=identity"
+    assert retrieve_output =~ path
+  end
+
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 end
