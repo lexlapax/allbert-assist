@@ -14,6 +14,7 @@ defmodule AllbertAssist.Actions.Memory.ListMemoryEntries do
     schema: [
       user_id: [type: :string, required: false],
       category: [type: :string, required: false],
+      namespace: [type: :string, required: false],
       review_status: [type: :string, required: false],
       limit: [type: :integer, required: false],
       since: [type: :string, required: false]
@@ -70,6 +71,7 @@ defmodule AllbertAssist.Actions.Memory.ListMemoryEntries do
     [
       user_id: user_id,
       category: value(params, :category),
+      namespace: value(params, :namespace),
       review_status: value(params, :review_status),
       limit: limit(value(params, :limit)),
       since: value(params, :since)
