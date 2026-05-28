@@ -12,6 +12,7 @@ database_path =
 config :allbert_assist, AllbertAssist.Repo,
   database: database_path,
   pool_size: 5,
+  busy_timeout: 15_000,
   pool: Ecto.Adapters.SQL.Sandbox
 
 # We don't run a server during test. If one is required,

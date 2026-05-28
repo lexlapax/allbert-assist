@@ -10,7 +10,8 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     skill_backed?: true,
     confirmation: :not_required,
     name: "direct_answer",
-    description: "Answer a plain prompt without reading, writing, or executing anything.",
+    description:
+      "Answer a plain prompt without effectful tools; model mode may read bounded reviewed memory.",
     category: "intent",
     tags: ["intent", "safe", "read_only"],
     schema: [
@@ -23,6 +24,8 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Memory.ActiveMemory
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
@@ -71,8 +74,12 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     with {:ok, profile_name} <- direct_answer_model_profile(),
          {:ok, profile} <- Settings.resolve_model_profile(profile_name),
          :ok <- ensure_provider_enabled(profile),
+         active_memory <- retrieve_active_memory(text, context),
          {:ok, response} <-
-           answerer().answer(text, Map.merge(context, %{model_profile: profile})) do
+           answerer().answer(
+             text,
+             Map.merge(context, %{model_profile: profile, active_memory: active_memory.chunks})
+           ) do
       {
         response.message,
         %{
@@ -80,6 +87,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
           model_profile: profile.name,
           provider: profile.provider,
           model: profile.model,
+          active_memory: ActiveMemory.trace_metadata(active_memory),
           diagnostic: Map.get(response, :diagnostic, %{status: :used})
         }
       }
@@ -112,6 +120,48 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
       _missing_or_invalid ->
         Settings.get("intent.model_profile")
     end
+  end
+
+  defp retrieve_active_memory(text, context) do
+    params = %{
+      query: text,
+      user_id: context_value(context, :user_id) || context_value(context, :actor),
+      thread_id: context_value(context, :thread_id),
+      active_app: context_value(context, :active_app),
+      now: DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+    }
+
+    case Runner.run("retrieve_active_memory", params, context) do
+      {:ok, %{status: :completed, active_memory: active_memory}} ->
+        active_memory
+
+      {:ok, %{active_memory: active_memory}} when is_map(active_memory) ->
+        Map.merge(empty_active_memory(), active_memory)
+
+      _other ->
+        empty_active_memory()
+    end
+  end
+
+  defp empty_active_memory do
+    %{
+      status: :unavailable,
+      enabled?: false,
+      query_terms_normalized: [],
+      scope: %{},
+      candidate_count_before_filter: 0,
+      candidate_chunk_count_before_filter: 0,
+      candidate_count_after_filter: 0,
+      chunks: [],
+      retrieved_chunks: [],
+      excluded_chunks_sample: []
+    }
+  end
+
+  defp context_value(context, key) do
+    Map.get(context, key) ||
+      get_in(context, [:request, key]) ||
+      get_in(context, [:request, Atom.to_string(key)])
   end
 
   defp fallback(reason) do
