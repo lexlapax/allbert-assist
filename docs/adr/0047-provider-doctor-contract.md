@@ -80,9 +80,18 @@ Every doctor (v0.39, v0.40, v0.47, v0.48, and any future doctor) returns:
 }
 ```
 
-Additive-only post-v0.39: later milestones may add new optional fields
-(e.g., v0.48 vision adds `:image_input_supported`), but no field is removed
-or renamed without an ADR amendment and an ADR 0046 schema migration.
+Additive-only post-v0.39: later milestones may add new optional fields, but no
+field is removed or renamed without an ADR amendment and an ADR 0046 schema
+migration. Known additive fields:
+
+- **v0.40 MCP** (`mcp_doctor_server`) adds `:transport_kind`
+  (`:streamable_http | :sse | :stdio`), `:tools_listable` (boolean),
+  `:resources_listable` (boolean), `:tool_count`
+  (`non_neg_integer() | :unknown`), `:resource_count`
+  (`non_neg_integer() | :unknown`), and `:protocol_version`
+  (`String.t() | nil`). For stdio servers `endpoint_kind` is `:local_endpoint`;
+  for authenticated HTTP/SSE servers it is `:credentialed_remote`.
+- **v0.48 vision** adds `:image_input_supported`.
 
 ### 3. Redaction policy
 

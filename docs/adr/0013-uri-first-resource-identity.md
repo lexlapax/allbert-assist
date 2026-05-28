@@ -5,6 +5,10 @@
 Accepted for the remaining v0.10 closeout. ADR 0013 refines ADR 0012; it does
 not replace the broader Resource Access Security Posture decision.
 
+Amended at v0.40 MCP Client Integration: `mcp://` graduates from a reserved,
+inert scheme to a supported resource adapter (see ADR 0038). `agent://` and
+`agent+https://` remain reserved and inert.
+
 ## Context
 
 ADR 0012 named Allbert's shared local and remote resource access posture. The
@@ -79,13 +83,20 @@ Initial URI mappings:
 - skill inventory resources: `skill://<skill-name>/...`
 - package specs: `pkg:npm/...`, `pkg:pypi/...`, or another PURL-compatible
   `pkg:` form when a package type exists
-- future MCP envelope: `mcp://<server-id>/<encoded-server-resource-uri>`
+- MCP resources: `mcp://<server-id>/<encoded-server-resource-uri>` (reserved and
+  inert here; promoted to a supported adapter in v0.40, see ADR 0038)
 - future agents: recognized but unsupported `agent://` or `agent+https://`
 
 Unsupported URI schemes are inert. A scheme may be represented for planning,
 approval explanation, trace, or future handoff, but it is denied for execution
 until a later plan adds an action, policy, confirmation shape, adapter,
 redaction, trace, audit, and tests.
+
+v0.40 MCP Client Integration is the plan that does exactly this for `mcp://`: it
+adds the MCP actions, the `:mcp_tool_call` / `:mcp_resource_read` permission
+classes, MCP operation classes, confirmation and grant shapes, redaction,
+traces, audits, and tests (ADR 0038). `agent://` and `agent+https://` remain
+inert and reserved.
 
 The v0.10 M12 implementation adds `AllbertAssist.Resources.ResourceURI`. That
 module owns scheme-specific normalization, redaction/display rendering, scope
@@ -113,6 +124,11 @@ re-created through the current approval/resource-grant UX.
 - Skills, packages, MCP resources, future agents, source profiles, local
   files, and network URLs become typed resource consumers over the same URI
   substrate.
+- v0.40 promotes `mcp://` to a supported, grant-matched consumer of this
+  substrate: MCP resource reads are remembered-grant authority on the canonical
+  `mcp://` URI, and MCP tool calls are confirmation-gated (ADR 0038). The URI
+  substrate, grant matching, and operation-class scoping are unchanged; MCP just
+  stops being inert.
 - Existing confirmation/audit records remain historical evidence, but
   remembered grants without `resource_uri` are not compatibility inputs for
   matching after M12. No user data is deleted; operators may re-create grants
