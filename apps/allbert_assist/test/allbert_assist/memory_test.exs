@@ -3,6 +3,8 @@ defmodule AllbertAssist.MemoryTest do
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Memory
+  alias AllbertAssist.Memory.Namespaces
+  alias AllbertAssist.Memory.SystemNamespaces
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
 
   setup do
@@ -28,10 +30,38 @@ defmodule AllbertAssist.MemoryTest do
 
   test "creates the memory root and initial categories", %{root: root} do
     assert Memory.ensure_root!() == root
+    assert :identity in Memory.categories()
 
     for category <- Memory.categories() do
       assert File.dir?(Path.join(root, Atom.to_string(category)))
     end
+  end
+
+  test "declares identity as an operator-owned system namespace" do
+    assert [%{namespace: :identity, origin: :system, app_id: nil, category: :identity}] =
+             SystemNamespaces.all()
+
+    assert {:ok, %{writable: true, description: description}} =
+             Namespaces.system_namespace(:identity)
+
+    assert description =~ "identity"
+    refute AppRegistry.known_app_id?(:_system)
+  end
+
+  test "combined namespace facade merges app and system declarations" do
+    ensure_stocksage_registered()
+
+    namespaces = Namespaces.all()
+
+    assert Enum.any?(
+             namespaces,
+             &match?(%{origin: :system, app_id: nil, namespace: :identity}, &1)
+           )
+
+    assert Enum.any?(
+             namespaces,
+             &match?(%{origin: :app, app_id: :stocksage, namespace: :stocksage}, &1)
+           )
   end
 
   test "appends human-readable markdown memory", %{root: root} do
@@ -117,6 +147,50 @@ defmodule AllbertAssist.MemoryTest do
     assert only_entry.path == entry.path
   end
 
+  test "upserts system identity memory entries idempotently", %{root: root} do
+    attrs = %{
+      namespace: :identity,
+      file_path: "persona.md",
+      kind: :persona,
+      actor: "alice",
+      agent: "test",
+      channel: :test,
+      source_signal_id: "sig-identity",
+      summary: "Alice persona",
+      body: "Call me Alice and keep answers concise."
+    }
+
+    assert {:ok, entry} = Memory.upsert_system_entry(attrs)
+    assert entry.path == Path.join([root, "identity", "persona.md"])
+    assert entry.category == :identity
+    assert entry.origin == "system"
+    assert entry.app_id == nil
+    assert entry.namespace == "identity"
+    assert entry.kind == "persona"
+    assert entry.idempotency_key == "persona.md"
+    assert entry.source_ref == "system:identity:persona.md"
+
+    markdown = File.read!(entry.path)
+    assert markdown =~ "- Origin: system"
+    assert markdown =~ "- Namespace: identity"
+    refute markdown =~ "- App ID:"
+
+    assert {:ok, updated} =
+             Memory.upsert_system_entry(%{
+               attrs
+               | summary: "Updated persona",
+                 body: "Call me Alice and prefer concise answers."
+             })
+
+    assert updated.path == entry.path
+    assert updated.body == "Call me Alice and prefer concise answers."
+
+    assert {:ok, [listed]} =
+             Memory.list_entries(user_id: "alice", category: :identity, namespace: :identity)
+
+    assert listed.path == entry.path
+  end
+
   test "namespaced app memory requires a writable registered namespace" do
     ensure_stocksage_registered()
 
@@ -129,6 +203,22 @@ defmodule AllbertAssist.MemoryTest do
                source_ref: "stocksage:analysis:missing",
                actor: "alice",
                body: "Should not be written."
+             })
+  end
+
+  test "system identity memory rejects unknown namespaces and unsafe paths" do
+    assert {:error, {:unknown_memory_namespace, :unknown_namespace}} =
+             Memory.upsert_system_entry(%{
+               namespace: :unknown_namespace,
+               file_path: "persona.md",
+               body: "Unknown system namespace."
+             })
+
+    assert {:error, :path_outside_memory_root} =
+             Memory.upsert_system_entry(%{
+               namespace: :identity,
+               file_path: "../outside.md",
+               body: "Traversal attempt."
              })
   end
 
