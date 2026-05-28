@@ -2253,8 +2253,8 @@ Expected direction:
   permission classes (floors: tool call confirms, resource read is grant-gated).
 - Ship HTTP/SSE transports (through Allbert's `HttpPolicy` SSRF/redaction
   posture) and stdio transports (bounded under ADR 0009). Use `hermes_mcp` for
-  protocol codec with an Allbert-owned transport; native JSON-RPC fallback if
-  the codec cannot be cleanly constrained.
+  protocol codec only if the M1 spike proves Allbert-owned egress control;
+  native JSON-RPC fallback if the codec cannot be cleanly constrained.
 - Register MCP actions: `mcp_doctor_server`, `mcp_list_tools`,
   `mcp_list_resources`, `mcp_read_resource`, `mcp_call_tool`. Tool calls are
   confirmation-gated; resource reads use remembered Resource Access grants per
@@ -2264,8 +2264,10 @@ Expected direction:
   unsupported-resource workflow to the MCP actions (`agent://` stays
   unsupported).
 - Validate the first MCP client path against GitHub, calendar, and mail server
-  shapes (the v0.41 consumers) plus deterministic mock servers for CI. These are
-  the substrate v0.41's calendar/mail/GitHub workspace summary panels consume.
+  shapes (the v0.41 consumers) plus deterministic mock servers for CI. The
+  validation matrix records which panel data is exposed as resources and which
+  is tool-only; tool-only reads remain per-call-confirmed unless a later ADR
+  amendment changes the trust tier.
 
 ## v0.41: MCP-First Integration Pack 1
 
