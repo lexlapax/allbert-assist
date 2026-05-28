@@ -2148,19 +2148,20 @@ Plan: `docs/plans/v0.39-plan.md`
 Request flow: `docs/plans/v0.39-request-flow.md`
 ADR: `docs/adr/0047-provider-doctor-contract.md`
 
-Status: planned; first revision after the post-v0.38 readiness review on
-2026-05-27. Promoted from `docs/archives/version-1.0-planning-03.md`; not
-implemented. Split from the original "Onboarding + Provider + Identity + Active
-Memory" bundle — identity slot and Active Memory now ship in v0.39b so each
+Status: implemented as `0.39.0`; ready for operator manual validation before
+release tagging. Promoted from `docs/archives/version-1.0-planning-03.md` and
+split from the original "Onboarding + Provider + Identity + Active Memory"
+bundle — identity slot and Active Memory now ship in v0.39b so each
 sub-milestone has its own focused scope.
 
-Expected direction:
+Implemented shape:
 
-- Add onboarding as a registered objective that can run from CLI or
-  `/workspace?destination=workspace:onboard` (new entry in `@workspace_tools`).
-- Add provider/model control-plane UX over existing Settings Central
-  provider/model profile schema.
-- Add explicit `providers.*.endpoint_kind` field
+- Onboarding is a registered durable objective that can run from CLI or
+  `/workspace?destination=workspace:onboard`.
+- Provider/model control-plane UX exists over the Settings Central
+  provider/model profile schema through `mix allbert.model` and the workspace
+  Settings panel.
+- Added explicit `providers.*.endpoint_kind` field
   (`:credentialed_remote | :local_endpoint`) with derivation default and
   operator-overridable safe-key write. Branch selection is field-driven, not
   heuristic.
@@ -2171,17 +2172,17 @@ Expected direction:
   ADR 0047 (Tier-1 freeze candidate for v1.0).
 - Doctor reports model availability, context window, deprecation hints, and
   recent rate-limit signals — not just credential validity.
-- Bump the shipped `model_profiles.local.model` default from the fictional
+- Bumped the shipped `model_profiles.local.model` default from the fictional
   `gemma4:26b` to `llama3.2:3b`, a real small Ollama model. A fresh Ollama
   endpoint without that model reports `model_available: false` with fixed
   remediation; the pass row runs after the operator explicitly pulls the
   shipped default. v0.39 does not auto-run `ollama pull`.
-- Onboarding's last optional step toggles `intent.model_assist_enabled`
+- Onboarding's model-assist step toggles `intent.model_assist_enabled`
   (default `false` today) explicitly so picking a profile actually wires up
   model-assisted intent ranking.
-- Cross-OS first-run on macOS, Linux, and Windows/WSL2 is a v0.39
-  acceptance requirement per the v1.0 acceptance matrix items 1 and 2.
-- Drop the placeholder "no hidden failover; explicit operator opt-in only"
+- Cross-OS first-run on macOS, Linux, and Windows/WSL2 remains the operator
+  manual-validation smoke path per the v1.0 acceptance matrix items 1 and 2.
+- Dropped the placeholder "no hidden failover; explicit operator opt-in only"
   wording. Model fallback policy is parked (see `future-features.md`).
 
 ## v0.39b: Identity Slot And Active Memory

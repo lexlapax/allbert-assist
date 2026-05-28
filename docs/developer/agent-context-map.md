@@ -271,7 +271,7 @@ Do not load every section by default.
   v0.37 loader for optional live integration. Live integration is shipped only
   for the LLM-tool/action pattern; other patterns are inert developer
   scaffolds.
-- v0.39 (planned; first revision after post-v0.38 readiness review):
+- v0.39 (implemented as `0.39.0`; ready for operator manual validation):
   First-Run Onboarding And Provider Control. Adds guided setup, a
   `providers.*.endpoint_kind` field, a two-branch provider doctor
   (credentialed-remote + local-endpoint) with shared redacted return shape
