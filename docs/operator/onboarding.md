@@ -138,6 +138,14 @@ profile's provider and branches on `providers.<name>.endpoint_kind`:
   encrypted credential reference and returns only the ADR 0047 redacted
   summary shape.
 
+Shipped provider/model defaults are seeded from
+`apps/allbert_assist/priv/provider_catalog/models.json`. That file is
+operator-inspectable release metadata, not runtime authority: Settings Central
+overrides still win, and the doctor still verifies against the live provider
+catalog. For Anthropic, the shipped default `anthropic_fast` uses the canonical
+Claude Haiku 4.5 API ID `claude-haiku-4-5-20251001`; the doctor also recognizes
+the provider alias `claude-haiku-4-5` when comparing live model listings.
+
 Provider credentials still belong in Settings Central secrets. Use the existing
 settings/channel tasks rather than shell history or prompt text for raw
 secrets.

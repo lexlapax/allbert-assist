@@ -117,6 +117,11 @@ ADR: `docs/adr/0047-provider-doctor-contract.md`.
 
 - The shipped local model profile now defaults to `llama3.2:3b`, a real small
   Ollama model suitable for first-run local testing.
+- Provider/model defaults are now seeded from
+  `apps/allbert_assist/priv/provider_catalog/models.json`, with
+  `anthropic_fast` using the canonical Claude Haiku 4.5 API ID
+  `claude-haiku-4-5-20251001` and doctor alias comparison covering
+  `claude-haiku-4-5`.
 - ADR 0047 is accepted and pins the provider doctor redacted summary shape as a
   Tier-1 freeze candidate for v1.0.
 - README, roadmap, operator onboarding, security-hardening, agent-context-map,

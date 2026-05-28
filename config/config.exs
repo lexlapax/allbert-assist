@@ -85,10 +85,10 @@ config :allbert_assist, AllbertAssist.JidoBacked,
 # for local Ollama models, with the Ollama base URL configured in runtime.exs.
 config :jido_ai,
   model_aliases: %{
-    fast: "anthropic:claude-haiku-4-5",
-    capable: "anthropic:claude-sonnet-4-5",
-    slow: "anthropic:claude-sonnet-4-5",
-    thinking: "anthropic:claude-opus-4-5",
+    fast: "anthropic:claude-haiku-4-5-20251001",
+    capable: "anthropic:claude-sonnet-4-6",
+    slow: "anthropic:claude-sonnet-4-6",
+    thinking: "anthropic:claude-opus-4-8",
     gpt: "openai:gpt-4o-mini",
     local: "openai:gemma4:26b"
   },

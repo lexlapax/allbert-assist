@@ -15,6 +15,7 @@ defmodule AllbertAssist.Settings.Schema do
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.Settings.ProviderCatalog
 
   @safe_write_keys [
     "operator.display_name",
@@ -1763,7 +1764,7 @@ defmodule AllbertAssist.Settings.Schema do
       },
       "anthropic_fast" => %{
         "provider" => "anthropic",
-        "model" => "claude-haiku-4-5",
+        "model" => "claude-haiku-4-5-20251001",
         "temperature" => 0.2,
         "max_tokens" => 4096,
         "timeout_ms" => 45_000
@@ -2079,7 +2080,7 @@ defmodule AllbertAssist.Settings.Schema do
   def core_schema, do: @schema
 
   @doc false
-  def core_defaults, do: @defaults
+  def core_defaults, do: ProviderCatalog.merge_defaults(@defaults)
 
   @doc false
   def core_safe_write_keys, do: @safe_write_keys
