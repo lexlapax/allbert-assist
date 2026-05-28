@@ -11,6 +11,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.DoctorDiagnostics
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -119,6 +120,25 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     refute response.message =~ "api_key"
   end
 
+  test "doctor diagnostics use the fixed ADR 0047 catalog" do
+    assert :credential_missing in DoctorDiagnostics.codes()
+    assert :endpoint_unreachable in DoctorDiagnostics.codes()
+
+    for {code, message} <- DoctorDiagnostics.catalog() do
+      assert DoctorDiagnostics.known?(code)
+      assert DoctorDiagnostics.new(code) == %{code: code, message: message}
+      assert byte_size(message) <= 256
+      refute message =~ "http://"
+      refute message =~ "https://"
+      refute message =~ "/v1"
+      refute message =~ "token="
+      refute message =~ "sk-"
+    end
+
+    refute DoctorDiagnostics.known?(:provider_returned_secret_body)
+    assert DoctorDiagnostics.new(:provider_returned_secret_body).code == :doctor_failed
+  end
+
   test "set active model profile writes safe settings and provider enablement" do
     assert {:ok, set_active} =
              SetActiveModelProfile.run(%{profile: "local", enable_assist: true}, %{
@@ -210,6 +230,16 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert doctor.doctor.model_available == true
     assert doctor.doctor.context_window == 200_000
     refute inspect(doctor) =~ "sk-ant-test-key"
+  end
+
+  test "doctor action errors do not echo unresolved profile input" do
+    assert {:ok, failed} =
+             DoctorModelProfile.run(%{profile: "sk-test-secret-profile"}, %{})
+
+    assert failed.status == :error
+    assert failed.message == "Model profile doctor failed."
+    assert failed.diagnostics == [DoctorDiagnostics.new(:doctor_failed)]
+    refute inspect(failed) =~ "sk-test-secret-profile"
   end
 
   test "credentialed remote doctor fails closed for missing credentials and private hosts" do
