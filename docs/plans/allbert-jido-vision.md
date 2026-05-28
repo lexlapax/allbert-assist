@@ -301,7 +301,7 @@ context packs. Memory pruning should be deliberate: preserve the durable record,
 compress repetitive traces, and promote stable preferences into higher-signal
 files.
 
-v0.39b Active Memory is the planned safe precursor for this direction:
+v0.39b Active Memory is the implemented safe precursor for this direction:
 deterministic direct-answer retrieval over reviewed `:kept` memory, scoped by
 thread, active app, and identity namespace. It is not nightly training,
 personality distillation, or a generated system model. Small-model retraining
@@ -619,7 +619,7 @@ bucket.
   reports, v0.37 operator-confirmed dynamic code/config integration, and
   v0.38 deterministic templates. This is the safe precursor to the
   self-recompilation idea, not autonomous self-rewriting.
-- Active Memory in v0.39 is the safe precursor to system memory: reviewed
+- Active Memory in v0.39b is the safe precursor to system memory: reviewed
   retrieval before replies, not model training or distillation.
 - Capability reach lands through planned, authority-bounded surfaces: MCP,
   everyday integrations, browser research, channels, Plan/Build,
