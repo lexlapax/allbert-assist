@@ -8,7 +8,7 @@ defmodule AllbertAssist.Objectives.Step do
   alias AllbertAssist.Objectives.{Objective, Stage}
 
   @kinds ~w[action ask_user wait observe reflect delegate_agent]
-  @statuses ~w[proposed selected running blocked completed cancelled failed]
+  @statuses ~w[proposed selected running blocked completed skipped cancelled failed]
 
   @primary_key {:id, :string, autogenerate: false}
   @foreign_key_type :string

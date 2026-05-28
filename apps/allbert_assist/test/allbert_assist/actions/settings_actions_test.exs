@@ -2,11 +2,13 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
   use ExUnit.Case, async: false
 
   alias AllbertAssist.Actions.Settings.ExplainSetting
+  alias AllbertAssist.Actions.Settings.DoctorModelProfile
   alias AllbertAssist.Actions.Settings.ListModelProfiles
   alias AllbertAssist.Actions.Settings.ListProviderProfiles
   alias AllbertAssist.Actions.Settings.ListSettings
   alias AllbertAssist.Actions.Settings.ReadSetting
   alias AllbertAssist.Actions.Settings.SetProviderCredential
+  alias AllbertAssist.Actions.Settings.SetActiveModelProfile
   alias AllbertAssist.Actions.Settings.UpdateSetting
   alias AllbertAssist.Settings
 
@@ -111,6 +113,18 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert response.message =~ "credential=missing"
     assert Enum.any?(response.models, &(&1.name == "fast"))
     refute response.message =~ "api_key"
+  end
+
+  test "v0.39 M1 model control actions are registered stubs" do
+    assert {:ok, doctor} = DoctorModelProfile.run(%{profile: "local"}, %{})
+    assert doctor.status == :unsupported
+    assert doctor.message =~ "v0.39 M2"
+    assert [%{code: :doctor_not_implemented}] = doctor.diagnostics
+
+    assert {:ok, set_active} = SetActiveModelProfile.run(%{profile: "local"}, %{})
+    assert set_active.status == :unsupported
+    assert set_active.message =~ "v0.39 M2"
+    assert [%{code: :model_profile_write_not_implemented}] = set_active.diagnostics
   end
 
   test "provider credential action gives explicit flow guidance and refuses raw prompt secrets" do

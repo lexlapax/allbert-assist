@@ -181,15 +181,31 @@ defmodule AllbertAssist.Objectives do
     statuses = Keyword.get(opts, :status) || Keyword.get(opts, :statuses)
     active_app = Keyword.get(opts, :active_app)
     source_thread_id = Keyword.get(opts, :source_thread_id)
+    source_intent = Keyword.get(opts, :source_intent)
 
     Objective
     |> where([objective], objective.user_id == ^user_id)
     |> maybe_filter_statuses(statuses)
     |> maybe_filter(:active_app, active_app)
     |> maybe_filter(:source_thread_id, source_thread_id)
+    |> maybe_filter(:source_intent, source_intent)
     |> order_by([objective], desc: objective.updated_at, desc: objective.inserted_at)
     |> limit(^limit)
     |> Repo.all()
+  end
+
+  @doc "Find the newest active objective for a user and source intent marker."
+  @spec find_active_by_source_intent(String.t(), String.t()) :: objective_result()
+  def find_active_by_source_intent(user_id, source_intent)
+      when is_binary(user_id) and is_binary(source_intent) do
+    case list_objectives(user_id,
+           statuses: @active_statuses,
+           source_intent: source_intent,
+           limit: 1
+         ) do
+      [%Objective{} = objective | _rest] -> {:ok, objective}
+      [] -> {:error, :not_found}
+    end
   end
 
   @doc "Return active objectives eligible for JidoBacked rehydration."
@@ -345,7 +361,7 @@ defmodule AllbertAssist.Objectives do
   defp opts_from(filters) when is_list(filters), do: filters
 
   defp opts_from(filters) when is_map(filters) do
-    [:limit, :status, :statuses, :active_app, :source_thread_id]
+    [:limit, :status, :statuses, :active_app, :source_thread_id, :source_intent]
     |> Enum.flat_map(fn key ->
       case facade_field(filters, key) do
         nil -> []
