@@ -533,9 +533,20 @@ defmodule AllbertAssist.Onboarding do
   end
 
   defp identity_entries do
-    case Memory.list_entries(category: :identity, limit: 100) do
-      {:ok, entries} -> entries
-      _other -> []
+    identity_root = Path.join(Paths.memory_root(), "identity")
+
+    if File.dir?(identity_root) do
+      identity_root
+      |> Path.join("**/*.md")
+      |> Path.wildcard()
+      |> Enum.flat_map(fn path ->
+        case Memory.read_entry(path) do
+          {:ok, entry} -> [entry]
+          {:error, _reason} -> []
+        end
+      end)
+    else
+      []
     end
   end
 

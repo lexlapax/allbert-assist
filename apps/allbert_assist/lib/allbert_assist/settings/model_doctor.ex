@@ -8,6 +8,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
   """
 
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.DoctorDiagnostics
   alias AllbertAssist.Settings.Secrets
 
   @max_timeout_ms 5_000
@@ -61,30 +62,21 @@ defmodule AllbertAssist.Settings.ModelDoctor do
          {:ok, response} <- request(:get, uri, [], timeout_ms(model_profile), context) do
       local_response_summary(uri, model_profile.model, response)
     else
-      {:error, {:host_denied, reason, host}} ->
+      {:error, {:host_denied, _reason, host}} ->
         base_summary(:local_endpoint, host, [
-          diagnostic(
-            :provider_host_denied,
-            "Local endpoint host is not allowed: #{inspect(reason)}."
-          )
+          diagnostic(:provider_host_denied)
         ])
 
-      {:error, {:invalid_url, reason}} ->
+      {:error, {:invalid_url, _reason}} ->
         base_summary(:local_endpoint, "unknown", [
-          diagnostic(
-            :invalid_provider_base_url,
-            "Provider base URL is invalid: #{inspect(reason)}."
-          )
+          diagnostic(:invalid_provider_base_url)
         ])
 
-      {:error, {:transport_error, reason, url}} ->
+      {:error, {:transport_error, _reason, url}} ->
         host = url |> URI.parse() |> redacted_host()
 
         base_summary(:local_endpoint, host, [
-          diagnostic(
-            :endpoint_unreachable,
-            "Local endpoint did not respond: #{safe_reason(reason)}."
-          )
+          diagnostic(:endpoint_unreachable)
         ])
     end
   end
@@ -105,41 +97,29 @@ defmodule AllbertAssist.Settings.ModelDoctor do
     else
       {:error, {:credential_missing, host}} ->
         base_summary(:credentialed_remote, host, [
-          diagnostic(:credential_missing, "Provider credential is not configured.")
+          diagnostic(:credential_missing)
         ])
 
-      {:error, {:credential_unavailable, reason, host}} ->
+      {:error, {:credential_unavailable, _reason, host}} ->
         base_summary(:credentialed_remote, host, [
-          diagnostic(
-            :credential_unavailable,
-            "Provider credential could not be read: #{inspect(reason)}."
-          )
+          diagnostic(:credential_unavailable)
         ])
 
-      {:error, {:host_denied, reason, host}} ->
+      {:error, {:host_denied, _reason, host}} ->
         base_summary(:credentialed_remote, host, [
-          diagnostic(
-            :provider_host_denied,
-            "Credentialed-remote provider host is not allowed: #{inspect(reason)}."
-          )
+          diagnostic(:provider_host_denied)
         ])
 
-      {:error, {:invalid_url, reason}} ->
+      {:error, {:invalid_url, _reason}} ->
         base_summary(:credentialed_remote, "unknown", [
-          diagnostic(
-            :invalid_provider_base_url,
-            "Provider base URL is invalid: #{inspect(reason)}."
-          )
+          diagnostic(:invalid_provider_base_url)
         ])
 
-      {:error, {:transport_error, reason, url}} ->
+      {:error, {:transport_error, _reason, url}} ->
         host = url |> URI.parse() |> redacted_host()
 
         base_summary(:credentialed_remote, host, [
-          diagnostic(
-            :endpoint_unreachable,
-            "Provider endpoint did not respond: #{safe_reason(reason)}."
-          )
+          diagnostic(:endpoint_unreachable)
         ])
     end
   end
@@ -162,7 +142,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
       model_available: :unknown,
       last_seen_rate_limit_hint: rate_limit_hint(response),
       diagnostics: [
-        diagnostic(:endpoint_http_error, "Local endpoint returned HTTP #{response.status}.")
+        diagnostic(:endpoint_http_error)
       ]
     )
   end
@@ -180,25 +160,19 @@ defmodule AllbertAssist.Settings.ModelDoctor do
       model_available: :unknown,
       last_seen_rate_limit_hint: rate_limit_hint,
       diagnostics: [
-        diagnostic(
-          :invalid_catalog_response,
-          "Local endpoint returned an unreadable model list."
-        )
+        diagnostic(:invalid_catalog_response)
       ]
     )
   end
 
-  defp local_model_summary(nil, host, model, rate_limit_hint) do
+  defp local_model_summary(nil, host, _model, rate_limit_hint) do
     summary(:local_endpoint, host,
       credential_ok: nil,
       endpoint_ok: true,
       model_available: false,
       last_seen_rate_limit_hint: rate_limit_hint,
       diagnostics: [
-        diagnostic(
-          :local_model_missing,
-          "Local model #{model} is not installed. Run `ollama pull #{model}` and retry."
-        )
+        diagnostic(:local_model_missing)
       ]
     )
   end
@@ -237,7 +211,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
           model_available: :unknown,
           last_seen_rate_limit_hint: rate_limit_hint,
           diagnostics: [
-            diagnostic(:credential_rejected, "Provider rejected the configured credential.")
+            diagnostic(:credential_rejected)
           ]
         )
 
@@ -247,7 +221,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
           endpoint_ok: true,
           model_available: :unknown,
           last_seen_rate_limit_hint: rate_limit_hint,
-          diagnostics: [diagnostic(:rate_limited, "Provider rate-limited the model-list probe.")]
+          diagnostics: [diagnostic(:rate_limited)]
         )
 
       true ->
@@ -257,10 +231,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
           model_available: :unknown,
           last_seen_rate_limit_hint: rate_limit_hint,
           diagnostics: [
-            diagnostic(
-              :endpoint_http_error,
-              "Provider endpoint returned HTTP #{response.status}."
-            )
+            diagnostic(:endpoint_http_error)
           ]
         )
     end
@@ -279,25 +250,19 @@ defmodule AllbertAssist.Settings.ModelDoctor do
       model_available: :unknown,
       last_seen_rate_limit_hint: rate_limit_hint,
       diagnostics: [
-        diagnostic(
-          :invalid_catalog_response,
-          "Provider returned an unreadable model list."
-        )
+        diagnostic(:invalid_catalog_response)
       ]
     )
   end
 
-  defp remote_model_summary(nil, host, model, rate_limit_hint) do
+  defp remote_model_summary(nil, host, _model, rate_limit_hint) do
     summary(:credentialed_remote, host,
       credential_ok: true,
       endpoint_ok: true,
       model_available: false,
       last_seen_rate_limit_hint: rate_limit_hint,
       diagnostics: [
-        diagnostic(
-          :model_not_listed,
-          "Configured model #{model} was not listed by provider."
-        )
+        diagnostic(:model_not_listed)
       ]
     )
   end
@@ -607,7 +572,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
     }
   end
 
-  defp diagnostic(code, message), do: %{code: code, message: message}
+  defp diagnostic(code), do: DoctorDiagnostics.new(code)
 
   defp endpoint_kind("local_endpoint"), do: :local_endpoint
   defp endpoint_kind(:local_endpoint), do: :local_endpoint
@@ -642,9 +607,6 @@ defmodule AllbertAssist.Settings.ModelDoctor do
   end
 
   defp redacted_host(_value), do: "unknown"
-
-  defp safe_reason(reason) when is_atom(reason), do: Atom.to_string(reason)
-  defp safe_reason(reason), do: reason |> inspect() |> String.slice(0, 80)
 
   defp req_test_plug(context) do
     context
