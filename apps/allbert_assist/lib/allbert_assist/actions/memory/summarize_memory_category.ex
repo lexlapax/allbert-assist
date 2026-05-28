@@ -28,6 +28,8 @@ defmodule AllbertAssist.Actions.Memory.SummarizeMemoryCategory do
   alias AllbertAssist.Memory.Compiler
   alias AllbertAssist.Security.PermissionGate
 
+  @categories Memory.categories()
+
   @impl true
   def run(params, context) do
     permission_decision = PermissionGate.authorize(:read_only, context)
@@ -61,7 +63,7 @@ defmodule AllbertAssist.Actions.Memory.SummarizeMemoryCategory do
   end
 
   defp normalize_category(category)
-       when is_atom(category) and category in [:notes, :preferences, :traces, :skills],
+       when is_atom(category) and category in @categories,
        do: {:ok, category}
 
   defp normalize_category(category) when is_binary(category) do

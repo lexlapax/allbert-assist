@@ -6,16 +6,17 @@ defmodule AllbertAssist.Memory do
   but M5 keeps writes and reads simple, inspectable, and portable.
   """
 
-  @categories [:notes, :preferences, :traces, :skills]
+  @categories [:notes, :preferences, :traces, :skills, :identity]
   @recall_categories [:notes, :preferences, :skills]
   @default_limit 5
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Memory.Entry
+  alias AllbertAssist.Memory.Namespaces
   alias AllbertAssist.Memory.Review
   alias AllbertAssist.Paths
 
-  @type category :: :notes | :preferences | :traces | :skills
+  @type category :: :notes | :preferences | :traces | :skills | :identity
 
   @type entry :: %{
           optional(:content) => String.t(),
@@ -26,6 +27,7 @@ defmodule AllbertAssist.Memory do
           actor: String.t(),
           agent: String.t(),
           channel: String.t(),
+          origin: String.t() | nil,
           app_id: String.t() | nil,
           namespace: String.t() | nil,
           kind: String.t() | nil,
@@ -123,6 +125,38 @@ defmodule AllbertAssist.Memory do
 
   def upsert_app_entry(_attrs), do: {:error, :invalid_app_memory_attrs}
 
+  @doc """
+  Append or update an operator-owned system memory entry.
+
+  System writes validate the namespace through the combined memory namespace
+  facade. They are idempotent by `{actor, :system, namespace, file_path}`.
+  """
+  @spec upsert_system_entry(map()) :: {:ok, Entry.t()} | {:error, term()}
+  def upsert_system_entry(attrs) when is_map(attrs) do
+    with {:ok, namespace} <-
+           normalize_namespace(Map.get(attrs, :namespace, Map.get(attrs, "namespace"))),
+         {:ok, declaration} <- Namespaces.system_namespace(namespace),
+         :ok <- validate_writable_declaration(declaration),
+         {:ok, file_path} <- required_file_path(attrs),
+         {:ok, path, relative_path} <- system_entry_path(declaration, file_path),
+         {:ok, body} <- normalize_body(Map.get(attrs, :body, Map.get(attrs, "body"))) do
+      actor = attrs |> value(:actor, "local") |> to_string()
+      summary = value(attrs, :summary, body)
+
+      if File.exists?(path) do
+        update_entry(path, %{summary: summary, body: body}, user_id: actor)
+      else
+        insert_system_entry(attrs, actor, declaration, path, relative_path, %{
+          kind: value(attrs, :kind, namespace),
+          summary: summary,
+          body: body
+        })
+      end
+    end
+  end
+
+  def upsert_system_entry(_attrs), do: {:error, :invalid_system_memory_attrs}
+
   defp insert_app_entry(attrs, actor, entry_attrs) do
     append(%{
       category: value(attrs, :category, :notes),
@@ -143,6 +177,26 @@ defmodule AllbertAssist.Memory do
 
   defp app_entry_result({:ok, entry}, actor), do: read_entry(entry.path, user_id: actor)
   defp app_entry_result(error, _actor), do: error
+
+  defp insert_system_entry(attrs, actor, declaration, path, relative_path, entry_attrs) do
+    append(%{
+      path: path,
+      category: declaration.category,
+      summary: entry_attrs.summary,
+      body: entry_attrs.body,
+      actor: actor,
+      agent: value(attrs, :agent, "AllbertAssist.SystemMemory"),
+      channel: value(attrs, :channel, "system"),
+      source_signal_id: value(attrs, :source_signal_id, "operator_file"),
+      origin: :system,
+      app_id: nil,
+      namespace: declaration.namespace,
+      kind: entry_attrs.kind,
+      idempotency_key: relative_path,
+      source_ref: value(attrs, :source_ref, "system:#{declaration.namespace}:#{relative_path}")
+    })
+    |> app_entry_result(actor)
+  end
 
   @doc "Read recent markdown memory entries, optionally ranked by query terms."
   @spec recent(keyword()) :: {:ok, [entry()]}
@@ -327,12 +381,15 @@ defmodule AllbertAssist.Memory do
     agent = Map.get(attrs, :agent, "AllbertAssist.Agents.IntentAgent") |> to_string()
     source_signal_id = Map.get(attrs, :source_signal_id, "unknown") |> to_string()
     channel = Map.get(attrs, :channel, "unknown") |> to_string()
+    origin = optional_metadata(attrs, :origin)
     app_id = optional_metadata(attrs, :app_id)
     namespace = optional_metadata(attrs, :namespace)
     kind = optional_metadata(attrs, :kind)
     idempotency_key = optional_metadata(attrs, :idempotency_key)
     source_ref = optional_metadata(attrs, :source_ref)
-    path = entry_path(category, timestamp, summary)
+
+    path =
+      Map.get(attrs, :path, Map.get(attrs, "path")) || entry_path(category, timestamp, summary)
 
     {:ok,
      %{
@@ -343,6 +400,7 @@ defmodule AllbertAssist.Memory do
        actor: actor,
        agent: agent,
        channel: channel,
+       origin: origin,
        app_id: app_id,
        namespace: namespace,
        kind: kind,
@@ -369,6 +427,7 @@ defmodule AllbertAssist.Memory do
     app_metadata =
       [
         {"App ID", entry.app_id},
+        {"Origin", entry.origin},
         {"Namespace", entry.namespace},
         {"Kind", entry.kind},
         {"Idempotency key", entry.idempotency_key},
@@ -437,6 +496,7 @@ defmodule AllbertAssist.Memory do
       actor: metadata(content, "Actor"),
       agent: metadata(content, "Agent"),
       channel: metadata(content, "Channel"),
+      origin: metadata(content, "Origin"),
       app_id: metadata(content, "App ID"),
       namespace: metadata(content, "Namespace"),
       kind: metadata(content, "Kind"),
@@ -643,14 +703,52 @@ defmodule AllbertAssist.Memory do
   defp normalize_namespace(_namespace), do: {:error, :missing_namespace}
 
   defp validate_writable_namespace(app_id, namespace) do
-    AppRegistry.registered_memory_namespaces()
-    |> Enum.find(fn declaration ->
-      declaration.app_id == app_id and declaration.namespace == namespace
-    end)
+    Namespaces.get(app_id, namespace)
     |> case do
-      %{writable: true} -> :ok
-      %{writable: false} -> {:error, {:memory_namespace_not_writable, namespace}}
-      nil -> {:error, {:unknown_memory_namespace, namespace}}
+      {:ok, declaration} -> validate_writable_declaration(declaration)
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_writable_declaration(%{writable: true}), do: :ok
+
+  defp validate_writable_declaration(%{namespace: namespace, writable: false}),
+    do: {:error, {:memory_namespace_not_writable, namespace}}
+
+  defp required_file_path(attrs) do
+    case value(attrs, :file_path, value(attrs, :path, nil)) do
+      value when is_binary(value) ->
+        case String.trim(value) do
+          "" -> {:error, {:missing_required, :file_path}}
+          trimmed -> {:ok, trimmed}
+        end
+
+      _value ->
+        {:error, {:missing_required, :file_path}}
+    end
+  end
+
+  defp system_entry_path(%{category: category}, file_path) do
+    base =
+      root()
+      |> Path.join(Atom.to_string(category))
+      |> Path.expand()
+
+    expanded =
+      case Path.type(file_path) do
+        :absolute -> Path.expand(file_path)
+        _type -> Path.expand(Path.join(base, file_path))
+      end
+
+    cond do
+      expanded == base or not String.starts_with?(expanded, base <> "/") ->
+        {:error, :path_outside_memory_root}
+
+      Path.extname(expanded) != ".md" ->
+        {:error, :invalid_path}
+
+      true ->
+        {:ok, expanded, Path.relative_to(expanded, base)}
     end
   end
 
