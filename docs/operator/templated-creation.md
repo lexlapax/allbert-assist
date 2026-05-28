@@ -139,8 +139,8 @@ Templated drafts show `template_pattern`; v0.37 LLM-authored drafts show
 v0.38.1 was accepted with this disposable manual-validation path. Use one
 temporary Allbert Home for both CLI and Phoenix validation. Do not set
 `DATABASE_PATH` for this dev-server run; `config/dev.exs` derives the SQLite
-path from `ALLBERT_HOME`, and the root `mix phx.server` alias creates and
-migrates a missing or empty dev SQLite database before Phoenix starts. Set
+path from `ALLBERT_HOME`, and app startup creates and migrates a missing or
+empty canonical Allbert Home database before runtime tables are used. Set
 `ALLBERT_DEV_AUTO_MIGRATE=1` to also run pending migrations for an existing
 dev database, or `ALLBERT_DEV_AUTO_MIGRATE=0` to disable the dev bootstrap.
 
