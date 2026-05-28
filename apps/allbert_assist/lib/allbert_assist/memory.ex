@@ -487,18 +487,20 @@ defmodule AllbertAssist.Memory do
   @doc false
   def parse_entry(path, content) do
     review = Review.parse_review(content)
+    category = category_from_path(path)
+    identity_metadata = identity_metadata(category, content)
 
     %{
       path: path,
-      category: category_from_path(path),
+      category: category,
       timestamp: metadata(content, "Timestamp"),
       source_signal_id: metadata(content, "Source signal"),
       actor: metadata(content, "Actor"),
       agent: metadata(content, "Agent"),
       channel: metadata(content, "Channel"),
-      origin: metadata(content, "Origin"),
-      app_id: metadata(content, "App ID"),
-      namespace: metadata(content, "Namespace"),
+      origin: identity_metadata.origin,
+      app_id: identity_metadata.app_id,
+      namespace: identity_metadata.namespace,
       kind: metadata(content, "Kind"),
       idempotency_key: metadata(content, "Idempotency key"),
       source_ref: metadata(content, "Source ref"),
@@ -528,6 +530,29 @@ defmodule AllbertAssist.Memory do
       _match -> ""
     end
   end
+
+  defp identity_metadata(:identity, content) do
+    origin = metadata(content, "Origin")
+    app_id = metadata(content, "App ID")
+    namespace = metadata(content, "Namespace")
+
+    %{
+      origin: default_blank(origin, "system"),
+      app_id: app_id,
+      namespace: default_blank(namespace, "identity")
+    }
+  end
+
+  defp identity_metadata(_category, content) do
+    %{
+      origin: metadata(content, "Origin"),
+      app_id: metadata(content, "App ID"),
+      namespace: metadata(content, "Namespace")
+    }
+  end
+
+  defp default_blank("", default), do: default
+  defp default_blank(value, _default), do: value
 
   defp summary_from_content(content) do
     case Regex.run(~r/^# Memory: (.+)$/m, content) do
