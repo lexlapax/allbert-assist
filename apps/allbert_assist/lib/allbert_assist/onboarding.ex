@@ -539,14 +539,16 @@ defmodule AllbertAssist.Onboarding do
       identity_root
       |> Path.join("**/*.md")
       |> Path.wildcard()
-      |> Enum.flat_map(fn path ->
-        case Memory.read_entry(path) do
-          {:ok, entry} -> [entry]
-          {:error, _reason} -> []
-        end
-      end)
+      |> Enum.flat_map(&read_identity_entry/1)
     else
       []
+    end
+  end
+
+  defp read_identity_entry(path) do
+    case Memory.read_entry(path) do
+      {:ok, entry} -> [entry]
+      {:error, _reason} -> []
     end
   end
 

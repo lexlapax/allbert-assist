@@ -87,6 +87,7 @@ defmodule AllbertAssist.SettingsTest do
   test "intent enrichment settings resolve defaults and validate writes" do
     assert {:ok, false} = Settings.get("intent.model_assist_enabled")
     assert {:ok, "local"} = Settings.get("intent.model_profile")
+    assert Settings.schema()["intent.model_profile"].default == "local"
     assert {:ok, 3000} = Settings.get("intent.model_timeout_ms")
     assert {:ok, 0.72} = Settings.get("intent.model_min_confidence")
     assert {:ok, 80} = Settings.get("intent.max_candidates")
@@ -95,6 +96,8 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, 0.6} = Settings.get("intent.handoff_threshold")
     assert {:ok, 0.15} = Settings.get("intent.handoff_margin")
     assert {:ok, 0.3} = Settings.get("intent.clarify_floor")
+    assert {:ok, "local"} = Settings.get("intent.direct_answer_model_profile")
+    assert Settings.schema()["intent.direct_answer_model_profile"].default == "local"
     assert {:ok, true} = Settings.get("active_memory.enabled")
     assert {:ok, 5} = Settings.get("active_memory.top_k")
     assert {:ok, 2048} = Settings.get("active_memory.chunk_max_bytes")

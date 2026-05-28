@@ -72,7 +72,7 @@ The v0.39 and v0.39b entries below are implemented release facades. Later
 entries remain routing anchors for planning only; they are not current public
 facades until their milestones implement and document them.
 
-| Milestone | Planned boundary | Notes |
+| Milestone | Boundary | Notes |
 |---|---|---|
 | v0.39 | Onboarding and model/profile control | Implemented as first-run onboarding over Objective Runtime, Settings Central model/provider profiles, and ADR 0047 redacted diagnostics. |
 | v0.39b | Identity slot and Active Memory | Implemented as a non-app system memory namespace plus direct-answer retrieval over reviewed `:kept` memory. |
