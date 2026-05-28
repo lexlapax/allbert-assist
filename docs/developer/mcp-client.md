@@ -79,9 +79,11 @@ Secret-bearing `env`/`headers` values and `auth_ref` must be
 (`required` | `denied`). See `docs/plans/v0.40-plan.md` for the full key list
 and validation rules.
 
-MCP map/list settings (`args`, `env`, `headers`, allow/deny lists) must be
-configurable through the implementation-documented input path: either JSON-aware
-`mix allbert.settings set` parsing for known keys or dedicated
+`args`, `tool_allowlist`, and `tool_denylist` are string lists and reuse the
+existing Settings `:string_list` type (already parsed by
+`mix allbert.settings set`). `env` and `headers` are string-to-string maps with
+no current CLI input path: v0.40 adds one, either JSON-aware
+`mix allbert.settings set` parsing for those keys or dedicated
 `mix allbert.mcp config ...` helpers. Keep the operator guide examples in lock
 step with that choice.
 
@@ -145,7 +147,10 @@ protocol-generic dependency, not a provider SDK, so it does not violate ADR 0039
 `:transport_kind`, `:tools_listable`, `:resources_listable`, `:tool_count`,
 `:resource_count`, `:protocol_version`. stdio servers report
 `endpoint_kind: :local_endpoint`; authenticated HTTP/SSE report
-`:credentialed_remote`. The doctor grants no authority and creates no grants.
+`:credentialed_remote`. Because stdio is `:local_endpoint`, `credential_ok` is
+`nil` for stdio even with a secret env; stdio secret-env presence is reported via
+a `diagnostics` entry, not `credential_ok`. The doctor grants no authority and
+creates no grants.
 
 ## Adding A New Server Shape
 
