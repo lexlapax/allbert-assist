@@ -113,6 +113,13 @@ defmodule AllbertAssist.Settings do
     end
   end
 
+  def resolve_provider_profile(name, _context \\ %{}) when is_binary(name) do
+    with {:ok, settings, _user_settings} <- Store.resolved_settings(),
+         {:ok, attrs} <- fetch_named(settings, "providers", name) do
+      {:ok, provider_profile(name, attrs)}
+    end
+  end
+
   defp provider_profile(name, attrs) do
     api_key_ref = Map.get(attrs, "api_key_ref")
 
@@ -120,6 +127,7 @@ defmodule AllbertAssist.Settings do
       name: name,
       type: Map.get(attrs, "type"),
       enabled: Map.get(attrs, "enabled", false),
+      endpoint_kind: endpoint_kind(name, attrs),
       base_url: Map.get(attrs, "base_url"),
       api_key_ref: api_key_ref,
       credential_status: secret_status(api_key_ref)
@@ -135,6 +143,8 @@ defmodule AllbertAssist.Settings do
       name: name,
       provider: provider,
       provider_type: Map.get(provider_attrs, "type"),
+      provider_enabled: Map.get(provider_attrs, "enabled", false),
+      provider_endpoint_kind: endpoint_kind(provider, provider_attrs),
       provider_base_url: Map.get(provider_attrs, "base_url"),
       model: Map.get(attrs, "model"),
       temperature: Map.get(attrs, "temperature"),
@@ -146,6 +156,11 @@ defmodule AllbertAssist.Settings do
 
   defp secret_status(nil), do: :missing
   defp secret_status(ref), do: Secrets.status(ref)
+
+  defp endpoint_kind("local_ollama", attrs),
+    do: Map.get(attrs, "endpoint_kind") || "local_endpoint"
+
+  defp endpoint_kind(_name, attrs), do: Map.get(attrs, "endpoint_kind") || "credentialed_remote"
 
   defp resolved_setting(key, value, _settings, user_settings) do
     default_value = Schema.get_dotted(defaults(), key)
