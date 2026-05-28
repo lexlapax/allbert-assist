@@ -80,16 +80,14 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert {:ok, _setting} =
              Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
 
-    assert {:ok, _setting} = Settings.put("providers.openai.enabled", true, %{audit?: false})
-
     assert {:ok, response} =
              DirectAnswer.run(%{text: "What is Allbert?"}, %{actor: "alice"})
 
     assert response.status == :completed
     assert response.message == "Model-backed answer for 16 characters."
     assert response.direct_answer.source == :model
-    assert response.direct_answer.model_profile == "fast"
-    assert response.direct_answer.provider == "openai"
+    assert response.direct_answer.model_profile == "local"
+    assert response.direct_answer.provider == "local_ollama"
     refute inspect(response.direct_answer) =~ "What is Allbert?"
   end
 
@@ -98,8 +96,6 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
     assert {:ok, _setting} =
              Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
-
-    assert {:ok, _setting} = Settings.put("providers.openai.enabled", true, %{audit?: false})
 
     assert {:ok, entry} =
              Memory.upsert_system_entry(%{
