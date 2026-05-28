@@ -8,6 +8,7 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.DoctorDiagnostics
 
   @secret "sk-test-secret-v039"
   @secret_body "raw-provider-body-sk-test-secret-v039"
@@ -245,6 +246,12 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
     assert_allowed(doctor_no_leak)
     assert_no_secret_in(doctor_no_leak, [@secret, @secret_body])
     assert doctor_no_leak.result.doctor.credential_ok == false
+    assert Enum.all?(doctor_no_leak.result.doctor.diagnostics, &DoctorDiagnostics.known?(&1.code))
+
+    assert Enum.all?(
+             doctor_no_leak.result.doctor.diagnostics,
+             &(&1.message == DoctorDiagnostics.new(&1.code).message)
+           )
 
     credentialed =
       run_eval(
@@ -457,7 +464,7 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
     assert missing.result.doctor.endpoint_ok
     assert missing.result.doctor.model_available == false
     assert [%{code: :local_model_missing, message: message}] = missing.result.doctor.diagnostics
-    assert message =~ "ollama pull llama3.2:3b"
+    assert message == DoctorDiagnostics.new(:local_model_missing).message
 
     present =
       run_eval(
