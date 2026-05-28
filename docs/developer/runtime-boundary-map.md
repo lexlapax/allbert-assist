@@ -66,16 +66,16 @@ Machine-readable companion: `AllbertAssist.Boundary`.
 | v0.38 | `workspace:create` / `TemplateCreate` | Implemented operator Canvas destination with Settings Central gating, gallery filtering, parameter editing, preview, validation status, registered action execution, and bounded diagnostics. |
 | v0.38 | `RenderTemplate`, `ValidateTemplate`, `ScaffoldTemplate`, `CreateFromTemplate` | Implemented registered template actions. Live create writes only a `producer: "template_pattern"` v0.37 draft and returns explicit trial/gate/integration next actions. |
 
-## Post-v0.38 Planned Facades
+## Post-v0.38 Facades And Planned Anchors
 
-The v0.39-to-v1.0 arc is planned future work. The names below are routing
-anchors for planning only; they are not current public facades until their
-milestones implement and document them.
+The v0.39 and v0.39b entries below are implemented release facades. Later
+entries remain routing anchors for planning only; they are not current public
+facades until their milestones implement and document them.
 
 | Milestone | Planned boundary | Notes |
 |---|---|---|
-| v0.39 | Onboarding and model/profile control | Expected to wrap Objective Runtime, Settings Central, model profiles, provider profiles, and ADR 0047 redacted diagnostics. |
-| v0.39b | Identity slot and Active Memory | Expected to wrap non-app system memory namespaces and direct-answer retrieval over reviewed `:kept` memory. |
+| v0.39 | Onboarding and model/profile control | Implemented as first-run onboarding over Objective Runtime, Settings Central model/provider profiles, and ADR 0047 redacted diagnostics. |
+| v0.39b | Identity slot and Active Memory | Implemented as a non-app system memory namespace plus direct-answer retrieval over reviewed `:kept` memory. |
 | v0.40 | MCP client facade | Expected to consume `mcp://` resources through registered MCP actions and ADR 0038 trust-tier policy. |
 | v0.42 | Browser/research facade | Expected to live in a plugin-owned browser boundary with `browser://session/<id>` Resource Access. |
 | v0.44 | Plan/Build surface and workflow YAML parser | Expected to produce objective steps only; not an execution engine. |
