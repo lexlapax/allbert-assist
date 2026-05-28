@@ -21,6 +21,7 @@ defmodule AllbertAssist.Actions.Settings.DoctorModelProfile do
     ]
 
   alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Settings.DoctorDiagnostics
   alias AllbertAssist.Settings.ModelDoctor
 
   @impl true
@@ -83,16 +84,18 @@ defmodule AllbertAssist.Actions.Settings.DoctorModelProfile do
     }
   end
 
-  defp error(profile, permission_decision, reason) do
+  defp error(_profile, permission_decision, _reason) do
+    diagnostic = DoctorDiagnostics.new(:doctor_failed)
+
     %{
-      message: "Model profile doctor failed for #{profile}: #{inspect(reason)}",
+      message: "Model profile doctor failed.",
       status: :error,
       permission_decision: permission_decision,
-      diagnostics: [%{code: :doctor_failed, message: inspect(reason)}],
+      diagnostics: [diagnostic],
       actions: [
         action(:error, permission_decision, %{
-          model_profile: profile,
-          error: reason
+          model_profile: "unresolved",
+          error: diagnostic.code
         })
       ]
     }
