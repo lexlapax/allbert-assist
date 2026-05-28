@@ -394,7 +394,7 @@ defmodule AllbertAssist.Onboarding do
   defp complete_step?(%Step{status: status}), do: status in @complete_statuses
 
   defp evidence_snapshot do
-    active_model_profile = setting_value("intent.model_profile", "unknown")
+    active_model_profile = setting_value("intent.model_profile", "local")
 
     direct_answer_profile =
       setting_value("intent.direct_answer_model_profile", active_model_profile)

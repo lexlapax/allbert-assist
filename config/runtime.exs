@@ -22,12 +22,33 @@ config :req_llm,
 config :req_llm, :openai, base_url: ollama_base_url
 
 if config_env() == :prod do
+  env_value = fn name ->
+    case System.get_env(name) do
+      value when is_binary(value) ->
+        value = String.trim(value)
+        if value == "", do: nil, else: value
+
+      nil ->
+        nil
+    end
+  end
+
   database_path =
-    System.get_env("DATABASE_PATH") ||
-      raise """
-      environment variable DATABASE_PATH is missing.
-      For example: /etc/allbert_assist/allbert_assist.db
-      """
+    cond do
+      path = env_value.("DATABASE_PATH") ->
+        Path.expand(path)
+
+      home = env_value.("ALLBERT_HOME") || env_value.("ALLBERT_HOME_DIR") ->
+        Path.expand(Path.join([home, "db", "allbert.sqlite3"]))
+
+      true ->
+        raise """
+        environment variable ALLBERT_HOME or DATABASE_PATH is missing.
+        For example: ALLBERT_HOME=/var/lib/allbert
+        """
+    end
+
+  File.mkdir_p!(Path.dirname(database_path))
 
   config :allbert_assist, AllbertAssist.Repo,
     database: database_path,

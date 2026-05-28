@@ -1,8 +1,29 @@
 import Config
 
+env_value = fn name ->
+  case System.get_env(name) do
+    value when is_binary(value) ->
+      value = String.trim(value)
+      if value == "", do: nil, else: value
+
+    nil ->
+      nil
+  end
+end
+
 database_path =
-  System.get_env("DATABASE_PATH") ||
-    Path.expand("../allbert_assist_test.db", __DIR__)
+  cond do
+    path = env_value.("DATABASE_PATH") ->
+      Path.expand(path)
+
+    home = env_value.("ALLBERT_HOME") || env_value.("ALLBERT_HOME_DIR") ->
+      Path.expand(Path.join([home, "db", "allbert.sqlite3"]))
+
+    true ->
+      Path.expand("../allbert_assist_test.db", __DIR__)
+  end
+
+File.mkdir_p!(Path.dirname(database_path))
 
 # Configure your database
 #
