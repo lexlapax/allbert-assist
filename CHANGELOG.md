@@ -10,6 +10,78 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.39.1 - Identity Slot And Active Memory
+
+Status: implemented and ready for operator manual validation before release
+tagging. Version metadata is `0.39.1`.
+
+Plan: `docs/plans/v0.39b-plan.md`.
+Request flow: `docs/plans/v0.39b-request-flow.md`.
+Research note: `docs/research/active-memory-retrieval.md`.
+Operator doc: `docs/operator/active-memory.md`.
+
+### Added
+
+- `identity` system memory namespace under `<ALLBERT_HOME>/memory/identity/`,
+  declared outside app-id validation through
+  `AllbertAssist.Memory.SystemNamespaces`.
+- `:identity` as the 5th `AllbertAssist.Memory` category, plus
+  `Memory.upsert_system_entry/1` for validated system-namespace writes.
+- Registered read-only `retrieve_active_memory` action and deterministic
+  Active Memory retrieval for direct-answer model turns over
+  `review_status: :kept` chunks.
+- Settings Central `active_memory.*` keys for enablement, top-K,
+  chunk-size, recency half-life, thread/app/general affinity, and identity
+  inclusion weights.
+- `## Active Memory` trace section after `## Intent Candidates` and before
+  `## Memory Review`, with body-free retrieved/excluded chunk metadata and
+  score breakdowns.
+- CLI inspection helpers:
+  `mix allbert.memory list --namespace identity`,
+  `mix allbert.memory list --category identity`, and
+  `mix allbert.memory retrieve --query "..."`.
+- Executable v0.39b security eval rows for identity inertness, read-only
+  retrieval, no promotion/mutation, cross-namespace isolation, deterministic
+  replay, identity namespace ownership, neutral app-leak exclusion, trace
+  section placement, snapshot behavior, classifier exclusion, and kept-only
+  retrieval.
+
+### Changed
+
+- Direct-answer model composition now invokes `retrieve_active_memory` after
+  intent routing/classification and before answerer prompt composition.
+  Retrieved chunks are advisory context only and do not affect routing,
+  permission floors, confirmations, or authorization.
+- Operator, developer, roadmap, future-feature, and security-hardening docs
+  now describe v0.39b as implemented and keep embedding-backed retrieval,
+  cross-thread/cross-app retrieval, pinning, and learned memory parked.
+- Umbrella, core app, and web app version metadata are bumped to `0.39.1`.
+
+### Security
+
+- Identity memory is inert operator-authored markdown. Instruction-shaped
+  identity content never grants authority, queues actions, executes tools, or
+  bypasses Security Central.
+- Active Memory is read-only and bounded by `active_memory.top_k` and
+  `active_memory.chunk_max_bytes`; only `:kept` entries are candidates.
+- Neutral/core retrieval excludes app-owned chunks for non-active apps, and
+  identity-root files with conflicting app-owned metadata are excluded from
+  Active Memory retrieval.
+- The optional intent classifier receives bounded intent candidates only; raw
+  Active Memory chunks are retrieved later and are not present in classifier
+  inputs or decision trace metadata.
+
+### Verification
+
+- Focused v0.39b coverage passed for Active Memory, trace rendering,
+  `mix allbert.memory`, and the security eval inventory.
+- M5 release gate passed: `mix compile --warnings-as-errors`,
+  `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
+  `git diff --check`. The precommit run covered core Allbert
+  (1099 tests, 0 failures, 2 skipped), web (107 tests, 0 failures),
+  StockSage/plugin (197 tests, 0 failures), and channel plugin
+  (2 tests, 0 failures).
+
 ## v0.39.0 - First-Run Onboarding And Provider Control
 
 Status: implemented and ready for operator manual validation before release

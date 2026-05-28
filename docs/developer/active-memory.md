@@ -1,6 +1,6 @@
 # Active Memory Retrieval Contract
 
-Status: v0.39b M3-M4 implementation note.
+Status: v0.39b implementation note for `0.39.1`.
 
 Active Memory is a deterministic, read-only retrieval pass for direct-answer
 model context. It is intentionally not an advisory provider, embedding index,

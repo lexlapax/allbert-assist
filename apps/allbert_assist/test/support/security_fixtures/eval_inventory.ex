@@ -13,7 +13,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
 
   @type expected :: :allowed | :denied | :dropped | :error | :needs_confirmation
   @type milestone ::
-          :m2 | :m3 | :m4 | :m5 | :m6 | :m7 | :v036 | :v037 | :v038 | :v039
+          :m2 | :m3 | :m4 | :m5 | :m6 | :m7 | :v036 | :v037 | :v038 | :v039 | :v039b
 
   @type required_surface ::
           :resource_execution
@@ -25,6 +25,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :dynamic_codegen
           | :template_creation
           | :first_run_onboarding
+          | :active_memory
           | :operator_review
 
   @type surface :: required_surface() | :workspace_live_navigation
@@ -1189,6 +1190,116 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
     },
     %{
+      id: "identity-memory-inert-001",
+      milestone: :v039b,
+      surface: :active_memory,
+      scenario: "identity memory contains instruction-shaped text that must remain inert context",
+      boundary: :direct_answer_context,
+      expected: :allowed,
+      assert: [:allowed, :no_effectful_action_queued],
+      test_module: "AllbertAssist.Security.ActiveMemoryEvalTest"
+    },
+    %{
+      id: "active-memory-read-only-001",
+      milestone: :v039b,
+      surface: :active_memory,
+      scenario: "active memory retrieval runs through a registered read-only action",
+      boundary: :action_runner,
+      expected: :allowed,
+      assert: [:allowed, :read_only_permission, :no_memory_write],
+      test_module: "AllbertAssist.Security.ActiveMemoryEvalTest"
+    },
+    %{
+      id: "active-memory-no-promotion-001",
+      milestone: :v039b,
+      surface: :active_memory,
+      scenario: "retrieval cannot promote an unreviewed memory entry into kept memory",
+      boundary: :memory_review,
+      expected: :allowed,
+      assert: [:allowed, :not_auto_promoted],
+      test_module: "AllbertAssist.Security.ActiveMemoryEvalTest"
+    },
+    %{
+      id: "active-memory-cross-namespace-no-leak-001",
+      milestone: :v039b,
+      surface: :active_memory,
+      scenario: "identity-category file with app-owned namespace metadata is not retrieved",
+      boundary: :memory_namespace_scope,
+      expected: :denied,
+      assert: [:denied, :no_cross_namespace_leak],
+      test_module: "AllbertAssist.Security.ActiveMemoryEvalTest"
+    },
+    %{
+      id: "active-memory-deterministic-replay-001",
+      milestone: :v039b,
+      surface: :active_memory,
+      scenario: "same reviewed memory snapshot and query returns byte-identical chunks",
+      boundary: :memory_replay,
+      expected: :allowed,
+      assert: [:allowed, :deterministic_replay],
+      test_module: "AllbertAssist.Security.ActiveMemoryEvalTest"
+    },
+    %{
+      id: "identity-namespace-not-app-owned-001",
+      milestone: :v039b,
+      surface: :active_memory,
+      scenario: "identity namespace is a system namespace rather than an app registration",
+      boundary: :memory_namespace_registry,
+      expected: :allowed,
+      assert: [:allowed, :system_namespace, :not_app_owned],
+      test_module: "AllbertAssist.Security.ActiveMemoryEvalTest"
+    },
+    %{
+      id: "active-memory-neutral-context-no-app-leak-001",
+      milestone: :v039b,
+      surface: :active_memory,
+      scenario: "neutral Allbert context cannot retrieve app-owned memory",
+      boundary: :active_app_scope,
+      expected: :denied,
+      assert: [:denied, :no_app_memory_leak],
+      test_module: "AllbertAssist.Security.ActiveMemoryEvalTest"
+    },
+    %{
+      id: "active-memory-trace-section-placement-001",
+      milestone: :v039b,
+      surface: :active_memory,
+      scenario: "trace Active Memory section is placed after intent candidates without bodies",
+      boundary: :runtime_trace,
+      expected: :allowed,
+      assert: [:allowed, :trace_section_order, :no_chunk_body],
+      test_module: "AllbertAssist.Security.ActiveMemoryEvalTest"
+    },
+    %{
+      id: "active-memory-snapshot-race-001",
+      milestone: :v039b,
+      surface: :active_memory,
+      scenario: "review changes affect only the next retrieval invocation",
+      boundary: :memory_snapshot,
+      expected: :allowed,
+      assert: [:allowed, :next_invocation_only],
+      test_module: "AllbertAssist.Security.ActiveMemoryEvalTest"
+    },
+    %{
+      id: "active-memory-classifier-exclusion-001",
+      milestone: :v039b,
+      surface: :active_memory,
+      scenario: "intent classifier receives bounded candidates, not active memory chunks",
+      boundary: :intent_classifier,
+      expected: :allowed,
+      assert: [:allowed, :classifier_no_chunk_body],
+      test_module: "AllbertAssist.Security.ActiveMemoryEvalTest"
+    },
+    %{
+      id: "active-memory-kept-only-001",
+      milestone: :v039b,
+      surface: :active_memory,
+      scenario: "retrieval considers kept entries only and excludes all other review states",
+      boundary: :memory_review_filter,
+      expected: :allowed,
+      assert: [:allowed, :kept_only],
+      test_module: "AllbertAssist.Security.ActiveMemoryEvalTest"
+    },
+    %{
       id: "sandbox-backend-disabled-001",
       milestone: :v036,
       surface: :elixir_sandbox,
@@ -1340,6 +1451,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
     :dynamic_codegen,
     :template_creation,
     :first_run_onboarding,
+    :active_memory,
     :operator_review
   ]
 

@@ -205,12 +205,12 @@ Dependency order from here:
     `intent.model_assist_enabled` toggle, default-profile hygiene fix, and
     cross-OS first-run smoke (macOS, Linux, Windows/WSL2). Active Memory and
     identity slot moved to v0.39b.
-39. v0.39b Identity slot and Active Memory: optional inert `identity` memory
-    namespace declared through a new system-namespace declarer, `:identity`
-    added as a 5th `Memory` category, plus deterministic direct-answer
-    `:kept` memory retrieval scoped to `{thread_id, active_app, identity}`
-    with `## Active Memory` trace metadata. Algorithm spec'd in
-    `docs/research/active-memory-retrieval.md`.
+39. v0.39b Identity slot and Active Memory: implemented as `0.39.1`.
+    Optional inert `identity` memory namespace declared through a new
+    system-namespace declarer, `:identity` added as a 5th `Memory` category,
+    plus deterministic direct-answer `:kept` memory retrieval scoped to
+    `{thread_id, active_app, identity}` with `## Active Memory` trace
+    metadata. Algorithm spec'd in `docs/research/active-memory-retrieval.md`.
 40. v0.40 MCP client integration: explicit MCP server configuration, trust
     tier, Resource Access mapping for `mcp://` resources, and registered MCP
     actions under Security Central.
@@ -2190,30 +2190,29 @@ Implemented shape:
 Plan: `docs/plans/v0.39b-plan.md`
 Request flow: `docs/plans/v0.39b-request-flow.md`
 Research note: `docs/research/active-memory-retrieval.md`
-Operator doc: `docs/operator/active-memory.md` (stub shipped with the v0.39
-plan first revision; filled in during v0.39b M5).
+Operator doc: `docs/operator/active-memory.md`.
 
-Status: planned; first revision after the post-v0.38 readiness review on
-2026-05-27. New slot split off from v0.39 in the post-v0.37 planning pass.
-Active Memory retrieval has architectural risk that v0.39's onboarding
-should not block.
+Status: implemented as `0.39.1`; ready for operator manual validation before
+release tagging. First revision followed the post-v0.38 readiness review on
+2026-05-27. New slot split off from v0.39 in the post-v0.37 planning pass so
+Active Memory retrieval could land in its own focused milestone.
 
-Expected direction:
+Implemented scope:
 
-- Add an optional inert `identity` memory namespace under
+- Adds an optional inert `identity` memory namespace under
   `<ALLBERT_HOME>/memory/identity/` for operator-editable personality/context
   material. Inert content; never grants permission or executes.
-- Declare `identity` as a **system memory namespace** through a new
+- Declares `identity` as a **system memory namespace** through a new
   `AllbertAssist.Memory.SystemNamespaces` module. System namespace
   declarations are merged by a memory namespace facade and use
   `origin: :system`, `app_id: nil`; `:_system` is not an app id and is not
   passed through app validation. This extends but preserves the v0.27
   app-namespace contract.
-- Add `:identity` as a 5th value in `AllbertAssist.Memory.@categories`
+- Adds `:identity` as a 5th value in `AllbertAssist.Memory.@categories`
   alongside `:notes`, `:preferences`, `:traces`, `:skills`.
   `<ALLBERT_HOME>/memory/identity/` becomes the category root; entries are
   ordinary markdown files surfaced through existing `Memory` helpers.
-- Add deterministic direct-answer Active Memory retrieval using the existing
+- Adds deterministic direct-answer Active Memory retrieval using the existing
   v0.21 memory review/retrieval substrate. Scope:
   `{thread_id, active_app, identity}`. Neutral/core context
   (`active_app: nil` or `:allbert`) surfaces identity + general chunks only,
