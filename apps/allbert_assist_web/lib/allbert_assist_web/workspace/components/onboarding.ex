@@ -31,13 +31,91 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   def handle_event("channel_choice", %{"choice" => choice, "step-id" => step_id}, socket) do
     {outcome, note} =
       case choice do
-        "none" -> {"skipped", "Operator skipped channel registration."}
-        "telegram" -> {"completed", "Operator selected Telegram channel registration."}
-        "email" -> {"completed", "Operator selected email channel registration."}
-        _choice -> {"skipped", "Operator skipped channel registration."}
+        "none" ->
+          {"skipped", "Operator skipped channel registration."}
+
+        "telegram" ->
+          {"selected",
+           "Operator selected Telegram channel registration; setup is deferred until configured."}
+
+        "email" ->
+          {"selected",
+           "Operator selected email channel registration; setup is deferred until configured."}
+
+        _choice ->
+          {"skipped", "Operator skipped channel registration."}
       end
 
     {:noreply, record_step(socket, step_id, outcome, note)}
+  end
+
+  def handle_event("use_model_profile", %{"profile" => profile}, socket) do
+    context = action_context(socket)
+
+    socket =
+      case run_action("set_active_model_profile", %{profile: profile}, context) do
+        {:ok, %{status: :completed, message: message}} ->
+          socket
+          |> record_current_step("completed", message)
+          |> put_flash_notice("Model profile saved.")
+
+        {:ok, response} ->
+          assign(socket, :onboarding_error, response_error(response))
+
+        {:error, reason} ->
+          assign(socket, :onboarding_error, reason)
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_event("doctor_model_profile", _params, socket) do
+    context = action_context(socket)
+    profile = active_model_profile(socket)
+
+    socket =
+      case run_action("doctor_model_profile", %{profile: profile}, context) do
+        {:ok, %{status: :completed, doctor: doctor} = response} ->
+          note =
+            "Doctor #{profile}: endpoint_kind=#{doctor.endpoint_kind}, endpoint_ok=#{doctor.endpoint_ok}, credential_ok=#{inspect(doctor.credential_ok)}, model_available=#{inspect(doctor.model_available)}, redacted_host=#{doctor.redacted_host}."
+
+          socket
+          |> record_current_step("completed", note)
+          |> put_flash_notice(response.message)
+
+        {:ok, response} ->
+          assign(socket, :onboarding_error, response_error(response))
+
+        {:error, reason} ->
+          assign(socket, :onboarding_error, reason)
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_event("set_model_assist", %{"enabled" => enabled}, socket) do
+    context = action_context(socket)
+    profile = active_model_profile(socket)
+
+    socket =
+      case run_action(
+             "set_active_model_profile",
+             %{profile: profile, enable_assist: enabled == "true"},
+             context
+           ) do
+        {:ok, %{status: :completed, message: message}} ->
+          socket
+          |> record_current_step("completed", message)
+          |> put_flash_notice("Model-assisted intent updated.")
+
+        {:ok, response} ->
+          assign(socket, :onboarding_error, response_error(response))
+
+        {:error, reason} ->
+          assign(socket, :onboarding_error, reason)
+      end
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -85,6 +163,76 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
             <p class="mt-1 text-base-content/70">
               {step_guidance(@onboarding_state.current_step)}
             </p>
+            <p
+              :if={@onboarding_state.current_step[:evidence]}
+              class="mt-2 text-xs text-base-content/70"
+            >
+              Evidence: {@onboarding_state.current_step.evidence}
+            </p>
+            <p
+              :if={@onboarding_state.current_step[:next_command]}
+              class="mt-1 text-xs text-base-content/70"
+            >
+              Next: <code>{@onboarding_state.current_step.next_command}</code>
+            </p>
+
+            <div
+              :if={model_profile_step?(@onboarding_state.current_step)}
+              class="mt-3 flex flex-wrap gap-2"
+            >
+              <button
+                :for={profile <- model_profiles(@onboarding_state)}
+                id={"onboarding-use-model-#{profile.name}"}
+                type="button"
+                phx-click="use_model_profile"
+                phx-target={@myself}
+                phx-value-profile={profile.name}
+                class="btn btn-secondary btn-sm"
+              >
+                {"Use #{profile.name}"}
+              </button>
+            </div>
+
+            <div
+              :if={@onboarding_state.current_step.key == "run_doctor"}
+              class="mt-3 flex flex-wrap gap-2"
+            >
+              <button
+                id="onboarding-doctor-active-profile"
+                type="button"
+                phx-click="doctor_model_profile"
+                phx-target={@myself}
+                class="btn btn-secondary btn-sm"
+              >
+                Doctor active profile
+              </button>
+            </div>
+
+            <div
+              :if={@onboarding_state.current_step.key == "toggle_model_assisted_intent"}
+              class="mt-3 flex flex-wrap gap-2"
+            >
+              <button
+                id="onboarding-enable-model-assist"
+                type="button"
+                phx-click="set_model_assist"
+                phx-target={@myself}
+                phx-value-enabled="true"
+                class="btn btn-secondary btn-sm"
+              >
+                Enable
+              </button>
+              <button
+                id="onboarding-disable-model-assist"
+                type="button"
+                phx-click="set_model_assist"
+                phx-target={@myself}
+                phx-value-enabled="false"
+                class="btn btn-outline btn-sm"
+              >
+                Keep off
+              </button>
+            </div>
 
             <div
               :if={@onboarding_state.current_step.key == "optional_channel_registration"}
@@ -122,6 +270,16 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
                 class="btn btn-outline btn-sm"
               >
                 Skip
+              </button>
+              <button
+                id="onboarding-channel-configured"
+                type="button"
+                phx-click="complete_step"
+                phx-target={@myself}
+                phx-value-step-id={@onboarding_state.current_step.id}
+                class="btn btn-primary btn-sm"
+              >
+                Configured
               </button>
             </div>
 
@@ -198,9 +356,16 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
   defp record_step(socket, step_id, outcome, note) do
     state = socket.assigns.onboarding_state
-    params = %{objective_id: state.objective.id, step_id: step_id, outcome: outcome, note: note}
 
-    case Runner.run("onboarding_step_complete", params, action_context(socket)) do
+    params = %{
+      objective_id: state.objective.id,
+      step_id: step_id,
+      outcome: outcome,
+      note: note,
+      evidence: current_step_evidence(socket, step_id)
+    }
+
+    case run_action("onboarding_step_complete", params, action_context(socket)) do
       {:ok, %{status: :completed} = response} ->
         socket
         |> assign(:onboarding_state, response_state(response))
@@ -211,6 +376,33 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
         socket
         |> assign(:onboarding_notice, "")
         |> assign(:onboarding_error, Map.get(response, :error) || response.message)
+
+      {:error, reason} ->
+        socket
+        |> assign(:onboarding_notice, "")
+        |> assign(:onboarding_error, reason)
+    end
+  end
+
+  defp record_current_step(socket, outcome, note) do
+    case socket.assigns.onboarding_state.current_step do
+      %{id: step_id} -> record_step(socket, step_id, outcome, note)
+      _other -> socket
+    end
+  end
+
+  defp put_flash_notice(socket, notice), do: assign(socket, :onboarding_notice, notice)
+
+  defp response_error(%{error: error}), do: error
+  defp response_error(%{message: message}), do: message
+  defp response_error(response), do: response
+
+  defp current_step_evidence(socket, step_id) do
+    socket.assigns.onboarding_state.steps
+    |> Enum.find(&(&1.id == step_id))
+    |> case do
+      %{evidence: evidence} -> evidence
+      _other -> nil
     end
   end
 
@@ -219,9 +411,12 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
       objective: response.objective,
       steps: response.steps,
       current_step: response.current_step,
+      evidence: Map.get(response, :evidence, %{}),
       created?: false
     }
   end
+
+  defp run_action(name, params, context), do: apply(Runner, :run, [name, params, context])
 
   defp action_context(socket) do
     context = Map.get(socket.assigns, :renderer_context, %{})
@@ -271,6 +466,21 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
   defp step_guidance(%{key: "done"}), do: "Record completion when onboarding is ready to close."
   defp step_guidance(_step), do: "Record this step when the setup action is complete."
+
+  defp model_profile_step?(%{key: key})
+       when key in ["pick_provider_profile", "pick_model_profile"],
+       do: true
+
+  defp model_profile_step?(_step), do: false
+
+  defp model_profiles(%{evidence: %{model_profiles: profiles}}) when is_list(profiles),
+    do: profiles
+
+  defp model_profiles(_state), do: []
+
+  defp active_model_profile(socket) do
+    get_in(socket.assigns, [:onboarding_state, :evidence, :active_model_profile]) || "local"
+  end
 
   defp current_step?(_step, nil), do: false
   defp current_step?(step, current_step), do: step.id == current_step.id

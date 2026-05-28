@@ -75,8 +75,8 @@ defmodule Mix.Tasks.Allbert.Onboard do
     record_step(
       user_id,
       "optional_channel_registration",
-      "completed",
-      "Operator selected #{channel} channel registration."
+      "selected",
+      "Operator selected #{channel} channel registration; setup remains deferred until configured."
     )
   end
 
@@ -93,6 +93,8 @@ defmodule Mix.Tasks.Allbert.Onboard do
 
     if state.current_step do
       Mix.shell().info("Current step: #{state.current_step.index}. #{state.current_step.title}")
+      print_optional_line("Evidence", state.current_step[:evidence])
+      print_optional_line("Next", state.current_step[:next_command])
     else
       Mix.shell().info("Current step: complete")
     end
@@ -139,7 +141,8 @@ defmodule Mix.Tasks.Allbert.Onboard do
                objective_id: state.objective.id,
                step_id: step.id,
                outcome: outcome,
-               note: note
+               note: note,
+               evidence: Map.get(step, :evidence)
              },
              %{actor: user_id, user_id: user_id, channel: :cli}
            ) do
@@ -159,11 +162,14 @@ defmodule Mix.Tasks.Allbert.Onboard do
   end
 
   defp completed_action(action_name, params, context) do
-    case Runner.run(action_name, params, context) do
-      {:ok, %{status: :completed} = response} -> {:ok, response}
-      {:ok, response} -> {:error, response_error(response)}
-    end
+    Runner
+    |> apply(:run, [action_name, params, context])
+    |> completed_runner_result()
   end
+
+  defp completed_runner_result({:ok, %{status: :completed} = response}), do: {:ok, response}
+  defp completed_runner_result({:ok, response}), do: {:error, response_error(response)}
+  defp completed_runner_result({:error, reason}), do: {:error, reason}
 
   defp response_state(response) do
     %{
@@ -176,6 +182,13 @@ defmodule Mix.Tasks.Allbert.Onboard do
 
   defp response_error(%{error: error}), do: error
   defp response_error(%{message: message}), do: message
+
+  defp print_optional_line(_label, nil), do: :ok
+  defp print_optional_line(_label, ""), do: :ok
+
+  defp print_optional_line(label, value) do
+    Mix.shell().info("#{label}: #{value}")
+  end
 
   @spec fail!(non_neg_integer(), String.t()) :: no_return()
   defp fail!(code, message), do: throw({:onboarding_error, code, message})

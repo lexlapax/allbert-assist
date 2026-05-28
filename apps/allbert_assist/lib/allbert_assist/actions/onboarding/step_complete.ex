@@ -16,6 +16,7 @@ defmodule AllbertAssist.Actions.Onboarding.StepComplete do
       step_id: [type: :string, required: true],
       outcome: [type: :string, required: false],
       note: [type: :string, required: false],
+      evidence: [type: :string, required: false],
       user_id: [type: :string, required: false]
     ],
     output_schema: [
@@ -56,6 +57,7 @@ defmodule AllbertAssist.Actions.Onboarding.StepComplete do
       objective: state.objective,
       steps: state.steps,
       current_step: state.current_step,
+      evidence: state.evidence,
       completed_step: state.completed_step,
       actions: [
         action(:completed, permission_decision, %{
