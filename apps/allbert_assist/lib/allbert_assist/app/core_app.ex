@@ -15,11 +15,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.39 adds first-run
-  # onboarding, provider/model controls, and the workspace onboarding panel to
-  # the core app boundary.
+  # the app (release-pinned, not semantic-per-app). v0.39b adds identity
+  # namespace and Active Memory retrieval to the core app boundary.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.39.0"
+  def version, do: "0.39.1"
 
   @impl true
   def validate(_opts), do: :ok

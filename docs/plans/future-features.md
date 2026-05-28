@@ -13,9 +13,9 @@ here.
 
 Status: parked.
 
-v0.39b plans the deterministic precursor: an inert `identity` system
-memory namespace (declared via the new non-app system-namespace declarer and
-surfaced as a 5th `Memory` category under
+v0.39b ships the deterministic precursor: an inert `identity` system memory
+namespace (declared via the non-app system-namespace declarer and surfaced as
+a 5th `Memory` category under
 `<ALLBERT_HOME>/memory/identity/`) plus deterministic recency-weighted
 lexical Active Memory retrieval over reviewed `:kept` entries scoped to
 `{thread_id, active_app, identity_namespace}`. Replayable from traces.
