@@ -116,8 +116,13 @@ eval surfaces until their capability work lands.
   apps, the intent classifier never receives raw Active Memory chunks,
   `## Active Memory` trace section placement is deterministic, snapshot rule
   (concurrent v0.21 writes during scoring land on the next turn).
-- MCP client and server tool/resource confusion, prompt injection, server
-  impersonation, and secret/env leakage.
+- MCP client (v0.40, planned eval surface): schema-not-authority (tool
+  schema/description cannot grant authority), tool/resource confusion (a
+  resource-read grant cannot call a tool; server A's grant cannot reach server
+  B), prompt injection in tool/resource results, server impersonation,
+  secret-env/header redaction, stdio process startup policy (explicit argv,
+  secret-ref env, ADR 0009 bounds), and doctor redacted-envelope. MCP server
+  mode is a separate later surface (v0.49b).
 - Browser session state, navigation grants, screenshots, downloads, cookies,
   and page-content prompt injection.
 - Discord, Slack, WhatsApp, Signal, iMessage, and Matrix identity mapping,

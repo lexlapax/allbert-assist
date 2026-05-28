@@ -108,6 +108,24 @@ Still parked:
 - CSP expansion for iframe-hosted apps;
 - compatibility between MCP Apps UI and Allbert's validated Surface DSL.
 
+### MCP Client v0.40-Deferred Remainder
+
+Status: parked. Added in the v0.40 readiness pass.
+
+v0.40 ships the MCP client with HTTP/SSE and stdio transports, tool calls
+(confirmation-gated), and resource reads (grant-gated). A few MCP client
+capabilities are intentionally out of v0.40 scope.
+
+Still parked:
+
+- WebSocket MCP transport (v0.40 ships HTTP/SSE and stdio only);
+- remembered or silent MCP tool-call approval (every v0.40 tool call confirms;
+  per ADR 0038 there is no remembered tool-call grant);
+- MCP prompts consumption (v0.40 consumes tools and resources only);
+- MCP server mode (Allbert exposing its own MCP server) — covered by the v0.49b
+  MCP server-mode surface and the "Public Protocol Interop (Non-MCP)" entry, not
+  the v0.40 client.
+
 ### Broad Office, Archive, And Unknown-Binary Extraction
 
 Status: parked.

@@ -211,9 +211,11 @@ Dependency order from here:
     plus deterministic direct-answer `:kept` memory retrieval scoped to
     `{thread_id, active_app, identity}` with `## Active Memory` trace
     metadata. Algorithm spec'd in `docs/research/active-memory-retrieval.md`.
-40. v0.40 MCP client integration: explicit MCP server configuration, trust
-    tier, Resource Access mapping for `mcp://` resources, and registered MCP
-    actions under Security Central.
+40. v0.40 MCP client integration: explicit MCP server configuration and secret
+    refs, `:mcp_tool_call` / `:mcp_resource_read` permission classes, `mcp://`
+    promoted to a supported Resource Access adapter, HTTP/SSE + stdio
+    transports, and registered MCP actions (doctor/list/read/call) under
+    Security Central. The substrate v0.41 panels consume.
 41. v0.41 MCP-first Integration Pack 1: workspace summary panels for calendar,
     mail, GitHub, and notes/files **using MCP servers only**. Plus the
     `notes/files` native reference plugin as a starter scaffold for plugin
@@ -2235,19 +2237,35 @@ Implemented scope:
 
 Plan: `docs/plans/v0.40-plan.md`
 Request flow: `docs/plans/v0.40-request-flow.md`
-ADR: `docs/adr/0038-mcp-client-trust-tier.md`
+ADRs: `docs/adr/0038-mcp-client-trust-tier.md`,
+`docs/adr/0013-uri-first-resource-identity.md` (mcp:// graduation),
+`docs/adr/0047-provider-doctor-contract.md` (MCP doctor fields),
+`docs/adr/0009-local-execution-sandbox-levels.md` (stdio startup).
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
 
 Expected direction:
 
-- Add Settings Central MCP server configuration and secret refs.
-- Consume the reserved `mcp://` resource identity scheme through explicit
-  registered actions.
+- Add Settings Central `mcp.servers.*` configuration and `secret://mcp/...`
+  refs.
+- Promote `mcp://` from reserved/inert to a supported Resource Access adapter;
+  add MCP operation classes and the `:mcp_tool_call` / `:mcp_resource_read`
+  permission classes (floors: tool call confirms, resource read is grant-gated).
+- Ship HTTP/SSE transports (through Allbert's `HttpPolicy` SSRF/redaction
+  posture) and stdio transports (bounded under ADR 0009). Use `hermes_mcp` for
+  protocol codec with an Allbert-owned transport; native JSON-RPC fallback if
+  the codec cannot be cleanly constrained.
+- Register MCP actions: `mcp_doctor_server`, `mcp_list_tools`,
+  `mcp_list_resources`, `mcp_read_resource`, `mcp_call_tool`. Tool calls are
+  confirmation-gated; resource reads use remembered Resource Access grants per
+  `mcp://` scope.
 - Keep MCP server schemas descriptive only; Security Central and confirmations
-  remain authority.
-- Validate the first MCP client path against GitHub, Notion, Google Drive, and
-  Postgres server shapes.
+  remain authority. Flip the intent agent's `mcp://` routing from the
+  unsupported-resource workflow to the MCP actions (`agent://` stays
+  unsupported).
+- Validate the first MCP client path against GitHub, calendar, and mail server
+  shapes (the v0.41 consumers) plus deterministic mock servers for CI. These are
+  the substrate v0.41's calendar/mail/GitHub workspace summary panels consume.
 
 ## v0.41: MCP-First Integration Pack 1
 

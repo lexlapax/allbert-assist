@@ -51,7 +51,7 @@ Do not load every section by default.
 | Templated creation: plugin/app/LLM-tool/scheduled-flow/code templates, Mix tasks, operator flows, Canvas Create surface | ADR 0036, ADR 0035, ADR 0037, ADR 0017, ADR 0015, `docs/plans/v0.38-plan.md`, `docs/plans/v0.38-request-flow.md` | v0.38 |
 | First-run onboarding and provider control (two-branch doctor, `endpoint_kind` field, ADR 0047 doctor contract) | ADR 0004, ADR 0005, ADR 0014, ADR 0047, `docs/plans/v0.39-plan.md`, `docs/plans/v0.39-request-flow.md` | v0.39 |
 | Identity slot (non-app system memory namespace + new `:identity` category) and deterministic direct-answer Active Memory retrieval | ADR 0015, ADR 0021, `docs/plans/v0.39b-plan.md`, `docs/plans/v0.39b-request-flow.md`, `docs/research/active-memory-retrieval.md`, `docs/operator/active-memory.md` | v0.39b |
-| MCP client integration and trust tier | ADR 0012, ADR 0013, ADR 0038, `docs/plans/v0.40-plan.md`, `docs/plans/v0.40-request-flow.md` | v0.40 |
+| MCP client integration and trust tier (`:mcp_tool_call` / `:mcp_resource_read`, `mcp://` adapter, HTTP/SSE + stdio transports, doctor reuse) | ADR 0009, ADR 0011, ADR 0012, ADR 0013, ADR 0038, ADR 0047, `docs/plans/v0.40-plan.md`, `docs/plans/v0.40-request-flow.md` | v0.40 |
 | MCP-first integration pack 1: calendar/mail/GitHub MCP panels + notes/files native reference plugin | ADR 0015, ADR 0017, ADR 0039, `docs/plans/v0.41-plan.md`, `docs/plans/v0.41-request-flow.md` | v0.41 |
 | Browser and web research | ADR 0012, ADR 0013, ADR 0023, ADR 0025, ADR 0040, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
 | Discord and Slack channel plugins + ADR 0016 amendment for channel approval primitives | ADR 0016, ADR 0017, `docs/plans/v0.43-plan.md`, `docs/plans/v0.43-request-flow.md` | v0.43 |
@@ -291,9 +291,13 @@ Do not load every section by default.
   security evals. Algorithm spec'd in
   `docs/research/active-memory-retrieval.md`; operator doc at
   `docs/operator/active-memory.md`.
-- v0.40 (planned): MCP Client Integration. Adds MCP server configuration,
-  `mcp://` Resource Access consumption, registered MCP actions, and trust-tier
-  policy.
+- v0.40 (planned): MCP Client Integration. Adds `mcp.servers.*` configuration
+  and `secret://mcp/...` refs, the `:mcp_tool_call` (confirmation-gated) and
+  `:mcp_resource_read` (grant-gated) permission classes, `mcp://` promoted from
+  reserved to a supported Resource Access adapter, HTTP/SSE + stdio transports
+  (codec via `hermes_mcp`, egress through Allbert's posture), and the registered
+  actions `mcp_doctor_server` / `mcp_list_tools` / `mcp_list_resources` /
+  `mcp_read_resource` / `mcp_call_tool`. The substrate v0.41 panels consume.
 - v0.41 (planned): MCP-First Integration Pack 1. Ships calendar/mail/GitHub
   as MCP-server-configured workspace panels driven by the v0.40 MCP client,
   plus the `notes/files` native reference plugin as a starter scaffold for
