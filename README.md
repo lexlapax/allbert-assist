@@ -23,7 +23,7 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is `v0.39.0`. `/workspace` is the operator home:
+The current implementation is `v0.39.1`. `/workspace` is the operator home:
 chat is the primary spine, the launcher is view-only, and Canvas shows one
 destination at a time (Output, an app, or a workspace tool).
 
@@ -40,9 +40,12 @@ workflow patterns through developer Mix tasks and the default-off
 `mix allbert.onboard` and `workspace:onboard`, provider/model control through
 `mix allbert.model`, the explicit `providers.*.endpoint_kind` setting, and a
 two-branch provider doctor for credentialed remotes and local endpoints with
-the redacted ADR 0047 return shape. With an explicit `ALLBERT_HOME` or
-`ALLBERT_HOME_DIR`, `mix phx.server` also bootstraps a missing or empty dev
-SQLite database before Phoenix starts.
+the redacted ADR 0047 return shape. v0.39b adds the inert `identity` system
+memory namespace, the 5th `Memory` category, deterministic direct-answer
+Active Memory retrieval over reviewed `:kept` entries, Active Memory trace
+metadata, and `mix allbert.memory retrieve --query`. With an explicit
+`ALLBERT_HOME` or `ALLBERT_HOME_DIR`, `mix phx.server` also bootstraps a
+missing or empty dev SQLite database before Phoenix starts.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -87,21 +90,18 @@ manually proven first.
 
 Recent milestone:
 
-- `v0.39`: first-run onboarding and provider control - a durable onboarding
-  objective available from CLI and `/workspace`, provider/model list/use/doctor
-  commands, `providers.*.endpoint_kind`, a real local default model
-  (`llama3.2:3b`), and executable onboarding/provider security evals. The
-  doctor branches explicitly between credentialed-remote providers and local
-  endpoints while returning only host-level, redacted ADR 0047 diagnostics.
+- `v0.39.1`: identity slot and Active Memory - inert operator-authored
+  identity markdown under `<ALLBERT_HOME>/memory/identity/`, deterministic
+  direct-answer retrieval over reviewed `:kept` memory, body-free trace
+  metadata, CLI retrieval/list helpers, and executable Active Memory security
+  evals.
 
 Next milestones:
 
-- Post-`v0.39`: the planned 1.0 arc continues with identity slot (declared as
-  a non-app system memory namespace, surfaced as a 5th `Memory` category) and
-  deterministic direct-answer Active Memory retrieval over reviewed `:kept`
-  entries (`v0.39b`); MCP client integration (`v0.40`); MCP-first integration pack
-  with calendar/mail/GitHub panels plus notes/files native reference plugin
-  (`v0.41`); browser research (`v0.42`); Discord/Slack channels with the
+- Post-`v0.39.1`: the planned 1.0 arc continues with MCP client integration
+  (`v0.40`); MCP-first integration pack with calendar/mail/GitHub panels plus
+  notes/files native reference plugin (`v0.41`); browser research (`v0.42`);
+  Discord/Slack channels with the
   channel-approval-primitive contract (`v0.43`); Plan/Build workflows under
   `<ALLBERT_HOME>/workflows/` (`v0.44`); marketplace lite — data shape +
   Allbert-author seeds only (`v0.45`); operator-supervised self-improvement
@@ -129,6 +129,8 @@ Next milestones:
   creation milestone after v0.37.
 - [docs/plans/v0.39-plan.md](docs/plans/v0.39-plan.md): implemented
   first-run onboarding and provider-control milestone.
+- [docs/plans/v0.39b-plan.md](docs/plans/v0.39b-plan.md): implemented
+  identity slot and Active Memory milestone.
 
 ## Local Development
 

@@ -279,13 +279,16 @@ Do not load every section by default.
   default-profile hygiene fix, and cross-OS first-run smoke
   (macOS/Linux/WSL2). Split from the original "Onboarding + Provider +
   Identity + Active Memory" bundle in the post-v0.37 planning pass.
-- v0.39b (planned; first revision after post-v0.38 readiness review):
+- v0.39b (implemented as `0.39.1`; ready for operator manual validation):
   Identity Slot And Active Memory. Adds optional inert `identity` memory
   namespace declared through a non-app system-namespace declarer, adds
   `:identity` as a 5th `Memory` category, and adds deterministic
   recency-weighted direct-answer retrieval over `:kept` entries scoped to
   `{thread, active_app, identity}` with neutral/core-context behavior and a
-  `## Active Memory` trace section at a pinned placement. Algorithm spec'd in
+  `## Active Memory` trace section at a pinned placement. Ships
+  `retrieve_active_memory`, `mix allbert.memory list --namespace`, and
+  `mix allbert.memory retrieve --query`, with executable Active Memory
+  security evals. Algorithm spec'd in
   `docs/research/active-memory-retrieval.md`; operator doc at
   `docs/operator/active-memory.md`.
 - v0.40 (planned): MCP Client Integration. Adds MCP server configuration,
