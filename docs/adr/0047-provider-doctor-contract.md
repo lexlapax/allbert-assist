@@ -2,8 +2,8 @@
 
 ## Status
 
-Proposed; intended for acceptance at v0.39 First-Run Onboarding And Provider
-Control M1 closeout. Becomes a Tier-1 freeze candidate at v1.0.
+Accepted at v0.39 First-Run Onboarding And Provider Control M1 closeout.
+Becomes a Tier-1 freeze candidate at v1.0.
 
 ## Context
 
