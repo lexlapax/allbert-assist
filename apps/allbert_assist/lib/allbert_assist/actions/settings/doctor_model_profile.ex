@@ -21,49 +21,117 @@ defmodule AllbertAssist.Actions.Settings.DoctorModelProfile do
     ]
 
   alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Settings.ModelDoctor
 
   @impl true
   def run(params, context) do
     permission_decision = PermissionGate.authorize(:read_only, context)
     profile = profile(params)
 
-    status =
-      if PermissionGate.allowed?(permission_decision), do: :unsupported, else: :denied
+    with true <- PermissionGate.allowed?(permission_decision),
+         {:ok, result} <- ModelDoctor.diagnose(profile, context) do
+      {:ok, completed(result, permission_decision)}
+    else
+      false ->
+        {:ok, denied(profile, permission_decision)}
 
-    {:ok,
-     %{
-       message: message(status, profile, permission_decision),
-       status: status,
-       permission_decision: permission_decision,
-       diagnostics: diagnostics(status),
-       actions: [
-         %{
-           name: "doctor_model_profile",
-           status: status,
-           permission: :read_only,
-           permission_decision: permission_decision,
-           settings_metadata: %{
-             model_profile: profile,
-             milestone: "v0.39 M2",
-             implemented?: false
-           }
-         }
-       ]
-     }}
+      {:error, reason} ->
+        {:ok, error(profile, permission_decision, reason)}
+    end
   end
 
   defp profile(params), do: field(params, :profile) || field(params, :model_profile) || "local"
 
-  defp message(:unsupported, profile, _decision) do
-    "Model profile doctor for #{profile} is registered; provider probes land in v0.39 M2."
+  defp completed(result, permission_decision) do
+    doctor = Map.drop(result, [:profile, :provider, :provider_type, :model])
+
+    %{
+      message: message(result),
+      status: :completed,
+      permission_decision: permission_decision,
+      profile: result.profile,
+      provider: result.provider,
+      model: result.model,
+      doctor: doctor,
+      diagnostics: doctor.diagnostics,
+      actions: [
+        action(:completed, permission_decision, %{
+          model_profile: result.profile,
+          provider: result.provider,
+          provider_type: result.provider_type,
+          model: result.model,
+          endpoint_kind: doctor.endpoint_kind,
+          redacted_host: doctor.redacted_host,
+          diagnostics: doctor.diagnostics
+        })
+      ]
+    }
   end
 
-  defp message(:denied, _profile, permission_decision), do: permission_decision.reason
+  defp denied(profile, permission_decision) do
+    %{
+      message: permission_decision.reason,
+      status: PermissionGate.response_status(permission_decision),
+      permission_decision: permission_decision,
+      diagnostics: [],
+      actions: [
+        action(:denied, permission_decision, %{
+          model_profile: profile,
+          error: :permission_denied
+        })
+      ]
+    }
+  end
 
-  defp diagnostics(:unsupported),
-    do: [%{code: :doctor_not_implemented, message: "Provider probes land in v0.39 M2."}]
+  defp error(profile, permission_decision, reason) do
+    %{
+      message: "Model profile doctor failed for #{profile}: #{inspect(reason)}",
+      status: :error,
+      permission_decision: permission_decision,
+      diagnostics: [%{code: :doctor_failed, message: inspect(reason)}],
+      actions: [
+        action(:error, permission_decision, %{
+          model_profile: profile,
+          error: reason
+        })
+      ]
+    }
+  end
 
-  defp diagnostics(:denied), do: []
+  defp action(status, permission_decision, metadata) do
+    %{
+      name: "doctor_model_profile",
+      status: status,
+      permission: :read_only,
+      permission_decision: permission_decision,
+      settings_metadata: metadata
+    }
+  end
+
+  defp message(result) do
+    doctor = Map.drop(result, [:profile, :provider, :provider_type, :model])
+    availability = availability_text(doctor.model_available)
+
+    [
+      "Model profile #{result.profile}: provider=#{result.provider}, model=#{result.model}.",
+      "Doctor: endpoint_kind=#{doctor.endpoint_kind}, endpoint_ok=#{doctor.endpoint_ok}, model_available=#{availability}, host=#{doctor.redacted_host}.",
+      diagnostic_text(doctor.diagnostics)
+    ]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join(" ")
+  end
+
+  defp availability_text(true), do: "true"
+  defp availability_text(false), do: "false"
+  defp availability_text(:unknown), do: "unknown"
+
+  defp diagnostic_text([]), do: ""
+
+  defp diagnostic_text(diagnostics) do
+    diagnostics
+    |> Enum.map(& &1.message)
+    |> Enum.join(" ")
+  end
 
   defp field(map, key) when is_map(map),
     do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
