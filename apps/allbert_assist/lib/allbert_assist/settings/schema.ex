@@ -1707,7 +1707,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "intent" => %{
       "model_assist_enabled" => false,
-      "model_profile" => "fast",
+      "model_profile" => "local",
       "model_timeout_ms" => 3000,
       "model_min_confidence" => 0.72,
       "max_candidates" => 80,
@@ -1717,7 +1717,7 @@ defmodule AllbertAssist.Settings.Schema do
       "handoff_margin" => 0.15,
       "clarify_floor" => 0.3,
       "direct_answer_model_enabled" => false,
-      "direct_answer_model_profile" => "fast"
+      "direct_answer_model_profile" => "local"
     },
     "providers" => %{
       "local_ollama" => %{

@@ -86,7 +86,7 @@ defmodule AllbertAssist.SettingsTest do
 
   test "intent enrichment settings resolve defaults and validate writes" do
     assert {:ok, false} = Settings.get("intent.model_assist_enabled")
-    assert {:ok, "fast"} = Settings.get("intent.model_profile")
+    assert {:ok, "local"} = Settings.get("intent.model_profile")
     assert {:ok, 3000} = Settings.get("intent.model_timeout_ms")
     assert {:ok, 0.72} = Settings.get("intent.model_min_confidence")
     assert {:ok, 80} = Settings.get("intent.max_candidates")

@@ -27,7 +27,7 @@ defmodule Mix.Tasks.Allbert.ModelTest do
         assert :ok = ModelTask.run(["list"])
       end)
 
-    assert output =~ "Active model profile: fast"
+    assert output =~ "Active model profile: local"
     assert output =~ "local_ollama"
     assert output =~ "endpoint_kind=local_endpoint"
     assert output =~ "llama3.2:3b"

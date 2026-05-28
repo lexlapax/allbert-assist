@@ -31,6 +31,8 @@ defmodule Mix.Tasks.Allbert.OnboardTest do
 
     assert first_output =~ "Onboarding objective:"
     assert first_output =~ "Current step: 1. Welcome + scope"
+    assert first_output =~ "Evidence: Onboarding writes objective progress only."
+    assert first_output =~ "Next: mix allbert.onboard complete welcome_scope"
     assert first_output =~ "Run doctor"
     assert first_output =~ "action=doctor_model_profile"
 
@@ -75,6 +77,16 @@ defmodule Mix.Tasks.Allbert.OnboardTest do
       end)
 
     assert channel_output =~ "Optional channel registration [skipped]"
+
+    Mix.Task.reenable("allbert.onboard")
+
+    selected_output =
+      capture_io(fn ->
+        assert :ok = OnboardTask.run(["--user", "bob", "channel", "telegram"])
+      end)
+
+    assert selected_output =~ "Optional channel registration [selected]"
+    assert selected_output =~ "Current step: 1. Welcome + scope"
   end
 
   test "operator alias must match user" do
