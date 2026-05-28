@@ -269,7 +269,7 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
                 200,
                 Jason.encode!(%{
                   "data" => [
-                    %{"id" => "claude-haiku-4-5", "context_window" => 200_000}
+                    %{"id" => "claude-haiku-4-5-20251001", "context_window" => 200_000}
                   ]
                 })
               )

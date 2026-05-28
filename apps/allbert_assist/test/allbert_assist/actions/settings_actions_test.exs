@@ -212,7 +212,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
         200,
         Jason.encode!(%{
           "data" => [
-            %{"id" => "claude-haiku-4-5", "context_window" => 200_000}
+            %{"id" => "claude-haiku-4-5-20251001", "context_window" => 200_000}
           ]
         })
       )
@@ -230,6 +230,42 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert doctor.doctor.model_available == true
     assert doctor.doctor.context_window == 200_000
     refute inspect(doctor) =~ "sk-ant-test-key"
+  end
+
+  test "credentialed remote doctor resolves catalog aliases against provider model ids" do
+    assert {:ok, _setting} =
+             Settings.put("model_profiles.anthropic_fast.model", "claude-haiku-4-5", %{
+               audit?: false
+             })
+
+    assert {:ok, _secret} =
+             Settings.Secrets.put_secret(
+               "secret://providers/anthropic/api_key",
+               "sk-ant-test-key",
+               %{actor: "local", channel: :test}
+             )
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/v1/models"
+
+      Plug.Conn.send_resp(
+        conn,
+        200,
+        Jason.encode!(%{
+          "data" => [
+            %{"id" => "claude-haiku-4-5-20251001", "context_window" => 200_000}
+          ]
+        })
+      )
+    end)
+
+    assert {:ok, doctor} =
+             DoctorModelProfile.run(%{profile: "anthropic_fast"}, %{
+               req_options: [plug: {Req.Test, __MODULE__}]
+             })
+
+    assert doctor.doctor.model_available == true
+    assert doctor.doctor.diagnostics == []
   end
 
   test "doctor action errors do not echo unresolved profile input" do
