@@ -138,6 +138,7 @@ defmodule AllbertAssist.Runtime do
          operator_id: identity.operator_id,
          thread_id: thread.id,
          session_id: session_id,
+         request_started_at: request_started_at(attrs),
          active_app: app_context.active_app,
          thread_context: empty_thread_context(identity.user_id, thread.id),
          conversation_thread: thread,
@@ -253,6 +254,31 @@ defmodule AllbertAssist.Runtime do
     Map.get(attrs, key) || Map.get(attrs, Atom.to_string(key))
   end
 
+  defp request_started_at(attrs) do
+    attrs
+    |> fetch_value(:request_started_at)
+    |> normalize_request_started_at()
+    |> case do
+      nil -> DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+      timestamp -> timestamp
+    end
+  end
+
+  defp normalize_request_started_at(%DateTime{} = datetime) do
+    datetime
+    |> DateTime.truncate(:second)
+    |> DateTime.to_iso8601()
+  end
+
+  defp normalize_request_started_at(value) when is_binary(value) do
+    case DateTime.from_iso8601(value) do
+      {:ok, datetime, _offset} -> normalize_request_started_at(datetime)
+      _error -> nil
+    end
+  end
+
+  defp normalize_request_started_at(_value), do: nil
+
   defp new_input_signal(request) do
     Signal.new(
       @input_received,
@@ -263,6 +289,7 @@ defmodule AllbertAssist.Runtime do
         operator_id: request.operator_id,
         thread_id: request.thread_id,
         session_id: request.session_id,
+        request_started_at: request.request_started_at,
         metadata: request.metadata
       }
       |> maybe_put(:active_app, request.active_app),
@@ -527,6 +554,7 @@ defmodule AllbertAssist.Runtime do
       operator_id: request.operator_id,
       thread_id: request.thread_id,
       session_id: request.session_id,
+      request_started_at: request.request_started_at,
       channel: request.channel
     }
     |> maybe_put(:active_app, request.active_app)

@@ -8,9 +8,10 @@ future advisory provider.
 ## Purpose
 
 Specify the deterministic retrieval algorithm for v0.39b Active Memory. The
-v0.21 memory review/retrieval substrate provides reviewed memory chunks;
-v0.39b runs a deterministic scoring pass before each direct-answer model reply
-to surface top-K `review_status: :kept` chunks scoped to
+v0.21 memory review/retrieval substrate provides reviewed memory entries;
+v0.39b splits each eligible entry into bounded byte windows before scoring and
+runs a deterministic scoring pass before each direct-answer model reply
+to surface top-K `review_status: :kept` windows scoped to
 `{thread_id, active_app, identity_namespace}`.
 
 This note captures the algorithm so v0.39b's plan can reference it and so
@@ -32,7 +33,7 @@ operators can audit and replay retrieval decisions.
 
 ## Scoring Function
 
-For each candidate chunk with `review_status: :kept` in scope
+For each candidate chunk window with `review_status: :kept` in scope
 `{thread_id, active_app, identity_namespace}`:
 
 ```
@@ -120,15 +121,16 @@ Floor: `lexical_match = 0.0` excludes the chunk from the result set entirely
    `app_id: nil`.
    Neutral/core context means `active_app` is `nil` or `:allbert`; in that
    mode only identity chunks and general chunks are eligible.
-3. Filter candidates by `recency_decay > 0` floor.
-4. Filter candidates by `lexical_match > 0`.
-5. Compute full score for each remaining candidate.
-6. Sort descending by score; **stable sort** on `chunk.id` as tiebreaker so
+3. Split each remaining entry body into deterministic
+   `active_memory.chunk_max_bytes` byte windows before scoring. These windows
+   are the scored chunks. They are complete bounded chunks, not post-selection
+   excerpts, so no ellipsis is appended.
+4. Filter candidate chunks by `recency_decay > 0` floor.
+5. Filter candidate chunks by `lexical_match > 0`.
+6. Compute full score for each remaining candidate chunk.
+7. Sort descending by score; **stable sort** on `chunk.id` as tiebreaker so
    determinism is preserved across runs.
-7. Take top `active_memory.top_k` (default 5).
-8. Trim each chunk body to `active_memory.chunk_max_bytes` (default 2048)
-   bytes; truncation is deterministic (truncate at byte boundary, append
-   ellipsis only if truncated).
+8. Take top `active_memory.top_k` (default 5).
 
 ## Trace Metadata
 

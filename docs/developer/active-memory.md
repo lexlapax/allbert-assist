@@ -50,6 +50,12 @@ The score follows `docs/research/active-memory-retrieval.md`:
 
 `recency_decay * thread_affinity * identity_inclusion * lexical_match`
 
+Each eligible `Memory.Entry` body is split into deterministic
+`active_memory.chunk_max_bytes` byte windows before scoring. These windows are
+the returned chunks. They are not post-selection excerpts, so returned chunk
+bodies do not append ellipses unless a future contract explicitly changes the
+chunking model.
+
 Settings live under the `active_memory.*` Settings Central fragment and are
 safe-write keys:
 

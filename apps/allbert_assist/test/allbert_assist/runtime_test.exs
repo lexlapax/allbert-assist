@@ -123,11 +123,14 @@ defmodule AllbertAssist.RuntimeTest do
                        user_id: "local",
                        operator_id: "local",
                        thread_id: thread_id,
-                       active_app: :allbert
+                       active_app: :allbert,
+                       request_started_at: request_started_at
                      }}
 
     assert_received {:agent_signal_data, input_signal_data}
     assert input_signal_data.active_app == :allbert
+    assert input_signal_data.request_started_at == request_started_at
+    assert {:ok, %DateTime{}, 0} = DateTime.from_iso8601(request_started_at)
 
     assert {:ok, thread} = Conversations.get_thread("local", thread_id)
     assert thread.kind == "general"

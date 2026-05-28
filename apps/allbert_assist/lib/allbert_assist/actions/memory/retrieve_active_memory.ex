@@ -69,9 +69,18 @@ defmodule AllbertAssist.Actions.Memory.RetrieveActiveMemory do
       thread_id: value(params, context, :thread_id),
       active_app: value(params, context, :active_app),
       identity_namespace: value(params, context, :identity_namespace),
-      now: value(params, context, :now)
+      now: now_value(params, context)
     ]
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+  end
+
+  defp now_value(params, context) do
+    [:now, :request_started_at, :started_at, :requested_at]
+    |> Enum.find_value(fn key ->
+      params
+      |> value(context, key)
+      |> normalize_timestamp()
+    end)
   end
 
   defp value(params, context, key) do
@@ -81,6 +90,21 @@ defmodule AllbertAssist.Actions.Memory.RetrieveActiveMemory do
       get_in(context, [:request, key]) ||
       get_in(context, [:request, Atom.to_string(key)])
   end
+
+  defp normalize_timestamp(%DateTime{} = datetime) do
+    datetime
+    |> DateTime.truncate(:second)
+    |> DateTime.to_iso8601()
+  end
+
+  defp normalize_timestamp(value) when is_binary(value) do
+    case DateTime.from_iso8601(value) do
+      {:ok, datetime, _offset} -> normalize_timestamp(datetime)
+      _error -> nil
+    end
+  end
+
+  defp normalize_timestamp(_value), do: nil
 
   defp denied(permission_decision) do
     active_memory = disabled_metadata(:permission_denied)
