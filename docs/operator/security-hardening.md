@@ -99,14 +99,14 @@ The v0.39-to-v1.0 roadmap promotes several future capability classes that are
 not implemented yet. When those milestones land, the security review and eval
 surface must expand to cover:
 
-- First-run onboarding and provider doctor (v0.39): credential redaction in
-  doctor output, doctor-no-leak (no raw error bodies, no full URLs, no
-  credential fragments — per ADR 0047), onboarding-action-boundary,
-  safe-keys-only writes during onboarding, `endpoint_kind` derivation and
-  override behavior, default local model is real and missing-model diagnostics
-  are fixed/cataloged, local-model-present doctor pass after the operator
-  explicitly pulls the shipped default, identity-slot preview step writes
-  nothing (v0.39b adds the write path).
+- First-run onboarding and provider doctor (v0.39, executable eval coverage):
+  credential redaction in doctor output, doctor-no-leak (no raw error bodies,
+  no full URLs, no credential fragments — per ADR 0047),
+  onboarding-action-boundary, safe-keys-only writes during onboarding,
+  `endpoint_kind` derivation and override behavior, default local model is real
+  and missing-model diagnostics are fixed/cataloged, local-model-present doctor
+  pass after the operator explicitly pulls the shipped default, identity-slot
+  preview step writes nothing (v0.39b adds the write path).
 - Identity slot and Active Memory (v0.39b): identity-namespace not
   app-owned isolation, identity-memory inert (never grants authority),
   Active Memory read-only, no automatic promotion from retrieved chunks,

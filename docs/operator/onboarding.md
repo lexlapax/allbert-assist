@@ -51,10 +51,10 @@ mix allbert.security status
 mix allbert.confirmations list
 ```
 
-## Planned v0.39 First-Run Onboarding
+## v0.39 First-Run Onboarding
 
 `docs/plans/v0.39-plan.md` promotes first-run onboarding and provider/model
-control into the planned 1.0 arc, split across two sub-milestones:
+control into the 1.0 arc, split across two sub-milestones:
 
 - **v0.39** ships the guided onboarding objective (`mix allbert.onboard`,
   `workspace:onboard`), the provider/model control plane
@@ -71,14 +71,54 @@ control into the planned 1.0 arc, split across two sub-milestones:
   `## Active Memory` trace metadata. See `docs/operator/active-memory.md`
   for the operator-facing story.
 
-Neither sub-milestone is implemented yet. Until v0.39 ships, use the
-manual setup commands in this guide and the release-specific
-request-flow documents.
+Start the durable onboarding objective:
 
-### Planned Cross-OS Quick-Start (v0.39)
+```sh
+mix allbert.onboard
+```
 
-Per the v1.0 acceptance matrix item 1, v0.39 onboarding must succeed on
-macOS, Linux, and Windows/WSL2.
+Resume or record progress from CLI:
+
+```sh
+mix allbert.onboard complete welcome_scope
+mix allbert.onboard skip optional_channel_registration --note "Later"
+mix allbert.onboard channel telegram
+```
+
+Open the same objective from the workspace:
+
+```text
+http://localhost:4000/workspace?destination=workspace:onboard
+```
+
+Inspect and choose model profiles:
+
+```sh
+mix allbert.model list
+mix allbert.model use local --enable-assist
+mix allbert.model doctor local
+mix allbert.model doctor anthropic_fast
+```
+
+The doctor input is a configured model profile, not a raw URL. It resolves the
+profile's provider and branches on `providers.<name>.endpoint_kind`:
+
+- `local_endpoint`: checks the local endpoint and model catalog, sets
+  `credential_ok: nil`, and reports `model_available: false` with
+  `ollama pull llama3.2:3b` remediation when the shipped default model is not
+  installed.
+- `credentialed_remote`: checks the provider model catalog with the configured
+  encrypted credential reference and returns only the ADR 0047 redacted
+  summary shape.
+
+Provider credentials still belong in Settings Central secrets. Use the existing
+settings/channel tasks rather than shell history or prompt text for raw
+secrets.
+
+### Cross-OS Quick-Start
+
+Per the v1.0 acceptance matrix item 1, v0.39 onboarding is designed to succeed
+on macOS, Linux, and Windows/WSL2.
 
 - **macOS / Linux**: `mix allbert.onboard` reads selections from the
   terminal; secrets are entered with echo disabled. Default local
@@ -90,8 +130,9 @@ macOS, Linux, and Windows/WSL2.
   `localhost` reaches the WSL2-side Ollama instance directly. Reaching a
   Windows-host Ollama instance from WSL2 is documented but not required
   for acceptance.
-- **Non-interactive runs** (CI, piped stdin) fail fast with a usable
-  message; onboarding is interactive-only in v0.39.
+- **Non-interactive runs** can use the explicit subcommands above to record
+  progress. Raw provider secrets should still be configured through the
+  Settings Central secret helpers.
 
 ## v0.38 Templated Creation
 
@@ -120,8 +161,7 @@ drafts share
 `<ALLBERT_HOME>/dynamic_plugins/drafts/<slug>/` with v0.37 codegen drafts and
 are inspectable through `mix allbert.dynamic drafts list/show/discard`. See
 `docs/operator/templated-creation.md` for the operator flow and manual smoke.
-The v0.39
-onboarding destination is a separate planned Canvas destination, not the same
+The v0.39 onboarding destination is a separate Canvas destination, not the same
 as `workspace:create`.
 
 ## What To Notice

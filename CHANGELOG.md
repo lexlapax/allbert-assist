@@ -10,6 +10,69 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.39.0 - First-Run Onboarding And Provider Control
+
+Status: implemented and ready for operator manual validation before release
+tagging. Version metadata is `0.39.0`.
+
+Plan: `docs/plans/v0.39-plan.md`.
+Request flow: `docs/plans/v0.39-request-flow.md`.
+ADR: `docs/adr/0047-provider-doctor-contract.md`.
+
+### Added
+
+- Durable first-run onboarding objective framed from `mix allbert.onboard` and
+  `/workspace?destination=workspace:onboard`, with resumable objective steps
+  and progress recorded by the registered `onboarding_step_complete` action.
+- Provider/model control commands: `mix allbert.model list`,
+  `mix allbert.model use PROFILE [--enable-assist]`, and
+  `mix allbert.model doctor PROFILE`.
+- Registered `doctor_model_profile` and `set_active_model_profile` actions.
+  The active-profile action writes only Settings Central safe keys:
+  `intent.model_profile`, optional `intent.model_assist_enabled`, and the
+  selected provider's `providers.<name>.enabled`.
+- `providers.*.endpoint_kind`, with `local_ollama` defaulting to
+  `local_endpoint` and credentialed providers defaulting to
+  `credentialed_remote`.
+- Workspace onboarding panel and Settings Central provider/model controls for
+  doctor/use actions.
+- Executable v0.39 security eval rows for onboarding redaction, doctor
+  no-leak behavior, action-boundary enforcement, safe-key writes,
+  identity-preview no-write behavior, provider doctor branch selection,
+  redacted host output, and local-model missing/present states.
+
+### Changed
+
+- The shipped local model profile now defaults to `llama3.2:3b`, a real small
+  Ollama model suitable for first-run local testing.
+- ADR 0047 is accepted and pins the provider doctor redacted summary shape as a
+  Tier-1 freeze candidate for v1.0.
+- README, roadmap, operator onboarding, security-hardening, agent-context-map,
+  and v0.39 plan/request-flow docs now describe v0.39 as implemented and keep
+  identity slot plus Active Memory scoped to v0.39b.
+- Umbrella, core app, and web app version metadata are bumped to `0.39.0`.
+
+### Security
+
+- Provider doctor accepts only configured model profile names; it derives the
+  provider host from Settings Central, caps probe behavior, rejects unsafe
+  host shapes per endpoint kind, disables redirects/retries, and returns only
+  host-level redacted diagnostics.
+- Credentialed-remote probes never return raw secrets, raw error bodies, full
+  URLs, query strings, or credential fragments. Local-endpoint probes set
+  `credential_ok: nil` and distinguish endpoint reachability from model
+  availability without running `ollama pull`.
+- The v0.39 identity-slot onboarding step is preview-only and writes nothing
+  under `<ALLBERT_HOME>/memory/identity/`; v0.39b owns the write path.
+
+### Verification
+
+- Focused onboarding, settings/action, Mix task, workspace, catalog/surface,
+  and v0.39 security eval suites passed during M1-M4 implementation.
+- M4 release gate passed: `mix compile --warnings-as-errors`,
+  `mix credo --strict`, `mix dialyzer`, `mix precommit`, and
+  `git diff --check`.
+
 ## v0.38.1 - Templated Creation Release Polish
 
 Status: released and tagged as `v0.38.1` on 2026-05-27 after operator manual
