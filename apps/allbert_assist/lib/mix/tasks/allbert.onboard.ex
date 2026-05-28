@@ -5,10 +5,14 @@ defmodule Mix.Tasks.Allbert.Onboard do
   ## Usage
 
       mix allbert.onboard [--user USER] [--operator USER]
+      mix allbert.onboard complete STEP_KEY [--note NOTE]
+      mix allbert.onboard skip STEP_KEY [--note NOTE]
+      mix allbert.onboard channel telegram|email|none
   """
 
   use Mix.Task
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Onboarding
 
   @shortdoc "Frame or resume first-run onboarding"
@@ -32,18 +36,51 @@ defmodule Mix.Tasks.Allbert.Onboard do
   end
 
   defp dispatch(args) do
-    {opts, rest, invalid} = OptionParser.parse(args, strict: [user: :string, operator: :string])
+    {opts, rest, invalid} =
+      OptionParser.parse(args, strict: [user: :string, operator: :string, note: :string])
 
     reject_invalid!(invalid)
-    reject_rest!(rest)
 
     user_id = user_id!(opts)
 
+    dispatch_rest(rest, user_id, opts)
+  end
+
+  defp dispatch_rest([], user_id, _opts) do
     case Onboarding.frame_or_resume(user_id, %{channel: :cli}) do
       {:ok, state} -> {:ok, state}
       {:error, reason} -> fail!(@failure_exit, "Onboarding failed: #{inspect(reason)}")
     end
   end
+
+  defp dispatch_rest(["complete", step_key], user_id, opts) do
+    record_step(user_id, step_key, "completed", opts[:note] || "CLI onboarding step completed.")
+  end
+
+  defp dispatch_rest(["skip", step_key], user_id, opts) do
+    record_step(user_id, step_key, "skipped", opts[:note] || "CLI onboarding step skipped.")
+  end
+
+  defp dispatch_rest(["channel", "none"], user_id, _opts) do
+    record_step(
+      user_id,
+      "optional_channel_registration",
+      "skipped",
+      "Operator skipped channel registration."
+    )
+  end
+
+  defp dispatch_rest(["channel", channel], user_id, _opts)
+       when channel in ["telegram", "email"] do
+    record_step(
+      user_id,
+      "optional_channel_registration",
+      "completed",
+      "Operator selected #{channel} channel registration."
+    )
+  end
+
+  defp dispatch_rest(rest, _user_id, _opts), do: reject_rest!(rest)
 
   defp print_result({:ok, state}) do
     objective = state.objective
@@ -94,6 +131,55 @@ defmodule Mix.Tasks.Allbert.Onboard do
   defp reject_rest!(rest) do
     fail!(@usage_exit, "Unexpected argument(s): #{Enum.join(rest, " ")}")
   end
+
+  defp record_step(user_id, step_key, outcome, note) do
+    with {:ok, state} <- Onboarding.frame_or_resume(user_id, %{channel: :cli}),
+         {:ok, step} <- find_step(state, step_key),
+         {:ok, response} <-
+           completed_action(
+             "onboarding_step_complete",
+             %{
+               user_id: user_id,
+               objective_id: state.objective.id,
+               step_id: step.id,
+               outcome: outcome,
+               note: note
+             },
+             %{actor: user_id, user_id: user_id, channel: :cli}
+           ) do
+      {:ok, response_state(response)}
+    else
+      {:error, reason} -> fail!(@failure_exit, "Onboarding failed: #{inspect(reason)}")
+    end
+  end
+
+  defp find_step(state, step_key) do
+    state.steps
+    |> Enum.find(&(to_string(&1.key) == step_key or to_string(&1.index) == step_key))
+    |> case do
+      nil -> {:error, {:unknown_onboarding_step, step_key}}
+      step -> {:ok, step}
+    end
+  end
+
+  defp completed_action(action_name, params, context) do
+    case Runner.run(action_name, params, context) do
+      {:ok, %{status: :completed} = response} -> {:ok, response}
+      {:ok, response} -> {:error, response_error(response)}
+    end
+  end
+
+  defp response_state(response) do
+    %{
+      objective: response.objective,
+      steps: response.steps,
+      current_step: response.current_step,
+      created?: false
+    }
+  end
+
+  defp response_error(%{error: error}), do: error
+  defp response_error(%{message: message}), do: message
 
   defp fail!(code, message), do: throw({:onboarding_error, code, message})
 

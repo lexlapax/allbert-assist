@@ -65,6 +65,15 @@ defmodule AllbertAssist.App.CoreApp do
 
   defp core_panel_surfaces do
     [
+      panel_surface(:core_onboarding_panel, "Onboarding", :canvas_panels, 0, [
+        panel_node("core-onboarding", "Onboarding", "First-run setup objective.", [
+          %Node{
+            id: "onboarding",
+            component: :onboarding_panel,
+            props: %{zone: "canvas", title: "Onboarding"}
+          }
+        ])
+      ]),
       panel_surface(:core_create_panel, "Create", :canvas_panels, 5, [
         panel_node("core-create", "Create", "Template gallery and preview.", [
           %Node{
