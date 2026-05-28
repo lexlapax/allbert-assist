@@ -90,6 +90,11 @@ Settings can tighten either class but cannot loosen `:mcp_tool_call` below the
 `:needs_confirmation` floor. `:mcp_resource_read` cannot be configured to bypass
 the Resource Access grant requirement.
 
+Read-like MCP tools are still MCP tool calls in v0.40. A server may expose data
+fetches as tools rather than resources, but that does not let Allbert apply an
+`:mcp_resource_read` grant to `mcp_call_tool`. Such calls remain confirmed per
+call unless a later ADR amendment introduces a narrower trust tier.
+
 ### 4. Resource identity and operation-class scoping
 
 - MCP resources use `mcp://<server-id>/<encoded-uri>`, where `<server-id>`
@@ -158,7 +163,10 @@ It grants no tool or resource authority and creates no remembered grants.
 - v0.41 consumes the v0.40 actions (`mcp_list_tools`, `mcp_list_resources`,
   `mcp_read_resource`, `mcp_call_tool`) and the grant-gated read model to render
   calendar/mail/GitHub workspace summary panels. v0.40's first-server validation
-  set is aligned to those consumers plus deterministic mock servers.
+  set is aligned to those consumers plus deterministic mock servers and records
+  whether required panel data is exposed as resources or only as tools. Tool-only
+  panel reads must remain operator-triggered/per-call-confirmed, be parked, or
+  receive an explicit ADR amendment before v0.41 implementation.
 - The `:mcp_tool_call` / `:mcp_resource_read` permission classes, the `mcp://`
   identity, and the MCP operation-class vocabulary become Tier-1 freeze
   candidates at v1.0; changing them requires an ADR amendment and, for settings

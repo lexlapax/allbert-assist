@@ -62,6 +62,7 @@ and header/body redaction.
 ### Local server (stdio)
 
 ```sh
+mix allbert.settings set mcp.stdio.allowed_launchers '["npx"]'
 mix allbert.settings set mcp.servers.calendar.transport stdio
 mix allbert.settings set mcp.servers.calendar.command npx
 mix allbert.settings set mcp.servers.calendar.args '["-y","@example/calendar-mcp"]'
@@ -73,7 +74,14 @@ mix allbert.settings set mcp.servers.calendar.enabled true
 
 A stdio server is a local OS process. Allbert starts it with explicit argv and an
 environment populated only from your configured secret refs — never a shell
-string — and bounds its lifecycle under the local-execution sandbox policy.
+string — and bounds its lifecycle under the local-execution sandbox policy. The
+launcher command must appear in `mcp.stdio.allowed_launchers`; the default empty
+list denies stdio startup.
+
+The JSON-looking values above are the intended v0.40 CLI shape for map/list
+settings. If implementation chooses dedicated `mix allbert.mcp config ...`
+helpers instead of JSON-aware `mix allbert.settings set`, this guide must be
+updated before the milestone ships.
 
 ## Doctor A Server
 
@@ -129,6 +137,8 @@ You can tighten policy per server:
   tighten to `denied`; you cannot loosen below confirmation.
 
 Disabled servers, denied tools, and out-of-allowlist tools cannot run.
+Read-like MCP tools are still tool calls in v0.40. Resource Access grants apply
+only to `mcp_read_resource`, not to `mcp_call_tool`.
 
 ## Inspect Traces And Audits
 
