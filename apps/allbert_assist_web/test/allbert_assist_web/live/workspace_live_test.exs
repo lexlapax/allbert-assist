@@ -394,6 +394,31 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert model_signal.data.permission_decision.permission == :settings_write
   end
 
+  test "workspace onboarding destination frames and records onboarding steps", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
+
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:onboard']")
+    assert has_element?(view, "#workspace-canvas[data-destination='workspace:onboard']")
+    assert has_element?(view, "#workspace-onboarding-panel")
+    assert has_element?(view, "#onboarding-step-welcome_scope[data-current='true']")
+    assert has_element?(view, "#complete-onboarding-step-welcome_scope")
+
+    subscribe_actions()
+
+    html =
+      view
+      |> element("#complete-onboarding-step-welcome_scope")
+      |> render_click()
+
+    assert html =~ "Onboarding progress recorded."
+    assert has_element?(view, "#onboarding-step-welcome_scope[data-status='completed']")
+    assert has_element?(view, "#onboarding-step-pick_provider_profile[data-current='true']")
+
+    action_signal = receive_action_completed("onboarding_step_complete")
+    assert action_signal.data.status == :completed
+    assert action_signal.data.permission_decision.permission == :objective_write
+  end
+
   test "workspace create gallery only exposes Settings Central allowed patterns", %{conn: conn} do
     assert {:ok, _setting} =
              Settings.put("templates.create.enabled", true, %{audit?: false})

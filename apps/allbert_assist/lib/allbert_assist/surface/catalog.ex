@@ -26,6 +26,7 @@ defmodule AllbertAssist.Surface.Catalog do
     :app_launcher,
     :utility_drawer,
     :workspace_panel,
+    :onboarding_panel,
     :settings_panel,
     :template_create_panel,
     :workspace,
@@ -87,6 +88,7 @@ defmodule AllbertAssist.Surface.Catalog do
     :app_launcher,
     :utility_drawer,
     :workspace_panel,
+    :onboarding_panel,
     :settings_panel,
     :template_create_panel,
     :workspace,
@@ -128,6 +130,7 @@ defmodule AllbertAssist.Surface.Catalog do
     app_launcher: {:live_component, AllbertAssistWeb.Workspace.Components.AppLauncher},
     utility_drawer: {:live_component, AllbertAssistWeb.Workspace.Components.UtilityDrawer},
     workspace_panel: {:live_component, AllbertAssistWeb.Workspace.Components.WorkspacePanel},
+    onboarding_panel: {:live_component, AllbertAssistWeb.Workspace.Components.Onboarding},
     settings_panel: {:live_component, AllbertAssistWeb.Workspace.Components.SettingsCentral},
     template_create_panel:
       {:live_component, AllbertAssistWeb.Workspace.Components.TemplateCreate},
@@ -188,6 +191,7 @@ defmodule AllbertAssist.Surface.Catalog do
     app_launcher: "hero-squares-2x2-micro",
     utility_drawer: "hero-wrench-screwdriver-micro",
     workspace_panel: "hero-rectangle-group-micro",
+    onboarding_panel: "hero-sparkles-micro",
     settings_panel: "hero-adjustments-horizontal-micro",
     template_create_panel: "hero-plus-circle-micro"
   }
