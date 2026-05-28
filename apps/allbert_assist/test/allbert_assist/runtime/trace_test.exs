@@ -20,6 +20,54 @@ defmodule AllbertAssist.Runtime.TraceTest do
 
     assert Trace.text(turn) == LegacyTrace.text(turn)
     assert Trace.text(turn) =~ "Trace format: v0.01-m6"
+    refute Trace.text(turn) =~ "## Active Memory"
+  end
+
+  test "trace renders Active Memory after intent candidates without chunk bodies" do
+    metadata = %{
+      status: :completed,
+      enabled?: true,
+      query_terms_normalized: ["concise", "reports"],
+      scope: %{thread_id: "thread-runtime-trace", active_app: nil, identity_namespace: "identity"},
+      candidate_count_before_filter: 1,
+      candidate_chunk_count_before_filter: 1,
+      candidate_count_after_filter: 1,
+      retrieved_chunks: [
+        %{
+          chunk_id: "active_memory:test",
+          entry_path: "/tmp/persona.md",
+          category: :identity,
+          namespace: "identity",
+          score: 0.42,
+          recency_decay: 1.0,
+          thread_affinity: 0.3,
+          identity_inclusion: 1.5,
+          lexical_match: 0.66,
+          summary: "Concise reports"
+        }
+      ],
+      excluded_chunks_sample: [
+        %{chunk_id: "active_memory:excluded", score: 0.1, excluded_reason: :below_top_k}
+      ]
+    }
+
+    trace =
+      "Trace with active memory"
+      |> turn()
+      |> put_in([:response, :actions], [
+        %{name: "direct_answer", direct_answer: %{active_memory: metadata}}
+      ])
+      |> Trace.text()
+
+    assert trace =~ "## Intent Candidates"
+    assert trace =~ "## Active Memory"
+    assert trace =~ "## Memory Review"
+    assert trace =~ "active_memory:test score=0.42"
+    assert trace =~ "active_memory:excluded"
+    refute trace =~ "Reports should stay terse."
+
+    assert String.replace(trace, "\r\n", "\n") =~
+             ~r/## Intent Candidates.*## Active Memory.*## Memory Review/s
   end
 
   test "record_turn facade preserves writer and enabled semantics" do
