@@ -80,7 +80,9 @@ defmodule Mix.Tasks.Allbert.Onboard do
     )
   end
 
-  defp dispatch_rest(rest, _user_id, _opts), do: reject_rest!(rest)
+  defp dispatch_rest(rest, _user_id, _opts) do
+    fail!(@usage_exit, "Unexpected argument(s): #{Enum.join(rest, " ")}")
+  end
 
   defp print_result({:ok, state}) do
     objective = state.objective
@@ -124,12 +126,6 @@ defmodule Mix.Tasks.Allbert.Onboard do
 
   defp reject_invalid!(invalid) do
     fail!(@usage_exit, "Invalid option(s): #{inspect(invalid)}")
-  end
-
-  defp reject_rest!([]), do: :ok
-
-  defp reject_rest!(rest) do
-    fail!(@usage_exit, "Unexpected argument(s): #{Enum.join(rest, " ")}")
   end
 
   defp record_step(user_id, step_key, outcome, note) do
@@ -181,6 +177,7 @@ defmodule Mix.Tasks.Allbert.Onboard do
   defp response_error(%{error: error}), do: error
   defp response_error(%{message: message}), do: message
 
+  @spec fail!(non_neg_integer(), String.t()) :: no_return()
   defp fail!(code, message), do: throw({:onboarding_error, code, message})
 
   defp halt(code) do

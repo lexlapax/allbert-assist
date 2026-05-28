@@ -12,7 +12,8 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | {:fixture_transport_calls, atom(), non_neg_integer()}
 
   @type expected :: :allowed | :denied | :dropped | :error | :needs_confirmation
-  @type milestone :: :m2 | :m3 | :m4 | :m5 | :m6 | :m7 | :v036 | :v037 | :v038
+  @type milestone ::
+          :m2 | :m3 | :m4 | :m5 | :m6 | :m7 | :v036 | :v037 | :v038 | :v039
 
   @type required_surface ::
           :resource_execution
@@ -23,6 +24,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :elixir_sandbox
           | :dynamic_codegen
           | :template_creation
+          | :first_run_onboarding
           | :operator_review
 
   @type surface :: required_surface() | :workspace_live_navigation
@@ -1066,6 +1068,127 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.TemplateCreationEvalTest"
     },
     %{
+      id: "onboarding-secret-redaction-001",
+      milestone: :v039,
+      surface: :first_run_onboarding,
+      scenario: "onboarding provider/profile listing runs with a configured secret",
+      boundary: :settings_central_secret_redaction,
+      expected: :allowed,
+      assert: [:allowed, :secrets_redacted],
+      test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
+    },
+    %{
+      id: "onboarding-doctor-no-leak-001",
+      milestone: :v039,
+      surface: :first_run_onboarding,
+      scenario: "provider model doctor receives a secret-bearing provider error body",
+      boundary: :provider_doctor_redaction,
+      expected: :allowed,
+      assert: [:allowed, :redacted_output],
+      test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
+    },
+    %{
+      id: "onboarding-action-boundary-001",
+      milestone: :v039,
+      surface: :first_run_onboarding,
+      scenario: "onboarding step progress is recorded only by the registered action boundary",
+      boundary: :onboarding_action_boundary,
+      expected: :allowed,
+      assert: [:allowed, :registered_action_required],
+      test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
+    },
+    %{
+      id: "onboarding-safe-keys-only-001",
+      milestone: :v039,
+      surface: :first_run_onboarding,
+      scenario: "onboarding model selection writes only Settings Central safe keys",
+      boundary: :settings_central_safe_keys,
+      expected: :allowed,
+      assert: [:allowed, :safe_keys_only],
+      test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
+    },
+    %{
+      id: "onboarding-identity-preview-no-write-001",
+      milestone: :v039,
+      surface: :first_run_onboarding,
+      scenario: "identity slot preview completes without creating identity memory content",
+      boundary: :identity_slot_preview,
+      expected: :allowed,
+      assert: [:allowed, :identity_preview_only],
+      test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
+    },
+    %{
+      id: "provider-doctor-credentialed-branch-001",
+      milestone: :v039,
+      surface: :first_run_onboarding,
+      scenario: "doctor checks a configured credentialed-remote provider profile",
+      boundary: :provider_doctor_branch,
+      expected: :allowed,
+      assert: [:allowed, :credentialed_remote_branch],
+      test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
+    },
+    %{
+      id: "provider-doctor-local-endpoint-branch-001",
+      milestone: :v039,
+      surface: :first_run_onboarding,
+      scenario: "doctor checks a configured local endpoint provider profile without credentials",
+      boundary: :provider_doctor_branch,
+      expected: :allowed,
+      assert: [:allowed, :local_endpoint_branch],
+      test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
+    },
+    %{
+      id: "provider-doctor-endpoint-kind-derivation-001",
+      milestone: :v039,
+      surface: :first_run_onboarding,
+      scenario:
+        "doctor branches from providers.*.endpoint_kind rather than provider-name heuristics",
+      boundary: :provider_doctor_branch,
+      expected: :allowed,
+      assert: [:allowed, :endpoint_kind_controls_branch],
+      test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
+    },
+    %{
+      id: "provider-doctor-redacted-host-only-001",
+      milestone: :v039,
+      surface: :first_run_onboarding,
+      scenario: "doctor strips path, query, and fragments from provider host diagnostics",
+      boundary: :provider_doctor_redaction,
+      expected: :allowed,
+      assert: [:allowed, :redacted_host_only],
+      test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
+    },
+    %{
+      id: "default-model-profile-real-model-001",
+      milestone: :v039,
+      surface: :first_run_onboarding,
+      scenario: "shipped local model profile uses a real first-run Ollama model name",
+      boundary: :settings_schema_defaults,
+      expected: :allowed,
+      assert: [:allowed, :real_default_model],
+      test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
+    },
+    %{
+      id: "local-model-missing-remediation-001",
+      milestone: :v039,
+      surface: :first_run_onboarding,
+      scenario: "local doctor reports a reachable endpoint with the shipped model missing",
+      boundary: :provider_doctor_local_model,
+      expected: :allowed,
+      assert: [:allowed, :missing_model_remediation],
+      test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
+    },
+    %{
+      id: "local-model-present-doctor-pass-001",
+      milestone: :v039,
+      surface: :first_run_onboarding,
+      scenario: "local doctor passes only when the shipped default model is present",
+      boundary: :provider_doctor_local_model,
+      expected: :allowed,
+      assert: [:allowed, :local_model_present],
+      test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
+    },
+    %{
       id: "sandbox-backend-disabled-001",
       milestone: :v036,
       surface: :elixir_sandbox,
@@ -1216,6 +1339,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
     :elixir_sandbox,
     :dynamic_codegen,
     :template_creation,
+    :first_run_onboarding,
     :operator_review
   ]
 

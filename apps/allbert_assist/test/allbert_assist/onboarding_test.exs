@@ -1,8 +1,8 @@
 defmodule AllbertAssist.OnboardingTest do
   use AllbertAssist.DataCase, async: false
 
-  alias AllbertAssist.Onboarding
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Onboarding
 
   test "frames one resumable onboarding objective with planned steps" do
     assert {:ok, state} = Onboarding.frame_or_resume("alice")

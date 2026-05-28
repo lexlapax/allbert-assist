@@ -130,9 +130,6 @@ defmodule AllbertAssist.Onboarding do
 
       {:error, :not_found} ->
         create_objective(user_id, context)
-
-      {:error, reason} ->
-        {:error, reason}
     end
   end
 
@@ -423,6 +420,4 @@ defmodule AllbertAssist.Onboarding do
 
   defp field(map, key) when is_map(map),
     do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
-
-  defp field(_value, _key), do: nil
 end
