@@ -181,6 +181,67 @@ defmodule Mix.Tasks.Allbert.MemoryTest do
     assert summary_output =~ "Entries: 1"
   end
 
+  test "list filters identity namespace and retrieve prints deterministic chunks" do
+    assert {:ok, entry} =
+             Memory.upsert_system_entry(%{
+               namespace: :identity,
+               file_path: "persona.md",
+               actor: "alice",
+               summary: "Alice persona",
+               body: "Alice prefers concise release reports."
+             })
+
+    assert {:ok, entry} =
+             Memory.review_entry(
+               entry.path,
+               %{
+                 status: :kept,
+                 reviewed_at: "2026-05-28T12:00:00Z",
+                 reviewed_by: "alice"
+               },
+               user_id: "alice"
+             )
+
+    namespace_output =
+      capture_io(fn ->
+        assert :ok = MemoryTask.run(["list", "--user", "alice", "--namespace", "identity"])
+      end)
+
+    assert namespace_output =~ "identity"
+    assert namespace_output =~ entry.path
+
+    Mix.Task.reenable("allbert.memory")
+
+    category_output =
+      capture_io(fn ->
+        assert :ok = MemoryTask.run(["list", "--user", "alice", "--category", "identity"])
+      end)
+
+    assert category_output =~ entry.path
+
+    Mix.Task.reenable("allbert.memory")
+
+    retrieve_output =
+      capture_io(fn ->
+        assert :ok =
+                 MemoryTask.run([
+                   "retrieve",
+                   "--query",
+                   "concise release reports",
+                   "--user",
+                   "alice",
+                   "--now",
+                   "2026-05-28T12:00:00Z"
+                 ])
+      end)
+
+    assert retrieve_output =~ "Active Memory chunks: 1"
+    assert retrieve_output =~ "score="
+    assert retrieve_output =~ "recency="
+    assert retrieve_output =~ "identity=1.5"
+    assert retrieve_output =~ entry.path
+  end
+
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 end
