@@ -160,12 +160,64 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
     assert disabled.chunks == []
   end
 
+  test "long kept entries are split into scored byte windows without ellipsis" do
+    body = String.duplicate("anchor concise release reports ", 80)
+
+    assert {:ok, entry} =
+             Memory.upsert_system_entry(%{
+               namespace: :identity,
+               file_path: "long_persona.md",
+               actor: "alice",
+               summary: "Long persona",
+               body: body
+             })
+
+    assert {:ok, _entry} = keep(entry)
+    assert {:ok, _setting} = Settings.put("active_memory.top_k", 3, %{audit?: false})
+    assert {:ok, _setting} = Settings.put("active_memory.chunk_max_bytes", 128, %{audit?: false})
+
+    assert {:ok, first} =
+             ActiveMemory.retrieve("anchor release reports",
+               user_id: "alice",
+               active_app: nil,
+               now: @now
+             )
+
+    assert {:ok, second} =
+             ActiveMemory.retrieve("anchor release reports",
+               user_id: "alice",
+               active_app: nil,
+               now: @now
+             )
+
+    assert first.candidate_count_before_filter == 1
+    assert first.candidate_chunk_count_before_filter > first.candidate_count_before_filter
+    assert first.candidate_count_after_filter > 1
+    assert length(first.chunks) == 3
+    assert first.chunks == second.chunks
+
+    for chunk <- first.chunks do
+      assert String.starts_with?(chunk.chunk_id, "active_memory:")
+      assert is_integer(chunk.chunk_index)
+      assert byte_size(chunk.body) <= 128
+      refute chunk.body =~ "..."
+      refute chunk.body =~ "…"
+    end
+  end
+
   test "registered action returns deterministic body-bearing chunks and body-free metadata" do
     {:ok, entry} = append("alice", "Replayable concise reports for release reviews.")
     {:ok, _entry} = keep(entry)
 
-    context = %{user_id: "alice", actor: "alice", channel: :test, thread_id: "thr_active"}
-    params = %{query: "concise reports", now: @now}
+    context = %{
+      user_id: "alice",
+      actor: "alice",
+      channel: :test,
+      thread_id: "thr_active",
+      request: %{request_started_at: @now}
+    }
+
+    params = %{query: "concise reports"}
 
     assert {:ok, first} = Runner.run("retrieve_active_memory", params, context)
     assert {:ok, second} = Runner.run("retrieve_active_memory", params, context)

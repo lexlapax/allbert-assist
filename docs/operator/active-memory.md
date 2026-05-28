@@ -68,6 +68,9 @@ turn.
 - **Top-K bound**: `active_memory.top_k` (default `5`).
 - **Per-chunk size cap**: `active_memory.chunk_max_bytes` (default
   `2048` bytes).
+- **Long files**: eligible memory entries are split into byte-bounded windows
+  before scoring. Returned chunks are complete windows, not trimmed excerpts,
+  so the body text does not include ellipses added by retrieval.
 - **Scope**:
   - **Active app** (e.g., `:stocksage` after a v0.33 handoff): retrieval
     upweights chunks tagged with that app while still surfacing identity
@@ -92,6 +95,25 @@ the turn's markdown trace, placed after `## Intent Candidates` and before
 
 `mix allbert.memory retrieve --query "..."` prints the same deterministic
 top-K for ad-hoc inspection.
+
+## Quick Smoke
+
+Use this on a disposable `ALLBERT_HOME` or a test identity file to confirm the
+operator path before enabling model-backed direct answers:
+
+```sh
+mkdir -p "$ALLBERT_HOME/memory/identity"
+cat > "$ALLBERT_HOME/memory/identity/persona.md" <<'EOF'
+# Persona
+
+I prefer concise release reports with clear validation notes.
+EOF
+mix allbert.memory review "$ALLBERT_HOME/memory/identity/persona.md" --user local --status kept --note "Operator-authored identity"
+mix allbert.memory retrieve --user local --query "concise release reports"
+```
+
+The retrieve command prints chunk ids and score breakdowns only. It does not
+write memory and does not print raw memory bodies in trace metadata.
 
 ## Settings
 
