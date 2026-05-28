@@ -20,6 +20,7 @@ defmodule AllbertAssist.Workspace.Catalog do
   alias AllbertAssist.Theme.Layout
 
   @workspace_tool_destinations [
+    %{id: "workspace:onboard", tool: "onboard", label: "Onboard", dom_id: "workspace-onboard"},
     %{id: "workspace:create", tool: "create", label: "Create", dom_id: "create"},
     %{id: "workspace:jobs", tool: "jobs", label: "Jobs", dom_id: "workspace-jobs"},
     %{
@@ -50,6 +51,7 @@ defmodule AllbertAssist.Workspace.Catalog do
   ]
 
   @workspace_tool_panels %{
+    "onboard" => :core_onboarding_panel,
     "create" => :core_create_panel,
     "jobs" => :core_jobs_panel,
     "objectives" => :core_objectives_panel,
