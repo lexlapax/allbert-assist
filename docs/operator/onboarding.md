@@ -27,6 +27,7 @@ Use a disposable Allbert Home when exploring:
 
 ```sh
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-operator.XXXXXX)"
+export DATABASE_PATH="$ALLBERT_HOME/db/allbert.sqlite3"
 export ALLBERT_TRACE_ENABLED=true
 ```
 
@@ -74,8 +75,15 @@ control into the 1.0 arc, split across two sub-milestones:
 Start the durable onboarding objective:
 
 ```sh
+mix do ecto.create --quiet + ecto.migrate --quiet
 mix allbert.onboard
 ```
+
+The CLI onboarding task starts the app and records Objective Runtime state. If
+you point `DATABASE_PATH` at a new disposable SQLite file, run migrations first
+as shown above. The Phoenix dev server bootstraps a missing or empty dev
+database when `ALLBERT_HOME` or `ALLBERT_HOME_DIR` is set, but CLI-only smoke
+runs should be explicit.
 
 Resume or record progress from CLI:
 
@@ -90,6 +98,25 @@ Open the same objective from the workspace:
 ```text
 http://localhost:4000/workspace?destination=workspace:onboard
 ```
+
+Try the implemented v0.39b identity and Active Memory path:
+
+```sh
+mkdir -p "$ALLBERT_HOME/memory/identity"
+cat > "$ALLBERT_HOME/memory/identity/persona.md" <<'EOF'
+# Persona
+
+I prefer concise release reports with clear validation notes.
+EOF
+mix allbert.memory list --user local --category identity
+mix allbert.memory review "$ALLBERT_HOME/memory/identity/persona.md" --user local --status kept --note "Operator-authored identity"
+mix allbert.memory retrieve --user local --query "concise release reports"
+```
+
+Direct-answer replies use Active Memory only when
+`intent.direct_answer_model_enabled=true` and the direct-answer model profile is
+usable. `mix allbert.memory retrieve` is the trace-free inspection path for
+checking retrieval before enabling model-backed replies.
 
 Inspect and choose model profiles:
 

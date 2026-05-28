@@ -266,7 +266,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   end
 
   defp step_guidance(%{key: "identity_slot_preview"}) do
-    "Identity slot and Active Memory arrive in v0.39b. See `docs/operator/active-memory.md`; this step writes no identity memory."
+    "Identity slot and Active Memory are available in 0.39.1. See `docs/operator/active-memory.md`; this step writes no identity memory."
   end
 
   defp step_guidance(%{key: "done"}), do: "Record completion when onboarding is ready to close."
