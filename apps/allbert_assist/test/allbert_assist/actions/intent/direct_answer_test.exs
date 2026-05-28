@@ -111,7 +111,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
                entry.path,
                %{
                  status: :kept,
-                 reviewed_at: "2026-05-28T12:00:00Z",
+                 reviewed_at: "2026-04-28T12:00:00Z",
                  reviewed_by: "alice"
                },
                user_id: "alice"
@@ -121,7 +121,8 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
              DirectAnswer.run(%{text: "How should reports be written?"}, %{
                actor: "alice",
                user_id: "alice",
-               thread_id: "thr_direct_answer"
+               thread_id: "thr_direct_answer",
+               request_started_at: "2026-05-28T12:00:00Z"
              })
 
     assert response.status == :completed
@@ -132,6 +133,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert [%{namespace: "identity"} = chunk] =
              response.direct_answer.active_memory.retrieved_chunks
 
+    assert chunk.recency_decay == 0.5
     refute Map.has_key?(chunk, :body)
   end
 

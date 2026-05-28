@@ -320,9 +320,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
             data-status={step.status}
             data-current={bool_string(current_step?(step, @onboarding_state.current_step))}
           >
-            <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-              <div class="font-medium">{step.index}. {step.title}</div>
-              <div class="text-xs text-base-content/60">{step.status}</div>
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 font-medium">{step.index}. {step.title}</div>
+              <div class="shrink-0 whitespace-nowrap text-xs text-base-content/60">{step.status}</div>
             </div>
             <div class="text-xs text-base-content/60">
               {step.key}{optional_label(step)}
@@ -461,7 +461,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   end
 
   defp step_guidance(%{key: "identity_slot_preview"}) do
-    "Identity slot and Active Memory are available in 0.39.1. See `docs/operator/active-memory.md`; this step writes no identity memory."
+    "Review the identity root, kept identity count, Active Memory flag, and direct-answer model flag. Try `mix allbert.memory retrieve --query \"concise release reports\"`; this step writes no identity memory."
   end
 
   defp step_guidance(%{key: "done"}), do: "Record completion when onboarding is ready to close."
