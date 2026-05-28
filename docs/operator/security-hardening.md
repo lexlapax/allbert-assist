@@ -93,11 +93,11 @@ mix allbert.settings set permissions.sandbox_trial denied
   overwritten, and the Telegram/email/cross-channel approval-surface exclusion
   (`dynamic_codegen.integration_approval_surfaces`) applies unchanged.
 
-## Planned v1.0 Threat Surfaces
+## Implemented And Planned v1.0 Threat Surfaces
 
-The v0.39-to-v1.0 roadmap promotes several future capability classes that are
-not implemented yet. When those milestones land, the security review and eval
-surface must expand to cover:
+The v0.39-to-v1.0 roadmap promotes several capability classes. Implemented
+items below have executable eval coverage; later milestones remain planned
+eval surfaces until their capability work lands.
 
 - First-run onboarding and provider doctor (v0.39, executable eval coverage):
   credential redaction in doctor output, doctor-no-leak (no raw error bodies,
@@ -107,15 +107,15 @@ surface must expand to cover:
   and missing-model diagnostics are fixed/cataloged, local-model-present doctor
   pass after the operator explicitly pulls the shipped default, identity-slot
   preview step writes nothing (v0.39b adds the write path).
-- Identity slot and Active Memory (v0.39b): identity-namespace not
-  app-owned isolation, identity-memory inert (never grants authority),
-  Active Memory read-only, no automatic promotion from retrieved chunks,
-  kept-only retrieval, no cross-namespace leak, deterministic replay (same
-  query + same state → same chunks), neutral/core-context retrieval excludes
-  app-tagged chunks for non-active apps, the intent classifier never receives
-  raw Active Memory chunks, `## Active Memory` trace section placement is
-  deterministic, snapshot rule (concurrent v0.21 writes during scoring land
-  on the next turn).
+- Identity slot and Active Memory (v0.39b, executable eval coverage):
+  identity-namespace not app-owned isolation, identity-memory inert (never
+  grants authority), Active Memory read-only, no automatic promotion from
+  retrieved chunks, kept-only retrieval, no cross-namespace leak,
+  deterministic replay (same query + same state -> same chunks),
+  neutral/core-context retrieval excludes app-tagged chunks for non-active
+  apps, the intent classifier never receives raw Active Memory chunks,
+  `## Active Memory` trace section placement is deterministic, snapshot rule
+  (concurrent v0.21 writes during scoring land on the next turn).
 - MCP client and server tool/resource confusion, prompt injection, server
   impersonation, and secret/env leakage.
 - Browser session state, navigation grants, screenshots, downloads, cookies,
@@ -132,8 +132,8 @@ surface must expand to cover:
   draft defaults, repeated-use non-grants, reviewed memory/workflow draft
   facades, and v0.36/v0.37/v0.38 gate handoff.
 
-These are planned eval areas only; they do not imply the capabilities exist in
-the current release.
+Remaining future bullets are planned eval areas only; they do not imply those
+capabilities exist in the current release.
 
 ## Channel Pairing
 

@@ -1,8 +1,7 @@
 # Allbert Active Memory And Identity Slot
 
-Status: **stub.** Shipped alongside the v0.39 plan first revision so the
-v0.39 onboarding's identity-slot preview step has a real destination.
-Filled in during v0.39b M5.
+Status: implemented in v0.39b (`0.39.1`) and ready for operator manual
+validation before release tagging.
 
 This guide is the operator-facing reference for the identity memory
 namespace and Active Memory retrieval. Implementation details live in
@@ -17,7 +16,7 @@ namespace and Active Memory retrieval. Implementation details live in
 - `docs/operator/onboarding.md` — first-run onboarding (v0.39); the
   identity-slot preview step in onboarding points here.
 
-## Identity Slot (Planned, v0.39b)
+## Identity Slot
 
 The optional `identity` memory namespace lets an operator write inert
 markdown context (persona, preferences, conversational style, working
@@ -32,9 +31,11 @@ boundaries) that Active Memory retrieval can surface before each reply.
   `namespace: :identity`, `origin: :system`, and `app_id: nil` unless the
   file contains conflicting metadata, in which case it is not eligible for
   Active Memory until corrected.
-- **Write path**: through the existing v0.21 memory review surface (`mix
-  allbert.memory review`) after the operator creates or edits local markdown
-  files. v0.39b does not add a rich authoring UX.
+- **Write path**: programmatic system entries use
+  `AllbertAssist.Memory.upsert_system_entry/1`; operators may also create or
+  edit local markdown files and then use the existing v0.21 memory review
+  surface (`mix allbert.memory review`) to mark them `:kept`. v0.39b does not
+  add a rich authoring UX.
 - **Authority**: identity content is **inert**. It never grants permission,
   never executes, never authorizes an action, and never becomes runtime
   authority. It is operator-edited context only.
@@ -44,7 +45,7 @@ boundaries) that Active Memory retrieval can surface before each reply.
   namespaces like StockSage's; `:_system` is not an app id and the v0.27
   app-namespace contract is preserved unchanged.
 
-## Active Memory Retrieval (Planned, v0.39b)
+## Active Memory Retrieval
 
 Prerequisite for operator-visible model behavior:
 `intent.direct_answer_model_enabled=true` and a usable direct-answer model
@@ -89,8 +90,8 @@ the turn's markdown trace, placed after `## Intent Candidates` and before
 - top-K retrieved chunks with per-factor score breakdowns;
 - a bounded sample of high-scoring excluded chunks for debugging.
 
-`mix allbert.memory retrieve --query "..."` (new v0.39b helper) prints
-the same deterministic top-K for ad-hoc inspection.
+`mix allbert.memory retrieve --query "..."` prints the same deterministic
+top-K for ad-hoc inspection.
 
 ## Settings
 
