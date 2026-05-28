@@ -62,6 +62,23 @@ derived from provider type alone, and **not** decided inside the doctor
 module. The Settings Central field is authority; the doctor module reads it
 after resolving the model profile's referenced provider.
 
+### 1a. Shipped provider catalog is seed data, not authority
+
+Allbert ships provider/model defaults in
+`apps/allbert_assist/priv/provider_catalog/models.json`. The catalog contains
+default provider profiles, default model profiles, and provider alias metadata
+for model IDs that drift or differ between runtime APIs and list APIs.
+
+This catalog is **seed data only**:
+
+- Settings Central resolved settings remain the source of configured provider
+  and model profile values; operator overrides win over shipped defaults.
+- Live provider responses remain the source of doctor availability. The
+  catalog may map a configured alias to a canonical provider-listed ID for
+  comparison, but it cannot make an absent live model available.
+- The catalog never grants permission, never supplies secrets, and never
+  relaxes the doctor execution boundary or redaction policy.
+
 ### 2. Canonical return shape
 
 Every doctor (v0.39, v0.40, v0.47, v0.48, and any future doctor) returns:
@@ -155,6 +172,8 @@ change between v1.0 and the next major release without an ADR amendment.
 - `providers.*.endpoint_kind` becomes part of the v1.0 Tier-1 schema
   freeze; renaming or removing it requires an ADR amendment and an
   ADR 0046 settings migration.
+- Provider/model defaults are easy to update through the shipped catalog while
+  preserving Settings Central and live-provider authority.
 - The action name intentionally follows the operator input (`model profile`)
   while the branch semantics follow the resolved provider profile. This avoids
   a CLI/action mismatch where `mix allbert.model doctor local` would be backed

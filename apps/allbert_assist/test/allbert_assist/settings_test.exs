@@ -7,6 +7,7 @@ defmodule AllbertAssist.SettingsTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.Settings.ProviderCatalog
   alias AllbertAssist.Settings.Secrets
 
   @env_vars [
@@ -136,6 +137,25 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("active_memory.score_weights.identity_inclusion", 0.0, %{
                audit?: false
              })
+  end
+
+  test "provider catalog supplies remote model defaults and config mirrors Jido aliases" do
+    assert ProviderCatalog.model_profiles()["anthropic_fast"]["model"] ==
+             "claude-haiku-4-5-20251001"
+
+    assert {:ok, "claude-haiku-4-5-20251001"} =
+             Settings.get("model_profiles.anthropic_fast.model")
+
+    assert ProviderCatalog.equivalent_model_ids("anthropic", "claude-haiku-4-5") == [
+             "claude-haiku-4-5",
+             "claude-haiku-4-5-20251001"
+           ]
+
+    catalog_aliases =
+      ProviderCatalog.jido_model_aliases()
+      |> Map.new(fn {key, value} -> {String.to_existing_atom(key), value} end)
+
+    assert Application.fetch_env!(:jido_ai, :model_aliases) == catalog_aliases
   end
 
   test "objective runtime settings resolve defaults and validate writes" do

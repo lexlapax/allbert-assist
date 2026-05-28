@@ -9,6 +9,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
 
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.DoctorDiagnostics
+  alias AllbertAssist.Settings.ProviderCatalog
   alias AllbertAssist.Settings.Secrets
 
   @max_timeout_ms 5_000
@@ -93,7 +94,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
              timeout_ms(model_profile),
              context
            ) do
-      remote_response_summary(uri, model_profile.model, response)
+      remote_response_summary(uri, provider_profile.type, model_profile.model, response)
     else
       {:error, {:credential_missing, host}} ->
         base_summary(:credentialed_remote, host, [
@@ -189,17 +190,17 @@ defmodule AllbertAssist.Settings.ModelDoctor do
     )
   end
 
-  defp remote_response_summary(uri, model, %{status: status} = response)
+  defp remote_response_summary(uri, provider_type, model, %{status: status} = response)
        when status in 200..299 do
     host = redacted_host(uri)
     rate_limit_hint = rate_limit_hint(response)
 
     response.body
     |> decode_json()
-    |> remote_catalog_summary(host, model, rate_limit_hint)
+    |> remote_catalog_summary(host, provider_type, model, rate_limit_hint)
   end
 
-  defp remote_response_summary(uri, _model, response) do
+  defp remote_response_summary(uri, _provider_type, _model, response) do
     host = redacted_host(uri)
     rate_limit_hint = rate_limit_hint(response)
 
@@ -237,13 +238,13 @@ defmodule AllbertAssist.Settings.ModelDoctor do
     end
   end
 
-  defp remote_catalog_summary({:ok, body}, host, model, rate_limit_hint) do
+  defp remote_catalog_summary({:ok, body}, host, provider_type, model, rate_limit_hint) do
     body
-    |> find_model(model)
+    |> find_model(model, provider_type)
     |> remote_model_summary(host, model, rate_limit_hint)
   end
 
-  defp remote_catalog_summary({:error, _reason}, host, _model, rate_limit_hint) do
+  defp remote_catalog_summary({:error, _reason}, host, _provider_type, _model, rate_limit_hint) do
     summary(:credentialed_remote, host,
       credential_ok: true,
       endpoint_ok: true,
@@ -471,20 +472,24 @@ defmodule AllbertAssist.Settings.ModelDoctor do
   defp decode_json(%{} = body), do: {:ok, body}
   defp decode_json(_body), do: {:error, :invalid_body}
 
-  defp find_model(body, model) when is_map(body) do
+  defp find_model(body, model, provider_type \\ nil)
+
+  defp find_model(body, model, provider_type) when is_map(body) do
+    model_ids = ProviderCatalog.equivalent_model_ids(provider_type, model)
+
     body
     |> model_entries()
-    |> Enum.find(&model_entry_matches?(&1, model))
+    |> Enum.find(&model_entry_matches?(&1, model_ids))
   end
 
-  defp find_model(_body, _model), do: nil
+  defp find_model(_body, _model, _provider_type), do: nil
 
   defp model_entries(%{"data" => entries}) when is_list(entries), do: entries
   defp model_entries(%{"models" => entries}) when is_list(entries), do: entries
   defp model_entries(_body), do: []
 
-  defp model_entry_matches?(%{} = entry, model) do
-    model_id(entry) == model
+  defp model_entry_matches?(%{} = entry, model_ids) when is_list(model_ids) do
+    model_id(entry) in model_ids
   end
 
   defp model_entry_matches?(_entry, _model), do: false
