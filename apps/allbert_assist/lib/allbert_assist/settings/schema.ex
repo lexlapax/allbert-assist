@@ -41,6 +41,7 @@ defmodule AllbertAssist.Settings.Schema do
     "intent.direct_answer_model_enabled",
     "intent.direct_answer_model_profile",
     "providers.*.enabled",
+    "providers.*.endpoint_kind",
     "providers.*.base_url",
     "providers.*.api_key_ref",
     "model_profiles.*.provider",
@@ -1594,6 +1595,10 @@ defmodule AllbertAssist.Settings.Schema do
       allowed_values: ["openai", "openai_compatible", "anthropic", "openrouter", "local"]
     },
     "enabled" => %{type: :boolean},
+    "endpoint_kind" => %{
+      type: :enum,
+      allowed_values: ["credentialed_remote", "local_endpoint"]
+    },
     "base_url" => %{type: :url_or_nil},
     "api_key_ref" => %{type: :secret_ref_or_nil}
   }
@@ -1649,28 +1654,32 @@ defmodule AllbertAssist.Settings.Schema do
         "type" => "openai_compatible",
         "base_url" => "http://localhost:11434/v1",
         "api_key_ref" => nil,
+        "endpoint_kind" => "local_endpoint",
         "enabled" => true
       },
       "openai" => %{
         "type" => "openai",
         "api_key_ref" => "secret://providers/openai/api_key",
+        "endpoint_kind" => "credentialed_remote",
         "enabled" => false
       },
       "anthropic" => %{
         "type" => "anthropic",
         "api_key_ref" => "secret://providers/anthropic/api_key",
+        "endpoint_kind" => "credentialed_remote",
         "enabled" => false
       },
       "openrouter" => %{
         "type" => "openrouter",
         "api_key_ref" => "secret://providers/openrouter/api_key",
+        "endpoint_kind" => "credentialed_remote",
         "enabled" => false
       }
     },
     "model_profiles" => %{
       "local" => %{
         "provider" => "local_ollama",
-        "model" => "gemma4:26b",
+        "model" => "llama3.2:3b",
         "temperature" => 0.2,
         "max_tokens" => 1024,
         "timeout_ms" => 30_000
@@ -2764,7 +2773,7 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp wildcard_known_key?(key) do
-    Regex.match?(~r/^providers\.[^.]+\.(type|enabled|base_url|api_key_ref)$/, key) ||
+    Regex.match?(~r/^providers\.[^.]+\.(type|enabled|endpoint_kind|base_url|api_key_ref)$/, key) ||
       Regex.match?(
         ~r/^model_profiles\.[^.]+\.(provider|model|temperature|max_tokens|timeout_ms)$/,
         key

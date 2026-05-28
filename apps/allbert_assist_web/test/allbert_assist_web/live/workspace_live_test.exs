@@ -358,6 +358,8 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#confirmation-requests")
     assert has_element?(view, "#remembered-resource-grants")
     assert has_element?(view, "#provider-key-form")
+    assert has_element?(view, "#doctor-model-local")
+    assert has_element?(view, "#use-model-local")
 
     subscribe_actions()
 
@@ -378,6 +380,18 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     action_signal = receive_action_completed("update_setting")
     assert action_signal.data.status == :completed
     assert action_signal.data.permission_decision.permission == :settings_write
+
+    html =
+      view
+      |> element("#use-model-local")
+      |> render_click()
+
+    assert html =~ "Model profile saved."
+    assert {:ok, "local"} = Settings.get("intent.model_profile")
+
+    model_signal = receive_action_completed("set_active_model_profile")
+    assert model_signal.data.status == :completed
+    assert model_signal.data.permission_decision.permission == :settings_write
   end
 
   test "workspace create gallery only exposes Settings Central allowed patterns", %{conn: conn} do
