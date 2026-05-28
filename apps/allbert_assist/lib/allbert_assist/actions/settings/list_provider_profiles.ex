@@ -47,7 +47,7 @@ defmodule AllbertAssist.Actions.Settings.ListProviderProfiles do
     rendered =
       providers
       |> Enum.map(
-        &"- #{&1.name}: #{&1.type}, enabled=#{&1.enabled}, credential=#{&1.credential_status}"
+        &"- #{&1.name}: #{&1.type}, endpoint_kind=#{&1.endpoint_kind}, enabled=#{&1.enabled}, credential=#{&1.credential_status}"
       )
       |> Enum.join("\n")
 

@@ -31,6 +31,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
       |> assign(assigns)
       |> assign_new(:node, fn -> nil end)
       |> assign_new(:settings_notice, fn -> "" end)
+      |> assign_new(:model_doctor_summary, fn -> nil end)
       |> assign(:settings_panel_open?, open?)
 
     if open? do
@@ -106,6 +107,46 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
           |> assign(:diagnostics, "")
           |> assign(:last_audit_path, action_audit_path(response))
           |> refresh(socket.assigns.selected_key)
+
+        {:error, reason} ->
+          socket
+          |> assign(:settings_notice, "")
+          |> assign(:diagnostics, inspect(reason))
+          |> refresh_forms(socket.assigns.selected_key, socket.assigns.selected_value)
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_event("use_model_profile", %{"profile" => profile}, socket) do
+    socket =
+      case completed_action("set_active_model_profile", %{profile: profile}) do
+        {:ok, response} ->
+          socket
+          |> assign(:settings_notice, "Model profile saved.")
+          |> assign(:diagnostics, "")
+          |> assign(:last_audit_path, action_audit_path(response))
+          |> refresh(socket.assigns.selected_key)
+
+        {:error, reason} ->
+          socket
+          |> assign(:settings_notice, "")
+          |> assign(:diagnostics, inspect(reason))
+          |> refresh_forms(socket.assigns.selected_key, socket.assigns.selected_value)
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_event("doctor_model_profile", %{"profile" => profile}, socket) do
+    socket =
+      case completed_action("doctor_model_profile", %{profile: profile}) do
+        {:ok, response} ->
+          socket
+          |> assign(:settings_notice, "Model doctor completed.")
+          |> assign(:diagnostics, "")
+          |> refresh(socket.assigns.selected_key)
+          |> assign(:model_doctor_summary, response.doctor)
 
         {:error, reason} ->
           socket
@@ -690,6 +731,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
               <div :for={provider <- @providers} class="rounded border border-base-300 p-3 text-sm">
                 <div class="font-medium">{provider.name}</div>
                 <div>Type: {provider.type}</div>
+                <div>Endpoint: {provider.endpoint_kind}</div>
                 <div>Enabled: {inspect(provider.enabled)}</div>
                 <div>Credential: {provider.credential_status}</div>
               </div>
@@ -698,10 +740,54 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
             <section id="model-profiles" class="space-y-2">
               <h2 class="text-lg font-medium">Models</h2>
               <div :for={model <- @models} class="rounded border border-base-300 p-3 text-sm">
-                <div class="font-medium">{model.name}</div>
-                <div>Provider: {model.provider}</div>
-                <div>Model: {model.model}</div>
-                <div>Credential: {model.credential_status}</div>
+                <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div class="min-w-0">
+                    <div class="font-medium">{model.name}</div>
+                    <div>Provider: {model.provider}</div>
+                    <div>Endpoint: {model.provider_endpoint_kind}</div>
+                    <div>Model: {model.model}</div>
+                    <div>Credential: {model.credential_status}</div>
+                  </div>
+
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      id={"doctor-model-#{model.name}"}
+                      type="button"
+                      phx-click="doctor_model_profile"
+                      phx-target={@myself}
+                      phx-value-profile={model.name}
+                      class="btn btn-secondary btn-sm"
+                    >
+                      Doctor
+                    </button>
+                    <button
+                      id={"use-model-#{model.name}"}
+                      type="button"
+                      phx-click="use_model_profile"
+                      phx-target={@myself}
+                      phx-value-profile={model.name}
+                      class="btn btn-primary btn-sm"
+                    >
+                      Use
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                :if={@model_doctor_summary}
+                id="model-doctor-summary"
+                class="rounded border border-base-300 p-3 text-sm"
+              >
+                <div class="font-medium">Last doctor</div>
+                <div>Endpoint: {@model_doctor_summary.endpoint_kind}</div>
+                <div>Host: {@model_doctor_summary.redacted_host}</div>
+                <div>Endpoint OK: {inspect(@model_doctor_summary.endpoint_ok)}</div>
+                <div>Credential OK: {inspect(@model_doctor_summary.credential_ok)}</div>
+                <div>Model available: {inspect(@model_doctor_summary.model_available)}</div>
+                <div :for={diagnostic <- @model_doctor_summary.diagnostics}>
+                  {diagnostic.code}: {diagnostic.message}
+                </div>
               </div>
             </section>
 

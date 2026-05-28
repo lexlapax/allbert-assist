@@ -944,12 +944,29 @@ defmodule AllbertAssist.SettingsTest do
 
   test "provider and model profiles resolve with redacted credential status" do
     assert {:ok, providers} = Settings.list_provider_profiles()
-    assert Enum.any?(providers, &(&1.name == "openai" and &1.credential_status == :missing))
+
+    assert Enum.any?(
+             providers,
+             &(&1.name == "local_ollama" and &1.endpoint_kind == "local_endpoint")
+           )
+
+    assert Enum.any?(
+             providers,
+             &(&1.name == "openai" and &1.endpoint_kind == "credentialed_remote" and
+                 &1.credential_status == :missing)
+           )
+
     assert Enum.any?(providers, &(&1.name == "anthropic" and &1.credential_status == :missing))
     assert Enum.any?(providers, &(&1.name == "openrouter" and &1.credential_status == :missing))
 
+    assert {:ok, local} = Settings.resolve_model_profile("local")
+    assert local.provider == "local_ollama"
+    assert local.provider_endpoint_kind == "local_endpoint"
+    assert local.model == "llama3.2:3b"
+
     assert {:ok, profile} = Settings.resolve_model_profile("fast")
     assert profile.provider == "openai"
+    assert profile.provider_endpoint_kind == "credentialed_remote"
     assert profile.credential_status == :missing
     refute Map.has_key?(profile, :api_key)
 
@@ -960,6 +977,15 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, openrouter} = Settings.resolve_model_profile("openrouter_fast")
     assert openrouter.provider == "openrouter"
     assert openrouter.provider_type == "openrouter"
+
+    assert "providers.*.endpoint_kind" in Settings.safe_write_keys()
+
+    assert {:ok, setting} =
+             Settings.put("providers.local_ollama.endpoint_kind", "credentialed_remote", %{
+               audit?: false
+             })
+
+    assert setting.value == "credentialed_remote"
   end
 
   test "secret writes encrypt raw value and store only secret ref in settings", %{home: home} do

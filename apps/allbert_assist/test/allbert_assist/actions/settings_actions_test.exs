@@ -12,6 +12,8 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
   alias AllbertAssist.Actions.Settings.UpdateSetting
   alias AllbertAssist.Settings
 
+  setup {Req.Test, :verify_on_exit!}
+
   setup do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
@@ -101,6 +103,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert {:ok, response} = ListProviderProfiles.run(%{}, %{})
 
     assert response.status == :completed
+    assert response.message =~ "endpoint_kind=credentialed_remote"
     assert response.message =~ "credential=missing"
     assert Enum.any?(response.providers, &(&1.name == "openai"))
     refute response.message =~ "api_key"
@@ -110,21 +113,131 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert {:ok, response} = ListModelProfiles.run(%{}, %{})
 
     assert response.status == :completed
+    assert response.message =~ "endpoint_kind=local_endpoint"
     assert response.message =~ "credential=missing"
     assert Enum.any?(response.models, &(&1.name == "fast"))
     refute response.message =~ "api_key"
   end
 
-  test "v0.39 M1 model control actions are registered stubs" do
-    assert {:ok, doctor} = DoctorModelProfile.run(%{profile: "local"}, %{})
-    assert doctor.status == :unsupported
-    assert doctor.message =~ "v0.39 M2"
-    assert [%{code: :doctor_not_implemented}] = doctor.diagnostics
+  test "set active model profile writes safe settings and provider enablement" do
+    assert {:ok, set_active} =
+             SetActiveModelProfile.run(%{profile: "local", enable_assist: true}, %{
+               actor: "local",
+               channel: :test
+             })
 
-    assert {:ok, set_active} = SetActiveModelProfile.run(%{profile: "local"}, %{})
-    assert set_active.status == :unsupported
-    assert set_active.message =~ "v0.39 M2"
-    assert [%{code: :model_profile_write_not_implemented}] = set_active.diagnostics
+    assert set_active.status == :completed
+    assert set_active.provider == "local_ollama"
+    assert {:ok, "local"} = Settings.get("intent.model_profile")
+    assert {:ok, true} = Settings.get("intent.model_assist_enabled")
+    assert {:ok, true} = Settings.get("providers.local_ollama.enabled")
+    assert Enum.any?(set_active.settings, &(&1.key == "intent.model_profile"))
+  end
+
+  test "local endpoint doctor distinguishes missing and present Ollama models" do
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/api/tags"
+
+      Plug.Conn.send_resp(
+        conn,
+        200,
+        Jason.encode!(%{"models" => [%{"model" => "mistral:7b"}]})
+      )
+    end)
+
+    context = %{req_options: [plug: {Req.Test, __MODULE__}]}
+
+    assert {:ok, missing} = DoctorModelProfile.run(%{profile: "local"}, context)
+    assert missing.status == :completed
+    assert missing.doctor.endpoint_kind == :local_endpoint
+    assert missing.doctor.credential_ok == nil
+    assert missing.doctor.endpoint_ok
+    assert missing.doctor.model_available == false
+    assert [%{code: :local_model_missing}] = missing.doctor.diagnostics
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/api/tags"
+
+      Plug.Conn.send_resp(
+        conn,
+        200,
+        Jason.encode!(%{"models" => [%{"model" => "llama3.2:3b", "context_length" => 8192}]})
+      )
+    end)
+
+    assert {:ok, present} = DoctorModelProfile.run(%{profile: "local"}, context)
+    assert present.doctor.model_available == true
+    assert present.doctor.context_window == 8192
+    assert present.doctor.diagnostics == []
+  end
+
+  test "credentialed remote doctor lists provider models without leaking secrets" do
+    assert {:ok, _secret} =
+             Settings.Secrets.put_secret(
+               "secret://providers/anthropic/api_key",
+               "sk-ant-test-key",
+               %{
+                 actor: "local",
+                 channel: :test
+               }
+             )
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/v1/models"
+      assert {"x-api-key", "sk-ant-test-key"} in conn.req_headers
+      assert {"anthropic-version", "2023-06-01"} in conn.req_headers
+
+      Plug.Conn.send_resp(
+        conn,
+        200,
+        Jason.encode!(%{
+          "data" => [
+            %{"id" => "claude-haiku-4-5", "context_window" => 200_000}
+          ]
+        })
+      )
+    end)
+
+    assert {:ok, doctor} =
+             DoctorModelProfile.run(%{profile: "anthropic_fast"}, %{
+               req_options: [plug: {Req.Test, __MODULE__}]
+             })
+
+    assert doctor.status == :completed
+    assert doctor.doctor.endpoint_kind == :credentialed_remote
+    assert doctor.doctor.credential_ok
+    assert doctor.doctor.endpoint_ok
+    assert doctor.doctor.model_available == true
+    assert doctor.doctor.context_window == 200_000
+    refute inspect(doctor) =~ "sk-ant-test-key"
+  end
+
+  test "credentialed remote doctor fails closed for missing credentials and private hosts" do
+    assert {:ok, missing} = DoctorModelProfile.run(%{profile: "fast"}, %{})
+    assert missing.status == :completed
+    assert missing.doctor.credential_ok == false
+    assert missing.doctor.endpoint_ok == false
+    assert [%{code: :credential_missing}] = missing.doctor.diagnostics
+
+    assert {:ok, _setting} =
+             Settings.put("providers.openai.base_url", "http://127.0.0.1:11434/v1", %{
+               audit?: false
+             })
+
+    assert {:ok, _secret} =
+             Settings.Secrets.put_secret(
+               "secret://providers/openai/api_key",
+               "sk-test-private",
+               %{
+                 actor: "local",
+                 channel: :test
+               }
+             )
+
+    assert {:ok, denied} = DoctorModelProfile.run(%{profile: "fast"}, %{})
+    assert denied.status == :completed
+    assert denied.doctor.endpoint_ok == false
+    assert [%{code: :provider_host_denied}] = denied.doctor.diagnostics
   end
 
   test "provider credential action gives explicit flow guidance and refuses raw prompt secrets" do
