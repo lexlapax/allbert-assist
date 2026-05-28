@@ -1,7 +1,9 @@
 # Active Memory Retrieval — Algorithm Research Note
 
-Status: research, not binding. Implementation plan lives in
-`docs/plans/v0.39b-plan.md`.
+Status: accepted as the v0.39b deterministic retrieval baseline on
+2026-05-28. This note is binding for v0.39b where referenced by
+`docs/plans/v0.39b-plan.md`; embedding-backed retrieval remains parked as a
+future advisory provider.
 
 ## Purpose
 
