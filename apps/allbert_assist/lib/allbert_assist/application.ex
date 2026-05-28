@@ -5,6 +5,7 @@ defmodule AllbertAssist.Application do
 
   use Application
 
+  alias AllbertAssist.Database
   alias AllbertAssist.Workspace.Fragment.Guard, as: FragmentGuard
   alias AllbertAssist.Workspace.Fragment.SigningSecret
 
@@ -16,7 +17,10 @@ defmodule AllbertAssist.Application do
       [
         AllbertAssist.Repo,
         {Ecto.Migrator,
-         repos: Application.fetch_env!(:allbert_assist, :ecto_repos), skip: skip_migrations?()},
+         repos: Application.fetch_env!(:allbert_assist, :ecto_repos),
+         skip: Database.skip_migrations?(),
+         migrator: &Database.migrate_repo/3,
+         log: false},
         {DNSCluster, query: Application.get_env(:allbert_assist, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: AllbertAssist.PubSub},
         {Jido.Signal.Bus, name: AllbertAssist.SignalBus},
@@ -77,11 +81,6 @@ defmodule AllbertAssist.Application do
   defp maybe_add_channels_supervisor(children) do
     opts = Application.get_env(:allbert_assist, AllbertAssist.Channels.Supervisor, [])
     children ++ [{AllbertAssist.Channels.Supervisor, opts}]
-  end
-
-  defp skip_migrations?() do
-    # By default, sqlite migrations are run when using a release
-    System.get_env("RELEASE_NAME") == nil
   end
 
   defp maybe_bootstrap_workspace_signing_secret! do

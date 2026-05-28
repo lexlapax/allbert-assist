@@ -136,6 +136,15 @@ ADR: `docs/adr/0047-provider-doctor-contract.md`.
   availability without running `ollama pull`.
 - The v0.39 identity-slot onboarding step is preview-only and writes nothing
   under `<ALLBERT_HOME>/memory/identity/`; v0.39b owns the write path.
+- Dev, test, and release database config now derives the SQLite path from
+  `ALLBERT_HOME` / `ALLBERT_HOME_DIR` as
+  `<ALLBERT_HOME>/db/allbert.sqlite3` when `DATABASE_PATH` is not explicitly
+  set. `DATABASE_PATH` remains an override for tests, migrations,
+  compatibility, and operator escape hatches.
+- Runtime-starting `mix allbert.*` tasks now use the application-level Ecto
+  migrator for a missing or empty canonical Allbert Home database. A first
+  operator run such as `mix allbert.onboard` no longer needs a preceding
+  `mix ecto.create` or `mix ecto.migrate` command.
 
 ### Verification
 

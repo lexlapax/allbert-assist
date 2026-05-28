@@ -27,7 +27,6 @@ Use a disposable Allbert Home when exploring:
 
 ```sh
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-operator.XXXXXX)"
-export DATABASE_PATH="$ALLBERT_HOME/db/allbert.sqlite3"
 export ALLBERT_TRACE_ENABLED=true
 ```
 
@@ -75,15 +74,16 @@ control into the 1.0 arc, split across two sub-milestones:
 Start the durable onboarding objective:
 
 ```sh
-mix do ecto.create --quiet + ecto.migrate --quiet
 mix allbert.onboard
 ```
 
-The CLI onboarding task starts the app and records Objective Runtime state. If
-you point `DATABASE_PATH` at a new disposable SQLite file, run migrations first
-as shown above. The Phoenix dev server bootstraps a missing or empty dev
-database when `ALLBERT_HOME` or `ALLBERT_HOME_DIR` is set, but CLI-only smoke
-runs should be explicit.
+The CLI onboarding task starts the app and records Objective Runtime state.
+When `ALLBERT_HOME` points at a new disposable root, the dev SQLite database is
+derived as `$ALLBERT_HOME/db/allbert.sqlite3` and app startup runs migrations
+for a missing or empty Allbert Home database before runtime tables are used.
+This same first-run check applies to other `mix allbert.*` tasks that start the
+app. `DATABASE_PATH` remains an override for tests, migrations, compatibility,
+and operator escape hatches.
 
 Resume or record progress from CLI:
 
