@@ -361,7 +361,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "intent.model_profile" => %{
       type: :profile_ref,
-      default: "fast",
+      default: "local",
       writable?: true,
       sensitive?: false
     },
@@ -431,7 +431,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "intent.direct_answer_model_profile" => %{
       type: :profile_ref,
-      default: "fast",
+      default: "local",
       writable?: true,
       sensitive?: false
     },
