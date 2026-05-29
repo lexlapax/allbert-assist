@@ -2289,7 +2289,7 @@ Expected direction:
 ## v0.41: Developer Velocity And Parallel Test Methodology
 
 Plan: `docs/plans/v0.41-plan.md`
-Request flow: `docs/plans/v0.41-request-flow.md`
+Developer flow: `docs/plans/v0.41-request-flow.md`
 ADR: `docs/adr/0049-development-gates-and-test-parallelization.md`
 Developer guide: `docs/developer/test-strategy.md`
 
