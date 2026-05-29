@@ -89,7 +89,9 @@ config in advance. The commands below land with v0.42 (see
 `docs/plans/v0.42-plan.md`); v0.40 operators configure servers manually as above.
 
 Discovery is off by default. Enable it, then search local tools and internet MCP
-registries:
+registries. The official MCP Registry is the default remote source; optional
+keyed sources such as PulseMCP are skipped unless their Settings secret refs are
+configured:
 
 ```sh
 mix allbert.settings set mcp.discovery.enabled true

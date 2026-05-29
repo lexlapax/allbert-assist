@@ -92,8 +92,11 @@ reviewed surfaces, actions remain policy-bound, objectives carry long-running
 work, memory stays inspectable, and generated apps inherit contracts that were
 manually proven first.
 
-Recent milestone:
+Recent milestones:
 
+- `v0.41.0`: Developer velocity and parallel test methodology - gate matrix,
+  resource-lane taxonomy, partition-aware test helpers, focused/release aliases,
+  and implementation-readiness annotations for downstream plans.
 - `v0.40.0`: MCP client integration - configured MCP servers, secret refs,
   doctor/list/read/call actions, grant-gated `mcp://` resource reads,
   per-call-confirmed tool calls, executable MCP security evals, and approved
@@ -101,9 +104,8 @@ Recent milestone:
 
 Next milestones:
 
-- Post-`v0.40.0`: the planned 1.0 arc continues with developer velocity and
-  parallel test methodology (`v0.41`); MCP-first integration pack with
-  calendar/mail/GitHub panels plus notes/files native reference plugin
+- Post-`v0.41.0`: the planned 1.0 arc continues with the MCP-first integration
+  pack: calendar/mail/GitHub panels plus notes/files native reference plugin
   (`v0.42`); browser research (`v0.43`);
   Discord/Slack channels with the
   channel-approval-primitive contract (`v0.44`); Plan/Build workflows under

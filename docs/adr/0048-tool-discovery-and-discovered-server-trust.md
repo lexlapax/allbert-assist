@@ -20,7 +20,9 @@ a `server.json` schema, and invites third-party "subregistries/aggregators"
 (PulseMCP, Glama, Smithery) to re-implement the same Generic Registry API. The
 official registry remains preview with no durability guarantee, and its only
 query is name-substring search; aggregators add semantic search, popularity, and
-security signals.
+security signals. The v0.42 third-pass readiness sweep found that PulseMCP's
+current subregistry API is keyed, so Allbert must not assume a no-auth
+aggregator exists.
 
 Discovering and connecting to an internet MCP server is the riskiest operation
 in this surface. The MCP security guidance treats local-server compromise
@@ -51,8 +53,11 @@ deduplicated list of normalized candidates. The first two adapters are:
   (`AllbertAssist.Skills.Registry.list/1`), and the `tools/list` of MCP servers
   the operator has already connected.
 - `find_mcp_tools` — the internet cascade (search → fetch manifest → evaluate)
-  across the official MCP Registry plus one no-auth aggregator, behind a registry
-  provider port so a backend can be swapped or added without touching callers.
+  across the official MCP Registry plus optional keyed subregistries, behind a
+  registry provider port so a backend can be swapped or added without touching
+  callers. The official registry is the only required remote source in v0.42;
+  PulseMCP may be included only when the operator configures the needed secret
+  refs, and missing refs disable that provider without failing the turn.
 
 The port is the extension seam: a future `find_marketplace_tools` (v0.46) or
 `find_skill_registry_tools` adapter slots in behind `find_tools` with no caller
@@ -65,6 +70,7 @@ Every adapter normalizes to a `ToolCandidate`:
 
 ```elixir
 %{
+  id: String.t(),
   name: String.t(),
   description: String.t(),
   source: :local_action | :local_skill | :configured_mcp | :remote_mcp,
@@ -101,7 +107,8 @@ A discovered server becomes real only through `mcp_server_connect`
 new permission class `:mcp_server_connect` (safety floor `:needs_confirmation`,
 which settings cannot loosen). On invocation it:
 
-1. presents a pre-configuration consent confirmation
+1. resolves a persisted `candidate_id` from `AllbertAssist.Tools.Discovery` and
+   presents a pre-configuration consent confirmation
    (`Confirmations.create/2`) whose `params_summary` shows the **exact,
    untruncated** resolved run command + argv (stdio) or remote URL (HTTP/SSE),
    the required env/header secret refs by name, the requested transport, and the
@@ -109,7 +116,8 @@ which settings cannot loosen). On invocation it:
 2. on operator approval (`Confirmations.resolve/4`), writes the
    `mcp.servers.<id>` entry through the existing v0.40 Settings path (server is
    written `enabled: false` unless the operator opts to enable on connect);
-3. records a tool-definition baseline hash for the connected server.
+3. records a tool-definition baseline hash for the connected server in the
+   discovery trust-record store.
 
 There is no auto-connect. Reconnecting (or the next doctor run) re-verifies the
 baseline hash; a change — a rug-pull — forces re-review and re-consent rather
@@ -122,9 +130,10 @@ written.
 Background scanning is an `AllbertAssist.Jobs` job (`target_type:
 "registered_action"` running the discovery action) created `status: "paused"`,
 behind `mcp.discovery.enabled: false` by default. When an operator enables and
-resumes it, scans write `ToolCandidate`s to a passive "Discovery Suggestions"
-workspace surface (an `AllbertAssist.Surface` panel, `visible_when:
-:operator_opened`). Allbert never messages the operator unprompted about
+resumes it, scans upsert `ToolCandidate`s and `EvaluationReport`s into
+`AllbertAssist.Tools.Discovery`; the passive "Discovery Suggestions" workspace
+surface (an `AllbertAssist.Surface` panel, `visible_when: :operator_opened`)
+reads from that store. Allbert never messages the operator unprompted about
 discovery results and never connects from a scan; the operator reviews
 suggestions on their own time and triggers `mcp_server_connect` explicitly. This
 keeps the "reactive through v1.0" posture intact: the only autonomous behavior is
@@ -162,8 +171,9 @@ operator confirmation remains the authority, per ADR 0021.
   push remains parked under the Proactive Notifications Policy).
 - No capability-gap-triggered discovery in the first cut (ADR 0033 objectives
   may consult `find_local_tools`, but gap-triggered remote acquisition is parked).
-- No semantic / API-keyed registry source in the first cut (PulseMCP/Glama
-  no-auth only; Smithery semantic search parked).
+- No semantic registry source in the first cut. PulseMCP is optional/keyed only
+  if v0.42 M1 keeps it in scope with explicit Settings secret refs; Glama,
+  Smithery, and additional keyed sources remain parked.
 - No installation of code-bearing plugins through discovery — MCP servers only,
   through the v0.40 client boundary.
 - No community trust scoring or registry-moderation authority; registry

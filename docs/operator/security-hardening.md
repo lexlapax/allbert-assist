@@ -127,8 +127,10 @@ eval surfaces until their capability work lands.
 - Tool discovery (v0.42, planned eval surface): discovery search egress stays
   within `External.HttpPolicy` (SSRF, private/link-local IP block, bounded
   timeout/body, redirect denial) and degrades to local-only when a registry is
-  unreachable; server `server.json` metadata and tool descriptions are never
-  authority (schema-not-authority parity with v0.40); a discovered server
+  unreachable; optional keyed subregistries such as PulseMCP are skipped when
+  their secret refs are missing; server `server.json` metadata and tool
+  descriptions are never authority (schema-not-authority parity with v0.40); a
+  discovered server
   connects only through the confirmation-gated `mcp_server_connect` consent
   showing the exact untruncated command/URL (consent-before-connect); dangerous
   run-command patterns are flagged; a tool-definition baseline hash detects

@@ -190,20 +190,22 @@ milestone contract is `docs/plans/v0.42-plan.md`. Shape:
   `tools/list`) and `find_mcp_tools` (registry cascade) behind
   `AllbertAssist.Tools.SourcePort`, returning normalized `ToolCandidate`s with
   `usable_now?` / `requires`.
-- `find_mcp_tools` searches the official MCP Registry plus a no-auth aggregator
-  (PulseMCP) behind `AllbertAssist.Mcp.Registry.Provider`;
+- `find_mcp_tools` searches the official MCP Registry plus optional keyed
+  PulseMCP, when configured, behind `AllbertAssist.Mcp.Registry.Provider`;
   `mcp_fetch_server_manifest` normalizes `server.json` and `mcp_evaluate_server`
   scores provenance, flags dangerous run commands, and records a tool-definition
   baseline hash. All egress uses `External.HttpClient` / `HttpPolicy`; the
   official registry is a non-durable cache (degrade to local-only when down).
 - A `:remote_mcp` candidate is inert until `mcp_server_connect` (permission
-  `:mcp_server_connect`, floor `:needs_confirmation`) runs a pre-config consent
-  showing the exact command/URL, writes `mcp.servers.<id>` via the v0.40 settings
-  path, and stores the baseline hash. Reconnect / `mcp_doctor_server` re-verify
-  the hash; a change is a rug-pull and forces re-consent. No auto-connect.
+  `:mcp_server_connect`, floor `:needs_confirmation`) resolves a persisted
+  `candidate_id`, runs a pre-config consent showing the exact command/URL,
+  writes `mcp.servers.<id>` via the v0.40 settings path, and stores the baseline
+  hash. Reconnect / `mcp_doctor_server` re-verify the hash; a change is a
+  rug-pull and forces re-consent. No auto-connect.
 - New permission classes: `:tool_discovery` (read-only) and `:mcp_server_connect`;
-  new settings namespace `mcp.discovery.*` (default-off). Background scanning is
-  an opt-in, paused `AllbertAssist.Jobs` job writing to a passive
+  new settings namespace `mcp.discovery.*` (default-off). `AllbertAssist.Tools.Discovery`
+  persists candidates, evaluations, suggestions, and trust records. Background
+  scanning is an opt-in, paused `AllbertAssist.Jobs` job writing to a passive
   `AllbertAssist.Surface` Discovery Suggestions panel.
 
 ## Out Of Scope (v0.40)

@@ -2353,8 +2353,9 @@ Expected direction:
 
 - **Tool discovery track (first):** ship `find_tools`, a capability search that
   fans out to local tools (registered actions, skills, connected MCP servers) and
-  to internet MCP registries (official MCP Registry + a no-auth aggregator)
-  behind a provider port. A discovered server connects only through a
+  to internet MCP registries (official MCP Registry required; optional keyed
+  subregistries such as PulseMCP only when configured) behind a provider port.
+  A discovered server connects only through a
   confirmation-gated consent that shows the exact command/URL and records a
   tool-definition baseline hash (rug-pull defense). An opt-in, paused-by-default
   background scan writes candidates to a passive Discovery Suggestions surface; no
