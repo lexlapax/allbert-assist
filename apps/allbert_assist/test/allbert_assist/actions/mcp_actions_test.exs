@@ -21,11 +21,13 @@ defmodule AllbertAssist.Actions.McpActionsTest do
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
+    {:ok, _log} = Agent.start_link(fn -> [] end, name: __MODULE__.CallLog)
     configure_external()
     configure_http_server()
     stub_http_mcp()
 
     on_exit(fn ->
+      if Process.whereis(__MODULE__.CallLog), do: Agent.stop(__MODULE__.CallLog)
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
@@ -60,6 +62,101 @@ defmodule AllbertAssist.Actions.McpActionsTest do
     assert audit =~ "mcp_doctor_server"
     assert audit =~ "mcp_list_tools"
     refute audit =~ "secret-token"
+  end
+
+  test "mcp_call_tool confirms before transport and redacts tool I/O", %{root: root} do
+    context = %{actor: "local", channel: :test, mcp: %{req_plug: {Req.Test, __MODULE__}}}
+    arguments = %{"text" => "secret input"}
+    tool_uri = ResourceURI.mcp!("demo", "tools/search")
+
+    assert {:ok, pending} =
+             Runner.run(
+               "mcp_call_tool",
+               %{server_id: "demo", tool_name: "search", arguments: arguments},
+               context
+             )
+
+    assert pending.status == :needs_confirmation
+    assert Agent.get(__MODULE__.CallLog, & &1) == []
+    assert pending.tool_call.arguments == %{key_count: 1, keys: ["text"]}
+    refute inspect(pending.confirmation["params_summary"]) =~ "secret input"
+    assert [ref] = pending.confirmation["params_summary"]["resource_refs"]
+    assert ref["resource_uri"] == tool_uri
+    assert ref["operation_class"] == "mcp_tool_call"
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending.confirmation_id, reason: "ok"},
+               context
+             )
+
+    assert approved.status == :completed
+    assert get_in(approved.confirmation, ["operator_resolution", "target_resumed?"])
+    assert get_in(approved.confirmation, ["operator_resolution", "target_status"]) == "completed"
+
+    assert get_in(approved.confirmation, ["operator_resolution", "target_result", "result_keys"]) ==
+             ["content"]
+
+    assert Agent.get(__MODULE__.CallLog, & &1) == ["initialize", "tools/call"]
+
+    audit = File.read!(Path.join([root, "mcp", "audit", audit_file()]))
+    assert audit =~ "mcp_call_tool"
+    assert audit =~ "tool_name: search"
+    refute audit =~ "secret input"
+    refute audit =~ "secret output"
+    refute audit =~ "secret-token"
+  end
+
+  test "mcp_call_tool denylist and allowlist block before transport" do
+    context = %{actor: "local", channel: :test, mcp: %{req_plug: {Req.Test, __MODULE__}}}
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.demo.tool_denylist", ["danger"], %{audit?: false})
+
+    assert {:ok, denied} =
+             Runner.run(
+               "mcp_call_tool",
+               %{server_id: "demo", tool_name: "danger", arguments: %{}},
+               context
+             )
+
+    assert denied.status == :denied
+    assert denied.error == :tool_denied
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.demo.tool_denylist", [], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.demo.tool_allowlist", ["search"], %{audit?: false})
+
+    assert {:ok, not_allowed} =
+             Runner.run(
+               "mcp_call_tool",
+               %{server_id: "demo", tool_name: "echo", arguments: %{}},
+               context
+             )
+
+    assert not_allowed.status == :denied
+    assert not_allowed.error == :tool_not_allowed
+    assert Agent.get(__MODULE__.CallLog, & &1) == []
+  end
+
+  test "mcp_call_tool disabled server blocks before transport" do
+    context = %{actor: "local", channel: :test, mcp: %{req_plug: {Req.Test, __MODULE__}}}
+
+    assert {:ok, _setting} = Settings.put("mcp.servers.demo.enabled", false, %{audit?: false})
+
+    assert {:ok, denied} =
+             Runner.run(
+               "mcp_call_tool",
+               %{server_id: "demo", tool_name: "search", arguments: %{}},
+               context
+             )
+
+    assert denied.status == :denied
+    assert denied.error == :server_disabled
+    assert Agent.get(__MODULE__.CallLog, & &1) == []
   end
 
   test "mcp_read_resource requires a Resource Access grant, then reuses it", %{root: root} do
@@ -137,6 +234,7 @@ defmodule AllbertAssist.Actions.McpActionsTest do
     Req.Test.stub(__MODULE__, fn conn ->
       {:ok, body, conn} = Plug.Conn.read_body(conn)
       request = Jason.decode!(body)
+      Agent.update(__MODULE__.CallLog, &(&1 ++ [request["method"]]))
 
       result =
         case request["method"] do
@@ -159,6 +257,13 @@ defmodule AllbertAssist.Actions.McpActionsTest do
                   "mimeType" => "text/plain",
                   "text" => "hello from mcp"
                 }
+              ]
+            }
+
+          "tools/call" ->
+            %{
+              "content" => [
+                %{"type" => "text", "text" => "secret output"}
               ]
             }
         end

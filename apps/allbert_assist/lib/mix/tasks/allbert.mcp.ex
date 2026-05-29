@@ -50,10 +50,14 @@ defmodule Mix.Tasks.Allbert.Mcp do
     action_result("mcp_read_resource", %{server_id: server_id, uri: uri})
   end
 
-  defp dispatch(["call", _server_id, _tool, json]) do
+  defp dispatch(["call", server_id, tool, json]) do
     case Jason.decode(json) do
       {:ok, decoded} when is_map(decoded) ->
-        Mix.raise("MCP tool calls are planned for v0.40 M4.")
+        action_result("mcp_call_tool", %{
+          server_id: server_id,
+          tool_name: tool,
+          arguments: decoded
+        })
 
       {:ok, _decoded} ->
         Mix.raise("MCP tool call arguments must be a JSON object.")
@@ -133,6 +137,11 @@ defmodule Mix.Tasks.Allbert.Mcp do
        ) do
     Mix.shell().info(response.message)
     Mix.shell().info("confirmation_id=#{confirmation_id}")
+  end
+
+  defp print_result({:ok, %{tool_call: tool_call}}) do
+    Mix.shell().info("tool=#{Map.get(tool_call, :tool_name)}")
+    Mix.shell().info("result_keys=#{Enum.join(Map.get(tool_call, :result_keys, []), ",")}")
   end
 
   defp print_result({:error, reason}) do

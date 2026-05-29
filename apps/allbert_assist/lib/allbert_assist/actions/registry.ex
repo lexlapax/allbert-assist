@@ -56,6 +56,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Memory.SyncAppLesson
   alias AllbertAssist.Actions.Memory.UpdateMemoryEntry
   alias AllbertAssist.Actions.Mcp.DoctorServer, as: McpDoctorServer
+  alias AllbertAssist.Actions.Mcp.CallTool, as: McpCallTool
   alias AllbertAssist.Actions.Mcp.ListResources, as: McpListResources
   alias AllbertAssist.Actions.Mcp.ListTools, as: McpListTools
   alias AllbertAssist.Actions.Mcp.ReadResource, as: McpReadResource
@@ -151,6 +152,7 @@ defmodule AllbertAssist.Actions.Registry do
     McpListTools,
     McpListResources,
     McpReadResource,
+    McpCallTool,
     ValidateSkill,
     CreateSkill,
     RunSkillScript,

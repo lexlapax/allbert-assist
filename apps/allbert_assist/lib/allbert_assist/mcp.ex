@@ -36,4 +36,11 @@ defmodule AllbertAssist.Mcp do
       Client.read_resource(config, uri, context)
     end
   end
+
+  @spec call_tool(String.t(), String.t(), map(), map()) :: {:ok, map()} | {:error, term()}
+  def call_tool(server_id, name, arguments, context \\ %{}) do
+    with {:ok, config} <- ServerConfig.resolve(server_id) do
+      Client.call_tool(config, name, arguments, context)
+    end
+  end
 end

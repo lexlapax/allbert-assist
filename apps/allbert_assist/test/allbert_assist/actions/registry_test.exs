@@ -114,6 +114,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "mcp_list_tools",
              "mcp_list_resources",
              "mcp_read_resource",
+             "mcp_call_tool",
              "validate_skill",
              "create_skill",
              "run_skill_script",
@@ -204,6 +205,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     refute "mcp_list_tools" in agent_action_names
     refute "mcp_list_resources" in agent_action_names
     refute "mcp_read_resource" in agent_action_names
+    refute "mcp_call_tool" in agent_action_names
     refute "security_status" in agent_action_names
     refute "security_review" in agent_action_names
     refute "record_trace" in agent_action_names
@@ -225,6 +227,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "mcp_list_tools",
              "mcp_list_resources",
              "mcp_read_resource",
+             "mcp_call_tool",
              "validate_skill",
              "create_skill",
              "run_skill_script",
@@ -337,6 +340,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert mcp_read_resource.permission == :mcp_resource_read
     assert mcp_read_resource.execution_mode == :mcp_resource_read
     assert mcp_read_resource.resumable?
+
+    assert {:ok, mcp_call_tool} = Registry.capability("mcp_call_tool")
+    assert mcp_call_tool.permission == :mcp_tool_call
+    assert mcp_call_tool.execution_mode == :mcp_tool_call
+    assert mcp_call_tool.resumable?
 
     assert {:ok, cancel_objective} = Registry.capability("cancel_objective")
     assert cancel_objective.permission == :objective_write
@@ -595,6 +603,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert Registry.resumable?("integrate_dynamic_draft")
     assert Registry.resumable?("rollback_dynamic_integration")
     assert Registry.resumable?("mcp_read_resource")
+    assert Registry.resumable?("mcp_call_tool")
 
     refute Registry.resumable?("direct_answer")
     refute Registry.resumable?("plan_package_install")
