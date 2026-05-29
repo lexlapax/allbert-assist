@@ -59,7 +59,8 @@ Use these as starting points, then narrow further from the active task:
   ADR 0008, ADR 0012, and targeted changelog entries.
 - Test strategy, precommit gates, async eligibility, test partitioning,
   implementation-readiness audits, milestone parallelization, or development
-  methodology: read ADR 0049, `docs/plans/v0.41-plan.md`,
+  methodology: read ADR 0049, ADR 0050 when dependency/toolchain
+  compatibility is involved, `docs/plans/v0.41-plan.md`,
   `docs/plans/v0.41-request-flow.md`,
   `docs/developer/test-strategy.md`, and the "Implementation Plan Readiness"
   section of `DEVELOPMENT.md`.

@@ -204,6 +204,7 @@ coverage.
 - ADR 0012 - Resource Access Security Posture.
 - ADR 0037 - Elixir/OTP sandbox backend and gate runner.
 - ADR 0046 - Settings schema migration policy.
+- ADR 0050 - Vendored Memento compatibility override.
 - `DEVELOPMENT.md` milestone workflow.
 - `AGENTS.md` agent workflow.
 - `docs/developer/agent-context-map.md`.
