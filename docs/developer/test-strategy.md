@@ -272,6 +272,12 @@ across OS partitions.
 Lanes are applied at the case-template boundary first, to avoid editing every
 file:
 
+- Primary lane tags are boolean module tags named exactly after the lane:
+  `@moduletag :pure_async`, `@moduletag :db_serial`,
+  `@moduletag :db_partition_safe`, `@moduletag :app_env_serial`,
+  `@moduletag :home_fs_serial`, `@moduletag :global_process_serial`,
+  `@moduletag :external_runtime_serial`, `@moduletag :liveview_serial`, and
+  `@moduletag :security_eval_serial`.
 - Each shared case template sets a default lane and `async` default in one place:
   `DataCase → db_serial`, web `ConnCase → liveview_serial` (or `db_serial` when no
   LiveView), `SecurityEvalCase → security_eval_serial`, and channel/plugin cases →
@@ -287,6 +293,20 @@ file:
 
 Reconciliation rule: after tagging, lane test-counts must sum to the full suite
 total — zero unclassified files, no file double-counted.
+
+The M2 taxonomy lock freezes this default mapping:
+
+| Case/template | Default primary lane | Default async | Override path |
+| --- | --- | --- | --- |
+| `AllbertAssist.DataCase` | `db_serial` | `false` | `use AllbertAssist.DataCase, async: true, lane: :db_partition_safe` only after partition ownership is proven. |
+| `StockSage.DataCase` | `db_serial` | `false` | Same as core DataCase, with plugin table cleanup remaining serial within a partition. |
+| `AllbertAssistWeb.ConnCase` | `liveview_serial` | `false` | `lane: :db_partition_safe` only for non-LiveView controller tests with DB partition proof. |
+| `AllbertAssist.SecurityEvalCase` | `security_eval_serial` | `false` | No async promotion in v0.41; evals stay release/serial. |
+| Plain `ExUnit.Case` | explicit per file | declared by file | Add exactly one primary `@moduletag` before the file can join a named lane. |
+
+Secondary blockers use the same tag names only as blockers, and must be called
+out in the inventory or benchmark note. A file carrying any serial blocker is
+not eligible for `pure_async` even when it currently says `async: true`.
 
 ### Plugins And Channels
 
