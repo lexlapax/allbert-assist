@@ -101,7 +101,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
     |> ModelRuntime.request_opts()
     |> Keyword.merge(
       temperature: Map.get(profile, :temperature, 0.2),
-      max_tokens: Map.get(profile, :max_tokens, 512),
+      max_tokens: ModelRuntime.max_tokens(profile, 512),
       receive_timeout: Map.get(profile, :timeout_ms, 3_000)
     )
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)

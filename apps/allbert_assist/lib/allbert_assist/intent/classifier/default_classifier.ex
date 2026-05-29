@@ -114,7 +114,7 @@ defmodule AllbertAssist.Intent.Classifier.DefaultClassifier do
     |> ModelRuntime.request_opts()
     |> Keyword.merge(
       temperature: Map.get(profile, :temperature, 0.0),
-      max_tokens: Map.get(profile, :max_tokens, 256),
+      max_tokens: ModelRuntime.max_tokens(profile, 256),
       receive_timeout: Map.get(context, :timeout_ms, Map.get(profile, :timeout_ms, 3_000))
     )
   end

@@ -99,7 +99,8 @@ Flash. The additional remote smoke profiles are `fast` for OpenAI,
 For local Ollama fallback smoke work, use `dynamic_codegen.provider_profile
 coding_local`, pull `qwen2.5-coder:7b` explicitly, and make sure
 `OLLAMA_BASE_URL` is set in `.env` when it differs from
-`http://localhost:11434/v1`:
+`http://localhost:11434/v1`. That environment override is scoped to local
+Ollama profiles and must not override the real OpenAI provider endpoint:
 
 ```sh
 ollama pull qwen2.5-coder:7b
@@ -108,8 +109,13 @@ mix allbert.settings set dynamic_codegen.provider_profile coding_local
 
 Gemini credentials use the Settings Central secret reference
 `secret://providers/gemini/api_key`. For disposable smoke runs, ReqLLM can also
-read `GOOGLE_API_KEY` from the shell or `.env`; OpenRouter uses
-`secret://providers/openrouter/api_key` or `OPENROUTER_API_KEY`.
+read `GOOGLE_API_KEY` or `GEMINI_API_KEY` from the shell or `.env`; OpenRouter
+uses `secret://providers/openrouter/api_key` or `OPENROUTER_API_KEY`.
+
+OpenAI-backed profiles must keep `model_profiles.*.max_tokens` at `16` or
+higher because the OpenAI Responses API rejects lower `max_output_tokens`
+values. Shipped OpenAI profiles are well above that minimum, and Settings
+Central rejects smaller OpenAI profile values.
 
 The workflow still fails closed if the provider profile cannot resolve, the
 provider is disabled, a required credential is missing, the sandbox doctor is

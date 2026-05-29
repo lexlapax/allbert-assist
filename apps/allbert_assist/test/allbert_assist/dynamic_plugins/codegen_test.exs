@@ -15,7 +15,13 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.DynamicCodegenFakeProvider
 
-  @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR", "ALLBERT_SETTINGS_ROOT"]
+  @env_vars [
+    "ALLBERT_HOME",
+    "ALLBERT_HOME_DIR",
+    "ALLBERT_SETTINGS_ROOT",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY"
+  ]
 
   defmodule CompletingDocker do
     @behaviour AllbertAssist.Sandbox.Backend
@@ -117,6 +123,25 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
     assert profile.model == "gemini-3.5-flash"
 
     assert {:ok, _fallback} = Settings.resolve_model_profile("coding_local")
+  end
+
+  test "provider readiness accepts GEMINI_API_KEY for the coding profile" do
+    enable_dynamic_codegen!("coding")
+
+    assert {:ok, _setting} =
+             Settings.put("providers.gemini.enabled", true, %{audit?: false})
+
+    System.delete_env("GOOGLE_API_KEY")
+    System.put_env("GEMINI_API_KEY", "test-gemini-key")
+
+    assert {:ok, draft} =
+             DynamicPlugins.request_draft(%{
+               slug: "gemini_env_gap",
+               summary: "Need a read-only diagnostic action"
+             })
+
+    assert draft.gap["producer"] == "codegen_llm"
+    assert draft.diagnostics |> List.first() |> Map.get("provider_profile") == "coding"
   end
 
   test "provider-call budget caps explicit generation requests" do

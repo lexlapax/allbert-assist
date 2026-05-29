@@ -2228,12 +2228,39 @@ defmodule AllbertAssist.Settings.Schema do
     |> get_in(["model_profiles"])
     |> case do
       profiles when is_map(profiles) ->
-        validate_dynamic_map(profiles, @model_profile_schema, "model_profiles", settings)
+        with :ok <-
+               validate_dynamic_map(profiles, @model_profile_schema, "model_profiles", settings) do
+          validate_model_profile_provider_constraints(profiles, settings)
+        end
 
       other ->
         {:error, {:invalid_setting, "model_profiles", {:expected_map, other}}}
     end
   end
+
+  defp validate_model_profile_provider_constraints(profiles, settings) do
+    Enum.reduce_while(profiles, :ok, fn {name, attrs}, :ok ->
+      case validate_model_profile_provider_constraint(name, attrs, settings) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp validate_model_profile_provider_constraint(name, attrs, settings) when is_map(attrs) do
+    provider = Map.get(attrs, "provider")
+    provider_type = get_in(settings, ["providers", provider, "type"])
+    max_tokens = Map.get(attrs, "max_tokens")
+
+    if provider_type == "openai" && is_integer(max_tokens) && max_tokens < 16 do
+      {:error,
+       {:invalid_setting, "model_profiles.#{name}.max_tokens", {:below_provider_minimum, 16}}}
+    else
+      :ok
+    end
+  end
+
+  defp validate_model_profile_provider_constraint(_name, _attrs, _settings), do: :ok
 
   defp validate_dynamic_map(items, field_schema, prefix, settings) do
     Enum.reduce_while(items, :ok, &validate_dynamic_item(&1, &2, field_schema, prefix, settings))
