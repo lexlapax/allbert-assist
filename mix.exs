@@ -23,7 +23,7 @@ defmodule AllbertAssist.Umbrella.MixProject do
 
   def cli do
     [
-      preferred_envs: [precommit: :test]
+      preferred_envs: [precommit: :test, "allbert.test": :test]
     ]
   end
 

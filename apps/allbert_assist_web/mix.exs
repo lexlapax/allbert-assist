@@ -77,7 +77,7 @@ defmodule AllbertAssistWeb.MixProject do
     [
       setup: ["deps.get", "assets.npm", "assets.setup", "assets.build"],
       "assets.npm": [&npm_install/1],
-      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
+      test: ["ecto.create --quiet", migrate_task("--quiet"), "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind allbert_assist_web", "esbuild allbert_assist_web"],
       "assets.deploy": [
@@ -98,5 +98,16 @@ defmodule AllbertAssistWeb.MixProject do
     if status != 0 do
       Mix.raise("npm ci failed for allbert_assist_web assets")
     end
+  end
+
+  defp migrate_task(extra_args) do
+    [
+      "ecto.migrate",
+      extra_args,
+      "--migrations-path ../allbert_assist/priv/repo/migrations",
+      "--migrations-path ../../plugins/stocksage/priv/repo/migrations"
+    ]
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.join(" ")
   end
 end

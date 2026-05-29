@@ -11,17 +11,36 @@ env_value = fn name ->
   end
 end
 
+partition = env_value.("MIX_TEST_PARTITION")
+home_from_env = env_value.("ALLBERT_HOME") || env_value.("ALLBERT_HOME_DIR")
+
+generated_partition_home =
+  if partition do
+    Path.join([System.tmp_dir!(), "allbert_test_partitions", "p#{partition}", "home"])
+  end
+
+test_home = home_from_env || generated_partition_home
+
+if generated_partition_home && is_nil(home_from_env) do
+  System.put_env("ALLBERT_HOME", generated_partition_home)
+  System.put_env("ALLBERT_HOME_DIR", generated_partition_home)
+end
+
 database_path =
   cond do
     path = env_value.("DATABASE_PATH") ->
       Path.expand(path)
 
-    home = env_value.("ALLBERT_HOME") || env_value.("ALLBERT_HOME_DIR") ->
+    home = test_home ->
       Path.expand(Path.join([home, "db", "allbert.sqlite3"]))
 
     true ->
       Path.expand("../allbert_assist_test.db", __DIR__)
   end
+
+if partition && is_nil(env_value.("DATABASE_PATH")) do
+  System.put_env("DATABASE_PATH", database_path)
+end
 
 File.mkdir_p!(Path.dirname(database_path))
 
