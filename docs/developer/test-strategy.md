@@ -7,8 +7,9 @@ make implementation milestones safe to parallelize.
 Status: introduced for v0.41 planning. The taxonomy below is binding. M6 landed
 the developer gate command surface, and M7 lands executable lane classification:
 shared case-template defaults plus explicit primary tags for the plain
-`ExUnit.Case` tail. M8-M9 migrate partition-safe coverage, each validated
-against the v0.40 regression oracle.
+`ExUnit.Case` tail. M8a/M8b land partitioned local gates for core and
+StockSage serial lanes; M9 closes the remaining web/closeout path. Each batch is
+validated against the v0.40 regression oracle.
 
 ## Current Baseline
 
@@ -107,6 +108,11 @@ gate before it is accepted.
   M8c low-risk pure cleanup/promotions only where they preserve or improve the
   measured gate. Web LiveView partitioning remains M9 because it has heavier
   ConnCase/process coupling and release-closeout documentation belongs there.
+- **2026-05-29 / after M8b:** M8b improved the high-coverage local path for
+  StockSage hotspots. The remaining low-risk pure cleanup/promotion batch is
+  treated as optional/no-op unless it has a measured target; proceed to M9 web
+  partitioning and closeout rather than spending the release on low-value pure
+  churn.
 
 ### v0.41 M1 Benchmark Attempt 1 - 2026-05-29
 
@@ -402,6 +408,67 @@ gate before it is accepted.
   SQLite connection noise remain optimization signals, but they did not fail the
   partitioned lanes.
 
+### v0.41 M8b StockSage Lane Partitioning Benchmark - 2026-05-29
+
+- Commit: v0.41 M8 StockSage lane partitioning commit.
+- Machine: `Darwin Sandeeps-Mac-Studio.local 25.5.0` on Apple M1 Ultra;
+  20 physical / 20 logical CPUs.
+- Runtime: Elixir 1.19.5 (compiled with Erlang/OTP 28), running on
+  Erlang/OTP 29.0.1.
+- Cache state: warm build after M8b task compilation.
+- Commands:
+  - `env MIX_ENV=test mix compile --warnings-as-errors`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test fast-local --stocksage-lanes --partitions 4`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test fast-local --core-lanes --stocksage-lanes --partitions 4`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test release`
+- Release wall-clock / counts: final `mix allbert.test release` passed at
+  `real 1436.02` seconds (`user 0.74`, `sys 3.59`). The release command runs
+  `mix precommit` and then `mix dialyzer`. Counts: core 1146 tests, 0 failures,
+  2 skipped, 900.0 seconds; web 107 tests, 0 failures, 309.7 seconds;
+  StockSage 197 tests, 0 failures, 187.7 seconds; channel plugins 2 tests,
+  0 failures, 0.03 seconds; Dialyzer 0 errors.
+- Fast-local wall-clock / counts:
+  - StockSage high-coverage form passed at `real 131.32` seconds (`user 1.46`,
+    `sys 4.50`): static checks, 122 pure-lane tests, and partitioned StockSage
+    `db_serial`, `app_env_serial`, and `global_process_serial` lanes, 229
+    executed tests, 0 failures.
+  - combined core + StockSage high-coverage form passed at `real 374.05`
+    seconds (`user 1.47`, `sys 4.80`): static checks, 122 pure-lane tests,
+    partitioned core `db_serial`, `app_env_serial`, `home_fs_serial`, and
+    `global_process_serial`, plus partitioned StockSage `db_serial`,
+    `app_env_serial`, and `global_process_serial`, 937 executed tests,
+    0 failures.
+- Lane breakdown:
+  - StockSage `db_serial --partitions 4`: partition counts 36 / 20 / 15 / 13
+    tests, 0 failures. Slowest partition was 63.7 seconds in the focused
+    StockSage run and 63.3 seconds in the combined run.
+  - StockSage `app_env_serial --partitions 4`: partition counts 5 / 3 / 5 / 0
+    tests, 0 failures. The empty explicit-file partition is accepted as green
+    after path validation.
+  - StockSage `global_process_serial --partitions 4`: partition counts
+    3 / 2 / 5 / 0 tests, 0 failures. The empty explicit-file partition is
+    accepted as green after path validation.
+  - Exact plugin file selection removed the earlier support-file warnings from
+    `plugins/stocksage/test/support/*`.
+- Slowest modules/tests: M1 and M8a slowest evidence remains the sequencing
+  authority. M8b targeted StockSage objective/action DB hotspots rather than
+  producing a fresh slowest report.
+- Planned share: M8b must make StockSage local serial hotspots available through
+  the high-coverage local gate while keeping the combined core+StockSage gate
+  under the M8 <=10 minute target.
+- Actual delta: effective. The combined high-coverage local gate covers 937
+  local tests in 6.2 minutes, below the M8 target and far below the 21+ minute
+  release oracle. The full release gate is slower than M8a (`1436.02s` versus
+  `1291.04s`), so release wall-clock remains a closeout optimization signal
+  rather than the daily-loop win. StockSage local serial coverage is now
+  benchmarkable without running the whole release gate.
+- Decision: M8b is accepted with a green release oracle. Proceed to M9
+  web/closeout; do not spend M8c on pure cleanup unless a measured regression
+  appears.
+- Follow-up/reorder: no reorder. Keep startup/build-lock waits and transient
+  SQLite connection logs as M9 optimization signals, but do not block M8b on
+  them because isolated DB/home roots and partition tests remained green.
+
 ## Lane Taxonomy
 
 Every test file gets one primary lane.
@@ -580,7 +647,7 @@ monolithic precommit order hides that by migrating through the core app first.
 | Docs | Docs-only changes. | `mix allbert.test docs` (`git diff --check` and reference checks when configured). |
 | Focused | Every implementation milestone. | `mix allbert.test focused -- <files...>` using explicit files named in the plan/request-flow doc. |
 | Static | Code changes. | compile warning gate, formatter check, Credo strict, Dialyzer when required. |
-| Fast local | Daily development feedback. | `mix allbert.test fast-local`: static checks plus proven pure async lanes. After M8a, `mix allbert.test fast-local --core-lanes --partitions N` adds partitioned core DB/app-env/home/process lanes. |
+| Fast local | Daily development feedback. | `mix allbert.test fast-local`: static checks plus proven pure async lanes. After M8a/M8b, `mix allbert.test fast-local --core-lanes --stocksage-lanes --partitions N` adds partitioned core DB/app-env/home/process lanes and StockSage DB/app-env/process lanes. |
 | Serial core | VM-global lanes (DB, app env, home, process, LiveView). | `mix allbert.test serial-core --lane <lane> --partitions N`; serial *within* a partition, parallel *across* OS partitions. Security evals + external smokes stay single-VM / opt-in. |
 | Release | Manual validation/release handoff. | `mix allbert.test release`: full precommit-equivalent coverage plus Dialyzer and security evals. |
 | External smoke | Machine-dependent integrations. | `mix allbert.test external-smoke -- <smoke-name>` for explicitly opted-in smokes. M6 implements Docker sandbox smokes; later browser/MCP/provider smokes must add their concrete command before use. |
@@ -652,7 +719,7 @@ post-M7 reordered order:
 | M7 | Case-template default lane tags and plain-`ExUnit.Case` reconciliation. | Inventory has zero unclassified files and lane filters select expected files. |
 | M8a | Core intent/runtime DB/app-env/process hotspots. | Partitioned local lane shrinks the core slowest hotspot without flakes. |
 | M8b | StockSage objective/action DB hotspots. | Partitioned plugin lane shrinks StockSage slowest hotspot without flakes. |
-| M8c | Existing `pure_async` lane cleanup and small pure promotions, only where the benchmark stays green or improves. | Fast-local preserves or improves the M7 wall-clock while preserving/reconciling coverage. |
+| M8c | Existing `pure_async` lane cleanup and small pure promotions, only where the benchmark stays green or improves. | Optional/no-op after M8b unless a measured regression appears; avoid low-value churn. |
 | M9 | Web LiveView/ConnCase partitioning, final metrics, and closeout docs. | Final fast-local target met or the remaining gap is documented. |
 
 Work in reviewable batches. Each batch must reproduce the v0.40 oracle green set
