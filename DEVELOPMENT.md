@@ -136,7 +136,7 @@ development can be fast without hiding serial-resource risk. See
 | Focused | Every implementation milestone. | Explicit test files named in the active plan/request-flow doc. |
 | Static | Code changes. | `mix compile --warnings-as-errors`, `mix format --check-formatted`, `mix credo --strict`, and Dialyzer when required. |
 | Fast local | Daily development feedback after v0.41 implementation. | Static checks plus proven async/partition-safe lanes. |
-| Serial core | Tests touching SQLite, app env, Allbert Home, global processes, LiveView, or security evals. | Explicit serial lane, not accidental suite drag. |
+| Serial core | VM-global lanes (SQLite, app env, Allbert Home, global processes, LiveView). | Serial within a partition, parallel across OS partitions (count from cores); security evals stay single-VM. |
 | Release | Manual validation/release closeout. | Full `mix precommit`-equivalent coverage plus required static/type gates. |
 | External smoke | Machine-dependent integrations. | Docker, browser, real MCP/provider checks, opt in. |
 

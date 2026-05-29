@@ -101,15 +101,17 @@ Every test file gets one primary lane.
 | `pure_async` | Pure or locally-owned tests with no global runtime resources. | Async in one VM. |
 | `db_serial` | Uses shared Repo/SQLite sandbox or database-backed contexts. | Serial unless partition-isolated. |
 | `db_partition_safe` | Database-backed tests proven safe with per-partition database/home roots. | OS-process partitions only. |
-| `app_env_serial` | Mutates `Application` env, config, or compile/runtime app state. | Serial unless helper scopes and restores ownership. |
-| `home_fs_serial` | Mutates Allbert Home, settings, secrets, memory, sandbox, plugin, or tmp roots. | Serial unless roots are unique per test/partition. |
-| `global_process_serial` | Uses fixed process names, registries, PubSub topics, supervisors, or singleton restart behavior. | Serial unless names are unique and owned. |
-| `external_runtime_serial` | Uses Docker, browser drivers, stdio ports, provider endpoints, real MCP servers, package managers, or OS resources. | Explicit smoke lane. |
-| `liveview_serial` | Uses Phoenix LiveView/ConnCase with Repo ownership or shared process trees. | Serial unless separately proven. |
+| `app_env_serial` | Mutates `Application` env, config, or compile/runtime app state. | Serial within a VM; parallel across OS partitions (separate BEAM = separate app env). |
+| `home_fs_serial` | Mutates Allbert Home, settings, secrets, memory, sandbox, plugin, or tmp roots. | Serial within a VM; parallel across OS partitions with per-partition roots. |
+| `global_process_serial` | Uses fixed process names, registries, PubSub topics, supervisors, or singleton restart behavior. | Serial within a VM; parallel across OS partitions (separate BEAM = separate process namespace). |
+| `external_runtime_serial` | Uses Docker, browser drivers, stdio ports, provider endpoints, real MCP servers, package managers, or OS resources. | Explicit smoke lane (shared OS resources may collide even across partitions). |
+| `liveview_serial` | Uses Phoenix LiveView/ConnCase with Repo ownership or shared process trees. | Serial within a VM; parallel across OS partitions (`server: false`, per-partition DB/home). |
 | `security_eval_serial` | Uses `SecurityEvalCase`, eval inventory, adversarial fixtures, or cross-boundary security assertions. | Serial/release lane by default. |
 
 Secondary blockers should be recorded separately. Example: a test may be primary
-`db_serial` with secondary `home_fs_serial`.
+`db_serial` with secondary `home_fs_serial`. "Serial" lanes are serial *within a
+VM*; see "Partitioning And The Two Concurrency Axes" for how they parallelize
+across OS partitions.
 
 ## Tagging Convention
 
@@ -157,23 +159,46 @@ or absent:
 
 If any item is uncertain, keep the test serial and record the blocker.
 
-## SQLite And Partitioning
+## Partitioning And The Two Concurrency Axes
 
-SQLite-backed tests are not async-safe merely because Ecto has a sandbox.
-Allbert keeps `DataCase` and `ConnCase` serial by default inside one BEAM VM.
+Allbert tests parallelize on two distinct axes; conflating them causes flakes.
 
-DB parallelism requires OS-process partitioning:
+1. **In-VM async** (`--max-cases`): only `pure_async` tests. They own or avoid all
+   global state, so ExUnit runs them concurrently in one BEAM VM. The concurrent
+   case count derives from the measured core count, not a fixed value.
+2. **Cross-VM partitioning** (`--partitions N`): the mechanism for every
+   VM-global lane. Each partition is a separate OS process — a separate BEAM VM —
+   so `Application` env, named processes, registries, ETS/PubSub, Allbert Home
+   roots, and the SQLite file are all isolated per partition. Because test config
+   sets `server: false`, there is no endpoint-port collision, so LiveView/Conn
+   tests partition too. The lane runs serial *within* a partition; the
+   parallelism is the partition count.
+
+SQLite is one instance of the VM-global rule, with an extra constraint: it is
+single-writer, so DB tests stay serial inside a partition (its own file) — the
+speedup comes from partition count, never from async-within-partition.
+`busy_timeout` masks brief contention but does not make concurrent writers safe.
+`DataCase`/`ConnCase` are serial by default in one VM for this reason.
+
+Every VM-global lane parallelizes the same way, given per-partition roots (one
+invocation per partition `1..N`; `N` derives from the measured core count):
 
 ```sh
-MIX_TEST_PARTITION=1 DATABASE_PATH=/tmp/allbert-p1.db ALLBERT_HOME=/tmp/allbert-p1 mix test --partitions 4 --only db_partition_safe
-MIX_TEST_PARTITION=2 DATABASE_PATH=/tmp/allbert-p2.db ALLBERT_HOME=/tmp/allbert-p2 mix test --partitions 4 --only db_partition_safe
-MIX_TEST_PARTITION=3 DATABASE_PATH=/tmp/allbert-p3.db ALLBERT_HOME=/tmp/allbert-p3 mix test --partitions 4 --only db_partition_safe
-MIX_TEST_PARTITION=4 DATABASE_PATH=/tmp/allbert-p4.db ALLBERT_HOME=/tmp/allbert-p4 mix test --partitions 4 --only db_partition_safe
+# DB lane (separate file per partition)
+MIX_TEST_PARTITION=1 ALLBERT_HOME=/tmp/allbert-p1 DATABASE_PATH=/tmp/allbert-p1.db mix test --partitions N --only db_partition_safe
+
+# Any other VM-global lane — same lane-agnostic harness, own roots per partition
+MIX_TEST_PARTITION=1 ALLBERT_HOME=/tmp/allbert-p1 DATABASE_PATH=/tmp/allbert-p1.db mix test --partitions N --only app_env_serial
+MIX_TEST_PARTITION=1 ALLBERT_HOME=/tmp/allbert-p1 DATABASE_PATH=/tmp/allbert-p1.db mix test --partitions N --only home_fs_serial
+MIX_TEST_PARTITION=1 ALLBERT_HOME=/tmp/allbert-p1 DATABASE_PATH=/tmp/allbert-p1.db mix test --partitions N --only global_process_serial
+MIX_TEST_PARTITION=1 ALLBERT_HOME=/tmp/allbert-p1 DATABASE_PATH=/tmp/allbert-p1.db mix test --partitions N --only liveview_serial
 ```
 
 The implementation may wrap this in a Mix alias or script, but the invariant is
-fixed: every partition has its own database, Allbert Home, migrated schema, and
-derived runtime roots.
+fixed and lane-agnostic: every partition has its own database, Allbert Home,
+migrated schema, and derived runtime roots. `external_runtime_serial` stays an
+explicit smoke lane — it touches shared OS resources (ports, Docker, real
+endpoints) that can collide even across partitions.
 
 ## Ownership Contract
 
@@ -199,7 +224,7 @@ No test may write to a real operator `~/.allbert`.
 | Focused | Every implementation milestone. | Explicit test files named in the plan/request-flow doc. |
 | Static | Code changes. | compile warning gate, formatter check, Credo strict, Dialyzer when required. |
 | Fast local | Daily development feedback. | Static checks plus proven async/partition-safe lanes. |
-| Serial core | Shared-resource tests. | DB/app-env/home/process/security lanes, intentionally serial. |
+| Serial core | VM-global lanes (DB, app env, home, process, LiveView). | Serial *within* a partition, parallel *across* OS partitions (N from cores). Security evals + external smokes stay single-VM / opt-in. |
 | Release | Manual validation/release handoff. | Full precommit-equivalent coverage plus Dialyzer and security evals. |
 | External smoke | Machine-dependent integrations. | Docker, browser, real MCP/provider checks, explicitly opt in. |
 
@@ -238,9 +263,12 @@ implementation-ready. Do not infer parallel safety from small scope.
 1. Produce the inventory and slowest-module report.
 2. Convert obvious `pure_async` candidates only.
 3. Add unique-home helpers for filesystem-only tests.
-4. Add per-partition database/home roots before parallelizing DB tests.
-5. Revisit LiveView/process-heavy tests after DB partitioning is stable.
-6. Keep security evals and external smokes serial until proven safe.
+4. Add the lane-agnostic per-partition database/home/roots harness; prove it on
+   the DB lane first.
+5. Extend partitioning to the other VM-global lanes (app_env, home_fs,
+   global_process), then LiveView, once the harness is stable.
+6. Keep security evals single-VM serial and external smokes opt-in until proven
+   safe.
 
 Work in reviewable batches. Each batch must reproduce the v0.40 oracle green set
 through the full release gate, and run its async/partition lane repeatedly within

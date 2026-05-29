@@ -70,11 +70,14 @@ touches:
 
 Tests that cannot prove ownership stay serial. Speed alone is not evidence.
 
-### 3. SQLite-backed tests are serial inside one VM unless partition isolated
+### 3. VM-global tests parallelize by OS-process partition, not in-VM async
 
-SQLite is the project database. Within one BEAM instance, tests using the shared
-Repo/Sandbox remain synchronous by default. DB test parallelism is allowed only
-through OS-process partitioning when each partition has its own:
+Tests parallelize on two axes. Pure tests run `async: true` concurrently in one
+BEAM VM (`--max-cases`). VM-global tests — those touching `Application` env,
+named processes/registries/PubSub, shared Allbert Home roots, the SQLite
+database, or LiveView/Repo trees — are NOT in-VM-async-safe; they parallelize
+across OS-process partitions, where each partition is a separate BEAM VM that
+isolates all of that state. Each partition owns its:
 
 - `MIX_TEST_PARTITION`
 - `DATABASE_PATH`
@@ -82,8 +85,13 @@ through OS-process partitioning when each partition has its own:
 - migrated database
 - derived settings, secrets, memory, sandbox, and tmp roots
 
-This follows ExUnit's partitioning model instead of pretending one SQLite file
-is a safe multi-writer async substrate.
+The harness is lane-agnostic: the same per-partition roots make any VM-global
+lane partition-parallel, not only DB. With `server: false` in test config there
+is no endpoint-port collision, so LiveView/Conn tests partition too. SQLite is a
+special case with an added constraint — it is single-writer, so DB tests stay
+serial within a partition (its own file); the speedup is partition count, never
+async-within-partition. This follows ExUnit's partitioning model instead of
+pretending one SQLite file is a safe multi-writer async substrate.
 
 ### 4. Serial lanes are explicit, not shameful
 
@@ -96,8 +104,11 @@ Some tests should remain serial because they validate global behavior:
 - external runtime smokes such as Docker, browser drivers, real MCP servers, or
   provider endpoints
 
-The goal is not "everything async"; the goal is high signal, low flake, and
-short feedback loops.
+Serial here means serial *within* a VM or partition. Per §3, most of these lanes
+still parallelize across OS partitions when each partition owns its roots;
+security eval harnesses and external runtime smokes stay single-VM / opt-in until
+separately proven. The goal is not "everything async"; the goal is high signal,
+low flake, and short feedback loops.
 
 ### 5. Test strategy is a first-class developer contract
 
