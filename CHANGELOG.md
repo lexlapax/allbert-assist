@@ -126,6 +126,9 @@ ADR: `docs/adr/0047-provider-doctor-contract.md`.
   surface: generated Jido aliases come from `model_profiles.*` and
   `model_profiles.*.aliases`; the shipped code-generation pair is `coding`
   for remote Gemini and `coding_local` for local Ollama `qwen2.5-coder:7b`.
+- OpenAI model-profile `max_tokens` values are kept at or above the OpenAI
+  Responses API minimum of `16`, and local Ollama base URL overrides no longer
+  globally redirect the real OpenAI provider.
 - ADR 0047 is accepted and pins the provider doctor redacted summary shape as a
   Tier-1 freeze candidate for v1.0.
 - README, roadmap, operator onboarding, security-hardening, agent-context-map,
@@ -402,9 +405,11 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
 - Remote provider smoke instructions source `.env` for keys and cover OpenAI,
   Anthropic, OpenRouter, and Gemini model profiles without printing secrets. The
   recommended remote code-generation profile is `coding`; the local Ollama
-  fallback is consistently named `coding_local`. The runtime also honors `.env`
-  credentials as an operator-provided preflight source when Settings Central
-  secret storage is not used for smoke testing.
+  fallback is consistently named `coding_local`. The Gemini preflight accepts
+  either `GOOGLE_API_KEY` or `GEMINI_API_KEY`. OpenAI generation clamps and
+  validates output-token limits to the provider minimum of `16`. The runtime
+  also honors `.env` credentials as an operator-provided preflight source when
+  Settings Central secret storage is not used for smoke testing.
 - Operator, developer, ADR, plan, request-flow, runtime-boundary, and onboarding
   docs now describe source-bearing read-only action generation plus gated live
   integration.

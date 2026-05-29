@@ -148,9 +148,12 @@ Ollama seed profiles. The recommended remote code-generation profile is
 `coding`; the consistent Ollama fallback is `coding_local`. Jido model aliases
 are generated from `model_profiles.*` and optional
 `model_profiles.*.aliases`, so there is no second model-list authority to keep
-in sync. For Anthropic, the shipped default `anthropic_fast` uses the canonical
-Claude Haiku 4.5 API ID `claude-haiku-4-5-20251001`; the doctor also recognizes
-the provider alias `claude-haiku-4-5` when comparing live model listings.
+in sync. OpenAI-backed profiles keep `max_tokens` at `16` or higher to satisfy
+the OpenAI Responses API minimum, and local Ollama base URL overrides are scoped
+to local profiles only. For Anthropic, the shipped default `anthropic_fast` uses
+the canonical Claude Haiku 4.5 API ID `claude-haiku-4-5-20251001`; the doctor
+also recognizes the provider alias `claude-haiku-4-5` when comparing live model
+listings.
 
 Provider credentials still belong in Settings Central secrets. Use the existing
 settings/channel tasks rather than shell history or prompt text for raw
