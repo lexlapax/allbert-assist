@@ -457,13 +457,28 @@ implementation-ready. Do not infer parallel safety from small scope.
    counts to the suite total before any async promotion.
 1. Produce the inventory and slowest-module report.
 2. Convert obvious `pure_async` candidates only.
-3. Add unique-home helpers for filesystem-only tests.
-4. Add the lane-agnostic per-partition database/home/roots harness; prove it on
-   the DB lane first.
-5. Extend partitioning to the other VM-global lanes (app_env, home_fs,
-   global_process), then LiveView, once the harness is stable.
-6. Keep security evals single-VM serial and external smokes opt-in until proven
+3. Add the lane-agnostic per-partition database/home/roots harness; prove it on
+   a small DB smoke and then on the expensive core intent/runtime DB and
+   app-env lanes identified by M1.
+4. Move StockSage objective/action lanes onto partition-safe DB/home roots once
+   the core harness is stable.
+5. Add unique-home helpers for low-cost filesystem-only tests opportunistically,
+   but do not let them jump ahead of the measured hotspots.
+6. Extend partitioning to LiveView/ConnCase last; the M1 report shows this is
+   worth doing, but it has the heaviest sandbox/process coupling.
+7. Keep security evals single-VM serial and external smokes opt-in until proven
    safe.
+
+M5 locks the first implementation batch order after the M1 evidence:
+
+| Batch | Target | Acceptance |
+| --- | --- | --- |
+| M6 | Gate commands, inventory command, and partition root helper. | Release gate reproduces v0.40 oracle; partition smoke proves owned DB/home roots. |
+| M7 | Case-template default lane tags and plain-`ExUnit.Case` reconciliation. | Inventory has zero unclassified files and lane filters select expected files. |
+| M8a | Existing `pure_async` lane and small pure promotions. | Fast-local improves or remains <=M6 while preserving/reconciling coverage. |
+| M8b | Core intent/runtime DB/app-env/process hotspots. | Partitioned local lane shrinks the core slowest hotspot without flakes. |
+| M8c | StockSage objective/action DB hotspots. | Partitioned plugin lane shrinks StockSage slowest hotspot without flakes. |
+| M9 | Web LiveView/ConnCase partitioning, final metrics, and closeout docs. | Final fast-local target met or the remaining gap is documented. |
 
 Work in reviewable batches. Each batch must reproduce the v0.40 oracle green set
 through the full release gate, and run its async/partition lane repeatedly within
