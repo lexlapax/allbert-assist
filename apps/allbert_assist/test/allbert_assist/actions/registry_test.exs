@@ -113,6 +113,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "mcp_doctor_server",
              "mcp_list_tools",
              "mcp_list_resources",
+             "mcp_read_resource",
              "validate_skill",
              "create_skill",
              "run_skill_script",
@@ -202,6 +203,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     refute "mcp_doctor_server" in agent_action_names
     refute "mcp_list_tools" in agent_action_names
     refute "mcp_list_resources" in agent_action_names
+    refute "mcp_read_resource" in agent_action_names
     refute "security_status" in agent_action_names
     refute "security_review" in agent_action_names
     refute "record_trace" in agent_action_names
@@ -222,6 +224,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "mcp_doctor_server",
              "mcp_list_tools",
              "mcp_list_resources",
+             "mcp_read_resource",
              "validate_skill",
              "create_skill",
              "run_skill_script",
@@ -329,6 +332,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
 
     assert {:ok, mcp_list_tools} = Registry.capability("mcp_list_tools")
     assert mcp_list_tools.execution_mode == :mcp_discovery
+
+    assert {:ok, mcp_read_resource} = Registry.capability("mcp_read_resource")
+    assert mcp_read_resource.permission == :mcp_resource_read
+    assert mcp_read_resource.execution_mode == :mcp_resource_read
+    assert mcp_read_resource.resumable?
 
     assert {:ok, cancel_objective} = Registry.capability("cancel_objective")
     assert cancel_objective.permission == :objective_write
@@ -586,6 +594,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert Registry.resumable?("promote_conversation_turn")
     assert Registry.resumable?("integrate_dynamic_draft")
     assert Registry.resumable?("rollback_dynamic_integration")
+    assert Registry.resumable?("mcp_read_resource")
 
     refute Registry.resumable?("direct_answer")
     refute Registry.resumable?("plan_package_install")

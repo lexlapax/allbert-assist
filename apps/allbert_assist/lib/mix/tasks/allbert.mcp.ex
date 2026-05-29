@@ -46,8 +46,8 @@ defmodule Mix.Tasks.Allbert.Mcp do
     completed_action("mcp_list_resources", %{server_id: server_id})
   end
 
-  defp dispatch(["read", _server_id, _uri]) do
-    Mix.raise("MCP resource reads are planned for v0.40 M3.")
+  defp dispatch(["read", server_id, uri]) do
+    action_result("mcp_read_resource", %{server_id: server_id, uri: uri})
   end
 
   defp dispatch(["call", _server_id, _tool, json]) do
@@ -75,9 +75,15 @@ defmodule Mix.Tasks.Allbert.Mcp do
   end
 
   defp completed_action(action_name, params) do
-    case Runner.run(action_name, params, context()) do
+    case action_result(action_name, params) do
       {:ok, %{status: :completed} = response} -> {:ok, response}
       {:ok, response} -> {:error, response_error(response)}
+    end
+  end
+
+  defp action_result(action_name, params) do
+    case Runner.run(action_name, params, context()) do
+      {:ok, response} -> {:ok, response}
     end
   end
 
@@ -108,6 +114,25 @@ defmodule Mix.Tasks.Allbert.Mcp do
     Enum.each(resources, fn resource ->
       Mix.shell().info("- #{Map.get(resource, "uri")}: #{Map.get(resource, "name")}")
     end)
+  end
+
+  defp print_result({:ok, %{resource: %{contents: contents} = resource}}) do
+    Mix.shell().info("resource_uri=#{Map.get(resource, :resource_uri)}")
+
+    Enum.each(contents, fn content ->
+      Mix.shell().info("- #{Map.get(content, "uri")}: #{Map.get(content, "mimeType")}")
+
+      if Map.get(content, "text_preview") do
+        Mix.shell().info(Map.get(content, "text_preview"))
+      end
+    end)
+  end
+
+  defp print_result(
+         {:ok, %{status: :needs_confirmation, confirmation_id: confirmation_id} = response}
+       ) do
+    Mix.shell().info(response.message)
+    Mix.shell().info("confirmation_id=#{confirmation_id}")
   end
 
   defp print_result({:error, reason}) do

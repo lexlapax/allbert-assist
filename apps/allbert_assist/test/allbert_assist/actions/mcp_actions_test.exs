@@ -2,7 +2,10 @@ defmodule AllbertAssist.Actions.McpActionsTest do
   use ExUnit.Case, async: false
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
+  alias AllbertAssist.Resources.Grants
+  alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Settings
 
   setup {Req.Test, :verify_on_exit!}
@@ -10,12 +13,14 @@ defmodule AllbertAssist.Actions.McpActionsTest do
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
+    original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
 
     root =
       Path.join(System.tmp_dir!(), "allbert-mcp-actions-#{System.unique_integer([:positive])}")
 
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
+    Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     configure_external()
     configure_http_server()
     stub_http_mcp()
@@ -23,6 +28,7 @@ defmodule AllbertAssist.Actions.McpActionsTest do
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
+      restore_env(Confirmations, original_confirmations_config)
       File.rm_rf!(root)
     end)
 
@@ -53,6 +59,47 @@ defmodule AllbertAssist.Actions.McpActionsTest do
     audit = File.read!(Path.join([root, "mcp", "audit", audit_file()]))
     assert audit =~ "mcp_doctor_server"
     assert audit =~ "mcp_list_tools"
+    refute audit =~ "secret-token"
+  end
+
+  test "mcp_read_resource requires a Resource Access grant, then reuses it", %{root: root} do
+    context = %{actor: "local", channel: :test, mcp: %{req_plug: {Req.Test, __MODULE__}}}
+    server_uri = "file:///demo.md"
+    canonical_uri = ResourceURI.mcp!("demo", server_uri)
+
+    assert {:ok, pending} =
+             Runner.run("mcp_read_resource", %{server_id: "demo", uri: server_uri}, context)
+
+    assert pending.status == :needs_confirmation
+    assert pending.resource.resource_uri == canonical_uri
+    assert [ref] = pending.confirmation["params_summary"]["resource_refs"]
+    assert ref["resource_uri"] == canonical_uri
+    assert ref["origin_kind"] == "mcp_resource"
+    assert ref["operation_class"] == "mcp_resource_read"
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending.confirmation_id, remember_scope: "mcp_server", reason: "ok"},
+               context
+             )
+
+    assert approved.status == :completed
+    assert get_in(approved.confirmation, ["operator_resolution", "target_resumed?"])
+    assert get_in(approved.confirmation, ["operator_resolution", "target_status"]) == "completed"
+    assert {:ok, [%{"scope" => %{"kind" => "mcp_server"}}]} = Grants.list()
+
+    assert {:ok, completed} =
+             Runner.run("mcp_read_resource", %{server_id: "demo", uri: server_uri}, context)
+
+    assert completed.status == :completed
+    assert completed.resource.resource_uri == canonical_uri
+    assert [%{"text_preview" => "hello from mcp"}] = completed.resource.contents
+
+    audit = File.read!(Path.join([root, "mcp", "audit", audit_file()]))
+    assert audit =~ "mcp_read_resource"
+    assert audit =~ canonical_uri
+    refute audit =~ "hello from mcp"
     refute audit =~ "secret-token"
   end
 
@@ -103,6 +150,17 @@ defmodule AllbertAssist.Actions.McpActionsTest do
 
           "resources/list" ->
             %{"resources" => [%{"uri" => "file:///demo.md", "name" => "demo"}]}
+
+          "resources/read" ->
+            %{
+              "contents" => [
+                %{
+                  "uri" => request["params"]["uri"],
+                  "mimeType" => "text/plain",
+                  "text" => "hello from mcp"
+                }
+              ]
+            }
         end
 
       response = Jason.encode!(%{"jsonrpc" => "2.0", "id" => request["id"], "result" => result})

@@ -50,6 +50,12 @@ defmodule AllbertAssist.Resources.Scope do
   @spec skill_resource_id(term()) :: t()
   def skill_resource_id(value), do: new!(:skill_resource_id, value)
 
+  @spec mcp_server(term()) :: t()
+  def mcp_server(value), do: new!(:mcp_server, value)
+
+  @spec mcp_tool(term()) :: t()
+  def mcp_tool(value), do: new!(:mcp_tool, value)
+
   @spec to_map(t()) :: map()
   def to_map(%__MODULE__{} = scope) do
     %{kind: scope.kind, value: scope.value}

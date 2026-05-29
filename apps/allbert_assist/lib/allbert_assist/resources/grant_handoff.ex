@@ -22,7 +22,11 @@ defmodule AllbertAssist.Resources.GrantHandoff do
     "source-profile" => "source_profile",
     "source_profile" => "source_profile",
     "package-target-root" => "package_target_root",
-    "package_target_root" => "package_target_root"
+    "package_target_root" => "package_target_root",
+    "mcp-server" => "mcp_server",
+    "mcp_server" => "mcp_server",
+    "mcp-tool" => "mcp_tool",
+    "mcp_tool" => "mcp_tool"
   }
 
   @spec find_applicable([map()] | nil, atom(), map()) ::

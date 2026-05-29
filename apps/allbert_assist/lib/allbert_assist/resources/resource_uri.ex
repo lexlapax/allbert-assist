@@ -6,12 +6,14 @@ defmodule AllbertAssist.Resources.ResourceURI do
   not imply that a scheme has an executor.
   """
 
-  @unsupported_schemes ~w[mcp agent agent+https]
+  @unsupported_schemes ~w[agent agent+https]
 
   @type derived_fields :: %{
-          origin_kind: atom(),
-          canonical_id: String.t(),
-          unsupported?: boolean()
+          required(:origin_kind) => atom(),
+          required(:canonical_id) => String.t(),
+          required(:unsupported?) => boolean(),
+          optional(:server_id) => String.t(),
+          optional(:server_resource_uri) => String.t()
         }
 
   @spec file(term()) :: {:ok, String.t()}
@@ -91,6 +93,17 @@ defmodule AllbertAssist.Resources.ResourceURI do
   @spec package!(term(), term()) :: String.t()
   def package!(manager, package), do: bang(package(manager, package))
 
+  @spec mcp(term(), term()) :: {:ok, String.t()} | {:error, term()}
+  def mcp(server_id, server_resource_uri) do
+    with {:ok, server_id} <- mcp_server_id(server_id),
+         {:ok, server_resource_uri} <- non_empty(server_resource_uri, :missing_mcp_resource_uri) do
+      {:ok, "mcp://#{server_id}/#{encode_segment(server_resource_uri)}"}
+    end
+  end
+
+  @spec mcp!(term(), term()) :: String.t()
+  def mcp!(server_id, server_resource_uri), do: bang(mcp(server_id, server_resource_uri))
+
   @spec allbert_home(term()) :: {:ok, String.t()} | {:error, term()}
   def allbert_home(path) do
     with {:ok, path} <- non_empty(path, :missing_allbert_home_path) do
@@ -152,6 +165,27 @@ defmodule AllbertAssist.Resources.ResourceURI do
     if scheme(value) == "skill", do: normalize(value), else: skill_resource(value)
   end
 
+  def scope_uri(:mcp_resource, :mcp_server, value, _resource_uri) do
+    with {:ok, server_id} <- mcp_server_id(value) do
+      {:ok, "mcp://#{server_id}/"}
+    end
+  end
+
+  def scope_uri(:mcp_resource, :mcp_tool, value, _resource_uri) do
+    with {:ok, value} <- non_empty(value, :missing_mcp_tool_scope) do
+      case String.split(value, ":", parts: 2) do
+        [server_id, tool_name] ->
+          with {:ok, server_id} <- mcp_server_id(server_id),
+               {:ok, tool_name} <- non_empty(tool_name, :missing_mcp_tool_name) do
+            {:ok, "mcp://#{server_id}/#{encode_segment("tools/" <> tool_name)}"}
+          end
+
+        _other ->
+          {:error, {:invalid_mcp_tool_scope, value}}
+      end
+    end
+  end
+
   def scope_uri(_origin_kind, kind, _value, _resource_uri),
     do: {:error, {:unsupported_scope_uri, kind}}
 
@@ -205,6 +239,8 @@ defmodule AllbertAssist.Resources.ResourceURI do
 
   defp normalize_parsed(%URI{scheme: "skill"} = uri, original),
     do: normalize_hierarchical(uri, original)
+
+  defp normalize_parsed(%URI{scheme: "mcp"} = uri, original), do: normalize_mcp(uri, original)
 
   defp normalize_parsed(%URI{scheme: scheme} = uri, original)
        when scheme in @unsupported_schemes,
@@ -270,8 +306,22 @@ defmodule AllbertAssist.Resources.ResourceURI do
     {:ok, %{origin_kind: :package_registry, canonical_id: canonical_id, unsupported?: false}}
   end
 
-  defp derive(%URI{scheme: "mcp"}, resource_uri),
-    do: {:ok, %{origin_kind: :mcp_resource, canonical_id: resource_uri, unsupported?: true}}
+  defp derive(%URI{scheme: "mcp", host: server_id, path: path}, resource_uri) do
+    server_resource_uri =
+      path
+      |> to_string()
+      |> String.trim_leading("/")
+      |> URI.decode()
+
+    {:ok,
+     %{
+       origin_kind: :mcp_resource,
+       canonical_id: resource_uri,
+       unsupported?: false,
+       server_id: server_id,
+       server_resource_uri: server_resource_uri
+     }}
+  end
 
   defp derive(%URI{scheme: scheme}, resource_uri) when scheme in ["agent", "agent+https"],
     do: {:ok, %{origin_kind: :agent_endpoint, canonical_id: resource_uri, unsupported?: true}}
@@ -342,6 +392,29 @@ defmodule AllbertAssist.Resources.ResourceURI do
   defp non_empty(value, error) do
     value = value |> to_string() |> String.trim()
     if value == "", do: {:error, error}, else: {:ok, value}
+  end
+
+  defp normalize_mcp(%URI{host: host, path: path}, original) do
+    with {:ok, server_id} <- mcp_server_id(host),
+         {:ok, path} <- non_empty(path, {:invalid_mcp_uri, original}) do
+      encoded =
+        path
+        |> String.trim_leading("/")
+        |> URI.decode()
+        |> encode_segment()
+
+      {:ok, "mcp://#{server_id}/#{encoded}"}
+    end
+  end
+
+  defp mcp_server_id(value) do
+    with {:ok, value} <- non_empty(value, :missing_mcp_server_id) do
+      if Regex.match?(~r/^[A-Za-z0-9_-]+$/, value) do
+        {:ok, value}
+      else
+        {:error, {:invalid_mcp_server_id, value}}
+      end
+    end
   end
 
   defp encode_ok({:ok, value}, fun), do: {:ok, fun.(value)}
