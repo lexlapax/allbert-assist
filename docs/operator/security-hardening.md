@@ -124,6 +124,21 @@ eval surfaces until their capability work lands.
   startup policy (explicit argv, secret-ref env, stderr separated from stdout,
   ADR 0009 bounds), and doctor redacted-envelope. MCP server mode is a separate
   later surface (v0.49b).
+- Tool discovery (v0.41, planned eval surface): discovery search egress stays
+  within `External.HttpPolicy` (SSRF, private/link-local IP block, bounded
+  timeout/body, redirect denial) and degrades to local-only when a registry is
+  unreachable; server `server.json` metadata and tool descriptions are never
+  authority (schema-not-authority parity with v0.40); a discovered server
+  connects only through the confirmation-gated `mcp_server_connect` consent
+  showing the exact untruncated command/URL (consent-before-connect); dangerous
+  run-command patterns are flagged; a tool-definition baseline hash detects
+  rug-pulls on reconnect; the background scan is opt-in / paused-by-default
+  (`mcp.discovery.enabled=false`) and writes only to a passive surface (no
+  unprompted messaging, no auto-connect). Planned eval rows:
+  `mcp-discovery-ssrf-001`, `-tool-poisoning-inert-001`,
+  `-rug-pull-detection-001`, `-supply-chain-command-flag-001`,
+  `-server-impersonation-001`, `-consent-before-connect-001`,
+  `-registry-unavailable-degrades-001`, `-schema-not-authority-001`.
 - Browser session state, navigation grants, screenshots, downloads, cookies,
   and page-content prompt injection.
 - Discord, Slack, WhatsApp, Signal, iMessage, and Matrix identity mapping,

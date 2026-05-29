@@ -179,6 +179,33 @@ tool/resource/call phrasing to the MCP actions. `AllbertAssist.Intent.Engine`
 and `AllbertAssist.Intent.Ranker` no longer treat `mcp://` as an unsupported
 resource marker. `agent://` and `agent+https://` remain unsupported.
 
+## Tool Discovery (planned, v0.41)
+
+v0.41 adds internet tool discovery on top of this v0.40 client; the authoritative
+design is `docs/adr/0048-tool-discovery-and-discovered-server-trust.md` and the
+milestone contract is `docs/plans/v0.41-plan.md`. Shape:
+
+- `find_tools` (orchestrator) fans out to `find_local_tools`
+  (`Actions.Registry.capabilities/0`, `Skills.Registry.list/1`, connected-MCP
+  `tools/list`) and `find_mcp_tools` (registry cascade) behind
+  `AllbertAssist.Tools.SourcePort`, returning normalized `ToolCandidate`s with
+  `usable_now?` / `requires`.
+- `find_mcp_tools` searches the official MCP Registry plus a no-auth aggregator
+  (PulseMCP) behind `AllbertAssist.Mcp.Registry.Provider`;
+  `mcp_fetch_server_manifest` normalizes `server.json` and `mcp_evaluate_server`
+  scores provenance, flags dangerous run commands, and records a tool-definition
+  baseline hash. All egress uses `External.HttpClient` / `HttpPolicy`; the
+  official registry is a non-durable cache (degrade to local-only when down).
+- A `:remote_mcp` candidate is inert until `mcp_server_connect` (permission
+  `:mcp_server_connect`, floor `:needs_confirmation`) runs a pre-config consent
+  showing the exact command/URL, writes `mcp.servers.<id>` via the v0.40 settings
+  path, and stores the baseline hash. Reconnect / `mcp_doctor_server` re-verify
+  the hash; a change is a rug-pull and forces re-consent. No auto-connect.
+- New permission classes: `:tool_discovery` (read-only) and `:mcp_server_connect`;
+  new settings namespace `mcp.discovery.*` (default-off). Background scanning is
+  an opt-in, paused `AllbertAssist.Jobs` job writing to a passive
+  `AllbertAssist.Surface` Discovery Suggestions panel.
+
 ## Out Of Scope (v0.40)
 
 MCP prompts, WebSocket transport, MCP Apps iframe UI, `agent://` execution,
