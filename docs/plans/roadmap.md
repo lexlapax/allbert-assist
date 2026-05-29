@@ -2294,11 +2294,11 @@ ADRs: `docs/adr/0049-development-gates-and-test-parallelization.md`,
 `docs/adr/0050-vendored-memento-compatibility-override.md`
 Developer guide: `docs/developer/test-strategy.md`
 
-Status: planned. Inserted after v0.40 when full `mix precommit` time became a
-developer-velocity blocker. This is a docs/methodology release before the next
+Status: implemented. Inserted after v0.40 when full `mix precommit` time became
+a developer-velocity blocker. This is a docs/methodology release before the next
 operator-facing capability milestone.
 
-Expected direction:
+Implemented outcomes:
 
 - Measure the current test suite and precommit shape with slowest-module reports
   and a resource-lane inventory.
@@ -2308,13 +2308,15 @@ Expected direction:
 - Define the isolation contract for per-test and per-partition `ALLBERT_HOME`,
   `DATABASE_PATH`, Settings Central roots, secret roots, memory roots, sandbox
   roots, tmp roots, and process names.
-- Define the future gate matrix: docs, focused, static, fast-local, serial-core,
-  release, and external-smoke gates.
+- Define and implement the gate matrix: docs, focused, static, fast-local,
+  serial-core, release, and external-smoke gates.
 - Define the implementation-plan annotation format so future milestone plans
   name parallel workstreams, serial barriers, gate evidence, and rejoin points
   before coding starts.
 - Preserve the authoritative release gate while making focused and fast local
   gates legitimate development evidence.
+- Add benchmarked `mix allbert.test fast-local` variants for quick pure-lane
+  feedback and high-coverage local core, StockSage, and web serial lanes.
 - Carry the temporary `vendor/memento` compatibility override needed for the
   current Jido stack on Elixir 1.19, and remove it when upstream publishes a
   compatible path.
@@ -2328,6 +2330,10 @@ Exit signal:
   gate requirements, plus which implementation/testing lanes may run in
   parallel versus serial, without rediscovering SQLite/app-env/home/process
   contention.
+- Final benchmark evidence records quick `fast-local` under the M1 target and
+  the combined high-coverage local gate under the 10 minute target; the
+  remaining web `WorkspaceLiveTest` long pole is explicitly left as
+  release-only `external_runtime_serial` work for a later plan.
 
 ## v0.42: Tool Discovery + MCP-First Integration Pack 1
 

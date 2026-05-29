@@ -137,7 +137,7 @@ Next milestones:
   identity slot and Active Memory milestone.
 - [docs/plans/v0.40-plan.md](docs/plans/v0.40-plan.md): implemented MCP
   client integration milestone.
-- [docs/plans/v0.41-plan.md](docs/plans/v0.41-plan.md): planned developer
+- [docs/plans/v0.41-plan.md](docs/plans/v0.41-plan.md): implemented developer
   velocity and parallel test methodology milestone, including the temporary
   Memento/Jido compatibility override recorded in ADR 0050.
 - [docs/developer/test-strategy.md](docs/developer/test-strategy.md): test
@@ -151,6 +151,7 @@ Common development loop:
 ```sh
 mix setup
 mix test
+mix allbert.test fast-local
 mix precommit
 mix phx.server
 ```

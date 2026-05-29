@@ -137,14 +137,21 @@ ADR 0050 before changing dependencies.
 | Docs | Docs-only changes. | `git diff --check` plus reference/link checks. |
 | Focused | Every implementation milestone. | Explicit test files named in the active plan/request-flow doc. |
 | Static | Code changes. | `mix compile --warnings-as-errors`, `mix format --check-formatted`, `mix credo --strict`, and Dialyzer when required. |
-| Fast local | Daily development feedback after v0.41 implementation. | Static checks plus proven async/partition-safe lanes. |
-| Serial core | VM-global lanes (SQLite, app env, Allbert Home, global processes, LiveView). | Serial within a partition, parallel across OS partitions (count from cores); security evals stay single-VM. |
-| Release | Manual validation/release closeout. | Full `mix precommit`-equivalent coverage plus required static/type gates. |
+| Fast local | Daily development feedback after v0.41 implementation. | `mix allbert.test fast-local`; add `--core-lanes --stocksage-lanes --web-lanes --partitions N` for the high-coverage local gate. |
+| Serial core | VM-global lanes (SQLite, app env, Allbert Home, global processes, LiveView). | `mix allbert.test serial-core --lane <lane> --partitions N`; serial within a partition, parallel across OS partitions. Security evals stay single-VM. |
+| Release | Manual validation/release closeout. | `mix allbert.test release`: full `mix precommit`-equivalent coverage plus Dialyzer. |
 | External smoke | Machine-dependent integrations. | Docker, browser, real MCP/provider checks, opt in. |
 
 Fast local gates are not release evidence. Do not hand off a release milestone
 until the release gate is clean, unless an exact environment blocker is recorded
 and the user accepts the deferral.
+
+When adding or moving tests, classify each file with one primary lane from
+`docs/developer/test-strategy.md`. Prefer the narrowest lane that describes the
+strongest shared resource in the file: pure code can stay `pure_async`; DB,
+app-env, Allbert Home/filesystem, named-process, and LiveView tests use their
+serial/partition lanes; security evals and external runtimes stay release-only
+unless a plan documents a stronger isolation story.
 
 ## Implementation Plan Readiness
 

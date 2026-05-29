@@ -8,8 +8,8 @@ Status: introduced for v0.41 planning. The taxonomy below is binding. M6 landed
 the developer gate command surface, and M7 lands executable lane classification:
 shared case-template defaults plus explicit primary tags for the plain
 `ExUnit.Case` tail. M8a/M8b land partitioned local gates for core and
-StockSage serial lanes; M9 closes the remaining web/closeout path. Each batch is
-validated against the v0.40 regression oracle.
+StockSage serial lanes; M9 adds the web `liveview_serial` lane and closeout
+evidence. Each batch is validated against the v0.40 regression oracle.
 
 ## Current Baseline
 
@@ -113,6 +113,12 @@ gate before it is accepted.
   treated as optional/no-op unless it has a measured target; proceed to M9 web
   partitioning and closeout rather than spending the release on low-value pure
   churn.
+- **2026-05-29 / after M9:** M9 improved coverage in the high-coverage local
+  gate by adding partitioned web `liveview_serial` files while staying under the
+  10 minute local target. The current slowest web report confirms that
+  `WorkspaceLiveTest` remains the release long pole, but it stays
+  `external_runtime_serial` until a later plan can split or passivate its
+  runtime-heavy flows without weakening coverage.
 
 ### v0.41 M1 Benchmark Attempt 1 - 2026-05-29
 
@@ -469,6 +475,67 @@ gate before it is accepted.
   SQLite connection logs as M9 optimization signals, but do not block M8b on
   them because isolated DB/home roots and partition tests remained green.
 
+### v0.41 M9 Web Lane Closeout Benchmark - 2026-05-29
+
+- Commit: v0.41 M9 web lane closeout commit.
+- Machine: `Darwin Sandeeps-Mac-Studio.local 25.5.0` on Apple M1 Ultra;
+  20 physical / 20 logical CPUs.
+- Runtime: Elixir 1.19.5 (compiled with Erlang/OTP 28), running on
+  Erlang/OTP 29.0.1.
+- Cache state: warm build after M9 task compilation.
+- Commands:
+  - `env MIX_ENV=test mix compile --warnings-as-errors`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test fast-local`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test fast-local --web-lanes --partitions 4`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test fast-local --core-lanes --stocksage-lanes --web-lanes --partitions 4`
+  - `/usr/bin/time -p env MIX_ENV=test ALLBERT_HOME=/private/tmp/allbert_v041_m9_web_slowest_home DATABASE_PATH=/private/tmp/allbert_v041_m9_web_slowest_home/db/allbert_test.db mix test --slowest-modules 10 --slowest 10` from `apps/allbert_assist_web` after the shared core migration prep.
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test release`
+- Release wall-clock / counts: final `mix allbert.test release` passed at
+  `real 1263.32` seconds (`user 0.77`, `sys 4.47`). The release command runs
+  `mix precommit` and then `mix dialyzer`. Counts: core 1146 tests, 0 failures,
+  2 skipped, 717.3 seconds; web 107 tests, 0 failures, 306.0 seconds;
+  StockSage 197 tests, 0 failures, 197.9 seconds; channel plugins 2 tests,
+  0 failures, 0.03 seconds; Dialyzer 0 errors.
+- Fast-local wall-clock / counts:
+  - quick default passed at `real 22.94` seconds (`user 0.77`,
+    `sys 3.15`): static checks plus reconciled `pure_async` lanes, 122 tests,
+    0 failures.
+  - web high-coverage form passed at `real 55.44` seconds (`user 1.03`,
+    `sys 3.73`): static checks, 122 pure-lane tests, and partitioned web
+    `liveview_serial`, 160 executed tests, 0 failures.
+  - final combined local high-coverage form passed at `real 393.79` seconds
+    (`user 1.65`, `sys 4.86`): static checks, 122 pure-lane tests, partitioned
+    core DB/app-env/home/process lanes, partitioned StockSage DB/app-env/process
+    lanes, and partitioned web `liveview_serial`, 975 executed tests,
+    0 failures.
+- Lane breakdown:
+  - web `liveview_serial --partitions 4`: passed at `real 55.44`; partition
+    counts 7 / 5 / 12 / 14 tests, 0 failures.
+  - combined high-coverage local gate adds those 38 web tests to the M8b
+    937-test local gate while remaining under the M8/M9 <=10 minute target.
+- Slowest modules/tests: current web slowest report passed 107 tests,
+  0 failures at `real 307.60` seconds. Slowest modules:
+  `AllbertAssistWeb.WorkspaceLiveTest` 256.6s,
+  `AllbertAssistWeb.ThemeControllerTest` 18.3s, and
+  `AllbertAssistWeb.Workspace.AccessibilityTest` 14.2s. Slowest tests:
+  Settings Central approve/deny/revoke 20.5s, settings destination 14.8s,
+  provider key storage 10.9s, three-tab tile fanout 10.6s, layout override
+  10.4s, AppBar Canvas destination links 10.0s, and runtime approval handoffs
+  9-10s.
+- Planned share: M9 must add web partition-safe coverage, record the after-done
+  benchmark, keep quick fast-local under the M1 <=8 minute closeout target, and
+  keep the combined non-security/non-external local gate under the M8/M9
+  <=10 minute target.
+- Actual delta: effective. Quick `fast-local` closes at 22.94s versus the M1
+  34.46s fast-local-equivalent baseline. The final combined local gate covers
+  975 local tests in 6.6 minutes, still well below the target; adding the web
+  lane costs about 20 seconds versus M8b while improving local coverage.
+- Decision: M9 is accepted with a green release oracle. v0.41 can close; future
+  web efficiency work should split or passivate `WorkspaceLiveTest` under a new
+  plan rather than smuggling it into fast-local.
+- Follow-up/reorder: no reorder. The remaining release long pole is documented
+  as `external_runtime_serial` web work, not a v0.41 fast-local blocker.
+
 ## Lane Taxonomy
 
 Every test file gets one primary lane.
@@ -524,7 +591,7 @@ The M2 taxonomy lock freezes this default mapping:
 | --- | --- | --- | --- |
 | `AllbertAssist.DataCase` | `db_serial` | `false` | `use AllbertAssist.DataCase, async: true, lane: :db_partition_safe` only after partition ownership is proven. |
 | `StockSage.DataCase` | `db_serial` | `false` | Same as core DataCase, with plugin table cleanup remaining serial within a partition. |
-| `AllbertAssistWeb.ConnCase` | `liveview_serial` | `false` | `lane: :db_partition_safe` only for non-LiveView controller tests with DB partition proof. |
+| `AllbertAssistWeb.ConnCase` | `liveview_serial` | `false` | Use an explicit `lane:` only when a narrower non-LiveView resource class is proven. |
 | `AllbertAssist.SecurityEvalCase` | `security_eval_serial` | `false` | No async promotion in v0.41; evals stay release/serial. |
 | Plain `ExUnit.Case` | explicit per file | declared by file | Add exactly one primary `@moduletag` before the file can join a named lane. |
 
@@ -583,7 +650,7 @@ invocation per partition `1..N`; `N` derives from the measured core count):
 
 ```sh
 # DB lane (separate file per partition)
-MIX_TEST_PARTITION=1 ALLBERT_HOME=/tmp/allbert-p1 DATABASE_PATH=/tmp/allbert-p1.db mix test --partitions N --only db_partition_safe
+MIX_TEST_PARTITION=1 ALLBERT_HOME=/tmp/allbert-p1 DATABASE_PATH=/tmp/allbert-p1.db mix test --partitions N --only db_serial
 
 # Any other VM-global lane — same lane-agnostic harness, own roots per partition
 MIX_TEST_PARTITION=1 ALLBERT_HOME=/tmp/allbert-p1 DATABASE_PATH=/tmp/allbert-p1.db mix test --partitions N --only app_env_serial
@@ -592,11 +659,14 @@ MIX_TEST_PARTITION=1 ALLBERT_HOME=/tmp/allbert-p1 DATABASE_PATH=/tmp/allbert-p1.
 MIX_TEST_PARTITION=1 ALLBERT_HOME=/tmp/allbert-p1 DATABASE_PATH=/tmp/allbert-p1.db mix test --partitions N --only liveview_serial
 ```
 
-The implementation may wrap this in a Mix alias or script, but the invariant is
-fixed and lane-agnostic: every partition has its own database, Allbert Home,
-migrated schema, and derived runtime roots. `external_runtime_serial` stays an
-explicit smoke lane — it touches shared OS resources (ports, Docker, real
-endpoints) that can collide even across partitions.
+The implementation wraps this in `mix allbert.test` so owner-specific test
+support loads from the right app: core/StockSage serial lanes run from the core
+app, while web `liveview_serial` runs from the web app via
+`mix allbert.test fast-local --web-lanes --partitions N`. The invariant is fixed:
+every partition has its own database, Allbert Home, migrated schema, and derived
+runtime roots. `external_runtime_serial` stays an explicit smoke lane — it
+touches shared OS resources (ports, Docker, real endpoints) that can collide even
+across partitions.
 
 Sparse lanes may produce an empty partition. Mix intentionally exits non-zero
 when `--only <lane>` runs no tests; `mix allbert.test serial-core` treats that
@@ -647,7 +717,7 @@ monolithic precommit order hides that by migrating through the core app first.
 | Docs | Docs-only changes. | `mix allbert.test docs` (`git diff --check` and reference checks when configured). |
 | Focused | Every implementation milestone. | `mix allbert.test focused -- <files...>` using explicit files named in the plan/request-flow doc. |
 | Static | Code changes. | compile warning gate, formatter check, Credo strict, Dialyzer when required. |
-| Fast local | Daily development feedback. | `mix allbert.test fast-local`: static checks plus proven pure async lanes. After M8a/M8b, `mix allbert.test fast-local --core-lanes --stocksage-lanes --partitions N` adds partitioned core DB/app-env/home/process lanes and StockSage DB/app-env/process lanes. |
+| Fast local | Daily development feedback. | `mix allbert.test fast-local`: static checks plus proven pure async lanes. After M9, `mix allbert.test fast-local --core-lanes --stocksage-lanes --web-lanes --partitions N` adds partitioned core DB/app-env/home/process lanes, StockSage DB/app-env/process lanes, and web `liveview_serial`. |
 | Serial core | VM-global lanes (DB, app env, home, process, LiveView). | `mix allbert.test serial-core --lane <lane> --partitions N`; serial *within* a partition, parallel *across* OS partitions. Security evals + external smokes stay single-VM / opt-in. |
 | Release | Manual validation/release handoff. | `mix allbert.test release`: full precommit-equivalent coverage plus Dialyzer and security evals. |
 | External smoke | Machine-dependent integrations. | `mix allbert.test external-smoke -- <smoke-name>` for explicitly opted-in smokes. M6 implements Docker sandbox smokes; later browser/MCP/provider smokes must add their concrete command before use. |
@@ -720,7 +790,7 @@ post-M7 reordered order:
 | M8a | Core intent/runtime DB/app-env/process hotspots. | Partitioned local lane shrinks the core slowest hotspot without flakes. |
 | M8b | StockSage objective/action DB hotspots. | Partitioned plugin lane shrinks StockSage slowest hotspot without flakes. |
 | M8c | Existing `pure_async` lane cleanup and small pure promotions, only where the benchmark stays green or improves. | Optional/no-op after M8b unless a measured regression appears; avoid low-value churn. |
-| M9 | Web LiveView/ConnCase partitioning, final metrics, and closeout docs. | Final fast-local target met or the remaining gap is documented. |
+| M9 | Web LiveView/ConnCase partitioning, final metrics, and closeout docs. | Final fast-local target met; remaining `WorkspaceLiveTest` release long pole documented for a future plan. |
 
 Work in reviewable batches. Each batch must reproduce the v0.40 oracle green set
 through the full release gate, and run its async/partition lane repeatedly within
