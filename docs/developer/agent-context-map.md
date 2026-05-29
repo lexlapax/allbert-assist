@@ -309,8 +309,10 @@ Do not load every section by default.
   Allbert Home, SQLite database, Settings Central roots, secrets roots, memory
   roots, sandbox roots, tmp roots, and process names. Also adds the
   implementation-plan annotation contract for parallel workstreams, serial
-  barriers, gate evidence, and rejoin points. No operator-facing assistant
-  capability.
+  barriers, gate evidence, and rejoin points, then migrates the existing suite
+  onto those lanes with benchmark records after each implementation milestone
+  and adaptive reordering when efficiency does not improve. No operator-facing
+  assistant capability.
 - v0.42 (planned): Tool Discovery + MCP-First Integration Pack 1. Ships
   `find_tools` (local tools + internet MCP-registry search behind a provider
   port), `mcp_fetch_server_manifest` / `mcp_evaluate_server`, and the

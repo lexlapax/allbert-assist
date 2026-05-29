@@ -28,14 +28,69 @@ these with an authoritative census):
 - partition-readiness is partial, not greenfield: `config/test.exs` already
   derives `DATABASE_PATH` from env vars; `MIX_TEST_PARTITION` is only a comment
 
-The v0.40 closeout commit (`ed84a73`) is the regression oracle: its full
-`mix precommit` green set (1146 + 107 + 197 + 2, 0 failures) is what every
-migration batch must reproduce through the full release gate, and the monolithic
-v0.40 serial precommit stays runnable as the fallback gate for flake triage.
+The v0.40 closeout commit on current `main` (`f81d13d`) is the regression
+oracle: its full `mix precommit` green set (1146 + 107 + 197 + 2, 0 failures) is
+what every migration batch must reproduce through the full release gate, and the
+monolithic v0.40 serial precommit stays runnable as the fallback gate for flake
+triage.
 
 M1 of v0.41 must replace this preliminary baseline with an authoritative
 inventory containing file path, owner, case template, async setting, tags, timing,
 and resource classes.
+
+## Benchmark Records And Reorder Log
+
+v0.41 treats developer efficiency as release evidence. Benchmark records are
+kept here during implementation so humans and agents can compare deltas without
+reconstructing terminal scrollback.
+
+Required cadence:
+
+- **M1 BEFORE baseline:** v0.40-equivalent serial release run, fast-local
+  equivalent, per-lane breakdown, and slowest-module/test reports.
+- **After M6, M7, M8, and M9:** benchmark delta versus the previous
+  implementation milestone and versus M1.
+- **M9 closeout:** after-done benchmark versus M1, plus the target-met or
+  target-gap decision.
+
+Each benchmark record must capture:
+
+- milestone or batch id, commit SHA, date/time, operator/machine label, OS,
+  CPU/core count, Elixir/Erlang versions, and warm/cold cache note
+- exact command(s), including `ALLBERT_HOME`, `DATABASE_PATH`, partition count,
+  lane filters, and any `--slowest`/`--slowest-modules` values
+- wall-clock time, test counts, failures, skips, lane counts, and top slowest
+  modules/tests
+- planned efficiency share for the milestone and the actual delta
+- interpretation: effective, ineffective, or correctness-blocked
+
+Use this template for each entry:
+
+```md
+### v0.41 <M#/batch> Benchmark - YYYY-MM-DD
+
+- Commit:
+- Machine:
+- Cache state:
+- Commands:
+- Release wall-clock / counts:
+- Fast-local wall-clock / counts:
+- Lane breakdown:
+- Slowest modules/tests:
+- Planned share:
+- Actual delta:
+- Decision:
+- Follow-up/reorder:
+```
+
+### Reorder Log
+
+Record any milestone or batch reorder here. A reorder is required when the latest
+benchmark misses its planned share without shrinking its targeted hotspot, or
+when `--slowest-modules` shows that the dominant hotspot is not scheduled next.
+Reorders may change batch order only inside the correctness constraint: every
+batch must still reproduce the v0.40 oracle green set through the full release
+gate before it is accepted.
 
 ## Lane Taxonomy
 
@@ -45,6 +100,7 @@ Every test file gets one primary lane.
 | --- | --- | --- |
 | `pure_async` | Pure or locally-owned tests with no global runtime resources. | Async in one VM. |
 | `db_serial` | Uses shared Repo/SQLite sandbox or database-backed contexts. | Serial unless partition-isolated. |
+| `db_partition_safe` | Database-backed tests proven safe with per-partition database/home roots. | OS-process partitions only. |
 | `app_env_serial` | Mutates `Application` env, config, or compile/runtime app state. | Serial unless helper scopes and restores ownership. |
 | `home_fs_serial` | Mutates Allbert Home, settings, secrets, memory, sandbox, plugin, or tmp roots. | Serial unless roots are unique per test/partition. |
 | `global_process_serial` | Uses fixed process names, registries, PubSub topics, supervisors, or singleton restart behavior. | Serial unless names are unique and owned. |
@@ -109,10 +165,10 @@ Allbert keeps `DataCase` and `ConnCase` serial by default inside one BEAM VM.
 DB parallelism requires OS-process partitioning:
 
 ```sh
-MIX_TEST_PARTITION=1 DATABASE_PATH=/tmp/allbert-p1.db ALLBERT_HOME=/tmp/allbert-p1 mix test --partitions 4
-MIX_TEST_PARTITION=2 DATABASE_PATH=/tmp/allbert-p2.db ALLBERT_HOME=/tmp/allbert-p2 mix test --partitions 4
-MIX_TEST_PARTITION=3 DATABASE_PATH=/tmp/allbert-p3.db ALLBERT_HOME=/tmp/allbert-p3 mix test --partitions 4
-MIX_TEST_PARTITION=4 DATABASE_PATH=/tmp/allbert-p4.db ALLBERT_HOME=/tmp/allbert-p4 mix test --partitions 4
+MIX_TEST_PARTITION=1 DATABASE_PATH=/tmp/allbert-p1.db ALLBERT_HOME=/tmp/allbert-p1 mix test --partitions 4 --only db_partition_safe
+MIX_TEST_PARTITION=2 DATABASE_PATH=/tmp/allbert-p2.db ALLBERT_HOME=/tmp/allbert-p2 mix test --partitions 4 --only db_partition_safe
+MIX_TEST_PARTITION=3 DATABASE_PATH=/tmp/allbert-p3.db ALLBERT_HOME=/tmp/allbert-p3 mix test --partitions 4 --only db_partition_safe
+MIX_TEST_PARTITION=4 DATABASE_PATH=/tmp/allbert-p4.db ALLBERT_HOME=/tmp/allbert-p4 mix test --partitions 4 --only db_partition_safe
 ```
 
 The implementation may wrap this in a Mix alias or script, but the invariant is
