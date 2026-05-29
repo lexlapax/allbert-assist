@@ -99,7 +99,7 @@ defmodule AllbertAssist.Settings.Secrets do
   end
 
   def validate_secret_ref(secret_ref) when is_binary(secret_ref) do
-    if provider_ref?(secret_ref) or channel_ref?(secret_ref) do
+    if provider_ref?(secret_ref) or channel_ref?(secret_ref) or mcp_ref?(secret_ref) do
       :ok
     else
       {:error, {:invalid_secret_ref, secret_ref}}
@@ -300,7 +300,15 @@ defmodule AllbertAssist.Settings.Secrets do
         _other -> []
       end
 
-    (provider_statuses ++ channel_statuses)
+    mcp_statuses =
+      plaintext
+      |> get_in(["secrets", "mcp"])
+      |> case do
+        servers when is_map(servers) -> Enum.flat_map(servers, &mcp_secret_status/1)
+        _other -> []
+      end
+
+    (provider_statuses ++ channel_statuses ++ mcp_statuses)
     |> Enum.filter(fn %{secret_ref: ref} ->
       is_nil(namespace) or String.starts_with?(ref, namespace)
     end)
@@ -323,6 +331,16 @@ defmodule AllbertAssist.Settings.Secrets do
   end
 
   defp channel_secret_status(_entry), do: []
+
+  defp mcp_secret_status({server, attrs}) when is_map(attrs) do
+    attrs
+    |> Enum.filter(fn {_name, entry} -> is_map(entry) end)
+    |> Enum.map(fn {name, _entry} ->
+      %{secret_ref: "secret://mcp/#{server}/#{name}", status: :configured}
+    end)
+  end
+
+  defp mcp_secret_status(_entry), do: []
 
   defp ensure_plaintext_shape(%{"version" => 1, "secrets" => secrets}) when is_map(secrets) do
     %{"version" => 1, "secrets" => secrets}
@@ -366,6 +384,13 @@ defmodule AllbertAssist.Settings.Secrets do
     end
   end
 
+  defp mcp_from_ref(secret_ref) do
+    case Regex.run(~r/^secret:\/\/mcp\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_-]+)$/, secret_ref) do
+      [_, server, name] -> {:ok, server, name}
+      _match -> {:error, {:invalid_secret_ref, secret_ref}}
+    end
+  end
+
   defp plaintext_secret_path(secret_ref) do
     cond do
       provider_ref?(secret_ref) ->
@@ -376,6 +401,11 @@ defmodule AllbertAssist.Settings.Secrets do
       channel_ref?(secret_ref) ->
         with {:ok, channel, name} <- channel_from_ref(secret_ref) do
           {:ok, ["channels", channel, name]}
+        end
+
+      mcp_ref?(secret_ref) ->
+        with {:ok, server, name} <- mcp_from_ref(secret_ref) do
+          {:ok, ["mcp", server, name]}
         end
 
       true ->
@@ -408,6 +438,11 @@ defmodule AllbertAssist.Settings.Secrets do
     do: Regex.match?(~r/^secret:\/\/channels\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+$/, secret_ref)
 
   defp channel_ref?(_secret_ref), do: false
+
+  defp mcp_ref?(secret_ref) when is_binary(secret_ref),
+    do: Regex.match?(~r/^secret:\/\/mcp\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+$/, secret_ref)
+
+  defp mcp_ref?(_secret_ref), do: false
 
   defp namespace(opts) when is_list(opts), do: Keyword.get(opts, :namespace)
   defp namespace(namespace) when is_binary(namespace), do: namespace

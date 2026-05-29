@@ -71,6 +71,49 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
 
     assert {:ok, ["qwen2.5-coder", "qwen-coder"]} =
              Settings.get("model_profiles.coding_local.aliases")
+
+    json_list_output =
+      capture_io(fn ->
+        assert :ok =
+                 SettingsTask.run([
+                   "set",
+                   "mcp.stdio.allowed_launchers",
+                   ~s(["npx","uvx"])
+                 ])
+      end)
+
+    assert json_list_output =~ "Updated: mcp.stdio.allowed_launchers=[\"npx\", \"uvx\"]"
+    assert {:ok, ["npx", "uvx"]} = Settings.get("mcp.stdio.allowed_launchers")
+
+    assert {:ok, _setting} = Settings.put("mcp.servers.demo.enabled", false, %{audit?: false})
+
+    json_map_output =
+      capture_io(fn ->
+        assert :ok =
+                 SettingsTask.run([
+                   "set",
+                   "mcp.servers.demo.env",
+                   ~s({"PATH":"/usr/bin"})
+                 ])
+      end)
+
+    assert json_map_output =~ "Updated: mcp.servers.demo.env=%{\"PATH\" => \"/usr/bin\"}"
+    assert {:ok, %{"PATH" => "/usr/bin"}} = Settings.get("mcp.servers.demo.env")
+
+    json_allowlist_output =
+      capture_io(fn ->
+        assert :ok =
+                 SettingsTask.run([
+                   "set",
+                   "mcp.servers.demo.tool_allowlist",
+                   ~s(["search","read"])
+                 ])
+      end)
+
+    assert json_allowlist_output =~
+             "Updated: mcp.servers.demo.tool_allowlist=[\"search\", \"read\"]"
+
+    assert {:ok, ["search", "read"]} = Settings.get("mcp.servers.demo.tool_allowlist")
   end
 
   test "provider list and set-key use stdin and redact raw key", %{root: root} do

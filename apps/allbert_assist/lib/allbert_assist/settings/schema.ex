@@ -53,6 +53,18 @@ defmodule AllbertAssist.Settings.Schema do
     "providers.*.endpoint_kind",
     "providers.*.base_url",
     "providers.*.api_key_ref",
+    "mcp.stdio.allowed_launchers",
+    "mcp.servers.*.enabled",
+    "mcp.servers.*.transport",
+    "mcp.servers.*.command",
+    "mcp.servers.*.args",
+    "mcp.servers.*.env",
+    "mcp.servers.*.base_url",
+    "mcp.servers.*.headers",
+    "mcp.servers.*.auth_ref",
+    "mcp.servers.*.tool_allowlist",
+    "mcp.servers.*.tool_denylist",
+    "mcp.servers.*.confirmation",
     "model_profiles.*.provider",
     "model_profiles.*.model",
     "model_profiles.*.aliases",
@@ -83,6 +95,8 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.stocksage_write",
     "permissions.stocksage_analyze",
     "permissions.stocksage_evidence_fetch",
+    "permissions.mcp_tool_call",
+    "permissions.mcp_resource_read",
     "execution.local.enabled",
     "execution.local.allowed_roots",
     "execution.local.allowed_commands",
@@ -1111,6 +1125,20 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
+    "permissions.mcp_tool_call" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["needs_confirmation", "denied"]
+    },
+    "permissions.mcp_resource_read" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
     "execution.local.enabled" => %{
       type: :boolean,
       default: false,
@@ -1658,6 +1686,12 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       min: 1,
       max: 100_000
+    },
+    "mcp.stdio.allowed_launchers" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
     }
   }
 
@@ -1689,6 +1723,20 @@ defmodule AllbertAssist.Settings.Schema do
     "temperature" => %{type: :temperature},
     "max_tokens" => %{type: :positive_integer},
     "timeout_ms" => %{type: :timeout_ms}
+  }
+
+  @mcp_server_schema %{
+    "enabled" => %{type: :boolean},
+    "transport" => %{type: :enum, allowed_values: ["stdio", "sse", "streamable_http"]},
+    "command" => %{type: :string},
+    "args" => %{type: :string_list},
+    "env" => %{type: :mcp_secret_ref_string_map},
+    "base_url" => %{type: :url_or_nil},
+    "headers" => %{type: :mcp_secret_ref_string_map},
+    "auth_ref" => %{type: :mcp_secret_ref_or_nil},
+    "tool_allowlist" => %{type: :string_list},
+    "tool_denylist" => %{type: :string_list},
+    "confirmation" => %{type: :enum, allowed_values: ["required", "denied"]}
   }
 
   @defaults %{
@@ -1857,7 +1905,15 @@ defmodule AllbertAssist.Settings.Schema do
       "dynamic_integration" => "needs_confirmation",
       "stocksage_write" => "allowed",
       "stocksage_analyze" => "needs_confirmation",
-      "stocksage_evidence_fetch" => "allowed"
+      "stocksage_evidence_fetch" => "allowed",
+      "mcp_tool_call" => "needs_confirmation",
+      "mcp_resource_read" => "allowed"
+    },
+    "mcp" => %{
+      "servers" => %{},
+      "stdio" => %{
+        "allowed_launchers" => []
+      }
     },
     "plugins" => %{
       "enabled" => [],
@@ -2141,6 +2197,7 @@ defmodule AllbertAssist.Settings.Schema do
          :ok <- validate_static_keys(settings),
          :ok <- validate_providers(settings),
          :ok <- validate_model_profiles(settings),
+         :ok <- validate_mcp(settings),
          :ok <- validate_runtime_refs(settings),
          :ok <- validate_dynamic_codegen(settings),
          :ok <- validate_templates(settings),
@@ -2197,6 +2254,9 @@ defmodule AllbertAssist.Settings.Schema do
 
       Regex.match?(~r/^model_profiles\.[^.]+\.[^.]+$/, key) ->
         key |> split_key() |> List.last() |> then(&Map.fetch!(@model_profile_schema, &1))
+
+      Regex.match?(~r/^mcp\.servers\.[^.]+\.[^.]+$/, key) ->
+        key |> split_key() |> List.last() |> then(&Map.fetch!(@mcp_server_schema, &1))
     end
   end
 
@@ -2261,6 +2321,116 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp validate_model_profile_provider_constraint(_name, _attrs, _settings), do: :ok
+
+  defp validate_mcp(settings) do
+    with :ok <- validate_mcp_launchers(settings) do
+      settings
+      |> get_in(["mcp", "servers"])
+      |> case do
+        servers when is_map(servers) ->
+          with :ok <- validate_dynamic_map(servers, @mcp_server_schema, "mcp.servers", settings) do
+            validate_mcp_server_constraints(servers, settings)
+          end
+
+        other ->
+          {:error, {:invalid_setting, "mcp.servers", {:expected_map, other}}}
+      end
+    end
+  end
+
+  defp validate_mcp_launchers(settings) do
+    launchers = get_dotted(settings, "mcp.stdio.allowed_launchers") || []
+
+    if Enum.all?(launchers, &safe_mcp_launcher?/1) do
+      :ok
+    else
+      {:error, {:invalid_setting, "mcp.stdio.allowed_launchers", :unsafe_launcher}}
+    end
+  end
+
+  defp validate_mcp_server_constraints(servers, settings) do
+    Enum.reduce_while(servers, :ok, fn {name, attrs}, :ok ->
+      case validate_mcp_server_constraint(name, attrs, settings) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp validate_mcp_server_constraint(_name, %{"enabled" => true} = attrs, settings) do
+    case Map.get(attrs, "transport") do
+      "stdio" -> validate_enabled_stdio_mcp_server(attrs, settings)
+      "sse" -> validate_enabled_http_mcp_server(attrs)
+      "streamable_http" -> validate_enabled_http_mcp_server(attrs)
+      other -> {:error, {:invalid_setting, "mcp.servers.*.transport", {:required, other}}}
+    end
+  end
+
+  defp validate_mcp_server_constraint(_name, attrs, _settings) when is_map(attrs) do
+    validate_disabled_mcp_server_branches(attrs)
+  end
+
+  defp validate_mcp_server_constraint(name, _attrs, _settings),
+    do: {:error, {:invalid_setting, "mcp.servers.#{name}", :expected_map}}
+
+  defp validate_enabled_stdio_mcp_server(attrs, settings) do
+    with :ok <- require_mcp_string(attrs, "command"),
+         :ok <- validate_stdio_launcher_allowed(Map.fetch!(attrs, "command"), settings),
+         :ok <- forbid_mcp_field(attrs, "base_url"),
+         :ok <- forbid_mcp_field(attrs, "headers") do
+      :ok
+    end
+  end
+
+  defp validate_enabled_http_mcp_server(attrs) do
+    with :ok <- require_mcp_string(attrs, "base_url"),
+         :ok <- forbid_mcp_field(attrs, "command"),
+         :ok <- forbid_mcp_field(attrs, "args"),
+         :ok <- forbid_mcp_field(attrs, "env") do
+      :ok
+    end
+  end
+
+  defp validate_disabled_mcp_server_branches(%{"transport" => "stdio"} = attrs) do
+    with :ok <- forbid_mcp_field(attrs, "base_url") do
+      forbid_mcp_field(attrs, "headers")
+    end
+  end
+
+  defp validate_disabled_mcp_server_branches(%{"transport" => transport} = attrs)
+       when transport in ["sse", "streamable_http"] do
+    with :ok <- forbid_mcp_field(attrs, "command"),
+         :ok <- forbid_mcp_field(attrs, "args") do
+      forbid_mcp_field(attrs, "env")
+    end
+  end
+
+  defp validate_disabled_mcp_server_branches(_attrs), do: :ok
+
+  defp require_mcp_string(attrs, field) do
+    case Map.get(attrs, field) do
+      value when is_binary(value) and value != "" -> :ok
+      value -> {:error, {:invalid_setting, "mcp.servers.*.#{field}", {:required, value}}}
+    end
+  end
+
+  defp forbid_mcp_field(attrs, field) do
+    case Map.get(attrs, field) do
+      nil -> :ok
+      [] -> :ok
+      value -> {:error, {:invalid_setting, "mcp.servers.*.#{field}", {:forbidden, value}}}
+    end
+  end
+
+  defp validate_stdio_launcher_allowed(command, settings) do
+    allowed = get_dotted(settings, "mcp.stdio.allowed_launchers") || []
+
+    if command in allowed do
+      :ok
+    else
+      {:error, {:invalid_setting, "mcp.servers.*.command", {:launcher_not_allowed, command}}}
+    end
+  end
 
   defp validate_dynamic_map(items, field_schema, prefix, settings) do
     Enum.reduce_while(items, :ok, &validate_dynamic_item(&1, &2, field_schema, prefix, settings))
@@ -2519,6 +2689,43 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_value(%{type: :channel_secret_ref}, value, _key, _settings),
     do: {:error, {:expected_secret_ref, value}}
+
+  defp validate_value(%{type: :mcp_secret_ref_or_nil}, nil, _key, _settings), do: :ok
+
+  defp validate_value(%{type: :mcp_secret_ref_or_nil}, value, _key, _settings)
+       when is_binary(value) do
+    if mcp_secret_ref?(value) do
+      :ok
+    else
+      {:error, :invalid_secret_ref}
+    end
+  end
+
+  defp validate_value(%{type: :mcp_secret_ref_or_nil}, value, _key, _settings),
+    do: {:error, {:expected_secret_ref, value}}
+
+  defp validate_value(%{type: :mcp_secret_ref_string_map}, value, _key, _settings)
+       when is_map(value) do
+    value
+    |> Enum.reduce_while(:ok, fn {name, entry}, :ok ->
+      cond do
+        not valid_string_map_key?(name) ->
+          {:halt, {:error, {:invalid_string_map_key, name}}}
+
+        not is_binary(entry) ->
+          {:halt, {:error, {:expected_string_map_value, name}}}
+
+        secret_like_key?(name) and not mcp_secret_ref?(entry) ->
+          {:halt, {:error, {:secret_value_requires_ref, name}}}
+
+        true ->
+          {:cont, :ok}
+      end
+    end)
+  end
+
+  defp validate_value(%{type: :mcp_secret_ref_string_map}, value, _key, _settings),
+    do: {:error, {:expected_string_map, value}}
 
   defp validate_value(%{type: :channel_identity_map}, value, _key, _settings)
        when is_list(value) do
@@ -2919,6 +3126,10 @@ defmodule AllbertAssist.Settings.Schema do
       Regex.match?(
         ~r/^model_profiles\.[^.]+\.(provider|model|aliases|temperature|max_tokens|timeout_ms)$/,
         key
+      ) ||
+      Regex.match?(
+        ~r/^mcp\.servers\.[^.]+\.(enabled|transport|command|args|env|base_url|headers|auth_ref|tool_allowlist|tool_denylist|confirmation)$/,
+        key
       )
   end
 
@@ -3176,6 +3387,44 @@ defmodule AllbertAssist.Settings.Schema do
   defp valid_name?(name), do: is_binary(name) and Regex.match?(~r/^[A-Za-z0-9_-]+$/, name)
 
   defp valid_string_list_item?(value), do: is_binary(value) and String.trim(value) != ""
+
+  defp valid_string_map_key?(value), do: is_binary(value) and String.trim(value) != ""
+
+  defp secret_like_key?(key) when is_binary(key) do
+    key
+    |> String.downcase()
+    |> String.split(~r/[^a-z0-9]+/, trim: true)
+    |> Enum.any?(&(&1 in ["authorization", "secret", "token", "password", "api", "key"]))
+  end
+
+  defp safe_mcp_launcher?(launcher) when is_binary(launcher) do
+    launcher = String.trim(launcher)
+
+    launcher != "" and
+      (bare_mcp_launcher?(launcher) or absolute_mcp_launcher?(launcher)) and
+      not String.contains?(launcher, [" ", "\t", "\n", "\r"])
+  end
+
+  defp safe_mcp_launcher?(_launcher), do: false
+
+  defp bare_mcp_launcher?(launcher) do
+    not String.contains?(launcher, ["/", "\\", "\0"])
+  end
+
+  defp absolute_mcp_launcher?(launcher) do
+    parts = Path.split(launcher)
+
+    String.starts_with?(launcher, "/") and
+      length(parts) > 1 and
+      not String.contains?(launcher, ["\\", "\0"]) and
+      Enum.all?(parts, &(&1 not in ["", ".", ".."]))
+  end
+
+  defp mcp_secret_ref?(value) when is_binary(value) do
+    Regex.match?(~r/^secret:\/\/mcp\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+$/, value)
+  end
+
+  defp mcp_secret_ref?(_value), do: false
 
   defp valid_email?(value) when is_binary(value) do
     String.length(value) <= 254 and

@@ -172,18 +172,41 @@ defmodule Mix.Tasks.Allbert.Settings do
   defp response_error(%{message: message}), do: message
 
   defp parse_value(key, value) do
-    if string_list_setting?(key) do
-      parse_string_list(value)
-    else
-      parse_scalar_value(value)
+    cond do
+      string_list_setting?(key) -> parse_string_list(value)
+      string_map_setting?(key) -> parse_string_map(value)
+      true -> parse_scalar_value(value)
     end
   end
 
   defp parse_string_list(value) do
-    value
-    |> String.split(",", trim: true)
-    |> Enum.map(&String.trim/1)
-    |> Enum.reject(&(&1 == ""))
+    trimmed = String.trim(value)
+
+    if String.starts_with?(trimmed, "[") do
+      parse_json_string_list(trimmed)
+    else
+      value
+      |> String.split(",", trim: true)
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&(&1 == ""))
+    end
+  end
+
+  defp parse_json_string_list(value) do
+    case Jason.decode(value) do
+      {:ok, items} when is_list(items) ->
+        if Enum.all?(items, &is_binary/1) do
+          items
+        else
+          Mix.raise("Expected #{value} to be a JSON array of strings.")
+        end
+
+      {:ok, _other} ->
+        Mix.raise("Expected #{value} to be a JSON array of strings.")
+
+      {:error, reason} ->
+        Mix.raise("Invalid JSON string list: #{Exception.message(reason)}")
+    end
   end
 
   defp parse_scalar_value("true"), do: true
@@ -198,8 +221,38 @@ defmodule Mix.Tasks.Allbert.Settings do
 
   defp string_list_setting?(key) do
     case Map.get(Settings.schema(), key) do
-      %{type: :string_list} -> true
-      _schema -> Regex.match?(~r/^model_profiles\.[^.]+\.aliases$/, key)
+      %{type: :string_list} ->
+        true
+
+      _schema ->
+        Regex.match?(
+          ~r/^(model_profiles\.[^.]+\.aliases|mcp\.servers\.[^.]+\.(args|tool_allowlist|tool_denylist))$/,
+          key
+        )
+    end
+  end
+
+  defp string_map_setting?(key) do
+    case Map.get(Settings.schema(), key) do
+      %{type: :mcp_secret_ref_string_map} -> true
+      _schema -> Regex.match?(~r/^mcp\.servers\.[^.]+\.(env|headers)$/, key)
+    end
+  end
+
+  defp parse_string_map(value) do
+    case Jason.decode(value) do
+      {:ok, map} when is_map(map) ->
+        if Enum.all?(map, fn {key, value} -> is_binary(key) and is_binary(value) end) do
+          map
+        else
+          Mix.raise("Expected MCP map settings to be a JSON object with string values.")
+        end
+
+      {:ok, _other} ->
+        Mix.raise("Expected MCP map settings to be a JSON object with string values.")
+
+      {:error, reason} ->
+        Mix.raise("Invalid JSON map: #{Exception.message(reason)}")
     end
   end
 
