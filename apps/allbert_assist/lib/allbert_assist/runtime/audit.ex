@@ -14,6 +14,8 @@ defmodule AllbertAssist.Runtime.Audit do
   alias AllbertAssist.Execution.SkillScriptSpec
   alias AllbertAssist.External.Audit, as: ExternalAudit
   alias AllbertAssist.External.RequestSpec
+  alias AllbertAssist.Mcp.Audit, as: McpAudit
+  alias AllbertAssist.Mcp.ServerConfig
   alias AllbertAssist.Packages.Audit, as: PackageAudit
   alias AllbertAssist.Packages.InstallSpec
   alias AllbertAssist.Security.Audit, as: SecurityAudit
@@ -23,12 +25,14 @@ defmodule AllbertAssist.Runtime.Audit do
           | :skill_script
           | :package_install
           | :external_request
+          | :mcp
 
   @type audit_spec ::
           CommandSpec.t()
           | SkillScriptSpec.t()
           | InstallSpec.t()
           | RequestSpec.t()
+          | ServerConfig.t()
   @type audit_event ::
           :requested
           | :approved
@@ -71,12 +75,17 @@ defmodule AllbertAssist.Runtime.Audit do
     ExternalAudit.append(event, spec, permission_decision, attrs)
   end
 
+  def append(:mcp, event, %ServerConfig{} = spec, permission_decision, attrs) do
+    McpAudit.append(event, spec, permission_decision, attrs)
+  end
+
   @doc "Return the audit root for a runtime audit kind."
   @spec audit_root(audit_kind()) :: String.t()
   def audit_root(:shell_command), do: ShellAudit.audit_root()
   def audit_root(:skill_script), do: SkillScriptAudit.audit_root()
   def audit_root(:package_install), do: PackageAudit.audit_root()
   def audit_root(:external_request), do: ExternalAudit.audit_root()
+  def audit_root(:mcp), do: McpAudit.audit_root()
 
   @doc "Return the monthly audit path for a runtime audit kind."
   @spec audit_path(audit_kind()) :: String.t()
@@ -86,4 +95,5 @@ defmodule AllbertAssist.Runtime.Audit do
   def audit_path(:skill_script, now), do: SkillScriptAudit.audit_path(now)
   def audit_path(:package_install, now), do: PackageAudit.audit_path(now)
   def audit_path(:external_request, now), do: ExternalAudit.audit_path(now)
+  def audit_path(:mcp, now), do: McpAudit.audit_path(now)
 end
