@@ -283,6 +283,121 @@ defmodule AllbertAssist.SettingsTest do
     assert dynamic_codegen_discard.value == "denied"
   end
 
+  test "MCP settings resolve defaults and validate incremental disabled servers" do
+    assert {:ok, []} = Settings.get("mcp.stdio.allowed_launchers")
+    assert {:ok, "needs_confirmation"} = Settings.get("permissions.mcp_tool_call")
+    assert {:ok, "allowed"} = Settings.get("permissions.mcp_resource_read")
+
+    assert {:ok, disabled} =
+             Settings.put("mcp.servers.demo.enabled", false, %{audit?: false})
+
+    assert disabled.value == false
+
+    assert {:ok, transport} =
+             Settings.put("mcp.servers.demo.transport", "stdio", %{audit?: false})
+
+    assert transport.value == "stdio"
+
+    assert {:ok, command} =
+             Settings.put("mcp.servers.demo.command", "npx", %{audit?: false})
+
+    assert command.value == "npx"
+
+    assert {:ok, args} =
+             Settings.put("mcp.servers.demo.args", ["-y", "@example/server"], %{audit?: false})
+
+    assert args.value == ["-y", "@example/server"]
+
+    assert {:ok, allowlist} =
+             Settings.put("mcp.servers.demo.tool_allowlist", ["search", "read"], %{
+               audit?: false
+             })
+
+    assert allowlist.value == ["search", "read"]
+
+    assert {:ok, denylist} =
+             Settings.put("mcp.servers.demo.tool_denylist", ["delete"], %{audit?: false})
+
+    assert denylist.value == ["delete"]
+
+    assert {:ok, confirmation} =
+             Settings.put("mcp.servers.demo.confirmation", "denied", %{audit?: false})
+
+    assert confirmation.value == "denied"
+
+    assert {:error, {:invalid_setting, "mcp.servers.demo.confirmation", _reason}} =
+             Settings.put("mcp.servers.demo.confirmation", "allowed", %{audit?: false})
+
+    assert {:error, {:invalid_setting, "mcp.servers.*.command", _reason}} =
+             Settings.put("mcp.servers.demo.enabled", true, %{audit?: false})
+
+    assert {:ok, launchers} =
+             Settings.put("mcp.stdio.allowed_launchers", ["npx"], %{audit?: false})
+
+    assert launchers.value == ["npx"]
+
+    assert {:ok, enabled} =
+             Settings.put("mcp.servers.demo.enabled", true, %{audit?: false})
+
+    assert enabled.value == true
+
+    assert {:error, {:invalid_setting, "mcp.servers.demo.env", _reason}} =
+             Settings.put("mcp.servers.demo.env", %{"API_KEY" => "raw-secret"}, %{
+               audit?: false
+             })
+
+    assert {:ok, _disabled} =
+             Settings.put("mcp.servers.http_demo.enabled", false, %{audit?: false})
+
+    assert {:ok, _transport} =
+             Settings.put("mcp.servers.http_demo.transport", "streamable_http", %{
+               audit?: false
+             })
+
+    assert {:ok, base_url} =
+             Settings.put("mcp.servers.http_demo.base_url", "https://mcp.example/rpc", %{
+               audit?: false
+             })
+
+    assert base_url.value == "https://mcp.example/rpc"
+
+    assert {:ok, headers} =
+             Settings.put(
+               "mcp.servers.http_demo.headers",
+               %{"Authorization" => "secret://mcp/http_demo/bearer_token"},
+               %{audit?: false}
+             )
+
+    assert headers.value == %{"Authorization" => "secret://mcp/http_demo/bearer_token"}
+
+    assert {:ok, auth_ref} =
+             Settings.put(
+               "mcp.servers.http_demo.auth_ref",
+               "secret://mcp/http_demo/bearer_token",
+               %{audit?: false}
+             )
+
+    assert auth_ref.value == "secret://mcp/http_demo/bearer_token"
+
+    assert {:ok, http_enabled} =
+             Settings.put("mcp.servers.http_demo.enabled", true, %{audit?: false})
+
+    assert http_enabled.value == true
+
+    assert {:error, {:invalid_setting, "permissions.mcp_tool_call", _reason}} =
+             Settings.put("permissions.mcp_tool_call", "allowed", %{audit?: false})
+
+    assert {:ok, absolute_launchers} =
+             Settings.put("mcp.stdio.allowed_launchers", ["npx", "/usr/bin/npx"], %{
+               audit?: false
+             })
+
+    assert absolute_launchers.value == ["npx", "/usr/bin/npx"]
+
+    assert {:error, {:invalid_setting, "mcp.stdio.allowed_launchers", _reason}} =
+             Settings.put("mcp.stdio.allowed_launchers", ["npx --yes"], %{audit?: false})
+  end
+
   test "dynamic codegen settings resolve defaults and validate writes" do
     assert {:ok, false} = Settings.get("dynamic_codegen.enabled")
     assert {:ok, nil} = Settings.get("dynamic_codegen.provider_profile")
@@ -1142,6 +1257,28 @@ defmodule AllbertAssist.SettingsTest do
 
     assert {:ok, statuses} = Secrets.list_secret_status("secret://channels")
     assert [%{secret_ref: "secret://channels/telegram/bot_token", status: :configured}] = statuses
+  end
+
+  test "MCP secret refs encrypt values and report status without settings side effects", %{
+    home: home
+  } do
+    assert {:ok, %{status: :configured}} =
+             Secrets.put_secret("secret://mcp/demo/bearer_token", "mcp-token", %{
+               actor: "local",
+               channel: :test
+             })
+
+    assert {:ok, "mcp-token"} = Secrets.get_secret("secret://mcp/demo/bearer_token")
+    assert Secrets.status("secret://mcp/demo/bearer_token") == :configured
+
+    assert {:ok, statuses} = Secrets.list_secret_status("secret://mcp")
+    assert [%{secret_ref: "secret://mcp/demo/bearer_token", status: :configured}] = statuses
+
+    settings_yaml = File.read(Path.join([home, "settings", "settings.yml"]))
+    assert settings_yaml in [{:error, :enoent}, {:ok, ""}]
+
+    secrets_yaml = File.read!(Path.join([home, "settings", "secrets.yml.enc"]))
+    refute secrets_yaml =~ "mcp-token"
   end
 
   test "audit write failure is returned as a diagnostic" do

@@ -24,7 +24,9 @@ defmodule AllbertAssist.Security.Policy do
     dynamic_integration: "permissions.dynamic_integration",
     stocksage_write: "permissions.stocksage_write",
     stocksage_analyze: "permissions.stocksage_analyze",
-    stocksage_evidence_fetch: "permissions.stocksage_evidence_fetch"
+    stocksage_evidence_fetch: "permissions.stocksage_evidence_fetch",
+    mcp_tool_call: "permissions.mcp_tool_call",
+    mcp_resource_read: "permissions.mcp_resource_read"
   }
 
   @default_decisions %{
@@ -48,6 +50,8 @@ defmodule AllbertAssist.Security.Policy do
     stocksage_write: :allowed,
     stocksage_analyze: :needs_confirmation,
     stocksage_evidence_fetch: :allowed,
+    mcp_tool_call: :needs_confirmation,
+    mcp_resource_read: :allowed,
     settings_secret_write: :allowed,
     settings_secret_read: :denied
   }
@@ -75,6 +79,8 @@ defmodule AllbertAssist.Security.Policy do
           | :stocksage_write
           | :stocksage_analyze
           | :stocksage_evidence_fetch
+          | :mcp_tool_call
+          | :mcp_resource_read
           | :settings_secret_write
           | :settings_secret_read
 
@@ -102,6 +108,8 @@ defmodule AllbertAssist.Security.Policy do
       :stocksage_write,
       :stocksage_analyze,
       :stocksage_evidence_fetch,
+      :mcp_tool_call,
+      :mcp_resource_read,
       :settings_secret_write,
       :settings_secret_read
     ]
@@ -163,6 +171,7 @@ defmodule AllbertAssist.Security.Policy do
   def safety_floor(:online_skill_import), do: :needs_confirmation
   def safety_floor(:skill_script_execute), do: :needs_confirmation
   def safety_floor(:dynamic_integration), do: :needs_confirmation
+  def safety_floor(:mcp_tool_call), do: :needs_confirmation
   def safety_floor(:stocksage_analyze), do: :needs_confirmation
   def safety_floor(:stocksage_evidence_fetch), do: :needs_confirmation
   def safety_floor(:settings_secret_read), do: :denied
@@ -349,6 +358,21 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:stocksage_evidence_fetch, :denied, _configured, _floor, _context),
     do: "StockSage evidence fetch is denied by current policy."
+
+  defp reason(:mcp_tool_call, :needs_confirmation, _configured, _floor, _context),
+    do: "MCP tool calls require explicit operator confirmation."
+
+  defp reason(:mcp_tool_call, :denied, _configured, _floor, _context),
+    do: "MCP tool calls are denied by current policy."
+
+  defp reason(:mcp_resource_read, :allowed, _configured, _floor, _context),
+    do: "MCP resource reads are allowed through registered MCP resource actions."
+
+  defp reason(:mcp_resource_read, :needs_confirmation, _configured, _floor, _context),
+    do: "MCP resource reads require operator confirmation by current policy."
+
+  defp reason(:mcp_resource_read, :denied, _configured, _floor, _context),
+    do: "MCP resource reads are denied by current policy."
 
   defp reason(:settings_secret_write, :allowed, _configured, _floor, _context),
     do: "Provider credentials may be configured through explicit credential flows."

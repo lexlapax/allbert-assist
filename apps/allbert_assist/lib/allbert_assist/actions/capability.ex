@@ -57,6 +57,10 @@ defmodule AllbertAssist.Actions.Capability do
           | :security_status
           | :internal_trace
           | :local_domain
+          | :mcp_doctor
+          | :mcp_discovery
+          | :mcp_resource_read
+          | :mcp_tool_call
 
   @type t :: %__MODULE__{
           name: String.t(),

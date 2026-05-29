@@ -25,6 +25,8 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :stocksage_write,
              :stocksage_analyze,
              :stocksage_evidence_fetch,
+             :mcp_tool_call,
+             :mcp_resource_read,
              :settings_secret_write,
              :settings_secret_read
            ]
@@ -46,6 +48,22 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     # weaken the decision.
     decision = PermissionGate.authorize(:stocksage_analyze, %{})
     assert decision.decision in [:needs_confirmation, :denied]
+  end
+
+  test "requires confirmation for MCP tool calls and allows MCP resource reads" do
+    tool_call = PermissionGate.authorize(:mcp_tool_call, %{})
+
+    assert tool_call.permission == :mcp_tool_call
+    assert tool_call.decision == :needs_confirmation
+    assert tool_call.requires_confirmation
+    refute PermissionGate.allowed?(tool_call)
+
+    resource_read = PermissionGate.authorize(:mcp_resource_read, %{})
+
+    assert resource_read.permission == :mcp_resource_read
+    assert resource_read.decision == :allowed
+    refute resource_read.requires_confirmation
+    assert PermissionGate.allowed?(resource_read)
   end
 
   test "requires confirmation for dynamic integration hot-loading" do

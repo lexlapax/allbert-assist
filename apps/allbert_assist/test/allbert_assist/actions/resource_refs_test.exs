@@ -186,6 +186,16 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
     end
   end
 
+  test "MCP operation vocabulary has explicit access modes and scopes" do
+    assert OperationClass.operation_class!("mcp-tool-call") == :mcp_tool_call
+    assert OperationClass.operation_class!("mcp_resource_read") == :mcp_resource_read
+    assert OperationClass.default_access_mode(:mcp_tool_call) == :call
+    assert OperationClass.default_access_mode(:mcp_resource_read) == :read
+    assert OperationClass.access_mode!("call") == :call
+    assert OperationClass.scope_kind!("mcp_server") == :mcp_server
+    assert OperationClass.scope_kind!("mcp-tool") == :mcp_tool
+  end
+
   test "unsupported future URI schemes are representable but inert" do
     mcp_ref =
       Ref.new!(%{

@@ -30,6 +30,8 @@ defmodule AllbertAssist.Resources.OperationClass do
     online_skill_import
     summarize_url
     inspect_document
+    mcp_tool_call
+    mcp_resource_read
     import_skill
     package_install
   ]a
@@ -43,6 +45,7 @@ defmodule AllbertAssist.Resources.OperationClass do
     summarize
     install
     audit
+    call
   ]a
 
   @scope_kinds ~w[
@@ -53,6 +56,8 @@ defmodule AllbertAssist.Resources.OperationClass do
     source_profile
     package_target_root
     skill_resource_id
+    mcp_server
+    mcp_tool
   ]a
 
   @default_access_modes %{
@@ -68,6 +73,8 @@ defmodule AllbertAssist.Resources.OperationClass do
     online_skill_import: :import,
     summarize_url: :summarize,
     inspect_document: :read,
+    mcp_tool_call: :call,
+    mcp_resource_read: :read,
     import_skill: :import,
     package_install: :install
   }
@@ -95,6 +102,8 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :online_skill_import
           | :summarize_url
           | :inspect_document
+          | :mcp_tool_call
+          | :mcp_resource_read
           | :import_skill
           | :package_install
 
@@ -107,6 +116,7 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :summarize
           | :install
           | :audit
+          | :call
 
   @type scope_kind ::
           :exact_file
@@ -116,6 +126,8 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :source_profile
           | :package_target_root
           | :skill_resource_id
+          | :mcp_server
+          | :mcp_tool
 
   @spec origin_kinds() :: nonempty_list(origin_kind())
   def origin_kinds, do: @origin_kinds
