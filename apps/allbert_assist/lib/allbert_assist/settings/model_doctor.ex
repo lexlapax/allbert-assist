@@ -61,7 +61,13 @@ defmodule AllbertAssist.Settings.ModelDoctor do
     with {:ok, url} <- local_tags_url(provider_profile),
          {:ok, uri} <- validate_probe_url(url, :local_endpoint),
          {:ok, response} <- request(:get, uri, [], timeout_ms(model_profile), context) do
-      local_response_summary(uri, model_profile.model, response)
+      local_response_summary(
+        uri,
+        provider_profile.type,
+        model_profile.model,
+        model_profile.aliases,
+        response
+      )
     else
       {:error, {:host_denied, _reason, host}} ->
         base_summary(:local_endpoint, host, [
@@ -94,7 +100,13 @@ defmodule AllbertAssist.Settings.ModelDoctor do
              timeout_ms(model_profile),
              context
            ) do
-      remote_response_summary(uri, provider_profile.type, model_profile.model, response)
+      remote_response_summary(
+        uri,
+        provider_profile.type,
+        model_profile.model,
+        model_profile.aliases,
+        response
+      )
     else
       {:error, {:credential_missing, host}} ->
         base_summary(:credentialed_remote, host, [
@@ -125,16 +137,17 @@ defmodule AllbertAssist.Settings.ModelDoctor do
     end
   end
 
-  defp local_response_summary(uri, model, %{status: status} = response) when status in 200..299 do
+  defp local_response_summary(uri, provider_type, model, aliases, %{status: status} = response)
+       when status in 200..299 do
     host = redacted_host(uri)
     rate_limit_hint = rate_limit_hint(response)
 
     response.body
     |> decode_json()
-    |> local_catalog_summary(host, model, rate_limit_hint)
+    |> local_catalog_summary(host, provider_type, model, aliases, rate_limit_hint)
   end
 
-  defp local_response_summary(uri, _model, response) do
+  defp local_response_summary(uri, _provider_type, _model, _aliases, response) do
     host = redacted_host(uri)
 
     summary(:local_endpoint, host,
@@ -148,13 +161,20 @@ defmodule AllbertAssist.Settings.ModelDoctor do
     )
   end
 
-  defp local_catalog_summary({:ok, body}, host, model, rate_limit_hint) do
+  defp local_catalog_summary({:ok, body}, host, provider_type, model, aliases, rate_limit_hint) do
     body
-    |> find_model(model)
+    |> find_model(model, aliases, provider_type)
     |> local_model_summary(host, model, rate_limit_hint)
   end
 
-  defp local_catalog_summary({:error, _reason}, host, _model, rate_limit_hint) do
+  defp local_catalog_summary(
+         {:error, _reason},
+         host,
+         _provider_type,
+         _model,
+         _aliases,
+         rate_limit_hint
+       ) do
     summary(:local_endpoint, host,
       credential_ok: nil,
       endpoint_ok: true,
@@ -190,17 +210,17 @@ defmodule AllbertAssist.Settings.ModelDoctor do
     )
   end
 
-  defp remote_response_summary(uri, provider_type, model, %{status: status} = response)
+  defp remote_response_summary(uri, provider_type, model, aliases, %{status: status} = response)
        when status in 200..299 do
     host = redacted_host(uri)
     rate_limit_hint = rate_limit_hint(response)
 
     response.body
     |> decode_json()
-    |> remote_catalog_summary(host, provider_type, model, rate_limit_hint)
+    |> remote_catalog_summary(host, provider_type, model, aliases, rate_limit_hint)
   end
 
-  defp remote_response_summary(uri, _provider_type, _model, response) do
+  defp remote_response_summary(uri, _provider_type, _model, _aliases, response) do
     host = redacted_host(uri)
     rate_limit_hint = rate_limit_hint(response)
 
@@ -238,13 +258,20 @@ defmodule AllbertAssist.Settings.ModelDoctor do
     end
   end
 
-  defp remote_catalog_summary({:ok, body}, host, provider_type, model, rate_limit_hint) do
+  defp remote_catalog_summary({:ok, body}, host, provider_type, model, aliases, rate_limit_hint) do
     body
-    |> find_model(model, provider_type)
+    |> find_model(model, aliases, provider_type)
     |> remote_model_summary(host, model, rate_limit_hint)
   end
 
-  defp remote_catalog_summary({:error, _reason}, host, _provider_type, _model, rate_limit_hint) do
+  defp remote_catalog_summary(
+         {:error, _reason},
+         host,
+         _provider_type,
+         _model,
+         _aliases,
+         rate_limit_hint
+       ) do
     summary(:credentialed_remote, host,
       credential_ok: true,
       endpoint_ok: true,
@@ -322,6 +349,13 @@ defmodule AllbertAssist.Settings.ModelDoctor do
     ]
   end
 
+  defp credential_headers("google", credential) do
+    [
+      {"x-goog-api-key", credential},
+      {"accept", "application/json"}
+    ]
+  end
+
   defp credential_headers(_provider_type, credential) do
     [
       {"authorization", "Bearer #{credential}"},
@@ -372,7 +406,7 @@ defmodule AllbertAssist.Settings.ModelDoctor do
 
       {:ok,
        uri
-       |> Map.put(:path, join_paths(uri.path || "", "/models"))
+       |> Map.put(:path, join_paths(uri.path || "", models_path(type)))
        |> Map.put(:query, nil)
        |> Map.put(:fragment, nil)
        |> URI.to_string()}
@@ -385,10 +419,16 @@ defmodule AllbertAssist.Settings.ModelDoctor do
   defp remote_base_url("anthropic", nil), do: {:ok, "https://api.anthropic.com/v1"}
   defp remote_base_url("openrouter", nil), do: {:ok, "https://openrouter.ai/api/v1"}
 
+  defp remote_base_url("google", nil),
+    do: {:ok, "https://generativelanguage.googleapis.com/v1beta"}
+
   defp remote_base_url(_type, base_url) when is_binary(base_url) and base_url != "",
     do: {:ok, base_url}
 
   defp remote_base_url(type, _base_url), do: {:error, {:missing_base_url, type}}
+
+  defp models_path("google"), do: "/models"
+  defp models_path(_type), do: "/models"
 
   defp validate_probe_url(url, endpoint_kind) do
     uri = URI.parse(url)
@@ -472,17 +512,23 @@ defmodule AllbertAssist.Settings.ModelDoctor do
   defp decode_json(%{} = body), do: {:ok, body}
   defp decode_json(_body), do: {:error, :invalid_body}
 
-  defp find_model(body, model, provider_type \\ nil)
+  defp find_model(body, model, aliases, provider_type)
 
-  defp find_model(body, model, provider_type) when is_map(body) do
-    model_ids = ProviderCatalog.equivalent_model_ids(provider_type, model)
+  defp find_model(body, model, aliases, provider_type) when is_map(body) do
+    model_ids = model_ids(provider_type, model, aliases)
 
     body
     |> model_entries()
     |> Enum.find(&model_entry_matches?(&1, model_ids))
   end
 
-  defp find_model(_body, _model, _provider_type), do: nil
+  defp find_model(_body, _model, _aliases, _provider_type), do: nil
+
+  defp model_ids(provider_type, model, aliases) do
+    (ProviderCatalog.equivalent_model_ids(provider_type, model) ++ List.wrap(aliases))
+    |> Enum.filter(&is_binary/1)
+    |> Enum.uniq()
+  end
 
   defp model_entries(%{"data" => entries}) when is_list(entries), do: entries
   defp model_entries(%{"models" => entries}) when is_list(entries), do: entries
@@ -495,8 +541,15 @@ defmodule AllbertAssist.Settings.ModelDoctor do
   defp model_entry_matches?(_entry, _model), do: false
 
   defp model_id(entry) do
-    Map.get(entry, "id") || Map.get(entry, "model") || Map.get(entry, "name")
+    entry
+    |> Map.get("id")
+    |> Kernel.||(Map.get(entry, "model"))
+    |> Kernel.||(Map.get(entry, "name"))
+    |> normalize_model_name()
   end
+
+  defp normalize_model_name("models/" <> model), do: model
+  defp normalize_model_name(model), do: model
 
   defp context_window(entry) do
     ["context_window", "context_length", "context", "max_context_length"]

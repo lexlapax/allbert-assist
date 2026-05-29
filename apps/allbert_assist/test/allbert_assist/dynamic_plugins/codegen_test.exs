@@ -108,6 +108,17 @@ defmodule AllbertAssist.DynamicPlugins.CodegenTest do
              })
   end
 
+  test "dynamic codegen defaults to the coding profile when configured" do
+    enable_dynamic_codegen!("coding")
+
+    assert {:ok, profile} = Settings.resolve_model_profile("coding")
+    assert profile.provider == "gemini"
+    assert profile.provider_type == "google"
+    assert profile.model == "gemini-3.5-flash"
+
+    assert {:ok, _fallback} = Settings.resolve_model_profile("coding_local")
+  end
+
   test "provider-call budget caps explicit generation requests" do
     enable_dynamic_codegen!("local")
 

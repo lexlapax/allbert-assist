@@ -6,12 +6,14 @@ defmodule AllbertAssist.Application do
   use Application
 
   alias AllbertAssist.Database
+  alias AllbertAssist.Settings.ProviderCatalog
   alias AllbertAssist.Workspace.Fragment.Guard, as: FragmentGuard
   alias AllbertAssist.Workspace.Fragment.SigningSecret
 
   @impl true
   def start(_type, _args) do
     maybe_bootstrap_workspace_signing_secret!()
+    ProviderCatalog.configure_jido_model_aliases!()
 
     children =
       [
