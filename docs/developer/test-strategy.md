@@ -347,6 +347,61 @@ gate before it is accepted.
   partitioning, M8c low-risk pure cleanup/promotions only if the benchmark is
   preserved or improved. M9 remains LiveView/ConnCase partitioning and closeout.
 
+### v0.41 M8a Core Lane Partitioning Benchmark - 2026-05-29
+
+- Commit: v0.41 M8 core lane partitioning commit.
+- Machine: `Darwin Sandeeps-Mac-Studio.local 25.5.0` on Apple M1 Ultra;
+  20 physical / 20 logical CPUs.
+- Runtime: Elixir 1.19.5 (compiled with Erlang/OTP 28), running on
+  Erlang/OTP 29.0.1.
+- Cache state: warm build after M8 task compilation.
+- Commands:
+  - `env MIX_ENV=test mix compile --warnings-as-errors`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test serial-core --lane db_serial --partitions 4`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test serial-core --lane app_env_serial --partitions 4`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test serial-core --lane global_process_serial --partitions 4`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test serial-core --lane home_fs_serial --partitions 4`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test fast-local --core-lanes --partitions 4`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test fast-local`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test release`
+- Release wall-clock / counts: final `mix allbert.test release` passed at
+  `real 1291.04` seconds (`user 0.76`, `sys 4.00`). The release command runs
+  `mix precommit` and then `mix dialyzer`. Counts: core 1146 tests, 0 failures,
+  2 skipped, 763.3 seconds; web 107 tests, 0 failures, 304.1 seconds;
+  StockSage 197 tests, 0 failures, 184.8 seconds; channel plugins 2 tests,
+  0 failures, 0.03 seconds; Dialyzer 0 errors.
+- Fast-local wall-clock / counts:
+  - quick default passed at `real 23.86` seconds (`user 0.78`, `sys 3.42`):
+    static checks plus reconciled `pure_async` lane, 122 tests, 0 failures.
+  - high-coverage core form passed at `real 263.84` seconds (`user 0.88`,
+    `sys 4.12`): static checks, 122 pure-lane tests, and partitioned core
+    `db_serial`, `app_env_serial`, `home_fs_serial`, and
+    `global_process_serial` lanes, 830 executed tests, 0 failures.
+- Lane breakdown:
+  - `db_serial --partitions 4`: passed at `real 105.69`; partition counts
+    56 / 48 / 141 / 41 tests, 0 failures.
+  - `app_env_serial --partitions 4`: passed at `real 101.89`; partition counts
+    99 / 37 / 98 / 62 tests, 0 failures.
+  - `global_process_serial --partitions 4`: passed at `real 16.49`;
+    partition counts 23 / 36 / 4 / 26 tests, 0 failures.
+  - `home_fs_serial --partitions 4`: first exposed Mix's `--only` empty-shard
+    failure; after `serial-core` accepted empty partition output, passed at
+    `real 18.13`; partition counts 10 / 25 / 0 / 2 tests, 0 failures.
+- Slowest modules/tests: M1 slowest evidence remains the sequencing authority.
+  M8a directly targeted the core DB/app-env/process hotspots rather than
+  producing a fresh slowest report.
+- Planned share: M8a must make a high-coverage local core gate possible under
+  the M8 <=10 minute target and measurably shrink the core slowest hotspot lane.
+- Actual delta: effective. The quick gate improved 1.39s versus M7 (`23.86s`
+  vs `25.25s`), and the high-coverage core gate covers 830 local tests in
+  4.4 minutes instead of relying on the 22+ minute release oracle for those
+  lanes.
+- Decision: M8a is accepted only with a green release oracle; proceed to M8b
+  StockSage objective/action partitioning without reordering.
+- Follow-up/reorder: no reorder. The measured startup/build-lock and transient
+  SQLite connection noise remain optimization signals, but they did not fail the
+  partitioned lanes.
+
 ## Lane Taxonomy
 
 Every test file gets one primary lane.
@@ -476,6 +531,11 @@ migrated schema, and derived runtime roots. `external_runtime_serial` stays an
 explicit smoke lane — it touches shared OS resources (ports, Docker, real
 endpoints) that can collide even across partitions.
 
+Sparse lanes may produce an empty partition. Mix intentionally exits non-zero
+when `--only <lane>` runs no tests; `mix allbert.test serial-core` treats that
+specific empty-partition output as green because the shard is valid, while real
+test failures still fail the lane.
+
 ## Ownership Contract
 
 Async or partition-safe tests must satisfy these ownership rules:
@@ -520,7 +580,7 @@ monolithic precommit order hides that by migrating through the core app first.
 | Docs | Docs-only changes. | `mix allbert.test docs` (`git diff --check` and reference checks when configured). |
 | Focused | Every implementation milestone. | `mix allbert.test focused -- <files...>` using explicit files named in the plan/request-flow doc. |
 | Static | Code changes. | compile warning gate, formatter check, Credo strict, Dialyzer when required. |
-| Fast local | Daily development feedback. | `mix allbert.test fast-local`: static checks plus proven async/partition-safe lanes. |
+| Fast local | Daily development feedback. | `mix allbert.test fast-local`: static checks plus proven pure async lanes. After M8a, `mix allbert.test fast-local --core-lanes --partitions N` adds partitioned core DB/app-env/home/process lanes. |
 | Serial core | VM-global lanes (DB, app env, home, process, LiveView). | `mix allbert.test serial-core --lane <lane> --partitions N`; serial *within* a partition, parallel *across* OS partitions. Security evals + external smokes stay single-VM / opt-in. |
 | Release | Manual validation/release handoff. | `mix allbert.test release`: full precommit-equivalent coverage plus Dialyzer and security evals. |
 | External smoke | Machine-dependent integrations. | `mix allbert.test external-smoke -- <smoke-name>` for explicitly opted-in smokes. M6 implements Docker sandbox smokes; later browser/MCP/provider smokes must add their concrete command before use. |
