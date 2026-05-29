@@ -92,6 +92,42 @@ Reorders may change batch order only inside the correctness constraint: every
 batch must still reproduce the v0.40 oracle green set through the full release
 gate before it is accepted.
 
+### v0.41 M1 Benchmark Attempt 1 - 2026-05-29
+
+- Commit: `89af6d5`
+- Machine: `Darwin Sandeeps-Mac-Studio.local 25.5.0` on Apple M1 Ultra;
+  20 physical / 20 logical CPUs.
+- Runtime: Elixir 1.19.5 (compiled with Erlang/OTP 28), running on
+  Erlang/OTP 29.0.1.
+- Cache state: cold dependency compile after local runtime change.
+- Rerun command shape:
+  - `/usr/bin/time -p env ALLBERT_HOME=/private/tmp/allbert_v0_41_m1_89af6d5_home DATABASE_PATH=/private/tmp/allbert_v0_41_m1_89af6d5_db/allbert_test.db mix precommit`
+- Release wall-clock / counts: failed before test execution at `real 54.21`
+  seconds (`user 74.64`, `sys 63.46`). No test counts collected.
+- Failure: dependency compile stopped in `deps/memento/lib/memento/table/table.ex`
+  because `:memento` 0.5.0 defines `@type record :: struct()`, and Elixir 1.19
+  reports `record/0` as a built-in type that cannot be redefined.
+- Fast-local wall-clock / counts: not run; release oracle failed before a
+  correctness baseline existed.
+- Lane breakdown: not timed. Static heuristic inventory at this commit found
+  233 `*_test.exs` files: owners `core:180`, `web:16`, `stocksage:35`,
+  `telegram:1`, `email:1`; templates `AllbertAssist.DataCase:48`,
+  `StockSage.DataCase:21`, `ConnCase:14`, `SecurityEvalCase:13`,
+  `ExUnit.Case:137`; primary-lane estimate `pure_async_candidate:14`,
+  `db_serial:47`, `app_env_serial:30`, `home_fs_serial:2`,
+  `global_process_serial:23`, `liveview_serial:12`,
+  `security_eval_serial:16`, `external_runtime_serial:89`.
+- Slowest modules/tests: unavailable because the suite did not compile.
+- Planned share: not set; M1 cannot set an efficiency target without a green
+  BEFORE baseline.
+- Actual delta: correctness-blocked.
+- Decision: M1 remains blocked. Do not advance to M2/M6 until the release
+  oracle and BEFORE benchmark run on a compatible recorded toolchain, or until
+  dependency compatibility work is explicitly moved into v0.41 scope and then
+  re-benchmarked.
+- Follow-up/reorder: no milestone reorder yet. The next work item is
+  environment/toolchain recovery, not test-lane migration.
+
 ## Lane Taxonomy
 
 Every test file gets one primary lane.
