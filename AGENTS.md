@@ -211,6 +211,14 @@ Use these as starting points, then narrow further from the active task:
   narrower gate is explicitly documented for a milestone, the release warning
   gate remains: `mix compile --warnings-as-errors`, `mix credo --strict`,
   `mix dialyzer`, and `mix precommit`.
+- After v0.41, use `mix allbert.test fast-local` for the quick daily gate,
+  `mix allbert.test fast-local --core-lanes --stocksage-lanes --web-lanes --partitions N`
+  for the high-coverage local gate, and `mix allbert.test release` for the
+  authoritative release handoff.
+- When adding or reclassifying tests, choose one primary lane from
+  `docs/developer/test-strategy.md`; use the narrowest lane that matches the
+  strongest shared resource, and keep security evals/external runtimes out of
+  fast-local unless a later plan adds an isolation story.
 - Update request-flow docs as implementation changes.
 - Add or update ADRs when an implementation decision constrains future design.
 - Keep LiveViews thin: they call contexts/actions/runtime boundaries and do not

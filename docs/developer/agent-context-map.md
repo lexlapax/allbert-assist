@@ -65,6 +65,103 @@ Do not load every section by default.
 | MCP server mode (Allbert exposes registered actions as MCP tools; memory namespaces as MCP resources) | ADR 0044, `docs/plans/v0.50b-plan.md`, `docs/plans/v0.50b-request-flow.md` | v0.50b |
 | Release candidate hardening, export/import, settings schema migration, 1.0 tiered contract freeze | ADR 0046, `docs/plans/v0.51-plan.md`, `docs/plans/v0.51-request-flow.md`, `docs/plans/v1.0-plan.md`, `docs/plans/v1.0-request-flow.md` | v0.51-v1.0 |
 
+## v0.41 Test Lane Classification
+
+Use this section when adding, moving, or auditing tests. The authoritative
+contract remains `docs/developer/test-strategy.md`; this map gives agents enough
+detail to classify new work without reading the full strategy first.
+
+Each test file has exactly one primary lane. Pick the lane by the strongest
+shared resource the file touches, not by the fastest command you hope to run.
+If two resources apply, choose the more conservative lane and leave a note in
+the active plan when a later split could safely narrow it.
+
+Lane meanings:
+
+- `pure_async`: pure functions, render helpers, parsing, deterministic
+  transformations, and static assertions that do not mutate process-global
+  state, repo state, Allbert Home, app env, or external runtimes. These are the
+  only tests in the quick default `mix allbert.test fast-local` lane.
+- `db_serial`: uses Repo, Ecto sandbox, Mnesia/Memento state, persisted
+  objective/session/trace/memory rows, or migrations. These tests are serial
+  inside a VM and may run across OS partitions with separate `DATABASE_PATH` and
+  `ALLBERT_HOME`.
+- `db_partition_safe`: reserved for database-backed tests that have an explicit
+  per-partition database/home ownership proof and no stronger app-env,
+  filesystem, process, LiveView, security, or external-runtime coupling. Most
+  `DataCase` tests should stay `db_serial` unless a plan proves this narrower
+  lane is useful.
+- `app_env_serial`: mutates `Application` env, Settings Central process config,
+  feature flags, provider config, or any global setting whose value could leak
+  across tests in the same VM.
+- `home_fs_serial`: reads/writes Allbert Home, skill/plugin/template roots,
+  scratch files, sandbox roots, memory files, generated drafts, or filesystem
+  fixtures whose path ownership matters.
+- `global_process_serial`: starts/stops or depends on named processes,
+  registries, supervisors, ETS tables, PubSub topics, Jido agents, schedulers,
+  or singleton runtime components.
+- `liveview_serial`: uses `AllbertAssistWeb.ConnCase`, Phoenix LiveView,
+  ConnTest with endpoint/router state, or browser-like UI process trees. It
+  runs serial inside a VM and partitions across OS processes through
+  `mix allbert.test fast-local --web-lanes --partitions N`.
+- `security_eval_serial`: uses `AllbertAssist.SecurityEvalCase`, adversarial
+  fixtures, redaction/security boundary assertions, or eval inventories. Keep it
+  serial/release unless a dedicated ADR/plan changes the eval isolation model.
+- `external_runtime_serial`: touches Docker, OS ports, stdio bridge processes,
+  browser drivers, provider endpoints, package managers, real MCP servers, or
+  other shared machine resources. These are release/external-smoke lanes until a
+  plan documents per-partition port/path/process ownership.
+
+Case-template defaults:
+
+- `AllbertAssist.DataCase` defaults to `db_serial`.
+- `AllbertAssistWeb.ConnCase` defaults to `liveview_serial`.
+- `AllbertAssist.SecurityEvalCase` defaults to `security_eval_serial`.
+- `StockSage.DataCase` defaults to `db_serial`.
+- Plain `ExUnit.Case` files must carry an explicit primary lane tag such as
+  `@moduletag :pure_async` or `@moduletag :app_env_serial`.
+- Template users may pass a narrower explicit lane only when the active plan or
+  nearby test evidence proves the narrower resource class is correct, for
+  example `use AllbertAssistWeb.ConnCase, lane: :external_runtime_serial` for a
+  web file that drives runtime/external behaviors.
+
+Classification workflow:
+
+1. Read the test file and setup helpers before tagging. Look for Repo calls,
+   `Application.put_env`, Settings changes, Allbert Home paths, temporary files,
+   named processes, LiveView/ConnTest helpers, ports, Docker, provider calls,
+   bridge processes, and security eval fixtures.
+2. Choose exactly one primary lane, using the strongest shared resource.
+   `external_runtime_serial` outranks LiveView/DB/app-env, and
+   `security_eval_serial` stays its own lane even if it also touches DB.
+3. Prefer splitting a mixed file into narrower files only when the split is
+   small and useful. Do not retag runtime-heavy tests as fast-local just to make
+   the benchmark look better.
+4. Run
+   `mix allbert.test inventory --check-tags --output docs/developer/v0.41-test-inventory.csv`
+   after changing lane tags or templates. The inventory gate must report zero
+   unclassified files and zero double-counts.
+5. Pick the validation gate from the lane: quick pure changes use
+   `mix allbert.test fast-local`; core serial lanes can use
+   `mix allbert.test serial-core --lane <lane> --partitions N`; StockSage/web
+   partitioned local gates use the high-coverage fast-local flags; release
+   evidence uses `mix allbert.test release`.
+6. For implementation milestones, record benchmark evidence before work, after
+   each milestone, and at closeout. If the measured efficiency does not improve
+   enough for the milestone's planned share, reorder the remaining work toward
+   the measured long pole.
+
+Implemented v0.41 gates:
+
+- Quick daily gate:
+  `mix allbert.test fast-local`
+- High-coverage local gate:
+  `mix allbert.test fast-local --core-lanes --stocksage-lanes --web-lanes --partitions N`
+- Core serial lane gate:
+  `mix allbert.test serial-core --lane <lane> --partitions N`
+- Release handoff:
+  `mix allbert.test release`
+
 ## Version Map
 
 - v0.01: first local assistant loop, signals, direct answer, markdown memory,
@@ -303,16 +400,18 @@ Do not load every section by default.
   `mcp_read_resource` / `mcp_call_tool`. Real-server smoke validated the
   official GitHub MCP server in read-only stdio mode. The substrate v0.42
   panels consume.
-- v0.41 (planned): Developer Velocity And Parallel Test Methodology. Adds ADR
-  0049, ADR 0050, `docs/developer/test-strategy.md`, a gate matrix, test-lane taxonomy,
-  async eligibility rules, and the isolation contract for per-test/per-partition
-  Allbert Home, SQLite database, Settings Central roots, secrets roots, memory
-  roots, sandbox roots, tmp roots, and process names. Also adds the
-  implementation-plan annotation contract for parallel workstreams, serial
-  barriers, gate evidence, and rejoin points, then migrates the existing suite
-  onto those lanes with benchmark records after each implementation milestone
-  and adaptive reordering when efficiency does not improve. No operator-facing
-  assistant capability.
+- v0.41 (implemented): Developer Velocity And Parallel Test Methodology. Adds
+  ADR 0049, ADR 0050, `docs/developer/test-strategy.md`, a gate matrix,
+  test-lane taxonomy, async eligibility rules, and the isolation contract for
+  per-test/per-partition Allbert Home, SQLite database, Settings Central roots,
+  secrets roots, memory roots, sandbox roots, tmp roots, and process names. Also
+  adds the implementation-plan annotation contract for parallel workstreams,
+  serial barriers, gate evidence, and rejoin points, then migrates the existing
+  suite onto those lanes with benchmark records after each implementation
+  milestone and adaptive reordering when efficiency does not improve. The
+  implemented high-coverage local gate is
+  `mix allbert.test fast-local --core-lanes --stocksage-lanes --web-lanes --partitions N`.
+  No operator-facing assistant capability.
 - v0.42 (planned): Tool Discovery + MCP-First Integration Pack 1. Ships
   `find_tools` (local tools + internet MCP-registry search behind a provider
   port), `mcp_fetch_server_manifest` / `mcp_evaluate_server`, and the

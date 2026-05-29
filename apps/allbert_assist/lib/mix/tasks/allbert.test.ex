@@ -7,7 +7,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test docs
       mix allbert.test inventory [--output PATH] [--check-tags]
       mix allbert.test focused -- FILE [FILE...]
-      mix allbert.test fast-local [--core-lanes] [--stocksage-lanes] [--partitions N]
+      mix allbert.test fast-local [--core-lanes] [--stocksage-lanes] [--web-lanes] [--partitions N]
       mix allbert.test partition-smoke [--partitions N]
       mix allbert.test serial-core --lane LANE [--partitions N]
       mix allbert.test release
@@ -106,7 +106,12 @@ defmodule Mix.Tasks.Allbert.Test do
   defp fast_local(args) do
     {opts, rest, invalid} =
       OptionParser.parse(args,
-        strict: [core_lanes: :boolean, stocksage_lanes: :boolean, partitions: :integer]
+        strict: [
+          core_lanes: :boolean,
+          stocksage_lanes: :boolean,
+          web_lanes: :boolean,
+          partitions: :integer
+        ]
       )
 
     reject_invalid!(invalid)
@@ -114,10 +119,12 @@ defmodule Mix.Tasks.Allbert.Test do
 
     core_lanes? = Keyword.get(opts, :core_lanes, false)
     stocksage_lanes? = Keyword.get(opts, :stocksage_lanes, false)
+    web_lanes? = Keyword.get(opts, :web_lanes, false)
     partitions = Keyword.get(opts, :partitions, default_partition_count())
 
-    if Keyword.has_key?(opts, :partitions) and not (core_lanes? or stocksage_lanes?) do
-      Mix.raise("--partitions is only valid with --core-lanes or --stocksage-lanes")
+    if Keyword.has_key?(opts, :partitions) and
+         not (core_lanes? or stocksage_lanes? or web_lanes?) do
+      Mix.raise("--partitions is only valid with --core-lanes, --stocksage-lanes, or --web-lanes")
     end
 
     validate_partitions!(partitions)
@@ -166,6 +173,11 @@ defmodule Mix.Tasks.Allbert.Test do
     if stocksage_lanes? do
       [:db_serial, :app_env_serial, :global_process_serial]
       |> Enum.each(&run_serial_partitions!(:stocksage, &1, partitions))
+    end
+
+    if web_lanes? do
+      [:liveview_serial]
+      |> Enum.each(&run_serial_partitions!(:web, &1, partitions))
     end
   end
 
@@ -381,7 +393,7 @@ defmodule Mix.Tasks.Allbert.Test do
        }) do
     env = [{"MIX_TEST_PARTITION", to_string(partition)} | env]
     test_paths = serial_lane_paths(owner, lane)
-    validate_serial_lane_paths!(test_paths)
+    validate_serial_lane_paths!(owner, test_paths)
 
     output =
       with {migrate_output, 0} <-
@@ -404,7 +416,7 @@ defmodule Mix.Tasks.Allbert.Test do
                  "--max-cases",
                  "1"
                ] ++ test_paths,
-               cd: app_cwd(:core),
+               cd: app_cwd(owner),
                env: env,
                stderr_to_stdout: true
              ) do
@@ -447,9 +459,15 @@ defmodule Mix.Tasks.Allbert.Test do
     |> Enum.map(&relative_test_path(&1.path, :stocksage))
   end
 
-  defp validate_serial_lane_paths!(paths) do
+  defp serial_lane_paths(:web, lane) do
+    inventory_records()
+    |> Enum.filter(&(&1.owner == :web and &1.primary_lane == lane))
+    |> Enum.map(&relative_test_path(&1.path, :web))
+  end
+
+  defp validate_serial_lane_paths!(owner, paths) do
     Enum.each(paths, fn path ->
-      unless File.exists?(Path.expand(path, app_cwd(:core))) do
+      unless File.exists?(Path.expand(path, app_cwd(owner))) do
         Mix.raise("serial lane path does not exist: #{path}")
       end
     end)
@@ -866,7 +884,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test docs
       mix allbert.test inventory [--output PATH] [--check-tags]
       mix allbert.test focused -- FILE [FILE...]
-      mix allbert.test fast-local [--core-lanes] [--stocksage-lanes] [--partitions N]
+      mix allbert.test fast-local [--core-lanes] [--stocksage-lanes] [--web-lanes] [--partitions N]
       mix allbert.test partition-smoke [--partitions N]
       mix allbert.test serial-core --lane LANE [--partitions N]
       mix allbert.test release
