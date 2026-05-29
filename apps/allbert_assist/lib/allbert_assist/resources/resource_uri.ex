@@ -173,21 +173,25 @@ defmodule AllbertAssist.Resources.ResourceURI do
 
   def scope_uri(:mcp_resource, :mcp_tool, value, _resource_uri) do
     with {:ok, value} <- non_empty(value, :missing_mcp_tool_scope) do
-      case String.split(value, ":", parts: 2) do
-        [server_id, tool_name] ->
-          with {:ok, server_id} <- mcp_server_id(server_id),
-               {:ok, tool_name} <- non_empty(tool_name, :missing_mcp_tool_name) do
-            {:ok, "mcp://#{server_id}/#{encode_segment("tools/" <> tool_name)}"}
-          end
-
-        _other ->
-          {:error, {:invalid_mcp_tool_scope, value}}
-      end
+      mcp_tool_scope_uri(value)
     end
   end
 
   def scope_uri(_origin_kind, kind, _value, _resource_uri),
     do: {:error, {:unsupported_scope_uri, kind}}
+
+  defp mcp_tool_scope_uri(value) do
+    case String.split(value, ":", parts: 2) do
+      [server_id, tool_name] ->
+        with {:ok, server_id} <- mcp_server_id(server_id),
+             {:ok, tool_name} <- non_empty(tool_name, :missing_mcp_tool_name) do
+          {:ok, "mcp://#{server_id}/#{encode_segment("tools/" <> tool_name)}"}
+        end
+
+      _other ->
+        {:error, {:invalid_mcp_tool_scope, value}}
+    end
+  end
 
   @spec path_from_file_uri(String.t()) :: {:ok, String.t()} | {:error, term()}
   def path_from_file_uri(resource_uri) do

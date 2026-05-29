@@ -291,13 +291,16 @@ Do not load every section by default.
   security evals. Algorithm spec'd in
   `docs/research/active-memory-retrieval.md`; operator doc at
   `docs/operator/active-memory.md`.
-- v0.40 (planned): MCP Client Integration. Adds `mcp.servers.*` configuration
+- v0.40 (implemented as `0.40.0`; ready for operator manual validation): MCP
+  Client Integration. Adds `mcp.servers.*` configuration
   and `secret://mcp/...` refs, the `:mcp_tool_call` (confirmation-gated) and
   `:mcp_resource_read` (grant-gated) permission classes, `mcp://` promoted from
   reserved to a supported Resource Access adapter, HTTP/SSE + stdio transports
   (codec via `hermes_mcp`, egress through Allbert's posture), and the registered
   actions `mcp_doctor_server` / `mcp_list_tools` / `mcp_list_resources` /
-  `mcp_read_resource` / `mcp_call_tool`. The substrate v0.41 panels consume.
+  `mcp_read_resource` / `mcp_call_tool`. Real-server smoke validated the
+  official GitHub MCP server in read-only stdio mode. The substrate v0.41
+  panels consume.
 - v0.41 (planned): MCP-First Integration Pack 1. Ships calendar/mail/GitHub
   as MCP-server-configured workspace panels driven by the v0.40 MCP client,
   plus the `notes/files` native reference plugin as a starter scaffold for

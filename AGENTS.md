@@ -196,3 +196,4 @@ Use these as starting points, then narrow further from the active task:
 - Add or update ADRs when an implementation decision constrains future design.
 - Keep LiveViews thin: they call contexts/actions/runtime boundaries and do not
   own agent logic, settings semantics, or security policy.
+- Commit titles always follow <version> <milestone> <small title description> or <version> <small title description>

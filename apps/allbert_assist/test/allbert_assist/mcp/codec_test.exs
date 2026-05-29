@@ -25,10 +25,15 @@ defmodule AllbertAssist.Mcp.CodecTest do
   end
 
   test "redacts JSON-RPC server error messages" do
-    body = ~s({"jsonrpc":"2.0","id":123,"error":{"code":-32000,"message":"secret failure"}})
+    body =
+      Jason.encode!(%{
+        "jsonrpc" => "2.0",
+        "id" => 123,
+        "error" => %{"code" => -32_000, "message" => "secret failure"}
+      })
 
     assert {:error, {:json_rpc_error, error}} = Codec.decode_response(body, 123)
-    assert error["code"] == -32000
+    assert error["code"] == -32_000
     assert error["message"] == "MCP server returned a JSON-RPC error."
   end
 end

@@ -42,6 +42,11 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow
   alias AllbertAssist.Actions.Jobs.RegistryHealth
   alias AllbertAssist.Actions.Jobs.TraceSummary
+  alias AllbertAssist.Actions.Mcp.CallTool, as: McpCallTool
+  alias AllbertAssist.Actions.Mcp.DoctorServer, as: McpDoctorServer
+  alias AllbertAssist.Actions.Mcp.ListResources, as: McpListResources
+  alias AllbertAssist.Actions.Mcp.ListTools, as: McpListTools
+  alias AllbertAssist.Actions.Mcp.ReadResource, as: McpReadResource
   alias AllbertAssist.Actions.Memory.CompileMemoryIndex
   alias AllbertAssist.Actions.Memory.DeleteMemoryEntry
   alias AllbertAssist.Actions.Memory.ListMemoryCategorySummary
@@ -55,11 +60,6 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Memory.SummarizeMemoryCategory
   alias AllbertAssist.Actions.Memory.SyncAppLesson
   alias AllbertAssist.Actions.Memory.UpdateMemoryEntry
-  alias AllbertAssist.Actions.Mcp.DoctorServer, as: McpDoctorServer
-  alias AllbertAssist.Actions.Mcp.CallTool, as: McpCallTool
-  alias AllbertAssist.Actions.Mcp.ListResources, as: McpListResources
-  alias AllbertAssist.Actions.Mcp.ListTools, as: McpListTools
-  alias AllbertAssist.Actions.Mcp.ReadResource, as: McpReadResource
   alias AllbertAssist.Actions.Objectives.CancelObjective
   alias AllbertAssist.Actions.Objectives.ContinueObjective
   alias AllbertAssist.Actions.Objectives.DelegateAgent

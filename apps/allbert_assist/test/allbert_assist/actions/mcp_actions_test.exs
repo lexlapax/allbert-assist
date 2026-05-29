@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.McpActionsTest do
   alias AllbertAssist.Resources.Grants
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Secrets
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -21,13 +22,13 @@ defmodule AllbertAssist.Actions.McpActionsTest do
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
-    {:ok, _log} = Agent.start_link(fn -> [] end, name: __MODULE__.CallLog)
+    {:ok, _log} = Agent.start(fn -> [] end, name: __MODULE__.CallLog)
     configure_external()
     configure_http_server()
     stub_http_mcp()
 
     on_exit(fn ->
-      if Process.whereis(__MODULE__.CallLog), do: Agent.stop(__MODULE__.CallLog)
+      if Process.whereis(__MODULE__.CallLog), do: safe_stop_call_log()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
@@ -159,6 +160,80 @@ defmodule AllbertAssist.Actions.McpActionsTest do
     assert Agent.get(__MODULE__.CallLog, & &1) == []
   end
 
+  test "mcp_call_tool executes a valid call over real stdio transport after approval", %{
+    root: root
+  } do
+    script = Path.join(root, "mock_mcp_tool_stdio.exs")
+    log_path = Path.join(root, "stdio-tool-call.log")
+
+    File.write!(script, """
+    log_path = System.get_env("MCP_CALL_LOG")
+    IO.puts(:stderr, "mock MCP stderr startup log")
+
+    for line <- IO.stream(:stdio, :line) do
+      id_token =
+        case Regex.run(~r/"id"\\s*:\\s*("[^"]+"|[0-9]+)/, line) do
+          [_, token] -> token
+          _other -> "null"
+        end
+
+      method =
+        case Regex.run(~r/"method"\\s*:\\s*"([^"]+)"/, line) do
+          [_, value] -> value
+          _other -> "unknown"
+        end
+
+      if log_path, do: File.write!(log_path, method <> "\\n", [:append])
+      IO.puts(:stderr, "mock MCP stderr request log: " <> method)
+
+      result =
+        case method do
+          "initialize" ->
+            ~s({"protocolVersion":"2025-03-26","capabilities":{}})
+
+          "tools/call" ->
+            ~s({"content":[{"type":"text","text":"stdio pong"}]})
+
+          _other ->
+            ~s({})
+        end
+
+      IO.puts(~s({"jsonrpc":"2.0","id":\#{id_token},"result":\#{result}}))
+    end
+    """)
+
+    configure_stdio_tool_server(script, log_path)
+    context = %{actor: "local", channel: :test}
+
+    assert {:ok, pending} =
+             Runner.run(
+               "mcp_call_tool",
+               %{server_id: "stdio_tool", tool_name: "ping", arguments: %{"message" => "hello"}},
+               context
+             )
+
+    assert pending.status == :needs_confirmation
+    refute File.exists?(log_path)
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending.confirmation_id, reason: "valid stdio tool call"},
+               context
+             )
+
+    assert get_in(approved.confirmation, ["operator_resolution", "target_status"]) == "completed"
+
+    assert get_in(approved.confirmation, [
+             "operator_resolution",
+             "target_result",
+             "result_keys"
+           ]) == ["content"]
+
+    assert File.read!(log_path) == "initialize\nnotifications/initialized\ntools/call\n"
+    refute inspect(approved) =~ "stdio pong"
+  end
+
   test "mcp_read_resource requires a Resource Access grant, then reuses it", %{root: root} do
     context = %{actor: "local", channel: :test, mcp: %{req_plug: {Req.Test, __MODULE__}}}
     server_uri = "file:///demo.md"
@@ -215,6 +290,36 @@ defmodule AllbertAssist.Actions.McpActionsTest do
              })
 
     assert {:ok, _setting} = Settings.put("mcp.servers.demo.enabled", true, %{audit?: false})
+  end
+
+  defp configure_stdio_tool_server(script, log_path) do
+    assert {:ok, _setting} =
+             Settings.put("mcp.stdio.allowed_launchers", ["elixir"], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.stdio_tool.enabled", false, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.stdio_tool.transport", "stdio", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.stdio_tool.command", "elixir", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.stdio_tool.args", [script], %{audit?: false})
+
+    assert {:ok, _secret} =
+             Secrets.put_secret("secret://mcp/stdio_tool/log_path", log_path, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "mcp.servers.stdio_tool.env",
+               %{"MCP_CALL_LOG" => "secret://mcp/stdio_tool/log_path"},
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.stdio_tool.enabled", true, %{audit?: false})
   end
 
   defp configure_external do
@@ -277,6 +382,12 @@ defmodule AllbertAssist.Actions.McpActionsTest do
   defp audit_file do
     DateTime.utc_now()
     |> Calendar.strftime("%Y-%m.md")
+  end
+
+  defp safe_stop_call_log do
+    Agent.stop(__MODULE__.CallLog)
+  catch
+    :exit, _reason -> :ok
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

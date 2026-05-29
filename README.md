@@ -23,7 +23,7 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is `v0.39.1`. `/workspace` is the operator home:
+The current implementation is `v0.40.0`. `/workspace` is the operator home:
 chat is the primary spine, the launcher is view-only, and Canvas shows one
 destination at a time (Output, an app, or a workspace tool).
 
@@ -45,7 +45,11 @@ memory namespace, the 5th `Memory` category, deterministic direct-answer
 Active Memory retrieval over reviewed `:kept` entries, Active Memory trace
 metadata, and `mix allbert.memory retrieve --query`. With an explicit
 `ALLBERT_HOME` or `ALLBERT_HOME_DIR`, `mix phx.server` also bootstraps a
-missing or empty dev SQLite database before Phoenix starts.
+missing or empty dev SQLite database before Phoenix starts. v0.40 adds MCP
+client integration: Settings Central `mcp.servers.*`, `secret://mcp/...` refs,
+Hermes-backed MCP message codec with Allbert-owned HTTP/SSE and stdio
+transports, `mcp://` Resource Access, grant-gated MCP resource reads, and
+per-call-confirmed MCP tool calls.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -90,17 +94,16 @@ manually proven first.
 
 Recent milestone:
 
-- `v0.39.1`: identity slot and Active Memory - inert operator-authored
-  identity markdown under `<ALLBERT_HOME>/memory/identity/`, deterministic
-  direct-answer retrieval over reviewed `:kept` memory, body-free trace
-  metadata, CLI retrieval/list helpers, and executable Active Memory security
-  evals.
+- `v0.40.0`: MCP client integration - configured MCP servers, secret refs,
+  doctor/list/read/call actions, grant-gated `mcp://` resource reads,
+  per-call-confirmed tool calls, executable MCP security evals, and approved
+  real-server smoke against the official GitHub MCP server.
 
 Next milestones:
 
-- Post-`v0.39.1`: the planned 1.0 arc continues with MCP client integration
-  (`v0.40`); MCP-first integration pack with calendar/mail/GitHub panels plus
-  notes/files native reference plugin (`v0.41`); browser research (`v0.42`);
+- Post-`v0.40.0`: the planned 1.0 arc continues with MCP-first integration pack
+  with calendar/mail/GitHub panels plus notes/files native reference plugin
+  (`v0.41`); browser research (`v0.42`);
   Discord/Slack channels with the
   channel-approval-primitive contract (`v0.43`); Plan/Build workflows under
   `<ALLBERT_HOME>/workflows/` (`v0.44`); marketplace lite — data shape +
@@ -131,6 +134,8 @@ Next milestones:
   first-run onboarding and provider-control milestone.
 - [docs/plans/v0.39b-plan.md](docs/plans/v0.39b-plan.md): implemented
   identity slot and Active Memory milestone.
+- [docs/plans/v0.40-plan.md](docs/plans/v0.40-plan.md): implemented MCP
+  client integration milestone.
 
 ## Local Development
 

@@ -1,8 +1,7 @@
 # Allbert MCP Servers Operator Guide
 
-Status: planned for v0.40. This guide describes the intended operator flow for
-MCP Client Integration. Commands, settings keys, and behavior land as the v0.40
-milestones complete; sections describing unimplemented steps are marked planned.
+Status: implemented in v0.40 (`0.40.0`) and ready for operator manual
+validation before release tagging.
 
 This guide explains how to connect an MCP (Model Context Protocol) server to
 Allbert, inspect what it offers, and let Allbert use it under policy. It is not a
@@ -76,12 +75,12 @@ A stdio server is a local OS process. Allbert starts it with explicit argv and a
 environment populated only from your configured secret refs — never a shell
 string — and bounds its lifecycle under the local-execution sandbox policy. The
 launcher command must appear in `mcp.stdio.allowed_launchers`; the default empty
-list denies stdio startup.
+list denies stdio startup. Server stderr logs are kept separate from the MCP
+stdout JSON stream.
 
-The JSON-looking values above are the intended v0.40 CLI shape for map/list
-settings. If implementation chooses dedicated `mix allbert.mcp config ...`
-helpers instead of JSON-aware `mix allbert.settings set`, this guide must be
-updated before the milestone ships.
+`mix allbert.settings set` parses JSON values for MCP list/map settings, so
+`args`, `tool_allowlist`, `tool_denylist`, `env`, and `headers` can be supplied
+as JSON objects or arrays when needed.
 
 ## Doctor A Server
 
@@ -149,7 +148,7 @@ Secrets, full URLs, and raw tool/resource bodies are redacted everywhere.
 
 ```sh
 rg 'mcp://' "$ALLBERT_HOME/memory/traces"
-ls "$ALLBERT_HOME/audits"
+ls "$ALLBERT_HOME/mcp/audit"
 ```
 
 ## What Allbert Never Does With MCP

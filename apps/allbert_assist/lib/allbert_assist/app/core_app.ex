@@ -15,10 +15,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.39b adds identity
-  # namespace and Active Memory retrieval to the core app boundary.
+  # the app (release-pinned, not semantic-per-app). v0.40 adds MCP client
+  # actions and the supported mcp:// resource boundary.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.39.1"
+  def version, do: "0.40.0"
 
   @impl true
   def validate(_opts), do: :ok

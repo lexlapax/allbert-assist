@@ -10,6 +10,64 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.40.0 - MCP Client Integration
+
+Status: implemented and ready for operator manual validation before release
+tagging. Version metadata is `0.40.0`.
+
+Plan: `docs/plans/v0.40-plan.md`.
+Request flow: `docs/plans/v0.40-request-flow.md`.
+ADR: `docs/adr/0038-mcp-client-trust-tier.md`.
+Operator doc: `docs/operator/mcp-servers.md`.
+Developer doc: `docs/developer/mcp-client.md`.
+
+### Added
+
+- Settings Central `mcp.servers.*` configuration, `mcp.stdio.allowed_launchers`,
+  and encrypted `secret://mcp/<server-id>/<name>` refs.
+- MCP permission and Resource Access vocabulary:
+  `:mcp_tool_call`, `:mcp_resource_read`, `mcp://<server>/<encoded-uri>`,
+  operation classes, access mode `:call`, and `mcp_server` / `mcp_tool` scope
+  kinds.
+- Hermes-backed MCP message codec plus Allbert-owned HTTP/SSE and stdio
+  transports.
+- Registered internal MCP actions: `mcp_doctor_server`, `mcp_list_tools`,
+  `mcp_list_resources`, `mcp_read_resource`, and `mcp_call_tool`.
+- `mix allbert.mcp doctor|tools|resources|read|call`.
+- Executable v0.40 MCP security eval rows for schema-not-authority, valid
+  confirmed tool calls, tool/resource confusion, prompt injection, server
+  impersonation, secret redaction, stdio startup policy, and doctor redaction.
+
+### Changed
+
+- `mcp://` is now a supported Resource Access adapter; `agent://` and
+  `agent+https://` remain unsupported.
+- Intent routing now sends `mcp://` and explicit MCP list/read/call phrasing to
+  the registered MCP actions instead of the unsupported-resource workflow.
+- MCP stdio keeps stderr logs separate from stdout JSON-RPC and converts
+  resolved env entries to the charlist format required by `Port.open/2`.
+- Umbrella, core app, and web app version metadata are bumped to `0.40.0`.
+
+### Security
+
+- MCP schemas, descriptions, resource lists, and result bodies remain
+  descriptive metadata only. They cannot grant permissions, create grants, or
+  lower confirmation floors.
+- MCP resource reads are grant-gated by Resource Access. MCP tool calls are
+  confirmed per call and cannot be remembered or silently approved in v0.40.
+- Approved real-server smoke validated the official GitHub MCP server in
+  read-only stdio mode using the `.env` GitHub token through
+  `secret://mcp/github/pat`; the token did not appear in action result or MCP
+  audit output.
+
+### Verification
+
+- Focused MCP action, client, codec, intent, registry, and security eval
+  coverage passed during M1-M6 implementation.
+- M6 real-server smoke passed for official GitHub MCP over Docker stdio:
+  doctor completed, 25 tools listed, `get_me` required confirmation, approval
+  resumed the tool call, and the target completed with redacted result keys.
+
 ## v0.39.1 - Identity Slot And Active Memory
 
 Status: implemented and ready for operator manual validation before release

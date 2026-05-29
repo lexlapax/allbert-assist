@@ -66,7 +66,22 @@ defmodule AllbertAssist.Mcp.ServerConfig do
 
   def resolve(_server_id), do: {:error, :invalid_server_id}
 
-  @spec summary(t()) :: map()
+  @type summary :: %{
+          server_id: String.t(),
+          enabled?: boolean(),
+          transport: transport(),
+          redacted_host: String.t(),
+          command: String.t() | nil,
+          args_count: non_neg_integer(),
+          env_keys: [String.t()],
+          header_keys: [String.t()],
+          credential_status: :configured | :missing | :not_required,
+          tool_allowlist_count: non_neg_integer(),
+          tool_denylist_count: non_neg_integer(),
+          confirmation: String.t()
+        }
+
+  @spec summary(t()) :: summary()
   def summary(%__MODULE__{} = config) do
     %{
       server_id: config.server_id,

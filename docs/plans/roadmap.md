@@ -2246,7 +2246,8 @@ ADRs: `docs/adr/0038-mcp-client-trust-tier.md`,
 `docs/adr/0047-provider-doctor-contract.md` (MCP doctor fields),
 `docs/adr/0009-local-execution-sandbox-levels.md` (stdio startup).
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+Status: implemented as `0.40.0` and ready for operator manual validation before
+release tagging.
 
 Expected direction:
 
@@ -2256,9 +2257,9 @@ Expected direction:
   add MCP operation classes and the `:mcp_tool_call` / `:mcp_resource_read`
   permission classes (floors: tool call confirms, resource read is grant-gated).
 - Ship HTTP/SSE transports (through Allbert's `HttpPolicy` SSRF/redaction
-  posture) and stdio transports (bounded under ADR 0009). Use `hermes_mcp` for
-  protocol codec only if the M1 spike proves Allbert-owned egress control;
-  native JSON-RPC fallback if the codec cannot be cleanly constrained.
+  posture) and stdio transports (bounded under ADR 0009). v0.40 uses
+  `hermes_mcp` for protocol codec only and keeps runtime egress in
+  Allbert-owned transports.
 - Register MCP actions: `mcp_doctor_server`, `mcp_list_tools`,
   `mcp_list_resources`, `mcp_read_resource`, `mcp_call_tool`. Tool calls are
   confirmation-gated; resource reads use remembered Resource Access grants per
@@ -2272,6 +2273,10 @@ Expected direction:
   validation matrix records which panel data is exposed as resources and which
   is tool-only; tool-only reads remain per-call-confirmed unless a later ADR
   amendment changes the trust tier.
+- Approved real-server smoke validated official GitHub MCP over read-only stdio:
+  doctor completed, tools listed, `get_me` required confirmation and completed
+  after approval, and the configured token did not leak into result/audit
+  surfaces.
 
 ## v0.41: MCP-First Integration Pack 1
 

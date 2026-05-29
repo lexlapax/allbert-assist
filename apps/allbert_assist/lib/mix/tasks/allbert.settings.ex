@@ -242,17 +242,21 @@ defmodule Mix.Tasks.Allbert.Settings do
   defp parse_string_map(value) do
     case Jason.decode(value) do
       {:ok, map} when is_map(map) ->
-        if Enum.all?(map, fn {key, value} -> is_binary(key) and is_binary(value) end) do
-          map
-        else
-          Mix.raise("Expected MCP map settings to be a JSON object with string values.")
-        end
+        validate_string_map!(map)
 
       {:ok, _other} ->
         Mix.raise("Expected MCP map settings to be a JSON object with string values.")
 
       {:error, reason} ->
         Mix.raise("Invalid JSON map: #{Exception.message(reason)}")
+    end
+  end
+
+  defp validate_string_map!(map) do
+    if Enum.all?(map, fn {key, value} -> is_binary(key) and is_binary(value) end) do
+      map
+    else
+      Mix.raise("Expected MCP map settings to be a JSON object with string values.")
     end
   end
 

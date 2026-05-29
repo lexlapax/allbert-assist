@@ -65,28 +65,27 @@ defmodule AllbertAssist.Mcp.Transport do
       when is_binary(encoded) do
     timeout_ms = Keyword.get(opts, :timeout_ms, conn.config.timeout_ms)
 
-    with true <- Port.command(port, ensure_line(encoded)),
-         {:ok, body} <- receive_stdio_response(port, request_id, timeout_ms, "") do
+    send_stdio(port, encoded)
+
+    with {:ok, body} <- receive_stdio_response(port, request_id, timeout_ms, "") do
       {:ok, body, conn}
     else
-      false ->
-        {:error, {:stdio_start_failed, Diagnostics.new(:stdio_start_failed)}, conn}
-
       {:error, reason} ->
         {:error, reason, conn}
     end
   end
 
-  @spec notify(connection(), String.t()) :: {:ok, connection()} | {:error, term(), connection()}
+  @spec notify(connection(), String.t()) :: {:ok, connection()}
   def notify(%{kind: :http} = conn, _encoded), do: {:ok, conn}
 
   def notify(%{kind: :stdio, port: port} = conn, encoded) when is_binary(encoded) do
-    with true <- Port.command(port, ensure_line(encoded)) do
-      {:ok, conn}
-    else
-      false -> {:error, {:stdio_start_failed, Diagnostics.new(:stdio_start_failed)}, conn}
-      {:error, reason} -> {:error, reason, conn}
-    end
+    send_stdio(port, encoded)
+    {:ok, conn}
+  end
+
+  defp send_stdio(port, encoded) do
+    Port.command(port, ensure_line(encoded))
+    :ok
   end
 
   defp request_spec(config, body) do
@@ -176,9 +175,8 @@ defmodule AllbertAssist.Mcp.Transport do
           :exit_status,
           :hide,
           :use_stdio,
-          :stderr_to_stdout,
           {:args, config.args},
-          {:env, Map.to_list(config.env)},
+          {:env, port_env(config.env)},
           {:line, config.max_response_bytes}
         ]
       )
@@ -186,6 +184,12 @@ defmodule AllbertAssist.Mcp.Transport do
     {:ok, port}
   rescue
     _exception -> {:error, {:stdio_start_failed, Diagnostics.new(:stdio_start_failed)}}
+  end
+
+  defp port_env(env) when is_map(env) do
+    Enum.map(env, fn {key, value} ->
+      {String.to_charlist(to_string(key)), String.to_charlist(to_string(value))}
+    end)
   end
 
   defp receive_stdio_response(port, request_id, timeout_ms, acc) do
