@@ -16,9 +16,9 @@ Several later milestones reuse the doctor pattern:
 
 - **v0.40 MCP client integration** doctors MCP servers (transport reachable,
   tools/resources listable, secret env present).
-- **v0.47 voice modality** doctors STT/TTS provider profiles (credential
+- **v0.48 voice modality** doctors STT/TTS provider profiles (credential
   reachable, model available, on-device backends present).
-- **v0.48 vision and image generation** doctors vision-capable provider
+- **v0.49 vision and image generation** doctors vision-capable provider
   profiles (credential reachable, model accepts image input, generation
   endpoint reachable).
 
@@ -37,7 +37,7 @@ preserve.
 ## Decision
 
 The v0.39 model-profile doctor and downstream doctors that opt into the same
-diagnostic pattern (v0.40, v0.47, v0.48) share a single canonical return
+diagnostic pattern (v0.40, v0.48, v0.49) share a single canonical return
 shape, share one redaction policy, and evolve additive-only.
 
 The public v0.39 action is `doctor_model_profile`: callers pass a model
@@ -89,7 +89,7 @@ doctors.
 
 ### 2. Canonical return shape
 
-Every doctor (v0.39, v0.40, v0.47, v0.48, and any future doctor) returns:
+Every doctor (v0.39, v0.40, v0.48, v0.49, and any future doctor) returns:
 
 ```elixir
 %{
@@ -116,7 +116,7 @@ migration. Known additive fields:
   (`non_neg_integer() | :unknown`), and `:protocol_version`
   (`String.t() | nil`). For stdio servers `endpoint_kind` is `:local_endpoint`;
   for authenticated HTTP/SSE servers it is `:credentialed_remote`.
-- **v0.48 vision** adds `:image_input_supported`.
+- **v0.49 vision** adds `:image_input_supported`.
 
 ### 3. Redaction policy
 
@@ -143,8 +143,8 @@ Doctors run as registered Jido actions under Security Central:
 
 - v0.39: `doctor_model_profile` (`:read_only`, `:not_required`).
 - v0.40: `mcp_doctor_server` (`:read_only`, `:not_required`).
-- v0.47: `doctor_voice_provider` (`:read_only`, `:not_required`).
-- v0.48: `doctor_vision_provider` (`:read_only`, `:not_required`).
+- v0.48: `doctor_voice_provider` (`:read_only`, `:not_required`).
+- v0.49: `doctor_vision_provider` (`:read_only`, `:not_required`).
 
 The v0.39 doctor is read-only but network-observable. It is allowed to probe
 only the configured host of the provider resolved from a configured model
@@ -175,7 +175,7 @@ change between v1.0 and the next major release without an ADR amendment.
   channel summaries all render the same fields).
 - Doctor output is safe to render in traces and audits without additional
   redaction passes — the doctor itself is the redaction boundary.
-- Adding a new provider-specific signal (e.g., v0.48 image-input
+- Adding a new provider-specific signal (e.g., v0.49 image-input
   capability) is a one-line additive field, not a return-shape redesign.
 - `providers.*.endpoint_kind` becomes part of the v1.0 Tier-1 schema
   freeze; renaming or removing it requires an ADR amendment and an
@@ -212,9 +212,9 @@ change between v1.0 and the next major release without an ADR amendment.
   evals.
 - `docs/plans/v0.40-plan.md` — v0.40 MCP Client Integration (downstream
   doctor consumer).
-- `docs/plans/v0.47-plan.md` — v0.47 Voice Modality (downstream doctor
+- `docs/plans/v0.48-plan.md` — v0.48 Voice Modality (downstream doctor
   consumer).
-- `docs/plans/v0.48-plan.md` — v0.48 Vision And Image Generation
+- `docs/plans/v0.49-plan.md` — v0.49 Vision And Image Generation
   (downstream doctor consumer).
 - ADR 0004 — Domain Settings Engine.
 - ADR 0011 — Confirmed External Capability Adapters.

@@ -157,8 +157,8 @@ protocol-generic dependency, not a provider SDK, so it does not violate ADR
 2. Doctor it; confirm tools/resources are listable.
 3. For CI, add a deterministic mock server fixture under `test/support` rather
    than depending on a live server. v0.40 validates GitHub, calendar, and mail
-   shapes (the v0.41 consumers) plus mocks.
-4. Record whether the data v0.41 needs for summary panels is exposed as MCP
+   shapes (the v0.42 consumers) plus mocks.
+4. Record whether the data v0.42 needs for summary panels is exposed as MCP
    resources or only as MCP tools. Tool-only summary reads remain per-call
    confirmed unless ADR 0038 is explicitly amended.
 
@@ -179,11 +179,11 @@ tool/resource/call phrasing to the MCP actions. `AllbertAssist.Intent.Engine`
 and `AllbertAssist.Intent.Ranker` no longer treat `mcp://` as an unsupported
 resource marker. `agent://` and `agent+https://` remain unsupported.
 
-## Tool Discovery (planned, v0.41)
+## Tool Discovery (planned, v0.42)
 
-v0.41 adds internet tool discovery on top of this v0.40 client; the authoritative
+v0.42 adds internet tool discovery on top of this v0.40 client; the authoritative
 design is `docs/adr/0048-tool-discovery-and-discovered-server-trust.md` and the
-milestone contract is `docs/plans/v0.41-plan.md`. Shape:
+milestone contract is `docs/plans/v0.42-plan.md`. Shape:
 
 - `find_tools` (orchestrator) fans out to `find_local_tools`
   (`Actions.Registry.capabilities/0`, `Skills.Registry.list/1`, connected-MCP

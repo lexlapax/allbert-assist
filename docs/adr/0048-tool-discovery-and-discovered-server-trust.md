@@ -2,8 +2,8 @@
 
 ## Status
 
-Proposed for v0.41 Tool Discovery + MCP-First Integration Pack 1
-(`docs/plans/v0.41-plan.md`). Accepted at v0.41 M1 before any discovery action
+Proposed for v0.42 Tool Discovery + MCP-First Integration Pack 1
+(`docs/plans/v0.42-plan.md`). Accepted at v0.42 M1 before any discovery action
 lands.
 
 ## Context
@@ -54,7 +54,7 @@ deduplicated list of normalized candidates. The first two adapters are:
   across the official MCP Registry plus one no-auth aggregator, behind a registry
   provider port so a backend can be swapped or added without touching callers.
 
-The port is the extension seam: a future `find_marketplace_tools` (v0.45) or
+The port is the extension seam: a future `find_marketplace_tools` (v0.46) or
 `find_skill_registry_tools` adapter slots in behind `find_tools` with no caller
 change. Capability-source heterogeneity (the official registry's name-only
 search, an aggregator's richer search) is hidden behind one normalized result.
@@ -144,7 +144,7 @@ operator confirmation remains the authority, per ADR 0021.
 - Allbert gains a general "what tool can satisfy this need?" primitive that the
   intent engine, the objective runtime, and operator queries can all reuse, with
   one normalized result and one extension seam.
-- The integration pack (v0.41 panels) becomes a clean consumer: a panel can
+- The integration pack (v0.42 panels) becomes a clean consumer: a panel can
   `find_tools "calendar"` and route an unconfigured operator into the connect
   gate, instead of assuming a hand-configured server.
 - The dangerous surface is narrowed to one confirmation-gated action with a

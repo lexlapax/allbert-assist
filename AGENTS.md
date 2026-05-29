@@ -57,6 +57,12 @@ Use these as starting points, then narrow further from the active task:
 - Runtime, action runner, signals, Security Central, confirmations, or Resource
   Access: read relevant active plan/request-flow docs plus ADR 0006, ADR 0007,
   ADR 0008, ADR 0012, and targeted changelog entries.
+- Test strategy, precommit gates, async eligibility, test partitioning,
+  implementation-readiness audits, milestone parallelization, or development
+  methodology: read ADR 0049, `docs/plans/v0.41-plan.md`,
+  `docs/plans/v0.41-request-flow.md`,
+  `docs/developer/test-strategy.md`, and the "Implementation Plan Readiness"
+  section of `DEVELOPMENT.md`.
 - Local identity, conversation history, sessions, or users: read ADR 0014 and
   the active plan touching the area.
 - Memory review, promotion, search, indexes, or memory intent candidates: read
@@ -188,10 +194,18 @@ Use these as starting points, then narrow further from the active task:
 ## Workflow
 
 - For docs-only changes, run `git diff --check`.
-- For code changes, run focused tests first, then finish with the milestone
-  warning gate: `mix compile --warnings-as-errors`, `mix credo --strict`,
-  `mix dialyzer`, and `mix precommit`, unless the user explicitly scopes the
-  work differently.
+- When creating or auditing a milestone plan for implementation readiness, add
+  development-lane annotations: parallel workstreams, serial barriers, focused
+  tests/gates, external smokes, full-precommit timing, and the rejoin point for
+  docs, drift review, validation, and commit/release evidence.
+- For code changes, run focused tests first. The active milestone plan must
+  name the focused tests, whether full `mix precommit` is required before
+  commit or release closeout, any serial lane involved, and which portions may
+  run in parallel versus serial.
+- Use `docs/developer/test-strategy.md` for the v0.41+ gate matrix. Until a
+  narrower gate is explicitly documented for a milestone, the release warning
+  gate remains: `mix compile --warnings-as-errors`, `mix credo --strict`,
+  `mix dialyzer`, and `mix precommit`.
 - Update request-flow docs as implementation changes.
 - Add or update ADRs when an implementation decision constrains future design.
 - Keep LiveViews thin: they call contexts/actions/runtime boundaries and do not

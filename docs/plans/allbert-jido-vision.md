@@ -226,7 +226,7 @@ permission metadata, structured results, and observable errors.
 Skills are the user-readable bundles around those capabilities. A skill can
 declare its purpose, prompts, examples, required actions, security posture, and
 expected outputs. v0.38 makes supervised creation deterministic through vetted
-templates, and v0.45 plans reviewed marketplace-lite discovery. The v0.46 safe
+templates, and v0.46 plans reviewed marketplace-lite discovery. The v0.47 safe
 precursor can suggest trace-to-skill drafts when repeated operator patterns
 appear, but the drafts remain inert until reviewed, validated, and explicitly
 enabled by the operator.
@@ -356,8 +356,8 @@ adapters share the same channel substrate, identity mapping posture, durable
 event dedupe model, and Approval Handoff rendering contract. v0.17 moves
 Telegram and email into shipped source-tree channel plugins so later channels
 can arrive through the same extension path. The v1.0 arc now makes that path
-concrete: Discord and Slack land in v0.43; WhatsApp, Signal, iMessage, and
-Matrix land in v0.49. SMS, native packaged UI, hosted channel fan-out, and
+concrete: Discord and Slack land in v0.44; WhatsApp, Signal, iMessage, and
+Matrix land in v0.50. SMS, native packaged UI, hosted channel fan-out, and
 other broad distribution paths remain parked until after the channel packs
 prove the substrate. Each channel should translate external input into signals
 and render agent output back into the medium without owning the agent logic.
@@ -388,10 +388,11 @@ The app/surface contract exists so the workspace shell does not invent app
 discovery or arbitrary node shapes. `AllbertAssist.App.Registry` provides app
 navigation and lookup. `AllbertAssist.Surface` defines validated component
 nodes. `AllbertAssist.App.SurfaceProvider` lets apps produce task surfaces as
-signals or registered action results. v0.49 plans public API, ACP, MCP-server,
-and AG-UI/A2UI bridge exposure behind auth, CSP, redaction, trace, and audit
-policy. MCP Apps iframe compatibility remains parked; Allbert's primary stance
-is still declarative, catalog-bound surfaces over arbitrary remote UI code.
+signals or registered action results. After the v0.41 insertion, only MCP server
+mode remains in the 1.0 arc as v0.50b; OpenAI-compatible API, ACP server mode,
+and public AG-UI/A2UI bridge remain parked post-1.0. MCP Apps iframe
+compatibility remains parked; Allbert's primary stance is still declarative,
+catalog-bound surfaces over arbitrary remote UI code.
 
 StockSage LiveViews start as standard app surfaces. v0.27 proves real
 StockSage renderers in StockSage-owned `/stocksage/...` surfaces. After the
@@ -558,7 +559,14 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.40: MCP Client Integration. MCP servers become configured resources and
   tools under Allbert's action, Resource Access, confirmation, trace, and audit
   boundaries.
-- v0.41: Tool Discovery + MCP-first Integration Pack 1. Allbert gains
+- v0.41: Developer Velocity And Parallel Test Methodology. The development loop
+  catches up with the OTP/concurrency vision: precommit becomes a gate matrix,
+  async eligibility is proven by resource ownership, SQLite-backed tests get a
+  partition-isolation contract, serial lanes stay explicit instead of
+  accidental, and future implementation plans annotate parallel workstreams,
+  serial barriers, gate evidence, and rejoin points. No operator-facing
+  assistant capability.
+- v0.42: Tool Discovery + MCP-first Integration Pack 1. Allbert gains
   `find_tools`, a capability search that fans out to local tools (actions,
   skills, connected MCP servers) and to internet MCP registries; a discovered
   server connects only through a confirmation-gated consent that shows the exact
@@ -568,35 +576,35 @@ historical aliases only and remain in old reference notes for continuity.
   workspace panels**. The notes/files surface also ships as a native reference
   plugin to give plugin authors a starter scaffold; StockSage remains the depth
   reference. Native plugins for the other integrations are post-1.0 follow-on
-  (v0.41.x).
-- v0.42: Browser And Web Research. Browser sessions become Resource Access
+  (v0.42.x).
+- v0.43: Browser And Web Research. Browser sessions become Resource Access
   resources, with research/extract/screenshot first and broader account
   operation deferred.
-- v0.43: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
-  through the existing channel adapter and plugin contracts; v0.43 also amends
+- v0.44: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
+  through the existing channel adapter and plugin contracts; v0.44 also amends
   ADR 0016 to lock the channel approval-primitive contract before mobile
   channels need it.
-- v0.44: Plan/Build Mode And Operator Workflow YAML. Objective Runtime becomes
+- v0.45: Plan/Build Mode And Operator Workflow YAML. Objective Runtime becomes
   an operator-visible plan/review/execute surface; YAML is declarative input
   under `<ALLBERT_HOME>/workflows/`, not an execution engine.
-- v0.45: Marketplace Lite — data shape + Allbert-author seeds only. Catalog
+- v0.46: Marketplace Lite — data shape + Allbert-author seeds only. Catalog
   schema, install path, provenance/hash/version/rollback metadata, with
   Allbert-author bundles seeding the catalog. Community-submission governance
   is parked. Drafting begins on ADR 0046 for settings schema migration.
-- v0.46: Operator-Supervised Self-Improvement. Trace-to-skill, workflow,
-  template, and dynamic capability draft suggestions consume v0.45 marketplace
-  metadata plus v0.40-v0.44 traces; reviewed memory/workflow draft facades are
+- v0.47: Operator-Supervised Self-Improvement. Trace-to-skill, workflow,
+  template, and dynamic capability draft suggestions consume v0.46 marketplace
+  metadata plus v0.40-v0.45 traces; reviewed memory/workflow draft facades are
   the only new dynamic delegate expansion.
-- v0.47: Voice Modality. Voice input/output composes with existing channels as
+- v0.48: Voice Modality. Voice input/output composes with existing channels as
   audio resources and registered STT/TTS actions.
-- v0.48: Vision And Image Generation. Image and screenshot resources plus
+- v0.49: Vision And Image Generation. Image and screenshot resources plus
   provider-backed image generation expand workspace media capability.
-- v0.49: Channel Pack 2 - WhatsApp, Signal, and Matrix. iMessage parked
+- v0.50: Channel Pack 2 - WhatsApp, Signal, and Matrix. iMessage parked
   (macOS-only platform constraint).
-- v0.49b: MCP Server Mode. Allbert exposes registered actions as MCP tools and
+- v0.50b: MCP Server Mode. Allbert exposes registered actions as MCP tools and
   memory namespaces as MCP resources. Single protocol surface. OpenAI-compatible
   API, ACP server mode, and public AG-UI/A2UI bridge are parked post-1.0.
-- v0.50: Hardening, Export/Import, Settings Migration, And Final RC. No new
+- v0.51: Hardening, Export/Import, Settings Migration, And Final RC. No new
   user-facing capability; portability, settings schema migration tool per ADR
   0046, security evals including self-improvement and MCP server, and
   release-candidate evidence.
@@ -634,7 +642,7 @@ bucket.
   connects a server only through a confirmation-gated consent; discovered
   metadata is never authority.
 
-### Planned v0.46: Operator-Supervised Self-Improvement
+### Planned v0.47: Operator-Supervised Self-Improvement
 
 Early in the 1.0 capability arc, while operators are first generating rich
 trace patterns from MCP, integrations, browser research, team channels,
@@ -656,7 +664,7 @@ These suggestions are advisory only. They do not enable skills, grant
 permissions, install packages, compile arbitrary folders, publish plugins, or
 load code. Review, validation, sandbox/gate evidence where relevant, and
 operator confirmation remain mandatory. The planning home is
-`docs/plans/v0.46-plan.md`.
+`docs/plans/v0.47-plan.md`.
 
 ### Still Research / Explicitly Not v1.0
 

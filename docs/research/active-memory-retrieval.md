@@ -170,7 +170,7 @@ order across runs. This is the v0.39b acceptance gate for the algorithm.
   embedding-scored retrieval is harder to operator-audit.
 - The deterministic lexical scorer is sufficient for most "remember this
   preference / surface the right context" cases. Embedding retrieval should
-  enter as a v0.46+ advisory provider per ADR 0021 once the deterministic
+  enter as a v0.47+ advisory provider per ADR 0021 once the deterministic
   baseline is calibrated.
 
 ## Future Work (Out Of v0.39b Scope)

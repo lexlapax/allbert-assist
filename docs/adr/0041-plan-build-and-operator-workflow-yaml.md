@@ -2,12 +2,12 @@
 
 ## Status
 
-Proposed for v0.44 Plan/Build Mode And Operator Workflow YAML
-(`docs/plans/v0.44-plan.md`).
+Proposed for v0.45 Plan/Build Mode And Operator Workflow YAML
+(`docs/plans/v0.45-plan.md`).
 
 ## Context
 
-Objective Runtime already stores durable multi-step work. v0.44 exposes that
+Objective Runtime already stores durable multi-step work. v0.45 exposes that
 substrate to operators as Plan/Build mode and adds declarative workflow YAML
 for repeatable objectives.
 
@@ -52,5 +52,5 @@ objective step attrs, and hands those attrs to the v0.24 objective engine
 through the normal frame/propose path.
 
 Operators may version-control `<ALLBERT_HOME>/workflows/` separately from
-the rest of Allbert Home if they wish; v0.50 export/import preserves the
+the rest of Allbert Home if they wish; v0.51 export/import preserves the
 directory.
