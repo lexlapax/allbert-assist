@@ -143,6 +143,17 @@ de-risked by two rules:
   before acceptance; the monolithic v0.40 serial precommit remains the runnable
   fallback gate for flake triage and rollback. No batch trades coverage for speed.
 
+### 8. Efficiency is benchmarked, and milestone order is adaptive
+
+The velocity win is measured, not assumed. v0.41 records a BEFORE benchmark,
+re-runs it after each implementation milestone, and again at closeout. Each
+implementation milestone has a planned share of the wall-clock target; a milestone
+that does not improve `fast-local` wall-clock effectively — or whose latest
+slowest-module report points at an unscheduled hotspot — triggers re-sequencing of
+the remaining milestones/batches toward the measured hotspots. Reordering is
+bounded by §7: every batch still reproduces the v0.40 oracle green set, so
+efficiency is never bought with coverage.
+
 ## Consequences
 
 - A later implementation may add Mix aliases or scripts for lane orchestration,

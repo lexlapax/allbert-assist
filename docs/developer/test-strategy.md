@@ -190,6 +190,13 @@ Work in reviewable batches. Each batch must reproduce the v0.40 oracle green set
 through the full release gate, and run its async/partition lane repeatedly within
 a flake-rerun budget, before it is accepted.
 
+Each batch also records the efficiency benchmark (release + fast-local
+wall-clock, per-lane breakdown, top-N slowest modules) before and after. If a
+batch does not improve `fast-local` effectively, re-prioritize the remaining
+batches toward the dominant hotspot in the latest `--slowest-modules` report and
+record the reorder here. Efficiency reordering never weakens coverage: every
+batch still reproduces the v0.40 oracle.
+
 If a converted lane flakes, re-run the suspect module under the v0.40 serial
 fallback gate: if it passes serially the defect is parallelism/ownership (fix the
 contract or move the module back to serial); if it fails serially it is a real
