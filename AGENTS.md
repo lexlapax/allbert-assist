@@ -198,6 +198,10 @@ Use these as starting points, then narrow further from the active task:
   development-lane annotations: parallel workstreams, serial barriers, focused
   tests/gates, external smokes, full-precommit timing, and the rejoin point for
   docs, drift review, validation, and commit/release evidence.
+- For v0.41 developer-efficiency work, record the BEFORE benchmark before
+  implementation, re-run and record efficiency benchmarks after each
+  implementation milestone, and reorder remaining batches when the measured
+  delta does not meet the milestone's planned share.
 - For code changes, run focused tests first. The active milestone plan must
   name the focused tests, whether full `mix precommit` is required before
   commit or release closeout, any serial lane involved, and which portions may

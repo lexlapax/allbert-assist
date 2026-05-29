@@ -689,8 +689,11 @@ For each milestone:
    the full code warning/release gate:
    `mix compile --warnings-as-errors`, `mix format --check-formatted`,
    `mix credo --strict`, `mix dialyzer`, and `mix precommit`.
-10. Run `git diff --check` for docs-only changes.
-11. Keep commits free of AI-tool attribution, generated-by footers, and
+10. For v0.41 developer-efficiency work, record the benchmark required by the
+    milestone in `docs/developer/test-strategy.md` and apply the reorder rule
+    before proceeding when the measured delta is ineffective.
+11. Run `git diff --check` for docs-only changes.
+12. Keep commits free of AI-tool attribution, generated-by footers, and
     co-author trailers.
 
 Each milestone should include operator/user verification steps, not only unit

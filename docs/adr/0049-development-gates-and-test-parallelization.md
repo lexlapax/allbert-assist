@@ -138,10 +138,11 @@ de-risked by two rules:
   the shared case templates first; per-file `@moduletag` overrides are reviewed
   exceptions, not the norm. This keeps the change reviewable instead of a blanket
   rewrite of every test file.
-- **The v0.40 closeout is the regression oracle.** Commit `ed84a73`'s green
-  `mix precommit` set is reproduced through the full release gate at every batch
-  before acceptance; the monolithic v0.40 serial precommit remains the runnable
-  fallback gate for flake triage and rollback. No batch trades coverage for speed.
+- **The v0.40 closeout is the regression oracle.** Current-main commit
+  `f81d13d`'s green `mix precommit` set is reproduced through the full release
+  gate at every batch before acceptance; the monolithic v0.40 serial precommit
+  remains the runnable fallback gate for flake triage and rollback. No batch
+  trades coverage for speed.
 
 ### 8. Efficiency is benchmarked, and milestone order is adaptive
 
@@ -150,9 +151,12 @@ re-runs it after each implementation milestone, and again at closeout. Each
 implementation milestone has a planned share of the wall-clock target; a milestone
 that does not improve `fast-local` wall-clock effectively — or whose latest
 slowest-module report points at an unscheduled hotspot — triggers re-sequencing of
-the remaining milestones/batches toward the measured hotspots. Reordering is
-bounded by §7: every batch still reproduces the v0.40 oracle green set, so
-efficiency is never bought with coverage.
+the remaining milestones/batches toward the measured hotspots. Benchmark records
+and reorder decisions live in `docs/developer/test-strategy.md` with exact
+commands, machine context, counts, wall-clock, slowest modules/tests, planned
+share, actual delta, and follow-up. Reordering is bounded by §7: every batch still
+reproduces the v0.40 oracle green set, so efficiency is never bought with
+coverage.
 
 ## Consequences
 
@@ -168,6 +172,9 @@ efficiency is never bought with coverage.
 - Plan readiness reviews become more concrete: they must identify safe parallel
   development/testing lanes and explicit serial chokepoints before implementation
   starts.
+- No extra ADR is required for v0.41 unless implementation changes the gate
+  semantics, introduces a persistent test scheduler/CI topology, or adds a new
+  authority boundary for development tooling.
 
 ## Non-Goals
 
