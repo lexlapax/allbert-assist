@@ -52,17 +52,18 @@ Do not load every section by default.
 | First-run onboarding and provider control (two-branch doctor, `endpoint_kind` field, ADR 0047 doctor contract) | ADR 0004, ADR 0005, ADR 0014, ADR 0047, `docs/plans/v0.39-plan.md`, `docs/plans/v0.39-request-flow.md` | v0.39 |
 | Identity slot (non-app system memory namespace + new `:identity` category) and deterministic direct-answer Active Memory retrieval | ADR 0015, ADR 0021, `docs/plans/v0.39b-plan.md`, `docs/plans/v0.39b-request-flow.md`, `docs/research/active-memory-retrieval.md`, `docs/operator/active-memory.md` | v0.39b |
 | MCP client integration and trust tier (`:mcp_tool_call` / `:mcp_resource_read`, `mcp://` adapter, HTTP/SSE + stdio transports, doctor reuse) | ADR 0009, ADR 0011, ADR 0012, ADR 0013, ADR 0038, ADR 0047, `docs/plans/v0.40-plan.md`, `docs/plans/v0.40-request-flow.md` | v0.40 |
-| Tool discovery: `find_tools` source port (local + internet MCP-registry adapters), `mcp_server_connect` confirmation gate, opt-in background scan to a passive surface | ADR 0048, ADR 0038, ADR 0011, ADR 0033, `docs/plans/v0.41-plan.md`, `docs/plans/v0.41-request-flow.md` | v0.41 |
-| MCP-first integration pack 1: calendar/mail/GitHub MCP panels + notes/files native reference plugin | ADR 0015, ADR 0017, ADR 0039, `docs/plans/v0.41-plan.md`, `docs/plans/v0.41-request-flow.md` | v0.41 |
-| Browser and web research | ADR 0012, ADR 0013, ADR 0023, ADR 0025, ADR 0040, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
-| Discord and Slack channel plugins + ADR 0016 amendment for channel approval primitives | ADR 0016, ADR 0017, `docs/plans/v0.43-plan.md`, `docs/plans/v0.43-request-flow.md` | v0.43 |
-| Plan/Build mode and operator workflow YAML (under `<ALLBERT_HOME>/workflows/`) | ADR 0021, ADR 0027, ADR 0041, `docs/plans/v0.44-plan.md`, `docs/plans/v0.44-request-flow.md` | v0.44 |
-| Marketplace lite (data shape + Allbert-author seeds) | ADR 0043, ADR 0046 (drafted), `docs/plans/v0.45-plan.md`, `docs/plans/v0.45-request-flow.md` | v0.45 |
-| Operator-supervised self-improvement, trace-to-skill draft suggestions, dynamic capability review loops | ADR 0045, `docs/plans/v0.46-plan.md`, `docs/plans/v0.46-request-flow.md`, `docs/plans/future-features.md`, ADR 0032, ADR 0035, ADR 0037 | v0.46 |
-| Voice, vision, and media resources | ADR 0042, `docs/plans/v0.47-plan.md`, `docs/plans/v0.47-request-flow.md`, `docs/plans/v0.48-plan.md`, `docs/plans/v0.48-request-flow.md` | v0.47-v0.48 |
-| Channel Pack 2: WhatsApp, Signal, Matrix (iMessage parked) | ADR 0016, ADR 0017, `docs/plans/v0.49-plan.md`, `docs/plans/v0.49-request-flow.md` | v0.49 |
-| MCP server mode (Allbert exposes registered actions as MCP tools; memory namespaces as MCP resources) | ADR 0044, `docs/plans/v0.49b-plan.md`, `docs/plans/v0.49b-request-flow.md` | v0.49b |
-| Release candidate hardening, export/import, settings schema migration, 1.0 tiered contract freeze | ADR 0046, `docs/plans/v0.50-plan.md`, `docs/plans/v0.50-request-flow.md`, `docs/plans/v1.0-plan.md`, `docs/plans/v1.0-request-flow.md` | v0.50-v1.0 |
+| Developer velocity, test strategy, precommit gate matrix, async eligibility, test-lane/resource isolation, implementation-readiness audits, and milestone parallelization annotations | ADR 0049, `docs/plans/v0.41-plan.md`, `docs/plans/v0.41-request-flow.md`, `docs/developer/test-strategy.md`, `DEVELOPMENT.md` | v0.41 |
+| Tool discovery: `find_tools` source port (local + internet MCP-registry adapters), `mcp_server_connect` confirmation gate, opt-in background scan to a passive surface | ADR 0048, ADR 0038, ADR 0011, ADR 0033, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
+| MCP-first integration pack 1: calendar/mail/GitHub MCP panels + notes/files native reference plugin | ADR 0015, ADR 0017, ADR 0039, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
+| Browser and web research | ADR 0012, ADR 0013, ADR 0023, ADR 0025, ADR 0040, `docs/plans/v0.43-plan.md`, `docs/plans/v0.43-request-flow.md` | v0.43 |
+| Discord and Slack channel plugins + ADR 0016 amendment for channel approval primitives | ADR 0016, ADR 0017, `docs/plans/v0.44-plan.md`, `docs/plans/v0.44-request-flow.md` | v0.44 |
+| Plan/Build mode and operator workflow YAML (under `<ALLBERT_HOME>/workflows/`) | ADR 0021, ADR 0027, ADR 0041, `docs/plans/v0.45-plan.md`, `docs/plans/v0.45-request-flow.md` | v0.45 |
+| Marketplace lite (data shape + Allbert-author seeds) | ADR 0043, ADR 0046 (drafted), `docs/plans/v0.46-plan.md`, `docs/plans/v0.46-request-flow.md` | v0.46 |
+| Operator-supervised self-improvement, trace-to-skill draft suggestions, dynamic capability review loops | ADR 0045, `docs/plans/v0.47-plan.md`, `docs/plans/v0.47-request-flow.md`, `docs/plans/future-features.md`, ADR 0032, ADR 0035, ADR 0037 | v0.47 |
+| Voice, vision, and media resources | ADR 0042, `docs/plans/v0.48-plan.md`, `docs/plans/v0.48-request-flow.md`, `docs/plans/v0.49-plan.md`, `docs/plans/v0.49-request-flow.md` | v0.48-v0.49 |
+| Channel Pack 2: WhatsApp, Signal, Matrix (iMessage parked) | ADR 0016, ADR 0017, `docs/plans/v0.50-plan.md`, `docs/plans/v0.50-request-flow.md` | v0.50 |
+| MCP server mode (Allbert exposes registered actions as MCP tools; memory namespaces as MCP resources) | ADR 0044, `docs/plans/v0.50b-plan.md`, `docs/plans/v0.50b-request-flow.md` | v0.50b |
+| Release candidate hardening, export/import, settings schema migration, 1.0 tiered contract freeze | ADR 0046, `docs/plans/v0.51-plan.md`, `docs/plans/v0.51-request-flow.md`, `docs/plans/v1.0-plan.md`, `docs/plans/v1.0-request-flow.md` | v0.51-v1.0 |
 
 ## Version Map
 
@@ -300,9 +301,17 @@ Do not load every section by default.
   (codec via `hermes_mcp`, egress through Allbert's posture), and the registered
   actions `mcp_doctor_server` / `mcp_list_tools` / `mcp_list_resources` /
   `mcp_read_resource` / `mcp_call_tool`. Real-server smoke validated the
-  official GitHub MCP server in read-only stdio mode. The substrate v0.41
+  official GitHub MCP server in read-only stdio mode. The substrate v0.42
   panels consume.
-- v0.41 (planned): Tool Discovery + MCP-First Integration Pack 1. Ships
+- v0.41 (planned): Developer Velocity And Parallel Test Methodology. Adds ADR
+  0049, `docs/developer/test-strategy.md`, a gate matrix, test-lane taxonomy,
+  async eligibility rules, and the isolation contract for per-test/per-partition
+  Allbert Home, SQLite database, Settings Central roots, secrets roots, memory
+  roots, sandbox roots, tmp roots, and process names. Also adds the
+  implementation-plan annotation contract for parallel workstreams, serial
+  barriers, gate evidence, and rejoin points. No operator-facing assistant
+  capability.
+- v0.42 (planned): Tool Discovery + MCP-First Integration Pack 1. Ships
   `find_tools` (local tools + internet MCP-registry search behind a provider
   port), `mcp_fetch_server_manifest` / `mcp_evaluate_server`, and the
   confirmation-gated `mcp_server_connect` gate (pre-config consent showing the
@@ -312,42 +321,42 @@ Do not load every section by default.
   GitHub as MCP-server-configured workspace panels driven by the v0.40 MCP
   client, plus the `notes/files` native reference plugin as a starter scaffold for
   plugin authors. Native variants for the other three are post-1.0 follow-on
-  (v0.41.x).
-- v0.42 (planned): Browser And Web Research. Adds browser-session Resource
+  (v0.42.x).
+- v0.43 (planned): Browser And Web Research. Adds browser-session Resource
   Access, plugin-owned browser research, screenshots, and bounded
   HTML/markdown/text/PDF extraction.
-- v0.43 (planned): Channel Pack 1 - Discord And Slack. Adds team/community chat
+- v0.44 (planned): Channel Pack 1 - Discord And Slack. Adds team/community chat
   plugins over the existing channel substrate and amends ADR 0016 to lock the
   channel approval-primitive contract (`{list, button, typed_command, link}`)
   before mobile channels need it.
-- v0.44 (planned): Plan/Build Mode And Operator Workflow YAML. Exposes
+- v0.45 (planned): Plan/Build Mode And Operator Workflow YAML. Exposes
   Objective Runtime as a plan/review/execute surface and treats YAML as
   declarative objective-step input. Workflow YAML lives under
   `<ALLBERT_HOME>/workflows/`.
-- v0.45 (planned): Marketplace Lite — data shape + Allbert-author seeds only.
+- v0.46 (planned): Marketplace Lite — data shape + Allbert-author seeds only.
   Adds catalog schema, install path, provenance/hash/version/rollback metadata,
   and reviewed Allbert-author seed bundles. Community submissions parked.
-  Drafts ADR 0046 for v0.50.
-- v0.46 (planned): Operator-Supervised Self-Improvement. Adds no autonomous
+  Drafts ADR 0046 for v0.51.
+- v0.47 (planned): Operator-Supervised Self-Improvement. Adds no autonomous
   authority; proposes inert trace-to-skill, workflow, template, and dynamic
   capability drafts that must still route through v0.36 sandbox/gate, v0.37
   dynamic integration, v0.38 templates, Security Central, confirmations, traces,
   and audits. May add reviewed memory promotion/update draft facades and
   objective/workflow draft-write facades only.
-- v0.47 (planned): Voice Modality. Adds STT/TTS as media resources and
+- v0.48 (planned): Voice Modality. Adds STT/TTS as media resources and
   registered actions.
-- v0.48 (planned): Vision And Image Generation. Adds image/screenshot resources
+- v0.49 (planned): Vision And Image Generation. Adds image/screenshot resources
   and provider-backed image generation.
-- v0.49 (planned): Channel Pack 2 - WhatsApp, Signal, And Matrix. iMessage
+- v0.50 (planned): Channel Pack 2 - WhatsApp, Signal, And Matrix. iMessage
   parked (macOS-only platform constraint).
-- v0.49b (planned): MCP Server Mode. Allbert exposes registered actions as
+- v0.50b (planned): MCP Server Mode. Allbert exposes registered actions as
   MCP tools and memory namespaces as MCP resources. Single protocol surface.
   OpenAI-compatible API, ACP server mode, and public AG-UI/A2UI bridge are
   parked post-1.0.
-- v0.50 (planned): Hardening, Export/Import, Settings Migration, And Final RC.
+- v0.51 (planned): Hardening, Export/Import, Settings Migration, And Final RC.
   Adds no new user-facing capability; proves portability, accepts and
   implements ADR 0046 (`mix allbert.settings.migrate`), runs the cross-surface
-  eval sweep over v0.40-v0.49b, and gathers RC evidence.
+  eval sweep over v0.40-v0.50b, and gathers RC evidence.
 - v1.0 (planned): Stability Release And **Tiered Public Contract Freeze**.
   Adds no new features; Tier 1 freezes Runtime, Actions/permissions, Plugin,
   App, Settings Central schema shape, Allbert Home layout, Channel adapter

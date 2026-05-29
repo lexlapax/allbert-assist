@@ -2,13 +2,13 @@
 
 ## Status
 
-Proposed for v0.42 Browser And Web Research (`docs/plans/v0.42-plan.md`).
+Proposed for v0.43 Browser And Web Research (`docs/plans/v0.43-plan.md`).
 
 ## Context
 
 Browser work is broader than approved URL fetches. It can involve session
 state, cookies, page DOM, screenshots, forms, downloads, and prompt-injection
-risk. v0.42 needs a browser policy that fits Allbert's Resource Access model.
+risk. v0.43 needs a browser policy that fits Allbert's Resource Access model.
 
 ## Decision
 
@@ -19,7 +19,7 @@ Browser sessions are URI-addressed resources:
 - Operations such as navigate, click, fill, submit, extract, screenshot, and
   download are separate Resource Access operation classes.
 - Remembered grants are scoped by domain and operation.
-- v0.42 starts with research, extraction, and screenshots.
+- v0.43 starts with research, extraction, and screenshots.
 - Form fill, submit, download, and authenticated account operations require
   stricter policy or later milestones.
 

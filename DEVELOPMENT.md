@@ -124,6 +124,47 @@ Docs-only verification:
 git diff --check
 ```
 
+## Development Gate Matrix
+
+Allbert keeps a strict release gate, but v0.41 makes gate choice explicit so
+development can be fast without hiding serial-resource risk. See
+`docs/developer/test-strategy.md` and ADR 0049 for the full contract.
+
+| Gate | Use | Typical evidence |
+| --- | --- | --- |
+| Docs | Docs-only changes. | `git diff --check` plus reference/link checks. |
+| Focused | Every implementation milestone. | Explicit test files named in the active plan/request-flow doc. |
+| Static | Code changes. | `mix compile --warnings-as-errors`, `mix format --check-formatted`, `mix credo --strict`, and Dialyzer when required. |
+| Fast local | Daily development feedback after v0.41 implementation. | Static checks plus proven async/partition-safe lanes. |
+| Serial core | Tests touching SQLite, app env, Allbert Home, global processes, LiveView, or security evals. | Explicit serial lane, not accidental suite drag. |
+| Release | Manual validation/release closeout. | Full `mix precommit`-equivalent coverage plus required static/type gates. |
+| External smoke | Machine-dependent integrations. | Docker, browser, real MCP/provider checks, opt in. |
+
+Fast local gates are not release evidence. Do not hand off a release milestone
+until the release gate is clean, unless an exact environment blocker is recorded
+and the user accepts the deferral.
+
+## Implementation Plan Readiness
+
+After v0.41, implementation-ready milestone plans must include development-lane
+annotations. When creating or auditing a plan, do not treat it as ready until
+each milestone names:
+
+- parallel workstreams that can proceed independently, such as docs,
+  request-flow updates, pure modules, UI shell work, focused tests,
+  browser/manual validation, or external smoke setup
+- serial barriers such as SQLite/Repo work, app env mutation, shared Allbert
+  Home/filesystem roots, named processes/supervisors, LiveView/Repo ownership,
+  migrations, security evals, or release evidence
+- focused tests, serial-lane commands, external smokes, and whether full
+  precommit is required before commit or release closeout
+- the rejoin point where docs are updated, drift against the plan is checked,
+  and gate evidence is reviewed before commit or release closeout
+
+Parallel implementation is allowed only when resource ownership and ordering are
+explicit. A missing annotation is an implementation-readiness gap, not a detail
+for the coding agent to guess later.
+
 ## Repository Map
 
 - `apps/allbert_assist/`: core OTP app, runtime, agents, actions, memory,
@@ -628,19 +669,24 @@ HTTP rule:
 
 For each milestone:
 
-1. Read the milestone plan.
+1. Read the milestone plan and its development-lane annotation.
 2. Read or create the request-flow doc.
-3. Implement the smallest coherent slice.
+3. Implement the smallest coherent slice, using documented parallel workstreams
+   only when their serial barriers and rejoin point are clear.
 4. Add focused automated tests.
 5. Update the request-flow doc with actual modules, flows, commands, and
    operator-visible behavior.
 6. Add or update ADRs when an implementation decision affects future work.
-7. Run focused tests.
-8. Run the code warning gate for code changes:
+7. Name and run the focused tests.
+8. Name any serial lane touched: SQLite/Repo, app env, Allbert Home/filesystem,
+   global process, external runtime, LiveView, or security eval.
+9. Run the gate required by the active plan and
+   `docs/developer/test-strategy.md`. If no narrower gate is documented, run
+   the full code warning/release gate:
    `mix compile --warnings-as-errors`, `mix format --check-formatted`,
    `mix credo --strict`, `mix dialyzer`, and `mix precommit`.
-9. Run `git diff --check` for docs-only changes.
-10. Keep commits free of AI-tool attribution, generated-by footers, and
+10. Run `git diff --check` for docs-only changes.
+11. Keep commits free of AI-tool attribution, generated-by footers, and
     co-author trailers.
 
 Each milestone should include operator/user verification steps, not only unit

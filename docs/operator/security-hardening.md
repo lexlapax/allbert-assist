@@ -123,8 +123,8 @@ eval surfaces until their capability work lands.
   results, server impersonation, secret-env/header redaction, stdio process
   startup policy (explicit argv, secret-ref env, stderr separated from stdout,
   ADR 0009 bounds), and doctor redacted-envelope. MCP server mode is a separate
-  later surface (v0.49b).
-- Tool discovery (v0.41, planned eval surface): discovery search egress stays
+  later surface (v0.50b).
+- Tool discovery (v0.42, planned eval surface): discovery search egress stays
   within `External.HttpPolicy` (SSRF, private/link-local IP block, bounded
   timeout/body, redirect denial) and degrades to local-only when a registry is
   unreachable; server `server.json` metadata and tool descriptions are never

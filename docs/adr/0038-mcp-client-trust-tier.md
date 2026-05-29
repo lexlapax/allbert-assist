@@ -83,7 +83,7 @@ the `:package_install` / `:online_skill_import` precedent (ADR 0011):
   itself force confirmation; authority comes from a remembered Resource Access
   grant scoped to the `mcp://` server/URI (see §4). The first read of a new
   server or resource scope requires operator approval that creates the grant;
-  subsequent in-scope reads need no new confirmation. This supports v0.41's
+  subsequent in-scope reads need no new confirmation. This supports v0.42's
   read-heavy workspace summary panels without per-read prompts.
 
 Settings can tighten either class but cannot loosen `:mcp_tool_call` below the
@@ -160,13 +160,13 @@ It grants no tool or resource authority and creates no remembered grants.
 - Security Central gains `:mcp_tool_call` and `:mcp_resource_read`; Settings
   Central gains the `mcp.servers.*` namespace and `secret://mcp/...` refs;
   Resource Access gains MCP operation classes, access mode, and scope kinds.
-- v0.41 consumes the v0.40 actions (`mcp_list_tools`, `mcp_list_resources`,
+- v0.42 consumes the v0.40 actions (`mcp_list_tools`, `mcp_list_resources`,
   `mcp_read_resource`, `mcp_call_tool`) and the grant-gated read model to render
   calendar/mail/GitHub workspace summary panels. v0.40's first-server validation
   set is aligned to those consumers plus deterministic mock servers and records
   whether required panel data is exposed as resources or only as tools. Tool-only
   panel reads must remain operator-triggered/per-call-confirmed, be parked, or
-  receive an explicit ADR amendment before v0.41 implementation.
+  receive an explicit ADR amendment before v0.42 implementation.
 - The `:mcp_tool_call` / `:mcp_resource_read` permission classes, the `mcp://`
   identity, and the MCP operation-class vocabulary become Tier-1 freeze
   candidates at v1.0; changing them requires an ADR amendment and, for settings
@@ -175,7 +175,8 @@ It grants no tool or resource authority and creates no remembered grants.
 ## Non-Goals
 
 - No MCP Apps iframe or third-party remote UI model (parked,
-  `future-features.md`; v0.49 owns protocol-surface exposure).
+  `future-features.md`; MCP server mode is v0.50b and other public protocol
+  surfaces are post-1.0).
 - No `agent://` or `agent+https://` endpoint execution (parked).
 - No automatic trust from tool schemas, descriptions, or results.
 - No code-bearing plugin install through MCP.
@@ -185,9 +186,9 @@ It grants no tool or resource authority and creates no remembered grants.
 
 ## Amendments
 
-### v0.41 (ADR 0048): discovered servers are inert until the connect gate
+### v0.42 (ADR 0048): discovered servers are inert until the connect gate
 
-v0.41 adds internet tool discovery (ADR 0048). A server returned by discovery is
+v0.42 adds internet tool discovery (ADR 0048). A server returned by discovery is
 not configured and carries no authority: its `server.json` metadata and
 advertised tool definitions are descriptive only, exactly like §2. A discovered
 server enters this trust tier only after the confirmation-gated
@@ -208,18 +209,18 @@ the `:mcp_tool_call` or `:mcp_resource_read` floors defined above.
   0009 startup posture, splitting the SSRF/redaction/audit boundary.
 - **One MCP permission class for both tools and resources**: rejected. Tool
   calls are effectful and must confirm; resource reads are read-heavy and need a
-  grant-gated path so v0.41 panels do not prompt on every read. Collapsing them
+  grant-gated path so v0.42 panels do not prompt on every read. Collapsing them
   would either over-prompt reads or under-confirm tool calls.
 - **Defer stdio to a later milestone**: considered. stdio is the larger security
   surface, but many reference MCP servers ship as npx/uvx stdio processes, and
-  v0.41 needs them; v0.40 includes stdio under ADR 0009 bounds rather than
-  shipping an HTTP-only client that v0.41 would outgrow immediately.
+  v0.42 needs them; v0.40 includes stdio under ADR 0009 bounds rather than
+  shipping an HTTP-only client that v0.42 would outgrow immediately.
 
 ## References
 
 - `docs/plans/v0.40-plan.md` — v0.40 MCP Client Integration.
 - `docs/plans/v0.40-request-flow.md` — v0.40 request flow and security evals.
-- `docs/plans/v0.41-plan.md` — v0.41 MCP-First Integration Pack 1 (downstream
+- `docs/plans/v0.42-plan.md` — v0.42 MCP-First Integration Pack 1 (downstream
   consumer of the v0.40 MCP actions and grant-gated read model).
 - ADR 0009 — Local Execution Sandbox Levels (stdio process startup bounds).
 - ADR 0011 — Confirmed External Capability Adapters (operation-class scoping,

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed for v0.45 Marketplace Lite (`docs/plans/v0.45-plan.md`).
+Proposed for v0.46 Marketplace Lite (`docs/plans/v0.46-plan.md`).
 
 ## Context
 

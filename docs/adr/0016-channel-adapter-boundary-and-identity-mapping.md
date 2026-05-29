@@ -190,19 +190,19 @@ list.
 - Proactive broadcast and scheduled outbound messaging.
 - UI protocol interop and workspace-native channel surfaces.
 
-## v0.43 Amendment: Channel Approval Primitives
+## v0.44 Amendment: Channel Approval Primitives
 
-Status: Proposed for v0.43 Channel Pack 1 - Discord And Slack
-(`docs/plans/v0.43-plan.md`). Becomes binding for v0.43 and all later
-channel adapters including v0.49 mobile channels.
+Status: Proposed for v0.44 Channel Pack 1 - Discord And Slack
+(`docs/plans/v0.44-plan.md`). Becomes binding for v0.44 and all later
+channel adapters including v0.50 mobile channels.
 
 ### Context
 
 v0.16 shipped two adapters with two different approval-rendering shapes:
 Telegram inline keyboard buttons and email typed commands. v0.17 packaged
 both as plugin adapters but did not formalize the rendering contract. By
-v0.43 (Discord + Slack), the field needs Discord buttons / Slack Block Kit;
-v0.49 mobile channels need WhatsApp typed commands, Signal typed commands,
+v0.44 (Discord + Slack), the field needs Discord buttons / Slack Block Kit;
+v0.50 mobile channels need WhatsApp typed commands, Signal typed commands,
 and Matrix buttons-or-typed-commands. Without a formal primitive set, each
 adapter would re-invent its own Approval Handoff rendering.
 
@@ -233,7 +233,7 @@ the highest-fidelity primitive the adapter declares, in order:
 
 ### Adapter Declarations
 
-Adapter declarations as of v0.49:
+Adapter declarations as of v0.50:
 
 | Adapter   | Declared primitives                                  |
 |-----------|------------------------------------------------------|
@@ -262,11 +262,11 @@ declaring the supported set MUST be rejected by the channel registry.
 
 ### Consequences
 
-- v0.43 lands Discord and Slack with `:button` rendering through the same
+- v0.44 lands Discord and Slack with `:button` rendering through the same
   Approval Handoff path as Telegram.
-- v0.49 lands WhatsApp/Signal/Matrix with explicit primitive declarations
+- v0.50 lands WhatsApp/Signal/Matrix with explicit primitive declarations
   rather than ad-hoc rendering.
-- The v0.50 cross-surface eval sweep adds an `approval-primitive-honor`
+- The v0.51 cross-surface eval sweep adds an `approval-primitive-honor`
   check per adapter.
 - v1.0 freezes the channel-adapter boundary including this primitive
   contract.

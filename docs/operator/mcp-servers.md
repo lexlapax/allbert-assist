@@ -82,11 +82,11 @@ stdout JSON stream.
 `args`, `tool_allowlist`, `tool_denylist`, `env`, and `headers` can be supplied
 as JSON objects or arrays when needed.
 
-## Discover A Server (planned, v0.41)
+## Discover A Server (planned, v0.42)
 
-v0.41 adds tool discovery so you can find an MCP server instead of knowing its
-config in advance. The commands below land with v0.41 (see
-`docs/plans/v0.41-plan.md`); v0.40 operators configure servers manually as above.
+v0.42 adds tool discovery so you can find an MCP server instead of knowing its
+config in advance. The commands below land with v0.42 (see
+`docs/plans/v0.42-plan.md`); v0.40 operators configure servers manually as above.
 
 Discovery is off by default. Enable it, then search local tools and internet MCP
 registries:

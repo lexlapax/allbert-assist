@@ -21,8 +21,8 @@ lexical Active Memory retrieval over reviewed `:kept` entries scoped to
 `{thread_id, active_app, identity_namespace}`. Replayable from traces.
 No embeddings; no learned ranking.
 
-v0.46 plans operator-supervised trace-derived draft suggestions. Neither
-v0.39b nor v0.46 trains, distills, or creates a learned system-memory
+v0.47 plans operator-supervised trace-derived draft suggestions. Neither
+v0.39b nor v0.47 trains, distills, or creates a learned system-memory
 authority.
 
 Still parked:
@@ -37,7 +37,7 @@ Still parked:
 
 Status: parked.
 
-v0.46 plans operator-supervised, inert trace-to-skill and trace-to-workflow
+v0.47 plans operator-supervised, inert trace-to-skill and trace-to-workflow
 draft suggestions. Drafts remain disabled/untrusted until reviewed and
 confirmed.
 
@@ -48,12 +48,12 @@ Still parked:
 - broad execution permissions derived from repeated use or model confidence;
 - autonomous package install, remote plugin install, or arbitrary code loading.
 
-### Dynamic Capability Expansion Beyond v0.46 Facades
+### Dynamic Capability Expansion Beyond v0.47 Facades
 
 Status: parked.
 
 v0.36-v0.38 now define the supervised dynamic capability path: sandbox/gate
-evidence, dynamic action integration, and templated creation. v0.46 may add
+evidence, dynamic action integration, and templated creation. v0.47 may add
 only reviewed delegate facades for memory promotion/update drafts and
 objective/workflow draft writes.
 
@@ -61,7 +61,7 @@ Still parked:
 
 - settings, secrets, shell, package-install, confirmation-decision, trust, or
   live workspace/canvas write facades;
-- broader generated-permission ceilings beyond the reviewed v0.46 memory and
+- broader generated-permission ceilings beyond the reviewed v0.47 memory and
   workflow draft paths;
 - unsupervised self-recompilation, compiler-loop bootstrapping, or runtime
   mutation outside the v0.36/v0.37/v0.38 review path.
@@ -70,8 +70,8 @@ Still parked:
 
 Status: parked.
 
-Discord and Slack are planned for v0.43. WhatsApp, Signal, iMessage, and Matrix
-are planned for v0.49. SMS remains parked.
+Discord and Slack are planned for v0.44. WhatsApp, Signal, iMessage, and Matrix
+are planned for v0.50. SMS remains parked.
 
 Still parked:
 
@@ -98,8 +98,9 @@ Still parked:
 
 Status: parked.
 
-v0.49 plans public API, ACP, MCP-server, and AG-UI/A2UI bridge exposure.
-Allbert remains catalog-bound for UI surfaces.
+v0.50b plans MCP server mode. OpenAI-compatible API, ACP server mode, and
+public AG-UI/A2UI bridge exposure remain parked after v1.0. Allbert remains
+catalog-bound for UI surfaces.
 
 Still parked:
 
@@ -122,23 +123,23 @@ Still parked:
 - remembered or silent MCP tool-call approval (every v0.40 tool call confirms;
   per ADR 0038 there is no remembered tool-call grant);
 - MCP prompts consumption (v0.40 consumes tools and resources only);
-- MCP server mode (Allbert exposing its own MCP server) — covered by the v0.49b
+- MCP server mode (Allbert exposing its own MCP server) — covered by the v0.50b
   MCP server-mode surface and the "Public Protocol Interop (Non-MCP)" entry, not
   the v0.40 client.
 
-### MCP Tool Discovery v0.41-Deferred Remainder
+### MCP Tool Discovery v0.42-Deferred Remainder
 
 Status: parked. Added in the post-v0.40 planning pass.
 
-v0.41 ships `find_tools` (local + internet MCP registry search), the
+v0.42 ships `find_tools` (local + internet MCP registry search), the
 confirmation-gated connect gate, and an opt-in background scan over the official
 MCP Registry plus one no-auth aggregator (PulseMCP). A few discovery capabilities
-are intentionally out of v0.41 scope.
+are intentionally out of v0.42 scope.
 
 Still parked:
 
 - capability-gap-triggered remote acquisition (an objective gap automatically
-  proposing a discovery search) — v0.41 keeps discovery operator-initiated or
+  proposing a discovery search) — v0.42 keeps discovery operator-initiated or
   scheduled; ADR 0033 objectives may consult `find_local_tools` only;
 - semantic / API-keyed registry sources (e.g. Smithery), and registries beyond
   the official registry + PulseMCP;
@@ -153,7 +154,7 @@ Still parked:
 
 Status: parked.
 
-v0.42 plans bounded HTML, markdown, plain text, and PDF extraction for browser
+v0.43 plans bounded HTML, markdown, plain text, and PDF extraction for browser
 and web research.
 
 Still parked:
@@ -168,7 +169,7 @@ Still parked:
 
 Status: parked.
 
-v0.45 plans marketplace-lite metadata and reviewed skill/template discovery.
+v0.46 plans marketplace-lite metadata and reviewed skill/template discovery.
 It does not install arbitrary remote code.
 
 Still parked:
@@ -192,7 +193,7 @@ future work.
 
 Status: parked.
 
-v0.50 plans local-first profile export/import dry runs. Broad remote sync
+v0.51 plans local-first profile export/import dry runs. Broad remote sync
 remains parked.
 
 Still parked:
@@ -245,7 +246,7 @@ Still parked:
 
 Status: parked.
 
-v0.49b MCP server mode is local/public-surface exposure, not a distributed
+v0.50b MCP server mode is local/public-surface exposure, not a distributed
 runtime.
 
 Still parked:
@@ -257,10 +258,10 @@ Still parked:
 
 ### Public Protocol Interop (Non-MCP)
 
-Status: parked. Added in the post-v0.37 planning pass after the v0.49 split.
+Status: parked. Added in the post-v0.37 planning pass after the v0.50 split.
 
-v0.49b ships MCP server mode as the single 1.0 protocol surface (per ADR
-0044). The original v0.49 plan bundled three additional protocol surfaces
+v0.50b ships MCP server mode as the single 1.0 protocol surface (per ADR
+0044). The original v0.50 plan bundled three additional protocol surfaces
 that did not survive the post-v0.37 acceptance-matrix trim.
 
 Still parked:
@@ -276,7 +277,7 @@ review, and its own export/import/eval coverage before promotion.
 
 ### iMessage Channel Adapter
 
-Status: parked. Moved from v0.49 to parking in the post-v0.37 planning pass.
+Status: parked. Moved from v0.50 to parking in the post-v0.37 planning pass.
 
 iMessage requires a macOS-only adapter, opt-in platform constraint, and
 device-pairing recovery story distinct from WhatsApp/Signal/Matrix.
@@ -288,12 +289,12 @@ Still parked:
 - App Store / signing implications;
 - backup/restore behavior for paired sessions.
 
-### Native Plugin Variants For Calendar / Mail / GitHub (v0.41.x Follow-On)
+### Native Plugin Variants For Calendar / Mail / GitHub (v0.42.x Follow-On)
 
-Status: post-1.0 follow-on candidates. Promoted from v0.41 scope in the
+Status: post-1.0 follow-on candidates. Promoted from v0.42 scope in the
 post-v0.37 planning pass.
 
-v0.41 ships calendar / mail / GitHub as MCP-server-configured workspace
+v0.42 ships calendar / mail / GitHub as MCP-server-configured workspace
 panels driven by the v0.40 MCP client. Native plugin variants land only when
 MCP coverage proves insufficient for a specific workspace surface, memory
 namespace, or intent-descriptor need.
@@ -313,7 +314,7 @@ Each follow-on is a small focused release. None block v1.0.
 
 Status: parked. Added in the post-v0.37 planning pass.
 
-v0.45 marketplace lite ships single-vendor (Allbert-author seed bundles
+v0.46 marketplace lite ships single-vendor (Allbert-author seed bundles
 only). A submission/review process for community contributions requires:
 
 - submission workflow (PR against an index repo? hosted form?);
@@ -328,7 +329,7 @@ Promote post-1.0 when the project decides on governance.
 
 Status: parked. Added in the post-v0.37 planning pass.
 
-Allbert is reactive through v1.0, with one narrow carve-out: v0.41 adds an
+Allbert is reactive through v1.0, with one narrow carve-out: v0.42 adds an
 opt-in, paused-by-default background MCP-discovery scan (per ADR 0048) that runs
 as an operator-scheduled job and writes candidates to a *passive* Discovery
 Suggestions surface. That is unattended read-only scanning into a queue the
@@ -351,7 +352,7 @@ Still parked:
 
 Status: parked. Added in the post-v0.37 planning pass.
 
-Voice (v0.47) and vision (v0.48) ship per-feature cost visibility at
+Voice (v0.48) and vision (v0.49) ship per-feature cost visibility at
 confirmation time. Power operators will want a unified cross-provider
 dashboard.
 
@@ -416,7 +417,7 @@ Still parked:
 Status: parked. Added in the post-v0.37 planning pass.
 
 Reviewed plugins (Allbert-author and, post-1.0, community-submitted) will
-release new versions over time. v0.45 marketplace ships single-snapshot
+release new versions over time. v0.46 marketplace ships single-snapshot
 catalogs; updating means upgrading Allbert.
 
 Still parked:
