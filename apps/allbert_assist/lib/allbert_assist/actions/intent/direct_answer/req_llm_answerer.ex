@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
 
   @max_prompt_bytes 4_000
   @max_active_memory_prompt_bytes 8_000
+  alias AllbertAssist.Settings.ModelRuntime
 
   @spec answer(String.t(), map()) :: {:ok, map()} | {:error, term()}
   def answer(
@@ -16,7 +17,8 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
       )
       when is_binary(text) and is_binary(model) do
     with :ok <- ensure_req_llm!(),
-         {:ok, model_spec} <- model_spec(provider_type, model),
+         {:ok, model_spec} <-
+           ModelRuntime.model_spec(%{provider_type: provider_type, model: model}),
          {:ok, response} <-
            ReqLLM.generate_text(model_spec, prompt(text, context), request_opts(profile)),
          text when is_binary(text) <- ReqLLM.Response.text(response),
@@ -51,10 +53,6 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
       {:error, :req_llm_unavailable}
     end
   end
-
-  defp model_spec("openai", model), do: {:ok, %{provider: :openai, id: model}}
-  defp model_spec("openai_compatible", model), do: {:ok, %{provider: :openai, id: model}}
-  defp model_spec(provider, _model), do: {:error, {:unsupported_model_provider, provider}}
 
   defp prompt(text, context) do
     """
@@ -99,11 +97,13 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
   defp active_memory_prompt(_chunks), do: "Active Memory context: none."
 
   defp request_opts(profile) do
-    [
+    profile
+    |> ModelRuntime.request_opts()
+    |> Keyword.merge(
       temperature: Map.get(profile, :temperature, 0.2),
       max_tokens: Map.get(profile, :max_tokens, 512),
       receive_timeout: Map.get(profile, :timeout_ms, 3_000)
-    ]
+    )
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
   end
 

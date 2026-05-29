@@ -2179,6 +2179,10 @@ Implemented shape:
   endpoint without that model reports `model_available: false` with fixed
   remediation; the pass row runs after the operator explicitly pulls the
   shipped default. v0.39 does not auto-run `ollama pull`.
+- Provider/model catalog cleanup keeps Settings Central model profiles as the
+  only operator-editable model surface. Jido aliases are generated from
+  `model_profiles.*`, and the code-generation pair is consistently named
+  `coding` / `coding_local`.
 - Onboarding's model-assist step toggles `intent.model_assist_enabled`
   (default `false` today) explicitly so picking a profile actually wires up
   model-assisted intent ranking.

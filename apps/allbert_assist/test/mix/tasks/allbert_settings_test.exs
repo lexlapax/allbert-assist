@@ -55,6 +55,22 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
              "Updated: execution.local.allowed_roots=[\"/tmp\", \"/private/tmp\"]"
 
     assert {:ok, ["/tmp", "/private/tmp"]} = Settings.get("execution.local.allowed_roots")
+
+    aliases_output =
+      capture_io(fn ->
+        assert :ok =
+                 SettingsTask.run([
+                   "set",
+                   "model_profiles.coding_local.aliases",
+                   "qwen2.5-coder,qwen-coder"
+                 ])
+      end)
+
+    assert aliases_output =~
+             "Updated: model_profiles.coding_local.aliases=[\"qwen2.5-coder\", \"qwen-coder\"]"
+
+    assert {:ok, ["qwen2.5-coder", "qwen-coder"]} =
+             Settings.get("model_profiles.coding_local.aliases")
   end
 
   test "provider list and set-key use stdin and redact raw key", %{root: root} do

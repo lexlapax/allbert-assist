@@ -122,6 +122,10 @@ ADR: `docs/adr/0047-provider-doctor-contract.md`.
   `anthropic_fast` using the canonical Claude Haiku 4.5 API ID
   `claude-haiku-4-5-20251001` and doctor alias comparison covering
   `claude-haiku-4-5`.
+- Settings Central model profiles are now the only model-profile catalog
+  surface: generated Jido aliases come from `model_profiles.*` and
+  `model_profiles.*.aliases`; the shipped code-generation pair is `coding`
+  for remote Gemini and `coding_local` for local Ollama `qwen2.5-coder:7b`.
 - ADR 0047 is accepted and pins the provider doctor redacted summary shape as a
   Tier-1 freeze candidate for v1.0.
 - README, roadmap, operator onboarding, security-hardening, agent-context-map,
@@ -396,9 +400,11 @@ ADRs: `docs/adr/0032-dynamic-plugin-generation-and-sandboxed-loading.md`,
   concrete empty defaults, and OpenRouter uses JSON Schema structured output
   mode.
 - Remote provider smoke instructions source `.env` for keys and cover OpenAI,
-  Anthropic, and OpenRouter model profiles without printing secrets. The runtime
-  also honors `.env` credentials as an operator-provided preflight source when
-  Settings Central secret storage is not used for smoke testing.
+  Anthropic, OpenRouter, and Gemini model profiles without printing secrets. The
+  recommended remote code-generation profile is `coding`; the local Ollama
+  fallback is consistently named `coding_local`. The runtime also honors `.env`
+  credentials as an operator-provided preflight source when Settings Central
+  secret storage is not used for smoke testing.
 - Operator, developer, ADR, plan, request-flow, runtime-boundary, and onboarding
   docs now describe source-bearing read-only action generation plus gated live
   integration.

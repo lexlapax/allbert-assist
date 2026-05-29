@@ -10,6 +10,8 @@ defmodule AllbertAssist.Intent.Classifier.DefaultClassifier do
 
   @behaviour AllbertAssist.Intent.Classifier.Behaviour
 
+  alias AllbertAssist.Settings.ModelRuntime
+
   @schema [
     selected_kind: [
       type: :string,
@@ -68,9 +70,7 @@ defmodule AllbertAssist.Intent.Classifier.DefaultClassifier do
 
   defp model_spec(%{model_profile: %{provider_type: provider_type, model: model}})
        when is_binary(model) do
-    with {:ok, provider} <- req_llm_provider(provider_type) do
-      {:ok, %{provider: provider, id: model}}
-    end
+    ModelRuntime.model_spec(%{provider_type: provider_type, model: model})
   end
 
   defp model_spec(%{model_profile: %{provider_type: provider_type, model: model}})
@@ -83,10 +83,6 @@ defmodule AllbertAssist.Intent.Classifier.DefaultClassifier do
   end
 
   defp model_spec(_context), do: {:error, :missing_model_profile}
-
-  defp req_llm_provider("openai"), do: {:ok, :openai}
-  defp req_llm_provider("openai_compatible"), do: {:ok, :openai}
-  defp req_llm_provider(provider), do: {:error, {:unsupported_model_provider, provider}}
 
   defp prompt(candidate_summary, context) do
     """
@@ -114,10 +110,12 @@ defmodule AllbertAssist.Intent.Classifier.DefaultClassifier do
   defp request_opts(context) do
     profile = Map.get(context, :model_profile, %{})
 
-    [
+    profile
+    |> ModelRuntime.request_opts()
+    |> Keyword.merge(
       temperature: Map.get(profile, :temperature, 0.0),
       max_tokens: Map.get(profile, :max_tokens, 256),
       receive_timeout: Map.get(context, :timeout_ms, Map.get(profile, :timeout_ms, 3_000))
-    ]
+    )
   end
 end
