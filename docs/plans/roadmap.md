@@ -216,11 +216,14 @@ Dependency order from here:
     promoted to a supported Resource Access adapter, HTTP/SSE + stdio
     transports, and registered MCP actions (doctor/list/read/call) under
     Security Central. The substrate v0.41 panels consume.
-41. v0.41 MCP-first Integration Pack 1: workspace summary panels for calendar,
-    mail, GitHub, and notes/files **using MCP servers only**. Plus the
-    `notes/files` native reference plugin as a starter scaffold for plugin
-    authors (does NOT replace StockSage as the depth reference). Native
-    integration plugins for the other three are post-1.0 follow-on (v0.41.x).
+41. v0.41 Tool Discovery + MCP-first Integration Pack 1: `find_tools` capability
+    search (local tools + internet MCP registries behind a provider port) with a
+    confirmation-gated connect gate and an opt-in, passive background scan. Plus
+    workspace summary panels for calendar, mail, GitHub, and notes/files **using
+    MCP servers only**, and the `notes/files` native reference plugin as a starter
+    scaffold for plugin authors (does NOT replace StockSage as the depth
+    reference). Native integration plugins for the other three are post-1.0
+    follow-on (v0.41.x).
 42. v0.42 Browser and web research: browser-session Resource Access policy,
     sandboxed browser plugin, research/extract/screenshot actions, and bounded
     HTML/markdown/text/PDF extraction.
@@ -2278,22 +2281,35 @@ Expected direction:
   after approval, and the configured token did not leak into result/audit
   surfaces.
 
-## v0.41: MCP-First Integration Pack 1
+## v0.41: Tool Discovery + MCP-First Integration Pack 1
 
 Plan: `docs/plans/v0.41-plan.md`
 Request flow: `docs/plans/v0.41-request-flow.md`
-ADR: `docs/adr/0039-mcp-first-native-plugin-second-integrations.md`
+ADRs: `docs/adr/0048-tool-discovery-and-discovered-server-trust.md` (discovery),
+`docs/adr/0039-mcp-first-native-plugin-second-integrations.md` (integration).
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
 not implemented. Tightened in the post-v0.37 planning pass to **MCP-configured
-only** plus one native reference plugin (notes/files). Native plugins for the
+only** plus one native reference plugin (notes/files). The post-v0.40 planning
+pass added a **discovery track**, shipped first, that lets Allbert find and
+connect MCP servers through a confirmation-gated gate. Native plugins for the
 other integrations move to v0.41.x follow-on releases.
 
 Expected direction:
 
+- **Tool discovery track (first):** ship `find_tools`, a capability search that
+  fans out to local tools (registered actions, skills, connected MCP servers) and
+  to internet MCP registries (official MCP Registry + a no-auth aggregator)
+  behind a provider port. A discovered server connects only through a
+  confirmation-gated consent that shows the exact command/URL and records a
+  tool-definition baseline hash (rug-pull defense). An opt-in, paused-by-default
+  background scan writes candidates to a passive Discovery Suggestions surface; no
+  unprompted messaging, no auto-connect. Discovery search egress reuses
+  `External.HttpPolicy`; server metadata is never authority.
 - Ship workspace summary panels for **calendar, mail, GitHub, and notes/files**
-  driven entirely by **MCP servers configured in v0.40**. No native plugin
-  surface for calendar/mail/GitHub in v0.41.
+  driven entirely by **MCP servers configured in v0.40** (or connected through the
+  discovery gate above). No native plugin surface for calendar/mail/GitHub in
+  v0.41.
 - Ship a **`notes/files` native reference plugin** as a starter scaffold for
   plugin authors: minimal app+SurfaceProvider+memory-namespace+intent-descriptor
   example. This is the developer-onboarding reference; StockSage remains the
@@ -2603,7 +2619,9 @@ acceptance criteria are subjective or provider-dependent:
 
 - Identity slot + Active Memory (v0.39b) — algorithm is deterministic but
   retrieval quality is subjective.
-- MCP-first integration panels + notes/files reference plugin (v0.41).
+- Tool discovery + MCP-first integration panels + notes/files reference plugin
+  (v0.41) — the connect gate and discovery boundary are objective; registry
+  coverage and search quality are ecosystem-dependent.
 - Marketplace seed catalog (v0.45) — content scarcity is honest; the data
   shape is the deliverable.
 - Self-improvement suggestion quality (v0.46) — quality bar is subjective.

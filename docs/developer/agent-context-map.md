@@ -52,6 +52,7 @@ Do not load every section by default.
 | First-run onboarding and provider control (two-branch doctor, `endpoint_kind` field, ADR 0047 doctor contract) | ADR 0004, ADR 0005, ADR 0014, ADR 0047, `docs/plans/v0.39-plan.md`, `docs/plans/v0.39-request-flow.md` | v0.39 |
 | Identity slot (non-app system memory namespace + new `:identity` category) and deterministic direct-answer Active Memory retrieval | ADR 0015, ADR 0021, `docs/plans/v0.39b-plan.md`, `docs/plans/v0.39b-request-flow.md`, `docs/research/active-memory-retrieval.md`, `docs/operator/active-memory.md` | v0.39b |
 | MCP client integration and trust tier (`:mcp_tool_call` / `:mcp_resource_read`, `mcp://` adapter, HTTP/SSE + stdio transports, doctor reuse) | ADR 0009, ADR 0011, ADR 0012, ADR 0013, ADR 0038, ADR 0047, `docs/plans/v0.40-plan.md`, `docs/plans/v0.40-request-flow.md` | v0.40 |
+| Tool discovery: `find_tools` source port (local + internet MCP-registry adapters), `mcp_server_connect` confirmation gate, opt-in background scan to a passive surface | ADR 0048, ADR 0038, ADR 0011, ADR 0033, `docs/plans/v0.41-plan.md`, `docs/plans/v0.41-request-flow.md` | v0.41 |
 | MCP-first integration pack 1: calendar/mail/GitHub MCP panels + notes/files native reference plugin | ADR 0015, ADR 0017, ADR 0039, `docs/plans/v0.41-plan.md`, `docs/plans/v0.41-request-flow.md` | v0.41 |
 | Browser and web research | ADR 0012, ADR 0013, ADR 0023, ADR 0025, ADR 0040, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
 | Discord and Slack channel plugins + ADR 0016 amendment for channel approval primitives | ADR 0016, ADR 0017, `docs/plans/v0.43-plan.md`, `docs/plans/v0.43-request-flow.md` | v0.43 |
@@ -301,11 +302,17 @@ Do not load every section by default.
   `mcp_read_resource` / `mcp_call_tool`. Real-server smoke validated the
   official GitHub MCP server in read-only stdio mode. The substrate v0.41
   panels consume.
-- v0.41 (planned): MCP-First Integration Pack 1. Ships calendar/mail/GitHub
-  as MCP-server-configured workspace panels driven by the v0.40 MCP client,
-  plus the `notes/files` native reference plugin as a starter scaffold for
-  plugin authors. Native variants for the other three are post-1.0
-  follow-on (v0.41.x).
+- v0.41 (planned): Tool Discovery + MCP-First Integration Pack 1. Ships
+  `find_tools` (local tools + internet MCP-registry search behind a provider
+  port), `mcp_fetch_server_manifest` / `mcp_evaluate_server`, and the
+  confirmation-gated `mcp_server_connect` gate (pre-config consent showing the
+  exact command/URL + a tool-definition baseline hash for rug-pull defense), plus
+  an opt-in, paused-by-default background scan to a passive Discovery Suggestions
+  surface (no unprompted messaging, no auto-connect). Also ships calendar/mail/
+  GitHub as MCP-server-configured workspace panels driven by the v0.40 MCP
+  client, plus the `notes/files` native reference plugin as a starter scaffold for
+  plugin authors. Native variants for the other three are post-1.0 follow-on
+  (v0.41.x).
 - v0.42 (planned): Browser And Web Research. Adds browser-session Resource
   Access, plugin-owned browser research, screenshots, and bounded
   HTML/markdown/text/PDF extraction.

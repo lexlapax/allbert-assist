@@ -82,6 +82,43 @@ stdout JSON stream.
 `args`, `tool_allowlist`, `tool_denylist`, `env`, and `headers` can be supplied
 as JSON objects or arrays when needed.
 
+## Discover A Server (planned, v0.41)
+
+v0.41 adds tool discovery so you can find an MCP server instead of knowing its
+config in advance. The commands below land with v0.41 (see
+`docs/plans/v0.41-plan.md`); v0.40 operators configure servers manually as above.
+
+Discovery is off by default. Enable it, then search local tools and internet MCP
+registries:
+
+```sh
+mix allbert.settings set mcp.discovery.enabled true
+mix allbert.mcp discover "calendar"          # internet MCP registries
+mix allbert.tools find "calendar"            # local tools + internet, merged
+```
+
+Discovery is read-only and connects nothing: results are candidates, and internet
+candidates are marked not-yet-usable. Connecting is a separate,
+confirmation-gated step that shows you the exact run command or URL before it
+writes any `mcp.servers.<id>` config:
+
+```sh
+mix allbert.mcp connect "io.example/calendar"   # shows exact command/URL; approve
+```
+
+An optional background scan (opt-in, paused by default) writes suggestions to a
+passive Discovery Suggestions panel you review on your own time — Allbert never
+messages you unprompted and never connects from a scan:
+
+```sh
+mix allbert.mcp scan enable        # then resume to schedule; or run once:
+mix allbert.mcp scan run-once
+```
+
+Allbert records a tool-definition baseline when you connect. If a server later
+changes its tool definitions (a "rug-pull"), the next doctor/reconnect flags it
+and asks you to review again rather than silently trusting the change.
+
 ## Doctor A Server
 
 Before trusting a server, run the doctor. It is read-only, requires no
