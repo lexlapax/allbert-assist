@@ -1,5 +1,6 @@
 defmodule AllbertAssist.External.HttpClientTest do
   use ExUnit.Case, async: false
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.External.HttpClient
   alias AllbertAssist.External.RequestSpec

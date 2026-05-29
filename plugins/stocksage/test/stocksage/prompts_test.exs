@@ -1,5 +1,6 @@
 defmodule StockSage.PromptsTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   @prompt_names ~w[
     bear_thesis.md

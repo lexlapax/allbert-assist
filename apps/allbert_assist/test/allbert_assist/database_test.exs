@@ -1,5 +1,6 @@
 defmodule AllbertAssist.DatabaseTest do
   use ExUnit.Case, async: false
+  @moduletag :db_serial
 
   alias AllbertAssist.Database
   alias AllbertAssist.Paths

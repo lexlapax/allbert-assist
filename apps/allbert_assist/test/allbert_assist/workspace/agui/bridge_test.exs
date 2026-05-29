@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Workspace.AGUI.BridgeTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Workspace.AGUI.Bridge
   alias Jido.Signal

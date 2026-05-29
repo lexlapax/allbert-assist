@@ -15,8 +15,12 @@ defmodule StockSage.DataCase do
   alias StockSage.Domain.Outcome
   alias StockSage.Domain.QueueRun
 
-  using do
+  using opts do
+    lane = Keyword.get(opts, :lane, :db_serial)
+
     quote do
+      @moduletag unquote(lane)
+
       alias AllbertAssist.Repo
 
       import Ecto

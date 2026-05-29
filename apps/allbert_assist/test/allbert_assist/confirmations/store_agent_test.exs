@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Confirmations.StoreAgentTest do
   use ExUnit.Case, async: false
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Confirmations.Store
   alias AllbertAssist.Confirmations.Store.Agent, as: StoreAgent

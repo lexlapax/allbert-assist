@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Runtime.AuditTest do
   use ExUnit.Case, async: false
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Execution.Audit, as: ShellAudit
   alias AllbertAssist.Execution.CommandSpec

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Skills.ParserTest do
   use ExUnit.Case, async: true
+  @moduletag :global_process_serial
 
   alias AllbertAssist.Skills.AgentSkillSpec
   alias AllbertAssist.Skills.Parser

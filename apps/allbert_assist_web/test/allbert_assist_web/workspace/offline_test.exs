@@ -1,5 +1,6 @@
 defmodule AllbertAssistWeb.Workspace.OfflineTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   @app_js_path Path.expand("../../../assets/js/app.js", __DIR__)
   @package_json_path Path.expand("../../../assets/package.json", __DIR__)

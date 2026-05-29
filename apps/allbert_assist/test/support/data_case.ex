@@ -19,8 +19,12 @@ defmodule AllbertAssist.DataCase do
   alias AllbertAssist.Repo
   alias Ecto.Adapters.SQL.Sandbox
 
-  using do
+  using opts do
+    lane = Keyword.get(opts, :lane, :db_serial)
+
     quote do
+      @moduletag unquote(lane)
+
       alias AllbertAssist.Repo
 
       import Ecto

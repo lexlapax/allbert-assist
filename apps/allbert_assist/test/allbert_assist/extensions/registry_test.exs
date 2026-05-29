@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Extensions.RegistryTest do
   use ExUnit.Case, async: false
+  @moduletag :home_fs_serial
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Extensions.Registry

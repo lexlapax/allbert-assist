@@ -1,5 +1,6 @@
 defmodule StockSage.Bridge.ProtocolTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias StockSage.Bridge.Protocol
 

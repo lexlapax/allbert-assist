@@ -1,5 +1,6 @@
 defmodule StockSage.Agents.CommitteeContextTest do
   use ExUnit.Case, async: true
+  @moduletag :global_process_serial
 
   alias StockSage.Agents.CommitteeContext
 

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Packages.InstallSpecTest do
   use ExUnit.Case, async: false
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Packages.InstallSpec
   alias AllbertAssist.Paths

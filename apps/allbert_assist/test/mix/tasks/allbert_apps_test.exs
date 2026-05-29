@@ -1,5 +1,6 @@
 defmodule Mix.Tasks.Allbert.AppsTest do
   use ExUnit.Case, async: false
+  @moduletag :global_process_serial
 
   import ExUnit.CaptureIO
 

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
   use ExUnit.Case, async: false
+  @moduletag :db_serial
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Memory

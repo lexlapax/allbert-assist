@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Packages.NpmTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Packages.ManagerProfile
   alias AllbertAssist.Packages.Npm

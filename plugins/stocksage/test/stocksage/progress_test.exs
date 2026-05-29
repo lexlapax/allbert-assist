@@ -1,5 +1,6 @@
 defmodule StockSage.ProgressTest do
   use ExUnit.Case, async: false
+  @moduletag :app_env_serial
 
   alias AllbertAssist.{Paths, Plugin, Settings}
   alias StockSage.Progress

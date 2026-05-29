@@ -1,5 +1,6 @@
 defmodule StockSage.SupervisorTest do
   use ExUnit.Case, async: false
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Objectives.AgentRegistry
   alias Jido.AgentServer

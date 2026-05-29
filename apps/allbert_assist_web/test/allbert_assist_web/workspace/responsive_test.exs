@@ -1,5 +1,6 @@
 defmodule AllbertAssistWeb.Workspace.ResponsiveTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   @css_path Path.expand("../../../assets/css/app.css", __DIR__)
 

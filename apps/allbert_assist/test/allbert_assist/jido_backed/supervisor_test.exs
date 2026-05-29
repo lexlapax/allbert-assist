@@ -1,5 +1,6 @@
 defmodule AllbertAssist.JidoBacked.SupervisorTest do
   use ExUnit.Case, async: false
+  @moduletag :global_process_serial
 
   alias AllbertAssist.Confirmations.Store.Agent, as: StoreAgent
   alias AllbertAssist.JidoBacked.Supervisor, as: JidoBackedSupervisor

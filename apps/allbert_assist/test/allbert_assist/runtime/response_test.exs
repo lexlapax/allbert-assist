@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Runtime.ResponseTest do
   use ExUnit.Case, async: true
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Intent.Decision

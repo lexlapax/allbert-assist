@@ -1,5 +1,6 @@
 defmodule StockSage.SettingsSchemaTest do
   use ExUnit.Case, async: false
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings.Schema

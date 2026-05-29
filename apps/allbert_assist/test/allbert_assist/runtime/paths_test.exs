@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Runtime.PathsTest do
   use ExUnit.Case, async: false
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Paths, as: LegacyPaths
   alias AllbertAssist.Runtime.Paths

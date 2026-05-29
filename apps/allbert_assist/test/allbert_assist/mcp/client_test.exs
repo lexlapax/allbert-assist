@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Mcp.ClientTest do
   use ExUnit.Case, async: false
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Mcp.Client
   alias AllbertAssist.Mcp.Doctor

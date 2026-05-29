@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Execution.SkillScriptSpecTest do
   use ExUnit.Case, async: false
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Actions.Skills.RunSkillScript

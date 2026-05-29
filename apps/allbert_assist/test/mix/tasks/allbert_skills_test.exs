@@ -1,5 +1,6 @@
 defmodule Mix.Tasks.Allbert.SkillsTest do
   use ExUnit.Case, async: false
+  @moduletag :external_runtime_serial
 
   import ExUnit.CaptureIO
 

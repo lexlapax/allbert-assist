@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Session.ScratchpadTest do
   use ExUnit.Case, async: false
+  @moduletag :global_process_serial
 
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Session

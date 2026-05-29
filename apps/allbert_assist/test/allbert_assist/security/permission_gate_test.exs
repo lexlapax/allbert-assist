@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Security.PermissionGateTest do
   use ExUnit.Case, async: true
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Security.PermissionGate
 

@@ -12,8 +12,11 @@ defmodule AllbertAssist.SecurityEvalCase do
   alias AllbertAssist.Actions.Runner
 
   using opts do
+    async = Keyword.get(opts, :async, false)
+    lane = Keyword.get(opts, :lane, :security_eval_serial)
+
     quote do
-      use AllbertAssist.DataCase, async: unquote(Keyword.get(opts, :async, false))
+      use AllbertAssist.DataCase, async: unquote(async), lane: unquote(lane)
 
       import AllbertAssist.SecurityEvalCase
     end

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Actions.RegistryTest do
   use ExUnit.Case, async: false
+  @moduletag :global_process_serial
 
   alias AllbertAssist.Action
   alias AllbertAssist.Actions.Capability

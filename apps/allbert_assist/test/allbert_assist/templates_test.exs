@@ -1,5 +1,6 @@
 defmodule AllbertAssist.TemplatesTest do
   use ExUnit.Case, async: true
+  @moduletag :home_fs_serial
 
   alias AllbertAssist.Templates
   alias AllbertAssist.Templates.Parameters
