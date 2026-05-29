@@ -1,5 +1,5 @@
 defmodule StockSage.Security.StockSageMarketDataEvalTest do
-  use StockSage.DataCase, async: false
+  use StockSage.DataCase, async: false, lane: :security_eval_serial
 
   import AllbertAssist.SecurityEvalCase
 

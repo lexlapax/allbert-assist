@@ -1,5 +1,5 @@
 defmodule AllbertAssistWeb.SignalBridgeTest do
-  use AllbertAssistWeb.ConnCase, async: false
+  use AllbertAssistWeb.ConnCase, async: false, lane: :external_runtime_serial
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings

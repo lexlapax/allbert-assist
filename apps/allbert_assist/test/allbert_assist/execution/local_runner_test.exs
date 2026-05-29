@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Execution.LocalRunnerTest do
   use ExUnit.Case, async: false
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Execution.CommandSpec
   alias AllbertAssist.Execution.LocalRunner

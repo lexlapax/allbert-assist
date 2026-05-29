@@ -1,5 +1,6 @@
 defmodule StockSage.SurfaceNodesTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Surface.Node
   alias StockSage.SurfaceNodes

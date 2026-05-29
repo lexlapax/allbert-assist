@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Intent.CandidateTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Intent.Candidate
 

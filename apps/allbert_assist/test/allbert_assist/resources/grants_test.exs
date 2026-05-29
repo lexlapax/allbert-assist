@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Resources.GrantsTest do
   use ExUnit.Case, async: false
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Resources.Grants
   alias AllbertAssist.Resources.Ref

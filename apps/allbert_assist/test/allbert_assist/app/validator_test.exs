@@ -1,5 +1,6 @@
 defmodule AllbertAssist.App.ValidatorTest do
   use ExUnit.Case, async: true
+  @moduletag :global_process_serial
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Multiply

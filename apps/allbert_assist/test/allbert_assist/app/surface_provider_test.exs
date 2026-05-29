@@ -1,5 +1,6 @@
 defmodule AllbertAssist.App.SurfaceProviderTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.App.SurfaceProvider
 

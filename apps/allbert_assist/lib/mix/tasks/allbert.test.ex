@@ -5,7 +5,7 @@ defmodule Mix.Tasks.Allbert.Test do
   ## Usage
 
       mix allbert.test docs
-      mix allbert.test inventory [--output PATH]
+      mix allbert.test inventory [--output PATH] [--check-tags]
       mix allbert.test focused -- FILE [FILE...]
       mix allbert.test fast-local
       mix allbert.test partition-smoke [--partitions N]
@@ -63,12 +63,19 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp inventory(args) do
-    {opts, rest, invalid} = OptionParser.parse(args, strict: [output: :string])
+    {opts, rest, invalid} =
+      OptionParser.parse(args, strict: [output: :string, check_tags: :boolean])
 
     reject_invalid!(invalid)
     reject_rest!(rest)
 
-    csv = inventory_csv()
+    records = inventory_records()
+
+    if Keyword.get(opts, :check_tags, false) do
+      check_lane_tags!(records)
+    end
+
+    csv = inventory_csv(records)
 
     case Keyword.get(opts, :output) do
       nil ->
@@ -428,10 +435,10 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp fast_local_records do
-    Enum.filter(inventory_records(), &(&1.async == "true"))
+    Enum.filter(inventory_records(), &(&1.primary_lane == :pure_async))
   end
 
-  defp inventory_csv do
+  defp inventory_csv(records) do
     headers = [
       :path,
       :owner,
@@ -445,7 +452,7 @@ defmodule Mix.Tasks.Allbert.Test do
     ]
 
     rows =
-      inventory_records()
+      records
       |> Enum.map(fn record ->
         Enum.map_join(headers, ",", fn key -> csv(Map.fetch!(record, key)) end)
       end)
@@ -481,17 +488,102 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  defp check_lane_tags!(records) do
+    issues =
+      records
+      |> Enum.flat_map(&lane_reconciliation_issue/1)
+
+    if issues != [] do
+      Mix.raise("""
+      lane reconciliation failed:
+      #{Enum.map_join(issues, "\n", &"  - #{&1}")}
+      """)
+    end
+
+    Mix.shell().info(
+      "lane reconciliation ok: #{length(records)} files, zero unclassified, zero double-counts"
+    )
+  end
+
+  defp lane_reconciliation_issue(%{path: path, template: template, primary_lane: expected}) do
+    text = File.read!(Path.join(root(), path))
+    actual = actual_primary_lane_tags(text, template)
+
+    cond do
+      actual == [expected] ->
+        []
+
+      actual == [] ->
+        ["#{path}: expected @moduletag :#{expected}, found no primary lane tag"]
+
+      length(actual) > 1 ->
+        [
+          "#{path}: expected one primary lane tag :#{expected}, found #{Enum.map_join(actual, ", ", &":#{&1}")}"
+        ]
+
+      true ->
+        ["#{path}: expected primary lane :#{expected}, found :#{hd(actual)}"]
+    end
+  end
+
+  defp actual_primary_lane_tags(text, template) do
+    template_tags =
+      case Map.fetch(@template_defaults, template) do
+        {:ok, default} -> [use_line_lane(text) || default]
+        :error -> []
+      end
+
+    (template_tags ++ explicit_primary_lane_tags(text))
+    |> Enum.uniq()
+  end
+
+  defp explicit_primary_lane_tags(text) do
+    ~r/@moduletag\s+:([a-z_]+)\b/
+    |> Regex.scan(text)
+    |> Enum.map(fn [_, tag] -> parse_lane_tag(tag) end)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp use_line_lane(text) do
+    with line when is_binary(line) <- top_level_use_line(text),
+         [_, lane] <- Regex.run(~r/lane:\s*:([a-z_]+)\b/, line) do
+      parse_lane_tag(lane)
+    else
+      _other -> nil
+    end
+  end
+
+  defp parse_lane_tag(tag) do
+    Enum.find(@lanes, &(Atom.to_string(&1) == tag))
+  end
+
   defp template_and_async(text) do
-    case Regex.run(~r/use\s+([A-Za-z0-9_.]+)\s*,\s*async:\s*(true|false)/, text) do
+    case top_level_use_line(text) do
+      nil ->
+        {"unknown", "unspecified"}
+
+      line ->
+        template_and_async_from_line(line)
+    end
+  end
+
+  defp template_and_async_from_line(line) do
+    case Regex.run(~r/use\s+([A-Za-z0-9_.]+)\s*,\s*async:\s*(true|false)/, line) do
       [_, template, async] ->
         {template, async}
 
       nil ->
-        case Regex.run(~r/use\s+([A-Za-z0-9_.]+)/, text) do
+        case Regex.run(~r/use\s+([A-Za-z0-9_.]+)/, line) do
           [_, template] -> {template, "unspecified"}
           nil -> {"unknown", "unspecified"}
         end
     end
+  end
+
+  defp top_level_use_line(text) do
+    text
+    |> String.split("\n")
+    |> Enum.find(&String.match?(&1, ~r/^  use\s+[A-Za-z0-9_.]+/))
   end
 
   defp tags(text) do
@@ -698,7 +790,7 @@ defmodule Mix.Tasks.Allbert.Test do
     Mix.raise("""
     Usage:
       mix allbert.test docs
-      mix allbert.test inventory [--output PATH]
+      mix allbert.test inventory [--output PATH] [--check-tags]
       mix allbert.test focused -- FILE [FILE...]
       mix allbert.test fast-local
       mix allbert.test partition-smoke [--partitions N]

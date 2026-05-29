@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Intent.ApprovalHandoffTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Intent.Decision

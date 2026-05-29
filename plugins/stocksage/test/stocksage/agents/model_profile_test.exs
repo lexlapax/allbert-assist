@@ -1,5 +1,6 @@
 defmodule StockSage.Agents.ModelProfileTest do
   use ExUnit.Case, async: false
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings

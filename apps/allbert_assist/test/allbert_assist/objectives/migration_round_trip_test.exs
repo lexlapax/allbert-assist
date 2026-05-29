@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Objectives.MigrationRoundTripTest do
   use ExUnit.Case, async: false
+  @moduletag :db_serial
 
   defmodule MigrationRepo do
     use Ecto.Repo,

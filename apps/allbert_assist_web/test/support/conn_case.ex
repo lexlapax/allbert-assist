@@ -17,8 +17,12 @@ defmodule AllbertAssistWeb.ConnCase do
 
   use ExUnit.CaseTemplate
 
-  using do
+  using opts do
+    lane = Keyword.get(opts, :lane, :liveview_serial)
+
     quote do
+      @moduletag unquote(lane)
+
       # The default endpoint for testing
       @endpoint AllbertAssistWeb.Endpoint
 

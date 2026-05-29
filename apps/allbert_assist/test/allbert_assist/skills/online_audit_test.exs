@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Skills.Online.AuditTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Skills.Online.Audit
 

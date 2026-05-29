@@ -1,5 +1,5 @@
 defmodule StockSage.Actions.RunAnalysisTest do
-  use StockSage.DataCase, async: false
+  use StockSage.DataCase, async: false, lane: :external_runtime_serial
 
   import ExUnit.CaptureIO
   import ExUnit.CaptureLog

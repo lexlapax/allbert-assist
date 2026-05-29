@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Agents.IntentAgentTest do
   use ExUnit.Case, async: false
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Agents.IntentAgent

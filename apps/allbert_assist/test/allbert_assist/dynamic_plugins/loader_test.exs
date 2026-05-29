@@ -1,5 +1,6 @@
 defmodule AllbertAssist.DynamicPlugins.LoaderTest do
   use ExUnit.Case, async: false
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner

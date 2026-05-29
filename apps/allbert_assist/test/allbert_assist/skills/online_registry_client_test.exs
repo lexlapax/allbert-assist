@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Skills.Online.RegistryClientTest do
   use ExUnit.Case, async: false
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings

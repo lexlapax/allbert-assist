@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Surface.EncoderTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Encoder

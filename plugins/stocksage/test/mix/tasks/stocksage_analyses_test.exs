@@ -1,5 +1,5 @@
 defmodule Mix.Tasks.Stocksage.AnalysesTest do
-  use StockSage.DataCase
+  use StockSage.DataCase, lane: :external_runtime_serial
 
   import ExUnit.CaptureIO
 

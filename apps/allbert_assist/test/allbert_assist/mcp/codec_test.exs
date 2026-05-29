@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Mcp.CodecTest do
   use ExUnit.Case, async: true
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Mcp.Codec
 

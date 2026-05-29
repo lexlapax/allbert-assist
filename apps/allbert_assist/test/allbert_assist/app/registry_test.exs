@@ -1,5 +1,6 @@
 defmodule AllbertAssist.App.RegistryTest do
   use ExUnit.Case, async: false
+  @moduletag :home_fs_serial
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Multiply

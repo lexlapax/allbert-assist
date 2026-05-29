@@ -4,9 +4,11 @@ This is the developer contract for test isolation, lane classification, and
 future precommit parallelization. It also defines the planning annotations that
 make implementation milestones safe to parallelize.
 
-Status: introduced for v0.41 planning. The taxonomy below is binding. M6 has
-landed the developer gate command surface; lane tag migrations land in M7-M9,
-each validated against the v0.40 regression oracle.
+Status: introduced for v0.41 planning. The taxonomy below is binding. M6 landed
+the developer gate command surface, and M7 lands executable lane classification:
+shared case-template defaults plus explicit primary tags for the plain
+`ExUnit.Case` tail. M8-M9 migrate partition-safe coverage, each validated
+against the v0.40 regression oracle.
 
 ## Current Baseline
 
@@ -96,6 +98,15 @@ when `--slowest-modules` shows that the dominant hotspot is not scheduled next.
 Reorders may change batch order only inside the correctness constraint: every
 batch must still reproduce the v0.40 oracle green set through the full release
 gate before it is accepted.
+
+- **2026-05-29 / after M7:** M7 completed its planned classification work but
+  did not improve `fast-local` wall-clock (`25.25s` versus M6 `23.56s`) because
+  static checks and process startup dominate the small pure lane. M8 is
+  re-sequenced to attack measured hotspots first: M8a core intent/runtime
+  DB/app-env/process partitioning, M8b StockSage objective/action partitioning,
+  M8c low-risk pure cleanup/promotions only where they preserve or improve the
+  measured gate. Web LiveView partitioning remains M9 because it has heavier
+  ConnCase/process coupling and release-closeout documentation belongs there.
 
 ### v0.41 M1 Benchmark Attempt 1 - 2026-05-29
 
@@ -290,6 +301,52 @@ gate before it is accepted.
   classification, then M8 core/StockSage hotspot partitioning before M9
   LiveView.
 
+### v0.41 M7 Lane Classification Benchmark - 2026-05-29
+
+- Commit: v0.41 M7 lane classification commit.
+- Machine: `Darwin Sandeeps-Mac-Studio.local 25.5.0` on Apple M1 Ultra;
+  20 physical / 20 logical CPUs.
+- Runtime: Elixir 1.19.5 (compiled with Erlang/OTP 28), running on
+  Erlang/OTP 29.0.1.
+- Cache state: warm build after M7 task compilation; docs edited while the final
+  release oracle was running.
+- Commands:
+  - `env MIX_ENV=test mix compile --warnings-as-errors`
+  - `env MIX_ENV=test mix allbert.test inventory --check-tags --output docs/developer/v0.41-test-inventory.csv`
+  - lane spot checks using `mix do ecto.migrate.allbert --quiet + allbert.test.raw --only <lane> <file>` for `pure_async`, `app_env_serial`, and `db_serial`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test fast-local`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test release`
+- Release wall-clock / counts: final `mix allbert.test release` passed at
+  `real 1347.18` seconds (`user 0.78`, `sys 3.99`). The release command runs
+  `mix precommit` and then `mix dialyzer`. Counts: core 1146 tests, 0 failures,
+  2 skipped, 830.0 seconds; web 107 tests, 0 failures, 290.5 seconds;
+  StockSage 197 tests, 0 failures, 186.9 seconds; channel plugins 2 tests,
+  0 failures, 0.03 seconds; Dialyzer 0 errors.
+- Fast-local wall-clock / counts: passed at `real 25.25` seconds (`user 0.82`,
+  `sys 3.71`). It ran static checks plus the reconciled primary `pure_async`
+  lane: core 20 files / 85 tests, StockSage 4 files / 27 tests, web 2 files /
+  10 tests, 0 failures.
+- Lane breakdown: reconciliation passed for 233 files, zero unclassified, zero
+  double-counts. Primary lane census remains `pure_async` 26, `db_serial` 66,
+  `app_env_serial` 57, `home_fs_serial` 6, `global_process_serial` 19,
+  `liveview_serial` 12, `security_eval_serial` 14,
+  `external_runtime_serial` 33. The plain `ExUnit.Case` tail now has explicit
+  primary `@moduletag`s, while shared templates provide default tags or
+  `lane:` overrides.
+- Slowest modules/tests: not rerun for M7 because it is metadata classification.
+  M1 slowest evidence remains the sequencing authority.
+- Planned share: 0 seconds of wall-clock improvement; M7 is effective if
+  reconciliation is complete and lane filters select the intended files.
+- Actual delta: classification effective, but not a speedup. `fast-local`
+  regressed by 1.69s versus M6 (`25.25s` vs `23.56s`) despite narrower coverage,
+  showing that static checks and process startup dominate this small lane.
+- Decision: M7 is accepted only with a green release oracle; the reconciliation
+  and lane filter evidence are complete.
+- Follow-up/reorder: reorder M8 toward measured hotspots: M8a core
+  intent/runtime DB/app-env/process partitioning, M8b StockSage objective/action
+  partitioning, M8c low-risk pure cleanup/promotions only if the benchmark is
+  preserved or improved. M9 remains LiveView/ConnCase partitioning and closeout.
+
 ## Lane Taxonomy
 
 Every test file gets one primary lane.
@@ -330,8 +387,9 @@ file:
 - A test file declares `@moduletag <lane>` only to OVERRIDE the template default
   (e.g. promoting a `DataCase` test to `pure_async`) or when it uses no shared
   template (the plain-`ExUnit.Case` tail).
-- Secondary blockers are recorded as additional `@moduletag`s. A file is excluded
-  from any async/partition lane if it carries ANY blocker tag.
+- Secondary blockers are recorded in the inventory resource classes and
+  benchmark notes. Do not add a second primary lane tag for a blocker; a file
+  with two primary lane tags fails reconciliation.
 - Gates select lanes with `mix test --only <lane>` / `--exclude <lane>`; the lane
   tag values are the filter keys.
 
@@ -473,6 +531,11 @@ outer gate has created an owned temp home/database and run migrations; developer
 and release workflows should call `mix allbert.test ...`, not the raw helper
 directly.
 
+M7 extends `mix allbert.test inventory` with `--check-tags`, which verifies that
+the committed inventory, shared case-template defaults, explicit lane overrides,
+and plain-`ExUnit.Case` `@moduletag`s reconcile to exactly one primary lane per
+test file.
+
 Fast local gates are not release evidence. Release gates remain authoritative.
 The release gate is a superset of the v0.40 `mix precommit`: it adds Dialyzer
 (which today's precommit does not run) and must reproduce the v0.40 oracle green
@@ -519,15 +582,17 @@ implementation-ready. Do not infer parallel safety from small scope.
 7. Keep security evals single-VM serial and external smokes opt-in until proven
    safe.
 
-M5 locks the first implementation batch order after the M1 evidence:
+M5 locked the first implementation batch order after the M1 evidence. M7's
+benchmark did not improve `fast-local`, so the M8 rows below are the
+post-M7 reordered order:
 
 | Batch | Target | Acceptance |
 | --- | --- | --- |
 | M6 | Gate commands, inventory command, and partition root helper. | Release gate reproduces v0.40 oracle; partition smoke proves owned DB/home roots. |
 | M7 | Case-template default lane tags and plain-`ExUnit.Case` reconciliation. | Inventory has zero unclassified files and lane filters select expected files. |
-| M8a | Existing `pure_async` lane and small pure promotions. | Fast-local improves or remains <=M6 while preserving/reconciling coverage. |
-| M8b | Core intent/runtime DB/app-env/process hotspots. | Partitioned local lane shrinks the core slowest hotspot without flakes. |
-| M8c | StockSage objective/action DB hotspots. | Partitioned plugin lane shrinks StockSage slowest hotspot without flakes. |
+| M8a | Core intent/runtime DB/app-env/process hotspots. | Partitioned local lane shrinks the core slowest hotspot without flakes. |
+| M8b | StockSage objective/action DB hotspots. | Partitioned plugin lane shrinks StockSage slowest hotspot without flakes. |
+| M8c | Existing `pure_async` lane cleanup and small pure promotions, only where the benchmark stays green or improves. | Fast-local preserves or improves the M7 wall-clock while preserving/reconciling coverage. |
 | M9 | Web LiveView/ConnCase partitioning, final metrics, and closeout docs. | Final fast-local target met or the remaining gap is documented. |
 
 Work in reviewable batches. Each batch must reproduce the v0.40 oracle green set

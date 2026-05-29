@@ -1,5 +1,6 @@
 defmodule AllbertAssist.SurfaceTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Surface

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Actions.ResourceRefsTest do
   use ExUnit.Case, async: true
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Confirmations.ResourceMetadata
   alias AllbertAssist.Resources.Grant

@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Runtime.RedactorTest do
   use ExUnit.Case, async: true
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.Redactor, as: LegacyRedactor

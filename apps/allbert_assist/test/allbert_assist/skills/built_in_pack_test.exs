@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Skills.BuiltInPackTest do
   use ExUnit.Case, async: true
+  @moduletag :pure_async
 
   alias AllbertAssist.Skills
   alias AllbertAssist.Skills.CapabilityContract

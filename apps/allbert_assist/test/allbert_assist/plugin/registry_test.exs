@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Plugin.RegistryTest do
   use ExUnit.Case, async: false
+  @moduletag :home_fs_serial
 
   alias AllbertAssist.Plugin.Bootstrap
   alias AllbertAssist.Plugin.ChildSupervisor

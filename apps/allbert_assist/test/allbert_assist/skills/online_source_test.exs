@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Skills.Online.SourceTest do
   use ExUnit.Case, async: false
+  @moduletag :app_env_serial
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings

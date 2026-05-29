@@ -1,5 +1,6 @@
 defmodule AllbertAssist.Actions.SettingsActionsTest do
   use ExUnit.Case, async: false
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Settings.DoctorModelProfile
   alias AllbertAssist.Actions.Settings.ExplainSetting

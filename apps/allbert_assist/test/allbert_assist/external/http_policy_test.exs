@@ -1,5 +1,6 @@
 defmodule AllbertAssist.External.HttpPolicyTest do
   use ExUnit.Case, async: false
+  @moduletag :app_env_serial
 
   alias AllbertAssist.External.RequestSpec
   alias AllbertAssist.Paths

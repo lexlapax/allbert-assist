@@ -1,5 +1,6 @@
 defmodule AllbertAssist.DynamicPlugins.StagingAndSandboxBridgeTest do
   use ExUnit.Case, async: false
+  @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.DynamicPlugins
