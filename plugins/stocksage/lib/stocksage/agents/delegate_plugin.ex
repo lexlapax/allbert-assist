@@ -6,6 +6,9 @@ defmodule StockSage.Agents.DelegatePlugin do
   @dialyzer {:nowarn_function, handle_signal: 2}
   @dialyzer {:nowarn_function, mount: 2}
   @dialyzer {:nowarn_function, on_checkpoint: 2}
+  @dialyzer {:nowarn_function, prepare_action: 3}
+  @dialyzer {:nowarn_function, prepare_emit: 2}
+  @dialyzer {:nowarn_function, prepare_signal: 2}
   @dialyzer {:nowarn_function, on_restore: 2}
   @dialyzer {:nowarn_function, state_key: 0}
 

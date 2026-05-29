@@ -4,9 +4,9 @@ This is the developer contract for test isolation, lane classification, and
 future precommit parallelization. It also defines the planning annotations that
 make implementation milestones safe to parallelize.
 
-Status: introduced for v0.41 planning. The taxonomy below is binding; the exact
-Mix aliases and tag migrations land in the v0.41 implementation milestones
-(M6-M9), each validated against the v0.40 regression oracle.
+Status: introduced for v0.41 planning. The taxonomy below is binding. M6 has
+landed the developer gate command surface; lane tag migrations land in M7-M9,
+each validated against the v0.40 regression oracle.
 
 ## Current Baseline
 
@@ -246,6 +246,50 @@ gate before it is accepted.
   keep web LiveView as the M9 target because it is large but has the heaviest
   ConnCase/sandbox coupling.
 
+### v0.41 M6 Gate Helpers Benchmark - 2026-05-29
+
+- Commit: v0.41 M6 gate helpers commit.
+- Machine: `Darwin Sandeeps-Mac-Studio.local 25.5.0` on Apple M1 Ultra;
+  20 physical / 20 logical CPUs.
+- Runtime: Elixir 1.19.5 (compiled with Erlang/OTP 28), running on
+  Erlang/OTP 29.0.1.
+- Cache state: warm build after M6 task compilation.
+- Commands:
+  - `env MIX_ENV=test mix compile --warnings-as-errors`
+  - `env MIX_ENV=test mix allbert.test inventory --output /private/tmp/v041-m6-inventory-2.csv`
+  - `env MIX_ENV=test mix allbert.test partition-smoke --partitions 2`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test fast-local`
+  - `env MIX_ENV=test ALLBERT_HOME=/private/tmp/allbert_v041_m6_web_alias_home DATABASE_PATH=/private/tmp/allbert_v041_m6_web_alias_db/allbert_test.db mix test test/allbert_assist_web/live/workspace_live_test.exs:1576`
+  - `/usr/bin/time -p env MIX_ENV=test mix dialyzer`
+  - `/usr/bin/time -p env MIX_ENV=test mix allbert.test release`
+- Release wall-clock / counts: final `mix allbert.test release` passed at
+  `real 1268.73` seconds (`user 0.82`, `sys 4.11`). The release command runs
+  `mix precommit` and then `mix dialyzer`. Counts: core 1146 tests, 0 failures,
+  2 skipped; web 107 tests, 0 failures; StockSage 197 tests, 0 failures;
+  channel plugins 2 tests, 0 failures; Dialyzer 0 errors. The first release
+  attempt preserved the precommit oracle but failed the new Dialyzer phase on
+  generated Jido plugin callback specs and the gate task `usage!/0`; both were
+  fixed before the final run.
+- Fast-local wall-clock / counts: final post-fix run passed at `real 23.56`
+  seconds (`user 0.85`, `sys 4.82`). It ran static checks, migrate-only prep
+  for each owned temp DB, and raw ExUnit shards for the current top-level
+  `async: true` files: core 32 files / 164 tests, StockSage 5 files /
+  29 tests, web 2 files / 10 tests, 0 failures.
+- Lane breakdown: M6 intentionally does not retag or promote tests. The
+  inventory command reproduces the M1 inventory exactly: 233 files plus header,
+  with owner/lane counts unchanged. `fast-local` uses the current top-level
+  `async: true` file set until M7 classification lands.
+- Slowest modules/tests: not rerun for M6 because no suite migration landed; M1
+  slowest evidence remains the sequencing authority for M7-M9.
+- Planned share: reduce the M1 fast-local-equivalent sequential component from
+  34.46s to <=25s by making the already-safe work one named parallel gate.
+- Actual delta: effective. `fast-local` improved by 10.90s versus the M1
+  sequential component, a 31.6% reduction, and met the <=25s M6 target.
+- Decision: M6 is effective. Proceed to M7 without reordering.
+- Follow-up/reorder: no reorder. The next planned work remains M7
+  classification, then M8 core/StockSage hotspot partitioning before M9
+  LiveView.
+
 ## Lane Taxonomy
 
 Every test file gets one primary lane.
@@ -421,7 +465,13 @@ monolithic precommit order hides that by migrating through the core app first.
 | Fast local | Daily development feedback. | `mix allbert.test fast-local`: static checks plus proven async/partition-safe lanes. |
 | Serial core | VM-global lanes (DB, app env, home, process, LiveView). | `mix allbert.test serial-core --lane <lane> --partitions N`; serial *within* a partition, parallel *across* OS partitions. Security evals + external smokes stay single-VM / opt-in. |
 | Release | Manual validation/release handoff. | `mix allbert.test release`: full precommit-equivalent coverage plus Dialyzer and security evals. |
-| External smoke | Machine-dependent integrations. | `mix allbert.test external-smoke -- <smoke-name>` for Docker, browser, real MCP/provider checks, explicitly opt in. |
+| External smoke | Machine-dependent integrations. | `mix allbert.test external-smoke -- <smoke-name>` for explicitly opted-in smokes. M6 implements Docker sandbox smokes; later browser/MCP/provider smokes must add their concrete command before use. |
+
+M6 implements these gates in `Mix.Tasks.Allbert.Test`. The internal
+`mix allbert.test.raw` task bypasses child-app `test` aliases only after the
+outer gate has created an owned temp home/database and run migrations; developer
+and release workflows should call `mix allbert.test ...`, not the raw helper
+directly.
 
 Fast local gates are not release evidence. Release gates remain authoritative.
 The release gate is a superset of the v0.40 `mix precommit`: it adds Dialyzer
