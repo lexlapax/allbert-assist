@@ -7,7 +7,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test docs
       mix allbert.test inventory [--output PATH] [--check-tags]
       mix allbert.test focused -- FILE [FILE...]
-      mix allbert.test fast-local
+      mix allbert.test fast-local [--core-lanes] [--partitions N]
       mix allbert.test partition-smoke [--partitions N]
       mix allbert.test serial-core --lane LANE [--partitions N]
       mix allbert.test release
@@ -104,7 +104,20 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp fast_local(args) do
-    reject_rest!(args)
+    {opts, rest, invalid} =
+      OptionParser.parse(args, strict: [core_lanes: :boolean, partitions: :integer])
+
+    reject_invalid!(invalid)
+    reject_rest!(rest)
+
+    core_lanes? = Keyword.get(opts, :core_lanes, false)
+    partitions = Keyword.get(opts, :partitions, default_partition_count())
+
+    if Keyword.has_key?(opts, :partitions) and not core_lanes? do
+      Mix.raise("--partitions is only valid with --core-lanes")
+    end
+
+    validate_partitions!(partitions)
 
     run_cmd!(
       "static",
@@ -141,6 +154,11 @@ defmodule Mix.Tasks.Allbert.Test do
 
     Enum.each(async_groups, &prepare_test_group!/1)
     run_parallel_tests!(async_groups)
+
+    if core_lanes? do
+      [:db_serial, :app_env_serial, :home_fs_serial, :global_process_serial]
+      |> Enum.each(&run_serial_core_partitions!(&1, partitions))
+    end
   end
 
   defp partition_smoke(args) do
@@ -187,6 +205,10 @@ defmodule Mix.Tasks.Allbert.Test do
       Mix.raise("#{lane} must run as a single-VM serial or external smoke lane")
     end
 
+    run_serial_core_partitions!(lane, partitions)
+  end
+
+  defp run_serial_core_partitions!(lane, partitions) do
     1..partitions
     |> Enum.map(fn partition ->
       %{
@@ -374,10 +396,15 @@ defmodule Mix.Tasks.Allbert.Test do
                env: env,
                stderr_to_stdout: true
              ) do
-        if status == 0 do
-          {:ok, label, migrate_output <> test_output}
-        else
-          {:error, label, status, migrate_output <> test_output}
+        cond do
+          status == 0 ->
+            {:ok, label, migrate_output <> test_output}
+
+          empty_partition_output?(test_output) ->
+            {:ok, label, migrate_output <> test_output}
+
+          true ->
+            {:error, label, status, migrate_output <> test_output}
         end
       else
         {output, status} -> {:error, label, status, output}
@@ -385,6 +412,12 @@ defmodule Mix.Tasks.Allbert.Test do
 
     cleanup_owned_env(env)
     output
+  end
+
+  defp empty_partition_output?(output) do
+    String.contains?(output, "All tests have been excluded.") and
+      String.contains?(output, "The --only option was given") and
+      String.contains?(output, "no test was executed")
   end
 
   defp print_parallel_results!(results) do
@@ -772,6 +805,12 @@ defmodule Mix.Tasks.Allbert.Test do
   defp validate_partitions!(partitions) when is_integer(partitions) and partitions > 0, do: :ok
   defp validate_partitions!(_partitions), do: Mix.raise("--partitions must be a positive integer")
 
+  defp default_partition_count do
+    System.schedulers_online()
+    |> min(4)
+    |> max(1)
+  end
+
   defp reject_invalid!([]), do: :ok
   defp reject_invalid!(invalid), do: Mix.raise("invalid option(s): #{inspect(invalid)}")
 
@@ -792,7 +831,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test docs
       mix allbert.test inventory [--output PATH] [--check-tags]
       mix allbert.test focused -- FILE [FILE...]
-      mix allbert.test fast-local
+      mix allbert.test fast-local [--core-lanes] [--partitions N]
       mix allbert.test partition-smoke [--partitions N]
       mix allbert.test serial-core --lane LANE [--partitions N]
       mix allbert.test release
