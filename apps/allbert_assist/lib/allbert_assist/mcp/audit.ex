@@ -51,6 +51,9 @@ defmodule AllbertAssist.Mcp.Audit do
     - action: #{Map.get(attrs, :action, "unknown")}
     - result_status: #{Map.get(attrs, :status, "unknown")}
     - resource_uri: #{Map.get(attrs, :resource_uri, "unknown")}
+    - tool_name: #{Map.get(attrs, :tool_name, "unknown")}
+    - argument_keys: #{inspect(Map.get(attrs, :argument_keys, []))}
+    - result_keys: #{inspect(Map.get(attrs, :result_keys, []))}
     - content_count: #{Map.get(attrs, :content_count, "unknown")}
     - tool_count: #{Map.get(attrs, :tool_count, "unknown")}
     - resource_count: #{Map.get(attrs, :resource_count, "unknown")}

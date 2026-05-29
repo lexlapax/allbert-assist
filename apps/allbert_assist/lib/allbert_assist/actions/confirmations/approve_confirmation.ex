@@ -59,6 +59,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
 
   @mcp_action_names ~w[
     mcp_read_resource
+    mcp_call_tool
   ]
 
   @impl true
@@ -664,7 +665,10 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
 
     case Runner.run(action_name, Map.get(record, "resume_params_ref", %{}), target_context) do
       {:ok, %{status: :completed} = response} ->
-        target_result = Map.get(response, :resource, %{status: :completed})
+        target_result =
+          Map.get(response, :resource) ||
+            Map.get(response, :tool_call) ||
+            %{status: :completed}
 
         resolve_status(record, :approved, reason, context, permission_decision, %{
           target_policy_decision: target_decision,
