@@ -20,11 +20,21 @@ namespace ownership, or intent descriptors.
 For first-wave integrations:
 
 - Prefer MCP server configuration for generic tool/resource operations.
-- Add native plugin/apps only when the integration needs workspace panels,
-  app-owned memory namespace, intent descriptors, or local supervision.
+- A workspace panel does not by itself require a native plugin. Allbert may
+  render host-owned, MCP-configured panels when the panel is a thin view over
+  configured MCP tools/resources and every effect still runs through the v0.40
+  MCP actions.
+- Add native plugin/apps only when the integration needs app-owned local
+  actions, an app-owned memory namespace, custom local supervision, custom
+  Resource Access behavior, or a workspace surface that cannot be expressed as a
+  host-owned MCP panel.
 - Allbert core does not take dependencies on Google, GitHub, mail-provider,
   notes, or calendar APIs.
 - Native plugin actions still run through the normal action/security boundary.
+
+Applied to v0.42: calendar, mail, and GitHub stay MCP-configured host-owned
+panels; `notes/files` becomes native because it needs file-backed local actions,
+a declared memory namespace, and a minimal plugin scaffold for developers.
 
 ## Consequences
 

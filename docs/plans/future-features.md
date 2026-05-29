@@ -133,16 +133,17 @@ Status: parked. Added in the post-v0.40 planning pass.
 
 v0.42 ships `find_tools` (local + internet MCP registry search), the
 confirmation-gated connect gate, and an opt-in background scan over the official
-MCP Registry plus one no-auth aggregator (PulseMCP). A few discovery capabilities
-are intentionally out of v0.42 scope.
+MCP Registry plus optional keyed subregistries only when explicitly configured
+(PulseMCP is optional, not assumed no-auth). A few discovery capabilities are
+intentionally out of v0.42 scope.
 
 Still parked:
 
 - capability-gap-triggered remote acquisition (an objective gap automatically
   proposing a discovery search) — v0.42 keeps discovery operator-initiated or
   scheduled; ADR 0033 objectives may consult `find_local_tools` only;
-- semantic / API-keyed registry sources (e.g. Smithery), and registries beyond
-  the official registry + PulseMCP;
+- semantic registry sources (e.g. Smithery), and registries beyond the official
+  registry plus an explicitly configured optional PulseMCP source;
 - any auto-connect or remembered/silent connect approval
   (`mcp.discovery.auto_connect` stays pinned `false`);
 - community trust scoring, registry-moderation authority, or signing/provenance
