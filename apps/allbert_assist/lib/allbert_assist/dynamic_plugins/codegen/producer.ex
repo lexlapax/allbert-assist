@@ -401,7 +401,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
   defp credential_env_keys("openai_compatible"), do: ["OPENAI_API_KEY"]
   defp credential_env_keys("anthropic"), do: ["ANTHROPIC_API_KEY"]
   defp credential_env_keys("openrouter"), do: ["OPENROUTER_API_KEY"]
-  defp credential_env_keys("google"), do: ["GOOGLE_API_KEY"]
+  defp credential_env_keys("google"), do: ["GOOGLE_API_KEY", "GEMINI_API_KEY"]
 
   defp credential_env_keys(provider) when is_binary(provider) do
     key = provider |> String.upcase() |> String.replace(~r/[^A-Z0-9]+/, "_")

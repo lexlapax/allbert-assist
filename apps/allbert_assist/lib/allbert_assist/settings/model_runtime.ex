@@ -8,6 +8,8 @@ defmodule AllbertAssist.Settings.ModelRuntime do
 
   alias AllbertAssist.Settings.Secrets
 
+  @openai_min_max_tokens 16
+
   @spec model_spec(map()) :: {:ok, map()} | {:error, term()}
   def model_spec(%{provider_type: provider_type, model: model}) when is_binary(model) do
     with {:ok, provider} <- req_llm_provider(provider_type) do
@@ -37,10 +39,21 @@ defmodule AllbertAssist.Settings.ModelRuntime do
   def model_string(%{model: model}) when is_binary(model), do: {:ok, model}
   def model_string(profile), do: {:error, {:invalid_model_profile, profile}}
 
+  @spec max_tokens(map(), pos_integer()) :: pos_integer()
+  def max_tokens(profile, fallback)
+      when is_map(profile) and is_integer(fallback) and fallback > 0 do
+    profile
+    |> Map.get(:max_tokens, fallback)
+    |> normalize_max_tokens(fallback)
+    |> maybe_raise_openai_minimum(profile)
+  end
+
+  def max_tokens(_profile, fallback) when is_integer(fallback) and fallback > 0, do: fallback
+
   @spec request_opts(map()) :: keyword()
   def request_opts(profile) when is_map(profile) do
     []
-    |> maybe_put_base_url(Map.get(profile, :provider_base_url))
+    |> maybe_put_base_url(base_url(profile))
     |> maybe_put_api_key(profile)
   end
 
@@ -78,6 +91,27 @@ defmodule AllbertAssist.Settings.ModelRuntime do
 
   defp maybe_put_base_url(opts, _base_url), do: opts
 
+  defp base_url(%{provider: "local_ollama"} = profile) do
+    env_base_url("OLLAMA_BASE_URL") || Map.get(profile, :provider_base_url)
+  end
+
+  defp base_url(%{provider_type: "openai_compatible"} = profile) do
+    env_base_url("OLLAMA_BASE_URL") || Map.get(profile, :provider_base_url)
+  end
+
+  defp base_url(profile), do: Map.get(profile, :provider_base_url)
+
+  defp env_base_url(name) do
+    case System.get_env(name) do
+      value when is_binary(value) ->
+        value = String.trim(value)
+        if value == "", do: nil, else: value
+
+      _missing ->
+        nil
+    end
+  end
+
   defp maybe_put_api_key(opts, profile) do
     case Map.get(profile, :provider_api_key_ref) || Map.get(profile, :api_key_ref) do
       ref when is_binary(ref) ->
@@ -94,4 +128,20 @@ defmodule AllbertAssist.Settings.ModelRuntime do
   end
 
   defp put_secret_api_key(opts, _secret_result), do: opts
+
+  defp normalize_max_tokens(value, _fallback) when is_integer(value) and value > 0, do: value
+
+  defp normalize_max_tokens(value, fallback) when is_binary(value) do
+    case Integer.parse(value) do
+      {parsed, ""} when parsed > 0 -> parsed
+      _other -> fallback
+    end
+  end
+
+  defp normalize_max_tokens(_value, fallback), do: fallback
+
+  defp maybe_raise_openai_minimum(value, %{provider_type: "openai"}),
+    do: max(value, @openai_min_max_tokens)
+
+  defp maybe_raise_openai_minimum(value, _profile), do: value
 end
