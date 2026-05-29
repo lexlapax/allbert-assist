@@ -177,7 +177,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
           {:ok, %Decision{intent: :open_surface} = decision} ->
             {:ok, surface_navigation_response(decision)}
 
-          {:ok, %Decision{} = decision} ->
+          {:ok, %Decision{} = engine_decision} ->
+            decision = if mcp_route?(route), do: decision, else: engine_decision
             run_validated_route(route, text, context, decision)
 
           {:error, _reason} ->
@@ -216,6 +217,12 @@ defmodule AllbertAssist.Agents.IntentAgent do
   defp route_name(route) when is_atom(route), do: route
   defp route_name({route, _value}), do: route
   defp route_name({route, _value1, _value2}), do: route
+
+  defp mcp_route?({route, _params})
+       when route in [:mcp_list_tools, :mcp_list_resources, :mcp_read_resource, :mcp_call_tool],
+       do: true
+
+  defp mcp_route?(_route), do: false
 
   defp run_validated_route(route, text, context, %Decision{} = decision) do
     cond do
@@ -291,6 +298,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       fn -> package_route(text, normalized) end,
       fn -> online_skill_route(text, normalized) end,
       fn -> uri_consumer_route(text, normalized) end,
+      fn -> mcp_route(text, normalized) end,
       fn -> unsupported_resource_workflow_route(text, normalized) end,
       fn -> command_route(normalized, context) end,
       fn -> external_network_route(normalized) end,
@@ -561,6 +569,54 @@ defmodule AllbertAssist.Agents.IntentAgent do
       alternatives: unsupported_alternatives(workflow),
       context: context
     }
+  end
+
+  defp decision_attrs({:mcp_list_tools, params}, text, context) do
+    mcp_decision_attrs(
+      :mcp_list_tools,
+      "mcp_list_tools",
+      "The prompt asks to list tools from a configured MCP server.",
+      params,
+      [],
+      text,
+      context
+    )
+  end
+
+  defp decision_attrs({:mcp_list_resources, params}, text, context) do
+    mcp_decision_attrs(
+      :mcp_list_resources,
+      "mcp_list_resources",
+      "The prompt asks to list resources from a configured MCP server.",
+      params,
+      [],
+      text,
+      context
+    )
+  end
+
+  defp decision_attrs({:mcp_read_resource, params}, text, context) do
+    mcp_decision_attrs(
+      :mcp_read_resource,
+      "mcp_read_resource",
+      "The prompt asks to read an MCP resource through Resource Access.",
+      params,
+      mcp_resource_access(params, "mcp_read_resource"),
+      text,
+      context
+    )
+  end
+
+  defp decision_attrs({:mcp_call_tool, params}, text, context) do
+    mcp_decision_attrs(
+      :mcp_call_tool,
+      "mcp_call_tool",
+      "The prompt asks to call an MCP tool through a confirmed action.",
+      params,
+      mcp_tool_resource_access(params, "mcp_call_tool"),
+      text,
+      context
+    )
   end
 
   defp decision_attrs({:local_file_inspection, path}, text, context) do
@@ -850,6 +906,22 @@ defmodule AllbertAssist.Agents.IntentAgent do
       text,
       context
     )
+  end
+
+  defp run_route({:mcp_list_tools, params}, text, context) do
+    run_action("mcp_list_tools", params, text, context)
+  end
+
+  defp run_route({:mcp_list_resources, params}, text, context) do
+    run_action("mcp_list_resources", params, text, context)
+  end
+
+  defp run_route({:mcp_read_resource, params}, text, context) do
+    run_action("mcp_read_resource", params, text, context)
+  end
+
+  defp run_route({:mcp_call_tool, params}, text, context) do
+    run_action("mcp_call_tool", params, text, context)
   end
 
   defp run_route({:local_file_inspection, path}, text, context) do
@@ -1575,6 +1647,45 @@ defmodule AllbertAssist.Agents.IntentAgent do
     end
   end
 
+  defp mcp_resource_access(%{server_id: server_id, uri: uri}, target_action)
+       when is_binary(server_id) and is_binary(uri) do
+    [
+      %{
+        resource_uri: ResourceURI.mcp!(server_id, uri),
+        origin_kind: :mcp_resource,
+        operation_class: :mcp_resource_read,
+        access_mode: :read,
+        scope: Scope.mcp_server(server_id),
+        display_uri: uri,
+        downstream_consumer: :mcp_resource_reader,
+        target_action: target_action,
+        unsupported?: false,
+        allowed_approval_scopes: [:once, :mcp_server]
+      }
+    ]
+  end
+
+  defp mcp_resource_access(_params, _target_action), do: []
+
+  defp mcp_tool_resource_access(%{server_id: server_id, tool_name: tool_name}, target_action)
+       when is_binary(server_id) and is_binary(tool_name) do
+    [
+      %{
+        resource_uri: ResourceURI.mcp!(server_id, "tools/" <> tool_name),
+        origin_kind: :mcp_resource,
+        operation_class: :mcp_tool_call,
+        access_mode: :call,
+        scope: Scope.mcp_tool("#{server_id}:#{tool_name}"),
+        downstream_consumer: :mcp_tool_runner,
+        target_action: target_action,
+        unsupported?: false,
+        allowed_approval_scopes: [:once]
+      }
+    ]
+  end
+
+  defp mcp_tool_resource_access(_params, _target_action), do: []
+
   defp workflow_resource_access(:summarize_url, resource, _text) when is_binary(resource) do
     url_resource_access(resource, :summarize_url, "unsupported_resource_workflow")
   end
@@ -1865,6 +1976,25 @@ defmodule AllbertAssist.Agents.IntentAgent do
     end
   end
 
+  defp mcp_route(text, normalized) do
+    cond do
+      mcp_list_tools_request?(normalized) ->
+        {:mcp_list_tools, %{server_id: mcp_server_hint(text)}}
+
+      mcp_list_resources_request?(normalized) ->
+        {:mcp_list_resources, %{server_id: mcp_server_hint(text)}}
+
+      mcp_tool_call_request?(normalized) ->
+        {:mcp_call_tool, mcp_tool_params(text)}
+
+      mcp_uri = first_mcp_uri(text) ->
+        {:mcp_read_resource, mcp_resource_params(mcp_uri)}
+
+      true ->
+        nil
+    end
+  end
+
   defp external_network_request?(text) do
     Regex.match?(
       ~r/\b(fetch|browse|download|call|post|get)\b.*\b(https?:\/\/|api|website|web|internet)\b/,
@@ -1876,11 +2006,23 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp unsupported_uri_scheme_request?(text) do
-    String.contains?(text, "mcp://") ||
-      String.contains?(text, "agent://") ||
+    String.contains?(text, "agent://") ||
       String.contains?(text, "agent+https://") ||
-      Regex.match?(~r/\bmcp\s+(resource|tool|call)\b/, text) ||
       Regex.match?(~r/\bdelegate\s+.+\bagent\b/, text)
+  end
+
+  defp mcp_list_tools_request?(text) do
+    String.contains?(text, "mcp") and
+      Regex.match?(~r/\b(list|show)\b.*\btools\b|\btools\b.*\b(list|show)\b/, text)
+  end
+
+  defp mcp_list_resources_request?(text) do
+    String.contains?(text, "mcp") and
+      Regex.match?(~r/\b(list|show)\b.*\bresources\b|\bresources\b.*\b(list|show)\b/, text)
+  end
+
+  defp mcp_tool_call_request?(text) do
+    String.contains?(text, "mcp") and Regex.match?(~r/\b(call|run|invoke)\b.*\btool\b/, text)
   end
 
   defp url_summary_request?(text) do
@@ -1934,6 +2076,78 @@ defmodule AllbertAssist.Agents.IntentAgent do
       true ->
         nil
     end
+  end
+
+  defp first_mcp_uri(text) do
+    case Regex.run(~r/(mcp:\/\/[^\s<>"']+)/i, text) do
+      [uri | _rest] -> uri
+      _other -> nil
+    end
+  end
+
+  defp mcp_resource_params(uri) do
+    parsed = URI.parse(uri)
+
+    %{
+      server_id: parsed.host,
+      uri: parsed.path |> to_string() |> String.trim_leading("/") |> URI.decode(),
+      resource_uri: uri
+    }
+  end
+
+  defp mcp_tool_params(text) do
+    %{
+      server_id: mcp_server_hint(text),
+      tool_name: mcp_tool_hint(text),
+      arguments: %{}
+    }
+  end
+
+  defp mcp_server_hint(text) do
+    cond do
+      uri = first_mcp_uri(text) ->
+        URI.parse(uri).host
+
+      match = Regex.run(~r/\b([A-Za-z0-9_-]+)\s+mcp\s+server\b/i, text) ->
+        Enum.at(match, 1)
+
+      match = Regex.run(~r/\bmcp\s+server\s+([A-Za-z0-9_-]+)\b/i, text) ->
+        Enum.at(match, 1)
+
+      true ->
+        nil
+    end
+  end
+
+  defp mcp_tool_hint(text) do
+    cond do
+      uri = first_mcp_uri(text) ->
+        uri
+        |> URI.parse()
+        |> Map.get(:path)
+        |> to_string()
+        |> String.trim_leading("/")
+        |> URI.decode()
+        |> String.replace_prefix("tools/", "")
+
+      match = Regex.run(~r/\btool\s+([A-Za-z0-9_.-]+)\b/i, text) ->
+        Enum.at(match, 1)
+
+      true ->
+        nil
+    end
+  end
+
+  defp mcp_decision_attrs(intent, action_name, reason, params, resource_access, text, context) do
+    %{
+      intent: intent,
+      reason: reason,
+      selected_action: action_name,
+      resource_access: resource_access,
+      alternatives: ["Configure the MCP server first if this route reports it is missing."],
+      trace_metadata: %{source_text: text, extracted_slots: params},
+      context: context
+    }
   end
 
   defp local_file_path(text) do

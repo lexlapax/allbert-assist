@@ -766,24 +766,38 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     refute Enum.any?(response.actions, &(&1.name == "run_shell_command"))
   end
 
-  test "routes MCP and agent URI requests to unsupported resource workflow" do
+  test "routes MCP resource URI requests to MCP read action" do
     assert {:ok, mcp_response} =
              IntentAgent.respond(%{
-               text: "Call mcp://local-server/resources/doc",
+               text: "Read mcp://local-server/resources/doc",
                channel: :test,
                operator_id: "local"
              })
 
-    assert mcp_response.status == :unsupported
-    assert mcp_response.message =~ "MCP resources and future agent endpoints"
-    assert [%{workflow: :unsupported_uri_scheme}] = mcp_response.actions
+    assert mcp_response.decision.selected_action == "mcp_read_resource"
+    assert mcp_response.decision.intent == :mcp_read_resource
 
     assert mcp_response.decision.trace_metadata.intent_candidates.selected.action_name ==
-             "unsupported_resource_workflow"
+             "mcp_read_resource"
 
-    assert [%{operation_class: :external_service_request, unsupported?: true}] =
+    assert [%{operation_class: :mcp_resource_read, unsupported?: false}] =
              mcp_response.decision.trace_metadata.intent_candidates.selected.resource_access
+  end
 
+  test "routes MCP tool phrasing to MCP discovery action" do
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "List the tools on my demo MCP server",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.decision.selected_action == "mcp_list_tools"
+    assert response.decision.intent == :mcp_list_tools
+    assert get_in(response.decision.trace_metadata, [:extracted_slots, :server_id]) == "demo"
+  end
+
+  test "routes agent URI requests to unsupported resource workflow" do
     assert {:ok, agent_response} =
              IntentAgent.respond(%{
                text: "Delegate this to agent+https://agent.example/tasks/review",
@@ -792,7 +806,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
              })
 
     assert agent_response.status == :unsupported
-    assert agent_response.message =~ "does not call MCP tools or delegate"
+    assert agent_response.message =~ "future agent endpoints"
     assert [%{workflow: :unsupported_uri_scheme}] = agent_response.actions
   end
 

@@ -90,7 +90,7 @@ defmodule AllbertAssist.Skills.Registry do
       action_name: "unsupported_resource_workflow",
       title: "Unsupported Resource Workflow",
       description:
-        "Explain URL/document/MCP/agent/channel workflows that v0.10 defers to v0.11+.",
+        "Explain URL/document/agent/channel workflows that still need bounded adapters.",
       permission: :read_only,
       status: :unsupported
     },
