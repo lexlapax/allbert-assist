@@ -126,6 +126,29 @@ Still parked:
   MCP server-mode surface and the "Public Protocol Interop (Non-MCP)" entry, not
   the v0.40 client.
 
+### MCP Tool Discovery v0.41-Deferred Remainder
+
+Status: parked. Added in the post-v0.40 planning pass.
+
+v0.41 ships `find_tools` (local + internet MCP registry search), the
+confirmation-gated connect gate, and an opt-in background scan over the official
+MCP Registry plus one no-auth aggregator (PulseMCP). A few discovery capabilities
+are intentionally out of v0.41 scope.
+
+Still parked:
+
+- capability-gap-triggered remote acquisition (an objective gap automatically
+  proposing a discovery search) — v0.41 keeps discovery operator-initiated or
+  scheduled; ADR 0033 objectives may consult `find_local_tools` only;
+- semantic / API-keyed registry sources (e.g. Smithery), and registries beyond
+  the official registry + PulseMCP;
+- any auto-connect or remembered/silent connect approval
+  (`mcp.discovery.auto_connect` stays pinned `false`);
+- community trust scoring, registry-moderation authority, or signing/provenance
+  enforcement beyond advisory flags at consent;
+- discovery of non-MCP capability sources (code-bearing plugins, `agent://`
+  endpoints) — those remain in their own parked entries.
+
 ### Broad Office, Archive, And Unknown-Binary Extraction
 
 Status: parked.
@@ -305,13 +328,20 @@ Promote post-1.0 when the project decides on governance.
 
 Status: parked. Added in the post-v0.37 planning pass.
 
-Allbert is reactive through v1.0. Operators may want Allbert to message them
-first when a meeting starts, a job completes, an MCP server disconnects, a
-confirmation expires, or a self-improvement suggestion is ready.
+Allbert is reactive through v1.0, with one narrow carve-out: v0.41 adds an
+opt-in, paused-by-default background MCP-discovery scan (per ADR 0048) that runs
+as an operator-scheduled job and writes candidates to a *passive* Discovery
+Suggestions surface. That is unattended read-only scanning into a queue the
+operator pulls from — Allbert still never messages the operator unprompted and
+never connects without confirmation. Proactive *messaging* (Allbert pinging the
+operator first when a meeting starts, a job completes, an MCP server disconnects,
+a confirmation expires, or a discovery/self-improvement suggestion is ready)
+remains parked.
 
 Still parked:
 
-- per-channel proactive-message authority;
+- per-channel proactive-message authority (including push about discovery
+  suggestions);
 - operator-opt-in policy per notification class;
 - rate-limit and quiet-hours policy;
 - abuse prevention for runaway notifications;

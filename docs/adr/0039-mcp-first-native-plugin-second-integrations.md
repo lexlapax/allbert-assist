@@ -2,8 +2,11 @@
 
 ## Status
 
-Proposed for v0.41 Everyday Integration Pack 1
-(`docs/plans/v0.41-plan.md`).
+Accepted for v0.41 Tool Discovery + MCP-First Integration Pack 1
+(`docs/plans/v0.41-plan.md`), at v0.41 M1. Pairs with ADR 0048 (tool discovery
+and discovered-server trust): discovery is how an operator *finds* a server to
+configure; this ADR governs whether that configured integration stays
+MCP-shaped or graduates to a native plugin.
 
 ## Context
 
@@ -34,3 +37,11 @@ workspace model needs a richer local participant.
 - No provider-specific integration clients in core.
 - No bypass of Resource Access or confirmations.
 - No automatic memory promotion from integration output.
+
+## Relates To
+
+- Paired with: ADR 0048 (tool discovery, source port, and discovered-server
+  trust) — discovery feeds the connect gate; this ADR governs the MCP-first vs
+  native-plugin choice for the resulting integration.
+- Depends on: ADR 0038 (MCP client trust tier), ADR 0017 (plugin contract),
+  ADR 0027 (app/surface contract and memory namespace declaration).

@@ -183,6 +183,21 @@ It grants no tool or resource authority and creates no remembered grants.
 - No WebSocket transport in v0.40 (HTTP/SSE and stdio only).
 - No MCP server authority over Allbert permissions, grants, or confirmations.
 
+## Amendments
+
+### v0.41 (ADR 0048): discovered servers are inert until the connect gate
+
+v0.41 adds internet tool discovery (ADR 0048). A server returned by discovery is
+not configured and carries no authority: its `server.json` metadata and
+advertised tool definitions are descriptive only, exactly like §2. A discovered
+server enters this trust tier only after the confirmation-gated
+`mcp_server_connect` action writes its `mcp.servers.<id>` entry behind a
+pre-configuration consent that shows the exact untruncated run command / remote
+URL. At connect time Allbert records a tool-definition baseline hash; on reconnect
+(and on `mcp_doctor_server`) a changed hash — a rug-pull — forces re-review and
+re-consent rather than silent trust continuation. Nothing in discovery loosens
+the `:mcp_tool_call` or `:mcp_resource_read` floors defined above.
+
 ## Alternatives Considered
 
 - **Native MCP client only (no library)**: rejected as the default but kept as
@@ -216,3 +231,5 @@ It grants no tool or resource authority and creates no remembered grants.
 - ADR 0039 — MCP-First, Native-Plugin-Second Integrations.
 - ADR 0046 — Settings Schema Migration Policy (`mcp.servers.*` evolution).
 - ADR 0047 — Provider Doctor Contract (`mcp_doctor_server` return shape).
+- ADR 0048 — Tool Discovery, Source Port, And Discovered-Server Trust (the
+  connect gate by which a discovered server enters this trust tier).

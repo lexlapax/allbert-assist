@@ -458,10 +458,10 @@ The user's experience should feel natural:
 
 That loop should work the same whether the user is in the terminal, the web UI,
 or a future messaging channel. The v1.0 arc widens what can happen inside that
-loop: provider control, MCP tools, everyday integrations, browser research,
-Plan/Build review, media resources, more channels, marketplace-lite discovery,
-protocol interop, and operator-supervised self-improvement all arrive over the
-same authority boundary.
+loop: provider control, MCP tools, tool discovery, everyday integrations,
+browser research, Plan/Build review, media resources, more channels,
+marketplace-lite discovery, protocol interop, and operator-supervised
+self-improvement all arrive over the same authority boundary.
 
 ## Unified Release Sequence
 
@@ -558,11 +558,17 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.40: MCP Client Integration. MCP servers become configured resources and
   tools under Allbert's action, Resource Access, confirmation, trace, and audit
   boundaries.
-- v0.41: MCP-first Integration Pack 1. Calendar, mail, GitHub, and notes/files
-  ship as **MCP-server-configured workspace panels**. The notes/files surface
-  also ships as a native reference plugin to give plugin authors a starter
-  scaffold; StockSage remains the depth reference. Native plugins for the
-  other integrations are post-1.0 follow-on (v0.41.x).
+- v0.41: Tool Discovery + MCP-first Integration Pack 1. Allbert gains
+  `find_tools`, a capability search that fans out to local tools (actions,
+  skills, connected MCP servers) and to internet MCP registries; a discovered
+  server connects only through a confirmation-gated consent that shows the exact
+  command/URL, and an opt-in, paused-by-default background scan writes
+  suggestions to a passive surface (no unprompted messaging, no auto-connect).
+  Calendar, mail, GitHub, and notes/files ship as **MCP-server-configured
+  workspace panels**. The notes/files surface also ships as a native reference
+  plugin to give plugin authors a starter scaffold; StockSage remains the depth
+  reference. Native plugins for the other integrations are post-1.0 follow-on
+  (v0.41.x).
 - v0.42: Browser And Web Research. Browser sessions become Resource Access
   resources, with research/extract/screenshot first and broader account
   operation deferred.
@@ -622,9 +628,11 @@ bucket.
 - Active Memory in v0.39b is the safe precursor to system memory: reviewed
   retrieval before replies, not model training or distillation.
 - Capability reach lands through planned, authority-bounded surfaces: MCP,
-  everyday integrations, browser research, channels, Plan/Build,
+  tool discovery, everyday integrations, browser research, channels, Plan/Build,
   marketplace-lite discovery, self-improvement, voice, vision, and public
-  protocol interop.
+  protocol interop. Tool discovery may search internet MCP registries but
+  connects a server only through a confirmation-gated consent; discovered
+  metadata is never authority.
 
 ### Planned v0.46: Operator-Supervised Self-Improvement
 
