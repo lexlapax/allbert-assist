@@ -68,10 +68,13 @@ defmodule AllbertAssist.MixProject do
       {:yaml_elixir, "~> 2.12"},
       {:ymlr, "~> 5.0"},
       # Jido agent framework + ecosystem
-      {:jido, "~> 2.2"},
-      {:jido_action, "~> 2.2"},
-      {:jido_signal, "~> 2.1"},
-      {:jido_ai, "~> 2.1"}
+      # Local override until upstream Memento releases an Elixir 1.19-safe
+      # replacement for its conflicting `record/0` typespec.
+      {:memento, path: "../../vendor/memento", override: true},
+      {:jido, "~> 2.3"},
+      {:jido_action, "~> 2.3"},
+      {:jido_signal, "~> 2.2"},
+      {:jido_ai, "~> 2.2"}
     ]
   end
 

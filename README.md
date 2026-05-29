@@ -138,7 +138,8 @@ Next milestones:
 - [docs/plans/v0.40-plan.md](docs/plans/v0.40-plan.md): implemented MCP
   client integration milestone.
 - [docs/plans/v0.41-plan.md](docs/plans/v0.41-plan.md): planned developer
-  velocity and parallel test methodology milestone.
+  velocity and parallel test methodology milestone, including the temporary
+  Memento/Jido compatibility override recorded in ADR 0050.
 - [docs/developer/test-strategy.md](docs/developer/test-strategy.md): test
   lane taxonomy, gate matrix, isolation contract, and implementation-plan
   parallelization annotations.

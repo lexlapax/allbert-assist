@@ -121,12 +121,53 @@ gate before it is accepted.
 - Planned share: not set; M1 cannot set an efficiency target without a green
   BEFORE baseline.
 - Actual delta: correctness-blocked.
-- Decision: M1 remains blocked. Do not advance to M2/M6 until the release
-  oracle and BEFORE benchmark run on a compatible recorded toolchain, or until
-  dependency compatibility work is explicitly moved into v0.41 scope and then
-  re-benchmarked.
-- Follow-up/reorder: no milestone reorder yet. The next work item is
-  environment/toolchain recovery, not test-lane migration.
+- Decision: at this attempt, M1 remained blocked. Do not advance to M2/M6 until
+  the release oracle and BEFORE benchmark run on a compatible recorded
+  toolchain, or until dependency compatibility work is explicitly moved into
+  v0.41 scope and then re-benchmarked.
+- Follow-up/reorder: no milestone reorder yet. The next work item was
+  environment/toolchain recovery, not test-lane migration. ADR 0050 records the
+  later compatibility unblock.
+
+### v0.41 M1 Dependency Unblock And Release Benchmark - 2026-05-29
+
+- Commit: v0.41 M1 memento unblock commit.
+- Machine: `Darwin Sandeeps-Mac-Studio.local 25.5.0` on Apple M1 Ultra;
+  20 physical / 20 logical CPUs.
+- Runtime: Elixir 1.19.5 (compiled with Erlang/OTP 28), running on
+  Erlang/OTP 29.0.1.
+- Cache state: warm Allbert build after dependency compatibility probing; the
+  release command still recompiled the local `memento` path override.
+- Compatibility work: Jido stack updated to `jido` 2.3.0, `jido_action` 2.3.0,
+  `jido_signal` 2.2.0, and `jido_ai` 2.2.0. Because `jido_signal` 2.2.0 still
+  depends on `memento ~> 0.5.0`, ADR 0050 adds a local `vendor/memento` path
+  override that renames the conflicting `Memento.Table.record/0` typespec to
+  `Memento.Table.memento_record/0` without runtime behavior changes.
+- Commands:
+  - `/usr/bin/time -p env ALLBERT_HOME=/private/tmp/allbert_v041_m1_unblock_precommit_home DATABASE_PATH=/private/tmp/allbert_v041_m1_unblock_precommit_db/allbert_test.db mix precommit`
+- Release wall-clock / counts: passed at `real 1221.01` seconds (`user 25.61`,
+  `sys 16.03`). Core app: 1146 tests, 0 failures, 2 skipped, 695.7 seconds.
+  Web: 107 tests, 0 failures, 298.8 seconds. StockSage: 197 tests, 0 failures,
+  194.5 seconds. Telegram/email plugin lane: 2 tests, 0 failures, 0.03 seconds.
+- Fast-local wall-clock / counts: not yet recorded; M1 still owes the
+  fast-local-equivalent baseline after the dependency unblock commit.
+- Lane breakdown: release gate still uses the v0.40 monolithic precommit shape:
+  compile, unused-dep unlock check, format, Credo, core tests, web tests,
+  StockSage tests, and telegram/email tests. Static heuristic inventory remains
+  233 `*_test.exs` files from Attempt 1 until the file-level inventory is
+  materialized.
+- Slowest modules/tests: not yet recorded; M1 still owes `--slowest-modules` and
+  `--slowest` reports after this unblock.
+- Planned share: not set; this was a correctness unblock, not an efficiency
+  milestone.
+- Actual delta: effective for correctness. The release oracle now reaches and
+  passes Allbert tests on the current Elixir/OTP toolchain.
+- Decision: dependency compatibility work is accepted into v0.41 M1 scope via
+  ADR 0050. M1 may continue to fast-local baseline, slowest reports, inventory,
+  target setting, and planned-share assignment. Do not begin M6-M9 test-lane
+  migrations until those remaining M1 baseline artifacts are recorded.
+- Follow-up/reorder: no efficiency reorder yet. Next work is M1 baseline
+  completion, not lane migration.
 
 ## Lane Taxonomy
 

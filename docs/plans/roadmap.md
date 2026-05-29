@@ -2290,7 +2290,8 @@ Expected direction:
 
 Plan: `docs/plans/v0.41-plan.md`
 Developer flow: `docs/plans/v0.41-request-flow.md`
-ADR: `docs/adr/0049-development-gates-and-test-parallelization.md`
+ADRs: `docs/adr/0049-development-gates-and-test-parallelization.md`,
+`docs/adr/0050-vendored-memento-compatibility-override.md`
 Developer guide: `docs/developer/test-strategy.md`
 
 Status: planned. Inserted after v0.40 when full `mix precommit` time became a
@@ -2314,10 +2315,14 @@ Expected direction:
   before coding starts.
 - Preserve the authoritative release gate while making focused and fast local
   gates legitimate development evidence.
+- Carry the temporary `vendor/memento` compatibility override needed for the
+  current Jido stack on Elixir 1.19, and remove it when upstream publishes a
+  compatible path.
 
 Exit signal:
 
-- ADR 0049 is accepted.
+- ADR 0049 is accepted; ADR 0050 records the temporary Memento compatibility
+  override if it is still required at closeout.
 - `docs/developer/test-strategy.md` is the routing contract for tests and gates.
 - Future feature milestones can name focused gates, serial lanes, and release
   gate requirements, plus which implementation/testing lanes may run in

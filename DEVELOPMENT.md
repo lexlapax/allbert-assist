@@ -128,7 +128,9 @@ git diff --check
 
 Allbert keeps a strict release gate, but v0.41 makes gate choice explicit so
 development can be fast without hiding serial-resource risk. See
-`docs/developer/test-strategy.md` and ADR 0049 for the full contract.
+`docs/developer/test-strategy.md` and ADR 0049 for the full contract. If the
+gate is blocked by the current Jido/Memento toolchain compatibility layer, see
+ADR 0050 before changing dependencies.
 
 | Gate | Use | Typical evidence |
 | --- | --- | --- |
