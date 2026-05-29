@@ -79,19 +79,11 @@ config :allbert_assist, AllbertAssist.JidoBacked,
     {AllbertAssist.Objectives.Engine.Agent, AllbertAssist.Objectives.Engine.Agent}
   ]
 
-# Jido.AI model aliases. Reference these by atom (`:fast`, `:capable`, ...)
-# in agent code so swapping providers is a config-only change.
-# Format is "<provider>:<model>". ReqLLM uses the OpenAI-compatible provider
-# for local Ollama models, with the Ollama base URL configured in runtime.exs.
+# Jido.AI defaults reference atom aliases (`:fast`, `:capable`, ...). Allbert
+# installs those aliases at application startup from the shipped provider
+# catalog's `model_profiles`, keeping Settings Central model profiles as the
+# single model/source-of-truth list.
 config :jido_ai,
-  model_aliases: %{
-    fast: "anthropic:claude-haiku-4-5-20251001",
-    capable: "anthropic:claude-sonnet-4-6",
-    slow: "anthropic:claude-sonnet-4-6",
-    thinking: "anthropic:claude-opus-4-8",
-    gpt: "openai:gpt-4o-mini",
-    local: "openai:gemma4:26b"
-  },
   llm_defaults: %{
     text: %{model: :fast, temperature: 0.2, max_tokens: 1024, timeout: 30_000},
     object: %{model: :thinking, temperature: 0.0, max_tokens: 1024, timeout: 30_000},

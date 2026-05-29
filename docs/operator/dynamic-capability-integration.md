@@ -66,6 +66,10 @@ mix allbert.settings set dynamic_codegen.enabled true
 Choose exactly one provider profile for each smoke run:
 
 ```sh
+# Recommended remote coding smoke
+mix allbert.settings set providers.gemini.enabled true
+mix allbert.settings set dynamic_codegen.provider_profile coding
+
 # OpenAI-backed smoke
 mix allbert.settings set providers.openai.enabled true
 mix allbert.settings set dynamic_codegen.provider_profile fast
@@ -88,12 +92,24 @@ mix allbert.settings set dynamic_codegen.allowed_action_permissions read_only
 ```
 
 Use only one `dynamic_codegen.provider_profile` value per smoke run. The
-default profiles are `fast` for OpenAI, `anthropic_fast` for Anthropic, and
-`openrouter_fast` for OpenRouter.
+recommended remote code-generation profile is `coding`, backed by Gemini 3.5
+Flash. The additional remote smoke profiles are `fast` for OpenAI,
+`anthropic_fast` for Anthropic, and `openrouter_fast` for OpenRouter.
 
-For local Ollama smoke work, keep `dynamic_codegen.provider_profile local` and
-make sure `OLLAMA_BASE_URL` is set in `.env` when it differs from
-`http://localhost:11434/v1`.
+For local Ollama fallback smoke work, use `dynamic_codegen.provider_profile
+coding_local`, pull `qwen2.5-coder:7b` explicitly, and make sure
+`OLLAMA_BASE_URL` is set in `.env` when it differs from
+`http://localhost:11434/v1`:
+
+```sh
+ollama pull qwen2.5-coder:7b
+mix allbert.settings set dynamic_codegen.provider_profile coding_local
+```
+
+Gemini credentials use the Settings Central secret reference
+`secret://providers/gemini/api_key`. For disposable smoke runs, ReqLLM can also
+read `GOOGLE_API_KEY` from the shell or `.env`; OpenRouter uses
+`secret://providers/openrouter/api_key` or `OPENROUTER_API_KEY`.
 
 The workflow still fails closed if the provider profile cannot resolve, the
 provider is disabled, a required credential is missing, the sandbox doctor is

@@ -55,6 +55,7 @@ defmodule AllbertAssist.Settings.Schema do
     "providers.*.api_key_ref",
     "model_profiles.*.provider",
     "model_profiles.*.model",
+    "model_profiles.*.aliases",
     "model_profiles.*.temperature",
     "model_profiles.*.max_tokens",
     "model_profiles.*.timeout_ms",
@@ -1663,7 +1664,14 @@ defmodule AllbertAssist.Settings.Schema do
   @provider_schema %{
     "type" => %{
       type: :enum,
-      allowed_values: ["openai", "openai_compatible", "anthropic", "openrouter", "local"]
+      allowed_values: [
+        "openai",
+        "openai_compatible",
+        "anthropic",
+        "openrouter",
+        "google",
+        "local"
+      ]
     },
     "enabled" => %{type: :boolean},
     "endpoint_kind" => %{
@@ -1677,6 +1685,7 @@ defmodule AllbertAssist.Settings.Schema do
   @model_profile_schema %{
     "provider" => %{type: :provider_ref},
     "model" => %{type: :string},
+    "aliases" => %{type: :string_list},
     "temperature" => %{type: :temperature},
     "max_tokens" => %{type: :positive_integer},
     "timeout_ms" => %{type: :timeout_ms}
@@ -1745,6 +1754,12 @@ defmodule AllbertAssist.Settings.Schema do
         "api_key_ref" => "secret://providers/openrouter/api_key",
         "endpoint_kind" => "credentialed_remote",
         "enabled" => false
+      },
+      "gemini" => %{
+        "type" => "google",
+        "api_key_ref" => "secret://providers/gemini/api_key",
+        "endpoint_kind" => "credentialed_remote",
+        "enabled" => false
       }
     },
     "model_profiles" => %{
@@ -1754,6 +1769,14 @@ defmodule AllbertAssist.Settings.Schema do
         "temperature" => 0.2,
         "max_tokens" => 1024,
         "timeout_ms" => 30_000
+      },
+      "coding_local" => %{
+        "provider" => "local_ollama",
+        "model" => "qwen2.5-coder:7b",
+        "aliases" => ["qwen2.5-coder"],
+        "temperature" => 0.1,
+        "max_tokens" => 4096,
+        "timeout_ms" => 60_000
       },
       "fast" => %{
         "provider" => "openai",
@@ -1775,6 +1798,13 @@ defmodule AllbertAssist.Settings.Schema do
         "temperature" => 0.2,
         "max_tokens" => 4096,
         "timeout_ms" => 45_000
+      },
+      "coding" => %{
+        "provider" => "gemini",
+        "model" => "gemini-3.5-flash",
+        "temperature" => 0.1,
+        "max_tokens" => 8192,
+        "timeout_ms" => 60_000
       }
     },
     "agents" => %{
@@ -2860,7 +2890,7 @@ defmodule AllbertAssist.Settings.Schema do
   defp wildcard_known_key?(key) do
     Regex.match?(~r/^providers\.[^.]+\.(type|enabled|endpoint_kind|base_url|api_key_ref)$/, key) ||
       Regex.match?(
-        ~r/^model_profiles\.[^.]+\.(provider|model|temperature|max_tokens|timeout_ms)$/,
+        ~r/^model_profiles\.[^.]+\.(provider|model|aliases|temperature|max_tokens|timeout_ms)$/,
         key
       )
   end

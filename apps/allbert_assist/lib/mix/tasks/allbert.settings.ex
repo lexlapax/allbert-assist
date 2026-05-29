@@ -199,7 +199,7 @@ defmodule Mix.Tasks.Allbert.Settings do
   defp string_list_setting?(key) do
     case Map.get(Settings.schema(), key) do
       %{type: :string_list} -> true
-      _schema -> false
+      _schema -> Regex.match?(~r/^model_profiles\.[^.]+\.aliases$/, key)
     end
   end
 
