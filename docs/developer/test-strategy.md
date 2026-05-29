@@ -390,6 +390,27 @@ Async or partition-safe tests must satisfy these ownership rules:
 
 No test may write to a real operator `~/.allbert`.
 
+The M3 isolation lock freezes these root derivations for helpers and gates:
+
+| Resource | Required test derivation |
+| --- | --- |
+| `MIX_TEST_PARTITION` | `"0"` when unset; otherwise the partition id supplied by `mix test --partitions N`. |
+| `ALLBERT_HOME` / `ALLBERT_HOME_DIR` | A temp root containing the lane and partition id, for example `/private/tmp/allbert_v041/<lane>/p1/home`. Set both aliases only to that owned home. |
+| `DATABASE_PATH` | Inside the same owned partition root, for example `/private/tmp/allbert_v041/<lane>/p1/db/allbert_test.db`. |
+| Settings, secrets, memory, sandbox, plugin, and tmp roots | Derived from the owned Allbert Home unless the test explicitly overrides them inside the same owned root. |
+| Process names | Anonymous supervised processes by default; fixed names only in serial lanes, or unique names containing the test module, test name, and partition id. |
+| Ports and external runtimes | `external_runtime_serial` unless the runtime has a documented per-partition port/path ownership story. |
+
+Cleanup is constrained to owned roots. Helpers may remove the generated
+partition root on exit, but must never remove a parent such as `/private/tmp`,
+the repository, or any path derived from a real operator home. Tests that need
+to mutate `Application` or `System` env restore the previous value in `on_exit`.
+
+Partition helpers must run the same Allbert and StockSage migrations before the
+test lane starts. The M1 web slowest rerun proved why this is required: a fresh
+web-only DB setup misses StockSage plugin tables even though the v0.40
+monolithic precommit order hides that by migrating through the core app first.
+
 ## Gate Matrix
 
 | Gate | Use | Evidence |
