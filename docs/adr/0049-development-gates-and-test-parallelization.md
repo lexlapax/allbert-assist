@@ -122,7 +122,26 @@ milestone must document:
 
 A plan without these annotations is not implementation-ready after v0.41. The
 annotations are guidance for concurrency, not permission to skip the full
-release gate.
+release gate. The requirement applies to plans authored or audited after v0.41;
+existing downstream plans (v0.42 onward) are back-filled with annotations at the
+start of their own implementation, and v0.42 is back-filled during v0.41 as the
+worked example.
+
+### 7. v0.41 migrates the existing suite onto the lanes, against a fixed oracle
+
+v0.41 is not only methodology: after the M1-M5 design pass, M6-M9 implement the
+gate matrix and isolation helpers and migrate the existing suite onto the lanes.
+Because that touches essentially every test, the migration is bounded and
+de-risked by two rules:
+
+- **Case-template default classification.** Lanes and `async` defaults are set on
+  the shared case templates first; per-file `@moduletag` overrides are reviewed
+  exceptions, not the norm. This keeps the change reviewable instead of a blanket
+  rewrite of every test file.
+- **The v0.40 closeout is the regression oracle.** Commit `ed84a73`'s green
+  `mix precommit` set is reproduced through the full release gate at every batch
+  before acceptance; the monolithic v0.40 serial precommit remains the runnable
+  fallback gate for flake triage and rollback. No batch trades coverage for speed.
 
 ## Consequences
 
@@ -141,7 +160,9 @@ release gate.
 
 ## Non-Goals
 
-- No code, alias, helper, or test-tag changes in the v0.41 planning pass.
+- No code, alias, helper, or test-tag changes in the v0.41 M1-M5 planning pass;
+  those land in the M6-M9 implementation pass, each validated against the v0.40
+  oracle.
 - No move away from SQLite.
 - No weakening of Security Central evals or release gates.
 - No hidden external smokes inside normal local precommit.

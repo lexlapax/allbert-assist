@@ -5,19 +5,33 @@ future precommit parallelization. It also defines the planning annotations that
 make implementation milestones safe to parallelize.
 
 Status: introduced for v0.41 planning. The taxonomy below is binding; the exact
-Mix aliases and tag migrations land in the v0.41 implementation.
+Mix aliases and tag migrations land in the v0.41 implementation milestones
+(M6-M9), each validated against the v0.40 regression oracle.
 
 ## Current Baseline
 
-The v0.40 closeout gate showed the problem clearly:
+The v0.40 closeout gate showed the problem clearly (preliminary; M1 replaces
+these with an authoritative census):
 
-- full `mix precommit` passed but took roughly 22 minutes locally
-- core app suite: 1146 tests, 0 failures, 2 skipped
-- web suite: 107 tests, 0 failures
-- plugin/channel suites: 197 tests and 2 tests, 0 failures
-- repository sweep found many serial resources: SQLite sandbox, global app env,
-  shared Allbert Home roots, named processes, HTTP stubs, filesystem cleanup,
-  LiveView/Repo ownership, and security eval harnesses
+- full `mix precommit` passed but took roughly 22 minutes locally, as a
+  monolithic serial sequence (compile, format, Credo, then four `mix test`
+  invocations for core, web, StockSage, and telegram/email); it does not run
+  Dialyzer
+- core app suite: 1146 tests, 0 failures, 2 skipped; web: 107; plugin/channel:
+  197 and 2 — across ≈233 `*_test.exs` files (≈180 core, 16 web, 37 plugin)
+- async is almost always explicit (≈195 of 196 app test files) but skewed serial:
+  ≈160 `async: false` vs 35 `async: true`. The migration flips proven-safe
+  modules; it does not add missing tags.
+- ≈623 `Application.put_env` sites in tests; temporary Allbert Home roots; ≈21
+  named-process spawns; `Ecto.Adapters.SQL.Sandbox` in `:manual` mode
+  (`shared: not tags[:async]`); filesystem cleanup
+- partition-readiness is partial, not greenfield: `config/test.exs` already
+  derives `DATABASE_PATH` from env vars; `MIX_TEST_PARTITION` is only a comment
+
+The v0.40 closeout commit (`ed84a73`) is the regression oracle: its full
+`mix precommit` green set (1146 + 107 + 197 + 2, 0 failures) is what every
+migration batch must reproduce through the full release gate, and the monolithic
+v0.40 serial precommit stays runnable as the fallback gate for flake triage.
 
 M1 of v0.41 must replace this preliminary baseline with an authoritative
 inventory containing file path, owner, case template, async setting, tags, timing,
@@ -40,6 +54,36 @@ Every test file gets one primary lane.
 
 Secondary blockers should be recorded separately. Example: a test may be primary
 `db_serial` with secondary `home_fs_serial`.
+
+## Tagging Convention
+
+Lanes are applied at the case-template boundary first, to avoid editing every
+file:
+
+- Each shared case template sets a default lane and `async` default in one place:
+  `DataCase → db_serial`, web `ConnCase → liveview_serial` (or `db_serial` when no
+  LiveView), `SecurityEvalCase → security_eval_serial`, and channel/plugin cases →
+  their owning lane. `SecurityEvalCase` already accepts `async:`; the other
+  templates gain the same option.
+- A test file declares `@moduletag <lane>` only to OVERRIDE the template default
+  (e.g. promoting a `DataCase` test to `pure_async`) or when it uses no shared
+  template (the plain-`ExUnit.Case` tail).
+- Secondary blockers are recorded as additional `@moduletag`s. A file is excluded
+  from any async/partition lane if it carries ANY blocker tag.
+- Gates select lanes with `mix test --only <lane>` / `--exclude <lane>`; the lane
+  tag values are the filter keys.
+
+Reconciliation rule: after tagging, lane test-counts must sum to the full suite
+total — zero unclassified files, no file double-counted.
+
+### Plugins And Channels
+
+Plugin and channel suites are in scope. StockSage's Python-bridge tests are
+`external_runtime_serial` (a stdio Port to a real interpreter); channel adapter
+tests (telegram/email) follow their own resource ownership. The umbrella runs
+these via `do --app allbert_assist cmd mix test ../../plugins/...`; the gate
+matrix keeps that invocation for the plugin/channel lanes rather than assuming a
+single umbrella `mix test`.
 
 ## Async-Safe Rule
 
@@ -104,6 +148,9 @@ No test may write to a real operator `~/.allbert`.
 | External smoke | Machine-dependent integrations. | Docker, browser, real MCP/provider checks, explicitly opt in. |
 
 Fast local gates are not release evidence. Release gates remain authoritative.
+The release gate is a superset of the v0.40 `mix precommit`: it adds Dialyzer
+(which today's precommit does not run) and must reproduce the v0.40 oracle green
+set.
 
 ## Implementation Plan Annotations
 
@@ -130,6 +177,8 @@ implementation-ready. Do not infer parallel safety from small scope.
 
 ## Migration Order
 
+0. Apply case-template default lanes (the bulk classification) and reconcile lane
+   counts to the suite total before any async promotion.
 1. Produce the inventory and slowest-module report.
 2. Convert obvious `pure_async` candidates only.
 3. Add unique-home helpers for filesystem-only tests.
@@ -137,8 +186,15 @@ implementation-ready. Do not infer parallel safety from small scope.
 5. Revisit LiveView/process-heavy tests after DB partitioning is stable.
 6. Keep security evals and external smokes serial until proven safe.
 
-If a converted lane flakes, move it back to serial first, then fix the ownership
-contract before trying again.
+Work in reviewable batches. Each batch must reproduce the v0.40 oracle green set
+through the full release gate, and run its async/partition lane repeatedly within
+a flake-rerun budget, before it is accepted.
+
+If a converted lane flakes, re-run the suspect module under the v0.40 serial
+fallback gate: if it passes serially the defect is parallelism/ownership (fix the
+contract or move the module back to serial); if it fails serially it is a real
+regression and blocks. Move flaky lanes back to serial first, then fix ownership
+before retrying.
 
 ## Milestone Requirements
 

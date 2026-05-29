@@ -161,6 +161,10 @@ each milestone names:
 - the rejoin point where docs are updated, drift against the plan is checked,
   and gate evidence is reviewed before commit or release closeout
 
+The requirement applies to plans authored or audited after v0.41; existing
+downstream plans (v0.42 onward) are back-filled at the start of their own
+implementation (v0.42 is back-filled during v0.41 as the worked example).
+
 Parallel implementation is allowed only when resource ownership and ordering are
 explicit. A missing annotation is an implementation-readiness gap, not a detail
 for the coding agent to guess later.
