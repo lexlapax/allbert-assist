@@ -130,7 +130,6 @@ defmodule AllbertAssist.Mcp.Client do
          {:ok, conn} <- Transport.notify(conn, encoded) do
       {:ok, conn}
     else
-      {:error, reason, _conn} -> {:error, reason}
       {:error, reason} -> {:error, reason}
     end
   end

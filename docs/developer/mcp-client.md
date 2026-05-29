@@ -1,8 +1,7 @@
 # Allbert MCP Client Developer Notes
 
-Status: planned for v0.40. This document describes the intended module and
-boundary contract for MCP Client Integration. Module names land as the v0.40
-milestones complete; treat unimplemented details as planned.
+Status: implemented in v0.40 (`0.40.0`). This document describes the shipped
+module and boundary contract for MCP Client Integration.
 
 These notes explain how the MCP client fits Allbert's action, security, and
 resource boundaries. The authoritative decisions are in
@@ -21,17 +20,18 @@ second runtime.
 
 ## Modules
 
-Planned modules under `AllbertAssist.Mcp.*` (project acronym convention is
+Modules under `AllbertAssist.Mcp.*` (project acronym convention is
 `Mcp`, matching `Http`):
 
 - `AllbertAssist.Mcp` — facade for resolving servers and dispatching client ops.
 - `AllbertAssist.Mcp.ServerConfig` — resolves an `mcp.servers.*` entry from
   Settings Central and resolves `secret://mcp/...` refs at call time.
-- `AllbertAssist.Mcp.Client` — per-server client (Hermes-backed only if the M1
-  spike proves Allbert-owned egress control; otherwise native JSON-RPC).
+- `AllbertAssist.Mcp.Codec` — Hermes-backed MCP JSON-RPC message wrapper.
+- `AllbertAssist.Mcp.Client` — per-server client sequencing over the Allbert
+  transport boundary.
 - `AllbertAssist.Mcp.Transport` — routes egress through Allbert-owned transports.
-- `AllbertAssist.Mcp.Doctor` — reuses `AllbertAssist.Settings.ModelDoctor`'s
-  ADR 0047 envelope.
+- `AllbertAssist.Mcp.Doctor` — returns the ADR 0047-style redacted doctor
+  envelope plus MCP additive fields.
 
 Actions under `AllbertAssist.Actions.Mcp.*`, registered in
 `AllbertAssist.Actions.Registry`:
@@ -79,13 +79,10 @@ Secret-bearing `env`/`headers` values and `auth_ref` must be
 (`required` | `denied`). See `docs/plans/v0.40-plan.md` for the full key list
 and validation rules.
 
-`args`, `tool_allowlist`, and `tool_denylist` are string lists and reuse the
-existing Settings `:string_list` type (already parsed by
-`mix allbert.settings set`). `env` and `headers` are string-to-string maps with
-no current CLI input path: v0.40 adds one, either JSON-aware
-`mix allbert.settings set` parsing for those keys or dedicated
-`mix allbert.mcp config ...` helpers. Keep the operator guide examples in lock
-step with that choice.
+`args`, `tool_allowlist`, and `tool_denylist` are string lists. `env` and
+`headers` are string-to-string maps. The implemented CLI/config input path is
+JSON-aware `mix allbert.settings set` parsing for MCP list/map keys;
+comma-separated string-list input remains available for non-JSON list values.
 
 ## Permission And Operation Classes
 
@@ -128,17 +125,21 @@ Both transports are bounded adapters; neither carries authority.
   denial, redaction). MCP does not open a second network path.
 - **stdio**: process started with explicit argv and secret-ref-only env, bounded
   under ADR 0009 local-execution sandbox levels (no shell string, bounded
-  lifecycle, audited startup).
+  lifecycle, audited startup). Stderr is not merged into stdout because real
+  MCP servers may log on stderr while stdout remains the JSON-RPC stream.
+  Resolved env entries are converted to charlists before `Port.open/2`.
 
 ## Codec And Dependency
 
-v0.40 uses `hermes_mcp` for MCP protocol framing/codec only if the M1 spike
-proves Hermes can be constrained behind Allbert-owned HTTP/SSE and stdio egress.
-Current Hermes docs confirm the needed client operations and built-in transports,
-but the implementation must prove a custom transport hook or equivalent control
-point. If not, v0.40 falls back to a minimal native JSON-RPC MCP client over
-`Req` plus an Allbert-owned stdio process adapter. Either way, MCP is a
-protocol-generic dependency, not a provider SDK, so it does not violate ADR 0039.
+v0.40 uses `hermes_mcp` for MCP protocol framing/codec through
+`AllbertAssist.Mcp.Codec`, which wraps `Hermes.MCP.Message`. Runtime calls do
+not use `Hermes.Client` or Hermes transport modules because the M1/M2 spike
+found no production custom transport hook that forces HTTP/SSE and stdio egress
+through Allbert-owned policy boundaries. `AllbertAssist.Mcp.Client` sequences
+JSON-RPC requests and `AllbertAssist.Mcp.Transport` owns HTTP/SSE over
+`External.HttpClient` plus bounded stdio `Port` startup. MCP remains a
+protocol-generic dependency, not a provider SDK, so it does not violate ADR
+0039.
 
 ## Doctor
 
@@ -148,9 +149,7 @@ protocol-generic dependency, not a provider SDK, so it does not violate ADR 0039
 `:resource_count`, `:protocol_version`. stdio servers report
 `endpoint_kind: :local_endpoint`; authenticated HTTP/SSE report
 `:credentialed_remote`. Because stdio is `:local_endpoint`, `credential_ok` is
-`nil` for stdio even with a secret env; stdio secret-env presence is reported via
-a `diagnostics` entry, not `credential_ok`. The doctor grants no authority and
-creates no grants.
+`nil` for stdio. The doctor grants no authority and creates no grants.
 
 ## Adding A New Server Shape
 
@@ -167,19 +166,18 @@ creates no grants.
 
 Add rows to `AllbertAssist.SecurityFixtures.EvalInventory` (milestone `:v040`,
 surface `:mcp_server_integration`) and `AllbertAssist.Security.McpIntegrationEvalTest`:
-`mcp-schema-not-authority`, `mcp-tool-resource-confusion`, `mcp-prompt-injection`,
-`mcp-server-impersonation`, `mcp-secret-env-redaction`, `mcp-stdio-startup-policy`,
-`mcp-doctor-redacted-envelope`. Use the mock-server fixtures and assert zero
-unintended transport calls for denial cases.
+`mcp-schema-not-authority-001`, `mcp-tool-resource-confusion-001`,
+`mcp-prompt-injection-001`, `mcp-server-impersonation-001`,
+`mcp-secret-env-redaction-001`, `mcp-stdio-startup-policy-001`, and
+`mcp-doctor-redacted-envelope-001`. The evals use deterministic mock MCP
+servers and assert zero unintended transport calls before approval.
 
 ## Intent Routing Flip
 
-The intent surface currently routes `mcp://` and "mcp tool/resource/call"
-phrasing to `AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow`, with
-tests asserting `status == :unsupported`. v0.40 flips
-`AllbertAssist.Agents.IntentAgent`, `AllbertAssist.Intent.Engine`, and
-`AllbertAssist.Intent.Ranker` to the MCP actions and rewrites those tests, while
-keeping `agent://` unsupported.
+`AllbertAssist.Agents.IntentAgent` routes `mcp://` resources and explicit MCP
+tool/resource/call phrasing to the MCP actions. `AllbertAssist.Intent.Engine`
+and `AllbertAssist.Intent.Ranker` no longer treat `mcp://` as an unsupported
+resource marker. `agent://` and `agent+https://` remain unsupported.
 
 ## Out Of Scope (v0.40)
 

@@ -170,20 +170,12 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
     case decision_for_route(route, text, context) do
       {:ok, decision} ->
-        request
-        |> engine_request(route, decision)
-        |> Engine.decide()
-        |> case do
-          {:ok, %Decision{intent: :open_surface} = decision} ->
-            {:ok, surface_navigation_response(decision)}
+        engine_result =
+          request
+          |> engine_request(route, decision)
+          |> Engine.decide()
 
-          {:ok, %Decision{} = engine_decision} ->
-            decision = if mcp_route?(route), do: decision, else: engine_decision
-            run_validated_route(route, text, context, decision)
-
-          {:error, _reason} ->
-            run_validated_route(route, text, context, decision)
-        end
+        handle_engine_decision(engine_result, route, text, context, decision)
 
       {:error, reason} ->
         {:ok, invalid_decision_response(reason, text, context)}
@@ -223,6 +215,20 @@ defmodule AllbertAssist.Agents.IntentAgent do
        do: true
 
   defp mcp_route?(_route), do: false
+
+  defp handle_engine_decision(engine_result, route, text, context, %Decision{} = route_decision) do
+    case engine_result do
+      {:ok, %Decision{intent: :open_surface} = decision} ->
+        {:ok, surface_navigation_response(decision)}
+
+      {:ok, %Decision{} = engine_decision} ->
+        decision = if mcp_route?(route), do: route_decision, else: engine_decision
+        run_validated_route(route, text, context, decision)
+
+      {:error, _reason} ->
+        run_validated_route(route, text, context, route_decision)
+    end
+  end
 
   defp run_validated_route(route, text, context, %Decision{} = decision) do
     cond do

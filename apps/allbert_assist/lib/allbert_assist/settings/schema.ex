@@ -2326,17 +2326,18 @@ defmodule AllbertAssist.Settings.Schema do
     with :ok <- validate_mcp_launchers(settings) do
       settings
       |> get_in(["mcp", "servers"])
-      |> case do
-        servers when is_map(servers) ->
-          with :ok <- validate_dynamic_map(servers, @mcp_server_schema, "mcp.servers", settings) do
-            validate_mcp_server_constraints(servers, settings)
-          end
-
-        other ->
-          {:error, {:invalid_setting, "mcp.servers", {:expected_map, other}}}
-      end
+      |> validate_mcp_servers(settings)
     end
   end
+
+  defp validate_mcp_servers(servers, settings) when is_map(servers) do
+    with :ok <- validate_dynamic_map(servers, @mcp_server_schema, "mcp.servers", settings) do
+      validate_mcp_server_constraints(servers, settings)
+    end
+  end
+
+  defp validate_mcp_servers(other, _settings),
+    do: {:error, {:invalid_setting, "mcp.servers", {:expected_map, other}}}
 
   defp validate_mcp_launchers(settings) do
     launchers = get_dotted(settings, "mcp.stdio.allowed_launchers") || []
