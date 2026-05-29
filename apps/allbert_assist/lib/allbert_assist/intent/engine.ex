@@ -1414,7 +1414,6 @@ defmodule AllbertAssist.Intent.Engine do
 
     String.contains?(normalized, "read local file") ||
       String.contains?(normalized, "crawl ") ||
-      String.contains?(normalized, "mcp://") ||
       String.contains?(normalized, "agent://")
   end
 

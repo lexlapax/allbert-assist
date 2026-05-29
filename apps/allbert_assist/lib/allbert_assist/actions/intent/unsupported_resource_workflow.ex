@@ -13,8 +13,7 @@ defmodule AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow do
     execution_mode: :unsupported_resource_workflow,
     skill_backed?: true,
     confirmation: :not_required,
-    notes:
-      "Inert v0.10 explanation for URL/document/MCP/agent/channel workflows owned by v0.11+.",
+    notes: "Inert explanation for URL/document/agent/channel workflows without bounded adapters.",
     name: "unsupported_resource_workflow",
     description: "Explain resource workflows that v0.11 does not execute.",
     category: "intent",
@@ -104,11 +103,11 @@ defmodule AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow do
     """
     #{workflow_intro(workflow)}
 
-     v0.11 has not run anything for this request: no fetch, read, extraction, summarization, crawl, MCP call, agent delegation, import, or execution has started.
+     This route has not run anything for this request: no fetch, read, extraction, summarization, crawl, agent delegation, import, or execution has started.
 
      What v0.11 can do today is narrower: it can use approved registered resource consumers such as `external_network_request`, online skill source actions, direct skill URL import, local skill directory import, package install actions, shell execution, and trusted skill script execution. Each one has its own Security Central policy, confirmation, resource refs, traces, and audits.
 
-     A later milestone must add any missing bounded reader, parser, browser, MCP, or agent adapter with its own security, confirmation, trace, and test story.
+     A later milestone must add any missing bounded reader, parser, browser, or agent adapter with its own security, confirmation, trace, and test story.
     #{resource_line(resource)}
     """
     |> String.trim()
@@ -131,7 +130,7 @@ defmodule AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow do
   end
 
   defp workflow_intro(:unsupported_uri_scheme) do
-    "This URI/resource scheme is inert in v0.11. MCP resources and future agent endpoints can be represented for planning, but v0.11 does not call MCP tools or delegate to agent endpoints."
+    "This URI/resource scheme is inert. MCP resources route through MCP actions; this unsupported workflow is for future agent endpoints and other schemes without a bounded adapter."
   end
 
   defp workflow_intro(:web_browsing) do

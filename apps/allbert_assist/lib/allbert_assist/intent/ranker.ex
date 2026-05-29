@@ -321,7 +321,7 @@ defmodule AllbertAssist.Intent.Ranker do
   end
 
   defp refusal_text_match?(text) do
-    text_has_any?(text, ["read local file", "mcp://", "agent://", "crawl"])
+    text_has_any?(text, ["read local file", "agent://", "crawl"])
   end
 
   defp keyword_action_match?(text, "list_skills") do
