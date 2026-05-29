@@ -52,7 +52,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
                [
                  model: model_option(profile),
                  system_prompt: system_prompt(role),
-                 max_tokens: Map.get(profile, :max_tokens) || 2_000,
+                 max_tokens: ModelRuntime.max_tokens(profile, 2_000),
                  temperature: Map.get(profile, :temperature) || 0.1,
                  timeout: Map.get(profile, :timeout_ms) || 30_000
                ]

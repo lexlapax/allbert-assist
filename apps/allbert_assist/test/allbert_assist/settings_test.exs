@@ -15,7 +15,8 @@ defmodule AllbertAssist.SettingsTest do
     "ALLBERT_HOME",
     "ALLBERT_HOME_DIR",
     "ALLBERT_SETTINGS_ROOT",
-    "ALLBERT_SETTINGS_MASTER_KEY"
+    "ALLBERT_SETTINGS_MASTER_KEY",
+    "OLLAMA_BASE_URL"
   ]
 
   defmodule AppSettingsFixture do
@@ -1031,7 +1032,12 @@ defmodule AllbertAssist.SettingsTest do
     assert profile.provider == "openai"
     assert profile.provider_endpoint_kind == "credentialed_remote"
     assert profile.credential_status == :missing
+    assert profile.max_tokens >= 16
     refute Map.has_key?(profile, :api_key)
+
+    assert {:error,
+            {:invalid_setting, "model_profiles.fast.max_tokens", {:below_provider_minimum, 16}}} =
+             Settings.put("model_profiles.fast.max_tokens", 8, %{audit?: false})
 
     assert {:ok, anthropic} = Settings.resolve_model_profile("anthropic_fast")
     assert anthropic.provider == "anthropic"
@@ -1076,6 +1082,25 @@ defmodule AllbertAssist.SettingsTest do
     opts = ModelRuntime.request_opts(coding)
     assert Keyword.fetch!(opts, :api_key) == "AIza-test-runtime-key"
     refute inspect(opts) =~ "secret://providers/gemini/api_key"
+  end
+
+  test "model runtime keeps OpenAI output tokens above provider minimum and scopes Ollama base URL" do
+    assert {:ok, fast} = Settings.resolve_model_profile("fast")
+    assert fast.provider_type == "openai"
+    assert fast.max_tokens >= 16
+    assert ModelRuntime.max_tokens(%{fast | max_tokens: 8}, 8) == 16
+    refute Keyword.has_key?(ModelRuntime.request_opts(fast), :base_url)
+
+    assert {:ok, local} = Settings.resolve_model_profile("local")
+    assert local.provider == "local_ollama"
+    assert ModelRuntime.max_tokens(%{local | max_tokens: 8}, 8) == 8
+
+    System.put_env("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
+
+    assert Keyword.fetch!(ModelRuntime.request_opts(local), :base_url) ==
+             "http://127.0.0.1:11434/v1"
+
+    refute Keyword.has_key?(ModelRuntime.request_opts(fast), :base_url)
   end
 
   test "secret writes encrypt raw value and store only secret ref in settings", %{home: home} do
