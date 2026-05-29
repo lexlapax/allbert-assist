@@ -7,6 +7,7 @@ defmodule AllbertAssist.SettingsTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.Settings.ModelRuntime
   alias AllbertAssist.Settings.ProviderCatalog
   alias AllbertAssist.Settings.Secrets
 
@@ -139,23 +140,38 @@ defmodule AllbertAssist.SettingsTest do
              })
   end
 
-  test "provider catalog supplies remote model defaults and config mirrors Jido aliases" do
+  test "provider catalog supplies model defaults and generated Jido aliases" do
     assert ProviderCatalog.model_profiles()["anthropic_fast"]["model"] ==
              "claude-haiku-4-5-20251001"
 
     assert {:ok, "claude-haiku-4-5-20251001"} =
              Settings.get("model_profiles.anthropic_fast.model")
 
+    assert {:ok, ["claude-haiku-4-5"]} =
+             Settings.get("model_profiles.anthropic_fast.aliases")
+
     assert ProviderCatalog.equivalent_model_ids("anthropic", "claude-haiku-4-5") == [
              "claude-haiku-4-5",
              "claude-haiku-4-5-20251001"
            ]
 
-    catalog_aliases =
-      ProviderCatalog.jido_model_aliases()
-      |> Map.new(fn {key, value} -> {String.to_existing_atom(key), value} end)
+    catalog_aliases = ProviderCatalog.jido_model_aliases()
+
+    assert catalog_aliases.local == "openai:llama3.2:3b"
+    assert catalog_aliases.coding_local == "openai:qwen2.5-coder:7b"
+    assert catalog_aliases.fast == "openai:gpt-4o-mini"
+    assert catalog_aliases.coding == "google:gemini-3.5-flash"
+    assert catalog_aliases.anthropic_fast == "anthropic:claude-haiku-4-5-20251001"
+    assert catalog_aliases.openrouter_fast == "openrouter:openai/gpt-4o-mini"
+    assert catalog_aliases.capable == "anthropic:claude-sonnet-4-6"
+    assert catalog_aliases.slow == "anthropic:claude-sonnet-4-6"
+    assert catalog_aliases.thinking == "anthropic:claude-opus-4-8"
 
     assert Application.fetch_env!(:jido_ai, :model_aliases) == catalog_aliases
+    assert Jido.AI.resolve_model(:local) == "openai:llama3.2:3b"
+    assert Jido.AI.resolve_model(:coding) == "google:gemini-3.5-flash"
+    assert Jido.AI.resolve_model(:coding_local) == "openai:qwen2.5-coder:7b"
+    assert Jido.AI.resolve_model(:thinking) == "anthropic:claude-opus-4-8"
   end
 
   test "objective runtime settings resolve defaults and validate writes" do
@@ -1004,6 +1020,7 @@ defmodule AllbertAssist.SettingsTest do
 
     assert Enum.any?(providers, &(&1.name == "anthropic" and &1.credential_status == :missing))
     assert Enum.any?(providers, &(&1.name == "openrouter" and &1.credential_status == :missing))
+    assert Enum.any?(providers, &(&1.name == "gemini" and &1.type == "google"))
 
     assert {:ok, local} = Settings.resolve_model_profile("local")
     assert local.provider == "local_ollama"
@@ -1024,6 +1041,17 @@ defmodule AllbertAssist.SettingsTest do
     assert openrouter.provider == "openrouter"
     assert openrouter.provider_type == "openrouter"
 
+    assert {:ok, coding} = Settings.resolve_model_profile("coding")
+    assert coding.provider == "gemini"
+    assert coding.provider_type == "google"
+    assert coding.model == "gemini-3.5-flash"
+    assert coding.provider_api_key_ref == "secret://providers/gemini/api_key"
+
+    assert {:ok, coding_local} = Settings.resolve_model_profile("coding_local")
+    assert coding_local.provider == "local_ollama"
+    assert coding_local.model == "qwen2.5-coder:7b"
+    assert coding_local.aliases == ["qwen2.5-coder"]
+
     assert "providers.*.endpoint_kind" in Settings.safe_write_keys()
 
     assert {:ok, setting} =
@@ -1032,6 +1060,22 @@ defmodule AllbertAssist.SettingsTest do
              })
 
     assert setting.value == "credentialed_remote"
+  end
+
+  test "model runtime passes Settings Central credentials as per-request ReqLLM options" do
+    assert {:ok, _secret} =
+             Secrets.put_secret("secret://providers/gemini/api_key", "AIza-test-runtime-key", %{
+               actor: "local",
+               channel: :test
+             })
+
+    assert {:ok, coding} = Settings.resolve_model_profile("coding")
+    assert {:ok, %{provider: :google, id: "gemini-3.5-flash"}} = ModelRuntime.model_spec(coding)
+    assert {:ok, "google:gemini-3.5-flash"} = ModelRuntime.model_string(coding)
+
+    opts = ModelRuntime.request_opts(coding)
+    assert Keyword.fetch!(opts, :api_key) == "AIza-test-runtime-key"
+    refute inspect(opts) =~ "secret://providers/gemini/api_key"
   end
 
   test "secret writes encrypt raw value and store only secret ref in settings", %{home: home} do

@@ -29,7 +29,7 @@ operator-facing output.
 
 The v1.0 acceptance matrix (`docs/plans/roadmap.md`) requires first-run
 setup to succeed on macOS, Linux, and Windows/WSL2, and requires operators
-to choose any of local Ollama, OpenAI, Anthropic, or OpenRouter. Both
+to choose any of local Ollama, OpenAI, Anthropic, OpenRouter, or Gemini. Both
 acceptance items run through the doctor. The doctor return shape therefore
 becomes part of the operator-visible contract that v1.0 promises to
 preserve.
@@ -66,18 +66,26 @@ after resolving the model profile's referenced provider.
 
 Allbert ships provider/model defaults in
 `apps/allbert_assist/priv/provider_catalog/models.json`. The catalog contains
-default provider profiles, default model profiles, and provider alias metadata
-for model IDs that drift or differ between runtime APIs and list APIs.
+default provider profiles and default model profiles. Optional model ID alias
+metadata lives only on `model_profiles.*.aliases`, which is a Settings Central
+field. Jido model aliases are generated from `model_profiles.*`; there is no
+separate provider model list or Jido alias table to maintain.
 
 This catalog is **seed data only**:
 
 - Settings Central resolved settings remain the source of configured provider
   and model profile values; operator overrides win over shipped defaults.
 - Live provider responses remain the source of doctor availability. The
-  catalog may map a configured alias to a canonical provider-listed ID for
-  comparison, but it cannot make an absent live model available.
+  catalog may map a configured alias from `model_profiles.*.aliases` to a
+  canonical provider-listed ID for comparison, but it cannot make an absent
+  live model available.
 - The catalog never grants permission, never supplies secrets, and never
   relaxes the doctor execution boundary or redaction policy.
+
+For Gemini, the credentialed-remote branch uses the configured Gemini API key
+reference, probes the Google model list endpoint, and redacts output to the
+same ADR 0047 shape as OpenAI, Anthropic, OpenRouter, and local endpoint
+doctors.
 
 ### 2. Canonical return shape
 

@@ -17,7 +17,8 @@ ollama_base_url = System.get_env("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 config :req_llm,
   anthropic_api_key: System.get_env("ANTHROPIC_API_KEY"),
   openai_api_key: System.get_env("OPENAI_API_KEY"),
-  openrouter_api_key: System.get_env("OPENROUTER_API_KEY")
+  openrouter_api_key: System.get_env("OPENROUTER_API_KEY"),
+  google_api_key: System.get_env("GOOGLE_API_KEY")
 
 config :req_llm, :openai, base_url: ollama_base_url
 

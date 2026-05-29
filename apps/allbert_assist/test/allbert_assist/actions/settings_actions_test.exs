@@ -268,6 +268,43 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert doctor.doctor.diagnostics == []
   end
 
+  test "credentialed remote doctor supports Gemini model catalog without leaking secrets" do
+    assert {:ok, _secret} =
+             Settings.Secrets.put_secret(
+               "secret://providers/gemini/api_key",
+               "AIza-test-key",
+               %{actor: "local", channel: :test}
+             )
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/v1beta/models"
+      assert {"x-goog-api-key", "AIza-test-key"} in conn.req_headers
+
+      Plug.Conn.send_resp(
+        conn,
+        200,
+        Jason.encode!(%{
+          "models" => [
+            %{"name" => "models/gemini-3.5-flash", "inputTokenLimit" => 1_048_576}
+          ]
+        })
+      )
+    end)
+
+    assert {:ok, doctor} =
+             DoctorModelProfile.run(%{profile: "coding"}, %{
+               req_options: [plug: {Req.Test, __MODULE__}]
+             })
+
+    assert doctor.status == :completed
+    assert doctor.provider == "gemini"
+    assert doctor.doctor.endpoint_kind == :credentialed_remote
+    assert doctor.doctor.credential_ok
+    assert doctor.doctor.endpoint_ok
+    assert doctor.doctor.model_available == true
+    refute inspect(doctor) =~ "AIza-test-key"
+  end
+
   test "doctor action errors do not echo unresolved profile input" do
     assert {:ok, failed} =
              DoctorModelProfile.run(%{profile: "sk-test-secret-profile"}, %{})

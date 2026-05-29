@@ -37,6 +37,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
     alias AllbertAssist.DynamicPlugins.Delegate
     alias AllbertAssist.Runtime.Redactor
     alias AllbertAssist.Settings
+    alias AllbertAssist.Settings.ModelRuntime
 
     @spec generate_role(atom(), map(), map(), map(), map()) ::
             {:ok, map()} | {:error, term()}
@@ -55,7 +56,7 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
                  temperature: Map.get(profile, :temperature) || 0.1,
                  timeout: Map.get(profile, :timeout_ms) || 30_000
                ]
-               |> maybe_put_base_url(profile)
+               |> Keyword.merge(ModelRuntime.request_opts(profile))
                |> maybe_put_provider_options(profile)
              ),
            {:ok, object} <- response_object(result) do
@@ -107,63 +108,33 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.LLM do
       ~w[status action_name description source test_source notes usage_units]
     end
 
-    defp model_option(%{model: model, provider_type: provider_type})
+    defp model_option(%{model: model, provider_type: _provider_type} = profile)
          when is_binary(model) and model != "" do
-      model_spec(provider_type, model)
+      case ModelRuntime.model_spec(profile) do
+        {:ok, model_spec} ->
+          model_spec
+
+        {:error, _reason} ->
+          case ModelRuntime.model_string(profile) do
+            {:ok, model_string} -> model_string
+            {:error, _reason} -> model
+          end
+      end
     end
 
     defp model_option(%{name: name}) when is_binary(name), do: model_alias_or_spec(name)
     defp model_option(%{model: model}) when is_binary(model), do: model
     defp model_option(_profile), do: :fast
 
-    defp model_spec(provider_type, model) do
-      cond do
-        provider_prefixed?(model) ->
-          model
-
-        provider = req_llm_provider(provider_type) ->
-          "#{provider}:#{model}"
-
-        true ->
-          model
-      end
-    end
-
-    defp provider_prefixed?(model) do
-      case String.split(model, ":", parts: 2) do
-        [provider, _model] ->
-          provider in ~w[anthropic openai openai_codex openrouter google mistral]
-
-        _other ->
-          false
-      end
-    end
-
-    defp req_llm_provider("openai"), do: "openai"
-    defp req_llm_provider("openai_compatible"), do: "openai"
-    defp req_llm_provider("local"), do: "openai"
-    defp req_llm_provider("anthropic"), do: "anthropic"
-    defp req_llm_provider("openrouter"), do: "openrouter"
-    defp req_llm_provider(_provider_type), do: nil
-
     defp model_alias_or_spec("fast"), do: :fast
     defp model_alias_or_spec("capable"), do: :capable
     defp model_alias_or_spec("slow"), do: :slow
     defp model_alias_or_spec("thinking"), do: :thinking
     defp model_alias_or_spec("gpt"), do: :gpt
+    defp model_alias_or_spec("coding"), do: :coding
+    defp model_alias_or_spec("coding_local"), do: :coding_local
     defp model_alias_or_spec("local"), do: :local
     defp model_alias_or_spec(name), do: name
-
-    defp maybe_put_base_url(opts, %{provider_type: "openai", provider_base_url: nil}) do
-      Keyword.put(opts, :base_url, "https://api.openai.com/v1")
-    end
-
-    defp maybe_put_base_url(opts, %{provider_base_url: base_url})
-         when is_binary(base_url) and base_url != "" do
-      Keyword.put(opts, :base_url, base_url)
-    end
-
-    defp maybe_put_base_url(opts, _profile), do: opts
 
     defp maybe_put_provider_options(opts, %{provider_type: "openrouter"}) do
       Keyword.put(opts, :provider_options,

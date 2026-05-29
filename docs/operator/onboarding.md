@@ -125,6 +125,7 @@ mix allbert.model list
 mix allbert.model use local --enable-assist
 mix allbert.model doctor local
 mix allbert.model doctor anthropic_fast
+mix allbert.model doctor coding
 ```
 
 The doctor input is a configured model profile, not a raw URL. It resolves the
@@ -142,7 +143,12 @@ Shipped provider/model defaults are seeded from
 `apps/allbert_assist/priv/provider_catalog/models.json`. That file is
 operator-inspectable release metadata, not runtime authority: Settings Central
 overrides still win, and the doctor still verifies against the live provider
-catalog. For Anthropic, the shipped default `anthropic_fast` uses the canonical
+catalog. The catalog includes OpenAI, Anthropic, OpenRouter, Gemini, and local
+Ollama seed profiles. The recommended remote code-generation profile is
+`coding`; the consistent Ollama fallback is `coding_local`. Jido model aliases
+are generated from `model_profiles.*` and optional
+`model_profiles.*.aliases`, so there is no second model-list authority to keep
+in sync. For Anthropic, the shipped default `anthropic_fast` uses the canonical
 Claude Haiku 4.5 API ID `claude-haiku-4-5-20251001`; the doctor also recognizes
 the provider alias `claude-haiku-4-5` when comparing live model listings.
 
