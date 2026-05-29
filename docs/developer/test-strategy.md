@@ -38,6 +38,11 @@ M1 of v0.41 must replace this preliminary baseline with an authoritative
 inventory containing file path, owner, case template, async setting, tags, timing,
 and resource classes.
 
+The authoritative M1 inventory is recorded in
+`docs/developer/v0.41-test-inventory.csv`. It is a heuristic file-level census,
+not a final async-safety proof; promotion still requires the ownership checks in
+this document.
+
 ## Benchmark Records And Reorder Log
 
 v0.41 treats developer efficiency as release evidence. Benchmark records are
@@ -168,6 +173,78 @@ gate before it is accepted.
   migrations until those remaining M1 baseline artifacts are recorded.
 - Follow-up/reorder: no efficiency reorder yet. Next work is M1 baseline
   completion, not lane migration.
+
+### v0.41 M1 Baseline Inventory And Slowest Report - 2026-05-29
+
+- Commit: `f670f99`.
+- Machine: `Darwin Sandeeps-Mac-Studio.local 25.5.0` on Apple M1 Ultra;
+  20 physical / 20 logical CPUs.
+- Runtime: Elixir 1.19.5 (compiled with Erlang/OTP 28), running on
+  Erlang/OTP 29.0.1.
+- Cache state: warm build after the Memento/Jido dependency unblock.
+- Commands:
+  - `/usr/bin/time -p env MIX_ENV=test ALLBERT_HOME=/private/tmp/allbert_v041_m1_fast_static_home DATABASE_PATH=/private/tmp/allbert_v041_m1_fast_static_db/allbert_test.db mix do compile --warnings-as-errors + format --check-formatted + credo --strict`
+  - core async subset: `/usr/bin/time -p env MIX_ENV=test ALLBERT_HOME=/private/tmp/allbert_v041_m1_fast_core_home DATABASE_PATH=/private/tmp/allbert_v041_m1_fast_core_db/allbert_test.db /bin/zsh -lc 'mix test $(rg -l "use .*async: true" test | rg "_test\\.exs$")'`
+  - web async subset: same shape in `apps/allbert_assist_web`.
+  - plugin async subset: same shape from `apps/allbert_assist` against
+    `../../plugins/stocksage/test`, telegram, and email.
+  - slowest reports:
+    `mix test --slowest-modules 20 --slowest 20` for core, web, and plugin
+    lanes. The green web rerun used shared core migration prep first because a
+    fresh web-only database misses StockSage plugin tables.
+- Release wall-clock / counts: M1 release oracle remains the dependency-unblock
+  run: `real 1221.01` seconds. Counts: core 1146 tests, 0 failures, 2 skipped;
+  web 107 tests, 0 failures; StockSage 197 tests, 0 failures; channel plugin
+  2 tests, 0 failures.
+- Fast-local wall-clock / counts: existing `async: true` fast-local equivalent
+  passed 211 tests. Sequential component sum was `real 34.46` seconds: static
+  4.34s, core async 15.57s / 172 tests, web async 7.64s / 10 tests, plugin async
+  6.91s / 29 tests. Projected parallel-after-static lower bound is about
+  19.91s, before any v0.41 gate implementation.
+- Lane breakdown: 233 test files recorded in
+  `docs/developer/v0.41-test-inventory.csv`. Owners: core 180, web 16,
+  StockSage 35, telegram 1, email 1. Templates: `AllbertAssist.DataCase` 48,
+  `AllbertAssistWeb.ConnCase` 14, `AllbertAssist.SecurityEvalCase` 13,
+  `StockSage.DataCase` 21, plain `ExUnit.Case` 137. Async declarations:
+  180 false, 39 true, 14 unspecified. Primary lane census:
+  `pure_async` 26, `db_serial` 66, `app_env_serial` 57, `home_fs_serial` 6,
+  `global_process_serial` 19, `liveview_serial` 12,
+  `security_eval_serial` 14, `external_runtime_serial` 33.
+- Slowest modules/tests:
+  - Core slowest run: 1146 tests, 0 failures, 2 skipped, `real 837.39`.
+    Slowest modules: `AllbertAssist.Agents.IntentAgentTest` 154.5s,
+    `AllbertAssist.RuntimeIntentAgentTest` 69.3s,
+    `AllbertAssist.Execution.SkillScriptSpecTest` 63.3s,
+    `AllbertAssist.Intent.EngineTest` 44.8s,
+    `AllbertAssist.Security.DynamicCodegenEvalTest` 35.1s.
+  - Web slowest run: 107 tests, 0 failures, `real 319.78`. Slowest modules:
+    `AllbertAssistWeb.WorkspaceLiveTest` 265.0s,
+    `AllbertAssistWeb.ThemeControllerTest` 19.5s,
+    `AllbertAssistWeb.Workspace.AccessibilityTest` 15.2s.
+  - Plugin/channel slowest run: 199 tests, 0 failures, `real 220.55`.
+    Slowest modules: `StockSage.ObjectiveRuntimeTest` 81.6s,
+    `StockSage.ActionsTest` 48.5s,
+    `StockSage.Actions.RunAnalysisTest` 29.1s,
+    `StockSage.Actions.RunAnalysisNativeTest` 18.6s,
+    `StockSage.Agents.NativeCoordinatorTest` 16.7s.
+- Planned share: M1 sets the target. M6 must reduce the existing fast-local
+  command shape from 34.46s to <=25s by making the gate explicit and parallel
+  where already safe. M7 may have 0s planned wall-clock share because it is
+  metadata classification; it is effective only if reconciliation is complete
+  and lane filters select the intended files. M8 must make a high-coverage
+  partitioned local gate possible and attack the measured core/plugin hotspots,
+  targeting <=10 minutes for static + all non-security/non-external lanes. M9
+  must include LiveView partitioning/tuning and close with fast-local <=8 minutes
+  or document the remaining gap.
+- Actual delta: M1 records the baseline; no efficiency delta yet.
+- Decision: M1 is complete. The dominant hotspot order is core intent/runtime
+  serial tests, web `WorkspaceLiveTest`, then StockSage objective/action tests.
+  M8/M9 must prioritize partitioning those lanes before less expensive cleanup.
+- Follow-up/reorder: M5 sequencing is adjusted from the preliminary order:
+  after M6/M7, attack high-cost core intent/runtime and StockSage
+  objective/action partition-safety before broad low-cost filesystem cleanup;
+  keep web LiveView as the M9 target because it is large but has the heaviest
+  ConnCase/sandbox coupling.
 
 ## Lane Taxonomy
 
