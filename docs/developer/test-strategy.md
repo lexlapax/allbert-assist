@@ -415,13 +415,13 @@ monolithic precommit order hides that by migrating through the core app first.
 
 | Gate | Use | Evidence |
 | --- | --- | --- |
-| Docs | Docs-only changes. | `git diff --check` and link/reference checks. |
-| Focused | Every implementation milestone. | Explicit test files named in the plan/request-flow doc. |
+| Docs | Docs-only changes. | `mix allbert.test docs` (`git diff --check` and reference checks when configured). |
+| Focused | Every implementation milestone. | `mix allbert.test focused -- <files...>` using explicit files named in the plan/request-flow doc. |
 | Static | Code changes. | compile warning gate, formatter check, Credo strict, Dialyzer when required. |
-| Fast local | Daily development feedback. | Static checks plus proven async/partition-safe lanes. |
-| Serial core | VM-global lanes (DB, app env, home, process, LiveView). | Serial *within* a partition, parallel *across* OS partitions (N from cores). Security evals + external smokes stay single-VM / opt-in. |
-| Release | Manual validation/release handoff. | Full precommit-equivalent coverage plus Dialyzer and security evals. |
-| External smoke | Machine-dependent integrations. | Docker, browser, real MCP/provider checks, explicitly opt in. |
+| Fast local | Daily development feedback. | `mix allbert.test fast-local`: static checks plus proven async/partition-safe lanes. |
+| Serial core | VM-global lanes (DB, app env, home, process, LiveView). | `mix allbert.test serial-core --lane <lane> --partitions N`; serial *within* a partition, parallel *across* OS partitions. Security evals + external smokes stay single-VM / opt-in. |
+| Release | Manual validation/release handoff. | `mix allbert.test release`: full precommit-equivalent coverage plus Dialyzer and security evals. |
+| External smoke | Machine-dependent integrations. | `mix allbert.test external-smoke -- <smoke-name>` for Docker, browser, real MCP/provider checks, explicitly opt in. |
 
 Fast local gates are not release evidence. Release gates remain authoritative.
 The release gate is a superset of the v0.40 `mix precommit`: it adds Dialyzer
