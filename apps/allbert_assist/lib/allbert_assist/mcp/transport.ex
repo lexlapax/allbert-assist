@@ -39,14 +39,19 @@ defmodule AllbertAssist.Mcp.Transport do
 
   def close(_connection), do: :ok
 
-  @spec request(connection(), map(), keyword()) ::
-          {:ok, map(), connection()} | {:error, term(), connection()}
-  def request(%{kind: :http, config: config, context: context} = conn, payload, _opts) do
-    with {:ok, body} <- Jason.encode(payload),
-         {:ok, spec} <- request_spec(config, body),
+  @spec request(connection(), String.t(), String.t() | integer(), keyword()) ::
+          {:ok, String.t(), connection()} | {:error, term(), connection()}
+  def request(
+        %{kind: :http, config: config, context: context} = conn,
+        encoded,
+        _request_id,
+        _opts
+      )
+      when is_binary(encoded) do
+    with {:ok, spec} <- request_spec(config, String.trim_trailing(encoded, "\n")),
          {:ok, result} <- HttpClient.request(spec, plug: req_plug(context)),
-         {:ok, response} <- decode_http_response(result) do
-      {:ok, response, conn}
+         {:ok, body} <- decode_http_response(result) do
+      {:ok, body, conn}
     else
       {:error, %RequestSpec{} = spec} ->
         {:error, {:endpoint_denied, spec.denial_reason, Diagnostics.new(:endpoint_denied)}, conn}
@@ -56,13 +61,13 @@ defmodule AllbertAssist.Mcp.Transport do
     end
   end
 
-  def request(%{kind: :stdio, port: port} = conn, payload, opts) do
+  def request(%{kind: :stdio, port: port} = conn, encoded, request_id, opts)
+      when is_binary(encoded) do
     timeout_ms = Keyword.get(opts, :timeout_ms, conn.config.timeout_ms)
 
-    with {:ok, encoded} <- Jason.encode(payload),
-         true <- Port.command(port, encoded <> "\n"),
-         {:ok, response} <- receive_stdio_response(port, payload["id"], timeout_ms, "") do
-      {:ok, response, conn}
+    with true <- Port.command(port, ensure_line(encoded)),
+         {:ok, body} <- receive_stdio_response(port, request_id, timeout_ms, "") do
+      {:ok, body, conn}
     else
       false ->
         {:error, {:stdio_start_failed, Diagnostics.new(:stdio_start_failed)}, conn}
@@ -72,12 +77,11 @@ defmodule AllbertAssist.Mcp.Transport do
     end
   end
 
-  @spec notify(connection(), map()) :: {:ok, connection()} | {:error, term(), connection()}
-  def notify(%{kind: :http} = conn, _payload), do: {:ok, conn}
+  @spec notify(connection(), String.t()) :: {:ok, connection()} | {:error, term(), connection()}
+  def notify(%{kind: :http} = conn, _encoded), do: {:ok, conn}
 
-  def notify(%{kind: :stdio, port: port} = conn, payload) do
-    with {:ok, encoded} <- Jason.encode(payload),
-         true <- Port.command(port, encoded <> "\n") do
+  def notify(%{kind: :stdio, port: port} = conn, encoded) when is_binary(encoded) do
+    with true <- Port.command(port, ensure_line(encoded)) do
       {:ok, conn}
     else
       false -> {:error, {:stdio_start_failed, Diagnostics.new(:stdio_start_failed)}, conn}
@@ -136,14 +140,7 @@ defmodule AllbertAssist.Mcp.Transport do
     do: {:error, {:protocol_error, Diagnostics.new(:protocol_error)}}
 
   defp decode_wire_response(body) when is_binary(body) do
-    body
-    |> String.trim()
-    |> sse_data()
-    |> Jason.decode()
-    |> case do
-      {:ok, decoded} when is_map(decoded) -> {:ok, decoded}
-      _other -> {:error, {:protocol_error, Diagnostics.new(:protocol_error)}}
-    end
+    {:ok, body |> String.trim() |> sse_data()}
   end
 
   defp sse_data("event:" <> _rest = body) do
@@ -211,8 +208,8 @@ defmodule AllbertAssist.Mcp.Transport do
     body = acc <> line
 
     case Jason.decode(body) do
-      {:ok, %{"id" => ^request_id} = decoded} ->
-        {:ok, decoded}
+      {:ok, %{"id" => ^request_id}} ->
+        {:ok, body}
 
       {:ok, _other} ->
         receive_stdio_response(port, request_id, timeout_ms, "")
@@ -220,6 +217,10 @@ defmodule AllbertAssist.Mcp.Transport do
       {:error, _reason} ->
         receive_stdio_response(port, request_id, timeout_ms, "")
     end
+  end
+
+  defp ensure_line(encoded) do
+    if String.ends_with?(encoded, "\n"), do: encoded, else: encoded <> "\n"
   end
 
   defp req_plug(context) do

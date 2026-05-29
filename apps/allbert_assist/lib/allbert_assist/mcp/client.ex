@@ -1,8 +1,13 @@
 defmodule AllbertAssist.Mcp.Client do
   @moduledoc """
-  Minimal native JSON-RPC MCP client over the Allbert MCP transport boundary.
+  Minimal MCP client over the Allbert MCP transport boundary.
+
+  Protocol message validation and wire encoding route through
+  `AllbertAssist.Mcp.Codec`, which wraps `:hermes_mcp`. Transport, settings,
+  security, and audit remain Allbert-owned.
   """
 
+  alias AllbertAssist.Mcp.Codec
   alias AllbertAssist.Mcp.Diagnostics
   alias AllbertAssist.Mcp.ServerConfig
   alias AllbertAssist.Mcp.Transport
@@ -109,41 +114,25 @@ defmodule AllbertAssist.Mcp.Client do
   end
 
   defp request(conn, method, params) do
-    payload = request_payload(method, params)
-
-    case Transport.request(conn, payload, timeout_ms: conn.config.timeout_ms) do
-      {:ok, %{"error" => error}, _conn} ->
-        {:error, {:json_rpc_error, redact_error(error)}}
-
-      {:ok, %{"result" => result}, conn} when is_map(result) ->
-        {:ok, result, conn}
-
-      {:ok, _response, _conn} ->
-        {:error, {:protocol_error, Diagnostics.new(:protocol_error)}}
-
-      {:error, reason, _conn} ->
-        {:error, reason}
+    with {:ok, encoded, request_id} <- Codec.request(method, params),
+         {:ok, body, conn} <-
+           Transport.request(conn, encoded, request_id, timeout_ms: conn.config.timeout_ms),
+         {:ok, result} <- Codec.decode_response(body, request_id) do
+      {:ok, result, conn}
+    else
+      {:error, reason, _conn} -> {:error, reason}
+      {:error, reason} -> {:error, reason}
     end
   end
 
   defp notify(conn, method, params) do
-    case Transport.notify(conn, notification(method, params)) do
-      {:ok, conn} -> {:ok, conn}
+    with {:ok, encoded} <- Codec.notification(method, params),
+         {:ok, conn} <- Transport.notify(conn, encoded) do
+      {:ok, conn}
+    else
       {:error, reason, _conn} -> {:error, reason}
+      {:error, reason} -> {:error, reason}
     end
-  end
-
-  defp request_payload(method, params) do
-    %{
-      "jsonrpc" => "2.0",
-      "id" => System.unique_integer([:positive]),
-      "method" => method,
-      "params" => params
-    }
-  end
-
-  defp notification(method, params) do
-    %{"jsonrpc" => "2.0", "method" => method, "params" => params}
   end
 
   defp list_params(opts) do
@@ -161,14 +150,4 @@ defmodule AllbertAssist.Mcp.Client do
   defp protocol_version(result) do
     Map.get(result, "protocolVersion") || Map.get(result, "protocol_version")
   end
-
-  defp redact_error(error) when is_map(error) do
-    error
-    |> Map.take(["code", "message"])
-    |> Map.update("message", "MCP server returned a JSON-RPC error.", fn _value ->
-      "MCP server returned a JSON-RPC error."
-    end)
-  end
-
-  defp redact_error(_error), do: %{"message" => "MCP server returned a JSON-RPC error."}
 end
