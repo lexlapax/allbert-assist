@@ -29,4 +29,11 @@ defmodule AllbertAssist.Mcp do
       Client.list_resources(config, context, opts)
     end
   end
+
+  @spec read_resource(String.t(), String.t(), map()) :: {:ok, map()} | {:error, term()}
+  def read_resource(server_id, uri, context \\ %{}) do
+    with {:ok, config} <- ServerConfig.resolve(server_id) do
+      Client.read_resource(config, uri, context)
+    end
+  end
 end

@@ -196,16 +196,35 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
     assert OperationClass.scope_kind!("mcp-tool") == :mcp_tool
   end
 
-  test "unsupported future URI schemes are representable but inert" do
+  test "MCP resource URIs are supported resource identities" do
+    resource_uri = ResourceURI.mcp!("local-server", "file:///resources/doc.md")
+
+    assert resource_uri == "mcp://local-server/file:%2F%2F%2Fresources%2Fdoc.md"
+    assert {:ok, normalized} = ResourceURI.normalize(resource_uri)
+    assert normalized == resource_uri
+
+    assert {:ok, derived} = ResourceURI.derived_fields(resource_uri)
+    assert derived.origin_kind == :mcp_resource
+    assert derived.server_id == "local-server"
+    assert derived.server_resource_uri == "file:///resources/doc.md"
+    refute derived.unsupported?
+
     mcp_ref =
       Ref.new!(%{
-        resource_uri: "mcp://local-server/resources/doc",
-        operation_class: :inspect_document,
+        resource_uri: resource_uri,
+        operation_class: :mcp_resource_read,
         access_mode: :read,
-        scope: Scope.source_profile("mcp-local"),
+        scope: Scope.mcp_server("local-server"),
         downstream_consumer: :mcp_resource_reader
       })
 
+    assert mcp_ref.origin_kind == :mcp_resource
+    assert mcp_ref.canonical_id == mcp_ref.resource_uri
+    refute mcp_ref.unsupported?
+    assert mcp_ref.metadata == %{}
+  end
+
+  test "unsupported future agent URI schemes are representable but inert" do
     agent_ref =
       Ref.new!(%{
         resource_uri: "agent+https://agent.example/tasks/review",
@@ -215,8 +234,6 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
         downstream_consumer: :agent_delegate
       })
 
-    assert mcp_ref.origin_kind == :mcp_resource
-    assert mcp_ref.unsupported?
     assert agent_ref.origin_kind == :agent_endpoint
     assert agent_ref.unsupported?
   end

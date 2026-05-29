@@ -57,6 +57,10 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     sync_app_lesson
   ]
 
+  @mcp_action_names ~w[
+    mcp_read_resource
+  ]
+
   @impl true
   def run(%{id: id} = params, context) do
     permission_decision = PermissionGate.authorize(:confirmation_decide, context)
@@ -240,6 +244,18 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       target_decision,
       action_name
     )
+  end
+
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
+         action_name
+       )
+       when action_name in @mcp_action_names do
+    resume_mcp_action(record, reason, context, permission_decision, target_decision, action_name)
   end
 
   defp resume_registered_action(
@@ -607,6 +623,48 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
               status: :completed,
               archived_count: get_in(response, [:actions, Access.at(0), :archived_count])
             }
+
+        resolve_status(record, :approved, reason, context, permission_decision, %{
+          target_policy_decision: target_decision,
+          target_resumed?: true,
+          target_status: :completed,
+          target_result: target_result
+        })
+
+      {:ok, response} ->
+        resolve_status(
+          record,
+          :denied,
+          reason || "#{action_name} target did not run: #{inspect(Map.get(response, :status))}",
+          context,
+          permission_decision,
+          %{
+            target_policy_decision: target_decision,
+            target_resumed?: false,
+            target_status: Map.get(response, :status, :denied),
+            target_result: %{status: Map.get(response, :status), error: Map.get(response, :error)},
+            blocked_by_policy?: Map.get(response, :status) == :denied
+          }
+        )
+    end
+  end
+
+  defp resume_mcp_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
+         action_name
+       ) do
+    target_context =
+      record
+      |> target_context(context)
+      |> put_in([:confirmation, :approved?], true)
+
+    case Runner.run(action_name, Map.get(record, "resume_params_ref", %{}), target_context) do
+      {:ok, %{status: :completed} = response} ->
+        target_result = Map.get(response, :resource, %{status: :completed})
 
         resolve_status(record, :approved, reason, context, permission_decision, %{
           target_policy_decision: target_decision,

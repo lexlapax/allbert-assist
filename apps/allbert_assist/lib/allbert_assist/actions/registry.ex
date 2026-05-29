@@ -58,6 +58,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Mcp.DoctorServer, as: McpDoctorServer
   alias AllbertAssist.Actions.Mcp.ListResources, as: McpListResources
   alias AllbertAssist.Actions.Mcp.ListTools, as: McpListTools
+  alias AllbertAssist.Actions.Mcp.ReadResource, as: McpReadResource
   alias AllbertAssist.Actions.Objectives.CancelObjective
   alias AllbertAssist.Actions.Objectives.ContinueObjective
   alias AllbertAssist.Actions.Objectives.DelegateAgent
@@ -149,6 +150,7 @@ defmodule AllbertAssist.Actions.Registry do
     McpDoctorServer,
     McpListTools,
     McpListResources,
+    McpReadResource,
     ValidateSkill,
     CreateSkill,
     RunSkillScript,

@@ -50,6 +50,8 @@ defmodule AllbertAssist.Mcp.Audit do
     - redacted_host: #{Map.get(summary, :redacted_host)}
     - action: #{Map.get(attrs, :action, "unknown")}
     - result_status: #{Map.get(attrs, :status, "unknown")}
+    - resource_uri: #{Map.get(attrs, :resource_uri, "unknown")}
+    - content_count: #{Map.get(attrs, :content_count, "unknown")}
     - tool_count: #{Map.get(attrs, :tool_count, "unknown")}
     - resource_count: #{Map.get(attrs, :resource_count, "unknown")}
     - diagnostic_codes: #{inspect(diagnostic_codes(attrs))}

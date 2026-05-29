@@ -246,6 +246,15 @@ defmodule AllbertAssist.Resources.Grants do
     Atom.to_string(ref.scope_kind) == kind and ref.resource_uri == grant["resource_uri"]
   end
 
+  defp scope_matches?(%{"scope" => %{"kind" => "mcp_server"}} = grant, ref) do
+    ref.scope_kind == :mcp_server and
+      mcp_server(ref.resource_uri) == mcp_server(grant["resource_uri"])
+  end
+
+  defp scope_matches?(%{"scope" => %{"kind" => "mcp_tool"}} = grant, ref) do
+    ref.scope_kind == :mcp_tool and ref.resource_uri == grant["resource_uri"]
+  end
+
   defp scope_matches?(_grant, _ref), do: false
 
   defp source_profile_drifted?(%{"scope" => %{"kind" => "source_profile"}} = grant, ref) do
@@ -372,6 +381,16 @@ defmodule AllbertAssist.Resources.Grants do
     end
   end
 
+  defp maybe_add_parent_scope(scopes, %{origin_kind: :mcp_resource, metadata: metadata}) do
+    case field(metadata, :server_id) do
+      server_id when is_binary(server_id) and server_id != "" ->
+        [%{"kind" => "mcp_server", "value" => server_id} | scopes]
+
+      _other ->
+        scopes
+    end
+  end
+
   defp maybe_add_parent_scope(scopes, _ref), do: scopes
 
   defp remember_option(ref, scope) do
@@ -396,6 +415,9 @@ defmodule AllbertAssist.Resources.Grants do
 
   defp option_label(%{"kind" => "package_target_root"}),
     do: "Remember package target root for this operation"
+
+  defp option_label(%{"kind" => "mcp_server"}), do: "Remember MCP server for this operation"
+  defp option_label(%{"kind" => "mcp_tool"}), do: "Remember MCP tool for this operation"
 
   defp option_label(_scope), do: "Remember resource for this operation"
 
@@ -455,6 +477,15 @@ defmodule AllbertAssist.Resources.Grants do
       fingerprint -> fingerprint
     end
   end
+
+  defp mcp_server(resource_uri) when is_binary(resource_uri) do
+    case URI.parse(resource_uri) do
+      %URI{scheme: "mcp", host: server_id} when is_binary(server_id) -> server_id
+      _other -> nil
+    end
+  end
+
+  defp mcp_server(_resource_uri), do: nil
 
   defp normalize_fingerprint_value(value) when is_binary(value), do: String.trim(value)
   defp normalize_fingerprint_value(nil), do: nil

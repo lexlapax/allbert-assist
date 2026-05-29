@@ -221,6 +221,44 @@ defmodule AllbertAssist.Resources.GrantsTest do
     assert {:error, :no_matching_grant} = find(remote, :online_skill_import)
   end
 
+  test "MCP server grants match only the same server and operation class" do
+    read_ref = mcp_resource_ref("demo", "file:///demo.md")
+    same_server_other_resource = mcp_resource_ref("demo", "file:///other.md")
+    other_server = mcp_resource_ref("other", "file:///demo.md")
+    tool_ref = mcp_tool_ref("demo", "search")
+
+    assert {:ok, grant} = Grants.remember(read_ref, audit?: false)
+
+    assert grant["resource_uri"] == "mcp://demo/"
+    assert grant["scope"] == %{"kind" => "mcp_server", "value" => "mcp://demo/"}
+
+    assert {:ok, ^grant} = find(read_ref, :mcp_resource_read)
+    assert {:ok, ^grant} = find(same_server_other_resource, :mcp_resource_read)
+    assert {:error, :no_matching_grant} = find(other_server, :mcp_resource_read)
+    assert {:error, :no_matching_grant} = find(tool_ref, :mcp_tool_call)
+  end
+
+  test "MCP remember options include server scope" do
+    assert {:ok, options} = Grants.remember_options(mcp_resource_ref("demo", "file:///demo.md"))
+
+    assert Enum.all?(options, &(&1.operation_class == "mcp_resource_read"))
+    assert Enum.any?(options, &(&1.scope["kind"] == "mcp_server"))
+  end
+
+  test "MCP tool grants match only the exact tool operation" do
+    tool_ref = mcp_tool_ref("demo", "search")
+    other_tool_ref = mcp_tool_ref("demo", "read")
+
+    assert {:ok, grant} = Grants.remember(tool_ref, audit?: false)
+
+    assert grant["resource_uri"] == ResourceURI.mcp!("demo", "tools/search")
+    assert {:ok, ^grant} = find(tool_ref, :mcp_tool_call)
+    assert {:error, :no_matching_grant} = find(other_tool_ref, :mcp_tool_call)
+
+    assert {:error, :no_matching_grant} =
+             find(mcp_resource_ref("demo", "file:///demo.md"), :mcp_resource_read)
+  end
+
   test "expired and revoked grants are denied" do
     expired_url = external_ref("https://example.com/expired")
     revoked_url = external_ref("https://example.com/revoked")
@@ -299,6 +337,34 @@ defmodule AllbertAssist.Resources.GrantsTest do
       access_mode: :summarize,
       scope: Scope.exact_url(url),
       downstream_consumer: :summarizer
+    }
+  end
+
+  defp mcp_resource_ref(server_id, uri) do
+    %{
+      resource_uri: ResourceURI.mcp!(server_id, uri),
+      origin_kind: :mcp_resource,
+      canonical_id: ResourceURI.mcp!(server_id, uri),
+      operation_class: :mcp_resource_read,
+      access_mode: :read,
+      scope: Scope.mcp_server(server_id),
+      downstream_consumer: :mcp_resource_reader,
+      metadata: %{server_id: server_id, server_resource_uri: uri}
+    }
+  end
+
+  defp mcp_tool_ref(server_id, tool_name) do
+    resource_uri = ResourceURI.mcp!(server_id, "tools/" <> tool_name)
+
+    %{
+      resource_uri: resource_uri,
+      origin_kind: :mcp_resource,
+      canonical_id: resource_uri,
+      operation_class: :mcp_tool_call,
+      access_mode: :call,
+      scope: Scope.mcp_tool("#{server_id}:#{tool_name}"),
+      downstream_consumer: :mcp_tool_runner,
+      metadata: %{server_id: server_id, tool_name: tool_name}
     }
   end
 
