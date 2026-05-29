@@ -110,6 +110,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "show_app",
              "list_plugins",
              "show_plugin",
+             "mcp_doctor_server",
+             "mcp_list_tools",
+             "mcp_list_resources",
              "validate_skill",
              "create_skill",
              "run_skill_script",
@@ -196,6 +199,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert "show_app" in agent_action_names
     assert "list_plugins" in agent_action_names
     assert "show_plugin" in agent_action_names
+    refute "mcp_doctor_server" in agent_action_names
+    refute "mcp_list_tools" in agent_action_names
+    refute "mcp_list_resources" in agent_action_names
     refute "security_status" in agent_action_names
     refute "security_review" in agent_action_names
     refute "record_trace" in agent_action_names
@@ -213,6 +219,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
              Enum.map(Registry.agent_modules(), & &1.name())
 
     assert Enum.map(Registry.internal_capabilities(), & &1.name) == [
+             "mcp_doctor_server",
+             "mcp_list_tools",
+             "mcp_list_resources",
              "validate_skill",
              "create_skill",
              "run_skill_script",
@@ -312,6 +321,14 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert set_active_model_profile.permission == :settings_write
     assert set_active_model_profile.exposure == :agent
     assert set_active_model_profile.execution_mode == :settings_write
+
+    assert {:ok, mcp_doctor_server} = Registry.capability("mcp_doctor_server")
+    assert mcp_doctor_server.permission == :read_only
+    assert mcp_doctor_server.exposure == :internal
+    assert mcp_doctor_server.execution_mode == :mcp_doctor
+
+    assert {:ok, mcp_list_tools} = Registry.capability("mcp_list_tools")
+    assert mcp_list_tools.execution_mode == :mcp_discovery
 
     assert {:ok, cancel_objective} = Registry.capability("cancel_objective")
     assert cancel_objective.permission == :objective_write

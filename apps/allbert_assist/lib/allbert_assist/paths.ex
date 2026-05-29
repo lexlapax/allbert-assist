@@ -62,6 +62,8 @@ defmodule AllbertAssist.Paths do
       dynamic_plugins_audit_root(),
       external_root(),
       Path.join(external_root(), "audit"),
+      mcp_root(),
+      mcp_audit_root(),
       external_cache_root(),
       memory_root(),
       Path.join(memory_root(), "notes"),
@@ -193,6 +195,16 @@ defmodule AllbertAssist.Paths do
   def external_cache_root do
     first_path([configured(:external_cache_root)], Path.join(cache_root(), "external-services"))
   end
+
+  @doc "Return the MCP client runtime root."
+  @spec mcp_root() :: String.t()
+  def mcp_root do
+    first_path([configured(:mcp_root)], Path.join(home(), "mcp"))
+  end
+
+  @doc "Return the MCP client audit root."
+  @spec mcp_audit_root() :: String.t()
+  def mcp_audit_root, do: Path.join(mcp_root(), "audit")
 
   @doc "Return the local SQLite database path."
   @spec db_path() :: String.t()
