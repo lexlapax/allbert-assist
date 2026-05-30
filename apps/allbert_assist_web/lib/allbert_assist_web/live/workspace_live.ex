@@ -37,7 +37,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   @default_user_id "local"
   @default_session_id "web-local"
   @default_prompt_placeholder "Ask Allbert anything…"
-  @workspace_tools ~w(onboard create discover calendar mail jobs objectives confirmations security settings)
+  @workspace_tools ~w(onboard create discover calendar mail github jobs objectives confirmations security settings)
 
   @impl true
   def mount(params, _session, socket) do
@@ -431,7 +431,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   def handle_event("discover_mcp_integration", %{"integration" => integration}, socket)
-      when integration in ["calendar", "mail"] do
+      when integration in ["calendar", "mail", "github"] do
     case run_workspace_action(socket, "find_tools", %{
            query: "#{integration} MCP server",
            limit: 8
@@ -754,6 +754,22 @@ defmodule AllbertAssistWeb.WorkspaceLive do
        do: %{
          "message_id" => "workspace-preview",
          "body" => "Draft reply",
+         "source" => "workspace_panel"
+       }
+
+  defp mcp_integration_arguments(%{
+         "integration" => "github",
+         "integration-action" => "github_read"
+       }),
+       do: %{"query" => "is:open", "source" => "workspace_panel"}
+
+  defp mcp_integration_arguments(%{
+         "integration" => "github",
+         "integration-action" => "github_effect"
+       }),
+       do: %{
+         "target" => "workspace-preview",
+         "body" => "Workspace draft comment",
          "source" => "workspace_panel"
        }
 

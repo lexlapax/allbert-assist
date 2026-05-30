@@ -62,6 +62,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
              "workspace:discover",
              "workspace:calendar",
              "workspace:mail",
+             "workspace:github",
              "workspace:jobs",
              "workspace:objectives",
              "workspace:confirmations",

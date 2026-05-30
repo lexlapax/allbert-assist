@@ -191,6 +191,27 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert get_in(confirmation, ["params_summary", "tool_name"]) == "reply_message"
   end
 
+  test "github panel comment affordance routes through Approval Handoff", %{conn: conn} do
+    configure_mcp_server("github", ["create_issue_comment"])
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:github")
+
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:github']")
+    assert has_element?(view, "#workspace-dest-workspace-github")
+    assert has_element?(view, "[data-workspace-component='settings_card']", "Server github")
+    assert has_element?(view, "button[data-workspace-component='action_button']", "Comment")
+
+    view
+    |> element("button[data-workspace-component='action_button']", "Comment")
+    |> render_click()
+
+    assert has_element?(view, "#approval-handoff")
+    assert [confirmation] = Confirmations.list(status: "pending")
+    assert get_in(confirmation, ["target_action", "name"]) == "mcp_call_tool"
+    assert get_in(confirmation, ["params_summary", "server_id"]) == "github"
+    assert get_in(confirmation, ["params_summary", "tool_name"]) == "create_issue_comment"
+  end
+
   test "mount binds workspace to a real conversation thread", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/workspace")
     thread_id = workspace_thread_id(view)

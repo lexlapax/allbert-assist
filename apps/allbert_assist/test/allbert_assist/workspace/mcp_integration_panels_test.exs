@@ -40,18 +40,22 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanelsTest do
     :ok
   end
 
-  test "unconfigured calendar and mail panels show discovery affordances" do
+  test "unconfigured calendar, mail, and github panels show discovery affordances" do
     calendar = McpIntegrationPanels.surface(:calendar, %{})
     mail = McpIntegrationPanels.surface(:mail, %{})
+    github = McpIntegrationPanels.surface(:github, %{})
 
     assert calendar.id == :core_calendar_panel
     assert mail.id == :core_mail_panel
+    assert github.id == :core_github_panel
 
     calendar_nodes = flatten(calendar.nodes)
     mail_nodes = flatten(mail.nodes)
+    github_nodes = flatten(github.nodes)
 
     assert node_with?(calendar_nodes, :empty_state, title: "Connect Calendar")
     assert node_with?(mail_nodes, :empty_state, title: "Connect Mail")
+    assert node_with?(github_nodes, :empty_state, title: "Connect GitHub")
 
     assert node_with?(calendar_nodes, :action_button,
              action_name: "find_tools",
@@ -59,6 +63,11 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanelsTest do
            )
 
     assert node_with?(mail_nodes, :action_button, action_name: "find_tools", integration: "mail")
+
+    assert node_with?(github_nodes, :action_button,
+             action_name: "find_tools",
+             integration: "github"
+           )
   end
 
   test "calendar panel renders an agenda resource through mcp_read_resource when a grant exists" do
@@ -157,6 +166,59 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanelsTest do
              action_name: "mcp_call_tool",
              server_id: "mail",
              tool_name: "list_threads"
+           )
+  end
+
+  test "github panel renders resource-backed PR summaries and confirmed comment action" do
+    uri = "github://lexlapax/allbert-assist/pulls/open"
+
+    configure_server("github", ["create_issue_comment"])
+
+    set_mcp_shape(
+      [resource(uri, "Open pull requests")],
+      [tool("create_issue_comment")],
+      "2 open pull requests"
+    )
+
+    remember_mcp_resource("github", uri)
+
+    surface = McpIntegrationPanels.surface(:github, refresh_context())
+    nodes = flatten(surface.nodes)
+
+    assert node_with?(nodes, :settings_card,
+             title: "GitHub Resource",
+             body: "2 open pull requests"
+           )
+
+    assert node_with?(nodes, :action_button,
+             action_name: "mcp_read_resource",
+             server_id: "github",
+             resource_uri: uri
+           )
+
+    assert node_with?(nodes, :action_button,
+             action_name: "mcp_call_tool",
+             server_id: "github",
+             tool_name: "create_issue_comment"
+           )
+  end
+
+  test "tool-only github keeps summaries and searches behind confirmed tool calls" do
+    configure_server("github", ["list_pull_requests", "create_issue_comment"])
+    set_mcp_shape([], [tool("list_pull_requests"), tool("create_issue_comment")], "")
+
+    surface = McpIntegrationPanels.surface(:github, refresh_context())
+    nodes = flatten(surface.nodes)
+
+    assert node_with?(nodes, :settings_card,
+             title: "Confirmed GitHub Summary",
+             status: "needs_confirmation"
+           )
+
+    assert node_with?(nodes, :action_button,
+             action_name: "mcp_call_tool",
+             server_id: "github",
+             tool_name: "list_pull_requests"
            )
   end
 

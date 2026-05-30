@@ -35,6 +35,7 @@ defmodule AllbertAssist.Workspace.Catalog do
       dom_id: "workspace-calendar"
     },
     %{id: "workspace:mail", tool: "mail", label: "Mail", dom_id: "workspace-mail"},
+    %{id: "workspace:github", tool: "github", label: "GitHub", dom_id: "workspace-github"},
     %{id: "workspace:jobs", tool: "jobs", label: "Jobs", dom_id: "workspace-jobs"},
     %{
       id: "workspace:objectives",
@@ -69,6 +70,7 @@ defmodule AllbertAssist.Workspace.Catalog do
     "discover" => :core_discovery_suggestions_panel,
     "calendar" => :core_calendar_panel,
     "mail" => :core_mail_panel,
+    "github" => :core_github_panel,
     "jobs" => :core_jobs_panel,
     "objectives" => :core_objectives_panel,
     "confirmations" => :core_confirmations_panel,
