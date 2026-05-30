@@ -59,6 +59,7 @@ defmodule AllbertAssist.Actions.Capability do
           | :local_domain
           | :mcp_doctor
           | :mcp_discovery
+          | :mcp_server_connect
           | :mcp_resource_read
           | :mcp_tool_call
 

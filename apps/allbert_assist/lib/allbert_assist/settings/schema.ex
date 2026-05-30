@@ -54,6 +54,15 @@ defmodule AllbertAssist.Settings.Schema do
     "providers.*.base_url",
     "providers.*.api_key_ref",
     "mcp.stdio.allowed_launchers",
+    "mcp.discovery.enabled",
+    "mcp.discovery.sources.official.enabled",
+    "mcp.discovery.sources.pulsemcp.enabled",
+    "mcp.discovery.sources.pulsemcp.api_key_ref",
+    "mcp.discovery.sources.pulsemcp.tenant_ref",
+    "mcp.discovery.scan.schedule",
+    "mcp.discovery.scan.max_results",
+    "mcp.discovery.registry_allowlist",
+    "mcp.discovery.registry_denylist",
     "mcp.servers.*.enabled",
     "mcp.servers.*.transport",
     "mcp.servers.*.command",
@@ -95,6 +104,8 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.stocksage_write",
     "permissions.stocksage_analyze",
     "permissions.stocksage_evidence_fetch",
+    "permissions.tool_discovery",
+    "permissions.mcp_server_connect",
     "permissions.mcp_tool_call",
     "permissions.mcp_resource_read",
     "execution.local.enabled",
@@ -1125,6 +1136,20 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
+    "permissions.tool_discovery" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "denied"]
+    },
+    "permissions.mcp_server_connect" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["needs_confirmation", "denied"]
+    },
     "permissions.mcp_tool_call" => %{
       type: :enum,
       default: "needs_confirmation",
@@ -1692,6 +1717,69 @@ defmodule AllbertAssist.Settings.Schema do
       default: [],
       writable?: true,
       sensitive?: false
+    },
+    "mcp.discovery.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "mcp.discovery.sources.official.enabled" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "mcp.discovery.sources.pulsemcp.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "mcp.discovery.sources.pulsemcp.api_key_ref" => %{
+      type: :mcp_secret_ref_or_nil,
+      default: nil,
+      writable?: true,
+      sensitive?: true
+    },
+    "mcp.discovery.sources.pulsemcp.tenant_ref" => %{
+      type: :mcp_secret_ref_or_nil,
+      default: nil,
+      writable?: true,
+      sensitive?: true
+    },
+    "mcp.discovery.scan.schedule" => %{
+      type: :enum,
+      default: "paused",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["paused", "daily", "weekly"]
+    },
+    "mcp.discovery.scan.max_results" => %{
+      type: :bounded_integer,
+      default: 25,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 100
+    },
+    "mcp.discovery.registry_allowlist" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "mcp.discovery.registry_denylist" => %{
+      type: :string_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "mcp.discovery.auto_connect" => %{
+      type: :boolean,
+      default: false,
+      writable?: false,
+      sensitive?: false
     }
   }
 
@@ -1906,6 +1994,8 @@ defmodule AllbertAssist.Settings.Schema do
       "stocksage_write" => "allowed",
       "stocksage_analyze" => "needs_confirmation",
       "stocksage_evidence_fetch" => "allowed",
+      "tool_discovery" => "allowed",
+      "mcp_server_connect" => "needs_confirmation",
       "mcp_tool_call" => "needs_confirmation",
       "mcp_resource_read" => "allowed"
     },
@@ -1913,6 +2003,26 @@ defmodule AllbertAssist.Settings.Schema do
       "servers" => %{},
       "stdio" => %{
         "allowed_launchers" => []
+      },
+      "discovery" => %{
+        "enabled" => false,
+        "sources" => %{
+          "official" => %{
+            "enabled" => true
+          },
+          "pulsemcp" => %{
+            "enabled" => false,
+            "api_key_ref" => nil,
+            "tenant_ref" => nil
+          }
+        },
+        "scan" => %{
+          "schedule" => "paused",
+          "max_results" => 25
+        },
+        "registry_allowlist" => [],
+        "registry_denylist" => [],
+        "auto_connect" => false
       }
     },
     "plugins" => %{
@@ -2323,10 +2433,12 @@ defmodule AllbertAssist.Settings.Schema do
   defp validate_model_profile_provider_constraint(_name, _attrs, _settings), do: :ok
 
   defp validate_mcp(settings) do
-    with :ok <- validate_mcp_launchers(settings) do
-      settings
-      |> get_in(["mcp", "servers"])
-      |> validate_mcp_servers(settings)
+    with :ok <- validate_mcp_launchers(settings),
+         :ok <-
+           settings
+           |> get_in(["mcp", "servers"])
+           |> validate_mcp_servers(settings) do
+      validate_mcp_discovery(settings)
     end
   end
 
@@ -2346,6 +2458,46 @@ defmodule AllbertAssist.Settings.Schema do
       :ok
     else
       {:error, {:invalid_setting, "mcp.stdio.allowed_launchers", :unsafe_launcher}}
+    end
+  end
+
+  defp validate_mcp_discovery(settings) do
+    with :ok <- validate_mcp_discovery_auto_connect(settings) do
+      validate_mcp_discovery_pulsemcp(settings)
+    end
+  end
+
+  defp validate_mcp_discovery_auto_connect(settings) do
+    case get_dotted(settings, "mcp.discovery.auto_connect") do
+      false ->
+        :ok
+
+      value ->
+        {:error, {:invalid_setting, "mcp.discovery.auto_connect", {:must_remain_false, value}}}
+    end
+  end
+
+  defp validate_mcp_discovery_pulsemcp(settings) do
+    enabled? = get_dotted(settings, "mcp.discovery.sources.pulsemcp.enabled")
+    api_key_ref = get_dotted(settings, "mcp.discovery.sources.pulsemcp.api_key_ref")
+    tenant_ref = get_dotted(settings, "mcp.discovery.sources.pulsemcp.tenant_ref")
+
+    cond do
+      enabled? != true ->
+        :ok
+
+      not is_binary(api_key_ref) ->
+        {:error,
+         {:invalid_setting, "mcp.discovery.sources.pulsemcp.api_key_ref",
+          {:required_when_enabled, api_key_ref}}}
+
+      not is_binary(tenant_ref) ->
+        {:error,
+         {:invalid_setting, "mcp.discovery.sources.pulsemcp.tenant_ref",
+          {:required_when_enabled, tenant_ref}}}
+
+      true ->
+        :ok
     end
   end
 

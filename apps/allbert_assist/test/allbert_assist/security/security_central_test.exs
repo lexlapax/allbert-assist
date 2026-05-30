@@ -85,6 +85,10 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert Risk.classify(:dynamic_integration).tier == :critical
     assert Risk.classify(:stocksage_write).tier == :low
     assert Risk.classify(:skill_script_execute).tier == :high
+    assert Risk.classify(:tool_discovery).tier == :medium
+    assert Risk.classify(:mcp_server_connect).tier == :high
+    assert Risk.classify(:mcp_tool_call).tier == :high
+    assert Risk.classify(:mcp_resource_read).tier == :medium
     assert Risk.classify(:external_network).tier == :high
     assert Risk.classify(:package_install).tier == :high
     assert Risk.classify(:online_skill_import).tier == :high
@@ -109,6 +113,10 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert Policy.resolve(:workspace_canvas_write).effective == :allowed
     assert Policy.resolve(:dynamic_integration).effective == :needs_confirmation
     assert Policy.resolve(:stocksage_write).effective == :allowed
+    assert Policy.resolve(:tool_discovery).effective == :allowed
+    assert Policy.resolve(:mcp_server_connect).effective == :needs_confirmation
+    assert Policy.resolve(:mcp_tool_call).effective == :needs_confirmation
+    assert Policy.resolve(:mcp_resource_read).effective == :allowed
     assert Policy.resolve(:settings_secret_read).effective == :denied
     assert Policy.resolve(:unknown_permission).effective == :denied
   end
@@ -122,7 +130,9 @@ defmodule AllbertAssist.SecurityCentralTest do
                  "skill_script_execute" => "allowed",
                  "dynamic_integration" => "denied",
                  "package_install" => "allowed",
-                 "online_skill_import" => "allowed"
+                 "online_skill_import" => "allowed",
+                 "tool_discovery" => "denied",
+                 "mcp_server_connect" => "needs_confirmation"
                }
              })
 
@@ -158,6 +168,14 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert import_policy.configured_decision == :allowed
     assert import_policy.effective == :needs_confirmation
     assert import_policy.capped?
+
+    discovery_policy = Policy.resolve(:tool_discovery)
+    assert discovery_policy.configured == "denied"
+    assert discovery_policy.effective == :denied
+
+    connect_policy = Policy.resolve(:mcp_server_connect)
+    assert connect_policy.configured == "needs_confirmation"
+    assert connect_policy.effective == :needs_confirmation
   end
 
   test "unknown actions and undiscoverable selected skills deny instead of gaining authority" do
@@ -229,6 +247,8 @@ defmodule AllbertAssist.SecurityCentralTest do
     assert Enum.any?(status.permission_defaults, &(&1.permission == :dynamic_codegen_discard))
     assert Enum.any?(status.permission_defaults, &(&1.permission == :skill_script_execute))
     assert Enum.any?(status.permission_defaults, &(&1.permission == :confirmation_decide))
+    assert Enum.any?(status.permission_defaults, &(&1.permission == :tool_discovery))
+    assert Enum.any?(status.permission_defaults, &(&1.permission == :mcp_server_connect))
     assert Enum.any?(status.safety_floors, &(&1.permission == :unknown and &1.floor == :denied))
     assert status.secret_status.providers >= 1
     assert status.redaction_posture.secret_ref_display == "[SECRET_REF]"
