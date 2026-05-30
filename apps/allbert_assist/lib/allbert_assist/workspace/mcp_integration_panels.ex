@@ -16,12 +16,13 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanels do
   def surfaces(context \\ %{}) when is_map(context) do
     [
       surface(:calendar, context),
-      surface(:mail, context)
+      surface(:mail, context),
+      surface(:github, context)
     ]
   end
 
-  @spec surface(:calendar | :mail, map()) :: Surface.t()
-  def surface(integration, context \\ %{}) when integration in [:calendar, :mail] do
+  @spec surface(:calendar | :mail | :github, map()) :: Surface.t()
+  def surface(integration, context \\ %{}) when integration in [:calendar, :mail, :github] do
     spec = spec(integration)
 
     %Surface{
@@ -166,6 +167,14 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanels do
 
   defp configured_panel_body(%{id: :mail}, _discovery) do
     "Mail inbox summaries use mcp_read_resource for resource-backed headers and message previews."
+  end
+
+  defp configured_panel_body(%{id: :github}, %{resource: nil}) do
+    "GitHub overviews use confirmed MCP tool calls until PR, issue, or repository resources are exposed."
+  end
+
+  defp configured_panel_body(%{id: :github}, _discovery) do
+    "GitHub overviews use mcp_read_resource for resource-backed PR, issue, and repository artifacts."
   end
 
   defp read_nodes(spec, _config, %{resource: resource}, context)
@@ -582,6 +591,48 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanels do
         "Configure a resource-exposing mail server or allowlist a read tool such as list_threads.",
       no_effect_title: "No Mail Write Tool",
       no_effect_body: "No reply/send/modify mail tool is exposed or allowlisted."
+    }
+  end
+
+  defp spec(:github) do
+    %{
+      id: :github,
+      server_id: "github",
+      surface_id: :core_github_panel,
+      label: "GitHub",
+      order: 70,
+      empty_body:
+        "Discover a GitHub MCP server, connect it through consent, then enable it after credentials and doctor checks pass.",
+      resource_keywords: ["github", "pull", "pr", "issue", "repo", "readme"],
+      resource_card_title: "GitHub Resource",
+      resource_read_title: "Read GitHub Resource",
+      resource_grant_body:
+        "GitHub summaries require an MCP Resource Access grant; approve once with an MCP-server remember scope for prompt-free artifact refresh.",
+      read_tools: [
+        "list_pull_requests",
+        "list_issues",
+        "search_issues",
+        "search_repositories",
+        "get_issue",
+        "get_pull_request"
+      ],
+      tool_read_title: "Request GitHub Tool Summary",
+      tool_read_card_title: "Confirmed GitHub Summary",
+      tool_read_body:
+        "This GitHub server exposes overview data through tools, so searches and summaries stay per-call confirmed.",
+      effect_tools: [
+        "create_issue_comment",
+        "add_issue_comment",
+        "create_pull_request_review_comment",
+        "comment_on_issue",
+        "create_comment"
+      ],
+      effect_title: "Comment",
+      no_read_title: "No GitHub Summary Read",
+      no_read_body:
+        "Configure a resource-exposing GitHub server or allowlist a read/search tool such as list_pull_requests.",
+      no_effect_title: "No GitHub Comment Tool",
+      no_effect_body: "No comment or mutation GitHub tool is exposed or allowlisted."
     }
   end
 end
