@@ -71,12 +71,12 @@ defmodule AllbertAssist.Jobs.Runner do
     end
   end
 
-  defp execute_target(%Job{target_type: "registered_action"} = job, run, _opts) do
+  defp execute_target(%Job{target_type: "registered_action"} = job, run, opts) do
     target = job.target || %{}
     action_name = Map.get(target, "action_name")
     params = target |> Map.get("params", %{}) |> atomize_existing_keys()
 
-    Actions.Runner.run(action_name, params, action_context(job, run))
+    Actions.Runner.run(action_name, params, action_context(job, run, opts))
   end
 
   defp execute_target(%Job{target_type: target_type}, _run, _opts) do
@@ -126,8 +126,8 @@ defmodule AllbertAssist.Jobs.Runner do
 
   defp maybe_put_timeout(request, _opts), do: request
 
-  defp action_context(job, run) do
-    %{
+  defp action_context(job, run, opts) do
+    base_context = %{
       request: %{
         channel: :job,
         job_id: job.id,
@@ -150,7 +150,13 @@ defmodule AllbertAssist.Jobs.Runner do
       active_app: job.app_id,
       agent: __MODULE__
     }
+
+    Map.merge(base_context, action_context_overlay(opts))
   end
+
+  defp action_context_overlay(%{action_context: context}) when is_map(context), do: context
+  defp action_context_overlay(%{"action_context" => context}) when is_map(context), do: context
+  defp action_context_overlay(_opts), do: %{}
 
   defp runtime_metadata(job, run) do
     %{

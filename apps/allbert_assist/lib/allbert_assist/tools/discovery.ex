@@ -229,6 +229,35 @@ defmodule AllbertAssist.Tools.Discovery do
     end
   end
 
+  @doc "List operator-review discovery suggestions as action/UI-safe maps."
+  def list_suggestions(opts \\ []) do
+    opts = opts_map(opts)
+    status = suggestion_status(opts)
+    limit = suggestion_limit(opts)
+
+    Suggestion
+    |> maybe_where(:status, status)
+    |> order_by([suggestion], desc: suggestion.updated_at, desc: suggestion.inserted_at)
+    |> limit(^limit)
+    |> Repo.all()
+    |> Enum.map(&suggestion_to_map/1)
+  end
+
+  @doc "Return an action/UI-safe map for a persisted suggestion."
+  def suggestion_to_map(%Suggestion{} = suggestion) do
+    %{
+      id: suggestion.id,
+      candidate_id: suggestion.candidate_id,
+      suggestion_type: suggestion.suggestion_type,
+      status: suggestion.status,
+      candidate_snapshot: suggestion.candidate_snapshot || %{},
+      evaluation_snapshot: suggestion.evaluation_snapshot || %{},
+      metadata: suggestion.metadata || %{},
+      inserted_at: datetime_to_iso(suggestion.inserted_at),
+      updated_at: datetime_to_iso(suggestion.updated_at)
+    }
+  end
+
   @doc "Persist the current tool-definition hash as an untrusted baseline."
   def upsert_baseline_trust_record(candidate_id, report, attrs \\ %{})
       when is_binary(candidate_id) and is_map(report) do
@@ -596,6 +625,26 @@ defmodule AllbertAssist.Tools.Discovery do
     do: Map.get(opts, key, Map.get(opts, Atom.to_string(key), default))
 
   defp opt(_opts, _key, default), do: default
+
+  defp opts_map(opts) when is_map(opts), do: opts
+  defp opts_map(opts) when is_list(opts), do: Map.new(opts)
+  defp opts_map(_opts), do: %{}
+
+  defp suggestion_status(opts) do
+    case Map.get(opts, :status, Map.get(opts, "status", "pending")) do
+      :all -> nil
+      "all" -> nil
+      nil -> nil
+      status -> to_string(status)
+    end
+  end
+
+  defp suggestion_limit(opts) do
+    case Map.get(opts, :limit, Map.get(opts, "limit", 25)) do
+      value when is_integer(value) and value > 0 -> min(value, 100)
+      _value -> 25
+    end
+  end
 
   defp truthy?(true), do: true
   defp truthy?("true"), do: true

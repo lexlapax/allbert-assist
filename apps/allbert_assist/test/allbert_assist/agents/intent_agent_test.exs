@@ -120,6 +120,21 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert response.decision.selected_action == "find_tools"
     assert response.message =~ "tool candidate"
     assert Enum.any?(response.actions, &(&1.name == "find_tools"))
+
+    assert {:ok, server_response} =
+             IntentAgent.respond(%{
+               text: "find me an MCP server for github",
+               channel: :test,
+               user_id: "local",
+               operator_id: "local",
+               thread_id: "thr-tool-server-discovery",
+               session_id: "sess-tool-server-discovery",
+               input_signal_id: "sig-tool-server-discovery"
+             })
+
+    assert server_response.status == :completed
+    assert server_response.decision.intent == :find_tools
+    assert server_response.decision.selected_action == "find_tools"
   end
 
   test "neutral app descriptor returns handoff response without running the app action" do
