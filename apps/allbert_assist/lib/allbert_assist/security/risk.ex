@@ -33,6 +33,10 @@ defmodule AllbertAssist.Security.Risk do
   def tier(:stocksage_write), do: :low
   def tier(:stocksage_analyze), do: :high
   def tier(:stocksage_evidence_fetch), do: :medium
+  def tier(:tool_discovery), do: :medium
+  def tier(:mcp_server_connect), do: :high
+  def tier(:mcp_tool_call), do: :high
+  def tier(:mcp_resource_read), do: :medium
   def tier(:skill_script_execute), do: :high
   def tier(:settings_secret_write), do: :high
   def tier(:external_network), do: :high
@@ -66,6 +70,18 @@ defmodule AllbertAssist.Security.Risk do
 
   defp reasons(:stocksage_evidence_fetch, _tier, _context),
     do: ["StockSage bounded external evidence provider call"]
+
+  defp reasons(:tool_discovery, _tier, _context),
+    do: ["read-only MCP registry discovery egress"]
+
+  defp reasons(:mcp_server_connect, _tier, _context),
+    do: ["confirmed MCP server configuration write"]
+
+  defp reasons(:mcp_tool_call, _tier, _context),
+    do: ["confirmed MCP server tool execution"]
+
+  defp reasons(:mcp_resource_read, _tier, _context),
+    do: ["MCP server resource read boundary"]
 
   defp reasons(:skill_script_execute, _tier, _context), do: ["trusted skill script execution"]
   defp reasons(:settings_secret_write, _tier, _context), do: ["encrypted credential write"]

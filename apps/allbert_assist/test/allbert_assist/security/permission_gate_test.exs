@@ -26,6 +26,8 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :stocksage_write,
              :stocksage_analyze,
              :stocksage_evidence_fetch,
+             :tool_discovery,
+             :mcp_server_connect,
              :mcp_tool_call,
              :mcp_resource_read,
              :settings_secret_write,
@@ -57,6 +59,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     assert tool_call.permission == :mcp_tool_call
     assert tool_call.decision == :needs_confirmation
     assert tool_call.requires_confirmation
+    assert tool_call.risk.tier == :high
     refute PermissionGate.allowed?(tool_call)
 
     resource_read = PermissionGate.authorize(:mcp_resource_read, %{})
@@ -64,7 +67,26 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     assert resource_read.permission == :mcp_resource_read
     assert resource_read.decision == :allowed
     refute resource_read.requires_confirmation
+    assert resource_read.risk.tier == :medium
     assert PermissionGate.allowed?(resource_read)
+  end
+
+  test "allows discovery search but requires confirmation for discovered MCP server connect" do
+    discovery = PermissionGate.authorize(:tool_discovery, %{})
+
+    assert discovery.permission == :tool_discovery
+    assert discovery.decision == :allowed
+    refute discovery.requires_confirmation
+    assert discovery.risk.tier == :medium
+    assert PermissionGate.allowed?(discovery)
+
+    connect = PermissionGate.authorize(:mcp_server_connect, %{})
+
+    assert connect.permission == :mcp_server_connect
+    assert connect.decision == :needs_confirmation
+    assert connect.requires_confirmation
+    assert connect.risk.tier == :high
+    refute PermissionGate.allowed?(connect)
   end
 
   test "requires confirmation for dynamic integration hot-loading" do

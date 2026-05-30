@@ -35,6 +35,10 @@ defmodule AllbertAssist.Security.PermissionGate do
           | :stocksage_write
           | :stocksage_analyze
           | :stocksage_evidence_fetch
+          | :tool_discovery
+          | :mcp_server_connect
+          | :mcp_tool_call
+          | :mcp_resource_read
           | :settings_secret_write
           | :settings_secret_read
 

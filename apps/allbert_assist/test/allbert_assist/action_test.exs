@@ -77,4 +77,18 @@ defmodule AllbertAssist.ActionTest do
                skill_backed?: false
              )
   end
+
+  test "accepts MCP server connect capability metadata" do
+    assert {:ok, capability} =
+             Action.validate_capability(
+               permission: :mcp_server_connect,
+               exposure: :internal,
+               execution_mode: :mcp_server_connect,
+               skill_backed?: false,
+               confirmation: :required
+             )
+
+    assert capability.permission == :mcp_server_connect
+    assert capability.execution_mode == :mcp_server_connect
+  end
 end

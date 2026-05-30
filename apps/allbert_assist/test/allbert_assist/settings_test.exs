@@ -286,8 +286,84 @@ defmodule AllbertAssist.SettingsTest do
 
   test "MCP settings resolve defaults and validate incremental disabled servers" do
     assert {:ok, []} = Settings.get("mcp.stdio.allowed_launchers")
+    assert {:ok, false} = Settings.get("mcp.discovery.enabled")
+    assert {:ok, true} = Settings.get("mcp.discovery.sources.official.enabled")
+    assert {:ok, false} = Settings.get("mcp.discovery.sources.pulsemcp.enabled")
+    assert {:ok, "[REDACTED]"} = Settings.get("mcp.discovery.sources.pulsemcp.api_key_ref")
+    assert {:ok, nil} = Settings.get("mcp.discovery.sources.pulsemcp.tenant_ref")
+    assert {:ok, "paused"} = Settings.get("mcp.discovery.scan.schedule")
+    assert {:ok, 25} = Settings.get("mcp.discovery.scan.max_results")
+    assert {:ok, []} = Settings.get("mcp.discovery.registry_allowlist")
+    assert {:ok, []} = Settings.get("mcp.discovery.registry_denylist")
+    assert {:ok, false} = Settings.get("mcp.discovery.auto_connect")
+    assert {:ok, "allowed"} = Settings.get("permissions.tool_discovery")
+    assert {:ok, "needs_confirmation"} = Settings.get("permissions.mcp_server_connect")
     assert {:ok, "needs_confirmation"} = Settings.get("permissions.mcp_tool_call")
     assert {:ok, "allowed"} = Settings.get("permissions.mcp_resource_read")
+
+    assert {:ok, enabled_discovery} =
+             Settings.put("mcp.discovery.enabled", true, %{audit?: false})
+
+    assert enabled_discovery.value == true
+
+    assert {:ok, official_disabled} =
+             Settings.put("mcp.discovery.sources.official.enabled", false, %{audit?: false})
+
+    assert official_disabled.value == false
+
+    assert {:error, {:invalid_setting, "mcp.discovery.sources.pulsemcp.api_key_ref", _reason}} =
+             Settings.put("mcp.discovery.sources.pulsemcp.enabled", true, %{audit?: false})
+
+    assert {:ok, api_key_ref} =
+             Settings.put(
+               "mcp.discovery.sources.pulsemcp.api_key_ref",
+               "secret://mcp/discovery/pulsemcp_api_key",
+               %{audit?: false}
+             )
+
+    assert api_key_ref.value == "[REDACTED]"
+
+    assert {:ok, tenant_ref} =
+             Settings.put(
+               "mcp.discovery.sources.pulsemcp.tenant_ref",
+               "secret://mcp/discovery/pulsemcp_tenant",
+               %{audit?: false}
+             )
+
+    assert tenant_ref.value == "secret://mcp/discovery/pulsemcp_tenant"
+
+    assert {:ok, pulsemcp_enabled} =
+             Settings.put("mcp.discovery.sources.pulsemcp.enabled", true, %{audit?: false})
+
+    assert pulsemcp_enabled.value == true
+
+    assert {:ok, scan_schedule} =
+             Settings.put("mcp.discovery.scan.schedule", "weekly", %{audit?: false})
+
+    assert scan_schedule.value == "weekly"
+
+    assert {:ok, scan_max_results} =
+             Settings.put("mcp.discovery.scan.max_results", 10, %{audit?: false})
+
+    assert scan_max_results.value == 10
+
+    assert {:ok, allowlist} =
+             Settings.put("mcp.discovery.registry_allowlist", ["official"], %{audit?: false})
+
+    assert allowlist.value == ["official"]
+
+    assert {:ok, denylist} =
+             Settings.put("mcp.discovery.registry_denylist", ["untrusted"], %{audit?: false})
+
+    assert denylist.value == ["untrusted"]
+
+    assert {:error, {:read_only_setting, "mcp.discovery.auto_connect"}} =
+             Settings.put("mcp.discovery.auto_connect", true, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "mcp.discovery.auto_connect", _reason}} =
+             Settings.write_user_settings(%{
+               "mcp" => %{"discovery" => %{"auto_connect" => true}}
+             })
 
     assert {:ok, disabled} =
              Settings.put("mcp.servers.demo.enabled", false, %{audit?: false})
@@ -384,6 +460,9 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("mcp.servers.http_demo.enabled", true, %{audit?: false})
 
     assert http_enabled.value == true
+
+    assert {:error, {:invalid_setting, "permissions.mcp_server_connect", _reason}} =
+             Settings.put("permissions.mcp_server_connect", "allowed", %{audit?: false})
 
     assert {:error, {:invalid_setting, "permissions.mcp_tool_call", _reason}} =
              Settings.put("permissions.mcp_tool_call", "allowed", %{audit?: false})
