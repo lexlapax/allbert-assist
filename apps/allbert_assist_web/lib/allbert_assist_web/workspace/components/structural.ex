@@ -264,6 +264,8 @@ defmodule AllbertAssistWeb.Workspace.Components.AppLauncher do
   defp destination_icon(%{id: "workspace:onboard"}), do: "hero-sparkles-micro"
   defp destination_icon(%{id: "workspace:create"}), do: "hero-plus-circle-micro"
   defp destination_icon(%{id: "workspace:discover"}), do: "hero-magnifying-glass-micro"
+  defp destination_icon(%{id: "workspace:calendar"}), do: "hero-calendar-days-micro"
+  defp destination_icon(%{id: "workspace:mail"}), do: "hero-inbox-micro"
   defp destination_icon(%{id: "workspace:jobs"}), do: "hero-clock-micro"
   defp destination_icon(%{id: "workspace:objectives"}), do: "hero-flag-micro"
   defp destination_icon(%{id: "workspace:confirmations"}), do: "hero-shield-check-micro"

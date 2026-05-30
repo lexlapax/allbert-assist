@@ -134,6 +134,14 @@ authority boundary:
 | GitHub | `github` | Official GitHub MCP server or a compatible server exposing repository artifacts as resources where possible. | `mcp_list_tools`, `mcp_list_resources`, `mcp_read_resource`, `mcp_call_tool` | Repository files, issue/PR artifacts, and comments prefer resources when exposed. | Search, mutation, workflow, comment, and issue creation tools are confirmed `mcp_call_tool` calls. | Overview panels use resources for inspectable artifacts and keep tool-backed search/mutations operator-triggered. |
 | Notes/files | `notes_files` | Native Allbert plugin/reference path, not an MCP server. | Existing file Resource Access actions and plugin-owned actions/surfaces. | File reads map to existing `file://` Resource Access scopes. | File writes/deletes follow the existing file permission/confirmation path. | No new permission class; no MCP grant is reused for local file IO. |
 
+v0.42 M7 ships the Calendar and Mail workspace destinations:
+`/workspace?destination=workspace:calendar` and
+`/workspace?destination=workspace:mail`. These panels inspect configured MCP
+servers through the registered MCP actions above. They render resource previews
+only when an applicable remembered `mcp://` grant exists; otherwise they show an
+approval affordance. Create-event and reply buttons route through Approval
+Handoff before any MCP transport call.
+
 ### Calendar MCP Example
 
 Prefer a resource-backed calendar server for the M7 agenda panel. Leave the

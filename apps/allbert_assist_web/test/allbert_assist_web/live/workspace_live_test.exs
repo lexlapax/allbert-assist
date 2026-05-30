@@ -149,6 +149,48 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert get_in(confirmation, ["params_summary", "candidate_id"]) == candidate.id
   end
 
+  test "calendar panel create-event affordance routes through Approval Handoff", %{conn: conn} do
+    configure_mcp_server("calendar", ["create_event"])
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:calendar")
+
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:calendar']")
+    assert has_element?(view, "#workspace-dest-workspace-calendar")
+    assert has_element?(view, "[data-workspace-component='settings_card']", "Server calendar")
+    assert has_element?(view, "button[data-workspace-component='action_button']", "Create Event")
+
+    view
+    |> element("button[data-workspace-component='action_button']", "Create Event")
+    |> render_click()
+
+    assert has_element?(view, "#approval-handoff")
+    assert [confirmation] = Confirmations.list(status: "pending")
+    assert get_in(confirmation, ["target_action", "name"]) == "mcp_call_tool"
+    assert get_in(confirmation, ["params_summary", "server_id"]) == "calendar"
+    assert get_in(confirmation, ["params_summary", "tool_name"]) == "create_event"
+  end
+
+  test "mail panel reply affordance routes through Approval Handoff", %{conn: conn} do
+    configure_mcp_server("mail", ["reply_message"])
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:mail")
+
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:mail']")
+    assert has_element?(view, "#workspace-dest-workspace-mail")
+    assert has_element?(view, "[data-workspace-component='settings_card']", "Server mail")
+    assert has_element?(view, "button[data-workspace-component='action_button']", "Reply")
+
+    view
+    |> element("button[data-workspace-component='action_button']", "Reply")
+    |> render_click()
+
+    assert has_element?(view, "#approval-handoff")
+    assert [confirmation] = Confirmations.list(status: "pending")
+    assert get_in(confirmation, ["target_action", "name"]) == "mcp_call_tool"
+    assert get_in(confirmation, ["params_summary", "server_id"]) == "mail"
+    assert get_in(confirmation, ["params_summary", "tool_name"]) == "reply_message"
+  end
+
   test "mount binds workspace to a real conversation thread", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/workspace")
     thread_id = workspace_thread_id(view)
@@ -1803,6 +1845,32 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     assert {:ok, _setting} =
              Settings.put("external_services.allowed_paths", ["/"], %{audit?: false})
+  end
+
+  defp configure_mcp_server(server_id, tool_allowlist) do
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.#{server_id}.enabled", false, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.#{server_id}.transport", "streamable_http", %{
+               audit?: false
+             })
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.#{server_id}.base_url", "https://example.com/mcp", %{
+               audit?: false
+             })
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.#{server_id}.tool_allowlist", tool_allowlist, %{
+               audit?: false
+             })
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.#{server_id}.confirmation", "required", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.#{server_id}.enabled", true, %{audit?: false})
   end
 
   defp start_workspace_bridge do

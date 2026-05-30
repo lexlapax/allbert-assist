@@ -28,6 +28,13 @@ defmodule AllbertAssist.Workspace.Catalog do
       label: "Discovery",
       dom_id: "workspace-discover"
     },
+    %{
+      id: "workspace:calendar",
+      tool: "calendar",
+      label: "Calendar",
+      dom_id: "workspace-calendar"
+    },
+    %{id: "workspace:mail", tool: "mail", label: "Mail", dom_id: "workspace-mail"},
     %{id: "workspace:jobs", tool: "jobs", label: "Jobs", dom_id: "workspace-jobs"},
     %{
       id: "workspace:objectives",
@@ -60,6 +67,8 @@ defmodule AllbertAssist.Workspace.Catalog do
     "onboard" => :core_onboarding_panel,
     "create" => :core_create_panel,
     "discover" => :core_discovery_suggestions_panel,
+    "calendar" => :core_calendar_panel,
+    "mail" => :core_mail_panel,
     "jobs" => :core_jobs_panel,
     "objectives" => :core_objectives_panel,
     "confirmations" => :core_confirmations_panel,
