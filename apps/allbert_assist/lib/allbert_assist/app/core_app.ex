@@ -6,6 +6,7 @@ defmodule AllbertAssist.App.CoreApp do
 
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.Workspace.DiscoverySuggestions
 
   @impl true
   def app_id, do: :allbert
@@ -39,6 +40,10 @@ defmodule AllbertAssist.App.CoreApp do
     [workspace_surface() | core_panel_surfaces()]
   end
 
+  def workspace_panel_surfaces(context) when is_map(context) do
+    core_panel_surfaces(context)
+  end
+
   def surface_catalog do
     Enum.map(Surface.known_components(), fn component ->
       %{component: component, allowed_props: [], allowed_bindings: []}
@@ -62,7 +67,7 @@ defmodule AllbertAssist.App.CoreApp do
     }
   end
 
-  defp core_panel_surfaces do
+  defp core_panel_surfaces(context \\ %{}) do
     [
       panel_surface(:core_onboarding_panel, "Onboarding", :canvas_panels, 0, [
         panel_node("core-onboarding", "Onboarding", "First-run setup objective.", [
@@ -135,7 +140,8 @@ defmodule AllbertAssist.App.CoreApp do
             props: %{zone: "canvas", title: "Settings Central"}
           }
         ])
-      ])
+      ]),
+      DiscoverySuggestions.surface(context)
     ]
   end
 

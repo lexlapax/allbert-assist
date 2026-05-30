@@ -164,6 +164,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Button do
       phx-value-app-id={Base.prop(@node, :app_id, nil)}
       phx-value-action-name={Base.prop(@node, :action_name, nil)}
       phx-value-source-text={Base.prop(@node, :source_text, nil)}
+      phx-value-candidate-id={Base.prop(@node, :candidate_id, nil)}
+      phx-value-server-id={Base.prop(@node, :server_id, nil)}
       phx-value-ticker={Base.prop(@node, :ticker, nil)}
     >
       {Base.title(@node, "Button")}
@@ -201,6 +203,8 @@ defmodule AllbertAssistWeb.Workspace.Components.ActionButton do
       phx-value-app-id={Base.prop(@node, :app_id, nil)}
       phx-value-action-name={Base.prop(@node, :action_name, nil)}
       phx-value-source-text={Base.prop(@node, :source_text, nil)}
+      phx-value-candidate-id={Base.prop(@node, :candidate_id, nil)}
+      phx-value-server-id={Base.prop(@node, :server_id, nil)}
       phx-value-ticker={Base.prop(@node, :ticker, nil)}
     >
       <.icon name="hero-bolt-micro" class="size-4" />

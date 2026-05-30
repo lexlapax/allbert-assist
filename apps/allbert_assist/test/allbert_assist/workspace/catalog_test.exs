@@ -59,6 +59,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
              "app:stocksage",
              "workspace:onboard",
              "workspace:create",
+             "workspace:discover",
              "workspace:jobs",
              "workspace:objectives",
              "workspace:confirmations",

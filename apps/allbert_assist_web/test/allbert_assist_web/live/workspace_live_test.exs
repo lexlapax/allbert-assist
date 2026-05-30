@@ -15,10 +15,13 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   }
 
   alias AllbertAssist.Intent.Handoff
+  alias AllbertAssist.McpRegistryFixtures
   alias AllbertAssist.Resources.{Grants, ResourceURI, Scope}
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.Tools.Discovery
+  alias AllbertAssist.Tools.ToolCandidate
   alias AllbertAssist.Workspace.Emitters, as: WorkspaceEmitters
   alias AllbertAssist.Workspace.Fragment.Body, as: FragmentBody
   alias AllbertAssist.Workspace.Fragment.Envelope
@@ -118,11 +121,32 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#workspace-canvas[data-destination='output']")
     assert has_element?(view, "#workspace-canvas-cap-chip")
     assert has_element?(view, "#workspace-shell[data-canvas-destination='output']")
+    assert has_element?(view, "#workspace-dest-workspace-discover")
     assert html =~ "canvas"
     refute html =~ "Workspace shell"
     refute html =~ "Prompt composer"
     refute html =~ "Runtime response timeline"
     refute html =~ "component not implemented"
+  end
+
+  test "discovery suggestions panel routes connect affordance to confirmation gate", %{conn: conn} do
+    {:ok, candidate} =
+      persist_discovery_suggestion(McpRegistryFixtures.official_secret_stdio_server())
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:discover")
+
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:discover']")
+    assert has_element?(view, "[data-workspace-component='settings_card']", candidate.name)
+    assert has_element?(view, "button[data-workspace-component='action_button']", "Connect")
+
+    view
+    |> element("button[data-workspace-component='action_button']", "Connect")
+    |> render_click()
+
+    assert has_element?(view, "#approval-handoff")
+    assert [confirmation] = Confirmations.list(status: "pending")
+    assert get_in(confirmation, ["target_action", "name"]) == "mcp_server_connect"
+    assert get_in(confirmation, ["params_summary", "candidate_id"]) == candidate.id
   end
 
   test "mount binds workspace to a real conversation thread", %{conn: conn} do
@@ -1941,6 +1965,36 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
       fallback_text: "AAPL analysis completed",
       metadata: %{source: "stocksage", fragment_id: "stocksage_analysis_#{analysis_id}"}
     }
+  end
+
+  defp persist_discovery_suggestion(manifest) do
+    {:ok, candidate} =
+      ToolCandidate.normalize(%{
+        id: "remote_mcp:official:#{manifest["name"]}",
+        name: manifest["name"],
+        description: manifest["description"],
+        source: :remote_mcp,
+        provenance: %{provider: :official, remote_server_id: manifest["name"]}
+      })
+
+    assert {:ok, _record} = Discovery.upsert_candidate(candidate, %{registry_record: manifest})
+
+    assert {:ok, report} =
+             Discovery.evaluate_server(manifest, %{
+               candidate_id: candidate.id,
+               provider: "official"
+             })
+
+    assert {:ok, _report_record} = Discovery.upsert_evaluation_report(candidate.id, report)
+
+    assert {:ok, _suggestion} =
+             Discovery.upsert_suggestion(
+               candidate.id,
+               ToolCandidate.to_map(candidate),
+               Discovery.evaluation_to_map(report)
+             )
+
+    {:ok, candidate}
   end
 
   defp render_until(view, text, attempts \\ 20)

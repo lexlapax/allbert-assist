@@ -37,7 +37,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   @default_user_id "local"
   @default_session_id "web-local"
   @default_prompt_placeholder "Ask Allbert anything…"
-  @workspace_tools ~w(onboard create jobs objectives confirmations security settings)
+  @workspace_tools ~w(onboard create discover jobs objectives confirmations security settings)
 
   @impl true
   def mount(params, _session, socket) do
@@ -404,6 +404,43 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   def handle_event("manage_workspace_tile", _params, socket) do
     {:noreply, assign(socket, :error, "Invalid workspace tile action.")}
+  end
+
+  def handle_event("connect_discovery_candidate", %{"candidate-id" => candidate_id}, socket)
+      when is_binary(candidate_id) and candidate_id != "" do
+    case run_workspace_action(socket, "mcp_server_connect", %{candidate_id: candidate_id}) do
+      {:ok, %{status: :needs_confirmation} = response} ->
+        handoff =
+          %{}
+          |> ApprovalHandoff.pending(response, approval_context(socket))
+          |> ApprovalHandoff.to_map()
+
+        {:noreply,
+         socket
+         |> assign(
+           response: response.message,
+           status: response.status,
+           approval_handoff: handoff,
+           approval_lines: ApprovalHandoff.lines(handoff),
+           approval_result: nil,
+           show_approval_details?: false,
+           error: nil
+         )
+         |> refresh_workspace()}
+
+      {:ok, %{status: :completed} = response} ->
+        {:noreply,
+         socket
+         |> assign(response: response.message, status: response.status, error: nil)
+         |> refresh_workspace()}
+
+      {:ok, response} ->
+        {:noreply, assign(socket, :error, Map.get(response, :message, inspect(response)))}
+    end
+  end
+
+  def handle_event("connect_discovery_candidate", _params, socket) do
+    {:noreply, assign(socket, :error, "Invalid discovery suggestion.")}
   end
 
   def handle_event("approve_confirmation", %{"id" => id}, socket) do
@@ -968,11 +1005,13 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   defp ensure_core_surface_provider(providers) do
-    if Enum.any?(providers, &(Map.get(&1, :app_id) == :allbert)) do
-      providers
-    else
-      [core_surface_provider() | providers]
-    end
+    providers =
+      Enum.reject(providers, fn provider ->
+        app_id = Map.get(provider, :app_id) || Map.get(provider, "app_id")
+        app_id in [:allbert, "allbert"]
+      end)
+
+    [core_surface_provider() | providers]
   end
 
   defp core_surface_provider do

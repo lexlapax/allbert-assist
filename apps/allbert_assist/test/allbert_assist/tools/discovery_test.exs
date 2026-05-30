@@ -77,6 +77,18 @@ defmodule AllbertAssist.Tools.DiscoveryTest do
                Discovery.evaluation_to_map(report)
              )
 
+    assert [
+             %{
+               candidate_id: "remote_mcp:official:weather",
+               status: "pending",
+               candidate_snapshot: %{"name" => "io.github.acme/weather-mcp"},
+               updated_at: updated_at
+             }
+           ] = Discovery.list_suggestions()
+
+    assert is_binary(updated_at)
+    assert [] = Discovery.list_suggestions(status: "dismissed")
+
     assert {:ok, _baseline} = Discovery.upsert_baseline_trust_record(candidate.id, report)
 
     assert %EvaluationReport{} = Repo.get(EvaluationReport, "eval:#{candidate.id}")
