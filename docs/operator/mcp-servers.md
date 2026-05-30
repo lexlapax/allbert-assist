@@ -82,11 +82,11 @@ stdout JSON stream.
 `args`, `tool_allowlist`, `tool_denylist`, `env`, and `headers` can be supplied
 as JSON objects or arrays when needed.
 
-## Discover A Server (planned, v0.42)
+## Discover A Server (v0.42)
 
 v0.42 adds tool discovery so you can find an MCP server instead of knowing its
-config in advance. The commands below land with v0.42 (see
-`docs/plans/v0.42-plan.md`); v0.40 operators configure servers manually as above.
+config in advance. Discovery and the passive suggestions surface are implemented
+through v0.42 M5 (see `docs/plans/v0.42-plan.md`).
 
 Discovery is off by default. Enable it, then search local tools and internet MCP
 registries. The official MCP Registry is the default remote source; optional
@@ -120,6 +120,71 @@ mix allbert.mcp scan run-once
 Allbert records a tool-definition baseline when you connect. If a server later
 changes its tool definitions (a "rug-pull"), the next doctor/reconnect flags it
 and asks you to review again rather than silently trusting the change.
+
+## v0.42 Integration Capability Inventory
+
+v0.42's first integration pack is MCP-configured for calendar, mail, and GitHub,
+plus a native notes/files reference path. The v0.40 MCP client matrix is the
+authority boundary:
+
+| Integration | Server id | Recommended server shape | v0.40 actions that drive the panel | Read exposure | Effectful exposure | Panel UX rule |
+|---|---|---|---|---|---|---|
+| Calendar | `calendar` | Resource-oriented calendar MCP server when available; tool-only servers remain supported but less automatic. | `mcp_list_tools`, `mcp_list_resources`, `mcp_read_resource`, `mcp_call_tool` | Agenda/event refresh uses `mcp_read_resource` only when the server exposes read-only resources such as event lists or calendar summaries. | Create/update/delete and availability tools are `mcp_call_tool` and remain per-call confirmed. | If no resource-backed read is exposed, the panel must show an operator-triggered confirmed-tool action or a clear empty/configure state. It must not promise prompt-free agenda refresh. |
+| Mail | `mail` | Resource-oriented mail MCP server for mailbox/thread/message reads. | `mcp_list_tools`, `mcp_list_resources`, `mcp_read_resource`, `mcp_call_tool` | Header, thread, and message-body summaries should use `mcp_read_resource` with remembered Resource Access grants when resources exist. | Send/reply/label/archive/search tools are `mcp_call_tool`; write-like flows are confirmed every time. | The panel can refresh read resources under grants, but sends/modifications always route through Approval Handoff. |
+| GitHub | `github` | Official GitHub MCP server or a compatible server exposing repository artifacts as resources where possible. | `mcp_list_tools`, `mcp_list_resources`, `mcp_read_resource`, `mcp_call_tool` | Repository files, issue/PR artifacts, and comments prefer resources when exposed. | Search, mutation, workflow, comment, and issue creation tools are confirmed `mcp_call_tool` calls. | Overview panels use resources for inspectable artifacts and keep tool-backed search/mutations operator-triggered. |
+| Notes/files | `notes_files` | Native Allbert plugin/reference path, not an MCP server. | Existing file Resource Access actions and plugin-owned actions/surfaces. | File reads map to existing `file://` Resource Access scopes. | File writes/deletes follow the existing file permission/confirmation path. | No new permission class; no MCP grant is reused for local file IO. |
+
+### Calendar MCP Example
+
+Prefer a resource-backed calendar server for the M7 agenda panel. Leave the
+server disabled until credentials are configured and doctor/list checks pass.
+
+<!-- v0.42-m6-config:calendar:start -->
+```sh
+mix allbert.settings set mcp.servers.calendar.enabled false
+mix allbert.settings set mcp.servers.calendar.transport streamable_http
+mix allbert.settings set mcp.servers.calendar.base_url https://calendar-mcp.example.invalid/mcp/
+mix allbert.settings set mcp.servers.calendar.auth_ref secret://mcp/calendar/token
+mix allbert.settings set mcp.servers.calendar.tool_allowlist '["list_calendars","list_events","get_event","find_availability","create_event","update_event"]'
+mix allbert.settings set mcp.servers.calendar.confirmation required
+```
+<!-- v0.42-m6-config:calendar:end -->
+
+### Mail MCP Example
+
+Use resources for mailbox/thread/message reads when the server exposes them.
+Send, reply, label, archive, and other modifying flows stay confirmed tool
+calls.
+
+<!-- v0.42-m6-config:mail:start -->
+```sh
+mix allbert.settings set mcp.servers.mail.enabled false
+mix allbert.settings set mcp.servers.mail.transport streamable_http
+mix allbert.settings set mcp.servers.mail.base_url https://mail-mcp.example.invalid/mcp/
+mix allbert.settings set mcp.servers.mail.auth_ref secret://mcp/mail/token
+mix allbert.settings set mcp.servers.mail.tool_allowlist '["list_threads","read_message","search_messages","send_message","modify_labels"]'
+mix allbert.settings set mcp.servers.mail.confirmation required
+```
+<!-- v0.42-m6-config:mail:end -->
+
+### GitHub MCP Example
+
+The v0.40 real-server smoke used the official GitHub MCP Docker image over
+stdio. The example below keeps it disabled until the token is stored as
+`secret://mcp/github/pat` and the operator explicitly enables it.
+
+<!-- v0.42-m6-config:github:start -->
+```sh
+mix allbert.settings set mcp.stdio.allowed_launchers '["docker","npx","uvx"]'
+mix allbert.settings set mcp.servers.github.enabled false
+mix allbert.settings set mcp.servers.github.transport stdio
+mix allbert.settings set mcp.servers.github.command docker
+mix allbert.settings set mcp.servers.github.args '["run","-i","--rm","-e","GITHUB_PERSONAL_ACCESS_TOKEN","ghcr.io/github/github-mcp-server"]'
+mix allbert.settings set mcp.servers.github.env '{"GITHUB_PERSONAL_ACCESS_TOKEN":"secret://mcp/github/pat"}'
+mix allbert.settings set mcp.servers.github.tool_allowlist '["get_issue","list_issues","get_pull_request","list_pull_requests","create_issue_comment","search_code"]'
+mix allbert.settings set mcp.servers.github.confirmation required
+```
+<!-- v0.42-m6-config:github:end -->
 
 ## Doctor A Server
 
