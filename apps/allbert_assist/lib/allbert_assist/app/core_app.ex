@@ -6,7 +6,7 @@ defmodule AllbertAssist.App.CoreApp do
 
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
-  alias AllbertAssist.Workspace.DiscoverySuggestions
+  alias AllbertAssist.Workspace.{DiscoverySuggestions, McpIntegrationPanels}
 
   @impl true
   def app_id, do: :allbert
@@ -142,7 +142,8 @@ defmodule AllbertAssist.App.CoreApp do
         ])
       ]),
       DiscoverySuggestions.surface(context)
-    ]
+    ] ++
+      McpIntegrationPanels.surfaces(context)
   end
 
   defp panel_surface(id, label, zone, order, nodes) do

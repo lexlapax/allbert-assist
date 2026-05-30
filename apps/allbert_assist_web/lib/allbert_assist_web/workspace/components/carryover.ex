@@ -166,6 +166,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Button do
       phx-value-source-text={Base.prop(@node, :source_text, nil)}
       phx-value-candidate-id={Base.prop(@node, :candidate_id, nil)}
       phx-value-server-id={Base.prop(@node, :server_id, nil)}
+      phx-value-resource-uri={Base.prop(@node, :resource_uri, nil)}
+      phx-value-tool-name={Base.prop(@node, :tool_name, nil)}
+      phx-value-integration={Base.prop(@node, :integration, nil)}
+      phx-value-integration-action={Base.prop(@node, :integration_action, nil)}
       phx-value-ticker={Base.prop(@node, :ticker, nil)}
     >
       {Base.title(@node, "Button")}
@@ -205,6 +209,10 @@ defmodule AllbertAssistWeb.Workspace.Components.ActionButton do
       phx-value-source-text={Base.prop(@node, :source_text, nil)}
       phx-value-candidate-id={Base.prop(@node, :candidate_id, nil)}
       phx-value-server-id={Base.prop(@node, :server_id, nil)}
+      phx-value-resource-uri={Base.prop(@node, :resource_uri, nil)}
+      phx-value-tool-name={Base.prop(@node, :tool_name, nil)}
+      phx-value-integration={Base.prop(@node, :integration, nil)}
+      phx-value-integration-action={Base.prop(@node, :integration_action, nil)}
       phx-value-ticker={Base.prop(@node, :ticker, nil)}
     >
       <.icon name="hero-bolt-micro" class="size-4" />

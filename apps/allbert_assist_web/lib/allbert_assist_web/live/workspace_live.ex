@@ -37,7 +37,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   @default_user_id "local"
   @default_session_id "web-local"
   @default_prompt_placeholder "Ask Allbert anything…"
-  @workspace_tools ~w(onboard create discover jobs objectives confirmations security settings)
+  @workspace_tools ~w(onboard create discover calendar mail jobs objectives confirmations security settings)
 
   @impl true
   def mount(params, _session, socket) do
@@ -410,22 +410,9 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       when is_binary(candidate_id) and candidate_id != "" do
     case run_workspace_action(socket, "mcp_server_connect", %{candidate_id: candidate_id}) do
       {:ok, %{status: :needs_confirmation} = response} ->
-        handoff =
-          %{}
-          |> ApprovalHandoff.pending(response, approval_context(socket))
-          |> ApprovalHandoff.to_map()
-
         {:noreply,
          socket
-         |> assign(
-           response: response.message,
-           status: response.status,
-           approval_handoff: handoff,
-           approval_lines: ApprovalHandoff.lines(handoff),
-           approval_result: nil,
-           show_approval_details?: false,
-           error: nil
-         )
+         |> assign_confirmation_handoff(response)
          |> refresh_workspace()}
 
       {:ok, %{status: :completed} = response} ->
@@ -441,6 +428,51 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   def handle_event("connect_discovery_candidate", _params, socket) do
     {:noreply, assign(socket, :error, "Invalid discovery suggestion.")}
+  end
+
+  def handle_event("discover_mcp_integration", %{"integration" => integration}, socket)
+      when integration in ["calendar", "mail"] do
+    case run_workspace_action(socket, "find_tools", %{
+           query: "#{integration} MCP server",
+           limit: 8
+         }) do
+      {:ok, %{status: :completed} = response} ->
+        {:noreply,
+         socket
+         |> assign(response: response.message, status: response.status, error: nil)
+         |> refresh_workspace()}
+
+      {:ok, response} ->
+        {:noreply, assign(socket, :error, Map.get(response, :message, inspect(response)))}
+    end
+  end
+
+  def handle_event("discover_mcp_integration", _params, socket) do
+    {:noreply, assign(socket, :error, "Invalid MCP integration discovery request.")}
+  end
+
+  def handle_event("run_mcp_integration_action", params, socket) do
+    with {:ok, action_name, action_params} <- mcp_integration_action_params(params) do
+      case run_workspace_action(socket, action_name, action_params) do
+        {:ok, %{status: :needs_confirmation} = response} ->
+          {:noreply,
+           socket
+           |> assign_confirmation_handoff(response)
+           |> refresh_workspace()}
+
+        {:ok, %{status: :completed} = response} ->
+          {:noreply,
+           socket
+           |> assign(response: response.message, status: response.status, error: nil)
+           |> refresh_workspace()}
+
+        {:ok, response} ->
+          {:noreply, assign(socket, :error, Map.get(response, :message, inspect(response)))}
+      end
+    else
+      {:error, reason} ->
+        {:noreply, assign(socket, :error, reason)}
+    end
   end
 
   def handle_event("approve_confirmation", %{"id" => id}, socket) do
@@ -645,6 +677,87 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         assign(socket, approval_result: Map.get(response, :message, inspect(response)))
     end
   end
+
+  defp assign_confirmation_handoff(socket, response) do
+    handoff =
+      %{}
+      |> ApprovalHandoff.pending(response, approval_context(socket))
+      |> ApprovalHandoff.to_map()
+
+    assign(socket,
+      response: response.message,
+      status: response.status,
+      approval_handoff: handoff,
+      approval_lines: ApprovalHandoff.lines(handoff),
+      approval_result: nil,
+      show_approval_details?: false,
+      error: nil
+    )
+  end
+
+  defp mcp_integration_action_params(%{
+         "action-name" => "mcp_read_resource",
+         "server-id" => server_id,
+         "resource-uri" => uri
+       })
+       when server_id != "" and uri != "" do
+    {:ok, "mcp_read_resource",
+     %{
+       server_id: server_id,
+       uri: uri,
+       downstream_consumer: "mcp_resource_reader"
+     }}
+  end
+
+  defp mcp_integration_action_params(
+         %{
+           "action-name" => "mcp_call_tool",
+           "server-id" => server_id,
+           "tool-name" => tool_name
+         } = params
+       )
+       when server_id != "" and tool_name != "" do
+    {:ok, "mcp_call_tool",
+     %{
+       server_id: server_id,
+       tool_name: tool_name,
+       arguments: mcp_integration_arguments(params),
+       downstream_consumer: "workspace_mcp_panel"
+     }}
+  end
+
+  defp mcp_integration_action_params(_params),
+    do: {:error, "Invalid MCP integration action."}
+
+  defp mcp_integration_arguments(%{
+         "integration" => "calendar",
+         "integration-action" => "calendar_read"
+       }),
+       do: %{"range" => "today", "source" => "workspace_panel"}
+
+  defp mcp_integration_arguments(%{
+         "integration" => "calendar",
+         "integration-action" => "calendar_effect"
+       }),
+       do: %{"summary" => "Workspace draft event", "source" => "workspace_panel"}
+
+  defp mcp_integration_arguments(%{
+         "integration" => "mail",
+         "integration-action" => "mail_read"
+       }),
+       do: %{"limit" => 10, "source" => "workspace_panel"}
+
+  defp mcp_integration_arguments(%{
+         "integration" => "mail",
+         "integration-action" => "mail_effect"
+       }),
+       do: %{
+         "message_id" => "workspace-preview",
+         "body" => "Draft reply",
+         "source" => "workspace_panel"
+       }
+
+  defp mcp_integration_arguments(_params), do: %{"source" => "workspace_panel"}
 
   defp pending_confirmation?(confirmation), do: confirmation_status(confirmation) == "pending"
 
@@ -1249,7 +1362,9 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       thread_id: socket.assigns.thread_id,
       session_id: socket.assigns.session_id,
       active_app: socket.assigns.active_app,
-      channel: :live_view
+      channel: :live_view,
+      surface: "AllbertAssistWeb.WorkspaceLive",
+      response_target: socket.id
     })
   end
 
