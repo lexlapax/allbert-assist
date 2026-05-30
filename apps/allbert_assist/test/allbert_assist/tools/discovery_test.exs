@@ -1,0 +1,133 @@
+defmodule AllbertAssist.Tools.DiscoveryTest do
+  use AllbertAssist.DataCase, async: false
+  @moduletag :external_runtime_serial
+
+  alias AllbertAssist.McpRegistryFixtures
+  alias AllbertAssist.Paths
+  alias AllbertAssist.Settings
+  alias AllbertAssist.Tools.Discovery
+  alias AllbertAssist.Tools.Discovery.EvaluationReport
+  alias AllbertAssist.Tools.ToolCandidate
+
+  setup {Req.Test, :verify_on_exit!}
+
+  setup do
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
+
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-tools-discovery-#{System.unique_integer([:positive])}"
+      )
+
+    Application.put_env(:allbert_assist, Paths, home: root)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
+
+    on_exit(fn ->
+      restore_env(Paths, original_paths_config)
+      restore_env(Settings, original_settings_config)
+      File.rm_rf!(root)
+    end)
+
+    :ok
+  end
+
+  test "upserts candidate, evaluation report, suggestion, and baseline trust records" do
+    {:ok, candidate} =
+      ToolCandidate.normalize(%{
+        id: "remote_mcp:official:weather",
+        name: "io.github.acme/weather-mcp",
+        description: "Weather forecast and alert tools.",
+        source: :remote_mcp,
+        provenance: %{
+          provider: :official,
+          remote_server_id: "io.github.acme/weather-mcp",
+          repository_url: "https://github.com/acme/weather-mcp"
+        },
+        signals: %{kind: :mcp_registry_server}
+      })
+
+    manifest = McpRegistryFixtures.official_weather_server()
+
+    assert {:ok, record} = Discovery.upsert_candidate(candidate, %{registry_record: manifest})
+    assert record.usable_now == false
+    assert record.requires == "connect_confirmation"
+    assert record.registry_record["name"] == "io.github.acme/weather-mcp"
+
+    assert {:ok, report} =
+             Discovery.evaluate_server(manifest, %{
+               candidate_id: candidate.id,
+               provider: "official",
+               probe?: false
+             })
+
+    assert report.provenance_level == "registry_with_source"
+    assert report.health_status == "not_probed"
+    assert report.metadata_authority == "descriptive_metadata_only"
+    assert byte_size(report.tool_definition_hash) == 64
+
+    assert {:ok, report_record} = Discovery.upsert_evaluation_report(candidate.id, report)
+    assert report_record.tool_definition_hash == report.tool_definition_hash
+
+    assert {:ok, _suggestion} =
+             Discovery.upsert_suggestion(
+               candidate.id,
+               ToolCandidate.to_map(candidate),
+               Discovery.evaluation_to_map(report)
+             )
+
+    assert {:ok, _baseline} = Discovery.upsert_baseline_trust_record(candidate.id, report)
+
+    assert %EvaluationReport{} = Repo.get(EvaluationReport, "eval:#{candidate.id}")
+  end
+
+  test "evaluation flags dangerous command metadata and runs bounded health probe" do
+    configure_external("server.example", "/mcp")
+
+    Req.Test.stub(__MODULE__, fn conn ->
+      Plug.Conn.send_resp(conn, 200, "ok")
+    end)
+
+    manifest = McpRegistryFixtures.official_shell_risk_server()
+
+    assert {:ok, report} =
+             Discovery.evaluate_server(manifest, %{
+               provider: "official",
+               context: %{external: %{req_plug: {Req.Test, __MODULE__}}},
+               probe?: true
+             })
+
+    assert report.health_status == "reachable"
+    assert Enum.any?(report.dangerous_command_flags, &(&1.reason == "remote_script_pipe"))
+
+    assert Enum.any?(
+             report.dangerous_command_flags,
+             &(&1.reason == "destructive_recursive_remove")
+           )
+
+    assert {:ok, second_report} =
+             Discovery.evaluate_server(manifest, %{
+               provider: "official",
+               probe?: false
+             })
+
+    assert second_report.tool_definition_hash == report.tool_definition_hash
+  end
+
+  defp configure_external(host, path) do
+    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_hosts", [host], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_paths", [path], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_methods", ["GET"], %{audit?: false})
+  end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+end
