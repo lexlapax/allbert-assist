@@ -83,6 +83,22 @@ defmodule AllbertAssist.Tools.FinderTest do
     assert [%ToolCandidate{name: "duplicate_tool"}] = candidates
   end
 
+  test "find_tools keeps local candidates when remote registry source is unreachable" do
+    configure_discovery()
+    configure_registry_external()
+
+    Req.Test.stub(__MODULE__, &Req.Test.transport_error(&1, :timeout))
+
+    context = %{actor: "local", channel: :test, external: %{req_plug: {Req.Test, __MODULE__}}}
+
+    assert {:ok, %{candidates: candidates, diagnostics: [diagnostic]}} =
+             Finder.find("settings", %{context: context, limit: 10})
+
+    assert Enum.any?(candidates, &match?(%{source: :local_action, name: "list_settings"}, &1))
+    assert diagnostic.source == :official
+    assert diagnostic.status == :degraded
+  end
+
   defmodule DuplicateSourceA do
     @behaviour AllbertAssist.Tools.SourcePort
 
@@ -144,6 +160,32 @@ defmodule AllbertAssist.Tools.FinderTest do
 
     assert {:ok, _setting} =
              Settings.put("external_services.allowed_methods", ["POST"], %{audit?: false})
+  end
+
+  defp configure_discovery do
+    assert {:ok, _setting} = Settings.put("mcp.discovery.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.discovery.sources.official.enabled", true, %{audit?: false})
+  end
+
+  defp configure_registry_external do
+    assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "external_services.allowed_hosts",
+               ["registry.modelcontextprotocol.io"],
+               %{
+                 audit?: false
+               }
+             )
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_paths", ["/v0.1/servers"], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("external_services.allowed_methods", ["GET"], %{audit?: false})
   end
 
   defp stub_http_mcp do

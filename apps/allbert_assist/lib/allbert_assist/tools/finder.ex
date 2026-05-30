@@ -4,6 +4,7 @@ defmodule AllbertAssist.Tools.Finder do
   """
 
   alias AllbertAssist.Tools.Source.Local
+  alias AllbertAssist.Tools.Source.McpRegistry
   alias AllbertAssist.Tools.ToolCandidate
 
   @default_limit 25
@@ -41,9 +42,9 @@ defmodule AllbertAssist.Tools.Finder do
   defp search_source(module, query, opts) do
     source_id = source_id(module)
 
-    case module.search(query, opts) do
-      {:ok, candidates} ->
-        {:ok, source_id, candidates}
+    case do_search_source(module, query, opts) do
+      {:ok, candidates, diagnostics} ->
+        {:ok, source_id, candidates, diagnostics}
 
       {:error, reason} ->
         {:error, source_id, reason}
@@ -53,7 +54,29 @@ defmodule AllbertAssist.Tools.Finder do
       {:error, source_id(module), {exception.__struct__, Exception.message(exception)}}
   end
 
-  defp collect_source_result({:ok, {:ok, _source_id, candidates}}, {all, diagnostics}) do
+  defp do_search_source(module, query, opts) do
+    if function_exported?(module, :search_with_diagnostics, 2) do
+      case module.search_with_diagnostics(query, opts) do
+        {:ok, %{candidates: candidates, diagnostics: diagnostics}} ->
+          {:ok, candidates, diagnostics}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    else
+      case module.search(query, opts) do
+        {:ok, candidates} -> {:ok, candidates, []}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
+  defp collect_source_result(
+         {:ok, {:ok, _source_id, candidates, source_diagnostics}},
+         {all, diagnostics}
+       ) do
+    diagnostics = Enum.map(source_diagnostics, &normalize_source_diagnostic/1) ++ diagnostics
+
     {all ++ candidates, diagnostics}
   end
 
@@ -97,7 +120,10 @@ defmodule AllbertAssist.Tools.Finder do
   defp source_family_order(:remote_mcp), do: 1
   defp source_family_order(_source), do: 0
 
-  defp source_modules(opts), do: Map.get(opts, :sources, Map.get(opts, "sources", [Local]))
+  defp source_modules(opts),
+    do: Map.get(opts, :sources, Map.get(opts, "sources", default_sources()))
+
+  defp default_sources, do: [Local, McpRegistry]
 
   defp source_id(module) do
     if Code.ensure_loaded?(module) and function_exported?(module, :source_id, 0) do
@@ -131,6 +157,15 @@ defmodule AllbertAssist.Tools.Finder do
   defp diagnostic(source_id, reason) do
     %{source: source_id, status: :degraded, reason: inspect(reason)}
   end
+
+  defp normalize_source_diagnostic(
+         %{source: _source, status: _status, reason: _reason} = diagnostic
+       ) do
+    diagnostic
+  end
+
+  defp normalize_source_diagnostic(diagnostic),
+    do: %{source: :unknown, status: :degraded, reason: inspect(diagnostic)}
 
   defp normalize(value) do
     value
