@@ -112,6 +112,15 @@ defmodule AllbertAssist.Tools.Discovery do
 
   def evaluate_server(_manifest, _opts), do: {:error, :invalid_manifest}
 
+  @doc "Compute the stable hash for the tool definitions exposed by a server."
+  @spec tool_list_hash([map()]) :: String.t()
+  def tool_list_hash(tools) when is_list(tools) do
+    %{"tools" => Enum.map(tools, &tool_definition/1)}
+    |> stable_hash()
+  end
+
+  def tool_list_hash(_tools), do: tool_list_hash([])
+
   @doc "Insert or refresh the latest evaluation report for one candidate."
   @spec upsert_evaluation_report(String.t(), map()) ::
           {:ok, EvaluationReport.t()} | {:error, term()}
@@ -155,7 +164,7 @@ defmodule AllbertAssist.Tools.Discovery do
       tool_definition_hash: report.tool_definition_hash,
       metadata_authority: report.metadata_authority,
       diagnostics: report.diagnostics || %{},
-      evaluated_at: report.evaluated_at
+      evaluated_at: datetime_to_iso(report.evaluated_at)
     }
   end
 
@@ -174,6 +183,7 @@ defmodule AllbertAssist.Tools.Discovery do
       :diagnostics,
       :evaluated_at
     ])
+    |> Map.update(:evaluated_at, nil, &datetime_to_iso/1)
   end
 
   defp public_dangerous_flags(flags) do
@@ -472,9 +482,25 @@ defmodule AllbertAssist.Tools.Discovery do
       "version" => get_any(manifest, ["version", :version]),
       "packages" => get_any(manifest, ["packages", :packages]) || [],
       "remotes" => get_any(manifest, ["remotes", :remotes]) || [],
-      "tools" => get_any(manifest, ["tools", :tools]) || []
+      "tools" =>
+        manifest
+        |> get_any(["tools", :tools])
+        |> list_value()
+        |> Enum.map(&tool_definition/1)
     }
   end
+
+  defp tool_definition(tool) when is_map(tool) do
+    %{
+      "name" => get_any(tool, ["name", :name]),
+      "description" => get_any(tool, ["description", :description]),
+      "input_schema" =>
+        get_any(tool, ["inputSchema", :inputSchema, "input_schema", :input_schema]) || %{}
+    }
+  end
+
+  defp tool_definition(tool),
+    do: %{"name" => to_string(tool), "description" => "", "input_schema" => %{}}
 
   defp stable_hash(value) do
     value
@@ -528,6 +554,9 @@ defmodule AllbertAssist.Tools.Discovery do
   defp json_safe(value) when is_atom(value), do: Atom.to_string(value)
   defp json_safe(value) when is_tuple(value), do: inspect(value)
   defp json_safe(value), do: value
+
+  defp datetime_to_iso(%DateTime{} = value), do: DateTime.to_iso8601(value)
+  defp datetime_to_iso(value), do: value
 
   defp get_any(nil, _keys), do: nil
 

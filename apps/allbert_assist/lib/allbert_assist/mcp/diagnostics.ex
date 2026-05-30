@@ -14,6 +14,7 @@ defmodule AllbertAssist.Mcp.Diagnostics do
     endpoint_http_error: "MCP endpoint returned an HTTP error.",
     protocol_error: "MCP endpoint returned an invalid JSON-RPC response.",
     discovery_failed: "MCP discovery could not complete.",
+    tool_definition_changed: "MCP tool definitions differ from the approved discovery baseline.",
     stdio_launcher_missing: "Configured MCP stdio launcher was not found.",
     stdio_start_failed: "Configured MCP stdio process could not start."
   }

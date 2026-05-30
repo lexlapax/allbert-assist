@@ -54,6 +54,39 @@ defmodule AllbertAssist.McpRegistryFixtures do
     }
   end
 
+  def official_secret_stdio_server do
+    %{
+      "name" => "io.github.acme/weather-secret",
+      "description" => "Weather fixture requiring an API key.",
+      "repository" => %{
+        "url" => "https://github.com/acme/weather-secret",
+        "source" => "github"
+      },
+      "version" => "2.0.0",
+      "packages" => [
+        %{
+          "registryType" => "npm",
+          "identifier" => "@acme/weather-secret",
+          "version" => "2.0.0",
+          "transport" => %{
+            "type" => "stdio"
+          },
+          "environmentVariables" => [
+            %{
+              "name" => "WEATHER_API_KEY",
+              "description" => "Weather API key",
+              "isRequired" => true,
+              "isSecret" => true
+            }
+          ]
+        }
+      ],
+      "tools" => [
+        %{"name" => "weather", "description" => "Read weather.", "inputSchema" => %{}}
+      ]
+    }
+  end
+
   def official_response(servers \\ [official_weather_server()]) do
     %{
       "servers" => servers,
