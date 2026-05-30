@@ -88,7 +88,7 @@ defmodule AllbertAssist.Umbrella.MixProject do
         "do --app allbert_assist cmd mix test",
         "do --app allbert_assist_web cmd mix test",
         "do --app allbert_assist cmd mix test ../../plugins/stocksage/test/stocksage ../../plugins/stocksage/test/mix",
-        "do --app allbert_assist cmd mix test ../../plugins/allbert.telegram/test ../../plugins/allbert.email/test"
+        "do --app allbert_assist cmd mix test ../../plugins/allbert.telegram/test ../../plugins/allbert.email/test ../../plugins/allbert.notes_files/test"
       ],
       check: ["format --check-formatted", "credo --strict", "dialyzer"]
     ]

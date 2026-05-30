@@ -104,6 +104,7 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.stocksage_write",
     "permissions.stocksage_analyze",
     "permissions.stocksage_evidence_fetch",
+    "permissions.notes_file_write",
     "permissions.tool_discovery",
     "permissions.mcp_server_connect",
     "permissions.mcp_tool_call",
@@ -1136,6 +1137,13 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
+    "permissions.notes_file_write" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["needs_confirmation", "denied"]
+    },
     "permissions.tool_discovery" => %{
       type: :enum,
       default: "allowed",
@@ -1994,6 +2002,7 @@ defmodule AllbertAssist.Settings.Schema do
       "stocksage_write" => "allowed",
       "stocksage_analyze" => "needs_confirmation",
       "stocksage_evidence_fetch" => "allowed",
+      "notes_file_write" => "needs_confirmation",
       "tool_discovery" => "allowed",
       "mcp_server_connect" => "needs_confirmation",
       "mcp_tool_call" => "needs_confirmation",

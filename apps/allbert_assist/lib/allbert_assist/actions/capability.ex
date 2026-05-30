@@ -57,6 +57,7 @@ defmodule AllbertAssist.Actions.Capability do
           | :security_status
           | :internal_trace
           | :local_domain
+          | :notes_file_write
           | :mcp_doctor
           | :mcp_discovery
           | :mcp_server_connect

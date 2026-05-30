@@ -14,6 +14,29 @@ generated app work, use
 `docs/developer/dynamic-plugin-drafts.md` instead of copying the source-tree
 workflow below.
 
+## Worked Reference: `allbert.notes_files`
+
+v0.42 ships `./plugins/allbert.notes_files/` as the smallest complete native
+reference plugin. Read it before creating a hand-written app/plugin:
+
+- `AllbertNotesFiles.Plugin` contributes one app, three actions, and two skill
+  roots through the normal shipped-plugin discovery path.
+- `AllbertNotesFiles.App` uses `AllbertAssist.App.SurfaceProvider`, declares the
+  `:notes_files` app id, registers the non-writable `:notes_files` memory
+  namespace, exposes list/detail workspace panels, and delegates settings to a
+  small `Settings.Fragment`.
+- `search_notes` and `read_note` are `:read_only` actions with `file://`
+  `read_local_path` Resource Access refs.
+- `write_note` uses `:notes_file_write`, creates a durable confirmation with a
+  `write_local_path` ref, and writes only after Approval Handoff resumes it.
+- The plugin deliberately does not auto-promote note files into memory; memory
+  promotion remains a separate confirmed memory action.
+
+The important pattern is not the notes domain. It is the boundary shape:
+registration is inert, actions declare capability metadata, settings live under
+`apps.<app_id>.*`, surfaces are declarative, and effectful work still goes
+through Runner, Security Central, Resource Access, and confirmations.
+
 ## Recommended Path: `mix allbert.gen.app`
 
 The primary developer path is the generator. It writes the inert reviewed

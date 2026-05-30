@@ -25,6 +25,7 @@ defmodule AllbertAssist.Security.Policy do
     stocksage_write: "permissions.stocksage_write",
     stocksage_analyze: "permissions.stocksage_analyze",
     stocksage_evidence_fetch: "permissions.stocksage_evidence_fetch",
+    notes_file_write: "permissions.notes_file_write",
     tool_discovery: "permissions.tool_discovery",
     mcp_server_connect: "permissions.mcp_server_connect",
     mcp_tool_call: "permissions.mcp_tool_call",
@@ -52,6 +53,7 @@ defmodule AllbertAssist.Security.Policy do
     stocksage_write: :allowed,
     stocksage_analyze: :needs_confirmation,
     stocksage_evidence_fetch: :allowed,
+    notes_file_write: :needs_confirmation,
     tool_discovery: :allowed,
     mcp_server_connect: :needs_confirmation,
     mcp_tool_call: :needs_confirmation,
@@ -83,6 +85,7 @@ defmodule AllbertAssist.Security.Policy do
           | :stocksage_write
           | :stocksage_analyze
           | :stocksage_evidence_fetch
+          | :notes_file_write
           | :tool_discovery
           | :mcp_server_connect
           | :mcp_tool_call
@@ -114,6 +117,7 @@ defmodule AllbertAssist.Security.Policy do
       :stocksage_write,
       :stocksage_analyze,
       :stocksage_evidence_fetch,
+      :notes_file_write,
       :tool_discovery,
       :mcp_server_connect,
       :mcp_tool_call,
@@ -183,6 +187,7 @@ defmodule AllbertAssist.Security.Policy do
   def safety_floor(:mcp_tool_call), do: :needs_confirmation
   def safety_floor(:stocksage_analyze), do: :needs_confirmation
   def safety_floor(:stocksage_evidence_fetch), do: :needs_confirmation
+  def safety_floor(:notes_file_write), do: :needs_confirmation
   def safety_floor(:settings_secret_read), do: :denied
   def safety_floor(permission) when permission in @known_permissions, do: :allowed
   def safety_floor(_permission), do: :denied

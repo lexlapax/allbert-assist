@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "plugin_id": "allbert.notes_files",
+  "name": "Allbert Notes/Files",
+  "version": "0.42.0",
+  "kind": "app",
+  "module": "AllbertNotesFiles.Plugin",
+  "contributions": {
+    "apps": ["AllbertNotesFiles.App"],
+    "actions": [
+      "AllbertNotesFiles.Actions.SearchNotes",
+      "AllbertNotesFiles.Actions.ReadNote",
+      "AllbertNotesFiles.Actions.WriteNote"
+    ],
+    "skill_paths": ["skills"]
+  }
+}

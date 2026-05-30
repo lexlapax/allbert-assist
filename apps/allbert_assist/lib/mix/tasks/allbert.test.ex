@@ -782,11 +782,12 @@ defmodule Mix.Tasks.Allbert.Test do
       String.starts_with?(path, "plugins/stocksage/") -> :stocksage
       String.starts_with?(path, "plugins/allbert.telegram/") -> :telegram
       String.starts_with?(path, "plugins/allbert.email/") -> :email
+      String.starts_with?(path, "plugins/allbert.notes_files/") -> :notes_files
       true -> :unknown
     end
   end
 
-  defp app_cwd(owner) when owner in [:core, :stocksage, :telegram, :email] do
+  defp app_cwd(owner) when owner in [:core, :stocksage, :telegram, :email, :notes_files] do
     Path.join(root(), "apps/allbert_assist")
   end
 
