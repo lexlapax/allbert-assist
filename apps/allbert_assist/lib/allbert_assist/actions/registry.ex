@@ -43,6 +43,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Jobs.RegistryHealth
   alias AllbertAssist.Actions.Jobs.TraceSummary
   alias AllbertAssist.Actions.Mcp.CallTool, as: McpCallTool
+  alias AllbertAssist.Actions.Mcp.ConnectServer, as: McpConnectServer
   alias AllbertAssist.Actions.Mcp.DoctorServer, as: McpDoctorServer
   alias AllbertAssist.Actions.Mcp.EvaluateServer, as: McpEvaluateServer
   alias AllbertAssist.Actions.Mcp.FetchServerManifest, as: McpFetchServerManifest
@@ -161,6 +162,7 @@ defmodule AllbertAssist.Actions.Registry do
     McpFindTools,
     McpFetchServerManifest,
     McpEvaluateServer,
+    McpConnectServer,
     FindLocalTools,
     FindTools,
     ValidateSkill,

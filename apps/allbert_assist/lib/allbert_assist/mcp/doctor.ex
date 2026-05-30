@@ -6,6 +6,8 @@ defmodule AllbertAssist.Mcp.Doctor do
   alias AllbertAssist.Mcp.Client
   alias AllbertAssist.Mcp.Diagnostics
   alias AllbertAssist.Mcp.ServerConfig
+  alias AllbertAssist.Mcp.ServerTrust
+  alias AllbertAssist.Tools.Discovery
 
   @spec diagnose(String.t(), map(), keyword()) :: {:ok, map()} | {:error, term()}
   def diagnose(server_id, context \\ %{}, opts \\ []) do
@@ -63,6 +65,7 @@ defmodule AllbertAssist.Mcp.Doctor do
       resource_count: count_result(resources, :resources)
     })
     |> maybe_put_discovery_diagnostic(tools, resources)
+    |> put_trust_diagnostics(config, tools)
   end
 
   defp failed_summary(config, reason) do
@@ -114,6 +117,45 @@ defmodule AllbertAssist.Mcp.Doctor do
 
   defp maybe_put_discovery_diagnostic(summary, _tools, _resources) do
     Map.update!(summary, :diagnostics, &[Diagnostics.new(:discovery_failed) | &1])
+  end
+
+  defp put_trust_diagnostics(summary, config, {:ok, result}) do
+    case server_trust_get(config.server_id) do
+      {:ok, trust_record} ->
+        tools = Map.get(result, :tools, [])
+        current_hash = Discovery.tool_list_hash(tools)
+
+        if current_hash == trust_record.tool_definition_hash do
+          Map.merge(summary, %{
+            trust_baseline_ok: true,
+            trust_baseline_hash: trust_record.tool_definition_hash,
+            current_tool_definition_hash: current_hash
+          })
+        else
+          summary
+          |> Map.merge(%{
+            trust_baseline_ok: false,
+            trust_baseline_hash: trust_record.tool_definition_hash,
+            current_tool_definition_hash: current_hash
+          })
+          |> Map.update!(:diagnostics, &[Diagnostics.new(:tool_definition_changed) | &1])
+        end
+
+      {:error, :not_found} ->
+        summary
+
+      {:error, _reason} ->
+        summary
+    end
+  end
+
+  defp put_trust_diagnostics(summary, _config, _tools), do: summary
+
+  defp server_trust_get(server_id) do
+    ServerTrust.get(server_id)
+  rescue
+    _error in [DBConnection.OwnershipError, DBConnection.ConnectionError] ->
+      {:error, :trust_store_unavailable}
   end
 
   defp diagnostic({_tag, %{} = diagnostic}), do: diagnostic

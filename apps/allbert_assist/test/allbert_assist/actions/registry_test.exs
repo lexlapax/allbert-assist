@@ -119,6 +119,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "find_mcp_tools",
              "mcp_fetch_server_manifest",
              "mcp_evaluate_server",
+             "mcp_server_connect",
              "find_local_tools",
              "find_tools",
              "validate_skill",
@@ -237,6 +238,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "find_mcp_tools",
              "mcp_fetch_server_manifest",
              "mcp_evaluate_server",
+             "mcp_server_connect",
              "find_local_tools",
              "find_tools",
              "validate_skill",
@@ -369,6 +371,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert {:ok, mcp_evaluate_server} = Registry.capability("mcp_evaluate_server")
     assert mcp_evaluate_server.permission == :tool_discovery
     assert mcp_evaluate_server.execution_mode == :mcp_discovery
+
+    assert {:ok, mcp_server_connect} = Registry.capability("mcp_server_connect")
+    assert mcp_server_connect.permission == :mcp_server_connect
+    assert mcp_server_connect.execution_mode == :mcp_server_connect
+    assert mcp_server_connect.resumable?
 
     assert {:ok, find_local_tools} = Registry.capability("find_local_tools")
     assert find_local_tools.permission == :read_only
