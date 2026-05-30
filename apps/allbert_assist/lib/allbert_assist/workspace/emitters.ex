@@ -247,7 +247,7 @@ defmodule AllbertAssist.Workspace.Emitters do
     [
       node("intent-handoff", :approval_card, %{
         dom_id: "intent-handoff",
-        title: "Open #{app_label(handoff.app_id)}?",
+        title: "Open #{handoff_target_label(handoff)}?",
         body: body,
         status: "handoff",
         external_id: handoff.surface_id
@@ -287,6 +287,7 @@ defmodule AllbertAssist.Workspace.Emitters do
         surface_id: string_value(handoff_map, :surface_id),
         app_id: string_value(option, :app_id),
         action_name: string_value(option, :action_name),
+        destination: string_value(option, :destination),
         source_text: string_value(handoff_map, :source_text),
         intent_option?: true
       })
@@ -303,10 +304,17 @@ defmodule AllbertAssist.Workspace.Emitters do
       surface_id: string_value(handoff_map, :surface_id),
       app_id: string_value(handoff_map, :app_id),
       action_name: string_value(handoff_map, :action_name),
+      destination: string_value(handoff_map, :destination),
       source_text: string_value(handoff_map, :source_text),
       ticker: string_value(handoff_map[:extracted_slots] || %{}, :ticker)
     }
   end
+
+  defp handoff_target_label(%Handoff{destination: "workspace:calendar"}), do: "Calendar"
+  defp handoff_target_label(%Handoff{destination: "workspace:mail"}), do: "Mail"
+  defp handoff_target_label(%Handoff{destination: "workspace:github"}), do: "GitHub"
+  defp handoff_target_label(%Handoff{destination: "workspace:discover"}), do: "Discovery"
+  defp handoff_target_label(%Handoff{app_id: app_id}), do: app_label(app_id)
 
   defp intent_surface_title(%Handoff{kind: :app_handoff}), do: "App Handoff"
   defp intent_surface_title(%Handoff{kind: :clarify_intent}), do: "Clarification"

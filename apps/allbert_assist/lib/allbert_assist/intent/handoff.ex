@@ -23,6 +23,7 @@ defmodule AllbertAssist.Intent.Handoff do
     :source_text,
     :reason,
     :surface_id,
+    :destination,
     :confidence,
     :margin,
     :permission,
@@ -44,6 +45,7 @@ defmodule AllbertAssist.Intent.Handoff do
           source_text: String.t() | nil,
           reason: String.t() | nil,
           surface_id: String.t(),
+          destination: String.t() | nil,
           confidence: float() | nil,
           margin: float() | nil,
           permission: atom() | nil,
@@ -70,6 +72,7 @@ defmodule AllbertAssist.Intent.Handoff do
         candidate_id: optional_string(field(attrs, :candidate_id)),
         source_text: optional_string(field(attrs, :source_text)),
         reason: optional_string(field(attrs, :reason)),
+        destination: optional_destination(field(attrs, :destination)),
         confidence: normalize_score(field(attrs, :confidence)),
         margin: normalize_score(field(attrs, :margin)),
         permission: field(attrs, :permission),
@@ -126,10 +129,15 @@ defmodule AllbertAssist.Intent.Handoff do
 
   @spec message(t()) :: String.t()
   def message(%__MODULE__{kind: :app_handoff} = handoff) do
-    app = app_label(handoff.app_id)
     slot_summary = slot_summary(handoff.extracted_slots)
 
-    "I can hand this to #{app} for #{handoff.label}#{slot_summary}. Accept the handoff to continue."
+    if handoff.destination do
+      "I can open #{destination_label(handoff.destination)} for #{handoff.label}#{slot_summary}. Accept the handoff to continue."
+    else
+      app = app_label(handoff.app_id)
+
+      "I can hand this to #{app} for #{handoff.label}#{slot_summary}. Accept the handoff to continue."
+    end
   end
 
   def message(%__MODULE__{kind: :clarify_intent, missing_slots: [slot | _rest]} = handoff) do
@@ -196,6 +204,16 @@ defmodule AllbertAssist.Intent.Handoff do
       value == "" -> nil
       byte_size(value) <= @max_text_bytes -> value
       true -> binary_part(value, 0, @max_text_bytes)
+    end
+  end
+
+  defp optional_destination(nil), do: nil
+
+  defp optional_destination(value) do
+    case optional_string(value) do
+      "workspace:" <> tool -> "workspace:#{tool}"
+      "app:" <> app_id -> "app:#{app_id}"
+      _other -> nil
     end
   end
 
@@ -270,6 +288,18 @@ defmodule AllbertAssist.Intent.Handoff do
     |> Atom.to_string()
     |> String.replace("_", " ")
   end
+
+  defp destination_label("workspace:calendar"), do: "Calendar"
+  defp destination_label("workspace:mail"), do: "Mail"
+  defp destination_label("workspace:github"), do: "GitHub"
+  defp destination_label("workspace:discover"), do: "Discovery"
+
+  defp destination_label("app:" <> app_id) do
+    app_id
+    |> String.replace("_", " ")
+  end
+
+  defp destination_label(destination), do: destination
 
   defp field(map, key, default \\ nil)
 

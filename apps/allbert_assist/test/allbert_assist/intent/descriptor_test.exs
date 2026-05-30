@@ -42,6 +42,23 @@ defmodule AllbertAssist.Intent.DescriptorTest do
     assert match?({:action_app_mismatch, :stocksage, "direct_answer"}, reason)
   end
 
+  test "normalizes optional workspace destinations for panel handoffs" do
+    assert {:ok, descriptor} =
+             Descriptor.normalize(%{
+               app_id: :allbert,
+               action_name: "open_calendar_panel",
+               label: "Open Calendar agenda",
+               destination: "workspace:calendar",
+               examples: ["show me today's agenda"],
+               required_slots: []
+             })
+
+    assert descriptor.id == "allbert:open_calendar_panel"
+    assert descriptor.destination == "workspace:calendar"
+    assert descriptor.capability.permission == :read_only
+    assert descriptor.capability.confirmation == :not_required
+  end
+
   test "extracts required slots conservatively" do
     assert {:ok, descriptor} =
              Descriptor.normalize(%{

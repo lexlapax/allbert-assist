@@ -4,6 +4,7 @@ defmodule AllbertAssist.App.CoreApp do
   use AllbertAssist.App
   use AllbertAssist.App.SurfaceProvider
 
+  alias AllbertAssist.Actions.Integrations.{OpenCalendarPanel, OpenGithubPanel, OpenMailPanel}
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace.{DiscoverySuggestions, McpIntegrationPanels}
@@ -16,13 +17,22 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.40 adds MCP client
-  # actions and the supported mcp:// resource boundary.
+  # the app (release-pinned, not semantic-per-app). v0.42 adds MCP integration
+  # intent handoffs for the calendar/mail/GitHub workspace panels.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.40.0"
+  def version, do: "0.42.0"
 
   @impl true
   def validate(_opts), do: :ok
+
+  @impl AllbertAssist.App
+  def actions do
+    [
+      OpenCalendarPanel,
+      OpenMailPanel,
+      OpenGithubPanel
+    ]
+  end
 
   @impl AllbertAssist.App
   def signals do
@@ -48,6 +58,53 @@ defmodule AllbertAssist.App.CoreApp do
     Enum.map(Surface.known_components(), fn component ->
       %{component: component, allowed_props: [], allowed_bindings: []}
     end)
+  end
+
+  def intent_descriptors do
+    [
+      %{
+        app_id: :allbert,
+        action_name: "open_calendar_panel",
+        label: "Open Calendar agenda",
+        destination: "workspace:calendar",
+        examples: [
+          "show me today's agenda",
+          "show agenda",
+          "open calendar"
+        ],
+        synonyms: ["agenda", "calendar", "today's agenda", "calendar panel"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "open_mail_panel",
+        label: "Open Mail inbox",
+        destination: "workspace:mail",
+        examples: [
+          "summarize my inbox",
+          "show my inbox",
+          "open mail"
+        ],
+        synonyms: ["inbox", "mail", "email summary", "mail panel"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "open_github_panel",
+        label: "Open GitHub work",
+        destination: "workspace:github",
+        examples: [
+          "list my open PRs",
+          "show my pull requests",
+          "open GitHub"
+        ],
+        synonyms: ["open prs", "pull requests", "github", "github panel"],
+        required_slots: [],
+        handoff_required?: true
+      }
+    ]
   end
 
   def fallback_surface(:workspace), do: {:ok, "Allbert workspace is available at /workspace."}

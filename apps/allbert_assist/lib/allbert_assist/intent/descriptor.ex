@@ -20,6 +20,7 @@ defmodule AllbertAssist.Intent.Descriptor do
     :label,
     :source,
     :source_module,
+    :destination,
     examples: [],
     synonyms: [],
     required_slots: [],
@@ -36,6 +37,7 @@ defmodule AllbertAssist.Intent.Descriptor do
           label: String.t(),
           source: atom() | nil,
           source_module: module() | nil,
+          destination: String.t() | nil,
           examples: [String.t()],
           synonyms: [String.t()],
           required_slots: [atom()],
@@ -49,6 +51,7 @@ defmodule AllbertAssist.Intent.Descriptor do
   @max_descriptor_text 120
   @max_list_items 20
   @slot_regex ~r/^[a-z][a-z0-9_]*$/
+  @destination_regex ~r/^(app|workspace):[a-z][a-z0-9_]*$/
 
   @spec normalize(map(), keyword()) :: {:ok, t()} | {:error, map()}
   def normalize(attrs, opts \\ [])
@@ -58,6 +61,7 @@ defmodule AllbertAssist.Intent.Descriptor do
          {:ok, action_name} <- action_name(field(attrs, :action_name)),
          {:ok, capability} <- capability(app_id, action_name),
          {:ok, label} <- bounded_required_string(field(attrs, :label), :label),
+         {:ok, destination} <- optional_destination(field(attrs, :destination)),
          {:ok, examples} <- bounded_string_list(field(attrs, :examples, []), :examples),
          {:ok, synonyms} <- bounded_string_list(field(attrs, :synonyms, []), :synonyms),
          {:ok, required_slots} <- slot_list(field(attrs, :required_slots, [])),
@@ -72,6 +76,7 @@ defmodule AllbertAssist.Intent.Descriptor do
          label: label,
          source: Keyword.get(opts, :source, :app),
          source_module: Keyword.get(opts, :source_module),
+         destination: destination,
          examples: examples,
          synonyms: synonyms,
          required_slots: required_slots,
@@ -223,6 +228,22 @@ defmodule AllbertAssist.Intent.Descriptor do
   end
 
   defp bounded_string(_value), do: nil
+
+  defp optional_destination(nil), do: {:ok, nil}
+
+  defp optional_destination(value) do
+    case bounded_string(value) do
+      destination when is_binary(destination) ->
+        if Regex.match?(@destination_regex, destination) do
+          {:ok, destination}
+        else
+          {:error, {:invalid_destination, value}}
+        end
+
+      _value ->
+        {:ok, nil}
+    end
+  end
 
   defp slot_list(values) when is_list(values) do
     values
