@@ -103,6 +103,25 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert action_names in [core_actions, core_actions ++ stocksage_actions]
   end
 
+  test "routes tool discovery prompts to internal find_tools action" do
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "what tools do I have for working with settings?",
+               channel: :test,
+               user_id: "local",
+               operator_id: "local",
+               thread_id: "thr-tool-discovery",
+               session_id: "sess-tool-discovery",
+               input_signal_id: "sig-tool-discovery"
+             })
+
+    assert response.status == :completed
+    assert response.decision.intent == :find_tools
+    assert response.decision.selected_action == "find_tools"
+    assert response.message =~ "tool candidate"
+    assert Enum.any?(response.actions, &(&1.name == "find_tools"))
+  end
+
   test "neutral app descriptor returns handoff response without running the app action" do
     with_stocksage_registered(fn ->
       assert {:ok, response} =

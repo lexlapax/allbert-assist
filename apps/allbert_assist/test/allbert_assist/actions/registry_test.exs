@@ -116,6 +116,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "mcp_list_resources",
              "mcp_read_resource",
              "mcp_call_tool",
+             "find_local_tools",
+             "find_tools",
              "validate_skill",
              "create_skill",
              "run_skill_script",
@@ -229,6 +231,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "mcp_list_resources",
              "mcp_read_resource",
              "mcp_call_tool",
+             "find_local_tools",
+             "find_tools",
              "validate_skill",
              "create_skill",
              "run_skill_script",
@@ -346,6 +350,16 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert mcp_call_tool.permission == :mcp_tool_call
     assert mcp_call_tool.execution_mode == :mcp_tool_call
     assert mcp_call_tool.resumable?
+
+    assert {:ok, find_local_tools} = Registry.capability("find_local_tools")
+    assert find_local_tools.permission == :read_only
+    assert find_local_tools.exposure == :internal
+    assert find_local_tools.execution_mode == :mcp_discovery
+
+    assert {:ok, find_tools} = Registry.capability("find_tools")
+    assert find_tools.permission == :read_only
+    assert find_tools.exposure == :internal
+    assert find_tools.execution_mode == :mcp_discovery
 
     assert {:ok, cancel_objective} = Registry.capability("cancel_objective")
     assert cancel_objective.permission == :objective_write
