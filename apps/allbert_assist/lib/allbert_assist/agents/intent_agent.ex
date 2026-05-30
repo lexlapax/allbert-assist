@@ -305,6 +305,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       fn -> online_skill_route(text, normalized) end,
       fn -> uri_consumer_route(text, normalized) end,
       fn -> mcp_route(text, normalized) end,
+      fn -> tool_discovery_route(text, normalized) end,
       fn -> unsupported_resource_workflow_route(text, normalized) end,
       fn -> command_route(normalized, context) end,
       fn -> external_network_route(normalized) end,
@@ -346,6 +347,10 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp capability_route(text), do: if(capability_request?(text), do: :list_skills)
+
+  defp tool_discovery_route(text, normalized) do
+    if tool_discovery_request?(normalized), do: {:find_tools, tool_discovery_query(text)}
+  end
 
   defp settings_route(text, normalized) do
     [
@@ -681,6 +686,16 @@ defmodule AllbertAssist.Agents.IntentAgent do
     skill_decision_attrs(:list_skills, "list-skills", "list_skills", text, context)
   end
 
+  defp decision_attrs({:find_tools, _query}, text, context) do
+    %{
+      intent: :find_tools,
+      reason: "The prompt asks to find matching tool candidates.",
+      selected_action: "find_tools",
+      trace_metadata: %{source_text: text},
+      context: context
+    }
+  end
+
   defp decision_attrs(:list_settings, _text, context) do
     action_decision_attrs(:list_settings, "list_settings", context)
   end
@@ -974,6 +989,10 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp run_route(:list_skills, text, context) do
     run_skill_action("list-skills", "list_skills", %{}, text, context)
+  end
+
+  defp run_route({:find_tools, query}, text, context) do
+    run_action("find_tools", %{query: query}, text, context)
   end
 
   defp run_route(:list_settings, text, context) do
@@ -2291,6 +2310,33 @@ defmodule AllbertAssist.Agents.IntentAgent do
       String.contains?(text, "skills you can inspect") ||
       String.contains?(text, "capabilities") ||
       String.contains?(text, "what actions")
+  end
+
+  defp tool_discovery_request?(text) do
+    normalized = String.downcase(text)
+
+    Enum.any?(
+      [
+        "find a tool",
+        "find tools",
+        "find a server",
+        "find server",
+        "what tools",
+        "which tools",
+        "tools do i have",
+        "tool for",
+        "server for",
+        "mcp server"
+      ],
+      &String.contains?(normalized, &1)
+    )
+  end
+
+  defp tool_discovery_query(text) do
+    case Regex.run(~r/\bfor(?:\s+working\s+with)?\s+(.+?)\??\s*$/i, text, capture: :all_but_first) do
+      [query] -> query |> String.trim() |> String.trim_trailing("?")
+      _other -> text
+    end
   end
 
   defp memory_text(text) do
