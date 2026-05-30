@@ -2380,17 +2380,85 @@ Expected direction:
 
 Plan: `docs/plans/v0.43-plan.md`
 Request flow: `docs/plans/v0.43-request-flow.md`
-ADR: `docs/adr/0040-browser-session-and-web-research-policy.md`
+ADR: `docs/adr/0040-browser-session-and-web-research-policy.md` (binding,
+deepened in the post-v0.42 planning pass). Amends
+`docs/adr/0013-uri-first-resource-identity.md` to register
+`browser://session/<id>` as a supported plugin-owned scheme.
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
+not implemented. Deepened in the post-v0.42 planning pass to v0.02-style
+per-milestone structure with development-lane annotations per ADR 0049.
 
 Expected direction:
 
-- Add browser-session Resource Access policy and a plugin-owned browser
-  supervisor.
-- Start with research, extraction, and screenshots; defer arbitrary form fill
-  and authenticated account operation until the policy UI is proven.
-- Include bounded extraction for HTML, markdown, plain text, and PDF.
+- Add the `./plugins/allbert.browser/` source-tree plugin: the third shipped
+  plugin alongside Telegram and email. Browser process ownership lives in
+  the plugin supervisor; core spawns no browser.
+- Register `browser://session/<id>` as the session identity URI (ADR 0013
+  v0.43 amendment); navigated URL targets keep their native
+  `https://`/`http://` URI and are authorized through per-domain remembered
+  grants on the target URL.
+- Add the six browser operation classes (`:browser_navigate`,
+  `:browser_extract`, `:browser_screenshot`, `:browser_interact`,
+  `:browser_form_fill`, `:browser_download`) and the
+  `:browser_session` origin kind to `Resources.OperationClass`.
+- Add the seven `:browser_*` permission classes to `Security.Policy` with
+  documented safety floors: navigation/click are `:needs_confirmation`;
+  extraction/screenshot are `:allowed`; form fill and download default
+  `:denied` until policy UI is proven.
+- Add the `browser.*` Settings Central namespace with `enabled: false`
+  default, read-only `headless`/`profile_mode`/credential-redaction
+  invariants, bounded extraction caps, ephemeral profile, and a
+  paused-by-default cache sweep job.
+- Register ten actions through the action DSL (`browser_doctor`,
+  `browser_start_session`, `browser_navigate`, `browser_extract`,
+  `browser_screenshot`, `browser_click`, `browser_fill`,
+  `browser_download`, `browser_close_session`, `browser_list_sessions`).
+  Doctor follows ADR 0047's redacted shape.
+- Enforce network policy at two layers: top-level navigation pre-flights
+  through `External.HttpPolicy.allow?/1`; subresources and redirects pass
+  through `AllbertBrowser.NetworkPolicy` enforced via the driver's
+  request-interception API. Cross-domain redirects fail closed.
+- Bounded extraction for HTML, markdown, plain text, and PDF. PDF parsing
+  is sandboxed (no embedded JS execution, no follow-on fetch, byte/page
+  caps, parse timeout, malformed-input fails closed).
+- Screenshot redaction at the driver layer: `type=password`,
+  `autocomplete=otp`, `autocomplete=cc-number` nodes are redacted before
+  bitmap encoding.
+- Workspace browser results panel under `:canvas_panels`; the panel calls
+  only registered actions, never the driver.
+- Trace redaction: cookies, Authorization, full URLs with userinfo, and
+  sensitive query parameter values are scrubbed from `memory/traces/`;
+  raw page content lives in `<ALLBERT_HOME>/cache/browser/<session_id>/`,
+  not in traces.
+- Routing predicate: keep v0.10 `external_network_request` and v0.11 inert
+  `summarize_url`/`inspect_document` intact; browser is the graduated path
+  when extraction needs DOM/JS or the operator explicitly asks.
+- Forward-pin v0.44 channel approval-primitive amendment: browser
+  confirmations are expressible as `:typed_command` (CLI/email),
+  `:button` (LiveView/Telegram/Discord/Slack), and `:link` (screenshot
+  review).
+- v0.47 may mine v0.43 redacted trace envelopes as one pattern source;
+  raw page content is out of bounds.
+
+M1 must lock six decisions before subsequent milestones begin: driver
+choice (Playwright recommended), OS support (macOS + Linux recommended;
+WSL2 parked to v0.43.x), headless-only (recommended), ephemeral-only
+profiles (recommended), browser-vs-HTTP routing predicate, and
+JavaScript-enabled default. See `docs/plans/v0.43-plan.md`
+§"M1 Decisions To Lock" for trade-offs.
+
+Exit signal: a disposable-home operator can enable browser, pass
+`browser_doctor`, approve a session start and a navigation, receive
+bounded extracted evidence (HTML/markdown/text/PDF), see a screenshot with
+credential inputs redacted, and inspect redacted trace/audit records.
+Per-domain grants survive across navigations within a host; cross-domain
+redirects fail closed; form fill and download deny by default.
+
+v0.43.x follow-on candidates (not 1.0-blocking): Windows/WSL2 driver
+support, persistent profiles + authenticated browser operation, headed
+mode, multi-tab/window orchestration, JS evaluation actions, broader
+document formats. All parked in `docs/plans/future-features.md`.
 
 ## v0.44: Channel Pack 1 - Discord And Slack
 

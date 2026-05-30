@@ -9,6 +9,13 @@ Amended at v0.40 MCP Client Integration: `mcp://` graduates from a reserved,
 inert scheme to a supported resource adapter (see ADR 0038). `agent://` and
 `agent+https://` remain reserved and inert.
 
+Amended at v0.43 Browser And Web Research: `browser://session/<id>` is added as
+a supported plugin-owned scheme for browser-session identity (see ADR 0040).
+Navigated URL targets keep their native `https://` or explicitly allowed
+`http://` URI; the session URI is the lifecycle/ownership identity, and the
+navigated URL is the operation target authorized by per-domain remembered
+grants. `agent://` and `agent+https://` remain reserved and inert.
+
 ## Context
 
 ADR 0012 named Allbert's shared local and remote resource access posture. The
@@ -85,6 +92,11 @@ Initial URI mappings:
   `pkg:` form when a package type exists
 - MCP resources: `mcp://<server-id>/<encoded-server-resource-uri>` (reserved and
   inert here; promoted to a supported adapter in v0.40, see ADR 0038)
+- browser sessions: `browser://session/<id>` (reserved and inert here; promoted
+  to a supported plugin-owned scheme in v0.43, see ADR 0040). The session URI
+  is lifecycle/ownership identity; navigated URL targets keep their native
+  `https://`/`http://` URI and are authorized through per-domain remembered
+  grants on the target URL, not on the session URI.
 - future agents: recognized but unsupported `agent://` or `agent+https://`
 
 Unsupported URI schemes are inert. A scheme may be represented for planning,
@@ -129,6 +141,13 @@ re-created through the current approval/resource-grant UX.
   `mcp://` URI, and MCP tool calls are confirmation-gated (ADR 0038). The URI
   substrate, grant matching, and operation-class scoping are unchanged; MCP just
   stops being inert.
+- v0.43 promotes `browser://session/<id>` to a supported, plugin-owned scheme
+  for browser-session identity (ADR 0040). Unlike `mcp://`, remembered grants
+  are not stored against the `browser://` URI itself; they are stored against
+  the navigated target URL (`https://<host>/...` with the existing
+  `:url_prefix` scope kind) plus the new browser operation classes. The
+  session URI participates in trace/audit identity, lifecycle ownership, and
+  cross-operation grant denial; it is not authority.
 - Existing confirmation/audit records remain historical evidence, but
   remembered grants without `resource_uri` are not compatibility inputs for
   matching after M12. No user data is deleted; operators may re-create grants
