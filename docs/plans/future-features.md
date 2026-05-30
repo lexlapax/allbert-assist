@@ -166,6 +166,36 @@ Still parked:
 - deeper extractor contracts, size caps, content-type mismatch handling, and
   prompt-injection/data-exfiltration evals for those formats.
 
+### Authenticated Browser Operation And Persistent Profiles
+
+Status: parked.
+
+v0.43 ships ephemeral browser sessions only: cookies, local storage, and
+IndexedDB are discarded on session close; form fill and download deny by
+default; headless-only; one active page per session; macOS + Linux only.
+
+Still parked:
+
+- persistent browser profiles under `<ALLBERT_HOME>/cache/browser/`;
+- credential storage, autofill profile data, and saved password reuse;
+- login flow recording and playback;
+- captive-portal and SSO redirect chains that need same-host re-entry;
+- authenticated tool calls that depend on a logged-in session;
+- multi-tab, multi-window, and popup orchestration;
+- headed mode and operator-visible browser windows;
+- Windows / WSL2 driver support;
+- JavaScript evaluation actions (`evaluate_js`, `add_init_script`,
+  `expose_function`);
+- WebSocket, service worker registration, push notifications, background
+  sync, geolocation, microphone, camera, or clipboard access from the
+  browser plugin;
+- recursive crawling, sitemap traversal, or automated link following;
+- broad upload (multipart file POST) beyond what tightened
+  `:browser_form_fill` would enable.
+
+Each widens the v0.43 trust posture and needs its own policy, storage,
+redaction, and eval story before re-entry.
+
 ### Code-Bearing Remote Plugin Distribution
 
 Status: parked.

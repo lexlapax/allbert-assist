@@ -578,8 +578,17 @@ historical aliases only and remain in old reference notes for continuity.
   reference. Native plugins for the other integrations are post-1.0 follow-on
   (v0.42.x).
 - v0.43: Browser And Web Research. Browser sessions become Resource Access
-  resources, with research/extract/screenshot first and broader account
-  operation deferred.
+  resources at `browser://session/<id>`, owned by the `./plugins/allbert.browser/`
+  plugin supervisor (core spawns no browser). Per-domain remembered grants
+  authorize navigation against the navigated URL, not the session URI; the
+  six browser operation classes (`:browser_navigate`, `:browser_extract`,
+  `:browser_screenshot`, `:browser_interact`, `:browser_form_fill`,
+  `:browser_download`) have per-class safety floors with form-fill and
+  download denied by default. Research, extraction, and screenshots are the
+  v0.43 surface; broader account operation, authenticated workflows,
+  persistent profiles, multi-tab orchestration, and JS evaluation are
+  deferred to v0.43.x or later. Page content is descriptive evidence, never
+  authority; nothing auto-promotes to memory.
 - v0.44: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
   through the existing channel adapter and plugin contracts; v0.44 also amends
   ADR 0016 to lock the channel approval-primitive contract before mobile
