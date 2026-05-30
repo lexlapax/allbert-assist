@@ -276,6 +276,7 @@ defmodule AllbertAssistWeb.Workspace.Components.AppLauncher do
   defp destination_icon(%{section: :apps, app_id: app_id}) do
     case app_id do
       "stocksage" -> "hero-chart-bar-micro"
+      "notes_files" -> "hero-document-text-micro"
       _app_id -> "hero-squares-2x2-micro"
     end
   end

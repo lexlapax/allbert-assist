@@ -132,14 +132,17 @@ authority boundary:
 | Calendar | `calendar` | Resource-oriented calendar MCP server when available; tool-only servers remain supported but less automatic. | `mcp_list_tools`, `mcp_list_resources`, `mcp_read_resource`, `mcp_call_tool` | Agenda/event refresh uses `mcp_read_resource` only when the server exposes read-only resources such as event lists or calendar summaries. | Create/update/delete and availability tools are `mcp_call_tool` and remain per-call confirmed. | If no resource-backed read is exposed, the panel must show an operator-triggered confirmed-tool action or a clear empty/configure state. It must not promise prompt-free agenda refresh. |
 | Mail | `mail` | Resource-oriented mail MCP server for mailbox/thread/message reads. | `mcp_list_tools`, `mcp_list_resources`, `mcp_read_resource`, `mcp_call_tool` | Header, thread, and message-body summaries should use `mcp_read_resource` with remembered Resource Access grants when resources exist. | Send/reply/label/archive/search tools are `mcp_call_tool`; write-like flows are confirmed every time. | The panel can refresh read resources under grants, but sends/modifications always route through Approval Handoff. |
 | GitHub | `github` | Official GitHub MCP server or a compatible server exposing repository artifacts as resources where possible. | `mcp_list_tools`, `mcp_list_resources`, `mcp_read_resource`, `mcp_call_tool` | Repository files, issue/PR artifacts, and comments prefer resources when exposed. | Search, mutation, workflow, comment, and issue creation tools are confirmed `mcp_call_tool` calls. | Overview panels use resources for inspectable artifacts and keep tool-backed search/mutations operator-triggered. |
-| Notes/files | `notes_files` | Native Allbert plugin/reference path, not an MCP server. | Existing file Resource Access actions and plugin-owned actions/surfaces. | File reads map to existing `file://` Resource Access scopes. | File writes/deletes follow the existing file permission/confirmation path. | No new permission class; no MCP grant is reused for local file IO. |
+| Notes/files | `notes_files` | Native Allbert plugin/reference path, not an MCP server. | Plugin-owned `search_notes`, `read_note`, `write_note` actions and workspace panels. | File reads map to `file://` `read_local_path` Resource Access refs under the configured notes root. | `write_note` maps to `file://` `write_local_path` refs and the dedicated `:notes_file_write` confirmation floor. | No MCP grant is reused for local file IO; the `:notes_files` memory namespace is non-writable and never auto-promotes. |
 
-v0.42 M7-M8 ships the Calendar, Mail, and GitHub workspace destinations:
+v0.42 M7-M9 ships the Calendar, Mail, GitHub, and Notes/files workspace
+destinations:
 `/workspace?destination=workspace:calendar`,
-`/workspace?destination=workspace:mail`, and
-`/workspace?destination=workspace:github`. These panels inspect configured MCP
-servers through the registered MCP actions above. They render resource previews
-only when an applicable remembered `mcp://` grant exists; otherwise they show an
+`/workspace?destination=workspace:mail`,
+`/workspace?destination=workspace:github`, and
+`/workspace?destination=app:notes_files`. Calendar, Mail, and GitHub panels
+inspect configured MCP servers through the registered MCP actions above. They
+render resource previews only when an applicable remembered `mcp://` grant
+exists; otherwise they show an
 approval affordance or a per-call-confirmed tool summary. Create-event, reply,
 and GitHub comment buttons route through Approval Handoff before any MCP
 transport call.
