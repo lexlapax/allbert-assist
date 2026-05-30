@@ -40,6 +40,9 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.ReadSkill
   alias AllbertAssist.Actions.Intent.RunShellCommand
   alias AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow
+  alias AllbertAssist.Actions.Integrations.OpenCalendarPanel
+  alias AllbertAssist.Actions.Integrations.OpenGithubPanel
+  alias AllbertAssist.Actions.Integrations.OpenMailPanel
   alias AllbertAssist.Actions.Jobs.RegistryHealth
   alias AllbertAssist.Actions.Jobs.TraceSummary
   alias AllbertAssist.Actions.Mcp.CallTool, as: McpCallTool
@@ -150,7 +153,10 @@ defmodule AllbertAssist.Actions.Registry do
     ListApps,
     ShowApp,
     ListPlugins,
-    ShowPlugin
+    ShowPlugin,
+    OpenCalendarPanel,
+    OpenMailPanel,
+    OpenGithubPanel
   ]
 
   @internal_actions [

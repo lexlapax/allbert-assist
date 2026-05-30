@@ -121,6 +121,19 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   def handle_event("ask", _params, socket), do: {:noreply, socket}
 
+  def handle_event("accept_intent_handoff", %{"destination" => destination} = params, socket)
+      when is_binary(destination) and destination != "" do
+    canvas_destination = normalize_canvas_destination(destination)
+
+    socket =
+      socket
+      |> dismiss_intent_surface(params, "handoff_accepted")
+      |> assign_canvas_destination(canvas_destination)
+      |> push_patch(to: workspace_path(socket.assigns.thread_id, canvas_destination))
+
+    {:noreply, socket}
+  end
+
   def handle_event("accept_intent_handoff", params, socket) do
     with {:ok, app_id} <- required_param(params, "app-id"),
          {:ok, source_text} <- required_param(params, "source-text"),

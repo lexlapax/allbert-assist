@@ -697,6 +697,7 @@ defmodule AllbertAssist.Intent.Engine do
       permission: field(candidate, :permission),
       execution_mode: field(candidate, :execution_mode),
       confirmation: field(candidate, :confirmation),
+      destination: field(descriptor, :destination),
       extracted_slots: get_in_trace(candidate, :extracted_slots) || %{},
       missing_slots: get_in_trace(candidate, :missing_slots) || [],
       descriptor: descriptor,
@@ -719,12 +720,16 @@ defmodule AllbertAssist.Intent.Engine do
   end
 
   defp descriptor_options(candidate) do
+    trace_metadata = field(candidate, :trace_metadata, %{})
+    descriptor = field(trace_metadata, :descriptor, %{})
+
     [
       %{
         app_id: field(candidate, :app_id),
         action_name: field(candidate, :action_name),
         label: field(candidate, :label),
-        candidate_id: field(candidate, :id)
+        candidate_id: field(candidate, :id),
+        destination: field(descriptor, :destination)
       }
     ]
   end

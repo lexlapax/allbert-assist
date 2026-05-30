@@ -1058,6 +1058,44 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert {:ok, []} = Workspace.ephemeral_surfaces(thread.id, "local")
   end
 
+  test "intent handoff accept can open a workspace destination without resubmitting", %{
+    conn: conn
+  } do
+    thread = create_workspace_thread()
+
+    handoff =
+      Handoff.new!(%{
+        kind: :app_handoff,
+        app_id: :allbert,
+        action_name: "open_calendar_panel",
+        label: "Open Calendar agenda",
+        source_text: "show me today's agenda",
+        destination: "workspace:calendar"
+      })
+
+    assert :ok =
+             WorkspaceEmitters.intent_proposal(handoff, %{
+               user_id: "local",
+               thread_id: thread.id
+             })
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
+    assert render_until(view, "Open Calendar?") =~ "Accept the handoff"
+
+    view
+    |> element("#intent-handoff-accept")
+    |> render_click()
+
+    assert_patch(
+      view,
+      ~p"/workspace?#{[thread_id: thread.id, destination: "workspace:calendar"]}"
+    )
+
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:calendar']")
+    assert {:ok, []} = Workspace.ephemeral_surfaces(thread.id, "local")
+    refute_receive {:runtime_request, _request}, 100
+  end
+
   test "intent handoff decline dismisses without setting active app", %{conn: conn} do
     thread = create_workspace_thread()
 

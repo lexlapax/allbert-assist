@@ -43,17 +43,24 @@ defmodule AllbertAssist.Intent.EngineTest do
 
     assert {:ok, "allbert.email"} = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
     assert {:ok, "stocksage"} = PluginRegistry.register_module(StockSage.Plugin)
+    assert {:ok, "allbert.notes_files"} = PluginRegistry.register_module(AllbertNotesFiles.Plugin)
 
     app_registered? = AppRegistry.known_app_id?(:stocksage)
+    notes_app_registered? = AppRegistry.known_app_id?(:notes_files)
 
     unless app_registered? do
       assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
+    end
+
+    unless notes_app_registered? do
+      assert {:ok, :notes_files} = AppRegistry.register(AllbertNotesFiles.App)
     end
 
     on_exit(fn ->
       PluginRegistry.clear()
       Enum.each(original_plugins, &PluginRegistry.register_entry/1)
       unless app_registered?, do: AppRegistry.unregister(:stocksage)
+      unless notes_app_registered?, do: AppRegistry.unregister(:notes_files)
 
       Enum.each(original_diagnostics, fn {plugin_id, diagnostics} ->
         PluginRegistry.put_diagnostics(plugin_id, diagnostics)
@@ -204,6 +211,37 @@ defmodule AllbertAssist.Intent.EngineTest do
     refute decision.selected_action == "queue_analysis"
     assert decision.trace_metadata.intent_handoff.action_name == "queue_analysis"
     assert decision.trace_metadata.intent_handoff.missing_slots == ["symbol"]
+  end
+
+  test "v0.42 integration descriptors propose panel and notes handoffs without authorizing" do
+    cases = [
+      {"show me today's agenda", :allbert, "open_calendar_panel", "workspace:calendar"},
+      {"summarize my inbox", :allbert, "open_mail_panel", "workspace:mail"},
+      {"list my open PRs", :allbert, "open_github_panel", "workspace:github"},
+      {"find notes about onboarding", :notes_files, "search_notes", nil}
+    ]
+
+    for {text, app_id, action_name, destination} <- cases do
+      assert {:ok, decision} =
+               Engine.decide(EvalFixtures.request(text: text, active_app: :allbert))
+
+      assert decision.intent == :app_handoff
+      refute decision.selected_action == action_name
+      assert decision.trace_metadata.intent_handoff.app_id == app_id
+      assert decision.trace_metadata.intent_handoff.action_name == action_name
+      assert decision.trace_metadata.intent_handoff.permission == :read_only
+
+      if destination do
+        assert decision.trace_metadata.intent_handoff.destination == destination
+      else
+        refute Map.has_key?(decision.trace_metadata.intent_handoff, :destination)
+      end
+
+      assert Enum.any?(
+               decision.trace_metadata.intent_candidates.descriptors,
+               &(&1.app_id == app_id and &1.action_name == action_name)
+             )
+    end
   end
 
   test "descriptor handoff can be disabled through Settings Central" do
