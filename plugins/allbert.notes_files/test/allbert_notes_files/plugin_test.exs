@@ -11,6 +11,7 @@ defmodule AllbertNotesFiles.PluginTest do
   alias AllbertAssist.Plugin.Discovery
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.Skills.Registry, as: SkillsRegistry
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
 
@@ -60,6 +61,37 @@ defmodule AllbertNotesFiles.PluginTest do
     assert [skill_root] = AllbertNotesFiles.Plugin.skill_paths()
     assert String.ends_with?(skill_root, "plugins/allbert.notes_files/skills")
     assert AllbertNotesFiles.Plugin.child_spec([]) == :ignore
+  end
+
+  test "reference skills use canonical Allbert capability metadata" do
+    assert {:ok, skills} = SkillsRegistry.list(%{})
+    assert {:ok, diagnostics} = SkillsRegistry.diagnostics(%{})
+
+    search = Enum.find(skills, &(&1.name == "search-notes"))
+    write = Enum.find(skills, &(&1.name == "write-note"))
+
+    assert search.plugin_id == "allbert.notes_files"
+    assert search.kind == :capability_candidate
+    assert search.capability_contract.actions == ["search_notes"]
+    assert search.capability_contract.permissions == ["read_only"]
+    assert search.capability_contract.confirmation == "not_required"
+    assert search.contract_validation.status == :valid
+
+    assert write.plugin_id == "allbert.notes_files"
+    assert write.kind == :capability_candidate
+    assert write.capability_contract.actions == ["write_note"]
+    assert write.capability_contract.permissions == ["notes_file_write"]
+    assert write.capability_contract.confirmation == "required"
+    assert write.contract_validation.status == :valid
+
+    notes_skill_paths =
+      AllbertNotesFiles.Plugin.skill_paths()
+      |> Enum.map(&Path.expand/1)
+
+    refute Enum.any?(diagnostics, fn diagnostic ->
+             notes_skill_diagnostic?(diagnostic, notes_skill_paths) and
+               diagnostic.code in [:unknown_frontmatter_field, :unknown_allbert_metadata]
+           end)
   end
 
   test "discovery finds notes/files as a shipped source-tree plugin" do
@@ -173,4 +205,9 @@ defmodule AllbertNotesFiles.PluginTest do
   end
 
   defp repo_root, do: Path.expand("../../../../", __DIR__)
+
+  defp notes_skill_diagnostic?(diagnostic, notes_skill_paths) do
+    source_path = diagnostic |> Map.get(:source_path, "") |> to_string() |> Path.expand()
+    Enum.any?(notes_skill_paths, &String.starts_with?(source_path, &1))
+  end
 end

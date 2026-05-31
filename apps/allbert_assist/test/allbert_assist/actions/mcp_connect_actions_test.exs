@@ -233,10 +233,40 @@ defmodule AllbertAssist.Actions.McpConnectActionsTest do
     refute response[:confirmation_id]
   end
 
-  defp persist_candidate(manifest) do
+  test "connect rejects credential-shaped remote URLs before confirmation" do
+    for {url, expected} <- [
+          {"https://user:pass@server.example/mcp", {:credentialed_remote_url, :userinfo}},
+          {"https://server.example/mcp?token=abc",
+           {:credentialed_remote_url, {:query_param, "token"}}},
+          {"https://server.example/mcp?api_key=abc",
+           {:credentialed_remote_url, {:query_param, "api_key"}}},
+          {"https://server.example/mcp?session=abcdefghijklmnopqrstuvwxyzABCDEF",
+           {:credentialed_remote_url, {:opaque_query_param, "session"}}}
+        ] do
+      manifest =
+        McpRegistryFixtures.official_shell_risk_server()
+        |> put_in(["packages", Access.at(0), "transport", "url"], url)
+
+      {:ok, candidate} = persist_candidate(manifest, "url-#{System.unique_integer([:positive])}")
+
+      assert {:ok, response} =
+               Runner.run("mcp_server_connect", %{candidate_id: candidate.id}, %{
+                 actor: "operator",
+                 channel: :test
+               })
+
+      assert response.status == :failed
+      assert response.error == expected
+      refute response[:confirmation_id]
+    end
+  end
+
+  defp persist_candidate(manifest), do: persist_candidate(manifest, manifest["name"])
+
+  defp persist_candidate(manifest, suffix) do
     {:ok, candidate} =
       ToolCandidate.normalize(%{
-        id: "remote_mcp:official:#{manifest["name"]}",
+        id: "remote_mcp:official:#{suffix}",
         name: manifest["name"],
         description: manifest["description"],
         source: :remote_mcp,

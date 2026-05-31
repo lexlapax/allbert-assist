@@ -6,6 +6,7 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
   alias AllbertAssist.Tools.Discovery
 
   @id_pattern ~r/[^a-z0-9_]+/
+  @credential_query_names ~w(token api_key key secret password bearer access_token auth)
 
   defstruct [
     :candidate_id,
@@ -154,20 +155,19 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
       transport not in [:sse, :streamable_http] ->
         {:error, {:unsupported_transport, transport}}
 
-      not valid_url?(base_url) ->
-        {:error, :missing_remote_url}
-
       true ->
-        {auth_ref, required_secret_refs} = auth_ref(auth_method, server_id)
+        with :ok <- validate_remote_url(base_url) do
+          {auth_ref, required_secret_refs} = auth_ref(auth_method, server_id)
 
-        {:ok,
-         %{
-           transport: transport,
-           base_url: base_url,
-           auth_ref: auth_ref,
-           required_secret_refs: required_secret_refs,
-           exact_url: base_url
-         }}
+          {:ok,
+           %{
+             transport: transport,
+             base_url: base_url,
+             auth_ref: auth_ref,
+             required_secret_refs: required_secret_refs,
+             exact_url: base_url
+           }}
+        end
     end
   end
 
@@ -224,14 +224,16 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
     if valid_url?(base_url) do
       {auth_ref, required_secret_refs} = auth_ref(auth_method, server_id)
 
-      {:ok,
-       %{
-         transport: type,
-         base_url: base_url,
-         auth_ref: auth_ref,
-         required_secret_refs: required_secret_refs,
-         exact_url: base_url
-       }}
+      with :ok <- validate_remote_url(base_url) do
+        {:ok,
+         %{
+           transport: type,
+           base_url: base_url,
+           auth_ref: auth_ref,
+           required_secret_refs: required_secret_refs,
+           exact_url: base_url
+         }}
+      end
     else
       {:error, :missing_remote_url}
     end
@@ -371,6 +373,60 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
   end
 
   defp valid_url?(_value), do: false
+
+  defp validate_remote_url(value) when is_binary(value) do
+    uri = URI.parse(value)
+
+    cond do
+      not valid_url?(value) ->
+        {:error, :missing_remote_url}
+
+      is_binary(uri.userinfo) and uri.userinfo != "" ->
+        {:error, {:credentialed_remote_url, :userinfo}}
+
+      credential_query = credential_query_param(uri.query) ->
+        {:error, {:credentialed_remote_url, {:query_param, credential_query}}}
+
+      opaque_query = opaque_query_param(uri.query) ->
+        {:error, {:credentialed_remote_url, {:opaque_query_param, opaque_query}}}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_remote_url(_value), do: {:error, :missing_remote_url}
+
+  defp credential_query_param(nil), do: nil
+
+  defp credential_query_param(query) do
+    query
+    |> URI.query_decoder()
+    |> Enum.find_value(fn {key, _value} ->
+      normalized =
+        key
+        |> to_string()
+        |> String.downcase()
+
+      if normalized in @credential_query_names, do: normalized
+    end)
+  end
+
+  defp opaque_query_param(nil), do: nil
+
+  defp opaque_query_param(query) do
+    query
+    |> URI.query_decoder()
+    |> Enum.find_value(fn {key, value} ->
+      if opaque_secret_like?(value), do: to_string(key)
+    end)
+  end
+
+  defp opaque_secret_like?(value) when is_binary(value) do
+    byte_size(value) >= 32 and String.match?(value, ~r/^[A-Za-z0-9_\-.~+\/=]+$/)
+  end
+
+  defp opaque_secret_like?(_value), do: false
 
   defp get_any(nil, _keys), do: nil
 
