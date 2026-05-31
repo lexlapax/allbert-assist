@@ -13,7 +13,8 @@ defmodule AllbertAssist.Resources.ResourceURI do
           required(:canonical_id) => String.t(),
           required(:unsupported?) => boolean(),
           optional(:server_id) => String.t(),
-          optional(:server_resource_uri) => String.t()
+          optional(:server_resource_uri) => String.t(),
+          optional(:session_id) => String.t()
         }
 
   @spec file(term()) :: {:ok, String.t()}
@@ -104,6 +105,16 @@ defmodule AllbertAssist.Resources.ResourceURI do
   @spec mcp!(term(), term()) :: String.t()
   def mcp!(server_id, server_resource_uri), do: bang(mcp(server_id, server_resource_uri))
 
+  @spec browser_session(term()) :: {:ok, String.t()} | {:error, term()}
+  def browser_session(session_id) do
+    with {:ok, session_id} <- browser_session_id(session_id) do
+      {:ok, "browser://session/#{session_id}"}
+    end
+  end
+
+  @spec browser_session!(term()) :: String.t()
+  def browser_session!(session_id), do: bang(browser_session(session_id))
+
   @spec allbert_home(term()) :: {:ok, String.t()} | {:error, term()}
   def allbert_home(path) do
     with {:ok, path} <- non_empty(path, :missing_allbert_home_path) do
@@ -177,6 +188,14 @@ defmodule AllbertAssist.Resources.ResourceURI do
     end
   end
 
+  def scope_uri(:browser_session, :browser_session, value, resource_uri) do
+    cond do
+      scheme(value) == "browser" -> normalize(value)
+      is_binary(value) and String.trim(value) != "" -> browser_session(value)
+      true -> normalize(resource_uri)
+    end
+  end
+
   def scope_uri(_origin_kind, kind, _value, _resource_uri),
     do: {:error, {:unsupported_scope_uri, kind}}
 
@@ -245,6 +264,9 @@ defmodule AllbertAssist.Resources.ResourceURI do
     do: normalize_hierarchical(uri, original)
 
   defp normalize_parsed(%URI{scheme: "mcp"} = uri, original), do: normalize_mcp(uri, original)
+
+  defp normalize_parsed(%URI{scheme: "browser"} = uri, original),
+    do: normalize_browser(uri, original)
 
   defp normalize_parsed(%URI{scheme: scheme} = uri, original)
        when scheme in @unsupported_schemes,
@@ -324,6 +346,18 @@ defmodule AllbertAssist.Resources.ResourceURI do
        unsupported?: false,
        server_id: server_id,
        server_resource_uri: server_resource_uri
+     }}
+  end
+
+  defp derive(%URI{scheme: "browser", host: "session", path: path}, resource_uri) do
+    session_id = path |> to_string() |> String.trim_leading("/") |> URI.decode()
+
+    {:ok,
+     %{
+       origin_kind: :browser_session,
+       canonical_id: resource_uri,
+       unsupported?: false,
+       session_id: session_id
      }}
   end
 
@@ -411,12 +445,40 @@ defmodule AllbertAssist.Resources.ResourceURI do
     end
   end
 
+  defp normalize_browser(
+         %URI{host: "session", path: path, query: query, fragment: fragment},
+         original
+       )
+       when query in [nil, ""] and fragment in [nil, ""] do
+    case path |> to_string() |> String.trim_leading("/") |> String.split("/", trim: true) do
+      [session_id] ->
+        with {:ok, session_id} <- browser_session_id(URI.decode(session_id)) do
+          {:ok, "browser://session/#{session_id}"}
+        end
+
+      _other ->
+        {:error, {:invalid_browser_session_uri, original}}
+    end
+  end
+
+  defp normalize_browser(_uri, original), do: {:error, {:invalid_browser_session_uri, original}}
+
   defp mcp_server_id(value) do
     with {:ok, value} <- non_empty(value, :missing_mcp_server_id) do
       if Regex.match?(~r/^[A-Za-z0-9_-]+$/, value) do
         {:ok, value}
       else
         {:error, {:invalid_mcp_server_id, value}}
+      end
+    end
+  end
+
+  defp browser_session_id(value) do
+    with {:ok, value} <- non_empty(value, :missing_browser_session_id) do
+      if Regex.match?(~r/^[A-Za-z0-9_-]+$/, value) do
+        {:ok, value}
+      else
+        {:error, {:invalid_browser_session_id, value}}
       end
     end
   end

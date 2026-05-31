@@ -925,6 +925,41 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("plugins.example.settings.mode", "reckless", %{audit?: false})
   end
 
+  test "browser plugin settings schema resolves defaults and invariants" do
+    PluginRegistry.clear()
+    assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
+
+    assert {:ok, false} = Settings.get("browser.enabled")
+    assert {:ok, "playwright_chromium"} = Settings.get("browser.driver.kind")
+    assert {:ok, true} = Settings.get("browser.session.headless")
+    assert {:ok, "ephemeral"} = Settings.get("browser.session.profile_mode")
+    assert {:ok, false} = Settings.get("browser.screenshot.full_page")
+    assert {:ok, "[REDACTED]"} = Settings.get("browser.screenshot.redact_credential_inputs")
+    assert Settings.schema()["browser.screenshot.redact_credential_inputs"].default == true
+    assert {:ok, 0} = Settings.get("browser.navigation.max_redirects")
+    assert {:ok, []} = Settings.get("browser.routing.dynamic_hosts")
+
+    assert {:ok, enabled} = Settings.put("browser.enabled", true, %{audit?: false})
+    assert enabled.value == true
+
+    assert {:ok, redirects} =
+             Settings.put("browser.navigation.max_redirects", 3, %{audit?: false})
+
+    assert redirects.value == 3
+
+    assert {:error, {:read_only_setting, "browser.driver.kind"}} =
+             Settings.put("browser.driver.kind", "raw_cdp", %{audit?: false})
+
+    assert {:error, {:read_only_setting, "browser.session.headless"}} =
+             Settings.put("browser.session.headless", false, %{audit?: false})
+
+    assert {:error, {:read_only_setting, "browser.screenshot.full_page"}} =
+             Settings.put("browser.screenshot.full_page", true, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "browser.navigation.max_redirects", _reason}} =
+             Settings.put("browser.navigation.max_redirects", 4, %{audit?: false})
+  end
+
   test "app-contributed settings schema participates in Settings Central" do
     assert {:ok, :settings_fixture_app} = AppRegistry.register(AppSettingsFixture)
 

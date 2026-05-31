@@ -14,6 +14,7 @@ defmodule AllbertAssist.Resources.OperationClass do
     remote_source
     package_registry
     mcp_resource
+    browser_session
     agent_endpoint
   ]a
 
@@ -32,6 +33,12 @@ defmodule AllbertAssist.Resources.OperationClass do
     inspect_document
     mcp_tool_call
     mcp_resource_read
+    browser_navigate
+    browser_extract
+    browser_screenshot
+    browser_interact
+    browser_form_fill
+    browser_download
     import_skill
     package_install
   ]a
@@ -58,6 +65,7 @@ defmodule AllbertAssist.Resources.OperationClass do
     skill_resource_id
     mcp_server
     mcp_tool
+    browser_session
   ]a
 
   @default_access_modes %{
@@ -75,6 +83,12 @@ defmodule AllbertAssist.Resources.OperationClass do
     inspect_document: :read,
     mcp_tool_call: :call,
     mcp_resource_read: :read,
+    browser_navigate: :fetch,
+    browser_extract: :read,
+    browser_screenshot: :read,
+    browser_interact: :execute,
+    browser_form_fill: :write,
+    browser_download: :write,
     import_skill: :import,
     package_install: :install
   }
@@ -87,6 +101,7 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :remote_source
           | :package_registry
           | :mcp_resource
+          | :browser_session
           | :agent_endpoint
 
   @type operation_class ::
@@ -104,6 +119,12 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :inspect_document
           | :mcp_tool_call
           | :mcp_resource_read
+          | :browser_navigate
+          | :browser_extract
+          | :browser_screenshot
+          | :browser_interact
+          | :browser_form_fill
+          | :browser_download
           | :import_skill
           | :package_install
 
@@ -128,6 +149,7 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :skill_resource_id
           | :mcp_server
           | :mcp_tool
+          | :browser_session
 
   @spec origin_kinds() :: nonempty_list(origin_kind())
   def origin_kinds, do: @origin_kinds

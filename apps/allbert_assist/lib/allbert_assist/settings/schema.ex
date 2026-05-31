@@ -109,6 +109,13 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.mcp_server_connect",
     "permissions.mcp_tool_call",
     "permissions.mcp_resource_read",
+    "permissions.browser_session_start",
+    "permissions.browser_navigate",
+    "permissions.browser_extract",
+    "permissions.browser_screenshot",
+    "permissions.browser_interact",
+    "permissions.browser_form_fill",
+    "permissions.browser_download",
     "execution.local.enabled",
     "execution.local.allowed_roots",
     "execution.local.allowed_commands",
@@ -1172,6 +1179,55 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
+    "permissions.browser_session_start" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["needs_confirmation", "denied"]
+    },
+    "permissions.browser_navigate" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["needs_confirmation", "denied"]
+    },
+    "permissions.browser_extract" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.browser_screenshot" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.browser_interact" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["needs_confirmation", "denied"]
+    },
+    "permissions.browser_form_fill" => %{
+      type: :enum,
+      default: "denied",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["needs_confirmation", "denied"]
+    },
+    "permissions.browser_download" => %{
+      type: :enum,
+      default: "denied",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["needs_confirmation", "denied"]
+    },
     "execution.local.enabled" => %{
       type: :boolean,
       default: false,
@@ -2006,7 +2062,14 @@ defmodule AllbertAssist.Settings.Schema do
       "tool_discovery" => "allowed",
       "mcp_server_connect" => "needs_confirmation",
       "mcp_tool_call" => "needs_confirmation",
-      "mcp_resource_read" => "allowed"
+      "mcp_resource_read" => "allowed",
+      "browser_session_start" => "needs_confirmation",
+      "browser_navigate" => "needs_confirmation",
+      "browser_extract" => "allowed",
+      "browser_screenshot" => "allowed",
+      "browser_interact" => "needs_confirmation",
+      "browser_form_fill" => "denied",
+      "browser_download" => "denied"
     },
     "mcp" => %{
       "servers" => %{},

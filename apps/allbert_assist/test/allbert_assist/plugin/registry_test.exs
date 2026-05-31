@@ -160,6 +160,9 @@ defmodule AllbertAssist.Plugin.RegistryTest do
 
     assert {:module, AllbertAssist.Plugins.Email, _opts} =
              Enum.find(discoveries, &match?({:module, AllbertAssist.Plugins.Email, _}, &1))
+
+    assert {:module, AllbertBrowser.Plugin, _opts} =
+             Enum.find(discoveries, &match?({:module, AllbertBrowser.Plugin, _}, &1))
   end
 
   test "discovery records missing, invalid, and disabled plugin diagnostics" do

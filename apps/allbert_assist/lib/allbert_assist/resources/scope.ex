@@ -56,6 +56,9 @@ defmodule AllbertAssist.Resources.Scope do
   @spec mcp_tool(term()) :: t()
   def mcp_tool(value), do: new!(:mcp_tool, value)
 
+  @spec browser_session(term()) :: t()
+  def browser_session(value), do: new!(:browser_session, value)
+
   @spec to_map(t()) :: map()
   def to_map(%__MODULE__{} = scope) do
     %{kind: scope.kind, value: scope.value}

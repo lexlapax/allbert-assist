@@ -9,6 +9,7 @@ defmodule AllbertAssist.Plugin.Discovery do
     "allbert.telegram" => AllbertAssist.Plugins.Telegram,
     "allbert.email" => AllbertAssist.Plugins.Email,
     "allbert.notes_files" => AllbertNotesFiles.Plugin,
+    "allbert.browser" => AllbertBrowser.Plugin,
     "stocksage" => StockSage.Plugin
   }
 

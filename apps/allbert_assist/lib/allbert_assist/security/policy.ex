@@ -29,7 +29,14 @@ defmodule AllbertAssist.Security.Policy do
     tool_discovery: "permissions.tool_discovery",
     mcp_server_connect: "permissions.mcp_server_connect",
     mcp_tool_call: "permissions.mcp_tool_call",
-    mcp_resource_read: "permissions.mcp_resource_read"
+    mcp_resource_read: "permissions.mcp_resource_read",
+    browser_session_start: "permissions.browser_session_start",
+    browser_navigate: "permissions.browser_navigate",
+    browser_extract: "permissions.browser_extract",
+    browser_screenshot: "permissions.browser_screenshot",
+    browser_interact: "permissions.browser_interact",
+    browser_form_fill: "permissions.browser_form_fill",
+    browser_download: "permissions.browser_download"
   }
 
   @default_decisions %{
@@ -58,6 +65,13 @@ defmodule AllbertAssist.Security.Policy do
     mcp_server_connect: :needs_confirmation,
     mcp_tool_call: :needs_confirmation,
     mcp_resource_read: :allowed,
+    browser_session_start: :needs_confirmation,
+    browser_navigate: :needs_confirmation,
+    browser_extract: :allowed,
+    browser_screenshot: :allowed,
+    browser_interact: :needs_confirmation,
+    browser_form_fill: :denied,
+    browser_download: :denied,
     settings_secret_write: :allowed,
     settings_secret_read: :denied
   }
@@ -90,6 +104,13 @@ defmodule AllbertAssist.Security.Policy do
           | :mcp_server_connect
           | :mcp_tool_call
           | :mcp_resource_read
+          | :browser_session_start
+          | :browser_navigate
+          | :browser_extract
+          | :browser_screenshot
+          | :browser_interact
+          | :browser_form_fill
+          | :browser_download
           | :settings_secret_write
           | :settings_secret_read
 
@@ -122,6 +143,13 @@ defmodule AllbertAssist.Security.Policy do
       :mcp_server_connect,
       :mcp_tool_call,
       :mcp_resource_read,
+      :browser_session_start,
+      :browser_navigate,
+      :browser_extract,
+      :browser_screenshot,
+      :browser_interact,
+      :browser_form_fill,
+      :browser_download,
       :settings_secret_write,
       :settings_secret_read
     ]
@@ -185,6 +213,11 @@ defmodule AllbertAssist.Security.Policy do
   def safety_floor(:dynamic_integration), do: :needs_confirmation
   def safety_floor(:mcp_server_connect), do: :needs_confirmation
   def safety_floor(:mcp_tool_call), do: :needs_confirmation
+  def safety_floor(:browser_session_start), do: :needs_confirmation
+  def safety_floor(:browser_navigate), do: :needs_confirmation
+  def safety_floor(:browser_interact), do: :needs_confirmation
+  def safety_floor(:browser_form_fill), do: :needs_confirmation
+  def safety_floor(:browser_download), do: :needs_confirmation
   def safety_floor(:stocksage_analyze), do: :needs_confirmation
   def safety_floor(:stocksage_evidence_fetch), do: :needs_confirmation
   def safety_floor(:notes_file_write), do: :needs_confirmation
@@ -286,6 +319,33 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:external_network, :needs_confirmation, _configured, _floor, _context),
     do: "External network access requires confirmation and a configured v0.10 adapter."
+
+  defp reason(:browser_session_start, :needs_confirmation, _configured, _floor, _context),
+    do: "Starting a browser session requires explicit operator confirmation."
+
+  defp reason(:browser_navigate, :needs_confirmation, _configured, _floor, _context),
+    do: "Browser navigation requires confirmation or a matching remembered domain grant."
+
+  defp reason(:browser_extract, :allowed, _configured, _floor, _context),
+    do: "Bounded extraction from an already-loaded browser page is allowed."
+
+  defp reason(:browser_screenshot, :allowed, _configured, _floor, _context),
+    do: "Bounded browser screenshots are allowed with credential-input redaction."
+
+  defp reason(:browser_interact, :needs_confirmation, _configured, _floor, _context),
+    do: "Browser interaction can change page state and requires confirmation."
+
+  defp reason(:browser_form_fill, :denied, _configured, _floor, _context),
+    do: "Browser form fill is denied by default."
+
+  defp reason(:browser_form_fill, :needs_confirmation, _configured, _floor, _context),
+    do: "Browser form fill requires explicit opt-in and confirmation."
+
+  defp reason(:browser_download, :denied, _configured, _floor, _context),
+    do: "Browser download is denied by default."
+
+  defp reason(:browser_download, :needs_confirmation, _configured, _floor, _context),
+    do: "Browser download requires explicit opt-in and confirmation."
 
   defp reason(:package_install, :denied, _configured, _floor, _context),
     do: "Package installation is denied until an operator explicitly enables confirmed installs."
