@@ -21,7 +21,6 @@ defmodule AllbertNotesFiles.SettingsFragment do
     }
   ]
 
-  @spec entries() :: [map()]
   def entries, do: @entries
 
   @spec fragment() :: Fragment.t()

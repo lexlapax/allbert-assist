@@ -43,7 +43,7 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
     assert has_element?(view, "main#main-content[tabindex='-1']")
     refute html =~ "Phoenix Framework"
     refute html =~ "Website"
-    refute html =~ "GitHub"
+    assert html =~ "GitHub"
     refute html =~ "Get Started"
     assert has_element?(view, "#allbert-appbar")
     assert has_element?(view, "#workspace-thread-switcher-toggle[aria-haspopup='menu']")

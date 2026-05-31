@@ -221,14 +221,14 @@ Dependency order from here:
     surface area lands. Adds ADR 0049, a test strategy guide, a gate matrix,
     resource-lane taxonomy, and a decision-complete isolation/migration plan for
     parallel precommit work. No operator-facing assistant capability.
-42. v0.42 Tool Discovery + MCP-first Integration Pack 1: `find_tools` capability
-    search (local tools + internet MCP registries behind a provider port) with a
-    confirmation-gated connect gate and an opt-in, passive background scan. Plus
-    workspace summary panels for calendar, mail, GitHub, and notes/files **using
-    MCP servers only**, and the `notes/files` native reference plugin as a starter
-    scaffold for plugin authors (does NOT replace StockSage as the depth
-    reference). Native integration plugins for the other three are post-1.0
-    follow-on (v0.42.x).
+42. v0.42 Tool Discovery + MCP-first Integration Pack 1: implemented as
+    `0.42.0`. `find_tools` capability search (local tools + internet MCP
+    registries behind a provider port) with a confirmation-gated connect gate
+    and an opt-in, passive background scan. Calendar, Mail, and GitHub ship as
+    MCP-configured workspace panels; `notes/files` ships as the native reference
+    plugin and starter scaffold for plugin authors (does NOT replace StockSage
+    as the depth reference). Native integration plugins for the other three are
+    post-1.0 follow-on (v0.42.x).
 43. v0.43 Browser and web research: browser-session Resource Access policy,
     sandboxed browser plugin, research/extract/screenshot actions, and bounded
     HTML/markdown/text/PDF extraction.
@@ -2342,16 +2342,17 @@ Request flow: `docs/plans/v0.42-request-flow.md`
 ADRs: `docs/adr/0048-tool-discovery-and-discovered-server-trust.md` (discovery),
 `docs/adr/0039-mcp-first-native-plugin-second-integrations.md` (integration).
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
-not implemented. Tightened in the post-v0.37 planning pass to **MCP-configured
-only** plus one native reference plugin (notes/files). The post-v0.40 planning
-pass added a **discovery track**, shipped first, that lets Allbert find and
-connect MCP servers through a confirmation-gated gate. Native plugins for the
-other integrations move to v0.42.x follow-on releases.
+Status: implemented as `0.42.0`. Promoted from
+`docs/archives/version-1.0-planning-03.md`; tightened in the post-v0.37 planning
+pass to **MCP-configured only** for calendar/mail/GitHub plus one native
+reference plugin (notes/files). The post-v0.40 planning pass added a
+**discovery track**, shipped first, that lets Allbert find and connect MCP
+servers through a confirmation-gated gate. Native plugins for the other
+integrations move to v0.42.x follow-on releases.
 
-Expected direction:
+Shipped scope:
 
-- **Tool discovery track (first):** ship `find_tools`, a capability search that
+- **Tool discovery track:** `find_tools`, a capability search that
   fans out to local tools (registered actions, skills, connected MCP servers) and
   to internet MCP registries (official MCP Registry required; optional keyed
   subregistries such as PulseMCP only when configured) behind a provider port.
@@ -2361,15 +2362,14 @@ Expected direction:
   background scan writes candidates to a passive Discovery Suggestions surface; no
   unprompted messaging, no auto-connect. Discovery search egress reuses
   `External.HttpPolicy`; server metadata is never authority.
-- Ship workspace summary panels for **calendar, mail, GitHub, and notes/files**
-  driven entirely by **MCP servers configured in v0.40** (or connected through the
-  discovery gate above). No native plugin surface for calendar/mail/GitHub in
-  v0.42.
-- Ship a **`notes/files` native reference plugin** as a starter scaffold for
+- Shipped workspace summary panels for **calendar, mail, and GitHub** driven by
+  **MCP servers configured in v0.40** (or connected through the discovery gate
+  above). No native plugin surface for calendar/mail/GitHub in v0.42.
+- Shipped a **`notes/files` native reference plugin** as a starter scaffold for
   plugin authors: minimal app+SurfaceProvider+memory-namespace+intent-descriptor
   example. This is the developer-onboarding reference; StockSage remains the
   depth reference.
-- Ship intent descriptors per integration so v0.33 handoff works.
+- Shipped intent descriptors per integration so v0.33 handoff works.
 - Keep integration effects behind registered actions, Resource Access,
   Security Central, confirmations, traces, and audits.
 - Native integration plugins for calendar/mail/GitHub graduate to **v0.42.x

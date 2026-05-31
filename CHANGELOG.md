@@ -10,6 +10,78 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.42.0 - Tool Discovery + MCP-First Integration Pack 1
+
+Status: implemented and ready for operator manual release validation. Version
+metadata is `0.42.0`.
+
+Plan: `docs/plans/v0.42-plan.md`.
+Request flow: `docs/plans/v0.42-request-flow.md`.
+ADRs: `docs/adr/0048-tool-discovery-and-discovered-server-trust.md` and
+`docs/adr/0039-mcp-first-native-plugin-second-integrations.md`.
+Operator doc: `docs/operator/mcp-servers.md`.
+Developer docs: `docs/developer/mcp-client.md` and
+`docs/developer/how-to-create-an-allbert-app.md`.
+
+### Added
+
+- Unified `find_tools` discovery over local actions/skills/configured MCP tools
+  and internet MCP registries.
+- Remote MCP registry actions: `find_mcp_tools`, `mcp_fetch_server_manifest`,
+  `mcp_evaluate_server`, and the confirmation-gated `mcp_server_connect`.
+- Durable discovery store for candidates, evaluation reports, passive
+  suggestions, and baseline trust records.
+- Optional, paused-by-default background MCP discovery scan plus the passive
+  Discovery Suggestions workspace panel.
+- MCP-configured Calendar, Mail, and GitHub workspace panels driven only by
+  registered v0.40 MCP actions.
+- Integration intent descriptors and handoffs for Calendar, Mail, GitHub, and
+  notes/files.
+- `./plugins/allbert.notes_files/` as a native reference plugin with
+  `search_notes`, `read_note`, confirmed `write_note`, workspace panels, skill
+  paths, settings fragment, and a read-only memory namespace declaration.
+- Executable v0.42 security eval rows for discovery SSRF, inert discovered
+  metadata, rug-pull detection, dangerous command flagging, consent-before-
+  connect, registry-degrade behavior, MCP-first integration boundaries,
+  credential/grant scope, memory non-promotion, and notes/files namespace
+  isolation.
+
+### Changed
+
+- Umbrella, core app, and web app version metadata are bumped to `0.42.0`.
+- `CoreApp.version/0` is release-pinned to `0.42.0` and contributes the
+  integration panel intent descriptors.
+- Operator/developer docs, roadmap, future-features, vision, agent-context-map,
+  request-flow, and security-hardening now describe v0.42 as implemented and
+  point the next milestone at v0.43.
+
+### Security
+
+- Discovered MCP servers remain inert descriptive metadata until
+  `mcp_server_connect` is approved. The consent shows the exact command or URL
+  before any `mcp.servers.<id>` setting is written.
+- Discovery egress routes through `External.HttpPolicy`; private/link-local
+  hosts, redirects, unallowlisted hosts/paths, and oversized responses remain
+  denied or degraded.
+- Server schemas, descriptions, registry metadata, and provenance signals are
+  advisory only and cannot lower confirmation floors.
+- Connected servers store a tool-definition baseline hash; doctor/reconnect
+  detects changed tool definitions as rug-pulls.
+- Calendar/Mail/GitHub panels use registered MCP actions instead of provider
+  SDKs in core. Notes/files local writes require `:notes_file_write`
+  confirmation and never auto-promote note bodies into markdown memory.
+
+### Verification
+
+- Focused v0.42 discovery/integration security evals passed.
+- Release gate components passed: `mix precommit` and `mix dialyzer`. The final
+  `mix precommit` run covered `1200` core tests, `112` web tests, `197`
+  StockSage tests, and `11` Telegram/Email/Notes-files tests with `0 failures`;
+  `mix dialyzer` reported `0` errors.
+- Milestone tests and Chrome-extension UI validation passed during M1-M10 for
+  discovery suggestions, integration panels, notes/files panels, and intent
+  handoffs.
+
 ## v0.40.0 - MCP Client Integration
 
 Status: implemented and ready for operator manual validation before release

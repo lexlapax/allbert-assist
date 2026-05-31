@@ -23,9 +23,6 @@ defmodule AllbertAssist.Mcp.Registry.Http do
     else
       {:error, %RequestSpec{} = spec} ->
         {:error, {:http_policy_denied, spec.denial_reason}}
-
-      {:error, reason} ->
-        {:error, reason}
     end
   end
 

@@ -11,7 +11,7 @@ defmodule AllbertAssist.Tools.Finder do
   @max_limit 100
 
   @doc "Search the local source only."
-  @spec find_local(String.t(), map()) :: {:ok, [ToolCandidate.t()]} | {:error, term()}
+  @spec find_local(String.t(), map()) :: {:ok, [ToolCandidate.t()]}
   def find_local(query, opts \\ %{}) when is_map(opts) do
     Local.search(query, opts)
   end

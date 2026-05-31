@@ -32,18 +32,18 @@ defmodule AllbertAssist.Actions.Mcp.FindTools do
     permission_decision = PermissionGate.authorize(:tool_discovery, context)
     query = query(params)
 
-    with true <- PermissionGate.allowed?(permission_decision),
-         {:ok, %{candidates: candidates, diagnostics: diagnostics}} <-
-           McpRegistry.search_with_diagnostics(query, %{
-             context: context,
-             limit: limit(params),
-             provider_opts: provider_opts(params),
-             probe?: false
-           }) do
+    if PermissionGate.allowed?(permission_decision) do
+      {:ok, %{candidates: candidates, diagnostics: diagnostics}} =
+        McpRegistry.search_with_diagnostics(query, %{
+          context: context,
+          limit: limit(params),
+          provider_opts: provider_opts(params),
+          probe?: false
+        })
+
       {:ok, completed(query, candidates, diagnostics, permission_decision)}
     else
-      false -> {:ok, denied(query, permission_decision, :permission_denied)}
-      {:error, reason} -> {:ok, denied(query, permission_decision, reason)}
+      {:ok, denied(query, permission_decision, :permission_denied)}
     end
   end
 

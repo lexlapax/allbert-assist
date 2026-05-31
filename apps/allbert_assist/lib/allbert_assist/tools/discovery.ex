@@ -444,9 +444,6 @@ defmodule AllbertAssist.Tools.Discovery do
           status: "probe_denied",
           diagnostics: %{"reason" => inspect(spec.denial_reason), "url" => url}
         }
-
-      {:error, reason} ->
-        %{status: "unreachable", diagnostics: %{"reason" => inspect(reason), "url" => url}}
     end
   end
 

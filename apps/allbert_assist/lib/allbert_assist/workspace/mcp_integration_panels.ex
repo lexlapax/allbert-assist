@@ -514,12 +514,17 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanels do
 
   defp field(map, key, default \\ nil)
 
-  defp field(map, key, default) when is_map(map) and is_atom(key) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
   defp field(map, key, default) when is_map(map) and is_binary(key) do
-    Map.get(map, key, Map.get(map, existing_atom(key), default))
+    case Map.fetch(map, key) do
+      {:ok, value} ->
+        value
+
+      :error ->
+        case existing_atom(key) do
+          nil -> default
+          atom -> Map.get(map, atom, default)
+        end
+    end
   end
 
   defp field(_map, _key, default), do: default

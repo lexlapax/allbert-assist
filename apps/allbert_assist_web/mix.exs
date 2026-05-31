@@ -4,7 +4,7 @@ defmodule AllbertAssistWeb.MixProject do
   def project do
     [
       app: :allbert_assist_web,
-      version: "0.40.0",
+      version: "0.42.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -63,6 +63,7 @@ defmodule AllbertAssistWeb.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 1.0"},
+      {:plug, "~> 1.19"},
       {:swoosh, "~> 1.16"},
       {:allbert_assist, in_umbrella: true},
       {:jason, "~> 1.2"},

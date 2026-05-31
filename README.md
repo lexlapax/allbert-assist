@@ -23,7 +23,7 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is `v0.40.0`. `/workspace` is the operator home:
+The current implementation is `v0.42.0`. `/workspace` is the operator home:
 chat is the primary spine, the launcher is view-only, and Canvas shows one
 destination at a time (Output, an app, or a workspace tool).
 
@@ -50,6 +50,12 @@ client integration: Settings Central `mcp.servers.*`, `secret://mcp/...` refs,
 Hermes-backed MCP message codec with Allbert-owned HTTP/SSE and stdio
 transports, `mcp://` Resource Access, grant-gated MCP resource reads, and
 per-call-confirmed MCP tool calls.
+v0.42 adds tool discovery and the first MCP-first integration pack:
+`find_tools`, `find_mcp_tools`, `mcp_fetch_server_manifest`,
+`mcp_evaluate_server`, the confirmation-gated `mcp_server_connect` gate,
+passive Discovery Suggestions, MCP-configured Calendar/Mail/GitHub panels,
+integration intent handoffs, and `./plugins/allbert.notes_files/` as the native
+reference plugin.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -67,6 +73,10 @@ live-register gate-passed dynamic actions after explicit operator confirmation
 in a disposable Allbert Home. Generated actions can be pure read-only or
 delegate memory/network effects through reviewed facades with their normal
 confirmations.
+It can discover MCP server candidates without connecting them, connect a
+discovered server only after operator consent that shows the exact command/URL,
+open Calendar/Mail/GitHub workspace panels backed by configured MCP servers,
+and read/search/write local notes through the notes/files reference plugin.
 
 StockSage is the reference plugin app. It exercises the app, objective,
 security, native-agent, LiveView surface, memory-sync, and canvas contracts
@@ -94,6 +104,11 @@ manually proven first.
 
 Recent milestones:
 
+- `v0.42.0`: Tool Discovery + MCP-First Integration Pack 1 - unified
+  `find_tools`, internet MCP registry discovery, connect consent, rug-pull
+  baseline checks, passive Discovery Suggestions, Calendar/Mail/GitHub
+  MCP-configured workspace panels, integration intent handoffs, and the
+  notes/files native reference plugin.
 - `v0.41.0`: Developer velocity and parallel test methodology - gate matrix,
   resource-lane taxonomy, partition-aware test helpers, focused/release aliases,
   and implementation-readiness annotations for downstream plans.
@@ -104,10 +119,8 @@ Recent milestones:
 
 Next milestones:
 
-- Post-`v0.41.0`: the planned 1.0 arc continues with the MCP-first integration
-  pack: calendar/mail/GitHub panels plus notes/files native reference plugin
-  (`v0.42`); browser research (`v0.43`);
-  Discord/Slack channels with the
+- Post-`v0.42.0`: the planned 1.0 arc continues with browser research
+  (`v0.43`); Discord/Slack channels with the
   channel-approval-primitive contract (`v0.44`); Plan/Build workflows under
   `<ALLBERT_HOME>/workflows/` (`v0.45`); marketplace lite — data shape +
   Allbert-author seeds only (`v0.46`); operator-supervised self-improvement
@@ -142,6 +155,8 @@ Next milestones:
 - [docs/plans/v0.41-plan.md](docs/plans/v0.41-plan.md): implemented developer
   velocity and parallel test methodology milestone, including the temporary
   Memento/Jido compatibility override recorded in ADR 0050.
+- [docs/plans/v0.42-plan.md](docs/plans/v0.42-plan.md): implemented tool
+  discovery and MCP-first integration pack milestone.
 - [docs/developer/test-strategy.md](docs/developer/test-strategy.md): test
   lane taxonomy, gate matrix, isolation contract, and implementation-plan
   parallelization annotations.

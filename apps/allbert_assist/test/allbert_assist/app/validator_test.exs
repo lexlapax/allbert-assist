@@ -570,7 +570,11 @@ defmodule AllbertAssist.App.ValidatorTest do
              :core_jobs_panel,
              :core_confirmations_panel,
              :core_security_panel,
-             :core_settings_panel
+             :core_settings_panel,
+             :core_discovery_suggestions_panel,
+             :core_calendar_panel,
+             :core_mail_panel,
+             :core_github_panel
            ] ==
              core_surfaces
              |> Enum.filter(&match?(%Surface{kind: :panel}, &1))

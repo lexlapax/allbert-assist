@@ -37,11 +37,13 @@ defmodule AllbertAssist.Skills.RegistryTest do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_app_config = Application.get_env(:allbert_assist, AppSkillApp)
     original_stocksage_app = registered_app_module(:stocksage)
+    original_notes_files_app = registered_app_module(:notes_files)
 
     Enum.each(@env_vars, &System.delete_env/1)
     Application.delete_env(:allbert_assist, Paths)
     PluginRegistry.clear()
     AppRegistry.unregister(:stocksage)
+    AppRegistry.unregister(:notes_files)
 
     root = temp_path("root")
     home = Path.join(root, "home")
@@ -55,6 +57,7 @@ defmodule AllbertAssist.Skills.RegistryTest do
       File.rm_rf!(root)
       AppRegistry.unregister(:skill_registry_app)
       restore_app(:stocksage, original_stocksage_app || StockSage.App)
+      restore_app(:notes_files, original_notes_files_app)
       PluginRegistry.clear()
       restore_shipped_plugins()
       restore_env(original_env)

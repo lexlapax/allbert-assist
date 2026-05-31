@@ -26,6 +26,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :stocksage_write,
              :stocksage_analyze,
              :stocksage_evidence_fetch,
+             :notes_file_write,
              :tool_discovery,
              :mcp_server_connect,
              :mcp_tool_call,

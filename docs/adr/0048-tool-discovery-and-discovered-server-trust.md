@@ -91,7 +91,7 @@ metadata and never allowed to alter agent behavior, consistent with the
 ### 3. Discovery actions are read-only and authorize nothing
 
 `find_tools`, `find_local_tools`, and `find_mcp_tools` are registered actions
-with execution mode `:read_only` and exposure `:internal`, run through
+with execution mode `:mcp_discovery` and exposure `:internal`, run through
 `Actions.Runner.run/3`. They create no grants and connect to nothing. A new
 read-only permission class `:tool_discovery` (safety floor `:allowed`) gates the
 remote search; the local fan-out needs no new authority. All remote registry

@@ -124,7 +124,8 @@ eval surfaces until their capability work lands.
   startup policy (explicit argv, secret-ref env, stderr separated from stdout,
   ADR 0009 bounds), and doctor redacted-envelope. MCP server mode is a separate
   later surface (v0.50b).
-- Tool discovery (v0.42, planned eval surface): discovery search egress stays
+- Tool discovery and MCP-first integrations (v0.42, implemented eval surface):
+  discovery search egress stays
   within `External.HttpPolicy` (SSRF, private/link-local IP block, bounded
   timeout/body, redirect denial) and degrades to local-only when a registry is
   unreachable; optional keyed subregistries such as PulseMCP are skipped when
@@ -136,11 +137,21 @@ eval surfaces until their capability work lands.
   run-command patterns are flagged; a tool-definition baseline hash detects
   rug-pulls on reconnect; the background scan is opt-in / paused-by-default
   (`mcp.discovery.enabled=false`) and writes only to a passive surface (no
-  unprompted messaging, no auto-connect). Planned eval rows:
+  unprompted messaging, no auto-connect). The first integration pack keeps
+  Calendar/Mail/GitHub MCP-configured and denies provider-specific core SDK
+  dependencies; credentials stay scoped to the configured server, remembered
+  `mcp://` grants do not cross server ids, notes/files writes require
+  `:notes_file_write` confirmation, and integration output does not auto-promote
+  into markdown memory. Implemented eval rows:
   `mcp-discovery-ssrf-001`, `-tool-poisoning-inert-001`,
   `-rug-pull-detection-001`, `-supply-chain-command-flag-001`,
   `-server-impersonation-001`, `-consent-before-connect-001`,
-  `-registry-unavailable-degrades-001`, `-schema-not-authority-001`.
+  `-registry-unavailable-degrades-001`, `-schema-not-authority-001`,
+  `integration-core-dependency-deny-001`, `integration-credential-scope-001`,
+  `integration-resource-grant-001`, `integration-memory-no-auto-promote-001`,
+  `integration-mcp-native-boundary-001`,
+  `notes-files-reference-plugin-action-boundary-001`, and
+  `notes-files-namespace-isolation-001`.
 - Browser session state, navigation grants, screenshots, downloads, cookies,
   and page-content prompt injection.
 - Discord, Slack, WhatsApp, Signal, iMessage, and Matrix identity mapping,
