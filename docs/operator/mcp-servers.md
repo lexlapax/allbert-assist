@@ -85,8 +85,9 @@ as JSON objects or arrays when needed.
 ## Discover A Server (v0.42)
 
 v0.42 adds tool discovery so you can find an MCP server instead of knowing its
-config in advance. Discovery and the passive suggestions surface are implemented
-through v0.42 M5 (see `docs/plans/v0.42-plan.md`).
+config in advance. Discovery, connect consent, the passive suggestions surface,
+and the first MCP-configured integration panels are implemented in `0.42.0` (see
+`docs/plans/v0.42-plan.md`).
 
 Discovery is off by default. Enable it, then search local tools and internet MCP
 registries. The official MCP Registry is the default remote source; optional
@@ -134,7 +135,7 @@ authority boundary:
 | GitHub | `github` | Official GitHub MCP server or a compatible server exposing repository artifacts as resources where possible. | `mcp_list_tools`, `mcp_list_resources`, `mcp_read_resource`, `mcp_call_tool` | Repository files, issue/PR artifacts, and comments prefer resources when exposed. | Search, mutation, workflow, comment, and issue creation tools are confirmed `mcp_call_tool` calls. | Overview panels use resources for inspectable artifacts and keep tool-backed search/mutations operator-triggered. |
 | Notes/files | `notes_files` | Native Allbert plugin/reference path, not an MCP server. | Plugin-owned `search_notes`, `read_note`, `write_note` actions and workspace panels. | File reads map to `file://` `read_local_path` Resource Access refs under the configured notes root. | `write_note` maps to `file://` `write_local_path` refs and the dedicated `:notes_file_write` confirmation floor. | No MCP grant is reused for local file IO; the `:notes_files` memory namespace is non-writable and never auto-promotes. |
 
-v0.42 M7-M9 ships the Calendar, Mail, GitHub, and Notes/files workspace
+v0.42 ships the Calendar, Mail, GitHub, and Notes/files workspace
 destinations:
 `/workspace?destination=workspace:calendar`,
 `/workspace?destination=workspace:mail`,

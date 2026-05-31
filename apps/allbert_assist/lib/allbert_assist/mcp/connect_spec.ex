@@ -188,14 +188,16 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
     {env, required_secret_refs} = environment_secret_refs(package, server_id)
 
     if is_binary(command) and command != "" do
+      args = Enum.map(args, &to_string/1)
+
       {:ok,
        %{
          transport: :stdio,
          command: command,
-         args: Enum.map(args || [], &to_string/1),
+         args: args,
          env: env,
          required_secret_refs: required_secret_refs,
-         exact_command: %{command: command, args: Enum.map(args || [], &to_string/1)}
+         exact_command: %{command: command, args: args}
        }}
     else
       {:error, :missing_stdio_command}

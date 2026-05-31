@@ -179,7 +179,7 @@ tool/resource/call phrasing to the MCP actions. `AllbertAssist.Intent.Engine`
 and `AllbertAssist.Intent.Ranker` no longer treat `mcp://` as an unsupported
 resource marker. `agent://` and `agent+https://` remain unsupported.
 
-## Tool Discovery (planned, v0.42)
+## Tool Discovery (implemented, v0.42)
 
 v0.42 adds internet tool discovery on top of this v0.40 client; the authoritative
 design is `docs/adr/0048-tool-discovery-and-discovered-server-trust.md` and the
@@ -207,6 +207,11 @@ milestone contract is `docs/plans/v0.42-plan.md`. Shape:
   persists candidates, evaluations, suggestions, and trust records. Background
   scanning is an opt-in, paused `AllbertAssist.Jobs` job writing to a passive
   `AllbertAssist.Surface` Discovery Suggestions panel.
+- The first integration pack consumes this boundary directly:
+  Calendar/Mail/GitHub workspace panels call registered MCP actions only, and
+  integration intent handoffs target `workspace:calendar`, `workspace:mail`,
+  and `workspace:github`. The `notes/files` reference plugin is native because
+  it owns local file actions and a read-only memory namespace.
 
 ## Out Of Scope (v0.40)
 

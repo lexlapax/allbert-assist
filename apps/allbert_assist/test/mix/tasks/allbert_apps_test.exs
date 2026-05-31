@@ -36,9 +36,10 @@ defmodule Mix.Tasks.Allbert.AppsTest do
 
     assert show_output =~ "App: allbert"
     assert show_output =~ "Display name: Allbert"
-    assert show_output =~ "Actions: (none)"
+    assert show_output =~ "Actions: open_calendar_panel, open_github_panel, open_mail_panel"
     assert show_output =~ "Skill paths: (none)"
     assert show_output =~ "Surface provider surfaces: workspace:/workspace"
+    assert show_output =~ "core_calendar_panel:/workspace"
     refute show_output =~ "chat-root"
   end
 

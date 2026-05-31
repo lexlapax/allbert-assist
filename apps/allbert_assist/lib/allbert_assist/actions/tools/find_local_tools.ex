@@ -32,13 +32,12 @@ defmodule AllbertAssist.Actions.Tools.FindLocalTools do
     permission_decision = PermissionGate.authorize(:read_only, context)
     query = query(params)
 
-    with true <- PermissionGate.allowed?(permission_decision),
-         {:ok, candidates} <-
-           Finder.find_local(query, %{context: context, limit: limit(params)}) do
+    if PermissionGate.allowed?(permission_decision) do
+      {:ok, candidates} = Finder.find_local(query, %{context: context, limit: limit(params)})
+
       {:ok, completed(query, candidates, permission_decision)}
     else
-      false -> {:ok, denied(query, permission_decision, :permission_denied)}
-      {:error, reason} -> {:ok, denied(query, permission_decision, reason)}
+      {:ok, denied(query, permission_decision, :permission_denied)}
     end
   end
 

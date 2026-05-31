@@ -65,20 +65,30 @@ defmodule AllbertNotesFiles.Notes do
     |> then(&{:ok, &1})
   end
 
-  @spec read(term()) :: {:ok, map()} | {:error, term()}
+  @spec read(term()) ::
+          {:ok,
+           %{
+             title: term(),
+             path: String.t(),
+             relative_path: String.t(),
+             excerpt: String.t(),
+             byte_size: non_neg_integer() | :undefined,
+             updated_at: String.t() | nil,
+             resource_ref: map(),
+             body: binary(),
+             resource_refs: [map(), ...]
+           }}
+          | {:error, atom()}
   def read(path) do
     root = ensure_root!()
 
     with {:ok, path} <- resolve_existing_note_path(path, root),
          {:ok, body} <- read_bounded(path),
-         [summary] <- summary_for(path, root) do
+         {:ok, summary} <- note_summary(path, root) do
       {:ok,
        summary
        |> Map.put(:body, body)
        |> Map.put(:resource_refs, [resource_ref(path, :read)])}
-    else
-      [] -> {:error, :not_found}
-      error -> error
     end
   end
 
@@ -190,6 +200,13 @@ defmodule AllbertNotesFiles.Notes do
     end
   end
 
+  defp note_summary(path, root) do
+    case summary_for(path, root) do
+      [summary | _rest] -> {:ok, summary}
+      [] -> {:error, :not_found}
+    end
+  end
+
   defp matches?(_note, ""), do: true
 
   defp matches?(note, query) do
@@ -202,16 +219,25 @@ defmodule AllbertNotesFiles.Notes do
   end
 
   defp read_bounded(path) do
-    with {:ok, stat} <- File.stat(path),
-         true <- stat.size <= @max_read_bytes || {:error, :note_too_large} do
-      File.read(path)
+    case File.stat(path) do
+      {:ok, %{size: size}} when size <= @max_read_bytes ->
+        File.read(path)
+
+      {:ok, _stat} ->
+        {:error, :note_too_large}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
   defp resolve_existing_note_path(path, root) do
-    with {:ok, path} <- target_note_path(path, nil, root),
-         true <- File.regular?(path) || {:error, :not_found} do
-      {:ok, path}
+    with {:ok, path} <- target_note_path(path, nil, root) do
+      if File.regular?(path) do
+        {:ok, path}
+      else
+        {:error, :not_found}
+      end
     end
   end
 
@@ -361,6 +387,4 @@ defmodule AllbertNotesFiles.Notes do
   defp field(map, key, default) when is_map(map) do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
   end
-
-  defp field(_map, _key, default), do: default
 end

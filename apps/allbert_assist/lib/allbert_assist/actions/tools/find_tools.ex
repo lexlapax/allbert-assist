@@ -32,13 +32,13 @@ defmodule AllbertAssist.Actions.Tools.FindTools do
     permission_decision = PermissionGate.authorize(:read_only, context)
     query = query(params)
 
-    with true <- PermissionGate.allowed?(permission_decision),
-         {:ok, %{candidates: candidates, diagnostics: diagnostics}} <-
-           Finder.find(query, %{context: context, limit: limit(params)}) do
+    if PermissionGate.allowed?(permission_decision) do
+      {:ok, %{candidates: candidates, diagnostics: diagnostics}} =
+        Finder.find(query, %{context: context, limit: limit(params)})
+
       {:ok, completed(query, candidates, diagnostics, permission_decision)}
     else
-      false -> {:ok, denied(query, permission_decision, :permission_denied)}
-      {:error, reason} -> {:ok, denied(query, permission_decision, reason)}
+      {:ok, denied(query, permission_decision, :permission_denied)}
     end
   end
 

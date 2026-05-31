@@ -566,7 +566,7 @@ historical aliases only and remain in old reference notes for continuity.
   accidental, and future implementation plans annotate parallel workstreams,
   serial barriers, gate evidence, and rejoin points. No operator-facing
   assistant capability.
-- v0.42: Tool Discovery + MCP-first Integration Pack 1. Allbert gains
+- v0.42 (implemented as `0.42.0`): Tool Discovery + MCP-first Integration Pack 1. Allbert gains
   `find_tools`, a capability search that fans out to local tools (actions,
   skills, connected MCP servers) and to internet MCP registries; a discovered
   server connects only through a confirmation-gated consent that shows the exact

@@ -129,7 +129,8 @@ Still parked:
 
 ### MCP Tool Discovery v0.42-Deferred Remainder
 
-Status: parked. Added in the post-v0.40 planning pass.
+Status: parked after the v0.42 implementation. Added in the post-v0.40
+planning pass.
 
 v0.42 ships `find_tools` (local + internet MCP registry search), the
 confirmation-gated connect gate, and an opt-in background scan over the official
@@ -322,8 +323,8 @@ Still parked:
 
 ### Native Plugin Variants For Calendar / Mail / GitHub (v0.42.x Follow-On)
 
-Status: post-1.0 follow-on candidates. Promoted from v0.42 scope in the
-post-v0.37 planning pass.
+Status: post-1.0 follow-on candidates after v0.42 shipped MCP-configured
+panels. Promoted from v0.42 scope in the post-v0.37 planning pass.
 
 v0.42 ships calendar / mail / GitHub as MCP-server-configured workspace
 panels driven by the v0.40 MCP client. Native plugin variants land only when

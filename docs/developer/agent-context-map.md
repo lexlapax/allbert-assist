@@ -412,7 +412,7 @@ Implemented v0.41 gates:
   implemented high-coverage local gate is
   `mix allbert.test fast-local --core-lanes --stocksage-lanes --web-lanes --partitions N`.
   No operator-facing assistant capability.
-- v0.42 (planned): Tool Discovery + MCP-First Integration Pack 1. Ships
+- v0.42 (implemented as `0.42.0`): Tool Discovery + MCP-First Integration Pack 1. Ships
   `find_tools` (local tools + internet MCP-registry search behind a provider
   port), `mcp_fetch_server_manifest` / `mcp_evaluate_server`, and the
   confirmation-gated `mcp_server_connect` gate (pre-config consent showing the

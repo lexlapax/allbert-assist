@@ -28,6 +28,9 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.DynamicPlugins.RunDraftTrial, as: RunDynamicDraftTrial
   alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicDraft
   alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicIntegration
+  alias AllbertAssist.Actions.Integrations.OpenCalendarPanel
+  alias AllbertAssist.Actions.Integrations.OpenGithubPanel
+  alias AllbertAssist.Actions.Integrations.OpenMailPanel
   alias AllbertAssist.Actions.Intent.ActivateSkill
   alias AllbertAssist.Actions.Intent.AppendMemory
   alias AllbertAssist.Actions.Intent.DirectAnswer
@@ -40,9 +43,6 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.ReadSkill
   alias AllbertAssist.Actions.Intent.RunShellCommand
   alias AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow
-  alias AllbertAssist.Actions.Integrations.OpenCalendarPanel
-  alias AllbertAssist.Actions.Integrations.OpenGithubPanel
-  alias AllbertAssist.Actions.Integrations.OpenMailPanel
   alias AllbertAssist.Actions.Jobs.RegistryHealth
   alias AllbertAssist.Actions.Jobs.TraceSummary
   alias AllbertAssist.Actions.Mcp.CallTool, as: McpCallTool

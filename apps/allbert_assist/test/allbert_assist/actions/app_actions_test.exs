@@ -69,7 +69,13 @@ defmodule AllbertAssist.Actions.AppActionsTest do
     assert response.app.app_id == :allbert
     assert response.app.display_name == "Allbert"
     assert response.app.module == AllbertAssist.App.CoreApp
-    assert response.app.action_names == []
+
+    assert response.app.action_names == [
+             "open_calendar_panel",
+             "open_github_panel",
+             "open_mail_panel"
+           ]
+
     assert response.app.agent_names == []
     assert response.app.skill_paths == []
     assert response.app.surfaces == []

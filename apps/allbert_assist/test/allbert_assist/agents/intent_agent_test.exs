@@ -89,7 +89,10 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       "list_apps",
       "show_app",
       "list_plugins",
-      "show_plugin"
+      "show_plugin",
+      "open_calendar_panel",
+      "open_mail_panel",
+      "open_github_panel"
     ]
 
     stocksage_actions = [
@@ -100,7 +103,18 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       "run_analysis"
     ]
 
-    assert action_names in [core_actions, core_actions ++ stocksage_actions]
+    notes_files_actions = [
+      "search_notes",
+      "read_note",
+      "write_note"
+    ]
+
+    assert action_names in [
+             core_actions,
+             core_actions ++ notes_files_actions,
+             core_actions ++ stocksage_actions,
+             core_actions ++ notes_files_actions ++ stocksage_actions
+           ]
   end
 
   test "routes tool discovery prompts to internal find_tools action" do

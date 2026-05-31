@@ -13,7 +13,7 @@ defmodule AllbertAssist.Mcp.Client do
   alias AllbertAssist.Mcp.Transport
 
   @protocol_version "2025-03-26"
-  @client_info %{"name" => "Allbert", "version" => "0.40"}
+  @client_info %{"name" => "Allbert", "version" => "0.42"}
 
   @type discovery_result :: %{
           protocol_version: String.t() | nil,
