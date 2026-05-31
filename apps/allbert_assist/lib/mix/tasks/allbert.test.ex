@@ -1,6 +1,6 @@
 defmodule Mix.Tasks.Allbert.Test do
   @moduledoc """
-  Run Allbert's developer-facing v0.41 test gates.
+  Run Allbert's developer-facing test gates.
 
   ## Usage
 
@@ -11,6 +11,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test partition-smoke [--partitions N]
       mix allbert.test serial-core --lane LANE [--partitions N]
       mix allbert.test release
+      mix allbert.test release.v042
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- docker_sandbox
       mix allbert.test external-smoke -- docker_full_gate
@@ -55,6 +56,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["partition-smoke" | rest]), do: partition_smoke(rest)
   def run(["serial-core" | rest]), do: serial_core(rest)
   def run(["release"]), do: release()
+  def run(["release.v042"]), do: release_v042()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -254,6 +256,250 @@ defmodule Mix.Tasks.Allbert.Test do
   defp release do
     run_cmd!("release precommit", root(), "mix", ["precommit"], owned_env("release-precommit", 0))
     run_cmd!("release dialyzer", root(), "mix", ["dialyzer"], owned_env("release-dialyzer", 0))
+  end
+
+  @release_v042_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "core_discovery_connect_eval",
+      title: "discovery, connect, trust baseline, panels, and evals",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/actions/tools_actions_test.exs",
+        "test/allbert_assist/actions/mcp_discovery_actions_test.exs",
+        "test/allbert_assist/actions/mcp_connect_actions_test.exs",
+        "test/allbert_assist/actions/mcp_actions_test.exs",
+        "test/allbert_assist/mcp/client_test.exs",
+        "test/allbert_assist/tools/finder_test.exs",
+        "test/allbert_assist/tools/discovery_test.exs",
+        "test/allbert_assist/tools/discovery_scan_test.exs",
+        "test/allbert_assist/workspace/mcp_integration_panels_test.exs",
+        "test/mix/tasks/allbert_mcp_test.exs",
+        "test/mix/tasks/allbert_tools_test.exs",
+        "test/security/v042_discovery_integration_eval_test.exs",
+        "test/security/security_eval_case_test.exs"
+      ],
+      coverage: [
+        "find_tools local and remote branches",
+        "tool-discovery permission boundary",
+        "denied connect writes nothing",
+        "approved connect writes settings and live trust baseline",
+        "same-baseline doctor pass and changed-baseline doctor failure",
+        "scan run-once suggestions",
+        "calendar/mail/GitHub read and effect panel nodes",
+        "v0.42 security eval inventory"
+      ]
+    },
+    %{
+      id: "notes_files_reference_plugin",
+      title: "notes/files read and confirmed write reference plugin",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "../../plugins/allbert.notes_files/test/allbert_notes_files/actions_test.exs",
+        "../../plugins/allbert.notes_files/test/allbert_notes_files/plugin_test.exs"
+      ],
+      coverage: [
+        "search_notes and read_note read-only refs",
+        "write_note confirmation before file write",
+        "reference plugin surfaces, skills, settings, and memory namespace"
+      ]
+    },
+    %{
+      id: "workspace_integration_forms",
+      title: "workspace panel forms and Approval Handoff",
+      cwd: :web,
+      executable: "mix",
+      args: ["test", "test/allbert_assist_web/live/workspace_live_test.exs"],
+      coverage: [
+        "Discovery Suggestions connect affordance",
+        "calendar create-event form arguments",
+        "mail reply form arguments",
+        "GitHub comment form arguments",
+        "Approval Handoff UI"
+      ]
+    }
+  ]
+
+  defp release_v042 do
+    env = owned_env("release-v042", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v042")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v042_steps, &run_release_v042_step(&1, env))
+    secret_scan = release_v042_secret_scan(home)
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v042",
+      version: "v0.42",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network: "disabled; tests use Req.Test/local fixtures",
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path =
+      Path.join(evidence_dir, "release-v042-#{DateTime.to_unix(started_at)}.json")
+
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v042 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v042 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v042_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args,
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v042 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
+  defp release_step_cwd(:core), do: app_cwd(:core)
+  defp release_step_cwd(:web), do: app_cwd(:web)
+
+  defp release_v042_secret_scan(home) do
+    Enum.each(
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces")
+      ],
+      &File.mkdir_p!/1
+    )
+
+    roots =
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces"),
+        Path.join(home, "traces")
+      ]
+      |> Enum.filter(&File.exists?/1)
+
+    files =
+      roots
+      |> Enum.flat_map(&Path.wildcard(Path.join(&1, "**/*")))
+      |> Enum.filter(&File.regular?/1)
+
+    findings =
+      files
+      |> Enum.flat_map(fn file ->
+        content = File.read!(file)
+
+        Enum.flat_map(secret_patterns(), fn {name, pattern} ->
+          if Regex.match?(pattern, content) do
+            [%{file: Path.relative_to(file, home), pattern: name}]
+          else
+            []
+          end
+        end)
+      end)
+
+    result = %{
+      status: if(findings == [], do: "passed", else: "failed"),
+      scanned_roots: Enum.map(roots, &Path.relative_to(&1, home)),
+      scanned_file_count: length(files),
+      findings: findings
+    }
+
+    print_output("release.v042 secret_scan", Jason.encode!(result, pretty: true))
+    result
+  end
+
+  defp secret_patterns do
+    [
+      {"openai_like_key", ~r/\bsk-[A-Za-z0-9_-]{20,}\b/},
+      {"github_like_token", ~r/\bgh[pousr]_[A-Za-z0-9_]{20,}\b/},
+      {"slack_like_token", ~r/\bxox[baprs]-[A-Za-z0-9-]{20,}\b/},
+      {"aws_access_key", ~r/\bAKIA[0-9A-Z]{16}\b/},
+      {"private_key_block", ~r/-----BEGIN [A-Z ]*PRIVATE KEY-----/},
+      {
+        "raw_secret_assignment",
+        ~r/(token|api[_-]?key|password|secret|bearer)\s*[:=]\s*(?!\[REDACTED\]|secret:\/\/)[^\s"',}]{8,}/i
+      }
+    ]
+  end
+
+  defp redact_release_output(output) do
+    output
+    |> String.replace(~r/secret:\/\/[^\s"')]+/i, "secret://[REDACTED]")
+    |> String.replace(
+      ~r/(token|api[_-]?key|password|secret|bearer)(["'\s:=]+)([^"'\s,}]+)/i,
+      "\\1\\2[REDACTED]"
+    )
+  end
+
+  defp tail(text, max_length) do
+    if String.length(text) > max_length do
+      "[truncated]\n" <> String.slice(text, -max_length, max_length)
+    else
+      text
+    end
+  end
+
+  defp sha256(value) do
+    :crypto.hash(:sha256, value)
+    |> Base.encode16(case: :lower)
+  end
+
+  defp shell_join(parts) do
+    Enum.map_join(parts, " ", &shell_quote/1)
+  end
+
+  defp shell_quote(part) do
+    part = to_string(part)
+
+    if String.match?(part, ~r|^[A-Za-z0-9_@%+=:,./-]+$|) do
+      part
+    else
+      "'" <> String.replace(part, "'", "'\"'\"'") <> "'"
+    end
   end
 
   defp external_smoke(args) do
@@ -806,7 +1052,7 @@ defmodule Mix.Tasks.Allbert.Test do
     root_path =
       Path.join([
         System.tmp_dir!(),
-        "allbert_v041_test_gates",
+        "allbert_test_gates",
         safe_segment(lane),
         "p#{partition}-#{System.unique_integer([:positive])}"
       ])
@@ -889,6 +1135,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test partition-smoke [--partitions N]
       mix allbert.test serial-core --lane LANE [--partitions N]
       mix allbert.test release
+      mix allbert.test release.v042
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- docker_sandbox
       mix allbert.test external-smoke -- docker_full_gate

@@ -10,6 +10,26 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.42.2 - Closing Remediation Release Gate
+
+Status: implemented as the v0.42 remediation closeout gate.
+
+### Added
+
+- `mix allbert.test release.v042`, a deterministic no-external-network release
+  smoke that writes redacted closeout evidence under
+  `<ALLBERT_HOME>/release_evidence/v042/`.
+
+### Changed
+
+- v0.42 operator validation now points at the deterministic release-smoke gate
+  instead of relying on the manual closeout command list.
+
+### Verification
+
+- `mix allbert.test release.v042` passed with 59 core v0.42 tests, 10
+  notes/files tests, 60 workspace LiveView tests, and 0 failures.
+
 ## v0.42.0 - Tool Discovery + MCP-First Integration Pack 1
 
 Status: implemented and ready for operator manual release validation. Version
