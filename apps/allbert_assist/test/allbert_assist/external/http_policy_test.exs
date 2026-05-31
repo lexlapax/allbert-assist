@@ -52,6 +52,29 @@ defmodule AllbertAssist.External.HttpPolicyTest do
     assert spec.denial_reason == {:path_not_allowed, "/private"}
   end
 
+  test "denies credential-shaped query parameter names before request execution" do
+    for name <- ~w[token api_key key secret password bearer access_token auth] do
+      assert {:error, spec} =
+               RequestSpec.normalize(%{url: "https://example.com/status?#{name}=short"})
+
+      assert spec.denial_reason == {:credentialed_remote_url, {:query_param, name}}
+    end
+  end
+
+  test "denies opaque credential-shaped query values with explicit diagnostic" do
+    assert {:error, spec} =
+             RequestSpec.normalize(%{
+               url: "https://example.com/status?token=abcdefghijklmnopqrstuvwxyz123456"
+             })
+
+    assert spec.denial_reason == {:credentialed_remote_url, {:opaque_query_param, "token"}}
+  end
+
+  test "preserves userinfo rejection" do
+    assert {:error, spec} = RequestSpec.normalize(%{url: "https://user:pass@example.com/status"})
+    assert spec.denial_reason == :url_credentials_not_allowed
+  end
+
   defp configure_external do
     assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})
 

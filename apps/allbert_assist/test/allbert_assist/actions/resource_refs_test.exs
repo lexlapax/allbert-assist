@@ -197,6 +197,19 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
     assert OperationClass.scope_kind!("mcp-tool") == :mcp_tool
   end
 
+  test "browser operation vocabulary has explicit access modes and session scope" do
+    assert OperationClass.origin_kind!("browser_session") == :browser_session
+    assert OperationClass.scope_kind!("browser-session") == :browser_session
+    assert OperationClass.operation_class!("browser-navigate") == :browser_navigate
+    assert OperationClass.operation_class!("browser_extract") == :browser_extract
+    assert OperationClass.default_access_mode(:browser_navigate) == :fetch
+    assert OperationClass.default_access_mode(:browser_extract) == :read
+    assert OperationClass.default_access_mode(:browser_screenshot) == :read
+    assert OperationClass.default_access_mode(:browser_interact) == :execute
+    assert OperationClass.default_access_mode(:browser_form_fill) == :write
+    assert OperationClass.default_access_mode(:browser_download) == :write
+  end
+
   test "MCP resource URIs are supported resource identities" do
     resource_uri = ResourceURI.mcp!("local-server", "file:///resources/doc.md")
 
@@ -223,6 +236,53 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
     assert mcp_ref.canonical_id == mcp_ref.resource_uri
     refute mcp_ref.unsupported?
     assert mcp_ref.metadata == %{}
+  end
+
+  test "browser session URIs are supported resource identities but not navigation grants" do
+    resource_uri = ResourceURI.browser_session!("session-123")
+
+    assert resource_uri == "browser://session/session-123"
+    assert {:ok, ^resource_uri} = ResourceURI.normalize(resource_uri)
+
+    assert {:ok, ^resource_uri} =
+             ResourceURI.scope_uri(
+               :browser_session,
+               :browser_session,
+               "session-123",
+               resource_uri
+             )
+
+    assert {:ok, derived} = ResourceURI.derived_fields(resource_uri)
+    assert derived.origin_kind == :browser_session
+    assert derived.canonical_id == resource_uri
+    assert derived.session_id == "session-123"
+    refute derived.unsupported?
+
+    browser_ref =
+      Ref.new!(%{
+        resource_uri: resource_uri,
+        operation_class: :browser_extract,
+        access_mode: :read,
+        scope: Scope.browser_session(resource_uri),
+        downstream_consumer: :browser_session
+      })
+
+    assert browser_ref.origin_kind == :browser_session
+    assert browser_ref.canonical_id == browser_ref.resource_uri
+    assert browser_ref.scope.kind == :browser_session
+  end
+
+  test "browser session URI normalization rejects malformed session identity" do
+    for uri <- [
+          "browser://session/",
+          "browser://session/abc/extra",
+          "browser://other/abc",
+          "browser://session/abc?x=1",
+          "browser://session/abc#frag",
+          "browser://session/not ok"
+        ] do
+      assert {:error, _reason} = ResourceURI.normalize(uri)
+    end
   end
 
   test "unsupported future agent URI schemes are representable but inert" do

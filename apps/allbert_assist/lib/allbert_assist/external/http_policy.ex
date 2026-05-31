@@ -6,6 +6,7 @@ defmodule AllbertAssist.External.HttpPolicy do
   alias AllbertAssist.External.RequestSpec
 
   @metadata_hosts ~w(metadata.google.internal metadata)
+  @credential_query_names ~w[token api_key key secret password bearer access_token auth]
 
   @spec validate(RequestSpec.t()) :: :ok | {:error, term()}
   def validate(%RequestSpec{} = spec) do
@@ -13,6 +14,7 @@ defmodule AllbertAssist.External.HttpPolicy do
          :ok <- profile_enabled(spec),
          :ok <- scheme_allowed(spec),
          :ok <- credentials_absent(spec),
+         :ok <- query_credentials_absent(spec),
          :ok <- method_allowed(spec),
          :ok <- host_present(spec),
          :ok <- host_not_blocked(spec),
@@ -37,6 +39,44 @@ defmodule AllbertAssist.External.HttpPolicy do
   defp credentials_absent(%{uri: %{userinfo: nil}}), do: :ok
   defp credentials_absent(%{uri: %{userinfo: ""}}), do: :ok
   defp credentials_absent(_spec), do: {:error, :url_credentials_not_allowed}
+
+  defp query_credentials_absent(%{uri: %{query: query}}) when query in [nil, ""], do: :ok
+
+  defp query_credentials_absent(%{uri: %{query: query}}) when is_binary(query) do
+    query
+    |> String.split("&", trim: true)
+    |> Enum.reduce_while(:ok, fn pair, :ok ->
+      {name, value} = query_pair(pair)
+      normalized_name = name |> URI.decode_www_form() |> String.downcase()
+
+      if normalized_name in @credential_query_names do
+        {:halt, {:error, credential_query_reason(normalized_name, value)}}
+      else
+        {:cont, :ok}
+      end
+    end)
+  end
+
+  defp query_credentials_absent(_spec), do: :ok
+
+  defp query_pair(pair) do
+    case String.split(pair, "=", parts: 2) do
+      [name, value] -> {name, URI.decode_www_form(value)}
+      [name] -> {name, ""}
+    end
+  end
+
+  defp credential_query_reason(name, value) do
+    if opaque_query_value?(value) do
+      {:credentialed_remote_url, {:opaque_query_param, name}}
+    else
+      {:credentialed_remote_url, {:query_param, name}}
+    end
+  end
+
+  defp opaque_query_value?(value) when is_binary(value) do
+    String.length(value) >= 24 and Regex.match?(~r/^[A-Za-z0-9_\-.~]+$/, value)
+  end
 
   defp method_allowed(%{method: method, allowed_methods: methods}) do
     if method in methods, do: :ok, else: {:error, {:method_not_allowed, method}}

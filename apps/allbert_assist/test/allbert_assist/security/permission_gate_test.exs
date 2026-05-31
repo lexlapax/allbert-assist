@@ -31,6 +31,13 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :mcp_server_connect,
              :mcp_tool_call,
              :mcp_resource_read,
+             :browser_session_start,
+             :browser_navigate,
+             :browser_extract,
+             :browser_screenshot,
+             :browser_interact,
+             :browser_form_fill,
+             :browser_download,
              :settings_secret_write,
              :settings_secret_read
            ]
@@ -70,6 +77,25 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     refute resource_read.requires_confirmation
     assert resource_read.risk.tier == :medium
     assert PermissionGate.allowed?(resource_read)
+  end
+
+  test "documents browser permission floors and denied defaults" do
+    navigate = PermissionGate.authorize(:browser_navigate, %{})
+    assert navigate.decision == :needs_confirmation
+    assert navigate.requires_confirmation
+
+    extract = PermissionGate.authorize(:browser_extract, %{})
+    assert extract.decision == :allowed
+    assert PermissionGate.allowed?(extract)
+
+    form_fill = PermissionGate.authorize(:browser_form_fill, %{})
+    assert form_fill.decision == :denied
+    refute PermissionGate.allowed?(form_fill)
+    assert form_fill.policy.safety_floor == :needs_confirmation
+
+    download = PermissionGate.authorize(:browser_download, %{})
+    assert download.decision == :denied
+    assert download.policy.safety_floor == :needs_confirmation
   end
 
   test "allows discovery search but requires confirmation for discovered MCP server connect" do

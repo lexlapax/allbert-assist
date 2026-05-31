@@ -39,6 +39,13 @@ defmodule AllbertAssist.Security.PermissionGate do
           | :mcp_server_connect
           | :mcp_tool_call
           | :mcp_resource_read
+          | :browser_session_start
+          | :browser_navigate
+          | :browser_extract
+          | :browser_screenshot
+          | :browser_interact
+          | :browser_form_fill
+          | :browser_download
           | :settings_secret_write
           | :settings_secret_read
 

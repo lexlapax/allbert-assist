@@ -37,6 +37,13 @@ defmodule AllbertAssist.Security.Risk do
   def tier(:mcp_server_connect), do: :high
   def tier(:mcp_tool_call), do: :high
   def tier(:mcp_resource_read), do: :medium
+  def tier(:browser_session_start), do: :high
+  def tier(:browser_navigate), do: :high
+  def tier(:browser_extract), do: :medium
+  def tier(:browser_screenshot), do: :medium
+  def tier(:browser_interact), do: :high
+  def tier(:browser_form_fill), do: :high
+  def tier(:browser_download), do: :high
   def tier(:skill_script_execute), do: :high
   def tier(:settings_secret_write), do: :high
   def tier(:external_network), do: :high
@@ -82,6 +89,22 @@ defmodule AllbertAssist.Security.Risk do
 
   defp reasons(:mcp_resource_read, _tier, _context),
     do: ["MCP server resource read boundary"]
+
+  defp reasons(:browser_session_start, _tier, _context),
+    do: ["browser driver session lifecycle boundary"]
+
+  defp reasons(:browser_navigate, _tier, _context),
+    do: ["confirmed browser navigation and remote page execution boundary"]
+
+  defp reasons(:browser_extract, _tier, _context),
+    do: ["bounded browser page/document extraction"]
+
+  defp reasons(:browser_screenshot, _tier, _context),
+    do: ["bounded browser screenshot capture"]
+
+  defp reasons(:browser_interact, _tier, _context), do: ["confirmed browser interaction"]
+  defp reasons(:browser_form_fill, _tier, _context), do: ["credential-bearing browser form fill"]
+  defp reasons(:browser_download, _tier, _context), do: ["browser download boundary"]
 
   defp reasons(:skill_script_execute, _tier, _context), do: ["trusted skill script execution"]
   defp reasons(:settings_secret_write, _tier, _context), do: ["encrypted credential write"]
