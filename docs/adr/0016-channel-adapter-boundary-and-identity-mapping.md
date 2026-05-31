@@ -116,6 +116,18 @@ Handoff is rendered as plain-text typed commands (`ALLBERT:APPROVE:<id>`,
 Outbound replies use SMTP via gen_smtp. IMAP IDLE and SMTP provider APIs are
 explicitly deferred with documented placeholders.
 
+## v0.43 Browser Confirmation Forward Pin
+
+Browser navigation, click, and screenshot review introduced in v0.43 fit the
+existing channel boundary and the v0.44 approval-primitive amendment:
+
+- CLI and email can express approval through `:typed_command`.
+- LiveView and Telegram can express approval through `:button`.
+- Screenshot/cache review can be expressed as `:link`.
+
+These primitives carry confirmation intent only. They do not grant browser
+authority, remembered Resource Access grants, or app scope by themselves.
+
 Channel adapters may use a bounded provider client for receive/send operations
 against the configured provider API. This provider transport is not a general
 remote access primitive and does not authorize arbitrary HTTP requests, media

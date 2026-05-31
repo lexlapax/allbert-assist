@@ -153,11 +153,14 @@ eval surfaces until their capability work lands.
   `integration-mcp-native-boundary-001`,
   `notes-files-reference-plugin-action-boundary-001`, and
   `notes-files-namespace-isolation-001`.
-- Browser session state and web research (v0.43 planned eval surface): browser
+- Browser session state and web research (v0.43 implemented surface): browser
   navigation grants remain per-domain/per-operation on target URLs, the
   session URI is not grant authority, form-fill/download default denied with
   confirmation floors, screenshots require credential-input redaction,
   page/PDF content is evidence only, and driver/PDF-parser availability is
+  doctor-gated before sessions start. Browser traces and audits redact cookies,
+  Authorization, URL userinfo, and credential-shaped query values; artifacts
+  live under `<ALLBERT_HOME>/cache/browser/<session_id>/`.
   doctor-gated.
 - Discord, Slack, WhatsApp, Signal, iMessage, and Matrix identity mapping,
   replay, pairing, group leakage, and callback ownership.

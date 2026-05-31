@@ -32,9 +32,11 @@ defmodule AllbertBrowser.Plugin do
       AllbertBrowser.Actions.Navigate,
       AllbertBrowser.Actions.Extract,
       AllbertBrowser.Actions.Screenshot,
+      AllbertBrowser.Actions.Click,
       AllbertBrowser.Actions.ListSessions,
       AllbertBrowser.Actions.CloseSession,
-      AllbertBrowser.Actions.SweepCache
+      AllbertBrowser.Actions.SweepCache,
+      AllbertBrowser.Actions.ResearchHandoff
     ]
   end
 

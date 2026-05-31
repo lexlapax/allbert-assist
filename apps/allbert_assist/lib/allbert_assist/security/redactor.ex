@@ -27,8 +27,11 @@ defmodule AllbertAssist.Security.Redactor do
     "raw_final",
     "raw_response",
     "authorization",
-    "bearer"
+    "bearer",
+    "cookie",
+    "set-cookie"
   ]
+  @sensitive_query_names ~w[token api_key key secret password bearer access_token auth session]
   @status_keys ["credential_status", "secret_status", "secret_ref_display"]
 
   @type posture :: %{
@@ -61,6 +64,13 @@ defmodule AllbertAssist.Security.Redactor do
 
   def redact("secret://" <> _rest), do: @secret_ref
 
+  def redact(value) when is_binary(value) do
+    value
+    |> redact_authorization_line()
+    |> redact_cookie_line()
+    |> redact_url()
+  end
+
   def redact(value), do: value
 
   @doc "Return a short posture summary suitable for operator status."
@@ -84,6 +94,63 @@ defmodule AllbertAssist.Security.Redactor do
 
     normalized not in @status_keys and
       Enum.any?(@sensitive_key_fragments, &String.contains?(normalized, &1))
+  end
+
+  defp redact_authorization_line(value) do
+    Regex.replace(~r/(authorization:\s*)(bearer\s+)?[^\s\r\n]+/i, value, "\\1\\2#{@redacted}")
+  end
+
+  defp redact_cookie_line(value) do
+    Regex.replace(~r/((set-cookie|cookie):\s*)[^\r\n]+/i, value, "\\1#{@redacted}")
+  end
+
+  defp redact_url(value) do
+    uri = URI.parse(value)
+
+    if uri.scheme in ["http", "https"] and is_binary(uri.host) do
+      uri
+      |> redact_url_userinfo()
+      |> redact_url_query()
+      |> URI.to_string()
+    else
+      value
+    end
+  rescue
+    _exception -> value
+  end
+
+  defp redact_url_userinfo(%URI{userinfo: nil} = uri), do: uri
+  defp redact_url_userinfo(%URI{} = uri), do: %{uri | userinfo: @redacted}
+
+  defp redact_url_query(%URI{query: nil} = uri), do: uri
+
+  defp redact_url_query(%URI{query: query} = uri) do
+    query =
+      query
+      |> String.split("&")
+      |> Enum.map_join("&", &redact_query_pair/1)
+
+    %{uri | query: query}
+  end
+
+  defp redact_query_pair(pair) do
+    case String.split(pair, "=", parts: 2) do
+      [key, _value] ->
+        if sensitive_query_name?(key), do: "#{key}=#{URI.encode_www_form(@redacted)}", else: pair
+
+      _other ->
+        pair
+    end
+  end
+
+  defp sensitive_query_name?(key) do
+    key =
+      key
+      |> URI.decode_www_form()
+      |> String.downcase()
+
+    key in @sensitive_query_names or
+      Enum.any?(@sensitive_key_fragments, &String.contains?(key, &1))
   end
 
   defp module_name(module) when is_atom(module), do: inspect(module)

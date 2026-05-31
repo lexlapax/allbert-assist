@@ -7,7 +7,7 @@ defmodule AllbertAssist.Confirmations.ResourceMetadata do
   def lines(confirmation) when is_map(confirmation) do
     confirmation
     |> params_summary()
-    |> resource_lines()
+    |> then(&(browser_summary_lines(&1) ++ resource_lines(&1)))
   end
 
   def lines(_confirmation), do: []
@@ -31,14 +31,29 @@ defmodule AllbertAssist.Confirmations.ResourceMetadata do
 
   def resource_lines(_summary), do: []
 
+  defp browser_summary_lines(summary) when is_map(summary) do
+    [
+      browser_line("Browser session", field(summary, "session_id")),
+      browser_line("Browser target URL", redacted_url(field(summary, "url"))),
+      browser_line("Browser selector", field(summary, "selector")),
+      browser_line("Browser label preview", field(summary, "visible_label_preview")),
+      browser_line("Browser byte cap", field(summary, "max_bytes")),
+      browser_line("Browser screenshot", field(summary, "screenshot_ref"))
+    ]
+    |> Enum.reject(&blank?/1)
+  end
+
+  defp browser_summary_lines(_summary), do: []
+
   defp resource_line(ref) when is_map(ref) do
     scope = field(ref, "scope", %{}) || %{}
     scope_value = display_scope_value(ref, scope)
+    operation_class = field(ref, "operation_class")
 
     [
-      "Resource",
+      if(browser_operation?(operation_class), do: "Browser resource", else: "Resource"),
       field(ref, "origin_kind"),
-      field(ref, "operation_class"),
+      operation_class,
       field(ref, "access_mode"),
       "#{field(scope, "kind")}:#{scope_value}",
       consumer_text(field(ref, "downstream_consumer"))
@@ -91,6 +106,23 @@ defmodule AllbertAssist.Confirmations.ResourceMetadata do
   defp consumer_text(value), do: "consumer=#{value}"
 
   defp blank?(value), do: value in [nil, ""]
+
+  defp browser_operation?(value) when is_atom(value),
+    do: value |> Atom.to_string() |> String.starts_with?("browser_")
+
+  defp browser_operation?(value) when is_binary(value), do: String.starts_with?(value, "browser_")
+  defp browser_operation?(_value), do: false
+
+  defp browser_line(_label, value) when value in [nil, ""], do: nil
+  defp browser_line(label, value), do: "#{label}: #{value}"
+
+  defp redacted_url(nil), do: nil
+
+  defp redacted_url(url) when is_binary(url) do
+    AllbertAssist.Security.Redactor.redact(url)
+  end
+
+  defp redacted_url(value), do: value
 
   defp field(map, key, default \\ nil)
 

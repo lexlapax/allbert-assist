@@ -18,6 +18,9 @@ defmodule AllbertBrowser.Driver.Playwright do
   def navigate(_state, _url, _opts), do: {:error, :playwright_bridge_unavailable}
 
   @impl true
+  def click(_state, _selector, _opts), do: {:error, :playwright_bridge_unavailable}
+
+  @impl true
   def extract(_state, _format, _opts), do: {:error, :playwright_bridge_unavailable}
 
   @impl true

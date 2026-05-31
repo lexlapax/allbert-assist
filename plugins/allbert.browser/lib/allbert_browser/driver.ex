@@ -6,6 +6,7 @@ defmodule AllbertBrowser.Driver do
   @callback verify(keyword()) :: {:ok, map()} | {:error, term()}
   @callback start_session(keyword()) :: {:ok, term()} | {:error, term()}
   @callback navigate(term(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  @callback click(term(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
   @callback extract(term(), atom(), keyword()) :: {:ok, map()} | {:error, term()}
   @callback screenshot(term(), keyword()) :: {:ok, map()} | {:error, term()}
   @callback close(term()) :: :ok | {:error, term()}
@@ -23,6 +24,7 @@ defmodule AllbertBrowser.Driver do
   def verify(opts \\ []), do: module(opts).verify(opts)
   def start_session(opts \\ []), do: module(opts).start_session(opts)
   def navigate(driver_state, url, opts \\ []), do: module(opts).navigate(driver_state, url, opts)
+  def click(driver_state, selector, opts \\ []), do: module(opts).click(driver_state, selector, opts)
 
   def extract(driver_state, format, opts \\ []),
     do: module(opts).extract(driver_state, format, opts)
