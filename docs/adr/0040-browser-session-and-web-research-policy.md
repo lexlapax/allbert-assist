@@ -4,6 +4,9 @@
 
 Proposed for v0.43 Browser And Web Research (`docs/plans/v0.43-plan.md`).
 
+M5 closeout flips this line to `Accepted for v0.43 Browser And Web
+Research` per the §"M5 Closeout Discipline" checklist in the plan.
+
 ## Context
 
 Allbert has so far treated remote content as either a confirmed HTTP/service
@@ -86,6 +89,22 @@ page content is descriptive, never authoritative.
   return shape. The doctor is the seam where supply-chain provenance is
   checked; sessions refuse to start when the doctor reports an unverified or
   missing dependency.
+- **Doctor live verification (v0.42 R2 lesson — structure-only checks
+  miss broken bridges).** `browser_doctor` does not stop at file-exists
+  / version-string checks. It launches one ephemeral Chromium context
+  through `AllbertBrowser.Driver`, navigates to `about:blank`, closes
+  the page, and records `last_verified_at: DateTime.utc_now()` plus
+  `live_check_status` (`:ok`, `:degraded`, `:failed`, `:unavailable`)
+  on the redacted result. Persistence lives under
+  `<ALLBERT_HOME>/cache/browser/doctor/state.json` so
+  `browser_start_session` can read it.
+- **Session-start consults the doctor (v0.42 R2 lesson).**
+  `browser_start_session` fails closed before any driver work when the
+  doctor has never been run successfully, the last `live_check_status`
+  is not `:ok`, or the last `last_verified_at` is older than
+  `browser.doctor.max_age_ms` (default 24h). The failure surface names
+  the unmet condition so the operator can re-run
+  `mix allbert.browser doctor` and retry.
 
 ### Operation classes
 
@@ -155,6 +174,15 @@ redirect-chain rules via the driver's request-interception API:
 - top-level navigation: SSRF/host-rule/scheme checks identical to
   the existing `External.HttpPolicy` posture; redirects denied by default
   (must be re-confirmed against the new domain);
+- top-level navigation URL credential rejection (extending v0.42 R9):
+  the M1-shipped `External.HttpPolicy` extension rejects URL userinfo
+  (preserved unchanged) plus query parameter names matching the v0.42
+  R9 credential-name set (`token`, `api_key`, `key`, `secret`,
+  `password`, `bearer`, `access_token`, `auth`, case-insensitive) and
+  the opaque-blob heuristic for credential-shaped values. Browser
+  navigation, v0.10 `external_network_request`, and v0.42 MCP server
+  connect all inherit the rejection. Operators who need credentials in
+  a URL move them to `auth_ref` or `secret://` substitution;
 - subresources: same SSRF/private-network/loopback denial; allowed only if the
   origin matches the navigated domain or an operator-configured CDN allowlist;
 - bounded timeouts and bounded response sizes per resource and per page;
