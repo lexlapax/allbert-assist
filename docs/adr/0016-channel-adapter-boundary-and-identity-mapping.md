@@ -208,6 +208,10 @@ Status: Proposed for v0.44 Channel Pack 1 - Discord And Slack
 (`docs/plans/v0.44-plan.md`). Becomes binding for v0.44 and all later
 channel adapters including v0.50 mobile channels.
 
+M5 closeout flips this line to `Accepted for v0.44 Channel Pack 1 -
+Discord And Slack` per the §"M5 Closeout Discipline" checklist in the
+plan.
+
 ### Context
 
 v0.16 shipped two adapters with two different approval-rendering shapes:
@@ -261,6 +265,25 @@ Adapter declarations as of v0.50:
 
 Adapters MUST always declare `:list` as a fallback. Adapters that ship without
 declaring the supported set MUST be rejected by the channel registry.
+
+The declarations live in the channel descriptor map returned by
+`<Plugin>.channels/0`, in a new `primitives:` field added at v0.44:
+
+```elixir
+%{
+  channel_id: "telegram",
+  # ...existing v0.17 descriptor fields...
+  primitives: [:button, :typed_command, :list]   # v0.44 amendment
+}
+```
+
+`AllbertAssist.Plugin.Registry` validates the field at plugin
+discovery and rejects descriptors missing the field, declaring an
+empty list, declaring an unknown primitive, or omitting `:list`. The
+selection rule consumes the field at the `Approval.Handoff.render/2`
+boundary (see plan §"Approval Primitive Selection"); existing
+Telegram + email renderers consume the selected primitive instead of
+hand-rolling their choice (v0.44 M0).
 
 ### Non-Goals For This Amendment
 
