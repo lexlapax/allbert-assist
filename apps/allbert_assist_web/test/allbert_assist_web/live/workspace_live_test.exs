@@ -157,17 +157,35 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:calendar']")
     assert has_element?(view, "#workspace-dest-workspace-calendar")
     assert has_element?(view, "[data-workspace-component='settings_card']", "Server calendar")
-    assert has_element?(view, "button[data-workspace-component='action_button']", "Create Event")
+    assert has_element?(view, "form[data-workspace-component='mcp_effect_form']", "Create Event")
 
     view
-    |> element("button[data-workspace-component='action_button']", "Create Event")
-    |> render_click()
+    |> form("form[data-workspace-component='mcp_effect_form']", %{
+      "summary" => "Planning sync",
+      "start" => "2026-06-01T09:00",
+      "end" => "2026-06-01T09:30",
+      "calendar_id" => "primary"
+    })
+    |> render_submit()
 
     assert has_element?(view, "#approval-handoff")
     assert [confirmation] = Confirmations.list(status: "pending")
     assert get_in(confirmation, ["target_action", "name"]) == "mcp_call_tool"
     assert get_in(confirmation, ["params_summary", "server_id"]) == "calendar"
     assert get_in(confirmation, ["params_summary", "tool_name"]) == "create_event"
+
+    assert get_in(confirmation, ["params_summary", "arguments", "keys"]) == [
+             "calendar_id",
+             "end",
+             "source",
+             "start",
+             "summary"
+           ]
+
+    assert get_in(confirmation, ["resume_params_ref", "arguments", "summary"]) == "Planning sync"
+    assert get_in(confirmation, ["resume_params_ref", "arguments", "start"]) == "2026-06-01T09:00"
+    assert get_in(confirmation, ["resume_params_ref", "arguments", "end"]) == "2026-06-01T09:30"
+    assert get_in(confirmation, ["resume_params_ref", "arguments", "calendar_id"]) == "primary"
   end
 
   test "mail panel reply affordance routes through Approval Handoff", %{conn: conn} do
@@ -178,17 +196,31 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:mail']")
     assert has_element?(view, "#workspace-dest-workspace-mail")
     assert has_element?(view, "[data-workspace-component='settings_card']", "Server mail")
-    assert has_element?(view, "button[data-workspace-component='action_button']", "Reply")
+    assert has_element?(view, "form[data-workspace-component='mcp_effect_form']", "Reply")
 
     view
-    |> element("button[data-workspace-component='action_button']", "Reply")
-    |> render_click()
+    |> form("form[data-workspace-component='mcp_effect_form']", %{
+      "message_id" => "msg_123",
+      "body" => "Thanks for the update."
+    })
+    |> render_submit()
 
     assert has_element?(view, "#approval-handoff")
     assert [confirmation] = Confirmations.list(status: "pending")
     assert get_in(confirmation, ["target_action", "name"]) == "mcp_call_tool"
     assert get_in(confirmation, ["params_summary", "server_id"]) == "mail"
     assert get_in(confirmation, ["params_summary", "tool_name"]) == "reply_message"
+
+    assert get_in(confirmation, ["params_summary", "arguments", "keys"]) == [
+             "body",
+             "message_id",
+             "source"
+           ]
+
+    assert get_in(confirmation, ["resume_params_ref", "arguments", "message_id"]) == "msg_123"
+
+    assert get_in(confirmation, ["resume_params_ref", "arguments", "body"]) ==
+             "Thanks for the update."
   end
 
   test "github panel comment affordance routes through Approval Handoff", %{conn: conn} do
@@ -199,17 +231,32 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:github']")
     assert has_element?(view, "#workspace-dest-workspace-github")
     assert has_element?(view, "[data-workspace-component='settings_card']", "Server github")
-    assert has_element?(view, "button[data-workspace-component='action_button']", "Comment")
+    assert has_element?(view, "form[data-workspace-component='mcp_effect_form']", "Comment")
 
     view
-    |> element("button[data-workspace-component='action_button']", "Comment")
-    |> render_click()
+    |> form("form[data-workspace-component='mcp_effect_form']", %{
+      "target" => "lexlapax/allbert-assist#42",
+      "body" => "Reviewed from the workspace."
+    })
+    |> render_submit()
 
     assert has_element?(view, "#approval-handoff")
     assert [confirmation] = Confirmations.list(status: "pending")
     assert get_in(confirmation, ["target_action", "name"]) == "mcp_call_tool"
     assert get_in(confirmation, ["params_summary", "server_id"]) == "github"
     assert get_in(confirmation, ["params_summary", "tool_name"]) == "create_issue_comment"
+
+    assert get_in(confirmation, ["params_summary", "arguments", "keys"]) == [
+             "body",
+             "source",
+             "target"
+           ]
+
+    assert get_in(confirmation, ["resume_params_ref", "arguments", "target"]) ==
+             "lexlapax/allbert-assist#42"
+
+    assert get_in(confirmation, ["resume_params_ref", "arguments", "body"]) ==
+             "Reviewed from the workspace."
   end
 
   test "mount binds workspace to a real conversation thread", %{conn: conn} do

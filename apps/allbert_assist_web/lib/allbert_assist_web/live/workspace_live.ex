@@ -748,11 +748,20 @@ defmodule AllbertAssistWeb.WorkspaceLive do
        }),
        do: %{"range" => "today", "source" => "workspace_panel"}
 
-  defp mcp_integration_arguments(%{
-         "integration" => "calendar",
-         "integration-action" => "calendar_effect"
-       }),
-       do: %{"summary" => "Workspace draft event", "source" => "workspace_panel"}
+  defp mcp_integration_arguments(
+         %{
+           "integration" => "calendar",
+           "integration-action" => "calendar_effect"
+         } = params
+       ) do
+    %{
+      "summary" => string_param(params, "summary"),
+      "start" => string_param(params, "start"),
+      "end" => string_param(params, "end"),
+      "source" => "workspace_panel"
+    }
+    |> put_optional_string_arg("calendar_id", params, "calendar_id")
+  end
 
   defp mcp_integration_arguments(%{
          "integration" => "mail",
@@ -760,13 +769,15 @@ defmodule AllbertAssistWeb.WorkspaceLive do
        }),
        do: %{"limit" => 10, "source" => "workspace_panel"}
 
-  defp mcp_integration_arguments(%{
-         "integration" => "mail",
-         "integration-action" => "mail_effect"
-       }),
+  defp mcp_integration_arguments(
+         %{
+           "integration" => "mail",
+           "integration-action" => "mail_effect"
+         } = params
+       ),
        do: %{
-         "message_id" => "workspace-preview",
-         "body" => "Draft reply",
+         "message_id" => string_param(params, "message_id"),
+         "body" => string_param(params, "body"),
          "source" => "workspace_panel"
        }
 
@@ -776,17 +787,37 @@ defmodule AllbertAssistWeb.WorkspaceLive do
        }),
        do: %{"query" => "is:open", "source" => "workspace_panel"}
 
-  defp mcp_integration_arguments(%{
-         "integration" => "github",
-         "integration-action" => "github_effect"
-       }),
+  defp mcp_integration_arguments(
+         %{
+           "integration" => "github",
+           "integration-action" => "github_effect"
+         } = params
+       ),
        do: %{
-         "target" => "workspace-preview",
-         "body" => "Workspace draft comment",
+         "target" => string_param(params, "target"),
+         "body" => string_param(params, "body"),
          "source" => "workspace_panel"
        }
 
   defp mcp_integration_arguments(_params), do: %{"source" => "workspace_panel"}
+
+  defp string_param(params, key, default \\ "") do
+    case Map.get(params, key, default) do
+      value when is_binary(value) -> value
+      nil -> default
+      value -> to_string(value)
+    end
+  end
+
+  defp put_optional_string_arg(map, key, params, param_key) do
+    value = string_param(params, param_key)
+
+    if String.trim(value) == "" do
+      map
+    else
+      Map.put(map, key, value)
+    end
+  end
 
   defp pending_confirmation?(confirmation), do: confirmation_status(confirmation) == "pending"
 
