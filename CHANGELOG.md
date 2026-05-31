@@ -10,30 +10,65 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
-## v0.42.2 - Closing Remediation Release Gate
+## v0.42.2 - Integration Effects And Release Gate
 
-Status: implemented as the v0.42 remediation closeout gate.
+Status: implemented as the v0.42 closeout release. Current version metadata is
+`0.42.2`.
 
 ### Added
 
+- Calendar, Mail, and GitHub MCP effect forms collect concrete operator
+  arguments before Approval Handoff instead of submitting placeholder tool-call
+  payloads.
 - `mix allbert.test release.v042`, a deterministic no-external-network release
   smoke that writes redacted closeout evidence under
   `<ALLBERT_HOME>/release_evidence/v042/`.
 
 ### Changed
 
+- Confirmation summaries for the first integration pack now include the
+  submitted domain arguments for create-event, reply, and GitHub comment flows.
 - v0.42 operator validation now points at the deterministic release-smoke gate
   instead of relying on the manual closeout command list.
+- Umbrella, core app, web app, and `CoreApp.version/0` metadata now report
+  `0.42.2`.
 
 ### Verification
 
 - `mix allbert.test release.v042` passed with 59 core v0.42 tests, 10
   notes/files tests, 60 workspace LiveView tests, and 0 failures.
+- `mix allbert.test release` passed Credo, 1,212 core tests, 112 web tests, 197
+  StockSage tests, 12 plugin tests, and Dialyzer with 0 errors.
+
+## v0.42.1 - Discovery Boundary, Live Trust Baseline, And CLI Reconciliation
+
+Status: implemented as the v0.42 security and contract remediation release.
+
+### Added
+
+- A `mcp-discovery-permission-boundary-001` eval row covering unified
+  `find_tools` when `permissions.tool_discovery=denied`.
+- A `mcp-discovery-rug-pull-no-false-positive-001` eval row covering unchanged
+  live servers whose registry manifests omit tool definitions.
+- `mix allbert.mcp connect --candidate-id ID` as the explicit unambiguous
+  connect form, plus safe unique-name resolution for bare connect input.
+
+### Changed
+
+- Unified `find_tools` now always keeps local action, skill, and configured-MCP
+  discovery available under read-only permission, but only includes the remote
+  MCP registry branch after the separate `:tool_discovery` permission allows it.
+- Connected-server trust records now separate registry manifest metadata from
+  the live `tools/list` baseline used by doctor/reconnect rug-pull checks.
+- Notes/files reference skills use canonical `metadata.allbert.*` frontmatter,
+  and local tool discovery degrades with a diagnostic if skill listing fails.
+- Discovered HTTP/SSE endpoint URLs carrying credential-shaped userinfo or query
+  parameters are rejected before settings are written.
 
 ## v0.42.0 - Tool Discovery + MCP-First Integration Pack 1
 
-Status: implemented and ready for operator manual release validation. Version
-metadata is `0.42.0`.
+Status: implemented as the initial v0.42 base. It is superseded by the
+`0.42.1` and `0.42.2` closeout releases; current version metadata is `0.42.2`.
 
 Plan: `docs/plans/v0.42-plan.md`.
 Request flow: `docs/plans/v0.42-request-flow.md`.
@@ -68,9 +103,10 @@ Developer docs: `docs/developer/mcp-client.md` and
 
 ### Changed
 
-- Umbrella, core app, and web app version metadata are bumped to `0.42.0`.
-- `CoreApp.version/0` is release-pinned to `0.42.0` and contributes the
-  integration panel intent descriptors.
+- Initial v0.42 metadata shipped as `0.42.0`; current release metadata is
+  `0.42.2`.
+- `CoreApp.version/0` contributes the integration panel intent descriptors and
+  is now release-pinned to `0.42.2`.
 - Operator/developer docs, roadmap, future-features, vision, agent-context-map,
   request-flow, and security-hardening now describe v0.42 as implemented and
   point the next milestone at v0.43.

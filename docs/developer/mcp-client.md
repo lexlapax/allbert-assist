@@ -196,8 +196,8 @@ milestone contract is `docs/plans/v0.42-plan.md`. Shape:
 - `find_mcp_tools` searches the official MCP Registry plus optional keyed
   PulseMCP, when configured, behind `AllbertAssist.Mcp.Registry.Provider`;
   `mcp_fetch_server_manifest` normalizes `server.json` and `mcp_evaluate_server`
-  scores provenance, flags dangerous run commands, and records a tool-definition
-  baseline hash. All egress uses `External.HttpClient` / `HttpPolicy`; the
+  scores provenance, flags dangerous run commands, and records registry manifest
+  metadata only. All egress uses `External.HttpClient` / `HttpPolicy`; the
   official registry is a non-durable cache (degrade to local-only when down).
 - A `:remote_mcp` candidate is inert until `mcp_server_connect` (permission
   `:mcp_server_connect`, floor `:needs_confirmation`) resolves a persisted

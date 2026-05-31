@@ -412,17 +412,18 @@ Implemented v0.41 gates:
   implemented high-coverage local gate is
   `mix allbert.test fast-local --core-lanes --stocksage-lanes --web-lanes --partitions N`.
   No operator-facing assistant capability.
-- v0.42 (implemented as `0.42.0`): Tool Discovery + MCP-First Integration Pack 1. Ships
+- v0.42 (implemented as `0.42.2`): Tool Discovery + MCP-First Integration Pack 1. Ships
   `find_tools` (local tools + internet MCP-registry search behind a provider
   port), `mcp_fetch_server_manifest` / `mcp_evaluate_server`, and the
   confirmation-gated `mcp_server_connect` gate (pre-config consent showing the
-  exact command/URL + a tool-definition baseline hash for rug-pull defense), plus
+  exact command/URL plus a live connected-server baseline for rug-pull defense), plus
   an opt-in, paused-by-default background scan to a passive Discovery Suggestions
   surface (no unprompted messaging, no auto-connect). Also ships calendar/mail/
   GitHub as MCP-server-configured workspace panels driven by the v0.40 MCP
   client, plus the `notes/files` native reference plugin as a starter scaffold for
-  plugin authors. Native variants for the other three are post-1.0 follow-on
-  (v0.42.x).
+  plugin authors. Closeout hardens the discovery permission boundary, CLI
+  contract, effect forms, and deterministic release smoke. Native variants for
+  the other three are post-1.0 follow-on.
 - v0.43 (planned): Browser And Web Research. Adds the `./plugins/allbert.browser/`
   source-tree plugin (third shipped plugin alongside Telegram and email) with
   `browser://session/<id>` identity (ADR 0013 v0.43 amendment), per-domain
