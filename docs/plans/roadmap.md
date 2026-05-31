@@ -2427,9 +2427,10 @@ Expected direction:
   enforced via the driver's request-interception API. Cross-domain redirects
   fail closed.
 - Bounded extraction for HTML, markdown, plain text, and PDF. PDF parsing uses
-  a doctor-verified bounded local parser path (no embedded JS execution, no
-  follow-on fetch, byte/page caps, parse timeout, malformed-input fails
-  closed).
+  a doctor-verified bounded local text-layer parser path inside the browser
+  plugin (no embedded JS execution, no follow-on fetch, byte/page caps, parse
+  timeout, malformed/encrypted/scanned unsupported inputs fail closed; no host
+  parser subprocess in release tests).
 - Screenshot redaction at the driver layer: `type=password`,
   `autocomplete=otp`, `autocomplete=cc-number` nodes are redacted before
   bitmap encoding.
