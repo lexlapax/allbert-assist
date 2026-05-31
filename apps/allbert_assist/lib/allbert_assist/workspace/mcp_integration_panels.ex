@@ -241,7 +241,7 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanels do
     case discovery.effect_tool do
       %{"name" => tool_name} ->
         [
-          mcp_call_button(spec, spec.effect_title, tool_name, "#{spec.id}_effect")
+          mcp_effect_form(spec, tool_name, "#{spec.id}_effect")
         ]
 
       _tool ->
@@ -333,6 +333,25 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanels do
         integration_action: operation,
         server_id: spec.server_id,
         tool_name: tool_name
+      }
+    }
+  end
+
+  defp mcp_effect_form(spec, tool_name, operation) do
+    %Node{
+      id: "#{spec.id}-mcp-#{operation}-form",
+      component: :mcp_effect_form,
+      props: %{
+        title: spec.effect_title,
+        body: spec.effect_body,
+        submit_title: spec.effect_submit_title,
+        phx_submit: "run_mcp_integration_action",
+        action_name: "mcp_call_tool",
+        integration: Atom.to_string(spec.id),
+        integration_action: operation,
+        server_id: spec.server_id,
+        tool_name: tool_name,
+        fields: spec.effect_fields
       }
     }
   end
@@ -556,6 +575,26 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanels do
         "This calendar server exposes agenda data through tools, so reads stay per-call confirmed.",
       effect_tools: ["create_event", "update_event"],
       effect_title: "Create Event",
+      effect_body: "Create an event draft and approve the MCP tool call.",
+      effect_submit_title: "Create Event",
+      effect_fields: [
+        %{
+          name: "summary",
+          label: "Summary",
+          type: "text",
+          placeholder: "Team sync",
+          required: true
+        },
+        %{name: "start", label: "Start", type: "datetime-local", required: true},
+        %{name: "end", label: "End", type: "datetime-local", required: true},
+        %{
+          name: "calendar_id",
+          label: "Calendar",
+          type: "text",
+          placeholder: "primary",
+          required: false
+        }
+      ],
       no_read_title: "No Agenda Read",
       no_read_body:
         "Configure a resource-exposing calendar server or allowlist a read tool such as list_events.",
@@ -591,6 +630,24 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanels do
         "This mail server exposes summary data through tools, so reads stay per-call confirmed.",
       effect_tools: ["reply_message", "send_message", "modify_labels"],
       effect_title: "Reply",
+      effect_body: "Draft a message reply and approve the MCP tool call.",
+      effect_submit_title: "Reply",
+      effect_fields: [
+        %{
+          name: "message_id",
+          label: "Message ID",
+          type: "text",
+          placeholder: "msg_...",
+          required: true
+        },
+        %{
+          name: "body",
+          label: "Body",
+          type: "textarea",
+          placeholder: "Thanks for the update.",
+          required: true
+        }
+      ],
       no_read_title: "No Inbox Read",
       no_read_body:
         "Configure a resource-exposing mail server or allowlist a read tool such as list_threads.",
@@ -633,6 +690,24 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanels do
         "create_comment"
       ],
       effect_title: "Comment",
+      effect_body: "Draft a GitHub comment and approve the MCP tool call.",
+      effect_submit_title: "Comment",
+      effect_fields: [
+        %{
+          name: "target",
+          label: "Target",
+          type: "text",
+          placeholder: "owner/repo#123",
+          required: true
+        },
+        %{
+          name: "body",
+          label: "Body",
+          type: "textarea",
+          placeholder: "Reviewed from the workspace.",
+          required: true
+        }
+      ],
       no_read_title: "No GitHub Summary Read",
       no_read_body:
         "Configure a resource-exposing GitHub server or allowlist a read/search tool such as list_pull_requests.",

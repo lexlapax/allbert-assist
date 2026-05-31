@@ -88,10 +88,11 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanelsTest do
              resource_uri: uri
            )
 
-    assert node_with?(nodes, :action_button,
+    assert node_with?(nodes, :mcp_effect_form,
              action_name: "mcp_call_tool",
              server_id: "calendar",
-             tool_name: "create_event"
+             tool_name: "create_event",
+             title: "Create Event"
            )
 
     assert calls() == [
@@ -143,10 +144,11 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanelsTest do
              resource_uri: uri
            )
 
-    assert node_with?(nodes, :action_button,
+    assert node_with?(nodes, :mcp_effect_form,
              action_name: "mcp_call_tool",
              server_id: "mail",
-             tool_name: "reply_message"
+             tool_name: "reply_message",
+             title: "Reply"
            )
   end
 
@@ -196,10 +198,11 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanelsTest do
              resource_uri: uri
            )
 
-    assert node_with?(nodes, :action_button,
+    assert node_with?(nodes, :mcp_effect_form,
              action_name: "mcp_call_tool",
              server_id: "github",
-             tool_name: "create_issue_comment"
+             tool_name: "create_issue_comment",
+             title: "Comment"
            )
   end
 
