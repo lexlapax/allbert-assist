@@ -202,8 +202,12 @@ milestone contract is `docs/plans/v0.42-plan.md`. Shape:
 - A `:remote_mcp` candidate is inert until `mcp_server_connect` (permission
   `:mcp_server_connect`, floor `:needs_confirmation`) resolves a persisted
   `candidate_id`, runs a pre-config consent showing the exact command/URL,
-  writes `mcp.servers.<id>` via the v0.40 settings path, and stores the baseline
-  hash. Reconnect / `mcp_doctor_server` re-verify the hash; a change is a
+  writes `mcp.servers.<id>` via the v0.40 settings path, and stores registry
+  manifest metadata separately from the live trust baseline. If
+  `enable_on_connect` is true, connect attempts one live `tools/list` capture;
+  otherwise the record remains `pending_live_verification` until the first
+  successful doctor captures the baseline. Reconnect / `mcp_doctor_server`
+  compare live `tools/list` hashes to the live baseline only; a change is a
   rug-pull and forces re-consent. No auto-connect.
 - New permission classes: `:tool_discovery` (read-only) and `:mcp_server_connect`;
   new settings namespace `mcp.discovery.*` (default-off). `AllbertAssist.Tools.Discovery`

@@ -25,7 +25,9 @@ defmodule AllbertAssist.Actions.Mcp.ConnectServer do
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
+  alias AllbertAssist.Mcp.Client
   alias AllbertAssist.Mcp.ConnectSpec
+  alias AllbertAssist.Mcp.ServerConfig
   alias AllbertAssist.Mcp.ServerTrust
   alias AllbertAssist.Repo
   alias AllbertAssist.Security.PermissionGate
@@ -69,7 +71,9 @@ defmodule AllbertAssist.Actions.Mcp.ConnectServer do
     enable_on_connect? = field(params, :enable_on_connect, false) == true
 
     with :ok <- write_settings(spec, enable_on_connect?),
-         {:ok, trust_record} <- write_trust_record(spec, candidate, evaluation_report, context) do
+         baseline_capture <- capture_live_baseline(spec, context, enable_on_connect?),
+         {:ok, trust_record} <-
+           write_trust_record(spec, candidate, evaluation_report, context, baseline_capture) do
       {:ok,
        %{
          message:
@@ -83,7 +87,9 @@ defmodule AllbertAssist.Actions.Mcp.ConnectServer do
            enabled: enable_on_connect?,
            transport: spec.transport,
            endpoint_fingerprint: spec.endpoint_fingerprint,
-           tool_definition_hash: spec.tool_definition_hash,
+           manifest_definition_hash: spec.tool_definition_hash,
+           connected_tool_definition_hash: trust_record.connected_tool_definition_hash,
+           baseline_status: trust_record.baseline_status,
            trust_record: ServerTrust.to_map(trust_record)
          },
          actions: [
@@ -154,11 +160,34 @@ defmodule AllbertAssist.Actions.Mcp.ConnectServer do
     end)
   end
 
-  defp write_trust_record(spec, candidate, evaluation_report, context) do
+  defp capture_live_baseline(_spec, _context, false) do
+    %{status: "pending_live_verification", hash: nil, reason: :server_not_enabled}
+  end
+
+  defp capture_live_baseline(spec, context, true) do
+    with {:ok, config} <- ServerConfig.resolve(spec.server_id),
+         {:ok, result} <- Client.list_tools(config, context) do
+      tools = Map.get(result, :tools, [])
+
+      %{
+        status: "live_captured",
+        hash: Discovery.tool_list_hash(tools),
+        tool_count: length(tools)
+      }
+    else
+      {:error, reason} ->
+        %{status: "pending_live_verification", hash: nil, reason: reason}
+    end
+  end
+
+  defp write_trust_record(spec, candidate, evaluation_report, context, baseline_capture) do
     ServerTrust.upsert(%{
       server_id: spec.server_id,
       candidate_id: candidate.id,
       tool_definition_hash: spec.tool_definition_hash,
+      manifest_definition_hash: spec.tool_definition_hash,
+      connected_tool_definition_hash: baseline_capture.hash,
+      baseline_status: baseline_capture.status,
       trust_status: "trusted",
       transport: Atom.to_string(spec.transport),
       endpoint_fingerprint: spec.endpoint_fingerprint,
@@ -169,9 +198,18 @@ defmodule AllbertAssist.Actions.Mcp.ConnectServer do
       metadata: %{
         required_secret_ref_count: length(spec.required_secret_refs),
         exact_command?: not is_nil(spec.exact_command),
-        exact_url?: not is_nil(spec.exact_url)
+        exact_url?: not is_nil(spec.exact_url),
+        baseline_capture: baseline_capture_metadata(baseline_capture)
       }
     })
+  end
+
+  defp baseline_capture_metadata(%{status: "live_captured"} = capture) do
+    %{status: "live_captured", tool_count: Map.get(capture, :tool_count, 0)}
+  end
+
+  defp baseline_capture_metadata(%{reason: reason}) do
+    %{status: "pending_live_verification", reason: inspect(reason)}
   end
 
   defp evaluation_report(candidate, manifest, spec) do

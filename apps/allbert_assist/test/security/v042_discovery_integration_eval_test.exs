@@ -23,6 +23,7 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
     "mcp-discovery-permission-boundary-001",
     "mcp-discovery-tool-poisoning-inert-001",
     "mcp-discovery-rug-pull-detection-001",
+    "mcp-discovery-rug-pull-no-false-positive-001",
     "mcp-discovery-supply-chain-command-flag-001",
     "mcp-discovery-server-impersonation-001",
     "mcp-discovery-consent-before-connect-001",
@@ -317,7 +318,7 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
 
   test "connect consent writes nothing before approval and doctor catches tool-definition rug pulls" do
     {:ok, candidate} = persist_candidate(McpRegistryFixtures.official_shell_risk_server())
-    context = %{actor: "operator", channel: :test}
+    context = %{actor: "operator", channel: :test, mcp: %{req_plug: {Req.Test, __MODULE__}}}
 
     consent =
       run_eval(
@@ -348,6 +349,10 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
     assert consent.trace.exact_url == "https://server.example/mcp"
     assert consent.trace.configured_server == nil
 
+    configure_external(["server.example"], ["/mcp"], ["POST"])
+    set_mcp_shape([], shell_risk_tools(), "")
+    stub_mcp()
+
     {:ok, approved} =
       Runner.run(
         "approve_confirmation",
@@ -357,13 +362,12 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
 
     assert get_in(approved.confirmation, ["operator_resolution", "target_status"]) == "completed"
     assert configured_server("shell_risk")["enabled"] == true
+    reset_calls()
 
     rug_pull =
       run_eval(
         Map.put(EvalInventory.row!("mcp-discovery-rug-pull-detection-001"), :run, fn _fixture ->
-          configure_external(["server.example"], ["/mcp"], ["POST"])
-          reset_calls()
-          stub_changed_mcp_tools()
+          set_mcp_shape([], changed_tools(), "")
 
           {:ok, doctor} =
             Runner.run(
@@ -386,6 +390,75 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
     assert_allowed(rug_pull)
     assert rug_pull.trace.trust_baseline_ok == false
     assert :tool_definition_changed in rug_pull.trace.diagnostic_codes
+  end
+
+  test "doctor captures pending live baseline without manifest-tools false positive" do
+    manifest =
+      McpRegistryFixtures.official_shell_risk_server()
+      |> Map.delete("tools")
+
+    {:ok, candidate} = persist_candidate(manifest)
+    context = %{actor: "operator", channel: :test, mcp: %{req_plug: {Req.Test, __MODULE__}}}
+
+    {:ok, pending} =
+      Runner.run(
+        "mcp_server_connect",
+        %{
+          candidate_id: candidate.id,
+          server_id: "shell_no_false_positive",
+          enable_on_connect: false
+        },
+        context
+      )
+
+    {:ok, approved} =
+      Runner.run(
+        "approve_confirmation",
+        %{id: pending.confirmation_id, reason: "approved for eval"},
+        context
+      )
+
+    assert get_in(approved.confirmation, ["operator_resolution", "target_status"]) == "completed"
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.shell_no_false_positive.enabled", true, %{audit?: false})
+
+    configure_external(["server.example"], ["/mcp"], ["POST"])
+    set_mcp_shape([], shell_risk_tools(), "")
+    reset_calls()
+    stub_mcp()
+
+    no_false_positive =
+      run_eval(
+        Map.put(
+          EvalInventory.row!("mcp-discovery-rug-pull-no-false-positive-001"),
+          :run,
+          fn _fixture ->
+            {:ok, doctor} =
+              Runner.run(
+                "mcp_doctor_server",
+                %{server_id: "shell_no_false_positive"},
+                context
+              )
+
+            %{
+              decision: :allowed,
+              result: doctor,
+              trace: %{
+                trust_baseline_ok: doctor.doctor.trust_baseline_ok,
+                baseline_status: doctor.doctor.baseline_status,
+                diagnostic_codes: Enum.map(doctor.diagnostics, & &1.code)
+              }
+            }
+          end
+        )
+      )
+
+    assert_allowed(no_false_positive)
+    assert no_false_positive.trace.trust_baseline_ok == true
+    assert no_false_positive.trace.baseline_status == "live_captured"
+    assert :baseline_captured_from_first_doctor in no_false_positive.trace.diagnostic_codes
+    refute :tool_definition_changed in no_false_positive.trace.diagnostic_codes
   end
 
   test "MCP-first integration panels keep provider deps out of core and route through registered actions" do
@@ -694,36 +767,6 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
     end)
   end
 
-  defp stub_changed_mcp_tools do
-    Req.Test.stub(__MODULE__, fn conn ->
-      {:ok, body, conn} = Plug.Conn.read_body(conn)
-      request = Jason.decode!(body)
-      record_call(%{kind: :mcp, method: request["method"], headers: conn.req_headers})
-
-      result =
-        case request["method"] do
-          "initialize" ->
-            %{"protocolVersion" => "2025-03-26", "capabilities" => %{}}
-
-          "tools/list" ->
-            %{
-              "tools" => [
-                %{"name" => "changed_tool", "description" => "Changed.", "inputSchema" => %{}}
-              ]
-            }
-
-          "resources/list" ->
-            %{"resources" => []}
-        end
-
-      Plug.Conn.send_resp(
-        conn,
-        200,
-        Jason.encode!(%{"jsonrpc" => "2.0", "id" => request["id"], "result" => result})
-      )
-    end)
-  end
-
   defp stub_mcp do
     Req.Test.stub(__MODULE__, fn conn ->
       {:ok, body, conn} = Plug.Conn.read_body(conn)
@@ -764,6 +807,14 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
     Agent.update(__MODULE__.State, fn state ->
       %{state | resources: resources, tools: tools, text: text, calls: []}
     end)
+  end
+
+  defp shell_risk_tools do
+    [%{"name" => "shell_risk", "description" => "Fixture tool", "inputSchema" => %{}}]
+  end
+
+  defp changed_tools do
+    [%{"name" => "changed_tool", "description" => "Changed.", "inputSchema" => %{}}]
   end
 
   defp record_call(call) do

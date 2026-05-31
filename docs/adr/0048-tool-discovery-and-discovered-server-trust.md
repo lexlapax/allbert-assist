@@ -116,13 +116,21 @@ which settings cannot loosen). On invocation it:
 2. on operator approval (`Confirmations.resolve/4`), writes the
    `mcp.servers.<id>` entry through the existing v0.40 Settings path (server is
    written `enabled: false` unless the operator opts to enable on connect);
-3. records a tool-definition baseline hash for the connected server in the
-   discovery trust-record store.
+3. records registry manifest metadata separately from the connected-server live
+   tool baseline in the discovery trust-record store.
 
-There is no auto-connect. Reconnecting (or the next doctor run) re-verifies the
-baseline hash; a change — a rug-pull — forces re-review and re-consent rather
-than silent trust continuation. A connected server then lives entirely under the
-ADR 0038 MCP client trust tier; discovery grants it nothing beyond having been
+There is no auto-connect. Registry manifest hashes are descriptive context only;
+they are not the trust authority for rug-pull detection. When the operator
+approves connect with `enable_on_connect: true`, Allbert attempts one live
+`tools/list` call after the settings write and stores that live
+`connected_tool_definition_hash`. If the server remains disabled, credentials
+are missing, or the live call fails, the trust record is marked
+`pending_live_verification`. The first successful doctor run for a pending
+record captures the live baseline and emits an informational diagnostic; later
+doctor/reconnect runs compare only live `tools/list` hashes to that live
+baseline. A change — a rug-pull — forces re-review and re-consent rather than
+silent trust continuation. A connected server then lives entirely under the ADR
+0038 MCP client trust tier; discovery grants it nothing beyond having been
 written.
 
 ### 5. Background discovery is opt-in, paused-by-default, and writes to a passive surface

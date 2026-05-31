@@ -124,9 +124,13 @@ mix allbert.mcp scan enable        # then resume to schedule; or run once:
 mix allbert.mcp scan run-once
 ```
 
-Allbert records a tool-definition baseline when you connect. If a server later
-changes its tool definitions (a "rug-pull"), the next doctor/reconnect flags it
-and asks you to review again rather than silently trusting the change.
+Allbert records registry manifest metadata separately from the live trust
+baseline. If you approve connect with `enable_on_connect=true`, Allbert attempts
+one live `tools/list` capture after writing the server settings. Otherwise the
+server stays in `pending_live_verification` until the first successful doctor
+run captures the live baseline. Later doctor/reconnect checks compare only live
+tool definitions to that live baseline; a change (a "rug-pull") is flagged for
+review rather than silently trusted.
 
 ## v0.42 Integration Capability Inventory
 
