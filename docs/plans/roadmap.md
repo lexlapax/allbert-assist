@@ -2396,9 +2396,9 @@ per-milestone structure with development-lane annotations per ADR 0049.
 
 Expected direction:
 
-- Add the `./plugins/allbert.browser/` source-tree plugin: the third shipped
-  plugin alongside Telegram and email. Browser process ownership lives in
-  the plugin supervisor; core spawns no browser.
+- Add the `./plugins/allbert.browser/` reviewed source-tree plugin alongside
+  Telegram, email, StockSage, and the notes/files reference plugin. Browser
+  process ownership lives in the plugin supervisor; core spawns no browser.
 - Register `browser://session/<id>` as the session identity URI (ADR 0013
   v0.43 amendment); navigated URL targets keep their native
   `https://`/`http://` URI and are authorized through per-domain remembered
@@ -2408,25 +2408,28 @@ Expected direction:
   `:browser_form_fill`, `:browser_download`) and the
   `:browser_session` origin kind to `Resources.OperationClass`.
 - Add the seven `:browser_*` permission classes to `Security.Policy` with
-  documented safety floors: navigation/click are `:needs_confirmation`;
-  extraction/screenshot are `:allowed`; form fill and download default
-  `:denied` until policy UI is proven.
-- Add the `browser.*` Settings Central namespace with `enabled: false`
-  default, read-only `headless`/`profile_mode`/credential-redaction
-  invariants, bounded extraction caps, ephemeral profile, and a
-  paused-by-default cache sweep job.
+  documented safety floors: navigation/click/form-fill/download are
+  `:needs_confirmation`; extraction/screenshot are `:allowed`; form fill and
+  download still default to `:denied` and can never be set to unconditional
+  allow.
+- Add the plugin-contributed `browser.*` Settings Central namespace with
+  `enabled: false` default, read-only `headless`/`profile_mode`/
+  credential-redaction invariants, bounded extraction caps, ephemeral profile,
+  and a paused-by-default cache sweep job.
 - Register ten actions through the action DSL (`browser_doctor`,
   `browser_start_session`, `browser_navigate`, `browser_extract`,
   `browser_screenshot`, `browser_click`, `browser_fill`,
   `browser_download`, `browser_close_session`, `browser_list_sessions`).
   Doctor follows ADR 0047's redacted shape.
 - Enforce network policy at two layers: top-level navigation pre-flights
-  through `External.HttpPolicy.allow?/1`; subresources and redirects pass
-  through `AllbertBrowser.NetworkPolicy` enforced via the driver's
-  request-interception API. Cross-domain redirects fail closed.
-- Bounded extraction for HTML, markdown, plain text, and PDF. PDF parsing
-  is sandboxed (no embedded JS execution, no follow-on fetch, byte/page
-  caps, parse timeout, malformed-input fails closed).
+  through a v0.43 browser navigation helper that reuses `External.HttpPolicy`
+  checks; subresources and redirects pass through `AllbertBrowser.NetworkPolicy`
+  enforced via the driver's request-interception API. Cross-domain redirects
+  fail closed.
+- Bounded extraction for HTML, markdown, plain text, and PDF. PDF parsing uses
+  a doctor-verified bounded local parser path (no embedded JS execution, no
+  follow-on fetch, byte/page caps, parse timeout, malformed-input fails
+  closed).
 - Screenshot redaction at the driver layer: `type=password`,
   `autocomplete=otp`, `autocomplete=cc-number` nodes are redacted before
   bitmap encoding.
@@ -2446,12 +2449,11 @@ Expected direction:
 - v0.47 may mine v0.43 redacted trace envelopes as one pattern source;
   raw page content is out of bounds.
 
-M1 must lock six decisions before subsequent milestones begin: driver
-choice (Playwright recommended), OS support (macOS + Linux recommended;
-WSL2 parked to v0.43.x), headless-only (recommended), ephemeral-only
-profiles (recommended), browser-vs-HTTP routing predicate, and
-JavaScript-enabled default. See `docs/plans/v0.43-plan.md`
-§"M1 Decisions To Lock" for trade-offs.
+M1 consumes the locked decisions from `docs/plans/v0.43-plan.md`
+§"M1 Locked Decisions": Playwright Chromium through a reviewed local bridge,
+macOS + Linux only (Windows/WSL2 parked to v0.43.x), headless-only,
+ephemeral-only profiles, the browser-vs-HTTP routing predicate, and
+JavaScript-enabled rendering.
 
 Exit signal: a disposable-home operator can enable browser, pass
 `browser_doctor`, approve a session start and a navigation, receive

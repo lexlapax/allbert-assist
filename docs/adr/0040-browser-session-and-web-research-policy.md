@@ -74,14 +74,18 @@ page content is descriptive, never authoritative.
 
 - Browser process ownership lives in the plugin supervisor
   (`./plugins/allbert.browser/`), under `AllbertBrowser.Supervisor`. Core never
-  spawns an unbounded browser.
+  spawns an unbounded browser. The plugin is a reviewed source-tree plugin and
+  is compiled through the existing shipped-plugin path; plugin discovery never
+  runs a package manager or installer.
 - Each active session is a supervised process (`AllbertBrowser.Session`) with a
   bounded lifetime, idle timeout, and `max_concurrent` session cap from
   Settings.
-- The driver binary path, version, and capability set are surfaced through a
-  `browser_doctor` action that follows ADR 0047's redacted return shape. The
-  doctor is the seam where supply-chain provenance is checked; sessions refuse
-  to start when the doctor reports an unverified or missing driver.
+- The driver binary path, Node/Playwright bridge version, Chromium
+  availability, OS support, PDF parser availability, and capability set are
+  surfaced through a `browser_doctor` action that follows ADR 0047's redacted
+  return shape. The doctor is the seam where supply-chain provenance is
+  checked; sessions refuse to start when the doctor reports an unverified or
+  missing dependency.
 
 ### Operation classes
 
@@ -96,7 +100,8 @@ entries:
 - `:browser_download` (access mode `:write`) — denied default
 
 `@origin_kinds` grows by `:browser_session`. `@scope_kinds` grows by
-`:browser_domain` (for grants) and `:browser_session` (for in-session refs).
+`:browser_session` for in-session refs. Per-domain navigation grants reuse the
+existing `:url_prefix` scope kind on the navigated target URL.
 
 Cross-operation grant authority is forbidden:
 
@@ -118,13 +123,14 @@ Cross-operation grant authority is forbidden:
 | `:browser_extract` | `:allowed` | `:allowed` |
 | `:browser_screenshot` | `:allowed` | `:allowed` |
 | `:browser_interact` | `:needs_confirmation` | `:needs_confirmation` |
-| `:browser_form_fill` | `:denied` | `:denied` |
-| `:browser_download` | `:denied` | `:denied` |
+| `:browser_form_fill` | `:denied` | `:needs_confirmation` |
+| `:browser_download` | `:denied` | `:needs_confirmation` |
 
-Settings can tighten any class but cannot loosen a safety floor. `BrowserClick`
-and `BrowserFill` ship in v0.43 only with restrictive policy so the action
-surface is complete and inspectable; broad form-fill/submit/download is a
-later milestone.
+Settings can tighten any class but cannot loosen a safety floor. Form fill and
+download default to denied; explicit operator opt-in may raise them only to
+confirmation, never to unconditional allow. `BrowserClick` and `BrowserFill`
+ship in v0.43 only with restrictive policy so the action surface is complete
+and inspectable; broad form-fill/submit/download is a later milestone.
 
 ### Per-domain remembered grants
 
@@ -141,14 +147,14 @@ later milestone.
 
 ### Network and subresource policy
 
-The browser driver makes network requests at its own layer; `HttpPolicy`
-applies to the **top-level navigation URL** as a pre-flight check, and a
-parallel `AllbertBrowser.NetworkPolicy` enforces subresource and
+The browser driver makes network requests at its own layer; a v0.43 browser
+navigation preflight helper reuses `External.HttpPolicy`'s **top-level
+navigation URL** checks, and a parallel `AllbertBrowser.NetworkPolicy` enforces subresource and
 redirect-chain rules via the driver's request-interception API:
 
 - top-level navigation: SSRF/host-rule/scheme checks identical to
-  `External.HttpPolicy.allow?/1`; redirects denied by default (must be
-  re-confirmed against the new domain);
+  the existing `External.HttpPolicy` posture; redirects denied by default
+  (must be re-confirmed against the new domain);
 - subresources: same SSRF/private-network/loopback denial; allowed only if the
   origin matches the navigated domain or an operator-configured CDN allowlist;
 - bounded timeouts and bounded response sizes per resource and per page;
@@ -158,10 +164,10 @@ redirect-chain rules via the driver's request-interception API:
 
 - Extractors are bounded: max bytes per page, max pages per PDF, max parse
   time. Caps are settings-driven and surface in confirmations and traces.
-- PDF parsing is sandboxed and ignores embedded JavaScript, embedded forms,
-  and external references (no follow-on fetch). The chosen parser, byte/page
-  caps, malformed-input handling, and fail-closed behavior are decided in
-  v0.43 M1.
+- PDF parsing uses a doctor-verified bounded local parser path and ignores
+  embedded JavaScript, embedded forms, and external references (no follow-on
+  fetch). Byte/page caps, malformed-input handling, and fail-closed behavior
+  are part of the v0.43 extractor contract.
 - Extracted text is descriptive, not authoritative: extraction output never
   steers agent behavior and is treated as user-readable evidence only.
 

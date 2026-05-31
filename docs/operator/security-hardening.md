@@ -153,8 +153,12 @@ eval surfaces until their capability work lands.
   `integration-mcp-native-boundary-001`,
   `notes-files-reference-plugin-action-boundary-001`, and
   `notes-files-namespace-isolation-001`.
-- Browser session state, navigation grants, screenshots, downloads, cookies,
-  and page-content prompt injection.
+- Browser session state and web research (v0.43 planned eval surface): browser
+  navigation grants remain per-domain/per-operation on target URLs, the
+  session URI is not grant authority, form-fill/download default denied with
+  confirmation floors, screenshots require credential-input redaction,
+  page/PDF content is evidence only, and driver/PDF-parser availability is
+  doctor-gated.
 - Discord, Slack, WhatsApp, Signal, iMessage, and Matrix identity mapping,
   replay, pairing, group leakage, and callback ownership.
 - Voice, image, screenshot, and generated media resource retention, redaction,

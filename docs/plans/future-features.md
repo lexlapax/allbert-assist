@@ -191,8 +191,8 @@ Still parked:
   sync, geolocation, microphone, camera, or clipboard access from the
   browser plugin;
 - recursive crawling, sitemap traversal, or automated link following;
-- broad upload (multipart file POST) beyond what tightened
-  `:browser_form_fill` would enable.
+- broad upload (multipart file POST) beyond a future explicitly opted-in and
+  confirmed `:browser_form_fill` flow.
 
 Each widens the v0.43 trust posture and needs its own policy, storage,
 redaction, and eval story before re-entry.

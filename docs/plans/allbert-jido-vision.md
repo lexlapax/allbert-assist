@@ -585,8 +585,9 @@ historical aliases only and remain in old reference notes for continuity.
   authorize navigation against the navigated URL, not the session URI; the
   six browser operation classes (`:browser_navigate`, `:browser_extract`,
   `:browser_screenshot`, `:browser_interact`, `:browser_form_fill`,
-  `:browser_download`) have per-class safety floors with form-fill and
-  download denied by default. Research, extraction, and screenshots are the
+  `:browser_download`) have per-class safety floors; form-fill and download
+  default to denied and can only be opted into confirmation. Research,
+  extraction, and screenshots are the
   v0.43 surface; broader account operation, authenticated workflows,
   persistent profiles, multi-tab orchestration, and JS evaluation are
   deferred to v0.43.x or later. Page content is descriptive evidence, never
