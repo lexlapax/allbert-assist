@@ -101,11 +101,22 @@ defmodule AllbertAssist.Actions.McpConnectActionsTest do
     assert trust_record.candidate_id == candidate.id
     assert trust_record.trust_status == "trusted"
     assert trust_record.transport == "stdio"
+    assert trust_record.baseline_status == "pending_live_verification"
+    assert trust_record.manifest_definition_hash == trust_record.tool_definition_hash
+    assert is_nil(trust_record.connected_tool_definition_hash)
   end
 
   test "approved enabled connection lets doctor detect tool-definition rug pull" do
     {:ok, candidate} = persist_candidate(McpRegistryFixtures.official_shell_risk_server())
-    context = %{actor: "operator", channel: :test}
+    configure_external()
+    {:ok, tools_agent} = Agent.start_link(fn -> shell_risk_tools() end)
+    stub_dynamic_tools(tools_agent)
+
+    context = %{
+      actor: "operator",
+      channel: :test,
+      mcp: %{req_plug: {Req.Test, __MODULE__}}
+    }
 
     assert {:ok, pending} =
              Runner.run(
@@ -123,8 +134,12 @@ defmodule AllbertAssist.Actions.McpConnectActionsTest do
 
     assert get_in(approved.confirmation, ["operator_resolution", "target_status"]) == "completed"
     assert configured_server("shell_risk")["enabled"] == true
-    configure_external()
-    stub_changed_tools()
+
+    assert {:ok, trust_record} = ServerTrust.get("shell_risk")
+    assert trust_record.baseline_status == "live_captured"
+    assert is_binary(trust_record.connected_tool_definition_hash)
+
+    Agent.update(tools_agent, fn _tools -> changed_tools() end)
 
     assert {:ok, doctor} =
              Runner.run(
@@ -136,6 +151,63 @@ defmodule AllbertAssist.Actions.McpConnectActionsTest do
     assert doctor.status == :completed
     assert doctor.doctor.trust_baseline_ok == false
     assert Enum.any?(doctor.diagnostics, &(&1.code == :tool_definition_changed))
+  end
+
+  test "pending baseline captures from first successful doctor without manifest-tools false positive" do
+    manifest =
+      McpRegistryFixtures.official_shell_risk_server()
+      |> Map.delete("tools")
+
+    {:ok, candidate} = persist_candidate(manifest)
+    configure_external()
+    {:ok, tools_agent} = Agent.start_link(fn -> shell_risk_tools() end)
+    stub_dynamic_tools(tools_agent)
+
+    context = %{
+      actor: "operator",
+      channel: :test,
+      mcp: %{req_plug: {Req.Test, __MODULE__}}
+    }
+
+    assert {:ok, pending} =
+             Runner.run(
+               "mcp_server_connect",
+               %{candidate_id: candidate.id, server_id: "shell_risk", enable_on_connect: false},
+               context
+             )
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending.confirmation_id, reason: "approved"},
+               context
+             )
+
+    assert get_in(approved.confirmation, ["operator_resolution", "target_status"]) == "completed"
+
+    assert {:ok, trust_record} = ServerTrust.get("shell_risk")
+    assert trust_record.baseline_status == "pending_live_verification"
+    assert is_nil(trust_record.connected_tool_definition_hash)
+
+    assert {:ok, _setting} =
+             Settings.put("mcp.servers.shell_risk.enabled", true, %{audit?: false})
+
+    assert {:ok, doctor} =
+             Runner.run(
+               "mcp_doctor_server",
+               %{server_id: "shell_risk"},
+               context
+             )
+
+    assert doctor.status == :completed
+    assert doctor.doctor.trust_baseline_ok == true
+    assert doctor.doctor.baseline_status == "live_captured"
+    assert Enum.any?(doctor.diagnostics, &(&1.code == :baseline_captured_from_first_doctor))
+    refute Enum.any?(doctor.diagnostics, &(&1.code == :tool_definition_changed))
+
+    assert {:ok, captured_record} = ServerTrust.get("shell_risk")
+    assert captured_record.baseline_status == "live_captured"
+    assert is_binary(captured_record.connected_tool_definition_hash)
   end
 
   test "connect fails closed for missing candidate manifest" do
@@ -206,7 +278,7 @@ defmodule AllbertAssist.Actions.McpConnectActionsTest do
              Settings.put("external_services.allowed_methods", ["POST"], %{audit?: false})
   end
 
-  defp stub_changed_tools do
+  defp stub_dynamic_tools(tools_agent) do
     Req.Test.stub(__MODULE__, fn conn ->
       {:ok, body, conn} = Plug.Conn.read_body(conn)
       request = Jason.decode!(body)
@@ -218,9 +290,7 @@ defmodule AllbertAssist.Actions.McpConnectActionsTest do
 
           "tools/list" ->
             %{
-              "tools" => [
-                %{"name" => "changed_tool", "description" => "Changed.", "inputSchema" => %{}}
-              ]
+              "tools" => Agent.get(tools_agent, & &1)
             }
 
           "resources/list" ->
@@ -233,6 +303,14 @@ defmodule AllbertAssist.Actions.McpConnectActionsTest do
         Jason.encode!(%{"jsonrpc" => "2.0", "id" => request["id"], "result" => result})
       )
     end)
+  end
+
+  defp shell_risk_tools do
+    [%{"name" => "shell_risk", "description" => "Fixture tool", "inputSchema" => %{}}]
+  end
+
+  defp changed_tools do
+    [%{"name" => "changed_tool", "description" => "Changed.", "inputSchema" => %{}}]
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

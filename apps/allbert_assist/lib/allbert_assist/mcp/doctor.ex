@@ -125,21 +125,7 @@ defmodule AllbertAssist.Mcp.Doctor do
         tools = Map.get(result, :tools, [])
         current_hash = Discovery.tool_list_hash(tools)
 
-        if current_hash == trust_record.tool_definition_hash do
-          Map.merge(summary, %{
-            trust_baseline_ok: true,
-            trust_baseline_hash: trust_record.tool_definition_hash,
-            current_tool_definition_hash: current_hash
-          })
-        else
-          summary
-          |> Map.merge(%{
-            trust_baseline_ok: false,
-            trust_baseline_hash: trust_record.tool_definition_hash,
-            current_tool_definition_hash: current_hash
-          })
-          |> Map.update!(:diagnostics, &[Diagnostics.new(:tool_definition_changed) | &1])
-        end
+        put_live_trust_diagnostics(summary, config, trust_record, current_hash)
 
       {:error, :not_found} ->
         summary
@@ -150,6 +136,67 @@ defmodule AllbertAssist.Mcp.Doctor do
   end
 
   defp put_trust_diagnostics(summary, _config, _tools), do: summary
+
+  defp put_live_trust_diagnostics(summary, config, trust_record, current_hash) do
+    baseline_hash = trust_record.connected_tool_definition_hash
+
+    cond do
+      trust_record.baseline_status == "pending_live_verification" or is_nil(baseline_hash) ->
+        capture_pending_live_baseline(summary, config, trust_record, current_hash)
+
+      current_hash == baseline_hash ->
+        Map.merge(summary, %{
+          trust_baseline_ok: true,
+          trust_baseline_hash: baseline_hash,
+          manifest_definition_hash: trust_record.manifest_definition_hash,
+          current_tool_definition_hash: current_hash,
+          baseline_status: trust_record.baseline_status
+        })
+
+      true ->
+        summary
+        |> Map.merge(%{
+          trust_baseline_ok: false,
+          trust_baseline_hash: baseline_hash,
+          manifest_definition_hash: trust_record.manifest_definition_hash,
+          current_tool_definition_hash: current_hash,
+          baseline_status: trust_record.baseline_status
+        })
+        |> Map.update!(:diagnostics, &[Diagnostics.new(:tool_definition_changed) | &1])
+    end
+  end
+
+  defp capture_pending_live_baseline(summary, config, trust_record, current_hash) do
+    case ServerTrust.capture_live_baseline(config.server_id, current_hash, %{
+           baseline_captured_from: "first_doctor",
+           prior_baseline_status: trust_record.baseline_status
+         }) do
+      {:ok, record} ->
+        summary
+        |> Map.merge(%{
+          trust_baseline_ok: true,
+          trust_baseline_hash: record.connected_tool_definition_hash,
+          manifest_definition_hash: record.manifest_definition_hash,
+          current_tool_definition_hash: current_hash,
+          baseline_status: record.baseline_status
+        })
+        |> Map.update!(
+          :diagnostics,
+          &[
+            Diagnostics.new(:baseline_captured_from_first_doctor) | &1
+          ]
+        )
+
+      {:error, _reason} ->
+        Map.merge(summary, %{
+          trust_baseline_ok: nil,
+          trust_baseline_hash: nil,
+          manifest_definition_hash: trust_record.manifest_definition_hash,
+          current_tool_definition_hash: current_hash,
+          baseline_status: trust_record.baseline_status
+        })
+    end
+  end
 
   defp server_trust_get(server_id) do
     ServerTrust.get(server_id)

@@ -78,6 +78,7 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
       exact_url: spec.exact_url,
       required_secret_refs: spec.required_secret_refs,
       evaluation_report: evaluation_report,
+      manifest_definition_hash: spec.tool_definition_hash,
       tool_definition_hash: spec.tool_definition_hash,
       endpoint_fingerprint: spec.endpoint_fingerprint,
       metadata_authority: "descriptive_metadata_only"
@@ -99,6 +100,7 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
       confirmation: spec.confirmation,
       required_secret_refs: spec.required_secret_refs,
       endpoint_fingerprint: spec.endpoint_fingerprint,
+      manifest_definition_hash: spec.tool_definition_hash,
       tool_definition_hash: spec.tool_definition_hash
     }
     |> drop_nil_values()

@@ -11,12 +11,16 @@ defmodule AllbertAssist.Mcp.ServerTrustRecord do
   @foreign_key_type :string
 
   @trust_statuses ~w(trusted revoked review_required)
+  @baseline_statuses ~w(live_captured pending_live_verification stale)
   @transports ~w(stdio sse streamable_http)
 
   schema "mcp_server_trust_records" do
     belongs_to :candidate, CandidateRecord, type: :string
 
     field :tool_definition_hash, :string
+    field :manifest_definition_hash, :string
+    field :connected_tool_definition_hash, :string
+    field :baseline_status, :string, default: "pending_live_verification"
     field :trust_status, :string, default: "trusted"
     field :transport, :string
     field :endpoint_fingerprint, :string
@@ -38,6 +42,9 @@ defmodule AllbertAssist.Mcp.ServerTrustRecord do
       :server_id,
       :candidate_id,
       :tool_definition_hash,
+      :manifest_definition_hash,
+      :connected_tool_definition_hash,
+      :baseline_status,
       :trust_status,
       :transport,
       :endpoint_fingerprint,
@@ -51,6 +58,8 @@ defmodule AllbertAssist.Mcp.ServerTrustRecord do
       :server_id,
       :candidate_id,
       :tool_definition_hash,
+      :manifest_definition_hash,
+      :baseline_status,
       :trust_status,
       :transport,
       :endpoint_fingerprint,
@@ -60,10 +69,13 @@ defmodule AllbertAssist.Mcp.ServerTrustRecord do
       :metadata
     ])
     |> validate_inclusion(:trust_status, @trust_statuses)
+    |> validate_inclusion(:baseline_status, @baseline_statuses)
     |> validate_inclusion(:transport, @transports)
     |> validate_length(:server_id, min: 1, max: 80)
     |> validate_length(:candidate_id, min: 5, max: 220)
     |> validate_length(:tool_definition_hash, is: 64)
+    |> validate_length(:manifest_definition_hash, is: 64)
+    |> validate_length(:connected_tool_definition_hash, is: 64)
     |> validate_length(:endpoint_fingerprint, min: 1, max: 260)
     |> validate_length(:connected_by, max: 128)
   end
