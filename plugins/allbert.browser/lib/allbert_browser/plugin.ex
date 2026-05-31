@@ -22,6 +22,20 @@ defmodule AllbertBrowser.Plugin do
   def validate(_opts), do: :ok
 
   @impl true
+  def actions do
+    [
+      AllbertBrowser.Actions.Doctor,
+      AllbertBrowser.Actions.StartSession,
+      AllbertBrowser.Actions.Navigate,
+      AllbertBrowser.Actions.Extract,
+      AllbertBrowser.Actions.Screenshot
+    ]
+  end
+
+  @impl true
+  def child_spec(_opts), do: AllbertBrowser.Supervisor
+
+  @impl true
   def settings_schema do
     [
       schema("browser.enabled", :boolean, false),
