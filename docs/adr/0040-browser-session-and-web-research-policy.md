@@ -192,10 +192,13 @@ redirect-chain rules via the driver's request-interception API:
 
 - Extractors are bounded: max bytes per page, max pages per PDF, max parse
   time. Caps are settings-driven and surface in confirmations and traces.
-- PDF parsing uses a doctor-verified bounded local parser path and ignores
-  embedded JavaScript, embedded forms, and external references (no follow-on
-  fetch). Byte/page caps, malformed-input handling, and fail-closed behavior
-  are part of the v0.43 extractor contract.
+- PDF parsing uses a doctor-verified bounded local text-layer parser path
+  implemented inside the browser plugin. It ignores embedded JavaScript,
+  embedded forms, and external references (no follow-on fetch), and fails
+  closed for encrypted, scanned/image-only, malformed, or unsupported PDFs.
+  No package manager, external installer, or host parser subprocess runs during
+  plugin activation or release tests. Byte/page caps, malformed-input
+  handling, and fail-closed behavior are part of the v0.43 extractor contract.
 - Extracted text is descriptive, not authoritative: extraction output never
   steers agent behavior and is treated as user-readable evidence only.
 
