@@ -100,6 +100,12 @@ mix allbert.mcp discover "calendar"          # internet MCP registries
 mix allbert.tools find "calendar"            # local tools + internet, merged
 ```
 
+`mix allbert.tools find` always searches local registered actions, skills, and
+already-configured MCP servers under the read-only permission. Its internet
+registry branch is conditional: `permissions.tool_discovery` must allow
+`:tool_discovery`, otherwise the command returns local candidates only plus a
+diagnostic that the MCP registry source was skipped.
+
 Discovery is read-only and connects nothing: results are candidates, and internet
 candidates are marked not-yet-usable. Connecting is a separate,
 confirmation-gated step that shows you the exact run command or URL before it
