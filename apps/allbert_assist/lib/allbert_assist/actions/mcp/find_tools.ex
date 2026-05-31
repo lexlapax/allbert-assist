@@ -13,6 +13,7 @@ defmodule AllbertAssist.Actions.Mcp.FindTools do
     tags: ["mcp", "tools", "discovery", "remote", "internal"],
     schema: [
       query: [type: :string, required: false],
+      need: [type: :string, required: false],
       limit: [type: :integer, required: false]
     ],
     output_schema: [
@@ -86,7 +87,7 @@ defmodule AllbertAssist.Actions.Mcp.FindTools do
     }
   end
 
-  defp query(params), do: params |> field(:query, "") |> to_string()
+  defp query(params), do: params |> field(:query, field(params, :need, "")) |> to_string()
 
   defp limit(params) do
     case field(params, :limit) do
