@@ -20,6 +20,7 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
 
   @v042_eval_ids [
     "mcp-discovery-ssrf-001",
+    "mcp-discovery-permission-boundary-001",
     "mcp-discovery-tool-poisoning-inert-001",
     "mcp-discovery-rug-pull-detection-001",
     "mcp-discovery-supply-chain-command-flag-001",
@@ -156,6 +157,42 @@ defmodule AllbertAssist.Security.V042DiscoveryIntegrationEvalTest do
     assert_allowed(unavailable)
     assert unavailable.trace.local_candidate_count > 0
     assert Enum.any?(unavailable.trace.diagnostics, &(&1.status == :degraded))
+  end
+
+  test "unified find_tools denies the remote registry branch when tool discovery is denied" do
+    configure_discovery()
+    configure_external(["registry.modelcontextprotocol.io"], ["/v0.1/servers"], ["GET"])
+
+    assert {:ok, _setting} =
+             Settings.put("permissions.tool_discovery", "denied", %{audit?: false})
+
+    reset_calls()
+    stub_official(McpRegistryFixtures.official_response())
+
+    result =
+      run_eval(
+        Map.put(EvalInventory.row!("mcp-discovery-permission-boundary-001"), :run, fn _fixture ->
+          {:ok, response} =
+            Runner.run("find_tools", %{query: "settings", limit: 10}, discovery_context())
+
+          %{
+            decision: :allowed,
+            result: response,
+            trace: %{
+              local_candidate_count:
+                Enum.count(response.candidates, &(&1.source in [:local_action, :local_skill])),
+              diagnostics: response.diagnostics
+            },
+            transport_calls: %{registry_http: count_kind(:registry_http)}
+          }
+        end)
+      )
+
+    assert_allowed(result)
+    assert result.trace.local_candidate_count > 0
+    assert Enum.any?(result.trace.diagnostics, &(&1.source == :mcp_registry))
+    assert Enum.any?(result.trace.diagnostics, &(&1.status == :denied))
+    assert_fixture_transport_calls(result, :registry_http, 0)
   end
 
   test "discovered metadata is inert, command risk is flagged, and schema claims do not lower connect floor" do

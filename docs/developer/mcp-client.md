@@ -185,10 +185,13 @@ v0.42 adds internet tool discovery on top of this v0.40 client; the authoritativ
 design is `docs/adr/0048-tool-discovery-and-discovered-server-trust.md` and the
 milestone contract is `docs/plans/v0.42-plan.md`. Shape:
 
-- `find_tools` (orchestrator) fans out to `find_local_tools`
+- `find_tools` (orchestrator) always fans out to the local source
   (`Actions.Registry.capabilities/0`, `Skills.Registry.list/1`, connected-MCP
-  `tools/list`) and `find_mcp_tools` (registry cascade) behind
-  `AllbertAssist.Tools.SourcePort`, returning normalized `ToolCandidate`s with
+  `tools/list`) under `:read_only`. It adds the registry source only after a
+  separate `:tool_discovery` permission check; when that permission is denied,
+  the orchestrator returns local candidates plus a skipped-source diagnostic
+  instead of making registry egress. Sources run behind
+  `AllbertAssist.Tools.SourcePort` and return normalized `ToolCandidate`s with
   `usable_now?` / `requires`.
 - `find_mcp_tools` searches the official MCP Registry plus optional keyed
   PulseMCP, when configured, behind `AllbertAssist.Mcp.Registry.Provider`;

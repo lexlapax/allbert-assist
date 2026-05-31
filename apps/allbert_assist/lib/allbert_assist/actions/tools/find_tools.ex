@@ -25,20 +25,40 @@ defmodule AllbertAssist.Actions.Tools.FindTools do
 
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Tools.Finder
+  alias AllbertAssist.Tools.Source.Local
+  alias AllbertAssist.Tools.Source.McpRegistry
   alias AllbertAssist.Tools.ToolCandidate
 
   @impl true
   def run(params, context) do
     permission_decision = PermissionGate.authorize(:read_only, context)
+    tool_discovery_decision = PermissionGate.authorize(:tool_discovery, context)
     query = query(params)
 
     if PermissionGate.allowed?(permission_decision) do
-      {:ok, %{candidates: candidates, diagnostics: diagnostics}} =
-        Finder.find(query, %{context: context, limit: limit(params)})
+      {sources, source_diagnostics} = source_plan(tool_discovery_decision)
 
-      {:ok, completed(query, candidates, diagnostics, permission_decision)}
+      {:ok, %{candidates: candidates, diagnostics: diagnostics}} =
+        Finder.find(query, %{context: context, limit: limit(params), sources: sources})
+
+      {:ok, completed(query, candidates, source_diagnostics ++ diagnostics, permission_decision)}
     else
       {:ok, denied(query, permission_decision, :permission_denied)}
+    end
+  end
+
+  defp source_plan(tool_discovery_decision) do
+    if PermissionGate.allowed?(tool_discovery_decision) do
+      {[Local, McpRegistry], []}
+    else
+      {[Local],
+       [
+         %{
+           source: :mcp_registry,
+           status: :denied,
+           reason: ":tool_discovery denied"
+         }
+       ]}
     end
   end
 

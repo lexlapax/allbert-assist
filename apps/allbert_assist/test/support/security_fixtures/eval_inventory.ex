@@ -1410,6 +1410,21 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V042DiscoveryIntegrationEvalTest"
     },
     %{
+      id: "mcp-discovery-permission-boundary-001",
+      milestone: :v042,
+      surface: :mcp_tool_discovery,
+      scenario: "unified find_tools is invoked while remote tool discovery is denied",
+      boundary: :tool_discovery_permission,
+      expected: :allowed,
+      assert: [
+        :allowed,
+        :local_only_fallback,
+        :remote_registry_branch_denied,
+        {:fixture_transport_calls, :registry_http, 0}
+      ],
+      test_module: "AllbertAssist.Security.V042DiscoveryIntegrationEvalTest"
+    },
+    %{
       id: "mcp-discovery-tool-poisoning-inert-001",
       milestone: :v042,
       surface: :mcp_tool_discovery,
