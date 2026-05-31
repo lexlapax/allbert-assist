@@ -23,7 +23,7 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is `v0.42.0`. `/workspace` is the operator home:
+The current implementation is `v0.42.2`. `/workspace` is the operator home:
 chat is the primary spine, the launcher is view-only, and Canvas shows one
 destination at a time (Output, an app, or a workspace tool).
 
@@ -55,7 +55,9 @@ v0.42 adds tool discovery and the first MCP-first integration pack:
 `mcp_evaluate_server`, the confirmation-gated `mcp_server_connect` gate,
 passive Discovery Suggestions, MCP-configured Calendar/Mail/GitHub panels,
 integration intent handoffs, and `./plugins/allbert.notes_files/` as the native
-reference plugin.
+reference plugin. The 0.42.1/0.42.2 closeout hardens the discovery permission
+boundary, live trust baseline, CLI connect contract, notes/files metadata, real
+integration effect arguments, and deterministic `release.v042` gate.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -104,11 +106,12 @@ manually proven first.
 
 Recent milestones:
 
-- `v0.42.0`: Tool Discovery + MCP-First Integration Pack 1 - unified
+- `v0.42.2`: Tool Discovery + MCP-First Integration Pack 1 - unified
   `find_tools`, internet MCP registry discovery, connect consent, rug-pull
   baseline checks, passive Discovery Suggestions, Calendar/Mail/GitHub
   MCP-configured workspace panels, integration intent handoffs, and the
-  notes/files native reference plugin.
+  notes/files native reference plugin, with closeout hardening and a
+  deterministic release smoke gate.
 - `v0.41.0`: Developer velocity and parallel test methodology - gate matrix,
   resource-lane taxonomy, partition-aware test helpers, focused/release aliases,
   and implementation-readiness annotations for downstream plans.
@@ -119,7 +122,7 @@ Recent milestones:
 
 Next milestones:
 
-- Post-`v0.42.0`: the planned 1.0 arc continues with browser research
+- Post-`v0.42.2`: the planned 1.0 arc continues with browser research
   (`v0.43`); Discord/Slack channels with the
   channel-approval-primitive contract (`v0.44`); Plan/Build workflows under
   `<ALLBERT_HOME>/workflows/` (`v0.45`); marketplace lite — data shape +

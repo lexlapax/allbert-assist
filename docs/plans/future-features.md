@@ -321,7 +321,7 @@ Still parked:
 - App Store / signing implications;
 - backup/restore behavior for paired sessions.
 
-### Native Plugin Variants For Calendar / Mail / GitHub (v0.42.x Follow-On)
+### Native Plugin Variants For Calendar / Mail / GitHub (Post-1.0 Follow-On)
 
 Status: post-1.0 follow-on candidates after v0.42 shipped MCP-configured
 panels. Promoted from v0.42 scope in the post-v0.37 planning pass.

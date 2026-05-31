@@ -20,7 +20,7 @@ defmodule AllbertAssist.App.CoreApp do
   # the app (release-pinned, not semantic-per-app). v0.42 adds MCP integration
   # intent handoffs for the calendar/mail/GitHub workspace panels.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.42.0"
+  def version, do: "0.42.2"
 
   @impl true
   def validate(_opts), do: :ok

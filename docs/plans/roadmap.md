@@ -222,13 +222,15 @@ Dependency order from here:
     resource-lane taxonomy, and a decision-complete isolation/migration plan for
     parallel precommit work. No operator-facing assistant capability.
 42. v0.42 Tool Discovery + MCP-first Integration Pack 1: implemented as
-    `0.42.0`. `find_tools` capability search (local tools + internet MCP
+    `0.42.2`. `find_tools` capability search (local tools + internet MCP
     registries behind a provider port) with a confirmation-gated connect gate
     and an opt-in, passive background scan. Calendar, Mail, and GitHub ship as
     MCP-configured workspace panels; `notes/files` ships as the native reference
     plugin and starter scaffold for plugin authors (does NOT replace StockSage
-    as the depth reference). Native integration plugins for the other three are
-    post-1.0 follow-on (v0.42.x).
+    as the depth reference). Closeout hardens the discovery permission boundary,
+    live connected-server baseline, CLI connect contract, notes/files metadata,
+    submitted effect arguments, and deterministic release gate. Native
+    integration plugins for the other three are post-1.0 follow-on.
 43. v0.43 Browser and web research: browser-session Resource Access policy,
     sandboxed browser plugin, research/extract/screenshot actions, and bounded
     HTML/markdown/text/PDF extraction.
@@ -2342,13 +2344,16 @@ Request flow: `docs/plans/v0.42-request-flow.md`
 ADRs: `docs/adr/0048-tool-discovery-and-discovered-server-trust.md` (discovery),
 `docs/adr/0039-mcp-first-native-plugin-second-integrations.md` (integration).
 
-Status: implemented as `0.42.0`. Promoted from
+Status: implemented as `0.42.2`. Promoted from
 `docs/archives/version-1.0-planning-03.md`; tightened in the post-v0.37 planning
 pass to **MCP-configured only** for calendar/mail/GitHub plus one native
 reference plugin (notes/files). The post-v0.40 planning pass added a
 **discovery track**, shipped first, that lets Allbert find and connect MCP
-servers through a confirmation-gated gate. Native plugins for the other
-integrations move to v0.42.x follow-on releases.
+servers through a confirmation-gated gate. The 0.42.1/0.42.2 closeout shipped
+the discovery permission boundary, live connected-server trust baseline, CLI
+contract reconciliation, reference-plugin resilience, concrete integration
+effect forms, and deterministic release smoke. Native plugins for the other
+integrations move to post-1.0 follow-on releases.
 
 Shipped scope:
 
@@ -2372,8 +2377,8 @@ Shipped scope:
 - Shipped intent descriptors per integration so v0.33 handoff works.
 - Keep integration effects behind registered actions, Resource Access,
   Security Central, confirmations, traces, and audits.
-- Native integration plugins for calendar/mail/GitHub graduate to **v0.42.x
-  follow-on releases** only when MCP coverage proves insufficient for a
+- Native integration plugins for calendar/mail/GitHub graduate to post-1.0
+  follow-on releases only when MCP coverage proves insufficient for a
   specific workspace surface or memory-namespace need. Not 1.0-blocking.
 
 ## v0.43: Browser And Web Research
@@ -2762,7 +2767,7 @@ Moved out of the 1.0 arc into `future-features.md`:
 - Public AG-UI/A2UI bridge.
 - iMessage channel adapter.
 - Native plugin variants for calendar / mail / GitHub integrations beyond MCP
-  (v0.42.x follow-on if needed).
+  (post-1.0 follow-on if needed).
 - Marketplace community submission / review governance.
 
 ## Future: Distillation, Autonomy, And Distributed Operation

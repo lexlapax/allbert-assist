@@ -566,17 +566,19 @@ historical aliases only and remain in old reference notes for continuity.
   accidental, and future implementation plans annotate parallel workstreams,
   serial barriers, gate evidence, and rejoin points. No operator-facing
   assistant capability.
-- v0.42 (implemented as `0.42.0`): Tool Discovery + MCP-first Integration Pack 1. Allbert gains
+- v0.42 (implemented as `0.42.2`): Tool Discovery + MCP-first Integration Pack 1. Allbert gains
   `find_tools`, a capability search that fans out to local tools (actions,
   skills, connected MCP servers) and to internet MCP registries; a discovered
   server connects only through a confirmation-gated consent that shows the exact
-  command/URL, and an opt-in, paused-by-default background scan writes
+  command/URL, captures a live connected-server trust baseline, and an opt-in,
+  paused-by-default background scan writes
   suggestions to a passive surface (no unprompted messaging, no auto-connect).
   Calendar, mail, GitHub, and notes/files ship as **MCP-server-configured
   workspace panels**. The notes/files surface also ships as a native reference
   plugin to give plugin authors a starter scaffold; StockSage remains the depth
-  reference. Native plugins for the other integrations are post-1.0 follow-on
-  (v0.42.x).
+  reference. Closeout adds submitted effect forms and the deterministic v0.42
+  release gate. Native plugins for the other integrations are post-1.0
+  follow-on.
 - v0.43: Browser And Web Research. Browser sessions become Resource Access
   resources at `browser://session/<id>`, owned by the `./plugins/allbert.browser/`
   plugin supervisor (core spawns no browser). Per-domain remembered grants

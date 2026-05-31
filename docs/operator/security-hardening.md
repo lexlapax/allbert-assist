@@ -144,7 +144,8 @@ eval surfaces until their capability work lands.
   `:notes_file_write` confirmation, and integration output does not auto-promote
   into markdown memory. Implemented eval rows:
   `mcp-discovery-ssrf-001`, `-tool-poisoning-inert-001`,
-  `-rug-pull-detection-001`, `-supply-chain-command-flag-001`,
+  `-permission-boundary-001`, `-rug-pull-detection-001`,
+  `-rug-pull-no-false-positive-001`, `-supply-chain-command-flag-001`,
   `-server-impersonation-001`, `-consent-before-connect-001`,
   `-registry-unavailable-degrades-001`, `-schema-not-authority-001`,
   `integration-core-dependency-deny-001`, `integration-credential-scope-001`,
