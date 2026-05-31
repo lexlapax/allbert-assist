@@ -82,12 +82,25 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
 
     assert extracted.status == :completed
     assert extracted.extraction.text =~ "Stub browser extraction"
+    assert extracted.extraction.cache_ref =~ "cache://browser/#{started.session_id}/"
 
     assert {:ok, screenshot} =
              Runner.run("browser_screenshot", %{session_id: started.session_id}, %{})
 
     assert screenshot.status == :completed
     assert screenshot.screenshot.redacted_credential_inputs?
+    assert screenshot.screenshot.screenshot_ref =~ "cache://browser/#{started.session_id}/"
+
+    assert {:ok, listed} = Runner.run("browser_list_sessions", %{}, %{})
+    assert [%{session_id: session_id, last_visited_host: "example.com"}] = listed.sessions
+    assert session_id == started.session_id
+
+    assert {:ok, closed} =
+             Runner.run("browser_close_session", %{session_id: started.session_id}, %{})
+
+    assert closed.status == :completed
+    assert {:ok, relisted} = Runner.run("browser_list_sessions", %{}, %{})
+    assert relisted.sessions == []
   end
 
   test "navigation preflight denies private hosts before session call" do
