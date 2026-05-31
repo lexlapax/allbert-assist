@@ -4,8 +4,8 @@ defmodule Mix.Tasks.Allbert.McpTest do
 
   import ExUnit.CaptureIO
 
-  alias AllbertAssist.Jobs
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Jobs
   alias AllbertAssist.McpRegistryFixtures
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings

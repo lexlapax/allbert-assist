@@ -11,13 +11,14 @@ defmodule AllbertAssist.Surface.CatalogTest do
   test "component membership is shared by Surface and Workspace catalog facades" do
     assert Catalog.known_components() == Surface.known_components()
     assert Catalog.known_components() == Workspace.Catalog.known_components()
-    assert length(Catalog.known_components()) == 51
+    assert length(Catalog.known_components()) == 52
     assert :chat in Catalog.known_components()
     assert :workspace_shell in Catalog.known_components()
     assert :app_launcher in Catalog.known_components()
     assert :onboarding_panel in Catalog.known_components()
     assert :settings_panel in Catalog.known_components()
     assert :template_create_panel in Catalog.known_components()
+    assert :mcp_effect_form in Catalog.known_components()
     assert :debate_round_card in Catalog.known_components()
   end
 

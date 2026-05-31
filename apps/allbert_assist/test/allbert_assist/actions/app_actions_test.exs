@@ -90,7 +90,7 @@ defmodule AllbertAssist.Actions.AppActionsTest do
              &match?(%{id: :core_jobs_panel, kind: :panel}, &1)
            )
 
-    assert response.app.surface_catalog_count == 51
+    assert response.app.surface_catalog_count == 52
     refute inspect(response.app) =~ "child_pid"
     refute inspect(response.app) =~ "chat-root"
   end
