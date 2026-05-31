@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Confirmations.ResourceMetadata
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
@@ -101,6 +102,54 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     assert closed.status == :completed
     assert {:ok, relisted} = Runner.run("browser_list_sessions", %{}, %{})
     assert relisted.sessions == []
+  end
+
+  test "click requires confirmation with selector and bounded visible label preview" do
+    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{})
+
+    assert {:ok, started} =
+             Runner.run("browser_start_session", %{}, %{confirmation: %{approved?: true}})
+
+    assert {:ok, _navigated} =
+             Runner.run(
+               "browser_navigate",
+               %{session_id: started.session_id, url: "https://example.com/click"},
+               %{confirmation: %{approved?: true}}
+             )
+
+    label = String.duplicate("Launch ", 40)
+
+    assert {:ok, pending} =
+             Runner.run(
+               "browser_click",
+               %{
+                 session_id: started.session_id,
+                 selector: "button.launch",
+                 visible_label_preview: label
+               },
+               %{}
+             )
+
+    assert pending.status == :needs_confirmation
+    assert pending.confirmation["params_summary"]["selector"] == "button.launch"
+    assert String.length(pending.confirmation["params_summary"]["visible_label_preview"]) == 200
+
+    assert ResourceMetadata.lines(pending.confirmation)
+           |> Enum.any?(&String.contains?(&1, "Browser selector"))
+
+    assert {:ok, clicked} =
+             Runner.run(
+               "browser_click",
+               %{
+                 session_id: started.session_id,
+                 selector: "button.launch",
+                 visible_label_preview: label
+               },
+               %{confirmation: %{approved?: true}}
+             )
+
+    assert clicked.status == :completed
+    assert clicked.click.selector == "button.launch"
   end
 
   test "navigation preflight denies private hosts before session call" do

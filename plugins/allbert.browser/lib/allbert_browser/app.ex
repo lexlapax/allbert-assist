@@ -23,6 +23,9 @@ defmodule AllbertBrowser.App do
   def validate(_opts), do: :ok
 
   @impl AllbertAssist.App
+  def actions, do: [AllbertBrowser.Actions.ResearchHandoff]
+
+  @impl AllbertAssist.App
   def surfaces, do: [panel_surface(result_nodes([]))]
 
   def workspace_panel_surfaces(_context) do
@@ -31,6 +34,40 @@ defmodule AllbertBrowser.App do
   end
 
   def surface_catalog, do: []
+
+  def intent_descriptors do
+    [
+      %{
+        app_id: :allbert_browser,
+        action_name: "browser_research_handoff",
+        label: "Browser research handoff",
+        examples: [
+          "research https://example.com",
+          "research https://example.com and summarize",
+          "summarize the page at https://example.com",
+          "screenshot https://example.com",
+          "what does https://example.com look like",
+          "render https://example.com",
+          "extract text from https://example.com",
+          "extract html from https://example.com",
+          "extract markdown from https://example.com",
+          "extract pdf from https://example.com"
+        ],
+        synonyms: [
+          "research",
+          "summarize the page",
+          "screenshot",
+          "render",
+          "extract text",
+          "extract html",
+          "extract markdown",
+          "extract pdf"
+        ],
+        required_slots: [],
+        handoff_required?: true
+      }
+    ]
+  end
 
   def fallback_surface(@panel_id),
     do: {:ok, "Browser results are available from the Browser workspace panel."}

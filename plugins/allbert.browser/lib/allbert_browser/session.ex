@@ -25,6 +25,7 @@ defmodule AllbertBrowser.Session do
   end
 
   def navigate(session_id, url, opts \\ []), do: call(session_id, {:navigate, url, opts})
+  def click(session_id, selector, opts \\ []), do: call(session_id, {:click, selector, opts})
   def extract(session_id, format, opts \\ []), do: call(session_id, {:extract, format, opts})
   def screenshot(session_id, opts \\ []), do: call(session_id, {:screenshot, opts})
   def close(session_id), do: call(session_id, :close)
@@ -81,6 +82,19 @@ defmodule AllbertBrowser.Session do
 
   def handle_call({:extract, format, opts}, _from, state) do
     {:reply, Driver.extract(state.driver_state, format, opts), state}
+  end
+
+  def handle_call({:click, selector, opts}, _from, state) do
+    case Driver.click(state.driver_state, selector, opts) do
+      {:ok, %{state: driver_state, click: click}} ->
+        {:reply, {:ok, click}, %{state | driver_state: driver_state}}
+
+      {:ok, click} ->
+        {:reply, {:ok, click}, state}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
   end
 
   def handle_call({:screenshot, opts}, _from, state) do

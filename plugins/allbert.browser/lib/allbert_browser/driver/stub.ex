@@ -34,6 +34,22 @@ defmodule AllbertBrowser.Driver.Stub do
   end
 
   @impl true
+  def click(state, selector, opts) do
+    label = Keyword.get(opts, :visible_label_preview) || "Stub clickable element"
+
+    {:ok,
+     %{
+       state: state,
+       click: %{
+         selector: selector,
+         visible_label_preview: label,
+         navigation_triggered?: false,
+         url: List.first(state.pages)
+       }
+     }}
+  end
+
+  @impl true
   def extract(state, format, opts) do
     max_bytes = Keyword.get(opts, :max_bytes, 4096)
     body = body_for(state, format)
