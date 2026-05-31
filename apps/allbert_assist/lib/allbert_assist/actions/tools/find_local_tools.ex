@@ -21,11 +21,12 @@ defmodule AllbertAssist.Actions.Tools.FindLocalTools do
       message: [type: :string, required: true],
       status: [type: :atom, required: true],
       candidates: [type: {:list, :map}, required: true],
+      diagnostics: [type: {:list, :map}, required: true],
       actions: [type: {:list, :map}, required: true]
     ]
 
   alias AllbertAssist.Security.PermissionGate
-  alias AllbertAssist.Tools.Finder
+  alias AllbertAssist.Tools.Source.Local
   alias AllbertAssist.Tools.ToolCandidate
 
   @impl true
@@ -34,22 +35,28 @@ defmodule AllbertAssist.Actions.Tools.FindLocalTools do
     query = query(params)
 
     if PermissionGate.allowed?(permission_decision) do
-      {:ok, candidates} = Finder.find_local(query, %{context: context, limit: limit(params)})
+      {:ok, %{candidates: candidates, diagnostics: diagnostics}} =
+        Local.search_with_diagnostics(query, %{context: context, limit: limit(params)})
 
-      {:ok, completed(query, candidates, permission_decision)}
+      {:ok, completed(query, candidates, diagnostics, permission_decision)}
     else
       {:ok, denied(query, permission_decision, :permission_denied)}
     end
   end
 
-  defp completed(query, candidates, permission_decision) do
+  defp completed(query, candidates, diagnostics, permission_decision) do
     %{
       message: "Found #{length(candidates)} local tool candidate(s) for #{inspect(query)}.",
       status: PermissionGate.response_status(permission_decision),
       permission_decision: permission_decision,
       candidates: Enum.map(candidates, &ToolCandidate.to_map/1),
+      diagnostics: diagnostics,
       actions: [
-        action(:completed, permission_decision, %{query: query, count: length(candidates)})
+        action(:completed, permission_decision, %{
+          query: query,
+          count: length(candidates),
+          diagnostics_count: length(diagnostics)
+        })
       ]
     }
   end
@@ -60,6 +67,7 @@ defmodule AllbertAssist.Actions.Tools.FindLocalTools do
       status: PermissionGate.response_status(permission_decision),
       permission_decision: permission_decision,
       candidates: [],
+      diagnostics: [],
       error: reason,
       actions: [action(:denied, permission_decision, %{query: query, error: reason})]
     }

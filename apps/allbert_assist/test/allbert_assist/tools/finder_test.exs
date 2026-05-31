@@ -54,6 +54,21 @@ defmodule AllbertAssist.Tools.FinderTest do
     assert Agent.get(__MODULE__.CallLog, & &1) == []
   end
 
+  test "local source degrades when skill registry fails" do
+    context = %{
+      include_configured_mcp?: false,
+      skills_registry: __MODULE__.FailingSkillsRegistry
+    }
+
+    assert {:ok, %{candidates: candidates, diagnostics: [diagnostic]}} =
+             Local.search_with_diagnostics("settings", %{context: context})
+
+    assert Enum.any?(candidates, &match?(%{source: :local_action, name: "list_settings"}, &1))
+    assert diagnostic.source == :local_skill
+    assert diagnostic.status == :degraded
+    assert diagnostic.reason =~ "registry_unavailable"
+  end
+
   test "local source includes tools from configured enabled MCP servers" do
     configure_external()
     configure_http_server()
@@ -133,6 +148,10 @@ defmodule AllbertAssist.Tools.FinderTest do
       })
       |> then(fn {:ok, candidate} -> {:ok, [candidate]} end)
     end
+  end
+
+  defmodule FailingSkillsRegistry do
+    def list(_context), do: {:error, :registry_unavailable}
   end
 
   defp configure_http_server do

@@ -21,22 +21,34 @@ defmodule AllbertAssist.Tools.Source.Local do
   def search(query, opts \\ %{})
 
   def search(query, opts) when is_binary(query) and is_map(opts) do
+    with {:ok, %{candidates: candidates}} <- search_with_diagnostics(query, opts) do
+      {:ok, candidates}
+    end
+  end
+
+  def search(query, opts) when is_map(opts), do: search(to_string(query || ""), opts)
+
+  def search_with_diagnostics(query, opts \\ %{})
+
+  def search_with_diagnostics(query, opts) when is_binary(query) and is_map(opts) do
     context = context(opts)
     limit = limit(opts)
+    {skills, diagnostics} = skill_candidates(context)
 
     candidates =
       action_candidates() ++
-        skill_candidates(context) ++
+        skills ++
         configured_mcp_candidates(query, context)
 
     candidates
     |> Enum.filter(&matches?(&1, query))
     |> Enum.sort_by(&rank_key(&1, query))
     |> Enum.take(limit)
-    |> then(&{:ok, &1})
+    |> then(&{:ok, %{candidates: &1, diagnostics: diagnostics}})
   end
 
-  def search(query, opts) when is_map(opts), do: search(to_string(query || ""), opts)
+  def search_with_diagnostics(query, opts) when is_map(opts),
+    do: search_with_diagnostics(to_string(query || ""), opts)
 
   defp action_candidates do
     ActionsRegistry.capabilities()
@@ -89,11 +101,24 @@ defmodule AllbertAssist.Tools.Source.Local do
   defp normalize_metadata(_metadata), do: %{description: nil, category: nil, tags: []}
 
   defp skill_candidates(context) do
-    {:ok, skills} = SkillsRegistry.list(context)
+    case skill_registry(context).list(context) do
+      {:ok, skills} ->
+        candidates =
+          skills
+          |> Enum.map(&skill_candidate/1)
+          |> Enum.flat_map(&ok_list/1)
 
-    skills
-    |> Enum.map(&skill_candidate/1)
-    |> Enum.flat_map(&ok_list/1)
+        {candidates, []}
+
+      {:error, reason} ->
+        {[], [diagnostic(:local_skill, :degraded, reason)]}
+    end
+  rescue
+    exception ->
+      {[],
+       [
+         diagnostic(:local_skill, :degraded, {exception.__struct__, Exception.message(exception)})
+       ]}
   end
 
   defp skill_candidate(skill) do
@@ -192,6 +217,10 @@ defmodule AllbertAssist.Tools.Source.Local do
     Map.get(context, :include_configured_mcp?, Map.get(context, "include_configured_mcp?", true))
   end
 
+  defp skill_registry(context) do
+    Map.get(context, :skills_registry, Map.get(context, "skills_registry", SkillsRegistry))
+  end
+
   defp matches?(_candidate, query) when query in [nil, ""], do: true
 
   defp matches?(%ToolCandidate{} = candidate, query) do
@@ -262,4 +291,8 @@ defmodule AllbertAssist.Tools.Source.Local do
 
   defp ok_list({:ok, value}), do: [value]
   defp ok_list({:error, _reason}), do: []
+
+  defp diagnostic(source, status, reason) do
+    %{source: source, status: status, reason: inspect(reason)}
+  end
 end
