@@ -151,23 +151,21 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
     base_url = get_any(remote, ["url_direct", :url_direct, "direct_url", :direct_url])
     auth_method = get_any(remote, ["authentication_method", :authentication_method])
 
-    cond do
-      transport not in [:sse, :streamable_http] ->
-        {:error, {:unsupported_transport, transport}}
+    if transport in [:sse, :streamable_http] do
+      with :ok <- validate_remote_url(base_url) do
+        {auth_ref, required_secret_refs} = auth_ref(auth_method, server_id)
 
-      true ->
-        with :ok <- validate_remote_url(base_url) do
-          {auth_ref, required_secret_refs} = auth_ref(auth_method, server_id)
-
-          {:ok,
-           %{
-             transport: transport,
-             base_url: base_url,
-             auth_ref: auth_ref,
-             required_secret_refs: required_secret_refs,
-             exact_url: base_url
-           }}
-        end
+        {:ok,
+         %{
+           transport: transport,
+           base_url: base_url,
+           auth_ref: auth_ref,
+           required_secret_refs: required_secret_refs,
+           exact_url: base_url
+         }}
+      end
+    else
+      {:error, {:unsupported_transport, transport}}
     end
   end
 

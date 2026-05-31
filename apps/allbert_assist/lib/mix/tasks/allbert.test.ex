@@ -427,19 +427,7 @@ defmodule Mix.Tasks.Allbert.Test do
       |> Enum.flat_map(&Path.wildcard(Path.join(&1, "**/*")))
       |> Enum.filter(&File.regular?/1)
 
-    findings =
-      files
-      |> Enum.flat_map(fn file ->
-        content = File.read!(file)
-
-        Enum.flat_map(secret_patterns(), fn {name, pattern} ->
-          if Regex.match?(pattern, content) do
-            [%{file: Path.relative_to(file, home), pattern: name}]
-          else
-            []
-          end
-        end)
-      end)
+    findings = release_v042_secret_findings(files, home)
 
     result = %{
       status: if(findings == [], do: "passed", else: "failed"),
@@ -464,6 +452,18 @@ defmodule Mix.Tasks.Allbert.Test do
         ~r/(token|api[_-]?key|password|secret|bearer)\s*[:=]\s*(?!\[REDACTED\]|secret:\/\/)[^\s"',}]{8,}/i
       }
     ]
+  end
+
+  defp release_v042_secret_findings(files, home) do
+    Enum.flat_map(files, &release_v042_secret_file_findings(&1, home))
+  end
+
+  defp release_v042_secret_file_findings(file, home) do
+    content = File.read!(file)
+
+    secret_patterns()
+    |> Enum.filter(fn {_name, pattern} -> Regex.match?(pattern, content) end)
+    |> Enum.map(fn {name, _pattern} -> %{file: Path.relative_to(file, home), pattern: name} end)
   end
 
   defp redact_release_output(output) do
