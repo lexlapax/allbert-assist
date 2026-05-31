@@ -112,8 +112,13 @@ confirmation-gated step that shows you the exact run command or URL before it
 writes any `mcp.servers.<id>` config:
 
 ```sh
-mix allbert.mcp connect "io.example/calendar"   # shows exact command/URL; approve
+mix allbert.mcp connect --candidate-id "remote_mcp:official:..."  # exact, unambiguous
+mix allbert.mcp connect "io.example/calendar"                     # unique candidate name
 ```
+
+Bare connect input resolves an exact candidate id first, then a unique candidate
+name. If more than one candidate has the same name, the command prints a
+disambiguation error and you should rerun it with `--candidate-id`.
 
 An optional background scan (opt-in, paused by default) writes suggestions to a
 passive Discovery Suggestions panel you review on your own time — Allbert never

@@ -5,7 +5,8 @@ defmodule Mix.Tasks.Allbert.Mcp do
   ## Usage
 
       mix allbert.mcp discover QUERY [--limit N]
-      mix allbert.mcp connect CANDIDATE_ID [--server-id SERVER] [--enable]
+      mix allbert.mcp connect CANDIDATE_ID_OR_UNIQUE_NAME [--server-id SERVER] [--enable]
+      mix allbert.mcp connect --candidate-id CANDIDATE_ID [--server-id SERVER] [--enable]
       mix allbert.mcp scan enable|pause|resume|run-once [QUERY]
       mix allbert.mcp doctor SERVER [--no-discovery]
       mix allbert.mcp tools SERVER
@@ -17,6 +18,7 @@ defmodule Mix.Tasks.Allbert.Mcp do
   use Mix.Task
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Tools.Discovery
   alias AllbertAssist.Tools.Discovery.Scan
 
   @shortdoc "Inspect configured MCP servers"
@@ -44,19 +46,22 @@ defmodule Mix.Tasks.Allbert.Mcp do
     completed_action("find_mcp_tools", %{query: query, limit: opts[:limit]})
   end
 
-  defp dispatch(["connect", candidate_id | args]) do
+  defp dispatch(["connect" | args]) do
     {opts, rest, invalid} =
-      OptionParser.parse(args, strict: [server_id: :string, enable: :boolean])
+      OptionParser.parse(args,
+        strict: [server_id: :string, enable: :boolean, candidate_id: :string]
+      )
 
     reject_invalid!(invalid)
-    reject_rest!(rest)
 
-    params =
-      %{candidate_id: candidate_id}
-      |> maybe_put(:server_id, opts[:server_id])
-      |> maybe_put(:enable_on_connect, if(opts[:enable], do: true))
+    with {:ok, candidate_id} <- connect_candidate_id(opts, rest) do
+      params =
+        %{candidate_id: candidate_id}
+        |> maybe_put(:server_id, opts[:server_id])
+        |> maybe_put(:enable_on_connect, if(opts[:enable], do: true))
 
-    action_result("mcp_server_connect", params)
+      action_result("mcp_server_connect", params)
+    end
   end
 
   defp dispatch(["scan", command | args]) when command in ["enable", "pause", "resume"] do
@@ -136,9 +141,58 @@ defmodule Mix.Tasks.Allbert.Mcp do
       mix allbert.mcp read SERVER URI
       mix allbert.mcp call SERVER TOOL JSON
       mix allbert.mcp discover QUERY [--limit N]
-      mix allbert.mcp connect CANDIDATE_ID [--server-id SERVER] [--enable]
+      mix allbert.mcp connect CANDIDATE_ID_OR_UNIQUE_NAME [--server-id SERVER] [--enable]
+      mix allbert.mcp connect --candidate-id CANDIDATE_ID [--server-id SERVER] [--enable]
       mix allbert.mcp scan enable|pause|resume|run-once [QUERY]
     """)
+  end
+
+  defp connect_candidate_id(opts, rest) do
+    case {opts[:candidate_id], rest} do
+      {candidate_id, []} when is_binary(candidate_id) and candidate_id != "" ->
+        {:ok, candidate_id}
+
+      {nil, [_head | _tail]} ->
+        rest
+        |> Enum.join(" ")
+        |> String.trim()
+        |> resolve_candidate_ref()
+
+      {nil, []} ->
+        Mix.raise(
+          "Usage: mix allbert.mcp connect CANDIDATE_ID_OR_UNIQUE_NAME [--server-id SERVER] [--enable]"
+        )
+
+      {_candidate_id, [_head | _tail]} ->
+        Mix.raise("Use either --candidate-id or a bare candidate id/name, not both.")
+    end
+  end
+
+  defp resolve_candidate_ref(ref) do
+    case Discovery.get_candidate(ref) do
+      {:ok, _candidate} ->
+        {:ok, ref}
+
+      {:error, :not_found} ->
+        resolve_candidate_name(ref)
+    end
+  end
+
+  defp resolve_candidate_name(name) do
+    {:ok, candidates} = Discovery.list_candidates(source: :remote_mcp, limit: 500)
+
+    candidates
+    |> Enum.filter(&(&1.name == name))
+    |> case do
+      [candidate] ->
+        {:ok, candidate.id}
+
+      [] ->
+        {:error, {:candidate_not_found, name}}
+
+      matches ->
+        {:error, {:ambiguous_candidate_name, name, Enum.map(matches, & &1.id)}}
+    end
   end
 
   defp scan_lifecycle("enable", opts), do: Scan.enable(opts)

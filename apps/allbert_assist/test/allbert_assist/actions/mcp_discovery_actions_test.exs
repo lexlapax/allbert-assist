@@ -43,7 +43,7 @@ defmodule AllbertAssist.Actions.McpDiscoveryActionsTest do
     context = %{actor: "local", channel: :test, external: %{req_plug: {Req.Test, __MODULE__}}}
 
     assert {:ok, find_response} =
-             Runner.run("find_mcp_tools", %{query: "shell", limit: 5}, context)
+             Runner.run("find_mcp_tools", %{need: "shell", limit: 5}, context)
 
     assert find_response.status == :completed
 

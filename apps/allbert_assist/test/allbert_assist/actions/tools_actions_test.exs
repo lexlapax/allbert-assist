@@ -60,6 +60,26 @@ defmodule AllbertAssist.Actions.ToolsActionsTest do
            )
   end
 
+  test "find tool actions accept need as a query alias" do
+    context = %{actor: "local", channel: :test, include_configured_mcp?: false}
+
+    assert {:ok, local_response} = Runner.run("find_local_tools", %{need: "settings"}, context)
+    assert {:ok, unified_response} = Runner.run("find_tools", %{need: "settings"}, context)
+
+    assert local_response.status == :completed
+    assert unified_response.status == :completed
+
+    assert Enum.any?(
+             local_response.candidates,
+             &(&1.source == :local_action and &1.name == "list_settings")
+           )
+
+    assert Enum.any?(
+             unified_response.candidates,
+             &(&1.source == :local_action and &1.name == "list_settings")
+           )
+  end
+
   test "find_tools skips remote registry when tool discovery is denied", %{call_log: call_log} do
     configure_discovery()
     configure_registry_external()
