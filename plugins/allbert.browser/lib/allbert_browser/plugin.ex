@@ -22,13 +22,19 @@ defmodule AllbertBrowser.Plugin do
   def validate(_opts), do: :ok
 
   @impl true
+  def apps, do: [AllbertBrowser.App]
+
+  @impl true
   def actions do
     [
       AllbertBrowser.Actions.Doctor,
       AllbertBrowser.Actions.StartSession,
       AllbertBrowser.Actions.Navigate,
       AllbertBrowser.Actions.Extract,
-      AllbertBrowser.Actions.Screenshot
+      AllbertBrowser.Actions.Screenshot,
+      AllbertBrowser.Actions.ListSessions,
+      AllbertBrowser.Actions.CloseSession,
+      AllbertBrowser.Actions.SweepCache
     ]
   end
 

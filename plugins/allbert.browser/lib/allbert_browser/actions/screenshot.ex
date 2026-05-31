@@ -23,15 +23,14 @@ defmodule AllbertBrowser.Actions.Screenshot do
     ]
 
   alias AllbertAssist.Settings
-  alias AllbertBrowser.{Actions, Session}
+  alias AllbertBrowser.{Actions, Cache, Session}
 
   @impl true
   def run(params, context) do
     decision = Actions.authorize(:browser_screenshot, context)
     session_id = Actions.field(params, :session_id)
 
-    max_bytes =
-      Actions.field(params, :max_bytes) || elem(Settings.get("browser.screenshot.max_bytes"), 1)
+    max_bytes = Actions.field(params, :max_bytes) || setting("browser.screenshot.max_bytes", 524_288)
 
     cond do
       not Actions.allowed?(decision) ->
@@ -41,13 +40,35 @@ defmodule AllbertBrowser.Actions.Screenshot do
         Actions.denied("browser_screenshot", :browser_screenshot, decision, :missing_session_id)
 
       true ->
-        case Session.screenshot(session_id, max_bytes: max_bytes) do
-          {:ok, screenshot} ->
-            completed(decision, session_id, screenshot)
-
+        with {:ok, screenshot} <- Session.screenshot(session_id, max_bytes: max_bytes),
+             {:ok, artifact} <- cache_screenshot(session_id, screenshot) do
+          completed(decision, session_id, put_cache_ref(screenshot, artifact.ref))
+        else
           {:error, reason} ->
             Actions.denied("browser_screenshot", :browser_screenshot, decision, reason)
         end
+    end
+  end
+
+  defp cache_screenshot(session_id, screenshot) do
+    content = Map.get(screenshot, :content) || ""
+
+    Cache.put(session_id, "screenshot", content,
+      ext: ".png",
+      metadata: %{redacted_credential_inputs?: Map.get(screenshot, :redacted_credential_inputs?)}
+    )
+  end
+
+  defp put_cache_ref(screenshot, ref) do
+    screenshot
+    |> Map.put(:screenshot_ref, ref)
+    |> Map.delete(:content)
+  end
+
+  defp setting(key, fallback) do
+    case Settings.get(key) do
+      {:ok, value} -> value
+      {:error, _reason} -> fallback
     end
   end
 
