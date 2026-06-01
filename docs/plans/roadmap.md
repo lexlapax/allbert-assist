@@ -2482,7 +2482,8 @@ Request flow: `docs/plans/v0.44-request-flow.md`
 ADR: `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
 (v0.44 amendment for approval primitives)
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
+Status: planned; implementation-ready for M0 after the v0.44 plan pass-2
+readiness patch. Promoted from `docs/archives/version-1.0-planning-03.md`;
 not implemented. Broadened in the post-v0.37 planning pass to lock the
 channel-approval primitive contract here (before v0.50 mobile channels need
 it).
@@ -2497,9 +2498,10 @@ Expected direction:
 - **Amend ADR 0016** to declare the four standardized approval primitives —
   `{list, button, typed_command, link}` — each channel adapter declares its
   supported subset in its plugin descriptor; `Approval.Handoff` picks the
-  highest-fidelity primitive available. Telegram: button. Email: typed_command.
-  Discord: button. Slack: button. Mobile channels (v0.50) inherit the same
-  contract.
+  highest-fidelity primitive available from an effective descriptor that
+  honors provider settings such as `render_approval_buttons: false`. Telegram:
+  button. Email: typed_command. Discord: button. Slack: button. Mobile
+  channels (v0.50) inherit the same contract.
 
 ## v0.45: Plan/Build Mode And Operator Workflow YAML
 
