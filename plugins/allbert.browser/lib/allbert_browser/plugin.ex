@@ -2,9 +2,10 @@ defmodule AllbertBrowser.Plugin do
   @moduledoc """
   Shipped v0.43 browser/web-research plugin.
 
-  M1 contributes only inert plugin metadata and the `browser.*` Settings
-  Central schema. Browser processes, actions, and driver adapters land in later
-  v0.43 milestones.
+  The plugin contributes the `browser.*` Settings Central schema, registered
+  browser actions, workspace surfaces, and the supervised browser session
+  runtime. Operational control is through the reviewed Playwright/Chromium
+  bridge; deterministic release tests use the stub driver.
   """
 
   use AllbertAssist.Plugin

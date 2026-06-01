@@ -34,6 +34,13 @@ enforces max lifetime, idle timeout, and max-concurrent settings. The browser
 supervisor contributes the paused cache sweep job idempotently, and cache
 writes enforce `browser.cache.max_bytes` with oldest-first eviction.
 
+Lifecycle helpers are intentionally narrow. `browser_list_sessions`,
+`browser_close_session`, and `browser_sweep_cache` authorize through
+`:browser_extract` because they read or clean already-created browser
+session/cache artifacts; they do not authorize navigation, interaction, form
+fill, or download. `browser_research_handoff` is `:read_only`,
+agent-exposed, and advisory-only.
+
 `browser_fill` and `browser_download` are registered so workflows and evals can
 see the complete v0.43 surface, but both default to denied. Their opt-in path
 requires the matching `browser.*.enabled` setting and a permission policy of

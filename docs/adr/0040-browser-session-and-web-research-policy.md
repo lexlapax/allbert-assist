@@ -126,6 +126,17 @@ entries:
 `:browser_session` for in-session refs. Per-domain navigation grants reuse the
 existing `:url_prefix` scope kind on the navigated target URL.
 
+The v0.43 implementation also registers lifecycle and advisory helper actions
+over this vocabulary:
+
+- `browser_list_sessions`, `browser_close_session`, and `browser_sweep_cache`
+  are authorized with `:browser_extract`. They are read/lifecycle cleanup over
+  already-created browser session/cache artifacts; they do not grant
+  navigation, click, form-fill, download, or new page authority.
+- `browser_research_handoff` is `:read_only`, agent-exposed, and advisory
+  only. It proposes the browser action sequence but writes no grant and does
+  not authorize a browser session.
+
 Cross-operation grant authority is forbidden:
 
 - a `:browser_navigate` grant does not authorize `:browser_form_fill`,
