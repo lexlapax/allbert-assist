@@ -106,6 +106,35 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
     refute File.exists?(artifact.path)
   end
 
+  test "cache enforces max byte retention oldest first" do
+    assert {:ok, _setting} = Settings.put("browser.cache.max_bytes", 10, %{audit?: false})
+
+    assert {:ok, oldest} =
+             Cache.put("session-size", "extraction", "11111",
+               ext: ".txt",
+               metadata: %{created_at: "2026-01-01T00:00:00Z"}
+             )
+
+    assert {:ok, middle} =
+             Cache.put("session-size", "extraction", "22222",
+               ext: ".txt",
+               metadata: %{created_at: "2026-01-02T00:00:00Z"}
+             )
+
+    assert {:ok, newest} =
+             Cache.put("session-size", "extraction", "33333",
+               ext: ".txt",
+               metadata: %{created_at: "2026-01-03T00:00:00Z"}
+             )
+
+    refute File.exists?(oldest.path)
+    assert File.exists?(middle.path)
+    assert File.exists?(newest.path)
+
+    assert {:error, :cache_artifact_too_large} =
+             Cache.put("session-size", "extraction", "artifact larger than cap", ext: ".txt")
+  end
+
   test "browser app contributes a valid workspace panel from cache artifacts" do
     assert {:ok, _artifact} =
              Cache.put("session-2", "extraction", "panel text",
@@ -135,6 +164,14 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
     assert [%{status: "completed"}] = Jobs.list_runs(job)
   end
 
+  test "browser supervisor contributes the paused cache sweep job" do
+    ensure_browser_supervisor()
+
+    assert [%{status: "paused", target: %{"action_name" => "browser_sweep_cache"}}] =
+             Jobs.list_jobs("local", limit: 100)
+             |> Enum.filter(&(&1.name == "Allbert Browser cache sweep"))
+  end
+
   defp restore_default_apps do
     _ = AppRegistry.register(AllbertAssist.App.CoreApp)
     _ = AppRegistry.register(StockSage.App)
@@ -144,6 +181,12 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
     _ = PluginRegistry.register_module(StockSage.Plugin)
     _ = PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
     _ = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+  end
+
+  defp ensure_browser_supervisor do
+    unless Process.whereis(AllbertBrowser.Supervisor) do
+      start_supervised!(AllbertBrowser.Supervisor)
+    end
   end
 
   defp restore_env(module, key, nil), do: Application.delete_env(module, key)

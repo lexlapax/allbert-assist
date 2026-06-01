@@ -61,6 +61,10 @@ defmodule AllbertBrowser.Plugin do
         min: 1_000,
         max: 900_000
       ),
+      schema("browser.session.idle_timeout_ms", :bounded_integer, 60_000,
+        min: 1_000,
+        max: 900_000
+      ),
       schema("browser.session.max_pages", :bounded_integer, 20, min: 1, max: 100),
       schema("browser.session.headless", :boolean, true, writable?: false),
       schema("browser.session.profile_mode", :enum, "ephemeral",

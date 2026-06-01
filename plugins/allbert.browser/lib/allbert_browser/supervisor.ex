@@ -12,11 +12,21 @@ defmodule AllbertBrowser.Supervisor do
 
   @impl true
   def init(_opts) do
+    _ = ensure_cache_sweep_job()
+
     children = [
       {Registry, keys: :unique, name: AllbertBrowser.Session.Registry},
       {DynamicSupervisor, strategy: :one_for_one, name: AllbertBrowser.SessionSupervisor}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
+  end
+
+  defp ensure_cache_sweep_job do
+    AllbertBrowser.Cache.ensure_sweep_job()
+  rescue
+    _exception -> :ok
+  catch
+    :exit, _reason -> :ok
   end
 end

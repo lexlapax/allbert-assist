@@ -106,6 +106,36 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     assert relisted.sessions == []
   end
 
+  test "session closes automatically after max lifetime" do
+    assert {:ok, _setting} =
+             Settings.put("browser.session.max_lifetime_ms", 1_000, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("browser.session.idle_timeout_ms", 60_000, %{audit?: false})
+
+    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{})
+
+    assert {:ok, started} =
+             Runner.run("browser_start_session", %{}, %{confirmation: %{approved?: true}})
+
+    assert eventually_session_closed?(started.session_id)
+  end
+
+  test "session closes automatically after idle timeout" do
+    assert {:ok, _setting} =
+             Settings.put("browser.session.max_lifetime_ms", 60_000, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("browser.session.idle_timeout_ms", 1_000, %{audit?: false})
+
+    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{})
+
+    assert {:ok, started} =
+             Runner.run("browser_start_session", %{}, %{confirmation: %{approved?: true}})
+
+    assert eventually_session_closed?(started.session_id)
+  end
+
   test "click requires confirmation with selector and bounded visible label preview" do
     assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{})
 
@@ -282,6 +312,20 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     Enum.each(AllbertBrowser.Session.list(), fn %{session_id: session_id} ->
       AllbertBrowser.Session.close(session_id)
     end)
+  end
+
+  defp eventually_session_closed?(session_id, attempts \\ 20)
+
+  defp eventually_session_closed?(_session_id, 0), do: false
+
+  defp eventually_session_closed?(session_id, attempts) do
+    Process.sleep(100)
+
+    if Enum.any?(AllbertBrowser.Session.list(), &(&1.session_id == session_id)) do
+      eventually_session_closed?(session_id, attempts - 1)
+    else
+      true
+    end
   end
 
   defp restore_default_apps do
