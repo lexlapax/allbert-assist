@@ -25,6 +25,8 @@ when the doctor has never succeeded, is stale, or reports anything other than
 | `browser_extract` | Extract bounded `html`, `text`, `markdown`, or simple PDF text-layer content. |
 | `browser_screenshot` | Write a redacted screenshot artifact into browser cache. |
 | `browser_click` | Confirm a selector click with a bounded visible-label preview. |
+| `browser_fill` | Denied by default; after explicit opt-in, confirm a form field fill with value redaction. |
+| `browser_download` | Denied by default; after explicit opt-in, confirm a bounded browser download request. |
 | `browser_list_sessions` | List sessions in the current runtime process. |
 | `browser_close_session` | Close a session in the current runtime process. |
 | `browser_sweep_cache` | Remove expired browser cache artifacts. |
@@ -47,4 +49,5 @@ screenshot links. Raw page/PDF content belongs in cache, not traces.
 
 All traces, audits, CLI output, and workspace summaries must redact cookies,
 `Authorization`, URL userinfo, and credential-shaped query values. Form fill
-and downloads remain denied by default in v0.43.
+and downloads remain denied by default in v0.43; opt-in changes the floor only
+to confirmation, never unconditional allow.

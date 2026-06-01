@@ -23,7 +23,7 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is `v0.42.2`. `/workspace` is the operator home:
+The current implementation is `v0.43.0`. `/workspace` is the operator home:
 chat is the primary spine, the launcher is view-only, and Canvas shows one
 destination at a time (Output, an app, or a workspace tool).
 
@@ -58,6 +58,10 @@ integration intent handoffs, and `./plugins/allbert.notes_files/` as the native
 reference plugin. The 0.42.1/0.42.2 closeout hardens the discovery permission
 boundary, live trust baseline, CLI connect contract, notes/files metadata, real
 integration effect arguments, and deterministic `release.v042` gate.
+v0.43 adds the browser and web research plugin: policy-bounded browser
+sessions, doctor-gated ephemeral profiles, confirmed navigation, bounded
+HTML/markdown/text/PDF extraction, screenshot redaction, a browser results
+panel, browser intent handoff, and deterministic `release.v043` evidence.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -112,6 +116,11 @@ Recent milestones:
   MCP-configured workspace panels, integration intent handoffs, and the
   notes/files native reference plugin, with closeout hardening and a
   deterministic release smoke gate.
+- `v0.43.0`: Browser And Web Research - `./plugins/allbert.browser/`,
+  `browser://session/<id>` Resource Access, doctor-gated ephemeral sessions,
+  confirmed navigation, bounded extraction, screenshot redaction, denied-by-
+  default fill/download actions, browser results panel, and 19 browser security
+  eval rows with a deterministic `release.v043` gate.
 - `v0.41.0`: Developer velocity and parallel test methodology - gate matrix,
   resource-lane taxonomy, partition-aware test helpers, focused/release aliases,
   and implementation-readiness annotations for downstream plans.
@@ -122,8 +131,8 @@ Recent milestones:
 
 Next milestones:
 
-- Post-`v0.42.2`: the planned 1.0 arc continues with browser research
-  (`v0.43`); Discord/Slack channels with the
+- Post-`v0.43.0`: the planned 1.0 arc continues with Discord/Slack channels
+  and the
   channel-approval-primitive contract (`v0.44`); Plan/Build workflows under
   `<ALLBERT_HOME>/workflows/` (`v0.45`); marketplace lite — data shape +
   Allbert-author seeds only (`v0.46`); operator-supervised self-improvement

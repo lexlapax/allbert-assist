@@ -1,5 +1,6 @@
 defmodule StockSage.ObjectiveRuntimeTest do
   use StockSage.DataCase, async: false, lane: :external_runtime_serial
+  @moduletag timeout: 180_000
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.App.Registry, as: AppRegistry

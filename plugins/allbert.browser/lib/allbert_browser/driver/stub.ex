@@ -10,7 +10,7 @@ defmodule AllbertBrowser.Driver.Stub do
        driver: "stub",
        browser: "stub-chromium",
        live_check_status: :ok,
-       capabilities: [:navigate, :extract, :screenshot]
+       capabilities: [:navigate, :extract, :screenshot, :fill, :download]
      }}
   end
 
@@ -45,6 +45,39 @@ defmodule AllbertBrowser.Driver.Stub do
          visible_label_preview: label,
          navigation_triggered?: false,
          url: List.first(state.pages)
+       }
+     }}
+  end
+
+  @impl true
+  def fill(state, selector, opts) do
+    value_preview = Keyword.get(opts, :value_preview) || "[REDACTED]"
+
+    {:ok,
+     %{
+       state: state,
+       fill: %{
+         selector: selector,
+         value_preview: value_preview,
+         value_redacted?: true,
+         url: List.first(state.pages)
+       }
+     }}
+  end
+
+  @impl true
+  def download(state, url, opts) do
+    filename = Keyword.get(opts, :filename) || "download.bin"
+
+    {:ok,
+     %{
+       state: state,
+       download: %{
+         url: url,
+         filename: filename,
+         download_ref: "cache://browser/#{state.id}/#{filename}",
+         bytes: 0,
+         persisted?: false
        }
      }}
   end

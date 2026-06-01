@@ -8,20 +8,19 @@ defmodule AllbertAssist.Actions.BrowserM4Test do
   alias AllbertAssist.Intent.EvalFixtures
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Security.Redactor
-  alias AllbertAssist.Settings
 
   setup do
     PluginRegistry.clear()
     AppRegistry.clear()
 
     assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
-    assert {:ok, :allbert} = AppRegistry.register(AllbertAssist.App.CoreApp)
     assert {:ok, :allbert_browser} = AppRegistry.register(AllbertBrowser.App)
-    assert {:ok, _setting} = Settings.put("intent.descriptors_enabled", true, %{audit?: false})
 
     on_exit(fn ->
       PluginRegistry.clear()
+      restore_default_plugins()
       AppRegistry.clear()
+      restore_default_apps()
     end)
 
     :ok
@@ -118,5 +117,16 @@ defmodule AllbertAssist.Actions.BrowserM4Test do
                :browser_interact
              ]
     end
+  end
+
+  defp restore_default_apps do
+    _ = AppRegistry.register(AllbertAssist.App.CoreApp)
+    _ = AppRegistry.register(StockSage.App)
+  end
+
+  defp restore_default_plugins do
+    _ = PluginRegistry.register_module(StockSage.Plugin)
+    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
   end
 end

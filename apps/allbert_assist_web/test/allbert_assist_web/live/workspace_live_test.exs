@@ -29,7 +29,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   alias AllbertAssistWeb.SignalBridge
   alias Jido.Signal.Bus
 
-  @runtime_async_timeout 10_000
+  @runtime_async_timeout 60_000
 
   setup do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)

@@ -36,6 +36,8 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     on_exit(fn ->
       close_all_sessions()
       PluginRegistry.clear()
+      restore_default_plugins()
+      restore_default_apps()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
@@ -152,6 +154,93 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     assert clicked.click.selector == "button.launch"
   end
 
+  test "form fill and download deny by default and require confirmation after opt-in" do
+    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{})
+
+    assert {:ok, started} =
+             Runner.run("browser_start_session", %{}, %{confirmation: %{approved?: true}})
+
+    assert {:ok, denied_fill} =
+             Runner.run(
+               "browser_fill",
+               %{session_id: started.session_id, selector: "input[name=email]", value: "raw"},
+               %{}
+             )
+
+    assert denied_fill.status == :denied
+    assert denied_fill.error == :browser_form_fill_disabled
+
+    assert {:ok, denied_download} =
+             Runner.run(
+               "browser_download",
+               %{session_id: started.session_id, url: "https://example.com/file.pdf"},
+               %{}
+             )
+
+    assert denied_download.status == :denied
+    assert denied_download.error == :browser_download_disabled
+
+    assert {:ok, _setting} = Settings.put("browser.form_fill.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = Settings.put("browser.download.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("permissions.browser_form_fill", "needs_confirmation", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("permissions.browser_download", "needs_confirmation", %{audit?: false})
+
+    assert {:ok, pending_fill} =
+             Runner.run(
+               "browser_fill",
+               %{
+                 session_id: started.session_id,
+                 selector: "input[name=email]",
+                 value: "raw@example.com"
+               },
+               %{}
+             )
+
+    assert pending_fill.status == :needs_confirmation
+    assert pending_fill.confirmation["params_summary"]["value_redacted?"]
+
+    assert {:ok, filled} =
+             Runner.run(
+               "browser_fill",
+               %{
+                 session_id: started.session_id,
+                 selector: "input[name=email]",
+                 value: "raw@example.com"
+               },
+               %{confirmation: %{approved?: true}}
+             )
+
+    assert filled.status == :completed
+    assert filled.fill.value_redacted?
+
+    assert {:ok, pending_download} =
+             Runner.run(
+               "browser_download",
+               %{session_id: started.session_id, url: "https://example.com/file.pdf"},
+               %{}
+             )
+
+    assert pending_download.status == :needs_confirmation
+
+    assert {:ok, downloaded} =
+             Runner.run(
+               "browser_download",
+               %{
+                 session_id: started.session_id,
+                 url: "https://example.com/file.pdf",
+                 filename: "file.pdf"
+               },
+               %{confirmation: %{approved?: true}}
+             )
+
+    assert downloaded.status == :completed
+    assert downloaded.download.download_ref =~ "cache://browser/#{started.session_id}/"
+  end
+
   test "navigation preflight denies private hosts before session call" do
     assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{})
 
@@ -193,6 +282,18 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     Enum.each(AllbertBrowser.Session.list(), fn %{session_id: session_id} ->
       AllbertBrowser.Session.close(session_id)
     end)
+  end
+
+  defp restore_default_apps do
+    _ = AllbertAssist.App.Registry.clear()
+    _ = AllbertAssist.App.Registry.register(AllbertAssist.App.CoreApp)
+    _ = AllbertAssist.App.Registry.register(StockSage.App)
+  end
+
+  defp restore_default_plugins do
+    _ = PluginRegistry.register_module(StockSage.Plugin)
+    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
   end
 
   defp restore_env(module, key, nil), do: Application.delete_env(module, key)

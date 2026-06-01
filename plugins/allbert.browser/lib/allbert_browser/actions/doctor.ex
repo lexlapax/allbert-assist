@@ -25,19 +25,15 @@ defmodule AllbertBrowser.Actions.Doctor do
   def run(_params, context) do
     decision = Actions.authorize(:read_only, context)
 
-    with true <- Actions.allowed?(decision),
-         {:ok, result} <- Doctor.run() do
-      {:ok,
-       %{
-         message: "Browser doctor live check #{result.live_check_status}.",
-         status: :completed,
-         permission_decision: decision,
-         doctor: result,
-         actions: [Actions.action("browser_doctor", :completed, :read_only, decision, result)]
-       }}
-    else
-      false -> Actions.denied("browser_doctor", :read_only, decision, :permission_denied)
-      {:error, reason} -> Actions.denied("browser_doctor", :read_only, decision, reason)
-    end
+    {:ok, result} = Doctor.run()
+
+    {:ok,
+     %{
+       message: "Browser doctor live check #{result.live_check_status}.",
+       status: :completed,
+       permission_decision: decision,
+       doctor: result,
+       actions: [Actions.action("browser_doctor", :completed, :read_only, decision, result)]
+     }}
   end
 end

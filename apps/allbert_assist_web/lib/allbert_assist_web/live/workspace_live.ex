@@ -1128,15 +1128,23 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   defp conversation_messages(thread_id, user_id) do
-    with {:ok, thread} <- Conversations.get_thread(user_id, thread_id) do
-      Conversations.list_messages(thread, limit: 12)
-    else
-      _error -> []
+    try do
+      with {:ok, thread} <- Conversations.get_thread(user_id, thread_id) do
+        Conversations.list_messages(thread, limit: 12)
+      else
+        _error -> []
+      end
+    rescue
+      DBConnection.ConnectionError -> []
     end
   end
 
   defp recent_threads(user_id) do
-    Conversations.list_threads(user_id, limit: 8)
+    try do
+      Conversations.list_threads(user_id, limit: 8)
+    rescue
+      DBConnection.ConnectionError -> []
+    end
   end
 
   defp registered_apps do

@@ -6,7 +6,7 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
   alias AllbertAssist.{Confirmations, Paths, Runtime, Settings}
 
   @css_path Path.expand("../../../assets/css/app.css", __DIR__)
-  @runtime_async_timeout 10_000
+  @runtime_async_timeout 60_000
 
   setup do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)

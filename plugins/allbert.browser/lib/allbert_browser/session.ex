@@ -26,6 +26,8 @@ defmodule AllbertBrowser.Session do
 
   def navigate(session_id, url, opts \\ []), do: call(session_id, {:navigate, url, opts})
   def click(session_id, selector, opts \\ []), do: call(session_id, {:click, selector, opts})
+  def fill(session_id, selector, opts \\ []), do: call(session_id, {:fill, selector, opts})
+  def download(session_id, url, opts \\ []), do: call(session_id, {:download, url, opts})
   def extract(session_id, format, opts \\ []), do: call(session_id, {:extract, format, opts})
   def screenshot(session_id, opts \\ []), do: call(session_id, {:screenshot, opts})
   def close(session_id), do: call(session_id, :close)
@@ -34,7 +36,17 @@ defmodule AllbertBrowser.Session do
     Registry.select(AllbertBrowser.Session.Registry, [
       {{:"$1", :"$2", :_}, [], [{{:"$1", :"$2"}}]}
     ])
-    |> Enum.map(fn {id, pid} -> GenServer.call(pid, :summary) |> Map.put(:session_id, id) end)
+    |> Enum.flat_map(fn {id, pid} ->
+      if Process.alive?(pid) do
+        try do
+          [GenServer.call(pid, :summary) |> Map.put(:session_id, id)]
+        catch
+          :exit, _reason -> []
+        end
+      else
+        []
+      end
+    end)
   end
 
   def child_spec(opts) do
@@ -91,6 +103,32 @@ defmodule AllbertBrowser.Session do
 
       {:ok, click} ->
         {:reply, {:ok, click}, state}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
+  end
+
+  def handle_call({:fill, selector, opts}, _from, state) do
+    case Driver.fill(state.driver_state, selector, opts) do
+      {:ok, %{state: driver_state, fill: fill}} ->
+        {:reply, {:ok, fill}, %{state | driver_state: driver_state}}
+
+      {:ok, fill} ->
+        {:reply, {:ok, fill}, state}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
+  end
+
+  def handle_call({:download, url, opts}, _from, state) do
+    case Driver.download(state.driver_state, url, opts) do
+      {:ok, %{state: driver_state, download: download}} ->
+        {:reply, {:ok, download}, %{state | driver_state: driver_state}}
+
+      {:ok, download} ->
+        {:reply, {:ok, download}, state}
 
       {:error, reason} ->
         {:reply, {:error, reason}, state}

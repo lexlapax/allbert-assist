@@ -2390,67 +2390,69 @@ deepened in the post-v0.42 planning pass). Amends
 `docs/adr/0013-uri-first-resource-identity.md` to register
 `browser://session/<id>` as a supported plugin-owned scheme.
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
-not implemented. Deepened in the post-v0.42 planning pass to v0.02-style
-per-milestone structure with development-lane annotations per ADR 0049.
+Status: implemented as `0.43.0`. Promoted from
+`docs/archives/version-1.0-planning-03.md` and deepened in the post-v0.42
+planning pass to v0.02-style per-milestone structure with development-lane
+annotations per ADR 0049.
 
-Expected direction:
+Shipped scope:
 
-- Add the `./plugins/allbert.browser/` reviewed source-tree plugin alongside
+- Added the `./plugins/allbert.browser/` reviewed source-tree plugin alongside
   Telegram, email, StockSage, and the notes/files reference plugin. Browser
   process ownership lives in the plugin supervisor; core spawns no browser.
-- Register `browser://session/<id>` as the session identity URI (ADR 0013
+- Registered `browser://session/<id>` as the session identity URI (ADR 0013
   v0.43 amendment); navigated URL targets keep their native
   `https://`/`http://` URI and are authorized through per-domain remembered
   grants on the target URL.
-- Add the six browser operation classes (`:browser_navigate`,
+- Added the six browser operation classes (`:browser_navigate`,
   `:browser_extract`, `:browser_screenshot`, `:browser_interact`,
   `:browser_form_fill`, `:browser_download`) and the
   `:browser_session` origin kind to `Resources.OperationClass`.
-- Add the seven `:browser_*` permission classes to `Security.Policy` with
+- Added the seven `:browser_*` permission classes to `Security.Policy` with
   documented safety floors: navigation/click/form-fill/download are
   `:needs_confirmation`; extraction/screenshot are `:allowed`; form fill and
   download still default to `:denied` and can never be set to unconditional
   allow.
-- Add the plugin-contributed `browser.*` Settings Central namespace with
+- Added the plugin-contributed `browser.*` Settings Central namespace with
   `enabled: false` default, read-only `headless`/`profile_mode`/
   credential-redaction invariants, bounded extraction caps, ephemeral profile,
   and a paused-by-default cache sweep job.
-- Register ten actions through the action DSL (`browser_doctor`,
+- Registered browser actions through the action DSL including `browser_doctor`,
   `browser_start_session`, `browser_navigate`, `browser_extract`,
   `browser_screenshot`, `browser_click`, `browser_fill`,
-  `browser_download`, `browser_close_session`, `browser_list_sessions`).
+  `browser_download`, `browser_close_session`, `browser_list_sessions`,
+  `browser_sweep_cache`, and `browser_research_handoff`.
   Doctor follows ADR 0047's redacted shape.
-- Enforce network policy at two layers: top-level navigation pre-flights
+- Enforced network policy at two layers: top-level navigation pre-flights
   through a v0.43 browser navigation helper that reuses `External.HttpPolicy`
   checks; subresources and redirects pass through `AllbertBrowser.NetworkPolicy`
   enforced via the driver's request-interception API. Cross-domain redirects
   fail closed.
-- Bounded extraction for HTML, markdown, plain text, and PDF. PDF parsing uses
+- Added bounded extraction for HTML, markdown, plain text, and PDF. PDF parsing uses
   a doctor-verified bounded local text-layer parser path inside the browser
   plugin (no embedded JS execution, no follow-on fetch, byte/page caps, parse
   timeout, malformed/encrypted/scanned unsupported inputs fail closed; no host
   parser subprocess in release tests).
-- Screenshot redaction at the driver layer: `type=password`,
+- Added screenshot redaction at the driver layer: `type=password`,
   `autocomplete=otp`, `autocomplete=cc-number` nodes are redacted before
   bitmap encoding.
-- Workspace browser results panel under `:canvas_panels`; the panel calls
+- Added the workspace browser results panel under `:canvas_panels`; the panel calls
   only registered actions, never the driver.
-- Trace redaction: cookies, Authorization, full URLs with userinfo, and
+- Extended trace redaction: cookies, Authorization, full URLs with userinfo, and
   sensitive query parameter values are scrubbed from `memory/traces/`;
   raw page content lives in `<ALLBERT_HOME>/cache/browser/<session_id>/`,
   not in traces.
-- Routing predicate: keep v0.10 `external_network_request` and v0.11 inert
+- Preserved the routing predicate: v0.10 `external_network_request` and v0.11 inert
   `summarize_url`/`inspect_document` intact; browser is the graduated path
   when extraction needs DOM/JS or the operator explicitly asks.
-- Forward-pin v0.44 channel approval-primitive amendment: browser
+- Forward-pinned the v0.44 channel approval-primitive amendment: browser
   confirmations are expressible as `:typed_command` (CLI/email),
   `:button` (LiveView/Telegram/Discord/Slack), and `:link` (screenshot
   review).
 - v0.47 may mine v0.43 redacted trace envelopes as one pattern source;
   raw page content is out of bounds.
 
-M1 consumes the locked decisions from `docs/plans/v0.43-plan.md`
+Implementation consumed the locked decisions from `docs/plans/v0.43-plan.md`
 §"M1 Locked Decisions": Playwright Chromium through a reviewed local bridge,
 macOS + Linux only (Windows/WSL2 parked to v0.43.x), headless-only,
 ephemeral-only profiles, the browser-vs-HTTP routing predicate, and
