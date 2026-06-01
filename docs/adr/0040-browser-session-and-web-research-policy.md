@@ -92,7 +92,8 @@ page content is descriptive, never authoritative.
   through `AllbertBrowser.Driver`, navigates to `about:blank`, closes
   the page, and records `last_verified_at: DateTime.utc_now()` plus
   `live_check_status` (`:ok`, `:degraded`, `:failed`, `:unavailable`)
-  on the redacted result. Persistence lives under
+  and, on failure, a stable `error_category` on the redacted result.
+  Persistence lives under
   `<ALLBERT_HOME>/cache/browser/doctor/state.json` so
   `browser_start_session` can read it.
 - **Operational v0.43 remediation requirement.** The accepted policy requires

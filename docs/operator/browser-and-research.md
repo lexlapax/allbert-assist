@@ -20,6 +20,13 @@ when the doctor has never succeeded, is stale, or reports anything other than
 `plugins/allbert.browser/priv/playwright_bridge/`; package managers are not run
 during plugin discovery or browser action execution.
 
+On failure, the persisted doctor state includes a stable `error_category` for
+operator troubleshooting: `node_unavailable`, `playwright_bridge_missing`,
+`playwright_bridge_start_failed`, `bridge_timeout`, `bridge_exited`,
+`bridge_protocol_error`, `browser_live_check_timeout`,
+`chromium_launch_failed`, `playwright_runtime_error`, or
+`unknown_browser_doctor_error`.
+
 ## Research CLI
 
 ```sh
