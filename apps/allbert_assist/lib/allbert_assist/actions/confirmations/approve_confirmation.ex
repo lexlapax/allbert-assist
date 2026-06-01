@@ -300,6 +300,17 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
          context,
          permission_decision,
          target_decision,
+         "start_plan_run"
+       ) do
+    resume_start_plan_run(record, reason, context, permission_decision, target_decision)
+  end
+
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
          _action_name
        ) do
     resolve_status(record, :adapter_unavailable, reason, context, permission_decision, %{
@@ -421,12 +432,22 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   end
 
   defp completed(record, permission_decision, metadata) do
+    output_data =
+      metadata
+      |> Map.get(:target_result, %{})
+      |> case do
+        %{output_data: output_data} -> output_data
+        %{"output_data" => output_data} -> output_data
+        _other -> nil
+      end
+
     {:ok,
      %{
        message: Confirmations.status_message(record),
        status: :completed,
        permission_decision: permission_decision,
        confirmation: record,
+       output_data: output_data,
        actions: [
          Context.action(
            record,
@@ -437,6 +458,46 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
          )
        ]
      }}
+  end
+
+  defp resume_start_plan_run(record, reason, context, permission_decision, target_decision) do
+    target_context =
+      record
+      |> target_context(context)
+      |> put_in([:confirmation, :approved?], true)
+
+    case Runner.run("start_plan_run", Map.get(record, "resume_params_ref", %{}), target_context) do
+      {:ok, %{status: :completed} = response} ->
+        target_result = %{status: :completed, output_data: Map.get(response, :output_data, %{})}
+
+        resolve_status(record, :approved, reason, context, permission_decision, %{
+          target_policy_decision: target_decision,
+          target_resumed?: true,
+          target_status: :completed,
+          target_result: target_result
+        })
+
+      {:ok, response} ->
+        target_status = Map.get(response, :status, :denied)
+
+        resolve_status(
+          record,
+          :denied,
+          reason || "Plan run target did not start: #{inspect(target_status)}",
+          context,
+          permission_decision,
+          %{
+            target_policy_decision: target_decision,
+            target_resumed?: false,
+            target_status: target_status,
+            target_result: %{
+              status: target_status,
+              output_data: Map.get(response, :output_data, %{})
+            },
+            blocked_by_policy?: target_status == :denied
+          }
+        )
+    end
   end
 
   defp resume_shell_command(record, reason, context, permission_decision, target_decision) do

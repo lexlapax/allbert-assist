@@ -1,0 +1,9 @@
+id: unknown_key
+version: 1
+surprise: nope
+steps:
+  - id: answer
+    kind: action
+    action: direct_answer
+    params:
+      text: "Nope."

@@ -1,0 +1,11 @@
+id: dynamic_action_name
+version: 1
+inputs:
+  - name: action
+    type: string
+steps:
+  - id: run
+    kind: action
+    action: "${inputs.action}"
+    params:
+      text: "Nope."

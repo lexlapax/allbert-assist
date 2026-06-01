@@ -1,0 +1,8 @@
+id: env_substitution
+version: 1
+steps:
+  - id: answer
+    kind: action
+    action: direct_answer
+    params:
+      text: "Use ${env.HOME}."

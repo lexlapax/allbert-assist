@@ -1,0 +1,29 @@
+id: multi_step
+version: 1
+description: Multi-step read-only workflow.
+inputs:
+  - name: since
+    type: string
+    required: false
+    default: "1 day ago"
+steps:
+  - id: collect
+    kind: action
+    action: direct_answer
+    params:
+      text: "List issues since ${inputs.since}."
+    save_as: issues
+  - id: summarize
+    kind: action
+    action: direct_answer
+    params:
+      text: "Summarize ${steps.collect.issues}."
+    save_as: summary
+  - id: report
+    kind: ask_user
+    prompt: "Send summary ${steps.summarize.summary}?"
+    options:
+      - value: "yes"
+        label: "Send"
+      - value: "no"
+        label: "Stop"

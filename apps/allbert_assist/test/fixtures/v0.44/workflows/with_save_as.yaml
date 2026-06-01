@@ -1,0 +1,14 @@
+id: with_save_as
+version: 1
+steps:
+  - id: first
+    kind: action
+    action: direct_answer
+    params:
+      text: "First."
+    save_as: first_result
+  - id: second
+    kind: action
+    action: direct_answer
+    params:
+      text: "Use ${steps.first.first_result}."
