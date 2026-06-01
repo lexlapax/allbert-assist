@@ -15,6 +15,7 @@ defmodule AllbertAssist.Resources.OperationClass do
     package_registry
     mcp_resource
     browser_session
+    plan_run
     agent_endpoint
   ]a
 
@@ -39,6 +40,10 @@ defmodule AllbertAssist.Resources.OperationClass do
     browser_interact
     browser_form_fill
     browser_download
+    workflow_expand
+    plan_preview
+    plan_run_start
+    plan_cancel
     import_skill
     package_install
   ]a
@@ -66,6 +71,8 @@ defmodule AllbertAssist.Resources.OperationClass do
     mcp_server
     mcp_tool
     browser_session
+    plan_run
+    workflow_ref
   ]a
 
   @default_access_modes %{
@@ -89,6 +96,10 @@ defmodule AllbertAssist.Resources.OperationClass do
     browser_interact: :execute,
     browser_form_fill: :write,
     browser_download: :write,
+    workflow_expand: :read,
+    plan_preview: :read,
+    plan_run_start: :execute,
+    plan_cancel: :execute,
     import_skill: :import,
     package_install: :install
   }
@@ -102,6 +113,7 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :package_registry
           | :mcp_resource
           | :browser_session
+          | :plan_run
           | :agent_endpoint
 
   @type operation_class ::
@@ -125,6 +137,10 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :browser_interact
           | :browser_form_fill
           | :browser_download
+          | :workflow_expand
+          | :plan_preview
+          | :plan_run_start
+          | :plan_cancel
           | :import_skill
           | :package_install
 
@@ -150,6 +166,8 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :mcp_server
           | :mcp_tool
           | :browser_session
+          | :plan_run
+          | :workflow_ref
 
   @spec origin_kinds() :: nonempty_list(origin_kind())
   def origin_kinds, do: @origin_kinds

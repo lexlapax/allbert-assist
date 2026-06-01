@@ -210,6 +210,20 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
     assert OperationClass.default_access_mode(:browser_download) == :write
   end
 
+  test "Plan/Build operation vocabulary has explicit access modes and scopes" do
+    assert OperationClass.origin_kind!("plan-run") == :plan_run
+    assert OperationClass.scope_kind!("plan_run") == :plan_run
+    assert OperationClass.scope_kind!("workflow-ref") == :workflow_ref
+    assert OperationClass.operation_class!("workflow-expand") == :workflow_expand
+    assert OperationClass.operation_class!("plan_preview") == :plan_preview
+    assert OperationClass.operation_class!("plan-run-start") == :plan_run_start
+    assert OperationClass.operation_class!("plan_cancel") == :plan_cancel
+    assert OperationClass.default_access_mode(:workflow_expand) == :read
+    assert OperationClass.default_access_mode(:plan_preview) == :read
+    assert OperationClass.default_access_mode(:plan_run_start) == :execute
+    assert OperationClass.default_access_mode(:plan_cancel) == :execute
+  end
+
   test "MCP resource URIs are supported resource identities" do
     resource_uri = ResourceURI.mcp!("local-server", "file:///resources/doc.md")
 
@@ -280,6 +294,53 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
           "browser://session/abc?x=1",
           "browser://session/abc#frag",
           "browser://session/not ok"
+        ] do
+      assert {:error, _reason} = ResourceURI.normalize(uri)
+    end
+  end
+
+  test "workflow and plan run URIs are supported resource identities" do
+    workflow_uri = ResourceURI.workflow!("nightly-briefing")
+    objective_id = "obj_00000000-0000-4000-8000-000000000044"
+    plan_uri = ResourceURI.plan_run!(objective_id)
+
+    assert workflow_uri == "workflow://nightly-briefing"
+    assert plan_uri == "plan://run/#{objective_id}"
+    assert {:ok, ^workflow_uri} = ResourceURI.normalize(workflow_uri)
+    assert {:ok, ^plan_uri} = ResourceURI.normalize(plan_uri)
+
+    assert {:ok, ^workflow_uri} =
+             ResourceURI.scope_uri(:plan_run, :workflow_ref, "nightly-briefing", plan_uri)
+
+    assert {:ok, ^plan_uri} = ResourceURI.scope_uri(:plan_run, :plan_run, objective_id, plan_uri)
+
+    assert {:ok, workflow_derived} = ResourceURI.derived_fields(workflow_uri)
+    assert workflow_derived.origin_kind == :plan_run
+    assert workflow_derived.canonical_id == workflow_uri
+    assert workflow_derived.workflow_id == "nightly-briefing"
+    refute workflow_derived.unsupported?
+
+    assert {:ok, plan_derived} = ResourceURI.derived_fields(plan_uri)
+    assert plan_derived.origin_kind == :plan_run
+    assert plan_derived.canonical_id == plan_uri
+    assert plan_derived.objective_id == objective_id
+    refute plan_derived.unsupported?
+  end
+
+  test "workflow and plan run URI normalization rejects malformed identity" do
+    for uri <- [
+          "workflow://",
+          "workflow://Nightly",
+          "workflow://nightly/extra",
+          "workflow://nightly?x=1",
+          "workflow://nightly#frag",
+          "workflow://not ok",
+          "plan://run/",
+          "plan://run/abc",
+          "plan://run/obj_00000000-0000-4000-8000-000000000044/extra",
+          "plan://other/obj_00000000-0000-4000-8000-000000000044",
+          "plan://run/obj_00000000-0000-4000-8000-000000000044?x=1",
+          "plan://run/obj_00000000-0000-4000-8000-000000000044#frag"
         ] do
       assert {:error, _reason} = ResourceURI.normalize(uri)
     end

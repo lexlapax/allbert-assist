@@ -115,6 +115,26 @@ defmodule AllbertAssist.Resources.ResourceURI do
   @spec browser_session!(term()) :: String.t()
   def browser_session!(session_id), do: bang(browser_session(session_id))
 
+  @spec workflow(term()) :: {:ok, String.t()} | {:error, term()}
+  def workflow(workflow_id) do
+    with {:ok, workflow_id} <- workflow_id(workflow_id) do
+      {:ok, "workflow://#{workflow_id}"}
+    end
+  end
+
+  @spec workflow!(term()) :: String.t()
+  def workflow!(workflow_id), do: bang(workflow(workflow_id))
+
+  @spec plan_run(term()) :: {:ok, String.t()} | {:error, term()}
+  def plan_run(objective_id) do
+    with {:ok, objective_id} <- objective_id(objective_id) do
+      {:ok, "plan://run/#{objective_id}"}
+    end
+  end
+
+  @spec plan_run!(term()) :: String.t()
+  def plan_run!(objective_id), do: bang(plan_run(objective_id))
+
   @spec allbert_home(term()) :: {:ok, String.t()} | {:error, term()}
   def allbert_home(path) do
     with {:ok, path} <- non_empty(path, :missing_allbert_home_path) do
@@ -196,6 +216,18 @@ defmodule AllbertAssist.Resources.ResourceURI do
     end
   end
 
+  def scope_uri(:plan_run, :plan_run, value, resource_uri) do
+    cond do
+      scheme(value) == "plan" -> normalize(value)
+      is_binary(value) and String.trim(value) != "" -> plan_run(value)
+      true -> normalize(resource_uri)
+    end
+  end
+
+  def scope_uri(:plan_run, :workflow_ref, value, _resource_uri) do
+    if scheme(value) == "workflow", do: normalize(value), else: workflow(value)
+  end
+
   def scope_uri(_origin_kind, kind, _value, _resource_uri),
     do: {:error, {:unsupported_scope_uri, kind}}
 
@@ -267,6 +299,11 @@ defmodule AllbertAssist.Resources.ResourceURI do
 
   defp normalize_parsed(%URI{scheme: "browser"} = uri, original),
     do: normalize_browser(uri, original)
+
+  defp normalize_parsed(%URI{scheme: "workflow"} = uri, original),
+    do: normalize_workflow(uri, original)
+
+  defp normalize_parsed(%URI{scheme: "plan"} = uri, original), do: normalize_plan(uri, original)
 
   defp normalize_parsed(%URI{scheme: scheme} = uri, original)
        when scheme in @unsupported_schemes,
@@ -358,6 +395,28 @@ defmodule AllbertAssist.Resources.ResourceURI do
        canonical_id: resource_uri,
        unsupported?: false,
        session_id: session_id
+     }}
+  end
+
+  defp derive(%URI{scheme: "workflow", host: workflow_id}, resource_uri) do
+    {:ok,
+     %{
+       origin_kind: :plan_run,
+       canonical_id: resource_uri,
+       unsupported?: false,
+       workflow_id: workflow_id
+     }}
+  end
+
+  defp derive(%URI{scheme: "plan", host: "run", path: path}, resource_uri) do
+    objective_id = path |> to_string() |> String.trim_leading("/") |> URI.decode()
+
+    {:ok,
+     %{
+       origin_kind: :plan_run,
+       canonical_id: resource_uri,
+       unsupported?: false,
+       objective_id: objective_id
      }}
   end
 
@@ -463,6 +522,38 @@ defmodule AllbertAssist.Resources.ResourceURI do
 
   defp normalize_browser(_uri, original), do: {:error, {:invalid_browser_session_uri, original}}
 
+  defp normalize_workflow(
+         %URI{host: host, path: path, query: query, fragment: fragment},
+         _original
+       )
+       when path in [nil, ""] and query in [nil, ""] and fragment in [nil, ""] do
+    with {:ok, workflow_id} <- workflow_id(host) do
+      {:ok, "workflow://#{workflow_id}"}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp normalize_workflow(_uri, original), do: {:error, {:invalid_workflow_uri, original}}
+
+  defp normalize_plan(
+         %URI{host: "run", path: path, query: query, fragment: fragment},
+         original
+       )
+       when query in [nil, ""] and fragment in [nil, ""] do
+    case path |> to_string() |> String.trim_leading("/") |> String.split("/", trim: true) do
+      [objective_id] ->
+        with {:ok, objective_id} <- objective_id(URI.decode(objective_id)) do
+          {:ok, "plan://run/#{objective_id}"}
+        end
+
+      _other ->
+        {:error, {:invalid_plan_run_uri, original}}
+    end
+  end
+
+  defp normalize_plan(_uri, original), do: {:error, {:invalid_plan_run_uri, original}}
+
   defp mcp_server_id(value) do
     with {:ok, value} <- non_empty(value, :missing_mcp_server_id) do
       if Regex.match?(~r/^[A-Za-z0-9_-]+$/, value) do
@@ -479,6 +570,29 @@ defmodule AllbertAssist.Resources.ResourceURI do
         {:ok, value}
       else
         {:error, {:invalid_browser_session_id, value}}
+      end
+    end
+  end
+
+  defp workflow_id(value) do
+    with {:ok, value} <- non_empty(value, :missing_workflow_id) do
+      if Regex.match?(~r/^[a-z0-9][a-z0-9_-]*$/, value) do
+        {:ok, value}
+      else
+        {:error, {:invalid_workflow_id, value}}
+      end
+    end
+  end
+
+  defp objective_id(value) do
+    with {:ok, value} <- non_empty(value, :missing_objective_id) do
+      if Regex.match?(
+           ~r/^obj_[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+           value
+         ) do
+        {:ok, value}
+      else
+        {:error, {:invalid_objective_id, value}}
       end
     end
   end

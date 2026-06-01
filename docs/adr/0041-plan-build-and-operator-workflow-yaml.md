@@ -2,10 +2,10 @@
 
 ## Status
 
-Proposed for v0.44 Plan/Build Mode And Operator Workflow YAML
-(`docs/plans/v0.44-plan.md`); deepened in the post-v0.43 planning pass
-and tightened in the second-pass readiness patch. M1 changes this status
-to Accepted when the substrate and locked decisions land.
+Accepted for v0.44 Plan/Build Mode And Operator Workflow YAML
+(`docs/plans/v0.44-plan.md`). M1 landed the substrate vocabulary,
+settings namespace, URI schemes, and locked decisions that make this
+decision binding for implementation.
 
 ## Context
 
