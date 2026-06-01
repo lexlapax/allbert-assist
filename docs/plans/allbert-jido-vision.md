@@ -539,6 +539,9 @@ historical aliases only and remain in old reference notes for continuity.
   neutral workspace requests can propose explicit app handoff or ask targeted
   clarification while preserving the rule that app actions never execute
   silently.
+- v0.34: Workspace UX Refresh — launcher polish, Canvas destination registry,
+  and workspace affordance cleanup make `/workspace` the durable operator
+  surface before theming and layout overrides.
 - v0.35: User Theming And Layout Overrides — operators retheme and re-layout
   `/workspace` from Allbert Home using token YAML, opt-in sanitized CSS
   snippets, and validated layout data.

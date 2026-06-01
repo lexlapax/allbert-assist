@@ -47,8 +47,8 @@ Status: implemented as the v0.43 release. Current version metadata is
   userinfo, and credential-shaped query parameters before confirmation,
   diagnostics, and release evidence.
 - Browser confirmations now include browser-specific resource metadata while
-  preserving the v0.44 channel primitive forward pin for typed commands,
-  buttons, and links.
+  preserving the channel primitive forward pin for typed commands, buttons,
+  and links (renumbered to v0.49 in later v1.0 planning).
 - Browser sessions now enforce max lifetime and idle timeout settings, browser
   cache writes enforce `browser.cache.max_bytes` with oldest-first eviction,
   the browser supervisor contributes the paused cache sweep job idempotently,
