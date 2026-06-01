@@ -228,7 +228,7 @@ Approval Handoff renders through one of four standardized primitives. Every
 channel adapter declares its supported subset in its plugin descriptor:
 
 - **`:list`** — render the pending request as text plus a numbered list of
-  options (approve, deny, show, defer). Operator picks by number in a reply.
+  options (approve, deny, show). Operator picks by number in a reply.
   Universal fallback; every adapter supports `:list` so Approval Handoff
   always has a delivery path.
 - **`:button`** — render an interactive button affordance (Telegram inline
@@ -245,7 +245,11 @@ channel adapter declares its supported subset in its plugin descriptor:
 
 `AllbertAssist.Approval.Handoff.render/2` (or its equivalent boundary) selects
 the highest-fidelity primitive the adapter declares, in order:
-`:button > :typed_command > :link > :list`.
+`:button > :typed_command > :link > :list`. Adapter renderers pass an
+effective descriptor that already accounts for provider settings such as
+`render_approval_buttons: false`. The `:link` primitive is eligible only when
+the handoff payload carries a workspace URL; otherwise selection continues to
+`:list`.
 
 ### Adapter Declarations
 
@@ -254,7 +258,7 @@ Adapter declarations as of v0.50:
 | Adapter   | Declared primitives                                  |
 |-----------|------------------------------------------------------|
 | CLI       | `:list`                                              |
-| LiveView  | `:button` (workspace modal)                          |
+| LiveView  | `:button` (workspace modal), `:list`                 |
 | Telegram  | `:button`, `:typed_command`, `:list`                 |
 | Email     | `:typed_command`, `:list`                            |
 | Discord   | `:button`, `:typed_command`, `:list`                 |
@@ -292,8 +296,9 @@ hand-rolling their choice (v0.44 M0).
 - No new permission classes or confirmation shapes.
 - No bypass of `Actions.Runner.run/3`, Security Central, or the durable
   confirmation store.
-- No primitive that returns rich operator input beyond the four
-  approve/deny/show/defer verbs.
+- No primitive that returns rich operator input beyond the three v0.44
+  callback verbs: approve, deny, and show. Any future defer semantics require
+  a separate confirmation-action design and ADR/plan update.
 
 ### Consequences
 
