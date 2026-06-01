@@ -3,6 +3,8 @@
 ## Status
 
 Accepted for v0.43 Browser And Web Research (`docs/plans/v0.43-plan.md`).
+Operational closeout evidence is recorded in the v0.43 plan, request flow, and
+CHANGELOG after the R5-R7 remediation follow-up.
 
 ## Context
 
