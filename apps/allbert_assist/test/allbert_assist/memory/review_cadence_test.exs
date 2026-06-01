@@ -31,7 +31,7 @@ defmodule AllbertAssist.Memory.ReviewCadenceTest do
     assert %{source: :memory_review_cadence, action: :created, cadence: "daily"} =
              Enum.find(setting.diagnostics, &(&1.source == :memory_review_cadence))
 
-    assert [job] = Jobs.list_jobs("local")
+    assert [job] = memory_jobs()
     assert job.name == "memory-index-rebuild"
     assert job.status == "active"
     assert job.schedule == %{"kind" => "daily", "at" => "03:00"}
@@ -49,7 +49,7 @@ defmodule AllbertAssist.Memory.ReviewCadenceTest do
     assert %{source: :memory_review_cadence, action: :updated, cadence: "weekly"} =
              Enum.find(setting.diagnostics, &(&1.source == :memory_review_cadence))
 
-    assert [job] = Jobs.list_jobs("local")
+    assert [job] = memory_jobs()
     assert job.status == "active"
     assert job.schedule == %{"kind" => "weekly", "weekday" => "sunday", "at" => "03:00"}
     assert job.metadata["cadence"] == "weekly"
@@ -65,11 +65,16 @@ defmodule AllbertAssist.Memory.ReviewCadenceTest do
     assert %{source: :memory_review_cadence, action: :paused, cadence: "manual"} =
              Enum.find(setting.diagnostics, &(&1.source == :memory_review_cadence))
 
-    assert [job] = Jobs.list_jobs("local")
+    assert [job] = memory_jobs()
     assert job.status == "paused"
     assert job.next_due_at == nil
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+
+  defp memory_jobs do
+    Jobs.list_jobs("local")
+    |> Enum.filter(&(&1.name == "memory-index-rebuild"))
+  end
 end

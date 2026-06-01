@@ -96,9 +96,6 @@ defmodule Mix.Tasks.Allbert.Browser do
     else
       {:ok, response} ->
         Mix.shell().error("browser research failed: #{inspect(response[:error] || response[:status])}")
-
-      {:error, reason} ->
-        Mix.shell().error("browser research failed: #{inspect(reason)}")
     end
   end
 
@@ -117,9 +114,6 @@ defmodule Mix.Tasks.Allbert.Browser do
       else
         {:ok, response} ->
           Mix.shell().error("browser research failed: #{inspect(response[:error] || response[:status])}")
-
-        {:error, reason} ->
-          Mix.shell().error("browser research failed: #{inspect(reason)}")
       end
     after
       maybe_close_session(session_id)

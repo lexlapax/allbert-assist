@@ -203,11 +203,8 @@ defmodule AllbertBrowser.Driver.Playwright do
     id = "pw-#{System.unique_integer([:positive])}"
     payload = Jason.encode!(%{id: id, op: op, params: params}) <> "\n"
 
-    if Port.command(port, payload) do
-      receive_response(port, id, timeout_ms, "")
-    else
-      {:error, :playwright_bridge_closed}
-    end
+    Port.command(port, payload)
+    receive_response(port, id, timeout_ms, "")
   rescue
     exception -> {:error, {:playwright_bridge_command_failed, Exception.message(exception)}}
   end

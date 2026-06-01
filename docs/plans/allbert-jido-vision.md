@@ -581,14 +581,17 @@ historical aliases only and remain in old reference notes for continuity.
   follow-on.
 - v0.43 (implemented as `0.43.0`): Browser And Web Research. Browser sessions
   are Resource Access resources at `browser://session/<id>`, owned by the `./plugins/allbert.browser/`
-  plugin supervisor (core spawns no browser). Per-domain remembered grants
+  plugin supervisor (core spawns no browser), with operational control through
+  the reviewed local Playwright/Chromium bridge. Per-domain remembered grants
   authorize navigation against the navigated URL, not the session URI; the
   six browser operation classes (`:browser_navigate`, `:browser_extract`,
   `:browser_screenshot`, `:browser_interact`, `:browser_form_fill`,
   `:browser_download`) have per-class safety floors; form-fill and download
   default to denied and can only be opted into confirmation. Research,
-  extraction, screenshots, the browser results panel, and the deterministic
-  `release.v043` gate are the v0.43 surface; broader account operation, authenticated workflows,
+  extraction, screenshots, the browser results panel, `mix allbert.browser
+  research`, the real browser external-smoke lane, and the deterministic
+  `release.v043` gate are the v0.43 surface; broader account operation,
+  authenticated workflows,
   persistent profiles, multi-tab orchestration, and JS evaluation are
   deferred to v0.43.x or later. Page content is descriptive evidence, never
   authority; nothing auto-promotes to memory.

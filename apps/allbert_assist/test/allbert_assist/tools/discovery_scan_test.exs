@@ -66,7 +66,7 @@ defmodule AllbertAssist.Tools.DiscoveryScanTest do
     assert response.status == :completed
     assert [_suggestion] = Discovery.list_suggestions(status: "pending")
 
-    assert [%{name: "mcp-discovery-scan", status: "paused"}] = Jobs.list_jobs("local")
+    assert [%{name: "mcp-discovery-scan", status: "paused"}] = discovery_jobs()
   end
 
   test "resume and run_once fail closed while discovery is disabled" do
@@ -89,6 +89,11 @@ defmodule AllbertAssist.Tools.DiscoveryScanTest do
 
     assert {:ok, _setting} =
              Settings.put("external_services.allowed_methods", ["GET"], %{audit?: false})
+  end
+
+  defp discovery_jobs do
+    Jobs.list_jobs("local")
+    |> Enum.filter(&(&1.name == "mcp-discovery-scan"))
   end
 
   defp stub_registry do

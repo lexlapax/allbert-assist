@@ -55,7 +55,7 @@ Do not load every section by default.
 | Developer velocity, test strategy, precommit gate matrix, async eligibility, test-lane/resource isolation, implementation-readiness audits, milestone parallelization annotations, and the temporary Memento/Jido compatibility override | ADR 0049, ADR 0050, `docs/plans/v0.41-plan.md`, `docs/plans/v0.41-request-flow.md`, `docs/developer/test-strategy.md`, `DEVELOPMENT.md` | v0.41 |
 | Tool discovery: `find_tools` source port (local + internet MCP-registry adapters, optional keyed providers only when configured), persisted candidates/evaluations, `mcp_server_connect` confirmation gate, opt-in background scan to a passive surface | ADR 0048, ADR 0038, ADR 0011, ADR 0033, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
 | MCP-first integration pack 1: calendar/mail/GitHub MCP panels + notes/files native reference plugin | ADR 0015, ADR 0017, ADR 0039, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
-| Browser and web research: `./plugins/allbert.browser/` plugin with `browser://session/<id>` identity, six browser operation classes, seven `:browser_*` permission classes, `browser.*` settings namespace, per-domain remembered grants on navigated URLs, two-layer network policy (top-level via `External.HttpPolicy` + subresources via `AllbertBrowser.NetworkPolicy`), bounded HTML/markdown/text/PDF extraction, credential-input screenshot redaction, ephemeral profiles, workspace results panel, doctor (ADR 0047 shape), v0.44 channel-primitive forward pin | ADR 0011, ADR 0012, ADR 0013 (v0.43 amendment), ADR 0017, ADR 0023, ADR 0025, ADR 0027, ADR 0033, ADR 0040 (binding), ADR 0047, ADR 0049, `docs/plans/v0.43-plan.md`, `docs/plans/v0.43-request-flow.md` | v0.43 |
+| Browser and web research: `./plugins/allbert.browser/` plugin with real local Playwright/Chromium control, `browser://session/<id>` identity, six browser operation classes, seven `:browser_*` permission classes, `browser.*` settings namespace, per-domain remembered grants on navigated URLs, two-layer network policy (top-level via `External.HttpPolicy` + subresources via `AllbertBrowser.NetworkPolicy`), bounded HTML/markdown/text/PDF extraction, credential-input screenshot redaction, ephemeral profiles, workspace results panel, doctor (ADR 0047 shape), v0.44 channel-primitive forward pin | ADR 0011, ADR 0012, ADR 0013 (v0.43 amendment), ADR 0017, ADR 0023, ADR 0025, ADR 0027, ADR 0033, ADR 0040 (binding), ADR 0047, ADR 0049, `docs/plans/v0.43-plan.md`, `docs/plans/v0.43-request-flow.md` | v0.43 |
 | Discord and Slack channel plugins + ADR 0016 amendment for channel approval primitives | ADR 0016, ADR 0017, `docs/plans/v0.44-plan.md`, `docs/plans/v0.44-request-flow.md` | v0.44 |
 | Plan/Build mode and operator workflow YAML (under `<ALLBERT_HOME>/workflows/`) | ADR 0021, ADR 0027, ADR 0041, `docs/plans/v0.45-plan.md`, `docs/plans/v0.45-request-flow.md` | v0.45 |
 | Marketplace lite (data shape + Allbert-author seeds) | ADR 0043, ADR 0046 (drafted), `docs/plans/v0.46-plan.md`, `docs/plans/v0.46-request-flow.md` | v0.46 |
@@ -427,11 +427,13 @@ Implemented v0.41 gates:
 - v0.43 (implemented as `0.43.0`): Browser And Web Research. Adds the `./plugins/allbert.browser/`
   reviewed source-tree plugin alongside Telegram, email, StockSage, and
   notes/files with
-  `browser://session/<id>` identity (ADR 0013 v0.43 amendment), per-domain
+  real local Playwright/Chromium control, `browser://session/<id>` identity
+  (ADR 0013 v0.43 amendment), per-domain
   remembered grants on navigated URLs, six browser operation classes, seven
   `:browser_*` permission classes (form fill and download default denied with
   confirmation floors),
-  registered browser actions including a doctor (ADR 0047 shape), bounded
+  registered browser actions including a doctor (ADR 0047 shape),
+  `mix allbert.browser research`, bounded
   HTML/markdown/text/PDF extraction, credential-input screenshot redaction
   at the driver layer, ephemeral profiles, two-layer network policy (top-level
   via `External.HttpPolicy` + subresources via `AllbertBrowser.NetworkPolicy`),
