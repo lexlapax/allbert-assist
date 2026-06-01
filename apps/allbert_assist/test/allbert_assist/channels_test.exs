@@ -7,8 +7,14 @@ defmodule AllbertAssist.ChannelsTest do
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Paths
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
+
+  setup do
+    ensure_default_channel_plugins()
+    :ok
+  end
 
   describe "channel events" do
     test "creates and updates durable events" do
@@ -237,4 +243,9 @@ defmodule AllbertAssist.ChannelsTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+
+  defp ensure_default_channel_plugins do
+    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+  end
 end

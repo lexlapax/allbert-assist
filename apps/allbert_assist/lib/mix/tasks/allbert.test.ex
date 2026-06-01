@@ -12,7 +12,9 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test serial-core --lane LANE [--partitions N]
       mix allbert.test release
       mix allbert.test release.v042
+      mix allbert.test release.v043
       mix allbert.test external-smoke list
+      mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- docker_sandbox
       mix allbert.test external-smoke -- docker_full_gate
   """
@@ -57,6 +59,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["serial-core" | rest]), do: serial_core(rest)
   def run(["release"]), do: release()
   def run(["release.v042"]), do: release_v042()
+  def run(["release.v043"]), do: release_v043()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -331,6 +334,65 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   ]
 
+  @release_v043_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "browser_actions_and_extractors",
+      title: "browser actions, extractors, cache, CLI, and policy tests",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/settings_test.exs",
+        "test/allbert_assist/plugin/registry_test.exs",
+        "test/allbert_assist/actions/resource_refs_test.exs",
+        "test/allbert_assist/security/permission_gate_test.exs",
+        "test/allbert_assist/external/http_policy_test.exs",
+        "test/allbert_assist/actions/browser_actions_test.exs",
+        "test/allbert_assist/actions/browser_m3_test.exs",
+        "test/allbert_assist/actions/browser_m4_test.exs",
+        "test/mix/tasks/allbert_browser_test.exs"
+      ],
+      coverage: [
+        "browser settings schema and permission floors",
+        "browser:// Resource Access identity",
+        "doctor, start, navigate, extract, screenshot, click, fill, download",
+        "bounded HTML/markdown/text/PDF extraction",
+        "browser cache and paused sweep job",
+        "CLI doctor and session commands",
+        "credential URL and private-host preflight denial"
+      ]
+    },
+    %{
+      id: "browser_security_eval",
+      title: "v0.43 browser security eval inventory and release evals",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v043_browser_research_eval_test.exs",
+        "test/security/security_eval_case_test.exs"
+      ],
+      coverage: [
+        "19 v0.43 browser eval rows",
+        "prompt-injection inertness for HTML comments and PDF text",
+        "per-domain grant and redirect scope checks",
+        "subresource policy denial",
+        "fill/download deny-by-default and opt-in confirmation",
+        "screenshot credential redaction",
+        "ephemeral session close",
+        "secret redaction"
+      ]
+    }
+  ]
+
   defp release_v042 do
     env = owned_env("release-v042", 0)
     home = env_value(env, "ALLBERT_HOME")
@@ -372,6 +434,77 @@ defmodule Mix.Tasks.Allbert.Test do
     if status != "passed" do
       Mix.raise("release.v042 failed; evidence: #{evidence_path}")
     end
+  end
+
+  defp release_v043 do
+    env = owned_env("release-v043", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v043")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v043_steps, &run_release_v043_step(&1, env))
+    secret_scan = release_v043_secret_scan(home)
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v043",
+      version: "v0.43",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network: "disabled; tests use the browser stub driver and local fixtures",
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path =
+      Path.join(evidence_dir, "release-v043-#{DateTime.to_unix(started_at)}.json")
+
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v043 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v043 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v043_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args,
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v043 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
   end
 
   defp run_release_v042_step(step, env) do
@@ -437,6 +570,41 @@ defmodule Mix.Tasks.Allbert.Test do
     }
 
     print_output("release.v042 secret_scan", Jason.encode!(result, pretty: true))
+    result
+  end
+
+  defp release_v043_secret_scan(home) do
+    Enum.each(
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces")
+      ],
+      &File.mkdir_p!/1
+    )
+
+    roots =
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces"),
+        Path.join(home, "traces")
+      ]
+      |> Enum.filter(&File.exists?/1)
+
+    files =
+      roots
+      |> Enum.flat_map(&Path.wildcard(Path.join(&1, "**/*")))
+      |> Enum.filter(&File.regular?/1)
+
+    findings = release_v042_secret_findings(files, home)
+
+    result = %{
+      status: if(findings == [], do: "passed", else: "failed"),
+      scanned_roots: Enum.map(roots, &Path.relative_to(&1, home)),
+      scanned_file_count: length(files),
+      findings: findings
+    }
+
+    print_output("release.v043 secret_scan", Jason.encode!(result, pretty: true))
     result
   end
 
@@ -510,8 +678,19 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp run_external_smoke(["list"]) do
     Mix.shell().info("external smokes are opt-in and remain serial:")
+    Mix.shell().info("- browser_research")
     Mix.shell().info("- docker_sandbox")
     Mix.shell().info("- docker_full_gate")
+  end
+
+  defp run_external_smoke(["browser_research"]) do
+    run_cmd!(
+      "external-smoke browser_research",
+      app_cwd(:core),
+      "mix",
+      ["test", "test/security/v043_browser_research_eval_test.exs"],
+      [{"ALLBERT_BROWSER_EXTERNAL_SMOKE", "1"} | owned_env("external-smoke-browser-research", 0)]
+    )
   end
 
   defp run_external_smoke(["docker_sandbox"]) do
@@ -1136,7 +1315,9 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test serial-core --lane LANE [--partitions N]
       mix allbert.test release
       mix allbert.test release.v042
+      mix allbert.test release.v043
       mix allbert.test external-smoke list
+      mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- docker_sandbox
       mix allbert.test external-smoke -- docker_full_gate
     """)

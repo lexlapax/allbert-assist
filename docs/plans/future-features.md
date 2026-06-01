@@ -156,8 +156,8 @@ Still parked:
 
 Status: parked.
 
-v0.43 plans bounded HTML, markdown, plain text, and PDF extraction for browser
-and web research.
+v0.43 shipped bounded HTML, markdown, plain text, and PDF extraction for browser
+and web research. Broader formats remain parked outside the v0.43 release.
 
 Still parked:
 
@@ -173,7 +173,8 @@ Status: parked.
 
 v0.43 ships ephemeral browser sessions only: cookies, local storage, and
 IndexedDB are discarded on session close; form fill and download deny by
-default; headless-only; one active page per session; macOS + Linux only.
+default and require explicit opt-in plus confirmation; headless-only; one
+active page per session; macOS + Linux only.
 
 Still parked:
 

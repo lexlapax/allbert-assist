@@ -2,10 +2,7 @@
 
 ## Status
 
-Proposed for v0.43 Browser And Web Research (`docs/plans/v0.43-plan.md`).
-
-M5 closeout flips this line to `Accepted for v0.43 Browser And Web
-Research` per the §"M5 Closeout Discipline" checklist in the plan.
+Accepted for v0.43 Browser And Web Research (`docs/plans/v0.43-plan.md`).
 
 ## Context
 

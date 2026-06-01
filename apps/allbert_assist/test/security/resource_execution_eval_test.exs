@@ -191,7 +191,7 @@ defmodule AllbertAssist.Security.ResourceExecutionEvalTest do
               Runner.run(
                 "external_network_request",
                 %{
-                  url: "https://example.com/report?token=super-secret-token",
+                  url: "https://example.com/report?state=super-secret-token",
                   operation_class: "summarize_url",
                   downstream_consumer: "summarizer",
                   postprocess: "summarize_url",

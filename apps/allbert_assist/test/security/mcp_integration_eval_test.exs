@@ -336,7 +336,7 @@ defmodule AllbertAssist.Security.McpIntegrationEvalTest do
     fixture = EvalInventory.row!("mcp-doctor-redacted-envelope-001")
     context = context()
 
-    configure_http_server("query", "https://example.com/mcp?token=leaky-query-token")
+    configure_http_server("query", "https://example.com/mcp?trace=leaky-query-token")
 
     eval =
       run_eval(

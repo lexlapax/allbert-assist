@@ -29,10 +29,11 @@ defmodule Mix.Tasks.Allbert.PluginsTest do
   end
 
   setup do
+    ensure_default_plugins()
+
     on_exit(fn ->
       PluginRegistry.clear()
-      PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-      PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+      ensure_default_plugins()
       Mix.Task.reenable("allbert.plugins")
     end)
   end
@@ -105,5 +106,10 @@ defmodule Mix.Tasks.Allbert.PluginsTest do
         PluginsTask.run(["show", "missing.plugin"])
       end)
     end
+  end
+
+  defp ensure_default_plugins do
+    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
   end
 end

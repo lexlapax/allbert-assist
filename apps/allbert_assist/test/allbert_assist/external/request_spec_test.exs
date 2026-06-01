@@ -39,7 +39,7 @@ defmodule AllbertAssist.External.RequestSpecTest do
     assert {:ok, spec} =
              RequestSpec.normalize(%{
                method: "get",
-               url: "https://example.com/status?token=secret",
+               url: "https://example.com/status?state=secret",
                query: %{"page" => "1"},
                max_response_bytes: 128
              })

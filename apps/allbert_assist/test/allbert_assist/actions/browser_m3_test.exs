@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Jobs
+  alias AllbertAssist.Jobs.Runner
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
@@ -32,7 +33,9 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
 
     on_exit(fn ->
       PluginRegistry.clear()
+      restore_default_plugins()
       AppRegistry.clear()
+      restore_default_apps()
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
       restore_env(:allbert_browser, :driver, original_driver)
@@ -128,8 +131,19 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
     assert job.target["action_name"] == "browser_sweep_cache"
 
     assert {:ok, _artifact} = Cache.put("session-3", "extraction", "old", ext: ".txt")
-    assert {:ok, _run_result} = AllbertAssist.Jobs.Runner.run_now(job)
+    assert {:ok, _run_result} = Runner.run_now(job)
     assert [%{status: "completed"}] = Jobs.list_runs(job)
+  end
+
+  defp restore_default_apps do
+    _ = AppRegistry.register(AllbertAssist.App.CoreApp)
+    _ = AppRegistry.register(StockSage.App)
+  end
+
+  defp restore_default_plugins do
+    _ = PluginRegistry.register_module(StockSage.Plugin)
+    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
+    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
   end
 
   defp restore_env(module, key, nil), do: Application.delete_env(module, key)

@@ -64,21 +64,21 @@ defmodule AllbertAssist.Actions.ExternalNetworkRequestTest do
     assert {:ok, response} =
              Runner.run(
                "external_network_request",
-               %{url: "https://example.com/status?token=secret"},
+               %{url: "https://example.com/status?state=secret"},
                %{actor: "local", channel: :test}
              )
 
     summary = response.confirmation["params_summary"]
-    assert summary["canonical_url"] == "https://example.com/status?token=secret"
+    assert summary["canonical_url"] == "https://example.com/status?state=secret"
     assert summary["display_url"] == "https://example.com/status?[REDACTED]"
     assert summary["url"] == "https://example.com/status?[REDACTED]"
 
     assert [ref] = summary["resource_refs"]
-    assert ref["canonical_id"] == "https://example.com/status?token=secret"
+    assert ref["canonical_id"] == "https://example.com/status?state=secret"
 
     assert ref["scope"] == %{
              "kind" => "exact_url",
-             "value" => "https://example.com/status?token=secret"
+             "value" => "https://example.com/status?state=secret"
            }
 
     assert ref["metadata"]["display_url"] == "https://example.com/status?[REDACTED]"

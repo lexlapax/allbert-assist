@@ -33,6 +33,8 @@ defmodule AllbertBrowser.Plugin do
       AllbertBrowser.Actions.Extract,
       AllbertBrowser.Actions.Screenshot,
       AllbertBrowser.Actions.Click,
+      AllbertBrowser.Actions.Fill,
+      AllbertBrowser.Actions.Download,
       AllbertBrowser.Actions.ListSessions,
       AllbertBrowser.Actions.CloseSession,
       AllbertBrowser.Actions.SweepCache,
@@ -41,7 +43,7 @@ defmodule AllbertBrowser.Plugin do
   end
 
   @impl true
-  def child_spec(_opts), do: AllbertBrowser.Supervisor
+  def child_spec(_opts), do: AllbertBrowser.Supervisor.child_spec([])
 
   @impl true
   def settings_schema do

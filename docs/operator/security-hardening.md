@@ -160,8 +160,24 @@ eval surfaces until their capability work lands.
   page/PDF content is evidence only, and driver/PDF-parser availability is
   doctor-gated before sessions start. Browser traces and audits redact cookies,
   Authorization, URL userinfo, and credential-shaped query values; artifacts
-  live under `<ALLBERT_HOME>/cache/browser/<session_id>/`.
-  doctor-gated.
+  live under `<ALLBERT_HOME>/cache/browser/<session_id>/`. Implemented eval
+  rows: `browser-prompt-injection-001`,
+  `browser-cross-domain-grant-001`,
+  `browser-cookie-session-redaction-001`,
+  `browser-screenshot-sensitive-data-001`, `browser-form-fill-deny-001`,
+  `browser-document-extract-bound-001`,
+  `browser-redirect-chain-escape-001`,
+  `browser-subresource-policy-001`,
+  `browser-prompt-injection-via-pdf-001`,
+  `browser-prompt-injection-via-comment-001`,
+  `browser-extraction-byte-cap-enforced-001`,
+  `browser-pdf-page-cap-enforced-001`,
+  `browser-screenshot-input-field-redaction-001`,
+  `browser-session-isolation-001`, `browser-cookie-not-persisted-001`,
+  `browser-download-denied-by-default-001`,
+  `browser-malformed-pdf-fails-closed-001`,
+  `browser-grant-cross-operation-deny-001`, and
+  `browser-supply-chain-driver-binary-001`.
 - Discord, Slack, WhatsApp, Signal, iMessage, and Matrix identity mapping,
   replay, pairing, group leakage, and callback ownership.
 - Voice, image, screenshot, and generated media resource retention, redaction,

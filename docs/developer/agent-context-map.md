@@ -424,14 +424,14 @@ Implemented v0.41 gates:
   plugin authors. Closeout hardens the discovery permission boundary, CLI
   contract, effect forms, and deterministic release smoke. Native variants for
   the other three are post-1.0 follow-on.
-- v0.43 (planned): Browser And Web Research. Adds the `./plugins/allbert.browser/`
+- v0.43 (implemented as `0.43.0`): Browser And Web Research. Adds the `./plugins/allbert.browser/`
   reviewed source-tree plugin alongside Telegram, email, StockSage, and
   notes/files with
   `browser://session/<id>` identity (ADR 0013 v0.43 amendment), per-domain
   remembered grants on navigated URLs, six browser operation classes, seven
   `:browser_*` permission classes (form fill and download default denied with
   confirmation floors),
-  ten registered actions including a doctor (ADR 0047 shape), bounded
+  registered browser actions including a doctor (ADR 0047 shape), bounded
   HTML/markdown/text/PDF extraction, credential-input screenshot redaction
   at the driver layer, ephemeral profiles, two-layer network policy (top-level
   via `External.HttpPolicy` + subresources via `AllbertBrowser.NetworkPolicy`),
