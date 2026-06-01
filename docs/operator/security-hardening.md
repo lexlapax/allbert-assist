@@ -189,6 +189,22 @@ eval surfaces until their capability work lands.
   per-step action permissions still apply during execution. Plan preview,
   confirmation metadata, traces, CLI output, and run-progress summaries
   must redact secret-shaped operator inputs and params.
+  Implemented eval rows: `workflow-yaml-unknown-key-001`,
+  `workflow-yaml-script-deny-001`,
+  `workflow-yaml-dynamic-action-name-deny-001`,
+  `workflow-yaml-secret-substitution-deny-001`,
+  `workflow-yaml-env-substitution-deny-001`,
+  `workflow-yaml-cycle-reject-001`,
+  `workflow-yaml-forward-ref-reject-001`,
+  `plan-preview-not-authority-001`,
+  `plan-run-start-confirmation-required-001`,
+  `plan-step-permission-not-downgradable-001`,
+  `plan-cancel-cooperative-001`,
+  `subagent-delegation-permission-boundary-001`,
+  `delegate-agent-authority-boundary-001`,
+  `workflow-expand-rejects-bad-yaml-001`,
+  `workflow-step-cap-enforced-001`, and
+  `workflow-param-bytes-cap-enforced-001`.
 - Discord, Slack, WhatsApp, Signal, and Matrix identity mapping,
   replay, pairing, group leakage, and callback ownership.
 - Voice, image, screenshot, and generated media resource retention, redaction,

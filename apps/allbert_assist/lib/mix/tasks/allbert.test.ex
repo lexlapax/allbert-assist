@@ -13,6 +13,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043
+      mix allbert.test release.v044
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- docker_sandbox
@@ -60,6 +61,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release"]), do: release()
   def run(["release.v042"]), do: release_v042()
   def run(["release.v043"]), do: release_v043()
+  def run(["release.v044"]), do: release_v044()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -393,6 +395,94 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   ]
 
+  @release_v044_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "workflow_loader_actions_cli",
+      title: "workflow YAML loader, schema, expander, actions, and CLI",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/workflows/loader_test.exs",
+        "test/allbert_assist/workflows/schema_test.exs",
+        "test/allbert_assist/workflows/validator_test.exs",
+        "test/allbert_assist/workflows/expander_test.exs",
+        "test/allbert_assist/actions/plan_build_actions_test.exs",
+        "test/mix/tasks/allbert_plan_test.exs"
+      ],
+      coverage: [
+        "workflow file discovery and bounded load",
+        "schema derivation from action registry",
+        "closed expression validation and rejection categories",
+        "Plan Preview Contract expansion",
+        "start/cancel/list/show Plan/Build actions",
+        "mix allbert.plan list/show/cancel"
+      ]
+    },
+    %{
+      id: "intent_trace_workspace_panels",
+      title: "Plan/Build intent routing, trace output, and workspace panels",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/intent/plan_build_routing_test.exs",
+        "test/allbert_assist/trace_plan_build_test.exs",
+        "test/allbert_assist/workspace/plan_build_panels_test.exs"
+      ],
+      coverage: [
+        "documented intent corpus routing",
+        "Plan Preview trace section",
+        "Preview and RunProgress workspace panel descriptors"
+      ]
+    },
+    %{
+      id: "plan_build_liveview",
+      title: "workspace Plan/Build LiveView panels and objective progress",
+      cwd: :web,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist_web/live/plan_build_live_test.exs",
+        "test/allbert_assist_web/live/objective_live_test.exs"
+      ],
+      coverage: [
+        "workspace destination renders Plan/Build Preview",
+        "workspace destination renders Plan Run Progress",
+        "ObjectiveLive embeds RunProgress and cancel control",
+        "inline delegate/subagent event visibility"
+      ]
+    },
+    %{
+      id: "plan_build_security_eval",
+      title: "v0.44 Plan/Build security eval inventory and release evals",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v044_plan_build_eval_test.exs",
+        "test/security/security_eval_case_test.exs"
+      ],
+      coverage: [
+        "16 v0.44 Plan/Build eval rows",
+        "workflow YAML rejection categories",
+        "preview-not-authority and plan-start confirmation",
+        "step permission floor preservation",
+        "cooperative cancellation",
+        "delegate-agent authority boundary",
+        "secret redaction"
+      ]
+    }
+  ]
+
   defp release_v042 do
     env = owned_env("release-v042", 0)
     home = env_value(env, "ALLBERT_HOME")
@@ -477,6 +567,77 @@ defmodule Mix.Tasks.Allbert.Test do
     if status != "passed" do
       Mix.raise("release.v043 failed; evidence: #{evidence_path}")
     end
+  end
+
+  defp release_v044 do
+    env = owned_env("release-v044", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v044")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v044_steps, &run_release_v044_step(&1, env))
+    secret_scan = release_v044_secret_scan(home)
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v044",
+      version: "v0.44",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network: "disabled; tests use fixture workflows and local runtime only",
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path =
+      Path.join(evidence_dir, "release-v044-#{DateTime.to_unix(started_at)}.json")
+
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v044 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v044 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v044_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args,
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v044 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
   end
 
   defp run_release_v043_step(step, env) do
@@ -605,6 +766,41 @@ defmodule Mix.Tasks.Allbert.Test do
     }
 
     print_output("release.v043 secret_scan", Jason.encode!(result, pretty: true))
+    result
+  end
+
+  defp release_v044_secret_scan(home) do
+    Enum.each(
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces")
+      ],
+      &File.mkdir_p!/1
+    )
+
+    roots =
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces"),
+        Path.join(home, "traces")
+      ]
+      |> Enum.filter(&File.exists?/1)
+
+    files =
+      roots
+      |> Enum.flat_map(&Path.wildcard(Path.join(&1, "**/*")))
+      |> Enum.filter(&File.regular?/1)
+
+    findings = release_v042_secret_findings(files, home)
+
+    result = %{
+      status: if(findings == [], do: "passed", else: "failed"),
+      scanned_roots: Enum.map(roots, &Path.relative_to(&1, home)),
+      scanned_file_count: length(files),
+      findings: findings
+    }
+
+    print_output("release.v044 secret_scan", Jason.encode!(result, pretty: true))
     result
   end
 
@@ -1316,6 +1512,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043
+      mix allbert.test release.v044
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- docker_sandbox

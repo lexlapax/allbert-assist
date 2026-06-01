@@ -80,7 +80,8 @@ defmodule AllbertAssist.SecurityEvalCaseTest do
                :v039b,
                :v040,
                :v042,
-               :v043
+               :v043,
+               :v044
              ]
 
       assert row.expected in [:allowed, :needs_confirmation, :denied, :dropped, :error]
