@@ -933,6 +933,7 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, "playwright_chromium"} = Settings.get("browser.driver.kind")
     assert {:ok, true} = Settings.get("browser.session.headless")
     assert {:ok, "ephemeral"} = Settings.get("browser.session.profile_mode")
+    assert {:ok, 60_000} = Settings.get("browser.session.idle_timeout_ms")
     assert {:ok, false} = Settings.get("browser.screenshot.full_page")
     assert {:ok, "[REDACTED]"} = Settings.get("browser.screenshot.redact_credential_inputs")
     assert Settings.schema()["browser.screenshot.redact_credential_inputs"].default == true

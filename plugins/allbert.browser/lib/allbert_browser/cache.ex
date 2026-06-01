@@ -9,6 +9,16 @@ defmodule AllbertBrowser.Cache do
 
   def put(session_id, kind, content, opts \\ []) when is_binary(session_id) and is_binary(kind) do
     bytes = IO.iodata_to_binary(content)
+    max_bytes = setting("browser.cache.max_bytes", 33_554_432)
+
+    if byte_size(bytes) > max_bytes do
+      {:error, :cache_artifact_too_large}
+    else
+      put_bounded(session_id, kind, bytes, opts, max_bytes)
+    end
+  end
+
+  defp put_bounded(session_id, kind, bytes, opts, max_bytes) do
     hash = :crypto.hash(:sha256, bytes) |> Base.encode16(case: :lower)
     ext = Keyword.get(opts, :ext, ".bin")
     file = Path.join(session_root(session_id), "#{hash}#{ext}")
@@ -30,6 +40,7 @@ defmodule AllbertBrowser.Cache do
     File.mkdir_p!(Path.dirname(file))
     File.write!(file, bytes)
     File.write!(metadata_file, Jason.encode!(metadata))
+    _ = enforce_max_bytes(max_bytes, file)
     {:ok, metadata}
   end
 
@@ -62,6 +73,11 @@ defmodule AllbertBrowser.Cache do
         {:ok, count}
       end
     end)
+    |> case do
+      {:ok, count} ->
+        {:ok, size_count} = enforce_max_bytes(setting("browser.cache.max_bytes", 33_554_432))
+        {:ok, count + size_count}
+    end
   end
 
   def ensure_sweep_job do
@@ -95,6 +111,75 @@ defmodule AllbertBrowser.Cache do
       metadata
     else
       _error -> nil
+    end
+  end
+
+  defp enforce_max_bytes(max_bytes, protected_path \\ nil) do
+    artifacts =
+      cache_artifacts()
+      |> Enum.sort_by(fn artifact -> {artifact.path == protected_path, artifact.created_at} end)
+
+    total = Enum.reduce(artifacts, 0, &(&1.bytes + &2))
+
+    if total <= max_bytes do
+      {:ok, 0}
+    else
+      evict_until_bounded(artifacts, total, max_bytes, 0)
+    end
+  end
+
+  defp evict_until_bounded(_artifacts, total, max_bytes, count) when total <= max_bytes do
+    {:ok, count}
+  end
+
+  defp evict_until_bounded([], _total, _max_bytes, count), do: {:ok, count}
+
+  defp evict_until_bounded([artifact | rest], total, max_bytes, count) do
+    File.rm(artifact.path)
+    File.rm(artifact.metadata_path)
+    evict_until_bounded(rest, total - artifact.bytes, max_bytes, count + 1)
+  end
+
+  defp cache_artifacts do
+    root()
+    |> Path.join("*/*.json")
+    |> Path.wildcard()
+    |> Enum.map(&artifact_from_metadata/1)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.sort_by(& &1.created_at)
+  end
+
+  defp artifact_from_metadata(metadata_path) do
+    metadata = read_metadata(metadata_path)
+    path = metadata && Map.get(metadata, :path)
+
+    cond do
+      not is_binary(path) ->
+        nil
+
+      not File.exists?(path) ->
+        nil
+
+      true ->
+        %{
+          path: path,
+          metadata_path: metadata_path,
+          bytes: artifact_bytes(metadata, path),
+          created_at: Map.get(metadata, :created_at, "")
+        }
+    end
+  end
+
+  defp artifact_bytes(metadata, path) do
+    case Map.get(metadata, :bytes) do
+      bytes when is_integer(bytes) and bytes >= 0 ->
+        bytes
+
+      _other ->
+        case File.stat(path) do
+          {:ok, stat} -> stat.size
+          {:error, _reason} -> 0
+        end
     end
   end
 
