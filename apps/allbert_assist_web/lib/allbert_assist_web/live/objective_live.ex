@@ -4,7 +4,9 @@ defmodule AllbertAssistWeb.ObjectiveLive do
   use AllbertAssistWeb, :live_view
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Surface.Node
   alias AllbertAssistWeb.SignalBridge
+  alias AllbertAssistWeb.Workspace.Components.PlanRunProgressPanel
 
   @user_id "local"
 
@@ -192,6 +194,15 @@ defmodule AllbertAssistWeb.ObjectiveLive do
             </div>
           </section>
 
+          <.live_component
+            :if={workflow_objective?(@objective)}
+            module={PlanRunProgressPanel}
+            id="objective-plan-run-progress"
+            node={plan_run_progress_node(@objective, @steps, @events)}
+            renderer_context={%{user_id: @user_id, channel: :live_view}}
+            workspace_state={%{}}
+          />
+
           <section class="space-y-3">
             <h2 class="font-medium">Events</h2>
             <div id="objective-events" class="space-y-2">
@@ -281,6 +292,34 @@ defmodule AllbertAssistWeb.ObjectiveLive do
 
   defp step_status(step), do: Map.get(step, :status) || Map.get(step, "status")
   defp step_kind(step), do: Map.get(step, :kind) || Map.get(step, "kind")
+
+  defp workflow_objective?(objective) do
+    objective
+    |> objective_value(:source_intent)
+    |> case do
+      "workflow:" <> _rest -> true
+      _other -> false
+    end
+  end
+
+  defp plan_run_progress_node(objective, steps, events) do
+    %Node{
+      id: "objective-plan-run-progress",
+      component: :plan_run_progress_panel,
+      props: %{
+        objective: objective,
+        steps: steps,
+        events: events,
+        registered_actions: ["cancel_plan_run", "list_plan_runs"]
+      }
+    }
+  end
+
+  defp objective_value(objective, key) when is_map(objective) do
+    Map.get(objective, key) || Map.get(objective, to_string(key))
+  end
+
+  defp objective_value(_objective, _key), do: nil
 
   defp acceptance_lines(criteria) when is_map(criteria) and map_size(criteria) > 0 do
     criteria

@@ -8,6 +8,7 @@ defmodule AllbertAssist.App.CoreApp do
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace.{DiscoverySuggestions, McpIntegrationPanels}
+  alias AllbertAssist.Workspace.PlanBuild.SurfaceProvider, as: PlanBuildSurfaceProvider
 
   @impl true
   def app_id, do: :allbert
@@ -198,6 +199,8 @@ defmodule AllbertAssist.App.CoreApp do
           }
         ])
       ]),
+      PlanBuildSurfaceProvider.preview_surface(),
+      PlanBuildSurfaceProvider.run_progress_surface(),
       DiscoverySuggestions.surface(context)
     ] ++
       McpIntegrationPanels.surfaces(context)

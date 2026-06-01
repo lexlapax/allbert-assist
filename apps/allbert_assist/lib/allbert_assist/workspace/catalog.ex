@@ -23,6 +23,18 @@ defmodule AllbertAssist.Workspace.Catalog do
     %{id: "workspace:onboard", tool: "onboard", label: "Onboard", dom_id: "workspace-onboard"},
     %{id: "workspace:create", tool: "create", label: "Create", dom_id: "create"},
     %{
+      id: "workspace:plan_build",
+      tool: "plan_build",
+      label: "Plan/Build",
+      dom_id: "workspace-plan-build"
+    },
+    %{
+      id: "workspace:plan_runs",
+      tool: "plan_runs",
+      label: "Plan Runs",
+      dom_id: "workspace-plan-runs"
+    },
+    %{
       id: "workspace:discover",
       tool: "discover",
       label: "Discovery",
@@ -67,6 +79,8 @@ defmodule AllbertAssist.Workspace.Catalog do
   @workspace_tool_panels %{
     "onboard" => :core_onboarding_panel,
     "create" => :core_create_panel,
+    "plan_build" => :plan_build_preview_panel,
+    "plan_runs" => :plan_build_run_progress_panel,
     "discover" => :core_discovery_suggestions_panel,
     "calendar" => :core_calendar_panel,
     "mail" => :core_mail_panel,
