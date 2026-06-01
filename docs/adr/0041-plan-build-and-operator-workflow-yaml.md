@@ -3,8 +3,9 @@
 ## Status
 
 Proposed for v0.44 Plan/Build Mode And Operator Workflow YAML
-(`docs/plans/v0.44-plan.md`); deepened in the post-v0.43 planning pass.
-Accepted at v0.44 M1 closeout.
+(`docs/plans/v0.44-plan.md`); deepened in the post-v0.43 planning pass
+and tightened in the second-pass readiness patch. M1 changes this status
+to Accepted when the substrate and locked decisions land.
 
 ## Context
 
@@ -103,10 +104,12 @@ The expansion path:
 
 1. Loader bounds the read to
    `workflows.max_yaml_bytes_per_file` (default 256 KiB).
-2. YAML parses through `:yaml_elixir`.
-3. Validator runs a JSON Schema (Draft 2020-12) derived at compile
-   time from `Actions.Registry` + `Step.kinds()`. Unknown keys reject
-   with JSON-Pointer-path-bearing diagnostics.
+2. YAML parses through `:yaml_elixir` with string-key output, no atom
+   creation, no custom node behavior, and an explicit anchor/merge-key
+   policy before validation.
+3. Validator runs a JSON Schema (Draft 2020-12) assembled from the
+   current `Actions.Registry.modules/0` snapshot + `Step.kinds()`.
+   Unknown keys reject with JSON-Pointer-path-bearing diagnostics.
 4. AST parser resolves `${...}` references against a closed grammar.
 5. Expander resolves inputs and references, producing a list of
    `objective_steps.attrs` maps.
@@ -119,12 +122,14 @@ attrs the same way every other v0.24 objective executes them.
 
 ### 3. Schema is derived from the action registry; expression grammar is closed
 
-The v1 schema is **generated at compile time** from
-`AllbertAssist.Actions.Registry.list/0` (each action's `schema/0`) and
-`AllbertAssist.Objectives.Step.kinds/0`. Hand-maintained schema drift
-is impossible by construction. When an action's params change, the
-workflow schema reflects the change automatically; when a new action
-is registered, the workflow schema gains it.
+The v1 schema is assembled from
+`AllbertAssist.Actions.Registry.modules/0` (each action's `schema/0`) and
+`AllbertAssist.Objectives.Step.kinds/0` at validation time. Static core
+branches are ordinary code; plugin and dynamic actions are included from
+the current registry snapshot. Hand-maintained schema drift is
+impossible by construction. When an action's params change, the workflow
+schema reflects the change automatically; when a new action is
+registered, the workflow schema gains it.
 
 Expression substitution uses a **closed function table**:
 
@@ -210,7 +215,7 @@ The v1 schema enforces these invariants at load time:
 12. Expressions must parse against the closed grammar; unknown
     functions, dynamic action-name lookups (`action: ${...}`),
     `${secrets.x}`, and `${env.x}` reject.
-13. `workflows.max_steps_per_workflow` cap (default 32; max 128)
+13. `workflows.max_steps_per_workflow` cap (default 3; max 10 in v0.44)
     enforced.
 14. `workflows.max_param_bytes_per_step` (default 64 KiB; max 1 MiB)
     enforced.
@@ -296,11 +301,12 @@ trace ingestion can re-read the file if needed for debugging).
   `<ALLBERT_HOME>/drafts/workflows/<id>.yaml`, never to the live
   `workflows/` directory. Promotion is a confirmed operator action.
 - **v0.49 Channel Pack 1** amends ADR 0016 to lock channel approval
-  primitives; v0.44 plan cards are expressible in
+  primitives; v0.44 plan cards render through existing channel-specific
+  affordances and are expressible in
   `:typed_command`/`:button`/`:link`/`:list` without re-litigation.
 - **v0.51 Hardening / Export-Import** preserves the
   `<ALLBERT_HOME>/workflows/` directory and the `workflows.*` +
-  `plan.*` settings fragment with `schema_version: 1` per the
+  `plan.*` core settings namespace with `schema_version: 1` per the
   ADR 0046 migration policy.
 
 ## Non-Goals
@@ -372,4 +378,4 @@ covering the new attack surface.
   parallelization) for the `release.v044` deterministic gate.
 - Forward-pin to: ADR 0016 amendment (channel approval primitives;
   v0.49) which formalizes `:list`/`:button`/`:typed_command`/`:link`
-  as the channel primitive set v0.44 plan cards already use.
+  as the vocabulary v0.44 plan cards are already expressible in.

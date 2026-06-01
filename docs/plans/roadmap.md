@@ -2487,7 +2487,8 @@ deepened in the post-v0.43 planning pass). Amends
 and `plan://run/<objective_id>` as supported schemes.
 
 Status: planned; implementation-ready for M1 after the post-v0.43
-deepening pass. Promoted from `docs/archives/version-1.0-planning-03.md`;
+deepening pass and second-pass readiness patch. Promoted from
+`docs/archives/version-1.0-planning-03.md`;
 workflow YAML location clarified in the post-v0.37 planning pass; depth
 brought to v0.43-style per-milestone structure with development-lane
 annotations per ADR 0049 in the post-v0.43 pass. Moved before channel
@@ -2509,9 +2510,10 @@ Expected direction:
   `<ALLBERT_HOME>/workflows/<workflow-id>.yaml`**, with id pattern
   `^[a-z0-9][a-z0-9_-]*$`. Discovery is on-demand (no autoload, no
   scan). Each file validates against the v1 schema; unknown keys fail
-  closed with JSON-Pointer-bearing diagnostics. The schema is generated
-  at compile time from `Actions.Registry` + `Step.kinds()` so doc and
-  runtime cannot drift.
+	  closed with JSON-Pointer-bearing diagnostics. The schema is assembled
+	  from the current `Actions.Registry.modules/0` snapshot +
+	  `Step.kinds()` so doc and runtime cannot drift across source-tree,
+	  plugin, and dynamic action overlays.
 - Render plan previews (per-step ordinal, kind, action name, params
   summary, permission, safety floor, resources needed, estimated cost,
   confidence tier, confirmations required, subagent target, failure
@@ -2535,8 +2537,8 @@ M1 locked decisions (six rows; full rationale in `docs/plans/v0.44-plan.md`
 1. Plan/Build surface shape — pinnable panel over the workspace canvas;
    NOT a destination route.
 2. Workflow YAML expression grammar — closed function table; AST-parsed.
-3. Schema validation source-of-truth — derived from `Actions.Registry` +
-   `Step.kinds()` at compile time.
+3. Schema validation source-of-truth — derived from the current
+   `Actions.Registry.modules/0` snapshot + `Step.kinds()`.
 4. File location and id pattern — `<ALLBERT_HOME>/workflows/<id>.yaml`,
    `^[a-z0-9][a-z0-9_-]*$`, on-demand discovery, collisions fail closed.
 5. Execution semantics — sequential array order plus per-step `if:`; no

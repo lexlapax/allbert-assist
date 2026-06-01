@@ -603,8 +603,9 @@ historical aliases only and remain in old reference notes for continuity.
   pinnable workspace panel over the v0.24 Objective Runtime, plus
   operator-authored workflow YAML under
   `<ALLBERT_HOME>/workflows/<workflow-id>.yaml` that expands into objective
-  steps. The schema is derived at compile time from the action registry +
-  step-kind module so docs and runtime cannot drift; expressions use a
+  steps. The schema is derived from the current action registry snapshot +
+  step-kind module so docs and runtime cannot drift across core, plugin,
+  and dynamic action overlays; expressions use a
   closed function table (no `eval`, no `${secrets.x}`, no `${env.x}`, no
   dynamic action names). The runtime never executes YAML; expansion
   produces step attrs that flow through `Actions.Runner.run/3`, Security
