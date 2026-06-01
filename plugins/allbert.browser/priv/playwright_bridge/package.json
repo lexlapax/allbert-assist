@@ -1,0 +1,10 @@
+{
+  "name": "@allbert/browser-playwright-bridge",
+  "version": "0.43.0",
+  "private": true,
+  "description": "Local Playwright bridge for Allbert Browser.",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "playwright": "1.58.2"
+  }
+}
