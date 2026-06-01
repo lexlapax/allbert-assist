@@ -2510,10 +2510,10 @@ Expected direction:
   `<ALLBERT_HOME>/workflows/<workflow-id>.yaml`**, with id pattern
   `^[a-z0-9][a-z0-9_-]*$`. Discovery is on-demand (no autoload, no
   scan). Each file validates against the v1 schema; unknown keys fail
-	  closed with JSON-Pointer-bearing diagnostics. The schema is assembled
-	  from the current `Actions.Registry.modules/0` snapshot +
-	  `Step.kinds()` so doc and runtime cannot drift across source-tree,
-	  plugin, and dynamic action overlays.
+  closed with JSON-Pointer-bearing diagnostics. The schema is assembled
+  from the current `Actions.Registry.modules/0` snapshot +
+  `Step.kinds()` so doc and runtime cannot drift across source-tree,
+  plugin, and dynamic action overlays.
 - Render plan previews (per-step ordinal, kind, action name, params
   summary, permission, safety floor, resources needed, estimated cost,
   confidence tier, confirmations required, subagent target, failure
