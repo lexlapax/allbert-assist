@@ -32,8 +32,7 @@ defmodule AllbertBrowser.Actions.Extract do
     session_id = Actions.field(params, :session_id)
     format = format(Actions.field(params, :format, "text"))
 
-    max_bytes =
-      Actions.field(params, :max_bytes) || elem(Settings.get("browser.extraction.max_bytes"), 1)
+    max_bytes = Actions.field(params, :max_bytes) || setting("browser.extraction.max_bytes", 1_048_576)
 
     cond do
       not Actions.allowed?(decision) ->

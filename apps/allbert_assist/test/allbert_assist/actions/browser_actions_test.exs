@@ -302,6 +302,20 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
            )
   end
 
+  test "navigation allowed domains are enforced when configured" do
+    assert :ok = AllbertBrowser.NavigationPolicy.preflight("https://open.example/page")
+
+    assert {:ok, _setting} =
+             Settings.put("browser.navigation.allowed_domains", ["allowed.example"], %{
+               audit?: false
+             })
+
+    assert :ok = AllbertBrowser.NavigationPolicy.preflight("https://allowed.example/page")
+
+    assert {:error, {:host_not_allowlisted, "blocked.example"}} =
+             AllbertBrowser.NavigationPolicy.preflight("https://blocked.example/page")
+  end
+
   defp ensure_browser_supervisor do
     unless Process.whereis(AllbertBrowser.Supervisor) do
       start_supervised!(AllbertBrowser.Supervisor)

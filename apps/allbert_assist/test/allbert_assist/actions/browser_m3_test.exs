@@ -144,6 +144,7 @@ defmodule AllbertAssist.Actions.BrowserM3Test do
 
     assert [surface] = AllbertBrowser.App.workspace_panel_surfaces(%{user_id: "local"})
     assert %Surface{id: :browser_results_panel, app_id: :allbert_browser} = surface
+    assert surface.metadata.visible_when == :operator_opened
     assert {:ok, _surface} = Surface.validate_surface(surface)
 
     assert surface.nodes
