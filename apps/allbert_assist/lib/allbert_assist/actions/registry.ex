@@ -75,6 +75,13 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Onboarding.StepComplete, as: OnboardingStepComplete
   alias AllbertAssist.Actions.Packages.PlanPackageInstall
   alias AllbertAssist.Actions.Packages.RunPackageInstall
+  alias AllbertAssist.Actions.PlanBuild.CancelPlanRun
+  alias AllbertAssist.Actions.PlanBuild.ExpandWorkflow
+  alias AllbertAssist.Actions.PlanBuild.InspectWorkflow
+  alias AllbertAssist.Actions.PlanBuild.ListPlanRuns
+  alias AllbertAssist.Actions.PlanBuild.ListWorkflows
+  alias AllbertAssist.Actions.PlanBuild.PreviewPlan
+  alias AllbertAssist.Actions.PlanBuild.StartPlanRun
   alias AllbertAssist.Actions.Plugins.ListPlugins
   alias AllbertAssist.Actions.Plugins.ShowPlugin
   alias AllbertAssist.Actions.Resources.ListResourceGrants
@@ -154,6 +161,7 @@ defmodule AllbertAssist.Actions.Registry do
     ShowApp,
     ListPlugins,
     ShowPlugin,
+    PreviewPlan,
     OpenCalendarPanel,
     OpenMailPanel,
     OpenGithubPanel
@@ -219,6 +227,12 @@ defmodule AllbertAssist.Actions.Registry do
     CancelObjective,
     ContinueObjective,
     DelegateAgent,
+    ListWorkflows,
+    InspectWorkflow,
+    ExpandWorkflow,
+    StartPlanRun,
+    CancelPlanRun,
+    ListPlanRuns,
     OnboardingStepComplete,
     RegistryHealth,
     TraceSummary,

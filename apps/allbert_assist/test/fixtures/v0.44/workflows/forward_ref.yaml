@@ -1,0 +1,11 @@
+id: forward_ref
+version: 1
+steps:
+  - id: first
+    kind: action
+    action: direct_answer
+    params:
+      text: "Use ${steps.second.value}."
+  - id: second
+    kind: ask_user
+    prompt: "Later."

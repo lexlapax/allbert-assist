@@ -67,6 +67,7 @@ defmodule AllbertAssist.MixProject do
       {:hermes_mcp, "~> 0.14"},
       {:plug, "~> 1.19", only: :test},
       {:tzdata, "~> 1.1"},
+      {:jsv, "~> 0.19"},
       {:yaml_elixir, "~> 2.12"},
       {:ymlr, "~> 5.0"},
       # Jido agent framework + ecosystem

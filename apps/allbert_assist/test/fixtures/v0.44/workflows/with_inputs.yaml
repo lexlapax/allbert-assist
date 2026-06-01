@@ -1,0 +1,13 @@
+id: with_inputs
+version: 1
+description: Input substitution fixture.
+inputs:
+  - name: topic
+    type: string
+    required: true
+steps:
+  - id: answer
+    kind: action
+    action: direct_answer
+    params:
+      text: "Explain ${inputs.topic}."

@@ -1,0 +1,10 @@
+id: with_delegate_agent
+version: 1
+description: Delegate-agent workflow fixture.
+steps:
+  - id: delegate
+    kind: delegate_agent
+    delegate_agent_id: plan-build-stub
+    command: ping
+    params:
+      message: "hello"

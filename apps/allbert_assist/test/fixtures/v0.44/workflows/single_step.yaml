@@ -1,0 +1,9 @@
+id: single_step
+version: 1
+description: Single safe read-only step.
+steps:
+  - id: answer
+    kind: action
+    action: direct_answer
+    params:
+      text: "Say hello."

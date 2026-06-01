@@ -1,0 +1,9 @@
+id: with_if_condition
+version: 1
+steps:
+  - id: answer
+    kind: action
+    action: direct_answer
+    if: "${workflow.version == 1}"
+    params:
+      text: "Conditional."

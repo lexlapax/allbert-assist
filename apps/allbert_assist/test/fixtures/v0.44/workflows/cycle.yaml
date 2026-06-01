@@ -1,0 +1,8 @@
+id: cycle
+version: 1
+steps:
+  - id: first
+    kind: action
+    action: direct_answer
+    params:
+      text: "Use ${steps.first.value}."

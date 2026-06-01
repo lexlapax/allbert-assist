@@ -1,0 +1,12 @@
+id: with_ask_user
+version: 1
+description: Ask-user workflow fixture.
+steps:
+  - id: confirm
+    kind: ask_user
+    prompt: "Continue?"
+    options:
+      - value: "yes"
+        label: "Yes"
+      - value: "no"
+        label: "No"
