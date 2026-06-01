@@ -8,6 +8,8 @@ defmodule AllbertAssist.Workflows do
 
   alias AllbertAssist.Workflows.{Expander, Loader, SchemaError, Validator}
 
+  @ad_hoc_plan_id "ad_hoc_plan"
+
   @spec list() :: {:ok, [map()], [term()]} | {:error, term()}
   def list, do: Loader.list_workflows()
 
@@ -38,6 +40,26 @@ defmodule AllbertAssist.Workflows do
   @spec preview(String.t(), map(), map(), keyword()) :: {:ok, map()} | {:error, term()}
   def preview(workflow_id, inputs \\ %{}, context \\ %{}, opts \\ []) do
     expand(workflow_id, inputs, context, opts)
+  end
+
+  @spec preview_ad_hoc(String.t(), map(), map()) :: {:ok, map()} | {:error, term()}
+  def preview_ad_hoc(plan_text, inputs \\ %{}, context \\ %{})
+
+  def preview_ad_hoc(plan_text, inputs, context) when is_binary(plan_text) do
+    workflow = ad_hoc_workflow(plan_text, inputs)
+
+    with {:ok, workflow} <- Validator.validate(workflow) do
+      Expander.expand(workflow, inputs, context)
+    end
+  end
+
+  def preview_ad_hoc(_plan_text, _inputs, _context) do
+    {:error,
+     SchemaError.new(
+       pointer: "/plan_text",
+       reason: :missing_plan_text,
+       expected: "non-empty string"
+     )}
   end
 
   defp apply_step_overrides(workflow, nil), do: {:ok, workflow}
@@ -150,4 +172,49 @@ defmodule AllbertAssist.Workflows do
 
   defp stringify_keys(list) when is_list(list), do: Enum.map(list, &stringify_keys/1)
   defp stringify_keys(value), do: value
+
+  defp ad_hoc_workflow(plan_text, inputs) do
+    %{
+      "id" => @ad_hoc_plan_id,
+      "version" => 1,
+      "description" => "Ad hoc Plan/Build preview.",
+      "inputs" => ad_hoc_inputs(inputs),
+      "steps" => ad_hoc_steps(plan_text)
+    }
+  end
+
+  defp ad_hoc_inputs(inputs) when is_map(inputs) do
+    inputs
+    |> Map.keys()
+    |> Enum.map(&to_string/1)
+    |> Enum.filter(&Regex.match?(~r/^[a-z][a-z0-9_]*$/, &1))
+    |> Enum.uniq()
+    |> Enum.take(20)
+    |> Enum.map(fn name -> %{"name" => name, "type" => "string", "required" => false} end)
+  end
+
+  defp ad_hoc_inputs(_inputs), do: []
+
+  defp ad_hoc_steps(plan_text) do
+    plan_text
+    |> String.trim()
+    |> String.replace(~r/^\s*plan\s*:?\s*/i, "")
+    |> String.split(~r/\s+(?:and then|then|and)\s+/i, trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    |> case do
+      [] -> ["Review the operator request."]
+      clauses -> clauses
+    end
+    |> Enum.take(10)
+    |> Enum.with_index(1)
+    |> Enum.map(fn {clause, index} ->
+      %{
+        "id" => "step_#{index}",
+        "kind" => "action",
+        "action" => "direct_answer",
+        "params" => %{"text" => clause}
+      }
+    end)
+  end
 end

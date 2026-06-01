@@ -90,9 +90,11 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       "show_app",
       "list_plugins",
       "show_plugin",
+      "preview_plan",
       "open_calendar_panel",
       "open_mail_panel",
-      "open_github_panel"
+      "open_github_panel",
+      "browser_research_handoff"
     ]
 
     stocksage_actions = [
@@ -149,6 +151,50 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert server_response.status == :completed
     assert server_response.decision.intent == :find_tools
     assert server_response.decision.selected_action == "find_tools"
+  end
+
+  test "routes documented Plan/Build intent corpus", %{root: root} do
+    copy_workflow_fixture!("multi_step", root)
+
+    assert {:ok, preview_response} =
+             IntentAgent.respond(%{
+               text: "plan: collect issues and summarize them",
+               channel: :test,
+               user_id: "local",
+               operator_id: "local",
+               input_signal_id: "sig-plan-preview"
+             })
+
+    assert preview_response.status == :advisory
+    assert preview_response.decision.selected_action == "preview_plan"
+    assert preview_response.output_data.preview.workflow_id == "ad_hoc_plan"
+
+    for text <- ["run workflow multi_step", "run multi_step"] do
+      assert {:ok, run_response} =
+               IntentAgent.respond(%{
+                 text: text,
+                 channel: :test,
+                 user_id: "local",
+                 operator_id: "local",
+                 input_signal_id: "sig-#{String.replace(text, " ", "-")}"
+               })
+
+      assert run_response.status == :needs_confirmation
+      assert run_response.decision.selected_action == "start_plan_run"
+      assert [%{name: "start_plan_run"}] = run_response.actions
+    end
+
+    assert {:ok, list_workflows_response} =
+             IntentAgent.respond(%{
+               text: "list workflows",
+               channel: :test,
+               user_id: "local",
+               operator_id: "local",
+               input_signal_id: "sig-list-workflows"
+             })
+
+    assert list_workflows_response.status == :completed
+    assert list_workflows_response.decision.selected_action == "list_workflows"
   end
 
   test "neutral app descriptor returns handoff response without running the app action" do
@@ -889,6 +935,16 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
         PluginRegistry.put_diagnostics(plugin_id, diagnostics)
       end)
     end
+  end
+
+  defp copy_workflow_fixture!(id, root) do
+    workflows = Path.join(root, "workflows")
+    File.mkdir_p!(workflows)
+
+    File.cp!(
+      Path.expand("../../fixtures/v0.44/workflows/#{id}.yaml", __DIR__),
+      Path.join(workflows, "#{id}.yaml")
+    )
   end
 
   defp configure_external do

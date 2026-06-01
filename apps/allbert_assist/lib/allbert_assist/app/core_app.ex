@@ -104,6 +104,20 @@ defmodule AllbertAssist.App.CoreApp do
         synonyms: ["open prs", "pull requests", "github", "github panel"],
         required_slots: [],
         handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "preview_plan",
+        label: "Preview a Plan/Build workflow",
+        destination: "workspace:plan_build",
+        examples: [
+          "plan: summarize my inbox and draft a reply",
+          "plan list my GitHub issues and email me a summary",
+          "preview a plan"
+        ],
+        synonyms: ["plan", "plan build", "workflow preview", "preview plan"],
+        required_slots: [],
+        handoff_required?: false
       }
     ]
   end

@@ -137,12 +137,21 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
                payload: %{parent_step_id: step.id}
              })
 
-    {:ok, _view, html} = live(conn, ~p"/objectives/#{objective.id}")
+    {:ok, view, html} = live(conn, ~p"/objectives/#{objective.id}")
 
     assert html =~ ~s(data-workspace-component="plan_run_progress_panel")
     assert html =~ "workflow:multi_step:1"
     assert html =~ "delegate_agent"
     assert html =~ "Subagent events"
     assert html =~ "Child agent reported progress."
+
+    cancel_html =
+      view
+      |> element(~s([data-workspace-component="plan_run_progress_panel"] button), "Cancel plan")
+      |> render_click()
+
+    assert cancel_html =~ "Objective #{objective.id} cancelled"
+    assert {:ok, cancelled} = Objectives.get_objective(objective.id)
+    assert cancelled.status == "cancelled"
   end
 end

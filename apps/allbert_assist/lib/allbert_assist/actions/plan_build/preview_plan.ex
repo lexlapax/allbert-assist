@@ -27,17 +27,15 @@ defmodule AllbertAssist.Actions.PlanBuild.PreviewPlan do
   def run(params, context) do
     permission_decision = PermissionGate.authorize(:read_only, context)
     workflow_id = field(params, :workflow_id)
+    plan_text = field(params, :plan_text)
 
     with true <- PermissionGate.allowed?(permission_decision),
-         {:ok, expanded} when is_binary(workflow_id) <-
-           Workflows.preview(workflow_id, field(params, :inputs) || %{}, context,
-             step_overrides: field(params, :edits) || %{}
-           ) do
+         {:ok, expanded} <- preview(params, workflow_id, plan_text, context) do
       output_data = %{preview: expanded.preview}
 
       {:ok,
        %{
-         message: "Previewed workflow #{workflow_id}.",
+         message: "Previewed workflow #{expanded.preview.workflow_id}.",
          status: :advisory,
          output_data: output_data,
          permission_decision: permission_decision,
@@ -46,9 +44,21 @@ defmodule AllbertAssist.Actions.PlanBuild.PreviewPlan do
     else
       false -> {:ok, response(:denied, permission_decision, %{error: :permission_denied})}
       {:error, reason} -> {:ok, response(:error, permission_decision, %{error: reason})}
-      _other -> {:ok, response(:error, permission_decision, %{error: :missing_workflow_id})}
+      _other -> {:ok, response(:error, permission_decision, %{error: :missing_plan_source})}
     end
   end
+
+  defp preview(params, workflow_id, _plan_text, context) when is_binary(workflow_id) do
+    Workflows.preview(workflow_id, field(params, :inputs) || %{}, context,
+      step_overrides: field(params, :edits) || %{}
+    )
+  end
+
+  defp preview(params, _workflow_id, plan_text, context) when is_binary(plan_text) do
+    Workflows.preview_ad_hoc(plan_text, field(params, :inputs) || %{}, context)
+  end
+
+  defp preview(_params, _workflow_id, _plan_text, _context), do: {:error, :missing_plan_source}
 
   defp response(status, permission_decision, output_data),
     do: %{

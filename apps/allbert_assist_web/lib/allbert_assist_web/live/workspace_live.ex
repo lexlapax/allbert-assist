@@ -330,6 +330,29 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     end
   end
 
+  def handle_event("plan_build_cancel_run", %{"objective-id" => objective_id}, socket)
+      when is_binary(objective_id) and objective_id != "" do
+    params = %{
+      objective_id: objective_id,
+      user_id: socket.assigns.user_id,
+      reason: "Cancelled from Plan/Build workspace panel."
+    }
+
+    case run_workspace_action(socket, "cancel_plan_run", params) do
+      {:ok, %{status: :cancelled} = response} ->
+        {:noreply,
+         socket
+         |> assign(response: response.message, error: nil)
+         |> refresh_objectives()
+         |> refresh_workspace()}
+
+      {:ok, response} ->
+        {:noreply, assign(socket, :error, Map.get(response, :message, inspect(response)))}
+    end
+  end
+
+  def handle_event("plan_build_cancel_run", _params, socket), do: {:noreply, socket}
+
   def handle_event("workspace_tile_editor_sync", params, socket) do
     {:reply, workspace_tile_editor_reply(params, socket), socket}
   end
