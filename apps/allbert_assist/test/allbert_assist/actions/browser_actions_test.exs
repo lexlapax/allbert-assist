@@ -2,6 +2,14 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
   use ExUnit.Case, async: false
   @moduletag :home_fs_serial
 
+  defmodule MissingBridgeDriver do
+    def verify(_opts), do: {:error, {:playwright_bridge_missing, "/tmp/missing-bridge.js"}}
+  end
+
+  defmodule RuntimeFailureDriver do
+    def verify(_opts), do: {:error, {:playwright_error, "Chromium launch failed"}}
+  end
+
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.ResourceMetadata
@@ -45,7 +53,7 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
       File.rm_rf!(root)
     end)
 
-    :ok
+    %{root: root}
   end
 
   test "doctor live check persists ok state and start session requires approval" do
@@ -62,6 +70,42 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
 
     assert started.status == :completed
     assert is_binary(started.session_id)
+  end
+
+  test "doctor failure persists a structured unavailable error category", %{root: root} do
+    Application.put_env(:allbert_browser, :driver, MissingBridgeDriver)
+
+    assert {:ok, doctor} = Runner.run("browser_doctor", %{}, %{})
+    assert doctor.status == :completed
+    assert doctor.doctor.status == :error
+    assert doctor.doctor.live_check_status == :unavailable
+    assert doctor.doctor.error_category == :playwright_bridge_missing
+    assert doctor.doctor.error =~ "playwright_bridge_missing"
+
+    assert {:ok, persisted} =
+             root
+             |> Path.join("cache/browser/doctor/state.json")
+             |> File.read!()
+             |> Jason.decode(keys: :atoms)
+
+    assert persisted.error_category == "playwright_bridge_missing"
+    assert persisted.live_check_status == "unavailable"
+
+    assert {:ok, denied} =
+             Runner.run("browser_start_session", %{}, %{confirmation: %{approved?: true}})
+
+    assert denied.status == :denied
+    assert denied.error == {:doctor_not_ok, :unavailable}
+  end
+
+  test "doctor runtime failure persists a structured failed error category" do
+    Application.put_env(:allbert_browser, :driver, RuntimeFailureDriver)
+
+    assert {:ok, doctor} = Runner.run("browser_doctor", %{}, %{})
+    assert doctor.doctor.status == :error
+    assert doctor.doctor.live_check_status == :failed
+    assert doctor.doctor.error_category == :chromium_launch_failed
+    assert doctor.doctor.error =~ "Chromium launch failed"
   end
 
   test "navigate, extract, and screenshot use the stub driver after approval" do

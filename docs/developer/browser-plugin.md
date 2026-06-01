@@ -29,6 +29,13 @@ which uses `AllbertBrowser.Driver.Playwright` against a local fixture. The
 bridge has a checked-in `package-lock.json`; dependency installation is a
 developer/operator setup step, not plugin discovery or action execution.
 
+`AllbertBrowser.Doctor` persists redacted live-check state under Allbert Home.
+Failure results include a stable `error_category` field so operator tooling can
+distinguish local dependency misses (`node_unavailable`,
+`playwright_bridge_missing`, `playwright_bridge_start_failed`) from bridge
+timeouts/protocol failures and Chromium/Playwright runtime failures without
+parsing the redacted `error` string.
+
 Session and cache bounds are part of the runtime contract. `AllbertBrowser.Session`
 enforces max lifetime, idle timeout, and max-concurrent settings. The browser
 supervisor contributes the paused cache sweep job idempotently, and cache
