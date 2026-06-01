@@ -95,6 +95,13 @@ page content is descriptive, never authoritative.
   on the redacted result. Persistence lives under
   `<ALLBERT_HOME>/cache/browser/doctor/state.json` so
   `browser_start_session` can read it.
+- **Operational v0.43 remediation requirement.** The accepted policy requires
+  actual local Playwright control before browser research is described as
+  shipped. A placeholder `AllbertBrowser.Driver.Playwright` or a stub-only
+  external-smoke lane is not sufficient release evidence. The operational gate
+  is a real Playwright doctor check plus an external smoke that navigates a
+  local fixture, extracts content, captures a screenshot, closes the session,
+  and uses a temporary Allbert home.
 - **Session-start consults the doctor (v0.42 R2 lesson).**
   `browser_start_session` fails closed before any driver work when the
   doctor has never been run successfully, the last `live_check_status`
