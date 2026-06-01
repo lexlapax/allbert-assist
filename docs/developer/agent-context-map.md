@@ -56,7 +56,7 @@ Do not load every section by default.
 | Tool discovery: `find_tools` source port (local + internet MCP-registry adapters, optional keyed providers only when configured), persisted candidates/evaluations, `mcp_server_connect` confirmation gate, opt-in background scan to a passive surface | ADR 0048, ADR 0038, ADR 0011, ADR 0033, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
 | MCP-first integration pack 1: calendar/mail/GitHub MCP panels + notes/files native reference plugin | ADR 0015, ADR 0017, ADR 0039, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
 | Browser and web research: `./plugins/allbert.browser/` plugin with real local Playwright/Chromium control, `browser://session/<id>` identity, six browser operation classes, seven `:browser_*` permission classes, `browser.*` settings namespace, per-domain remembered grants on navigated URLs, two-layer network policy (top-level via `External.HttpPolicy` + subresources via `AllbertBrowser.NetworkPolicy`), bounded HTML/markdown/text/PDF extraction, credential-input screenshot redaction, ephemeral profiles, workspace results panel, doctor (ADR 0047 shape), v0.49 channel-primitive forward pin | ADR 0011, ADR 0012, ADR 0013 (v0.43 amendment), ADR 0017, ADR 0023, ADR 0025, ADR 0027, ADR 0033, ADR 0040 (binding), ADR 0047, ADR 0049, `docs/plans/v0.43-plan.md`, `docs/plans/v0.43-request-flow.md` | v0.43 |
-| Plan/Build mode and operator workflow YAML (under `<ALLBERT_HOME>/workflows/`) | ADR 0021, ADR 0027, ADR 0041, `docs/plans/v0.44-plan.md`, `docs/plans/v0.44-request-flow.md` | v0.44 |
+| Plan/Build mode and operator workflow YAML: pinnable workspace panel surface over the v0.24 Objective Runtime, `workflow://<id>` and `plan://run/<objective_id>` identity (ADR 0013 v0.44 amendment), three `:workflow_*`/`:plan_*` permission classes, four operation classes plus `:plan_run` origin kind, `workflows.*` + `plan.*` settings namespace (ADR 0031 fragment; `schema_version: 1` per ADR 0046 draft), v1 YAML schema generated at compile time from `Actions.Registry` + `Step.kinds()` with `additionalProperties: false` and closed-grammar `${...}` expression substitution (no `eval`, no `${secrets.x}`, no `${env.x}`, no dynamic action names), seven Plan-Build actions (`list_workflows`, `inspect_workflow`, `expand_workflow`, `preview_plan`, `start_plan_run`, `cancel_plan_run`, `list_plan_runs`), Plan Preview Contract packet (advisory-only per ADR 0021 §4), workspace Preview + RunProgress panels, subagent delegation inline rendering, confirmation upgrade-only rule, v0.49 channel-primitive forward pin | ADR 0011, ADR 0013 (v0.44 amendment), ADR 0017, ADR 0021, ADR 0023, ADR 0024, ADR 0027, ADR 0029, ADR 0030, ADR 0031, ADR 0041 (binding), ADR 0046 (drafted), ADR 0049, `docs/plans/v0.44-plan.md`, `docs/plans/v0.44-request-flow.md` | v0.44 |
 | Marketplace lite (data shape + Allbert-author seeds) | ADR 0043, ADR 0046 (drafted), `docs/plans/v0.45-plan.md`, `docs/plans/v0.45-request-flow.md` | v0.45 |
 | Operator-supervised self-improvement, trace-to-skill draft suggestions, dynamic capability review loops | ADR 0045, `docs/plans/v0.46-plan.md`, `docs/plans/v0.46-request-flow.md`, `docs/plans/future-features.md`, ADR 0032, ADR 0035, ADR 0037 | v0.46 |
 | Voice, vision, and media resources | ADR 0042, `docs/plans/v0.47-plan.md`, `docs/plans/v0.47-request-flow.md`, `docs/plans/v0.48-plan.md`, `docs/plans/v0.48-request-flow.md` | v0.47-v0.48 |
@@ -444,10 +444,40 @@ Implemented v0.41 gates:
   follow-on candidates (Windows/WSL2, persistent profiles, authenticated
   operation, headed mode, multi-tab, JS evaluation) parked in
   `docs/plans/future-features.md`.
-- v0.44 (planned): Plan/Build Mode And Operator Workflow YAML. Exposes
-  Objective Runtime as a plan/review/execute surface and treats YAML as
-  declarative objective-step input. Workflow YAML lives under
-  `<ALLBERT_HOME>/workflows/`.
+- v0.44 (planned): Plan/Build Mode And Operator Workflow YAML. Adds a
+  pinnable workspace panel over the v0.24 Objective Runtime (Preview +
+  RunProgress under `:canvas_panels`), `workflow://<id>` and
+  `plan://run/<objective_id>` URI schemes (ADR 0013 v0.44 amendment),
+  three `:workflow_*`/`:plan_*` permission classes (`:workflow_read`,
+  `:workflow_run_start` with `:needs_confirmation` floor,
+  `:plan_cancel`), four operation classes plus `:plan_run` origin kind,
+  `workflows.*` + `plan.*` Settings Central fragment with
+  `schema_version: 1`, and seven Plan-Build actions
+  (`list_workflows`, `inspect_workflow`, `expand_workflow`,
+  `preview_plan`, `start_plan_run`, `cancel_plan_run`,
+  `list_plan_runs`). Workflow YAML lives under
+  `<ALLBERT_HOME>/workflows/<id>.yaml` with id pattern
+  `^[a-z0-9][a-z0-9_-]*$`. The v1 schema is generated at compile time
+  from `Actions.Registry` + `Step.kinds()`; unknown keys reject with
+  `additionalProperties: false` at every level. Expression substitution
+  uses a closed function table (`${inputs.x}`,
+  `${steps.<id>.<field>}`, `${user.locale|timezone}`,
+  `${workflow.id|version}`); `eval`, `${secrets.x}`, `${env.x}`, and
+  dynamic action-name resolution all reject at load. v0.24's six step
+  kinds are exhaustive. The Plan Preview Contract packet carries
+  per-step ordinal, kind, action name, params summary, permission,
+  safety floor, resources needed, estimated cost, confidence tier,
+  confirmations required, subagent target, and failure blast radius.
+  Subagent delegation events render inline under the parent step
+  (`plan.subagent.delegation_visibility: :expanded_inline` invariant).
+  YAML `confirm: true` may only upgrade an action's confirmation
+  floor, never downgrade. The plan-start gate is the only authority
+  transition from preview to run; per-step confirmations are enforced
+  at execution time. Forward-pins v0.49 channel approval-primitive
+  amendment. v0.44.x follow-on candidates (loops, parallel/fan-out,
+  sub-workflow includes, `on:` triggers, remote workflow
+  distribution, multi-user collaborative plan editing) parked in
+  `docs/plans/future-features.md`.
 - v0.45 (planned): Marketplace Lite — data shape + Allbert-author seeds only.
   Adds catalog schema, install path, provenance/hash/version/rollback metadata,
   and reviewed Allbert-author seed bundles. Community submissions parked.

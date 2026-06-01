@@ -2481,26 +2481,86 @@ document formats. All parked in `docs/plans/future-features.md`.
 
 Plan: `docs/plans/v0.44-plan.md`
 Request flow: `docs/plans/v0.44-request-flow.md`
-ADR: `docs/adr/0041-plan-build-and-operator-workflow-yaml.md`
+ADR: `docs/adr/0041-plan-build-and-operator-workflow-yaml.md` (binding,
+deepened in the post-v0.43 planning pass). Amends
+`docs/adr/0013-uri-first-resource-identity.md` to register `workflow://<id>`
+and `plan://run/<objective_id>` as supported schemes.
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
-not implemented. Workflow YAML location clarified in the post-v0.37 planning
-pass. Moved before channel expansion in the pass-2 roadmap restructuring.
+Status: planned; implementation-ready for M1 after the post-v0.43
+deepening pass. Promoted from `docs/archives/version-1.0-planning-03.md`;
+workflow YAML location clarified in the post-v0.37 planning pass; depth
+brought to v0.43-style per-milestone structure with development-lane
+annotations per ADR 0049 in the post-v0.43 pass. Moved before channel
+expansion in the pass-2 roadmap restructuring.
 
 Expected direction:
 
-- Add Plan/Build as an operator surface over Objective Runtime.
-- Treat workflow YAML as declarative input that produces objective steps, not a
-  new execution engine.
+- Add Plan/Build as an operator surface over the v0.24 Objective Runtime.
+  Plan/Build is a **pinnable panel** on the workspace canvas (ADR 0023/
+  0024/0030), NOT a separate destination route. The 2025-2026 prior art
+  (Cursor 2.2 Plan Mode panel, Claude Code plan side-panel, Devin plan
+  card) all converged on plan-adjacent panels because plans need ambient
+  context.
+- Treat workflow YAML as declarative input that produces objective steps,
+  not a new execution engine. Every produced step still runs through
+  `Actions.Runner.run/3`, Security Central, confirmations, traces, and
+  audits.
 - **User-authored workflow YAML lives under
-  `<ALLBERT_HOME>/workflows/<workflow-id>.yaml`**. Each file validates against
-  the v0.44 schema; unknown keys fail closed. Workflows are inert data; the
-  runtime never executes them — it expands them into objective steps at
-  request time.
-- Render plan previews, required capabilities/resources, confirmation points,
-  subagent delegation, and background objective progress on existing surfaces
-  (workspace, CLI, Telegram, and email). Discord/Slack inherit summaries when
-  Channel Pack 1 lands in v0.49.
+  `<ALLBERT_HOME>/workflows/<workflow-id>.yaml`**, with id pattern
+  `^[a-z0-9][a-z0-9_-]*$`. Discovery is on-demand (no autoload, no
+  scan). Each file validates against the v1 schema; unknown keys fail
+  closed with JSON-Pointer-bearing diagnostics. The schema is generated
+  at compile time from `Actions.Registry` + `Step.kinds()` so doc and
+  runtime cannot drift.
+- Render plan previews (per-step ordinal, kind, action name, params
+  summary, permission, safety floor, resources needed, estimated cost,
+  confidence tier, confirmations required, subagent target, failure
+  blast radius), required capabilities/resources, confirmation points,
+  subagent delegation visibility (inline child events under parent
+  steps), and background objective progress on existing surfaces
+  (workspace, CLI, Telegram, and email). Discord/Slack inherit
+  summaries when Channel Pack 1 lands in v0.49.
+- Workflow YAML expression substitution uses a **closed function table**
+  (`${inputs.x}`, `${steps.<id>.<field>}`, `${user.locale|timezone}`,
+  `${workflow.id|version}`); AST-parsed at load. No `eval`. No
+  `${secrets.x}`. No `${env.x}`. No dynamic action-name resolution
+  (`action: ${...}` rejects).
+- v0.24's six step kinds are exhaustive; v0.44 ships no new step kinds.
+  Loops, parallel/fan-out, sub-workflow includes, `on:` triggers,
+  `env:` blocks, and retry policies are explicitly parked.
+
+M1 locked decisions (six rows; full rationale in `docs/plans/v0.44-plan.md`
+§"M1 Locked Decisions"):
+
+1. Plan/Build surface shape — pinnable panel over the workspace canvas;
+   NOT a destination route.
+2. Workflow YAML expression grammar — closed function table; AST-parsed.
+3. Schema validation source-of-truth — derived from `Actions.Registry` +
+   `Step.kinds()` at compile time.
+4. File location and id pattern — `<ALLBERT_HOME>/workflows/<id>.yaml`,
+   `^[a-z0-9][a-z0-9_-]*$`, on-demand discovery, collisions fail closed.
+5. Execution semantics — sequential array order plus per-step `if:`; no
+   loops, parallel, sub-workflow, `on:`, `env:`, or retry policies in
+   v0.44.
+6. Confirmation semantics — action's registered floor is authoritative;
+   YAML `confirm: true` may only upgrade; plan-start gate is
+   `:workflow_run_start` `:needs_confirmation`.
+
+Exit signal: an operator can author or request a plan, preview the Plan
+Preview Contract packet with all fields rendered, edit inputs and
+reorder/remove steps, approve the plan-start gate, see the run proceed
+through the Objective Runtime with per-step events rendering on
+workspace and existing supported surfaces, inspect subagent delegation
+inline, and cancel cooperatively with a durable reason. Workflow YAML
+with any unknown key, dynamic action name, `${secrets.x}`, `${env.x}`,
+cycle, forward ref, unknown action, unknown delegate agent, or
+exceeded cap rejects with a structured `error_category` diagnostic.
+
+v0.44.x follow-on candidates (not 1.0-blocking): `for_each`/`parallel:`
+step kinds, sub-workflow includes, `on: schedule`/`on: event` triggers,
+remote workflow distribution, multi-user collaborative plan editing,
+LLM-cost estimators, advisory-provider confidence tier engines. All
+parked in `docs/plans/future-features.md`.
 
 ## v0.45: Marketplace Lite (Data Shape + Allbert-Author Seeds)
 
