@@ -358,6 +358,73 @@ only). A submission/review process for community contributions requires:
 
 Promote post-1.0 when the project decides on governance.
 
+### Workflow YAML Loops And Parallel Fan-Out
+
+Status: parked. Added in the post-v0.43 planning pass.
+
+v0.44 ships a v1 workflow YAML schema with sequential step ordering and
+per-step `if:` branching only. Loop kinds (`for_each`, `for`, `while`)
+and parallel/fan-out kinds (`parallel:`, `Fork`) are deliberately
+excluded. Cycle and safety footguns dominate v1 schemas — Argo
+Workflows, LangGraph, and Serverless Workflow `For` all report these as
+the most-cited operability sinks. Reserved as `for_each` and
+`parallel_steps` in ADR 0041 §"Reserved Vocabulary" so future versions
+can promote without renaming. Revisit when telemetry shows real demand
+and when v0.46 self-improvement traces inform what shape loops should
+actually take.
+
+### Sub-Workflow Includes And Imports
+
+Status: parked. Added in the post-v0.43 planning pass.
+
+v0.44 workflow YAML cannot reference another workflow as a step. The
+`include:` / `import:` composition primitive expands the schema surface
+by 3-4x (composition semantics, cycle detection across workflows,
+version pinning for included workflows). Reserved as
+`sub_workflow_include` in ADR 0041. Defer until a real consumer
+appears — possibly v0.46 self-improvement when trace-to-workflow drafts
+start producing reusable sub-pieces.
+
+### Auto-Triggered Workflows (`on:` Clauses)
+
+Status: parked. Added in the post-v0.43 planning pass.
+
+v0.44 workflows are **operator-referenced** by design. The document
+never carries `on: schedule` or `on: event` trigger clauses; scheduling
+is the v0.13 jobs subsystem's job (a scheduled job MAY reference a
+Plan-Build action with a workflow id as a target, but the YAML itself
+stays inert). Adding `on:` clauses would turn workflow YAML from an
+operator-readable inert artifact into an ambient trigger surface
+without an explicit confirmation transition. Reserved as `on_schedule`
+and `on_event` in ADR 0041. Promote only with a fresh authority-
+boundary analysis.
+
+### Remote Workflow Distribution / Marketplace Workflows
+
+Status: parked. Added in the post-v0.43 planning pass.
+
+v0.45 marketplace-lite ships catalog metadata for skills and templates
+only. Workflow YAML files distributed through the marketplace would
+require an additional trust tier (workflows execute through registered
+actions, so a malicious workflow can still drive any allowed-floor
+action without confirmation). Parked under the same governance
+umbrella as "Marketplace Community Submission / Review Governance".
+v0.45 marketplace metadata MAY reference workflow ids descriptively;
+the catalog never installs workflow files into the live
+`<ALLBERT_HOME>/workflows/` directory.
+
+### Multi-User Collaborative Plan Editing
+
+Status: parked. Added in the post-v0.43 planning pass.
+
+v0.44 Plan/Build is single-user: one operator authors and approves a
+plan; expand-to-fullscreen edits happen in one LiveView session at a
+time. Concurrent editing of a shared plan preview (multiple operators
+seeing each other's edits live) requires v0.23's reserved Cursor
+concept (multi-user collaborative cursor) plus a conflict-resolution
+story. Defer until hosted multi-user authorization (also parked) is on
+the table.
+
 ### Proactive Notifications Policy
 
 Status: parked. Added in the post-v0.37 planning pass.

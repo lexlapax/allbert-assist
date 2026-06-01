@@ -16,6 +16,20 @@ Navigated URL targets keep their native `https://` or explicitly allowed
 navigated URL is the operation target authorized by per-domain remembered
 grants. `agent://` and `agent+https://` remain reserved and inert.
 
+Amended at v0.44 Plan/Build Mode And Operator Workflow YAML:
+`workflow://<id>` and `plan://run/<objective_id>` are added as supported
+core-owned schemes (see ADR 0041). `workflow://<id>` identifies a
+workflow YAML file under `<ALLBERT_HOME>/workflows/<id>.yaml`; reading
+it is `:workflow_read`-authorized I/O and produces objective-step
+attrs but no authority. `plan://run/<objective_id>` identifies a
+plan-run instance for trace/audit; the underlying objective is the
+authoritative store. Neither URI authorizes execution; every produced
+step still resolves through `Actions.Runner.run/3`, Security Central,
+and per-step confirmations. Workflow id pattern is
+`^[a-z0-9][a-z0-9_-]*$`. Both schemes reject paths beyond the
+documented shape, reject query strings, and reject fragments.
+`agent://` and `agent+https://` remain reserved and inert.
+
 ## Context
 
 ADR 0012 named Allbert's shared local and remote resource access posture. The
@@ -97,6 +111,14 @@ Initial URI mappings:
   is lifecycle/ownership identity; navigated URL targets keep their native
   `https://`/`http://` URI and are authorized through per-domain remembered
   grants on the target URL, not on the session URI.
+- workflow files: `workflow://<id>` (reserved and inert here; promoted to a
+  supported core-owned scheme in v0.44, see ADR 0041). Identifies a
+  workflow YAML under `<ALLBERT_HOME>/workflows/<id>.yaml`; reading is
+  `:workflow_read`-authorized I/O; the URI is not execution authority.
+- plan runs: `plan://run/<objective_id>` (reserved and inert here; promoted
+  to a supported core-owned scheme in v0.44, see ADR 0041). Identifies a
+  plan-run instance for trace/audit; the underlying objective is the
+  authoritative store; the URI is not execution authority.
 - future agents: recognized but unsupported `agent://` or `agent+https://`
 
 Unsupported URI schemes are inert. A scheme may be represented for planning,
@@ -148,6 +170,17 @@ re-created through the current approval/resource-grant UX.
   `:url_prefix` scope kind) plus the new browser operation classes. The
   session URI participates in trace/audit identity, lifecycle ownership, and
   cross-operation grant denial; it is not authority.
+- v0.44 promotes `workflow://<id>` and `plan://run/<objective_id>` to
+  supported, core-owned schemes (ADR 0041). Like `browser://`, neither URI
+  is execution authority: every produced workflow step still resolves
+  through `Actions.Runner.run/3` and Security Central. `workflow://<id>`
+  is read-only file identity (`:workflow_read` operation class); the
+  workflow file under `<ALLBERT_HOME>/workflows/<id>.yaml` is operator-
+  readable inert data. `plan://run/<objective_id>` is a trace/audit
+  identity for a plan-run; the underlying `objectives` row is the
+  authoritative store. Remembered grants are not stored against either
+  scheme; per-step grants ride the action's existing operation class
+  vocabulary.
 - Existing confirmation/audit records remain historical evidence, but
   remembered grants without `resource_uri` are not compatibility inputs for
   matching after M12. No user data is deleted; operators may re-create grants
