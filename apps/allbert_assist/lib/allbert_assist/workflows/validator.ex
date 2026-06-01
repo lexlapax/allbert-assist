@@ -520,8 +520,7 @@ defmodule AllbertAssist.Workflows.Validator do
         :ok
 
       key ->
-        {:error,
-         error(pointer <> "/" <> escape_pointer(key), :unknown_key, workflow_id: workflow_id)}
+        {:error, error(pointer_child(pointer, key), :unknown_key, workflow_id: workflow_id)}
     end
   end
 
@@ -637,6 +636,9 @@ defmodule AllbertAssist.Workflows.Validator do
     |> String.replace("~", "~0")
     |> String.replace("/", "~1")
   end
+
+  defp pointer_child("/", key), do: "/" <> escape_pointer(key)
+  defp pointer_child(pointer, key), do: pointer <> "/" <> escape_pointer(key)
 
   defp error(pointer, reason, attrs \\ []) do
     attrs

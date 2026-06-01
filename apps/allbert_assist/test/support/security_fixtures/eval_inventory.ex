@@ -27,6 +27,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v040
           | :v042
           | :v043
+          | :v044
 
   @type required_surface ::
           :resource_execution
@@ -43,6 +44,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :mcp_tool_discovery
           | :integration_pack
           | :notes_files_reference_plugin
+          | :plan_build
           | :browser_research
           | :operator_review
 
@@ -1767,6 +1769,166 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :denied,
       assert: [:denied, :doctor_required, :unverified_driver_blocks_session],
       test_module: "AllbertAssist.Security.V043BrowserResearchEvalTest"
+    },
+    %{
+      id: "workflow-yaml-unknown-key-001",
+      milestone: :v044,
+      surface: :plan_build,
+      scenario: "workflow YAML includes an unknown top-level key",
+      boundary: :workflow_yaml_validator,
+      expected: :denied,
+      assert: [:denied, :unknown_key_rejected, :json_pointer_reported],
+      test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
+    },
+    %{
+      id: "workflow-yaml-script-deny-001",
+      milestone: :v044,
+      surface: :plan_build,
+      scenario: "workflow YAML attempts to declare script-like executable content",
+      boundary: :workflow_yaml_validator,
+      expected: :denied,
+      assert: [:denied, :script_key_rejected, :no_code_execution],
+      test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
+    },
+    %{
+      id: "workflow-yaml-dynamic-action-name-deny-001",
+      milestone: :v044,
+      surface: :plan_build,
+      scenario: "workflow step action name is provided through an expression",
+      boundary: :workflow_yaml_validator,
+      expected: :denied,
+      assert: [:denied, :dynamic_action_name_rejected],
+      test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
+    },
+    %{
+      id: "workflow-yaml-secret-substitution-deny-001",
+      milestone: :v044,
+      surface: :plan_build,
+      scenario: "workflow expression references secrets.*",
+      boundary: :workflow_expression_validator,
+      expected: :denied,
+      assert: [:denied, :secret_substitution_rejected],
+      test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
+    },
+    %{
+      id: "workflow-yaml-env-substitution-deny-001",
+      milestone: :v044,
+      surface: :plan_build,
+      scenario: "workflow expression references env.*",
+      boundary: :workflow_expression_validator,
+      expected: :denied,
+      assert: [:denied, :env_substitution_rejected],
+      test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
+    },
+    %{
+      id: "workflow-yaml-cycle-reject-001",
+      milestone: :v044,
+      surface: :plan_build,
+      scenario: "workflow save_as references form a cycle",
+      boundary: :workflow_dependency_graph,
+      expected: :denied,
+      assert: [:denied, :cycle_rejected],
+      test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
+    },
+    %{
+      id: "workflow-yaml-forward-ref-reject-001",
+      milestone: :v044,
+      surface: :plan_build,
+      scenario: "workflow step references a later step output",
+      boundary: :workflow_dependency_graph,
+      expected: :denied,
+      assert: [:denied, :forward_ref_rejected],
+      test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
+    },
+    %{
+      id: "plan-preview-not-authority-001",
+      milestone: :v044,
+      surface: :plan_build,
+      scenario: "Plan Preview Contract packet attempts to create execution authority",
+      boundary: :plan_preview_action,
+      expected: :allowed,
+      assert: [:allowed, :advisory_only, :no_objective_created],
+      test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
+    },
+    %{
+      id: "plan-run-start-confirmation-required-001",
+      milestone: :v044,
+      surface: :plan_build,
+      scenario: "workflow run start is requested without operator approval",
+      boundary: :workflow_run_start_permission,
+      expected: :needs_confirmation,
+      assert: [:needs_confirmation, :no_objective_before_approval],
+      test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
+    },
+    %{
+      id: "plan-step-permission-not-downgradable-001",
+      milestone: :v044,
+      surface: :plan_build,
+      scenario: "workflow YAML attempts to avoid confirmation for a confirmed action step",
+      boundary: :workflow_step_permission_floor,
+      expected: :needs_confirmation,
+      assert: [:needs_confirmation, :step_floor_preserved],
+      test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
+    },
+    %{
+      id: "plan-cancel-cooperative-001",
+      milestone: :v044,
+      surface: :plan_build,
+      scenario: "operator cancels a workflow objective mid-run",
+      boundary: :objective_runtime_cancel,
+      expected: :allowed,
+      assert: [:allowed, :objective_cancelled, :reason_durable],
+      test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
+    },
+    %{
+      id: "subagent-delegation-permission-boundary-001",
+      milestone: :v044,
+      surface: :plan_build,
+      scenario: "workflow delegate-agent step is previewed without granting child authority",
+      boundary: :delegate_agent_preview,
+      expected: :allowed,
+      assert: [:allowed, :subagent_target_visible, :preview_not_authority],
+      test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
+    },
+    %{
+      id: "delegate-agent-authority-boundary-001",
+      milestone: :v044,
+      surface: :plan_build,
+      scenario: "delegate-agent command tries to dispatch an unregistered command",
+      boundary: :delegate_agent_runner,
+      expected: :denied,
+      assert: [:denied, :invalid_delegate_command],
+      test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
+    },
+    %{
+      id: "workflow-expand-rejects-bad-yaml-001",
+      milestone: :v044,
+      surface: :plan_build,
+      scenario: "workflow loader receives malformed YAML",
+      boundary: :workflow_yaml_loader,
+      expected: :denied,
+      assert: [:denied, :invalid_yaml_rejected],
+      test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
+    },
+    %{
+      id: "workflow-step-cap-enforced-001",
+      milestone: :v044,
+      surface: :plan_build,
+      scenario: "workflow exceeds workflows.max_steps_per_workflow",
+      boundary: :workflow_yaml_validator,
+      expected: :denied,
+      assert: [:denied, :step_cap_enforced],
+      test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
+    },
+    %{
+      id: "workflow-param-bytes-cap-enforced-001",
+      milestone: :v044,
+      surface: :plan_build,
+      scenario: "workflow step params exceed workflows.max_param_bytes_per_step",
+      boundary: :workflow_yaml_validator,
+      expected: :denied,
+      assert: [:denied, :param_bytes_cap_enforced],
+      test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
     },
     %{
       id: "sandbox-backend-disabled-001",
