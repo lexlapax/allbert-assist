@@ -204,6 +204,55 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("objectives.trace_detail", "verbose", %{audit?: false})
   end
 
+  test "Plan/Build workflow settings resolve defaults and enforce invariants" do
+    assert {:ok, true} = Settings.get("workflows.enabled")
+    assert {:ok, "<ALLBERT_HOME>/workflows"} = Settings.get("workflows.dir")
+    assert {:ok, "^[a-z0-9][a-z0-9_-]*$"} = Settings.get("workflows.id_pattern")
+    assert {:ok, 3} = Settings.get("workflows.max_steps_per_workflow")
+    assert {:ok, 8} = Settings.get("workflows.max_workflows_loaded_per_request")
+    assert {:ok, 65_536} = Settings.get("workflows.max_param_bytes_per_step")
+    assert {:ok, 262_144} = Settings.get("workflows.max_yaml_bytes_per_file")
+    assert {:ok, 1} = Settings.get("workflows.schema_version")
+    assert {:ok, "closed_v1"} = Settings.get("workflows.expression_grammar")
+
+    assert {:ok, true} = Settings.get("plan.preview.show_estimated_cost")
+    assert {:ok, true} = Settings.get("plan.preview.show_failure_blast_radius")
+    assert {:ok, true} = Settings.get("plan.preview.show_confidence_tier")
+    assert {:ok, "deterministic_v1"} = Settings.get("plan.preview.confidence_tier_engine")
+    assert {:ok, false} = Settings.get("plan.preview.auto_proceed_green_tier")
+    assert {:ok, 1} = Settings.get("plan.run.default_concurrency")
+    assert {:ok, 5000} = Settings.get("plan.run.cancel_grace_ms")
+    assert {:ok, "required"} = Settings.get("plan.run.plan_start_gate")
+    assert {:ok, "expanded_inline"} = Settings.get("plan.subagent.delegation_visibility")
+
+    assert {:ok, resolved} =
+             Settings.put("workflows.max_steps_per_workflow", 10, %{audit?: false})
+
+    assert resolved.value == 10
+
+    assert {:error, {:invalid_setting, "workflows.max_steps_per_workflow", _reason}} =
+             Settings.put("workflows.max_steps_per_workflow", 11, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "workflows.max_yaml_bytes_per_file", _reason}} =
+             Settings.put("workflows.max_yaml_bytes_per_file", 1_048_577, %{audit?: false})
+
+    assert {:error, {:read_only_setting, "workflows.schema_version"}} =
+             Settings.put("workflows.schema_version", 2, %{audit?: false})
+
+    assert {:error, {:read_only_setting, "plan.run.default_concurrency"}} =
+             Settings.put("plan.run.default_concurrency", 2, %{audit?: false})
+
+    assert {:ok, workflows_fragment} = Fragments.fragment_for_key("workflows.enabled")
+    assert workflows_fragment.id == "core:workflows"
+    assert workflows_fragment.defaults["workflows"]["schema_version"] == 1
+    assert "workflows.max_steps_per_workflow" in workflows_fragment.safe_write_keys
+
+    assert {:ok, plan_fragment} = Fragments.fragment_for_key("plan.preview.show_estimated_cost")
+    assert plan_fragment.id == "core:plan"
+    assert plan_fragment.defaults["plan"]["run"]["plan_start_gate"] == "required"
+    assert "plan.preview.auto_proceed_green_tier" in plan_fragment.safe_write_keys
+  end
+
   test "sandbox settings resolve defaults and validate writes" do
     assert {:ok, false} = Settings.get("sandbox.elixir.enabled")
     assert {:ok, "auto"} = Settings.get("sandbox.elixir.backend")

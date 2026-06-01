@@ -38,6 +38,9 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :browser_interact,
              :browser_form_fill,
              :browser_download,
+             :workflow_read,
+             :workflow_run_start,
+             :plan_cancel,
              :settings_secret_write,
              :settings_secret_read
            ]
@@ -96,6 +99,24 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     download = PermissionGate.authorize(:browser_download, %{})
     assert download.decision == :denied
     assert download.policy.safety_floor == :needs_confirmation
+  end
+
+  test "documents Plan/Build permission floors" do
+    workflow_read = PermissionGate.authorize(:workflow_read, %{})
+    assert workflow_read.decision == :allowed
+    assert workflow_read.policy.safety_floor == :allowed
+    assert PermissionGate.allowed?(workflow_read)
+
+    run_start = PermissionGate.authorize(:workflow_run_start, %{})
+    assert run_start.decision == :needs_confirmation
+    assert run_start.requires_confirmation
+    assert run_start.policy.safety_floor == :needs_confirmation
+    refute PermissionGate.allowed?(run_start)
+
+    cancel = PermissionGate.authorize(:plan_cancel, %{})
+    assert cancel.decision == :allowed
+    assert cancel.policy.safety_floor == :allowed
+    assert PermissionGate.allowed?(cancel)
   end
 
   test "allows discovery search but requires confirmation for discovered MCP server connect" do

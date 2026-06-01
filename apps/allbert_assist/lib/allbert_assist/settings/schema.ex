@@ -116,6 +116,19 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.browser_interact",
     "permissions.browser_form_fill",
     "permissions.browser_download",
+    "permissions.workflow_read",
+    "permissions.workflow_run_start",
+    "permissions.plan_cancel",
+    "workflows.enabled",
+    "workflows.max_steps_per_workflow",
+    "workflows.max_workflows_loaded_per_request",
+    "workflows.max_param_bytes_per_step",
+    "workflows.max_yaml_bytes_per_file",
+    "plan.preview.show_estimated_cost",
+    "plan.preview.show_failure_blast_radius",
+    "plan.preview.show_confidence_tier",
+    "plan.preview.auto_proceed_green_tier",
+    "plan.run.cancel_grace_ms",
     "execution.local.enabled",
     "execution.local.allowed_roots",
     "execution.local.allowed_commands",
@@ -1011,6 +1024,132 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false
     },
+    "workflows.enabled" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "workflows.dir" => %{
+      type: :string,
+      default: "<ALLBERT_HOME>/workflows",
+      writable?: false,
+      sensitive?: false
+    },
+    "workflows.id_pattern" => %{
+      type: :string,
+      default: "^[a-z0-9][a-z0-9_-]*$",
+      writable?: false,
+      sensitive?: false
+    },
+    "workflows.max_steps_per_workflow" => %{
+      type: :bounded_integer,
+      default: 3,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 10
+    },
+    "workflows.max_workflows_loaded_per_request" => %{
+      type: :bounded_integer,
+      default: 8,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 8
+    },
+    "workflows.max_param_bytes_per_step" => %{
+      type: :bounded_integer,
+      default: 65_536,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 1_048_576
+    },
+    "workflows.max_yaml_bytes_per_file" => %{
+      type: :bounded_integer,
+      default: 262_144,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 1_048_576
+    },
+    "workflows.schema_version" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: false,
+      sensitive?: false,
+      min: 1,
+      max: 1
+    },
+    "workflows.expression_grammar" => %{
+      type: :enum,
+      default: "closed_v1",
+      writable?: false,
+      sensitive?: false,
+      allowed_values: ["closed_v1"]
+    },
+    "plan.preview.show_estimated_cost" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "plan.preview.show_failure_blast_radius" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "plan.preview.show_confidence_tier" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "plan.preview.confidence_tier_engine" => %{
+      type: :enum,
+      default: "deterministic_v1",
+      writable?: false,
+      sensitive?: false,
+      allowed_values: ["deterministic_v1"]
+    },
+    "plan.preview.auto_proceed_green_tier" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "plan.run.default_concurrency" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: false,
+      sensitive?: false,
+      min: 1,
+      max: 1
+    },
+    "plan.run.cancel_grace_ms" => %{
+      type: :bounded_integer,
+      default: 5000,
+      writable?: true,
+      sensitive?: false,
+      min: 0,
+      max: 30_000
+    },
+    "plan.run.plan_start_gate" => %{
+      type: :enum,
+      default: "required",
+      writable?: false,
+      sensitive?: false,
+      allowed_values: ["required"]
+    },
+    "plan.subagent.delegation_visibility" => %{
+      type: :enum,
+      default: "expanded_inline",
+      writable?: false,
+      sensitive?: false,
+      allowed_values: ["expanded_inline"]
+    },
     "permissions.memory_write" => %{
       type: :enum,
       default: "allowed",
@@ -1227,6 +1366,27 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false,
       allowed_values: ["needs_confirmation", "denied"]
+    },
+    "permissions.workflow_read" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.workflow_run_start" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["needs_confirmation", "denied"]
+    },
+    "permissions.plan_cancel" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
     "execution.local.enabled" => %{
       type: :boolean,
@@ -2069,7 +2229,38 @@ defmodule AllbertAssist.Settings.Schema do
       "browser_screenshot" => "allowed",
       "browser_interact" => "needs_confirmation",
       "browser_form_fill" => "denied",
-      "browser_download" => "denied"
+      "browser_download" => "denied",
+      "workflow_read" => "allowed",
+      "workflow_run_start" => "needs_confirmation",
+      "plan_cancel" => "allowed"
+    },
+    "workflows" => %{
+      "enabled" => true,
+      "dir" => "<ALLBERT_HOME>/workflows",
+      "id_pattern" => "^[a-z0-9][a-z0-9_-]*$",
+      "max_steps_per_workflow" => 3,
+      "max_workflows_loaded_per_request" => 8,
+      "max_param_bytes_per_step" => 65_536,
+      "max_yaml_bytes_per_file" => 262_144,
+      "schema_version" => 1,
+      "expression_grammar" => "closed_v1"
+    },
+    "plan" => %{
+      "preview" => %{
+        "show_estimated_cost" => true,
+        "show_failure_blast_radius" => true,
+        "show_confidence_tier" => true,
+        "confidence_tier_engine" => "deterministic_v1",
+        "auto_proceed_green_tier" => false
+      },
+      "run" => %{
+        "default_concurrency" => 1,
+        "cancel_grace_ms" => 5000,
+        "plan_start_gate" => "required"
+      },
+      "subagent" => %{
+        "delegation_visibility" => "expanded_inline"
+      }
     },
     "mcp" => %{
       "servers" => %{},

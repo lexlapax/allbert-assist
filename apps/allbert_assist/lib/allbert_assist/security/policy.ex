@@ -36,7 +36,10 @@ defmodule AllbertAssist.Security.Policy do
     browser_screenshot: "permissions.browser_screenshot",
     browser_interact: "permissions.browser_interact",
     browser_form_fill: "permissions.browser_form_fill",
-    browser_download: "permissions.browser_download"
+    browser_download: "permissions.browser_download",
+    workflow_read: "permissions.workflow_read",
+    workflow_run_start: "permissions.workflow_run_start",
+    plan_cancel: "permissions.plan_cancel"
   }
 
   @default_decisions %{
@@ -72,6 +75,9 @@ defmodule AllbertAssist.Security.Policy do
     browser_interact: :needs_confirmation,
     browser_form_fill: :denied,
     browser_download: :denied,
+    workflow_read: :allowed,
+    workflow_run_start: :needs_confirmation,
+    plan_cancel: :allowed,
     settings_secret_write: :allowed,
     settings_secret_read: :denied
   }
@@ -111,6 +117,9 @@ defmodule AllbertAssist.Security.Policy do
           | :browser_interact
           | :browser_form_fill
           | :browser_download
+          | :workflow_read
+          | :workflow_run_start
+          | :plan_cancel
           | :settings_secret_write
           | :settings_secret_read
 
@@ -150,6 +159,9 @@ defmodule AllbertAssist.Security.Policy do
       :browser_interact,
       :browser_form_fill,
       :browser_download,
+      :workflow_read,
+      :workflow_run_start,
+      :plan_cancel,
       :settings_secret_write,
       :settings_secret_read
     ]
@@ -218,6 +230,7 @@ defmodule AllbertAssist.Security.Policy do
   def safety_floor(:browser_interact), do: :needs_confirmation
   def safety_floor(:browser_form_fill), do: :needs_confirmation
   def safety_floor(:browser_download), do: :needs_confirmation
+  def safety_floor(:workflow_run_start), do: :needs_confirmation
   def safety_floor(:stocksage_analyze), do: :needs_confirmation
   def safety_floor(:stocksage_evidence_fetch), do: :needs_confirmation
   def safety_floor(:notes_file_write), do: :needs_confirmation
@@ -346,6 +359,30 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:browser_download, :needs_confirmation, _configured, _floor, _context),
     do: "Browser download requires explicit opt-in and confirmation."
+
+  defp reason(:workflow_read, :allowed, _configured, _floor, _context),
+    do: "Workflow YAML inspection and expansion are local read-only operations."
+
+  defp reason(:workflow_read, :needs_confirmation, _configured, _floor, _context),
+    do: "Workflow YAML reads require confirmation by current policy."
+
+  defp reason(:workflow_read, :denied, _configured, _floor, _context),
+    do: "Workflow YAML reads are denied by current policy."
+
+  defp reason(:workflow_run_start, :needs_confirmation, _configured, _floor, _context),
+    do: "Starting a plan run requires explicit operator confirmation."
+
+  defp reason(:workflow_run_start, :denied, _configured, _floor, _context),
+    do: "Starting a plan run is denied by current policy."
+
+  defp reason(:plan_cancel, :allowed, _configured, _floor, _context),
+    do: "Cooperative plan cancellation is allowed through registered Plan/Build actions."
+
+  defp reason(:plan_cancel, :needs_confirmation, _configured, _floor, _context),
+    do: "Cooperative plan cancellation requires confirmation by current policy."
+
+  defp reason(:plan_cancel, :denied, _configured, _floor, _context),
+    do: "Cooperative plan cancellation is denied by current policy."
 
   defp reason(:package_install, :denied, _configured, _floor, _context),
     do: "Package installation is denied until an operator explicitly enables confirmed installs."
