@@ -246,6 +246,10 @@ defmodule AllbertAssist.Trace do
 
     #{objective_steps_text(response)}
 
+    ## Plan Preview
+
+    #{plan_preview_text(response)}
+
     ## Workspace
 
     #{workspace_text(workspace)}
@@ -792,6 +796,74 @@ defmodule AllbertAssist.Trace do
 
   defp objective_step_text(step) do
     "- Step: #{map_value(step, :id) || "unknown"} status=#{map_value(step, :status) || "unknown"} kind=#{map_value(step, :kind) || "unknown"} action=#{map_value(step, :candidate_action) || "none"} confirmation=#{map_value(step, :confirmation_id) || "none"}"
+  end
+
+  defp plan_preview_text(response) do
+    case plan_preview_context(response) do
+      nil ->
+        "none"
+
+      preview ->
+        [
+          "- Workflow: #{map_value(preview, :workflow_id) || "none"}",
+          "- Version: #{map_value(preview, :workflow_version) || "none"}",
+          "- Objective: #{map_value(preview, :objective_title) || "none"}",
+          "- Step count: #{map_value(preview, :step_count) || length(List.wrap(map_value(preview, :steps)))}",
+          "Steps:",
+          plan_preview_step_lines(map_value(preview, :steps)),
+          "Authority gates:",
+          plan_preview_gate_lines(map_value(preview, :authority_gates))
+        ]
+        |> Enum.join("\n")
+    end
+  end
+
+  defp plan_preview_step_lines(steps) do
+    steps
+    |> List.wrap()
+    |> Enum.take(10)
+    |> case do
+      [] ->
+        "none"
+
+      steps ->
+        Enum.map_join(steps, "\n", fn step ->
+          "- #{map_value(step, :ordinal) || "?"}. #{map_value(step, :kind) || "unknown"} #{map_value(step, :action_name) || "no action"} permission=#{map_value(step, :permission) || "none"} confirmation=#{map_value(step, :confirmations_required) || false}"
+        end)
+    end
+  end
+
+  defp plan_preview_gate_lines(gates) do
+    gates
+    |> List.wrap()
+    |> Enum.take(10)
+    |> case do
+      [] ->
+        "none"
+
+      gates ->
+        Enum.map_join(gates, "\n", fn gate ->
+          "- #{map_value(gate, :gate) || "unknown"} scope=#{map_value(gate, :scope) || "none"}"
+        end)
+    end
+  end
+
+  defp plan_preview_context(response) do
+    response
+    |> map_value(:output_data)
+    |> map_value(:preview)
+    |> case do
+      nil ->
+        response
+        |> map_value(:actions)
+        |> List.wrap()
+        |> Enum.find_value(
+          &(map_value(&1, :preview) || map_value(map_value(&1, :output_data), :preview))
+        )
+
+      preview ->
+        preview
+    end
   end
 
   defp objective_context(response) do

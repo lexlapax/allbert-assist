@@ -75,6 +75,20 @@ defmodule AllbertAssist.Actions.PlanBuildActionsTest do
     assert get_in(approved, [:output_data, :step_count]) == 3
   end
 
+  test "preview_plan rejects editor overrides for unknown step ids", %{context: context} do
+    assert {:ok, %{status: :error} = previewed} =
+             Runner.run(
+               "preview_plan",
+               %{
+                 workflow_id: "multi_step",
+                 edits: %{"steps" => %{"unknown" => %{"enabled" => "true"}}}
+               },
+               context
+             )
+
+    assert previewed.output_data.error.reason == :unknown_step_override
+  end
+
   defp copy_fixture!(id, home) do
     File.cp!(
       Path.expand("../../fixtures/v0.44/workflows/#{id}.yaml", __DIR__),

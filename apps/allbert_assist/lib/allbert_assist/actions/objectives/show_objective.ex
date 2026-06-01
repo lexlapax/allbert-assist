@@ -81,6 +81,7 @@ defmodule AllbertAssist.Actions.Objectives.ShowObjective do
       acceptance_criteria: decode(objective.acceptance_criteria),
       status: objective.status,
       active_app: objective.active_app,
+      source_intent: objective.source_intent,
       source_thread_id: objective.source_thread_id,
       session_id: objective.session_id,
       current_step_id: objective.current_step_id,

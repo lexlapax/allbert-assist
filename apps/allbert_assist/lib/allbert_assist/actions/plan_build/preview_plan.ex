@@ -15,6 +15,7 @@ defmodule AllbertAssist.Actions.PlanBuild.PreviewPlan do
       workflow_id: [type: :string, required: false],
       plan_text: [type: :string, required: false],
       inputs: [type: :map, required: false],
+      edits: [type: :map, required: false],
       format: [type: :string, required: false]
     ],
     output_schema: []
@@ -29,7 +30,9 @@ defmodule AllbertAssist.Actions.PlanBuild.PreviewPlan do
 
     with true <- PermissionGate.allowed?(permission_decision),
          {:ok, expanded} when is_binary(workflow_id) <-
-           Workflows.preview(workflow_id, field(params, :inputs) || %{}, context) do
+           Workflows.preview(workflow_id, field(params, :inputs) || %{}, context,
+             step_overrides: field(params, :edits) || %{}
+           ) do
       output_data = %{preview: expanded.preview}
 
       {:ok,

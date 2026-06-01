@@ -61,6 +61,8 @@ defmodule AllbertAssist.Surface do
           | :utility_drawer
           | :workspace_panel
           | :settings_panel
+          | :plan_preview_panel
+          | :plan_run_progress_panel
           | :workspace
           | :canvas
           | :tile

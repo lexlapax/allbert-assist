@@ -30,6 +30,8 @@ defmodule AllbertAssist.Surface.Catalog do
     :onboarding_panel,
     :settings_panel,
     :template_create_panel,
+    :plan_preview_panel,
+    :plan_run_progress_panel,
     :workspace,
     :canvas,
     :tile,
@@ -93,6 +95,8 @@ defmodule AllbertAssist.Surface.Catalog do
     :onboarding_panel,
     :settings_panel,
     :template_create_panel,
+    :plan_preview_panel,
+    :plan_run_progress_panel,
     :workspace,
     :canvas,
     :tile,
@@ -137,6 +141,9 @@ defmodule AllbertAssist.Surface.Catalog do
     settings_panel: {:live_component, AllbertAssistWeb.Workspace.Components.SettingsCentral},
     template_create_panel:
       {:live_component, AllbertAssistWeb.Workspace.Components.TemplateCreate},
+    plan_preview_panel: {:live_component, AllbertAssistWeb.Workspace.Components.PlanPreviewPanel},
+    plan_run_progress_panel:
+      {:live_component, AllbertAssistWeb.Workspace.Components.PlanRunProgressPanel},
     workspace: {:live_component, AllbertAssistWeb.Workspace.Components.Workspace},
     canvas: {:live_component, AllbertAssistWeb.Workspace.Components.Canvas},
     tile: {:live_component, AllbertAssistWeb.Workspace.Components.Tile},
@@ -197,7 +204,9 @@ defmodule AllbertAssist.Surface.Catalog do
     workspace_panel: "hero-rectangle-group-micro",
     onboarding_panel: "hero-sparkles-micro",
     settings_panel: "hero-adjustments-horizontal-micro",
-    template_create_panel: "hero-plus-circle-micro"
+    template_create_panel: "hero-plus-circle-micro",
+    plan_preview_panel: "hero-clipboard-document-list-micro",
+    plan_run_progress_panel: "hero-list-bullet-micro"
   }
 
   @placeholder_renderer {:live_component, AllbertAssistWeb.Workspace.Components.Placeholder}

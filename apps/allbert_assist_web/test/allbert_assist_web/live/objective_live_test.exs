@@ -98,4 +98,51 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
     assert cross_html =~ "Objective not found."
     refute cross_html =~ "Alice only"
   end
+
+  test "embeds Plan/Build run progress for workflow objectives", %{conn: conn} do
+    assert {:ok, objective} =
+             Objectives.create_objective(%{
+               user_id: "local",
+               title: "Run workflow",
+               objective: "Execute the multi_step workflow.",
+               status: "running",
+               active_app: "allbert",
+               source_intent: "workflow:multi_step:1"
+             })
+
+    assert {:ok, step} =
+             Objectives.create_step(%{
+               objective_id: objective.id,
+               kind: "delegate_agent",
+               status: "running",
+               stage: "execute_step",
+               provider: "plan_build",
+               candidate_action: "delegate_agent",
+               delegate_agent_id: "plan-build-stub"
+             })
+
+    assert {:ok, _event} =
+             Objectives.create_event(%{
+               objective_id: objective.id,
+               step_id: step.id,
+               kind: "observed",
+               summary: "Parent step started."
+             })
+
+    assert {:ok, _child_event} =
+             Objectives.create_event(%{
+               objective_id: objective.id,
+               kind: "observed",
+               summary: "Child agent reported progress.",
+               payload: %{parent_step_id: step.id}
+             })
+
+    {:ok, _view, html} = live(conn, ~p"/objectives/#{objective.id}")
+
+    assert html =~ ~s(data-workspace-component="plan_run_progress_panel")
+    assert html =~ "workflow:multi_step:1"
+    assert html =~ "delegate_agent"
+    assert html =~ "Subagent events"
+    assert html =~ "Child agent reported progress."
+  end
 end
