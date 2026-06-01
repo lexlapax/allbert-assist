@@ -134,15 +134,15 @@ Recent milestones:
 
 Next milestones:
 
-- Post-`v0.43.0`: the planned 1.0 arc continues with Discord/Slack channels
-  and the
-  channel-approval-primitive contract (`v0.44`); Plan/Build workflows under
-  `<ALLBERT_HOME>/workflows/` (`v0.45`); marketplace lite — data shape +
-  Allbert-author seeds only (`v0.46`); operator-supervised self-improvement
-  (`v0.47`); voice (`v0.48`); vision (`v0.49`); mobile messaging
-  WhatsApp/Signal/Matrix (`v0.50`); MCP server mode (`v0.50b`); final
-  hardening/export-import/settings-schema-migration/RC evidence (`v0.51`);
-  and a no-new-features **tiered** public contract freeze at `v1.0`.
+- Post-`v0.43.0`: the planned 1.0 arc now continues capability-first:
+  Plan/Build workflows under `<ALLBERT_HOME>/workflows/` (`v0.44`);
+  marketplace lite — data shape + Allbert-author seeds only (`v0.45`);
+  operator-supervised self-improvement (`v0.46`); voice (`v0.47`); vision
+  (`v0.48`); Discord/Slack channels and the channel-approval-primitive
+  contract (`v0.49`); mobile messaging WhatsApp/Signal/Matrix (`v0.50`);
+  MCP server mode (`v0.50b`); final hardening/export-import/settings-schema-
+  migration/RC evidence (`v0.51`); and a no-new-features **tiered** public
+  contract freeze at `v1.0`.
 
 ## Start Here
 

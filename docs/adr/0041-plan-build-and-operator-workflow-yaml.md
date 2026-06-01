@@ -2,12 +2,12 @@
 
 ## Status
 
-Proposed for v0.45 Plan/Build Mode And Operator Workflow YAML
-(`docs/plans/v0.45-plan.md`).
+Proposed for v0.44 Plan/Build Mode And Operator Workflow YAML
+(`docs/plans/v0.44-plan.md`).
 
 ## Context
 
-Objective Runtime already stores durable multi-step work. v0.45 exposes that
+Objective Runtime already stores durable multi-step work. v0.44 exposes that
 substrate to operators as Plan/Build mode and adds declarative workflow YAML
 for repeatable objectives.
 
