@@ -59,6 +59,22 @@ defmodule AllbertAssistWeb.ObjectiveLive do
     end
   end
 
+  def handle_event("plan_build_cancel_run", %{"objective-id" => objective_id}, socket) do
+    params = %{
+      objective_id: objective_id,
+      user_id: socket.assigns.user_id,
+      reason: "Cancelled from Plan/Build run progress."
+    }
+
+    case Runner.run("cancel_plan_run", params, context(socket)) do
+      {:ok, %{status: :cancelled} = response} ->
+        {:noreply, socket |> assign(response: response.message, error: nil) |> refresh()}
+
+      {:ok, response} ->
+        {:noreply, assign(socket, error: Map.get(response, :message, inspect(response)))}
+    end
+  end
+
   def handle_event("continue_objective", _params, socket) do
     params = %{id: socket.assigns.objective_id, user_id: socket.assigns.user_id}
 

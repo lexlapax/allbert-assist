@@ -33,6 +33,11 @@ defmodule AllbertAssist.Security.Redactor do
   ]
   @sensitive_query_names ~w[token api_key key secret password bearer access_token auth session]
   @status_keys ["credential_status", "secret_status", "secret_ref_display"]
+  @secret_value_patterns [
+    ~r/\b(sk-[A-Za-z0-9_-]{6,})\b/,
+    ~r/\b(ghp_[A-Za-z0-9_]{6,})\b/,
+    ~r/\b(xox[baprs]-[A-Za-z0-9-]{6,})\b/
+  ]
 
   @type posture :: %{
           sensitive_key_fragments: nonempty_list(String.t()),
@@ -68,6 +73,8 @@ defmodule AllbertAssist.Security.Redactor do
     value
     |> redact_authorization_line()
     |> redact_cookie_line()
+    |> redact_bearer_value()
+    |> redact_secret_shapes()
     |> redact_url()
   end
 
@@ -102,6 +109,16 @@ defmodule AllbertAssist.Security.Redactor do
 
   defp redact_cookie_line(value) do
     Regex.replace(~r/((set-cookie|cookie):\s*)[^\r\n]+/i, value, "\\1#{@redacted}")
+  end
+
+  defp redact_bearer_value(value) do
+    Regex.replace(~r/\b(bearer\s+)[^\s\r\n]+/i, value, "\\1#{@redacted}")
+  end
+
+  defp redact_secret_shapes(value) do
+    Enum.reduce(@secret_value_patterns, value, fn pattern, acc ->
+      Regex.replace(pattern, acc, @redacted)
+    end)
   end
 
   defp redact_url(value) do

@@ -25,6 +25,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
+  alias AllbertAssist.Workflows
   alias AllbertAssist.Workspace.Emitters, as: WorkspaceEmitters
   alias Jido.Agent, as: JidoAgent
   alias Jido.Agent.State, as: JidoAgentState
@@ -305,6 +306,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       fn -> online_skill_route(text, normalized) end,
       fn -> uri_consumer_route(text, normalized) end,
       fn -> mcp_route(text, normalized) end,
+      fn -> plan_build_route(text, normalized) end,
       fn -> tool_discovery_route(text, normalized) end,
       fn -> unsupported_resource_workflow_route(text, normalized) end,
       fn -> command_route(normalized, context) end,
@@ -348,8 +350,57 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp capability_route(text), do: if(capability_request?(text), do: :list_skills)
 
+  defp plan_build_route(text, normalized) do
+    cond do
+      Regex.match?(~r/^\s*plan\s*:?\s+\S/i, text) ->
+        {:preview_plan, %{plan_text: String.replace(text, ~r/^\s*plan\s*:?\s*/i, "")}}
+
+      Regex.match?(~r/^\s*run\s+workflow\s+#{workflow_id_pattern()}\s*$/i, text) ->
+        {:start_plan_run, %{workflow_id: workflow_id_from_suffix(text)}}
+
+      Regex.match?(~r/^\s*run\s+#{workflow_id_pattern()}\s*$/i, text) ->
+        workflow_id = workflow_id_from_suffix(text)
+        if Workflows.exists?(workflow_id), do: {:start_plan_run, %{workflow_id: workflow_id}}
+
+      Regex.match?(~r/^\s*cancel\s+plan\s+#{objective_id_pattern()}\s*$/i, text) ->
+        {:cancel_plan_run, %{objective_id: objective_id_from_suffix(text)}}
+
+      Regex.match?(~r/^\s*show\s+plan\s+#{objective_id_pattern()}\s*$/i, text) ->
+        {:show_plan, %{id: objective_id_from_suffix(text)}}
+
+      normalized in ["list workflows", "show workflows"] ->
+        :list_workflows
+
+      normalized in ["list plans", "show plans"] ->
+        :list_plan_runs
+
+      true ->
+        nil
+    end
+  end
+
   defp tool_discovery_route(text, normalized) do
     if tool_discovery_request?(normalized), do: {:find_tools, tool_discovery_query(text)}
+  end
+
+  defp workflow_id_pattern, do: "[a-z0-9][a-z0-9_-]*"
+
+  defp objective_id_pattern,
+    do: "obj_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+
+  defp workflow_id_from_suffix(text) do
+    text
+    |> String.trim()
+    |> String.split(~r/\s+/, trim: true)
+    |> List.last()
+    |> String.downcase()
+  end
+
+  defp objective_id_from_suffix(text) do
+    text
+    |> String.trim()
+    |> String.split(~r/\s+/, trim: true)
+    |> List.last()
   end
 
   defp settings_route(text, normalized) do
@@ -696,6 +747,66 @@ defmodule AllbertAssist.Agents.IntentAgent do
     }
   end
 
+  defp decision_attrs({:preview_plan, params}, text, context) do
+    %{
+      intent: :plan_preview,
+      reason: "The prompt explicitly asks for a Plan/Build preview.",
+      selected_action: "preview_plan",
+      trace_metadata: %{source_text: text, plan_params: params},
+      context: context
+    }
+  end
+
+  defp decision_attrs({:start_plan_run, params}, text, context) do
+    %{
+      intent: :plan_run_start,
+      reason: "The prompt explicitly asks to run an operator workflow.",
+      selected_action: "start_plan_run",
+      trace_metadata: %{source_text: text, plan_params: params},
+      context: context
+    }
+  end
+
+  defp decision_attrs({:cancel_plan_run, params}, text, context) do
+    %{
+      intent: :plan_cancel,
+      reason: "The prompt explicitly asks to cancel a plan run.",
+      selected_action: "cancel_plan_run",
+      trace_metadata: %{source_text: text, plan_params: params},
+      context: context
+    }
+  end
+
+  defp decision_attrs({:show_plan, params}, text, context) do
+    %{
+      intent: :show_plan,
+      reason: "The prompt explicitly asks to show a plan run.",
+      selected_action: "show_objective",
+      trace_metadata: %{source_text: text, plan_params: params},
+      context: context
+    }
+  end
+
+  defp decision_attrs(:list_workflows, text, context) do
+    %{
+      intent: :list_workflows,
+      reason: "The prompt explicitly asks to list operator workflows.",
+      selected_action: "list_workflows",
+      trace_metadata: %{source_text: text},
+      context: context
+    }
+  end
+
+  defp decision_attrs(:list_plan_runs, text, context) do
+    %{
+      intent: :list_plan_runs,
+      reason: "The prompt explicitly asks to list plan runs.",
+      selected_action: "list_plan_runs",
+      trace_metadata: %{source_text: text},
+      context: context
+    }
+  end
+
   defp decision_attrs(:list_settings, _text, context) do
     action_decision_attrs(:list_settings, "list_settings", context)
   end
@@ -995,6 +1106,35 @@ defmodule AllbertAssist.Agents.IntentAgent do
     run_action("find_tools", %{query: query}, text, context)
   end
 
+  defp run_route({:preview_plan, params}, text, context) do
+    run_action("preview_plan", params, text, context)
+  end
+
+  defp run_route({:start_plan_run, params}, text, context) do
+    run_action("start_plan_run", with_user(params, context), text, context)
+  end
+
+  defp run_route({:cancel_plan_run, params}, text, context) do
+    params =
+      params
+      |> with_user(context)
+      |> Map.put_new(:reason, "Cancelled from Plan/Build operator request.")
+
+    run_action("cancel_plan_run", params, text, context)
+  end
+
+  defp run_route({:show_plan, params}, text, context) do
+    run_action("show_objective", with_user(params, context), text, context)
+  end
+
+  defp run_route(:list_workflows, text, context) do
+    run_action("list_workflows", %{}, text, context)
+  end
+
+  defp run_route(:list_plan_runs, text, context) do
+    run_action("list_plan_runs", with_user(%{}, context), text, context)
+  end
+
   defp run_route(:list_settings, text, context) do
     run_action("list_settings", %{}, text, context)
   end
@@ -1059,6 +1199,12 @@ defmodule AllbertAssist.Agents.IntentAgent do
   defp maybe_put_param(params, _key, nil), do: params
   defp maybe_put_param(params, _key, ""), do: params
   defp maybe_put_param(params, key, value), do: Map.put(params, key, value)
+
+  defp with_user(params, %{request: request}) do
+    maybe_put_param(params, :user_id, Map.get(request, :user_id))
+  end
+
+  defp with_user(params, _context), do: params
 
   defp descriptor_params(action_name, request) do
     request

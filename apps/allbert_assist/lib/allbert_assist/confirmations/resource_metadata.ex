@@ -9,7 +9,7 @@ defmodule AllbertAssist.Confirmations.ResourceMetadata do
   def lines(confirmation) when is_map(confirmation) do
     confirmation
     |> params_summary()
-    |> then(&(browser_summary_lines(&1) ++ resource_lines(&1)))
+    |> then(&(plan_summary_lines(&1) ++ browser_summary_lines(&1) ++ resource_lines(&1)))
   end
 
   def lines(_confirmation), do: []
@@ -32,6 +32,31 @@ defmodule AllbertAssist.Confirmations.ResourceMetadata do
   end
 
   def resource_lines(_summary), do: []
+
+  defp plan_summary_lines(summary) when is_map(summary) do
+    preview = field(summary, "preview", %{}) || %{}
+
+    if plan_summary?(summary, preview) do
+      [
+        plan_line(
+          "Plan workflow",
+          field(summary, "workflow_id") || field(preview, "workflow_id")
+        ),
+        plan_line("Plan objective", field(summary, "objective_id")),
+        plan_line("Plan steps", field(summary, "step_count") || field(preview, "step_count")),
+        plan_line(
+          "Plan authority gates",
+          field(summary, "authority_gate_count") || gate_count(preview)
+        ),
+        plan_line("Plan current step", field(summary, "current_step_id"))
+      ]
+      |> Enum.reject(&blank?/1)
+    else
+      []
+    end
+  end
+
+  defp plan_summary_lines(_summary), do: []
 
   defp browser_summary_lines(summary) when is_map(summary) do
     if browser_summary?(summary) do
@@ -134,6 +159,22 @@ defmodule AllbertAssist.Confirmations.ResourceMetadata do
 
   defp browser_line(_label, value) when value in [nil, ""], do: nil
   defp browser_line(label, value), do: "#{label}: #{value}"
+
+  defp plan_summary?(summary, preview) do
+    field(summary, "workflow_id") not in [nil, ""] or
+      field(summary, "objective_id") not in [nil, ""] or
+      field(preview, "workflow_id") not in [nil, ""]
+  end
+
+  defp plan_line(_label, value) when value in [nil, ""], do: nil
+  defp plan_line(label, value), do: "#{label}: #{Redactor.redact(value)}"
+
+  defp gate_count(preview) do
+    preview
+    |> field("authority_gates", [])
+    |> List.wrap()
+    |> length()
+  end
 
   defp redacted_url(nil), do: nil
 

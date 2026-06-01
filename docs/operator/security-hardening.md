@@ -178,6 +178,17 @@ eval surfaces until their capability work lands.
   `browser-malformed-pdf-fails-closed-001`,
   `browser-grant-cross-operation-deny-001`, and
   `browser-supply-chain-driver-binary-001`.
+- Plan/Build and operator workflow YAML (v0.44 implemented surface):
+  workflow YAML is inert declarative data under
+  `<ALLBERT_HOME>/workflows/`; schema shape, ids, step count, per-step
+  param size, expressions, and action names are validated before a run.
+  `workflow://` and `plan://` ids are trace/audit identities only, never
+  grants. YAML `confirm: true` may raise friction but cannot lower a
+  registered action floor. The plan-start gate remains
+  `:workflow_run_start` with a `:needs_confirmation` floor, and
+  per-step action permissions still apply during execution. Plan preview,
+  confirmation metadata, traces, CLI output, and run-progress summaries
+  must redact secret-shaped operator inputs and params.
 - Discord, Slack, WhatsApp, Signal, and Matrix identity mapping,
   replay, pairing, group leakage, and callback ownership.
 - Voice, image, screenshot, and generated media resource retention, redaction,
