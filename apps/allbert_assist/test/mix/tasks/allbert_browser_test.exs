@@ -73,6 +73,24 @@ defmodule Mix.Tasks.Allbert.BrowserTest do
     refute relist_output =~ started.session_id
   end
 
+  test "research task runs doctor start navigate extract and close workflow" do
+    output =
+      capture_io(fn ->
+        BrowserTask.run([
+          "research",
+          "https://example.com/task-research",
+          "--extract-format",
+          "text"
+        ])
+      end)
+
+    assert output =~ "browser research completed: cache://browser/"
+    assert output =~ "Stub browser extraction for https://example.com/task-research"
+
+    assert {:ok, listed} = Runner.run("browser_list_sessions", %{}, %{})
+    assert listed.sessions == []
+  end
+
   defp ensure_browser_supervisor do
     unless Process.whereis(AllbertBrowser.Supervisor) do
       start_supervised!(AllbertBrowser.Supervisor)

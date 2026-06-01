@@ -95,12 +95,19 @@ defmodule AllbertBrowser.Actions.StartSession do
   end
 
   defp below_session_cap do
-    max = elem(Settings.get("browser.session.max_concurrent"), 1)
+    max = setting("browser.session.max_concurrent", 1)
 
     if length(Session.list()) < max do
       :ok
     else
       {:error, :max_concurrent_sessions_reached}
+    end
+  end
+
+  defp setting(key, fallback) do
+    case Settings.get(key) do
+      {:ok, value} -> value
+      {:error, _reason} -> fallback
     end
   end
 end

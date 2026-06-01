@@ -28,7 +28,7 @@ defmodule AllbertBrowser.NavigationPolicy do
       redact_response_headers: [],
       enabled?: true,
       profile_enabled?: true,
-      allowed_hosts: ["*"],
+      allowed_hosts: allowed_hosts(),
       blocked_hosts: setting("browser.navigation.denied_domains", []),
       allowed_paths: ["/"],
       allowed_methods: ["GET"]
@@ -38,6 +38,13 @@ defmodule AllbertBrowser.NavigationPolicy do
   end
 
   def preflight(_url), do: {:error, :invalid_url}
+
+  defp allowed_hosts do
+    case setting("browser.navigation.allowed_domains", []) do
+      [] -> ["*"]
+      allowed -> allowed
+    end
+  end
 
   defp setting(key, default) do
     case Settings.get(key) do
