@@ -59,7 +59,7 @@ deduplicated list of normalized candidates. The first two adapters are:
   PulseMCP may be included only when the operator configures the needed secret
   refs, and missing refs disable that provider without failing the turn.
 
-The port is the extension seam: a future `find_marketplace_tools` (v0.46) or
+The port is the extension seam: a future `find_marketplace_tools` (v0.45) or
 `find_skill_registry_tools` adapter slots in behind `find_tools` with no caller
 change. Capability-source heterogeneity (the official registry's name-only
 search, an aggregator's richer search) is hidden behind one normalized result.
