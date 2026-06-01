@@ -688,7 +688,7 @@ defmodule Mix.Tasks.Allbert.Test do
       "external-smoke browser_research",
       app_cwd(:core),
       "mix",
-      ["test", "test/security/v043_browser_research_eval_test.exs"],
+      ["test", "test/external/browser_research_smoke_test.exs"],
       [{"ALLBERT_BROWSER_EXTERNAL_SMOKE", "1"} | owned_env("external-smoke-browser-research", 0)]
     )
   end

@@ -35,6 +35,9 @@ erl_crash.dump
 .env.*
 !.env.example
 
+# Plugin-owned Node dependencies.
+/plugins/allbert.browser/priv/playwright_bridge/node_modules/
+
 # Dialyzer PLTs
 /priv/plts/
 *.plt
