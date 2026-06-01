@@ -35,6 +35,7 @@ and close the session in cleanup. `--extract-format` accepts `text`,
 
 | Action | Purpose |
 |---|---|
+| `browser_doctor` | Verify the local Playwright/Chromium bridge and persist redacted status. |
 | `browser_start_session` | Confirm and start an ephemeral session. |
 | `browser_navigate` | Confirm or use a remembered per-domain grant, then navigate. |
 | `browser_extract` | Extract bounded `html`, `text`, `markdown`, or simple PDF text-layer content. |
@@ -45,9 +46,13 @@ and close the session in cleanup. `--extract-format` accepts `text`,
 | `browser_list_sessions` | List sessions in the current runtime process. |
 | `browser_close_session` | Close a session in the current runtime process. |
 | `browser_sweep_cache` | Remove expired browser cache artifacts. |
+| `browser_research_handoff` | Agent-only advisory handoff; proposes the browser action sequence and grants no authority. |
 
 The `mix allbert.browser sessions list` and `sessions close <id>` helpers call
 the same registered actions for sessions visible to the current node.
+Session list, close, and cache sweep use the browser read/extract permission
+floor because they operate on already-created browser session/cache artifacts;
+they do not authorize navigation or page interaction.
 
 When `browser.navigation.allowed_domains` is non-empty, navigation is limited
 to those hosts. When it is empty, normal SSRF/private-network policy still

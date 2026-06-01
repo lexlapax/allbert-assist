@@ -2,9 +2,9 @@ defmodule AllbertBrowser.NetworkPolicy do
   @moduledoc """
   Per-session browser subresource policy.
 
-  M2 exposes the policy as pure data/functions for the stub driver and later
-  Playwright route interception. It is not a security boundary by itself; the
-  browser actions decide when to invoke the driver.
+  The policy is pure data/functions consumed by the stub driver tests and the
+  Playwright route-interception bridge. It is not a security boundary by
+  itself; browser actions decide when to invoke the driver.
   """
 
   alias AllbertAssist.External.HttpPolicy
