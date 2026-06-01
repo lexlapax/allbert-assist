@@ -2400,6 +2400,8 @@ Shipped scope:
 - Added the `./plugins/allbert.browser/` reviewed source-tree plugin alongside
   Telegram, email, StockSage, and the notes/files reference plugin. Browser
   process ownership lives in the plugin supervisor; core spawns no browser.
+  Operational control uses the reviewed plugin-owned Playwright/Chromium
+  bridge; deterministic release tests keep using the stub driver.
 - Registered `browser://session/<id>` as the session identity URI (ADR 0013
   v0.43 amendment); navigated URL targets keep their native
   `https://`/`http://` URI and are authorized through per-domain remembered
@@ -2438,6 +2440,8 @@ Shipped scope:
   bitmap encoding.
 - Added the workspace browser results panel under `:canvas_panels`; the panel calls
   only registered actions, never the driver.
+- Added `mix allbert.browser research <url>` as the operator wrapper over the
+  registered doctor/start/navigate/extract/close workflow.
 - Extended trace redaction: cookies, Authorization, full URLs with userinfo, and
   sensitive query parameter values are scrubbed from `memory/traces/`;
   raw page content lives in `<ALLBERT_HOME>/cache/browser/<session_id>/`,
@@ -2459,7 +2463,8 @@ ephemeral-only profiles, the browser-vs-HTTP routing predicate, and
 JavaScript-enabled rendering.
 
 Exit signal: a disposable-home operator can enable browser, pass
-`browser_doctor`, approve a session start and a navigation, receive
+`browser_doctor` through real local Playwright/Chromium, approve a session
+start and a navigation, receive
 bounded extracted evidence (HTML/markdown/text/PDF), see a screenshot with
 credential inputs redacted, and inspect redacted trace/audit records.
 Per-domain grants survive across navigations within a host; cross-domain

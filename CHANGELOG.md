@@ -18,18 +18,23 @@ Status: implemented as the v0.43 release. Current version metadata is
 ### Added
 
 - `./plugins/allbert.browser/` with browser settings, doctor, supervised
-  ephemeral sessions, stub/Playwright driver boundary, and registered
-  `browser_*` actions for doctor, start, navigate, extract, screenshot, click,
-  fill, download, session list/close, cache sweep, and research handoff.
+  ephemeral sessions, a real plugin-owned Playwright/Chromium bridge, the
+  deterministic stub driver used by release tests, and registered `browser_*`
+  actions for doctor, start, navigate, extract, screenshot, click, fill,
+  download, session list/close, cache sweep, and research handoff.
 - `browser://session/<id>` Resource Access identity, browser operation classes,
   seven `:browser_*` permission floors, per-domain navigation grants, and
   shared URL preflight via `External.HttpPolicy`.
 - Bounded browser evidence extraction for HTML, markdown, plain text, and a
   local bounded PDF text layer parser, plus cache artifacts under
   `<ALLBERT_HOME>/cache/browser/<session_id>/`.
-- Browser workspace results panel, operator/developer browser guides,
-  v0.43 intent descriptors, and the `mix allbert.test release.v043` deterministic
+- Browser workspace results panel, named browser surface modules,
+  operator/developer browser guides, `mix allbert.browser research <url>`, v0.43
+  intent descriptors, and the `mix allbert.test release.v043` deterministic
   stub-driver gate with redacted evidence JSON.
+- A true browser external smoke lane,
+  `mix allbert.test external-smoke -- browser_research`, that drives local
+  headless Chromium through Playwright against a local fixture.
 - Nineteen v0.43 browser security eval rows covering prompt injection,
   cross-domain grants, cookie/session redaction, screenshot redaction, form
   fill/download deny defaults, extraction caps, redirect escape, subresource
@@ -44,18 +49,28 @@ Status: implemented as the v0.43 release. Current version metadata is
 - Browser confirmations now include browser-specific resource metadata while
   preserving the v0.44 channel primitive forward pin for typed commands,
   buttons, and links.
+- Browser sessions now enforce max lifetime and idle timeout settings, browser
+  cache writes enforce `browser.cache.max_bytes` with oldest-first eviction,
+  the browser supervisor contributes the paused cache sweep job idempotently,
+  and `browser.navigation.allowed_domains` is enforced when non-empty.
 - Umbrella, core app, web app, and `CoreApp.version/0` metadata now report
   `0.43.0`.
 
 ### Verification
 
-- Focused M5 browser/action/eval suite passed: 17 tests, 0 failures.
-- `mix allbert.test release.v043` passed with 96 browser action/extractor tests,
-  11 browser security eval/inventory tests, 0 failures, and a passing secret
-  scan. Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v043/p0-13186/home/release_evidence/v043/release-v043-1780283155.json`.
-- `mix allbert.test release` passed Credo, 1,242 core tests, 112 web tests,
-  197 StockSage tests, 12 plugin tests, and Dialyzer with 0 errors.
+- R4 focused remediation tests passed:
+  `MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/tools/discovery_scan_test.exs apps/allbert_assist/test/allbert_assist/memory/review_cadence_test.exs`
+  (6 tests, 0 failures).
+- `MIX_ENV=test mix allbert.test external-smoke -- browser_research` passed
+  against the real Playwright driver (1 test, 0 failures).
+- `MIX_ENV=test mix allbert.test release.v043` passed with 102 browser
+  action/extractor tests, 11 browser security eval/inventory tests, 0 failures,
+  and a passing secret scan. Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v043/p0-13186/home/release_evidence/v043/release-v043-1780287830.json`.
+- Release warning gates passed: `MIX_ENV=test mix compile --warnings-as-errors`,
+  `mix credo --strict`, and `MIX_ENV=test mix dialyzer` with 0 errors.
+- Root `MIX_ENV=test mix test` passed: 1,249 core tests, 0 failures, 3 skipped;
+  112 web tests, 0 failures.
 
 ## v0.42.2 - Integration Effects And Release Gate
 

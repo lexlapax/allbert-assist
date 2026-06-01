@@ -1,8 +1,10 @@
 # Browser And Web Research
 
 Allbert v0.43 ships a policy-bounded browser plugin for rendered page
-research, screenshots, and bounded HTML/text/markdown/PDF extraction. Browser
-content is evidence only; it never grants permission or bypasses confirmation.
+research, screenshots, and bounded HTML/text/markdown/PDF extraction. It
+controls local headless Chromium through the reviewed plugin-owned Playwright
+bridge. Browser content is evidence only; it never grants permission or
+bypasses confirmation.
 
 ## Enable And Doctor
 
@@ -14,7 +16,20 @@ mix allbert.browser doctor
 The doctor records a redacted live-check envelope under
 `<ALLBERT_HOME>/cache/browser/doctor/state.json`. Session start fails closed
 when the doctor has never succeeded, is stale, or reports anything other than
-`ok`.
+`ok`. The Playwright bridge dependencies live under
+`plugins/allbert.browser/priv/playwright_bridge/`; package managers are not run
+during plugin discovery or browser action execution.
+
+## Research CLI
+
+```sh
+mix allbert.browser research "https://example.com" --extract-format=text
+```
+
+The research helper runs the same registered-action workflow as the runtime:
+doctor, start an approved CLI session, navigate with browser policy, extract,
+and close the session in cleanup. `--extract-format` accepts `text`,
+`markdown`, `html`, or `pdf`.
 
 ## Actions
 
@@ -34,6 +49,10 @@ when the doctor has never succeeded, is stale, or reports anything other than
 The `mix allbert.browser sessions list` and `sessions close <id>` helpers call
 the same registered actions for sessions visible to the current node.
 
+When `browser.navigation.allowed_domains` is non-empty, navigation is limited
+to those hosts. When it is empty, normal SSRF/private-network policy still
+applies and public hosts are allowed subject to confirmation/grants.
+
 ## Cache And Evidence
 
 Extraction and screenshot artifacts live under:
@@ -44,6 +63,12 @@ Extraction and screenshot artifacts live under:
 
 The workspace Browser panel renders recent cached extraction previews and
 screenshot links. Raw page/PDF content belongs in cache, not traces.
+
+Browser sessions are bounded by `browser.session.max_lifetime_ms`,
+`browser.session.idle_timeout_ms`, and `browser.session.max_concurrent`.
+Browser cache retention honors both `browser.cache.max_age_ms` and
+`browser.cache.max_bytes`; the plugin supervisor contributes the paused sweep
+job idempotently.
 
 ## Redaction And Denials
 

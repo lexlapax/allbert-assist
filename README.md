@@ -59,9 +59,11 @@ reference plugin. The 0.42.1/0.42.2 closeout hardens the discovery permission
 boundary, live trust baseline, CLI connect contract, notes/files metadata, real
 integration effect arguments, and deterministic `release.v042` gate.
 v0.43 adds the browser and web research plugin: policy-bounded browser
-sessions, doctor-gated ephemeral profiles, confirmed navigation, bounded
-HTML/markdown/text/PDF extraction, screenshot redaction, a browser results
-panel, browser intent handoff, and deterministic `release.v043` evidence.
+sessions, a real local Playwright/Chromium bridge, doctor-gated ephemeral
+profiles, confirmed navigation, bounded HTML/markdown/text/PDF extraction,
+screenshot redaction, `mix allbert.browser research`, a browser results panel,
+browser intent handoff, deterministic `release.v043` evidence, and a real
+browser external-smoke lane.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -117,10 +119,11 @@ Recent milestones:
   notes/files native reference plugin, with closeout hardening and a
   deterministic release smoke gate.
 - `v0.43.0`: Browser And Web Research - `./plugins/allbert.browser/`,
-  `browser://session/<id>` Resource Access, doctor-gated ephemeral sessions,
-  confirmed navigation, bounded extraction, screenshot redaction, denied-by-
-  default fill/download actions, browser results panel, and 19 browser security
-  eval rows with a deterministic `release.v043` gate.
+  `browser://session/<id>` Resource Access, real local Playwright/Chromium
+  control, doctor-gated ephemeral sessions, confirmed navigation, bounded
+  extraction, screenshot redaction, denied-by-default fill/download actions,
+  browser results panel, a research CLI, a real browser external smoke, and 19
+  browser security eval rows with a deterministic `release.v043` gate.
 - `v0.41.0`: Developer velocity and parallel test methodology - gate matrix,
   resource-lane taxonomy, partition-aware test helpers, focused/release aliases,
   and implementation-readiness annotations for downstream plans.
