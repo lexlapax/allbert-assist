@@ -178,14 +178,15 @@ eval surfaces until their capability work lands.
   `browser-malformed-pdf-fails-closed-001`,
   `browser-grant-cross-operation-deny-001`, and
   `browser-supply-chain-driver-binary-001`.
-- Discord, Slack, WhatsApp, Signal, iMessage, and Matrix identity mapping,
+- Discord, Slack, WhatsApp, Signal, and Matrix identity mapping,
   replay, pairing, group leakage, and callback ownership.
 - Voice, image, screenshot, and generated media resource retention, redaction,
   provider cost, and cloud-upload policy.
 - Marketplace-lite provenance, disabled/untrusted defaults, and denial of
   code-bearing remote plugin install.
-- API, ACP, MCP-server, and AG-UI/A2UI public protocol auth, rate limits,
-  CSP reconciliation, redaction, and confirmation ownership.
+- MCP-server public protocol auth, rate limits, redaction, and confirmation
+  ownership. API, ACP, and public AG-UI/A2UI bridge evals remain parked
+  post-1.0.
 - Operator-supervised self-improvement suggestion authority, disabled/untrusted
   draft defaults, repeated-use non-grants, reviewed memory/workflow draft
   facades, and v0.36/v0.37/v0.38 gate handoff.

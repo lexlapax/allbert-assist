@@ -234,26 +234,28 @@ Dependency order from here:
 43. v0.43 Browser and web research: browser-session Resource Access policy,
     sandboxed browser plugin, research/extract/screenshot actions, and bounded
     HTML/markdown/text/PDF extraction.
-44. v0.44 Channel Pack 1 (Discord and Slack) + ADR 0016 amendment for the
-    channel approval-primitive contract (`{list, button, typed_command, link}`).
-    Locks the channel approval shape before mobile channels need it.
-45. v0.45 Plan/Build mode and operator workflow YAML: workspace and channel UX
+44. v0.44 Plan/Build mode and operator workflow YAML: workspace and existing
+    channel UX
     over Objective Runtime, declarative workflow input (lives under
     `<ALLBERT_HOME>/workflows/`), plan preview, and subagent delegation
     visibility.
-46. v0.46 Marketplace lite — data shape + Allbert-author seeds only: catalog
+45. v0.45 Marketplace lite — data shape + Allbert-author seeds only: catalog
     schema, install path, provenance/hash/version/rollback metadata, with
     Allbert-author bundles only. Community-submission governance is parked.
     Starts the v0.51 ADR for settings schema migration policy (ADR 0046).
-47. v0.47 Operator-supervised self-improvement: marketplace-aware
+46. v0.46 Operator-supervised self-improvement: marketplace-aware
     trace-to-skill, workflow, template, and dynamic capability draft
     suggestions plus reviewed memory/workflow draft facades; no autonomous
     authority.
-48. v0.48 Voice modality: experimental STT/TTS resource/action path for CLI,
-    workspace, Discord voice, and Telegram voice-note ingestion.
-49. v0.49 Vision and image generation: image/screenshot resource classes,
+47. v0.47 Voice modality: experimental STT/TTS resource/action path for CLI,
+    workspace, and Telegram voice-note ingestion. Discord voice is deferred to
+    a focused follow-on after Channel Pack 1.
+48. v0.48 Vision and image generation: image/screenshot resource classes,
     vision model profile checks, image-generation action, workspace rendering,
     retention, redaction, and cost visibility.
+49. v0.49 Channel Pack 1 (Discord and Slack) + ADR 0016 amendment for the
+    channel approval-primitive contract (`{list, button, typed_command, link}`).
+    Locks the channel approval shape before mobile channels need it.
 50. v0.50 Channel Pack 2 — WhatsApp, Signal, and Matrix. iMessage is parked
     (macOS-only platform constraint).
 51. v0.50b MCP Server Mode: Allbert exposes registered actions as MCP tools
@@ -2449,11 +2451,11 @@ Shipped scope:
 - Preserved the routing predicate: v0.10 `external_network_request` and v0.11 inert
   `summarize_url`/`inspect_document` intact; browser is the graduated path
   when extraction needs DOM/JS or the operator explicitly asks.
-- Forward-pinned the v0.44 channel approval-primitive amendment: browser
+- Forward-pinned the v0.49 channel approval-primitive amendment: browser
   confirmations are expressible as `:typed_command` (CLI/email),
   `:button` (LiveView/Telegram/Discord/Slack), and `:link` (screenshot
   review).
-- v0.47 may mine v0.43 redacted trace envelopes as one pattern source;
+- v0.46 may mine v0.43 redacted trace envelopes as one pattern source;
   raw page content is out of bounds.
 
 Implementation consumed the locked decisions from `docs/plans/v0.43-plan.md`
@@ -2475,43 +2477,15 @@ support, persistent profiles + authenticated browser operation, headed
 mode, multi-tab/window orchestration, JS evaluation actions, broader
 document formats. All parked in `docs/plans/future-features.md`.
 
-## v0.44: Channel Pack 1 - Discord And Slack
+## v0.44: Plan/Build Mode And Operator Workflow YAML
 
 Plan: `docs/plans/v0.44-plan.md`
 Request flow: `docs/plans/v0.44-request-flow.md`
-ADR: `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
-(v0.44 amendment for approval primitives)
-
-Status: planned; implementation-ready for M0 after the v0.44 plan pass-2
-readiness patch. Promoted from `docs/archives/version-1.0-planning-03.md`;
-not implemented. Broadened in the post-v0.37 planning pass to lock the
-channel-approval primitive contract here (before v0.50 mobile channels need
-it).
-
-Expected direction:
-
-- Add Discord and Slack source-tree channel plugins.
-- Reuse v0.16 channel identity, event dedupe, runtime submission, Approval
-  Handoff, and redaction boundaries.
-- Prove workspace/server identity mapping, group/channel authorization, mention
-  handling, threaded replies, and callback affordances.
-- **Amend ADR 0016** to declare the four standardized approval primitives —
-  `{list, button, typed_command, link}` — each channel adapter declares its
-  supported subset in its plugin descriptor; `Approval.Handoff` picks the
-  highest-fidelity primitive available from an effective descriptor that
-  honors provider settings such as `render_approval_buttons: false`. Telegram:
-  button. Email: typed_command. Discord: button. Slack: button. Mobile
-  channels (v0.50) inherit the same contract.
-
-## v0.45: Plan/Build Mode And Operator Workflow YAML
-
-Plan: `docs/plans/v0.45-plan.md`
-Request flow: `docs/plans/v0.45-request-flow.md`
 ADR: `docs/adr/0041-plan-build-and-operator-workflow-yaml.md`
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
 not implemented. Workflow YAML location clarified in the post-v0.37 planning
-pass.
+pass. Moved before channel expansion in the pass-2 roadmap restructuring.
 
 Expected direction:
 
@@ -2520,16 +2494,18 @@ Expected direction:
   new execution engine.
 - **User-authored workflow YAML lives under
   `<ALLBERT_HOME>/workflows/<workflow-id>.yaml`**. Each file validates against
-  the v0.45 schema; unknown keys fail closed. Workflows are inert data; the
+  the v0.44 schema; unknown keys fail closed. Workflows are inert data; the
   runtime never executes them — it expands them into objective steps at
   request time.
 - Render plan previews, required capabilities/resources, confirmation points,
-  subagent delegation, and background objective progress.
+  subagent delegation, and background objective progress on existing surfaces
+  (workspace, CLI, Telegram, and email). Discord/Slack inherit summaries when
+  Channel Pack 1 lands in v0.49.
 
-## v0.46: Marketplace Lite (Data Shape + Allbert-Author Seeds)
+## v0.45: Marketplace Lite (Data Shape + Allbert-Author Seeds)
 
-Plan: `docs/plans/v0.46-plan.md`
-Request flow: `docs/plans/v0.46-request-flow.md`
+Plan: `docs/plans/v0.45-plan.md`
+Request flow: `docs/plans/v0.45-request-flow.md`
 ADR: `docs/adr/0043-marketplace-lite-trust-tier.md`
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
@@ -2541,7 +2517,7 @@ Expected direction:
 
 - Ship the catalog **schema**, install path, provenance/hash/version/rollback
   metadata, and disabled/untrusted-on-install default.
-- Ship **Allbert-author seed bundles only** for the v0.46 catalog (no
+- Ship **Allbert-author seed bundles only** for the v0.45 catalog (no
   community submissions, no external reviewers). Operators see a small but
   fully-reviewed catalog.
 - Community submission/review process is parked in `future-features.md` under
@@ -2556,18 +2532,19 @@ Expected direction:
   because marketplace adds new settings fragments; ADR is accepted before
   v0.51 implements the migration tool.
 
-## v0.47: Operator-Supervised Self-Improvement
+## v0.46: Operator-Supervised Self-Improvement
 
-Plan: `docs/plans/v0.47-plan.md`
-Request flow: `docs/plans/v0.47-request-flow.md`
+Plan: `docs/plans/v0.46-plan.md`
+Request flow: `docs/plans/v0.46-request-flow.md`
 ADR: `docs/adr/0045-operator-supervised-self-improvement-trust-tier.md`
 
 Status: planned. Promoted from the v1.0 planning follow-up; not implemented.
 
 Expected direction:
 
-- Consume v0.46 marketplace-lite metadata plus v0.40-v0.45 traces as
-  suggestion sources.
+- Consume v0.45 marketplace-lite metadata plus v0.40-v0.44 traces as
+  suggestion sources. Team-channel traces become an additional source after
+  v0.49 lands; they are not a v0.46 dependency.
 - Add trace-to-skill draft suggestions from repeated prompts, repeated action
   chains, corrections, failed intents, or operator-marked examples.
 - Add workflow/intention draft suggestions that turn repeated objective
@@ -2590,10 +2567,10 @@ Non-goals:
   or live workspace/canvas write facades.
 - No distributed multi-node or hosted multi-user execution model.
 
-## v0.48: Voice Modality
+## v0.47: Voice Modality
 
-Plan: `docs/plans/v0.48-plan.md`
-Request flow: `docs/plans/v0.48-request-flow.md`
+Plan: `docs/plans/v0.47-plan.md`
+Request flow: `docs/plans/v0.47-request-flow.md`
 ADR: `docs/adr/0042-audio-image-and-media-resource-classes.md`
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
@@ -2602,15 +2579,17 @@ Expected direction:
 
 - Add experimental STT/TTS capability as media resources and registered actions,
   not as a separate runtime.
-- Add CLI voice mode, workspace microphone affordance, Discord voice support,
-  and Telegram voice-note ingestion as transcribed runtime input.
+- Add CLI voice mode, workspace microphone affordance, and Telegram voice-note
+  ingestion as transcribed runtime input.
 - Keep captured audio bounded, redacted from traces by default, and retained
   only by explicit operator policy.
+- Defer Discord voice support to a focused follow-on after Discord lands in
+  v0.49.
 
-## v0.49: Vision And Image Generation
+## v0.48: Vision And Image Generation
 
-Plan: `docs/plans/v0.49-plan.md`
-Request flow: `docs/plans/v0.49-request-flow.md`
+Plan: `docs/plans/v0.48-plan.md`
+Request flow: `docs/plans/v0.48-request-flow.md`
 ADR: `docs/adr/0042-audio-image-and-media-resource-classes.md`
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
@@ -2621,6 +2600,34 @@ Expected direction:
 - Add vision-capable provider/model checks to the provider doctor path.
 - Add image generation as a registered action with provider profile, cost
   visibility, workspace rendering, retention, and redaction.
+
+## v0.49: Channel Pack 1 - Discord And Slack
+
+Plan: `docs/plans/v0.49-plan.md`
+Request flow: `docs/plans/v0.49-request-flow.md`
+ADR: `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
+(v0.49 amendment for approval primitives)
+
+Status: planned; implementation-ready for M0 after the channel plan pass-2
+readiness patch. Promoted from `docs/archives/version-1.0-planning-03.md`;
+not implemented. Moved after the v0.44-v0.48 capability arc because
+Discord/Slack expand operator reach rather than unlock the core 1.0
+capability stack.
+
+Expected direction:
+
+- Add Discord and Slack source-tree channel plugins.
+- Reuse v0.16 channel identity, event dedupe, runtime submission, Approval
+  Handoff, and redaction boundaries.
+- Prove workspace/server identity mapping, group/channel authorization, mention
+  handling, threaded replies, and callback affordances.
+- **Amend ADR 0016** to declare the four standardized approval primitives —
+  `{list, button, typed_command, link}` — each channel adapter declares its
+  supported subset in its plugin descriptor; `Approval.Handoff` picks the
+  highest-fidelity primitive available from an effective descriptor that
+  honors provider settings such as `render_approval_buttons: false`. Telegram:
+  button. Email: typed_command. Discord: button. Slack: button. Mobile
+  channels (v0.50) inherit the same contract.
 
 ## v0.50: Channel Pack 2 - WhatsApp, Signal, And Matrix
 
@@ -2636,7 +2643,7 @@ Expected direction:
 
 - Add WhatsApp, Signal, and Matrix plugins after the Discord/Slack channel
   patterns are proven.
-- Reuse the v0.44 ADR 0016 amendment for channel approval primitives. WhatsApp
+- Reuse the v0.49 ADR 0016 amendment for channel approval primitives. WhatsApp
   and Signal declare `typed_command` support; Matrix declares `button` for
   bot-room contexts and `typed_command` otherwise.
 - Keep provider-specific pairing, delivery/retry/dedupe, platform limits, and
@@ -2676,7 +2683,7 @@ Expected direction:
 Plan: `docs/plans/v0.51-plan.md`
 Request flow: `docs/plans/v0.51-request-flow.md`
 ADR: `docs/adr/0046-settings-schema-migration-policy.md` (accepted here;
-drafted in v0.46)
+drafted in v0.45)
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
 not implemented. Settings schema migration substrate added in the post-v0.37
@@ -2719,10 +2726,10 @@ Allbert is not behind OpenClaw or Hermes on architecture; it is ahead on
 architecture and behind on shipped capability. The v0.38-to-v1.0 arc is a
 delivery push over already-proven substrates: templates first, onboarding and
 provider control next, identity slot + Active Memory, then MCP client,
-MCP-first integrations, browser research, team channels, Plan/Build,
-marketplace seed, operator-supervised self-improvement, media, mobile
-channels, MCP server mode, hardening/export with settings migration, final RC
-evidence, and a tiered contract freeze.
+MCP-first integrations, browser research, Plan/Build, marketplace seed,
+operator-supervised self-improvement, media, team channels, mobile channels,
+MCP server mode, hardening/export with settings migration, final RC evidence,
+and a tiered contract freeze.
 
 The strategic moat is the safety architecture (Security Central, durable
 confirmations, Resource Access posture, sandbox/gate runner, reversible
@@ -2740,13 +2747,13 @@ disposable-home checkpoint the release cannot ship without:
    pinned by
    ADR 0047 and becomes a Tier-1 freeze contract at v1.0.
 3. Operator can connect at least one remote channel — Telegram, email,
-   Discord, Slack, WhatsApp, Signal, or Matrix (v0.16 / v0.44 / v0.50).
+   Discord, Slack, WhatsApp, Signal, or Matrix (v0.16 / v0.49 / v0.50).
 4. Operator can configure and use at least one MCP server under policy
    (v0.40).
 5. Operator can ask Allbert to research a web target with approved navigation
    scope (v0.43).
 6. Operator can review and approve a multi-step plan before execution
-   (v0.45).
+   (v0.44).
 7. Operator can export Allbert Home and re-import on a second machine with
    identical behavior, including settings migration (v0.51 + ADR 0046).
 8. All warning, security, precommit, and cross-surface eval gates pass
@@ -2762,11 +2769,11 @@ acceptance criteria are subjective or provider-dependent:
 - Tool discovery + MCP-first integration panels + notes/files reference plugin
   (v0.42) — the connect gate and discovery boundary are objective; registry
   coverage and search quality are ecosystem-dependent.
-- Marketplace seed catalog (v0.46) — content scarcity is honest; the data
+- Marketplace seed catalog (v0.45) — content scarcity is honest; the data
   shape is the deliverable.
-- Self-improvement suggestion quality (v0.47) — quality bar is subjective.
-- Voice (v0.48) — explicitly experimental.
-- Vision and image generation (v0.49) — provider-dependent quality.
+- Self-improvement suggestion quality (v0.46) — quality bar is subjective.
+- Voice (v0.47) — explicitly experimental.
+- Vision and image generation (v0.48) — provider-dependent quality.
 - MCP Server Mode (v0.50b) — external-client interop is verifiable but
   ecosystem maturity varies.
 
@@ -2790,7 +2797,7 @@ Expected direction:
 
 - Explore small-model memory/personality distillation only after memory,
   deletion, trace quality, reproducibility, and evals are trustworthy.
-- Explore autonomous skill creation only after the v0.47 supervised precursor
+- Explore autonomous skill creation only after the v0.46 supervised precursor
   proves suggestion quality, review ergonomics, and safety invariants.
 - Explore deeper self-modification only if it remains reviewable, reversible,
   auditable, and bounded by explicit operator authority.

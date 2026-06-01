@@ -21,8 +21,8 @@ lexical Active Memory retrieval over reviewed `:kept` entries scoped to
 `{thread_id, active_app, identity_namespace}`. Replayable from traces.
 No embeddings; no learned ranking.
 
-v0.47 plans operator-supervised trace-derived draft suggestions. Neither
-v0.39b nor v0.47 trains, distills, or creates a learned system-memory
+v0.46 plans operator-supervised trace-derived draft suggestions. Neither
+v0.39b nor v0.46 trains, distills, or creates a learned system-memory
 authority.
 
 Still parked:
@@ -37,7 +37,7 @@ Still parked:
 
 Status: parked.
 
-v0.47 plans operator-supervised, inert trace-to-skill and trace-to-workflow
+v0.46 plans operator-supervised, inert trace-to-skill and trace-to-workflow
 draft suggestions. Drafts remain disabled/untrusted until reviewed and
 confirmed.
 
@@ -48,12 +48,12 @@ Still parked:
 - broad execution permissions derived from repeated use or model confidence;
 - autonomous package install, remote plugin install, or arbitrary code loading.
 
-### Dynamic Capability Expansion Beyond v0.47 Facades
+### Dynamic Capability Expansion Beyond v0.46 Facades
 
 Status: parked.
 
 v0.36-v0.38 now define the supervised dynamic capability path: sandbox/gate
-evidence, dynamic action integration, and templated creation. v0.47 may add
+evidence, dynamic action integration, and templated creation. v0.46 may add
 only reviewed delegate facades for memory promotion/update drafts and
 objective/workflow draft writes.
 
@@ -61,7 +61,7 @@ Still parked:
 
 - settings, secrets, shell, package-install, confirmation-decision, trust, or
   live workspace/canvas write facades;
-- broader generated-permission ceilings beyond the reviewed v0.47 memory and
+- broader generated-permission ceilings beyond the reviewed v0.46 memory and
   workflow draft paths;
 - unsupervised self-recompilation, compiler-loop bootstrapping, or runtime
   mutation outside the v0.36/v0.37/v0.38 review path.
@@ -70,8 +70,8 @@ Still parked:
 
 Status: parked.
 
-Discord and Slack are planned for v0.44. WhatsApp, Signal, iMessage, and Matrix
-are planned for v0.50. SMS remains parked.
+Discord and Slack are planned for v0.49. WhatsApp, Signal, and Matrix are
+planned for v0.50. SMS and iMessage remain parked.
 
 Still parked:
 
@@ -202,7 +202,7 @@ redaction, and eval story before re-entry.
 
 Status: parked.
 
-v0.46 plans marketplace-lite metadata and reviewed skill/template discovery.
+v0.45 plans marketplace-lite metadata and reviewed skill/template discovery.
 It does not install arbitrary remote code.
 
 Still parked:
@@ -347,7 +347,7 @@ Each follow-on is a small focused release. None block v1.0.
 
 Status: parked. Added in the post-v0.37 planning pass.
 
-v0.46 marketplace lite ships single-vendor (Allbert-author seed bundles
+v0.45 marketplace lite ships single-vendor (Allbert-author seed bundles
 only). A submission/review process for community contributions requires:
 
 - submission workflow (PR against an index repo? hosted form?);
@@ -385,7 +385,7 @@ Still parked:
 
 Status: parked. Added in the post-v0.37 planning pass.
 
-Voice (v0.48) and vision (v0.49) ship per-feature cost visibility at
+Voice (v0.47) and vision (v0.48) ship per-feature cost visibility at
 confirmation time. Power operators will want a unified cross-provider
 dashboard.
 
@@ -450,7 +450,7 @@ Still parked:
 Status: parked. Added in the post-v0.37 planning pass.
 
 Reviewed plugins (Allbert-author and, post-1.0, community-submitted) will
-release new versions over time. v0.46 marketplace ships single-snapshot
+release new versions over time. v0.45 marketplace ships single-snapshot
 catalogs; updating means upgrading Allbert.
 
 Still parked:

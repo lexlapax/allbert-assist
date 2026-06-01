@@ -119,7 +119,7 @@ explicitly deferred with documented placeholders.
 ## v0.43 Browser Confirmation Forward Pin
 
 Browser navigation, click, and screenshot review introduced in v0.43 fit the
-existing channel boundary and the v0.44 approval-primitive amendment:
+existing channel boundary and the v0.49 approval-primitive amendment:
 
 - CLI and email can express approval through `:typed_command`.
 - LiveView and Telegram can express approval through `:button`.
@@ -202,13 +202,13 @@ list.
 - Proactive broadcast and scheduled outbound messaging.
 - UI protocol interop and workspace-native channel surfaces.
 
-## v0.44 Amendment: Channel Approval Primitives
+## v0.49 Amendment: Channel Approval Primitives
 
-Status: Proposed for v0.44 Channel Pack 1 - Discord And Slack
-(`docs/plans/v0.44-plan.md`). Becomes binding for v0.44 and all later
+Status: Proposed for v0.49 Channel Pack 1 - Discord And Slack
+(`docs/plans/v0.49-plan.md`). Becomes binding for v0.49 and all later
 channel adapters including v0.50 mobile channels.
 
-M5 closeout flips this line to `Accepted for v0.44 Channel Pack 1 -
+M5 closeout flips this line to `Accepted for v0.49 Channel Pack 1 -
 Discord And Slack` per the §"M5 Closeout Discipline" checklist in the
 plan.
 
@@ -217,7 +217,7 @@ plan.
 v0.16 shipped two adapters with two different approval-rendering shapes:
 Telegram inline keyboard buttons and email typed commands. v0.17 packaged
 both as plugin adapters but did not formalize the rendering contract. By
-v0.44 (Discord + Slack), the field needs Discord buttons / Slack Block Kit;
+v0.49 (Discord + Slack), the field needs Discord buttons / Slack Block Kit;
 v0.50 mobile channels need WhatsApp typed commands, Signal typed commands,
 and Matrix buttons-or-typed-commands. Without a formal primitive set, each
 adapter would re-invent its own Approval Handoff rendering.
@@ -271,13 +271,13 @@ Adapters MUST always declare `:list` as a fallback. Adapters that ship without
 declaring the supported set MUST be rejected by the channel registry.
 
 The declarations live in the channel descriptor map returned by
-`<Plugin>.channels/0`, in a new `primitives:` field added at v0.44:
+`<Plugin>.channels/0`, in a new `primitives:` field added at v0.49:
 
 ```elixir
 %{
   channel_id: "telegram",
   # ...existing v0.17 descriptor fields...
-  primitives: [:button, :typed_command, :list]   # v0.44 amendment
+  primitives: [:button, :typed_command, :list]   # v0.49 amendment
 }
 ```
 
@@ -287,7 +287,7 @@ empty list, declaring an unknown primitive, or omitting `:list`. The
 selection rule consumes the field at the `Approval.Handoff.render/2`
 boundary (see plan §"Approval Primitive Selection"); existing
 Telegram + email renderers consume the selected primitive instead of
-hand-rolling their choice (v0.44 M0).
+hand-rolling their choice (v0.49 M0).
 
 ### Non-Goals For This Amendment
 
@@ -296,13 +296,13 @@ hand-rolling their choice (v0.44 M0).
 - No new permission classes or confirmation shapes.
 - No bypass of `Actions.Runner.run/3`, Security Central, or the durable
   confirmation store.
-- No primitive that returns rich operator input beyond the three v0.44
+- No primitive that returns rich operator input beyond the three v0.49
   callback verbs: approve, deny, and show. Any future defer semantics require
   a separate confirmation-action design and ADR/plan update.
 
 ### Consequences
 
-- v0.44 lands Discord and Slack with `:button` rendering through the same
+- v0.49 lands Discord and Slack with `:button` rendering through the same
   Approval Handoff path as Telegram.
 - v0.50 lands WhatsApp/Signal/Matrix with explicit primitive declarations
   rather than ad-hoc rendering.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (draft begins during v0.46 Marketplace Lite because marketplace adds
+Proposed (draft begins during v0.45 Marketplace Lite because marketplace adds
 new settings fragments). Accepted at v0.51 Hardening + Export/Import + Final
 RC where the migration tool ships.
 
@@ -162,9 +162,9 @@ one-release warning cycle.
 
 ## Implementation Timing
 
-- **v0.46 Marketplace Lite**: draft ADR 0046 begins because marketplace
+- **v0.45 Marketplace Lite**: draft ADR 0046 begins because marketplace
   introduces new fragment keys and is a good test case for the policy.
-- **v0.47-v0.50 milestones**: each new fragment SHOULD declare
+- **v0.46-v0.50 milestones**: each new fragment SHOULD declare
   `schema_version: 1` and add deprecation metadata for any key changes per
   this policy (even if the migration tool does not yet exist).
 - **v0.51 Hardening**: ADR 0046 accepted; `mix allbert.settings.migrate`

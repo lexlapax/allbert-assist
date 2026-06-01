@@ -55,12 +55,12 @@ Do not load every section by default.
 | Developer velocity, test strategy, precommit gate matrix, async eligibility, test-lane/resource isolation, implementation-readiness audits, milestone parallelization annotations, and the temporary Memento/Jido compatibility override | ADR 0049, ADR 0050, `docs/plans/v0.41-plan.md`, `docs/plans/v0.41-request-flow.md`, `docs/developer/test-strategy.md`, `DEVELOPMENT.md` | v0.41 |
 | Tool discovery: `find_tools` source port (local + internet MCP-registry adapters, optional keyed providers only when configured), persisted candidates/evaluations, `mcp_server_connect` confirmation gate, opt-in background scan to a passive surface | ADR 0048, ADR 0038, ADR 0011, ADR 0033, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
 | MCP-first integration pack 1: calendar/mail/GitHub MCP panels + notes/files native reference plugin | ADR 0015, ADR 0017, ADR 0039, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
-| Browser and web research: `./plugins/allbert.browser/` plugin with real local Playwright/Chromium control, `browser://session/<id>` identity, six browser operation classes, seven `:browser_*` permission classes, `browser.*` settings namespace, per-domain remembered grants on navigated URLs, two-layer network policy (top-level via `External.HttpPolicy` + subresources via `AllbertBrowser.NetworkPolicy`), bounded HTML/markdown/text/PDF extraction, credential-input screenshot redaction, ephemeral profiles, workspace results panel, doctor (ADR 0047 shape), v0.44 channel-primitive forward pin | ADR 0011, ADR 0012, ADR 0013 (v0.43 amendment), ADR 0017, ADR 0023, ADR 0025, ADR 0027, ADR 0033, ADR 0040 (binding), ADR 0047, ADR 0049, `docs/plans/v0.43-plan.md`, `docs/plans/v0.43-request-flow.md` | v0.43 |
-| Discord and Slack channel plugins + ADR 0016 amendment for channel approval primitives | ADR 0016, ADR 0017, `docs/plans/v0.44-plan.md`, `docs/plans/v0.44-request-flow.md` | v0.44 |
-| Plan/Build mode and operator workflow YAML (under `<ALLBERT_HOME>/workflows/`) | ADR 0021, ADR 0027, ADR 0041, `docs/plans/v0.45-plan.md`, `docs/plans/v0.45-request-flow.md` | v0.45 |
-| Marketplace lite (data shape + Allbert-author seeds) | ADR 0043, ADR 0046 (drafted), `docs/plans/v0.46-plan.md`, `docs/plans/v0.46-request-flow.md` | v0.46 |
-| Operator-supervised self-improvement, trace-to-skill draft suggestions, dynamic capability review loops | ADR 0045, `docs/plans/v0.47-plan.md`, `docs/plans/v0.47-request-flow.md`, `docs/plans/future-features.md`, ADR 0032, ADR 0035, ADR 0037 | v0.47 |
-| Voice, vision, and media resources | ADR 0042, `docs/plans/v0.48-plan.md`, `docs/plans/v0.48-request-flow.md`, `docs/plans/v0.49-plan.md`, `docs/plans/v0.49-request-flow.md` | v0.48-v0.49 |
+| Browser and web research: `./plugins/allbert.browser/` plugin with real local Playwright/Chromium control, `browser://session/<id>` identity, six browser operation classes, seven `:browser_*` permission classes, `browser.*` settings namespace, per-domain remembered grants on navigated URLs, two-layer network policy (top-level via `External.HttpPolicy` + subresources via `AllbertBrowser.NetworkPolicy`), bounded HTML/markdown/text/PDF extraction, credential-input screenshot redaction, ephemeral profiles, workspace results panel, doctor (ADR 0047 shape), v0.49 channel-primitive forward pin | ADR 0011, ADR 0012, ADR 0013 (v0.43 amendment), ADR 0017, ADR 0023, ADR 0025, ADR 0027, ADR 0033, ADR 0040 (binding), ADR 0047, ADR 0049, `docs/plans/v0.43-plan.md`, `docs/plans/v0.43-request-flow.md` | v0.43 |
+| Plan/Build mode and operator workflow YAML (under `<ALLBERT_HOME>/workflows/`) | ADR 0021, ADR 0027, ADR 0041, `docs/plans/v0.44-plan.md`, `docs/plans/v0.44-request-flow.md` | v0.44 |
+| Marketplace lite (data shape + Allbert-author seeds) | ADR 0043, ADR 0046 (drafted), `docs/plans/v0.45-plan.md`, `docs/plans/v0.45-request-flow.md` | v0.45 |
+| Operator-supervised self-improvement, trace-to-skill draft suggestions, dynamic capability review loops | ADR 0045, `docs/plans/v0.46-plan.md`, `docs/plans/v0.46-request-flow.md`, `docs/plans/future-features.md`, ADR 0032, ADR 0035, ADR 0037 | v0.46 |
+| Voice, vision, and media resources | ADR 0042, `docs/plans/v0.47-plan.md`, `docs/plans/v0.47-request-flow.md`, `docs/plans/v0.48-plan.md`, `docs/plans/v0.48-request-flow.md` | v0.47-v0.48 |
+| Discord and Slack channel plugins + ADR 0016 amendment for channel approval primitives | ADR 0016, ADR 0017, `docs/plans/v0.49-plan.md`, `docs/plans/v0.49-request-flow.md` | v0.49 |
 | Channel Pack 2: WhatsApp, Signal, Matrix (iMessage parked) | ADR 0016, ADR 0017, `docs/plans/v0.50-plan.md`, `docs/plans/v0.50-request-flow.md` | v0.50 |
 | MCP server mode (Allbert exposes registered actions as MCP tools; memory namespaces as MCP resources) | ADR 0044, `docs/plans/v0.50b-plan.md`, `docs/plans/v0.50b-request-flow.md` | v0.50b |
 | Release candidate hardening, export/import, settings schema migration, 1.0 tiered contract freeze | ADR 0046, `docs/plans/v0.51-plan.md`, `docs/plans/v0.51-request-flow.md`, `docs/plans/v1.0-plan.md`, `docs/plans/v1.0-request-flow.md` | v0.51-v1.0 |
@@ -439,33 +439,33 @@ Implemented v0.41 gates:
   via `External.HttpPolicy` + subresources via `AllbertBrowser.NetworkPolicy`),
   a workspace browser results panel under `:canvas_panels`, and a paused-by-
   default cache sweep job. Page content is descriptive evidence, never
-  authority. Forward-pins v0.44 channel approval-primitive amendment with
+  authority. Forward-pins v0.49 channel approval-primitive amendment with
   `:typed_command`, `:button`, and `:link` confirmation shapes. v0.43.x
   follow-on candidates (Windows/WSL2, persistent profiles, authenticated
   operation, headed mode, multi-tab, JS evaluation) parked in
   `docs/plans/future-features.md`.
-- v0.44 (planned): Channel Pack 1 - Discord And Slack. Adds team/community chat
-  plugins over the existing channel substrate and amends ADR 0016 to lock the
-  channel approval-primitive contract (`{list, button, typed_command, link}`)
-  before mobile channels need it.
-- v0.45 (planned): Plan/Build Mode And Operator Workflow YAML. Exposes
+- v0.44 (planned): Plan/Build Mode And Operator Workflow YAML. Exposes
   Objective Runtime as a plan/review/execute surface and treats YAML as
   declarative objective-step input. Workflow YAML lives under
   `<ALLBERT_HOME>/workflows/`.
-- v0.46 (planned): Marketplace Lite — data shape + Allbert-author seeds only.
+- v0.45 (planned): Marketplace Lite — data shape + Allbert-author seeds only.
   Adds catalog schema, install path, provenance/hash/version/rollback metadata,
   and reviewed Allbert-author seed bundles. Community submissions parked.
   Drafts ADR 0046 for v0.51.
-- v0.47 (planned): Operator-Supervised Self-Improvement. Adds no autonomous
+- v0.46 (planned): Operator-Supervised Self-Improvement. Adds no autonomous
   authority; proposes inert trace-to-skill, workflow, template, and dynamic
   capability drafts that must still route through v0.36 sandbox/gate, v0.37
   dynamic integration, v0.38 templates, Security Central, confirmations, traces,
   and audits. May add reviewed memory promotion/update draft facades and
   objective/workflow draft-write facades only.
-- v0.48 (planned): Voice Modality. Adds STT/TTS as media resources and
-  registered actions.
-- v0.49 (planned): Vision And Image Generation. Adds image/screenshot resources
+- v0.47 (planned): Voice Modality. Adds STT/TTS as media resources and
+  registered actions; Discord voice is deferred until after Discord exists.
+- v0.48 (planned): Vision And Image Generation. Adds image/screenshot resources
   and provider-backed image generation.
+- v0.49 (planned): Channel Pack 1 - Discord And Slack. Adds team/community chat
+  plugins over the existing channel substrate and amends ADR 0016 to lock the
+  channel approval-primitive contract (`{list, button, typed_command, link}`)
+  before mobile channels need it.
 - v0.50 (planned): Channel Pack 2 - WhatsApp, Signal, And Matrix. iMessage
   parked (macOS-only platform constraint).
 - v0.50b (planned): MCP Server Mode. Allbert exposes registered actions as
