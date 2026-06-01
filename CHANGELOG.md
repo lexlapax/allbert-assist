@@ -63,14 +63,15 @@ Status: implemented as the v0.43 release. Current version metadata is
   (6 tests, 0 failures).
 - `MIX_ENV=test mix allbert.test external-smoke -- browser_research` passed
   against the real Playwright driver (1 test, 0 failures).
-- `MIX_ENV=test mix allbert.test release.v043` passed with 102 browser
+- `MIX_ENV=test mix allbert.test release.v043` passed with 104 browser
   action/extractor tests, 11 browser security eval/inventory tests, 0 failures,
   and a passing secret scan. Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v043/p0-13186/home/release_evidence/v043/release-v043-1780287830.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v043/p0-13189/home/release_evidence/v043/release-v043-1780326274.json`.
 - Release warning gates passed: `MIX_ENV=test mix compile --warnings-as-errors`,
   `mix credo --strict`, and `MIX_ENV=test mix dialyzer` with 0 errors.
-- Root `MIX_ENV=test mix test` passed: 1,249 core tests, 0 failures, 3 skipped;
-  112 web tests, 0 failures.
+- `MIX_ENV=test mix allbert.test release` passed Credo strict, 1,251 core
+  tests, 112 web tests, 197 StockSage tests, 12 plugin tests, and Dialyzer
+  with 0 errors.
 
 ## v0.42.2 - Integration Effects And Release Gate
 
