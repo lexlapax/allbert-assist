@@ -63,7 +63,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
       restore_env(Paths, original_paths_config)
       restore_env(Runtime, original_config)
       restore_env(Settings, original_settings_config)
-      File.rm_rf!(root)
+      remove_test_root!(root)
     end)
   end
 
@@ -2264,6 +2264,27 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   defp render_until_missing(view, selector, 0) do
     refute has_element?(view, selector)
     render(view)
+  end
+
+  defp remove_test_root!(root, attempts \\ 5)
+
+  defp remove_test_root!(root, 0), do: File.rm_rf!(root)
+
+  defp remove_test_root!(root, attempts) do
+    case File.rm_rf(root) do
+      {:ok, _paths} ->
+        :ok
+
+      {:error, :eexist, _path} ->
+        Process.sleep(25)
+        remove_test_root!(root, attempts - 1)
+
+      {:error, reason, path} ->
+        raise File.Error,
+          action: "remove files and directories recursively from",
+          path: path,
+          reason: reason
+    end
   end
 
   defp live_security_eval(fixture, decision, trace) do

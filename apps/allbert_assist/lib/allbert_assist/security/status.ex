@@ -6,6 +6,9 @@ defmodule AllbertAssist.Security.Status do
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.Policy
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Schema
+  alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.Settings.Store
 
   @future_boundaries [
     %{name: :confirmation_queue, milestone: "v0.07", status: :implemented},
@@ -17,20 +20,46 @@ defmodule AllbertAssist.Security.Status do
   @doc "Return redacted read-only security status."
   @spec summary(map()) :: map()
   def summary(context \\ %{}) when is_map(context) do
+    status =
+      case Store.resolved_settings() do
+        {:ok, settings, _user_settings} ->
+          summary_from_settings(context, settings)
+
+        {:error, reason} ->
+          summary_from_settings_error(context, reason)
+      end
+
+    Redactor.redact(status)
+  end
+
+  defp summary_from_settings(context, settings) do
     %{
-      permission_defaults: permission_defaults(context),
+      permission_defaults: permission_defaults(context, settings),
       safety_floors: safety_floors(),
-      skill_trust: skill_trust_summary(),
-      capability_boundaries: capability_boundaries_summary(),
-      secret_status: secret_status_summary(),
+      skill_trust: skill_trust_summary(settings),
+      capability_boundaries: capability_boundaries_summary(settings),
+      secret_status: secret_status_summary(settings),
       redaction_posture: Redactor.posture(),
       future_boundaries: @future_boundaries
     }
-    |> Redactor.redact()
   end
 
-  defp permission_defaults(context) do
-    Enum.map(Policy.permission_policies(context), fn policy ->
+  defp summary_from_settings_error(context, reason) do
+    settings_error = inspect(reason)
+
+    %{
+      permission_defaults: permission_defaults(context, %{}),
+      safety_floors: safety_floors(),
+      skill_trust: %{error: settings_error},
+      capability_boundaries: capability_boundaries_summary(Settings.defaults()),
+      secret_status: %{error: settings_error},
+      redaction_posture: Redactor.posture(),
+      future_boundaries: @future_boundaries
+    }
+  end
+
+  defp permission_defaults(context, settings) do
+    Enum.map(Policy.permission_policies(context, settings), fn policy ->
       %{
         permission: policy.permission,
         setting_key: policy.setting_key,
@@ -50,90 +79,106 @@ defmodule AllbertAssist.Security.Status do
     end)
   end
 
-  defp skill_trust_summary do
-    case Settings.list("skills") do
-      {:ok, settings} ->
-        %{
-          configured_settings: length(settings),
-          enabled_count: count_setting(settings, "skills.enabled"),
-          disabled_count: count_setting(settings, "skills.disabled"),
-          trusted_project_roots_count: count_setting(settings, "skills.trusted_project_roots")
-        }
+  defp skill_trust_summary(settings) do
+    skill_settings = settings_entries(settings, "skills")
 
-      {:error, reason} ->
-        %{error: inspect(reason)}
-    end
+    %{
+      configured_settings: length(skill_settings),
+      enabled_count: count_setting(skill_settings, "skills.enabled"),
+      disabled_count: count_setting(skill_settings, "skills.disabled"),
+      trusted_project_roots_count: count_setting(skill_settings, "skills.trusted_project_roots")
+    }
   end
 
-  defp secret_status_summary do
-    case Settings.list_provider_profiles() do
-      {:ok, providers} ->
-        %{
-          providers: length(providers),
-          configured: Enum.count(providers, &(&1.credential_status == :configured)),
-          missing: Enum.count(providers, &(&1.credential_status == :missing))
-        }
+  defp secret_status_summary(settings) do
+    credential_statuses =
+      settings
+      |> Map.get("providers", %{})
+      |> Enum.map(fn {_name, attrs} -> attrs |> Map.get("api_key_ref") |> secret_status() end)
 
-      {:error, reason} ->
-        %{error: inspect(reason)}
-    end
+    %{
+      providers: length(credential_statuses),
+      configured: Enum.count(credential_statuses, &(&1 == :configured)),
+      missing: Enum.count(credential_statuses, &(&1 == :missing))
+    }
   end
 
-  defp capability_boundaries_summary do
+  defp capability_boundaries_summary(settings) do
     %{
       external_services: %{
-        enabled: setting("external_services.enabled", false),
-        allowed_hosts_count: length(setting("external_services.allowed_hosts", [])),
-        allowed_methods: setting("external_services.allowed_methods", []),
-        profiles_count: map_size(setting("external_services.profiles", %{})),
-        allow_redirects: setting("external_services.allow_redirects", false),
-        retry_policy: setting("external_services.retry_policy", "none"),
-        max_response_bytes: setting("external_services.max_response_bytes", nil)
+        enabled: setting(settings, "external_services.enabled", false),
+        allowed_hosts_count: length(setting(settings, "external_services.allowed_hosts", [])),
+        allowed_methods: setting(settings, "external_services.allowed_methods", []),
+        profiles_count: map_size(setting(settings, "external_services.profiles", %{})),
+        allow_redirects: setting(settings, "external_services.allow_redirects", false),
+        retry_policy: setting(settings, "external_services.retry_policy", "none"),
+        max_response_bytes: setting(settings, "external_services.max_response_bytes", nil)
       },
       package_installs: %{
-        enabled: setting("package_installs.enabled", false),
-        allowed_roots_count: length(setting("package_installs.allowed_roots", [])),
-        allowed_managers: setting("package_installs.allowed_managers", []),
-        lifecycle_scripts_allowed: setting("package_installs.lifecycle_scripts_allowed", false),
-        git_dependencies_allowed: setting("package_installs.git_dependencies_allowed", false),
-        global_installs_allowed: setting("package_installs.global_installs_allowed", false),
-        max_output_bytes: setting("package_installs.max_output_bytes", nil)
+        enabled: setting(settings, "package_installs.enabled", false),
+        allowed_roots_count: length(setting(settings, "package_installs.allowed_roots", [])),
+        allowed_managers: setting(settings, "package_installs.allowed_managers", []),
+        lifecycle_scripts_allowed:
+          setting(settings, "package_installs.lifecycle_scripts_allowed", false),
+        git_dependencies_allowed:
+          setting(settings, "package_installs.git_dependencies_allowed", false),
+        global_installs_allowed:
+          setting(settings, "package_installs.global_installs_allowed", false),
+        max_output_bytes: setting(settings, "package_installs.max_output_bytes", nil)
       },
       online_skill_import: %{
-        enabled: setting("skills.online_import.enabled", false),
-        allowed_sources: setting("skills.online_import.allowed_sources", []),
-        max_listing_results: setting("skills.online_import.max_listing_results", nil),
-        max_download_bytes: setting("skills.online_import.max_download_bytes", nil),
-        trust_after_import: setting("skills.online_import.trust_after_import", false)
+        enabled: setting(settings, "skills.online_import.enabled", false),
+        allowed_sources: setting(settings, "skills.online_import.allowed_sources", []),
+        max_listing_results: setting(settings, "skills.online_import.max_listing_results", nil),
+        max_download_bytes: setting(settings, "skills.online_import.max_download_bytes", nil),
+        trust_after_import: setting(settings, "skills.online_import.trust_after_import", false)
       },
       plugin_app_registration: %{
-        plugins_registration_enabled: setting("plugins.registration_enabled", true),
-        app_registry_registration_enabled: setting("app_registry.registration_enabled", true)
+        plugins_registration_enabled: setting(settings, "plugins.registration_enabled", true),
+        app_registry_registration_enabled:
+          setting(settings, "app_registry.registration_enabled", true)
       },
       workspace_fragments: %{
-        emission_enabled: setting("workspace.fragment.emission_enabled", true),
-        rate_limit_per_second: setting("workspace.fragment.rate_limit_per_second", nil),
+        emission_enabled: setting(settings, "workspace.fragment.emission_enabled", true),
+        rate_limit_per_second: setting(settings, "workspace.fragment.rate_limit_per_second", nil),
         receiver_rate_limit_per_second:
-          setting("workspace.fragment.receiver_rate_limit_per_second", nil),
-        payload_max_bytes: setting("workspace.fragment.payload_max_bytes", nil)
+          setting(settings, "workspace.fragment.receiver_rate_limit_per_second", nil),
+        payload_max_bytes: setting(settings, "workspace.fragment.payload_max_bytes", nil)
       }
     }
   end
 
-  defp count_setting(settings, key) do
-    settings
-    |> Enum.find(%{value: []}, &(&1.key == key))
-    |> Map.get(:value)
+  defp count_setting(settings_entries, key) do
+    settings_entries
+    |> Enum.find({key, []}, fn {setting_key, _value} -> setting_key == key end)
+    |> elem(1)
     |> case do
       values when is_list(values) -> length(values)
       _other -> 0
     end
   end
 
-  defp setting(key, default) do
-    case Settings.get(key) do
-      {:ok, value} -> value
-      _other -> default
+  defp setting(settings, key, default) do
+    case Schema.get_dotted(settings, key) do
+      nil -> default
+      value -> value
     end
   end
+
+  defp secret_status(nil), do: :missing
+  defp secret_status(secret_ref), do: Secrets.status(secret_ref)
+
+  defp settings_entries(settings, namespace) do
+    settings
+    |> flatten_settings()
+    |> Enum.filter(fn {key, _value} -> String.starts_with?(key, namespace) end)
+  end
+
+  defp flatten_settings(settings), do: flatten_settings(settings, [])
+
+  defp flatten_settings(settings, prefix) when is_map(settings) do
+    Enum.flat_map(settings, fn {key, value} -> flatten_settings(value, prefix ++ [key]) end)
+  end
+
+  defp flatten_settings(value, prefix), do: [{Enum.join(prefix, "."), value}]
 end

@@ -12,6 +12,7 @@ defmodule AllbertAssist.Plugin.Registry do
   alias AllbertAssist.Plugin.Entry
   alias AllbertAssist.Plugin.Validator
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Fragments, as: SettingsFragments
 
   @default_table :allbert_plugin_registry
   @control_opts [:server]
@@ -50,21 +51,27 @@ defmodule AllbertAssist.Plugin.Registry do
 
   @spec register_module(module(), keyword()) :: {:ok, String.t()} | {:error, term()}
   def register_module(module, opts \\ []) do
-    GenServer.call(server(opts), {:register_module, module, registration_opts(opts)})
+    result = GenServer.call(server(opts), {:register_module, module, registration_opts(opts)})
+    if match?({:ok, _plugin_id}, result), do: clear_settings_schema_cache()
+    result
   catch
     :exit, _reason -> {:error, :unavailable}
   end
 
   @spec register_manifest(map(), keyword()) :: {:ok, String.t()} | {:error, term()}
   def register_manifest(manifest, opts \\ []) do
-    GenServer.call(server(opts), {:register_manifest, manifest, registration_opts(opts)})
+    result = GenServer.call(server(opts), {:register_manifest, manifest, registration_opts(opts)})
+    if match?({:ok, _plugin_id}, result), do: clear_settings_schema_cache()
+    result
   catch
     :exit, _reason -> {:error, :unavailable}
   end
 
   @spec register_entry(Entry.t(), keyword()) :: {:ok, String.t()} | {:error, term()}
   def register_entry(%Entry{} = entry, opts \\ []) do
-    GenServer.call(server(opts), {:register_entry, entry})
+    result = GenServer.call(server(opts), {:register_entry, entry})
+    if match?({:ok, _plugin_id}, result), do: clear_settings_schema_cache()
+    result
   catch
     :exit, _reason -> {:error, :unavailable}
   end
@@ -157,7 +164,9 @@ defmodule AllbertAssist.Plugin.Registry do
 
   @spec clear(keyword()) :: :ok
   def clear(opts \\ []) do
-    GenServer.call(server(opts), :clear)
+    result = GenServer.call(server(opts), :clear)
+    clear_settings_schema_cache()
+    result
   catch
     :exit, _reason -> :ok
   end
@@ -287,6 +296,14 @@ defmodule AllbertAssist.Plugin.Registry do
     GenServer.call(server(opts), message)
   catch
     :exit, _reason -> default
+  end
+
+  defp clear_settings_schema_cache do
+    if Code.ensure_loaded?(SettingsFragments) do
+      SettingsFragments.clear_cache()
+    end
+
+    :ok
   end
 
   defp configured(key, default) do

@@ -21,6 +21,8 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
   def update(assigns, socket) do
     selected_key = Map.get(assigns, :selected_key, @default_key)
     context = Map.get(assigns, :renderer_context, %{})
+    loaded? = Map.get(socket.assigns, :settings_loaded?, false)
+    current_key = Map.get(socket.assigns, :selected_key)
 
     open? =
       Map.get(socket.assigns, :settings_panel_open?, false) ||
@@ -32,9 +34,30 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
       |> assign_new(:node, fn -> nil end)
       |> assign_new(:settings_notice, fn -> "" end)
       |> assign_new(:model_doctor_summary, fn -> nil end)
+      |> assign_new(:settings_loaded?, fn -> false end)
+      |> assign_new(:settings, fn -> [] end)
+      |> assign_new(:providers, fn -> [] end)
+      |> assign_new(:models, fn -> [] end)
+      |> assign_new(:security_status, &empty_security_status/0)
+      |> assign_new(:theme_status, &empty_theme_status/0)
+      |> assign_new(:pending_confirmations, fn -> [] end)
+      |> assign_new(:resolved_confirmations, fn -> [] end)
+      |> assign_new(:resource_grants, fn -> [] end)
+      |> assign_new(:liveview_confirmation_approval?, fn -> true end)
+      |> assign_new(:selected_key, fn -> selected_key end)
+      |> assign_new(:selected_value, fn -> "" end)
+      |> assign_new(:explanation, fn -> "" end)
+      |> assign_new(:diagnostics, fn -> "" end)
+      |> assign_new(:last_audit_path, fn -> nil end)
+      |> assign_new(:setting_form, fn ->
+        to_form(%{"key" => selected_key, "value" => ""}, as: :setting)
+      end)
+      |> assign_new(:provider_form, fn ->
+        to_form(%{"provider" => "openai", "api_key" => ""}, as: :provider)
+      end)
       |> assign(:settings_panel_open?, open?)
 
-    if open? do
+    if open? and connected?(socket) and (not loaded? or current_key != selected_key) do
       {:ok, refresh(socket, selected_key)}
     else
       {:ok, socket}
@@ -811,6 +834,56 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
     """
   end
 
+  defp empty_security_status do
+    %{
+      permission_defaults: [],
+      safety_floors: [],
+      skill_trust: %{
+        configured_settings: 0,
+        enabled_count: 0,
+        disabled_count: 0,
+        trusted_project_roots_count: 0
+      },
+      capability_boundaries: %{
+        external_services: %{
+          enabled: false,
+          allowed_hosts_count: 0,
+          profiles_count: 0,
+          retry_policy: "none"
+        },
+        package_installs: %{
+          enabled: false,
+          allowed_managers: [],
+          allowed_roots_count: 0,
+          lifecycle_scripts_allowed: false
+        },
+        online_skill_import: %{
+          enabled: false,
+          allowed_sources: [],
+          trust_after_import: false
+        }
+      },
+      secret_status: %{providers: 0, configured: 0, missing: 0},
+      redaction_posture: %{secret_ref_display: "[SECRET_REF]", surfaces: []},
+      future_boundaries: []
+    }
+  end
+
+  defp empty_theme_status do
+    %{
+      token: %{basename: "none", status: "loading", fingerprint: nil, mtime: nil},
+      snippets: %{enabled?: false, status: "loading", items: []},
+      layout: %{
+        enabled?: false,
+        basename: "layout.yaml",
+        status: "loading",
+        fingerprint: nil,
+        mtime: nil
+      },
+      diagnostics: []
+    }
+  end
+
   defp refresh(socket, selected_key) do
     {:ok, settings_response} = completed_action("list_settings", %{})
     {:ok, providers_response} = completed_action("list_provider_profiles", %{})
@@ -829,6 +902,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
 
     socket
     |> assign(:settings, settings)
+    |> assign(:settings_loaded?, true)
     |> assign(:providers, providers)
     |> assign(:models, models)
     |> assign(:security_status, security_status)
