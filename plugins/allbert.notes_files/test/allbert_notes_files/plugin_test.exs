@@ -19,6 +19,11 @@ defmodule AllbertNotesFiles.PluginTest do
     original_plugins = PluginRegistry.registered_plugins()
     PluginRegistry.clear()
     assert {:ok, "allbert.notes_files"} = PluginRegistry.register_module(AllbertNotesFiles.Plugin)
+    app_registered? = AppRegistry.known_app_id?(:notes_files)
+
+    unless app_registered? do
+      assert {:ok, :notes_files} = AppRegistry.register(AllbertNotesFiles.App)
+    end
 
     plugin_registry = :"notes_files_plugin_registry_#{System.unique_integer([:positive])}"
     plugin_table = :"notes_files_plugin_table_#{System.unique_integer([:positive])}"
@@ -37,6 +42,7 @@ defmodule AllbertNotesFiles.PluginTest do
     )
 
     on_exit(fn ->
+      unless app_registered?, do: AppRegistry.unregister(:notes_files)
       PluginRegistry.clear()
       Enum.each(original_plugins, &PluginRegistry.register_entry/1)
     end)
