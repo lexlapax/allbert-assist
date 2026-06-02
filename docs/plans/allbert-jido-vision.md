@@ -613,10 +613,12 @@ historical aliases only and remain in old reference notes for continuity.
   confirmations unchanged. Subagent delegation events render
   inline under the parent step. YAML `confirm: true` may only upgrade an
   action's confirmation floor, never downgrade.
-- v0.45: Marketplace Lite — data shape + Allbert-author seeds only. Catalog
-  schema, install path, provenance/hash/version/rollback metadata, with
-  Allbert-author bundles seeding the catalog. Community-submission governance
-  is parked. Drafting begins on ADR 0046 for settings schema migration.
+- v0.45 (implemented as `0.45.0`): Marketplace Lite — data shape +
+  Allbert-author seeds only. Ships the local reviewed catalog, SHA-256 bundle
+  verification, disabled/untrusted skill and template installs, browse-only
+  plugin-index metadata, marketplace workspace/intent/CLI surfaces, and
+  marketplace doctor. Community-submission governance stays parked. ADR 0046
+  drafting begins for the settings schema migration convention.
 - v0.46: Operator-Supervised Self-Improvement. Trace-to-skill, workflow,
   template, and dynamic capability draft suggestions consume v0.45 marketplace
   metadata plus v0.40-v0.44 traces; reviewed memory/workflow draft facades are

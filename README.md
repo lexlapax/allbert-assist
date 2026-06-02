@@ -23,7 +23,7 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is `v0.44.0`. `/workspace` is the operator home:
+The current implementation is `v0.45.0`. `/workspace` is the operator home:
 chat is the primary spine, the launcher is view-only, and Canvas shows one
 destination at a time (Output, an app, or a workspace tool).
 
@@ -70,6 +70,12 @@ panel over the Objective Runtime, workflow files under
 previews, plan-start and per-step confirmations, approved workflow execution,
 cooperative cancellation, `${steps.*}` runtime references, Plan/Build CLI
 actions, and deterministic `release.v044` evidence.
+v0.45 adds Marketplace Lite: a local reviewed seed catalog under
+`priv/marketplace/`, disabled/untrusted skill and template installs, browse-only
+plugin index metadata, marketplace intent and workspace panel surfaces, custom
+Allbert Home-rooted install/cache paths, a master marketplace disable switch,
+workflow-YAML fail-closed validation, marketplace doctor diagnostics, and
+deterministic `release.v045` evidence.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -118,6 +124,12 @@ manually proven first.
 
 Recent milestones:
 
+- `v0.45.0`: Marketplace Lite - local reviewed seed catalog, SHA-256 bundle
+  verification, disabled/untrusted skill and template installs, browse-only
+  plugin index metadata, marketplace workspace panel + intent routing, custom
+  Allbert Home-rooted cache/install paths, master disable switch,
+  workflow-YAML forward-pin enforcement, ADR 0047-style marketplace doctor, and
+  deterministic `release.v045` evidence.
 - `v0.44.0`: Plan/Build Mode And Operator Workflow YAML - workspace Preview
   and RunProgress panels, `workflow://` and `plan://` identities,
   operator-authored workflow YAML under `<ALLBERT_HOME>/workflows/`,
@@ -147,8 +159,7 @@ Recent milestones:
 
 Next milestones:
 
-- Post-`v0.44.0`: the planned 1.0 arc now continues capability-first:
-  marketplace lite — data shape + Allbert-author seeds only (`v0.45`);
+- Post-`v0.45.0`: the planned 1.0 arc now continues capability-first:
   operator-supervised self-improvement (`v0.46`); voice (`v0.47`); vision
   (`v0.48`); Discord/Slack channels and the channel-approval-primitive
   contract (`v0.49`); mobile messaging WhatsApp/Signal/Matrix (`v0.50`);

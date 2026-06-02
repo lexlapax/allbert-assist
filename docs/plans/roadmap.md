@@ -239,10 +239,12 @@ Dependency order from here:
     over Objective Runtime, declarative workflow input (lives under
     `<ALLBERT_HOME>/workflows/`), plan preview, and subagent delegation
     visibility.
-45. v0.45 Marketplace lite — data shape + Allbert-author seeds only: catalog
-    schema, install path, provenance/hash/version/rollback metadata, with
-    Allbert-author bundles only. Community-submission governance is parked.
-    Starts the v0.51 ADR for settings schema migration policy (ADR 0046).
+45. v0.45 Marketplace lite — implemented as `0.45.0`: local reviewed catalog
+    schema, Allbert-author seed bundles, provenance/hash/version/rollback
+    metadata, disabled/untrusted installs, browse-only plugin index metadata,
+    workspace/intent/CLI surfaces, and marketplace doctor. Community-submission
+    governance remains parked. Started the v0.51 ADR for settings schema
+    migration policy (ADR 0046).
 46. v0.46 Operator-supervised self-improvement: marketplace-aware
     trace-to-skill, workflow, template, and dynamic capability draft
     suggestions plus reviewed memory/workflow draft facades; no autonomous
@@ -2575,33 +2577,41 @@ remote workflow distribution, multi-user collaborative plan editing,
 LLM-cost estimators, advisory-provider confidence tier engines. All
 parked in `docs/plans/future-features.md`.
 
-## v0.45: Marketplace Lite (Data Shape + Allbert-Author Seeds)
+## v0.45: Marketplace Lite (Data Shape + Allbert-Author Seeds) - implemented as 0.45.0
 
 Plan: `docs/plans/v0.45-plan.md`
 Request flow: `docs/plans/v0.45-request-flow.md`
 ADR: `docs/adr/0043-marketplace-lite-trust-tier.md`
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
-not implemented. Tightened in the post-v0.37 planning pass to ship the
-**data shape and Allbert-author seed bundles only**; community-submission
-governance is parked.
+Status: implemented as `0.45.0`. Promoted from
+`docs/archives/version-1.0-planning-03.md` and tightened in the post-v0.37
+planning pass to ship the **data shape and Allbert-author seed bundles only**;
+community-submission governance remains parked.
 
-Expected direction:
+Shipped scope:
 
-- Ship the catalog **schema**, install path, provenance/hash/version/rollback
-  metadata, and disabled/untrusted-on-install default.
-- Ship **Allbert-author seed bundles only** for the v0.45 catalog (no
-  community submissions, no external reviewers). Operators see a small but
-  fully-reviewed catalog.
-- Community submission/review process is parked in `future-features.md` under
+- Shipped the catalog **schema**, Allbert-author seed bundles, install path,
+  provenance/hash/version/rollback metadata, and disabled/untrusted-on-install
+  default.
+- Shipped skill, template, and browse-only plugin-index entries for the v0.45
+  catalog; no community submissions or external reviewers.
+- Community submission/review process remains parked in `future-features.md` under
   "Marketplace Community Submission / Review Governance"; promote post-1.0
   when the project decides on governance.
-- Add reviewed-source plugin index metadata without automatic code install.
-- Add template catalog metadata for `workspace:create`.
-- Keep arbitrary remote code-bearing plugin install, remote dependency
+- Added reviewed-source plugin index metadata without automatic code install.
+- Added template catalog metadata for `workspace:create`.
+- Added the Marketplace Catalog workspace panel, marketplace intent corpus,
+  CLI subcommands, `marketplace_doctor`, deterministic `release.v045` gate, and
+  post-implementation remediation for the master disable switch, custom
+  Allbert Home-rooted cache/install paths, and workflow-YAML forward-pin
+  validation.
+- Retained a closeout follow-up to audit `mix precommit` /
+  `mix allbert.test release` lane decomposition and progress reporting against
+  ADR 0049, the v0.41 gate-matrix work, and `docs/developer/test-strategy.md`.
+- Kept arbitrary remote code-bearing plugin install, remote dependency
   resolution, remote theme/snippet distribution, and MCP Apps iframe execution
   out of 1.0.
-- **Start drafting ADR 0046** (Settings Central schema migration policy) here
+- **Started drafting ADR 0046** (Settings Central schema migration policy) here
   because marketplace adds new settings fragments; ADR is accepted before
   v0.51 implements the migration tool.
 
