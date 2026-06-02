@@ -12,33 +12,28 @@ defmodule AllbertAssist.Settings.Fragments do
   alias AllbertAssist.Settings.Fragment
   alias AllbertAssist.Settings.Schema
 
+  @composition_cache_key {__MODULE__, :default_composition}
+
   @type source :: :core | :app | :plugin
 
   @spec registered_fragments(keyword()) :: [Fragment.t()]
-  def registered_fragments(opts \\ []) do
-    core_fragments() ++ app_fragments(opts) ++ plugin_fragments(opts)
-  end
+  def registered_fragments(opts \\ []), do: composition(opts).fragments
 
   @spec schema(keyword()) :: %{String.t() => map()}
-  def schema(opts \\ []) do
-    opts
-    |> plugin_schema()
-    |> Map.merge(app_schema(opts))
-    |> Map.merge(Schema.core_schema())
-  end
+  def schema(opts \\ []), do: composition(opts).schema
 
   @spec defaults(keyword()) :: map()
-  def defaults(opts \\ []) do
-    opts
-    |> plugin_defaults()
-    |> deep_merge(app_defaults(opts))
-    |> deep_merge(Schema.core_defaults())
-  end
+  def defaults(opts \\ []), do: composition(opts).defaults
 
   @spec safe_write_keys(keyword()) :: [String.t()]
-  def safe_write_keys(opts \\ []) do
-    (Schema.core_safe_write_keys() ++ app_safe_write_keys(opts) ++ plugin_safe_write_keys(opts))
-    |> Enum.uniq()
+  def safe_write_keys(opts \\ []), do: composition(opts).safe_write_keys
+
+  @doc false
+  def clear_cache do
+    :persistent_term.erase(@composition_cache_key)
+    :ok
+  rescue
+    ArgumentError -> :ok
   end
 
   @spec fragment_for_key(String.t(), keyword()) :: {:ok, Fragment.t()} | {:error, :not_found}
@@ -120,16 +115,44 @@ defmodule AllbertAssist.Settings.Fragments do
     |> Enum.reject(&empty_fragment?/1)
   end
 
-  defp app_schema(opts), do: opts |> app_fragments() |> schema_from_fragments()
-  defp plugin_schema(opts), do: opts |> plugin_fragments() |> schema_from_fragments()
-  defp app_defaults(opts), do: opts |> app_fragments() |> defaults_from_fragments()
-  defp plugin_defaults(opts), do: opts |> plugin_fragments() |> defaults_from_fragments()
+  defp composition([]) do
+    case :persistent_term.get(@composition_cache_key, nil) do
+      nil ->
+        composition = build_composition([])
+        :persistent_term.put(@composition_cache_key, composition)
+        composition
 
-  defp app_safe_write_keys(opts),
-    do: opts |> app_fragments() |> Enum.flat_map(& &1.safe_write_keys)
+      composition ->
+        composition
+    end
+  end
 
-  defp plugin_safe_write_keys(opts),
-    do: opts |> plugin_fragments() |> Enum.flat_map(& &1.safe_write_keys)
+  defp composition(opts), do: build_composition(opts)
+
+  defp build_composition(opts) do
+    app_fragments = app_fragments(opts)
+    plugin_fragments = plugin_fragments(opts)
+    fragments = core_fragments() ++ app_fragments ++ plugin_fragments
+
+    %{
+      fragments: fragments,
+      schema:
+        plugin_fragments
+        |> schema_from_fragments()
+        |> Map.merge(schema_from_fragments(app_fragments))
+        |> Map.merge(Schema.core_schema()),
+      defaults:
+        plugin_fragments
+        |> defaults_from_fragments()
+        |> deep_merge(defaults_from_fragments(app_fragments))
+        |> deep_merge(Schema.core_defaults()),
+      safe_write_keys:
+        (Schema.core_safe_write_keys() ++
+           Enum.flat_map(app_fragments, & &1.safe_write_keys) ++
+           Enum.flat_map(plugin_fragments, & &1.safe_write_keys))
+        |> Enum.uniq()
+    }
+  end
 
   defp schema_from_fragments(fragments) do
     Enum.reduce(fragments, %{}, fn fragment, acc -> Map.merge(acc, fragment.schema) end)

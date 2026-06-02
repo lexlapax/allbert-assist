@@ -11,6 +11,7 @@ defmodule AllbertAssist.App.Registry do
 
   alias AllbertAssist.App.Validator
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Fragments, as: SettingsFragments
 
   @default_table :allbert_app_registry
   @nil_aliases ["", "none", "general"]
@@ -57,21 +58,27 @@ defmodule AllbertAssist.App.Registry do
 
   @spec register(module(), keyword()) :: {:ok, atom()} | {:error, term()}
   def register(module, opts \\ []) do
-    GenServer.call(server(opts), {:register, module, registration_opts(opts)})
+    result = GenServer.call(server(opts), {:register, module, registration_opts(opts)})
+    if match?({:ok, _app_id}, result), do: clear_settings_schema_cache()
+    result
   catch
     :exit, _reason -> {:error, :unavailable}
   end
 
   @spec unregister(atom(), keyword()) :: :ok
   def unregister(app_id, opts \\ []) do
-    GenServer.call(server(opts), {:unregister, app_id})
+    result = GenServer.call(server(opts), {:unregister, app_id})
+    clear_settings_schema_cache()
+    result
   catch
     :exit, _reason -> :ok
   end
 
   @spec clear(keyword()) :: :ok
   def clear(opts \\ []) do
-    GenServer.call(server(opts), :clear)
+    result = GenServer.call(server(opts), :clear)
+    clear_settings_schema_cache()
+    result
   catch
     :exit, _reason -> :ok
   end
@@ -564,6 +571,14 @@ defmodule AllbertAssist.App.Registry do
     GenServer.call(server(opts), message)
   catch
     :exit, _reason -> default
+  end
+
+  defp clear_settings_schema_cache do
+    if Code.ensure_loaded?(SettingsFragments) do
+      SettingsFragments.clear_cache()
+    end
+
+    :ok
   end
 
   defp configured(key, default) do

@@ -25,6 +25,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Session
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.{Schema, Store}
   alias AllbertAssist.Theme.Layout
   alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
@@ -46,6 +47,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     {thread_id, thread_notice, sync_thread_url?} = resolve_workspace_thread(params, user_id)
     active_app = resolve_workspace_active_app(user_id, session_id)
     canvas_destination = resolve_canvas_destination(params)
+    settings = workspace_settings_snapshot()
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, SignalBridge.topic_for(user_id))
@@ -66,13 +68,13 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         session_id: session_id,
         active_app: active_app,
         canvas_destination: canvas_destination,
-        workspace_theme: workspace_theme(),
-        workspace_high_contrast?: workspace_high_contrast?(),
-        workspace_reduce_motion?: workspace_reduce_motion?(),
+        workspace_theme: workspace_theme(settings),
+        workspace_high_contrast?: workspace_high_contrast?(settings),
+        workspace_reduce_motion?: workspace_reduce_motion?(settings),
         workspace_mobile_tab: "chat",
-        workspace_offline_enabled?: workspace_offline_enabled?(),
-        workspace_indexeddb_quota_bytes: workspace_indexeddb_quota_bytes(),
-        workspace_canvas_max_tiles_per_thread: workspace_canvas_max_tiles_per_thread(),
+        workspace_offline_enabled?: workspace_offline_enabled?(settings),
+        workspace_indexeddb_quota_bytes: workspace_indexeddb_quota_bytes(settings),
+        workspace_canvas_max_tiles_per_thread: workspace_canvas_max_tiles_per_thread(settings),
         active_objectives: active_objectives(user_id),
         prompt: "",
         prompt_placeholder: @default_prompt_placeholder,
@@ -92,7 +94,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         thread_switcher_open?: false,
         workspace_launcher_open?: false,
         workspace_badges: [],
-        composer_max_bytes: workspace_canvas_tile_body_max_bytes(),
+        composer_max_bytes: workspace_canvas_tile_body_max_bytes(settings),
         workspace_overflow_open?: false,
         workspace_maximized_pane: nil,
         canvas_focus?: false
@@ -365,7 +367,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
            dismissed_by: "operator"
          }) do
       {:ok, %{status: :completed}} ->
-        {:noreply, refresh_workspace(socket)}
+        {:noreply, refresh_workspace_runtime(socket)}
 
       {:ok, response} ->
         {:noreply, assign(socket, :error, Map.get(response, :message, inspect(response)))}
@@ -448,8 +450,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       {:ok, %{status: :needs_confirmation} = response} ->
         {:noreply,
          socket
-         |> assign_confirmation_handoff(response)
-         |> refresh_workspace()}
+         |> assign_confirmation_handoff(response)}
 
       {:ok, %{status: :completed} = response} ->
         {:noreply,
@@ -493,8 +494,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         {:ok, %{status: :needs_confirmation} = response} ->
           {:noreply,
            socket
-           |> assign_confirmation_handoff(response)
-           |> refresh_workspace()}
+           |> assign_confirmation_handoff(response)}
 
         {:ok, %{status: :completed} = response} ->
           {:noreply,
@@ -517,8 +517,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         {:ok, %{status: :needs_confirmation} = response} ->
           {:noreply,
            socket
-           |> assign_confirmation_handoff(response)
-           |> refresh_workspace()}
+           |> assign_confirmation_handoff(response)}
 
         {:ok, %{status: :completed} = response} ->
           {:noreply,
@@ -588,9 +587,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         # v0.26a M29: clear composer after a successful turn.
         prompt: ""
       )
-      # v0.26a M28: refresh conversation_messages + tiles + ephemerals so the
-      # chat timeline accumulates the just-completed turn without a navigation.
-      |> refresh_workspace()
+      |> refresh_after_runtime_response(response)
 
     {:noreply, socket}
   end
@@ -731,7 +728,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
         socket
         |> refresh_objectives()
-        |> refresh_workspace()
+        |> refresh_workspace_runtime()
 
       {:ok, response} ->
         assign(socket, approval_result: Map.get(response, :message, inspect(response)))
@@ -1081,11 +1078,30 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
     if metadata_value(data, :user_id) == socket.assigns.user_id and
          metadata_value(data, :thread_id) == socket.assigns.thread_id do
-      refresh_workspace(socket)
+      refresh_after_workspace_event(socket, signal)
     else
       socket
     end
   end
+
+  defp refresh_after_workspace_event(socket, %Signal{
+         type: "allbert.workspace.tile." <> _event,
+         data: data
+       }) do
+    if metadata_value(data, :kind) == "objective_card" do
+      socket
+    else
+      refresh_workspace_runtime(socket)
+    end
+  end
+
+  defp refresh_after_workspace_event(socket, %Signal{
+         type: "allbert.workspace.ephemeral." <> _event
+       }) do
+    refresh_workspace_runtime(socket)
+  end
+
+  defp refresh_after_workspace_event(socket, _signal), do: refresh_workspace(socket)
 
   defp handle_fragment(%Envelope{} = envelope, socket) do
     if envelope.user_id == socket.assigns.user_id and
@@ -1097,17 +1113,43 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   defp refresh_workspace_fragment(socket, %Envelope{} = envelope) do
-    if header_badge_fragment?(envelope) do
-      put_workspace_badge(socket, envelope)
-    else
-      refresh_workspace(socket)
+    cond do
+      header_badge_fragment?(envelope) ->
+        put_workspace_badge(socket, envelope)
+
+      objective_card_fragment?(envelope) ->
+        socket
+
+      current_approval_fragment?(socket, envelope) ->
+        socket
+
+      true ->
+        refresh_workspace_runtime(socket)
     end
+  end
+
+  defp current_approval_fragment?(socket, %Envelope{kind: kind, metadata: metadata}) do
+    confirmation_id = metadata_value(metadata, :confirmation_id)
+
+    normalize_kind(kind) == "approval_card" and
+      is_binary(confirmation_id) and confirmation_id != "" and
+      handoff_confirmation_id(socket.assigns.approval_handoff) == confirmation_id
   end
 
   defp header_badge_fragment?(%Envelope{kind: kind, metadata: metadata}) do
     normalize_kind(kind) == "badge_strip" and
       metadata_value(metadata, :placement) == "canvas_header"
   end
+
+  defp objective_card_fragment?(%Envelope{kind: kind}) do
+    normalize_kind(kind) == "objective_card"
+  end
+
+  defp handoff_confirmation_id(handoff) when is_map(handoff) do
+    Map.get(handoff, :confirmation_id) || Map.get(handoff, "confirmation_id")
+  end
+
+  defp handoff_confirmation_id(_handoff), do: nil
 
   defp put_workspace_badge(socket, %Envelope{} = envelope) do
     badges =
@@ -1117,7 +1159,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
     socket
     |> assign(:workspace_badges, badges)
-    |> refresh_workspace()
+    |> refresh_workspace_runtime()
   end
 
   defp normalize_kind(kind) when is_atom(kind), do: Atom.to_string(kind)
@@ -1143,19 +1185,44 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     )
   end
 
+  defp refresh_after_runtime_response(socket, %{status: :needs_confirmation}) do
+    socket
+  end
+
+  defp refresh_after_runtime_response(socket, _response) do
+    # v0.26a M28: refresh conversation_messages + tiles + ephemerals so the
+    # chat timeline accumulates completed turns without a navigation.
+    refresh_workspace(socket)
+  end
+
+  defp refresh_workspace_runtime(socket) do
+    tiles = canvas_tiles(socket.assigns.thread_id, socket.assigns.user_id)
+    surfaces = ephemeral_surfaces(socket.assigns.thread_id, socket.assigns.user_id)
+
+    assign(socket,
+      canvas_tiles: tiles,
+      ephemeral_surfaces: surfaces,
+      workspace_surface: runtime_workspace_surface(socket, tiles, surfaces)
+    )
+  end
+
   defp workspace_assigns(user_id, thread_id, workspace_badges, active_app, canvas_destination) do
     tiles = canvas_tiles(thread_id, user_id)
     surfaces = ephemeral_surfaces(thread_id, user_id)
     apps = registered_apps()
 
+    base_context = %{
+      user_id: user_id,
+      thread_id: thread_id,
+      session_id: @default_session_id,
+      active_app: active_app,
+      canvas_destination: canvas_destination
+    }
+
+    layout = Layout.current(base_context)
+
     surface_context =
-      registered_surface_context(%{
-        user_id: user_id,
-        thread_id: thread_id,
-        session_id: @default_session_id,
-        active_app: active_app,
-        canvas_destination: canvas_destination
-      })
+      registered_surface_context(base_context)
 
     %{
       canvas_tiles: tiles,
@@ -1163,6 +1230,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       conversation_messages: conversation_messages(thread_id, user_id),
       recent_threads: recent_threads(user_id),
       registered_apps: apps,
+      workspace_layout: layout,
       workspace_badges: workspace_badges,
       workspace_surface:
         WorkspaceCatalog.workspace_tree(
@@ -1174,10 +1242,36 @@ defmodule AllbertAssistWeb.WorkspaceLive do
           active_app: active_app,
           canvas_destination: canvas_destination,
           registered_apps: apps,
+          workspace_layout: layout,
           panel_surfaces: surface_context.panel_surfaces,
           surface_catalogs: surface_context.surface_catalogs
         )
     }
+  end
+
+  defp runtime_workspace_surface(socket, tiles, surfaces) do
+    surface_context =
+      registered_surface_context(%{
+        user_id: socket.assigns.user_id,
+        thread_id: socket.assigns.thread_id,
+        session_id: socket.assigns.session_id,
+        active_app: socket.assigns.active_app,
+        canvas_destination: socket.assigns.canvas_destination
+      })
+
+    WorkspaceCatalog.workspace_tree(
+      user_id: socket.assigns.user_id,
+      thread_id: socket.assigns.thread_id,
+      canvas_tiles: tiles,
+      ephemeral_surfaces: surfaces,
+      workspace_badges: socket.assigns.workspace_badges,
+      active_app: socket.assigns.active_app,
+      canvas_destination: socket.assigns.canvas_destination,
+      registered_apps: socket.assigns.registered_apps,
+      workspace_layout: socket.assigns.workspace_layout,
+      panel_surfaces: surface_context.panel_surfaces,
+      surface_catalogs: surface_context.surface_catalogs
+    )
   end
 
   defp canvas_tiles(thread_id, user_id) do
@@ -1311,55 +1405,60 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp tile_by_id(_tiles, _tile_id), do: nil
 
-  defp workspace_theme do
-    case Settings.get("workspace.theme.mode") do
-      {:ok, theme} when theme in ["dark", "light", "system"] -> theme
+  defp workspace_settings_snapshot do
+    case Store.resolved_settings() do
+      {:ok, settings, _user_settings} -> settings
+      {:error, _reason} -> Settings.defaults()
+    end
+  end
+
+  defp workspace_theme(settings) do
+    case setting(settings, "workspace.theme.mode", "system") do
+      theme when theme in ["dark", "light", "system"] -> theme
       _other -> "system"
     end
   end
 
-  defp workspace_high_contrast? do
-    case Settings.get("workspace.accessibility.high_contrast") do
-      {:ok, true} -> true
-      _other -> false
-    end
+  defp workspace_high_contrast?(settings) do
+    setting(settings, "workspace.accessibility.high_contrast", false) == true
   end
 
-  defp workspace_reduce_motion? do
-    case Settings.get("workspace.accessibility.reduce_motion") do
-      {:ok, true} -> true
-      _other -> false
-    end
+  defp workspace_reduce_motion?(settings) do
+    setting(settings, "workspace.accessibility.reduce_motion", false) == true
   end
 
-  defp workspace_offline_enabled? do
-    case Settings.get("workspace.offline.enabled") do
-      {:ok, false} -> false
-      _other -> true
-    end
+  defp workspace_offline_enabled?(settings) do
+    setting(settings, "workspace.offline.enabled", true) != false
   end
 
-  defp workspace_indexeddb_quota_bytes do
+  defp workspace_indexeddb_quota_bytes(settings) do
     megabytes =
-      case Settings.get("workspace.offline.indexeddb_quota_mb") do
-        {:ok, value} when is_integer(value) -> value
+      case setting(settings, "workspace.offline.indexeddb_quota_mb", 32) do
+        value when is_integer(value) -> value
         _other -> 32
       end
 
     megabytes * 1_048_576
   end
 
-  defp workspace_canvas_max_tiles_per_thread do
-    case Settings.get("workspace.canvas.max_tiles_per_thread") do
-      {:ok, value} when is_integer(value) -> value
+  defp workspace_canvas_max_tiles_per_thread(settings) do
+    case setting(settings, "workspace.canvas.max_tiles_per_thread", 64) do
+      value when is_integer(value) -> value
       _other -> 64
     end
   end
 
-  defp workspace_canvas_tile_body_max_bytes do
-    case Settings.get("workspace.canvas.tile_body_max_bytes") do
-      {:ok, value} when is_integer(value) and value > 0 -> value
+  defp workspace_canvas_tile_body_max_bytes(settings) do
+    case setting(settings, "workspace.canvas.tile_body_max_bytes", 65_536) do
+      value when is_integer(value) and value > 0 -> value
       _other -> 65_536
+    end
+  end
+
+  defp setting(settings, key, default) do
+    case Schema.get_dotted(settings, key) do
+      nil -> default
+      value -> value
     end
   end
 

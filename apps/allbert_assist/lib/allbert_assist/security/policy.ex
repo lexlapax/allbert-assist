@@ -4,6 +4,7 @@ defmodule AllbertAssist.Security.Policy do
   """
 
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Schema
 
   @permission_settings %{
     memory_write: "permissions.memory_write",
@@ -175,6 +176,17 @@ defmodule AllbertAssist.Security.Policy do
   @spec resolve(atom(), map()) :: map()
   def resolve(permission, context \\ %{}) do
     configured = configured_policy(permission)
+    resolve_from_configured(permission, context, configured)
+  end
+
+  @doc "Resolve effective policy using an already-resolved Settings snapshot."
+  @spec resolve(atom(), map(), map()) :: map()
+  def resolve(permission, context, settings) when is_map(settings) do
+    configured = configured_policy(permission, settings)
+    resolve_from_configured(permission, context, configured)
+  end
+
+  defp resolve_from_configured(permission, context, configured) do
     floor = safety_floor(permission)
     effective = apply_safety_floor(configured.decision, floor)
     context_denial = context_denial(permission, context)
@@ -219,6 +231,12 @@ defmodule AllbertAssist.Security.Policy do
     Enum.map(permission_classes(), &resolve(&1, context))
   end
 
+  @doc "Return configured and effective policies from an already-resolved Settings snapshot."
+  @spec permission_policies(map(), map()) :: [map()]
+  def permission_policies(context, settings) when is_map(settings) do
+    Enum.map(permission_classes(), &resolve(&1, context, settings))
+  end
+
   @doc "Return the v0.05 safety floor for a permission."
   @spec safety_floor(atom()) :: :allowed | :needs_confirmation | :denied
   def safety_floor(:command_execute), do: :needs_confirmation
@@ -247,6 +265,33 @@ defmodule AllbertAssist.Security.Policy do
 
     with key when is_binary(key) <- setting_key,
          {:ok, value} <- Settings.get(key) do
+      %{
+        value: value,
+        decision: normalize_setting_value(value, default_decision(permission)),
+        source: :settings
+      }
+    else
+      _other ->
+        %{
+          value: nil,
+          decision: default_decision(permission),
+          source: :built_in_default
+        }
+    end
+  rescue
+    _exception ->
+      %{
+        value: nil,
+        decision: default_decision(permission),
+        source: :built_in_default
+      }
+  end
+
+  defp configured_policy(permission, settings) when is_map(settings) do
+    setting_key = Map.get(@permission_settings, permission)
+
+    with key when is_binary(key) <- setting_key,
+         value when not is_nil(value) <- Schema.get_dotted(settings, key) do
       %{
         value: value,
         decision: normalize_setting_value(value, default_decision(permission)),

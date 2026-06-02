@@ -391,11 +391,9 @@ defmodule AllbertAssist.Workspace.McpIntegrationPanels do
     end
   end
 
-  defp refresh?(spec, context) do
+  defp refresh?(_spec, context) do
     Map.get(context, :mcp_panel_refresh?) == true ||
-      Map.get(context, "mcp_panel_refresh?") == true ||
-      Map.get(context, :canvas_destination) == "workspace:#{spec.id}" ||
-      Map.get(context, "canvas_destination") == "workspace:#{spec.id}"
+      Map.get(context, "mcp_panel_refresh?") == true
   end
 
   defp action_items(action_name, key, server_id, context) do
