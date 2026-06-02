@@ -5,7 +5,10 @@
 Accepted for v0.44 Plan/Build Mode And Operator Workflow YAML
 (`docs/plans/v0.44-plan.md`). M1 landed the substrate vocabulary,
 settings namespace, URI schemes, and locked decisions that make this
-decision binding for implementation.
+decision binding for implementation. The post-implementation audit added
+a v0.44 remediation amendment: release readiness requires approved-plan
+runtime handoff, per-step YAML semantics, step-output reference
+resolution, repaired release evidence, and release-record closeout.
 
 ## Context
 
@@ -115,10 +118,40 @@ The expansion path:
    `objective_steps.attrs` maps.
 6. `start_plan_run` (the plan-approval gate) confirms with
    `:workflow_run_start` `:needs_confirmation` floor. On approval,
-   the v0.24 `Objectives.frame/2` + propose path takes over.
+   the v0.24 `Objectives.frame/2` path creates the objective, persists
+   the expanded proposed steps, and hands the first eligible workflow
+   step to the existing objective step lifecycle.
 
 The runtime never executes the document; it executes the produced step
 attrs the same way every other v0.24 objective executes them.
+
+### v0.44 Remediation Amendment: approved plans must execute through Objective Runtime
+
+The implementation audit found a real distinction that this ADR now
+makes explicit. It is acceptable for the loader, validator, and expander
+to treat YAML as inert data; it is not acceptable for an approved plan
+run to stop after proposed-step persistence when the operator-facing
+contract says the run has started.
+
+Therefore v0.44 release readiness requires:
+
+- approval of the plan-start gate selects and advances the first
+  eligible `provider: "plan_build"` proposed step through the existing
+  Objective Runtime command modules;
+- workflow-specific metadata stored in
+  `objective_steps.resource_access` is part of the runtime contract:
+  `if:` gates selection, `on_error:` controls abort-vs-continue after a
+  failed workflow step, and `confirm: true` upgrades confirmation at
+  execution time;
+- `${steps.<id>.<field>}` references resolve at runtime from prior
+  completed workflow steps and declared `save_as:` aliases;
+- the deterministic `release.v044` gate must prove execution semantics,
+  not only preview and persistence.
+
+This amendment does not authorize a second workflow engine. The only
+allowed implementation path is to add the smallest Plan/Build-aware
+selection/reference behavior needed around the existing objective step
+lifecycle and `Actions.Runner.run/3`.
 
 ### 3. Schema is derived from the action registry; expression grammar is closed
 
