@@ -2,8 +2,11 @@
 
 ## Status
 
-Proposed for v0.45 Marketplace Lite (`docs/plans/v0.45-plan.md`). M1
-accepts; M6 closeout flips to `Accepted for v0.45 Marketplace Lite`.
+Accepted for v0.45 Marketplace Lite (`docs/plans/v0.45-plan.md`).
+M1 implements the substrate vocabulary, settings fragment, URI
+scheme, and locked decisions that make this decision binding for
+implementation. M6 closeout reconfirms the shipped state and records
+release evidence; it does not re-open the decision.
 
 ## Context
 
@@ -176,14 +179,14 @@ v0.45 ships single-vendor (Allbert-author bundles only) because:
   they already trust by running Allbert.
 
 Forward-compatibility: the catalog schema, bundle manifest, URI
-scheme (`marketplace://entry/<id>`), permission class
+scheme (`marketplace://entry/<author>/<name>`), permission class
 (`:marketplace_install`), and ADR 0046 schema_version convention
 are all designed so community submissions can plug in later
 without breaking v0.45 installs.
 
 ## URI Identity
 
-`marketplace://entry/<id>` is added to ADR 0013's initial URI
+`marketplace://entry/<author>/<name>` is added to ADR 0013's initial URI
 mappings at v0.45 (see `v0.45-plan.md` §"ADR 0013 amendment").
 
 Per-entry URI provides:
@@ -218,9 +221,13 @@ retroactively follows the same convention.
 Install:
 
 - `install_marketplace_bundle` is `:marketplace_install`-permissioned
-  (default `:allowed`, floor `:allowed`).
+  (default `:allowed`, floor `:allowed`). Operators may tighten the
+  permission to `:needs_confirmation` or `:denied` through Settings
+  Central, but v0.45 does not require a confirmation prompt by
+  default because installs write inert disabled/untrusted state.
 - Writes bundle files to
-  `<ALLBERT_HOME>/marketplace/<kind>/<entry-id>/`.
+  `<ALLBERT_HOME>/marketplace/<kind>/<entry-id>/` for installable
+  bundle kinds (`skill` and `template`).
 - Updates `<ALLBERT_HOME>/marketplace/installed.json` with
   entry-id + version + installed_at + install_state
   (`"disabled_untrusted"`) + install_target + bundle_hash.
@@ -228,8 +235,9 @@ Install:
   :marketplace, status: :disabled, trust: :untrusted`.
 - For template kind, registers with the v0.38 templated-creation
   registry as descriptive metadata.
-- For plugin_index kind, registers descriptive metadata only — no
-  code install.
+- For plugin_index kind, install rejects. Plugin index entries are
+  catalog metadata only: browseable and inspectable, never installed,
+  copied, compiled, or registered as code.
 - Hash mismatch fails closed; no partial install.
 
 Rollback:
@@ -257,7 +265,7 @@ version is needed.
   install operations participate in the resource access posture
   (install writes Allbert Home; no remote fetch).
 - **ADR 0013** (URI-first resource identity): v0.45 amendment
-  registers `marketplace://entry/<id>`.
+  registers `marketplace://entry/<author>/<name>`.
 - **ADR 0017** (plugin contract): plugin_index entries reference
   v0.17 plugin descriptor shape; install does not compile plugin
   code.
