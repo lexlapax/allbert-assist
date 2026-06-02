@@ -23,7 +23,7 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is `v0.43.0`. `/workspace` is the operator home:
+The current implementation is `v0.44.0`. `/workspace` is the operator home:
 chat is the primary spine, the launcher is view-only, and Canvas shows one
 destination at a time (Output, an app, or a workspace tool).
 
@@ -64,6 +64,12 @@ profiles, confirmed navigation, bounded HTML/markdown/text/PDF extraction,
 screenshot redaction, `mix allbert.browser research`, a browser results panel,
 browser intent handoff, deterministic `release.v043` evidence, and a real
 browser external-smoke lane.
+v0.44 adds Plan/Build mode and operator workflow YAML: a pinnable workspace
+panel over the Objective Runtime, workflow files under
+`<ALLBERT_HOME>/workflows/`, schema-from-registry validation, advisory plan
+previews, plan-start and per-step confirmations, approved workflow execution,
+cooperative cancellation, `${steps.*}` runtime references, Plan/Build CLI
+actions, and deterministic `release.v044` evidence.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -112,6 +118,13 @@ manually proven first.
 
 Recent milestones:
 
+- `v0.44.0`: Plan/Build Mode And Operator Workflow YAML - workspace Preview
+  and RunProgress panels, `workflow://` and `plan://` identities,
+  operator-authored workflow YAML under `<ALLBERT_HOME>/workflows/`,
+  schema-from-registry validation, seven Plan-Build actions, internal
+  `plan_step_confirm`, approved Objective Runtime execution, confirmation
+  upgrade-only semantics, cooperative cancel, `${steps.*}` references, and a
+  deterministic `release.v044` gate.
 - `v0.42.2`: Tool Discovery + MCP-First Integration Pack 1 - unified
   `find_tools`, internet MCP registry discovery, connect consent, rug-pull
   baseline checks, passive Discovery Suggestions, Calendar/Mail/GitHub
@@ -134,8 +147,7 @@ Recent milestones:
 
 Next milestones:
 
-- Post-`v0.43.0`: the planned 1.0 arc now continues capability-first:
-  Plan/Build workflows under `<ALLBERT_HOME>/workflows/` (`v0.44`);
+- Post-`v0.44.0`: the planned 1.0 arc now continues capability-first:
   marketplace lite — data shape + Allbert-author seeds only (`v0.45`);
   operator-supervised self-improvement (`v0.46`); voice (`v0.47`); vision
   (`v0.48`); Discord/Slack channels and the channel-approval-primitive
@@ -172,6 +184,8 @@ Next milestones:
   Memento/Jido compatibility override recorded in ADR 0050.
 - [docs/plans/v0.42-plan.md](docs/plans/v0.42-plan.md): implemented tool
   discovery and MCP-first integration pack milestone.
+- [docs/plans/v0.44-plan.md](docs/plans/v0.44-plan.md): implemented
+  Plan/Build mode and operator workflow YAML milestone.
 - [docs/developer/test-strategy.md](docs/developer/test-strategy.md): test
   lane taxonomy, gate matrix, isolation contract, and implementation-plan
   parallelization annotations.

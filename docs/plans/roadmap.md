@@ -2486,13 +2486,24 @@ deepened in the post-v0.43 planning pass). Amends
 `docs/adr/0013-uri-first-resource-identity.md` to register `workflow://<id>`
 and `plan://run/<objective_id>` as supported schemes.
 
-Status: planned; implementation-ready for M1 after the post-v0.43
-deepening pass and second-pass readiness patch. Promoted from
-`docs/archives/version-1.0-planning-03.md`;
-workflow YAML location clarified in the post-v0.37 planning pass; depth
-brought to v0.43-style per-milestone structure with development-lane
-annotations per ADR 0049 in the post-v0.43 pass. Moved before channel
-expansion in the pass-2 roadmap restructuring.
+Status: implemented as `0.44.0`. Promoted from
+`docs/archives/version-1.0-planning-03.md`; workflow YAML location was
+clarified in the post-v0.37 planning pass, and implementation-readiness
+depth was brought to v0.43-style per-milestone structure with
+development-lane annotations per ADR 0049 in the post-v0.43 pass. Moved
+before channel expansion in the pass-2 roadmap restructuring.
+
+Shipped scope: Plan/Build is a pinnable workspace panel over the v0.24
+Objective Runtime; operator-authored workflow YAML lives under
+`<ALLBERT_HOME>/workflows/<workflow-id>.yaml`; schema validation derives
+from the current action registry snapshot plus step kinds; expressions
+use the closed v1 grammar; seven operator-facing Plan-Build actions and
+the internal `plan_step_confirm` continuation are registered; approved
+workflow runs execute through the Objective Runtime with plan-start and
+per-step confirmations, `if:` skips, `on_error` behavior, cooperative
+cancel, subagent delegation visibility, and runtime `${steps.*}` output
+references. The deterministic `release.v044` gate writes redacted
+evidence under `<ALLBERT_HOME>/release_evidence/v044/`.
 
 Expected direction:
 

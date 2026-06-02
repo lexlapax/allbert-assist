@@ -599,17 +599,18 @@ historical aliases only and remain in old reference notes for continuity.
   persistent profiles, multi-tab orchestration, and JS evaluation are
   deferred to v0.43.x or later. Page content is descriptive evidence, never
   authority; nothing auto-promotes to memory.
-- v0.44: Plan/Build Mode And Operator Workflow YAML. Plan/Build adds a
-  pinnable workspace panel over the v0.24 Objective Runtime, plus
-  operator-authored workflow YAML under
+- v0.44 (implemented as `0.44.0`): Plan/Build Mode And Operator Workflow
+  YAML. Plan/Build adds a pinnable workspace panel over the v0.24 Objective
+  Runtime, plus operator-authored workflow YAML under
   `<ALLBERT_HOME>/workflows/<workflow-id>.yaml` that expands into objective
   steps. The schema is derived from the current action registry snapshot +
   step-kind module so docs and runtime cannot drift across core, plugin,
   and dynamic action overlays; expressions use a
   closed function table (no `eval`, no `${secrets.x}`, no `${env.x}`, no
-  dynamic action names). The runtime never executes YAML; expansion
-  produces step attrs that flow through `Actions.Runner.run/3`, Security
-  Central, and confirmations unchanged. Subagent delegation events render
+  dynamic action names). The runtime never executes YAML directly;
+  expansion produces step attrs and approved runs execute through the
+  Objective Runtime, `Actions.Runner.run/3`, Security Central, and
+  confirmations unchanged. Subagent delegation events render
   inline under the parent step. YAML `confirm: true` may only upgrade an
   action's confirmation floor, never downgrade.
 - v0.45: Marketplace Lite — data shape + Allbert-author seeds only. Catalog

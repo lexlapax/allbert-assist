@@ -18,10 +18,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.42 adds MCP integration
-  # intent handoffs for the calendar/mail/GitHub workspace panels.
+  # the app (release-pinned, not semantic-per-app). v0.44 adds Plan/Build
+  # workspace surfaces and operator workflow panels.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.43.0"
+  def version, do: "0.44.0"
 
   @impl true
   def validate(_opts), do: :ok
