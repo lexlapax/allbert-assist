@@ -169,9 +169,31 @@ defmodule AllbertAssist.Security.V044PlanBuildEvalTest do
     assert pending.permission_decision.permission == :workflow_run_start
     assert is_binary(pending.confirmation_id)
     assert Objectives.list_objectives("local") == []
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending.confirmation_id, reason: "eval approval"},
+               context
+             )
+
+    objective_id = get_in(approved, [:output_data, :objective_id])
+    assert is_binary(objective_id)
+    assert get_in(approved, [:output_data, :run_status]) == :needs_confirmation
+
+    assert [
+             %{status: "completed"},
+             %{status: "completed", action_params: summarize_params},
+             %{status: "blocked", kind: "ask_user"}
+           ] = Objectives.list_steps(objective_id)
+
+    refute Jason.decode!(summarize_params)["text"] =~ "${steps.collect.issues}"
   end
 
-  test "confirmed step floors cannot be downgraded by workflow YAML", %{home: home} do
+  test "confirmed step floors cannot be downgraded or bypassed by workflow YAML", %{
+    context: context,
+    home: home
+  } do
     assert_eval!("plan-step-permission-not-downgradable-001")
 
     write_workflow!(home, "confirmed_step", """
@@ -196,6 +218,34 @@ defmodule AllbertAssist.Security.V044PlanBuildEvalTest do
     assert [step] = expanded.preview.steps
     assert step.safety_floor == :needs_confirmation
     assert step.confirmations_required
+
+    write_workflow!(home, "upgrade_read_only", """
+    id: upgrade_read_only
+    version: 1
+    steps:
+      - id: answer
+        kind: action
+        action: direct_answer
+        confirm: true
+        params:
+          text: "Needs explicit step confirmation."
+    """)
+
+    assert {:ok, pending} =
+             Runner.run("start_plan_run", %{workflow_id: "upgrade_read_only"}, context)
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending.confirmation_id, reason: "eval approval"},
+               context
+             )
+
+    objective_id = get_in(approved, [:output_data, :objective_id])
+    assert get_in(approved, [:output_data, :run_status]) == :needs_confirmation
+    assert is_binary(get_in(approved, [:output_data, :confirmation_id]))
+    assert [%{status: "blocked", result_summary: summary}] = Objectives.list_steps(objective_id)
+    assert summary =~ "Plan/Build step confirmation"
   end
 
   test "plan cancellation is cooperative and records a durable reason", %{context: context} do
@@ -223,6 +273,7 @@ defmodule AllbertAssist.Security.V044PlanBuildEvalTest do
     assert cancelled.status == :cancelled
     assert {:ok, objective} = Objectives.get_objective(objective_id)
     assert objective.status == "cancelled"
+    refute Enum.any?(Objectives.list_steps(objective_id), &(&1.status == "proposed"))
     assert Enum.any?(Objectives.list_events(objective_id), &(&1.summary =~ "eval cancel"))
   end
 

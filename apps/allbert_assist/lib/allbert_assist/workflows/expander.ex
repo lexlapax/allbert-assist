@@ -73,7 +73,11 @@ defmodule AllbertAssist.Workflows.Expander do
       candidate_action: Map.fetch!(step, "action"),
       action_params: substitute(Map.get(step, "params", %{}), runtime),
       resource_access: %{
+        workflow_id: get_in(runtime, ["workflow", "id"]),
+        workflow_version: get_in(runtime, ["workflow", "version"]),
+        workflow_inputs: Map.get(runtime, "inputs", %{}),
         workflow_step_id: Map.get(step, "id"),
+        save_as: Map.get(step, "save_as"),
         confirm_upgrade?: Map.get(step, "confirm") == true,
         on_error: Map.get(step, "on_error", "abort"),
         if: Map.get(step, "if")
@@ -91,7 +95,16 @@ defmodule AllbertAssist.Workflows.Expander do
         command: Map.get(step, "command"),
         params: substitute(Map.get(step, "params", %{}), runtime)
       },
-      resource_access: %{workflow_step_id: Map.get(step, "id")}
+      resource_access: %{
+        workflow_id: get_in(runtime, ["workflow", "id"]),
+        workflow_version: get_in(runtime, ["workflow", "version"]),
+        workflow_inputs: Map.get(runtime, "inputs", %{}),
+        workflow_step_id: Map.get(step, "id"),
+        save_as: Map.get(step, "save_as"),
+        confirm_upgrade?: Map.get(step, "confirm") == true,
+        on_error: Map.get(step, "on_error", "abort"),
+        if: Map.get(step, "if")
+      }
     }
   end
 
@@ -103,10 +116,14 @@ defmodule AllbertAssist.Workflows.Expander do
       action_params:
         substitute(Map.drop(step, ["id", "kind", "save_as", "confirm", "on_error"]), runtime),
       resource_access: %{
+        workflow_id: get_in(runtime, ["workflow", "id"]),
+        workflow_version: get_in(runtime, ["workflow", "version"]),
+        workflow_inputs: Map.get(runtime, "inputs", %{}),
         workflow_step_id: Map.get(step, "id"),
         save_as: Map.get(step, "save_as"),
         confirm_upgrade?: Map.get(step, "confirm") == true,
-        on_error: Map.get(step, "on_error", "abort")
+        on_error: Map.get(step, "on_error", "abort"),
+        if: Map.get(step, "if")
       }
     }
   end
