@@ -135,6 +135,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "import_remote_skill",
              "import_local_skill",
              "marketplace_doctor",
+             "list_marketplace_entries",
+             "inspect_marketplace_entry",
+             "install_marketplace_bundle",
+             "rollback_marketplace_install",
+             "list_installed_marketplace_bundles",
+             "verify_marketplace_bundle_hash",
              "security_status",
              "security_review",
              "sandbox_doctor",
@@ -263,6 +269,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "import_remote_skill",
              "import_local_skill",
              "marketplace_doctor",
+             "list_marketplace_entries",
+             "inspect_marketplace_entry",
+             "install_marketplace_bundle",
+             "rollback_marketplace_install",
+             "list_installed_marketplace_bundles",
+             "verify_marketplace_bundle_hash",
              "security_status",
              "security_review",
              "sandbox_doctor",
@@ -402,6 +414,24 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert marketplace_doctor.permission == :read_only
     assert marketplace_doctor.exposure == :internal
     assert marketplace_doctor.execution_mode == :marketplace_diagnostic
+
+    assert {:ok, install_marketplace_bundle} = Registry.capability("install_marketplace_bundle")
+    assert install_marketplace_bundle.permission == :marketplace_install
+    assert install_marketplace_bundle.execution_mode == :marketplace_install_bundle
+    assert install_marketplace_bundle.resumable?
+
+    assert {:ok, rollback_marketplace_install} =
+             Registry.capability("rollback_marketplace_install")
+
+    assert rollback_marketplace_install.permission == :marketplace_install
+    assert rollback_marketplace_install.execution_mode == :marketplace_rollback
+    assert rollback_marketplace_install.resumable?
+
+    assert {:ok, verify_marketplace_bundle_hash} =
+             Registry.capability("verify_marketplace_bundle_hash")
+
+    assert verify_marketplace_bundle_hash.permission == :read_only
+    assert verify_marketplace_bundle_hash.execution_mode == :marketplace_browse
 
     assert {:ok, find_local_tools} = Registry.capability("find_local_tools")
     assert find_local_tools.permission == :read_only

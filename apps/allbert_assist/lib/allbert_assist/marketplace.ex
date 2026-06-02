@@ -49,21 +49,69 @@ defmodule AllbertAssist.Marketplace do
     }
   end
 
-  @spec list_entries(keyword() | map()) :: {:error, :not_implemented_yet}
-  def list_entries(_opts \\ []), do: {:error, :not_implemented_yet}
+  @option_keys %{
+    "home" => :home,
+    "index_path" => :index_path,
+    "installed_state_path" => :installed_state_path,
+    "mirror?" => :mirror?,
+    "version" => :version
+  }
 
-  @spec inspect_entry(term(), keyword() | map()) :: {:error, :not_implemented_yet}
-  def inspect_entry(_entry_id, _opts \\ []), do: {:error, :not_implemented_yet}
+  @spec list_entries(keyword() | map()) :: {:ok, [map()]} | {:error, map()}
+  def list_entries(opts \\ []),
+    do: AllbertAssist.Marketplace.Catalog.list_entries(normalize_opts(opts))
 
-  @spec install_bundle(term(), keyword() | map()) :: {:error, :not_implemented_yet}
-  def install_bundle(_entry_id, _opts \\ []), do: {:error, :not_implemented_yet}
+  @spec inspect_entry(term(), keyword() | map()) :: {:ok, map()} | {:error, map()}
+  def inspect_entry(entry_id, opts \\ []) do
+    AllbertAssist.Marketplace.Catalog.inspect_entry(to_string(entry_id), normalize_opts(opts))
+  end
 
-  @spec rollback_install(term(), keyword() | map()) :: {:error, :not_implemented_yet}
-  def rollback_install(_entry_id, _opts \\ []), do: {:error, :not_implemented_yet}
+  @spec install_bundle(term(), keyword() | map()) :: {:ok, map()} | {:error, map()}
+  def install_bundle(entry_id, opts \\ []) do
+    AllbertAssist.Marketplace.Install.install(to_string(entry_id), normalize_opts(opts))
+  end
 
-  @spec list_installed(keyword() | map()) :: {:error, :not_implemented_yet}
-  def list_installed(_opts \\ []), do: {:error, :not_implemented_yet}
+  @spec rollback_install(term(), keyword() | map()) :: {:ok, map()} | {:error, map()}
+  def rollback_install(entry_id, opts \\ []) do
+    AllbertAssist.Marketplace.Rollback.rollback(to_string(entry_id), normalize_opts(opts))
+  end
 
-  @spec verify_bundle_hash(term(), keyword() | map()) :: {:error, :not_implemented_yet}
-  def verify_bundle_hash(_entry_id, _opts \\ []), do: {:error, :not_implemented_yet}
+  @spec list_installed(keyword() | map()) :: {:ok, [map()]} | {:error, map()}
+  def list_installed(opts \\ []),
+    do: AllbertAssist.Marketplace.Installed.list(normalize_opts(opts))
+
+  @spec verify_bundle_hash(term(), keyword() | map()) :: {:ok, map()} | {:error, map()}
+  def verify_bundle_hash(entry_id, opts \\ []) do
+    opts = normalize_opts(opts)
+
+    with {:ok, entry} <- AllbertAssist.Marketplace.Catalog.get_entry(to_string(entry_id), opts),
+         {:ok, manifest} <-
+           AllbertAssist.Marketplace.Bundle.read_and_verify(
+             entry,
+             AllbertAssist.Marketplace.Catalog.catalog_root(opts),
+             opts
+           ) do
+      {:ok, %{entry: entry, bundle_manifest: manifest, status: :ok}}
+    end
+  end
+
+  @spec normalize_opts(keyword() | map()) :: keyword()
+  def normalize_opts(opts) when is_list(opts), do: opts
+
+  def normalize_opts(opts) when is_map(opts) do
+    Enum.flat_map(opts, fn
+      {key, value} when is_atom(key) -> [{key, value}]
+      {key, value} when is_binary(key) -> maybe_option(key, value)
+      _other -> []
+    end)
+  end
+
+  def normalize_opts(_opts), do: []
+
+  defp maybe_option(key, value) do
+    case Map.fetch(@option_keys, key) do
+      {:ok, atom_key} -> [{atom_key, value}]
+      :error -> []
+    end
+  end
 end

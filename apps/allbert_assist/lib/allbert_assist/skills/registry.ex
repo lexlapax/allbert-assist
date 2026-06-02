@@ -32,7 +32,8 @@ defmodule AllbertAssist.Skills.Registry do
     "trusted_project_roots" => [],
     "enabled" => [],
     "disabled" => [],
-    "imported_cache_policy" => "disabled"
+    "imported_cache_policy" => "disabled",
+    "marketplace_target_dir_skills" => "<ALLBERT_HOME>/marketplace/skills"
   }
 
   @legacy_built_ins [
@@ -258,7 +259,9 @@ defmodule AllbertAssist.Skills.Registry do
       [
         root_spec(:user_native, Paths.skills_root(), :trusted, true, 5),
         root_spec(:user_interoperable, user_interoperable_root(context), :trusted, true, 6)
-      ] ++ configured_roots(settings, project_root) ++ [imported_root(settings)]
+      ] ++
+      configured_roots(settings, project_root) ++
+      [marketplace_root(settings), imported_root(settings)]
   end
 
   defp root_spec(source_scope, root_path, trust_status, default_enabled?, precedence) do
@@ -327,6 +330,15 @@ defmodule AllbertAssist.Skills.Registry do
     root_spec(:imported_cache, Path.join(Paths.cache_root(), "skills"), trust_status, false, 100)
   end
 
+  defp marketplace_root(settings) do
+    root =
+      settings["marketplace_target_dir_skills"]
+      |> to_string()
+      |> String.replace("<ALLBERT_HOME>", Paths.home())
+
+    root_spec(:marketplace_install, root, :untrusted, false, 100)
+  end
+
   defp skill_dirs(%{source_scope: :imported_cache, root_path: root_path} = source) do
     root_path
     |> recursive_skill_dirs(3)
@@ -387,6 +399,9 @@ defmodule AllbertAssist.Skills.Registry do
 
       skill.source_scope == :plugin and skill.trust_status in [:pending, :untrusted] ->
         plugin_pending_diagnostic(skill)
+
+      skill.source_scope == :marketplace_install ->
+        marketplace_disabled_diagnostic(skill)
 
       skill.source_scope == :imported_cache and not imported_enabled?(skill, settings) ->
         imported_disabled_diagnostic(skill)
@@ -508,11 +523,16 @@ defmodule AllbertAssist.Skills.Registry do
   end
 
   defp read_registry_settings do
-    Map.new(@settings_defaults, fn {key, default} ->
+    @settings_defaults
+    |> Map.new(fn {key, default} ->
       {"skills.#{key}", default}
       |> read_setting()
       |> then(&{key, &1})
     end)
+    |> Map.put(
+      "marketplace_target_dir_skills",
+      read_setting({"marketplace.install.target_dir_skills", "<ALLBERT_HOME>/marketplace/skills"})
+    )
   end
 
   defp read_setting({key, default}) do
@@ -730,6 +750,15 @@ defmodule AllbertAssist.Skills.Registry do
       :warning,
       :imported_skill_disabled,
       "Imported cache skill is disabled by policy.",
+      skill
+    )
+  end
+
+  defp marketplace_disabled_diagnostic(skill) do
+    skill_diagnostic(
+      :warning,
+      :marketplace_skill_disabled,
+      "Marketplace skill is installed disabled and untrusted.",
       skill
     )
   end

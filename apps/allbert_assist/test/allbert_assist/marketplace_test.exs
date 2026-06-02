@@ -16,18 +16,5 @@ defmodule AllbertAssist.MarketplaceTest do
     assert [%{code: :not_implemented_yet}] = doctor.diagnostics
 
     assert {:error, {:not_implemented_yet, ^doctor}} = MarketplaceDoctor.run(%{}, %{})
-    assert {:error, :not_implemented_yet} = Marketplace.list_entries()
-    assert {:error, :not_implemented_yet} = Marketplace.inspect_entry("allbert/write-weekly-note")
-
-    assert {:error, :not_implemented_yet} =
-             Marketplace.install_bundle("allbert/write-weekly-note")
-
-    assert {:error, :not_implemented_yet} =
-             Marketplace.rollback_install("allbert/write-weekly-note")
-
-    assert {:error, :not_implemented_yet} = Marketplace.list_installed()
-
-    assert {:error, :not_implemented_yet} =
-             Marketplace.verify_bundle_hash("allbert/write-weekly-note")
   end
 end
