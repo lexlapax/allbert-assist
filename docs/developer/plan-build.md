@@ -16,7 +16,9 @@ not a new scheduler, permission layer, or code loader.
   `AllbertAssist.Actions.PlanBuild.*`; callers should use
   `AllbertAssist.Actions.Runner.run/3`.
 - Execution persists already-expanded steps into the v0.24 objective
-  tables. The Objective Runtime remains the run loop.
+  tables and `AllbertAssist.PlanBuild.Runtime` selects the next
+  Plan/Build step. Step execution still delegates to the Objective
+  Runtime and `Actions.Runner.run/3`; there is no YAML runner.
 
 ## Actions
 
@@ -27,6 +29,7 @@ not a new scheduler, permission layer, or code loader.
 | `expand_workflow` | `:workflow_read`; validates and expands a workflow without running it. |
 | `preview_plan` | Read-only advisory preview for workflow ids or ad-hoc plan text. |
 | `start_plan_run` | `:workflow_run_start`; confirmation-gated workflow objective creation. |
+| `plan_step_confirm` | Internal-only confirmation target used to resume a plan after `confirm: true` or `ask_user` checkpoints. |
 | `cancel_plan_run` | `:plan_cancel`; cooperative objective cancellation. |
 | `list_plan_runs` | Read-only workflow objective listing. |
 
