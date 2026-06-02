@@ -145,20 +145,18 @@ defmodule AllbertAssist.Marketplace.Doctor do
 
   defp installed_record_diagnostics(%{"install_target" => target} = record, index)
        when is_binary(target) do
-    cond do
-      not File.dir?(target) ->
-        [
-          Diagnostic.new(
-            :orphan_install,
-            :orphan_install,
-            "installed marketplace record target is missing",
-            pointer: Diagnostic.pointer(["installed", index, "install_target"]),
-            details: %{entry_id: record["entry_id"], version: record["version"]}
-          )
-        ]
-
-      true ->
-        verify_installed_hash(record, target, index)
+    if File.dir?(target) do
+      verify_installed_hash(record, target, index)
+    else
+      [
+        Diagnostic.new(
+          :orphan_install,
+          :orphan_install,
+          "installed marketplace record target is missing",
+          pointer: Diagnostic.pointer(["installed", index, "install_target"]),
+          details: %{entry_id: record["entry_id"], version: record["version"]}
+        )
+      ]
     end
   end
 

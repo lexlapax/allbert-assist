@@ -22,23 +22,28 @@ defmodule AllbertAssist.Actions.Marketplace.Doctor do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Actions.Marketplace.Support
   alias AllbertAssist.Marketplace
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
   def run(params, context) do
-    decision = PermissionGate.authorize(:read_only, context)
+    if Support.marketplace_enabled?() do
+      decision = PermissionGate.authorize(:read_only, context)
 
-    if PermissionGate.allowed?(decision) do
-      {:ok, doctor} =
-        params
-        |> normalize_params()
-        |> Map.to_list()
-        |> Marketplace.doctor()
+      if PermissionGate.allowed?(decision) do
+        {:ok, doctor} =
+          params
+          |> normalize_params()
+          |> Map.to_list()
+          |> Marketplace.doctor()
 
-      {:ok, completed(doctor, decision)}
+        {:ok, completed(doctor, decision)}
+      else
+        {:ok, denied(decision)}
+      end
     else
-      {:ok, denied(decision)}
+      {:ok, disabled()}
     end
   end
 
@@ -86,6 +91,14 @@ defmodule AllbertAssist.Actions.Marketplace.Doctor do
         }
       ]
     }
+  end
+
+  defp disabled do
+    response = Support.disabled(name(), :read_only)
+
+    response
+    |> Map.put(:doctor, %{})
+    |> Map.put(:result, %{})
   end
 
   defp normalize_params(params) when is_map(params) do

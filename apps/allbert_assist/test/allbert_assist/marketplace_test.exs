@@ -4,6 +4,12 @@ defmodule AllbertAssist.MarketplaceTest do
   @moduletag :app_env_serial
 
   alias AllbertAssist.Actions.Marketplace.Doctor, as: MarketplaceDoctor
+  alias AllbertAssist.Actions.Marketplace.InspectEntry, as: MarketplaceInspectEntry
+  alias AllbertAssist.Actions.Marketplace.InstallBundle, as: MarketplaceInstallBundle
+  alias AllbertAssist.Actions.Marketplace.ListEntries, as: MarketplaceListEntries
+  alias AllbertAssist.Actions.Marketplace.ListInstalled, as: MarketplaceListInstalled
+  alias AllbertAssist.Actions.Marketplace.RollbackInstall, as: MarketplaceRollbackInstall
+  alias AllbertAssist.Actions.Marketplace.VerifyBundleHash, as: MarketplaceVerifyBundleHash
   alias AllbertAssist.Marketplace
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
@@ -68,6 +74,31 @@ defmodule AllbertAssist.MarketplaceTest do
     assert response.result == response.doctor
     assert response.diagnostics == []
     assert [%{name: "marketplace_doctor", status: :completed}] = response.actions
+  end
+
+  test "marketplace.enabled=false disables every marketplace action", %{home: home} do
+    assert {:ok, _setting} = Settings.put("marketplace.enabled", false, %{audit?: false})
+
+    actions = [
+      {MarketplaceListEntries, %{}},
+      {MarketplaceInspectEntry, %{entry_id: "allbert/research-helpers"}},
+      {MarketplaceListInstalled, %{}},
+      {MarketplaceVerifyBundleHash, %{entry_id: "allbert/research-helpers"}},
+      {MarketplaceDoctor, %{}},
+      {MarketplaceInstallBundle, %{entry_id: "allbert/research-helpers"}},
+      {MarketplaceRollbackInstall, %{entry_id: "allbert/research-helpers"}}
+    ]
+
+    Enum.each(actions, fn {action, params} ->
+      assert {:ok, response} = action.run(params, %{actor: "local", channel: :test})
+      assert response.status == :unavailable
+      assert response.error.error_category == :marketplace_disabled
+
+      assert [%{code: :marketplace_disabled, pointer: "/marketplace/enabled"}] =
+               response.diagnostics
+    end)
+
+    refute File.exists?(Path.join(home, "marketplace/skills/allbert-research-helpers"))
   end
 
   test "doctor detects index parse errors", %{home: home} do

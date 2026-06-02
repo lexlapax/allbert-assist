@@ -7,6 +7,13 @@ defmodule AllbertAssist.Marketplace do
   Central boundary.
   """
 
+  alias AllbertAssist.Marketplace.Bundle
+  alias AllbertAssist.Marketplace.Catalog
+  alias AllbertAssist.Marketplace.Doctor
+  alias AllbertAssist.Marketplace.Install
+  alias AllbertAssist.Marketplace.Installed
+  alias AllbertAssist.Marketplace.Rollback
+
   @type doctor_result :: %{
           required(:endpoint_kind) => :local_endpoint,
           required(:credential_ok) => nil,
@@ -24,7 +31,7 @@ defmodule AllbertAssist.Marketplace do
         }
 
   @spec doctor(keyword() | map()) :: {:ok, doctor_result()}
-  def doctor(opts \\ []), do: AllbertAssist.Marketplace.Doctor.run(normalize_opts(opts))
+  def doctor(opts \\ []), do: Doctor.run(normalize_opts(opts))
 
   @option_keys %{
     "expected_schema_version" => :expected_schema_version,
@@ -37,37 +44,35 @@ defmodule AllbertAssist.Marketplace do
   }
 
   @spec list_entries(keyword() | map()) :: {:ok, [map()]} | {:error, map()}
-  def list_entries(opts \\ []),
-    do: AllbertAssist.Marketplace.Catalog.list_entries(normalize_opts(opts))
+  def list_entries(opts \\ []), do: Catalog.list_entries(normalize_opts(opts))
 
   @spec inspect_entry(term(), keyword() | map()) :: {:ok, map()} | {:error, map()}
   def inspect_entry(entry_id, opts \\ []) do
-    AllbertAssist.Marketplace.Catalog.inspect_entry(to_string(entry_id), normalize_opts(opts))
+    Catalog.inspect_entry(to_string(entry_id), normalize_opts(opts))
   end
 
   @spec install_bundle(term(), keyword() | map()) :: {:ok, map()} | {:error, map()}
   def install_bundle(entry_id, opts \\ []) do
-    AllbertAssist.Marketplace.Install.install(to_string(entry_id), normalize_opts(opts))
+    Install.install(to_string(entry_id), normalize_opts(opts))
   end
 
   @spec rollback_install(term(), keyword() | map()) :: {:ok, map()} | {:error, map()}
   def rollback_install(entry_id, opts \\ []) do
-    AllbertAssist.Marketplace.Rollback.rollback(to_string(entry_id), normalize_opts(opts))
+    Rollback.rollback(to_string(entry_id), normalize_opts(opts))
   end
 
   @spec list_installed(keyword() | map()) :: {:ok, [map()]} | {:error, map()}
-  def list_installed(opts \\ []),
-    do: AllbertAssist.Marketplace.Installed.list(normalize_opts(opts))
+  def list_installed(opts \\ []), do: Installed.list(normalize_opts(opts))
 
   @spec verify_bundle_hash(term(), keyword() | map()) :: {:ok, map()} | {:error, map()}
   def verify_bundle_hash(entry_id, opts \\ []) do
     opts = normalize_opts(opts)
 
-    with {:ok, entry} <- AllbertAssist.Marketplace.Catalog.get_entry(to_string(entry_id), opts),
+    with {:ok, entry} <- Catalog.get_entry(to_string(entry_id), opts),
          {:ok, manifest} <-
-           AllbertAssist.Marketplace.Bundle.read_and_verify(
+           Bundle.read_and_verify(
              entry,
-             AllbertAssist.Marketplace.Catalog.catalog_root(opts),
+             Catalog.catalog_root(opts),
              opts
            ) do
       {:ok, %{entry: entry, bundle_manifest: manifest, status: :ok}}

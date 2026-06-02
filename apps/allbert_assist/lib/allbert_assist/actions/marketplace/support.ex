@@ -3,7 +3,9 @@ defmodule AllbertAssist.Actions.Marketplace.Support do
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
+  alias AllbertAssist.Marketplace.Diagnostic
   alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Settings
 
   @spec field(map(), atom(), term()) :: term()
   def field(map, key, default \\ nil)
@@ -16,30 +18,66 @@ defmodule AllbertAssist.Actions.Marketplace.Support do
 
   @spec read_only(String.t(), map(), (map() -> {:ok, map()} | {:error, map()})) :: {:ok, map()}
   def read_only(action_name, context, fun) do
-    decision = PermissionGate.authorize(:read_only, context)
+    if marketplace_enabled?() do
+      decision = PermissionGate.authorize(:read_only, context)
 
-    if PermissionGate.allowed?(decision) do
-      fun.(decision)
+      if PermissionGate.allowed?(decision) do
+        fun.(decision)
+      else
+        {:ok, denied(action_name, :read_only, decision, :permission_denied)}
+      end
     else
-      {:ok, denied(action_name, :read_only, decision, :permission_denied)}
+      {:ok, disabled(action_name, :read_only)}
     end
   end
 
   @spec gated_write(String.t(), atom(), map(), map(), (map() -> {:ok, map()} | {:error, map()})) ::
           {:ok, map()}
   def gated_write(action_name, execution_mode, params, context, fun) do
-    decision = PermissionGate.authorize(:marketplace_install, context)
+    if marketplace_enabled?() do
+      decision = PermissionGate.authorize(:marketplace_install, context)
 
-    cond do
-      decision.decision == :denied ->
-        {:ok, denied(action_name, :marketplace_install, decision, :permission_denied)}
+      cond do
+        decision.decision == :denied ->
+          {:ok, denied(action_name, :marketplace_install, decision, :permission_denied)}
 
-      decision.decision == :needs_confirmation and not approved_resume?(context) ->
-        create_confirmation(action_name, execution_mode, params, context, decision)
+        decision.decision == :needs_confirmation and not approved_resume?(context) ->
+          create_confirmation(action_name, execution_mode, params, context, decision)
 
-      true ->
-        fun.(decision)
+        true ->
+          fun.(decision)
+      end
+    else
+      {:ok, disabled(action_name, :marketplace_install)}
     end
+  end
+
+  @spec marketplace_enabled?() :: boolean()
+  def marketplace_enabled? do
+    case Settings.get("marketplace.enabled") do
+      {:ok, false} -> false
+      _other -> true
+    end
+  end
+
+  @spec disabled(String.t(), atom()) :: map()
+  def disabled(action_name, permission) do
+    diagnostic =
+      Diagnostic.new(
+        :marketplace_disabled,
+        :marketplace_disabled,
+        "Marketplace Lite is disabled by marketplace.enabled.",
+        pointer: "/marketplace/enabled"
+      )
+
+    %{
+      message: diagnostic.message,
+      status: :unavailable,
+      permission_decision: %{decision: :denied, reason: :marketplace_disabled},
+      error: diagnostic,
+      diagnostics: [diagnostic],
+      actions: [action(action_name, :unavailable, permission, %{decision: :denied}, diagnostic)]
+    }
   end
 
   @spec completed(String.t(), atom(), map(), map(), String.t()) :: {:ok, map()}

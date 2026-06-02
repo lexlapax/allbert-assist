@@ -5,16 +5,20 @@ defmodule AllbertAssist.Marketplace.CatalogInstallTest do
   alias AllbertAssist.Marketplace
   alias AllbertAssist.Marketplace.Bundle
   alias AllbertAssist.Marketplace.Catalog
+  alias AllbertAssist.Settings
   alias AllbertAssist.Skills.Registry, as: Skills
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR"]
 
   setup do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
     home = temp_path("home")
     System.put_env("ALLBERT_HOME", home)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
 
     on_exit(fn ->
+      restore_app_env(Settings, original_settings_config)
       restore_env(original_env)
       File.rm_rf!(home)
     end)
@@ -34,6 +38,35 @@ defmodule AllbertAssist.Marketplace.CatalogInstallTest do
 
     assert {:ok, [listed]} = Marketplace.list_entries(index_path: fixture.index_path, home: home)
     assert listed["id"] == "allbert/research-helpers"
+  end
+
+  test "catalog mirror honors custom cache_path under Allbert Home", %{home: home} do
+    fixture = write_fixture(home: home)
+    cache_dir = "<ALLBERT_HOME>/custom-marketplace-cache"
+
+    assert {:ok, _setting} =
+             Settings.put("marketplace.catalog.cache_path", cache_dir, %{audit?: false})
+
+    assert {:ok, _catalog} = Catalog.read(index_path: fixture.index_path, home: home)
+
+    assert File.regular?(Path.join(home, "custom-marketplace-cache/index.json"))
+    refute File.exists?(Path.join(home, "marketplace/cache/index.json"))
+  end
+
+  test "catalog rejects custom cache_path outside Allbert Home", %{home: home} do
+    fixture = write_fixture(home: home)
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "marketplace.catalog.cache_path",
+               "/tmp/allbert-marketplace-cache-escape",
+               %{audit?: false}
+             )
+
+    assert {:error, diagnostic} = Catalog.read(index_path: fixture.index_path, home: home)
+    assert diagnostic.error_category == :catalog_invalid
+    assert diagnostic.code == :cache_path_outside_allbert_home
+    refute File.exists?(Path.join(home, "marketplace/cache/index.json"))
   end
 
   test "catalog rejects unknown key, missing field, schema drift, hash mismatch, and traversal",
@@ -125,6 +158,81 @@ defmodule AllbertAssist.Marketplace.CatalogInstallTest do
              )
 
     assert diagnostic.error_category == :already_installed
+  end
+
+  test "install honors custom per-kind target directories under Allbert Home", %{home: home} do
+    skill_fixture = write_fixture(home: home, kind: "skill")
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "marketplace.install.target_dir_skills",
+               "<ALLBERT_HOME>/custom-skills",
+               %{
+                 audit?: false
+               }
+             )
+
+    assert {:ok, skill} =
+             Marketplace.install_bundle("allbert/research-helpers",
+               index_path: skill_fixture.index_path,
+               home: home
+             )
+
+    assert skill.installed["install_target"] ==
+             Path.join(home, "custom-skills/allbert-research-helpers")
+
+    assert File.regular?(Path.join(home, "custom-skills/allbert-research-helpers/SKILL.md"))
+    refute File.exists?(Path.join(home, "marketplace/skills/allbert-research-helpers"))
+
+    template_fixture =
+      write_fixture(
+        home: home,
+        kind: "template",
+        entry_id: "allbert/workspace-brief",
+        files: %{"template.md" => "Template body"}
+      )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "marketplace.install.target_dir_templates",
+               "<ALLBERT_HOME>/custom-templates",
+               %{audit?: false}
+             )
+
+    assert {:ok, template} =
+             Marketplace.install_bundle("allbert/workspace-brief",
+               index_path: template_fixture.index_path,
+               home: home
+             )
+
+    assert template.installed["install_target"] ==
+             Path.join(home, "custom-templates/allbert-workspace-brief")
+
+    assert File.regular?(Path.join(home, "custom-templates/allbert-workspace-brief/template.md"))
+    refute File.exists?(Path.join(home, "marketplace/templates/allbert-workspace-brief"))
+  end
+
+  test "install rejects configured target directories outside Allbert Home", %{home: home} do
+    fixture = write_fixture(home: home)
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "marketplace.install.target_dir_skills",
+               "/tmp/allbert-marketplace-escape",
+               %{
+                 audit?: false
+               }
+             )
+
+    assert {:error, diagnostic} =
+             Marketplace.install_bundle("allbert/research-helpers",
+               index_path: fixture.index_path,
+               home: home
+             )
+
+    assert diagnostic.error_category == :install_target_invalid
+    assert diagnostic.code == :install_target_outside_marketplace
+    refute File.exists?(Path.join(home, "marketplace/skills/allbert-research-helpers"))
   end
 
   test "install rejects a different version while another is installed", %{home: home} do
@@ -301,4 +409,7 @@ defmodule AllbertAssist.Marketplace.CatalogInstallTest do
       {key, value} -> System.put_env(key, value)
     end)
   end
+
+  defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 end

@@ -19,9 +19,9 @@ defmodule Mix.Tasks.Allbert.Marketplace do
 
   use Mix.Task
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Marketplace.Catalog
   alias AllbertAssist.Runtime.Response
-  alias AllbertAssist.Actions.Runner
 
   @shortdoc "Operate Marketplace Lite"
 

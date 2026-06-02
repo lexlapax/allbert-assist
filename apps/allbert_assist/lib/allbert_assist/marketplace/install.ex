@@ -7,6 +7,7 @@ defmodule AllbertAssist.Marketplace.Install do
   alias AllbertAssist.Marketplace.Catalog
   alias AllbertAssist.Marketplace.Diagnostic
   alias AllbertAssist.Marketplace.Installed
+  alias AllbertAssist.Settings
 
   @spec install(String.t(), keyword()) :: {:ok, map()} | {:error, map()}
   def install(entry_id, opts \\ []) do
@@ -40,7 +41,7 @@ defmodule AllbertAssist.Marketplace.Install do
   end
 
   defp resolve_install_target(entry, manifest, opts) do
-    target =
+    manifest_target =
       manifest
       |> Map.fetch!("install_target")
       |> String.replace("<ALLBERT_HOME>", Keyword.get(opts, :home, AllbertAssist.Paths.home()))
@@ -48,33 +49,88 @@ defmodule AllbertAssist.Marketplace.Install do
 
     home = opts |> Keyword.get(:home, AllbertAssist.Paths.home()) |> Path.expand()
     marketplace_root = Path.join(home, "marketplace")
-    kind_root = Path.join(marketplace_root, install_dir(entry["kind"]))
+    default_kind_root = Path.join(marketplace_root, install_dir(entry["kind"]))
 
     cond do
-      not within?(target, marketplace_root) ->
+      not within?(manifest_target, marketplace_root) ->
         {:error,
          Diagnostic.new(
            :install_target_invalid,
            :install_target_outside_marketplace,
            "install_target must remain under Allbert Home marketplace",
            pointer: "/install_target",
-           details: %{target: target, marketplace_root: marketplace_root}
+           details: %{target: manifest_target, marketplace_root: marketplace_root}
          )}
 
-      not within?(target, kind_root) ->
+      not within?(manifest_target, default_kind_root) ->
         {:error,
          Diagnostic.new(
            :install_target_invalid,
            :install_target_wrong_kind_root,
            "install_target must remain under the per-kind marketplace directory",
            pointer: "/install_target",
-           details: %{target: target, kind_root: kind_root}
+           details: %{target: manifest_target, kind_root: default_kind_root}
          )}
 
       true ->
-        {:ok, target}
+        resolve_configured_target(entry["kind"], manifest_target, default_kind_root, home)
     end
   end
+
+  defp resolve_configured_target(kind, manifest_target, default_kind_root, home) do
+    kind_root = configured_kind_root(kind, home)
+
+    if within?(kind_root, home) do
+      relative = Path.relative_to(manifest_target, default_kind_root)
+      target = Path.expand(Path.join(kind_root, relative))
+
+      if within?(target, kind_root) do
+        {:ok, target}
+      else
+        {:error,
+         Diagnostic.new(
+           :install_target_invalid,
+           :install_target_outside_marketplace,
+           "resolved marketplace install target must remain under configured kind root",
+           pointer: "/install_target",
+           details: %{target: target, kind_root: kind_root}
+         )}
+      end
+    else
+      {:error,
+       Diagnostic.new(
+         :install_target_invalid,
+         :install_target_outside_marketplace,
+         "configured marketplace install target must remain under Allbert Home",
+         pointer: "/marketplace/install/#{target_setting_name(kind)}",
+         details: %{target: kind_root, home: home}
+       )}
+    end
+  end
+
+  defp configured_kind_root(kind, home) do
+    kind
+    |> target_setting_key()
+    |> read_setting(default_kind_root(kind))
+    |> String.replace("<ALLBERT_HOME>", home)
+    |> Path.expand()
+  end
+
+  defp read_setting(key, default) do
+    case Settings.get(key) do
+      {:ok, value} when is_binary(value) -> value
+      _other -> default
+    end
+  end
+
+  defp target_setting_key("skill"), do: "marketplace.install.target_dir_skills"
+  defp target_setting_key("template"), do: "marketplace.install.target_dir_templates"
+
+  defp target_setting_name("skill"), do: "target_dir_skills"
+  defp target_setting_name("template"), do: "target_dir_templates"
+
+  defp default_kind_root("skill"), do: "<ALLBERT_HOME>/marketplace/skills"
+  defp default_kind_root("template"), do: "<ALLBERT_HOME>/marketplace/templates"
 
   defp reject_conflict(%{"installed" => installed}, entry) do
     requested_version = entry["version"]

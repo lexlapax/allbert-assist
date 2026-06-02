@@ -6,6 +6,7 @@ defmodule AllbertAssist.Marketplace.Catalog do
   alias AllbertAssist.Marketplace.Bundle
   alias AllbertAssist.Marketplace.Diagnostic
   alias AllbertAssist.Marketplace.Provenance
+  alias AllbertAssist.Settings
 
   @index_file "index.json"
   @allowed_index_keys ~w[
@@ -351,8 +352,16 @@ defmodule AllbertAssist.Marketplace.Catalog do
   end
 
   defp mirror_index(index_path, opts) do
-    target = mirror_path(opts)
+    case mirror_path_result(opts) do
+      {:ok, target} ->
+        write_mirror(index_path, target)
 
+      {:error, diagnostic} ->
+        {:error, diagnostic}
+    end
+  end
+
+  defp write_mirror(index_path, target) do
     with :ok <- File.mkdir_p(Path.dirname(target)),
          {:ok, body} <- File.read(index_path) do
       tmp = target <> ".tmp"
@@ -370,6 +379,42 @@ defmodule AllbertAssist.Marketplace.Catalog do
 
   @spec mirror_path(keyword()) :: String.t()
   def mirror_path(opts \\ []) do
+    case mirror_path_result(opts) do
+      {:ok, path} -> path
+      {:error, _diagnostic} -> default_mirror_path(opts)
+    end
+  end
+
+  defp mirror_path_result(opts) do
+    home = opts |> Keyword.get(:home, AllbertAssist.Paths.home()) |> Path.expand()
+
+    cache_dir =
+      opts
+      |> Keyword.get(:cache_path, read_cache_path_setting())
+      |> String.replace("<ALLBERT_HOME>", home)
+      |> Path.expand()
+
+    if within?(cache_dir, home) do
+      {:ok, Path.join(cache_dir, @index_file)}
+    else
+      {:error,
+       diagnostic(
+         :catalog_invalid,
+         :cache_path_outside_allbert_home,
+         "/marketplace/catalog/cache_path",
+         details: %{cache_path: cache_dir, home: home}
+       )}
+    end
+  end
+
+  defp read_cache_path_setting do
+    case Settings.get("marketplace.catalog.cache_path") do
+      {:ok, path} when is_binary(path) -> path
+      _other -> "<ALLBERT_HOME>/marketplace/cache"
+    end
+  end
+
+  defp default_mirror_path(opts) do
     opts
     |> Keyword.get(:home, AllbertAssist.Paths.home())
     |> Path.join("marketplace/cache/index.json")
@@ -383,6 +428,8 @@ defmodule AllbertAssist.Marketplace.Catalog do
       {:error, _diagnostic} -> nil
     end
   end
+
+  defp within?(path, root), do: path == root or String.starts_with?(path, root <> "/")
 
   defp pointer(key), do: Diagnostic.pointer([key])
   defp pointer(key, index), do: Diagnostic.pointer([key, index])
@@ -408,5 +455,9 @@ defmodule AllbertAssist.Marketplace.Catalog do
   defp message(:invalid_bundle_hash), do: "marketplace bundle_hash is invalid"
   defp message(:invalid_tags), do: "marketplace tags must be strings"
   defp message(:duplicate_entry_id), do: "marketplace entry id is duplicated"
+
+  defp message(:cache_path_outside_allbert_home),
+    do: "marketplace cache_path must remain under Allbert Home"
+
   defp message(:mirror_failed), do: "marketplace mirror write failed"
 end
