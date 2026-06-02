@@ -36,6 +36,7 @@ changes:
 | `dynamic_codegen.enabled` | `false` | v0.37 advisory dynamic draft generation. |
 | `dynamic_codegen.live_loader_enabled` | `false` | v0.37 operator-confirmed live dynamic integration. |
 | `templates.create.enabled` | `false` | v0.38 operator `workspace:create` template gallery / live-integration surface. |
+| `marketplace.enabled` | `false` | v0.45 Marketplace Lite catalog browse/install surface. |
 
 Example:
 
@@ -46,6 +47,8 @@ mix allbert.settings set sandbox.elixir.enabled false
 mix allbert.settings set dynamic_codegen.enabled false
 mix allbert.settings set dynamic_codegen.live_loader_enabled false
 mix allbert.settings set templates.create.enabled false
+mix allbert.settings set marketplace.enabled false
+mix allbert.settings set permissions.marketplace_install denied
 mix allbert.settings set permissions.sandbox_trial denied
 ```
 
@@ -92,6 +95,14 @@ mix allbert.settings set permissions.sandbox_trial denied
   preview/diff, existing dynamic draft roots are denied rather than
   overwritten, and the Telegram/email/cross-channel approval-surface exclusion
   (`dynamic_codegen.integration_approval_surfaces`) applies unchanged.
+- Treat v0.45 Marketplace Lite as a local reviewed catalog only:
+  `marketplace.enabled=false` disables the operator surface and
+  `permissions.marketplace_install=denied` blocks install/rollback. Catalog
+  metadata, `marketplace://` URIs, template metadata, plugin_index entries,
+  and mirrored cache files do not grant authority. Installed bundles stay
+  `disabled_untrusted`; skill enablement, dynamic integration, plugin loading,
+  workflow distribution, remote code fetch, and bundle signing are outside the
+  v0.45 surface.
 
 ## Implemented And Planned v1.0 Threat Surfaces
 
@@ -205,12 +216,38 @@ eval surfaces until their capability work lands.
   `workflow-expand-rejects-bad-yaml-001`,
   `workflow-step-cap-enforced-001`, and
   `workflow-param-bytes-cap-enforced-001`.
+- Marketplace Lite (v0.45 implemented surface): the shipped catalog is local
+  reviewed metadata under `priv/marketplace/`; installs verify hashes before
+  writing, write only under `<ALLBERT_HOME>/marketplace/`, and remain
+  disabled/untrusted. `plugin_index` is browse-only, templates are
+  `metadata_only`, workflow YAML is never installed, operator-modified mirrors
+  are advisory, and `marketplace_doctor` detects index parse errors, hash
+  mismatch, orphan installs, installed tamper, and schema-version drift.
+  Implemented eval rows:
+  `marketplace-install-creates-disabled-state-001`,
+  `marketplace-install-grants-no-permission-001`,
+  `marketplace-skill-disabled-default-001`,
+  `marketplace-hash-mismatch-rejects-install-001`,
+  `marketplace-unknown-schema-version-rejects-001`,
+  `marketplace-index-unknown-key-rejects-001`,
+  `marketplace-bundle-manifest-missing-required-field-rejects-001`,
+  `marketplace-bundle-path-traversal-rejects-001`,
+  `marketplace-install-target-outside-allbert-home-rejects-001`,
+  `marketplace-workflow-yaml-never-installed-001`,
+  `marketplace-code-plugin-deny-001`,
+  `marketplace-template-metadata-no-execute-001`,
+  `marketplace-permission-grant-deny-001`,
+  `marketplace-provenance-hash-001`,
+  `marketplace-rollback-removes-install-001`,
+  `marketplace-installed-bundle-survives-upgrade-001`,
+  `marketplace-operator-modified-mirror-is-advisory-001`,
+  `marketplace-disabled-skill-cannot-execute-001`,
+  `marketplace-doctor-detects-orphan-install-001`, and
+  `marketplace-doctor-detects-tampered-bundle-001`.
 - Discord, Slack, WhatsApp, Signal, and Matrix identity mapping,
   replay, pairing, group leakage, and callback ownership.
 - Voice, image, screenshot, and generated media resource retention, redaction,
   provider cost, and cloud-upload policy.
-- Marketplace-lite provenance, disabled/untrusted defaults, and denial of
-  code-bearing remote plugin install.
 - MCP-server public protocol auth, rate limits, redaction, and confirmation
   ownership. API, ACP, and public AG-UI/A2UI bridge evals remain parked
   post-1.0.
