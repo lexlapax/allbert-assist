@@ -9,9 +9,9 @@ does not own a GenServer or Jido agent.
 | Module | Responsibility |
 |---|---|
 | `AllbertAssist.Marketplace` | Public facade for catalog, install, rollback, verify, installed list, and doctor. |
-| `Marketplace.Catalog` | Parses `priv/marketplace/index.json`, validates entries, verifies bundle hashes, mirrors the shipped index into Allbert Home cache. |
+| `Marketplace.Catalog` | Parses `priv/marketplace/index.json`, validates entries, verifies bundle hashes, mirrors the shipped index into the configured Allbert Home-rooted cache. |
 | `Marketplace.Bundle` | Reads `bundle.json`, validates manifest shape, enumerates content files, computes SHA-256 bundle hashes. |
-| `Marketplace.Install` | Installs `skill` and `template` bundles into `<ALLBERT_HOME>/marketplace/<kind>/` and writes `installed.json`. |
+| `Marketplace.Install` | Installs `skill` and `template` bundles into the configured Allbert Home-rooted per-kind targets and writes `installed.json`. |
 | `Marketplace.Rollback` | Removes installed targets and state entries. |
 | `Marketplace.Installed` | Owns atomic `installed.json` reads/writes and the install lock. |
 | `Marketplace.Templates` | Lists installed template metadata for `workspace:create`; it does not extend executable template patterns. |
@@ -63,8 +63,11 @@ Installed state:
 
 - Catalog metadata is never permission authority.
 - `marketplace://entry/<author>/<name>` is trace/audit identity only.
+- `marketplace.enabled=false` disables every marketplace action before catalog
+  or install work.
 - `:marketplace_install` authorizes install and rollback actions; installed
   files still remain disabled/untrusted.
+- Custom marketplace cache/install paths must stay under Allbert Home.
 - Templates are metadata-only until a later milestone explicitly adds a
   reviewed execution path.
 - `plugin_index` entries are browse-only and cannot install code.

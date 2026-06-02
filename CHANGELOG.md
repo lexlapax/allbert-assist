@@ -10,6 +10,54 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.45.0 - Marketplace Lite
+
+Status: implemented as the v0.45 release. Current version metadata is
+`0.45.0`.
+
+### Added
+
+- Marketplace Lite as a local reviewed catalog under `priv/marketplace/`, with
+  Allbert-author seed bundles for skills, templates, and browse-only plugin
+  index metadata.
+- Seven registered marketplace actions, eight `mix allbert.marketplace`
+  subcommands, `marketplace://entry/<author>/<name>` Resource Access identity,
+  `:marketplace_install` permission class, marketplace operation classes, and a
+  Marketplace Catalog workspace panel.
+- SHA-256 recursive bundle verification, installed-state tracking in
+  `<ALLBERT_HOME>/marketplace/installed.json`, rollback, verify, mirror, and an
+  ADR 0047-style `marketplace_doctor`.
+- `marketplace.*` Settings Central fragment with `schema_version: 1`, master
+  `marketplace.enabled` switch, custom cache/install/state paths, and ADR 0046
+  draft field-convention coverage.
+
+### Changed
+
+- Marketplace installs always write disabled/untrusted skill or template state;
+  catalog metadata, marketplace URIs, template metadata, and plugin-index
+  descriptors grant no execution authority.
+- Custom `marketplace.catalog.cache_path`,
+  `marketplace.install.target_dir_skills`, and
+  `marketplace.install.target_dir_templates` settings are honored only when
+  they remain rooted under Allbert Home.
+- `marketplace.enabled=false` now disables every marketplace action before
+  read/write work, and workflow `.yaml` / `.yml` files fail closed at bundle
+  manifest validation.
+- Umbrella, core app, web app, and `CoreApp.version/0` metadata now report
+  `0.45.0`.
+
+### Verification
+
+- Post-implementation remediation focused gate passed:
+  `mix allbert.test focused -- apps/allbert_assist/test/allbert_assist/marketplace/catalog_install_test.exs apps/allbert_assist/test/allbert_assist/marketplace_test.exs apps/allbert_assist/test/allbert_assist/marketplace/templates_test.exs apps/allbert_assist/test/mix/tasks/allbert_marketplace_test.exs apps/allbert_assist/test/security/v045_marketplace_eval_test.exs apps/allbert_assist/test/security/security_eval_case_test.exs`
+  (38 tests, 0 failures).
+- Closeout gates passed: `MIX_ENV=test mix compile --warnings-as-errors`,
+  `mix credo --strict`, `mix allbert.test release.v045`, and
+  `mix allbert.test release`.
+- Final `MIX_ENV=test mix allbert.test release` passed with 1,335 core
+  tests (3 skipped), 119 web tests, 197 StockSage plugin tests, 12
+  notes-files plugin tests, and release Dialyzer at 0 errors.
+
 ## v0.44.0 - Plan/Build Mode And Operator Workflow YAML
 
 Status: implemented as the v0.44 release. Current version metadata is

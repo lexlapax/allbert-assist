@@ -41,6 +41,13 @@ mix allbert.settings set permissions.marketplace_install denied
 the ADR 0046 schema-version convention; the migration runner is deferred to
 v0.51.
 
+`marketplace.catalog.cache_path`,
+`marketplace.install.target_dir_skills`, and
+`marketplace.install.target_dir_templates` may be customized, but the resolved
+paths must remain under Allbert Home. `marketplace.enabled=false` disables all
+marketplace actions; `permissions.marketplace_install=denied` is the narrower
+write-action lock.
+
 ## Browse And Install
 
 ```sh
@@ -94,8 +101,9 @@ reports `live_check_status=degraded` with
 - `plugin_index_not_installable`: the entry is browse-only metadata.
 - `bundle_hash_mismatch`: the shipped catalog or bundle contents are not in
   the reviewed state; reinstall from a clean checkout.
-- `install_target_outside_marketplace`: the bundle manifest tried to write
-  outside `<ALLBERT_HOME>/marketplace/`.
+- `install_target_outside_marketplace`: the bundle manifest or configured
+  target directory tried to write outside the permitted Allbert Home-rooted
+  marketplace install area.
 - `orphan_install`: `installed.json` names a target directory that no longer
   exists; rollback the entry.
 - `installed_bundle_hash_mismatch`: installed files changed after install;

@@ -218,8 +218,10 @@ eval surfaces until their capability work lands.
   `workflow-param-bytes-cap-enforced-001`.
 - Marketplace Lite (v0.45 implemented surface): the shipped catalog is local
   reviewed metadata under `priv/marketplace/`; installs verify hashes before
-  writing, write only under `<ALLBERT_HOME>/marketplace/`, and remain
-  disabled/untrusted. `plugin_index` is browse-only, templates are
+  writing, write only under configured Allbert Home-rooted marketplace targets,
+  and remain disabled/untrusted. `marketplace.enabled=false` disables all
+  marketplace actions; `permissions.marketplace_install=denied` is the narrower
+  install/rollback lock. `plugin_index` is browse-only, templates are
   `metadata_only`, workflow YAML is never installed, operator-modified mirrors
   are advisory, and `marketplace_doctor` detects index parse errors, hash
   mismatch, orphan installs, installed tamper, and schema-version drift.

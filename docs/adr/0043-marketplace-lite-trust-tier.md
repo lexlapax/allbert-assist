@@ -171,34 +171,64 @@ Per the v0.43 R6 lesson, `marketplace_doctor` and the install /
 rollback action failure modes use a documented `error_category`
 atom enum. The v0.45 set:
 
-- `:index_parse_error` — catalog index JSON parse fails.
-- `:catalog_unknown_schema_version` — `schema_version` is not `1`.
-- `:catalog_unknown_provenance_scheme` — `provenance.scheme` is
-  not in `["shipped"]`.
-- `:bundle_path_not_found` — declared `bundle_path` does not exist
-  under `priv/marketplace/bundles/`.
-- `:bundle_path_traversal` — `..` or path outside the
-  `priv/marketplace/bundles/` prefix.
-- `:bundle_manifest_invalid` — `bundle.json` parse / shape fails.
-- `:bundle_hash_mismatch` — recursive SHA-256 does not match the
-  manifest's `bundle_hash`.
-- `:installed_bundle_hash_mismatch` — installed bundle's recursive
-  hash has drifted from the manifest's `bundle_hash`.
-- `:install_target_outside_allbert_home` — `install_target`
-  resolves outside `<ALLBERT_HOME>/marketplace/`.
-- `:installed_state_file_corrupt` — `installed.json` parse fails.
-- `:orphan_install` — entry in `installed.json` but the
-  `install_target` directory is missing.
 - `:already_installed` — same-id same-version reinstall while the
   entry is installed.
+- `:bundle_hash_mismatch` — recursive SHA-256 does not match the
+  manifest's `bundle_hash`.
+- `:bundle_manifest_invalid` — `bundle.json` parse / shape fails,
+  including file-list/hash drift, manifest-entry drift, invalid
+  install metadata, and the workflow-YAML forward-pin code
+  `:workflow_yaml_forward_pin_violation`.
+- `:bundle_manifest_missing` — `bundle.json` is missing.
+- `:catalog_entry_not_found` — requested entry/version is absent
+  from the shipped catalog.
+- `:catalog_invalid` — catalog index JSON parse or shape fails,
+  including unknown keys, required-field misses, invalid entry ids,
+  unsupported source/kind, duplicate ids, invalid generated_at, and
+  custom cache path outside Allbert Home.
+- `:catalog_missing` — shipped catalog index file is missing.
+- `:catalog_schema_version_unsupported` — catalog `schema_version`
+  is not `1`.
+- `:catalog_unknown_provenance_scheme` — `provenance.scheme` is not
+  in `["shipped"]`.
+- `:install_target_exists` — install target already exists before a
+  write.
+- `:install_target_invalid` — manifest or configured install target
+  resolves outside the allowed Allbert Home-rooted marketplace
+  boundary.
+- `:install_write_failed` — install write failed after validation.
+- `:installed_bundle_hash_mismatch` — installed bundle's recursive
+  hash has drifted from the manifest's `bundle_hash`.
+- `:installed_state_invalid` — `installed.json` parse or shape fails.
+- `:marketplace_disabled` — `marketplace.enabled=false` disabled the
+  marketplace action before read/write work.
+- `:marketplace_schema_version_mismatch` — settings
+  `marketplace.schema_version` does not match the expected fragment
+  version (preview of ADR 0046's v0.51 runtime migration
+  semantics).
+- `:marketplace_schema_version_unavailable` — settings
+  `marketplace.schema_version` could not be read.
+- `:not_installed` — rollback or verify requested an entry that is
+  not installed.
+- `:orphan_install` — entry in `installed.json` but the
+  `install_target` directory is missing.
+- `:plugin_index_not_installable` — browse-only plugin index entry
+  was sent through install.
+- `:rollback_failed` — rollback file/state mutation failed.
+- `:template_metadata_invalid` — installed template metadata cannot
+  be read or validated.
 - `:version_conflict_requires_rollback` — same-id different-version
   install while another version is installed; operator must roll
   back first.
-- `:schema_version_drift` — settings `marketplace.schema_version`
-  does not match the expected fragment version (preview of
-  ADR 0046's v0.51 runtime migration semantics).
 - `:unknown_marketplace_doctor_error` — catch-all for unexpected
   internal failures.
+
+Notable diagnostic `code` values under those categories include
+`:installed_state_path_invalid` under `:installed_state_invalid`,
+`:unknown_provenance_scheme` under
+`:catalog_unknown_provenance_scheme`, and
+`:workflow_yaml_forward_pin_violation` under
+`:bundle_manifest_invalid`.
 
 Operator + developer docs at M6 mirror this enum.
 
