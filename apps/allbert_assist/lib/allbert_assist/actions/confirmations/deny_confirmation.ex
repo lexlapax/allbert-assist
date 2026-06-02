@@ -92,6 +92,8 @@ defmodule AllbertAssist.Actions.Confirmations.DenyConfirmation do
   end
 
   defp completed(record, permission_decision, metadata) do
+    metadata = Map.new(metadata)
+
     {:ok,
      %{
        message: "Confirmation #{record["id"]} is #{record["status"]}.",
@@ -104,7 +106,7 @@ defmodule AllbertAssist.Actions.Confirmations.DenyConfirmation do
            "deny_confirmation",
            :completed,
            permission_decision,
-           Map.new(metadata)
+           metadata
          )
        ]
      }}

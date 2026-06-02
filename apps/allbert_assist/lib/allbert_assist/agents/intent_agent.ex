@@ -353,32 +353,52 @@ defmodule AllbertAssist.Agents.IntentAgent do
   defp capability_route(text), do: if(capability_request?(text), do: :list_skills)
 
   defp plan_build_route(text, normalized) do
-    cond do
-      Regex.match?(~r/^\s*plan\s*:?\s+\S/i, text) ->
-        {:preview_plan, %{plan_text: String.replace(text, ~r/^\s*plan\s*:?\s*/i, "")}}
+    preview_plan_route(text) ||
+      run_workflow_route(text) ||
+      run_existing_workflow_route(text) ||
+      cancel_plan_route(text) ||
+      show_plan_route(text) ||
+      list_workflows_route(normalized) ||
+      list_plan_runs_route(normalized)
+  end
 
-      Regex.match?(~r/^\s*run\s+workflow\s+#{workflow_id_pattern()}\s*$/i, text) ->
-        {:start_plan_run, %{workflow_id: workflow_id_from_suffix(text)}}
-
-      Regex.match?(~r/^\s*run\s+#{workflow_id_pattern()}\s*$/i, text) ->
-        workflow_id = workflow_id_from_suffix(text)
-        if Workflows.exists?(workflow_id), do: {:start_plan_run, %{workflow_id: workflow_id}}
-
-      Regex.match?(~r/^\s*cancel\s+plan\s+#{objective_id_pattern()}\s*$/i, text) ->
-        {:cancel_plan_run, %{objective_id: objective_id_from_suffix(text)}}
-
-      Regex.match?(~r/^\s*show\s+plan\s+#{objective_id_pattern()}\s*$/i, text) ->
-        {:show_plan, %{id: objective_id_from_suffix(text)}}
-
-      normalized in ["list workflows", "show workflows"] ->
-        :list_workflows
-
-      normalized in ["list plans", "show plans"] ->
-        :list_plan_runs
-
-      true ->
-        nil
+  defp preview_plan_route(text) do
+    if Regex.match?(~r/^\s*plan\s*:?\s+\S/i, text) do
+      {:preview_plan, %{plan_text: String.replace(text, ~r/^\s*plan\s*:?\s*/i, "")}}
     end
+  end
+
+  defp run_workflow_route(text) do
+    if Regex.match?(~r/^\s*run\s+workflow\s+#{workflow_id_pattern()}\s*$/i, text) do
+      {:start_plan_run, %{workflow_id: workflow_id_from_suffix(text)}}
+    end
+  end
+
+  defp run_existing_workflow_route(text) do
+    if Regex.match?(~r/^\s*run\s+#{workflow_id_pattern()}\s*$/i, text) do
+      workflow_id = workflow_id_from_suffix(text)
+      if Workflows.exists?(workflow_id), do: {:start_plan_run, %{workflow_id: workflow_id}}
+    end
+  end
+
+  defp cancel_plan_route(text) do
+    if Regex.match?(~r/^\s*cancel\s+plan\s+#{objective_id_pattern()}\s*$/i, text) do
+      {:cancel_plan_run, %{objective_id: objective_id_from_suffix(text)}}
+    end
+  end
+
+  defp show_plan_route(text) do
+    if Regex.match?(~r/^\s*show\s+plan\s+#{objective_id_pattern()}\s*$/i, text) do
+      {:show_plan, %{id: objective_id_from_suffix(text)}}
+    end
+  end
+
+  defp list_workflows_route(normalized) do
+    if normalized in ["list workflows", "show workflows"], do: :list_workflows
+  end
+
+  defp list_plan_runs_route(normalized) do
+    if normalized in ["list plans", "show plans"], do: :list_plan_runs
   end
 
   defp tool_discovery_route(text, normalized) do
@@ -386,31 +406,55 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp marketplace_route(text, normalized) do
-    cond do
-      normalized in ["show me the reviewed skill catalog", "show me reviewed skill catalog"] ->
-        {:list_marketplace_entries, %{kind: "skill"}}
+    reviewed_skill_catalog_route(normalized) ||
+      reviewed_templates_route(normalized) ||
+      installed_marketplace_route(normalized) ||
+      browse_marketplace_route(text, normalized) ||
+      install_marketplace_route(text) ||
+      rollback_marketplace_route(text) ||
+      verify_marketplace_route(text)
+  end
 
-      normalized == "show me reviewed templates" ->
-        {:list_marketplace_entries, %{kind: "template"}}
+  defp reviewed_skill_catalog_route(normalized) do
+    if normalized in ["show me the reviewed skill catalog", "show me reviewed skill catalog"] do
+      {:list_marketplace_entries, %{kind: "skill"}}
+    end
+  end
 
-      String.contains?(normalized, "installed marketplace") ->
-        :list_installed_marketplace_bundles
+  defp reviewed_templates_route(normalized) do
+    if normalized == "show me reviewed templates" do
+      {:list_marketplace_entries, %{kind: "template"}}
+    end
+  end
 
-      String.contains?(normalized, "marketplace") and
-          Regex.match?(~r/\b(what|show|list|catalog)\b/i, text) ->
-        {:list_marketplace_entries, %{}}
+  defp installed_marketplace_route(normalized) do
+    if String.contains?(normalized, "installed marketplace") do
+      :list_installed_marketplace_bundles
+    end
+  end
 
-      Regex.match?(~r/^\s*install\s+the\s+#{marketplace_entry_id_pattern()}\s+skill\s*$/i, text) ->
-        {:install_marketplace_bundle, %{entry_id: marketplace_entry_id_from_text(text)}}
+  defp browse_marketplace_route(text, normalized) do
+    if String.contains?(normalized, "marketplace") and
+         Regex.match?(~r/\b(what|show|list|catalog)\b/i, text) do
+      {:list_marketplace_entries, %{}}
+    end
+  end
 
-      Regex.match?(~r/^\s*rollback\s+#{marketplace_entry_id_pattern()}\s*$/i, text) ->
-        {:rollback_marketplace_install, %{entry_id: marketplace_entry_id_from_text(text)}}
+  defp install_marketplace_route(text) do
+    if Regex.match?(~r/^\s*install\s+the\s+#{marketplace_entry_id_pattern()}\s+skill\s*$/i, text) do
+      {:install_marketplace_bundle, %{entry_id: marketplace_entry_id_from_text(text)}}
+    end
+  end
 
-      Regex.match?(~r/^\s*verify\s+#{marketplace_entry_id_pattern()}\s*$/i, text) ->
-        {:verify_marketplace_bundle_hash, %{entry_id: marketplace_entry_id_from_text(text)}}
+  defp rollback_marketplace_route(text) do
+    if Regex.match?(~r/^\s*rollback\s+#{marketplace_entry_id_pattern()}\s*$/i, text) do
+      {:rollback_marketplace_install, %{entry_id: marketplace_entry_id_from_text(text)}}
+    end
+  end
 
-      true ->
-        nil
+  defp verify_marketplace_route(text) do
+    if Regex.match?(~r/^\s*verify\s+#{marketplace_entry_id_pattern()}\s*$/i, text) do
+      {:verify_marketplace_bundle_hash, %{entry_id: marketplace_entry_id_from_text(text)}}
     end
   end
 

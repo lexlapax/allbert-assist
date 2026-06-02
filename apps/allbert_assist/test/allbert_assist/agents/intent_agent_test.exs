@@ -93,7 +93,10 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       "preview_plan",
       "open_calendar_panel",
       "open_mail_panel",
-      "open_github_panel",
+      "open_github_panel"
+    ]
+
+    browser_actions = [
       "browser_research_handoff"
     ]
 
@@ -113,9 +116,13 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
 
     assert action_names in [
              core_actions,
+             core_actions ++ browser_actions,
              core_actions ++ notes_files_actions,
+             core_actions ++ browser_actions ++ notes_files_actions,
              core_actions ++ stocksage_actions,
-             core_actions ++ notes_files_actions ++ stocksage_actions
+             core_actions ++ browser_actions ++ stocksage_actions,
+             core_actions ++ notes_files_actions ++ stocksage_actions,
+             core_actions ++ browser_actions ++ notes_files_actions ++ stocksage_actions
            ]
   end
 

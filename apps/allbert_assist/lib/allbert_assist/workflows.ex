@@ -71,49 +71,62 @@ defmodule AllbertAssist.Workflows do
   defp apply_step_overrides(%{"steps" => steps} = workflow, overrides) when is_map(overrides) do
     overrides = stringify_keys(overrides)
     step_overrides = Map.get(overrides, "steps", overrides)
-    known_ids = MapSet.new(Enum.map(steps, &Map.get(&1, "id")))
-    override_ids = MapSet.new(Map.keys(step_overrides))
 
-    case MapSet.difference(override_ids, known_ids) |> MapSet.to_list() do
-      [] ->
-        steps
-        |> Enum.with_index(1)
-        |> Enum.reduce_while({:ok, []}, fn {step, index}, {:ok, edited} ->
-          override = Map.get(step_overrides, Map.get(step, "id"), %{})
-
-          case edit_step(step, override, index) do
-            {:ok, nil} -> {:cont, {:ok, edited}}
-            {:ok, edited_step} -> {:cont, {:ok, [edited_step | edited]}}
-            {:error, error} -> {:halt, {:error, error}}
-          end
-        end)
-        |> case do
-          {:ok, edited_steps} ->
-            edited_steps =
-              edited_steps
-              |> Enum.reverse()
-              |> Enum.sort_by(fn {order, index, _step} -> {order, index} end)
-              |> Enum.map(fn {_order, _index, step} -> step end)
-
-            {:ok, Map.put(workflow, "steps", edited_steps)}
-
-          {:error, error} ->
-            {:error, error}
-        end
-
-      unknown ->
-        {:error,
-         SchemaError.new(
-           pointer: "/steps",
-           reason: :unknown_step_override,
-           expected: "existing step id",
-           got: unknown,
-           workflow_id: Map.get(workflow, "id")
-         )}
+    with :ok <- validate_step_override_ids(workflow, steps, step_overrides),
+         {:ok, edited_steps} <- edit_steps(steps, step_overrides) do
+      {:ok, Map.put(workflow, "steps", edited_steps)}
     end
   end
 
   defp apply_step_overrides(workflow, _overrides), do: {:ok, workflow}
+
+  defp validate_step_override_ids(workflow, steps, step_overrides) do
+    known_ids = MapSet.new(Enum.map(steps, &Map.get(&1, "id")))
+    override_ids = MapSet.new(Map.keys(step_overrides))
+
+    case MapSet.difference(override_ids, known_ids) |> MapSet.to_list() do
+      [] -> :ok
+      unknown -> unknown_step_override(workflow, unknown)
+    end
+  end
+
+  defp unknown_step_override(workflow, unknown) do
+    {:error,
+     SchemaError.new(
+       pointer: "/steps",
+       reason: :unknown_step_override,
+       expected: "existing step id",
+       got: unknown,
+       workflow_id: Map.get(workflow, "id")
+     )}
+  end
+
+  defp edit_steps(steps, step_overrides) do
+    steps
+    |> Enum.with_index(1)
+    |> Enum.reduce_while({:ok, []}, fn {step, index}, {:ok, edited} ->
+      step
+      |> edit_step(Map.get(step_overrides, Map.get(step, "id"), %{}), index)
+      |> reduce_edited_step(edited)
+    end)
+    |> order_edited_steps()
+  end
+
+  defp reduce_edited_step({:ok, nil}, edited), do: {:cont, {:ok, edited}}
+  defp reduce_edited_step({:ok, edited_step}, edited), do: {:cont, {:ok, [edited_step | edited]}}
+  defp reduce_edited_step({:error, error}, _edited), do: {:halt, {:error, error}}
+
+  defp order_edited_steps({:ok, edited_steps}) do
+    edited_steps =
+      edited_steps
+      |> Enum.reverse()
+      |> Enum.sort_by(fn {order, index, _step} -> {order, index} end)
+      |> Enum.map(fn {_order, _index, step} -> step end)
+
+    {:ok, edited_steps}
+  end
+
+  defp order_edited_steps({:error, error}), do: {:error, error}
 
   defp edit_step(step, override, index) do
     override = stringify_keys(override)
@@ -121,16 +134,21 @@ defmodule AllbertAssist.Workflows do
     if falsey?(Map.get(override, "enabled")) do
       {:ok, nil}
     else
-      with {:ok, order} <- step_order(override, index) do
-        step =
-          if truthy?(Map.get(override, "confirm")) or Map.get(step, "confirm") == true do
-            Map.put(step, "confirm", true)
-          else
-            Map.delete(step, "confirm")
-          end
+      edit_enabled_step(step, override, index)
+    end
+  end
 
-        {:ok, {order, index, step}}
-      end
+  defp edit_enabled_step(step, override, index) do
+    with {:ok, order} <- step_order(override, index) do
+      {:ok, {order, index, apply_confirmation_override(step, override)}}
+    end
+  end
+
+  defp apply_confirmation_override(step, override) do
+    if truthy?(Map.get(override, "confirm")) or Map.get(step, "confirm") == true do
+      Map.put(step, "confirm", true)
+    else
+      Map.delete(step, "confirm")
     end
   end
 

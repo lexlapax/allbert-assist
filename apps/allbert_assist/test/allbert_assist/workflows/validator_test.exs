@@ -2,8 +2,8 @@ defmodule AllbertAssist.Workflows.ValidatorTest do
   use ExUnit.Case, async: false
   @moduletag :external_runtime_serial
 
-  alias AllbertAssist.Settings
   alias AllbertAssist.Objectives.AgentRegistry
+  alias AllbertAssist.Settings
   alias AllbertAssist.Workflows.{Loader, Validator}
 
   defmodule PingCommand do
@@ -41,14 +41,17 @@ defmodule AllbertAssist.Workflows.ValidatorTest do
   setup do
     original_home = System.get_env("ALLBERT_HOME")
     original_paths_config = Application.get_env(:allbert_assist, AllbertAssist.Paths)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
     home = Path.join(System.tmp_dir!(), "allbert-validator-#{System.unique_integer([:positive])}")
     System.put_env("ALLBERT_HOME", home)
     Application.put_env(:allbert_assist, AllbertAssist.Paths, home: home)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
     File.mkdir_p!(Path.join(home, "workflows"))
 
     on_exit(fn ->
       restore_env("ALLBERT_HOME", original_home)
       restore_app_env(AllbertAssist.Paths, original_paths_config)
+      restore_app_env(Settings, original_settings_config)
       File.rm_rf!(home)
     end)
 
