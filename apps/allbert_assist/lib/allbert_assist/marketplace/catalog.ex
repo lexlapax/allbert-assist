@@ -126,14 +126,14 @@ defmodule AllbertAssist.Marketplace.Catalog do
          true <- is_map(decoded) || {:error, diagnostic(:catalog_invalid, :expected_object, "/")} do
       {:ok, decoded}
     else
-      {:error, %{} = diagnostic} ->
-        {:error, diagnostic}
-
       {:error, %Jason.DecodeError{} = error} ->
         {:error,
          diagnostic(:catalog_invalid, :invalid_json, "/",
            details: %{message: Exception.message(error)}
          )}
+
+      {:error, %{} = diagnostic} ->
+        {:error, diagnostic}
 
       {:error, reason} ->
         {:error,

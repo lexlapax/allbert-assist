@@ -2,10 +2,9 @@ defmodule AllbertAssist.Marketplace do
   @moduledoc """
   Marketplace Lite facade.
 
-  This is a plain module, not a state-bearing process. v0.45 M1 only reserves
-  the public boundary, settings namespace, permission class, operation
-  vocabulary, and URI identity. Catalog and install behavior lands in later
-  v0.45 milestones.
+  This is a plain module, not a state-bearing process. Marketplace data lives
+  in the shipped catalog and Allbert Home; action modules own the Security
+  Central boundary.
   """
 
   @type doctor_result :: %{
@@ -19,41 +18,21 @@ defmodule AllbertAssist.Marketplace do
           required(:redacted_host) => String.t(),
           required(:diagnostics) => [map()],
           required(:error_category) => atom(),
-          required(:live_check_status) => atom()
+          required(:live_check_status) => atom(),
+          optional(:checked_at) => String.t(),
+          optional(:last_verified_at) => String.t()
         }
 
-  @spec doctor(keyword() | map()) :: {:error, {:not_implemented_yet, doctor_result()}}
-  def doctor(_opts \\ []) do
-    {:error, {:not_implemented_yet, doctor_stub()}}
-  end
-
-  @spec doctor_stub() :: doctor_result()
-  def doctor_stub do
-    %{
-      endpoint_kind: :local_endpoint,
-      credential_ok: nil,
-      endpoint_ok: false,
-      model_available: :unknown,
-      context_window: nil,
-      deprecation_warning: nil,
-      last_seen_rate_limit_hint: nil,
-      redacted_host: "local",
-      diagnostics: [
-        %{
-          code: :not_implemented_yet,
-          message: "Marketplace doctor is reserved for v0.45 M5."
-        }
-      ],
-      error_category: :unknown_marketplace_doctor_error,
-      live_check_status: :not_implemented
-    }
-  end
+  @spec doctor(keyword() | map()) :: {:ok, doctor_result()}
+  def doctor(opts \\ []), do: AllbertAssist.Marketplace.Doctor.run(normalize_opts(opts))
 
   @option_keys %{
+    "expected_schema_version" => :expected_schema_version,
     "home" => :home,
     "index_path" => :index_path,
     "installed_state_path" => :installed_state_path,
     "mirror?" => :mirror?,
+    "verbose" => :verbose,
     "version" => :version
   }
 

@@ -240,7 +240,7 @@ defmodule Mix.Tasks.Allbert.Marketplace do
     end)
   end
 
-  defp doctor_result(%{error: {:not_implemented_yet, result}}), do: result
+  defp doctor_result(%{doctor: doctor}) when is_map(doctor) and map_size(doctor) > 0, do: doctor
   defp doctor_result(%{result: result}) when is_map(result), do: result
   defp doctor_result(response), do: response
 

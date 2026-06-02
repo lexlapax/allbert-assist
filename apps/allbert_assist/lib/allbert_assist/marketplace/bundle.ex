@@ -48,14 +48,14 @@ defmodule AllbertAssist.Marketplace.Bundle do
              {:error, diagnostic(:bundle_manifest_invalid, :expected_object, "/")} do
       {:ok, decoded}
     else
-      {:error, %{} = diagnostic} ->
-        {:error, diagnostic}
-
       {:error, %Jason.DecodeError{} = error} ->
         {:error,
          diagnostic(:bundle_manifest_invalid, :invalid_json, "/",
            details: %{message: Exception.message(error)}
          )}
+
+      {:error, %{} = diagnostic} ->
+        {:error, diagnostic}
 
       {:error, reason} ->
         {:error,

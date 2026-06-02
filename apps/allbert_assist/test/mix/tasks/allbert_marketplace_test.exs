@@ -144,15 +144,14 @@ defmodule Mix.Tasks.Allbert.MarketplaceTest do
     assert File.regular?(mirror_path)
   end
 
-  test "doctor command exposes the M5 reserved diagnostic" do
+  test "doctor command prints the M5 live-check status" do
     output =
       capture_io(fn ->
         assert :ok = MarketplaceTask.run(["doctor"])
       end)
 
-    assert output =~ "Marketplace doctor status=error"
-    assert output =~ "live_check_status=not_implemented"
-    assert output =~ "Diagnostic not_implemented_yet"
+    assert output =~ "Marketplace doctor status=completed"
+    assert output =~ "live_check_status=ok"
   end
 
   defp all_seed_ids do
