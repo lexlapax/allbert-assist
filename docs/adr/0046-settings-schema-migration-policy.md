@@ -6,6 +6,22 @@ Proposed (draft begins during v0.45 Marketplace Lite because marketplace adds
 new settings fragments). Accepted at v0.51 Hardening + Export/Import + Final
 RC where the migration tool ships.
 
+### v0.45 vs v0.51 split
+
+v0.45 adopts the **`schema_version` field convention only**: every new
+plugin-owned or feature-owned settings fragment declares
+`<namespace>.schema_version: <integer>` (always `1` at v0.45). The
+field validates at the fragment schema layer and is read-only.
+
+- v0.44 retroactively shipped `workflows.schema_version: 1` (at
+  `schema.ex:1077, :2245`).
+- v0.45 ships `marketplace.schema_version: 1` as the first new
+  fragment to adopt the convention from M1.
+
+v0.51 ships the **runtime migration tool** + bump semantics +
+fail-closed handling for unknown schema versions at boot. The ADR
+flips to Accepted then.
+
 ## Context
 
 Through v0.37, Settings Central has accumulated schema fragments across many
