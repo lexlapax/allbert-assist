@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "pattern_id": "marketplace_workspace_brief",
+  "name": "Workspace Brief",
+  "description": "Inert brief template metadata for workspace:create marketplace validation.",
+  "parameters": [
+    {
+      "name": "title",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "objective",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "context",
+      "type": "string",
+      "required": false
+    }
+  ],
+  "live_integration": false,
+  "authority": "metadata_only"
+}

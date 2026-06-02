@@ -21,6 +21,40 @@
         "review_date": "2026-06-01"
       },
       "tags": ["research", "skills"]
+    },
+    {
+      "id": "allbert/workspace-brief",
+      "version": "1.0.0",
+      "kind": "template",
+      "name": "Workspace Brief",
+      "description": "Inert marketplace template metadata for workspace:create validation.",
+      "author": "Allbert Maintainers",
+      "license": "MIT",
+      "bundle_path": "bundles/allbert-workspace-brief-1.0.0",
+      "bundle_hash": "sha256:cfa9ea9a3a25e6638cd69758e76b548d96dd3a133f4b3cf28cfe7d60d49b887b",
+      "provenance": {
+        "scheme": "shipped",
+        "source_git_commit": "a219e06",
+        "review_date": "2026-06-01"
+      },
+      "tags": ["templates", "workspace"]
+    },
+    {
+      "id": "allbert/reviewed-plugin-sources",
+      "version": "1.0.0",
+      "kind": "plugin_index",
+      "name": "Reviewed Plugin Sources",
+      "description": "Browse-only metadata for reviewed Allbert plugin source references.",
+      "author": "Allbert Maintainers",
+      "license": "MIT",
+      "bundle_path": "bundles/allbert-reviewed-plugin-sources-1.0.0",
+      "bundle_hash": "sha256:7ee483da89d7f5e7c5204b4a7ddb601aef2eac578f6cf3e0fdea346375516fee",
+      "provenance": {
+        "scheme": "shipped",
+        "source_git_commit": "a219e06",
+        "review_date": "2026-06-01"
+      },
+      "tags": ["plugins", "reviewed-source"]
     }
   ]
 }

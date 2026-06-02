@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "id": "allbert.notes_files",
+      "kind": "reviewed_source",
+      "description": "Reviewed source metadata for the shipped notes/files plugin.",
+      "installable": false
+    },
+    {
+      "id": "allbert.browser",
+      "kind": "reviewed_source",
+      "description": "Reviewed source metadata for the shipped browser plugin.",
+      "installable": false
+    }
+  ],
+  "authority": "browse_only"
+}
