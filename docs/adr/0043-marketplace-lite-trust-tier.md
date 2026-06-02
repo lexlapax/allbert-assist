@@ -42,10 +42,13 @@ install for post-1.0 governance.
 
 - **Reviewed skill discovery and install** into Allbert Home from a
   shipped catalog. Installed skills register through the existing
-  v0.03 `Skills.Registry` with `source: :marketplace, status:
-  :disabled, trust: :untrusted`. Enabling and trusting the skill is
-  a separate operator action through the existing v0.03 + v0.06
-  paths.
+  v0.03 `Skills.Registry` with `source_scope: :marketplace_install,
+  status: :disabled, trust: :untrusted`. The `:marketplace_install`
+  value is a new `:source_scope` enum entry added at v0.45 M1
+  (sibling of v0.10's `:imported_cache`); the v0.03 substrate gets
+  a one-value additive schema change. Enabling and trusting the
+  skill is a separate operator action through the existing v0.03 +
+  v0.06 paths.
 - **Reviewed-source plugin index metadata** (descriptive only). The
   catalog can advertise reviewed plugins by id + repo URL + review
   date, but the marketplace never fetches plugin code, never compiles
@@ -162,6 +165,43 @@ Hash verification runs at three points:
 Hash mismatch fails closed with a structured `error_category`
 diagnostic. No partial install.
 
+### Doctor error_category enum
+
+Per the v0.43 R6 lesson, `marketplace_doctor` and the install /
+rollback action failure modes use a documented `error_category`
+atom enum. The v0.45 set:
+
+- `:index_parse_error` — catalog index JSON parse fails.
+- `:catalog_unknown_schema_version` — `schema_version` is not `1`.
+- `:catalog_unknown_provenance_scheme` — `provenance.scheme` is
+  not in `["shipped"]`.
+- `:bundle_path_not_found` — declared `bundle_path` does not exist
+  under `priv/marketplace/bundles/`.
+- `:bundle_path_traversal` — `..` or path outside the
+  `priv/marketplace/bundles/` prefix.
+- `:bundle_manifest_invalid` — `bundle.json` parse / shape fails.
+- `:bundle_hash_mismatch` — recursive SHA-256 does not match the
+  manifest's `bundle_hash`.
+- `:installed_bundle_hash_mismatch` — installed bundle's recursive
+  hash has drifted from the manifest's `bundle_hash`.
+- `:install_target_outside_allbert_home` — `install_target`
+  resolves outside `<ALLBERT_HOME>/marketplace/`.
+- `:installed_state_file_corrupt` — `installed.json` parse fails.
+- `:orphan_install` — entry in `installed.json` but the
+  `install_target` directory is missing.
+- `:already_installed` — same-id same-version reinstall while the
+  entry is installed.
+- `:version_conflict_requires_rollback` — same-id different-version
+  install while another version is installed; operator must roll
+  back first.
+- `:schema_version_drift` — settings `marketplace.schema_version`
+  does not match the expected fragment version (preview of
+  ADR 0046's v0.51 runtime migration semantics).
+- `:unknown_marketplace_doctor_error` — catch-all for unexpected
+  internal failures.
+
+Operator + developer docs at M6 mirror this enum.
+
 ## Single-Vendor Decision Rationale
 
 v0.45 ships single-vendor (Allbert-author bundles only) because:
@@ -230,15 +270,33 @@ Install:
   bundle kinds (`skill` and `template`).
 - Updates `<ALLBERT_HOME>/marketplace/installed.json` with
   entry-id + version + installed_at + install_state
-  (`"disabled_untrusted"`) + install_target + bundle_hash.
-- For skill kind, registers with `Skills.Registry` as `source:
-  :marketplace, status: :disabled, trust: :untrusted`.
+  (`"disabled_untrusted"`) + install_target + bundle_hash. The
+  update uses the write-temp + rename pattern
+  (`installed.json.tmp` → `installed.json`) for atomic persistence
+  — same-filesystem rename is POSIX-atomic and survives crashes
+  mid-write. Concurrent install / rollback actions serialize on a
+  per-Allbert-Home advisory lock to prevent lost updates.
+- For skill kind, registers with `Skills.Registry` as
+  `source_scope: :marketplace_install, status: :disabled, trust:
+  :untrusted`. The `:marketplace_install` value is a new
+  `:source_scope` enum entry added at v0.45 M1 (sibling of
+  v0.10's `:imported_cache`).
 - For template kind, registers with the v0.38 templated-creation
   registry as descriptive metadata.
 - For plugin_index kind, install rejects. Plugin index entries are
   catalog metadata only: browseable and inspectable, never installed,
   copied, compiled, or registered as code.
-- Hash mismatch fails closed; no partial install.
+- Hash mismatch fails closed; no partial install (see §"Doctor
+  error_category enum" for the failure-mode list).
+- **Same-id behavior.** If the same entry-id is already installed
+  at the requested version, install rejects with `error_category:
+  :already_installed`. If a different version of the same entry-id
+  is installed, install rejects with `error_category:
+  :version_conflict_requires_rollback` — the operator must roll
+  back the existing version before installing the new one.
+  Upgrade is a deliberate two-step operator action; v0.45 does not
+  ship auto-upgrade because in-place upgrade requires explicit
+  state-preservation semantics that are out of scope.
 
 Rollback:
 
