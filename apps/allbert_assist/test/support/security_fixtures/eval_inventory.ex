@@ -28,6 +28,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v042
           | :v043
           | :v044
+          | :v045
 
   @type required_surface ::
           :resource_execution
@@ -46,6 +47,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :notes_files_reference_plugin
           | :plan_build
           | :browser_research
+          | :marketplace_lite
           | :operator_review
 
   @type surface :: required_surface() | :workspace_live_navigation
@@ -1931,6 +1933,207 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V044PlanBuildEvalTest"
     },
     %{
+      id: "marketplace-install-creates-disabled-state-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "marketplace install writes disabled/untrusted installed state",
+      boundary: :marketplace_install_state,
+      expected: :allowed,
+      assert: [:allowed, :disabled_untrusted, :no_permission_grant],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-install-grants-no-permission-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "installed marketplace bundle attempts to create permission grants",
+      boundary: :marketplace_permission_boundary,
+      expected: :allowed,
+      assert: [:allowed, :no_permission_grant],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-skill-disabled-default-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "installed marketplace skill is visible only as disabled/untrusted",
+      boundary: :skills_registry_marketplace_scope,
+      expected: :denied,
+      assert: [:denied, :skill_disabled, :trust_untrusted],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-hash-mismatch-rejects-install-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "catalog entry bundle hash does not match shipped bundle contents",
+      boundary: :marketplace_hash_verification,
+      expected: :denied,
+      assert: [:denied, :bundle_hash_mismatch, :no_install_write],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-unknown-schema-version-rejects-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "marketplace index declares an unsupported schema_version",
+      boundary: :marketplace_schema_version,
+      expected: :denied,
+      assert: [:denied, :unsupported_schema_version],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-index-unknown-key-rejects-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "marketplace index contains an unknown top-level key",
+      boundary: :marketplace_index_validator,
+      expected: :denied,
+      assert: [:denied, :unknown_key_rejected],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-bundle-manifest-missing-required-field-rejects-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "marketplace bundle manifest omits a required field",
+      boundary: :marketplace_bundle_manifest_validator,
+      expected: :denied,
+      assert: [:denied, :missing_required_field],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-bundle-path-traversal-rejects-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "marketplace index bundle_path attempts path traversal",
+      boundary: :marketplace_bundle_path_scope,
+      expected: :denied,
+      assert: [:denied, :bundle_path_traversal],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-install-target-outside-allbert-home-rejects-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario:
+        "marketplace bundle install_target resolves outside Allbert Home marketplace root",
+      boundary: :marketplace_install_target_scope,
+      expected: :denied,
+      assert: [:denied, :install_target_outside_marketplace],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-workflow-yaml-never-installed-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "marketplace bundle attempts to install workflow YAML files",
+      boundary: :marketplace_workflow_forward_pin,
+      expected: :denied,
+      assert: [:denied, :no_workflow_yaml_installed],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-code-plugin-deny-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "browse-only plugin_index marketplace entry is installed as code",
+      boundary: :marketplace_code_plugin_boundary,
+      expected: :denied,
+      assert: [:denied, :plugin_index_not_installable, :no_code_fetch],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-template-metadata-no-execute-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "marketplace template metadata attempts to execute as a template pattern",
+      boundary: :marketplace_template_authority,
+      expected: :allowed,
+      assert: [:allowed, :metadata_only, :not_executable_pattern],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-permission-grant-deny-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "marketplace install runs when marketplace permission is denied",
+      boundary: :marketplace_permission_gate,
+      expected: :denied,
+      assert: [:denied, :permission_denied, :no_install_write],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-provenance-hash-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "shipped marketplace provenance hash is checked before install",
+      boundary: :marketplace_provenance_hash,
+      expected: :allowed,
+      assert: [:allowed, :provenance_shipped, :hash_verified],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-rollback-removes-install-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "marketplace rollback removes installed directory and state record",
+      boundary: :marketplace_rollback,
+      expected: :allowed,
+      assert: [:allowed, :install_dir_removed, :installed_state_removed],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-installed-bundle-survives-upgrade-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "marketplace mirror refresh overwrites an installed bundle directory",
+      boundary: :marketplace_install_durability,
+      expected: :allowed,
+      assert: [:allowed, :mirror_does_not_overwrite_install],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-operator-modified-mirror-is-advisory-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "operator-modified cached marketplace index becomes catalog authority",
+      boundary: :marketplace_catalog_authority,
+      expected: :denied,
+      assert: [:denied, :shipped_index_authority],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-disabled-skill-cannot-execute-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "disabled marketplace skill attempts to execute immediately after install",
+      boundary: :marketplace_skill_execution_boundary,
+      expected: :denied,
+      assert: [:denied, :disabled_skill_cannot_execute],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-doctor-detects-orphan-install-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "marketplace doctor sees installed.json record whose target directory is missing",
+      boundary: :marketplace_doctor_installed_state,
+      expected: :denied,
+      assert: [:denied, :orphan_install],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
+      id: "marketplace-doctor-detects-tampered-bundle-001",
+      milestone: :v045,
+      surface: :marketplace_lite,
+      scenario: "marketplace doctor sees installed bundle content changed after install",
+      boundary: :marketplace_doctor_installed_hash,
+      expected: :denied,
+      assert: [:denied, :installed_bundle_hash_mismatch],
+      test_module: "AllbertAssist.Security.V045MarketplaceEvalTest"
+    },
+    %{
       id: "sandbox-backend-disabled-001",
       milestone: :v036,
       surface: :elixir_sandbox,
@@ -2088,6 +2291,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
     :integration_pack,
     :notes_files_reference_plugin,
     :browser_research,
+    :marketplace_lite,
     :operator_review
   ]
 

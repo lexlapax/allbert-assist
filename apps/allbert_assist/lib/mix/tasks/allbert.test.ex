@@ -14,6 +14,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v042
       mix allbert.test release.v043
       mix allbert.test release.v044
+      mix allbert.test release.v045
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- docker_sandbox
@@ -62,6 +63,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v042"]), do: release_v042()
   def run(["release.v043"]), do: release_v043()
   def run(["release.v044"]), do: release_v044()
+  def run(["release.v045"]), do: release_v045()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -483,6 +485,111 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   ]
 
+  @release_v045_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "marketplace_substrate",
+      title: "settings, permission, operation classes, registry, and URI substrate",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/settings_test.exs",
+        "test/allbert_assist/security/permission_gate_test.exs",
+        "test/allbert_assist/actions/resource_refs_test.exs",
+        "test/allbert_assist/actions/registry_test.exs"
+      ],
+      coverage: [
+        "marketplace.* settings fragment and schema_version",
+        ":marketplace_install permission floor",
+        "marketplace operation/origin/scope classes",
+        "marketplace://entry URI normalization",
+        "registered marketplace action capabilities"
+      ]
+    },
+    %{
+      id: "marketplace_catalog_install_cli",
+      title: "catalog, bundles, install, rollback, doctor, template metadata, and CLI",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/marketplace/catalog_install_test.exs",
+        "test/allbert_assist/marketplace_test.exs",
+        "test/allbert_assist/marketplace/templates_test.exs",
+        "test/mix/tasks/allbert_marketplace_test.exs"
+      ],
+      coverage: [
+        "shipped catalog parse and bundle hash verification",
+        "disabled/untrusted install and rollback for skill/template",
+        "plugin_index install rejection",
+        "marketplace doctor success and failure modes",
+        "workspace:create template metadata listing",
+        "CLI list/show/install/installed/rollback/verify/mirror/doctor"
+      ]
+    },
+    %{
+      id: "marketplace_surface_intent",
+      title: "marketplace workspace surface and intent routing",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/marketplace/surface_provider_test.exs",
+        "test/allbert_assist/intent/marketplace_routing_test.exs"
+      ],
+      coverage: [
+        "Marketplace Catalog surface provider",
+        "workspace:marketplace destination mapping",
+        "per-kind inspect/verify/install/rollback affordances",
+        "Marketplace Lite phrase corpus intent routing"
+      ]
+    },
+    %{
+      id: "marketplace_workspace_liveview",
+      title: "workspace marketplace and create LiveView render paths",
+      cwd: :web,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist_web/live/workspace_live_test.exs:153",
+        "test/allbert_assist_web/live/workspace_live_test.exs:736"
+      ],
+      coverage: [
+        "workspace Marketplace Catalog panel render",
+        "panel action event dispatch allowlist",
+        "workspace:create installed marketplace template metadata"
+      ]
+    },
+    %{
+      id: "marketplace_security_eval",
+      title: "v0.45 marketplace security eval inventory and release evals",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v045_marketplace_eval_test.exs",
+        "test/security/security_eval_case_test.exs"
+      ],
+      coverage: [
+        "20 v0.45 Marketplace Lite eval rows",
+        "disabled/untrusted install invariants",
+        "hash/schema/path/install-target fail-closed checks",
+        "workflow YAML forward-pin and plugin_index code denial",
+        "template metadata non-execution",
+        "doctor orphan/tamper detection",
+        "secret redaction"
+      ]
+    }
+  ]
+
   defp release_v042 do
     env = owned_env("release-v042", 0)
     home = env_value(env, "ALLBERT_HOME")
@@ -610,6 +717,77 @@ defmodule Mix.Tasks.Allbert.Test do
     if status != "passed" do
       Mix.raise("release.v044 failed; evidence: #{evidence_path}")
     end
+  end
+
+  defp release_v045 do
+    env = owned_env("release-v045", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v045")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v045_steps, &run_release_v045_step(&1, env))
+    secret_scan = release_v045_secret_scan(home)
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v045",
+      version: "v0.45",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network: "disabled; tests use shipped catalog fixtures and local runtime only",
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path =
+      Path.join(evidence_dir, "release-v045-#{DateTime.to_unix(started_at)}.json")
+
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v045 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v045 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v045_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args,
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v045 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
   end
 
   defp run_release_v044_step(step, env) do
@@ -801,6 +979,41 @@ defmodule Mix.Tasks.Allbert.Test do
     }
 
     print_output("release.v044 secret_scan", Jason.encode!(result, pretty: true))
+    result
+  end
+
+  defp release_v045_secret_scan(home) do
+    Enum.each(
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces")
+      ],
+      &File.mkdir_p!/1
+    )
+
+    roots =
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces"),
+        Path.join(home, "traces")
+      ]
+      |> Enum.filter(&File.exists?/1)
+
+    files =
+      roots
+      |> Enum.flat_map(&Path.wildcard(Path.join(&1, "**/*")))
+      |> Enum.filter(&File.regular?/1)
+
+    findings = release_v042_secret_findings(files, home)
+
+    result = %{
+      status: if(findings == [], do: "passed", else: "failed"),
+      scanned_roots: Enum.map(roots, &Path.relative_to(&1, home)),
+      scanned_file_count: length(files),
+      findings: findings
+    }
+
+    print_output("release.v045 secret_scan", Jason.encode!(result, pretty: true))
     result
   end
 
@@ -1513,6 +1726,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v042
       mix allbert.test release.v043
       mix allbert.test release.v044
+      mix allbert.test release.v045
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- docker_sandbox
