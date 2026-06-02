@@ -52,7 +52,7 @@ Do not load every section by default.
 | First-run onboarding and provider control (two-branch doctor, `endpoint_kind` field, ADR 0047 doctor contract) | ADR 0004, ADR 0005, ADR 0014, ADR 0047, `docs/plans/v0.39-plan.md`, `docs/plans/v0.39-request-flow.md` | v0.39 |
 | Identity slot (non-app system memory namespace + new `:identity` category) and deterministic direct-answer Active Memory retrieval | ADR 0015, ADR 0021, `docs/plans/v0.39b-plan.md`, `docs/plans/v0.39b-request-flow.md`, `docs/research/active-memory-retrieval.md`, `docs/operator/active-memory.md` | v0.39b |
 | MCP client integration and trust tier (`:mcp_tool_call` / `:mcp_resource_read`, `mcp://` adapter, HTTP/SSE + stdio transports, doctor reuse) | ADR 0009, ADR 0011, ADR 0012, ADR 0013, ADR 0038, ADR 0047, `docs/plans/v0.40-plan.md`, `docs/plans/v0.40-request-flow.md` | v0.40 |
-| Developer velocity, test strategy, precommit gate matrix, async eligibility, test-lane/resource isolation, implementation-readiness audits, milestone parallelization annotations, and the temporary Memento/Jido compatibility override | ADR 0049, ADR 0050, `docs/plans/v0.41-plan.md`, `docs/plans/v0.41-request-flow.md`, `docs/developer/test-strategy.md`, `DEVELOPMENT.md` | v0.41 |
+| Developer velocity, test strategy, precommit gate matrix, async eligibility, test-lane/resource isolation, implementation-readiness audits, milestone parallelization annotations, v0.45.1 commit/prepush/release gate semantics, and the temporary Memento/Jido compatibility override | ADR 0049, ADR 0050, `docs/plans/v0.41-plan.md`, `docs/plans/v0.41-request-flow.md`, `docs/plans/v0.45.1-plan.md`, `docs/plans/v0.45.1-request-flow.md`, `docs/developer/test-strategy.md`, `DEVELOPMENT.md` | v0.41 / v0.45.1 |
 | Tool discovery: `find_tools` source port (local + internet MCP-registry adapters, optional keyed providers only when configured), persisted candidates/evaluations, `mcp_server_connect` confirmation gate, opt-in background scan to a passive surface | ADR 0048, ADR 0038, ADR 0011, ADR 0033, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
 | MCP-first integration pack 1: calendar/mail/GitHub MCP panels + notes/files native reference plugin | ADR 0015, ADR 0017, ADR 0039, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
 | Browser and web research: `./plugins/allbert.browser/` plugin with real local Playwright/Chromium control, `browser://session/<id>` identity, six browser operation classes, seven `:browser_*` permission classes, `browser.*` settings namespace, per-domain remembered grants on navigated URLs, two-layer network policy (top-level via `External.HttpPolicy` + subresources via `AllbertBrowser.NetworkPolicy`), bounded HTML/markdown/text/PDF extraction, credential-input screenshot redaction, ephemeral profiles, workspace results panel, doctor (ADR 0047 shape), v0.49 channel-primitive forward pin | ADR 0011, ADR 0012, ADR 0013 (v0.43 amendment), ADR 0017, ADR 0023, ADR 0025, ADR 0027, ADR 0033, ADR 0040 (binding), ADR 0047, ADR 0049, `docs/plans/v0.43-plan.md`, `docs/plans/v0.43-request-flow.md` | v0.43 |
@@ -487,6 +487,11 @@ Implemented v0.41 gates:
   Home-rooted install/cache settings, master disable switch, workflow-YAML
   forward-pin validation, and ADR 0047-style marketplace doctor. Community
   submissions stay parked. Drafts ADR 0046 for v0.51.
+- v0.45.1 (implemented as `0.45.1`): Gate Transparency And Precommit
+  Decomposition. Adds `mix allbert.test commit`, `mix allbert.test prepush`,
+  timed direct release phases, redacted gate evidence, and `mix precommit` as
+  commit-time feedback rather than release evidence. No assistant capability or
+  Security Central authority changes.
 - v0.46 (planned): Operator-Supervised Self-Improvement. Adds no autonomous
   authority; proposes inert trace-to-skill, workflow, template, and dynamic
   capability drafts that must still route through v0.36 sandbox/gate, v0.37

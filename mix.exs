@@ -4,7 +4,7 @@ defmodule AllbertAssist.Umbrella.MixProject do
   def project do
     [
       apps_path: "apps",
-      version: "0.45.0",
+      version: "0.45.1",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
@@ -80,16 +80,7 @@ defmodule AllbertAssist.Umbrella.MixProject do
       "ecto.migrate": ["do --app allbert_assist cmd mix ecto.migrate.allbert"],
       "ecto.migrate.allbert": ["do --app allbert_assist cmd mix ecto.migrate.allbert"],
       "phx.server": ["do --app allbert_assist_web phx.server"],
-      precommit: [
-        "compile --warnings-as-errors",
-        "deps.unlock --unused",
-        "format --check-formatted",
-        "credo --strict",
-        "do --app allbert_assist cmd mix test",
-        "do --app allbert_assist_web cmd mix test",
-        "do --app allbert_assist cmd mix test ../../plugins/stocksage/test/stocksage ../../plugins/stocksage/test/mix",
-        "do --app allbert_assist cmd mix test ../../plugins/allbert.telegram/test ../../plugins/allbert.email/test ../../plugins/allbert.notes_files/test"
-      ],
+      precommit: ["allbert.test commit"],
       check: ["format --check-formatted", "credo --strict", "dialyzer"]
     ]
   end

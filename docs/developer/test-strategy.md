@@ -9,7 +9,9 @@ the developer gate command surface, and M7 lands executable lane classification:
 shared case-template defaults plus explicit primary tags for the plain
 `ExUnit.Case` tail. M8a/M8b land partitioned local gates for core and
 StockSage serial lanes; M9 adds the web `liveview_serial` lane and closeout
-evidence. Each batch is validated against the v0.40 regression oracle.
+evidence. Each batch is validated against the v0.40 regression oracle. v0.45.1
+separates commit, prepush, and release command semantics so `mix precommit` is
+no longer release evidence.
 
 ## Current Baseline
 
@@ -717,9 +719,11 @@ monolithic precommit order hides that by migrating through the core app first.
 | Docs | Docs-only changes. | `mix allbert.test docs` (`git diff --check` and reference checks when configured). |
 | Focused | Every implementation milestone. | `mix allbert.test focused -- <files...>` using explicit files named in the plan/request-flow doc. |
 | Static | Code changes. | compile warning gate, formatter check, Credo strict, Dialyzer when required. |
+| Commit | Fast commit-time confidence. | `mix allbert.test commit`; `mix precommit` is a compatibility shortcut for this gate after v0.45.1. Not release evidence. |
+| Prepush | High-coverage local handoff before sharing. | `mix allbert.test prepush`; uses partitioned local lanes and gate timing evidence. |
 | Fast local | Daily development feedback. | `mix allbert.test fast-local`: static checks plus proven pure async lanes. After M9, `mix allbert.test fast-local --core-lanes --stocksage-lanes --web-lanes --partitions N` adds partitioned core DB/app-env/home/process lanes, StockSage DB/app-env/process lanes, and web `liveview_serial`. |
 | Serial core | VM-global lanes (DB, app env, home, process, LiveView). | `mix allbert.test serial-core --lane <lane> --partitions N`; serial *within* a partition, parallel *across* OS partitions. Security evals + external smokes stay single-VM / opt-in. |
-| Release | Manual validation/release handoff. | `mix allbert.test release`: full precommit-equivalent coverage plus Dialyzer and security evals. |
+| Release | Manual validation/release handoff. | `mix allbert.test release`: explicit full-suite phases plus Dialyzer and timing/evidence. |
 | External smoke | Machine-dependent integrations. | `mix allbert.test external-smoke -- <smoke-name>` for explicitly opted-in smokes. M6 implements Docker sandbox smokes; later browser/MCP/provider smokes must add their concrete command before use. |
 
 M6 implements these gates in `Mix.Tasks.Allbert.Test`. The internal
@@ -733,10 +737,42 @@ the committed inventory, shared case-template defaults, explicit lane overrides,
 and plain-`ExUnit.Case` `@moduletag`s reconcile to exactly one primary lane per
 test file.
 
-Fast local gates are not release evidence. Release gates remain authoritative.
-The release gate is a superset of the v0.40 `mix precommit`: it adds Dialyzer
-(which today's precommit does not run) and must reproduce the v0.40 oracle green
-set.
+Fast local, commit, and prepush gates are not release evidence. Release gates
+remain authoritative. After v0.45.1, `mix precommit` is a compatibility shortcut
+for `mix allbert.test commit`; release evidence is `mix allbert.test release` or
+the active plan's version-specific release gate. The release gate remains a
+superset of the v0.40 oracle green set and includes Dialyzer.
+
+## v0.45.1 Gate Semantics Benchmark - 2026-06-02
+
+- Purpose: complete the v0.41 semantic split by removing
+  `release -> precommit -> dialyzer` delegation and making long gates timed and
+  diagnosable.
+- Commands implemented:
+  - `mix allbert.test commit`
+  - `mix allbert.test prepush [--partitions N]`
+  - `mix allbert.test release` direct phase runner
+  - `mix precommit` compatibility shortcut to the commit gate
+- Focused evidence:
+  `MIX_ENV=test mix test apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs`
+  passed with 4 tests, 0 failures.
+- Commit-gate evidence:
+  `MIX_ENV=test mix precommit` passed through the new commit gate in about 6s.
+- Prepush evidence:
+  `MIX_ENV=test mix allbert.test prepush` passed in 377s; the high-coverage
+  partitioned fast-local phase passed in 370s.
+- Version-specific release evidence:
+  `MIX_ENV=test mix allbert.test release.v045` passed with deterministic v0.45
+  marketplace evidence.
+- Release wall-clock / counts: final `MIX_ENV=test mix allbert.test release`
+  passed at 778s. Phase timings: static compile 2s, deps-unused 0s, format 2s,
+  Credo 4s, core tests 364s, web tests 305s, StockSage tests 83s,
+  channel/plugin tests 7s, Dialyzer 11s. Counts: core 1,339 tests, 0 failures,
+  3 skipped; web 119 tests, 0 failures; StockSage 197 tests, 0 failures;
+  channel/plugin 12 tests, 0 failures; Dialyzer 0 errors.
+- Remaining long poles: core tests and web LiveView tests remain the dominant
+  release phases. v0.45.1 makes them explicit and timed; it does not split
+  those suites further.
 
 ## Implementation Plan Annotations
 

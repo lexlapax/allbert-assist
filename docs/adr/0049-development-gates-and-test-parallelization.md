@@ -4,7 +4,8 @@
 
 Proposed for v0.41 Developer Velocity And Parallel Test Methodology
 (`docs/plans/v0.41-plan.md`). Accepted before any Mix alias, test helper, or
-test tag migration lands.
+test tag migration lands. Amended by v0.45.1 Gate Transparency And Precommit
+Decomposition (`docs/plans/v0.45.1-plan.md`).
 
 ## Context
 
@@ -169,6 +170,28 @@ share, actual delta, and follow-up. Reordering is bounded by §7: every batch st
 reproduces the v0.40 oracle green set, so efficiency is never bought with
 coverage.
 
+### 9. v0.45.1 separates commit, prepush, and release command semantics
+
+The v0.41 implementation deliberately preserved the v0.40-style monolithic
+`mix precommit` alias as the runnable fallback oracle while the new lane matrix
+landed. v0.45.1 completes the semantic split:
+
+- `mix allbert.test commit` is fast commit-time confidence. It is not release
+  evidence.
+- `mix precommit` is a compatibility shortcut for `mix allbert.test commit`.
+  It is no longer documented as release evidence after v0.45.1.
+- `mix allbert.test prepush` is high-coverage local handoff before sharing. It
+  uses the partitioned local lane machinery and timing evidence.
+- `mix allbert.test release` is the authoritative release handoff. It runs
+  explicit full-suite phases plus Dialyzer directly and does not delegate to
+  `mix precommit`.
+- Version-specific gates such as `mix allbert.test release.v045` remain
+  deterministic feature-surface release evidence.
+
+This preserves strictness while removing the ambiguous word "precommit" from
+release closeout. A release remains blocked until the explicit release gate is
+green.
+
 ## Consequences
 
 - A later implementation may add Mix aliases or scripts for lane orchestration,
@@ -176,6 +199,10 @@ coverage.
 - Existing strictness is preserved: the full release gate remains authoritative.
 - Fast local development becomes legitimate without pretending it is release
   evidence.
+- Commit-time development becomes legitimate without pretending `mix precommit`
+  is release evidence.
+- Gate timing and bounded redacted output tails become part of release evidence
+  so long runs are diagnosable instead of opaque.
 - Async conversion becomes reviewable. A change from `async: false` to
   `async: true` must explain resource ownership or helper isolation.
 - Per-partition database/home roots become prerequisite infrastructure before DB

@@ -23,7 +23,7 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is `v0.45.0`. `/workspace` is the operator home:
+The current implementation is `v0.45.1`. `/workspace` is the operator home:
 chat is the primary spine, the launcher is view-only, and Canvas shows one
 destination at a time (Output, an app, or a workspace tool).
 
@@ -76,6 +76,10 @@ plugin index metadata, marketplace intent and workspace panel surfaces, custom
 Allbert Home-rooted install/cache paths, a master marketplace disable switch,
 workflow-YAML fail-closed validation, marketplace doctor diagnostics, and
 deterministic `release.v045` evidence.
+v0.45.1 adds gate transparency and precommit decomposition: `mix precommit` is
+commit-time feedback through `mix allbert.test commit`, high-coverage local
+handoff is `mix allbert.test prepush`, and release evidence is
+`mix allbert.test release` or a version-specific release gate.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -124,6 +128,10 @@ manually proven first.
 
 Recent milestones:
 
+- `v0.45.1`: Gate Transparency And Precommit Decomposition - `commit`,
+  `prepush`, timed direct release phases, redacted gate evidence, and
+  `mix precommit` as a fast compatibility shortcut rather than release
+  evidence.
 - `v0.45.0`: Marketplace Lite - local reviewed seed catalog, SHA-256 bundle
   verification, disabled/untrusted skill and template installs, browse-only
   plugin index metadata, marketplace workspace panel + intent routing, custom
@@ -159,7 +167,7 @@ Recent milestones:
 
 Next milestones:
 
-- Post-`v0.45.0`: the planned 1.0 arc now continues capability-first:
+- Post-`v0.45.1`: the planned 1.0 arc now continues capability-first:
   operator-supervised self-improvement (`v0.46`); voice (`v0.47`); vision
   (`v0.48`); Discord/Slack channels and the channel-approval-primitive
   contract (`v0.49`); mobile messaging WhatsApp/Signal/Matrix (`v0.50`);
@@ -197,6 +205,8 @@ Next milestones:
   discovery and MCP-first integration pack milestone.
 - [docs/plans/v0.44-plan.md](docs/plans/v0.44-plan.md): implemented
   Plan/Build mode and operator workflow YAML milestone.
+- [docs/plans/v0.45.1-plan.md](docs/plans/v0.45.1-plan.md): implemented
+  developer gate transparency and precommit decomposition patch.
 - [docs/developer/test-strategy.md](docs/developer/test-strategy.md): test
   lane taxonomy, gate matrix, isolation contract, and implementation-plan
   parallelization annotations.

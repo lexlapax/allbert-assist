@@ -7,6 +7,8 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test docs
       mix allbert.test inventory [--output PATH] [--check-tags]
       mix allbert.test focused -- FILE [FILE...]
+      mix allbert.test commit
+      mix allbert.test prepush [--partitions N]
       mix allbert.test fast-local [--core-lanes] [--stocksage-lanes] [--web-lanes] [--partitions N]
       mix allbert.test partition-smoke [--partitions N]
       mix allbert.test serial-core --lane LANE [--partitions N]
@@ -19,9 +21,14 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- docker_sandbox
       mix allbert.test external-smoke -- docker_full_gate
+
+  `mix precommit` is a compatibility shortcut for `mix allbert.test commit`;
+  release evidence is `mix allbert.test release`.
   """
 
   use Mix.Task
+
+  alias AllbertAssist.DevGates.PhaseRunner
 
   @shortdoc "Run Allbert developer test gates"
 
@@ -56,6 +63,8 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["docs"]), do: docs()
   def run(["inventory" | rest]), do: inventory(rest)
   def run(["focused" | rest]), do: focused(rest)
+  def run(["commit" | rest]), do: commit(rest)
+  def run(["prepush" | rest]), do: prepush(rest)
   def run(["fast-local" | rest]), do: fast_local(rest)
   def run(["partition-smoke" | rest]), do: partition_smoke(rest)
   def run(["serial-core" | rest]), do: serial_core(rest)
@@ -110,6 +119,38 @@ defmodule Mix.Tasks.Allbert.Test do
     |> Enum.each(fn {owner, owner_files} ->
       run_test_files!("focused #{owner}", owner, owner_files, owned_env("focused-#{owner}", 0))
     end)
+  end
+
+  defp commit(args) do
+    reject_rest!(args)
+
+    case changed_files() do
+      {:ok, files} ->
+        if files != [] and Enum.all?(files, &docs_path?/1) do
+          Mix.shell().info("==> commit gate docs-only")
+          docs()
+        else
+          run_phase_gate!("commit", commit_phases(), evidence?: false, cleanup?: true)
+          print_commit_guidance(files)
+        end
+
+      {:error, reason} ->
+        Mix.shell().info("==> commit gate changed-file inspection unavailable: #{reason}")
+        run_phase_gate!("commit", commit_phases(), evidence?: false, cleanup?: true)
+        print_commit_guidance([])
+    end
+  end
+
+  defp prepush(args) do
+    {opts, rest, invalid} = OptionParser.parse(args, strict: [partitions: :integer])
+
+    reject_invalid!(invalid)
+    reject_rest!(rest)
+
+    partitions = Keyword.get(opts, :partitions, default_partition_count())
+    validate_partitions!(partitions)
+
+    run_phase_gate!("prepush", prepush_phases(partitions), evidence?: true, cleanup?: false)
   end
 
   defp fast_local(args) do
@@ -261,8 +302,140 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp release do
-    run_cmd!("release precommit", root(), "mix", ["precommit"], owned_env("release-precommit", 0))
-    run_cmd!("release dialyzer", root(), "mix", ["dialyzer"], owned_env("release-dialyzer", 0))
+    run_phase_gate!("release", release_phases(), evidence?: true, cleanup?: false)
+  end
+
+  defp commit_phases do
+    env = owned_env("commit", 0)
+
+    [
+      phase("static_compile", root(), "mix", ["compile", "--warnings-as-errors"], env),
+      phase("format", root(), "mix", ["format", "--check-formatted"], env),
+      phase("credo", root(), "mix", ["credo", "--strict"], env)
+    ]
+  end
+
+  defp prepush_phases(partitions) do
+    env = owned_env("prepush", 0)
+
+    [
+      phase("static_compile", root(), "mix", ["compile", "--warnings-as-errors"], env),
+      phase("format", root(), "mix", ["format", "--check-formatted"], env),
+      phase("credo", root(), "mix", ["credo", "--strict"], env),
+      phase(
+        "high_coverage_fast_local",
+        root(),
+        "mix",
+        [
+          "allbert.test",
+          "fast-local",
+          "--core-lanes",
+          "--stocksage-lanes",
+          "--web-lanes",
+          "--partitions",
+          to_string(partitions)
+        ],
+        env
+      )
+    ]
+  end
+
+  defp release_phases do
+    env = owned_env("release", 0)
+
+    [
+      phase("static_compile", root(), "mix", ["compile", "--warnings-as-errors"], env),
+      phase("deps_unused", root(), "mix", ["deps.unlock", "--unused"], env),
+      phase("format", root(), "mix", ["format", "--check-formatted"], env),
+      phase("credo", root(), "mix", ["credo", "--strict"], env),
+      phase("core_tests", app_cwd(:core), "mix", ["test"], env),
+      phase("web_tests", app_cwd(:web), "mix", ["test"], env),
+      phase(
+        "stocksage_tests",
+        app_cwd(:core),
+        "mix",
+        ["test", "../../plugins/stocksage/test/stocksage", "../../plugins/stocksage/test/mix"],
+        env
+      ),
+      phase(
+        "channel_plugin_tests",
+        app_cwd(:core),
+        "mix",
+        [
+          "test",
+          "../../plugins/allbert.telegram/test",
+          "../../plugins/allbert.email/test",
+          "../../plugins/allbert.notes_files/test"
+        ],
+        env
+      ),
+      phase("dialyzer", root(), "mix", ["dialyzer"], env)
+    ]
+  end
+
+  defp phase(id, cwd, executable, args, env) do
+    %{
+      id: id,
+      cwd: cwd,
+      executable: executable,
+      args: args,
+      env: env
+    }
+  end
+
+  defp run_phase_gate!(gate, phases, opts) do
+    env = phases |> List.first(%{}) |> Map.get(:env, [])
+
+    try do
+      PhaseRunner.run_gate!(
+        gate,
+        phases,
+        Keyword.merge(opts, env: env)
+      )
+    after
+      if Keyword.get(opts, :cleanup?, true) do
+        cleanup_owned_env(env)
+      end
+    end
+  end
+
+  defp changed_files do
+    with {unstaged, 0} <- System.cmd("git", ["diff", "--name-only"], cd: root()),
+         {staged, 0} <- System.cmd("git", ["diff", "--cached", "--name-only"], cd: root()) do
+      files =
+        (String.split(unstaged, "\n", trim: true) ++ String.split(staged, "\n", trim: true))
+        |> Enum.uniq()
+
+      {:ok, files}
+    else
+      {output, status} -> {:error, "git diff exited #{status}: #{String.trim(output)}"}
+    end
+  end
+
+  defp docs_path?(path) do
+    String.starts_with?(path, "docs/") or
+      path in ["README.md", "CHANGELOG.md", "DEVELOPMENT.md", "AGENTS.md"] or
+      String.ends_with?(path, ".md")
+  end
+
+  defp print_commit_guidance(files) do
+    Mix.shell().info("commit gate is not release evidence")
+
+    files
+    |> Enum.map(&owner/1)
+    |> Enum.reject(&(&1 == :unknown))
+    |> Enum.uniq()
+    |> case do
+      [] ->
+        Mix.shell().info("next: run focused tests named by the active plan")
+
+      owners ->
+        Mix.shell().info("changed owners=#{Enum.map_join(owners, ",", &Atom.to_string/1)}")
+        Mix.shell().info("next: run focused tests named by the active plan")
+    end
+
+    Mix.shell().info("before sharing: mix allbert.test prepush")
+    Mix.shell().info("before release handoff: mix allbert.test release")
   end
 
   @release_v042_steps [
@@ -1719,6 +1892,8 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test docs
       mix allbert.test inventory [--output PATH] [--check-tags]
       mix allbert.test focused -- FILE [FILE...]
+      mix allbert.test commit
+      mix allbert.test prepush [--partitions N]
       mix allbert.test fast-local [--core-lanes] [--stocksage-lanes] [--web-lanes] [--partitions N]
       mix allbert.test partition-smoke [--partitions N]
       mix allbert.test serial-core --lane LANE [--partitions N]
@@ -1731,6 +1906,9 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- docker_sandbox
       mix allbert.test external-smoke -- docker_full_gate
+
+    `mix precommit` is a compatibility shortcut for `mix allbert.test commit`;
+    release evidence is `mix allbert.test release`.
     """)
   end
 end
