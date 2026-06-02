@@ -8,6 +8,7 @@ defmodule AllbertAssist.PlanBuild do
   """
 
   alias AllbertAssist.{Confirmations, Objectives, Workflows}
+  alias AllbertAssist.PlanBuild.Runtime
   alias AllbertAssist.Security.PermissionGate
 
   @spec start_plan_run(map(), map()) :: {:ok, map()} | {:error, term()}
@@ -41,24 +42,33 @@ defmodule AllbertAssist.PlanBuild do
       parent_objective_id: field(params, :parent_objective_id)
     }
 
+    run_context = Map.put(context, :user_id, user_id)
+
     with {:ok, %{objective: objective}} <-
-           Objectives.frame(intent_decision, Map.put(context, :user_id, user_id)),
-         {:ok, steps} <- persist_steps(objective.id, expanded.steps) do
+           Objectives.frame(intent_decision, run_context),
+         {:ok, steps} <- persist_steps(objective.id, expanded.steps),
+         {:ok, run_result} <- Runtime.advance(objective.id, run_context) do
+      response_status = start_status(run_result.status)
+
       output_data = %{
         objective_id: objective.id,
         workflow_id: preview.workflow_id,
         workflow_version: preview.workflow_version,
         step_count: length(steps),
+        run_status: run_result.status,
+        current_step_id: current_step_id(run_result),
+        confirmation_id: Map.get(run_result, :confirmation_id),
         preview: json_safe(preview)
       }
 
       {:ok,
        %{
          message: "Started plan run #{objective.id} for workflow #{workflow["id"]}.",
-         status: :completed,
+         status: response_status,
+         confirmation_id: Map.get(run_result, :confirmation_id),
          output_data: output_data,
          permission_decision: permission_decision,
-         actions: [action(:completed, permission_decision, output_data)]
+         actions: [action(response_status, permission_decision, output_data)]
        }}
     end
   end
@@ -169,6 +179,14 @@ defmodule AllbertAssist.PlanBuild do
     get_in(context, [:confirmation, :approved?]) == true or
       get_in(context, ["confirmation", "approved?"]) == true
   end
+
+  defp start_status(:needs_confirmation), do: :needs_confirmation
+  defp start_status(:failed), do: :failed
+  defp start_status(:cancelled), do: :cancelled
+  defp start_status(_status), do: :completed
+
+  defp current_step_id(%{step: %{id: id}}), do: id
+  defp current_step_id(_run_result), do: nil
 
   defp field(map, key) when is_map(map),
     do: Map.get(map, key) || Map.get(map, Atom.to_string(key))

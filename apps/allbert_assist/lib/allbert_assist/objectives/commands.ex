@@ -752,16 +752,33 @@ defmodule AllbertAssist.Objectives.Commands.AuthorizeStep do
   end
 
   defp action_params(%Step{action_params: nil}), do: {:ok, %{}}
-  defp action_params(%Step{action_params: %{} = params}), do: {:ok, params}
+  defp action_params(%Step{action_params: %{} = params}), do: {:ok, atomize_existing_keys(params)}
 
   defp action_params(%Step{action_params: params}) when is_binary(params) do
     case Jason.decode(params) do
-      {:ok, %{} = decoded} -> {:ok, decoded}
+      {:ok, %{} = decoded} -> {:ok, atomize_existing_keys(decoded)}
       _other -> {:error, :invalid_step_action_params}
     end
   end
 
   defp action_params(_step), do: {:error, :invalid_step_action_params}
+
+  defp atomize_existing_keys(%{} = map) do
+    Map.new(map, fn {key, value} -> {existing_atom_key(key), atomize_existing_keys(value)} end)
+  end
+
+  defp atomize_existing_keys(list) when is_list(list),
+    do: Enum.map(list, &atomize_existing_keys/1)
+
+  defp atomize_existing_keys(value), do: value
+
+  defp existing_atom_key(key) when is_atom(key), do: key
+
+  defp existing_atom_key(key) when is_binary(key) do
+    String.to_existing_atom(key)
+  rescue
+    ArgumentError -> key
+  end
 
   defp get_step(id) do
     case AllbertAssist.Repo.get(Step, id) do
@@ -1019,16 +1036,33 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
   end
 
   defp action_params(%Step{action_params: nil}), do: {:ok, %{}}
-  defp action_params(%Step{action_params: %{} = params}), do: {:ok, params}
+  defp action_params(%Step{action_params: %{} = params}), do: {:ok, atomize_existing_keys(params)}
 
   defp action_params(%Step{action_params: params}) when is_binary(params) do
     case Jason.decode(params) do
-      {:ok, %{} = decoded} -> {:ok, decoded}
+      {:ok, %{} = decoded} -> {:ok, atomize_existing_keys(decoded)}
       _other -> {:error, :invalid_step_action_params}
     end
   end
 
   defp action_params(_step), do: {:error, :invalid_step_action_params}
+
+  defp atomize_existing_keys(%{} = map) do
+    Map.new(map, fn {key, value} -> {existing_atom_key(key), atomize_existing_keys(value)} end)
+  end
+
+  defp atomize_existing_keys(list) when is_list(list),
+    do: Enum.map(list, &atomize_existing_keys/1)
+
+  defp atomize_existing_keys(value), do: value
+
+  defp existing_atom_key(key) when is_atom(key), do: key
+
+  defp existing_atom_key(key) when is_binary(key) do
+    String.to_existing_atom(key)
+  rescue
+    ArgumentError -> key
+  end
 
   defp action_params_or_empty(step) do
     case action_params(step) do

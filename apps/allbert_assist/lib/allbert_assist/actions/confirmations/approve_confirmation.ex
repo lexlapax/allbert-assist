@@ -32,6 +32,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Objectives
+  alias AllbertAssist.PlanBuild
   alias AllbertAssist.Resources.GrantHandoff
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
@@ -133,6 +134,28 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   defp resolve_after_recheck(record, reason, context, permission_decision, target_decision) do
     action_name = target_action_name(record)
 
+    if action_name == PlanBuild.Runtime.plan_step_confirm_action() do
+      resume_plan_step_confirm(record, reason, context, permission_decision, target_decision)
+    else
+      maybe_resume_registered_action(
+        record,
+        reason,
+        context,
+        permission_decision,
+        target_decision,
+        action_name
+      )
+    end
+  end
+
+  defp maybe_resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
+         action_name
+       ) do
     if Registry.resumable?(action_name) do
       resume_registered_action(
         record,
@@ -467,13 +490,14 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       |> put_in([:confirmation, :approved?], true)
 
     case Runner.run("start_plan_run", Map.get(record, "resume_params_ref", %{}), target_context) do
-      {:ok, %{status: :completed} = response} ->
-        target_result = %{status: :completed, output_data: Map.get(response, :output_data, %{})}
+      {:ok, %{status: status} = response}
+      when status in [:completed, :needs_confirmation, :failed, :cancelled] ->
+        target_result = %{status: status, output_data: Map.get(response, :output_data, %{})}
 
         resolve_status(record, :approved, reason, context, permission_decision, %{
           target_policy_decision: target_decision,
           target_resumed?: true,
-          target_status: :completed,
+          target_status: status,
           target_result: target_result
         })
 
@@ -497,6 +521,37 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
             blocked_by_policy?: target_status == :denied
           }
         )
+    end
+  end
+
+  defp resume_plan_step_confirm(record, reason, context, permission_decision, target_decision) do
+    resume_params = Map.get(record, "resume_params_ref", %{})
+    objective_id = Map.get(resume_params, "objective_id") || Map.get(resume_params, :objective_id)
+
+    target_context =
+      record
+      |> target_context(context)
+      |> put_in([:confirmation, :approved?], true)
+
+    with {:ok, approved} <-
+           resolve_status(record, :approved, reason, context, permission_decision, %{
+             target_policy_decision: target_decision,
+             target_resumed?: true,
+             target_status: :approved,
+             target_result: %{status: :approved}
+           }),
+         {:ok, advanced} <- PlanBuild.Runtime.advance(objective_id, target_context) do
+      output_data =
+        Map.merge(Map.get(approved, :output_data, %{}) || %{}, %{
+          objective_id: objective_id,
+          run_status: advanced.status,
+          confirmation_id: Map.get(advanced, :confirmation_id)
+        })
+
+      {:ok,
+       approved
+       |> Map.put(:output_data, output_data)
+       |> Map.put(:plan_run, advanced)}
     end
   end
 

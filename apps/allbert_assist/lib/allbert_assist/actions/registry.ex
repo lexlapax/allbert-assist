@@ -76,6 +76,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Packages.PlanPackageInstall
   alias AllbertAssist.Actions.Packages.RunPackageInstall
   alias AllbertAssist.Actions.PlanBuild.CancelPlanRun
+  alias AllbertAssist.Actions.PlanBuild.ConfirmPlanStep
   alias AllbertAssist.Actions.PlanBuild.ExpandWorkflow
   alias AllbertAssist.Actions.PlanBuild.InspectWorkflow
   alias AllbertAssist.Actions.PlanBuild.ListPlanRuns
@@ -231,6 +232,7 @@ defmodule AllbertAssist.Actions.Registry do
     InspectWorkflow,
     ExpandWorkflow,
     StartPlanRun,
+    ConfirmPlanStep,
     CancelPlanRun,
     ListPlanRuns,
     OnboardingStepComplete,

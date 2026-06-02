@@ -89,6 +89,132 @@ defmodule AllbertAssist.Actions.PlanBuildActionsTest do
     assert approved.status == :completed
     assert is_binary(get_in(approved, [:output_data, :objective_id]))
     assert get_in(approved, [:output_data, :step_count]) == 3
+    assert get_in(approved, [:output_data, :run_status]) == :needs_confirmation
+
+    objective_id = get_in(approved, [:output_data, :objective_id])
+    assert {:ok, objective} = Objectives.get_objective(objective_id)
+    assert objective.status == "blocked"
+
+    assert [
+             %{status: "completed", action_params: collect_params},
+             %{status: "completed", action_params: summarize_params},
+             %{status: "blocked", kind: "ask_user"}
+           ] = Objectives.list_steps(objective_id)
+
+    assert Jason.decode!(collect_params)["text"] == "List issues since today."
+    summarize_text = Jason.decode!(summarize_params)["text"]
+    assert summarize_text =~ "Summarize "
+    refute summarize_text =~ "${steps.collect.issues}"
+  end
+
+  test "approving a Plan/Build step checkpoint completes the workflow", %{context: context} do
+    assert {:ok, pending} =
+             Runner.run("start_plan_run", %{workflow_id: "multi_step"}, context)
+
+    assert {:ok, approved_start} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending.confirmation_id, reason: "start"},
+               context
+             )
+
+    objective_id = get_in(approved_start, [:output_data, :objective_id])
+    step_confirmation_id = get_in(approved_start, [:output_data, :confirmation_id])
+    assert is_binary(step_confirmation_id)
+
+    assert {:ok, approved_step} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: step_confirmation_id, reason: "checkpoint"},
+               context
+             )
+
+    assert approved_step.confirmation["status"] == "approved"
+    assert get_in(approved_step, [:output_data, :run_status]) == :completed
+
+    assert {:ok, objective} = Objectives.get_objective(objective_id)
+    assert objective.status == "completed"
+    assert Enum.all?(Objectives.list_steps(objective_id), &(&1.status == "completed"))
+  end
+
+  test "confirm true upgrades an otherwise read-only workflow step", %{
+    context: context,
+    home: home
+  } do
+    write_workflow!(home, "confirm_upgrade", """
+    id: confirm_upgrade
+    version: 1
+    steps:
+      - id: answer
+        kind: action
+        action: direct_answer
+        confirm: true
+        params:
+          text: "Confirm before answering."
+    """)
+
+    assert {:ok, pending} =
+             Runner.run("start_plan_run", %{workflow_id: "confirm_upgrade"}, context)
+
+    assert {:ok, approved_start} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending.confirmation_id, reason: "start"},
+               context
+             )
+
+    objective_id = get_in(approved_start, [:output_data, :objective_id])
+    step_confirmation_id = get_in(approved_start, [:output_data, :confirmation_id])
+    assert get_in(approved_start, [:output_data, :run_status]) == :needs_confirmation
+
+    assert [%{status: "blocked", result_summary: summary}] = Objectives.list_steps(objective_id)
+    assert summary =~ "Waiting for Plan/Build step confirmation"
+
+    assert {:ok, approved_step} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: step_confirmation_id, reason: "confirmed"},
+               context
+             )
+
+    assert get_in(approved_step, [:output_data, :run_status]) == :completed
+    assert [%{status: "completed"}] = Objectives.list_steps(objective_id)
+  end
+
+  test "false if conditions skip workflow steps", %{context: context, home: home} do
+    write_workflow!(home, "skip_first", """
+    id: skip_first
+    version: 1
+    steps:
+      - id: skip
+        kind: action
+        action: direct_answer
+        if: "${false}"
+        params:
+          text: "Should not run."
+      - id: run
+        kind: action
+        action: direct_answer
+        params:
+          text: "Should run."
+    """)
+
+    assert {:ok, pending} = Runner.run("start_plan_run", %{workflow_id: "skip_first"}, context)
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending.confirmation_id, reason: "start"},
+               context
+             )
+
+    objective_id = get_in(approved, [:output_data, :objective_id])
+    assert get_in(approved, [:output_data, :run_status]) == :completed
+
+    assert [
+             %{status: "skipped", result_summary: "Skipped by workflow if condition."},
+             %{status: "completed"}
+           ] = Objectives.list_steps(objective_id)
   end
 
   test "start_plan_run confirmation renders plan resource metadata", %{context: context} do
@@ -179,6 +305,10 @@ defmodule AllbertAssist.Actions.PlanBuildActionsTest do
       Path.expand("../../fixtures/v0.44/workflows/#{id}.yaml", __DIR__),
       Path.join([home, "workflows", "#{id}.yaml"])
     )
+  end
+
+  defp write_workflow!(home, id, contents) do
+    File.write!(Path.join([home, "workflows", "#{id}.yaml"]), contents)
   end
 
   defp restore_env(key, nil), do: System.delete_env(key)
