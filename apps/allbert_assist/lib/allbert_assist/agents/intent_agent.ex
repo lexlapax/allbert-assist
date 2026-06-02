@@ -1371,8 +1371,6 @@ defmodule AllbertAssist.Agents.IntentAgent do
     maybe_put_param(params, :user_id, Map.get(request, :user_id))
   end
 
-  defp with_user(params, _context), do: params
-
   defp descriptor_params(action_name, request) do
     request
     |> Map.get(:decision)

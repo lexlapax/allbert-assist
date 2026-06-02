@@ -49,7 +49,6 @@ defmodule AllbertAssist.Workflows.Schema do
   @spec root([module()]) :: JSV.Root.t()
   def root(action_modules \\ Registry.modules()), do: JSV.build!(json_schema(action_modules))
 
-  @spec action_param_schema(module()) :: map()
   def action_param_schema(action_module) when is_atom(action_module) do
     properties =
       action_module

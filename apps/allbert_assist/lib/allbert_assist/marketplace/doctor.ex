@@ -27,7 +27,6 @@ defmodule AllbertAssist.Marketplace.Doctor do
                        :marketplace_schema_version_unavailable
                      ])
 
-  @spec run(keyword()) :: {:ok, map()}
   def run(opts \\ []) do
     checked_at = timestamp()
 
@@ -315,7 +314,7 @@ defmodule AllbertAssist.Marketplace.Doctor do
         :source_error_category
       ])
 
-    if details == [] or details == %{} do
+    if details == %{} do
       Map.delete(diagnostic, :details)
     else
       Map.put(diagnostic, :details, details)

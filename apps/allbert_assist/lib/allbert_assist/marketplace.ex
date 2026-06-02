@@ -14,23 +14,6 @@ defmodule AllbertAssist.Marketplace do
   alias AllbertAssist.Marketplace.Installed
   alias AllbertAssist.Marketplace.Rollback
 
-  @type doctor_result :: %{
-          required(:endpoint_kind) => :local_endpoint,
-          required(:credential_ok) => nil,
-          required(:endpoint_ok) => boolean(),
-          required(:model_available) => :unknown,
-          required(:context_window) => nil,
-          required(:deprecation_warning) => nil,
-          required(:last_seen_rate_limit_hint) => nil,
-          required(:redacted_host) => String.t(),
-          required(:diagnostics) => [map()],
-          required(:error_category) => atom(),
-          required(:live_check_status) => atom(),
-          optional(:checked_at) => String.t(),
-          optional(:last_verified_at) => String.t()
-        }
-
-  @spec doctor(keyword() | map()) :: {:ok, doctor_result()}
   def doctor(opts \\ []), do: Doctor.run(normalize_opts(opts))
 
   @option_keys %{
@@ -46,7 +29,6 @@ defmodule AllbertAssist.Marketplace do
   @spec list_entries(keyword() | map()) :: {:ok, [map()]} | {:error, map()}
   def list_entries(opts \\ []), do: Catalog.list_entries(normalize_opts(opts))
 
-  @spec inspect_entry(term(), keyword() | map()) :: {:ok, map()} | {:error, map()}
   def inspect_entry(entry_id, opts \\ []) do
     Catalog.inspect_entry(to_string(entry_id), normalize_opts(opts))
   end
@@ -64,7 +46,6 @@ defmodule AllbertAssist.Marketplace do
   @spec list_installed(keyword() | map()) :: {:ok, [map()]} | {:error, map()}
   def list_installed(opts \\ []), do: Installed.list(normalize_opts(opts))
 
-  @spec verify_bundle_hash(term(), keyword() | map()) :: {:ok, map()} | {:error, map()}
   def verify_bundle_hash(entry_id, opts \\ []) do
     opts = normalize_opts(opts)
 

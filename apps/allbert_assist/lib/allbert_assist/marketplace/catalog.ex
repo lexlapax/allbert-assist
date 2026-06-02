@@ -87,7 +87,6 @@ defmodule AllbertAssist.Marketplace.Catalog do
     end
   end
 
-  @spec inspect_entry(String.t(), keyword()) :: {:ok, map()} | {:error, map()}
   def inspect_entry(entry_id, opts \\ []) do
     with {:ok, entry} <- get_entry(entry_id, opts),
          {:ok, manifest} <- Bundle.read_and_verify(entry, catalog_root(opts), opts) do

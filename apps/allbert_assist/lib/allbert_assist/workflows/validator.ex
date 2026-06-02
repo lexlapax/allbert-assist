@@ -589,7 +589,6 @@ defmodule AllbertAssist.Workflows.Validator do
   end
 
   defp first_jsv_error(%{"errors" => [first | _rest]}), do: jsv_error(first)
-  defp first_jsv_error(%{errors: [first | _rest]}), do: jsv_error(first)
 
   defp first_jsv_error(other),
     do: %{pointer: "/", reason: :type_mismatch, expected: nil, got: other}

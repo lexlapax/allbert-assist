@@ -30,24 +30,20 @@ defmodule AllbertAssist.Marketplace.Panels.Catalog do
   end
 
   defp entries(context) do
-    with {:ok, response} <- action("list_marketplace_entries", %{}, context),
-         :completed <- Response.status(response) do
-      {:ok, response.result.entries}
-    else
-      {:ok, response} -> {:error, response_error(response)}
-      status when is_atom(status) -> {:error, status}
-      {:error, reason} -> {:error, reason}
+    {:ok, response} = action("list_marketplace_entries", %{}, context)
+
+    case Response.status(response) do
+      :completed -> {:ok, response.result.entries}
+      _status -> {:error, response_error(response)}
     end
   end
 
   defp installed(context) do
-    with {:ok, response} <- action("list_installed_marketplace_bundles", %{}, context),
-         :completed <- Response.status(response) do
-      {:ok, response.result.installed}
-    else
-      {:ok, response} -> {:error, response_error(response)}
-      status when is_atom(status) -> {:error, status}
-      {:error, reason} -> {:error, reason}
+    {:ok, response} = action("list_installed_marketplace_bundles", %{}, context)
+
+    case Response.status(response) do
+      :completed -> {:ok, response.result.installed}
+      _status -> {:error, response_error(response)}
     end
   end
 
