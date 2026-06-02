@@ -9,6 +9,8 @@ decision binding for implementation. The post-implementation audit added
 a v0.44 remediation amendment: release readiness requires approved-plan
 runtime handoff, per-step YAML semantics, step-output reference
 resolution, repaired release evidence, and release-record closeout.
+M6-M9 implemented and verified the runtime and evidence portions; final
+release-record closeout remains the operator-validation step.
 
 ## Context
 
