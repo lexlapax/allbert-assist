@@ -166,6 +166,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Button do
       phx-value-destination={Base.prop(@node, :destination, nil)}
       phx-value-source-text={Base.prop(@node, :source_text, nil)}
       phx-value-candidate-id={Base.prop(@node, :candidate_id, nil)}
+      phx-value-entry-id={Base.prop(@node, :entry_id, nil)}
+      phx-value-version={Base.prop(@node, :version, nil)}
       phx-value-server-id={Base.prop(@node, :server_id, nil)}
       phx-value-resource-uri={Base.prop(@node, :resource_uri, nil)}
       phx-value-tool-name={Base.prop(@node, :tool_name, nil)}
@@ -210,6 +212,8 @@ defmodule AllbertAssistWeb.Workspace.Components.ActionButton do
       phx-value-destination={Base.prop(@node, :destination, nil)}
       phx-value-source-text={Base.prop(@node, :source_text, nil)}
       phx-value-candidate-id={Base.prop(@node, :candidate_id, nil)}
+      phx-value-entry-id={Base.prop(@node, :entry_id, nil)}
+      phx-value-version={Base.prop(@node, :version, nil)}
       phx-value-server-id={Base.prop(@node, :server_id, nil)}
       phx-value-resource-uri={Base.prop(@node, :resource_uri, nil)}
       phx-value-tool-name={Base.prop(@node, :tool_name, nil)}

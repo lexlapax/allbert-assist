@@ -5,6 +5,7 @@ defmodule AllbertAssist.App.CoreApp do
   use AllbertAssist.App.SurfaceProvider
 
   alias AllbertAssist.Actions.Integrations.{OpenCalendarPanel, OpenGithubPanel, OpenMailPanel}
+  alias AllbertAssist.Marketplace.SurfaceProvider, as: MarketplaceSurfaceProvider
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace.{DiscoverySuggestions, McpIntegrationPanels}
@@ -119,7 +120,7 @@ defmodule AllbertAssist.App.CoreApp do
         required_slots: [],
         handoff_required?: false
       }
-    ]
+    ] ++ MarketplaceSurfaceProvider.intent_descriptors()
   end
 
   def fallback_surface(:workspace), do: {:ok, "Allbert workspace is available at /workspace."}
@@ -215,6 +216,7 @@ defmodule AllbertAssist.App.CoreApp do
       ]),
       PlanBuildSurfaceProvider.preview_surface(),
       PlanBuildSurfaceProvider.run_progress_surface(),
+      MarketplaceSurfaceProvider.catalog_surface(context),
       DiscoverySuggestions.surface(context)
     ] ++
       McpIntegrationPanels.surfaces(context)

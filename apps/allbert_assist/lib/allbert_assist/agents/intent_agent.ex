@@ -35,6 +35,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   @agent_name "intent_agent"
   @agent_description "Primary Allbert intent agent for the first local assistant loop."
   @agent_tags []
+  @marketplace_entry_id_regex ~r/[a-z0-9][a-z0-9_-]*\/[a-z0-9][a-z0-9_-]*/i
   @agent_schema Zoi.object(%{
                   __strategy__: Zoi.map() |> Zoi.default(%{}),
                   model: Zoi.any() |> Zoi.default(:local),
@@ -307,6 +308,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       fn -> uri_consumer_route(text, normalized) end,
       fn -> mcp_route(text, normalized) end,
       fn -> plan_build_route(text, normalized) end,
+      fn -> marketplace_route(text, normalized) end,
       fn -> tool_discovery_route(text, normalized) end,
       fn -> unsupported_resource_workflow_route(text, normalized) end,
       fn -> command_route(normalized, context) end,
@@ -383,7 +385,48 @@ defmodule AllbertAssist.Agents.IntentAgent do
     if tool_discovery_request?(normalized), do: {:find_tools, tool_discovery_query(text)}
   end
 
+  defp marketplace_route(text, normalized) do
+    cond do
+      normalized in ["show me the reviewed skill catalog", "show me reviewed skill catalog"] ->
+        {:list_marketplace_entries, %{kind: "skill"}}
+
+      normalized == "show me reviewed templates" ->
+        {:list_marketplace_entries, %{kind: "template"}}
+
+      String.contains?(normalized, "installed marketplace") ->
+        :list_installed_marketplace_bundles
+
+      String.contains?(normalized, "marketplace") and
+          Regex.match?(~r/\b(what|show|list|catalog)\b/i, text) ->
+        {:list_marketplace_entries, %{}}
+
+      Regex.match?(~r/^\s*install\s+the\s+#{marketplace_entry_id_pattern()}\s+skill\s*$/i, text) ->
+        {:install_marketplace_bundle, %{entry_id: marketplace_entry_id_from_text(text)}}
+
+      Regex.match?(~r/^\s*rollback\s+#{marketplace_entry_id_pattern()}\s*$/i, text) ->
+        {:rollback_marketplace_install, %{entry_id: marketplace_entry_id_from_text(text)}}
+
+      Regex.match?(~r/^\s*verify\s+#{marketplace_entry_id_pattern()}\s*$/i, text) ->
+        {:verify_marketplace_bundle_hash, %{entry_id: marketplace_entry_id_from_text(text)}}
+
+      true ->
+        nil
+    end
+  end
+
   defp workflow_id_pattern, do: "[a-z0-9][a-z0-9_-]*"
+
+  defp marketplace_entry_id_pattern, do: "[a-z0-9][a-z0-9_-]*\\/[a-z0-9][a-z0-9_-]*"
+
+  defp marketplace_entry_id_from_text(text) do
+    text
+    |> then(&Regex.scan(@marketplace_entry_id_regex, &1))
+    |> List.last()
+    |> case do
+      [entry_id] -> String.downcase(entry_id)
+      _other -> nil
+    end
+  end
 
   defp objective_id_pattern,
     do: "obj_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
@@ -807,6 +850,56 @@ defmodule AllbertAssist.Agents.IntentAgent do
     }
   end
 
+  defp decision_attrs({:list_marketplace_entries, params}, text, context) do
+    marketplace_decision_attrs(
+      :marketplace_browse,
+      "list_marketplace_entries",
+      params,
+      text,
+      context
+    )
+  end
+
+  defp decision_attrs(:list_installed_marketplace_bundles, text, context) do
+    marketplace_decision_attrs(
+      :marketplace_installed,
+      "list_installed_marketplace_bundles",
+      %{},
+      text,
+      context
+    )
+  end
+
+  defp decision_attrs({:install_marketplace_bundle, params}, text, context) do
+    marketplace_decision_attrs(
+      :marketplace_install,
+      "install_marketplace_bundle",
+      params,
+      text,
+      context
+    )
+  end
+
+  defp decision_attrs({:rollback_marketplace_install, params}, text, context) do
+    marketplace_decision_attrs(
+      :marketplace_rollback,
+      "rollback_marketplace_install",
+      params,
+      text,
+      context
+    )
+  end
+
+  defp decision_attrs({:verify_marketplace_bundle_hash, params}, text, context) do
+    marketplace_decision_attrs(
+      :marketplace_verify,
+      "verify_marketplace_bundle_hash",
+      params,
+      text,
+      context
+    )
+  end
+
   defp decision_attrs(:list_settings, _text, context) do
     action_decision_attrs(:list_settings, "list_settings", context)
   end
@@ -934,6 +1027,16 @@ defmodule AllbertAssist.Agents.IntentAgent do
       intent: intent,
       reason: "The prompt is handled by a registered #{action_name} action.",
       selected_action: action_name,
+      context: context
+    }
+  end
+
+  defp marketplace_decision_attrs(intent, action_name, params, text, context) do
+    %{
+      intent: intent,
+      reason: "The prompt matches the v0.45 Marketplace Lite phrase corpus.",
+      selected_action: action_name,
+      trace_metadata: %{source_text: text, marketplace_params: params},
       context: context
     }
   end
@@ -1133,6 +1236,26 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp run_route(:list_plan_runs, text, context) do
     run_action("list_plan_runs", with_user(%{}, context), text, context)
+  end
+
+  defp run_route({:list_marketplace_entries, params}, text, context) do
+    run_action("list_marketplace_entries", params, text, context)
+  end
+
+  defp run_route(:list_installed_marketplace_bundles, text, context) do
+    run_action("list_installed_marketplace_bundles", %{}, text, context)
+  end
+
+  defp run_route({:install_marketplace_bundle, params}, text, context) do
+    run_action("install_marketplace_bundle", params, text, context)
+  end
+
+  defp run_route({:rollback_marketplace_install, params}, text, context) do
+    run_action("rollback_marketplace_install", params, text, context)
+  end
+
+  defp run_route({:verify_marketplace_bundle_hash, params}, text, context) do
+    run_action("verify_marketplace_bundle_hash", params, text, context)
   end
 
   defp run_route(:list_settings, text, context) do

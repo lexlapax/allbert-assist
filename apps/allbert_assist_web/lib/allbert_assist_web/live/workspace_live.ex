@@ -37,7 +37,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   @default_user_id "local"
   @default_session_id "web-local"
   @default_prompt_placeholder "Ask Allbert anything…"
-  @workspace_tools ~w(onboard create plan_build plan_runs discover calendar mail github jobs objectives confirmations security settings)
+  @workspace_tools ~w(onboard create plan_build plan_runs discover marketplace calendar mail github jobs objectives confirmations security settings)
 
   @impl true
   def mount(params, _session, socket) do
@@ -511,6 +511,30 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     end
   end
 
+  def handle_event("run_marketplace_action", params, socket) do
+    with {:ok, action_name, action_params} <- marketplace_action_params(params) do
+      case run_workspace_action(socket, action_name, action_params) do
+        {:ok, %{status: :needs_confirmation} = response} ->
+          {:noreply,
+           socket
+           |> assign_confirmation_handoff(response)
+           |> refresh_workspace()}
+
+        {:ok, %{status: :completed} = response} ->
+          {:noreply,
+           socket
+           |> assign(response: response.message, status: response.status, error: nil)
+           |> refresh_workspace()}
+
+        {:ok, response} ->
+          {:noreply, assign(socket, :error, Map.get(response, :message, inspect(response)))}
+      end
+    else
+      {:error, reason} ->
+        {:noreply, assign(socket, :error, reason)}
+    end
+  end
+
   def handle_event("approve_confirmation", %{"id" => id}, socket) do
     {:noreply, resolve_confirmation(socket, "approve_confirmation", %{id: id})}
   end
@@ -764,6 +788,26 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp mcp_integration_action_params(_params),
     do: {:error, "Invalid MCP integration action."}
+
+  defp marketplace_action_params(%{"action-name" => action_name, "entry-id" => entry_id} = params)
+       when action_name in [
+              "inspect_marketplace_entry",
+              "install_marketplace_bundle",
+              "rollback_marketplace_install",
+              "verify_marketplace_bundle_hash"
+            ] and entry_id != "" do
+    {:ok, action_name,
+     %{
+       entry_id: entry_id
+     }
+     |> maybe_put_marketplace_version(Map.get(params, "version"))}
+  end
+
+  defp marketplace_action_params(_params), do: {:error, "Invalid marketplace action."}
+
+  defp maybe_put_marketplace_version(params, nil), do: params
+  defp maybe_put_marketplace_version(params, ""), do: params
+  defp maybe_put_marketplace_version(params, version), do: Map.put(params, :version, version)
 
   defp mcp_integration_arguments(%{
          "integration" => "calendar",
