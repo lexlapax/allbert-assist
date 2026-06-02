@@ -619,6 +619,11 @@ historical aliases only and remain in old reference notes for continuity.
   plugin-index metadata, marketplace workspace/intent/CLI surfaces, and
   marketplace doctor. Community-submission governance stays parked. ADR 0046
   drafting begins for the settings schema migration convention.
+- v0.45.1 (implemented as `0.45.1`): Gate Transparency And Precommit
+  Decomposition. The developer loop catches up with the v0.41 gate-matrix
+  intent: `mix precommit` is commit-time feedback, `mix allbert.test prepush`
+  is high-coverage local handoff, and `mix allbert.test release` is the timed
+  direct release-evidence gate.
 - v0.46: Operator-Supervised Self-Improvement. Trace-to-skill, workflow,
   template, and dynamic capability draft suggestions consume v0.45 marketplace
   metadata plus v0.40-v0.44 traces; reviewed memory/workflow draft facades are

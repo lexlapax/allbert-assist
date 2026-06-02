@@ -10,10 +10,53 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.45.1 - Gate Transparency And Precommit Decomposition
+
+Status: implemented as the v0.45.1 developer-tooling patch release. Current
+version metadata is `0.45.1`.
+
+### Added
+
+- `mix allbert.test commit` as the fast commit-time gate and `mix allbert.test
+  prepush` as the high-coverage local handoff gate.
+- A Mix-native development gate phase runner that records phase ids, cwd,
+  redacted command args, timing, status, summaries, and bounded redacted output
+  tails.
+- Release/prepush timing evidence under `release_evidence/gates/` when an
+  evidence root is provided.
+
+### Changed
+
+- `mix allbert.test release` now runs explicit release phases directly instead
+  of delegating to `mix precommit` and then Dialyzer.
+- `mix precommit` is now a compatibility shortcut for `mix allbert.test
+  commit`; it is commit-time feedback, not release evidence.
+- ADR 0049, the test strategy, README, roadmap, and agent context map now
+  separate commit, prepush, release, version-specific release, focused, docs,
+  and external-smoke gates.
+
+### Verification
+
+- Focused gate task tests passed:
+  `MIX_ENV=test mix test apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs`
+  (4 tests, 0 failures).
+- `MIX_ENV=test mix precommit` passed through the new commit gate in ~6s
+  (compile, format, Credo; no release-evidence claim).
+- `MIX_ENV=test mix allbert.test prepush` passed in 377s; the high-coverage
+  partitioned fast-local phase passed in 370s.
+- `MIX_ENV=test mix allbert.test release.v045` passed with deterministic v0.45
+  marketplace evidence.
+- Final `MIX_ENV=test mix allbert.test release` passed in 778s with 1,339 core
+  tests (3 skipped), 119 web tests, 197 StockSage plugin tests, 12 channel /
+  notes-files plugin tests, and release Dialyzer at 0 errors.
+- Final hygiene gates passed: `git diff --check`,
+  `MIX_ENV=test mix format --check-formatted`, and
+  `MIX_ENV=test mix allbert.test docs`.
+
 ## v0.45.0 - Marketplace Lite
 
 Status: implemented as the v0.45 release. Current version metadata is
-`0.45.0`.
+`0.45.0`; superseded by the v0.45.1 developer-tooling patch.
 
 ### Added
 

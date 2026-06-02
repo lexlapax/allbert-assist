@@ -245,6 +245,10 @@ Dependency order from here:
     workspace/intent/CLI surfaces, and marketplace doctor. Community-submission
     governance remains parked. Started the v0.51 ADR for settings schema
     migration policy (ADR 0046).
+45.1. v0.45.1 Gate Transparency and Precommit Decomposition — implemented as
+    `0.45.1`: commit/prepush/release command split, timed direct release
+    phases, redacted gate evidence, and `mix precommit` as commit-time
+    feedback rather than release evidence.
 46. v0.46 Operator-supervised self-improvement: marketplace-aware
     trace-to-skill, workflow, template, and dynamic capability draft
     suggestions plus reviewed memory/workflow draft facades; no autonomous
@@ -2605,15 +2609,39 @@ Shipped scope:
   post-implementation remediation for the master disable switch, custom
   Allbert Home-rooted cache/install paths, and workflow-YAML forward-pin
   validation.
-- Retained a closeout follow-up to audit `mix precommit` /
-  `mix allbert.test release` lane decomposition and progress reporting against
-  ADR 0049, the v0.41 gate-matrix work, and `docs/developer/test-strategy.md`.
+- Promoted the closeout follow-up on `mix precommit` /
+  `mix allbert.test release` lane decomposition and progress reporting into
+  the implemented v0.45.1 developer-tooling patch.
 - Kept arbitrary remote code-bearing plugin install, remote dependency
   resolution, remote theme/snippet distribution, and MCP Apps iframe execution
   out of 1.0.
 - **Started drafting ADR 0046** (Settings Central schema migration policy) here
   because marketplace adds new settings fragments; ADR is accepted before
   v0.51 implements the migration tool.
+
+## v0.45.1: Gate Transparency And Precommit Decomposition - implemented as 0.45.1
+
+Plan: `docs/plans/v0.45.1-plan.md`
+Request flow: `docs/plans/v0.45.1-request-flow.md`
+ADR: `docs/adr/0049-development-gates-and-test-parallelization.md`
+
+Status: implemented as `0.45.1`. Inserted after v0.45 closeout when the final
+release gate passed but the wrapper still delegated through the old monolithic
+`mix precommit` alias and produced opaque long phases.
+
+Shipped scope:
+
+- Added `mix allbert.test commit` and `mix allbert.test prepush`.
+- Rewired `mix precommit` to the commit gate; it is no longer release evidence.
+- Changed `mix allbert.test release` to run explicit release phases directly
+  instead of delegating to `mix precommit`.
+- Added timed phase summaries and bounded redacted output tails for gate
+  evidence.
+- Updated ADR 0049 and the developer test strategy so commit, prepush,
+  release, version-specific release, docs, focused, and external-smoke gates are
+  distinct.
+- No assistant capability, marketplace behavior, Security Central authority, or
+  external smoke semantics changed.
 
 ## v0.46: Operator-Supervised Self-Improvement
 

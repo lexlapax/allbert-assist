@@ -137,14 +137,18 @@ ADR 0050 before changing dependencies.
 | Docs | Docs-only changes. | `git diff --check` plus reference/link checks. |
 | Focused | Every implementation milestone. | Explicit test files named in the active plan/request-flow doc. |
 | Static | Code changes. | `mix compile --warnings-as-errors`, `mix format --check-formatted`, `mix credo --strict`, and Dialyzer when required. |
+| Commit | Fast commit-time confidence. | `mix allbert.test commit`; `mix precommit` is a compatibility shortcut for this gate after v0.45.1. Not release evidence. |
+| Prepush | High-coverage local handoff before sharing. | `mix allbert.test prepush`; runs the partitioned high-coverage local gate with timing evidence. |
 | Fast local | Daily development feedback after v0.41 implementation. | `mix allbert.test fast-local`; add `--core-lanes --stocksage-lanes --web-lanes --partitions N` for the high-coverage local gate. |
 | Serial core | VM-global lanes (SQLite, app env, Allbert Home, global processes, LiveView). | `mix allbert.test serial-core --lane <lane> --partitions N`; serial within a partition, parallel across OS partitions. Security evals stay single-VM. |
-| Release | Manual validation/release closeout. | `mix allbert.test release`: full `mix precommit`-equivalent coverage plus Dialyzer. |
+| Release | Manual validation/release closeout. | `mix allbert.test release`: explicit full-suite phases plus Dialyzer and per-phase timing/evidence. |
 | External smoke | Machine-dependent integrations. | Docker, browser, real MCP/provider checks, opt in. |
 
 Fast local gates are not release evidence. Do not hand off a release milestone
 until the release gate is clean, unless an exact environment blocker is recorded
 and the user accepts the deferral.
+After v0.45.1, `mix precommit` is not release evidence; use
+`mix allbert.test release` or the active plan's version-specific release gate.
 
 When adding or moving tests, classify each file with one primary lane from
 `docs/developer/test-strategy.md`. Prefer the narrowest lane that describes the
@@ -695,9 +699,9 @@ For each milestone:
    global process, external runtime, LiveView, or security eval.
 9. Run the gate required by the active plan and
    `docs/developer/test-strategy.md`. If no narrower gate is documented, run
-   the full code warning/release gate:
+   the static checks plus the release gate:
    `mix compile --warnings-as-errors`, `mix format --check-formatted`,
-   `mix credo --strict`, `mix dialyzer`, and `mix precommit`.
+   `mix credo --strict`, `mix dialyzer`, and `mix allbert.test release`.
 10. For v0.41 developer-efficiency work, record the benchmark required by the
     milestone in `docs/developer/test-strategy.md` and apply the reorder rule
     before proceeding when the measured delta is ineffective.
