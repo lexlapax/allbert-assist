@@ -213,19 +213,26 @@ defmodule AllbertAssist.Workflows.Schema do
   end
 
   defp param_schema(opts) do
-    case Keyword.get(opts, :type) do
-      :string -> %{"type" => "string"}
-      :integer -> %{"type" => "integer"}
-      :float -> %{"type" => "number"}
-      :number -> %{"type" => "number"}
-      :boolean -> %{"type" => "boolean"}
-      :map -> %{"type" => "object"}
-      {:list, :map} -> %{"type" => "array", "items" => %{"type" => "object"}}
-      {:list, :string} -> %{"type" => "array", "items" => %{"type" => "string"}}
-      {:list, _type} -> %{"type" => "array"}
-      :atom -> %{"type" => "string"}
-      :any -> %{}
-      _other -> %{}
-    end
+    opts
+    |> Keyword.get(:type)
+    |> param_schema_for_type()
   end
+
+  defp param_schema_for_type(:string), do: %{"type" => "string"}
+  defp param_schema_for_type(:integer), do: %{"type" => "integer"}
+  defp param_schema_for_type(:float), do: %{"type" => "number"}
+  defp param_schema_for_type(:number), do: %{"type" => "number"}
+  defp param_schema_for_type(:boolean), do: %{"type" => "boolean"}
+  defp param_schema_for_type(:map), do: %{"type" => "object"}
+
+  defp param_schema_for_type({:list, :map}),
+    do: %{"type" => "array", "items" => %{"type" => "object"}}
+
+  defp param_schema_for_type({:list, :string}),
+    do: %{"type" => "array", "items" => %{"type" => "string"}}
+
+  defp param_schema_for_type({:list, _type}), do: %{"type" => "array"}
+  defp param_schema_for_type(:atom), do: %{"type" => "string"}
+  defp param_schema_for_type(:any), do: %{}
+  defp param_schema_for_type(_type), do: %{}
 end

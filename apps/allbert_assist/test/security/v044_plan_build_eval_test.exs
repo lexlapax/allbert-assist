@@ -59,12 +59,14 @@ defmodule AllbertAssist.Security.V044PlanBuildEvalTest do
   setup do
     original_home = System.get_env("ALLBERT_HOME")
     original_paths_config = Application.get_env(:allbert_assist, AllbertAssist.Paths)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     home =
       Path.join(System.tmp_dir!(), "allbert-v044-plan-eval-#{System.unique_integer([:positive])}")
 
     System.put_env("ALLBERT_HOME", home)
     Application.put_env(:allbert_assist, AllbertAssist.Paths, home: home)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
     File.mkdir_p!(Path.join(home, "workflows"))
     copy_fixture!("multi_step", home)
     copy_fixture!("single_step", home)
@@ -72,6 +74,7 @@ defmodule AllbertAssist.Security.V044PlanBuildEvalTest do
     on_exit(fn ->
       restore_env("ALLBERT_HOME", original_home)
       restore_app_env(AllbertAssist.Paths, original_paths_config)
+      restore_app_env(Settings, original_settings_config)
       AgentRegistry.unregister("plan-build-stub")
       File.rm_rf!(home)
     end)

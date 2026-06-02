@@ -114,25 +114,7 @@ defmodule AllbertAssist.PlanBuild.Runtime do
   defp continue_blocked_step(%Step{} = step, objective, context, remaining, advanced) do
     case confirmation_status(step.confirmation_id) do
       "approved" ->
-        with {:ok, step} <-
-               Objectives.update_step(step, %{
-                 status: "proposed",
-                 stage: "propose_steps",
-                 confirmation_id: nil,
-                 result_summary: nil
-               }),
-             {:ok, objective} <-
-               Objectives.update_objective(objective, %{
-                 status: "running",
-                 current_step_id: nil,
-                 progress_summary: "Plan step confirmation approved."
-               }) do
-          if step.kind == "ask_user" do
-            complete_confirmed_ask_user(step, objective, context, remaining, advanced)
-          else
-            run_step(step, objective, context, remaining, advanced)
-          end
-        end
+        continue_approved_step(step, objective, context, remaining, advanced)
 
       "pending" ->
         {:ok,
@@ -141,6 +123,38 @@ defmodule AllbertAssist.PlanBuild.Runtime do
       status ->
         {:error, {:confirmation_not_approved, status}}
     end
+  end
+
+  defp continue_approved_step(step, objective, context, remaining, advanced) do
+    with {:ok, step} <-
+           Objectives.update_step(step, %{
+             status: "proposed",
+             stage: "propose_steps",
+             confirmation_id: nil,
+             result_summary: nil
+           }),
+         {:ok, objective} <-
+           Objectives.update_objective(objective, %{
+             status: "running",
+             current_step_id: nil,
+             progress_summary: "Plan step confirmation approved."
+           }) do
+      continue_approved_step_execution(step, objective, context, remaining, advanced)
+    end
+  end
+
+  defp continue_approved_step_execution(
+         %Step{kind: "ask_user"} = step,
+         objective,
+         context,
+         remaining,
+         advanced
+       ) do
+    complete_confirmed_ask_user(step, objective, context, remaining, advanced)
+  end
+
+  defp continue_approved_step_execution(step, objective, context, remaining, advanced) do
+    run_step(step, objective, context, remaining, advanced)
   end
 
   defp complete_confirmed_ask_user(step, objective, context, remaining, advanced) do

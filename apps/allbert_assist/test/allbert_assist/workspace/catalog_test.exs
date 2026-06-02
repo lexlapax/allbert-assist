@@ -8,10 +8,10 @@ defmodule AllbertAssist.Workspace.CatalogTest do
   alias AllbertAssist.Workspace.Fragment.Body, as: FragmentBody
   alias AllbertAssist.Workspace.Fragment.Envelope
 
-  test "known components returns the v0.42 workspace allow-list" do
+  test "known components returns the current workspace allow-list" do
     components = Catalog.known_components()
 
-    assert length(components) == 52
+    assert length(components) == 54
     assert Enum.uniq(components) == components
 
     assert Enum.all?(
@@ -30,6 +30,8 @@ defmodule AllbertAssist.Workspace.CatalogTest do
                :onboarding_panel,
                :settings_panel,
                :template_create_panel,
+               :plan_preview_panel,
+               :plan_run_progress_panel,
                :mcp_effect_form,
                :workspace,
                :canvas,
@@ -60,7 +62,10 @@ defmodule AllbertAssist.Workspace.CatalogTest do
              "app:stocksage",
              "workspace:onboard",
              "workspace:create",
+             "workspace:plan_build",
+             "workspace:plan_runs",
              "workspace:discover",
+             "workspace:marketplace",
              "workspace:calendar",
              "workspace:mail",
              "workspace:github",

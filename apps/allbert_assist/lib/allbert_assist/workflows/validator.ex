@@ -26,6 +26,16 @@ defmodule AllbertAssist.Workflows.Validator do
   @forbidden_substitution_paths ~w[id kind action delegate_agent_id save_as]
   @reserved_ref_roots ~w[inputs steps user workflow]
   @allowed_functions ~w[length contains starts_with ends_with lower upper default to_json from_json]
+  @jsv_keyword_reasons %{
+    "additionalProperties" => :unknown_key,
+    :additionalProperties => :unknown_key,
+    "required" => :missing_required,
+    :required => :missing_required,
+    "type" => :type_mismatch,
+    :type => :type_mismatch,
+    "const" => :type_mismatch,
+    :const => :type_mismatch
+  }
 
   @spec validate(map(), keyword()) :: {:ok, map()} | {:error, SchemaError.t()}
   def validate(workflow, opts \\ [])
@@ -107,15 +117,19 @@ defmodule AllbertAssist.Workflows.Validator do
            is_list(inputs) || {:error, error("/inputs", :type_mismatch, workflow_id: workflow_id)},
          :ok <- validate_unique(inputs, "name", "/inputs", workflow_id) do
       Enum.reduce_while(Enum.with_index(inputs), :ok, fn {input, index}, :ok ->
-        pointer = "/inputs/#{index}"
-
-        with :ok <- validate_unknown_keys(input, @input_keys, pointer, workflow_id),
-             :ok <- validate_input_default(input, pointer, workflow_id) do
-          {:cont, :ok}
-        else
-          {:error, error} -> {:halt, {:error, error}}
-        end
+        input
+        |> validate_input(index, workflow_id)
+        |> reduce_result()
       end)
+    end
+  end
+
+  defp validate_input(input, index, workflow_id) do
+    pointer = "/inputs/#{index}"
+
+    with :ok <- validate_unknown_keys(input, @input_keys, pointer, workflow_id),
+         :ok <- validate_input_default(input, pointer, workflow_id) do
+      :ok
     end
   end
 
@@ -128,10 +142,9 @@ defmodule AllbertAssist.Workflows.Validator do
            is_list(steps) || {:error, error("/steps", :type_mismatch, workflow_id: workflow_id)},
          :ok <- validate_unique(steps, "id", "/steps", workflow_id) do
       Enum.reduce_while(Enum.with_index(steps), :ok, fn {step, index}, :ok ->
-        case validate_step(step, index, workflow_id, action_names) do
-          :ok -> {:cont, :ok}
-          {:error, error} -> {:halt, {:error, error}}
-        end
+        step
+        |> validate_step(index, workflow_id, action_names)
+        |> reduce_result()
       end)
     end
   end
@@ -419,19 +432,29 @@ defmodule AllbertAssist.Workflows.Validator do
 
   defp reject_forbidden_substitution_fields(step, pointer, workflow_id) do
     Enum.reduce_while(@forbidden_substitution_paths, :ok, fn key, :ok ->
-      case Map.get(step, key) do
-        value when is_binary(value) ->
-          if substitutions(value) == [] do
-            {:cont, :ok}
-          else
-            reason = if key == "action", do: :dynamic_action_name, else: :invalid_expression
-            {:halt, {:error, error(pointer <> "/" <> key, reason, workflow_id: workflow_id)}}
-          end
-
-        _other ->
-          {:cont, :ok}
-      end
+      step
+      |> validate_forbidden_substitution_field(key, pointer, workflow_id)
+      |> reduce_result()
     end)
+  end
+
+  defp validate_forbidden_substitution_field(step, key, pointer, workflow_id) do
+    case Map.get(step, key) do
+      value when is_binary(value) ->
+        reject_forbidden_substitution_value(value, key, pointer, workflow_id)
+
+      _other ->
+        :ok
+    end
+  end
+
+  defp reject_forbidden_substitution_value(value, key, pointer, workflow_id) do
+    if substitutions(value) == [] do
+      :ok
+    else
+      reason = if key == "action", do: :dynamic_action_name, else: :invalid_expression
+      {:error, error(pointer <> "/" <> key, reason, workflow_id: workflow_id)}
+    end
   end
 
   defp validate_param_bytes(params, pointer, workflow_id) do
@@ -586,18 +609,7 @@ defmodule AllbertAssist.Workflows.Validator do
 
   defp jsv_reason(error) do
     keyword = Map.get(error, "keyword") || Map.get(error, :keyword)
-
-    case keyword do
-      "additionalProperties" -> :unknown_key
-      :additionalProperties -> :unknown_key
-      "required" -> :missing_required
-      :required -> :missing_required
-      "type" -> :type_mismatch
-      :type -> :type_mismatch
-      "const" -> :type_mismatch
-      :const -> :type_mismatch
-      _other -> :type_mismatch
-    end
+    Map.get(@jsv_keyword_reasons, keyword, :type_mismatch)
   end
 
   defp reduce_result(:ok), do: {:cont, :ok}

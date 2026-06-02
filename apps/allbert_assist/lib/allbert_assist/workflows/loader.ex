@@ -16,12 +16,10 @@ defmodule AllbertAssist.Workflows.Loader do
   def list_workflows do
     dir = workflows_dir()
 
-    cond do
-      not File.dir?(dir) ->
-        {:ok, [], [error("/", :no_workflows_dir, workflow_id: nil)]}
-
-      true ->
-        {:ok, dir |> Path.join("*.yaml") |> Path.wildcard() |> Enum.map(&file_summary/1), []}
+    if File.dir?(dir) do
+      {:ok, dir |> Path.join("*.yaml") |> Path.wildcard() |> Enum.map(&file_summary/1), []}
+    else
+      {:ok, [], [error("/", :no_workflows_dir, workflow_id: nil)]}
     end
   end
 
@@ -81,23 +79,7 @@ defmodule AllbertAssist.Workflows.Loader do
     with {:ok, path} <- workflow_path(workflow_id) do
       case File.stat(path) do
         {:ok, %{size: size}} ->
-          max = max_yaml_bytes()
-
-          cond do
-            size > max ->
-              {:error,
-               error("/", :cap_exceeded,
-                 expected: "<= #{max} bytes",
-                 got: "#{size} bytes",
-                 workflow_id: workflow_id
-               )}
-
-            true ->
-              case File.read(path) do
-                {:ok, content} -> {:ok, content}
-                {:error, reason} -> {:error, error("/", :workflow_not_found, got: reason)}
-              end
-          end
+          read_sized_file(path, size, workflow_id)
 
         {:error, :enoent} ->
           {:error, error("/", :workflow_not_found, workflow_id: workflow_id)}
@@ -105,6 +87,28 @@ defmodule AllbertAssist.Workflows.Loader do
         {:error, reason} ->
           {:error, error("/", :workflow_not_found, got: reason, workflow_id: workflow_id)}
       end
+    end
+  end
+
+  defp read_sized_file(path, size, workflow_id) do
+    max = max_yaml_bytes()
+
+    if size > max do
+      {:error,
+       error("/", :cap_exceeded,
+         expected: "<= #{max} bytes",
+         got: "#{size} bytes",
+         workflow_id: workflow_id
+       )}
+    else
+      read_existing_file(path)
+    end
+  end
+
+  defp read_existing_file(path) do
+    case File.read(path) do
+      {:ok, content} -> {:ok, content}
+      {:error, reason} -> {:error, error("/", :workflow_not_found, got: reason)}
     end
   end
 

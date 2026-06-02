@@ -1,6 +1,8 @@
 defmodule AllbertAssist.Actions.PlanBuild.ConfirmPlanStep do
   @moduledoc "Internal confirmation target for Plan/Build step checkpoints."
 
+  alias AllbertAssist.PlanBuild.Runtime, as: PlanBuildRuntime
+
   use AllbertAssist.Action,
     permission: :objective_write,
     exposure: :internal,
@@ -21,7 +23,7 @@ defmodule AllbertAssist.Actions.PlanBuild.ConfirmPlanStep do
 
   @impl true
   def run(params, context) do
-    AllbertAssist.PlanBuild.Runtime.advance(
+    PlanBuildRuntime.advance(
       Map.get(params, :objective_id) || Map.get(params, "objective_id"),
       Map.merge(context, %{user_id: Map.get(params, :user_id) || Map.get(params, "user_id")})
     )

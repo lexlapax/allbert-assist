@@ -647,17 +647,18 @@ defmodule AllbertAssist.Resources.ResourceURI do
   end
 
   defp marketplace_entry_id(value) do
-    with {:ok, value} <- non_empty(value, :missing_marketplace_entry_id) do
-      case String.split(value, "/", trim: false) do
-        [author, name] ->
-          with {:ok, author} <- marketplace_entry_segment(author),
-               {:ok, name} <- marketplace_entry_segment(name) do
-            {:ok, {author, name}}
-          end
+    with {:ok, value} <- non_empty(value, :missing_marketplace_entry_id),
+         {:ok, {author, name}} <- split_marketplace_entry_id(value),
+         {:ok, author} <- marketplace_entry_segment(author),
+         {:ok, name} <- marketplace_entry_segment(name) do
+      {:ok, {author, name}}
+    end
+  end
 
-        _other ->
-          {:error, {:invalid_marketplace_entry_id, value}}
-      end
+  defp split_marketplace_entry_id(value) do
+    case String.split(value, "/", trim: false) do
+      [author, name] -> {:ok, {author, name}}
+      _other -> {:error, {:invalid_marketplace_entry_id, value}}
     end
   end
 

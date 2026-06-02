@@ -455,6 +455,8 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   end
 
   defp completed(record, permission_decision, metadata) do
+    metadata = Map.new(metadata)
+
     output_data =
       metadata
       |> Map.get(:target_result, %{})
@@ -477,7 +479,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
            "approve_confirmation",
            :completed,
            permission_decision,
-           Map.new(metadata)
+           metadata
          )
        ]
      }}
