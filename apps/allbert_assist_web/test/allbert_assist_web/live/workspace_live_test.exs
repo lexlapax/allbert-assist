@@ -6,6 +6,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   alias AllbertAssist.{
     Confirmations,
     Conversations,
+    Marketplace,
     Objectives,
     Paths,
     Runtime,
@@ -147,6 +148,46 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert [confirmation] = Confirmations.list(status: "pending")
     assert get_in(confirmation, ["target_action", "name"]) == "mcp_server_connect"
     assert get_in(confirmation, ["params_summary", "candidate_id"]) == candidate.id
+  end
+
+  test "marketplace destination renders catalog and routes install affordance through actions",
+       %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:marketplace")
+
+    assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:marketplace']")
+    assert has_element?(view, "#workspace-dest-workspace-marketplace")
+    assert has_element?(view, "[data-workspace-component='panel']", "Marketplace Catalog")
+    assert has_element?(view, "[data-workspace-component='settings_card']", "Research Helpers")
+
+    assert has_element?(
+             view,
+             "button[data-workspace-component='action_button']" <>
+               "[phx-value-action-name='install_marketplace_bundle']" <>
+               "[phx-value-entry-id='allbert/research-helpers']",
+             "Install"
+           )
+
+    view
+    |> element(
+      "button[data-workspace-component='action_button']" <>
+        "[phx-value-action-name='install_marketplace_bundle']" <>
+        "[phx-value-entry-id='allbert/research-helpers']",
+      "Install"
+    )
+    |> render_click()
+
+    assert Confirmations.list(status: "pending") == []
+    assert {:ok, [installed]} = Marketplace.list_installed()
+    assert installed["entry_id"] == "allbert/research-helpers"
+    assert installed["install_state"] == "disabled_untrusted"
+
+    assert has_element?(
+             view,
+             "button[data-workspace-component='action_button']" <>
+               "[phx-value-action-name='rollback_marketplace_install']" <>
+               "[phx-value-entry-id='allbert/research-helpers']",
+             "Rollback"
+           )
   end
 
   test "calendar panel create-event affordance routes through Approval Handoff", %{conn: conn} do

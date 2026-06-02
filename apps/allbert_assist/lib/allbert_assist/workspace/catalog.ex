@@ -41,6 +41,12 @@ defmodule AllbertAssist.Workspace.Catalog do
       dom_id: "workspace-discover"
     },
     %{
+      id: "workspace:marketplace",
+      tool: "marketplace",
+      label: "Marketplace",
+      dom_id: "workspace-marketplace"
+    },
+    %{
       id: "workspace:calendar",
       tool: "calendar",
       label: "Calendar",
@@ -82,6 +88,7 @@ defmodule AllbertAssist.Workspace.Catalog do
     "plan_build" => :plan_build_preview_panel,
     "plan_runs" => :plan_build_run_progress_panel,
     "discover" => :core_discovery_suggestions_panel,
+    "marketplace" => :marketplace_catalog_panel,
     "calendar" => :core_calendar_panel,
     "mail" => :core_mail_panel,
     "github" => :core_github_panel,
