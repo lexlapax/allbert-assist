@@ -14,7 +14,8 @@ defmodule AllbertAssist.Resources.ResourceURI do
           required(:unsupported?) => boolean(),
           optional(:server_id) => String.t(),
           optional(:server_resource_uri) => String.t(),
-          optional(:session_id) => String.t()
+          optional(:session_id) => String.t(),
+          optional(:entry_id) => String.t()
         }
 
   @spec file(term()) :: {:ok, String.t()}
@@ -135,6 +136,16 @@ defmodule AllbertAssist.Resources.ResourceURI do
   @spec plan_run!(term()) :: String.t()
   def plan_run!(objective_id), do: bang(plan_run(objective_id))
 
+  @spec marketplace_entry(term()) :: {:ok, String.t()} | {:error, term()}
+  def marketplace_entry(entry_id) do
+    with {:ok, {author, name}} <- marketplace_entry_id(entry_id) do
+      {:ok, "marketplace://entry/#{encode_segment(author)}/#{encode_segment(name)}"}
+    end
+  end
+
+  @spec marketplace_entry!(term()) :: String.t()
+  def marketplace_entry!(entry_id), do: bang(marketplace_entry(entry_id))
+
   @spec allbert_home(term()) :: {:ok, String.t()} | {:error, term()}
   def allbert_home(path) do
     with {:ok, path} <- non_empty(path, :missing_allbert_home_path) do
@@ -228,6 +239,14 @@ defmodule AllbertAssist.Resources.ResourceURI do
     if scheme(value) == "workflow", do: normalize(value), else: workflow(value)
   end
 
+  def scope_uri(:marketplace_entry, :marketplace_entry, value, resource_uri) do
+    cond do
+      scheme(value) == "marketplace" -> normalize(value)
+      is_binary(value) and String.trim(value) != "" -> marketplace_entry(value)
+      true -> normalize(resource_uri)
+    end
+  end
+
   def scope_uri(_origin_kind, kind, _value, _resource_uri),
     do: {:error, {:unsupported_scope_uri, kind}}
 
@@ -304,6 +323,9 @@ defmodule AllbertAssist.Resources.ResourceURI do
     do: normalize_workflow(uri, original)
 
   defp normalize_parsed(%URI{scheme: "plan"} = uri, original), do: normalize_plan(uri, original)
+
+  defp normalize_parsed(%URI{scheme: "marketplace"} = uri, original),
+    do: normalize_marketplace(uri, original)
 
   defp normalize_parsed(%URI{scheme: scheme} = uri, original)
        when scheme in @unsupported_schemes,
@@ -418,6 +440,18 @@ defmodule AllbertAssist.Resources.ResourceURI do
        unsupported?: false,
        objective_id: objective_id
      }}
+  end
+
+  defp derive(%URI{scheme: "marketplace", host: "entry", path: path}, _resource_uri) do
+    with {:ok, entry_id} <- marketplace_entry_id_from_path(path) do
+      {:ok,
+       %{
+         origin_kind: :marketplace_entry,
+         canonical_id: entry_id,
+         unsupported?: false,
+         entry_id: entry_id
+       }}
+    end
   end
 
   defp derive(%URI{scheme: scheme}, resource_uri) when scheme in ["agent", "agent+https"],
@@ -554,6 +588,21 @@ defmodule AllbertAssist.Resources.ResourceURI do
 
   defp normalize_plan(_uri, original), do: {:error, {:invalid_plan_run_uri, original}}
 
+  defp normalize_marketplace(
+         %URI{host: "entry", path: path, query: query, fragment: fragment},
+         original
+       )
+       when query in [nil, ""] and fragment in [nil, ""] do
+    with {:ok, entry_id} <- marketplace_entry_id_from_path(path) do
+      marketplace_entry(entry_id)
+    else
+      {:error, reason} -> {:error, {:invalid_marketplace_entry_uri, original, reason}}
+    end
+  end
+
+  defp normalize_marketplace(_uri, original),
+    do: {:error, {:invalid_marketplace_entry_uri, original}}
+
   defp mcp_server_id(value) do
     with {:ok, value} <- non_empty(value, :missing_mcp_server_id) do
       if Regex.match?(~r/^[A-Za-z0-9_-]+$/, value) do
@@ -593,6 +642,50 @@ defmodule AllbertAssist.Resources.ResourceURI do
         {:ok, value}
       else
         {:error, {:invalid_objective_id, value}}
+      end
+    end
+  end
+
+  defp marketplace_entry_id(value) do
+    with {:ok, value} <- non_empty(value, :missing_marketplace_entry_id) do
+      case String.split(value, "/", trim: false) do
+        [author, name] ->
+          with {:ok, author} <- marketplace_entry_segment(author),
+               {:ok, name} <- marketplace_entry_segment(name) do
+            {:ok, {author, name}}
+          end
+
+        _other ->
+          {:error, {:invalid_marketplace_entry_id, value}}
+      end
+    end
+  end
+
+  defp marketplace_entry_id_from_path(path) do
+    parts =
+      path
+      |> to_string()
+      |> String.trim_leading("/")
+      |> String.split("/", trim: false)
+
+    case parts do
+      [author, name] ->
+        with {:ok, author} <- marketplace_entry_segment(URI.decode(author)),
+             {:ok, name} <- marketplace_entry_segment(URI.decode(name)) do
+          {:ok, "#{author}/#{name}"}
+        end
+
+      parts ->
+        {:error, {:invalid_marketplace_entry_path, parts}}
+    end
+  end
+
+  defp marketplace_entry_segment(value) do
+    with {:ok, value} <- non_empty(value, :missing_marketplace_entry_segment) do
+      if Regex.match?(~r/^[a-z0-9][a-z0-9_-]*$/, value) do
+        {:ok, value}
+      else
+        {:error, {:invalid_marketplace_entry_segment, value}}
       end
     end
   end

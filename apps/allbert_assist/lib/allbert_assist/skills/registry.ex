@@ -810,6 +810,7 @@ defmodule AllbertAssist.Skills.Registry do
   defp scope_precedence(:user_native), do: 5
   defp scope_precedence(:user_interoperable), do: 6
   defp scope_precedence(:configured_scan_path), do: 7
+  defp scope_precedence(:marketplace_install), do: 100
   defp scope_precedence(:imported_cache), do: 100
 
   defp diagnostic(severity, code, message, opts) do

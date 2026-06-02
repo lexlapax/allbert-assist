@@ -111,6 +111,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "show_app",
              "list_plugins",
              "show_plugin",
+             "preview_plan",
              "open_calendar_panel",
              "open_mail_panel",
              "open_github_panel",
@@ -133,6 +134,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "import_online_skill",
              "import_remote_skill",
              "import_local_skill",
+             "marketplace_doctor",
              "security_status",
              "security_review",
              "sandbox_doctor",
@@ -173,6 +175,13 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "cancel_objective",
              "continue_objective",
              "delegate_agent",
+             "list_workflows",
+             "inspect_workflow",
+             "expand_workflow",
+             "start_plan_run",
+             "plan_step_confirm",
+             "cancel_plan_run",
+             "list_plan_runs",
              "onboarding_step_complete",
              "registry_health",
              "trace_summary",
@@ -216,6 +225,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     refute "mcp_list_resources" in agent_action_names
     refute "mcp_read_resource" in agent_action_names
     refute "mcp_call_tool" in agent_action_names
+    refute "marketplace_doctor" in agent_action_names
     refute "security_status" in agent_action_names
     refute "security_review" in agent_action_names
     refute "record_trace" in agent_action_names
@@ -252,6 +262,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "import_online_skill",
              "import_remote_skill",
              "import_local_skill",
+             "marketplace_doctor",
              "security_status",
              "security_review",
              "sandbox_doctor",
@@ -292,6 +303,13 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "cancel_objective",
              "continue_objective",
              "delegate_agent",
+             "list_workflows",
+             "inspect_workflow",
+             "expand_workflow",
+             "start_plan_run",
+             "plan_step_confirm",
+             "cancel_plan_run",
+             "list_plan_runs",
              "onboarding_step_complete",
              "registry_health",
              "trace_summary",
@@ -379,6 +397,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert mcp_server_connect.permission == :mcp_server_connect
     assert mcp_server_connect.execution_mode == :mcp_server_connect
     assert mcp_server_connect.resumable?
+
+    assert {:ok, marketplace_doctor} = Registry.capability("marketplace_doctor")
+    assert marketplace_doctor.permission == :read_only
+    assert marketplace_doctor.exposure == :internal
+    assert marketplace_doctor.execution_mode == :marketplace_diagnostic
 
     assert {:ok, find_local_tools} = Registry.capability("find_local_tools")
     assert find_local_tools.permission == :read_only

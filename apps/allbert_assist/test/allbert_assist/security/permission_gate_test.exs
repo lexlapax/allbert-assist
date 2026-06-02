@@ -41,6 +41,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :workflow_read,
              :workflow_run_start,
              :plan_cancel,
+             :marketplace_install,
              :settings_secret_write,
              :settings_secret_read
            ]
@@ -117,6 +118,17 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     assert cancel.decision == :allowed
     assert cancel.policy.safety_floor == :allowed
     assert PermissionGate.allowed?(cancel)
+  end
+
+  test "documents Marketplace Lite install permission floor" do
+    install = PermissionGate.authorize(:marketplace_install, %{})
+
+    assert install.permission == :marketplace_install
+    assert install.decision == :allowed
+    assert install.policy.safety_floor == :allowed
+    assert install.risk.tier == :medium
+    refute install.requires_confirmation
+    assert PermissionGate.allowed?(install)
   end
 
   test "allows discovery search but requires confirmation for discovered MCP server connect" do

@@ -39,7 +39,8 @@ defmodule AllbertAssist.Security.Policy do
     browser_download: "permissions.browser_download",
     workflow_read: "permissions.workflow_read",
     workflow_run_start: "permissions.workflow_run_start",
-    plan_cancel: "permissions.plan_cancel"
+    plan_cancel: "permissions.plan_cancel",
+    marketplace_install: "permissions.marketplace_install"
   }
 
   @default_decisions %{
@@ -78,6 +79,7 @@ defmodule AllbertAssist.Security.Policy do
     workflow_read: :allowed,
     workflow_run_start: :needs_confirmation,
     plan_cancel: :allowed,
+    marketplace_install: :allowed,
     settings_secret_write: :allowed,
     settings_secret_read: :denied
   }
@@ -120,6 +122,7 @@ defmodule AllbertAssist.Security.Policy do
           | :workflow_read
           | :workflow_run_start
           | :plan_cancel
+          | :marketplace_install
           | :settings_secret_write
           | :settings_secret_read
 
@@ -162,6 +165,7 @@ defmodule AllbertAssist.Security.Policy do
       :workflow_read,
       :workflow_run_start,
       :plan_cancel,
+      :marketplace_install,
       :settings_secret_write,
       :settings_secret_read
     ]
@@ -383,6 +387,15 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:plan_cancel, :denied, _configured, _floor, _context),
     do: "Cooperative plan cancellation is denied by current policy."
+
+  defp reason(:marketplace_install, :allowed, _configured, _floor, _context),
+    do: "Marketplace installs are allowed because shipped bundles land disabled and untrusted."
+
+  defp reason(:marketplace_install, :needs_confirmation, _configured, _floor, _context),
+    do: "Marketplace installs require confirmation by current policy."
+
+  defp reason(:marketplace_install, :denied, _configured, _floor, _context),
+    do: "Marketplace installs are denied by current policy."
 
   defp reason(:package_install, :denied, _configured, _floor, _context),
     do: "Package installation is denied until an operator explicitly enables confirmed installs."

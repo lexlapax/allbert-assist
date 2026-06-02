@@ -3,6 +3,7 @@ defmodule AllbertAssist.SettingsTest do
   @moduletag :external_runtime_serial
 
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Marketplace.SettingsFragment, as: MarketplaceSettingsFragment
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -251,6 +252,55 @@ defmodule AllbertAssist.SettingsTest do
     assert plan_fragment.id == "core:plan"
     assert plan_fragment.defaults["plan"]["run"]["plan_start_gate"] == "required"
     assert "plan.preview.auto_proceed_green_tier" in plan_fragment.safe_write_keys
+  end
+
+  test "Marketplace Lite settings resolve defaults and enforce invariants" do
+    assert {:ok, 1} = Settings.get("marketplace.schema_version")
+    assert {:ok, true} = Settings.get("marketplace.enabled")
+    assert {:ok, "shipped"} = Settings.get("marketplace.catalog.source")
+
+    assert {:ok, "<ALLBERT_HOME>/marketplace/cache"} =
+             Settings.get("marketplace.catalog.cache_path")
+
+    assert {:ok, true} = Settings.get("marketplace.catalog.mirror_on_first_action")
+    assert {:ok, "disabled_untrusted"} = Settings.get("marketplace.install.default_state")
+
+    assert {:ok, "<ALLBERT_HOME>/marketplace/skills"} =
+             Settings.get("marketplace.install.target_dir_skills")
+
+    assert {:ok, "<ALLBERT_HOME>/marketplace/templates"} =
+             Settings.get("marketplace.install.target_dir_templates")
+
+    assert {:ok, "sha256"} = Settings.get("marketplace.provenance.hash_algorithm")
+    assert {:ok, true} = Settings.get("marketplace.provenance.require_hash_match")
+
+    assert {:ok, "<ALLBERT_HOME>/marketplace/installed.json"} =
+             Settings.get("marketplace.installed_state_path")
+
+    assert {:ok, resolved} = Settings.put("marketplace.enabled", false, %{audit?: false})
+    assert resolved.value == false
+
+    assert {:ok, resolved} =
+             Settings.put("marketplace.catalog.cache_path", "<ALLBERT_HOME>/tmp/cache", %{
+               audit?: false
+             })
+
+    assert resolved.value == "<ALLBERT_HOME>/tmp/cache"
+
+    assert {:error, {:read_only_setting, "marketplace.schema_version"}} =
+             Settings.put("marketplace.schema_version", 2, %{audit?: false})
+
+    assert {:error, {:read_only_setting, "marketplace.install.default_state"}} =
+             Settings.put("marketplace.install.default_state", "enabled", %{audit?: false})
+
+    assert {:ok, fragment} = Fragments.fragment_for_key("marketplace.enabled")
+    assert fragment.id == "core:marketplace"
+    assert fragment.defaults["marketplace"]["schema_version"] == 1
+    assert fragment.defaults["marketplace"]["install"]["default_state"] == "disabled_untrusted"
+    assert "marketplace.enabled" in fragment.safe_write_keys
+    refute "marketplace.install.default_state" in fragment.safe_write_keys
+
+    assert {:ok, ^fragment} = MarketplaceSettingsFragment.fragment()
   end
 
   test "sandbox settings resolve defaults and validate writes" do
