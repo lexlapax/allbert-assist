@@ -10,6 +10,58 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.44.0 - Plan/Build Mode And Operator Workflow YAML
+
+Status: implemented as the v0.44 release. Current version metadata is
+`0.44.0`.
+
+### Added
+
+- Plan/Build as a pinnable workspace surface over the v0.24 Objective Runtime,
+  with Preview and RunProgress panels, plan-run identities, and advisory
+  Plan Preview Contract packets.
+- Operator-authored workflow YAML under
+  `<ALLBERT_HOME>/workflows/<workflow-id>.yaml`, with a v1 schema derived from
+  the current action registry snapshot plus step kinds, closed expression
+  substitution, unknown-key diagnostics, and workflow caps.
+- Seven operator-facing Plan-Build actions (`list_workflows`,
+  `inspect_workflow`, `expand_workflow`, `preview_plan`, `start_plan_run`,
+  `cancel_plan_run`, `list_plan_runs`) plus the internal `plan_step_confirm`
+  continuation target.
+- Three Plan/Build permission classes, `workflow://<id>` and
+  `plan://run/<objective_id>` Resource Access identities, workflow and plan
+  settings fragments, Plan/Build intent routing, CLI workflow/plan commands,
+  operator/developer guides, and the deterministic `release.v044` gate.
+
+### Changed
+
+- Approved `start_plan_run` confirmations now frame objectives, persist
+  workflow-expanded steps, and hand execution to the existing Objective Runtime
+  instead of stopping at preview/proposed-step persistence.
+- Workflow step execution now enforces sequential order, per-step
+  confirmation upgrades, `if:` skips, `on_error` behavior, cooperative cancel
+  semantics, subagent delegation visibility, and runtime
+  `${steps.<id>.<field>}` resolution from completed step output aliases.
+- Plan previews, workflow YAML, intent descriptors, URI ids, and advisory
+  packet fields remain non-authoritative; all effectful work still crosses
+  `Actions.Runner.run/3`, Security Central, confirmations, traces, and audits.
+- Umbrella, core app, web app, and `CoreApp.version/0` metadata now report
+  `0.44.0`.
+
+### Verification
+
+- M6-M8 focused remediation tests passed:
+  `MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/workflows/expander_test.exs apps/allbert_assist/test/allbert_assist/actions/plan_build_actions_test.exs apps/allbert_assist/test/security/v044_plan_build_eval_test.exs`
+  (18 tests, 0 failures).
+- M9 deterministic release evidence passed:
+  `MIX_ENV=test mix allbert.test release.v044` with 24 workflow/action/CLI
+  tests, 4 intent/trace/workspace-panel tests, 7 Plan/Build LiveView tests, 11
+  Plan/Build security eval tests, 0 failures, and a passing secret scan.
+  Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v044/p0-13186/home/release_evidence/v044/release-v044-1780366009.json`.
+- M10 closeout gates passed: `MIX_ENV=test mix compile --warnings-as-errors`,
+  `MIX_ENV=test mix allbert.test release.v044`, and `git diff --check`.
+
 ## v0.43.0 - Browser And Web Research
 
 Status: implemented as the v0.43 release. Current version metadata is
