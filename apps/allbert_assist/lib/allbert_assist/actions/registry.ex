@@ -46,6 +46,12 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Jobs.RegistryHealth
   alias AllbertAssist.Actions.Jobs.TraceSummary
   alias AllbertAssist.Actions.Marketplace.Doctor, as: MarketplaceDoctor
+  alias AllbertAssist.Actions.Marketplace.InspectEntry, as: InspectMarketplaceEntry
+  alias AllbertAssist.Actions.Marketplace.InstallBundle, as: InstallMarketplaceBundle
+  alias AllbertAssist.Actions.Marketplace.ListEntries, as: ListMarketplaceEntries
+  alias AllbertAssist.Actions.Marketplace.ListInstalled, as: ListInstalledMarketplaceBundles
+  alias AllbertAssist.Actions.Marketplace.RollbackInstall, as: RollbackMarketplaceInstall
+  alias AllbertAssist.Actions.Marketplace.VerifyBundleHash, as: VerifyMarketplaceBundleHash
   alias AllbertAssist.Actions.Mcp.CallTool, as: McpCallTool
   alias AllbertAssist.Actions.Mcp.ConnectServer, as: McpConnectServer
   alias AllbertAssist.Actions.Mcp.DoctorServer, as: McpDoctorServer
@@ -190,6 +196,12 @@ defmodule AllbertAssist.Actions.Registry do
     ImportRemoteSkill,
     ImportLocalSkill,
     MarketplaceDoctor,
+    ListMarketplaceEntries,
+    InspectMarketplaceEntry,
+    InstallMarketplaceBundle,
+    RollbackMarketplaceInstall,
+    ListInstalledMarketplaceBundles,
+    VerifyMarketplaceBundleHash,
     SecurityStatus,
     SecurityReview,
     SandboxDoctor,
