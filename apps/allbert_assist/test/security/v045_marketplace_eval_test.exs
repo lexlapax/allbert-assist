@@ -168,6 +168,17 @@ defmodule AllbertAssist.Security.V045MarketplaceEvalTest do
     assert {:error, %{error_category: :plugin_index_not_installable}} =
              Marketplace.install_bundle("allbert/reviewed-plugin-sources", home: home)
 
+    workflow_yaml =
+      copy_catalog_fixture(home, "workflow-yaml")
+      |> append_manifest_file(
+        "allbert-research-helpers-1.0.0",
+        "example-workflow.yaml",
+        "schema_version: 1\nsteps: []\n"
+      )
+
+    assert {:error, %{code: :workflow_yaml_forward_pin_violation}} =
+             Catalog.read(index_path: workflow_yaml.index_path, home: home)
+
     assert {:ok, _skill} = Marketplace.install_bundle("allbert/research-helpers", home: home)
     assert {:ok, _template} = Marketplace.install_bundle("allbert/workspace-brief", home: home)
 
@@ -311,14 +322,16 @@ defmodule AllbertAssist.Security.V045MarketplaceEvalTest do
 
   defp mutate_index_entry(fixture, entry_id, fun) do
     mutate_index(fixture, fn index ->
-      update_in(index, ["entries"], fn entries ->
-        Enum.map(entries, fn
-          %{"id" => ^entry_id} = entry -> fun.(entry)
-          entry -> entry
-        end)
-      end)
+      Map.update!(index, "entries", &mutate_entries(&1, entry_id, fun))
     end)
   end
+
+  defp mutate_entries(entries, entry_id, fun) do
+    Enum.map(entries, &mutate_entry(&1, entry_id, fun))
+  end
+
+  defp mutate_entry(%{"id" => id} = entry, entry_id, fun) when id == entry_id, do: fun.(entry)
+  defp mutate_entry(entry, _entry_id, _fun), do: entry
 
   defp mutate_manifest(fixture, bundle_dir, fun) do
     path = Path.join([fixture.root, "bundles", bundle_dir, "bundle.json"])
@@ -326,6 +339,19 @@ defmodule AllbertAssist.Security.V045MarketplaceEvalTest do
     File.write!(path, Jason.encode!(manifest, pretty: true))
     fixture
   end
+
+  defp append_manifest_file(fixture, bundle_dir, relative_path, body) do
+    bundle_root = Path.join([fixture.root, "bundles", bundle_dir])
+    File.write!(Path.join(bundle_root, relative_path), body)
+
+    mutate_manifest(fixture, bundle_dir, fn manifest ->
+      Map.update!(manifest, "files", fn files ->
+        files ++ [%{"path" => relative_path, "sha256" => sha256(body)}]
+      end)
+    end)
+  end
+
+  defp sha256(data), do: :crypto.hash(:sha256, data) |> Base.encode16(case: :lower)
 
   defp temp_path(name) do
     Path.join(

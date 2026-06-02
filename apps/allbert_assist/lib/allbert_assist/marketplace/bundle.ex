@@ -292,18 +292,35 @@ defmodule AllbertAssist.Marketplace.Bundle do
   end
 
   defp validate_file_path(path, index) when is_binary(path) do
-    if safe_relative_path?(path) and path != @manifest_file do
-      :ok
-    else
-      {:error,
-       diagnostic(:bundle_manifest_invalid, :invalid_file_path, pointer("files", index, "path"))}
+    cond do
+      not safe_relative_path?(path) or path == @manifest_file ->
+        {:error,
+         diagnostic(:bundle_manifest_invalid, :invalid_file_path, pointer("files", index, "path"))}
+
+      workflow_yaml_path?(path) ->
+        {:error,
+         diagnostic(
+           :bundle_manifest_invalid,
+           :workflow_yaml_forward_pin_violation,
+           pointer("files", index, "path")
+         )}
+
+      true ->
+        :ok
     end
   end
 
-  defp validate_file_path(_path, index),
-    do:
-      {:error,
-       diagnostic(:bundle_manifest_invalid, :invalid_file_path, pointer("files", index, "path"))}
+  defp validate_file_path(_path, index) do
+    {:error,
+     diagnostic(:bundle_manifest_invalid, :invalid_file_path, pointer("files", index, "path"))}
+  end
+
+  defp workflow_yaml_path?(path) do
+    path
+    |> Path.extname()
+    |> String.downcase()
+    |> then(&(&1 in [".yaml", ".yml"]))
+  end
 
   defp validate_file_sha(value, index) when is_binary(value) do
     if Regex.match?(~r/^[0-9a-f]{64}$/, value) do
@@ -408,6 +425,10 @@ defmodule AllbertAssist.Marketplace.Bundle do
   defp message(:invalid_files), do: "bundle files must be a non-empty list"
   defp message(:invalid_file_entry), do: "bundle file entry is invalid"
   defp message(:invalid_file_path), do: "bundle file path is invalid"
+
+  defp message(:workflow_yaml_forward_pin_violation),
+    do: "workflow YAML files are not installable through Marketplace Lite"
+
   defp message(:invalid_file_sha256), do: "bundle file sha256 is invalid"
   defp message(:bundle_file_list_mismatch), do: "bundle file list does not match manifest"
   defp message(:bundle_file_hash_mismatch), do: "bundle file sha256 does not match manifest"
