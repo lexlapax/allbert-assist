@@ -10,10 +10,8 @@ defmodule AllbertAssist.Workflows do
 
   @ad_hoc_plan_id "ad_hoc_plan"
 
-  @spec list() :: {:ok, [map()], [term()]} | {:error, term()}
   def list, do: Loader.list_workflows()
 
-  @spec load(String.t()) :: {:ok, map()} | {:error, term()}
   def load(workflow_id), do: Loader.load(workflow_id)
 
   @spec exists?(String.t()) :: boolean()
@@ -37,7 +35,6 @@ defmodule AllbertAssist.Workflows do
     end
   end
 
-  @spec preview(String.t(), map(), map(), keyword()) :: {:ok, map()} | {:error, term()}
   def preview(workflow_id, inputs \\ %{}, context \\ %{}, opts \\ []) do
     expand(workflow_id, inputs, context, opts)
   end

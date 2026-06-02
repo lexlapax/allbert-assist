@@ -14,7 +14,6 @@ defmodule AllbertAssist.Marketplace.SurfaceProvider do
   @spec workspace_panel_surfaces(map()) :: [Surface.t()]
   def workspace_panel_surfaces(context) when is_map(context), do: [catalog_surface(context)]
 
-  @spec surface_catalog() :: [map()]
   def surface_catalog, do: []
 
   @spec catalog_surface(map()) :: Surface.t()

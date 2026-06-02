@@ -17,6 +17,7 @@ defmodule Mix.Tasks.Allbert.Workflows do
   @usage_exit 64
   @not_found_exit 65
   @failure_exit 1
+  @dialyzer {:nowarn_function, [fail_response: 1, fail!: 2]}
 
   @impl true
   def run(args) do

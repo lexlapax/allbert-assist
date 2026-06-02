@@ -36,15 +36,11 @@ defmodule AllbertAssist.Actions.PlanBuild.ListWorkflows do
        }}
     else
       false -> {:ok, denied(permission_decision)}
-      {:error, reason} -> {:ok, error(permission_decision, reason)}
     end
   end
 
   defp denied(permission_decision),
     do: response(:denied, permission_decision, %{error: :permission_denied})
-
-  defp error(permission_decision, reason),
-    do: response(:error, permission_decision, %{error: reason})
 
   defp response(status, permission_decision, output_data) do
     %{

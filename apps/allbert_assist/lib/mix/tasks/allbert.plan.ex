@@ -17,6 +17,7 @@ defmodule Mix.Tasks.Allbert.Plan do
   @usage_exit 64
   @not_found_exit 65
   @failure_exit 1
+  @dialyzer {:nowarn_function, fail!: 2}
 
   @impl true
   def run(args) do
@@ -53,7 +54,6 @@ defmodule Mix.Tasks.Allbert.Plan do
       {:ok, {:list, output_data, opts[:format]}}
     else
       {:ok, response} -> {:error, response}
-      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -70,7 +70,6 @@ defmodule Mix.Tasks.Allbert.Plan do
     else
       {:ok, %{status: :not_found}} -> fail!(@not_found_exit, "Plan run not found.")
       {:ok, response} -> {:error, response}
-      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -90,7 +89,6 @@ defmodule Mix.Tasks.Allbert.Plan do
       {:ok, {:cancel, response}}
     else
       {:ok, response} -> {:error, response}
-      {:error, reason} -> {:error, reason}
     end
   end
 

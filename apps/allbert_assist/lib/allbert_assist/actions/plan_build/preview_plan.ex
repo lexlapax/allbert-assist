@@ -44,7 +44,6 @@ defmodule AllbertAssist.Actions.PlanBuild.PreviewPlan do
     else
       false -> {:ok, response(:denied, permission_decision, %{error: :permission_denied})}
       {:error, reason} -> {:ok, response(:error, permission_decision, %{error: reason})}
-      _other -> {:ok, response(:error, permission_decision, %{error: :missing_plan_source})}
     end
   end
 

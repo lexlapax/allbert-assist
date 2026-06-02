@@ -88,7 +88,6 @@ defmodule AllbertAssist.Marketplace.Installed do
     |> Path.expand()
   end
 
-  @spec empty_state() :: map()
   def empty_state, do: @empty_state
 
   defp validate_state(%{"schema_version" => 1, "installed" => installed})
