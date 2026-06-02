@@ -29,8 +29,8 @@ defmodule AllbertAssist.Marketplace.Installed do
              :ok <- validate_state(decoded) do
           {:ok, decoded}
         else
-          {:error, %{} = diagnostic} -> {:error, diagnostic}
           {:error, %Jason.DecodeError{} = error} -> {:error, invalid_json(error)}
+          {:error, %{} = diagnostic} -> {:error, diagnostic}
           {:error, reason} -> {:error, read_failed(reason)}
         end
 

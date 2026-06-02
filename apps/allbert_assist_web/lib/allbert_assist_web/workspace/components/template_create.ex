@@ -9,6 +9,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
   use AllbertAssistWeb, :live_component
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Marketplace.Templates, as: MarketplaceTemplates
   alias AllbertAssist.Settings
   alias AllbertAssist.Templates
   alias AllbertAssist.Templates.Scaffold
@@ -20,6 +21,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
     socket = assign(socket, assigns)
     enabled? = create_enabled?()
     patterns = visible_patterns()
+    marketplace_templates = installed_marketplace_templates()
     selected_pattern_id = selected_pattern_id(socket.assigns, patterns)
     selected_pattern = pattern_by_id(patterns, selected_pattern_id)
     template_params = template_params(socket.assigns, selected_pattern)
@@ -39,6 +41,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
      |> assign(
        enabled?: enabled?,
        patterns: patterns,
+       marketplace_templates: marketplace_templates,
        selected_pattern_id: selected_pattern_id,
        selected_pattern: selected_pattern,
        template_params: template_params,
@@ -160,6 +163,68 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
 
         <p :if={@patterns == []} class="rounded border border-base-300 p-3 text-sm">
           No template patterns are allowed by Settings Central.
+        </p>
+      </section>
+
+      <section
+        id="workspace-create-marketplace-templates"
+        class="space-y-2 rounded border border-base-300 p-3"
+        data-installed-count={length(@marketplace_templates)}
+      >
+        <header class="flex flex-wrap items-center justify-between gap-2">
+          <h3 class="text-sm font-medium">Marketplace templates</h3>
+          <span class="text-xs text-base-content/60">
+            {length(@marketplace_templates)} installed
+          </span>
+        </header>
+
+        <article
+          :for={template <- @marketplace_templates}
+          id={"workspace-create-marketplace-template-#{dom_id(template.entry_id)}"}
+          class="rounded border border-base-300 bg-base-200/40 p-3"
+          data-entry-id={template.entry_id}
+          data-pattern-id={template.pattern_id}
+          data-install-state={template.install_state}
+          data-authority={template.authority}
+        >
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h4 class="text-sm font-medium">{template.name}</h4>
+              <p class="mt-1 text-xs text-base-content/70">{template.description}</p>
+            </div>
+            <span class="workspace-status-pill workspace-status-neutral">
+              {template.install_state}
+            </span>
+          </div>
+
+          <div class="mt-3 flex flex-wrap gap-1">
+            <span class="rounded border border-base-300 px-1.5 py-0.5 text-[0.7rem] text-base-content/70">
+              {template.pattern_id}
+            </span>
+            <span class="rounded border border-base-300 px-1.5 py-0.5 text-[0.7rem] text-base-content/70">
+              {template.authority}
+            </span>
+            <span
+              :for={parameter <- template.parameters}
+              class="rounded border border-base-300 px-1.5 py-0.5 text-[0.7rem] text-base-content/70"
+            >
+              {parameter.name}{required_suffix(parameter)}
+            </span>
+          </div>
+
+          <ol :if={template.files != []} class="mt-3 space-y-1 text-xs">
+            <li
+              :for={file <- template.files}
+              class="flex items-center justify-between gap-3 rounded bg-base-100/70 px-2 py-1"
+            >
+              <span class="workspace-mono min-w-0 truncate">{file.path}</span>
+              <span class="shrink-0 text-base-content/50">{short_hash(file.sha256)}</span>
+            </li>
+          </ol>
+        </article>
+
+        <p :if={@marketplace_templates == []} class="text-sm text-base-content/70">
+          No marketplace templates installed.
         </p>
       </section>
 
@@ -302,6 +367,13 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
     case Settings.get("templates.create.enabled") do
       {:ok, true} -> true
       _other -> false
+    end
+  end
+
+  defp installed_marketplace_templates do
+    case MarketplaceTemplates.list_installed() do
+      {:ok, templates} -> templates
+      {:error, _diagnostic} -> []
     end
   end
 
@@ -613,6 +685,18 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
     |> String.replace("_", " ")
     |> String.capitalize()
   end
+
+  defp dom_id(value) do
+    value
+    |> to_string()
+    |> String.replace(~r/[^A-Za-z0-9_-]/, "-")
+  end
+
+  defp required_suffix(%{required?: true}), do: " *"
+  defp required_suffix(_parameter), do: ""
+
+  defp short_hash(sha256) when is_binary(sha256), do: String.slice(sha256, 0, 12)
+  defp short_hash(_sha256), do: ""
 
   defp bool_attribute(true), do: "true"
   defp bool_attribute(false), do: "false"

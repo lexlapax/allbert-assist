@@ -733,6 +733,25 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#workspace-create-validate[data-validation-status='ready']")
   end
 
+  test "workspace create renders installed marketplace template metadata", %{conn: conn} do
+    assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
+    assert {:ok, _install} = Marketplace.install_bundle("allbert/workspace-brief")
+
+    {:ok, view, html} = live(conn, ~p"/workspace?destination=workspace:create")
+
+    assert has_element?(view, "#workspace-create-marketplace-templates[data-installed-count='1']")
+
+    assert has_element?(
+             view,
+             "#workspace-create-marketplace-template-allbert-workspace-brief[data-entry-id='allbert/workspace-brief'][data-install-state='disabled_untrusted'][data-authority='metadata_only']"
+           )
+
+    assert html =~ "Workspace Brief"
+    assert html =~ "marketplace_workspace_brief"
+    assert html =~ "metadata.json"
+    assert html =~ "template.md"
+  end
+
   test "workspace create disables unsupported live mode", %{
     conn: conn
   } do
