@@ -30,6 +30,16 @@ and per-step confirmations. Workflow id pattern is
 documented shape, reject query strings, and reject fragments.
 `agent://` and `agent+https://` remain reserved and inert.
 
+Amended at v0.45 Marketplace Lite: `marketplace://entry/<author>/<name>`
+is added as a supported core-owned scheme for reviewed marketplace catalog
+entry identity (see ADR 0043). The URI is trace/audit identity only:
+install authority comes from the `:marketplace_install` permission and
+the registered marketplace actions, not from the URI itself. The authority
+component must be `entry`; the path must contain exactly two segments that
+match the marketplace entry-id pattern
+`^[a-z0-9][a-z0-9_-]*/[a-z0-9][a-z0-9_-]*$`. Query strings and fragments
+reject. `agent://` and `agent+https://` remain reserved and inert.
+
 ## Context
 
 ADR 0012 named Allbert's shared local and remote resource access posture. The
@@ -119,6 +129,10 @@ Initial URI mappings:
   to a supported core-owned scheme in v0.44, see ADR 0041). Identifies a
   plan-run instance for trace/audit; the underlying objective is the
   authoritative store; the URI is not execution authority.
+- marketplace entries: `marketplace://entry/<author>/<name>` (reserved and
+  inert here; promoted to a supported core-owned scheme in v0.45, see
+  ADR 0043). Identifies a reviewed marketplace catalog entry for trace,
+  audit, and later suggestion references; the URI is not install authority.
 - future agents: recognized but unsupported `agent://` or `agent+https://`
 
 Unsupported URI schemes are inert. A scheme may be represented for planning,
@@ -181,6 +195,12 @@ re-created through the current approval/resource-grant UX.
   authoritative store. Remembered grants are not stored against either
   scheme; per-step grants ride the action's existing operation class
   vocabulary.
+- v0.45 promotes `marketplace://entry/<author>/<name>` to a supported,
+  core-owned scheme for marketplace entry identity (ADR 0043). The URI is
+  descriptive identity for trace/audit and v0.46 suggestion references.
+  Remembered grants are not stored against the marketplace URI; install
+  authority is the `:marketplace_install` permission on registered
+  marketplace actions, and installed bundles remain disabled/untrusted.
 - Existing confirmation/audit records remain historical evidence, but
   remembered grants without `resource_uri` are not compatibility inputs for
   matching after M12. No user data is deleted; operators may re-create grants
