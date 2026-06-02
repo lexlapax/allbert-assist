@@ -46,6 +46,10 @@ defmodule AllbertAssist.Security.PermissionGate do
           | :browser_interact
           | :browser_form_fill
           | :browser_download
+          | :workflow_read
+          | :workflow_run_start
+          | :plan_cancel
+          | :marketplace_install
           | :settings_secret_write
           | :settings_secret_read
 

@@ -16,6 +16,7 @@ defmodule AllbertAssist.Resources.OperationClass do
     mcp_resource
     browser_session
     plan_run
+    marketplace_entry
     agent_endpoint
   ]a
 
@@ -44,6 +45,9 @@ defmodule AllbertAssist.Resources.OperationClass do
     plan_preview
     plan_run_start
     plan_cancel
+    marketplace_browse
+    marketplace_install_bundle
+    marketplace_rollback
     import_skill
     package_install
   ]a
@@ -73,6 +77,7 @@ defmodule AllbertAssist.Resources.OperationClass do
     browser_session
     plan_run
     workflow_ref
+    marketplace_entry
   ]a
 
   @default_access_modes %{
@@ -100,6 +105,9 @@ defmodule AllbertAssist.Resources.OperationClass do
     plan_preview: :read,
     plan_run_start: :execute,
     plan_cancel: :execute,
+    marketplace_browse: :read,
+    marketplace_install_bundle: :write,
+    marketplace_rollback: :write,
     import_skill: :import,
     package_install: :install
   }
@@ -114,6 +122,7 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :mcp_resource
           | :browser_session
           | :plan_run
+          | :marketplace_entry
           | :agent_endpoint
 
   @type operation_class ::
@@ -141,6 +150,9 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :plan_preview
           | :plan_run_start
           | :plan_cancel
+          | :marketplace_browse
+          | :marketplace_install_bundle
+          | :marketplace_rollback
           | :import_skill
           | :package_install
 
@@ -168,6 +180,7 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :browser_session
           | :plan_run
           | :workflow_ref
+          | :marketplace_entry
 
   @spec origin_kinds() :: nonempty_list(origin_kind())
   def origin_kinds, do: @origin_kinds

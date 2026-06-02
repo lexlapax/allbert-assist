@@ -45,6 +45,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow
   alias AllbertAssist.Actions.Jobs.RegistryHealth
   alias AllbertAssist.Actions.Jobs.TraceSummary
+  alias AllbertAssist.Actions.Marketplace.Doctor, as: MarketplaceDoctor
   alias AllbertAssist.Actions.Mcp.CallTool, as: McpCallTool
   alias AllbertAssist.Actions.Mcp.ConnectServer, as: McpConnectServer
   alias AllbertAssist.Actions.Mcp.DoctorServer, as: McpDoctorServer
@@ -188,6 +189,7 @@ defmodule AllbertAssist.Actions.Registry do
     ImportOnlineSkill,
     ImportRemoteSkill,
     ImportLocalSkill,
+    MarketplaceDoctor,
     SecurityStatus,
     SecurityReview,
     SandboxDoctor,

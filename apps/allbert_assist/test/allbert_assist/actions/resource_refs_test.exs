@@ -224,6 +224,20 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
     assert OperationClass.default_access_mode(:plan_cancel) == :execute
   end
 
+  test "Marketplace operation vocabulary has explicit access modes and entry scope" do
+    assert OperationClass.origin_kind!("marketplace-entry") == :marketplace_entry
+    assert OperationClass.scope_kind!("marketplace_entry") == :marketplace_entry
+    assert OperationClass.operation_class!("marketplace-browse") == :marketplace_browse
+
+    assert OperationClass.operation_class!("marketplace_install_bundle") ==
+             :marketplace_install_bundle
+
+    assert OperationClass.operation_class!("marketplace-rollback") == :marketplace_rollback
+    assert OperationClass.default_access_mode(:marketplace_browse) == :read
+    assert OperationClass.default_access_mode(:marketplace_install_bundle) == :write
+    assert OperationClass.default_access_mode(:marketplace_rollback) == :write
+  end
+
   test "MCP resource URIs are supported resource identities" do
     resource_uri = ResourceURI.mcp!("local-server", "file:///resources/doc.md")
 
@@ -341,6 +355,63 @@ defmodule AllbertAssist.Actions.ResourceRefsTest do
           "plan://other/obj_00000000-0000-4000-8000-000000000044",
           "plan://run/obj_00000000-0000-4000-8000-000000000044?x=1",
           "plan://run/obj_00000000-0000-4000-8000-000000000044#frag"
+        ] do
+      assert {:error, _reason} = ResourceURI.normalize(uri)
+    end
+  end
+
+  test "marketplace entry URIs are supported resource identities" do
+    resource_uri = ResourceURI.marketplace_entry!("allbert/write-weekly-note")
+
+    assert resource_uri == "marketplace://entry/allbert/write-weekly-note"
+    assert {:ok, ^resource_uri} = ResourceURI.normalize(resource_uri)
+
+    assert {:ok, ^resource_uri} =
+             ResourceURI.scope_uri(
+               :marketplace_entry,
+               :marketplace_entry,
+               "allbert/write-weekly-note",
+               resource_uri
+             )
+
+    assert {:ok, ^resource_uri} =
+             ResourceURI.scope_uri(
+               :marketplace_entry,
+               :marketplace_entry,
+               resource_uri,
+               resource_uri
+             )
+
+    assert {:ok, derived} = ResourceURI.derived_fields(resource_uri)
+    assert derived.origin_kind == :marketplace_entry
+    assert derived.canonical_id == "allbert/write-weekly-note"
+    assert derived.entry_id == "allbert/write-weekly-note"
+    refute derived.unsupported?
+
+    marketplace_ref =
+      Ref.new!(%{
+        resource_uri: resource_uri,
+        operation_class: :marketplace_browse,
+        access_mode: :read,
+        scope: Scope.marketplace_entry(resource_uri),
+        downstream_consumer: :marketplace_catalog
+      })
+
+    assert marketplace_ref.origin_kind == :marketplace_entry
+    assert marketplace_ref.canonical_id == "allbert/write-weekly-note"
+    assert marketplace_ref.scope.kind == :marketplace_entry
+  end
+
+  test "marketplace entry URI normalization rejects malformed identity" do
+    for uri <- [
+          "marketplace://entry/",
+          "marketplace://entry/allbert",
+          "marketplace://entry/allbert/write-weekly-note/extra",
+          "marketplace://other/allbert/write-weekly-note",
+          "marketplace://entry/Allbert/write-weekly-note",
+          "marketplace://entry/allbert/not ok",
+          "marketplace://entry/allbert/write-weekly-note?x=1",
+          "marketplace://entry/allbert/write-weekly-note#frag"
         ] do
       assert {:error, _reason} = ResourceURI.normalize(uri)
     end

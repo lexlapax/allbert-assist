@@ -119,6 +119,7 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.workflow_read",
     "permissions.workflow_run_start",
     "permissions.plan_cancel",
+    "permissions.marketplace_install",
     "workflows.enabled",
     "workflows.max_steps_per_workflow",
     "workflows.max_workflows_loaded_per_request",
@@ -129,6 +130,11 @@ defmodule AllbertAssist.Settings.Schema do
     "plan.preview.show_confidence_tier",
     "plan.preview.auto_proceed_green_tier",
     "plan.run.cancel_grace_ms",
+    "marketplace.enabled",
+    "marketplace.catalog.cache_path",
+    "marketplace.install.target_dir_skills",
+    "marketplace.install.target_dir_templates",
+    "marketplace.installed_state_path",
     "execution.local.enabled",
     "execution.local.allowed_roots",
     "execution.local.allowed_commands",
@@ -1150,6 +1156,77 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["expanded_inline"]
     },
+    "marketplace.schema_version" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: false,
+      sensitive?: false,
+      min: 1,
+      max: 1
+    },
+    "marketplace.enabled" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "marketplace.catalog.source" => %{
+      type: :enum,
+      default: "shipped",
+      writable?: false,
+      sensitive?: false,
+      allowed_values: ["shipped"]
+    },
+    "marketplace.catalog.cache_path" => %{
+      type: :string,
+      default: "<ALLBERT_HOME>/marketplace/cache",
+      writable?: true,
+      sensitive?: false
+    },
+    "marketplace.catalog.mirror_on_first_action" => %{
+      type: :boolean,
+      default: true,
+      writable?: false,
+      sensitive?: false
+    },
+    "marketplace.install.default_state" => %{
+      type: :enum,
+      default: "disabled_untrusted",
+      writable?: false,
+      sensitive?: false,
+      allowed_values: ["disabled_untrusted"]
+    },
+    "marketplace.install.target_dir_skills" => %{
+      type: :string,
+      default: "<ALLBERT_HOME>/marketplace/skills",
+      writable?: true,
+      sensitive?: false
+    },
+    "marketplace.install.target_dir_templates" => %{
+      type: :string,
+      default: "<ALLBERT_HOME>/marketplace/templates",
+      writable?: true,
+      sensitive?: false
+    },
+    "marketplace.provenance.hash_algorithm" => %{
+      type: :enum,
+      default: "sha256",
+      writable?: false,
+      sensitive?: false,
+      allowed_values: ["sha256"]
+    },
+    "marketplace.provenance.require_hash_match" => %{
+      type: :boolean,
+      default: true,
+      writable?: false,
+      sensitive?: false
+    },
+    "marketplace.installed_state_path" => %{
+      type: :string,
+      default: "<ALLBERT_HOME>/marketplace/installed.json",
+      writable?: true,
+      sensitive?: false
+    },
     "permissions.memory_write" => %{
       type: :enum,
       default: "allowed",
@@ -1382,6 +1459,13 @@ defmodule AllbertAssist.Settings.Schema do
       allowed_values: ["needs_confirmation", "denied"]
     },
     "permissions.plan_cancel" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.marketplace_install" => %{
       type: :enum,
       default: "allowed",
       writable?: true,
@@ -2232,7 +2316,8 @@ defmodule AllbertAssist.Settings.Schema do
       "browser_download" => "denied",
       "workflow_read" => "allowed",
       "workflow_run_start" => "needs_confirmation",
-      "plan_cancel" => "allowed"
+      "plan_cancel" => "allowed",
+      "marketplace_install" => "allowed"
     },
     "workflows" => %{
       "enabled" => true,
@@ -2261,6 +2346,25 @@ defmodule AllbertAssist.Settings.Schema do
       "subagent" => %{
         "delegation_visibility" => "expanded_inline"
       }
+    },
+    "marketplace" => %{
+      "schema_version" => 1,
+      "enabled" => true,
+      "catalog" => %{
+        "source" => "shipped",
+        "cache_path" => "<ALLBERT_HOME>/marketplace/cache",
+        "mirror_on_first_action" => true
+      },
+      "install" => %{
+        "default_state" => "disabled_untrusted",
+        "target_dir_skills" => "<ALLBERT_HOME>/marketplace/skills",
+        "target_dir_templates" => "<ALLBERT_HOME>/marketplace/templates"
+      },
+      "provenance" => %{
+        "hash_algorithm" => "sha256",
+        "require_hash_match" => true
+      },
+      "installed_state_path" => "<ALLBERT_HOME>/marketplace/installed.json"
     },
     "mcp" => %{
       "servers" => %{},

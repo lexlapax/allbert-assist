@@ -49,8 +49,9 @@ defmodule AllbertAssist.Skills.Skill do
           | :user_interoperable
           | :configured_scan_path
           | :imported_cache
+          | :marketplace_install
 
-  @type trust_status :: :trusted | :pending
+  @type trust_status :: :trusted | :pending | :untrusted
 
   @type kind ::
           :instruction
