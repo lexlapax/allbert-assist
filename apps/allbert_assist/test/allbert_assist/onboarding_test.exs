@@ -3,6 +3,19 @@ defmodule AllbertAssist.OnboardingTest do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Onboarding
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+
+  setup do
+    registered_plugins = PluginRegistry.registered_plugins()
+    registered_diagnostics = PluginRegistry.diagnostics()
+
+    ensure_channel_plugin!(AllbertAssist.Plugins.Telegram)
+    ensure_channel_plugin!(AllbertAssist.Plugins.Email)
+
+    on_exit(fn -> restore_plugin_registry(registered_plugins, registered_diagnostics) end)
+
+    :ok
+  end
 
   test "frames one resumable onboarding objective with planned steps" do
     assert {:ok, state} = Onboarding.frame_or_resume("alice")
@@ -71,5 +84,22 @@ defmodule AllbertAssist.OnboardingTest do
     assert Enum.any?(events, &(&1.kind == "step_completed"))
     channel_events = Objectives.list_events(channel_state.objective.id, limit: 10)
     assert Enum.any?(channel_events, &(&1.kind == "step_selected"))
+  end
+
+  defp ensure_channel_plugin!(module) do
+    case PluginRegistry.register_module(module) do
+      {:ok, _plugin_id} -> :ok
+      {:error, {:plugin_id_taken, _plugin_id}} -> :ok
+    end
+  end
+
+  defp restore_plugin_registry(plugins, diagnostics) do
+    PluginRegistry.clear()
+    Enum.each(plugins, &PluginRegistry.register_entry/1)
+    Enum.each(diagnostics, &restore_plugin_diagnostics/1)
+  end
+
+  defp restore_plugin_diagnostics({plugin_id, diagnostics}) do
+    PluginRegistry.put_diagnostics(plugin_id, diagnostics)
   end
 end

@@ -1,9 +1,10 @@
 defmodule AllbertAssist.Intent.RankerTest do
-  use ExUnit.Case, async: true
-  @moduletag :pure_async
+  use ExUnit.Case, async: false
 
   alias AllbertAssist.Intent.EvalFixtures
   alias AllbertAssist.Intent.Ranker
+
+  setup {AllbertAssist.StockSageRegistryCase, :setup}
 
   test "active app boosts matching app candidates when context is app-specific" do
     stocksage =
