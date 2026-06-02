@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "allbert/reviewed-plugin-sources",
+  "version": "1.0.0",
+  "kind": "plugin_index",
+  "files": [
+    {
+      "path": "plugin-index.json",
+      "sha256": "5fc645cbf3bdbde171904a47ca121d70ea9910aa8e17277d8ee10c6570bcaae9"
+    }
+  ],
+  "bundle_hash": "sha256:7ee483da89d7f5e7c5204b4a7ddb601aef2eac578f6cf3e0fdea346375516fee"
+}

@@ -12,7 +12,8 @@ defmodule AllbertAssist.Actions.Marketplace.InspectEntry do
     category: "marketplace",
     tags: ["marketplace", "catalog", "read_only"],
     schema: [
-      entry_id: [type: :string, required: true]
+      entry_id: [type: :string, required: true],
+      version: [type: :string, required: false]
     ],
     output_schema: []
 
@@ -23,8 +24,10 @@ defmodule AllbertAssist.Actions.Marketplace.InspectEntry do
   def run(params, context) do
     Support.read_only(name(), context, fn decision ->
       entry_id = Support.field(params, :entry_id, "")
+      version = Support.field(params, :version)
+      opts = if version, do: [version: version], else: []
 
-      case Marketplace.inspect_entry(entry_id) do
+      case Marketplace.inspect_entry(entry_id, opts) do
         {:ok, result} ->
           Support.completed(name(), :read_only, decision, result, "Marketplace entry inspected.")
 

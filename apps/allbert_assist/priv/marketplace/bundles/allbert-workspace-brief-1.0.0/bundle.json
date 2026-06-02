@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "allbert/workspace-brief",
+  "version": "1.0.0",
+  "kind": "template",
+  "files": [
+    {
+      "path": "metadata.json",
+      "sha256": "b114944107fdbf7a53d1d540700bdf22e554f4a1fdca92a325ebc60ca1d1ef3f"
+    },
+    {
+      "path": "template.md",
+      "sha256": "b46bbef463e7e3c334eb1a56f20d9d96cbad4ca051e23f39f80237dbc119921c"
+    }
+  ],
+  "bundle_hash": "sha256:cfa9ea9a3a25e6638cd69758e76b548d96dd3a133f4b3cf28cfe7d60d49b887b",
+  "install_target": "<ALLBERT_HOME>/marketplace/templates/allbert-workspace-brief",
+  "install_state": "disabled_untrusted"
+}
