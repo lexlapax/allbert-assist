@@ -24,6 +24,9 @@ version metadata is `0.45.1`.
   tails.
 - Release/prepush timing evidence under `release_evidence/gates/` when an
   evidence root is provided.
+- Full redacted per-phase log artifacts for evidence gates and failed phases,
+  with ExUnit seed capture plus `.mix_test_failures` snapshots for failed Mix
+  test phases.
 
 ### Changed
 
@@ -39,7 +42,7 @@ version metadata is `0.45.1`.
 
 - Focused gate task tests passed:
   `MIX_ENV=test mix test apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs`
-  (4 tests, 0 failures).
+  (6 tests, 0 failures).
 - `MIX_ENV=test mix precommit` passed through the new commit gate in ~6s
   (compile, format, Credo; no release-evidence claim).
 - `MIX_ENV=test mix allbert.test prepush` passed in 377s; the high-coverage

@@ -79,7 +79,9 @@ deterministic `release.v045` evidence.
 v0.45.1 adds gate transparency and precommit decomposition: `mix precommit` is
 commit-time feedback through `mix allbert.test commit`, high-coverage local
 handoff is `mix allbert.test prepush`, and release evidence is
-`mix allbert.test release` or a version-specific release gate.
+`mix allbert.test release` or a version-specific release gate. Evidence gates
+write bounded JSON summaries plus full redacted per-phase logs and failed-test
+manifest snapshots for failed Mix test phases.
 
 Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
 lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).

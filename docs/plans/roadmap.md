@@ -2635,7 +2635,8 @@ Shipped scope:
 - Rewired `mix precommit` to the commit gate; it is no longer release evidence.
 - Changed `mix allbert.test release` to run explicit release phases directly
   instead of delegating to `mix precommit`.
-- Added timed phase summaries and bounded redacted output tails for gate
+- Added timed phase summaries, bounded redacted output tails, full redacted
+  phase logs, ExUnit seed capture, and failed-test manifest snapshots for gate
   evidence.
 - Updated ADR 0049 and the developer test strategy so commit, prepush,
   release, version-specific release, docs, focused, and external-smoke gates are

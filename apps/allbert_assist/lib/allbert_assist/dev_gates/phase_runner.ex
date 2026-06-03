@@ -12,20 +12,32 @@ defmodule AllbertAssist.DevGates.PhaseRunner do
 
   def run_gate(gate, phases, opts \\ []) when is_binary(gate) and is_list(phases) do
     started_at = now()
+    artifact_basename = artifact_basename(gate, started_at)
+
+    evidence_root = Keyword.get(opts, :evidence_root_resolved) || evidence_root(phases, opts)
+
+    opts =
+      opts
+      |> Keyword.put_new(:evidence_root_resolved, evidence_root)
+      |> Keyword.put_new(:artifact_root, Path.join(evidence_root, artifact_basename))
+      |> Keyword.put_new(:artifact_basename, artifact_basename)
+
     emit(opts, "==> #{gate} gate started")
 
     {status, phase_results} = run_phases(gate, phases, opts)
     finished_at = now()
 
-    result = %{
-      schema_version: 1,
-      gate: gate,
-      started_at: started_at,
-      finished_at: finished_at,
-      duration_ms: duration_ms(started_at, finished_at),
-      status: Atom.to_string(status),
-      phases: phase_results
-    }
+    result =
+      %{
+        schema_version: 1,
+        gate: gate,
+        started_at: started_at,
+        finished_at: finished_at,
+        duration_ms: duration_ms(started_at, finished_at),
+        status: Atom.to_string(status),
+        phases: phase_results
+      }
+      |> maybe_put_artifact_root(opts)
 
     result =
       if Keyword.get(opts, :evidence?, false) do
@@ -49,7 +61,14 @@ defmodule AllbertAssist.DevGates.PhaseRunner do
 
       {:error, %{phases: phases}} ->
         failed = Enum.find(phases, &(&1.status == "failed"))
-        Mix.raise("#{gate} gate failed in phase #{failed.id} with status #{failed.exit_status}")
+
+        message =
+          "#{gate} gate failed in phase #{failed.id} with status #{failed.exit_status}"
+
+        case Map.get(failed, :redacted_output_log_path) do
+          nil -> Mix.raise(message)
+          path -> Mix.raise("#{message}; full redacted log: #{path}")
+        end
     end
   end
 
@@ -116,6 +135,8 @@ defmodule AllbertAssist.DevGates.PhaseRunner do
     finished_at = now()
     output = redact(to_string(output || ""))
     status = if exit_status == 0, do: "passed", else: "failed"
+    artifacts = persist_phase_artifacts(gate, phase, status, output, opts)
+    test_seeds = extract_test_seeds(output)
 
     emit(
       opts,
@@ -135,6 +156,8 @@ defmodule AllbertAssist.DevGates.PhaseRunner do
       redacted_output_tail:
         OutputTail.trim(output, Map.get(phase, :tail_limit, @default_tail_limit))
     }
+    |> maybe_put(:test_seeds, test_seeds, &(&1 != []))
+    |> Map.merge(artifacts)
   end
 
   defp normalize_phase(phase) do
@@ -153,13 +176,13 @@ defmodule AllbertAssist.DevGates.PhaseRunner do
   end
 
   defp write_evidence!(result, phases, opts) do
-    evidence_root = evidence_root(phases, opts)
+    evidence_root = Keyword.get(opts, :evidence_root_resolved) || evidence_root(phases, opts)
     File.mkdir_p!(evidence_root)
 
     path =
       Path.join(
         evidence_root,
-        "#{result.gate}-#{String.replace(result.started_at, ~r/[^0-9A-Za-z_.-]+/, "_")}.json"
+        "#{Keyword.get(opts, :artifact_basename, artifact_basename(result.gate, result.started_at))}.json"
       )
 
     File.write!(path, Jason.encode!(result, pretty: true))
@@ -193,6 +216,117 @@ defmodule AllbertAssist.DevGates.PhaseRunner do
     end)
   end
 
+  defp maybe_put_artifact_root(result, opts) do
+    if Keyword.get(opts, :evidence?, false) or
+         Enum.any?(result.phases, &Map.has_key?(&1, :redacted_output_log_path)) do
+      Map.put(result, :artifact_root, Keyword.fetch!(opts, :artifact_root))
+    else
+      result
+    end
+  end
+
+  defp persist_phase_artifacts(gate, phase, status, output, opts) do
+    if persist_phase_artifacts?(status, opts) do
+      artifact_root = Keyword.fetch!(opts, :artifact_root)
+      File.mkdir_p!(artifact_root)
+
+      output_log_path =
+        Path.join(artifact_root, "#{safe_component(gate)}-#{safe_component(phase.id)}.log")
+
+      File.write!(output_log_path, output)
+
+      %{
+        redacted_output_log_path: output_log_path
+      }
+      |> maybe_put(
+        :failure_manifest_paths,
+        failure_manifest_paths(phase, status, artifact_root),
+        &(&1 != [])
+      )
+    else
+      %{}
+    end
+  end
+
+  defp persist_phase_artifacts?(status, opts) do
+    Keyword.get(opts, :evidence?, false) or status == "failed"
+  end
+
+  defp failure_manifest_paths(phase, "failed", artifact_root) do
+    if mix_test_phase?(phase) do
+      copy_failure_manifests(phase, artifact_root)
+    else
+      []
+    end
+  end
+
+  defp failure_manifest_paths(_phase, _status, _artifact_root), do: []
+
+  defp mix_test_phase?(%{executable: executable, args: args}) do
+    executable == "mix" and Enum.any?(args, &String.contains?(&1, "test"))
+  end
+
+  defp copy_failure_manifests(phase, artifact_root) do
+    destination_dir = Path.join(artifact_root, "failure-manifests")
+
+    phase
+    |> failure_manifest_candidates()
+    |> Enum.uniq()
+    |> Enum.filter(&regular_file?/1)
+    |> Enum.map(fn source ->
+      File.mkdir_p!(destination_dir)
+      destination = Path.join(destination_dir, failure_manifest_name(source))
+      File.cp!(source, destination)
+      %{source_path: source, artifact_path: destination, bytes: File.stat!(destination).size}
+    end)
+  end
+
+  defp failure_manifest_candidates(%{cwd: cwd}) do
+    root = File.cwd!()
+    app_name = Path.basename(cwd)
+
+    candidates = [
+      Path.join(cwd, "_build/test/.mix/.mix_test_failures"),
+      Path.join(cwd, ".mix/.mix_test_failures"),
+      Path.join(root, "_build/test/.mix/.mix_test_failures"),
+      Path.join(root, "_build/test/lib/#{app_name}/.mix/.mix_test_failures")
+    ]
+
+    if cwd == root do
+      candidates ++ Path.wildcard(Path.join(root, "_build/test/lib/*/.mix/.mix_test_failures"))
+    else
+      candidates
+    end
+  end
+
+  defp failure_manifest_name(source) do
+    source
+    |> Path.relative_to(File.cwd!())
+    |> safe_component()
+    |> Kernel.<>(".bin")
+  end
+
+  defp regular_file?(path) do
+    case File.stat(path) do
+      {:ok, %{type: :regular, size: size}} when size > 0 -> true
+      _other -> false
+    end
+  end
+
+  defp extract_test_seeds(output) do
+    ~r/Running ExUnit with seed:\s+(\d+)/
+    |> Regex.scan(output)
+    |> Enum.map(fn [_match, seed] -> String.to_integer(seed) end)
+  end
+
+  defp artifact_basename(gate, started_at) do
+    "#{safe_component(gate)}-#{safe_component(started_at)}"
+  end
+
+  defp maybe_put(map, key, value, predicate) when is_function(predicate, 1) do
+    if predicate.(value), do: Map.put(map, key, value), else: map
+  end
+
   defp print_summary(result, opts) do
     emit(opts, "==> #{result.gate} gate #{result.status} in #{result.duration_ms}ms")
 
@@ -204,6 +338,12 @@ defmodule AllbertAssist.DevGates.PhaseRunner do
   defp redacted_command(phase) do
     [phase.executable | phase.args]
     |> Enum.map_join(" ", &redact/1)
+  end
+
+  defp safe_component(value) do
+    value
+    |> to_string()
+    |> String.replace(~r/[^0-9A-Za-z_.-]+/, "_")
   end
 
   defp relative_cwd(cwd) do
