@@ -753,9 +753,13 @@ superset of the v0.40 oracle green set and includes Dialyzer.
   - `mix allbert.test prepush [--partitions N]`
   - `mix allbert.test release` direct phase runner
   - `mix precommit` compatibility shortcut to the commit gate
+- Diagnostic evidence: release/prepush evidence keeps bounded redacted JSON
+  tails for summary readability and full redacted per-phase logs for failure
+  triage. Failed Mix test phases also snapshot relevant `.mix_test_failures`
+  manifests and record ExUnit seeds when present in output.
 - Focused evidence:
   `MIX_ENV=test mix test apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs`
-  passed with 4 tests, 0 failures.
+  passed with 6 tests, 0 failures.
 - Commit-gate evidence:
   `MIX_ENV=test mix precommit` passed through the new commit gate in about 6s.
 - Prepush evidence:

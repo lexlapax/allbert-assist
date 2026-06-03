@@ -1,12 +1,13 @@
 defmodule AllbertAssist.DevGates.OutputTail do
   @moduledoc """
-  Collectable used by development gates to keep a bounded output tail.
+  Collectable used by development gates to keep full output and a bounded tail.
 
   The release gate can stream child output for operator visibility while still
-  retaining a bounded tail for diagnostic evidence.
+  retaining full output for diagnostic logs and a bounded tail for JSON
+  summaries.
   """
 
-  defstruct limit: 12_000, stream?: false, tail: ""
+  defstruct limit: 12_000, stream?: false, chunks: [], tail: ""
 
   def new(opts \\ []) do
     %__MODULE__{
@@ -20,7 +21,11 @@ defmodule AllbertAssist.DevGates.OutputTail do
       IO.write(chunk)
     end
 
-    %{collector | tail: trim(collector.tail <> chunk, collector.limit)}
+    %{
+      collector
+      | chunks: [chunk | collector.chunks],
+        tail: trim(collector.tail <> chunk, collector.limit)
+    }
   end
 
   def trim(output, limit) when is_binary(output) and is_integer(limit) and limit > 0 do
@@ -40,7 +45,9 @@ defimpl Collectable, for: AllbertAssist.DevGates.OutputTail do
          AllbertAssist.DevGates.OutputTail.append(collector, chunk)
 
        collector, :done ->
-         collector.tail
+         collector.chunks
+         |> Enum.reverse()
+         |> IO.iodata_to_binary()
 
        _collector, :halt ->
          :ok
