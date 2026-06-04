@@ -35,13 +35,21 @@ enable skills, change routes, or set app routing context.
 Enable only in a disposable smoke home:
 
 ```sh
+unset DATABASE_PATH
+unset ALLBERT_HOME_DIR
 export SMOKE_HOME="$(mktemp -d /tmp/allbert-v036-smoke.XXXXXX)"
-ALLBERT_HOME="$SMOKE_HOME" mix ecto.migrate.allbert
-ALLBERT_HOME="$SMOKE_HOME" mix allbert.settings set sandbox.elixir.enabled true
-ALLBERT_HOME="$SMOKE_HOME" mix allbert.sandbox image build
-ALLBERT_HOME="$SMOKE_HOME" mix allbert.sandbox image verify
-ALLBERT_HOME="$SMOKE_HOME" mix allbert.sandbox doctor
+export ALLBERT_HOME="$SMOKE_HOME"
+mix allbert.settings set sandbox.elixir.enabled true
+mix allbert.sandbox image build
+mix allbert.sandbox image verify
+mix allbert.sandbox doctor
 ```
+
+Do not run an explicit migration command for this disposable-home
+smoke. Dev/test configuration derives the SQLite path as
+`$ALLBERT_HOME/db/allbert.sqlite3`, and the first `mix allbert.*`
+task starts the repo plus the built-in `Ecto.Migrator` child when that
+canonical database is missing or empty.
 
 `image build` prepares the configured approved local image
 (`allbert-elixir-otp:local` by default), including dependency cache/source from

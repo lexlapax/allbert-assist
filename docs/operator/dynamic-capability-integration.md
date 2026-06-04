@@ -41,9 +41,16 @@ gate cannot integrate or roll back code by themselves.
 Use a disposable Allbert Home for all smoke work:
 
 ```sh
+unset DATABASE_PATH
+unset ALLBERT_HOME_DIR
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v037-operator.XXXXXX)"
-mix ecto.migrate.allbert
 ```
+
+Do not run an explicit migration command for this disposable-home
+smoke. Dev/test configuration derives the SQLite path as
+`$ALLBERT_HOME/db/allbert.sqlite3`, and the first `mix allbert.*`
+task starts the repo plus the built-in `Ecto.Migrator` child when that
+canonical database is missing or empty.
 
 Enable the v0.36 sandbox first and confirm the doctor is green:
 
