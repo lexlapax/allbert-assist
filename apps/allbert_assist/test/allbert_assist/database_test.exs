@@ -86,6 +86,30 @@ defmodule AllbertAssist.DatabaseTest do
     refute Database.skip_migrations?()
   end
 
+  test "pre-supervision migration only invokes runner when startup migration is required", %{
+    home: home
+  } do
+    database_path = Path.join([home, "db", "allbert.sqlite3"])
+    configure_repo_database(database_path)
+    System.put_env("ALLBERT_AUTO_MIGRATE", "1")
+
+    assert Database.migrate_before_supervision!(fn ->
+             send(self(), :migrated_before_supervision)
+             :ok
+           end)
+
+    assert_received :migrated_before_supervision
+
+    System.put_env("ALLBERT_SKIP_MIGRATIONS", "true")
+
+    refute Database.migrate_before_supervision!(fn ->
+             send(self(), :should_not_migrate)
+             :ok
+           end)
+
+    refute_received :should_not_migrate
+  end
+
   test "migration paths include core and checked-in plugin migrations" do
     paths = Database.migration_paths()
 

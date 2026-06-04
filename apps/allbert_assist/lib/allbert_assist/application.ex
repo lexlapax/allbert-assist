@@ -14,15 +14,11 @@ defmodule AllbertAssist.Application do
   def start(_type, _args) do
     maybe_bootstrap_workspace_signing_secret!()
     ProviderCatalog.configure_jido_model_aliases!()
+    Database.migrate_before_supervision!()
 
     children =
       [
         AllbertAssist.Repo,
-        {Ecto.Migrator,
-         repos: Application.fetch_env!(:allbert_assist, :ecto_repos),
-         skip: Database.skip_migrations?(),
-         migrator: &Database.migrate_repo/3,
-         log: false},
         {DNSCluster, query: Application.get_env(:allbert_assist, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: AllbertAssist.PubSub},
         {Jido.Signal.Bus, name: AllbertAssist.SignalBus},

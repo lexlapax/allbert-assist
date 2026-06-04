@@ -87,21 +87,18 @@ defmodule AllbertAssist.MixProject do
   defp aliases do
     [
       setup: ["deps.get", "ecto.setup"],
-      "ecto.setup": ["ecto.create", migrate_task(), "run #{__DIR__}/priv/repo/seeds.exs"],
-      "ecto.migrate.allbert": [migrate_task()],
+      "ecto.setup": ["ecto.create", "ecto.migrate.allbert", "run #{__DIR__}/priv/repo/seeds.exs"],
+      "ecto.migrate.allbert": ["allbert.ecto.migrate"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
-      test: ["ecto.create --quiet", migrate_task("--quiet"), "test"]
+      test: [&prepare_test_database/1, "test"]
     ]
   end
 
-  defp migrate_task(extra_args \\ "") do
-    [
-      "ecto.migrate",
-      extra_args,
-      "--migrations-path priv/repo/migrations",
-      "--migrations-path ../../plugins/stocksage/priv/repo/migrations"
-    ]
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.join(" ")
+  defp prepare_test_database(_args) do
+    unless Application.get_env(:allbert_assist, :test_database_prepared?, false) do
+      Mix.Task.run("ecto.create", ["--quiet"])
+      Mix.Task.run("cmd", ["mix", "allbert.ecto.migrate", "--quiet"])
+      Application.put_env(:allbert_assist, :test_database_prepared?, true)
+    end
   end
 end

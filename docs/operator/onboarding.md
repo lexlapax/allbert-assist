@@ -80,10 +80,12 @@ mix allbert.onboard
 The CLI onboarding task starts the app and records Objective Runtime state.
 When `ALLBERT_HOME` points at a new disposable root, the dev SQLite database is
 derived as `$ALLBERT_HOME/db/allbert.sqlite3` and app startup runs migrations
-for a missing or empty Allbert Home database before runtime tables are used.
-This same first-run check applies to other `mix allbert.*` tasks that start the
-app. `DATABASE_PATH` remains an override for tests, migrations, compatibility,
-and operator escape hatches.
+before the normal Repo pool and runtime supervisors start when that canonical
+database is missing or empty. This same first-run check applies to other
+`mix allbert.*` tasks that start the app. A clean-home first command should not
+print `database is locked`; treat that as a startup bootstrap defect.
+`DATABASE_PATH` remains an override for tests, migrations, compatibility, and
+operator escape hatches.
 
 Resume or record progress from CLI:
 

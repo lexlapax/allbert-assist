@@ -3,14 +3,15 @@ defmodule AllbertAssist.Database do
   Local SQLite database bootstrap helpers.
 
   This is a plain module because it owns no process state. Application startup
-  uses it to decide whether the supervised Ecto migrator should run for the
-  canonical Allbert Home database.
+  uses it to migrate the canonical Allbert Home database before the normal Repo
+  pool and plugin supervisors start.
   """
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
 
   @app :allbert_assist
+  @startup_migration_pool_size 1
   @stocksage_migrations Path.expand(
                           "../../../../plugins/stocksage/priv/repo/migrations",
                           __DIR__
@@ -43,6 +44,25 @@ defmodule AllbertAssist.Database do
 
       true ->
         true
+    end
+  end
+
+  @doc """
+  Run startup migrations before the normal application supervisor starts.
+
+  Returns `true` when this invocation ran migrations. A single SQLite
+  connection avoids first-run lock noise while no runtime workers are using the
+  database yet.
+  """
+  @spec migrate_before_supervision!() :: boolean()
+  @spec migrate_before_supervision!((-> :ok)) :: boolean()
+  def migrate_before_supervision!(runner \\ &run_migrations_before_supervision!/0)
+      when is_function(runner, 0) do
+    if skip_migrations?() do
+      false
+    else
+      :ok = runner.()
+      true
     end
   end
 
@@ -81,6 +101,17 @@ defmodule AllbertAssist.Database do
       |> Keyword.get(:migration_paths, [])
 
     [Ecto.Migrator.migrations_path(repo), @stocksage_migrations] ++ configured_paths
+  end
+
+  defp run_migrations_before_supervision! do
+    {:ok, _migrations, _started} =
+      Ecto.Migrator.with_repo(
+        Repo,
+        fn repo -> migrate_repo(repo, :up, all: true, log: false) end,
+        pool_size: @startup_migration_pool_size
+      )
+
+    :ok
   end
 
   defp missing_or_empty?(path) do
