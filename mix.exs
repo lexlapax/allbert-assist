@@ -77,11 +77,18 @@ defmodule AllbertAssist.Umbrella.MixProject do
     [
       # run `mix setup` in all child apps
       setup: ["cmd mix setup"],
-      "ecto.migrate": ["do --app allbert_assist cmd mix ecto.migrate.allbert"],
-      "ecto.migrate.allbert": ["do --app allbert_assist cmd mix ecto.migrate.allbert"],
+      "ecto.migrate": ["do --app allbert_assist cmd mix allbert.ecto.migrate"],
+      "ecto.migrate.allbert": ["do --app allbert_assist cmd mix allbert.ecto.migrate"],
       "phx.server": ["do --app allbert_assist_web phx.server"],
       precommit: ["allbert.test commit"],
-      check: ["format --check-formatted", "credo --strict", "dialyzer"]
+      check: ["format --check-formatted", "credo --strict", "dialyzer"],
+      test: [&prepare_test_database/1, "test"]
     ]
+  end
+
+  defp prepare_test_database(_args) do
+    Mix.Task.run("ecto.create", ["--quiet"])
+    Mix.Task.run("ecto.migrate.allbert", ["--quiet"])
+    Application.put_env(:allbert_assist, :test_database_prepared?, true)
   end
 end

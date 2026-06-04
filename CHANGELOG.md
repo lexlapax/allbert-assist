@@ -34,6 +34,12 @@ version metadata is `0.45.1`.
   of delegating to `mix precommit` and then Dialyzer.
 - `mix precommit` is now a compatibility shortcut for `mix allbert.test
   commit`; it is commit-time feedback, not release evidence.
+- Fresh Allbert Home startup now runs required migrations before the normal
+  Repo pool and runtime supervisors start, avoiding first-run SQLite connection
+  lock noise during clean `mix allbert.*` validation.
+- `mix ecto.migrate.allbert` now routes through an Allbert-owned migration task,
+  and plain umbrella/child `mix test` setup prepares the database once through
+  that task instead of re-expanding Ecto migration paths through child aliases.
 - ADR 0049, the test strategy, README, roadmap, and agent context map now
   separate commit, prepush, release, version-specific release, focused, docs,
   and external-smoke gates.
@@ -49,6 +55,12 @@ version metadata is `0.45.1`.
   partitioned fast-local phase passed in 370s.
 - `MIX_ENV=test mix allbert.test release.v045` passed with deterministic v0.45
   marketplace evidence.
+- Fresh-home workflow bootstrap regression smoke passed three clean disposable
+  homes with no `database is locked` / `Exqlite.Connection` output, then listed
+  the v0.44 `multi_step` fixture from a fourth fresh home.
+- Umbrella-root and direct child-app focused `mix test` smokes for core and web
+  passed with disposable homes/databases and no SQLite lock or duplicate
+  migration output.
 - Final `MIX_ENV=test mix allbert.test release` passed in 778s with 1,339 core
   tests (3 skipped), 119 web tests, 197 StockSage plugin tests, 12 channel /
   notes-files plugin tests, and release Dialyzer at 0 errors.

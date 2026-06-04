@@ -29,6 +29,7 @@ File.mkdir_p!(Path.dirname(database_path))
 config :allbert_assist, AllbertAssist.Repo,
   database: database_path,
   pool_size: 5,
+  busy_timeout: 15_000,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true
 

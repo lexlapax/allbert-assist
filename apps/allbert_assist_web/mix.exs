@@ -78,7 +78,8 @@ defmodule AllbertAssistWeb.MixProject do
     [
       setup: ["deps.get", "assets.npm", "assets.setup", "assets.build"],
       "assets.npm": [&npm_install/1],
-      test: ["ecto.create --quiet", migrate_task("--quiet"), "test"],
+      test: [&prepare_test_database/1, "test"],
+      "ecto.migrate.allbert": ["allbert.ecto.migrate"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind allbert_assist_web", "esbuild allbert_assist_web"],
       "assets.deploy": [
@@ -101,14 +102,11 @@ defmodule AllbertAssistWeb.MixProject do
     end
   end
 
-  defp migrate_task(extra_args) do
-    [
-      "ecto.migrate",
-      extra_args,
-      "--migrations-path ../allbert_assist/priv/repo/migrations",
-      "--migrations-path ../../plugins/stocksage/priv/repo/migrations"
-    ]
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.join(" ")
+  defp prepare_test_database(_args) do
+    unless Application.get_env(:allbert_assist, :test_database_prepared?, false) do
+      Mix.Task.run("ecto.create", ["--quiet"])
+      Mix.Task.run("cmd", ["mix", "allbert.ecto.migrate", "--quiet"])
+      Application.put_env(:allbert_assist, :test_database_prepared?, true)
+    end
   end
 end

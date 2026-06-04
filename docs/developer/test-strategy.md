@@ -732,6 +732,12 @@ outer gate has created an owned temp home/database and run migrations; developer
 and release workflows should call `mix allbert.test ...`, not the raw helper
 directly.
 
+Plain `mix test` setup follows the same ownership model: the umbrella root
+prepares the test database once through `mix ecto.migrate.allbert`, then child
+app test aliases observe that preparation instead of rerunning migrations. Direct
+child-app `mix test` still prepares its own database through the same Allbert
+migration task.
+
 M7 extends `mix allbert.test inventory` with `--check-tags`, which verifies that
 the committed inventory, shared case-template defaults, explicit lane overrides,
 and plain-`ExUnit.Case` `@moduletag`s reconcile to exactly one primary lane per

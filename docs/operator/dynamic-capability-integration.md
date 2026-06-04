@@ -49,8 +49,10 @@ export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v037-operator.XXXXXX)"
 Do not run an explicit migration command for this disposable-home
 smoke. Dev/test configuration derives the SQLite path as
 `$ALLBERT_HOME/db/allbert.sqlite3`, and the first `mix allbert.*`
-task starts the repo plus the built-in `Ecto.Migrator` child when that
-canonical database is missing or empty.
+task runs startup migrations before the normal Repo pool and runtime
+supervisors start when that canonical database is missing or empty. A
+clean-home validation command should not print `database is locked`;
+treat that line as a startup bootstrap defect, not expected noise.
 
 Enable the v0.36 sandbox first and confirm the doctor is green:
 
