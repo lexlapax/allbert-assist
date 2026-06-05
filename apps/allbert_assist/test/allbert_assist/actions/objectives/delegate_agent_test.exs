@@ -27,20 +27,50 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgentTest do
     end
   end
 
+  defmodule ResearchCommand do
+    use Jido.Action,
+      name: "objective_delegate_research",
+      description: "Delegate action wrapper research command."
+
+    @impl true
+    def run(params, context) do
+      state = Map.get(context, :state, %{})
+
+      {:ok,
+       Map.merge(state, %{
+         last_command: :research,
+         last_result:
+           {:ok,
+            %{
+              status: :completed,
+              payload: params,
+              user_id: Map.get(context, :user_id)
+            }}
+       })}
+    end
+  end
+
   defmodule EchoAgent do
     use AllbertAssist.JidoBacked,
       name: "objective_delegate_echo_agent",
       description: "Delegate action wrapper test agent.",
       signal_routes: [
         {"allbert.objectives.delegate.execute",
-         AllbertAssist.Actions.Objectives.DelegateAgentTest.EchoCommand}
+         AllbertAssist.Actions.Objectives.DelegateAgentTest.EchoCommand},
+        {"allbert.objectives.delegate.research",
+         AllbertAssist.Actions.Objectives.DelegateAgentTest.ResearchCommand}
       ]
 
     @impl true
     def rebuild_state(_opts), do: {:ok, %{last_command: nil, last_result: nil}}
 
     @impl true
-    def command_modules, do: [AllbertAssist.Actions.Objectives.DelegateAgentTest.EchoCommand]
+    def command_modules do
+      [
+        AllbertAssist.Actions.Objectives.DelegateAgentTest.EchoCommand,
+        AllbertAssist.Actions.Objectives.DelegateAgentTest.ResearchCommand
+      ]
+    end
   end
 
   test "delegate_agent dispatches through the runner and registered objective agent" do
@@ -122,6 +152,53 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgentTest do
     assert response.error == :invalid_delegate_command
   end
 
+  test "delegate_agent allows registered metadata commands as strings or atoms" do
+    id = register_echo_agent(%{allowed_commands: [:research]})
+
+    for command <- ["research", :research] do
+      assert {:ok, response} =
+               Runner.run(
+                 "delegate_agent",
+                 %{
+                   user_id: "alice",
+                   objective_id: "obj_1",
+                   step_id: "step_1",
+                   delegate_agent_id: id,
+                   command: command,
+                   params: %{topic: "delegation"}
+                 },
+                 %{user_id: "alice", operator_id: "alice"}
+               )
+
+      assert response.status == :completed
+      assert response.delegate_result.state.last_command == :research
+      assert {:ok, result} = response.delegate_result.state.last_result
+      assert result.payload == %{topic: "delegation"}
+      assert [%{command: :research}] = response.actions
+    end
+  end
+
+  test "delegate_agent rejects pre-atomized commands outside metadata" do
+    id = register_echo_agent(%{allowed_commands: [:research]})
+
+    assert {:ok, response} =
+             Runner.run(
+               "delegate_agent",
+               %{
+                 user_id: "alice",
+                 objective_id: "obj_1",
+                 step_id: "step_1",
+                 delegate_agent_id: id,
+                 command: :not_allowed,
+                 params: %{}
+               },
+               %{user_id: "alice", operator_id: "alice"}
+             )
+
+    assert response.status == :error
+    assert response.error == :invalid_delegate_command
+  end
+
   test "delegate_agent sees dead registry entries as not found" do
     server = :"objective_delegate_dead_#{System.unique_integer([:positive])}"
     id = "delegate-dead-#{System.unique_integer([:positive])}"
@@ -150,12 +227,14 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgentTest do
     assert response.error == :not_found
   end
 
-  defp register_echo_agent do
+  defp register_echo_agent(metadata \\ %{}) do
     server = :"objective_delegate_echo_#{System.unique_integer([:positive])}"
     id = "delegate-echo-#{System.unique_integer([:positive])}"
 
     start_supervised!({EchoAgent, name: server})
-    assert {:ok, _entry} = AgentRegistry.register(id, server, EchoAgent, %{kind: :test})
+
+    assert {:ok, _entry} =
+             AgentRegistry.register(id, server, EchoAgent, Map.put(metadata, :kind, :test))
 
     on_exit(fn -> AgentRegistry.unregister(id) end)
 
