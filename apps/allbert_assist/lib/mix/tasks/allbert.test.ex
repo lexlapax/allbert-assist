@@ -1019,6 +1019,7 @@ defmodule Mix.Tasks.Allbert.Test do
     database = env_value(env, "DATABASE_PATH")
     evidence_dir = Path.join(home, "release_evidence/v046")
     File.mkdir_p!(evidence_dir)
+    cleanup_release_v046_evidence!(evidence_dir)
 
     started_at = DateTime.utc_now()
     results = Enum.map(@release_v046_steps, &run_release_v046_step(&1, env))
@@ -1054,6 +1055,13 @@ defmodule Mix.Tasks.Allbert.Test do
     if status != "passed" do
       Mix.raise("release.v046 failed; evidence: #{evidence_path}")
     end
+  end
+
+  defp cleanup_release_v046_evidence!(evidence_dir) do
+    evidence_dir
+    |> Path.join("release-v046-*.json")
+    |> Path.wildcard()
+    |> Enum.each(&File.rm!/1)
   end
 
   defp run_release_v046_step(step, env) do

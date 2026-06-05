@@ -12,6 +12,7 @@ defmodule AllbertAssist.SettingsTest do
   alias AllbertAssist.Settings.ModelRuntime
   alias AllbertAssist.Settings.ProviderCatalog
   alias AllbertAssist.Settings.Secrets
+  alias AllbertResearch.Settings.Fragment, as: ResearchSettingsFragment
 
   @env_vars [
     "ALLBERT_HOME",
@@ -1063,6 +1064,8 @@ defmodule AllbertAssist.SettingsTest do
   test "research plugin settings schema resolves defaults and invariants" do
     PluginRegistry.clear()
     assert {:ok, "allbert.research"} = PluginRegistry.register_module(AllbertResearch.Plugin)
+
+    assert AllbertResearch.Plugin.settings_schema() == ResearchSettingsFragment.schema()
 
     assert {:ok, false} = Settings.get("research.enabled")
     assert {:ok, 1} = Settings.get("research.schema_version")

@@ -2383,6 +2383,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
     :integration_pack,
     :notes_files_reference_plugin,
     :browser_research,
+    :research_delegate,
     :marketplace_lite,
     :operator_review
   ]
