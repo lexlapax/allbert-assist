@@ -84,9 +84,9 @@ promotes memory, and never changes Settings Central by itself.
 
 ## Plugin Example
 
-The v0.46 `allbert.research` plugin starts as an inert plugin skeleton that
-contributes only `research.*` Settings Central schema. Later v0.46
-milestones add a supervised `research.specialist` agent that registers:
+The v0.46 `allbert.research` plugin contributes `research.*` Settings
+Central schema and starts a supervised `research.specialist` agent that
+registers:
 
 ```elixir
 %{allowed_commands: [:research, :summarize_url]}

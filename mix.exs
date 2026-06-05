@@ -87,7 +87,6 @@ defmodule AllbertAssist.Umbrella.MixProject do
   end
 
   defp prepare_test_database(_args) do
-    Mix.Task.run("ecto.create", ["--quiet"])
     Mix.Task.run("ecto.migrate.allbert", ["--quiet"])
     Application.put_env(:allbert_assist, :test_database_prepared?, true)
   end
