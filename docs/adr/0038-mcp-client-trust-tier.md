@@ -175,7 +175,7 @@ It grants no tool or resource authority and creates no remembered grants.
 ## Non-Goals
 
 - No MCP Apps iframe or third-party remote UI model (parked,
-  `future-features.md`; MCP server mode is v0.50b and other public protocol
+  `future-features.md`; MCP server mode is v0.51b and other public protocol
   surfaces are post-1.0).
 - No `agent://` or `agent+https://` endpoint execution (parked).
 - No automatic trust from tool schemas, descriptions, or results.

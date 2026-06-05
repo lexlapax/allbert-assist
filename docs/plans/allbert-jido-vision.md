@@ -226,7 +226,7 @@ permission metadata, structured results, and observable errors.
 Skills are the user-readable bundles around those capabilities. A skill can
 declare its purpose, prompts, examples, required actions, security posture, and
 expected outputs. v0.38 makes supervised creation deterministic through vetted
-templates, and v0.45 plans reviewed marketplace-lite discovery. The v0.46 safe
+templates, and v0.45 plans reviewed marketplace-lite discovery. The v0.47 safe
 precursor can suggest trace-to-skill drafts when repeated operator patterns
 appear, but the drafts remain inert until reviewed, validated, and explicitly
 enabled by the operator.
@@ -356,8 +356,8 @@ adapters share the same channel substrate, identity mapping posture, durable
 event dedupe model, and Approval Handoff rendering contract. v0.17 moves
 Telegram and email into shipped source-tree channel plugins so later channels
 can arrive through the same extension path. The v1.0 arc now makes that path
-concrete after the capability-first arc: Discord and Slack land in v0.49;
-WhatsApp, Signal, and Matrix land in v0.50. SMS, iMessage, native packaged UI,
+concrete after the capability-first arc: Discord and Slack land in v0.50;
+WhatsApp, Signal, and Matrix land in v0.51. SMS, iMessage, native packaged UI,
 hosted channel fan-out, and
 other broad distribution paths remain parked until after the channel packs
 prove the substrate. Each channel should translate external input into signals
@@ -390,7 +390,7 @@ discovery or arbitrary node shapes. `AllbertAssist.App.Registry` provides app
 navigation and lookup. `AllbertAssist.Surface` defines validated component
 nodes. `AllbertAssist.App.SurfaceProvider` lets apps produce task surfaces as
 signals or registered action results. After the v0.41 insertion, only MCP server
-mode remains in the 1.0 arc as v0.50b; OpenAI-compatible API, ACP server mode,
+mode remains in the 1.0 arc as v0.51b; OpenAI-compatible API, ACP server mode,
 and public AG-UI/A2UI bridge remain parked post-1.0. MCP Apps iframe
 compatibility remains parked; Allbert's primary stance is still declarative,
 catalog-bound surfaces over arbitrary remote UI code.
@@ -624,25 +624,38 @@ historical aliases only and remain in old reference notes for continuity.
   intent: `mix precommit` is commit-time feedback, `mix allbert.test prepush`
   is high-coverage local handoff, and `mix allbert.test release` is the timed
   direct release-evidence gate.
-- v0.46: Operator-Supervised Self-Improvement. Trace-to-skill, workflow,
+- v0.46: Delegation Hardening And Research Specialist. Ships a second
+  native consumer of the v0.24 delegate-agent substrate — a
+  plugin-contributed research/summarize specialist
+  (`./plugins/allbert.research/`) registered as `research.specialist` —
+  so the `AgentRegistry`/`delegate_agent` contract is proven against two
+  domains (StockSage finance + research) before the v1.0 freeze
+  (ADR 0021 amendment A21). The agent orchestrates shipped v0.43 browser
+  actions through `Actions.Runner.run/3` and adds no new authority;
+  delegation provably does not widen action floors. Documents the
+  delegate-agent extension point so plugin authors can register their
+  own. Realizes the North Star's "Jido agents for intent and delegation"
+  pillar as a proven, documented extension point rather than a
+  single-app mechanism. Operator no-code agent authoring stays parked.
+- v0.47: Operator-Supervised Self-Improvement. Trace-to-skill, workflow,
   template, and dynamic capability draft suggestions consume v0.45 marketplace
   metadata plus v0.40-v0.44 traces; reviewed memory/workflow draft facades are
   the only new dynamic delegate expansion.
-- v0.47: Voice Modality. Voice input/output composes with existing channels as
+- v0.48: Voice Modality. Voice input/output composes with existing channels as
   audio resources and registered STT/TTS actions. Discord voice is deferred
   until after Discord exists.
-- v0.48: Vision And Image Generation. Image and screenshot resources plus
+- v0.49: Vision And Image Generation. Image and screenshot resources plus
   provider-backed image generation expand workspace media capability.
-- v0.49: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
-  through the existing channel adapter and plugin contracts; v0.49 also amends
+- v0.50: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
+  through the existing channel adapter and plugin contracts; v0.50 also amends
   ADR 0016 to lock the channel approval-primitive contract before mobile
   channels need it.
-- v0.50: Channel Pack 2 - WhatsApp, Signal, and Matrix. iMessage parked
+- v0.51: Channel Pack 2 - WhatsApp, Signal, and Matrix. iMessage parked
   (macOS-only platform constraint).
-- v0.50b: MCP Server Mode. Allbert exposes registered actions as MCP tools and
+- v0.51b: MCP Server Mode. Allbert exposes registered actions as MCP tools and
   memory namespaces as MCP resources. Single protocol surface. OpenAI-compatible
   API, ACP server mode, and public AG-UI/A2UI bridge are parked post-1.0.
-- v0.51: Hardening, Export/Import, Settings Migration, And Final RC. No new
+- v0.52: Hardening, Export/Import, Settings Migration, And Final RC. No new
   user-facing capability; portability, settings schema migration tool per ADR
   0046, security evals including self-improvement and MCP server, and
   release-candidate evidence.
@@ -680,7 +693,7 @@ bucket.
   connects a server only through a confirmation-gated consent; discovered
   metadata is never authority.
 
-### Planned v0.46: Operator-Supervised Self-Improvement
+### Planned v0.47: Operator-Supervised Self-Improvement
 
 Early in the 1.0 capability arc, while operators are first generating rich
 trace patterns from MCP, integrations, browser research, Plan/Build, and
@@ -702,7 +715,7 @@ These suggestions are advisory only. They do not enable skills, grant
 permissions, install packages, compile arbitrary folders, publish plugins, or
 load code. Review, validation, sandbox/gate evidence where relevant, and
 operator confirmation remain mandatory. The planning home is
-`docs/plans/v0.46-plan.md`.
+`docs/plans/v0.47-plan.md`.
 
 ### Still Research / Explicitly Not v1.0
 

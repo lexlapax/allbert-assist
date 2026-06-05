@@ -1,6 +1,6 @@
 # ADR 0045: Operator-Supervised Self-Improvement Trust Tier
 
-Status: Proposed for v0.46.
+Status: Proposed for v0.47.
 
 ## Context
 
@@ -17,7 +17,7 @@ plugins, package execution, or live code.
 
 ## Decision
 
-Introduce an operator-supervised self-improvement trust tier for v0.46:
+Introduce an operator-supervised self-improvement trust tier for v0.47:
 
 - Pattern discovery is read-only and runs through registered actions.
 - Suggestion packets are advisory metadata only.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed for v0.50b MCP Server Mode (`docs/plans/v0.50b-plan.md`).
+Proposed for v0.51b MCP Server Mode (`docs/plans/v0.51b-plan.md`).
 
 Scope tightened in the post-v0.37 planning pass: v1.0 public protocol exposure
 is **MCP server mode only**. OpenAI-compatible local HTTP API, ACP server
@@ -18,7 +18,7 @@ expose itself as an MCP **server** so external agents (Claude Desktop,
 Cursor, ChatGPT MCP clients, other agent runtimes) can call Allbert's actions
 and read Allbert's memory namespaces.
 
-The original v0.50 plan bundled MCP server with OpenAI-compatible HTTP API,
+The original v0.51 plan bundled MCP server with OpenAI-compatible HTTP API,
 ACP server mode, and public AG-UI/A2UI bridge under one "public protocol
 exposure" policy. The post-v0.37 planning pass split these because:
 
@@ -37,11 +37,11 @@ exposure" policy. The post-v0.37 planning pass split these because:
 
 Bundling all four would have shipped three surfaces with weak operator
 justification and locked AG-UI/A2UI prematurely. The single-surface scope
-keeps the v0.50b ADR focused.
+keeps the v0.51b ADR focused.
 
 ## Decision
 
-v0.50b implements MCP server mode under the following rules:
+v0.51b implements MCP server mode under the following rules:
 
 - Allbert MCP server exposes **registered actions as MCP tools** and **app
   memory namespaces as MCP resources**. Settings, secrets, raw runtime
@@ -75,7 +75,7 @@ v0.50b implements MCP server mode under the following rules:
   operator demand or external-protocol stability warrants it.
 - Tool/resource exposure is opt-in. An empty exposure is a valid 1.0
   configuration.
-- The v0.51 security eval sweep covers MCP server mode (client/tool isolation,
+- The v0.52 security eval sweep covers MCP server mode (client/tool isolation,
   cross-client identity confusion, prompt injection through MCP request
   payload, self-approval denial, resource-scope leakage) without needing to
   cover three additional protocol surfaces.

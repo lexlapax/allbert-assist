@@ -243,37 +243,46 @@ Dependency order from here:
     schema, Allbert-author seed bundles, provenance/hash/version/rollback
     metadata, disabled/untrusted installs, browse-only plugin index metadata,
     workspace/intent/CLI surfaces, and marketplace doctor. Community-submission
-    governance remains parked. Started the v0.51 ADR for settings schema
+    governance remains parked. Started the v0.52 ADR for settings schema
     migration policy (ADR 0046).
 45.1. v0.45.1 Gate Transparency and Precommit Decomposition — implemented as
     `0.45.1`: commit/prepush/release command split, timed direct release
     phases, redacted gate evidence, and `mix precommit` as commit-time
     feedback rather than release evidence.
-46. v0.46 Operator-supervised self-improvement: marketplace-aware
+46. v0.46 Delegation hardening + research specialist: ship a second native
+    delegate-agent consumer — a plugin-contributed research/summarize
+    specialist at `./plugins/allbert.research/` — so the v0.24
+    `AgentRegistry`/`delegate_agent` contract is proven against two domains
+    (finance + research) before the v1.0 freeze (ADR 0021 amendment A21).
+    No new authority: the agent orchestrates shipped v0.43 browser actions
+    through `Actions.Runner.run/3`; documents the delegate-agent extension
+    point so plugin authors can register their own. Operator no-code agent
+    authoring stays parked.
+47. v0.47 Operator-supervised self-improvement: marketplace-aware
     trace-to-skill, workflow, template, and dynamic capability draft
     suggestions plus reviewed memory/workflow draft facades; no autonomous
     authority.
-47. v0.47 Voice modality: experimental STT/TTS resource/action path for CLI,
+48. v0.48 Voice modality: experimental STT/TTS resource/action path for CLI,
     workspace, and Telegram voice-note ingestion. Discord voice is deferred to
     a focused follow-on after Channel Pack 1.
-48. v0.48 Vision and image generation: image/screenshot resource classes,
+49. v0.49 Vision and image generation: image/screenshot resource classes,
     vision model profile checks, image-generation action, workspace rendering,
     retention, redaction, and cost visibility.
-49. v0.49 Channel Pack 1 (Discord and Slack) + ADR 0016 amendment for the
+50. v0.50 Channel Pack 1 (Discord and Slack) + ADR 0016 amendment for the
     channel approval-primitive contract (`{list, button, typed_command, link}`).
     Locks the channel approval shape before mobile channels need it.
-50. v0.50 Channel Pack 2 — WhatsApp, Signal, and Matrix. iMessage is parked
+51. v0.51 Channel Pack 2 — WhatsApp, Signal, and Matrix. iMessage is parked
     (macOS-only platform constraint).
-51. v0.50b MCP Server Mode: Allbert exposes registered actions as MCP tools
+52. v0.51b MCP Server Mode: Allbert exposes registered actions as MCP tools
     and memory namespaces as MCP resources. Single protocol surface only.
     OpenAI-compatible API, ACP server, and public AG-UI/A2UI bridge are parked
     post-1.0.
-52. v0.51 Hardening, export/import, settings schema migration substrate, and
+53. v0.52 Hardening, export/import, settings schema migration substrate, and
     final RC: no new user-facing capability; Allbert Home portability,
     cross-surface security eval sweep, operator docs, performance hardening,
     CSP reconciliation, settings schema migration tool (per ADR 0046), and
     release-candidate closeout.
-53. v1.0 Stability release and **tiered public contract freeze**: no new
+54. v1.0 Stability release and **tiered public contract freeze**: no new
     features; freeze Tier 1 (Runtime, Actions/permissions, Plugin, App,
     Settings Central schema shape, Allbert Home layout, Channel adapter
     boundary, Resource Access URI/grants) and Tier 2 (SurfaceProvider, Surface
@@ -2457,11 +2466,11 @@ Shipped scope:
 - Preserved the routing predicate: v0.10 `external_network_request` and v0.11 inert
   `summarize_url`/`inspect_document` intact; browser is the graduated path
   when extraction needs DOM/JS or the operator explicitly asks.
-- Forward-pinned the v0.49 channel approval-primitive amendment: browser
+- Forward-pinned the v0.50 channel approval-primitive amendment: browser
   confirmations are expressible as `:typed_command` (CLI/email),
   `:button` (LiveView/Telegram/Discord/Slack), and `:link` (screenshot
   review).
-- v0.46 may mine v0.43 redacted trace envelopes as one pattern source;
+- v0.47 may mine v0.43 redacted trace envelopes as one pattern source;
   raw page content is out of bounds.
 
 Implementation consumed the locked decisions from `docs/plans/v0.43-plan.md`
@@ -2538,7 +2547,7 @@ Expected direction:
   subagent delegation visibility (inline child events under parent
   steps), and background objective progress on existing surfaces
   (workspace, CLI, Telegram, and email). Discord/Slack inherit
-  summaries when Channel Pack 1 lands in v0.49.
+  summaries when Channel Pack 1 lands in v0.50.
 - Workflow YAML expression substitution uses a **closed function table**
   (`${inputs.x}`, `${steps.<id>.<field>}`, `${user.locale|timezone}`,
   `${workflow.id|version}`); AST-parsed at load. No `eval`. No
@@ -2617,7 +2626,7 @@ Shipped scope:
   out of 1.0.
 - **Started drafting ADR 0046** (Settings Central schema migration policy) here
   because marketplace adds new settings fragments; ADR is accepted before
-  v0.51 implements the migration tool.
+  v0.52 implements the migration tool.
 
 ## v0.45.1: Gate Transparency And Precommit Decomposition - implemented as 0.45.1
 
@@ -2644,10 +2653,65 @@ Shipped scope:
 - No assistant capability, marketplace behavior, Security Central authority, or
   external smoke semantics changed.
 
-## v0.46: Operator-Supervised Self-Improvement
+## v0.46: Delegation Hardening And Research Specialist
 
 Plan: `docs/plans/v0.46-plan.md`
 Request flow: `docs/plans/v0.46-request-flow.md`
+ADR: `docs/adr/0021-intent-objective-capability-and-advisory-boundary.md`
+(amendment A21, binding once M1 lands).
+
+Status: planned; implementation-ready for M1. Inserted in the post-v0.45
+planning pass to give the v0.24 delegate-agent substrate a second consumer
+before the v1.0 freeze. The v0.47-v0.52 arc shifted down by one to open
+this slot.
+
+Expected direction:
+
+- Ship a **second native consumer** of the v0.24 delegate-agent substrate
+  (`AllbertAssist.Objectives.AgentRegistry` + the `:delegate_agent` step +
+  the `delegate_agent` action). Through v0.45, StockSage financial
+  specialists (ADR 0022) are the only registered consumer; freezing the
+  contract on one-consumer evidence at v1.0 is the risk this release
+  closes (ADR 0021 amendment A21).
+- The second consumer is a **plugin-contributed research/summarize
+  specialist** at `./plugins/allbert.research/`, registered as
+  `research.specialist`. Its `research`/`summarize_url` commands
+  orchestrate the already-shipped v0.43 browser navigate/extract actions
+  plus the existing runtime summarization path, all through
+  `Actions.Runner.run/3`.
+- **No new authority.** No new permission class, operation class, URI
+  scheme, or registered action; only a small `research.*` settings
+  fragment (enable toggle + bounded source cap). Every `browser_navigate`
+  inside a research dispatch still confirms (or applies a v0.43 remembered
+  per-domain grant) — delegation provably does not widen authority.
+- **Documents the extension point** (`docs/developer/delegate-agents.md`)
+  so third-party plugin authors can register a delegate agent. Exercises
+  v0.44 Plan/Build inline subagent-delegation rendering against a
+  non-StockSage agent via a `kind: delegate_agent` workflow step.
+
+Locked decisions (four; full rationale in `docs/plans/v0.46-plan.md`
+§"M1 Locked Decisions"): plugin-contributed delegate agent (not core);
+zero new authority (orchestrate shipped actions); read-only research scope
+(inherits v0.43 deny-by-default); second consumer to harden — not to
+abstract or to add operator no-code authoring.
+
+Exit signal: a delegated research objective runs the v0.43 browser
+sequence per source with each navigation still confirming inline under the
+parent delegate step; research output is advisory and never auto-promotes
+to memory; `research.max_sources` bounds fan-out; the browser session is
+always closed; a third-party plugin can register a delegate agent from the
+documented contract; the v1.0 freeze now locks a two-consumer-proven
+`AgentRegistry`/`delegate_agent` contract.
+
+Parked remainder: operator no-code delegate-agent authoring (vs.
+developer-authored plugin agents) stays in `future-features.md`
+§"Operator-Authorable And Third-Party Delegate Agents", routed through the
+v0.36/v0.37/v0.47 supervised dynamic path post-1.0.
+
+## v0.47: Operator-Supervised Self-Improvement
+
+Plan: `docs/plans/v0.47-plan.md`
+Request flow: `docs/plans/v0.47-request-flow.md`
 ADR: `docs/adr/0045-operator-supervised-self-improvement-trust-tier.md`
 
 Status: planned. Promoted from the v1.0 planning follow-up; not implemented.
@@ -2656,7 +2720,7 @@ Expected direction:
 
 - Consume v0.45 marketplace-lite metadata plus v0.40-v0.44 traces as
   suggestion sources. Team-channel traces become an additional source after
-  v0.49 lands; they are not a v0.46 dependency.
+  v0.50 lands; they are not a v0.47 dependency.
 - Add trace-to-skill draft suggestions from repeated prompts, repeated action
   chains, corrections, failed intents, or operator-marked examples.
 - Add workflow/intention draft suggestions that turn repeated objective
@@ -2679,10 +2743,10 @@ Non-goals:
   or live workspace/canvas write facades.
 - No distributed multi-node or hosted multi-user execution model.
 
-## v0.47: Voice Modality
+## v0.48: Voice Modality
 
-Plan: `docs/plans/v0.47-plan.md`
-Request flow: `docs/plans/v0.47-request-flow.md`
+Plan: `docs/plans/v0.48-plan.md`
+Request flow: `docs/plans/v0.48-request-flow.md`
 ADR: `docs/adr/0042-audio-image-and-media-resource-classes.md`
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
@@ -2696,12 +2760,12 @@ Expected direction:
 - Keep captured audio bounded, redacted from traces by default, and retained
   only by explicit operator policy.
 - Defer Discord voice support to a focused follow-on after Discord lands in
-  v0.49.
+  v0.50.
 
-## v0.48: Vision And Image Generation
+## v0.49: Vision And Image Generation
 
-Plan: `docs/plans/v0.48-plan.md`
-Request flow: `docs/plans/v0.48-request-flow.md`
+Plan: `docs/plans/v0.49-plan.md`
+Request flow: `docs/plans/v0.49-request-flow.md`
 ADR: `docs/adr/0042-audio-image-and-media-resource-classes.md`
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
@@ -2713,16 +2777,16 @@ Expected direction:
 - Add image generation as a registered action with provider profile, cost
   visibility, workspace rendering, retention, and redaction.
 
-## v0.49: Channel Pack 1 - Discord And Slack
+## v0.50: Channel Pack 1 - Discord And Slack
 
-Plan: `docs/plans/v0.49-plan.md`
-Request flow: `docs/plans/v0.49-request-flow.md`
+Plan: `docs/plans/v0.50-plan.md`
+Request flow: `docs/plans/v0.50-request-flow.md`
 ADR: `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
-(v0.49 amendment for approval primitives)
+(v0.50 amendment for approval primitives)
 
 Status: planned; implementation-ready for M0 after the channel plan pass-2
 readiness patch. Promoted from `docs/archives/version-1.0-planning-03.md`;
-not implemented. Moved after the v0.44-v0.48 capability arc because
+not implemented. Moved after the v0.44-v0.49 capability arc because
 Discord/Slack expand operator reach rather than unlock the core 1.0
 capability stack.
 
@@ -2739,23 +2803,23 @@ Expected direction:
   highest-fidelity primitive available from an effective descriptor that
   honors provider settings such as `render_approval_buttons: false`. Telegram:
   button. Email: typed_command. Discord: button. Slack: button. Mobile
-  channels (v0.50) inherit the same contract.
+  channels (v0.51) inherit the same contract.
 
-## v0.50: Channel Pack 2 - WhatsApp, Signal, And Matrix
+## v0.51: Channel Pack 2 - WhatsApp, Signal, And Matrix
 
-Plan: `docs/plans/v0.50-plan.md`
-Request flow: `docs/plans/v0.50-request-flow.md`
+Plan: `docs/plans/v0.51-plan.md`
+Request flow: `docs/plans/v0.51-request-flow.md`
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
 not implemented. Scope tightened in the post-v0.37 planning pass: **iMessage
 parked** (macOS-only platform constraint), public protocol interop split into
-v0.50b (MCP server mode only).
+v0.51b (MCP server mode only).
 
 Expected direction:
 
 - Add WhatsApp, Signal, and Matrix plugins after the Discord/Slack channel
   patterns are proven.
-- Reuse the v0.49 ADR 0016 amendment for channel approval primitives. WhatsApp
+- Reuse the v0.50 ADR 0016 amendment for channel approval primitives. WhatsApp
   and Signal declare `typed_command` support; Matrix declares `button` for
   bot-room contexts and `typed_command` otherwise.
 - Keep provider-specific pairing, delivery/retry/dedupe, platform limits, and
@@ -2764,14 +2828,14 @@ Expected direction:
   its macOS-only platform constraint warrants a dedicated platform-policy
   decision rather than 1.0-arc bundling.
 
-## v0.50b: MCP Server Mode
+## v0.51b: MCP Server Mode
 
-Plan: `docs/plans/v0.50b-plan.md`
-Request flow: `docs/plans/v0.50b-request-flow.md`
+Plan: `docs/plans/v0.51b-plan.md`
+Request flow: `docs/plans/v0.51b-request-flow.md`
 ADR: `docs/adr/0044-public-protocol-exposure.md` (rewritten to MCP-server-only
 scope)
 
-Status: planned. New slot split from the original v0.50 protocol-interop
+Status: planned. New slot split from the original v0.51 protocol-interop
 bundle in the post-v0.37 planning pass.
 
 Expected direction:
@@ -2790,10 +2854,10 @@ Expected direction:
 - All effectful work still routes through `Actions.Runner.run/3`, Security
   Central, confirmations, Resource Access, traces, and audits.
 
-## v0.51: Hardening, Export/Import, Settings Migration, And Final RC
+## v0.52: Hardening, Export/Import, Settings Migration, And Final RC
 
-Plan: `docs/plans/v0.51-plan.md`
-Request flow: `docs/plans/v0.51-request-flow.md`
+Plan: `docs/plans/v0.52-plan.md`
+Request flow: `docs/plans/v0.52-request-flow.md`
 ADR: `docs/adr/0046-settings-schema-migration-policy.md` (accepted here;
 drafted in v0.45)
 
@@ -2859,7 +2923,7 @@ disposable-home checkpoint the release cannot ship without:
    pinned by
    ADR 0047 and becomes a Tier-1 freeze contract at v1.0.
 3. Operator can connect at least one remote channel — Telegram, email,
-   Discord, Slack, WhatsApp, Signal, or Matrix (v0.16 / v0.49 / v0.50).
+   Discord, Slack, WhatsApp, Signal, or Matrix (v0.16 / v0.50 / v0.51).
 4. Operator can configure and use at least one MCP server under policy
    (v0.40).
 5. Operator can ask Allbert to research a web target with approved navigation
@@ -2867,9 +2931,9 @@ disposable-home checkpoint the release cannot ship without:
 6. Operator can review and approve a multi-step plan before execution
    (v0.44).
 7. Operator can export Allbert Home and re-import on a second machine with
-   identical behavior, including settings migration (v0.51 + ADR 0046).
+   identical behavior, including settings migration (v0.52 + ADR 0046).
 8. All warning, security, precommit, and cross-surface eval gates pass
-   (v0.51).
+   (v0.52).
 
 ### Capabilities That Ship In The Arc But Are Not Freeze-Blocking
 
@@ -2883,10 +2947,10 @@ acceptance criteria are subjective or provider-dependent:
   coverage and search quality are ecosystem-dependent.
 - Marketplace seed catalog (v0.45) — content scarcity is honest; the data
   shape is the deliverable.
-- Self-improvement suggestion quality (v0.46) — quality bar is subjective.
-- Voice (v0.47) — explicitly experimental.
-- Vision and image generation (v0.48) — provider-dependent quality.
-- MCP Server Mode (v0.50b) — external-client interop is verifiable but
+- Self-improvement suggestion quality (v0.47) — quality bar is subjective.
+- Voice (v0.48) — explicitly experimental.
+- Vision and image generation (v0.49) — provider-dependent quality.
+- MCP Server Mode (v0.51b) — external-client interop is verifiable but
   ecosystem maturity varies.
 
 ### Capabilities Parked Post-1.0
@@ -2909,7 +2973,7 @@ Expected direction:
 
 - Explore small-model memory/personality distillation only after memory,
   deletion, trace quality, reproducibility, and evals are trustworthy.
-- Explore autonomous skill creation only after the v0.46 supervised precursor
+- Explore autonomous skill creation only after the v0.47 supervised precursor
   proves suggestion quality, review ergonomics, and safety invariants.
 - Explore deeper self-modification only if it remains reviewable, reversible,
   auditable, and bounded by explicit operator authority.

@@ -197,7 +197,7 @@ re-created through the current approval/resource-grant UX.
   vocabulary.
 - v0.45 promotes `marketplace://entry/<author>/<name>` to a supported,
   core-owned scheme for marketplace entry identity (ADR 0043). The URI is
-  descriptive identity for trace/audit and v0.46 suggestion references.
+  descriptive identity for trace/audit and v0.47 suggestion references.
   Remembered grants are not stored against the marketplace URI; install
   authority is the `:marketplace_install` permission on registered
   marketplace actions, and installed bundles remain disabled/untrusted.
