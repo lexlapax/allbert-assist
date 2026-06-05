@@ -39,7 +39,7 @@ defmodule Mix.Tasks.Allbert.Ecto.Migrate do
       Ecto.Migrator.with_repo(
         Repo,
         fn repo -> Database.migrate_repo(repo, :up, all: true, log: log) end,
-        pool_size: 2
+        pool_size: 1
       )
 
     :ok

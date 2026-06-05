@@ -42,14 +42,20 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
            AgentRegistry.dispatch(agent_id, command, field(params, :params, %{}),
              timeout: delegate_timeout_ms(params)
            ) do
+      delegate_response = delegate_response(result)
+      status = Map.get(delegate_response, :status, :completed)
+
       {:ok,
        %{
          message: "Delegated objective step to #{agent_id}.",
-         status: :completed,
+         status: status,
          delegate_result: result,
+         delegate_response: delegate_response,
          permission_decision: permission_decision,
+         confirmation: Map.get(delegate_response, :confirmation),
+         confirmation_id: Map.get(delegate_response, :confirmation_id),
          actions: [
-           action(:completed, permission_decision, %{
+           action(status, permission_decision, %{
              delegate_agent_id: agent_id,
              objective_id: field(params, :objective_id),
              step_id: field(params, :step_id),
@@ -118,6 +124,20 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
   end
 
   defp normalized_allowed_command(_command), do: :error
+
+  defp delegate_response(%{state: state}), do: delegate_response_from_state(state)
+  defp delegate_response(_result), do: %{}
+
+  defp delegate_response_from_state(state) when is_map(state) do
+    case Map.get(state, :last_result, Map.get(state, "last_result")) do
+      {:ok, %{} = response} -> response
+      {:error, reason} -> %{status: :error, error: reason}
+      %{} = response -> response
+      _other -> %{}
+    end
+  end
+
+  defp delegate_response_from_state(_state), do: %{}
 
   defp delegate_timeout_ms(params) do
     case field(params, :timeout_ms) do

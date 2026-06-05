@@ -2660,7 +2660,7 @@ Request flow: `docs/plans/v0.46-request-flow.md`
 ADR: `docs/adr/0021-intent-objective-capability-and-advisory-boundary.md`
 (amendment A21 accepted in M1).
 
-Status: M1 complete; implementation-ready for M2. Inserted in the
+Status: M2 complete; implementation-ready for M3. Inserted in the
 post-v0.45 planning pass to give the v0.24 delegate-agent substrate a
 second consumer before the v1.0 freeze. The v0.47-v0.52 arc shifted down
 by one to open this slot.

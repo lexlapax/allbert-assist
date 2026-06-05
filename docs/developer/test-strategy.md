@@ -736,7 +736,9 @@ Plain `mix test` setup follows the same ownership model: the umbrella root
 prepares the test database once through `mix ecto.migrate.allbert`, then child
 app test aliases observe that preparation instead of rerunning migrations. Direct
 child-app `mix test` still prepares its own database through the same Allbert
-migration task.
+migration task. Do not add a separate `ecto.create` before test migrations:
+SQLite database creation is handled by the Allbert migration path, which runs
+with a single migration connection to avoid startup write-contention noise.
 
 M7 extends `mix allbert.test inventory` with `--check-tags`, which verifies that
 the committed inventory, shared case-template defaults, explicit lane overrides,

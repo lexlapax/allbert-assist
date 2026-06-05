@@ -1,10 +1,11 @@
 defmodule AllbertResearch.Plugin do
   @moduledoc """
-  Shipped v0.46 research delegate plugin skeleton.
+  Shipped v0.46 research delegate plugin.
 
-  M1 contributes only Settings Central schema and plugin metadata. It does not
-  start a delegate agent, register actions, or add authority; later milestones
-  add the supervised `research.specialist` runtime.
+  The plugin contributes Settings Central schema and starts the supervised
+  `research.specialist` delegate agent. It registers no new actions and grants
+  no browser authority; the agent's commands orchestrate existing actions
+  through `AllbertAssist.Actions.Runner.run/3`.
   """
 
   use AllbertAssist.Plugin
@@ -20,6 +21,9 @@ defmodule AllbertResearch.Plugin do
 
   @impl true
   def validate(_opts), do: :ok
+
+  @impl true
+  def child_spec(_opts), do: AllbertResearch.Supervisor.child_spec([])
 
   @impl true
   def settings_schema do
