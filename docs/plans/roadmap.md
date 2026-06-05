@@ -2679,9 +2679,13 @@ Expected direction:
   orchestrate the already-shipped v0.43 browser navigate/extract actions
   plus a pinned model-backed summarization path when available, otherwise
   deterministic extractive fallback, all through `Actions.Runner.run/3`.
-- Harden the existing `delegate_agent` action so v0.44 workflow-YAML
-  command strings are validated against registered-agent metadata
+- Thread the delegate step command (`action_params.command`, default
+  `execute`) through `Objectives.Commands.execute/4` instead of the
+  current hard-coded `execute`, then harden the existing `delegate_agent`
+  action so that command is validated against registered-agent metadata
   (`execute`, `research`, `summarize_url`) without dynamic atom creation.
+  Both are bounded changes at existing surfaces; the step kind stays
+  minimal (ADR 0021 A3), with no Step-schema migration.
 - **No new authority.** No new permission class, operation class, URI
   scheme, or registered action; only a small `research.*` settings
   fragment (enable toggle + bounded source cap). Every `browser_navigate`
@@ -2692,18 +2696,21 @@ Expected direction:
   v0.44 Plan/Build inline subagent-delegation rendering against a
   non-StockSage agent via a `kind: delegate_agent` workflow step.
 
-Locked decisions (five; full rationale in `docs/plans/v0.46-plan.md`
+Locked decisions (six; full rationale in `docs/plans/v0.46-plan.md`
 §"M1 Locked Decisions"): plugin-contributed delegate agent (not core);
 zero new authority (orchestrate shipped actions); read-only research scope
 (inherits v0.43 deny-by-default); second consumer to harden — not to
 abstract or to add operator no-code authoring; allowlisted delegate
-command strings at the existing action boundary.
+commands at the existing action boundary; the engine threads the step
+command into that boundary (no longer hard-coding `execute`).
 
 Exit signal: a delegated research objective runs the v0.43 browser
 sequence per source with each navigation still confirming inline under the
 parent delegate step; research output is advisory and never auto-promotes
 to memory; `research.max_sources` bounds fan-out; the browser session is
-always closed; a third-party plugin can register a delegate agent from the
+always closed; an unknown delegate command is rejected at the action
+boundary through the objective/Plan-Build path (not only a direct action
+call); a third-party plugin can register a delegate agent from the
 documented contract; the v1.0 freeze can lock a two-consumer-proven
 `AgentRegistry`/`delegate_agent` contract after v0.46 lands.
 
