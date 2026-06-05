@@ -67,15 +67,26 @@ under Allbert Home, and updates
 directory and the state entry; the shipped catalog remains available for
 reinstall.
 
+When validating marketplace intent routing in the same disposable
+`ALLBERT_HOME`, remember that install state persists. Run
+`mix allbert.marketplace rollback allbert/research-helpers` before
+`mix allbert.ask --trace "install the allbert/research-helpers skill"` if the
+entry was already installed earlier in the validation flow. Otherwise the
+intent route correctly fails closed with `error_category: :already_installed`;
+that is duplicate-install protection, not the happy-path install smoke.
+
 ## Workspace
 
-Open `/workspace` and choose **Marketplace Catalog** to inspect entries,
-verify hashes, install installable skill/template entries, and rollback
-installed entries.
+Start Phoenix with the same disposable `ALLBERT_HOME` used for CLI validation,
+then open `/workspace?destination=workspace:marketplace` or open
+`/workspace` and choose **Marketplace Catalog**. Inspect entries, verify hashes,
+install installable skill/template entries, and rollback installed entries.
+`plugin_index` entries are browse-only: they should expose inspect/verify
+affordances without an install button.
 
-Open `workspace:create` to see installed marketplace templates. These cards
-show `metadata_only` template metadata and installed files; they do not become
-executable v0.38 template patterns.
+Open `/workspace?destination=workspace:create` to see installed marketplace
+templates. These cards show `metadata_only` template metadata and installed
+files; they do not become executable v0.38 template patterns.
 
 ## Doctor
 
@@ -99,6 +110,8 @@ reports `live_check_status=degraded` with
 ## Troubleshooting
 
 - `plugin_index_not_installable`: the entry is browse-only metadata.
+- `already_installed`: the same entry/version is already installed. Roll it
+  back before re-running the happy-path install or intent-install smoke.
 - `bundle_hash_mismatch`: the shipped catalog or bundle contents are not in
   the reviewed state; reinstall from a clean checkout.
 - `install_target_outside_marketplace`: the bundle manifest or configured
