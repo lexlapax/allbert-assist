@@ -21,8 +21,8 @@ lexical Active Memory retrieval over reviewed `:kept` entries scoped to
 `{thread_id, active_app, identity_namespace}`. Replayable from traces.
 No embeddings; no learned ranking.
 
-v0.46 plans operator-supervised trace-derived draft suggestions. Neither
-v0.39b nor v0.46 trains, distills, or creates a learned system-memory
+v0.47 plans operator-supervised trace-derived draft suggestions. Neither
+v0.39b nor v0.47 trains, distills, or creates a learned system-memory
 authority.
 
 Still parked:
@@ -37,7 +37,7 @@ Still parked:
 
 Status: parked.
 
-v0.46 plans operator-supervised, inert trace-to-skill and trace-to-workflow
+v0.47 plans operator-supervised, inert trace-to-skill and trace-to-workflow
 draft suggestions. Drafts remain disabled/untrusted until reviewed and
 confirmed.
 
@@ -48,12 +48,12 @@ Still parked:
 - broad execution permissions derived from repeated use or model confidence;
 - autonomous package install, remote plugin install, or arbitrary code loading.
 
-### Dynamic Capability Expansion Beyond v0.46 Facades
+### Dynamic Capability Expansion Beyond v0.47 Facades
 
 Status: parked.
 
 v0.36-v0.38 now define the supervised dynamic capability path: sandbox/gate
-evidence, dynamic action integration, and templated creation. v0.46 may add
+evidence, dynamic action integration, and templated creation. v0.47 may add
 only reviewed delegate facades for memory promotion/update drafts and
 objective/workflow draft writes.
 
@@ -61,7 +61,7 @@ Still parked:
 
 - settings, secrets, shell, package-install, confirmation-decision, trust, or
   live workspace/canvas write facades;
-- broader generated-permission ceilings beyond the reviewed v0.46 memory and
+- broader generated-permission ceilings beyond the reviewed v0.47 memory and
   workflow draft paths;
 - unsupervised self-recompilation, compiler-loop bootstrapping, or runtime
   mutation outside the v0.36/v0.37/v0.38 review path.
@@ -70,8 +70,8 @@ Still parked:
 
 Status: parked.
 
-Discord and Slack are planned for v0.49. WhatsApp, Signal, and Matrix are
-planned for v0.50. SMS and iMessage remain parked.
+Discord and Slack are planned for v0.50. WhatsApp, Signal, and Matrix are
+planned for v0.51. SMS and iMessage remain parked.
 
 Still parked:
 
@@ -94,11 +94,47 @@ Still parked:
 - remote agent impersonation defenses;
 - channel-native Approval Handoff for agent endpoints.
 
+### Operator-Authorable And Third-Party Delegate Agents
+
+Status: partially promoted to v0.46; operator no-code authoring remains
+parked. Added in the post-v0.45 planning pass.
+
+The v0.24 delegate-agent substrate (`AllbertAssist.Objectives.AgentRegistry`
++ the `:delegate_agent` step + the `delegate_agent` action) has, through
+v0.45, a single consumer (StockSage native financial specialist agents,
+ADR 0022). v0.46 Delegation Hardening And Research Specialist addresses the
+near-term gaps:
+
+- **second consumer (shipped at v0.46):** a plugin-contributed
+  research/summarize specialist proves the contract against a second
+  domain before the v1.0 freeze (ADR 0021 amendment A21);
+- **third-party plugin authoring (documented at v0.46):**
+  `docs/developer/delegate-agents.md` documents the registration contract,
+  so any reviewed plugin can register a delegate agent today.
+
+Still parked (the remainder):
+
+- **operator no-code delegate-agent authoring** — an operator (not a
+  developer) defining a new delegate agent without writing Elixir. This
+  must route through the supervised dynamic-capability path
+  (v0.36 sandbox/gate, v0.37 gated live integration, v0.38 templates) and
+  may be proposed as a draft by v0.47 self-improvement; it is not
+  autonomous agent creation, which stays parked under "Autonomous Skill
+  Creation Beyond Supervised Drafts";
+- **a shared delegate-agent behaviour abstraction** — extracting a common
+  framework across consumers. Per ADR 0021's "wait for ≥ 2 consumers"
+  rule, v0.46 makes this *possible* (two consumers now exist) but does
+  not perform the extraction; a future release with more consumers may;
+- **remote or distributed delegate agents** — covered by "Agent URI
+  Execution And Broader Agent Endpoints" above;
+- **delegate-agent marketplace distribution** — covered by the
+  marketplace governance and "Remote Workflow Distribution" entries.
+
 ### MCP Apps Iframe Model
 
 Status: parked.
 
-v0.50b plans MCP server mode. OpenAI-compatible API, ACP server mode, and
+v0.51b plans MCP server mode. OpenAI-compatible API, ACP server mode, and
 public AG-UI/A2UI bridge exposure remain parked after v1.0. Allbert remains
 catalog-bound for UI surfaces.
 
@@ -123,7 +159,7 @@ Still parked:
 - remembered or silent MCP tool-call approval (every v0.40 tool call confirms;
   per ADR 0038 there is no remembered tool-call grant);
 - MCP prompts consumption (v0.40 consumes tools and resources only);
-- MCP server mode (Allbert exposing its own MCP server) — covered by the v0.50b
+- MCP server mode (Allbert exposing its own MCP server) — covered by the v0.51b
   MCP server-mode surface and the "Public Protocol Interop (Non-MCP)" entry, not
   the v0.40 client.
 
@@ -226,7 +262,7 @@ future work.
 
 Status: parked.
 
-v0.51 plans local-first profile export/import dry runs. Broad remote sync
+v0.52 plans local-first profile export/import dry runs. Broad remote sync
 remains parked.
 
 Still parked:
@@ -279,7 +315,7 @@ Still parked:
 
 Status: parked.
 
-v0.50b MCP server mode is local/public-surface exposure, not a distributed
+v0.51b MCP server mode is local/public-surface exposure, not a distributed
 runtime.
 
 Still parked:
@@ -291,10 +327,10 @@ Still parked:
 
 ### Public Protocol Interop (Non-MCP)
 
-Status: parked. Added in the post-v0.37 planning pass after the v0.50 split.
+Status: parked. Added in the post-v0.37 planning pass after the v0.51 split.
 
-v0.50b ships MCP server mode as the single 1.0 protocol surface (per ADR
-0044). The original v0.50 plan bundled three additional protocol surfaces
+v0.51b ships MCP server mode as the single 1.0 protocol surface (per ADR
+0044). The original v0.51 plan bundled three additional protocol surfaces
 that did not survive the post-v0.37 acceptance-matrix trim.
 
 Still parked:
@@ -310,7 +346,7 @@ review, and its own export/import/eval coverage before promotion.
 
 ### iMessage Channel Adapter
 
-Status: parked. Moved from v0.50 to parking in the post-v0.37 planning pass.
+Status: parked. Moved from v0.51 to parking in the post-v0.37 planning pass.
 
 iMessage requires a macOS-only adapter, opt-in platform constraint, and
 device-pairing recovery story distinct from WhatsApp/Signal/Matrix.
@@ -370,7 +406,7 @@ Workflows, LangGraph, and Serverless Workflow `For` all report these as
 the most-cited operability sinks. Reserved as `for_each` and
 `parallel_steps` in ADR 0041 §"Reserved Vocabulary" so future versions
 can promote without renaming. Revisit when telemetry shows real demand
-and when v0.46 self-improvement traces inform what shape loops should
+and when v0.47 self-improvement traces inform what shape loops should
 actually take.
 
 ### Sub-Workflow Includes And Imports
@@ -382,7 +418,7 @@ v0.44 workflow YAML cannot reference another workflow as a step. The
 by 3-4x (composition semantics, cycle detection across workflows,
 version pinning for included workflows). Reserved as
 `sub_workflow_include` in ADR 0041. Defer until a real consumer
-appears — possibly v0.46 self-improvement when trace-to-workflow drafts
+appears — possibly v0.47 self-improvement when trace-to-workflow drafts
 start producing reusable sub-pieces.
 
 ### Auto-Triggered Workflows (`on:` Clauses)
@@ -452,7 +488,7 @@ Still parked:
 
 Status: parked. Added in the post-v0.37 planning pass.
 
-Voice (v0.47) and vision (v0.48) ship per-feature cost visibility at
+Voice (v0.48) and vision (v0.49) ship per-feature cost visibility at
 confirmation time. Power operators will want a unified cross-provider
 dashboard.
 

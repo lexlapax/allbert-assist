@@ -249,7 +249,7 @@ redirect-chain rules via the driver's request-interception API:
   referenced by content-addressable paths under
   `<ALLBERT_HOME>/cache/browser/<session_id>/` with retention bounded by
   settings.
-- Trace shape is pattern-mineable for v0.46 self-improvement: the redacted
+- Trace shape is pattern-mineable for v0.47 self-improvement: the redacted
   envelope is mineable; raw content is not.
 
 ### Workspace rendering
@@ -281,15 +281,15 @@ redirect-chain rules via the driver's request-interception API:
 - v0.44 Plan/Build can compose browser actions as objective/workflow steps
   through the same registered-action boundary; ADR 0041 needs no amendment
   for v0.43.
-- v0.46 self-improvement can mine v0.43 trace envelopes (redacted) as one
+- v0.47 self-improvement can mine v0.43 trace envelopes (redacted) as one
   pattern source; raw browser content remains out of bounds.
-- v0.49 channel approval-primitive amendment (ADR 0016) must accommodate
+- v0.50 channel approval-primitive amendment (ADR 0016) must accommodate
   browser confirmations: navigation approvals are expressible as
   `:typed_command` (CLI/email) or `:button` (LiveView/Telegram/Discord/Slack);
   screenshot review is expressible as `:link` to the cache path.
-- v0.48 vision/image-generation will add a richer image-resource class;
+- v0.49 vision/image-generation will add a richer image-resource class;
   v0.43 screenshots are intentionally inert content (bitmap + metadata),
-  reused by v0.48 once that class lands.
+  reused by v0.49 once that class lands.
 
 ## Non-Goals
 

@@ -82,11 +82,11 @@ facades until their milestones implement and document them.
 | v0.43 | Browser/research facade | Expected to live in a plugin-owned browser boundary with `browser://session/<id>` Resource Access. |
 | v0.44 | Plan/Build surface and workflow YAML parser | Expected to produce objective steps only; not an execution engine. |
 | v0.45 | Marketplace-lite facade | Expected to expose reviewed skill/template discovery and metadata only; not remote code authority. |
-| v0.46 | Self-improvement suggestion facade | Expected to produce inert trace-derived suggestions, reviewed memory/workflow draft facades, and draft handoffs only; not authority, enablement, or live integration. |
-| v0.47-v0.48 | Media resource facades | Expected to model audio, image, and screenshot resources plus registered provider-backed actions. |
-| v0.49 | Team-channel facades | Expected to expose Discord and Slack channel adapters under the existing channel contract and v0.49 ADR 0016 amendment. |
-| v0.50 | Mobile channel facades | Expected to expose WhatsApp, Signal, and Matrix channel adapters under the existing channel contract. |
-| v0.50b | MCP server facade | Expected to expose Allbert registered actions and memory namespaces as MCP tools/resources under shared auth/redaction policy. |
+| v0.47 | Self-improvement suggestion facade | Expected to produce inert trace-derived suggestions, reviewed memory/workflow draft facades, and draft handoffs only; not authority, enablement, or live integration. |
+| v0.48-v0.49 | Media resource facades | Expected to model audio, image, and screenshot resources plus registered provider-backed actions. |
+| v0.50 | Team-channel facades | Expected to expose Discord and Slack channel adapters under the existing channel contract and v0.50 ADR 0016 amendment. |
+| v0.51 | Mobile channel facades | Expected to expose WhatsApp, Signal, and Matrix channel adapters under the existing channel contract. |
+| v0.51b | MCP server facade | Expected to expose Allbert registered actions and memory namespaces as MCP tools/resources under shared auth/redaction policy. |
 
 ## Compatibility Shims And Exit Criteria
 

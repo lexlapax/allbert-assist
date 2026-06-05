@@ -331,15 +331,15 @@ trace ingestion can re-read the file if needed for debugging).
   metadata (descriptive only); remote workflow distribution is
   parked under "Remote Workflow Distribution / Marketplace Workflows"
   in future-features.
-- **v0.46 Operator-Supervised Self-Improvement** trace-to-workflow
+- **v0.47 Operator-Supervised Self-Improvement** trace-to-workflow
   drafts consume the v0.44 schema; drafts write to
   `<ALLBERT_HOME>/drafts/workflows/<id>.yaml`, never to the live
   `workflows/` directory. Promotion is a confirmed operator action.
-- **v0.49 Channel Pack 1** amends ADR 0016 to lock channel approval
+- **v0.50 Channel Pack 1** amends ADR 0016 to lock channel approval
   primitives; v0.44 plan cards render through existing channel-specific
   affordances and are expressible in
   `:typed_command`/`:button`/`:link`/`:list` without re-litigation.
-- **v0.51 Hardening / Export-Import** preserves the
+- **v0.52 Hardening / Export-Import** preserves the
   `<ALLBERT_HOME>/workflows/` directory and the `workflows.*` +
   `plan.*` core settings namespace with `schema_version: 1` per the
   ADR 0046 migration policy.
@@ -363,7 +363,7 @@ trace ingestion can re-read the file if needed for debugging).
 - No `${secrets.x}` substitution; secrets resolve through
   `secret://` settings refs at the action layer.
 - No `${env.x}` substitution.
-- No LLM-authored workflow YAML in v0.44 (that is v0.46
+- No LLM-authored workflow YAML in v0.44 (that is v0.47
   self-improvement drafts).
 - No plan-time spend enforcement (cost is descriptive only).
 - No multi-user collaborative plan editing.
@@ -407,10 +407,10 @@ covering the new attack surface.
   (unified surface catalog, renderer, extension registry), ADR 0031
   (settings schema fragments and authority).
 - Forward-pins: ADR 0046 (settings schema migration policy; v0.44
-  declares `workflows.*` + `plan.*` at `schema_version: 1`; v0.51
+  declares `workflows.*` + `plan.*` at `schema_version: 1`; v0.52
   ships the migration tool).
 - Composes with: ADR 0049 (development gates and test
   parallelization) for the `release.v044` deterministic gate.
 - Forward-pin to: ADR 0016 amendment (channel approval primitives;
-  v0.49) which formalizes `:list`/`:button`/`:typed_command`/`:link`
+  v0.50) which formalizes `:list`/`:button`/`:typed_command`/`:link`
   as the vocabulary v0.44 plan cards are already expressible in.

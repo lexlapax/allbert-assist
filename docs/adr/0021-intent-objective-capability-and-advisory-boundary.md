@@ -736,6 +736,66 @@ second concrete provider proves the shape.
 - The v1.0 freeze notes in `docs/plans/v1.0-plan.md` cross-link this
   amendment so the reserved-vocabulary status is operator-visible.
 
+### A21. The delegate-agent substrate gets a second consumer before the 1.0 freeze (v0.46)
+
+Status: amendment added in the post-v0.45 planning pass for v0.46
+Delegation Hardening And Research Specialist
+(`docs/plans/v0.46-plan.md`).
+
+A18 records StockSage native financial specialist agents as the **first**
+real consumer of the v0.24 delegate-agent substrate
+(`AllbertAssist.Objectives.AgentRegistry` + the `:delegate_agent` step
+kind + the registered `delegate_agent` action). Through v0.45, StockSage
+is the **only** registered consumer (`AgentRegistry.register/4` is called
+in exactly one non-test location). The `AgentRegistry`/`delegate_agent`
+contract is part of Objective Runtime, which the v1.0 Tier 1 freeze locks.
+
+This ADR section §3 ("Planner / evaluator") and amendment A20 both record
+the same principle: **do not freeze a contract proven by a single
+consumer.** A20 applies it to reserved advisory-provider roles; A21
+applies it to the delegate-agent substrate. Freezing `AgentRegistry` and
+the `:delegate_agent` step on one-consumer (StockSage-only) evidence
+risks locking a contract shaped by one domain's needs.
+
+Therefore v0.46 ships a **second** delegate-agent consumer — a
+plugin-contributed research/summarize specialist
+(`./plugins/allbert.research/`) — whose commands orchestrate the
+already-shipped v0.43 browser navigate/extract and v0.11 summarization
+actions and return advisory report packets. Like StockSage's agents
+(A18), it:
+
+- registers in `AllbertAssist.Objectives.AgentRegistry` and is invoked
+  only through the registered `delegate_agent` action;
+- returns advisory report packets — its output is descriptive, never
+  authority (Section 4);
+- owns no durable objective state, bypasses no registered action, and
+  creates no plugin-private agent graph;
+- introduces **no** new permission class, operation class, URI scheme,
+  or registered action — every effectful step still grounds through
+  the shipped v0.43/v0.11 actions, Security Central, confirmations, and
+  Resource Access posture.
+
+What A21 unblocks:
+
+- the `AgentRegistry`/`delegate_agent` contract can be **reviewed against
+  two distinct domains** (financial specialists + research) before the
+  v1.0 freeze, so the freeze locks a two-consumer-proven contract;
+- the plugin-author extension path for delegate agents becomes
+  documented (`docs/developer/delegate-agents.md`), so the substrate is
+  discoverable rather than implicit.
+
+What A21 does **not** do:
+
+- it does **not** extract a shared delegate-agent behaviour abstraction
+  or refactor StockSage. Proving the contract against two consumers is a
+  precondition for a future abstraction, not the abstraction itself;
+- it does **not** add operator-authorable (no-code) delegate-agent
+  creation. Operators authoring their own delegate agents remains parked
+  (`docs/plans/future-features.md` §"Operator-Authorable And Third-Party
+  Delegate Agents") behind the v0.36/v0.37/v0.38 supervised dynamic path;
+- it does **not** promote any reserved advisory-provider role; A20
+  stands unchanged.
+
 ## Consequences
 
 ### What changes
