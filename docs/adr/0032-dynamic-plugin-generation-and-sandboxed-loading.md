@@ -149,7 +149,8 @@ rewrite Allbert Home, the Security Central store, or the source tree.
 
 ## v0.47 Amendment: draft store generalized into a unified reviewed-draft store
 
-Status: planned amendment for v0.47; binding once v0.47 M4 lands.
+Status: accepted as a v0.47 plan constraint; binding implementation lands in
+v0.47 M4.
 
 v0.47 operator-supervised self-improvement generalizes the
 `AllbertAssist.DynamicPlugins.Draft` lifecycle into a single logical
