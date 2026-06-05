@@ -96,22 +96,23 @@ Still parked:
 
 ### Operator-Authorable And Third-Party Delegate Agents
 
-Status: partially promoted into the planned v0.46 milestone; operator
-no-code authoring remains parked. Added in the post-v0.45 planning pass.
+Status: v0.46 shipped the developer-authored delegate-agent extension point;
+operator no-code authoring remains parked. Added in the post-v0.45 planning
+pass.
 
 The v0.24 delegate-agent substrate (`AllbertAssist.Objectives.AgentRegistry`
 + the `:delegate_agent` step + the `delegate_agent` action) has, through
 v0.45, a single consumer (StockSage native financial specialist agents,
-ADR 0022). v0.46 Delegation Hardening And Research Specialist addresses the
+ADR 0022). v0.46 Delegation Hardening And Research Specialist addressed the
 near-term gaps:
 
-- **second consumer (planned for v0.46):** a plugin-contributed
-  research/summarize specialist will prove the contract against a second
-  domain before the v1.0 freeze (ADR 0021 amendment A21);
-- **third-party plugin authoring (started in v0.46 M1):**
+- **second consumer (shipped in v0.46):** a plugin-contributed
+  research/summarize specialist (`research.specialist`) proves the contract
+  against a second domain before the v1.0 freeze (ADR 0021 amendment A21);
+- **third-party plugin authoring (shipped as a developer contract in v0.46):**
   `docs/developer/delegate-agents.md` documents the registration contract,
   so reviewed plugins can register delegate agents through the existing
-  boundary once the full milestone lands.
+  boundary.
 
 Still parked (the remainder):
 
@@ -124,8 +125,8 @@ Still parked (the remainder):
   Creation Beyond Supervised Drafts";
 - **a shared delegate-agent behaviour abstraction** — extracting a common
   framework across consumers. Per ADR 0021's "wait for ≥ 2 consumers"
-  rule, v0.46 makes this *possible after it lands* but does not perform
-  the extraction; a future release with more consumers may;
+  rule, v0.46 makes this possible but does not perform the extraction; a
+  future release with more consumers may;
 - **remote or distributed delegate agents** — covered by "Agent URI
   Execution And Broader Agent Endpoints" above;
 - **delegate-agent marketplace distribution** — covered by the

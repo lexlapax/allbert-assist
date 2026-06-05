@@ -249,8 +249,8 @@ Dependency order from here:
     `0.45.1`: commit/prepush/release command split, timed direct release
     phases, redacted gate evidence, and `mix precommit` as commit-time
     feedback rather than release evidence.
-46. v0.46 Delegation hardening + research specialist: planned second native
-    delegate-agent consumer — a plugin-contributed research/summarize
+46. v0.46 Delegation hardening + research specialist — implemented as
+    `0.46.0`: second native delegate-agent consumer, a plugin-contributed research/summarize
     specialist at `./plugins/allbert.research/` — so the v0.24
     `AgentRegistry`/`delegate_agent` contract is proven against two domains
     (finance + research) before the v1.0 freeze (ADR 0021 amendment A21).
@@ -2660,14 +2660,14 @@ Request flow: `docs/plans/v0.46-request-flow.md`
 ADR: `docs/adr/0021-intent-objective-capability-and-advisory-boundary.md`
 (amendment A21 accepted in M1).
 
-Status: M3 complete; implementation-ready for M4. Inserted in the
-post-v0.45 planning pass to give the v0.24 delegate-agent substrate a
-second consumer before the v1.0 freeze. The v0.47-v0.52 arc shifted down
-by one to open this slot.
+Status: implemented as `0.46.0`; ready for operator manual validation before
+release tagging. Inserted in the post-v0.45 planning pass to give the v0.24
+delegate-agent substrate a second consumer before the v1.0 freeze. The
+v0.47-v0.52 arc shifted down by one to open this slot.
 
-Expected direction:
+Shipped scope:
 
-- Ship a **second native consumer** of the v0.24 delegate-agent substrate
+- Shipped a **second native consumer** of the v0.24 delegate-agent substrate
   (`AllbertAssist.Objectives.AgentRegistry` + the `:delegate_agent` step +
   the `delegate_agent` action). Through v0.45, StockSage financial
   specialists (ADR 0022) are the only registered consumer; freezing the
@@ -2677,11 +2677,10 @@ Expected direction:
   specialist** at `./plugins/allbert.research/`, registered as
   `research.specialist`. Its `research`/`summarize_url` commands
   orchestrate the already-shipped v0.43 browser navigate/extract actions
-  plus a pinned model-backed summarization path when available, otherwise
-  deterministic extractive fallback, all through `Actions.Runner.run/3`.
-- Thread the delegate step command (`action_params.command`, default
+  with deterministic extractive fallback, all through `Actions.Runner.run/3`.
+- Threaded the delegate step command (`action_params.command`, default
   `execute`) through `Objectives.Commands.execute/4` instead of the
-  current hard-coded `execute`, then harden the existing `delegate_agent`
+  previous hard-coded `execute`, then hardened the existing `delegate_agent`
   action so that command is validated against registered-agent metadata
   (`execute`, `research`, `summarize_url`) without dynamic atom creation.
   Both are bounded changes at existing surfaces; the step kind stays
@@ -2690,8 +2689,8 @@ Expected direction:
   scheme, or registered action; only a small `research.*` settings
   fragment (enable toggle + bounded source cap). Every `browser_navigate`
   inside a research dispatch still confirms (or applies a v0.43 remembered
-  per-domain grant) — delegation provably does not widen authority.
-- **Document the extension point** (`docs/developer/delegate-agents.md`)
+  per-domain grant) - delegation provably does not widen authority.
+- **Documented the extension point** (`docs/developer/delegate-agents.md`)
   so third-party plugin authors can register a delegate agent. Exercises
   v0.44 Plan/Build inline subagent-delegation rendering against a
   non-StockSage agent via a `kind: delegate_agent` workflow step.
@@ -2700,6 +2699,11 @@ Expected direction:
   research-specific inline subagent rendering coverage. The older browser
   handoff descriptor now owns browser-specific page/render/extract prompts;
   v0.46 research phrases route to `research.specialist`.
+- M4 added nine `:v046` security eval rows, the deterministic
+  `mix allbert.test release.v046` gate, the opt-in
+  `browser_research_delegate` external smoke, and the test-env migration
+  connection-pool fix that avoids SQL Sandbox ownership contention during
+  version-specific release evidence.
 
 Locked decisions (six; full rationale in `docs/plans/v0.46-plan.md`
 §"M1 Locked Decisions"): plugin-contributed delegate agent (not core);
@@ -2717,7 +2721,7 @@ always closed; an unknown delegate command is rejected at the action
 boundary through the objective/Plan-Build path (not only a direct action
 call); a third-party plugin can register a delegate agent from the
 documented contract; the v1.0 freeze can lock a two-consumer-proven
-`AgentRegistry`/`delegate_agent` contract after v0.46 lands.
+`AgentRegistry`/`delegate_agent` contract.
 
 Parked remainder: operator no-code delegate-agent authoring (vs.
 developer-authored plugin agents) stays in `future-features.md`

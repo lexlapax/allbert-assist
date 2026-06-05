@@ -23,68 +23,32 @@ to generate and reuse.
 
 ## Current State
 
-The current implementation is `v0.45.1`. `/workspace` is the operator home:
+The current implementation is `v0.46.0`. `/workspace` is the operator home:
 chat is the primary spine, the launcher is view-only, and Canvas shows one
 destination at a time (Output, an app, or a workspace tool).
 
-Allbert now has the runtime contracts needed for local assistant work:
-registered Jido actions and agents, durable confirmations, Settings Central,
-Security Central, local traces, markdown memory, jobs, objectives, reviewed
-plugin apps, StockSage as the reference app, Allbert Home-based theming/layout
-overrides, a default-off report-only Elixir/OTP sandbox and gate runner, and a
-default-off dynamic draft/live integration path for reviewed read-only and
-delegated memory/network action artifacts. v0.38 adds deterministic templated
-creation for reviewed plugin, app, LLM-tool, scheduled-flow, and objective
-workflow patterns through developer Mix tasks and the default-off
-`workspace:create` Canvas destination. v0.39 adds first-run onboarding through
-`mix allbert.onboard` and `workspace:onboard`, provider/model control through
-`mix allbert.model`, the explicit `providers.*.endpoint_kind` setting, and a
-two-branch provider doctor for credentialed remotes and local endpoints with
-the redacted ADR 0047 return shape. v0.39b adds the inert `identity` system
-memory namespace, the 5th `Memory` category, deterministic direct-answer
-Active Memory retrieval over reviewed `:kept` entries, Active Memory trace
-metadata, and `mix allbert.memory retrieve --query`. With an explicit
-`ALLBERT_HOME` or `ALLBERT_HOME_DIR`, `mix phx.server` also bootstraps a
-missing or empty dev SQLite database before Phoenix starts. v0.40 adds MCP
-client integration: Settings Central `mcp.servers.*`, `secret://mcp/...` refs,
-Hermes-backed MCP message codec with Allbert-owned HTTP/SSE and stdio
-transports, `mcp://` Resource Access, grant-gated MCP resource reads, and
-per-call-confirmed MCP tool calls.
-v0.42 adds tool discovery and the first MCP-first integration pack:
-`find_tools`, `find_mcp_tools`, `mcp_fetch_server_manifest`,
-`mcp_evaluate_server`, the confirmation-gated `mcp_server_connect` gate,
-passive Discovery Suggestions, MCP-configured Calendar/Mail/GitHub panels,
-integration intent handoffs, and `./plugins/allbert.notes_files/` as the native
-reference plugin. The 0.42.1/0.42.2 closeout hardens the discovery permission
-boundary, live trust baseline, CLI connect contract, notes/files metadata, real
-integration effect arguments, and deterministic `release.v042` gate.
-v0.43 adds the browser and web research plugin: policy-bounded browser
-sessions, a real local Playwright/Chromium bridge, doctor-gated ephemeral
-profiles, confirmed navigation, bounded HTML/markdown/text/PDF extraction,
-screenshot redaction, `mix allbert.browser research`, a browser results panel,
-browser intent handoff, deterministic `release.v043` evidence, and a real
-browser external-smoke lane.
-v0.44 adds Plan/Build mode and operator workflow YAML: a pinnable workspace
-panel over the Objective Runtime, workflow files under
-`<ALLBERT_HOME>/workflows/`, schema-from-registry validation, advisory plan
-previews, plan-start and per-step confirmations, approved workflow execution,
-cooperative cancellation, `${steps.*}` runtime references, Plan/Build CLI
-actions, and deterministic `release.v044` evidence.
-v0.45 adds Marketplace Lite: a local reviewed seed catalog under
-`priv/marketplace/`, disabled/untrusted skill and template installs, browse-only
-plugin index metadata, marketplace intent and workspace panel surfaces, custom
-Allbert Home-rooted install/cache paths, a master marketplace disable switch,
-workflow-YAML fail-closed validation, marketplace doctor diagnostics, and
-deterministic `release.v045` evidence.
-v0.45.1 adds gate transparency and precommit decomposition: `mix precommit` is
-commit-time feedback through `mix allbert.test commit`, high-coverage local
-handoff is `mix allbert.test prepush`, and release evidence is
-`mix allbert.test release` or a version-specific release gate. Evidence gates
-write bounded JSON summaries plus full redacted per-phase logs and failed-test
-manifest snapshots for failed Mix test phases.
+Allbert now has the core contracts needed for local assistant work:
+registered actions, Jido-backed agents, durable confirmations, Security
+Central, Settings Central, Resource Access, local traces, markdown memory,
+objectives, reviewed plugin apps, browser-backed research, operator workflow
+YAML, marketplace-lite reviewed assets, and release gates that produce
+bounded evidence.
 
-Released history belongs in [CHANGELOG.md](CHANGELOG.md). Forward planning
-lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
+The major surfaces are:
+
+- Runtime: registered actions, objectives, delegate agents, confirmations,
+  traces, memory, and scheduled jobs.
+- Operator UI: Phoenix LiveView `/workspace`, CLI tasks, workspace panels, and
+  Canvas destinations.
+- Plugin ecosystem: source-tree apps and plugins, StockSage as the reference
+  app, browser/research, notes/files, channel plugins, marketplace-lite seeds,
+  and documented delegate-agent extension points.
+- Safety and operations: Security Central, Resource Access, Settings Central,
+  Allbert Home, redaction, eval inventories, version-specific release gates,
+  and opt-in external smokes.
+
+Release-by-release implementation detail belongs in [CHANGELOG.md](CHANGELOG.md).
+Forward planning lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
 
 ## What It Can Do Today
 
@@ -92,17 +56,22 @@ Allbert can accept operator input through CLI and the `/workspace` Phoenix
 LiveView, route effectful work through registered Jido actions, require durable
 confirmations, store local conversation history, run scheduled jobs, frame
 cross-turn objectives, inspect traces, review markdown memory, and host
-reviewed plugin apps through workspace panels. It can also scaffold reviewed
-plugin/app/tool/flow patterns, build disposable Elixir/OTP sandbox bundles,
-produce report-only sandbox/gate evidence, record dynamic draft requests, and
-live-register gate-passed dynamic actions after explicit operator confirmation
-in a disposable Allbert Home. Generated actions can be pure read-only or
-delegate memory/network effects through reviewed facades with their normal
-confirmations.
+reviewed plugin apps through workspace panels.
+
+It can also scaffold reviewed plugin/app/tool/flow patterns, build disposable
+Elixir/OTP sandbox bundles, produce report-only sandbox/gate evidence, record
+dynamic draft requests, and live-register gate-passed dynamic actions after
+explicit operator confirmation in a disposable Allbert Home. Generated actions
+can be pure read-only or delegate memory/network effects through reviewed
+facades with their normal confirmations.
+
 It can discover MCP server candidates without connecting them, connect a
 discovered server only after operator consent that shows the exact command/URL,
 open Calendar/Mail/GitHub workspace panels backed by configured MCP servers,
-and read/search/write local notes through the notes/files reference plugin.
+read/search/write local notes through the notes/files reference plugin, run
+policy-bounded browser extraction, execute operator workflow YAML through the
+Objective Runtime, and delegate read-only research work to
+`research.specialist`.
 
 StockSage is the reference plugin app. It exercises the app, objective,
 security, native-agent, LiveView surface, memory-sync, and canvas contracts
@@ -128,55 +97,16 @@ reviewed surfaces, actions remain policy-bound, objectives carry long-running
 work, memory stays inspectable, and generated apps inherit contracts that were
 manually proven first.
 
-Recent milestones:
+The current release (`v0.46.0`) finishes the delegate-agent hardening step by
+proving the objective delegation contract against StockSage and read-only
+browser research. The next planned release is operator-supervised
+self-improvement (`v0.47`), followed by multimodal inputs, channel plugins,
+MCP server mode, final hardening, and a no-new-features tiered public contract
+freeze at `v1.0`.
 
-- `v0.45.1`: Gate Transparency And Precommit Decomposition - `commit`,
-  `prepush`, timed direct release phases, redacted gate evidence, and
-  `mix precommit` as a fast compatibility shortcut rather than release
-  evidence.
-- `v0.45.0`: Marketplace Lite - local reviewed seed catalog, SHA-256 bundle
-  verification, disabled/untrusted skill and template installs, browse-only
-  plugin index metadata, marketplace workspace panel + intent routing, custom
-  Allbert Home-rooted cache/install paths, master disable switch,
-  workflow-YAML forward-pin enforcement, ADR 0047-style marketplace doctor, and
-  deterministic `release.v045` evidence.
-- `v0.44.0`: Plan/Build Mode And Operator Workflow YAML - workspace Preview
-  and RunProgress panels, `workflow://` and `plan://` identities,
-  operator-authored workflow YAML under `<ALLBERT_HOME>/workflows/`,
-  schema-from-registry validation, seven Plan-Build actions, internal
-  `plan_step_confirm`, approved Objective Runtime execution, confirmation
-  upgrade-only semantics, cooperative cancel, `${steps.*}` references, and a
-  deterministic `release.v044` gate.
-- `v0.42.2`: Tool Discovery + MCP-First Integration Pack 1 - unified
-  `find_tools`, internet MCP registry discovery, connect consent, rug-pull
-  baseline checks, passive Discovery Suggestions, Calendar/Mail/GitHub
-  MCP-configured workspace panels, integration intent handoffs, and the
-  notes/files native reference plugin, with closeout hardening and a
-  deterministic release smoke gate.
-- `v0.43.0`: Browser And Web Research - `./plugins/allbert.browser/`,
-  `browser://session/<id>` Resource Access, real local Playwright/Chromium
-  control, doctor-gated ephemeral sessions, confirmed navigation, bounded
-  extraction, screenshot redaction, denied-by-default fill/download actions,
-  browser results panel, a research CLI, a real browser external smoke, and 19
-  browser security eval rows with a deterministic `release.v043` gate.
-- `v0.41.0`: Developer velocity and parallel test methodology - gate matrix,
-  resource-lane taxonomy, partition-aware test helpers, focused/release aliases,
-  and implementation-readiness annotations for downstream plans.
-- `v0.40.0`: MCP client integration - configured MCP servers, secret refs,
-  doctor/list/read/call actions, grant-gated `mcp://` resource reads,
-  per-call-confirmed tool calls, executable MCP security evals, and approved
-  real-server smoke against the official GitHub MCP server.
-
-Next milestones:
-
-- Post-`v0.45.1`: the planned 1.0 arc now continues capability-first:
-  delegation hardening and a research specialist (`v0.46`);
-  operator-supervised self-improvement (`v0.47`); voice (`v0.48`); vision
-  (`v0.49`); Discord/Slack channels and the channel-approval-primitive
-  contract (`v0.50`); mobile messaging WhatsApp/Signal/Matrix (`v0.51`);
-  MCP server mode (`v0.51b`); final hardening/export-import/settings-schema-
-  migration/RC evidence (`v0.52`); and a no-new-features **tiered** public
-  contract freeze at `v1.0`.
+Use [CHANGELOG.md](CHANGELOG.md) for shipped release details and
+[docs/plans/roadmap.md](docs/plans/roadmap.md) for the current milestone
+sequence.
 
 ## Start Here
 
@@ -189,27 +119,10 @@ Next milestones:
   milestones.
 - [CHANGELOG.md](CHANGELOG.md): released-history details.
 - [docs/adr](docs/adr): architectural decisions.
-- [docs/plans/v0.36-plan.md](docs/plans/v0.36-plan.md): implemented sandbox
-  and gate-runner contract.
-- [docs/plans/v0.37-plan.md](docs/plans/v0.37-plan.md): released dynamic
-  draft, delegated facade, and gated live-integration milestone.
-- [docs/plans/v0.38-plan.md](docs/plans/v0.38-plan.md): implemented templated
-  creation milestone after v0.37.
-- [docs/plans/v0.39-plan.md](docs/plans/v0.39-plan.md): implemented
-  first-run onboarding and provider-control milestone.
-- [docs/plans/v0.39b-plan.md](docs/plans/v0.39b-plan.md): implemented
-  identity slot and Active Memory milestone.
-- [docs/plans/v0.40-plan.md](docs/plans/v0.40-plan.md): implemented MCP
-  client integration milestone.
-- [docs/plans/v0.41-plan.md](docs/plans/v0.41-plan.md): implemented developer
-  velocity and parallel test methodology milestone, including the temporary
-  Memento/Jido compatibility override recorded in ADR 0050.
-- [docs/plans/v0.42-plan.md](docs/plans/v0.42-plan.md): implemented tool
-  discovery and MCP-first integration pack milestone.
-- [docs/plans/v0.44-plan.md](docs/plans/v0.44-plan.md): implemented
-  Plan/Build mode and operator workflow YAML milestone.
-- [docs/plans/v0.45.1-plan.md](docs/plans/v0.45.1-plan.md): implemented
-  developer gate transparency and precommit decomposition patch.
+- [docs/plans/v0.46-plan.md](docs/plans/v0.46-plan.md): implemented
+  delegation hardening and research specialist milestone.
+- [docs/operator/research-specialist.md](docs/operator/research-specialist.md):
+  operator guide for the shipped `research.specialist` delegate.
 - [docs/developer/test-strategy.md](docs/developer/test-strategy.md): test
   lane taxonomy, gate matrix, isolation contract, and implementation-plan
   parallelization annotations.

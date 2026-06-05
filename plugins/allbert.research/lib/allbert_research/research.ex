@@ -72,6 +72,7 @@ defmodule AllbertResearch.Research do
         {:ok, completed_response(command, collected, close_result)}
 
       {:pending, response} ->
+        if owned?, do: close_session(session_id, context)
         {:ok, pending_response(command, :browser_navigate, response)}
 
       {:error, response} ->

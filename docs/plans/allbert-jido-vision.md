@@ -624,25 +624,23 @@ historical aliases only and remain in old reference notes for continuity.
   intent: `mix precommit` is commit-time feedback, `mix allbert.test prepush`
   is high-coverage local handoff, and `mix allbert.test release` is the timed
   direct release-evidence gate.
-- v0.46: Delegation Hardening And Research Specialist. Plans to ship a
-  second native consumer of the v0.24 delegate-agent substrate — a
-  plugin-contributed research/summarize specialist
-  (`./plugins/allbert.research/`) registered as `research.specialist` —
-  so the `AgentRegistry`/`delegate_agent` contract can be proven against
-  two domains (StockSage finance + research) before the v1.0 freeze
-  (ADR 0021 amendment A21). The agent orchestrates shipped v0.43 browser
-  actions through `Actions.Runner.run/3`, uses a pinned runtime
-  summarization path when available or deterministic extractive fallback
-  otherwise, and adds no new authority. The release also hardens
-  allowlisted delegate command strings at the existing `delegate_agent`
-  boundary. It will document the delegate-agent extension point so plugin
-  authors can register their own. Once implemented, it realizes the North
-  Star's "Jido agents for intent and delegation" pillar as a proven,
-  documented extension point rather than a single-app mechanism. Operator
-  no-code agent authoring stays parked.
+- v0.46 (implemented as `0.46.0`): Delegation Hardening And Research
+  Specialist. Ships the second native consumer of the v0.24 delegate-agent
+  substrate - a plugin-contributed research/summarize specialist
+  (`./plugins/allbert.research/`) registered as `research.specialist` - so the
+  `AgentRegistry`/`delegate_agent` contract is proven against two domains
+  (StockSage finance + research) before the v1.0 freeze (ADR 0021 amendment
+  A21). The agent orchestrates shipped v0.43 browser actions through
+  `Actions.Runner.run/3`, uses deterministic extractive fallback, adds no new
+  authority, and keeps browser navigation confirmations/grants at the existing
+  browser boundary. The release also threads and hardens allowlisted delegate
+  command strings at the existing `delegate_agent` boundary, documents the
+  delegate-agent extension point, adds `mix allbert.research`, and proves the
+  surface with nine v0.46 security eval rows plus deterministic
+  `release.v046` evidence. Operator no-code agent authoring stays parked.
 - v0.47: Operator-Supervised Self-Improvement. Trace-to-skill, workflow,
   template, delegate-plugin draft, and dynamic capability draft
-  suggestions consume v0.45 marketplace metadata, the planned v0.46
+  suggestions consume v0.45 marketplace metadata, the shipped v0.46
   delegate-agent extension point, and v0.40-v0.44 traces; reviewed
   memory/workflow draft facades are the only new dynamic delegate
   expansion.

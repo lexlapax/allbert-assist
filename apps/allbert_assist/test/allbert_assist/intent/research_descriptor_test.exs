@@ -13,8 +13,8 @@ defmodule AllbertAssist.Intent.ResearchDescriptorTest do
     AppRegistry.clear()
 
     assert {:ok, "allbert.research"} = PluginRegistry.register_module(AllbertResearch.Plugin)
-    assert {:ok, :allbert} = AppRegistry.register(AllbertAssist.App.CoreApp)
-    assert {:ok, :allbert_research} = AppRegistry.register(AllbertResearch.App)
+    register_app!(AllbertAssist.App.CoreApp, :allbert)
+    register_app!(AllbertResearch.App, :allbert_research)
 
     on_exit(fn ->
       PluginRegistry.clear()
@@ -116,6 +116,13 @@ defmodule AllbertAssist.Intent.ResearchDescriptorTest do
           StockSage.Plugin
         ] do
       _ = PluginRegistry.register_module(module)
+    end
+  end
+
+  defp register_app!(module, app_id) do
+    case AppRegistry.register(module) do
+      {:ok, ^app_id} -> :ok
+      {:error, {:app_id_taken, ^app_id}} -> :ok
     end
   end
 

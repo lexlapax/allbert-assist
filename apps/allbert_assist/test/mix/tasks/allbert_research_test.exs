@@ -4,6 +4,7 @@ defmodule Mix.Tasks.Allbert.ResearchTest do
 
   import ExUnit.CaptureIO
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Objectives
@@ -40,8 +41,8 @@ defmodule Mix.Tasks.Allbert.ResearchTest do
     AppRegistry.clear()
     assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
     assert {:ok, "allbert.research"} = PluginRegistry.register_module(AllbertResearch.Plugin)
-    assert {:ok, :allbert} = AppRegistry.register(AllbertAssist.App.CoreApp)
-    assert {:ok, :allbert_research} = AppRegistry.register(AllbertResearch.App)
+    register_app!(AllbertAssist.App.CoreApp, :allbert)
+    register_app!(AllbertResearch.App, :allbert_research)
 
     ensure_browser_supervisor()
     ensure_research_supervisor()
@@ -90,8 +91,7 @@ defmodule Mix.Tasks.Allbert.ResearchTest do
     assert output =~ "Summary: Research summary from 1 source"
     assert output =~ "Source: https://example.com/docs/a"
 
-    assert {:ok, %{sessions: []}} =
-             AllbertAssist.Actions.Runner.run("browser_list_sessions", %{}, %{})
+    assert {:ok, %{sessions: []}} = Runner.run("browser_list_sessions", %{}, %{})
 
     assert [%{status: "completed", source_intent: "mix allbert.research"}] =
              Objectives.list_objectives("local", status: "completed", limit: 1)
@@ -167,6 +167,13 @@ defmodule Mix.Tasks.Allbert.ResearchTest do
           StockSage.Plugin
         ] do
       _ = PluginRegistry.register_module(module)
+    end
+  end
+
+  defp register_app!(module, app_id) do
+    case AppRegistry.register(module) do
+      {:ok, ^app_id} -> :ok
+      {:error, {:app_id_taken, ^app_id}} -> :ok
     end
   end
 

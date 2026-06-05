@@ -10,6 +10,66 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.46.0 - Delegation Hardening And Research Specialist
+
+Status: implemented as the v0.46 release. Current version metadata is
+`0.46.0`; ready for operator manual validation before the release tag.
+
+### Added
+
+- `./plugins/allbert.research/` as the second native consumer of the v0.24
+  delegate-agent substrate, registered as `research.specialist` with
+  `research` and `summarize_url` commands.
+- `mix allbert.research "topic or URL" [--max-sources=N]`, which frames a
+  delegated research objective, dispatches through the Objective Runtime, and
+  prints completed advisory summaries or pending browser-navigation
+  confirmations.
+- Inert research intent descriptors for the locked v0.46 research phrase
+  corpus, plus a v0.46 `research_delegate` Plan/Build workflow fixture and
+  inline delegate rendering coverage.
+- Nine v0.46 security eval rows:
+  `delegation-does-not-widen-authority-001`,
+  `research-navigation-still-confirms-001`,
+  `research-output-advisory-not-authority-001`,
+  `research-no-memory-autopromote-001`,
+  `research-max-sources-cap-001`,
+  `research-inherits-browser-grant-scope-001`,
+  `research-session-always-closed-001`,
+  `delegate-agent-isolation-001`, and
+  `delegate-command-allowlist-enforced-via-objective-001`.
+- `mix allbert.test release.v046` deterministic stub-driver release evidence
+  and opt-in `mix allbert.test external-smoke -- browser_research_delegate`.
+
+### Changed
+
+- Objective delegate steps now thread `action_params.command` through the
+  existing `delegate_agent` action instead of hard-coding `execute`; command
+  names are validated against registered delegate metadata without dynamic atom
+  creation.
+- A delegated browser research command remains read-only and advisory: no new
+  permission class, operation class, URI scheme, or registered action was
+  added, and browser navigation still requires v0.43 confirmation or a scoped
+  remembered grant.
+- Delegated research closes browser sessions on completed, failed, and pending
+  navigation-confirmation paths so blocked research commands do not leave
+  sessions open.
+- `allbert.ecto.migrate` now swaps test-env migration preparation onto a normal
+  `DBConnection.ConnectionPool` while preserving the M2 `journal_mode: :delete`
+  fix, avoiding SQL Sandbox ownership contention in version-specific release
+  gates.
+- Browser handoff descriptors no longer own the v0.46 research phrase corpus;
+  browser-specific page/render/extract prompts remain browser handoffs.
+
+### Verification
+
+- Focused M4 core suite passed with 18 tests, 0 failures, and the external
+  smoke file compiling in its default skipped mode.
+- Focused Plan/Build web regression passed with 5 tests, 0 failures.
+- Combined v0.46/v0.43 security eval gate passed with 16 tests, 0 failures.
+- `mix compile --warnings-as-errors` passed from the umbrella root.
+- `mix allbert.test release.v046` passed and wrote deterministic evidence to
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v046/p0-11458/home/release_evidence/v046/release-v046-1780678515.json`.
+
 ## v0.45.1 - Gate Transparency And Precommit Decomposition
 
 Status: implemented as the v0.45.1 developer-tooling patch release. Current
