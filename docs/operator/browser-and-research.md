@@ -53,7 +53,7 @@ and close the session in cleanup. `--extract-format` accepts `text`,
 | `browser_list_sessions` | List sessions in the current runtime process. |
 | `browser_close_session` | Close a session in the current runtime process. |
 | `browser_sweep_cache` | Remove expired browser cache artifacts. |
-| `browser_research_handoff` | Agent-only advisory handoff; proposes the browser action sequence and grants no authority. |
+| `browser_research_handoff` | Agent-only advisory handoff for page summary, screenshot, render, and extract prompts; proposes the browser action sequence and grants no authority. |
 
 The `mix allbert.browser sessions list` and `sessions close <id>` helpers call
 the same registered actions for sessions visible to the current node.
@@ -64,6 +64,12 @@ they do not authorize navigation or page interaction.
 When `browser.navigation.allowed_domains` is non-empty, navigation is limited
 to those hosts. When it is empty, normal SSRF/private-network policy still
 applies and public hosts are allowed subject to confirmation/grants.
+
+As of v0.46, prompts in the locked research corpus (`research <topic>`,
+`research <URL> and summarize`, and `summarize the research on <topic>`)
+route to the `research.specialist` delegate when research is enabled. The
+browser handoff remains advisory and browser-specific; it does not own those
+research phrases.
 
 ## Cache And Evidence
 

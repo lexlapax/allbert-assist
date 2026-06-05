@@ -59,7 +59,7 @@ defmodule AllbertAssist.Intent.Descriptor do
   def normalize(attrs, opts) when is_map(attrs) and is_list(opts) do
     with {:ok, app_id} <- app_id(field(attrs, :app_id), Keyword.get(opts, :app_id)),
          {:ok, action_name} <- action_name(field(attrs, :action_name)),
-         {:ok, capability} <- capability(app_id, action_name),
+         {:ok, capability} <- capability(app_id, action_name, attrs, opts),
          {:ok, label} <- bounded_required_string(field(attrs, :label), :label),
          {:ok, destination} <- optional_destination(field(attrs, :destination)),
          {:ok, examples} <- bounded_string_list(field(attrs, :examples, []), :examples),
@@ -174,7 +174,21 @@ defmodule AllbertAssist.Intent.Descriptor do
 
   defp action_name(value), do: {:error, {:invalid_action_name, value}}
 
-  defp capability(app_id, action_name) do
+  defp capability(app_id, action_name, attrs, opts) do
+    case field(attrs, :capability) do
+      %{} = capability_attrs ->
+        if field(capability_attrs, :registered?, true) == false do
+          inert_capability(app_id, action_name, capability_attrs, opts)
+        else
+          registered_capability(app_id, action_name)
+        end
+
+      _other ->
+        registered_capability(app_id, action_name)
+    end
+  end
+
+  defp registered_capability(app_id, action_name) do
     case ActionsRegistry.capability(action_name) do
       {:ok, capability} ->
         cond do
@@ -192,6 +206,47 @@ defmodule AllbertAssist.Intent.Descriptor do
         {:error, {:unknown_action, action_name, reason}}
     end
   end
+
+  defp inert_capability(app_id, action_name, attrs, opts) do
+    with {:ok, permission} <- capability_atom(field(attrs, :permission, :read_only), [:read_only]),
+         {:ok, exposure} <- capability_atom(field(attrs, :exposure, :agent), [:agent]),
+         {:ok, execution_mode} <-
+           capability_atom(field(attrs, :execution_mode, :read_only), [:read_only]),
+         {:ok, confirmation} <-
+           capability_atom(field(attrs, :confirmation, :not_required), [:not_required]) do
+      {:ok,
+       %{
+         name: action_name,
+         registered?: false,
+         permission: permission,
+         exposure: exposure,
+         execution_mode: execution_mode,
+         skill_backed?: false,
+         confirmation: confirmation,
+         resumable?: false,
+         app_id: app_id
+       }
+       |> put_if_present(:plugin_id, field(attrs, :plugin_id) || Keyword.get(opts, :plugin_id))}
+    else
+      {:error, reason} -> {:error, {:invalid_inert_capability, reason}}
+    end
+  end
+
+  defp capability_atom(value, allowed) when is_atom(value) do
+    if value in allowed, do: {:ok, value}, else: {:error, {:unsupported_capability_value, value}}
+  end
+
+  defp capability_atom(value, allowed) when is_binary(value) do
+    value
+    |> String.trim()
+    |> String.downcase()
+    |> String.to_existing_atom()
+    |> capability_atom(allowed)
+  rescue
+    ArgumentError -> {:error, {:unsupported_capability_value, value}}
+  end
+
+  defp capability_atom(value, _allowed), do: {:error, {:unsupported_capability_value, value}}
 
   defp bounded_required_string(value, field_name) do
     case bounded_string(value) do
@@ -330,6 +385,9 @@ defmodule AllbertAssist.Intent.Descriptor do
   end
 
   defp descriptor_summary(_attrs), do: %{}
+
+  defp put_if_present(map, _key, nil), do: map
+  defp put_if_present(map, key, value), do: Map.put(map, key, value)
 
   defp field(map, key, default \\ nil)
 

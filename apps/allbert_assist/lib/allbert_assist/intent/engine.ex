@@ -530,7 +530,8 @@ defmodule AllbertAssist.Intent.Engine do
          true <- field(top, :app_id) == app_context.active_app,
          true <- get_in_trace(top, :ranking_reason) == :descriptor_text_match,
          score <- Ranker.score(top),
-         true <- score >= clarify_floor() do
+         true <- score >= clarify_floor(),
+         true <- registered_descriptor_candidate?(top) do
       case descriptor_action_kind(top) do
         :registry_action ->
           descriptor_registry_action_attrs(top, request, app_context, classifier_diagnostic)
@@ -664,6 +665,14 @@ defmodule AllbertAssist.Intent.Engine do
       [] -> :registry_action
       _missing -> :clarify_intent
     end
+  end
+
+  defp registered_descriptor_candidate?(candidate) do
+    trace_metadata = field(candidate, :trace_metadata, %{})
+    descriptor = field(trace_metadata, :descriptor, %{})
+    capability = field(descriptor, :capability, %{})
+
+    field(capability, :registered?, true) == true
   end
 
   defp descriptor_margin(candidate, candidates) do

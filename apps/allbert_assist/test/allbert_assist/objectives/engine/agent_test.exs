@@ -327,6 +327,64 @@ defmodule AllbertAssist.Objectives.Engine.AgentTest do
     assert state.last_result == {:ok, %{payload: %{payload: "topic"}, status: :completed}}
   end
 
+  test "delegate_agent step requiring confirmation blocks the objective instead of failing" do
+    engine_name = start_test_engine()
+    delegate_name = :"objective_delegate_pending_#{System.unique_integer([:positive])}"
+    start_supervised!({DelegateTestAgent, name: delegate_name})
+
+    assert {:ok, _entry} =
+             AgentRegistry.register("delegate-pending", delegate_name, DelegateTestAgent, %{
+               allowed_commands: [:pending]
+             })
+
+    on_exit(fn -> AgentRegistry.unregister("delegate-pending") end)
+
+    assert {:ok, objective} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               title: "Delegate pending",
+               objective: "Pause on a delegate confirmation."
+             })
+
+    assert {:ok, step} =
+             Objectives.create_step(%{
+               objective_id: objective.id,
+               kind: "delegate_agent",
+               status: "selected",
+               stage: "execute_step",
+               delegate_agent_id: "delegate-pending",
+               action_params: %{
+                 command: "pending",
+                 params: %{confirmation_id: "conf_delegate_pending"}
+               }
+             })
+
+    assert {:ok,
+            %{
+              step: blocked,
+              objective: blocked_objective,
+              status: :needs_confirmation,
+              confirmation_id: "conf_delegate_pending",
+              result: %{status: :needs_confirmation}
+            }} =
+             EngineAgent.execute_step(engine_name, %{
+               step_id: step.id,
+               trace_id: "trace_delegate_pending"
+             })
+
+    assert blocked.status == "blocked"
+    assert blocked.stage == "execute_step"
+    assert blocked.confirmation_id == "conf_delegate_pending"
+    assert blocked.result_summary == "Waiting for confirmation conf_delegate_pending."
+    assert blocked_objective.status == "blocked"
+    assert blocked_objective.current_step_id == blocked.id
+
+    assert Enum.any?(Objectives.list_events(objective.id), fn event ->
+             event.kind == "blocked" and event.step_id == blocked.id and
+               event.summary == "Objective blocked."
+           end)
+  end
+
   defp start_test_engine do
     name = :"objectives_engine_#{System.unique_integer([:positive])}"
     start_supervised!({EngineAgent, name: name, id: Atom.to_string(name), child_id: name})
@@ -366,20 +424,41 @@ defmodule DelegateTestResearchCommand do
   end
 end
 
+defmodule DelegateTestPendingCommand do
+  use Jido.Action,
+    name: "delegate_test_pending_command",
+    description: "Test-only pending delegate command."
+
+  @impl true
+  def run(params, _context) do
+    confirmation_id = Map.get(params, :confirmation_id, "conf_delegate_pending")
+
+    {:ok,
+     %{
+       last_command: :pending,
+       last_result: {:ok, %{status: :needs_confirmation, confirmation_id: confirmation_id}},
+       last_summary: "delegate pending confirmation"
+     }}
+  end
+end
+
 defmodule DelegateTestAgent do
   use AllbertAssist.JidoBacked,
     name: "delegate_test_agent",
     description: "Test-only objective delegate agent.",
     signal_routes: [
       {"allbert.objectives.delegate.execute", DelegateTestCommand},
-      {"allbert.objectives.delegate.research", DelegateTestResearchCommand}
+      {"allbert.objectives.delegate.research", DelegateTestResearchCommand},
+      {"allbert.objectives.delegate.pending", DelegateTestPendingCommand}
     ]
 
   @impl true
   def rebuild_state(_opts), do: {:ok, %{last_result: {:ok, %{status: :idle}}}}
 
   @impl true
-  def command_modules, do: [DelegateTestCommand, DelegateTestResearchCommand]
+  def command_modules do
+    [DelegateTestCommand, DelegateTestResearchCommand, DelegateTestPendingCommand]
+  end
 end
 
 defmodule HybridProposer do

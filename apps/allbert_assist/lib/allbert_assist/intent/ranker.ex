@@ -66,10 +66,13 @@ defmodule AllbertAssist.Intent.Ranker do
   defp apply_active_app_affinity(candidate, _context), do: candidate
 
   defp apply_descriptor_text_match(candidate, %{text: text}) when is_binary(text) do
-    if field(candidate, :kind) == :app_intent and descriptor_text_match?(candidate, text) do
+    match_score = descriptor_text_match_score(candidate, text)
+
+    if field(candidate, :kind) == :app_intent and match_score > 0 and
+         get_in_trace(candidate, :ranking_reason) != :descriptor_text_match do
       boost(
         candidate,
-        0.45,
+        0.45 + min(match_score * 0.05, 0.25),
         :descriptor_text_match,
         "Request text matched an app intent descriptor."
       )
@@ -183,7 +186,7 @@ defmodule AllbertAssist.Intent.Ranker do
 
   defp surface_text_match?(_candidate, _text), do: false
 
-  defp descriptor_text_match?(candidate, text) when is_binary(text) do
+  defp descriptor_text_match_score(candidate, text) when is_binary(text) do
     descriptor = get_in_trace(candidate, :descriptor) || %{}
 
     values =
@@ -193,10 +196,14 @@ defmodule AllbertAssist.Intent.Ranker do
         field(descriptor, :action_name)
       ] ++ field(descriptor, :examples, []) ++ field(descriptor, :synonyms, [])
 
-    Enum.any?(values, &descriptor_phrase_match?(text, &1))
+    values
+    |> Enum.map(&descriptor_phrase_match_score(text, &1))
+    |> Enum.max(fn -> 0 end)
   end
 
-  defp descriptor_phrase_match?(text, value) when is_binary(value) do
+  defp descriptor_text_match_score(_candidate, _text), do: 0
+
+  defp descriptor_phrase_match_score(text, value) when is_binary(value) do
     normalized_text = normalize_text(text)
     normalized_value = normalize_text(value)
     text_tokens = String.split(normalized_text, " ", trim: true)
@@ -204,21 +211,26 @@ defmodule AllbertAssist.Intent.Ranker do
 
     cond do
       normalized_value == "" ->
-        false
+        0
 
       phrase_token_match?(normalized_text, normalized_value) ->
-        true
+        length(value_tokens)
 
       length(value_tokens) == 1 ->
         [token] = value_tokens
-        String.length(token) >= 4 and token in text_tokens
+
+        if String.length(token) >= 4 and token in text_tokens do
+          1
+        else
+          0
+        end
 
       true ->
-        false
+        0
     end
   end
 
-  defp descriptor_phrase_match?(_text, _value), do: false
+  defp descriptor_phrase_match_score(_text, _value), do: 0
 
   defp phrase_token_match?(normalized_text, normalized_value) do
     text_tokens = String.split(normalized_text, " ", trim: true)

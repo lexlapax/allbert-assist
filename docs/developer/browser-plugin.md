@@ -46,7 +46,10 @@ Lifecycle helpers are intentionally narrow. `browser_list_sessions`,
 `:browser_extract` because they read or clean already-created browser
 session/cache artifacts; they do not authorize navigation, interaction, form
 fill, or download. `browser_research_handoff` is `:read_only`,
-agent-exposed, and advisory-only.
+agent-exposed, and advisory-only for browser-specific page summary,
+screenshot, render, and extract prompts. v0.46 research phrases route to
+the `research.specialist` delegate when research is enabled; the browser
+handoff does not grant or replace that delegate authority.
 
 `browser_fill` and `browser_download` are registered so workflows and evals can
 see the complete v0.43 surface, but both default to denied. Their opt-in path

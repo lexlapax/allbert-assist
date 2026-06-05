@@ -24,7 +24,8 @@ defmodule AllbertBrowser.App do
   @impl AllbertAssist.App
   def surfaces, do: [Results.surface([])]
 
-  def workspace_panel_surfaces(context), do: AllbertBrowser.SurfaceProvider.workspace_panel_surfaces(context)
+  def workspace_panel_surfaces(context),
+    do: AllbertBrowser.SurfaceProvider.workspace_panel_surfaces(context)
 
   def surface_catalog, do: []
 
@@ -35,8 +36,6 @@ defmodule AllbertBrowser.App do
         action_name: "browser_research_handoff",
         label: "Browser research handoff",
         examples: [
-          "research https://example.com",
-          "research https://example.com and summarize",
           "summarize the page at https://example.com",
           "screenshot https://example.com",
           "what does https://example.com look like",
@@ -47,7 +46,6 @@ defmodule AllbertBrowser.App do
           "extract pdf from https://example.com"
         ],
         synonyms: [
-          "research",
           "summarize the page",
           "screenshot",
           "render",

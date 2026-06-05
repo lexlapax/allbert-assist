@@ -169,6 +169,63 @@ defmodule AllbertAssistWeb.PlanBuildLiveTest do
     assert html =~ "cancel_plan_run, list_plan_runs"
   end
 
+  test "Run Progress panel renders research specialist browser events inline" do
+    steps = [
+      %{
+        id: "step_research",
+        kind: "delegate_agent",
+        status: "running",
+        candidate_action: "delegate_agent",
+        delegate_agent_id: "research.specialist"
+      }
+    ]
+
+    events = [
+      %{
+        id: "evt_nav",
+        step_id: "browser_nav",
+        kind: "browser_navigate",
+        summary: "Browser navigated to https://example.com/docs/a.",
+        payload: %{"parent_step_id" => "step_research", "url" => "https://example.com/docs/a"}
+      },
+      %{
+        id: "evt_extract",
+        step_id: "browser_extract",
+        kind: "browser_extract",
+        summary: "Browser extraction completed.",
+        payload: %{"parent_step_id" => "step_research", "format" => "text"}
+      }
+    ]
+
+    html =
+      render_component(PlanRunProgressPanel,
+        id: "plan-progress-research",
+        node: %Node{
+          id: "plan-progress-research",
+          component: :plan_run_progress_panel,
+          props: %{
+            objective: %{
+              id: "obj_research",
+              title: "Research workflow",
+              status: "running",
+              source_intent: "workflow:research_delegate:1"
+            },
+            steps: steps,
+            events: events,
+            registered_actions: ["cancel_plan_run", "list_plan_runs"]
+          }
+        },
+        renderer_context: %{user_id: "local", channel: :live_view},
+        workspace_state: %{}
+      )
+
+    assert html =~ "Research workflow"
+    assert html =~ "research.specialist"
+    assert html =~ "Subagent events"
+    assert html =~ "Browser navigated to https://example.com/docs/a."
+    assert html =~ "Browser extraction completed."
+  end
+
   test "workspace Plan/Build destinations render the expected panels", %{conn: conn} do
     {:ok, preview_view, preview_html} =
       live(conn, ~p"/workspace?destination=workspace:plan_build")
