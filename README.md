@@ -170,6 +170,7 @@ Recent milestones:
 Next milestones:
 
 - Post-`v0.45.1`: the planned 1.0 arc now continues capability-first:
+  delegation hardening and a research specialist (`v0.46`);
   operator-supervised self-improvement (`v0.47`); voice (`v0.48`); vision
   (`v0.49`); Discord/Slack channels and the channel-approval-primitive
   contract (`v0.50`); mobile messaging WhatsApp/Signal/Matrix (`v0.51`);
