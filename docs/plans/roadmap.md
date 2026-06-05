@@ -249,15 +249,15 @@ Dependency order from here:
     `0.45.1`: commit/prepush/release command split, timed direct release
     phases, redacted gate evidence, and `mix precommit` as commit-time
     feedback rather than release evidence.
-46. v0.46 Delegation hardening + research specialist: ship a second native
+46. v0.46 Delegation hardening + research specialist: planned second native
     delegate-agent consumer — a plugin-contributed research/summarize
     specialist at `./plugins/allbert.research/` — so the v0.24
     `AgentRegistry`/`delegate_agent` contract is proven against two domains
     (finance + research) before the v1.0 freeze (ADR 0021 amendment A21).
     No new authority: the agent orchestrates shipped v0.43 browser actions
-    through `Actions.Runner.run/3`; documents the delegate-agent extension
-    point so plugin authors can register their own. Operator no-code agent
-    authoring stays parked.
+    through `Actions.Runner.run/3`; v0.46 also hardens allowlisted delegate
+    command strings and documents the extension point so plugin authors can
+    register their own. Operator no-code agent authoring stays parked.
 47. v0.47 Operator-supervised self-improvement: marketplace-aware
     trace-to-skill, workflow, template, and dynamic capability draft
     suggestions plus reviewed memory/workflow draft facades; no autonomous
@@ -2677,31 +2677,35 @@ Expected direction:
   specialist** at `./plugins/allbert.research/`, registered as
   `research.specialist`. Its `research`/`summarize_url` commands
   orchestrate the already-shipped v0.43 browser navigate/extract actions
-  plus the existing runtime summarization path, all through
-  `Actions.Runner.run/3`.
+  plus a pinned model-backed summarization path when available, otherwise
+  deterministic extractive fallback, all through `Actions.Runner.run/3`.
+- Harden the existing `delegate_agent` action so v0.44 workflow-YAML
+  command strings are validated against registered-agent metadata
+  (`execute`, `research`, `summarize_url`) without dynamic atom creation.
 - **No new authority.** No new permission class, operation class, URI
   scheme, or registered action; only a small `research.*` settings
   fragment (enable toggle + bounded source cap). Every `browser_navigate`
   inside a research dispatch still confirms (or applies a v0.43 remembered
   per-domain grant) — delegation provably does not widen authority.
-- **Documents the extension point** (`docs/developer/delegate-agents.md`)
+- **Document the extension point** (`docs/developer/delegate-agents.md`)
   so third-party plugin authors can register a delegate agent. Exercises
   v0.44 Plan/Build inline subagent-delegation rendering against a
   non-StockSage agent via a `kind: delegate_agent` workflow step.
 
-Locked decisions (four; full rationale in `docs/plans/v0.46-plan.md`
+Locked decisions (five; full rationale in `docs/plans/v0.46-plan.md`
 §"M1 Locked Decisions"): plugin-contributed delegate agent (not core);
 zero new authority (orchestrate shipped actions); read-only research scope
 (inherits v0.43 deny-by-default); second consumer to harden — not to
-abstract or to add operator no-code authoring.
+abstract or to add operator no-code authoring; allowlisted delegate
+command strings at the existing action boundary.
 
 Exit signal: a delegated research objective runs the v0.43 browser
 sequence per source with each navigation still confirming inline under the
 parent delegate step; research output is advisory and never auto-promotes
 to memory; `research.max_sources` bounds fan-out; the browser session is
 always closed; a third-party plugin can register a delegate agent from the
-documented contract; the v1.0 freeze now locks a two-consumer-proven
-`AgentRegistry`/`delegate_agent` contract.
+documented contract; the v1.0 freeze can lock a two-consumer-proven
+`AgentRegistry`/`delegate_agent` contract after v0.46 lands.
 
 Parked remainder: operator no-code delegate-agent authoring (vs.
 developer-authored plugin agents) stays in `future-features.md`

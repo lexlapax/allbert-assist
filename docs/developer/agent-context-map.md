@@ -58,7 +58,7 @@ Do not load every section by default.
 | Browser and web research: `./plugins/allbert.browser/` plugin with real local Playwright/Chromium control, `browser://session/<id>` identity, six browser operation classes, seven `:browser_*` permission classes, `browser.*` settings namespace, per-domain remembered grants on navigated URLs, two-layer network policy (top-level via `External.HttpPolicy` + subresources via `AllbertBrowser.NetworkPolicy`), bounded HTML/markdown/text/PDF extraction, credential-input screenshot redaction, ephemeral profiles, workspace results panel, doctor (ADR 0047 shape), v0.50 channel-primitive forward pin | ADR 0011, ADR 0012, ADR 0013 (v0.43 amendment), ADR 0017, ADR 0023, ADR 0025, ADR 0027, ADR 0033, ADR 0040 (binding), ADR 0047, ADR 0049, `docs/plans/v0.43-plan.md`, `docs/plans/v0.43-request-flow.md` | v0.43 |
 | Plan/Build mode and operator workflow YAML: pinnable workspace panel surface over the v0.24 Objective Runtime, `workflow://<id>` and `plan://run/<objective_id>` identity (ADR 0013 v0.44 amendment), three `:workflow_*`/`:plan_*` permission classes, four operation classes plus `:plan_run` origin kind, `workflows.*` + `plan.*` core settings namespace (`schema_version: 1` per ADR 0046 draft; exposed through core fragments), v1 YAML schema assembled from the current `Actions.Registry.modules/0` snapshot + `Step.kinds()` with `additionalProperties: false` and closed-grammar `${...}` expression substitution (no `eval`, no `${secrets.x}`, no `${env.x}`, no dynamic action names), seven operator-facing Plan-Build actions (`list_workflows`, `inspect_workflow`, `expand_workflow`, `preview_plan`, `start_plan_run`, `cancel_plan_run`, `list_plan_runs`) plus internal `plan_step_confirm`, Plan Preview Contract packet (advisory-only per ADR 0021 §4), approved runs executed through the existing Objective Runtime, workspace Preview + RunProgress panels, subagent delegation inline rendering, confirmation upgrade-only rule, v0.50 channel-rendering forward pin | ADR 0011, ADR 0013 (v0.44 amendment), ADR 0017, ADR 0021, ADR 0023, ADR 0024, ADR 0027, ADR 0029, ADR 0030, ADR 0031, ADR 0041 (binding), ADR 0046 (drafted), ADR 0049, `docs/plans/v0.44-plan.md`, `docs/plans/v0.44-request-flow.md` | v0.44 / 0.44.0 |
 | Marketplace lite (local reviewed catalog + Allbert-author seeds): shipped seed catalog under `priv/marketplace/`, SHA-256 recursive bundle verification, disabled/untrusted skill/template installs under configurable Allbert Home-rooted roots, browse-only plugin-index metadata, `marketplace://entry/<author>/<name>` identity, `:marketplace_install` permission class, marketplace operation classes, seven registered marketplace actions, eight CLI subcommands, Marketplace Catalog workspace panel + intent routing, ADR 0047-style marketplace doctor, `marketplace.*` settings fragment (`schema_version: 1` per ADR 0046 draft), master `marketplace.enabled` disable switch, workflow-YAML forward-pin enforcement | ADR 0013 (v0.45 amendment), ADR 0043, ADR 0046 (drafted), ADR 0047, ADR 0049, `docs/plans/v0.45-plan.md`, `docs/plans/v0.45-request-flow.md` | v0.45 / 0.45.0 |
-| Delegation hardening and research specialist: second native `AgentRegistry` consumer (`research.specialist`) contributed by `./plugins/allbert.research/`, orchestrating shipped v0.43 browser navigate/extract + runtime summarization through `Actions.Runner.run/3`; zero new authority (no new permission/operation-class/URI/action), only a `research.*` settings fragment (`schema_version: 1`); advisory report packets (ADR 0021 §4); composed via v0.44 `kind: delegate_agent` step with inline subagent-delegation rendering; `docs/developer/delegate-agents.md` documents the extension point (gap 3c); proves the delegate contract against two domains before the v1.0 freeze | ADR 0017, ADR 0021 (amendment A21), ADR 0022, ADR 0029, ADR 0031, ADR 0040 (binding), ADR 0041, ADR 0046 (drafted), ADR 0049, `docs/plans/v0.46-plan.md`, `docs/plans/v0.46-request-flow.md` | v0.46 |
+| Planned delegation hardening and research specialist: second native `AgentRegistry` consumer (`research.specialist`) contributed by `./plugins/allbert.research/`, orchestrating shipped v0.43 browser navigate/extract + pinned runtime summarization or deterministic extractive fallback through `Actions.Runner.run/3`; zero new authority (no new permission/operation-class/URI/action), only a `research.*` settings fragment (`schema_version: 1`); hardens allowlisted delegate command strings at the existing `delegate_agent` boundary; advisory report packets (ADR 0021 §4); composed via v0.44 `kind: delegate_agent` step with inline subagent-delegation rendering; `docs/developer/delegate-agents.md` will document the extension point (gap 3c); will prove the delegate contract against two domains before the v1.0 freeze | ADR 0017, ADR 0021 (amendment A21), ADR 0022, ADR 0029, ADR 0031, ADR 0040 (binding), ADR 0041, ADR 0046 (drafted), ADR 0049, `docs/plans/v0.46-plan.md`, `docs/plans/v0.46-request-flow.md` | v0.46 |
 | Operator-supervised self-improvement, trace-to-skill draft suggestions, dynamic capability review loops | ADR 0045, `docs/plans/v0.47-plan.md`, `docs/plans/v0.47-request-flow.md`, `docs/plans/future-features.md`, ADR 0032, ADR 0035, ADR 0037 | v0.47 |
 | Voice, vision, and media resources | ADR 0042, `docs/plans/v0.48-plan.md`, `docs/plans/v0.48-request-flow.md`, `docs/plans/v0.49-plan.md`, `docs/plans/v0.49-request-flow.md` | v0.48-v0.49 |
 | Discord and Slack channel plugins + ADR 0016 amendment for channel approval primitives | ADR 0016, ADR 0017, `docs/plans/v0.50-plan.md`, `docs/plans/v0.50-request-flow.md` | v0.50 |
@@ -493,22 +493,27 @@ Implemented v0.41 gates:
   timed direct release phases, redacted gate evidence, and `mix precommit` as
   commit-time feedback rather than release evidence. No assistant capability or
   Security Central authority changes.
-- v0.46 (planned): Delegation Hardening And Research Specialist. Ships a
+- v0.46 (planned): Delegation Hardening And Research Specialist. Plans a
   second native `AgentRegistry` consumer — a plugin-contributed
   research/summarize specialist (`research.specialist` under
   `./plugins/allbert.research/`) — so the v0.24 `AgentRegistry`/
-  `delegate_agent` contract is proven against two domains (StockSage
+  `delegate_agent` contract can be proven against two domains (StockSage
   finance + research) before the v1.0 freeze (ADR 0021 amendment A21).
   The agent's `research`/`summarize_url` commands orchestrate the shipped
-  v0.43 browser navigate/extract actions plus the runtime summarization
-  path through `Actions.Runner.run/3`. Adds no new permission class,
-  operation class, URI scheme, or registered action; only a `research.*`
-  settings fragment (`schema_version: 1`). A `browser_navigate` inside a
-  research dispatch still confirms (or applies a v0.43 remembered grant) —
-  delegation provably does not widen authority. Output is advisory
-  (ADR 0021 §4) and never auto-promotes to memory. Composed via the v0.44
+  v0.43 browser navigate/extract actions plus a pinned runtime
+  summarization path when available, otherwise deterministic extractive
+  fallback, through `Actions.Runner.run/3`. It also hardens the existing
+  `delegate_agent` boundary so command strings are accepted only when
+  declared in registered-agent metadata; unknown names stay on
+  `:invalid_delegate_command` and no dynamic atom creation is allowed.
+  Adds no new permission class, operation class, URI scheme, or
+  registered action; only a `research.*` settings fragment
+  (`schema_version: 1`). A `browser_navigate` inside a research dispatch
+  still confirms (or applies a v0.43 remembered grant) — delegation
+  provably does not widen authority. Output is advisory (ADR 0021 §4) and
+  never auto-promotes to memory. Composed via the v0.44
   `kind: delegate_agent` workflow step with inline subagent-delegation
-  rendering. `docs/developer/delegate-agents.md` documents the extension
+  rendering. `docs/developer/delegate-agents.md` will document the extension
   point so third-party plugins can register a delegate agent. Operator
   no-code agent authoring stays parked in `future-features.md`.
 - v0.47 (planned): Operator-Supervised Self-Improvement. Adds no autonomous

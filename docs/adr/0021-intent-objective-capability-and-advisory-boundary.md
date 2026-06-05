@@ -738,9 +738,9 @@ second concrete provider proves the shape.
 
 ### A21. The delegate-agent substrate gets a second consumer before the 1.0 freeze (v0.46)
 
-Status: amendment added in the post-v0.45 planning pass for v0.46
+Status: planned amendment added in the post-v0.45 planning pass for v0.46
 Delegation Hardening And Research Specialist
-(`docs/plans/v0.46-plan.md`).
+(`docs/plans/v0.46-plan.md`); binding once v0.46 M1 lands.
 
 A18 records StockSage native financial specialist agents as the **first**
 real consumer of the v0.24 delegate-agent substrate
@@ -757,22 +757,25 @@ applies it to the delegate-agent substrate. Freezing `AgentRegistry` and
 the `:delegate_agent` step on one-consumer (StockSage-only) evidence
 risks locking a contract shaped by one domain's needs.
 
-Therefore v0.46 ships a **second** delegate-agent consumer — a
+Therefore v0.46 plans to ship a **second** delegate-agent consumer — a
 plugin-contributed research/summarize specialist
 (`./plugins/allbert.research/`) — whose commands orchestrate the
-already-shipped v0.43 browser navigate/extract and v0.11 summarization
-actions and return advisory report packets. Like StockSage's agents
-(A18), it:
+already-shipped v0.43 browser navigate/extract actions plus a pinned
+runtime summarization path when one exists, falling back to deterministic
+extractive summaries otherwise. Like StockSage's agents (A18), it:
 
 - registers in `AllbertAssist.Objectives.AgentRegistry` and is invoked
   only through the registered `delegate_agent` action;
+- declares its allowed delegate commands in registry metadata; the
+  `delegate_agent` action validates and normalizes those strings without
+  dynamic atom creation and rejects unknown names;
 - returns advisory report packets — its output is descriptive, never
   authority (Section 4);
 - owns no durable objective state, bypasses no registered action, and
   creates no plugin-private agent graph;
 - introduces **no** new permission class, operation class, URI scheme,
   or registered action — every effectful step still grounds through
-  the shipped v0.43/v0.11 actions, Security Central, confirmations, and
+  the shipped v0.43 browser actions, Security Central, confirmations, and
   Resource Access posture.
 
 What A21 unblocks:
@@ -780,6 +783,9 @@ What A21 unblocks:
 - the `AgentRegistry`/`delegate_agent` contract can be **reviewed against
   two distinct domains** (financial specialists + research) before the
   v1.0 freeze, so the freeze locks a two-consumer-proven contract;
+- the v0.44 workflow-YAML `command` field is reconciled with the runtime
+  boundary through allowlisted command-string validation instead of an
+  execute-only shortcut or arbitrary command dispatch;
 - the plugin-author extension path for delegate agents becomes
   documented (`docs/developer/delegate-agents.md`), so the substrate is
   discoverable rather than implicit.
