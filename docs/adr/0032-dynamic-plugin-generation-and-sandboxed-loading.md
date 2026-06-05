@@ -155,9 +155,11 @@ v0.47 operator-supervised self-improvement generalizes the
 `AllbertAssist.DynamicPlugins.Draft` lifecycle into a single logical
 reviewed-draft facade that holds every inert draft kind — code-bearing (this
 ADR), workflow (ADR 0041), skill, memory, and later objective drafts — keyed
-by a generic `kind` with provenance and the existing tier lifecycle (`draft`,
-`sandbox_compiled`, `sandbox_trialed`, `gate_passed`, `integrated`,
-`rolled_back`, `discarded`). Existing source-bearing v0.37 drafts remain under
+by a generic `kind` (added in v0.47) with provenance. Code-bearing kinds use
+the existing tier lifecycle (`draft`, `sandbox_compiled`, `sandbox_trialed`,
+`gate_passed`, `integrated`, `rolled_back`, `discarded`); non-code kinds
+(skill, workflow, memory, objective) use only a `draft → {discarded |
+promoted}` path. Existing source-bearing v0.37 drafts remain under
 `<ALLBERT_HOME>/dynamic_plugins/drafts/` as the compatibility root and are
 listed through the unified facade; new non-code v0.47 drafts use
 `<ALLBERT_HOME>/drafts/` subroots where appropriate. Code-bearing drafts keep
