@@ -333,8 +333,8 @@ trace ingestion can re-read the file if needed for debugging).
   in future-features.
 - **v0.47 Operator-Supervised Self-Improvement** trace-to-workflow
   drafts consume the v0.44 schema; drafts are tracked in the v0.47
-  unified reviewed-draft store (ADR 0032 v0.47 amendment, ADR 0045 A3)
-  with their on-disk YAML under
+  unified reviewed-draft facade (ADR 0032 v0.47 amendment, ADR 0045 A3)
+  with their workflow-specific on-disk YAML under
   `<ALLBERT_HOME>/drafts/workflows/<id>.yaml`, never the live
   `workflows/` directory. A workflow draft validates against the same
   compile-time schema as a live workflow but grants no permission and
