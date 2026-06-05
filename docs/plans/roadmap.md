@@ -2756,10 +2756,12 @@ Expected direction:
 - Add a read-only `discover_patterns` action (modeled on `find_tools`) that
   reads the index plus objective events, memory review decisions, and
   operator-marked examples, and writes inert suggestions.
-- Create **skill, workflow, and memory drafts** in **one unified
-  reviewed-draft store**, generalized from the v0.37 `DynamicPlugins.Draft`
-  lifecycle (ADR 0045 A3, ADR 0032 amendment). Workflow drafts reconcile the
-  ADR 0041 `drafts/workflows/` root.
+- Create **skill, workflow, and memory drafts** behind **one unified
+  reviewed-draft facade**, generalized from the v0.37 `DynamicPlugins.Draft`
+  lifecycle (ADR 0045 A3, ADR 0032 amendment). Existing source-bearing dynamic
+  drafts remain compatible under `<ALLBERT_HOME>/dynamic_plugins/drafts/`;
+  workflow drafts reconcile the ADR 0041
+  `<ALLBERT_HOME>/drafts/workflows/` root.
 - Keep every suggestion advisory and every draft inert; promotion to a live
   skill/workflow/memory entry is a separate confirmed action through the
   existing path.

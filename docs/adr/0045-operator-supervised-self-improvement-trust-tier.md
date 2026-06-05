@@ -95,15 +95,17 @@ pending/accepted/dismissed/expired lifecycle. No parallel suggestion store.
 
 Status: planned amendment for v0.47.
 
-The v0.37 `AllbertAssist.DynamicPlugins.Draft` lifecycle and its
-`dynamic_plugins/drafts/` root are generalized into a single reviewed-draft
-store holding every inert draft kind (code-bearing, workflow, skill, memory;
-objective and the v0.47b kinds added later) with a generic `kind`,
-provenance, and tier. The store is the only inert holding area; **promotion**
-routes a draft to the existing live write path for its kind (skill
-enablement, live `<ALLBERT_HOME>/workflows/<id>.yaml`, `Memory.append/1`,
-v0.37 `Loader.integrate/2`). See the ADR 0041 reconciliation note for the
-workflow drafts root.
+The v0.37 `AllbertAssist.DynamicPlugins.Draft` lifecycle is generalized into
+a single logical reviewed-draft facade holding every inert draft kind
+(code-bearing, workflow, skill, memory; objective and the v0.47b kinds added
+later) with a generic `kind`, provenance, and tier. The facade is the only
+review/list/show/discard/promote surface. Existing source-bearing dynamic
+drafts keep `<ALLBERT_HOME>/dynamic_plugins/drafts/` as a compatibility root;
+new non-code v0.47 drafts use `<ALLBERT_HOME>/drafts/` subroots where
+appropriate. **Promotion** routes a draft to the existing live write path for
+its kind (skill enablement, live `<ALLBERT_HOME>/workflows/<id>.yaml`,
+`Memory.append/1`, v0.37 `Loader.integrate/2`). See the ADR 0041
+reconciliation note for the workflow drafts root.
 
 ### A4. v0.47 ships discovery + non-code local drafts; v0.47b ships handoff drafts
 
