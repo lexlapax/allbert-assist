@@ -638,12 +638,17 @@ historical aliases only and remain in old reference notes for continuity.
   delegate-agent extension point, adds `mix allbert.research`, and proves the
   surface with nine v0.46 security eval rows plus deterministic
   `release.v046` evidence. Operator no-code agent authoring stays parked.
-- v0.47: Operator-Supervised Self-Improvement. Trace-to-skill, workflow,
-  template, delegate-plugin draft, and dynamic capability draft
-  suggestions consume v0.45 marketplace metadata, the shipped v0.46
-  delegate-agent extension point, and v0.40-v0.44 traces; reviewed
-  memory/workflow draft facades are the only new dynamic delegate
-  expansion.
+- v0.47: Operator-Supervised Self-Improvement (Discovery + Local Drafts). A
+  read-only trace index over v0.40-v0.44 traces, the generalized v0.42
+  suggestion surface, a read-only pattern-discovery action, and
+  skill/workflow/memory drafts in one unified reviewed-draft store. Every
+  suggestion is advisory and every draft inert until a confirmed action
+  promotes it.
+- v0.47b: Operator-Supervised Self-Improvement (Handoff Drafts). The
+  template-, marketplace-, delegate-plugin-, capability-gap-, and
+  objective-draft kinds that hand off to the v0.36/v0.37/v0.38
+  sandbox/gate/templated-creation path; consumes v0.45 marketplace metadata
+  and the shipped v0.46 delegate-agent extension point. No new trust tier.
 - v0.48: Voice Modality. Voice input/output composes with existing channels as
   audio resources and registered STT/TTS actions. Discord voice is deferred
   until after Discord exists.
@@ -717,8 +722,10 @@ draft creation from observed use:
 These suggestions are advisory only. They do not enable skills, grant
 permissions, install packages, compile arbitrary folders, publish plugins, or
 load code. Review, validation, sandbox/gate evidence where relevant, and
-operator confirmation remain mandatory. The planning home is
-`docs/plans/v0.47-plan.md`.
+operator confirmation remain mandatory. The planning home is split across
+`docs/plans/v0.47-plan.md` (discovery + local skill/workflow/memory drafts)
+and `docs/plans/v0.47b-plan.md` (template/marketplace/delegate-plugin/
+capability-gap/objective handoff drafts).
 
 ### Still Research / Explicitly Not v1.0
 

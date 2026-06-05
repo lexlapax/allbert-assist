@@ -332,9 +332,15 @@ trace ingestion can re-read the file if needed for debugging).
   parked under "Remote Workflow Distribution / Marketplace Workflows"
   in future-features.
 - **v0.47 Operator-Supervised Self-Improvement** trace-to-workflow
-  drafts consume the v0.44 schema; drafts write to
-  `<ALLBERT_HOME>/drafts/workflows/<id>.yaml`, never to the live
-  `workflows/` directory. Promotion is a confirmed operator action.
+  drafts consume the v0.44 schema; drafts are tracked in the v0.47
+  unified reviewed-draft store (ADR 0032 v0.47 amendment, ADR 0045 A3)
+  with their on-disk YAML under
+  `<ALLBERT_HOME>/drafts/workflows/<id>.yaml`, never the live
+  `workflows/` directory. A workflow draft validates against the same
+  compile-time schema as a live workflow but grants no permission and
+  enables no workflow. Promotion writes the live
+  `<ALLBERT_HOME>/workflows/<id>.yaml` only through a confirmed operator
+  action.
 - **v0.50 Channel Pack 1** amends ADR 0016 to lock channel approval
   primitives; v0.44 plan cards render through existing channel-specific
   affordances and are expressible in

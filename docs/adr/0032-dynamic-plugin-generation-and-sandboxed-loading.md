@@ -146,3 +146,19 @@ rewrite Allbert Home, the Security Central store, or the source tree.
   facades), and ADR 0009 (sandbox levels).
 - Paired with: ADR 0033 (capability gap and trust tiers) and ADR 0035
   (code-gen agents and live loader).
+
+## v0.47 Amendment: draft store generalized into a unified reviewed-draft store
+
+Status: planned amendment for v0.47; binding once v0.47 M4 lands.
+
+v0.47 operator-supervised self-improvement generalizes the
+`AllbertAssist.DynamicPlugins.Draft` lifecycle and its
+`<ALLBERT_HOME>/dynamic_plugins/drafts/` root into a single reviewed-draft
+store that holds every inert draft kind — code-bearing (this ADR), workflow
+(ADR 0041), skill, memory, and later objective drafts — keyed by a generic
+`kind` with provenance and the existing tier lifecycle (`draft`,
+`sandbox_compiled`, `sandbox_trialed`, `gate_passed`, `integrated`,
+`rolled_back`, `discarded`). Code-bearing drafts keep this ADR's
+sandbox/gate/loader promotion path unchanged; non-code kinds promote to their
+own existing live write paths. The module/root rename is an implementation
+detail recorded in `docs/plans/v0.47-plan.md` M4. See ADR 0045 A3.

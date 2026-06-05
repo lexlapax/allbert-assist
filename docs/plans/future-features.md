@@ -119,10 +119,13 @@ Still parked (the remainder):
 - **operator no-code delegate-agent authoring** — an operator (not a
   developer) defining a new delegate agent without writing Elixir. This
   must route through the supervised dynamic-capability path
-  (v0.36 sandbox/gate, v0.37 gated live integration, v0.38 templates) and
-  may be proposed as a draft by v0.47 self-improvement; it is not
-  autonomous agent creation, which stays parked under "Autonomous Skill
-  Creation Beyond Supervised Drafts";
+  (v0.36 sandbox/gate, v0.37 gated live integration, v0.38 templates).
+  v0.47b self-improvement may propose an **inert delegate-plugin draft
+  request** (a developer-shaped plugin scaffold routed through the v0.38
+  plugin template and the v0.36/v0.37 gate), but operator no-code authoring
+  itself — an operator standing up a live agent without code or the gate
+  path — stays parked. Neither is autonomous agent creation, which stays
+  parked under "Autonomous Skill Creation Beyond Supervised Drafts";
 - **a shared delegate-agent behaviour abstraction** — extracting a common
   framework across consumers. Per ADR 0021's "wait for ≥ 2 consumers"
   rule, v0.46 makes this possible but does not perform the extraction; a

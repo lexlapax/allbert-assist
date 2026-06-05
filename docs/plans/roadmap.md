@@ -258,10 +258,14 @@ Dependency order from here:
     through `Actions.Runner.run/3`; v0.46 also hardens allowlisted delegate
     command strings and documents the extension point so plugin authors can
     register their own. Operator no-code agent authoring stays parked.
-47. v0.47 Operator-supervised self-improvement: marketplace-aware
-    trace-to-skill, workflow, template, and dynamic capability draft
-    suggestions plus reviewed memory/workflow draft facades; no autonomous
-    authority.
+47. v0.47 Operator-supervised self-improvement (discovery + local drafts):
+    a read-only trace index, the generalized v0.42 suggestion surface, a
+    read-only pattern-discovery action, and skill/workflow/memory drafts in
+    one unified reviewed-draft store; no autonomous authority.
+47b. v0.47b Operator-supervised self-improvement (handoff drafts):
+    template-backed, marketplace-backed, inert delegate-plugin, capability-gap,
+    and objective drafts that hand off to the v0.36/v0.37/v0.38
+    sandbox/gate/templated-creation path; no new trust tier.
 48. v0.48 Voice modality: experimental STT/TTS resource/action path for CLI,
     workspace, and Telegram voice-note ingestion. Discord voice is deferred to
     a focused follow-on after Channel Pack 1.
@@ -2728,40 +2732,103 @@ developer-authored plugin agents) stays in `future-features.md`
 §"Operator-Authorable And Third-Party Delegate Agents", routed through the
 v0.36/v0.37/v0.47 supervised dynamic path post-1.0.
 
-## v0.47: Operator-Supervised Self-Improvement
+## v0.47: Operator-Supervised Self-Improvement (Discovery + Local Drafts)
 
 Plan: `docs/plans/v0.47-plan.md`
 Request flow: `docs/plans/v0.47-request-flow.md`
 ADR: `docs/adr/0045-operator-supervised-self-improvement-trust-tier.md`
+(amendments A1–A4).
 
-Status: planned. Promoted from the v1.0 planning follow-up; not implemented.
+Status: planned; implementation-ready for M1. Split from the original
+single-release plan into v0.47 (discovery + local drafts) and v0.47b (handoff
+drafts), the v0.39b/v0.45.1 pattern, so the discovery substrate and inert
+non-code drafts land on a proven base before the code-bearing and
+catalog-backed kinds.
 
 Expected direction:
 
-- Consume v0.45 marketplace-lite metadata plus v0.40-v0.44 traces as
-  suggestion sources. Team-channel traces become an additional source after
-  v0.50 lands; they are not a v0.47 dependency.
-- Add trace-to-skill draft suggestions from repeated prompts, repeated action
-  chains, corrections, failed intents, or operator-marked examples.
-- Add workflow/intention draft suggestions that turn repeated objective
-  patterns into inert workflow YAML or v0.38 template inputs.
-- Add reviewed memory promotion/update draft facades and objective/workflow
-  draft-write facades only.
-- Keep every suggestion advisory and inert until the operator reviews it and
-  sends it through the existing creation, sandbox/gate, confirmation, trace,
-  and audit paths.
+- Build a read-only **trace index** over `<ALLBERT_HOME>/memory/traces/` so
+  repeated prompts, action chains, corrections, and failed intents are
+  queryable; it inherits trace redaction and grants nothing (ADR 0045 A1).
+- **Generalize the v0.42 discovery suggestion surface**
+  (`Tools.Discovery.Suggestion` + `Workspace.DiscoverySuggestions`) to carry
+  self-improvement suggestion types — one queue, one panel (ADR 0045 A2).
+- Add a read-only `discover_patterns` action (modeled on `find_tools`) that
+  reads the index plus objective events, memory review decisions, and
+  operator-marked examples, and writes inert suggestions.
+- Create **skill, workflow, and memory drafts** in **one unified
+  reviewed-draft store**, generalized from the v0.37 `DynamicPlugins.Draft`
+  lifecycle (ADR 0045 A3, ADR 0032 amendment). Workflow drafts reconcile the
+  ADR 0041 `drafts/workflows/` root.
+- Keep every suggestion advisory and every draft inert; promotion to a live
+  skill/workflow/memory entry is a separate confirmed action through the
+  existing path.
+
+Locked decisions (five; full rationale in `docs/plans/v0.47-plan.md`
+§"M1 Locked Decisions"): one unified reviewed-draft store; generalize the
+v0.42 suggestion surface; build a redaction-respecting trace index;
+discovery + non-code local drafts only (handoff drafts are v0.47b); the
+discovery action mirrors `find_tools`.
+
+Exit signal: a read-only discovery scan proposes inert suggestions from a
+redaction-safe trace index; suggestions render in the generalized v0.42 panel
+and expire per policy; skill/workflow/memory drafts are created inert in one
+unified store and discarding them leaves nothing; promotion writes a live
+artifact only through an existing confirmed action; no trace signal,
+suggestion score, or repeated approval grants permission by itself.
 
 Non-goals:
 
-- No autonomous skill creation.
-- No auto-enable, auto-publish, package install, or remote plugin install from
-  trace patterns.
+- No autonomous skill creation; no auto-enable, auto-publish, package
+  install, or remote plugin install from trace patterns.
 - No small-model/personality distillation or learned system-memory authority.
 - No unsupervised self-recompilation, compiler-loop bootstrapping, or runtime
   mutation outside the v0.36/v0.37/v0.38 review path.
 - No settings, secrets, shell, package, confirmation-decision, trust-control,
   or live workspace/canvas write facades.
+- No code-bearing, template-backed, marketplace-backed, delegate-plugin,
+  capability-gap, or objective drafts — those are v0.47b.
 - No distributed multi-node or hosted multi-user execution model.
+
+## v0.47b: Operator-Supervised Self-Improvement (Handoff Drafts)
+
+Plan: `docs/plans/v0.47b-plan.md`
+Request flow: `docs/plans/v0.47b-request-flow.md`
+ADR: `docs/adr/0045-operator-supervised-self-improvement-trust-tier.md`
+(amendments A5–A7).
+
+Status: planned. Inserted between v0.47 and v0.48 (no renumber of v0.48+);
+ships as the `0.47.1` point release on top of v0.47.
+
+Expected direction:
+
+- On the v0.47 discovery substrate and unified draft store, add the draft
+  kinds that hand off to shipped substrates: **template-backed** (v0.38
+  `Templates.Registry`/`create_from_template`), **marketplace-backed** (v0.45
+  `Marketplace.list_entries/1`, descriptive only), **inert delegate-plugin
+  draft requests** (v0.46 contract via the v0.38 plugin template),
+  **capability-gap** (v0.37 `DynamicPlugins.request_draft/2` →
+  `Sandbox.run_gate/2` → `Loader.integrate/2`), and **objective** drafts.
+- Code-bearing drafts reach live authority only through the existing v0.36
+  sandbox + v0.37 trusted-validation/gate/loader path plus operator
+  confirmation, with rollback available (ADR 0045 A6).
+- Marketplace metadata stays descriptive; delegate-plugin drafts stay inert;
+  objective drafts stay declarative (ADR 0045 A5, A7).
+
+Non-goals:
+
+- No new sandbox/gate/loader and no new trust tier; v0.47b stays inside the
+  v0.47 self-improvement tier.
+- No operator no-code delegate-agent authoring (stays parked).
+- No marketplace submission/publishing automation; submission stays a
+  confirmed operator action.
+- No autonomous creation, distillation, or unsupervised self-recompilation.
+
+Exit signal: template-backed, marketplace-backed, delegate-plugin,
+capability-gap, and objective drafts are created inert in the v0.47 unified
+store; a code-bearing draft reaches live authority only through the existing
+sandbox/gate/loader path plus confirmation; marketplace metadata grants
+nothing and a delegate-plugin draft registers no agent.
 
 ## v0.48: Voice Modality
 
