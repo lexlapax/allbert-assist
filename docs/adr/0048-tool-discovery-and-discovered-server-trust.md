@@ -199,3 +199,19 @@ operator confirmation remains the authority, per ADR 0021.
   gap-detection primitive; gap-triggered discovery is a documented follow-on).
 - Amends: ADR 0038 (discovered servers are inert until this connect gate;
   reconnect re-verifies the baseline hash).
+
+## v0.47 Amendment: suggestion surface generalized for self-improvement
+
+Status: planned amendment for v0.47; binding once v0.47 M2 lands.
+
+v0.47 operator-supervised self-improvement reuses the passive discovery
+suggestion surface this ADR established rather than building a parallel queue.
+`AllbertAssist.Tools.Discovery.Suggestion` gains self-improvement
+`suggestion_type` values (`trace_to_skill`, `trace_to_workflow`,
+`memory_promotion`, `memory_update`; the v0.47b kinds `template_backed`,
+`marketplace_backed`, `delegate_plugin_request`, `capability_gap`,
+`objective`) plus a provenance discriminator distinguishing discovery (v0.42)
+from self-improvement (v0.47) sources. The passive
+`Workspace.DiscoverySuggestions` panel and the pending/accepted/dismissed/
+expired lifecycle are reused unchanged. Suggestions remain advisory metadata
+that grant no authority. See ADR 0045 A2.
