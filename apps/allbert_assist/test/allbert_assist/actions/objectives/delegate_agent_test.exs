@@ -42,7 +42,7 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgentTest do
          last_result:
            {:ok,
             %{
-              status: :completed,
+              status: :ok,
               payload: params,
               user_id: Map.get(context, :user_id)
             }}
@@ -171,6 +171,7 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgentTest do
                )
 
       assert response.status == :completed
+      assert response.delegate_response.status == :ok
       assert response.delegate_result.state.last_command == :research
       assert {:ok, result} = response.delegate_result.state.last_result
       assert result.payload == %{topic: "delegation"}

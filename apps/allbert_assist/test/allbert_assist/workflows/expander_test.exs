@@ -2,6 +2,7 @@ defmodule AllbertAssist.Workflows.ExpanderTest do
   use ExUnit.Case, async: false
   @moduletag :external_runtime_serial
 
+  alias AllbertAssist.Objectives.AgentRegistry
   alias AllbertAssist.Workflows
 
   setup do
@@ -11,8 +12,13 @@ defmodule AllbertAssist.Workflows.ExpanderTest do
     System.put_env("ALLBERT_HOME", home)
     Application.put_env(:allbert_assist, AllbertAssist.Paths, home: home)
     File.mkdir_p!(Path.join(home, "workflows"))
+    registered_research_delegate? = ensure_research_delegate_registered()
 
     on_exit(fn ->
+      if registered_research_delegate? do
+        AgentRegistry.unregister(AllbertResearch.Runtime.agent_id())
+      end
+
       restore_env("ALLBERT_HOME", original_home)
       restore_app_env(AllbertAssist.Paths, original_paths_config)
       File.rm_rf!(home)
@@ -79,4 +85,22 @@ defmodule AllbertAssist.Workflows.ExpanderTest do
   defp restore_env(key, value), do: System.put_env(key, value)
   defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+
+  defp ensure_research_delegate_registered do
+    case AgentRegistry.lookup(AllbertResearch.Runtime.agent_id()) do
+      {:ok, _entry} ->
+        false
+
+      {:error, :not_found} ->
+        assert {:ok, _entry} =
+                 AgentRegistry.register(
+                   AllbertResearch.Runtime.agent_id(),
+                   self(),
+                   AllbertResearch.Agent,
+                   AllbertResearch.Runtime.metadata()
+                 )
+
+        true
+    end
+  end
 end

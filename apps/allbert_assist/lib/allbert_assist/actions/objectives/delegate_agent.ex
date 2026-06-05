@@ -43,7 +43,7 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
              timeout: delegate_timeout_ms(params)
            ) do
       delegate_response = delegate_response(result)
-      status = Map.get(delegate_response, :status, :completed)
+      status = action_status(delegate_response)
 
       {:ok,
        %{
@@ -126,7 +126,6 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
   defp normalized_allowed_command(_command), do: :error
 
   defp delegate_response(%{state: state}), do: delegate_response_from_state(state)
-  defp delegate_response(_result), do: %{}
 
   defp delegate_response_from_state(state) when is_map(state) do
     case Map.get(state, :last_result, Map.get(state, "last_result")) do
@@ -138,6 +137,19 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
   end
 
   defp delegate_response_from_state(_state), do: %{}
+
+  defp action_status(%{status: status}) when status in [:ok, "ok", :completed, "completed"],
+    do: :completed
+
+  defp action_status(%{status: status})
+       when status in [:needs_confirmation, "needs_confirmation"],
+       do: :needs_confirmation
+
+  defp action_status(%{status: status}) when status in [:error, "error"], do: :error
+  defp action_status(%{status: status}) when status in [:failed, "failed"], do: :failed
+  defp action_status(%{status: status}) when status in [:denied, "denied"], do: :denied
+  defp action_status(%{status: status}) when status in [:not_found, "not_found"], do: :not_found
+  defp action_status(_delegate_response), do: :completed
 
   defp delegate_timeout_ms(params) do
     case field(params, :timeout_ms) do

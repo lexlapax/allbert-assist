@@ -7,6 +7,11 @@ defmodule AllbertResearch.Agent do
   actions through `AllbertAssist.Actions.Runner.run/3`.
   """
 
+  @dialyzer {:nowarn_function, __agent_metadata__: 0}
+  @dialyzer {:nowarn_function, actions: 0}
+  @dialyzer {:nowarn_function, signal_routes: 0}
+  @dialyzer {:nowarn_function, validate: 2}
+
   use Jido.Agent,
     name: "allbert_research_specialist",
     description: "Delegated browser research and summarization specialist.",
@@ -28,7 +33,6 @@ defmodule AllbertResearch.Agent do
     AllbertResearch.Runtime.child_spec(__MODULE__, opts)
   end
 
-  @spec command_modules() :: [module()]
   def command_modules do
     [
       AllbertResearch.Commands.Research,

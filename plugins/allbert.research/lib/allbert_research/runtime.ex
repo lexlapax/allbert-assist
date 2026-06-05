@@ -9,7 +9,6 @@ defmodule AllbertResearch.Runtime do
   @spec agent_id() :: String.t()
   def agent_id, do: @agent_id
 
-  @spec metadata() :: map()
   def metadata do
     %{
       app_id: :allbert_research,

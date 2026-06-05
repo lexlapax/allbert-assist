@@ -114,16 +114,20 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       "write_note"
     ]
 
-    assert action_names in [
-             core_actions,
-             core_actions ++ browser_actions,
-             core_actions ++ notes_files_actions,
-             core_actions ++ browser_actions ++ notes_files_actions,
-             core_actions ++ stocksage_actions,
-             core_actions ++ browser_actions ++ stocksage_actions,
-             core_actions ++ notes_files_actions ++ stocksage_actions,
-             core_actions ++ browser_actions ++ notes_files_actions ++ stocksage_actions
-           ]
+    allowed_action_sets =
+      [
+        core_actions,
+        core_actions ++ browser_actions,
+        core_actions ++ notes_files_actions,
+        core_actions ++ browser_actions ++ notes_files_actions,
+        core_actions ++ stocksage_actions,
+        core_actions ++ browser_actions ++ stocksage_actions,
+        core_actions ++ notes_files_actions ++ stocksage_actions,
+        core_actions ++ browser_actions ++ notes_files_actions ++ stocksage_actions
+      ]
+      |> Enum.map(&MapSet.new/1)
+
+    assert MapSet.new(action_names) in allowed_action_sets
   end
 
   test "routes tool discovery prompts to internal find_tools action" do

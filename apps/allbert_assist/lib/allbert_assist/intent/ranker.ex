@@ -201,8 +201,6 @@ defmodule AllbertAssist.Intent.Ranker do
     |> Enum.max(fn -> 0 end)
   end
 
-  defp descriptor_text_match_score(_candidate, _text), do: 0
-
   defp descriptor_phrase_match_score(text, value) when is_binary(value) do
     normalized_text = normalize_text(text)
     normalized_value = normalize_text(value)
