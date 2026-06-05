@@ -82,8 +82,6 @@ defmodule AllbertAssist.Actions.BrowserM4Test do
 
   test "browser intent descriptors propose handoff without granting browser authority" do
     phrases = [
-      "research https://example.com",
-      "research https://example.com and summarize",
       "summarize the page at https://example.com",
       "screenshot https://example.com",
       "what does https://example.com look like",

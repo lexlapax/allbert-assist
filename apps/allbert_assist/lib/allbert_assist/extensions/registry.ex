@@ -150,6 +150,7 @@ defmodule AllbertAssist.Extensions.Registry do
       |> apply(:intent_descriptors, [])
       |> Descriptor.normalize_many(
         app_id: source.app_id,
+        plugin_id: Map.get(source, :plugin_id),
         source: source.source,
         source_module: module
       )

@@ -1,0 +1,16 @@
+id: research_delegate
+version: 1
+description: Research delegate workflow fixture.
+inputs:
+  - name: topic
+    type: string
+    required: false
+    default: "local-first agent research"
+steps:
+  - id: research
+    kind: delegate_agent
+    delegate_agent_id: research.specialist
+    command: research
+    params:
+      topic: "${inputs.topic}"
+      max_sources: 1

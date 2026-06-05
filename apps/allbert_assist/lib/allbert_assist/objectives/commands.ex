@@ -859,6 +859,9 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
            },
            runner_context
          ) do
+      {:ok, %{status: :needs_confirmation} = response} ->
+        block_from_confirmation(objective, step, response, params, context)
+
       {:ok, response} ->
         complete_from_result(
           objective,
@@ -901,6 +904,64 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
           )
       end
     end
+  end
+
+  defp block_from_confirmation(objective, step, response, params, context) do
+    Repo.transaction(fn ->
+      confirmation_id = Map.get(response, :confirmation_id)
+      result_summary = "Waiting for confirmation #{confirmation_id}."
+
+      blocked_step =
+        step
+        |> Objectives.transition_step("blocked", %{
+          stage: "execute_step",
+          confirmation_id: confirmation_id,
+          trace_id: trace_id(params, context),
+          result_summary: result_summary
+        })
+        |> unwrap_or_rollback()
+
+      blocked_objective =
+        objective
+        |> Objectives.update_objective(%{
+          status: "blocked",
+          current_step_id: blocked_step.id,
+          progress_summary: result_summary
+        })
+        |> unwrap_or_rollback()
+
+      _event =
+        Objectives.create_event(%{
+          objective_id: blocked_objective.id,
+          step_id: blocked_step.id,
+          kind: "blocked",
+          summary: "Objective blocked.",
+          payload: %{
+            reason: :confirmation_required,
+            confirmation_id: confirmation_id,
+            step_id: blocked_step.id,
+            result_summary: result_summary
+          }
+        })
+        |> unwrap_or_rollback()
+
+      Commands.emit_objective(:blocked, blocked_objective, %{
+        stage: :execute_step,
+        step_id: blocked_step.id,
+        reason: "confirmation_required",
+        trace_id: trace_id(params, context)
+      })
+
+      %{
+        objective: blocked_objective,
+        step: blocked_step,
+        result: response,
+        response: response,
+        confirmation_id: confirmation_id,
+        status: :needs_confirmation,
+        stage: "execute_step"
+      }
+    end)
   end
 
   defp complete_from_result(objective, step, status, result, params, context) do

@@ -37,9 +37,40 @@ defmodule AllbertAssist.Workflows.ExpanderTest do
     assert hd(expanded.preview.authority_gates).gate == :workflow_run_start
   end
 
-  defp copy_fixture!(id, home) do
+  test "expands v0.46 research delegate workflow fixture", %{home: home} do
+    copy_fixture!("research_delegate", home, version: "v0.46")
+
+    assert {:ok, expanded} =
+             Workflows.expand(
+               "research_delegate",
+               %{topic: "delegate orchestration"},
+               %{user_id: "local"}
+             )
+
+    assert [
+             %{
+               kind: "delegate_agent",
+               provider: "plan_build",
+               delegate_agent_id: "research.specialist",
+               candidate_action: "delegate_agent",
+               action_params: %{
+                 command: "research",
+                 params: %{"topic" => "delegate orchestration", "max_sources" => 1}
+               }
+             }
+           ] = expanded.steps
+
+    assert [preview_step] = expanded.preview.steps
+    assert preview_step.kind == :delegate_agent
+    assert preview_step.action_name == "delegate_agent"
+    assert preview_step.subagent_target == "research.specialist"
+  end
+
+  defp copy_fixture!(id, home, opts \\ []) do
+    version = Keyword.get(opts, :version, "v0.44")
+
     File.cp!(
-      Path.expand("../../fixtures/v0.44/workflows/#{id}.yaml", __DIR__),
+      Path.expand("../../fixtures/#{version}/workflows/#{id}.yaml", __DIR__),
       Path.join([home, "workflows", "#{id}.yaml"])
     )
   end

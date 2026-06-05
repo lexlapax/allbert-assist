@@ -337,7 +337,7 @@ defmodule AllbertAssist.Security.V043BrowserResearchEvalTest do
   end
 
   test "browser intent descriptor handoff grants no browser authority" do
-    request = EvalFixtures.request(text: "research https://example.com and summarize it")
+    request = EvalFixtures.request(text: "summarize the page at https://example.com")
     candidates = Engine.collect_candidates(request)
 
     assert candidate =

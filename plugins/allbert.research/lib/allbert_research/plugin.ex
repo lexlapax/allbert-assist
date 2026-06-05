@@ -23,6 +23,9 @@ defmodule AllbertResearch.Plugin do
   def validate(_opts), do: :ok
 
   @impl true
+  def apps, do: [AllbertResearch.App]
+
+  @impl true
   def child_spec(_opts), do: AllbertResearch.Supervisor.child_spec([])
 
   @impl true
