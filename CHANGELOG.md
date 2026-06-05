@@ -53,10 +53,15 @@ Status: implemented as the v0.46 release. Current version metadata is
 - Delegated research closes browser sessions on completed, failed, and pending
   navigation-confirmation paths so blocked research commands do not leave
   sessions open.
-- `allbert.ecto.migrate` now swaps test-env migration preparation onto a normal
-  `DBConnection.ConnectionPool` while preserving the M2 `journal_mode: :delete`
-  fix, avoiding SQL Sandbox ownership contention in version-specific release
-  gates.
+- `allbert.ecto.migrate` now prepares test-env migrations through a normal
+  `DBConnection.ConnectionPool` and skips duplicate test migrations when a
+  direct read-only `schema_migrations` inspection proves the disposable
+  database is already current. This preserves the M2 `journal_mode: :delete`
+  fix while avoiding SQL Sandbox ownership contention in version-specific
+  release gates.
+- `README.md` is back to a consolidated project orientation: specific
+  release-by-release mechanics live in this changelog, with forward planning in
+  `docs/plans/roadmap.md`.
 - Browser handoff descriptors no longer own the v0.46 research phrase corpus;
   browser-specific page/render/extract prompts remain browser handoffs.
 
@@ -68,7 +73,13 @@ Status: implemented as the v0.46 release. Current version metadata is
 - Combined v0.46/v0.43 security eval gate passed with 16 tests, 0 failures.
 - `mix compile --warnings-as-errors` passed from the umbrella root.
 - `mix allbert.test release.v046` passed and wrote deterministic evidence to
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v046/p0-11458/home/release_evidence/v046/release-v046-1780678515.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v046/p0-13254/home/release_evidence/v046/release-v046-1780684140.json`.
+- Full `mix allbert.test release` passed with static compile, dependency,
+  format, Credo, and Dialyzer phases green; core tests passed with 1,363 tests
+  and 4 skipped, web tests passed with 120 tests, StockSage plugin tests passed
+  with 197 tests, and channel/notes-files plugin tests passed with 12 tests.
+  Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-6851/home/release_evidence/gates/release-2026-06-05T18_04_54Z.json`.
 
 ## v0.45.1 - Gate Transparency And Precommit Decomposition
 

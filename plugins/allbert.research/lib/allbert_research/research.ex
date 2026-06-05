@@ -6,7 +6,6 @@ defmodule AllbertResearch.Research do
 
   @default_extract_format "text"
 
-  @spec run(atom(), map(), map()) :: {:ok, map()}
   def run(command, params, context)
       when command in [:research, :summarize_url] and is_map(params) do
     state = Map.get(context, :state, %{})
@@ -24,8 +23,8 @@ defmodule AllbertResearch.Research do
     case sources(params) do
       {:ok, sources} ->
         case ensure_session(command, params, sources) do
-          {:ok, session_id, owned?} ->
-            run_with_session(command, params, sources, session_id, owned?)
+          {:ok, session_id} ->
+            run_with_session(command, params, sources, session_id)
 
           {:pending, response} ->
             {:ok, response}
@@ -42,7 +41,7 @@ defmodule AllbertResearch.Research do
   defp ensure_session(command, params, sources) do
     case field(params, :session_id) do
       session_id when is_binary(session_id) and session_id != "" ->
-        {:ok, session_id, true}
+        {:ok, session_id}
 
       _other ->
         start_params = %{
@@ -52,7 +51,7 @@ defmodule AllbertResearch.Research do
 
         case Runner.run("browser_start_session", start_params, browser_context(params)) do
           {:ok, %{status: :completed, session_id: session_id}} ->
-            {:ok, session_id, true}
+            {:ok, session_id}
 
           {:ok, %{status: :needs_confirmation} = response} ->
             {:pending, pending_response(command, :browser_start_session, response)}
@@ -63,20 +62,20 @@ defmodule AllbertResearch.Research do
     end
   end
 
-  defp run_with_session(command, params, sources, session_id, owned?) do
+  defp run_with_session(command, params, sources, session_id) do
     context = browser_context(params)
 
     case collect_sources(sources, session_id, context, extract_format(params), extract_cap()) do
       {:ok, collected} ->
-        close_result = if owned?, do: close_session(session_id, context), else: :not_owned
+        close_result = close_session(session_id, context)
         {:ok, completed_response(command, collected, close_result)}
 
       {:pending, response} ->
-        if owned?, do: close_session(session_id, context)
+        close_session(session_id, context)
         {:ok, pending_response(command, :browser_navigate, response)}
 
       {:error, response} ->
-        if owned?, do: close_session(session_id, context)
+        close_session(session_id, context)
         {:ok, failed_response(command, response)}
     end
   end
@@ -335,7 +334,6 @@ defmodule AllbertResearch.Research do
   defp notes(:closed),
     do: ["summary_engine=extractive_fallback", "session_closed", "advisory_only"]
 
-  defp notes(:not_owned), do: ["summary_engine=extractive_fallback", "advisory_only"]
   defp notes({:close_failed, reason}), do: ["close_failed=#{inspect(reason)}", "advisory_only"]
 
   defp missing_source_response do
@@ -364,8 +362,6 @@ defmodule AllbertResearch.Research do
   defp field(map, key, default) when is_map(map) do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
   end
-
-  defp field(_map, _key, default), do: default
 
   defp host(url) do
     case URI.parse(url) do

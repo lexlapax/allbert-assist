@@ -21,61 +21,43 @@ The project direction is intentionally practical: ship small, auditable
 contracts; prove each one through a real app; then make those contracts easier
 to generate and reuse.
 
-## Current State
+## Current Shape
 
-The current implementation is `v0.46.0`. `/workspace` is the operator home:
-chat is the primary spine, the launcher is view-only, and Canvas shows one
-destination at a time (Output, an app, or a workspace tool).
+The current implementation is `v0.46.0`. This README is the stable project
+orientation; release-by-release implementation detail belongs in
+[CHANGELOG.md](CHANGELOG.md), and forward planning belongs in
+[docs/plans/roadmap.md](docs/plans/roadmap.md).
 
-Allbert now has the core contracts needed for local assistant work:
-registered actions, Jido-backed agents, durable confirmations, Security
-Central, Settings Central, Resource Access, local traces, markdown memory,
-objectives, reviewed plugin apps, browser-backed research, operator workflow
-YAML, marketplace-lite reviewed assets, and release gates that produce
-bounded evidence.
+At the project level, Allbert has four durable parts:
 
-The major surfaces are:
+- A signal-driven runtime that resolves registered actions, frames objectives,
+  records traces, and keeps permission checks at the action boundary.
+- Operator surfaces, including Phoenix LiveView `/workspace`, Mix tasks,
+  channels, and plugin panels, that render and dispatch but do not own runtime
+  authority.
+- A reviewed extension model for source-tree plugins, apps, actions, settings,
+  channels, workflows, and delegate agents.
+- A local operating posture built around Allbert Home, Settings Central,
+  Security Central, confirmations, redaction, and release gates with bounded
+  evidence.
 
-- Runtime: registered actions, objectives, delegate agents, confirmations,
-  traces, memory, and scheduled jobs.
-- Operator UI: Phoenix LiveView `/workspace`, CLI tasks, workspace panels, and
-  Canvas destinations.
-- Plugin ecosystem: source-tree apps and plugins, StockSage as the reference
-  app, browser/research, notes/files, channel plugins, marketplace-lite seeds,
-  and documented delegate-agent extension points.
-- Safety and operations: Security Central, Resource Access, Settings Central,
-  Allbert Home, redaction, eval inventories, version-specific release gates,
-  and opt-in external smokes.
+StockSage remains the reference plugin app for exercising the platform through
+a concrete domain workflow. Other shipped plugins and operator guides document
+the same contracts in narrower surfaces.
 
-Release-by-release implementation detail belongs in [CHANGELOG.md](CHANGELOG.md).
-Forward planning lives in [docs/plans/roadmap.md](docs/plans/roadmap.md).
+## Capability Summary
 
-## What It Can Do Today
+Allbert supports local operator conversations, reviewed plugin app surfaces,
+durable confirmations, trace inspection, markdown memory review, scheduled
+jobs, and cross-turn objectives. Effectful work flows through registered Jido
+actions and policy checks instead of being granted by model output, app
+metadata, workflow YAML, or generated files.
 
-Allbert can accept operator input through CLI and the `/workspace` Phoenix
-LiveView, route effectful work through registered Jido actions, require durable
-confirmations, store local conversation history, run scheduled jobs, frame
-cross-turn objectives, inspect traces, review markdown memory, and host
-reviewed plugin apps through workspace panels.
-
-It can also scaffold reviewed plugin/app/tool/flow patterns, build disposable
-Elixir/OTP sandbox bundles, produce report-only sandbox/gate evidence, record
-dynamic draft requests, and live-register gate-passed dynamic actions after
-explicit operator confirmation in a disposable Allbert Home. Generated actions
-can be pure read-only or delegate memory/network effects through reviewed
-facades with their normal confirmations.
-
-It can discover MCP server candidates without connecting them, connect a
-discovered server only after operator consent that shows the exact command/URL,
-open Calendar/Mail/GitHub workspace panels backed by configured MCP servers,
-read/search/write local notes through the notes/files reference plugin, run
-policy-bounded browser extraction, execute operator workflow YAML through the
-Objective Runtime, and delegate read-only research work to
-`research.specialist`.
-
-StockSage is the reference plugin app. It exercises the app, objective,
-security, native-agent, LiveView surface, memory-sync, and canvas contracts
-through a concrete financial-analysis workflow.
+The platform also supports reviewed workflow and extension paths: operator
+workflow YAML runs through the Objective Runtime, MCP integrations connect only
+after operator consent, browser-backed work stays policy-bounded, and dynamic
+code paths remain gated, report-producing, and explicitly confirmed before any
+live registration.
 
 ## Built On
 
@@ -97,16 +79,11 @@ reviewed surfaces, actions remain policy-bound, objectives carry long-running
 work, memory stays inspectable, and generated apps inherit contracts that were
 manually proven first.
 
-The current release (`v0.46.0`) finishes the delegate-agent hardening step by
-proving the objective delegation contract against StockSage and read-only
-browser research. The next planned release is operator-supervised
-self-improvement (`v0.47`), followed by multimodal inputs, channel plugins,
-MCP server mode, final hardening, and a no-new-features tiered public contract
-freeze at `v1.0`.
-
-Use [CHANGELOG.md](CHANGELOG.md) for shipped release details and
-[docs/plans/roadmap.md](docs/plans/roadmap.md) for the current milestone
-sequence.
+The roadmap is intentionally incremental: prove a contract through real
+runtime use, document its authority boundary, add release evidence, and only
+then make the contract easier to reuse. Use [CHANGELOG.md](CHANGELOG.md) for
+shipped release details and [docs/plans/roadmap.md](docs/plans/roadmap.md) for
+the current milestone sequence.
 
 ## Start Here
 
@@ -119,10 +96,6 @@ sequence.
   milestones.
 - [CHANGELOG.md](CHANGELOG.md): released-history details.
 - [docs/adr](docs/adr): architectural decisions.
-- [docs/plans/v0.46-plan.md](docs/plans/v0.46-plan.md): implemented
-  delegation hardening and research specialist milestone.
-- [docs/operator/research-specialist.md](docs/operator/research-specialist.md):
-  operator guide for the shipped `research.specialist` delegate.
 - [docs/developer/test-strategy.md](docs/developer/test-strategy.md): test
   lane taxonomy, gate matrix, isolation contract, and implementation-plan
   parallelization annotations.

@@ -17,6 +17,7 @@ defmodule Mix.Tasks.Allbert.Delegate do
   @not_found_exit 65
   @identity_exit 66
   @failure_exit 1
+  @stored_summary_limit 2_000
 
   @impl true
   def run(args) do
@@ -133,17 +134,19 @@ defmodule Mix.Tasks.Allbert.Delegate do
   end
 
   defp finish_debug_objective(objective, step, %{status: :completed} = response) do
+    summary = stored_summary(response.message)
+
     {:ok, _step} =
       Objectives.update_step(step, %{
         status: "completed",
         stage: "observe_step",
-        result_summary: response.message
+        result_summary: summary
       })
 
     {:ok, _objective} =
       Objectives.update_objective(objective, %{
         status: "completed",
-        progress_summary: response.message,
+        progress_summary: summary,
         completed_at: DateTime.utc_now()
       })
 
@@ -151,13 +154,15 @@ defmodule Mix.Tasks.Allbert.Delegate do
   end
 
   defp finish_debug_objective(objective, step, response) do
+    summary = stored_summary(response)
+
     {:ok, _step} =
-      Objectives.update_step(step, %{status: "failed", result_summary: inspect(response)})
+      Objectives.update_step(step, %{status: "failed", result_summary: summary})
 
     {:ok, _objective} =
       Objectives.update_objective(objective, %{
         status: "failed",
-        progress_summary: inspect(response)
+        progress_summary: summary
       })
 
     :ok
@@ -223,6 +228,14 @@ defmodule Mix.Tasks.Allbert.Delegate do
     text = inspect(value, limit: 20, printable_limit: 1_200)
     if byte_size(text) > 1_200, do: binary_part(text, 0, 1_200), else: text
   end
+
+  defp stored_summary(value) when is_binary(value) do
+    if String.length(value) > @stored_summary_limit,
+      do: String.slice(value, 0, @stored_summary_limit),
+      else: value
+  end
+
+  defp stored_summary(value), do: bounded(value)
 
   defp reject_invalid!([]), do: :ok
   defp reject_invalid!(invalid), do: fail!(@usage_exit, "Unknown options: #{inspect(invalid)}")
