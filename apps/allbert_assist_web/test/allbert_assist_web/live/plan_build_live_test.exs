@@ -12,13 +12,15 @@ defmodule AllbertAssistWeb.PlanBuildLiveTest do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
 
     home =
-      Path.join(
+      Path.join([
         System.tmp_dir!(),
-        "allbert-plan-build-live-#{System.unique_integer([:positive])}"
-      )
+        "allbert-plan-build-live",
+        "#{System.system_time(:nanosecond)}-#{System.unique_integer([:positive])}"
+      ])
 
     System.put_env("ALLBERT_HOME", home)
     Application.put_env(:allbert_assist, Paths, home: home)
+    File.rm_rf!(home)
     File.mkdir_p!(Path.join(home, "workflows"))
     copy_fixture!("multi_step", home)
     write_editable_fixture!(home)
@@ -26,7 +28,7 @@ defmodule AllbertAssistWeb.PlanBuildLiveTest do
     on_exit(fn ->
       restore_env("ALLBERT_HOME", original_home)
       restore_app_env(Paths, original_paths_config)
-      File.rm_rf!(home)
+      File.rm_rf(home)
     end)
 
     {:ok, home: home}

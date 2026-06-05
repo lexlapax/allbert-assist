@@ -48,6 +48,7 @@ defmodule Mix.Tasks.Allbert.Ecto.Migrate do
   defp migration_repo_config(config) do
     if Mix.env() == :test do
       Keyword.put(config, :journal_mode, :delete)
+      |> Keyword.put(:pool, DBConnection.ConnectionPool)
     else
       config
     end

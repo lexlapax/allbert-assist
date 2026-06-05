@@ -756,12 +756,11 @@ applies it to the delegate-agent substrate. Freezing `AgentRegistry` and
 the `:delegate_agent` step on one-consumer (StockSage-only) evidence
 risks locking a contract shaped by one domain's needs.
 
-Therefore v0.46 plans to ship a **second** delegate-agent consumer — a
+Therefore v0.46 shipped a **second** delegate-agent consumer — a
 plugin-contributed research/summarize specialist
 (`./plugins/allbert.research/`) — whose commands orchestrate the
-already-shipped v0.43 browser navigate/extract actions plus a pinned
-runtime summarization path when one exists, falling back to deterministic
-extractive summaries otherwise. Like StockSage's agents (A18), it:
+already-shipped v0.43 browser navigate/extract actions and fall back to
+deterministic extractive summaries. Like StockSage's agents (A18), it:
 
 - registers in `AllbertAssist.Objectives.AgentRegistry` and is invoked
   only through the registered `delegate_agent` action;

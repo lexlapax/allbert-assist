@@ -246,6 +246,24 @@ eval surfaces until their capability work lands.
   `marketplace-disabled-skill-cannot-execute-001`,
   `marketplace-doctor-detects-orphan-install-001`, and
   `marketplace-doctor-detects-tampered-bundle-001`.
+- Delegation hardening and research specialist (v0.46 implemented surface):
+  `research.specialist` is a delegated objective agent, not a new browser
+  authority. It registers only `research` and `summarize_url` commands,
+  dispatches through the existing `delegate_agent` action, and orchestrates
+  v0.43 browser navigate/extract actions through `Actions.Runner.run/3`.
+  Browser navigation still confirms or uses a v0.43 remembered URL-prefix
+  grant; research output is advisory, never auto-promotes to memory, and
+  browser sessions are closed after completed, failed, and pending research
+  command paths. Implemented eval rows:
+  `delegation-does-not-widen-authority-001`,
+  `research-navigation-still-confirms-001`,
+  `research-output-advisory-not-authority-001`,
+  `research-no-memory-autopromote-001`,
+  `research-max-sources-cap-001`,
+  `research-inherits-browser-grant-scope-001`,
+  `research-session-always-closed-001`,
+  `delegate-agent-isolation-001`, and
+  `delegate-command-allowlist-enforced-via-objective-001`.
 - Discord, Slack, WhatsApp, Signal, and Matrix identity mapping,
   replay, pairing, group leakage, and callback ownership.
 - Voice, image, screenshot, and generated media resource retention, redaction,

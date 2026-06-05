@@ -17,8 +17,10 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v043
       mix allbert.test release.v044
       mix allbert.test release.v045
+      mix allbert.test release.v046
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
+      mix allbert.test external-smoke -- browser_research_delegate
       mix allbert.test external-smoke -- docker_sandbox
       mix allbert.test external-smoke -- docker_full_gate
 
@@ -73,6 +75,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v043"]), do: release_v043()
   def run(["release.v044"]), do: release_v044()
   def run(["release.v045"]), do: release_v045()
+  def run(["release.v046"]), do: release_v046()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -763,6 +766,81 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   ]
 
+  @release_v046_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "delegate_research_core",
+      title: "delegate action contract, research runtime, and CLI",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/actions/objectives/delegate_agent_test.exs",
+        "test/allbert_assist/actions/research_delegate_test.exs",
+        "test/mix/tasks/allbert_research_test.exs"
+      ],
+      coverage: [
+        "delegate_agent command allowlist and metadata dispatch",
+        "research.specialist advisory metadata and browser orchestration",
+        "CLI objective creation, completed observation, blocked confirmation handoff"
+      ]
+    },
+    %{
+      id: "intent_plan_build_research",
+      title: "research intent descriptors and Plan/Build workflow fixture",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/intent/research_descriptor_test.exs",
+        "test/allbert_assist/workflows/expander_test.exs"
+      ],
+      coverage: [
+        "locked research phrase corpus routes to inert research descriptors",
+        "browser handoff no longer owns v0.46 research phrases",
+        "research_delegate workflow fixture expands to delegate_agent step"
+      ]
+    },
+    %{
+      id: "research_workspace_web",
+      title: "workspace Plan/Build inline delegate rendering",
+      cwd: :web,
+      executable: "mix",
+      args: ["test", "test/allbert_assist_web/live/plan_build_live_test.exs"],
+      coverage: [
+        "Plan/Build progress renders research.specialist child events inline",
+        "existing Plan/Build panels remain renderable"
+      ]
+    },
+    %{
+      id: "research_security_eval",
+      title: "v0.46 research delegate security eval inventory and release evals",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v046_research_delegate_eval_test.exs",
+        "test/security/v043_browser_research_eval_test.exs",
+        "test/security/security_eval_case_test.exs"
+      ],
+      coverage: [
+        "9 v0.46 research delegate eval rows",
+        "navigation confirmation and browser grant scope inheritance",
+        "advisory output and no memory auto-promotion",
+        "max_sources cap and browser session cleanup",
+        "delegate-agent isolation and objective-path command allowlist",
+        "v0.43 browser security floor regression"
+      ]
+    }
+  ]
+
   defp release_v042 do
     env = owned_env("release-v042", 0)
     home = env_value(env, "ALLBERT_HOME")
@@ -933,6 +1011,77 @@ defmodule Mix.Tasks.Allbert.Test do
     if status != "passed" do
       Mix.raise("release.v045 failed; evidence: #{evidence_path}")
     end
+  end
+
+  defp release_v046 do
+    env = owned_env("release-v046", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v046")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v046_steps, &run_release_v046_step(&1, env))
+    secret_scan = release_v046_secret_scan(home)
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v046",
+      version: "v0.46",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network: "disabled; tests use the browser stub driver and local fixtures",
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path =
+      Path.join(evidence_dir, "release-v046-#{DateTime.to_unix(started_at)}.json")
+
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v046 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v046 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v046_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args,
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v046 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
   end
 
   defp run_release_v045_step(step, env) do
@@ -1190,6 +1339,41 @@ defmodule Mix.Tasks.Allbert.Test do
     result
   end
 
+  defp release_v046_secret_scan(home) do
+    Enum.each(
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces")
+      ],
+      &File.mkdir_p!/1
+    )
+
+    roots =
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces"),
+        Path.join(home, "traces")
+      ]
+      |> Enum.filter(&File.exists?/1)
+
+    files =
+      roots
+      |> Enum.flat_map(&Path.wildcard(Path.join(&1, "**/*")))
+      |> Enum.filter(&File.regular?/1)
+
+    findings = release_v042_secret_findings(files, home)
+
+    result = %{
+      status: if(findings == [], do: "passed", else: "failed"),
+      scanned_roots: Enum.map(roots, &Path.relative_to(&1, home)),
+      scanned_file_count: length(files),
+      findings: findings
+    }
+
+    print_output("release.v046 secret_scan", Jason.encode!(result, pretty: true))
+    result
+  end
+
   defp secret_patterns do
     [
       {"openai_like_key", ~r/\bsk-[A-Za-z0-9_-]{20,}\b/},
@@ -1261,6 +1445,7 @@ defmodule Mix.Tasks.Allbert.Test do
   defp run_external_smoke(["list"]) do
     Mix.shell().info("external smokes are opt-in and remain serial:")
     Mix.shell().info("- browser_research")
+    Mix.shell().info("- browser_research_delegate")
     Mix.shell().info("- docker_sandbox")
     Mix.shell().info("- docker_full_gate")
   end
@@ -1272,6 +1457,19 @@ defmodule Mix.Tasks.Allbert.Test do
       "mix",
       ["test", "test/external/browser_research_smoke_test.exs"],
       [{"ALLBERT_BROWSER_EXTERNAL_SMOKE", "1"} | owned_env("external-smoke-browser-research", 0)]
+    )
+  end
+
+  defp run_external_smoke(["browser_research_delegate"]) do
+    run_cmd!(
+      "external-smoke browser_research_delegate",
+      app_cwd(:core),
+      "mix",
+      ["test", "test/external/browser_research_delegate_smoke_test.exs"],
+      [
+        {"ALLBERT_BROWSER_RESEARCH_DELEGATE_EXTERNAL_SMOKE", "1"}
+        | owned_env("external-smoke-browser-research-delegate", 0)
+      ]
     )
   end
 
@@ -1902,8 +2100,10 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v043
       mix allbert.test release.v044
       mix allbert.test release.v045
+      mix allbert.test release.v046
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
+      mix allbert.test external-smoke -- browser_research_delegate
       mix allbert.test external-smoke -- docker_sandbox
       mix allbert.test external-smoke -- docker_full_gate
 
