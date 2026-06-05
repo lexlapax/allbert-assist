@@ -53,6 +53,17 @@ Status: implemented as the v0.46 release. Current version metadata is
 - Delegated research closes browser sessions on completed, failed, and pending
   navigation-confirmation paths so blocked research commands do not leave
   sessions open.
+- Delegated research now defensively handles unexpected browser action runner
+  returns in session start, navigate, extract, and close paths while keeping
+  the current completed, pending, and denied response shapes.
+- `AllbertResearch.Plugin.settings_schema/0` delegates to the named
+  `AllbertResearch.Settings.Fragment` owner for the `research.*` schema
+  without changing Settings Central composition.
+- `mix allbert.test release.v046` removes stale `release-v046-*.json` files
+  from its owned disposable evidence directory before writing the current run's
+  evidence JSON.
+- The security eval inventory now includes `:research_delegate` in the
+  required runtime surface list, matching the shipped v0.46 eval rows.
 - `allbert.ecto.migrate` now prepares test-env migrations through a normal
   `DBConnection.ConnectionPool` and skips duplicate test migrations when a
   direct read-only `schema_migrations` inspection proves the disposable
@@ -72,14 +83,26 @@ Status: implemented as the v0.46 release. Current version metadata is
 - Focused Plan/Build web regression passed with 5 tests, 0 failures.
 - Combined v0.46/v0.43 security eval gate passed with 16 tests, 0 failures.
 - `mix compile --warnings-as-errors` passed from the umbrella root.
-- `mix allbert.test release.v046` passed and wrote deterministic evidence to
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v046/p0-13254/home/release_evidence/v046/release-v046-1780684140.json`.
+- M5 focused remediation tests passed for research delegation, settings
+  fragments, security eval inventory, and v0.46 research delegate evals.
+- `mix allbert.test release.v046` passed twice after M5; the final run wrote
+  deterministic evidence to
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v046/p0-9090/home/release_evidence/v046/release-v046-1780693284.json`,
+  left only the current v0.46 JSON in its owned evidence directory, and had no
+  DB-lock signature matches.
+- Seeded web reproduction `mix test --seed 199649` from
+  `apps/allbert_assist_web` passed with 120 tests, 0 failures, and no
+  Exqlite/DBConnection log after the workspace editor test waited for its
+  offline revision refresh.
 - Full `mix allbert.test release` passed with static compile, dependency,
-  format, Credo, and Dialyzer phases green; core tests passed with 1,363 tests
+  format, Credo, and Dialyzer phases green; core tests passed with 1,364 tests
   and 4 skipped, web tests passed with 120 tests, StockSage plugin tests passed
   with 197 tests, and channel/notes-files plugin tests passed with 12 tests.
   Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-6851/home/release_evidence/gates/release-2026-06-05T18_04_54Z.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-8066/home/release_evidence/gates/release-2026-06-05T21_30_08Z.json`.
+  The final release JSON and phase logs had no `database is locked`,
+  `Database busy`, `SQLITE_BUSY`, `Exqlite.Connection`, or
+  `DBConnection.ConnectionError` matches.
 
 ## v0.45.1 - Gate Transparency And Precommit Decomposition
 

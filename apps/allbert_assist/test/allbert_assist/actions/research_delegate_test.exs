@@ -150,6 +150,41 @@ defmodule AllbertAssist.Actions.ResearchDelegateTest do
     assert {:ok, %{sessions: []}} = Runner.run("browser_list_sessions", %{}, %{})
   end
 
+  test "browser extraction error returns advisory failure and closes session" do
+    assert_browser_ready!()
+    session_id = start_browser_session!()
+
+    remember_navigation_grant!("https://example.com/docs/")
+
+    assert {:ok, response} =
+             Runner.run(
+               "delegate_agent",
+               %{
+                 user_id: "alice",
+                 objective_id: "obj_research_extract_error",
+                 step_id: "step_research_extract_error",
+                 delegate_agent_id: AllbertResearch.Runtime.agent_id(),
+                 command: "research",
+                 params: %{
+                   user_id: "alice",
+                   objective_id: "obj_research_extract_error",
+                   step_id: "step_research_extract_error",
+                   session_id: session_id,
+                   sources: ["https://example.com/docs/a"],
+                   extract_format: "rtf"
+                 }
+               },
+               %{user_id: "alice", operator_id: "alice"}
+             )
+
+    assert response.status == :error
+    assert response.delegate_response.status == :error
+    assert response.delegate_response.error == :unsupported_format
+    assert response.delegate_response.output_data.sources == []
+    assert response.delegate_response.output_data.notes == ["failed", "advisory_only"]
+    assert {:ok, %{sessions: []}} = Runner.run("browser_list_sessions", %{}, %{})
+  end
+
   test "objective engine path rejects research commands outside delegate metadata" do
     engine_name = start_test_engine()
 

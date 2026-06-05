@@ -1564,6 +1564,8 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
       conflict_count: 0,
       max_bytes: 33_554_432
     })
+
+    assert render_until(view, revision_id) =~ "data-base-revision-id=\"#{revision_id}\""
   end
 
   test "workspace tile editor hook respects workspace write denial", %{conn: conn} do

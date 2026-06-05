@@ -49,7 +49,7 @@ defmodule AllbertResearch.Research do
           expected_domains: Enum.map(sources, &host/1) |> Enum.reject(&is_nil/1) |> Enum.uniq()
         }
 
-        case Runner.run("browser_start_session", start_params, browser_context(params)) do
+        case run_browser_action("browser_start_session", start_params, browser_context(params)) do
           {:ok, %{status: :completed, session_id: session_id}} ->
             {:ok, session_id}
 
@@ -58,6 +58,9 @@ defmodule AllbertResearch.Research do
 
           {:ok, response} ->
             {:error, failed_response(command, response)}
+
+          {:error, response} ->
+            {:error, failed_response(command, response)}
         end
     end
   end
@@ -65,19 +68,31 @@ defmodule AllbertResearch.Research do
   defp run_with_session(command, params, sources, session_id) do
     context = browser_context(params)
 
-    case collect_sources(sources, session_id, context, extract_format(params), extract_cap()) do
+    collect_result =
+      collect_sources_safely(sources, session_id, context, extract_format(params), extract_cap())
+
+    close_result = close_session(session_id, context)
+
+    case collect_result do
       {:ok, collected} ->
-        close_result = close_session(session_id, context)
         {:ok, completed_response(command, collected, close_result)}
 
       {:pending, response} ->
-        close_session(session_id, context)
         {:ok, pending_response(command, :browser_navigate, response)}
 
       {:error, response} ->
-        close_session(session_id, context)
         {:ok, failed_response(command, response)}
     end
+  end
+
+  defp collect_sources_safely(sources, session_id, context, extract_format, max_bytes) do
+    collect_sources(sources, session_id, context, extract_format, max_bytes)
+  rescue
+    exception ->
+      {:error, unexpected_runner_response({:exception, Exception.message(exception)})}
+  catch
+    kind, reason ->
+      {:error, unexpected_runner_response({kind, reason})}
   end
 
   defp collect_sources(sources, session_id, context, extract_format, max_bytes) do
@@ -97,15 +112,16 @@ defmodule AllbertResearch.Research do
   end
 
   defp navigate(session_id, url, context) do
-    case Runner.run("browser_navigate", %{session_id: session_id, url: url}, context) do
+    case run_browser_action("browser_navigate", %{session_id: session_id, url: url}, context) do
       {:ok, %{status: :completed}} -> {:ok, :navigated}
       {:ok, %{status: :needs_confirmation} = response} -> {:pending, response}
       {:ok, response} -> {:error, response}
+      {:error, response} -> {:error, response}
     end
   end
 
   defp extract(session_id, url, format, max_bytes, context) do
-    case Runner.run(
+    case run_browser_action(
            "browser_extract",
            %{session_id: session_id, format: format, max_bytes: max_bytes},
            context
@@ -121,6 +137,9 @@ defmodule AllbertResearch.Research do
          }}
 
       {:ok, response} ->
+        {:error, response}
+
+      {:error, response} ->
         {:error, response}
     end
   end
@@ -164,10 +183,11 @@ defmodule AllbertResearch.Research do
     }
   end
 
-  defp failed_response(command, response) do
+  defp failed_response(command, response) when is_map(response) do
+    reason = response_reason(response)
+
     %{
-      message:
-        "Research #{command} failed: #{inspect(Map.get(response, :error, response[:status]))}.",
+      message: "Research #{command} failed: #{inspect(reason)}.",
       status: :error,
       error: Map.get(response, :error, :research_failed),
       output_data: %{
@@ -178,6 +198,9 @@ defmodule AllbertResearch.Research do
       actions: Map.get(response, :actions, [])
     }
   end
+
+  defp failed_response(command, response),
+    do: failed_response(command, unexpected_runner_response(response))
 
   defp disabled_response(command) do
     %{
@@ -201,11 +224,47 @@ defmodule AllbertResearch.Research do
   end
 
   defp close_session(session_id, context) do
-    case Runner.run("browser_close_session", %{session_id: session_id}, context) do
+    case run_browser_action("browser_close_session", %{session_id: session_id}, context) do
       {:ok, %{status: :completed}} -> :closed
-      {:ok, response} -> {:close_failed, Map.get(response, :error, Map.get(response, :status))}
+      {:ok, response} -> {:close_failed, response_reason(response)}
+      {:error, response} -> {:close_failed, response_reason(response)}
     end
   end
+
+  defp run_browser_action(action, params, context) do
+    Runner
+    |> apply(:run, [action, params, context])
+    |> normalize_runner_result()
+  rescue
+    exception ->
+      {:error, unexpected_runner_response({:exception, Exception.message(exception)})}
+  catch
+    kind, reason ->
+      {:error, unexpected_runner_response({kind, reason})}
+  end
+
+  defp normalize_runner_result({:ok, response}), do: {:ok, response}
+
+  defp normalize_runner_result(other),
+    do: {:error, unexpected_runner_response(runner_result_reason(other))}
+
+  defp runner_result_reason({:error, reason}), do: reason
+  defp runner_result_reason(other), do: other
+
+  defp unexpected_runner_response(reason) do
+    %{
+      status: :error,
+      error: :unexpected_browser_action_result,
+      detail: inspect(reason),
+      actions: []
+    }
+  end
+
+  defp response_reason(response) when is_map(response) do
+    Map.get(response, :error, Map.get(response, :status, :research_failed))
+  end
+
+  defp response_reason(response), do: response
 
   defp state_update(state, command, {:ok, response}) do
     Map.merge(state, %{
