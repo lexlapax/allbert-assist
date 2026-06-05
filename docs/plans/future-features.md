@@ -108,10 +108,10 @@ near-term gaps:
 - **second consumer (planned for v0.46):** a plugin-contributed
   research/summarize specialist will prove the contract against a second
   domain before the v1.0 freeze (ADR 0021 amendment A21);
-- **third-party plugin authoring (planned for v0.46):**
-  `docs/developer/delegate-agents.md` will document the registration
-  contract, so reviewed plugins can register delegate agents through the
-  existing boundary once the milestone lands.
+- **third-party plugin authoring (started in v0.46 M1):**
+  `docs/developer/delegate-agents.md` documents the registration contract,
+  so reviewed plugins can register delegate agents through the existing
+  boundary once the full milestone lands.
 
 Still parked (the remainder):
 

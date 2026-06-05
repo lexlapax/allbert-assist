@@ -738,9 +738,8 @@ second concrete provider proves the shape.
 
 ### A21. The delegate-agent substrate gets a second consumer before the 1.0 freeze (v0.46)
 
-Status: planned amendment added in the post-v0.45 planning pass for v0.46
-Delegation Hardening And Research Specialist
-(`docs/plans/v0.46-plan.md`); binding once v0.46 M1 lands.
+Status: accepted in v0.46 M1 for Delegation Hardening And Research
+Specialist (`docs/plans/v0.46-plan.md`).
 
 A18 records StockSage native financial specialist agents as the **first**
 real consumer of the v0.24 delegate-agent substrate

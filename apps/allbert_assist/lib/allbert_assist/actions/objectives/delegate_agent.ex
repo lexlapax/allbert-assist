@@ -36,7 +36,8 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
 
     with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
          {:ok, agent_id} <- agent_id(params),
-         {:ok, command} <- command(params),
+         {:ok, entry} <- AgentRegistry.lookup(agent_id),
+         {:ok, command} <- command(params, entry),
          {:ok, result} <-
            AgentRegistry.dispatch(agent_id, command, field(params, :params, %{}),
              timeout: delegate_timeout_ms(params)
@@ -72,20 +73,51 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
     end
   end
 
-  defp command(params) do
+  defp command(params, entry) do
     value = field(params, :command, "execute")
+    allowed_commands = allowed_commands(entry)
 
     cond do
-      is_atom(value) ->
-        {:ok, value}
+      is_atom(value) and Map.has_key?(allowed_commands, Atom.to_string(value)) ->
+        {:ok, Map.fetch!(allowed_commands, Atom.to_string(value))}
 
-      value == "execute" ->
-        {:ok, :execute}
+      is_binary(value) and Map.has_key?(allowed_commands, value) ->
+        {:ok, Map.fetch!(allowed_commands, value)}
 
       true ->
         {:error, :invalid_delegate_command}
     end
   end
+
+  defp allowed_commands(entry) do
+    entry
+    |> Map.get(:metadata, %{})
+    |> metadata_commands()
+    |> List.wrap()
+    |> Kernel.++([:execute])
+    |> Enum.reduce(%{}, fn command, acc ->
+      case normalized_allowed_command(command) do
+        {:ok, atom} -> Map.put_new(acc, Atom.to_string(atom), atom)
+        :error -> acc
+      end
+    end)
+  end
+
+  defp metadata_commands(metadata) when is_map(metadata) do
+    Map.get(metadata, :allowed_commands, Map.get(metadata, "allowed_commands", []))
+  end
+
+  defp metadata_commands(_metadata), do: []
+
+  defp normalized_allowed_command(command) when is_atom(command), do: {:ok, command}
+
+  defp normalized_allowed_command(command) when is_binary(command) do
+    {:ok, String.to_existing_atom(command)}
+  rescue
+    ArgumentError -> :error
+  end
+
+  defp normalized_allowed_command(_command), do: :error
 
   defp delegate_timeout_ms(params) do
     case field(params, :timeout_ms) do

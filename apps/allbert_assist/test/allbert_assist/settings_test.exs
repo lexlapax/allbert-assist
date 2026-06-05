@@ -1060,6 +1060,45 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("browser.navigation.max_redirects", 4, %{audit?: false})
   end
 
+  test "research plugin settings schema resolves defaults and invariants" do
+    PluginRegistry.clear()
+    assert {:ok, "allbert.research"} = PluginRegistry.register_module(AllbertResearch.Plugin)
+
+    assert {:ok, false} = Settings.get("research.enabled")
+    assert {:ok, 1} = Settings.get("research.schema_version")
+    assert {:ok, 3} = Settings.get("research.max_sources")
+    assert {:ok, 524_288} = Settings.get("research.max_extract_bytes_per_source")
+    assert {:ok, "extractive_fallback"} = Settings.get("research.summary.engine")
+
+    assert {:ok, enabled} = Settings.put("research.enabled", true, %{audit?: false})
+    assert enabled.value == true
+
+    assert {:ok, max_sources} = Settings.put("research.max_sources", 8, %{audit?: false})
+    assert max_sources.value == 8
+
+    assert {:ok, max_bytes} =
+             Settings.put("research.max_extract_bytes_per_source", 1_048_576, %{audit?: false})
+
+    assert max_bytes.value == 1_048_576
+
+    assert {:error, {:read_only_setting, "research.schema_version"}} =
+             Settings.put("research.schema_version", 2, %{audit?: false})
+
+    assert {:error, {:read_only_setting, "research.summary.engine"}} =
+             Settings.put("research.summary.engine", "runtime_default", %{audit?: false})
+
+    assert {:error, {:invalid_setting, "research.max_sources", _reason}} =
+             Settings.put("research.max_sources", 9, %{audit?: false})
+
+    assert {:ok, fragment} = Fragments.fragment_for_key("research.enabled")
+    assert fragment.id == "plugin:allbert.research"
+    assert fragment.source == :plugin
+    assert fragment.defaults["research"]["schema_version"] == 1
+    assert "research.enabled" in fragment.safe_write_keys
+    refute "research.schema_version" in fragment.safe_write_keys
+    refute "research.summary.engine" in fragment.safe_write_keys
+  end
+
   test "app-contributed settings schema participates in Settings Central" do
     assert {:ok, :settings_fixture_app} = AppRegistry.register(AppSettingsFixture)
 

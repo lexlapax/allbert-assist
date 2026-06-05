@@ -845,6 +845,7 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
 
   defp execute(%Objective{} = objective, %Step{kind: "delegate_agent"} = step, params, context) do
     runner_context = runner_context(objective, step, params, context)
+    delegate_params = delegate_action_params(step)
 
     case Runner.run(
            "delegate_agent",
@@ -853,8 +854,8 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
              objective_id: objective.id,
              step_id: step.id,
              delegate_agent_id: step.delegate_agent_id,
-             command: "execute",
-             params: action_params_or_empty(step)
+             command: Map.fetch!(delegate_params, :command),
+             params: Map.fetch!(delegate_params, :params)
            },
            runner_context
          ) do
@@ -1070,6 +1071,19 @@ defmodule AllbertAssist.Objectives.Commands.ExecuteStep do
       {:error, _reason} -> %{}
     end
   end
+
+  defp delegate_action_params(step) do
+    action_params = action_params_or_empty(step)
+
+    %{
+      command: Map.get(action_params, :command, Map.get(action_params, "command", "execute")),
+      params: delegate_payload(action_params)
+    }
+  end
+
+  defp delegate_payload(%{params: %{} = params}), do: params
+  defp delegate_payload(%{"params" => %{} = params}), do: params
+  defp delegate_payload(%{} = params), do: params
 
   defp get_step(id) do
     case Repo.get(Step, id) do

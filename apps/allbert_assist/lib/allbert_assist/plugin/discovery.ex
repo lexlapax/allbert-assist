@@ -10,6 +10,7 @@ defmodule AllbertAssist.Plugin.Discovery do
     "allbert.email" => AllbertAssist.Plugins.Email,
     "allbert.notes_files" => AllbertNotesFiles.Plugin,
     "allbert.browser" => AllbertBrowser.Plugin,
+    "allbert.research" => AllbertResearch.Plugin,
     "stocksage" => StockSage.Plugin
   }
 
