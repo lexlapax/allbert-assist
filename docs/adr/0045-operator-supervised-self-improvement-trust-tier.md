@@ -1,6 +1,7 @@
 # ADR 0045: Operator-Supervised Self-Improvement Trust Tier
 
-Status: Proposed for v0.47.
+Status: Accepted as the v0.47/v0.47b implementation contract; implementation
+in progress.
 
 ## Context
 
@@ -71,7 +72,7 @@ v0.47b. They refine, not replace, the Decision above.
 
 ### A1. The discovery substrate is a read-only trace index (v0.47)
 
-Status: planned amendment for v0.47; binding once v0.47 M1 lands.
+Status: accepted for v0.47 M1.
 
 Pattern discovery needs repetition to be queryable, but traces are
 append-only redacted markdown under `<ALLBERT_HOME>/memory/traces/`, not a
@@ -84,7 +85,7 @@ scope.
 
 ### A2. The suggestion surface is the generalized v0.42 discovery surface (v0.47)
 
-Status: planned amendment for v0.47.
+Status: accepted as a v0.47 plan constraint; implementation lands in M2.
 
 Self-improvement suggestions reuse `AllbertAssist.Tools.Discovery.Suggestion`
 (extended `suggestion_type` plus a provenance discriminator) and the passive
@@ -93,7 +94,7 @@ pending/accepted/dismissed/expired lifecycle. No parallel suggestion store.
 
 ### A3. All inert drafts live in one unified reviewed-draft store (v0.47)
 
-Status: planned amendment for v0.47.
+Status: accepted as a v0.47 plan constraint; implementation lands in M4.
 
 The v0.37 `AllbertAssist.DynamicPlugins.Draft` lifecycle is generalized into
 a single logical reviewed-draft facade holding every inert draft kind
@@ -109,7 +110,7 @@ reconciliation note for the workflow drafts root.
 
 ### A4. v0.47 ships discovery + non-code local drafts; v0.47b ships handoff drafts
 
-Status: planned amendment for v0.47.
+Status: accepted for the v0.47/v0.47b release split.
 
 v0.47 ships the trace index, the generalized suggestion surface, the
 read-only `discover_patterns` action, and skill/workflow/memory draft

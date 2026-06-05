@@ -304,6 +304,61 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, ^fragment} = MarketplaceSettingsFragment.fragment()
   end
 
+  test "self-improvement settings resolve defaults and enforce invariants" do
+    assert {:ok, 1} = Settings.get("self_improvement.schema_version")
+    assert {:ok, false} = Settings.get("self_improvement.enabled")
+    assert {:ok, false} = Settings.get("self_improvement.trace_index.enabled")
+    assert {:ok, 5000} = Settings.get("self_improvement.trace_index.max_indexed_entries")
+    assert {:ok, 3} = Settings.get("self_improvement.trace_index.min_repetitions")
+    assert {:ok, 25} = Settings.get("self_improvement.suggestions.max_open")
+    assert {:ok, 14} = Settings.get("self_improvement.suggestions.ttl_days")
+    assert {:ok, 50} = Settings.get("self_improvement.drafts.max_open")
+
+    assert {:ok, resolved} = Settings.put("self_improvement.enabled", true, %{audit?: false})
+    assert resolved.value == true
+
+    assert {:ok, resolved} =
+             Settings.put("self_improvement.trace_index.enabled", true, %{audit?: false})
+
+    assert resolved.value == true
+
+    assert {:ok, resolved} =
+             Settings.put("self_improvement.trace_index.max_indexed_entries", 50_000, %{
+               audit?: false
+             })
+
+    assert resolved.value == 50_000
+
+    assert {:error, {:read_only_setting, "self_improvement.schema_version"}} =
+             Settings.put("self_improvement.schema_version", 2, %{audit?: false})
+
+    assert {:error,
+            {:invalid_setting, "self_improvement.trace_index.max_indexed_entries", _reason}} =
+             Settings.put("self_improvement.trace_index.max_indexed_entries", 50_001, %{
+               audit?: false
+             })
+
+    assert {:error, {:invalid_setting, "self_improvement.trace_index.min_repetitions", _reason}} =
+             Settings.put("self_improvement.trace_index.min_repetitions", 1, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "self_improvement.suggestions.max_open", _reason}} =
+             Settings.put("self_improvement.suggestions.max_open", 201, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "self_improvement.suggestions.ttl_days", _reason}} =
+             Settings.put("self_improvement.suggestions.ttl_days", 366, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "self_improvement.drafts.max_open", _reason}} =
+             Settings.put("self_improvement.drafts.max_open", 501, %{audit?: false})
+
+    assert {:ok, fragment} = Fragments.fragment_for_key("self_improvement.enabled")
+    assert fragment.id == "core:self_improvement"
+    assert fragment.defaults["self_improvement"]["schema_version"] == 1
+    assert fragment.defaults["self_improvement"]["trace_index"]["min_repetitions"] == 3
+    assert "self_improvement.enabled" in fragment.safe_write_keys
+    assert "self_improvement.trace_index.enabled" in fragment.safe_write_keys
+    refute "self_improvement.schema_version" in fragment.safe_write_keys
+  end
+
   test "sandbox settings resolve defaults and validate writes" do
     assert {:ok, false} = Settings.get("sandbox.elixir.enabled")
     assert {:ok, "auto"} = Settings.get("sandbox.elixir.backend")

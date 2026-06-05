@@ -202,7 +202,8 @@ operator confirmation remains the authority, per ADR 0021.
 
 ## v0.47 Amendment: suggestion surface generalized for self-improvement
 
-Status: planned amendment for v0.47; binding once v0.47 M2 lands.
+Status: accepted as a v0.47 plan constraint; binding implementation lands in
+v0.47 M2.
 
 v0.47 operator-supervised self-improvement reuses the passive discovery
 suggestion surface this ADR established rather than building a parallel queue.

@@ -135,6 +135,13 @@ defmodule AllbertAssist.Settings.Schema do
     "marketplace.install.target_dir_skills",
     "marketplace.install.target_dir_templates",
     "marketplace.installed_state_path",
+    "self_improvement.enabled",
+    "self_improvement.trace_index.enabled",
+    "self_improvement.trace_index.max_indexed_entries",
+    "self_improvement.trace_index.min_repetitions",
+    "self_improvement.suggestions.max_open",
+    "self_improvement.suggestions.ttl_days",
+    "self_improvement.drafts.max_open",
     "execution.local.enabled",
     "execution.local.allowed_roots",
     "execution.local.allowed_commands",
@@ -1226,6 +1233,66 @@ defmodule AllbertAssist.Settings.Schema do
       default: "<ALLBERT_HOME>/marketplace/installed.json",
       writable?: true,
       sensitive?: false
+    },
+    "self_improvement.schema_version" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: false,
+      sensitive?: false,
+      min: 1,
+      max: 1
+    },
+    "self_improvement.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "self_improvement.trace_index.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "self_improvement.trace_index.max_indexed_entries" => %{
+      type: :bounded_integer,
+      default: 5000,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 50_000
+    },
+    "self_improvement.trace_index.min_repetitions" => %{
+      type: :bounded_integer,
+      default: 3,
+      writable?: true,
+      sensitive?: false,
+      min: 2,
+      max: 100
+    },
+    "self_improvement.suggestions.max_open" => %{
+      type: :bounded_integer,
+      default: 25,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 200
+    },
+    "self_improvement.suggestions.ttl_days" => %{
+      type: :bounded_integer,
+      default: 14,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 365
+    },
+    "self_improvement.drafts.max_open" => %{
+      type: :bounded_integer,
+      default: 50,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 500
     },
     "permissions.memory_write" => %{
       type: :enum,
@@ -2365,6 +2432,22 @@ defmodule AllbertAssist.Settings.Schema do
         "require_hash_match" => true
       },
       "installed_state_path" => "<ALLBERT_HOME>/marketplace/installed.json"
+    },
+    "self_improvement" => %{
+      "schema_version" => 1,
+      "enabled" => false,
+      "trace_index" => %{
+        "enabled" => false,
+        "max_indexed_entries" => 5000,
+        "min_repetitions" => 3
+      },
+      "suggestions" => %{
+        "max_open" => 25,
+        "ttl_days" => 14
+      },
+      "drafts" => %{
+        "max_open" => 50
+      }
     },
     "mcp" => %{
       "servers" => %{},
