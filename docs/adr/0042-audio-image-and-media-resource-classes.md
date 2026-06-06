@@ -2,11 +2,16 @@
 
 ## Status
 
-- Proposed for v0.48 Voice Modality (`docs/plans/v0.48-plan.md`).
+- Accepted for the v0.48 audio slice in M4
+  (`docs/plans/v0.48-plan.md`).
 - Proposed for v0.49 Vision And Image Generation (`docs/plans/v0.49-plan.md`).
 - The v0.48 audio amendments below are the implementation-readiness contract
   for voice. The image, screenshot, and generated-media portions remain scoped
   to v0.49 unless v0.48 explicitly narrows them.
+
+v0.48 M4 closeout evidence:
+
+- `MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/resources/resource_uri_test.exs apps/allbert_assist/test/allbert_assist/resources/operation_class_test.exs apps/allbert_assist/test/allbert_assist/security/permission_gate_test.exs apps/allbert_assist/test/allbert_assist/runtime/redactor_test.exs apps/allbert_assist/test/allbert_assist/voice/transcode_test.exs apps/allbert_assist/test/allbert_assist/settings_test.exs`
 
 ## Context
 

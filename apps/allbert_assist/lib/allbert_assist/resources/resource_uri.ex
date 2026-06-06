@@ -15,7 +15,8 @@ defmodule AllbertAssist.Resources.ResourceURI do
           optional(:server_id) => String.t(),
           optional(:server_resource_uri) => String.t(),
           optional(:session_id) => String.t(),
-          optional(:entry_id) => String.t()
+          optional(:entry_id) => String.t(),
+          optional(:capture_id) => String.t()
         }
 
   @spec file(term()) :: {:ok, String.t()}
@@ -115,6 +116,16 @@ defmodule AllbertAssist.Resources.ResourceURI do
 
   @spec browser_session!(term()) :: String.t()
   def browser_session!(session_id), do: bang(browser_session(session_id))
+
+  @spec mic_capture(term()) :: {:ok, String.t()} | {:error, term()}
+  def mic_capture(capture_id) do
+    with {:ok, capture_id} <- mic_capture_id(capture_id) do
+      {:ok, "mic://capture/#{capture_id}"}
+    end
+  end
+
+  @spec mic_capture!(term()) :: String.t()
+  def mic_capture!(capture_id), do: bang(mic_capture(capture_id))
 
   @spec workflow(term()) :: {:ok, String.t()} | {:error, term()}
   def workflow(workflow_id) do
@@ -227,6 +238,14 @@ defmodule AllbertAssist.Resources.ResourceURI do
     end
   end
 
+  def scope_uri(:audio_capture, :audio_capture, value, resource_uri) do
+    cond do
+      scheme(value) == "mic" -> normalize(value)
+      is_binary(value) and String.trim(value) != "" -> mic_capture(value)
+      true -> normalize(resource_uri)
+    end
+  end
+
   def scope_uri(:plan_run, :plan_run, value, resource_uri) do
     cond do
       scheme(value) == "plan" -> normalize(value)
@@ -318,6 +337,8 @@ defmodule AllbertAssist.Resources.ResourceURI do
 
   defp normalize_parsed(%URI{scheme: "browser"} = uri, original),
     do: normalize_browser(uri, original)
+
+  defp normalize_parsed(%URI{scheme: "mic"} = uri, original), do: normalize_mic(uri, original)
 
   defp normalize_parsed(%URI{scheme: "workflow"} = uri, original),
     do: normalize_workflow(uri, original)
@@ -417,6 +438,18 @@ defmodule AllbertAssist.Resources.ResourceURI do
        canonical_id: resource_uri,
        unsupported?: false,
        session_id: session_id
+     }}
+  end
+
+  defp derive(%URI{scheme: "mic", host: "capture", path: path}, resource_uri) do
+    capture_id = path |> to_string() |> String.trim_leading("/") |> URI.decode()
+
+    {:ok,
+     %{
+       origin_kind: :audio_capture,
+       canonical_id: resource_uri,
+       unsupported?: false,
+       capture_id: capture_id
      }}
   end
 
@@ -556,6 +589,24 @@ defmodule AllbertAssist.Resources.ResourceURI do
 
   defp normalize_browser(_uri, original), do: {:error, {:invalid_browser_session_uri, original}}
 
+  defp normalize_mic(
+         %URI{host: "capture", path: path, query: query, fragment: fragment},
+         original
+       )
+       when query in [nil, ""] and fragment in [nil, ""] do
+    case path |> to_string() |> String.trim_leading("/") |> String.split("/", trim: true) do
+      [capture_id] ->
+        with {:ok, capture_id} <- mic_capture_id(URI.decode(capture_id)) do
+          {:ok, "mic://capture/#{capture_id}"}
+        end
+
+      _other ->
+        {:error, {:invalid_mic_capture_uri, original}}
+    end
+  end
+
+  defp normalize_mic(_uri, original), do: {:error, {:invalid_mic_capture_uri, original}}
+
   defp normalize_workflow(
          %URI{host: host, path: path, query: query, fragment: fragment},
          _original
@@ -619,6 +670,16 @@ defmodule AllbertAssist.Resources.ResourceURI do
         {:ok, value}
       else
         {:error, {:invalid_browser_session_id, value}}
+      end
+    end
+  end
+
+  defp mic_capture_id(value) do
+    with {:ok, value} <- non_empty(value, :missing_mic_capture_id) do
+      if Regex.match?(~r/^[A-Za-z0-9_-]+$/, value) do
+        {:ok, value}
+      else
+        {:error, {:invalid_mic_capture_id, value}}
       end
     end
   end

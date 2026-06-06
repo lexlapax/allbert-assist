@@ -27,6 +27,9 @@ defmodule AllbertAssist.Security.Policy do
     stocksage_analyze: "permissions.stocksage_analyze",
     stocksage_evidence_fetch: "permissions.stocksage_evidence_fetch",
     notes_file_write: "permissions.notes_file_write",
+    microphone_capture: "permissions.microphone_capture",
+    voice_transcribe: "permissions.voice_transcribe",
+    voice_synthesize: "permissions.voice_synthesize",
     tool_discovery: "permissions.tool_discovery",
     mcp_server_connect: "permissions.mcp_server_connect",
     mcp_tool_call: "permissions.mcp_tool_call",
@@ -66,6 +69,9 @@ defmodule AllbertAssist.Security.Policy do
     stocksage_analyze: :needs_confirmation,
     stocksage_evidence_fetch: :allowed,
     notes_file_write: :needs_confirmation,
+    microphone_capture: :needs_confirmation,
+    voice_transcribe: :allowed,
+    voice_synthesize: :allowed,
     tool_discovery: :allowed,
     mcp_server_connect: :needs_confirmation,
     mcp_tool_call: :needs_confirmation,
@@ -108,6 +114,9 @@ defmodule AllbertAssist.Security.Policy do
           | :stocksage_write
           | :stocksage_analyze
           | :stocksage_evidence_fetch
+          | :microphone_capture
+          | :voice_transcribe
+          | :voice_synthesize
           | :notes_file_write
           | :tool_discovery
           | :mcp_server_connect
@@ -152,6 +161,9 @@ defmodule AllbertAssist.Security.Policy do
       :stocksage_analyze,
       :stocksage_evidence_fetch,
       :notes_file_write,
+      :microphone_capture,
+      :voice_transcribe,
+      :voice_synthesize,
       :tool_discovery,
       :mcp_server_connect,
       :mcp_tool_call,
@@ -187,7 +199,7 @@ defmodule AllbertAssist.Security.Policy do
   end
 
   defp resolve_from_configured(permission, context, configured) do
-    floor = safety_floor(permission)
+    floor = safety_floor(permission, context)
     effective = apply_safety_floor(configured.decision, floor)
     context_denial = context_denial(permission, context)
 
@@ -239,26 +251,65 @@ defmodule AllbertAssist.Security.Policy do
 
   @doc "Return the v0.05 safety floor for a permission."
   @spec safety_floor(atom()) :: :allowed | :needs_confirmation | :denied
-  def safety_floor(:command_execute), do: :needs_confirmation
-  def safety_floor(:external_network), do: :needs_confirmation
-  def safety_floor(:package_install), do: :needs_confirmation
-  def safety_floor(:online_skill_import), do: :needs_confirmation
-  def safety_floor(:skill_script_execute), do: :needs_confirmation
-  def safety_floor(:dynamic_integration), do: :needs_confirmation
-  def safety_floor(:mcp_server_connect), do: :needs_confirmation
-  def safety_floor(:mcp_tool_call), do: :needs_confirmation
-  def safety_floor(:browser_session_start), do: :needs_confirmation
-  def safety_floor(:browser_navigate), do: :needs_confirmation
-  def safety_floor(:browser_interact), do: :needs_confirmation
-  def safety_floor(:browser_form_fill), do: :needs_confirmation
-  def safety_floor(:browser_download), do: :needs_confirmation
-  def safety_floor(:workflow_run_start), do: :needs_confirmation
-  def safety_floor(:stocksage_analyze), do: :needs_confirmation
-  def safety_floor(:stocksage_evidence_fetch), do: :needs_confirmation
-  def safety_floor(:notes_file_write), do: :needs_confirmation
-  def safety_floor(:settings_secret_read), do: :denied
-  def safety_floor(permission) when permission in @known_permissions, do: :allowed
-  def safety_floor(_permission), do: :denied
+  def safety_floor(permission), do: safety_floor(permission, %{})
+
+  @doc "Return the effective safety floor for a permission and context."
+  @spec safety_floor(atom(), map()) :: :allowed | :needs_confirmation | :denied
+  def safety_floor(:command_execute, _context), do: :needs_confirmation
+  def safety_floor(:external_network, _context), do: :needs_confirmation
+  def safety_floor(:package_install, _context), do: :needs_confirmation
+  def safety_floor(:online_skill_import, _context), do: :needs_confirmation
+  def safety_floor(:skill_script_execute, _context), do: :needs_confirmation
+  def safety_floor(:dynamic_integration, _context), do: :needs_confirmation
+  def safety_floor(:mcp_server_connect, _context), do: :needs_confirmation
+  def safety_floor(:mcp_tool_call, _context), do: :needs_confirmation
+  def safety_floor(:browser_session_start, _context), do: :needs_confirmation
+  def safety_floor(:browser_navigate, _context), do: :needs_confirmation
+  def safety_floor(:browser_interact, _context), do: :needs_confirmation
+  def safety_floor(:browser_form_fill, _context), do: :needs_confirmation
+  def safety_floor(:browser_download, _context), do: :needs_confirmation
+  def safety_floor(:workflow_run_start, _context), do: :needs_confirmation
+  def safety_floor(:stocksage_analyze, _context), do: :needs_confirmation
+  def safety_floor(:stocksage_evidence_fetch, _context), do: :needs_confirmation
+  def safety_floor(:notes_file_write, _context), do: :needs_confirmation
+  def safety_floor(:microphone_capture, _context), do: :needs_confirmation
+  def safety_floor(:voice_transcribe, context), do: voice_floor(context)
+  def safety_floor(:voice_synthesize, context), do: voice_floor(context)
+  def safety_floor(:settings_secret_read, _context), do: :denied
+  def safety_floor(permission, _context) when permission in @known_permissions, do: :allowed
+  def safety_floor(_permission, _context), do: :denied
+
+  defp voice_floor(context) do
+    case provider_deployment_mode(context) do
+      :fake -> :allowed
+      :bundled_local -> :allowed
+      "fake" -> :allowed
+      "bundled_local" -> :allowed
+      _local_or_remote_or_unknown -> :needs_confirmation
+    end
+  end
+
+  defp provider_deployment_mode(context) when is_map(context) do
+    field(context, :provider_deployment_mode) ||
+      field(context, :deployment_mode) ||
+      get_in(context, [:voice, :provider_deployment_mode]) ||
+      get_in(context, ["voice", "provider_deployment_mode"]) ||
+      get_in(context, [:voice, :media, "deployment_mode"]) ||
+      get_in(context, [:voice, :media, :deployment_mode]) ||
+      get_in(context, ["voice", "media", "deployment_mode"]) ||
+      get_in(context, ["voice", "media", :deployment_mode]) ||
+      get_in(context, [:model_profile, :media, "deployment_mode"]) ||
+      get_in(context, [:model_profile, :media, :deployment_mode]) ||
+      get_in(context, ["model_profile", "media", "deployment_mode"]) ||
+      get_in(context, ["model_profile", "media", :deployment_mode])
+  end
+
+  defp provider_deployment_mode(_context), do: nil
+
+  defp field(map, key) when is_map(map),
+    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+
+  defp field(_map, _key), do: nil
 
   defp configured_policy(permission) do
     setting_key = Map.get(@permission_settings, permission)
@@ -527,6 +578,32 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:stocksage_evidence_fetch, :denied, _configured, _floor, _context),
     do: "StockSage evidence fetch is denied by current policy."
+
+  defp reason(:microphone_capture, :needs_confirmation, _configured, _floor, _context),
+    do: "Microphone capture requires per-session operator confirmation."
+
+  defp reason(:microphone_capture, :denied, _configured, _floor, _context),
+    do: "Microphone capture is denied by current policy."
+
+  defp reason(:voice_transcribe, :allowed, _configured, _floor, _context),
+    do: "Voice transcription is allowed for fake or bundled-local providers."
+
+  defp reason(:voice_transcribe, :needs_confirmation, _configured, _floor, _context),
+    do:
+      "Voice transcription can upload audio across a socket or unresolved boundary and requires confirmation."
+
+  defp reason(:voice_transcribe, :denied, _configured, _floor, _context),
+    do: "Voice transcription is denied by current policy."
+
+  defp reason(:voice_synthesize, :allowed, _configured, _floor, _context),
+    do: "Voice synthesis is allowed for fake or bundled-local providers."
+
+  defp reason(:voice_synthesize, :needs_confirmation, _configured, _floor, _context),
+    do:
+      "Voice synthesis can cross a socket or unresolved provider boundary and requires confirmation."
+
+  defp reason(:voice_synthesize, :denied, _configured, _floor, _context),
+    do: "Voice synthesis is denied by current policy."
 
   defp reason(:tool_discovery, :allowed, _configured, _floor, _context),
     do: "Tool discovery search is allowed through registered discovery actions."

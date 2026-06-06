@@ -110,6 +110,9 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.stocksage_analyze",
     "permissions.stocksage_evidence_fetch",
     "permissions.notes_file_write",
+    "permissions.microphone_capture",
+    "permissions.voice_transcribe",
+    "permissions.voice_synthesize",
     "permissions.tool_discovery",
     "permissions.mcp_server_connect",
     "permissions.mcp_tool_call",
@@ -135,6 +138,12 @@ defmodule AllbertAssist.Settings.Schema do
     "plan.preview.show_confidence_tier",
     "plan.preview.auto_proceed_green_tier",
     "plan.run.cancel_grace_ms",
+    "voice.enabled",
+    "voice.audio.max_bytes",
+    "voice.audio.max_duration_ms",
+    "voice.audio.retention_enabled",
+    "voice.audio.retention_root",
+    "voice.trace.redact_audio",
     "marketplace.enabled",
     "marketplace.catalog.cache_path",
     "marketplace.install.target_dir_skills",
@@ -1182,6 +1191,54 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["expanded_inline"]
     },
+    "voice.schema_version" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: false,
+      sensitive?: false,
+      min: 1,
+      max: 1
+    },
+    "voice.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "voice.audio.max_bytes" => %{
+      type: :bounded_integer,
+      default: 10_485_760,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 104_857_600
+    },
+    "voice.audio.max_duration_ms" => %{
+      type: :bounded_integer,
+      default: 300_000,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 3_600_000
+    },
+    "voice.audio.retention_enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "voice.audio.retention_root" => %{
+      type: :string,
+      default: "<ALLBERT_HOME>/audio",
+      writable?: true,
+      sensitive?: false
+    },
+    "voice.trace.redact_audio" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
     "marketplace.schema_version" => %{
       type: :bounded_integer,
       default: 1,
@@ -1452,6 +1509,27 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false,
       allowed_values: ["needs_confirmation", "denied"]
+    },
+    "permissions.microphone_capture" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["needs_confirmation", "denied"]
+    },
+    "permissions.voice_transcribe" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.voice_synthesize" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
     "permissions.tool_discovery" => %{
       type: :enum,
@@ -2405,6 +2483,9 @@ defmodule AllbertAssist.Settings.Schema do
       "stocksage_analyze" => "needs_confirmation",
       "stocksage_evidence_fetch" => "allowed",
       "notes_file_write" => "needs_confirmation",
+      "microphone_capture" => "needs_confirmation",
+      "voice_transcribe" => "allowed",
+      "voice_synthesize" => "allowed",
       "tool_discovery" => "allowed",
       "mcp_server_connect" => "needs_confirmation",
       "mcp_tool_call" => "needs_confirmation",
@@ -2447,6 +2528,19 @@ defmodule AllbertAssist.Settings.Schema do
       },
       "subagent" => %{
         "delegation_visibility" => "expanded_inline"
+      }
+    },
+    "voice" => %{
+      "schema_version" => 1,
+      "enabled" => false,
+      "audio" => %{
+        "max_bytes" => 10_485_760,
+        "max_duration_ms" => 300_000,
+        "retention_enabled" => false,
+        "retention_root" => "<ALLBERT_HOME>/audio"
+      },
+      "trace" => %{
+        "redact_audio" => true
       }
     },
     "marketplace" => %{
