@@ -1,7 +1,8 @@
 # ADR 0045: Operator-Supervised Self-Improvement Trust Tier
 
-Status: Accepted as the v0.47/v0.47b implementation contract; implementation
-in progress.
+Status: Accepted as the v0.47/v0.47b implementation contract. The v0.47
+discovery and local-draft half is implemented; v0.47b handoff drafts remain
+planned.
 
 ## Context
 
@@ -72,7 +73,7 @@ v0.47b. They refine, not replace, the Decision above.
 
 ### A1. The discovery substrate is a read-only trace index (v0.47)
 
-Status: accepted for v0.47 M1.
+Status: implemented in v0.47 M1.
 
 Pattern discovery needs repetition to be queryable, but traces are
 append-only redacted markdown under `<ALLBERT_HOME>/memory/traces/`, not a

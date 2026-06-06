@@ -4,9 +4,9 @@ defmodule Mix.Tasks.Allbert.SelfImprovementTest do
 
   import ExUnit.CaptureIO
 
+  alias AllbertAssist.Drafts.Store
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
-  alias AllbertAssist.Drafts.Store
   alias AllbertAssist.Tools.Discovery
   alias Mix.Tasks.Allbert.SelfImprovement, as: SelfImprovementTask
 

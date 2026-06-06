@@ -10,21 +10,24 @@ defmodule AllbertAssist.Actions.SelfImprovementActionsTest do
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_memory_config = Application.get_env(:allbert_assist, AllbertAssist.Memory)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     root =
       Path.join(
         System.tmp_dir!(),
-        "allbert-self-improvement-actions-#{System.unique_integer([:positive])}"
+        "allbert-self-improvement-actions-#{System.system_time(:nanosecond)}-#{System.unique_integer([:positive, :monotonic])}"
       )
 
     Application.put_env(:allbert_assist, Paths, home: root)
+    Application.put_env(:allbert_assist, AllbertAssist.Memory, root: Path.join(root, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
+      restore_env(AllbertAssist.Memory, original_memory_config)
       restore_env(Settings, original_settings_config)
-      File.rm_rf!(root)
+      remove_test_root!(root)
     end)
 
     {:ok, root: root}
@@ -66,7 +69,7 @@ defmodule AllbertAssist.Actions.SelfImprovementActionsTest do
     assert response.status == :completed
     assert response.permission_decision.permission == :read_only
     assert Enum.all?(response.actions, &(&1.permission == :read_only))
-    assert length(response.suggestions) >= 1
+    assert [_ | _] = response.suggestions
 
     persisted = Discovery.list_suggestions(status: "pending", provenance: "self_improvement")
 
@@ -124,4 +127,19 @@ defmodule AllbertAssist.Actions.SelfImprovementActionsTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp remove_test_root!(root, attempts \\ 3)
+
+  defp remove_test_root!(root, 0), do: File.rm_rf!(root)
+
+  defp remove_test_root!(root, attempts) do
+    case File.rm_rf(root) do
+      {:ok, _removed} ->
+        :ok
+
+      {:error, _path, _reason} ->
+        Process.sleep(25)
+        remove_test_root!(root, attempts - 1)
+    end
+  end
 end

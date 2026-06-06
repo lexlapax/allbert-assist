@@ -14,8 +14,22 @@ defmodule AllbertAssist.Drafts.Promotion do
   alias AllbertAssist.Skills
   alias AllbertAssist.Workflows.Validator
 
+  @type skill_target :: %{
+          required(:name) => String.t(),
+          required(:path) => String.t(),
+          required(:skill_md_path) => String.t()
+        }
+  @type workflow_target :: %{required(:path) => String.t()}
+
   @doc "Promote an instruction-only skill draft to the local skills root."
-  @spec promote_skill(String.t(), map()) :: {:ok, map()} | {:error, term()}
+  @spec promote_skill(String.t(), map()) ::
+          {:ok,
+           %{
+             required(:draft) => Store.non_code_draft_summary(),
+             required(:skill) => skill_target(),
+             required(:result) => skill_target()
+           }}
+          | {:error, term()}
   def promote_skill(id, context \\ %{}) when is_binary(id) and is_map(context) do
     with {:ok, draft} <- Store.show_draft(id, kind: "skill"),
          :ok <- require_promotable(draft),
@@ -31,7 +45,15 @@ defmodule AllbertAssist.Drafts.Promotion do
   end
 
   @doc "Promote a workflow draft to the live workflows root."
-  @spec promote_workflow(String.t(), map()) :: {:ok, map()} | {:error, term()}
+  @spec promote_workflow(String.t(), map()) ::
+          {:ok,
+           %{
+             required(:draft) => map(),
+             required(:workflow) => map(),
+             required(:path) => String.t(),
+             required(:result) => workflow_target()
+           }}
+          | {:error, term()}
   def promote_workflow(id, context \\ %{}) when is_binary(id) and is_map(context) do
     with {:ok, draft} <- Store.show_draft(id, kind: "workflow"),
          :ok <- require_promotable(draft),
@@ -51,7 +73,14 @@ defmodule AllbertAssist.Drafts.Promotion do
   end
 
   @doc "Promote a memory draft by appending or updating through the Memory facade."
-  @spec promote_memory(String.t(), map()) :: {:ok, map()} | {:error, term()}
+  @spec promote_memory(String.t(), map()) ::
+          {:ok,
+           %{
+             required(:draft) => map(),
+             required(:memory) => map(),
+             required(:result) => map()
+           }}
+          | {:error, term()}
   def promote_memory(id, context \\ %{}) when is_binary(id) and is_map(context) do
     with {:ok, draft} <- show_memory_draft(id),
          :ok <- require_promotable(draft),

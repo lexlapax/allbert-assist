@@ -37,6 +37,8 @@ changes:
 | `dynamic_codegen.live_loader_enabled` | `false` | v0.37 operator-confirmed live dynamic integration. |
 | `templates.create.enabled` | `false` | v0.38 operator `workspace:create` template gallery / live-integration surface. |
 | `marketplace.enabled` | `false` | v0.45 Marketplace Lite catalog browse/install surface. |
+| `self_improvement.enabled` | `false` | v0.47 self-improvement discovery, suggestion, and draft surface. |
+| `self_improvement.trace_index.enabled` | `false` | v0.47 trace-index reads for self-improvement discovery. |
 
 Example:
 
@@ -48,6 +50,8 @@ mix allbert.settings set dynamic_codegen.enabled false
 mix allbert.settings set dynamic_codegen.live_loader_enabled false
 mix allbert.settings set templates.create.enabled false
 mix allbert.settings set marketplace.enabled false
+mix allbert.settings set self_improvement.enabled false
+mix allbert.settings set self_improvement.trace_index.enabled false
 mix allbert.settings set permissions.marketplace_install denied
 mix allbert.settings set permissions.sandbox_trial denied
 ```
@@ -103,6 +107,13 @@ mix allbert.settings set permissions.sandbox_trial denied
   `disabled_untrusted`; skill enablement, dynamic integration, plugin loading,
   workflow distribution, remote code fetch, and bundle signing are outside the
   v0.45 surface.
+- Treat v0.47 operator-supervised self-improvement as a read-only discovery
+  and inert draft surface. `self_improvement.enabled=false` disables the
+  feature, and `self_improvement.trace_index.enabled=false` prevents trace
+  index reads. Discovery suggestions are advisory and passive; drafts are
+  disabled/untrusted or draft-only; live promotion to skills, workflows, or
+  memory requires the existing registered action permission plus durable
+  confirmation.
 
 ## Implemented And Planned v1.0 Threat Surfaces
 
@@ -264,6 +275,19 @@ eval surfaces until their capability work lands.
   `research-session-always-closed-001`,
   `delegate-agent-isolation-001`, and
   `delegate-command-allowlist-enforced-via-objective-001`.
+- Operator-supervised self-improvement (v0.47 implemented surface):
+  discovery reads a redaction-inheriting trace index and writes only advisory
+  suggestions; suggestion packets carry no authority; skill/workflow/memory
+  drafts are inert until a separate confirmed promotion action writes through
+  an existing live path; repeated use never grants permission. Implemented
+  eval rows:
+  `self-improvement-read-only-pattern-scan-001`,
+  `self-improvement-suggestion-no-authority-001`,
+  `self-improvement-draft-disabled-untrusted-001`,
+  `self-improvement-memory-workflow-draft-only-001`,
+  `self-improvement-repeated-use-no-permission-grant-001`,
+  `self-improvement-trace-index-redaction-001`, and
+  `self-improvement-promotion-requires-confirmation-001`.
 - Discord, Slack, WhatsApp, Signal, and Matrix identity mapping,
   replay, pairing, group leakage, and callback ownership.
 - Voice, image, screenshot, and generated media resource retention, redaction,

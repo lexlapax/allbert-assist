@@ -8,6 +8,7 @@ defmodule AllbertAssist.Drafts.Store do
   """
 
   alias AllbertAssist.DynamicPlugins
+  alias AllbertAssist.DynamicPlugins.Draft, as: DynamicPluginDraft
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.YamlCodec
@@ -19,7 +20,30 @@ defmodule AllbertAssist.Drafts.Store do
   @slug_pattern ~r/^[a-z][a-z0-9_]*$/
 
   @type draft_kind :: String.t()
-  @type draft_summary :: map()
+  @type non_code_draft_summary :: %{
+          required(:artifact_path) => term(),
+          required(:created_at) => term(),
+          required(:diagnostics) => list(),
+          required(:id) => term(),
+          required(:kind) => term(),
+          required(:live_authority) => term(),
+          required(:payload) => map(),
+          required(:promotion) => term(),
+          required(:provenance) => term(),
+          required(:root) => String.t(),
+          required(:slug) => term(),
+          required(:source_suggestion_id) => term(),
+          required(:tier) => term(),
+          required(:updated_at) => term()
+        }
+  @type dynamic_draft_summary :: %{
+          required(:id) => term(),
+          required(:kind) => term(),
+          required(:live_authority) => term(),
+          required(:source) => String.t(),
+          optional(atom()) => term()
+        }
+  @type draft_summary :: non_code_draft_summary() | dynamic_draft_summary()
 
   @doc "Create or rewrite an inert skill draft."
   @spec create_skill_draft(map(), keyword()) :: {:ok, map()} | {:error, term()}
@@ -86,7 +110,7 @@ defmodule AllbertAssist.Drafts.Store do
   end
 
   @doc "Discard one inert draft. Dynamic code drafts continue through v0.37."
-  @spec discard_draft(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec discard_draft(String.t(), keyword()) :: {:ok, draft_summary()} | {:error, term()}
   def discard_draft(id, opts \\ []) when is_binary(id) and is_list(opts) do
     kind = opts |> Keyword.get(:kind) |> normalize_kind_filter()
 
@@ -99,7 +123,7 @@ defmodule AllbertAssist.Drafts.Store do
   end
 
   @doc "Mark one non-code draft promoted after its live write completed."
-  @spec promote_draft(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec promote_draft(String.t(), keyword()) :: {:ok, non_code_draft_summary()} | {:error, term()}
   def promote_draft(id, opts \\ []) when is_binary(id) and is_list(opts) do
     kind = opts |> Keyword.get(:kind) |> normalize_kind_filter()
     promotion = opts |> Keyword.get(:promotion, %{}) |> stringify_keys()
@@ -272,7 +296,7 @@ defmodule AllbertAssist.Drafts.Store do
 
   defp discard_dynamic_draft(slug, opts) do
     case DynamicPlugins.discard_draft(slug, opts) do
-      {:ok, draft} -> {:ok, dynamic_summary(AllbertAssist.DynamicPlugins.Draft.summary(draft))}
+      {:ok, draft} -> {:ok, dynamic_summary(DynamicPluginDraft.summary(draft))}
       {:error, reason} -> {:error, reason}
     end
   end
@@ -296,13 +320,15 @@ defmodule AllbertAssist.Drafts.Store do
       kind
       |> kind_root()
       |> metadata_files()
-      |> Enum.flat_map(fn path ->
-        case read_yaml(path) do
-          {:ok, metadata} -> [summary(metadata)]
-          {:error, _reason} -> []
-        end
-      end)
+      |> Enum.flat_map(&metadata_summary/1)
     end)
+  end
+
+  defp metadata_summary(path) do
+    case read_yaml(path) do
+      {:ok, metadata} -> [summary(metadata)]
+      {:error, _reason} -> []
+    end
   end
 
   defp summary(metadata) do

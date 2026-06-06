@@ -10,6 +10,70 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.47.0 - Operator-Supervised Self-Improvement
+
+Status: implemented as the v0.47 release. Current version metadata is
+`0.47.0`; ready for operator manual validation before the release tag.
+
+### Added
+
+- `AllbertAssist.SelfImprovement.TraceIndex`, a read-only compiled view over
+  redacted trace markdown under `<ALLBERT_HOME>/memory/traces/` for repeated
+  prompts, action chains, corrections, and failed intents.
+- A generalized discovery suggestion surface for self-improvement suggestions:
+  `trace_to_skill`, `trace_to_workflow`, `memory_promotion`, and
+  `memory_update`, all with `provenance: "self_improvement"` and no MCP
+  candidate authority.
+- The internal `discover_patterns` action plus intent routing for
+  self-improvement discovery prompts and the `mix allbert.self_improvement`
+  list/inspect CLI.
+- `AllbertAssist.Drafts.Store`, a unified reviewed-draft facade that preserves
+  v0.37 dynamic-code draft compatibility while adding inert skill, workflow,
+  memory-promotion, and memory-update drafts under `<ALLBERT_HOME>/drafts/`.
+- Internal draft actions for `create_self_improvement_draft`,
+  `discard_self_improvement_draft`, `promote_skill_draft`,
+  `promote_workflow_draft`, and `promote_memory_draft`.
+- Operator and developer guides for the shipped self-improvement surface.
+- Seven v0.47 security eval rows:
+  `self-improvement-read-only-pattern-scan-001`,
+  `self-improvement-suggestion-no-authority-001`,
+  `self-improvement-draft-disabled-untrusted-001`,
+  `self-improvement-memory-workflow-draft-only-001`,
+  `self-improvement-repeated-use-no-permission-grant-001`,
+  `self-improvement-trace-index-redaction-001`, and
+  `self-improvement-promotion-requires-confirmation-001`.
+- `mix allbert.test release.v047`, a deterministic fixture gate for the
+  v0.47 self-improvement surface.
+
+### Changed
+
+- The v0.42 `Tools.Discovery.Suggestion` schema now allows self-improvement
+  suggestion kinds with nullable `candidate_id`, keeping MCP discovery and
+  self-improvement in one passive queue and one workspace panel.
+- Dynamic code drafts are now listed through the unified draft facade as
+  `kind: "code"` while remaining in the existing
+  `<ALLBERT_HOME>/dynamic_plugins/drafts/` compatibility root.
+- Promotion of non-code self-improvement drafts is confirmation-gated and
+  writes only through existing live paths: instruction-only local skill files,
+  live workflow YAML, or markdown memory append/update.
+- ADR 0045, ADR 0032, ADR 0048, ADR 0041, the roadmap, vision, agent context
+  map, future-features parking lot, and security-hardening notes now reflect
+  the shipped v0.47 scope and the v0.47b handoff.
+
+### Verification
+
+- M6 focused security eval suite passed with 8 tests and 0 failures.
+- `mix allbert.test release.v047` passed with 24 self-improvement core tests,
+  5 surface tests, 8 security-eval tests, and a clean v0.47 secret scan.
+  Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v047/p0-11012/home/release_evidence/v047/release-v047-1780711417.json`.
+- Full `mix allbert.test release` passed with compile, dependency, format,
+  Credo, core (`1395 tests, 0 failures, 4 skipped`), web (`120 tests,
+  0 failures`), StockSage (`197 tests, 0 failures`), channel plugin
+  (`12 tests, 0 failures`), and Dialyzer (`Total errors: 0`) phases clean.
+  Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-8644/home/release_evidence/gates/release-2026-06-06T02_04_09Z.json`.
+
 ## v0.46.0 - Delegation Hardening And Research Specialist
 
 Status: implemented as the v0.46 release. Current version metadata is

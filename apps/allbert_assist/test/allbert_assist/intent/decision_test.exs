@@ -1,7 +1,8 @@
 defmodule AllbertAssist.Intent.DecisionTest do
-  use ExUnit.Case, async: true
-  @moduletag :pure_async
+  use ExUnit.Case, async: false
+  @moduletag :external_runtime_serial
 
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
@@ -49,6 +50,8 @@ defmodule AllbertAssist.Intent.DecisionTest do
   end
 
   test "preserves context active app and rejects unknown active app output" do
+    ensure_stocksage_app!()
+
     assert {:ok, decision} =
              Decision.new(%{
                intent: :direct_answer,
@@ -112,5 +115,17 @@ defmodule AllbertAssist.Intent.DecisionTest do
                ],
                context: %{request: %{operator_id: "local"}}
              })
+  end
+
+  defp ensure_stocksage_app! do
+    registered? = AppRegistry.known_app_id?(:stocksage)
+
+    unless registered? do
+      assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
+    end
+
+    on_exit(fn ->
+      unless registered?, do: AppRegistry.unregister(:stocksage)
+    end)
   end
 end

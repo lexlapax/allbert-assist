@@ -15,7 +15,17 @@ defmodule AllbertAssist.SelfImprovement.Discovery do
   @default_limit 8
   @max_limit 25
 
-  @spec discover(map(), map()) :: {:ok, map()}
+  @type discovery_result :: %{
+          required(:suggestions) => [map()],
+          required(:diagnostics) => nonempty_list(map()),
+          required(:sources) => %{
+            required(:trace_patterns) => non_neg_integer(),
+            required(:memory_review) => map(),
+            required(:objective_events) => non_neg_integer()
+          }
+        }
+
+  @spec discover(map(), map()) :: {:ok, discovery_result()}
   def discover(params \\ %{}, context \\ %{}) when is_map(params) and is_map(context) do
     query = query(params)
     filters = filters(params, context)
@@ -174,8 +184,8 @@ defmodule AllbertAssist.SelfImprovement.Discovery do
   defp objective_event_diagnostics(filters) do
     opts =
       [limit: 25]
-      |> maybe_put(:user_id, Map.get(filters, :user_id))
-      |> maybe_put(:active_app, Map.get(filters, :app_id))
+      |> put_keyword(:user_id, Map.get(filters, :user_id))
+      |> put_keyword(:active_app, Map.get(filters, :app_id))
 
     events = Objectives.list_events(opts)
 
@@ -225,16 +235,15 @@ defmodule AllbertAssist.SelfImprovement.Discovery do
   defp maybe_put(map, key, value) when is_map(map), do: Map.put(map, key, value)
   defp maybe_put(list, key, value) when is_list(list), do: Keyword.put(list, key, value)
 
+  defp put_keyword(list, _key, nil), do: list
+  defp put_keyword(list, key, value), do: Keyword.put(list, key, value)
+
   defp context_field(context, key), do: field(context, key)
 
   defp field(map, key, default \\ nil)
 
   defp field(map, key, default) when is_map(map) and is_atom(key) do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp field(map, key, default) when is_map(map) and is_binary(key) do
-    Map.get(map, key, default)
   end
 
   defp field(_map, _key, default), do: default

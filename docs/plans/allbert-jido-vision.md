@@ -638,12 +638,12 @@ historical aliases only and remain in old reference notes for continuity.
   delegate-agent extension point, adds `mix allbert.research`, and proves the
   surface with nine v0.46 security eval rows plus deterministic
   `release.v046` evidence. Operator no-code agent authoring stays parked.
-- v0.47: Operator-Supervised Self-Improvement (Discovery + Local Drafts). A
-  read-only trace index over v0.40-v0.44 traces, the generalized v0.42
-  suggestion surface, a read-only pattern-discovery action, and
-  skill/workflow/memory drafts in one unified reviewed-draft store. Every
-  suggestion is advisory and every draft inert until a confirmed action
-  promotes it.
+- v0.47: Operator-Supervised Self-Improvement (Discovery + Local Drafts) -
+  implemented as `0.47.0`. A read-only trace index over v0.40-v0.44 traces,
+  the generalized v0.42 suggestion surface, a read-only pattern-discovery
+  action, and skill/workflow/memory drafts in one unified reviewed-draft
+  store. Every suggestion is advisory and every draft inert until a confirmed
+  action promotes it.
 - v0.47b: Operator-Supervised Self-Improvement (Handoff Drafts). The
   template-, marketplace-, delegate-plugin-, capability-gap-, and
   objective-draft kinds that hand off to the v0.36/v0.37/v0.38
@@ -701,19 +701,20 @@ bucket.
   connects a server only through a confirmation-gated consent; discovered
   metadata is never authority.
 
-### Planned v0.47: Operator-Supervised Self-Improvement
+### Shipped v0.47: Operator-Supervised Self-Improvement
 
 Early in the 1.0 capability arc, while operators are first generating rich
 trace patterns from MCP, integrations, browser research, Plan/Build, and
-marketplace-lite discovery, Allbert adds operator-supervised
-draft creation from observed use:
+marketplace-lite discovery, Allbert adds operator-supervised draft creation
+from observed use. The discovery and local-draft half shipped in `0.47.0`:
 
 - Trace-to-skill draft suggestions from repeated prompts, repeated action
   chains, failed intents, corrections, or manually marked examples.
 - Workflow/intention suggestions that turn common multi-step objective patterns
   into inert workflow YAML or v0.38 template inputs.
 - Dynamic capability review loops that connect capability-gap detection to the
-  existing v0.36 sandbox, v0.37 gate/loader, and v0.38 templates.
+  existing v0.36 sandbox, v0.37 gate/loader, and v0.38 templates are the
+  v0.47b handoff scope.
 - Reviewed memory promotion/update draft facades and objective/workflow
   draft-write facades. These are draft-only paths, not settings, secrets,
   shell, package, confirmation-decision, trust-control, or live

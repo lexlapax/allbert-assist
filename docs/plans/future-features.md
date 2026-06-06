@@ -21,7 +21,7 @@ lexical Active Memory retrieval over reviewed `:kept` entries scoped to
 `{thread_id, active_app, identity_namespace}`. Replayable from traces.
 No embeddings; no learned ranking.
 
-v0.47 plans operator-supervised trace-derived draft suggestions. Neither
+v0.47 ships operator-supervised trace-derived draft suggestions. Neither
 v0.39b nor v0.47 trains, distills, or creates a learned system-memory
 authority.
 
@@ -37,7 +37,7 @@ Still parked:
 
 Status: parked.
 
-v0.47 plans operator-supervised, inert trace-to-skill and trace-to-workflow
+v0.47 ships operator-supervised, inert trace-to-skill and trace-to-workflow
 draft suggestions. Drafts remain disabled/untrusted until reviewed and
 confirmed.
 
@@ -53,16 +53,16 @@ Still parked:
 Status: parked.
 
 v0.36-v0.38 now define the supervised dynamic capability path: sandbox/gate
-evidence, dynamic action integration, and templated creation. v0.47 may add
-only reviewed delegate facades for memory promotion/update drafts and
-objective/workflow draft writes.
+evidence, dynamic action integration, and templated creation. v0.47 ships only
+reviewed delegate facades for memory promotion/update drafts and workflow
+draft writes; objective and handoff draft kinds route to v0.47b.
 
 Still parked:
 
 - settings, secrets, shell, package-install, confirmation-decision, trust, or
   live workspace/canvas write facades;
 - broader generated-permission ceilings beyond the reviewed v0.47 memory and
-  workflow draft paths;
+  workflow draft paths and the planned v0.47b handoff draft kinds;
 - unsupervised self-recompilation, compiler-loop bootstrapping, or runtime
   mutation outside the v0.36/v0.37/v0.38 review path.
 
@@ -423,7 +423,7 @@ v0.44 workflow YAML cannot reference another workflow as a step. The
 by 3-4x (composition semantics, cycle detection across workflows,
 version pinning for included workflows). Reserved as
 `sub_workflow_include` in ADR 0041. Defer until a real consumer
-appears — possibly v0.47 self-improvement when trace-to-workflow drafts
+appears - possibly after v0.47 self-improvement trace-to-workflow drafts
 start producing reusable sub-pieces.
 
 ### Auto-Triggered Workflows (`on:` Clauses)

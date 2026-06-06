@@ -258,10 +258,11 @@ Dependency order from here:
     through `Actions.Runner.run/3`; v0.46 also hardens allowlisted delegate
     command strings and documents the extension point so plugin authors can
     register their own. Operator no-code agent authoring stays parked.
-47. v0.47 Operator-supervised self-improvement (discovery + local drafts):
-    a read-only trace index, the generalized v0.42 suggestion surface, a
-    read-only pattern-discovery action, and skill/workflow/memory drafts in
-    one unified reviewed-draft store; no autonomous authority.
+47. v0.47 Operator-supervised self-improvement (discovery + local drafts) -
+    implemented as `0.47.0`: a read-only trace index, the generalized v0.42
+    suggestion surface, a read-only pattern-discovery action, and
+    skill/workflow/memory drafts in one unified reviewed-draft store; no
+    autonomous authority.
 47b. v0.47b Operator-supervised self-improvement (handoff drafts):
     template-backed, marketplace-backed, inert delegate-plugin, capability-gap,
     and objective drafts that hand off to the v0.36/v0.37/v0.38
@@ -2739,30 +2740,30 @@ Request flow: `docs/plans/v0.47-request-flow.md`
 ADR: `docs/adr/0045-operator-supervised-self-improvement-trust-tier.md`
 (amendments A1–A4).
 
-Status: planned; implementation-ready for M1. Split from the original
-single-release plan into v0.47 (discovery + local drafts) and v0.47b (handoff
-drafts), the v0.39b/v0.45.1 pattern, so the discovery substrate and inert
-non-code drafts land on a proven base before the code-bearing and
-catalog-backed kinds.
+Status: implemented as `0.47.0`. Split from the original single-release plan
+into v0.47 (discovery + local drafts) and v0.47b (handoff drafts), following
+the v0.39b/v0.45.1 pattern, so the discovery substrate and inert non-code
+drafts landed on a proven base before the code-bearing and catalog-backed
+kinds.
 
-Expected direction:
+Shipped scope:
 
-- Build a read-only **trace index** over `<ALLBERT_HOME>/memory/traces/` so
+- Built a read-only **trace index** over `<ALLBERT_HOME>/memory/traces/` so
   repeated prompts, action chains, corrections, and failed intents are
   queryable; it inherits trace redaction and grants nothing (ADR 0045 A1).
-- **Generalize the v0.42 discovery suggestion surface**
+- **Generalized the v0.42 discovery suggestion surface**
   (`Tools.Discovery.Suggestion` + `Workspace.DiscoverySuggestions`) to carry
-  self-improvement suggestion types — one queue, one panel (ADR 0045 A2).
-- Add a read-only `discover_patterns` action (modeled on `find_tools`) that
-  reads the index plus objective events, memory review decisions, and
-  operator-marked examples, and writes inert suggestions.
-- Create **skill, workflow, and memory drafts** behind **one unified
+  self-improvement suggestion types: one queue, one panel (ADR 0045 A2).
+- Added a read-only `discover_patterns` action (modeled on `find_tools`) that
+  reads the index plus objective events and memory review decisions, then
+  writes only inert suggestions.
+- Created **skill, workflow, and memory drafts** behind **one unified
   reviewed-draft facade**, generalized from the v0.37 `DynamicPlugins.Draft`
   lifecycle (ADR 0045 A3, ADR 0032 amendment). Existing source-bearing dynamic
   drafts remain compatible under `<ALLBERT_HOME>/dynamic_plugins/drafts/`;
   workflow drafts reconcile the ADR 0041
   `<ALLBERT_HOME>/drafts/workflows/` root.
-- Keep every suggestion advisory and every draft inert; promotion to a live
+- Kept every suggestion advisory and every draft inert; promotion to a live
   skill/workflow/memory entry is a separate confirmed action through the
   existing path.
 

@@ -17,7 +17,7 @@ defmodule AllbertAssist.Workspace.DiscoverySuggestionsTest do
     root =
       Path.join(
         System.tmp_dir!(),
-        "allbert-discovery-suggestions-#{System.unique_integer([:positive])}"
+        "allbert-discovery-suggestions-#{System.system_time(:nanosecond)}-#{System.unique_integer([:positive, :monotonic])}"
       )
 
     Application.put_env(:allbert_assist, Paths, home: root)
@@ -26,7 +26,7 @@ defmodule AllbertAssist.Workspace.DiscoverySuggestionsTest do
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
-      File.rm_rf!(root)
+      remove_test_root!(root)
     end)
 
     :ok
@@ -126,4 +126,19 @@ defmodule AllbertAssist.Workspace.DiscoverySuggestionsTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp remove_test_root!(root, attempts \\ 3)
+
+  defp remove_test_root!(root, 0), do: File.rm_rf!(root)
+
+  defp remove_test_root!(root, attempts) do
+    case File.rm_rf(root) do
+      {:ok, _removed} ->
+        :ok
+
+      {:error, _path, _reason} ->
+        Process.sleep(25)
+        remove_test_root!(root, attempts - 1)
+    end
+  end
 end

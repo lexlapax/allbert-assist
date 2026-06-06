@@ -9,25 +9,32 @@ defmodule AllbertAssist.SelfImprovement.TraceIndexTest do
   @env_vars [
     "ALLBERT_HOME",
     "ALLBERT_HOME_DIR",
+    "ALLBERT_MEMORY_ROOT",
     "ALLBERT_SETTINGS_ROOT",
     "ALLBERT_SETTINGS_MASTER_KEY"
   ]
 
   setup do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
+    original_memory_config = Application.get_env(:allbert_assist, AllbertAssist.Memory)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     Enum.each(@env_vars, &System.delete_env/1)
+    Application.delete_env(:allbert_assist, AllbertAssist.Memory)
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, Settings)
 
     home = temp_path("home")
     System.put_env("ALLBERT_HOME", home)
+    Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, AllbertAssist.Memory, root: Path.join(home, "memory"))
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
 
     on_exit(fn ->
       File.rm_rf!(home)
       restore_env(original_env)
+      restore_app_env(AllbertAssist.Memory, original_memory_config)
       restore_app_env(Paths, original_paths_config)
       restore_app_env(Settings, original_settings_config)
     end)
