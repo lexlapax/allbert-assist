@@ -1,6 +1,6 @@
 # Provider Capabilities Developer Notes
 
-Status: M1-M6 implemented.
+Status: M1-M7 implemented.
 
 v0.48 generalizes the v0.39 provider/model substrate. A provider is a
 connection profile. A model profile declares what that connection can do and,
@@ -108,14 +108,17 @@ Voice providers use the same model-profile and doctor contract:
   result metadata must stay explicit.
 - M4 added `mic://capture/<id>` resource identity, voice permission floors,
   audio metadata redaction, `voice.*` bounds/retention settings, and the
-  bounded transcode spec helper. M7 adds the remaining TTS and channel voice
-  flows.
+  bounded transcode spec helper.
 - M5 adds `transcribe_voice` and `mix allbert.ask --voice AUDIO_FILE` for
   fake-provider transcription of bounded local files. It submits the transcript
   as normal runtime text and records only redacted voice metadata.
 - M6 adds `capture_workspace_voice`, a confirmation-gated workspace microphone
   grant that feeds a LiveView binary upload into `transcribe_voice` with
   `mic://capture/<id>` resource identity.
+- M7 adds `synthesize_voice` for fake-provider TTS output plus redacted
+  display-only usage/cost metadata, and Telegram voice-note ingestion that
+  downloads through the Telegram Bot API before delegating STT to
+  `transcribe_voice`.
 - Voice doctor fields use the ADR 0047 names: `provider_capabilities`,
   `provider_deployment_mode`, `speech_to_text_supported`,
   `text_to_speech_supported`, `audio_formats_supported`,
@@ -138,4 +141,6 @@ Implementation milestones should add focused tests for:
 - CLI voice file transcription through fake STT (implemented in M5);
 - workspace microphone confirmation, upload, redaction, and transcript handoff
   (implemented in M6);
+- fake TTS action output and Telegram voice-note ingestion through shared STT
+  (implemented in M7);
 - `release.v048` coverage for fake STT/TTS.

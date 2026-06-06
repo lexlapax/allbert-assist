@@ -3,8 +3,9 @@
 Status: in progress for v0.48. Provider capabilities, ranked preferences,
 voice doctor dispatch, and the audio resource/security substrate are
 implemented through M4; CLI voice file transcription is implemented in M5;
-workspace microphone capture is implemented in M6; TTS/channel execution flows
-remain planned for M7-M8.
+workspace microphone capture is implemented in M6; TTS and Telegram
+voice-note ingestion are implemented in M7; release closeout remains planned
+for M8.
 
 v0.48 makes voice use the same provider framework as text models. The operator
 chooses a primary provider/model profile for most work and can override that
@@ -73,6 +74,19 @@ capture through a LiveView upload to `transcribe_voice`. Captured audio is
 bounded. Raw audio is not written to traces by default, and retention is
 default-off unless an operator setting explicitly enables a bounded retained
 artifact under `voice.audio.retention_root`.
+
+## TTS And Telegram Voice Notes
+
+`synthesize_voice` is an internal registered action that resolves the
+`text_to_speech` capability through the same provider preference system as
+text and STT. Fake TTS writes deterministic local audio and reports redacted
+display-only usage/cost metadata; remote TTS remains explicit opt-in.
+
+Telegram voice notes are channel input, not a channel-owned STT provider. The
+Telegram adapter parses `message.voice`, fetches the file through Bot API
+`getFile` plus the documented file-download path, stores it only in a bounded
+temp path for the turn, and calls `transcribe_voice`. The runtime receives text
+plus bounded Telegram voice metadata after STT succeeds.
 
 ## Provider Preferences
 

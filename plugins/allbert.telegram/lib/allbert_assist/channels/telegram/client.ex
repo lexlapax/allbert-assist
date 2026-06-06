@@ -60,6 +60,32 @@ defmodule AllbertAssist.Channels.Telegram.Client do
     end
   end
 
+  def get_file(token, file_id, opts \\ []) do
+    request(
+      :post,
+      token,
+      "getFile",
+      [
+        json: %{"file_id" => file_id},
+        receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
+      ],
+      opts
+    )
+  end
+
+  def download_file(token, file_path, opts \\ []) do
+    [
+      method: :get,
+      url: file_url(token, file_path),
+      retry: false,
+      redirect: false,
+      receive_timeout: Keyword.get(opts, :receive_timeout, 30_000)
+    ]
+    |> maybe_put(:plug, Keyword.get(opts, :plug))
+    |> Req.request()
+    |> normalize_file_response()
+  end
+
   defp request(method, token, method_name, request_opts, opts) do
     [
       method: method,
@@ -88,7 +114,31 @@ defmodule AllbertAssist.Channels.Telegram.Client do
 
   defp normalize_response({:error, reason}), do: {:error, {:transport_error, reason}}
 
+  defp normalize_file_response({:ok, %{status: status, body: body}}) when status in 200..299,
+    do: {:ok, body}
+
+  defp normalize_file_response({:ok, %{status: status, body: body}}) do
+    {:error, {:telegram_file_error, status, redact_body(body)}}
+  end
+
+  defp normalize_file_response({:error, %Req.TransportError{} = error}) do
+    {:error, {:transport_error, error.reason}}
+  end
+
+  defp normalize_file_response({:error, reason}), do: {:error, {:transport_error, reason}}
+
   defp url(token, method_name), do: "#{@base_url}/bot#{URI.encode(token)}/#{method_name}"
+
+  defp file_url(token, file_path) do
+    "#{@base_url}/file/bot#{URI.encode(token)}/#{encode_file_path(file_path)}"
+  end
+
+  defp encode_file_path(file_path) do
+    file_path
+    |> to_string()
+    |> String.split("/", trim: true)
+    |> Enum.map_join("/", &URI.encode/1)
+  end
 
   defp redact_body(body) when is_map(body) do
     Map.drop(body, ["token", "password", "api_key", "authorization"])

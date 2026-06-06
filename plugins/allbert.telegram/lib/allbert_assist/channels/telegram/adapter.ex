@@ -11,11 +11,15 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   alias AllbertAssist.Channels.Telegram.Client
   alias AllbertAssist.Channels.Telegram.Parser
   alias AllbertAssist.Channels.Telegram.Renderer
+  alias AllbertAssist.Runtime.Paths, as: RuntimePaths
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings.Secrets
 
   @provider "telegram_bot_api"
   @max_backoff_ms 60_000
+  @telegram_file_download_max_bytes 20 * 1024 * 1024
+  @telegram_voice_extensions ~w[.ogg .oga .mp3 .m4a .wav .webm]
   @callback_data_re ~r/\Aallbert:v1:(approve|deny|show):([A-Za-z0-9_-]+)\z/
 
   def start_link(opts) do
@@ -131,6 +135,9 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
       {:text_message, fields} ->
         process_text_update(fields, state)
 
+      {:voice_message, fields} ->
+        process_voice_update(fields, state)
+
       {:callback_query, fields} ->
         process_callback_update(fields, state)
 
@@ -145,6 +152,14 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   defp process_text_update(fields, state) do
     case insert_received_event(fields, "inbound") do
       {:ok, %AllbertAssist.Channels.Event{} = event} -> handle_text_message(event, fields, state)
+      {:ok, :duplicate} -> {:ok, :duplicate}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp process_voice_update(fields, state) do
+    case insert_received_event(fields, "inbound") do
+      {:ok, %AllbertAssist.Channels.Event{} = event} -> handle_voice_message(event, fields, state)
       {:ok, :duplicate} -> {:ok, :duplicate}
       {:error, reason} -> {:error, reason}
     end
@@ -211,6 +226,52 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
     end
   end
 
+  defp handle_voice_message(event, fields, state) do
+    with :ok <- validate_chat(fields, state),
+         :ok <- validate_voice_size(fields),
+         {:ok, user_id} <- resolve_identity(fields, state),
+         session_id <-
+           Channels.derive_session_id(
+             "telegram",
+             fields.external_user_id,
+             fields.external_chat_id
+           ),
+         {:ok, audio} <- fetch_voice_audio(fields, state) do
+      result =
+        with {:ok, transcription} <- transcribe_voice_audio(audio, user_id, session_id, fields),
+             :ok <- validate_transcript_size(transcription.transcript, state),
+             {:ok, response} <-
+               submit_runtime(
+                 transcription.transcript,
+                 user_id,
+                 session_id,
+                 fields,
+                 false,
+                 voice_runtime_metadata(fields, audio, transcription)
+               ),
+             {:ok, chunks, keyboard} <- render_response(response, state),
+             :ok <- deliver_chunks(fields.external_chat_id, chunks, keyboard, state),
+             {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
+          {:ok, :processed}
+        end
+
+      cleanup_voice_audio(audio)
+
+      case result do
+        {:ok, :processed} ->
+          {:ok, :processed}
+
+        {:error, reason} ->
+          {:ok, _event} = mark_rejected_or_failed(event, reason)
+          {:ok, :rejected}
+      end
+    else
+      {:error, reason} ->
+        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:ok, :rejected}
+    end
+  end
+
   defp validate_chat(fields, state) do
     group? = Map.get(fields, :chat_type) in ["group", "supergroup"]
     allowed_chat_ids = Map.get(state.settings, "allowed_chat_ids", [])
@@ -238,6 +299,28 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
     end
   end
 
+  defp validate_transcript_size(text, state) when is_binary(text) do
+    max_text_bytes = Map.get(state.settings, "max_text_bytes", 4096)
+
+    if byte_size(text) <= max_text_bytes do
+      :ok
+    else
+      {:error, :oversized}
+    end
+  end
+
+  defp validate_transcript_size(_text, _state), do: {:error, :missing_transcript}
+
+  defp validate_voice_size(fields) do
+    case Map.get(fields, :voice_file_size) do
+      size when is_integer(size) and size > @telegram_file_download_max_bytes ->
+        {:error, {:telegram_voice_too_large, size, @telegram_file_download_max_bytes}}
+
+      _size ->
+        :ok
+    end
+  end
+
   defp resolve_identity(fields, state) do
     Identity.resolve(
       "telegram",
@@ -250,6 +333,10 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   defp prompt_text(text), do: {text, false}
 
   defp submit_runtime(text, user_id, session_id, fields, new_thread?) do
+    submit_runtime(text, user_id, session_id, fields, new_thread?, %{})
+  end
+
+  defp submit_runtime(text, user_id, session_id, fields, new_thread?, extra_metadata) do
     Runtime.submit_user_input(%{
       text: text,
       channel: "telegram",
@@ -257,16 +344,175 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
       operator_id: user_id,
       session_id: session_id,
       new_thread: new_thread?,
-      metadata: %{
-        channel: "telegram",
-        provider: @provider,
-        external_event_id: fields.external_event_id,
-        external_user_id: fields.external_user_id,
-        external_chat_id: fields.external_chat_id,
-        external_message_id: fields.external_message_id
-      }
+      metadata:
+        %{
+          channel: "telegram",
+          provider: @provider,
+          external_event_id: fields.external_event_id,
+          external_user_id: fields.external_user_id,
+          external_chat_id: fields.external_chat_id,
+          external_message_id: fields.external_message_id
+        }
+        |> Map.merge(extra_metadata)
     })
   end
+
+  defp fetch_voice_audio(fields, state) do
+    with {:ok, file} <- Client.get_file(state.token, fields.voice_file_id, state.req_options),
+         {:ok, file_path} <- telegram_file_path(file),
+         :ok <- validate_telegram_file_size(file),
+         {:ok, body} <- Client.download_file(state.token, file_path, state.req_options),
+         :ok <- validate_downloaded_voice(body),
+         {:ok, path} <- store_voice_audio(fields, file_path, body) do
+      {:ok,
+       %{
+         path: path,
+         byte_size: byte_size(body),
+         file_size: Map.get(file, "file_size"),
+         mime_type: fields.voice_mime_type
+       }}
+    end
+  end
+
+  defp telegram_file_path(%{"file_path" => file_path}) when is_binary(file_path) do
+    file_path = String.trim(file_path)
+    if file_path == "", do: {:error, :missing_telegram_file_path}, else: {:ok, file_path}
+  end
+
+  defp telegram_file_path(_file), do: {:error, :missing_telegram_file_path}
+
+  defp validate_telegram_file_size(file) do
+    case Map.get(file, "file_size") do
+      size when is_integer(size) and size > @telegram_file_download_max_bytes ->
+        {:error, {:telegram_voice_too_large, size, @telegram_file_download_max_bytes}}
+
+      _size ->
+        :ok
+    end
+  end
+
+  defp validate_downloaded_voice(body) when is_binary(body) do
+    size = byte_size(body)
+
+    cond do
+      size == 0 ->
+        {:error, :empty_telegram_voice}
+
+      size > @telegram_file_download_max_bytes ->
+        {:error, {:telegram_voice_too_large, size, @telegram_file_download_max_bytes}}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_downloaded_voice(_body), do: {:error, :invalid_telegram_voice_download}
+
+  defp store_voice_audio(fields, file_path, body) do
+    with {:ok, extension} <- voice_extension(file_path, fields),
+         {:ok, destination} <- voice_destination(fields, extension),
+         :ok <- File.mkdir_p(Path.dirname(destination)),
+         :ok <- File.write(destination, body) do
+      {:ok, destination}
+    end
+  end
+
+  defp voice_extension(file_path, fields) do
+    extension =
+      file_path
+      |> Path.extname()
+      |> String.downcase()
+      |> case do
+        "" -> extension_from_mime(Map.get(fields, :voice_mime_type))
+        extension -> extension
+      end
+
+    if extension in @telegram_voice_extensions do
+      {:ok, extension}
+    else
+      {:error, {:unsupported_telegram_voice_type, extension}}
+    end
+  end
+
+  defp extension_from_mime("audio/ogg"), do: ".ogg"
+  defp extension_from_mime("audio/opus"), do: ".ogg"
+  defp extension_from_mime("audio/mpeg"), do: ".mp3"
+  defp extension_from_mime("audio/mp4"), do: ".m4a"
+  defp extension_from_mime("audio/wav"), do: ".wav"
+  defp extension_from_mime("audio/webm"), do: ".webm"
+  defp extension_from_mime(_mime_type), do: ".ogg"
+
+  defp voice_destination(fields, extension) do
+    event_id =
+      fields.external_event_id
+      |> to_string()
+      |> String.replace(~r/[^A-Za-z0-9_-]/, "_")
+
+    {:ok,
+     Path.join([
+       RuntimePaths.tmp_root(),
+       "telegram-voice",
+       event_id,
+       "telegram-voice-#{event_id}#{extension}"
+     ])}
+  end
+
+  defp transcribe_voice_audio(audio, user_id, session_id, fields) do
+    case Runner.run(
+           "transcribe_voice",
+           %{audio_file: audio.path},
+           %{
+             actor: user_id,
+             channel: "telegram",
+             surface: "telegram_voice_note",
+             session_id: session_id,
+             request: %{
+               user_id: user_id,
+               operator_id: user_id,
+               channel: "telegram",
+               session_id: session_id
+             },
+             resolver_metadata: %{
+               provider: @provider,
+               external_event_id: fields.external_event_id,
+               external_user_id: fields.external_user_id,
+               external_chat_id: fields.external_chat_id,
+               external_message_id: fields.external_message_id
+             }
+           }
+         ) do
+      {:ok, %{status: :completed, transcript: transcript, voice_metadata: metadata}}
+      when is_binary(transcript) ->
+        {:ok, %{transcript: transcript, voice_metadata: Redactor.redact_audio_metadata(metadata)}}
+
+      {:ok, %{status: status} = response} ->
+        {:error, {:voice_transcription_failed, status, Map.get(response, :error)}}
+    end
+  end
+
+  defp voice_runtime_metadata(fields, audio, transcription) do
+    %{
+      voice: transcription.voice_metadata,
+      telegram_voice: %{
+        file_id: fields.voice_file_id,
+        file_unique_id: fields.voice_file_unique_id,
+        duration_seconds: fields.voice_duration_seconds,
+        mime_type: fields.voice_mime_type,
+        file_size: fields.voice_file_size || audio.file_size,
+        downloaded_byte_size: audio.byte_size,
+        source: "telegram_voice_note",
+        redaction_status: "redacted"
+      }
+    }
+  end
+
+  defp cleanup_voice_audio(%{path: path}) do
+    _ = File.rm(path)
+    _ = File.rmdir(Path.dirname(path))
+    :ok
+  end
+
+  defp cleanup_voice_audio(_audio), do: :ok
 
   defp render_response(response, state) do
     Renderer.render_response(response,
