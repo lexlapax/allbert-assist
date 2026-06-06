@@ -268,12 +268,15 @@ Dependency order from here:
     delegate-plugin, capability-gap, and objective drafts that hand off to the
     v0.36/v0.37/v0.38 sandbox/gate/templated-creation path; seven `:v047b`
     eval rows and `release.v047b`; no new trust tier.
-48. v0.48 Voice modality: experimental STT/TTS resource/action path for CLI,
-    workspace, and Telegram voice-note ingestion. Discord voice is deferred to
-    a focused follow-on after Channel Pack 1.
-49. v0.49 Vision and image generation: image/screenshot resource classes,
-    vision model profile checks, image-generation action, workspace rendering,
-    retention, redaction, and cost visibility.
+48. v0.48 Voice modality and provider capabilities: capability-aware
+    provider/model profiles, ranked operator preferences, deterministic STT/TTS
+    fake-provider release lane, CLI file transcription, workspace microphone
+    capture, TTS, and Telegram voice-note ingestion. Discord voice is deferred
+    to a focused follow-on after Channel Pack 1.
+49. v0.49 Vision and image generation: consumes the v0.48 provider capability
+    substrate for image/screenshot resource classes, vision model profile
+    checks, image-generation actions, workspace rendering, retention,
+    redaction, and display-only cost metadata.
 50. v0.50 Channel Pack 1 (Discord and Slack) + ADR 0016 amendment for the
     channel approval-primitive contract (`{list, button, typed_command, link}`).
     Locks the channel approval shape before mobile channels need it.
@@ -2840,18 +2843,27 @@ nothing and a delegate-plugin draft registers no agent.
 
 Plan: `docs/plans/v0.48-plan.md`
 Request flow: `docs/plans/v0.48-request-flow.md`
-ADR: `docs/adr/0042-audio-image-and-media-resource-classes.md`
+ADRs: `docs/adr/0051-provider-capability-preferences.md`,
+`docs/adr/0042-audio-image-and-media-resource-classes.md`,
+`docs/adr/0047-provider-doctor-contract.md`
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+Status: planned. Current authority is the v0.48 plan/request-flow plus ADR 0051;
+the older archive source is historical context only.
 
 Expected direction:
 
+- Generalize the existing provider/model framework with capability metadata and
+  ranked operator preferences before wiring voice consumers.
 - Add experimental STT/TTS capability as media resources and registered actions,
-  not as a separate runtime.
-- Add CLI voice mode, workspace microphone affordance, and Telegram voice-note
-  ingestion as transcribed runtime input.
+  not as a separate runtime or separate provider system.
+- Add CLI file transcription, workspace microphone affordance, TTS, and
+  Telegram voice-note ingestion as transcribed runtime input.
 - Keep captured audio bounded, redacted from traces by default, and retained
   only by explicit operator policy.
+- Ship display-only provider/cost metadata for STT/TTS action results; unified
+  dashboards and budget enforcement remain parked.
+- Prove the feature through a deterministic fake STT/TTS release lane
+  (`mix allbert.test release.v048`) before manual validation.
 - Defer Discord voice support to a focused follow-on after Discord lands in
   v0.50.
 
@@ -2859,16 +2871,22 @@ Expected direction:
 
 Plan: `docs/plans/v0.49-plan.md`
 Request flow: `docs/plans/v0.49-request-flow.md`
-ADR: `docs/adr/0042-audio-image-and-media-resource-classes.md`
+ADRs: `docs/adr/0051-provider-capability-preferences.md`,
+`docs/adr/0042-audio-image-and-media-resource-classes.md`,
+`docs/adr/0047-provider-doctor-contract.md`
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+Status: planned. Current authority is the v0.49 plan/request-flow plus the
+v0.48 provider capability substrate; the older archive source is historical
+context only.
 
 Expected direction:
 
+- Consume the v0.48 provider capability and preference substrate instead of
+  adding image-specific provider routing.
 - Add image and screenshot resources for paste/upload/capture workflows.
 - Add vision-capable provider/model checks to the provider doctor path.
-- Add image generation as a registered action with provider profile, cost
-  visibility, workspace rendering, retention, and redaction.
+- Add image generation as a registered action with provider profile,
+  display-only cost metadata, workspace rendering, retention, and redaction.
 
 ## v0.50: Channel Pack 1 - Discord And Slack
 

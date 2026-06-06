@@ -1,0 +1,183 @@
+# ADR 0051: Provider Capability Metadata And Operator Preferences
+
+## Status
+
+Proposed for v0.48 M1. Becomes accepted when v0.48 M1 closes with release
+evidence.
+
+## Context
+
+Allbert already has a provider/model substrate:
+
+- shipped seed data under `apps/allbert_assist/priv/provider_catalog/models.json`;
+- Settings Central provider and model profile overrides;
+- Jido model aliases generated from `model_profiles.*`;
+- `doctor_model_profile` and ADR 0047's redacted doctor envelope;
+- operator-facing model selection through `intent.model_profile` and the
+  ad-hoc `intent.direct_answer_model_profile` override.
+
+That substrate is currently text-generation shaped. Model profiles do not
+declare capabilities or modalities, and task-specific preferences are encoded
+in profile names or one-off settings keys. v0.48 voice and v0.49 vision need
+speech, image, and video models to use the same provider framework instead of
+introducing separate voice-provider or image-provider systems.
+
+## Decision
+
+Providers are modality-agnostic connection profiles. Model profiles declare the
+capabilities they support, and operator preferences choose ranked model
+profiles for a task or capability.
+
+### Capability Vocabulary
+
+v0.48 introduces this additive vocabulary:
+
+- `text_generation`
+- `speech_to_text`
+- `text_to_speech`
+- `vision_input`
+- `image_generation`
+- `video_input`
+- `streaming`
+- `embeddings`
+- `tool_use`
+
+Later releases may add capabilities, but they must not change the meaning of
+the existing names without an ADR amendment and settings migration plan.
+
+### Catalog And Settings Shape
+
+The shipped catalog may include coarse provider metadata:
+
+```json
+{
+  "providers": {
+    "local_ollama": {
+      "type": "openai_compatible",
+      "modalities": ["text"]
+    }
+  }
+}
+```
+
+Model profiles carry capability metadata:
+
+```json
+{
+  "model_profiles": {
+    "coding_local": {
+      "provider": "local_ollama",
+      "model": "qwen2.5-coder:7b",
+      "capabilities": ["text_generation", "tool_use"]
+    }
+  }
+}
+```
+
+Settings Central remains the runtime authority. The catalog is seed data only;
+operator overrides still win, and live doctor probes still determine
+availability. Capability metadata never grants permission, never supplies
+secrets, and never bypasses provider policy.
+
+### Preference Shape
+
+v0.48 adds a first-class `model_preferences` settings namespace. Task and
+capability preferences are ordered lists of model profile names, with a global
+primary profile used as the common fallback:
+
+```elixir
+%{
+  "primary" => "local",
+  "tasks" => %{
+    "direct_answer" => ["fast", "local"],
+    "coding" => ["coding", "coding_local", "local"]
+  },
+  "capabilities" => %{
+    "text_generation" => ["local", "fast", "capable"],
+    "speech_to_text" => ["voice_stt_local", "voice_stt_fake"],
+    "text_to_speech" => ["voice_tts_local", "voice_tts_fake"]
+  }
+}
+```
+
+The resolver accepts a task or capability, walks the matching ranked list, and
+returns the first enabled profile whose declared capabilities satisfy the
+request. If the ranked list is absent or exhausted, the resolver tries the
+global primary only when that profile satisfies the requested capability.
+Otherwise it returns a bounded `:no_capable_profile` error.
+
+The resolver must skip disabled profiles and profiles whose configured
+provider is disabled. Doctor output may be used as diagnostic context, but it
+does not grant authority and does not silently rewrite preferences.
+
+### Backward Compatibility
+
+The existing text settings remain compatibility aliases:
+
+- `intent.model_profile` maps to the global primary text-generation profile.
+- `intent.direct_answer_model_profile` maps to
+  `model_preferences.tasks.direct_answer`.
+
+Existing callers can continue to read those keys during migration. New v0.48+
+callers use the capability-aware resolver. Compatibility aliases must not
+produce a profile that fails capability validation.
+
+### Onboarding And Settings Central
+
+Onboarding and Settings Central should expose:
+
+- global primary profile;
+- task preferences such as `coding` and `direct_answer`;
+- capability preferences such as `speech_to_text`, `text_to_speech`, and later
+  `vision_input`;
+- local/offline defaults before cloud defaults;
+- explicit operator override for cloud provider use.
+
+Provider credentials remain Settings Central secrets. No preference setting
+stores a raw credential or raw URL.
+
+## Consequences
+
+- v0.48 can ship voice without a parallel provider framework.
+- v0.49 vision can consume the same capability and preference substrate.
+- Profile names can stay semantic, but routing no longer depends on name
+  convention alone.
+- The default "top candidate" and per-capability overrides become visible,
+  auditable settings instead of scattered consumer-specific keys.
+- Graceful fallback is deterministic and bounded: incapable, disabled, or
+  unavailable profiles are skipped, but no model output can choose a provider
+  or capability at runtime.
+
+## Non-Goals
+
+- No automatic capability grant from provider marketing metadata.
+- No automatic cloud upload when an operator has not opted into a cloud
+  provider profile.
+- No unified spend dashboard or budget enforcement in v0.48.
+- No promotion action that turns a doctor result into a preference without an
+  explicit Settings Central write.
+
+## Validation
+
+v0.48 M1 and M2 must add focused tests for:
+
+- catalog capability loading and Settings Central merge behavior;
+- resolver preference ordering;
+- capability validation and primary fallback;
+- compatibility aliases for `intent.model_profile` and
+  `intent.direct_answer_model_profile`;
+- disabled-provider and disabled-profile skips;
+- secret redaction in diagnostics and traces.
+
+The release gate must include `mix allbert.test release.v048`.
+
+## Relates To
+
+- ADR 0004 - Domain Settings Engine.
+- ADR 0011 - Confirmed External Capability Adapters.
+- ADR 0031 - Settings Schema Fragments And Authority.
+- ADR 0046 - Settings Schema Migration Policy.
+- ADR 0047 - Provider Doctor Contract.
+- `docs/plans/v0.39-plan.md`.
+- `docs/plans/v0.48-plan.md`.
+- `docs/plans/v0.49-plan.md`.

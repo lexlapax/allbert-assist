@@ -83,7 +83,8 @@ The roadmap is intentionally incremental: prove a contract through real
 runtime use, document its authority boundary, add release evidence, and only
 then make the contract easier to reuse. The current roadmap sequence has
 operator-supervised self-improvement discovery/local drafts in v0.47 and
-handoff drafts in v0.47b/`0.47.1`, then voice in v0.48 and vision in v0.49.
+handoff drafts in v0.47b/`0.47.1`, then provider-capability-backed voice in
+v0.48 and vision in v0.49.
 Use [CHANGELOG.md](CHANGELOG.md) for shipped release details and
 [docs/plans/roadmap.md](docs/plans/roadmap.md) for the current milestone
 sequence.
