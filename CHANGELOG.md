@@ -10,6 +10,74 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.48.0 - Voice Modality And Provider Capabilities
+
+Status: implemented as the v0.48 release. Current version metadata is
+`0.48.0`; ready for operator manual validation before the release tag.
+
+### Added
+
+- Capability-aware provider/model profiles and media metadata for
+  `text_generation`, `speech_to_text`, `text_to_speech`, `vision_input`,
+  `image_generation`, `video_input`, `token_streaming`, `embeddings`, and
+  `tool_use`.
+- Ranked operator model preferences for primary, task-specific, and
+  capability-specific model/profile selection, with legacy `intent.*` settings
+  preserved as compatibility aliases.
+- `doctor_voice_provider`, using the ADR 0047 redacted doctor envelope plus
+  voice-specific capability, deployment-mode, format, local-runtime, and
+  usage-metadata fields.
+- Audio resource/security substrate for `mic://capture/<id>`, voice operation
+  classes, voice permission floors, audio metadata redaction, default-off audio
+  retention, and bounded transcode specs.
+- `transcribe_voice`, `mix allbert.ask --voice AUDIO_FILE`, and
+  confirmation-gated workspace microphone capture.
+- `synthesize_voice` with fake-provider TTS output and display-only
+  provider/usage/cost metadata.
+- Telegram voice-note ingestion through bounded Bot API `getFile`/download
+  handling followed by the shared `transcribe_voice` action.
+- Ten v0.48 security eval rows:
+  `voice-provider-capability-no-authority-001`,
+  `voice-preference-fallback-capability-check-001`,
+  `voice-cli-file-bounds-001`, `voice-mic-confirmation-001`,
+  `voice-audio-retention-default-off-001`, `voice-trace-redaction-001`,
+  `voice-cloud-upload-policy-001`,
+  `voice-tts-cost-metadata-display-only-001`,
+  `voice-channel-authority-boundary-001`, and
+  `voice-transcode-bounded-001`.
+- `mix allbert.test release.v048`, a deterministic fake-provider release lane
+  for the v0.48 voice modality surface.
+
+### Changed
+
+- Provider capability metadata is routing context only; catalog defaults and
+  doctor output do not grant permission, supply secrets, or authorize provider
+  upload.
+- Voice uses the shared Settings Central, Security Central, action registry,
+  traces, confirmations, and provider resolver instead of a parallel voice
+  provider system.
+- Realtime audio sessions, generic audio/video understanding, video input,
+  cost dashboards, budget enforcement, and Discord voice remain future scope.
+- ADR 0051, ADR 0042, ADR 0047, roadmap, vision, future-features, agent
+  context map, security-hardening notes, README, operator guide, and developer
+  guide now reflect the shipped v0.48 scope and the v0.49 vision handoff.
+
+### Verification
+
+- Focused M8 eval/task suite passed with 17 tests and 0 failures:
+  `MIX_ENV=test mix test apps/allbert_assist/test/security/v048_voice_modality_eval_test.exs apps/allbert_assist/test/security/security_eval_case_test.exs apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs`.
+- `mix allbert.test release.v048` passed with provider capability core
+  (`45 tests, 0 failures`), voice action/CLI/channel (`46 tests, 0 failures`),
+  workspace voice (`64 tests, 0 failures`), voice security eval/task
+  (`17 tests, 0 failures`), and a clean v0.48 voice secret scan. Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v048/p0-13250/home/release_evidence/v048/release-v048-1780768719.json`.
+- Full `mix allbert.test release` passed with compile, dependency, format,
+  Credo, core (`1456 tests, 0 failures, 4 skipped`), web (`122 tests,
+  0 failures`), StockSage (`197 tests, 0 failures`), channel plugin
+  (`12 tests, 0 failures`), and Dialyzer (`Total errors: 0`) phases clean.
+  Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13254/home/release_evidence/gates/release-2026-06-06T17_42_36Z.json`.
+
 ## v0.47.1 - Operator-Supervised Self-Improvement Handoff Drafts
 
 Status: implemented as the v0.47b point release. Current version metadata is

@@ -90,7 +90,6 @@ defmodule AllbertAssist.Voice.Transcode do
        }}
     else
       {:error, reason} -> {:error, reason}
-      {:error, reason, _path} -> {:error, reason}
     end
   end
 

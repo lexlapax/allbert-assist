@@ -3040,11 +3040,11 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp validate_model_preference_keys(preferences) do
-    allowed = MapSet.new(~w[schema_version primary tasks capabilities])
+    allowed = ~w[schema_version primary tasks capabilities]
 
     preferences
     |> Map.keys()
-    |> Enum.reject(&MapSet.member?(allowed, &1))
+    |> Enum.reject(&(&1 in allowed))
     |> case do
       [] -> :ok
       [key | _rest] -> {:error, {:unknown_setting, "model_preferences.#{key}"}}
