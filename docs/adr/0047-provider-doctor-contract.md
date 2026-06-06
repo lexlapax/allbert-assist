@@ -3,7 +3,14 @@
 ## Status
 
 Accepted at v0.39 First-Run Onboarding And Provider Control M1 closeout.
+The v0.48 voice-doctor additive fields were implemented in M3 with focused
+doctor/action/CLI/registry coverage.
 Becomes a Tier-1 freeze candidate at v1.0.
+
+v0.48 M3 closeout evidence:
+
+- `MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/actions/voice_provider_doctor_test.exs apps/allbert_assist/test/allbert_assist/actions/settings_actions_test.exs apps/allbert_assist/test/mix/tasks/allbert_model_test.exs apps/allbert_assist/test/allbert_assist/actions/registry_test.exs`
+  passed with 31 tests and 0 failures.
 
 ## Context
 

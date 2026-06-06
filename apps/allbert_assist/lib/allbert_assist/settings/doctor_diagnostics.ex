@@ -22,7 +22,10 @@ defmodule AllbertAssist.Settings.DoctorDiagnostics do
       "Configured local model is not installed. Pull the configured model and retry.",
     model_not_listed: "Configured model was not listed by provider.",
     provider_host_denied: "Provider host is not allowed by doctor policy.",
-    rate_limited: "Provider rate-limited the model-list probe."
+    rate_limited: "Provider rate-limited the model-list probe.",
+    voice_capability_missing: "Configured profile does not advertise a voice capability.",
+    voice_provider_probe_unavailable:
+      "Voice provider probe is not available for this deployment mode yet."
   }
 
   @spec catalog() :: %{atom() => String.t()}

@@ -1,6 +1,6 @@
 # Provider Capabilities Developer Notes
 
-Status: M1-M2 implemented; M3 planned.
+Status: M1-M3 implemented.
 
 v0.48 generalizes the v0.39 provider/model substrate. A provider is a
 connection profile. A model profile declares what that connection can do and,
@@ -122,6 +122,6 @@ Implementation milestones should add focused tests for:
 - compatibility aliases (implemented in M2);
 - disabled provider/profile skips (implemented for disabled providers and
   incapable/missing profiles in M2);
-- doctor additive fields;
+- doctor additive fields (implemented in M3);
 - audio redaction and retention defaults;
 - `release.v048` coverage for fake STT/TTS.
