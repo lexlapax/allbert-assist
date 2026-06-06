@@ -10,6 +10,7 @@ defmodule AllbertAssist.Intent.Classifier do
   alias AllbertAssist.Intent.Candidate
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Models
 
   defmodule Behaviour do
     @moduledoc "Behaviour for model-assisted intent candidate classifiers."
@@ -96,9 +97,8 @@ defmodule AllbertAssist.Intent.Classifier do
   end
 
   defp model_profile do
-    with {:ok, profile_name} <- setting("intent.model_profile"),
-         {:ok, profile} <- Settings.resolve_model_profile(profile_name) do
-      {:ok, profile}
+    with {:ok, resolution} <- Models.for(:text_generation) do
+      {:ok, resolution.profile}
     end
   end
 

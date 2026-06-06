@@ -11,6 +11,10 @@ defmodule AllbertAssist.Settings do
   @legacy_key_aliases %{
     "workspace.theme" => "workspace.theme.mode"
   }
+  @write_key_aliases %{
+    "intent.model_profile" => {:single, "model_preferences.primary"},
+    "intent.direct_answer_model_profile" => {:list, "model_preferences.tasks.direct_answer"}
+  }
 
   defdelegate root(), to: Store
   defdelegate ensure_root!(), to: Store
@@ -49,9 +53,10 @@ defmodule AllbertAssist.Settings do
 
   def put(key, value, context \\ %{}) when is_binary(key) do
     key = canonical_key(key)
+    {storage_key, storage_value} = write_key_value(key, value)
 
     with {:ok, settings, user_settings, diagnostics} <-
-           Store.put_user_setting(key, value, context) do
+           Store.put_user_setting(storage_key, storage_value, context) do
       diagnostics = diagnostics ++ post_write_diagnostics(key, value, context)
       resolved = resolved_setting(key, Schema.get_dotted(settings, key), settings, user_settings)
 
@@ -166,9 +171,8 @@ defmodule AllbertAssist.Settings do
 
   defp endpoint_kind(_name, attrs), do: Map.get(attrs, "endpoint_kind") || "credentialed_remote"
 
-  defp resolved_setting(key, value, _settings, user_settings) do
-    default_value = Schema.get_dotted(defaults(), key)
-    operator_value = Schema.get_dotted(user_settings, key)
+  defp resolved_setting(key, value, settings, user_settings) do
+    {value, default_value, operator_value} = resolved_values(key, value, settings, user_settings)
     source = if is_nil(operator_value), do: :default, else: :operator
 
     %{
@@ -212,6 +216,56 @@ defmodule AllbertAssist.Settings do
   defp namespace(_namespace), do: nil
 
   defp canonical_key(key), do: Map.get(@legacy_key_aliases, key, key)
+
+  defp write_key_value(key, value) do
+    case Map.get(@write_key_aliases, key) do
+      {:single, storage_key} -> {storage_key, value}
+      {:list, storage_key} -> {storage_key, [value]}
+      nil -> {key, value}
+    end
+  end
+
+  defp resolved_values("intent.model_profile", _value, settings, user_settings) do
+    key = "model_preferences.primary"
+
+    {
+      Schema.get_dotted(settings, key),
+      Schema.get_dotted(defaults(), key),
+      Schema.get_dotted(user_settings, key)
+    }
+  end
+
+  defp resolved_values("intent.direct_answer_model_profile", _value, settings, user_settings) do
+    key = "model_preferences.tasks.direct_answer"
+
+    value =
+      settings
+      |> Schema.get_dotted(key)
+      |> preference_head(Schema.get_dotted(settings, "model_preferences.primary"))
+
+    default_value =
+      defaults()
+      |> Schema.get_dotted(key)
+      |> preference_head(Schema.get_dotted(defaults(), "model_preferences.primary"))
+
+    operator_value =
+      case Schema.get_dotted(user_settings, key) do
+        nil ->
+          nil
+
+        profiles ->
+          preference_head(profiles, Schema.get_dotted(settings, "model_preferences.primary"))
+      end
+
+    {value, default_value, operator_value}
+  end
+
+  defp resolved_values(key, value, _settings, user_settings) do
+    {value, Schema.get_dotted(defaults(), key), Schema.get_dotted(user_settings, key)}
+  end
+
+  defp preference_head([head | _rest], _fallback), do: head
+  defp preference_head(_profiles, fallback), do: fallback
 
   defp sanitize_context(context) when is_map(context) do
     Map.drop(context, [:secret, "secret", :api_key, "api_key", :token, "token"])

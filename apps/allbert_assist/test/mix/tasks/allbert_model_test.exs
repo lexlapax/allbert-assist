@@ -41,6 +41,7 @@ defmodule Mix.Tasks.Allbert.ModelTest do
 
     assert output =~ "Active model profile set to local"
     assert {:ok, "local"} = Settings.get("intent.model_profile")
+    assert {:ok, "local"} = Settings.get("model_preferences.primary")
     assert {:ok, true} = Settings.get("intent.model_assist_enabled")
   end
 

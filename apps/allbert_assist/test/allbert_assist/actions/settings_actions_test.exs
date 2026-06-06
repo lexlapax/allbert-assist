@@ -150,6 +150,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert set_active.status == :completed
     assert set_active.provider == "local_ollama"
     assert {:ok, "local"} = Settings.get("intent.model_profile")
+    assert {:ok, "local"} = Settings.get("model_preferences.primary")
     assert {:ok, true} = Settings.get("intent.model_assist_enabled")
     assert {:ok, true} = Settings.get("providers.local_ollama.enabled")
     assert Enum.any?(set_active.settings, &(&1.key == "intent.model_profile"))

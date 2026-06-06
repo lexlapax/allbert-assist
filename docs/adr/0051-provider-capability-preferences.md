@@ -10,6 +10,9 @@ M1 closeout evidence:
   passed with 44 tests and 0 failures.
 - The shipped provider catalog now validates profile capabilities/media and
   includes deterministic fake STT/TTS profiles as descriptive seed data.
+- `MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/settings/model_preferences_test.exs apps/allbert_assist/test/mix/tasks/allbert_onboard_test.exs apps/allbert_assist/test/mix/tasks/allbert_settings_test.exs apps/allbert_assist/test/mix/tasks/allbert_model_test.exs apps/allbert_assist/test/allbert_assist/actions/settings_actions_test.exs apps/allbert_assist/test/allbert_assist/actions/intent/direct_answer_test.exs apps/allbert_assist/test/allbert_assist/onboarding_test.exs`
+  passed with 38 tests and 0 failures for M2 preference resolution and
+  onboarding/settings compatibility.
 
 ## Context
 
@@ -224,7 +227,7 @@ stores a raw credential or raw URL.
 
 ## Validation
 
-v0.48 M1 and M2 must add focused tests for:
+v0.48 M1 and M2 added focused tests for:
 
 - catalog capability loading and Settings Central merge behavior;
 - media metadata validation and Settings Central merge behavior;

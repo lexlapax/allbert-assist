@@ -29,6 +29,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Models
 
   @answerer_config __MODULE__
   @default_answerer __MODULE__.ReqLLMAnswerer
@@ -71,9 +72,8 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   end
 
   defp model_answer(text, context) do
-    with {:ok, profile_name} <- direct_answer_model_profile(),
-         {:ok, profile} <- Settings.resolve_model_profile(profile_name),
-         :ok <- ensure_provider_enabled(profile),
+    with {:ok, resolution} <- Models.for(:direct_answer, context),
+         profile <- resolution.profile,
          active_memory <- retrieve_active_memory(text, context),
          {:ok, response} <-
            answerer().answer(
@@ -87,38 +87,13 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
           model_profile: profile.name,
           provider: profile.provider,
           model: profile.model,
+          model_resolution: resolution_metadata(resolution),
           active_memory: ActiveMemory.trace_metadata(active_memory),
           diagnostic: Map.get(response, :diagnostic, %{status: :used})
         }
       }
     else
       {:error, reason} -> fallback({:model_unavailable, reason})
-    end
-  end
-
-  defp ensure_provider_enabled(%{provider: provider}) when is_binary(provider) do
-    case Settings.list_provider_profiles() do
-      {:ok, providers} ->
-        case Enum.find(providers, &(&1.name == provider)) do
-          %{enabled: true} -> :ok
-          %{enabled: false} -> {:error, {:provider_disabled, provider}}
-          nil -> {:error, {:unknown_provider, provider}}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp ensure_provider_enabled(profile), do: {:error, {:invalid_model_profile, profile}}
-
-  defp direct_answer_model_profile do
-    case Settings.get("intent.direct_answer_model_profile") do
-      {:ok, profile} when is_binary(profile) and profile != "" ->
-        {:ok, profile}
-
-      _missing_or_invalid ->
-        Settings.get("intent.model_profile")
     end
   end
 
@@ -155,6 +130,16 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
       chunks: [],
       retrieved_chunks: [],
       excluded_chunks_sample: []
+    }
+  end
+
+  defp resolution_metadata(resolution) do
+    %{
+      request: resolution.request,
+      request_kind: resolution.request_kind,
+      capability: resolution.capability,
+      source: resolution.source,
+      diagnostics: resolution.diagnostics
     }
   end
 
