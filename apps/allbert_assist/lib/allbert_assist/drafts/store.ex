@@ -14,7 +14,7 @@ defmodule AllbertAssist.Drafts.Store do
   alias AllbertAssist.Workflows.Validator
 
   @metadata_suffix ".metadata.yaml"
-  @non_code_kinds ~w[skill workflow]
+  @non_code_kinds ~w[skill workflow memory_promotion memory_update]
   @non_code_tiers ~w[draft discarded promoted]
   @slug_pattern ~r/^[a-z][a-z0-9_]*$/
 
@@ -42,6 +42,21 @@ defmodule AllbertAssist.Drafts.Store do
          {:ok, workflow} <- Validator.validate(workflow),
          payload <- Map.put(workflow_draft_payload(attrs), "workflow", workflow),
          :ok <- write_artifact(attrs, workflow),
+         {:ok, draft} <- put_non_code_draft(attrs, payload, opts) do
+      {:ok, draft}
+    end
+  end
+
+  @doc "Create or rewrite an inert memory promotion/update draft."
+  @spec create_memory_draft(map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def create_memory_draft(attrs, opts \\ []) when is_map(attrs) do
+    attrs = stringify_keys(attrs)
+    kind = Map.get(attrs, "kind", "memory_promotion")
+
+    with {:ok, attrs} <- normalize_create_attrs(kind, attrs),
+         :ok <- ensure_open_draft_capacity(attrs["id"]),
+         payload <- memory_draft_payload(attrs),
+         :ok <- write_artifact(attrs, payload),
          {:ok, draft} <- put_non_code_draft(attrs, payload, opts) do
       {:ok, draft}
     end
@@ -80,6 +95,25 @@ defmodule AllbertAssist.Drafts.Store do
       kind when kind in @non_code_kinds -> discard_non_code_draft(kind, id, opts)
       nil -> discard_any_draft(id, opts)
       other -> {:error, {:invalid_draft_kind, other}}
+    end
+  end
+
+  @doc "Mark one non-code draft promoted after its live write completed."
+  @spec promote_draft(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def promote_draft(id, opts \\ []) when is_binary(id) and is_list(opts) do
+    kind = opts |> Keyword.get(:kind) |> normalize_kind_filter()
+    promotion = opts |> Keyword.get(:promotion, %{}) |> stringify_keys()
+    now = opts |> Keyword.get(:now, DateTime.utc_now()) |> DateTime.truncate(:second)
+
+    case kind do
+      kind when kind in @non_code_kinds ->
+        promote_non_code_draft(kind, id, promotion, now)
+
+      nil ->
+        promote_any_non_code_draft(id, promotion, now)
+
+      other ->
+        {:error, {:invalid_draft_kind, other}}
     end
   end
 
@@ -177,6 +211,28 @@ defmodule AllbertAssist.Drafts.Store do
     end
   end
 
+  defp promote_non_code_draft(kind, id, promotion, now) do
+    with {:ok, id} <- normalize_existing_id(id),
+         :ok <- ensure_non_code_kind(kind),
+         {:ok, metadata} <- read_existing_metadata(kind, id),
+         :ok <- ensure_non_terminal(metadata),
+         updated <-
+           metadata
+           |> Map.put("tier", "promoted")
+           |> Map.put("promotion", promotion)
+           |> put_in(["timestamps", "updated_at"], DateTime.to_iso8601(now)),
+         :ok <- write_yaml(metadata_path(kind, id), updated) do
+      {:ok, summary(updated)}
+    end
+  end
+
+  defp promote_any_non_code_draft(id, promotion, now) do
+    case show_any_non_code_draft(id) do
+      {:ok, %{kind: kind}} -> promote_non_code_draft(kind, id, promotion, now)
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
   defp discard_any_draft(id, opts) do
     case show_any_non_code_draft(id) do
       {:ok, %{kind: kind}} -> discard_non_code_draft(kind, id, opts)
@@ -262,6 +318,7 @@ defmodule AllbertAssist.Drafts.Store do
       diagnostics: Map.get(metadata, "diagnostics", []),
       artifact_path: Map.get(metadata, "artifact_path"),
       live_authority: Map.get(metadata, "live_authority", false),
+      promotion: Map.get(metadata, "promotion", %{}),
       source_suggestion_id: Map.get(payload, "source_suggestion_id"),
       created_at: get_in(metadata, ["timestamps", "created_at"]),
       updated_at: get_in(metadata, ["timestamps", "updated_at"]),
@@ -298,6 +355,29 @@ defmodule AllbertAssist.Drafts.Store do
     }
   end
 
+  defp memory_draft_payload(attrs) do
+    summary = Map.fetch!(attrs, "summary")
+    body = attrs |> Map.get("body", summary) |> to_string() |> String.trim()
+    category = attrs |> Map.get("category", "notes") |> to_string()
+
+    %{
+      "schema_version" => 1,
+      "kind" => Map.fetch!(attrs, "kind"),
+      "id" => Map.fetch!(attrs, "id"),
+      "enabled" => false,
+      "live_authority" => false,
+      "source_suggestion_id" => Map.get(attrs, "source_suggestion_id"),
+      "evidence_refs" => list_value(Map.get(attrs, "evidence_refs")),
+      "memory" =>
+        %{
+          "category" => category,
+          "summary" => summary,
+          "body" => if(body == "", do: summary, else: body)
+        }
+        |> put_optional("path", Map.get(attrs, "path"))
+    }
+  end
+
   defp workflow_payload(attrs) do
     id = Map.fetch!(attrs, "id")
     summary = Map.fetch!(attrs, "summary")
@@ -325,6 +405,11 @@ defmodule AllbertAssist.Drafts.Store do
 
   defp write_artifact(%{"kind" => "workflow", "id" => id}, workflow) do
     write_yaml(artifact_path("workflow", id), workflow)
+  end
+
+  defp write_artifact(%{"kind" => kind, "id" => id}, payload)
+       when kind in ["memory_promotion", "memory_update"] do
+    write_yaml(artifact_path(kind, id), payload)
   end
 
   defp ensure_open_draft_capacity(id) do
@@ -372,8 +457,15 @@ defmodule AllbertAssist.Drafts.Store do
   defp artifact_path("skill", id), do: Path.join(Paths.drafts_skills_root(), id <> ".skill.yaml")
   defp artifact_path("workflow", id), do: Path.join(Paths.drafts_workflows_root(), id <> ".yaml")
 
+  defp artifact_path(kind, id) when kind in ["memory_promotion", "memory_update"],
+    do: Path.join(Paths.drafts_memory_root(), id <> ".memory.yaml")
+
   defp kind_root("skill"), do: Paths.drafts_skills_root()
   defp kind_root("workflow"), do: Paths.drafts_workflows_root()
+
+  defp kind_root(kind) when kind in ["memory_promotion", "memory_update"],
+    do: Paths.drafts_memory_root()
+
   defp kind_root(_kind), do: Paths.drafts_root()
 
   defp write_yaml(path, map) do
@@ -474,6 +566,10 @@ defmodule AllbertAssist.Drafts.Store do
 
   defp empty_to_nil(""), do: nil
   defp empty_to_nil(value), do: value
+
+  defp put_optional(map, _key, nil), do: map
+  defp put_optional(map, _key, ""), do: map
+  defp put_optional(map, key, value), do: Map.put(map, key, value)
 
   defp settings_value(key, default) do
     case Settings.get(key) do

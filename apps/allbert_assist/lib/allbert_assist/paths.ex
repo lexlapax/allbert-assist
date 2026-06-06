@@ -63,6 +63,7 @@ defmodule AllbertAssist.Paths do
       drafts_root(),
       drafts_skills_root(),
       drafts_workflows_root(),
+      drafts_memory_root(),
       external_root(),
       Path.join(external_root(), "audit"),
       mcp_root(),
@@ -200,6 +201,10 @@ defmodule AllbertAssist.Paths do
   @doc "Return the generalized inert workflow draft root."
   @spec drafts_workflows_root() :: String.t()
   def drafts_workflows_root, do: Path.join(drafts_root(), "workflows")
+
+  @doc "Return the generalized inert memory draft root."
+  @spec drafts_memory_root() :: String.t()
+  def drafts_memory_root, do: Path.join(drafts_root(), "memory")
 
   @doc "Return the external service adapter root."
   @spec external_root() :: String.t()

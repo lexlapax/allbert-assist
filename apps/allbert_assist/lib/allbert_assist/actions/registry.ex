@@ -118,6 +118,9 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.SelfImprovement.CreateDraft, as: CreateSelfImprovementDraft
   alias AllbertAssist.Actions.SelfImprovement.DiscardDraft, as: DiscardSelfImprovementDraft
   alias AllbertAssist.Actions.SelfImprovement.DiscoverPatterns
+  alias AllbertAssist.Actions.SelfImprovement.PromoteMemoryDraft
+  alias AllbertAssist.Actions.SelfImprovement.PromoteSkillDraft
+  alias AllbertAssist.Actions.SelfImprovement.PromoteWorkflowDraft
   alias AllbertAssist.Actions.Skills.AuditOnlineSkill
   alias AllbertAssist.Actions.Skills.CreateSkill
   alias AllbertAssist.Actions.Skills.ImportLocalSkill
@@ -193,6 +196,9 @@ defmodule AllbertAssist.Actions.Registry do
     DiscoverPatterns,
     CreateSelfImprovementDraft,
     DiscardSelfImprovementDraft,
+    PromoteSkillDraft,
+    PromoteWorkflowDraft,
+    PromoteMemoryDraft,
     ValidateSkill,
     CreateSkill,
     RunSkillScript,
