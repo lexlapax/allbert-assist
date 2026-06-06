@@ -1,10 +1,10 @@
 # Self-Improvement Developer Guide
 
-Status: implemented in v0.47 with v0.47b M1-M3 handoff extensions. This guide
+Status: implemented in v0.47 with v0.47b M1-M4 handoff extensions. This guide
 describes the discovery and local draft substrate plus inert capability-gap,
 objective, template-backed, marketplace-backed, and delegate-plugin request
-draft kinds. Later v0.47b milestones add the remaining code-bearing handoffs,
-but must reuse this suggestion lifecycle, draft facade, and authority boundary.
+draft kinds, plus the capability-gap handoff into the existing source-bearing
+dynamic-draft gate. The remaining v0.47b milestone is release/eval closeout.
 
 ## Authority Boundary
 
@@ -115,14 +115,17 @@ The v0.47 actions are internal runtime actions:
 | `promote_workflow_draft` | `:objective_write` | required | Writes live workflow YAML after approval. |
 | `promote_memory_draft` | `:memory_write` | required | Appends or updates markdown memory after approval. |
 | `promote_template_draft` | `:dynamic_codegen_request` | not required | Creates an inert v0.37 dynamic draft through `create_from_template`; gate/integration stay separate. |
+| `promote_capability_gap_draft` | `:dynamic_codegen_request` | not required | Creates an inert v0.37 dynamic draft through `DynamicPlugins.request_draft/2`; gate/integration stay separate. |
 | `promote_objective_draft` | `:objective_write` | required | Frames a v0.24 objective through `Objectives.frame/2` after approval. |
 
 Skill, workflow, memory, and objective promotion actions are resumable through
 `approve_confirmation`. The initial call returns `:needs_confirmation` and
 writes no live artifact; approval resumes the target action with confirmation
-context. Template promotion is not resumable because it writes only a v0.37
-dynamic draft with `gate_status: "not_run"`; gate execution and integration
-remain separate actions.
+context. Template and capability-gap promotions are not resumable because they
+write only v0.37 dynamic drafts with `gate_status: "not_run"`; gate execution
+and integration remain separate actions. `integrate_dynamic_draft` checks the
+dynamic draft before creating a confirmation and denies ungated drafts, so
+operator approval is unavailable until the existing gate evidence is present.
 
 ## Release Gates
 
@@ -159,6 +162,15 @@ Focused v0.47b M3 coverage adds:
 - `SelfImprovementPromotionActionsTest` objective promotion confirmation resume
 - `RegistryTest` `promote_objective_draft` registration coverage
 
+Focused v0.47b M4 coverage adds:
+
+- `SelfImprovementPromotionActionsTest` capability-gap promotion to an inert
+  v0.37 dynamic draft and pre-gate integration block
+- `RegistryTest` `promote_capability_gap_draft` registration coverage
+- `DynamicPlugins.CodegenTest` full dynamic draft gate/integration loop
+- `DynamicPlugins.LoaderTest` confirmation, trusted-validation, and rollback
+  regression coverage
+
 The deterministic release handoff is:
 
 ```sh
@@ -167,3 +179,6 @@ mix allbert.test release.v047
 
 It runs the core, surface, and security-eval fixture suites and writes evidence
 under `<ALLBERT_HOME>/release_evidence/v047/`.
+
+The v0.47b deterministic handoff gate is implemented in M5 as
+`mix allbert.test release.v047b`.
