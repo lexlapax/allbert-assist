@@ -94,7 +94,7 @@ pending/accepted/dismissed/expired lifecycle. No parallel suggestion store.
 
 ### A3. All inert drafts live in one unified reviewed-draft store (v0.47)
 
-Status: accepted as a v0.47 plan constraint; implementation lands in M4.
+Status: implemented in v0.47 M4.
 
 The v0.37 `AllbertAssist.DynamicPlugins.Draft` lifecycle is generalized into
 a single logical reviewed-draft facade holding every inert draft kind
@@ -102,11 +102,14 @@ a single logical reviewed-draft facade holding every inert draft kind
 later) with a generic `kind`, provenance, and tier. The facade is the only
 review/list/show/discard/promote surface. Existing source-bearing dynamic
 drafts keep `<ALLBERT_HOME>/dynamic_plugins/drafts/` as a compatibility root;
-new non-code v0.47 drafts use `<ALLBERT_HOME>/drafts/` subroots where
-appropriate. **Promotion** routes a draft to the existing live write path for
-its kind (skill enablement, live `<ALLBERT_HOME>/workflows/<id>.yaml`,
-`Memory.append/1`, v0.37 `Loader.integrate/2`). See the ADR 0041
-reconciliation note for the workflow drafts root.
+new non-code v0.47 drafts use `<ALLBERT_HOME>/drafts/` subroots. M4 implements
+skill and workflow draft creation plus draft list/inspect/discard; workflow
+draft YAML is stored at `<ALLBERT_HOME>/drafts/workflows/<id>.yaml`, while
+non-code metadata is stored as `*.metadata.yaml`. **Promotion** routes a draft
+to the existing live write path for its kind (skill enablement, live
+`<ALLBERT_HOME>/workflows/<id>.yaml`, `Memory.append/1`, v0.37
+`Loader.integrate/2`). See the ADR 0041 reconciliation note for the workflow
+drafts root.
 
 ### A4. v0.47 ships discovery + non-code local drafts; v0.47b ships handoff drafts
 

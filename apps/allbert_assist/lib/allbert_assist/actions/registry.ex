@@ -115,6 +115,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.SetActiveModelProfile
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
+  alias AllbertAssist.Actions.SelfImprovement.CreateDraft, as: CreateSelfImprovementDraft
+  alias AllbertAssist.Actions.SelfImprovement.DiscardDraft, as: DiscardSelfImprovementDraft
   alias AllbertAssist.Actions.SelfImprovement.DiscoverPatterns
   alias AllbertAssist.Actions.Skills.AuditOnlineSkill
   alias AllbertAssist.Actions.Skills.CreateSkill
@@ -189,6 +191,8 @@ defmodule AllbertAssist.Actions.Registry do
     FindLocalTools,
     FindTools,
     DiscoverPatterns,
+    CreateSelfImprovementDraft,
+    DiscardSelfImprovementDraft,
     ValidateSkill,
     CreateSkill,
     RunSkillScript,

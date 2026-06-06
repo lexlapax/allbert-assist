@@ -60,6 +60,9 @@ defmodule AllbertAssist.Paths do
       dynamic_plugins_drafts_root(),
       dynamic_plugins_integrated_root(),
       dynamic_plugins_audit_root(),
+      drafts_root(),
+      drafts_skills_root(),
+      drafts_workflows_root(),
       external_root(),
       Path.join(external_root(), "audit"),
       mcp_root(),
@@ -183,6 +186,20 @@ defmodule AllbertAssist.Paths do
   @doc "Return the v0.37 dynamic plugin lifecycle audit root."
   @spec dynamic_plugins_audit_root() :: String.t()
   def dynamic_plugins_audit_root, do: Path.join(dynamic_plugins_root(), "audit")
+
+  @doc "Return the generalized inert draft root under Allbert Home."
+  @spec drafts_root() :: String.t()
+  def drafts_root do
+    first_path([configured(:drafts_root)], Path.join(home(), "drafts"))
+  end
+
+  @doc "Return the generalized inert skill draft root."
+  @spec drafts_skills_root() :: String.t()
+  def drafts_skills_root, do: Path.join(drafts_root(), "skills")
+
+  @doc "Return the generalized inert workflow draft root."
+  @spec drafts_workflows_root() :: String.t()
+  def drafts_workflows_root, do: Path.join(drafts_root(), "workflows")
 
   @doc "Return the external service adapter root."
   @spec external_root() :: String.t()
