@@ -4,6 +4,7 @@ defmodule AllbertAssist.Drafts.StoreTest do
 
   alias AllbertAssist.Drafts.Store
   alias AllbertAssist.DynamicPlugins
+  alias AllbertAssist.Marketplace
   alias AllbertAssist.Paths
   alias AllbertAssist.Workflows
   alias AllbertAssist.Workflows.Validator
@@ -157,6 +158,79 @@ defmodule AllbertAssist.Drafts.StoreTest do
              Path.join([home, "drafts", "objectives", "objective_release_review.objective.yaml"])
 
     assert File.regular?(draft.artifact_path)
+  end
+
+  test "creates template-backed drafts from reviewed template previews", %{home: home} do
+    assert {:ok, draft} =
+             Store.create_template_backed_draft(%{
+               id: "template_release_health",
+               summary: "Repeated release health checks could use the LLM tool template.",
+               pattern_id: "llm_tool",
+               params: %{
+                 "name" => "Release Health Tool",
+                 "description" => "Summarize release health evidence.",
+                 "instruction" => "Return a concise release health summary.",
+                 "permission" => "read_only"
+               },
+               source_suggestion_id: "suggestion:self_improvement:template"
+             })
+
+    assert draft.kind == "template_backed"
+    assert draft.tier == "draft"
+    assert draft.live_authority == false
+    assert draft.payload["enabled"] == false
+    assert draft.payload["template"]["pattern_id"] == "llm_tool"
+    assert draft.payload["template"]["live_integration?"] == true
+    assert draft.payload["template"]["target_shapes"] == ["action"]
+
+    assert Enum.any?(
+             draft.payload["template"]["preview_files"],
+             &(&1["path"] == "dynamic_manifest.json")
+           )
+
+    assert draft.payload["handoff"]["create_from_template_requested"] == false
+    assert draft.payload["handoff"]["gate_required_before_integration"] == true
+
+    assert draft.artifact_path ==
+             Path.join([home, "drafts", "templates", "template_release_health.template.yaml"])
+
+    assert File.regular?(draft.artifact_path)
+    refute File.dir?(Path.join([home, "dynamic_plugins", "drafts", "release_health_tool"]))
+  end
+
+  test "creates marketplace-backed drafts from catalog metadata without authority", %{home: home} do
+    assert {:ok, entries} = Marketplace.list_entries()
+    assert Enum.any?(entries, &(&1["id"] == "allbert/workspace-brief"))
+
+    assert {:ok, draft} =
+             Store.create_marketplace_backed_draft(%{
+               id: "marketplace_workspace_brief",
+               summary: "Workspace brief marketplace entry looks relevant.",
+               marketplace_entry_id: "allbert/workspace-brief",
+               source_suggestion_id: "suggestion:self_improvement:marketplace"
+             })
+
+    assert draft.kind == "marketplace_backed"
+    assert draft.tier == "draft"
+    assert draft.live_authority == false
+    assert draft.payload["enabled"] == false
+    assert draft.payload["marketplace"]["metadata_source"] == "Marketplace.list_entries/1"
+    assert draft.payload["marketplace"]["authority"] == "metadata_only"
+    assert draft.payload["marketplace"]["entry"]["id"] == "allbert/workspace-brief"
+    assert draft.payload["marketplace"]["entry"]["kind"] == "template"
+    assert draft.payload["handoff"]["install_requested"] == false
+    assert draft.payload["handoff"]["install_status"] == "not_started"
+
+    assert draft.artifact_path ==
+             Path.join([
+               home,
+               "drafts",
+               "marketplace",
+               "marketplace_workspace_brief.marketplace.yaml"
+             ])
+
+    assert File.regular?(draft.artifact_path)
+    refute File.dir?(Path.join([home, "marketplace", "installed"]))
   end
 
   test "discard leaves non-code drafts inert and terminal" do

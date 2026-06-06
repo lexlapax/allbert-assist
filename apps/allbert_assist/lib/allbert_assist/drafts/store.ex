@@ -10,13 +10,15 @@ defmodule AllbertAssist.Drafts.Store do
   alias AllbertAssist.DynamicPlugins
   alias AllbertAssist.DynamicPlugins.Codegen.CapabilityGap
   alias AllbertAssist.DynamicPlugins.Draft, as: DynamicPluginDraft
+  alias AllbertAssist.Marketplace
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.YamlCodec
+  alias AllbertAssist.Templates
   alias AllbertAssist.Workflows.Validator
 
   @metadata_suffix ".metadata.yaml"
-  @handoff_kinds ~w[capability_gap objective]
+  @handoff_kinds ~w[capability_gap objective template_backed marketplace_backed]
   @non_code_kinds ~w[skill workflow memory_promotion memory_update] ++ @handoff_kinds
   @non_code_tiers ~w[draft discarded promoted]
   @slug_pattern ~r/^[a-z][a-z0-9_]*$/
@@ -110,6 +112,34 @@ defmodule AllbertAssist.Drafts.Store do
     with {:ok, attrs} <- normalize_create_attrs("objective", attrs),
          :ok <- ensure_open_draft_capacity(attrs["id"]),
          payload <- objective_draft_payload(attrs),
+         :ok <- write_artifact(attrs, payload),
+         {:ok, draft} <- put_non_code_draft(attrs, payload, opts) do
+      {:ok, draft}
+    end
+  end
+
+  @doc "Create or rewrite an inert template-backed handoff draft."
+  @spec create_template_backed_draft(map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def create_template_backed_draft(attrs, opts \\ []) when is_map(attrs) do
+    attrs = stringify_keys(attrs)
+
+    with {:ok, attrs} <- normalize_create_attrs("template_backed", attrs),
+         :ok <- ensure_open_draft_capacity(attrs["id"]),
+         {:ok, payload} <- template_backed_payload(attrs),
+         :ok <- write_artifact(attrs, payload),
+         {:ok, draft} <- put_non_code_draft(attrs, payload, opts) do
+      {:ok, draft}
+    end
+  end
+
+  @doc "Create or rewrite an inert marketplace-backed handoff draft."
+  @spec create_marketplace_backed_draft(map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def create_marketplace_backed_draft(attrs, opts \\ []) when is_map(attrs) do
+    attrs = stringify_keys(attrs)
+
+    with {:ok, attrs} <- normalize_create_attrs("marketplace_backed", attrs),
+         :ok <- ensure_open_draft_capacity(attrs["id"]),
+         {:ok, payload} <- marketplace_backed_payload(attrs),
          :ok <- write_artifact(attrs, payload),
          {:ok, draft} <- put_non_code_draft(attrs, payload, opts) do
       {:ok, draft}
@@ -487,6 +517,75 @@ defmodule AllbertAssist.Drafts.Store do
     }
   end
 
+  defp template_backed_payload(attrs) do
+    pattern_id = attrs |> Map.get("pattern_id", "") |> to_string() |> String.trim()
+    params = attrs |> Map.get("params", %{}) |> map_value()
+
+    cond do
+      pattern_id == "" ->
+        {:error, :template_pattern_id_required}
+
+      params == %{} ->
+        {:error, :template_params_required}
+
+      true ->
+        with {:ok, preview} <- Templates.preview(pattern_id, params) do
+          preview = stringify_nested(preview)
+
+          {:ok,
+           %{
+             "schema_version" => 1,
+             "kind" => "template_backed",
+             "id" => Map.fetch!(attrs, "id"),
+             "enabled" => false,
+             "live_authority" => false,
+             "source_suggestion_id" => Map.get(attrs, "source_suggestion_id"),
+             "evidence_refs" => list_value(Map.get(attrs, "evidence_refs")),
+             "template" => %{
+               "pattern_id" => preview["pattern_id"],
+               "params" => params,
+               "preview_params" => preview["params"],
+               "live_integration?" => Map.get(preview, "live_integration?", false),
+               "target_shapes" => Map.get(preview, "target_shapes", []),
+               "preview_files" => Map.get(preview, "files", [])
+             },
+             "handoff" => %{
+               "create_from_template_requested" => false,
+               "dynamic_draft_id" => nil,
+               "sandbox_gate_status" => "not_started",
+               "gate_required_before_integration" => true
+             }
+           }}
+        end
+    end
+  end
+
+  defp marketplace_backed_payload(attrs) do
+    with {:ok, entry} <- marketplace_entry(attrs) do
+      {:ok,
+       %{
+         "schema_version" => 1,
+         "kind" => "marketplace_backed",
+         "id" => Map.fetch!(attrs, "id"),
+         "enabled" => false,
+         "live_authority" => false,
+         "source_suggestion_id" => Map.get(attrs, "source_suggestion_id"),
+         "evidence_refs" => list_value(Map.get(attrs, "evidence_refs")),
+         "marketplace" => %{
+           "metadata_source" => "Marketplace.list_entries/1",
+           "authority" => "metadata_only",
+           "entry" => marketplace_entry_summary(entry)
+         },
+         "handoff" => %{
+           "install_requested" => false,
+           "install_status" => "not_started",
+           "enabled" => false,
+           "live_authority" => false
+         }
+       }}
+    end
+  end
+
   defp workflow_payload(attrs) do
     id = Map.fetch!(attrs, "id")
     summary = Map.fetch!(attrs, "summary")
@@ -579,6 +678,12 @@ defmodule AllbertAssist.Drafts.Store do
   defp artifact_path("objective", id),
     do: Path.join(kind_root("objective"), id <> ".objective.yaml")
 
+  defp artifact_path("template_backed", id),
+    do: Path.join(kind_root("template_backed"), id <> ".template.yaml")
+
+  defp artifact_path("marketplace_backed", id),
+    do: Path.join(kind_root("marketplace_backed"), id <> ".marketplace.yaml")
+
   defp kind_root("skill"), do: Paths.drafts_skills_root()
   defp kind_root("workflow"), do: Paths.drafts_workflows_root()
 
@@ -587,6 +692,8 @@ defmodule AllbertAssist.Drafts.Store do
 
   defp kind_root("capability_gap"), do: Path.join(Paths.drafts_root(), "capability_gaps")
   defp kind_root("objective"), do: Path.join(Paths.drafts_root(), "objectives")
+  defp kind_root("template_backed"), do: Path.join(Paths.drafts_root(), "templates")
+  defp kind_root("marketplace_backed"), do: Path.join(Paths.drafts_root(), "marketplace")
 
   defp kind_root(_kind), do: Paths.drafts_root()
 
@@ -688,6 +795,53 @@ defmodule AllbertAssist.Drafts.Store do
 
   defp map_value(value) when is_map(value), do: stringify_keys(value)
   defp map_value(_value), do: %{}
+
+  defp marketplace_entry(%{"marketplace_entry" => entry}) when is_map(entry),
+    do: {:ok, stringify_keys(entry)}
+
+  defp marketplace_entry(attrs) do
+    entry_id =
+      (Map.get(attrs, "marketplace_entry_id") || Map.get(attrs, "entry_id") || "")
+      |> to_string()
+      |> String.trim()
+
+    if entry_id == "" do
+      {:error, :marketplace_entry_id_required}
+    else
+      with {:ok, entries} <- Marketplace.list_entries(marketplace_opts(attrs)) do
+        entries
+        |> Enum.find(&(&1["id"] == entry_id))
+        |> case do
+          nil -> {:error, {:marketplace_entry_not_found, entry_id}}
+          entry -> {:ok, stringify_keys(entry)}
+        end
+      end
+    end
+  end
+
+  defp marketplace_opts(attrs) do
+    attrs
+    |> Map.take(["home", "index_path", "version"])
+    |> Marketplace.normalize_opts()
+  end
+
+  defp marketplace_entry_summary(entry) do
+    entry
+    |> Map.take([
+      "id",
+      "version",
+      "kind",
+      "name",
+      "description",
+      "author",
+      "license",
+      "bundle_hash",
+      "marketplace_uri",
+      "provenance",
+      "tags"
+    ])
+    |> stringify_keys()
+  end
 
   defp drop_nil_values(map) do
     Map.reject(map, fn {_key, value} -> is_nil(value) end)

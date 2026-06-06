@@ -145,6 +145,66 @@ defmodule AllbertAssist.Actions.SelfImprovementDraftActionsTest do
     assert {:ok, []} = Objectives.list("operator")
   end
 
+  test "create_self_improvement_draft creates inert template and marketplace handoff drafts", %{
+    root: root
+  } do
+    template_suggestion =
+      suggestion!(
+        "template_backed",
+        "template_backed",
+        "Repeated release health checks could use a reviewed template.",
+        %{
+          "pattern_id" => "llm_tool",
+          "params" => %{
+            "name" => "Release Health Draft Tool",
+            "description" => "Summarize release health evidence.",
+            "instruction" => "Return a concise release health summary.",
+            "permission" => "read_only"
+          }
+        }
+      )
+
+    marketplace_suggestion =
+      suggestion!(
+        "marketplace_backed",
+        "marketplace_backed",
+        "Workspace brief marketplace entry looks relevant.",
+        %{"marketplace_entry_id" => "allbert/workspace-brief"}
+      )
+
+    assert {:ok, template_response} =
+             Runner.run(
+               "create_self_improvement_draft",
+               %{suggestion_id: template_suggestion.id, id: "template_release_health"},
+               %{actor: "operator", user_id: "operator", channel: :test}
+             )
+
+    assert {:ok, marketplace_response} =
+             Runner.run(
+               "create_self_improvement_draft",
+               %{suggestion_id: marketplace_suggestion.id, id: "marketplace_workspace_brief"},
+               %{actor: "operator", user_id: "operator", channel: :test}
+             )
+
+    assert template_response.status == :completed
+    assert template_response.draft.kind == "template_backed"
+    assert template_response.draft.live_authority == false
+    assert template_response.draft.payload["template"]["pattern_id"] == "llm_tool"
+    assert template_response.draft.payload["handoff"]["create_from_template_requested"] == false
+
+    refute File.dir?(Path.join([root, "dynamic_plugins", "drafts", "release_health_draft_tool"]))
+
+    assert marketplace_response.status == :completed
+    assert marketplace_response.draft.kind == "marketplace_backed"
+    assert marketplace_response.draft.live_authority == false
+
+    assert marketplace_response.draft.payload["marketplace"]["entry"]["id"] ==
+             "allbert/workspace-brief"
+
+    assert marketplace_response.draft.payload["marketplace"]["authority"] == "metadata_only"
+    assert marketplace_response.draft.payload["handoff"]["install_requested"] == false
+  end
+
   test "create_self_improvement_draft returns existing accepted draft" do
     suggestion =
       suggestion!("trace_to_skill", "skill", "Repeated accepted prompt could become a skill.")

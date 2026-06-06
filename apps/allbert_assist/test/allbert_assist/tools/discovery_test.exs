@@ -184,7 +184,12 @@ defmodule AllbertAssist.Tools.DiscoveryTest do
   end
 
   test "v0.47b handoff suggestion kinds are self-improvement only" do
-    for {type, kind} <- [{"capability_gap", "capability_gap"}, {"objective", "objective"}] do
+    for {type, kind} <- [
+          {"template_backed", "template_backed"},
+          {"marketplace_backed", "marketplace_backed"},
+          {"capability_gap", "capability_gap"},
+          {"objective", "objective"}
+        ] do
       assert {:ok, suggestion} =
                Discovery.upsert_self_improvement_suggestion(%{
                  id: "suggestion:self_improvement:#{type}",
