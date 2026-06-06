@@ -64,7 +64,8 @@ TTL and capacity are controlled by
 patterns to suggestion rows and records diagnostics for memory-review and
 objective-event context. It may write suggestion rows only; it must not write
 settings, skills, workflows, memory, plugins, permissions, confirmations, code,
-or live runtime state.
+or live runtime state. It does not infer v0.47b handoff suggestion kinds from
+memory-review or objective-event diagnostics in `0.47.1`.
 
 ## Draft Store
 
