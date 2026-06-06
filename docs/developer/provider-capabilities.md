@@ -1,6 +1,6 @@
 # Provider Capabilities Developer Notes
 
-Status: planned for v0.48 M1-M3.
+Status: M1 implemented; M2-M3 planned.
 
 v0.48 generalizes the v0.39 provider/model substrate. A provider is a
 connection profile. A model profile declares what that connection can do and,
@@ -116,8 +116,8 @@ Voice providers use the same model-profile and doctor contract:
 
 Implementation milestones should add focused tests for:
 
-- capability metadata loading and merge behavior;
-- media metadata validation and merge behavior;
+- capability metadata loading and merge behavior (implemented in M1);
+- media metadata validation and merge behavior (implemented in M1);
 - ranked preference resolution and fallback;
 - compatibility aliases;
 - disabled provider/profile skips;

@@ -2,8 +2,14 @@
 
 ## Status
 
-Proposed for v0.48 M1. Becomes accepted when v0.48 M1 closes with release
-evidence.
+Accepted in v0.48 M1.
+
+M1 closeout evidence:
+
+- `MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/settings/provider_catalog_test.exs apps/allbert_assist/test/allbert_assist/settings_test.exs`
+  passed with 44 tests and 0 failures.
+- The shipped provider catalog now validates profile capabilities/media and
+  includes deterministic fake STT/TTS profiles as descriptive seed data.
 
 ## Context
 
