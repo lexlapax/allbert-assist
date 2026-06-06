@@ -26,6 +26,7 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
+  alias AllbertAssist.Voice.ProviderAdapter
   alias AllbertAssist.Voice.Transcode
 
   @accepted_audio_extensions ~w[.wav .mp3 .m4a .ogg .webm .flac]
@@ -54,9 +55,13 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
          {:ok, settings} <- voice_settings(),
          {:ok, transcode_spec} <-
            Transcode.build_spec(audio.path, resolution.profile, settings: settings),
-         {:ok, transcript} <- transcribe_with_adapter(resolution.profile, audio.path),
-         {:ok, metadata} <- voice_metadata(audio, resolution, transcode_spec, transcript) do
-      {:ok, completed(transcript, permission_decision, metadata)}
+         {:ok, transcript_packet} <-
+           ProviderAdapter.transcribe(resolution.profile, %{
+             input_path: audio.path,
+             transcode_spec: transcode_spec
+           }),
+         {:ok, metadata} <- voice_metadata(audio, resolution, transcode_spec, transcript_packet) do
+      {:ok, completed(transcript_packet.transcript, permission_decision, metadata)}
     else
       {:error, reason} ->
         {:ok, failed(reason, permission_decision, %{})}
@@ -192,23 +197,7 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
     end
   end
 
-  defp transcribe_with_adapter(profile, path) do
-    case deployment_mode(profile) do
-      "fake" -> {:ok, fake_transcript(path)}
-      :fake -> {:ok, fake_transcript(path)}
-      mode -> {:error, {:voice_adapter_unavailable, mode || :unknown}}
-    end
-  end
-
-  defp fake_transcript(path) do
-    case path |> Path.basename() |> Path.rootname() |> String.downcase() do
-      "hello" -> "hello from fixture audio"
-      stem when stem != "" -> "transcribed fixture audio #{stem}"
-      _stem -> "transcribed fixture audio"
-    end
-  end
-
-  defp voice_metadata(audio, resolution, transcode_spec, transcript) do
+  defp voice_metadata(audio, resolution, transcode_spec, transcript_packet) do
     metadata =
       Redactor.redact_audio_metadata(%{
         resource_uri: audio.resource_uri,
@@ -217,7 +206,10 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
         provider: Map.get(resolution.profile, :provider),
         model: Map.get(resolution.profile, :model),
         audio_format: transcode_spec.output_format,
-        transcript_sha256: sha256(transcript),
+        duration_ms: Map.get(transcript_packet, :duration_ms),
+        usage: Map.get(transcript_packet, :usage, %{source: :unavailable}),
+        cost: Map.get(transcript_packet, :cost, %{source: :unavailable}),
+        transcript_sha256: sha256(transcript_packet.transcript),
         redaction_status: "redacted"
       })
 

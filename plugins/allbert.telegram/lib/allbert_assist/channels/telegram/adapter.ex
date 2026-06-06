@@ -14,6 +14,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   alias AllbertAssist.Runtime.Paths, as: RuntimePaths
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
 
   @provider "telegram_bot_api"
@@ -310,9 +311,11 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   end
 
   defp validate_voice_size(fields) do
+    max_bytes = voice_download_max_bytes()
+
     case Map.get(fields, :voice_file_size) do
-      size when is_integer(size) and size > @telegram_file_download_max_bytes ->
-        {:error, {:telegram_voice_too_large, size, @telegram_file_download_max_bytes}}
+      size when is_integer(size) and size > max_bytes ->
+        {:error, {:telegram_voice_too_large, size, max_bytes}}
 
       _size ->
         :ok
@@ -356,11 +359,14 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   end
 
   defp fetch_voice_audio(fields, state) do
+    max_bytes = voice_download_max_bytes()
+    req_options = Keyword.put(state.req_options, :max_response_bytes, max_bytes)
+
     with {:ok, file} <- Client.get_file(state.token, fields.voice_file_id, state.req_options),
          {:ok, file_path} <- telegram_file_path(file),
-         :ok <- validate_telegram_file_size(file),
-         {:ok, body} <- Client.download_file(state.token, file_path, state.req_options),
-         :ok <- validate_downloaded_voice(body),
+         :ok <- validate_telegram_file_size(file, max_bytes),
+         {:ok, body} <- Client.download_file(state.token, file_path, req_options),
+         :ok <- validate_downloaded_voice(body, max_bytes),
          {:ok, path} <- store_voice_audio(fields, file_path, body) do
       {:ok,
        %{
@@ -379,32 +385,42 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
 
   defp telegram_file_path(_file), do: {:error, :missing_telegram_file_path}
 
-  defp validate_telegram_file_size(file) do
+  defp validate_telegram_file_size(file, max_bytes) do
     case Map.get(file, "file_size") do
-      size when is_integer(size) and size > @telegram_file_download_max_bytes ->
-        {:error, {:telegram_voice_too_large, size, @telegram_file_download_max_bytes}}
+      size when is_integer(size) and size > max_bytes ->
+        {:error, {:telegram_voice_too_large, size, max_bytes}}
 
       _size ->
         :ok
     end
   end
 
-  defp validate_downloaded_voice(body) when is_binary(body) do
+  defp validate_downloaded_voice(body, max_bytes) when is_binary(body) do
     size = byte_size(body)
 
     cond do
       size == 0 ->
         {:error, :empty_telegram_voice}
 
-      size > @telegram_file_download_max_bytes ->
-        {:error, {:telegram_voice_too_large, size, @telegram_file_download_max_bytes}}
+      size > max_bytes ->
+        {:error, {:telegram_voice_too_large, size, max_bytes}}
 
       true ->
         :ok
     end
   end
 
-  defp validate_downloaded_voice(_body), do: {:error, :invalid_telegram_voice_download}
+  defp validate_downloaded_voice(_body, _max_bytes), do: {:error, :invalid_telegram_voice_download}
+
+  defp voice_download_max_bytes do
+    case Settings.get("voice.audio.max_bytes") do
+      {:ok, value} when is_integer(value) and value > 0 ->
+        min(value, @telegram_file_download_max_bytes)
+
+      _error ->
+        @telegram_file_download_max_bytes
+    end
+  end
 
   defp store_voice_audio(fields, file_path, body) do
     with {:ok, extension} <- voice_extension(file_path, fields),

@@ -223,10 +223,8 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
     assert response.status == :completed
     assert response.permission_decision.decision == :allowed
     assert response.voice_metadata.provider_profile == "voice_tts_fake"
-    assert response.voice_metadata.usage.input_text_bytes == 13
-    assert response.voice_metadata.usage.output_audio_bytes > 44
-    assert response.voice_metadata.cost.amount == 0
-    assert response.voice_metadata.cost.source == "fake"
+    assert response.voice_metadata.usage == %{source: :unavailable}
+    assert response.voice_metadata.cost == %{source: :unavailable}
     assert response.voice_metadata.output_resource_uri == "file://[REDACTED_AUDIO_PATH]"
   end
 

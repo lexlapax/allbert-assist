@@ -54,6 +54,9 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
     assert response.voice_metadata.provider == "fake_voice"
     assert response.voice_metadata.model == "fake-stt-v1"
     assert response.voice_metadata.audio_format == "wav"
+    assert Map.has_key?(response.voice_metadata, :duration_ms)
+    assert response.voice_metadata.usage == %{source: :unavailable}
+    assert response.voice_metadata.cost == %{source: :unavailable}
     assert response.voice_metadata.redaction_status == "redacted"
     assert is_binary(response.voice_metadata.transcript_sha256)
 
