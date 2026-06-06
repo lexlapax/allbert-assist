@@ -132,6 +132,13 @@ Use these as starting points, then narrow further from the active task:
   write to a real user's `~/.allbert`.
 - User-supplied secrets, including API keys, must be encrypted at rest and
   redacted in CLI output, LiveView, traces, audits, logs, and tests.
+- Implementation plans, release criteria, manual validation, operator docs, and
+  provider flows must target real configured providers/endpoints. Fake, stub,
+  fixture, canned, or silent providers are permitted only as explicit automated
+  test fixtures and never satisfy product acceptance, release authority, manual
+  validation, or operator-visible "working provider" claims. Prefer fixtures
+  that exercise the real adapter and HTTP/request-shape code paths; do not
+  design or document fake endpoints as the target flow.
 - Runtime-facing, effectful, security-relevant, or observable domain behavior
   belongs behind signals, internal agents or runtime routers, and registered
   Jido actions.

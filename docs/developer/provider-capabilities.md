@@ -1,6 +1,8 @@
 # Provider Capabilities Developer Notes
 
-Status: implemented in `0.48.0`.
+Status: implementation reopened before v0.48 release. M1-M8 landed the shared
+provider-capability substrate and fixture voice surface; M8R must add real
+provider execution before release.
 
 v0.48 generalizes the v0.39 provider/model substrate. A provider is a
 connection profile. A model profile declares what that connection can do and,
@@ -14,6 +16,9 @@ capability and receive a validated profile through the preference resolver.
 - `apps/allbert_assist/priv/provider_catalog/models.json` is seed data only.
   It may provide default capabilities, modalities, aliases, and local/offline
   defaults, but it never grants permission or supplies secrets.
+- ADR 0011 defines the provider HTTP posture, including the v0.48 M8R split
+  between loopback-only local voice endpoints and HTTPS-only credentialed
+  remote voice providers.
 - ADR 0051 defines the capability vocabulary and preference shape.
 - ADR 0047 defines doctor output. Doctor success is diagnostic evidence, not a
   permission grant and not an automatic settings write.
@@ -37,7 +42,8 @@ Additions after v0.48 require an ADR update if they affect operator-visible
 settings, provider doctor fields, or permission policy.
 
 Capabilities are routing predicates, not the full media schema. `speech_to_text`
-and `text_to_speech` are the executable v0.48 voice capabilities.
+and `text_to_speech` are executable v0.48 voice capabilities only when backed
+by a real local endpoint, OpenAI, or Gemini adapter. Fake profiles are fixtures.
 `token_streaming` means streaming text tokens or text deltas. Realtime audio
 sessions, file upload, local endpoint use, and bundled local execution live in
 profile media metadata:
@@ -101,24 +107,35 @@ Voice providers use the same model-profile and doctor contract:
 - Fake STT/TTS providers are release-test fixtures, not operator defaults.
 - Local-endpoint voice providers target the v0.48 Allbert-owned localhost
   contract: `POST /v1/audio/transcriptions`, `POST /v1/audio/speech`, and
-  `GET /v1/doctor`.
+  `GET /v1/doctor`. The local endpoint path is release-blocking in M8R.
 - Bundled-local providers are explicitly configured offline engines behind a
-  bounded helper. The release lane does not require packaging a concrete engine.
+  bounded helper. Executable bundled packaging remains deferred unless a later
+  plan scopes model/binary distribution.
 - Credentialed remote STT/TTS can upload audio or incur cost, so policy and
-  result metadata must stay explicit.
+  result metadata must stay explicit. OpenAI and Gemini are required v0.48
+  remote adapter implementations.
+- Anthropic/Claude is a `text_generation` provider in v0.48 voice flows, not a
+  native STT/TTS adapter. It may consume the transcript and produce the text
+  response before TTS.
+- Local Ollama is the required local text-generation middle of the
+  listen -> think -> speak validation loop. Ollama does not provide native
+  STT/TTS endpoints in the v0.48 contract.
 - M4 added `mic://capture/<id>` resource identity, voice permission floors,
   audio metadata redaction, `voice.*` bounds/retention settings, and the
   bounded transcode spec helper.
 - M5 adds `transcribe_voice` and `mix allbert.ask --voice AUDIO_FILE` for
-  fake-provider transcription of bounded local files. It submits the transcript
-  as normal runtime text and records only redacted voice metadata.
+  bounded local files. First-pass implementation used fake-provider
+  transcription; M8R must route the same action through real local/OpenAI/
+  Gemini adapters. It submits the transcript as normal runtime text and records
+  only redacted voice metadata.
 - M6 adds `capture_workspace_voice`, a confirmation-gated workspace microphone
   grant that feeds a LiveView binary upload into `transcribe_voice` with
   `mic://capture/<id>` resource identity.
-- M7 adds `synthesize_voice` for fake-provider TTS output plus redacted
+- M7 adds `synthesize_voice` for provider-backed TTS output plus redacted
   display-only usage/cost metadata, and Telegram voice-note ingestion that
   downloads through the Telegram Bot API before delegating STT to
-  `transcribe_voice`.
+  `transcribe_voice`. First-pass output was fake-provider fixture audio; M8R
+  must make local/OpenAI/Gemini TTS executable.
 - Voice doctor fields use the ADR 0047 names: `provider_capabilities`,
   `provider_deployment_mode`, `speech_to_text_supported`,
   `text_to_speech_supported`, `audio_formats_supported`,
@@ -143,5 +160,19 @@ Implementation milestones should add focused tests for:
   (implemented in M6);
 - fake TTS action output and Telegram voice-note ingestion through shared STT
   (implemented in M7);
-- `release.v048` coverage for fake STT/TTS, workspace voice, Telegram
-  voice-note ingestion, and v0.48 eval rows (implemented in M8).
+- `release.v048` first-pass coverage used fixture STT/TTS for workspace voice,
+  Telegram voice-note ingestion, and v0.48 eval rows (implemented in M8); this
+  is not release acceptance after M8R.
+- provider HTTP policy tests for loopback-only local voice endpoints and
+  HTTPS+secret-only remote voice endpoints (M8R2).
+- bounded transcode materialization tests proving the provider call uses the
+  materialized output, not arbitrary ffmpeg args or the original path when a
+  conversion is required (M8R3).
+- OpenAI-compatible local STT/TTS request/response fixture tests (M8R3).
+- OpenAI remote multipart transcription and speech response fixture tests
+  (M8R4).
+- Gemini remote audio understanding and TTS fixture tests (M8R4).
+- local Ollama text-loop resolver/orchestration tests proving the transcript is
+  answered through the local text profile before TTS (M8R5).
+- `release.v048` real-adapter fixture coverage plus opt-in `.env` live-smoke
+  instructions for OpenAI, Gemini, local voice endpoint, and Ollama (M8R6).

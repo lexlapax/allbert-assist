@@ -4,6 +4,13 @@
 
 Accepted and implemented for v0.10.
 
+v0.48 M8R amendment: local voice-provider HTTP calls are a narrow exception to
+the generic external-network loopback denial. They are not
+`external_network_request` calls; they run through the voice provider adapter
+after voice permission checks, allow only loopback hosts, reject private LAN and
+metadata hosts, use no credentials, and remain bounded/redacted like the rest
+of this ADR.
+
 ## Context
 
 Allbert has intentionally deferred real external calls, package installs, and
@@ -92,6 +99,20 @@ All HTTP/service calls must:
   audits
 - use `Req.Test` or equivalent stubs in automated tests instead of live network
   calls
+
+Voice-provider HTTP in v0.48 M8R splits this posture into two explicit
+branches:
+
+- `local_endpoint` voice calls are loopback-only (`localhost`, `127.0.0.1`,
+  `::1`), credential-free, redirect-free, retry-bounded, request/response-size
+  bounded, and never allow private LAN, link-local, multicast, cloud metadata,
+  Unix socket, or model-selected targets.
+- `remote_credentialed` voice calls are HTTPS-only, credentialed only through
+  Settings Central secret refs, deny query-string credentials, deny redirects,
+  bound retries and response bytes, and use deterministic `Req` fixtures in
+  automated tests. OpenAI and Gemini are the required v0.48 remote voice
+  adapters; Anthropic/Claude remains a text-generation provider until a native
+  audio API is implemented.
 
 Remote network content gets an explicit security posture in this ADR, and ADR
 0012 generalizes the same posture to local and remote resource access. Any

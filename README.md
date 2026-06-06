@@ -84,6 +84,8 @@ runtime use, document its authority boundary, add release evidence, and only
 then make the contract easier to reuse. The current roadmap sequence has
 operator-supervised self-improvement discovery/local drafts in v0.47, handoff
 drafts in v0.47b/`0.47.1`, and provider-capability-backed voice in v0.48.
+Fake providers are test fixtures only; operator-facing provider milestones
+target real configured endpoints/providers.
 Vision in v0.49 consumes the v0.48 provider capability substrate rather than
 adding a separate image-provider framework.
 Use [CHANGELOG.md](CHANGELOG.md) for shipped release details and
