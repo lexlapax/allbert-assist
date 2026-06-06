@@ -410,8 +410,6 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
     end
   end
 
-  defp validate_downloaded_voice(_body, _max_bytes), do: {:error, :invalid_telegram_voice_download}
-
   defp voice_download_max_bytes do
     case Settings.get("voice.audio.max_bytes") do
       {:ok, value} when is_integer(value) and value > 0 ->

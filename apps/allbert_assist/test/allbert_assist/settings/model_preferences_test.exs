@@ -46,8 +46,11 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert {:ok, "local"} = Settings.get("model_preferences.primary")
     assert {:ok, "local"} = Settings.get("intent.model_profile")
 
-    assert {:ok, ["voice_stt_fake"]} =
+    assert {:ok, ["voice_stt_local", "voice_stt_openai", "voice_stt_gemini"]} =
              Settings.get("model_preferences.capabilities.speech_to_text")
+
+    assert {:ok, ["voice_tts_local", "voice_tts_openai", "voice_tts_gemini"]} =
+             Settings.get("model_preferences.capabilities.text_to_speech")
 
     assert {:ok, direct_answer} = Models.for(:direct_answer)
     assert direct_answer.request_kind == :task
@@ -59,8 +62,12 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
 
     assert {:ok, stt} = Models.for(:speech_to_text)
     assert stt.request_kind == :capability
-    assert stt.profile.name == "voice_stt_fake"
+    assert stt.profile.name == "voice_stt_local"
     assert stt.profile.capabilities == ["speech_to_text"]
+    assert stt.profile.media["deployment_mode"] == "local_endpoint"
+
+    assert {:ok, [local_stt]} = Models.candidates_for(:speech_to_text)
+    assert local_stt.profile.name == "voice_stt_local"
   end
 
   test "resolver skips disabled providers and incapable profiles before falling back" do

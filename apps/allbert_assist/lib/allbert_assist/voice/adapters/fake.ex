@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Voice.Adapters.Fake do
   @moduledoc """
-  Deterministic fake STT/TTS adapter for v0.48 release authority.
+  Deterministic fake STT/TTS adapter for automated fixture tests only.
   """
 
   @behaviour AllbertAssist.Voice.ProviderAdapter
@@ -14,6 +14,9 @@ defmodule AllbertAssist.Voice.Adapters.Fake do
   @channel_count 1
 
   @impl true
+  def transcribe(%{model: "fake-stt-retryable-error"}, _request, _opts),
+    do: {:error, {:voice_http_error, 503}}
+
   def transcribe(_profile, %{input_path: path}, _opts) when is_binary(path) do
     {:ok,
      %{

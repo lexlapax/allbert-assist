@@ -1,10 +1,10 @@
 defmodule AllbertAssist.Voice.Transcode do
   @moduledoc """
-  Bounded ffmpeg-class audio transcode planning.
+  Bounded ffmpeg-class audio transcode planning and execution.
 
-  This module builds an execution spec; it does not start an external process.
-  The spec uses a fixed ffmpeg argument shape, chooses only provider-supported
-  output formats, and carries a redacted command view for traces and audits.
+  This module builds and materializes a fixed execution spec. The spec uses a
+  fixed ffmpeg argument shape, chooses only provider-supported output formats,
+  and carries a redacted command view for traces and audits.
   """
 
   alias AllbertAssist.Resources.ResourceURI
@@ -96,6 +96,36 @@ defmodule AllbertAssist.Voice.Transcode do
   @doc "Return the static output-format vocabulary accepted by this helper."
   @spec allowed_output_formats() :: [String.t()]
   def allowed_output_formats, do: @allowed_output_formats
+
+  @doc """
+  Materialize a transcode spec and return the bounded provider input path.
+
+  Existing files whose extension already matches the selected provider format
+  are copied to the planned output path. Other formats execute the fixed ffmpeg
+  argv emitted by `build_spec/3`. Tests may pass `transcode_runner: :copy` or a
+  one-arity function that writes `spec.output_path`.
+  """
+  @spec materialize(spec(), keyword() | map()) :: {:ok, String.t()} | {:error, term()}
+  def materialize(%{} = spec, opts \\ []) do
+    with :ok <- validate_materialize_spec(spec),
+         :ok <- File.mkdir_p(Path.dirname(spec.output_path)) do
+      runner = option(opts, :transcode_runner, option(opts, :runner, nil))
+
+      cond do
+        runner == :copy ->
+          copy_input(spec)
+
+        is_function(runner, 1) ->
+          run_custom_runner(spec, runner)
+
+        same_format?(spec.input_path, spec.output_format) ->
+          copy_input(spec)
+
+        true ->
+          run_ffmpeg(spec)
+      end
+    end
+  end
 
   defp reject_arbitrary_args(opts) do
     if Enum.any?(@blocked_arg_keys, &option_present?(opts, &1)) do
@@ -320,4 +350,87 @@ defmodule AllbertAssist.Voice.Transcode do
       end
     end)
   end
+
+  defp validate_materialize_spec(%{
+         executable: "ffmpeg",
+         args: [
+           "-nostdin",
+           "-hide_banner",
+           "-loglevel",
+           "error",
+           "-i",
+           input_path,
+           "-vn",
+           "-y",
+           "-f",
+           output_format,
+           output_path
+         ],
+         input_path: input_path,
+         output_path: output_path,
+         output_format: output_format,
+         max_bytes: max_bytes
+       })
+       when is_binary(input_path) and is_binary(output_path) and is_binary(output_format) and
+              is_integer(max_bytes) and max_bytes > 0,
+       do: :ok
+
+  defp validate_materialize_spec(_spec), do: {:error, :invalid_transcode_spec}
+
+  defp same_format?(input_path, output_format) do
+    input_path
+    |> Path.extname()
+    |> normalize_format()
+    |> Kernel.==(normalize_format(output_format))
+  end
+
+  defp copy_input(spec) do
+    with {:ok, bytes} <- File.read(spec.input_path),
+         :ok <- validate_output_size(byte_size(bytes), spec.max_bytes),
+         :ok <- File.write(spec.output_path, bytes) do
+      {:ok, spec.output_path}
+    end
+  end
+
+  defp run_custom_runner(spec, runner) do
+    case runner.(spec) do
+      :ok -> validate_output_file(spec)
+      {:ok, path} when path == spec.output_path -> validate_output_file(spec)
+      {:ok, _path} -> {:error, :invalid_transcode_runner_output}
+      {:error, reason} -> {:error, reason}
+      other -> {:error, {:invalid_transcode_runner_result, other}}
+    end
+  end
+
+  defp run_ffmpeg(spec) do
+    case system_cmd(spec.executable, spec.args) do
+      {:ok, 0} -> validate_output_file(spec)
+      {:ok, status} -> {:error, {:voice_transcode_failed, status}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp system_cmd(executable, args) do
+    {_output, status} = System.cmd(executable, args, stderr_to_stdout: true)
+    {:ok, status}
+  rescue
+    _error in ErlangError -> {:error, :voice_transcode_unavailable}
+  end
+
+  defp validate_output_file(spec) do
+    case File.stat(spec.output_path) do
+      {:ok, %{size: size}} ->
+        with :ok <- validate_output_size(size, spec.max_bytes) do
+          {:ok, spec.output_path}
+        end
+
+      {:error, reason} ->
+        {:error, {:voice_transcode_output_missing, reason}}
+    end
+  end
+
+  defp validate_output_size(size, max_bytes) when size <= max_bytes, do: :ok
+
+  defp validate_output_size(size, max_bytes),
+    do: {:error, {:audio_output_too_large, size, max_bytes}}
 end

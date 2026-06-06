@@ -34,37 +34,89 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
   @impl true
   def run(params, context) do
     with {:ok, audio_file} <- audio_file(params),
-         {:ok, resolution} <- Models.for(:speech_to_text, context) do
-      permission_decision =
-        PermissionGate.authorize(:voice_transcribe, voice_context(context, resolution.profile))
-
-      if PermissionGate.allowed?(permission_decision) do
-        run_allowed(audio_file, resolution, permission_decision, params)
-      else
-        {:ok, stopped(permission_decision, :permission_denied, %{})}
-      end
+         {:ok, resolutions} <- Models.candidates_for(:speech_to_text, context) do
+      run_allowed(audio_file, resolutions, context, params)
     else
       {:error, reason} ->
         {:ok, failed(reason, nil, %{})}
     end
   end
 
-  defp run_allowed(audio_file, resolution, permission_decision, params) do
+  defp run_allowed(audio_file, resolutions, context, params) do
     with :ok <- voice_enabled?(),
          {:ok, audio} <- validate_audio_file(audio_file, params),
-         {:ok, settings} <- voice_settings(),
-         {:ok, transcode_spec} <-
+         {:ok, settings} <- voice_settings() do
+      attempt_transcription(resolutions, audio, settings, context, [])
+    else
+      {:error, reason} ->
+        {:ok, failed(reason, nil, %{})}
+    end
+  end
+
+  defp attempt_transcription([resolution | rest], audio, settings, context, attempts) do
+    permission_decision =
+      PermissionGate.authorize(:voice_transcribe, voice_context(context, resolution.profile))
+
+    if PermissionGate.allowed?(permission_decision) do
+      attempt_allowed_transcription(
+        resolution,
+        rest,
+        audio,
+        settings,
+        context,
+        attempts,
+        permission_decision
+      )
+    else
+      {:ok,
+       stopped(permission_decision, :permission_denied, %{
+         adapter_attempts: Enum.reverse(attempts)
+       })}
+    end
+  end
+
+  defp attempt_transcription([], _audio, _settings, _context, attempts),
+    do:
+      {:ok,
+       failed(:voice_provider_candidates_exhausted, nil, %{
+         adapter_attempts: Enum.reverse(attempts)
+       })}
+
+  defp attempt_allowed_transcription(
+         resolution,
+         rest,
+         audio,
+         settings,
+         context,
+         attempts,
+         permission_decision
+       ) do
+    with {:ok, transcode_spec} <-
            Transcode.build_spec(audio.path, resolution.profile, settings: settings),
          {:ok, transcript_packet} <-
-           ProviderAdapter.transcribe(resolution.profile, %{
-             input_path: audio.path,
-             transcode_spec: transcode_spec
-           }),
-         {:ok, metadata} <- voice_metadata(audio, resolution, transcode_spec, transcript_packet) do
+           ProviderAdapter.transcribe(
+             resolution.profile,
+             %{
+               input_path: audio.path,
+               transcode_spec: transcode_spec
+             },
+             adapter_opts(context)
+           ),
+         {:ok, metadata} <-
+           voice_metadata(audio, resolution, transcode_spec, transcript_packet, attempts) do
       {:ok, completed(transcript_packet.transcript, permission_decision, metadata)}
     else
       {:error, reason} ->
-        {:ok, failed(reason, permission_decision, %{})}
+        attempts = [attempt_record(resolution, reason) | attempts]
+
+        if retryable_provider_error?(reason) and rest != [] do
+          attempt_transcription(rest, audio, settings, context, attempts)
+        else
+          {:ok,
+           failed(reason, permission_decision, %{
+             adapter_attempts: Enum.reverse(attempts)
+           })}
+        end
     end
   end
 
@@ -197,7 +249,7 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
     end
   end
 
-  defp voice_metadata(audio, resolution, transcode_spec, transcript_packet) do
+  defp voice_metadata(audio, resolution, transcode_spec, transcript_packet, attempts) do
     metadata =
       Redactor.redact_audio_metadata(%{
         resource_uri: audio.resource_uri,
@@ -212,9 +264,46 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
         transcript_sha256: sha256(transcript_packet.transcript),
         redaction_status: "redacted"
       })
+      |> maybe_put_attempts(attempts)
 
     {:ok, metadata}
   end
+
+  defp attempt_record(resolution, reason) do
+    %{
+      provider_profile: resolution.profile_name,
+      provider: Map.get(resolution.profile, :provider),
+      model: Map.get(resolution.profile, :model),
+      error: Redactor.redact(reason)
+    }
+  end
+
+  defp maybe_put_attempts(metadata, []), do: metadata
+
+  defp maybe_put_attempts(metadata, attempts),
+    do: Map.put(metadata, :fallback_attempts, Enum.reverse(attempts))
+
+  defp retryable_provider_error?({:voice_http_error, status})
+       when status >= 500 and status <= 599,
+       do: true
+
+  defp retryable_provider_error?({:voice_transport_error, _reason}), do: true
+  defp retryable_provider_error?(:voice_transcode_unavailable), do: false
+  defp retryable_provider_error?(_reason), do: false
+
+  defp adapter_opts(context) do
+    context
+    |> field(:voice_adapter_opts)
+    |> normalize_keyword()
+    |> maybe_put_keyword(:req_options, field(context, :req_options))
+    |> maybe_put_keyword(:transcode_runner, field(context, :transcode_runner))
+  end
+
+  defp normalize_keyword(value) when is_list(value), do: value
+  defp normalize_keyword(_value), do: []
+
+  defp maybe_put_keyword(opts, _key, nil), do: opts
+  defp maybe_put_keyword(opts, key, value), do: Keyword.put(opts, key, value)
 
   defp voice_context(context, profile) do
     Map.merge(context, %{

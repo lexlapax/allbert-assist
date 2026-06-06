@@ -75,6 +75,32 @@ defmodule AllbertAssist.Voice.TranscodeTest do
     assert spec.output_format == "mp3"
   end
 
+  test "materializes compatible files without arbitrary runner args", %{root: root} do
+    input_path = Path.join(root, "hello.wav")
+    File.write!(input_path, "wav audio")
+
+    assert {:ok, spec} =
+             Transcode.build_spec(
+               input_path,
+               %{"audio_formats_supported" => ["wav"], "max_audio_bytes" => 20},
+               output_root: root
+             )
+
+    assert {:ok, output_path} = Transcode.materialize(spec)
+    assert output_path == spec.output_path
+    assert File.read!(output_path) == "wav audio"
+
+    assert {:ok, output_path} =
+             Transcode.materialize(spec,
+               transcode_runner: fn runner_spec ->
+                 File.write!(runner_spec.output_path, "runner audio")
+                 :ok
+               end
+             )
+
+    assert File.read!(output_path) == "runner audio"
+  end
+
   test "rejects unsupported inputs, oversize files, and arbitrary codec args", %{root: root} do
     input_path = Path.join(root, "hello.raw")
     File.write!(input_path, "audio")

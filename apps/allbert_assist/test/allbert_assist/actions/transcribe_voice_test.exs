@@ -42,6 +42,7 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
 
   test "fake STT provider transcribes a bounded local fixture" do
     enable_voice!()
+    use_fake_stt!()
     fixture = fixture_path("hello.wav")
 
     assert {:ok, response} = TranscribeVoice.run(%{audio_file: fixture}, context())
@@ -79,6 +80,7 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
 
   test "oversize and unsupported files are denied before transcription", %{home: home} do
     enable_voice!()
+    use_fake_stt!()
     too_large = Path.join(home, "large.wav")
     unsupported = Path.join(home, "notes.txt")
     File.write!(too_large, "12345")
@@ -105,6 +107,13 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
 
   defp enable_voice! do
     assert {:ok, _resolved} = Settings.put("voice.enabled", true, %{audit?: false})
+  end
+
+  defp use_fake_stt! do
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.speech_to_text", ["voice_stt_fake"], %{
+               audit?: false
+             })
   end
 
   defp context do

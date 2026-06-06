@@ -2349,8 +2349,8 @@ defmodule AllbertAssist.Settings.Schema do
       },
       "capabilities" => %{
         "text_generation" => ["local", "fast"],
-        "speech_to_text" => ["voice_stt_fake"],
-        "text_to_speech" => ["voice_tts_fake"]
+        "speech_to_text" => ["voice_stt_local", "voice_stt_openai", "voice_stt_gemini"],
+        "text_to_speech" => ["voice_tts_local", "voice_tts_openai", "voice_tts_gemini"]
       }
     },
     "providers" => %{

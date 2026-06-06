@@ -21,6 +21,8 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
   alias AllbertAssist.Settings.Models
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Trace
+  alias AllbertAssist.Voice.ProviderAdapter
+  alias AllbertAssist.Voice.ProviderHTTP
   alias AllbertAssist.Voice.Transcode
   alias Plug.Conn.Query
 
@@ -36,7 +38,13 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
     "voice-cloud-upload-policy-001",
     "voice-tts-cost-metadata-display-only-001",
     "voice-channel-authority-boundary-001",
-    "voice-transcode-bounded-001"
+    "voice-transcode-bounded-001",
+    "voice-local-endpoint-loopback-only-001",
+    "voice-remote-https-secret-only-001",
+    "voice-anthropic-not-stt-tts-001",
+    "voice-transcode-materialized-bound-001",
+    "voice-call-failure-fallback-bounded-001",
+    "voice-listen-think-speak-routing-001"
   ]
 
   @env_vars [
@@ -102,9 +110,9 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
     assert_eval!("voice-preference-fallback-capability-check-001")
 
     assert {:ok, stt} = Models.for(:speech_to_text)
-    assert stt.profile.name == "voice_stt_fake"
+    assert stt.profile.name == "voice_stt_local"
     assert stt.profile.capabilities == ["speech_to_text"]
-    assert stt.profile.media["deployment_mode"] == "fake"
+    assert stt.profile.media["deployment_mode"] == "local_endpoint"
 
     remote =
       PermissionGate.authorize(:voice_transcribe, %{
@@ -139,6 +147,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
     assert_eval!("voice-trace-redaction-001")
     assert_eval!("voice-transcode-bounded-001")
     enable_voice!()
+    use_fake_stt!()
 
     fixture = fixture_path("hello.wav")
 
@@ -217,6 +226,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
   test "TTS usage and cost metadata is display-only", %{context: context} do
     assert_eval!("voice-tts-cost-metadata-display-only-001")
     enable_voice!()
+    use_fake_tts!()
 
     assert {:ok, response} = Runner.run("synthesize_voice", %{text: "hello release"}, context)
 
@@ -231,6 +241,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
   test "Telegram voice notes fetch channel media but delegate STT authority to actions" do
     assert_eval!("voice-channel-authority-boundary-001")
     enable_voice!()
+    use_fake_stt!()
     configure_telegram!(identity_map: [%{external_user_id: "123", user_id: "alice"}])
     configure_runtime!()
 
@@ -288,10 +299,264 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
     refute inspect(request.metadata) =~ "/telegram-voice/"
   end
 
+  test "voice provider HTTP policy and native capability checks are fail closed" do
+    assert_eval!("voice-local-endpoint-loopback-only-001")
+    assert_eval!("voice-remote-https-secret-only-001")
+    assert_eval!("voice-anthropic-not-stt-tts-001")
+
+    assert {:ok, %{url: "http://localhost:5050/v1/models"}} =
+             ProviderHTTP.endpoint(local_stt_profile(), "/models")
+
+    assert {:error, {:voice_local_host_denied, "192.168.1.10"}} =
+             local_stt_profile()
+             |> Map.put(:provider_base_url, "http://192.168.1.10:5050/v1")
+             |> ProviderHTTP.endpoint("/models")
+
+    assert {:error, {:voice_local_host_denied, "169.254.169.254"}} =
+             local_stt_profile()
+             |> Map.put(:provider_base_url, "http://169.254.169.254/v1")
+             |> ProviderHTTP.endpoint("/models")
+
+    assert {:error, {:voice_remote_https_required, "http"}} =
+             openai_tts_profile()
+             |> Map.put(:provider_base_url, "http://api.openai.test/v1")
+             |> ProviderHTTP.endpoint("/models")
+
+    assert {:error, :voice_endpoint_credentials_in_url_denied} =
+             openai_tts_profile()
+             |> Map.put(:provider_base_url, "https://token@example.test/v1")
+             |> ProviderHTTP.endpoint("/models")
+
+    assert {:error, {:voice_credential_missing, "openai"}} =
+             ProviderHTTP.endpoint(openai_tts_profile(), "/models")
+
+    assert {:ok, _secret} =
+             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-v048", %{
+               audit?: false
+             })
+
+    assert {:ok, %{url: "https://api.openai.com/v1/models"}} =
+             ProviderHTTP.endpoint(openai_tts_profile(), "/models")
+
+    assert {:error, {:voice_capability_not_native, "anthropic"}} =
+             ProviderAdapter.transcribe(
+               %{
+                 provider_type: "anthropic",
+                 media: %{"deployment_mode" => "remote_credentialed"}
+               },
+               %{input_path: "/tmp/voice.wav", transcode_spec: %{}}
+             )
+  end
+
+  test "real provider adapters use materialized transcode output and current request shapes", %{
+    home: home
+  } do
+    assert_eval!("voice-transcode-materialized-bound-001")
+
+    assert {:ok, _openai_secret} =
+             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
+               audit?: false
+             })
+
+    assert {:ok, _gemini_secret} =
+             Secrets.put_secret("secret://providers/gemini/api_key", "AIza-test-gemini", %{
+               audit?: false
+             })
+
+    materialized_audio = "materialized audio"
+
+    Req.Test.stub(__MODULE__, fn
+      %{request_path: "/v1/audio/transcriptions"} = conn ->
+        body = Req.Test.raw_body(conn)
+        assert body =~ materialized_audio
+        assert body =~ "whisper-local"
+        json(conn, %{"text" => "hello local voice"})
+
+      %{request_path: "/v1/audio/speech"} = conn ->
+        assert Plug.Conn.get_req_header(conn, "authorization") == ["Bearer sk-test-openai"]
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        decoded = Jason.decode!(body)
+        assert decoded["model"] == "gpt-4o-mini-tts"
+        assert decoded["input"] == "speak this"
+        assert decoded["response_format"] == "wav"
+
+        conn
+        |> Plug.Conn.put_resp_content_type("audio/wav")
+        |> Plug.Conn.send_resp(200, wav_bytes())
+
+      %{request_path: "/v1beta/interactions"} = conn ->
+        assert Plug.Conn.get_req_header(conn, "x-goog-api-key") == ["AIza-test-gemini"]
+        assert Plug.Conn.get_req_header(conn, "api-revision") == ["2026-05-20"]
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        decoded = Jason.decode!(body)
+        assert decoded["model"] == "gemini-3.5-flash"
+        audio_part = Enum.find(decoded["input"], &(&1["type"] == "audio"))
+        assert {:ok, ^materialized_audio} = Base.decode64(audio_part["data"])
+        json(conn, %{"output_text" => "hello gemini voice"})
+
+      %{request_path: "/v1beta/models/gemini-3.1-flash-tts-preview:generateContent"} = conn ->
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        decoded = Jason.decode!(body)
+        assert decoded["generationConfig"]["responseModalities"] == ["AUDIO"]
+
+        assert decoded["generationConfig"]["speechConfig"]["voiceConfig"]["prebuiltVoiceConfig"][
+                 "voiceName"
+               ] == "Kore"
+
+        json(conn, %{
+          "candidates" => [
+            %{
+              "content" => %{
+                "parts" => [
+                  %{
+                    "inlineData" => %{
+                      "mimeType" => "audio/pcm",
+                      "data" => Base.encode64(<<0, 0, 0, 0>>)
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        })
+    end)
+
+    input_path = Path.join(home, "input.wav")
+    File.write!(input_path, "original audio")
+
+    {:ok, transcode_spec} =
+      Transcode.build_spec(input_path, local_stt_profile(), output_root: home)
+
+    runner = fn spec ->
+      File.write!(spec.output_path, materialized_audio)
+      :ok
+    end
+
+    assert {:ok, transcript} =
+             ProviderAdapter.transcribe(
+               local_stt_profile(),
+               %{input_path: input_path, transcode_spec: transcode_spec},
+               req_options: [plug: {Req.Test, __MODULE__}],
+               transcode_runner: runner
+             )
+
+    assert transcript.transcript == "hello local voice"
+
+    assert {:ok, openai_audio} =
+             ProviderAdapter.synthesize(
+               openai_tts_profile(),
+               %{text: "speak this", output_format: "wav", voice: "alloy"},
+               req_options: [plug: {Req.Test, __MODULE__}]
+             )
+
+    assert {:ok, <<"RIFF", _rest::binary>>} = File.read(openai_audio.path)
+
+    {:ok, gemini_spec} = Transcode.build_spec(input_path, gemini_stt_profile(), output_root: home)
+
+    assert {:ok, gemini_transcript} =
+             ProviderAdapter.transcribe(
+               gemini_stt_profile(),
+               %{input_path: input_path, transcode_spec: gemini_spec},
+               req_options: [plug: {Req.Test, __MODULE__}],
+               transcode_runner: runner
+             )
+
+    assert gemini_transcript.transcript == "hello gemini voice"
+
+    assert {:ok, gemini_audio} =
+             ProviderAdapter.synthesize(
+               gemini_tts_profile(),
+               %{text: "hello", output_format: "wav", voice: "Kore"},
+               req_options: [plug: {Req.Test, __MODULE__}]
+             )
+
+    assert {:ok, <<"RIFF", _rest::binary>>} = File.read(gemini_audio.path)
+  end
+
+  test "voice fallback is bounded and listen think speak routes through Ollama text profile", %{
+    context: context
+  } do
+    assert_eval!("voice-call-failure-fallback-bounded-001")
+    assert_eval!("voice-listen-think-speak-routing-001")
+
+    install_fake_retryable_stt!()
+    enable_voice!()
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "model_preferences.capabilities.speech_to_text",
+               ["voice_stt_fake_retryable", "voice_stt_fake"],
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.direct_answer", ["voice_text_local"], %{
+               audit?: false
+             })
+
+    use_fake_tts!()
+
+    assert {:ok, response} =
+             Runner.run("transcribe_voice", %{audio_file: fixture_path("hello.wav")}, context)
+
+    assert response.status == :completed
+    assert response.voice_metadata.provider_profile == "voice_stt_fake"
+
+    assert [%{provider_profile: "voice_stt_fake_retryable", error: {:voice_http_error, 503}}] =
+             response.voice_metadata.fallback_attempts
+
+    assert {:ok, text_resolution} = Models.for(:direct_answer)
+    assert text_resolution.profile.name == "voice_text_local"
+
+    assert {:ok, tts} = Runner.run("synthesize_voice", %{text: "Runtime response"}, context)
+    assert tts.status == :completed
+    assert tts.voice_metadata.provider_profile == "voice_tts_fake"
+  end
+
   defp assert_eval!(id), do: EvalInventory.row!(id)
 
   defp enable_voice! do
     assert {:ok, _setting} = Settings.put("voice.enabled", true, %{audit?: false})
+  end
+
+  defp use_fake_stt! do
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.speech_to_text", ["voice_stt_fake"], %{
+               audit?: false
+             })
+  end
+
+  defp use_fake_tts! do
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.text_to_speech", ["voice_tts_fake"], %{
+               audit?: false
+             })
+  end
+
+  defp install_fake_retryable_stt! do
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "model_profiles" => %{
+                 "voice_stt_fake_retryable" => %{
+                   "provider" => "fake_voice",
+                   "model" => "fake-stt-retryable-error",
+                   "capabilities" => ["speech_to_text"],
+                   "media" => %{
+                     "input_modalities" => ["audio"],
+                     "output_modalities" => ["text"],
+                     "transport_modes" => ["request_file"],
+                     "deployment_mode" => "fake",
+                     "audio_formats_supported" => ["wav"],
+                     "audio_sample_rates_supported" => [16_000],
+                     "max_audio_bytes" => 10_485_760,
+                     "max_audio_duration_ms" => 300_000
+                   },
+                   "temperature" => 0.0,
+                   "max_tokens" => 1024,
+                   "timeout_ms" => 30_000
+                 }
+               }
+             })
   end
 
   defp configure_telegram!(opts) do
@@ -350,10 +615,105 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
     }
   end
 
-  defp json(conn, body) do
+  defp local_stt_profile do
+    %{
+      name: "voice_stt_local",
+      provider: "local_voice",
+      provider_type: "openai_compatible",
+      provider_endpoint_kind: "local_endpoint",
+      provider_base_url: "http://localhost:5050/v1",
+      model: "whisper-local",
+      capabilities: ["speech_to_text"],
+      media: %{
+        "deployment_mode" => "local_endpoint",
+        "audio_formats_supported" => ["wav"],
+        "max_audio_bytes" => 10_485_760,
+        "max_audio_duration_ms" => 300_000
+      },
+      timeout_ms: 30_000
+    }
+  end
+
+  defp openai_tts_profile do
+    %{
+      name: "voice_tts_openai",
+      provider: "openai",
+      provider_type: "openai",
+      provider_endpoint_kind: "credentialed_remote",
+      provider_base_url: nil,
+      provider_api_key_ref: "secret://providers/openai/api_key",
+      model: "gpt-4o-mini-tts",
+      capabilities: ["text_to_speech"],
+      media: %{
+        "deployment_mode" => "remote_credentialed",
+        "audio_formats_supported" => ["wav"],
+        "max_audio_bytes" => 10_485_760,
+        "max_audio_duration_ms" => 300_000
+      },
+      timeout_ms: 30_000
+    }
+  end
+
+  defp gemini_stt_profile do
+    %{
+      name: "voice_stt_gemini",
+      provider: "gemini",
+      provider_type: "google",
+      provider_endpoint_kind: "credentialed_remote",
+      provider_base_url: nil,
+      provider_api_key_ref: "secret://providers/gemini/api_key",
+      model: "gemini-3.5-flash",
+      capabilities: ["speech_to_text"],
+      media: %{
+        "deployment_mode" => "remote_credentialed",
+        "audio_formats_supported" => ["wav"],
+        "max_audio_bytes" => 10_485_760,
+        "max_audio_duration_ms" => 300_000
+      },
+      timeout_ms: 30_000
+    }
+  end
+
+  defp gemini_tts_profile do
+    %{
+      name: "voice_tts_gemini",
+      provider: "gemini",
+      provider_type: "google",
+      provider_endpoint_kind: "credentialed_remote",
+      provider_base_url: nil,
+      provider_api_key_ref: "secret://providers/gemini/api_key",
+      model: "gemini-3.1-flash-tts-preview",
+      capabilities: ["text_to_speech"],
+      media: %{
+        "deployment_mode" => "remote_credentialed",
+        "audio_formats_supported" => ["wav"],
+        "max_audio_bytes" => 10_485_760,
+        "max_audio_duration_ms" => 300_000
+      },
+      timeout_ms: 30_000
+    }
+  end
+
+  defp wav_bytes do
+    "RIFF" <>
+      <<40::little-unsigned-integer-size(32)>> <>
+      "WAVEfmt " <>
+      <<16::little-unsigned-integer-size(32)>> <>
+      <<1::little-unsigned-integer-size(16)>> <>
+      <<1::little-unsigned-integer-size(16)>> <>
+      <<16_000::little-unsigned-integer-size(32)>> <>
+      <<32_000::little-unsigned-integer-size(32)>> <>
+      <<2::little-unsigned-integer-size(16)>> <>
+      <<16::little-unsigned-integer-size(16)>> <>
+      "data" <>
+      <<4::little-unsigned-integer-size(32)>> <>
+      <<0, 0, 0, 0>>
+  end
+
+  defp json(conn, body, status \\ 200) do
     conn
     |> Plug.Conn.put_resp_content_type("application/json")
-    |> Plug.Conn.send_resp(200, Jason.encode!(body))
+    |> Plug.Conn.send_resp(status, Jason.encode!(body))
   end
 
   defp restore_env(env) do

@@ -288,7 +288,8 @@ defmodule AllbertAssist.Settings.ProviderCatalog do
   end
 
   defp put_jido_model_alias({name, profile}, aliases) do
-    with provider when is_binary(provider) <- Map.get(profile, "provider"),
+    with true <- "text_generation" in Map.get(profile, "capabilities", []),
+         provider when is_binary(provider) <- Map.get(profile, "provider"),
          provider_type when is_binary(provider_type) <- provider_type(provider),
          model when is_binary(model) <- Map.get(profile, "model"),
          jido_provider when is_binary(jido_provider) <- jido_provider(provider_type) do
