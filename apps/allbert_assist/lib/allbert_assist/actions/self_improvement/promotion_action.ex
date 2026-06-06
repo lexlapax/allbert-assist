@@ -83,6 +83,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.PromotionAction do
        skill: Map.get(result, :skill),
        workflow: Map.get(result, :workflow),
        memory: Map.get(result, :memory),
+       objective: Map.get(result, :objective),
        actions: [
          action(action_name, :completed, permission, permission_decision, %{
            draft_id: result.draft.id,

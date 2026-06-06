@@ -1,9 +1,9 @@
 # Operator-Supervised Self-Improvement
 
-Status: implemented in v0.47 with v0.47b M1-M2 handoff extensions. This guide
+Status: implemented in v0.47 with v0.47b M1-M3 handoff extensions. This guide
 covers the discovery and local-draft surface plus inert capability-gap,
 objective, template-backed, and marketplace-backed handoff drafts;
-delegate-plugin handoffs land in a later v0.47b milestone.
+delegate-plugin request drafts, and confirmation-gated objective promotion.
 
 ## Safety Model
 
@@ -68,8 +68,8 @@ mix allbert.self_improvement inspect <suggestion_id>
 
 Expected v0.47 suggestion kinds are `trace_to_skill`, `trace_to_workflow`,
 `memory_promotion`, and `memory_update`. v0.47b adds `capability_gap`,
-`objective`, `template_backed`, and `marketplace_backed` so far. All
-self-improvement suggestions have
+`objective`, `template_backed`, `marketplace_backed`, and
+`delegate_plugin_request` so far. All self-improvement suggestions have
 `provenance: "self_improvement"` and no MCP candidate id.
 
 ## Review Drafts
@@ -94,6 +94,9 @@ unified reviewed-draft store:
 - Marketplace-backed drafts stay under `<ALLBERT_HOME>/drafts/marketplace/`
   and record `Marketplace.list_entries/1` metadata with `authority:
   "metadata_only"` and `install_requested: false`.
+- Delegate-plugin request drafts stay under
+  `<ALLBERT_HOME>/drafts/delegate_plugins/` and record a v0.38 plugin-template
+  preview with `scaffold_requested: false` and `agent_registered: false`.
 
 CLI inspection and discard:
 
@@ -116,13 +119,17 @@ Live promotion is intentionally separate from draft creation:
 - `promote_template_draft` requires `:dynamic_codegen_request` and creates only
   an inert v0.37 dynamic draft through `create_from_template`; the sandbox gate
   and live integration remain separate.
+- `promote_objective_draft` requires `:objective_write`, creates a durable
+  confirmation, and frames a v0.24 objective only after approval.
 
 For skill, workflow, and memory promotions, the first action call creates a
 durable confirmation and writes no live artifact. Approval resumes the same
 registered action and writes through the existing local skill, workflow, or
-memory path. Denial writes nothing. Template promotion completes immediately
-because it creates only a dynamic draft; live integration still requires the
-separate gate and integration actions.
+memory path. Objective promotion follows the same confirmation-resume shape and
+frames through the public objective facade after approval. Denial writes
+nothing. Template promotion completes immediately because it creates only a
+dynamic draft; live integration still requires the separate gate and integration
+actions.
 
 ## Validation
 

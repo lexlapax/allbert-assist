@@ -6,6 +6,7 @@ defmodule AllbertAssist.Actions.SelfImprovementDraftActionsTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Drafts.Store
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Objectives.AgentRegistry
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Tools.Discovery
@@ -203,6 +204,41 @@ defmodule AllbertAssist.Actions.SelfImprovementDraftActionsTest do
 
     assert marketplace_response.draft.payload["marketplace"]["authority"] == "metadata_only"
     assert marketplace_response.draft.payload["handoff"]["install_requested"] == false
+  end
+
+  test "create_self_improvement_draft creates inert delegate-plugin request drafts", %{
+    root: root
+  } do
+    suggestion =
+      suggestion!(
+        "delegate_plugin_request",
+        "delegate_plugin_request",
+        "Repeated release review could use a delegate plugin request.",
+        %{
+          "delegate_agent_id" => "release.reviewer",
+          "params" => %{
+            "name" => "Release Reviewer",
+            "description" => "Inert delegate plugin request for release review."
+          }
+        }
+      )
+
+    assert {:ok, response} =
+             Runner.run(
+               "create_self_improvement_draft",
+               %{suggestion_id: suggestion.id, id: "delegate_release_reviewer"},
+               %{actor: "operator", user_id: "operator", channel: :test}
+             )
+
+    assert response.status == :completed
+    assert response.draft.kind == "delegate_plugin_request"
+    assert response.draft.live_authority == false
+    assert response.draft.payload["delegate_plugin"]["delegate_agent_id"] == "release.reviewer"
+    assert response.draft.payload["delegate_plugin"]["agent_registered"] == false
+    assert response.draft.payload["handoff"]["scaffold_requested"] == false
+
+    assert {:error, :not_found} = AgentRegistry.lookup("release.reviewer")
+    refute File.dir?(Path.join([root, "plugins", "release_reviewer"]))
   end
 
   test "create_self_improvement_draft returns existing accepted draft" do

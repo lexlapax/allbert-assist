@@ -129,7 +129,7 @@ from the code-bearing gate path.
 ### A5. Marketplace and delegate-plugin drafts are inert (v0.47b)
 
 Status: accepted in v0.47b M1; marketplace-backed draft storage landed in M2
-and delegate-plugin draft storage lands in M3.
+and delegate-plugin request draft storage landed in M3.
 
 Marketplace-lite metadata (v0.45) informs suggestions but grants nothing; a
 delegate-plugin draft scaffolds an inert v0.46-style plugin request through
@@ -151,7 +151,7 @@ evidence plus operator confirmation.
 ### A7. Objective drafts are declarative (v0.47b)
 
 Status: accepted in v0.47b M1; objective draft storage landed in M1 and
-confirmation-gated objective framing lands in M3.
+confirmation-gated objective framing landed in M3.
 
 An objective draft is an inert objective definition in the unified store.
 Framing and running it remains a confirmed v0.24 Objective Runtime action;

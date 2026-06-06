@@ -18,7 +18,13 @@ defmodule AllbertAssist.Drafts.Store do
   alias AllbertAssist.Workflows.Validator
 
   @metadata_suffix ".metadata.yaml"
-  @handoff_kinds ~w[capability_gap objective template_backed marketplace_backed]
+  @handoff_kinds ~w[
+    capability_gap
+    objective
+    template_backed
+    marketplace_backed
+    delegate_plugin_request
+  ]
   @non_code_kinds ~w[skill workflow memory_promotion memory_update] ++ @handoff_kinds
   @non_code_tiers ~w[draft discarded promoted]
   @slug_pattern ~r/^[a-z][a-z0-9_]*$/
@@ -140,6 +146,20 @@ defmodule AllbertAssist.Drafts.Store do
     with {:ok, attrs} <- normalize_create_attrs("marketplace_backed", attrs),
          :ok <- ensure_open_draft_capacity(attrs["id"]),
          {:ok, payload} <- marketplace_backed_payload(attrs),
+         :ok <- write_artifact(attrs, payload),
+         {:ok, draft} <- put_non_code_draft(attrs, payload, opts) do
+      {:ok, draft}
+    end
+  end
+
+  @doc "Create or rewrite an inert delegate-plugin request draft."
+  @spec create_delegate_plugin_draft(map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def create_delegate_plugin_draft(attrs, opts \\ []) when is_map(attrs) do
+    attrs = stringify_keys(attrs)
+
+    with {:ok, attrs} <- normalize_create_attrs("delegate_plugin_request", attrs),
+         :ok <- ensure_open_draft_capacity(attrs["id"]),
+         {:ok, payload} <- delegate_plugin_draft_payload(attrs),
          :ok <- write_artifact(attrs, payload),
          {:ok, draft} <- put_non_code_draft(attrs, payload, opts) do
       {:ok, draft}
@@ -586,6 +606,66 @@ defmodule AllbertAssist.Drafts.Store do
     end
   end
 
+  defp delegate_plugin_draft_payload(attrs) do
+    delegate_agent_id =
+      attrs
+      |> Map.get("delegate_agent_id", "")
+      |> to_string()
+      |> String.trim()
+
+    pattern_id =
+      attrs
+      |> Map.get("pattern_id", "plugin")
+      |> to_string()
+      |> String.trim()
+
+    params =
+      attrs
+      |> Map.get("params", %{})
+      |> map_value()
+      |> Map.put_new("name", title_from_summary(Map.fetch!(attrs, "summary")))
+
+    cond do
+      delegate_agent_id == "" ->
+        {:error, :delegate_agent_id_required}
+
+      pattern_id != "plugin" ->
+        {:error, {:unsupported_delegate_plugin_pattern, pattern_id}}
+
+      true ->
+        with {:ok, preview} <- Templates.preview(pattern_id, params) do
+          preview = stringify_nested(preview)
+
+          {:ok,
+           %{
+             "schema_version" => 1,
+             "kind" => "delegate_plugin_request",
+             "id" => Map.fetch!(attrs, "id"),
+             "enabled" => false,
+             "live_authority" => false,
+             "source_suggestion_id" => Map.get(attrs, "source_suggestion_id"),
+             "evidence_refs" => list_value(Map.get(attrs, "evidence_refs")),
+             "delegate_plugin" => %{
+               "delegate_agent_id" => delegate_agent_id,
+               "plugin_template_pattern_id" => preview["pattern_id"],
+               "params" => params,
+               "preview_params" => preview["params"],
+               "preview_files" => Map.get(preview, "files", []),
+               "allowed_commands" => list_value(Map.get(attrs, "allowed_commands")),
+               "enabled" => false,
+               "agent_registered" => false
+             },
+             "handoff" => %{
+               "scaffold_requested" => false,
+               "scaffold_path" => nil,
+               "agent_registered" => false,
+               "confirmation_required_for_live_registration" => true
+             }
+           }}
+        end
+    end
+  end
+
   defp workflow_payload(attrs) do
     id = Map.fetch!(attrs, "id")
     summary = Map.fetch!(attrs, "summary")
@@ -684,6 +764,9 @@ defmodule AllbertAssist.Drafts.Store do
   defp artifact_path("marketplace_backed", id),
     do: Path.join(kind_root("marketplace_backed"), id <> ".marketplace.yaml")
 
+  defp artifact_path("delegate_plugin_request", id),
+    do: Path.join(kind_root("delegate_plugin_request"), id <> ".delegate_plugin.yaml")
+
   defp kind_root("skill"), do: Paths.drafts_skills_root()
   defp kind_root("workflow"), do: Paths.drafts_workflows_root()
 
@@ -694,6 +777,9 @@ defmodule AllbertAssist.Drafts.Store do
   defp kind_root("objective"), do: Path.join(Paths.drafts_root(), "objectives")
   defp kind_root("template_backed"), do: Path.join(Paths.drafts_root(), "templates")
   defp kind_root("marketplace_backed"), do: Path.join(Paths.drafts_root(), "marketplace")
+
+  defp kind_root("delegate_plugin_request"),
+    do: Path.join(Paths.drafts_root(), "delegate_plugins")
 
   defp kind_root(_kind), do: Paths.drafts_root()
 

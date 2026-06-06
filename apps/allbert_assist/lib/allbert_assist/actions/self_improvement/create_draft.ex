@@ -9,6 +9,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
     "memory_update" => "memory_update",
     "template_backed" => "template_backed",
     "marketplace_backed" => "marketplace_backed",
+    "delegate_plugin_request" => "delegate_plugin_request",
     "capability_gap" => "capability_gap",
     "objective" => "objective"
   }
@@ -98,6 +99,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
       kind when kind in ["memory_promotion", "memory_update"] -> Store.create_memory_draft(attrs)
       "template_backed" -> Store.create_template_backed_draft(attrs)
       "marketplace_backed" -> Store.create_marketplace_backed_draft(attrs)
+      "delegate_plugin_request" -> Store.create_delegate_plugin_draft(attrs)
       "capability_gap" -> Store.create_capability_gap_draft(attrs)
       "objective" -> Store.create_objective_draft(attrs)
     end
@@ -133,6 +135,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
       "budget",
       "confidence",
       "constraints",
+      "delegate_agent_id",
       "entry_id",
       "home",
       "index_path",

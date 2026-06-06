@@ -1,10 +1,10 @@
 # Self-Improvement Developer Guide
 
-Status: implemented in v0.47 with v0.47b M1-M2 handoff extensions. This guide
+Status: implemented in v0.47 with v0.47b M1-M3 handoff extensions. This guide
 describes the discovery and local draft substrate plus inert capability-gap,
-objective, template-backed, and marketplace-backed draft kinds. Later v0.47b
-milestones add the remaining handoffs, but must reuse this suggestion lifecycle,
-draft facade, and authority boundary.
+objective, template-backed, marketplace-backed, and delegate-plugin request
+draft kinds. Later v0.47b milestones add the remaining code-bearing handoffs,
+but must reuse this suggestion lifecycle, draft facade, and authority boundary.
 
 ## Authority Boundary
 
@@ -45,7 +45,7 @@ a second queue. Self-improvement suggestions use:
 ```text
 provenance: "self_improvement"
 candidate_id: nil
-suggestion_type: trace_to_skill | trace_to_workflow | memory_promotion | memory_update | capability_gap | objective | template_backed | marketplace_backed
+suggestion_type: trace_to_skill | trace_to_workflow | memory_promotion | memory_update | capability_gap | objective | template_backed | marketplace_backed | delegate_plugin_request
 status: pending | accepted | dismissed | expired
 ```
 
@@ -93,6 +93,10 @@ or live runtime state.
 - Marketplace-backed drafts use `marketplace_backed`, write artifacts under
   `<ALLBERT_HOME>/drafts/marketplace/`, and store a descriptive
   `Marketplace.list_entries/1` entry snapshot with no install or authority.
+- Delegate-plugin request drafts use `delegate_plugin_request`, write artifacts
+  under `<ALLBERT_HOME>/drafts/delegate_plugins/`, and store a v0.38
+  plugin-template preview plus delegate metadata. They never scaffold a plugin
+  directory or register an `Objectives.AgentRegistry` entry.
 
 Non-code tiers are `draft`, `discarded`, and `promoted`. Promotion metadata is
 recorded only after the live write has completed through the confirmed action
@@ -111,8 +115,9 @@ The v0.47 actions are internal runtime actions:
 | `promote_workflow_draft` | `:objective_write` | required | Writes live workflow YAML after approval. |
 | `promote_memory_draft` | `:memory_write` | required | Appends or updates markdown memory after approval. |
 | `promote_template_draft` | `:dynamic_codegen_request` | not required | Creates an inert v0.37 dynamic draft through `create_from_template`; gate/integration stay separate. |
+| `promote_objective_draft` | `:objective_write` | required | Frames a v0.24 objective through `Objectives.frame/2` after approval. |
 
-Skill, workflow, and memory promotion actions are resumable through
+Skill, workflow, memory, and objective promotion actions are resumable through
 `approve_confirmation`. The initial call returns `:needs_confirmation` and
 writes no live artifact; approval resumes the target action with confirmation
 context. Template promotion is not resumable because it writes only a v0.37
@@ -145,6 +150,14 @@ Focused v0.47b M2 coverage adds:
 - `SelfImprovementDraftActionsTest` template/marketplace action coverage
 - `SelfImprovementPromotionActionsTest` inert template dynamic-draft promotion
 - `RegistryTest` `promote_template_draft` registration coverage
+
+Focused v0.47b M3 coverage adds:
+
+- `Drafts.StoreTest` delegate-plugin request inertness
+- `Tools.DiscoveryTest` delegate-plugin handoff suggestion kind validation
+- `SelfImprovementDraftActionsTest` delegate-plugin request action coverage
+- `SelfImprovementPromotionActionsTest` objective promotion confirmation resume
+- `RegistryTest` `promote_objective_draft` registration coverage
 
 The deterministic release handoff is:
 

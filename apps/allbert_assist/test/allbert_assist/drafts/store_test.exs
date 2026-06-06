@@ -5,6 +5,7 @@ defmodule AllbertAssist.Drafts.StoreTest do
   alias AllbertAssist.Drafts.Store
   alias AllbertAssist.DynamicPlugins
   alias AllbertAssist.Marketplace
+  alias AllbertAssist.Objectives.AgentRegistry
   alias AllbertAssist.Paths
   alias AllbertAssist.Workflows
   alias AllbertAssist.Workflows.Validator
@@ -231,6 +232,49 @@ defmodule AllbertAssist.Drafts.StoreTest do
 
     assert File.regular?(draft.artifact_path)
     refute File.dir?(Path.join([home, "marketplace", "installed"]))
+  end
+
+  test "creates delegate-plugin draft requests without registering an agent", %{home: home} do
+    assert {:ok, draft} =
+             Store.create_delegate_plugin_draft(%{
+               id: "delegate_release_reviewer",
+               summary: "Repeated release review could use a delegate plugin request.",
+               delegate_agent_id: "release.reviewer",
+               params: %{
+                 "name" => "Release Reviewer",
+                 "description" => "Inert delegate plugin request for release review.",
+                 "version" => "0.1.0"
+               },
+               source_suggestion_id: "suggestion:self_improvement:delegate"
+             })
+
+    assert draft.kind == "delegate_plugin_request"
+    assert draft.tier == "draft"
+    assert draft.live_authority == false
+    assert draft.payload["enabled"] == false
+    assert draft.payload["delegate_plugin"]["delegate_agent_id"] == "release.reviewer"
+    assert draft.payload["delegate_plugin"]["plugin_template_pattern_id"] == "plugin"
+    assert draft.payload["delegate_plugin"]["agent_registered"] == false
+    assert draft.payload["handoff"]["scaffold_requested"] == false
+    assert draft.payload["handoff"]["agent_registered"] == false
+
+    assert Enum.any?(
+             draft.payload["delegate_plugin"]["preview_files"],
+             &(&1["path"] == "allbert_plugin.json")
+           )
+
+    assert {:error, :not_found} = AgentRegistry.lookup("release.reviewer")
+    refute File.dir?(Path.join([home, "plugins", "release_reviewer"]))
+
+    assert draft.artifact_path ==
+             Path.join([
+               home,
+               "drafts",
+               "delegate_plugins",
+               "delegate_release_reviewer.delegate_plugin.yaml"
+             ])
+
+    assert File.regular?(draft.artifact_path)
   end
 
   test "discard leaves non-code drafts inert and terminal" do
