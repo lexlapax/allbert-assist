@@ -40,6 +40,10 @@ v0.48 implements only the audio portion of this ADR:
   duration-bounded, the output format is chosen from the resolved provider's
   `audio_formats_supported`, and no operator- or model-supplied codec flags are
   passed. The transcoder is an external binary dependency, not a provider.
+  The helper uses a fixed command template, rejects network/protocol inputs,
+  writes only to a temp or Allbert Home-derived path, and redacts both source
+  and output paths in traces. Missing transcode support is a doctor diagnostic
+  or action error, not a reason to widen accepted provider inputs.
 - Voice adds operation classes for microphone capture, transcription, and
   synthesis. Security Central policy must distinguish local/test providers
   from credentialed remote providers, because remote STT/TTS can upload audio
@@ -56,6 +60,9 @@ v0.48 implements only the audio portion of this ADR:
   and separately removable by the operator.
 - v0.48 cost visibility is display-only metadata on STT/TTS action results and
   traces. Cross-provider dashboards and budget enforcement remain parked.
+- Realtime audio sessions and generic audio/video understanding are not part of
+  the v0.48 media-resource implementation. A profile may report such transport
+  metadata, but the release flow remains bounded file/capture STT and TTS.
 
 The v0.49 image/screenshot portion will amend this ADR separately when the
 vision plan is deepened.

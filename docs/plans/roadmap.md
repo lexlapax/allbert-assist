@@ -2854,6 +2854,9 @@ Expected direction:
 
 - Generalize the existing provider/model framework with capability metadata and
   ranked operator preferences before wiring voice consumers.
+- Add media/profile metadata for input/output modality, transport mode,
+  deployment mode, accepted audio formats, and audio bounds without treating
+  that metadata as permission.
 - Add experimental STT/TTS capability as media resources and registered actions,
   not as a separate runtime or separate provider system.
 - Add CLI file transcription, workspace microphone affordance, TTS, and
@@ -2866,6 +2869,9 @@ Expected direction:
   (`mix allbert.test release.v048`) before manual validation.
 - Defer Discord voice support to a focused follow-on after Discord lands in
   v0.50.
+- Keep realtime speech sessions, generic audio understanding, and video input
+  as metadata/future-planning concerns unless a later plan explicitly accepts
+  them.
 
 ## v0.49: Vision And Image Generation
 
@@ -2887,6 +2893,8 @@ Expected direction:
 - Add vision-capable provider/model checks to the provider doctor path.
 - Add image generation as a registered action with provider profile,
   display-only cost metadata, workspace rendering, retention, and redaction.
+- Treat `video_input` as shared vocabulary/future metadata only; v0.49 does not
+  implement video ingestion or generation unless amended before code lands.
 
 ## v0.50: Channel Pack 1 - Discord And Slack
 

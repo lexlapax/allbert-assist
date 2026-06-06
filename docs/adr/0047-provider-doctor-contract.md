@@ -119,10 +119,17 @@ migration. Known additive fields:
 - **v0.48 voice** (`doctor_voice_provider`) adds `:provider_capabilities`
   (list of ADR 0051 capability names), `:speech_to_text_supported`
   (boolean | :unknown), `:text_to_speech_supported` (boolean | :unknown),
+  `:provider_deployment_mode`
+  (`:fake | :local_endpoint | :bundled_local | :remote_credentialed | nil`),
+  `:audio_formats_supported` (list(String.t()) | :unknown),
+  `:sample_rates_supported` (list(pos_integer()) | :unknown),
+  `:provider_usage_metadata_available` (boolean | :unknown),
   `:local_runtime_present` (boolean | nil), and `:fixture_probe_ok`
-  (boolean | nil). The doctor reports capability diagnostics only; it does not
-  grant audio permissions, upload arbitrary audio, rewrite preferences, or
-  make a provider selectable when Settings Central has disabled it.
+  (boolean | nil). `:provider_capabilities` is the canonical field name for
+  reported capability metadata. The doctor reports capability diagnostics only;
+  it does not grant audio permissions, upload arbitrary audio, rewrite
+  preferences, or make a provider selectable when Settings Central has disabled
+  it.
 - **v0.49 vision** adds `:image_input_supported`.
 
 ### 3. Redaction policy
@@ -168,10 +175,13 @@ free-form URLs or arbitrary targets must use explicit resource confirmation
 instead of this read-only doctor boundary.
 
 The v0.48 voice doctor probes configured voice-capable model profiles through
-the same Settings Central resolution path as text models. It may use a bounded
-checked-in fixture or provider metadata to test STT/TTS availability. It never
-records raw audio, accepts a model-output-supplied file path, or uses doctor
-success as a remembered Resource Access grant.
+the same Settings Central resolution path as text models. The operator-facing
+CLI remains `mix allbert.model doctor <profile>`; the Mix task dispatches to
+`doctor_voice_provider` when the resolved profile advertises
+`speech_to_text` or `text_to_speech`. It may use a bounded checked-in fixture
+or provider metadata to test STT/TTS availability. It never records raw audio,
+accepts a model-output-supplied file path, follows arbitrary provider-returned
+URLs, or uses doctor success as a remembered Resource Access grant.
 
 ### 5. Tier-1 freeze candidate
 

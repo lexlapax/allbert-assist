@@ -17,6 +17,9 @@ text-to-speech.
 - Existing `intent.model_profile` and `intent.direct_answer_model_profile`
   settings remain compatibility aliases during migration.
 - Voice does not create a parallel provider or secret system.
+- Media details such as accepted audio formats, duration limits, realtime
+  session support, and local-vs-remote deployment mode are profile metadata,
+  not permissions.
 
 ## Voice Defaults
 
@@ -25,9 +28,25 @@ The default posture is local/offline first:
 - no cloud STT/TTS provider is used unless the operator configures it;
 - fake STT/TTS providers are deterministic release-test fixtures, not real voice
   defaults;
+- local-endpoint STT/TTS uses an operator-configured localhost service;
+- bundled-local STT/TTS uses an explicitly configured offline engine when one
+  is available;
 - provider credentials remain Settings Central secrets;
 - remote STT/TTS must display provider/profile and cost or usage metadata when
   available.
+
+Provider choice guide:
+
+| Mode | Best for | Operator posture |
+|---|---|---|
+| Fake | Release gates, deterministic tests, demos with fixture audio | No real provider authority; not a production default. |
+| Local endpoint | Operators running a localhost STT/TTS service | No cloud credential, but still bounded and doctored. |
+| Bundled local | Operators who explicitly configure an offline engine | Local runtime presence is a doctor signal; packaging is not required by the v0.48 release lane. |
+| Remote credentialed | Cloud STT/TTS quality or managed voices | Explicit opt-in; may upload audio or incur provider cost. |
+
+Realtime audio session support, generic audio understanding, and video input are
+profile metadata only in v0.48. They do not enable always-on listening, generic
+media upload, or video ingestion.
 
 ## CLI Voice
 
@@ -59,6 +78,13 @@ After v0.48 lands, operator settings should expose:
 
 Capability validation protects the selection. A text-only model cannot be used
 as an STT provider just because it appears in a preference list.
+
+Voice doctor output uses the ADR 0047 envelope plus additive voice fields such
+as `provider_capabilities`, `provider_deployment_mode`,
+`speech_to_text_supported`, `text_to_speech_supported`,
+`audio_formats_supported`, `sample_rates_supported`,
+`provider_usage_metadata_available`, `local_runtime_present`, and
+`fixture_probe_ok`.
 
 ## Manual Validation
 
