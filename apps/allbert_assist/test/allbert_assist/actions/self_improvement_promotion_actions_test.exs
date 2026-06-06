@@ -12,21 +12,24 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_memory_config = Application.get_env(:allbert_assist, AllbertAssist.Memory)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     root =
       Path.join(
         System.tmp_dir!(),
-        "allbert-self-improvement-promotions-#{System.unique_integer([:positive])}"
+        "allbert-self-improvement-promotions-#{System.system_time(:nanosecond)}-#{System.unique_integer([:positive, :monotonic])}"
       )
 
     Application.put_env(:allbert_assist, Paths, home: root)
+    Application.put_env(:allbert_assist, AllbertAssist.Memory, root: Path.join(root, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
+      restore_env(AllbertAssist.Memory, original_memory_config)
       restore_env(Settings, original_settings_config)
-      File.rm_rf!(root)
+      remove_test_root!(root)
     end)
 
     {:ok, root: root}
@@ -103,11 +106,16 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
     assert approved.status == :completed
     assert approved.confirmation["status"] == "approved"
     assert approved.confirmation["operator_resolution"]["target_resumed?"]
-    assert [_path] = Path.wildcard(Path.join([root, "memory", "notes", "*.md"]))
+
+    memory_path = get_in(approved.confirmation, ["operator_resolution", "target_result", "path"])
+    assert is_binary(memory_path)
+    assert File.regular?(memory_path)
+
     assert {:ok, promoted} = Store.show_draft(draft.id, kind: "memory_promotion")
     assert promoted.tier == "promoted"
 
-    assert {:ok, [_entry]} = Memory.list_entries(category: :notes, include_body: true)
+    assert {:ok, memory_entry} = Memory.read_entry(memory_path)
+    assert memory_entry.body == "Confirmed memory promotions write through Memory.append."
   end
 
   test "denied workflow draft promotion writes no live workflow", %{root: root} do
@@ -141,4 +149,19 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp remove_test_root!(root, attempts \\ 3)
+
+  defp remove_test_root!(root, 0), do: File.rm_rf!(root)
+
+  defp remove_test_root!(root, attempts) do
+    case File.rm_rf(root) do
+      {:ok, _removed} ->
+        :ok
+
+      {:error, _path, _reason} ->
+        Process.sleep(25)
+        remove_test_root!(root, attempts - 1)
+    end
+  end
 end

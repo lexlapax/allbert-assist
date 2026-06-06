@@ -516,10 +516,11 @@ Implemented v0.41 gates:
   rendering. `docs/developer/delegate-agents.md` documents the extension
   point so third-party plugins can register a delegate agent. Operator
   no-code agent authoring stays parked in `future-features.md`.
-- v0.47 (planned): Operator-Supervised Self-Improvement (Discovery + Local
-  Drafts). Adds no autonomous authority; builds a read-only trace index, the
-  generalized v0.42 suggestion surface, a read-only pattern-discovery action,
-  and skill/workflow/memory drafts in one unified reviewed-draft store.
+- v0.47 (implemented as `0.47.0`): Operator-Supervised Self-Improvement
+  (Discovery + Local Drafts). Adds no autonomous authority; builds a read-only
+  trace index, the generalized v0.42 suggestion surface, a read-only
+  pattern-discovery action, and skill/workflow/memory drafts in one unified
+  reviewed-draft store.
   Suggestions are advisory; drafts are inert; promotion to a live
   skill/workflow/memory entry is a separate confirmed action.
 - v0.47b (planned): Operator-Supervised Self-Improvement (Handoff Drafts).

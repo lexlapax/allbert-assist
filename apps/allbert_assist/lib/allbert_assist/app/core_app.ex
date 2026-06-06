@@ -19,10 +19,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.44 adds Plan/Build
-  # workspace surfaces and operator workflow panels.
+  # the app (release-pinned, not semantic-per-app). v0.47 adds the passive
+  # self-improvement suggestion and draft review surfaces.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.46.0"
+  def version, do: "0.47.0"
 
   @impl true
   def validate(_opts), do: :ok

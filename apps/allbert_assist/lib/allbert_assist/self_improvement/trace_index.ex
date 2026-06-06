@@ -405,8 +405,6 @@ defmodule AllbertAssist.SelfImprovement.TraceIndex do
     |> redact_embedded_secret_refs()
   end
 
-  defp redact_string(_value), do: ""
-
   defp redact_embedded_secret_refs(value) do
     Regex.replace(~r/secret:\/\/[^\s\]\)\},]+/, value, @secret_ref)
   end

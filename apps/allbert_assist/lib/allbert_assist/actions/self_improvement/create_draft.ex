@@ -67,8 +67,6 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
   defp validate_suggestion(%{provenance: provenance}),
     do: {:error, {:invalid_provenance, provenance}}
 
-  defp validate_suggestion(_suggestion), do: {:error, :invalid_suggestion}
-
   defp draft_kind(suggestion, params) do
     metadata = Map.get(suggestion, :metadata, %{})
     implied = Map.get(@supported_types, suggestion.suggestion_type)

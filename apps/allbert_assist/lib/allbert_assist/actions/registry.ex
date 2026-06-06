@@ -103,6 +103,12 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Sandbox.RunGate, as: RunSandboxGate
   alias AllbertAssist.Actions.Security.Review, as: SecurityReview
   alias AllbertAssist.Actions.Security.Status, as: SecurityStatus
+  alias AllbertAssist.Actions.SelfImprovement.CreateDraft, as: CreateSelfImprovementDraft
+  alias AllbertAssist.Actions.SelfImprovement.DiscardDraft, as: DiscardSelfImprovementDraft
+  alias AllbertAssist.Actions.SelfImprovement.DiscoverPatterns
+  alias AllbertAssist.Actions.SelfImprovement.PromoteMemoryDraft
+  alias AllbertAssist.Actions.SelfImprovement.PromoteSkillDraft
+  alias AllbertAssist.Actions.SelfImprovement.PromoteWorkflowDraft
   alias AllbertAssist.Actions.Session.ClearActiveApp
   alias AllbertAssist.Actions.Session.SetActiveApp
   alias AllbertAssist.Actions.Session.ShowSessionScratchpad
@@ -115,12 +121,6 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.SetActiveModelProfile
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
-  alias AllbertAssist.Actions.SelfImprovement.CreateDraft, as: CreateSelfImprovementDraft
-  alias AllbertAssist.Actions.SelfImprovement.DiscardDraft, as: DiscardSelfImprovementDraft
-  alias AllbertAssist.Actions.SelfImprovement.DiscoverPatterns
-  alias AllbertAssist.Actions.SelfImprovement.PromoteMemoryDraft
-  alias AllbertAssist.Actions.SelfImprovement.PromoteSkillDraft
-  alias AllbertAssist.Actions.SelfImprovement.PromoteWorkflowDraft
   alias AllbertAssist.Actions.Skills.AuditOnlineSkill
   alias AllbertAssist.Actions.Skills.CreateSkill
   alias AllbertAssist.Actions.Skills.ImportLocalSkill
