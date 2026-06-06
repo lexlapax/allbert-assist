@@ -13,6 +13,13 @@ v0.48 M4 closeout evidence:
 
 - `MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/resources/resource_uri_test.exs apps/allbert_assist/test/allbert_assist/resources/operation_class_test.exs apps/allbert_assist/test/allbert_assist/security/permission_gate_test.exs apps/allbert_assist/test/allbert_assist/runtime/redactor_test.exs apps/allbert_assist/test/allbert_assist/voice/transcode_test.exs apps/allbert_assist/test/allbert_assist/settings_test.exs`
 
+v0.48 M8 closeout evidence:
+
+- `mix allbert.test release.v048` covers audio resource identity, permission
+  floors, trace redaction, transcode bounds, retention default-off posture,
+  workspace microphone confirmation, STT/TTS actions, Telegram voice-note
+  ingestion, and the v0.48 voice-modality eval rows.
+
 ## Context
 
 Voice and vision are modalities, not separate runtimes. Allbert needs to model

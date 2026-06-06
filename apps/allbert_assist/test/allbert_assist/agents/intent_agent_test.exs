@@ -83,6 +83,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       "list_model_profiles",
       "set_provider_credential",
       "doctor_model_profile",
+      "doctor_voice_provider",
       "set_active_model_profile",
       "list_channels",
       "show_channel",

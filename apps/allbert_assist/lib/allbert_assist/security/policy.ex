@@ -290,21 +290,30 @@ defmodule AllbertAssist.Security.Policy do
   end
 
   defp provider_deployment_mode(context) when is_map(context) do
-    field(context, :provider_deployment_mode) ||
-      field(context, :deployment_mode) ||
-      get_in(context, [:voice, :provider_deployment_mode]) ||
-      get_in(context, ["voice", "provider_deployment_mode"]) ||
-      get_in(context, [:voice, :media, "deployment_mode"]) ||
-      get_in(context, [:voice, :media, :deployment_mode]) ||
-      get_in(context, ["voice", "media", "deployment_mode"]) ||
-      get_in(context, ["voice", "media", :deployment_mode]) ||
-      get_in(context, [:model_profile, :media, "deployment_mode"]) ||
-      get_in(context, [:model_profile, :media, :deployment_mode]) ||
-      get_in(context, ["model_profile", "media", "deployment_mode"]) ||
-      get_in(context, ["model_profile", "media", :deployment_mode])
+    Enum.find_value(deployment_mode_paths(), &deployment_mode_path(context, &1))
   end
 
   defp provider_deployment_mode(_context), do: nil
+
+  defp deployment_mode_paths do
+    [
+      {:field, :provider_deployment_mode},
+      {:field, :deployment_mode},
+      [:voice, :provider_deployment_mode],
+      ["voice", "provider_deployment_mode"],
+      [:voice, :media, "deployment_mode"],
+      [:voice, :media, :deployment_mode],
+      ["voice", "media", "deployment_mode"],
+      ["voice", "media", :deployment_mode],
+      [:model_profile, :media, "deployment_mode"],
+      [:model_profile, :media, :deployment_mode],
+      ["model_profile", "media", "deployment_mode"],
+      ["model_profile", "media", :deployment_mode]
+    ]
+  end
+
+  defp deployment_mode_path(context, {:field, key}), do: field(context, key)
+  defp deployment_mode_path(context, path), do: get_in(context, path)
 
   defp field(map, key) when is_map(map),
     do: Map.get(map, key) || Map.get(map, Atom.to_string(key))

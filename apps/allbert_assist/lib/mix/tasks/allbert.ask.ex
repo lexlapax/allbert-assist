@@ -27,8 +27,8 @@ defmodule Mix.Tasks.Allbert.Ask do
 
   use Mix.Task
 
-  alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Runtime
   alias AllbertAssist.Session
   alias AllbertAssist.Trace

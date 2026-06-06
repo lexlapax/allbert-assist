@@ -8,6 +8,7 @@ defmodule AllbertAssist.Runtime.Redactor do
   policy exactly.
   """
 
+  alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Security.Redactor, as: SecurityRedactor
 
   @type surface ::
@@ -95,7 +96,7 @@ defmodule AllbertAssist.Runtime.Redactor do
         @audio_uri_redaction
 
       String.starts_with?(value, "mic://") ->
-        case AllbertAssist.Resources.ResourceURI.normalize(value) do
+        case ResourceURI.normalize(value) do
           {:ok, "mic://capture/" <> _rest = resource_uri} -> resource_uri
           _error -> @audio_uri_redaction
         end
