@@ -48,9 +48,14 @@ v0.48 implements only the audio portion of this ADR:
   synthesis. Security Central policy must distinguish local/test providers
   from credentialed remote providers, because remote STT/TTS can upload audio
   or synthesize billable output.
-- Microphone capture and cloud STT/TTS cannot be configured below
-  `:needs_confirmation`. A fake deterministic provider used by tests grants no
-  external authority and may run in the release gate without prompting.
+- Microphone capture cannot be configured below `:needs_confirmation` for any
+  deployment mode. STT/TTS floors derive from the resolved profile's
+  `media.deployment_mode`: `fake` and `bundled_local` (no audio leaves the
+  BEAM) may be `:allowed`; `local_endpoint` and `remote_credentialed` (audio
+  crosses a socket) are `:needs_confirmation`. A fake deterministic provider
+  used by tests grants no external authority and may run in the release gate
+  without prompting; an unresolvable deployment mode fails closed to
+  `:needs_confirmation`.
 - Traces may include bounded text transcripts, provider/profile identifiers,
   duration, mime type, byte count, and redacted cost/usage metadata. They must
   not include raw audio bytes, unredacted audio file paths, microphone capture

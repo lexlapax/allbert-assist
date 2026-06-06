@@ -122,7 +122,7 @@ migration. Known additive fields:
   `:provider_deployment_mode`
   (`:fake | :local_endpoint | :bundled_local | :remote_credentialed | nil`),
   `:audio_formats_supported` (list(String.t()) | :unknown),
-  `:sample_rates_supported` (list(pos_integer()) | :unknown),
+  `:audio_sample_rates_supported` (list(pos_integer()) | :unknown),
   `:provider_usage_metadata_available` (boolean | :unknown),
   `:local_runtime_present` (boolean | nil), and `:fixture_probe_ok`
   (boolean | nil). `:provider_capabilities` is the canonical field name for
