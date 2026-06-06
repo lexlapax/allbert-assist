@@ -192,6 +192,37 @@ defmodule AllbertAssist.SettingsTest do
     assert Jido.AI.resolve_model(:thinking) == "anthropic:claude-opus-4-8"
   end
 
+  test "voice security settings resolve defaults and validate safe writes" do
+    assert {:ok, false} = Settings.get("voice.enabled")
+    assert {:ok, 10_485_760} = Settings.get("voice.audio.max_bytes")
+    assert {:ok, 300_000} = Settings.get("voice.audio.max_duration_ms")
+    assert {:ok, false} = Settings.get("voice.audio.retention_enabled")
+    assert {:ok, "<ALLBERT_HOME>/audio"} = Settings.get("voice.audio.retention_root")
+    assert {:ok, true} = Settings.get("voice.trace.redact_audio")
+
+    assert {:ok, "needs_confirmation"} = Settings.get("permissions.microphone_capture")
+    assert {:ok, "allowed"} = Settings.get("permissions.voice_transcribe")
+    assert {:ok, "allowed"} = Settings.get("permissions.voice_synthesize")
+
+    assert Settings.safe_write_key?("voice.audio.max_bytes")
+    assert Settings.safe_write_key?("voice.trace.redact_audio")
+    assert Settings.safe_write_key?("permissions.voice_transcribe")
+
+    assert {:ok, resolved} = Settings.put("voice.audio.max_bytes", 2048, %{audit?: false})
+    assert resolved.value == 2048
+
+    assert {:ok, resolved} =
+             Settings.put("permissions.voice_transcribe", "needs_confirmation", %{audit?: false})
+
+    assert resolved.value == "needs_confirmation"
+
+    assert {:error, {:invalid_setting, "voice.audio.max_bytes", _reason}} =
+             Settings.put("voice.audio.max_bytes", 0, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "permissions.microphone_capture", _reason}} =
+             Settings.put("permissions.microphone_capture", "allowed", %{audit?: false})
+  end
+
   test "objective runtime settings resolve defaults and validate writes" do
     assert {:ok, true} = Settings.get("objectives.enabled")
     assert {:ok, 3} = Settings.get("objectives.max_steps_per_turn")

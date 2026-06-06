@@ -1,6 +1,6 @@
 # Provider Capabilities Developer Notes
 
-Status: M1-M3 implemented.
+Status: M1-M4 implemented.
 
 v0.48 generalizes the v0.39 provider/model substrate. A provider is a
 connection profile. A model profile declares what that connection can do and,
@@ -106,6 +106,9 @@ Voice providers use the same model-profile and doctor contract:
   bounded helper. The release lane does not require packaging a concrete engine.
 - Credentialed remote STT/TTS can upload audio or incur cost, so policy and
   result metadata must stay explicit.
+- M4 added `mic://capture/<id>` resource identity, voice permission floors,
+  audio metadata redaction, `voice.*` bounds/retention settings, and the
+  bounded transcode spec helper. M5-M7 add the executable STT/TTS flows.
 - Voice doctor fields use the ADR 0047 names: `provider_capabilities`,
   `provider_deployment_mode`, `speech_to_text_supported`,
   `text_to_speech_supported`, `audio_formats_supported`,
@@ -123,5 +126,6 @@ Implementation milestones should add focused tests for:
 - disabled provider/profile skips (implemented for disabled providers and
   incapable/missing profiles in M2);
 - doctor additive fields (implemented in M3);
-- audio redaction and retention defaults;
+- audio redaction, permission floors, retention defaults, and transcode bounds
+  (implemented in M4);
 - `release.v048` coverage for fake STT/TTS.

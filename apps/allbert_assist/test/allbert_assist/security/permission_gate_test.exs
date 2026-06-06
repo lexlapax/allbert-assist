@@ -27,6 +27,9 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :stocksage_analyze,
              :stocksage_evidence_fetch,
              :notes_file_write,
+             :microphone_capture,
+             :voice_transcribe,
+             :voice_synthesize,
              :tool_discovery,
              :mcp_server_connect,
              :mcp_tool_call,
@@ -129,6 +132,44 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     assert install.risk.tier == :medium
     refute install.requires_confirmation
     assert PermissionGate.allowed?(install)
+  end
+
+  test "documents voice permission floors by provider deployment mode" do
+    capture = PermissionGate.authorize(:microphone_capture, %{})
+    assert capture.decision == :needs_confirmation
+    assert capture.requires_confirmation
+    assert capture.policy.safety_floor == :needs_confirmation
+    assert capture.risk.tier == :high
+
+    fake_transcribe =
+      PermissionGate.authorize(:voice_transcribe, %{provider_deployment_mode: :fake})
+
+    assert fake_transcribe.decision == :allowed
+    assert fake_transcribe.policy.safety_floor == :allowed
+    assert PermissionGate.allowed?(fake_transcribe)
+
+    bundled_synthesis =
+      PermissionGate.authorize(:voice_synthesize, %{provider_deployment_mode: :bundled_local})
+
+    assert bundled_synthesis.decision == :allowed
+    assert bundled_synthesis.policy.safety_floor == :allowed
+    assert PermissionGate.allowed?(bundled_synthesis)
+
+    local_transcribe =
+      PermissionGate.authorize(:voice_transcribe, %{provider_deployment_mode: :local_endpoint})
+
+    assert local_transcribe.decision == :needs_confirmation
+    assert local_transcribe.policy.safety_floor == :needs_confirmation
+    refute PermissionGate.allowed?(local_transcribe)
+
+    remote_synthesis =
+      PermissionGate.authorize(:voice_synthesize, %{
+        model_profile: %{media: %{"deployment_mode" => "remote_credentialed"}}
+      })
+
+    assert remote_synthesis.decision == :needs_confirmation
+    assert remote_synthesis.policy.safety_floor == :needs_confirmation
+    refute PermissionGate.allowed?(remote_synthesis)
   end
 
   test "allows discovery search but requires confirmation for discovered MCP server connect" do

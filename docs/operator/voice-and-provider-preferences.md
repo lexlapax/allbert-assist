@@ -1,6 +1,9 @@
 # Voice And Provider Preferences
 
-Status: planned for v0.48.
+Status: in progress for v0.48. Provider capabilities, ranked preferences,
+voice doctor dispatch, and the audio resource/security substrate are
+implemented through M4; CLI/workspace/TTS/channel execution flows remain
+planned for M5-M8.
 
 v0.48 makes voice use the same provider framework as text models. The operator
 chooses a primary provider/model profile for most work and can override that
@@ -62,9 +65,10 @@ that the operator can see and confirm microphone use.
 ## Workspace Voice
 
 Workspace microphone capture uses `mic://capture/<id>` resources and the voice
-permission classes planned in ADR 0042. Captured audio is bounded. Raw audio is
-not written to traces by default, and retention is default-off unless an
-operator setting explicitly enables a bounded retained artifact.
+permission classes accepted in ADR 0042. Captured audio is bounded. Raw audio
+is not written to traces by default, and retention is default-off unless an
+operator setting explicitly enables a bounded retained artifact under
+`voice.audio.retention_root`.
 
 ## Provider Preferences
 

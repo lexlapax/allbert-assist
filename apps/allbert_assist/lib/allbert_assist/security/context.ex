@@ -21,6 +21,7 @@ defmodule AllbertAssist.Security.Context do
       parent: parent(context),
       skill: skill(context),
       resource: resource(context),
+      voice: voice(context),
       advisory: advisory(context),
       secret_status: secret_status(context),
       external_content: external_content(context)
@@ -193,6 +194,18 @@ defmodule AllbertAssist.Security.Context do
       kind: map_value(resource, :kind),
       path: map_value(resource, :path),
       external_uri: map_value(resource, :external_uri)
+    }
+  end
+
+  defp voice(context) do
+    model_profile = map_value(context, :model_profile) || %{}
+    media = map_value(model_profile, :media) || map_value(context, :media) || %{}
+
+    %{
+      provider_deployment_mode:
+        map_value(context, :provider_deployment_mode) || map_value(context, :deployment_mode) ||
+          map_value(media, :deployment_mode),
+      media: Redactor.redact(media)
     }
   end
 
