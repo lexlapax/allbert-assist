@@ -1,11 +1,9 @@
 # Voice And Provider Preferences
 
-Status: in progress for v0.48. Provider capabilities, ranked preferences,
-voice doctor dispatch, and the audio resource/security substrate are
-implemented through M4; CLI voice file transcription is implemented in M5;
-workspace microphone capture is implemented in M6; TTS and Telegram
-voice-note ingestion are implemented in M7; release closeout remains planned
-for M8.
+Status: implemented in `0.48.0`. Provider capabilities, ranked preferences,
+voice doctor dispatch, the audio resource/security substrate, CLI voice file
+transcription, workspace microphone capture, TTS, Telegram voice-note
+ingestion, v0.48 evals, and `release.v048` evidence are complete.
 
 v0.48 makes voice use the same provider framework as text models. The operator
 chooses a primary provider/model profile for most work and can override that
@@ -90,7 +88,7 @@ plus bounded Telegram voice metadata after STT succeeds.
 
 ## Provider Preferences
 
-After v0.48 lands, operator settings should expose:
+Operator settings expose:
 
 - global primary profile;
 - coding preference;
@@ -117,3 +115,15 @@ Use the v0.48 request-flow checklist for release validation:
 - ADR 0051 for provider preferences
 - ADR 0042 for media resource policy
 - ADR 0047 for voice doctor output
+
+Release authority is the deterministic fake-provider lane:
+
+```sh
+mix allbert.test release.v048
+```
+
+The v0.48 closeout evidence path from implementation was:
+
+```text
+/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v048/p0-7/home/release_evidence/v048/release-v048-1780765740.json
+```

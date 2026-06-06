@@ -268,7 +268,8 @@ Dependency order from here:
     delegate-plugin, capability-gap, and objective drafts that hand off to the
     v0.36/v0.37/v0.38 sandbox/gate/templated-creation path; seven `:v047b`
     eval rows and `release.v047b`; no new trust tier.
-48. v0.48 Voice modality and provider capabilities: capability-aware
+48. v0.48 Voice modality and provider capabilities - implemented as
+    `0.48.0`: capability-aware
     provider/model profiles, ranked operator preferences, deterministic STT/TTS
     fake-provider release lane, CLI file transcription, workspace microphone
     capture, TTS, and Telegram voice-note ingestion. Discord voice is deferred
@@ -2847,13 +2848,13 @@ ADRs: `docs/adr/0051-provider-capability-preferences.md`,
 `docs/adr/0042-audio-image-and-media-resource-classes.md`,
 `docs/adr/0047-provider-doctor-contract.md`
 
-Status: in progress. M1-M7 are implemented: provider capability metadata,
-ranked preferences, capability-aware voice doctors, the audio
-resource/security substrate, CLI fake-provider file transcription, and
-workspace microphone capture, fake TTS, and Telegram voice-note ingestion. M8
-remains planned. Current authority is the v0.48 plan/request-flow plus ADR
-0051, ADR 0042 audio amendments, and ADR 0047; the older archive source is
-historical context only.
+Status: implemented as `0.48.0`. M1-M8 are complete: provider capability
+metadata, ranked preferences, capability-aware voice doctors, the audio
+resource/security substrate, CLI fake-provider file transcription, workspace
+microphone capture, fake TTS, Telegram voice-note ingestion, ten `:v048`
+voice-modality eval rows, and deterministic `release.v048` evidence. Current
+authority is the v0.48 plan/request-flow plus ADR 0051, ADR 0042 audio
+amendments, and ADR 0047; the older archive source is historical context only.
 
 Expected direction:
 
@@ -2870,7 +2871,7 @@ Expected direction:
   only by explicit operator policy.
 - Ship display-only provider/cost metadata for STT/TTS action results; unified
   dashboards and budget enforcement remain parked.
-- Prove the feature through a deterministic fake STT/TTS release lane
+- Proved the feature through a deterministic fake STT/TTS release lane
   (`mix allbert.test release.v048`) before manual validation.
 - Defer Discord voice support to a focused follow-on after Discord lands in
   v0.50.

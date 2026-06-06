@@ -240,6 +240,10 @@ v0.48 M1 and M2 added focused tests for:
 
 The release gate must include `mix allbert.test release.v048`.
 
+M8 closeout adds `release.v048` coverage for the provider capability core,
+voice STT/TTS actions, CLI voice, workspace microphone capture, Telegram
+voice-note ingestion, v0.48 eval rows, and the release-task usage surface.
+
 ## Relates To
 
 - ADR 0004 - Domain Settings Engine.

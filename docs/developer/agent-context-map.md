@@ -530,10 +530,11 @@ Implemented v0.41 gates:
   v0.38 templates, Security Central, confirmations, traces, and audits. Seven
   `:v047b` eval rows plus `release.v047b` prove the handoff boundary. No new
   trust tier.
-- v0.48 (planned): Voice Modality And Provider Capabilities. Adds capability
-  metadata, ranked operator preferences, STT/TTS media resources, CLI file
-  transcription, workspace microphone capture, TTS, and Telegram voice-note
-  ingestion; Discord voice is deferred until after Discord exists.
+- v0.48 (implemented as `0.48.0`): Voice Modality And Provider Capabilities.
+  Adds capability metadata, ranked operator preferences, STT/TTS media
+  resources, CLI file transcription, workspace microphone capture, TTS,
+  Telegram voice-note ingestion, ten `:v048` eval rows, and `release.v048`;
+  Discord voice is deferred until after Discord exists.
 - v0.49 (planned): Vision And Image Generation. Consumes the v0.48 provider
   capability substrate for image/screenshot resources and provider-backed image
   generation.

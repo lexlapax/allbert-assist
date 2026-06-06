@@ -651,12 +651,13 @@ historical aliases only and remain in old reference notes for continuity.
   sandbox/gate/templated-creation path; consumes v0.45 marketplace metadata
   and the shipped v0.46 delegate-agent extension point. Seven `:v047b` eval
   rows plus `release.v047b` prove the handoff boundary. No new trust tier.
-- v0.48: Voice Modality And Provider Capabilities. Generalizes the existing
-  provider/model framework with capability metadata and ranked operator
-  preferences, then composes voice input/output with existing channels as audio
-  resources and registered STT/TTS actions. Profile media metadata can describe
-  local, remote, bundled, and realtime shapes, but v0.48 release authority
-  remains bounded STT/TTS. Discord voice is deferred until after Discord exists.
+- v0.48 (implemented as `0.48.0`): Voice Modality And Provider Capabilities.
+  Generalizes the existing provider/model framework with capability metadata
+  and ranked operator preferences, then composes voice input/output with
+  existing channels as audio resources and registered STT/TTS actions. Profile
+  media metadata can describe local, remote, bundled, and realtime shapes, but
+  v0.48 release authority remains bounded STT/TTS proven by `release.v048`.
+  Discord voice is deferred until after Discord exists.
 - v0.49: Vision And Image Generation. Consumes the v0.48 provider capability
   substrate for image and screenshot resources plus provider-backed image
   generation. Video input remains future scope unless the v0.49 plan is

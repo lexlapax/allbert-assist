@@ -1,6 +1,6 @@
 # Provider Capabilities Developer Notes
 
-Status: M1-M7 implemented.
+Status: implemented in `0.48.0`.
 
 v0.48 generalizes the v0.39 provider/model substrate. A provider is a
 connection profile. A model profile declares what that connection can do and,
@@ -143,4 +143,5 @@ Implementation milestones should add focused tests for:
   (implemented in M6);
 - fake TTS action output and Telegram voice-note ingestion through shared STT
   (implemented in M7);
-- `release.v048` coverage for fake STT/TTS.
+- `release.v048` coverage for fake STT/TTS, workspace voice, Telegram
+  voice-note ingestion, and v0.48 eval rows (implemented in M8).

@@ -1560,8 +1560,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   defp approved_voice_capture(%{} = capture) do
-    if capture_value(capture, :status) in [:approved, "approved"] or
-         is_binary(capture_value(capture, :resource_uri)) do
+    if approved_voice_capture?(capture) do
       {:ok, approved_voice_capture(capture, %{})}
     else
       {:error, :missing_voice_capture_approval}
@@ -1572,41 +1571,74 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp approved_voice_capture(output_data, confirmation) when is_map(output_data) do
     settings = workspace_settings_snapshot()
-
-    capture_id =
-      capture_value(output_data, :id) ||
-        capture_value(output_data, :capture_id) ||
-        get_in(confirmation, ["resume_params_ref", "capture_id"])
-
-    resource_uri =
-      capture_value(output_data, :resource_uri) ||
-        if(is_binary(capture_id), do: ResourceURI.mic_capture!(capture_id), else: nil)
+    capture_id = capture_id(output_data, confirmation)
+    resource_uri = capture_resource_uri(output_data, capture_id)
 
     %{
       status: :approved,
       capture_id: capture_id,
       resource_uri: resource_uri,
-      session_id:
-        capture_value(output_data, :session_id) ||
-          get_in(confirmation, ["resume_params_ref", "session_id"]),
-      thread_id:
-        capture_value(output_data, :thread_id) ||
-          get_in(confirmation, ["resume_params_ref", "thread_id"]),
-      user_id:
-        capture_value(output_data, :user_id) ||
-          get_in(confirmation, ["resume_params_ref", "user_id"]),
-      max_bytes: capture_value(output_data, :max_bytes) || voice_capture_max_bytes(settings),
+      session_id: capture_confirmation_value(output_data, confirmation, :session_id),
+      thread_id: capture_confirmation_value(output_data, confirmation, :thread_id),
+      user_id: capture_confirmation_value(output_data, confirmation, :user_id),
+      max_bytes:
+        defaulted_capture_value(output_data, :max_bytes, voice_capture_max_bytes(settings)),
       max_duration_ms:
-        capture_value(output_data, :max_duration_ms) || voice_capture_max_duration_ms(settings),
+        defaulted_capture_value(
+          output_data,
+          :max_duration_ms,
+          voice_capture_max_duration_ms(settings)
+        ),
       retention_enabled: capture_value(output_data, :retention_enabled) == true,
       retention_root: capture_value(output_data, :retention_root),
       approved_at_ms:
-        capture_value(output_data, :approved_at_ms) || System.monotonic_time(:millisecond)
+        defaulted_capture_value(
+          output_data,
+          :approved_at_ms,
+          System.monotonic_time(:millisecond)
+        )
     }
   end
 
   defp approved_voice_capture(_output_data, _confirmation),
     do: Map.put(voice_capture_idle(workspace_settings_snapshot()), :status, :idle)
+
+  defp approved_voice_capture?(capture) do
+    capture_value(capture, :status) in [:approved, "approved"] or
+      is_binary(capture_value(capture, :resource_uri))
+  end
+
+  defp capture_id(output_data, confirmation) do
+    output_data
+    |> capture_value(:id)
+    |> default_value(capture_confirmation_value(output_data, confirmation, :capture_id))
+  end
+
+  defp capture_resource_uri(output_data, capture_id) do
+    output_data
+    |> capture_value(:resource_uri)
+    |> default_value(mic_capture_resource_uri(capture_id))
+  end
+
+  defp mic_capture_resource_uri(capture_id) when is_binary(capture_id),
+    do: ResourceURI.mic_capture!(capture_id)
+
+  defp mic_capture_resource_uri(_capture_id), do: nil
+
+  defp capture_confirmation_value(output_data, confirmation, key) do
+    output_data
+    |> capture_value(key)
+    |> default_value(get_in(confirmation, ["resume_params_ref", Atom.to_string(key)]))
+  end
+
+  defp defaulted_capture_value(output_data, key, default) do
+    output_data
+    |> capture_value(key)
+    |> default_value(default)
+  end
+
+  defp default_value(nil, default), do: default
+  defp default_value(value, _default), do: value
 
   defp capture_value(map, key) when is_map(map) do
     Map.get(map, key) || Map.get(map, Atom.to_string(key))

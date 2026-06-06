@@ -55,7 +55,7 @@ defmodule AllbertAssist.Actions.VoiceProviderDoctorTest do
     assert response.doctor.speech_to_text_supported == true
     assert response.doctor.text_to_speech_supported == false
     assert response.doctor.audio_formats_supported == ["wav", "mp3", "m4a", "ogg", "webm"]
-    assert response.doctor.audio_sample_rates_supported == [16000, 44100, 48000]
+    assert response.doctor.audio_sample_rates_supported == [16_000, 44_100, 48_000]
     assert response.doctor.provider_usage_metadata_available == false
     assert response.doctor.fixture_probe_ok == true
     assert response.diagnostics == []
