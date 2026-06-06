@@ -20,6 +20,8 @@ defmodule AllbertAssist.Tools.Discovery.Suggestion do
     trace_to_workflow
     memory_promotion
     memory_update
+    template_backed
+    marketplace_backed
     capability_gap
     objective
   )
@@ -29,6 +31,8 @@ defmodule AllbertAssist.Tools.Discovery.Suggestion do
     trace_to_workflow
     memory_promotion
     memory_update
+    template_backed
+    marketplace_backed
     capability_gap
     objective
   )

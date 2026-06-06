@@ -1,10 +1,10 @@
 # Self-Improvement Developer Guide
 
-Status: implemented in v0.47 with v0.47b M1 handoff extensions. This guide
-describes the discovery and local draft substrate plus inert capability-gap and
-objective draft kinds. Later v0.47b milestones may add more draft kinds and
-promotion targets, but must reuse this suggestion lifecycle, draft facade, and
-authority boundary.
+Status: implemented in v0.47 with v0.47b M1-M2 handoff extensions. This guide
+describes the discovery and local draft substrate plus inert capability-gap,
+objective, template-backed, and marketplace-backed draft kinds. Later v0.47b
+milestones add the remaining handoffs, but must reuse this suggestion lifecycle,
+draft facade, and authority boundary.
 
 ## Authority Boundary
 
@@ -45,7 +45,7 @@ a second queue. Self-improvement suggestions use:
 ```text
 provenance: "self_improvement"
 candidate_id: nil
-suggestion_type: trace_to_skill | trace_to_workflow | memory_promotion | memory_update | capability_gap | objective
+suggestion_type: trace_to_skill | trace_to_workflow | memory_promotion | memory_update | capability_gap | objective | template_backed | marketplace_backed
 status: pending | accepted | dismissed | expired
 ```
 
@@ -85,6 +85,14 @@ or live runtime state.
 - Objective drafts use `objective`, write artifacts under
   `<ALLBERT_HOME>/drafts/objectives/`, and store declarative objective input
   without framing an objective.
+- Template-backed drafts use `template_backed`, write artifacts under
+  `<ALLBERT_HOME>/drafts/templates/`, and store original operator params plus a
+  `Templates.preview/3` packet. `promote_template_draft` delegates to
+  `create_from_template` and produces a v0.37 dynamic draft whose gate remains
+  `not_run`.
+- Marketplace-backed drafts use `marketplace_backed`, write artifacts under
+  `<ALLBERT_HOME>/drafts/marketplace/`, and store a descriptive
+  `Marketplace.list_entries/1` entry snapshot with no install or authority.
 
 Non-code tiers are `draft`, `discarded`, and `promoted`. Promotion metadata is
 recorded only after the live write has completed through the confirmed action
@@ -102,10 +110,14 @@ The v0.47 actions are internal runtime actions:
 | `promote_skill_draft` | `:skill_write` | required | Writes an instruction-only local skill after approval. |
 | `promote_workflow_draft` | `:objective_write` | required | Writes live workflow YAML after approval. |
 | `promote_memory_draft` | `:memory_write` | required | Appends or updates markdown memory after approval. |
+| `promote_template_draft` | `:dynamic_codegen_request` | not required | Creates an inert v0.37 dynamic draft through `create_from_template`; gate/integration stay separate. |
 
-Promotion actions are resumable through `approve_confirmation`. The initial
-call returns `:needs_confirmation` and writes no live artifact; approval
-resumes the target action with confirmation context.
+Skill, workflow, and memory promotion actions are resumable through
+`approve_confirmation`. The initial call returns `:needs_confirmation` and
+writes no live artifact; approval resumes the target action with confirmation
+context. Template promotion is not resumable because it writes only a v0.37
+dynamic draft with `gate_status: "not_run"`; gate execution and integration
+remain separate actions.
 
 ## Release Gates
 
@@ -125,6 +137,14 @@ Focused v0.47b M1 coverage adds:
 - `Drafts.StoreTest` capability-gap/objective draft cases
 - `Tools.DiscoveryTest` v0.47b handoff suggestion kind validation
 - `SelfImprovementDraftActionsTest` capability-gap/objective action coverage
+
+Focused v0.47b M2 coverage adds:
+
+- `Drafts.StoreTest` template-backed and marketplace-backed draft cases
+- `Tools.DiscoveryTest` template/marketplace handoff suggestion kind validation
+- `SelfImprovementDraftActionsTest` template/marketplace action coverage
+- `SelfImprovementPromotionActionsTest` inert template dynamic-draft promotion
+- `RegistryTest` `promote_template_draft` registration coverage
 
 The deterministic release handoff is:
 

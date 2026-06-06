@@ -7,6 +7,8 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
     "trace_to_workflow" => "workflow",
     "memory_promotion" => "memory_promotion",
     "memory_update" => "memory_update",
+    "template_backed" => "template_backed",
+    "marketplace_backed" => "marketplace_backed",
     "capability_gap" => "capability_gap",
     "objective" => "objective"
   }
@@ -94,6 +96,8 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
       "skill" -> Store.create_skill_draft(attrs)
       "workflow" -> Store.create_workflow_draft(attrs)
       kind when kind in ["memory_promotion", "memory_update"] -> Store.create_memory_draft(attrs)
+      "template_backed" -> Store.create_template_backed_draft(attrs)
+      "marketplace_backed" -> Store.create_marketplace_backed_draft(attrs)
       "capability_gap" -> Store.create_capability_gap_draft(attrs)
       "objective" -> Store.create_objective_draft(attrs)
     end
@@ -129,7 +133,14 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
       "budget",
       "confidence",
       "constraints",
+      "entry_id",
+      "home",
+      "index_path",
+      "marketplace_entry",
+      "marketplace_entry_id",
       "objective",
+      "params",
+      "pattern_id",
       "requested_capability",
       "session_id",
       "source",

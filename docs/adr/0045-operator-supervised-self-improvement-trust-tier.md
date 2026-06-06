@@ -128,7 +128,8 @@ from the code-bearing gate path.
 
 ### A5. Marketplace and delegate-plugin drafts are inert (v0.47b)
 
-Status: accepted in v0.47b M1; implementation lands across M2-M3.
+Status: accepted in v0.47b M1; marketplace-backed draft storage landed in M2
+and delegate-plugin draft storage lands in M3.
 
 Marketplace-lite metadata (v0.45) informs suggestions but grants nothing; a
 delegate-plugin draft scaffolds an inert v0.46-style plugin request through
@@ -137,8 +138,9 @@ delegate-agent authoring stays parked.
 
 ### A6. Code-bearing drafts reuse the v0.36/v0.37 path unchanged (v0.47b)
 
-Status: accepted in v0.47b M1; capability-gap draft storage landed in M1 and
-the gate/loader handoff lands in M4.
+Status: accepted in v0.47b M1; capability-gap draft storage landed in M1,
+template-backed dynamic draft handoff landed in M2, and the gate/loader handoff
+lands in M4.
 
 Capability-gap and template-backed code drafts route through
 `DynamicPlugins.request_draft/2` → `Sandbox.run_gate/2` →

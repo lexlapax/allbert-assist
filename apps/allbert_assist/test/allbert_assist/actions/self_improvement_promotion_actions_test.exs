@@ -5,6 +5,7 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Drafts.Store
+  alias AllbertAssist.DynamicPlugins
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
@@ -52,6 +53,12 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
     assert memory.execution_mode == :memory_promotion
     assert memory.confirmation == :required
     assert memory.resumable?
+
+    assert {:ok, template} = Registry.capability("promote_template_draft")
+    assert template.permission == :dynamic_codegen_request
+    assert template.execution_mode == :template_dynamic_draft
+    assert template.confirmation == :not_required
+    refute template.resumable?
   end
 
   test "memory draft facade writes draft state only", %{root: root} do
@@ -143,8 +150,60 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
     assert still_draft.tier == "draft"
   end
 
+  test "template draft promotion creates an inert dynamic draft only" do
+    enable_template_create!()
+    enable_live_template_stack!()
+
+    assert {:ok, draft} =
+             Store.create_template_backed_draft(%{
+               id: "template_confirmed_release_health",
+               summary: "Repeated release health checks could use the LLM tool template.",
+               pattern_id: "llm_tool",
+               params: %{
+                 "name" => "Confirmed Release Health Tool",
+                 "description" => "Summarize release health evidence.",
+                 "instruction" => "Return a concise release health summary.",
+                 "permission" => "read_only"
+               }
+             })
+
+    assert {:ok, response} = Runner.run("promote_template_draft", %{id: draft.id}, context())
+    assert response.status == :completed
+    assert response.dynamic_draft.template_pattern_id == "llm_tool"
+    assert response.dynamic_draft.tier == "draft"
+    assert response.dynamic_draft.gate_status == "not_run"
+    assert response.result.target == "dynamic_template_draft"
+
+    assert {:ok, dynamic_draft} = DynamicPlugins.get_draft(response.dynamic_draft.slug)
+    assert dynamic_draft.producer == "template_pattern"
+    assert dynamic_draft.gate["status"] == "not_run"
+
+    assert {:ok, promoted} = Store.show_draft(draft.id, kind: "template_backed")
+    assert promoted.tier == "promoted"
+    assert promoted.live_authority == false
+    assert promoted.promotion["target"] == "dynamic_template_draft"
+    assert promoted.promotion["dynamic_draft_slug"] == response.dynamic_draft.slug
+
+    assert {:ok, unified} = Store.show_draft("code:#{response.dynamic_draft.slug}")
+    assert unified.kind == "code"
+    assert unified.live_authority == false
+  end
+
   defp context do
     %{actor: "operator", user_id: "operator", channel: :test, surface: "test"}
+  end
+
+  defp enable_template_create! do
+    assert {:ok, _setting} = Settings.put("templates.create.enabled", true, %{audit?: false})
+  end
+
+  defp enable_live_template_stack! do
+    assert {:ok, _setting} = Settings.put("dynamic_codegen.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("dynamic_codegen.live_loader_enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} = Settings.put("sandbox.elixir.enabled", true, %{audit?: false})
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
