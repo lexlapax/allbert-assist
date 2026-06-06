@@ -29,7 +29,13 @@ defmodule AllbertAssist.OnboardingTest do
     assert state.current_step.evidence =~ "Active model profile: local"
     assert state.current_step.next_command == "mix allbert.onboard complete welcome_scope"
     assert state.evidence.active_model_profile == "local"
+    assert state.evidence.model_preferences.primary == "local"
+    assert state.evidence.model_preferences.speech_to_text == ["voice_stt_fake"]
     assert Enum.map(state.steps, & &1.index) == Enum.to_list(1..9)
+
+    model_step = Enum.find(state.steps, &(&1.key == "pick_model_profile"))
+    assert model_step.evidence =~ "speech_to_text=[\"voice_stt_fake\"]"
+    assert model_step.evidence =~ "text_to_speech=[\"voice_tts_fake\"]"
 
     channel_step = Enum.find(state.steps, &(&1.key == "optional_channel_registration"))
     assert channel_step.evidence =~ "credentials="

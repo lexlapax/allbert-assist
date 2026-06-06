@@ -73,6 +73,22 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
     assert {:ok, ["qwen2.5-coder", "qwen-coder"]} =
              Settings.get("model_profiles.coding_local.aliases")
 
+    preferences_output =
+      capture_io(fn ->
+        assert :ok =
+                 SettingsTask.run([
+                   "set",
+                   "model_preferences.capabilities.speech_to_text",
+                   "voice_stt_fake"
+                 ])
+      end)
+
+    assert preferences_output =~
+             "Updated: model_preferences.capabilities.speech_to_text=[\"voice_stt_fake\"]"
+
+    assert {:ok, ["voice_stt_fake"]} =
+             Settings.get("model_preferences.capabilities.speech_to_text")
+
     json_list_output =
       capture_io(fn ->
         assert :ok =

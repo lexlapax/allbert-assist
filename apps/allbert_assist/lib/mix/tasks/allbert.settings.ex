@@ -226,7 +226,7 @@ defmodule Mix.Tasks.Allbert.Settings do
 
       _schema ->
         Regex.match?(
-          ~r/^(model_profiles\.[^.]+\.aliases|mcp\.servers\.[^.]+\.(args|tool_allowlist|tool_denylist))$/,
+          ~r/^(model_profiles\.[^.]+\.aliases|model_preferences\.(tasks|capabilities)\.[^.]+|mcp\.servers\.[^.]+\.(args|tool_allowlist|tool_denylist))$/,
           key
         )
     end

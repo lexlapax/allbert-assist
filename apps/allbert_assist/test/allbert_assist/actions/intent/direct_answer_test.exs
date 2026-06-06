@@ -89,7 +89,31 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert response.direct_answer.source == :model
     assert response.direct_answer.model_profile == "local"
     assert response.direct_answer.provider == "local_ollama"
+    assert response.direct_answer.model_resolution.capability == "text_generation"
     refute inspect(response.direct_answer) =~ "What is Allbert?"
+  end
+
+  test "enabled model path resolves direct-answer preference fallback" do
+    Application.put_env(:allbert_assist, DirectAnswer, answerer: FakeAnswerer)
+
+    assert {:ok, _setting} =
+             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.tasks.direct_answer", ["fast", "local"], %{
+               audit?: false
+             })
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "What is Allbert?"}, %{actor: "alice"})
+
+    assert response.direct_answer.source == :model
+    assert response.direct_answer.model_profile == "local"
+
+    assert Enum.any?(
+             response.direct_answer.model_resolution.diagnostics,
+             &match?(%{reason: {:provider_disabled, "fast", "openai"}}, &1)
+           )
   end
 
   test "enabled model path receives bounded active memory context" do

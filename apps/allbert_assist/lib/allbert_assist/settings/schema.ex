@@ -41,6 +41,9 @@ defmodule AllbertAssist.Settings.Schema do
     "intent.clarify_floor",
     "intent.direct_answer_model_enabled",
     "intent.direct_answer_model_profile",
+    "model_preferences.primary",
+    "model_preferences.tasks.*",
+    "model_preferences.capabilities.*",
     "active_memory.enabled",
     "active_memory.top_k",
     "active_memory.chunk_max_bytes",
@@ -493,6 +496,20 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false
     },
     "intent.direct_answer_model_profile" => %{
+      type: :profile_ref,
+      default: "local",
+      writable?: true,
+      sensitive?: false
+    },
+    "model_preferences.schema_version" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: false,
+      sensitive?: false,
+      min: 1,
+      max: 1
+    },
+    "model_preferences.primary" => %{
       type: :profile_ref,
       default: "local",
       writable?: true,
@@ -2245,6 +2262,19 @@ defmodule AllbertAssist.Settings.Schema do
       "direct_answer_model_enabled" => false,
       "direct_answer_model_profile" => "local"
     },
+    "model_preferences" => %{
+      "schema_version" => 1,
+      "primary" => "local",
+      "tasks" => %{
+        "coding" => ["coding_local", "coding", "capable", "local"],
+        "direct_answer" => ["local"]
+      },
+      "capabilities" => %{
+        "text_generation" => ["local", "fast"],
+        "speech_to_text" => ["voice_stt_fake"],
+        "text_to_speech" => ["voice_tts_fake"]
+      }
+    },
     "providers" => %{
       "local_ollama" => %{
         "type" => "openai_compatible",
@@ -2762,6 +2792,7 @@ defmodule AllbertAssist.Settings.Schema do
          :ok <- validate_static_keys(settings),
          :ok <- validate_providers(settings),
          :ok <- validate_model_profiles(settings),
+         :ok <- validate_model_preferences(settings),
          :ok <- validate_mcp(settings),
          :ok <- validate_runtime_refs(settings),
          :ok <- validate_dynamic_codegen(settings),
@@ -2819,6 +2850,9 @@ defmodule AllbertAssist.Settings.Schema do
 
       Regex.match?(~r/^model_profiles\.[^.]+\.[^.]+$/, key) ->
         key |> split_key() |> List.last() |> then(&Map.fetch!(@model_profile_schema, &1))
+
+      Regex.match?(~r/^model_preferences\.(tasks|capabilities)\.[^.]+$/, key) ->
+        %{type: :profile_ref_list}
 
       Regex.match?(~r/^mcp\.servers\.[^.]+\.[^.]+$/, key) ->
         key |> split_key() |> List.last() |> then(&Map.fetch!(@mcp_server_schema, &1))
@@ -2886,6 +2920,80 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp validate_model_profile_provider_constraint(_name, _attrs, _settings), do: :ok
+
+  defp validate_model_preferences(settings) do
+    case get_in(settings, ["model_preferences"]) do
+      preferences when is_map(preferences) ->
+        with :ok <- validate_model_preference_keys(preferences),
+             :ok <-
+               validate_model_preference_map(
+                 get_in(preferences, ["tasks"]),
+                 "model_preferences.tasks",
+                 :task,
+                 settings
+               ) do
+          validate_model_preference_map(
+            get_in(preferences, ["capabilities"]),
+            "model_preferences.capabilities",
+            :capability,
+            settings
+          )
+        end
+
+      other ->
+        {:error, {:invalid_setting, "model_preferences", {:expected_map, other}}}
+    end
+  end
+
+  defp validate_model_preference_keys(preferences) do
+    allowed = MapSet.new(~w[schema_version primary tasks capabilities])
+
+    preferences
+    |> Map.keys()
+    |> Enum.reject(&MapSet.member?(allowed, &1))
+    |> case do
+      [] -> :ok
+      [key | _rest] -> {:error, {:unknown_setting, "model_preferences.#{key}"}}
+    end
+  end
+
+  defp validate_model_preference_map(preferences, prefix, kind, settings)
+       when is_map(preferences) do
+    Enum.reduce_while(preferences, :ok, fn {name, profiles}, :ok ->
+      key = "#{prefix}.#{name}"
+
+      with :ok <- validate_model_preference_name(name, key, kind),
+           :ok <- validate_value(%{type: :profile_ref_list}, profiles, key, settings) do
+        {:cont, :ok}
+      else
+        {:error, {:invalid_setting, _key, _reason} = reason} ->
+          {:halt, {:error, reason}}
+
+        {:error, reason} ->
+          {:halt, {:error, {:invalid_setting, key, reason}}}
+      end
+    end)
+  end
+
+  defp validate_model_preference_map(other, prefix, _kind, _settings),
+    do: {:error, {:invalid_setting, prefix, {:expected_map, other}}}
+
+  defp validate_model_preference_name(name, key, :task) do
+    if valid_name?(name), do: :ok, else: {:error, {:invalid_setting, key, :invalid_name}}
+  end
+
+  defp validate_model_preference_name(name, key, :capability) do
+    cond do
+      not valid_name?(name) ->
+        {:error, {:invalid_setting, key, :invalid_name}}
+
+      name not in ProviderCatalog.known_capabilities() ->
+        {:error, {:invalid_setting, key, {:unknown_capability, name}}}
+
+      true ->
+        :ok
+    end
+  end
 
   defp validate_mcp(settings) do
     with :ok <- validate_mcp_launchers(settings),
@@ -3365,6 +3473,19 @@ defmodule AllbertAssist.Settings.Schema do
     end
   end
 
+  defp validate_value(%{type: :profile_ref_list}, value, _key, settings) when is_list(value) do
+    profiles = settings["model_profiles"]
+
+    if is_map(profiles) and Enum.all?(value, &(is_binary(&1) and Map.has_key?(profiles, &1))) do
+      :ok
+    else
+      {:error, {:unknown_model_profile_in_list, value}}
+    end
+  end
+
+  defp validate_value(%{type: :profile_ref_list}, value, _key, _settings),
+    do: {:error, {:expected_profile_ref_list, value}}
+
   defp validate_value(%{type: :temperature}, value, _key, _settings) when is_number(value) do
     if value >= 0.0 and value <= 2.0, do: :ok, else: {:error, :out_of_range}
   end
@@ -3741,6 +3862,7 @@ defmodule AllbertAssist.Settings.Schema do
         ~r/^model_profiles\.[^.]+\.(provider|model|aliases|capabilities|media|temperature|max_tokens|timeout_ms)$/,
         key
       ) ||
+      Regex.match?(~r/^model_preferences\.(tasks|capabilities)\.[^.]+$/, key) ||
       Regex.match?(
         ~r/^mcp\.servers\.[^.]+\.(enabled|transport|command|args|env|base_url|headers|auth_ref|tool_allowlist|tool_denylist|confirmation)$/,
         key

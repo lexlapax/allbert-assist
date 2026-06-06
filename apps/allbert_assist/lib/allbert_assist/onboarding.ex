@@ -411,6 +411,7 @@ defmodule AllbertAssist.Onboarding do
     %{
       active_model_profile: active_model_profile,
       direct_answer_model_profile: direct_answer_profile,
+      model_preferences: model_preferences_snapshot(),
       model_assist_enabled?: setting_value("intent.model_assist_enabled", false),
       direct_answer_model_enabled?: setting_value("intent.direct_answer_model_enabled", false),
       active_memory_enabled?: setting_value("active_memory.enabled", true),
@@ -449,8 +450,9 @@ defmodule AllbertAssist.Onboarding do
 
   defp evidence_for_step("pick_model_profile", evidence) do
     model = evidence.active_model || %{}
+    preferences = evidence.model_preferences
 
-    "Active model profile: #{evidence.active_model_profile} provider=#{Map.get(model, :provider, "unknown")} model=#{Map.get(model, :model, "unknown")}."
+    "Primary model preference: #{preferences.primary}; active model profile: #{evidence.active_model_profile} provider=#{Map.get(model, :provider, "unknown")} model=#{Map.get(model, :model, "unknown")}; direct_answer=#{inspect(preferences.direct_answer)}; speech_to_text=#{inspect(preferences.speech_to_text)}; text_to_speech=#{inspect(preferences.text_to_speech)}."
   end
 
   defp evidence_for_step("toggle_model_assisted_intent", evidence) do
@@ -530,6 +532,17 @@ defmodule AllbertAssist.Onboarding do
       {:ok, value} -> value
       _other -> fallback
     end
+  end
+
+  defp model_preferences_snapshot do
+    %{
+      primary: setting_value("model_preferences.primary", "local"),
+      coding: setting_value("model_preferences.tasks.coding", []),
+      direct_answer: setting_value("model_preferences.tasks.direct_answer", []),
+      text_generation: setting_value("model_preferences.capabilities.text_generation", []),
+      speech_to_text: setting_value("model_preferences.capabilities.speech_to_text", []),
+      text_to_speech: setting_value("model_preferences.capabilities.text_to_speech", [])
+    }
   end
 
   defp identity_entries do

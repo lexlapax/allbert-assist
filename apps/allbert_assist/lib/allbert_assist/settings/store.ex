@@ -116,6 +116,35 @@ defmodule AllbertAssist.Settings.Store do
     settings
     |> normalize_legacy_workspace_theme()
     |> normalize_dynamic_codegen_scope()
+    |> normalize_model_preferences_aliases()
+  end
+
+  defp normalize_model_preferences_aliases(settings) do
+    settings
+    |> normalize_primary_model_preference()
+    |> normalize_direct_answer_model_preference()
+  end
+
+  defp normalize_primary_model_preference(settings) do
+    legacy = get_in(settings, ["intent", "model_profile"])
+    primary = get_in(settings, ["model_preferences", "primary"])
+
+    if is_binary(legacy) and legacy != "" and is_nil(primary) do
+      Schema.put_dotted(settings, "model_preferences.primary", legacy)
+    else
+      settings
+    end
+  end
+
+  defp normalize_direct_answer_model_preference(settings) do
+    legacy = get_in(settings, ["intent", "direct_answer_model_profile"])
+    direct_answer = get_in(settings, ["model_preferences", "tasks", "direct_answer"])
+
+    if is_binary(legacy) and legacy != "" and is_nil(direct_answer) do
+      Schema.put_dotted(settings, "model_preferences.tasks.direct_answer", [legacy])
+    else
+      settings
+    end
   end
 
   defp normalize_legacy_workspace_theme(settings) do
