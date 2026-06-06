@@ -1,8 +1,9 @@
 # Operator-Supervised Self-Improvement
 
-Status: implemented in v0.47. This guide covers the discovery and local-draft
-surface. v0.47b adds template, marketplace, delegate-plugin, capability-gap,
-and objective handoff drafts on the same trust tier.
+Status: implemented in v0.47 with v0.47b M1 handoff extensions. This guide
+covers the discovery and local-draft surface plus inert capability-gap and
+objective handoff drafts; template, marketplace, and delegate-plugin handoffs
+land in later v0.47b milestones.
 
 ## Safety Model
 
@@ -66,7 +67,8 @@ mix allbert.self_improvement inspect <suggestion_id>
 ```
 
 Expected v0.47 suggestion kinds are `trace_to_skill`, `trace_to_workflow`,
-`memory_promotion`, and `memory_update`. All self-improvement suggestions have
+`memory_promotion`, and `memory_update`. v0.47b M1 adds `capability_gap` and
+`objective`. All self-improvement suggestions have
 `provenance: "self_improvement"` and no MCP candidate id.
 
 ## Review Drafts
@@ -81,6 +83,11 @@ unified reviewed-draft store:
 - Memory promotion and update drafts stay under
   `<ALLBERT_HOME>/drafts/memory/` and do not call the memory facade until
   confirmation resumes the promotion action.
+- Capability-gap drafts stay under `<ALLBERT_HOME>/drafts/capability_gaps/`
+  and record a redacted `Codegen.CapabilityGap` summary with
+  `dynamic_draft_requested: false`.
+- Objective drafts stay under `<ALLBERT_HOME>/drafts/objectives/` and record
+  declarative objective input with `objective_framed: false`.
 
 CLI inspection and discard:
 
@@ -119,4 +126,3 @@ Expected evidence is written to:
 ```text
 <ALLBERT_HOME>/release_evidence/v047/release-v047-<timestamp>.json
 ```
-

@@ -1,8 +1,8 @@
 # ADR 0045: Operator-Supervised Self-Improvement Trust Tier
 
 Status: Accepted as the v0.47/v0.47b implementation contract. The v0.47
-discovery and local-draft half is implemented; v0.47b handoff drafts remain
-planned.
+discovery and local-draft half is implemented; v0.47b handoff amendments were
+accepted in M1 and implementation remains in progress.
 
 ## Context
 
@@ -128,7 +128,7 @@ from the code-bearing gate path.
 
 ### A5. Marketplace and delegate-plugin drafts are inert (v0.47b)
 
-Status: planned amendment for v0.47b.
+Status: accepted in v0.47b M1; implementation lands across M2-M3.
 
 Marketplace-lite metadata (v0.45) informs suggestions but grants nothing; a
 delegate-plugin draft scaffolds an inert v0.46-style plugin request through
@@ -137,7 +137,8 @@ delegate-agent authoring stays parked.
 
 ### A6. Code-bearing drafts reuse the v0.36/v0.37 path unchanged (v0.47b)
 
-Status: planned amendment for v0.47b.
+Status: accepted in v0.47b M1; capability-gap draft storage landed in M1 and
+the gate/loader handoff lands in M4.
 
 Capability-gap and template-backed code drafts route through
 `DynamicPlugins.request_draft/2` → `Sandbox.run_gate/2` →
@@ -147,7 +148,8 @@ evidence plus operator confirmation.
 
 ### A7. Objective drafts are declarative (v0.47b)
 
-Status: planned amendment for v0.47b.
+Status: accepted in v0.47b M1; objective draft storage landed in M1 and
+confirmation-gated objective framing lands in M3.
 
 An objective draft is an inert objective definition in the unified store.
 Framing and running it remains a confirmed v0.24 Objective Runtime action;

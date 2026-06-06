@@ -29,7 +29,14 @@ defmodule AllbertAssist.Tools.Discovery do
   ]
 
   @command_path_tokens ~w(command commands args script scripts install postinstall run)
-  @self_improvement_suggestion_types ~w(trace_to_skill trace_to_workflow memory_promotion memory_update)
+  @self_improvement_suggestion_types ~w(
+    trace_to_skill
+    trace_to_workflow
+    memory_promotion
+    memory_update
+    capability_gap
+    objective
+  )
 
   @doc "Insert or refresh a discovered candidate record."
   @spec upsert_candidate(ToolCandidate.t(), map()) ::

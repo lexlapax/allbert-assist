@@ -96,6 +96,69 @@ defmodule AllbertAssist.Drafts.StoreTest do
     assert File.regular?(draft.artifact_path)
   end
 
+  test "creates capability-gap drafts as inert advisory handoff data", %{home: home} do
+    assert {:ok, draft} =
+             Store.create_capability_gap_draft(%{
+               id: "capability_release_health",
+               summary: "Repeated release health checks could become a dynamic action.",
+               requested_capability: "Generate a read-only release health action.",
+               target_shapes: ["action"],
+               source: "self_improvement",
+               confidence: 0.82,
+               source_suggestion_id: "suggestion:self_improvement:capability"
+             })
+
+    assert draft.kind == "capability_gap"
+    assert draft.tier == "draft"
+    assert draft.live_authority == false
+    assert draft.payload["enabled"] == false
+    assert draft.payload["capability_gap"]["source"] == "self_improvement"
+    assert draft.payload["capability_gap"]["explicit"] == false
+    assert draft.payload["handoff"]["dynamic_draft_requested"] == false
+    assert draft.payload["handoff"]["gate_required_before_integration"] == true
+    assert File.regular?(draft.artifact_path)
+
+    refute File.dir?(
+             Path.join([
+               home,
+               "dynamic_plugins",
+               "drafts",
+               draft.payload["capability_gap"]["slug"]
+             ])
+           )
+  end
+
+  test "creates objective drafts as declarative data only", %{home: home} do
+    assert {:ok, draft} =
+             Store.create_objective_draft(%{
+               id: "objective_release_review",
+               summary: "Repeated release review steps could become an objective.",
+               title: "Review the release checklist",
+               objective: "Review the v0.47b release checklist before tagging.",
+               acceptance_criteria: %{"docs_checked" => true},
+               user_id: "alice",
+               active_app: "workspace",
+               source_suggestion_id: "suggestion:self_improvement:objective"
+             })
+
+    assert draft.kind == "objective"
+    assert draft.tier == "draft"
+    assert draft.live_authority == false
+    assert draft.payload["enabled"] == false
+    assert draft.payload["objective"]["title"] == "Review the release checklist"
+
+    assert draft.payload["objective"]["objective"] ==
+             "Review the v0.47b release checklist before tagging."
+
+    assert draft.payload["handoff"]["objective_framed"] == false
+    assert draft.payload["handoff"]["confirmation_required"] == true
+
+    assert draft.artifact_path ==
+             Path.join([home, "drafts", "objectives", "objective_release_review.objective.yaml"])
+
+    assert File.regular?(draft.artifact_path)
+  end
+
   test "discard leaves non-code drafts inert and terminal" do
     assert {:ok, draft} =
              Store.create_skill_draft(%{
