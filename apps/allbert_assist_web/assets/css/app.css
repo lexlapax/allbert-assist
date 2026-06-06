@@ -1101,6 +1101,90 @@ a.allbert-chip-link:focus-visible,
   gap: 0.75rem;
 }
 
+.workspace-composer-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.workspace-voice-button {
+  min-width: 5.5rem;
+}
+
+.workspace-voice-capture {
+  display: grid;
+  gap: 0.625rem;
+  border: 1px solid var(--workspace-border);
+  border-radius: var(--allbert-radius);
+  background: var(--workspace-panel-muted);
+  padding: 0.75rem;
+}
+
+.workspace-voice-capture-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(8rem, auto);
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.workspace-voice-capture-title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  line-height: 1rem;
+}
+
+.workspace-voice-capture-status {
+  margin: 0.125rem 0 0;
+  color: var(--workspace-muted);
+  font-size: 0.8125rem;
+  line-height: 1rem;
+}
+
+.workspace-voice-capture-header code {
+  max-width: 18rem;
+  overflow: hidden;
+  color: var(--workspace-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-voice-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+  padding: 0;
+}
+
+.workspace-voice-capture-actions,
+.workspace-voice-upload-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.workspace-voice-upload-entry {
+  color: var(--workspace-muted);
+  font-size: 0.8125rem;
+}
+
+.workspace-voice-upload-entry progress {
+  width: min(10rem, 100%);
+  height: 0.5rem;
+}
+
+.workspace-voice-upload-error {
+  margin: 0;
+  color: var(--allbert-danger);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
 .workspace-button {
   display: inline-flex;
   align-items: center;

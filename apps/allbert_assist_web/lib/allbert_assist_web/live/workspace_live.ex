@@ -22,7 +22,10 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   alias AllbertAssist.Conversations
   alias AllbertAssist.Intent.ApprovalHandoff
+  alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Runtime.Paths, as: RuntimePaths
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Session
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.{Schema, Store}
@@ -39,6 +42,9 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   @default_session_id "web-local"
   @default_prompt_placeholder "Ask Allbert anything…"
   @workspace_tools ~w(onboard create plan_build plan_runs discover marketplace calendar mail github jobs objectives confirmations security settings)
+  @voice_capture_accept ~w(.wav .mp3 .m4a .ogg .webm .flac)
+  @voice_capture_upload_accept ~w(audio/*)
+  @voice_capture_duration_skew_ms 5_000
 
   @impl true
   def mount(params, _session, socket) do
@@ -75,6 +81,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         workspace_offline_enabled?: workspace_offline_enabled?(settings),
         workspace_indexeddb_quota_bytes: workspace_indexeddb_quota_bytes(settings),
         workspace_canvas_max_tiles_per_thread: workspace_canvas_max_tiles_per_thread(settings),
+        voice_capture: voice_capture_idle(settings),
         active_objectives: active_objectives(user_id),
         prompt: "",
         prompt_placeholder: @default_prompt_placeholder,
@@ -98,6 +105,11 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         workspace_overflow_open?: false,
         workspace_maximized_pane: nil,
         canvas_focus?: false
+      )
+      |> allow_upload(:voice_capture,
+        accept: @voice_capture_upload_accept,
+        max_entries: 1,
+        max_file_size: voice_capture_max_bytes(settings)
       )
       |> assign(workspace_assigns(user_id, thread_id, [], active_app, canvas_destination))
       |> maybe_sync_thread_url(sync_thread_url?, thread_id, canvas_destination)
@@ -190,6 +202,47 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   def handle_event("composer_change", _params, socket), do: {:noreply, socket}
+
+  def handle_event("request_voice_capture", _params, socket) do
+    params = %{
+      session_id: socket.assigns.session_id,
+      thread_id: socket.assigns.thread_id,
+      user_id: socket.assigns.user_id
+    }
+
+    case run_workspace_action(socket, "capture_workspace_voice", params) do
+      {:ok, %{status: :needs_confirmation} = response} ->
+        {:noreply,
+         socket
+         |> assign(:voice_capture, Map.put(socket.assigns.voice_capture, :status, :pending))
+         |> assign_confirmation_handoff(response)}
+
+      {:ok, %{status: :completed, output_data: output_data} = response} ->
+        {:noreply,
+         socket
+         |> assign(:voice_capture, approved_voice_capture(output_data, %{}))
+         |> assign(response: response.message, status: response.status, error: nil)}
+
+      {:ok, response} ->
+        {:noreply,
+         assign(socket,
+           voice_capture: voice_capture_idle(workspace_settings_snapshot()),
+           error: Map.get(response, :message, inspect(response))
+         )}
+    end
+  end
+
+  def handle_event("validate_voice_capture", _params, socket), do: {:noreply, socket}
+
+  def handle_event("cancel_voice_capture_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :voice_capture, ref)}
+  end
+
+  def handle_event("cancel_voice_capture_upload", _params, socket), do: {:noreply, socket}
+
+  def handle_event("submit_voice_capture", _params, socket) do
+    {:noreply, submit_voice_capture(socket)}
+  end
 
   # v0.26a M34: AppBar overflow menu open/close. Same shape as the tile
   # kebab — purely UI state, no authority change.
@@ -727,6 +780,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
           end
 
         socket
+        |> maybe_update_voice_capture_from_confirmation(response, confirmation)
         |> refresh_objectives()
         |> refresh_workspace_runtime()
 
@@ -751,6 +805,34 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       error: nil
     )
   end
+
+  defp maybe_update_voice_capture_from_confirmation(socket, response, confirmation) do
+    if confirmation_target_action(confirmation) == "capture_workspace_voice" do
+      case confirmation_status(confirmation) do
+        "approved" ->
+          assign(
+            socket,
+            :voice_capture,
+            approved_voice_capture(Map.get(response, :output_data), confirmation)
+          )
+
+        "denied" ->
+          assign(socket, :voice_capture, voice_capture_idle(workspace_settings_snapshot()))
+
+        _status ->
+          socket
+      end
+    else
+      socket
+    end
+  end
+
+  defp confirmation_target_action(confirmation) when is_map(confirmation) do
+    get_in(confirmation, ["target_action", "name"]) ||
+      get_in(confirmation, [:target_action, :name])
+  end
+
+  defp confirmation_target_action(_confirmation), do: nil
 
   defp mcp_integration_action_params(%{
          "action-name" => "mcp_read_resource",
@@ -1455,6 +1537,96 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     end
   end
 
+  defp voice_capture_idle(settings) do
+    %{
+      status: :idle,
+      max_bytes: voice_capture_max_bytes(settings),
+      max_duration_ms: voice_capture_max_duration_ms(settings)
+    }
+  end
+
+  defp voice_capture_max_bytes(settings) do
+    case setting(settings, "voice.audio.max_bytes", 10_485_760) do
+      value when is_integer(value) and value > 0 -> value
+      _other -> 10_485_760
+    end
+  end
+
+  defp voice_capture_max_duration_ms(settings) do
+    case setting(settings, "voice.audio.max_duration_ms", 300_000) do
+      value when is_integer(value) and value > 0 -> value
+      _other -> 300_000
+    end
+  end
+
+  defp approved_voice_capture(%{} = capture) do
+    if capture_value(capture, :status) in [:approved, "approved"] or
+         is_binary(capture_value(capture, :resource_uri)) do
+      {:ok, approved_voice_capture(capture, %{})}
+    else
+      {:error, :missing_voice_capture_approval}
+    end
+  end
+
+  defp approved_voice_capture(_capture), do: {:error, :missing_voice_capture_approval}
+
+  defp approved_voice_capture(output_data, confirmation) when is_map(output_data) do
+    settings = workspace_settings_snapshot()
+
+    capture_id =
+      capture_value(output_data, :id) ||
+        capture_value(output_data, :capture_id) ||
+        get_in(confirmation, ["resume_params_ref", "capture_id"])
+
+    resource_uri =
+      capture_value(output_data, :resource_uri) ||
+        if(is_binary(capture_id), do: ResourceURI.mic_capture!(capture_id), else: nil)
+
+    %{
+      status: :approved,
+      capture_id: capture_id,
+      resource_uri: resource_uri,
+      session_id:
+        capture_value(output_data, :session_id) ||
+          get_in(confirmation, ["resume_params_ref", "session_id"]),
+      thread_id:
+        capture_value(output_data, :thread_id) ||
+          get_in(confirmation, ["resume_params_ref", "thread_id"]),
+      user_id:
+        capture_value(output_data, :user_id) ||
+          get_in(confirmation, ["resume_params_ref", "user_id"]),
+      max_bytes: capture_value(output_data, :max_bytes) || voice_capture_max_bytes(settings),
+      max_duration_ms:
+        capture_value(output_data, :max_duration_ms) || voice_capture_max_duration_ms(settings),
+      retention_enabled: capture_value(output_data, :retention_enabled) == true,
+      retention_root: capture_value(output_data, :retention_root),
+      approved_at_ms:
+        capture_value(output_data, :approved_at_ms) || System.monotonic_time(:millisecond)
+    }
+  end
+
+  defp approved_voice_capture(_output_data, _confirmation),
+    do: Map.put(voice_capture_idle(workspace_settings_snapshot()), :status, :idle)
+
+  defp capture_value(map, key) when is_map(map) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  end
+
+  defp capture_value(_map, _key), do: nil
+
+  defp expand_allbert_home_path(path) when is_binary(path) do
+    path
+    |> String.replace("<ALLBERT_HOME>", RuntimePaths.home())
+    |> expand_home_path()
+    |> Path.expand()
+  end
+
+  defp expand_allbert_home_path(_path), do: Path.join(RuntimePaths.home(), "audio")
+
+  defp expand_home_path("~"), do: System.user_home!()
+  defp expand_home_path("~/" <> rest), do: Path.join(System.user_home!(), rest)
+  defp expand_home_path(path), do: path
+
   defp setting(settings, key, default) do
     case Schema.get_dotted(settings, key) do
       nil -> default
@@ -1491,6 +1663,148 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     end
   end
 
+  defp submit_voice_capture(socket) do
+    with {:ok, capture} <- approved_voice_capture(socket.assigns.voice_capture),
+         :ok <- validate_voice_capture_window(capture) do
+      results =
+        consume_uploaded_entries(socket, :voice_capture, fn %{path: path}, entry ->
+          {:ok, process_voice_capture_upload(socket, path, entry, capture)}
+        end)
+
+      case results do
+        [{:ok, %{transcript: transcript, voice_metadata: voice_metadata}}] ->
+          socket
+          |> assign(:voice_capture, voice_capture_idle(workspace_settings_snapshot()))
+          |> submit_workspace_prompt(transcript, %{voice: voice_metadata})
+
+        [{:error, reason}] ->
+          assign(socket,
+            error: "Voice capture failed: #{inspect(Redactor.redact(reason))}",
+            voice_capture: voice_capture_idle(workspace_settings_snapshot())
+          )
+
+        [] ->
+          assign(socket, :error, "Voice capture failed: no completed audio upload.")
+      end
+    else
+      {:error, reason} ->
+        assign(socket, :error, "Voice capture failed: #{inspect(Redactor.redact(reason))}")
+    end
+  end
+
+  defp process_voice_capture_upload(socket, path, entry, capture) do
+    with {:ok, stored} <- store_voice_capture_upload(path, entry, capture) do
+      result =
+        case run_workspace_action(socket, "transcribe_voice", %{
+               audio_file: stored.path,
+               resource_uri: capture.resource_uri
+             }) do
+          {:ok, %{status: :completed, transcript: transcript, voice_metadata: voice_metadata}}
+          when is_binary(transcript) ->
+            {:ok,
+             %{
+               transcript: transcript,
+               voice_metadata: Redactor.redact_audio_metadata(voice_metadata)
+             }}
+
+          {:ok, %{status: status} = response} ->
+            {:error, {:transcribe_voice_failed, status, Map.get(response, :error)}}
+        end
+
+      cleanup_transient_capture(stored)
+      result
+    else
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp store_voice_capture_upload(path, entry, capture) do
+    with {:ok, size} <- file_size(path),
+         :ok <- validate_voice_capture_size(size, capture.max_bytes),
+         {:ok, name} <- voice_capture_upload_name(entry),
+         {:ok, destination} <- voice_capture_destination(capture, name),
+         :ok <- File.mkdir_p(Path.dirname(destination)),
+         {:ok, _bytes} <- File.copy(path, destination) do
+      {:ok,
+       %{
+         path: destination,
+         transient?: capture.retention_enabled != true,
+         byte_size: size
+       }}
+    else
+      {:error, reason} -> {:error, reason}
+      {:error, reason, _path} -> {:error, reason}
+    end
+  end
+
+  defp voice_capture_upload_name(entry) do
+    name =
+      entry
+      |> Map.get(:client_name, "capture.webm")
+      |> to_string()
+      |> Path.basename()
+
+    extension = name |> Path.extname() |> String.downcase()
+
+    cond do
+      extension not in @voice_capture_accept ->
+        {:error, {:unsupported_audio_file_type, extension}}
+
+      name == "" ->
+        {:ok, "capture#{extension}"}
+
+      true ->
+        {:ok, String.replace(name, ~r/[^A-Za-z0-9._-]/, "_")}
+    end
+  end
+
+  defp voice_capture_destination(capture, name) do
+    root =
+      if capture.retention_enabled == true do
+        expand_allbert_home_path(capture.retention_root || "<ALLBERT_HOME>/audio")
+      else
+        Path.join(RuntimePaths.tmp_root(), "voice-captures")
+      end
+
+    {:ok, Path.join([root, capture.capture_id, name])}
+  end
+
+  defp cleanup_transient_capture(%{transient?: true, path: path}) do
+    _ = File.rm(path)
+    _ = File.rmdir(Path.dirname(path))
+    :ok
+  end
+
+  defp cleanup_transient_capture(_stored), do: :ok
+
+  defp file_size(path) do
+    case File.stat(path) do
+      {:ok, stat} -> {:ok, stat.size}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_voice_capture_size(size, max_bytes)
+       when is_integer(size) and is_integer(max_bytes) and size <= max_bytes,
+       do: :ok
+
+  defp validate_voice_capture_size(size, max_bytes),
+    do: {:error, {:audio_input_too_large, size, max_bytes}}
+
+  defp validate_voice_capture_window(%{approved_at_ms: approved_at_ms, max_duration_ms: max})
+       when is_integer(approved_at_ms) and is_integer(max) do
+    elapsed_ms = System.monotonic_time(:millisecond) - approved_at_ms
+
+    if elapsed_ms <= max + @voice_capture_duration_skew_ms do
+      :ok
+    else
+      {:error, {:audio_input_too_long, elapsed_ms, max}}
+    end
+  end
+
+  defp validate_voice_capture_window(_capture), do: {:error, :missing_voice_capture_approval}
+
   defp submit_workspace_prompt(socket, prompt) when is_binary(prompt) do
     prompt = String.trim(prompt)
 
@@ -1503,17 +1817,34 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp submit_workspace_prompt(socket, _prompt), do: socket
 
-  defp do_submit_workspace_prompt(socket, prompt) do
-    runtime_request = %{
-      text: prompt,
-      channel: :live_view,
-      user_id: socket.assigns.user_id,
-      operator_id: socket.assigns.user_id,
-      thread_id: socket.assigns.thread_id,
-      session_id: socket.assigns.session_id,
-      active_app: socket.assigns.active_app,
-      canvas_destination: socket.assigns.canvas_destination
-    }
+  defp submit_workspace_prompt(socket, prompt, metadata) when is_binary(prompt) do
+    prompt = String.trim(prompt)
+
+    if prompt == "" do
+      socket
+    else
+      do_submit_workspace_prompt(socket, prompt, metadata)
+    end
+  end
+
+  defp submit_workspace_prompt(socket, _prompt, _metadata), do: socket
+
+  defp do_submit_workspace_prompt(socket, prompt),
+    do: do_submit_workspace_prompt(socket, prompt, nil)
+
+  defp do_submit_workspace_prompt(socket, prompt, metadata) do
+    runtime_request =
+      %{
+        text: prompt,
+        channel: :live_view,
+        user_id: socket.assigns.user_id,
+        operator_id: socket.assigns.user_id,
+        thread_id: socket.assigns.thread_id,
+        session_id: socket.assigns.session_id,
+        active_app: socket.assigns.active_app,
+        canvas_destination: socket.assigns.canvas_destination
+      }
+      |> maybe_put_runtime_metadata(metadata)
 
     socket
     |> assign(
@@ -1533,6 +1864,9 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       Runtime.submit_user_input(runtime_request)
     end)
   end
+
+  defp maybe_put_runtime_metadata(request, nil), do: request
+  defp maybe_put_runtime_metadata(request, metadata), do: Map.put(request, :metadata, metadata)
 
   defp dismiss_intent_surface(socket, params, _dismissed_by) do
     case optional_param(params, "surface-id") do
@@ -1671,6 +2005,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       workspace_offline_enabled?: assigns.workspace_offline_enabled?,
       workspace_indexeddb_quota_bytes: assigns.workspace_indexeddb_quota_bytes,
       workspace_canvas_max_tiles_per_thread: assigns.workspace_canvas_max_tiles_per_thread,
+      voice_capture_upload: assigns.uploads.voice_capture,
       open_tile_menu_id: assigns.open_tile_menu_id,
       active_app: assigns.active_app,
       composer_max_bytes: assigns.composer_max_bytes,
@@ -1696,6 +2031,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       approval_lines: assigns.approval_lines,
       approval_result: assigns.approval_result,
       show_approval_details?: assigns.show_approval_details?,
+      voice_capture: assigns.voice_capture,
       thread_switcher_open?: assigns.thread_switcher_open?,
       workspace_overflow_open?: assigns.workspace_overflow_open?
     }

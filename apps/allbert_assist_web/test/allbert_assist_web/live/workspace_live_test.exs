@@ -65,6 +65,8 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
       restore_env(Settings, original_settings_config)
       remove_test_root!(root)
     end)
+
+    {:ok, root: root}
   end
 
   test "old operator home routes are absent", %{conn: conn} do
@@ -1722,6 +1724,88 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#agent-signal")
   end
 
+  test "workspace microphone capture denial writes no audio resource", %{conn: conn, root: root} do
+    enable_workspace_voice!()
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+
+    view
+    |> element("#voice-capture-request")
+    |> render_click()
+
+    assert has_element?(view, "#approval-handoff")
+    [pending] = Confirmations.list(status: :pending)
+    assert pending["target_action"]["name"] == "capture_workspace_voice"
+    assert pending["target_permission"] == "microphone_capture"
+    assert pending["params_summary"]["resource_uri"] =~ "mic://capture/"
+
+    view
+    |> element("#approval-deny")
+    |> render_click()
+
+    assert {:ok, denied} = Confirmations.read(pending["id"])
+    assert denied["status"] == "denied"
+    refute has_element?(view, "#voice-capture-form")
+    refute File.exists?(Path.join(root, "audio"))
+    refute File.exists?(Path.join([root, "tmp", "voice-captures"]))
+  end
+
+  test "approved workspace microphone upload transcribes into runtime text", %{
+    conn: conn,
+    root: root
+  } do
+    enable_workspace_voice!()
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    thread_id = workspace_thread_id(view)
+
+    view
+    |> element("#voice-capture-request")
+    |> render_click()
+
+    [pending] = Confirmations.list(status: :pending)
+    capture_id = pending["resume_params_ref"]["capture_id"]
+    resource_uri = pending["params_summary"]["resource_uri"]
+
+    view
+    |> element("#approval-approve")
+    |> render_click()
+
+    assert {:ok, approved} = Confirmations.read(pending["id"])
+    assert approved["status"] == "approved"
+    assert has_element?(view, "#voice-capture-form[data-capture-resource='#{resource_uri}']")
+
+    upload =
+      file_input(view, "#voice-capture-form", :voice_capture, [
+        %{
+          name: "hello.wav",
+          content: File.read!(fixture_path("hello.wav")),
+          type: "audio/wav"
+        }
+      ])
+
+    render_upload(upload, "hello.wav")
+
+    view
+    |> form("#voice-capture-form", %{})
+    |> render_submit()
+
+    _html = render_async(view, @runtime_async_timeout)
+
+    assert_receive {:runtime_request,
+                    %{
+                      text: "hello from fixture audio",
+                      thread_id: ^thread_id,
+                      metadata: %{voice: voice_metadata}
+                    }}
+
+    assert voice_metadata.resource_uri == resource_uri
+    assert voice_metadata.provider_profile == "voice_stt_fake"
+    assert voice_metadata.audio_format == "wav"
+    refute inspect(voice_metadata) =~ fixture_path("hello.wav")
+    refute File.exists?(Path.join([root, "tmp", "voice-captures", capture_id]))
+  end
+
   test "stale app query params do not set runtime active app context", %{conn: conn} do
     fixture = EvalInventory.row!("stale-url-handoff-bypass-001")
     ensure_stocksage_app_registered()
@@ -2000,6 +2084,14 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#approval-result")
     assert {:ok, denied} = Confirmations.read(pending["id"])
     assert denied["status"] == "denied"
+  end
+
+  defp enable_workspace_voice! do
+    assert {:ok, _resolved} = Settings.put("voice.enabled", true, %{audit?: false})
+  end
+
+  defp fixture_path(name) do
+    Path.expand("../../../../allbert_assist/test/fixtures/v0.48/audio/#{name}", __DIR__)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

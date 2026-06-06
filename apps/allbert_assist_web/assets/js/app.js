@@ -172,6 +172,156 @@ const ChatAutoScroll = {
   },
 }
 
+const preferredVoiceMimeType = () => {
+  const types = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/ogg",
+    "audio/mp4",
+  ]
+
+  if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") {
+    return ""
+  }
+
+  return types.find(type => MediaRecorder.isTypeSupported(type)) || ""
+}
+
+const voiceExtensionForMimeType = mimeType => {
+  if (mimeType.includes("ogg")) return "ogg"
+  if (mimeType.includes("mp4")) return "m4a"
+  if (mimeType.includes("mpeg")) return "mp3"
+  return "webm"
+}
+
+const WorkspaceVoiceCapture = {
+  mounted() {
+    this.input = this.el.querySelector("[data-voice-file-input]")
+    this.startButton = this.el.querySelector("[data-voice-start]")
+    this.stopButton = this.el.querySelector("[data-voice-stop]")
+    this.submitButton = this.el.querySelector("#voice-capture-submit")
+    this.status = this.el.querySelector("[data-voice-status]")
+    this.maxDurationMs = Number.parseInt(this.el.dataset.maxDurationMs || "300000", 10)
+    this.chunks = []
+    this.stream = null
+    this.recorder = null
+    this.stopTimer = null
+
+    this.handleStart = event => {
+      event.preventDefault()
+      this.startRecording()
+    }
+
+    this.handleStop = event => {
+      event.preventDefault()
+      this.stopRecording()
+    }
+
+    this.startButton?.addEventListener("click", this.handleStart)
+    this.stopButton?.addEventListener("click", this.handleStop)
+  },
+
+  destroyed() {
+    window.clearTimeout(this.stopTimer)
+    this.stopTracks()
+    this.startButton?.removeEventListener("click", this.handleStart)
+    this.stopButton?.removeEventListener("click", this.handleStop)
+  },
+
+  async startRecording() {
+    if (!this.input || typeof MediaRecorder === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      this.setStatus("Unavailable")
+      return
+    }
+
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({audio: true})
+      const mimeType = preferredVoiceMimeType()
+      this.chunks = []
+      this.recorder = mimeType
+        ? new MediaRecorder(this.stream, {mimeType})
+        : new MediaRecorder(this.stream)
+
+      this.recorder.addEventListener("dataavailable", event => {
+        if (event.data && event.data.size > 0) this.chunks.push(event.data)
+      })
+
+      this.recorder.addEventListener("stop", () => this.finishRecording(mimeType))
+      this.recorder.start()
+      this.setRecording(true)
+      this.setStatus("Recording")
+      this.stopTimer = window.setTimeout(() => this.stopRecording(), this.maxDurationMs)
+    } catch (_error) {
+      this.stopTracks()
+      this.setRecording(false)
+      this.setStatus("Unavailable")
+    }
+  },
+
+  stopRecording() {
+    window.clearTimeout(this.stopTimer)
+
+    if (this.recorder && this.recorder.state !== "inactive") {
+      this.recorder.stop()
+    } else {
+      this.stopTracks()
+      this.setRecording(false)
+    }
+  },
+
+  finishRecording(mimeType) {
+    this.stopTracks()
+    this.setRecording(false)
+
+    if (this.chunks.length === 0 || typeof DataTransfer === "undefined") {
+      this.setStatus("No audio")
+      return
+    }
+
+    const type = mimeType || this.chunks[0]?.type || "audio/webm"
+    const extension = voiceExtensionForMimeType(type)
+    const blob = new Blob(this.chunks, {type})
+    const file = new File([blob], `voice-capture.${extension}`, {type})
+    const transfer = new DataTransfer()
+    transfer.items.add(file)
+    this.input.files = transfer.files
+    this.input.dispatchEvent(new Event("change", {bubbles: true}))
+    this.submitButton?.removeAttribute("disabled")
+    this.submitButton?.setAttribute("aria-disabled", "false")
+    this.setStatus("Captured")
+
+    window.setTimeout(() => {
+      if (typeof this.el.requestSubmit === "function") {
+        this.el.requestSubmit()
+      } else {
+        this.el.dispatchEvent(new Event("submit", {bubbles: true, cancelable: true}))
+      }
+    }, 0)
+  },
+
+  stopTracks() {
+    this.stream?.getTracks()?.forEach(track => track.stop())
+    this.stream = null
+  },
+
+  setRecording(recording) {
+    if (this.startButton) {
+      this.startButton.disabled = recording
+      this.startButton.setAttribute("aria-disabled", recording ? "true" : "false")
+    }
+
+    if (this.stopButton) {
+      this.stopButton.disabled = !recording
+      this.stopButton.setAttribute("aria-disabled", recording ? "false" : "true")
+    }
+  },
+
+  setStatus(text) {
+    if (this.status) this.status.textContent = text
+  },
+}
+
 // v0.26a M33: small copy-to-clipboard helper used for mono ids, paths, signal
 // ids etc. The target text comes from `data-copy-value`; falls back to the
 // element's text content. Emits a transient "Copied" affordance via aria-live.
@@ -730,6 +880,7 @@ const liveSocket = csrfToken
         WorkspaceSplitResizer,
         WorkspaceTabs,
         WorkspaceTileEditor,
+        WorkspaceVoiceCapture,
         ComposerEnter,
         ChatAutoScroll,
         CopyToClipboard,
