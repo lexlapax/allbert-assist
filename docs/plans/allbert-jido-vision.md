@@ -644,11 +644,13 @@ historical aliases only and remain in old reference notes for continuity.
   action, and skill/workflow/memory drafts in one unified reviewed-draft
   store. Every suggestion is advisory and every draft inert until a confirmed
   action promotes it.
-- v0.47b: Operator-Supervised Self-Improvement (Handoff Drafts). The
+- v0.47b (implemented as `0.47.1`): Operator-Supervised Self-Improvement
+  (Handoff Drafts). The
   template-, marketplace-, delegate-plugin-, capability-gap-, and
   objective-draft kinds that hand off to the v0.36/v0.37/v0.38
   sandbox/gate/templated-creation path; consumes v0.45 marketplace metadata
-  and the shipped v0.46 delegate-agent extension point. No new trust tier.
+  and the shipped v0.46 delegate-agent extension point. Seven `:v047b` eval
+  rows plus `release.v047b` prove the handoff boundary. No new trust tier.
 - v0.48: Voice Modality. Voice input/output composes with existing channels as
   audio resources and registered STT/TTS actions. Discord voice is deferred
   until after Discord exists.
@@ -713,8 +715,8 @@ from observed use. The discovery and local-draft half shipped in `0.47.0`:
 - Workflow/intention suggestions that turn common multi-step objective patterns
   into inert workflow YAML or v0.38 template inputs.
 - Dynamic capability review loops that connect capability-gap detection to the
-  existing v0.36 sandbox, v0.37 gate/loader, and v0.38 templates are the
-  v0.47b handoff scope.
+  existing v0.36 sandbox, v0.37 gate/loader, and v0.38 templates shipped in
+  the v0.47b/`0.47.1` handoff scope.
 - Reviewed memory promotion/update draft facades and objective/workflow
   draft-write facades. These are draft-only paths, not settings, secrets,
   shell, package, confirmation-decision, trust-control, or live

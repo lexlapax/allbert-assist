@@ -891,17 +891,19 @@ defmodule AllbertAssist.Drafts.Store do
       |> to_string()
       |> String.trim()
 
-    if entry_id == "" do
-      {:error, :marketplace_entry_id_required}
-    else
-      with {:ok, entries} <- Marketplace.list_entries(marketplace_opts(attrs)) do
-        entries
-        |> Enum.find(&(&1["id"] == entry_id))
-        |> case do
-          nil -> {:error, {:marketplace_entry_not_found, entry_id}}
-          entry -> {:ok, stringify_keys(entry)}
-        end
-      end
+    with :ok <- require_marketplace_entry_id(entry_id),
+         {:ok, entries} <- Marketplace.list_entries(marketplace_opts(attrs)) do
+      find_marketplace_entry(entries, entry_id)
+    end
+  end
+
+  defp require_marketplace_entry_id(""), do: {:error, :marketplace_entry_id_required}
+  defp require_marketplace_entry_id(_entry_id), do: :ok
+
+  defp find_marketplace_entry(entries, entry_id) do
+    case Enum.find(entries, &(&1["id"] == entry_id)) do
+      nil -> {:error, {:marketplace_entry_not_found, entry_id}}
+      entry -> {:ok, stringify_keys(entry)}
     end
   end
 

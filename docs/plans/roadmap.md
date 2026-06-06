@@ -263,10 +263,11 @@ Dependency order from here:
     suggestion surface, a read-only pattern-discovery action, and
     skill/workflow/memory drafts in one unified reviewed-draft store; no
     autonomous authority.
-47b. v0.47b Operator-supervised self-improvement (handoff drafts):
-    template-backed, marketplace-backed, inert delegate-plugin, capability-gap,
-    and objective drafts that hand off to the v0.36/v0.37/v0.38
-    sandbox/gate/templated-creation path; no new trust tier.
+47b. v0.47b Operator-supervised self-improvement (handoff drafts) -
+    implemented as `0.47.1`: template-backed, marketplace-backed, inert
+    delegate-plugin, capability-gap, and objective drafts that hand off to the
+    v0.36/v0.37/v0.38 sandbox/gate/templated-creation path; seven `:v047b`
+    eval rows and `release.v047b`; no new trust tier.
 48. v0.48 Voice modality: experimental STT/TTS resource/action path for CLI,
     workspace, and Telegram voice-note ingestion. Discord voice is deferred to
     a focused follow-on after Channel Pack 1.
@@ -2800,12 +2801,12 @@ Request flow: `docs/plans/v0.47b-request-flow.md`
 ADR: `docs/adr/0045-operator-supervised-self-improvement-trust-tier.md`
 (amendments A5–A7).
 
-Status: planned. Inserted between v0.47 and v0.48 (no renumber of v0.48+);
-ships as the `0.47.1` point release on top of v0.47.
+Status: implemented as `0.47.1`. Inserted between v0.47 and v0.48 (no renumber
+of v0.48+) and shipped as the `0.47.1` point release on top of v0.47.
 
-Expected direction:
+Shipped scope:
 
-- On the v0.47 discovery substrate and unified draft store, add the draft
+- On the v0.47 discovery substrate and unified draft store, added the draft
   kinds that hand off to shipped substrates: **template-backed** (v0.38
   `Templates.Registry`/`create_from_template`), **marketplace-backed** (v0.45
   `Marketplace.list_entries/1`, descriptive only), **inert delegate-plugin
@@ -2817,6 +2818,8 @@ Expected direction:
   confirmation, with rollback available (ADR 0045 A6).
 - Marketplace metadata stays descriptive; delegate-plugin drafts stay inert;
   objective drafts stay declarative (ADR 0045 A5, A7).
+- Added seven v0.47b security eval rows plus the deterministic
+  `mix allbert.test release.v047b` gate.
 
 Non-goals:
 

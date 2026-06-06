@@ -523,11 +523,12 @@ Implemented v0.41 gates:
   reviewed-draft store.
   Suggestions are advisory; drafts are inert; promotion to a live
   skill/workflow/memory entry is a separate confirmed action.
-- v0.47b (planned): Operator-Supervised Self-Improvement (Handoff Drafts).
-  Adds template-, marketplace-, delegate-plugin-, capability-gap-, and
-  objective-draft kinds on the v0.47 base; code-bearing drafts must still
-  route through v0.36 sandbox/gate, v0.37 dynamic integration, v0.38
-  templates, Security Central, confirmations, traces, and audits. No new
+- v0.47b (implemented as `0.47.1`): Operator-Supervised Self-Improvement
+  (Handoff Drafts). Adds template-, marketplace-, delegate-plugin-,
+  capability-gap-, and objective-draft kinds on the v0.47 base; code-bearing
+  drafts still route through v0.36 sandbox/gate, v0.37 dynamic integration,
+  v0.38 templates, Security Central, confirmations, traces, and audits. Seven
+  `:v047b` eval rows plus `release.v047b` prove the handoff boundary. No new
   trust tier.
 - v0.48 (planned): Voice Modality. Adds STT/TTS as media resources and
   registered actions; Discord voice is deferred until after Discord exists.

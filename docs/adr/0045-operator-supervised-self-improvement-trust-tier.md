@@ -2,8 +2,7 @@
 
 Status: Accepted as the v0.47/v0.47b implementation contract. The v0.47
 discovery and local-draft half is implemented; v0.47b handoff amendments were
-accepted in M1, M1-M4 are implemented, and release/eval closeout remains in
-progress.
+accepted in M1 and implemented as the `0.47.1` handoff draft release.
 
 ## Context
 
@@ -129,7 +128,7 @@ from the code-bearing gate path.
 
 ### A5. Marketplace and delegate-plugin drafts are inert (v0.47b)
 
-Status: accepted in v0.47b M1; marketplace-backed draft storage landed in M2
+Status: accepted for v0.47b; marketplace-backed draft storage landed in M2
 and delegate-plugin request draft storage landed in M3.
 
 Marketplace-lite metadata (v0.45) informs suggestions but grants nothing; a
@@ -139,7 +138,7 @@ delegate-agent authoring stays parked.
 
 ### A6. Code-bearing drafts reuse the v0.36/v0.37 path unchanged (v0.47b)
 
-Status: accepted in v0.47b M1; capability-gap draft storage landed in M1,
+Status: accepted for v0.47b; capability-gap draft storage landed in M1,
 template-backed dynamic draft handoff landed in M2, and the capability-gap
 dynamic-draft handoff plus pre-integration gate guard landed in M4.
 
@@ -152,7 +151,7 @@ created for ungated dynamic drafts.
 
 ### A7. Objective drafts are declarative (v0.47b)
 
-Status: accepted in v0.47b M1; objective draft storage landed in M1 and
+Status: accepted for v0.47b; objective draft storage landed in M1 and
 confirmation-gated objective framing landed in M3.
 
 An objective draft is an inert objective definition in the unified store.

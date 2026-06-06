@@ -19,10 +19,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.47 adds the passive
-  # self-improvement suggestion and draft review surfaces.
+  # the app (release-pinned, not semantic-per-app). v0.47.1 completes the
+  # operator-supervised self-improvement handoff draft surface.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.47.0"
+  def version, do: "0.47.1"
 
   @impl true
   def validate(_opts), do: :ok

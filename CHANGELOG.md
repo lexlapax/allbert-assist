@@ -10,10 +10,67 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.47.1 - Operator-Supervised Self-Improvement Handoff Drafts
+
+Status: implemented as the v0.47b point release. Current version metadata is
+`0.47.1`; ready for operator manual validation before the release tag.
+
+### Added
+
+- Handoff draft kinds in the unified reviewed-draft store:
+  `template_backed`, `marketplace_backed`, `delegate_plugin_request`,
+  `capability_gap`, and `objective`.
+- `promote_template_draft`, which routes reviewed template-backed LLM-tool
+  drafts into the shipped v0.38 `create_from_template` path and produces an
+  inert v0.37 dynamic draft with `gate_status: "not_run"`.
+- `promote_capability_gap_draft`, which routes a reviewed capability-gap draft
+  into `DynamicPlugins.request_draft/2`; live integration remains blocked
+  until the existing sandbox/gate path passes.
+- `promote_objective_draft`, which frames a v0.24 objective only after durable
+  operator confirmation.
+- Seven v0.47b security eval rows:
+  `self-improvement-marketplace-metadata-no-authority-001`,
+  `self-improvement-template-backed-draft-inert-001`,
+  `self-improvement-delegate-plugin-draft-inert-001`,
+  `self-improvement-code-draft-gate-required-001`,
+  `self-improvement-integrate-requires-confirmation-001`,
+  `self-improvement-unsafe-capability-request-denied-001`, and
+  `self-improvement-marketplace-publish-confirmation-001`.
+- `mix allbert.test release.v047b`, a deterministic fixture gate for the
+  v0.47b handoff draft surface.
+
+### Changed
+
+- `integrate_dynamic_draft` now checks for gate-passed dynamic draft evidence
+  before creating an integration confirmation, so ungated code-bearing drafts
+  cannot even request live-integration approval.
+- Marketplace-backed drafts store `Marketplace.list_entries/1` metadata only;
+  marketplace install/publish decisions remain separate existing action paths.
+- Delegate-plugin request drafts store v0.38 plugin-template previews and
+  v0.46 delegate metadata only; they do not scaffold a plugin directory or
+  register an objective delegate agent.
+- ADR 0045, roadmap, vision, future-features, agent context map, security
+  hardening, and operator/developer guides now reflect the shipped v0.47b
+  scope and the v0.48 handoff.
+
+### Verification
+
+- `mix allbert.test release.v047b` passed with 39 handoff core tests, 11
+  dynamic gate/loader tests, 8 security-eval tests, and a clean v0.47b secret
+  scan. Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v047b/p0-6851/home/release_evidence/v047b/release-v047b-1780716256.json`.
+- Full `mix allbert.test release` passed with compile, dependency, format,
+  Credo, core (`1411 tests, 0 failures, 4 skipped`), web (`120 tests,
+  0 failures`), StockSage (`197 tests, 0 failures`), channel plugin
+  (`12 tests, 0 failures`), and Dialyzer (`Total errors: 0`) phases clean.
+  Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-11012/home/release_evidence/gates/release-2026-06-06T03_11_09Z.json`.
+
 ## v0.47.0 - Operator-Supervised Self-Improvement
 
-Status: implemented as the v0.47 release. Current version metadata is
-`0.47.0`; ready for operator manual validation before the release tag.
+Status: implemented as the v0.47 release and superseded by the `0.47.1`
+handoff point release. Version metadata at this release closeout was
+`0.47.0`.
 
 ### Added
 

@@ -288,6 +288,20 @@ eval surfaces until their capability work lands.
   `self-improvement-repeated-use-no-permission-grant-001`,
   `self-improvement-trace-index-redaction-001`, and
   `self-improvement-promotion-requires-confirmation-001`.
+- Operator-supervised self-improvement handoff drafts (v0.47b implemented
+  surface): template-backed and capability-gap drafts create only inert v0.37
+  dynamic drafts until the existing sandbox/gate/integration path runs;
+  marketplace metadata is descriptive only; delegate-plugin drafts register no
+  agent; objective drafts frame only through confirmed objective promotion; and
+  marketplace actions remain separately confirmation-gated. Implemented eval
+  rows:
+  `self-improvement-marketplace-metadata-no-authority-001`,
+  `self-improvement-template-backed-draft-inert-001`,
+  `self-improvement-delegate-plugin-draft-inert-001`,
+  `self-improvement-code-draft-gate-required-001`,
+  `self-improvement-integrate-requires-confirmation-001`,
+  `self-improvement-unsafe-capability-request-denied-001`, and
+  `self-improvement-marketplace-publish-confirmation-001`.
 - Discord, Slack, WhatsApp, Signal, and Matrix identity mapping,
   replay, pairing, group leakage, and callback ownership.
 - Voice, image, screenshot, and generated media resource retention, redaction,
@@ -295,9 +309,9 @@ eval surfaces until their capability work lands.
 - MCP-server public protocol auth, rate limits, redaction, and confirmation
   ownership. API, ACP, and public AG-UI/A2UI bridge evals remain parked
   post-1.0.
-- Operator-supervised self-improvement suggestion authority, disabled/untrusted
-  draft defaults, repeated-use non-grants, reviewed memory/workflow draft
-  facades, and v0.36/v0.37/v0.38 gate handoff.
+- Future self-improvement hardening beyond v0.47b remains limited to later
+  capability surfaces, such as channel-derived trace sources and export/import
+  preservation of reviewed drafts.
 
 Remaining future bullets are planned eval areas only; they do not imply those
 capabilities exist in the current release.
