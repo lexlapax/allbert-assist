@@ -104,6 +104,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "list_model_profiles",
              "set_provider_credential",
              "doctor_model_profile",
+             "doctor_voice_provider",
              "set_active_model_profile",
              "list_channels",
              "show_channel",
@@ -386,6 +387,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert doctor_model_profile.permission == :read_only
     assert doctor_model_profile.exposure == :agent
     assert doctor_model_profile.execution_mode == :settings_read
+
+    assert {:ok, doctor_voice_provider} = Registry.capability("doctor_voice_provider")
+    assert doctor_voice_provider.permission == :read_only
+    assert doctor_voice_provider.exposure == :agent
+    assert doctor_voice_provider.execution_mode == :settings_read
 
     assert {:ok, set_active_model_profile} = Registry.capability("set_active_model_profile")
     assert set_active_model_profile.permission == :settings_write

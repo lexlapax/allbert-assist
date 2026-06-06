@@ -37,7 +37,7 @@ defmodule Mix.Tasks.Allbert.Model do
   end
 
   defp dispatch(["doctor", profile]) do
-    with {:ok, response} <- completed_action("doctor_model_profile", %{profile: profile}) do
+    with {:ok, response} <- completed_action(doctor_action(profile), %{profile: profile}) do
       {:ok, {:doctor, response}}
     end
   end
@@ -99,6 +99,7 @@ defmodule Mix.Tasks.Allbert.Model do
     Mix.shell().info("endpoint_ok=#{doctor.endpoint_ok}")
     Mix.shell().info("model_available=#{inspect(doctor.model_available)}")
     Mix.shell().info("redacted_host=#{doctor.redacted_host}")
+    print_voice_doctor_fields(doctor)
 
     Enum.each(doctor.diagnostics, fn diagnostic ->
       Mix.shell().info("diagnostic=#{diagnostic.code}: #{diagnostic.message}")
@@ -135,6 +136,38 @@ defmodule Mix.Tasks.Allbert.Model do
   defp response_error(%{message: message}), do: message
 
   defp context, do: %{actor: "local", channel: :cli}
+
+  defp doctor_action(profile) do
+    case Settings.resolve_model_profile(profile) do
+      {:ok, model_profile} ->
+        if voice_capable?(model_profile),
+          do: "doctor_voice_provider",
+          else: "doctor_model_profile"
+
+      {:error, _reason} ->
+        "doctor_model_profile"
+    end
+  end
+
+  defp voice_capable?(%{capabilities: capabilities}) when is_list(capabilities) do
+    Enum.any?(capabilities, &(&1 in ["speech_to_text", "text_to_speech"]))
+  end
+
+  defp voice_capable?(_profile), do: false
+
+  defp print_voice_doctor_fields(%{provider_capabilities: capabilities} = doctor) do
+    Mix.shell().info("provider_capabilities=#{Enum.join(capabilities, ",")}")
+    Mix.shell().info("provider_deployment_mode=#{inspect(doctor.provider_deployment_mode)}")
+    Mix.shell().info("speech_to_text_supported=#{inspect(doctor.speech_to_text_supported)}")
+    Mix.shell().info("text_to_speech_supported=#{inspect(doctor.text_to_speech_supported)}")
+    Mix.shell().info("audio_formats_supported=#{inspect(doctor.audio_formats_supported)}")
+
+    Mix.shell().info(
+      "audio_sample_rates_supported=#{inspect(doctor.audio_sample_rates_supported)}"
+    )
+  end
+
+  defp print_voice_doctor_fields(_doctor), do: :ok
 
   defp print_audits(settings) do
     settings

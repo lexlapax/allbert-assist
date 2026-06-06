@@ -116,6 +116,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Session.SetActiveApp
   alias AllbertAssist.Actions.Session.ShowSessionScratchpad
   alias AllbertAssist.Actions.Settings.DoctorModelProfile
+  alias AllbertAssist.Actions.Settings.DoctorVoiceProvider
   alias AllbertAssist.Actions.Settings.ExplainSetting
   alias AllbertAssist.Actions.Settings.ListModelProfiles
   alias AllbertAssist.Actions.Settings.ListProviderProfiles
@@ -171,6 +172,7 @@ defmodule AllbertAssist.Actions.Registry do
     ListModelProfiles,
     SetProviderCredential,
     DoctorModelProfile,
+    DoctorVoiceProvider,
     SetActiveModelProfile,
     ListChannels,
     ShowChannel,

@@ -56,6 +56,19 @@ defmodule Mix.Tasks.Allbert.ModelTest do
     assert output =~ "diagnostic=credential_missing"
   end
 
+  test "doctor dispatches voice-capable profiles to the voice doctor" do
+    output =
+      capture_io(fn ->
+        assert :ok = ModelTask.run(["doctor", "voice_stt_fake"])
+      end)
+
+    assert output =~ "Voice provider profile voice_stt_fake"
+    assert output =~ "provider_capabilities=speech_to_text"
+    assert output =~ "provider_deployment_mode=:fake"
+    assert output =~ "speech_to_text_supported=true"
+    assert output =~ "text_to_speech_supported=false"
+  end
+
   defp temp_path(name) do
     Path.join(
       System.tmp_dir!(),
