@@ -8,6 +8,7 @@ defmodule AllbertAssist.Drafts.Store do
   """
 
   alias AllbertAssist.DynamicPlugins
+  alias AllbertAssist.DynamicPlugins.Codegen.CapabilityGap
   alias AllbertAssist.DynamicPlugins.Draft, as: DynamicPluginDraft
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
@@ -15,7 +16,8 @@ defmodule AllbertAssist.Drafts.Store do
   alias AllbertAssist.Workflows.Validator
 
   @metadata_suffix ".metadata.yaml"
-  @non_code_kinds ~w[skill workflow memory_promotion memory_update]
+  @handoff_kinds ~w[capability_gap objective]
+  @non_code_kinds ~w[skill workflow memory_promotion memory_update] ++ @handoff_kinds
   @non_code_tiers ~w[draft discarded promoted]
   @slug_pattern ~r/^[a-z][a-z0-9_]*$/
 
@@ -80,6 +82,34 @@ defmodule AllbertAssist.Drafts.Store do
     with {:ok, attrs} <- normalize_create_attrs(kind, attrs),
          :ok <- ensure_open_draft_capacity(attrs["id"]),
          payload <- memory_draft_payload(attrs),
+         :ok <- write_artifact(attrs, payload),
+         {:ok, draft} <- put_non_code_draft(attrs, payload, opts) do
+      {:ok, draft}
+    end
+  end
+
+  @doc "Create or rewrite an inert capability-gap handoff draft."
+  @spec create_capability_gap_draft(map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def create_capability_gap_draft(attrs, opts \\ []) when is_map(attrs) do
+    attrs = stringify_keys(attrs)
+
+    with {:ok, attrs} <- normalize_create_attrs("capability_gap", attrs),
+         :ok <- ensure_open_draft_capacity(attrs["id"]),
+         {:ok, payload} <- capability_gap_payload(attrs),
+         :ok <- write_artifact(attrs, payload),
+         {:ok, draft} <- put_non_code_draft(attrs, payload, opts) do
+      {:ok, draft}
+    end
+  end
+
+  @doc "Create or rewrite an inert declarative objective draft."
+  @spec create_objective_draft(map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def create_objective_draft(attrs, opts \\ []) when is_map(attrs) do
+    attrs = stringify_keys(attrs)
+
+    with {:ok, attrs} <- normalize_create_attrs("objective", attrs),
+         :ok <- ensure_open_draft_capacity(attrs["id"]),
+         payload <- objective_draft_payload(attrs),
          :ok <- write_artifact(attrs, payload),
          {:ok, draft} <- put_non_code_draft(attrs, payload, opts) do
       {:ok, draft}
@@ -404,6 +434,59 @@ defmodule AllbertAssist.Drafts.Store do
     }
   end
 
+  defp capability_gap_payload(attrs) do
+    with {:ok, gap} <- CapabilityGap.new(attrs, %{"source" => "self_improvement"}) do
+      {:ok,
+       %{
+         "schema_version" => 1,
+         "kind" => "capability_gap",
+         "id" => Map.fetch!(attrs, "id"),
+         "enabled" => false,
+         "live_authority" => false,
+         "source_suggestion_id" => Map.get(attrs, "source_suggestion_id"),
+         "evidence_refs" => list_value(Map.get(attrs, "evidence_refs")),
+         "capability_gap" => CapabilityGap.summary(gap),
+         "handoff" => %{
+           "dynamic_draft_requested" => false,
+           "dynamic_draft_id" => nil,
+           "sandbox_gate_status" => "not_started",
+           "gate_required_before_integration" => true
+         }
+       }}
+    end
+  end
+
+  defp objective_draft_payload(attrs) do
+    summary = Map.fetch!(attrs, "summary")
+
+    %{
+      "schema_version" => 1,
+      "kind" => "objective",
+      "id" => Map.fetch!(attrs, "id"),
+      "enabled" => false,
+      "live_authority" => false,
+      "source_suggestion_id" => Map.get(attrs, "source_suggestion_id"),
+      "evidence_refs" => list_value(Map.get(attrs, "evidence_refs")),
+      "objective" =>
+        %{
+          "title" => Map.get(attrs, "title", summary),
+          "objective" => Map.get(attrs, "objective", Map.get(attrs, "body", summary)),
+          "acceptance_criteria" => map_value(Map.get(attrs, "acceptance_criteria")),
+          "constraints" => map_value(Map.get(attrs, "constraints")),
+          "user_id" => Map.get(attrs, "user_id"),
+          "active_app" => Map.get(attrs, "active_app"),
+          "source_thread_id" => Map.get(attrs, "source_thread_id"),
+          "session_id" => Map.get(attrs, "session_id")
+        }
+        |> drop_nil_values(),
+      "handoff" => %{
+        "objective_framed" => false,
+        "objective_id" => nil,
+        "confirmation_required" => true
+      }
+    }
+  end
+
   defp workflow_payload(attrs) do
     id = Map.fetch!(attrs, "id")
     summary = Map.fetch!(attrs, "summary")
@@ -435,6 +518,10 @@ defmodule AllbertAssist.Drafts.Store do
 
   defp write_artifact(%{"kind" => kind, "id" => id}, payload)
        when kind in ["memory_promotion", "memory_update"] do
+    write_yaml(artifact_path(kind, id), payload)
+  end
+
+  defp write_artifact(%{"kind" => kind, "id" => id}, payload) when kind in @handoff_kinds do
     write_yaml(artifact_path(kind, id), payload)
   end
 
@@ -486,11 +573,20 @@ defmodule AllbertAssist.Drafts.Store do
   defp artifact_path(kind, id) when kind in ["memory_promotion", "memory_update"],
     do: Path.join(Paths.drafts_memory_root(), id <> ".memory.yaml")
 
+  defp artifact_path("capability_gap", id),
+    do: Path.join(kind_root("capability_gap"), id <> ".capability_gap.yaml")
+
+  defp artifact_path("objective", id),
+    do: Path.join(kind_root("objective"), id <> ".objective.yaml")
+
   defp kind_root("skill"), do: Paths.drafts_skills_root()
   defp kind_root("workflow"), do: Paths.drafts_workflows_root()
 
   defp kind_root(kind) when kind in ["memory_promotion", "memory_update"],
     do: Paths.drafts_memory_root()
+
+  defp kind_root("capability_gap"), do: Path.join(Paths.drafts_root(), "capability_gaps")
+  defp kind_root("objective"), do: Path.join(Paths.drafts_root(), "objectives")
 
   defp kind_root(_kind), do: Paths.drafts_root()
 
@@ -589,6 +685,13 @@ defmodule AllbertAssist.Drafts.Store do
   defp stringify_nested(value) when is_map(value), do: stringify_keys(value)
   defp stringify_nested(values) when is_list(values), do: Enum.map(values, &stringify_nested/1)
   defp stringify_nested(value), do: value
+
+  defp map_value(value) when is_map(value), do: stringify_keys(value)
+  defp map_value(_value), do: %{}
+
+  defp drop_nil_values(map) do
+    Map.reject(map, fn {_key, value} -> is_nil(value) end)
+  end
 
   defp empty_to_nil(""), do: nil
   defp empty_to_nil(value), do: value

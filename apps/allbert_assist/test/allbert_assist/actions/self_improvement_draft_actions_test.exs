@@ -5,6 +5,7 @@ defmodule AllbertAssist.Actions.SelfImprovementDraftActionsTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Drafts.Store
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Tools.Discovery
@@ -89,6 +90,61 @@ defmodule AllbertAssist.Actions.SelfImprovementDraftActionsTest do
     refute Workflows.exists?("workflow_release_review")
   end
 
+  test "create_self_improvement_draft creates inert capability-gap and objective handoff drafts" do
+    capability_suggestion =
+      suggestion!(
+        "capability_gap",
+        "capability_gap",
+        "Repeated release health checks could become a capability gap.",
+        %{
+          "requested_capability" => "Generate a read-only release health action.",
+          "target_shapes" => ["action"],
+          "source" => "self_improvement",
+          "confidence" => 0.76
+        }
+      )
+
+    objective_suggestion =
+      suggestion!(
+        "objective",
+        "objective",
+        "Repeated release review steps could become an objective draft.",
+        %{
+          "title" => "Review the release checklist",
+          "objective" => "Review the v0.47b release checklist before tagging.",
+          "acceptance_criteria" => %{"docs_checked" => true},
+          "user_id" => "operator",
+          "active_app" => "workspace"
+        }
+      )
+
+    assert {:ok, capability_response} =
+             Runner.run(
+               "create_self_improvement_draft",
+               %{suggestion_id: capability_suggestion.id, id: "capability_release_health"},
+               %{actor: "operator", user_id: "operator", channel: :test}
+             )
+
+    assert {:ok, objective_response} =
+             Runner.run(
+               "create_self_improvement_draft",
+               %{suggestion_id: objective_suggestion.id, id: "objective_release_review"},
+               %{actor: "operator", user_id: "operator", channel: :test}
+             )
+
+    assert capability_response.status == :completed
+    assert capability_response.draft.kind == "capability_gap"
+    assert capability_response.draft.live_authority == false
+    assert capability_response.draft.payload["capability_gap"]["explicit"] == false
+    assert capability_response.draft.payload["handoff"]["dynamic_draft_requested"] == false
+
+    assert objective_response.status == :completed
+    assert objective_response.draft.kind == "objective"
+    assert objective_response.draft.live_authority == false
+    assert objective_response.draft.payload["handoff"]["objective_framed"] == false
+    assert {:ok, []} = Objectives.list("operator")
+  end
+
   test "create_self_improvement_draft returns existing accepted draft" do
     suggestion =
       suggestion!("trace_to_skill", "skill", "Repeated accepted prompt could become a skill.")
@@ -138,14 +194,15 @@ defmodule AllbertAssist.Actions.SelfImprovementDraftActionsTest do
     assert discarded.tier == "discarded"
   end
 
-  defp suggestion!(type, kind, summary) do
+  defp suggestion!(type, kind, summary, metadata \\ %{}) do
     assert {:ok, suggestion} =
              Discovery.upsert_self_improvement_suggestion(%{
                id: "suggestion:self_improvement:#{kind}:#{System.unique_integer([:positive])}",
                suggestion_type: type,
                summary: summary,
                evidence_refs: [%{path: "memory/traces/release.md"}],
-               proposed_draft_kind: kind
+               proposed_draft_kind: kind,
+               metadata: metadata
              })
 
     Discovery.suggestion_to_map(suggestion)

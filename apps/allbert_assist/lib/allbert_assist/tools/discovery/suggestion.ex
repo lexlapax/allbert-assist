@@ -20,6 +20,8 @@ defmodule AllbertAssist.Tools.Discovery.Suggestion do
     trace_to_workflow
     memory_promotion
     memory_update
+    capability_gap
+    objective
   )
   @provenances ~w(discovery self_improvement)
   @self_improvement_types ~w(
@@ -27,6 +29,8 @@ defmodule AllbertAssist.Tools.Discovery.Suggestion do
     trace_to_workflow
     memory_promotion
     memory_update
+    capability_gap
+    objective
   )
 
   schema "tool_discovery_suggestions" do

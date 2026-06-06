@@ -6,7 +6,9 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
     "trace_to_skill" => "skill",
     "trace_to_workflow" => "workflow",
     "memory_promotion" => "memory_promotion",
-    "memory_update" => "memory_update"
+    "memory_update" => "memory_update",
+    "capability_gap" => "capability_gap",
+    "objective" => "objective"
   }
 
   use AllbertAssist.Action,
@@ -92,6 +94,8 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
       "skill" -> Store.create_skill_draft(attrs)
       "workflow" -> Store.create_workflow_draft(attrs)
       kind when kind in ["memory_promotion", "memory_update"] -> Store.create_memory_draft(attrs)
+      "capability_gap" -> Store.create_capability_gap_draft(attrs)
+      "objective" -> Store.create_objective_draft(attrs)
     end
   end
 
@@ -118,7 +122,23 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
     metadata = Map.get(suggestion, :metadata, %{})
     summary = Map.get(metadata, "summary", "Self-improvement draft")
 
-    %{
+    metadata
+    |> Map.take([
+      "acceptance_criteria",
+      "active_app",
+      "budget",
+      "confidence",
+      "constraints",
+      "objective",
+      "requested_capability",
+      "session_id",
+      "source",
+      "source_thread_id",
+      "target_shapes",
+      "title",
+      "user_id"
+    ])
+    |> Map.merge(%{
       id: string_param(params, :id),
       kind: kind,
       summary: summary,
@@ -132,7 +152,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
         suggestion_type: suggestion.suggestion_type,
         operator_id: operator_id(context)
       }
-    }
+    })
   end
 
   defp completed(permission_decision, draft, suggestion) do

@@ -183,6 +183,24 @@ defmodule AllbertAssist.Tools.DiscoveryTest do
            )
   end
 
+  test "v0.47b handoff suggestion kinds are self-improvement only" do
+    for {type, kind} <- [{"capability_gap", "capability_gap"}, {"objective", "objective"}] do
+      assert {:ok, suggestion} =
+               Discovery.upsert_self_improvement_suggestion(%{
+                 id: "suggestion:self_improvement:#{type}",
+                 suggestion_type: type,
+                 summary: "#{type} suggestion remains advisory.",
+                 evidence_refs: [%{source: "test"}],
+                 proposed_draft_kind: kind
+               })
+
+      assert suggestion.candidate_id == nil
+      assert suggestion.provenance == "self_improvement"
+      assert suggestion.suggestion_type == type
+      assert suggestion.metadata["proposed_draft_kind"] == kind
+    end
+  end
+
   test "evaluation flags dangerous command metadata and runs bounded health probe" do
     configure_external("server.example", "/mcp")
 

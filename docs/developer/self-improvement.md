@@ -1,8 +1,10 @@
 # Self-Improvement Developer Guide
 
-Status: implemented in v0.47. This guide describes the discovery and local
-draft substrate. v0.47b may add draft kinds and promotion targets, but must
-reuse this suggestion lifecycle, draft facade, and authority boundary.
+Status: implemented in v0.47 with v0.47b M1 handoff extensions. This guide
+describes the discovery and local draft substrate plus inert capability-gap and
+objective draft kinds. Later v0.47b milestones may add more draft kinds and
+promotion targets, but must reuse this suggestion lifecycle, draft facade, and
+authority boundary.
 
 ## Authority Boundary
 
@@ -43,7 +45,7 @@ a second queue. Self-improvement suggestions use:
 ```text
 provenance: "self_improvement"
 candidate_id: nil
-suggestion_type: trace_to_skill | trace_to_workflow | memory_promotion | memory_update
+suggestion_type: trace_to_skill | trace_to_workflow | memory_promotion | memory_update | capability_gap | objective
 status: pending | accepted | dismissed | expired
 ```
 
@@ -76,6 +78,13 @@ or live runtime state.
   `<ALLBERT_HOME>/drafts/workflows/<id>.yaml`.
 - Memory drafts use `memory_promotion` or `memory_update` and write draft
   artifacts under `<ALLBERT_HOME>/drafts/memory/`.
+- Capability-gap drafts use `capability_gap`, write artifacts under
+  `<ALLBERT_HOME>/drafts/capability_gaps/`, and store a redacted
+  `DynamicPlugins.Codegen.CapabilityGap` summary without requesting a dynamic
+  draft.
+- Objective drafts use `objective`, write artifacts under
+  `<ALLBERT_HOME>/drafts/objectives/`, and store declarative objective input
+  without framing an objective.
 
 Non-code tiers are `draft`, `discarded`, and `promoted`. Promotion metadata is
 recorded only after the live write has completed through the confirmed action
@@ -111,6 +120,12 @@ Focused v0.47 coverage lives in:
 - `Allbert.SelfImprovementTest`
 - `v047_self_improvement_eval_test.exs`
 
+Focused v0.47b M1 coverage adds:
+
+- `Drafts.StoreTest` capability-gap/objective draft cases
+- `Tools.DiscoveryTest` v0.47b handoff suggestion kind validation
+- `SelfImprovementDraftActionsTest` capability-gap/objective action coverage
+
 The deterministic release handoff is:
 
 ```sh
@@ -119,4 +134,3 @@ mix allbert.test release.v047
 
 It runs the core, surface, and security-eval fixture suites and writes evidence
 under `<ALLBERT_HOME>/release_evidence/v047/`.
-
