@@ -85,7 +85,7 @@ scope.
 
 ### A2. The suggestion surface is the generalized v0.42 discovery surface (v0.47)
 
-Status: accepted as a v0.47 plan constraint; implementation lands in M2.
+Status: implemented in v0.47 M2.
 
 Self-improvement suggestions reuse `AllbertAssist.Tools.Discovery.Suggestion`
 (extended `suggestion_type` plus a provenance discriminator) and the passive
