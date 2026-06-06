@@ -115,6 +115,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.SetActiveModelProfile
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
+  alias AllbertAssist.Actions.SelfImprovement.DiscoverPatterns
   alias AllbertAssist.Actions.Skills.AuditOnlineSkill
   alias AllbertAssist.Actions.Skills.CreateSkill
   alias AllbertAssist.Actions.Skills.ImportLocalSkill
@@ -187,6 +188,7 @@ defmodule AllbertAssist.Actions.Registry do
     McpConnectServer,
     FindLocalTools,
     FindTools,
+    DiscoverPatterns,
     ValidateSkill,
     CreateSkill,
     RunSkillScript,
