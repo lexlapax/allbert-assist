@@ -258,6 +258,4 @@ defmodule AllbertAssist.Actions.Voice.CaptureWorkspaceVoice do
 
   defp field(map, key) when is_map(map),
     do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
-
-  defp field(_map, _key), do: nil
 end

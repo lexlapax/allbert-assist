@@ -309,8 +309,6 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
     end
   end
 
-  defp validate_transcript_size(_text, _state), do: {:error, :missing_transcript}
-
   defp validate_voice_size(fields) do
     case Map.get(fields, :voice_file_size) do
       size when is_integer(size) and size > @telegram_file_download_max_bytes ->
@@ -511,8 +509,6 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
     _ = File.rmdir(Path.dirname(path))
     :ok
   end
-
-  defp cleanup_voice_audio(_audio), do: :ok
 
   defp render_response(response, state) do
     Renderer.render_response(response,

@@ -832,8 +832,6 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       get_in(confirmation, [:target_action, :name])
   end
 
-  defp confirmation_target_action(_confirmation), do: nil
-
   defp mcp_integration_action_params(%{
          "action-name" => "mcp_read_resource",
          "server-id" => server_id,
@@ -1644,8 +1642,6 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     Map.get(map, key) || Map.get(map, Atom.to_string(key))
   end
 
-  defp capture_value(_map, _key), do: nil
-
   defp expand_allbert_home_path(path) when is_binary(path) do
     path
     |> String.replace("<ALLBERT_HOME>", RuntimePaths.home())
@@ -1766,7 +1762,6 @@ defmodule AllbertAssistWeb.WorkspaceLive do
        }}
     else
       {:error, reason} -> {:error, reason}
-      {:error, reason, _path} -> {:error, reason}
     end
   end
 

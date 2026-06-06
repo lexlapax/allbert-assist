@@ -93,6 +93,20 @@ defmodule AllbertAssist.Security.Policy do
 
   @known_permissions Map.keys(@default_decisions)
 
+  @type policy_decision :: :allowed | :needs_confirmation | :denied
+  @type resolution :: %{
+          permission: atom(),
+          setting_key: String.t() | nil,
+          configured: term(),
+          configured_decision: term(),
+          effective: term(),
+          source: :built_in_default | :settings,
+          safety_floor: policy_decision(),
+          capped?: boolean(),
+          context_denial: String.t() | nil,
+          reason: String.t() | nil
+        }
+
   @type permission ::
           :read_only
           | :memory_write
@@ -185,14 +199,14 @@ defmodule AllbertAssist.Security.Policy do
   end
 
   @doc "Resolve effective policy for a permission and normalized context."
-  @spec resolve(atom(), map()) :: map()
+  @spec resolve(atom(), map()) :: resolution()
   def resolve(permission, context \\ %{}) do
     configured = configured_policy(permission)
     resolve_from_configured(permission, context, configured)
   end
 
   @doc "Resolve effective policy using an already-resolved Settings snapshot."
-  @spec resolve(atom(), map(), map()) :: map()
+  @spec resolve(atom(), map(), map()) :: resolution()
   def resolve(permission, context, settings) when is_map(settings) do
     configured = configured_policy(permission, settings)
     resolve_from_configured(permission, context, configured)
@@ -317,8 +331,6 @@ defmodule AllbertAssist.Security.Policy do
 
   defp field(map, key) when is_map(map),
     do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
-
-  defp field(_map, _key), do: nil
 
   defp configured_policy(permission) do
     setting_key = Map.get(@permission_settings, permission)
