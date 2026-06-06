@@ -19,6 +19,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v045
       mix allbert.test release.v046
       mix allbert.test release.v047
+      mix allbert.test release.v047b
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -78,6 +79,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v045"]), do: release_v045()
   def run(["release.v046"]), do: release_v046()
   def run(["release.v047"]), do: release_v047()
+  def run(["release.v047b"]), do: release_v047b()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -911,6 +913,72 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   ]
 
+  @release_v047b_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "self_improvement_handoff_core",
+      title: "handoff draft kinds, promotion actions, registry, and CLI-adjacent surfaces",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/drafts/store_test.exs",
+        "test/allbert_assist/actions/self_improvement_draft_actions_test.exs",
+        "test/allbert_assist/actions/self_improvement_promotion_actions_test.exs",
+        "test/allbert_assist/tools/discovery_test.exs",
+        "test/allbert_assist/actions/registry_test.exs"
+      ],
+      coverage: [
+        "template-backed, marketplace-backed, delegate-plugin, capability-gap, and objective draft kinds",
+        "template and capability-gap promotion to inert v0.37 dynamic drafts",
+        "objective promotion confirmation",
+        "registered self-improvement handoff actions and suggestion kinds"
+      ]
+    },
+    %{
+      id: "self_improvement_dynamic_gate",
+      title: "dynamic code handoff gate and loader confirmation boundary",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/dynamic_plugins/codegen_test.exs:392",
+        "test/allbert_assist/dynamic_plugins/loader_test.exs"
+      ],
+      coverage: [
+        "code-bearing draft gate path remains v0.36/v0.37",
+        "ungated dynamic drafts cannot request integration confirmation",
+        "gate-passed drafts require confirmation before live integration",
+        "rollback remains available for integrated dynamic actions"
+      ]
+    },
+    %{
+      id: "self_improvement_handoff_security_eval",
+      title: "v0.47b operator-supervised self-improvement handoff security evals",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v047b_self_improvement_eval_test.exs",
+        "test/security/security_eval_case_test.exs"
+      ],
+      coverage: [
+        "7 v0.47b operator-supervised self-improvement eval rows",
+        "marketplace/template/delegate handoff drafts remain inert",
+        "capability-gap dynamic draft handoff requires gate evidence",
+        "gate-passed dynamic integration still requires operator confirmation",
+        "marketplace actions remain separately confirmation-gated"
+      ]
+    }
+  ]
+
   defp release_v042 do
     env = owned_env("release-v042", 0)
     home = env_value(env, "ALLBERT_HOME")
@@ -1171,6 +1239,51 @@ defmodule Mix.Tasks.Allbert.Test do
     end
   end
 
+  defp release_v047b do
+    env = owned_env("release-v047b", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v047b")
+    File.mkdir_p!(evidence_dir)
+    cleanup_release_v047b_evidence!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v047b_steps, &run_release_v047b_step(&1, env))
+    secret_scan = release_v047b_secret_scan(home)
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v047b",
+      version: "v0.47b",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; tests use fixture traces, catalogs, templates, and local runtime only",
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path =
+      Path.join(evidence_dir, "release-v047b-#{DateTime.to_unix(started_at)}.json")
+
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v047b evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v047b failed; evidence: #{evidence_path}")
+    end
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -1183,6 +1296,41 @@ defmodule Mix.Tasks.Allbert.Test do
     |> Path.join("release-v047-*.json")
     |> Path.wildcard()
     |> Enum.each(&File.rm!/1)
+  end
+
+  defp cleanup_release_v047b_evidence!(evidence_dir) do
+    evidence_dir
+    |> Path.join("release-v047b-*.json")
+    |> Path.wildcard()
+    |> Enum.each(&File.rm!/1)
+  end
+
+  defp run_release_v047b_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args,
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v047b #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
   end
 
   defp run_release_v047_step(step, env) do
@@ -1569,6 +1717,50 @@ defmodule Mix.Tasks.Allbert.Test do
     }
 
     print_output("release.v047 secret_scan", Jason.encode!(result, pretty: true))
+    result
+  end
+
+  defp release_v047b_secret_scan(home) do
+    Enum.each(
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces"),
+        Path.join(home, "drafts"),
+        Path.join(home, "dynamic_plugins/drafts"),
+        Path.join(home, "marketplace"),
+        Path.join(home, "confirmations"),
+        Path.join(home, "traces")
+      ],
+      &File.mkdir_p!/1
+    )
+
+    roots =
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces"),
+        Path.join(home, "drafts"),
+        Path.join(home, "dynamic_plugins/drafts"),
+        Path.join(home, "marketplace"),
+        Path.join(home, "confirmations"),
+        Path.join(home, "traces")
+      ]
+      |> Enum.filter(&File.exists?/1)
+
+    files =
+      roots
+      |> Enum.flat_map(&Path.wildcard(Path.join(&1, "**/*")))
+      |> Enum.filter(&File.regular?/1)
+
+    findings = release_v042_secret_findings(files, home)
+
+    result = %{
+      status: if(findings == [], do: "passed", else: "failed"),
+      scanned_roots: Enum.map(roots, &Path.relative_to(&1, home)),
+      scanned_file_count: length(files),
+      findings: findings
+    }
+
+    print_output("release.v047b secret_scan", Jason.encode!(result, pretty: true))
     result
   end
 
@@ -2299,6 +2491,8 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v044
       mix allbert.test release.v045
       mix allbert.test release.v046
+      mix allbert.test release.v047
+      mix allbert.test release.v047b
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

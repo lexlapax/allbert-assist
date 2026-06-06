@@ -1,10 +1,10 @@
 # Self-Improvement Developer Guide
 
-Status: implemented in v0.47 with v0.47b M1-M4 handoff extensions. This guide
+Status: implemented in v0.47 with v0.47b/`0.47.1` handoff extensions. This guide
 describes the discovery and local draft substrate plus inert capability-gap,
 objective, template-backed, marketplace-backed, and delegate-plugin request
 draft kinds, plus the capability-gap handoff into the existing source-bearing
-dynamic-draft gate. The remaining v0.47b milestone is release/eval closeout.
+dynamic-draft gate.
 
 ## Authority Boundary
 
@@ -180,5 +180,11 @@ mix allbert.test release.v047
 It runs the core, surface, and security-eval fixture suites and writes evidence
 under `<ALLBERT_HOME>/release_evidence/v047/`.
 
-The v0.47b deterministic handoff gate is implemented in M5 as
-`mix allbert.test release.v047b`.
+The v0.47b deterministic handoff gate is:
+
+```sh
+mix allbert.test release.v047b
+```
+
+It runs the handoff core, dynamic gate/loader, and security-eval fixture
+suites and writes evidence under `<ALLBERT_HOME>/release_evidence/v047b/`.

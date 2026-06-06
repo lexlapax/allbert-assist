@@ -1,6 +1,6 @@
 # Operator-Supervised Self-Improvement
 
-Status: implemented in v0.47 with v0.47b M1-M4 handoff extensions. This guide
+Status: implemented in v0.47 with v0.47b/`0.47.1` handoff extensions. This guide
 covers the discovery and local-draft surface plus inert capability-gap,
 objective, template-backed, and marketplace-backed handoff drafts;
 delegate-plugin request drafts, confirmation-gated objective promotion, and
@@ -152,6 +152,14 @@ Expected evidence is written to:
 <ALLBERT_HOME>/release_evidence/v047/release-v047-<timestamp>.json
 ```
 
-The v0.47b handoff release gate lands in M5 as `mix allbert.test release.v047b`;
-M4 focused coverage already verifies the capability-gap dynamic-draft handoff
-and the pre-gate integration block.
+The deterministic v0.47b handoff gate exercises the shipped handoff drafts:
+
+```sh
+mix allbert.test release.v047b
+```
+
+Expected evidence is written to:
+
+```text
+<ALLBERT_HOME>/release_evidence/v047b/release-v047b-<timestamp>.json
+```

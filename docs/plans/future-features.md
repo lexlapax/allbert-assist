@@ -22,7 +22,8 @@ lexical Active Memory retrieval over reviewed `:kept` entries scoped to
 No embeddings; no learned ranking.
 
 v0.47 ships operator-supervised trace-derived draft suggestions. Neither
-v0.39b nor v0.47 trains, distills, or creates a learned system-memory
+v0.39b, v0.47, nor the v0.47b/`0.47.1` handoff draft release trains,
+distills, or creates a learned system-memory
 authority.
 
 Still parked:
@@ -38,8 +39,10 @@ Still parked:
 Status: parked.
 
 v0.47 ships operator-supervised, inert trace-to-skill and trace-to-workflow
-draft suggestions. Drafts remain disabled/untrusted until reviewed and
-confirmed.
+draft suggestions, and v0.47b/`0.47.1` ships supervised handoff drafts for
+templates, marketplace metadata, delegate-plugin requests, capability gaps,
+and objectives. Drafts remain disabled/untrusted or otherwise inert until
+reviewed and routed through the existing confirmed/gated path for their kind.
 
 Still parked:
 
@@ -55,14 +58,15 @@ Status: parked.
 v0.36-v0.38 now define the supervised dynamic capability path: sandbox/gate
 evidence, dynamic action integration, and templated creation. v0.47 ships only
 reviewed delegate facades for memory promotion/update drafts and workflow
-draft writes; objective and handoff draft kinds route to v0.47b.
+draft writes; v0.47b/`0.47.1` ships objective and handoff draft kinds on that
+same supervised path.
 
 Still parked:
 
 - settings, secrets, shell, package-install, confirmation-decision, trust, or
   live workspace/canvas write facades;
 - broader generated-permission ceilings beyond the reviewed v0.47 memory and
-  workflow draft paths and the planned v0.47b handoff draft kinds;
+  workflow draft paths and the shipped v0.47b handoff draft kinds;
 - unsupervised self-recompilation, compiler-loop bootstrapping, or runtime
   mutation outside the v0.36/v0.37/v0.38 review path.
 
@@ -120,7 +124,7 @@ Still parked (the remainder):
   developer) defining a new delegate agent without writing Elixir. This
   must route through the supervised dynamic-capability path
   (v0.36 sandbox/gate, v0.37 gated live integration, v0.38 templates).
-  v0.47b self-improvement may propose an **inert delegate-plugin draft
+  v0.47b self-improvement can propose an **inert delegate-plugin draft
   request** (a developer-shaped plugin scaffold routed through the v0.38
   plugin template and the v0.36/v0.37 gate), but operator no-code authoring
   itself — an operator standing up a live agent without code or the gate

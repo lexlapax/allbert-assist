@@ -233,7 +233,7 @@ defmodule AllbertAssist.Drafts.Promotion do
     compatibility: Allbert v0.47+ operator-confirmed instruction-only local skill.
     metadata:
       allbert.kind: instruction_only
-      allbert.version: "0.47.0"
+      allbert.version: "0.47.1"
       allbert.source: self_improvement
       allbert.source_suggestion_id: #{Map.get(payload, "source_suggestion_id", "unknown")}
       allbert.promoted_by: #{actor(context)}
