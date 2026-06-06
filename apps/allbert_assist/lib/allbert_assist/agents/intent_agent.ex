@@ -309,6 +309,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       fn -> mcp_route(text, normalized) end,
       fn -> plan_build_route(text, normalized) end,
       fn -> marketplace_route(text, normalized) end,
+      fn -> self_improvement_route(text, normalized) end,
       fn -> tool_discovery_route(text, normalized) end,
       fn -> unsupported_resource_workflow_route(text, normalized) end,
       fn -> command_route(normalized, context) end,
@@ -403,6 +404,24 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp tool_discovery_route(text, normalized) do
     if tool_discovery_request?(normalized), do: {:find_tools, tool_discovery_query(text)}
+  end
+
+  defp self_improvement_route(text, normalized) do
+    if self_improvement_enabled?() do
+      cond do
+        normalized == "show self-improvement suggestions" ->
+          {:discover_patterns, %{query: text}}
+
+        String.contains?(normalized, "what could you turn into a skill") ->
+          {:discover_patterns, %{query: text}}
+
+        String.contains?(normalized, "what could you turn into a workflow") ->
+          {:discover_patterns, %{query: text}}
+
+        true ->
+          nil
+      end
+    end
   end
 
   defp marketplace_route(text, normalized) do
@@ -834,6 +853,16 @@ defmodule AllbertAssist.Agents.IntentAgent do
     }
   end
 
+  defp decision_attrs({:discover_patterns, params}, text, context) do
+    %{
+      intent: :discover_patterns,
+      reason: "The prompt asks for self-improvement pattern suggestions.",
+      selected_action: "discover_patterns",
+      trace_metadata: %{source_text: text, discovery_params: params},
+      context: context
+    }
+  end
+
   defp decision_attrs({:preview_plan, params}, text, context) do
     %{
       intent: :plan_preview,
@@ -1251,6 +1280,15 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp run_route({:find_tools, query}, text, context) do
     run_action("find_tools", %{query: query}, text, context)
+  end
+
+  defp run_route({:discover_patterns, params}, text, context) do
+    params =
+      params
+      |> Map.put_new(:user_id, context_value(context, :user_id))
+      |> Map.put_new(:app_id, context_value(context, :active_app))
+
+    run_action("discover_patterns", params, text, context)
   end
 
   defp run_route({:preview_plan, params}, text, context) do
@@ -2648,6 +2686,19 @@ defmodule AllbertAssist.Agents.IntentAgent do
       [query] -> query |> String.trim() |> String.trim_trailing("?")
       _other -> text
     end
+  end
+
+  defp self_improvement_enabled? do
+    case Settings.get("self_improvement.enabled") do
+      {:ok, true} -> true
+      _other -> false
+    end
+  rescue
+    _exception -> false
+  end
+
+  defp context_value(context, key) do
+    Map.get(context, key, Map.get(context, Atom.to_string(key)))
   end
 
   defp memory_text(text) do

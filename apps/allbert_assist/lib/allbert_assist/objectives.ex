@@ -302,12 +302,31 @@ defmodule AllbertAssist.Objectives do
 
   @doc "List recent events for an objective."
   @spec list_events(String.t(), keyword()) :: [Event.t()]
-  def list_events(objective_id, opts \\ []) do
+  @spec list_events(keyword()) :: [Event.t()]
+  def list_events(_objective_id_or_opts, opts \\ [])
+
+  def list_events(objective_id, opts) when is_binary(objective_id) do
     limit = normalize_limit(Keyword.get(opts, :limit), 50, 200)
 
     Event
     |> where([event], event.objective_id == ^objective_id)
     |> order_by([event], desc: event.recorded_at, desc: event.id)
+    |> limit(^limit)
+    |> Repo.all()
+  end
+
+  def list_events(opts, []) when is_list(opts) do
+    limit = normalize_limit(Keyword.get(opts, :limit), 50, 200)
+    user_id = Keyword.get(opts, :user_id)
+    active_app = Keyword.get(opts, :active_app)
+    kind = Keyword.get(opts, :kind)
+
+    Event
+    |> join(:inner, [event], objective in Objective, on: objective.id == event.objective_id)
+    |> maybe_filter_event_user(user_id)
+    |> maybe_filter_event_app(active_app)
+    |> maybe_filter_event_kind(kind)
+    |> order_by([event, _objective], desc: event.recorded_at, desc: event.id)
     |> limit(^limit)
     |> Repo.all()
   end
@@ -336,6 +355,24 @@ defmodule AllbertAssist.Objectives do
 
   defp maybe_filter(query, _field, nil), do: query
   defp maybe_filter(query, field, value), do: where(query, [row], field(row, ^field) == ^value)
+
+  defp maybe_filter_event_user(query, nil), do: query
+
+  defp maybe_filter_event_user(query, user_id) do
+    where(query, [_event, objective], objective.user_id == ^user_id)
+  end
+
+  defp maybe_filter_event_app(query, nil), do: query
+
+  defp maybe_filter_event_app(query, active_app) do
+    where(query, [_event, objective], objective.active_app == ^active_app)
+  end
+
+  defp maybe_filter_event_kind(query, nil), do: query
+
+  defp maybe_filter_event_kind(query, kind) do
+    where(query, [event, _objective], event.kind == ^to_string(kind))
+  end
 
   defp maybe_filter_statuses(query, nil), do: query
 

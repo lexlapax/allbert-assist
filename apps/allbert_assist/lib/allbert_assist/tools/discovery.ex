@@ -307,6 +307,14 @@ defmodule AllbertAssist.Tools.Discovery do
     |> Enum.map(&suggestion_to_map/1)
   end
 
+  @doc "Fetch one operator-review suggestion as an action/UI-safe map."
+  def get_suggestion(suggestion_id) when is_binary(suggestion_id) do
+    case Repo.get(Suggestion, suggestion_id) do
+      %Suggestion{} = suggestion -> {:ok, suggestion_to_map(suggestion)}
+      nil -> {:error, :not_found}
+    end
+  end
+
   @doc "Return an action/UI-safe map for a persisted suggestion."
   def suggestion_to_map(%Suggestion{} = suggestion) do
     %{
