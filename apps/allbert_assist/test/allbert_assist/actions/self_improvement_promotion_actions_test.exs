@@ -6,15 +6,18 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Drafts.Store
   alias AllbertAssist.DynamicPlugins
+  alias AllbertAssist.DynamicPlugins.Codegen.LLM
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.DynamicCodegenFakeProvider
   alias AllbertAssist.Workflows
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_memory_config = Application.get_env(:allbert_assist, AllbertAssist.Memory)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
+    original_llm_config = Application.get_env(:allbert_assist, LLM)
 
     root =
       Path.join(
@@ -25,11 +28,13 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, AllbertAssist.Memory, root: Path.join(root, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
+    Application.put_env(:allbert_assist, LLM, provider: DynamicCodegenFakeProvider)
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
       restore_env(AllbertAssist.Memory, original_memory_config)
       restore_env(Settings, original_settings_config)
+      restore_env(LLM, original_llm_config)
       remove_test_root!(root)
     end)
 
@@ -65,6 +70,12 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
     assert objective.execution_mode == :objective_draft_promotion
     assert objective.confirmation == :required
     assert objective.resumable?
+
+    assert {:ok, capability_gap} = Registry.capability("promote_capability_gap_draft")
+    assert capability_gap.permission == :dynamic_codegen_request
+    assert capability_gap.execution_mode == :dynamic_codegen
+    assert capability_gap.confirmation == :not_required
+    refute capability_gap.resumable?
   end
 
   test "memory draft facade writes draft state only", %{root: root} do
@@ -239,6 +250,49 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
     assert promoted.promotion["objective_id"] == objective_id
   end
 
+  test "capability-gap promotion requests a dynamic draft and integration waits for gate" do
+    enable_dynamic_codegen!("local")
+
+    assert {:ok, draft} =
+             Store.create_capability_gap_draft(%{
+               id: "capability_release_health_action",
+               summary: "Need a read-only action that formats release health evidence.",
+               requested_capability:
+                 "Generate a read-only action that formats release health evidence.",
+               target_shapes: ["action"],
+               source: "self_improvement",
+               confidence: 0.84
+             })
+
+    assert {:ok, response} =
+             Runner.run("promote_capability_gap_draft", %{id: draft.id}, context())
+
+    assert response.status == :completed
+    assert response.dynamic_draft.producer == "codegen_llm"
+    assert response.dynamic_draft.tier == "draft"
+    assert response.dynamic_draft.gate_status == "not_run"
+    assert response.result.target == "dynamic_codegen_draft"
+
+    assert {:ok, dynamic_draft} = DynamicPlugins.get_draft(response.dynamic_draft.slug)
+    assert dynamic_draft.gate["status"] == "not_run"
+
+    assert {:ok, promoted} = Store.show_draft(draft.id, kind: "capability_gap")
+    assert promoted.tier == "promoted"
+    assert promoted.promotion["target"] == "dynamic_codegen_draft"
+    assert promoted.promotion["dynamic_draft_slug"] == response.dynamic_draft.slug
+
+    assert {:ok, blocked} =
+             Runner.run(
+               "integrate_dynamic_draft",
+               %{slug: response.dynamic_draft.slug},
+               context()
+             )
+
+    assert blocked.status == :denied
+    assert {:dynamic_draft_gate_required, _metadata} = blocked.error
+    assert is_nil(response.dynamic_draft.integration_confirmation_id)
+  end
+
   defp context do
     %{actor: "operator", user_id: "operator", channel: :test, surface: "test"}
   end
@@ -254,6 +308,16 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
              Settings.put("dynamic_codegen.live_loader_enabled", true, %{audit?: false})
 
     assert {:ok, _setting} = Settings.put("sandbox.elixir.enabled", true, %{audit?: false})
+  end
+
+  defp enable_dynamic_codegen!(profile) do
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "dynamic_codegen" => %{
+                 "enabled" => true,
+                 "provider_profile" => profile
+               }
+             })
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

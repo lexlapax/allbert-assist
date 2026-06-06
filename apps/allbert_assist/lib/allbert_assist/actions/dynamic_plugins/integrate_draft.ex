@@ -33,6 +33,8 @@ defmodule AllbertAssist.Actions.DynamicPlugins.IntegrateDraft do
   alias AllbertAssist.DynamicPlugins.MetadataStore
   alias AllbertAssist.Security.PermissionGate
 
+  @gate_passed_statuses ~w[completed passed]
+
   @impl true
   def run(params, context) when is_map(params) do
     permission_decision = PermissionGate.authorize(:dynamic_integration, context)
@@ -78,6 +80,7 @@ defmodule AllbertAssist.Actions.DynamicPlugins.IntegrateDraft do
 
   defp create_confirmation(slug, context, permission_decision) do
     with {:ok, draft} <- MetadataStore.get_draft(slug),
+         :ok <- ensure_gate_passed(draft),
          {:ok, confirmation} <-
            Confirmations.create(confirmation_attrs(draft, context, permission_decision)),
          {:ok, draft} <- cache_confirmation(draft, confirmation) do
@@ -97,6 +100,21 @@ defmodule AllbertAssist.Actions.DynamicPlugins.IntegrateDraft do
       {:error, reason} ->
         failed(permission_decision, reason)
     end
+  end
+
+  defp ensure_gate_passed(%Draft{tier: "gate_passed", gate: %{"status" => status}})
+       when status in @gate_passed_statuses,
+       do: :ok
+
+  defp ensure_gate_passed(%Draft{} = draft) do
+    {:error,
+     {:dynamic_draft_gate_required,
+      %{
+        tier: draft.tier,
+        gate_status: Map.get(draft.gate, "status"),
+        slug: draft.slug,
+        revision: draft.revision
+      }}}
   end
 
   defp confirmation_attrs(draft, context, permission_decision) do

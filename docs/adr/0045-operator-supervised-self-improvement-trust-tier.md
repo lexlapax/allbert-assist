@@ -2,7 +2,8 @@
 
 Status: Accepted as the v0.47/v0.47b implementation contract. The v0.47
 discovery and local-draft half is implemented; v0.47b handoff amendments were
-accepted in M1 and implementation remains in progress.
+accepted in M1, M1-M4 are implemented, and release/eval closeout remains in
+progress.
 
 ## Context
 
@@ -139,14 +140,15 @@ delegate-agent authoring stays parked.
 ### A6. Code-bearing drafts reuse the v0.36/v0.37 path unchanged (v0.47b)
 
 Status: accepted in v0.47b M1; capability-gap draft storage landed in M1,
-template-backed dynamic draft handoff landed in M2, and the gate/loader handoff
-lands in M4.
+template-backed dynamic draft handoff landed in M2, and the capability-gap
+dynamic-draft handoff plus pre-integration gate guard landed in M4.
 
 Capability-gap and template-backed code drafts route through
 `DynamicPlugins.request_draft/2` → `Sandbox.run_gate/2` →
 `Loader.integrate/2`, with `TrustedValidator` and `Loader.rollback/3`. v0.47b
 adds no new sandbox, gate, or loader; live authority appears only after gate
-evidence plus operator confirmation.
+evidence plus operator confirmation, and an integration confirmation is not
+created for ungated dynamic drafts.
 
 ### A7. Objective drafts are declarative (v0.47b)
 
