@@ -62,6 +62,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     promote_skill_draft
     promote_workflow_draft
     promote_memory_draft
+    promote_objective_draft
   ]
 
   @mcp_action_names ~w[

@@ -9,6 +9,7 @@ defmodule AllbertAssist.Drafts.Promotion do
   alias AllbertAssist.Drafts.Store
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Entry
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings.YamlCodec
   alias AllbertAssist.Skills
@@ -99,6 +100,35 @@ defmodule AllbertAssist.Drafts.Promotion do
     end
   end
 
+  @doc "Promote an objective draft by framing it through the v0.24 objective facade."
+  @spec promote_objective(String.t(), map()) ::
+          {:ok,
+           %{
+             required(:draft) => map(),
+             required(:objective) => map(),
+             required(:result) => map()
+           }}
+          | {:error, term()}
+  def promote_objective(id, context \\ %{}) when is_binary(id) and is_map(context) do
+    with {:ok, draft} <- Store.show_draft(id, kind: "objective"),
+         :ok <- require_promotable(draft),
+         %{"objective" => objective_input} <- Map.fetch!(draft, :payload),
+         {:ok, %{objective: objective}} <-
+           Objectives.frame(frame_input(objective_input, context), context),
+         result <- objective_result(objective, context),
+         {:ok, promoted} <-
+           Store.promote_draft(id,
+             kind: "objective",
+             promotion: result
+           ) do
+      {:ok,
+       %{draft: promoted, objective: Objectives.objective_summary(objective), result: result}}
+    else
+      :error -> {:error, :objective_payload_missing}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
   defp show_memory_draft(id) do
     case Store.show_draft(id, kind: "memory_promotion") do
       {:ok, draft} -> {:ok, draft}
@@ -158,6 +188,35 @@ defmodule AllbertAssist.Drafts.Promotion do
     })
   end
 
+  defp frame_input(objective_input, context) when is_map(objective_input) do
+    objective_input
+    |> normalize_objective_constraints()
+    |> Map.put_new("user_id", actor(context))
+    |> put_if_present("thread_id", Map.get(objective_input, "source_thread_id"))
+    |> put_if_present("text", Map.get(objective_input, "objective"))
+  end
+
+  defp normalize_objective_constraints(%{"constraints" => constraints} = input)
+       when constraints in [nil, "", %{}],
+       do: Map.delete(input, "constraints")
+
+  defp normalize_objective_constraints(%{"constraints" => constraints} = input)
+       when is_map(constraints),
+       do: Map.put(input, "constraints", Jason.encode!(constraints))
+
+  defp normalize_objective_constraints(input), do: input
+
+  defp objective_result(objective, context) do
+    %{
+      target: "objective",
+      objective_id: objective.id,
+      user_id: objective.user_id,
+      title: objective.title,
+      status: objective.status,
+      promoted_by: actor(context)
+    }
+  end
+
   defp memory_category("preferences"), do: :preferences
   defp memory_category("skills"), do: :skills
   defp memory_category("identity"), do: :identity
@@ -193,4 +252,8 @@ defmodule AllbertAssist.Drafts.Promotion do
       Map.get(context, :user_id) || Map.get(context, "user_id") ||
       Map.get(context, :actor) || Map.get(context, "actor") || "local"
   end
+
+  defp put_if_present(map, _key, nil), do: map
+  defp put_if_present(map, _key, ""), do: map
+  defp put_if_present(map, key, value), do: Map.put(map, key, value)
 end

@@ -22,6 +22,7 @@ defmodule AllbertAssist.Tools.Discovery.Suggestion do
     memory_update
     template_backed
     marketplace_backed
+    delegate_plugin_request
     capability_gap
     objective
   )
@@ -33,6 +34,7 @@ defmodule AllbertAssist.Tools.Discovery.Suggestion do
     memory_update
     template_backed
     marketplace_backed
+    delegate_plugin_request
     capability_gap
     objective
   )

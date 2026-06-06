@@ -133,6 +133,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "promote_workflow_draft",
              "promote_memory_draft",
              "promote_template_draft",
+             "promote_objective_draft",
              "validate_skill",
              "create_skill",
              "run_skill_script",
@@ -274,6 +275,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "promote_workflow_draft",
              "promote_memory_draft",
              "promote_template_draft",
+             "promote_objective_draft",
              "validate_skill",
              "create_skill",
              "run_skill_script",
@@ -632,6 +634,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert promote_template_draft.permission == :dynamic_codegen_request
     assert promote_template_draft.execution_mode == :template_dynamic_draft
     assert promote_template_draft.confirmation == :not_required
+
+    assert {:ok, promote_objective_draft} = Registry.capability("promote_objective_draft")
+    assert promote_objective_draft.permission == :objective_write
+    assert promote_objective_draft.execution_mode == :objective_draft_promotion
+    assert promote_objective_draft.confirmation == :required
 
     assert {:ok, rollback_dynamic_integration} =
              Registry.capability("rollback_dynamic_integration")

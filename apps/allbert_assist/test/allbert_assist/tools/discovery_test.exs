@@ -187,6 +187,7 @@ defmodule AllbertAssist.Tools.DiscoveryTest do
     for {type, kind} <- [
           {"template_backed", "template_backed"},
           {"marketplace_backed", "marketplace_backed"},
+          {"delegate_plugin_request", "delegate_plugin_request"},
           {"capability_gap", "capability_gap"},
           {"objective", "objective"}
         ] do

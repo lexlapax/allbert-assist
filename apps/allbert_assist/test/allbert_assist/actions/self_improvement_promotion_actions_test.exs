@@ -59,6 +59,12 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
     assert template.execution_mode == :template_dynamic_draft
     assert template.confirmation == :not_required
     refute template.resumable?
+
+    assert {:ok, objective} = Registry.capability("promote_objective_draft")
+    assert objective.permission == :objective_write
+    assert objective.execution_mode == :objective_draft_promotion
+    assert objective.confirmation == :required
+    assert objective.resumable?
   end
 
   test "memory draft facade writes draft state only", %{root: root} do
@@ -187,6 +193,50 @@ defmodule AllbertAssist.Actions.SelfImprovementPromotionActionsTest do
     assert {:ok, unified} = Store.show_draft("code:#{response.dynamic_draft.slug}")
     assert unified.kind == "code"
     assert unified.live_authority == false
+  end
+
+  test "objective draft promotion frames an objective only after confirmation" do
+    assert {:ok, draft} =
+             Store.create_objective_draft(%{
+               id: "objective_confirmed_release_review",
+               summary: "Repeated release review should become an objective.",
+               title: "Review release handoff",
+               objective: "Review the v0.47b release handoff before tagging.",
+               acceptance_criteria: %{"docs_checked" => true},
+               user_id: "operator",
+               active_app: "workspace",
+               source_thread_id: "thread-release"
+             })
+
+    assert {:ok, []} = AllbertAssist.Objectives.list("operator")
+
+    assert {:ok, pending} = Runner.run("promote_objective_draft", %{id: draft.id}, context())
+    assert pending.status == :needs_confirmation
+    assert {:ok, []} = AllbertAssist.Objectives.list("operator")
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending.confirmation_id, reason: "fixture approval"},
+               context()
+             )
+
+    assert approved.status == :completed
+    assert approved.confirmation["status"] == "approved"
+    assert approved.confirmation["operator_resolution"]["target_resumed?"]
+
+    assert %{"objective_id" => objective_id} =
+             approved.confirmation["operator_resolution"]["target_result"]
+
+    assert {:ok, [objective]} = AllbertAssist.Objectives.list("operator")
+    assert objective.id == objective_id
+    assert objective.title == "Review release handoff"
+    assert objective.source_thread_id == "thread-release"
+
+    assert {:ok, promoted} = Store.show_draft(draft.id, kind: "objective")
+    assert promoted.tier == "promoted"
+    assert promoted.promotion["target"] == "objective"
+    assert promoted.promotion["objective_id"] == objective_id
   end
 
   defp context do

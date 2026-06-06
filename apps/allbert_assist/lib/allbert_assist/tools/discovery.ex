@@ -36,6 +36,7 @@ defmodule AllbertAssist.Tools.Discovery do
     memory_update
     template_backed
     marketplace_backed
+    delegate_plugin_request
     capability_gap
     objective
   )
