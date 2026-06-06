@@ -54,9 +54,9 @@ as:
 - `what could you turn into a skill`
 - `what could you turn into a workflow`
 
-The routed action is `discover_patterns`. It reads the trace index, objective
-events, and reviewed memory counts, then writes only advisory suggestions to
-the passive discovery queue. It does not enable a skill, create live workflow
+The routed action is `discover_patterns`. It converts trace-index patterns into
+advisory suggestions and reports objective events plus reviewed memory counts
+as diagnostics/source context. It does not enable a skill, create live workflow
 YAML, write memory, change settings, install packages, load code, or create a
 confirmation.
 
@@ -67,11 +67,13 @@ mix allbert.self_improvement list
 mix allbert.self_improvement inspect <suggestion_id>
 ```
 
-Expected v0.47 suggestion kinds are `trace_to_skill`, `trace_to_workflow`,
-`memory_promotion`, and `memory_update`. v0.47b adds `capability_gap`,
-`objective`, `template_backed`, `marketplace_backed`, and
-`delegate_plugin_request` so far. All self-improvement suggestions have
-`provenance: "self_improvement"` and no MCP candidate id.
+Current `discover_patterns` output is trace-derived and emits local v0.47
+kinds: `trace_to_skill`, `trace_to_workflow`, and `memory_update`. The
+v0.47/v0.47b suggestion lifecycle also supports `memory_promotion`,
+`capability_gap`, `objective`, `template_backed`, `marketplace_backed`, and
+`delegate_plugin_request` rows when those reviewed handoff suggestions are
+present. All self-improvement suggestions have `provenance: "self_improvement"`
+and no MCP candidate id.
 
 ## Review Drafts
 

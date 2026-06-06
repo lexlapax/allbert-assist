@@ -4,6 +4,8 @@ defmodule AllbertAssist.Actions.SelfImprovementActionsTest do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Memory
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Tools.Discovery
@@ -82,6 +84,113 @@ defmodule AllbertAssist.Actions.SelfImprovementActionsTest do
                suggestion.status == "pending" and
                suggestion.draft_id == nil
            end)
+  end
+
+  test "discover_patterns reports memory and objective sources as diagnostics only", %{
+    root: root
+  } do
+    enable_self_improvement()
+
+    for index <- 1..3 do
+      write_trace(root, "diagnostic-release-plan-#{index}.md", %{
+        user_id: "alice",
+        app_id: "workspace",
+        input: "Summarize this diagnostic release plan",
+        action: "browser_extract"
+      })
+    end
+
+    assert {:ok, kept} =
+             Memory.append(%{
+               category: :notes,
+               summary: "Release summaries should stay concise.",
+               body: "Release summaries should stay concise.",
+               actor: "alice",
+               agent: "test",
+               channel: "test",
+               source_signal_id: "test"
+             })
+
+    assert {:ok, flagged} =
+             Memory.append(%{
+               category: :notes,
+               summary: "Old release summaries were too broad.",
+               body: "Old release summaries were too broad.",
+               actor: "alice",
+               agent: "test",
+               channel: "test",
+               source_signal_id: "test"
+             })
+
+    assert {:ok, _kept} =
+             Memory.review_entry(kept.path, %{status: :kept, reviewed_by: "alice"},
+               user_id: "alice"
+             )
+
+    assert {:ok, _flagged} =
+             Memory.review_entry(flagged.path, %{status: :flagged, reviewed_by: "alice"},
+               user_id: "alice"
+             )
+
+    assert {:ok, objective} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               active_app: "workspace",
+               title: "Review diagnostic release plan",
+               objective: "Review diagnostic release plan evidence."
+             })
+
+    assert {:ok, _event} =
+             Objectives.create_event(%{
+               objective_id: objective.id,
+               kind: "observed",
+               summary: "Observed a repeatable release-review shape."
+             })
+
+    context = %{actor: "alice", user_id: "alice", channel: :test, active_app: "workspace"}
+
+    assert {:ok, response} =
+             Runner.run(
+               "discover_patterns",
+               %{query: "show self-improvement suggestions"},
+               context
+             )
+
+    assert response.status == :completed
+    assert response.sources.memory_review == %{flagged: 1, kept: 1}
+    assert response.sources.objective_events == 1
+
+    assert Enum.any?(
+             response.diagnostics,
+             &(&1.source == :memory_review and &1.review_status == :kept and &1.count == 1)
+           )
+
+    assert Enum.any?(
+             response.diagnostics,
+             &(&1.source == :objective_events and &1.status == :observed and &1.count == 1)
+           )
+
+    persisted = Discovery.list_suggestions(status: "pending", provenance: "self_improvement")
+    suggestion_types = MapSet.new(persisted, & &1.suggestion_type)
+
+    assert MapSet.member?(suggestion_types, "trace_to_skill")
+    assert MapSet.member?(suggestion_types, "trace_to_workflow")
+
+    assert MapSet.subset?(
+             suggestion_types,
+             MapSet.new(["trace_to_skill", "trace_to_workflow", "memory_update"])
+           )
+
+    assert MapSet.disjoint?(
+             suggestion_types,
+             MapSet.new([
+               "capability_gap",
+               "objective",
+               "template_backed",
+               "marketplace_backed",
+               "delegate_plugin_request"
+             ])
+           )
   end
 
   defp enable_self_improvement do
