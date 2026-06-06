@@ -149,6 +149,8 @@ defmodule AllbertAssist.Settings do
       provider_api_key_ref: api_key_ref,
       model: Map.get(attrs, "model"),
       aliases: Map.get(attrs, "aliases", []),
+      capabilities: Map.get(attrs, "capabilities", []),
+      media: Map.get(attrs, "media", %{}),
       temperature: Map.get(attrs, "temperature"),
       max_tokens: Map.get(attrs, "max_tokens"),
       timeout_ms: Map.get(attrs, "timeout_ms"),

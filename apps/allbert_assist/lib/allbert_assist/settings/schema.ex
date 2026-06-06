@@ -77,6 +77,8 @@ defmodule AllbertAssist.Settings.Schema do
     "model_profiles.*.provider",
     "model_profiles.*.model",
     "model_profiles.*.aliases",
+    "model_profiles.*.capabilities",
+    "model_profiles.*.media",
     "model_profiles.*.temperature",
     "model_profiles.*.max_tokens",
     "model_profiles.*.timeout_ms",
@@ -2167,6 +2169,7 @@ defmodule AllbertAssist.Settings.Schema do
         "anthropic",
         "openrouter",
         "google",
+        "fake_voice",
         "local"
       ]
     },
@@ -2183,6 +2186,8 @@ defmodule AllbertAssist.Settings.Schema do
     "provider" => %{type: :provider_ref},
     "model" => %{type: :string},
     "aliases" => %{type: :string_list},
+    "capabilities" => %{type: :model_capabilities},
+    "media" => %{type: :model_media},
     "temperature" => %{type: :temperature},
     "max_tokens" => %{type: :positive_integer},
     "timeout_ms" => %{type: :timeout_ms}
@@ -3175,6 +3180,12 @@ defmodule AllbertAssist.Settings.Schema do
   defp validate_value(%{type: :string_list}, value, _key, _settings),
     do: {:error, {:expected_string_list, value}}
 
+  defp validate_value(%{type: :model_capabilities}, value, _key, _settings),
+    do: ProviderCatalog.validate_capabilities(value)
+
+  defp validate_value(%{type: :model_media}, value, _key, _settings),
+    do: ProviderCatalog.validate_media(value)
+
   defp validate_value(%{type: :http_methods}, value, _key, _settings) when is_list(value) do
     allowed = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]
 
@@ -3727,7 +3738,7 @@ defmodule AllbertAssist.Settings.Schema do
   defp wildcard_known_key?(key) do
     Regex.match?(~r/^providers\.[^.]+\.(type|enabled|endpoint_kind|base_url|api_key_ref)$/, key) ||
       Regex.match?(
-        ~r/^model_profiles\.[^.]+\.(provider|model|aliases|temperature|max_tokens|timeout_ms)$/,
+        ~r/^model_profiles\.[^.]+\.(provider|model|aliases|capabilities|media|temperature|max_tokens|timeout_ms)$/,
         key
       ) ||
       Regex.match?(

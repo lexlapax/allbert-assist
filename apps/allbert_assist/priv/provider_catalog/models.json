@@ -44,12 +44,24 @@
       "api_key_ref": "secret://providers/gemini/api_key",
       "endpoint_kind": "credentialed_remote",
       "enabled": false
+    },
+    "fake_voice": {
+      "type": "fake_voice",
+      "api_key_ref": null,
+      "endpoint_kind": "local_endpoint",
+      "enabled": true
     }
   },
   "model_profiles": {
     "local": {
       "provider": "local_ollama",
       "model": "llama3.2:3b",
+      "capabilities": ["text_generation"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["text"],
+        "deployment_mode": "local_endpoint"
+      },
       "temperature": 0.2,
       "max_tokens": 1024,
       "timeout_ms": 30000
@@ -58,6 +70,12 @@
       "provider": "local_ollama",
       "model": "qwen2.5-coder:7b",
       "aliases": ["qwen2.5-coder"],
+      "capabilities": ["text_generation"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["text"],
+        "deployment_mode": "local_endpoint"
+      },
       "temperature": 0.1,
       "max_tokens": 4096,
       "timeout_ms": 60000
@@ -65,6 +83,12 @@
     "fast": {
       "provider": "openai",
       "model": "gpt-4o-mini",
+      "capabilities": ["text_generation"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["text"],
+        "deployment_mode": "remote_credentialed"
+      },
       "temperature": 0.2,
       "max_tokens": 1024,
       "timeout_ms": 30000
@@ -72,6 +96,12 @@
     "gpt": {
       "provider": "openai",
       "model": "gpt-4o-mini",
+      "capabilities": ["text_generation"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["text"],
+        "deployment_mode": "remote_credentialed"
+      },
       "temperature": 0.2,
       "max_tokens": 1024,
       "timeout_ms": 30000
@@ -80,6 +110,12 @@
       "provider": "anthropic",
       "model": "claude-haiku-4-5-20251001",
       "aliases": ["claude-haiku-4-5"],
+      "capabilities": ["text_generation"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["text"],
+        "deployment_mode": "remote_credentialed"
+      },
       "temperature": 0.2,
       "max_tokens": 4096,
       "timeout_ms": 45000
@@ -87,6 +123,12 @@
     "capable": {
       "provider": "anthropic",
       "model": "claude-sonnet-4-6",
+      "capabilities": ["text_generation"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["text"],
+        "deployment_mode": "remote_credentialed"
+      },
       "temperature": 0.2,
       "max_tokens": 4096,
       "timeout_ms": 45000
@@ -94,6 +136,12 @@
     "slow": {
       "provider": "anthropic",
       "model": "claude-sonnet-4-6",
+      "capabilities": ["text_generation"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["text"],
+        "deployment_mode": "remote_credentialed"
+      },
       "temperature": 0.1,
       "max_tokens": 4096,
       "timeout_ms": 60000
@@ -101,6 +149,12 @@
     "thinking": {
       "provider": "anthropic",
       "model": "claude-opus-4-8",
+      "capabilities": ["text_generation"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["text"],
+        "deployment_mode": "remote_credentialed"
+      },
       "temperature": 0.1,
       "max_tokens": 4096,
       "timeout_ms": 60000
@@ -108,6 +162,12 @@
     "coding": {
       "provider": "gemini",
       "model": "gemini-3.5-flash",
+      "capabilities": ["text_generation"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["text"],
+        "deployment_mode": "remote_credentialed"
+      },
       "temperature": 0.1,
       "max_tokens": 8192,
       "timeout_ms": 60000
@@ -115,9 +175,51 @@
     "openrouter_fast": {
       "provider": "openrouter",
       "model": "openai/gpt-4o-mini",
+      "capabilities": ["text_generation"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["text"],
+        "deployment_mode": "remote_credentialed"
+      },
       "temperature": 0.2,
       "max_tokens": 4096,
       "timeout_ms": 45000
+    },
+    "voice_stt_fake": {
+      "provider": "fake_voice",
+      "model": "fake-stt-v1",
+      "capabilities": ["speech_to_text"],
+      "media": {
+        "input_modalities": ["audio"],
+        "output_modalities": ["text"],
+        "transport_modes": ["request_file"],
+        "deployment_mode": "fake",
+        "audio_formats_supported": ["wav", "mp3", "m4a", "ogg", "webm"],
+        "audio_sample_rates_supported": [16000, 44100, 48000],
+        "max_audio_bytes": 10485760,
+        "max_audio_duration_ms": 300000
+      },
+      "temperature": 0.0,
+      "max_tokens": 1024,
+      "timeout_ms": 30000
+    },
+    "voice_tts_fake": {
+      "provider": "fake_voice",
+      "model": "fake-tts-v1",
+      "capabilities": ["text_to_speech"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["audio"],
+        "transport_modes": ["request_file"],
+        "deployment_mode": "fake",
+        "audio_formats_supported": ["wav", "mp3"],
+        "audio_sample_rates_supported": [16000, 24000, 48000],
+        "max_audio_bytes": 10485760,
+        "max_audio_duration_ms": 300000
+      },
+      "temperature": 0.0,
+      "max_tokens": 1024,
+      "timeout_ms": 30000
     }
   }
 }

@@ -154,6 +154,18 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, ["claude-haiku-4-5"]} =
              Settings.get("model_profiles.anthropic_fast.aliases")
 
+    assert {:ok, ["text_generation"]} =
+             Settings.get("model_profiles.anthropic_fast.capabilities")
+
+    assert {:ok, %{"deployment_mode" => "remote_credentialed"}} =
+             Settings.get("model_profiles.anthropic_fast.media")
+
+    assert {:ok, ["speech_to_text"]} =
+             Settings.get("model_profiles.voice_stt_fake.capabilities")
+
+    assert {:ok, %{"input_modalities" => ["audio"], "output_modalities" => ["text"]}} =
+             Settings.get("model_profiles.voice_stt_fake.media")
+
     assert ProviderCatalog.equivalent_model_ids("anthropic", "claude-haiku-4-5") == [
              "claude-haiku-4-5",
              "claude-haiku-4-5-20251001"
@@ -170,6 +182,8 @@ defmodule AllbertAssist.SettingsTest do
     assert catalog_aliases.capable == "anthropic:claude-sonnet-4-6"
     assert catalog_aliases.slow == "anthropic:claude-sonnet-4-6"
     assert catalog_aliases.thinking == "anthropic:claude-opus-4-8"
+    refute Map.has_key?(catalog_aliases, :voice_stt_fake)
+    refute Map.has_key?(catalog_aliases, :voice_tts_fake)
 
     assert Application.fetch_env!(:jido_ai, :model_aliases) == catalog_aliases
     assert Jido.AI.resolve_model(:local) == "openai:llama3.2:3b"
@@ -1449,17 +1463,22 @@ defmodule AllbertAssist.SettingsTest do
     assert Enum.any?(providers, &(&1.name == "anthropic" and &1.credential_status == :missing))
     assert Enum.any?(providers, &(&1.name == "openrouter" and &1.credential_status == :missing))
     assert Enum.any?(providers, &(&1.name == "gemini" and &1.type == "google"))
+    assert Enum.any?(providers, &(&1.name == "fake_voice" and &1.type == "fake_voice"))
 
     assert {:ok, local} = Settings.resolve_model_profile("local")
     assert local.provider == "local_ollama"
     assert local.provider_endpoint_kind == "local_endpoint"
     assert local.model == "llama3.2:3b"
+    assert local.capabilities == ["text_generation"]
+    assert local.media["deployment_mode"] == "local_endpoint"
 
     assert {:ok, profile} = Settings.resolve_model_profile("fast")
     assert profile.provider == "openai"
     assert profile.provider_endpoint_kind == "credentialed_remote"
     assert profile.credential_status == :missing
     assert profile.max_tokens >= 16
+    assert profile.capabilities == ["text_generation"]
+    assert profile.media["deployment_mode"] == "remote_credentialed"
     refute Map.has_key?(profile, :api_key)
 
     assert {:error,
@@ -1485,7 +1504,17 @@ defmodule AllbertAssist.SettingsTest do
     assert coding_local.model == "qwen2.5-coder:7b"
     assert coding_local.aliases == ["qwen2.5-coder"]
 
+    assert {:ok, voice_stt} = Settings.resolve_model_profile("voice_stt_fake")
+    assert voice_stt.provider == "fake_voice"
+    assert voice_stt.provider_type == "fake_voice"
+    assert voice_stt.provider_endpoint_kind == "local_endpoint"
+    assert voice_stt.capabilities == ["speech_to_text"]
+    assert voice_stt.media["input_modalities"] == ["audio"]
+    assert voice_stt.media["output_modalities"] == ["text"]
+
     assert "providers.*.endpoint_kind" in Settings.safe_write_keys()
+    assert "model_profiles.*.capabilities" in Settings.safe_write_keys()
+    assert "model_profiles.*.media" in Settings.safe_write_keys()
 
     assert {:ok, setting} =
              Settings.put("providers.local_ollama.endpoint_kind", "credentialed_remote", %{
@@ -1493,6 +1522,38 @@ defmodule AllbertAssist.SettingsTest do
              })
 
     assert setting.value == "credentialed_remote"
+
+    assert {:ok, capabilities} =
+             Settings.put(
+               "model_profiles.fast.capabilities",
+               ["text_generation", "token_streaming"],
+               %{
+                 audit?: false
+               }
+             )
+
+    assert capabilities.value == ["text_generation", "token_streaming"]
+
+    assert {:ok, media} =
+             Settings.put(
+               "model_profiles.fast.media",
+               %{
+                 "input_modalities" => ["text"],
+                 "output_modalities" => ["text"],
+                 "deployment_mode" => "remote_credentialed"
+               },
+               %{audit?: false}
+             )
+
+    assert media.value["deployment_mode"] == "remote_credentialed"
+
+    assert {:error, {:invalid_setting, "model_profiles.fast.capabilities", _reason}} =
+             Settings.put("model_profiles.fast.capabilities", ["shell_execute"], %{audit?: false})
+
+    assert {:error, {:invalid_setting, "model_profiles.fast.media", _reason}} =
+             Settings.put("model_profiles.fast.media", %{"permission" => "allowed"}, %{
+               audit?: false
+             })
   end
 
   test "model runtime passes Settings Central credentials as per-request ReqLLM options" do

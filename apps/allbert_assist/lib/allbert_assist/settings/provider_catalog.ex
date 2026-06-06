@@ -10,15 +10,103 @@ defmodule AllbertAssist.Settings.ProviderCatalog do
   @catalog_path Path.expand("../../../priv/provider_catalog/models.json", __DIR__)
   @external_resource @catalog_path
   @catalog @catalog_path |> File.read!() |> Jason.decode!()
+  @known_capabilities ~w[
+    text_generation
+    speech_to_text
+    text_to_speech
+    vision_input
+    image_generation
+    video_input
+    token_streaming
+    embeddings
+    tool_use
+  ]
+  @known_media_modalities ~w[text audio image video]
+  @known_media_transport_modes ~w[
+    request_file
+    live_upload
+    realtime_session
+    local_endpoint
+    bundled_local
+  ]
+  @known_media_deployment_modes ~w[
+    fake
+    local_endpoint
+    bundled_local
+    remote_credentialed
+  ]
+  @allowed_media_keys ~w[
+    input_modalities
+    output_modalities
+    transport_modes
+    deployment_mode
+    audio_formats_supported
+    audio_sample_rates_supported
+    max_audio_bytes
+    max_audio_duration_ms
+  ]
 
   @doc "Return the shipped provider catalog."
   def catalog, do: @catalog
+
+  @doc "Return the supported model/profile capability vocabulary."
+  def known_capabilities, do: @known_capabilities
+
+  @doc "Return the supported media modality vocabulary."
+  def known_media_modalities, do: @known_media_modalities
+
+  @doc "Return the supported provider transport mode vocabulary."
+  def known_media_transport_modes, do: @known_media_transport_modes
+
+  @doc "Return the supported deployment mode vocabulary."
+  def known_media_deployment_modes, do: @known_media_deployment_modes
 
   @doc "Return Settings Central provider defaults from the shipped catalog."
   def providers, do: map_section!("providers")
 
   @doc "Return Settings Central model-profile defaults from the shipped catalog."
   def model_profiles, do: map_section!("model_profiles")
+
+  @doc "Validate model-profile capabilities against the v0.48 vocabulary."
+  def validate_capabilities(capabilities) when is_list(capabilities) do
+    cond do
+      capabilities == [] ->
+        {:error, :empty_capabilities}
+
+      Enum.all?(capabilities, &(&1 in @known_capabilities)) ->
+        :ok
+
+      true ->
+        {:error, {:unknown_capability, Enum.reject(capabilities, &(&1 in @known_capabilities))}}
+    end
+  end
+
+  def validate_capabilities(value), do: {:error, {:expected_capability_list, value}}
+
+  @doc "Validate optional model-profile media metadata against the v0.48 vocabulary."
+  def validate_media(media) when is_map(media) do
+    Enum.reduce_while(media, :ok, fn {field, value}, :ok ->
+      case validate_media_field(field, value) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  def validate_media(value), do: {:error, {:expected_media_map, value}}
+
+  @doc "Validate the shipped provider catalog's profile capability metadata."
+  def validate_catalog do
+    providers = providers()
+
+    model_profiles()
+    |> Enum.reduce_while(:ok, fn {name, profile}, :ok ->
+      case validate_catalog_profile(name, profile, providers) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
 
   @doc "Return Jido.AI model aliases generated from shipped model profiles."
   def jido_model_aliases do
@@ -70,6 +158,124 @@ defmodule AllbertAssist.Settings.ProviderCatalog do
       section when is_map(section) -> section
     end
   end
+
+  defp validate_catalog_profile(name, profile, providers) when is_map(profile) do
+    with :ok <- validate_catalog_profile_provider(name, profile, providers),
+         :ok <- validate_catalog_profile_model(name, profile),
+         :ok <- validate_catalog_profile_capabilities(name, profile) do
+      validate_catalog_profile_media(name, profile)
+    end
+  end
+
+  defp validate_catalog_profile(name, profile, _providers),
+    do: {:error, {:invalid_catalog_profile, name, {:expected_map, profile}}}
+
+  defp validate_catalog_profile_provider(name, profile, providers) do
+    provider = Map.get(profile, "provider")
+
+    if is_binary(provider) and Map.has_key?(providers, provider) do
+      :ok
+    else
+      {:error, {:invalid_catalog_profile, name, {:unknown_provider, provider}}}
+    end
+  end
+
+  defp validate_catalog_profile_model(name, profile) do
+    case Map.get(profile, "model") do
+      model when is_binary(model) and model != "" ->
+        :ok
+
+      model ->
+        {:error, {:invalid_catalog_profile, name, {:invalid_model, model}}}
+    end
+  end
+
+  defp validate_catalog_profile_capabilities(name, profile) do
+    case validate_capabilities(Map.get(profile, "capabilities")) do
+      :ok -> :ok
+      {:error, reason} -> {:error, {:invalid_catalog_profile, name, {:capabilities, reason}}}
+    end
+  end
+
+  defp validate_catalog_profile_media(name, profile) do
+    case validate_media(Map.get(profile, "media", %{})) do
+      :ok -> :ok
+      {:error, reason} -> {:error, {:invalid_catalog_profile, name, {:media, reason}}}
+    end
+  end
+
+  defp validate_media_field(field, _value) when field not in @allowed_media_keys,
+    do: {:error, {:unknown_media_field, field}}
+
+  defp validate_media_field(field, value)
+       when field in ["input_modalities", "output_modalities"] do
+    validate_known_string_list(field, value, @known_media_modalities)
+  end
+
+  defp validate_media_field("transport_modes", value) do
+    validate_known_string_list("transport_modes", value, @known_media_transport_modes)
+  end
+
+  defp validate_media_field("deployment_mode", value) do
+    if value in @known_media_deployment_modes do
+      :ok
+    else
+      {:error, {:invalid_deployment_mode, value}}
+    end
+  end
+
+  defp validate_media_field("audio_formats_supported", value) when is_list(value) do
+    if value != [] and Enum.all?(value, &valid_audio_format?/1) do
+      :ok
+    else
+      {:error, {:invalid_audio_formats_supported, value}}
+    end
+  end
+
+  defp validate_media_field("audio_formats_supported", value),
+    do: {:error, {:expected_string_list, value}}
+
+  defp validate_media_field("audio_sample_rates_supported", value) when is_list(value) do
+    if value != [] and Enum.all?(value, &valid_audio_sample_rate?/1) do
+      :ok
+    else
+      {:error, {:invalid_audio_sample_rates_supported, value}}
+    end
+  end
+
+  defp validate_media_field("audio_sample_rates_supported", value),
+    do: {:error, {:expected_positive_integer_list, value}}
+
+  defp validate_media_field(field, value)
+       when field in ["max_audio_bytes", "max_audio_duration_ms"] do
+    if is_integer(value) and value > 0 and value <= 536_870_912 do
+      :ok
+    else
+      {:error, {:invalid_positive_integer, field, value}}
+    end
+  end
+
+  defp validate_known_string_list(field, value, allowed) when is_list(value) do
+    if value != [] and Enum.all?(value, &(&1 in allowed)) do
+      :ok
+    else
+      {:error, {:invalid_string_list, field, value}}
+    end
+  end
+
+  defp validate_known_string_list(_field, value, _allowed),
+    do: {:error, {:expected_string_list, value}}
+
+  defp valid_audio_format?(value) when is_binary(value) do
+    Regex.match?(~r/^[a-z0-9][a-z0-9+._-]{0,63}$/, value)
+  end
+
+  defp valid_audio_format?(_value), do: false
+
+  defp valid_audio_sample_rate?(value) when is_integer(value),
+    do: value > 0 and value <= 384_000
+
+  defp valid_audio_sample_rate?(_value), do: false
 
   defp model_matches?(entry, model), do: model in model_ids(entry)
 
