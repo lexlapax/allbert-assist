@@ -2847,11 +2847,12 @@ ADRs: `docs/adr/0051-provider-capability-preferences.md`,
 `docs/adr/0042-audio-image-and-media-resource-classes.md`,
 `docs/adr/0047-provider-doctor-contract.md`
 
-Status: in progress. M1-M4 are implemented: provider capability metadata,
-ranked preferences, capability-aware voice doctors, and the audio
-resource/security substrate. M5-M8 remain planned. Current authority is the
-v0.48 plan/request-flow plus ADR 0051, ADR 0042 audio amendments, and ADR 0047;
-the older archive source is historical context only.
+Status: in progress. M1-M5 are implemented: provider capability metadata,
+ranked preferences, capability-aware voice doctors, the audio
+resource/security substrate, and CLI fake-provider file transcription. M6-M8
+remain planned. Current authority is the v0.48 plan/request-flow plus ADR
+0051, ADR 0042 audio amendments, and ADR 0047; the older archive source is
+historical context only.
 
 Expected direction:
 

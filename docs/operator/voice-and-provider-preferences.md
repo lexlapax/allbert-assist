@@ -2,8 +2,8 @@
 
 Status: in progress for v0.48. Provider capabilities, ranked preferences,
 voice doctor dispatch, and the audio resource/security substrate are
-implemented through M4; CLI/workspace/TTS/channel execution flows remain
-planned for M5-M8.
+implemented through M4; CLI voice file transcription is implemented in M5;
+workspace/TTS/channel execution flows remain planned for M6-M8.
 
 v0.48 makes voice use the same provider framework as text models. The operator
 chooses a primary provider/model profile for most work and can override that
@@ -56,6 +56,7 @@ media upload, or video ingestion.
 CLI voice mode transcribes an audio file or fixture:
 
 ```sh
+mix allbert.settings set voice.enabled true
 mix allbert.ask --voice test/fixtures/audio/hello.wav --trace
 ```
 

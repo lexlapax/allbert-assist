@@ -141,6 +141,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Tools.FindLocalTools
   alias AllbertAssist.Actions.Tools.FindTools
   alias AllbertAssist.Actions.Trace.RecordTrace
+  alias AllbertAssist.Actions.Voice.TranscribeVoice
   alias AllbertAssist.Actions.Workspace.DismissEphemeral
   alias AllbertAssist.Actions.Workspace.ManageTile
   alias AllbertAssist.Actions.Workspace.RecordOfflineUpdate
@@ -241,6 +242,7 @@ defmodule AllbertAssist.Actions.Registry do
     SetActiveApp,
     ClearActiveApp,
     ShowSessionScratchpad,
+    TranscribeVoice,
     RecordTrace,
     ExplainIntent,
     ListIntentCandidates,

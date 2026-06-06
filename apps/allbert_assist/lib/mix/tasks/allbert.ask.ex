@@ -10,10 +10,12 @@ defmodule Mix.Tasks.Allbert.Ask do
       mix allbert.ask --user alice --thread THREAD_ID "continue"
       mix allbert.ask --user alice --session SESSION_ID "hello"
       mix allbert.ask --user alice --active-app stocksage "list my analyses"
+      mix allbert.ask --voice test/fixtures/audio/hello.wav --trace
 
   ## Options
 
     * `--trace` - enable markdown trace recording for this turn
+    * `--voice` - transcribe an explicit local audio file before submitting text
     * `--channel` - channel label to send to the runtime, defaults to `cli`
     * `--user` - canonical local user id, defaults to `local`
     * `--operator` - legacy local operator id alias
@@ -26,6 +28,7 @@ defmodule Mix.Tasks.Allbert.Ask do
   use Mix.Task
 
   alias AllbertAssist.Intent.ApprovalHandoff
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Runtime
   alias AllbertAssist.Session
   alias AllbertAssist.Trace
@@ -39,6 +42,7 @@ defmodule Mix.Tasks.Allbert.Ask do
     thread: :string,
     new_thread: :boolean,
     active_app: :string,
+    voice: :string,
     trace: :boolean
   ]
 
@@ -62,10 +66,11 @@ defmodule Mix.Tasks.Allbert.Ask do
     end
 
     prompt = prompt_parts |> Enum.join(" ") |> String.trim()
+    voice_file = blank_to_nil(opts[:voice])
 
-    if prompt == "" do
+    if prompt == "" and is_nil(voice_file) do
       Mix.raise(
-        "Usage: mix allbert.ask [--trace] [--channel cli] [--user local|--operator local] [--thread THREAD_ID|--new-thread] [--session SESSION_ID] [--active-app APP_ID] \"prompt\""
+        "Usage: mix allbert.ask [--trace] [--voice AUDIO_FILE] [--channel cli] [--user local|--operator local] [--thread THREAD_ID|--new-thread] [--session SESSION_ID] [--active-app APP_ID] \"prompt\""
       )
     end
 
@@ -77,8 +82,11 @@ defmodule Mix.Tasks.Allbert.Ask do
       enable_trace_for_turn()
     end
 
+    voice_result = maybe_transcribe_voice!(voice_file, opts)
+    prompt = prompt_with_voice(prompt, voice_result)
+
     prompt
-    |> submit(opts)
+    |> submit(opts, voice_result)
     |> print_result()
   end
 
@@ -91,7 +99,7 @@ defmodule Mix.Tasks.Allbert.Ask do
     Application.put_env(:allbert_assist, Trace, trace_config)
   end
 
-  defp submit(prompt, opts) do
+  defp submit(prompt, opts, voice_result) do
     %{
       text: prompt,
       channel: opts[:channel] || :cli
@@ -102,6 +110,7 @@ defmodule Mix.Tasks.Allbert.Ask do
     |> maybe_put(:session_id, blank_to_nil(opts[:session]))
     |> maybe_put(:active_app, blank_to_nil(opts[:active_app]))
     |> maybe_put(:new_thread, opts[:new_thread])
+    |> maybe_put(:metadata, voice_request_metadata(voice_result))
     |> Runtime.submit_user_input()
   end
 
@@ -189,6 +198,41 @@ defmodule Mix.Tasks.Allbert.Ask do
   end
 
   defp command_line(_command), do: nil
+
+  defp maybe_transcribe_voice!(nil, _opts), do: nil
+
+  defp maybe_transcribe_voice!(voice_file, opts) do
+    context = %{
+      actor: blank_to_nil(opts[:user]) || blank_to_nil(opts[:operator]) || "local",
+      channel: opts[:channel] || :cli,
+      request: %{
+        channel: opts[:channel] || :cli,
+        operator_id: blank_to_nil(opts[:operator]) || blank_to_nil(opts[:user]) || "local"
+      }
+    }
+
+    case Runner.run("transcribe_voice", %{audio_file: voice_file}, context) do
+      {:ok, %{status: :completed, transcript: transcript} = response}
+      when is_binary(transcript) ->
+        response
+
+      {:ok, response} ->
+        Mix.raise("Voice transcription failed: #{Map.get(response, :message, inspect(response))}")
+    end
+  end
+
+  defp prompt_with_voice(prompt, nil), do: prompt
+
+  defp prompt_with_voice("", %{transcript: transcript}), do: transcript
+
+  defp prompt_with_voice(prompt, %{transcript: transcript}),
+    do: Enum.join([prompt, transcript], "\n\n")
+
+  defp voice_request_metadata(nil), do: nil
+
+  defp voice_request_metadata(%{voice_metadata: voice_metadata}) do
+    %{voice: voice_metadata}
+  end
 
   defp validate_identity!(opts) do
     user = blank_to_nil(opts[:user])
