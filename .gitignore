@@ -25,6 +25,9 @@ erl_crash.dump
 # Local Allbert runtime data.
 /var/allbert/memory/
 
+# OS-generated files (e.g. from macOS Finder, Windows Explorer).
+.DS_Store
+Thumbs.db
 
 # Database files
 *.db

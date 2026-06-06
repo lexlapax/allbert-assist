@@ -21,6 +21,31 @@ defmodule AllbertAssist.Channels.Telegram.Parser do
     end
   end
 
+  def parse_update(%{"update_id" => update_id, "message" => %{"voice" => voice} = message})
+      when is_map(voice) do
+    with {:ok, from_id} <- from_id(message),
+         {:ok, chat_id} <- chat_id(message),
+         {:ok, message_id} <- message_id(message),
+         {:ok, file_id} <- voice_file_id(voice) do
+      {:voice_message,
+       %{
+         external_event_id: to_string(update_id),
+         external_user_id: from_id,
+         external_chat_id: chat_id,
+         external_message_id: message_id,
+         chat_type: get_in(message, ["chat", "type"]),
+         voice_file_id: file_id,
+         voice_file_unique_id: Map.get(voice, "file_unique_id"),
+         voice_duration_seconds: Map.get(voice, "duration"),
+         voice_mime_type: Map.get(voice, "mime_type"),
+         voice_file_size: Map.get(voice, "file_size"),
+         raw_summary: "telegram voice message #{message_id}"
+       }}
+    else
+      {:error, reason} -> {:malformed, reason}
+    end
+  end
+
   def parse_update(%{"update_id" => update_id, "callback_query" => callback}) do
     with {:ok, callback_id} <- callback_id(callback),
          {:ok, from_id} <- from_id(callback),
@@ -60,6 +85,11 @@ defmodule AllbertAssist.Channels.Telegram.Parser do
 
   defp message_id(%{"message_id" => id}), do: {:ok, to_string(id)}
   defp message_id(_message), do: {:error, "missing message_id"}
+
+  defp voice_file_id(%{"file_id" => file_id}) when is_binary(file_id) and file_id != "",
+    do: {:ok, file_id}
+
+  defp voice_file_id(_voice), do: {:error, "missing voice.file_id"}
 
   defp callback_id(%{"id" => id}) when is_binary(id), do: {:ok, id}
   defp callback_id(_callback), do: {:error, "missing callback id"}

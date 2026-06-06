@@ -73,6 +73,19 @@ defmodule AllbertAssist.Channels.TelegramTest do
       assert fields.text == "hello"
     end
 
+    test "parses voice notes" do
+      assert {:voice_message, fields} = Parser.parse_update(voice_update(103))
+      assert fields.external_event_id == "103"
+      assert fields.external_user_id == "123"
+      assert fields.external_chat_id == "456"
+      assert fields.external_message_id == "10"
+      assert fields.voice_file_id == "voice-file-103"
+      assert fields.voice_file_unique_id == "voice-unique-103"
+      assert fields.voice_duration_seconds == 2
+      assert fields.voice_mime_type == "audio/ogg"
+      assert fields.voice_file_size == 16
+    end
+
     test "parses callback queries" do
       assert {:callback_query, fields} = Parser.parse_update(callback_update(101))
       assert fields.external_event_id == "101"
@@ -130,6 +143,33 @@ defmodule AllbertAssist.Channels.TelegramTest do
                Client.answer_callback_query("token", "callback-1", "ok",
                  plug: {Req.Test, __MODULE__}
                )
+    end
+
+    test "gets and downloads Telegram files" do
+      Req.Test.expect(__MODULE__, fn conn ->
+        assert conn.request_path == "/bottoken/getFile"
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        assert Jason.decode!(body)["file_id"] == "voice-file-103"
+
+        json(conn, %{
+          "ok" => true,
+          "result" => %{"file_path" => "voice/hello.ogg", "file_size" => 16}
+        })
+      end)
+
+      assert {:ok, %{"file_path" => "voice/hello.ogg", "file_size" => 16}} =
+               Client.get_file("token", "voice-file-103", plug: {Req.Test, __MODULE__})
+
+      Req.Test.expect(__MODULE__, fn conn ->
+        assert conn.request_path == "/file/bottoken/voice/hello.ogg"
+
+        conn
+        |> Plug.Conn.put_resp_content_type("audio/ogg")
+        |> Plug.Conn.send_resp(200, "voice fixture")
+      end)
+
+      assert {:ok, "voice fixture"} =
+               Client.download_file("token", "voice/hello.ogg", plug: {Req.Test, __MODULE__})
     end
   end
 
@@ -284,6 +324,58 @@ defmodule AllbertAssist.Channels.TelegramTest do
       assert request.metadata.external_chat_id == "456"
     end
 
+    test "mapped voice note downloads, transcribes, and submits text through runtime" do
+      configure_telegram!(identity_map: [%{external_user_id: "123", user_id: "alice"}])
+      enable_voice!()
+      configure_runtime!()
+
+      Req.Test.stub(__MODULE__, fn
+        %{request_path: "/bottoken/getUpdates"} = conn ->
+          json(conn, %{"ok" => true, "result" => [voice_update(230)]})
+
+        %{request_path: "/bottoken/getFile"} = conn ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          assert Jason.decode!(body)["file_id"] == "voice-file-230"
+
+          json(conn, %{
+            "ok" => true,
+            "result" => %{"file_path" => "voice/hello.ogg", "file_size" => 16}
+          })
+
+        %{request_path: "/file/bottoken/voice/hello.ogg"} = conn ->
+          conn
+          |> Plug.Conn.put_resp_content_type("audio/ogg")
+          |> Plug.Conn.send_resp(200, "telegram voice fixture")
+
+        %{request_path: "/bottoken/sendMessage"} = conn ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          decoded = Jason.decode!(body)
+          assert decoded["chat_id"] == "456"
+          assert decoded["text"] =~ "Runtime response: transcribed fixture audio"
+          json(conn, %{"ok" => true, "result" => %{"message_id" => 130}})
+      end)
+
+      server = :"telegram-voice-#{System.unique_integer([:positive])}"
+      start_telegram_server!(server)
+
+      assert {:ok, %{processed: 1, rejected: 0, failed: 0}} = Adapter.poll_once(server)
+
+      event = Channels.get_event_by_external_id("telegram", "230")
+      assert event.status == "processed"
+      assert event.user_id == "alice"
+      assert String.starts_with?(event.session_id, "ch_tg_")
+      assert is_binary(event.thread_id)
+
+      assert_received {:runtime_request, %{channel: "telegram", user_id: "alice"} = request}
+      assert request.text =~ "transcribed fixture audio"
+      assert request.metadata.voice.provider_profile == "voice_stt_fake"
+      assert request.metadata.telegram_voice.file_id == "voice-file-230"
+      assert request.metadata.telegram_voice.file_unique_id == "voice-unique-230"
+      assert request.metadata.telegram_voice.duration_seconds == 2
+      assert request.metadata.telegram_voice.file_size == 16
+      refute inspect(request.metadata) =~ "telegram voice fixture"
+    end
+
     test "confirmation callbacks resolve through registered actions with resolver metadata" do
       configure_telegram!(identity_map: [%{external_user_id: "123", user_id: "alice"}])
       assert {:ok, confirmation} = create_confirmation!("conf_tg_deny", "telegram")
@@ -429,6 +521,10 @@ defmodule AllbertAssist.Channels.TelegramTest do
              Settings.put("channels.telegram.identity_map", identity_map, %{audit?: false})
   end
 
+  defp enable_voice! do
+    assert {:ok, _resolved} = Settings.put("voice.enabled", true, %{audit?: false})
+  end
+
   defp configure_runtime! do
     parent = self()
 
@@ -479,6 +575,24 @@ defmodule AllbertAssist.Channels.TelegramTest do
         "from" => %{"id" => 123},
         "message" => %{"chat" => %{"id" => 456}},
         "data" => data
+      }
+    }
+  end
+
+  defp voice_update(update_id) do
+    %{
+      "update_id" => update_id,
+      "message" => %{
+        "message_id" => 10,
+        "from" => %{"id" => 123},
+        "chat" => %{"id" => 456, "type" => "private"},
+        "voice" => %{
+          "file_id" => "voice-file-#{update_id}",
+          "file_unique_id" => "voice-unique-#{update_id}",
+          "duration" => 2,
+          "mime_type" => "audio/ogg",
+          "file_size" => 16
+        }
       }
     }
   end

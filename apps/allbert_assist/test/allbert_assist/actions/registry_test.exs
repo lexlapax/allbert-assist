@@ -172,6 +172,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "show_session_scratchpad",
              "capture_workspace_voice",
              "transcribe_voice",
+             "synthesize_voice",
              "record_trace",
              "explain_intent",
              "list_intent_candidates",
@@ -248,6 +249,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     refute "security_review" in agent_action_names
     refute "capture_workspace_voice" in agent_action_names
     refute "transcribe_voice" in agent_action_names
+    refute "synthesize_voice" in agent_action_names
     refute "record_trace" in agent_action_names
   end
 
@@ -319,6 +321,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "show_session_scratchpad",
              "capture_workspace_voice",
              "transcribe_voice",
+             "synthesize_voice",
              "record_trace",
              "explain_intent",
              "list_intent_candidates",
@@ -739,6 +742,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert transcribe_voice.permission == :voice_transcribe
     assert transcribe_voice.exposure == :internal
     assert transcribe_voice.execution_mode == :voice_provider_call
+
+    assert {:ok, synthesize_voice} = Registry.capability("synthesize_voice")
+    assert synthesize_voice.permission == :voice_synthesize
+    assert synthesize_voice.exposure == :internal
+    assert synthesize_voice.execution_mode == :voice_provider_call
 
     assert {:error, {:unknown_action, "missing_action"}} = Registry.capability("missing_action")
   end
