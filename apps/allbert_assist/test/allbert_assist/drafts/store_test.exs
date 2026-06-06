@@ -77,6 +77,25 @@ defmodule AllbertAssist.Drafts.StoreTest do
     assert File.regular?(draft.artifact_path)
   end
 
+  test "creates memory promotion drafts without writing live memory" do
+    assert {:ok, draft} =
+             Store.create_memory_draft(%{
+               id: "memory_release_review",
+               kind: "memory_promotion",
+               summary: "Repeated release review memory.",
+               body: "Release review memory is draft-only until confirmed."
+             })
+
+    assert draft.kind == "memory_promotion"
+    assert draft.tier == "draft"
+    assert draft.live_authority == false
+
+    assert draft.payload["memory"]["body"] ==
+             "Release review memory is draft-only until confirmed."
+
+    assert File.regular?(draft.artifact_path)
+  end
+
   test "discard leaves non-code drafts inert and terminal" do
     assert {:ok, draft} =
              Store.create_skill_draft(%{

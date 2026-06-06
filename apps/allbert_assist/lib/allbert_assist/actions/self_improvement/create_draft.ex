@@ -4,7 +4,9 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
   @permission :dynamic_codegen_request
   @supported_types %{
     "trace_to_skill" => "skill",
-    "trace_to_workflow" => "workflow"
+    "trace_to_workflow" => "workflow",
+    "memory_promotion" => "memory_promotion",
+    "memory_update" => "memory_update"
   }
 
   use AllbertAssist.Action,
@@ -91,6 +93,7 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
     case kind do
       "skill" -> Store.create_skill_draft(attrs)
       "workflow" -> Store.create_workflow_draft(attrs)
+      kind when kind in ["memory_promotion", "memory_update"] -> Store.create_memory_draft(attrs)
     end
   end
 
@@ -121,6 +124,9 @@ defmodule AllbertAssist.Actions.SelfImprovement.CreateDraft do
       id: string_param(params, :id),
       kind: kind,
       summary: summary,
+      body: Map.get(metadata, "body", summary),
+      category: Map.get(metadata, "category", "notes"),
+      path: Map.get(metadata, "path"),
       source_suggestion_id: suggestion.id,
       evidence_refs: Map.get(metadata, "evidence_refs", []),
       provenance: %{

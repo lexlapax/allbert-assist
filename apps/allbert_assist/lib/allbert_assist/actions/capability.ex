@@ -32,6 +32,7 @@ defmodule AllbertAssist.Actions.Capability do
   @type execution_mode ::
           :read_only
           | :memory_write
+          | :memory_promotion
           | :command_plan_only
           | :local_process
           | :unsupported_resource_workflow
@@ -65,6 +66,7 @@ defmodule AllbertAssist.Actions.Capability do
           | :mcp_tool_call
           | :self_improvement_discovery
           | :self_improvement_draft
+          | :workflow_draft_promotion
 
   @type t :: %__MODULE__{
           name: String.t(),
