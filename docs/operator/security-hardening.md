@@ -305,7 +305,10 @@ eval surfaces until their capability work lands.
 - Discord, Slack, WhatsApp, Signal, and Matrix identity mapping,
   replay, pairing, group leakage, and callback ownership.
 - Voice, image, screenshot, and generated media resource retention, redaction,
-  provider cost, and cloud-upload policy.
+  provider cost, and cloud-upload policy. v0.48 narrows the voice portion:
+  microphone capture and credentialed remote STT/TTS stay confirmation-gated,
+  raw audio is excluded from traces by default, audio retention is default-off,
+  and STT/TTS cost or usage metadata is display-only.
 - MCP-server public protocol auth, rate limits, redaction, and confirmation
   ownership. API, ACP, and public AG-UI/A2UI bridge evals remain parked
   post-1.0.

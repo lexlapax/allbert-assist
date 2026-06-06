@@ -61,7 +61,7 @@ Do not load every section by default.
 | Delegation hardening and research specialist: implemented second native `AgentRegistry` consumer (`research.specialist`) contributed by `./plugins/allbert.research/`, orchestrating shipped v0.43 browser navigate/extract plus deterministic extractive fallback through `Actions.Runner.run/3`; zero new authority (no new permission/operation-class/URI/action), only a `research.*` settings fragment (`schema_version: 1`); threads the delegate step command into the `delegate_agent` action (replacing the hard-coded `execute` in `Objectives.Commands.execute/4`) and hardens allowlisted command validation (string or atom) against agent metadata at that boundary - no Step-schema migration (ADR 0021 A3); advisory report packets (ADR 0021 §4); composed via v0.44 `kind: delegate_agent` step with inline subagent-delegation rendering; `mix allbert.research` and inert research intent descriptors route research phrases to the delegate; `docs/developer/delegate-agents.md` documents the extension point; nine v0.46 security eval rows and `release.v046` prove the delegate contract against two domains before the v1.0 freeze | ADR 0017, ADR 0021 (amendment A21), ADR 0022, ADR 0029, ADR 0031, ADR 0040 (binding), ADR 0041, ADR 0046 (drafted), ADR 0049, `docs/plans/v0.46-plan.md`, `docs/plans/v0.46-request-flow.md`, `docs/operator/research-specialist.md` | v0.46 / 0.46.0 |
 | Operator-supervised self-improvement (discovery + local drafts): read-only `SelfImprovement.TraceIndex` over `<ALLBERT_HOME>/memory/traces/` (inherits trace redaction); generalized v0.42 `Tools.Discovery.Suggestion` + `Workspace.DiscoverySuggestions` panel (self-improvement suggestion types); read-only `discover_patterns` action (mirrors `find_tools`); one unified reviewed-draft store generalized from v0.37 `DynamicPlugins.Draft` holding skill/workflow/memory drafts; reviewed memory/workflow draft facades; `self_improvement.*` settings fragment (`schema_version: 1`); seven `:v047` eval rows + `release.v047`; no new authority, promotion via existing confirmed paths | ADR 0045 (amendments A1-A4), ADR 0032 (v0.47 amendment), ADR 0048 (v0.47 amendment), ADR 0041 (workflow drafts reconciliation), ADR 0031, ADR 0049, `docs/plans/v0.47-plan.md`, `docs/plans/v0.47-request-flow.md` | v0.47 |
 | Operator-supervised self-improvement (handoff drafts): template-backed (v0.38 `Templates.Registry`/`create_from_template`), marketplace-backed (v0.45 `Marketplace.list_entries/1`, descriptive only), inert delegate-plugin draft requests (v0.46 contract), capability-gap (v0.37 `DynamicPlugins.request_draft` to v0.36 `Sandbox.run_gate` to `Loader.integrate`), and objective drafts in the v0.47 unified store; code-bearing drafts reach live authority only via the existing sandbox/gate/loader path + confirmation; seven `:v047b` eval rows + `release.v047b`; no new trust tier | ADR 0045 (amendments A5-A7), ADR 0033, ADR 0035, ADR 0036, ADR 0037, ADR 0043, `docs/plans/v0.47b-plan.md`, `docs/plans/v0.47b-request-flow.md` | v0.47b / 0.47.1 |
-| Voice, vision, and media resources | ADR 0042, `docs/plans/v0.48-plan.md`, `docs/plans/v0.48-request-flow.md`, `docs/plans/v0.49-plan.md`, `docs/plans/v0.49-request-flow.md` | v0.48-v0.49 |
+| Provider capabilities, operator model preferences, voice, vision, and media resources | ADR 0051, ADR 0042, ADR 0047, `docs/plans/v0.48-plan.md`, `docs/plans/v0.48-request-flow.md`, `docs/developer/provider-capabilities.md`, `docs/operator/voice-and-provider-preferences.md`, `docs/plans/v0.49-plan.md`, `docs/plans/v0.49-request-flow.md` | v0.48-v0.49 |
 | Discord and Slack channel plugins + ADR 0016 amendment for channel approval primitives | ADR 0016, ADR 0017, `docs/plans/v0.50-plan.md`, `docs/plans/v0.50-request-flow.md` | v0.50 |
 | Channel Pack 2: WhatsApp, Signal, Matrix (iMessage parked) | ADR 0016, ADR 0017, `docs/plans/v0.51-plan.md`, `docs/plans/v0.51-request-flow.md` | v0.51 |
 | MCP server mode (Allbert exposes registered actions as MCP tools; memory namespaces as MCP resources) | ADR 0044, `docs/plans/v0.51b-plan.md`, `docs/plans/v0.51b-request-flow.md` | v0.51b |
@@ -530,10 +530,13 @@ Implemented v0.41 gates:
   v0.38 templates, Security Central, confirmations, traces, and audits. Seven
   `:v047b` eval rows plus `release.v047b` prove the handoff boundary. No new
   trust tier.
-- v0.48 (planned): Voice Modality. Adds STT/TTS as media resources and
-  registered actions; Discord voice is deferred until after Discord exists.
-- v0.49 (planned): Vision And Image Generation. Adds image/screenshot resources
-  and provider-backed image generation.
+- v0.48 (planned): Voice Modality And Provider Capabilities. Adds capability
+  metadata, ranked operator preferences, STT/TTS media resources, CLI file
+  transcription, workspace microphone capture, TTS, and Telegram voice-note
+  ingestion; Discord voice is deferred until after Discord exists.
+- v0.49 (planned): Vision And Image Generation. Consumes the v0.48 provider
+  capability substrate for image/screenshot resources and provider-backed image
+  generation.
 - v0.50 (planned): Channel Pack 1 - Discord And Slack. Adds team/community chat
   plugins over the existing channel substrate and amends ADR 0016 to lock the
   channel approval-primitive contract (`{list, button, typed_command, link}`)

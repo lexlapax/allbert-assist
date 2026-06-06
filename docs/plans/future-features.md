@@ -497,9 +497,10 @@ Still parked:
 
 Status: parked. Added in the post-v0.37 planning pass.
 
-Voice (v0.48) and vision (v0.49) ship per-feature cost visibility at
-confirmation time. Power operators will want a unified cross-provider
-dashboard.
+v0.48 ships display-only provider and usage metadata for STT/TTS action
+results and traces when providers expose it. v0.49 can add the same style of
+display-only metadata for image generation. Power operators will still want a
+unified cross-provider dashboard, but budget enforcement remains parked here.
 
 Still parked:
 

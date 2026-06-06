@@ -651,11 +651,14 @@ historical aliases only and remain in old reference notes for continuity.
   sandbox/gate/templated-creation path; consumes v0.45 marketplace metadata
   and the shipped v0.46 delegate-agent extension point. Seven `:v047b` eval
   rows plus `release.v047b` prove the handoff boundary. No new trust tier.
-- v0.48: Voice Modality. Voice input/output composes with existing channels as
-  audio resources and registered STT/TTS actions. Discord voice is deferred
-  until after Discord exists.
-- v0.49: Vision And Image Generation. Image and screenshot resources plus
-  provider-backed image generation expand workspace media capability.
+- v0.48: Voice Modality And Provider Capabilities. Generalizes the existing
+  provider/model framework with capability metadata and ranked operator
+  preferences, then composes voice input/output with existing channels as audio
+  resources and registered STT/TTS actions. Discord voice is deferred until
+  after Discord exists.
+- v0.49: Vision And Image Generation. Consumes the v0.48 provider capability
+  substrate for image and screenshot resources plus provider-backed image
+  generation.
 - v0.50: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
   through the existing channel adapter and plugin contracts; v0.50 also amends
   ADR 0016 to lock the channel approval-primitive contract before mobile

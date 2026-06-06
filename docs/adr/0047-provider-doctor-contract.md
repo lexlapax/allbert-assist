@@ -116,6 +116,13 @@ migration. Known additive fields:
   (`non_neg_integer() | :unknown`), and `:protocol_version`
   (`String.t() | nil`). For stdio servers `endpoint_kind` is `:local_endpoint`;
   for authenticated HTTP/SSE servers it is `:credentialed_remote`.
+- **v0.48 voice** (`doctor_voice_provider`) adds `:provider_capabilities`
+  (list of ADR 0051 capability names), `:speech_to_text_supported`
+  (boolean | :unknown), `:text_to_speech_supported` (boolean | :unknown),
+  `:local_runtime_present` (boolean | nil), and `:fixture_probe_ok`
+  (boolean | nil). The doctor reports capability diagnostics only; it does not
+  grant audio permissions, upload arbitrary audio, rewrite preferences, or
+  make a provider selectable when Settings Central has disabled it.
 - **v0.49 vision** adds `:image_input_supported`.
 
 ### 3. Redaction policy
@@ -160,6 +167,12 @@ not bypass Resource Access Security Posture; future doctors that need
 free-form URLs or arbitrary targets must use explicit resource confirmation
 instead of this read-only doctor boundary.
 
+The v0.48 voice doctor probes configured voice-capable model profiles through
+the same Settings Central resolution path as text models. It may use a bounded
+checked-in fixture or provider metadata to test STT/TTS availability. It never
+records raw audio, accepts a model-output-supplied file path, or uses doctor
+success as a remembered Resource Access grant.
+
 ### 5. Tier-1 freeze candidate
 
 This ADR is binding from v0.39 acceptance forward and becomes a **Tier-1
@@ -177,6 +190,9 @@ change between v1.0 and the next major release without an ADR amendment.
   redaction passes — the doctor itself is the redaction boundary.
 - Adding a new provider-specific signal (e.g., v0.49 image-input
   capability) is a one-line additive field, not a return-shape redesign.
+- v0.48 voice doctors can share workspace, CLI, trace, and audit rendering with
+  existing model/MCP doctors while keeping audio permissions at the action
+  boundary.
 - `providers.*.endpoint_kind` becomes part of the v1.0 Tier-1 schema
   freeze; renaming or removing it requires an ADR amendment and an
   ADR 0046 settings migration.
