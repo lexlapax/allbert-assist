@@ -114,13 +114,18 @@ does not grant authority and does not silently rewrite preferences.
 
 The existing text settings remain compatibility aliases:
 
-- `intent.model_profile` maps to the global primary text-generation profile.
-- `intent.direct_answer_model_profile` maps to
-  `model_preferences.tasks.direct_answer`.
+- `intent.model_profile` ↔ `model_preferences.primary` (single ↔ single): a
+  legacy write sets `primary`; a `primary` write updates the legacy read.
+- `intent.direct_answer_model_profile` ↔
+  `model_preferences.tasks.direct_answer` (single ↔ list): the legacy read
+  returns the list head (or `primary` when the list is empty); a legacy write
+  sets the list to `[value]`.
 
-Existing callers can continue to read those keys during migration. New v0.48+
-callers use the capability-aware resolver. Compatibility aliases must not
-produce a profile that fails capability validation.
+The `model_preferences.*` and `voice.*` namespaces declare `schema_version: 1`
+per ADR 0046. Existing callers can continue to read those keys during
+migration. New v0.48+ callers use the capability-aware resolver. A
+compatibility alias must never produce a profile that fails capability
+validation.
 
 ### Onboarding And Settings Central
 
@@ -147,6 +152,9 @@ stores a raw credential or raw URL.
 - Graceful fallback is deterministic and bounded: incapable, disabled, or
   unavailable profiles are skipped, but no model output can choose a provider
   or capability at runtime.
+- The resolver selects a profile only; per-modality execution (e.g. the v0.48
+  voice STT/TTS adapter) runs behind the action boundary and makes no authority
+  decisions.
 
 ## Non-Goals
 
