@@ -22,18 +22,13 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Resources.ResourceURI
-  alias AllbertAssist.Runtime.Paths
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
+  alias AllbertAssist.Voice.ProviderAdapter
 
   @default_format "wav"
-  @sample_rate_hz 16_000
-  @duration_ms 250
-  @bits_per_sample 16
-  @channel_count 1
 
   @impl true
   def run(params, context) do
@@ -56,8 +51,13 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
   defp run_allowed(text, resolution, permission_decision, params) do
     with :ok <- voice_enabled?(),
          {:ok, output_format} <- output_format(resolution.profile, params),
-         {:ok, audio} <- synthesize_with_adapter(text, resolution.profile, output_format),
-         {:ok, metadata} <- voice_metadata(audio, text, resolution) do
+         {:ok, audio} <-
+           ProviderAdapter.synthesize(resolution.profile, %{
+             text: text,
+             output_format: output_format,
+             voice: field(params, :voice)
+           }),
+         {:ok, metadata} <- voice_metadata(audio, resolution) do
       {:ok, completed(audio, permission_decision, metadata)}
     else
       {:error, reason} ->
@@ -170,66 +170,7 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
     end
   end
 
-  defp synthesize_with_adapter(text, profile, output_format) do
-    case deployment_mode(profile) do
-      "fake" -> write_fake_audio(text, output_format)
-      :fake -> write_fake_audio(text, output_format)
-      mode -> {:error, {:voice_adapter_unavailable, mode || :unknown}}
-    end
-  end
-
-  defp write_fake_audio(text, "wav") do
-    audio = fake_wav(text)
-    path = output_path(text, "wav")
-
-    with :ok <- File.mkdir_p(Path.dirname(path)),
-         :ok <- File.write(path, audio),
-         {:ok, resource_uri} <- ResourceURI.file(path) do
-      {:ok,
-       %{
-         path: path,
-         resource_uri: resource_uri,
-         byte_size: byte_size(audio),
-         output_format: "wav",
-         duration_ms: @duration_ms,
-         sample_rate_hz: @sample_rate_hz,
-         channel_count: @channel_count,
-         mime_type: "audio/wav"
-       }}
-    end
-  end
-
-  defp write_fake_audio(_text, format), do: {:error, {:unsupported_fake_tts_format, format}}
-
-  defp fake_wav(_text) do
-    sample_count = div(@sample_rate_hz * @duration_ms, 1000)
-    data = :binary.copy(<<0, 0>>, sample_count)
-    data_size = byte_size(data)
-    byte_rate = @sample_rate_hz * @channel_count * div(@bits_per_sample, 8)
-    block_align = @channel_count * div(@bits_per_sample, 8)
-
-    "RIFF" <>
-      <<36 + data_size::little-unsigned-integer-size(32)>> <>
-      "WAVE" <>
-      "fmt " <>
-      <<16::little-unsigned-integer-size(32)>> <>
-      <<1::little-unsigned-integer-size(16)>> <>
-      <<@channel_count::little-unsigned-integer-size(16)>> <>
-      <<@sample_rate_hz::little-unsigned-integer-size(32)>> <>
-      <<byte_rate::little-unsigned-integer-size(32)>> <>
-      <<block_align::little-unsigned-integer-size(16)>> <>
-      <<@bits_per_sample::little-unsigned-integer-size(16)>> <>
-      "data" <>
-      <<data_size::little-unsigned-integer-size(32)>> <>
-      data
-  end
-
-  defp output_path(text, output_format) do
-    digest = :crypto.hash(:sha256, text) |> Base.encode16(case: :lower) |> binary_part(0, 16)
-    Path.join([Paths.tmp_root(), "voice-synthesis", "voice-#{digest}.#{output_format}"])
-  end
-
-  defp voice_metadata(audio, text, resolution) do
+  defp voice_metadata(audio, resolution) do
     metadata =
       Redactor.redact_audio_metadata(%{
         output_resource_uri: audio.resource_uri,
@@ -242,12 +183,8 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
         duration_ms: audio.duration_ms,
         sample_rate_hz: audio.sample_rate_hz,
         channel_count: audio.channel_count,
-        usage: %{
-          input_text_bytes: byte_size(text),
-          output_audio_bytes: audio.byte_size,
-          output_audio_duration_ms: audio.duration_ms
-        },
-        cost: %{amount: 0, currency: "USD", source: "fake"},
+        usage: Map.get(audio, :usage, %{source: :unavailable}),
+        cost: Map.get(audio, :cost, %{source: :unavailable}),
         redaction_status: "redacted"
       })
 

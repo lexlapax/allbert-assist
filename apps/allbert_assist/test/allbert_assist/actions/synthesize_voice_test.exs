@@ -55,9 +55,8 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
     assert response.voice_metadata.provider == "fake_voice"
     assert response.voice_metadata.model == "fake-tts-v1"
     assert response.voice_metadata.output_format == "wav"
-    assert response.voice_metadata.usage.input_text_bytes == 18
-    assert response.voice_metadata.usage.output_audio_bytes > 44
-    assert response.voice_metadata.cost.amount == 0
+    assert response.voice_metadata.usage == %{source: :unavailable}
+    assert response.voice_metadata.cost == %{source: :unavailable}
     assert response.voice_metadata.redaction_status == "redacted"
 
     assert [%{name: "synthesize_voice", status: :completed, voice_metadata: action_metadata}] =

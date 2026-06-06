@@ -170,6 +170,13 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     assert remote_synthesis.decision == :needs_confirmation
     assert remote_synthesis.policy.safety_floor == :needs_confirmation
     refute PermissionGate.allowed?(remote_synthesis)
+
+    unknown_transcribe =
+      PermissionGate.authorize(:voice_transcribe, %{provider_deployment_mode: nil})
+
+    assert unknown_transcribe.decision == :needs_confirmation
+    assert unknown_transcribe.policy.safety_floor == :needs_confirmation
+    refute PermissionGate.allowed?(unknown_transcribe)
   end
 
   test "allows discovery search but requires confirmation for discovered MCP server connect" do

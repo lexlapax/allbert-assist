@@ -2637,6 +2637,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
     :research_delegate,
     :marketplace_lite,
     :operator_supervised_self_improvement,
+    :voice_modality,
     :operator_review
   ]
 

@@ -170,6 +170,20 @@ defmodule AllbertAssist.Channels.TelegramTest do
 
       assert {:ok, "voice fixture"} =
                Client.download_file("token", "voice/hello.ogg", plug: {Req.Test, __MODULE__})
+
+      Req.Test.expect(__MODULE__, fn conn ->
+        assert conn.request_path == "/file/bottoken/voice/large.ogg"
+
+        conn
+        |> Plug.Conn.put_resp_content_type("audio/ogg")
+        |> Plug.Conn.send_resp(200, "oversized voice fixture")
+      end)
+
+      assert {:error, {:telegram_file_too_large, _size, 4}} =
+               Client.download_file("token", "voice/large.ogg",
+                 max_response_bytes: 4,
+                 plug: {Req.Test, __MODULE__}
+               )
     end
   end
 
@@ -374,6 +388,25 @@ defmodule AllbertAssist.Channels.TelegramTest do
       assert request.metadata.telegram_voice.duration_seconds == 2
       assert request.metadata.telegram_voice.file_size == 16
       refute inspect(request.metadata) =~ "telegram voice fixture"
+    end
+
+    test "voice notes honor voice.audio.max_bytes before file fetch" do
+      configure_telegram!()
+      assert {:ok, _setting} = Settings.put("voice.audio.max_bytes", 8, %{audit?: false})
+
+      Req.Test.expect(__MODULE__, fn conn ->
+        assert conn.request_path == "/bottoken/getUpdates"
+        json(conn, %{"ok" => true, "result" => [voice_update(231)]})
+      end)
+
+      server = :"telegram-voice-max-#{System.unique_integer([:positive])}"
+      start_telegram_server!(server)
+
+      assert {:ok, %{processed: 0, rejected: 1, failed: 0}} = Adapter.poll_once(server)
+
+      event = Channels.get_event_by_external_id("telegram", "231")
+      assert event.status == "rejected"
+      assert event.reason == "{:telegram_voice_too_large, 16, 8}"
     end
 
     test "confirmation callbacks resolve through registered actions with resolver metadata" do

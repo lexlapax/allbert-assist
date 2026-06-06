@@ -56,6 +56,14 @@ Status: implemented as the v0.48 release. Current version metadata is
 - Voice uses the shared Settings Central, Security Central, action registry,
   traces, confirmations, and provider resolver instead of a parallel voice
   provider system.
+- Voice STT/TTS now route through the explicit `ProviderAdapter` behaviour:
+  fake is the concrete deterministic release adapter, while local-endpoint,
+  bundled-local, and remote-credentialed adapters are fail-closed stubs until
+  concrete provider calls are implemented.
+- Fake TTS/STT usage and cost metadata now reports `%{source: :unavailable}`
+  instead of Allbert-computed byte counts or zero-cost packets.
+- Telegram Bot API voice fetches now preflight through `External.HttpPolicy`
+  and enforce `min(20 MB, voice.audio.max_bytes)` at channel fetch time.
 - Realtime audio sessions, generic audio/video understanding, video input,
   cost dashboards, budget enforcement, and Discord voice remain future scope.
 - ADR 0051, ADR 0042, ADR 0047, roadmap, vision, future-features, agent

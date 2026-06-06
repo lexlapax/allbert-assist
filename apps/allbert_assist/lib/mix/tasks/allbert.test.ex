@@ -1004,10 +1004,12 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist/resources/operation_class_test.exs",
         "test/allbert_assist/security/permission_gate_test.exs",
         "test/allbert_assist/runtime/redactor_test.exs",
+        "test/allbert_assist/voice/provider_adapter_test.exs",
         "test/allbert_assist/voice/transcode_test.exs"
       ],
       coverage: [
         "capability-aware provider catalog and ranked preference fallback",
+        "voice adapter behaviour and fail-closed non-fake stubs",
         "ADR 0047 voice doctor fields",
         "mic:// audio resource identity and voice operation classes",
         "voice permission floors and remote-upload confirmation posture",

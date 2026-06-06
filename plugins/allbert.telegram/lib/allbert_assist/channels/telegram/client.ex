@@ -1,7 +1,11 @@
 defmodule AllbertAssist.Channels.Telegram.Client do
   @moduledoc false
 
+  alias AllbertAssist.External.HttpPolicy
+  alias AllbertAssist.External.RequestSpec
+
   @base_url "https://api.telegram.org"
+  @default_max_response_bytes 1_048_576
 
   def get_updates(token, offset, timeout_seconds, opts \\ []) do
     request(
@@ -74,29 +78,129 @@ defmodule AllbertAssist.Channels.Telegram.Client do
   end
 
   def download_file(token, file_path, opts \\ []) do
-    [
-      method: :get,
-      url: file_url(token, file_path),
-      retry: false,
-      redirect: false,
-      receive_timeout: Keyword.get(opts, :receive_timeout, 30_000)
-    ]
-    |> maybe_put(:plug, Keyword.get(opts, :plug))
-    |> Req.request()
-    |> normalize_file_response()
+    max_response_bytes = Keyword.get(opts, :max_response_bytes, @default_max_response_bytes)
+    url = file_url(token, file_path)
+    request_opts = [receive_timeout: Keyword.get(opts, :receive_timeout, 30_000)]
+
+    with :ok <- validate_policy(:get, url, request_opts, max_response_bytes) do
+      [
+        method: :get,
+        url: url,
+        retry: false,
+        redirect: false,
+        decode_body: false,
+        receive_timeout: Keyword.get(request_opts, :receive_timeout),
+        into: capped_body(max_response_bytes)
+      ]
+      |> maybe_put(:plug, Keyword.get(opts, :plug))
+      |> Req.request()
+      |> normalize_file_response(max_response_bytes)
+    end
   end
 
   defp request(method, token, method_name, request_opts, opts) do
-    [
-      method: method,
-      url: url(token, method_name),
-      retry: false,
-      redirect: false
-    ]
-    |> Keyword.merge(request_opts)
-    |> maybe_put(:plug, Keyword.get(opts, :plug))
-    |> Req.request()
-    |> normalize_response()
+    {url, request_opts} =
+      token
+      |> url(method_name)
+      |> apply_query_params(request_opts)
+
+    max_response_bytes = Keyword.get(opts, :max_response_bytes, @default_max_response_bytes)
+
+    with :ok <- validate_policy(method, url, request_opts, max_response_bytes) do
+      request_opts =
+        request_opts
+        |> Keyword.delete(:params)
+        |> Keyword.delete(:max_response_bytes)
+
+      [
+        method: method,
+        url: url,
+        retry: false,
+        redirect: false
+      ]
+      |> Keyword.merge(request_opts)
+      |> maybe_put(:plug, Keyword.get(opts, :plug))
+      |> Req.request()
+      |> normalize_response()
+    end
+  end
+
+  defp validate_policy(method, url, request_opts, max_response_bytes) do
+    uri = URI.parse(url)
+
+    spec = %RequestSpec{
+      method: method |> Atom.to_string() |> String.upcase(),
+      url: URI.to_string(uri),
+      uri: uri,
+      profile: "telegram_bot_api",
+      host: String.downcase(uri.host || ""),
+      path: uri.path || "/",
+      query: uri.query,
+      headers: [],
+      body: request_body(request_opts),
+      body_summary: body_summary(request_opts),
+      timeout_ms: Keyword.get(request_opts, :receive_timeout, 10_000),
+      max_response_bytes: max_response_bytes,
+      allow_redirects?: false,
+      max_redirects: 0,
+      retry_policy: "none",
+      redact_request_headers: ["authorization", "cookie", "x-api-key"],
+      redact_response_headers: ["set-cookie", "authorization"],
+      source_text: nil,
+      enabled?: true,
+      profile_enabled?: true,
+      allowed_hosts: ["api.telegram.org"],
+      blocked_hosts: [],
+      allowed_paths: ["/bot", "/file/bot"],
+      allowed_methods: ["GET", "POST"]
+    }
+
+    case HttpPolicy.validate(spec) do
+      :ok -> :ok
+      {:error, reason} -> {:error, {:telegram_http_policy_denied, reason}}
+    end
+  end
+
+  defp apply_query_params(url, request_opts) do
+    case Keyword.pop(request_opts, :params) do
+      {nil, request_opts} ->
+        {url, request_opts}
+
+      {params, request_opts} ->
+        uri = URI.parse(url)
+        query = params |> URI.encode_query() |> merge_query(uri.query)
+        {URI.to_string(%{uri | query: query}), request_opts}
+    end
+  end
+
+  defp merge_query(query, nil), do: query
+  defp merge_query(query, ""), do: query
+  defp merge_query(query, existing), do: "#{existing}&#{query}"
+
+  defp request_body(request_opts) do
+    case Keyword.get(request_opts, :json) do
+      nil -> Keyword.get(request_opts, :body)
+      json -> Jason.encode!(json)
+    end
+  end
+
+  defp body_summary(request_opts) do
+    case request_body(request_opts) do
+      nil -> %{type: "none", bytes: 0}
+      body when is_binary(body) -> %{type: body_type(request_opts), bytes: byte_size(body)}
+    end
+  end
+
+  defp body_type(request_opts) do
+    if Keyword.has_key?(request_opts, :json), do: "json", else: "raw"
+  end
+
+  defp capped_body(max_response_bytes) do
+    fn {:data, data}, {req, resp} ->
+      body = (resp.body || "") <> data
+      action = if byte_size(body) > max_response_bytes, do: :halt, else: :cont
+      {action, {req, %{resp | body: body}}}
+    end
   end
 
   defp normalize_response({:ok, %{status: status, body: %{"ok" => true, "result" => result}}})
@@ -114,18 +218,25 @@ defmodule AllbertAssist.Channels.Telegram.Client do
 
   defp normalize_response({:error, reason}), do: {:error, {:transport_error, reason}}
 
-  defp normalize_file_response({:ok, %{status: status, body: body}}) when status in 200..299,
-    do: {:ok, body}
+  defp normalize_file_response({:ok, %{status: status, body: body}}, max_response_bytes)
+       when status in 200..299 and is_binary(body) do
+    if byte_size(body) <= max_response_bytes do
+      {:ok, body}
+    else
+      {:error, {:telegram_file_too_large, byte_size(body), max_response_bytes}}
+    end
+  end
 
-  defp normalize_file_response({:ok, %{status: status, body: body}}) do
+  defp normalize_file_response({:ok, %{status: status, body: body}}, _max_response_bytes) do
     {:error, {:telegram_file_error, status, redact_body(body)}}
   end
 
-  defp normalize_file_response({:error, %Req.TransportError{} = error}) do
+  defp normalize_file_response({:error, %Req.TransportError{} = error}, _max_response_bytes) do
     {:error, {:transport_error, error.reason}}
   end
 
-  defp normalize_file_response({:error, reason}), do: {:error, {:transport_error, reason}}
+  defp normalize_file_response({:error, reason}, _max_response_bytes),
+    do: {:error, {:transport_error, reason}}
 
   defp url(token, method_name), do: "#{@base_url}/bot#{URI.encode(token)}/#{method_name}"
 
