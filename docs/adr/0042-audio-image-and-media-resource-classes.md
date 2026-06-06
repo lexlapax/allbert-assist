@@ -35,6 +35,11 @@ v0.48 implements only the audio portion of this ADR:
   target.
 - CLI voice input uses an operator-supplied audio file path or fixture. Live
   microphone capture is workspace-only.
+- Captured audio is normalized to a provider-accepted format by a bounded
+  ffmpeg-class transcode step before the provider call: input is size- and
+  duration-bounded, the output format is chosen from the resolved provider's
+  `audio_formats_supported`, and no operator- or model-supplied codec flags are
+  passed. The transcoder is an external binary dependency, not a provider.
 - Voice adds operation classes for microphone capture, transcription, and
   synthesis. Security Central policy must distinguish local/test providers
   from credentialed remote providers, because remote STT/TTS can upload audio
