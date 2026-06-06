@@ -11,11 +11,13 @@ defmodule Mix.Tasks.Allbert.Ask do
       mix allbert.ask --user alice --session SESSION_ID "hello"
       mix allbert.ask --user alice --active-app stocksage "list my analyses"
       mix allbert.ask --voice test/fixtures/audio/hello.wav --trace
+      mix allbert.ask --voice test/fixtures/audio/hello.wav --speak
 
   ## Options
 
     * `--trace` - enable markdown trace recording for this turn
     * `--voice` - transcribe an explicit local audio file before submitting text
+    * `--speak` - synthesize the runtime response after the text turn
     * `--channel` - channel label to send to the runtime, defaults to `cli`
     * `--user` - canonical local user id, defaults to `local`
     * `--operator` - legacy local operator id alias
@@ -43,6 +45,7 @@ defmodule Mix.Tasks.Allbert.Ask do
     new_thread: :boolean,
     active_app: :string,
     voice: :string,
+    speak: :boolean,
     trace: :boolean
   ]
 
@@ -85,9 +88,11 @@ defmodule Mix.Tasks.Allbert.Ask do
     voice_result = maybe_transcribe_voice!(voice_file, opts)
     prompt = prompt_with_voice(prompt, voice_result)
 
-    prompt
-    |> submit(opts, voice_result)
-    |> print_result()
+    result = submit(prompt, opts, voice_result)
+    speech_result = maybe_synthesize_speech!(result, opts)
+
+    print_result(result)
+    print_speech_result(speech_result)
   end
 
   defp enable_trace_for_turn do
@@ -140,6 +145,15 @@ defmodule Mix.Tasks.Allbert.Ask do
 
   defp print_result({:error, reason}) do
     Mix.raise("Allbert request failed: #{inspect(reason)}")
+  end
+
+  defp print_speech_result(nil), do: :ok
+
+  defp print_speech_result(%{audio_file: audio_file, output_resource_uri: output_resource_uri}) do
+    Mix.shell().info("")
+    Mix.shell().info("Speech: #{output_resource_uri}")
+    Mix.shell().info("Speech file: #{audio_file}")
+    :ok
   end
 
   defp print_action(action) do
@@ -202,16 +216,7 @@ defmodule Mix.Tasks.Allbert.Ask do
   defp maybe_transcribe_voice!(nil, _opts), do: nil
 
   defp maybe_transcribe_voice!(voice_file, opts) do
-    context = %{
-      actor: blank_to_nil(opts[:user]) || blank_to_nil(opts[:operator]) || "local",
-      channel: opts[:channel] || :cli,
-      request: %{
-        channel: opts[:channel] || :cli,
-        operator_id: blank_to_nil(opts[:operator]) || blank_to_nil(opts[:user]) || "local"
-      }
-    }
-
-    case Runner.run("transcribe_voice", %{audio_file: voice_file}, context) do
+    case Runner.run("transcribe_voice", %{audio_file: voice_file}, voice_action_context(opts)) do
       {:ok, %{status: :completed, transcript: transcript} = response}
       when is_binary(transcript) ->
         response
@@ -219,6 +224,40 @@ defmodule Mix.Tasks.Allbert.Ask do
       {:ok, response} ->
         Mix.raise("Voice transcription failed: #{Map.get(response, :message, inspect(response))}")
     end
+  end
+
+  defp maybe_synthesize_speech!(result, opts) do
+    if opts[:speak] == true do
+      synthesize_speech!(result, opts)
+    end
+  end
+
+  defp synthesize_speech!({:ok, %{status: status, message: message}}, opts)
+       when status in [:completed, "completed"] and is_binary(message) do
+    case Runner.run("synthesize_voice", %{text: message}, voice_action_context(opts)) do
+      {:ok, %{status: :completed} = response} ->
+        response
+
+      {:ok, response} ->
+        Mix.raise("Voice synthesis failed: #{Map.get(response, :message, inspect(response))}")
+    end
+  end
+
+  defp synthesize_speech!({:ok, response}, _opts) do
+    Mix.raise("Voice synthesis skipped because runtime status was #{inspect(response.status)}")
+  end
+
+  defp synthesize_speech!({:error, _reason}, _opts), do: nil
+
+  defp voice_action_context(opts) do
+    %{
+      actor: blank_to_nil(opts[:user]) || blank_to_nil(opts[:operator]) || "local",
+      channel: opts[:channel] || :cli,
+      request: %{
+        channel: opts[:channel] || :cli,
+        operator_id: blank_to_nil(opts[:operator]) || blank_to_nil(opts[:user]) || "local"
+      }
+    }
   end
 
   defp prompt_with_voice(prompt, nil), do: prompt

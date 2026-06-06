@@ -35,6 +35,25 @@ defmodule AllbertAssist.Settings.Models do
     end
   end
 
+  @doc """
+  Return every configured capable profile for a task or capability in ranked order.
+
+  This is used by provider-call actions that need to retry a bounded provider
+  failure against the next operator-ranked profile. It applies the same
+  capability, enabled-provider, and primary-fallback checks as `for/2`.
+  """
+  @spec candidates_for(
+          atom() | String.t() | {:task | :capability, atom() | String.t()},
+          map()
+        ) ::
+          {:ok, [resolution()]} | {:error, term()}
+  def candidates_for(request, context \\ %{}) do
+    with {:ok, settings, _user_settings} <- Store.resolved_settings(),
+         {:ok, request_kind, request_name, capability} <- normalize_request(request, settings) do
+      resolve_candidates(request_kind, request_name, capability, settings, context)
+    end
+  end
+
   @doc "Return true when a resolved profile declares a capability."
   @spec capable?(map(), atom() | String.t()) :: boolean()
   def capable?(profile, capability) when is_map(profile) do
@@ -142,6 +161,51 @@ defmodule AllbertAssist.Settings.Models do
     |> case do
       {:error, diagnostics} -> {:error, Enum.reverse(diagnostics)}
       other -> other
+    end
+  end
+
+  defp resolve_candidates(request_kind, request_name, capability, settings, _context) do
+    preference_profiles = preference_profiles(settings, request_kind, request_name)
+    primary = Settings.Schema.get_dotted(settings, "model_preferences.primary")
+
+    candidates =
+      preference_candidates(preference_profiles) ++ primary_fallback(preference_profiles, primary)
+
+    candidates
+    |> Enum.uniq_by(&elem(&1, 0))
+    |> Enum.reduce({[], []}, fn candidate, {resolutions, diagnostics} ->
+      case validate_candidate(candidate, capability, settings) do
+        {:ok, profile, source} ->
+          resolution = %{
+            request: request_name,
+            request_kind: request_kind,
+            capability: capability,
+            profile: profile,
+            profile_name: profile.name,
+            source: source,
+            diagnostics: Enum.reverse(diagnostics)
+          }
+
+          {[resolution | resolutions], diagnostics}
+
+        {:skip, diagnostic} ->
+          {resolutions, [diagnostic | diagnostics]}
+      end
+    end)
+    |> case do
+      {[], diagnostics} ->
+        {:error,
+         {:no_capable_profile,
+          %{
+            request: request_name,
+            request_kind: request_kind,
+            capability: capability,
+            candidates: Enum.map(candidates, &elem(&1, 0)),
+            diagnostics: Enum.reverse(diagnostics)
+          }}}
+
+      {resolutions, _diagnostics} ->
+        {:ok, Enum.reverse(resolutions)}
     end
   end
 

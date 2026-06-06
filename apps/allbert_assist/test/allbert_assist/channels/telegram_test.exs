@@ -556,6 +556,11 @@ defmodule AllbertAssist.Channels.TelegramTest do
 
   defp enable_voice! do
     assert {:ok, _resolved} = Settings.put("voice.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.speech_to_text", ["voice_stt_fake"], %{
+               audit?: false
+             })
   end
 
   defp configure_runtime! do

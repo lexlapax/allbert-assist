@@ -211,6 +211,11 @@ defmodule Mix.Tasks.Allbert.AskTest do
     fixture = Path.expand("../../fixtures/v0.48/audio/hello.wav", __DIR__)
     assert {:ok, _resolved} = Settings.put("voice.enabled", true, %{audit?: false})
 
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.speech_to_text", ["voice_stt_fake"], %{
+               audit?: false
+             })
+
     output =
       capture_io(fn ->
         assert :ok = Ask.run(["--voice", fixture, "--trace"])
@@ -237,6 +242,33 @@ defmodule Mix.Tasks.Allbert.AskTest do
     assert trace =~ "file://[REDACTED_AUDIO_PATH]"
     refute trace =~ fixture
     refute trace =~ "/fixtures/v0.48/audio"
+  end
+
+  test "explicit speak option synthesizes the runtime response after voice input" do
+    fixture = Path.expand("../../fixtures/v0.48/audio/hello.wav", __DIR__)
+    assert {:ok, _resolved} = Settings.put("voice.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.speech_to_text", ["voice_stt_fake"], %{
+               audit?: false
+             })
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.text_to_speech", ["voice_tts_fake"], %{
+               audit?: false
+             })
+
+    output =
+      capture_io(fn ->
+        assert :ok = Ask.run(["--voice", fixture, "--speak"])
+      end)
+
+    assert output =~ "Status: completed"
+    assert output =~ "CLI response: hello from fixture audio"
+    assert output =~ "Speech: file://[REDACTED_AUDIO_PATH]"
+    assert output =~ "Speech file: "
+
+    assert_received {:agent_request, %{text: "hello from fixture audio"}}
   end
 
   test "default CLI runtime can list, read, and activate registry-backed skills", %{root: root} do

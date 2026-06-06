@@ -2088,6 +2088,11 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
   defp enable_workspace_voice! do
     assert {:ok, _resolved} = Settings.put("voice.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.speech_to_text", ["voice_stt_fake"], %{
+               audit?: false
+             })
   end
 
   defp fixture_path(name) do

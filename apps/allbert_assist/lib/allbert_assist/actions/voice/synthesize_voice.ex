@@ -33,35 +33,86 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
   @impl true
   def run(params, context) do
     with {:ok, text} <- text(params),
-         {:ok, resolution} <- Models.for(:text_to_speech, context) do
-      permission_decision =
-        PermissionGate.authorize(:voice_synthesize, voice_context(context, resolution.profile))
-
-      if PermissionGate.allowed?(permission_decision) do
-        run_allowed(text, resolution, permission_decision, params)
-      else
-        {:ok, stopped(permission_decision, :permission_denied, %{})}
-      end
+         {:ok, resolutions} <- Models.candidates_for(:text_to_speech, context) do
+      run_allowed(text, resolutions, context, params)
     else
       {:error, reason} ->
         {:ok, failed(reason, nil, %{})}
     end
   end
 
-  defp run_allowed(text, resolution, permission_decision, params) do
-    with :ok <- voice_enabled?(),
-         {:ok, output_format} <- output_format(resolution.profile, params),
+  defp run_allowed(text, resolutions, context, params) do
+    with :ok <- voice_enabled?() do
+      attempt_synthesis(resolutions, text, context, params, [])
+    else
+      {:error, reason} ->
+        {:ok, failed(reason, nil, %{})}
+    end
+  end
+
+  defp attempt_synthesis([resolution | rest], text, context, params, attempts) do
+    permission_decision =
+      PermissionGate.authorize(:voice_synthesize, voice_context(context, resolution.profile))
+
+    if PermissionGate.allowed?(permission_decision) do
+      attempt_allowed_synthesis(
+        resolution,
+        rest,
+        text,
+        context,
+        params,
+        attempts,
+        permission_decision
+      )
+    else
+      {:ok,
+       stopped(permission_decision, :permission_denied, %{
+         adapter_attempts: Enum.reverse(attempts)
+       })}
+    end
+  end
+
+  defp attempt_synthesis([], _text, _context, _params, attempts),
+    do:
+      {:ok,
+       failed(:voice_provider_candidates_exhausted, nil, %{
+         adapter_attempts: Enum.reverse(attempts)
+       })}
+
+  defp attempt_allowed_synthesis(
+         resolution,
+         rest,
+         text,
+         context,
+         params,
+         attempts,
+         permission_decision
+       ) do
+    with {:ok, output_format} <- output_format(resolution.profile, params),
          {:ok, audio} <-
-           ProviderAdapter.synthesize(resolution.profile, %{
-             text: text,
-             output_format: output_format,
-             voice: field(params, :voice)
-           }),
-         {:ok, metadata} <- voice_metadata(audio, resolution) do
+           ProviderAdapter.synthesize(
+             resolution.profile,
+             %{
+               text: text,
+               output_format: output_format,
+               voice: field(params, :voice)
+             },
+             adapter_opts(context)
+           ),
+         {:ok, metadata} <- voice_metadata(audio, resolution, attempts) do
       {:ok, completed(audio, permission_decision, metadata)}
     else
       {:error, reason} ->
-        {:ok, failed(reason, permission_decision, %{})}
+        attempts = [attempt_record(resolution, reason) | attempts]
+
+        if retryable_provider_error?(reason) and rest != [] do
+          attempt_synthesis(rest, text, context, params, attempts)
+        else
+          {:ok,
+           failed(reason, permission_decision, %{
+             adapter_attempts: Enum.reverse(attempts)
+           })}
+        end
     end
   end
 
@@ -170,7 +221,7 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
     end
   end
 
-  defp voice_metadata(audio, resolution) do
+  defp voice_metadata(audio, resolution, attempts) do
     metadata =
       Redactor.redact_audio_metadata(%{
         output_resource_uri: audio.resource_uri,
@@ -187,9 +238,44 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
         cost: Map.get(audio, :cost, %{source: :unavailable}),
         redaction_status: "redacted"
       })
+      |> maybe_put_attempts(attempts)
 
     {:ok, metadata}
   end
+
+  defp attempt_record(resolution, reason) do
+    %{
+      provider_profile: resolution.profile_name,
+      provider: Map.get(resolution.profile, :provider),
+      model: Map.get(resolution.profile, :model),
+      error: Redactor.redact(reason)
+    }
+  end
+
+  defp maybe_put_attempts(metadata, []), do: metadata
+
+  defp maybe_put_attempts(metadata, attempts),
+    do: Map.put(metadata, :fallback_attempts, Enum.reverse(attempts))
+
+  defp retryable_provider_error?({:voice_http_error, status})
+       when status >= 500 and status <= 599,
+       do: true
+
+  defp retryable_provider_error?({:voice_transport_error, _reason}), do: true
+  defp retryable_provider_error?(_reason), do: false
+
+  defp adapter_opts(context) do
+    context
+    |> field(:voice_adapter_opts)
+    |> normalize_keyword()
+    |> maybe_put_keyword(:req_options, field(context, :req_options))
+  end
+
+  defp normalize_keyword(value) when is_list(value), do: value
+  defp normalize_keyword(_value), do: []
+
+  defp maybe_put_keyword(opts, _key, nil), do: opts
+  defp maybe_put_keyword(opts, key, value), do: Keyword.put(opts, key, value)
 
   defp voice_context(context, profile) do
     Map.merge(context, %{

@@ -9,6 +9,12 @@ defmodule AllbertAssist.Voice.ProviderAdapter do
 
   alias AllbertAssist.Voice.Adapters
 
+  @type adapter_module ::
+          Adapters.Fake
+          | Adapters.LocalEndpoint
+          | Adapters.BundledLocal
+          | Adapters.RemoteCredentialed
+
   @type transcribe_request :: %{
           required(:input_path) => String.t(),
           required(:transcode_spec) => map()
@@ -71,10 +77,12 @@ defmodule AllbertAssist.Voice.ProviderAdapter do
     end
   end
 
-  @spec for_profile(map()) :: {:ok, module()} | {:error, term()}
+  @spec for_profile(map()) ::
+          {:ok, adapter_module()} | {:error, {:voice_adapter_unavailable, atom() | String.t()}}
   def for_profile(profile), do: profile |> deployment_mode() |> for_deployment_mode()
 
-  @spec for_deployment_mode(term()) :: {:ok, module()} | {:error, term()}
+  @spec for_deployment_mode(term()) ::
+          {:ok, adapter_module()} | {:error, {:voice_adapter_unavailable, atom() | String.t()}}
   def for_deployment_mode(mode) do
     case normalize_deployment_mode(mode) do
       :fake -> {:ok, Adapters.Fake}

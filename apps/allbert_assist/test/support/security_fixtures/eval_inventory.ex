@@ -2477,6 +2477,66 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V048VoiceModalityEvalTest"
     },
     %{
+      id: "voice-local-endpoint-loopback-only-001",
+      milestone: :v048,
+      surface: :voice_modality,
+      scenario: "local voice endpoint points at non-loopback host",
+      boundary: :voice_local_endpoint_http_policy,
+      expected: :denied,
+      assert: [:loopback_only, :no_private_lan_or_metadata_host],
+      test_module: "AllbertAssist.Security.V048VoiceModalityEvalTest"
+    },
+    %{
+      id: "voice-remote-https-secret-only-001",
+      milestone: :v048,
+      surface: :voice_modality,
+      scenario: "remote voice endpoint uses non-HTTPS URL or URL credentials",
+      boundary: :voice_remote_http_policy,
+      expected: :denied,
+      assert: [:https_only, :settings_secret_only, :no_redirects],
+      test_module: "AllbertAssist.Security.V048VoiceModalityEvalTest"
+    },
+    %{
+      id: "voice-anthropic-not-stt-tts-001",
+      milestone: :v048,
+      surface: :voice_modality,
+      scenario: "Anthropic profile is marked as native STT/TTS",
+      boundary: :voice_provider_native_capability,
+      expected: :denied,
+      assert: [:capability_not_native, :not_selected_as_voice_adapter],
+      test_module: "AllbertAssist.Security.V048VoiceModalityEvalTest"
+    },
+    %{
+      id: "voice-transcode-materialized-bound-001",
+      milestone: :v048,
+      surface: :voice_modality,
+      scenario: "real provider adapter ignores materialized transcode output",
+      boundary: :voice_transcode_execution,
+      expected: :allowed,
+      assert: [:fixed_argv_materialized, :provider_uses_output_path],
+      test_module: "AllbertAssist.Security.V048VoiceModalityEvalTest"
+    },
+    %{
+      id: "voice-call-failure-fallback-bounded-001",
+      milestone: :v048,
+      surface: :voice_modality,
+      scenario: "provider transport failure loops or skips permission checks",
+      boundary: :voice_provider_call_fallback,
+      expected: :allowed,
+      assert: [:single_ranked_retry, :nonretryable_stops],
+      test_module: "AllbertAssist.Security.V048VoiceModalityEvalTest"
+    },
+    %{
+      id: "voice-listen-think-speak-routing-001",
+      milestone: :v048,
+      surface: :voice_modality,
+      scenario: "voice transcript bypasses the text-generation resolver before TTS",
+      boundary: :voice_listen_think_speak_routing,
+      expected: :allowed,
+      assert: [:stt_to_ollama_text_turn, :tts_action_used],
+      test_module: "AllbertAssist.Security.V048VoiceModalityEvalTest"
+    },
+    %{
       id: "sandbox-backend-disabled-001",
       milestone: :v036,
       surface: :elixir_sandbox,

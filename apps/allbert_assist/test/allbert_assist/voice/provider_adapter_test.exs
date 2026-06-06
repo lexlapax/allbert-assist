@@ -18,13 +18,13 @@ defmodule AllbertAssist.Voice.ProviderAdapterTest do
              ProviderAdapter.for_profile(%{media: %{"deployment_mode" => "remote_credentialed"}})
   end
 
-  test "non-fake adapter stubs fail closed until concrete providers are implemented" do
+  test "unimplemented and non-native providers fail closed" do
     request = %{input_path: "/tmp/voice.wav", transcode_spec: %{output_path: "/tmp/voice.wav"}}
 
-    assert {:error, {:voice_adapter_unavailable, :local_endpoint}} =
-             ProviderAdapter.transcribe(
+    assert {:error, :missing_local_voice_base_url} =
+             ProviderAdapter.synthesize(
                %{media: %{"deployment_mode" => "local_endpoint"}},
-               request
+               %{text: "hello", output_format: "wav"}
              )
 
     assert {:error, {:voice_adapter_unavailable, :bundled_local}} =
@@ -33,9 +33,12 @@ defmodule AllbertAssist.Voice.ProviderAdapterTest do
                %{text: "hello", output_format: "wav"}
              )
 
-    assert {:error, {:voice_adapter_unavailable, :remote_credentialed}} =
+    assert {:error, {:voice_capability_not_native, "anthropic"}} =
              ProviderAdapter.transcribe(
-               %{media: %{"deployment_mode" => "remote_credentialed"}},
+               %{
+                 provider_type: "anthropic",
+                 media: %{"deployment_mode" => "remote_credentialed"}
+               },
                request
              )
   end

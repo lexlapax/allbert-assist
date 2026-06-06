@@ -1,34 +1,22 @@
 defmodule AllbertAssist.Voice.Adapters.LocalEndpoint do
   @moduledoc """
-  Local endpoint voice adapter stub.
+  Local OpenAI-compatible voice endpoint adapter.
 
-  v0.48 defines the adapter seam but ships deterministic fake voice as release
-  authority. A concrete local endpoint call path remains a later implementation.
+  Local voice endpoints must be explicit loopback URLs and use the
+  OpenAI-compatible `/v1/audio/transcriptions` and `/v1/audio/speech`
+  request-file contract.
   """
 
   @behaviour AllbertAssist.Voice.ProviderAdapter
 
-  @mode :local_endpoint
+  alias AllbertAssist.Voice.Adapters.OpenAICompatible
 
   @impl true
-  def transcribe(_profile, _request, _opts), do: unavailable()
+  def transcribe(profile, request, opts), do: OpenAICompatible.transcribe(profile, request, opts)
 
   @impl true
-  def synthesize(_profile, _request, _opts), do: unavailable()
+  def synthesize(profile, request, opts), do: OpenAICompatible.synthesize(profile, request, opts)
 
   @impl true
-  def doctor(_profile, _opts), do: stub_doctor()
-
-  defp unavailable, do: {:error, {:voice_adapter_unavailable, @mode}}
-
-  defp stub_doctor do
-    {:ok,
-     %{
-       endpoint_ok: false,
-       model_available: :unknown,
-       provider_usage_metadata_available: :unknown,
-       local_runtime_present: nil,
-       diagnostic_codes: [:voice_provider_probe_unavailable]
-     }}
-  end
+  def doctor(profile, opts), do: OpenAICompatible.doctor(profile, opts)
 end

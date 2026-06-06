@@ -177,6 +177,7 @@ defmodule AllbertAssist.SettingsTest do
     assert catalog_aliases.coding_local == "openai:qwen2.5-coder:7b"
     assert catalog_aliases.fast == "openai:gpt-4o-mini"
     assert catalog_aliases.coding == "google:gemini-3.5-flash"
+    assert catalog_aliases.voice_text_local == "openai:llama3.2:3b"
     assert catalog_aliases.anthropic_fast == "anthropic:claude-haiku-4-5-20251001"
     assert catalog_aliases.openrouter_fast == "openrouter:openai/gpt-4o-mini"
     assert catalog_aliases.capable == "anthropic:claude-sonnet-4-6"
@@ -184,6 +185,8 @@ defmodule AllbertAssist.SettingsTest do
     assert catalog_aliases.thinking == "anthropic:claude-opus-4-8"
     refute Map.has_key?(catalog_aliases, :voice_stt_fake)
     refute Map.has_key?(catalog_aliases, :voice_tts_fake)
+    refute Map.has_key?(catalog_aliases, :voice_stt_local)
+    refute Map.has_key?(catalog_aliases, :voice_tts_local)
 
     assert Application.fetch_env!(:jido_ai, :model_aliases) == catalog_aliases
     assert Jido.AI.resolve_model(:local) == "openai:llama3.2:3b"

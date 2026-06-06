@@ -42,6 +42,7 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
 
   test "fake TTS provider writes bounded output and redacted usage metadata" do
     enable_voice!()
+    use_fake_tts!()
 
     assert {:ok, response} = SynthesizeVoice.run(%{text: "Hello spoken world"}, context())
 
@@ -84,6 +85,13 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
 
   defp enable_voice! do
     assert {:ok, _resolved} = Settings.put("voice.enabled", true, %{audit?: false})
+  end
+
+  defp use_fake_tts! do
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.text_to_speech", ["voice_tts_fake"], %{
+               audit?: false
+             })
   end
 
   defp context do
