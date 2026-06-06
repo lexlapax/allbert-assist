@@ -228,6 +228,17 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
          context,
          permission_decision,
          target_decision,
+         "capture_workspace_voice"
+       ) do
+    resume_voice_capture(record, reason, context, permission_decision, target_decision)
+  end
+
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
          "run_package_install"
        ) do
     resume_package_install(record, reason, context, permission_decision, target_decision)
@@ -429,6 +440,50 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       target_resumed?: false,
       adapter_unavailable?: true
     })
+  end
+
+  defp resume_voice_capture(record, reason, context, permission_decision, target_decision) do
+    target_context =
+      record
+      |> target_context(context)
+      |> put_in([:confirmation, :approved?], true)
+
+    case Runner.run(
+           "capture_workspace_voice",
+           Map.get(record, "resume_params_ref", %{}),
+           target_context
+         ) do
+      {:ok, %{status: :completed} = response} ->
+        target_result = %{
+          status: :completed,
+          output_data: Map.get(response, :output_data, %{})
+        }
+
+        resolve_status(record, :approved, reason, context, permission_decision, %{
+          target_policy_decision: target_decision,
+          target_resumed?: true,
+          target_status: :completed,
+          target_result: target_result
+        })
+
+      {:ok, response} ->
+        target_status = Map.get(response, :status, :denied)
+
+        resolve_status(
+          record,
+          :denied,
+          reason || "Workspace microphone capture did not start: #{inspect(target_status)}",
+          context,
+          permission_decision,
+          %{
+            target_policy_decision: target_decision,
+            target_resumed?: false,
+            target_status: target_status,
+            target_result: %{status: target_status},
+            blocked_by_policy?: target_status == :denied
+          }
+        )
+    end
   end
 
   defp resolve_status(record, status, reason, context, permission_decision, metadata) do

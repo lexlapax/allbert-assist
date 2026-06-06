@@ -29,6 +29,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
        approval_lines: Map.get(state, :approval_lines, []),
        approval_result: Map.get(state, :approval_result),
        show_approval_details?: Map.get(state, :show_approval_details?, false),
+       voice_capture: Map.get(state, :voice_capture, %{status: :idle}),
+       voice_capture_upload: Map.get(context, :voice_capture_upload),
        composer_max_bytes: Map.get(context, :composer_max_bytes, 65_536),
        maximized_pane: Map.get(context, :workspace_maximized_pane)
      )}
@@ -223,6 +225,22 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           >
             {composer_counter_text(@prompt, @composer_max_bytes)}
           </span>
+          <div class="workspace-composer-actions">
+            <button
+              id="voice-capture-request"
+              type="button"
+              class="workspace-button workspace-button-secondary workspace-voice-button"
+              phx-click="request_voice_capture"
+              disabled={@asking? or voice_capture_pending?(@voice_capture)}
+              aria-disabled={bool_attribute(@asking? or voice_capture_pending?(@voice_capture))}
+              aria-pressed={bool_attribute(voice_capture_ready?(@voice_capture))}
+              aria-label={voice_capture_request_label(@voice_capture)}
+              title={voice_capture_request_label(@voice_capture)}
+            >
+              <.icon name="hero-microphone-micro" class="size-4" />
+              <span>{voice_capture_request_text(@voice_capture)}</span>
+            </button>
+          </div>
           <button
             id="agent-submit"
             type="submit"
@@ -235,6 +253,109 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
             {if @asking?, do: "Thinking", else: "Ask"}
           </button>
         </div>
+      </form>
+
+      <form
+        :if={voice_capture_ready?(@voice_capture) and @voice_capture_upload}
+        id="voice-capture-form"
+        phx-change="validate_voice_capture"
+        phx-submit="submit_voice_capture"
+        class="workspace-voice-capture"
+        phx-hook="WorkspaceVoiceCapture"
+        data-capture-id={voice_capture_value(@voice_capture, :capture_id)}
+        data-capture-resource={voice_capture_value(@voice_capture, :resource_uri)}
+        data-max-duration-ms={voice_capture_value(@voice_capture, :max_duration_ms) || 300_000}
+        aria-labelledby="voice-capture-title"
+      >
+        <div class="workspace-voice-capture-header">
+          <div>
+            <p id="voice-capture-title" class="workspace-voice-capture-title">Voice</p>
+            <p
+              id="voice-capture-status"
+              class="workspace-voice-capture-status"
+              data-voice-status
+              aria-live="polite"
+            >
+              Ready
+            </p>
+          </div>
+          <code class="workspace-mono">
+            {voice_capture_value(@voice_capture, :resource_uri)}
+          </code>
+        </div>
+
+        <.live_file_input
+          upload={@voice_capture_upload}
+          class="workspace-voice-file-input"
+          data-voice-file-input
+        />
+
+        <div class="workspace-voice-capture-actions">
+          <button
+            id="voice-capture-start"
+            type="button"
+            class="workspace-button workspace-button-secondary"
+            data-voice-start
+            aria-label="Start voice capture"
+          >
+            <.icon name="hero-microphone-micro" class="size-4" />
+            <span>Record</span>
+          </button>
+          <button
+            id="voice-capture-stop"
+            type="button"
+            class="workspace-button workspace-button-danger"
+            data-voice-stop
+            disabled
+            aria-disabled="true"
+            aria-label="Stop voice capture"
+          >
+            <.icon name="hero-stop-mini" class="size-4" />
+            <span>Stop</span>
+          </button>
+          <button
+            id="voice-capture-submit"
+            type="submit"
+            class="workspace-button workspace-button-primary"
+            disabled={@voice_capture_upload.entries == []}
+            aria-disabled={bool_attribute(@voice_capture_upload.entries == [])}
+          >
+            <.icon name="hero-paper-airplane-micro" class="size-4" />
+            <span>Send</span>
+          </button>
+        </div>
+
+        <div
+          :for={entry <- @voice_capture_upload.entries}
+          class="workspace-voice-upload-entry"
+          data-upload-ref={entry.ref}
+        >
+          <span>{entry.client_name}</span>
+          <progress value={entry.progress} max="100">{entry.progress}%</progress>
+          <button
+            type="button"
+            class="allbert-icon-button"
+            phx-click="cancel_voice_capture_upload"
+            phx-value-ref={entry.ref}
+            aria-label="Cancel voice capture upload"
+            title="Cancel voice capture upload"
+          >
+            <.icon name="hero-x-mark-micro" class="size-4" />
+          </button>
+          <p
+            :for={err <- upload_errors(@voice_capture_upload, entry)}
+            class="workspace-voice-upload-error"
+          >
+            {voice_upload_error(err)}
+          </p>
+        </div>
+
+        <p
+          :for={err <- upload_errors(@voice_capture_upload)}
+          class="workspace-voice-upload-error"
+        >
+          {voice_upload_error(err)}
+        </p>
       </form>
 
       <%= if @approval_handoff do %>
@@ -335,6 +456,41 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
 
   defp bool_attribute(true), do: "true"
   defp bool_attribute(false), do: "false"
+
+  defp voice_capture_ready?(capture) do
+    voice_capture_value(capture, :status) in [:approved, "approved"] and
+      is_binary(voice_capture_value(capture, :resource_uri))
+  end
+
+  defp voice_capture_pending?(capture),
+    do: voice_capture_value(capture, :status) in [:pending, "pending"]
+
+  defp voice_capture_request_text(capture) do
+    cond do
+      voice_capture_pending?(capture) -> "Pending"
+      voice_capture_ready?(capture) -> "Ready"
+      true -> "Mic"
+    end
+  end
+
+  defp voice_capture_request_label(capture) do
+    cond do
+      voice_capture_pending?(capture) -> "Microphone capture pending confirmation"
+      voice_capture_ready?(capture) -> "Microphone capture approved"
+      true -> "Request microphone capture"
+    end
+  end
+
+  defp voice_capture_value(capture, key) when is_map(capture) do
+    Map.get(capture, key) || Map.get(capture, Atom.to_string(key))
+  end
+
+  defp voice_capture_value(_capture, _key), do: nil
+
+  defp voice_upload_error(:too_large), do: "Too large"
+  defp voice_upload_error(:too_many_files), do: "One file only"
+  defp voice_upload_error(:not_accepted), do: "Unsupported type"
+  defp voice_upload_error(error), do: inspect(error)
 
   defp prompt_present?(prompt) when is_binary(prompt), do: String.trim(prompt) != ""
   defp prompt_present?(_prompt), do: false

@@ -170,6 +170,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "set_active_app",
              "clear_active_app",
              "show_session_scratchpad",
+             "capture_workspace_voice",
              "transcribe_voice",
              "record_trace",
              "explain_intent",
@@ -245,6 +246,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     refute "marketplace_doctor" in agent_action_names
     refute "security_status" in agent_action_names
     refute "security_review" in agent_action_names
+    refute "capture_workspace_voice" in agent_action_names
     refute "transcribe_voice" in agent_action_names
     refute "record_trace" in agent_action_names
   end
@@ -315,6 +317,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "set_active_app",
              "clear_active_app",
              "show_session_scratchpad",
+             "capture_workspace_voice",
              "transcribe_voice",
              "record_trace",
              "explain_intent",
@@ -726,6 +729,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert show_session_scratchpad.permission == :read_only
     assert show_session_scratchpad.execution_mode == :settings_read
 
+    assert {:ok, capture_workspace_voice} = Registry.capability("capture_workspace_voice")
+    assert capture_workspace_voice.permission == :microphone_capture
+    assert capture_workspace_voice.exposure == :internal
+    assert capture_workspace_voice.execution_mode == :live_microphone_capture
+    assert capture_workspace_voice.resumable? == true
+
     assert {:ok, transcribe_voice} = Registry.capability("transcribe_voice")
     assert transcribe_voice.permission == :voice_transcribe
     assert transcribe_voice.exposure == :internal
@@ -750,6 +759,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert Registry.resumable?("rollback_dynamic_integration")
     assert Registry.resumable?("mcp_read_resource")
     assert Registry.resumable?("mcp_call_tool")
+    assert Registry.resumable?("capture_workspace_voice")
 
     refute Registry.resumable?("direct_answer")
     refute Registry.resumable?("plan_package_install")

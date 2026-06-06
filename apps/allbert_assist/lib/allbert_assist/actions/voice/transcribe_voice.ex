@@ -12,7 +12,8 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
     category: "voice",
     tags: ["voice", "speech_to_text", "audio", "internal"],
     schema: [
-      audio_file: [type: :string, required: true]
+      audio_file: [type: :string, required: true],
+      resource_uri: [type: :string, required: false]
     ],
     output_schema: [
       message: [type: :string, required: true],
@@ -37,7 +38,7 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
         PermissionGate.authorize(:voice_transcribe, voice_context(context, resolution.profile))
 
       if PermissionGate.allowed?(permission_decision) do
-        run_allowed(audio_file, resolution, permission_decision)
+        run_allowed(audio_file, resolution, permission_decision, params)
       else
         {:ok, stopped(permission_decision, :permission_denied, %{})}
       end
@@ -47,9 +48,9 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
     end
   end
 
-  defp run_allowed(audio_file, resolution, permission_decision) do
+  defp run_allowed(audio_file, resolution, permission_decision, params) do
     with :ok <- voice_enabled?(),
-         {:ok, audio} <- validate_audio_file(audio_file),
+         {:ok, audio} <- validate_audio_file(audio_file, params),
          {:ok, settings} <- voice_settings(),
          {:ok, transcode_spec} <-
            Transcode.build_spec(audio.path, resolution.profile, settings: settings),
@@ -137,12 +138,28 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
     end
   end
 
-  defp validate_audio_file(audio_file) do
+  defp validate_audio_file(audio_file, params) do
     with {:ok, resource_uri} <- ResourceURI.file(audio_file),
          {:ok, path} <- ResourceURI.path_from_file_uri(resource_uri),
          :ok <- regular_file?(path),
-         :ok <- accepted_audio_extension?(path) do
-      {:ok, %{path: path, resource_uri: resource_uri}}
+         :ok <- accepted_audio_extension?(path),
+         {:ok, identity_uri} <- audio_resource_identity(params, resource_uri) do
+      {:ok, %{path: path, resource_uri: identity_uri}}
+    end
+  end
+
+  defp audio_resource_identity(params, fallback_uri) do
+    case field(params, :resource_uri) do
+      value when is_binary(value) ->
+        case ResourceURI.normalize(value) do
+          {:ok, "mic://capture/" <> _rest = uri} -> {:ok, uri}
+          {:ok, "file://" <> _rest = uri} -> {:ok, uri}
+          {:ok, _uri} -> {:error, :unsupported_audio_resource_uri}
+          {:error, reason} -> {:error, reason}
+        end
+
+      _value ->
+        {:ok, fallback_uri}
     end
   end
 
