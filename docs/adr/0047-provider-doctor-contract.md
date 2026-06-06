@@ -5,6 +5,11 @@
 Accepted at v0.39 First-Run Onboarding And Provider Control M1 closeout.
 The v0.48 voice-doctor additive fields were implemented in M3 with focused
 doctor/action/CLI/registry coverage.
+M8R amends the v0.48 voice-doctor obligation before release: doctors must
+distinguish fixture-only fake profiles from executable local/OpenAI/Gemini
+voice providers, must report local Ollama as a text-turn provider rather than
+STT/TTS, and must return a bounded diagnostic when an Anthropic/Claude profile
+is incorrectly marked as native STT/TTS.
 Becomes a Tier-1 freeze candidate at v1.0.
 
 v0.48 M3 closeout evidence:
@@ -137,6 +142,13 @@ migration. Known additive fields:
   it does not grant audio permissions, upload arbitrary audio, rewrite
   preferences, or make a provider selectable when Settings Central has disabled
   it.
+  v0.48 M8R adds diagnostic responsibility, not a return-shape fork:
+  `:fixture_probe_ok` may be true for fake profiles while `:endpoint_ok` still
+  does not imply a real provider; local endpoint voice profiles must probe only
+  loopback hosts; remote voice profiles must use Settings Central secret refs;
+  Ollama text profiles may be doctored as local text providers but do not
+  satisfy STT/TTS; Anthropic/Claude voice-capability markings return a bounded
+  capability-not-native diagnostic until native audio support is implemented.
 - **v0.49 vision** adds `:image_input_supported`.
 
 ### 3. Redaction policy
@@ -189,6 +201,11 @@ CLI remains `mix allbert.model doctor <profile>`; the Mix task dispatches to
 or provider metadata to test STT/TTS availability. It never records raw audio,
 accepts a model-output-supplied file path, follows arbitrary provider-returned
 URLs, or uses doctor success as a remembered Resource Access grant.
+For M8R release validation, fixture-only doctors are insufficient. The doctor
+must expose enough redacted evidence for operators to see whether the local
+OpenAI-compatible endpoint, OpenAI remote profile, Gemini remote profile, and
+local Ollama text profile are configured and reachable for their respective
+roles.
 
 ### 5. Tier-1 freeze candidate
 

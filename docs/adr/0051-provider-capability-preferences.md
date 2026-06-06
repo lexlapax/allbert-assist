@@ -4,6 +4,13 @@
 
 Accepted in v0.48 M1.
 
+M8R amendment before v0.48 release: fake voice profiles are fixture-only.
+Release-ready voice capability routing must include executable local
+OpenAI-compatible STT/TTS, OpenAI remote STT/TTS, Gemini remote STT/TTS, and a
+local Ollama text-generation profile for the listen -> think -> speak loop.
+Anthropic/Claude profiles remain `text_generation` profiles in v0.48 unless a
+future ADR/plan adds native Anthropic audio APIs.
+
 M1 closeout evidence:
 
 - `MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/settings/provider_catalog_test.exs apps/allbert_assist/test/allbert_assist/settings_test.exs`
@@ -96,6 +103,13 @@ and `remote_credentialed`. Known `transport_modes` are `request_file`,
 `input_modalities`/`output_modalities` use coarse media values such as `text`,
 `audio`, `image`, and `video`.
 
+`fake` is a test deployment mode only. A profile with `deployment_mode: fake`
+may satisfy deterministic fixture tests but must not be treated as release
+authority for an operator-visible modality. `local_ollama`/Ollama profiles may
+declare `text_generation` and can be selected for the text turn after STT; they
+must not be marked `speech_to_text` or `text_to_speech` unless Ollama exposes
+native audio endpoints and Allbert implements that adapter.
+
 ### Catalog And Settings Shape
 
 The shipped catalog may include coarse provider metadata:
@@ -150,11 +164,14 @@ primary profile used as the common fallback:
   },
   "capabilities" => %{
     "text_generation" => ["local", "fast", "capable"],
-    "speech_to_text" => ["voice_stt_local", "voice_stt_fake"],
-    "text_to_speech" => ["voice_tts_local", "voice_tts_fake"]
+    "speech_to_text" => ["voice_stt_local", "voice_stt_openai", "voice_stt_gemini"],
+    "text_to_speech" => ["voice_tts_local", "voice_tts_openai", "voice_tts_gemini"]
   }
 }
 ```
+
+Fake voice profiles may appear in deterministic tests, but they must not be
+operator default preferences or release-validation targets.
 
 The resolver accepts a task or capability, walks the matching ranked list, and
 returns the first enabled profile whose declared capabilities satisfy the

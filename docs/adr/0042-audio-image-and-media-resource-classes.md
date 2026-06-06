@@ -20,6 +20,12 @@ v0.48 M8 closeout evidence:
   workspace microphone confirmation, STT/TTS actions, Telegram voice-note
   ingestion, and the v0.48 voice-modality eval rows.
 
+M8R release correction: the M8 evidence above proves the fixture/security
+surface only. v0.48 release readiness now requires executable real-provider
+voice paths: local OpenAI-compatible STT/TTS, OpenAI remote STT/TTS, Gemini
+remote STT/TTS, bounded transcode materialization, and a local Ollama text turn
+between STT and TTS.
+
 ## Context
 
 Voice and vision are modalities, not separate runtimes. Allbert needs to model
@@ -56,6 +62,9 @@ v0.48 implements only the audio portion of this ADR:
   writes only to a temp or Allbert Home-derived path, and redacts both source
   and output paths in traces. Missing transcode support is a doctor diagnostic
   or action error, not a reason to widen accepted provider inputs.
+  M8R must materialize this spec for real provider calls; a plan-only argv spec
+  is insufficient when the selected provider does not accept the source audio
+  format.
 - Voice adds operation classes for microphone capture, transcription, and
   synthesis. Security Central policy must distinguish local/test providers
   from credentialed remote providers, because remote STT/TTS can upload audio
@@ -80,6 +89,8 @@ v0.48 implements only the audio portion of this ADR:
 - Realtime audio sessions and generic audio/video understanding are not part of
   the v0.48 media-resource implementation. A profile may report such transport
   metadata, but the release flow remains bounded file/capture STT and TTS.
+- Local Ollama is a text-generation provider in the middle of the voice flow,
+  not an audio media resource provider in v0.48.
 
 The v0.49 image/screenshot portion will amend this ADR separately when the
 vision plan is deepened.

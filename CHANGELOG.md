@@ -12,8 +12,9 @@ changelog entries or release notes.
 
 ## v0.48.0 - Voice Modality And Provider Capabilities
 
-Status: implemented as the v0.48 release. Current version metadata is
-`0.48.0`; ready for operator manual validation before the release tag.
+Status: implementation reopened before release. Current version metadata is
+`0.48.0`, but v0.48 is not ready for operator manual validation or release tag
+until M8R real-provider remediation lands.
 
 ### Added
 
@@ -32,8 +33,9 @@ Status: implemented as the v0.48 release. Current version metadata is
   retention, and bounded transcode specs.
 - `transcribe_voice`, `mix allbert.ask --voice AUDIO_FILE`, and
   confirmation-gated workspace microphone capture.
-- `synthesize_voice` with fake-provider TTS output and display-only
-  provider/usage/cost metadata.
+- `synthesize_voice` first-pass fixture output with display-only
+  provider/usage/cost metadata; M8R must make local, OpenAI, and Gemini TTS
+  executable before release.
 - Telegram voice-note ingestion through bounded Bot API `getFile`/download
   handling followed by the shared `transcribe_voice` action.
 - Ten v0.48 security eval rows:
@@ -45,8 +47,10 @@ Status: implemented as the v0.48 release. Current version metadata is
   `voice-tts-cost-metadata-display-only-001`,
   `voice-channel-authority-boundary-001`, and
   `voice-transcode-bounded-001`.
-- `mix allbert.test release.v048`, a deterministic fake-provider release lane
-  for the v0.48 voice modality surface.
+- `mix allbert.test release.v048`, initially added as a deterministic
+  fake-provider fixture lane for the v0.48 voice modality surface. M8R must
+  extend it to exercise real adapter code paths through deterministic provider
+  fixtures.
 
 ### Changed
 
@@ -56,10 +60,16 @@ Status: implemented as the v0.48 release. Current version metadata is
 - Voice uses the shared Settings Central, Security Central, action registry,
   traces, confirmations, and provider resolver instead of a parallel voice
   provider system.
-- Voice STT/TTS now route through the explicit `ProviderAdapter` behaviour:
-  fake is the concrete deterministic release adapter, while local-endpoint,
-  bundled-local, and remote-credentialed adapters are fail-closed stubs until
-  concrete provider calls are implemented.
+- Voice STT/TTS now route through the explicit `ProviderAdapter` behaviour.
+  The first pass made fake concrete and left local-endpoint, bundled-local, and
+  remote-credentialed adapters fail-closed; M8R converts the required local,
+  OpenAI, and Gemini paths from stubs into executable adapters.
+- v0.48 release scope is corrected: fake providers are fixture-only, and the
+  release is blocked until local OpenAI-compatible STT/TTS, OpenAI remote
+  STT/TTS, Gemini remote STT/TTS, and the local Ollama text turn are executable
+  and covered.
+- Anthropic/Claude remains a text-generation provider in the middle of the
+  voice loop; it is not a native v0.48 STT/TTS provider.
 - Fake TTS/STT usage and cost metadata now reports `%{source: :unavailable}`
   instead of Allbert-computed byte counts or zero-cost packets.
 - Telegram Bot API voice fetches now preflight through `External.HttpPolicy`
@@ -70,21 +80,19 @@ Status: implemented as the v0.48 release. Current version metadata is
   context map, security-hardening notes, README, operator guide, and developer
   guide now reflect the shipped v0.48 scope and the v0.49 vision handoff.
 
-### Verification
+### First-Pass Verification
 
-- Focused M8 eval/task suite passed with 17 tests and 0 failures:
+- Focused M8 eval/task suite passed with 17 tests and 0 failures before the
+  real-provider remediation was scoped:
   `MIX_ENV=test mix test apps/allbert_assist/test/security/v048_voice_modality_eval_test.exs apps/allbert_assist/test/security/security_eval_case_test.exs apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs`.
 - `mix allbert.test release.v048` passed with provider capability core
   (`45 tests, 0 failures`), voice action/CLI/channel (`46 tests, 0 failures`),
   workspace voice (`64 tests, 0 failures`), voice security eval/task
   (`17 tests, 0 failures`), and a clean v0.48 voice secret scan. Evidence:
   `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v048/p0-13250/home/release_evidence/v048/release-v048-1780768719.json`.
-- Full `mix allbert.test release` passed with compile, dependency, format,
-  Credo, core (`1456 tests, 0 failures, 4 skipped`), web (`122 tests,
-  0 failures`), StockSage (`197 tests, 0 failures`), channel plugin
-  (`12 tests, 0 failures`), and Dialyzer (`Total errors: 0`) phases clean.
-  Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13254/home/release_evidence/gates/release-2026-06-06T17_42_36Z.json`.
+- This first-pass evidence is no longer sufficient for release. The release
+  evidence must be refreshed after M8R extends `release.v048` and the full
+  release gate covers the real-provider remediation.
 
 ## v0.47.1 - Operator-Supervised Self-Improvement Handoff Drafts
 
