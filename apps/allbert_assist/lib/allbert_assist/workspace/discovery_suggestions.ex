@@ -1,6 +1,6 @@
 defmodule AllbertAssist.Workspace.DiscoverySuggestions do
   @moduledoc """
-  Passive workspace panel for inert MCP discovery suggestions.
+  Passive workspace panel for inert discovery and self-improvement suggestions.
   """
 
   alias AllbertAssist.Surface
@@ -40,7 +40,7 @@ defmodule AllbertAssist.Workspace.DiscoverySuggestions do
       component: :panel,
       props: %{
         title: "Discovery Suggestions",
-        body: "No pending discovery suggestions."
+        body: "No pending suggestions."
       },
       children: [
         %Node{
@@ -48,7 +48,7 @@ defmodule AllbertAssist.Workspace.DiscoverySuggestions do
           component: :empty_state,
           props: %{
             title: "No pending suggestions",
-            body: "Scans have not recorded any pending MCP candidates."
+            body: "Scans have not recorded any pending suggestions."
           }
         }
       ]
@@ -61,13 +61,20 @@ defmodule AllbertAssist.Workspace.DiscoverySuggestions do
       component: :panel,
       props: %{
         title: "Discovery Suggestions",
-        body: "#{length(suggestions)} pending MCP candidate(s)."
+        body: "#{length(suggestions)} pending suggestion(s)."
       },
       children: Enum.flat_map(suggestions, &suggestion_nodes/1)
     }
   end
 
   defp suggestion_nodes(suggestion) do
+    case field(suggestion, :provenance, "discovery") do
+      "self_improvement" -> self_improvement_suggestion_nodes(suggestion)
+      _provenance -> mcp_suggestion_nodes(suggestion)
+    end
+  end
+
+  defp mcp_suggestion_nodes(suggestion) do
     candidate = field(suggestion, :candidate_snapshot, %{})
     evaluation = field(suggestion, :evaluation_snapshot, %{})
     candidate_id = field(suggestion, :candidate_id)
@@ -106,6 +113,38 @@ defmodule AllbertAssist.Workspace.DiscoverySuggestions do
     ]
   end
 
+  defp self_improvement_suggestion_nodes(suggestion) do
+    metadata = field(suggestion, :metadata, %{})
+    suggestion_id = field(suggestion, :id)
+    suggestion_type = field(suggestion, :suggestion_type)
+    node_id = safe_id(suggestion_id)
+    draft_kind = field(metadata, :proposed_draft_kind)
+
+    [
+      %Node{
+        id: "discovery-suggestion-#{node_id}",
+        component: :settings_card,
+        props: %{
+          title: field(metadata, :title, humanize_type(suggestion_type)),
+          body: field(metadata, :summary, "Self-improvement suggestion."),
+          status: field(suggestion, :status, "pending"),
+          suggestion_id: suggestion_id,
+          suggestion_type: suggestion_type,
+          proposed_draft_kind: draft_kind
+        }
+      },
+      %Node{
+        id: "discovery-suggestion-#{node_id}-metadata",
+        component: :status_badge,
+        props: %{
+          title: "Suggestion metadata",
+          body: self_improvement_badge_text(suggestion_type, draft_kind),
+          status: "info"
+        }
+      }
+    ]
+  end
+
   defp suggestion_badge_text(candidate, evaluation) do
     [
       field(candidate, :source),
@@ -115,6 +154,21 @@ defmodule AllbertAssist.Workspace.DiscoverySuggestions do
     |> Enum.reject(&blank?/1)
     |> Enum.map(&to_string/1)
     |> Enum.join(" / ")
+  end
+
+  defp self_improvement_badge_text(suggestion_type, draft_kind) do
+    ["self_improvement", suggestion_type, draft_kind]
+    |> Enum.reject(&blank?/1)
+    |> Enum.map(&to_string/1)
+    |> Enum.join(" / ")
+  end
+
+  defp humanize_type(value) do
+    value
+    |> to_string()
+    |> String.replace("_", " ")
+    |> String.split(" ", trim: true)
+    |> Enum.map_join(" ", &String.capitalize/1)
   end
 
   defp field(map, key, default \\ nil)

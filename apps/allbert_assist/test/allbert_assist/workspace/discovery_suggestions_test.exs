@@ -62,6 +62,39 @@ defmodule AllbertAssist.Workspace.DiscoverySuggestionsTest do
            end)
   end
 
+  test "panel renders self-improvement suggestions without MCP connect affordance" do
+    assert {:ok, _suggestion} =
+             Discovery.upsert_self_improvement_suggestion(%{
+               id: "suggestion:self_improvement:trace-workflow",
+               suggestion_type: "trace_to_workflow",
+               summary: "Repeated browser research steps could become a workflow.",
+               evidence_refs: [%{path: "traces/research.md", pattern_type: :action_chain}],
+               proposed_draft_kind: "workflow",
+               provenance: %{source: :trace_index}
+             })
+
+    surface = DiscoverySuggestions.surface(%{})
+    assert [%Node{children: children}] = surface.nodes
+
+    assert Enum.any?(children, fn node ->
+             node.component == :settings_card and
+               node.props.suggestion_id == "suggestion:self_improvement:trace-workflow" and
+               node.props.suggestion_type == "trace_to_workflow" and
+               node.props.proposed_draft_kind == "workflow" and
+               node.props.body == "Repeated browser research steps could become a workflow."
+           end)
+
+    assert Enum.any?(children, fn node ->
+             node.component == :status_badge and
+               node.props.body == "self_improvement / trace_to_workflow / workflow"
+           end)
+
+    refute Enum.any?(children, fn node ->
+             node.component == :action_button and
+               Map.get(node.props, :action_name) == "mcp_server_connect"
+           end)
+  end
+
   defp persist_suggestion(manifest, status) do
     {:ok, candidate} =
       ToolCandidate.normalize(%{

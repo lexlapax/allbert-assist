@@ -80,6 +80,7 @@ defmodule AllbertAssist.Tools.DiscoveryTest do
     assert [
              %{
                candidate_id: "remote_mcp:official:weather",
+               provenance: "discovery",
                status: "pending",
                candidate_snapshot: %{"name" => "io.github.acme/weather-mcp"},
                updated_at: updated_at
@@ -92,6 +93,94 @@ defmodule AllbertAssist.Tools.DiscoveryTest do
     assert {:ok, _baseline} = Discovery.upsert_baseline_trust_record(candidate.id, report)
 
     assert %EvaluationReport{} = Repo.get(EvaluationReport, "eval:#{candidate.id}")
+  end
+
+  test "self-improvement suggestions validate, persist, expire, and accept idempotently" do
+    assert {:ok, _resolved} =
+             Settings.put("self_improvement.suggestions.max_open", 2, %{audit?: false})
+
+    assert {:ok, suggestion} =
+             Discovery.upsert_self_improvement_suggestion(%{
+               id: "suggestion:self_improvement:trace-skill",
+               suggestion_type: "trace_to_skill",
+               summary: "Repeated release-plan trace could become a skill.",
+               evidence_refs: [%{pattern_type: :repeated_prompt, path: "traces/one.md"}],
+               proposed_draft_kind: "skill",
+               provenance: %{source: :trace_index, pattern_id: "pattern-1"}
+             })
+
+    assert suggestion.candidate_id == nil
+    assert suggestion.provenance == "self_improvement"
+    assert suggestion.expires_at
+
+    assert [
+             %{
+               id: "suggestion:self_improvement:trace-skill",
+               candidate_id: nil,
+               provenance: "self_improvement",
+               suggestion_type: "trace_to_skill",
+               metadata: %{
+                 "summary" => "Repeated release-plan trace could become a skill.",
+                 "proposed_draft_kind" => "skill",
+                 "evidence_refs" => [
+                   %{"pattern_type" => "repeated_prompt", "path" => "traces/one.md"}
+                 ],
+                 "provenance" => %{"source" => "trace_index", "pattern_id" => "pattern-1"}
+               }
+             }
+           ] = Discovery.list_suggestions(status: "pending", provenance: "self_improvement")
+
+    assert {:error, {:invalid_suggestion_type, "unknown_kind"}} =
+             Discovery.upsert_self_improvement_suggestion(%{
+               suggestion_type: "unknown_kind",
+               summary: "Invalid kind.",
+               proposed_draft_kind: "skill"
+             })
+
+    assert {:ok, _suggestion} =
+             Discovery.upsert_self_improvement_suggestion(%{
+               id: "suggestion:self_improvement:memory",
+               suggestion_type: "memory_update",
+               summary: "Repeated correction should update memory.",
+               evidence_refs: [],
+               proposed_draft_kind: "memory_update"
+             })
+
+    assert {:error, {:max_open_suggestions, 2}} =
+             Discovery.upsert_self_improvement_suggestion(%{
+               id: "suggestion:self_improvement:workflow",
+               suggestion_type: "trace_to_workflow",
+               summary: "Repeated steps could become a workflow.",
+               evidence_refs: [],
+               proposed_draft_kind: "workflow"
+             })
+
+    assert {:ok, accepted} = Discovery.accept_suggestion(suggestion.id, "draft-skill-1")
+    assert accepted.status == "accepted"
+    assert accepted.draft_id == "draft-skill-1"
+
+    assert {:ok, accepted_again} = Discovery.accept_suggestion(suggestion.id, "draft-skill-2")
+    assert accepted_again.draft_id == "draft-skill-1"
+
+    assert {:ok, _expired} =
+             Discovery.upsert_self_improvement_suggestion(%{
+               id: "suggestion:self_improvement:expired",
+               suggestion_type: "memory_promotion",
+               summary: "Expired suggestion.",
+               evidence_refs: [],
+               proposed_draft_kind: "memory_promotion",
+               expires_at: DateTime.add(DateTime.utc_now(), -60, :second)
+             })
+
+    refute Enum.any?(
+             Discovery.list_suggestions(status: "pending", provenance: "self_improvement"),
+             &(&1.id == "suggestion:self_improvement:expired")
+           )
+
+    assert Enum.any?(
+             Discovery.list_suggestions(status: "expired", provenance: "self_improvement"),
+             &(&1.id == "suggestion:self_improvement:expired")
+           )
   end
 
   test "evaluation flags dangerous command metadata and runs bounded health probe" do

@@ -12,6 +12,7 @@ defmodule AllbertAssist.Tools.Discovery do
   alias AllbertAssist.External.HttpClient
   alias AllbertAssist.External.RequestSpec
   alias AllbertAssist.Repo
+  alias AllbertAssist.Settings
   alias AllbertAssist.Tools.Discovery.BaselineTrustRecord
   alias AllbertAssist.Tools.Discovery.CandidateRecord
   alias AllbertAssist.Tools.Discovery.EvaluationReport
@@ -28,6 +29,7 @@ defmodule AllbertAssist.Tools.Discovery do
   ]
 
   @command_path_tokens ~w(command commands args script scripts install postinstall run)
+  @self_improvement_suggestion_types ~w(trace_to_skill trace_to_workflow memory_promotion memory_update)
 
   @doc "Insert or refresh a discovered candidate record."
   @spec upsert_candidate(ToolCandidate.t(), map()) ::
@@ -217,26 +219,88 @@ defmodule AllbertAssist.Tools.Discovery do
         candidate_id: candidate_id,
         suggestion_type: "mcp_server_candidate",
         status: Map.get(attrs, :status, "pending"),
+        provenance: "discovery",
         candidate_snapshot: candidate_snapshot,
         evaluation_snapshot: evaluation_snapshot,
-        metadata: Map.get(attrs, :metadata, %{})
+        metadata: Map.get(attrs, :metadata, %{}),
+        expires_at: Map.get(attrs, :expires_at),
+        draft_id: Map.get(attrs, :draft_id)
       }
       |> json_safe_attrs([:candidate_snapshot, :evaluation_snapshot, :metadata])
 
+    upsert_suggestion_record(suggestion_id, record_attrs)
+  end
+
+  @doc """
+  Persist an inert self-improvement suggestion for later operator review.
+
+  The packet shape is stored in `metadata`:
+
+  - `summary`
+  - `evidence_refs`
+  - `proposed_draft_kind`
+  - `provenance`
+  """
+  def upsert_self_improvement_suggestion(attrs) when is_map(attrs) or is_list(attrs) do
+    attrs = opts_map(attrs)
+    suggestion_type = string_from(attrs, :suggestion_type)
+
+    with :ok <- validate_self_improvement_suggestion_type(suggestion_type),
+         {:ok, metadata} <- self_improvement_metadata(attrs) do
+      suggestion_id =
+        string_from(attrs, :id) || self_improvement_suggestion_id(suggestion_type, metadata)
+
+      with :ok <- ensure_open_suggestion_capacity(suggestion_id, attrs) do
+        record_attrs =
+          %{
+            id: suggestion_id,
+            candidate_id: nil,
+            suggestion_type: suggestion_type,
+            status: string_from(attrs, :status) || "pending",
+            provenance: "self_improvement",
+            candidate_snapshot: %{},
+            evaluation_snapshot: %{},
+            metadata: metadata,
+            expires_at: expires_at(attrs),
+            draft_id: string_from(attrs, :draft_id)
+          }
+          |> json_safe_attrs([:candidate_snapshot, :evaluation_snapshot, :metadata])
+
+        upsert_suggestion_record(suggestion_id, record_attrs)
+      end
+    end
+  end
+
+  @doc "Mark a suggestion accepted and attach its inert draft id."
+  def accept_suggestion(suggestion_id, draft_id)
+      when is_binary(suggestion_id) and is_binary(draft_id) and draft_id != "" do
     case Repo.get(Suggestion, suggestion_id) do
-      nil -> %Suggestion{} |> Suggestion.changeset(record_attrs) |> Repo.insert()
-      %Suggestion{} = record -> record |> Suggestion.changeset(record_attrs) |> Repo.update()
+      nil ->
+        {:error, :not_found}
+
+      %Suggestion{status: "accepted", draft_id: existing_draft_id} = suggestion
+      when is_binary(existing_draft_id) and existing_draft_id != "" ->
+        {:ok, suggestion}
+
+      %Suggestion{} = suggestion ->
+        suggestion
+        |> Suggestion.changeset(%{status: "accepted", draft_id: draft_id})
+        |> Repo.update()
     end
   end
 
   @doc "List operator-review discovery suggestions as action/UI-safe maps."
   def list_suggestions(opts \\ []) do
     opts = opts_map(opts)
+    expire_stale_suggestions()
+
     status = suggestion_status(opts)
     limit = suggestion_limit(opts)
+    provenance = suggestion_provenance(opts)
 
     Suggestion
     |> maybe_where(:status, status)
+    |> maybe_where(:provenance, provenance)
     |> order_by([suggestion], desc: suggestion.updated_at, desc: suggestion.inserted_at)
     |> limit(^limit)
     |> Repo.all()
@@ -250,12 +314,120 @@ defmodule AllbertAssist.Tools.Discovery do
       candidate_id: suggestion.candidate_id,
       suggestion_type: suggestion.suggestion_type,
       status: suggestion.status,
+      provenance: suggestion.provenance,
       candidate_snapshot: suggestion.candidate_snapshot || %{},
       evaluation_snapshot: suggestion.evaluation_snapshot || %{},
       metadata: suggestion.metadata || %{},
+      expires_at: datetime_to_iso(suggestion.expires_at),
+      draft_id: suggestion.draft_id,
       inserted_at: datetime_to_iso(suggestion.inserted_at),
       updated_at: datetime_to_iso(suggestion.updated_at)
     }
+  end
+
+  defp upsert_suggestion_record(suggestion_id, record_attrs) do
+    case Repo.get(Suggestion, suggestion_id) do
+      nil -> %Suggestion{} |> Suggestion.changeset(record_attrs) |> Repo.insert()
+      %Suggestion{} = record -> record |> Suggestion.changeset(record_attrs) |> Repo.update()
+    end
+  end
+
+  defp validate_self_improvement_suggestion_type(type)
+       when type in @self_improvement_suggestion_types,
+       do: :ok
+
+  defp validate_self_improvement_suggestion_type(type),
+    do: {:error, {:invalid_suggestion_type, type}}
+
+  defp self_improvement_metadata(attrs) do
+    with {:ok, summary} <- required_string(attrs, :summary),
+         {:ok, proposed_draft_kind} <- required_string(attrs, :proposed_draft_kind) do
+      extra_metadata = map_opt(attrs, :metadata)
+
+      metadata =
+        Map.merge(extra_metadata, %{
+          "summary" => summary,
+          "evidence_refs" => list_opt(attrs, :evidence_refs),
+          "proposed_draft_kind" => proposed_draft_kind,
+          "provenance" => map_opt(attrs, :provenance, %{"source" => "trace_index"})
+        })
+
+      {:ok, metadata}
+    end
+  end
+
+  defp self_improvement_suggestion_id(suggestion_type, metadata) do
+    hash =
+      %{suggestion_type: suggestion_type, metadata: metadata}
+      |> stable_hash()
+      |> binary_part(0, 16)
+
+    "suggestion:self_improvement:#{suggestion_type}:#{hash}"
+  end
+
+  defp ensure_open_suggestion_capacity(suggestion_id, attrs) do
+    status = string_from(attrs, :status) || "pending"
+
+    cond do
+      status != "pending" ->
+        :ok
+
+      Repo.get(Suggestion, suggestion_id) ->
+        :ok
+
+      true ->
+        expire_stale_suggestions()
+
+        cap = settings_value("self_improvement.suggestions.max_open", 25)
+
+        open_count =
+          Suggestion
+          |> where([suggestion], suggestion.status == "pending")
+          |> where([suggestion], suggestion.provenance == "self_improvement")
+          |> Repo.aggregate(:count, :id)
+
+        if open_count < cap, do: :ok, else: {:error, {:max_open_suggestions, cap}}
+    end
+  end
+
+  defp expire_stale_suggestions do
+    now = DateTime.utc_now()
+
+    Suggestion
+    |> where([suggestion], suggestion.status == "pending")
+    |> where([suggestion], not is_nil(suggestion.expires_at))
+    |> where([suggestion], suggestion.expires_at <= ^now)
+    |> Repo.update_all(set: [status: "expired", updated_at: now])
+  end
+
+  defp expires_at(attrs) do
+    case get_any(attrs, [:expires_at, "expires_at"]) do
+      %DateTime{} = value ->
+        value
+
+      value when is_binary(value) ->
+        case DateTime.from_iso8601(value) do
+          {:ok, datetime, _offset} -> datetime
+          _error -> default_expires_at()
+        end
+
+      _value ->
+        default_expires_at()
+    end
+  end
+
+  defp default_expires_at do
+    ttl_days = settings_value("self_improvement.suggestions.ttl_days", 14)
+    DateTime.add(DateTime.utc_now(), ttl_days * 86_400, :second)
+  end
+
+  defp settings_value(key, default) do
+    case Settings.get(key) do
+      {:ok, value} -> value
+      _other -> default
+    end
+  rescue
+    _exception -> default
   end
 
   @doc "Persist the current tool-definition hash as an untrusted baseline."
@@ -640,6 +812,36 @@ defmodule AllbertAssist.Tools.Discovery do
     case Map.get(opts, :limit, Map.get(opts, "limit", 25)) do
       value when is_integer(value) and value > 0 -> min(value, 100)
       _value -> 25
+    end
+  end
+
+  defp suggestion_provenance(opts) do
+    case Map.get(opts, :provenance, Map.get(opts, "provenance")) do
+      :all -> nil
+      "all" -> nil
+      nil -> nil
+      provenance -> to_string(provenance)
+    end
+  end
+
+  defp required_string(attrs, key) do
+    case string_from(attrs, key) do
+      value when is_binary(value) and value != "" -> {:ok, value}
+      _value -> {:error, {:missing_required_field, key}}
+    end
+  end
+
+  defp map_opt(attrs, key, default \\ %{}) do
+    case get_any(attrs, [key, Atom.to_string(key)]) do
+      value when is_map(value) -> value
+      _value -> default
+    end
+  end
+
+  defp list_opt(attrs, key) do
+    case get_any(attrs, [key, Atom.to_string(key)]) do
+      value when is_list(value) -> value
+      _value -> []
     end
   end
 
