@@ -654,11 +654,13 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.48: Voice Modality And Provider Capabilities. Generalizes the existing
   provider/model framework with capability metadata and ranked operator
   preferences, then composes voice input/output with existing channels as audio
-  resources and registered STT/TTS actions. Discord voice is deferred until
-  after Discord exists.
+  resources and registered STT/TTS actions. Profile media metadata can describe
+  local, remote, bundled, and realtime shapes, but v0.48 release authority
+  remains bounded STT/TTS. Discord voice is deferred until after Discord exists.
 - v0.49: Vision And Image Generation. Consumes the v0.48 provider capability
   substrate for image and screenshot resources plus provider-backed image
-  generation.
+  generation. Video input remains future scope unless the v0.49 plan is
+  amended before implementation.
 - v0.50: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
   through the existing channel adapter and plugin contracts; v0.50 also amends
   ADR 0016 to lock the channel approval-primitive contract before mobile

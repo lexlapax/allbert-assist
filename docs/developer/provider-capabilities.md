@@ -3,9 +3,9 @@
 Status: planned for v0.48 M1-M3.
 
 v0.48 generalizes the v0.39 provider/model substrate. A provider is a
-connection profile. A model profile declares what that connection can do.
-Consumers ask for a task or capability and receive a validated profile through
-the preference resolver.
+connection profile. A model profile declares what that connection can do and,
+when media is involved, how it can do it. Consumers ask for a task or
+capability and receive a validated profile through the preference resolver.
 
 ## Authority Model
 
@@ -29,12 +29,42 @@ The v0.48 vocabulary is:
 - `vision_input`
 - `image_generation`
 - `video_input`
-- `streaming`
+- `token_streaming`
 - `embeddings`
 - `tool_use`
 
 Additions after v0.48 require an ADR update if they affect operator-visible
 settings, provider doctor fields, or permission policy.
+
+Capabilities are routing predicates, not the full media schema. `speech_to_text`
+and `text_to_speech` are the executable v0.48 voice capabilities.
+`token_streaming` means streaming text tokens or text deltas. Realtime audio
+sessions, file upload, local endpoint use, and bundled local execution live in
+profile media metadata:
+
+```json
+{
+  "media": {
+    "input_modalities": ["audio"],
+    "output_modalities": ["text"],
+    "transport_modes": ["request_file"],
+    "deployment_mode": "fake",
+    "audio_formats_supported": ["wav"],
+    "audio_sample_rates_supported": [16000],
+    "max_audio_bytes": 10485760,
+    "max_audio_duration_ms": 120000
+  }
+}
+```
+
+Known `deployment_mode` values: `fake`, `local_endpoint`, `bundled_local`,
+`remote_credentialed`.
+
+Known `transport_modes` values: `request_file`, `live_upload`,
+`realtime_session`, `local_endpoint`, `bundled_local`.
+
+`video_input` is vocabulary for later media work. v0.48 must not treat generic
+audio/video understanding metadata as an STT/TTS provider.
 
 ## Resolver Contract
 
@@ -69,14 +99,25 @@ Voice providers use the same model-profile and doctor contract:
 - CLI voice uses a file path or fixture.
 - Workspace microphone capture uses `mic://capture/<id>` and a confirmed action.
 - Fake STT/TTS providers are release-test fixtures, not operator defaults.
+- Local-endpoint voice providers target the v0.48 Allbert-owned localhost
+  contract: `POST /v1/audio/transcriptions`, `POST /v1/audio/speech`, and
+  `GET /v1/doctor`.
+- Bundled-local providers are explicitly configured offline engines behind a
+  bounded helper. The release lane does not require packaging a concrete engine.
 - Credentialed remote STT/TTS can upload audio or incur cost, so policy and
   result metadata must stay explicit.
+- Voice doctor fields use the ADR 0047 names: `provider_capabilities`,
+  `provider_deployment_mode`, `speech_to_text_supported`,
+  `text_to_speech_supported`, `audio_formats_supported`,
+  `sample_rates_supported`, `provider_usage_metadata_available`,
+  `local_runtime_present`, and `fixture_probe_ok`.
 
 ## Validation
 
 Implementation milestones should add focused tests for:
 
 - capability metadata loading and merge behavior;
+- media metadata validation and merge behavior;
 - ranked preference resolution and fallback;
 - compatibility aliases;
 - disabled provider/profile skips;

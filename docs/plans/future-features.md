@@ -510,6 +510,23 @@ Still parked:
 - cost forecast for objectives before approval;
 - export of spend audit logs.
 
+### Post-v0.48 Media Follow-Ons
+
+Status: parked. Added during the v0.48 third-pass readiness sweep.
+
+v0.48 profile metadata can describe realtime audio sessions, generic
+audio/video input support, local endpoint transports, and bundled-local runtime
+availability, but the release scope remains bounded STT/TTS. The following
+items need their own plans, permission story, resource classes, doctor fields,
+and release evidence before implementation:
+
+- realtime speech-to-speech sessions;
+- always-on or wake-word listening;
+- generic audio understanding that is not transcription;
+- video ingestion, sampled-frame analysis, or video generation;
+- required bundled-local engine packaging for every operator;
+- Discord voice after Discord channel support lands.
+
 ### Anonymous Telemetry Policy
 
 Status: parked. Added in the post-v0.37 planning pass.
