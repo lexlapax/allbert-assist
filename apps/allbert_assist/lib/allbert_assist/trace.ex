@@ -163,12 +163,17 @@ defmodule AllbertAssist.Trace do
     - Resource metadata: #{resource_metadata_summary(response.actions)}
     - Shell command metadata: #{shell_command_metadata_summary(response.actions)}
     - Skill metadata: #{skill_metadata_summary(response.actions)}
+    - Input metadata: #{input_metadata_summary(request)}
     - Token estimate: #{token_estimate(request.text, response.message)}
     - Cost estimate: unavailable-local-model
 
     ## Input
 
     #{request.text}
+
+    ## Input Metadata
+
+    #{input_metadata_text(request)}
 
     ## Response
 
@@ -279,6 +284,23 @@ defmodule AllbertAssist.Trace do
   end
 
   defp active_app_trace_line(_request), do: ""
+
+  defp input_metadata_summary(%{metadata: metadata}) when metadata in [nil, %{}], do: "none"
+
+  defp input_metadata_summary(%{metadata: metadata}) when is_map(metadata),
+    do: metadata |> Map.keys() |> Enum.map_join(",", &to_string/1)
+
+  defp input_metadata_summary(_request), do: "none"
+
+  defp input_metadata_text(%{metadata: metadata}) when metadata in [nil, %{}], do: "none"
+
+  defp input_metadata_text(%{metadata: metadata}) when is_map(metadata) do
+    metadata
+    |> Redactor.redact()
+    |> inspect(pretty: true, limit: :infinity)
+  end
+
+  defp input_metadata_text(_request), do: "none"
 
   defp action_name(%{name: name}) when is_binary(name), do: name
   defp action_name(%{"name" => name}) when is_binary(name), do: name

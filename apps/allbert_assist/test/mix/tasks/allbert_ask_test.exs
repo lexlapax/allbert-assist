@@ -207,6 +207,38 @@ defmodule Mix.Tasks.Allbert.AskTest do
     assert File.read!(trace_path) =~ "trace this cli prompt"
   end
 
+  test "transcribes a voice file before submitting runtime input", %{root: root} do
+    fixture = Path.expand("../../fixtures/v0.48/audio/hello.wav", __DIR__)
+    assert {:ok, _resolved} = Settings.put("voice.enabled", true, %{audit?: false})
+
+    output =
+      capture_io(fn ->
+        assert :ok = Ask.run(["--voice", fixture, "--trace"])
+      end)
+
+    assert output =~ "Status: completed"
+    assert output =~ "CLI response: hello from fixture audio"
+
+    assert_received {:agent_request,
+                     %{
+                       text: "hello from fixture audio",
+                       metadata: %{voice: voice_metadata}
+                     }}
+
+    assert voice_metadata.resource_uri == "file://[REDACTED_AUDIO_PATH]"
+    assert voice_metadata.provider_profile == "voice_stt_fake"
+    refute inspect(voice_metadata) =~ fixture
+
+    [trace_path] = Path.wildcard(Path.join([root, "traces", "*.md"]))
+    trace = File.read!(trace_path)
+
+    assert trace =~ "## Input Metadata"
+    assert trace =~ "provider_profile: \"voice_stt_fake\""
+    assert trace =~ "file://[REDACTED_AUDIO_PATH]"
+    refute trace =~ fixture
+    refute trace =~ "/fixtures/v0.48/audio"
+  end
+
   test "default CLI runtime can list, read, and activate registry-backed skills", %{root: root} do
     Application.delete_env(:allbert_assist, Runtime)
 
