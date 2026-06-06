@@ -149,8 +149,7 @@ rewrite Allbert Home, the Security Central store, or the source tree.
 
 ## v0.47 Amendment: draft store generalized into a unified reviewed-draft store
 
-Status: accepted as a v0.47 plan constraint; binding implementation lands in
-v0.47 M4.
+Status: implemented in v0.47 M4.
 
 v0.47 operator-supervised self-improvement generalizes the
 `AllbertAssist.DynamicPlugins.Draft` lifecycle into a single logical
@@ -162,8 +161,10 @@ the existing tier lifecycle (`draft`, `sandbox_compiled`, `sandbox_trialed`,
 (skill, workflow, memory, objective) use only a `draft → {discarded |
 promoted}` path. Existing source-bearing v0.37 drafts remain under
 `<ALLBERT_HOME>/dynamic_plugins/drafts/` as the compatibility root and are
-listed through the unified facade; new non-code v0.47 drafts use
-`<ALLBERT_HOME>/drafts/` subroots where appropriate. Code-bearing drafts keep
-this ADR's sandbox/gate/loader promotion path unchanged; non-code kinds
-promote to their own existing live write paths. The exact module/root
-implementation is recorded in `docs/plans/v0.47-plan.md` M4. See ADR 0045 A3.
+listed through the unified facade as `kind: "code"`; new non-code v0.47 drafts
+use `<ALLBERT_HOME>/drafts/` subroots. M4 stores workflow draft YAML at
+`<ALLBERT_HOME>/drafts/workflows/<id>.yaml` and non-code draft metadata as
+`*.metadata.yaml`. Code-bearing drafts keep this ADR's sandbox/gate/loader
+promotion path unchanged; non-code kinds promote to their own existing live
+write paths. The exact module/root implementation is recorded in
+`docs/plans/v0.47-plan.md` M4. See ADR 0045 A3.

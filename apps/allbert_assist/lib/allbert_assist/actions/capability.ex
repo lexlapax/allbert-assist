@@ -64,6 +64,7 @@ defmodule AllbertAssist.Actions.Capability do
           | :mcp_resource_read
           | :mcp_tool_call
           | :self_improvement_discovery
+          | :self_improvement_draft
 
   @type t :: %__MODULE__{
           name: String.t(),
