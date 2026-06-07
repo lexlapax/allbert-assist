@@ -145,7 +145,7 @@ unset MIX_ENV
 unset DATABASE_PATH
 export ALLBERT_TRACE_ENABLED=true
 export V048_AUDIO="/Users/spuri/projects/lexlapax/allbert-assist/Voice-testing-123.wav"
-test -f "$V048_AUDIO" && echo "audio ok: $V048_AUDIO"
+test -r "$V048_AUDIO" && echo "audio ok: $V048_AUDIO"
 ```
 
 Expected: the last command prints `audio ok: ...`. Replace `V048_AUDIO` with
@@ -155,6 +155,7 @@ another explicit WAV path if validating on a different machine.
 
 ```sh
 command -v ffmpeg
+command -v ffprobe
 command -v ollama
 command -v say
 ollama --version
@@ -165,13 +166,15 @@ ffprobe -hide_banner -loglevel error \
   -of default=noprint_wrappers=1 "$V048_AUDIO"
 ```
 
-Expected: `ffmpeg`, `ollama`, and macOS `say` resolve; Ollama responds on
-`127.0.0.1:11434`; the audio file is readable. If Ollama is not serving, start
-it with `ollama serve` in another terminal or through the local Ollama app.
+Expected: `ffmpeg`, `ffprobe`, `ollama`, and macOS `say` resolve; Ollama
+responds on `127.0.0.1:11434`; the audio file is readable. If Ollama is not
+serving, start it with `ollama serve` in another terminal or through the local
+Ollama app.
 
 3. Validate the local Ollama STT model before involving Allbert.
 
 ```sh
+ollama pull gemma4:e2b
 ollama show gemma4:e2b
 curl -sS --max-time 240 \
   -F model=gemma4:e2b \
@@ -180,12 +183,14 @@ curl -sS --max-time 240 \
   http://127.0.0.1:11434/v1/audio/transcriptions
 ```
 
-Expected: `ollama show` includes `audio`, and the curl response has non-empty
-`text`. `gemma4:e2b` is the validated v0.48 Mac local STT default.
+Expected: `ollama pull` exits 0, `ollama show` includes `audio`, and the curl
+response has non-empty `text`. `gemma4:e2b` is the validated v0.48 Mac local
+STT default.
 
 4. Optionally validate the larger local STT model.
 
 ```sh
+ollama pull gemma4:e4b
 ollama show gemma4:e4b
 curl -sS --max-time 300 \
   -F model=gemma4:e4b \
@@ -194,19 +199,25 @@ curl -sS --max-time 300 \
   http://127.0.0.1:11434/v1/audio/transcriptions
 ```
 
-Expected: non-empty `text`. Use `gemma4:e4b` only when the operator wants the
-heavier, higher-quality local STT option. Do not use `gemma4:e2b-mlx` or
-`gemma3n:e2b` as v0.48 release-validation defaults.
+Expected: if the optional model is pulled, the curl response has non-empty
+`text`. Use `gemma4:e4b` only when the operator wants the heavier,
+higher-quality local STT option. Do not use `gemma4:e2b-mlx` or `gemma3n:e2b`
+as v0.48 release-validation defaults.
 
 5. Create a disposable home for the fully local Allbert validation.
 
 ```sh
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v048-local.XXXXXX)"
+export ALLBERT_V048_LOCAL_HOME="$ALLBERT_HOME"
 mix ecto.create --quiet
 mix ecto.migrate --quiet
+printf 'export ALLBERT_HOME=%q\nexport V048_AUDIO=%q\n' \
+  "$ALLBERT_HOME" "$V048_AUDIO" > /tmp/allbert-v048-local-env.sh
 ```
 
-Expected: both Mix commands exit 0.
+Expected: both Mix commands exit 0 and
+`/tmp/allbert-v048-local-env.sh` exists. That file is the Terminal B handoff;
+do not type a placeholder value for `ALLBERT_HOME`.
 
 6. Configure the Allbert-owned local voice runtime through Settings Central.
 
@@ -229,7 +240,7 @@ setting only if step 4 passed and the operator wants the larger model.
 cd /Users/spuri/projects/lexlapax/allbert-assist
 unset MIX_ENV
 unset DATABASE_PATH
-export ALLBERT_HOME="PASTE_THE_STEP_5_VALUE"
+source /tmp/allbert-v048-local-env.sh
 mix allbert.voice.local doctor
 mix allbert.voice.local start
 ```
@@ -243,6 +254,7 @@ running.
 8. Validate the Allbert 5050 endpoint from Terminal A.
 
 ```sh
+export ALLBERT_HOME="$ALLBERT_V048_LOCAL_HOME"
 curl -sS --max-time 5 http://127.0.0.1:5050/v1/models
 curl -sS --max-time 5 http://127.0.0.1:5050/v1/doctor
 export ALLBERT_LOCAL_VOICE_TOKEN="$(cat "$ALLBERT_HOME/tmp/local-voice-runtime/token")"
@@ -310,6 +322,7 @@ before continuing.
 
 ```sh
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v048-openai.XXXXXX)"
+export ALLBERT_V048_OPENAI_HOME="$ALLBERT_HOME"
 unset MIX_ENV
 unset DATABASE_PATH
 mix ecto.create --quiet
@@ -332,6 +345,7 @@ incur provider cost.
 
 ```sh
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v048-gemini.XXXXXX)"
+export ALLBERT_V048_GEMINI_HOME="$ALLBERT_HOME"
 unset MIX_ENV
 unset DATABASE_PATH
 mix ecto.create --quiet
@@ -361,19 +375,23 @@ voice security eval, and secret scan all pass. The latest validated shape was
 provider capability core `65 tests, 0 failures`, voice action/CLI/channel
 `52 tests, 0 failures`, workspace voice `64 tests, 0 failures`, voice security
 eval `20 tests, 0 failures`, and a clean secret scan. The command prints the
-evidence JSON path under `<ALLBERT_HOME>/release_evidence/v048/`.
+evidence JSON path under the release gate home in `release_evidence/v048/`.
 
 15. Check traces for obvious leaks.
 
-Run this once for each disposable home used in steps 10, 12, and 13:
+Run this once after steps 10, 12, and 13:
 
 ```sh
-if [ -d "$ALLBERT_HOME/memory/traces" ]; then
-  rg -i 'sk-|api[_-]?key|authorization|x-goog-api-key|AIza|Voice-testing-123.wav' \
-    "$ALLBERT_HOME/memory/traces" || true
-else
-  echo "no memory traces directory"
-fi
+for home in "$ALLBERT_V048_LOCAL_HOME" "$ALLBERT_V048_OPENAI_HOME" "$ALLBERT_V048_GEMINI_HOME"; do
+  test -n "$home" || continue
+  echo "trace scan: $home"
+  if [ -d "$home/memory/traces" ]; then
+    rg -i 'sk-|api[_-]?key|authorization|x-goog-api-key|AIza|Voice-testing-123.wav' \
+      "$home/memory/traces" || true
+  else
+    echo "no memory traces directory"
+  fi
+done
 ```
 
 Expected: no API keys, authorization headers, Gemini keys, or raw sample path.
