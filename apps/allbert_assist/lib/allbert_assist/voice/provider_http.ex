@@ -303,8 +303,6 @@ defmodule AllbertAssist.Voice.ProviderHTTP do
       get_in(profile, ["media", "base_url"])
   end
 
-  defp local_base_url(_profile), do: nil
-
   defp build_url(%URI{} = uri, path) do
     path = join_paths(uri.path || "", path)
 

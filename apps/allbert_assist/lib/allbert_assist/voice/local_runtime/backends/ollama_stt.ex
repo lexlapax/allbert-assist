@@ -176,5 +176,4 @@ defmodule AllbertAssist.Voice.LocalRuntime.Backends.OllamaSTT do
 
   defp diagnostic_code({:local_ollama_http_error, _status}), do: :local_ollama_http_error
   defp diagnostic_code({:local_ollama_transport_error, _reason}), do: :local_ollama_unreachable
-  defp diagnostic_code(_reason), do: :local_ollama_probe_failed
 end

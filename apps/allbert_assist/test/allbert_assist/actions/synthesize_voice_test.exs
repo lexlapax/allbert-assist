@@ -2,8 +2,8 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
   use ExUnit.Case, async: false
   @moduletag :external_runtime_serial
 
-  alias AllbertAssist.Actions.Voice.SynthesizeVoice
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Actions.Voice.SynthesizeVoice
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets

@@ -3,16 +3,46 @@ defmodule AllbertAssist.OnboardingTest do
 
   alias AllbertAssist.Objectives
   alias AllbertAssist.Onboarding
+  alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Settings
+
+  @env_vars [
+    "ALLBERT_HOME",
+    "ALLBERT_HOME_DIR",
+    "ALLBERT_SETTINGS_ROOT",
+    "ALLBERT_SETTINGS_MASTER_KEY"
+  ]
 
   setup do
+    original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
     registered_plugins = PluginRegistry.registered_plugins()
     registered_diagnostics = PluginRegistry.diagnostics()
+
+    Enum.each(@env_vars, &System.delete_env/1)
+    Application.delete_env(:allbert_assist, Paths)
+    Application.delete_env(:allbert_assist, Settings)
+
+    home =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-onboarding-#{System.unique_integer([:positive])}"
+      )
+
+    System.put_env("ALLBERT_HOME", home)
 
     ensure_channel_plugin!(AllbertAssist.Plugins.Telegram)
     ensure_channel_plugin!(AllbertAssist.Plugins.Email)
 
-    on_exit(fn -> restore_plugin_registry(registered_plugins, registered_diagnostics) end)
+    on_exit(fn ->
+      File.rm_rf!(home)
+      restore_env(original_env)
+      restore_app_env(Paths, original_paths_config)
+      restore_app_env(Settings, original_settings_config)
+      restore_plugin_registry(registered_plugins, registered_diagnostics)
+    end)
 
     :ok
   end
@@ -118,4 +148,14 @@ defmodule AllbertAssist.OnboardingTest do
   defp restore_plugin_diagnostics({plugin_id, diagnostics}) do
     PluginRegistry.put_diagnostics(plugin_id, diagnostics)
   end
+
+  defp restore_env(original_env) do
+    Enum.each(original_env, fn
+      {key, nil} -> System.delete_env(key)
+      {key, value} -> System.put_env(key, value)
+    end)
+  end
+
+  defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 end

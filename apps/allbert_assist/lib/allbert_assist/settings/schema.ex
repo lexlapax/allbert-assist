@@ -3404,27 +3404,9 @@ defmodule AllbertAssist.Settings.Schema do
        when is_binary(value) do
     uri = value |> String.trim() |> URI.parse()
 
-    cond do
-      uri.scheme not in ["http", "https"] ->
-        {:error, {:expected_loopback_http_base_url, :invalid_scheme}}
-
-      not is_binary(uri.host) or uri.host == "" ->
-        {:error, {:expected_loopback_http_base_url, :missing_host}}
-
-      is_binary(uri.userinfo) and uri.userinfo != "" ->
-        {:error, {:expected_loopback_http_base_url, :credentials_denied}}
-
-      is_binary(uri.query) and uri.query != "" ->
-        {:error, {:expected_loopback_http_base_url, :query_denied}}
-
-      is_binary(uri.fragment) and uri.fragment != "" ->
-        {:error, {:expected_loopback_http_base_url, :fragment_denied}}
-
-      not loopback_setting_host?(uri.host) ->
-        {:error, {:expected_loopback_http_base_url, :non_loopback_host}}
-
-      true ->
-        :ok
+    case loopback_http_base_url_error(uri) do
+      nil -> :ok
+      reason -> {:error, {:expected_loopback_http_base_url, reason}}
     end
   end
 
@@ -3741,6 +3723,21 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_value(schema, value, _key, _settings),
     do: {:error, {:invalid_value, schema.type, value}}
+
+  defp loopback_http_base_url_error(uri) do
+    [
+      {uri.scheme not in ["http", "https"], :invalid_scheme},
+      {not is_binary(uri.host) or uri.host == "", :missing_host},
+      {is_binary(uri.userinfo) and uri.userinfo != "", :credentials_denied},
+      {is_binary(uri.query) and uri.query != "", :query_denied},
+      {is_binary(uri.fragment) and uri.fragment != "", :fragment_denied},
+      {not loopback_setting_host?(uri.host), :non_loopback_host}
+    ]
+    |> Enum.find_value(fn
+      {true, reason} -> reason
+      {false, _reason} -> nil
+    end)
+  end
 
   defp validate_dynamic_codegen(settings) do
     with :ok <-
