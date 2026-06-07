@@ -92,8 +92,42 @@ v0.48 implements only the audio portion of this ADR:
 - Local Ollama is a text-generation provider in the middle of the voice flow,
   not an audio media resource provider in v0.48.
 
-The v0.49 image/screenshot portion will amend this ADR separately when the
-vision plan is deepened.
+### v0.49 Image/Screenshot Amendments
+
+v0.49 implements the image input, screenshot, and image-generation portions of
+this ADR (`docs/plans/v0.49-plan.md`):
+
+- `image://capture/<id>` and `screen://capture/<id>` identify **operator-
+  supplied** paste/upload media. The capture id is opaque, Allbert-Home-local,
+  and never provider-selected. v0.49 adds **no autonomous OS screen capture**;
+  vision analysis may also target an existing v0.43 `browser_screenshot`
+  resource (distinct origin).
+- Vision input is a multimodal `ReqLLM` `ContentPart` on the existing
+  text-generation call; image generation is a registered `generate_image`
+  action wrapping `ReqLLM.generate_image/3`. `ReqLLM` owns provider HTTP and
+  credentials for both (as for text), so v0.49 adds no bespoke provider HTTP
+  and requires no ADR 0011 amendment.
+- v0.49 adds permission classes `:image_input` (floor `:allowed`, operator-
+  supplied + redacted) and `:image_generate` (floor by resolved profile
+  `media.deployment_mode`: remote → `:needs_confirmation`, fake → `:allowed`,
+  unresolved → fail-closed), reusing the v0.48 floor mechanism. Operation
+  classes `:image_input`/`:image_generate`, origin kind `:image_input`.
+- Image input is constrained to the resolved profile's
+  `image_formats_supported`, `max_image_bytes`, and `max_image_pixels`;
+  oversized/unsupported media is denied before the provider call. v0.49 does
+  **not** resize/convert images (no image-transcode dependency); a format/size
+  mismatch is an action denial, not a widening.
+- Media is default-off for retention (Allbert-Home-derived, bounded, operator-
+  removable). Traces may record bounded metadata only — resource URI, byte
+  size, dimensions, MIME type, provider profile, content hash, redaction
+  status — and never raw image/screenshot bytes, unredacted paths, or
+  credential-bearing URLs.
+- v0.49 cost visibility is display-only pass-through `usage`/`cost` from
+  `ReqLLM.Response`; cross-provider dashboards and budget enforcement stay
+  parked.
+- Video ingestion, sampled-frame analysis, and video generation are NOT part of
+  v0.49; a profile may report `video_input`/transport metadata, but the release
+  flow remains bounded image input + image generation.
 
 ## Consequences
 

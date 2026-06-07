@@ -149,7 +149,12 @@ migration. Known additive fields:
   Ollama text profiles may be doctored as local text providers but do not
   satisfy STT/TTS; Anthropic/Claude voice-capability markings return a bounded
   capability-not-native diagnostic until native audio support is implemented.
-- **v0.49 vision** adds `:image_input_supported`.
+- **v0.49 vision** adds `:image_input_supported`, `:image_generation_supported`,
+  and `:image_formats_supported`. The vision/image doctor distinguishes
+  fixture-only fake profiles from executable req_llm-backed vision/image
+  providers, reports image bounds, and never emits raw URLs, secrets, or media
+  paths. (v0.49 image generation rides `ReqLLM.generate_image/3`; the doctor
+  reports provider/model reachability, not a bespoke HTTP probe.)
 
 ### 3. Redaction policy
 
