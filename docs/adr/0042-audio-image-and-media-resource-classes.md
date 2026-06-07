@@ -102,8 +102,11 @@ this ADR (`docs/plans/v0.49-plan.md`):
 - `image://capture/<id>` and `screen://capture/<id>` identify **operator-
   supplied** paste/upload media. The capture id is opaque, Allbert-Home-local,
   and never provider-selected. v0.49 adds **no autonomous OS screen capture**;
-  vision analysis may also target an existing v0.43 `browser_screenshot`
-  resource (distinct origin).
+  vision analysis may also target a browser screenshot surfaced through the
+  v0.43 `browser_screenshot` read operation / `screenshot_ref`. There is no
+  pre-existing `image://`-style screenshot resource URI to inherit; v0.49 maps
+  the `screenshot_ref` into the new image-resource path while keeping the
+  browser-page screenshot origin distinct from operator-supplied media.
 - Vision input is a multimodal `ReqLLM` `ContentPart` on the existing
   text-generation call; image generation is a registered `generate_image`
   action wrapping `ReqLLM.generate_image/3`. `ReqLLM` owns provider HTTP and
@@ -114,9 +117,10 @@ this ADR (`docs/plans/v0.49-plan.md`):
   `mix run --no-start` provider/model probe is not release evidence.
 - v0.49 adds permission classes `:image_input` (floor `:allowed`, operator-
   supplied + redacted) and `:image_generate` (floor by resolved profile
-  `media.deployment_mode`: remote → `:needs_confirmation`, fake → `:allowed`,
-  unresolved → fail-closed), reusing the v0.48 floor mechanism. Operation
-  classes `:image_input`/`:image_generate`, origin kind `:image_input`.
+  `media.deployment_mode`, reusing the v0.48 `voice_floor` mechanism: fake →
+  `:allowed`; remote/unresolved/unknown → `:needs_confirmation`
+  (fail-safe-to-confirm, never auto-`:allowed`). Operation classes
+  `:image_input`/`:image_generate`, origin kind `:image_input`.
 - Image input is constrained to the resolved profile's
   `image_formats_supported`, `max_image_bytes`, and `max_image_pixels`;
   oversized/unsupported media is denied before the provider call. v0.49 does
