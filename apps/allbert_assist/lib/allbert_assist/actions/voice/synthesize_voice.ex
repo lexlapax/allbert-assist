@@ -300,9 +300,9 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
         model: Map.get(resolution.profile, :model),
         output_format: audio.output_format,
         mime_type: audio.mime_type,
-        duration_ms: audio.duration_ms,
-        sample_rate_hz: audio.sample_rate_hz,
-        channel_count: audio.channel_count,
+        duration_ms: Map.get(audio, :duration_ms),
+        sample_rate_hz: Map.get(audio, :sample_rate_hz),
+        channel_count: Map.get(audio, :channel_count),
         usage: Map.get(audio, :usage, %{source: :unavailable}),
         cost: Map.get(audio, :cost, %{source: :unavailable}),
         redaction_status: "redacted"

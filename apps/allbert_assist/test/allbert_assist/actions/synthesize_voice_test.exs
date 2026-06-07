@@ -3,8 +3,12 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
   @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Voice.SynthesizeVoice
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Secrets
+
+  setup {Req.Test, :verify_on_exit!}
 
   @env_vars [
     "ALLBERT_HOME",
@@ -66,6 +70,93 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
     assert action_metadata.output_resource_uri == "file://[REDACTED_AUDIO_PATH]"
   end
 
+  test "remote TTS completes when provider omits optional duration metadata" do
+    enable_voice!()
+    use_openai_tts!()
+
+    assert {:ok, _secret} =
+             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
+               audit?: false
+             })
+
+    Req.Test.expect(__MODULE__, fn %{request_path: "/v1/audio/speech"} = conn ->
+      assert Plug.Conn.get_req_header(conn, "authorization") == ["Bearer sk-test-openai"]
+
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      decoded = Jason.decode!(body)
+      assert decoded["model"] == "gpt-4o-mini-tts"
+      assert decoded["input"] == "provider omits optional metadata"
+      assert decoded["response_format"] == "wav"
+
+      conn
+      |> Plug.Conn.put_resp_content_type("audio/wav")
+      |> Plug.Conn.send_resp(200, <<"RIFF", "provider audio">>)
+    end)
+
+    assert {:ok, response} =
+             SynthesizeVoice.run(
+               %{text: "provider omits optional metadata"},
+               approved_context(req_options: [plug: {Req.Test, __MODULE__}])
+             )
+
+    assert response.status == :completed
+    assert File.regular?(response.audio_file)
+    assert {:ok, <<"RIFF", _rest::binary>>} = File.read(response.audio_file)
+    assert response.voice_metadata.provider_profile == "voice_tts_openai"
+    assert is_nil(response.voice_metadata.duration_ms)
+    assert is_nil(response.voice_metadata.sample_rate_hz)
+    assert is_nil(response.voice_metadata.channel_count)
+  end
+
+  test "approved remote TTS confirmation returns transient audio output data" do
+    enable_voice!()
+    use_openai_tts!()
+
+    assert {:ok, _secret} =
+             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
+               audit?: false
+             })
+
+    assert {:ok, pending} =
+             Runner.run(
+               "synthesize_voice",
+               %{text: "confirmation output metadata"},
+               context()
+             )
+
+    assert pending.status == :needs_confirmation
+    assert pending.confirmation_id
+
+    Req.Test.expect(__MODULE__, fn %{request_path: "/v1/audio/speech"} = conn ->
+      assert Plug.Conn.get_req_header(conn, "authorization") == ["Bearer sk-test-openai"]
+
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      decoded = Jason.decode!(body)
+      assert decoded["model"] == "gpt-4o-mini-tts"
+      assert decoded["input"] == "confirmation output metadata"
+      assert decoded["response_format"] == "wav"
+
+      conn
+      |> Plug.Conn.put_resp_content_type("audio/wav")
+      |> Plug.Conn.send_resp(200, <<"RIFF", "confirmed provider audio">>)
+    end)
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending.confirmation_id, reason: "fixture TTS approval"},
+               Map.put(context(), :req_options, plug: {Req.Test, __MODULE__})
+             )
+
+    assert approved.status == :completed
+    assert approved.output_data.status == :completed
+    assert File.regular?(approved.output_data.audio_file)
+    assert {:ok, <<"RIFF", _rest::binary>>} = File.read(approved.output_data.audio_file)
+    assert approved.output_data.output_resource_uri == "file://[REDACTED_AUDIO_PATH]"
+    assert approved.confirmation["operator_resolution"]["target_resumed?"] == true
+    assert approved.confirmation["operator_resolution"]["target_status"] == "completed"
+  end
+
   test "voice synthesis is default-off until operator enables it" do
     assert {:ok, response} = SynthesizeVoice.run(%{text: "hello"}, context())
 
@@ -94,8 +185,27 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
              })
   end
 
+  defp use_openai_tts! do
+    assert {:ok, _provider} = Settings.put("providers.openai.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "model_preferences.capabilities.text_to_speech",
+               ["voice_tts_openai"],
+               %{
+                 audit?: false
+               }
+             )
+  end
+
   defp context do
     %{actor: "local", channel: :cli, request: %{operator_id: "local", channel: :cli}}
+  end
+
+  defp approved_context(extra) do
+    context()
+    |> Map.merge(Map.new(extra))
+    |> Map.put(:confirmation, %{approved?: true})
   end
 
   defp restore_env(env) do
