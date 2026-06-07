@@ -173,6 +173,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "capture_workspace_voice",
              "transcribe_voice",
              "synthesize_voice",
+             "generate_image",
              "voice_local_runtime_doctor",
              "voice_local_runtime_start",
              "record_trace",
@@ -252,6 +253,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     refute "capture_workspace_voice" in agent_action_names
     refute "transcribe_voice" in agent_action_names
     refute "synthesize_voice" in agent_action_names
+    refute "generate_image" in agent_action_names
     refute "record_trace" in agent_action_names
   end
 
@@ -324,6 +326,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "capture_workspace_voice",
              "transcribe_voice",
              "synthesize_voice",
+             "generate_image",
              "voice_local_runtime_doctor",
              "voice_local_runtime_start",
              "record_trace",
@@ -754,6 +757,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert synthesize_voice.execution_mode == :voice_provider_call
     assert synthesize_voice.resumable? == true
 
+    assert {:ok, generate_image} = Registry.capability("generate_image")
+    assert generate_image.permission == :image_generate
+    assert generate_image.exposure == :internal
+    assert generate_image.execution_mode == :image_provider_call
+    assert generate_image.resumable? == true
+
     assert {:ok, voice_local_runtime_doctor} =
              Registry.capability("voice_local_runtime_doctor")
 
@@ -788,6 +797,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert Registry.resumable?("capture_workspace_voice")
     assert Registry.resumable?("transcribe_voice")
     assert Registry.resumable?("synthesize_voice")
+    assert Registry.resumable?("generate_image")
 
     refute Registry.resumable?("direct_answer")
     refute Registry.resumable?("plan_package_install")

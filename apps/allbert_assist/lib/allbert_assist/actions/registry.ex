@@ -28,6 +28,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.DynamicPlugins.RunDraftTrial, as: RunDynamicDraftTrial
   alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicDraft
   alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicIntegration
+  alias AllbertAssist.Actions.Image.GenerateImage
   alias AllbertAssist.Actions.Integrations.OpenCalendarPanel
   alias AllbertAssist.Actions.Integrations.OpenGithubPanel
   alias AllbertAssist.Actions.Integrations.OpenMailPanel
@@ -249,6 +250,7 @@ defmodule AllbertAssist.Actions.Registry do
     CaptureWorkspaceVoice,
     TranscribeVoice,
     SynthesizeVoice,
+    GenerateImage,
     LocalRuntimeDoctor,
     StartLocalRuntime,
     RecordTrace,

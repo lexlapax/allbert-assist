@@ -79,6 +79,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   @voice_provider_action_names ~w[
     transcribe_voice
     synthesize_voice
+    generate_image
   ]
 
   @impl true
@@ -530,8 +531,8 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
           target_policy_decision: target_decision,
           target_resumed?: true,
           target_status: :completed,
-          target_result: voice_target_result(response),
-          output_data: voice_output_data(action_name, response)
+          target_result: provider_target_result(action_name, response),
+          output_data: provider_output_data(action_name, response)
         })
 
       {:ok, response} ->
@@ -541,8 +542,8 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
           target_policy_decision: target_decision,
           target_resumed?: true,
           target_status: target_status,
-          target_result: voice_target_result(response),
-          output_data: voice_output_data(action_name, response)
+          target_result: provider_target_result(action_name, response),
+          output_data: provider_output_data(action_name, response)
         })
     end
   end
@@ -1277,6 +1278,18 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     ensure_target_status(result, response)
   end
 
+  defp provider_target_result("generate_image", response) when is_map(response),
+    do: image_target_result(response)
+
+  defp provider_target_result(_action_name, response) when is_map(response),
+    do: voice_target_result(response)
+
+  defp provider_output_data("generate_image", response) when is_map(response),
+    do: image_output_data(response)
+
+  defp provider_output_data(action_name, response) when is_map(response),
+    do: voice_output_data(action_name, response)
+
   defp voice_target_result(response) when is_map(response) do
     %{
       status: Map.get(response, :status, :unknown),
@@ -1293,6 +1306,26 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
         response
         |> Map.get(:voice_metadata, %{})
         |> Redactor.redact_audio_metadata()
+    }
+    |> drop_nil_values()
+  end
+
+  defp image_target_result(response) when is_map(response) do
+    %{
+      status: Map.get(response, :status, :unknown),
+      message: Map.get(response, :message),
+      error:
+        response
+        |> Map.get(:error)
+        |> Redactor.redact(),
+      output_resource_uri:
+        response
+        |> Map.get(:output_resource_uri)
+        |> Redactor.redact_image_resource_uri(),
+      image_metadata:
+        response
+        |> Map.get(:image_metadata, %{})
+        |> Redactor.redact_image_metadata()
     }
     |> drop_nil_values()
   end
@@ -1336,6 +1369,27 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   end
 
   defp voice_output_data(_action_name, _response), do: nil
+
+  defp image_output_data(response) when is_map(response) do
+    %{
+      status: Map.get(response, :status, :unknown),
+      message: Map.get(response, :message),
+      error:
+        response
+        |> Map.get(:error)
+        |> Redactor.redact(),
+      image_file: Map.get(response, :image_file),
+      output_resource_uri:
+        response
+        |> Map.get(:output_resource_uri)
+        |> Redactor.redact_image_resource_uri(),
+      image_metadata:
+        response
+        |> Map.get(:image_metadata, %{})
+        |> Redactor.redact_image_metadata()
+    }
+    |> drop_nil_values()
+  end
 
   defp ensure_target_status(result, response) do
     Map.put_new(result, :status, Map.get(response, :status, :failed))
