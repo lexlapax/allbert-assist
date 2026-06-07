@@ -4,7 +4,9 @@
 
 - Accepted for the v0.48 audio slice in M4
   (`docs/plans/v0.48-plan.md`).
-- Proposed for v0.49 Vision And Image Generation (`docs/plans/v0.49-plan.md`).
+- Proposed before implementation for v0.49 Vision And Image Generation
+  (`docs/plans/v0.49-plan.md`); accepted only at v0.49 M1 closeout after the
+  catalog/settings, ReqLLM probe, and fixture-path evidence lands.
 - The v0.48 audio amendments below are the implementation-readiness contract
   for voice. The image, screenshot, and generated-media portions remain scoped
   to v0.49 unless v0.48 explicitly narrows them.
@@ -106,7 +108,10 @@ this ADR (`docs/plans/v0.49-plan.md`):
   text-generation call; image generation is a registered `generate_image`
   action wrapping `ReqLLM.generate_image/3`. `ReqLLM` owns provider HTTP and
   credentials for both (as for text), so v0.49 adds no bespoke provider HTTP
-  and requires no ADR 0011 amendment.
+  and requires no ADR 0011 amendment. M1 must prove this in Allbert's
+  app-started runtime with `ReqLLM.Providers.list/0`,
+  `ReqLLM.Images.validate_model/1`, and fixture-backed request paths; a
+  `mix run --no-start` provider/model probe is not release evidence.
 - v0.49 adds permission classes `:image_input` (floor `:allowed`, operator-
   supplied + redacted) and `:image_generate` (floor by resolved profile
   `media.deployment_mode`: remote → `:needs_confirmation`, fake → `:allowed`,
@@ -117,6 +122,10 @@ this ADR (`docs/plans/v0.49-plan.md`):
   oversized/unsupported media is denied before the provider call. v0.49 does
   **not** resize/convert images (no image-transcode dependency); a format/size
   mismatch is an action denial, not a widening.
+- Provider/profile metadata validation must accept image media keys only as
+  descriptive bounds: `image_formats_supported`, `max_image_bytes`, and
+  `max_image_pixels`. These keys never grant permission and never replace
+  Resource Access or Security Central checks.
 - Media is default-off for retention (Allbert-Home-derived, bounded, operator-
   removable). Traces may record bounded metadata only — resource URI, byte
   size, dimensions, MIME type, provider profile, content hash, redaction
@@ -125,9 +134,11 @@ this ADR (`docs/plans/v0.49-plan.md`):
 - v0.49 cost visibility is display-only pass-through `usage`/`cost` from
   `ReqLLM.Response`; cross-provider dashboards and budget enforcement stay
   parked.
-- Video ingestion, sampled-frame analysis, and video generation are NOT part of
-  v0.49; a profile may report `video_input`/transport metadata, but the release
-  flow remains bounded image input + image generation.
+- Video ingestion, sampled-frame analysis, video generation, and generic audio
+  understanding are NOT part of v0.49; a profile may report
+  `video_input`/transport metadata, but the release flow remains bounded image
+  input + image generation. There is no catch-all `multimodal` capability or
+  all-purpose media router in this ADR.
 
 ## Consequences
 

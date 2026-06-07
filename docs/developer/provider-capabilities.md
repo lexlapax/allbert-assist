@@ -4,7 +4,9 @@ Status: implemented through v0.48 M8R real-provider remediation; release
 validation is pending before tag. M1-M8 landed the shared provider-capability
 substrate and fixture voice surface. M8R adds executable local endpoint,
 OpenAI remote, and Gemini remote STT/TTS paths while keeping fake providers as
-automated-test fixtures only.
+automated-test fixtures only. v0.49 consumes the same substrate for bounded
+vision input and image generation, with the M1 model/provider proof still
+required before implementation.
 
 v0.48 generalizes the v0.39 provider/model substrate. A provider is a
 connection profile. A model profile declares what that connection can do and,
@@ -72,7 +74,9 @@ Known `transport_modes` values: `request_file`, `live_upload`,
 `realtime_session`, `local_endpoint`, `bundled_local`.
 
 `video_input` is vocabulary for later media work. v0.48 must not treat generic
-audio/video understanding metadata as an STT/TTS provider.
+audio/video understanding metadata as an STT/TTS provider. v0.49 likewise must
+not treat a profile's local/online multimodal metadata as a catch-all media
+authority.
 
 ## Resolver Contract
 
@@ -83,7 +87,9 @@ names. It should ask the resolver for a task or capability:
 - `:direct_answer` for direct-answer routing;
 - `:coding` for coding-oriented model use;
 - `:speech_to_text` for transcription;
-- `:text_to_speech` for synthesis.
+- `:text_to_speech` for synthesis;
+- `:vision_input` for image/screenshot-to-text analysis;
+- `:image_generation` for provider-backed image generation.
 
 The resolver walks `model_preferences.tasks.<task>` or
 `model_preferences.capabilities.<capability>` in order, skips disabled profiles
@@ -97,6 +103,45 @@ Existing text settings remain compatibility aliases:
 - `intent.direct_answer_model_profile` maps to the direct-answer preference.
 
 Aliases are for migration. New v0.48+ code should use the resolver.
+
+## Vision/Image Notes
+
+v0.49 vision/image work uses the same model-profile and doctor contract:
+
+- Vision input requires `vision_input` and attaches image content to the normal
+  ReqLLM text path as a multimodal content part.
+- Image generation requires `image_generation` and runs through a registered
+  `generate_image` action wrapping `ReqLLM.generate_image/3`.
+- Provider HTTP, credentials, and request shape remain owned by ReqLLM, as for
+  text. v0.49 does not add an image-specific ProviderHTTP module or ADR 0011
+  amendment.
+- M1 must verify app-started ReqLLM provider/model registration with
+  `ReqLLM.Providers.list/0`, `ReqLLM.Images.validate_model/1`, and deterministic
+  fixture request paths. A `mix run --no-start` probe is not enough because
+  provider discovery initializes at application startup.
+- Fake vision/image profiles are release-test fixtures, not operator defaults
+  or live-provider release authority.
+- Image media metadata is descriptive bounds, not permission. Supported keys
+  include `image_formats_supported`, `max_image_bytes`, and
+  `max_image_pixels`:
+
+```json
+{
+  "media": {
+    "input_modalities": ["text", "image"],
+    "output_modalities": ["text"],
+    "deployment_mode": "remote_credentialed",
+    "image_formats_supported": ["png", "jpeg", "webp"],
+    "max_image_bytes": 20971520,
+    "max_image_pixels": 33177600
+  }
+}
+```
+
+There is no generic `multimodal` capability. A local or online profile may
+declare multiple modalities, but executable flows stay capability-specific:
+v0.48 owns `speech_to_text` and `text_to_speech`; v0.49 owns `vision_input` and
+`image_generation`; video and generic audio understanding remain parked.
 
 ## Voice Notes
 

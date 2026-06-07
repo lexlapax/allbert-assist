@@ -73,6 +73,8 @@ Capability names are routing predicates:
   action.
 - `text_to_speech` means text-to-audio synthesis through a registered action.
 - `vision_input` means image/screenshot input analysis.
+- `image_generation` means text-to-image or context-to-image synthesis through
+  a registered action.
 - `video_input` means video or sampled-frame input analysis; it is vocabulary
   only until a later plan implements it.
 - `token_streaming` means streaming text tokens or text deltas. Realtime audio
@@ -102,6 +104,28 @@ and `remote_credentialed`. Known `transport_modes` are `request_file`,
 `live_upload`, `realtime_session`, `local_endpoint`, and `bundled_local`.
 `input_modalities`/`output_modalities` use coarse media values such as `text`,
 `audio`, `image`, and `video`.
+
+v0.49 image profiles may add descriptive image media bounds:
+
+```json
+{
+  "media": {
+    "input_modalities": ["text", "image"],
+    "output_modalities": ["text"],
+    "deployment_mode": "remote_credentialed",
+    "image_formats_supported": ["png", "jpeg", "webp"],
+    "max_image_bytes": 20971520,
+    "max_image_pixels": 33177600
+  }
+}
+```
+
+There is intentionally no `multimodal` capability. Local or online profiles can
+describe multiple modalities through media metadata, but executable routing
+still uses specific capabilities such as `speech_to_text`, `text_to_speech`,
+`vision_input`, and `image_generation`. Generic audio understanding, video
+input, and video generation require a future ADR/plan before they can become
+operator-visible executable paths.
 
 `fake` is a test deployment mode only. A profile with `deployment_mode: fake`
 may satisfy deterministic fixture tests but must not be treated as release
@@ -207,7 +231,7 @@ Onboarding and Settings Central should expose:
 - global primary profile;
 - task preferences such as `coding` and `direct_answer`;
 - capability preferences such as `speech_to_text`, `text_to_speech`, and later
-  `vision_input`;
+  `vision_input`/`image_generation`;
 - local/offline defaults before cloud defaults;
 - explicit operator override for cloud provider use.
 
@@ -236,8 +260,10 @@ stores a raw credential or raw URL.
 - No automatic capability grant from provider marketing metadata.
 - No automatic cloud upload when an operator has not opted into a cloud
   provider profile.
-- No implementation of generic audio-understanding, video ingestion, or
-  realtime speech-to-speech in v0.48.
+- No implementation of generic audio-understanding, video ingestion, video
+  generation, or realtime speech-to-speech in v0.48; v0.49 implements only the
+  bounded `vision_input` and `image_generation` image bridge unless a later
+  amendment expands it.
 - No unified spend dashboard or budget enforcement in v0.48.
 - No promotion action that turns a doctor result into a preference without an
   explicit Settings Central write.

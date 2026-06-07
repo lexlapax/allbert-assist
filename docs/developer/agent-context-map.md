@@ -543,7 +543,8 @@ Implemented v0.41 gates:
   exists.
 - v0.49 (planned): Vision And Image Generation. Consumes the v0.48 provider
   capability substrate for image/screenshot resources and provider-backed image
-  generation.
+  generation, with an app-started ReqLLM model/provider proof in M1. Generic
+  audio/video and catch-all multimodal routing remain future scope.
 - v0.50 (planned): Channel Pack 1 - Discord And Slack. Adds team/community chat
   plugins over the existing channel substrate and amends ADR 0016 to lock the
   channel approval-primitive contract (`{list, button, typed_command, link}`)
