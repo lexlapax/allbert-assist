@@ -247,11 +247,14 @@ curl -sS --max-time 5 http://127.0.0.1:5050/v1/models
 curl -sS --max-time 5 http://127.0.0.1:5050/v1/doctor
 export ALLBERT_LOCAL_VOICE_TOKEN="$(cat "$ALLBERT_HOME/tmp/local-voice-runtime/token")"
 test -n "$ALLBERT_LOCAL_VOICE_TOKEN" && echo "local runtime token loaded"
+test -r "$V048_AUDIO" && echo "audio readable: $V048_AUDIO"
 ```
 
 Expected: `/v1/models` lists `whisper-local` and `tts-local`; `/v1/doctor`
 has `endpoint_ok=true` and empty `diagnostic_codes`; the token command prints
-`local runtime token loaded`.
+`local runtime token loaded`; the audio preflight prints `audio readable: ...`.
+If this step is run from a new terminal, export `ALLBERT_HOME` and `V048_AUDIO`
+again before running the token and audio preflight commands.
 
 9. Validate token-backed Allbert STT and TTS directly.
 
@@ -273,7 +276,9 @@ curl -sS --max-time 60 \
 ```
 
 Expected: STT returns non-empty `text`; TTS prints `200 audio/wav...` and a
-non-zero byte count.
+non-zero byte count. `curl: (26) Failed to open/read local data from
+file/application` means the current shell cannot read `$V048_AUDIO`; it is a
+local file-path/export problem, not an Allbert runtime or provider error.
 
 10. Run the full local live smoke.
 
