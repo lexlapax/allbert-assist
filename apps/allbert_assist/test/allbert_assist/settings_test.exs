@@ -279,6 +279,8 @@ defmodule AllbertAssist.SettingsTest do
              Settings.get("image.generation.retention_root")
 
     assert {:ok, true} = Settings.get("image.trace.redact_images")
+    assert {:ok, "allowed"} = Settings.get("permissions.image_input")
+    assert {:ok, "allowed"} = Settings.get("permissions.image_generate")
 
     assert Settings.safe_write_key?("vision.enabled")
     assert Settings.safe_write_key?("vision.media.max_bytes")
@@ -288,12 +290,19 @@ defmodule AllbertAssist.SettingsTest do
     assert Settings.safe_write_key?("image.generation.max_bytes")
     assert Settings.safe_write_key?("image.generation.max_pixels")
     assert Settings.safe_write_key?("image.trace.redact_images")
+    assert Settings.safe_write_key?("permissions.image_input")
+    assert Settings.safe_write_key?("permissions.image_generate")
 
     assert {:ok, resolved} = Settings.put("vision.enabled", true, %{audit?: false})
     assert resolved.value == true
 
     assert {:ok, resolved} = Settings.put("image.generation.max_bytes", 2048, %{audit?: false})
     assert resolved.value == 2048
+
+    assert {:ok, resolved} =
+             Settings.put("permissions.image_generate", "needs_confirmation", %{audit?: false})
+
+    assert resolved.value == "needs_confirmation"
 
     assert {:error, {:invalid_setting, "vision.media.max_pixels", _reason}} =
              Settings.put("vision.media.max_pixels", 0, %{audit?: false})

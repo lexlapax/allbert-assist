@@ -120,12 +120,14 @@ this ADR (`docs/plans/v0.49-plan.md`):
   `media.deployment_mode`, reusing the v0.48 `voice_floor` mechanism: fake →
   `:allowed`; remote/unresolved/unknown → `:needs_confirmation`
   (fail-safe-to-confirm, never auto-`:allowed`). Operation classes
-  `:image_input`/`:image_generate`, origin kind `:image_input`.
+  `:image_input`/`:image_generate`, origin kind `:image_input`. M2 implements
+  these vocabulary, policy, and Settings Central entries.
 - Image input is constrained to the resolved profile's
   `image_formats_supported`, `max_image_bytes`, and `max_image_pixels`;
-  oversized/unsupported media is denied before the provider call. v0.49 does
-  **not** resize/convert images (no image-transcode dependency); a format/size
-  mismatch is an action denial, not a widening.
+  oversized/unsupported media is denied before the provider call. M2 adds a
+  shared `ImageBounds` helper for input/output bounds. v0.49 does **not**
+  resize/convert images (no image-transcode dependency); a format/size mismatch
+  is an action denial, not a widening.
 - Provider/profile metadata validation must accept image media keys only as
   descriptive bounds: `image_formats_supported`, `max_image_bytes`, and
   `max_image_pixels`. These keys never grant permission and never replace

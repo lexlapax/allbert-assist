@@ -21,6 +21,8 @@ defmodule AllbertAssist.Runtime.Redactor do
           | :tests
           | :resource_access
           | :voice
+          | :vision
+          | :image
           | :stocksage
           | :sandbox_trial
 
@@ -46,6 +48,29 @@ defmodule AllbertAssist.Runtime.Redactor do
   ]
   @audio_path_redaction "[REDACTED_AUDIO_PATH]"
   @audio_uri_redaction "[REDACTED_AUDIO_URI]"
+  @image_metadata_keys ~w[
+    byte_size
+    content_sha256
+    cost
+    generated_resource_uri
+    height
+    image_format
+    input_resource_uri
+    mime_type
+    model
+    output_resource_uri
+    pixel_count
+    provider
+    provider_profile
+    redaction_status
+    resource_uri
+    screen_region
+    source_resource_uri
+    usage
+    width
+  ]
+  @image_path_redaction "[REDACTED_IMAGE_PATH]"
+  @image_uri_redaction "[REDACTED_IMAGE_URI]"
 
   @doc "Recursively redact sensitive keys, secret refs, structs, maps, and lists."
   @spec redact(term()) :: term()
@@ -84,6 +109,29 @@ defmodule AllbertAssist.Runtime.Redactor do
 
   def redact_audio_metadata(value), do: redact(value, :voice)
 
+  @doc """
+  Return a strict, redacted allow-list of image metadata.
+
+  Raw image bytes, prompts, local paths, provider payloads, and arbitrary adapter
+  fields are intentionally dropped. Image and screen resource URIs are reduced
+  to non-sensitive resource identity only.
+  """
+  @spec redact_image_metadata(term()) :: term()
+  def redact_image_metadata(%{} = metadata) do
+    Map.new(metadata, fn {key, value} -> {key, value} end)
+    |> Enum.reduce(%{}, fn {key, value}, acc ->
+      normalized_key = key |> to_string() |> String.downcase()
+
+      if normalized_key in @image_metadata_keys do
+        Map.put(acc, key, redact_image_metadata_value(normalized_key, value))
+      else
+        acc
+      end
+    end)
+  end
+
+  def redact_image_metadata(value), do: redact(value, :image)
+
   @doc "Redact an audio resource URI or local audio path for traces and audits."
   @spec redact_audio_resource_uri(term()) :: String.t() | nil
   def redact_audio_resource_uri(nil), do: nil
@@ -117,6 +165,40 @@ defmodule AllbertAssist.Runtime.Redactor do
 
   def redact_audio_resource_uri(_value), do: @audio_uri_redaction
 
+  @doc "Redact an image or screen resource URI or local image path for traces and audits."
+  @spec redact_image_resource_uri(term()) :: String.t() | nil
+  def redact_image_resource_uri(nil), do: nil
+
+  def redact_image_resource_uri(value) when is_binary(value) do
+    value = String.trim(value)
+
+    cond do
+      value == "" ->
+        @image_uri_redaction
+
+      String.starts_with?(value, "image://") or String.starts_with?(value, "screen://") ->
+        case ResourceURI.normalize(value) do
+          {:ok, "image://capture/" <> _rest = resource_uri} -> resource_uri
+          {:ok, "screen://capture/" <> _rest = resource_uri} -> resource_uri
+          _error -> @image_uri_redaction
+        end
+
+      String.starts_with?(value, "file://") ->
+        "file://#{@image_path_redaction}"
+
+      uri_scheme?(value) ->
+        @image_uri_redaction
+
+      path_like?(value) ->
+        @image_path_redaction
+
+      true ->
+        @image_uri_redaction
+    end
+  end
+
+  def redact_image_resource_uri(_value), do: @image_uri_redaction
+
   @doc "Return true if a key name should cause value redaction."
   @spec sensitive_key?(term()) :: boolean()
   defdelegate sensitive_key?(key), to: SecurityRedactor
@@ -138,6 +220,21 @@ defmodule AllbertAssist.Runtime.Redactor do
     do: redact(value, :voice)
 
   defp redact_audio_metadata_value(_key, value), do: redact(value, :voice)
+
+  defp redact_image_metadata_value(key, value)
+       when key in [
+              "generated_resource_uri",
+              "input_resource_uri",
+              "output_resource_uri",
+              "resource_uri",
+              "source_resource_uri"
+            ],
+       do: redact_image_resource_uri(value)
+
+  defp redact_image_metadata_value(key, value) when key in ["cost", "usage"],
+    do: redact(value, :image)
+
+  defp redact_image_metadata_value(_key, value), do: redact(value, :image)
 
   defp uri_scheme?(value) do
     case URI.parse(value) do

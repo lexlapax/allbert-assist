@@ -31,6 +31,8 @@ defmodule AllbertAssist.Security.Policy do
     voice_transcribe: "permissions.voice_transcribe",
     voice_synthesize: "permissions.voice_synthesize",
     voice_local_runtime_manage: "permissions.voice_local_runtime_manage",
+    image_input: "permissions.image_input",
+    image_generate: "permissions.image_generate",
     tool_discovery: "permissions.tool_discovery",
     mcp_server_connect: "permissions.mcp_server_connect",
     mcp_tool_call: "permissions.mcp_tool_call",
@@ -74,6 +76,8 @@ defmodule AllbertAssist.Security.Policy do
     voice_transcribe: :allowed,
     voice_synthesize: :allowed,
     voice_local_runtime_manage: :allowed,
+    image_input: :allowed,
+    image_generate: :allowed,
     tool_discovery: :allowed,
     mcp_server_connect: :needs_confirmation,
     mcp_tool_call: :needs_confirmation,
@@ -134,6 +138,8 @@ defmodule AllbertAssist.Security.Policy do
           | :voice_transcribe
           | :voice_synthesize
           | :voice_local_runtime_manage
+          | :image_input
+          | :image_generate
           | :notes_file_write
           | :tool_discovery
           | :mcp_server_connect
@@ -182,6 +188,8 @@ defmodule AllbertAssist.Security.Policy do
       :voice_transcribe,
       :voice_synthesize,
       :voice_local_runtime_manage,
+      :image_input,
+      :image_generate,
       :tool_discovery,
       :mcp_server_connect,
       :mcp_tool_call,
@@ -293,6 +301,8 @@ defmodule AllbertAssist.Security.Policy do
   def safety_floor(:microphone_capture, _context), do: :needs_confirmation
   def safety_floor(:voice_transcribe, context), do: voice_floor(context)
   def safety_floor(:voice_synthesize, context), do: voice_floor(context)
+  def safety_floor(:image_input, _context), do: :allowed
+  def safety_floor(:image_generate, context), do: image_floor(context)
   def safety_floor(:settings_secret_read, _context), do: :denied
   def safety_floor(permission, _context) when permission in @known_permissions, do: :allowed
   def safety_floor(_permission, _context), do: :denied
@@ -307,6 +317,14 @@ defmodule AllbertAssist.Security.Policy do
     end
   end
 
+  defp image_floor(context) do
+    case provider_deployment_mode(context) do
+      :fake -> :allowed
+      "fake" -> :allowed
+      _local_or_remote_or_unknown -> :needs_confirmation
+    end
+  end
+
   defp provider_deployment_mode(context) when is_map(context) do
     Enum.find_value(deployment_mode_paths(), &deployment_mode_path(context, &1))
   end
@@ -317,6 +335,12 @@ defmodule AllbertAssist.Security.Policy do
     [
       {:field, :provider_deployment_mode},
       {:field, :deployment_mode},
+      [:image, :provider_deployment_mode],
+      ["image", "provider_deployment_mode"],
+      [:image, :media, "deployment_mode"],
+      [:image, :media, :deployment_mode],
+      ["image", "media", "deployment_mode"],
+      ["image", "media", :deployment_mode],
       [:voice, :provider_deployment_mode],
       ["voice", "provider_deployment_mode"],
       [:voice, :media, "deployment_mode"],
@@ -638,6 +662,25 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:voice_local_runtime_manage, :denied, _configured, _floor, _context),
     do: "The Allbert local voice runtime is denied by current policy."
+
+  defp reason(:image_input, :allowed, _configured, _floor, _context),
+    do: "Operator-supplied image input is allowed after server-side bounds and redaction."
+
+  defp reason(:image_input, :needs_confirmation, _configured, _floor, _context),
+    do: "Operator-supplied image input requires confirmation by current policy."
+
+  defp reason(:image_input, :denied, _configured, _floor, _context),
+    do: "Image input is denied by current policy."
+
+  defp reason(:image_generate, :allowed, _configured, _floor, _context),
+    do: "Image generation is allowed only for an explicitly fake provider profile."
+
+  defp reason(:image_generate, :needs_confirmation, _configured, _floor, _context),
+    do:
+      "Image generation can create billable media through a provider boundary and requires confirmation."
+
+  defp reason(:image_generate, :denied, _configured, _floor, _context),
+    do: "Image generation is denied by current policy."
 
   defp reason(:tool_discovery, :allowed, _configured, _floor, _context),
     do: "Tool discovery search is allowed through registered discovery actions."

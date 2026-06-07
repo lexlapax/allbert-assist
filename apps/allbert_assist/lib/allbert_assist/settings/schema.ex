@@ -114,6 +114,8 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.voice_transcribe",
     "permissions.voice_synthesize",
     "permissions.voice_local_runtime_manage",
+    "permissions.image_input",
+    "permissions.image_generate",
     "permissions.tool_discovery",
     "permissions.mcp_server_connect",
     "permissions.mcp_tool_call",
@@ -1716,6 +1718,20 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
+    "permissions.image_input" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.image_generate" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
     "permissions.tool_discovery" => %{
       type: :enum,
       default: "allowed",
@@ -2675,6 +2691,8 @@ defmodule AllbertAssist.Settings.Schema do
       "voice_transcribe" => "allowed",
       "voice_synthesize" => "allowed",
       "voice_local_runtime_manage" => "allowed",
+      "image_input" => "allowed",
+      "image_generate" => "allowed",
       "tool_discovery" => "allowed",
       "mcp_server_connect" => "needs_confirmation",
       "mcp_tool_call" => "needs_confirmation",

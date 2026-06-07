@@ -16,7 +16,8 @@ defmodule AllbertAssist.Resources.ResourceURI do
           optional(:server_resource_uri) => String.t(),
           optional(:session_id) => String.t(),
           optional(:entry_id) => String.t(),
-          optional(:capture_id) => String.t()
+          optional(:capture_id) => String.t(),
+          optional(:media_kind) => :image | :screen
         }
 
   @spec file(term()) :: {:ok, String.t()}
@@ -126,6 +127,26 @@ defmodule AllbertAssist.Resources.ResourceURI do
 
   @spec mic_capture!(term()) :: String.t()
   def mic_capture!(capture_id), do: bang(mic_capture(capture_id))
+
+  @spec image_capture(term()) :: {:ok, String.t()} | {:error, term()}
+  def image_capture(capture_id) do
+    with {:ok, capture_id} <- image_capture_id(capture_id) do
+      {:ok, "image://capture/#{capture_id}"}
+    end
+  end
+
+  @spec image_capture!(term()) :: String.t()
+  def image_capture!(capture_id), do: bang(image_capture(capture_id))
+
+  @spec screen_capture(term()) :: {:ok, String.t()} | {:error, term()}
+  def screen_capture(capture_id) do
+    with {:ok, capture_id} <- screen_capture_id(capture_id) do
+      {:ok, "screen://capture/#{capture_id}"}
+    end
+  end
+
+  @spec screen_capture!(term()) :: String.t()
+  def screen_capture!(capture_id), do: bang(screen_capture(capture_id))
 
   @spec workflow(term()) :: {:ok, String.t()} | {:error, term()}
   def workflow(workflow_id) do
@@ -246,6 +267,14 @@ defmodule AllbertAssist.Resources.ResourceURI do
     end
   end
 
+  def scope_uri(:image_input, :image_input, value, resource_uri) do
+    cond do
+      scheme(value) in ["image", "screen"] -> normalize(value)
+      is_binary(value) and String.trim(value) != "" -> image_capture(value)
+      true -> normalize(resource_uri)
+    end
+  end
+
   def scope_uri(:plan_run, :plan_run, value, resource_uri) do
     cond do
       scheme(value) == "plan" -> normalize(value)
@@ -339,6 +368,12 @@ defmodule AllbertAssist.Resources.ResourceURI do
     do: normalize_browser(uri, original)
 
   defp normalize_parsed(%URI{scheme: "mic"} = uri, original), do: normalize_mic(uri, original)
+
+  defp normalize_parsed(%URI{scheme: "image"} = uri, original),
+    do: normalize_image_capture(uri, original)
+
+  defp normalize_parsed(%URI{scheme: "screen"} = uri, original),
+    do: normalize_screen_capture(uri, original)
 
   defp normalize_parsed(%URI{scheme: "workflow"} = uri, original),
     do: normalize_workflow(uri, original)
@@ -450,6 +485,32 @@ defmodule AllbertAssist.Resources.ResourceURI do
        canonical_id: resource_uri,
        unsupported?: false,
        capture_id: capture_id
+     }}
+  end
+
+  defp derive(%URI{scheme: "image", host: "capture", path: path}, resource_uri) do
+    capture_id = path |> to_string() |> String.trim_leading("/") |> URI.decode()
+
+    {:ok,
+     %{
+       origin_kind: :image_input,
+       canonical_id: resource_uri,
+       unsupported?: false,
+       capture_id: capture_id,
+       media_kind: :image
+     }}
+  end
+
+  defp derive(%URI{scheme: "screen", host: "capture", path: path}, resource_uri) do
+    capture_id = path |> to_string() |> String.trim_leading("/") |> URI.decode()
+
+    {:ok,
+     %{
+       origin_kind: :image_input,
+       canonical_id: resource_uri,
+       unsupported?: false,
+       capture_id: capture_id,
+       media_kind: :screen
      }}
   end
 
@@ -607,6 +668,44 @@ defmodule AllbertAssist.Resources.ResourceURI do
 
   defp normalize_mic(_uri, original), do: {:error, {:invalid_mic_capture_uri, original}}
 
+  defp normalize_image_capture(
+         %URI{host: "capture", path: path, query: query, fragment: fragment},
+         original
+       )
+       when query in [nil, ""] and fragment in [nil, ""] do
+    case path |> to_string() |> String.trim_leading("/") |> String.split("/", trim: true) do
+      [capture_id] ->
+        with {:ok, capture_id} <- image_capture_id(URI.decode(capture_id)) do
+          {:ok, "image://capture/#{capture_id}"}
+        end
+
+      _other ->
+        {:error, {:invalid_image_capture_uri, original}}
+    end
+  end
+
+  defp normalize_image_capture(_uri, original),
+    do: {:error, {:invalid_image_capture_uri, original}}
+
+  defp normalize_screen_capture(
+         %URI{host: "capture", path: path, query: query, fragment: fragment},
+         original
+       )
+       when query in [nil, ""] and fragment in [nil, ""] do
+    case path |> to_string() |> String.trim_leading("/") |> String.split("/", trim: true) do
+      [capture_id] ->
+        with {:ok, capture_id} <- screen_capture_id(URI.decode(capture_id)) do
+          {:ok, "screen://capture/#{capture_id}"}
+        end
+
+      _other ->
+        {:error, {:invalid_screen_capture_uri, original}}
+    end
+  end
+
+  defp normalize_screen_capture(_uri, original),
+    do: {:error, {:invalid_screen_capture_uri, original}}
+
   defp normalize_workflow(
          %URI{host: host, path: path, query: query, fragment: fragment},
          _original
@@ -680,6 +779,26 @@ defmodule AllbertAssist.Resources.ResourceURI do
         {:ok, value}
       else
         {:error, {:invalid_mic_capture_id, value}}
+      end
+    end
+  end
+
+  defp image_capture_id(value) do
+    with {:ok, value} <- non_empty(value, :missing_image_capture_id) do
+      if Regex.match?(~r/^[A-Za-z0-9_-]+$/, value) do
+        {:ok, value}
+      else
+        {:error, {:invalid_image_capture_id, value}}
+      end
+    end
+  end
+
+  defp screen_capture_id(value) do
+    with {:ok, value} <- non_empty(value, :missing_screen_capture_id) do
+      if Regex.match?(~r/^[A-Za-z0-9_-]+$/, value) do
+        {:ok, value}
+      else
+        {:error, {:invalid_screen_capture_id, value}}
       end
     end
   end
