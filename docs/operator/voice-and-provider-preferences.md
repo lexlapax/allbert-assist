@@ -133,158 +133,253 @@ as `provider_capabilities`, `provider_deployment_mode`,
 
 ## Manual Validation
 
-Use the v0.48 request-flow checklist for release validation:
+Use these numbered steps before tagging v0.48. They deliberately use
+disposable `ALLBERT_HOME` roots. Do not run live smokes against a real operator
+home.
 
-- `docs/plans/v0.48-request-flow.md`
-- `docs/plans/v0.48-plan.md`
-- ADR 0011 for voice-provider HTTP posture
-- ADR 0051 for provider preferences
-- ADR 0042 for media resource policy
-- ADR 0047 for voice doctor output
-
-The fixture regression gate is still useful:
+1. Prepare the release shell.
 
 ```sh
-mix allbert.test release.v048
+cd /Users/spuri/projects/lexlapax/allbert-assist
+unset MIX_ENV
+unset DATABASE_PATH
+export ALLBERT_TRACE_ENABLED=true
+export V048_AUDIO="/Users/spuri/projects/lexlapax/allbert-assist/Voice-testing-123.wav"
+test -f "$V048_AUDIO" && echo "audio ok: $V048_AUDIO"
 ```
 
-M8R extends this with deterministic local/OpenAI/Gemini/Ollama fixture coverage
-and the 16 `:v048` voice-modality eval rows. Before tagging, run the opt-in
-live-smoke script from a disposable home for each provider you want to certify.
-The script configures `voice.enabled=true`, enables the direct-answer model
-gate, stores provider API keys in Settings Central secrets, drives the
-confirmation-resume path, and fails if STT, the Ollama text turn, or TTS does
-not produce real output.
+Expected: the last command prints `audio ok: ...`. Replace `V048_AUDIO` with
+another explicit WAV path if validating on a different machine.
 
-Prerequisites:
-
-- `ffmpeg` is installed and on `PATH`.
-- Ollama is serving `llama3.2:3b` for the text middle turn:
-  `ollama pull llama3.2:3b` and then keep `ollama serve` running if it is not
-  already running as a service.
-- The audio sample is an explicit file path:
-  `export V048_AUDIO=/absolute/path/to/sample.wav`.
-- Provider credentials are loaded into the shell, for example:
-  `set -a; source .env; set +a`.
-- The disposable home database is bootstrapped before the smoke:
-  `mix ecto.create --quiet` and `mix ecto.migrate --quiet`.
-
-OpenAI:
+2. Verify local prerequisites.
 
 ```sh
-export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v048-openai.XXXXXX)"
-mix ecto.create --quiet
-mix ecto.migrate --quiet
-
-export ALLBERT_V048_LIVE_SMOKE=1
-export ALLBERT_V048_PROVIDER=openai
-
-mix run --no-start scripts/v048_voice_live_smoke.exs "$V048_AUDIO"
+command -v ffmpeg
+command -v ollama
+command -v say
+ollama --version
+ollama list
+curl -sS --max-time 5 http://127.0.0.1:11434/v1/models
+ffprobe -hide_banner -loglevel error \
+  -show_entries format=duration:stream=codec_name,sample_rate,channels \
+  -of default=noprint_wrappers=1 "$V048_AUDIO"
 ```
 
-Gemini:
+Expected: `ffmpeg`, `ollama`, and macOS `say` resolve; Ollama responds on
+`127.0.0.1:11434`; the audio file is readable. If Ollama is not serving, start
+it with `ollama serve` in another terminal or through the local Ollama app.
+
+3. Validate the local Ollama STT model before involving Allbert.
 
 ```sh
-export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v048-gemini.XXXXXX)"
-mix ecto.create --quiet
-mix ecto.migrate --quiet
-
-export ALLBERT_V048_LIVE_SMOKE=1
-export ALLBERT_V048_PROVIDER=gemini
-
-mix run --no-start scripts/v048_voice_live_smoke.exs "$V048_AUDIO"
+ollama show gemma4:e2b
+curl -sS --max-time 240 \
+  -F model=gemma4:e2b \
+  -F response_format=json \
+  -F file=@"$V048_AUDIO" \
+  http://127.0.0.1:11434/v1/audio/transcriptions
 ```
 
-Allbert local voice runtime:
+Expected: `ollama show` includes `audio`, and the curl response has non-empty
+`text`. `gemma4:e2b` is the validated v0.48 Mac local STT default.
 
-M8R7 implementation: v0.48 provides this endpoint as an Allbert product
-runtime. It is not the Phoenix app, not Ollama's `11434` text endpoint, and not
-an operator-supplied validation server. The default product base URL is
-`http://127.0.0.1:5050/v1`; advanced operators may override
-`providers.local_voice.base_url` to another OpenAI-compatible loopback server,
-but the release path uses the Allbert runtime.
+4. Optionally validate the larger local STT model.
 
-The runtime implements:
-
-```text
-GET  /v1/models
-GET  /v1/doctor
-POST /v1/audio/transcriptions
-POST /v1/audio/speech
+```sh
+ollama show gemma4:e4b
+curl -sS --max-time 300 \
+  -F model=gemma4:e4b \
+  -F response_format=json \
+  -F file=@"$V048_AUDIO" \
+  http://127.0.0.1:11434/v1/audio/transcriptions
 ```
 
-The Allbert-facing local profile ids are `whisper-local` for STT and
-`tts-local` for TTS unless the operator has overridden the profiles. Behind the
-endpoint, local STT uses a configured Ollama audio/transcription model through
-Ollama's OpenAI-compatible transcription endpoint. Ollama listens on `11434`;
-the Allbert runtime listens on `5050`. Ollama by itself is not the complete
-local voice endpoint because current Ollama docs/source do not provide
-OpenAI-compatible TTS at `/v1/audio/speech`.
+Expected: non-empty `text`. Use `gemma4:e4b` only when the operator wants the
+heavier, higher-quality local STT option. Do not use `gemma4:e2b-mlx` or
+`gemma3n:e2b` as v0.48 release-validation defaults.
 
-Configuration and service lifecycle are owned by Allbert:
-
-- Settings Central keys: `voice.local_runtime.enabled`,
-  `voice.local_runtime.port`, `voice.local_runtime.ollama_base_url`,
-  `voice.local_runtime.ollama_stt_model`,
-  `voice.local_runtime.stt_model_alias`,
-  `voice.local_runtime.tts_model_alias`,
-  `voice.local_runtime.stt_backend`, `voice.local_runtime.tts_backend`, and
-  `voice.local_runtime.max_text_bytes`.
-- Security Central lifecycle permission:
-  `permissions.voice_local_runtime_manage`.
-- STT/TTS HTTP requests require the per-Allbert-Home local runtime token. The
-  Allbert local adapter attaches it automatically; manual `curl` diagnostics
-  can read it with `mix allbert.voice.local token`.
+5. Create a disposable home for the fully local Allbert validation.
 
 ```sh
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v048-local.XXXXXX)"
 mix ecto.create --quiet
 mix ecto.migrate --quiet
+```
 
+Expected: both Mix commands exit 0.
+
+6. Configure the Allbert-owned local voice runtime through Settings Central.
+
+```sh
+mix allbert.settings set voice.enabled true
 mix allbert.settings set voice.local_runtime.enabled true
 mix allbert.settings set voice.local_runtime.port 5050
 mix allbert.settings set voice.local_runtime.ollama_base_url http://127.0.0.1:11434/v1
-# Use `gemma4:e2b` for the validated Mac local STT path. `gemma4:e4b` is a
-# stronger optional choice when the machine has enough memory.
 mix allbert.settings set voice.local_runtime.ollama_stt_model gemma4:e2b
+mix allbert.settings set providers.local_voice.enabled true
+mix allbert.settings set providers.local_voice.base_url http://127.0.0.1:5050/v1
+```
 
+Expected: each command prints `Updated: ...`. Use `gemma4:e4b` in the STT
+setting only if step 4 passed and the operator wants the larger model.
+
+7. Start the Allbert local voice runtime in Terminal B.
+
+```sh
+cd /Users/spuri/projects/lexlapax/allbert-assist
+unset MIX_ENV
+unset DATABASE_PATH
+export ALLBERT_HOME="PASTE_THE_STEP_5_VALUE"
+mix allbert.voice.local doctor
+mix allbert.voice.local start
+```
+
+Expected doctor lines: `settings_enabled=true`, `stt_model=gemma4:e2b`,
+`stt_available=true`, `tts_available=true`, and
+`models=whisper-local,tts-local`. The `start` command should print
+`Allbert local voice runtime listening on http://127.0.0.1:5050/v1` and remain
+running.
+
+8. Validate the Allbert 5050 endpoint from Terminal A.
+
+```sh
+curl -sS --max-time 5 http://127.0.0.1:5050/v1/models
+curl -sS --max-time 5 http://127.0.0.1:5050/v1/doctor
+export ALLBERT_LOCAL_VOICE_TOKEN="$(cat "$ALLBERT_HOME/tmp/local-voice-runtime/token")"
+test -n "$ALLBERT_LOCAL_VOICE_TOKEN" && echo "local runtime token loaded"
+```
+
+Expected: `/v1/models` lists `whisper-local` and `tts-local`; `/v1/doctor`
+has `endpoint_ok=true` and empty `diagnostic_codes`; the token command prints
+`local runtime token loaded`.
+
+9. Validate token-backed Allbert STT and TTS directly.
+
+```sh
+curl -sS --max-time 240 \
+  -H "x-allbert-local-runtime-token: $ALLBERT_LOCAL_VOICE_TOKEN" \
+  -F model=whisper-local \
+  -F response_format=json \
+  -F file=@"$V048_AUDIO" \
+  http://127.0.0.1:5050/v1/audio/transcriptions
+
+curl -sS --max-time 60 \
+  -o "$ALLBERT_HOME/tts-local.wav" \
+  -w "%{http_code} %{content_type} %{size_download}\n" \
+  -H "x-allbert-local-runtime-token: $ALLBERT_LOCAL_VOICE_TOKEN" \
+  -H "content-type: application/json" \
+  -d '{"model":"tts-local","input":"v0.48 local voice validation succeeded","response_format":"wav"}' \
+  http://127.0.0.1:5050/v1/audio/speech
+```
+
+Expected: STT returns non-empty `text`; TTS prints `200 audio/wav...` and a
+non-zero byte count.
+
+10. Run the full local live smoke.
+
+```sh
 export ALLBERT_V048_LIVE_SMOKE=1
 export ALLBERT_V048_PROVIDER=local
 export LOCAL_VOICE_BASE_URL=http://127.0.0.1:5050/v1
-
-# Start the Allbert local voice runtime in a second terminal with the same
-# ALLBERT_HOME:
-#   mix allbert.voice.local doctor
-#   mix allbert.voice.local start
-export ALLBERT_LOCAL_VOICE_TOKEN="$(mix allbert.voice.local token)"
-curl -sS -i --max-time 5 \
-  -H "x-allbert-local-runtime-token: $ALLBERT_LOCAL_VOICE_TOKEN" \
-  "$LOCAL_VOICE_BASE_URL/models"
+export ALLBERT_V048_AUDIO="$V048_AUDIO"
 mix run --no-start scripts/v048_voice_live_smoke.exs "$V048_AUDIO"
 ```
 
-Expected successful output includes all of the following:
+Expected: doctor output for `voice_stt_local` and `voice_tts_local` has
+`endpoint_ok=true model_available=true`; the script prints `Transcript:`,
+`Runtime response:`, `Speech file:`, and
+`v0.48 live voice smoke completed.`
 
-```text
-Doctor voice_stt_<provider>: endpoint_ok=true model_available=true
-Doctor voice_tts_<provider>: endpoint_ok=true model_available=true
-Transcript: ...
-Runtime response: ...
-Speech resource: file://...
-Speech file: ...
-v0.48 live voice smoke completed.
+11. Stop the local runtime.
+
+In Terminal B, press `Ctrl+C` twice. Then verify from Terminal A:
+
+```sh
+lsof -nP -iTCP:5050 -sTCP:LISTEN
 ```
 
-Manual validation before tag must also run disposable-home live smokes for:
+Expected: no output. If a validation Beam process is still listening, stop it
+before continuing.
 
-- Allbert local voice runtime STT/TTS plus local Ollama text;
-- OpenAI remote STT/TTS using Settings Central secrets loaded from `.env`;
-- Gemini remote STT/TTS using Settings Central secrets loaded from `.env`.
+12. Run the OpenAI live smoke in a fresh disposable home.
 
-The v0.48 first-pass evidence path from implementation was superseded by the
-M8R closeout evidence under the release-evidence root for the disposable gate
-home:
-
-```text
-<ALLBERT_HOME>/release_evidence/v048/
+```sh
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v048-openai.XXXXXX)"
+unset MIX_ENV
+unset DATABASE_PATH
+mix ecto.create --quiet
+mix ecto.migrate --quiet
+set -a
+source .env
+set +a
+test -n "$OPENAI_API_KEY" && echo "OPENAI_API_KEY present"
+export ALLBERT_V048_LIVE_SMOKE=1
+export ALLBERT_V048_PROVIDER=openai
+export ALLBERT_V048_AUDIO="$V048_AUDIO"
+mix run --no-start scripts/v048_voice_live_smoke.exs "$V048_AUDIO"
 ```
+
+Expected: the script prints successful STT doctor, TTS doctor, transcript,
+runtime response, speech file, and completion lines. This may upload audio and
+incur provider cost.
+
+13. Run the Gemini live smoke in a fresh disposable home.
+
+```sh
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v048-gemini.XXXXXX)"
+unset MIX_ENV
+unset DATABASE_PATH
+mix ecto.create --quiet
+mix ecto.migrate --quiet
+set -a
+source .env
+set +a
+test -n "${GEMINI_API_KEY:-${GOOGLE_API_KEY:-}}" && echo "Gemini key present"
+export ALLBERT_V048_LIVE_SMOKE=1
+export ALLBERT_V048_PROVIDER=gemini
+export ALLBERT_V048_AUDIO="$V048_AUDIO"
+mix run --no-start scripts/v048_voice_live_smoke.exs "$V048_AUDIO"
+```
+
+Expected: the same successful doctor, transcript, runtime response, speech
+file, and completion lines. This may upload audio and incur provider cost.
+
+14. Run the deterministic v0.48 release lane.
+
+```sh
+MIX_ENV=test mix allbert.test release.v048
+```
+
+Expected: provider capability core, voice action/CLI/channel, workspace voice,
+voice security eval, and secret scan all pass. The latest validated shape was
+provider capability core `65 tests, 0 failures`, voice action/CLI/channel
+`52 tests, 0 failures`, workspace voice `64 tests, 0 failures`, voice security
+eval `20 tests, 0 failures`, and a clean secret scan. The command prints the
+evidence JSON path under `<ALLBERT_HOME>/release_evidence/v048/`.
+
+15. Check traces for obvious leaks.
+
+Run this once for each disposable home used in steps 10, 12, and 13:
+
+```sh
+if [ -d "$ALLBERT_HOME/memory/traces" ]; then
+  rg -i 'sk-|api[_-]?key|authorization|x-goog-api-key|AIza|Voice-testing-123.wav' \
+    "$ALLBERT_HOME/memory/traces" || true
+else
+  echo "no memory traces directory"
+fi
+```
+
+Expected: no API keys, authorization headers, Gemini keys, or raw sample path.
+
+16. Record release evidence.
+
+Capture the following in the release handoff notes:
+
+- output from steps 3 and 4 showing local transcription model behavior;
+- `mix allbert.voice.local doctor` output from step 7;
+- direct Allbert STT/TTS outputs from step 9;
+- full local live-smoke completion from step 10;
+- OpenAI and Gemini live-smoke completion from steps 12 and 13;
+- `release.v048` evidence JSON path from step 14;
+- trace/secret scan result from step 15.
