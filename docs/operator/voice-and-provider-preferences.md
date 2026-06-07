@@ -257,7 +257,7 @@ running.
 export ALLBERT_HOME="$ALLBERT_V048_LOCAL_HOME"
 curl -sS --max-time 5 http://127.0.0.1:5050/v1/models
 curl -sS --max-time 5 http://127.0.0.1:5050/v1/doctor
-export ALLBERT_LOCAL_VOICE_TOKEN="$(cat "$ALLBERT_HOME/tmp/local-voice-runtime/token")"
+export ALLBERT_LOCAL_VOICE_TOKEN="$(mix allbert.voice.local token | tail -n 1)"
 test -n "$ALLBERT_LOCAL_VOICE_TOKEN" && echo "local runtime token loaded"
 test -r "$V048_AUDIO" && echo "audio readable: $V048_AUDIO"
 ```
