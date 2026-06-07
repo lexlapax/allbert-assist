@@ -20,11 +20,11 @@ v0.48 M8 closeout evidence:
   workspace microphone confirmation, STT/TTS actions, Telegram voice-note
   ingestion, and the v0.48 voice-modality eval rows.
 
-M8R release correction: the M8 evidence above proves the fixture/security
+M8R/M8R7 release correction: the M8 evidence above proves the fixture/security
 surface only. v0.48 release readiness now requires executable real-provider
-voice paths: local OpenAI-compatible STT/TTS, OpenAI remote STT/TTS, Gemini
-remote STT/TTS, bounded transcode materialization, and a local Ollama text turn
-between STT and TTS.
+voice paths: the Allbert-owned local voice runtime STT/TTS, OpenAI remote
+STT/TTS, Gemini remote STT/TTS, bounded transcode materialization, and a local
+Ollama text turn between STT and TTS.
 
 ## Context
 

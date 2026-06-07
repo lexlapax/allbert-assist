@@ -651,13 +651,14 @@ historical aliases only and remain in old reference notes for continuity.
   sandbox/gate/templated-creation path; consumes v0.45 marketplace metadata
   and the shipped v0.46 delegate-agent extension point. Seven `:v047b` eval
   rows plus `release.v047b` prove the handoff boundary. No new trust tier.
-- v0.48 (implemented through M8R; release validation pending before tag):
+- v0.48 (implemented through M8R with M8R7 local-runtime remediation pending
+  before tag):
   Voice Modality And Provider Capabilities. Generalizes the existing
   provider/model framework with capability metadata and ranked operator
   preferences, then composes voice input/output with existing channels as audio
   resources and registered STT/TTS actions. Profile media metadata can describe
   local, remote, bundled, and realtime shapes; v0.48 release authority now
-  includes real local OpenAI-compatible STT/TTS, OpenAI remote STT/TTS, Gemini
+  includes the Allbert-owned local voice runtime, OpenAI remote STT/TTS, Gemini
   remote STT/TTS, and an Ollama-backed local text turn proven by
   `release.v048` plus manual smokes. Fake providers are fixtures only. Discord
   voice is deferred until after Discord exists.

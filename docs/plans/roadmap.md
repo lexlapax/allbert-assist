@@ -269,15 +269,17 @@ Dependency order from here:
     v0.36/v0.37/v0.38 sandbox/gate/templated-creation path; seven `:v047b`
     eval rows and `release.v047b`; no new trust tier.
 48. v0.48 Voice modality and provider capabilities - implemented through
-    M8R real-provider remediation; release validation is pending before tag.
+    M8R real-provider remediation, with M8R7 local voice runtime remediation
+    release-blocking before tag.
     The release includes capability-aware provider/model profiles, ranked
     operator preferences, fixture STT/TTS for tests only, CLI file
     transcription, workspace microphone capture, TTS, Telegram voice-note
-    ingestion, executable local OpenAI-compatible STT/TTS, OpenAI remote
-    STT/TTS, Gemini remote STT/TTS, an Ollama-backed local text turn in the
-    voice loop, 16 `:v048` voice-modality eval rows, and expanded
-    `release.v048` coverage. Manual `.env` live smokes remain the release
-    handoff before tag. Fake providers are fixture-only. Discord voice is
+    ingestion, executable local adapter calls, OpenAI remote STT/TTS, Gemini
+    remote STT/TTS, an Ollama-backed local text turn in the voice loop, 16
+    `:v048` voice-modality eval rows, and expanded `release.v048` coverage.
+    M8R7 adds the Allbert-owned local voice runtime endpoint. Manual `.env`
+    live smokes remain the release handoff before tag. Fake providers are
+    fixture-only. Discord voice is
     deferred to a focused follow-on after Channel Pack 1.
 49. v0.49 Vision and image generation: consumes the v0.48 provider capability
     substrate for image/screenshot resource classes, vision model profile
@@ -2851,20 +2853,23 @@ Plan: `docs/plans/v0.48-plan.md`
 Request flow: `docs/plans/v0.48-request-flow.md`
 ADRs: `docs/adr/0051-provider-capability-preferences.md`,
 `docs/adr/0042-audio-image-and-media-resource-classes.md`,
-`docs/adr/0047-provider-doctor-contract.md`
+`docs/adr/0047-provider-doctor-contract.md`,
+`docs/adr/0052-local-voice-runtime-endpoint.md`
 
-Status: implemented through M8R real-provider remediation; release validation
-is pending before tag. M1-M8 landed provider capability metadata, ranked
-preferences, capability-aware voice doctors, the audio resource/security
-substrate, CLI fixture transcription, workspace microphone capture, fixture
-TTS, Telegram voice-note ingestion, ten first-pass `:v048` voice-modality eval
-rows, and deterministic first-pass `release.v048` evidence. M8R then added
-real local OpenAI-compatible STT/TTS, OpenAI remote STT/TTS, Gemini remote
-STT/TTS, Ollama-backed local text-loop validation, six more `:v048` eval rows,
-expanded `release.v048`, and the manual `.env` live-smoke script. Current
-authority is the v0.48 plan/request-flow plus ADR 0011, ADR 0051, ADR 0042
-audio amendments, and ADR 0047; the older archive source is historical context
-only.
+Status: implemented through M8R real-provider remediation, with M8R7 local
+voice runtime remediation release-blocking before tag. M1-M8 landed provider
+capability metadata, ranked preferences, capability-aware voice doctors, the
+audio resource/security substrate, CLI fixture transcription, workspace
+microphone capture, fixture TTS, Telegram voice-note ingestion, ten first-pass
+`:v048` voice-modality eval rows, and deterministic first-pass `release.v048`
+evidence. M8R then added real local OpenAI-compatible adapter calls, OpenAI
+remote STT/TTS, Gemini remote STT/TTS, Ollama-backed local text-loop
+validation, six more `:v048` eval rows, expanded `release.v048`, and the
+manual `.env` live-smoke script. M8R7 must add the Allbert-owned local voice
+runtime endpoint so the local path is not an operator-supplied mystery server.
+Current authority is the v0.48 plan/request-flow plus ADR 0011, ADR 0051,
+ADR 0042 audio amendments, ADR 0047, and ADR 0052; the older archive source is
+historical context only.
 
 Expected direction:
 
@@ -2881,9 +2886,9 @@ Expected direction:
   only by explicit operator policy.
 - Ship display-only provider/cost metadata for STT/TTS action results; unified
   dashboards and budget enforcement remain parked.
-- Prove the feature through deterministic real-adapter fixtures in
+- Prove the feature through deterministic real-adapter/runtime fixtures in
   `mix allbert.test release.v048`, then run opt-in live smokes for OpenAI,
-  Gemini, local voice endpoint, and Ollama before manual validation.
+  Gemini, the Allbert local voice runtime, and Ollama before manual validation.
 - Defer Discord voice support to a focused follow-on after Discord lands in
   v0.50.
 - Keep realtime speech sessions, generic audio understanding, and video input
