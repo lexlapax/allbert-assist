@@ -663,14 +663,14 @@ historical aliases only and remain in old reference notes for continuity.
   Central-configured, Security Central-managed, and token-protected for STT/TTS
   HTTP requests. Fake providers are fixtures only. Discord voice is deferred
   until after Discord exists.
-- v0.49: Vision And Image Generation. Consumes the v0.48 provider capability
-  substrate for image and screenshot resources plus provider-backed image
-  generation. M1 proves ReqLLM provider/model support from the app-started
-  runtime. M3 adds workspace image upload and vision-input plumbing but keeps
-  content hashes as metadata only; the canonical content-addressed artifact
-  store is proposed for v0.50. Video input, generic audio understanding, and
-  catch-all multimodal routing remain future scope unless the v0.49 plan is
-  amended before implementation.
+- v0.49: Vision And Image Generation. Implemented as `0.49.0`. Consumes the
+  v0.48 provider capability substrate for image and screenshot resources plus
+  provider-backed image generation. `release.v049` proves app-started ReqLLM
+  provider/model support, workspace image upload, vision-input plumbing,
+  generated-image confirmation/redaction, 7 `:v049` eval rows, and clean media
+  secret scanning. Content hashes remain metadata only; the canonical
+  content-addressed artifact store is v0.50. Video input, generic audio
+  understanding, and catch-all multimodal routing remain future scope.
 - v0.50: Artifacts Central. A uniform content-addressable store for durable
   artifacts — uploaded by the operator, created by Allbert, or found through
   approved tools — type-agnostic and deduplicated by `artifact://sha256/<hex>`

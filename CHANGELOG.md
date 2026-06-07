@@ -10,11 +10,75 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.49.0 - Vision And Image Generation
+
+Status: implemented as the v0.49 release. Current version metadata is
+`0.49.0`; ready for operator manual validation before the release tag.
+
+### Added
+
+- Vision/image model profiles and capability preferences for `vision_input` and
+  `image_generation`, using the v0.48 provider capability substrate rather than
+  a separate image-provider framework.
+- Image and screenshot resource identity for `image://capture/<id>` and
+  `screen://capture/<id>`, image permission and operation classes, server-side
+  image bounds, image metadata parsing, and image metadata redaction.
+- Workspace image paste/upload controls for vision input. Operator-supplied
+  image metadata is bounded server-side, passed into the existing
+  `direct_answer` text path as ReqLLM multimodal content, and cleaned up when
+  transient.
+- `generate_image`, an internal resumable registered action wrapping
+  `ReqLLM.generate_image/3`, with remote-provider confirmation, fixture image
+  generation, approved confirmation resume, one bounded retry to the next
+  capable image profile, and display-only usage/cost metadata.
+- Seven v0.49 vision-modality security eval rows:
+  `vision-media-size-bound-001`, `vision-binary-trace-redaction-001`,
+  `vision-provider-capability-check-001`,
+  `vision-operator-supplied-only-no-autocapture-001`,
+  `image-generation-floor-confirmation-001`,
+  `image-generation-cost-display-only-001`, and
+  `media-render-no-generated-ui-code-001`.
+- `mix allbert.test release.v049`, a deterministic vision/image release lane
+  using fake vision/image providers, Req.Test provider fixtures, fixture image
+  files, workspace image upload coverage, eval inventory coverage, and a
+  v0.49 media secret scan.
+
+### Changed
+
+- `vision_input` and `image_generation` are capability-specific media bridges.
+  There is still no catch-all `multimodal` capability, no generic audio/video
+  understanding path, no video ingestion, and no image-specific ProviderHTTP
+  module.
+- Image and screenshot resource identifiers are inert. They do not grant
+  permission, start autonomous OS capture, authorize provider upload, or create
+  a durable artifact-store record.
+- Generated image outputs are bounded local files with redacted metadata.
+  Content hashes remain integrity/provenance metadata only; v0.50 Artifacts
+  Central owns the canonical content-addressed artifact store.
+- Fake vision/image providers remain deterministic automated-test fixtures
+  only. Operator-visible live provider validation targets configured OpenAI and
+  Gemini profiles through ReqLLM.
+
+### Verification
+
+- `MIX_ENV=test mix compile --warnings-as-errors` passed.
+- Focused M5 security/task suite passed with 16 tests and 0 failures:
+  `MIX_ENV=test mix test apps/allbert_assist/test/security/v049_vision_modality_eval_test.exs apps/allbert_assist/test/security/security_eval_case_test.exs apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs`.
+- `MIX_ENV=test mix allbert.test release.v049` passed with image policy/core
+  (`98 tests, 0 failures`), vision input (`11 tests, 0 failures`), image
+  generation action (`14 tests, 0 failures`), workspace image input (`65 tests,
+  0 failures`), vision security eval (`16 tests, 0 failures`), and a clean
+  v0.49 media secret scan. Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v049/p0-13255/home/release_evidence/v049/release-v049-1780870801.json`.
+- Final `MIX_ENV=test mix allbert.test release` passed with static compile,
+  deps, format, Credo strict, 1,519 core tests, 123 web tests, 197 StockSage
+  tests, 12 channel-plugin tests, and Dialyzer. Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13252/home/release_evidence/gates/release-2026-06-07T22_25_47Z.json`.
+
 ## v0.48.0 - Voice Modality And Provider Capabilities
 
 Status: implemented through M8R real-provider remediation and M8R7 local
-voice runtime remediation. Current version metadata is `0.48.0`; the tag has
-not been cut.
+voice runtime remediation. Version metadata was `0.48.0` at v0.48 closeout.
 
 ### Added
 

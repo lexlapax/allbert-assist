@@ -30,8 +30,8 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
-  alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.Models
+  alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.Store
 
   @answerer_config __MODULE__
@@ -376,13 +376,17 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   defp min_positive_bound(value, bound), do: min(value, bound)
 
   defp cleanup_transient_image_inputs(image_inputs) do
-    Enum.each(image_inputs, fn image_input ->
-      if field(image_input, :transient?) == true do
-        path = field(image_input, :path)
-        if is_binary(path), do: File.rm(path)
-      end
-    end)
+    Enum.each(image_inputs, &cleanup_transient_image_input/1)
   end
+
+  defp cleanup_transient_image_input(image_input) do
+    if field(image_input, :transient?) == true do
+      cleanup_image_input_path(field(image_input, :path))
+    end
+  end
+
+  defp cleanup_image_input_path(path) when is_binary(path), do: File.rm(path)
+  defp cleanup_image_input_path(_path), do: :ok
 
   defp bounded_reason(reason) do
     reason

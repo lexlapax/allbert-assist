@@ -498,7 +498,7 @@ Still parked:
 Status: parked. Added in the post-v0.37 planning pass.
 
 v0.48 ships display-only provider and usage metadata for STT/TTS action
-results and traces when providers expose it. v0.49 can add the same style of
+results and traces when providers expose it. v0.49 adds the same style of
 display-only metadata for image generation. Power operators will still want a
 unified cross-provider dashboard, but budget enforcement remains parked here.
 

@@ -308,13 +308,19 @@ eval surfaces until their capability work lands.
   provider cost, and cloud-upload policy. v0.48 narrows the voice portion:
   microphone capture and credentialed remote STT/TTS stay confirmation-gated,
   raw audio is excluded from traces by default, audio retention is default-off,
-  and STT/TTS cost or usage metadata is display-only. Profile metadata such as
+  and STT/TTS cost or usage metadata is display-only. v0.49 narrows the
+  vision/image portion: `image://capture/<id>` and `screen://capture/<id>` are
+  operator-supplied inert identifiers, remote image generation stays
+  confirmation-gated, raw image bytes and generated resource paths are redacted
+  from traces/action metadata, image retention is default-off, and image
+  generation usage/cost metadata is display-only. Profile metadata such as
   audio/video input support, realtime transport, accepted formats, or
   local/bundled/remote deployment mode is diagnostic routing data only; it does
-  not authorize cloud upload, always-on microphone capture, arbitrary media
-  fetches, or video ingestion. The v0.48 transcode helper is bounded to
-  configured local inputs and fixed output formats, with source/output paths
-  redacted from traces.
+  not authorize cloud upload, always-on microphone capture, autonomous OS screen
+  capture, arbitrary media fetches, or video ingestion. The v0.48 transcode
+  helper is bounded to configured local inputs and fixed output formats, with
+  source/output paths redacted from traces; v0.49 image normalization is bounded
+  constrain-and-reject without a resize/transcode dependency.
 - MCP-server public protocol auth, rate limits, redaction, and confirmation
   ownership. API, ACP, and public AG-UI/A2UI bridge evals remain parked
   post-1.0.
