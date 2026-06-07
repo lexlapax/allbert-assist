@@ -10,6 +10,7 @@ defmodule AllbertAssist.Settings.VoiceDoctor do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.DoctorDiagnostics
   alias AllbertAssist.Voice.ProviderAdapter
+  alias AllbertAssist.Voice.Transcode
 
   @voice_capabilities ~w[speech_to_text text_to_speech]
   @deployment_modes ~w[fake local_endpoint bundled_local remote_credentialed]
@@ -17,12 +18,12 @@ defmodule AllbertAssist.Settings.VoiceDoctor do
   @spec diagnose(String.t(), map()) :: {:ok, map()} | {:error, term()}
   def diagnose(profile_name, context \\ %{})
 
-  def diagnose(profile_name, _context) when is_binary(profile_name) do
+  def diagnose(profile_name, context) when is_binary(profile_name) do
     with {:ok, model_profile} <- Settings.resolve_model_profile(profile_name),
          {:ok, provider_profile} <- Settings.resolve_provider_profile(model_profile.provider) do
       {:ok,
        model_profile
-       |> voice_summary(provider_profile)
+       |> voice_summary(provider_profile, context)
        |> Map.put(:profile, profile_name)
        |> Map.put(:model, model_profile.model)
        |> Map.put(:provider, provider_profile.name)
@@ -32,21 +33,21 @@ defmodule AllbertAssist.Settings.VoiceDoctor do
 
   def diagnose(_profile_name, _context), do: {:error, :invalid_model_profile}
 
-  defp voice_summary(model_profile, provider_profile) do
+  defp voice_summary(model_profile, provider_profile, context) do
     capabilities = voice_capabilities(model_profile)
     deployment_mode = deployment_mode(model_profile)
 
     if capabilities == [] do
-      summary(model_profile, provider_profile, capabilities, deployment_mode,
+      summary(model_profile, provider_profile, capabilities, deployment_mode, context,
         endpoint_ok: false,
         model_available: false,
         diagnostics: [diagnostic(:voice_capability_missing)]
       )
     else
-      adapter_summary(model_profile)
+      adapter_summary(model_profile, context)
       |> case do
         {:ok, adapter} ->
-          summary(model_profile, provider_profile, capabilities, deployment_mode,
+          summary(model_profile, provider_profile, capabilities, deployment_mode, context,
             endpoint_ok: Map.fetch!(adapter, :endpoint_ok),
             model_available: Map.fetch!(adapter, :model_available),
             provider_usage_metadata_available:
@@ -58,7 +59,7 @@ defmodule AllbertAssist.Settings.VoiceDoctor do
           )
 
         {:error, reason} ->
-          summary(model_profile, provider_profile, capabilities, deployment_mode,
+          summary(model_profile, provider_profile, capabilities, deployment_mode, context,
             endpoint_ok: false,
             model_available: :unknown,
             provider_usage_metadata_available: :unknown,
@@ -68,7 +69,15 @@ defmodule AllbertAssist.Settings.VoiceDoctor do
     end
   end
 
-  defp adapter_summary(model_profile), do: ProviderAdapter.doctor(model_profile)
+  defp adapter_summary(model_profile, context) do
+    opts =
+      case field(context, :voice_adapter_opts) do
+        opts when is_list(opts) -> opts
+        _opts -> []
+      end
+
+    ProviderAdapter.doctor(model_profile, opts)
+  end
 
   defp diagnostics(%{diagnostics: diagnostics}) when is_list(diagnostics), do: diagnostics
 
@@ -81,12 +90,19 @@ defmodule AllbertAssist.Settings.VoiceDoctor do
   defp diagnostic({:voice_adapter_unavailable, _mode}),
     do: DoctorDiagnostics.new(:voice_provider_probe_unavailable)
 
+  defp diagnostic({:voice_capability_not_native, _provider}),
+    do: DoctorDiagnostics.new(:voice_capability_not_native)
+
   defp diagnostic(code) when is_atom(code), do: DoctorDiagnostics.new(code)
 
   defp diagnostic(_reason), do: DoctorDiagnostics.new(:voice_provider_probe_unavailable)
 
-  defp summary(model_profile, provider_profile, capabilities, deployment_mode, opts) do
+  defp summary(model_profile, provider_profile, capabilities, deployment_mode, context, opts) do
     endpoint_kind = endpoint_kind(provider_profile.endpoint_kind)
+    transcode_available? = transcode_available?(context)
+
+    diagnostics =
+      opts |> Keyword.get(:diagnostics, []) |> maybe_transcode_diagnostic(transcode_available?)
 
     %{
       endpoint_kind: endpoint_kind,
@@ -97,7 +113,7 @@ defmodule AllbertAssist.Settings.VoiceDoctor do
       deprecation_warning: nil,
       last_seen_rate_limit_hint: nil,
       redacted_host: Keyword.get(opts, :redacted_host, redacted_host(provider_profile)),
-      diagnostics: Keyword.get(opts, :diagnostics, []),
+      diagnostics: diagnostics,
       provider_capabilities: capabilities,
       provider_deployment_mode: deployment_mode,
       speech_to_text_supported: "speech_to_text" in capabilities,
@@ -108,7 +124,8 @@ defmodule AllbertAssist.Settings.VoiceDoctor do
       provider_usage_metadata_available:
         Keyword.get(opts, :provider_usage_metadata_available, :unknown),
       local_runtime_present: Keyword.get(opts, :local_runtime_present),
-      fixture_probe_ok: Keyword.get(opts, :fixture_probe_ok)
+      fixture_probe_ok: Keyword.get(opts, :fixture_probe_ok),
+      transcode_available: transcode_available?
     }
   end
 
@@ -149,4 +166,26 @@ defmodule AllbertAssist.Settings.VoiceDoctor do
 
   defp redacted_host(%{name: name}) when is_binary(name), do: name
   defp redacted_host(_provider), do: "unknown"
+
+  defp transcode_available?(context) do
+    executable = field(context, :voice_transcode_executable) || "ffmpeg"
+    Transcode.executable_available?(executable)
+  end
+
+  defp maybe_transcode_diagnostic(diagnostics, true), do: diagnostics
+
+  defp maybe_transcode_diagnostic(diagnostics, false) do
+    diagnostic = DoctorDiagnostics.new(:voice_transcode_unavailable)
+
+    if Enum.any?(diagnostics, &(&1.code == diagnostic.code)) do
+      diagnostics
+    else
+      diagnostics ++ [diagnostic]
+    end
+  end
+
+  defp field(map, key) when is_map(map),
+    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+
+  defp field(_map, _key), do: nil
 end

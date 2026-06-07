@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
     execution_mode: :voice_provider_call,
     skill_backed?: false,
     confirmation: :required,
+    resumable?: true,
     name: "synthesize_voice",
     description: "Synthesize bounded text into an audio file through a voice-capable profile.",
     category: "voice",
@@ -22,12 +23,16 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Confirmations
+  alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
   alias AllbertAssist.Voice.ProviderAdapter
 
+  @permission :voice_synthesize
+  @action_name "synthesize_voice"
   @default_format "wav"
 
   @impl true
@@ -52,23 +57,34 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
 
   defp attempt_synthesis([resolution | rest], text, context, params, attempts) do
     permission_decision =
-      PermissionGate.authorize(:voice_synthesize, voice_context(context, resolution.profile))
+      PermissionGate.authorize(@permission, voice_context(context, resolution.profile))
 
-    if PermissionGate.allowed?(permission_decision) do
-      attempt_allowed_synthesis(
-        resolution,
-        rest,
-        text,
-        context,
-        params,
-        attempts,
-        permission_decision
-      )
-    else
-      {:ok,
-       stopped(permission_decision, :permission_denied, %{
-         adapter_attempts: Enum.reverse(attempts)
-       })}
+    cond do
+      permission_decision.decision == :denied ->
+        {:ok,
+         stopped(permission_decision, :permission_denied, %{
+           adapter_attempts: Enum.reverse(attempts)
+         })}
+
+      PermissionGate.allowed?(permission_decision) or approved_resume?(context) ->
+        attempt_allowed_synthesis(
+          resolution,
+          rest,
+          text,
+          context,
+          params,
+          attempts,
+          permission_decision
+        )
+
+      permission_decision.decision == :needs_confirmation ->
+        create_confirmation(text, resolution, params, attempts, context, permission_decision)
+
+      true ->
+        {:ok,
+         stopped(permission_decision, :permission_denied, %{
+           adapter_attempts: Enum.reverse(attempts)
+         })}
     end
   end
 
@@ -162,13 +178,66 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
 
   defp action(status, permission_decision, metadata) do
     %{
-      name: "synthesize_voice",
+      name: @action_name,
       status: status,
-      permission: :voice_synthesize,
+      permission: @permission,
       permission_decision: permission_decision,
       voice_metadata:
         metadata |> Map.get(:voice_metadata, metadata) |> Redactor.redact_audio_metadata()
     }
+  end
+
+  defp create_confirmation(text, resolution, params, attempts, context, permission_decision) do
+    with {:ok, output_format} <- output_format(resolution.profile, params) do
+      summary = confirmation_summary(text, resolution, output_format, params, attempts)
+
+      attrs = %{
+        origin: Origin.from_context(context, @action_name),
+        target_action: %{name: @action_name, module: inspect(__MODULE__)},
+        target_permission: @permission,
+        target_execution_mode: :voice_provider_call,
+        security_decision: permission_decision,
+        source_signal_id: source_signal_id(context),
+        source_trace_id: source_trace_id(context),
+        runner_metadata: runner_metadata(context, resolution),
+        params_summary: summary,
+        resume_params_ref: %{
+          text: text,
+          output_format: output_format,
+          voice: field(params, :voice)
+        }
+      }
+
+      case Confirmations.create(attrs) do
+        {:ok, confirmation} ->
+          confirmation_id = confirmation_id(confirmation)
+
+          {:ok,
+           %{
+             message: "Voice synthesis needs confirmation.",
+             status: :needs_confirmation,
+             error: :permission_denied,
+             voice_metadata: summary,
+             permission_decision: permission_decision,
+             confirmation: Confirmations.redact_for_output(confirmation),
+             confirmation_id: confirmation_id,
+             actions: [
+               action(:needs_confirmation, permission_decision, %{
+                 provider_profile: resolution.profile_name,
+                 confirmation_id: confirmation_id,
+                 voice_metadata: summary
+               })
+               |> Map.put(:confirmation_metadata, confirmation_metadata(confirmation))
+             ]
+           }}
+
+        {:error, reason} ->
+          {:ok, failed(reason, permission_decision, %{adapter_attempts: Enum.reverse(attempts)})}
+      end
+    else
+      {:error, reason} ->
+        {:ok, failed(reason, permission_decision, %{adapter_attempts: Enum.reverse(attempts)})}
+    end
   end
 
   defp text(params) do
@@ -257,6 +326,31 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
   defp maybe_put_attempts(metadata, attempts),
     do: Map.put(metadata, :fallback_attempts, Enum.reverse(attempts))
 
+  defp confirmation_summary(text, resolution, output_format, params, attempts) do
+    %{
+      provider_profile: resolution.profile_name,
+      provider: Map.get(resolution.profile, :provider),
+      model: Map.get(resolution.profile, :model),
+      output_format: output_format,
+      byte_size: byte_size(text),
+      transcript_sha256: sha256(text),
+      redaction_status: "redacted"
+    }
+    |> maybe_put_voice(field(params, :voice))
+    |> Redactor.redact_audio_metadata()
+    |> maybe_put_confirmation_attempts(attempts)
+  end
+
+  defp maybe_put_confirmation_attempts(metadata, []), do: metadata
+
+  defp maybe_put_confirmation_attempts(metadata, attempts) do
+    Map.put(metadata, :fallback_attempts, attempts |> Enum.reverse() |> Enum.map(&safe_attempt/1))
+  end
+
+  defp safe_attempt(%{} = attempt) do
+    Map.update(attempt, :error, nil, &inspect/1)
+  end
+
   defp retryable_provider_error?({:voice_http_error, status})
        when status >= 500 and status <= 599,
        do: true
@@ -278,7 +372,10 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
   defp maybe_put_keyword(opts, key, value), do: Keyword.put(opts, key, value)
 
   defp voice_context(context, profile) do
-    Map.merge(context, %{
+    context
+    |> Map.drop([:voice_adapter_opts, "voice_adapter_opts", :req_options, "req_options"])
+    |> Map.drop([:transcode_runner, "transcode_runner"])
+    |> Map.merge(%{
       model_profile: profile,
       provider_deployment_mode: deployment_mode(profile)
     })
@@ -289,6 +386,39 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
   end
 
   defp deployment_mode(_profile), do: nil
+
+  defp approved_resume?(%{confirmation: %{approved?: true}}), do: true
+  defp approved_resume?(%{"confirmation" => %{"approved?" => true}}), do: true
+  defp approved_resume?(_context), do: false
+
+  defp source_signal_id(context),
+    do: field(context, :input_signal_id) || field(context, :source_signal_id)
+
+  defp source_trace_id(context), do: field(context, :trace_id) || field(context, :source_trace_id)
+
+  defp runner_metadata(context, resolution) do
+    context
+    |> Map.take([:actor, :user_id, :operator_id, :channel, :surface, :response_target])
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
+    |> Map.put(:selected_action, @action_name)
+    |> Map.put(:provider_profile, resolution.profile_name)
+  end
+
+  defp maybe_put_voice(summary, nil), do: summary
+  defp maybe_put_voice(summary, ""), do: summary
+  defp maybe_put_voice(summary, voice), do: Map.put(summary, :voice, voice)
+
+  defp confirmation_id(%{"id" => id}), do: id
+  defp confirmation_id(%{id: id}), do: id
+
+  defp confirmation_metadata(confirmation) do
+    %{
+      id: confirmation_id(confirmation),
+      status: field(confirmation, :status),
+      target_action: get_in(confirmation, ["target_action", "name"]) || @action_name
+    }
+  end
 
   defp media_field(%{media: %{} = media}, key),
     do: Map.get(media, key) || Map.get(media, String.to_atom(key))
@@ -336,4 +466,6 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
     do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
 
   defp field(_map, _key), do: nil
+
+  defp sha256(value), do: :crypto.hash(:sha256, value) |> Base.encode16(case: :lower)
 end

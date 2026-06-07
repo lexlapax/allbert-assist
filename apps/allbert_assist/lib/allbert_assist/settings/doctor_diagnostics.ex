@@ -24,8 +24,17 @@ defmodule AllbertAssist.Settings.DoctorDiagnostics do
     provider_host_denied: "Provider host is not allowed by doctor policy.",
     rate_limited: "Provider rate-limited the model-list probe.",
     voice_capability_missing: "Configured profile does not advertise a voice capability.",
+    voice_capability_not_native:
+      "Configured provider does not expose native STT/TTS for this voice capability.",
+    voice_provider_base_url_missing: "Voice provider base URL is not configured.",
+    voice_provider_credential_missing: "Voice provider credential is not configured.",
+    voice_provider_credential_unavailable: "Voice provider credential could not be read.",
+    voice_provider_http_error: "Voice provider probe returned an HTTP error.",
+    voice_provider_probe_failed: "Voice provider probe failed.",
     voice_provider_probe_unavailable:
-      "Voice provider probe is not available for this deployment mode yet."
+      "Voice provider probe is not available for this deployment mode yet.",
+    voice_provider_unreachable: "Voice provider endpoint did not respond.",
+    voice_transcode_unavailable: "Voice transcode executable is not available."
   }
 
   @spec catalog() :: %{atom() => String.t()}

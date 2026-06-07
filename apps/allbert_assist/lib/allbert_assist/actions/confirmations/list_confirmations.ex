@@ -26,7 +26,12 @@ defmodule AllbertAssist.Actions.Confirmations.ListConfirmations do
   @impl true
   def run(params, context) do
     permission_decision = PermissionGate.authorize(:read_only, context)
-    confirmations = Confirmations.list(status: Map.get(params, :status, "pending"))
+
+    confirmations =
+      params
+      |> Map.get(:status, "pending")
+      |> then(&Confirmations.list(status: &1))
+      |> Enum.map(&Confirmations.redact_for_output/1)
 
     {:ok,
      %{

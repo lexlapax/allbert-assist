@@ -742,11 +742,13 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert transcribe_voice.permission == :voice_transcribe
     assert transcribe_voice.exposure == :internal
     assert transcribe_voice.execution_mode == :voice_provider_call
+    assert transcribe_voice.resumable? == true
 
     assert {:ok, synthesize_voice} = Registry.capability("synthesize_voice")
     assert synthesize_voice.permission == :voice_synthesize
     assert synthesize_voice.exposure == :internal
     assert synthesize_voice.execution_mode == :voice_provider_call
+    assert synthesize_voice.resumable? == true
 
     assert {:error, {:unknown_action, "missing_action"}} = Registry.capability("missing_action")
   end
@@ -768,6 +770,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert Registry.resumable?("mcp_read_resource")
     assert Registry.resumable?("mcp_call_tool")
     assert Registry.resumable?("capture_workspace_voice")
+    assert Registry.resumable?("transcribe_voice")
+    assert Registry.resumable?("synthesize_voice")
 
     refute Registry.resumable?("direct_answer")
     refute Registry.resumable?("plan_package_install")

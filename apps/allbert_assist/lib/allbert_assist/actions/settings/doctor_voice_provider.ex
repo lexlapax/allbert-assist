@@ -42,7 +42,7 @@ defmodule AllbertAssist.Actions.Settings.DoctorVoiceProvider do
   end
 
   defp profile(params),
-    do: field(params, :profile) || field(params, :model_profile) || "voice_stt_fake"
+    do: field(params, :profile) || field(params, :model_profile)
 
   defp completed(result, permission_decision) do
     doctor = Map.drop(result, [:profile, :provider, :provider_type, :model])

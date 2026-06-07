@@ -59,7 +59,7 @@ defmodule AllbertAssist.Voice.Adapters.Gemini do
        %{
          transcript: transcript,
          duration_ms: nil,
-         usage: unavailable_packet(),
+         usage: provider_usage(body),
          cost: unavailable_packet()
        }}
     end
@@ -84,7 +84,7 @@ defmodule AllbertAssist.Voice.Adapters.Gemini do
          {:ok, audio, mime_type} <- audio_from_body(body, output_format),
          :ok <- validate_audio_size(audio, profile),
          {:ok, packet} <- write_audio(profile, text, output_format, audio, mime_type) do
-      {:ok, Map.merge(packet, %{usage: unavailable_packet(), cost: unavailable_packet()})}
+      {:ok, Map.merge(packet, %{usage: provider_usage(body), cost: unavailable_packet()})}
     end
   end
 
@@ -99,7 +99,7 @@ defmodule AllbertAssist.Voice.Adapters.Gemini do
        %{
          endpoint_ok: true,
          model_available: model_available?(body, profile),
-         provider_usage_metadata_available: false,
+         provider_usage_metadata_available: :unknown,
          redacted_host: endpoint.redacted_host,
          diagnostic_codes: []
        }}
@@ -109,7 +109,7 @@ defmodule AllbertAssist.Voice.Adapters.Gemini do
          %{
            endpoint_ok: false,
            model_available: :unknown,
-           provider_usage_metadata_available: false,
+           provider_usage_metadata_available: :unknown,
            redacted_host: ProviderHTTP.redacted_host(Map.get(profile, :provider_base_url)),
            diagnostic_codes: [diagnostic_code(reason)]
          }}
@@ -209,6 +209,17 @@ defmodule AllbertAssist.Voice.Adapters.Gemini do
 
   defp audio_parts(_body), do: []
 
+  defp provider_usage(%{"usageMetadata" => usage}) when is_map(usage),
+    do: Map.put_new(usage, "source", "provider")
+
+  defp provider_usage(%{"usage_metadata" => usage}) when is_map(usage),
+    do: Map.put_new(usage, "source", "provider")
+
+  defp provider_usage(%{"usage" => usage}) when is_map(usage),
+    do: Map.put_new(usage, "source", "provider")
+
+  defp provider_usage(_body), do: unavailable_packet()
+
   defp decode_audio_data(data, mime_type, "wav") do
     with {:ok, audio} <- Base.decode64(data) do
       if pcm_mime_type?(mime_type) do
@@ -284,8 +295,10 @@ defmodule AllbertAssist.Voice.Adapters.Gemini do
   end
 
   defp output_path(profile, text, output_format) do
+    nonce = System.unique_integer([:positive, :monotonic])
+
     digest =
-      :crypto.hash(:sha256, "#{Map.get(profile, :name)}:#{text}:#{output_format}")
+      :crypto.hash(:sha256, "#{Map.get(profile, :name)}:#{text}:#{output_format}:#{nonce}")
       |> Base.encode16(case: :lower)
       |> binary_part(0, 16)
 
@@ -321,6 +334,11 @@ defmodule AllbertAssist.Voice.Adapters.Gemini do
 
   defp diagnostic_code({:voice_http_error, _status}), do: :voice_provider_http_error
   defp diagnostic_code({:voice_transport_error, _reason}), do: :voice_provider_unreachable
+  defp diagnostic_code({:voice_remote_host_denied, _reason}), do: :provider_host_denied
+  defp diagnostic_code({:voice_remote_https_required, _scheme}), do: :invalid_provider_base_url
+  defp diagnostic_code(:voice_endpoint_credentials_in_url_denied), do: :invalid_provider_base_url
+  defp diagnostic_code(:voice_endpoint_query_denied), do: :invalid_provider_base_url
+  defp diagnostic_code(:voice_endpoint_fragment_denied), do: :invalid_provider_base_url
 
   defp diagnostic_code({:voice_credential_missing, _provider}),
     do: :voice_provider_credential_missing

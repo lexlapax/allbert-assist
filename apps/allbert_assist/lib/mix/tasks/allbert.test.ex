@@ -1009,7 +1009,7 @@ defmodule Mix.Tasks.Allbert.Test do
       ],
       coverage: [
         "capability-aware provider catalog and ranked preference fallback",
-        "voice adapter behaviour and fail-closed non-fake stubs",
+        "voice adapter behaviour, real local/remote fixture paths, and fail-closed bundled-local stub",
         "ADR 0047 voice doctor fields",
         "mic:// audio resource identity and voice operation classes",
         "voice permission floors and remote-upload confirmation posture",
@@ -1018,7 +1018,7 @@ defmodule Mix.Tasks.Allbert.Test do
     },
     %{
       id: "voice_actions_cli_channel",
-      title: "registered voice actions, CLI file STT, fake TTS, and Telegram voice notes",
+      title: "registered voice actions, CLI file STT/TTS, and Telegram voice notes",
       cwd: :core,
       executable: "mix",
       args: [
@@ -1030,7 +1030,7 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist/channels/telegram_test.exs"
       ],
       coverage: [
-        "transcribe_voice and synthesize_voice fake-provider actions",
+        "transcribe_voice and synthesize_voice action routing with fixture providers",
         "stable action registry metadata",
         "mix allbert.ask --voice fixture transcription",
         "Telegram getFile/download voice-note ingestion through shared STT action"
@@ -1060,7 +1060,7 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/mix/tasks/allbert_test_task_test.exs"
       ],
       coverage: [
-        "10 v0.48 voice modality eval rows",
+        "16 v0.48 voice modality eval rows",
         "release.v048 task usage registration",
         "provider capability metadata has no authority",
         "file, microphone, retention, redaction, and transcode bounds",
@@ -1405,7 +1405,7 @@ defmodule Mix.Tasks.Allbert.Test do
       database_path: database,
       evidence_dir: evidence_dir,
       external_network:
-        "disabled; tests use fake STT/TTS providers, Req.Test, and local fixtures",
+        "disabled; tests use fixture STT/TTS providers, Req.Test provider fixtures, and local files",
       steps: results,
       secret_scan: secret_scan
     }

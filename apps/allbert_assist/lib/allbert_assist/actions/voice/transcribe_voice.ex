@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
     execution_mode: :voice_provider_call,
     skill_backed?: false,
     confirmation: :required,
+    resumable?: true,
     name: "transcribe_voice",
     description: "Transcribe a bounded local audio file through a voice-capable profile.",
     category: "voice",
@@ -21,6 +22,8 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Confirmations
+  alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.PermissionGate
@@ -29,6 +32,8 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
   alias AllbertAssist.Voice.ProviderAdapter
   alias AllbertAssist.Voice.Transcode
 
+  @permission :voice_transcribe
+  @action_name "transcribe_voice"
   @accepted_audio_extensions ~w[.wav .mp3 .m4a .ogg .webm .flac]
 
   @impl true
@@ -55,23 +60,34 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
 
   defp attempt_transcription([resolution | rest], audio, settings, context, attempts) do
     permission_decision =
-      PermissionGate.authorize(:voice_transcribe, voice_context(context, resolution.profile))
+      PermissionGate.authorize(@permission, voice_context(context, resolution.profile))
 
-    if PermissionGate.allowed?(permission_decision) do
-      attempt_allowed_transcription(
-        resolution,
-        rest,
-        audio,
-        settings,
-        context,
-        attempts,
-        permission_decision
-      )
-    else
-      {:ok,
-       stopped(permission_decision, :permission_denied, %{
-         adapter_attempts: Enum.reverse(attempts)
-       })}
+    cond do
+      permission_decision.decision == :denied ->
+        {:ok,
+         stopped(permission_decision, :permission_denied, %{
+           adapter_attempts: Enum.reverse(attempts)
+         })}
+
+      PermissionGate.allowed?(permission_decision) or approved_resume?(context) ->
+        attempt_allowed_transcription(
+          resolution,
+          rest,
+          audio,
+          settings,
+          context,
+          attempts,
+          permission_decision
+        )
+
+      permission_decision.decision == :needs_confirmation ->
+        create_confirmation(audio, resolution, attempts, context, permission_decision)
+
+      true ->
+        {:ok,
+         stopped(permission_decision, :permission_denied, %{
+           adapter_attempts: Enum.reverse(attempts)
+         })}
     end
   end
 
@@ -165,13 +181,60 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
 
   defp action(status, permission_decision, metadata) do
     %{
-      name: "transcribe_voice",
+      name: @action_name,
       status: status,
-      permission: :voice_transcribe,
+      permission: @permission,
       permission_decision: permission_decision,
       voice_metadata:
         metadata |> Map.get(:voice_metadata, metadata) |> Redactor.redact_audio_metadata()
     }
+  end
+
+  defp create_confirmation(audio, resolution, attempts, context, permission_decision) do
+    summary = confirmation_summary(audio, resolution, attempts)
+
+    attrs = %{
+      origin: Origin.from_context(context, @action_name),
+      target_action: %{name: @action_name, module: inspect(__MODULE__)},
+      target_permission: @permission,
+      target_execution_mode: :voice_provider_call,
+      security_decision: permission_decision,
+      source_signal_id: source_signal_id(context),
+      source_trace_id: source_trace_id(context),
+      runner_metadata: runner_metadata(context, resolution),
+      params_summary: summary,
+      resume_params_ref: %{
+        audio_file: audio.path,
+        resource_uri: audio.resource_uri
+      }
+    }
+
+    case Confirmations.create(attrs) do
+      {:ok, confirmation} ->
+        confirmation_id = confirmation_id(confirmation)
+
+        {:ok,
+         %{
+           message: "Voice transcription needs confirmation.",
+           status: :needs_confirmation,
+           error: :permission_denied,
+           voice_metadata: summary,
+           permission_decision: permission_decision,
+           confirmation: Confirmations.redact_for_output(confirmation),
+           confirmation_id: confirmation_id,
+           actions: [
+             action(:needs_confirmation, permission_decision, %{
+               provider_profile: resolution.profile_name,
+               confirmation_id: confirmation_id,
+               voice_metadata: summary
+             })
+             |> Map.put(:confirmation_metadata, confirmation_metadata(confirmation))
+           ]
+         }}
+
+      {:error, reason} ->
+        {:ok, failed(reason, permission_decision, %{adapter_attempts: Enum.reverse(attempts)})}
+    end
   end
 
   defp audio_file(params) do
@@ -283,6 +346,29 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
   defp maybe_put_attempts(metadata, attempts),
     do: Map.put(metadata, :fallback_attempts, Enum.reverse(attempts))
 
+  defp confirmation_summary(audio, resolution, attempts) do
+    %{
+      resource_uri: audio.resource_uri,
+      provider_profile: resolution.profile_name,
+      provider: Map.get(resolution.profile, :provider),
+      model: Map.get(resolution.profile, :model),
+      byte_size: File.stat!(audio.path).size,
+      redaction_status: "redacted"
+    }
+    |> Redactor.redact_audio_metadata()
+    |> maybe_put_confirmation_attempts(attempts)
+  end
+
+  defp maybe_put_confirmation_attempts(metadata, []), do: metadata
+
+  defp maybe_put_confirmation_attempts(metadata, attempts) do
+    Map.put(metadata, :fallback_attempts, attempts |> Enum.reverse() |> Enum.map(&safe_attempt/1))
+  end
+
+  defp safe_attempt(%{} = attempt) do
+    Map.update(attempt, :error, nil, &inspect/1)
+  end
+
   defp retryable_provider_error?({:voice_http_error, status})
        when status >= 500 and status <= 599,
        do: true
@@ -306,7 +392,10 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
   defp maybe_put_keyword(opts, key, value), do: Keyword.put(opts, key, value)
 
   defp voice_context(context, profile) do
-    Map.merge(context, %{
+    context
+    |> Map.drop([:voice_adapter_opts, "voice_adapter_opts", :req_options, "req_options"])
+    |> Map.drop([:transcode_runner, "transcode_runner"])
+    |> Map.merge(%{
       model_profile: profile,
       provider_deployment_mode: deployment_mode(profile)
     })
@@ -317,6 +406,35 @@ defmodule AllbertAssist.Actions.Voice.TranscribeVoice do
   end
 
   defp deployment_mode(_profile), do: nil
+
+  defp approved_resume?(%{confirmation: %{approved?: true}}), do: true
+  defp approved_resume?(%{"confirmation" => %{"approved?" => true}}), do: true
+  defp approved_resume?(_context), do: false
+
+  defp source_signal_id(context),
+    do: field(context, :input_signal_id) || field(context, :source_signal_id)
+
+  defp source_trace_id(context), do: field(context, :trace_id) || field(context, :source_trace_id)
+
+  defp runner_metadata(context, resolution) do
+    context
+    |> Map.take([:actor, :user_id, :operator_id, :channel, :surface, :response_target])
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
+    |> Map.put(:selected_action, @action_name)
+    |> Map.put(:provider_profile, resolution.profile_name)
+  end
+
+  defp confirmation_id(%{"id" => id}), do: id
+  defp confirmation_id(%{id: id}), do: id
+
+  defp confirmation_metadata(confirmation) do
+    %{
+      id: confirmation_id(confirmation),
+      status: field(confirmation, :status),
+      target_action: get_in(confirmation, ["target_action", "name"]) || @action_name
+    }
+  end
 
   defp failed_status(:voice_disabled), do: :denied
   defp failed_status(:audio_file_not_found), do: :denied

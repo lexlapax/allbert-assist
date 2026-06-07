@@ -97,6 +97,17 @@ defmodule AllbertAssist.Voice.Transcode do
   @spec allowed_output_formats() :: [String.t()]
   def allowed_output_formats, do: @allowed_output_formats
 
+  @doc "Return whether the configured transcode executable is available on PATH."
+  @spec executable_available?(String.t()) :: boolean()
+  def executable_available?(executable \\ "ffmpeg") when is_binary(executable) do
+    executable
+    |> String.trim()
+    |> case do
+      "" -> false
+      executable -> not is_nil(System.find_executable(executable))
+    end
+  end
+
   @doc """
   Materialize a transcode spec and return the bounded provider input path.
 

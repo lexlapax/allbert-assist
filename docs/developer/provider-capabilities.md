@@ -1,8 +1,10 @@
 # Provider Capabilities Developer Notes
 
-Status: implementation reopened before v0.48 release. M1-M8 landed the shared
-provider-capability substrate and fixture voice surface; M8R must add real
-provider execution before release.
+Status: implemented through v0.48 M8R real-provider remediation; release
+validation is pending before tag. M1-M8 landed the shared provider-capability
+substrate and fixture voice surface. M8R adds executable local endpoint,
+OpenAI remote, and Gemini remote STT/TTS paths while keeping fake providers as
+automated-test fixtures only.
 
 v0.48 generalizes the v0.39 provider/model substrate. A provider is a
 connection profile. A model profile declares what that connection can do and,
@@ -107,7 +109,7 @@ Voice providers use the same model-profile and doctor contract:
 - Fake STT/TTS providers are release-test fixtures, not operator defaults.
 - Local-endpoint voice providers target the v0.48 Allbert-owned localhost
   contract: `POST /v1/audio/transcriptions`, `POST /v1/audio/speech`, and
-  `GET /v1/doctor`. The local endpoint path is release-blocking in M8R.
+  `GET /v1/doctor`. The local endpoint path is implemented by M8R.
 - Bundled-local providers are explicitly configured offline engines behind a
   bounded helper. Executable bundled packaging remains deferred unless a later
   plan scopes model/binary distribution.
@@ -124,18 +126,17 @@ Voice providers use the same model-profile and doctor contract:
   audio metadata redaction, `voice.*` bounds/retention settings, and the
   bounded transcode spec helper.
 - M5 adds `transcribe_voice` and `mix allbert.ask --voice AUDIO_FILE` for
-  bounded local files. First-pass implementation used fake-provider
-  transcription; M8R must route the same action through real local/OpenAI/
-  Gemini adapters. It submits the transcript as normal runtime text and records
-  only redacted voice metadata.
+  bounded local files. M8R routes the same action through real local/OpenAI/
+  Gemini adapters with durable confirmation/resume for provider calls. It
+  submits the transcript as normal runtime text and records only redacted voice
+  metadata.
 - M6 adds `capture_workspace_voice`, a confirmation-gated workspace microphone
   grant that feeds a LiveView binary upload into `transcribe_voice` with
   `mic://capture/<id>` resource identity.
 - M7 adds `synthesize_voice` for provider-backed TTS output plus redacted
   display-only usage/cost metadata, and Telegram voice-note ingestion that
   downloads through the Telegram Bot API before delegating STT to
-  `transcribe_voice`. First-pass output was fake-provider fixture audio; M8R
-  must make local/OpenAI/Gemini TTS executable.
+  `transcribe_voice`. M8R makes local/OpenAI/Gemini TTS executable.
 - Voice doctor fields use the ADR 0047 names: `provider_capabilities`,
   `provider_deployment_mode`, `speech_to_text_supported`,
   `text_to_speech_supported`, `audio_formats_supported`,
@@ -155,24 +156,28 @@ Implementation milestones should add focused tests for:
 - doctor additive fields (implemented in M3);
 - audio redaction, permission floors, retention defaults, and transcode bounds
   (implemented in M4);
-- CLI voice file transcription through fake STT (implemented in M5);
+- CLI voice file transcription through the fixture STT path (implemented in
+  M5);
 - workspace microphone confirmation, upload, redaction, and transcript handoff
   (implemented in M6);
-- fake TTS action output and Telegram voice-note ingestion through shared STT
-  (implemented in M7);
+- fixture TTS action output and Telegram voice-note ingestion through shared
+  STT (implemented in M7);
 - `release.v048` first-pass coverage used fixture STT/TTS for workspace voice,
-  Telegram voice-note ingestion, and v0.48 eval rows (implemented in M8); this
-  is not release acceptance after M8R.
-- provider HTTP policy tests for loopback-only local voice endpoints and
-  HTTPS+secret-only remote voice endpoints (M8R2).
+  Telegram voice-note ingestion, and the first ten v0.48 eval rows
+  (implemented in M8).
+- provider HTTP policy tests for loopback-only local voice endpoints,
+  HTTPS+secret-only remote voice endpoints, and IPv4-mapped IPv6 private-host
+  denial (M8R2).
 - bounded transcode materialization tests proving the provider call uses the
   materialized output, not arbitrary ffmpeg args or the original path when a
   conversion is required (M8R3).
 - OpenAI-compatible local STT/TTS request/response fixture tests (M8R3).
 - OpenAI remote multipart transcription and speech response fixture tests
   (M8R4).
-- Gemini remote audio understanding and TTS fixture tests (M8R4).
+- Gemini remote Interactions API audio transcription and generateContent AUDIO
+  TTS fixture tests (M8R4).
 - local Ollama text-loop resolver/orchestration tests proving the transcript is
   answered through the local text profile before TTS (M8R5).
 - `release.v048` real-adapter fixture coverage plus opt-in `.env` live-smoke
-  instructions for OpenAI, Gemini, local voice endpoint, and Ollama (M8R6).
+  script instructions for OpenAI, Gemini, local voice endpoint, and Ollama
+  (M8R6).
