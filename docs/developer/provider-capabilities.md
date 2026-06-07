@@ -8,7 +8,10 @@ automated-test fixtures only. v0.49 M1 adds bounded vision/image catalog
 profiles, image media metadata validation, Settings Central defaults, and the
 app-started ReqLLM model/provider proof. v0.49 M2 adds image/screen resource
 identity, image permission/operation classes, image media redaction, and shared
-image bounds; executable vision/image actions land in later v0.49 milestones.
+image bounds. v0.49 M3 adds workspace image upload plus vision-input dispatch
+through the existing ReqLLM text path. Content hashes are metadata only at
+v0.49; the canonical content-addressed artifact store is proposed for v0.49.1.
+Image generation lands in a later v0.49 milestone.
 
 v0.48 generalizes the v0.39 provider/model substrate. A provider is a
 connection profile. A model profile declares what that connection can do and,

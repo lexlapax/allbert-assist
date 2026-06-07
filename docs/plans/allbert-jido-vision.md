@@ -666,9 +666,11 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.49: Vision And Image Generation. Consumes the v0.48 provider capability
   substrate for image and screenshot resources plus provider-backed image
   generation. M1 proves ReqLLM provider/model support from the app-started
-  runtime. Video input, generic audio understanding, and catch-all multimodal
-  routing remain future scope unless the v0.49 plan is amended before
-  implementation.
+  runtime. M3 adds workspace image upload and vision-input plumbing but keeps
+  content hashes as metadata only; the canonical content-addressed artifact
+  store is proposed for v0.49.1. Video input, generic audio understanding, and
+  catch-all multimodal routing remain future scope unless the v0.49 plan is
+  amended before implementation.
 - v0.50: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
   through the existing channel adapter and plugin contracts; v0.50 also amends
   ADR 0016 to lock the channel approval-primitive contract before mobile

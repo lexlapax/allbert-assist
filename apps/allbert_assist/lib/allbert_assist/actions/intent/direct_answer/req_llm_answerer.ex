@@ -13,14 +13,36 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
   @spec answer(String.t(), map()) :: {:ok, map()} | {:error, term()}
   def answer(
         text,
+        %{model_profile: %{provider_type: "fake_media"} = profile, image_inputs: image_inputs}
+      )
+      when is_binary(text) and is_list(image_inputs) and image_inputs != [] do
+    if "vision_input" in Map.get(profile, :capabilities, []) do
+      {:ok,
+       %{
+         message:
+           "Fixture vision answer for #{length(image_inputs)} image input(s) and #{String.length(text)} prompt characters.",
+         diagnostic: %{
+           status: :used,
+           provider_mode: :fake,
+           image_input_count: length(image_inputs)
+         }
+       }}
+    else
+      {:error, {:unsupported_fake_media_capability, profile.name}}
+    end
+  end
+
+  def answer(
+        text,
         %{model_profile: %{provider_type: provider_type, model: model} = profile} = context
       )
       when is_binary(text) and is_binary(model) do
     with :ok <- ensure_req_llm!(),
          {:ok, model_spec} <-
            ModelRuntime.model_spec(%{provider_type: provider_type, model: model}),
+         {:ok, prompt_input} <- prompt_input(text, context),
          {:ok, response} <-
-           ReqLLM.generate_text(model_spec, prompt(text, context), request_opts(profile)),
+           ReqLLM.generate_text(model_spec, prompt_input, request_opts(profile)),
          text when is_binary(text) <- ReqLLM.Response.text(response),
          text <- String.trim(text),
          false <- text == "" do
@@ -47,12 +69,29 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
     do: {:error, {:invalid_model_profile, Map.get(context, :model_profile)}}
 
   defp ensure_req_llm! do
-    if Code.ensure_loaded?(ReqLLM) and Code.ensure_loaded?(ReqLLM.Response) do
+    if Code.ensure_loaded?(ReqLLM) and Code.ensure_loaded?(ReqLLM.Response) and
+         Code.ensure_loaded?(ReqLLM.Context) and
+         Code.ensure_loaded?(ReqLLM.Message.ContentPart) do
       :ok
     else
       {:error, :req_llm_unavailable}
     end
   end
+
+  defp prompt_input(text, %{image_inputs: image_inputs} = context)
+       when is_list(image_inputs) and image_inputs != [] do
+    with {:ok, image_parts} <- image_parts(image_inputs) do
+      {:ok,
+       ReqLLM.Context.new([
+         ReqLLM.Context.user(
+           [ReqLLM.Message.ContentPart.text(prompt(text, context)) | image_parts],
+           %{allbert_media: Enum.map(image_inputs, &image_metadata/1)}
+         )
+       ])}
+    end
+  end
+
+  defp prompt_input(text, context), do: {:ok, prompt(text, context)}
 
   defp prompt(text, context) do
     """
@@ -71,6 +110,53 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
     #{bounded_text(text)}
     """
   end
+
+  defp image_parts(image_inputs) do
+    image_inputs
+    |> Enum.reduce_while({:ok, []}, fn image_input, {:ok, parts} ->
+      case image_part(image_input) do
+        {:ok, part} -> {:cont, {:ok, [part | parts]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, parts} -> {:ok, Enum.reverse(parts)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp image_part(image_input) do
+    with path when is_binary(path) <- field(image_input, :path),
+         {:ok, bytes} <- File.read(path) do
+      {:ok,
+       ReqLLM.Message.ContentPart.image(
+         bytes,
+         field(image_input, :mime_type) || "image/png",
+         image_metadata(image_input)
+       )}
+    else
+      nil -> {:error, :missing_image_input_path}
+      {:error, reason} -> {:error, {:image_input_read_failed, reason}}
+    end
+  end
+
+  defp image_metadata(image_input) when is_map(image_input) do
+    image_input
+    |> Map.take([
+      :resource_uri,
+      :byte_size,
+      :width,
+      :height,
+      :pixel_count,
+      :mime_type,
+      :image_format,
+      :provider_profile,
+      :content_sha256,
+      :redaction_status
+    ])
+  end
+
+  defp image_metadata(_image_input), do: %{}
 
   defp active_memory_prompt([]), do: "Active Memory context: none."
 
@@ -130,4 +216,10 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
   rescue
     _exception -> nil
   end
+
+  defp field(map, key) when is_map(map) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  end
+
+  defp field(_map, _key), do: nil
 end
