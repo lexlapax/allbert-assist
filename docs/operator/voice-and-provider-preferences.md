@@ -3,8 +3,9 @@
 Status: implementation reopened before v0.48 release. Provider capabilities,
 ranked preferences, voice doctor dispatch, the audio resource/security
 substrate, CLI voice file transcription, workspace microphone capture, TTS,
-Telegram voice-note ingestion, v0.48 evals, and first-pass `release.v048`
-evidence landed, but release validation now requires real provider execution.
+Telegram voice-note ingestion, v0.48 evals, M8R real-provider adapters, and
+first-pass `release.v048` evidence landed, but release validation now requires
+M8R7: an Allbert-owned local voice runtime endpoint.
 
 v0.48 makes voice use the same provider framework as text models. The operator
 chooses a primary provider/model profile for most work and can override that
@@ -34,9 +35,10 @@ The default posture is local/offline first:
 - no cloud STT/TTS provider is used unless the operator configures it;
 - fake STT/TTS providers are deterministic automated-test fixtures only, never
   product or release-validation flows;
-- local-endpoint STT/TTS uses an operator-configured localhost service;
+- local-endpoint STT/TTS uses the Allbert local voice runtime by default;
 - local Ollama can be the text-generation model in the middle of a fully local
-  voice loop;
+  voice loop and can back local STT when an audio-capable Ollama model is
+  configured;
 - bundled-local STT/TTS uses an explicitly configured offline engine when one
   is available;
 - provider credentials remain Settings Central secrets;
@@ -48,8 +50,8 @@ Provider choice guide:
 | Mode | Best for | Operator posture |
 |---|---|---|
 | Fake | Release gates, deterministic tests, demos with fixture audio | No real provider authority; not a production default. |
-| Local endpoint | Operators running a localhost STT/TTS service such as an OpenAI-compatible speech server | No cloud credential, but still bounded and doctored; required for v0.48 release validation. |
-| Local Ollama text | Operators who want local reasoning between STT and TTS | Ollama handles the text turn after transcription; it is not an STT/TTS provider in v0.48. |
+| Allbert local voice runtime | Operators who want local STT/TTS without cloud credentials | Allbert-owned loopback endpoint on `127.0.0.1:5050` by default; uses real local backends and is required for local v0.48 release validation. |
+| Local Ollama text | Operators who want local reasoning between STT and TTS | Ollama handles the text turn after transcription; it may also back local STT when an audio-capable model is configured, but it is not the whole local voice endpoint because current Ollama docs/source do not provide `/v1/audio/speech`. |
 | Bundled local | Operators who explicitly configure an offline engine | Local runtime presence is a doctor signal; executable bundled packaging remains future scope. |
 | Remote credentialed | Cloud STT/TTS quality or managed voices | Explicit opt-in; may upload audio or incur provider cost. OpenAI and Gemini are required remote validation paths for v0.48. |
 
@@ -193,7 +195,31 @@ export ALLBERT_V048_PROVIDER=gemini
 mix run --no-start scripts/v048_voice_live_smoke.exs "$V048_AUDIO"
 ```
 
-Local OpenAI-compatible voice endpoint:
+Allbert local voice runtime:
+
+M8R7 release-blocking target: v0.48 must provide this endpoint as an Allbert
+product runtime. It is not Allbert itself, not Ollama's `11434` text endpoint,
+and not an operator-supplied validation server. The default product base URL is
+`http://127.0.0.1:5050/v1`; advanced operators may override
+`providers.local_voice.base_url` to another OpenAI-compatible loopback server,
+but the release path uses the Allbert runtime.
+
+The runtime implements:
+
+```text
+GET  /v1/models
+GET  /v1/doctor
+POST /v1/audio/transcriptions
+POST /v1/audio/speech
+```
+
+The Allbert-facing local profile ids are `whisper-local` for STT and
+`tts-local` for TTS unless the operator has overridden the profiles. Behind the
+endpoint, local STT uses a configured Ollama audio/transcription model through
+Ollama's OpenAI-compatible transcription endpoint. Ollama listens on `11434`;
+the Allbert runtime listens on `5050`. Ollama by itself is not the complete
+local voice endpoint because current Ollama docs/source do not provide
+OpenAI-compatible TTS at `/v1/audio/speech`.
 
 ```sh
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v048-local.XXXXXX)"
@@ -202,8 +228,13 @@ mix ecto.migrate --quiet
 
 export ALLBERT_V048_LIVE_SMOKE=1
 export ALLBERT_V048_PROVIDER=local
-export LOCAL_VOICE_BASE_URL=http://localhost:5050/v1
+export LOCAL_VOICE_BASE_URL=http://127.0.0.1:5050/v1
 
+# Start the Allbert local voice runtime in a second terminal with the same
+# ALLBERT_HOME and local backend env once M8R7 lands:
+#   mix allbert.voice.local doctor
+#   mix allbert.voice.local start --port 5050
+curl -sS -i --max-time 5 "$LOCAL_VOICE_BASE_URL/models"
 mix run --no-start scripts/v048_voice_live_smoke.exs "$V048_AUDIO"
 ```
 
@@ -219,31 +250,9 @@ Speech file: ...
 v0.48 live voice smoke completed.
 ```
 
-These older one-line forms are equivalent when the environment is already set:
-
-```sh
-ALLBERT_HOME=/tmp/allbert-v048-live-openai \
-ALLBERT_V048_LIVE_SMOKE=1 \
-ALLBERT_V048_PROVIDER=openai \
-OPENAI_API_KEY="$OPENAI_API_KEY" \
-mix run --no-start scripts/v048_voice_live_smoke.exs /path/to/sample.wav
-
-ALLBERT_HOME=/tmp/allbert-v048-live-gemini \
-ALLBERT_V048_LIVE_SMOKE=1 \
-ALLBERT_V048_PROVIDER=gemini \
-GEMINI_API_KEY="$GEMINI_API_KEY" \
-mix run --no-start scripts/v048_voice_live_smoke.exs /path/to/sample.wav
-
-ALLBERT_HOME=/tmp/allbert-v048-live-local \
-ALLBERT_V048_LIVE_SMOKE=1 \
-ALLBERT_V048_PROVIDER=local \
-LOCAL_VOICE_BASE_URL=http://localhost:5050/v1 \
-mix run --no-start scripts/v048_voice_live_smoke.exs /path/to/sample.wav
-```
-
 Manual validation before tag must also run disposable-home live smokes for:
 
-- local OpenAI-compatible STT/TTS plus local Ollama text;
+- Allbert local voice runtime STT/TTS plus local Ollama text;
 - OpenAI remote STT/TTS using Settings Central secrets loaded from `.env`;
 - Gemini remote STT/TTS using Settings Central secrets loaded from `.env`.
 

@@ -171,7 +171,8 @@ Implementation milestones should add focused tests for:
 - bounded transcode materialization tests proving the provider call uses the
   materialized output, not arbitrary ffmpeg args or the original path when a
   conversion is required (M8R3).
-- OpenAI-compatible local STT/TTS request/response fixture tests (M8R3).
+- OpenAI-compatible local STT/TTS adapter request/response fixture tests
+  (M8R3); the Allbert-owned local runtime endpoint is M8R7 release-blocking.
 - OpenAI remote multipart transcription and speech response fixture tests
   (M8R4).
 - Gemini remote Interactions API audio transcription and generateContent AUDIO
@@ -179,5 +180,5 @@ Implementation milestones should add focused tests for:
 - local Ollama text-loop resolver/orchestration tests proving the transcript is
   answered through the local text profile before TTS (M8R5).
 - `release.v048` real-adapter fixture coverage plus opt-in `.env` live-smoke
-  script instructions for OpenAI, Gemini, local voice endpoint, and Ollama
-  (M8R6).
+  script instructions for OpenAI, Gemini, the Allbert local voice runtime, and
+  Ollama (M8R6/M8R7).

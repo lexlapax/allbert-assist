@@ -12,9 +12,9 @@ changelog entries or release notes.
 
 ## v0.48.0 - Voice Modality And Provider Capabilities
 
-Status: implemented through M8R real-provider remediation and ready for
-operator manual validation before the release tag. Current version metadata is
-`0.48.0`; the tag has not been cut.
+Status: implemented through M8R real-provider remediation, with M8R7 local
+voice runtime remediation release-blocking before the release tag. Current
+version metadata is `0.48.0`; the tag has not been cut.
 
 ### Added
 
@@ -37,8 +37,9 @@ operator manual validation before the release tag. Current version metadata is
 - `synthesize_voice` with display-only provider/usage/cost metadata and real
   local OpenAI-compatible, OpenAI remote, and Gemini remote TTS execution.
 - Executable local OpenAI-compatible, OpenAI remote, and Gemini remote voice
-  adapters for STT/TTS. The local voice endpoint is loopback-only; remote
-  voice providers are HTTPS-only and require Settings Central secrets.
+  adapters for STT/TTS. M8R7 must add the Allbert-owned local voice runtime
+  endpoint behind the local adapter; remote voice providers are HTTPS-only and
+  require Settings Central secrets.
 - Telegram voice-note ingestion through bounded Bot API `getFile`/download
   handling followed by the shared `transcribe_voice` action.
 - Sixteen v0.48 security eval rows. The original voice-modality rows are:
@@ -71,10 +72,11 @@ operator manual validation before the release tag. Current version metadata is
 - Voice STT/TTS now route through the explicit `ProviderAdapter` behaviour.
   Local-endpoint, OpenAI remote, and Gemini remote paths are executable;
   bundled-local remains fail-closed/deferred, and fake is fixture-only.
-- v0.48 release scope is corrected and implemented: fake providers are
-  fixture-only, while local OpenAI-compatible STT/TTS, OpenAI remote STT/TTS,
-  Gemini remote STT/TTS, and the local Ollama text turn are executable and
-  covered by deterministic release fixtures.
+- v0.48 release scope is corrected: fake providers are fixture-only, while
+  OpenAI remote STT/TTS, Gemini remote STT/TTS, and the local Ollama text turn
+  are executable and covered by deterministic release fixtures. M8R7 remains
+  required to make the local STT/TTS endpoint an Allbert-owned product runtime
+  instead of an operator-supplied server.
 - Anthropic/Claude remains a text-generation provider in the middle of the
   voice loop; it is not a native v0.48 STT/TTS provider.
 - Fake TTS/STT usage and cost metadata now reports `%{source: :unavailable}`
@@ -83,9 +85,10 @@ operator manual validation before the release tag. Current version metadata is
   and enforce `min(20 MB, voice.audio.max_bytes)` at channel fetch time.
 - Realtime audio sessions, generic audio/video understanding, video input,
   cost dashboards, budget enforcement, and Discord voice remain future scope.
-- ADR 0051, ADR 0042, ADR 0047, roadmap, vision, future-features, agent
-  context map, security-hardening notes, README, operator guide, and developer
-  guide now reflect the shipped v0.48 scope and the v0.49 vision handoff.
+- ADR 0051, ADR 0042, ADR 0047, ADR 0052, roadmap, vision, future-features,
+  agent context map, security-hardening notes, README, operator guide, and
+  developer guide now reflect the shipped v0.48 scope, the M8R7 local-runtime
+  requirement, and the v0.49 vision handoff.
 
 ### Verification
 
