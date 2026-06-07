@@ -10,7 +10,6 @@ defmodule AllbertAssist.Voice.LocalRuntime do
 
   alias AllbertAssist.Voice.LocalRuntime.Config
 
-  @spec doctor(keyword() | map()) :: map()
   def doctor(opts \\ []) do
     config = ensure_config(opts)
     stt = config.stt_backend.doctor(config)
@@ -29,7 +28,6 @@ defmodule AllbertAssist.Voice.LocalRuntime do
     }
   end
 
-  @spec models(keyword() | map()) :: map()
   def models(opts \\ []) do
     config = ensure_config(opts)
     doctor = doctor(config)

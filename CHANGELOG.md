@@ -127,6 +127,17 @@ not been cut.
 - Post-M8R7 manual Gemini smoke on 2026-06-07 passed after the stable
   `generateContent` STT correction: Gemini doctor, Gemini STT, local Ollama
   text turn, Gemini TTS, and trace leak scan all completed.
+- Post-M8R7 release-readiness audit on 2026-06-07 closed the remaining static
+  and full-gate drift: Dialyzer dead defensive clauses were removed, Credo
+  complexity/alias-order findings were fixed, first-run onboarding now uses a
+  disposable Allbert Home in tests, and the focused remediation suite passed
+  with 67 tests and 0 failures.
+- Authoritative post-M8R7 `MIX_ENV=test mix allbert.test release` passed with
+  static compile, unused-deps, format, Credo, core (`1489 tests, 0 failures,
+  4 skipped`), web (`122 tests, 0 failures`), StockSage (`197 tests, 0
+  failures`), channel plugin (`12 tests, 0 failures`), and Dialyzer (`Total
+  errors: 0`) phases clean. Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13254/home/release_evidence/gates/release-2026-06-07T18_43_28Z.json`.
 
 ## v0.47.1 - Operator-Supervised Self-Improvement Handoff Drafts
 

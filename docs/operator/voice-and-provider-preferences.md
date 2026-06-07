@@ -377,7 +377,20 @@ provider capability core `65 tests, 0 failures`, voice action/CLI/channel
 eval `20 tests, 0 failures`, and a clean secret scan. The command prints the
 evidence JSON path under the release gate home in `release_evidence/v048/`.
 
-15. Check traces for obvious leaks.
+15. Run the authoritative full release gate.
+
+```sh
+MIX_ENV=test mix allbert.test release
+```
+
+Expected: static compile, unused-deps, format, Credo, core tests, web tests,
+StockSage tests, channel-plugin tests, and Dialyzer all pass. The latest
+post-M8R7 validated shape was core `1489 tests, 0 failures, 4 skipped`, web
+`122 tests, 0 failures`, StockSage `197 tests, 0 failures`, channel plugin
+`12 tests, 0 failures`, and Dialyzer `Total errors: 0`. The command prints
+the authoritative evidence JSON path under `release_evidence/gates/`.
+
+16. Check traces for obvious leaks.
 
 Run this once after steps 10, 12, and 13:
 
@@ -396,7 +409,7 @@ done
 
 Expected: no API keys, authorization headers, Gemini keys, or raw sample path.
 
-16. Record release evidence.
+17. Record release evidence.
 
 Capture the following in the release handoff notes:
 
@@ -406,4 +419,5 @@ Capture the following in the release handoff notes:
 - full local live-smoke completion from step 10;
 - OpenAI and Gemini live-smoke completion from steps 12 and 13;
 - `release.v048` evidence JSON path from step 14;
-- trace/secret scan result from step 15.
+- full `release` evidence JSON path from step 15;
+- trace/secret scan result from step 16.

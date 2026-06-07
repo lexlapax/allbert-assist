@@ -112,30 +112,31 @@ defmodule AllbertAssist.Voice.LocalRuntime.Config do
 
   @spec validate_loopback_base_url!(String.t()) :: String.t()
   def validate_loopback_base_url!(base_url) when is_binary(base_url) do
-    uri = URI.parse(String.trim(base_url))
+    base_url = String.trim(base_url)
+    uri = URI.parse(base_url)
 
-    cond do
-      uri.scheme not in ["http", "https"] ->
-        raise ArgumentError, "local voice backend URL must use http or https"
-
-      not is_binary(uri.host) or uri.host == "" ->
-        raise ArgumentError, "local voice backend URL must include a host"
-
-      is_binary(uri.userinfo) and uri.userinfo != "" ->
-        raise ArgumentError, "local voice backend URL must not contain credentials"
-
-      is_binary(uri.query) and uri.query != "" ->
-        raise ArgumentError, "local voice backend URL must not contain a query string"
-
-      is_binary(uri.fragment) and uri.fragment != "" ->
-        raise ArgumentError, "local voice backend URL must not contain a fragment"
-
-      not loopback_host?(uri.host) ->
-        raise ArgumentError, "local voice backend URL must point to loopback"
-
-      true ->
-        base_url |> String.trim() |> String.trim_trailing("/")
+    case loopback_base_url_error(uri) do
+      nil -> String.trim_trailing(base_url, "/")
+      message -> raise ArgumentError, message
     end
+  end
+
+  defp loopback_base_url_error(uri) do
+    [
+      {uri.scheme not in ["http", "https"], "local voice backend URL must use http or https"},
+      {not is_binary(uri.host) or uri.host == "", "local voice backend URL must include a host"},
+      {is_binary(uri.userinfo) and uri.userinfo != "",
+       "local voice backend URL must not contain credentials"},
+      {is_binary(uri.query) and uri.query != "",
+       "local voice backend URL must not contain a query string"},
+      {is_binary(uri.fragment) and uri.fragment != "",
+       "local voice backend URL must not contain a fragment"},
+      {not loopback_host?(uri.host), "local voice backend URL must point to loopback"}
+    ]
+    |> Enum.find_value(fn
+      {true, message} -> message
+      {false, _message} -> nil
+    end)
   end
 
   defp normalize_opts(opts) when is_map(opts), do: Map.to_list(opts)
