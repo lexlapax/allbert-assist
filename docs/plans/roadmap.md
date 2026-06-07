@@ -2915,8 +2915,11 @@ Expected direction:
 - Add vision-capable provider/model checks to the provider doctor path.
 - Add image generation as a registered action with provider profile,
   display-only cost metadata, workspace rendering, retention, and redaction.
+- Prove ReqLLM provider/model support from the app-started runtime in M1;
+  no-start probes and stale sample model IDs are not release evidence.
 - Treat `video_input` as shared vocabulary/future metadata only; v0.49 does not
-  implement video ingestion or generation unless amended before code lands.
+  implement video ingestion, generic audio understanding, or video generation
+  unless amended before code lands.
 
 ## v0.50: Channel Pack 1 - Discord And Slack
 

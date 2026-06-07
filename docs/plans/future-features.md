@@ -516,9 +516,11 @@ Status: parked. Added during the v0.48 third-pass readiness sweep.
 
 v0.48 profile metadata can describe realtime audio sessions, generic
 audio/video input support, local endpoint transports, and bundled-local runtime
-availability, but the release scope remains bounded STT/TTS. The following
-items need their own plans, permission story, resource classes, doctor fields,
-and release evidence before implementation:
+availability, but the release scope remains bounded STT/TTS. v0.49 promotes
+only the bounded image/screenshot-to-text and text-to-image bridge; it does not
+promote generic audio/video understanding or a catch-all multimodal router. The
+following items need their own plans, permission story, resource classes,
+doctor fields, and release evidence before implementation:
 
 - realtime speech-to-speech sessions;
 - always-on or wake-word listening;
