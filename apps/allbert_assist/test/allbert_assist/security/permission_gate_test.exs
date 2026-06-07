@@ -31,6 +31,8 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :voice_transcribe,
              :voice_synthesize,
              :voice_local_runtime_manage,
+             :image_input,
+             :image_generate,
              :tool_discovery,
              :mcp_server_connect,
              :mcp_tool_call,
@@ -185,6 +187,46 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     assert local_runtime.policy.safety_floor == :allowed
     assert local_runtime.risk.tier == :medium
     assert PermissionGate.allowed?(local_runtime)
+  end
+
+  test "documents image permission floors by provider deployment mode" do
+    input = PermissionGate.authorize(:image_input, %{})
+
+    assert input.decision == :allowed
+    assert input.policy.safety_floor == :allowed
+    assert input.risk.tier == :medium
+    assert PermissionGate.allowed?(input)
+
+    fake_generation =
+      PermissionGate.authorize(:image_generate, %{provider_deployment_mode: :fake})
+
+    assert fake_generation.decision == :allowed
+    assert fake_generation.policy.safety_floor == :allowed
+    assert fake_generation.risk.tier == :high
+    assert PermissionGate.allowed?(fake_generation)
+
+    remote_generation =
+      PermissionGate.authorize(:image_generate, %{
+        model_profile: %{media: %{"deployment_mode" => "remote_credentialed"}}
+      })
+
+    assert remote_generation.decision == :needs_confirmation
+    assert remote_generation.policy.safety_floor == :needs_confirmation
+    refute PermissionGate.allowed?(remote_generation)
+
+    local_generation =
+      PermissionGate.authorize(:image_generate, %{provider_deployment_mode: :local_endpoint})
+
+    assert local_generation.decision == :needs_confirmation
+    assert local_generation.policy.safety_floor == :needs_confirmation
+    refute PermissionGate.allowed?(local_generation)
+
+    unknown_generation =
+      PermissionGate.authorize(:image_generate, %{provider_deployment_mode: nil})
+
+    assert unknown_generation.decision == :needs_confirmation
+    assert unknown_generation.policy.safety_floor == :needs_confirmation
+    refute PermissionGate.allowed?(unknown_generation)
   end
 
   test "allows discovery search but requires confirmation for discovered MCP server connect" do

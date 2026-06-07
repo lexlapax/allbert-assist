@@ -37,6 +37,8 @@ defmodule AllbertAssist.Security.Risk do
   def tier(:voice_transcribe), do: :high
   def tier(:voice_synthesize), do: :medium
   def tier(:voice_local_runtime_manage), do: :medium
+  def tier(:image_input), do: :medium
+  def tier(:image_generate), do: :high
   def tier(:tool_discovery), do: :medium
   def tier(:mcp_server_connect), do: :high
   def tier(:mcp_tool_call), do: :high
@@ -97,6 +99,12 @@ defmodule AllbertAssist.Security.Risk do
 
   defp reasons(:voice_local_runtime_manage, _tier, _context),
     do: ["loopback local voice runtime lifecycle boundary"]
+
+  defp reasons(:image_input, _tier, _context),
+    do: ["operator-supplied image input boundary"]
+
+  defp reasons(:image_generate, _tier, _context),
+    do: ["image generation provider boundary"]
 
   defp reasons(:tool_discovery, _tier, _context),
     do: ["read-only MCP registry discovery egress"]

@@ -39,6 +39,8 @@ defmodule AllbertAssist.Security.PermissionGate do
           | :voice_transcribe
           | :voice_synthesize
           | :voice_local_runtime_manage
+          | :image_input
+          | :image_generate
           | :tool_discovery
           | :mcp_server_connect
           | :mcp_tool_call

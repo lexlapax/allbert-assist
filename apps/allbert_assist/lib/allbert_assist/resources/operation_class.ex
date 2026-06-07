@@ -20,6 +20,7 @@ defmodule AllbertAssist.Resources.OperationClass do
     agent_endpoint
     audio_capture
     audio_file
+    image_input
   ]a
 
   @operation_classes ~w[
@@ -55,6 +56,8 @@ defmodule AllbertAssist.Resources.OperationClass do
     microphone_capture
     voice_transcribe
     voice_synthesize
+    image_input
+    image_generate
   ]a
 
   @access_modes ~w[
@@ -84,6 +87,7 @@ defmodule AllbertAssist.Resources.OperationClass do
     workflow_ref
     marketplace_entry
     audio_capture
+    image_input
   ]a
 
   @default_access_modes %{
@@ -118,7 +122,9 @@ defmodule AllbertAssist.Resources.OperationClass do
     package_install: :install,
     microphone_capture: :read,
     voice_transcribe: :read,
-    voice_synthesize: :write
+    voice_synthesize: :write,
+    image_input: :read,
+    image_generate: :write
   }
 
   @type origin_kind ::
@@ -135,6 +141,7 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :agent_endpoint
           | :audio_capture
           | :audio_file
+          | :image_input
 
   @type operation_class ::
           :read_local_path
@@ -169,6 +176,8 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :microphone_capture
           | :voice_transcribe
           | :voice_synthesize
+          | :image_input
+          | :image_generate
 
   @type access_mode ::
           :read
@@ -196,6 +205,7 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :workflow_ref
           | :marketplace_entry
           | :audio_capture
+          | :image_input
 
   @spec origin_kinds() :: nonempty_list(origin_kind())
   def origin_kinds, do: @origin_kinds
