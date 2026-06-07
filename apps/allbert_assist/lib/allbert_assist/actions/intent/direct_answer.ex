@@ -26,10 +26,13 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Memory.ActiveMemory
+  alias AllbertAssist.Resources.{ImageBounds, ImageMetadata}
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.Models
+  alias AllbertAssist.Settings.Store
 
   @answerer_config __MODULE__
   @default_answerer __MODULE__.ReqLLMAnswerer
@@ -38,8 +41,9 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
 
   @impl true
   def run(%{text: text}, context) do
-    permission_decision = PermissionGate.authorize(:read_only, context)
-    {message, direct_answer} = answer(text, context, permission_decision)
+    image_inputs = image_inputs(context)
+    permission_decision = permission_decision(context, image_inputs)
+    {message, direct_answer} = answer(text, context, permission_decision, image_inputs)
 
     {:ok,
      %{
@@ -59,10 +63,10 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
      }}
   end
 
-  defp answer(text, context, permission_decision) do
+  defp answer(text, context, permission_decision, image_inputs) do
     if PermissionGate.allowed?(permission_decision) do
       case Settings.get("intent.direct_answer_model_enabled") do
-        {:ok, true} -> model_answer(text, context)
+        {:ok, true} -> model_answer(text, context, image_inputs)
         {:ok, false} -> fallback(:model_disabled)
         {:error, reason} -> fallback({:settings_unavailable, reason})
       end
@@ -71,7 +75,12 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     end
   end
 
-  defp model_answer(text, context) do
+  defp model_answer(text, context, []), do: text_model_answer(text, context)
+
+  defp model_answer(text, context, image_inputs),
+    do: vision_model_answer(text, context, image_inputs)
+
+  defp text_model_answer(text, context) do
     with {:ok, resolution} <- Models.for(:direct_answer, context),
          profile <- resolution.profile,
          active_memory <- retrieve_active_memory(text, context),
@@ -95,6 +104,45 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     else
       {:error, reason} -> fallback({:model_unavailable, reason})
     end
+  end
+
+  defp vision_model_answer(text, context, image_inputs) do
+    result =
+      with {:ok, true} <- Settings.get("vision.enabled"),
+           {:ok, settings, _user_settings} <- Store.resolved_settings(),
+           {:ok, resolution} <- Models.for(:vision_input, context),
+           profile <- resolution.profile,
+           {:ok, bounded_inputs} <- validate_image_inputs(image_inputs, profile, settings),
+           active_memory <- retrieve_active_memory(text, context),
+           {:ok, response} <-
+             answerer().answer(
+               text,
+               Map.merge(context, %{
+                 model_profile: profile,
+                 active_memory: active_memory.chunks,
+                 image_inputs: bounded_inputs
+               })
+             ) do
+        {
+          response.message,
+          %{
+            source: :model,
+            model_profile: profile.name,
+            provider: profile.provider,
+            model: profile.model,
+            model_resolution: resolution_metadata(resolution),
+            active_memory: ActiveMemory.trace_metadata(active_memory),
+            media: %{image_inputs: Enum.map(bounded_inputs, &Redactor.redact_image_metadata/1)},
+            diagnostic: Map.get(response, :diagnostic, %{status: :used})
+          }
+        }
+      else
+        {:ok, false} -> fallback(:vision_disabled)
+        {:error, reason} -> fallback({:model_unavailable, reason})
+      end
+
+    cleanup_transient_image_inputs(image_inputs)
+    result
   end
 
   defp retrieve_active_memory(text, context) do
@@ -200,6 +248,9 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
         :permission_denied ->
           "The read-only answer boundary was denied."
 
+        :vision_disabled ->
+          "Vision input is disabled."
+
         {:settings_unavailable, _reason} ->
           "The direct-answer settings could not be read."
 
@@ -230,6 +281,109 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     _exception -> false
   end
 
+  defp permission_decision(context, []), do: PermissionGate.authorize(:read_only, context)
+
+  defp permission_decision(context, _image_inputs) do
+    read_only = PermissionGate.authorize(:read_only, context)
+    image_input = PermissionGate.authorize(:image_input, context)
+
+    if PermissionGate.allowed?(read_only), do: image_input, else: read_only
+  end
+
+  defp image_inputs(context) do
+    metadata =
+      get_in(context, [:request, :metadata]) ||
+        get_in(context, ["request", "metadata"]) ||
+        Map.get(context, :metadata) ||
+        Map.get(context, "metadata") ||
+        %{}
+
+    metadata
+    |> image_input_values()
+    |> Enum.filter(&is_map/1)
+  end
+
+  defp image_input_values(metadata) when is_map(metadata) do
+    cond do
+      is_list(field(metadata, :image_inputs)) -> field(metadata, :image_inputs)
+      is_map(field(metadata, :image_input)) -> [field(metadata, :image_input)]
+      is_list(field(metadata, :images)) -> field(metadata, :images)
+      true -> []
+    end
+  end
+
+  defp image_input_values(_metadata), do: []
+
+  defp validate_image_inputs(image_inputs, profile, settings) do
+    image_inputs
+    |> Enum.reduce_while({:ok, []}, fn image_input, {:ok, acc} ->
+      case validate_image_input(image_input, profile, settings) do
+        {:ok, metadata} -> {:cont, {:ok, [metadata | acc]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, inputs} -> {:ok, Enum.reverse(inputs)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_image_input(image_input, profile, settings) do
+    max_bytes = image_read_max_bytes(profile, settings)
+
+    with {:ok, metadata} <-
+           ImageMetadata.from_path(field(image_input, :path),
+             max_bytes: max_bytes,
+             resource_uri: field(image_input, :resource_uri),
+             filename: field(image_input, :filename),
+             transient?: field(image_input, :transient?)
+           ),
+         metadata <- Map.put(metadata, :provider_profile, profile.name),
+         {:ok, _bounds} <- ImageBounds.validate_input(metadata, profile, settings: settings) do
+      {:ok, metadata}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp image_read_max_bytes(%{media: media}, settings) do
+    settings
+    |> Schema.get_dotted("vision.media.max_bytes")
+    |> positive_integer(20_971_520)
+    |> min_positive_bound(media_bound(media, "max_image_bytes"))
+  end
+
+  defp media_bound(media, key) when is_map(media) do
+    media
+    |> Map.get(key, Map.get(media, String.to_atom(key)))
+    |> positive_integer(nil)
+  end
+
+  defp media_bound(_media, _key), do: nil
+
+  defp positive_integer(value, _fallback) when is_integer(value) and value > 0, do: value
+
+  defp positive_integer(value, fallback) when is_binary(value) do
+    case Integer.parse(value) do
+      {integer, ""} when integer > 0 -> integer
+      _other -> fallback
+    end
+  end
+
+  defp positive_integer(_value, fallback), do: fallback
+
+  defp min_positive_bound(value, nil), do: value
+  defp min_positive_bound(value, bound), do: min(value, bound)
+
+  defp cleanup_transient_image_inputs(image_inputs) do
+    Enum.each(image_inputs, fn image_input ->
+      if field(image_input, :transient?) == true do
+        path = field(image_input, :path)
+        if is_binary(path), do: File.rm(path)
+      end
+    end)
+  end
+
   defp bounded_reason(reason) do
     reason
     |> Redactor.redact()
@@ -242,4 +396,10 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
       end
     end)
   end
+
+  defp field(map, key) when is_map(map) and is_atom(key) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  end
+
+  defp field(_map, _key), do: nil
 end

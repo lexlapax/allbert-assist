@@ -5,7 +5,12 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
+  alias AllbertAssist.Resources.ImageMetadata
   alias AllbertAssist.Settings
+
+  @png Base.decode64!(
+         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+       )
 
   defmodule FakeAnswerer do
     def answer(text, %{model_profile: profile}) do
@@ -162,6 +167,71 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     refute Map.has_key?(chunk, :body)
   end
 
+  test "enabled vision path resolves vision_input and redacts image metadata" do
+    assert {:ok, _setting} =
+             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} = Settings.put("vision.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.vision_input", ["vision_fake"], %{
+               audit?: false
+             })
+
+    image_path = write_png!("direct-answer-vision.png")
+
+    assert {:ok, image_metadata} =
+             ImageMetadata.from_path(image_path,
+               resource_uri: "image://capture/img_direct_answer",
+               filename: "direct-answer-vision.png",
+               transient?: true
+             )
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "What is in this image?"}, %{
+               actor: "alice",
+               request: %{metadata: %{image_inputs: [image_metadata]}}
+             })
+
+    assert response.status == :completed
+    assert response.message =~ "Fixture vision answer for 1 image input"
+    assert response.direct_answer.source == :model
+    assert response.direct_answer.model_profile == "vision_fake"
+    assert response.direct_answer.model_resolution.capability == "vision_input"
+
+    assert [%{resource_uri: "image://capture/img_direct_answer"} = redacted] =
+             response.direct_answer.media.image_inputs
+
+    assert redacted.width == 1
+    refute Map.has_key?(redacted, :path)
+    refute inspect(response.direct_answer) =~ image_path
+    refute File.exists?(image_path)
+  end
+
+  test "vision path falls back when vision is disabled" do
+    assert {:ok, _setting} =
+             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    image_path = write_png!("direct-answer-vision-disabled.png")
+
+    assert {:ok, image_metadata} =
+             ImageMetadata.from_path(image_path,
+               resource_uri: "image://capture/img_disabled",
+               transient?: true
+             )
+
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "What is in this image?"}, %{
+               actor: "alice",
+               request: %{metadata: %{image_inputs: [image_metadata]}}
+             })
+
+    assert response.status == :completed
+    assert response.direct_answer.source == :bounded_fallback
+    assert response.direct_answer.reason == ":vision_disabled"
+    refute File.exists?(image_path)
+  end
+
   test "provider failures fall back without exposing the prompt" do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: FailingAnswerer)
 
@@ -185,4 +255,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp write_png!(name) do
+    path = Path.join([System.fetch_env!("ALLBERT_HOME"), "tmp", name])
+    File.mkdir_p!(Path.dirname(path))
+    File.write!(path, @png)
+    path
+  end
 end

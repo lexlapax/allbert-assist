@@ -136,7 +136,10 @@ this ADR (`docs/plans/v0.49-plan.md`):
   removable). Traces may record bounded metadata only — resource URI, byte
   size, dimensions, MIME type, provider profile, content hash, redaction
   status — and never raw image/screenshot bytes, unredacted paths, or
-  credential-bearing URLs.
+  credential-bearing URLs. The content hash is metadata for integrity,
+  provenance, and redaction checks only in v0.49; canonical content-addressed
+  artifact storage, lifecycle policy, deduplication, and cross-surface lookup are
+  proposed for the v0.49.1 artifact-management follow-on.
 - v0.49 cost visibility is display-only pass-through `usage`/`cost` from
   `ReqLLM.Response`; cross-provider dashboards and budget enforcement stay
   parked.

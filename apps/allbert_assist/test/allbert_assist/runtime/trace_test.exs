@@ -71,6 +71,31 @@ defmodule AllbertAssist.Runtime.TraceTest do
              ~r/## Intent Candidates.*## Active Memory.*## Memory Review/s
   end
 
+  test "trace redacts image input paths from request metadata" do
+    trace =
+      "Trace image metadata"
+      |> turn()
+      |> put_in([:request, :metadata], %{
+        image_inputs: [
+          %{
+            resource_uri: "image://capture/img_trace",
+            path: "/Users/spuri/private/frame.png",
+            byte_size: 42,
+            width: 1,
+            height: 1,
+            mime_type: "image/png",
+            raw_image: <<1, 2, 3>>
+          }
+        ]
+      })
+      |> Trace.text()
+
+    assert trace =~ "image://capture/img_trace"
+    assert trace =~ "image_inputs"
+    refute trace =~ "/Users/spuri/private"
+    refute trace =~ "raw_image"
+  end
+
   test "record_turn facade preserves writer and enabled semantics" do
     test_pid = self()
 

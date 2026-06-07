@@ -22,6 +22,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   alias AllbertAssist.Conversations
   alias AllbertAssist.Intent.ApprovalHandoff
+  alias AllbertAssist.Resources.ImageBounds
+  alias AllbertAssist.Resources.ImageMetadata
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Paths, as: RuntimePaths
@@ -45,6 +47,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   @voice_capture_accept ~w(.wav .mp3 .m4a .ogg .webm .flac)
   @voice_capture_upload_accept ~w(audio/*)
   @voice_capture_duration_skew_ms 5_000
+  @image_input_accept ~w(.png .jpg .jpeg .webp)
+  @image_input_upload_accept ~w(image/*)
 
   @impl true
   def mount(params, _session, socket) do
@@ -82,6 +86,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         workspace_indexeddb_quota_bytes: workspace_indexeddb_quota_bytes(settings),
         workspace_canvas_max_tiles_per_thread: workspace_canvas_max_tiles_per_thread(settings),
         voice_capture: voice_capture_idle(settings),
+        image_input: image_input_idle(settings),
         active_objectives: active_objectives(user_id),
         prompt: "",
         prompt_placeholder: @default_prompt_placeholder,
@@ -110,6 +115,11 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         accept: @voice_capture_upload_accept,
         max_entries: 1,
         max_file_size: voice_capture_max_bytes(settings)
+      )
+      |> allow_upload(:image_input,
+        accept: @image_input_upload_accept,
+        max_entries: 1,
+        max_file_size: image_input_max_bytes(settings)
       )
       |> assign(workspace_assigns(user_id, thread_id, [], active_app, canvas_destination))
       |> maybe_sync_thread_url(sync_thread_url?, thread_id, canvas_destination)
@@ -239,6 +249,12 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   def handle_event("cancel_voice_capture_upload", _params, socket), do: {:noreply, socket}
+
+  def handle_event("cancel_image_input_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :image_input, ref)}
+  end
+
+  def handle_event("cancel_image_input_upload", _params, socket), do: {:noreply, socket}
 
   def handle_event("submit_voice_capture", _params, socket) do
     {:noreply, submit_voice_capture(socket)}
@@ -1557,6 +1573,29 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     end
   end
 
+  defp image_input_idle(settings) do
+    %{
+      status: :idle,
+      max_bytes: image_input_max_bytes(settings),
+      max_pixels: image_input_max_pixels(settings),
+      enabled?: setting(settings, "vision.enabled", false) == true
+    }
+  end
+
+  defp image_input_max_bytes(settings) do
+    case setting(settings, "vision.media.max_bytes", 20_971_520) do
+      value when is_integer(value) and value > 0 -> value
+      _other -> 20_971_520
+    end
+  end
+
+  defp image_input_max_pixels(settings) do
+    case setting(settings, "vision.media.max_pixels", 33_177_600) do
+      value when is_integer(value) and value > 0 -> value
+      _other -> 33_177_600
+    end
+  end
+
   defp approved_voice_capture(%{} = capture) do
     if approved_voice_capture?(capture) do
       {:ok, approved_voice_capture(capture, %{})}
@@ -1860,6 +1899,17 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     do: do_submit_workspace_prompt(socket, prompt, nil)
 
   defp do_submit_workspace_prompt(socket, prompt, metadata) do
+    with {:ok, image_inputs} <- consume_image_inputs(socket) do
+      do_submit_workspace_prompt(socket, prompt, metadata, image_inputs)
+    else
+      {:error, reason} ->
+        assign(socket, :error, "Image input failed: #{inspect(Redactor.redact(reason))}")
+    end
+  end
+
+  defp do_submit_workspace_prompt(socket, prompt, metadata, image_inputs) do
+    metadata = metadata |> metadata_map() |> maybe_put_image_inputs(image_inputs)
+
     runtime_request =
       %{
         text: prompt,
@@ -1892,7 +1942,118 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     end)
   end
 
-  defp maybe_put_runtime_metadata(request, nil), do: request
+  defp consume_image_inputs(socket) do
+    case socket.assigns.uploads.image_input.entries do
+      [] ->
+        {:ok, []}
+
+      _entries ->
+        results =
+          consume_uploaded_entries(socket, :image_input, fn %{path: path}, entry ->
+            {:ok, process_image_input_upload(path, entry)}
+          end)
+
+        case results do
+          [{:ok, metadata}] -> {:ok, [metadata]}
+          [{:error, reason}] -> {:error, reason}
+          [] -> {:error, :no_completed_image_upload}
+        end
+    end
+  end
+
+  defp process_image_input_upload(path, entry) do
+    settings = workspace_settings_snapshot()
+
+    with true <- setting(settings, "vision.enabled", false) == true || {:error, :vision_disabled},
+         {:ok, size} <- file_size(path),
+         :ok <- validate_image_input_size(size, image_input_max_bytes(settings)),
+         {:ok, name} <- image_input_upload_name(entry),
+         capture_id <- generated_image_capture_id(),
+         {:ok, resource_uri} <- ResourceURI.image_capture(capture_id),
+         {:ok, destination} <- image_input_destination(settings, capture_id, name),
+         :ok <- File.mkdir_p(Path.dirname(destination)),
+         {:ok, _bytes} <- File.copy(path, destination),
+         {:ok, metadata} <-
+           ImageMetadata.from_path(destination,
+             max_bytes: image_input_max_bytes(settings),
+             resource_uri: resource_uri,
+             filename: name,
+             transient?: image_input_retention_enabled?(settings) != true
+           ),
+         {:ok, _bounds} <-
+           ImageBounds.validate_input(metadata, image_input_media(settings), settings: settings) do
+      {:ok, metadata}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_image_input_size(size, max_bytes)
+       when is_integer(size) and is_integer(max_bytes) and size <= max_bytes,
+       do: :ok
+
+  defp validate_image_input_size(size, max_bytes),
+    do: {:error, {:image_input_too_large, size, max_bytes}}
+
+  defp image_input_upload_name(entry) do
+    name =
+      entry
+      |> Map.get(:client_name, "image.png")
+      |> to_string()
+      |> Path.basename()
+
+    extension = name |> Path.extname() |> String.downcase()
+
+    cond do
+      extension not in @image_input_accept ->
+        {:error, {:unsupported_image_file_type, extension}}
+
+      name == "" ->
+        {:ok, "image#{extension}"}
+
+      true ->
+        {:ok, String.replace(name, ~r/[^A-Za-z0-9._-]/, "_")}
+    end
+  end
+
+  defp image_input_destination(settings, capture_id, name) do
+    root =
+      if image_input_retention_enabled?(settings) do
+        expand_allbert_home_path(
+          setting(settings, "vision.media.retention_root", "<ALLBERT_HOME>/images")
+        )
+      else
+        Path.join(RuntimePaths.tmp_root(), "image-inputs")
+      end
+
+    {:ok, Path.join([root, capture_id, name])}
+  end
+
+  defp image_input_retention_enabled?(settings),
+    do: setting(settings, "vision.media.retention_enabled", false) == true
+
+  defp image_input_media(settings) do
+    %{
+      "image_formats_supported" => ~w[png jpeg webp],
+      "max_image_bytes" => image_input_max_bytes(settings),
+      "max_image_pixels" => image_input_max_pixels(settings)
+    }
+  end
+
+  defp generated_image_capture_id do
+    "img_" <> Base.url_encode64(:crypto.strong_rand_bytes(8), padding: false)
+  end
+
+  defp metadata_map(nil), do: %{}
+  defp metadata_map(metadata) when is_map(metadata), do: metadata
+  defp metadata_map(_metadata), do: %{}
+
+  defp maybe_put_image_inputs(metadata, []), do: metadata
+
+  defp maybe_put_image_inputs(metadata, image_inputs),
+    do: Map.put(metadata, :image_inputs, image_inputs)
+
+  defp maybe_put_runtime_metadata(request, metadata) when metadata in [nil, %{}], do: request
   defp maybe_put_runtime_metadata(request, metadata), do: Map.put(request, :metadata, metadata)
 
   defp dismiss_intent_surface(socket, params, _dismissed_by) do
@@ -2033,6 +2194,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       workspace_indexeddb_quota_bytes: assigns.workspace_indexeddb_quota_bytes,
       workspace_canvas_max_tiles_per_thread: assigns.workspace_canvas_max_tiles_per_thread,
       voice_capture_upload: assigns.uploads.voice_capture,
+      image_input_upload: assigns.uploads.image_input,
       open_tile_menu_id: assigns.open_tile_menu_id,
       active_app: assigns.active_app,
       composer_max_bytes: assigns.composer_max_bytes,
@@ -2059,6 +2221,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       approval_result: assigns.approval_result,
       show_approval_details?: assigns.show_approval_details?,
       voice_capture: assigns.voice_capture,
+      image_input: assigns.image_input,
       thread_switcher_open?: assigns.thread_switcher_open?,
       workspace_overflow_open?: assigns.workspace_overflow_open?
     }

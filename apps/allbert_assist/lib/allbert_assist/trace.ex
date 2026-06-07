@@ -296,11 +296,37 @@ defmodule AllbertAssist.Trace do
 
   defp input_metadata_text(%{metadata: metadata}) when is_map(metadata) do
     metadata
+    |> redact_input_metadata()
     |> Redactor.redact()
     |> inspect(pretty: true, limit: :infinity)
   end
 
   defp input_metadata_text(_request), do: "none"
+
+  defp redact_input_metadata(metadata) when is_map(metadata) do
+    metadata
+    |> redact_image_inputs(:image_inputs)
+    |> redact_image_inputs("image_inputs")
+    |> redact_image_input(:image_input)
+    |> redact_image_input("image_input")
+  end
+
+  defp redact_image_inputs(metadata, key) do
+    case Map.get(metadata, key) do
+      inputs when is_list(inputs) ->
+        Map.put(metadata, key, Enum.map(inputs, &Redactor.redact_image_metadata/1))
+
+      _other ->
+        metadata
+    end
+  end
+
+  defp redact_image_input(metadata, key) do
+    case Map.get(metadata, key) do
+      input when is_map(input) -> Map.put(metadata, key, Redactor.redact_image_metadata(input))
+      _other -> metadata
+    end
+  end
 
   defp action_name(%{name: name}) when is_binary(name), do: name
   defp action_name(%{"name" => name}) when is_binary(name), do: name

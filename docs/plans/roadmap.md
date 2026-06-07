@@ -284,6 +284,9 @@ Dependency order from here:
     substrate for image/screenshot resource classes, vision model profile
     checks, image-generation actions, workspace rendering, retention,
     redaction, and display-only cost metadata.
+    v0.49.1 is the proposed artifact-management follow-on for a uniform
+    content-addressed store covering user-uploaded, Allbert-created, and
+    Allbert-found artifacts.
 50. v0.50 Channel Pack 1 (Discord and Slack) + ADR 0016 amendment for the
     channel approval-primitive contract (`{list, button, typed_command, link}`).
     Locks the channel approval shape before mobile channels need it.
@@ -2920,6 +2923,29 @@ Expected direction:
 - Treat `video_input` as shared vocabulary/future metadata only; v0.49 does not
   implement video ingestion, generic audio understanding, or video generation
   unless amended before code lands.
+
+## v0.49.1: Content-Addressable Artifact Management
+
+Status: proposed follow-on after v0.49; no implementation plan yet. This slot
+exists to avoid stretching v0.49 image upload/generation into Allbert's canonical
+artifact store.
+
+Expected direction:
+
+- Add a uniform content-addressed store for artifacts supplied by the operator,
+  created by Allbert, or found by Allbert through approved tools such as browser
+  research.
+- Keep artifact identity independent of transport-specific resource URIs:
+  `image://`, `screen://`, `browser://`, generated-media handles, and future
+  channel attachments may point at or derive from the store, but they do not
+  become the store's authority model by themselves.
+- Record provenance, MIME/type metadata, byte/hash metadata, redaction status,
+  retention policy, source surface, and lifecycle state without storing raw
+  sensitive content in traces or audits.
+- Define the promotion/retention path from temporary v0.49 media input/output
+  files into durable artifacts, including deduplication and operator removal.
+- Preserve Security Central and Resource Access as the authority boundary:
+  content-addressed identity never grants read/write/send permission by itself.
 
 ## v0.50: Channel Pack 1 - Discord And Slack
 

@@ -30,7 +30,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
        approval_result: Map.get(state, :approval_result),
        show_approval_details?: Map.get(state, :show_approval_details?, false),
        voice_capture: Map.get(state, :voice_capture, %{status: :idle}),
+       image_input: Map.get(state, :image_input, %{status: :idle}),
        voice_capture_upload: Map.get(context, :voice_capture_upload),
+       image_input_upload: Map.get(context, :image_input_upload),
        composer_max_bytes: Map.get(context, :composer_max_bytes, 65_536),
        maximized_pane: Map.get(context, :workspace_maximized_pane)
      )}
@@ -226,6 +228,24 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
             {composer_counter_text(@prompt, @composer_max_bytes)}
           </span>
           <div class="workspace-composer-actions">
+            <label
+              :if={@image_input_upload}
+              id="image-input-label"
+              class={[
+                "workspace-button workspace-button-secondary workspace-image-button",
+                (!image_input_enabled?(@image_input) or @asking?) && "workspace-button-disabled"
+              ]}
+              aria-disabled={bool_attribute(!image_input_enabled?(@image_input) or @asking?)}
+              title={image_input_label(@image_input)}
+            >
+              <.icon name="hero-photo-micro" class="size-4" />
+              <span>Image</span>
+              <.live_file_input
+                upload={@image_input_upload}
+                class="workspace-image-file-input"
+                disabled={!image_input_enabled?(@image_input) or @asking?}
+              />
+            </label>
             <button
               id="voice-capture-request"
               type="button"
@@ -254,6 +274,48 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           </button>
         </div>
       </form>
+
+      <div
+        :if={@image_input_upload && @image_input_upload.entries != []}
+        id="image-input-uploads"
+        class="workspace-image-uploads"
+        aria-live="polite"
+      >
+        <div
+          :for={entry <- @image_input_upload.entries}
+          class="workspace-image-upload-entry"
+          data-upload-ref={entry.ref}
+        >
+          <.live_img_preview entry={entry} class="workspace-image-preview" />
+          <div class="workspace-image-upload-body">
+            <span>{entry.client_name}</span>
+            <progress value={entry.progress} max="100">{entry.progress}%</progress>
+            <p
+              :for={err <- upload_errors(@image_input_upload, entry)}
+              class="workspace-image-upload-error"
+            >
+              {image_upload_error(err)}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="allbert-icon-button"
+            phx-click="cancel_image_input_upload"
+            phx-value-ref={entry.ref}
+            aria-label="Cancel image input upload"
+            title="Cancel image input upload"
+          >
+            <.icon name="hero-x-mark-micro" class="size-4" />
+          </button>
+        </div>
+
+        <p
+          :for={err <- upload_errors(@image_input_upload)}
+          class="workspace-image-upload-error"
+        >
+          {image_upload_error(err)}
+        </p>
+      </div>
 
       <form
         :if={voice_capture_ready?(@voice_capture) and @voice_capture_upload}
@@ -486,6 +548,29 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
   end
 
   defp voice_capture_value(_capture, _key), do: nil
+
+  defp image_input_enabled?(image_input) do
+    image_input_value(image_input, :enabled?) == true
+  end
+
+  defp image_input_label(image_input) do
+    if image_input_enabled?(image_input) do
+      "Attach image input"
+    else
+      "Vision input disabled"
+    end
+  end
+
+  defp image_input_value(image_input, key) when is_map(image_input) do
+    Map.get(image_input, key) || Map.get(image_input, Atom.to_string(key))
+  end
+
+  defp image_input_value(_image_input, _key), do: nil
+
+  defp image_upload_error(:too_large), do: "Too large"
+  defp image_upload_error(:too_many_files), do: "One file only"
+  defp image_upload_error(:not_accepted), do: "Unsupported type"
+  defp image_upload_error(error), do: inspect(error)
 
   defp voice_upload_error(:too_large), do: "Too large"
   defp voice_upload_error(:too_many_files), do: "One file only"

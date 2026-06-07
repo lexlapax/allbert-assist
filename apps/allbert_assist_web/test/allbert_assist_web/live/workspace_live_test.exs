@@ -31,6 +31,9 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   alias Jido.Signal.Bus
 
   @runtime_async_timeout 60_000
+  @png Base.decode64!(
+         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+       )
 
   setup do
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
@@ -1806,6 +1809,55 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     refute File.exists?(Path.join([root, "tmp", "voice-captures", capture_id]))
   end
 
+  test "workspace image upload attaches bounded image metadata to runtime prompt", %{
+    conn: conn,
+    root: root
+  } do
+    enable_workspace_vision!()
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+    thread_id = workspace_thread_id(view)
+
+    upload =
+      file_input(view, "#agent-form", :image_input, [
+        %{
+          name: "frame.png",
+          content: @png,
+          type: "image/png"
+        }
+      ])
+
+    render_upload(upload, "frame.png")
+
+    assert has_element?(view, "#image-input-uploads")
+
+    view
+    |> element("#agent-form")
+    |> render_submit(%{"prompt" => "Describe the image"})
+
+    _html = render_async(view, @runtime_async_timeout)
+
+    assert_receive {:runtime_request,
+                    %{
+                      text: "Describe the image",
+                      thread_id: ^thread_id,
+                      metadata: %{image_inputs: [image_metadata]}
+                    }}
+
+    assert image_metadata.resource_uri =~ "image://capture/img_"
+    assert image_metadata.path =~ Path.join([root, "tmp", "image-inputs"])
+    assert image_metadata.image_format == "png"
+    assert image_metadata.mime_type == "image/png"
+    assert image_metadata.width == 1
+    assert image_metadata.height == 1
+    assert image_metadata.pixel_count == 1
+    assert image_metadata.byte_size == byte_size(@png)
+    assert byte_size(image_metadata.content_sha256) == 64
+    assert image_metadata.redaction_status == "metadata_only"
+    assert image_metadata.transient?
+    refute inspect(image_metadata) =~ inspect(@png)
+  end
+
   test "stale app query params do not set runtime active app context", %{conn: conn} do
     fixture = EvalInventory.row!("stale-url-handoff-bypass-001")
     ensure_stocksage_app_registered()
@@ -2091,6 +2143,15 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     assert {:ok, _setting} =
              Settings.put("model_preferences.capabilities.speech_to_text", ["voice_stt_fake"], %{
+               audit?: false
+             })
+  end
+
+  defp enable_workspace_vision! do
+    assert {:ok, _resolved} = Settings.put("vision.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.vision_input", ["vision_fake"], %{
                audit?: false
              })
   end
