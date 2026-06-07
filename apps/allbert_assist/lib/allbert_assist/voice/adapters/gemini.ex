@@ -2,7 +2,7 @@ defmodule AllbertAssist.Voice.Adapters.Gemini do
   @moduledoc """
   Gemini voice adapter.
 
-  STT uses the Gemini Interactions API with inline base64 audio. TTS uses
+  STT uses Gemini `models/*:generateContent` with inline base64 audio. TTS uses
   `models/*:generateContent` with `responseModalities: ["AUDIO"]` and writes
   the bounded returned audio as a local file.
   """
@@ -13,8 +13,8 @@ defmodule AllbertAssist.Voice.Adapters.Gemini do
   alias AllbertAssist.Runtime.Paths
   alias AllbertAssist.Voice.ProviderHTTP
   alias AllbertAssist.Voice.Transcode
+  alias AllbertAssist.Voice.TranscriptResponse
 
-  @api_revision "2026-05-20"
   @default_voice "Kore"
   @default_max_audio_bytes 10_485_760
   @gemini_pcm_sample_rate_hz 24_000
@@ -27,34 +27,17 @@ defmodule AllbertAssist.Voice.Adapters.Gemini do
          {:ok, audio} <- File.read(input_path),
          :ok <- validate_audio_size(audio, profile),
          {:ok, endpoint} <-
-           ProviderHTTP.endpoint(profile, "/interactions",
-             headers: [{"api-revision", @api_revision}]
-           ),
+           ProviderHTTP.endpoint(profile, "/models/#{model(profile)}:generateContent"),
          {:ok, response} <-
            ProviderHTTP.request(
              :post,
              endpoint,
-             [
-               json: %{
-                 model: model(profile),
-                 input: [
-                   %{
-                     type: "text",
-                     text: "Transcribe this audio. Return only the transcript text."
-                   },
-                   %{
-                     type: "audio",
-                     data: Base.encode64(audio),
-                     mime_type: ProviderHTTP.mime_type_for_path(input_path, "audio/wav")
-                   }
-                 ]
-               }
-             ],
+             [json: stt_request(input_path, audio)],
              profile,
              opts
            ),
          {:ok, body} <- ProviderHTTP.json_body(response),
-         {:ok, transcript} <- transcript_text(body) do
+         {:ok, transcript} <- TranscriptResponse.transcript_text(body) do
       {:ok,
        %{
          transcript: transcript,
@@ -116,6 +99,26 @@ defmodule AllbertAssist.Voice.Adapters.Gemini do
     end
   end
 
+  defp stt_request(input_path, audio) do
+    %{
+      contents: [
+        %{
+          parts: [
+            %{
+              text: "Generate a transcript of the speech. Return only the transcript text."
+            },
+            %{
+              inlineData: %{
+                mimeType: ProviderHTTP.mime_type_for_path(input_path, "audio/wav"),
+                data: Base.encode64(audio)
+              }
+            }
+          ]
+        }
+      ]
+    }
+  end
+
   defp tts_request(profile, text, voice) do
     %{
       contents: [
@@ -139,36 +142,6 @@ defmodule AllbertAssist.Voice.Adapters.Gemini do
       },
       model: model(profile)
     }
-  end
-
-  defp transcript_text(%{"output_text" => text}) when is_binary(text), do: non_empty_text(text)
-
-  defp transcript_text(body) do
-    body
-    |> text_parts()
-    |> Enum.join("")
-    |> non_empty_text()
-  end
-
-  defp text_parts(%{"candidates" => candidates}) when is_list(candidates) do
-    candidates
-    |> Enum.flat_map(fn candidate ->
-      candidate
-      |> get_in(["content", "parts"])
-      |> case do
-        parts when is_list(parts) -> parts
-        _missing -> []
-      end
-    end)
-    |> Enum.map(&Map.get(&1, "text"))
-    |> Enum.filter(&is_binary/1)
-  end
-
-  defp text_parts(_body), do: []
-
-  defp non_empty_text(text) when is_binary(text) do
-    text = String.trim(text)
-    if text == "", do: {:error, :empty_voice_transcript}, else: {:ok, text}
   end
 
   defp audio_from_body(%{"output_audio" => %{"data" => data} = audio}, output_format)

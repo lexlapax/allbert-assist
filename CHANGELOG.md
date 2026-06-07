@@ -87,6 +87,9 @@ not been cut.
 - The local runtime Bandit start path no longer passes unsupported server
   registration options, and the Ollama STT backend now accepts Ollama's
   `application/x-ndjson` transcription response body before extracting text.
+- Gemini STT now uses the stable `models/{model}:generateContent` inline-audio
+  request shape, and STT adapters share one transcript response normalizer for
+  OpenAI-compatible, Gemini, and local Ollama response bodies.
 - Anthropic/Claude remains a text-generation provider in the middle of the
   voice loop; it is not a native v0.48 STT/TTS provider.
 - Fake TTS/STT usage and cost metadata now reports `%{source: :unavailable}`
@@ -115,12 +118,15 @@ not been cut.
   lifecycle-action tests), voice action/CLI/channel (`52 tests, 0 failures`),
   workspace voice (`64 tests, 0 failures`), voice security eval
   (`20 tests, 0 failures`), and a clean v0.48 voice secret scan. Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v048/p0-8646/home/release_evidence/v048/release-v048-1780848869.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v048/p0-13250/home/release_evidence/v048/release-v048-1780851953.json`.
 - Post-M8R7 manual local smoke on 2026-06-07 passed with `gemma4:e2b`:
   direct Ollama `/v1/audio/transcriptions`, Allbert local runtime
   `/v1/models`, `/v1/doctor`, token-backed STT, token-backed TTS, and the
   full `scripts/v048_voice_live_smoke.exs` STT -> Ollama text -> TTS loop.
   `gemma4:e4b` also produced a valid direct local transcription.
+- Post-M8R7 manual Gemini smoke on 2026-06-07 passed after the stable
+  `generateContent` STT correction: Gemini doctor, Gemini STT, local Ollama
+  text turn, Gemini TTS, and trace leak scan all completed.
 
 ## v0.47.1 - Operator-Supervised Self-Improvement Handoff Drafts
 

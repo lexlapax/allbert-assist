@@ -8,6 +8,7 @@ defmodule AllbertAssist.Voice.LocalRuntime.Backends.OllamaSTT do
   """
 
   alias AllbertAssist.Voice.LocalRuntime.Config
+  alias AllbertAssist.Voice.TranscriptResponse
 
   @spec doctor(Config.t()) :: map()
   def doctor(config) do
@@ -50,7 +51,7 @@ defmodule AllbertAssist.Voice.LocalRuntime.Backends.OllamaSTT do
            ),
          :ok <- successful_response(response),
          body = decoded_body(response.body),
-         {:ok, transcript} <- transcript_text(body) do
+         {:ok, transcript} <- TranscriptResponse.transcript_text(body) do
       {:ok,
        %{
          transcript: transcript,
@@ -145,16 +146,6 @@ defmodule AllbertAssist.Voice.LocalRuntime.Backends.OllamaSTT do
     do: Map.get(entry, "id") || Map.get(entry, "model") || Map.get(entry, "name")
 
   defp model_id(_entry), do: nil
-
-  defp transcript_text(%{"text" => text}) when is_binary(text) do
-    text = String.trim(text)
-    if text == "", do: {:error, :empty_voice_transcript}, else: {:ok, text}
-  end
-
-  defp transcript_text(%{"transcript" => text}) when is_binary(text),
-    do: transcript_text(%{"text" => text})
-
-  defp transcript_text(_body), do: {:error, :missing_voice_transcript}
 
   defp duration_ms(%{"duration" => seconds}) when is_number(seconds), do: round(seconds * 1000)
   defp duration_ms(%{"duration_ms" => duration_ms}) when is_integer(duration_ms), do: duration_ms
