@@ -52,6 +52,12 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert {:ok, ["voice_tts_local", "voice_tts_openai", "voice_tts_gemini"]} =
              Settings.get("model_preferences.capabilities.text_to_speech")
 
+    assert {:ok, ["vision_openai", "vision_gemini"]} =
+             Settings.get("model_preferences.capabilities.vision_input")
+
+    assert {:ok, ["image_openai", "image_gemini"]} =
+             Settings.get("model_preferences.capabilities.image_generation")
+
     assert {:ok, direct_answer} = Models.for(:direct_answer)
     assert direct_answer.request_kind == :task
     assert direct_answer.capability == "text_generation"
@@ -68,6 +74,28 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
 
     assert {:ok, [local_stt]} = Models.candidates_for(:speech_to_text)
     assert local_stt.profile.name == "voice_stt_local"
+  end
+
+  test "vision and image capability preferences resolve when a remote provider is enabled" do
+    assert {:error, {:no_capable_profile, vision_diagnostic}} = Models.for(:vision_input)
+    assert vision_diagnostic.candidates == ["vision_openai", "vision_gemini", "local"]
+
+    assert {:ok, _setting} =
+             Settings.put("providers.openai.enabled", true, %{audit?: false})
+
+    assert {:ok, vision} = Models.for(:vision_input)
+    assert vision.request_kind == :capability
+    assert vision.profile.name == "vision_openai"
+    assert vision.profile.model == "gpt-5.2"
+    assert vision.profile.capabilities == ["text_generation", "vision_input"]
+    assert vision.profile.media["image_formats_supported"] == ["png", "jpeg", "webp", "gif"]
+
+    assert {:ok, image} = Models.for(:image_generation)
+    assert image.request_kind == :capability
+    assert image.profile.name == "image_openai"
+    assert image.profile.model == "gpt-image-1.5"
+    assert image.profile.capabilities == ["image_generation"]
+    assert image.profile.media["output_modalities"] == ["image"]
   end
 
   test "resolver skips disabled providers and incapable profiles before falling back" do

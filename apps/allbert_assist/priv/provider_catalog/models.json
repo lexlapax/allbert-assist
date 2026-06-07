@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "checked_at": "2026-05-28",
+  "checked_at": "2026-06-07",
   "sources": [
     "https://platform.claude.com/docs/en/about-claude/models/overview",
     "https://docs.anthropic.com/en/api/models",
@@ -54,6 +54,12 @@
     },
     "fake_voice": {
       "type": "fake_voice",
+      "api_key_ref": null,
+      "endpoint_kind": "local_endpoint",
+      "enabled": true
+    },
+    "fake_media": {
+      "type": "fake_media",
       "api_key_ref": null,
       "endpoint_kind": "local_endpoint",
       "enabled": true
@@ -348,6 +354,102 @@
       "temperature": 0.0,
       "max_tokens": 1024,
       "timeout_ms": 30000
+    },
+    "vision_openai": {
+      "provider": "openai",
+      "model": "gpt-5.2",
+      "capabilities": ["text_generation", "vision_input"],
+      "media": {
+        "input_modalities": ["text", "image"],
+        "output_modalities": ["text"],
+        "deployment_mode": "remote_credentialed",
+        "image_formats_supported": ["png", "jpeg", "webp", "gif"],
+        "max_image_bytes": 20971520,
+        "max_image_pixels": 33177600
+      },
+      "temperature": 0.2,
+      "max_tokens": 2048,
+      "timeout_ms": 60000
+    },
+    "vision_gemini": {
+      "provider": "gemini",
+      "model": "gemini-2.5-flash",
+      "capabilities": ["text_generation", "vision_input"],
+      "media": {
+        "input_modalities": ["text", "image"],
+        "output_modalities": ["text"],
+        "deployment_mode": "remote_credentialed",
+        "image_formats_supported": ["png", "jpeg", "webp"],
+        "max_image_bytes": 20971520,
+        "max_image_pixels": 33177600
+      },
+      "temperature": 0.2,
+      "max_tokens": 2048,
+      "timeout_ms": 60000
+    },
+    "vision_fake": {
+      "provider": "fake_media",
+      "model": "fixture-vision",
+      "capabilities": ["vision_input"],
+      "media": {
+        "input_modalities": ["image"],
+        "output_modalities": ["text"],
+        "deployment_mode": "fake",
+        "image_formats_supported": ["png"],
+        "max_image_bytes": 1048576,
+        "max_image_pixels": 1048576
+      },
+      "temperature": 0.0,
+      "max_tokens": 512,
+      "timeout_ms": 5000
+    },
+    "image_openai": {
+      "provider": "openai",
+      "model": "gpt-image-1.5",
+      "capabilities": ["image_generation"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["image"],
+        "deployment_mode": "remote_credentialed",
+        "image_formats_supported": ["png", "jpeg", "webp"],
+        "max_image_bytes": 20971520,
+        "max_image_pixels": 33177600
+      },
+      "temperature": 0.2,
+      "max_tokens": 1024,
+      "timeout_ms": 120000
+    },
+    "image_gemini": {
+      "provider": "gemini",
+      "model": "gemini-3.1-flash-image",
+      "capabilities": ["image_generation"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["image"],
+        "deployment_mode": "remote_credentialed",
+        "image_formats_supported": ["png"],
+        "max_image_bytes": 20971520,
+        "max_image_pixels": 33177600
+      },
+      "temperature": 0.2,
+      "max_tokens": 1024,
+      "timeout_ms": 120000
+    },
+    "image_fake": {
+      "provider": "fake_media",
+      "model": "fixture-image",
+      "capabilities": ["image_generation"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["image"],
+        "deployment_mode": "fake",
+        "image_formats_supported": ["png"],
+        "max_image_bytes": 1048576,
+        "max_image_pixels": 1048576
+      },
+      "temperature": 0.0,
+      "max_tokens": 512,
+      "timeout_ms": 5000
     }
   }
 }

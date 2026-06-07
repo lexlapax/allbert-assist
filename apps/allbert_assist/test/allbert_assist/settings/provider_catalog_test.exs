@@ -11,6 +11,8 @@ defmodule AllbertAssist.Settings.ProviderCatalogTest do
 
     assert "speech_to_text" in ProviderCatalog.known_capabilities()
     assert "text_to_speech" in ProviderCatalog.known_capabilities()
+    assert "vision_input" in ProviderCatalog.known_capabilities()
+    assert "image_generation" in ProviderCatalog.known_capabilities()
 
     for {name, profile} <- profiles do
       capabilities = Map.fetch!(profile, "capabilities")
@@ -25,7 +27,9 @@ defmodule AllbertAssist.Settings.ProviderCatalogTest do
 
     for {_name, profile} <- profiles,
         "speech_to_text" not in profile["capabilities"],
-        "text_to_speech" not in profile["capabilities"] do
+        "text_to_speech" not in profile["capabilities"],
+        "vision_input" not in profile["capabilities"],
+        "image_generation" not in profile["capabilities"] do
       assert "text_generation" in profile["capabilities"]
     end
   end
@@ -76,5 +80,59 @@ defmodule AllbertAssist.Settings.ProviderCatalogTest do
 
     assert {:error, {:invalid_deployment_mode, "auto_granted"}} =
              ProviderCatalog.validate_media(%{"deployment_mode" => "auto_granted"})
+
+    assert {:error, {:invalid_image_formats_supported, []}} =
+             ProviderCatalog.validate_media(%{"image_formats_supported" => []})
+
+    assert {:error, {:invalid_positive_integer, "max_image_bytes", 0}} =
+             ProviderCatalog.validate_media(%{"max_image_bytes" => 0})
+  end
+
+  test "vision and image profiles are descriptive settings defaults" do
+    profiles = ProviderCatalog.model_profiles()
+
+    vision_openai = profiles["vision_openai"]
+    vision_gemini = profiles["vision_gemini"]
+    vision_fake = profiles["vision_fake"]
+    image_openai = profiles["image_openai"]
+    image_gemini = profiles["image_gemini"]
+    image_fake = profiles["image_fake"]
+
+    assert vision_openai["provider"] == "openai"
+    assert vision_openai["model"] == "gpt-5.2"
+    assert vision_openai["capabilities"] == ["text_generation", "vision_input"]
+    assert vision_openai["media"]["input_modalities"] == ["text", "image"]
+    assert vision_openai["media"]["output_modalities"] == ["text"]
+    assert vision_openai["media"]["deployment_mode"] == "remote_credentialed"
+    assert "png" in vision_openai["media"]["image_formats_supported"]
+
+    assert vision_gemini["provider"] == "gemini"
+    assert vision_gemini["model"] == "gemini-2.5-flash"
+    assert vision_gemini["capabilities"] == ["text_generation", "vision_input"]
+
+    assert vision_fake["provider"] == "fake_media"
+    assert vision_fake["capabilities"] == ["vision_input"]
+    assert vision_fake["media"]["deployment_mode"] == "fake"
+
+    assert image_openai["provider"] == "openai"
+    assert image_openai["model"] == "gpt-image-1.5"
+    assert image_openai["capabilities"] == ["image_generation"]
+    assert image_openai["media"]["output_modalities"] == ["image"]
+
+    assert image_gemini["provider"] == "gemini"
+    assert image_gemini["model"] == "gemini-3.1-flash-image"
+    assert image_gemini["capabilities"] == ["image_generation"]
+
+    assert image_fake["provider"] == "fake_media"
+    assert image_fake["capabilities"] == ["image_generation"]
+    assert image_fake["media"]["deployment_mode"] == "fake"
+
+    aliases = ProviderCatalog.jido_model_aliases()
+    assert aliases.vision_openai == "openai:gpt-5.2"
+    assert aliases.vision_gemini == "google:gemini-2.5-flash"
+    refute Map.has_key?(aliases, :vision_fake)
+    refute Map.has_key?(aliases, :image_openai)
+    refute Map.has_key?(aliases, :image_gemini)
+    refute Map.has_key?(aliases, :image_fake)
   end
 end
