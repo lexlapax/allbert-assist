@@ -530,16 +530,17 @@ Implemented v0.41 gates:
   v0.38 templates, Security Central, confirmations, traces, and audits. Seven
   `:v047b` eval rows plus `release.v047b` prove the handoff boundary. No new
   trust tier.
-- v0.48 (implemented through M8R with M8R7 local-runtime remediation pending
-  before tag):
+- v0.48 (implemented through M8R with M8R7 local-runtime remediation):
   Voice Modality And Provider Capabilities. Adds capability metadata, ranked
   operator preferences, STT/TTS media resources, CLI file transcription,
   workspace microphone capture, TTS, Telegram voice-note ingestion, executable
   local adapter calls, OpenAI remote STT/TTS, Gemini remote STT/TTS, an
   Ollama-backed local text turn, 16 `:v048` eval rows, and expanded
   `release.v048`. M8R7 adds the Allbert-owned local voice runtime endpoint so
-  the local path is product-owned. Fake providers are fixtures only. Discord
-  voice is deferred until after Discord exists.
+  the local path is product-owned, Settings Central-configured, Security
+  Central-managed, and token-protected for STT/TTS HTTP requests. Fake
+  providers are fixtures only. Discord voice is deferred until after Discord
+  exists.
 - v0.49 (planned): Vision And Image Generation. Consumes the v0.48 provider
   capability substrate for image/screenshot resources and provider-backed image
   generation.

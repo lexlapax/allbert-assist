@@ -304,7 +304,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
     assert_eval!("voice-remote-https-secret-only-001")
     assert_eval!("voice-anthropic-not-stt-tts-001")
 
-    assert {:ok, %{url: "http://localhost:5050/v1/models"}} =
+    assert {:ok, %{url: "http://127.0.0.1:5050/v1/models"}} =
              ProviderHTTP.endpoint(local_stt_profile(), "/models")
 
     assert {:error, {:voice_local_host_denied, "192.168.1.10"}} =
@@ -766,7 +766,7 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
       provider: "local_voice",
       provider_type: "openai_compatible",
       provider_endpoint_kind: "local_endpoint",
-      provider_base_url: "http://localhost:5050/v1",
+      provider_base_url: "http://127.0.0.1:5050/v1",
       model: "whisper-local",
       capabilities: ["speech_to_text"],
       media: %{

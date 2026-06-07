@@ -1280,6 +1280,11 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   defp voice_target_result(response) when is_map(response) do
     %{
       status: Map.get(response, :status, :unknown),
+      message: Map.get(response, :message),
+      error:
+        response
+        |> Map.get(:error)
+        |> Redactor.redact(),
       output_resource_uri:
         response
         |> Map.get(:output_resource_uri)
@@ -1295,6 +1300,11 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   defp voice_output_data("transcribe_voice", response) when is_map(response) do
     %{
       status: Map.get(response, :status, :unknown),
+      message: Map.get(response, :message),
+      error:
+        response
+        |> Map.get(:error)
+        |> Redactor.redact(),
       transcript: Map.get(response, :transcript),
       voice_metadata:
         response
@@ -1307,6 +1317,11 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   defp voice_output_data("synthesize_voice", response) when is_map(response) do
     %{
       status: Map.get(response, :status, :unknown),
+      message: Map.get(response, :message),
+      error:
+        response
+        |> Map.get(:error)
+        |> Redactor.redact(),
       audio_file: Map.get(response, :audio_file),
       output_resource_uri:
         response

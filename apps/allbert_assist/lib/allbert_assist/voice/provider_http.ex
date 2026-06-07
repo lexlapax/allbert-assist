@@ -9,6 +9,7 @@ defmodule AllbertAssist.Voice.ProviderHTTP do
   """
 
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.Voice.LocalRuntime.Auth
 
   @metadata_hosts ~w[metadata.google.internal metadata 169.254.169.254]
   @local_hostnames ~w[localhost localhost.localdomain]
@@ -238,8 +239,12 @@ defmodule AllbertAssist.Voice.ProviderHTTP do
 
   defp credential_headers(profile) do
     case endpoint_kind(profile) do
-      :local_endpoint -> {:ok, [{"accept", "application/json"}]}
-      :credentialed_remote -> credentialed_headers(profile)
+      :local_endpoint ->
+        {:ok,
+         [{"accept", "application/json"}] ++ Auth.header_for_base_url(local_base_url(profile))}
+
+      :credentialed_remote ->
+        credentialed_headers(profile)
     end
   end
 
@@ -290,6 +295,15 @@ defmodule AllbertAssist.Voice.ProviderHTTP do
       {"accept", "application/json"}
     ]
   end
+
+  defp local_base_url(profile) when is_map(profile) do
+    Map.get(profile, :provider_base_url) ||
+      Map.get(profile, "provider_base_url") ||
+      get_in(profile, [:media, "base_url"]) ||
+      get_in(profile, ["media", "base_url"])
+  end
+
+  defp local_base_url(_profile), do: nil
 
   defp build_url(%URI{} = uri, path) do
     path = join_paths(uri.path || "", path)

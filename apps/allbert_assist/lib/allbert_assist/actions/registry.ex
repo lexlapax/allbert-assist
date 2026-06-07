@@ -142,6 +142,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Tools.FindTools
   alias AllbertAssist.Actions.Trace.RecordTrace
   alias AllbertAssist.Actions.Voice.CaptureWorkspaceVoice
+  alias AllbertAssist.Actions.Voice.LocalRuntimeDoctor
+  alias AllbertAssist.Actions.Voice.StartLocalRuntime
   alias AllbertAssist.Actions.Voice.SynthesizeVoice
   alias AllbertAssist.Actions.Voice.TranscribeVoice
   alias AllbertAssist.Actions.Workspace.DismissEphemeral
@@ -247,6 +249,8 @@ defmodule AllbertAssist.Actions.Registry do
     CaptureWorkspaceVoice,
     TranscribeVoice,
     SynthesizeVoice,
+    LocalRuntimeDoctor,
+    StartLocalRuntime,
     RecordTrace,
     ExplainIntent,
     ListIntentCandidates,

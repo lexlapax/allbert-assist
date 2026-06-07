@@ -173,6 +173,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "capture_workspace_voice",
              "transcribe_voice",
              "synthesize_voice",
+             "voice_local_runtime_doctor",
+             "voice_local_runtime_start",
              "record_trace",
              "explain_intent",
              "list_intent_candidates",
@@ -322,6 +324,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "capture_workspace_voice",
              "transcribe_voice",
              "synthesize_voice",
+             "voice_local_runtime_doctor",
+             "voice_local_runtime_start",
              "record_trace",
              "explain_intent",
              "list_intent_candidates",
@@ -749,6 +753,18 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert synthesize_voice.exposure == :internal
     assert synthesize_voice.execution_mode == :voice_provider_call
     assert synthesize_voice.resumable? == true
+
+    assert {:ok, voice_local_runtime_doctor} =
+             Registry.capability("voice_local_runtime_doctor")
+
+    assert voice_local_runtime_doctor.permission == :read_only
+    assert voice_local_runtime_doctor.exposure == :internal
+    assert voice_local_runtime_doctor.execution_mode == :settings_read
+
+    assert {:ok, voice_local_runtime_start} = Registry.capability("voice_local_runtime_start")
+    assert voice_local_runtime_start.permission == :voice_local_runtime_manage
+    assert voice_local_runtime_start.exposure == :internal
+    assert voice_local_runtime_start.execution_mode == :voice_local_runtime
 
     assert {:error, {:unknown_action, "missing_action"}} = Registry.capability("missing_action")
   end

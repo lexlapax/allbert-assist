@@ -172,7 +172,7 @@ Implementation milestones should add focused tests for:
   materialized output, not arbitrary ffmpeg args or the original path when a
   conversion is required (M8R3).
 - OpenAI-compatible local STT/TTS adapter request/response fixture tests
-  (M8R3); the Allbert-owned local runtime endpoint is M8R7 release-blocking.
+  (M8R3) plus Allbert-owned local runtime router/auth/backend tests (M8R7).
 - OpenAI remote multipart transcription and speech response fixture tests
   (M8R4).
 - Gemini remote Interactions API audio transcription and generateContent AUDIO

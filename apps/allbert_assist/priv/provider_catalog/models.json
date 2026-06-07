@@ -23,7 +23,7 @@
     },
     "local_voice": {
       "type": "openai_compatible",
-      "base_url": "http://localhost:5050/v1",
+      "base_url": "http://127.0.0.1:5050/v1",
       "api_key_ref": null,
       "endpoint_kind": "local_endpoint",
       "enabled": true

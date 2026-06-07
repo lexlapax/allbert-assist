@@ -113,6 +113,7 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.microphone_capture",
     "permissions.voice_transcribe",
     "permissions.voice_synthesize",
+    "permissions.voice_local_runtime_manage",
     "permissions.tool_discovery",
     "permissions.mcp_server_connect",
     "permissions.mcp_tool_call",
@@ -144,6 +145,15 @@ defmodule AllbertAssist.Settings.Schema do
     "voice.audio.retention_enabled",
     "voice.audio.retention_root",
     "voice.trace.redact_audio",
+    "voice.local_runtime.enabled",
+    "voice.local_runtime.port",
+    "voice.local_runtime.ollama_base_url",
+    "voice.local_runtime.ollama_stt_model",
+    "voice.local_runtime.stt_model_alias",
+    "voice.local_runtime.tts_model_alias",
+    "voice.local_runtime.stt_backend",
+    "voice.local_runtime.tts_backend",
+    "voice.local_runtime.max_text_bytes",
     "marketplace.enabled",
     "marketplace.catalog.cache_path",
     "marketplace.install.target_dir_skills",
@@ -1239,6 +1249,66 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false
     },
+    "voice.local_runtime.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "voice.local_runtime.port" => %{
+      type: :bounded_integer,
+      default: 5050,
+      writable?: true,
+      sensitive?: false,
+      min: 1024,
+      max: 65_535
+    },
+    "voice.local_runtime.ollama_base_url" => %{
+      type: :loopback_http_base_url,
+      default: "http://127.0.0.1:11434/v1",
+      writable?: true,
+      sensitive?: false
+    },
+    "voice.local_runtime.ollama_stt_model" => %{
+      type: :string,
+      default: "gemma3n:e2b",
+      writable?: true,
+      sensitive?: false
+    },
+    "voice.local_runtime.stt_model_alias" => %{
+      type: :string,
+      default: "whisper-local",
+      writable?: true,
+      sensitive?: false
+    },
+    "voice.local_runtime.tts_model_alias" => %{
+      type: :string,
+      default: "tts-local",
+      writable?: true,
+      sensitive?: false
+    },
+    "voice.local_runtime.stt_backend" => %{
+      type: :enum,
+      default: "ollama",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["ollama"]
+    },
+    "voice.local_runtime.tts_backend" => %{
+      type: :enum,
+      default: "macos_say",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["macos_say"]
+    },
+    "voice.local_runtime.max_text_bytes" => %{
+      type: :bounded_integer,
+      default: 16_384,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 262_144
+    },
     "marketplace.schema_version" => %{
       type: :bounded_integer,
       default: 1,
@@ -1525,6 +1595,13 @@ defmodule AllbertAssist.Settings.Schema do
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
     "permissions.voice_synthesize" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.voice_local_runtime_manage" => %{
       type: :enum,
       default: "allowed",
       writable?: true,
@@ -2486,6 +2563,7 @@ defmodule AllbertAssist.Settings.Schema do
       "microphone_capture" => "needs_confirmation",
       "voice_transcribe" => "allowed",
       "voice_synthesize" => "allowed",
+      "voice_local_runtime_manage" => "allowed",
       "tool_discovery" => "allowed",
       "mcp_server_connect" => "needs_confirmation",
       "mcp_tool_call" => "needs_confirmation",
@@ -2541,6 +2619,17 @@ defmodule AllbertAssist.Settings.Schema do
       },
       "trace" => %{
         "redact_audio" => true
+      },
+      "local_runtime" => %{
+        "enabled" => false,
+        "port" => 5050,
+        "ollama_base_url" => "http://127.0.0.1:11434/v1",
+        "ollama_stt_model" => "gemma3n:e2b",
+        "stt_model_alias" => "whisper-local",
+        "tts_model_alias" => "tts-local",
+        "stt_backend" => "ollama",
+        "tts_backend" => "macos_say",
+        "max_text_bytes" => 16_384
       }
     },
     "marketplace" => %{
@@ -3310,6 +3399,37 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_value(%{type: :string}, value, _key, _settings),
     do: {:error, {:expected_string, value}}
+
+  defp validate_value(%{type: :loopback_http_base_url}, value, _key, _settings)
+       when is_binary(value) do
+    uri = value |> String.trim() |> URI.parse()
+
+    cond do
+      uri.scheme not in ["http", "https"] ->
+        {:error, {:expected_loopback_http_base_url, :invalid_scheme}}
+
+      not is_binary(uri.host) or uri.host == "" ->
+        {:error, {:expected_loopback_http_base_url, :missing_host}}
+
+      is_binary(uri.userinfo) and uri.userinfo != "" ->
+        {:error, {:expected_loopback_http_base_url, :credentials_denied}}
+
+      is_binary(uri.query) and uri.query != "" ->
+        {:error, {:expected_loopback_http_base_url, :query_denied}}
+
+      is_binary(uri.fragment) and uri.fragment != "" ->
+        {:error, {:expected_loopback_http_base_url, :fragment_denied}}
+
+      not loopback_setting_host?(uri.host) ->
+        {:error, {:expected_loopback_http_base_url, :non_loopback_host}}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_value(%{type: :loopback_http_base_url}, value, _key, _settings),
+    do: {:error, {:expected_loopback_http_base_url, value}}
 
   defp validate_value(%{type: :string_or_empty}, value, _key, _settings)
        when is_binary(value) do
@@ -4614,4 +4734,18 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp valid_extension_name?(_value), do: false
+
+  defp loopback_setting_host?(host)
+       when host in ["localhost", "localhost.localdomain", "127.0.0.1", "::1"],
+       do: true
+
+  defp loopback_setting_host?(host) when is_binary(host) do
+    case :inet.parse_address(String.to_charlist(host)) do
+      {:ok, {127, _b, _c, _d}} -> true
+      {:ok, {0, 0, 0, 0, 0, 0, 0, 1}} -> true
+      _result -> false
+    end
+  end
+
+  defp loopback_setting_host?(_host), do: false
 end
