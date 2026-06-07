@@ -356,8 +356,8 @@ adapters share the same channel substrate, identity mapping posture, durable
 event dedupe model, and Approval Handoff rendering contract. v0.17 moves
 Telegram and email into shipped source-tree channel plugins so later channels
 can arrive through the same extension path. The v1.0 arc now makes that path
-concrete after the capability-first arc: Discord and Slack land in v0.50;
-WhatsApp, Signal, and Matrix land in v0.51. SMS, iMessage, native packaged UI,
+concrete after the capability-first arc: Discord and Slack land in v0.51;
+WhatsApp, Signal, and Matrix land in v0.52. SMS, iMessage, native packaged UI,
 hosted channel fan-out, and
 other broad distribution paths remain parked until after the channel packs
 prove the substrate. Each channel should translate external input into signals
@@ -390,7 +390,7 @@ discovery or arbitrary node shapes. `AllbertAssist.App.Registry` provides app
 navigation and lookup. `AllbertAssist.Surface` defines validated component
 nodes. `AllbertAssist.App.SurfaceProvider` lets apps produce task surfaces as
 signals or registered action results. After the v0.41 insertion, only MCP server
-mode remains in the 1.0 arc as v0.51b; OpenAI-compatible API, ACP server mode,
+mode remains in the 1.0 arc as v0.52b; OpenAI-compatible API, ACP server mode,
 and public AG-UI/A2UI bridge remain parked post-1.0. MCP Apps iframe
 compatibility remains parked; Allbert's primary stance is still declarative,
 catalog-bound surfaces over arbitrary remote UI code.
@@ -668,19 +668,28 @@ historical aliases only and remain in old reference notes for continuity.
   generation. M1 proves ReqLLM provider/model support from the app-started
   runtime. M3 adds workspace image upload and vision-input plumbing but keeps
   content hashes as metadata only; the canonical content-addressed artifact
-  store is proposed for v0.49.1. Video input, generic audio understanding, and
+  store is proposed for v0.50. Video input, generic audio understanding, and
   catch-all multimodal routing remain future scope unless the v0.49 plan is
   amended before implementation.
-- v0.50: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
-  through the existing channel adapter and plugin contracts; v0.50 also amends
+- v0.50: Artifacts Central. A uniform content-addressable store for durable
+  artifacts — uploaded by the operator, created by Allbert, or found through
+  approved tools — type-agnostic and deduplicated by `artifact://sha256/<hex>`
+  content hash with provenance/type/retention metadata. Built on Allbert Home,
+  Resource Access, Security Central, and the Jido action framework as a thin CAS
+  over `:crypto` SHA-256 + sharded objects; adds `put`/`get`/`list`/`delete`
+  actions and the first Jido ingestion sensor, and backfills the v0.48 audio and
+  v0.49 image retained-media roots. Content-addressed identity never grants
+  permission.
+- v0.51: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
+  through the existing channel adapter and plugin contracts; v0.51 also amends
   ADR 0016 to lock the channel approval-primitive contract before mobile
   channels need it.
-- v0.51: Channel Pack 2 - WhatsApp, Signal, and Matrix. iMessage parked
+- v0.52: Channel Pack 2 - WhatsApp, Signal, and Matrix. iMessage parked
   (macOS-only platform constraint).
-- v0.51b: MCP Server Mode. Allbert exposes registered actions as MCP tools and
+- v0.52b: MCP Server Mode. Allbert exposes registered actions as MCP tools and
   memory namespaces as MCP resources. Single protocol surface. OpenAI-compatible
   API, ACP server mode, and public AG-UI/A2UI bridge are parked post-1.0.
-- v0.52: Hardening, Export/Import, Settings Migration, And Final RC. No new
+- v0.53: Hardening, Export/Import, Settings Migration, And Final RC. No new
   user-facing capability; portability, settings schema migration tool per ADR
   0046, security evals including self-improvement and MCP server, and
   release-candidate evidence.

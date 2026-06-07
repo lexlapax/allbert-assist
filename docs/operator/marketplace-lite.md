@@ -39,7 +39,7 @@ mix allbert.settings set permissions.marketplace_install denied
 
 `marketplace.schema_version` is read-only at `1`. It is the v0.45 preview of
 the ADR 0046 schema-version convention; the migration runner is deferred to
-v0.52.
+v0.53.
 
 `marketplace.catalog.cache_path`,
 `marketplace.install.target_dir_skills`, and

@@ -139,7 +139,7 @@ this ADR (`docs/plans/v0.49-plan.md`):
   credential-bearing URLs. The content hash is metadata for integrity,
   provenance, and redaction checks only in v0.49; canonical content-addressed
   artifact storage, lifecycle policy, deduplication, and cross-surface lookup are
-  proposed for the v0.49.1 artifact-management follow-on.
+  proposed for the v0.50 artifact-management follow-on.
 - v0.49 cost visibility is display-only pass-through `usage`/`cost` from
   `ReqLLM.Response`; cross-provider dashboards and budget enforcement stay
   parked.

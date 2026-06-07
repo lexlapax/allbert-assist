@@ -283,7 +283,7 @@ redirect-chain rules via the driver's request-interception API:
   for v0.43.
 - v0.47 self-improvement can mine v0.43 trace envelopes (redacted) as one
   pattern source; raw browser content remains out of bounds.
-- v0.50 channel approval-primitive amendment (ADR 0016) must accommodate
+- v0.51 channel approval-primitive amendment (ADR 0016) must accommodate
   browser confirmations: navigation approvals are expressible as
   `:typed_command` (CLI/email) or `:button` (LiveView/Telegram/Discord/Slack);
   screenshot review is expressible as `:link` to the cache path.

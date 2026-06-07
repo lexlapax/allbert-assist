@@ -85,9 +85,9 @@ facades until their milestones implement and document them.
 | v0.46 | Research delegate facade | Expected to live in a plugin-owned local process registered as `research.specialist`, reuse v0.43 browser actions through `Actions.Runner.run/3`, harden allowlisted delegate command strings at the existing `delegate_agent` boundary, and add no new permission, operation class, URI scheme, or registered action. |
 | v0.47 | Self-improvement suggestion facade | Expected to produce inert trace-derived suggestions, reviewed memory/workflow draft facades, and draft handoffs only; not authority, enablement, or live integration. |
 | v0.48-v0.49 | Media resource facades | v0.48 models audio STT/TTS resources plus registered provider-backed actions; v0.49 consumes the same pattern for image/screenshot resources. Shared profile media metadata is routing context only; video remains future scope unless a later plan accepts it. |
-| v0.50 | Team-channel facades | Expected to expose Discord and Slack channel adapters under the existing channel contract and v0.50 ADR 0016 amendment. |
-| v0.51 | Mobile channel facades | Expected to expose WhatsApp, Signal, and Matrix channel adapters under the existing channel contract. |
-| v0.51b | MCP server facade | Expected to expose Allbert registered actions and memory namespaces as MCP tools/resources under shared auth/redaction policy. |
+| v0.51 | Team-channel facades | Expected to expose Discord and Slack channel adapters under the existing channel contract and v0.51 ADR 0016 amendment. |
+| v0.52 | Mobile channel facades | Expected to expose WhatsApp, Signal, and Matrix channel adapters under the existing channel contract. |
+| v0.52b | MCP server facade | Expected to expose Allbert registered actions and memory namespaces as MCP tools/resources under shared auth/redaction policy. |
 
 ## Compatibility Shims And Exit Criteria
 
