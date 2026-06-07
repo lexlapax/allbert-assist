@@ -153,10 +153,10 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
 
   defp generate(profile, prompt, output_format, context, params) do
     with :ok <- ensure_req_llm!(),
-         {:ok, model_spec} <- ModelRuntime.model_spec(profile),
+         {:ok, model} <- ModelRuntime.model_string(profile),
          {:ok, response} <-
            ReqLLM.generate_image(
-             model_spec,
+             model,
              prompt,
              request_opts(profile, context, output_format, params)
            ),
@@ -183,6 +183,7 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
              filename: Path.basename(path),
              transient?: image_retention_enabled?(settings) != true
            ),
+         mime_type <- generated_mime_type(generated, metadata),
          metadata <-
            metadata
            |> Map.put(:generated_resource_uri, resource_uri)
@@ -190,7 +191,7 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
            |> Map.put(:provider_profile, resolution.profile_name)
            |> Map.put(:provider, Map.get(resolution.profile, :provider))
            |> Map.put(:model, Map.get(resolution.profile, :model))
-           |> Map.put(:mime_type, generated.mime_type || metadata.mime_type)
+           |> Map.put(:mime_type, mime_type)
            |> Map.put(:usage, Map.get(generated, :usage, %{source: :unavailable}))
            |> Map.put(:cost, Map.get(generated, :cost, %{source: :unavailable})),
          {:ok, _bounds} <-
@@ -396,12 +397,10 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
     image = safe_image(response)
     bytes = safe_image_data(response)
 
-    cond do
-      is_binary(bytes) and byte_size(bytes) > 0 ->
-        {:ok, bytes, image_media_type(image, output_format)}
-
-      true ->
-        {:error, :image_generation_no_binary_output}
+    if is_binary(bytes) and byte_size(bytes) > 0 do
+      {:ok, bytes, image_media_type(image, output_format)}
+    else
+      {:error, :image_generation_no_binary_output}
     end
   end
 
@@ -532,8 +531,14 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
   defp normalize_keyword(_value), do: []
 
   defp maybe_put_keyword(opts, _key, []), do: opts
-  defp maybe_put_keyword(opts, _key, nil), do: opts
   defp maybe_put_keyword(opts, key, value), do: Keyword.put(opts, key, value)
+
+  defp generated_mime_type(generated, metadata) do
+    case Map.get(generated, :mime_type) do
+      mime_type when is_binary(mime_type) and mime_type != "" -> mime_type
+      _value -> metadata.mime_type
+    end
+  end
 
   defp ensure_req_llm! do
     if Code.ensure_loaded?(ReqLLM) and Code.ensure_loaded?(ReqLLM.Response) do

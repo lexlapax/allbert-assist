@@ -1,17 +1,16 @@
 # Provider Capabilities Developer Notes
 
-Status: implemented through v0.48 M8R real-provider remediation; release
-validation is pending before tag. M1-M8 landed the shared provider-capability
-substrate and fixture voice surface. M8R adds executable local endpoint,
-OpenAI remote, and Gemini remote STT/TTS paths while keeping fake providers as
-automated-test fixtures only. v0.49 M1 adds bounded vision/image catalog
-profiles, image media metadata validation, Settings Central defaults, and the
-app-started ReqLLM model/provider proof. v0.49 M2 adds image/screen resource
-identity, image permission/operation classes, image media redaction, and shared
-image bounds. v0.49 M3 adds workspace image upload plus vision-input dispatch
-through the existing ReqLLM text path. Content hashes are metadata only at
-v0.49; the canonical content-addressed artifact store is proposed for v0.50.
-Image generation lands in a later v0.49 milestone.
+Status: implemented through v0.49. v0.48 landed the shared provider-capability
+substrate plus executable local endpoint, OpenAI remote, and Gemini remote
+STT/TTS paths while keeping fake providers as automated-test fixtures only.
+v0.49 adds bounded vision/image catalog profiles, image media metadata
+validation, Settings Central defaults, the app-started ReqLLM model/provider
+proof, image/screen resource identity, image permission/operation classes,
+image media redaction, shared image bounds, workspace image upload,
+vision-input dispatch through the existing ReqLLM text path, and the
+`generate_image` action through `ReqLLM.generate_image/3`. Content hashes are
+metadata only at v0.49; the canonical content-addressed artifact store is
+proposed for v0.50.
 
 v0.48 generalizes the v0.39 provider/model substrate. A provider is a
 connection profile. A model profile declares what that connection can do and,
@@ -126,6 +125,9 @@ v0.49 vision/image work uses the same model-profile and doctor contract:
   provider discovery initializes at application startup.
 - Fake vision/image profiles are release-test fixtures, not operator defaults
   or live-provider release authority.
+- Operator setup and manual validation live in
+  `docs/operator/vision-and-image-generation.md`; implementation seams live in
+  `docs/developer/vision-and-image-generation.md`.
 - Image media metadata is descriptive bounds, not permission. Supported keys
   include `image_formats_supported`, `max_image_bytes`, and
   `max_image_pixels`:

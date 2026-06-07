@@ -280,10 +280,11 @@ Dependency order from here:
     live smokes remain the release handoff before tag. Fake providers are
     fixture-only. Discord voice is
     deferred to a focused follow-on after Channel Pack 1.
-49. v0.49 Vision and image generation: consumes the v0.48 provider capability
-    substrate for image/screenshot resource classes, vision model profile
-    checks, image-generation actions, workspace rendering, retention,
-    redaction, and display-only cost metadata.
+49. v0.49 Vision and image generation - implemented as 0.49.0: consumes the
+    v0.48 provider capability substrate for image/screenshot resource classes,
+    vision model profile checks, image-generation actions, workspace rendering,
+    retention, redaction, display-only cost metadata, 7 `:v049`
+    vision-modality eval rows, and `release.v049`.
 50. v0.50 Artifacts Central: a uniform content-addressable store for artifacts
     uploaded by the operator, created by Allbert, or found through approved
     tools, deduplicated by content hash with provenance/type/retention metadata,
@@ -2909,23 +2910,23 @@ ADRs: `docs/adr/0051-provider-capability-preferences.md`,
 `docs/adr/0042-audio-image-and-media-resource-classes.md`,
 `docs/adr/0047-provider-doctor-contract.md`
 
-Status: planned. Current authority is the v0.49 plan/request-flow plus the
-v0.48 provider capability substrate; the older archive source is historical
-context only.
+Status: implemented as `0.49.0`. Current authority is the v0.49
+plan/request-flow plus the v0.48 provider capability substrate; the older
+archive source is historical context only.
 
-Expected direction:
+Shipped direction:
 
 - Consume the v0.48 provider capability and preference substrate instead of
   adding image-specific provider routing.
-- Add image and screenshot resources for paste/upload/capture workflows.
+- Add image and screenshot resources for operator-supplied paste/upload and
+  browser-screenshot workflows.
 - Add vision-capable provider/model checks to the provider doctor path.
 - Add image generation as a registered action with provider profile,
   display-only cost metadata, workspace rendering, retention, and redaction.
 - Prove ReqLLM provider/model support from the app-started runtime in M1;
   no-start probes and stale sample model IDs are not release evidence.
 - Treat `video_input` as shared vocabulary/future metadata only; v0.49 does not
-  implement video ingestion, generic audio understanding, or video generation
-  unless amended before code lands.
+  implement video ingestion, generic audio understanding, or video generation.
 
 ## v0.50: Artifacts Central
 

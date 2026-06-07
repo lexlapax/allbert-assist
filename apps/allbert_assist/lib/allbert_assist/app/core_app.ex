@@ -19,10 +19,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.48.0 completes the
-  # voice modality and provider-capability surface.
+  # the app (release-pinned, not semantic-per-app). v0.49.0 completes the
+  # vision and image-generation modality surface.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.48.0"
+  def version, do: "0.49.0"
 
   @impl true
   def validate(_opts), do: :ok

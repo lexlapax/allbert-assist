@@ -2046,7 +2046,6 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp metadata_map(nil), do: %{}
   defp metadata_map(metadata) when is_map(metadata), do: metadata
-  defp metadata_map(_metadata), do: %{}
 
   defp maybe_put_image_inputs(metadata, []), do: metadata
 

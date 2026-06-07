@@ -128,43 +128,53 @@ defmodule AllbertAssist.Resources.ImageMetadata do
         {:error, :invalid_jpeg_header}
 
       MapSet.member?(@jpeg_sof_markers, marker) ->
-        <<length::16, tail::binary>> = rest
-        segment_size = length - 2
-
-        if segment_size >= 5 and byte_size(tail) >= segment_size do
-          <<segment::binary-size(segment_size), _next::binary>> = tail
-
-          case segment do
-            <<_precision, height::16, width::16, _rest::binary>> when width > 0 and height > 0 ->
-              {:ok, "jpeg", width, height}
-
-            _other ->
-              {:error, :invalid_jpeg_header}
-          end
-        else
-          {:error, :invalid_jpeg_header}
-        end
+        jpeg_sof_dimensions(rest)
 
       true ->
-        <<length::16, tail::binary>> = rest
-        skip = length - 2
-
-        cond do
-          skip < 0 ->
-            {:error, :invalid_jpeg_header}
-
-          byte_size(tail) >= skip ->
-            <<_segment::binary-size(skip), next::binary>> = tail
-            jpeg_dimensions(next)
-
-          true ->
-            {:error, :invalid_jpeg_header}
-        end
+        jpeg_skip_segment(rest)
     end
   end
 
   defp jpeg_dimensions(<<_byte, rest::binary>>), do: jpeg_dimensions(rest)
   defp jpeg_dimensions(_bytes), do: {:error, :invalid_jpeg_header}
+
+  defp jpeg_sof_dimensions(<<length::16, tail::binary>>) do
+    segment_size = length - 2
+
+    with true <- segment_size >= 5,
+         true <- byte_size(tail) >= segment_size,
+         <<segment::binary-size(segment_size), _next::binary>> <- tail do
+      jpeg_segment_dimensions(segment)
+    else
+      _other -> {:error, :invalid_jpeg_header}
+    end
+  end
+
+  defp jpeg_sof_dimensions(_rest), do: {:error, :invalid_jpeg_header}
+
+  defp jpeg_segment_dimensions(<<_precision, height::16, width::16, _rest::binary>>)
+       when width > 0 and height > 0,
+       do: {:ok, "jpeg", width, height}
+
+  defp jpeg_segment_dimensions(_segment), do: {:error, :invalid_jpeg_header}
+
+  defp jpeg_skip_segment(<<length::16, tail::binary>>) do
+    skip = length - 2
+
+    cond do
+      skip < 0 ->
+        {:error, :invalid_jpeg_header}
+
+      byte_size(tail) >= skip ->
+        <<_segment::binary-size(skip), next::binary>> = tail
+        jpeg_dimensions(next)
+
+      true ->
+        {:error, :invalid_jpeg_header}
+    end
+  end
+
+  defp jpeg_skip_segment(_rest), do: {:error, :invalid_jpeg_header}
 
   defp max_read_bytes(opts) do
     case option(opts, :max_bytes, @default_max_read_bytes) do
@@ -195,8 +205,6 @@ defmodule AllbertAssist.Resources.ImageMetadata do
       value -> value
     end
   end
-
-  defp normalize_extension(_extension), do: "unknown"
 
   defp option(opts, key, default) when is_map(opts) do
     Map.get(opts, key, Map.get(opts, Atom.to_string(key), default))

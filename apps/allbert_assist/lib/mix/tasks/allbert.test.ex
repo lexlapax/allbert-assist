@@ -21,6 +21,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v047
       mix allbert.test release.v047b
       mix allbert.test release.v048
+      mix allbert.test release.v049
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -82,6 +83,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v047"]), do: release_v047()
   def run(["release.v047b"]), do: release_v047b()
   def run(["release.v048"]), do: release_v048()
+  def run(["release.v049"]), do: release_v049()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -1074,6 +1076,109 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   ]
 
+  @release_v049_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "vision_image_policy_core",
+      title: "image resources, provider profiles, bounds, permissions, and redaction",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/settings/provider_catalog_test.exs",
+        "test/allbert_assist/settings/model_preferences_test.exs",
+        "test/allbert_assist/settings_test.exs",
+        "test/allbert_assist/resources/resource_uri_test.exs",
+        "test/allbert_assist/resources/operation_class_test.exs",
+        "test/allbert_assist/resources/image_metadata_test.exs",
+        "test/allbert_assist/resources/image_bounds_test.exs",
+        "test/allbert_assist/security/permission_gate_test.exs",
+        "test/allbert_assist/runtime/redactor_test.exs"
+      ],
+      coverage: [
+        "vision_input and image_generation provider profile metadata",
+        "image:// and screen:// resource identity",
+        "vision/image settings defaults and safe write keys",
+        "server-side image metadata parsing and bounds",
+        "image permission floors and metadata-only redaction"
+      ]
+    },
+    %{
+      id: "vision_input_flow",
+      title: "vision input through direct_answer and fake multimodal provider",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/actions/intent/direct_answer_test.exs",
+        "test/allbert_assist/runtime/trace_test.exs"
+      ],
+      coverage: [
+        "vision_input capability resolution through the text call path",
+        "image metadata attachment and transient cleanup",
+        "vision-disabled fallback",
+        "trace redaction for image input metadata"
+      ]
+    },
+    %{
+      id: "image_generation_action",
+      title: "registered image generation action and confirmation resume",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/actions/generate_image_test.exs",
+        "test/allbert_assist/actions/registry_test.exs"
+      ],
+      coverage: [
+        "fake image provider fixture path",
+        "remote image generation confirmation floor",
+        "approved remote confirmation resume",
+        "single retryable provider fallback",
+        "internal resumable action registry metadata"
+      ]
+    },
+    %{
+      id: "workspace_image_input",
+      title: "workspace image upload controls and vision handoff",
+      cwd: :web,
+      executable: "mix",
+      args: ["test", "test/allbert_assist_web/live/workspace_live_test.exs"],
+      coverage: [
+        "workspace image upload disabled when vision is off",
+        "approved LiveView image upload writes bounded image metadata",
+        "composer image controls remain media resources, not generated UI code"
+      ]
+    },
+    %{
+      id: "vision_security_eval",
+      title: "v0.49 vision and image-generation security eval inventory and release evals",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v049_vision_modality_eval_test.exs",
+        "test/security/security_eval_case_test.exs",
+        "test/mix/tasks/allbert_test_task_test.exs"
+      ],
+      coverage: [
+        "7 v0.49 vision modality eval rows",
+        "release.v049 task usage registration",
+        "vision input bounds and trace redaction",
+        "image_generation remote confirmation posture",
+        "generated image cost/usage metadata display-only",
+        "screen resource identity is inert and operator-supplied only"
+      ]
+    }
+  ]
+
   defp release_v042 do
     env = owned_env("release-v042", 0)
     home = env_value(env, "ALLBERT_HOME")
@@ -1424,6 +1529,51 @@ defmodule Mix.Tasks.Allbert.Test do
     end
   end
 
+  defp release_v049 do
+    env = owned_env("release-v049", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v049")
+    File.mkdir_p!(evidence_dir)
+    cleanup_release_v049_evidence!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v049_steps, &run_release_v049_step(&1, env))
+    secret_scan = release_v049_secret_scan(home)
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v049",
+      version: "v0.49",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; tests use fake vision/image providers, Req.Test provider fixtures, and local image files",
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path =
+      Path.join(evidence_dir, "release-v049-#{DateTime.to_unix(started_at)}.json")
+
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v049 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v049 failed; evidence: #{evidence_path}")
+    end
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -1450,6 +1600,41 @@ defmodule Mix.Tasks.Allbert.Test do
     |> Path.join("release-v048-*.json")
     |> Path.wildcard()
     |> Enum.each(&File.rm!/1)
+  end
+
+  defp cleanup_release_v049_evidence!(evidence_dir) do
+    evidence_dir
+    |> Path.join("release-v049-*.json")
+    |> Path.wildcard()
+    |> Enum.each(&File.rm!/1)
+  end
+
+  defp run_release_v049_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args,
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v049 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
   end
 
   defp run_release_v048_step(step, env) do
@@ -1980,6 +2165,52 @@ defmodule Mix.Tasks.Allbert.Test do
     }
 
     print_output("release.v048 secret_scan", Jason.encode!(result, pretty: true))
+    result
+  end
+
+  defp release_v049_secret_scan(home) do
+    Enum.each(
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces"),
+        Path.join(home, "confirmations"),
+        Path.join(home, "traces"),
+        Path.join(home, "tmp/image-inputs"),
+        Path.join(home, "tmp/generated-images"),
+        Path.join(home, "images"),
+        Path.join(home, "generated_images")
+      ],
+      &File.mkdir_p!/1
+    )
+
+    roots =
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces"),
+        Path.join(home, "confirmations"),
+        Path.join(home, "traces"),
+        Path.join(home, "tmp/image-inputs"),
+        Path.join(home, "tmp/generated-images"),
+        Path.join(home, "images"),
+        Path.join(home, "generated_images")
+      ]
+      |> Enum.filter(&File.exists?/1)
+
+    files =
+      roots
+      |> Enum.flat_map(&Path.wildcard(Path.join(&1, "**/*")))
+      |> Enum.filter(&File.regular?/1)
+
+    findings = release_v042_secret_findings(files, home)
+
+    result = %{
+      status: if(findings == [], do: "passed", else: "failed"),
+      scanned_roots: Enum.map(roots, &Path.relative_to(&1, home)),
+      scanned_file_count: length(files),
+      findings: findings
+    }
+
+    print_output("release.v049 secret_scan", Jason.encode!(result, pretty: true))
     result
   end
 
@@ -2713,6 +2944,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v047
       mix allbert.test release.v047b
       mix allbert.test release.v048
+      mix allbert.test release.v049
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

@@ -101,10 +101,10 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert output =~ "before release handoff: mix allbert.test release"
   end
 
-  test "usage lists the v0.48 release lane" do
+  test "usage lists the v0.49 release lane" do
     error = assert_raise Mix.Error, fn -> AllbertTestTask.run(["unknown"]) end
 
-    assert error.message =~ "mix allbert.test release.v048"
+    assert error.message =~ "mix allbert.test release.v049"
   end
 
   test "phase runner short-circuits after a failing phase", %{evidence_root: root} do

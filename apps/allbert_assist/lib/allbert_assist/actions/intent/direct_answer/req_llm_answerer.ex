@@ -9,6 +9,8 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
   @max_prompt_bytes 4_000
   @max_active_memory_prompt_bytes 8_000
   alias AllbertAssist.Settings.ModelRuntime
+  alias ReqLLM.{Context, Response}
+  alias ReqLLM.Message.ContentPart
 
   @spec answer(String.t(), map()) :: {:ok, map()} | {:error, term()}
   def answer(
@@ -43,7 +45,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
          {:ok, prompt_input} <- prompt_input(text, context),
          {:ok, response} <-
            ReqLLM.generate_text(model_spec, prompt_input, request_opts(profile)),
-         text when is_binary(text) <- ReqLLM.Response.text(response),
+         text when is_binary(text) <- Response.text(response),
          text <- String.trim(text),
          false <- text == "" do
       {:ok,
@@ -82,9 +84,9 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
        when is_list(image_inputs) and image_inputs != [] do
     with {:ok, image_parts} <- image_parts(image_inputs) do
       {:ok,
-       ReqLLM.Context.new([
-         ReqLLM.Context.user(
-           [ReqLLM.Message.ContentPart.text(prompt(text, context)) | image_parts],
+       Context.new([
+         Context.user(
+           [ContentPart.text(prompt(text, context)) | image_parts],
            %{allbert_media: Enum.map(image_inputs, &image_metadata/1)}
          )
        ])}
@@ -129,7 +131,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
     with path when is_binary(path) <- field(image_input, :path),
          {:ok, bytes} <- File.read(path) do
       {:ok,
-       ReqLLM.Message.ContentPart.image(
+       ContentPart.image(
          bytes,
          field(image_input, :mime_type) || "image/png",
          image_metadata(image_input)

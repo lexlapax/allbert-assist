@@ -172,32 +172,37 @@ defmodule AllbertAssist.Runtime.Redactor do
   def redact_image_resource_uri(value) when is_binary(value) do
     value = String.trim(value)
 
-    cond do
-      value == "" ->
-        @image_uri_redaction
-
-      String.starts_with?(value, "image://") or String.starts_with?(value, "screen://") ->
-        case ResourceURI.normalize(value) do
-          {:ok, "image://capture/" <> _rest = resource_uri} -> resource_uri
-          {:ok, "screen://capture/" <> _rest = resource_uri} -> resource_uri
-          _error -> @image_uri_redaction
-        end
-
-      String.starts_with?(value, "file://") ->
-        "file://#{@image_path_redaction}"
-
-      uri_scheme?(value) ->
-        @image_uri_redaction
-
-      path_like?(value) ->
-        @image_path_redaction
-
-      true ->
-        @image_uri_redaction
-    end
+    redact_image_resource_uri_value(value)
   end
 
   def redact_image_resource_uri(_value), do: @image_uri_redaction
+
+  defp redact_image_resource_uri_value(""), do: @image_uri_redaction
+
+  defp redact_image_resource_uri_value("image://" <> _rest = value),
+    do: normalize_image_resource_uri(value)
+
+  defp redact_image_resource_uri_value("screen://" <> _rest = value),
+    do: normalize_image_resource_uri(value)
+
+  defp redact_image_resource_uri_value("file://" <> _rest),
+    do: "file://#{@image_path_redaction}"
+
+  defp redact_image_resource_uri_value(value) do
+    cond do
+      uri_scheme?(value) -> @image_uri_redaction
+      path_like?(value) -> @image_path_redaction
+      true -> @image_uri_redaction
+    end
+  end
+
+  defp normalize_image_resource_uri(value) do
+    case ResourceURI.normalize(value) do
+      {:ok, "image://capture/" <> _rest = resource_uri} -> resource_uri
+      {:ok, "screen://capture/" <> _rest = resource_uri} -> resource_uri
+      _error -> @image_uri_redaction
+    end
+  end
 
   @doc "Return true if a key name should cause value redaction."
   @spec sensitive_key?(term()) :: boolean()
