@@ -30,6 +30,7 @@ defmodule AllbertAssist.Security.Policy do
     microphone_capture: "permissions.microphone_capture",
     voice_transcribe: "permissions.voice_transcribe",
     voice_synthesize: "permissions.voice_synthesize",
+    voice_local_runtime_manage: "permissions.voice_local_runtime_manage",
     tool_discovery: "permissions.tool_discovery",
     mcp_server_connect: "permissions.mcp_server_connect",
     mcp_tool_call: "permissions.mcp_tool_call",
@@ -72,6 +73,7 @@ defmodule AllbertAssist.Security.Policy do
     microphone_capture: :needs_confirmation,
     voice_transcribe: :allowed,
     voice_synthesize: :allowed,
+    voice_local_runtime_manage: :allowed,
     tool_discovery: :allowed,
     mcp_server_connect: :needs_confirmation,
     mcp_tool_call: :needs_confirmation,
@@ -131,6 +133,7 @@ defmodule AllbertAssist.Security.Policy do
           | :microphone_capture
           | :voice_transcribe
           | :voice_synthesize
+          | :voice_local_runtime_manage
           | :notes_file_write
           | :tool_discovery
           | :mcp_server_connect
@@ -178,6 +181,7 @@ defmodule AllbertAssist.Security.Policy do
       :microphone_capture,
       :voice_transcribe,
       :voice_synthesize,
+      :voice_local_runtime_manage,
       :tool_discovery,
       :mcp_server_connect,
       :mcp_tool_call,
@@ -607,7 +611,7 @@ defmodule AllbertAssist.Security.Policy do
     do: "Microphone capture is denied by current policy."
 
   defp reason(:voice_transcribe, :allowed, _configured, _floor, _context),
-    do: "Voice transcription is allowed for fake or bundled-local providers."
+    do: "Voice transcription is allowed for an already local/in-process provider boundary."
 
   defp reason(:voice_transcribe, :needs_confirmation, _configured, _floor, _context),
     do:
@@ -617,7 +621,7 @@ defmodule AllbertAssist.Security.Policy do
     do: "Voice transcription is denied by current policy."
 
   defp reason(:voice_synthesize, :allowed, _configured, _floor, _context),
-    do: "Voice synthesis is allowed for fake or bundled-local providers."
+    do: "Voice synthesis is allowed for an already local/in-process provider boundary."
 
   defp reason(:voice_synthesize, :needs_confirmation, _configured, _floor, _context),
     do:
@@ -625,6 +629,15 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:voice_synthesize, :denied, _configured, _floor, _context),
     do: "Voice synthesis is denied by current policy."
+
+  defp reason(:voice_local_runtime_manage, :allowed, _configured, _floor, _context),
+    do: "The Allbert local voice runtime may bind to the loopback interface."
+
+  defp reason(:voice_local_runtime_manage, :needs_confirmation, _configured, _floor, _context),
+    do: "Starting or managing the Allbert local voice runtime requires confirmation."
+
+  defp reason(:voice_local_runtime_manage, :denied, _configured, _floor, _context),
+    do: "The Allbert local voice runtime is denied by current policy."
 
   defp reason(:tool_discovery, :allowed, _configured, _floor, _context),
     do: "Tool discovery search is allowed through registered discovery actions."

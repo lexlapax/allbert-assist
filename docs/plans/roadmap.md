@@ -269,8 +269,7 @@ Dependency order from here:
     v0.36/v0.37/v0.38 sandbox/gate/templated-creation path; seven `:v047b`
     eval rows and `release.v047b`; no new trust tier.
 48. v0.48 Voice modality and provider capabilities - implemented through
-    M8R real-provider remediation, with M8R7 local voice runtime remediation
-    release-blocking before tag.
+    M8R real-provider remediation and M8R7 local voice runtime remediation.
     The release includes capability-aware provider/model profiles, ranked
     operator preferences, fixture STT/TTS for tests only, CLI file
     transcription, workspace microphone capture, TTS, Telegram voice-note
@@ -2856,8 +2855,8 @@ ADRs: `docs/adr/0051-provider-capability-preferences.md`,
 `docs/adr/0047-provider-doctor-contract.md`,
 `docs/adr/0052-local-voice-runtime-endpoint.md`
 
-Status: implemented through M8R real-provider remediation, with M8R7 local
-voice runtime remediation release-blocking before tag. M1-M8 landed provider
+Status: implemented through M8R real-provider remediation and M8R7 local
+voice runtime remediation. M1-M8 landed provider
 capability metadata, ranked preferences, capability-aware voice doctors, the
 audio resource/security substrate, CLI fixture transcription, workspace
 microphone capture, fixture TTS, Telegram voice-note ingestion, ten first-pass
@@ -2865,8 +2864,9 @@ microphone capture, fixture TTS, Telegram voice-note ingestion, ten first-pass
 evidence. M8R then added real local OpenAI-compatible adapter calls, OpenAI
 remote STT/TTS, Gemini remote STT/TTS, Ollama-backed local text-loop
 validation, six more `:v048` eval rows, expanded `release.v048`, and the
-manual `.env` live-smoke script. M8R7 must add the Allbert-owned local voice
-runtime endpoint so the local path is not an operator-supplied mystery server.
+manual `.env` live-smoke script. M8R7 adds the Allbert-owned, Settings
+Central-configured, Security Central-managed local voice runtime endpoint so
+the local path is not an operator-supplied mystery server.
 Current authority is the v0.48 plan/request-flow plus ADR 0011, ADR 0051,
 ADR 0042 audio amendments, ADR 0047, and ADR 0052; the older archive source is
 historical context only.

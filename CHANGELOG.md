@@ -12,9 +12,9 @@ changelog entries or release notes.
 
 ## v0.48.0 - Voice Modality And Provider Capabilities
 
-Status: implemented through M8R real-provider remediation, with M8R7 local
-voice runtime remediation release-blocking before the release tag. Current
-version metadata is `0.48.0`; the tag has not been cut.
+Status: implemented through M8R real-provider remediation and M8R7 local
+voice runtime remediation. Current version metadata is `0.48.0`; the tag has
+not been cut.
 
 ### Added
 
@@ -36,10 +36,12 @@ version metadata is `0.48.0`; the tag has not been cut.
   capture.
 - `synthesize_voice` with display-only provider/usage/cost metadata and real
   local OpenAI-compatible, OpenAI remote, and Gemini remote TTS execution.
-- Executable local OpenAI-compatible, OpenAI remote, and Gemini remote voice
-  adapters for STT/TTS. M8R7 must add the Allbert-owned local voice runtime
-  endpoint behind the local adapter; remote voice providers are HTTPS-only and
-  require Settings Central secrets.
+- Executable Allbert-owned local voice runtime, OpenAI remote, and Gemini
+  remote voice adapters for STT/TTS. The local runtime is a loopback
+  OpenAI-compatible endpoint at `http://127.0.0.1:5050/v1`, configured through
+  `voice.local_runtime.*`, managed through `permissions.voice_local_runtime_manage`,
+  protected by a per-Allbert-Home local runtime token for STT/TTS requests, and
+  started/doctored by `mix allbert.voice.local doctor|start`.
 - Telegram voice-note ingestion through bounded Bot API `getFile`/download
   handling followed by the shared `transcribe_voice` action.
 - Sixteen v0.48 security eval rows. The original voice-modality rows are:
@@ -72,11 +74,10 @@ version metadata is `0.48.0`; the tag has not been cut.
 - Voice STT/TTS now route through the explicit `ProviderAdapter` behaviour.
   Local-endpoint, OpenAI remote, and Gemini remote paths are executable;
   bundled-local remains fail-closed/deferred, and fake is fixture-only.
-- v0.48 release scope is corrected: fake providers are fixture-only, while
-  OpenAI remote STT/TTS, Gemini remote STT/TTS, and the local Ollama text turn
-  are executable and covered by deterministic release fixtures. M8R7 remains
-  required to make the local STT/TTS endpoint an Allbert-owned product runtime
-  instead of an operator-supplied server.
+- v0.48 release scope is corrected: fake providers are fixture-only, while the
+  Allbert-owned local voice runtime, OpenAI remote STT/TTS, Gemini remote
+  STT/TTS, and the local Ollama text turn are executable and covered by
+  deterministic release fixtures.
 - Anthropic/Claude remains a text-generation provider in the middle of the
   voice loop; it is not a native v0.48 STT/TTS provider.
 - Fake TTS/STT usage and cost metadata now reports `%{source: :unavailable}`
@@ -87,27 +88,25 @@ version metadata is `0.48.0`; the tag has not been cut.
   cost dashboards, budget enforcement, and Discord voice remain future scope.
 - ADR 0051, ADR 0042, ADR 0047, ADR 0052, roadmap, vision, future-features,
   agent context map, security-hardening notes, README, operator guide, and
-  developer guide now reflect the shipped v0.48 scope, the M8R7 local-runtime
-  requirement, and the v0.49 vision handoff.
+  developer guide now reflect the shipped v0.48 scope, the implemented M8R7
+  local runtime, and the v0.49 vision handoff.
 
 ### Verification
 
 - `MIX_ENV=test mix compile --warnings-as-errors` passed.
-- `MIX_ENV=test mix dialyzer` passed with `Total errors: 0`.
 - Focused v0.48 remediation suite passed with 68 tests and 0 failures:
   provider catalog/preferences, provider adapters, transcode, STT/TTS actions,
   CLI voice, v0.48 security evals, coverage guard, and Telegram voice handling.
+- Focused M8R7 local runtime suite passed with 97 tests and 0 failures:
+  local runtime router/auth/backend tests, lifecycle actions, registry,
+  Settings Central, Security Central, voice doctor, and v0.48 eval coverage.
+- Existing STT/TTS action diagnostics passed with 10 tests and 0 failures.
 - `mix allbert.test release.v048` passed with provider capability core
-  (`49 tests, 0 failures`), voice action/CLI/channel (`48 tests, 0 failures`),
+  (`64 tests, 0 failures`, including local runtime router/auth/backend and
+  lifecycle-action tests), voice action/CLI/channel (`52 tests, 0 failures`),
   workspace voice (`64 tests, 0 failures`), voice security eval
   (`20 tests, 0 failures`), and a clean v0.48 voice secret scan. Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v048/p0-13250/home/release_evidence/v048/release-v048-1780783935.json`.
-- Full `mix allbert.test release` passed with static compile, unused-deps,
-  format, Credo, core (`1465 tests, 0 failures, 4 skipped`), web
-  (`122 tests, 0 failures`), StockSage (`197 tests, 0 failures`), channel
-  plugin (`12 tests, 0 failures`), and Dialyzer (`Total errors: 0`) phases
-  clean. Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13250/home/release_evidence/gates/release-2026-06-06T22_33_12Z.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v048/p0-13250/home/release_evidence/v048/release-v048-1780812755.json`.
 
 ## v0.47.1 - Operator-Supervised Self-Improvement Handoff Drafts
 

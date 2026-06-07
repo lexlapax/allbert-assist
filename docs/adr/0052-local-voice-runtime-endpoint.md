@@ -32,13 +32,14 @@ Current provider research shapes the endpoint:
 
 ## Decision
 
-v0.48 will ship an Allbert-owned local voice runtime endpoint.
+v0.48 ships an Allbert-owned local voice runtime endpoint.
 
 The endpoint is a product surface, not a test fixture:
 
 - default base URL: `http://127.0.0.1:5050/v1`;
 - loopback-only bind address;
-- no credentials and no LAN exposure;
+- no provider credentials and no LAN exposure;
+- a per-Allbert-Home local runtime token for STT/TTS HTTP requests;
 - OpenAI-compatible request shapes for:
   - `GET /v1/models`;
   - `GET /v1/doctor`;
@@ -46,6 +47,8 @@ The endpoint is a product surface, not a test fixture:
   - `POST /v1/audio/speech`;
 - bounded multipart input and bounded audio output;
 - redacted diagnostics only;
+- configured through Settings Central (`voice.local_runtime.*`);
+- managed through Security Central (`permissions.voice_local_runtime_manage`);
 - started and doctored by Allbert CLI commands.
 
 The runtime owns a small adapter layer behind the endpoint:
@@ -68,8 +71,8 @@ the Allbert runtime release gate.
 
 ## Consequences
 
-- v0.48 is not release-ready until M8R7 implements and tests the local runtime
-  endpoint.
+- M8R7 implements and tests the local runtime endpoint; release readiness now
+  depends on manual local-runtime smoke validation before the tag.
 - The local voice manual smoke must start the Allbert runtime and must not ask
   the operator to invent a server for port `5050`.
 - The runtime depends on real local backends. A machine without a usable local

@@ -157,6 +157,50 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
     assert approved.confirmation["operator_resolution"]["target_status"] == "completed"
   end
 
+  test "approved remote TTS confirmation returns redacted target error output data" do
+    enable_voice!()
+    use_openai_tts!()
+
+    assert {:ok, _secret} =
+             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
+               audit?: false
+             })
+
+    assert {:ok, pending} =
+             Runner.run(
+               "synthesize_voice",
+               %{text: "confirmation provider failure"},
+               context()
+             )
+
+    assert pending.status == :needs_confirmation
+    assert pending.confirmation_id
+
+    Req.Test.expect(__MODULE__, fn %{request_path: "/v1/audio/speech"} = conn ->
+      assert Plug.Conn.get_req_header(conn, "authorization") == ["Bearer sk-test-openai"]
+
+      conn
+      |> Plug.Conn.put_resp_content_type("application/json")
+      |> Plug.Conn.send_resp(429, Jason.encode!(%{"error" => %{"message" => "rate limited"}}))
+    end)
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending.confirmation_id, reason: "fixture TTS denial"},
+               Map.put(context(), :req_options, plug: {Req.Test, __MODULE__})
+             )
+
+    assert approved.status == :completed
+    assert approved.output_data.status == :error
+    assert approved.output_data.error == {:voice_http_error, 429}
+    assert approved.output_data.message =~ "Voice synthesis failed"
+    assert approved.confirmation["operator_resolution"]["target_status"] == "error"
+
+    assert approved.confirmation["operator_resolution"]["target_result"]["error"] ==
+             {:voice_http_error, 429}
+  end
+
   test "voice synthesis is default-off until operator enables it" do
     assert {:ok, response} = SynthesizeVoice.run(%{text: "hello"}, context())
 

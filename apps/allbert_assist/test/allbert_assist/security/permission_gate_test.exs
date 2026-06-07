@@ -30,6 +30,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :microphone_capture,
              :voice_transcribe,
              :voice_synthesize,
+             :voice_local_runtime_manage,
              :tool_discovery,
              :mcp_server_connect,
              :mcp_tool_call,
@@ -177,6 +178,13 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     assert unknown_transcribe.decision == :needs_confirmation
     assert unknown_transcribe.policy.safety_floor == :needs_confirmation
     refute PermissionGate.allowed?(unknown_transcribe)
+
+    local_runtime = PermissionGate.authorize(:voice_local_runtime_manage, %{})
+
+    assert local_runtime.decision == :allowed
+    assert local_runtime.policy.safety_floor == :allowed
+    assert local_runtime.risk.tier == :medium
+    assert PermissionGate.allowed?(local_runtime)
   end
 
   test "allows discovery search but requires confirmation for discovered MCP server connect" do

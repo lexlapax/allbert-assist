@@ -36,6 +36,7 @@ defmodule AllbertAssist.Security.Risk do
   def tier(:microphone_capture), do: :high
   def tier(:voice_transcribe), do: :high
   def tier(:voice_synthesize), do: :medium
+  def tier(:voice_local_runtime_manage), do: :medium
   def tier(:tool_discovery), do: :medium
   def tier(:mcp_server_connect), do: :high
   def tier(:mcp_tool_call), do: :high
@@ -93,6 +94,9 @@ defmodule AllbertAssist.Security.Risk do
 
   defp reasons(:voice_synthesize, _tier, _context),
     do: ["text-to-audio synthesis provider boundary"]
+
+  defp reasons(:voice_local_runtime_manage, _tier, _context),
+    do: ["loopback local voice runtime lifecycle boundary"]
 
   defp reasons(:tool_discovery, _tier, _context),
     do: ["read-only MCP registry discovery egress"]

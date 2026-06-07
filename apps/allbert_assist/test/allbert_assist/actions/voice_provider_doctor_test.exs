@@ -112,11 +112,11 @@ defmodule AllbertAssist.Actions.VoiceProviderDoctorTest do
     assert response.provider == "local_voice"
     assert response.doctor.endpoint_ok == true
     assert response.doctor.model_available == true
-    assert response.doctor.redacted_host == "localhost"
+    assert response.doctor.redacted_host == "127.0.0.1"
     assert response.doctor.provider_deployment_mode == :local_endpoint
     assert response.doctor.transcode_available == true
     assert response.doctor.diagnostics == []
-    refute inspect(response) =~ "localhost:5050/v1"
+    refute inspect(response) =~ "127.0.0.1:5050/v1"
   end
 
   test "voice doctor reports non-native Anthropic STT/TTS as a stable diagnostic" do

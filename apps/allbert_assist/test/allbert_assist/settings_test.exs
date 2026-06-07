@@ -202,14 +202,30 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, false} = Settings.get("voice.audio.retention_enabled")
     assert {:ok, "<ALLBERT_HOME>/audio"} = Settings.get("voice.audio.retention_root")
     assert {:ok, true} = Settings.get("voice.trace.redact_audio")
+    assert {:ok, false} = Settings.get("voice.local_runtime.enabled")
+    assert {:ok, 5050} = Settings.get("voice.local_runtime.port")
+
+    assert {:ok, "http://127.0.0.1:11434/v1"} =
+             Settings.get("voice.local_runtime.ollama_base_url")
+
+    assert {:ok, "gemma3n:e2b"} = Settings.get("voice.local_runtime.ollama_stt_model")
+    assert {:ok, "whisper-local"} = Settings.get("voice.local_runtime.stt_model_alias")
+    assert {:ok, "tts-local"} = Settings.get("voice.local_runtime.tts_model_alias")
+    assert {:ok, "ollama"} = Settings.get("voice.local_runtime.stt_backend")
+    assert {:ok, "macos_say"} = Settings.get("voice.local_runtime.tts_backend")
+    assert {:ok, 16_384} = Settings.get("voice.local_runtime.max_text_bytes")
 
     assert {:ok, "needs_confirmation"} = Settings.get("permissions.microphone_capture")
     assert {:ok, "allowed"} = Settings.get("permissions.voice_transcribe")
     assert {:ok, "allowed"} = Settings.get("permissions.voice_synthesize")
+    assert {:ok, "allowed"} = Settings.get("permissions.voice_local_runtime_manage")
 
     assert Settings.safe_write_key?("voice.audio.max_bytes")
     assert Settings.safe_write_key?("voice.trace.redact_audio")
+    assert Settings.safe_write_key?("voice.local_runtime.enabled")
+    assert Settings.safe_write_key?("voice.local_runtime.ollama_base_url")
     assert Settings.safe_write_key?("permissions.voice_transcribe")
+    assert Settings.safe_write_key?("permissions.voice_local_runtime_manage")
 
     assert {:ok, resolved} = Settings.put("voice.audio.max_bytes", 2048, %{audit?: false})
     assert resolved.value == 2048
@@ -224,6 +240,24 @@ defmodule AllbertAssist.SettingsTest do
 
     assert {:error, {:invalid_setting, "permissions.microphone_capture", _reason}} =
              Settings.put("permissions.microphone_capture", "allowed", %{audit?: false})
+
+    assert {:error, {:invalid_setting, "voice.local_runtime.ollama_base_url", _reason}} =
+             Settings.put(
+               "voice.local_runtime.ollama_base_url",
+               "http://192.168.1.10:11434/v1",
+               %{
+                 audit?: false
+               }
+             )
+
+    assert {:error, {:invalid_setting, "voice.local_runtime.ollama_base_url", _reason}} =
+             Settings.put(
+               "voice.local_runtime.ollama_base_url",
+               "http://user:pass@127.0.0.1:11434/v1",
+               %{
+                 audit?: false
+               }
+             )
   end
 
   test "objective runtime settings resolve defaults and validate writes" do

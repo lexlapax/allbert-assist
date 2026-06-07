@@ -2,9 +2,13 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
   use ExUnit.Case, async: false
   @moduletag :external_runtime_serial
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Actions.Voice.TranscribeVoice
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Secrets
+
+  setup {Req.Test, :verify_on_exit!}
 
   @env_vars [
     "ALLBERT_HOME",
@@ -69,6 +73,52 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
     refute inspect(response) =~ "/fixtures/v0.48/audio"
   end
 
+  test "approved remote STT confirmation returns redacted target error output data" do
+    enable_voice!()
+    use_openai_stt!()
+
+    assert {:ok, _secret} =
+             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
+               audit?: false
+             })
+
+    assert {:ok, pending} =
+             Runner.run(
+               "transcribe_voice",
+               %{audio_file: fixture_path("hello.wav")},
+               context()
+             )
+
+    assert pending.status == :needs_confirmation
+    assert pending.confirmation_id
+
+    Req.Test.expect(__MODULE__, fn %{request_path: "/v1/audio/transcriptions"} = conn ->
+      assert Plug.Conn.get_req_header(conn, "authorization") == ["Bearer sk-test-openai"]
+
+      conn
+      |> Plug.Conn.put_resp_content_type("application/json")
+      |> Plug.Conn.send_resp(400, Jason.encode!(%{"error" => %{"message" => "bad audio"}}))
+    end)
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending.confirmation_id, reason: "fixture STT denial"},
+               context()
+               |> Map.put(:req_options, plug: {Req.Test, __MODULE__})
+               |> Map.put(:transcode_runner, :copy)
+             )
+
+    assert approved.status == :completed
+    assert approved.output_data.status == :error
+    assert approved.output_data.error == {:voice_http_error, 400}
+    assert approved.output_data.message =~ "Voice transcription failed"
+    assert approved.confirmation["operator_resolution"]["target_status"] == "error"
+
+    assert approved.confirmation["operator_resolution"]["target_result"]["error"] ==
+             {:voice_http_error, 400}
+  end
+
   test "voice transcription is default-off until operator enables it" do
     assert {:ok, response} =
              TranscribeVoice.run(%{audio_file: fixture_path("hello.wav")}, context())
@@ -114,6 +164,19 @@ defmodule AllbertAssist.Actions.TranscribeVoiceTest do
              Settings.put("model_preferences.capabilities.speech_to_text", ["voice_stt_fake"], %{
                audit?: false
              })
+  end
+
+  defp use_openai_stt! do
+    assert {:ok, _provider} = Settings.put("providers.openai.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "model_preferences.capabilities.speech_to_text",
+               ["voice_stt_openai"],
+               %{
+                 audit?: false
+               }
+             )
   end
 
   defp context do

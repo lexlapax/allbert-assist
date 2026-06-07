@@ -1,11 +1,11 @@
 # Voice And Provider Preferences
 
-Status: implementation reopened before v0.48 release. Provider capabilities,
-ranked preferences, voice doctor dispatch, the audio resource/security
-substrate, CLI voice file transcription, workspace microphone capture, TTS,
-Telegram voice-note ingestion, v0.48 evals, M8R real-provider adapters, and
-first-pass `release.v048` evidence landed, but release validation now requires
-M8R7: an Allbert-owned local voice runtime endpoint.
+Status: implemented for v0.48 release handoff. Provider capabilities, ranked
+preferences, voice doctor dispatch, the audio resource/security substrate, CLI
+voice file transcription, workspace microphone capture, TTS, Telegram
+voice-note ingestion, v0.48 evals, M8R real-provider adapters, and the M8R7
+Allbert-owned local voice runtime endpoint are implemented. Manual live
+provider validation remains required before the release tag.
 
 v0.48 makes voice use the same provider framework as text models. The operator
 chooses a primary provider/model profile for most work and can override that
@@ -197,9 +197,9 @@ mix run --no-start scripts/v048_voice_live_smoke.exs "$V048_AUDIO"
 
 Allbert local voice runtime:
 
-M8R7 release-blocking target: v0.48 must provide this endpoint as an Allbert
-product runtime. It is not Allbert itself, not Ollama's `11434` text endpoint,
-and not an operator-supplied validation server. The default product base URL is
+M8R7 implementation: v0.48 provides this endpoint as an Allbert product
+runtime. It is not the Phoenix app, not Ollama's `11434` text endpoint, and not
+an operator-supplied validation server. The default product base URL is
 `http://127.0.0.1:5050/v1`; advanced operators may override
 `providers.local_voice.base_url` to another OpenAI-compatible loopback server,
 but the release path uses the Allbert runtime.
@@ -221,20 +221,45 @@ the Allbert runtime listens on `5050`. Ollama by itself is not the complete
 local voice endpoint because current Ollama docs/source do not provide
 OpenAI-compatible TTS at `/v1/audio/speech`.
 
+Configuration and service lifecycle are owned by Allbert:
+
+- Settings Central keys: `voice.local_runtime.enabled`,
+  `voice.local_runtime.port`, `voice.local_runtime.ollama_base_url`,
+  `voice.local_runtime.ollama_stt_model`,
+  `voice.local_runtime.stt_model_alias`,
+  `voice.local_runtime.tts_model_alias`,
+  `voice.local_runtime.stt_backend`, `voice.local_runtime.tts_backend`, and
+  `voice.local_runtime.max_text_bytes`.
+- Security Central lifecycle permission:
+  `permissions.voice_local_runtime_manage`.
+- STT/TTS HTTP requests require the per-Allbert-Home local runtime token. The
+  Allbert local adapter attaches it automatically; manual `curl` diagnostics
+  can read it with `mix allbert.voice.local token`.
+
 ```sh
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v048-local.XXXXXX)"
 mix ecto.create --quiet
 mix ecto.migrate --quiet
+
+mix allbert.settings set voice.local_runtime.enabled true
+mix allbert.settings set voice.local_runtime.port 5050
+mix allbert.settings set voice.local_runtime.ollama_base_url http://127.0.0.1:11434/v1
+# Use the default `gemma3n:e2b` only if `ollama list` confirms that model is
+# installed and audio-capable for your Ollama build.
+mix allbert.settings set voice.local_runtime.ollama_stt_model gemma3n:e2b
 
 export ALLBERT_V048_LIVE_SMOKE=1
 export ALLBERT_V048_PROVIDER=local
 export LOCAL_VOICE_BASE_URL=http://127.0.0.1:5050/v1
 
 # Start the Allbert local voice runtime in a second terminal with the same
-# ALLBERT_HOME and local backend env once M8R7 lands:
+# ALLBERT_HOME:
 #   mix allbert.voice.local doctor
-#   mix allbert.voice.local start --port 5050
-curl -sS -i --max-time 5 "$LOCAL_VOICE_BASE_URL/models"
+#   mix allbert.voice.local start
+export ALLBERT_LOCAL_VOICE_TOKEN="$(mix allbert.voice.local token)"
+curl -sS -i --max-time 5 \
+  -H "x-allbert-local-runtime-token: $ALLBERT_LOCAL_VOICE_TOKEN" \
+  "$LOCAL_VOICE_BASE_URL/models"
 mix run --no-start scripts/v048_voice_live_smoke.exs "$V048_AUDIO"
 ```
 

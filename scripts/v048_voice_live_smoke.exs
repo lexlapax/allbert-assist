@@ -72,9 +72,10 @@ defmodule Allbert.V048VoiceLiveSmoke do
 
     put!(
       "providers.local_voice.base_url",
-      System.get_env("LOCAL_VOICE_BASE_URL") || "http://localhost:5050/v1"
+      System.get_env("LOCAL_VOICE_BASE_URL") || "http://127.0.0.1:5050/v1"
     )
 
+    put!("voice.local_runtime.enabled", true)
     select_voice_profiles!("voice_stt_local", "voice_tts_local")
   end
 
@@ -110,8 +111,18 @@ defmodule Allbert.V048VoiceLiveSmoke do
       end)
 
     Mix.shell().info(
-      "Doctor #{profile}: endpoint_ok=#{response.doctor.endpoint_ok} model_available=#{inspect(response.doctor.model_available)}"
+      "Doctor #{profile}: endpoint_ok=#{response.doctor.endpoint_ok} model_available=#{inspect(response.doctor.model_available)} local_runtime_present=#{inspect(field(response.doctor, :local_runtime_present))}"
     )
+
+    unless response.doctor.endpoint_ok == true and response.doctor.model_available == true do
+      Mix.raise("""
+      Doctor #{profile} is not live-smoke ready.
+
+      Expected endpoint_ok=true and model_available=true before invoking STT/TTS.
+      Doctor response:
+      #{inspect(response.doctor, pretty: true)}
+      """)
+    end
 
     response
   end
@@ -132,13 +143,14 @@ defmodule Allbert.V048VoiceLiveSmoke do
         fn response -> response.status == :completed end
       )
 
-    transcript = output_field(approved_stt, :transcript)
+    output_data = output_data(approved_stt)
+    transcript = field(output_data, :transcript)
 
     if is_binary(transcript) and String.trim(transcript) != "" do
       transcript
     else
       Mix.raise(
-        "STT approval completed but did not return a transcript in transient output_data."
+        "STT approval completed but did not return a transcript in transient output_data: #{inspect(output_data, pretty: true)}"
       )
     end
   end
@@ -175,11 +187,14 @@ defmodule Allbert.V048VoiceLiveSmoke do
         fn response -> response.status == :completed end
       )
 
-    audio_out = output_field(approved_tts, :audio_file)
-    resource_uri = output_field(approved_tts, :output_resource_uri)
+    output_data = output_data(approved_tts)
+    audio_out = field(output_data, :audio_file)
+    resource_uri = field(output_data, :output_resource_uri)
 
     unless is_binary(audio_out) and String.trim(audio_out) != "" do
-      Mix.raise("TTS approval completed but did not return audio_file in transient output_data.")
+      Mix.raise(
+        "TTS approval completed but did not return audio_file in transient output_data: #{inspect(output_data, pretty: true)}"
+      )
     end
 
     Mix.shell().info("Speech resource: #{resource_uri || "none"}")
@@ -197,11 +212,7 @@ defmodule Allbert.V048VoiceLiveSmoke do
     end
   end
 
-  defp output_field(response, key) do
-    response
-    |> field(:output_data)
-    |> field(key)
-  end
+  defp output_data(response), do: field(response, :output_data) || %{}
 
   defp field(map, key) when is_map(map) and is_atom(key) do
     Map.get(map, key) || Map.get(map, Atom.to_string(key))
