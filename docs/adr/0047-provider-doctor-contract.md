@@ -5,6 +5,9 @@
 Accepted at v0.39 First-Run Onboarding And Provider Control M1 closeout.
 The v0.48 voice-doctor additive fields were implemented in M3 with focused
 doctor/action/CLI/registry coverage.
+The v0.49 vision/image additive fields were accepted in M1 with catalog,
+settings, and app-started ReqLLM model-profile evidence; the executable doctor
+probe lands with the later vision/image milestones.
 M8R amends the v0.48 voice-doctor obligation before release: doctors must
 distinguish fixture-only fake profiles from executable local/OpenAI/Gemini
 voice providers, must report local Ollama as a text-turn provider rather than

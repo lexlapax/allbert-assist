@@ -4,9 +4,10 @@ Status: implemented through v0.48 M8R real-provider remediation; release
 validation is pending before tag. M1-M8 landed the shared provider-capability
 substrate and fixture voice surface. M8R adds executable local endpoint,
 OpenAI remote, and Gemini remote STT/TTS paths while keeping fake providers as
-automated-test fixtures only. v0.49 consumes the same substrate for bounded
-vision input and image generation, with the M1 model/provider proof still
-required before implementation.
+automated-test fixtures only. v0.49 M1 adds bounded vision/image catalog
+profiles, image media metadata validation, Settings Central defaults, and the
+app-started ReqLLM model/provider proof; executable vision/image actions land
+in later v0.49 milestones.
 
 v0.48 generalizes the v0.39 provider/model substrate. A provider is a
 connection profile. A model profile declares what that connection can do and,

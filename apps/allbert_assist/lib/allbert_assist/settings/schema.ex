@@ -154,6 +154,18 @@ defmodule AllbertAssist.Settings.Schema do
     "voice.local_runtime.stt_backend",
     "voice.local_runtime.tts_backend",
     "voice.local_runtime.max_text_bytes",
+    "vision.enabled",
+    "vision.media.max_bytes",
+    "vision.media.max_pixels",
+    "vision.media.retention_enabled",
+    "vision.media.retention_root",
+    "vision.trace.redact_images",
+    "image.enabled",
+    "image.generation.max_bytes",
+    "image.generation.max_pixels",
+    "image.generation.retention_enabled",
+    "image.generation.retention_root",
+    "image.trace.redact_images",
     "marketplace.enabled",
     "marketplace.catalog.cache_path",
     "marketplace.install.target_dir_skills",
@@ -1309,6 +1321,102 @@ defmodule AllbertAssist.Settings.Schema do
       min: 1,
       max: 262_144
     },
+    "vision.schema_version" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: false,
+      sensitive?: false,
+      min: 1,
+      max: 1
+    },
+    "vision.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "vision.media.max_bytes" => %{
+      type: :bounded_integer,
+      default: 20_971_520,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 104_857_600
+    },
+    "vision.media.max_pixels" => %{
+      type: :bounded_integer,
+      default: 33_177_600,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 536_870_912
+    },
+    "vision.media.retention_enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "vision.media.retention_root" => %{
+      type: :string,
+      default: "<ALLBERT_HOME>/images",
+      writable?: true,
+      sensitive?: false
+    },
+    "vision.trace.redact_images" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "image.schema_version" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: false,
+      sensitive?: false,
+      min: 1,
+      max: 1
+    },
+    "image.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "image.generation.max_bytes" => %{
+      type: :bounded_integer,
+      default: 20_971_520,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 104_857_600
+    },
+    "image.generation.max_pixels" => %{
+      type: :bounded_integer,
+      default: 33_177_600,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 536_870_912
+    },
+    "image.generation.retention_enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "image.generation.retention_root" => %{
+      type: :string,
+      default: "<ALLBERT_HOME>/generated_images",
+      writable?: true,
+      sensitive?: false
+    },
+    "image.trace.redact_images" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
     "marketplace.schema_version" => %{
       type: :bounded_integer,
       default: 1,
@@ -2342,6 +2450,7 @@ defmodule AllbertAssist.Settings.Schema do
         "openrouter",
         "google",
         "fake_voice",
+        "fake_media",
         "local"
       ]
     },
@@ -2427,7 +2536,9 @@ defmodule AllbertAssist.Settings.Schema do
       "capabilities" => %{
         "text_generation" => ["local", "fast"],
         "speech_to_text" => ["voice_stt_local", "voice_stt_openai", "voice_stt_gemini"],
-        "text_to_speech" => ["voice_tts_local", "voice_tts_openai", "voice_tts_gemini"]
+        "text_to_speech" => ["voice_tts_local", "voice_tts_openai", "voice_tts_gemini"],
+        "vision_input" => ["vision_openai", "vision_gemini"],
+        "image_generation" => ["image_openai", "image_gemini"]
       }
     },
     "providers" => %{
@@ -2630,6 +2741,32 @@ defmodule AllbertAssist.Settings.Schema do
         "stt_backend" => "ollama",
         "tts_backend" => "macos_say",
         "max_text_bytes" => 16_384
+      }
+    },
+    "vision" => %{
+      "schema_version" => 1,
+      "enabled" => false,
+      "media" => %{
+        "max_bytes" => 20_971_520,
+        "max_pixels" => 33_177_600,
+        "retention_enabled" => false,
+        "retention_root" => "<ALLBERT_HOME>/images"
+      },
+      "trace" => %{
+        "redact_images" => true
+      }
+    },
+    "image" => %{
+      "schema_version" => 1,
+      "enabled" => false,
+      "generation" => %{
+        "max_bytes" => 20_971_520,
+        "max_pixels" => 33_177_600,
+        "retention_enabled" => false,
+        "retention_root" => "<ALLBERT_HOME>/generated_images"
+      },
+      "trace" => %{
+        "redact_images" => true
       }
     },
     "marketplace" => %{

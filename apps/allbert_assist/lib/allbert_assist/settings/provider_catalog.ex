@@ -44,6 +44,9 @@ defmodule AllbertAssist.Settings.ProviderCatalog do
     audio_sample_rates_supported
     max_audio_bytes
     max_audio_duration_ms
+    image_formats_supported
+    max_image_bytes
+    max_image_pixels
   ]
 
   @doc "Return the shipped provider catalog."
@@ -255,6 +258,26 @@ defmodule AllbertAssist.Settings.ProviderCatalog do
     end
   end
 
+  defp validate_media_field("image_formats_supported", value) when is_list(value) do
+    if value != [] and Enum.all?(value, &valid_image_format?/1) do
+      :ok
+    else
+      {:error, {:invalid_image_formats_supported, value}}
+    end
+  end
+
+  defp validate_media_field("image_formats_supported", value),
+    do: {:error, {:expected_string_list, value}}
+
+  defp validate_media_field(field, value)
+       when field in ["max_image_bytes", "max_image_pixels"] do
+    if is_integer(value) and value > 0 and value <= 536_870_912 do
+      :ok
+    else
+      {:error, {:invalid_positive_integer, field, value}}
+    end
+  end
+
   defp validate_known_string_list(field, value, allowed) when is_list(value) do
     if value != [] and Enum.all?(value, &(&1 in allowed)) do
       :ok
@@ -271,6 +294,12 @@ defmodule AllbertAssist.Settings.ProviderCatalog do
   end
 
   defp valid_audio_format?(_value), do: false
+
+  defp valid_image_format?(value) when is_binary(value) do
+    Regex.match?(~r/^[a-z0-9][a-z0-9+._-]{0,63}$/, value)
+  end
+
+  defp valid_image_format?(_value), do: false
 
   defp valid_audio_sample_rate?(value) when is_integer(value),
     do: value > 0 and value <= 384_000

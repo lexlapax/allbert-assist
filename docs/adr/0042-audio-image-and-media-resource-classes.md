@@ -4,9 +4,9 @@
 
 - Accepted for the v0.48 audio slice in M4
   (`docs/plans/v0.48-plan.md`).
-- Proposed before implementation for v0.49 Vision And Image Generation
-  (`docs/plans/v0.49-plan.md`); accepted only at v0.49 M1 closeout after the
-  catalog/settings, ReqLLM probe, and fixture-path evidence lands.
+- Accepted for the v0.49 image/screenshot amendment in M1
+  (`docs/plans/v0.49-plan.md`) after catalog/settings, app-started ReqLLM
+  probe, and fixture-profile evidence.
 - The v0.48 audio amendments below are the implementation-readiness contract
   for voice. The image, screenshot, and generated-media portions remain scoped
   to v0.49 unless v0.48 explicitly narrows them.

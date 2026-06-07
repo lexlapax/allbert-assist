@@ -260,6 +260,48 @@ defmodule AllbertAssist.SettingsTest do
              )
   end
 
+  test "vision and image settings resolve defaults and validate safe writes" do
+    assert {:ok, 1} = Settings.get("vision.schema_version")
+    assert {:ok, false} = Settings.get("vision.enabled")
+    assert {:ok, 20_971_520} = Settings.get("vision.media.max_bytes")
+    assert {:ok, 33_177_600} = Settings.get("vision.media.max_pixels")
+    assert {:ok, false} = Settings.get("vision.media.retention_enabled")
+    assert {:ok, "<ALLBERT_HOME>/images"} = Settings.get("vision.media.retention_root")
+    assert {:ok, true} = Settings.get("vision.trace.redact_images")
+
+    assert {:ok, 1} = Settings.get("image.schema_version")
+    assert {:ok, false} = Settings.get("image.enabled")
+    assert {:ok, 20_971_520} = Settings.get("image.generation.max_bytes")
+    assert {:ok, 33_177_600} = Settings.get("image.generation.max_pixels")
+    assert {:ok, false} = Settings.get("image.generation.retention_enabled")
+
+    assert {:ok, "<ALLBERT_HOME>/generated_images"} =
+             Settings.get("image.generation.retention_root")
+
+    assert {:ok, true} = Settings.get("image.trace.redact_images")
+
+    assert Settings.safe_write_key?("vision.enabled")
+    assert Settings.safe_write_key?("vision.media.max_bytes")
+    assert Settings.safe_write_key?("vision.media.max_pixels")
+    assert Settings.safe_write_key?("vision.trace.redact_images")
+    assert Settings.safe_write_key?("image.enabled")
+    assert Settings.safe_write_key?("image.generation.max_bytes")
+    assert Settings.safe_write_key?("image.generation.max_pixels")
+    assert Settings.safe_write_key?("image.trace.redact_images")
+
+    assert {:ok, resolved} = Settings.put("vision.enabled", true, %{audit?: false})
+    assert resolved.value == true
+
+    assert {:ok, resolved} = Settings.put("image.generation.max_bytes", 2048, %{audit?: false})
+    assert resolved.value == 2048
+
+    assert {:error, {:invalid_setting, "vision.media.max_pixels", _reason}} =
+             Settings.put("vision.media.max_pixels", 0, %{audit?: false})
+
+    assert {:error, {:read_only_setting, "image.schema_version"}} =
+             Settings.put("image.schema_version", 2, %{audit?: false})
+  end
+
   test "objective runtime settings resolve defaults and validate writes" do
     assert {:ok, true} = Settings.get("objectives.enabled")
     assert {:ok, 3} = Settings.get("objectives.max_steps_per_turn")
@@ -1579,6 +1621,19 @@ defmodule AllbertAssist.SettingsTest do
     assert voice_stt.capabilities == ["speech_to_text"]
     assert voice_stt.media["input_modalities"] == ["audio"]
     assert voice_stt.media["output_modalities"] == ["text"]
+
+    assert {:ok, vision} = Settings.resolve_model_profile("vision_openai")
+    assert vision.provider == "openai"
+    assert vision.model == "gpt-5.2"
+    assert vision.provider_type == "openai"
+    assert vision.capabilities == ["text_generation", "vision_input"]
+    assert vision.media["input_modalities"] == ["text", "image"]
+
+    assert {:ok, image} = Settings.resolve_model_profile("image_openai")
+    assert image.provider == "openai"
+    assert image.model == "gpt-image-1.5"
+    assert image.capabilities == ["image_generation"]
+    assert image.media["output_modalities"] == ["image"]
 
     assert "providers.*.endpoint_kind" in Settings.safe_write_keys()
     assert "model_profiles.*.capabilities" in Settings.safe_write_keys()
