@@ -20,13 +20,9 @@ defmodule AllbertAssist.Voice.LocalRuntime.Server do
     case Bandit.start_link(
            plug: {Router, config},
            ip: :loopback,
-           port: config.port,
-           name: __MODULE__
+           port: config.port
          ) do
       {:ok, pid} ->
-        {:ok, %{pid: pid, config: config, token_path: Auth.token_path()}}
-
-      {:error, {:already_started, pid}} ->
         {:ok, %{pid: pid, config: config, token_path: Auth.token_path()}}
 
       {:error, reason} ->

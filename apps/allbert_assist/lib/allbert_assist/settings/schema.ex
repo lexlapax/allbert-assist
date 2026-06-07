@@ -1271,7 +1271,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "voice.local_runtime.ollama_stt_model" => %{
       type: :string,
-      default: "gemma3n:e2b",
+      default: "gemma4:e2b",
       writable?: true,
       sensitive?: false
     },
@@ -2624,7 +2624,7 @@ defmodule AllbertAssist.Settings.Schema do
         "enabled" => false,
         "port" => 5050,
         "ollama_base_url" => "http://127.0.0.1:11434/v1",
-        "ollama_stt_model" => "gemma3n:e2b",
+        "ollama_stt_model" => "gemma4:e2b",
         "stt_model_alias" => "whisper-local",
         "tts_model_alias" => "tts-local",
         "stt_backend" => "ollama",

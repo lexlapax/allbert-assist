@@ -14,7 +14,7 @@ defmodule AllbertAssist.Voice.LocalRuntime.Config do
   @default_ollama_base_url "http://127.0.0.1:11434/v1"
   @default_stt_alias "whisper-local"
   @default_tts_alias "tts-local"
-  @default_ollama_stt_model "gemma3n:e2b"
+  @default_ollama_stt_model "gemma4:e2b"
   @default_timeout_ms 30_000
   @default_max_audio_bytes 10_485_760
   @default_max_text_bytes 16_384

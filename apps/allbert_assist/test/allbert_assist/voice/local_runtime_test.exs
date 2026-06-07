@@ -11,6 +11,7 @@ defmodule AllbertAssist.Voice.LocalRuntimeTest do
   alias AllbertAssist.Voice.LocalRuntime.Backends.OllamaSTT
   alias AllbertAssist.Voice.LocalRuntime.Config
   alias AllbertAssist.Voice.LocalRuntime.Router
+  alias AllbertAssist.Voice.LocalRuntime.Server
   alias AllbertAssist.Voice.ProviderHTTP
 
   setup {Req.Test, :verify_on_exit!}
@@ -109,13 +110,36 @@ defmodule AllbertAssist.Voice.LocalRuntimeTest do
     assert {Auth.header_name(), token} in endpoint.headers
   end
 
+  test "local runtime server starts a Bandit loopback endpoint" do
+    port = free_loopback_port()
+
+    assert {:ok, %{pid: pid, config: %{base_url: base_url}}} =
+             Server.start(router_opts(port: port))
+
+    on_exit(fn ->
+      if Process.alive?(pid), do: Process.exit(pid, :normal)
+    end)
+
+    assert base_url == "http://127.0.0.1:#{port}/v1"
+
+    assert {:ok, %{status: 200, body: %{"data" => data}}} =
+             Req.get("#{base_url}/models", retry: false)
+
+    assert Enum.map(data, & &1["id"]) == ["whisper-local", "tts-local"]
+  end
+
   test "Ollama STT backend doctors and transcribes through OpenAI-compatible local routes" do
     Req.Test.stub(__MODULE__, fn
       %{request_path: "/v1/models"} = conn ->
-        Req.Test.json(conn, %{"data" => [%{"id" => "gemma3n:e2b"}]})
+        Req.Test.json(conn, %{"data" => [%{"id" => "gemma4:e2b"}]})
 
       %{request_path: "/v1/audio/transcriptions"} = conn ->
-        Req.Test.json(conn, %{"text" => "local transcript", "duration" => 1.2})
+        conn
+        |> Plug.Conn.put_resp_content_type("application/x-ndjson")
+        |> Plug.Conn.send_resp(
+          200,
+          Jason.encode!(%{"text" => "local transcript", "duration" => 1.2})
+        )
     end)
 
     config = Config.build(enabled?: true, req_options: [plug: {Req.Test, __MODULE__}])
@@ -164,4 +188,11 @@ defmodule AllbertAssist.Voice.LocalRuntimeTest do
   defp call_router(conn, opts), do: Router.call(conn, Router.init(opts))
 
   defp json_body(conn), do: Jason.decode!(conn.resp_body)
+
+  defp free_loopback_port do
+    {:ok, socket} = :gen_tcp.listen(0, [:binary, active: false, ip: {127, 0, 0, 1}])
+    {:ok, {{127, 0, 0, 1}, port}} = :inet.sockname(socket)
+    :ok = :gen_tcp.close(socket)
+    port
+  end
 end
