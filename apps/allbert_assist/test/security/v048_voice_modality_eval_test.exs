@@ -394,17 +394,32 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
         |> Plug.Conn.put_resp_content_type("audio/wav")
         |> Plug.Conn.send_resp(200, wav_bytes())
 
-      %{request_path: "/v1beta/interactions"} = conn ->
+      %{request_path: "/v1beta/models/gemini-3.5-flash:generateContent"} = conn ->
         assert Plug.Conn.get_req_header(conn, "x-goog-api-key") == ["AIza-test-gemini"]
-        assert Plug.Conn.get_req_header(conn, "api-revision") == ["2026-05-20"]
+        assert Plug.Conn.get_req_header(conn, "api-revision") == []
         {:ok, body, conn} = Plug.Conn.read_body(conn)
         decoded = Jason.decode!(body)
-        assert decoded["model"] == "gemini-3.5-flash"
-        audio_part = Enum.find(decoded["input"], &(&1["type"] == "audio"))
-        assert {:ok, ^materialized_audio} = Base.decode64(audio_part["data"])
+        parts = decoded["contents"] |> List.first() |> Map.fetch!("parts")
+        assert Enum.any?(parts, &(&1["text"] =~ "Generate a transcript"))
+
+        inline_audio =
+          Enum.find_value(parts, fn part ->
+            Map.get(part, "inlineData")
+          end)
+
+        assert inline_audio["mimeType"] == "audio/wav"
+        assert {:ok, ^materialized_audio} = Base.decode64(inline_audio["data"])
 
         json(conn, %{
-          "output_text" => "hello gemini voice",
+          "candidates" => [
+            %{
+              "content" => %{
+                "parts" => [
+                  %{"text" => "hello gemini voice"}
+                ]
+              }
+            }
+          ],
           "usageMetadata" => %{
             "promptTokenCount" => 11,
             "candidatesTokenCount" => 3,

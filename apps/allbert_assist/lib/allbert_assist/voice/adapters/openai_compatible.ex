@@ -13,6 +13,7 @@ defmodule AllbertAssist.Voice.Adapters.OpenAICompatible do
   alias AllbertAssist.Runtime.Paths
   alias AllbertAssist.Voice.ProviderHTTP
   alias AllbertAssist.Voice.Transcode
+  alias AllbertAssist.Voice.TranscriptResponse
 
   @default_voice "alloy"
   @default_max_audio_bytes 10_485_760
@@ -37,7 +38,7 @@ defmodule AllbertAssist.Voice.Adapters.OpenAICompatible do
              opts
            ),
          {:ok, body} <- ProviderHTTP.json_body(response),
-         {:ok, transcript} <- transcript_text(body) do
+         {:ok, transcript} <- TranscriptResponse.transcript_text(body) do
       {:ok,
        %{
          transcript: transcript,
@@ -108,16 +109,6 @@ defmodule AllbertAssist.Voice.Adapters.OpenAICompatible do
          }}
     end
   end
-
-  defp transcript_text(%{"text" => text}) when is_binary(text) do
-    text = String.trim(text)
-    if text == "", do: {:error, :empty_voice_transcript}, else: {:ok, text}
-  end
-
-  defp transcript_text(%{"transcript" => text}) when is_binary(text),
-    do: transcript_text(%{"text" => text})
-
-  defp transcript_text(_body), do: {:error, :missing_voice_transcript}
 
   defp duration_ms(%{"duration" => seconds}) when is_number(seconds),
     do: round(seconds * 1000)

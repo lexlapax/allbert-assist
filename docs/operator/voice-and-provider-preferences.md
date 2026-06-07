@@ -347,7 +347,8 @@ mix run --no-start scripts/v048_voice_live_smoke.exs "$V048_AUDIO"
 ```
 
 Expected: the same successful doctor, transcript, runtime response, speech
-file, and completion lines. This may upload audio and incur provider cost.
+file, and completion lines. Gemini STT uses the stable `generateContent`
+inline-audio request path. This may upload audio and incur provider cost.
 
 14. Run the deterministic v0.48 release lane.
 

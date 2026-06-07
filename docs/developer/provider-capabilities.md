@@ -175,8 +175,8 @@ Implementation milestones should add focused tests for:
   (M8R3) plus Allbert-owned local runtime router/auth/backend tests (M8R7).
 - OpenAI remote multipart transcription and speech response fixture tests
   (M8R4).
-- Gemini remote Interactions API audio transcription and generateContent AUDIO
-  TTS fixture tests (M8R4).
+- Gemini remote `generateContent` inline-audio transcription and
+  `generateContent` AUDIO TTS fixture tests (M8R4/M8R7).
 - local Ollama text-loop resolver/orchestration tests proving the transcript is
   answered through the local text profile before TTS (M8R5).
 - `release.v048` real-adapter fixture coverage plus opt-in `.env` live-smoke
