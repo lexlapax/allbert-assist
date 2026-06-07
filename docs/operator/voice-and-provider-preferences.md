@@ -148,26 +148,97 @@ mix allbert.test release.v048
 
 M8R extends this with deterministic local/OpenAI/Gemini/Ollama fixture coverage
 and the 16 `:v048` voice-modality eval rows. Before tagging, run the opt-in
-live-smoke script from a disposable home for each provider you want to certify:
+live-smoke script from a disposable home for each provider you want to certify.
+The script configures `voice.enabled=true`, enables the direct-answer model
+gate, stores provider API keys in Settings Central secrets, drives the
+confirmation-resume path, and fails if STT, the Ollama text turn, or TTS does
+not produce real output.
+
+Prerequisites:
+
+- `ffmpeg` is installed and on `PATH`.
+- Ollama is serving `llama3.2:3b` for the text middle turn:
+  `ollama pull llama3.2:3b` and then keep `ollama serve` running if it is not
+  already running as a service.
+- The audio sample is an explicit file path:
+  `export V048_AUDIO=/absolute/path/to/sample.wav`.
+- Provider credentials are loaded into the shell, for example:
+  `set -a; source .env; set +a`.
+- The disposable home database is bootstrapped before the smoke:
+  `mix ecto.create --quiet` and `mix ecto.migrate --quiet`.
+
+OpenAI:
+
+```sh
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v048-openai.XXXXXX)"
+mix ecto.create --quiet
+mix ecto.migrate --quiet
+
+export ALLBERT_V048_LIVE_SMOKE=1
+export ALLBERT_V048_PROVIDER=openai
+
+mix run --no-start scripts/v048_voice_live_smoke.exs "$V048_AUDIO"
+```
+
+Gemini:
+
+```sh
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v048-gemini.XXXXXX)"
+mix ecto.create --quiet
+mix ecto.migrate --quiet
+
+export ALLBERT_V048_LIVE_SMOKE=1
+export ALLBERT_V048_PROVIDER=gemini
+
+mix run --no-start scripts/v048_voice_live_smoke.exs "$V048_AUDIO"
+```
+
+Local OpenAI-compatible voice endpoint:
+
+```sh
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v048-local.XXXXXX)"
+mix ecto.create --quiet
+mix ecto.migrate --quiet
+
+export ALLBERT_V048_LIVE_SMOKE=1
+export ALLBERT_V048_PROVIDER=local
+export LOCAL_VOICE_BASE_URL=http://localhost:5050/v1
+
+mix run --no-start scripts/v048_voice_live_smoke.exs "$V048_AUDIO"
+```
+
+Expected successful output includes all of the following:
+
+```text
+Doctor voice_stt_<provider>: endpoint_ok=true model_available=true
+Doctor voice_tts_<provider>: endpoint_ok=true model_available=true
+Transcript: ...
+Runtime response: ...
+Speech resource: file://...
+Speech file: ...
+v0.48 live voice smoke completed.
+```
+
+These older one-line forms are equivalent when the environment is already set:
 
 ```sh
 ALLBERT_HOME=/tmp/allbert-v048-live-openai \
 ALLBERT_V048_LIVE_SMOKE=1 \
 ALLBERT_V048_PROVIDER=openai \
 OPENAI_API_KEY="$OPENAI_API_KEY" \
-mix run scripts/v048_voice_live_smoke.exs /path/to/sample.wav
+mix run --no-start scripts/v048_voice_live_smoke.exs /path/to/sample.wav
 
 ALLBERT_HOME=/tmp/allbert-v048-live-gemini \
 ALLBERT_V048_LIVE_SMOKE=1 \
 ALLBERT_V048_PROVIDER=gemini \
 GEMINI_API_KEY="$GEMINI_API_KEY" \
-mix run scripts/v048_voice_live_smoke.exs /path/to/sample.wav
+mix run --no-start scripts/v048_voice_live_smoke.exs /path/to/sample.wav
 
 ALLBERT_HOME=/tmp/allbert-v048-live-local \
 ALLBERT_V048_LIVE_SMOKE=1 \
 ALLBERT_V048_PROVIDER=local \
 LOCAL_VOICE_BASE_URL=http://localhost:5050/v1 \
-mix run scripts/v048_voice_live_smoke.exs /path/to/sample.wav
+mix run --no-start scripts/v048_voice_live_smoke.exs /path/to/sample.wav
 ```
 
 Manual validation before tag must also run disposable-home live smokes for:

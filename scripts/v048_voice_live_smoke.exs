@@ -7,8 +7,6 @@ defmodule Allbert.V048VoiceLiveSmoke do
   alias AllbertAssist.Settings.Secrets
 
   def run(argv) do
-    Mix.Task.run("app.start")
-
     unless System.get_env("ALLBERT_V048_LIVE_SMOKE") == "1" do
       Mix.raise("""
       Refusing to run live voice smoke without ALLBERT_V048_LIVE_SMOKE=1.
@@ -19,9 +17,13 @@ defmodule Allbert.V048VoiceLiveSmoke do
     end
 
     provider = System.get_env("ALLBERT_V048_PROVIDER") || "openai"
+    validate_provider!(provider)
+
     audio_file = System.get_env("ALLBERT_V048_AUDIO") || List.first(argv)
     audio_file = validate_audio_file!(audio_file)
     context = context()
+
+    Mix.Task.run("app.start")
 
     configure_provider!(provider)
     configure_voice_loop!()
@@ -57,6 +59,14 @@ defmodule Allbert.V048VoiceLiveSmoke do
     Mix.raise("Set ALLBERT_V048_AUDIO=/path/to/input.wav or pass the audio path as argv[0].")
   end
 
+  defp validate_provider!(provider) when provider in ["local", "openai", "gemini"], do: :ok
+
+  defp validate_provider!(other) do
+    Mix.raise(
+      "Unknown ALLBERT_V048_PROVIDER=#{inspect(other)}; expected local, openai, or gemini."
+    )
+  end
+
   defp configure_provider!("local") do
     put!("providers.local_voice.enabled", true)
 
@@ -80,15 +90,10 @@ defmodule Allbert.V048VoiceLiveSmoke do
     select_voice_profiles!("voice_stt_gemini", "voice_tts_gemini")
   end
 
-  defp configure_provider!(other) do
-    Mix.raise(
-      "Unknown ALLBERT_V048_PROVIDER=#{inspect(other)}; expected local, openai, or gemini."
-    )
-  end
-
   defp configure_voice_loop! do
     put!("voice.enabled", true)
     put!("providers.local_ollama.enabled", true)
+    put!("intent.direct_answer_model_enabled", true)
     put!("model_preferences.tasks.direct_answer", ["voice_text_local", "local"])
     put!("model_preferences.capabilities.text_generation", ["voice_text_local", "local"])
   end
@@ -127,7 +132,7 @@ defmodule Allbert.V048VoiceLiveSmoke do
         fn response -> response.status == :completed end
       )
 
-    transcript = get_in(approved_stt, [:output_data, :transcript])
+    transcript = output_field(approved_stt, :transcript)
 
     if is_binary(transcript) and String.trim(transcript) != "" do
       transcript
@@ -170,11 +175,15 @@ defmodule Allbert.V048VoiceLiveSmoke do
         fn response -> response.status == :completed end
       )
 
-    audio_out = get_in(approved_tts, [:output_data, :audio_file])
-    resource_uri = get_in(approved_tts, [:output_data, :output_resource_uri])
+    audio_out = output_field(approved_tts, :audio_file)
+    resource_uri = output_field(approved_tts, :output_resource_uri)
+
+    unless is_binary(audio_out) and String.trim(audio_out) != "" do
+      Mix.raise("TTS approval completed but did not return audio_file in transient output_data.")
+    end
 
     Mix.shell().info("Speech resource: #{resource_uri || "none"}")
-    Mix.shell().info("Speech file: #{audio_out || "none"}")
+    Mix.shell().info("Speech file: #{audio_out}")
   end
 
   defp run!(action, params, context, ok?) do
@@ -185,11 +194,24 @@ defmodule Allbert.V048VoiceLiveSmoke do
         else
           Mix.raise("#{action} returned unexpected response: #{inspect(response, pretty: true)}")
         end
-
-      {:error, reason} ->
-        Mix.raise("#{action} failed: #{inspect(reason)}")
     end
   end
+
+  defp output_field(response, key) do
+    response
+    |> field(:output_data)
+    |> field(key)
+  end
+
+  defp field(map, key) when is_map(map) and is_atom(key) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  end
+
+  defp field(map, key) when is_map(map) do
+    Map.get(map, key)
+  end
+
+  defp field(_value, _key), do: nil
 
   defp put!(key, value) do
     case Settings.put(key, value, %{audit?: false}) do
