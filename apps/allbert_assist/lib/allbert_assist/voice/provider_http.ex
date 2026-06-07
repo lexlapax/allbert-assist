@@ -366,10 +366,18 @@ defmodule AllbertAssist.Voice.ProviderHTTP do
     |> to_charlist()
     |> :inet.parse_address()
     |> case do
-      {:ok, ip} -> ip
+      {:ok, ip} -> normalize_ip(ip)
       {:error, _reason} -> nil
     end
   end
+
+  defp normalize_ip({0, 0, 0, 0, 0, 65_535, high, low})
+       when is_integer(high) and high >= 0 and high <= 65_535 and is_integer(low) and low >= 0 and
+              low <= 65_535 do
+    {div(high, 256), rem(high, 256), div(low, 256), rem(low, 256)}
+  end
+
+  defp normalize_ip(ip), do: ip
 
   defp loopback_ip?({127, _, _, _}), do: true
   defp loopback_ip?({0, 0, 0, 0, 0, 0, 0, 1}), do: true

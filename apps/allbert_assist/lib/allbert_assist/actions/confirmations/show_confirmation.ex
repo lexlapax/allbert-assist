@@ -33,7 +33,7 @@ defmodule AllbertAssist.Actions.Confirmations.ShowConfirmation do
            message: "Confirmation #{id}: #{record["status"]}.",
            status: PermissionGate.response_status(permission_decision),
            permission_decision: permission_decision,
-           confirmation: record,
+           confirmation: Confirmations.redact_for_output(record),
            actions: [
              Context.action(record, "show_confirmation", :completed, %{
                permission_decision

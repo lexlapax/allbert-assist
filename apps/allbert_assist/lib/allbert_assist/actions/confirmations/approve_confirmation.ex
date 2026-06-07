@@ -34,6 +34,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   alias AllbertAssist.Objectives
   alias AllbertAssist.PlanBuild
   alias AllbertAssist.Resources.GrantHandoff
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
 
@@ -73,6 +74,11 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
 
   @notes_files_action_names ~w[
     write_note
+  ]
+
+  @voice_provider_action_names ~w[
+    transcribe_voice
+    synthesize_voice
   ]
 
   @impl true
@@ -231,6 +237,25 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
          "capture_workspace_voice"
        ) do
     resume_voice_capture(record, reason, context, permission_decision, target_decision)
+  end
+
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
+         action_name
+       )
+       when action_name in @voice_provider_action_names do
+    resume_voice_provider_action(
+      record,
+      reason,
+      context,
+      permission_decision,
+      target_decision,
+      action_name
+    )
   end
 
   defp resume_registered_action(
@@ -486,6 +511,42 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     end
   end
 
+  defp resume_voice_provider_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
+         action_name
+       ) do
+    target_context =
+      record
+      |> target_context(context)
+      |> put_in([:confirmation, :approved?], true)
+
+    case Runner.run(action_name, Map.get(record, "resume_params_ref", %{}), target_context) do
+      {:ok, %{status: :completed} = response} ->
+        resolve_status(record, :approved, reason, context, permission_decision, %{
+          target_policy_decision: target_decision,
+          target_resumed?: true,
+          target_status: :completed,
+          target_result: voice_target_result(response),
+          output_data: voice_output_data(action_name, response)
+        })
+
+      {:ok, response} ->
+        target_status = Map.get(response, :status, :denied)
+
+        resolve_status(record, :approved, reason, context, permission_decision, %{
+          target_policy_decision: target_decision,
+          target_resumed?: true,
+          target_status: target_status,
+          target_result: voice_target_result(response),
+          output_data: voice_output_data(action_name, response)
+        })
+    end
+  end
+
   defp resolve_status(record, status, reason, context, permission_decision, metadata) do
     id = Map.fetch!(record, "id")
 
@@ -539,20 +600,21 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     metadata = Map.new(metadata)
 
     output_data =
-      metadata
-      |> Map.get(:target_result, %{})
-      |> case do
-        %{output_data: output_data} -> output_data
-        %{"output_data" => output_data} -> output_data
-        _other -> nil
-      end
+      Map.get(metadata, :output_data) ||
+        metadata
+        |> Map.get(:target_result, %{})
+        |> case do
+          %{output_data: output_data} -> output_data
+          %{"output_data" => output_data} -> output_data
+          _other -> nil
+        end
 
     {:ok,
      %{
        message: Confirmations.status_message(record),
        status: :completed,
        permission_decision: permission_decision,
-       confirmation: record,
+       confirmation: Confirmations.redact_for_output(record),
        output_data: output_data,
        actions: [
          Context.action(
@@ -1214,6 +1276,51 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
 
     ensure_target_status(result, response)
   end
+
+  defp voice_target_result(response) when is_map(response) do
+    %{
+      status: Map.get(response, :status, :unknown),
+      output_resource_uri:
+        response
+        |> Map.get(:output_resource_uri)
+        |> Redactor.redact_audio_resource_uri(),
+      voice_metadata:
+        response
+        |> Map.get(:voice_metadata, %{})
+        |> Redactor.redact_audio_metadata()
+    }
+    |> drop_nil_values()
+  end
+
+  defp voice_output_data("transcribe_voice", response) when is_map(response) do
+    %{
+      status: Map.get(response, :status, :unknown),
+      transcript: Map.get(response, :transcript),
+      voice_metadata:
+        response
+        |> Map.get(:voice_metadata, %{})
+        |> Redactor.redact_audio_metadata()
+    }
+    |> drop_nil_values()
+  end
+
+  defp voice_output_data("synthesize_voice", response) when is_map(response) do
+    %{
+      status: Map.get(response, :status, :unknown),
+      audio_file: Map.get(response, :audio_file),
+      output_resource_uri:
+        response
+        |> Map.get(:output_resource_uri)
+        |> Redactor.redact_audio_resource_uri(),
+      voice_metadata:
+        response
+        |> Map.get(:voice_metadata, %{})
+        |> Redactor.redact_audio_metadata()
+    }
+    |> drop_nil_values()
+  end
+
+  defp voice_output_data(_action_name, _response), do: nil
 
   defp ensure_target_status(result, response) do
     Map.put_new(result, :status, Map.get(response, :status, :failed))

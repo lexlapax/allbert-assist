@@ -17,6 +17,9 @@ defmodule AllbertAssist.Voice.Adapters.Fake do
   def transcribe(%{model: "fake-stt-retryable-error"}, _request, _opts),
     do: {:error, {:voice_http_error, 503}}
 
+  def transcribe(%{model: "fake-stt-nonretryable-error"}, _request, _opts),
+    do: {:error, {:voice_http_error, 401}}
+
   def transcribe(_profile, %{input_path: path}, _opts) when is_binary(path) do
     {:ok,
      %{

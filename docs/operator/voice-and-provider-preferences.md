@@ -69,6 +69,11 @@ mix allbert.ask --voice test/fixtures/audio/hello.wav --trace
 The CLI does not open a live microphone. Live capture is a workspace feature so
 that the operator can see and confirm microphone use.
 
+For real local-endpoint or remote-credentialed provider validation, use
+`scripts/v048_voice_live_smoke.exs`. It drives the durable
+`transcribe_voice`/`synthesize_voice` confirmation-resume path and then runs the
+Ollama-backed text turn.
+
 ## Workspace Voice
 
 Workspace microphone capture uses `mic://capture/<id>` resources and the voice
@@ -135,14 +140,35 @@ Use the v0.48 request-flow checklist for release validation:
 - ADR 0042 for media resource policy
 - ADR 0047 for voice doctor output
 
-The first-pass fixture gate is still useful:
+The fixture regression gate is still useful:
 
 ```sh
 mix allbert.test release.v048
 ```
 
-It is not sufficient for release until M8R extends it to exercise the local,
-OpenAI, Gemini, and Ollama paths through deterministic provider fixtures.
+M8R extends this with deterministic local/OpenAI/Gemini/Ollama fixture coverage
+and the 16 `:v048` voice-modality eval rows. Before tagging, run the opt-in
+live-smoke script from a disposable home for each provider you want to certify:
+
+```sh
+ALLBERT_HOME=/tmp/allbert-v048-live-openai \
+ALLBERT_V048_LIVE_SMOKE=1 \
+ALLBERT_V048_PROVIDER=openai \
+OPENAI_API_KEY="$OPENAI_API_KEY" \
+mix run scripts/v048_voice_live_smoke.exs /path/to/sample.wav
+
+ALLBERT_HOME=/tmp/allbert-v048-live-gemini \
+ALLBERT_V048_LIVE_SMOKE=1 \
+ALLBERT_V048_PROVIDER=gemini \
+GEMINI_API_KEY="$GEMINI_API_KEY" \
+mix run scripts/v048_voice_live_smoke.exs /path/to/sample.wav
+
+ALLBERT_HOME=/tmp/allbert-v048-live-local \
+ALLBERT_V048_LIVE_SMOKE=1 \
+ALLBERT_V048_PROVIDER=local \
+LOCAL_VOICE_BASE_URL=http://localhost:5050/v1 \
+mix run scripts/v048_voice_live_smoke.exs /path/to/sample.wav
+```
 
 Manual validation before tag must also run disposable-home live smokes for:
 
@@ -150,8 +176,10 @@ Manual validation before tag must also run disposable-home live smokes for:
 - OpenAI remote STT/TTS using Settings Central secrets loaded from `.env`;
 - Gemini remote STT/TTS using Settings Central secrets loaded from `.env`.
 
-The v0.48 first-pass evidence path from implementation was:
+The v0.48 first-pass evidence path from implementation was superseded by the
+M8R closeout evidence under the release-evidence root for the disposable gate
+home:
 
 ```text
-/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v048/p0-13250/home/release_evidence/v048/release-v048-1780768719.json
+<ALLBERT_HOME>/release_evidence/v048/
 ```

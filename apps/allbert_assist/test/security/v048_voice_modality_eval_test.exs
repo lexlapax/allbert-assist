@@ -322,6 +322,16 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              |> Map.put(:provider_base_url, "http://api.openai.test/v1")
              |> ProviderHTTP.endpoint("/models")
 
+    assert {:error, {:voice_remote_host_denied, :private_host}} =
+             openai_tts_profile()
+             |> Map.put(:provider_base_url, "https://[::ffff:10.0.0.1]/v1")
+             |> ProviderHTTP.endpoint("/models")
+
+    assert {:error, {:voice_remote_host_denied, :private_host}} =
+             openai_tts_profile()
+             |> Map.put(:provider_base_url, "https://[::ffff:169.254.169.254]/v1")
+             |> ProviderHTTP.endpoint("/models")
+
     assert {:error, :voice_endpoint_credentials_in_url_denied} =
              openai_tts_profile()
              |> Map.put(:provider_base_url, "https://token@example.test/v1")
@@ -392,7 +402,15 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
         assert decoded["model"] == "gemini-3.5-flash"
         audio_part = Enum.find(decoded["input"], &(&1["type"] == "audio"))
         assert {:ok, ^materialized_audio} = Base.decode64(audio_part["data"])
-        json(conn, %{"output_text" => "hello gemini voice"})
+
+        json(conn, %{
+          "output_text" => "hello gemini voice",
+          "usageMetadata" => %{
+            "promptTokenCount" => 11,
+            "candidatesTokenCount" => 3,
+            "totalTokenCount" => 14
+          }
+        })
 
       %{request_path: "/v1beta/models/gemini-3.1-flash-tts-preview:generateContent"} = conn ->
         {:ok, body, conn} = Plug.Conn.read_body(conn)
@@ -417,7 +435,12 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
                 ]
               }
             }
-          ]
+          ],
+          "usageMetadata" => %{
+            "promptTokenCount" => 5,
+            "candidatesTokenCount" => 2,
+            "totalTokenCount" => 7
+          }
         })
     end)
 
@@ -462,6 +485,8 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              )
 
     assert gemini_transcript.transcript == "hello gemini voice"
+    assert gemini_transcript.usage["source"] == "provider"
+    assert gemini_transcript.usage["totalTokenCount"] == 14
 
     assert {:ok, gemini_audio} =
              ProviderAdapter.synthesize(
@@ -471,6 +496,8 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
              )
 
     assert {:ok, <<"RIFF", _rest::binary>>} = File.read(gemini_audio.path)
+    assert gemini_audio.usage["source"] == "provider"
+    assert gemini_audio.usage["totalTokenCount"] == 7
   end
 
   test "voice fallback is bounded and listen think speak routes through Ollama text profile", %{
@@ -511,6 +538,98 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
     assert {:ok, tts} = Runner.run("synthesize_voice", %{text: "Runtime response"}, context)
     assert tts.status == :completed
     assert tts.voice_metadata.provider_profile == "voice_tts_fake"
+
+    install_fake_nonretryable_stt!()
+    enable_voice!()
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "model_preferences.capabilities.speech_to_text",
+               ["voice_stt_fake_nonretryable", "voice_stt_fake"],
+               %{audit?: false}
+             )
+
+    assert {:ok, stopped} =
+             Runner.run("transcribe_voice", %{audio_file: fixture_path("hello.wav")}, context)
+
+    assert stopped.status == :error
+    assert stopped.error == {:voice_http_error, 401}
+
+    assert [%{provider_profile: "voice_stt_fake_nonretryable", error: {:voice_http_error, 401}}] =
+             stopped.voice_metadata.adapter_attempts
+
+    install_fake_retryable_stt!()
+    enable_voice!()
+
+    assert {:ok, _provider} = Settings.put("providers.openai.enabled", true, %{audit?: false})
+
+    assert {:ok, _openai_secret} =
+             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
+               audit?: false
+             })
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "model_preferences.capabilities.speech_to_text",
+               ["voice_stt_fake_retryable", "voice_stt_openai"],
+               %{audit?: false}
+             )
+
+    voice_context =
+      Map.put(context, :voice_adapter_opts,
+        req_options: [plug: {Req.Test, __MODULE__}],
+        transcode_runner: :copy
+      )
+
+    assert {:ok, needs_confirmation} =
+             Runner.run(
+               "transcribe_voice",
+               %{audio_file: fixture_path("hello.wav")},
+               voice_context
+             )
+
+    assert needs_confirmation.status == :needs_confirmation
+    assert needs_confirmation.error == :permission_denied
+    assert needs_confirmation.permission_decision.decision == :needs_confirmation
+    assert needs_confirmation.confirmation_id
+
+    assert [%{provider_profile: "voice_stt_fake_retryable", error: "{:voice_http_error, 503}"}] =
+             needs_confirmation.voice_metadata.fallback_attempts
+
+    assert needs_confirmation.confirmation["resume_params_ref"]["audio_file"] ==
+             "[REDACTED_AUDIO_PATH]"
+
+    refute inspect(needs_confirmation.confirmation) =~ fixture_path("hello.wav")
+
+    assert {:ok, shown} =
+             Runner.run("show_confirmation", %{id: needs_confirmation.confirmation_id}, context)
+
+    assert shown.confirmation["resume_params_ref"]["audio_file"] == "[REDACTED_AUDIO_PATH]"
+    refute inspect(shown.confirmation) =~ fixture_path("hello.wav")
+
+    Req.Test.expect(__MODULE__, fn
+      %{request_path: "/v1/audio/transcriptions"} = conn ->
+        assert Plug.Conn.get_req_header(conn, "authorization") == ["Bearer sk-test-openai"]
+        assert Req.Test.raw_body(conn) =~ "gpt-4o-mini-transcribe"
+        json(conn, %{"text" => "approved remote voice", "usage" => %{"total_tokens" => 9}})
+    end)
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: needs_confirmation.confirmation_id, reason: "fixture provider approved"},
+               voice_context
+             )
+
+    assert approved.status == :completed
+    assert approved.confirmation["status"] == "approved"
+    assert approved.output_data.transcript == "approved remote voice"
+    assert approved.confirmation["operator_resolution"]["target_resumed?"] == true
+    assert approved.confirmation["operator_resolution"]["target_status"] == "completed"
+    assert approved.confirmation["operator_resolution"]["target_result"]["status"] == "completed"
+
+    refute inspect(approved.confirmation["operator_resolution"]["target_result"]) =~
+             "approved remote voice"
   end
 
   defp assert_eval!(id), do: EvalInventory.row!(id)
@@ -540,6 +659,32 @@ defmodule AllbertAssist.Security.V048VoiceModalityEvalTest do
                  "voice_stt_fake_retryable" => %{
                    "provider" => "fake_voice",
                    "model" => "fake-stt-retryable-error",
+                   "capabilities" => ["speech_to_text"],
+                   "media" => %{
+                     "input_modalities" => ["audio"],
+                     "output_modalities" => ["text"],
+                     "transport_modes" => ["request_file"],
+                     "deployment_mode" => "fake",
+                     "audio_formats_supported" => ["wav"],
+                     "audio_sample_rates_supported" => [16_000],
+                     "max_audio_bytes" => 10_485_760,
+                     "max_audio_duration_ms" => 300_000
+                   },
+                   "temperature" => 0.0,
+                   "max_tokens" => 1024,
+                   "timeout_ms" => 30_000
+                 }
+               }
+             })
+  end
+
+  defp install_fake_nonretryable_stt! do
+    assert {:ok, _settings} =
+             Settings.write_user_settings(%{
+               "model_profiles" => %{
+                 "voice_stt_fake_nonretryable" => %{
+                   "provider" => "fake_voice",
+                   "model" => "fake-stt-nonretryable-error",
                    "capabilities" => ["speech_to_text"],
                    "media" => %{
                      "input_modalities" => ["audio"],

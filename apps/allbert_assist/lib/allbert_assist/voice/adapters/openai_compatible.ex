@@ -151,8 +151,10 @@ defmodule AllbertAssist.Voice.Adapters.OpenAICompatible do
   end
 
   defp output_path(profile, text, output_format) do
+    nonce = System.unique_integer([:positive, :monotonic])
+
     digest =
-      :crypto.hash(:sha256, "#{Map.get(profile, :name)}:#{text}:#{output_format}")
+      :crypto.hash(:sha256, "#{Map.get(profile, :name)}:#{text}:#{output_format}:#{nonce}")
       |> Base.encode16(case: :lower)
       |> binary_part(0, 16)
 
@@ -189,6 +191,12 @@ defmodule AllbertAssist.Voice.Adapters.OpenAICompatible do
   defp diagnostic_code({:voice_http_error, _status}), do: :voice_provider_http_error
   defp diagnostic_code({:voice_transport_error, _reason}), do: :voice_provider_unreachable
   defp diagnostic_code(:missing_local_voice_base_url), do: :voice_provider_base_url_missing
+  defp diagnostic_code({:voice_local_host_denied, _host}), do: :provider_host_denied
+  defp diagnostic_code({:voice_remote_host_denied, _reason}), do: :provider_host_denied
+  defp diagnostic_code({:voice_remote_https_required, _scheme}), do: :invalid_provider_base_url
+  defp diagnostic_code(:voice_endpoint_credentials_in_url_denied), do: :invalid_provider_base_url
+  defp diagnostic_code(:voice_endpoint_query_denied), do: :invalid_provider_base_url
+  defp diagnostic_code(:voice_endpoint_fragment_denied), do: :invalid_provider_base_url
 
   defp diagnostic_code({:voice_credential_missing, _provider}),
     do: :voice_provider_credential_missing

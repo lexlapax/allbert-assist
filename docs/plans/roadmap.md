@@ -268,16 +268,17 @@ Dependency order from here:
     delegate-plugin, capability-gap, and objective drafts that hand off to the
     v0.36/v0.37/v0.38 sandbox/gate/templated-creation path; seven `:v047b`
     eval rows and `release.v047b`; no new trust tier.
-48. v0.48 Voice modality and provider capabilities - implementation reopened
-    before release. The first pass landed capability-aware provider/model
-    profiles, ranked operator preferences, fixture STT/TTS, CLI file
-    transcription, workspace microphone capture, TTS, and Telegram voice-note
-    ingestion. Release readiness now requires M8R: executable local
-    OpenAI-compatible STT/TTS, OpenAI remote STT/TTS, Gemini remote STT/TTS,
-    an Ollama-backed local text turn in the voice loop, expanded
-    `release.v048` coverage, and manual `.env` live smokes before tag. Fake
-    providers are fixture-only. Discord voice is deferred to a focused
-    follow-on after Channel Pack 1.
+48. v0.48 Voice modality and provider capabilities - implemented through
+    M8R real-provider remediation; release validation is pending before tag.
+    The release includes capability-aware provider/model profiles, ranked
+    operator preferences, fixture STT/TTS for tests only, CLI file
+    transcription, workspace microphone capture, TTS, Telegram voice-note
+    ingestion, executable local OpenAI-compatible STT/TTS, OpenAI remote
+    STT/TTS, Gemini remote STT/TTS, an Ollama-backed local text turn in the
+    voice loop, 16 `:v048` voice-modality eval rows, and expanded
+    `release.v048` coverage. Manual `.env` live smokes remain the release
+    handoff before tag. Fake providers are fixture-only. Discord voice is
+    deferred to a focused follow-on after Channel Pack 1.
 49. v0.49 Vision and image generation: consumes the v0.48 provider capability
     substrate for image/screenshot resource classes, vision model profile
     checks, image-generation actions, workspace rendering, retention,
@@ -2852,17 +2853,18 @@ ADRs: `docs/adr/0051-provider-capability-preferences.md`,
 `docs/adr/0042-audio-image-and-media-resource-classes.md`,
 `docs/adr/0047-provider-doctor-contract.md`
 
-Status: implementation reopened before release. M1-M8 landed a first pass:
-provider capability metadata, ranked preferences, capability-aware voice
-doctors, the audio resource/security substrate, CLI fixture transcription,
-workspace microphone capture, fixture TTS, Telegram voice-note ingestion, ten
-`:v048` voice-modality eval rows, and deterministic first-pass
-`release.v048` evidence. M8R is release-blocking: real local
-OpenAI-compatible STT/TTS, OpenAI remote STT/TTS, Gemini remote STT/TTS,
-Ollama-backed local text-loop validation, expanded `release.v048`, and manual
-`.env` live smokes. Current authority is the v0.48 plan/request-flow plus ADR
-0011, ADR 0051, ADR 0042 audio amendments, and ADR 0047; the older archive
-source is historical context only.
+Status: implemented through M8R real-provider remediation; release validation
+is pending before tag. M1-M8 landed provider capability metadata, ranked
+preferences, capability-aware voice doctors, the audio resource/security
+substrate, CLI fixture transcription, workspace microphone capture, fixture
+TTS, Telegram voice-note ingestion, ten first-pass `:v048` voice-modality eval
+rows, and deterministic first-pass `release.v048` evidence. M8R then added
+real local OpenAI-compatible STT/TTS, OpenAI remote STT/TTS, Gemini remote
+STT/TTS, Ollama-backed local text-loop validation, six more `:v048` eval rows,
+expanded `release.v048`, and the manual `.env` live-smoke script. Current
+authority is the v0.48 plan/request-flow plus ADR 0011, ADR 0051, ADR 0042
+audio amendments, and ADR 0047; the older archive source is historical context
+only.
 
 Expected direction:
 

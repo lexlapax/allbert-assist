@@ -62,8 +62,8 @@ v0.48 implements only the audio portion of this ADR:
   writes only to a temp or Allbert Home-derived path, and redacts both source
   and output paths in traces. Missing transcode support is a doctor diagnostic
   or action error, not a reason to widen accepted provider inputs.
-  M8R must materialize this spec for real provider calls; a plan-only argv spec
-  is insufficient when the selected provider does not accept the source audio
+  M8R materializes this spec for real provider calls; a plan-only argv spec is
+  insufficient when the selected provider does not accept the source audio
   format.
 - Voice adds operation classes for microphone capture, transcription, and
   synthesis. Security Central policy must distinguish local/test providers
