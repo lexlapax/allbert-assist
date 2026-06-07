@@ -28,7 +28,9 @@ Current provider research shapes the endpoint:
   endpoint in the current docs/source inspected for M8R7.
 - Bandit can host a Plug router directly with loopback binding, which gives
   the core app a narrow local HTTP endpoint without depending on Phoenix
-  LiveView as the runtime authority.
+  LiveView as the runtime authority. The runtime must use supported
+  `Bandit.start_link/1` options only; unsupported process registration options
+  are not part of the v0.48 contract.
 
 ## Decision
 
@@ -54,10 +56,17 @@ The endpoint is a product surface, not a test fixture:
 The runtime owns a small adapter layer behind the endpoint:
 
 - STT is backed by a configured local Ollama transcription model via
-  Ollama's OpenAI-compatible transcription endpoint when available.
+  Ollama's OpenAI-compatible transcription endpoint when available. The v0.48
+  validation default is `gemma4:e2b`; `gemma4:e4b` is an accepted
+  higher-quality local option when the machine has sufficient memory.
+  `gemma4:e2b-mlx` and `gemma3n:e2b` are not release-validation defaults
+  because manual local probes returned an empty transcript for the MLX tag and
+  no multimodal support in local Ollama metadata for Gemma 3n.
 - TTS is backed by a configured local/offline TTS backend. v0.48 M8R7's first
   backend is the host local speech engine on macOS (`say`) plus bounded
   conversion to the requested OpenAI-compatible response format.
+- The STT backend accepts Ollama's `application/x-ndjson` transcription
+  response body and decodes it before extracting transcript text.
 - Backend availability is doctor state. Missing Ollama, missing an audio-capable
   Ollama model, missing `say`, or missing `ffmpeg` are explicit diagnostics;
   they never silently fall back to fake audio or canned transcripts.
