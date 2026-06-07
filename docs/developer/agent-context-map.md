@@ -55,17 +55,18 @@ Do not load every section by default.
 | Developer velocity, test strategy, precommit gate matrix, async eligibility, test-lane/resource isolation, implementation-readiness audits, milestone parallelization annotations, v0.45.1 commit/prepush/release gate semantics, and the temporary Memento/Jido compatibility override | ADR 0049, ADR 0050, `docs/plans/v0.41-plan.md`, `docs/plans/v0.41-request-flow.md`, `docs/plans/v0.45.1-plan.md`, `docs/plans/v0.45.1-request-flow.md`, `docs/developer/test-strategy.md`, `DEVELOPMENT.md` | v0.41 / v0.45.1 |
 | Tool discovery: `find_tools` source port (local + internet MCP-registry adapters, optional keyed providers only when configured), persisted candidates/evaluations, `mcp_server_connect` confirmation gate, opt-in background scan to a passive surface | ADR 0048, ADR 0038, ADR 0011, ADR 0033, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
 | MCP-first integration pack 1: calendar/mail/GitHub MCP panels + notes/files native reference plugin | ADR 0015, ADR 0017, ADR 0039, `docs/plans/v0.42-plan.md`, `docs/plans/v0.42-request-flow.md` | v0.42 |
-| Browser and web research: `./plugins/allbert.browser/` plugin with real local Playwright/Chromium control, `browser://session/<id>` identity, six browser operation classes, seven `:browser_*` permission classes, `browser.*` settings namespace, per-domain remembered grants on navigated URLs, two-layer network policy (top-level via `External.HttpPolicy` + subresources via `AllbertBrowser.NetworkPolicy`), bounded HTML/markdown/text/PDF extraction, credential-input screenshot redaction, ephemeral profiles, workspace results panel, doctor (ADR 0047 shape), v0.50 channel-primitive forward pin | ADR 0011, ADR 0012, ADR 0013 (v0.43 amendment), ADR 0017, ADR 0023, ADR 0025, ADR 0027, ADR 0033, ADR 0040 (binding), ADR 0047, ADR 0049, `docs/plans/v0.43-plan.md`, `docs/plans/v0.43-request-flow.md` | v0.43 |
-| Plan/Build mode and operator workflow YAML: pinnable workspace panel surface over the v0.24 Objective Runtime, `workflow://<id>` and `plan://run/<objective_id>` identity (ADR 0013 v0.44 amendment), three `:workflow_*`/`:plan_*` permission classes, four operation classes plus `:plan_run` origin kind, `workflows.*` + `plan.*` core settings namespace (`schema_version: 1` per ADR 0046 draft; exposed through core fragments), v1 YAML schema assembled from the current `Actions.Registry.modules/0` snapshot + `Step.kinds()` with `additionalProperties: false` and closed-grammar `${...}` expression substitution (no `eval`, no `${secrets.x}`, no `${env.x}`, no dynamic action names), seven operator-facing Plan-Build actions (`list_workflows`, `inspect_workflow`, `expand_workflow`, `preview_plan`, `start_plan_run`, `cancel_plan_run`, `list_plan_runs`) plus internal `plan_step_confirm`, Plan Preview Contract packet (advisory-only per ADR 0021 §4), approved runs executed through the existing Objective Runtime, workspace Preview + RunProgress panels, subagent delegation inline rendering, confirmation upgrade-only rule, v0.50 channel-rendering forward pin | ADR 0011, ADR 0013 (v0.44 amendment), ADR 0017, ADR 0021, ADR 0023, ADR 0024, ADR 0027, ADR 0029, ADR 0030, ADR 0031, ADR 0041 (binding), ADR 0046 (drafted), ADR 0049, `docs/plans/v0.44-plan.md`, `docs/plans/v0.44-request-flow.md` | v0.44 / 0.44.0 |
+| Browser and web research: `./plugins/allbert.browser/` plugin with real local Playwright/Chromium control, `browser://session/<id>` identity, six browser operation classes, seven `:browser_*` permission classes, `browser.*` settings namespace, per-domain remembered grants on navigated URLs, two-layer network policy (top-level via `External.HttpPolicy` + subresources via `AllbertBrowser.NetworkPolicy`), bounded HTML/markdown/text/PDF extraction, credential-input screenshot redaction, ephemeral profiles, workspace results panel, doctor (ADR 0047 shape), v0.51 channel-primitive forward pin | ADR 0011, ADR 0012, ADR 0013 (v0.43 amendment), ADR 0017, ADR 0023, ADR 0025, ADR 0027, ADR 0033, ADR 0040 (binding), ADR 0047, ADR 0049, `docs/plans/v0.43-plan.md`, `docs/plans/v0.43-request-flow.md` | v0.43 |
+| Plan/Build mode and operator workflow YAML: pinnable workspace panel surface over the v0.24 Objective Runtime, `workflow://<id>` and `plan://run/<objective_id>` identity (ADR 0013 v0.44 amendment), three `:workflow_*`/`:plan_*` permission classes, four operation classes plus `:plan_run` origin kind, `workflows.*` + `plan.*` core settings namespace (`schema_version: 1` per ADR 0046 draft; exposed through core fragments), v1 YAML schema assembled from the current `Actions.Registry.modules/0` snapshot + `Step.kinds()` with `additionalProperties: false` and closed-grammar `${...}` expression substitution (no `eval`, no `${secrets.x}`, no `${env.x}`, no dynamic action names), seven operator-facing Plan-Build actions (`list_workflows`, `inspect_workflow`, `expand_workflow`, `preview_plan`, `start_plan_run`, `cancel_plan_run`, `list_plan_runs`) plus internal `plan_step_confirm`, Plan Preview Contract packet (advisory-only per ADR 0021 §4), approved runs executed through the existing Objective Runtime, workspace Preview + RunProgress panels, subagent delegation inline rendering, confirmation upgrade-only rule, v0.51 channel-rendering forward pin | ADR 0011, ADR 0013 (v0.44 amendment), ADR 0017, ADR 0021, ADR 0023, ADR 0024, ADR 0027, ADR 0029, ADR 0030, ADR 0031, ADR 0041 (binding), ADR 0046 (drafted), ADR 0049, `docs/plans/v0.44-plan.md`, `docs/plans/v0.44-request-flow.md` | v0.44 / 0.44.0 |
 | Marketplace lite (local reviewed catalog + Allbert-author seeds): shipped seed catalog under `priv/marketplace/`, SHA-256 recursive bundle verification, disabled/untrusted skill/template installs under configurable Allbert Home-rooted roots, browse-only plugin-index metadata, `marketplace://entry/<author>/<name>` identity, `:marketplace_install` permission class, marketplace operation classes, seven registered marketplace actions, eight CLI subcommands, Marketplace Catalog workspace panel + intent routing, ADR 0047-style marketplace doctor, `marketplace.*` settings fragment (`schema_version: 1` per ADR 0046 draft), master `marketplace.enabled` disable switch, workflow-YAML forward-pin enforcement | ADR 0013 (v0.45 amendment), ADR 0043, ADR 0046 (drafted), ADR 0047, ADR 0049, `docs/plans/v0.45-plan.md`, `docs/plans/v0.45-request-flow.md` | v0.45 / 0.45.0 |
 | Delegation hardening and research specialist: implemented second native `AgentRegistry` consumer (`research.specialist`) contributed by `./plugins/allbert.research/`, orchestrating shipped v0.43 browser navigate/extract plus deterministic extractive fallback through `Actions.Runner.run/3`; zero new authority (no new permission/operation-class/URI/action), only a `research.*` settings fragment (`schema_version: 1`); threads the delegate step command into the `delegate_agent` action (replacing the hard-coded `execute` in `Objectives.Commands.execute/4`) and hardens allowlisted command validation (string or atom) against agent metadata at that boundary - no Step-schema migration (ADR 0021 A3); advisory report packets (ADR 0021 §4); composed via v0.44 `kind: delegate_agent` step with inline subagent-delegation rendering; `mix allbert.research` and inert research intent descriptors route research phrases to the delegate; `docs/developer/delegate-agents.md` documents the extension point; nine v0.46 security eval rows and `release.v046` prove the delegate contract against two domains before the v1.0 freeze | ADR 0017, ADR 0021 (amendment A21), ADR 0022, ADR 0029, ADR 0031, ADR 0040 (binding), ADR 0041, ADR 0046 (drafted), ADR 0049, `docs/plans/v0.46-plan.md`, `docs/plans/v0.46-request-flow.md`, `docs/operator/research-specialist.md` | v0.46 / 0.46.0 |
 | Operator-supervised self-improvement (discovery + local drafts): read-only `SelfImprovement.TraceIndex` over `<ALLBERT_HOME>/memory/traces/` (inherits trace redaction); generalized v0.42 `Tools.Discovery.Suggestion` + `Workspace.DiscoverySuggestions` panel (self-improvement suggestion types); read-only `discover_patterns` action (mirrors `find_tools`); one unified reviewed-draft store generalized from v0.37 `DynamicPlugins.Draft` holding skill/workflow/memory drafts; reviewed memory/workflow draft facades; `self_improvement.*` settings fragment (`schema_version: 1`); seven `:v047` eval rows + `release.v047`; no new authority, promotion via existing confirmed paths | ADR 0045 (amendments A1-A4), ADR 0032 (v0.47 amendment), ADR 0048 (v0.47 amendment), ADR 0041 (workflow drafts reconciliation), ADR 0031, ADR 0049, `docs/plans/v0.47-plan.md`, `docs/plans/v0.47-request-flow.md` | v0.47 |
 | Operator-supervised self-improvement (handoff drafts): template-backed (v0.38 `Templates.Registry`/`create_from_template`), marketplace-backed (v0.45 `Marketplace.list_entries/1`, descriptive only), inert delegate-plugin draft requests (v0.46 contract), capability-gap (v0.37 `DynamicPlugins.request_draft` to v0.36 `Sandbox.run_gate` to `Loader.integrate`), and objective drafts in the v0.47 unified store; code-bearing drafts reach live authority only via the existing sandbox/gate/loader path + confirmation; seven `:v047b` eval rows + `release.v047b`; no new trust tier | ADR 0045 (amendments A5-A7), ADR 0033, ADR 0035, ADR 0036, ADR 0037, ADR 0043, `docs/plans/v0.47b-plan.md`, `docs/plans/v0.47b-request-flow.md` | v0.47b / 0.47.1 |
 | Provider capabilities, operator model preferences, voice, vision, and media resources | ADR 0011, ADR 0051, ADR 0042, ADR 0047, ADR 0052, `docs/plans/v0.48-plan.md`, `docs/plans/v0.48-request-flow.md`, `docs/developer/provider-capabilities.md`, `docs/operator/voice-and-provider-preferences.md`, `docs/plans/v0.49-plan.md`, `docs/plans/v0.49-request-flow.md` | v0.48-v0.49; v0.48 implements bounded STT/TTS and requires the Allbert-owned local voice runtime before tag, while richer realtime audio/video profile metadata remains routing/future scope |
-| Discord and Slack channel plugins + ADR 0016 amendment for channel approval primitives | ADR 0016, ADR 0017, `docs/plans/v0.50-plan.md`, `docs/plans/v0.50-request-flow.md` | v0.50 |
-| Channel Pack 2: WhatsApp, Signal, Matrix (iMessage parked) | ADR 0016, ADR 0017, `docs/plans/v0.51-plan.md`, `docs/plans/v0.51-request-flow.md` | v0.51 |
-| MCP server mode (Allbert exposes registered actions as MCP tools; memory namespaces as MCP resources) | ADR 0044, `docs/plans/v0.51b-plan.md`, `docs/plans/v0.51b-request-flow.md` | v0.51b |
-| Release candidate hardening, export/import, settings schema migration, 1.0 tiered contract freeze | ADR 0046, `docs/plans/v0.52-plan.md`, `docs/plans/v0.52-request-flow.md`, `docs/plans/v1.0-plan.md`, `docs/plans/v1.0-request-flow.md` | v0.52-v1.0 |
+| Content-addressable artifact store (Artifacts Central): `artifact://sha256/<hex>` identity over an `<ALLBERT_HOME>/artifacts` object store (thin CAS on `:crypto` SHA-256 + sharded objects + atomic writes, no third-party store); type-agnostic durable artifacts uploaded by the operator, created by Allbert, or found via approved tools; provenance/MIME/byte/hash/retention metadata index with bytes never in traces; `artifact_read`/`artifact_write`/`artifact_delete` permissions + operation classes; `artifacts.*` settings fragment (`schema_version: 1`); `put`/`get`/`list`/`delete` actions plus the first Jido ingestion sensor; backfills the v0.48 audio and v0.49 image retained-media roots; content-addressed identity never grants permission | ADR 0053, ADR 0042 (artifact amendment), ADR 0031, ADR 0046, `docs/plans/v0.50-plan.md`, `docs/plans/v0.50-request-flow.md` | v0.50 |
+| Discord and Slack channel plugins + ADR 0016 amendment for channel approval primitives | ADR 0016, ADR 0017, `docs/plans/v0.51-plan.md`, `docs/plans/v0.51-request-flow.md` | v0.51 |
+| Channel Pack 2: WhatsApp, Signal, Matrix (iMessage parked) | ADR 0016, ADR 0017, `docs/plans/v0.52-plan.md`, `docs/plans/v0.52-request-flow.md` | v0.52 |
+| MCP server mode (Allbert exposes registered actions as MCP tools; memory namespaces as MCP resources) | ADR 0044, `docs/plans/v0.52b-plan.md`, `docs/plans/v0.52b-request-flow.md` | v0.52b |
+| Release candidate hardening, export/import, settings schema migration, 1.0 tiered contract freeze | ADR 0046, `docs/plans/v0.53-plan.md`, `docs/plans/v0.53-request-flow.md`, `docs/plans/v1.0-plan.md`, `docs/plans/v1.0-request-flow.md` | v0.53-v1.0 |
 
 ## v0.41 Test Lane Classification
 
@@ -441,7 +442,7 @@ Implemented v0.41 gates:
   via `External.HttpPolicy` + subresources via `AllbertBrowser.NetworkPolicy`),
   a workspace browser results panel under `:canvas_panels`, and a paused-by-
   default cache sweep job. Page content is descriptive evidence, never
-  authority. Forward-pins v0.50 channel approval-primitive amendment with
+  authority. Forward-pins v0.51 channel approval-primitive amendment with
   `:typed_command`, `:button`, and `:link` confirmation shapes. v0.43.x
   follow-on candidates (Windows/WSL2, persistent profiles, authenticated
   operation, headed mode, multi-tab, JS evaluation) parked in
@@ -476,7 +477,7 @@ Implemented v0.41 gates:
   floor, never downgrade. The plan-start gate is the only authority
   transition from preview to run; approved runs execute through the
   existing Objective Runtime; per-step confirmations are enforced at
-  execution time. Forward-pins v0.50 channel-rendering
+  execution time. Forward-pins v0.51 channel-rendering
   amendment. v0.44.x follow-on candidates (loops, parallel/fan-out,
   sub-workflow includes, `on:` triggers, remote workflow
   distribution, multi-user collaborative plan editing) parked in
@@ -488,7 +489,7 @@ Implemented v0.41 gates:
   workspace panel and intent routing, CLI subcommands, custom Allbert
   Home-rooted install/cache settings, master disable switch, workflow-YAML
   forward-pin validation, and ADR 0047-style marketplace doctor. Community
-  submissions stay parked. Drafts ADR 0046 for v0.52.
+  submissions stay parked. Drafts ADR 0046 for v0.53.
 - v0.45.1 (implemented as `0.45.1`): Gate Transparency And Precommit
   Decomposition. Adds `mix allbert.test commit`, `mix allbert.test prepush`,
   timed direct release phases, redacted gate evidence, and `mix precommit` as
@@ -546,22 +547,31 @@ Implemented v0.41 gates:
   generation, with an app-started ReqLLM model/provider proof in M1 and
   workspace image upload plus vision-input plumbing in M3. Content hashes are
   metadata only; a canonical content-addressed artifact store is proposed for
-  v0.49.1. Generic audio/video and catch-all multimodal routing remain future
+  v0.50. Generic audio/video and catch-all multimodal routing remain future
   scope.
-- v0.50 (planned): Channel Pack 1 - Discord And Slack. Adds team/community chat
+- v0.50 (planned): Artifacts Central. A uniform content-addressable store for
+  artifacts uploaded by the operator, created by Allbert, or found through
+  approved tools — type-agnostic (audio, video, images, PDFs, text, office
+  docs), deduplicated by `artifact://sha256/<hex>` content hash with
+  provenance/type/retention metadata, raw bytes kept out of traces. Adds
+  `put`/`get`/`list`/`delete` actions and the codebase's first Jido ingestion
+  sensor, and backfills the v0.48 audio and v0.49 image retained-media roots.
+  A thin CAS over BEAM primitives, not a third-party store; content-addressed
+  identity never grants permission.
+- v0.51 (planned): Channel Pack 1 - Discord And Slack. Adds team/community chat
   plugins over the existing channel substrate and amends ADR 0016 to lock the
   channel approval-primitive contract (`{list, button, typed_command, link}`)
   before mobile channels need it.
-- v0.51 (planned): Channel Pack 2 - WhatsApp, Signal, And Matrix. iMessage
+- v0.52 (planned): Channel Pack 2 - WhatsApp, Signal, And Matrix. iMessage
   parked (macOS-only platform constraint).
-- v0.51b (planned): MCP Server Mode. Allbert exposes registered actions as
+- v0.52b (planned): MCP Server Mode. Allbert exposes registered actions as
   MCP tools and memory namespaces as MCP resources. Single protocol surface.
   OpenAI-compatible API, ACP server mode, and public AG-UI/A2UI bridge are
   parked post-1.0.
-- v0.52 (planned): Hardening, Export/Import, Settings Migration, And Final RC.
+- v0.53 (planned): Hardening, Export/Import, Settings Migration, And Final RC.
   Adds no new user-facing capability; proves portability, accepts and
   implements ADR 0046 (`mix allbert.settings.migrate`), runs the cross-surface
-  eval sweep over v0.40-v0.51b, and gathers RC evidence.
+  eval sweep over v0.40-v0.52b, and gathers RC evidence.
 - v1.0 (planned): Stability Release And **Tiered Public Contract Freeze**.
   Adds no new features; Tier 1 freezes Runtime, Actions/permissions, Plugin,
   App, Settings Central schema shape, Allbert Home layout, Channel adapter

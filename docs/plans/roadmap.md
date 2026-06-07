@@ -243,7 +243,7 @@ Dependency order from here:
     schema, Allbert-author seed bundles, provenance/hash/version/rollback
     metadata, disabled/untrusted installs, browse-only plugin index metadata,
     workspace/intent/CLI surfaces, and marketplace doctor. Community-submission
-    governance remains parked. Started the v0.52 ADR for settings schema
+    governance remains parked. Started the v0.53 ADR for settings schema
     migration policy (ADR 0046).
 45.1. v0.45.1 Gate Transparency and Precommit Decomposition — implemented as
     `0.45.1`: commit/prepush/release command split, timed direct release
@@ -284,24 +284,27 @@ Dependency order from here:
     substrate for image/screenshot resource classes, vision model profile
     checks, image-generation actions, workspace rendering, retention,
     redaction, and display-only cost metadata.
-    v0.49.1 is the proposed artifact-management follow-on for a uniform
-    content-addressed store covering user-uploaded, Allbert-created, and
-    Allbert-found artifacts.
-50. v0.50 Channel Pack 1 (Discord and Slack) + ADR 0016 amendment for the
+50. v0.50 Artifacts Central: a uniform content-addressable store for artifacts
+    uploaded by the operator, created by Allbert, or found through approved
+    tools, deduplicated by content hash with provenance/type/retention metadata,
+    backfilling the v0.48 audio and v0.49 image retained-media roots and adding
+    the first Jido ingestion sensor. Identity is content-addressed; Security
+    Central and Resource Access remain the authority boundary.
+51. v0.51 Channel Pack 1 (Discord and Slack) + ADR 0016 amendment for the
     channel approval-primitive contract (`{list, button, typed_command, link}`).
     Locks the channel approval shape before mobile channels need it.
-51. v0.51 Channel Pack 2 — WhatsApp, Signal, and Matrix. iMessage is parked
+52. v0.52 Channel Pack 2 — WhatsApp, Signal, and Matrix. iMessage is parked
     (macOS-only platform constraint).
-52. v0.51b MCP Server Mode: Allbert exposes registered actions as MCP tools
+53. v0.52b MCP Server Mode: Allbert exposes registered actions as MCP tools
     and memory namespaces as MCP resources. Single protocol surface only.
     OpenAI-compatible API, ACP server, and public AG-UI/A2UI bridge are parked
     post-1.0.
-53. v0.52 Hardening, export/import, settings schema migration substrate, and
+54. v0.53 Hardening, export/import, settings schema migration substrate, and
     final RC: no new user-facing capability; Allbert Home portability,
     cross-surface security eval sweep, operator docs, performance hardening,
     CSP reconciliation, settings schema migration tool (per ADR 0046), and
     release-candidate closeout.
-54. v1.0 Stability release and **tiered public contract freeze**: no new
+55. v1.0 Stability release and **tiered public contract freeze**: no new
     features; freeze Tier 1 (Runtime, Actions/permissions, Plugin, App,
     Settings Central schema shape, Allbert Home layout, Channel adapter
     boundary, Resource Access URI/grants) and Tier 2 (SurfaceProvider, Surface
@@ -2485,7 +2488,7 @@ Shipped scope:
 - Preserved the routing predicate: v0.10 `external_network_request` and v0.11 inert
   `summarize_url`/`inspect_document` intact; browser is the graduated path
   when extraction needs DOM/JS or the operator explicitly asks.
-- Forward-pinned the v0.50 channel approval-primitive amendment: browser
+- Forward-pinned the v0.51 channel approval-primitive amendment: browser
   confirmations are expressible as `:typed_command` (CLI/email),
   `:button` (LiveView/Telegram/Discord/Slack), and `:link` (screenshot
   review).
@@ -2566,7 +2569,7 @@ Expected direction:
   subagent delegation visibility (inline child events under parent
   steps), and background objective progress on existing surfaces
   (workspace, CLI, Telegram, and email). Discord/Slack inherit
-  summaries when Channel Pack 1 lands in v0.50.
+  summaries when Channel Pack 1 lands in v0.51.
 - Workflow YAML expression substitution uses a **closed function table**
   (`${inputs.x}`, `${steps.<id>.<field>}`, `${user.locale|timezone}`,
   `${workflow.id|version}`); AST-parsed at load. No `eval`. No
@@ -2645,7 +2648,7 @@ Shipped scope:
   out of 1.0.
 - **Started drafting ADR 0046** (Settings Central schema migration policy) here
   because marketplace adds new settings fragments; ADR is accepted before
-  v0.52 implements the migration tool.
+  v0.53 implements the migration tool.
 
 ## v0.45.1: Gate Transparency And Precommit Decomposition - implemented as 0.45.1
 
@@ -2682,7 +2685,7 @@ ADR: `docs/adr/0021-intent-objective-capability-and-advisory-boundary.md`
 Status: implemented as `0.46.0`; ready for operator manual validation before
 release tagging. Inserted in the post-v0.45 planning pass to give the v0.24
 delegate-agent substrate a second consumer before the v1.0 freeze. The
-v0.47-v0.52 arc shifted down by one to open this slot.
+v0.47-v0.53 arc shifted down by one to open this slot.
 
 Shipped scope:
 
@@ -2893,7 +2896,7 @@ Expected direction:
   `mix allbert.test release.v048`, then run opt-in live smokes for OpenAI,
   Gemini, the Allbert local voice runtime, and Ollama before manual validation.
 - Defer Discord voice support to a focused follow-on after Discord lands in
-  v0.50.
+  v0.51.
 - Keep realtime speech sessions, generic audio understanding, and video input
   as metadata/future-planning concerns unless a later plan explicitly accepts
   them.
@@ -2924,35 +2927,54 @@ Expected direction:
   implement video ingestion, generic audio understanding, or video generation
   unless amended before code lands.
 
-## v0.49.1: Content-Addressable Artifact Management
+## v0.50: Artifacts Central
 
-Status: proposed follow-on after v0.49; no implementation plan yet. This slot
-exists to avoid stretching v0.49 image upload/generation into Allbert's canonical
-artifact store.
+Plan: `docs/plans/v0.50-plan.md`
+Request flow: `docs/plans/v0.50-request-flow.md`
+ADRs: `docs/adr/0053-content-addressable-artifact-store.md`,
+`docs/adr/0042-audio-image-and-media-resource-classes.md` (artifact resource
+class amendment), `docs/adr/0031-settings-schema-fragments-and-authority.md`,
+`docs/adr/0046-settings-schema-migration-policy.md`
+
+Status: planned. Inserts a content-addressable artifact store between v0.49
+vision and v0.51 Channel Pack 1, so durable media has one canonical home before
+channels begin forwarding attachments. Built on Allbert Home, Resource Access,
+Security Central, Settings Central, and the Jido action framework — a thin CAS
+over BEAM primitives (`:crypto` SHA-256 + sharded objects + atomic writes), not
+a third-party store. The CAS-specific Hex packages (hashfs, scarab) are
+abandoned and metadata-free; upload utilities (waffle, Capsule) are not
+content-addressed stores; so the store is owned in-tree.
 
 Expected direction:
 
 - Add a uniform content-addressed store for artifacts supplied by the operator,
   created by Allbert, or found by Allbert through approved tools such as browser
-  research.
+  research. The artifact is type-agnostic: audio, video, images, PDFs, text,
+  office documents, and more.
 - Keep artifact identity independent of transport-specific resource URIs:
   `image://`, `screen://`, `browser://`, generated-media handles, and future
   channel attachments may point at or derive from the store, but they do not
-  become the store's authority model by themselves.
+  become the store's authority model by themselves. Durable identity is an
+  `artifact://sha256/<hex>` content address.
 - Record provenance, MIME/type metadata, byte/hash metadata, redaction status,
   retention policy, source surface, and lifecycle state without storing raw
   sensitive content in traces or audits.
-- Define the promotion/retention path from temporary v0.49 media input/output
-  files into durable artifacts, including deduplication and operator removal.
+- Define the promotion/retention path from temporary v0.48 audio and v0.49
+  media input/output files into durable artifacts, including deduplication and
+  operator removal; backfill the existing retained-media roots and formalize
+  them as real Allbert Home roots.
+- Add `put`/`get`/`list`/`delete` registered actions and the codebase's first
+  Jido ingestion sensor, wired through the existing `Actions.Registry` and
+  `Actions.Runner`.
 - Preserve Security Central and Resource Access as the authority boundary:
   content-addressed identity never grants read/write/send permission by itself.
 
-## v0.50: Channel Pack 1 - Discord And Slack
+## v0.51: Channel Pack 1 - Discord And Slack
 
-Plan: `docs/plans/v0.50-plan.md`
-Request flow: `docs/plans/v0.50-request-flow.md`
+Plan: `docs/plans/v0.51-plan.md`
+Request flow: `docs/plans/v0.51-request-flow.md`
 ADR: `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
-(v0.50 amendment for approval primitives)
+(v0.51 amendment for approval primitives)
 
 Status: planned; implementation-ready for M0 after the channel plan pass-2
 readiness patch. Promoted from `docs/archives/version-1.0-planning-03.md`;
@@ -2973,23 +2995,23 @@ Expected direction:
   highest-fidelity primitive available from an effective descriptor that
   honors provider settings such as `render_approval_buttons: false`. Telegram:
   button. Email: typed_command. Discord: button. Slack: button. Mobile
-  channels (v0.51) inherit the same contract.
+  channels (v0.52) inherit the same contract.
 
-## v0.51: Channel Pack 2 - WhatsApp, Signal, And Matrix
+## v0.52: Channel Pack 2 - WhatsApp, Signal, And Matrix
 
-Plan: `docs/plans/v0.51-plan.md`
-Request flow: `docs/plans/v0.51-request-flow.md`
+Plan: `docs/plans/v0.52-plan.md`
+Request flow: `docs/plans/v0.52-request-flow.md`
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
 not implemented. Scope tightened in the post-v0.37 planning pass: **iMessage
 parked** (macOS-only platform constraint), public protocol interop split into
-v0.51b (MCP server mode only).
+v0.52b (MCP server mode only).
 
 Expected direction:
 
 - Add WhatsApp, Signal, and Matrix plugins after the Discord/Slack channel
   patterns are proven.
-- Reuse the v0.50 ADR 0016 amendment for channel approval primitives. WhatsApp
+- Reuse the v0.51 ADR 0016 amendment for channel approval primitives. WhatsApp
   and Signal declare `typed_command` support; Matrix declares `button` for
   bot-room contexts and `typed_command` otherwise.
 - Keep provider-specific pairing, delivery/retry/dedupe, platform limits, and
@@ -2998,14 +3020,14 @@ Expected direction:
   its macOS-only platform constraint warrants a dedicated platform-policy
   decision rather than 1.0-arc bundling.
 
-## v0.51b: MCP Server Mode
+## v0.52b: MCP Server Mode
 
-Plan: `docs/plans/v0.51b-plan.md`
-Request flow: `docs/plans/v0.51b-request-flow.md`
+Plan: `docs/plans/v0.52b-plan.md`
+Request flow: `docs/plans/v0.52b-request-flow.md`
 ADR: `docs/adr/0044-public-protocol-exposure.md` (rewritten to MCP-server-only
 scope)
 
-Status: planned. New slot split from the original v0.51 protocol-interop
+Status: planned. New slot split from the original v0.52 protocol-interop
 bundle in the post-v0.37 planning pass.
 
 Expected direction:
@@ -3024,10 +3046,10 @@ Expected direction:
 - All effectful work still routes through `Actions.Runner.run/3`, Security
   Central, confirmations, Resource Access, traces, and audits.
 
-## v0.52: Hardening, Export/Import, Settings Migration, And Final RC
+## v0.53: Hardening, Export/Import, Settings Migration, And Final RC
 
-Plan: `docs/plans/v0.52-plan.md`
-Request flow: `docs/plans/v0.52-request-flow.md`
+Plan: `docs/plans/v0.53-plan.md`
+Request flow: `docs/plans/v0.53-request-flow.md`
 ADR: `docs/adr/0046-settings-schema-migration-policy.md` (accepted here;
 drafted in v0.45)
 
@@ -3093,7 +3115,7 @@ disposable-home checkpoint the release cannot ship without:
    pinned by
    ADR 0047 and becomes a Tier-1 freeze contract at v1.0.
 3. Operator can connect at least one remote channel — Telegram, email,
-   Discord, Slack, WhatsApp, Signal, or Matrix (v0.16 / v0.50 / v0.51).
+   Discord, Slack, WhatsApp, Signal, or Matrix (v0.16 / v0.51 / v0.52).
 4. Operator can configure and use at least one MCP server under policy
    (v0.40).
 5. Operator can ask Allbert to research a web target with approved navigation
@@ -3101,9 +3123,9 @@ disposable-home checkpoint the release cannot ship without:
 6. Operator can review and approve a multi-step plan before execution
    (v0.44).
 7. Operator can export Allbert Home and re-import on a second machine with
-   identical behavior, including settings migration (v0.52 + ADR 0046).
+   identical behavior, including settings migration (v0.53 + ADR 0046).
 8. All warning, security, precommit, and cross-surface eval gates pass
-   (v0.52).
+   (v0.53).
 
 ### Capabilities That Ship In The Arc But Are Not Freeze-Blocking
 
@@ -3120,7 +3142,7 @@ acceptance criteria are subjective or provider-dependent:
 - Self-improvement suggestion quality (v0.47) — quality bar is subjective.
 - Voice (v0.48) — explicitly experimental.
 - Vision and image generation (v0.49) — provider-dependent quality.
-- MCP Server Mode (v0.51b) — external-client interop is verifiable but
+- MCP Server Mode (v0.52b) — external-client interop is verifiable but
   ecosystem maturity varies.
 
 ### Capabilities Parked Post-1.0
