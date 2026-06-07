@@ -78,6 +78,15 @@ not been cut.
   Allbert-owned local voice runtime, OpenAI remote STT/TTS, Gemini remote
   STT/TTS, and the local Ollama text turn are executable and covered by
   deterministic release fixtures.
+- Allbert local voice runtime validation now defaults the Ollama STT backend
+  to `gemma4:e2b`, the validated Mac local transcription path. Operators with
+  sufficient memory may choose `gemma4:e4b`; `gemma4:e2b-mlx` and
+  `gemma3n:e2b` were not accepted as release-validation defaults because the
+  former returned an empty transcript and the latter did not advertise
+  multimodal support in local Ollama metadata during manual validation.
+- The local runtime Bandit start path no longer passes unsupported server
+  registration options, and the Ollama STT backend now accepts Ollama's
+  `application/x-ndjson` transcription response body before extracting text.
 - Anthropic/Claude remains a text-generation provider in the middle of the
   voice loop; it is not a native v0.48 STT/TTS provider.
 - Fake TTS/STT usage and cost metadata now reports `%{source: :unavailable}`
@@ -102,11 +111,16 @@ not been cut.
   Settings Central, Security Central, voice doctor, and v0.48 eval coverage.
 - Existing STT/TTS action diagnostics passed with 10 tests and 0 failures.
 - `mix allbert.test release.v048` passed with provider capability core
-  (`64 tests, 0 failures`, including local runtime router/auth/backend and
+  (`65 tests, 0 failures`, including local runtime router/auth/backend and
   lifecycle-action tests), voice action/CLI/channel (`52 tests, 0 failures`),
   workspace voice (`64 tests, 0 failures`), voice security eval
   (`20 tests, 0 failures`), and a clean v0.48 voice secret scan. Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v048/p0-13250/home/release_evidence/v048/release-v048-1780812755.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v048/p0-8646/home/release_evidence/v048/release-v048-1780848869.json`.
+- Post-M8R7 manual local smoke on 2026-06-07 passed with `gemma4:e2b`:
+  direct Ollama `/v1/audio/transcriptions`, Allbert local runtime
+  `/v1/models`, `/v1/doctor`, token-backed STT, token-backed TTS, and the
+  full `scripts/v048_voice_live_smoke.exs` STT -> Ollama text -> TTS loop.
+  `gemma4:e4b` also produced a valid direct local transcription.
 
 ## v0.47.1 - Operator-Supervised Self-Improvement Handoff Drafts
 

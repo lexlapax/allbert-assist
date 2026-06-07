@@ -13,7 +13,7 @@ defmodule AllbertAssist.Voice.LocalRuntime.Backends.OllamaSTT do
   def doctor(config) do
     case request(:get, models_url(config), [], config) do
       {:ok, %{status: status, body: body}} when status >= 200 and status < 300 ->
-        entries = model_entries(body)
+        entries = body |> decoded_body() |> model_entries()
         available? = Enum.any?(entries, &(model_id(&1) == config.ollama_stt_model))
 
         %{
@@ -49,12 +49,13 @@ defmodule AllbertAssist.Voice.LocalRuntime.Backends.OllamaSTT do
              config
            ),
          :ok <- successful_response(response),
-         {:ok, transcript} <- transcript_text(response.body) do
+         body = decoded_body(response.body),
+         {:ok, transcript} <- transcript_text(body) do
       {:ok,
        %{
          transcript: transcript,
-         duration_ms: duration_ms(response.body),
-         usage: provider_usage(response.body)
+         duration_ms: duration_ms(body),
+         usage: provider_usage(body)
        }}
     else
       {:error, reason} -> {:error, normalize_error(reason)}
@@ -109,6 +110,36 @@ defmodule AllbertAssist.Voice.LocalRuntime.Backends.OllamaSTT do
   defp model_entries(%{"data" => entries}) when is_list(entries), do: entries
   defp model_entries(%{"models" => entries}) when is_list(entries), do: entries
   defp model_entries(_body), do: []
+
+  defp decoded_body(body) when is_binary(body) do
+    body = String.trim(body)
+
+    cond do
+      body == "" ->
+        body
+
+      String.contains?(body, "\n") ->
+        body
+        |> String.split("\n", trim: true)
+        |> Enum.map(&decode_json_line/1)
+        |> case do
+          [decoded] -> decoded
+          decoded -> decoded
+        end
+
+      true ->
+        decode_json_line(body)
+    end
+  end
+
+  defp decoded_body(body), do: body
+
+  defp decode_json_line(line) do
+    case Jason.decode(line) do
+      {:ok, decoded} -> decoded
+      {:error, _reason} -> line
+    end
+  end
 
   defp model_id(%{} = entry),
     do: Map.get(entry, "id") || Map.get(entry, "model") || Map.get(entry, "name")

@@ -208,7 +208,7 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, "http://127.0.0.1:11434/v1"} =
              Settings.get("voice.local_runtime.ollama_base_url")
 
-    assert {:ok, "gemma3n:e2b"} = Settings.get("voice.local_runtime.ollama_stt_model")
+    assert {:ok, "gemma4:e2b"} = Settings.get("voice.local_runtime.ollama_stt_model")
     assert {:ok, "whisper-local"} = Settings.get("voice.local_runtime.stt_model_alias")
     assert {:ok, "tts-local"} = Settings.get("voice.local_runtime.tts_model_alias")
     assert {:ok, "ollama"} = Settings.get("voice.local_runtime.stt_backend")

@@ -244,9 +244,9 @@ mix ecto.migrate --quiet
 mix allbert.settings set voice.local_runtime.enabled true
 mix allbert.settings set voice.local_runtime.port 5050
 mix allbert.settings set voice.local_runtime.ollama_base_url http://127.0.0.1:11434/v1
-# Use the default `gemma3n:e2b` only if `ollama list` confirms that model is
-# installed and audio-capable for your Ollama build.
-mix allbert.settings set voice.local_runtime.ollama_stt_model gemma3n:e2b
+# Use `gemma4:e2b` for the validated Mac local STT path. `gemma4:e4b` is a
+# stronger optional choice when the machine has enough memory.
+mix allbert.settings set voice.local_runtime.ollama_stt_model gemma4:e2b
 
 export ALLBERT_V048_LIVE_SMOKE=1
 export ALLBERT_V048_PROVIDER=local
