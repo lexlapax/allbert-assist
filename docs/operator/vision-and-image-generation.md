@@ -1,8 +1,11 @@
 # Vision And Image Generation Operator Guide
 
-Status: v0.49 implemented. Use this guide for manual validation and local
-operator setup. The design authority remains `docs/plans/v0.49-plan.md`,
-`docs/plans/v0.49-request-flow.md`, ADR 0042, ADR 0047, and ADR 0051.
+Status: v0.49 implemented but manual validation is paused pending M10
+multimodal channel/runtime remediation. Use this guide for setup context; do
+not use the numbered checklist as release-ready until M10 implementation and
+M11 revalidation refresh the evidence. The design authority remains
+`docs/plans/v0.49-plan.md`, `docs/plans/v0.49-request-flow.md`, ADR 0042,
+ADR 0047, and ADR 0051.
 
 ## Operator Posture
 
@@ -517,12 +520,14 @@ until after recording the evidence paths you will report.
         "$ALLBERT_HOME/memory/traces" || true
     ```
 
-    Expected: workspace accepts the upload, answers through the configured
-    `vision_fake` profile, generates through `image_fake`, and security review
-    shows no redaction incidents. Resolved confirmations may be empty in this
-    fake-profile workspace smoke; steps 11-14 are the remote/local provider
-    confirmation proof. Trace search should find redacted metadata refs if
-    traces were emitted; it must not print raw image bytes or local file paths.
+    Expected after M10: workspace accepts the upload, answers through the
+    configured `vision_fake` profile, routes the generation request through
+    `generate_image` rather than `direct_answer`, renders a generated image
+    preview from `media_outputs`, and security review shows no redaction
+    incidents. Resolved confirmations may be empty in this fake-profile
+    workspace smoke; steps 11-14 are the remote/local provider confirmation
+    proof. Trace search should find redacted metadata refs if traces were
+    emitted; it must not print raw image bytes or local file paths.
 
 17. Validate browser screenshot analysis through the operator UI flow.
 
@@ -610,7 +615,8 @@ The latest full release-gate evidence path is:
 /var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-1218/home/release_evidence/gates/release-2026-06-08T03_08_24Z.json
 ```
 
-Current M10 live-provider status:
+Previous M10 live-provider status, now stale until M11 reruns after the
+multimodal channel/runtime remediation:
 
 - OpenAI passed with evidence:
   `/tmp/allbert-v049-openai.wd0zIU/release_evidence/v049/live-vision-openai-1780886149.json`.
@@ -624,4 +630,6 @@ Current M10 live-provider status:
   `ALLBERT_V049_VISION_MODEL=gemma4:e4b`; evidence:
   `/tmp/allbert-v049-gemma4.v2qeT4/release_evidence/v049/live-vision-ollama-1780886599.json`.
 
-v0.49 is ready for operator manual validation before the release-tag decision.
+v0.49 returns to operator manual validation only after M10 fixes the shared
+multimodal routing/rendering gap and M11 refreshes deterministic, live-provider,
+local-provider, browser, and UI evidence.
