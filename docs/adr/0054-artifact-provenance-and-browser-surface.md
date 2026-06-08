@@ -31,19 +31,28 @@ ingestion sensor. Two follow-on concerns need their own decision:
   `artifact_thread_links(id, artifact_sha256, thread_id, message_id, role,
   user_id, metadata, inserted_at, updated_at)`, `role ∈ {created_by,
   referenced_by}`, indexed on `[:artifact_sha256]` (reverse lookup) and
-  `[:thread_id, :user_id]` (browse-by-thread).
+  `[:thread_id, :user_id]` (browse-by-thread), plus
+  `[:user_id, :artifact_sha256]` for scoped reverse lookup.
+- Link ids are deterministic from the normalized edge tuple
+  `{artifact_sha256, user_id, thread_id, message_id || input_signal_id ||
+  "thread", role}`. Repeated puts of the same artifact in the same context
+  upsert the same edge instead of creating duplicate browse rows; this avoids
+  relying on SQLite unique-index behavior around nullable `message_id`.
 - `thread_id`/`message_id` are plain strings, **not enforced foreign keys** —
   consistent with the project stance that thread/objective ids are provenance,
   never authority (objectives, canvas tiles, scheduled jobs all use unconstrained
   indexed `thread_id` string columns). The originating thread/message id is
-  additionally denormalized into the artifact's markdown sidecar for
-  human-readable provenance (mirrors the trace `Thread:` line and the canvas
-  tile sidecar).
+  additionally denormalized into the artifact's markdown sidecar as bounded
+  `provenance` metadata for human-readable provenance (mirrors the trace
+  `Thread:` line and the canvas tile sidecar).
 - The link is recorded at put-time from the action `context`:
   `request = Map.get(context, :request, %{})`, then `request.thread_id`,
   `request.user_id`, `request.session_id`. Message-level attribution uses
   `request.input_signal_id` (persisted on the `conversation_messages` row),
-  resolved to a `msg_…` id when message-precise linking is requested.
+  resolved by `{user_id, thread_id, input_signal_id}` to a `msg_…` id when
+  possible. If the message row is not present, the link remains thread-level
+  with `message_id: nil` and `metadata.input_signal_id`; message precision is
+  best-effort provenance, not authority.
 - Querying is Ecto over the join table (user-scoped, role-filtered), the same
   idiom as `Conversations.list_messages/2` and `Objectives.list_objectives/2` —
   never a markdown scan. SQLite is the index; markdown is the human-facing body.
