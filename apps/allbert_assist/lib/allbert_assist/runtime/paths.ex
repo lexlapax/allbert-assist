@@ -16,6 +16,9 @@ defmodule AllbertAssist.Runtime.Paths do
           | :memory
           | :memory_deleted
           | :artifacts
+          | :audio
+          | :images
+          | :generated_images
           | :confirmations
           | :execution
           | :package_installs
@@ -59,6 +62,18 @@ defmodule AllbertAssist.Runtime.Paths do
   @doc "Return the artifact content-addressable store root."
   @spec artifacts_root() :: String.t()
   defdelegate artifacts_root(), to: Paths
+
+  @doc "Return the legacy retained-audio root used as an artifact backfill input."
+  @spec audio_root() :: String.t()
+  defdelegate audio_root(), to: Paths
+
+  @doc "Return the legacy retained vision-input image root used as an artifact backfill input."
+  @spec images_root() :: String.t()
+  defdelegate images_root(), to: Paths
+
+  @doc "Return the legacy generated-image root used as an artifact backfill input."
+  @spec generated_images_root() :: String.t()
+  defdelegate generated_images_root(), to: Paths
 
   @doc "Return the durable confirmation request root."
   @spec confirmations_root() :: String.t()
@@ -143,6 +158,9 @@ defmodule AllbertAssist.Runtime.Paths do
   def root(:memory), do: memory_root()
   def root(:memory_deleted), do: memory_deleted_root()
   def root(:artifacts), do: artifacts_root()
+  def root(:audio), do: audio_root()
+  def root(:images), do: images_root()
+  def root(:generated_images), do: generated_images_root()
   def root(:confirmations), do: confirmations_root()
   def root(:execution), do: execution_root()
   def root(:package_installs), do: package_installs_root()
@@ -172,6 +190,9 @@ defmodule AllbertAssist.Runtime.Paths do
       memory: memory_root(),
       memory_deleted: memory_deleted_root(),
       artifacts: artifacts_root(),
+      audio: audio_root(),
+      images: images_root(),
+      generated_images: generated_images_root(),
       confirmations: confirmations_root(),
       execution: execution_root(),
       package_installs: package_installs_root(),

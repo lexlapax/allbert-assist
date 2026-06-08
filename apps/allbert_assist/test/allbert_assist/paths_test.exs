@@ -80,6 +80,9 @@ defmodule AllbertAssist.PathsTest do
     assert Paths.confirmations_root() == Path.join(home, "confirmations")
     assert Paths.memory_root() == Path.join(home, "memory")
     assert Paths.artifacts_root() == Path.join(home, "artifacts")
+    assert Paths.audio_root() == Path.join(home, "audio")
+    assert Paths.images_root() == Path.join(home, "images")
+    assert Paths.generated_images_root() == Path.join(home, "generated_images")
     assert Paths.external_root() == Path.join(home, "external")
     assert Paths.external_cache_root() == Path.join([home, "cache", "external-services"])
     assert Paths.package_installs_root() == Path.join([home, "execution", "package-installs"])
@@ -172,6 +175,9 @@ defmodule AllbertAssist.PathsTest do
           Path.join([home, "memory", "preferences"]),
           Path.join([home, "memory", "traces"]),
           Path.join([home, "memory", "skills"]),
+          Path.join(home, "audio"),
+          Path.join(home, "images"),
+          Path.join(home, "generated_images"),
           Path.join(home, "artifacts"),
           Path.join([home, "artifacts", "objects"]),
           Path.join([home, "artifacts", "index"]),

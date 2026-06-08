@@ -2949,7 +2949,7 @@ browser-surface split), `docs/adr/0042-audio-image-and-media-resource-classes.md
 `docs/adr/0031-settings-schema-fragments-and-authority.md`,
 `docs/adr/0046-settings-schema-migration-policy.md`
 
-Status: M1-M4 implemented and focused-verified on 2026-06-08; M5-M7 remain
+Status: M1-M5 implemented and focused-verified on 2026-06-08; M6-M7 remain
 planned. Inserts a content-addressable artifact store between v0.49 vision and
 v0.51 Channel Pack 1, so durable media has one canonical home before channels
 begin forwarding attachments. Built on Allbert Home, Resource Access, Security
@@ -2965,8 +2965,11 @@ M3 has landed the persisted `artifacts.*` fragment, core artifact actions,
 delete confirmation, `artifact_doctor`, retention honoring, and supervised
 mark-and-sweep GC. M4 has landed `artifact_thread_links`, message-precise and
 thread-level provenance recording from `context.request`, by-thread
-`list_artifacts`, and reverse `artifact_threads`; backfill, sensor, and release
-gates remain in M5-M7.
+`list_artifacts`, and reverse `artifact_threads`. M5 has formalized the
+audio/images/generated-image Home roots as retained-media backfill inputs, added
+retained-media backfill into CAS, and routed generated-image, workspace voice,
+and workspace image retained writes through Artifacts Central while leaving
+transient scratch unchanged; sensor and release gates remain in M6-M7.
 
 Expected direction:
 
