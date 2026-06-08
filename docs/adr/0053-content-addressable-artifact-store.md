@@ -3,7 +3,10 @@
 ## Status
 
 Proposed for v0.50 Artifacts Central; accepted at v0.50 M1 closeout after the
-object-store, metadata-index, and resource-scheme evidence lands.
+object-store, metadata-index, and resource-scheme evidence lands. Amended by
+ADR 0054, which adds artifact↔thread/message provenance linking and the
+core-kernel-vs-plugin browsing-surface split (the operator browser ships in
+v0.50b).
 
 ## Context
 
@@ -106,4 +109,5 @@ authority boundary.
 - ADR 0031 (settings schema fragment authority — the `artifacts.*` fragment).
 - ADR 0046 (settings schema `schema_version` migration policy).
 - ADR 0047 (provider doctor contract — the redacted artifact-doctor envelope).
+- ADR 0054 (artifact provenance linking + browser-surface split; amends this).
 - `docs/plans/v0.50-plan.md`, `docs/plans/v0.50-request-flow.md`.
