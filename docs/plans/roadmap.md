@@ -2949,7 +2949,7 @@ browser-surface split), `docs/adr/0042-audio-image-and-media-resource-classes.md
 `docs/adr/0031-settings-schema-fragments-and-authority.md`,
 `docs/adr/0046-settings-schema-migration-policy.md`
 
-Status: M1-M5 implemented and focused-verified on 2026-06-08; M6-M7 remain
+Status: M1-M6 implemented and focused-verified on 2026-06-08; M7 remains
 planned. Inserts a content-addressable artifact store between v0.49 vision and
 v0.51 Channel Pack 1, so durable media has one canonical home before channels
 begin forwarding attachments. Built on Allbert Home, Resource Access, Security
@@ -2969,7 +2969,11 @@ thread-level provenance recording from `context.request`, by-thread
 audio/images/generated-image Home roots as retained-media backfill inputs, added
 retained-media backfill into CAS, and routed generated-image, workspace voice,
 and workspace image retained writes through Artifacts Central while leaving
-transient scratch unchanged; sensor and release gates remain in M6-M7.
+transient scratch unchanged. M6 has landed the first supervised
+`Jido.Sensor.Runtime` path for retained-media ingestion: the sensor emits
+redacted `allbert.artifact.ingest_requested` signals to an explicit
+`IngestionConsumer` dispatch target, and retained writes still store only
+through the registered `put_artifact` action; release gates remain in M7.
 
 Expected direction:
 
@@ -2996,7 +3000,8 @@ Expected direction:
   registered actions and the codebase's first Jido ingestion sensor
   (`use Jido.Sensor`, supervised by `Jido.Sensor.Runtime`), wired through the
   existing `Actions.Registry` and `Actions.Runner`; the sensor emits
-  ingestion-request signals and never writes around `put_artifact`.
+  ingestion-request signals to an explicit dispatch target and never writes
+  around `put_artifact`.
 - Link artifacts to the threads/messages that created or referenced them via an
   `artifact_thread_links` SQLite join table (role created_by/referenced_by) from
   `context.request`, with a by-thread query and reverse lookup; the link is

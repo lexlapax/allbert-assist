@@ -47,7 +47,8 @@ defmodule AllbertAssist.JidoBacked.Supervisor do
 
     [
       {AllbertAssist.Confirmations.Store.Agent, confirmations_opts},
-      {AllbertAssist.Jobs.Scheduler.Agent, scheduler_opts}
+      {AllbertAssist.Jobs.Scheduler.Agent, scheduler_opts},
+      {AllbertAssist.Artifacts.IngestionSupervisor, Keyword.get(opts, :artifact_ingestion, [])}
     ]
   end
 end
