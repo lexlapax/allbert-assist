@@ -203,7 +203,7 @@ wants to validate real provider behavior before tagging.
     export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v049-openai.XXXXXX)"
     export ALLBERT_V049_LIVE_SMOKE=1
     export ALLBERT_V049_PROVIDER=openai
-    export ALLBERT_V049_IMAGE="/absolute/path/to/small-validation-image.png"
+    export ALLBERT_V049_IMAGE="$PWD/docs/samples/media/images/validation-input.png"
     mix run --no-start scripts/v049_vision_live_smoke.exs
     ```
 
@@ -221,7 +221,7 @@ wants to validate real provider behavior before tagging.
     export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v049-gemini.XXXXXX)"
     export ALLBERT_V049_LIVE_SMOKE=1
     export ALLBERT_V049_PROVIDER=gemini
-    export ALLBERT_V049_IMAGE="/absolute/path/to/small-validation-image.png"
+    export ALLBERT_V049_IMAGE="$PWD/docs/samples/media/images/validation-input.png"
     mix run --no-start scripts/v049_vision_live_smoke.exs
     ```
 
@@ -248,7 +248,7 @@ wants to validate real provider behavior before tagging.
     # export OLLAMA_BASE_URL="http://127.0.0.1:11434/v1"
     # Optional model override for local vision-candidate checks:
     # export ALLBERT_V049_VISION_MODEL="gemma4:e4b"
-    export ALLBERT_V049_IMAGE="/absolute/path/to/small-validation-image.png"
+    export ALLBERT_V049_IMAGE="$PWD/docs/samples/media/images/validation-input.png"
     mix run --no-start scripts/v049_vision_live_smoke.exs
     ```
 
@@ -368,5 +368,4 @@ Current M10 live-provider status:
   `ALLBERT_V049_VISION_MODEL=gemma4:e4b`; evidence:
   `/tmp/allbert-v049-gemma4.v2qeT4/release_evidence/v049/live-vision-ollama-1780886599.json`.
 
-v0.49 is ready for operator manual validation once the current source-tree
-release gates below are green and committed.
+v0.49 is ready for operator manual validation before the release-tag decision.
