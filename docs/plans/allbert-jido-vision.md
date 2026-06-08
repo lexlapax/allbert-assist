@@ -702,7 +702,7 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.50b: Artifacts Browser. The operator browsing repository for Artifacts
   Central as a plugin/app (`plugins/allbert.artifacts/`, plugin id
   `allbert.artifacts`, modeled on StockSage and `allbert.browser`): a workspace
-  `:canvas_panels` panel, an
+  `:canvas_panels` panel (M1 complete), an
   `/apps/artifacts/<sha>` detail page, and a `mix allbert.artifacts` CLI, all
   reading the store only through core `:artifact_read` actions and rendering
   redacted metadata only. Adds `:v050b` artifact-browser eval rows,

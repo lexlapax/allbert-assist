@@ -164,6 +164,9 @@ defmodule AllbertAssist.Plugin.RegistryTest do
     assert {:module, AllbertBrowser.Plugin, _opts} =
              Enum.find(discoveries, &match?({:module, AllbertBrowser.Plugin, _}, &1))
 
+    assert {:module, AllbertArtifacts.Plugin, _opts} =
+             Enum.find(discoveries, &match?({:module, AllbertArtifacts.Plugin, _}, &1))
+
     assert {:module, AllbertResearch.Plugin, _opts} =
              Enum.find(discoveries, &match?({:module, AllbertResearch.Plugin, _}, &1))
   end

@@ -40,6 +40,7 @@ defmodule AllbertAssist.MixProject do
       Path.expand("../../plugins/allbert.email/lib", __DIR__),
       Path.expand("../../plugins/allbert.notes_files/lib", __DIR__),
       Path.expand("../../plugins/allbert.browser/lib", __DIR__),
+      Path.expand("../../plugins/allbert.artifacts/lib", __DIR__),
       Path.expand("../../plugins/allbert.research/lib", __DIR__),
       Path.expand("../../plugins/stocksage/lib/stocksage", __DIR__),
       Path.expand("../../plugins/stocksage/lib/mix", __DIR__)
