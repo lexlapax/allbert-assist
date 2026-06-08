@@ -93,9 +93,11 @@ defmodule AllbertAssist.Settings.ProviderCatalogTest do
 
     vision_openai = profiles["vision_openai"]
     vision_gemini = profiles["vision_gemini"]
+    vision_ollama = profiles["vision_ollama"]
     vision_fake = profiles["vision_fake"]
     image_openai = profiles["image_openai"]
     image_gemini = profiles["image_gemini"]
+    image_ollama = profiles["image_ollama"]
     image_fake = profiles["image_fake"]
 
     assert vision_openai["provider"] == "openai"
@@ -110,6 +112,11 @@ defmodule AllbertAssist.Settings.ProviderCatalogTest do
     assert vision_gemini["model"] == "gemini-2.5-flash"
     assert vision_gemini["capabilities"] == ["text_generation", "vision_input"]
 
+    assert vision_ollama["provider"] == "local_ollama"
+    assert vision_ollama["model"] == "qwen3-vl:8b"
+    assert vision_ollama["capabilities"] == ["text_generation", "vision_input"]
+    assert vision_ollama["media"]["deployment_mode"] == "local_endpoint"
+
     assert vision_fake["provider"] == "fake_media"
     assert vision_fake["capabilities"] == ["vision_input"]
     assert vision_fake["media"]["deployment_mode"] == "fake"
@@ -123,6 +130,11 @@ defmodule AllbertAssist.Settings.ProviderCatalogTest do
     assert image_gemini["model"] == "gemini-3.1-flash-image"
     assert image_gemini["capabilities"] == ["image_generation"]
 
+    assert image_ollama["provider"] == "local_ollama"
+    assert image_ollama["model"] == "x/z-image-turbo"
+    assert image_ollama["capabilities"] == ["image_generation"]
+    assert image_ollama["media"]["deployment_mode"] == "local_endpoint"
+
     assert image_fake["provider"] == "fake_media"
     assert image_fake["capabilities"] == ["image_generation"]
     assert image_fake["media"]["deployment_mode"] == "fake"
@@ -130,9 +142,11 @@ defmodule AllbertAssist.Settings.ProviderCatalogTest do
     aliases = ProviderCatalog.jido_model_aliases()
     assert aliases.vision_openai == "openai:gpt-5.2"
     assert aliases.vision_gemini == "google:gemini-2.5-flash"
+    assert aliases.vision_ollama == "openai:qwen3-vl:8b"
     refute Map.has_key?(aliases, :vision_fake)
     refute Map.has_key?(aliases, :image_openai)
     refute Map.has_key?(aliases, :image_gemini)
+    refute Map.has_key?(aliases, :image_ollama)
     refute Map.has_key?(aliases, :image_fake)
   end
 end

@@ -150,6 +150,25 @@ declare multiple modalities, but executable flows stay capability-specific:
 v0.48 owns `speech_to_text` and `text_to_speech`; v0.49 owns `vision_input` and
 `image_generation`; video and generic audio understanding remain parked.
 
+## Vision And Image Notes
+
+Vision and image generation use the same capability/profile resolver as voice,
+but execute through ReqLLM rather than the v0.48 ProviderHTTP voice adapters.
+
+- `vision_openai` and `vision_gemini` are the remote release-validation
+  profiles for image/screenshot -> text.
+- `image_openai` and `image_gemini` are the remote release-validation profiles
+  for text -> image, and non-fake image generation remains confirmation-gated.
+- `vision_ollama` and `image_ollama` are opt-in local profiles on the existing
+  `local_ollama` OpenAI-compatible endpoint. The selected model IDs are
+  `qwen3-vl:8b` for image input and `x/z-image-turbo` for experimental image
+  generation.
+- The default `vision_input` and `image_generation` preference lists stay
+  OpenAI/Gemini only. Operators who want local media validation must explicitly
+  select the Ollama profiles or run the v0.49 live smoke with
+  `ALLBERT_V049_PROVIDER=ollama`.
+- No v0.49 profile claims video generation or generic audio understanding.
+
 ## Voice Notes
 
 Voice providers use the same model-profile and doctor contract:

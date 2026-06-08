@@ -4,6 +4,7 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.ModelRuntime
   alias AllbertAssist.Settings.Models
 
   @env_vars [
@@ -96,6 +97,42 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert image.profile.model == "gpt-image-1.5"
     assert image.profile.capabilities == ["image_generation"]
     assert image.profile.media["output_modalities"] == ["image"]
+  end
+
+  test "local Ollama media profiles resolve only when selected explicitly" do
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.vision_input", ["vision_ollama"], %{
+               audit?: false
+             })
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.image_generation", ["image_ollama"], %{
+               audit?: false
+             })
+
+    assert {:ok, vision} = Models.for(:vision_input)
+    assert vision.request_kind == :capability
+    assert vision.profile.name == "vision_ollama"
+    assert vision.profile.provider == "local_ollama"
+    assert vision.profile.model == "qwen3-vl:8b"
+    assert vision.profile.capabilities == ["text_generation", "vision_input"]
+    assert vision.profile.media["deployment_mode"] == "local_endpoint"
+
+    assert {:ok, %{provider: :openai, id: "qwen3-vl:8b"}} =
+             ModelRuntime.model_spec(vision.profile)
+
+    assert {:ok, image} = Models.for(:image_generation)
+    assert image.request_kind == :capability
+    assert image.profile.name == "image_ollama"
+    assert image.profile.provider == "local_ollama"
+    assert image.profile.model == "x/z-image-turbo"
+    assert image.profile.capabilities == ["image_generation"]
+    assert image.profile.media["deployment_mode"] == "local_endpoint"
+    assert {:ok, "openai:x/z-image-turbo"} = ModelRuntime.model_string(image.profile)
+
+    opts = ModelRuntime.request_opts(image.profile)
+    assert Keyword.fetch!(opts, :base_url) == "http://localhost:11434/v1"
+    refute Keyword.has_key?(opts, :api_key)
   end
 
   test "resolver skips disabled providers and incapable profiles before falling back" do

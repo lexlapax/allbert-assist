@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "checked_at": "2026-06-07",
+  "checked_at": "2026-06-08",
   "sources": [
     "https://platform.claude.com/docs/en/about-claude/models/overview",
     "https://docs.anthropic.com/en/api/models",
@@ -11,7 +11,8 @@
     "https://openrouter.ai/docs/models",
     "https://ai.google.dev/gemini-api/docs/models",
     "https://ai.google.dev/gemini-api/docs/openai",
-    "https://ollama.com/library/qwen2.5-coder"
+    "https://ollama.com/library/qwen2.5-coder",
+    "https://docs.ollama.com/api/openai-compatibility"
   ],
   "providers": {
     "local_ollama": {
@@ -387,6 +388,23 @@
       "max_tokens": 2048,
       "timeout_ms": 60000
     },
+    "vision_ollama": {
+      "provider": "local_ollama",
+      "model": "qwen3-vl:8b",
+      "aliases": ["qwen3-vl"],
+      "capabilities": ["text_generation", "vision_input"],
+      "media": {
+        "input_modalities": ["text", "image"],
+        "output_modalities": ["text"],
+        "deployment_mode": "local_endpoint",
+        "image_formats_supported": ["png", "jpeg", "webp"],
+        "max_image_bytes": 10485760,
+        "max_image_pixels": 16777216
+      },
+      "temperature": 0.2,
+      "max_tokens": 1024,
+      "timeout_ms": 120000
+    },
     "vision_fake": {
       "provider": "fake_media",
       "model": "fixture-vision",
@@ -427,6 +445,23 @@
         "input_modalities": ["text"],
         "output_modalities": ["image"],
         "deployment_mode": "remote_credentialed",
+        "image_formats_supported": ["png"],
+        "max_image_bytes": 20971520,
+        "max_image_pixels": 33177600
+      },
+      "temperature": 0.2,
+      "max_tokens": 1024,
+      "timeout_ms": 120000
+    },
+    "image_ollama": {
+      "provider": "local_ollama",
+      "model": "x/z-image-turbo",
+      "aliases": ["z-image-turbo"],
+      "capabilities": ["image_generation"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["image"],
+        "deployment_mode": "local_endpoint",
         "image_formats_supported": ["png"],
         "max_image_bytes": 20971520,
         "max_image_pixels": 33177600
