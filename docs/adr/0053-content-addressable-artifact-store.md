@@ -12,8 +12,9 @@ v0.50b).
 
 Through v0.49, durable media accumulated as ad-hoc, per-subsystem files: v0.48
 voice retained captures under `<ALLBERT_HOME>/audio`, v0.49 vision retained media
-under `<ALLBERT_HOME>/images`, generated media handles, and browser-research
-downloads. Those roots exist only as settings-default strings, are not
+under `<ALLBERT_HOME>/images`, v0.49 generated-image outputs under
+`<ALLBERT_HOME>/generated_images`, generated media handles, and browser-research
+downloads. Those retained roots exist only as settings-default strings, are not
 deduplicated, carry no uniform metadata, and have no shared identity. As channels
 (v0.51+) begin forwarding attachments and MCP server mode (v0.52b) begins
 exposing resources, the absence of a canonical artifact home becomes a liability.
@@ -63,9 +64,9 @@ maintenance risk and no heavy deps. The store is therefore owned in-tree.
 - Metadata: a markdown-first per-artifact sidecar under `artifacts/index/`
   carrying a strict allow-list (`sha256`, `mime`, `byte_size`, `origin`,
   `source_resource_uri`, `created_at`, `retention`, `redaction_status`,
-  `lifecycle`), plus an in-memory `sha256 → metadata` lookup index. Metadata is
-  decoupled from the object layer; raw bytes/filenames-as-content never enter
-  traces.
+  `lifecycle`, bounded `provenance`), plus an in-memory `sha256 → metadata`
+  lookup index. Metadata is decoupled from the object layer; raw
+  bytes/filenames-as-content never enter traces.
 
 ### Security and lifecycle
 
@@ -78,9 +79,10 @@ maintenance risk and no heavy deps. The store is therefore owned in-tree.
   the index against on-disk objects for operator-policy removal.
 - The `Runtime.Redactor` gains an `artifacts` surface; `content_sha256` is
   trace-safe identity and raw bytes are never traced/audited/assigned/printed.
-- Ingestion adds the codebase's first `Jido.Sensor`, advisory only: it ingests
-  the durable-retention branch of capture flows but never grants authority or
-  auto-promotes to memory.
+- Ingestion adds the codebase's first supervised `Jido.Sensor`, advisory only:
+  it ingests the durable-retention branch of capture flows through the same
+  `put_artifact` path as actions but never grants authority or auto-promotes to
+  memory.
 
 ### Authority
 
@@ -97,8 +99,8 @@ authority boundary.
   one more Home subtree.
 - Negative: the project owns correctness of atomic writes, dedup, and GC (simple
   and well-trodden — rename-into-place handles the race; identical content is
-  idempotent). A first Jido sensor pattern must be designed without an in-repo
-  precedent.
+  idempotent). A first supervised `Jido.Sensor` pattern must be designed without
+  an in-repo precedent.
 - Neutral: no content interpretation (resize/transcode/OCR), no remote sync, and
   no IPFS/IPLD interchange in v0.50; `Capsule` is the documented escape hatch if
   a pluggable backend is later required.

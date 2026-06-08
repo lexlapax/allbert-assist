@@ -288,13 +288,14 @@ Dependency order from here:
 50. v0.50 Artifacts Central: a uniform content-addressable store for artifacts
     uploaded by the operator, created by Allbert, or found through approved
     tools, deduplicated by content hash with provenance/type/retention metadata,
-    linking artifacts to the threads/messages that created them, backfilling the
-    v0.48 audio and v0.49 image retained-media roots and adding the first Jido
-    ingestion sensor. Identity is content-addressed; Security Central and
-    Resource Access remain the authority boundary.
+    linking artifacts to the threads/messages that created them, backfilling
+    retained v0.48 audio, v0.49 vision-input, and v0.49 generated-image roots,
+    excluding historical Browser cache, and adding the first supervised
+    `Jido.Sensor` ingestion path. Identity is content-addressed; Security
+    Central and Resource Access remain the authority boundary.
     v0.50b Artifacts Browser ships the operator browsing repository (workspace
     panel + `/apps/artifacts/<sha>` page + `mix allbert.artifacts` CLI) as a
-    plugin/app over the core read actions.
+    plugin/app (`allbert.artifacts`) over the core read actions.
 51. v0.51 Channel Pack 1 (Discord and Slack) + ADR 0016 amendment for the
     channel approval-primitive contract (`{list, button, typed_command, link}`).
     Locks the channel approval shape before mobile channels need it.
@@ -2973,11 +2974,14 @@ Expected direction:
   sensitive content in traces or audits.
 - Define the promotion/retention path from temporary v0.48 audio and v0.49
   media input/output files into durable artifacts, including deduplication and
-  operator removal; backfill the existing retained-media roots and formalize
-  them as real Allbert Home roots.
+  operator removal; backfill retained `<ALLBERT_HOME>/audio`,
+  `<ALLBERT_HOME>/images`, and `<ALLBERT_HOME>/generated_images`, while leaving
+  ephemeral scratch and historical Browser cache files out of the M5 backfill.
 - Add `put`/`get`/`list`/`delete` registered actions and the codebase's first
-  Jido ingestion sensor, wired through the existing `Actions.Registry` and
-  `Actions.Runner`.
+  Jido ingestion sensor (`use Jido.Sensor`, supervised by
+  `Jido.Sensor.Runtime`), wired through the existing `Actions.Registry` and
+  `Actions.Runner`; the sensor emits ingestion-request signals and never writes
+  around `put_artifact`.
 - Link artifacts to the threads/messages that created or referenced them via an
   `artifact_thread_links` SQLite join table (role created_by/referenced_by) from
   `context.request`, with a by-thread query and reverse lookup; the link is
@@ -3002,8 +3006,9 @@ depending on the v0.50 core read actions.
 Expected direction:
 
 - Ship the operator browsing repository for Artifacts Central as a plugin/app
-  (`plugins/allbert.artifacts/`), modeled on StockSage and `allbert.browser`,
-  not as core. It reads the store only through core `:artifact_read` actions.
+  (`plugins/allbert.artifacts/`, plugin id `allbert.artifacts`), modeled on
+  StockSage and `allbert.browser`, not as core. It reads the store only through
+  core `:artifact_read` actions.
 - Contribute a workspace `:canvas_panels` Artifacts panel, an
   `/apps/artifacts/<sha>` detail page (route in the core router, module
   plugin-owned), and a `mix allbert.artifacts` CLI.

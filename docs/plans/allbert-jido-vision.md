@@ -677,13 +677,16 @@ historical aliases only and remain in old reference notes for continuity.
   content hash with provenance/type/retention metadata. Built on Allbert Home,
   Resource Access, Security Central, and the Jido action framework as a thin CAS
   over `:crypto` SHA-256 + sharded objects; adds `put`/`get`/`list`/`delete`
-  actions and the first Jido ingestion sensor, links artifacts to the
+  actions and the first supervised Jido ingestion sensor, links artifacts to the
   threads/messages that created them (`artifact_thread_links`, ADR 0054), and
-  backfills the v0.48 audio and v0.49 image retained-media roots.
+  backfills the retained v0.48 audio, v0.49 vision-input, and v0.49
+  generated-image roots while leaving ephemeral scratch and historical Browser
+  cache outside the M5 backfill.
   Content-addressed identity and thread links never grant permission.
 - v0.50b: Artifacts Browser. The operator browsing repository for Artifacts
-  Central as a plugin/app (`plugins/allbert.artifacts/`, modeled on StockSage and
-  `allbert.browser`): a workspace `:canvas_panels` panel, an
+  Central as a plugin/app (`plugins/allbert.artifacts/`, plugin id
+  `allbert.artifacts`, modeled on StockSage and `allbert.browser`): a workspace
+  `:canvas_panels` panel, an
   `/apps/artifacts/<sha>` detail page, and a `mix allbert.artifacts` CLI, all
   reading the store only through core `:artifact_read` actions and rendering
   redacted metadata only — the plugin grants no authority and owns no store

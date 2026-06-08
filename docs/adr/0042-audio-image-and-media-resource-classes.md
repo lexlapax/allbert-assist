@@ -7,9 +7,13 @@
 - Accepted for the v0.49 image/screenshot amendment in M1
   (`docs/plans/v0.49-plan.md`) after catalog/settings, app-started ReqLLM
   probe, and fixture-profile evidence.
+- Proposed for the v0.50 artifact-resource amendment; acceptance target is
+  v0.50 M1 after the object store, metadata index, and `artifact://` scheme
+  evidence lands.
 - The v0.48 audio amendments below are the implementation-readiness contract
-  for voice. The image, screenshot, and generated-media portions remain scoped
-  to v0.49 unless v0.48 explicitly narrows them.
+  for voice. The v0.49 image, screenshot, and generated-media portions are
+  shipped as bounded media resources; the v0.50 amendment below promotes
+  durable retained media into the canonical artifact resource class.
 
 v0.48 M4 closeout evidence:
 
@@ -148,6 +152,40 @@ this ADR (`docs/plans/v0.49-plan.md`):
   `video_input`/transport metadata, but the release flow remains bounded image
   input + image generation. There is no catch-all `multimodal` capability or
   all-purpose media router in this ADR.
+
+### v0.50 Artifact Resource Amendment
+
+v0.50 implements the artifact-management follow-on reserved by v0.49
+(`docs/plans/v0.50-plan.md`, ADR 0053, ADR 0054):
+
+- `artifact://sha256/<hex>` identifies a durable, content-addressed artifact in
+  Allbert Home. The hash is lowercase SHA-256 over the bytes and is distinct
+  from transport/capture identities such as `mic://capture/<id>`,
+  `image://capture/<id>`, `screen://capture/<id>`, browser cache refs, generated
+  media handles, and future channel attachment identifiers.
+- Artifact identity is inert. A content address, metadata sidecar, browser row,
+  or thread link never grants read/write/send authority; all reads and writes
+  still resolve through Resource Access, Security Central, and registered
+  actions.
+- v0.50 adds permission classes `:artifact_read` and `:artifact_write` with
+  floor `:allowed`, and `:artifact_delete` with floor `:needs_confirmation`.
+  It adds operation classes `:artifact_read`, `:artifact_write`,
+  `:artifact_delete`, and origin kind `:artifact_store`.
+- Metadata is allow-listed and trace-safe only: `sha256`, MIME/type, byte size,
+  origin, source resource URI, created time, retention/lifecycle/redaction
+  state, and bounded provenance. Raw bytes, unredacted file paths, provider
+  payloads, and filenames-as-content do not enter traces, audits, LiveView
+  assigns, or CLI output.
+- Retention remains default-off. v0.50 backfills retained v0.48 audio, v0.49
+  vision input media, and v0.49 generated-image outputs into the CAS; ephemeral
+  scratch and historical Browser cache are out of scope for that backfill.
+- Artifact provenance links live in the Repo-backed `artifact_thread_links`
+  join table, not in a single artifact column. Links connect an artifact hash to
+  one or more thread/message roles and are provenance only, never authority.
+- The v0.50 Jido ingestion sensor is advisory. It emits ingestion-request
+  signals and routes durable writes through the same `put_artifact` path as
+  actions; it does not create a private storage authority or auto-promote media
+  into memory.
 
 ## Consequences
 
