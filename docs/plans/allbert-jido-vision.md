@@ -680,8 +680,9 @@ historical aliases only and remain in old reference notes for continuity.
   actions and the first supervised Jido ingestion sensor, links artifacts to the
   threads/messages that created them (`artifact_thread_links`, ADR 0054), and
   backfills the retained v0.48 audio, v0.49 vision-input, and v0.49
-  generated-image roots while leaving ephemeral scratch and historical Browser
-  cache outside the M5 backfill.
+  generated-image roots from the existing retention-root settings while leaving
+  ephemeral scratch and historical Browser cache outside the M5 backfill. Adds
+  `:v050` artifact-store eval rows and `release.v050`.
   Content-addressed identity and thread links never grant permission.
 - v0.50b: Artifacts Browser. The operator browsing repository for Artifacts
   Central as a plugin/app (`plugins/allbert.artifacts/`, plugin id
@@ -689,8 +690,9 @@ historical aliases only and remain in old reference notes for continuity.
   `:canvas_panels` panel, an
   `/apps/artifacts/<sha>` detail page, and a `mix allbert.artifacts` CLI, all
   reading the store only through core `:artifact_read` actions and rendering
-  redacted metadata only — the plugin grants no authority and owns no store
-  internals.
+  redacted metadata only. Adds `:v050b` artifact-browser eval rows,
+  `release.v050b`, and deterministic browser-validation fixture seeding — the
+  plugin grants no authority and owns no store internals.
 - v0.51: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
   through the existing channel adapter and plugin contracts; v0.51 also amends
   ADR 0016 to lock the channel approval-primitive contract before mobile
