@@ -10,6 +10,7 @@ defmodule AllbertAssist.Runtime.PathsTest do
     "ALLBERT_HOME_DIR",
     "ALLBERT_SETTINGS_ROOT",
     "ALLBERT_MEMORY_ROOT",
+    "ALLBERT_ARTIFACTS_ROOT",
     "DATABASE_PATH"
   ]
 
@@ -18,17 +19,20 @@ defmodule AllbertAssist.Runtime.PathsTest do
     original_paths_config = Application.get_env(:allbert_assist, LegacyPaths)
     original_settings_config = Application.get_env(:allbert_assist, AllbertAssist.Settings)
     original_memory_config = Application.get_env(:allbert_assist, AllbertAssist.Memory)
+    original_artifacts_config = Application.get_env(:allbert_assist, AllbertAssist.Artifacts)
 
     Enum.each(@env_vars, &System.delete_env/1)
     Application.delete_env(:allbert_assist, LegacyPaths)
     Application.delete_env(:allbert_assist, AllbertAssist.Settings)
     Application.delete_env(:allbert_assist, AllbertAssist.Memory)
+    Application.delete_env(:allbert_assist, AllbertAssist.Artifacts)
 
     on_exit(fn ->
       restore_env(original_env)
       restore_app_env(LegacyPaths, original_paths_config)
       restore_app_env(AllbertAssist.Settings, original_settings_config)
       restore_app_env(AllbertAssist.Memory, original_memory_config)
+      restore_app_env(AllbertAssist.Artifacts, original_artifacts_config)
     end)
   end
 
@@ -52,6 +56,7 @@ defmodule AllbertAssist.Runtime.PathsTest do
              settings: Path.join(home, "settings"),
              memory: Path.join(home, "memory"),
              memory_deleted: Path.join([home, "memory", "deleted"]),
+             artifacts: Path.join(home, "artifacts"),
              confirmations: Path.join(home, "confirmations"),
              execution: Path.join(home, "execution"),
              package_installs: Path.join([home, "execution", "package-installs"]),
@@ -76,6 +81,7 @@ defmodule AllbertAssist.Runtime.PathsTest do
     assert Paths.root(:workspace_canvas) == LegacyPaths.workspace_canvas_root()
     assert Paths.root(:database) == LegacyPaths.db_path()
     assert Paths.root(:themes) == LegacyPaths.themes_root()
+    assert Paths.root(:artifacts) == LegacyPaths.artifacts_root()
   end
 
   test "runtime ensure_home! preserves current directory creation behavior" do
@@ -87,6 +93,7 @@ defmodule AllbertAssist.Runtime.PathsTest do
     for root <- [
           :settings,
           :memory,
+          :artifacts,
           :confirmations,
           :execution,
           :package_installs,

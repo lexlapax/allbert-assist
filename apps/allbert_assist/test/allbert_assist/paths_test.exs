@@ -10,6 +10,7 @@ defmodule AllbertAssist.PathsTest do
     "ALLBERT_HOME_DIR",
     "ALLBERT_SETTINGS_ROOT",
     "ALLBERT_MEMORY_ROOT",
+    "ALLBERT_ARTIFACTS_ROOT",
     "DATABASE_PATH"
   ]
 
@@ -22,17 +23,20 @@ defmodule AllbertAssist.PathsTest do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, AllbertAssist.Settings)
     original_memory_config = Application.get_env(:allbert_assist, Memory)
+    original_artifacts_config = Application.get_env(:allbert_assist, AllbertAssist.Artifacts)
 
     Enum.each(@env_vars, &System.delete_env/1)
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, AllbertAssist.Settings)
     Application.delete_env(:allbert_assist, Memory)
+    Application.delete_env(:allbert_assist, AllbertAssist.Artifacts)
 
     on_exit(fn ->
       restore_env(original_env)
       restore_app_env(Paths, original_paths_config)
       restore_app_env(AllbertAssist.Settings, original_settings_config)
       restore_app_env(Memory, original_memory_config)
+      restore_app_env(AllbertAssist.Artifacts, original_artifacts_config)
     end)
   end
 
@@ -75,6 +79,7 @@ defmodule AllbertAssist.PathsTest do
     assert Paths.settings_root() == Path.join(home, "settings")
     assert Paths.confirmations_root() == Path.join(home, "confirmations")
     assert Paths.memory_root() == Path.join(home, "memory")
+    assert Paths.artifacts_root() == Path.join(home, "artifacts")
     assert Paths.external_root() == Path.join(home, "external")
     assert Paths.external_cache_root() == Path.join([home, "cache", "external-services"])
     assert Paths.package_installs_root() == Path.join([home, "execution", "package-installs"])
@@ -100,30 +105,37 @@ defmodule AllbertAssist.PathsTest do
     home = temp_path("home")
     settings_root = temp_path("settings-root")
     memory_root = temp_path("memory-root")
+    artifacts_root = temp_path("artifacts-root")
     database_path = Path.join(temp_path("db-root"), "custom.sqlite3")
 
     System.put_env("ALLBERT_HOME", home)
     System.put_env("ALLBERT_SETTINGS_ROOT", settings_root)
     System.put_env("ALLBERT_MEMORY_ROOT", memory_root)
+    System.put_env("ALLBERT_ARTIFACTS_ROOT", artifacts_root)
     System.put_env("DATABASE_PATH", database_path)
 
     assert Paths.settings_root() == settings_root
     assert Paths.memory_root() == memory_root
+    assert Paths.artifacts_root() == artifacts_root
     assert Paths.db_path() == database_path
   end
 
   test "application root overrides take precedence over env root overrides" do
     settings_root = temp_path("configured-settings")
     memory_root = temp_path("configured-memory")
+    artifacts_root = temp_path("configured-artifacts")
 
     System.put_env("ALLBERT_SETTINGS_ROOT", temp_path("env-settings"))
     System.put_env("ALLBERT_MEMORY_ROOT", temp_path("env-memory"))
+    System.put_env("ALLBERT_ARTIFACTS_ROOT", temp_path("env-artifacts"))
 
     Application.put_env(:allbert_assist, AllbertAssist.Settings, root: settings_root)
     Application.put_env(:allbert_assist, Memory, root: memory_root)
+    Application.put_env(:allbert_assist, AllbertAssist.Artifacts, root: artifacts_root)
 
     assert Paths.settings_root() == settings_root
     assert Paths.memory_root() == memory_root
+    assert Paths.artifacts_root() == artifacts_root
   end
 
   test "ensure_home! creates the expected directory layout" do
@@ -160,6 +172,9 @@ defmodule AllbertAssist.PathsTest do
           Path.join([home, "memory", "preferences"]),
           Path.join([home, "memory", "traces"]),
           Path.join([home, "memory", "skills"]),
+          Path.join(home, "artifacts"),
+          Path.join([home, "artifacts", "objects"]),
+          Path.join([home, "artifacts", "index"]),
           Path.join(home, "workspace"),
           Path.join([home, "workspace", "canvas"]),
           Path.join([home, "workspace", "ephemeral"]),

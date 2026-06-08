@@ -551,8 +551,9 @@ Implemented v0.41 gates:
   media secret scanning. Content hashes are metadata only; v0.50 owns the
   canonical content-addressed artifact store. Generic audio/video and catch-all
   multimodal routing remain future scope.
-- v0.50 (planned): Artifacts Central. A uniform content-addressable store for
-  artifacts uploaded by the operator, created by Allbert, or found through
+- v0.50 (M1 implemented; M2-M7 planned): Artifacts Central. A uniform
+  content-addressable store for artifacts uploaded by the operator, created by
+  Allbert, or found through
   approved tools — type-agnostic (audio, video, images, PDFs, text, office
   docs), deduplicated by `artifact://sha256/<hex>` content hash with
   provenance/type/retention metadata, raw bytes kept out of traces. Adds
