@@ -85,6 +85,212 @@ Request image generation through the runtime/action surface. Expected behavior:
 - `usage` and `cost` metadata is display-only;
 - traces/action metadata redact binary content and generated resource paths.
 
+## Numbered Validation Checklist
+
+Use these steps for v0.49 manual validation and report back by step number.
+Steps 1-10 are deterministic local validation and do not require provider
+credentials. Steps 11-18 are credentialed/manual validation for an operator who
+has OpenAI or Gemini credentials and wants to validate real provider behavior
+before tagging.
+
+1. Start from the repo root and record the commit being validated:
+
+   ```sh
+   git rev-parse --short HEAD
+   git status --short
+   ```
+
+   Expected: the commit is the intended v0.49 validation commit. Report any
+   local changes or untracked files separately before continuing.
+
+2. Create a disposable Allbert Home for operator validation:
+
+   ```sh
+   export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v049-validate.XXXXXX)"
+   ```
+
+   Expected: `echo "$ALLBERT_HOME"` prints a `/tmp/allbert-v049-validate.*`
+   path. Do not use a real `~/.allbert` for validation.
+
+3. Enable only the v0.49 operator surfaces:
+
+   ```sh
+   mix allbert.settings set intent.direct_answer_model_enabled true
+   mix allbert.settings set browser.enabled true
+   mix allbert.settings set vision.enabled true
+   mix allbert.settings set image.enabled true
+   mix allbert.settings get intent.direct_answer_model_enabled
+   mix allbert.settings get browser.enabled
+   mix allbert.settings get vision.enabled
+   mix allbert.settings get image.enabled
+   ```
+
+   Expected: all reads report `true`.
+
+4. Confirm the v0.49 model profiles are present:
+
+   ```sh
+   mix allbert.model list
+   ```
+
+   Expected: output includes `vision_openai`, `vision_gemini`, `vision_fake`,
+   `image_openai`, `image_gemini`, and `image_fake`.
+
+5. Confirm Security Central floors and caps:
+
+   ```sh
+   mix allbert.security status
+   ```
+
+   Expected: `image_input` is effectively `allowed`; `image_generate` is
+   effectively `needs_confirmation` even if configured `allowed`; browser
+   session start and navigation remain `needs_confirmation`; browser screenshot
+   remains `allowed`.
+
+6. Confirm browser readiness:
+
+   ```sh
+   mix allbert.browser doctor
+   ```
+
+   Expected: `browser doctor: ok`. If the doctor is unavailable, record the
+   error and do not claim the browser manual smoke passed; the deterministic
+   release gate in step 7 still covers the stubbed screenshot bridge.
+
+7. Run the deterministic v0.49 release gate:
+
+   ```sh
+   MIX_ENV=test mix allbert.test release.v049
+   ```
+
+   Expected: the gate passes and prints an evidence path like
+   `<ALLBERT_HOME>/release_evidence/v049/release-v049-<ts>.json`.
+
+8. Inspect the v0.49 evidence file from step 7:
+
+   ```sh
+   export V049_EVIDENCE="<path printed by step 7>"
+   jq -r '.status' "$V049_EVIDENCE"
+   jq -r '.steps[] | "\(.id): \(.status) exit=\(.exit_status)"' "$V049_EVIDENCE"
+   jq '.secret_scan' "$V049_EVIDENCE"
+   ```
+
+   Expected: status is `passed`; every step has `status=passed` and
+   `exit=0`; secret scan findings are empty.
+
+9. Check release evidence for database-lock signatures:
+
+   ```sh
+   rg -n 'database is locked|Exqlite\.Error|SQLITE_BUSY|SQLITE_LOCKED|database table is locked' "$V049_EVIDENCE"
+   ```
+
+   Expected: no output.
+
+10. Run the full release gate before a release tag:
+
+    ```sh
+    MIX_ENV=test mix allbert.test release
+    ```
+
+    Expected: static compile, dependency, format, Credo, core tests, web tests,
+    StockSage tests, channel-plugin tests, and Dialyzer all pass. Record the
+    printed full-release evidence path.
+
+11. If validating OpenAI live behavior, configure the OpenAI credential through
+    stdin and enable the provider:
+
+    ```sh
+    printf '%s\n' "$OPENAI_API_KEY" | mix allbert.settings providers set-key openai
+    mix allbert.settings set providers.openai.enabled true
+    ```
+
+    Expected: the credential command reports `openai credential=configured`;
+    the provider setting reports `true`. Do not pass keys as command
+    arguments.
+
+12. Select OpenAI vision and image-generation profiles for live validation:
+
+    ```sh
+    mix allbert.settings set model_preferences.capabilities.vision_input vision_openai
+    mix allbert.settings set model_preferences.capabilities.image_generation image_openai
+    mix allbert.model doctor vision_openai
+    mix allbert.model doctor image_openai
+    ```
+
+    Expected: with valid credentials, doctors report `credential_ok=true`,
+    `endpoint_ok=true`, and the selected models are available or explicitly
+    diagnosed by the provider. Without credentials, the expected diagnostic is
+    `credential_missing`.
+
+13. If validating Gemini live behavior instead, configure Gemini and select its
+    v0.49 profiles:
+
+    ```sh
+    printf '%s\n' "$GEMINI_API_KEY" | mix allbert.settings providers set-key gemini
+    mix allbert.settings set providers.gemini.enabled true
+    mix allbert.settings set model_preferences.capabilities.vision_input vision_gemini
+    mix allbert.settings set model_preferences.capabilities.image_generation image_gemini
+    mix allbert.model doctor vision_gemini
+    mix allbert.model doctor image_gemini
+    ```
+
+    Expected: with valid credentials, doctors report `credential_ok=true`,
+    `endpoint_ok=true`, and the selected models are available or explicitly
+    diagnosed by the provider. Without credentials, the expected diagnostic is
+    `credential_missing`.
+
+14. Start a disposable workspace server for manual UI validation:
+
+    ```sh
+    PORT=4049 mix phx.server
+    ```
+
+    Expected: the server starts on `http://localhost:4049`. Keep this terminal
+    running until steps 15-17 are complete.
+
+15. Validate workspace vision input in the browser:
+
+    Open `http://localhost:4049/workspace`, upload or paste a small PNG, JPEG,
+    or WebP image, and ask a concrete question about the image.
+
+    Expected: the upload control is available; oversized/unsupported media is
+    rejected server-side; the answer uses a resolved `vision_input` profile;
+    traces/action metadata contain redacted image metadata, not raw image bytes
+    or local file paths.
+
+16. Validate browser screenshot analysis:
+
+    In `/workspace`, use the Browser app/panel flow or a browser prompt such as
+    `screenshot https://example.com` to create a browser screenshot. Open the
+    Browser results panel and record the `cache://browser/...` `screenshot_ref`
+    shown for the screenshot artifact. Then analyze that same ref through the
+    screenshot analysis action/surface available in the runtime.
+
+    Expected: the screenshot ref has the form `cache://browser/...`; analysis
+    records `source: :browser_screenshot` and `screen://capture/browser_<hash>`
+    provenance; the action does not capture the OS screen or grant authority
+    from the `screen://` id itself.
+
+17. Validate image generation:
+
+    Request image generation through the runtime/workspace action surface.
+
+    Expected: remote OpenAI/Gemini profiles create a confirmation before the
+    provider call; after approval, `generate_image` writes a bounded local PNG,
+    reports display-only usage/cost metadata, and redacts binary content plus
+    generated-resource paths from traces/action metadata.
+
+18. Stop the workspace server and inspect recent confirmations/traces:
+
+    ```sh
+    mix allbert.confirmations list --resolved
+    mix allbert.security review --recent --limit 20
+    ```
+
+    Expected: resolved confirmations show the image-generation approval; recent
+    security review shows no redaction incidents. Report any denial, provider
+    diagnostic, or redaction incident with the step number where it appeared.
+
 ## Release Gate
 
 The deterministic fixture gate is:
