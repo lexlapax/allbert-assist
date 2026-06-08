@@ -320,7 +320,9 @@ eval surfaces until their capability work lands.
   capture, arbitrary media fetches, or video ingestion. The v0.48 transcode
   helper is bounded to configured local inputs and fixed output formats, with
   source/output paths redacted from traces; v0.49 image normalization is bounded
-  constrain-and-reject without a resize/transcode dependency.
+  constrain-and-reject without a resize/transcode dependency, and generated
+  image outputs use sniffed returned bytes rather than provider-declared MIME as
+  metadata authority.
 - MCP-server public protocol auth, rate limits, redaction, and confirmation
   ownership. API, ACP, and public AG-UI/A2UI bridge evals remain parked
   post-1.0.

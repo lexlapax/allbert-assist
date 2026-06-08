@@ -547,7 +547,7 @@ Implemented v0.41 gates:
   v0.48 provider capability substrate for image/screenshot resources,
   workspace image upload, vision-input plumbing, and provider-backed image
   generation through `generate_image`. `release.v049` proves the app-started
-  ReqLLM path, 7 `:v049` eval rows, redaction, bounds, confirmation floors, and
+  ReqLLM path, 8 `:v049` eval rows, redaction, bounds, confirmation floors, and
   media secret scanning. Content hashes are metadata only; v0.50 owns the
   canonical content-addressed artifact store. Generic audio/video and catch-all
   multimodal routing remain future scope.

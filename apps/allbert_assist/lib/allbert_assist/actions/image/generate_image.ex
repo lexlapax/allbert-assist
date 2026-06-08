@@ -174,7 +174,8 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
   end
 
   defp generated_image_metadata(generated, resolution, output_format, settings, attempts) do
-    with {:ok, path} <- write_generated_image(generated.bytes, output_format, settings),
+    with {:ok, storage_format} <- generated_storage_format(generated, output_format),
+         {:ok, path} <- write_generated_image(generated.bytes, storage_format, settings),
          {:ok, resource_uri} <- ResourceURI.file(path),
          {:ok, metadata} <-
            ImageMetadata.from_path(path,
@@ -195,7 +196,9 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
            |> Map.put(:usage, Map.get(generated, :usage, %{source: :unavailable}))
            |> Map.put(:cost, Map.get(generated, :cost, %{source: :unavailable})),
          {:ok, _bounds} <-
-           ImageBounds.validate_generated(metadata, resolution.profile, settings: settings) do
+           ImageBounds.validate_generated(metadata, generated_output_profile(resolution.profile),
+             settings: settings
+           ) do
       {:ok,
        %{
          path: path,
@@ -427,6 +430,52 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
   defp image_media_type(_image, "webp"), do: "image/webp"
   defp image_media_type(_image, _output_format), do: "image/png"
 
+  defp generated_storage_format(generated, output_format) do
+    [
+      format_from_bytes(Map.get(generated, :bytes)),
+      format_from_mime(Map.get(generated, :mime_type)),
+      normalize_format(output_format)
+    ]
+    |> Enum.find(&safe_image_format?/1)
+    |> case do
+      nil -> {:error, :unsupported_generated_image_format}
+      format -> {:ok, format}
+    end
+  end
+
+  defp generated_output_profile(%{media: media} = profile) when is_map(media) do
+    %{profile | media: generated_output_media(media)}
+  end
+
+  defp generated_output_profile(%{"media" => media} = profile) when is_map(media) do
+    Map.put(profile, "media", generated_output_media(media))
+  end
+
+  defp generated_output_profile(profile), do: profile
+
+  defp generated_output_media(media) do
+    Map.put(media, "image_formats_supported", ImageBounds.allowed_formats())
+  end
+
+  defp safe_image_format?(format) when is_binary(format),
+    do: format in ImageBounds.allowed_formats()
+
+  defp safe_image_format?(_format), do: false
+
+  defp format_from_mime(value) when is_binary(value) do
+    case String.split(String.downcase(String.trim(value)), "/", parts: 2) do
+      ["image", subtype] -> normalize_format(subtype)
+      _other -> nil
+    end
+  end
+
+  defp format_from_mime(_value), do: nil
+
+  defp format_from_bytes(<<0x89, ?P, ?N, ?G, _rest::binary>>), do: "png"
+  defp format_from_bytes(<<0xFF, 0xD8, _rest::binary>>), do: "jpeg"
+  defp format_from_bytes(<<"RIFF", _size::little-32, "WEBP", _rest::binary>>), do: "webp"
+  defp format_from_bytes(_bytes), do: nil
+
   defp generated_image_root(settings) do
     if image_retention_enabled?(settings) do
       expand_allbert_home_path(
@@ -533,11 +582,8 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
   defp maybe_put_keyword(opts, _key, []), do: opts
   defp maybe_put_keyword(opts, key, value), do: Keyword.put(opts, key, value)
 
-  defp generated_mime_type(generated, metadata) do
-    case Map.get(generated, :mime_type) do
-      mime_type when is_binary(mime_type) and mime_type != "" -> mime_type
-      _value -> metadata.mime_type
-    end
+  defp generated_mime_type(_generated, metadata) do
+    metadata.mime_type
   end
 
   defp ensure_req_llm! do
