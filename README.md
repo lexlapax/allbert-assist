@@ -107,6 +107,9 @@ sequence.
 - [docs/developer/test-strategy.md](docs/developer/test-strategy.md): test
   lane taxonomy, gate matrix, isolation contract, and implementation-plan
   parallelization annotations.
+- [docs/samples/media](docs/samples/media): committed sample audio and image
+  files for operator manual validation, documentation examples, and focused
+  media smoke testing.
 
 ## Local Development
 
