@@ -26,6 +26,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   alias AllbertAssist.Resources.ImageMetadata
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Runtime.MediaOutputs
   alias AllbertAssist.Runtime.Paths, as: RuntimePaths
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Session
@@ -797,8 +798,9 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
         socket
         |> maybe_update_voice_capture_from_confirmation(response, confirmation)
+        |> maybe_persist_approval_media_response(response)
         |> refresh_objectives()
-        |> refresh_workspace_runtime()
+        |> refresh_workspace()
 
       {:ok, response} ->
         assign(socket, approval_result: Map.get(response, :message, inspect(response)))
@@ -820,6 +822,62 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       show_approval_details?: false,
       error: nil
     )
+  end
+
+  defp maybe_persist_approval_media_response(socket, response) do
+    media_outputs = response |> Map.get(:media_outputs, []) |> MediaOutputs.persistable()
+
+    if media_outputs == [],
+      do: socket,
+      else: persist_approval_media_response(socket, response, media_outputs)
+  end
+
+  defp persist_approval_media_response(socket, response, media_outputs) do
+    with {:ok, thread} <-
+           Conversations.get_thread(socket.assigns.user_id, socket.assigns.thread_id) do
+      attrs = approval_media_message_attrs(socket, response, media_outputs)
+
+      _result =
+        Conversations.append_assistant_message(thread, approval_media_message(response), attrs)
+    end
+
+    socket
+  end
+
+  defp approval_media_message_attrs(socket, response, media_outputs) do
+    %{
+      action_log: approval_media_action_log(response),
+      metadata: approval_media_metadata(socket, media_outputs)
+    }
+  end
+
+  defp approval_media_action_log(response) do
+    %{
+      status: Map.get(response, :status),
+      actions: Map.get(response, :actions, [])
+    }
+    |> Redactor.redact()
+  end
+
+  defp approval_media_metadata(socket, media_outputs) do
+    metadata = %{
+      channel: :live_view,
+      session_id: socket.assigns.session_id,
+      media_outputs: media_outputs
+    }
+
+    if is_nil(socket.assigns.active_app),
+      do: metadata,
+      else: Map.put(metadata, :active_app, socket.assigns.active_app)
+  end
+
+  defp approval_media_message(response) do
+    output_data = Map.get(response, :output_data, %{}) || %{}
+
+    Map.get(output_data, :message) ||
+      Map.get(output_data, "message") ||
+      Map.get(response, :message) ||
+      "Generated media output."
   end
 
   defp maybe_update_voice_capture_from_confirmation(socket, response, confirmation) do

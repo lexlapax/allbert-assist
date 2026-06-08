@@ -147,6 +147,22 @@ defmodule AllbertAssist.Conversations do
     end
   end
 
+  @doc "Fetch one message only when it belongs to `user_id`."
+  @spec get_message(String.t(), String.t()) :: {:ok, Message.t()} | {:error, term()}
+  def get_message(user_id, message_id) do
+    user_id = normalize_string(user_id)
+    message_id = normalize_string(message_id)
+
+    query =
+      from message in Message,
+        where: message.id == ^message_id and message.user_id == ^user_id
+
+    case Repo.one(query) do
+      %Message{} = message -> {:ok, message}
+      nil -> {:error, {:message_not_found, message_id}}
+    end
+  end
+
   @doc "Mark a user-scoped thread complete and dismiss its active ephemeral surfaces."
   @spec complete_thread(String.t(), String.t()) :: thread_result()
   def complete_thread(user_id, thread_id) do

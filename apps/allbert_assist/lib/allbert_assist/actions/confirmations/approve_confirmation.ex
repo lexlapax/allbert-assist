@@ -34,6 +34,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   alias AllbertAssist.Objectives
   alias AllbertAssist.PlanBuild
   alias AllbertAssist.Resources.GrantHandoff
+  alias AllbertAssist.Runtime.MediaOutputs
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
@@ -610,24 +611,32 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
           _other -> nil
         end
 
-    {:ok,
-     %{
-       message: Confirmations.status_message(record),
-       status: :completed,
-       permission_decision: permission_decision,
-       confirmation: Confirmations.redact_for_output(record),
-       output_data: output_data,
-       actions: [
-         Context.action(
-           record,
-           "approve_confirmation",
-           :completed,
-           permission_decision,
-           metadata
-         )
-       ]
-     }}
+    media_outputs = MediaOutputs.collect(output_data || %{})
+
+    response = %{
+      message: Confirmations.status_message(record),
+      status: :completed,
+      permission_decision: permission_decision,
+      confirmation: Confirmations.redact_for_output(record),
+      output_data: output_data,
+      actions: [
+        Context.action(
+          record,
+          "approve_confirmation",
+          :completed,
+          permission_decision,
+          metadata
+        )
+      ]
+    }
+
+    {:ok, maybe_put_media_outputs(response, media_outputs)}
   end
+
+  defp maybe_put_media_outputs(response, []), do: response
+
+  defp maybe_put_media_outputs(response, media_outputs),
+    do: Map.put(response, :media_outputs, media_outputs)
 
   defp resume_start_plan_run(record, reason, context, permission_decision, target_decision) do
     target_context =

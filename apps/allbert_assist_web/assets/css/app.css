@@ -1061,6 +1061,39 @@ a.allbert-chip-link:focus-visible,
   line-height: 1.375rem;
 }
 
+.workspace-media-outputs {
+  display: grid;
+  gap: 0.625rem;
+  margin-top: 0.75rem;
+}
+
+.workspace-media-output {
+  display: grid;
+  gap: 0.375rem;
+  margin: 0;
+}
+
+.workspace-media-output-image {
+  display: block;
+  width: min(100%, 28rem);
+  height: 12rem;
+  object-fit: contain;
+  border: 1px solid var(--workspace-border);
+  border-radius: 0.5rem;
+  background: var(--workspace-panel-muted);
+}
+
+.workspace-media-output-audio {
+  width: min(100%, 28rem);
+  min-height: 2.5rem;
+}
+
+.workspace-media-output-meta {
+  color: var(--workspace-muted);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
 .workspace-chat-empty {
   display: flex;
   align-items: center;

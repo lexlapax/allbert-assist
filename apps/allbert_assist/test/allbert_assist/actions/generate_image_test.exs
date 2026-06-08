@@ -158,6 +158,11 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
     assert File.regular?(approved.output_data.image_file)
     assert approved.output_data.output_resource_uri == "file://[REDACTED_IMAGE_PATH]"
 
+    assert [%{kind: :image, local_path: image_path, mime_type: "image/png"}] =
+             approved.media_outputs
+
+    assert image_path == approved.output_data.image_file
+
     assert approved.output_data.image_metadata.output_resource_uri ==
              "file://[REDACTED_IMAGE_PATH]"
 

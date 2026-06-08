@@ -153,6 +153,11 @@ defmodule AllbertAssist.Actions.SynthesizeVoiceTest do
     assert File.regular?(approved.output_data.audio_file)
     assert {:ok, <<"RIFF", _rest::binary>>} = File.read(approved.output_data.audio_file)
     assert approved.output_data.output_resource_uri == "file://[REDACTED_AUDIO_PATH]"
+
+    assert [%{kind: :audio, local_path: audio_path, mime_type: "audio/wav"}] =
+             approved.media_outputs
+
+    assert audio_path == approved.output_data.audio_file
     assert approved.confirmation["operator_resolution"]["target_resumed?"] == true
     assert approved.confirmation["operator_resolution"]["target_status"] == "completed"
   end

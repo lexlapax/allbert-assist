@@ -207,6 +207,42 @@ defmodule Mix.Tasks.Allbert.AskTest do
     assert File.read!(trace_path) =~ "trace this cli prompt"
   end
 
+  test "prints generated media outputs from the runtime response", %{root: root} do
+    media_path = Path.join([root, "tmp", "generated-images", "cli", "image.png"])
+    parent = self()
+
+    runner = fn _signal, request ->
+      send(parent, {:agent_request, request})
+
+      {:ok,
+       %{
+         message: "Image generated.",
+         status: :completed,
+         actions: [%{name: "generate_image", status: :completed}],
+         media_outputs: [
+           %{
+             kind: :image,
+             source_action: "generate_image",
+             local_path: media_path,
+             resource_uri: "file://[REDACTED_IMAGE_PATH]",
+             mime_type: "image/png"
+           }
+         ]
+       }}
+    end
+
+    Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
+
+    output =
+      capture_io(fn ->
+        assert :ok = Ask.run(["generate a validation image"])
+      end)
+
+    assert output =~ "Image generated."
+    assert output =~ "Media outputs:"
+    assert output =~ "- image image/png file://[REDACTED_IMAGE_PATH] #{media_path}"
+  end
+
   test "transcribes a voice file before submitting runtime input", %{root: root} do
     fixture = Path.expand("../../fixtures/v0.48/audio/hello.wav", __DIR__)
     assert {:ok, _resolved} = Settings.put("voice.enabled", true, %{audit?: false})

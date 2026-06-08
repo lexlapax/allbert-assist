@@ -1727,6 +1727,59 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#agent-signal")
   end
 
+  test "renders generated image and audio outputs in the chat timeline", %{
+    conn: conn,
+    root: root
+  } do
+    image_path = Path.join([root, "tmp", "generated-images", "chat", "image.png"])
+    audio_path = Path.join([root, "tmp", "voice-synthesis", "chat", "voice.wav"])
+    File.mkdir_p!(Path.dirname(image_path))
+    File.mkdir_p!(Path.dirname(audio_path))
+    File.write!(image_path, @png)
+    File.write!(audio_path, <<"RIFF", "workspace audio">>)
+
+    thread = create_workspace_thread("Generated media chat")
+
+    assert {:ok, message} =
+             Conversations.append_assistant_message(thread, "Generated media outputs.", %{
+               metadata: %{
+                 media_outputs: [
+                   %{
+                     kind: :image,
+                     source_action: "generate_image",
+                     local_path: image_path,
+                     mime_type: "image/png",
+                     filename: "image.png"
+                   },
+                   %{
+                     kind: :audio,
+                     source_action: "synthesize_voice",
+                     local_path: audio_path,
+                     mime_type: "audio/wav",
+                     filename: "voice.wav"
+                   }
+                 ]
+               }
+             })
+
+    {:ok, view, html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
+
+    assert has_element?(
+             view,
+             ~s(img.workspace-media-output-image[src="/workspace/media/#{message.id}/0"])
+           )
+
+    assert has_element?(
+             view,
+             ~s(audio.workspace-media-output-audio[src="/workspace/media/#{message.id}/1"])
+           )
+
+    assert html =~ "image · image/png · generate_image"
+    assert html =~ "audio · audio/wav · synthesize_voice"
+    refute html =~ image_path
+    refute html =~ audio_path
+  end
+
   test "workspace microphone capture denial writes no audio resource", %{conn: conn, root: root} do
     enable_workspace_voice!()
 
