@@ -10,6 +10,8 @@ flows.
   v0.48-style provider preference checks.
 - `images/validation-input.png` — image-input sample for vision/manual
   validation flows.
+- `images/validation-input-small.png` — downscaled image-input sample for
+  v0.49 live/action smoke commands that enforce the 1 MiB metadata read cap.
 - `images/generated-image-sample.png` — generated-image sample for documentation
   and visual inspection of text-to-image output handling.
 
