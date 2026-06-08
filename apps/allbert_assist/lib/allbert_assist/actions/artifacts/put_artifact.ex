@@ -54,7 +54,8 @@ defmodule AllbertAssist.Actions.Artifacts.PutArtifact do
 
   defp put(params, context, permission_decision) do
     with {:ok, bytes} <- bytes(params),
-         {:ok, artifact} <- Artifacts.put_retained(bytes, metadata(params, context)) do
+         {:ok, artifact} <-
+           Artifacts.put_retained(bytes, metadata(params, context), context: context) do
       {:ok,
        %{
          message: "Artifact stored as #{artifact.artifact_uri}.",

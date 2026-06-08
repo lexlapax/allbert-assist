@@ -1,4 +1,4 @@
-defmodule AllbertAssist.Actions.Artifacts.ListArtifacts do
+defmodule AllbertAssist.Actions.Artifacts.ArtifactThreads do
   @moduledoc false
 
   use AllbertAssist.Action,
@@ -7,19 +7,15 @@ defmodule AllbertAssist.Actions.Artifacts.ListArtifacts do
     execution_mode: :artifact_read,
     skill_backed?: false,
     confirmation: :not_required,
-    name: "list_artifacts",
-    description: "List artifact metadata from Artifacts Central.",
+    name: "artifact_threads",
+    description: "List thread/message provenance links for one artifact.",
     category: "artifacts",
-    tags: ["artifacts", "read", "list"],
+    tags: ["artifacts", "read", "provenance", "threads"],
     schema: [
-      mime: [type: :string, required: false],
-      origin: [type: :string, required: false],
-      retention: [type: :string, required: false],
-      lifecycle: [type: :string, required: false],
-      thread_id: [type: :string, required: false],
+      sha256: [type: :string, required: false],
+      artifact_uri: [type: :string, required: false],
       user_id: [type: :string, required: false],
-      role: [type: :string, required: false],
-      limit: [type: :integer, required: false]
+      role: [type: :string, required: false]
     ],
     output_schema: [
       message: [type: :string, required: true],
@@ -33,24 +29,25 @@ defmodule AllbertAssist.Actions.Artifacts.ListArtifacts do
   alias AllbertAssist.Security.PermissionGate
 
   @permission :artifact_read
-  @action_name "list_artifacts"
+  @action_name "artifact_threads"
 
   @impl true
   def run(params, context) when is_map(params) do
     permission_decision = PermissionGate.authorize(@permission, context)
 
     with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
-         {:ok, artifacts} <- Artifacts.list(list_opts(params, context)) do
+         {:ok, artifact_ref} <- artifact_ref(params),
+         {:ok, links} <- Artifacts.artifact_threads(artifact_ref, thread_opts(params, context)) do
       {:ok,
        %{
-         message: "#{length(artifacts)} artifact(s) listed.",
+         message: "#{length(links)} artifact thread link(s) listed.",
          status: :completed,
-         artifacts: artifacts,
-         count: length(artifacts),
+         links: links,
+         count: length(links),
          permission_decision: permission_decision,
          actions: [
            Support.action(@action_name, :completed, @permission, permission_decision, %{
-             lifecycle: "listed"
+             lifecycle: "thread_links_listed"
            })
          ]
        }}
@@ -63,8 +60,15 @@ defmodule AllbertAssist.Actions.Artifacts.ListArtifacts do
   def run(_params, context),
     do: stopped(PermissionGate.authorize(@permission, context), :invalid_params)
 
-  defp list_opts(params, context) do
-    [:mime, :origin, :retention, :lifecycle, :thread_id, :user_id, :role, :limit]
+  defp artifact_ref(params) do
+    case Support.artifact_ref(params) do
+      ref when is_binary(ref) and ref != "" -> {:ok, ref}
+      _ref -> {:error, :missing_artifact_ref}
+    end
+  end
+
+  defp thread_opts(params, context) do
+    [:user_id, :role]
     |> Enum.flat_map(fn key ->
       case Support.value(params, key) do
         nil -> []
@@ -83,7 +87,7 @@ defmodule AllbertAssist.Actions.Artifacts.ListArtifacts do
 
     {:ok,
      %{
-       message: "Artifact list failed: #{inspect(Redactor.redact(reason))}",
+       message: "Artifact thread lookup failed: #{inspect(Redactor.redact(reason))}",
        status: status,
        error: Redactor.redact(reason),
        permission_decision: permission_decision,

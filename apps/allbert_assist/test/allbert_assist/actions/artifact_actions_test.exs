@@ -50,7 +50,8 @@ defmodule AllbertAssist.Actions.ArtifactActionsTest do
   end
 
   test "artifact actions are registered internal actions" do
-    for action <- ~w[put_artifact get_artifact list_artifacts delete_artifact artifact_doctor] do
+    for action <-
+          ~w[put_artifact get_artifact list_artifacts artifact_threads delete_artifact artifact_doctor] do
       assert {:ok, module} = Registry.resolve(action)
       assert module.name() == action
       assert {:ok, capability} = Registry.capability(action)
