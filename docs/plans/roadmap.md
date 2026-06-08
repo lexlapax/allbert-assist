@@ -288,9 +288,13 @@ Dependency order from here:
 50. v0.50 Artifacts Central: a uniform content-addressable store for artifacts
     uploaded by the operator, created by Allbert, or found through approved
     tools, deduplicated by content hash with provenance/type/retention metadata,
-    backfilling the v0.48 audio and v0.49 image retained-media roots and adding
-    the first Jido ingestion sensor. Identity is content-addressed; Security
-    Central and Resource Access remain the authority boundary.
+    linking artifacts to the threads/messages that created them, backfilling the
+    v0.48 audio and v0.49 image retained-media roots and adding the first Jido
+    ingestion sensor. Identity is content-addressed; Security Central and
+    Resource Access remain the authority boundary.
+    v0.50b Artifacts Browser ships the operator browsing repository (workspace
+    panel + `/apps/artifacts/<sha>` page + `mix allbert.artifacts` CLI) as a
+    plugin/app over the core read actions.
 51. v0.51 Channel Pack 1 (Discord and Slack) + ADR 0016 amendment for the
     channel approval-primitive contract (`{list, button, typed_command, link}`).
     Locks the channel approval shape before mobile channels need it.
@@ -2938,8 +2942,10 @@ Shipped direction:
 Plan: `docs/plans/v0.50-plan.md`
 Request flow: `docs/plans/v0.50-request-flow.md`
 ADRs: `docs/adr/0053-content-addressable-artifact-store.md`,
-`docs/adr/0042-audio-image-and-media-resource-classes.md` (artifact resource
-class amendment), `docs/adr/0031-settings-schema-fragments-and-authority.md`,
+`docs/adr/0054-artifact-provenance-and-browser-surface.md` (provenance linking +
+browser-surface split), `docs/adr/0042-audio-image-and-media-resource-classes.md`
+(artifact resource class amendment),
+`docs/adr/0031-settings-schema-fragments-and-authority.md`,
 `docs/adr/0046-settings-schema-migration-policy.md`
 
 Status: planned. Inserts a content-addressable artifact store between v0.49
@@ -2972,8 +2978,40 @@ Expected direction:
 - Add `put`/`get`/`list`/`delete` registered actions and the codebase's first
   Jido ingestion sensor, wired through the existing `Actions.Registry` and
   `Actions.Runner`.
+- Link artifacts to the threads/messages that created or referenced them via an
+  `artifact_thread_links` SQLite join table (role created_by/referenced_by) from
+  `context.request`, with a by-thread query and reverse lookup; the link is
+  provenance, never authority.
 - Preserve Security Central and Resource Access as the authority boundary:
   content-addressed identity never grants read/write/send permission by itself.
+
+The operator browsing repository ships separately as v0.50b below.
+
+## v0.50b: Artifacts Browser
+
+Plan: `docs/plans/v0.50b-plan.md`
+Request flow: `docs/plans/v0.50b-request-flow.md`
+ADRs: `docs/adr/0054-artifact-provenance-and-browser-surface.md`,
+`docs/adr/0015-allbert-app-contract-and-surface-dsl.md`,
+`docs/adr/0017-allbert-plugin-contract.md`,
+`docs/adr/0024-app-ui-contribution-and-workspace-zones.md`
+
+Status: planned; a focused sidecar after v0.50 (the v0.47b-after-v0.47 shape),
+depending on the v0.50 core read actions.
+
+Expected direction:
+
+- Ship the operator browsing repository for Artifacts Central as a plugin/app
+  (`plugins/allbert.artifacts/`), modeled on StockSage and `allbert.browser`,
+  not as core. It reads the store only through core `:artifact_read` actions.
+- Contribute a workspace `:canvas_panels` Artifacts panel, an
+  `/apps/artifacts/<sha>` detail page (route in the core router, module
+  plugin-owned), and a `mix allbert.artifacts` CLI.
+- Browse, search, and filter by type, origin, thread, and date, including the
+  by-thread and reverse-thread provenance lookups from v0.50.
+- Render redacted metadata only (raw bytes never in assigns/page/CLI); the
+  plugin grants no authority and owns no store internals; delete routes through
+  the core confirmation-gated action.
 
 ## v0.51: Channel Pack 1 - Discord And Slack
 
