@@ -88,11 +88,13 @@ artifact under `voice.audio.retention_root`.
 
 ## TTS And Telegram Voice Notes
 
-`synthesize_voice` is an internal registered action that resolves the
+`synthesize_voice` is a registered text-to-audio action that resolves the
 `text_to_speech` capability through the same provider preference system as
-text and STT. Fake TTS writes deterministic fixture audio only; real local,
-OpenAI, and Gemini TTS are the v0.48 release targets. Remote TTS remains
-explicit opt-in.
+text and STT. v0.49 M10 makes natural-language TTS requests agent-visible
+through the shared runtime, so CLI, workspace, Telegram text, and future
+channels can route typed "speak/read aloud" requests consistently. Fake TTS
+writes deterministic fixture audio only; real local, OpenAI, and Gemini TTS
+are the v0.48 release targets. Remote TTS remains explicit opt-in.
 
 Telegram voice notes are channel input, not a channel-owned STT provider. The
 Telegram adapter parses `message.voice`, fetches the file through Bot API
