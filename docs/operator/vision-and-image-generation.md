@@ -108,6 +108,8 @@ Latest agent-side revalidation evidence (2026-06-08, post-M10 refresh):
   `/tmp/allbert-v049-gemma4-postm10.fuuVDf/release_evidence/v049/live-vision-ollama-1780907097.json`.
 - Chrome-controlled workspace validation confirmed a visible image preview and
   visible audio control from `media_outputs`; `No action was taken` was absent.
+  Durable screenshot:
+  [workspace-media-outputs-chrome.png](../release-evidence/v0.49/workspace-media-outputs-chrome.png).
 
 Use these steps for v0.49 manual validation and report back by step number.
 Steps 1-10 are deterministic local/action validation and do not require
