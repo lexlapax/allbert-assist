@@ -312,6 +312,24 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("image.schema_version", 2, %{audit?: false})
   end
 
+  test "artifact permission settings resolve defaults and validate floors" do
+    assert {:ok, "allowed"} = Settings.get("permissions.artifact_read")
+    assert {:ok, "allowed"} = Settings.get("permissions.artifact_write")
+    assert {:ok, "needs_confirmation"} = Settings.get("permissions.artifact_delete")
+
+    assert Settings.safe_write_key?("permissions.artifact_read")
+    assert Settings.safe_write_key?("permissions.artifact_write")
+    assert Settings.safe_write_key?("permissions.artifact_delete")
+
+    assert {:ok, resolved} =
+             Settings.put("permissions.artifact_write", "needs_confirmation", %{audit?: false})
+
+    assert resolved.value == "needs_confirmation"
+
+    assert {:error, {:invalid_setting, "permissions.artifact_delete", _reason}} =
+             Settings.put("permissions.artifact_delete", "allowed", %{audit?: false})
+  end
+
   test "objective runtime settings resolve defaults and validate writes" do
     assert {:ok, true} = Settings.get("objectives.enabled")
     assert {:ok, 3} = Settings.get("objectives.max_steps_per_turn")

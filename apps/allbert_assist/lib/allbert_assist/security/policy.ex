@@ -33,6 +33,9 @@ defmodule AllbertAssist.Security.Policy do
     voice_local_runtime_manage: "permissions.voice_local_runtime_manage",
     image_input: "permissions.image_input",
     image_generate: "permissions.image_generate",
+    artifact_read: "permissions.artifact_read",
+    artifact_write: "permissions.artifact_write",
+    artifact_delete: "permissions.artifact_delete",
     tool_discovery: "permissions.tool_discovery",
     mcp_server_connect: "permissions.mcp_server_connect",
     mcp_tool_call: "permissions.mcp_tool_call",
@@ -78,6 +81,9 @@ defmodule AllbertAssist.Security.Policy do
     voice_local_runtime_manage: :allowed,
     image_input: :allowed,
     image_generate: :allowed,
+    artifact_read: :allowed,
+    artifact_write: :allowed,
+    artifact_delete: :needs_confirmation,
     tool_discovery: :allowed,
     mcp_server_connect: :needs_confirmation,
     mcp_tool_call: :needs_confirmation,
@@ -140,6 +146,9 @@ defmodule AllbertAssist.Security.Policy do
           | :voice_local_runtime_manage
           | :image_input
           | :image_generate
+          | :artifact_read
+          | :artifact_write
+          | :artifact_delete
           | :notes_file_write
           | :tool_discovery
           | :mcp_server_connect
@@ -190,6 +199,9 @@ defmodule AllbertAssist.Security.Policy do
       :voice_local_runtime_manage,
       :image_input,
       :image_generate,
+      :artifact_read,
+      :artifact_write,
+      :artifact_delete,
       :tool_discovery,
       :mcp_server_connect,
       :mcp_tool_call,
@@ -303,6 +315,9 @@ defmodule AllbertAssist.Security.Policy do
   def safety_floor(:voice_synthesize, context), do: voice_floor(context)
   def safety_floor(:image_input, _context), do: :allowed
   def safety_floor(:image_generate, context), do: image_floor(context)
+  def safety_floor(:artifact_read, _context), do: :allowed
+  def safety_floor(:artifact_write, _context), do: :allowed
+  def safety_floor(:artifact_delete, _context), do: :needs_confirmation
   def safety_floor(:settings_secret_read, _context), do: :denied
   def safety_floor(permission, _context) when permission in @known_permissions, do: :allowed
   def safety_floor(_permission, _context), do: :denied
@@ -681,6 +696,30 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:image_generate, :denied, _configured, _floor, _context),
     do: "Image generation is denied by current policy."
+
+  defp reason(:artifact_read, :allowed, _configured, _floor, _context),
+    do: "Artifact reads are allowed after Resource Access and redaction."
+
+  defp reason(:artifact_read, :needs_confirmation, _configured, _floor, _context),
+    do: "Artifact reads require confirmation by current policy."
+
+  defp reason(:artifact_read, :denied, _configured, _floor, _context),
+    do: "Artifact reads are denied by current policy."
+
+  defp reason(:artifact_write, :allowed, _configured, _floor, _context),
+    do: "Artifact writes are allowed after ingest bounds and redaction."
+
+  defp reason(:artifact_write, :needs_confirmation, _configured, _floor, _context),
+    do: "Artifact writes require confirmation by current policy."
+
+  defp reason(:artifact_write, :denied, _configured, _floor, _context),
+    do: "Artifact writes are denied by current policy."
+
+  defp reason(:artifact_delete, :needs_confirmation, _configured, _floor, _context),
+    do: "Artifact deletion removes durable local content and requires confirmation."
+
+  defp reason(:artifact_delete, :denied, _configured, _floor, _context),
+    do: "Artifact deletion is denied by current policy."
 
   defp reason(:tool_discovery, :allowed, _configured, _floor, _context),
     do: "Tool discovery search is allowed through registered discovery actions."

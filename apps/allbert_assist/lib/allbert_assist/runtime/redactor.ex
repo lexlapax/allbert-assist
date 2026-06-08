@@ -23,6 +23,7 @@ defmodule AllbertAssist.Runtime.Redactor do
           | :voice
           | :vision
           | :image
+          | :artifacts
           | :stocksage
           | :sandbox_trial
 
@@ -75,6 +76,24 @@ defmodule AllbertAssist.Runtime.Redactor do
   ]
   @image_path_redaction "[REDACTED_IMAGE_PATH]"
   @image_uri_redaction "[REDACTED_IMAGE_URI]"
+  @artifact_metadata_keys ~w[
+    artifact_uri
+    byte_size
+    content_sha256
+    created_at
+    lifecycle
+    mime
+    mime_type
+    origin
+    provenance
+    redaction_status
+    resource_uri
+    retention
+    sha256
+    source_resource_uri
+  ]
+  @artifact_path_redaction "[REDACTED_ARTIFACT_PATH]"
+  @artifact_uri_redaction "[REDACTED_ARTIFACT_URI]"
 
   @doc "Recursively redact sensitive keys, secret refs, structs, maps, and lists."
   @spec redact(term()) :: term()
@@ -136,6 +155,29 @@ defmodule AllbertAssist.Runtime.Redactor do
 
   def redact_image_metadata(value), do: redact(value, :image)
 
+  @doc """
+  Return a strict, redacted allow-list of artifact metadata.
+
+  Raw bytes, local paths, provider payloads, prompts, and arbitrary adapter
+  fields are intentionally dropped. Artifact resource URIs are preserved only
+  when they normalize to `artifact://sha256/<hex>`.
+  """
+  @spec redact_artifact_metadata(term()) :: term()
+  def redact_artifact_metadata(%{} = metadata) do
+    Map.new(metadata, fn {key, value} -> {key, value} end)
+    |> Enum.reduce(%{}, fn {key, value}, acc ->
+      normalized_key = key |> to_string() |> String.downcase()
+
+      if normalized_key in @artifact_metadata_keys do
+        Map.put(acc, key, redact_artifact_metadata_value(normalized_key, value))
+      else
+        acc
+      end
+    end)
+  end
+
+  def redact_artifact_metadata(value), do: redact(value, :artifacts)
+
   @doc "Redact an audio resource URI or local audio path for traces and audits."
   @spec redact_audio_resource_uri(term()) :: String.t() | nil
   def redact_audio_resource_uri(nil), do: nil
@@ -180,6 +222,39 @@ defmodule AllbertAssist.Runtime.Redactor do
   end
 
   def redact_image_resource_uri(_value), do: @image_uri_redaction
+
+  @doc "Redact an artifact resource URI or local artifact path for traces and audits."
+  @spec redact_artifact_resource_uri(term()) :: String.t() | nil
+  def redact_artifact_resource_uri(nil), do: nil
+
+  def redact_artifact_resource_uri(value) when is_binary(value) do
+    value = String.trim(value)
+
+    cond do
+      value == "" ->
+        @artifact_uri_redaction
+
+      String.starts_with?(value, "artifact://") ->
+        case ResourceURI.normalize(value) do
+          {:ok, "artifact://sha256/" <> _rest = resource_uri} -> resource_uri
+          _error -> @artifact_uri_redaction
+        end
+
+      String.starts_with?(value, "file://") ->
+        "file://#{@artifact_path_redaction}"
+
+      uri_scheme?(value) ->
+        @artifact_uri_redaction
+
+      path_like?(value) ->
+        @artifact_path_redaction
+
+      true ->
+        @artifact_uri_redaction
+    end
+  end
+
+  def redact_artifact_resource_uri(_value), do: @artifact_uri_redaction
 
   defp redact_image_resource_uri_value(""), do: @image_uri_redaction
 
@@ -244,6 +319,22 @@ defmodule AllbertAssist.Runtime.Redactor do
     do: redact(value, :image)
 
   defp redact_image_metadata_value(_key, value), do: redact(value, :image)
+
+  defp redact_artifact_metadata_value(key, value)
+       when key in [
+              "artifact_uri",
+              "resource_uri"
+            ],
+       do: redact_artifact_resource_uri(value)
+
+  defp redact_artifact_metadata_value("source_resource_uri", value) do
+    case redact_artifact_resource_uri(value) do
+      "artifact://sha256/" <> _rest = resource_uri -> resource_uri
+      _redacted -> @artifact_uri_redaction
+    end
+  end
+
+  defp redact_artifact_metadata_value(_key, value), do: redact(value, :artifacts)
 
   defp uri_scheme?(value) do
     case URI.parse(value) do

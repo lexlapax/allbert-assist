@@ -17,8 +17,11 @@ defmodule AllbertAssist.Resources.ResourceURI do
           optional(:session_id) => String.t(),
           optional(:entry_id) => String.t(),
           optional(:capture_id) => String.t(),
+          optional(:sha256) => String.t(),
           optional(:media_kind) => :image | :screen
         }
+
+  @artifact_sha256_pattern ~r/^[0-9a-f]{64}$/
 
   @spec file(term()) :: {:ok, String.t()}
   def file(path) do
@@ -168,6 +171,16 @@ defmodule AllbertAssist.Resources.ResourceURI do
   @spec plan_run!(term()) :: String.t()
   def plan_run!(objective_id), do: bang(plan_run(objective_id))
 
+  @spec artifact(term()) :: {:ok, String.t()} | {:error, term()}
+  def artifact(sha256) do
+    with {:ok, sha256} <- artifact_sha256(sha256) do
+      {:ok, "artifact://sha256/#{sha256}"}
+    end
+  end
+
+  @spec artifact!(term()) :: String.t()
+  def artifact!(sha256), do: bang(artifact(sha256))
+
   @spec marketplace_entry(term()) :: {:ok, String.t()} | {:error, term()}
   def marketplace_entry(entry_id) do
     with {:ok, {author, name}} <- marketplace_entry_id(entry_id) do
@@ -287,6 +300,14 @@ defmodule AllbertAssist.Resources.ResourceURI do
     if scheme(value) == "workflow", do: normalize(value), else: workflow(value)
   end
 
+  def scope_uri(:artifact_store, :artifact, value, resource_uri) do
+    cond do
+      scheme(value) == "artifact" -> normalize(value)
+      is_binary(value) and String.trim(value) != "" -> artifact(value)
+      true -> normalize(resource_uri)
+    end
+  end
+
   def scope_uri(:marketplace_entry, :marketplace_entry, value, resource_uri) do
     cond do
       scheme(value) == "marketplace" -> normalize(value)
@@ -379,6 +400,9 @@ defmodule AllbertAssist.Resources.ResourceURI do
     do: normalize_workflow(uri, original)
 
   defp normalize_parsed(%URI{scheme: "plan"} = uri, original), do: normalize_plan(uri, original)
+
+  defp normalize_parsed(%URI{scheme: "artifact"} = uri, original),
+    do: normalize_artifact(uri, original)
 
   defp normalize_parsed(%URI{scheme: "marketplace"} = uri, original),
     do: normalize_marketplace(uri, original)
@@ -533,6 +557,18 @@ defmodule AllbertAssist.Resources.ResourceURI do
        canonical_id: resource_uri,
        unsupported?: false,
        objective_id: objective_id
+     }}
+  end
+
+  defp derive(%URI{scheme: "artifact", host: "sha256", path: path}, resource_uri) do
+    sha256 = path |> to_string() |> String.trim_leading("/") |> URI.decode()
+
+    {:ok,
+     %{
+       origin_kind: :artifact_store,
+       canonical_id: resource_uri,
+       unsupported?: false,
+       sha256: sha256
      }}
   end
 
@@ -738,6 +774,24 @@ defmodule AllbertAssist.Resources.ResourceURI do
 
   defp normalize_plan(_uri, original), do: {:error, {:invalid_plan_run_uri, original}}
 
+  defp normalize_artifact(
+         %URI{host: "sha256", path: path, query: query, fragment: fragment},
+         original
+       )
+       when query in [nil, ""] and fragment in [nil, ""] do
+    case path |> to_string() |> String.trim_leading("/") |> String.split("/", trim: true) do
+      [sha256] ->
+        with {:ok, sha256} <- artifact_sha256(URI.decode(sha256)) do
+          {:ok, "artifact://sha256/#{sha256}"}
+        end
+
+      _other ->
+        {:error, {:invalid_artifact_uri, original}}
+    end
+  end
+
+  defp normalize_artifact(_uri, original), do: {:error, {:invalid_artifact_uri, original}}
+
   defp normalize_marketplace(
          %URI{host: "entry", path: path, query: query, fragment: fragment},
          original
@@ -822,6 +876,16 @@ defmodule AllbertAssist.Resources.ResourceURI do
         {:ok, value}
       else
         {:error, {:invalid_objective_id, value}}
+      end
+    end
+  end
+
+  defp artifact_sha256(value) do
+    with {:ok, value} <- non_empty(value, :missing_artifact_sha256) do
+      if Regex.match?(@artifact_sha256_pattern, value) do
+        {:ok, value}
+      else
+        {:error, {:invalid_artifact_sha256, value}}
       end
     end
   end

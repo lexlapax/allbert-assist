@@ -8,14 +8,17 @@ defmodule AllbertAssist.Artifacts do
   from disk.
   """
 
+  alias AllbertAssist.Artifacts.Bounds
   alias AllbertAssist.Artifacts.MetadataIndex
   alias AllbertAssist.Artifacts.Store
 
   @doc "Store bytes and write allow-listed metadata for the resulting object."
   @spec put(binary(), map(), keyword()) :: {:ok, map()} | {:error, term()}
   def put(bytes, metadata \\ %{}, opts \\ []) when is_binary(bytes) and is_map(metadata) do
-    with {:ok, object} <- Store.put(bytes, opts),
+    with {:ok, bounds} <- Bounds.validate(bytes, metadata, opts),
+         {:ok, object} <- Store.put(bytes, opts),
          metadata <- Map.merge(metadata, %{sha256: object.sha256, byte_size: object.byte_size}),
+         metadata <- Map.put_new(metadata, :mime, bounds.mime),
          {:ok, indexed} <- MetadataIndex.write(metadata, opts) do
       {:ok, Map.put(object, :metadata, indexed)}
     end

@@ -33,6 +33,9 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :voice_local_runtime_manage,
              :image_input,
              :image_generate,
+             :artifact_read,
+             :artifact_write,
+             :artifact_delete,
              :tool_discovery,
              :mcp_server_connect,
              :mcp_tool_call,
@@ -227,6 +230,26 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     assert unknown_generation.decision == :needs_confirmation
     assert unknown_generation.policy.safety_floor == :needs_confirmation
     refute PermissionGate.allowed?(unknown_generation)
+  end
+
+  test "documents artifact permission floors" do
+    read = PermissionGate.authorize(:artifact_read, %{})
+    assert read.decision == :allowed
+    assert read.policy.safety_floor == :allowed
+    assert read.risk.tier == :medium
+    assert PermissionGate.allowed?(read)
+
+    write = PermissionGate.authorize(:artifact_write, %{})
+    assert write.decision == :allowed
+    assert write.policy.safety_floor == :allowed
+    assert write.risk.tier == :medium
+    assert PermissionGate.allowed?(write)
+
+    delete = PermissionGate.authorize(:artifact_delete, %{})
+    assert delete.decision == :needs_confirmation
+    assert delete.policy.safety_floor == :needs_confirmation
+    assert delete.risk.tier == :high
+    refute PermissionGate.allowed?(delete)
   end
 
   test "allows discovery search but requires confirmation for discovered MCP server connect" do
