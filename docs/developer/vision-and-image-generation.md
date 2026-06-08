@@ -20,6 +20,9 @@ Vision input stays on the existing text path:
 
 1. Workspace upload/paste creates bounded image metadata for an
    `image://capture/<id>` or `screen://capture/<id>` resource.
+   Browser screenshot analysis starts from a prior Browser cache artifact:
+   `analyze_browser_screenshot` resolves only an existing `cache://browser/...`
+   ref and maps it into this same image-input shape.
 2. `direct_answer` detects image metadata on the request and resolves
    `Models.for(:vision_input)`.
 3. The ReqLLM answerer attaches the image as a multimodal content part on the
@@ -30,6 +33,8 @@ Vision input stays on the existing text path:
 Important modules:
 
 - `AllbertAssist.Actions.Intent.DirectAnswer`
+- `AllbertBrowser.Actions.AnalyzeScreenshot`
+- `AllbertBrowser.Cache`
 - `AllbertAssist.Resources.ImageMetadata`
 - `AllbertAssist.Resources.ImageBounds`
 - `AllbertAssist.Runtime.Redactor`

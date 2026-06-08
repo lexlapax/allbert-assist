@@ -31,17 +31,18 @@ Status: implemented as the v0.49 release. Current version metadata is
   `ReqLLM.generate_image/3`, with remote-provider confirmation, fixture image
   generation, approved confirmation resume, one bounded retry to the next
   capable image profile, and display-only usage/cost metadata.
-- Seven v0.49 vision-modality security eval rows:
+- Eight v0.49 vision-modality security eval rows:
   `vision-media-size-bound-001`, `vision-binary-trace-redaction-001`,
   `vision-provider-capability-check-001`,
   `vision-operator-supplied-only-no-autocapture-001`,
+  `vision-browser-screenshot-analysis-001`,
   `image-generation-floor-confirmation-001`,
   `image-generation-cost-display-only-001`, and
   `media-render-no-generated-ui-code-001`.
 - `mix allbert.test release.v049`, a deterministic vision/image release lane
   using fake vision/image providers, Req.Test provider fixtures, fixture image
-  files, workspace image upload coverage, eval inventory coverage, and a
-  v0.49 media secret scan.
+  files, browser screenshot cache-ref analysis, workspace image upload
+  coverage, eval inventory coverage, and a v0.49 media secret scan.
 
 ### Changed
 
@@ -62,18 +63,19 @@ Status: implemented as the v0.49 release. Current version metadata is
 ### Verification
 
 - `MIX_ENV=test mix compile --warnings-as-errors` passed.
-- Focused M5 security/task suite passed with 16 tests and 0 failures:
+- Focused M5 security/task suite passed with 17 tests and 0 failures:
   `MIX_ENV=test mix test apps/allbert_assist/test/security/v049_vision_modality_eval_test.exs apps/allbert_assist/test/security/security_eval_case_test.exs apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs`.
 - `MIX_ENV=test mix allbert.test release.v049` passed with image policy/core
   (`98 tests, 0 failures`), vision input (`11 tests, 0 failures`), image
-  generation action (`14 tests, 0 failures`), workspace image input (`65 tests,
-  0 failures`), vision security eval (`16 tests, 0 failures`), and a clean
-  v0.49 media secret scan. Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v049/p0-13255/home/release_evidence/v049/release-v049-1780870801.json`.
+  browser screenshot bridge (`12 tests, 0 failures`), image generation action
+  (`14 tests, 0 failures`), workspace image input (`65 tests, 0 failures`),
+  vision security eval (`17 tests, 0 failures`), and a clean v0.49 media
+  secret scan that includes `cache/browser`. Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v049/p0-13252/home/release_evidence/v049/release-v049-1780876139.json`.
 - Final `MIX_ENV=test mix allbert.test release` passed with static compile,
-  deps, format, Credo strict, 1,519 core tests, 123 web tests, 197 StockSage
+  deps, format, Credo strict, 1,521 core tests, 123 web tests, 197 StockSage
   tests, 12 channel-plugin tests, and Dialyzer. Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13252/home/release_evidence/gates/release-2026-06-07T22_25_47Z.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13252/home/release_evidence/gates/release-2026-06-07T23_56_29Z.json`.
 
 ## v0.48.0 - Voice Modality And Provider Capabilities
 

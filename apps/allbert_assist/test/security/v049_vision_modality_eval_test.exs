@@ -16,6 +16,8 @@ defmodule AllbertAssist.Security.V049VisionModalityEvalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
   alias AllbertAssist.Settings.Secrets
+  alias AllbertBrowser.Actions.AnalyzeScreenshot
+  alias AllbertBrowser.Cache, as: BrowserCache
   alias Jido.Signal
 
   @png Base.decode64!(
@@ -27,6 +29,7 @@ defmodule AllbertAssist.Security.V049VisionModalityEvalTest do
     "vision-binary-trace-redaction-001",
     "vision-provider-capability-check-001",
     "vision-operator-supplied-only-no-autocapture-001",
+    "vision-browser-screenshot-analysis-001",
     "image-generation-floor-confirmation-001",
     "image-generation-cost-display-only-001",
     "media-render-no-generated-ui-code-001"
@@ -171,6 +174,52 @@ defmodule AllbertAssist.Security.V049VisionModalityEvalTest do
     assert {:ok, ^resource_uri} =
              ResourceURI.scope_uri(:image_input, :image_input, resource_uri, nil)
 
+    refute "capture_screen" in ActionsRegistry.names()
+    refute "screen_capture" in ActionsRegistry.names()
+    refute "take_screenshot" in ActionsRegistry.names()
+  end
+
+  test "browser screenshot refs bridge into vision without new capture authority", %{
+    context: context
+  } do
+    assert_eval!("vision-browser-screenshot-analysis-001")
+
+    enable_direct_answer_model!()
+    enable_vision!()
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.vision_input", ["vision_fake"], %{
+               audit?: false
+             })
+
+    assert {:ok, artifact} =
+             BrowserCache.put("session_v049", "screenshot", @png,
+               ext: ".png",
+               metadata: %{redacted_credential_inputs?: true}
+             )
+
+    assert {:ok, response} =
+             AnalyzeScreenshot.run(
+               %{screenshot_ref: artifact.ref, text: "Analyze this browser screenshot"},
+               context
+             )
+
+    assert response.status == :completed
+    assert response.message =~ "Fixture vision answer for 1 image input"
+    assert response.browser_screenshot.screenshot_ref == artifact.ref
+
+    assert [
+             %{
+               resource_uri: "screen://capture/browser_" <> _hash,
+               source: :browser_screenshot,
+               origin_kind: :browser_screenshot,
+               screenshot_ref: screenshot_ref,
+               redacted_credential_inputs?: true
+             }
+           ] = response.direct_answer.media.image_inputs
+
+    assert screenshot_ref == artifact.ref
+    refute inspect(response) =~ artifact.path
     refute "capture_screen" in ActionsRegistry.names()
     refute "screen_capture" in ActionsRegistry.names()
     refute "take_screenshot" in ActionsRegistry.names()

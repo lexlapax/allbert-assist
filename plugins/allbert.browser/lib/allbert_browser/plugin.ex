@@ -33,6 +33,7 @@ defmodule AllbertBrowser.Plugin do
       AllbertBrowser.Actions.Navigate,
       AllbertBrowser.Actions.Extract,
       AllbertBrowser.Actions.Screenshot,
+      AllbertBrowser.Actions.AnalyzeScreenshot,
       AllbertBrowser.Actions.Click,
       AllbertBrowser.Actions.Fill,
       AllbertBrowser.Actions.Download,
