@@ -163,6 +163,32 @@ defmodule AllbertAssist.Conversations do
     end
   end
 
+  @doc "Fetch one user/thread-scoped message by its originating input signal id."
+  @spec get_message_by_input_signal(String.t(), String.t(), String.t()) ::
+          {:ok, Message.t()} | {:error, term()}
+  def get_message_by_input_signal(user_id, thread_id, input_signal_id) do
+    user_id = normalize_string(user_id)
+    thread_id = normalize_string(thread_id)
+    input_signal_id = normalize_optional_string(input_signal_id)
+
+    if is_nil(input_signal_id) do
+      {:error, :missing_input_signal_id}
+    else
+      query =
+        from message in Message,
+          where:
+            message.user_id == ^user_id and message.thread_id == ^thread_id and
+              message.input_signal_id == ^input_signal_id,
+          order_by: [desc: message.inserted_at, desc: message.id],
+          limit: 1
+
+      case Repo.one(query) do
+        %Message{} = message -> {:ok, message}
+        nil -> {:error, {:message_not_found_by_input_signal, input_signal_id}}
+      end
+    end
+  end
+
   @doc "Mark a user-scoped thread complete and dismiss its active ephemeral surfaces."
   @spec complete_thread(String.t(), String.t()) :: thread_result()
   def complete_thread(user_id, thread_id) do

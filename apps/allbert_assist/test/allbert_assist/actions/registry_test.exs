@@ -156,6 +156,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "put_artifact",
              "get_artifact",
              "list_artifacts",
+             "artifact_threads",
              "delete_artifact",
              "artifact_doctor",
              "security_status",
@@ -312,6 +313,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "put_artifact",
              "get_artifact",
              "list_artifacts",
+             "artifact_threads",
              "delete_artifact",
              "artifact_doctor",
              "security_status",
@@ -485,6 +487,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert put_artifact.permission == :artifact_write
     assert put_artifact.exposure == :internal
     assert put_artifact.execution_mode == :artifact_write
+
+    assert {:ok, artifact_threads} = Registry.capability("artifact_threads")
+    assert artifact_threads.permission == :artifact_read
+    assert artifact_threads.exposure == :internal
+    assert artifact_threads.execution_mode == :artifact_read
 
     assert {:ok, delete_artifact} = Registry.capability("delete_artifact")
     assert delete_artifact.permission == :artifact_delete

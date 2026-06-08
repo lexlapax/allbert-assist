@@ -9,6 +9,7 @@ defmodule AllbertAssist.Actions.Registry do
 
   alias AllbertAssist.Action
   alias AllbertAssist.Actions.Artifacts.ArtifactDoctor
+  alias AllbertAssist.Actions.Artifacts.ArtifactThreads
   alias AllbertAssist.Actions.Artifacts.DeleteArtifact
   alias AllbertAssist.Actions.Artifacts.GetArtifact
   alias AllbertAssist.Actions.Artifacts.ListArtifacts
@@ -238,6 +239,7 @@ defmodule AllbertAssist.Actions.Registry do
     PutArtifact,
     GetArtifact,
     ListArtifacts,
+    ArtifactThreads,
     DeleteArtifact,
     ArtifactDoctor,
     SecurityStatus,

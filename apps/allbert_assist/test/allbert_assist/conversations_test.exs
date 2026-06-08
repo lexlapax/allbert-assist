@@ -186,6 +186,24 @@ defmodule AllbertAssist.ConversationsTest do
       assert assistant_message.action_log["request"]["checked_at"] == "2026-05-21T09:30:00Z"
       assert assistant_message.metadata["active_app"] == "allbert"
     end
+
+    test "looks up messages by user thread and input signal id", %{thread: thread} do
+      assert {:ok, message} =
+               Conversations.append_user_message(thread, "linked input",
+                 input_signal_id: "sig-linked"
+               )
+
+      assert {:ok, found} =
+               Conversations.get_message_by_input_signal("alice", thread.id, "sig-linked")
+
+      assert found.id == message.id
+
+      assert {:error, {:message_not_found_by_input_signal, "sig-linked"}} =
+               Conversations.get_message_by_input_signal("bob", thread.id, "sig-linked")
+
+      assert {:error, :missing_input_signal_id} =
+               Conversations.get_message_by_input_signal("alice", thread.id, "")
+    end
   end
 
   describe "list/show" do

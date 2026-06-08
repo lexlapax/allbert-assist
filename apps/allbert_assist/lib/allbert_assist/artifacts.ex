@@ -12,6 +12,7 @@ defmodule AllbertAssist.Artifacts do
   alias AllbertAssist.Artifacts.Config
   alias AllbertAssist.Artifacts.MetadataIndex
   alias AllbertAssist.Artifacts.Store
+  alias AllbertAssist.Artifacts.ThreadLinks
   alias AllbertAssist.Resources.ResourceURI
 
   @doc "Store bytes and write allow-listed metadata for the resulting object."
@@ -32,10 +33,14 @@ defmodule AllbertAssist.Artifacts do
   @spec put_retained(binary(), map(), keyword()) :: {:ok, map()} | {:error, term()}
   def put_retained(bytes, metadata \\ %{}, opts \\ [])
       when is_binary(bytes) and is_map(metadata) do
+    context = Keyword.get(opts, :context, %{})
+
     with :ok <- ensure_write_enabled(),
          :ok <- ensure_retention_enabled(),
          metadata <- retained_metadata(metadata),
-         {:ok, artifact} <- put(bytes, metadata, opts) do
+         metadata <- ThreadLinks.put_provenance(metadata, context, :created_by),
+         {:ok, artifact} <- put(bytes, metadata, opts),
+         {:ok, _link} <- ThreadLinks.record_created(artifact.sha256, context, opts) do
       {:ok, public_artifact(artifact)}
     end
   end
@@ -63,11 +68,23 @@ defmodule AllbertAssist.Artifacts do
   @doc "List artifact metadata records with lightweight filters."
   @spec list(keyword()) :: {:ok, [map()]} | {:error, term()}
   def list(opts \\ []) do
-    with {:ok, records} <- MetadataIndex.list(opts) do
+    with {:ok, records} <- list_source_records(opts) do
       records
       |> Enum.map(&metadata_artifact/1)
       |> filter_records(opts)
       |> limit_records(Keyword.get(opts, :limit))
+      |> then(&{:ok, &1})
+    end
+  end
+
+  @doc "Return user-scoped thread/message links for one artifact."
+  @spec artifact_threads(String.t(), keyword()) :: {:ok, [map()]} | {:error, term()}
+  def artifact_threads(artifact_ref, opts \\ []) do
+    with {:ok, sha256} <- normalize_ref(artifact_ref),
+         {:ok, user_id} <- required_opt(opts, :user_id, :missing_user_id),
+         {:ok, links} <- ThreadLinks.list_for_artifact(user_id, sha256, opts) do
+      links
+      |> Enum.map(&ThreadLinks.public_link/1)
       |> then(&{:ok, &1})
     end
   end
@@ -188,6 +205,55 @@ defmodule AllbertAssist.Artifacts do
   end
 
   defp limit_records(records, _limit), do: records
+
+  defp list_source_records(opts) do
+    case Keyword.get(opts, :thread_id) do
+      nil -> MetadataIndex.list(opts)
+      "" -> MetadataIndex.list(opts)
+      thread_id -> list_thread_metadata(thread_id, opts)
+    end
+  end
+
+  defp list_thread_metadata(thread_id, opts) do
+    with {:ok, user_id} <- required_opt(opts, :user_id, :missing_user_id),
+         {:ok, sha256s} <- ThreadLinks.artifact_sha256s_for_thread(user_id, thread_id, opts) do
+      read_metadata_records(sha256s, opts)
+    end
+  end
+
+  defp read_metadata_records(sha256s, opts) do
+    Enum.reduce_while(sha256s, {:ok, []}, fn sha256, {:ok, acc} ->
+      case MetadataIndex.lookup(sha256, opts) do
+        {:ok, metadata} -> {:cont, {:ok, [metadata | acc]}}
+        {:error, :not_found} -> {:cont, {:ok, acc}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, records} -> {:ok, Enum.reverse(records)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp required_opt(opts, key, error) do
+    opts
+    |> Keyword.get(key)
+    |> case do
+      value when is_binary(value) ->
+        value
+        |> String.trim()
+        |> case do
+          "" -> {:error, error}
+          value -> {:ok, value}
+        end
+
+      value when not is_nil(value) ->
+        {:ok, to_string(value)}
+
+      nil ->
+        {:error, error}
+    end
+  end
 
   defp metadata_value(metadata, key) do
     Map.get(metadata, key, Map.get(metadata, Atom.to_string(key)))
