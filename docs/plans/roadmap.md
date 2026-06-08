@@ -3024,8 +3024,8 @@ ADRs: `docs/adr/0054-artifact-provenance-and-browser-surface.md`,
 `docs/adr/0017-allbert-plugin-contract.md`,
 `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`
 
-Status: M1 complete; M2-M5 planned. This is a focused sidecar after v0.50 (the
-v0.47b-after-v0.47 shape), depending on the v0.50 core read actions.
+Status: M1-M2 complete; M3-M5 planned. This is a focused sidecar after v0.50
+(the v0.47b-after-v0.47 shape), depending on the v0.50 core read actions.
 
 Expected direction:
 
@@ -3034,10 +3034,12 @@ Expected direction:
   StockSage and `allbert.browser`, not as core. It reads the store only through
   core `:artifact_read` actions. M1 has added the shipped plugin/app scaffold,
   workspace panel, discovery allowlist, and metadata-only Chrome-validated
-  panel render.
+  panel render. M2 has added the plugin-owned detail LiveView route with Chrome-
+  validated metadata/provenance rendering, invalid-SHA handling, and
+  confirmation-gated delete request.
 - Contribute a workspace `:canvas_panels` Artifacts panel, an
   `/apps/artifacts/<sha>` detail page (route in the core router, module
-  plugin-owned), and a `mix allbert.artifacts` CLI.
+  plugin-owned, implemented in M2), and a `mix allbert.artifacts` CLI.
 - Browse, search, and filter by type, origin, thread, and date, including the
   by-thread and reverse-thread provenance lookups from v0.50.
 - Render redacted metadata only (raw bytes never in assigns/page/CLI); the
