@@ -2949,8 +2949,8 @@ browser-surface split), `docs/adr/0042-audio-image-and-media-resource-classes.md
 `docs/adr/0031-settings-schema-fragments-and-authority.md`,
 `docs/adr/0046-settings-schema-migration-policy.md`
 
-Status: M1-M6 implemented and focused-verified on 2026-06-08; M7 remains
-planned. Inserts a content-addressable artifact store between v0.49 vision and
+Status: implemented as `0.50.0`; ready for operator manual validation before
+the release tag. Inserts a content-addressable artifact store between v0.49 vision and
 v0.51 Channel Pack 1, so durable media has one canonical home before channels
 begin forwarding attachments. Built on Allbert Home, Resource Access, Security
 Central, Settings Central, and the Jido action framework — a thin CAS over BEAM
@@ -2973,7 +2973,9 @@ transient scratch unchanged. M6 has landed the first supervised
 `Jido.Sensor.Runtime` path for retained-media ingestion: the sensor emits
 redacted `allbert.artifact.ingest_requested` signals to an explicit
 `IngestionConsumer` dispatch target, and retained writes still store only
-through the registered `put_artifact` action; release gates remain in M7.
+through the registered `put_artifact` action.
+M7 has landed the `:v050` artifact-store eval rows, operator/developer/security
+docs, version/changelog closeout, and deterministic `release.v050` evidence.
 
 Expected direction:
 

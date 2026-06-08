@@ -2,9 +2,9 @@
 
 ## Status
 
-Proposed for v0.50 Artifacts Central (provenance linking) and v0.50b Artifacts
-Browser (operator surfaces); accepted at v0.50 M4 closeout for the linking
-half and at v0.50b M1 closeout for the surface half. Amends ADR 0053.
+Accepted for v0.50 Artifacts Central provenance linking and for the v0.50b
+Artifacts Browser core/plugin split. The linking half shipped in v0.50; the
+operator browsing surfaces implement in v0.50b. Amends ADR 0053.
 
 ## Context
 
