@@ -2910,8 +2910,9 @@ ADRs: `docs/adr/0051-provider-capability-preferences.md`,
 `docs/adr/0042-audio-image-and-media-resource-classes.md`,
 `docs/adr/0047-provider-doctor-contract.md`
 
-Status: implemented as `0.49.0`. Current authority is the v0.49
-plan/request-flow plus the v0.48 provider capability substrate; the older
+Status: implemented as `0.49.0`; release tag blocked by the post-M6 release
+audit until v0.49 M7-M10 remediation completes. Current authority is the
+v0.49 plan/request-flow plus the v0.48 provider capability substrate; the older
 archive source is historical context only.
 
 Shipped direction:
@@ -2925,6 +2926,10 @@ Shipped direction:
   display-only cost metadata, workspace rendering, retention, and redaction.
 - Prove ReqLLM provider/model support from the app-started runtime in M1;
   no-start probes and stale sample model IDs are not release evidence.
+- Complete post-M6 release remediation before tag: deterministic gate
+  hardening, env-gated live OpenAI/Gemini vision/image smokes, explicit local
+  Ollama multimodal-profile proof or deferral, and status/evidence drift
+  closeout.
 - Treat `video_input` as shared vocabulary/future metadata only; v0.49 does not
   implement video ingestion, generic audio understanding, or video generation.
 
