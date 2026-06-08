@@ -7,7 +7,7 @@ defmodule Allbert.V049VisionLiveSmoke do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
 
-  @providers ~w[openai gemini]
+  @providers ~w[openai gemini ollama]
   @default_prompt "Describe the validation image in one concise sentence."
   @default_image_prompt "Generate a simple 1024x1024 validation image of a labeled blue square."
 
@@ -90,7 +90,9 @@ defmodule Allbert.V049VisionLiveSmoke do
   defp validate_provider!(provider) when provider in @providers, do: :ok
 
   defp validate_provider!(other) do
-    Mix.raise("Unknown ALLBERT_V049_PROVIDER=#{inspect(other)}; expected openai or gemini.")
+    Mix.raise(
+      "Unknown ALLBERT_V049_PROVIDER=#{inspect(other)}; expected openai, gemini, or ollama."
+    )
   end
 
   defp validate_image_file!(image_file) when is_binary(image_file) do
@@ -115,6 +117,15 @@ defmodule Allbert.V049VisionLiveSmoke do
   defp configure_provider!("gemini") do
     put!("providers.gemini.enabled", true)
     put_secret_from_env!("secret://providers/gemini/api_key", "GEMINI_API_KEY", "GOOGLE_API_KEY")
+  end
+
+  defp configure_provider!("ollama") do
+    put!("providers.local_ollama.enabled", true)
+
+    case local_ollama_base_url() do
+      nil -> :ok
+      base_url -> put!("providers.local_ollama.base_url", base_url)
+    end
   end
 
   defp configure_media_loop!(provider) do
@@ -398,6 +409,8 @@ defmodule Allbert.V049VisionLiveSmoke do
   defp provider_secret_values("gemini"),
     do: secret_env_values(["GEMINI_API_KEY", "GOOGLE_API_KEY"])
 
+  defp provider_secret_values("ollama"), do: []
+
   defp secret_env_values(names) do
     names
     |> Enum.map(&System.get_env/1)
@@ -421,9 +434,22 @@ defmodule Allbert.V049VisionLiveSmoke do
 
   defp vision_profile("openai"), do: "vision_openai"
   defp vision_profile("gemini"), do: "vision_gemini"
+  defp vision_profile("ollama"), do: "vision_ollama"
 
   defp image_profile("openai"), do: "image_openai"
   defp image_profile("gemini"), do: "image_gemini"
+  defp image_profile("ollama"), do: "image_ollama"
+
+  defp local_ollama_base_url do
+    case System.get_env("OLLAMA_BASE_URL") do
+      value when is_binary(value) ->
+        value = String.trim(value)
+        if value == "", do: nil, else: value
+
+      _missing ->
+        nil
+    end
+  end
 end
 
 Allbert.V049VisionLiveSmoke.run(System.argv())

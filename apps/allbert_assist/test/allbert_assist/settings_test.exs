@@ -1638,11 +1638,25 @@ defmodule AllbertAssist.SettingsTest do
     assert vision.capabilities == ["text_generation", "vision_input"]
     assert vision.media["input_modalities"] == ["text", "image"]
 
+    assert {:ok, vision_ollama} = Settings.resolve_model_profile("vision_ollama")
+    assert vision_ollama.provider == "local_ollama"
+    assert vision_ollama.model == "qwen3-vl:8b"
+    assert vision_ollama.provider_type == "openai_compatible"
+    assert vision_ollama.provider_endpoint_kind == "local_endpoint"
+    assert vision_ollama.media["deployment_mode"] == "local_endpoint"
+
     assert {:ok, image} = Settings.resolve_model_profile("image_openai")
     assert image.provider == "openai"
     assert image.model == "gpt-image-1.5"
     assert image.capabilities == ["image_generation"]
     assert image.media["output_modalities"] == ["image"]
+
+    assert {:ok, image_ollama} = Settings.resolve_model_profile("image_ollama")
+    assert image_ollama.provider == "local_ollama"
+    assert image_ollama.model == "x/z-image-turbo"
+    assert image_ollama.provider_type == "openai_compatible"
+    assert image_ollama.provider_endpoint_kind == "local_endpoint"
+    assert image_ollama.media["output_modalities"] == ["image"]
 
     assert "providers.*.endpoint_kind" in Settings.safe_write_keys()
     assert "model_profiles.*.capabilities" in Settings.safe_write_keys()

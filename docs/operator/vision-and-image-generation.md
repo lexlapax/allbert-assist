@@ -89,9 +89,9 @@ Request image generation through the runtime/action surface. Expected behavior:
 
 Use these steps for v0.49 manual validation and report back by step number.
 Steps 1-10 are deterministic local validation and do not require provider
-credentials. Steps 11-18 are credentialed/manual validation for an operator who
-has OpenAI or Gemini credentials and wants to validate real provider behavior
-before tagging.
+credentials. Steps 11-19 are live/manual validation for an operator who has
+OpenAI or Gemini credentials, or locally installed Ollama media models, and
+wants to validate real provider behavior before tagging.
 
 1. Start from the repo root and record the commit being validated:
 
@@ -133,8 +133,9 @@ before tagging.
    mix allbert.model list
    ```
 
-   Expected: output includes `vision_openai`, `vision_gemini`, `vision_fake`,
-   `image_openai`, `image_gemini`, and `image_fake`.
+   Expected: output includes `vision_openai`, `vision_gemini`,
+   `vision_ollama`, `vision_fake`, `image_openai`, `image_gemini`,
+   `image_ollama`, and `image_fake`.
 
 5. Confirm Security Central floors and caps:
 
@@ -229,7 +230,30 @@ before tagging.
     writes redacted evidence under `<ALLBERT_HOME>/release_evidence/v049/`, and
     reports no secret/raw-media leaks.
 
-13. Inspect the live-smoke evidence from steps 11-12:
+13. Run the local Ollama live vision/image smoke when the required local models
+    are installed:
+
+    ```sh
+    ollama list
+    ollama show qwen3-vl:8b
+    ollama show x/z-image-turbo
+    export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v049-ollama.XXXXXX)"
+    export ALLBERT_V049_LIVE_SMOKE=1
+    export ALLBERT_V049_PROVIDER=ollama
+    # Optional when Ollama is not on the default local endpoint:
+    # export OLLAMA_BASE_URL="http://127.0.0.1:11434/v1"
+    export ALLBERT_V049_IMAGE="/absolute/path/to/small-validation-image.png"
+    mix run --no-start scripts/v049_vision_live_smoke.exs
+    ```
+
+    Expected: the script doctors `vision_ollama` and `image_ollama`, performs
+    real local vision input, creates and approves the image-generation
+    confirmation through Ollama's experimental OpenAI-compatible image endpoint,
+    writes redacted evidence under `<ALLBERT_HOME>/release_evidence/v049/`, and
+    reports no secret/raw-media leaks. This step validates local image and
+    vision only; it does not validate video.
+
+14. Inspect the live-smoke evidence from steps 11-13:
 
     ```sh
     export V049_LIVE_EVIDENCE="<path printed by the live smoke>"
@@ -241,16 +265,16 @@ before tagging.
     Expected: provider matches the selected smoke; doctor summaries show
     endpoint/model availability; redaction scan values are all `false`.
 
-14. Start a disposable workspace server for manual UI validation:
+15. Start a disposable workspace server for manual UI validation:
 
     ```sh
     PORT=4049 mix phx.server
     ```
 
     Expected: the server starts on `http://localhost:4049`. Keep this terminal
-    running until steps 15-17 are complete.
+    running until steps 16-18 are complete.
 
-15. Validate workspace vision input in the browser:
+16. Validate workspace vision input in the browser:
 
     Open `http://localhost:4049/workspace`, upload or paste a small PNG, JPEG,
     or WebP image, and ask a concrete question about the image.
@@ -260,7 +284,7 @@ before tagging.
     traces/action metadata contain redacted image metadata, not raw image bytes
     or local file paths.
 
-16. Validate browser screenshot analysis:
+17. Validate browser screenshot analysis:
 
     In `/workspace`, use the Browser app/panel flow or a browser prompt such as
     `screenshot https://example.com` to create a browser screenshot. Open the
@@ -273,7 +297,7 @@ before tagging.
     provenance; the action does not capture the OS screen or grant authority
     from the `screen://` id itself.
 
-17. Validate image generation:
+18. Validate image generation:
 
     Request image generation through the runtime/workspace action surface.
 
@@ -282,7 +306,7 @@ before tagging.
     reports display-only usage/cost metadata, and redacts binary content plus
     generated-resource paths from traces/action metadata.
 
-18. Stop the workspace server and inspect recent confirmations/traces:
+19. Stop the workspace server and inspect recent confirmations/traces:
 
     ```sh
     mix allbert.confirmations list --resolved
