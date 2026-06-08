@@ -3,7 +3,7 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
 
   use AllbertAssist.Action,
     permission: :voice_synthesize,
-    exposure: :internal,
+    exposure: :agent,
     execution_mode: :voice_provider_call,
     skill_backed?: false,
     confirmation: :required,
@@ -11,7 +11,7 @@ defmodule AllbertAssist.Actions.Voice.SynthesizeVoice do
     name: "synthesize_voice",
     description: "Synthesize bounded text into an audio file through a voice-capable profile.",
     category: "voice",
-    tags: ["voice", "text_to_speech", "audio", "internal"],
+    tags: ["voice", "text_to_speech", "audio", "text_to_audio"],
     schema: [
       text: [type: :string, required: true],
       output_format: [type: :string, required: false],

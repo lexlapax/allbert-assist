@@ -7,6 +7,7 @@ defmodule AllbertAssistWeb.Plugs.ContentSecurityPolicy do
     "default-src 'self'",
     "style-src 'self'",
     "img-src 'self' data:",
+    "media-src 'self'",
     "font-src 'self'",
     "connect-src 'self' ws: wss:",
     "script-src 'self'",

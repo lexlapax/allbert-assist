@@ -32,6 +32,7 @@ defmodule Mix.Tasks.Allbert.Ask do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Runtime.MediaOutputs
   alias AllbertAssist.Session
   alias AllbertAssist.Trace
 
@@ -129,6 +130,7 @@ defmodule Mix.Tasks.Allbert.Ask do
     Mix.shell().info("User: #{response.user_id}")
     Mix.shell().info("Thread: #{response.thread_id}")
     print_session(response)
+    print_media_outputs(Map.get(response, :media_outputs, []))
     print_approval_handoff(Map.get(response, :approval_handoff))
 
     if response.diagnostics != [] do
@@ -154,6 +156,31 @@ defmodule Mix.Tasks.Allbert.Ask do
     Mix.shell().info("Speech: #{output_resource_uri}")
     Mix.shell().info("Speech file: #{audio_file}")
     :ok
+  end
+
+  defp print_media_outputs(outputs) do
+    outputs = MediaOutputs.persistable(outputs)
+
+    if outputs != [] do
+      Mix.shell().info("Media outputs:")
+      Enum.each(outputs, &print_media_output/1)
+    end
+  end
+
+  defp print_media_output(output) do
+    kind = Map.get(output, :kind) || Map.get(output, "kind") || "media"
+    mime_type = Map.get(output, :mime_type) || Map.get(output, "mime_type")
+    resource_uri = Map.get(output, :resource_uri) || Map.get(output, "resource_uri")
+    local_path = Map.get(output, :local_path) || Map.get(output, "local_path")
+
+    Mix.shell().info("- #{kind} #{media_output_detail(mime_type, resource_uri, local_path)}")
+  end
+
+  defp media_output_detail(mime_type, resource_uri, local_path) do
+    [mime_type, resource_uri, local_path]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.join(" ")
   end
 
   defp print_action(action) do

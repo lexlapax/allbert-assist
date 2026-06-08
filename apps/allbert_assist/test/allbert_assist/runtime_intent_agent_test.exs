@@ -384,6 +384,94 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
     assert [%{name: "read_recent_memory", memory_count: 1}] = recall_response.actions
   end
 
+  test "default runtime routes typed image generation through generated media outputs" do
+    assert {:ok, _setting} = Settings.put("image.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.image_generation", ["image_fake"], %{
+               audit?: false
+             })
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Generate a one-pixel validation image.",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :completed
+    assert response.message =~ "Image generated with image_fake"
+    assert response.decision.selected_action == "generate_image"
+
+    assert response.decision.trace_metadata.intent_candidates.selected.action_name ==
+             "generate_image"
+
+    assert [%{name: "generate_image", status: :completed}] = response.actions
+
+    assert [%{kind: :image, local_path: image_path, mime_type: "image/png"}] =
+             response.media_outputs
+
+    assert File.regular?(image_path)
+
+    assert {:ok, %{messages: [_user_message, assistant_message]}} =
+             Conversations.show_thread("local", response.thread_id)
+
+    assert [
+             %{
+               "kind" => "image",
+               "local_path" => persisted_path,
+               "mime_type" => "image/png"
+             }
+           ] = message_metadata(assistant_message, "media_outputs")
+
+    assert persisted_path == image_path
+    refute inspect(assistant_message.action_log) =~ image_path
+  end
+
+  test "default runtime routes typed voice synthesis through generated media outputs" do
+    assert {:ok, _setting} = Settings.put("voice.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.text_to_speech", ["voice_tts_fake"], %{
+               audit?: false
+             })
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Speak this sentence aloud: v0.48 voice routing.",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.status == :completed
+    assert response.message =~ "Voice output synthesized with voice_tts_fake"
+    assert response.decision.selected_action == "synthesize_voice"
+
+    assert response.decision.trace_metadata.intent_candidates.selected.action_name ==
+             "synthesize_voice"
+
+    assert [%{name: "synthesize_voice", status: :completed}] = response.actions
+
+    assert [%{kind: :audio, local_path: audio_path, mime_type: "audio/wav"}] =
+             response.media_outputs
+
+    assert File.regular?(audio_path)
+
+    assert {:ok, %{messages: [_user_message, assistant_message]}} =
+             Conversations.show_thread("local", response.thread_id)
+
+    assert [
+             %{
+               "kind" => "audio",
+               "local_path" => persisted_path,
+               "mime_type" => "audio/wav"
+             }
+           ] = message_metadata(assistant_message, "media_outputs")
+
+    assert persisted_path == audio_path
+    refute inspect(assistant_message.action_log) =~ audio_path
+  end
+
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 
@@ -413,5 +501,9 @@ defmodule AllbertAssist.RuntimeIntentAgentTest do
 
   defp action_log_value(action_log, key) do
     Map.get(action_log, key) || Map.get(action_log, String.to_atom(key))
+  end
+
+  defp message_metadata(message, key) do
+    Map.get(message.metadata, key) || Map.get(message.metadata, String.to_atom(key))
   end
 end

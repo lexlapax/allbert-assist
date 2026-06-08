@@ -109,6 +109,33 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           <div class="workspace-message-body">
             <p class="workspace-message-label">{message_label(message)}</p>
             <pre>{message_content(message)}</pre>
+            <div :if={message_media_outputs(message) != []} class="workspace-media-outputs">
+              <figure
+                :for={{output, index} <- Enum.with_index(message_media_outputs(message))}
+                class="workspace-media-output"
+                data-media-kind={media_output_kind(output)}
+              >
+                <img
+                  :if={media_output_kind(output) == "image"}
+                  class="workspace-media-output-image"
+                  src={media_output_src(message, index)}
+                  alt={media_output_alt(output)}
+                  style="display: block; width: min(100%, 28rem); height: 12rem; object-fit: contain;"
+                  loading="lazy"
+                />
+                <audio
+                  :if={media_output_kind(output) == "audio"}
+                  class="workspace-media-output-audio"
+                  src={media_output_src(message, index)}
+                  controls
+                  preload="metadata"
+                >
+                </audio>
+                <figcaption class="workspace-media-output-meta">
+                  {media_output_label(output)}
+                </figcaption>
+              </figure>
+            </div>
             <time
               :if={message_time(message)}
               class="workspace-message-time"
@@ -613,6 +640,56 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
 
   defp message_content(%{content: content}) when is_binary(content), do: content
   defp message_content(_message), do: ""
+
+  defp message_media_outputs(message) do
+    message
+    |> message_metadata()
+    |> metadata_value(:media_outputs)
+    |> case do
+      outputs when is_list(outputs) -> Enum.filter(outputs, &is_map/1)
+      _other -> []
+    end
+  end
+
+  defp message_metadata(%{metadata: metadata}) when is_map(metadata), do: metadata
+  defp message_metadata(_message), do: %{}
+
+  defp metadata_value(metadata, key) when is_map(metadata) do
+    Map.get(metadata, key) || Map.get(metadata, Atom.to_string(key))
+  end
+
+  defp metadata_value(_metadata, _key), do: nil
+
+  defp media_output_kind(output) do
+    case metadata_value(output, :kind) do
+      kind when kind in [:image, "image"] -> "image"
+      kind when kind in [:audio, "audio"] -> "audio"
+      _kind -> "unknown"
+    end
+  end
+
+  defp media_output_src(message, index), do: ~p"/workspace/media/#{message_id(message)}/#{index}"
+
+  defp media_output_alt(output) do
+    case metadata_value(output, :filename) do
+      filename when is_binary(filename) and filename != "" -> "Generated image #{filename}"
+      _filename -> "Generated image"
+    end
+  end
+
+  defp media_output_label(output) do
+    [
+      media_output_kind(output),
+      metadata_value(output, :mime_type),
+      metadata_value(output, :source_action)
+    ]
+    |> Enum.reject(&blank?/1)
+    |> Enum.join(" · ")
+  end
+
+  defp blank?(nil), do: true
+  defp blank?(""), do: true
+  defp blank?(_value), do: false
 
   defp message_time(%{inserted_at: %DateTime{} = inserted_at}) do
     DateTime.to_iso8601(inserted_at)

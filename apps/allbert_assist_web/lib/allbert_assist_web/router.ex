@@ -32,6 +32,7 @@ defmodule AllbertAssistWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    get "/workspace/media/:message_id/:index", WorkspaceMediaController, :show
     live "/workspace", WorkspaceLive
     live "/jobs", JobsLive
     live "/objectives/:id", ObjectiveLive

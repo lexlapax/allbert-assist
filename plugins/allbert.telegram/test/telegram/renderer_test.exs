@@ -4,6 +4,27 @@ defmodule AllbertAssist.Plugins.Telegram.RendererTest do
   alias AllbertAssist.Channels.Telegram.Renderer
   alias AllbertAssist.Objectives
 
+  test "normal response rendering includes redacted media-output fallbacks" do
+    assert {:ok, [text], nil} =
+             Renderer.render_response(%{
+               message: "Image generated.",
+               media_outputs: [
+                 %{
+                   kind: :image,
+                   source_action: "generate_image",
+                   local_path: "/tmp/allbert-secret/image.png",
+                   resource_uri: "file://[REDACTED_IMAGE_PATH]",
+                   mime_type: "image/png"
+                 }
+               ]
+             })
+
+    assert text =~ "Image generated."
+    assert text =~ "Media outputs:"
+    assert text =~ "- image image/png file://[REDACTED_IMAGE_PATH] generate_image"
+    refute text =~ "/tmp/allbert-secret"
+  end
+
   test "approval handoff rendering includes objective context and stale warning" do
     assert {:ok, objective} =
              Objectives.create_objective(%{
@@ -33,7 +54,8 @@ defmodule AllbertAssist.Plugins.Telegram.RendererTest do
     assert text =~ "Step: step_tg_objective"
     assert text =~ "Note: objective is now :cancelled"
     assert %{"inline_keyboard" => buttons} = keyboard
-    assert List.flatten(buttons) |> Enum.any?(&(&1["callback_data"] == "allbert:v1:show:conf_tg_objective"))
+
+    assert List.flatten(buttons)
+           |> Enum.any?(&(&1["callback_data"] == "allbert:v1:show:conf_tg_objective"))
   end
 end
-

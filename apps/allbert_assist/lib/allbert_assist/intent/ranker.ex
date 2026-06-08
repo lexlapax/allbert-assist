@@ -343,6 +343,30 @@ defmodule AllbertAssist.Intent.Ranker do
   defp keyword_action_match?(text, "list_channels"), do: channel_request?(text)
   defp keyword_action_match?(text, "show_channel"), do: channel_request?(text)
 
+  defp keyword_action_match?(text, "generate_image") do
+    normalized = normalize_text(text)
+
+    text_has_phrase_any?(normalized, [
+      "generate image",
+      "create image",
+      "make an image",
+      "text to image"
+    ]) or
+      Regex.match?(~r/\b(generate|create|make|draw)\b.*\b(image|picture)\b/, normalized)
+  end
+
+  defp keyword_action_match?(text, "synthesize_voice") do
+    text_has_phrase_any?(text, [
+      "speak",
+      "read aloud",
+      "say this aloud",
+      "text to speech",
+      "tts",
+      "voice output",
+      "audio output"
+    ])
+  end
+
   defp keyword_action_match?(text, "external_network_request"),
     do: text_has_any?(text, ["http", "https", "fetch", "url", "internet"])
 
@@ -392,6 +416,15 @@ defmodule AllbertAssist.Intent.Ranker do
   end
 
   defp text_has_any?(_text, _values), do: false
+
+  defp text_has_phrase_any?(text, values) when is_binary(text) do
+    normalized = " #{normalize_text(text)} "
+
+    Enum.any?(values, fn value ->
+      phrase = " #{normalize_text(value)} "
+      String.contains?(normalized, phrase)
+    end)
+  end
 
   defp normalize_text(value) do
     value

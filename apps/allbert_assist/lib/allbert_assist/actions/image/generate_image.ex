@@ -3,7 +3,7 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
 
   use AllbertAssist.Action,
     permission: :image_generate,
-    exposure: :internal,
+    exposure: :agent,
     execution_mode: :image_provider_call,
     skill_backed?: false,
     confirmation: :required,
@@ -11,7 +11,7 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
     name: "generate_image",
     description: "Generate a bounded image through an image-generation profile.",
     category: "image",
-    tags: ["image", "image_generation", "internal"],
+    tags: ["image", "image_generation", "text_to_image"],
     schema: [
       prompt: [type: :string, required: true],
       output_format: [type: :string, required: false],
@@ -197,7 +197,9 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
   end
 
   defp generate_image_response(_profile, model, prompt, opts) do
-    ReqLLM.generate_image(model, prompt, opts)
+    with {:ok, model} <- ReqLLM.model(model) do
+      ReqLLM.generate_image(model, prompt, opts)
+    end
   end
 
   defp generated_image_metadata(generated, resolution, output_format, settings, attempts) do

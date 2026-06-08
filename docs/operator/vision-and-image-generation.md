@@ -1,11 +1,10 @@
 # Vision And Image Generation Operator Guide
 
-Status: v0.49 implemented but manual validation is paused pending M10
-multimodal channel/runtime remediation. Use this guide for setup context; do
-not use the numbered checklist as release-ready until M10 implementation and
-M11 revalidation refresh the evidence. The design authority remains
-`docs/plans/v0.49-plan.md`, `docs/plans/v0.49-request-flow.md`, ADR 0042,
-ADR 0047, and ADR 0051.
+Status: v0.49 implemented with M10 multimodal channel/runtime remediation
+landed and M11 post-M10 revalidation complete. Use this guide for the operator
+manual validation checklist before release tag. The design authority remains
+`docs/plans/v0.49-plan.md`, `docs/plans/v0.49-request-flow.md`, ADR 0042, ADR
+0047, and ADR 0051.
 
 ## Operator Posture
 
@@ -89,6 +88,26 @@ Request image generation through the runtime/action surface. Expected behavior:
 - traces/action metadata redact binary content and generated resource paths.
 
 ## Numbered Validation Checklist
+
+Latest agent-side revalidation evidence (2026-06-08, post-M10 refresh):
+
+- `MIX_ENV=test mix allbert.test release.v049` passed:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v049/p0-13250/home/release_evidence/v049/release-v049-1780905180.json`.
+- `MIX_ENV=test mix allbert.test release` passed:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-11012/home/release_evidence/gates/release-2026-06-08T07_59_18Z.json`.
+- OpenAI live smoke passed:
+  `/tmp/allbert-v049-openai-postm10.uUdJMx/release_evidence/v049/live-vision-openai-1780906902.json`.
+- Gemini live smoke passed with generated-output normalization to bounded
+  JPEG metadata:
+  `/tmp/allbert-v049-gemini-postm10.jItnTX/release_evidence/v049/live-vision-gemini-1780906936.json`.
+- Local Ollama live smoke passed without the previous ReqLLM unverified-model
+  warning or image decoder failure:
+  `/tmp/allbert-v049-ollama-postm10.SJOyJl/release_evidence/v049/live-vision-ollama-1780907017.json`.
+- Gemma 4 local vision-candidate smoke passed without the previous
+  ReqLLM/Ollama warning or image decoder failure:
+  `/tmp/allbert-v049-gemma4-postm10.fuuVDf/release_evidence/v049/live-vision-ollama-1780907097.json`.
+- Chrome-controlled workspace validation confirmed a visible image preview and
+  visible audio control from `media_outputs`; `No action was taken` was absent.
 
 Use these steps for v0.49 manual validation and report back by step number.
 Steps 1-10 are deterministic local/action validation and do not require
@@ -487,8 +506,10 @@ until after recording the evidence paths you will report.
     mix allbert.settings set browser.enabled true
     mix allbert.settings set vision.enabled true
     mix allbert.settings set image.enabled true
+    mix allbert.settings set voice.enabled true
     mix allbert.settings set model_preferences.capabilities.vision_input vision_fake
     mix allbert.settings set model_preferences.capabilities.image_generation image_fake
+    mix allbert.settings set model_preferences.capabilities.text_to_speech voice_tts_fake
 
     PORT=4049 mix phx.server > /tmp/allbert-v049-workspace-server.log 2>&1 &
     export V049_SERVER_PID=$!
@@ -501,7 +522,8 @@ until after recording the evidence paths you will report.
     `http://127.0.0.1:4049/workspace`. Keep this server running through
     steps 16-17.
 
-16. Validate workspace vision input and image generation in the browser.
+16. Validate workspace vision input, image generation, and typed TTS in the
+    browser.
 
     ```sh
     echo "Open: http://127.0.0.1:4049/workspace"
@@ -510,24 +532,27 @@ until after recording the evidence paths you will report.
 
     In the browser, upload or paste `$V049_IMAGE` and ask:
     `Describe this validation image in one sentence.` Then request image
-    generation with: `Generate a one-pixel validation image.`
+    generation with: `Generate a one-pixel validation image.` Then request
+    typed TTS with: `Speak this sentence aloud: v0.48 voice routing.`
 
     ```sh
     mix allbert.confirmations list --resolved | tee /tmp/allbert-v049-confirmations.log
     mix allbert.security review --recent --limit 20 | tee /tmp/allbert-v049-security-review.log
     [ -d "$ALLBERT_HOME/memory/traces" ] &&
-      rg -n 'image://capture|screen://capture|vision_fake|image_fake|generate_image' \
+      rg -n 'image://capture|screen://capture|vision_fake|image_fake|voice_tts_fake|generate_image|synthesize_voice' \
         "$ALLBERT_HOME/memory/traces" || true
     ```
 
-    Expected after M10: workspace accepts the upload, answers through the
-    configured `vision_fake` profile, routes the generation request through
-    `generate_image` rather than `direct_answer`, renders a generated image
-    preview from `media_outputs`, and security review shows no redaction
-    incidents. Resolved confirmations may be empty in this fake-profile
-    workspace smoke; steps 11-14 are the remote/local provider confirmation
-    proof. Trace search should find redacted metadata refs if traces were
-    emitted; it must not print raw image bytes or local file paths.
+    Expected: workspace accepts the upload, answers through the configured
+    `vision_fake` profile, routes the generation request through
+    `generate_image` rather than `direct_answer`, renders a visible generated
+    image preview frame from `media_outputs`, routes typed TTS through
+    `synthesize_voice`, renders an audio control from `media_outputs`, and
+    security review shows no redaction incidents. Resolved confirmations may be
+    empty in this fake-profile workspace smoke; steps 11-14 are the
+    remote/local provider confirmation proof. Trace search should find redacted
+    metadata refs if traces were emitted; it must not print raw image/audio
+    bytes or local file paths.
 
 17. Validate browser screenshot analysis through the operator UI flow.
 
@@ -606,30 +631,29 @@ It writes evidence to:
 The latest deterministic v0.49 release evidence path is:
 
 ```text
-/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v049/p0-11013/home/release_evidence/v049/release-v049-1780886771.json
+/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v049/p0-13250/home/release_evidence/v049/release-v049-1780905180.json
 ```
 
 The latest full release-gate evidence path is:
 
 ```text
-/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-1218/home/release_evidence/gates/release-2026-06-08T03_08_24Z.json
+/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-11012/home/release_evidence/gates/release-2026-06-08T07_59_18Z.json
 ```
 
-Previous M10 live-provider status, now stale until M11 reruns after the
-multimodal channel/runtime remediation:
+Latest post-M10 live-provider status:
 
 - OpenAI passed with evidence:
-  `/tmp/allbert-v049-openai.wd0zIU/release_evidence/v049/live-vision-openai-1780886149.json`.
+  `/tmp/allbert-v049-openai-postm10.uUdJMx/release_evidence/v049/live-vision-openai-1780906902.json`.
 - Gemini passed with evidence:
-  `/tmp/allbert-v049-gemini.cQbb9E/release_evidence/v049/live-vision-gemini-1780886180.json`.
+  `/tmp/allbert-v049-gemini-postm10.jItnTX/release_evidence/v049/live-vision-gemini-1780906936.json`.
   The generated output was returned as JPEG and accepted through the
   system-level generated-output normalization path.
 - Local Ollama passed with `qwen3-vl:8b` and `x/z-image-turbo`; evidence:
-  `/tmp/allbert-v049-ollama.Z4w0Sj/release_evidence/v049/live-vision-ollama-1780886386.json`.
+  `/tmp/allbert-v049-ollama-postm10.SJOyJl/release_evidence/v049/live-vision-ollama-1780907017.json`.
 - Gemma 4 local vision-candidate validation passed with
   `ALLBERT_V049_VISION_MODEL=gemma4:e4b`; evidence:
-  `/tmp/allbert-v049-gemma4.v2qeT4/release_evidence/v049/live-vision-ollama-1780886599.json`.
+  `/tmp/allbert-v049-gemma4-postm10.fuuVDf/release_evidence/v049/live-vision-ollama-1780907097.json`.
 
-v0.49 returns to operator manual validation only after M10 fixes the shared
-multimodal routing/rendering gap and M11 refreshes deterministic, live-provider,
-local-provider, browser, and UI evidence.
+v0.49 has returned to operator manual validation after M11 refreshed
+deterministic, live-provider, local-provider, browser, and UI evidence after
+the shared multimodal routing/rendering remediation.

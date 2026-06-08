@@ -23,6 +23,7 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Runtime.MediaOutputs
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Session
@@ -67,6 +68,7 @@ defmodule AllbertAssist.Runtime do
           decision: map() | nil,
           resource_access: list(),
           approval_handoff: map() | nil,
+          media_outputs: list(),
           diagnostics: list()
         }
 
@@ -300,6 +302,7 @@ defmodule AllbertAssist.Runtime do
 
   defp new_response_signal(input_signal, request, agent_response) do
     agent_response = Response.normalize(agent_response)
+    media_outputs = MediaOutputs.collect(agent_response)
 
     Signal.new(
       @agent_responded,
@@ -315,6 +318,7 @@ defmodule AllbertAssist.Runtime do
         decision: agent_response.decision,
         resource_access: agent_response.resource_access,
         approval_handoff: agent_response.approval_handoff,
+        media_outputs: MediaOutputs.redacted(media_outputs),
         diagnostics: request.diagnostics ++ agent_response.diagnostics
       }
       |> maybe_put(:active_app, request.active_app),
@@ -362,6 +366,7 @@ defmodule AllbertAssist.Runtime do
 
   defp build_response(input_signal, response_signal, agent_response, request) do
     agent_response = Response.normalize(agent_response)
+    media_outputs = MediaOutputs.collect(agent_response)
 
     %{
       message: agent_response.message,
@@ -380,6 +385,7 @@ defmodule AllbertAssist.Runtime do
       approval_handoff: agent_response.approval_handoff,
       diagnostics: request.diagnostics ++ agent_response.diagnostics
     }
+    |> maybe_put_media_outputs(media_outputs)
   end
 
   defp persist_user_message(request, input_signal) do
@@ -432,6 +438,9 @@ defmodule AllbertAssist.Runtime do
             session_id: request.session_id
           }
           |> maybe_put(:active_app, request.active_app)
+          |> maybe_put_media_outputs(
+            MediaOutputs.persistable(Map.get(response, :media_outputs, []))
+          )
 
         attrs = %{
           action_log: assistant_action_log(response),
@@ -617,4 +626,9 @@ defmodule AllbertAssist.Runtime do
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  defp maybe_put_media_outputs(map, []), do: map
+
+  defp maybe_put_media_outputs(map, media_outputs),
+    do: Map.put(map, :media_outputs, media_outputs)
 end

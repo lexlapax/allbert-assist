@@ -106,6 +106,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "doctor_model_profile",
              "doctor_voice_provider",
              "set_active_model_profile",
+             "generate_image",
+             "synthesize_voice",
              "list_channels",
              "show_channel",
              "list_apps",
@@ -172,8 +174,6 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "show_session_scratchpad",
              "capture_workspace_voice",
              "transcribe_voice",
-             "synthesize_voice",
-             "generate_image",
              "voice_local_runtime_doctor",
              "voice_local_runtime_start",
              "record_trace",
@@ -242,6 +242,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert "show_app" in agent_action_names
     assert "list_plugins" in agent_action_names
     assert "show_plugin" in agent_action_names
+    assert "generate_image" in agent_action_names
+    assert "synthesize_voice" in agent_action_names
     refute "mcp_doctor_server" in agent_action_names
     refute "mcp_list_tools" in agent_action_names
     refute "mcp_list_resources" in agent_action_names
@@ -252,8 +254,6 @@ defmodule AllbertAssist.Actions.RegistryTest do
     refute "security_review" in agent_action_names
     refute "capture_workspace_voice" in agent_action_names
     refute "transcribe_voice" in agent_action_names
-    refute "synthesize_voice" in agent_action_names
-    refute "generate_image" in agent_action_names
     refute "record_trace" in agent_action_names
   end
 
@@ -325,8 +325,6 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "show_session_scratchpad",
              "capture_workspace_voice",
              "transcribe_voice",
-             "synthesize_voice",
-             "generate_image",
              "voice_local_runtime_doctor",
              "voice_local_runtime_start",
              "record_trace",
@@ -753,13 +751,13 @@ defmodule AllbertAssist.Actions.RegistryTest do
 
     assert {:ok, synthesize_voice} = Registry.capability("synthesize_voice")
     assert synthesize_voice.permission == :voice_synthesize
-    assert synthesize_voice.exposure == :internal
+    assert synthesize_voice.exposure == :agent
     assert synthesize_voice.execution_mode == :voice_provider_call
     assert synthesize_voice.resumable? == true
 
     assert {:ok, generate_image} = Registry.capability("generate_image")
     assert generate_image.permission == :image_generate
-    assert generate_image.exposure == :internal
+    assert generate_image.exposure == :agent
     assert generate_image.execution_mode == :image_provider_call
     assert generate_image.resumable? == true
 

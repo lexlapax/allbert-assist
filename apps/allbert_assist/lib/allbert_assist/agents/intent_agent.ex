@@ -255,18 +255,43 @@ defmodule AllbertAssist.Agents.IntentAgent do
     end
   end
 
-  defp execution_route_for_decision(:direct_answer, %Decision{
-         active_app: active_app,
-         trace_metadata: %{app_id: app_id},
-         intent: :registry_action,
-         selected_action: action_name
-       })
-       when not is_nil(active_app) and app_id == active_app and is_binary(action_name) and
-              action_name != "direct_answer" do
-    {:registry_action, action_name}
+  defp execution_route_for_decision(
+         :direct_answer,
+         %Decision{
+           intent: :registry_action,
+           selected_action: action_name
+         } = decision
+       )
+       when is_binary(action_name) do
+    if bridge_registry_action_from_direct_route?(action_name, decision) do
+      {:registry_action, action_name}
+    else
+      :direct_answer
+    end
   end
 
   defp execution_route_for_decision(route, _decision), do: route
+
+  defp bridge_registry_action_from_direct_route?(action_name, decision) do
+    text_to_media_registry_action?(action_name) ||
+      active_app_registry_action?(action_name, decision)
+  end
+
+  defp text_to_media_registry_action?(action_name),
+    do: action_name in ["generate_image", "synthesize_voice"]
+
+  defp active_app_registry_action?(action_name, %Decision{active_app: active_app})
+       when not is_nil(active_app) do
+    case Registry.capability(action_name) do
+      {:ok, capability} -> same_app_id?(capability.app_id, active_app)
+      {:error, _reason} -> false
+    end
+  end
+
+  defp active_app_registry_action?(_action_name, _decision), do: false
+
+  defp same_app_id?(nil, _active_app), do: false
+  defp same_app_id?(app_id, active_app), do: app_id == active_app
 
   defp surface_navigation_response(%Decision{} = decision) do
     target = Map.get(decision.trace_metadata, :surface_target, %{})
@@ -1393,12 +1418,13 @@ defmodule AllbertAssist.Agents.IntentAgent do
     Runner.run(action_name, params, runner_context)
   end
 
-  defp registry_action_params(action_name, _text, %{request: request} = context) do
+  defp registry_action_params(action_name, text, %{request: request} = context) do
     %{}
     |> maybe_put_param(:user_id, Map.get(request, :user_id))
     |> maybe_put_param(:thread_id, Map.get(request, :thread_id))
     |> maybe_put_param(:session_id, Map.get(request, :session_id))
     |> Map.merge(descriptor_params(action_name, context))
+    |> maybe_put_source_text_param(action_name, text)
   end
 
   defp maybe_put_param(params, _key, nil), do: params
@@ -1437,6 +1463,43 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp normalize_param_key(key), do: key
+
+  defp maybe_put_source_text_param(params, action_name, text) when is_binary(text) do
+    with {:ok, module} <- Registry.resolve(action_name),
+         true <- function_exported?(module, :schema, 0),
+         schema when is_list(schema) <- module.schema() do
+      params
+      |> maybe_put_required_source_param(schema, :prompt, text)
+      |> maybe_put_required_source_param(schema, :text, text)
+    else
+      _other -> params
+    end
+  end
+
+  defp maybe_put_required_source_param(params, schema, key, text) do
+    if required_schema_key?(schema, key) and not present_param?(params, key) do
+      Map.put(params, key, text)
+    else
+      params
+    end
+  end
+
+  defp required_schema_key?(schema, key) do
+    Enum.any?(schema, fn
+      {^key, opts} when is_list(opts) -> Keyword.get(opts, :required) == true
+      _entry -> false
+    end)
+  end
+
+  defp present_param?(params, key) do
+    Enum.any?([key, Atom.to_string(key)], fn param_key ->
+      case Map.get(params, param_key) do
+        value when is_binary(value) -> String.trim(value) != ""
+        nil -> false
+        _value -> true
+      end
+    end)
+  end
 
   defp intent_handoff_decision?(%Decision{intent: intent})
        when intent in [:app_handoff, :clarify_intent],

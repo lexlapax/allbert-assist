@@ -3,6 +3,7 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
 
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Confirmations.ObjectiveContext
+  alias AllbertAssist.Runtime.MediaOutputs
 
   @telegram_limit 4096
   @callback_limit 64
@@ -17,6 +18,7 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
         runtime_response
         |> response_field(:message, "")
         |> to_string()
+        |> with_media_outputs(runtime_response)
 
       {:ok, chunks(text, min(max_bytes, @telegram_limit)), nil}
     end
@@ -80,6 +82,39 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
   end
 
   defp confirmation_id(handoff_data), do: response_field(handoff_data, :confirmation_id)
+
+  defp with_media_outputs(text, runtime_response) do
+    outputs =
+      runtime_response
+      |> response_field(:media_outputs, [])
+      |> MediaOutputs.redacted()
+
+    if outputs == [] do
+      text
+    else
+      text <> "\n\nMedia outputs:\n" <> Enum.map_join(outputs, "\n", &media_output_line/1)
+    end
+  end
+
+  defp media_output_line(output) do
+    kind = response_field(output, :kind, "media")
+    mime_type = response_field(output, :mime_type)
+    resource_uri = response_field(output, :resource_uri)
+    source_action = response_field(output, :source_action)
+
+    [
+      "- #{kind}",
+      mime_type,
+      resource_uri,
+      source_action
+    ]
+    |> Enum.reject(&blank?/1)
+    |> Enum.join(" ")
+  end
+
+  defp blank?(nil), do: true
+  defp blank?(""), do: true
+  defp blank?(_value), do: false
 
   defp response_field(map, key, default \\ nil)
 
