@@ -456,7 +456,7 @@
     "image_ollama": {
       "provider": "local_ollama",
       "model": "x/z-image-turbo",
-      "aliases": ["z-image-turbo"],
+      "aliases": ["x/z-image-turbo:latest", "z-image-turbo"],
       "capabilities": ["image_generation"],
       "media": {
         "input_modalities": ["text"],

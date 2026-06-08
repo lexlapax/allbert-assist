@@ -283,7 +283,7 @@ Dependency order from here:
 49. v0.49 Vision and image generation - implemented as 0.49.0: consumes the
     v0.48 provider capability substrate for image/screenshot resource classes,
     vision model profile checks, image-generation actions, workspace rendering,
-    retention, redaction, display-only cost metadata, 7 `:v049`
+    retention, redaction, display-only cost metadata, 8 `:v049`
     vision-modality eval rows, and `release.v049`.
 50. v0.50 Artifacts Central: a uniform content-addressable store for artifacts
     uploaded by the operator, created by Allbert, or found through approved
@@ -2915,10 +2915,10 @@ ADRs: `docs/adr/0051-provider-capability-preferences.md`,
 `docs/adr/0042-audio-image-and-media-resource-classes.md`,
 `docs/adr/0047-provider-doctor-contract.md`
 
-Status: implemented as `0.49.0`; release tag blocked by the post-M6 release
-audit until v0.49 M7-M10 remediation completes. Current authority is the
-v0.49 plan/request-flow plus the v0.48 provider capability substrate; the older
-archive source is historical context only.
+Status: implemented as `0.49.0`; v0.49 M7-M10 remediation is complete and
+ready for operator manual validation before release tag. Current authority is
+the v0.49 plan/request-flow plus the v0.48 provider capability substrate; the
+older archive source is historical context only.
 
 Shipped direction:
 
@@ -2931,10 +2931,10 @@ Shipped direction:
   display-only cost metadata, workspace rendering, retention, and redaction.
 - Prove ReqLLM provider/model support from the app-started runtime in M1;
   no-start probes and stale sample model IDs are not release evidence.
-- Complete post-M6 release remediation before tag: deterministic gate
+- Completed post-M6 release remediation before tag: deterministic gate
   hardening, env-gated live OpenAI/Gemini vision/image smokes, explicit local
-  Ollama multimodal-profile proof or deferral, and status/evidence drift
-  closeout.
+  Ollama multimodal-profile proof including Gemma 4 as a vision-input
+  candidate, and status/evidence drift closeout.
 - Treat `video_input` as shared vocabulary/future metadata only; v0.49 does not
   implement video ingestion, generic audio understanding, or video generation.
 

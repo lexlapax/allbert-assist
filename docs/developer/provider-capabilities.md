@@ -145,6 +145,13 @@ v0.49 vision/image work uses the same model-profile and doctor contract:
 }
 ```
 
+For image generation, `image_formats_supported` constrains the format Allbert
+requests from the provider. It is not treated as authority over the actual
+bytes returned by the provider. The v0.49 `generate_image` action sniffs
+returned bytes, writes the local generated image with the actual safe extension,
+records sniffed MIME/format metadata, and validates the output against
+Allbert's system-safe generated-image formats plus byte/pixel bounds.
+
 There is no generic `multimodal` capability. A local or online profile may
 declare multiple modalities, but executable flows stay capability-specific:
 v0.48 owns `speech_to_text` and `text_to_speech`; v0.49 owns `vision_input` and
@@ -162,7 +169,11 @@ but execute through ReqLLM rather than the v0.48 ProviderHTTP voice adapters.
 - `vision_ollama` and `image_ollama` are opt-in local profiles on the existing
   `local_ollama` OpenAI-compatible endpoint. The selected model IDs are
   `qwen3-vl:8b` for image input and `x/z-image-turbo` for experimental image
-  generation.
+  generation; `x/z-image-turbo:latest` is accepted as an installed-model alias
+  for local doctor availability.
+- Gemma 4 Ollama tags that advertise text+image input, such as `gemma4:e4b`,
+  are valid local vision-candidate checks through the live-smoke model override;
+  they are not image-generation models and do not replace `image_ollama`.
 - The default `vision_input` and `image_generation` preference lists stay
   OpenAI/Gemini only. Operators who want local media validation must explicitly
   select the Ollama profiles or run the v0.49 live smoke with

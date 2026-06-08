@@ -667,7 +667,7 @@ historical aliases only and remain in old reference notes for continuity.
   v0.48 provider capability substrate for image and screenshot resources plus
   provider-backed image generation. `release.v049` proves app-started ReqLLM
   provider/model support, workspace image upload, vision-input plumbing,
-  generated-image confirmation/redaction, 7 `:v049` eval rows, and clean media
+  generated-image confirmation/redaction, 8 `:v049` eval rows, and clean media
   secret scanning. Content hashes remain metadata only; the canonical
   content-addressed artifact store is v0.50. Video input, generic audio
   understanding, and catch-all multimodal routing remain future scope.

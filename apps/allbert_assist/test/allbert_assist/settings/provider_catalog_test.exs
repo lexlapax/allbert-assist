@@ -132,6 +132,7 @@ defmodule AllbertAssist.Settings.ProviderCatalogTest do
 
     assert image_ollama["provider"] == "local_ollama"
     assert image_ollama["model"] == "x/z-image-turbo"
+    assert "x/z-image-turbo:latest" in image_ollama["aliases"]
     assert image_ollama["capabilities"] == ["image_generation"]
     assert image_ollama["media"]["deployment_mode"] == "local_endpoint"
 

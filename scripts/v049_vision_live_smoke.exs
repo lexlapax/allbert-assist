@@ -155,6 +155,23 @@ defmodule Allbert.V049VisionLiveSmoke do
     put!("image.enabled", true)
     put!("model_preferences.capabilities.vision_input", [vision_profile(provider)])
     put!("model_preferences.capabilities.image_generation", [image_profile(provider)])
+    put_model_override!("ALLBERT_V049_VISION_MODEL", vision_profile(provider))
+    put_model_override!("ALLBERT_V049_IMAGE_MODEL", image_profile(provider))
+  end
+
+  defp put_model_override!(env_key, profile) do
+    case System.get_env(env_key) do
+      value when is_binary(value) ->
+        value = String.trim(value)
+
+        if value != "" do
+          put!("model_profiles.#{profile}.model", value)
+          Mix.shell().info("#{profile} model override: #{value}")
+        end
+
+      _missing ->
+        :ok
+    end
   end
 
   defp doctor!(profile, context) do

@@ -239,11 +239,15 @@ wants to validate real provider behavior before tagging.
     ollama list
     ollama show qwen3-vl:8b
     ollama show x/z-image-turbo
+    # `ollama list` may display the image model as `x/z-image-turbo:latest`;
+    # the v0.49 doctor accepts that installed tag as an alias.
     export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v049-ollama.XXXXXX)"
     export ALLBERT_V049_LIVE_SMOKE=1
     export ALLBERT_V049_PROVIDER=ollama
     # Optional when Ollama is not on the default local endpoint:
     # export OLLAMA_BASE_URL="http://127.0.0.1:11434/v1"
+    # Optional model override for local vision-candidate checks:
+    # export ALLBERT_V049_VISION_MODEL="gemma4:e4b"
     export ALLBERT_V049_IMAGE="/absolute/path/to/small-validation-image.png"
     mix run --no-start scripts/v049_vision_live_smoke.exs
     ```
@@ -252,8 +256,10 @@ wants to validate real provider behavior before tagging.
     real local vision input, creates and approves the image-generation
     confirmation through Ollama's experimental OpenAI-compatible image endpoint,
     writes redacted evidence under `<ALLBERT_HOME>/release_evidence/v049/`, and
-    reports no secret/raw-media leaks. This step validates local image and
-    vision only; it does not validate video.
+    reports no secret/raw-media leaks. With `ALLBERT_V049_VISION_MODEL`, the
+    same step validates the named installed local vision model through the
+    Allbert profile/request path. This step validates local image and vision
+    only; it does not validate video.
 
 14. Inspect the live-smoke evidence from steps 11-13:
 
@@ -304,9 +310,12 @@ wants to validate real provider behavior before tagging.
     Request image generation through the runtime/workspace action surface.
 
     Expected: remote OpenAI/Gemini profiles create a confirmation before the
-    provider call; after approval, `generate_image` writes a bounded local PNG,
-    reports display-only usage/cost metadata, and redacts binary content plus
-    generated-resource paths from traces/action metadata.
+    provider call; after approval, `generate_image` writes a bounded local
+    image file using the actual safe format sniffed from returned bytes, reports
+    sniffed MIME/format plus display-only usage/cost metadata, and redacts
+    binary content plus generated-resource paths from traces/action metadata. A
+    provider returning JPEG bytes to a PNG request is valid only if the bytes
+    parse as a bounded JPEG output; unsupported or unparsable image bytes fail.
 
 19. Stop the workspace server and inspect recent confirmations/traces:
 
@@ -336,25 +345,28 @@ It writes evidence to:
 The latest deterministic v0.49 release evidence path is:
 
 ```text
-/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v049/p0-13250/home/release_evidence/v049/release-v049-1780881559.json
+/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v049/p0-11013/home/release_evidence/v049/release-v049-1780886771.json
 ```
 
 The latest full release-gate evidence path is:
 
 ```text
-/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13254/home/release_evidence/gates/release-2026-06-08T01_25_46Z.json
+/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-1218/home/release_evidence/gates/release-2026-06-08T03_08_24Z.json
 ```
 
 Current M10 live-provider status:
 
 - OpenAI passed with evidence:
-  `/tmp/allbert-v049-openai.WVniyZ/release_evidence/v049/live-vision-openai-1780883078.json`.
-- Gemini is blocked by Google image-generation quota for
-  `gemini-3.1-flash-image`; doctors and vision input passed, image generation
-  failed with 429 `RESOURCE_EXHAUSTED`. Failed evidence:
-  `/tmp/allbert-v049-gemini.BWLetx/release_evidence/v049/live-vision-gemini-1780883349.json`.
-- Local Ollama live smoke is pending installed `qwen3-vl:8b` and
-  `x/z-image-turbo` models.
+  `/tmp/allbert-v049-openai.wd0zIU/release_evidence/v049/live-vision-openai-1780886149.json`.
+- Gemini passed with evidence:
+  `/tmp/allbert-v049-gemini.cQbb9E/release_evidence/v049/live-vision-gemini-1780886180.json`.
+  The generated output was returned as JPEG and accepted through the
+  system-level generated-output normalization path.
+- Local Ollama passed with `qwen3-vl:8b` and `x/z-image-turbo`; evidence:
+  `/tmp/allbert-v049-ollama.Z4w0Sj/release_evidence/v049/live-vision-ollama-1780886386.json`.
+- Gemma 4 local vision-candidate validation passed with
+  `ALLBERT_V049_VISION_MODEL=gemma4:e4b`; evidence:
+  `/tmp/allbert-v049-gemma4.v2qeT4/release_evidence/v049/live-vision-ollama-1780886599.json`.
 
-v0.49 is not ready for release tag or release-candidate manual handoff until
-step 12 passes with a Gemini key/profile that has image-generation quota.
+v0.49 is ready for operator manual validation once the current source-tree
+release gates below are green and committed.

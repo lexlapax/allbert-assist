@@ -13,6 +13,8 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
   @png Base.decode64!(
          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
        )
+  @jpeg <<0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x11, 0x08, 0x00, 0x01, 0x00, 0x01, 0x03, 0x01, 0x11,
+          0x00, 0x02, 0x11, 0x00, 0x03, 0x11, 0x00, 0xFF, 0xD9>>
 
   @env_vars [
     "ALLBERT_HOME",
@@ -159,6 +161,59 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
 
     assert approved.output_data.image_metadata.provider_profile == "image_openai"
     assert approved.confirmation["operator_resolution"]["target_resumed?"] == true
+    assert approved.confirmation["operator_resolution"]["target_status"] == "completed"
+  end
+
+  test "approved remote image output accepts safe provider-returned format", %{home: home} do
+    enable_image!()
+    use_openai_image!()
+
+    assert {:ok, _secret} =
+             Secrets.put_secret("secret://providers/openai/api_key", "sk-test-openai", %{
+               audit?: false
+             })
+
+    assert {:ok, pending} =
+             Runner.run(
+               "generate_image",
+               %{prompt: "confirmation jpeg output"},
+               context()
+             )
+
+    assert pending.status == :needs_confirmation
+
+    Req.Test.expect(__MODULE__, fn %{request_path: "/v1/images/generations"} = conn ->
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      decoded = Jason.decode!(body)
+
+      assert decoded["model"] == "gpt-image-1.5"
+      assert decoded["prompt"] == "confirmation jpeg output"
+
+      conn
+      |> Plug.Conn.put_resp_content_type("application/json")
+      |> Plug.Conn.send_resp(
+        200,
+        Jason.encode!(%{
+          "data" => [%{"b64_json" => Base.encode64(@jpeg), "media_type" => "image/jpeg"}]
+        })
+      )
+    end)
+
+    assert {:ok, approved} =
+             Runner.run(
+               "approve_confirmation",
+               %{id: pending.confirmation_id, reason: "provider returned jpeg"},
+               Map.put(context(), :req_http_options, plug: {Req.Test, __MODULE__})
+             )
+
+    assert approved.status == :completed
+    assert approved.output_data.status == :completed
+    assert approved.output_data.image_file =~ Path.join([home, "tmp", "generated-images"])
+    assert Path.extname(approved.output_data.image_file) == ".jpeg"
+    assert File.regular?(approved.output_data.image_file)
+    assert approved.output_data.image_metadata.provider_profile == "image_openai"
+    assert approved.output_data.image_metadata.image_format == "jpeg"
+    assert approved.output_data.image_metadata.mime_type == "image/jpeg"
     assert approved.confirmation["operator_resolution"]["target_status"] == "completed"
   end
 

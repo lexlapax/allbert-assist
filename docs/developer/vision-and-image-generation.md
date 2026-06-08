@@ -48,6 +48,7 @@ Image generation is a registered internal action:
 generate_image -> Models.candidates_for(:image_generation)
   -> PermissionGate.authorize(:image_generate, deployment mode)
   -> ReqLLM.generate_image/3
+  -> sniff returned bytes and store with actual safe extension
   -> ImageMetadata.from_path + ImageBounds.validate_generated
   -> redacted metadata + local image_file
 ```
@@ -56,6 +57,14 @@ Remote/unknown/local-endpoint deployment modes confirm before the provider
 call. Fake image generation is allowed only as fixture support. Retry behavior
 is intentionally bounded: a retryable provider failure advances once through the
 ranked `image_generation` candidates and rechecks the permission floor.
+
+The selected profile's `image_formats_supported` list constrains the requested
+provider output format. Returned bytes are the canonical output authority:
+`GenerateImage` sniffs the image header before writing, chooses the local file
+extension from the actual safe format, records the sniffed MIME/format from
+`ImageMetadata`, and validates the generated file against Allbert's safe image
+format vocabulary plus byte/pixel bounds. Provider-declared response MIME is
+advisory only.
 
 Important modules:
 
