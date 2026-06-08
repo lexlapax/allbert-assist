@@ -2949,7 +2949,7 @@ browser-surface split), `docs/adr/0042-audio-image-and-media-resource-classes.md
 `docs/adr/0031-settings-schema-fragments-and-authority.md`,
 `docs/adr/0046-settings-schema-migration-policy.md`
 
-Status: M1 implemented and focused-verified on 2026-06-08; M2-M7 remain
+Status: M1-M2 implemented and focused-verified on 2026-06-08; M3-M7 remain
 planned. Inserts a content-addressable artifact store between v0.49 vision and
 v0.51 Channel Pack 1, so durable media has one canonical home before channels
 begin forwarding attachments. Built on Allbert Home, Resource Access, Security
@@ -2959,8 +2959,10 @@ third-party store. The CAS-specific Hex packages (hashfs, scarab) are abandoned
 and metadata-free; upload utilities (waffle, Capsule) are not content-addressed
 stores; so the store is owned in-tree. M1 has landed the Home-rooted
 `artifacts_root`, sharded SHA-256 object store, and markdown metadata sidecar
-index; `artifact://` identity, actions, provenance links, backfill, sensor, and
-release gates remain in M2-M7.
+index. M2 has landed `artifact://sha256/<hex>` identity, artifact permissions
+and operation vocabulary, artifact redaction, and pre-write bounds enforcement;
+registered actions, the persisted `artifacts.*` fragment, provenance links,
+backfill, sensor, and release gates remain in M3-M7.
 
 Expected direction:
 

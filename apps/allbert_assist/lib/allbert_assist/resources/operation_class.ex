@@ -17,6 +17,7 @@ defmodule AllbertAssist.Resources.OperationClass do
     browser_session
     plan_run
     marketplace_entry
+    artifact_store
     agent_endpoint
     audio_capture
     audio_file
@@ -51,6 +52,9 @@ defmodule AllbertAssist.Resources.OperationClass do
     marketplace_browse
     marketplace_install_bundle
     marketplace_rollback
+    artifact_read
+    artifact_write
+    artifact_delete
     import_skill
     package_install
     microphone_capture
@@ -86,6 +90,7 @@ defmodule AllbertAssist.Resources.OperationClass do
     plan_run
     workflow_ref
     marketplace_entry
+    artifact
     audio_capture
     image_input
   ]a
@@ -118,6 +123,9 @@ defmodule AllbertAssist.Resources.OperationClass do
     marketplace_browse: :read,
     marketplace_install_bundle: :write,
     marketplace_rollback: :write,
+    artifact_read: :read,
+    artifact_write: :write,
+    artifact_delete: :write,
     import_skill: :import,
     package_install: :install,
     microphone_capture: :read,
@@ -138,6 +146,7 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :browser_session
           | :plan_run
           | :marketplace_entry
+          | :artifact_store
           | :agent_endpoint
           | :audio_capture
           | :audio_file
@@ -171,6 +180,9 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :marketplace_browse
           | :marketplace_install_bundle
           | :marketplace_rollback
+          | :artifact_read
+          | :artifact_write
+          | :artifact_delete
           | :import_skill
           | :package_install
           | :microphone_capture
@@ -204,6 +216,7 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :plan_run
           | :workflow_ref
           | :marketplace_entry
+          | :artifact
           | :audio_capture
           | :image_input
 

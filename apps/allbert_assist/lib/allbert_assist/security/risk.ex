@@ -39,6 +39,9 @@ defmodule AllbertAssist.Security.Risk do
   def tier(:voice_local_runtime_manage), do: :medium
   def tier(:image_input), do: :medium
   def tier(:image_generate), do: :high
+  def tier(:artifact_read), do: :medium
+  def tier(:artifact_write), do: :medium
+  def tier(:artifact_delete), do: :high
   def tier(:tool_discovery), do: :medium
   def tier(:mcp_server_connect), do: :high
   def tier(:mcp_tool_call), do: :high
@@ -105,6 +108,15 @@ defmodule AllbertAssist.Security.Risk do
 
   defp reasons(:image_generate, _tier, _context),
     do: ["image generation provider boundary"]
+
+  defp reasons(:artifact_read, _tier, _context),
+    do: ["artifact metadata and bounded byte read"]
+
+  defp reasons(:artifact_write, _tier, _context),
+    do: ["durable local artifact write"]
+
+  defp reasons(:artifact_delete, _tier, _context),
+    do: ["durable local artifact removal"]
 
   defp reasons(:tool_discovery, _tier, _context),
     do: ["read-only MCP registry discovery egress"]

@@ -104,4 +104,42 @@ defmodule AllbertAssist.Resources.ResourceURITest do
     assert {:error, {:invalid_screen_capture_id, "shot.bad"}} =
              ResourceURI.normalize("screen://capture/shot.bad")
   end
+
+  test "normalizes artifact content-addressed resource uris" do
+    sha = String.duplicate("a", 64)
+    uri = "artifact://sha256/#{sha}"
+
+    assert {:ok, ^uri} = ResourceURI.artifact(sha)
+    assert ResourceURI.artifact!(sha) == uri
+    assert {:ok, ^uri} = ResourceURI.normalize(" #{uri} ")
+  end
+
+  test "derives artifact store scope fields" do
+    sha = String.duplicate("b", 64)
+    uri = "artifact://sha256/#{sha}"
+
+    assert {:ok, fields} = ResourceURI.derived_fields(uri)
+
+    assert fields.origin_kind == :artifact_store
+    assert fields.canonical_id == uri
+    assert fields.sha256 == sha
+    refute fields.unsupported?
+
+    assert {:ok, ^uri} = ResourceURI.scope_uri(:artifact_store, :artifact, sha, uri)
+    assert {:ok, ^uri} = ResourceURI.scope_uri(:artifact_store, :artifact, uri, uri)
+  end
+
+  test "rejects malformed artifact uris" do
+    for uri <- [
+          "artifact://sha256/",
+          "artifact://sha256/#{String.duplicate("A", 64)}",
+          "artifact://sha256/#{String.duplicate("c", 63)}",
+          "artifact://sha256/#{String.duplicate("d", 64)}/extra",
+          "artifact://other/#{String.duplicate("e", 64)}",
+          "artifact://sha256/#{String.duplicate("f", 64)}?x=1",
+          "artifact://sha256/#{String.duplicate("0", 64)}#frag"
+        ] do
+      assert {:error, _reason} = ResourceURI.normalize(uri)
+    end
+  end
 end

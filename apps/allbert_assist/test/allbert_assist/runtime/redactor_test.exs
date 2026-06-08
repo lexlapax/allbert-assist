@@ -43,6 +43,7 @@ defmodule AllbertAssist.Runtime.RedactorTest do
     assert Redactor.redact(payload, :voice) == Redactor.redact(payload)
     assert Redactor.redact(payload, :vision) == Redactor.redact(payload)
     assert Redactor.redact(payload, :image) == Redactor.redact(payload)
+    assert Redactor.redact(payload, :artifacts) == Redactor.redact(payload)
     assert Redactor.redact(payload, :stocksage) == Redactor.redact(payload)
     assert Redactor.redact(payload, :sandbox_trial) == Redactor.redact(payload)
   end
@@ -129,6 +130,47 @@ defmodule AllbertAssist.Runtime.RedactorTest do
 
     assert %{resource_uri: "[REDACTED_IMAGE_URI]"} =
              Redactor.redact_image_metadata(%{resource_uri: "https://example.com/frame.png"})
+  end
+
+  test "artifact metadata redaction drops bytes and local paths" do
+    sha = String.duplicate("a", 64)
+
+    redacted =
+      Redactor.redact_artifact_metadata(%{
+        resource_uri: "artifact://sha256/#{sha}",
+        sha256: sha,
+        content_sha256: sha,
+        mime: "text/plain",
+        byte_size: 12,
+        origin: "assistant",
+        source_resource_uri: "file:///Users/spuri/private/report.txt",
+        provenance: %{thread_id: "thread_1", token: "secret"},
+        raw_bytes: "secret bytes",
+        local_path: "/Users/spuri/private/report.txt"
+      })
+
+    assert redacted.resource_uri == "artifact://sha256/#{sha}"
+    assert redacted.sha256 == sha
+    assert redacted.content_sha256 == sha
+    assert redacted.mime == "text/plain"
+    assert redacted.byte_size == 12
+    assert redacted.source_resource_uri == "[REDACTED_ARTIFACT_URI]"
+    assert redacted.provenance.token == "[REDACTED]"
+    refute Map.has_key?(redacted, :raw_bytes)
+    refute Map.has_key?(redacted, :local_path)
+    refute inspect(redacted) =~ "/Users/spuri"
+    refute inspect(redacted) =~ "secret bytes"
+  end
+
+  test "artifact metadata keeps valid artifact identity only" do
+    sha = String.duplicate("b", 64)
+    uri = "artifact://sha256/#{sha}"
+
+    assert %{resource_uri: ^uri} =
+             Redactor.redact_artifact_metadata(%{resource_uri: uri})
+
+    assert %{resource_uri: "[REDACTED_ARTIFACT_URI]"} =
+             Redactor.redact_artifact_metadata(%{resource_uri: "artifact://sha256/not-a-sha"})
   end
 
   test "runtime posture and sensitive key checks preserve legacy policy" do

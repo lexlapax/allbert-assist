@@ -116,6 +116,9 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.voice_local_runtime_manage",
     "permissions.image_input",
     "permissions.image_generate",
+    "permissions.artifact_read",
+    "permissions.artifact_write",
+    "permissions.artifact_delete",
     "permissions.tool_discovery",
     "permissions.mcp_server_connect",
     "permissions.mcp_tool_call",
@@ -1732,6 +1735,27 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
+    "permissions.artifact_read" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.artifact_write" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.artifact_delete" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["needs_confirmation", "denied"]
+    },
     "permissions.tool_discovery" => %{
       type: :enum,
       default: "allowed",
@@ -2693,6 +2717,9 @@ defmodule AllbertAssist.Settings.Schema do
       "voice_local_runtime_manage" => "allowed",
       "image_input" => "allowed",
       "image_generate" => "allowed",
+      "artifact_read" => "allowed",
+      "artifact_write" => "allowed",
+      "artifact_delete" => "needs_confirmation",
       "tool_discovery" => "allowed",
       "mcp_server_connect" => "needs_confirmation",
       "mcp_tool_call" => "needs_confirmation",
