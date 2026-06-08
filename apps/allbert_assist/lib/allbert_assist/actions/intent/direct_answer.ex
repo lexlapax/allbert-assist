@@ -338,6 +338,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
              filename: field(image_input, :filename),
              transient?: field(image_input, :transient?)
            ),
+         metadata <- put_image_input_provenance(metadata, image_input),
          metadata <- Map.put(metadata, :provider_profile, profile.name),
          {:ok, _bounds} <- ImageBounds.validate_input(metadata, profile, settings: settings) do
       {:ok, metadata}
@@ -374,6 +375,21 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
 
   defp min_positive_bound(value, nil), do: value
   defp min_positive_bound(value, bound), do: min(value, bound)
+
+  defp put_image_input_provenance(metadata, image_input) do
+    metadata
+    |> maybe_put_image_input_field(:source, field(image_input, :source))
+    |> maybe_put_image_input_field(:origin_kind, field(image_input, :origin_kind))
+    |> maybe_put_image_input_field(:screenshot_ref, field(image_input, :screenshot_ref))
+    |> maybe_put_image_input_field(
+      :redacted_credential_inputs?,
+      field(image_input, :redacted_credential_inputs?)
+    )
+  end
+
+  defp maybe_put_image_input_field(metadata, _key, nil), do: metadata
+  defp maybe_put_image_input_field(metadata, _key, ""), do: metadata
+  defp maybe_put_image_input_field(metadata, key, value), do: Map.put(metadata, key, value)
 
   defp cleanup_transient_image_inputs(image_inputs) do
     Enum.each(image_inputs, &cleanup_transient_image_input/1)

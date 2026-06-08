@@ -56,6 +56,17 @@ defmodule AllbertBrowser.Cache do
     |> Enum.take(limit)
   end
 
+  def fetch(ref) when is_binary(ref) do
+    with {:ok, session_id, filename} <- parse_ref(ref),
+         metadata_path <- Path.join(session_root(session_id), "#{filename}.json"),
+         {:ok, metadata} <- read_metadata_file(metadata_path),
+         :ok <- validate_metadata_ref(metadata, ref, session_id, filename) do
+      {:ok, metadata}
+    end
+  end
+
+  def fetch(_ref), do: {:error, :invalid_cache_ref}
+
   def sweep_expired(opts \\ []) do
     max_age_ms = Keyword.get(opts, :max_age_ms) || setting("browser.cache.max_age_ms", 86_400_000)
     now_ms = System.system_time(:millisecond)
@@ -81,7 +92,10 @@ defmodule AllbertBrowser.Cache do
   end
 
   def ensure_sweep_job do
-    status = if setting("browser.cache.sweep.schedule", "paused") == "operator_approved", do: "active", else: "paused"
+    status =
+      if setting("browser.cache.sweep.schedule", "paused") == "operator_approved",
+        do: "active",
+        else: "paused"
 
     case Enum.find(Jobs.list_jobs("local", limit: 100), &(&1.name == @sweep_job_name)) do
       nil ->
@@ -106,11 +120,18 @@ defmodule AllbertBrowser.Cache do
   def session_root(session_id), do: Path.join(root(), safe_session_id(session_id))
 
   defp read_metadata(path) do
+    case read_metadata_file(path) do
+      {:ok, metadata} -> metadata
+      {:error, _reason} -> nil
+    end
+  end
+
+  defp read_metadata_file(path) do
     with {:ok, body} <- File.read(path),
          {:ok, metadata} <- Jason.decode(body, keys: :atoms) do
-      metadata
+      {:ok, metadata}
     else
-      _error -> nil
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -198,4 +219,70 @@ defmodule AllbertBrowser.Cache do
   end
 
   defp safe_session_id(session_id), do: String.replace(session_id, ~r/[^A-Za-z0-9_.-]/, "_")
+
+  defp parse_ref(ref) do
+    case URI.parse(ref) do
+      %URI{scheme: "cache", host: "browser", path: path, query: query, fragment: fragment}
+      when query in [nil, ""] and fragment in [nil, ""] ->
+        parse_ref_path(path, ref)
+
+      _uri ->
+        {:error, :invalid_cache_ref}
+    end
+  rescue
+    _exception -> {:error, :invalid_cache_ref}
+  end
+
+  defp parse_ref_path(path, ref) do
+    case path |> to_string() |> String.trim_leading("/") |> String.split("/", trim: true) do
+      [session_id, filename] ->
+        with :ok <- validate_safe_session_id(session_id),
+             :ok <- validate_safe_filename(filename) do
+          {:ok, session_id, filename}
+        end
+
+      _other ->
+        {:error, {:invalid_cache_ref, ref}}
+    end
+  end
+
+  defp validate_safe_session_id(session_id) do
+    if safe_session_id(session_id) == session_id and session_id != "" do
+      :ok
+    else
+      {:error, {:invalid_cache_session_id, session_id}}
+    end
+  end
+
+  defp validate_safe_filename(filename) do
+    if Regex.match?(~r/^[A-Za-z0-9_.-]+$/, filename) and filename not in ["", ".", ".."] do
+      :ok
+    else
+      {:error, {:invalid_cache_filename, filename}}
+    end
+  end
+
+  defp validate_metadata_ref(metadata, ref, session_id, filename) do
+    path = Map.get(metadata, :path)
+
+    cond do
+      Map.get(metadata, :ref) != ref ->
+        {:error, :cache_ref_mismatch}
+
+      Map.get(metadata, :session_id) != session_id ->
+        {:error, :cache_session_mismatch}
+
+      not is_binary(path) ->
+        {:error, :cache_path_missing}
+
+      Path.basename(path) != filename ->
+        {:error, :cache_path_mismatch}
+
+      not File.exists?(path) ->
+        {:error, :cache_artifact_missing}
+
+      true ->
+        :ok
+    end
+  end
 end

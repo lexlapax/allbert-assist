@@ -11,6 +11,10 @@ operator setup. The design authority remains `docs/plans/v0.49-plan.md`,
 - `image://capture/<id>` and `screen://capture/<id>` are inert identifiers for
   operator-supplied media. They do not capture the OS screen, grant permission,
   or create a durable artifact-store record.
+- Browser screenshots can be analyzed only after `browser_screenshot` has
+  produced a `cache://browser/...` `screenshot_ref`; the follow-on
+  `analyze_browser_screenshot` action reuses that cached image and does not
+  capture the OS screen.
 - Remote image generation is confirmation-gated through `:image_generate`.
 - Fake vision/image profiles are deterministic test fixtures only. Manual
   validation should use configured OpenAI or Gemini profiles when credentials
@@ -60,6 +64,11 @@ about it. Expected behavior:
 - traces and action metadata contain redacted image metadata, not raw bytes or
   local paths.
 
+Browser screenshot analysis uses the same vision path. Capture the browser page
+first with the Browser screenshot action, then analyze the returned
+`screenshot_ref`; Allbert records `source: :browser_screenshot` provenance in
+the redacted media metadata.
+
 ## Image Generation Smoke
 
 ```sh
@@ -93,5 +102,5 @@ It writes evidence to:
 The v0.49 closeout evidence path from implementation was:
 
 ```text
-/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v049/p0-13250/home/release_evidence/v049/release-v049-1780867700.json
+/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v049/p0-13252/home/release_evidence/v049/release-v049-1780876139.json
 ```

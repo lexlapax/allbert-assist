@@ -58,13 +58,17 @@ defmodule AllbertAssist.Runtime.Redactor do
     input_resource_uri
     mime_type
     model
+    origin_kind
     output_resource_uri
     pixel_count
     provider
     provider_profile
     redaction_status
+    redacted_credential_inputs?
     resource_uri
     screen_region
+    screenshot_ref
+    source
     source_resource_uri
     usage
     width

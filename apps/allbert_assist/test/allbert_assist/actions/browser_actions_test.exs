@@ -150,6 +150,54 @@ defmodule AllbertAssist.Actions.BrowserActionsTest do
     assert relisted.sessions == []
   end
 
+  test "analyze browser screenshot bridges cached screenshot into vision input", %{root: root} do
+    assert {:ok, _setting} =
+             Settings.put("intent.direct_answer_model_enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} = Settings.put("vision.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("model_preferences.capabilities.vision_input", ["vision_fake"], %{
+               audit?: false
+             })
+
+    assert {:ok, _doctor} = Runner.run("browser_doctor", %{}, %{})
+
+    assert {:ok, started} =
+             Runner.run("browser_start_session", %{}, %{confirmation: %{approved?: true}})
+
+    assert {:ok, screenshot} =
+             Runner.run("browser_screenshot", %{session_id: started.session_id}, %{})
+
+    screenshot_ref = screenshot.screenshot.screenshot_ref
+
+    assert {:ok, analyzed} =
+             Runner.run(
+               "analyze_browser_screenshot",
+               %{screenshot_ref: screenshot_ref, text: "What changed on this page?"},
+               %{actor: "operator", user_id: "operator"}
+             )
+
+    assert analyzed.status == :completed
+    assert analyzed.message =~ "Fixture vision answer for 1 image input"
+    assert analyzed.direct_answer.source == :model
+    assert analyzed.direct_answer.model_resolution.capability == "vision_input"
+    assert analyzed.browser_screenshot.screenshot_ref == screenshot_ref
+
+    assert [
+             %{
+               resource_uri: "screen://capture/browser_" <> _hash,
+               source: :browser_screenshot,
+               origin_kind: :browser_screenshot,
+               screenshot_ref: ^screenshot_ref,
+               redacted_credential_inputs?: true
+             }
+           ] = analyzed.direct_answer.media.image_inputs
+
+    assert [%{name: "analyze_browser_screenshot"} | _rest] = analyzed.actions
+    refute inspect(analyzed) =~ root
+  end
+
   test "session closes automatically after max lifetime" do
     assert {:ok, _setting} =
              Settings.put("browser.session.max_lifetime_ms", 1_000, %{audit?: false})

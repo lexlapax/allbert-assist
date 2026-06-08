@@ -3,6 +3,10 @@ defmodule AllbertBrowser.Driver.Stub do
 
   @behaviour AllbertBrowser.Driver
 
+  @png Base.decode64!(
+         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+       )
+
   @impl true
   def verify(_opts) do
     {:ok,
@@ -104,8 +108,8 @@ defmodule AllbertBrowser.Driver.Stub do
      %{
        state: %{state | redacted_inputs?: true},
        screenshot_ref: "cache://browser/#{state.id}/stub-screenshot.png",
-       content: "stub screenshot for #{List.first(state.pages) || "about:blank"}",
-       bytes: 128,
+       content: @png,
+       bytes: byte_size(@png),
        redacted_credential_inputs?: true
      }}
   end

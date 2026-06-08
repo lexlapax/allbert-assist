@@ -1128,6 +1128,22 @@ defmodule Mix.Tasks.Allbert.Test do
       ]
     },
     %{
+      id: "browser_screenshot_vision_bridge",
+      title: "browser screenshot cache refs through the vision input path",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/actions/browser_actions_test.exs"
+      ],
+      coverage: [
+        "browser_screenshot writes a bounded cache artifact",
+        "analyze_browser_screenshot resolves only cache://browser refs",
+        "existing screenshot refs feed direct_answer image_inputs",
+        "screen:// provenance stays inert and redacted"
+      ]
+    },
+    %{
       id: "image_generation_action",
       title: "registered image generation action and confirmation resume",
       cwd: :core,
@@ -1169,9 +1185,10 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/mix/tasks/allbert_test_task_test.exs"
       ],
       coverage: [
-        "7 v0.49 vision modality eval rows",
+        "8 v0.49 vision modality eval rows",
         "release.v049 task usage registration",
         "vision input bounds and trace redaction",
+        "browser screenshot refs bridge into vision without autonomous capture",
         "image_generation remote confirmation posture",
         "generated image cost/usage metadata display-only",
         "screen resource identity is inert and operator-supplied only"
@@ -2175,6 +2192,7 @@ defmodule Mix.Tasks.Allbert.Test do
         Path.join(home, "memory/traces"),
         Path.join(home, "confirmations"),
         Path.join(home, "traces"),
+        Path.join(home, "cache/browser"),
         Path.join(home, "tmp/image-inputs"),
         Path.join(home, "tmp/generated-images"),
         Path.join(home, "images"),
@@ -2189,6 +2207,7 @@ defmodule Mix.Tasks.Allbert.Test do
         Path.join(home, "memory/traces"),
         Path.join(home, "confirmations"),
         Path.join(home, "traces"),
+        Path.join(home, "cache/browser"),
         Path.join(home, "tmp/image-inputs"),
         Path.join(home, "tmp/generated-images"),
         Path.join(home, "images"),
