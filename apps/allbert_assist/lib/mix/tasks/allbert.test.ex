@@ -89,6 +89,7 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp docs do
     run_cmd!("docs", root(), "git", ["diff", "--check"], [])
+    :ok
   end
 
   defp inventory(args) do
