@@ -3024,15 +3024,17 @@ ADRs: `docs/adr/0054-artifact-provenance-and-browser-surface.md`,
 `docs/adr/0017-allbert-plugin-contract.md`,
 `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`
 
-Status: planned; a focused sidecar after v0.50 (the v0.47b-after-v0.47 shape),
-depending on the v0.50 core read actions.
+Status: M1 complete; M2-M5 planned. This is a focused sidecar after v0.50 (the
+v0.47b-after-v0.47 shape), depending on the v0.50 core read actions.
 
 Expected direction:
 
 - Ship the operator browsing repository for Artifacts Central as a plugin/app
   (`plugins/allbert.artifacts/`, plugin id `allbert.artifacts`), modeled on
   StockSage and `allbert.browser`, not as core. It reads the store only through
-  core `:artifact_read` actions.
+  core `:artifact_read` actions. M1 has added the shipped plugin/app scaffold,
+  workspace panel, discovery allowlist, and metadata-only Chrome-validated
+  panel render.
 - Contribute a workspace `:canvas_panels` Artifacts panel, an
   `/apps/artifacts/<sha>` detail page (route in the core router, module
   plugin-owned), and a `mix allbert.artifacts` CLI.

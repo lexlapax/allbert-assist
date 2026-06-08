@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "plugin_id": "allbert.artifacts",
+  "name": "Artifacts Browser",
+  "version": "0.50.1",
+  "kind": "app",
+  "module": "AllbertArtifacts.Plugin",
+  "contributions": {
+    "apps": ["AllbertArtifacts.App"]
+  }
+}
