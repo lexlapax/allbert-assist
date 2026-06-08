@@ -11,6 +11,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
   setup do
     original_runner = Application.get_env(:allbert_assist, :gate_command_runner)
     original_evidence_root = Application.get_env(:allbert_assist, :gate_evidence_root)
+    original_changed_files = Application.get_env(:allbert_assist, :gate_changed_files)
     evidence_root = temp_path("evidence")
     parent = self()
 
@@ -25,6 +26,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     on_exit(fn ->
       restore_app_env(:gate_command_runner, original_runner)
       restore_app_env(:gate_evidence_root, original_evidence_root)
+      restore_app_env(:gate_changed_files, original_changed_files)
       File.rm_rf!(evidence_root)
       Mix.Task.reenable("allbert.test")
       Mix.Task.reenable("precommit")
@@ -88,7 +90,9 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
             ]} = drain_phases() |> List.last()
   end
 
-  test "commit gate is explicitly non-release evidence" do
+  test "commit gate is explicitly non-release evidence for clean trees" do
+    put_changed_files([])
+
     output =
       capture_io(fn ->
         assert :ok = AllbertTestTask.run(["commit"])
@@ -99,6 +103,32 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert output =~ "commit gate is not release evidence"
     assert output =~ "before sharing: mix allbert.test prepush"
     assert output =~ "before release handoff: mix allbert.test release"
+  end
+
+  test "commit gate docs-only branch is deterministic" do
+    put_changed_files(["docs/plans/v0.49-plan.md", "CHANGELOG.md"])
+
+    output =
+      capture_io(fn ->
+        assert :ok = AllbertTestTask.run(["commit"])
+      end)
+
+    assert drain_phases() == []
+    assert output =~ "==> commit gate docs-only"
+    assert output =~ "==> docs"
+  end
+
+  test "commit gate mixed changes still run focused commit phases" do
+    put_changed_files(["docs/plans/v0.49-plan.md", "apps/allbert_assist/lib/example.ex"])
+
+    output =
+      capture_io(fn ->
+        assert :ok = AllbertTestTask.run(["commit"])
+      end)
+
+    phase_ids = drain_phases() |> Enum.map(fn {id, _cwd, _args} -> id end)
+    assert phase_ids == ["static_compile", "format", "credo"]
+    assert output =~ "commit gate is not release evidence"
   end
 
   test "usage lists the v0.49 release lane" do
@@ -243,6 +273,10 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
       System.tmp_dir!(),
       "allbert-test-task-#{name}-#{System.unique_integer([:positive])}"
     )
+  end
+
+  defp put_changed_files(files) do
+    Application.put_env(:allbert_assist, :gate_changed_files, fn -> {:ok, files} end)
   end
 
   defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)

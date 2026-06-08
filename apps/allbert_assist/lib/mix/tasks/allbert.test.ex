@@ -412,6 +412,14 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp changed_files do
+    case Application.get_env(:allbert_assist, :gate_changed_files) do
+      fun when is_function(fun, 0) -> fun.()
+      files when is_list(files) -> {:ok, files}
+      nil -> changed_files_from_git()
+    end
+  end
+
+  defp changed_files_from_git do
     with {unstaged, 0} <- System.cmd("git", ["diff", "--name-only"], cd: root()),
          {staged, 0} <- System.cmd("git", ["diff", "--cached", "--name-only"], cd: root()) do
       files =
