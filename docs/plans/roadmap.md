@@ -3024,7 +3024,7 @@ ADRs: `docs/adr/0054-artifact-provenance-and-browser-surface.md`,
 `docs/adr/0017-allbert-plugin-contract.md`,
 `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`
 
-Status: M1-M2 complete; M3-M5 planned. This is a focused sidecar after v0.50
+Status: M1-M3 complete; M4-M5 planned. This is a focused sidecar after v0.50
 (the v0.47b-after-v0.47 shape), depending on the v0.50 core read actions.
 
 Expected direction:
@@ -3036,10 +3036,12 @@ Expected direction:
   workspace panel, discovery allowlist, and metadata-only Chrome-validated
   panel render. M2 has added the plugin-owned detail LiveView route with Chrome-
   validated metadata/provenance rendering, invalid-SHA handling, and
-  confirmation-gated delete request.
+  confirmation-gated delete request. M3 has added the plugin-owned
+  `mix allbert.artifacts list|show|threads|doctor|rm` CLI over core actions.
 - Contribute a workspace `:canvas_panels` Artifacts panel, an
   `/apps/artifacts/<sha>` detail page (route in the core router, module
-  plugin-owned, implemented in M2), and a `mix allbert.artifacts` CLI.
+  plugin-owned, implemented in M2), and a `mix allbert.artifacts` CLI
+  (implemented in M3; filter options remain M4).
 - Browse, search, and filter by type, origin, thread, and date, including the
   by-thread and reverse-thread provenance lookups from v0.50.
 - Render redacted metadata only (raw bytes never in assigns/page/CLI); the
