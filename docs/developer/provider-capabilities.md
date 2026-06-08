@@ -8,7 +8,7 @@ validation, Settings Central defaults, the app-started ReqLLM model/provider
 proof, image/screen resource identity, image permission/operation classes,
 image media redaction, shared image bounds, workspace image upload,
 vision-input dispatch through the existing ReqLLM text path, and the
-`generate_image` action through `ReqLLM.generate_image/3`. Content hashes are
+`generate_image` action through the ReqLLM image-provider path. Content hashes are
 metadata only at v0.49; the canonical content-addressed artifact store is
 proposed for v0.50.
 
@@ -115,7 +115,7 @@ v0.49 vision/image work uses the same model-profile and doctor contract:
 - Vision input requires `vision_input` and attaches image content to the normal
   ReqLLM text path as a multimodal content part.
 - Image generation requires `image_generation` and runs through a registered
-  `generate_image` action wrapping `ReqLLM.generate_image/3`.
+  `generate_image` action on the ReqLLM image-provider path.
 - Provider HTTP, credentials, and request shape remain owned by ReqLLM, as for
   text. v0.49 does not add an image-specific ProviderHTTP module or ADR 0011
   amendment.
@@ -171,6 +171,14 @@ but execute through ReqLLM rather than the v0.48 ProviderHTTP voice adapters.
   `qwen3-vl:8b` for image input and `x/z-image-turbo` for experimental image
   generation; `x/z-image-turbo:latest` is accepted as an installed-model alias
   for local doctor availability.
+- Local/custom OpenAI-compatible model calls use explicit ReqLLM model specs
+  instead of `"provider:model"` catalog strings. For Ollama image generation,
+  Allbert also clears OpenAI's `output_format` option on the ReqLLM-prepared
+  image request so the experimental endpoint returns its documented base64 JSON
+  response for ReqLLM decoding.
+  When an OpenAI-compatible profile has no configured secret, Allbert passes the
+  harmless placeholder API key `ollama`; this prevents ReqLLM/OpenAI defaults
+  from inheriting an ambient `OPENAI_API_KEY` for local/proxy calls.
 - Gemma 4 Ollama tags that advertise text+image input, such as `gemma4:e4b`,
   are valid local vision-candidate checks through the live-smoke model override;
   they are not image-generation models and do not replace `image_ollama`.

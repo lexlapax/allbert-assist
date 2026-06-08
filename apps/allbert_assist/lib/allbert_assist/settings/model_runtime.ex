@@ -55,6 +55,7 @@ defmodule AllbertAssist.Settings.ModelRuntime do
     []
     |> maybe_put_base_url(base_url(profile))
     |> maybe_put_api_key(profile)
+    |> maybe_put_openai_compatible_api_key(profile)
   end
 
   def request_opts(_profile), do: []
@@ -128,6 +129,16 @@ defmodule AllbertAssist.Settings.ModelRuntime do
   end
 
   defp put_secret_api_key(opts, _secret_result), do: opts
+
+  defp maybe_put_openai_compatible_api_key(opts, %{provider_type: "openai_compatible"}) do
+    if Keyword.has_key?(opts, :api_key) do
+      opts
+    else
+      Keyword.put(opts, :api_key, "ollama")
+    end
+  end
+
+  defp maybe_put_openai_compatible_api_key(opts, _profile), do: opts
 
   defp normalize_max_tokens(value, _fallback) when is_integer(value) and value > 0, do: value
 
