@@ -2975,8 +2975,10 @@ Expected direction:
 - Define the promotion/retention path from temporary v0.48 audio and v0.49
   media input/output files into durable artifacts, including deduplication and
   operator removal; backfill retained `<ALLBERT_HOME>/audio`,
-  `<ALLBERT_HOME>/images`, and `<ALLBERT_HOME>/generated_images`, while leaving
-  ephemeral scratch and historical Browser cache files out of the M5 backfill.
+  `<ALLBERT_HOME>/images`, and `<ALLBERT_HOME>/generated_images` from the
+  existing `voice.audio.retention_root`, `vision.media.retention_root`, and
+  `image.generation.retention_root` setting keys, while leaving ephemeral
+  scratch and historical Browser cache files out of the M5 backfill.
 - Add `put`/`get`/`list`/`delete` registered actions and the codebase's first
   Jido ingestion sensor (`use Jido.Sensor`, supervised by
   `Jido.Sensor.Runtime`), wired through the existing `Actions.Registry` and
@@ -2986,6 +2988,8 @@ Expected direction:
   `artifact_thread_links` SQLite join table (role created_by/referenced_by) from
   `context.request`, with a by-thread query and reverse lookup; the link is
   provenance, never authority.
+- Add `:v050` artifact-store eval rows and `mix allbert.test release.v050`
+  evidence under `<ALLBERT_HOME>/release_evidence/v050/`.
 - Preserve Security Central and Resource Access as the authority boundary:
   content-addressed identity never grants read/write/send permission by itself.
 
@@ -3017,6 +3021,9 @@ Expected direction:
 - Render redacted metadata only (raw bytes never in assigns/page/CLI); the
   plugin grants no authority and owns no store internals; delete routes through
   the core confirmation-gated action.
+- Add `:v050b` artifact-browser eval rows, `mix allbert.test release.v050b`,
+  and deterministic browser-validation fixture seeding so `/apps/artifacts/<sha>`
+  screenshots use a real seeded SHA recorded in release evidence.
 
 ## v0.51: Channel Pack 1 - Discord And Slack
 
