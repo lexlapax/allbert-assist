@@ -196,48 +196,50 @@ before tagging.
     StockSage tests, channel-plugin tests, and Dialyzer all pass. Record the
     printed full-release evidence path.
 
-11. If validating OpenAI live behavior, configure the OpenAI credential through
-    stdin and enable the provider:
+11. Run the OpenAI live vision/image smoke when `OPENAI_API_KEY` is available:
 
     ```sh
-    printf '%s\n' "$OPENAI_API_KEY" | mix allbert.settings providers set-key openai
-    mix allbert.settings set providers.openai.enabled true
+    export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v049-openai.XXXXXX)"
+    export ALLBERT_V049_LIVE_SMOKE=1
+    export ALLBERT_V049_PROVIDER=openai
+    export ALLBERT_V049_IMAGE="/absolute/path/to/small-validation-image.png"
+    mix run --no-start scripts/v049_vision_live_smoke.exs
     ```
 
-    Expected: the credential command reports `openai credential=configured`;
-    the provider setting reports `true`. Do not pass keys as command
-    arguments.
+    Expected: without `ALLBERT_V049_LIVE_SMOKE=1`, the script refuses to run.
+    With valid credentials, it stores the key through Settings Central, doctors
+    `vision_openai` and `image_openai`, performs real vision input, creates and
+    approves the image-generation confirmation, writes redacted evidence under
+    `<ALLBERT_HOME>/release_evidence/v049/`, and reports no secret/raw-media
+    leaks.
 
-12. Select OpenAI vision and image-generation profiles for live validation:
+12. Run the Gemini live vision/image smoke when `GEMINI_API_KEY` or
+    `GOOGLE_API_KEY` is available:
 
     ```sh
-    mix allbert.settings set model_preferences.capabilities.vision_input vision_openai
-    mix allbert.settings set model_preferences.capabilities.image_generation image_openai
-    mix allbert.model doctor vision_openai
-    mix allbert.model doctor image_openai
+    export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v049-gemini.XXXXXX)"
+    export ALLBERT_V049_LIVE_SMOKE=1
+    export ALLBERT_V049_PROVIDER=gemini
+    export ALLBERT_V049_IMAGE="/absolute/path/to/small-validation-image.png"
+    mix run --no-start scripts/v049_vision_live_smoke.exs
     ```
 
-    Expected: with valid credentials, doctors report `credential_ok=true`,
-    `endpoint_ok=true`, and the selected models are available or explicitly
-    diagnosed by the provider. Without credentials, the expected diagnostic is
-    `credential_missing`.
+    Expected: the script doctors `vision_gemini` and `image_gemini`, performs
+    real vision input, creates and approves the image-generation confirmation,
+    writes redacted evidence under `<ALLBERT_HOME>/release_evidence/v049/`, and
+    reports no secret/raw-media leaks.
 
-13. If validating Gemini live behavior instead, configure Gemini and select its
-    v0.49 profiles:
+13. Inspect the live-smoke evidence from steps 11-12:
 
     ```sh
-    printf '%s\n' "$GEMINI_API_KEY" | mix allbert.settings providers set-key gemini
-    mix allbert.settings set providers.gemini.enabled true
-    mix allbert.settings set model_preferences.capabilities.vision_input vision_gemini
-    mix allbert.settings set model_preferences.capabilities.image_generation image_gemini
-    mix allbert.model doctor vision_gemini
-    mix allbert.model doctor image_gemini
+    export V049_LIVE_EVIDENCE="<path printed by the live smoke>"
+    jq -r '.provider' "$V049_LIVE_EVIDENCE"
+    jq '.doctors' "$V049_LIVE_EVIDENCE"
+    jq '.redaction_scan' "$V049_LIVE_EVIDENCE"
     ```
 
-    Expected: with valid credentials, doctors report `credential_ok=true`,
-    `endpoint_ok=true`, and the selected models are available or explicitly
-    diagnosed by the provider. Without credentials, the expected diagnostic is
-    `credential_missing`.
+    Expected: provider matches the selected smoke; doctor summaries show
+    endpoint/model availability; redaction scan values are all `false`.
 
 14. Start a disposable workspace server for manual UI validation:
 
