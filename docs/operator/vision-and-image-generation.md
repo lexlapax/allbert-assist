@@ -228,7 +228,9 @@ wants to validate real provider behavior before tagging.
     Expected: the script doctors `vision_gemini` and `image_gemini`, performs
     real vision input, creates and approves the image-generation confirmation,
     writes redacted evidence under `<ALLBERT_HOME>/release_evidence/v049/`, and
-    reports no secret/raw-media leaks.
+    reports no secret/raw-media leaks. If the script writes failed evidence,
+    report this step as failed; provider quota or model access failures are not
+    release passes.
 
 13. Run the local Ollama live vision/image smoke when the required local models
     are installed:
@@ -331,8 +333,28 @@ It writes evidence to:
 <ALLBERT_HOME>/release_evidence/v049/release-v049-<ts>.json
 ```
 
-The v0.49 closeout evidence path from implementation was:
+The latest deterministic v0.49 release evidence path is:
 
 ```text
-/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v049/p0-13252/home/release_evidence/v049/release-v049-1780876139.json
+/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v049/p0-13250/home/release_evidence/v049/release-v049-1780881559.json
 ```
+
+The latest full release-gate evidence path is:
+
+```text
+/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13254/home/release_evidence/gates/release-2026-06-08T01_25_46Z.json
+```
+
+Current M10 live-provider status:
+
+- OpenAI passed with evidence:
+  `/tmp/allbert-v049-openai.WVniyZ/release_evidence/v049/live-vision-openai-1780883078.json`.
+- Gemini is blocked by Google image-generation quota for
+  `gemini-3.1-flash-image`; doctors and vision input passed, image generation
+  failed with 429 `RESOURCE_EXHAUSTED`. Failed evidence:
+  `/tmp/allbert-v049-gemini.BWLetx/release_evidence/v049/live-vision-gemini-1780883349.json`.
+- Local Ollama live smoke is pending installed `qwen3-vl:8b` and
+  `x/z-image-turbo` models.
+
+v0.49 is not ready for release tag or release-candidate manual handoff until
+step 12 passes with a Gemini key/profile that has image-generation quota.

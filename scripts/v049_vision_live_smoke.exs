@@ -44,7 +44,28 @@ defmodule Allbert.V049VisionLiveSmoke do
     vision_doctor = doctor!(vision_profile(provider), context)
     image_doctor = doctor!(image_profile(provider), context)
     vision_response = vision!(image_file, provider, context)
-    approved_image = generate_image!(context)
+
+    approved_image =
+      try do
+        generate_image!(context)
+      rescue
+        exception ->
+          evidence =
+            failure_evidence(
+              provider,
+              home,
+              image_file,
+              vision_doctor,
+              image_doctor,
+              vision_response,
+              exception
+            )
+
+          path = write_evidence!(home, evidence)
+          Mix.shell().error("v0.49 live vision/image smoke failed.")
+          Mix.shell().error("Evidence: #{path}")
+          reraise exception, __STACKTRACE__
+      end
 
     evidence =
       evidence(
@@ -218,9 +239,12 @@ defmodule Allbert.V049VisionLiveSmoke do
     image_file = field(output_data, :image_file)
 
     unless is_binary(image_file) and File.regular?(image_file) do
-      Mix.raise(
-        "Image approval completed but did not return an existing image_file in transient output_data: #{inspect(output_data, pretty: true)}"
-      )
+      Mix.raise("""
+      Image approval completed without an existing generated image file.
+
+      target_status=#{inspect(field(output_data, :status))}
+      provider_error=#{provider_error_summary(field(output_data, :error) || field(output_data, :message))}
+      """)
     end
 
     Mix.shell().info("Generated image: [redacted local path]")
@@ -241,6 +265,7 @@ defmodule Allbert.V049VisionLiveSmoke do
 
     evidence = %{
       version: "0.49.0",
+      status: :passed,
       provider: provider,
       allbert_home: home,
       profiles: %{
@@ -270,6 +295,47 @@ defmodule Allbert.V049VisionLiveSmoke do
     }
 
     redaction_scan!(provider, evidence, input_image_file, output_data)
+  end
+
+  defp failure_evidence(
+         provider,
+         home,
+         input_image_file,
+         vision_doctor,
+         image_doctor,
+         vision_response,
+         exception
+       ) do
+    evidence = %{
+      version: "0.49.0",
+      status: :failed,
+      provider: provider,
+      allbert_home: home,
+      profiles: %{
+        vision_input: vision_profile(provider),
+        image_generation: image_profile(provider)
+      },
+      doctors: %{
+        vision_input: doctor_summary(vision_doctor),
+        image_generation: doctor_summary(image_doctor)
+      },
+      vision_input: %{
+        status: vision_response.status,
+        answer_chars: String.length(vision_response.message || ""),
+        direct_answer: direct_answer_summary(vision_response)
+      },
+      image_generation: %{
+        status: :failed,
+        error: exception_summary(exception)
+      },
+      redaction_scan: %{
+        evidence_contains_secret?: false,
+        evidence_contains_input_path?: false,
+        evidence_contains_generated_path?: false
+      }
+    }
+
+    redaction_scan!(provider, evidence, input_image_file, %{})
   end
 
   defp doctor_summary(response) do
@@ -309,6 +375,33 @@ defmodule Allbert.V049VisionLiveSmoke do
       target_resumed?: Map.get(resolution, "target_resumed?"),
       target_status: Map.get(resolution, "target_status")
     }
+  end
+
+  defp exception_summary(exception) do
+    %{
+      type: exception.__struct__ |> Module.split() |> Enum.join("."),
+      message: exception |> Exception.message() |> compact_summary()
+    }
+  end
+
+  defp provider_error_summary(nil), do: "unavailable"
+
+  defp provider_error_summary(error) when is_binary(error),
+    do: compact_summary(error)
+
+  defp provider_error_summary(error),
+    do: error |> inspect(limit: 20, printable_limit: 1200) |> compact_summary()
+
+  defp compact_summary(value) when is_binary(value) do
+    value
+    |> String.replace(~r/\s+/, " ")
+    |> truncate(1200)
+  end
+
+  defp truncate(value, max_length) when byte_size(value) <= max_length, do: value
+
+  defp truncate(value, max_length) do
+    binary_part(value, 0, max_length) <> "...[truncated]"
   end
 
   defp redaction_scan!(provider, evidence, input_image_file, output_data) do
@@ -359,16 +452,12 @@ defmodule Allbert.V049VisionLiveSmoke do
   defp json_key(key), do: key
 
   defp run!(action, params, context, ok?) do
-    case Runner.run(action, params, context) do
-      {:ok, response} ->
-        if ok?.(response) do
-          response
-        else
-          Mix.raise("#{action} returned unexpected response: #{inspect(response, pretty: true)}")
-        end
+    {:ok, response} = Runner.run(action, params, context)
 
-      {:error, reason} ->
-        Mix.raise("#{action} failed: #{inspect(reason)}")
+    if ok?.(response) do
+      response
+    else
+      Mix.raise("#{action} returned unexpected response: #{inspect(response, pretty: true)}")
     end
   end
 
