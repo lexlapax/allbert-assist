@@ -57,6 +57,9 @@ defmodule AllbertAssist.Runtime.PathsTest do
              memory: Path.join(home, "memory"),
              memory_deleted: Path.join([home, "memory", "deleted"]),
              artifacts: Path.join(home, "artifacts"),
+             audio: Path.join(home, "audio"),
+             images: Path.join(home, "images"),
+             generated_images: Path.join(home, "generated_images"),
              confirmations: Path.join(home, "confirmations"),
              execution: Path.join(home, "execution"),
              package_installs: Path.join([home, "execution", "package-installs"]),
@@ -82,6 +85,9 @@ defmodule AllbertAssist.Runtime.PathsTest do
     assert Paths.root(:database) == LegacyPaths.db_path()
     assert Paths.root(:themes) == LegacyPaths.themes_root()
     assert Paths.root(:artifacts) == LegacyPaths.artifacts_root()
+    assert Paths.root(:audio) == LegacyPaths.audio_root()
+    assert Paths.root(:images) == LegacyPaths.images_root()
+    assert Paths.root(:generated_images) == LegacyPaths.generated_images_root()
   end
 
   test "runtime ensure_home! preserves current directory creation behavior" do
@@ -94,6 +100,9 @@ defmodule AllbertAssist.Runtime.PathsTest do
           :settings,
           :memory,
           :artifacts,
+          :audio,
+          :images,
+          :generated_images,
           :confirmations,
           :execution,
           :package_installs,

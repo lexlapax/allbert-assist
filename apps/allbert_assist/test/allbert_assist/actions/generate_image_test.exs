@@ -4,6 +4,8 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
 
   alias AllbertAssist.Actions.Image.GenerateImage
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Artifacts
+  alias AllbertAssist.Artifacts.MetadataIndex
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
@@ -41,8 +43,10 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
       )
 
     System.put_env("ALLBERT_HOME", home)
+    MetadataIndex.reset_cache!()
 
     on_exit(fn ->
+      MetadataIndex.reset_cache!()
       File.rm_rf!(home)
       restore_env(original_env)
       restore_app_env(Paths, original_paths_config)
@@ -82,6 +86,28 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
              response.actions
 
     assert action_metadata.output_resource_uri == "file://[REDACTED_IMAGE_PATH]"
+  end
+
+  test "retained generated image output writes through Artifacts Central", %{home: home} do
+    enable_image!()
+    enable_artifacts!()
+    use_fake_image!()
+
+    assert {:ok, _setting} =
+             Settings.put("image.generation.retention_enabled", true, %{audit?: false})
+
+    assert {:ok, response} = GenerateImage.run(%{prompt: "draw retained image"}, context())
+
+    assert response.status == :completed
+    assert response.image_file =~ Path.join([home, "artifacts", "objects"])
+    refute response.image_file =~ Path.join(home, "generated_images")
+    assert File.regular?(response.image_file)
+
+    assert {:ok, artifacts} = Artifacts.list(origin: "retained_generated_image")
+    assert [%{sha256: sha256, metadata: metadata}] = artifacts
+    assert metadata.mime == "image/png"
+    assert metadata.provenance["media_retention"]["kind"] == "generated_image"
+    assert response.image_file == AllbertAssist.Artifacts.Store.object_path!(sha256)
   end
 
   test "image generation is default-off until operator enables it" do
@@ -291,6 +317,11 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
 
   defp enable_image! do
     assert {:ok, _resolved} = Settings.put("image.enabled", true, %{audit?: false})
+  end
+
+  defp enable_artifacts! do
+    assert {:ok, _setting} = Settings.put("artifacts.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = Settings.put("artifacts.retention_enabled", true, %{audit?: false})
   end
 
   defp use_fake_image! do

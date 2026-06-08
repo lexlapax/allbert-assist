@@ -74,6 +74,9 @@ defmodule AllbertAssist.Paths do
       Path.join(memory_root(), "preferences"),
       Path.join(memory_root(), "traces"),
       Path.join(memory_root(), "skills"),
+      audio_root(),
+      images_root(),
+      generated_images_root(),
       artifacts_root(),
       Path.join(artifacts_root(), "objects"),
       Path.join(artifacts_root(), "index"),
@@ -138,6 +141,24 @@ defmodule AllbertAssist.Paths do
       ],
       Path.join(home(), "artifacts")
     )
+  end
+
+  @doc "Return the legacy retained-audio root used as an artifact backfill input."
+  @spec audio_root() :: String.t()
+  def audio_root do
+    first_path([configured(:audio_root)], Path.join(home(), "audio"))
+  end
+
+  @doc "Return the legacy retained vision-input image root used as an artifact backfill input."
+  @spec images_root() :: String.t()
+  def images_root do
+    first_path([configured(:images_root)], Path.join(home(), "images"))
+  end
+
+  @doc "Return the legacy generated-image root used as an artifact backfill input."
+  @spec generated_images_root() :: String.t()
+  def generated_images_root do
+    first_path([configured(:generated_images_root)], Path.join(home(), "generated_images"))
   end
 
   @doc "Return the durable confirmation request root."

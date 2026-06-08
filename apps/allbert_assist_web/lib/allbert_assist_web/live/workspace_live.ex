@@ -21,6 +21,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   }
 
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Artifacts.MediaRetention
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Resources.ImageBounds
   alias AllbertAssist.Resources.ImageMetadata
@@ -1085,6 +1086,23 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     }
   end
 
+  defp workspace_artifact_context(socket) do
+    user_id = socket.assigns.user_id
+
+    %{
+      actor: user_id,
+      user_id: user_id,
+      operator_id: user_id,
+      channel: :live_view,
+      request: %{
+        operator_id: user_id,
+        user_id: user_id,
+        thread_id: socket.assigns.thread_id,
+        session_id: socket.assigns.session_id
+      }
+    }
+  end
+
   defp active_objectives(user_id) do
     case Runner.run(
            "list_objectives",
@@ -1739,19 +1757,6 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     Map.get(map, key) || Map.get(map, Atom.to_string(key))
   end
 
-  defp expand_allbert_home_path(path) when is_binary(path) do
-    path
-    |> String.replace("<ALLBERT_HOME>", RuntimePaths.home())
-    |> expand_home_path()
-    |> Path.expand()
-  end
-
-  defp expand_allbert_home_path(_path), do: Path.join(RuntimePaths.home(), "audio")
-
-  defp expand_home_path("~"), do: System.user_home!()
-  defp expand_home_path("~/" <> rest), do: Path.join(System.user_home!(), rest)
-  defp expand_home_path(path), do: path
-
   defp setting(settings, key, default) do
     case Schema.get_dotted(settings, key) do
       nil -> default
@@ -1818,10 +1823,12 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   defp process_voice_capture_upload(socket, path, entry, capture) do
-    with {:ok, stored} <- store_voice_capture_upload(path, entry, capture) do
+    with {:ok, stored} <- store_voice_capture_upload(socket, path, entry, capture) do
+      transcription_path = Map.get(stored, :transcription_path, stored.path)
+
       result =
         case run_workspace_action(socket, "transcribe_voice", %{
-               audio_file: stored.path,
+               audio_file: transcription_path,
                resource_uri: capture.resource_uri
              }) do
           {:ok, %{status: :completed, transcript: transcript, voice_metadata: voice_metadata}}
@@ -1844,11 +1851,22 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     end
   end
 
-  defp store_voice_capture_upload(path, entry, capture) do
+  defp store_voice_capture_upload(socket, path, entry, capture) do
     with {:ok, size} <- file_size(path),
          :ok <- validate_voice_capture_size(size, capture.max_bytes),
-         {:ok, name} <- voice_capture_upload_name(entry),
-         {:ok, destination} <- voice_capture_destination(capture, name),
+         {:ok, name} <- voice_capture_upload_name(entry) do
+      if capture.retention_enabled == true do
+        store_retained_voice_capture(socket, path, entry, capture, name, size)
+      else
+        store_transient_voice_capture(path, capture, name, size)
+      end
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp store_transient_voice_capture(path, capture, name, size) do
+    with {:ok, destination} <- voice_capture_destination(capture, name),
          :ok <- File.mkdir_p(Path.dirname(destination)),
          {:ok, _bytes} <- File.copy(path, destination) do
       {:ok,
@@ -1857,8 +1875,33 @@ defmodule AllbertAssistWeb.WorkspaceLive do
          transient?: capture.retention_enabled != true,
          byte_size: size
        }}
-    else
-      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp store_retained_voice_capture(socket, path, entry, capture, name, size) do
+    attrs = %{
+      filename: name,
+      content_type: Map.get(entry, :client_type),
+      source_resource_uri: capture.resource_uri,
+      capture_id: capture.capture_id
+    }
+
+    with {:ok, bytes} <- File.read(path),
+         {:ok, destination} <- voice_capture_destination(capture, name),
+         :ok <- File.mkdir_p(Path.dirname(destination)),
+         {:ok, _bytes} <- File.copy(path, destination),
+         {:ok, artifact} <-
+           MediaRetention.put(:voice_audio, bytes, attrs,
+             context: workspace_artifact_context(socket)
+           ) do
+      {:ok,
+       %{
+         path: destination,
+         artifact_path: artifact.path,
+         transient?: true,
+         byte_size: size,
+         artifact: artifact
+       }}
     end
   end
 
@@ -1884,14 +1927,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   defp voice_capture_destination(capture, name) do
-    root =
-      if capture.retention_enabled == true do
-        expand_allbert_home_path(capture.retention_root || "<ALLBERT_HOME>/audio")
-      else
-        Path.join(RuntimePaths.tmp_root(), "voice-captures")
-      end
-
-    {:ok, Path.join([root, capture.capture_id, name])}
+    {:ok, Path.join([RuntimePaths.tmp_root(), "voice-captures", capture.capture_id, name])}
   end
 
   defp cleanup_transient_capture(%{transient?: true, path: path}) do
@@ -2008,7 +2044,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       _entries ->
         results =
           consume_uploaded_entries(socket, :image_input, fn %{path: path}, entry ->
-            {:ok, process_image_input_upload(path, entry)}
+            {:ok, process_image_input_upload(socket, path, entry)}
           end)
 
         case results do
@@ -2019,7 +2055,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     end
   end
 
-  defp process_image_input_upload(path, entry) do
+  defp process_image_input_upload(socket, path, entry) do
     settings = workspace_settings_snapshot()
 
     with true <- setting(settings, "vision.enabled", false) == true || {:error, :vision_disabled},
@@ -2028,9 +2064,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
          {:ok, name} <- image_input_upload_name(entry),
          capture_id <- generated_image_capture_id(),
          {:ok, resource_uri} <- ResourceURI.image_capture(capture_id),
-         {:ok, destination} <- image_input_destination(settings, capture_id, name),
-         :ok <- File.mkdir_p(Path.dirname(destination)),
-         {:ok, _bytes} <- File.copy(path, destination),
+         {:ok, destination} <-
+           image_input_destination(socket, settings, path, capture_id, resource_uri, name, entry),
          {:ok, metadata} <-
            ImageMetadata.from_path(destination,
              max_bytes: image_input_max_bytes(settings),
@@ -2074,17 +2109,38 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     end
   end
 
-  defp image_input_destination(settings, capture_id, name) do
-    root =
-      if image_input_retention_enabled?(settings) do
-        expand_allbert_home_path(
-          setting(settings, "vision.media.retention_root", "<ALLBERT_HOME>/images")
-        )
-      else
-        Path.join(RuntimePaths.tmp_root(), "image-inputs")
-      end
+  defp image_input_destination(socket, settings, path, capture_id, resource_uri, name, entry) do
+    if image_input_retention_enabled?(settings) do
+      retained_image_input_destination(socket, path, capture_id, resource_uri, name, entry)
+    else
+      transient_image_input_destination(path, capture_id, name)
+    end
+  end
 
-    {:ok, Path.join([root, capture_id, name])}
+  defp transient_image_input_destination(path, capture_id, name) do
+    destination = Path.join([RuntimePaths.tmp_root(), "image-inputs", capture_id, name])
+
+    with :ok <- File.mkdir_p(Path.dirname(destination)),
+         {:ok, _bytes} <- File.copy(path, destination) do
+      {:ok, destination}
+    end
+  end
+
+  defp retained_image_input_destination(socket, path, capture_id, resource_uri, name, entry) do
+    attrs = %{
+      filename: name,
+      content_type: Map.get(entry, :client_type),
+      source_resource_uri: resource_uri,
+      capture_id: capture_id
+    }
+
+    with {:ok, bytes} <- File.read(path),
+         {:ok, artifact} <-
+           MediaRetention.put(:vision_media, bytes, attrs,
+             context: workspace_artifact_context(socket)
+           ) do
+      {:ok, artifact.path}
+    end
   end
 
   defp image_input_retention_enabled?(settings),

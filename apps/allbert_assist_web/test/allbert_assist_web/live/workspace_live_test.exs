@@ -4,6 +4,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.{
+    Artifacts,
     Confirmations,
     Conversations,
     Marketplace,
@@ -1862,6 +1863,57 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     refute File.exists?(Path.join([root, "tmp", "voice-captures", capture_id]))
   end
 
+  test "retained workspace microphone upload stores audio through Artifacts Central", %{
+    conn: conn,
+    root: root
+  } do
+    enable_workspace_voice!()
+    enable_workspace_artifacts!()
+    assert {:ok, _setting} = Settings.put("voice.audio.retention_enabled", true, %{audit?: false})
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+
+    view
+    |> element("#voice-capture-request")
+    |> render_click()
+
+    [pending] = Confirmations.list(status: :pending)
+    capture_id = pending["resume_params_ref"]["capture_id"]
+
+    view
+    |> element("#approval-approve")
+    |> render_click()
+
+    upload =
+      file_input(view, "#voice-capture-form", :voice_capture, [
+        %{
+          name: "hello.wav",
+          content: File.read!(fixture_path("hello.wav")),
+          type: "audio/wav"
+        }
+      ])
+
+    render_upload(upload, "hello.wav")
+
+    view
+    |> form("#voice-capture-form", %{})
+    |> render_submit()
+
+    _html = render_async(view, @runtime_async_timeout)
+
+    assert_receive {:runtime_request, %{metadata: %{voice: voice_metadata}}}
+    assert voice_metadata.audio_format == "wav"
+
+    assert {:ok, artifacts} = Artifacts.list(origin: "retained_voice_audio")
+    assert [%{metadata: metadata}] = artifacts
+    assert metadata.mime == "audio/wav"
+    assert metadata.source_resource_uri =~ "mic://capture/"
+    assert metadata.provenance["media_retention"]["kind"] == "voice_audio"
+
+    refute File.exists?(Path.join([root, "audio", capture_id]))
+    refute File.exists?(Path.join([root, "tmp", "voice-captures", capture_id]))
+  end
+
   test "workspace image upload attaches bounded image metadata to runtime prompt", %{
     conn: conn,
     root: root
@@ -1909,6 +1961,52 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert image_metadata.redaction_status == "metadata_only"
     assert image_metadata.transient?
     refute inspect(image_metadata) =~ inspect(@png)
+  end
+
+  test "retained workspace image upload stores image input through Artifacts Central", %{
+    conn: conn,
+    root: root
+  } do
+    enable_workspace_vision!()
+    enable_workspace_artifacts!()
+
+    assert {:ok, _setting} =
+             Settings.put("vision.media.retention_enabled", true, %{audit?: false})
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+
+    upload =
+      file_input(view, "#agent-form", :image_input, [
+        %{
+          name: "frame.png",
+          content: @png,
+          type: "image/png"
+        }
+      ])
+
+    render_upload(upload, "frame.png")
+
+    view
+    |> element("#agent-form")
+    |> render_submit(%{"prompt" => "Describe retained image"})
+
+    _html = render_async(view, @runtime_async_timeout)
+
+    assert_receive {:runtime_request,
+                    %{
+                      metadata: %{image_inputs: [image_metadata]}
+                    }}
+
+    assert image_metadata.resource_uri =~ "image://capture/img_"
+    assert image_metadata.path =~ Path.join([root, "artifacts", "objects"])
+    refute image_metadata.path =~ Path.join(root, "images")
+    refute image_metadata.transient?
+
+    assert {:ok, artifacts} = Artifacts.list(origin: "retained_vision_media")
+    assert [%{metadata: metadata}] = artifacts
+    assert metadata.mime == "image/png"
+    assert metadata.source_resource_uri == image_metadata.resource_uri
+    assert metadata.provenance["media_retention"]["kind"] == "vision_media"
   end
 
   test "stale app query params do not set runtime active app context", %{conn: conn} do
@@ -2207,6 +2305,11 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
              Settings.put("model_preferences.capabilities.vision_input", ["vision_fake"], %{
                audit?: false
              })
+  end
+
+  defp enable_workspace_artifacts! do
+    assert {:ok, _setting} = Settings.put("artifacts.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = Settings.put("artifacts.retention_enabled", true, %{audit?: false})
   end
 
   defp fixture_path(name) do

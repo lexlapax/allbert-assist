@@ -671,13 +671,15 @@ historical aliases only and remain in old reference notes for continuity.
   secret scanning. Content hashes remain metadata only; the canonical
   content-addressed artifact store is v0.50. Video input, generic audio
   understanding, and catch-all multimodal routing remain future scope.
-- v0.50: Artifacts Central. M1-M4 have landed the Home-rooted CAS object store,
+- v0.50: Artifacts Central. M1-M5 have landed the Home-rooted CAS object store,
   markdown metadata sidecar, `artifact://sha256/<hex>` identity, artifact
   permissions/redaction, pre-write bounds, the persisted `artifacts.*` fragment,
   core artifact actions, `artifact_doctor`, delete confirmation, and supervised
   mark-and-sweep GC, plus `artifact_thread_links`, message-precise/thread-level
   provenance from `context.request`, by-thread `list_artifacts`, and reverse
-  `artifact_threads`; M5-M7 remain the planned completion path. A uniform
+  `artifact_threads`, retained-media backfill into CAS, and retained
+  generated-image/workspace voice/workspace image ingestion through Artifacts
+  Central; M6-M7 remain the planned completion path. A uniform
   content-addressable store for durable
   artifacts — uploaded by the operator, created by Allbert, or found through
   approved tools — type-agnostic and deduplicated by `artifact://sha256/<hex>`

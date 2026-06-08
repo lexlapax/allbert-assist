@@ -25,6 +25,7 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
 
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
+  alias AllbertAssist.Artifacts.MediaRetention
   alias AllbertAssist.Resources.{ImageBounds, ImageMetadata, ResourceURI}
   alias AllbertAssist.Runtime.Paths, as: RuntimePaths
   alias AllbertAssist.Runtime.Redactor
@@ -114,7 +115,14 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
     with {:ok, output_format} <- output_format(resolution.profile, params),
          {:ok, generated} <- generate(resolution.profile, prompt, output_format, context, params),
          {:ok, output} <-
-           generated_image_metadata(generated, resolution, output_format, settings, attempts) do
+           generated_image_metadata(
+             generated,
+             resolution,
+             output_format,
+             settings,
+             context,
+             attempts
+           ) do
       {:ok, completed(output, permission_decision)}
     else
       {:error, reason} ->
@@ -202,9 +210,9 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
     end
   end
 
-  defp generated_image_metadata(generated, resolution, output_format, settings, attempts) do
+  defp generated_image_metadata(generated, resolution, output_format, settings, context, attempts) do
     with {:ok, storage_format} <- generated_storage_format(generated, output_format),
-         {:ok, path} <- write_generated_image(generated.bytes, storage_format, settings),
+         {:ok, path} <- write_generated_image(generated.bytes, storage_format, settings, context),
          {:ok, resource_uri} <- ResourceURI.file(path),
          {:ok, metadata} <-
            ImageMetadata.from_path(path,
@@ -236,7 +244,15 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
     end
   end
 
-  defp write_generated_image(bytes, output_format, settings) when is_binary(bytes) do
+  defp write_generated_image(bytes, output_format, settings, context) when is_binary(bytes) do
+    if image_retention_enabled?(settings) do
+      write_retained_generated_image(bytes, output_format, context)
+    else
+      write_transient_generated_image(bytes, output_format, settings)
+    end
+  end
+
+  defp write_transient_generated_image(bytes, output_format, settings) do
     id = generated_image_id()
     root = generated_image_root(settings)
     path = Path.join([root, id, "image.#{output_format}"])
@@ -244,6 +260,17 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
     with :ok <- File.mkdir_p(Path.dirname(path)),
          :ok <- File.write(path, bytes) do
       {:ok, path}
+    end
+  end
+
+  defp write_retained_generated_image(bytes, output_format, context) do
+    attrs = %{
+      filename: "image.#{output_format}",
+      mime: "image/#{output_format}"
+    }
+
+    with {:ok, artifact} <- MediaRetention.put(:generated_image, bytes, attrs, context: context) do
+      {:ok, artifact.path}
     end
   end
 
@@ -505,16 +532,7 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
   defp format_from_bytes(<<"RIFF", _size::little-32, "WEBP", _rest::binary>>), do: "webp"
   defp format_from_bytes(_bytes), do: nil
 
-  defp generated_image_root(settings) do
-    if image_retention_enabled?(settings) do
-      expand_allbert_home_path(
-        Schema.get_dotted(settings, "image.generation.retention_root") ||
-          "<ALLBERT_HOME>/generated_images"
-      )
-    else
-      Path.join(RuntimePaths.tmp_root(), "generated-images")
-    end
-  end
+  defp generated_image_root(_settings), do: Path.join(RuntimePaths.tmp_root(), "generated-images")
 
   defp image_retention_enabled?(settings) do
     Schema.get_dotted(settings, "image.generation.retention_enabled") == true
@@ -639,12 +657,6 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
 
   defp generated_image_id do
     "gen_" <> Base.url_encode64(:crypto.strong_rand_bytes(8), padding: false)
-  end
-
-  defp expand_allbert_home_path(path) when is_binary(path) do
-    path
-    |> String.replace("<ALLBERT_HOME>", RuntimePaths.home())
-    |> Path.expand()
   end
 
   defp positive_integer(value, _fallback) when is_integer(value) and value > 0, do: value
