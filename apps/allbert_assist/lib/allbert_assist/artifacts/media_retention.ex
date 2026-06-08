@@ -6,7 +6,7 @@ defmodule AllbertAssist.Artifacts.MediaRetention do
   content-addressable artifact store and keep only bounded provenance metadata.
   """
 
-  alias AllbertAssist.Artifacts
+  alias AllbertAssist.Artifacts.IngestionConsumer
   alias AllbertAssist.Artifacts.Store
   alias AllbertAssist.Paths
 
@@ -17,7 +17,7 @@ defmodule AllbertAssist.Artifacts.MediaRetention do
   def put(kind, bytes, attrs \\ %{}, opts \\ []) when is_binary(bytes) and is_map(attrs) do
     with {:ok, spec} <- source_spec(kind),
          metadata <- artifact_metadata(spec, bytes, attrs),
-         {:ok, artifact} <- Artifacts.put_retained(bytes, metadata, opts) do
+         {:ok, artifact} <- IngestionConsumer.ingest(bytes, metadata, opts) do
       {:ok, Map.put(artifact, :path, Store.object_path!(artifact.sha256))}
     end
   end
