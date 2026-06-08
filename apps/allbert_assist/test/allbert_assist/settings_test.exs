@@ -19,6 +19,7 @@ defmodule AllbertAssist.SettingsTest do
     "ALLBERT_HOME_DIR",
     "ALLBERT_SETTINGS_ROOT",
     "ALLBERT_SETTINGS_MASTER_KEY",
+    "OPENAI_API_KEY",
     "OLLAMA_BASE_URL"
   ]
 
@@ -1730,11 +1731,17 @@ defmodule AllbertAssist.SettingsTest do
     assert ModelRuntime.max_tokens(%{local | max_tokens: 8}, 8) == 8
 
     System.put_env("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
+    System.put_env("OPENAI_API_KEY", "sk-test-must-not-leak")
 
-    assert Keyword.fetch!(ModelRuntime.request_opts(local), :base_url) ==
+    local_opts = ModelRuntime.request_opts(local)
+
+    assert Keyword.fetch!(local_opts, :base_url) ==
              "http://127.0.0.1:11434/v1"
 
+    assert Keyword.fetch!(local_opts, :api_key) == "ollama"
+
     refute Keyword.has_key?(ModelRuntime.request_opts(fast), :base_url)
+    refute Keyword.has_key?(ModelRuntime.request_opts(fast), :api_key)
   end
 
   test "secret writes encrypt raw value and store only secret ref in settings", %{home: home} do

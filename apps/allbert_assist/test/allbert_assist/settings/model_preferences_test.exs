@@ -12,6 +12,7 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     "ALLBERT_HOME_DIR",
     "ALLBERT_SETTINGS_ROOT",
     "ALLBERT_SETTINGS_MASTER_KEY",
+    "OPENAI_API_KEY",
     "OLLAMA_BASE_URL"
   ]
 
@@ -128,11 +129,15 @@ defmodule AllbertAssist.Settings.ModelPreferencesTest do
     assert image.profile.model == "x/z-image-turbo"
     assert image.profile.capabilities == ["image_generation"]
     assert image.profile.media["deployment_mode"] == "local_endpoint"
+
+    assert {:ok, %{provider: :openai, id: "x/z-image-turbo"}} =
+             ModelRuntime.model_spec(image.profile)
+
     assert {:ok, "openai:x/z-image-turbo"} = ModelRuntime.model_string(image.profile)
 
     opts = ModelRuntime.request_opts(image.profile)
     assert Keyword.fetch!(opts, :base_url) == "http://localhost:11434/v1"
-    refute Keyword.has_key?(opts, :api_key)
+    assert Keyword.fetch!(opts, :api_key) == "ollama"
   end
 
   test "resolver skips disabled providers and incapable profiles before falling back" do

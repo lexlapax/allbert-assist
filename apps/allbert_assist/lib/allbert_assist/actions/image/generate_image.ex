@@ -153,9 +153,10 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
 
   defp generate(profile, prompt, output_format, context, params) do
     with :ok <- ensure_req_llm!(),
-         {:ok, model} <- ModelRuntime.model_string(profile),
+         {:ok, model} <- ModelRuntime.model_spec(profile),
          {:ok, response} <-
-           ReqLLM.generate_image(
+           generate_image_response(
+             profile,
              model,
              prompt,
              request_opts(profile, context, output_format, params)
@@ -171,6 +172,32 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
     else
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  defp generate_image_response(%{provider_type: "openai_compatible"}, model, prompt, opts) do
+    with {:ok, model} <- ReqLLM.model(model),
+         {:ok, provider_module} <- ReqLLM.provider(model.provider),
+         {:ok, request} <- provider_module.prepare_request(:image, model, prompt, opts),
+         request <- Req.Request.merge_options(request, output_format: nil),
+         {:ok, %Req.Response{status: status, body: response}} when status in 200..299 <-
+           Req.request(request) do
+      {:ok, response}
+    else
+      {:ok, %Req.Response{status: status, body: body}} ->
+        {:error,
+         ReqLLM.Error.API.Request.exception(
+           reason: "HTTP #{status}: Request failed",
+           status: status,
+           response_body: body
+         )}
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+  defp generate_image_response(_profile, model, prompt, opts) do
+    ReqLLM.generate_image(model, prompt, opts)
   end
 
   defp generated_image_metadata(generated, resolution, output_format, settings, attempts) do
@@ -388,10 +415,10 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
     profile
     |> ModelRuntime.request_opts()
     |> Keyword.merge(
-      output_format: output_format_option(output_format),
       size: field(params, :size),
       receive_timeout: Map.get(profile, :timeout_ms, 120_000)
     )
+    |> maybe_put_image_output_format(profile, output_format)
     |> maybe_put_keyword(:req_http_options, req_http_options(context))
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
   end
@@ -581,6 +608,12 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
 
   defp maybe_put_keyword(opts, _key, []), do: opts
   defp maybe_put_keyword(opts, key, value), do: Keyword.put(opts, key, value)
+
+  defp maybe_put_image_output_format(opts, %{provider_type: "openai_compatible"}, _output_format),
+    do: opts
+
+  defp maybe_put_image_output_format(opts, _profile, output_format),
+    do: Keyword.put(opts, :output_format, output_format_option(output_format))
 
   defp generated_mime_type(_generated, metadata) do
     metadata.mime_type

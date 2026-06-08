@@ -47,7 +47,7 @@ Image generation is a registered internal action:
 ```text
 generate_image -> Models.candidates_for(:image_generation)
   -> PermissionGate.authorize(:image_generate, deployment mode)
-  -> ReqLLM.generate_image/3
+  -> ReqLLM image-provider path with the resolved ReqLLM model spec
   -> sniff returned bytes and store with actual safe extension
   -> ImageMetadata.from_path + ImageBounds.validate_generated
   -> redacted metadata + local image_file

@@ -411,12 +411,23 @@ until after recording the evidence paths you will report.
     jq -r '.status, .provider' "$V049_OLLAMA_EVIDENCE"
     jq '.doctors' "$V049_OLLAMA_EVIDENCE"
     jq '.redaction_scan' "$V049_OLLAMA_EVIDENCE"
+    jq '.image_generation.image_metadata | {mime_type, image_format, byte_size, width, height}' \
+      "$V049_OLLAMA_EVIDENCE"
+    if rg -n 'Using unverified model|decode_images_response|Image approval completed without' "$V049_OLLAMA_LOG"; then
+      echo "Unexpected ReqLLM/Ollama image warning or decoder failure"
+      false
+    else
+      echo "No ReqLLM/Ollama image warning or decoder failure"
+    fi
     ```
 
     Expected: Ollama is installed and serving on the OpenAI-compatible local
     endpoint; `qwen3-vl:8b` and `x/z-image-turbo` are available; evidence
     status is `passed`, provider is `ollama`, doctors are live-ready, and
-    redaction scan values are all `false`. This validates local image and
+    redaction scan values are all `false`. Generated-image metadata is bounded.
+    The log must not contain a ReqLLM unverified-model warning for
+    `x/z-image-turbo`, `decode_images_response`, or "Image approval completed
+    without an existing generated image file." This validates local image and
     vision only; it does not validate video.
 
 14. Run the Gemma 4 local vision-candidate smoke through the Ollama profile.
@@ -442,12 +453,23 @@ until after recording the evidence paths you will report.
     jq -r '.status, .provider, .profiles.vision_input' "$V049_GEMMA4_EVIDENCE"
     jq '.doctors.vision_input' "$V049_GEMMA4_EVIDENCE"
     jq '.redaction_scan' "$V049_GEMMA4_EVIDENCE"
+    jq '.image_generation.image_metadata | {mime_type, image_format, byte_size, width, height}' \
+      "$V049_GEMMA4_EVIDENCE"
+    if rg -n 'Using unverified model|decode_images_response|Image approval completed without' "$V049_GEMMA4_LOG"; then
+      echo "Unexpected ReqLLM/Ollama image warning or decoder failure"
+      false
+    else
+      echo "No ReqLLM/Ollama image warning or decoder failure"
+    fi
     ```
 
     Expected: evidence status is `passed`, provider is `ollama`,
     `profiles.vision_input` is `vision_ollama`, the vision doctor records the
     overridden Gemma 4 model as available, and redaction scan values are all
-    `false`.
+    `false`. Generated-image metadata is bounded. The log must not contain a
+    ReqLLM unverified-model warning for `x/z-image-turbo`,
+    `decode_images_response`, or "Image approval completed without an existing
+    generated image file."
 
 15. Start a disposable workspace server for browser/UI validation.
 

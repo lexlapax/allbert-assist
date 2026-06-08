@@ -20,7 +20,9 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
     "ALLBERT_HOME",
     "ALLBERT_HOME_DIR",
     "ALLBERT_SETTINGS_ROOT",
-    "ALLBERT_SETTINGS_MASTER_KEY"
+    "ALLBERT_SETTINGS_MASTER_KEY",
+    "OPENAI_API_KEY",
+    "OLLAMA_BASE_URL"
   ]
 
   setup do
@@ -217,6 +219,45 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
     assert approved.confirmation["operator_resolution"]["target_status"] == "completed"
   end
 
+  test "approved local Ollama image output omits OpenAI output_format", %{home: home} do
+    enable_image!()
+    use_ollama_image!()
+    System.put_env("OPENAI_API_KEY", "sk-test-must-not-leak")
+
+    Req.Test.expect(__MODULE__, fn %{request_path: "/v1/images/generations"} = conn ->
+      assert Plug.Conn.get_req_header(conn, "authorization") == ["Bearer ollama"]
+
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      decoded = Jason.decode!(body)
+
+      assert decoded["model"] == "x/z-image-turbo"
+      assert decoded["prompt"] == "local ollama image"
+      refute Map.has_key?(decoded, "output_format")
+
+      conn
+      |> Plug.Conn.put_resp_content_type("application/json")
+      |> Plug.Conn.send_resp(
+        200,
+        Jason.encode!(%{"data" => [%{"b64_json" => Base.encode64(@png)}]})
+      )
+    end)
+
+    assert {:ok, response} =
+             GenerateImage.run(
+               %{prompt: "local ollama image"},
+               approved_context(req_http_options: [plug: {Req.Test, __MODULE__}])
+             )
+
+    assert response.status == :completed
+    assert response.image_file =~ Path.join([home, "tmp", "generated-images"])
+    assert File.regular?(response.image_file)
+    assert response.image_metadata.provider_profile == "image_ollama"
+    assert response.image_metadata.provider == "local_ollama"
+    assert response.image_metadata.model == "x/z-image-turbo"
+    assert response.image_metadata.image_format == "png"
+    assert response.image_metadata.mime_type == "image/png"
+  end
+
   test "approved retryable provider failure falls back once to next candidate" do
     enable_image!()
     use_openai_then_fake_image!()
@@ -272,6 +313,15 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
              Settings.put(
                "model_preferences.capabilities.image_generation",
                ["image_openai", "image_fake"],
+               %{audit?: false}
+             )
+  end
+
+  defp use_ollama_image! do
+    assert {:ok, _setting} =
+             Settings.put(
+               "model_preferences.capabilities.image_generation",
+               ["image_ollama"],
                %{audit?: false}
              )
   end
