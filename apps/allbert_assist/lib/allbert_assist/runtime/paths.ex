@@ -15,6 +15,7 @@ defmodule AllbertAssist.Runtime.Paths do
           | :settings
           | :memory
           | :memory_deleted
+          | :artifacts
           | :confirmations
           | :execution
           | :package_installs
@@ -54,6 +55,10 @@ defmodule AllbertAssist.Runtime.Paths do
   @doc "Return the archived deleted-memory root."
   @spec memory_deleted_root() :: String.t()
   defdelegate memory_deleted_root(), to: Paths
+
+  @doc "Return the artifact content-addressable store root."
+  @spec artifacts_root() :: String.t()
+  defdelegate artifacts_root(), to: Paths
 
   @doc "Return the durable confirmation request root."
   @spec confirmations_root() :: String.t()
@@ -137,6 +142,7 @@ defmodule AllbertAssist.Runtime.Paths do
   def root(:settings), do: settings_root()
   def root(:memory), do: memory_root()
   def root(:memory_deleted), do: memory_deleted_root()
+  def root(:artifacts), do: artifacts_root()
   def root(:confirmations), do: confirmations_root()
   def root(:execution), do: execution_root()
   def root(:package_installs), do: package_installs_root()
@@ -165,6 +171,7 @@ defmodule AllbertAssist.Runtime.Paths do
       settings: settings_root(),
       memory: memory_root(),
       memory_deleted: memory_deleted_root(),
+      artifacts: artifacts_root(),
       confirmations: confirmations_root(),
       execution: execution_root(),
       package_installs: package_installs_root(),

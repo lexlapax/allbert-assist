@@ -74,6 +74,9 @@ defmodule AllbertAssist.Paths do
       Path.join(memory_root(), "preferences"),
       Path.join(memory_root(), "traces"),
       Path.join(memory_root(), "skills"),
+      artifacts_root(),
+      Path.join(artifacts_root(), "objects"),
+      Path.join(artifacts_root(), "index"),
       workspace_root(),
       workspace_canvas_root(),
       workspace_ephemeral_root(),
@@ -122,6 +125,19 @@ defmodule AllbertAssist.Paths do
   @spec memory_deleted_root() :: String.t()
   def memory_deleted_root do
     Path.join(memory_root(), "deleted")
+  end
+
+  @doc "Return the artifact content-addressable store root."
+  @spec artifacts_root() :: String.t()
+  def artifacts_root do
+    first_path(
+      [
+        app_root(AllbertAssist.Artifacts),
+        configured(:artifacts_root),
+        env_path("ALLBERT_ARTIFACTS_ROOT")
+      ],
+      Path.join(home(), "artifacts")
+    )
   end
 
   @doc "Return the durable confirmation request root."
