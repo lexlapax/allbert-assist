@@ -35,6 +35,7 @@ defmodule AllbertAssistWeb.MixProject do
 
   defp shipped_plugin_web_paths do
     [
+      Path.expand("../../plugins/allbert.artifacts/lib/allbert_artifacts_web", __DIR__),
       Path.expand("../../plugins/stocksage/lib/stocksage_web", __DIR__)
     ]
   end

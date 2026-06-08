@@ -5,6 +5,7 @@
 @source "../css";
 @source "../js";
 @source "../../lib/allbert_assist_web";
+@source "../../../../plugins/allbert.artifacts/lib/allbert_artifacts_web";
 @source "../../../../plugins/stocksage/lib/stocksage_web";
 
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.

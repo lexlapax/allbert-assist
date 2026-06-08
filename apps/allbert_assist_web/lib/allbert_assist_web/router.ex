@@ -41,6 +41,7 @@ defmodule AllbertAssistWeb.Router do
   scope "/" do
     pipe_through :browser
 
+    live "/apps/artifacts/:sha", AllbertArtifactsWeb.ArtifactLive, :show
     live "/apps/stocksage/analyses/:id", StockSageWeb.AnalysisLive, :show
   end
 

@@ -703,9 +703,10 @@ historical aliases only and remain in old reference notes for continuity.
   Central as a plugin/app (`plugins/allbert.artifacts/`, plugin id
   `allbert.artifacts`, modeled on StockSage and `allbert.browser`): a workspace
   `:canvas_panels` panel (M1 complete), an
-  `/apps/artifacts/<sha>` detail page, and a `mix allbert.artifacts` CLI, all
-  reading the store only through core `:artifact_read` actions and rendering
-  redacted metadata only. Adds `:v050b` artifact-browser eval rows,
+  `/apps/artifacts/<sha>` detail page (M2 complete; core route, plugin-owned
+  LiveView, sha validation before store reads), and a `mix allbert.artifacts`
+  CLI, all reading the store only through core `:artifact_read` actions and
+  rendering redacted metadata only. Adds `:v050b` artifact-browser eval rows,
   `release.v050b`, and deterministic browser-validation fixture seeding — the
   plugin grants no authority and owns no store internals.
 - v0.51: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
