@@ -171,6 +171,15 @@ defmodule AllbertAssist.Settings.Schema do
     "image.generation.retention_enabled",
     "image.generation.retention_root",
     "image.trace.redact_images",
+    "artifacts.enabled",
+    "artifacts.root",
+    "artifacts.retention_enabled",
+    "artifacts.max_bytes",
+    "artifacts.allowed_mime",
+    "artifacts.allowed_types",
+    "artifacts.gc.enabled",
+    "artifacts.gc.delete_orphans",
+    "artifacts.trace.redact_bytes",
     "marketplace.enabled",
     "marketplace.catalog.cache_path",
     "marketplace.install.target_dir_skills",
@@ -1417,6 +1426,84 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false
     },
     "image.trace.redact_images" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "artifacts.schema_version" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: false,
+      sensitive?: false,
+      min: 1,
+      max: 1
+    },
+    "artifacts.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "artifacts.root" => %{
+      type: :string,
+      default: "<ALLBERT_HOME>/artifacts",
+      writable?: true,
+      sensitive?: false
+    },
+    "artifacts.retention_enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "artifacts.max_bytes" => %{
+      type: :bounded_integer,
+      default: 20_971_520,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 104_857_600
+    },
+    "artifacts.allowed_mime" => %{
+      type: :string_list,
+      default: ["*/*"],
+      writable?: true,
+      sensitive?: false
+    },
+    "artifacts.allowed_types" => %{
+      type: :string_list,
+      default: ["*"],
+      writable?: true,
+      sensitive?: false
+    },
+    "artifacts.dedup" => %{
+      type: :enum,
+      default: "content_sha256",
+      writable?: false,
+      sensitive?: false,
+      allowed_values: ["content_sha256"]
+    },
+    "artifacts.gc.mode" => %{
+      type: :enum,
+      default: "on_demand",
+      writable?: false,
+      sensitive?: false,
+      allowed_values: ["on_demand"]
+    },
+    "artifacts.gc.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "artifacts.gc.delete_orphans" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "artifacts.trace.redact_bytes" => %{
       type: :boolean,
       default: true,
       writable?: true,
@@ -2812,6 +2899,24 @@ defmodule AllbertAssist.Settings.Schema do
       },
       "trace" => %{
         "redact_images" => true
+      }
+    },
+    "artifacts" => %{
+      "schema_version" => 1,
+      "enabled" => false,
+      "root" => "<ALLBERT_HOME>/artifacts",
+      "retention_enabled" => false,
+      "max_bytes" => 20_971_520,
+      "allowed_mime" => ["*/*"],
+      "allowed_types" => ["*"],
+      "dedup" => "content_sha256",
+      "gc" => %{
+        "mode" => "on_demand",
+        "enabled" => false,
+        "delete_orphans" => true
+      },
+      "trace" => %{
+        "redact_bytes" => true
       }
     },
     "marketplace" => %{

@@ -9,18 +9,83 @@ defmodule AllbertAssist.Artifacts do
   """
 
   alias AllbertAssist.Artifacts.Bounds
+  alias AllbertAssist.Artifacts.Config
   alias AllbertAssist.Artifacts.MetadataIndex
   alias AllbertAssist.Artifacts.Store
+  alias AllbertAssist.Resources.ResourceURI
 
   @doc "Store bytes and write allow-listed metadata for the resulting object."
   @spec put(binary(), map(), keyword()) :: {:ok, map()} | {:error, term()}
   def put(bytes, metadata \\ %{}, opts \\ []) when is_binary(bytes) and is_map(metadata) do
+    opts = Config.with_bounds(opts)
+
     with {:ok, bounds} <- Bounds.validate(bytes, metadata, opts),
          {:ok, object} <- Store.put(bytes, opts),
          metadata <- Map.merge(metadata, %{sha256: object.sha256, byte_size: object.byte_size}),
          metadata <- Map.put_new(metadata, :mime, bounds.mime),
          {:ok, indexed} <- MetadataIndex.write(metadata, opts) do
       {:ok, Map.put(object, :metadata, indexed)}
+    end
+  end
+
+  @doc "Store bytes through the Settings-backed retained-artifact policy."
+  @spec put_retained(binary(), map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def put_retained(bytes, metadata \\ %{}, opts \\ [])
+      when is_binary(bytes) and is_map(metadata) do
+    with :ok <- ensure_write_enabled(),
+         :ok <- ensure_retention_enabled(),
+         metadata <- retained_metadata(metadata),
+         {:ok, artifact} <- put(bytes, metadata, opts) do
+      {:ok, public_artifact(artifact)}
+    end
+  end
+
+  @doc "Read artifact metadata and optionally bytes by SHA-256 or artifact URI."
+  @spec get(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def get(artifact_ref, opts \\ []) do
+    include_bytes? = Keyword.get(opts, :include_bytes?, false)
+
+    with {:ok, sha256} <- normalize_ref(artifact_ref),
+         {:ok, metadata} <- MetadataIndex.lookup(sha256, opts),
+         {:ok, bytes} <- maybe_read_bytes(sha256, include_bytes?, opts) do
+      artifact =
+        %{
+          sha256: sha256,
+          artifact_uri: artifact_uri(sha256),
+          metadata: metadata
+        }
+        |> maybe_put(:bytes, bytes)
+
+      {:ok, artifact}
+    end
+  end
+
+  @doc "List artifact metadata records with lightweight filters."
+  @spec list(keyword()) :: {:ok, [map()]} | {:error, term()}
+  def list(opts \\ []) do
+    with {:ok, records} <- MetadataIndex.list(opts) do
+      records
+      |> Enum.map(&metadata_artifact/1)
+      |> filter_records(opts)
+      |> limit_records(Keyword.get(opts, :limit))
+      |> then(&{:ok, &1})
+    end
+  end
+
+  @doc "Delete artifact bytes and metadata by SHA-256 or artifact URI."
+  @spec delete(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def delete(artifact_ref, opts \\ []) do
+    with {:ok, sha256} <- normalize_ref(artifact_ref),
+         {:ok, metadata} <- MetadataIndex.lookup(sha256, opts),
+         {:ok, object_delete} <- Store.delete(sha256, opts),
+         metadata_delete <- delete_metadata(sha256, opts) do
+      {:ok,
+       %{
+         sha256: sha256,
+         artifact_uri: artifact_uri(sha256),
+         metadata: metadata,
+         deleted: %{object: object_delete, metadata: metadata_delete}
+       }}
     end
   end
 
@@ -35,4 +100,105 @@ defmodule AllbertAssist.Artifacts do
   @doc "List persisted artifact metadata records."
   @spec list_metadata(keyword()) :: {:ok, [map()]} | {:error, term()}
   defdelegate list_metadata(opts \\ []), to: MetadataIndex, as: :list
+
+  @doc "Return the canonical artifact URI for a SHA-256 digest."
+  @spec artifact_uri(String.t()) :: String.t()
+  def artifact_uri(sha256), do: ResourceURI.artifact!(sha256)
+
+  @doc false
+  @spec normalize_ref(term()) :: {:ok, String.t()} | {:error, term()}
+  def normalize_ref(ref) when is_binary(ref) do
+    cond do
+      Store.valid_sha256?(ref) ->
+        {:ok, ref}
+
+      String.starts_with?(ref, "artifact://") ->
+        case ResourceURI.derived_fields(ref) do
+          {:ok, %{sha256: sha256}} -> {:ok, sha256}
+          {:error, reason} -> {:error, reason}
+        end
+
+      true ->
+        {:error, :invalid_sha256}
+    end
+  end
+
+  def normalize_ref(_ref), do: {:error, :invalid_sha256}
+
+  defp ensure_write_enabled do
+    if Config.enabled?(), do: :ok, else: {:error, :artifacts_disabled}
+  end
+
+  defp ensure_retention_enabled do
+    if Config.retention_enabled?(), do: :ok, else: {:error, :artifact_retention_disabled}
+  end
+
+  defp retained_metadata(metadata) do
+    metadata
+    |> Map.put_new(:retention, "retained")
+    |> Map.put_new(:lifecycle, "active")
+    |> Map.put_new(:created_at, now())
+    |> Map.put_new(:redaction_status, "metadata_only")
+  end
+
+  defp public_artifact(%{sha256: sha256, metadata: metadata} = artifact) do
+    artifact
+    |> Map.take([:sha256, :byte_size, :deduped?])
+    |> Map.put(:artifact_uri, artifact_uri(sha256))
+    |> Map.put(:metadata, metadata)
+  end
+
+  defp metadata_artifact(%{sha256: sha256} = metadata) do
+    %{
+      sha256: sha256,
+      artifact_uri: artifact_uri(sha256),
+      metadata: metadata
+    }
+  end
+
+  defp maybe_read_bytes(_sha256, false, _opts), do: {:ok, nil}
+  defp maybe_read_bytes(sha256, true, opts), do: Store.read(sha256, opts)
+
+  defp delete_metadata(sha256, opts) do
+    case MetadataIndex.delete(sha256, opts) do
+      {:ok, deleted} -> deleted
+      {:error, :not_found} -> %{sha256: sha256, deleted?: false, reason: :not_found}
+      {:error, reason} -> %{sha256: sha256, deleted?: false, reason: reason}
+    end
+  end
+
+  defp filter_records(records, opts) do
+    records
+    |> filter_by_metadata(:mime, Keyword.get(opts, :mime))
+    |> filter_by_metadata(:origin, Keyword.get(opts, :origin))
+    |> filter_by_metadata(:retention, Keyword.get(opts, :retention))
+    |> filter_by_metadata(:lifecycle, Keyword.get(opts, :lifecycle))
+  end
+
+  defp filter_by_metadata(records, _key, nil), do: records
+
+  defp filter_by_metadata(records, key, expected) do
+    Enum.filter(records, fn %{metadata: metadata} -> metadata_value(metadata, key) == expected end)
+  end
+
+  defp limit_records(records, nil), do: records
+
+  defp limit_records(records, limit) when is_integer(limit) and limit > 0 do
+    Enum.take(records, limit)
+  end
+
+  defp limit_records(records, _limit), do: records
+
+  defp metadata_value(metadata, key) do
+    Map.get(metadata, key, Map.get(metadata, Atom.to_string(key)))
+  end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  defp now do
+    DateTime.utc_now()
+    |> DateTime.truncate(:second)
+    |> DateTime.to_iso8601()
+  end
 end

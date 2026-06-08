@@ -330,6 +330,55 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("permissions.artifact_delete", "allowed", %{audit?: false})
   end
 
+  test "artifact settings fragment resolves defaults and validates safe writes" do
+    assert {:ok, 1} = Settings.get("artifacts.schema_version")
+    assert {:ok, false} = Settings.get("artifacts.enabled")
+    assert {:ok, "<ALLBERT_HOME>/artifacts"} = Settings.get("artifacts.root")
+    assert {:ok, false} = Settings.get("artifacts.retention_enabled")
+    assert {:ok, 20_971_520} = Settings.get("artifacts.max_bytes")
+    assert {:ok, ["*/*"]} = Settings.get("artifacts.allowed_mime")
+    assert {:ok, ["*"]} = Settings.get("artifacts.allowed_types")
+    assert {:ok, "content_sha256"} = Settings.get("artifacts.dedup")
+    assert {:ok, "on_demand"} = Settings.get("artifacts.gc.mode")
+    assert {:ok, false} = Settings.get("artifacts.gc.enabled")
+    assert {:ok, true} = Settings.get("artifacts.gc.delete_orphans")
+    assert {:ok, true} = Settings.get("artifacts.trace.redact_bytes")
+
+    assert Settings.safe_write_key?("artifacts.enabled")
+    assert Settings.safe_write_key?("artifacts.root")
+    assert Settings.safe_write_key?("artifacts.retention_enabled")
+    assert Settings.safe_write_key?("artifacts.max_bytes")
+    assert Settings.safe_write_key?("artifacts.allowed_mime")
+    assert Settings.safe_write_key?("artifacts.allowed_types")
+    assert Settings.safe_write_key?("artifacts.gc.enabled")
+    assert Settings.safe_write_key?("artifacts.gc.delete_orphans")
+    assert Settings.safe_write_key?("artifacts.trace.redact_bytes")
+
+    assert {:ok, resolved} = Settings.put("artifacts.enabled", true, %{audit?: false})
+    assert resolved.value == true
+
+    assert {:ok, resolved} = Settings.put("artifacts.max_bytes", 2048, %{audit?: false})
+    assert resolved.value == 2048
+
+    assert {:ok, resolved} =
+             Settings.put("artifacts.allowed_mime", ["image/*", "text/plain"], %{audit?: false})
+
+    assert resolved.value == ["image/*", "text/plain"]
+
+    assert {:error, {:invalid_setting, "artifacts.max_bytes", _reason}} =
+             Settings.put("artifacts.max_bytes", 0, %{audit?: false})
+
+    assert {:error, {:read_only_setting, "artifacts.schema_version"}} =
+             Settings.put("artifacts.schema_version", 2, %{audit?: false})
+
+    assert {:ok, fragment} = Fragments.fragment_for_key("artifacts.enabled")
+    assert fragment.id == "core:artifacts"
+    assert fragment.defaults["artifacts"]["schema_version"] == 1
+    assert "artifacts.enabled" in fragment.safe_write_keys
+    refute "artifacts.schema_version" in fragment.safe_write_keys
+    refute "artifacts.dedup" in fragment.safe_write_keys
+  end
+
   test "objective runtime settings resolve defaults and validate writes" do
     assert {:ok, true} = Settings.get("objectives.enabled")
     assert {:ok, 3} = Settings.get("objectives.max_steps_per_turn")

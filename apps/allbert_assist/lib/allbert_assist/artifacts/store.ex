@@ -6,7 +6,7 @@ defmodule AllbertAssist.Artifacts.Store do
   path, and written through a temporary file followed by `File.rename/2`.
   """
 
-  alias AllbertAssist.Runtime.Paths
+  alias AllbertAssist.Artifacts.Config
 
   @sha256_pattern ~r/\A[0-9a-f]{64}\z/
 
@@ -69,6 +69,39 @@ defmodule AllbertAssist.Artifacts.Store do
     end
   end
 
+  @doc "Delete a persisted object by lowercase SHA-256."
+  @spec delete(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def delete(sha256, opts \\ []) do
+    with {:ok, path} <- object_path(sha256, opts) do
+      case File.rm(path) do
+        :ok ->
+          {:ok, %{sha256: sha256, path: path, deleted?: true}}
+
+        {:error, :enoent} ->
+          {:error, :not_found}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  @doc "List object SHA-256 digests currently present in the object tree."
+  @spec list_objects(keyword()) :: {:ok, [String.t()]} | {:error, term()}
+  def list_objects(opts \\ []) do
+    opts
+    |> objects_root()
+    |> Path.join("**/*")
+    |> Path.wildcard()
+    |> Enum.filter(&File.regular?/1)
+    |> Enum.map(&Path.basename/1)
+    |> Enum.filter(&valid_sha256?/1)
+    |> Enum.sort()
+    |> then(&{:ok, &1})
+  rescue
+    exception -> {:error, {exception.__struct__, Exception.message(exception)}}
+  end
+
   @doc "Return an object path when the SHA-256 is valid."
   @spec object_path(String.t(), keyword()) :: {:ok, String.t()} | {:error, :invalid_sha256}
   def object_path(sha256, opts \\ []) do
@@ -106,10 +139,12 @@ defmodule AllbertAssist.Artifacts.Store do
     opts
     |> Keyword.get(:root)
     |> case do
-      nil -> Paths.artifacts_root()
+      nil -> Config.root()
       path when is_binary(path) -> Path.expand(path)
     end
   end
+
+  defp objects_root(opts), do: Path.join(root(opts), "objects")
 
   defp write_object(bytes, sha256, path) do
     dir = Path.dirname(path)
