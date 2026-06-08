@@ -671,7 +671,8 @@ historical aliases only and remain in old reference notes for continuity.
   secret scanning. Content hashes remain metadata only; the canonical
   content-addressed artifact store is v0.50. Video input, generic audio
   understanding, and catch-all multimodal routing remain future scope.
-- v0.50: Artifacts Central. M1-M6 have landed the Home-rooted CAS object store,
+- v0.50: Artifacts Central. Implemented as `0.50.0`. M1-M7 have landed the
+  Home-rooted CAS object store,
   markdown metadata sidecar, `artifact://sha256/<hex>` identity, artifact
   permissions/redaction, pre-write bounds, the persisted `artifacts.*` fragment,
   core artifact actions, `artifact_doctor`, delete confirmation, and supervised
@@ -681,7 +682,8 @@ historical aliases only and remain in old reference notes for continuity.
   generated-image/workspace voice/workspace image ingestion through Artifacts
   Central, plus the first supervised `Jido.Sensor.Runtime` path for redacted
   retained-ingestion request signals with an explicit dispatch target and
-  `put_artifact` as the only write path; M7 remains the planned completion path.
+  `put_artifact` as the only write path, the `:v050` eval rows,
+  `release.v050`, and operator/developer/security docs.
   A uniform
   content-addressable store for durable
   artifacts — uploaded by the operator, created by Allbert, or found through

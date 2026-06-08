@@ -39,6 +39,8 @@ changes:
 | `marketplace.enabled` | `false` | v0.45 Marketplace Lite catalog browse/install surface. |
 | `self_improvement.enabled` | `false` | v0.47 self-improvement discovery, suggestion, and draft surface. |
 | `self_improvement.trace_index.enabled` | `false` | v0.47 trace-index reads for self-improvement discovery. |
+| `artifacts.enabled` | `false` | v0.50 Artifacts Central action surface. |
+| `artifacts.retention_enabled` | `false` | v0.50 durable artifact retention writes. |
 
 Example:
 
@@ -52,6 +54,10 @@ mix allbert.settings set templates.create.enabled false
 mix allbert.settings set marketplace.enabled false
 mix allbert.settings set self_improvement.enabled false
 mix allbert.settings set self_improvement.trace_index.enabled false
+mix allbert.settings set artifacts.enabled false
+mix allbert.settings set artifacts.retention_enabled false
+mix allbert.settings set permissions.artifact_write denied
+mix allbert.settings set permissions.artifact_delete needs_confirmation
 mix allbert.settings set permissions.marketplace_install denied
 mix allbert.settings set permissions.sandbox_trial denied
 ```
@@ -114,6 +120,15 @@ mix allbert.settings set permissions.sandbox_trial denied
   disabled/untrusted or draft-only; live promotion to skills, workflows, or
   memory requires the existing registered action permission plus durable
   confirmation.
+- Treat v0.50 Artifacts Central as durable local data, not permission
+  authority. `artifacts.enabled=false` blocks the core artifact action surface;
+  `artifacts.retention_enabled=false` blocks durable retention writes even when
+  the store exists. `artifact://sha256/<hex>` ids, metadata sidecars,
+  `artifact_thread_links`, and ingestion sensor signals are provenance and
+  identity only. Reads/writes/deletes still require `:artifact_read`,
+  `:artifact_write`, and confirmation-gated `:artifact_delete`. Raw bytes stay
+  under `<ALLBERT_HOME>/artifacts/objects/`; traces, sidecars, LiveView,
+  audits, CLI output, and release evidence carry redacted metadata only.
 
 ## Implemented And Planned v1.0 Threat Surfaces
 
@@ -323,6 +338,20 @@ eval surfaces until their capability work lands.
   constrain-and-reject without a resize/transcode dependency, and generated
   image outputs use sniffed returned bytes rather than provider-declared MIME as
   metadata authority.
+- Artifacts Central (v0.50 implemented surface): content-addressed artifact
+  identities are immutable and inert; raw bytes and local paths are redacted
+  from traces/logs/metadata; `artifact://sha256/<hex>` does not grant read
+  authority; delete requires confirmation; retention is default-off; ingest
+  bounds are enforced before write; the supervised Jido ingestion sensor is
+  advisory only and has no private writer; thread links are provenance only.
+  Implemented eval rows: `artifact-content-address-immutable-001`,
+  `artifact-bytes-trace-redaction-001`,
+  `artifact-identity-no-authority-001`,
+  `artifact-delete-confirmation-001`,
+  `artifact-retention-default-off-001`,
+  `artifact-ingest-bounds-001`,
+  `artifact-sensor-advisory-only-001`, and
+  `artifact-thread-link-no-authority-001`.
 - MCP-server public protocol auth, rate limits, redaction, and confirmation
   ownership. API, ACP, and public AG-UI/A2UI bridge evals remain parked
   post-1.0.

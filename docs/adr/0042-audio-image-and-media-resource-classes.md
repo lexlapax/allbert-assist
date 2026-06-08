@@ -7,9 +7,9 @@
 - Accepted for the v0.49 image/screenshot amendment in M1
   (`docs/plans/v0.49-plan.md`) after catalog/settings, app-started ReqLLM
   probe, and fixture-profile evidence.
-- Proposed for the v0.50 artifact-resource amendment; acceptance target is
-  v0.50 M1 after the object store, metadata index, and `artifact://` scheme
-  evidence lands.
+- Accepted for the v0.50 artifact-resource amendment after Artifacts Central,
+  retained-media backfill, the supervised ingestion sensor, and `release.v050`
+  evidence landed.
 - The v0.48 audio amendments below are the implementation-readiness contract
   for voice. The v0.49 image, screenshot, and generated-media portions are
   shipped as bounded media resources; the v0.50 amendment below promotes

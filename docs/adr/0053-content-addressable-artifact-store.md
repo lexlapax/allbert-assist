@@ -2,11 +2,9 @@
 
 ## Status
 
-Proposed for v0.50 Artifacts Central; accepted at v0.50 M1 closeout after the
-object-store, metadata-index, and resource-scheme evidence lands. Amended by
-ADR 0054, which adds artifact↔thread/message provenance linking and the
-core-kernel-vs-plugin browsing-surface split (the operator browser ships in
-v0.50b).
+Accepted for v0.50 Artifacts Central. Amended by ADR 0054, which adds
+artifact↔thread/message provenance linking and the core-kernel-vs-plugin
+browsing-surface split (the operator browser ships in v0.50b).
 
 ## Context
 

@@ -34,6 +34,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v047b
           | :v048
           | :v049
+          | :v050
 
   @type required_surface ::
           :resource_execution
@@ -57,6 +58,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :operator_supervised_self_improvement
           | :voice_modality
           | :vision_modality
+          | :artifact_store
           | :operator_review
 
   @type surface :: required_surface() | :workspace_live_navigation
@@ -2624,6 +2626,86 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V049VisionModalityEvalTest"
     },
     %{
+      id: "artifact-content-address-immutable-001",
+      milestone: :v050,
+      surface: :artifact_store,
+      scenario: "artifact bytes are rewritten under an existing content address",
+      boundary: :artifact_content_address,
+      expected: :allowed,
+      assert: [:sha256_identity, :deduped_object, :metadata_sidecar],
+      test_module: "AllbertAssist.Security.V050ArtifactStoreEvalTest"
+    },
+    %{
+      id: "artifact-bytes-trace-redaction-001",
+      milestone: :v050,
+      surface: :artifact_store,
+      scenario: "artifact action traces or logs expose raw artifact bytes or local paths",
+      boundary: :artifact_trace_redaction,
+      expected: :allowed,
+      assert: [:metadata_only, :no_raw_bytes, :no_local_path],
+      test_module: "AllbertAssist.Security.V050ArtifactStoreEvalTest"
+    },
+    %{
+      id: "artifact-identity-no-authority-001",
+      milestone: :v050,
+      surface: :artifact_store,
+      scenario: "artifact://sha256 identifier grants read permission by itself",
+      boundary: :artifact_resource_identity,
+      expected: :denied,
+      assert: [:permission_denied, :identity_inert],
+      test_module: "AllbertAssist.Security.V050ArtifactStoreEvalTest"
+    },
+    %{
+      id: "artifact-delete-confirmation-001",
+      milestone: :v050,
+      surface: :artifact_store,
+      scenario: "artifact deletion removes bytes without operator confirmation",
+      boundary: :artifact_delete_confirmation,
+      expected: :needs_confirmation,
+      assert: [:needs_confirmation, :object_retained_until_approved],
+      test_module: "AllbertAssist.Security.V050ArtifactStoreEvalTest"
+    },
+    %{
+      id: "artifact-retention-default-off-001",
+      milestone: :v050,
+      surface: :artifact_store,
+      scenario: "artifact retention stores bytes while retention is default-off",
+      boundary: :artifact_retention_policy,
+      expected: :denied,
+      assert: [:retention_default_off, :no_object_written],
+      test_module: "AllbertAssist.Security.V050ArtifactStoreEvalTest"
+    },
+    %{
+      id: "artifact-ingest-bounds-001",
+      milestone: :v050,
+      surface: :artifact_store,
+      scenario: "artifact ingest accepts oversized or disallowed content before write",
+      boundary: :artifact_ingest_bounds,
+      expected: :denied,
+      assert: [:max_bytes_enforced, :mime_allowlist_enforced, :no_object_written],
+      test_module: "AllbertAssist.Security.V050ArtifactStoreEvalTest"
+    },
+    %{
+      id: "artifact-sensor-advisory-only-001",
+      milestone: :v050,
+      surface: :artifact_store,
+      scenario: "supervised ingestion sensor bypasses artifact_write permission",
+      boundary: :artifact_ingestion_sensor,
+      expected: :denied,
+      assert: [:permission_denied, :sensor_no_private_writer],
+      test_module: "AllbertAssist.Security.V050ArtifactStoreEvalTest"
+    },
+    %{
+      id: "artifact-thread-link-no-authority-001",
+      milestone: :v050,
+      surface: :artifact_store,
+      scenario: "artifact thread provenance link grants read access by thread id",
+      boundary: :artifact_thread_link,
+      expected: :denied,
+      assert: [:link_is_provenance_only, :read_permission_still_required],
+      test_module: "AllbertAssist.Security.V050ArtifactStoreEvalTest"
+    },
+    %{
       id: "sandbox-backend-disabled-001",
       milestone: :v036,
       surface: :elixir_sandbox,
@@ -2786,6 +2868,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
     :operator_supervised_self_improvement,
     :voice_modality,
     :vision_modality,
+    :artifact_store,
     :operator_review
   ]
 

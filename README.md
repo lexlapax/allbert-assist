@@ -23,7 +23,7 @@ to generate and reuse.
 
 ## Current Shape
 
-The current implementation is `v0.49.0`. This README is the stable project
+The current implementation is `v0.50.0`. This README is the stable project
 orientation; release-by-release implementation detail belongs in
 [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in
 [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -83,8 +83,8 @@ The roadmap is intentionally incremental: prove a contract through real
 runtime use, document its authority boundary, add release evidence, and only
 then make the contract easier to reuse. The current roadmap sequence has
 operator-supervised self-improvement discovery/local drafts in v0.47, handoff
-drafts in v0.47b/`0.47.1`, provider-capability-backed voice in v0.48, and
-vision/image generation in v0.49.
+drafts in v0.47b/`0.47.1`, provider-capability-backed voice in v0.48,
+vision/image generation in v0.49, and Artifacts Central in v0.50.
 Fake providers are test fixtures only; operator-facing provider milestones
 target real configured endpoints/providers.
 Vision/image generation in v0.49 consumes the v0.48 provider capability

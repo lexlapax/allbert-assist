@@ -10,6 +10,72 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.50.0 - Artifacts Central
+
+Status: implemented as the v0.50 release. Current version metadata is
+`0.50.0`; ready for operator manual validation before the release tag.
+
+### Added
+
+- Artifacts Central: a Home-rooted, type-agnostic content-addressable store
+  under `<ALLBERT_HOME>/artifacts`, addressed by
+  `artifact://sha256/<hex>` with sharded SHA-256 object files and
+  markdown-first metadata sidecars.
+- Artifact Resource Access identity, operation classes, permissions
+  (`:artifact_read`, `:artifact_write`, `:artifact_delete`), and the
+  `artifacts` redaction surface. Content addresses are inert and never grant
+  permission.
+- Core registered actions:
+  `put_artifact`, `get_artifact`, `list_artifacts`, `artifact_threads`,
+  `delete_artifact`, and `artifact_doctor`; delete is confirmation-gated.
+- `artifacts.*` Settings Central fragment with default-off retention,
+  byte/MIME/type bounds, root policy, and GC settings.
+- `artifact_thread_links` SQLite provenance edges for created-by/referenced-by
+  conversation links, with by-thread listing and reverse artifact-to-thread
+  lookup.
+- Retained-media backfill for v0.48 audio, v0.49 vision uploads, and v0.49
+  generated images. New retained workspace voice, workspace image, and
+  generated-image writes route through Artifacts Central while transient
+  scratch remains scratch.
+- The first supervised `Jido.Sensor` ingestion path:
+  `IngestionSensor` under `Jido.Sensor.Runtime`, explicit
+  `IngestionConsumer` dispatch target, redacted
+  `allbert.artifact.ingest_requested` signals, and writes only through
+  `put_artifact`.
+- Eight v0.50 artifact-store security eval rows:
+  `artifact-content-address-immutable-001`,
+  `artifact-bytes-trace-redaction-001`,
+  `artifact-identity-no-authority-001`,
+  `artifact-delete-confirmation-001`,
+  `artifact-retention-default-off-001`,
+  `artifact-ingest-bounds-001`,
+  `artifact-sensor-advisory-only-001`, and
+  `artifact-thread-link-no-authority-001`.
+- `mix allbert.test release.v050`, a deterministic local-fixture release lane
+  covering core store identity/policy, artifact actions, provenance links, GC,
+  retained-media backfill, supervised sensor ingestion, workspace retained
+  media, eval inventory coverage, and a v0.50 artifact/media secret scan.
+
+### Changed
+
+- Retained generated-image, workspace voice, and workspace image flows no longer
+  write durable bytes directly to legacy media roots. The legacy roots remain
+  migration/backfill inputs.
+- v0.49 image and v0.48 audio resource identifiers remain media-resource
+  handles; durable retained bytes now gain canonical artifact identity only
+  through Artifacts Central.
+- Historical Browser cache files remain outside v0.50 backfill. The Artifacts
+  Browser panel/page/CLI ships as the v0.50b plugin/app over core read actions.
+
+### Verification
+
+- `MIX_ENV=test mix test apps/allbert_assist/test/security/v050_artifact_store_eval_test.exs apps/allbert_assist/test/security/security_eval_case_test.exs apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs`
+  passed with 18 tests and 0 failures.
+- `MIX_ENV=test mix allbert.test release.v050` passed. Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v050/p0-13252/home/release_evidence/v050/release-v050-1780930342.json`.
+- The v0.50 evidence scan found no `database is locked`, `SQLITE_BUSY`,
+  `Exqlite.Connection`, or `DBConnection.ConnectionError` noise.
+
 ## v0.49.0 - Vision And Image Generation
 
 Status: implemented as the v0.49 release. Current version metadata is
