@@ -671,17 +671,19 @@ historical aliases only and remain in old reference notes for continuity.
   secret scanning. Content hashes remain metadata only; the canonical
   content-addressed artifact store is v0.50. Video input, generic audio
   understanding, and catch-all multimodal routing remain future scope.
-- v0.50: Artifacts Central. M1-M2 have landed the Home-rooted CAS object store,
+- v0.50: Artifacts Central. M1-M3 have landed the Home-rooted CAS object store,
   markdown metadata sidecar, `artifact://sha256/<hex>` identity, artifact
-  permissions/redaction, and pre-write bounds; M3-M7 remain the planned
-  completion path. A uniform
+  permissions/redaction, pre-write bounds, the persisted `artifacts.*` fragment,
+  core artifact actions, `artifact_doctor`, delete confirmation, and supervised
+  mark-and-sweep GC; M4-M7 remain the planned completion path. A uniform
   content-addressable store for durable
   artifacts — uploaded by the operator, created by Allbert, or found through
   approved tools — type-agnostic and deduplicated by `artifact://sha256/<hex>`
   content hash with provenance/type/retention metadata. Built on Allbert Home,
   Resource Access, Security Central, and the Jido action framework as a thin CAS
-  over `:crypto` SHA-256 + sharded objects; adds `put`/`get`/`list`/`delete`
-  actions and the first supervised Jido ingestion sensor, links artifacts to the
+  over `:crypto` SHA-256 + sharded objects; adds `put_artifact`/`get_artifact`/
+  `list_artifacts`/`delete_artifact` actions and the first supervised Jido
+  ingestion sensor, links artifacts to the
   threads/messages that created them (`artifact_thread_links`, ADR 0054), and
   backfills the retained v0.48 audio, v0.49 vision-input, and v0.49
   generated-image roots from the existing retention-root settings while leaving

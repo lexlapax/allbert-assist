@@ -2949,7 +2949,7 @@ browser-surface split), `docs/adr/0042-audio-image-and-media-resource-classes.md
 `docs/adr/0031-settings-schema-fragments-and-authority.md`,
 `docs/adr/0046-settings-schema-migration-policy.md`
 
-Status: M1-M2 implemented and focused-verified on 2026-06-08; M3-M7 remain
+Status: M1-M3 implemented and focused-verified on 2026-06-08; M4-M7 remain
 planned. Inserts a content-addressable artifact store between v0.49 vision and
 v0.51 Channel Pack 1, so durable media has one canonical home before channels
 begin forwarding attachments. Built on Allbert Home, Resource Access, Security
@@ -2960,9 +2960,11 @@ and metadata-free; upload utilities (waffle, Capsule) are not content-addressed
 stores; so the store is owned in-tree. M1 has landed the Home-rooted
 `artifacts_root`, sharded SHA-256 object store, and markdown metadata sidecar
 index. M2 has landed `artifact://sha256/<hex>` identity, artifact permissions
-and operation vocabulary, artifact redaction, and pre-write bounds enforcement;
-registered actions, the persisted `artifacts.*` fragment, provenance links,
-backfill, sensor, and release gates remain in M3-M7.
+and operation vocabulary, artifact redaction, and pre-write bounds enforcement.
+M3 has landed the persisted `artifacts.*` fragment, core artifact actions,
+delete confirmation, `artifact_doctor`, retention honoring, and supervised
+mark-and-sweep GC; provenance links, backfill, sensor, and release gates remain
+in M4-M7.
 
 Expected direction:
 
@@ -2985,11 +2987,11 @@ Expected direction:
   existing `voice.audio.retention_root`, `vision.media.retention_root`, and
   `image.generation.retention_root` setting keys, while leaving ephemeral
   scratch and historical Browser cache files out of the M5 backfill.
-- Add `put`/`get`/`list`/`delete` registered actions and the codebase's first
-  Jido ingestion sensor (`use Jido.Sensor`, supervised by
-  `Jido.Sensor.Runtime`), wired through the existing `Actions.Registry` and
-  `Actions.Runner`; the sensor emits ingestion-request signals and never writes
-  around `put_artifact`.
+- Add `put_artifact`/`get_artifact`/`list_artifacts`/`delete_artifact`
+  registered actions and the codebase's first Jido ingestion sensor
+  (`use Jido.Sensor`, supervised by `Jido.Sensor.Runtime`), wired through the
+  existing `Actions.Registry` and `Actions.Runner`; the sensor emits
+  ingestion-request signals and never writes around `put_artifact`.
 - Link artifacts to the threads/messages that created or referenced them via an
   `artifact_thread_links` SQLite join table (role created_by/referenced_by) from
   `context.request`, with a by-thread query and reverse lookup; the link is

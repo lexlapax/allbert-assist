@@ -153,6 +153,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "rollback_marketplace_install",
              "list_installed_marketplace_bundles",
              "verify_marketplace_bundle_hash",
+             "put_artifact",
+             "get_artifact",
+             "list_artifacts",
+             "delete_artifact",
+             "artifact_doctor",
              "security_status",
              "security_review",
              "sandbox_doctor",
@@ -304,6 +309,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "rollback_marketplace_install",
              "list_installed_marketplace_bundles",
              "verify_marketplace_bundle_hash",
+             "put_artifact",
+             "get_artifact",
+             "list_artifacts",
+             "delete_artifact",
+             "artifact_doctor",
              "security_status",
              "security_review",
              "sandbox_doctor",
@@ -470,6 +480,16 @@ defmodule AllbertAssist.Actions.RegistryTest do
 
     assert verify_marketplace_bundle_hash.permission == :read_only
     assert verify_marketplace_bundle_hash.execution_mode == :marketplace_browse
+
+    assert {:ok, put_artifact} = Registry.capability("put_artifact")
+    assert put_artifact.permission == :artifact_write
+    assert put_artifact.exposure == :internal
+    assert put_artifact.execution_mode == :artifact_write
+
+    assert {:ok, delete_artifact} = Registry.capability("delete_artifact")
+    assert delete_artifact.permission == :artifact_delete
+    assert delete_artifact.confirmation == :required
+    assert delete_artifact.resumable?
 
     assert {:ok, find_local_tools} = Registry.capability("find_local_tools")
     assert find_local_tools.permission == :read_only

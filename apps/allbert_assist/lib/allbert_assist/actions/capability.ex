@@ -46,6 +46,10 @@ defmodule AllbertAssist.Actions.Capability do
           | :online_skill_import
           | :direct_skill_import
           | :local_skill_import
+          | :artifact_read
+          | :artifact_write
+          | :artifact_delete
+          | :artifact_doctor
           | :settings_read
           | :settings_write
           | :confirmation_decision

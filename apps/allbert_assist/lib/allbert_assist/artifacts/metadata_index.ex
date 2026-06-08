@@ -212,6 +212,25 @@ defmodule AllbertAssist.Artifacts.MetadataIndex do
     end)
   end
 
+  @doc "Delete metadata for an artifact SHA-256 from the markdown sidecar index."
+  @spec delete(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def delete(sha256, opts \\ []) do
+    with :ok <- validate_sha256(sha256),
+         {:ok, path} <- sidecar_path(sha256, opts) do
+      case File.rm(path) do
+        :ok ->
+          :ets.delete(table(), {Store.root(opts), sha256})
+          {:ok, %{sha256: sha256, path: path, deleted?: true}}
+
+        {:error, :enoent} ->
+          {:error, :not_found}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
   defp stringify_keys(metadata) do
     Map.new(metadata, fn
       {key, value} when is_atom(key) -> {Atom.to_string(key), value}

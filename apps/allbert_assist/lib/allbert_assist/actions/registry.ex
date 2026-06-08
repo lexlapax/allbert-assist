@@ -8,6 +8,11 @@ defmodule AllbertAssist.Actions.Registry do
   """
 
   alias AllbertAssist.Action
+  alias AllbertAssist.Actions.Artifacts.ArtifactDoctor
+  alias AllbertAssist.Actions.Artifacts.DeleteArtifact
+  alias AllbertAssist.Actions.Artifacts.GetArtifact
+  alias AllbertAssist.Actions.Artifacts.ListArtifacts
+  alias AllbertAssist.Actions.Artifacts.PutArtifact
   alias AllbertAssist.Actions.Apps.ListApps
   alias AllbertAssist.Actions.Apps.ShowApp
   alias AllbertAssist.Actions.Capability
@@ -230,6 +235,11 @@ defmodule AllbertAssist.Actions.Registry do
     RollbackMarketplaceInstall,
     ListInstalledMarketplaceBundles,
     VerifyMarketplaceBundleHash,
+    PutArtifact,
+    GetArtifact,
+    ListArtifacts,
+    DeleteArtifact,
+    ArtifactDoctor,
     SecurityStatus,
     SecurityReview,
     SandboxDoctor,

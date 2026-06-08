@@ -31,6 +31,15 @@ defmodule AllbertAssist.Security.Redactor do
     "cookie",
     "set-cookie"
   ]
+  @sensitive_key_names [
+    "bytes",
+    "raw_bytes",
+    "content_bytes",
+    "payload_bytes",
+    "bytes_base64",
+    "content_base64",
+    "payload_base64"
+  ]
   @sensitive_query_names ~w[token api_key key secret password bearer access_token auth session]
   @status_keys ["credential_status", "secret_status", "secret_ref_display"]
   @secret_value_patterns [
@@ -100,7 +109,8 @@ defmodule AllbertAssist.Security.Redactor do
       |> String.downcase()
 
     normalized not in @status_keys and
-      Enum.any?(@sensitive_key_fragments, &String.contains?(normalized, &1))
+      (normalized in @sensitive_key_names or
+         Enum.any?(@sensitive_key_fragments, &String.contains?(normalized, &1)))
   end
 
   defp redact_authorization_line(value) do
