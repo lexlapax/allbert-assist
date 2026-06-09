@@ -13,14 +13,18 @@ Apps iframe UI remain parked post-1.0.
 All three honor the same authority rules uniformly: never more authority than a
 local workspace user; every effectful call through `Actions.Runner.run/3` +
 Security Central + confirmations + traces + audits; no external-client
-self-approval (operator-owned Approval Handoff, `:confirmation_pending` + id);
-HTTP-bearing surfaces require per-client Settings-Central tokens (encrypted,
-never logged) behind the v0.35 CSP baseline + rate-limit + redaction; stdio
+self-approval (operator-owned Approval Handoff, `:confirmation_pending` + id).
+The **inbound trust tier** — the `:public_surface_call_inbound` permission class
+and floor, per-client token authentication, inbound rate-limiting, the API
+secure-header posture, and the poll-by-id result-readback exposure — is decided
+in **ADR 0055** (the inbound counterpart to the outbound ADR 0038). stdio
 surfaces remain under ADR 0009 bounds. The non-exposable set (settings,
 secrets, signals, traces, confirmation store, registry internals,
 `:internal` actions, system namespaces, and confirmation-decision actions) is
 unchanged and applies to all three. `hermes_mcp` provides MCP protocol framing
-only; Allbert owns ingress auth and authority. Flips to Accepted at v0.51 M1.
+only; Allbert owns ingress auth and authority. This ADR (exposure: which
+surfaces, what they expose) and ADR 0055 (inbound trust/auth/readback) both flip
+to Accepted at v0.51 M1.
 
 ## Context
 
@@ -80,11 +84,12 @@ under the following rules:
   surface.
 - MCP and ACP stdio transports remain under ADR 0009 bounds. HTTP-bearing
   surfaces (MCP streamable HTTP and OpenAI-compatible API) use Allbert's
-  authenticated/CSP/rate-limited ingress rather than a second ingress.
-- Authentication for HTTP transport: a per-client token issued through
-  Settings Central. Tokens are encrypted at rest and never logged.
-- Rate limits, redaction, and audit policy apply uniformly: external clients
-  see the same redacted responses as local workspace users.
+  authenticated/secure-headered/rate-limited ingress rather than a second
+  ingress. The inbound permission class, per-client token authentication,
+  rate-limiting, API secure-header posture, and the poll-by-id result-readback
+  exposure are decided in **ADR 0055** (inbound public-surface trust tier).
+- Redaction and audit policy apply uniformly: external clients see the same
+  redacted responses as local workspace users.
 
 ## Consequences
 

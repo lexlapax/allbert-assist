@@ -3081,8 +3081,10 @@ Expected direction:
 
 Plan: `docs/plans/v0.51-plan.md`
 Request flow: `docs/plans/v0.51-request-flow.md`
-ADR: `docs/adr/0044-public-protocol-exposure.md` (re-decided for the expanded
-v0.51 scope)
+ADRs: `docs/adr/0044-public-protocol-exposure.md` (exposure — which surfaces,
+what's exposed; re-decided for the expanded v0.51 scope),
+`docs/adr/0055-inbound-public-surface-trust-tier.md` (inbound trust — permission
+class, per-client auth, rate-limit, API secure-header posture, poll-by-id readback)
 
 Status: planned; **promoted from a point release (was v0.52b) to a full release
 and expanded** in the 2026-06-09 restructure, and resequenced ahead of the
@@ -3104,6 +3106,12 @@ Expected direction:
 - Conversational protocol requests enter through `Runtime.submit_user_input/1`;
   all effectful work still routes through `Actions.Runner.run/3`, Security
   Central, confirmations, Resource Access, traces, and audits.
+- **Inbound trust tier (ADR 0055):** a new `:public_surface_call_inbound`
+  permission class with a `:needs_confirmation` floor, per-client Settings-Central
+  tokens, a net-new inbound rate-limiter, and an API secure-header posture govern
+  HTTP-bearing surfaces. Stateless clients retrieve confirmation-gated results
+  via a poll-by-id readback action (`:agent`-exposable, client-scoped, never
+  before operator approval) — genuinely new substrate, not a thin adapter.
 
 ## v0.52: Channel Pack 1 - Discord And Slack
 
