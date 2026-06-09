@@ -160,7 +160,7 @@ eval surfaces until their capability work lands.
   results, server impersonation, secret-env/header redaction, stdio process
   startup policy (explicit argv, secret-ref env, stderr separated from stdout,
   ADR 0009 bounds), and doctor redacted-envelope. MCP server mode is a separate
-  later surface (v0.52b).
+  later surface (v0.51).
 - Tool discovery and MCP-first integrations (v0.42, implemented eval surface):
   discovery search egress stays
   within `External.HttpPolicy` (SSRF, private/link-local IP block, bounded

@@ -243,7 +243,7 @@ Dependency order from here:
     schema, Allbert-author seed bundles, provenance/hash/version/rollback
     metadata, disabled/untrusted installs, browse-only plugin index metadata,
     workspace/intent/CLI surfaces, and marketplace doctor. Community-submission
-    governance remains parked. Started the v0.53 ADR for settings schema
+    governance remains parked. Started the v0.57 ADR for settings schema
     migration policy (ADR 0046).
 45.1. v0.45.1 Gate Transparency and Precommit Decomposition — implemented as
     `0.45.1`: commit/prepush/release command split, timed direct release
@@ -296,21 +296,31 @@ Dependency order from here:
     v0.50b Artifacts Browser ships the operator browsing repository (workspace
     panel + `/apps/artifacts/<sha>` page + `mix allbert.artifacts` CLI) as a
     plugin/app (`allbert.artifacts`) over the core read actions.
-51. v0.51 Channel Pack 1 (Discord and Slack) + ADR 0016 amendment for the
+51. v0.51 MCP Server Mode (expanded full release; resequenced ahead of the
+    channel packs): exposes registered actions as MCP tools and memory
+    namespaces as MCP resources, plus an OpenAI-compatible HTTP API and an ACP
+    server surface. Public AG-UI/A2UI bridge stays parked post-1.0.
+52. v0.52 Channel Pack 1 (Discord and Slack) + ADR 0016 amendment for the
     channel approval-primitive contract (`{list, button, typed_command, link}`).
     Locks the channel approval shape before mobile channels need it.
-52. v0.52 Channel Pack 2 — WhatsApp, Signal, and Matrix. iMessage is parked
+53. v0.53 Channel Pack 2 — WhatsApp, Signal, and Matrix. iMessage is parked
     (macOS-only platform constraint).
-53. v0.52b MCP Server Mode: Allbert exposes registered actions as MCP tools
-    and memory namespaces as MCP resources. Single protocol surface only.
-    OpenAI-compatible API, ACP server, and public AG-UI/A2UI bridge are parked
-    post-1.0.
-54. v0.53 Hardening, export/import, settings schema migration substrate, and
+54. v0.54 Intent Deepening: deepen the intent subsystem (ADR 0019/0034) so a
+    chat-primary surface routes reliably — classification, multi-turn and
+    clarification handling, disambiguation. Sequenced before the UX redo
+    because chat quality depends on intent.
+55. v0.55 Web UX Redo: re-layout `/workspace` (ADR 0023/0024 kept) — chat
+    primary, ephemeral surfaces become popups, canvas demoted, labels cleaned
+    up ("Conversations" replaces "threads"); references ChatGPT/Claude/Hermes.
+56. v0.56 Channel Parity + TUI: explicit channel capability/parity matrix and a
+    proper TUI/terminal channel under the ADR 0016 contract (not just
+    `mix allbert.ask`).
+57. v0.57 Hardening, export/import, settings schema migration substrate, and
     final RC: no new user-facing capability; Allbert Home portability,
     cross-surface security eval sweep, operator docs, performance hardening,
     CSP reconciliation, settings schema migration tool (per ADR 0046), and
     release-candidate closeout.
-55. v1.0 Stability release and **tiered public contract freeze**: no new
+58. v1.0 Stability release and **tiered public contract freeze**: no new
     features; freeze Tier 1 (Runtime, Actions/permissions, Plugin, App,
     Settings Central schema shape, Allbert Home layout, Channel adapter
     boundary, Resource Access URI/grants) and Tier 2 (SurfaceProvider, Surface
@@ -2494,7 +2504,7 @@ Shipped scope:
 - Preserved the routing predicate: v0.10 `external_network_request` and v0.11 inert
   `summarize_url`/`inspect_document` intact; browser is the graduated path
   when extraction needs DOM/JS or the operator explicitly asks.
-- Forward-pinned the v0.51 channel approval-primitive amendment: browser
+- Forward-pinned the v0.52 channel approval-primitive amendment: browser
   confirmations are expressible as `:typed_command` (CLI/email),
   `:button` (LiveView/Telegram/Discord/Slack), and `:link` (screenshot
   review).
@@ -2575,7 +2585,7 @@ Expected direction:
   subagent delegation visibility (inline child events under parent
   steps), and background objective progress on existing surfaces
   (workspace, CLI, Telegram, and email). Discord/Slack inherit
-  summaries when Channel Pack 1 lands in v0.51.
+  summaries when Channel Pack 1 lands in v0.52.
 - Workflow YAML expression substitution uses a **closed function table**
   (`${inputs.x}`, `${steps.<id>.<field>}`, `${user.locale|timezone}`,
   `${workflow.id|version}`); AST-parsed at load. No `eval`. No
@@ -2654,7 +2664,7 @@ Shipped scope:
   out of 1.0.
 - **Started drafting ADR 0046** (Settings Central schema migration policy) here
   because marketplace adds new settings fragments; ADR is accepted before
-  v0.53 implements the migration tool.
+  v0.57 implements the migration tool.
 
 ## v0.45.1: Gate Transparency And Precommit Decomposition - implemented as 0.45.1
 
@@ -2902,7 +2912,7 @@ Expected direction:
   `mix allbert.test release.v048`, then run opt-in live smokes for OpenAI,
   Gemini, the Allbert local voice runtime, and Ollama before manual validation.
 - Defer Discord voice support to a focused follow-on after Discord lands in
-  v0.51.
+  v0.52.
 - Keep realtime speech sessions, generic audio understanding, and video input
   as metadata/future-planning concerns unless a later plan explicitly accepts
   them.
@@ -2951,7 +2961,7 @@ browser-surface split), `docs/adr/0042-audio-image-and-media-resource-classes.md
 
 Status: implemented as `0.50.0` and released through the `v0.50.1` Artifacts
 Browser sidecar tag on 2026-06-09. Inserts a content-addressable artifact store between v0.49 vision and
-v0.51 Channel Pack 1, so durable media has one canonical home before channels
+v0.52 Channel Pack 1, so durable media has one canonical home before channels
 begin forwarding attachments. Built on Allbert Home, Resource Access, Security
 Central, Settings Central, and the Jido action framework — a thin CAS over BEAM
 primitives (`:crypto` SHA-256 + sharded objects + atomic writes), not a
@@ -3066,12 +3076,39 @@ Expected direction:
   provenance, metadata-only redaction, return link, and zero detail-page console
   warnings/errors.
 
-## v0.51: Channel Pack 1 - Discord And Slack
+## v0.51: MCP Server Mode
 
 Plan: `docs/plans/v0.51-plan.md`
 Request flow: `docs/plans/v0.51-request-flow.md`
+ADR: `docs/adr/0044-public-protocol-exposure.md` (re-decided for the expanded
+v0.51 scope)
+
+Status: planned; **promoted from a point release (was v0.52b) to a full release
+and expanded** in the 2026-06-09 restructure, and resequenced ahead of the
+channel packs. Expanded scope detailed in the v0.51 plan (Phase B).
+
+Expected direction:
+
+- Allbert exposes its registered actions as MCP **tools** and memory
+  namespaces (per app) as MCP **resources**. Symmetric to the v0.40 MCP client
+  work.
+- **Expanded for full-release status (restructure):** beyond the MCP
+  tools/resources surface, v0.51 adds an **OpenAI-compatible HTTP API** and an
+  **ACP server** surface (re-decided in ADR 0044, Phase B). The public
+  **AG-UI/A2UI bridge stays parked** in `future-features.md`.
+- External clients (Claude Desktop, Cursor, ChatGPT MCP, ACP/OpenAI-API agents)
+  never receive more authority than local workspace users.
+- External clients cannot approve their own confirmations; Approval Handoff
+  remains operator-owned and renders through the workspace or origin channel.
+- All effectful work still routes through `Actions.Runner.run/3`, Security
+  Central, confirmations, Resource Access, traces, and audits.
+
+## v0.52: Channel Pack 1 - Discord And Slack
+
+Plan: `docs/plans/v0.52-plan.md`
+Request flow: `docs/plans/v0.52-request-flow.md`
 ADR: `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
-(v0.51 amendment for approval primitives)
+(v0.52 amendment for approval primitives)
 
 Status: planned; implementation-ready for M0 after the channel plan pass-2
 readiness patch. Promoted from `docs/archives/version-1.0-planning-03.md`;
@@ -3092,23 +3129,23 @@ Expected direction:
   highest-fidelity primitive available from an effective descriptor that
   honors provider settings such as `render_approval_buttons: false`. Telegram:
   button. Email: typed_command. Discord: button. Slack: button. Mobile
-  channels (v0.52) inherit the same contract.
+  channels (v0.53) inherit the same contract.
 
-## v0.52: Channel Pack 2 - WhatsApp, Signal, And Matrix
+## v0.53: Channel Pack 2 - WhatsApp, Signal, And Matrix
 
-Plan: `docs/plans/v0.52-plan.md`
-Request flow: `docs/plans/v0.52-request-flow.md`
+Plan: `docs/plans/v0.53-plan.md`
+Request flow: `docs/plans/v0.53-request-flow.md`
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
 not implemented. Scope tightened in the post-v0.37 planning pass: **iMessage
 parked** (macOS-only platform constraint), public protocol interop split into
-v0.52b (MCP server mode only).
+v0.51 (MCP server mode only).
 
 Expected direction:
 
 - Add WhatsApp, Signal, and Matrix plugins after the Discord/Slack channel
   patterns are proven.
-- Reuse the v0.51 ADR 0016 amendment for channel approval primitives. WhatsApp
+- Reuse the v0.52 ADR 0016 amendment for channel approval primitives. WhatsApp
   and Signal declare `typed_command` support; Matrix declares `button` for
   bot-room contexts and `typed_command` otherwise.
 - Keep provider-specific pairing, delivery/retry/dedupe, platform limits, and
@@ -3117,36 +3154,60 @@ Expected direction:
   its macOS-only platform constraint warrants a dedicated platform-policy
   decision rather than 1.0-arc bundling.
 
-## v0.52b: MCP Server Mode
+## v0.54: Intent Deepening
 
-Plan: `docs/plans/v0.52b-plan.md`
-Request flow: `docs/plans/v0.52b-request-flow.md`
-ADR: `docs/adr/0044-public-protocol-exposure.md` (rewritten to MCP-server-only
-scope)
+Plan: `docs/plans/v0.54-plan.md`
+Request flow: `docs/plans/v0.54-request-flow.md`
 
-Status: planned. New slot split from the original v0.52 protocol-interop
-bundle in the post-v0.37 planning pass.
+Status: planned. NEW in the 2026-06-09 roadmap restructure; full plan authored
+in the restructure Phase B (research R2). Sequenced before the v0.55 Web UX redo
+because chat quality depends on intent.
 
 Expected direction:
 
-- Allbert exposes its registered actions as MCP **tools** and memory
-  namespaces (per app) as MCP **resources**. Symmetric to the v0.40 MCP client
-  work.
-- Single protocol surface. **OpenAI-compatible local HTTP API, ACP server
-  mode, and public AG-UI/A2UI bridge are parked** in `future-features.md`
-  until concrete operator demand and explicit auth/CSP policy decisions exist.
-- External MCP clients (Claude Desktop, Cursor, ChatGPT MCP, other agents)
-  never receive more authority than local workspace users.
-- External MCP clients cannot approve their own confirmations; Approval
-  Handoff remains operator-owned and renders through the workspace or origin
-  channel.
-- All effectful work still routes through `Actions.Runner.run/3`, Security
-  Central, confirmations, Resource Access, traces, and audits.
+- Deepen the intent subsystem (ADR 0019/0034: `Intent.Engine`, `Classifier`,
+  `Descriptor`/`Handoff`) so a chat-primary conversation surface routes
+  reliably — stronger classification, multi-turn and clarification handling,
+  and disambiguation.
+- Keep model output advisory only; intent never grants authority (ADR 0019).
 
-## v0.53: Hardening, Export/Import, Settings Migration, And Final RC
+## v0.55: Web UX Redo
 
-Plan: `docs/plans/v0.53-plan.md`
-Request flow: `docs/plans/v0.53-request-flow.md`
+Plan: `docs/plans/v0.55-plan.md`
+Request flow: `docs/plans/v0.55-request-flow.md`
+
+Status: planned. NEW in the 2026-06-09 roadmap restructure; full plan authored
+in Phase B (research R3).
+
+Expected direction:
+
+- Re-layout the existing `/workspace` Surface substrate (ADR 0023/0024 kept):
+  chat becomes the primary surface, ephemeral surfaces become popups/modals,
+  the canvas is demoted to a launcher/secondary, and UI labels are cleaned up —
+  **"Conversations"** replaces the "threads" label (no internal rename; the
+  volatile `Session.Scratchpad` concept is untouched).
+- References the ChatGPT, Claude, and Hermes (nousresearch) agent UIs.
+
+## v0.56: Channel Parity + TUI/Terminal Channel
+
+Plan: `docs/plans/v0.56-plan.md`
+Request flow: `docs/plans/v0.56-request-flow.md`
+
+Status: planned. NEW in the 2026-06-09 roadmap restructure; full plan authored
+in Phase B (research R4).
+
+Expected direction:
+
+- Establish an explicit channel capability/parity matrix across web, Telegram,
+  email, Discord, Slack, and the mobile channels.
+- Introduce a proper TUI/terminal channel — a real channel under the ADR 0016
+  contract (with identity, dedupe, approval primitives), not just the
+  `mix allbert.ask` task.
+
+## v0.57: Hardening, Export/Import, Settings Migration, And Final RC
+
+Plan: `docs/plans/v0.57-plan.md`
+Request flow: `docs/plans/v0.57-request-flow.md`
 ADR: `docs/adr/0046-settings-schema-migration-policy.md` (accepted here;
 drafted in v0.45)
 
@@ -3212,7 +3273,7 @@ disposable-home checkpoint the release cannot ship without:
    pinned by
    ADR 0047 and becomes a Tier-1 freeze contract at v1.0.
 3. Operator can connect at least one remote channel — Telegram, email,
-   Discord, Slack, WhatsApp, Signal, or Matrix (v0.16 / v0.51 / v0.52).
+   Discord, Slack, WhatsApp, Signal, or Matrix (v0.16 / v0.52 / v0.53).
 4. Operator can configure and use at least one MCP server under policy
    (v0.40).
 5. Operator can ask Allbert to research a web target with approved navigation
@@ -3220,9 +3281,9 @@ disposable-home checkpoint the release cannot ship without:
 6. Operator can review and approve a multi-step plan before execution
    (v0.44).
 7. Operator can export Allbert Home and re-import on a second machine with
-   identical behavior, including settings migration (v0.53 + ADR 0046).
+   identical behavior, including settings migration (v0.57 + ADR 0046).
 8. All warning, security, precommit, and cross-surface eval gates pass
-   (v0.53).
+   (v0.57).
 
 ### Capabilities That Ship In The Arc But Are Not Freeze-Blocking
 
@@ -3239,7 +3300,7 @@ acceptance criteria are subjective or provider-dependent:
 - Self-improvement suggestion quality (v0.47) — quality bar is subjective.
 - Voice (v0.48) — explicitly experimental.
 - Vision and image generation (v0.49) — provider-dependent quality.
-- MCP Server Mode (v0.52b) — external-client interop is verifiable but
+- MCP Server Mode (v0.51) — external-client interop is verifiable but
   ecosystem maturity varies.
 
 ### Capabilities Parked Post-1.0

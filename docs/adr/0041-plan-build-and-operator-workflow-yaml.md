@@ -341,11 +341,11 @@ trace ingestion can re-read the file if needed for debugging).
   enables no workflow. Promotion writes the live
   `<ALLBERT_HOME>/workflows/<id>.yaml` only through a confirmed operator
   action.
-- **v0.51 Channel Pack 1** amends ADR 0016 to lock channel approval
+- **v0.52 Channel Pack 1** amends ADR 0016 to lock channel approval
   primitives; v0.44 plan cards render through existing channel-specific
   affordances and are expressible in
   `:typed_command`/`:button`/`:link`/`:list` without re-litigation.
-- **v0.53 Hardening / Export-Import** preserves the
+- **v0.57 Hardening / Export-Import** preserves the
   `<ALLBERT_HOME>/workflows/` directory and the `workflows.*` +
   `plan.*` core settings namespace with `schema_version: 1` per the
   ADR 0046 migration policy.
@@ -413,10 +413,10 @@ covering the new attack surface.
   (unified surface catalog, renderer, extension registry), ADR 0031
   (settings schema fragments and authority).
 - Forward-pins: ADR 0046 (settings schema migration policy; v0.44
-  declares `workflows.*` + `plan.*` at `schema_version: 1`; v0.53
+  declares `workflows.*` + `plan.*` at `schema_version: 1`; v0.57
   ships the migration tool).
 - Composes with: ADR 0049 (development gates and test
   parallelization) for the `release.v044` deterministic gate.
 - Forward-pin to: ADR 0016 amendment (channel approval primitives;
-  v0.51) which formalizes `:list`/`:button`/`:typed_command`/`:link`
+  v0.52) which formalizes `:list`/`:button`/`:typed_command`/`:link`
   as the vocabulary v0.44 plan cards are already expressible in.

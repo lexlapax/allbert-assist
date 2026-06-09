@@ -356,8 +356,8 @@ adapters share the same channel substrate, identity mapping posture, durable
 event dedupe model, and Approval Handoff rendering contract. v0.17 moves
 Telegram and email into shipped source-tree channel plugins so later channels
 can arrive through the same extension path. The v1.0 arc now makes that path
-concrete after the capability-first arc: Discord and Slack land in v0.51;
-WhatsApp, Signal, and Matrix land in v0.52. SMS, iMessage, native packaged UI,
+concrete after the capability-first arc: Discord and Slack land in v0.52;
+WhatsApp, Signal, and Matrix land in v0.53. SMS, iMessage, native packaged UI,
 hosted channel fan-out, and
 other broad distribution paths remain parked until after the channel packs
 prove the substrate. Each channel should translate external input into signals
@@ -390,7 +390,7 @@ discovery or arbitrary node shapes. `AllbertAssist.App.Registry` provides app
 navigation and lookup. `AllbertAssist.Surface` defines validated component
 nodes. `AllbertAssist.App.SurfaceProvider` lets apps produce task surfaces as
 signals or registered action results. After the v0.41 insertion, only MCP server
-mode remains in the 1.0 arc as v0.52b; OpenAI-compatible API, ACP server mode,
+mode remains in the 1.0 arc as v0.51; OpenAI-compatible API, ACP server mode,
 and public AG-UI/A2UI bridge remain parked post-1.0. MCP Apps iframe
 compatibility remains parked; Allbert's primary stance is still declarative,
 catalog-bound surfaces over arbitrary remote UI code.
@@ -712,16 +712,24 @@ historical aliases only and remain in old reference notes for continuity.
   `release.v050b`, deterministic browser-validation fixture seeding, and the
   operator/developer browser guides — the plugin grants no authority and owns no
   store internals.
-- v0.51: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
-  through the existing channel adapter and plugin contracts; v0.51 also amends
+- v0.51: MCP Server Mode (expanded full release; resequenced ahead of the
+  channel packs). Allbert exposes registered actions as MCP tools and memory
+  namespaces as MCP resources, plus an OpenAI-compatible HTTP API and an ACP
+  server surface (ADR 0044). Public AG-UI/A2UI bridge stays parked post-1.0.
+- v0.52: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
+  through the existing channel adapter and plugin contracts; v0.52 also amends
   ADR 0016 to lock the channel approval-primitive contract before mobile
   channels need it.
-- v0.52: Channel Pack 2 - WhatsApp, Signal, and Matrix. iMessage parked
+- v0.53: Channel Pack 2 - WhatsApp, Signal, and Matrix. iMessage parked
   (macOS-only platform constraint).
-- v0.52b: MCP Server Mode. Allbert exposes registered actions as MCP tools and
-  memory namespaces as MCP resources. Single protocol surface. OpenAI-compatible
-  API, ACP server mode, and public AG-UI/A2UI bridge are parked post-1.0.
-- v0.53: Hardening, Export/Import, Settings Migration, And Final RC. No new
+- v0.54: Intent Deepening. Deepens the intent subsystem (ADR 0019/0034) so a
+  chat-primary surface routes reliably; model output stays advisory.
+- v0.55: Web UX Redo. Re-layouts `/workspace` (ADR 0023/0024 kept) — chat
+  primary, ephemeral surfaces become popups, canvas demoted, "Conversations"
+  replaces "threads"; references ChatGPT/Claude/Hermes.
+- v0.56: Channel Parity + TUI. Explicit channel capability/parity matrix and a
+  proper TUI/terminal channel under the ADR 0016 contract.
+- v0.57: Hardening, Export/Import, Settings Migration, And Final RC. No new
   user-facing capability; portability, settings schema migration tool per ADR
   0046, security evals including self-improvement and MCP server, and
   release-candidate evidence.
