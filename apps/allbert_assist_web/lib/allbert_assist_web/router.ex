@@ -56,6 +56,13 @@ defmodule AllbertAssistWeb.Router do
     delete "/mcp", McpHttpController, :delete
   end
 
+  scope "/v1", AllbertAssistWeb.PublicProtocol do
+    pipe_through [:api, :public_protocol_api]
+
+    get "/models", OpenAIController, :models
+    post "/chat/completions", OpenAIController, :chat_completions
+  end
+
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:allbert_assist_web, :dev_routes) do
     # If you want to use the LiveDashboard in production, you should put

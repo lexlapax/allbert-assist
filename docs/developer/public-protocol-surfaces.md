@@ -1,6 +1,6 @@
 # Public Protocol Surfaces
 
-Status: in implementation for v0.51; M1-M4 implemented, M5-M7 planned.
+Status: in implementation for v0.51; M1-M5 implemented, M6-M7 planned.
 
 This document is the implementation contract for the v0.51 MCP server,
 OpenAI-compatible API, and ACP server adapters. The authoritative planning set
@@ -63,10 +63,16 @@ v0.51 is text-first.
   `:artifact_read` policy through a public-safe adapter, Settings Central
   allowlists, redaction, and byte/bounds tests. Do not expose raw artifact store
   paths or make existing internal artifact actions public by metadata alone.
-- OpenAI-compatible `/v1/chat/completions` accepts string content and text
-  content parts. Reject `tools`, `functions`, `tool_calls`, `tool_choice`,
-  non-text parts, `modalities`, `audio`, and unsupported `response_format` or
-  streaming options.
+- OpenAI-compatible `/v1/chat/completions` accepts only `model`, `messages`,
+  `stream`, `user`, `response_format`, and Allbert extension fields
+  `allbert_user_id`, `allbert_thread_id`, and `allbert_session_id`. Accepted
+  message content is string content or text content parts with roles `system`,
+  `developer`, `user`, or `assistant`. Reject `tools`, `functions`,
+  `tool_calls`, `tool_choice`, incoming `tool` role messages, assistant
+  `tool_calls`/`function_call`, non-text parts, `modalities`, `audio`,
+  `stream_options`, unknown OpenAI fields, and unsupported `response_format`.
+  The OpenAI-compatible surface does not expose artifacts or multimodal
+  authority.
 - ACP accepts text content blocks. Reject image/audio/resource blocks unless a
   later capability-specific plan exposes them. Treat `cwd`,
   `additionalDirectories`, `mcpServers`, and `permissionMode` as unsupported or
@@ -97,9 +103,10 @@ Do not silently ignore a feature that could change authority or media handling.
   Action-level denial returns an error tool result. Confirmation-required calls
   return a successful tool result with `status: "confirmation_pending"` and
   `public_call_id`.
-- OpenAI-compatible success returns `chat.completion`; streaming returns
-  `chat.completion.chunk` SSE deltas and `[DONE]`. `/v1/models` returns a list
-  of enabled Allbert model/profile aliases. Pending confirmation uses
+- OpenAI-compatible success returns `chat.completion`; streaming returns one
+  bounded `chat.completion.chunk` SSE event for the completed turn and `[DONE]`.
+  `/v1/models` returns a list of enabled Allbert model/profile aliases from
+  Settings Central. Pending confirmation uses
   `allbert_status: "pending"` and `allbert_public_call_id` extension fields.
   Validation/auth/authorization/rate-limit failures use the OpenAI
   `%{"error" => ...}` body shape.
