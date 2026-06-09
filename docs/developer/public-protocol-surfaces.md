@@ -21,6 +21,12 @@ Do not add private protocol-specific execution paths. A protocol field, client
 identity string, model name, content type, ACP permission response, or MCP
 metadata packet is never permission authority.
 
+Operator configuration for these surfaces comes only from Settings Central. Do
+not add Application env, process-env, ad hoc CLI flag, protocol metadata, or
+Hermes transport-option config paths for public-surface enablement, clients,
+tokens, rate limits, body caps, tool/resource allowlists, model aliases, or ACP
+sessions.
+
 ## Exposure Filter
 
 The public tool source is `Actions.Registry.capabilities/0` filtered by both:
@@ -84,7 +90,7 @@ Do not silently ignore a feature that could change authority or media handling.
 - MCP list responses expose only bounded enabled tools/resources. Protocol,
   parse, version, auth, and exposure failures are JSON-RPC/MCP errors.
   Action-level denial returns an error tool result. Confirmation-required calls
-  return a successful tool result with `status: "pending"` and
+  return a successful tool result with `status: "confirmation_pending"` and
   `public_call_id`.
 - OpenAI-compatible success returns `chat.completion`; streaming returns
   `chat.completion.chunk` SSE deltas and `[DONE]`. `/v1/models` returns a list
@@ -105,6 +111,12 @@ HTTP-bearing surfaces use Allbert-owned ingress:
 - per-client/per-surface rate limiting before runtime work
 - API secure headers
 - redacted logs/traces/audits
+
+For MCP HTTP, do not mount `Hermes.Server.Transport.StreamableHTTP.Plug`
+directly in the endpoint/router and do not start a Hermes-owned HTTP listener.
+Hermes may frame MCP protocol data after Allbert-owned Phoenix/Plug ingress has
+already enforced body caps, token auth, rate limits, API secure headers, Origin
+and session policy, and protocol-version denial.
 
 Bearer tokens are reusable credentials. v0.51 must prove token redaction,
 revocation denial, and rate-limit-before-runtime behavior. Do not claim replay
