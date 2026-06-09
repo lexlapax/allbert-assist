@@ -122,10 +122,10 @@ MIX_ENV=test mix allbert.test release.v051
 ```
 
 Current clean evidence:
-`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-10629/home/release_evidence/v051/release-v051-1781033058.json`.
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-13250/home/release_evidence/v051/release-v051-1781040338.json`.
 
 Current full release evidence:
-`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13251/home/release_evidence/gates/release-2026-06-09T19_26_13Z.json`.
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13250/home/release_evidence/gates/release-2026-06-09T21_27_25Z.json`.
 
 Before tagging, repeat opt-in real-client smokes against a disposable
 `ALLBERT_HOME` for one MCP client, one OpenAI-API client, and one ACP editor.

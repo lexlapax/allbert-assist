@@ -74,6 +74,8 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
     assert get_resp_header(conn, "content-security-policy") == [
              "default-src 'none'; frame-ancestors 'none'"
            ]
+
+    assert get_resp_header(conn, "cache-control") == ["no-store"]
   end
 
   test "rate limit rejects the second request before runtime work", %{conn: conn} do
@@ -98,6 +100,10 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
 
     assert second.status == 429
     assert json_response(second, 429)["error"]["code"] == "rate_limited"
+
+    assert get_resp_header(second, "content-security-policy") == [
+             "default-src 'none'; frame-ancestors 'none'"
+           ]
   end
 
   test "unsupported MCP protocol versions are rejected", %{conn: conn} do

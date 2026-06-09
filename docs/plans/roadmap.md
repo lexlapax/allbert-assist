@@ -3124,7 +3124,9 @@ Expected direction:
 - M7 adds 34 `:v051` public-protocol security eval rows,
   `mix allbert.test release.v051`, operator/developer guides, and release
   evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-8259/home/release_evidence/v051/release-v051-1781029442.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-13250/home/release_evidence/v051/release-v051-1781040338.json`.
+  The full release gate also passed:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13250/home/release_evidence/gates/release-2026-06-09T21_27_25Z.json`.
 
 ## v0.52: Channel Pack 1 - Discord And Slack
 

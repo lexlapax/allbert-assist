@@ -25,8 +25,15 @@ defmodule AllbertAssistWeb.Plugs.PublicProtocolAuth do
 
   defp send_error(conn, reason) do
     conn
+    |> put_secure_headers()
     |> put_resp_content_type("application/json")
     |> send_resp(HttpIngress.status(reason), Jason.encode!(HttpIngress.error_body(reason)))
     |> halt()
+  end
+
+  defp put_secure_headers(conn) do
+    Enum.reduce(HttpIngress.api_secure_headers(), conn, fn {name, value}, acc ->
+      put_resp_header(acc, name, value)
+    end)
   end
 end

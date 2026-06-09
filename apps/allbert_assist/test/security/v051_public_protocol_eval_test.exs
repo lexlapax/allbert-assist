@@ -22,42 +22,55 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
 
-  @eval_ids [
-    "public-surface-empty-exposure-by-default-001",
-    "mcp-server-self-approval-deny-001",
-    "openai-api-self-approval-deny-001",
-    "acp-server-self-approval-deny-001",
-    "acp-permission-response-not-authoritative-001",
-    "public-surface-internals-exposure-deny-001",
-    "public-surface-settings-actions-deny-001",
-    "mcp-server-prompt-injection-no-tool-escalation-001",
-    "openai-api-no-tool-escalation-001",
-    "public-surface-cross-client-confusion-deny-001",
-    "http-token-redaction-001",
-    "http-revoked-token-deny-001",
-    "http-token-cli-redaction-001",
-    "public-surface-rate-limit-before-runtime-001",
-    "mcp-http-origin-validate-001",
-    "mcp-http-session-version-contract-001",
-    "mcp-http-unsupported-protocol-version-deny-001",
-    "mcp-server-unsupported-prompts-resources-deny-001",
-    "memory-namespace-scope-leak-deny-001",
-    "public-surface-result-readback-client-scoped-001",
-    "public-surface-no-result-before-approval-001",
-    "public-surface-result-readback-expiry-001",
-    "openai-api-unsupported-tools-functions-deny-001",
-    "openai-api-tool-role-messages-deny-001",
-    "openai-api-non-text-content-deny-001",
-    "openai-api-error-shape-001",
-    "openai-api-model-selection-advisory-001",
-    "acp-cwd-no-filesystem-authority-001",
-    "acp-session-mcpservers-no-authority-001",
-    "acp-session-mcpservers-not-imported-001",
-    "acp-capability-advertisement-minimal-001",
-    "acp-non-text-content-deny-001",
-    "public-surface-dynamic-action-exposure-deny-001",
-    "agui-bridge-remains-internal-001"
+  @eval_groups [
+    exposure: [
+      "public-surface-empty-exposure-by-default-001",
+      "public-surface-internals-exposure-deny-001",
+      "public-surface-settings-actions-deny-001",
+      "public-surface-dynamic-action-exposure-deny-001",
+      "agui-bridge-remains-internal-001"
+    ],
+    http_ingress: [
+      "http-token-redaction-001",
+      "http-revoked-token-deny-001",
+      "http-token-cli-redaction-001",
+      "public-surface-rate-limit-before-runtime-001",
+      "mcp-http-origin-validate-001",
+      "mcp-http-session-version-contract-001",
+      "mcp-http-unsupported-protocol-version-deny-001"
+    ],
+    readback: [
+      "mcp-server-self-approval-deny-001",
+      "openai-api-self-approval-deny-001",
+      "public-surface-cross-client-confusion-deny-001",
+      "public-surface-result-readback-client-scoped-001",
+      "public-surface-no-result-before-approval-001",
+      "public-surface-result-readback-expiry-001"
+    ],
+    mcp: [
+      "mcp-server-prompt-injection-no-tool-escalation-001",
+      "mcp-server-unsupported-prompts-resources-deny-001",
+      "memory-namespace-scope-leak-deny-001"
+    ],
+    openai: [
+      "openai-api-no-tool-escalation-001",
+      "openai-api-unsupported-tools-functions-deny-001",
+      "openai-api-tool-role-messages-deny-001",
+      "openai-api-non-text-content-deny-001",
+      "openai-api-error-shape-001",
+      "openai-api-model-selection-advisory-001"
+    ],
+    acp: [
+      "acp-server-self-approval-deny-001",
+      "acp-permission-response-not-authoritative-001",
+      "acp-cwd-no-filesystem-authority-001",
+      "acp-session-mcpservers-no-authority-001",
+      "acp-session-mcpservers-not-imported-001",
+      "acp-capability-advertisement-minimal-001",
+      "acp-non-text-content-deny-001"
+    ]
   ]
+  @eval_ids @eval_groups |> Keyword.values() |> List.flatten()
 
   @now ~U[2026-06-09 12:00:00Z]
 
@@ -105,19 +118,16 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
 
   test "v0.51 eval inventory rows are complete" do
     rows = EvalInventory.rows_for_milestone(:v051)
+    row_ids = Enum.map(rows, & &1.id)
 
-    assert Enum.map(rows, & &1.id) == @eval_ids
+    assert MapSet.new(row_ids) == MapSet.new(@eval_ids)
+    assert length(row_ids) == length(@eval_ids)
     assert Enum.all?(rows, &(&1.surface == :public_protocol))
     assert Enum.all?(rows, &(&1.test_module == inspect(__MODULE__)))
-    Enum.each(@eval_ids, &assert_eval!/1)
   end
 
   test "public exposure defaults off and internals stay denied before allowlist" do
-    assert_eval!("public-surface-empty-exposure-by-default-001")
-    assert_eval!("public-surface-internals-exposure-deny-001")
-    assert_eval!("public-surface-settings-actions-deny-001")
-    assert_eval!("public-surface-dynamic-action-exposure-deny-001")
-    assert_eval!("agui-bridge-remains-internal-001")
+    assert_eval_group!(:exposure)
 
     refute McpRuntime.surface_enabled?("mcp_stdio")
     refute McpRuntime.surface_enabled?("mcp_http")
@@ -143,13 +153,7 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
   end
 
   test "HTTP public ingress enforces token, revocation, rate, origin, and version before runtime" do
-    assert_eval!("http-token-redaction-001")
-    assert_eval!("http-revoked-token-deny-001")
-    assert_eval!("http-token-cli-redaction-001")
-    assert_eval!("public-surface-rate-limit-before-runtime-001")
-    assert_eval!("mcp-http-origin-validate-001")
-    assert_eval!("mcp-http-session-version-contract-001")
-    assert_eval!("mcp-http-unsupported-protocol-version-deny-001")
+    assert_eval_group!(:http_ingress)
 
     enable_mcp_http!()
 
@@ -183,12 +187,7 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
   end
 
   test "result readback stays client-scoped, pending-before-approval, and expiry-safe" do
-    assert_eval!("mcp-server-self-approval-deny-001")
-    assert_eval!("openai-api-self-approval-deny-001")
-    assert_eval!("public-surface-cross-client-confusion-deny-001")
-    assert_eval!("public-surface-result-readback-client-scoped-001")
-    assert_eval!("public-surface-no-result-before-approval-001")
-    assert_eval!("public-surface-result-readback-expiry-001")
+    assert_eval_group!(:readback)
 
     assert {:ok, call_result} =
              ResultReadback.create(
@@ -232,9 +231,7 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
   end
 
   test "MCP public server exposes only allowlisted tools and memory namespace resources" do
-    assert_eval!("mcp-server-prompt-injection-no-tool-escalation-001")
-    assert_eval!("mcp-server-unsupported-prompts-resources-deny-001")
-    assert_eval!("memory-namespace-scope-leak-deny-001")
+    assert_eval_group!(:mcp)
 
     enable_mcp_stdio!()
     allow_tools!(["direct_answer"])
@@ -259,12 +256,7 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
   end
 
   test "OpenAI-compatible API rejects tool, media, model, and authority-changing fields" do
-    assert_eval!("openai-api-no-tool-escalation-001")
-    assert_eval!("openai-api-unsupported-tools-functions-deny-001")
-    assert_eval!("openai-api-tool-role-messages-deny-001")
-    assert_eval!("openai-api-non-text-content-deny-001")
-    assert_eval!("openai-api-error-shape-001")
-    assert_eval!("openai-api-model-selection-advisory-001")
+    assert_eval_group!(:openai)
 
     assert {:ok, _setting} =
              Settings.put("openai_api.models_enabled", ["local"], %{audit?: false})
@@ -322,13 +314,7 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
   end
 
   test "ACP stdio treats session metadata and permission responses as non-authority" do
-    assert_eval!("acp-server-self-approval-deny-001")
-    assert_eval!("acp-permission-response-not-authoritative-001")
-    assert_eval!("acp-cwd-no-filesystem-authority-001")
-    assert_eval!("acp-session-mcpservers-no-authority-001")
-    assert_eval!("acp-session-mcpservers-not-imported-001")
-    assert_eval!("acp-capability-advertisement-minimal-001")
-    assert_eval!("acp-non-text-content-deny-001")
+    assert_eval_group!(:acp)
 
     enable_acp_stdio!()
 
@@ -439,6 +425,12 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
 
     assert pending.status == :pending
     refute Map.has_key?(pending, :result)
+  end
+
+  defp assert_eval_group!(group) do
+    @eval_groups
+    |> Keyword.fetch!(group)
+    |> Enum.each(&assert_eval!/1)
   end
 
   defp assert_eval!(id), do: EvalInventory.row!(id)

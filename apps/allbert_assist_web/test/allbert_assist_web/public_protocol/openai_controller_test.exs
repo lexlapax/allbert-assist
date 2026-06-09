@@ -108,6 +108,12 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     assert body["error"]["type"] == "authentication_error"
     assert body["error"]["code"] == "missing_client_id"
     assert Map.has_key?(body["error"], "param")
+
+    assert get_resp_header(conn, "content-security-policy") == [
+             "default-src 'none'; frame-ancestors 'none'"
+           ]
+
+    assert get_resp_header(conn, "cache-control") == ["no-store"]
   end
 
   test "unsupported tool and media fields are rejected before runtime", %{
@@ -224,6 +230,10 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
     body = json_response(second, 429)
     assert body["error"]["type"] == "rate_limit_error"
     assert body["error"]["code"] == "rate_limited"
+
+    assert get_resp_header(second, "content-security-policy") == [
+             "default-src 'none'; frame-ancestors 'none'"
+           ]
   end
 
   defp auth_conn(conn, token, client_id \\ "openai-client") do
