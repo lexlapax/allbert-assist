@@ -124,7 +124,7 @@ MCP stdio and ACP stdio keep stdout protocol-clean. Logs go to stderr.
 Confirmation-gated calls return a public call id. The client polls
 `get_public_call_result` or the surface-shaped equivalent.
 
-The ownership record is an Ecto-backed public protocol readback table in the
+The ownership record is the `public_protocol_call_results` Ecto table in the
 Allbert Assist DB. Do not store it as an Allbert Home flat file or expose extra
 confirmation-store metadata.
 
@@ -132,6 +132,8 @@ The ownership record stores only public call id, surface, client id,
 action/turn label, confirmation id when present, trace id,
 created/resolved/expires timestamps, status, and redacted result/error metadata.
 Statuses are `pending`, `approved_with_result`, `denied`, and `expired`.
+Entries expire after `public_protocol.result_readback_ttl_ms`; expired entries
+return `expired` and no result bytes.
 
 Readback never exposes raw confirmation records, `show_confirmation`,
 `list_confirmations`, trace bodies, or secrets. Unknown and cross-client ids
