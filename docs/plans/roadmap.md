@@ -3112,6 +3112,10 @@ Expected direction:
   HTTP-bearing surfaces. Stateless clients retrieve confirmation-gated results
   via a poll-by-id readback action (`:agent`-exposable, client-scoped, never
   before operator approval) — genuinely new substrate, not a thin adapter.
+- v0.51 is a text-first protocol subset. OpenAI/ACP image, audio, resource,
+  filesystem-root, and client-supplied MCP-server payloads do not grant media,
+  filesystem, or MCP-client authority; unsupported content is rejected unless a
+  later capability-specific plan exposes it.
 
 ## v0.52: Channel Pack 1 - Discord And Slack
 
