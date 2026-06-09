@@ -24,6 +24,30 @@ defmodule AllbertAssist.Artifacts.Config do
     }
   }
 
+  @type bounds_settings :: %{
+          required(String.t()) => %{
+            required(String.t()) => term()
+          }
+        }
+
+  @type gc_policy :: %{
+          required(:enabled?) => boolean(),
+          required(:delete_orphans?) => boolean()
+        }
+
+  @type doctor :: %{
+          required(:enabled?) => boolean(),
+          required(:retention_enabled?) => boolean(),
+          required(:root) => String.t(),
+          required(:root_exists?) => boolean(),
+          required(:objects_root_exists?) => boolean(),
+          required(:index_root_exists?) => boolean(),
+          required(:max_bytes) => term(),
+          required(:allowed_mime) => term(),
+          required(:allowed_types) => term(),
+          required(:gc) => gc_policy()
+        }
+
   @doc "Return true when artifact writes are enabled in Settings Central."
   @spec enabled?() :: boolean()
   def enabled?, do: setting("artifacts.enabled", false) == true
@@ -45,7 +69,7 @@ defmodule AllbertAssist.Artifacts.Config do
   end
 
   @doc "Return a nested settings map consumable by artifact bounds validation."
-  @spec bounds_settings() :: map()
+  @spec bounds_settings() :: bounds_settings()
   def bounds_settings do
     %{
       "artifacts" => %{
@@ -72,7 +96,7 @@ defmodule AllbertAssist.Artifacts.Config do
   end
 
   @doc "Return the GC policy snapshot."
-  @spec gc_policy() :: map()
+  @spec gc_policy() :: gc_policy()
   def gc_policy do
     %{
       enabled?: setting("artifacts.gc.enabled", false) == true,
@@ -81,7 +105,7 @@ defmodule AllbertAssist.Artifacts.Config do
   end
 
   @doc "Return a redacted doctor snapshot for operator-facing artifact status."
-  @spec doctor() :: map()
+  @spec doctor() :: doctor()
   def doctor do
     root = root()
     policy = gc_policy()

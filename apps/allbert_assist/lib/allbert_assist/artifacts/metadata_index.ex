@@ -24,8 +24,20 @@ defmodule AllbertAssist.Artifacts.MetadataIndex do
   ]
   @allowed_key_strings Enum.map(@allowed_keys, &Atom.to_string/1)
 
+  @type allowed_key ::
+          :sha256
+          | :mime
+          | :byte_size
+          | :origin
+          | :source_resource_uri
+          | :created_at
+          | :retention
+          | :redaction_status
+          | :lifecycle
+          | :provenance
+
   @doc "Return the metadata fields persisted by the markdown sidecar index."
-  @spec allowed_keys() :: [atom()]
+  @spec allowed_keys() :: [allowed_key(), ...]
   def allowed_keys, do: @allowed_keys
 
   @doc "Write allow-listed metadata for an artifact SHA-256."
@@ -123,8 +135,12 @@ defmodule AllbertAssist.Artifacts.MetadataIndex do
   @spec reset_cache!() :: :ok
   def reset_cache! do
     case :ets.whereis(@table) do
-      :undefined -> :ok
-      _table -> :ets.delete_all_objects(@table)
+      :undefined ->
+        :ok
+
+      _table ->
+        :ets.delete_all_objects(@table)
+        :ok
     end
   end
 

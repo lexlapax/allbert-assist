@@ -12,8 +12,17 @@ defmodule AllbertAssist.Artifacts.Backfill do
 
   @sources [:voice_audio, :vision_media, :generated_image]
 
+  @type summary :: %{
+          required(:status) => :completed,
+          required(:sources) => [map()],
+          required(:candidate_count) => number(),
+          required(:ingested_count) => non_neg_integer(),
+          required(:unique_sha256_count) => non_neg_integer(),
+          required(:artifacts) => [map()]
+        }
+
   @doc "Backfill retained media roots into the artifact store."
-  @spec run(keyword()) :: {:ok, map()} | {:error, term()}
+  @spec run(keyword()) :: {:ok, summary()} | {:error, term()}
   def run(opts \\ []) do
     sources = Keyword.get(opts, :sources, @sources)
     context = Keyword.get(opts, :context, %{})

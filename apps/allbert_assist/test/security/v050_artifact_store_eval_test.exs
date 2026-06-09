@@ -7,10 +7,10 @@ defmodule AllbertAssist.Security.V050ArtifactStoreEvalTest do
   import ExUnit.CaptureLog
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Artifacts.MediaRetention
   alias AllbertAssist.Artifacts.MetadataIndex
   alias AllbertAssist.Artifacts.Store
   alias AllbertAssist.Artifacts.ThreadLink
-  alias AllbertAssist.Artifacts.MediaRetention
   alias AllbertAssist.Paths
   alias AllbertAssist.Repo
   alias AllbertAssist.Resources.ResourceURI

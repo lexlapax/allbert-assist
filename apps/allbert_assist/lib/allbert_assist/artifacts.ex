@@ -15,8 +15,32 @@ defmodule AllbertAssist.Artifacts do
   alias AllbertAssist.Artifacts.ThreadLinks
   alias AllbertAssist.Resources.ResourceURI
 
+  @type artifact_error ::
+          atom()
+          | {:artifact_mime_not_allowed, nil | binary(), [term(), ...]}
+          | {:artifact_too_large, non_neg_integer(), pos_integer()}
+          | {:artifact_type_not_allowed, term(), [term(), ...]}
+          | {:invalid_metadata, map()}
+          | %Protocol.UndefinedError{}
+
+  @type stored_artifact :: %{
+          required(:sha256) => String.t(),
+          required(:byte_size) => non_neg_integer(),
+          required(:path) => String.t(),
+          required(:deduped?) => boolean(),
+          required(:metadata) => map()
+        }
+
+  @type public_artifact :: %{
+          required(:sha256) => String.t(),
+          required(:artifact_uri) => String.t(),
+          required(:metadata) => map(),
+          optional(:byte_size) => non_neg_integer(),
+          optional(:deduped?) => boolean()
+        }
+
   @doc "Store bytes and write allow-listed metadata for the resulting object."
-  @spec put(binary(), map(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec put(binary(), map(), keyword()) :: {:ok, stored_artifact()} | {:error, artifact_error()}
   def put(bytes, metadata \\ %{}, opts \\ []) when is_binary(bytes) and is_map(metadata) do
     opts = Config.with_bounds(opts)
 
@@ -30,7 +54,7 @@ defmodule AllbertAssist.Artifacts do
   end
 
   @doc "Store bytes through the Settings-backed retained-artifact policy."
-  @spec put_retained(binary(), map(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec put_retained(binary(), map(), keyword()) :: {:ok, public_artifact()} | {:error, term()}
   def put_retained(bytes, metadata \\ %{}, opts \\ [])
       when is_binary(bytes) and is_map(metadata) do
     context = Keyword.get(opts, :context, %{})
@@ -108,11 +132,12 @@ defmodule AllbertAssist.Artifacts do
   end
 
   @doc "Read object bytes by lowercase SHA-256."
-  @spec read_object(String.t(), keyword()) :: {:ok, binary()} | {:error, term()}
+  @spec read_object(String.t(), keyword()) :: {:ok, binary()} | {:error, atom()}
   defdelegate read_object(sha256, opts \\ []), to: Store, as: :read
 
   @doc "Read artifact metadata by lowercase SHA-256."
-  @spec read_metadata(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec read_metadata(String.t(), keyword()) ::
+          {:ok, map()} | {:error, atom() | Jason.DecodeError.t()}
   defdelegate read_metadata(sha256, opts \\ []), to: MetadataIndex, as: :read
 
   @doc "List persisted artifact metadata records."
@@ -290,7 +315,11 @@ defmodule AllbertAssist.Artifacts do
         {:ok, datetime}
 
       {:ok, %Date{} = date} ->
-        DateTime.new(date, ~T[00:00:00], "Etc/UTC")
+        case DateTime.new(date, ~T[00:00:00], "Etc/UTC") do
+          {:ok, datetime} -> {:ok, datetime}
+          {:ambiguous, _first, _second} -> {:error, {:invalid_since, value}}
+          {:gap, _first, _second} -> {:error, {:invalid_since, value}}
+        end
     end
   end
 
