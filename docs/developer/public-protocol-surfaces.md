@@ -1,6 +1,6 @@
 # Public Protocol Surfaces
 
-Status: in implementation for v0.51; M1-M5 implemented, M6-M7 planned.
+Status: in implementation for v0.51; M1-M6 implemented, M7 planned.
 
 This document is the implementation contract for the v0.51 MCP server,
 OpenAI-compatible API, and ACP server adapters. The authoritative planning set
@@ -73,10 +73,10 @@ v0.51 is text-first.
   `stream_options`, unknown OpenAI fields, and unsupported `response_format`.
   The OpenAI-compatible surface does not expose artifacts or multimodal
   authority.
-- ACP accepts text content blocks. Reject image/audio/resource blocks unless a
-  later capability-specific plan exposes them. Treat `cwd`,
-  `additionalDirectories`, `mcpServers`, and `permissionMode` as unsupported or
-  bounded metadata, never authority.
+- ACP accepts text content blocks only. Reject image/audio/resource/resource-link
+  blocks unless a later capability-specific plan exposes them. Treat `cwd` as
+  inert metadata, and reject non-empty `additionalDirectories`, non-empty
+  `mcpServers`, and `permissionMode`; none is authority.
 
 Unsupported protocol features return bounded, redacted, protocol-shaped errors.
 Do not silently ignore a feature that could change authority or media handling.
@@ -92,9 +92,11 @@ Do not silently ignore a feature that could change authority or media handling.
   and tested in v0.51.
 - OpenAI compatibility means a bounded Chat Completions shim. It is not full
   OpenAI API or Responses API parity.
-- ACP advertises only implemented text-session capabilities. Client-supplied
-  `mcpServers` are rejected and never imported into Settings Central or MCP
-  discovery/connection flows.
+- ACP advertises only implemented text-session capabilities for protocol version
+  `1`. It does not advertise image/audio/embedded-resource, filesystem,
+  terminal, MCP, load/resume, or additional-directory capability.
+  Client-supplied `mcpServers` are rejected and never imported into Settings
+  Central or MCP discovery/connection flows.
 
 ## Response Shapes
 
@@ -111,8 +113,11 @@ Do not silently ignore a feature that could change authority or media handling.
   Validation/auth/authorization/rate-limit failures use the OpenAI
   `%{"error" => ...}` body shape.
 - ACP initialize/session setup advertises only implemented text capabilities.
-  Prompt responses return assistant text or pending/readback ids. Errors are
-  JSON-RPC-shaped and redacted.
+  Prompt responses emit `session/update` agent text chunks and return
+  `stopReason: "end_turn"` or pending/readback ids. Confirmation-pending turns
+  may emit ACP `session/request_permission` for client UI display, but ACP
+  permission responses are advisory only and never authorize Allbert execution.
+  Errors are JSON-RPC-shaped and redacted.
 
 ## Ingress
 
@@ -156,7 +161,8 @@ Only `create` and `rotate` print the new raw bearer token, once. This
 bearer-token posture is an Allbert local/private ingress-auth subset, not MCP
 OAuth 2.1 protected-resource or authorization-server parity.
 
-MCP stdio and ACP stdio keep stdout protocol-clean. Logs go to stderr.
+MCP stdio and ACP stdio keep stdout protocol-clean. Logs go to stderr. The ACP
+operator entrypoint is `mix allbert.acp_server status|stdio`.
 
 ## Result Readback
 
