@@ -10,6 +10,9 @@ trust tier). ADR 0044 decides *which* public surfaces ship and *what* they
 expose; this ADR decides *how Allbert trusts the external clients that reach
 those surfaces* — the inbound permission class, per-client authentication,
 rate-limiting, the API secure-header posture, and the result-readback exposure.
+It also records the v0.51 inbound **text-first protocol subset**: public
+protocols may carry richer media/resource payloads, but those payloads are not
+permission or capability authority.
 
 ## Context
 
@@ -53,6 +56,10 @@ Two facts from the v0.51 readiness sweep shape this decision:
   responses **never grant authority** (ADR 0038 applied inbound). Specifically,
   the ACP `session/request_permission` response is advisory only and never
   authorizes execution.
+- Protocol payload shape is metadata, not authority. OpenAI/ACP image, audio,
+  file, embedded-resource, filesystem-root, and client-supplied MCP-server
+  fields are rejected or recorded as bounded metadata unless a later ADR/plan
+  adds an explicit capability-specific route.
 - Every effectful call routes through `Actions.Runner.run/3`, Security Central,
   Resource Access, confirmations, traces, and audits — the same path as a local
   workspace user.
@@ -61,10 +68,25 @@ Two facts from the v0.51 readiness sweep shape this decision:
 - New permission class **`:public_surface_call_inbound`**, safety floor
   **`:needs_confirmation`**, registered in `Security.Policy.permission_classes/0`,
   `@default_decisions`, the `permission()` type, and a `safety_floor/2` clause.
+- `Security.Risk.classify/2` receives a tier and reasons for
+  `:public_surface_call_inbound` so Security Central status, operator displays,
+  and tests explain why inbound public clients are high-risk even when a surface
+  is local/private.
 - Confirmation-decision actions (`approve_confirmation`/`deny_confirmation`)
   remain `exposure: :internal` and are never exposable — this is the
   self-approval-denial enforcement point. External clients cannot approve their
   own confirmations.
+
+### Settings Central contract
+- M1 adds ADR 0046 schema-versioned safe-write fragments:
+  `mcp_server.*`, `openai_api.*`, and `acp_server.*`, all default-off and
+  default-empty. Unknown keys are rejected.
+- HTTP client entries use Settings Secrets token refs, enabled flags, and
+  per-client/per-surface rate-limit settings. Secret refs may be audited; raw
+  bearer tokens never appear in settings output, CLI output, traces, audits, or
+  tests.
+- `permissions.public_surface_call_inbound` defaults to `needs_confirmation` and
+  cannot be lowered below the safety floor.
 
 ### Per-client authentication (HTTP-bearing surfaces)
 - MCP streamable-HTTP and the OpenAI-compatible API require a **per-client token
@@ -73,6 +95,10 @@ Two facts from the v0.51 readiness sweep shape this decision:
   `Voice.LocalRuntime.Auth` pattern, generalized to Settings-Secrets issuance).
   Tokens are operator-issued, rotatable, and revocable; an absent/invalid/revoked
   token is rejected before any runtime work.
+- Reusable bearer tokens do **not** provide replay prevention by themselves. This
+  ADR requires token redaction, revocation denial, and rate-limit-before-runtime
+  behavior. If v0.51 later claims replay denial, M4 must add and test an
+  explicit nonce, request-signature, token-binding, or idempotency mechanism.
 - stdio surfaces (MCP stdio + ACP) run under ADR 0009 process bounds; their trust
   derives from the local process boundary, not a token.
 
@@ -80,6 +106,9 @@ Two facts from the v0.51 readiness sweep shape this decision:
 - A net-new per-client/per-surface inbound rate limiter (a supervised
   token-bucket; no existing limiter to reuse) applies uniformly to HTTP-bearing
   surfaces. Exceeding the limit is rejected before runtime work and audited.
+- HTTP ingress enforces request body limits before expensive parsing/runtime
+  work where the transport allows it. Authentication and rate limiting both run
+  before `Runtime.submit_user_input/1` or `Actions.Runner.run/3`.
 
 ### API secure-header posture
 - JSON API responses (MCP streamable-HTTP + OpenAI API) use an
@@ -92,13 +121,29 @@ Two facts from the v0.51 readiness sweep shape this decision:
 ### Result readback (poll-by-id)
 - A new **read-only, `:agent`-exposable** action (e.g. `get_public_call_result`)
   lets a client retrieve a confirmation/call result **by id**. It returns one of
-  `pending | approved-with-result | denied`.
+  `pending | approved_with_result | denied | expired`.
 - The readback is **client-scoped**: a client may read only confirmations/calls
   it originated; it never sees other clients' results (no cross-client leak).
 - It **never returns a result before the operator has approved** the underlying
   confirmation; before approval it returns `pending` only.
 - It exposes the action *result* (already redacted by `Runtime.Redactor`), not
   confirmation-store internals.
+- The ownership record stores only public call id, surface, client id,
+  action/turn label, confirmation id when present, trace id,
+  created/resolved/expires timestamps, status, and redacted result/error
+  metadata. It does not expose `show_confirmation`, `list_confirmations`, raw
+  confirmation payloads, trace bodies, or secrets.
+- Entries expire after the configured TTL. Expired entries return an
+  `expired`/protocol-shaped equivalent with no result bytes and leave audit
+  evidence of expiry.
+
+### HTTP transport posture
+- MCP streamable HTTP and OpenAI-compatible JSON responses use the API secure
+  headers decided above. MCP HTTP additionally validates Origin for browser-
+  reachable requests, defaults local deployments to localhost binding, documents
+  `Mcp-Session-Id` behavior, validates `MCP-Protocol-Version` when present, and
+  either implements DELETE session termination or returns an explicit 405.
+- MCP stdio and ACP stdio keep stdout protocol-clean and send logs to stderr.
 
 ## Consequences
 - The inbound boundary gets the same named-permission + safety-floor rigor as
@@ -108,8 +153,9 @@ Two facts from the v0.51 readiness sweep shape this decision:
   token-auth plug, an inbound rate-limiter, and the poll-by-id readback) — these
   are not "thin adapters." The plan budgets milestones for them.
 - The v0.57 security eval sweep covers this tier: self-approval denial, token
-  replay/revocation, rate-limit, client-scoped readback, no-result-before-
-  approval, cross-client confusion, and metadata-never-authority (ACP).
+  redaction/revocation, rate-limit-before-runtime, client-scoped readback,
+  no-result-before-approval, readback expiry, cross-client confusion,
+  unsupported media/resource payload denial, and metadata-never-authority (ACP).
 - ADR 0038 stays scoped to the outbound client tier; the inbound/outbound trust
   boundary stays clean.
 

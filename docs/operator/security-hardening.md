@@ -352,9 +352,14 @@ eval surfaces until their capability work lands.
   `artifact-ingest-bounds-001`,
   `artifact-sensor-advisory-only-001`, and
   `artifact-thread-link-no-authority-001`.
-- v0.51 public protocol auth, rate limits, redaction, and confirmation
-  ownership across MCP server, OpenAI-compatible API, and ACP server. Public
-  AG-UI/A2UI and MCP Apps iframe evals remain parked post-1.0.
+- v0.51 public protocol auth, rate limits, redaction, confirmation ownership,
+  and text-first content denial across MCP server, OpenAI-compatible API, and
+  ACP server. HTTP bearer tokens prove redaction, revocation denial, and
+  rate-limit-before-runtime behavior; replay prevention is not claimed unless a
+  nonce/signature/token-binding/idempotency mechanism is added. OpenAI/ACP
+  image, audio, resource, filesystem-root, and client-supplied MCP-server
+  payloads do not grant media, filesystem, or MCP authority. Public AG-UI/A2UI
+  and MCP Apps iframe evals remain parked post-1.0.
 - Future self-improvement hardening beyond v0.47b remains limited to later
   capability surfaces, such as channel-derived trace sources and export/import
   preservation of reviewed drafts.
