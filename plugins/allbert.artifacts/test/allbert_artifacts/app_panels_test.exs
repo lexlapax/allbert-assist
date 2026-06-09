@@ -89,6 +89,65 @@ defmodule AllbertArtifacts.AppPanelsTest do
     assert row.children == []
   end
 
+  test "hydrated panel applies explicit filters without treating ambient thread as a filter", %{
+    context: context
+  } do
+    enable_artifacts!()
+
+    assert {:ok, target} =
+             Runner.run(
+               "put_artifact",
+               %{
+                 bytes: "artifact-panel-target-secret",
+                 metadata: %{
+                   mime: "text/plain",
+                   origin: "panel_target",
+                   created_at: "2026-06-08T00:00:00Z"
+                 }
+               },
+               seed_context("thread-artifacts-target", "sig-artifacts-target")
+             )
+
+    assert {:ok, other} =
+             Runner.run(
+               "put_artifact",
+               %{
+                 bytes: "artifact-panel-other-secret",
+                 metadata: %{
+                   mime: "image/png",
+                   origin: "panel_other",
+                   created_at: "2026-01-01T00:00:00Z"
+                 }
+               },
+               seed_context("thread-artifacts-other", "sig-artifacts-other")
+             )
+
+    assert [unfiltered] = App.workspace_panel_surfaces(context)
+    unfiltered_text = inspect(unfiltered)
+    assert unfiltered_text =~ String.slice(target.artifact.sha256, 0, 12)
+    assert unfiltered_text =~ String.slice(other.artifact.sha256, 0, 12)
+
+    filtered_context =
+      Map.put(context, :artifacts_browser_filters, %{
+        type: "text/plain",
+        origin: "panel_target",
+        thread: "thread-artifacts-target",
+        since: "2026-06-01"
+      })
+
+    assert [filtered] = App.workspace_panel_surfaces(filtered_context)
+    filter_node = find_child(filtered, "artifacts-browser-filters")
+    row = find_child(filtered, :section, "artifact-row-0")
+
+    assert filter_node.props.body =~ "origin=panel_target"
+    assert filter_node.props.body =~ "thread=thread-artifacts-target"
+    assert filter_node.props.body =~ "type=text/plain"
+    assert row.props.body =~ String.slice(target.artifact.sha256, 0, 12)
+    refute inspect(filtered) =~ String.slice(other.artifact.sha256, 0, 12)
+    refute inspect(filtered) =~ "artifact-panel-target-secret"
+    refute inspect(filtered) =~ "artifact-panel-other-secret"
+  end
+
   test "panel renders a redacted unavailable state when core read action fails", %{
     context: context
   } do
@@ -103,11 +162,18 @@ defmodule AllbertArtifacts.AppPanelsTest do
     assert props.body =~ "permission_denied"
   end
 
-  defp find_child(%Surface{nodes: [%Node{children: children}]}, component),
+  defp find_child(%Surface{nodes: [%Node{children: children}]}, component)
+       when is_atom(component),
+       do: Enum.find(children, &(&1.component == component))
+
+  defp find_child(%Node{children: children}, component) when is_atom(component),
     do: Enum.find(children, &(&1.component == component))
 
-  defp find_child(%Node{children: children}, component),
-    do: Enum.find(children, &(&1.component == component))
+  defp find_child(%Surface{nodes: [%Node{children: children}]}, id) when is_binary(id),
+    do: Enum.find(children, &(&1.id == id))
+
+  defp find_child(%Surface{nodes: [%Node{children: children}]}, component, id),
+    do: Enum.find(children, &(&1.component == component and &1.id == id))
 
   defp enable_artifacts! do
     assert {:ok, _setting} = Settings.put("artifacts.enabled", true, %{audit?: false})
@@ -134,15 +200,15 @@ defmodule AllbertArtifacts.AppPanelsTest do
     }
   end
 
-  defp seed_context do
+  defp seed_context(thread_id \\ "thread-artifacts-seed", signal_id \\ "sig-artifacts-seed") do
     %{
       user_id: "local",
       channel: :test,
       request: %{
         user_id: "local",
         operator_id: "local",
-        thread_id: "thread-artifacts-seed",
-        input_signal_id: "sig-artifacts-seed",
+        thread_id: thread_id,
+        input_signal_id: signal_id,
         channel: :test
       }
     }

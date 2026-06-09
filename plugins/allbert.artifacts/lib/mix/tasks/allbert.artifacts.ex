@@ -105,7 +105,7 @@ defmodule Mix.Tasks.Allbert.Artifacts do
   def run(_args) do
     Mix.shell().info("""
     Usage:
-      mix allbert.artifacts list [--limit N]
+      mix allbert.artifacts list [--type MIME] [--origin ORIGIN] [--thread THREAD_ID] [--since DATE_OR_ISO] [--limit N]
       mix allbert.artifacts show <sha|artifact://sha256/sha>
       mix allbert.artifacts threads <sha|artifact://sha256/sha>
       mix allbert.artifacts doctor
@@ -114,10 +114,21 @@ defmodule Mix.Tasks.Allbert.Artifacts do
   end
 
   defp list_params(rest) do
-    case OptionParser.parse(rest, strict: [limit: :integer]) do
+    case OptionParser.parse(rest,
+           strict: [
+             type: :string,
+             mime: :string,
+             origin: :string,
+             thread: :string,
+             thread_id: :string,
+             since: :string,
+             retention: :string,
+             lifecycle: :string,
+             limit: :integer
+           ]
+         ) do
       {opts, [], []} ->
-        {:ok,
-         opts |> Map.new() |> Enum.reject(fn {_key, value} -> is_nil(value) end) |> Map.new()}
+        {:ok, normalize_list_opts(opts)}
 
       {_opts, extra, []} ->
         {:error, "unexpected arguments #{Enum.join(extra, " ")}"}
@@ -126,6 +137,17 @@ defmodule Mix.Tasks.Allbert.Artifacts do
         {:error, "invalid options #{inspect(invalid)}"}
     end
   end
+
+  defp normalize_list_opts(opts) do
+    opts
+    |> Enum.flat_map(&normalize_list_opt/1)
+    |> Enum.reject(fn {_key, value} -> is_nil(value) or value == "" end)
+    |> Map.new()
+  end
+
+  defp normalize_list_opt({:type, value}), do: [{:mime, value}]
+  defp normalize_list_opt({:thread, value}), do: [{:thread_id, value}]
+  defp normalize_list_opt({key, value}), do: [{key, value}]
 
   defp get_params("artifact://sha256/" <> _sha = uri),
     do: %{artifact_uri: uri, include_bytes: false}

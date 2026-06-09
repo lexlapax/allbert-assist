@@ -59,6 +59,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     {thread_id, thread_notice, sync_thread_url?} = resolve_workspace_thread(params, user_id)
     active_app = resolve_workspace_active_app(user_id, session_id)
     canvas_destination = resolve_canvas_destination(params)
+    artifacts_browser_filters = resolve_artifacts_browser_filters(params)
     settings = workspace_settings_snapshot()
 
     if connected?(socket) do
@@ -80,6 +81,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         session_id: session_id,
         active_app: active_app,
         canvas_destination: canvas_destination,
+        artifacts_browser_filters: artifacts_browser_filters,
         workspace_theme: workspace_theme(settings),
         workspace_high_contrast?: workspace_high_contrast?(settings),
         workspace_reduce_motion?: workspace_reduce_motion?(settings),
@@ -123,7 +125,16 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         max_entries: 1,
         max_file_size: image_input_max_bytes(settings)
       )
-      |> assign(workspace_assigns(user_id, thread_id, [], active_app, canvas_destination))
+      |> assign(
+        workspace_assigns(
+          user_id,
+          thread_id,
+          [],
+          active_app,
+          canvas_destination,
+          artifacts_browser_filters
+        )
+      )
       |> maybe_sync_thread_url(sync_thread_url?, thread_id, canvas_destination)
 
     {:ok, socket}
@@ -134,6 +145,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     socket =
       socket
       |> assign_canvas_destination(resolve_canvas_destination(params))
+      |> assign_artifacts_browser_filters(resolve_artifacts_browser_filters(params))
       |> assign(:workspace_overflow_open?, false)
       |> maybe_assign_mobile_tab(param(params, "tab"))
 
@@ -1188,6 +1200,20 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     |> normalize_canvas_destination()
   end
 
+  defp resolve_artifacts_browser_filters(params) do
+    %{
+      mime: first_param(params, ~w(artifact_type artifact_mime type mime)),
+      origin: first_param(params, ~w(artifact_origin origin)),
+      thread_id: first_param(params, ~w(artifact_thread thread thread_id)),
+      since: first_param(params, ~w(artifact_since since)),
+      retention: first_param(params, ~w(artifact_retention retention)),
+      lifecycle: first_param(params, ~w(artifact_lifecycle lifecycle)),
+      limit: artifacts_filter_limit(first_param(params, ~w(artifact_limit limit)))
+    }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) or value == "" end)
+    |> Map.new()
+  end
+
   defp normalize_canvas_destination(nil), do: Layout.default_destination()
   defp normalize_canvas_destination("output"), do: "output"
 
@@ -1217,6 +1243,16 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     end
   end
 
+  defp assign_artifacts_browser_filters(socket, filters) do
+    if Map.get(socket.assigns, :artifacts_browser_filters, %{}) == filters do
+      socket
+    else
+      socket
+      |> assign(:artifacts_browser_filters, filters)
+      |> refresh_workspace()
+    end
+  end
+
   defp maybe_assign_mobile_tab(socket, tab) when tab in ["chat", "canvas"] do
     assign(socket, :workspace_mobile_tab, tab)
   end
@@ -1237,6 +1273,19 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       _other -> nil
     end
   end
+
+  defp first_param(params, keys), do: Enum.find_value(keys, &param(params, &1))
+
+  defp artifacts_filter_limit(nil), do: nil
+
+  defp artifacts_filter_limit(limit) when is_binary(limit) do
+    case Integer.parse(limit) do
+      {value, ""} when value > 0 -> value
+      _other -> nil
+    end
+  end
+
+  defp artifacts_filter_limit(_limit), do: nil
 
   defp normalize_param(value) do
     case String.trim(value) do
@@ -1352,7 +1401,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         socket.assigns.thread_id,
         socket.assigns.workspace_badges,
         socket.assigns.active_app,
-        socket.assigns.canvas_destination
+        socket.assigns.canvas_destination,
+        socket.assigns.artifacts_browser_filters
       )
     )
   end
@@ -1378,7 +1428,14 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     )
   end
 
-  defp workspace_assigns(user_id, thread_id, workspace_badges, active_app, canvas_destination) do
+  defp workspace_assigns(
+         user_id,
+         thread_id,
+         workspace_badges,
+         active_app,
+         canvas_destination,
+         artifacts_browser_filters
+       ) do
     tiles = canvas_tiles(thread_id, user_id)
     surfaces = ephemeral_surfaces(thread_id, user_id)
     apps = registered_apps()
@@ -1388,7 +1445,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       thread_id: thread_id,
       session_id: @default_session_id,
       active_app: active_app,
-      canvas_destination: canvas_destination
+      canvas_destination: canvas_destination,
+      artifacts_browser_filters: artifacts_browser_filters
     }
 
     layout = Layout.current(base_context)
@@ -1428,7 +1486,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         thread_id: socket.assigns.thread_id,
         session_id: socket.assigns.session_id,
         active_app: socket.assigns.active_app,
-        canvas_destination: socket.assigns.canvas_destination
+        canvas_destination: socket.assigns.canvas_destination,
+        artifacts_browser_filters: socket.assigns.artifacts_browser_filters
       })
 
     WorkspaceCatalog.workspace_tree(
