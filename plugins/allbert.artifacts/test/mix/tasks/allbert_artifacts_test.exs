@@ -146,6 +146,8 @@ defmodule Mix.Tasks.Allbert.ArtifactsTest do
     output = capture_io(fn -> ArtifactsTask.run([]) end)
 
     assert output =~ "mix allbert.artifacts list"
+    assert output =~ "--retention VALUE"
+    assert output =~ "--lifecycle VALUE"
     assert output =~ "mix allbert.artifacts rm"
   end
 

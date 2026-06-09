@@ -105,7 +105,7 @@ defmodule Mix.Tasks.Allbert.Artifacts do
   def run(_args) do
     Mix.shell().info("""
     Usage:
-      mix allbert.artifacts list [--type MIME] [--origin ORIGIN] [--thread THREAD_ID] [--since DATE_OR_ISO] [--limit N]
+      mix allbert.artifacts list [--type MIME] [--origin ORIGIN] [--thread THREAD_ID] [--since DATE_OR_ISO] [--retention VALUE] [--lifecycle VALUE] [--limit N]
       mix allbert.artifacts show <sha|artifact://sha256/sha>
       mix allbert.artifacts threads <sha|artifact://sha256/sha>
       mix allbert.artifacts doctor

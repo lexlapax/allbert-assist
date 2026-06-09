@@ -10,6 +10,67 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.50.1 - Artifacts Browser
+
+Status: implemented as the v0.50b sidecar release. Current version metadata is
+`0.50.1`; ready for operator manual validation before the release tag.
+
+Operator doc: `docs/operator/artifacts-browser.md`.
+Developer doc: `docs/developer/artifacts-browser.md`.
+
+### Added
+
+- Artifacts Browser shipped plugin/app (`plugins/allbert.artifacts/`, plugin id
+  `allbert.artifacts`, app id `:allbert_artifacts`) over the v0.50 Artifacts
+  Central store.
+- Workspace Artifacts panel contributed through the app/surface contract and
+  hydrated by `workspace_panel_surfaces/1`.
+- `/apps/artifacts/<sha>` detail page route, with plugin-owned LiveView module,
+  host router registration, SHA validation before store reads, metadata,
+  provenance, retention, and confirmation-gated remove control.
+- `mix allbert.artifacts list|show|threads|doctor|rm` plus list filters for
+  type, origin, thread, since date, retention, lifecycle, and limit.
+- Four v0.50b artifact-browser security eval rows:
+  `artifacts-browser-read-only-via-action-001`,
+  `artifacts-browser-no-raw-bytes-rendered-001`,
+  `artifacts-browser-grants-no-authority-001`, and
+  `artifacts-browser-delete-confirmation-001`.
+- `mix allbert.test release.v050b`, including deterministic browser fixture
+  seeding through `scripts/v050b_artifacts_browser_smoke.exs --seed-only`.
+
+### Changed
+
+- Umbrella, core app, web app, and `AllbertAssist.App.CoreApp.version/0`
+  metadata now report `0.50.1`.
+- The Artifacts Browser CLI help now lists the M4 retention and lifecycle
+  filters.
+
+### Security
+
+- The browser plugin grants no authority: no actions, channels, settings
+  schema, memory namespace, store ownership, or direct object-store access.
+- All reads go through core `:artifact_read` actions; delete goes through the
+  core confirmation-gated `delete_artifact` action.
+- Panel, page, and CLI render redacted metadata only. Raw bytes and local paths
+  remain out of LiveView assigns and CLI output.
+
+### Verification
+
+- `MIX_ENV=test mix test apps/allbert_assist/test/security/v050b_artifacts_browser_eval_test.exs apps/allbert_assist/test/security/security_eval_case_test.exs apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs`
+  passed with 17 tests and 0 failures.
+- `MIX_ENV=test mix test ../../plugins/allbert.artifacts/test/allbert_artifacts/plugin_test.exs ../../plugins/allbert.artifacts/test/allbert_artifacts/app_panels_test.exs ../../plugins/allbert.artifacts/test/mix/tasks/allbert_artifacts_test.exs`
+  passed with 13 tests and 0 failures from `apps/allbert_assist`.
+- `MIX_ENV=test mix allbert.test release.v050b` passed. Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v050b/p0-13251/home/release_evidence/v050b/release-v050b-1780969647.json`.
+- The v0.50b evidence scan found no `database is locked`, `SQLITE_BUSY`,
+  `Exqlite.Connection`, or `DBConnection.ConnectionError` noise.
+- Release evidence records browser fixture SHA
+  `c9a2b5ecd64bfc421d4aac9c308cf5d02d899b16b6d2f48d85bf482e6a8060b2` and
+  thread id `thread-v050b-artifacts-browser-smoke`.
+- Chrome extension validation passed on `http://localhost:4063`: workspace
+  filters rendered the fixture row, the detail page rendered linked provenance,
+  raw fixture bytes were absent, and neither page had horizontal overflow.
+
 ## v0.50.0 - Artifacts Central
 
 Status: implemented as the v0.50 release. Current version metadata is

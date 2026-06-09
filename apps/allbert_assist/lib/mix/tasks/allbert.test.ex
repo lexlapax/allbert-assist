@@ -23,6 +23,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v048
       mix allbert.test release.v049
       mix allbert.test release.v050
+      mix allbert.test release.v050b
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -86,6 +87,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v048"]), do: release_v048()
   def run(["release.v049"]), do: release_v049()
   def run(["release.v050"]), do: release_v050()
+  def run(["release.v050b"]), do: release_v050b()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -1313,6 +1315,79 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   ]
 
+  @release_v050b_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "artifact_browser_smoke_seed",
+      title: "deterministic browser-validation artifact fixture",
+      cwd: :core,
+      executable: "mix",
+      args: ["run", "../../scripts/v050b_artifacts_browser_smoke.exs", "--seed-only"],
+      coverage: [
+        "deterministic artifact fixture through core put_artifact",
+        "printed fixture SHA and thread id for Chrome validation",
+        "release evidence captures real URLs without placeholders"
+      ]
+    },
+    %{
+      id: "artifact_browser_plugin_cli",
+      title: "Artifacts Browser plugin contract, panel hydration, and CLI",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "../../plugins/allbert.artifacts/test/allbert_artifacts/plugin_test.exs",
+        "../../plugins/allbert.artifacts/test/allbert_artifacts/app_panels_test.exs",
+        "../../plugins/allbert.artifacts/test/mix/tasks/allbert_artifacts_test.exs"
+      ],
+      coverage: [
+        "plugin/app grants no authority",
+        "workspace panel reads metadata through core actions",
+        "CLI list/show/threads/doctor/rm and filters stay redacted"
+      ]
+    },
+    %{
+      id: "artifact_browser_web",
+      title: "Artifacts Browser detail route and workspace filter plumbing",
+      cwd: :web,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist_web/live/artifacts_live_test.exs",
+        "test/allbert_assist_web/live/workspace_live_test.exs"
+      ],
+      coverage: [
+        "/apps/artifacts/:sha validates sha before store reads",
+        "detail page renders metadata, provenance, retention, and delete confirmation request",
+        "workspace query params hydrate Artifacts Browser filters"
+      ]
+    },
+    %{
+      id: "artifact_browser_security_eval",
+      title: "v0.50b artifact-browser security eval inventory and release evals",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v050b_artifacts_browser_eval_test.exs",
+        "test/security/security_eval_case_test.exs",
+        "test/mix/tasks/allbert_test_task_test.exs"
+      ],
+      coverage: [
+        "4 v0.50b artifact-browser eval rows",
+        "release.v050b task usage registration",
+        "read-only action boundary, metadata-only rendering, no authority grant, and delete confirmation posture"
+      ]
+    }
+  ]
+
   defp release_v042 do
     env = owned_env("release-v042", 0)
     home = env_value(env, "ALLBERT_HOME")
@@ -1752,6 +1827,51 @@ defmodule Mix.Tasks.Allbert.Test do
     end
   end
 
+  defp release_v050b do
+    env = owned_env("release-v050b", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v050b")
+    File.mkdir_p!(evidence_dir)
+    cleanup_release_v050b_evidence!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v050b_steps, &run_release_v050b_step(&1, env))
+    secret_scan = release_v050b_secret_scan(home)
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v050b",
+      version: "v0.50b",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network: "disabled; tests use local artifact fixtures only",
+      browser_validation_fixture: release_v050b_browser_fixture(results),
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path =
+      Path.join(evidence_dir, "release-v050b-#{DateTime.to_unix(started_at)}.json")
+
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v050b evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v050b failed; evidence: #{evidence_path}")
+    end
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -1792,6 +1912,41 @@ defmodule Mix.Tasks.Allbert.Test do
     |> Path.join("release-v050-*.json")
     |> Path.wildcard()
     |> Enum.each(&File.rm!/1)
+  end
+
+  defp cleanup_release_v050b_evidence!(evidence_dir) do
+    evidence_dir
+    |> Path.join("release-v050b-*.json")
+    |> Path.wildcard()
+    |> Enum.each(&File.rm!/1)
+  end
+
+  defp run_release_v050b_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args,
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v050b #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
   end
 
   defp run_release_v050_step(step, env) do
@@ -2481,6 +2636,84 @@ defmodule Mix.Tasks.Allbert.Test do
 
     print_output("release.v050 secret_scan", Jason.encode!(result, pretty: true))
     result
+  end
+
+  defp release_v050b_secret_scan(home) do
+    Enum.each(
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces"),
+        Path.join(home, "confirmations"),
+        Path.join(home, "traces"),
+        Path.join(home, "artifacts"),
+        Path.join(home, "audio"),
+        Path.join(home, "images"),
+        Path.join(home, "generated_images"),
+        Path.join(home, "tmp/voice-captures"),
+        Path.join(home, "tmp/image-inputs"),
+        Path.join(home, "tmp/generated-images"),
+        Path.join(home, "cache/browser")
+      ],
+      &File.mkdir_p!/1
+    )
+
+    roots =
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces"),
+        Path.join(home, "confirmations"),
+        Path.join(home, "traces"),
+        Path.join(home, "artifacts"),
+        Path.join(home, "audio"),
+        Path.join(home, "images"),
+        Path.join(home, "generated_images"),
+        Path.join(home, "tmp/voice-captures"),
+        Path.join(home, "tmp/image-inputs"),
+        Path.join(home, "tmp/generated-images"),
+        Path.join(home, "cache/browser")
+      ]
+      |> Enum.filter(&File.exists?/1)
+
+    files =
+      roots
+      |> Enum.flat_map(&Path.wildcard(Path.join(&1, "**/*")))
+      |> Enum.filter(&File.regular?/1)
+
+    findings = release_v042_secret_findings(files, home)
+
+    result = %{
+      status: if(findings == [], do: "passed", else: "failed"),
+      scanned_roots: Enum.map(roots, &Path.relative_to(&1, home)),
+      scanned_file_count: length(files),
+      findings: findings
+    }
+
+    print_output("release.v050b secret_scan", Jason.encode!(result, pretty: true))
+    result
+  end
+
+  defp release_v050b_browser_fixture(results) do
+    output =
+      results
+      |> Enum.find(&(&1.id == "artifact_browser_smoke_seed"))
+      |> case do
+        nil -> ""
+        result -> Map.get(result, :redacted_output_tail, "")
+      end
+
+    %{
+      artifact_sha256: release_output_capture(output, ~r/^ARTIFACT_SHA=([a-f0-9]{64})$/m),
+      thread_id: release_output_capture(output, ~r/^THREAD_ID=([^\n]+)$/m),
+      workspace_url: release_output_capture(output, ~r/^WORKSPACE_URL=([^\n]+)$/m),
+      detail_url: release_output_capture(output, ~r/^DETAIL_URL=([^\n]+)$/m)
+    }
+  end
+
+  defp release_output_capture(output, regex) do
+    case Regex.run(regex, output) do
+      [_match, value] -> value
+      _missing -> nil
+    end
   end
 
   defp secret_patterns do
@@ -3215,6 +3448,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v048
       mix allbert.test release.v049
       mix allbert.test release.v050
+      mix allbert.test release.v050b
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

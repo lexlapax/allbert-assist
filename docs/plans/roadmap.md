@@ -3024,8 +3024,9 @@ ADRs: `docs/adr/0054-artifact-provenance-and-browser-surface.md`,
 `docs/adr/0017-allbert-plugin-contract.md`,
 `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`
 
-Status: M1-M4 complete; M5 planned. This is a focused sidecar after v0.50
-(the v0.47b-after-v0.47 shape), depending on the v0.50 core read actions.
+Status: implemented as the v0.50b/`0.50.1` sidecar release. This is a focused
+sidecar after v0.50 (the v0.47b-after-v0.47 shape), depending on the v0.50 core
+read actions.
 
 Expected direction:
 
@@ -3051,7 +3052,10 @@ Expected direction:
   the core confirmation-gated action.
 - Add `:v050b` artifact-browser eval rows, `mix allbert.test release.v050b`,
   and deterministic browser-validation fixture seeding so `/apps/artifacts/<sha>`
-  screenshots use a real seeded SHA recorded in release evidence.
+  screenshots use a real seeded SHA recorded in release evidence. M5 has landed
+  the eval rows, release lane, operator/developer guides, `0.50.1` version
+  metadata, CHANGELOG closeout, and fixture evidence for SHA
+  `c9a2b5ecd64bfc421d4aac9c308cf5d02d899b16b6d2f48d85bf482e6a8060b2`.
 
 ## v0.51: Channel Pack 1 - Discord And Slack
 

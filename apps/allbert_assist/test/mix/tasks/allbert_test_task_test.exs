@@ -131,10 +131,11 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert output =~ "commit gate is not release evidence"
   end
 
-  test "usage lists the v0.50 release lane" do
+  test "usage lists the v0.50 release lanes" do
     error = assert_raise Mix.Error, fn -> AllbertTestTask.run(["unknown"]) end
 
     assert error.message =~ "mix allbert.test release.v050"
+    assert error.message =~ "mix allbert.test release.v050b"
   end
 
   test "phase runner short-circuits after a failing phase", %{evidence_root: root} do
