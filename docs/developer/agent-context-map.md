@@ -587,7 +587,9 @@ Implemented v0.41 gates:
   ahead of the channel packs). Allbert exposes registered actions as MCP tools
   and memory namespaces as MCP resources, plus an OpenAI-compatible HTTP API and
   an ACP server surface (re-decided in ADR 0044, Phase B). Public AG-UI/A2UI
-  bridge stays parked post-1.0.
+  bridge stays parked post-1.0. The MCP surface targets pinned Hermes-supported
+  protocol versions, and the OpenAI-compatible surface is a bounded
+  Chat Completions shim rather than full API parity.
 - v0.52 (planned): Channel Pack 1 - Discord And Slack. Adds team/community chat
   plugins over the existing channel substrate and amends ADR 0016 to lock the
   channel approval-primitive contract (`{list, button, typed_command, link}`)

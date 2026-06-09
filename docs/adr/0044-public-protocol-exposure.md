@@ -33,6 +33,12 @@ their ecosystems, but Allbert does not infer `speech_to_text`, `vision_input`,
 payload shape. Non-text OpenAI/ACP content and embedded resources are rejected
 unless a later ADR/plan exposes a capability-specific route.
 
+The MCP server also targets the protocol versions supported by the pinned
+`hermes_mcp` 0.14.1 server stack (`2025-03-26` / `2025-06-18` where available).
+Latest public MCP `2025-11-25` parity is future compatibility work unless the
+dependency is upgraded and reverified before M3/M4. The OpenAI-compatible API is
+a bounded Chat Completions shim, not full OpenAI API or Responses API parity.
+
 ## Context
 
 v0.40 ships MCP **client** integration: Allbert calls registered actions
@@ -68,7 +74,9 @@ under the following rules:
 
 - Allbert MCP server exposes **registered actions as MCP tools** and **app
   memory namespaces as MCP resources**. Tool calls dispatch through
-  `Actions.Runner.run/3`.
+  `Actions.Runner.run/3`. v0.51 advertises only the implemented tools/resources
+  subset: no prompts, resource templates, subscriptions, or `listChanged`
+  capability unless implemented and tested in this milestone.
 - The OpenAI-compatible `/v1/chat/completions` endpoint enters Allbert as a
   bounded conversational turn through `Runtime.submit_user_input/1`; any
   selected effectful action still routes through `Actions.Runner.run/3`.
@@ -78,7 +86,8 @@ under the following rules:
 - ACP `cwd`, `additionalDirectories`, `mcpServers`, `permissionMode`, and
   non-text content blocks are not authority. v0.51 advertises only implemented
   ACP capabilities and rejects unsupported fields instead of treating them as
-  configuration.
+  configuration. Client-supplied `mcpServers` are never imported into Allbert MCP
+  client settings, discovery, or connection flows.
 - The OpenAI-compatible API accepts a bounded text-chat subset. Client-supplied
   `tools`, `functions`, `tool_calls`, `tool_choice`, non-text content parts,
   `modalities`, `audio`, and unsupported structured-output or streaming options
@@ -86,6 +95,12 @@ under the following rules:
 - Settings, secrets, raw runtime signals, confirmation-storage internals,
   registry internals, `:internal` actions, system namespaces, and confirmation-
   decision actions are not exposed through any surface.
+- Because current `:agent` actions include settings/profile/credential
+  operations, exposure is deny-before-allow: execution modes such as
+  `:settings_read`, `:settings_write`, `:secret_write`, confirmation storage/
+  decision modes, raw trace/signal access, plugin/registry internals, and local-
+  process/shell-like actions are rejected before an operator allowlist can expose
+  anything.
 - The exposed tool and memory-resource sets are operator-configurable in
   Settings Central. Defaults are disabled and empty; operators explicitly enable
   surfaces, tools, and namespaces.
@@ -137,10 +152,13 @@ under the following rules:
 - No public AG-UI/A2UI bridge in 1.0.
 - No MCP Apps iframe UI in 1.0.
 - No hosted multi-user authorization model.
+- No MCP OAuth 2.1 protected-resource / authorization-server implementation in
+  v0.51.
 - No cloud sync service.
 - No remote UI code execution.
 - No protocol-specific permission bypass.
 - No external-client self-approval of confirmations.
 - No generic multimodal or embedded-resource ingress.
+- No full OpenAI API or Responses API parity.
 - No exposure of raw runtime signals, secrets, settings store internals, or
   confirmation storage.

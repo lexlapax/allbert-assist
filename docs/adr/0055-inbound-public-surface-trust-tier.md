@@ -82,12 +82,17 @@ Two facts from the v0.51 readiness sweep shape this decision:
 
 ### Settings Central contract
 - M1 adds ADR 0046 schema-versioned safe-write fragments:
-  `mcp_server.*`, `openai_api.*`, and `acp_server.*`, all default-off and
-  default-empty. Unknown keys are rejected.
+  `mcp_server.*`, `openai_api.*`, `acp_server.*`, and shared
+  `public_protocol.*`, all default-off and default-empty except bounded shared
+  defaults such as readback TTL and max body bytes. Unknown keys are rejected.
 - HTTP client entries use Settings Secrets token refs, enabled flags, and
   per-client/per-surface rate-limit settings. Secret refs may be audited; raw
   bearer tokens never appear in settings output, CLI output, traces, audits, or
   tests.
+- Settings validation rejects invalid client ids, invalid port/rate-limit ranges,
+  non-local bind hosts unless a later hardening plan enables them, allowlisted
+  tools that fail the public exposure deny rules, memory namespaces outside app
+  namespaces, and model aliases that do not resolve to configured profiles.
 - `permissions.public_surface_call_inbound` defaults to `needs_confirmation` and
   cannot be lowered below the safety floor.
 
@@ -98,6 +103,13 @@ Two facts from the v0.51 readiness sweep shape this decision:
   `Voice.LocalRuntime.Auth` pattern, generalized to Settings-Secrets issuance).
   Tokens are operator-issued, rotatable, and revocable; an absent/invalid/revoked
   token is rejected before any runtime work.
+- Token issuance uses the operator CLI
+  `mix allbert.public_protocol token create|rotate|revoke|list --surface <mcp_http|openai_api> --client <id>`.
+  `create` prints the raw bearer token once; every other command, trace, audit,
+  and test evidence path redacts it.
+- This is an Allbert local/private ingress-auth subset, not an MCP OAuth 2.1
+  protected-resource / authorization-server implementation. Remote/public OAuth
+  parity is future work and is not v0.51 acceptance.
 - Reusable bearer tokens do **not** provide replay prevention by themselves. This
   ADR requires token redaction, revocation denial, and rate-limit-before-runtime
   behavior. If v0.51 later claims replay denial, M4 must add and test an
@@ -122,6 +134,9 @@ Two facts from the v0.51 readiness sweep shape this decision:
   baseline must be revisited for external surfaces.
 
 ### Result readback (poll-by-id)
+- The ownership record is an **Ecto-backed public protocol readback table** in
+  the Allbert Assist DB, not an Allbert Home flat file and not additional raw
+  confirmation-store metadata.
 - A new **read-only, `:agent`-exposable** action (e.g. `get_public_call_result`)
   lets a client retrieve a confirmation/call result **by id**. It returns one of
   `pending | approved_with_result | denied | expired`.
@@ -146,6 +161,9 @@ Two facts from the v0.51 readiness sweep shape this decision:
   reachable requests, defaults local deployments to localhost binding, documents
   `Mcp-Session-Id` behavior, validates `MCP-Protocol-Version` when present, and
   either implements DELETE session termination or returns an explicit 405.
+  v0.51 targets the pinned Hermes-supported MCP versions (`2025-03-26` /
+  `2025-06-18` where available); unsupported newer versions such as
+  unverified `2025-11-25` are rejected before runtime work.
 - MCP stdio and ACP stdio keep stdout protocol-clean and send logs to stderr.
 
 ## Consequences
