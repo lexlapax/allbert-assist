@@ -3086,18 +3086,19 @@ what's exposed; re-decided for the expanded v0.51 scope),
 `docs/adr/0055-inbound-public-surface-trust-tier.md` (inbound trust — permission
 class, per-client auth, rate-limit, API secure-header posture, poll-by-id readback)
 
-Status: planned; **promoted from a point release (was v0.52b) to a full release
-and expanded** in the 2026-06-09 restructure, and resequenced ahead of the
-channel packs. Expanded scope detailed in the v0.51 plan (Phase B).
+Status: implemented as `0.51.0`; ready for operator manual validation before
+release tag. Promoted from a point release (was v0.52b) to a full release and
+expanded in the 2026-06-09 restructure, then resequenced ahead of the channel
+packs.
 
 Expected direction:
 
 - Allbert exposes its registered actions as MCP **tools** and memory
   namespaces (per app) as MCP **resources**. Symmetric to the v0.40 MCP client
   work.
-- **Expanded for full-release status (restructure):** beyond the MCP
-  tools/resources surface, v0.51 adds an **OpenAI-compatible HTTP API** and an
-  **ACP server** surface (re-decided in ADR 0044, Phase B). The public
+- Beyond the MCP tools/resources surface, v0.51 adds an
+  **OpenAI-compatible HTTP API** and an **ACP server** surface (re-decided in
+  ADR 0044, Phase B). The public
   **AG-UI/A2UI bridge stays parked** in `future-features.md`.
 - External clients (Claude Desktop, Cursor, ChatGPT MCP, ACP/OpenAI-API agents)
   never receive more authority than local workspace users.
@@ -3120,6 +3121,10 @@ Expected direction:
   `hermes_mcp` 0.14.1 (`2025-03-26` / `2025-06-18` where available), not
   unverified latest-MCP parity. The OpenAI-compatible surface is a bounded
   Chat Completions shim, not full OpenAI API or Responses API parity.
+- M7 adds 34 `:v051` public-protocol security eval rows,
+  `mix allbert.test release.v051`, operator/developer guides, and release
+  evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-8259/home/release_evidence/v051/release-v051-1781029442.json`.
 
 ## v0.52: Channel Pack 1 - Discord And Slack
 

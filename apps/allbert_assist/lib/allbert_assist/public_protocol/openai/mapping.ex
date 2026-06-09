@@ -7,7 +7,7 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
   authority.
   """
 
-  alias AllbertAssist.PublicProtocol.ResultReadback
+  alias AllbertAssist.PublicProtocol.{HttpIngress, ResultReadback}
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Settings
 
@@ -169,7 +169,7 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
   @spec ingress_error(term()) :: error()
   def ingress_error(reason) do
     %{
-      status: AllbertAssist.PublicProtocol.HttpIngress.status(reason),
+      status: HttpIngress.status(reason),
       message: ingress_message(reason),
       type: ingress_type(reason),
       code: ingress_code(reason),
@@ -299,7 +299,7 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
     do:
       {:error,
        invalid(
-         "Only response_format={\"type\":\"text\"} is supported in v0.51.",
+         ~S(Only response_format={"type":"text"} is supported in v0.51.),
          "unsupported_response_format",
          "response_format"
        )}

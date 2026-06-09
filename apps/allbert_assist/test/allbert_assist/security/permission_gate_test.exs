@@ -40,6 +40,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :mcp_server_connect,
              :mcp_tool_call,
              :mcp_resource_read,
+             :public_surface_call_inbound,
              :browser_session_start,
              :browser_navigate,
              :browser_extract,

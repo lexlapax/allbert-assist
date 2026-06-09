@@ -101,6 +101,16 @@ defmodule AllbertAssist.Workspace.Fragment do
         {:error, reason}
     end
   rescue
+    _exception in [DBConnection.ConnectionError, DBConnection.OwnershipError] ->
+      Logger.warning(
+        "workspace fragment persistence unavailable emitter=#{inspect(envelope.emitter_id)} " <>
+          "kind=#{inspect(envelope.kind)} fragment_id=#{inspect(envelope.id)} " <>
+          "reason=:database_unavailable"
+      )
+
+      publish_dropped(envelope, :persistence_failed)
+      {:error, :persistence_failed}
+
     exception ->
       # v0.26a M32: surface enough exception detail for operators to debug
       # why a fragment dropped without leaking redactable user payload. The

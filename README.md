@@ -23,7 +23,7 @@ to generate and reuse.
 
 ## Current Shape
 
-The current release is `v0.50.1`. This README is the stable project
+The current release is `v0.51.0`. This README is the stable project
 orientation; release-by-release implementation detail belongs in
 [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in
 [docs/plans/roadmap.md](docs/plans/roadmap.md).
@@ -85,11 +85,14 @@ then make the contract easier to reuse. The current roadmap sequence has
 operator-supervised self-improvement discovery/local drafts in v0.47, handoff
 drafts in v0.47b/`0.47.1`, provider-capability-backed voice in v0.48,
 vision/image generation in v0.49, Artifacts Central in v0.50, and the
-Artifacts Browser sidecar in v0.50b/`0.50.1`.
+Artifacts Browser sidecar in v0.50b/`0.50.1`, and public protocol surfaces in
+v0.51.
 Fake providers are test fixtures only; operator-facing provider milestones
 target real configured endpoints/providers.
 Vision/image generation in v0.49 consumes the v0.48 provider capability
-substrate rather than adding a separate image-provider framework.
+substrate rather than adding a separate image-provider framework. v0.51 exposes
+Allbert through MCP, an OpenAI-compatible HTTP shim, and ACP while preserving the
+existing runtime/action/security boundaries.
 Use [CHANGELOG.md](CHANGELOG.md) for shipped release details and
 [docs/plans/roadmap.md](docs/plans/roadmap.md) for the current milestone
 sequence.

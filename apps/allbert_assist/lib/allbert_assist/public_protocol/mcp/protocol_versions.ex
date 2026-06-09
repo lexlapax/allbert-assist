@@ -10,6 +10,17 @@ defmodule AllbertAssist.PublicProtocol.Mcp.ProtocolVersions do
   @supported ["2025-06-18", "2025-03-26"]
   @latest "2025-06-18"
 
+  @type validation_error :: %{
+          required(:code) => -32_602,
+          required(:message) => String.t(),
+          required(:data) => %{
+            required(:requested) => String.t(),
+            required(:supported) => [String.t(), ...]
+          }
+        }
+
+  @type validation_result :: :ok | {:error, validation_error()}
+
   @spec supported() :: [String.t()]
   def supported, do: @supported
 
@@ -20,14 +31,14 @@ defmodule AllbertAssist.PublicProtocol.Mcp.ProtocolVersions do
   def supported?(version) when is_binary(version), do: version in @supported
   def supported?(_version), do: false
 
-  @spec validate(term()) :: :ok | {:error, map()}
+  @spec validate(term()) :: validation_result()
   def validate(version) when is_binary(version) do
     if supported?(version) do
       :ok
     else
       {:error,
        %{
-         code: -32602,
+         code: -32_602,
          message: "Unsupported MCP protocol version.",
          data: %{
            requested: version,
@@ -40,7 +51,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.ProtocolVersions do
   def validate(version) do
     {:error,
      %{
-       code: -32602,
+       code: -32_602,
        message: "Unsupported MCP protocol version.",
        data: %{
          requested: inspect(version),

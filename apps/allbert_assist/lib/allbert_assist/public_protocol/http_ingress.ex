@@ -134,7 +134,13 @@ defmodule AllbertAssist.PublicProtocol.HttpIngress do
     }
   end
 
-  @spec error_body(term()) :: map()
+  @type http_status :: 400 | 401 | 403 | 413 | 429
+
+  @spec error_body(term()) :: %{
+          required(String.t()) => %{
+            required(String.t()) => String.t()
+          }
+        }
   def error_body(reason) do
     %{
       "error" => %{
@@ -145,7 +151,7 @@ defmodule AllbertAssist.PublicProtocol.HttpIngress do
     }
   end
 
-  @spec status(term()) :: pos_integer()
+  @spec status(term()) :: http_status()
   def status(:missing_client_id), do: 401
   def status(:missing_bearer_token), do: 401
   def status(:invalid_token), do: 401

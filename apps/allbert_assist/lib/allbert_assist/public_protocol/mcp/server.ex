@@ -8,17 +8,18 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Server do
   protocol-version denial before runtime work.
   """
 
-  use Hermes.Server,
-    name: "allbert-assist",
-    version: AllbertAssist.App.CoreApp.version(),
-    capabilities: [:tools, :resources],
-    protocol_versions: AllbertAssist.PublicProtocol.Mcp.ProtocolVersions.supported()
-
+  alias AllbertAssist.App.CoreApp
   alias AllbertAssist.PublicProtocol.Mcp.ProtocolVersions
   alias AllbertAssist.PublicProtocol.Mcp.Runtime
   alias Hermes.MCP.Error
   alias Hermes.Server.Frame
   alias Hermes.Server.Response
+
+  use Hermes.Server,
+    name: "allbert-assist",
+    version: CoreApp.version(),
+    capabilities: [:tools, :resources],
+    protocol_versions: ProtocolVersions.supported()
 
   @impl true
   def init(client_info, frame) do
@@ -56,7 +57,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Server do
   end
 
   @doc "Allbert-owned validation helper for ingress layers and tests."
-  @spec validate_protocol_version(term()) :: :ok | {:error, map()}
+  @spec validate_protocol_version(term()) :: ProtocolVersions.validation_result()
   def validate_protocol_version(version), do: ProtocolVersions.validate(version)
 
   defp register_tools(frame) do

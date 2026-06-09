@@ -466,12 +466,13 @@ defmodule AllbertAssist.Actions.Registry do
   end
 
   defp module_capability_attrs(module) do
-    if function_exported?(module, :capability, 0) do
+    with true <- Code.ensure_loaded?(module),
+         true <- function_exported?(module, :capability, 0) do
       module
       |> apply(:capability, [])
       |> Action.validate_capability()
     else
-      {:error, :missing_action_capability}
+      false -> {:error, :missing_action_capability}
     end
   end
 

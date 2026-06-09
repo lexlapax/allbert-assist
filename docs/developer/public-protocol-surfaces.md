@@ -1,6 +1,7 @@
 # Public Protocol Surfaces
 
-Status: in implementation for v0.51; M1-M6 implemented, M7 planned.
+Status: implemented for v0.51 as `0.51.0`; ready for operator manual validation
+before release tag.
 
 This document is the implementation contract for the v0.51 MCP server,
 OpenAI-compatible API, and ACP server adapters. The authoritative planning set
@@ -183,3 +184,22 @@ return `expired` and no result bytes.
 Readback never exposes raw confirmation records, `show_confirmation`,
 `list_confirmations`, trace bodies, or secrets. Unknown and cross-client ids
 return authorization/error shapes, not confirmation data.
+
+## Validation Evidence
+
+The deterministic v0.51 gate is:
+
+```sh
+MIX_ENV=test mix allbert.test release.v051
+```
+
+The clean M7 evidence is
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-10629/home/release_evidence/v051/release-v051-1781033058.json`.
+It covers the public-surface foundations, MCP stdio, MCP HTTP ingress,
+OpenAI-compatible mapping and web controller, ACP stdio, 34 `:v051`
+public-protocol security eval rows, and the secret scan. The evidence scan found
+no `database is locked`, `SQLITE_BUSY`, `Exqlite.Connection`, or
+`DBConnection.ConnectionError` noise.
+
+The full release gate also passed before manual validation handoff:
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13251/home/release_evidence/gates/release-2026-06-09T19_26_13Z.json`.

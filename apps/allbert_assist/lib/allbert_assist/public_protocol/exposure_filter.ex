@@ -46,7 +46,8 @@ defmodule AllbertAssist.PublicProtocol.ExposureFilter do
   def exposable_tool?(%Capability{} = capability), do: non_exposable_reason(capability) == nil
 
   @doc "Return the deny-before-allow reason for a capability, if any."
-  @spec non_exposable_reason(Capability.t()) :: atom() | nil
+  @spec non_exposable_reason(Capability.t()) ::
+          atom() | {:blocked_execution_mode, atom()} | {:blocked_permission, atom()} | nil
   def non_exposable_reason(%Capability{exposure: exposure}) when exposure != :agent,
     do: :not_agent_exposable
 
@@ -76,18 +77,7 @@ defmodule AllbertAssist.PublicProtocol.ExposureFilter do
     capabilities_by_name = Map.new(ActionsRegistry.capabilities(), &{&1.name, &1})
 
     allowlist
-    |> Enum.reduce({[], []}, fn name, {accepted, rejected} ->
-      case Map.fetch(capabilities_by_name, name) do
-        {:ok, capability} ->
-          case non_exposable_reason(capability) do
-            nil -> {[capability | accepted], rejected}
-            reason -> {accepted, [%{name: name, reason: reason} | rejected]}
-          end
-
-        :error ->
-          {accepted, [%{name: name, reason: :unknown_action} | rejected]}
-      end
-    end)
+    |> Enum.reduce({[], []}, &resolve_tool(&1, &2, capabilities_by_name))
     |> case do
       {accepted, []} -> {:ok, Enum.reverse(accepted)}
       {_accepted, rejected} -> {:error, {:non_exposable_tools, Enum.reverse(rejected)}}
@@ -95,6 +85,20 @@ defmodule AllbertAssist.PublicProtocol.ExposureFilter do
   end
 
   def filter_tools(_allowlist), do: {:error, {:non_exposable_tools, [%{reason: :expected_list}]}}
+
+  defp resolve_tool(name, {accepted, rejected}, capabilities_by_name) do
+    case Map.fetch(capabilities_by_name, name) do
+      {:ok, capability} -> resolve_known_tool(name, capability, accepted, rejected)
+      :error -> {accepted, [%{name: name, reason: :unknown_action} | rejected]}
+    end
+  end
+
+  defp resolve_known_tool(name, capability, accepted, rejected) do
+    case non_exposable_reason(capability) do
+      nil -> {[capability | accepted], rejected}
+      reason -> {accepted, [%{name: name, reason: reason} | rejected]}
+    end
+  end
 
   @doc "Return app memory namespace candidates for public resource allowlisting."
   @spec namespace_candidates() :: [map()]

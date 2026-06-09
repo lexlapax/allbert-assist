@@ -93,6 +93,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       "show_app",
       "list_plugins",
       "show_plugin",
+      "get_public_call_result",
       "preview_plan",
       "open_calendar_panel",
       "open_mail_panel",

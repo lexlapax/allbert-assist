@@ -8,8 +8,8 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
 
   use AllbertAssistWeb, :controller
 
-  alias AllbertAssist.PublicProtocol.Mcp.ProtocolVersions
-  alias AllbertAssist.PublicProtocol.Mcp.Runtime
+  alias AllbertAssist.App.CoreApp
+  alias AllbertAssist.PublicProtocol.Mcp.{ProtocolVersions, Runtime, Schema}
 
   @surface "mcp_http"
 
@@ -33,7 +33,7 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
   def handle(conn, request) do
     id = if is_map(request), do: Map.get(request, "id")
 
-    rpc_error(conn, 400, id, -32600, "Invalid JSON-RPC request.", %{})
+    rpc_error(conn, 400, id, -32_600, "Invalid JSON-RPC request.", %{})
   end
 
   def delete(conn, _params) do
@@ -57,7 +57,7 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
          "protocolVersion" => requested,
          "serverInfo" => %{
            "name" => "allbert-assist",
-           "version" => AllbertAssist.App.CoreApp.version()
+           "version" => CoreApp.version()
          },
          "capabilities" => %{
            "tools" => %{},
@@ -66,7 +66,7 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
        }}
     else
       {:error, error} ->
-        {:error, {400, -32602, error.message, error.data}}
+        {:error, {400, -32_602, error.message, error.data}}
     end
   end
 
@@ -79,7 +79,7 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
              %{
                "name" => tool.name,
                "description" => tool.module.description(),
-               "inputSchema" => AllbertAssist.PublicProtocol.Mcp.Schema.input_schema(tool.module)
+               "inputSchema" => Schema.input_schema(tool.module)
              }
            end)
        }}
@@ -94,7 +94,7 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
       {:ok, tool_result(payload)}
     else
       {:error, reason} ->
-        {:error, {400, -32602, "MCP tool call failed.", %{reason: inspect(reason)}}}
+        {:error, {400, -32_602, "MCP tool call failed.", %{reason: inspect(reason)}}}
     end
   end
 
@@ -130,12 +130,12 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
        }}
     else
       {:error, reason} ->
-        {:error, {404, -32002, "MCP resource was not found.", %{reason: inspect(reason)}}}
+        {:error, {404, -32_002, "MCP resource was not found.", %{reason: inspect(reason)}}}
     end
   end
 
   defp dispatch(method, _params, _conn),
-    do: {:error, {400, -32601, "Unsupported MCP method: #{method}.", %{}}}
+    do: {:error, {400, -32_601, "Unsupported MCP method: #{method}.", %{}}}
 
   defp tool_result(payload) do
     status = Map.get(payload, :status, Map.get(payload, "status"))

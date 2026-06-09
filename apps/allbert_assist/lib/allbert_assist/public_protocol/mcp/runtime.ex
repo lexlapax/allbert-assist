@@ -131,7 +131,6 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
 
   def client_id(_context), do: @default_client_id
 
-  @spec resource_uri(map()) :: String.t()
   def resource_uri(%{app_id: app_id, namespace: namespace}) do
     "#{@resource_scheme}://#{atom_to_string(app_id)}/#{atom_to_string(namespace)}"
   end
