@@ -66,8 +66,11 @@ Two facts from the v0.51 readiness sweep shape this decision:
 
 ### Permission class
 - New permission class **`:public_surface_call_inbound`**, safety floor
-  **`:needs_confirmation`**, registered in `Security.Policy.permission_classes/0`,
-  `@default_decisions`, the `permission()` type, and a `safety_floor/2` clause.
+  **`:needs_confirmation`**, registered at every spot the `:artifact_*` precedent
+  touches: `Security.Policy` `@permission_settings`, `@default_decisions`, the
+  `permission()` type, `permission_classes/0`, a `safety_floor/2` clause, and the
+  `reason/5` trace/status clauses; `Security.Risk` `tier/1` + `reasons/3`; and
+  `Settings.Schema` `@safe_write_keys` + the permission `defaults` enum.
 - `Security.Risk.classify/2` receives a tier and reasons for
   `:public_surface_call_inbound` so Security Central status, operator displays,
   and tests explain why inbound public clients are high-risk even when a surface
