@@ -8,8 +8,8 @@ defmodule AllbertAssist.Artifacts.ThreadLinks do
 
   import Ecto.Query
 
-  alias AllbertAssist.Artifacts.ThreadLink
   alias AllbertAssist.Artifacts.Store
+  alias AllbertAssist.Artifacts.ThreadLink
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.Message
   alias AllbertAssist.Repo

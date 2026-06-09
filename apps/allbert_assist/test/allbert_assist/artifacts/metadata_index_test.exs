@@ -70,6 +70,14 @@ defmodule AllbertAssist.Artifacts.MetadataIndexTest do
     assert {:ok, ^written} = MetadataIndex.lookup(sha, root: root)
   end
 
+  test "reset_cache! returns ok after cache table exists", %{root: root} do
+    sha = Store.sha256("cache reset artifact")
+    metadata = %{sha256: sha, mime: "text/plain", byte_size: 20}
+
+    assert {:ok, _written} = MetadataIndex.write(metadata, root: root)
+    assert :ok = MetadataIndex.reset_cache!()
+  end
+
   test "preserves zero-byte metadata values", %{root: root} do
     sha = Store.sha256("")
 

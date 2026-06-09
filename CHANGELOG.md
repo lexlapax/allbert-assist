@@ -61,7 +61,12 @@ Developer doc: `docs/developer/artifacts-browser.md`.
 - `MIX_ENV=test mix test ../../plugins/allbert.artifacts/test/allbert_artifacts/plugin_test.exs ../../plugins/allbert.artifacts/test/allbert_artifacts/app_panels_test.exs ../../plugins/allbert.artifacts/test/mix/tasks/allbert_artifacts_test.exs`
   passed with 13 tests and 0 failures from `apps/allbert_assist`.
 - `MIX_ENV=test mix allbert.test release.v050b` passed. Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v050b/p0-13251/home/release_evidence/v050b/release-v050b-1780969647.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v050b/p0-7/home/release_evidence/v050b/release-v050b-1780973533.json`.
+- Post-implementation static-gate remediation passed the full release handoff:
+  `mix allbert.test release` passed with compile, deps-unused, format, Credo,
+  core tests, web tests, StockSage tests, channel plugin tests, and Dialyzer.
+  Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13250/home/release_evidence/gates/release-2026-06-09T03_32_08Z.json`.
 - The v0.50b evidence scan found no `database is locked`, `SQLITE_BUSY`,
   `Exqlite.Connection`, or `DBConnection.ConnectionError` noise.
 - Release evidence records browser fixture SHA
@@ -70,6 +75,10 @@ Developer doc: `docs/developer/artifacts-browser.md`.
 - Chrome extension validation passed on `http://localhost:4063`: workspace
   filters rendered the fixture row, the detail page rendered linked provenance,
   raw fixture bytes were absent, and neither page had horizontal overflow.
+- Post-remediation Chrome extension revalidation on `http://localhost:4062`
+  was blocked by extension communication timeouts despite diagnostics confirming
+  Chrome running, the Codex Chrome Extension enabled in the Default profile, and
+  a correct native-host manifest. No v0.50b UI code changed in the remediation.
 
 ## v0.50.0 - Artifacts Central
 
@@ -133,7 +142,11 @@ Status: implemented as the v0.50 release. Current version metadata is
 - `MIX_ENV=test mix test apps/allbert_assist/test/security/v050_artifact_store_eval_test.exs apps/allbert_assist/test/security/security_eval_case_test.exs apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs`
   passed with 18 tests and 0 failures.
 - `MIX_ENV=test mix allbert.test release.v050` passed. Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v050/p0-13252/home/release_evidence/v050/release-v050-1780930342.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v050/p0-13250/home/release_evidence/v050/release-v050-1780973143.json`.
+- Post-implementation static-gate remediation passed `mix dialyzer` with
+  `Total errors: 0, Skipped: 0, Unnecessary Skips: 0`, and the full
+  `mix allbert.test release` gate passed in the v0.50.1 closeout evidence cited
+  above.
 - The v0.50 evidence scan found no `database is locked`, `SQLITE_BUSY`,
   `Exqlite.Connection`, or `DBConnection.ConnectionError` noise.
 

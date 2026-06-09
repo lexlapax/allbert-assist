@@ -35,7 +35,7 @@ defmodule AllbertAssist.Artifacts.IngestionSupervisor do
   end
 
   @doc "Return the stable child id used for the Jido sensor runtime."
-  @spec sensor_child_id() :: module()
+  @spec sensor_child_id() :: AllbertAssist.Artifacts.IngestionSensor.Runtime
   def sensor_child_id, do: @sensor_child_id
 
   @doc "Return the supervised Jido sensor runtime pid, when running."

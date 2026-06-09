@@ -2976,6 +2976,8 @@ redacted `allbert.artifact.ingest_requested` signals to an explicit
 through the registered `put_artifact` action.
 M7 has landed the `:v050` artifact-store eval rows, operator/developer/security
 docs, version/changelog closeout, and deterministic `release.v050` evidence.
+The 2026-06-09 post-implementation remediation cleared the Dialyzer/Credo gate
+drift and the full `mix allbert.test release` handoff is green.
 
 Expected direction:
 
@@ -3056,6 +3058,10 @@ Expected direction:
   the eval rows, release lane, operator/developer guides, `0.50.1` version
   metadata, CHANGELOG closeout, and fixture evidence for SHA
   `c9a2b5ecd64bfc421d4aac9c308cf5d02d899b16b6d2f48d85bf482e6a8060b2`.
+  The 2026-06-09 post-implementation remediation re-ran `release.v050b` and
+  the full `mix allbert.test release` gate successfully. Chrome extension
+  revalidation was attempted on a disposable `http://localhost:4062` server but
+  blocked by extension communication timeouts after local diagnostics passed.
 
 ## v0.51: Channel Pack 1 - Discord And Slack
 

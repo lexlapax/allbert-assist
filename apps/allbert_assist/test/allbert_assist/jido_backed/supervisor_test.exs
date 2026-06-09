@@ -28,6 +28,13 @@ defmodule AllbertAssist.JidoBacked.SupervisorTest do
     name = :"jido_backed_supervisor_#{System.unique_integer([:positive])}"
     store_name = :"jido_backed_store_#{System.unique_integer([:positive])}"
     scheduler_name = :"jido_backed_scheduler_#{System.unique_integer([:positive])}"
+    artifact_name = :"jido_backed_artifacts_#{System.unique_integer([:positive])}"
+
+    artifact_consumer_name =
+      :"jido_backed_artifacts_consumer_#{System.unique_integer([:positive])}"
+
+    artifact_sensor_child_id =
+      :"jido_backed_artifacts_sensor_#{System.unique_integer([:positive])}"
 
     pid =
       start_supervised!(
@@ -40,6 +47,11 @@ defmodule AllbertAssist.JidoBacked.SupervisorTest do
            enabled?: false,
            poll_on_start?: false,
            cleanup_on_start?: false
+         ],
+         artifact_ingestion: [
+           name: artifact_name,
+           consumer_name: artifact_consumer_name,
+           sensor_child_id: artifact_sensor_child_id
          ],
          extra_children: [
            %{

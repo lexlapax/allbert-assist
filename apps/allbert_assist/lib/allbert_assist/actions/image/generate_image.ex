@@ -23,9 +23,9 @@ defmodule AllbertAssist.Actions.Image.GenerateImage do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Artifacts.MediaRetention
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
-  alias AllbertAssist.Artifacts.MediaRetention
   alias AllbertAssist.Resources.{ImageBounds, ImageMetadata, ResourceURI}
   alias AllbertAssist.Runtime.Paths, as: RuntimePaths
   alias AllbertAssist.Runtime.Redactor

@@ -18,8 +18,8 @@ defmodule AllbertAssist.Artifacts.IngestionConsumer do
   alias AllbertAssist.Artifacts.Store
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Signals
-  alias Jido.Signal
   alias Jido.Sensor.Runtime, as: SensorRuntime
+  alias Jido.Signal
 
   @default_timeout 15_000
   @ingest_requested_type "allbert.artifact.ingest_requested"

@@ -10,6 +10,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.App.CoreApp
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Artifacts.MediaRetention
   alias AllbertAssist.Confirmations
 
   alias AllbertAssist.Confirmations.{
@@ -21,7 +22,6 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   }
 
   alias AllbertAssist.Conversations
-  alias AllbertAssist.Artifacts.MediaRetention
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Resources.ImageBounds
   alias AllbertAssist.Resources.ImageMetadata

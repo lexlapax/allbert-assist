@@ -12,6 +12,19 @@ defmodule AllbertAssist.Artifacts.MediaRetention do
 
   @type kind :: :voice_audio | :vision_media | :generated_image
 
+  @extension_mimes %{
+    ".flac" => "audio/flac",
+    ".jpeg" => "image/jpeg",
+    ".jpg" => "image/jpeg",
+    ".m4a" => "audio/mp4",
+    ".mp3" => "audio/mpeg",
+    ".ogg" => "audio/ogg",
+    ".png" => "image/png",
+    ".wav" => "audio/wav",
+    ".webm" => "audio/webm",
+    ".webp" => "image/webp"
+  }
+
   @doc "Store retained media bytes through the artifact retention policy."
   @spec put(kind(), binary(), map(), keyword()) :: {:ok, map()} | {:error, term()}
   def put(kind, bytes, attrs \\ %{}, opts \\ []) when is_binary(bytes) and is_map(attrs) do
@@ -59,13 +72,16 @@ defmodule AllbertAssist.Artifacts.MediaRetention do
   @doc "Return a conservative MIME value from attrs or a filename extension."
   @spec mime(map()) :: String.t()
   def mime(attrs) when is_map(attrs) do
-    attrs
-    |> field(:mime)
-    |> Kernel.||(field(attrs, :mime_type))
-    |> Kernel.||(field(attrs, :content_type))
-    |> normalize_mime()
-    |> Kernel.||(mime_from_extension(field(attrs, :filename) || field(attrs, :path)))
-    |> Kernel.||("application/octet-stream")
+    case attrs_mime(attrs) do
+      value when is_binary(value) ->
+        value
+
+      nil ->
+        case mime_from_extension(field(attrs, :filename) || field(attrs, :path)) do
+          value when is_binary(value) -> value
+          nil -> "application/octet-stream"
+        end
+    end
   end
 
   def mime(_attrs), do: "application/octet-stream"
@@ -137,20 +153,16 @@ defmodule AllbertAssist.Artifacts.MediaRetention do
 
   defp normalize_mime(_value), do: nil
 
+  defp attrs_mime(attrs) do
+    attrs
+    |> field(:mime)
+    |> Kernel.||(field(attrs, :mime_type))
+    |> Kernel.||(field(attrs, :content_type))
+    |> normalize_mime()
+  end
+
   defp mime_from_extension(path) when is_binary(path) do
-    case path |> Path.extname() |> String.downcase() do
-      ".wav" -> "audio/wav"
-      ".mp3" -> "audio/mpeg"
-      ".m4a" -> "audio/mp4"
-      ".ogg" -> "audio/ogg"
-      ".webm" -> "audio/webm"
-      ".flac" -> "audio/flac"
-      ".png" -> "image/png"
-      ".jpg" -> "image/jpeg"
-      ".jpeg" -> "image/jpeg"
-      ".webp" -> "image/webp"
-      _extension -> nil
-    end
+    Map.get(@extension_mimes, path |> Path.extname() |> String.downcase())
   end
 
   defp mime_from_extension(_path), do: nil
@@ -170,6 +182,4 @@ defmodule AllbertAssist.Artifacts.MediaRetention do
   defp field(map, key) when is_map(map) do
     Map.get(map, key, Map.get(map, Atom.to_string(key)))
   end
-
-  defp field(_map, _key), do: nil
 end

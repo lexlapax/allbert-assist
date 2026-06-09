@@ -6,14 +6,14 @@ defmodule AllbertAssist.Security.V050bArtifactsBrowserEvalTest do
 
   import ExUnit.CaptureIO
 
+  alias AllbertArtifacts.App
+  alias AllbertArtifacts.Plugin
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Artifacts.MetadataIndex
   alias AllbertAssist.Artifacts.Store
   alias AllbertAssist.Paths
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
-  alias AllbertArtifacts.App
-  alias AllbertArtifacts.Plugin
   alias Mix.Tasks.Allbert.Artifacts, as: ArtifactsTask
 
   @eval_ids [

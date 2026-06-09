@@ -6,6 +6,7 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Artifacts
   alias AllbertAssist.Artifacts.MetadataIndex
+  alias AllbertAssist.Artifacts.Store
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
@@ -107,7 +108,7 @@ defmodule AllbertAssist.Actions.GenerateImageTest do
     assert [%{sha256: sha256, metadata: metadata}] = artifacts
     assert metadata.mime == "image/png"
     assert metadata.provenance["media_retention"]["kind"] == "generated_image"
-    assert response.image_file == AllbertAssist.Artifacts.Store.object_path!(sha256)
+    assert response.image_file == Store.object_path!(sha256)
   end
 
   test "image generation is default-off until operator enables it" do

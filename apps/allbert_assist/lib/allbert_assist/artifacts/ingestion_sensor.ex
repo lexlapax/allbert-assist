@@ -11,11 +11,41 @@ defmodule AllbertAssist.Artifacts.IngestionSensor do
 
   @ingest_requested_type "allbert.artifact.ingest_requested"
   @source "/allbert/artifacts/ingestion_sensor"
+  @name "artifact_ingestion_sensor"
+  @description "Emits advisory retained-artifact ingestion requests."
+  @schema Zoi.object(%{}, coerce: true)
 
-  use Jido.Sensor,
-    name: "artifact_ingestion_sensor",
-    description: "Emits advisory retained-artifact ingestion requests.",
-    schema: Zoi.object(%{}, coerce: true)
+  @behaviour Jido.Sensor
+
+  alias Jido.Sensor.Spec
+
+  @doc "Return the Jido sensor name."
+  def name, do: @name
+
+  @doc "Return the Jido sensor description."
+  def description, do: @description
+
+  @doc "Return the Jido sensor configuration schema."
+  def schema, do: @schema
+
+  @doc "Return the Jido sensor specification."
+  def spec do
+    Spec.new!(%{
+      module: __MODULE__,
+      name: name(),
+      description: description(),
+      schema: schema()
+    })
+  end
+
+  @doc "Return metadata for Jido sensor discovery."
+  def __sensor_metadata__ do
+    %{
+      name: name(),
+      description: description(),
+      schema: schema()
+    }
+  end
 
   @doc "Return the signal type emitted for retained artifact ingestion requests."
   @spec ingest_requested_type() :: String.t()
@@ -44,6 +74,9 @@ defmodule AllbertAssist.Artifacts.IngestionSensor do
   end
 
   def handle_event(_event, state), do: {:ok, state}
+
+  @impl Jido.Sensor
+  def terminate(_reason, _state), do: :ok
 
   defp redacted_request(request) do
     %{

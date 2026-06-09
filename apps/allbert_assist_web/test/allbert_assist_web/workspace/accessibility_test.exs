@@ -3,7 +3,7 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
 
   import Phoenix.LiveViewTest
 
-  alias AllbertAssist.{Confirmations, Paths, Runtime, Settings}
+  alias AllbertAssist.{Confirmations, Paths, Runtime, Session, Settings}
 
   @css_path Path.expand("../../../assets/css/app.css", __DIR__)
   @runtime_async_timeout 60_000
@@ -26,8 +26,10 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
     end
 
     Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
+    _ = Session.clear_active_app("local", "web-local")
 
     on_exit(fn ->
+      _ = Session.clear_active_app("local", "web-local")
       restore_env(Confirmations, original_confirmations_config)
       restore_env(Paths, original_paths_config)
       restore_env(Runtime, original_runtime_config)

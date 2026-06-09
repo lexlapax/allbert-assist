@@ -49,7 +49,7 @@ defmodule AllbertAssist.Artifacts.Store do
   end
 
   @doc "Read a persisted object by lowercase SHA-256."
-  @spec read(String.t(), keyword()) :: {:ok, binary()} | {:error, term()}
+  @spec read(String.t(), keyword()) :: {:ok, binary()} | {:error, atom()}
   def read(sha256, opts \\ []) do
     with {:ok, path} <- object_path(sha256, opts) do
       case File.read(path) do
@@ -70,7 +70,14 @@ defmodule AllbertAssist.Artifacts.Store do
   end
 
   @doc "Delete a persisted object by lowercase SHA-256."
-  @spec delete(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec delete(String.t(), keyword()) ::
+          {:ok,
+           %{
+             required(:sha256) => String.t(),
+             required(:path) => String.t(),
+             required(:deleted?) => true
+           }}
+          | {:error, atom()}
   def delete(sha256, opts \\ []) do
     with {:ok, path} <- object_path(sha256, opts) do
       case File.rm(path) do
