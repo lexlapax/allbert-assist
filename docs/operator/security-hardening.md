@@ -352,9 +352,9 @@ eval surfaces until their capability work lands.
   `artifact-ingest-bounds-001`,
   `artifact-sensor-advisory-only-001`, and
   `artifact-thread-link-no-authority-001`.
-- MCP-server public protocol auth, rate limits, redaction, and confirmation
-  ownership. API, ACP, and public AG-UI/A2UI bridge evals remain parked
-  post-1.0.
+- v0.51 public protocol auth, rate limits, redaction, and confirmation
+  ownership across MCP server, OpenAI-compatible API, and ACP server. Public
+  AG-UI/A2UI and MCP Apps iframe evals remain parked post-1.0.
 - Future self-improvement hardening beyond v0.47b remains limited to later
   capability surfaces, such as channel-derived trace sources and export/import
   preservation of reviewed drafts.

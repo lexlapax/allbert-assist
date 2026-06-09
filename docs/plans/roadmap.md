@@ -296,8 +296,8 @@ Dependency order from here:
     v0.50b Artifacts Browser ships the operator browsing repository (workspace
     panel + `/apps/artifacts/<sha>` page + `mix allbert.artifacts` CLI) as a
     plugin/app (`allbert.artifacts`) over the core read actions.
-51. v0.51 MCP Server Mode (expanded full release; resequenced ahead of the
-    channel packs): exposes registered actions as MCP tools and memory
+51. v0.51 Public Protocol Surfaces (expanded full release; resequenced ahead of
+    the channel packs): exposes registered actions as MCP tools and memory
     namespaces as MCP resources, plus an OpenAI-compatible HTTP API and an ACP
     server surface. Public AG-UI/A2UI bridge stays parked post-1.0.
 52. v0.52 Channel Pack 1 (Discord and Slack) + ADR 0016 amendment for the
@@ -3076,7 +3076,7 @@ Expected direction:
   provenance, metadata-only redaction, return link, and zero detail-page console
   warnings/errors.
 
-## v0.51: MCP Server Mode
+## v0.51: Public Protocol Surfaces
 
 Plan: `docs/plans/v0.51-plan.md`
 Request flow: `docs/plans/v0.51-request-flow.md`
@@ -3100,7 +3100,8 @@ Expected direction:
   never receive more authority than local workspace users.
 - External clients cannot approve their own confirmations; Approval Handoff
   remains operator-owned and renders through the workspace or origin channel.
-- All effectful work still routes through `Actions.Runner.run/3`, Security
+- Conversational protocol requests enter through `Runtime.submit_user_input/1`;
+  all effectful work still routes through `Actions.Runner.run/3`, Security
   Central, confirmations, Resource Access, traces, and audits.
 
 ## v0.52: Channel Pack 1 - Discord And Slack
@@ -3139,7 +3140,7 @@ Request flow: `docs/plans/v0.53-request-flow.md`
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
 not implemented. Scope tightened in the post-v0.37 planning pass: **iMessage
 parked** (macOS-only platform constraint), public protocol interop split into
-v0.51 (MCP server mode only).
+v0.51 (MCP server + OpenAI-compatible API + ACP).
 
 Expected direction:
 
@@ -3226,9 +3227,9 @@ Expected direction:
   operator-visible pending-migration report on boot.
 - Run the full security eval sweep across MCP client, integrations, browser,
   channels (Discord/Slack and WhatsApp/Signal/Matrix), Plan/Build,
-  marketplace, self-improvement, voice, vision, and MCP server mode. (OpenAI
-  API / ACP / AG-UI/A2UI evals are out of 1.0 scope per the parked protocol
-  decision.)
+  marketplace, self-improvement, voice, vision, and the v0.51 public protocol
+  surfaces (MCP server, OpenAI-compatible API, ACP). Public AG-UI/A2UI and MCP
+  Apps iframe evals remain parked.
 - Gather final RC evidence for the v1.0 contract freeze.
 
 ## v1.0: Stability Release And Public Contract Freeze
@@ -3254,8 +3255,8 @@ delivery push over already-proven substrates: templates first, onboarding and
 provider control next, identity slot + Active Memory, then MCP client,
 MCP-first integrations, browser research, Plan/Build, marketplace seed,
 operator-supervised self-improvement, media, team channels, mobile channels,
-MCP server mode, hardening/export with settings migration, final RC evidence,
-and a tiered contract freeze.
+public protocol surfaces, hardening/export with settings migration, final RC
+evidence, and a tiered contract freeze.
 
 The strategic moat is the safety architecture (Security Central, durable
 confirmations, Resource Access posture, sandbox/gate runner, reversible
@@ -3300,16 +3301,15 @@ acceptance criteria are subjective or provider-dependent:
 - Self-improvement suggestion quality (v0.47) — quality bar is subjective.
 - Voice (v0.48) — explicitly experimental.
 - Vision and image generation (v0.49) — provider-dependent quality.
-- MCP Server Mode (v0.51) — external-client interop is verifiable but
+- Public Protocol Surfaces (v0.51) — external-client interop is verifiable but
   ecosystem maturity varies.
 
 ### Capabilities Parked Post-1.0
 
 Moved out of the 1.0 arc into `future-features.md`:
 
-- OpenAI-compatible local HTTP API.
-- ACP server mode.
 - Public AG-UI/A2UI bridge.
+- MCP Apps iframe UI.
 - iMessage channel adapter.
 - Native plugin variants for calendar / mail / GitHub integrations beyond MCP
   (post-1.0 follow-on if needed).

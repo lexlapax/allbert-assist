@@ -87,7 +87,7 @@ facades until their milestones implement and document them.
 | v0.48-v0.49 | Media resource facades | v0.48 models audio STT/TTS resources plus registered provider-backed actions; v0.49 consumes the same pattern for image/screenshot resources. Shared profile media metadata is routing context only; video remains future scope unless a later plan accepts it. |
 | v0.52 | Team-channel facades | Expected to expose Discord and Slack channel adapters under the existing channel contract and v0.52 ADR 0016 amendment. |
 | v0.53 | Mobile channel facades | Expected to expose WhatsApp, Signal, and Matrix channel adapters under the existing channel contract. |
-| v0.51 | MCP server facade | Expected to expose Allbert registered actions and memory namespaces as MCP tools/resources under shared auth/redaction policy. |
+| v0.51 | Public protocol facades | Expected to expose Allbert registered actions and memory namespaces as MCP tools/resources and provide OpenAI-compatible HTTP + ACP adapters under shared auth/redaction/confirmation policy. |
 
 ## Compatibility Shims And Exit Criteria
 
