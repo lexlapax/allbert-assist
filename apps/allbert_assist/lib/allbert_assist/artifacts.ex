@@ -68,10 +68,11 @@ defmodule AllbertAssist.Artifacts do
   @doc "List artifact metadata records with lightweight filters."
   @spec list(keyword()) :: {:ok, [map()]} | {:error, term()}
   def list(opts \\ []) do
-    with {:ok, records} <- list_source_records(opts) do
+    with {:ok, since} <- normalize_since(Keyword.get(opts, :since)),
+         {:ok, records} <- list_source_records(opts) do
       records
       |> Enum.map(&metadata_artifact/1)
-      |> filter_records(opts)
+      |> filter_records(opts, since)
       |> limit_records(Keyword.get(opts, :limit))
       |> then(&{:ok, &1})
     end
@@ -184,12 +185,13 @@ defmodule AllbertAssist.Artifacts do
     end
   end
 
-  defp filter_records(records, opts) do
+  defp filter_records(records, opts, since) do
     records
     |> filter_by_metadata(:mime, Keyword.get(opts, :mime))
     |> filter_by_metadata(:origin, Keyword.get(opts, :origin))
     |> filter_by_metadata(:retention, Keyword.get(opts, :retention))
     |> filter_by_metadata(:lifecycle, Keyword.get(opts, :lifecycle))
+    |> filter_by_since(since)
   end
 
   defp filter_by_metadata(records, _key, nil), do: records
@@ -197,6 +199,25 @@ defmodule AllbertAssist.Artifacts do
   defp filter_by_metadata(records, key, expected) do
     Enum.filter(records, fn %{metadata: metadata} -> metadata_value(metadata, key) == expected end)
   end
+
+  defp filter_by_since(records, nil), do: records
+
+  defp filter_by_since(records, %DateTime{} = since) do
+    Enum.filter(records, fn %{metadata: metadata} ->
+      metadata
+      |> metadata_value(:created_at)
+      |> created_at_on_or_after?(since)
+    end)
+  end
+
+  defp created_at_on_or_after?(created_at, since) when is_binary(created_at) do
+    case DateTime.from_iso8601(created_at) do
+      {:ok, created_at, _offset} -> DateTime.compare(created_at, since) in [:eq, :gt]
+      {:error, _reason} -> false
+    end
+  end
+
+  defp created_at_on_or_after?(_created_at, _since), do: false
 
   defp limit_records(records, nil), do: records
 
@@ -254,6 +275,26 @@ defmodule AllbertAssist.Artifacts do
         {:error, error}
     end
   end
+
+  defp normalize_since(value) when value in [nil, ""], do: {:ok, nil}
+  defp normalize_since(%DateTime{} = value), do: {:ok, value}
+
+  defp normalize_since(value) when is_binary(value) do
+    value = String.trim(value)
+
+    with {:error, _datetime_reason} <- DateTime.from_iso8601(value),
+         {:error, _date_reason} <- Date.from_iso8601(value) do
+      {:error, {:invalid_since, value}}
+    else
+      {:ok, %DateTime{} = datetime, _offset} ->
+        {:ok, datetime}
+
+      {:ok, %Date{} = date} ->
+        DateTime.new(date, ~T[00:00:00], "Etc/UTC")
+    end
+  end
+
+  defp normalize_since(value), do: {:error, {:invalid_since, value}}
 
   defp metadata_value(metadata, key) do
     Map.get(metadata, key, Map.get(metadata, Atom.to_string(key)))

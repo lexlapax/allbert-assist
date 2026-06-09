@@ -67,6 +67,42 @@ defmodule Mix.Tasks.Allbert.ArtifactsTest do
     refute show_output =~ "cli-secret-bytes"
   end
 
+  test "list command applies type origin thread and since filters" do
+    {:ok, target} =
+      seed_artifact!(
+        "cli-target-secret",
+        context("thread-artifacts-cli-target", "sig-artifacts-cli-target"),
+        %{mime: "text/plain", origin: "cli_target", created_at: "2026-06-08T00:00:00Z"}
+      )
+
+    {:ok, other} =
+      seed_artifact!(
+        "cli-other-secret",
+        context("thread-artifacts-cli-other", "sig-artifacts-cli-other"),
+        %{mime: "image/png", origin: "cli_other", created_at: "2026-01-01T00:00:00Z"}
+      )
+
+    output =
+      capture_io(fn ->
+        ArtifactsTask.run([
+          "list",
+          "--type",
+          "text/plain",
+          "--origin",
+          "cli_target",
+          "--thread",
+          "thread-artifacts-cli-target",
+          "--since",
+          "2026-06-01"
+        ])
+      end)
+
+    assert output =~ String.slice(target.artifact.sha256, 0, 12)
+    refute output =~ String.slice(other.artifact.sha256, 0, 12)
+    refute output =~ "cli-target-secret"
+    refute output =~ "cli-other-secret"
+  end
+
   test "threads command prints provenance links without reading bytes", %{context: context} do
     {:ok, put} = seed_artifact!("thread-secret-bytes", context)
     sha = put.artifact.sha256
@@ -113,10 +149,10 @@ defmodule Mix.Tasks.Allbert.ArtifactsTest do
     assert output =~ "mix allbert.artifacts rm"
   end
 
-  defp seed_artifact!(bytes, context) do
+  defp seed_artifact!(bytes, context, metadata \\ %{mime: "text/plain", origin: "cli_test"}) do
     Runner.run(
       "put_artifact",
-      %{bytes: bytes, metadata: %{mime: "text/plain", origin: "cli_test"}},
+      %{bytes: bytes, metadata: metadata},
       context
     )
   end
@@ -135,7 +171,10 @@ defmodule Mix.Tasks.Allbert.ArtifactsTest do
              Settings.put("permissions.artifact_delete", "needs_confirmation", %{audit?: false})
   end
 
-  defp context do
+  defp context(
+         thread_id \\ "thread-artifacts-cli",
+         input_signal_id \\ "sig-artifacts-cli"
+       ) do
     %{
       actor: "local",
       user_id: "local",
@@ -143,8 +182,8 @@ defmodule Mix.Tasks.Allbert.ArtifactsTest do
       request: %{
         operator_id: "local",
         user_id: "local",
-        thread_id: "thread-artifacts-cli",
-        input_signal_id: "sig-artifacts-cli",
+        thread_id: thread_id,
+        input_signal_id: input_signal_id,
         channel: :test
       }
     }

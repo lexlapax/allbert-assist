@@ -11,12 +11,12 @@ defmodule AllbertArtifacts.Panels.Browser do
 
   def panel_id, do: @panel_id
 
-  def surface(artifacts) when is_list(artifacts) do
+  def surface(artifacts, filters \\ %{}) when is_list(artifacts) do
     panel(
       :available,
       "Artifacts",
-      "Recent Artifacts Central metadata.",
-      artifact_nodes(artifacts)
+      panel_body(filters),
+      filter_nodes(filters) ++ artifact_nodes(artifacts)
     )
   end
 
@@ -83,6 +83,22 @@ defmodule AllbertArtifacts.Panels.Browser do
     |> Enum.map(fn {artifact, index} -> artifact_node(artifact, index) end)
   end
 
+  defp filter_nodes(filters) when map_size(filters) == 0, do: []
+
+  defp filter_nodes(filters) do
+    [
+      %Node{
+        id: "artifacts-browser-filters",
+        component: :section,
+        props: %{
+          title: "Filters",
+          body: filter_summary(filters),
+          status: "filtered"
+        }
+      }
+    ]
+  end
+
   defp artifact_node(artifact, index) do
     sha256 = safe_string(Map.get(artifact, :sha256) || metadata_value(artifact, :sha256))
     metadata = Map.get(artifact, :metadata, %{})
@@ -118,6 +134,22 @@ defmodule AllbertArtifacts.Panels.Browser do
     |> Enum.map(&safe_string/1)
     |> Enum.join(" | ")
   end
+
+  defp panel_body(filters) when map_size(filters) == 0, do: "Recent Artifacts Central metadata."
+  defp panel_body(filters), do: "Filtered Artifacts Central metadata: #{filter_summary(filters)}"
+
+  defp filter_summary(filters) do
+    filters
+    |> Enum.sort_by(fn {key, _value} -> to_string(key) end)
+    |> Enum.map(fn {key, value} -> "#{filter_label(key)}=#{safe_string(value)}" end)
+    |> Enum.join(" | ")
+  end
+
+  defp filter_label(:mime), do: "type"
+  defp filter_label("mime"), do: "type"
+  defp filter_label(:thread_id), do: "thread"
+  defp filter_label("thread_id"), do: "thread"
+  defp filter_label(key), do: safe_string(key)
 
   defp metadata_value(metadata, key, default \\ nil)
 

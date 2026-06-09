@@ -16,6 +16,7 @@ defmodule AllbertAssist.Actions.Artifacts.ListArtifacts do
       origin: [type: :string, required: false],
       retention: [type: :string, required: false],
       lifecycle: [type: :string, required: false],
+      since: [type: :string, required: false],
       thread_id: [type: :string, required: false],
       user_id: [type: :string, required: false],
       role: [type: :string, required: false],
@@ -64,7 +65,7 @@ defmodule AllbertAssist.Actions.Artifacts.ListArtifacts do
     do: stopped(PermissionGate.authorize(@permission, context), :invalid_params)
 
   defp list_opts(params, context) do
-    [:mime, :origin, :retention, :lifecycle, :thread_id, :user_id, :role, :limit]
+    [:mime, :origin, :retention, :lifecycle, :since, :thread_id, :user_id, :role, :limit]
     |> Enum.flat_map(fn key ->
       case Support.value(params, key) do
         nil -> []
