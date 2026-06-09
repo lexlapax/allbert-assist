@@ -2,6 +2,14 @@
 
 Status: Accepted
 
+Proposed amendment (v0.56, 2026-06-09 restructure): add the channel
+capability/parity matrix as a first-class artifact (canonical prose here +
+machine-derived from channel descriptors via `ChannelParity` /
+`mix allbert.channels --parity`) and a persistent **TUI/terminal channel**
+(`channel_id: "tui"`, provider `"terminal"`, primitives `[:typed_command,
+:list]`), distinct from the non-channel `mix allbert.ask` (`:cli`) label. Flips
+to Accepted at v0.56 M4. See `docs/plans/v0.56-plan.md`.
+
 Date: 2026-05-14
 
 ## Context
