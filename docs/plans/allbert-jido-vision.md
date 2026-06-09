@@ -699,7 +699,7 @@ historical aliases only and remain in old reference notes for continuity.
   ephemeral scratch and historical Browser cache outside the M5 backfill. Adds
   `:v050` artifact-store eval rows and `release.v050`.
   Content-addressed identity and thread links never grant permission.
-- v0.50b: Artifacts Browser. Implemented as `0.50.1`. The operator browsing repository for Artifacts
+- v0.50b: Artifacts Browser. Released as `v0.50.1` on 2026-06-09. The operator browsing repository for Artifacts
   Central as a plugin/app (`plugins/allbert.artifacts/`, plugin id
   `allbert.artifacts`, modeled on StockSage and `allbert.browser`): a workspace
   `:canvas_panels` panel (M1 complete), an
