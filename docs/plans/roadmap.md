@@ -2949,8 +2949,8 @@ browser-surface split), `docs/adr/0042-audio-image-and-media-resource-classes.md
 `docs/adr/0031-settings-schema-fragments-and-authority.md`,
 `docs/adr/0046-settings-schema-migration-policy.md`
 
-Status: implemented as `0.50.0`; ready for operator manual validation before
-the release tag. Inserts a content-addressable artifact store between v0.49 vision and
+Status: implemented as `0.50.0` and released through the `v0.50.1` Artifacts
+Browser sidecar tag on 2026-06-09. Inserts a content-addressable artifact store between v0.49 vision and
 v0.51 Channel Pack 1, so durable media has one canonical home before channels
 begin forwarding attachments. Built on Allbert Home, Resource Access, Security
 Central, Settings Central, and the Jido action framework — a thin CAS over BEAM
@@ -3026,7 +3026,7 @@ ADRs: `docs/adr/0054-artifact-provenance-and-browser-surface.md`,
 `docs/adr/0017-allbert-plugin-contract.md`,
 `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`
 
-Status: implemented as the v0.50b/`0.50.1` sidecar release. This is a focused
+Status: released and tagged as `v0.50.1` on 2026-06-09. This is a focused
 sidecar after v0.50 (the v0.47b-after-v0.47 shape), depending on the v0.50 core
 read actions.
 

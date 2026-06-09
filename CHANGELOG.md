@@ -12,8 +12,8 @@ changelog entries or release notes.
 
 ## v0.50.1 - Artifacts Browser
 
-Status: implemented as the v0.50b sidecar release. Current version metadata is
-`0.50.1`; ready for operator manual validation before the release tag.
+Status: released and tagged as `v0.50.1` on 2026-06-09. Current version
+metadata is `0.50.1`.
 
 Operator doc: `docs/operator/artifacts-browser.md`.
 Developer doc: `docs/developer/artifacts-browser.md`.
@@ -84,8 +84,9 @@ Developer doc: `docs/developer/artifacts-browser.md`.
 
 ## v0.50.0 - Artifacts Central
 
-Status: implemented as the v0.50 release. Current version metadata is
-`0.50.0`; ready for operator manual validation before the release tag.
+Status: implemented as the v0.50 core release and superseded by the `v0.50.1`
+Artifacts Browser sidecar tag on 2026-06-09. Version metadata at the core
+closeout was `0.50.0`.
 
 ### Added
 
