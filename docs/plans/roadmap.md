@@ -3116,6 +3116,10 @@ Expected direction:
   filesystem-root, and client-supplied MCP-server payloads do not grant media,
   filesystem, or MCP-client authority; unsupported content is rejected unless a
   later capability-specific plan exposes it.
+- The MCP surface targets the protocol versions supported by pinned
+  `hermes_mcp` 0.14.1 (`2025-03-26` / `2025-06-18` where available), not
+  unverified latest-MCP parity. The OpenAI-compatible surface is a bounded
+  Chat Completions shim, not full OpenAI API or Responses API parity.
 
 ## v0.52: Channel Pack 1 - Discord And Slack
 

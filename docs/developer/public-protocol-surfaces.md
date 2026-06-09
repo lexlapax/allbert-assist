@@ -25,8 +25,16 @@ metadata packet is never permission authority.
 
 The public tool source is `Actions.Registry.capabilities/0` filtered by both:
 
-- `capability.exposure == :agent`
+- deny-before-allow non-exposable rules, then `capability.exposure == :agent`
 - explicit per-surface operator allowlist in Settings Central
+
+Do not treat `:agent` as sufficient. Some current `:agent` actions are settings,
+provider-profile, credential, or diagnostic operations. Public filters must deny
+by capability id, execution mode, and permission class before allowlisting:
+`:settings_read`, `:settings_write`, `:secret_write`, confirmation-decision/
+storage modes, raw trace/signal access, plugin/registry internals, and local-
+process/shell-like modes are non-exposable unless a later ADR/plan names a
+specific action public-safe.
 
 That filter is necessary but not enough for dynamic/generated/plugin actions:
 they keep their existing reviewed/gated authority requirements before the
@@ -56,6 +64,38 @@ v0.51 is text-first.
 Unsupported protocol features return bounded, redacted, protocol-shaped errors.
 Do not silently ignore a feature that could change authority or media handling.
 
+## Protocol Compatibility
+
+- MCP targets the versions supported by pinned `hermes_mcp` 0.14.1:
+  `2025-03-26` / `2025-06-18` where the transport supports them. Do not claim
+  `2025-11-25` parity unless the dependency is upgraded and reverified.
+- MCP v0.51 advertises initialize/lifecycle, `tools/list`, `tools/call`,
+  `resources/list`, and `resources/read` only. No prompts, resource templates,
+  subscriptions, or `listChanged` capability are advertised unless implemented
+  and tested in v0.51.
+- OpenAI compatibility means a bounded Chat Completions shim. It is not full
+  OpenAI API or Responses API parity.
+- ACP advertises only implemented text-session capabilities. Client-supplied
+  `mcpServers` are rejected and never imported into Settings Central or MCP
+  discovery/connection flows.
+
+## Response Shapes
+
+- MCP list responses expose only bounded enabled tools/resources. Protocol,
+  parse, version, auth, and exposure failures are JSON-RPC/MCP errors.
+  Action-level denial returns an error tool result. Confirmation-required calls
+  return a successful tool result with `status: "pending"` and
+  `public_call_id`.
+- OpenAI-compatible success returns `chat.completion`; streaming returns
+  `chat.completion.chunk` SSE deltas and `[DONE]`. `/v1/models` returns a list
+  of enabled Allbert model/profile aliases. Pending confirmation uses
+  `allbert_status: "pending"` and `allbert_public_call_id` extension fields.
+  Validation/auth/authorization/rate-limit failures use the OpenAI
+  `%{"error" => ...}` body shape.
+- ACP initialize/session setup advertises only implemented text capabilities.
+  Prompt responses return assistant text or pending/readback ids. Errors are
+  JSON-RPC-shaped and redacted.
+
 ## Ingress
 
 HTTP-bearing surfaces use Allbert-owned ingress:
@@ -71,12 +111,22 @@ revocation denial, and rate-limit-before-runtime behavior. Do not claim replay
 prevention unless the implementation adds nonce, request-signature,
 token-binding, or idempotency semantics with tests.
 
+The token operator surface is:
+`mix allbert.public_protocol token create|rotate|revoke|list --surface <mcp_http|openai_api> --client <id>`.
+Only `create` prints the raw bearer token, once. This bearer-token posture is an
+Allbert local/private ingress-auth subset, not MCP OAuth 2.1 protected-resource
+or authorization-server parity.
+
 MCP stdio and ACP stdio keep stdout protocol-clean. Logs go to stderr.
 
 ## Result Readback
 
 Confirmation-gated calls return a public call id. The client polls
 `get_public_call_result` or the surface-shaped equivalent.
+
+The ownership record is an Ecto-backed public protocol readback table in the
+Allbert Assist DB. Do not store it as an Allbert Home flat file or expose extra
+confirmation-store metadata.
 
 The ownership record stores only public call id, surface, client id,
 action/turn label, confirmation id when present, trace id,
