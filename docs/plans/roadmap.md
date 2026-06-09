@@ -3060,8 +3060,11 @@ Expected direction:
   `c9a2b5ecd64bfc421d4aac9c308cf5d02d899b16b6d2f48d85bf482e6a8060b2`.
   The 2026-06-09 post-implementation remediation re-ran `release.v050b` and
   the full `mix allbert.test release` gate successfully. Chrome extension
-  revalidation was attempted on a disposable `http://localhost:4062` server but
-  blocked by extension communication timeouts after local diagnostics passed.
+  revalidation passed on a disposable `http://localhost:4062` server after a
+  full Chrome restart cleared a wedged extension/native-host session; browser
+  control verified the filtered workspace panel, detail route metadata and
+  provenance, metadata-only redaction, return link, and zero detail-page console
+  warnings/errors.
 
 ## v0.51: Channel Pack 1 - Discord And Slack
 
