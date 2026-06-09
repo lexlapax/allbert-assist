@@ -8,6 +8,10 @@ defmodule AllbertAssist.PublicProtocol.RateLimiter do
 
   use GenServer
 
+  require Logger
+
+  @fallback_event [:allbert, :public_protocol, :rate_limiter, :fallback]
+
   @type rate_limit :: %{
           optional(String.t()) => integer(),
           optional(atom()) => integer()
@@ -28,7 +32,14 @@ defmodule AllbertAssist.PublicProtocol.RateLimiter do
     with {:ok, config} <- normalize_rate_limit(rate_limit) do
       now = Keyword.get(opts, :now_ms, System.monotonic_time(:millisecond))
       key = {to_string(surface), to_string(client_id)}
-      call({:check, key, config, now}, :ok)
+      name = Keyword.get(opts, :name, __MODULE__)
+      timeout = Keyword.get(opts, :timeout, 5_000)
+
+      call({:check, key, config, now}, {:error, :rate_limited},
+        name: name,
+        timeout: timeout,
+        fallback_context: {surface, client_id}
+      )
     else
       {:error, _reason} -> {:error, :rate_limited}
     end
@@ -38,7 +49,12 @@ defmodule AllbertAssist.PublicProtocol.RateLimiter do
 
   @doc false
   @spec reset_for_test() :: :ok
-  def reset_for_test, do: call(:reset_for_test, :ok)
+  def reset_for_test(opts \\ []) do
+    name = Keyword.get(opts, :name, __MODULE__)
+    timeout = Keyword.get(opts, :timeout, 5_000)
+
+    call(:reset_for_test, :ok, name: name, timeout: timeout)
+  end
 
   @impl true
   def init(_opts), do: {:ok, %{buckets: %{}}}
@@ -112,12 +128,49 @@ defmodule AllbertAssist.PublicProtocol.RateLimiter do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
   end
 
-  defp call(message, fallback) do
-    case Process.whereis(__MODULE__) do
-      nil -> fallback
-      pid -> GenServer.call(pid, message)
+  defp call(message, fallback, opts) do
+    name = Keyword.fetch!(opts, :name)
+    timeout = Keyword.fetch!(opts, :timeout)
+
+    case Process.whereis(name) do
+      nil ->
+        fallback(:unavailable, fallback, Keyword.get(opts, :fallback_context))
+
+      pid ->
+        GenServer.call(pid, message, timeout)
     end
   catch
-    :exit, _reason -> fallback
+    :exit, reason ->
+      fallback(fallback_reason(reason), fallback, Keyword.get(opts, :fallback_context))
+  end
+
+  defp fallback(_reason, fallback, nil), do: fallback
+
+  defp fallback(reason, fallback, {surface, client_id}) do
+    surface = bounded(surface)
+    client_id = bounded(client_id)
+
+    Logger.warning(
+      "public protocol rate limiter unavailable surface=#{inspect(surface)} " <>
+        "client_id=#{inspect(client_id)} reason=#{inspect(reason)}"
+    )
+
+    :telemetry.execute(@fallback_event, %{count: 1}, %{
+      surface: surface,
+      client_id: client_id,
+      reason: reason
+    })
+
+    fallback
+  end
+
+  defp fallback_reason({:timeout, _call}), do: :timeout
+  defp fallback_reason(:timeout), do: :timeout
+  defp fallback_reason(_reason), do: :exit
+
+  defp bounded(value) do
+    value
+    |> to_string()
+    |> String.slice(0, 160)
   end
 end

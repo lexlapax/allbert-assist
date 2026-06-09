@@ -126,7 +126,8 @@ HTTP-bearing surfaces use Allbert-owned ingress:
 
 - body/frame bounds before runtime work where possible
 - token authentication before runtime work
-- per-client/per-surface rate limiting before runtime work
+- per-client/per-surface rate limiting before runtime work; if the supervised
+  limiter is unavailable, HTTP ingress fails closed with a rate-limit response
 - API secure headers
 - redacted logs/traces/audits
 
@@ -194,7 +195,7 @@ MIX_ENV=test mix allbert.test release.v051
 ```
 
 The clean M7 evidence is
-`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-10629/home/release_evidence/v051/release-v051-1781033058.json`.
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-13250/home/release_evidence/v051/release-v051-1781040338.json`.
 It covers the public-surface foundations, MCP stdio, MCP HTTP ingress,
 OpenAI-compatible mapping and web controller, ACP stdio, 34 `:v051`
 public-protocol security eval rows, and the secret scan. The evidence scan found
@@ -202,4 +203,4 @@ no `database is locked`, `SQLITE_BUSY`, `Exqlite.Connection`, or
 `DBConnection.ConnectionError` noise.
 
 The full release gate also passed before manual validation handoff:
-`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13251/home/release_evidence/gates/release-2026-06-09T19_26_13Z.json`.
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13250/home/release_evidence/gates/release-2026-06-09T21_27_25Z.json`.

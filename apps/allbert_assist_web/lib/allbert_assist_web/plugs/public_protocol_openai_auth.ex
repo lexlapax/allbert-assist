@@ -26,8 +26,15 @@ defmodule AllbertAssistWeb.Plugs.PublicProtocolOpenAIAuth do
 
   defp send_error(conn, error) do
     conn
+    |> put_secure_headers()
     |> put_resp_content_type("application/json")
     |> send_resp(Mapping.error_status(error), Jason.encode!(Mapping.error_body(error)))
     |> halt()
+  end
+
+  defp put_secure_headers(conn) do
+    Enum.reduce(HttpIngress.api_secure_headers(), conn, fn {name, value}, acc ->
+      put_resp_header(acc, name, value)
+    end)
   end
 end

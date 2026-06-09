@@ -46,6 +46,8 @@ Developer doc: `docs/developer/public-protocol-surfaces.md`.
 - Action registry capability discovery now ensures modules are loaded before
   checking exported capability metadata, removing startup-order drift in web
   app phases.
+- HTTP public-surface rate limiting now fails closed if the supervised limiter
+  is unavailable, and auth error responses apply API secure headers directly.
 - Roadmap, plan, request-flow, operator, and developer docs now describe v0.51
   as implemented and ready for manual validation.
 
@@ -66,6 +68,8 @@ Developer doc: `docs/developer/public-protocol-surfaces.md`.
 - v0.51 does not serve artifacts as MCP resources. Future artifact serving must
   route through Artifacts Central and `:artifact_read`; raw store paths and
   `artifact://` metadata are never permission authority.
+- v0.51 eval coverage now mechanically binds inventory rows to substantive
+  public-protocol assertion groups.
 
 ### Verification
 
@@ -75,9 +79,9 @@ Developer doc: `docs/developer/public-protocol-surfaces.md`.
 - `MIX_ENV=test mix test apps/allbert_assist/test/security/v051_public_protocol_eval_test.exs apps/allbert_assist/test/security/security_eval_case_test.exs apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs apps/allbert_assist/test/allbert_assist/actions/registry_test.exs`
   passed with 29 tests and 0 failures.
 - `MIX_ENV=test mix allbert.test release.v051` passed. Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-10629/home/release_evidence/v051/release-v051-1781033058.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-13250/home/release_evidence/v051/release-v051-1781040338.json`.
 - `MIX_ENV=test mix allbert.test release` passed. Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13251/home/release_evidence/gates/release-2026-06-09T19_26_13Z.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13250/home/release_evidence/gates/release-2026-06-09T21_27_25Z.json`.
 - The v0.51 evidence scan found no `database is locked`, `SQLITE_BUSY`,
   `Exqlite.Connection`, or `DBConnection.ConnectionError` noise.
 
