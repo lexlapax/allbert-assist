@@ -24,6 +24,7 @@ defmodule AllbertAssist.Application do
         {Jido.Signal.Bus, name: AllbertAssist.SignalBus},
         {Task.Supervisor, name: AllbertAssist.TaskSupervisor},
         AllbertAssist.Artifacts.GC,
+        AllbertAssist.PublicProtocol.RateLimiter,
         AllbertAssist.Objectives.AgentRegistry,
         AllbertAssist.Jido
       ]

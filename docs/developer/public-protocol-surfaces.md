@@ -113,9 +113,9 @@ token-binding, or idempotency semantics with tests.
 
 The token operator surface is:
 `mix allbert.public_protocol token create|rotate|revoke|list --surface <mcp_http|openai_api> --client <id>`.
-Only `create` prints the raw bearer token, once. This bearer-token posture is an
-Allbert local/private ingress-auth subset, not MCP OAuth 2.1 protected-resource
-or authorization-server parity.
+Only `create` and `rotate` print the new raw bearer token, once. This
+bearer-token posture is an Allbert local/private ingress-auth subset, not MCP
+OAuth 2.1 protected-resource or authorization-server parity.
 
 MCP stdio and ACP stdio keep stdout protocol-clean. Logs go to stderr.
 

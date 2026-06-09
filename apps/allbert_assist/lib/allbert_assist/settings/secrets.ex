@@ -99,7 +99,8 @@ defmodule AllbertAssist.Settings.Secrets do
   end
 
   def validate_secret_ref(secret_ref) when is_binary(secret_ref) do
-    if provider_ref?(secret_ref) or channel_ref?(secret_ref) or mcp_ref?(secret_ref) do
+    if provider_ref?(secret_ref) or channel_ref?(secret_ref) or mcp_ref?(secret_ref) or
+         public_protocol_ref?(secret_ref) do
       :ok
     else
       {:error, {:invalid_secret_ref, secret_ref}}
@@ -308,7 +309,18 @@ defmodule AllbertAssist.Settings.Secrets do
         _other -> []
       end
 
-    (provider_statuses ++ channel_statuses ++ mcp_statuses)
+    public_protocol_statuses =
+      plaintext
+      |> get_in(["secrets", "public_protocol"])
+      |> case do
+        surfaces when is_map(surfaces) ->
+          Enum.flat_map(surfaces, &public_protocol_secret_status/1)
+
+        _other ->
+          []
+      end
+
+    (provider_statuses ++ channel_statuses ++ mcp_statuses ++ public_protocol_statuses)
     |> Enum.filter(fn %{secret_ref: ref} ->
       is_nil(namespace) or String.starts_with?(ref, namespace)
     end)
@@ -341,6 +353,25 @@ defmodule AllbertAssist.Settings.Secrets do
   end
 
   defp mcp_secret_status(_entry), do: []
+
+  defp public_protocol_secret_status({surface, clients}) when is_map(clients) do
+    Enum.flat_map(clients, fn
+      {client_id, attrs} when is_map(attrs) ->
+        attrs
+        |> Enum.filter(fn {_name, entry} -> is_map(entry) end)
+        |> Enum.map(fn {name, _entry} ->
+          %{
+            secret_ref: "secret://public_protocol/#{surface}/#{client_id}/#{name}",
+            status: :configured
+          }
+        end)
+
+      _entry ->
+        []
+    end)
+  end
+
+  defp public_protocol_secret_status(_entry), do: []
 
   defp ensure_plaintext_shape(%{"version" => 1, "secrets" => secrets}) when is_map(secrets) do
     %{"version" => 1, "secrets" => secrets}
@@ -391,6 +422,10 @@ defmodule AllbertAssist.Settings.Secrets do
     end
   end
 
+  defp public_protocol_from_ref(secret_ref) do
+    AllbertAssist.PublicProtocol.TokenAuth.parse_secret_ref(secret_ref)
+  end
+
   defp plaintext_secret_path(secret_ref) do
     cond do
       provider_ref?(secret_ref) ->
@@ -406,6 +441,11 @@ defmodule AllbertAssist.Settings.Secrets do
       mcp_ref?(secret_ref) ->
         with {:ok, server, name} <- mcp_from_ref(secret_ref) do
           {:ok, ["mcp", server, name]}
+        end
+
+      public_protocol_ref?(secret_ref) ->
+        with {:ok, surface, client_id, name} <- public_protocol_from_ref(secret_ref) do
+          {:ok, ["public_protocol", surface, client_id, name]}
         end
 
       true ->
@@ -443,6 +483,11 @@ defmodule AllbertAssist.Settings.Secrets do
     do: Regex.match?(~r/^secret:\/\/mcp\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+$/, secret_ref)
 
   defp mcp_ref?(_secret_ref), do: false
+
+  defp public_protocol_ref?(secret_ref) when is_binary(secret_ref),
+    do: AllbertAssist.PublicProtocol.TokenAuth.public_protocol_secret_ref?(secret_ref)
+
+  defp public_protocol_ref?(_secret_ref), do: false
 
   defp namespace(opts) when is_list(opts), do: Keyword.get(opts, :namespace)
   defp namespace(namespace) when is_binary(namespace), do: namespace

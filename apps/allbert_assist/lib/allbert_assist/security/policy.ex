@@ -40,6 +40,7 @@ defmodule AllbertAssist.Security.Policy do
     mcp_server_connect: "permissions.mcp_server_connect",
     mcp_tool_call: "permissions.mcp_tool_call",
     mcp_resource_read: "permissions.mcp_resource_read",
+    public_surface_call_inbound: "permissions.public_surface_call_inbound",
     browser_session_start: "permissions.browser_session_start",
     browser_navigate: "permissions.browser_navigate",
     browser_extract: "permissions.browser_extract",
@@ -88,6 +89,7 @@ defmodule AllbertAssist.Security.Policy do
     mcp_server_connect: :needs_confirmation,
     mcp_tool_call: :needs_confirmation,
     mcp_resource_read: :allowed,
+    public_surface_call_inbound: :needs_confirmation,
     browser_session_start: :needs_confirmation,
     browser_navigate: :needs_confirmation,
     browser_extract: :allowed,
@@ -154,6 +156,7 @@ defmodule AllbertAssist.Security.Policy do
           | :mcp_server_connect
           | :mcp_tool_call
           | :mcp_resource_read
+          | :public_surface_call_inbound
           | :browser_session_start
           | :browser_navigate
           | :browser_extract
@@ -206,6 +209,7 @@ defmodule AllbertAssist.Security.Policy do
       :mcp_server_connect,
       :mcp_tool_call,
       :mcp_resource_read,
+      :public_surface_call_inbound,
       :browser_session_start,
       :browser_navigate,
       :browser_extract,
@@ -301,6 +305,7 @@ defmodule AllbertAssist.Security.Policy do
   def safety_floor(:dynamic_integration, _context), do: :needs_confirmation
   def safety_floor(:mcp_server_connect, _context), do: :needs_confirmation
   def safety_floor(:mcp_tool_call, _context), do: :needs_confirmation
+  def safety_floor(:public_surface_call_inbound, _context), do: :needs_confirmation
   def safety_floor(:browser_session_start, _context), do: :needs_confirmation
   def safety_floor(:browser_navigate, _context), do: :needs_confirmation
   def safety_floor(:browser_interact, _context), do: :needs_confirmation
@@ -747,6 +752,12 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:mcp_resource_read, :denied, _configured, _floor, _context),
     do: "MCP resource reads are denied by current policy."
+
+  defp reason(:public_surface_call_inbound, :needs_confirmation, _configured, _floor, _context),
+    do: "Inbound public protocol clients require operator confirmation before effectful work."
+
+  defp reason(:public_surface_call_inbound, :denied, _configured, _floor, _context),
+    do: "Inbound public protocol calls are denied by current policy."
 
   defp reason(:settings_secret_write, :allowed, _configured, _floor, _context),
     do: "Provider credentials may be configured through explicit credential flows."

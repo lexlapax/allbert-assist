@@ -46,6 +46,7 @@ defmodule AllbertAssist.Security.Risk do
   def tier(:mcp_server_connect), do: :high
   def tier(:mcp_tool_call), do: :high
   def tier(:mcp_resource_read), do: :medium
+  def tier(:public_surface_call_inbound), do: :high
   def tier(:browser_session_start), do: :high
   def tier(:browser_navigate), do: :high
   def tier(:browser_extract), do: :medium
@@ -129,6 +130,9 @@ defmodule AllbertAssist.Security.Risk do
 
   defp reasons(:mcp_resource_read, _tier, _context),
     do: ["MCP server resource read boundary"]
+
+  defp reasons(:public_surface_call_inbound, _tier, _context),
+    do: ["untrusted inbound public protocol client boundary"]
 
   defp reasons(:browser_session_start, _tier, _context),
     do: ["browser driver session lifecycle boundary"]

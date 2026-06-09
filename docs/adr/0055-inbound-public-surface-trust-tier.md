@@ -2,8 +2,8 @@
 
 ## Status
 
-Proposed for v0.51 Public Protocol Surfaces (`docs/plans/v0.51-plan.md`). Flips to
-Accepted at v0.51 M1.
+Accepted at v0.51 M1 for Public Protocol Surfaces
+(`docs/plans/v0.51-plan.md`).
 
 This ADR is the **inbound** counterpart to ADR 0038 (the outbound MCP *client*
 trust tier). ADR 0044 decides *which* public surfaces ship and *what* they
@@ -105,8 +105,8 @@ Two facts from the v0.51 readiness sweep shape this decision:
   token is rejected before any runtime work.
 - Token issuance uses the operator CLI
   `mix allbert.public_protocol token create|rotate|revoke|list --surface <mcp_http|openai_api> --client <id>`.
-  `create` prints the raw bearer token once; every other command, trace, audit,
-  and test evidence path redacts it.
+  `create` and `rotate` print the new raw bearer token once; every other command,
+  trace, audit, and test evidence path redacts it.
 - This is an Allbert local/private ingress-auth subset, not an MCP OAuth 2.1
   protected-resource / authorization-server implementation. Remote/public OAuth
   parity is future work and is not v0.51 acceptance.
