@@ -5,6 +5,12 @@
 Accepted. v0.19 M1 confirmed the candidate contract and engine skeleton follow
 these invariants.
 
+Proposed amendment note (v0.54, 2026-06-09 restructure): register **bounded
+multi-turn conversation context** as a ranking/classifier signal, explicitly
+reaffirming §2 (bounded/redacted; no raw thread history into the prompt; no raw
+prompts traced) and §3 (context is ranking signal, not authority). Clarifying
+registration, not a decision change. See `docs/plans/v0.54-plan.md`.
+
 ADR 0021 (Intent, Objective, Capability, And Advisory Boundary) supersedes
 any reading of this ADR that implies intent ranking is the full
 work-management layer. The intent engine continues as proposal

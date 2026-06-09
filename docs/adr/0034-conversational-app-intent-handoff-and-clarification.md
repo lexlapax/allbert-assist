@@ -5,6 +5,14 @@
 Proposed for v0.33 Conversational App Intent Handoff And Direct Answer
 Foundation (`docs/plans/v0.33-plan.md`).
 
+Proposed amendment note (v0.54, 2026-06-09 restructure): extend the clarification
+model to (a) **general cross-kind disambiguation** that lists the real competing
+candidates as options (not descriptor-only) and (b) a short-lived
+**pending-clarification turn state** whose resolution still flows through registry
+validation and the runner `active_app` boundary — reaffirming §5/§6/§10 (no
+silent selection, classifier advisory, slots never guessed) and §11 (reuse
+ephemeral primitives; no new catalog atom). See `docs/plans/v0.54-plan.md`.
+
 ## Context
 
 After v0.31, the safe routing behavior is visible in the operator UI: a neutral

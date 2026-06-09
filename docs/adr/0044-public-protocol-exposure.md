@@ -1,8 +1,28 @@
-# ADR 0044: Public Protocol Exposure (MCP Server Only)
+# ADR 0044: Public Protocol Exposure (MCP Server, OpenAI-Compatible API, ACP Server)
 
 ## Status
 
-Proposed for v0.51 MCP Server Mode (`docs/plans/v0.51-plan.md`).
+Proposed for v0.51 Public Protocol Surfaces (`docs/plans/v0.51-plan.md`).
+
+Proposed amendment (v0.51, 2026-06-09 restructure — supersedes the
+MCP-server-only tightening below): v0.51 is promoted to a full release and
+**expands to three public surfaces** — MCP server, an **OpenAI-compatible HTTP
+API** (`/v1/chat/completions`, re-decided IN: a minimal turn→runner mapping
+reaches the large OpenAI-API ecosystem), and an **ACP server** (re-decided IN:
+covers editor agents such as Zed at low marginal cost over the stdio transport;
+the ACP `session/request_permission` response is advisory and never authorizes).
+The public **AG-UI/A2UI bridge stays PARKED** post-1.0 (still internal/test-only).
+All three honor the same authority rules uniformly: never more authority than a
+local workspace user; every effectful call through `Actions.Runner.run/3` +
+Security Central + confirmations + traces + audits; **no external-client
+self-approval** (operator-owned Approval Handoff, `:confirmation_pending` + id);
+HTTP-bearing surfaces require per-client Settings-Central tokens (encrypted, never
+logged) behind the v0.35 CSP baseline + rate-limit + redaction; stdio surfaces
+under ADR 0009 bounds; the non-exposable set (settings/secrets/signals/traces/
+confirmation store/registry/`:internal` actions/system namespaces, and
+confirmation-decision actions) is unchanged and applies to all three. `hermes_mcp`
+provides MCP protocol framing only; Allbert owns ingress auth and authority.
+Flips to Accepted at v0.51 M1.
 
 Scope tightened in the post-v0.37 planning pass: v1.0 public protocol exposure
 is **MCP server mode only**. OpenAI-compatible local HTTP API, ACP server
