@@ -74,8 +74,8 @@ Still parked:
 
 Status: parked.
 
-Discord and Slack are planned for v0.51. WhatsApp, Signal, and Matrix are
-planned for v0.52. SMS and iMessage remain parked.
+Discord and Slack are planned for v0.52. WhatsApp, Signal, and Matrix are
+planned for v0.53. SMS and iMessage remain parked.
 
 Still parked:
 
@@ -143,7 +143,7 @@ Still parked (the remainder):
 
 Status: parked.
 
-v0.52b plans MCP server mode. OpenAI-compatible API, ACP server mode, and
+v0.51 plans MCP server mode. OpenAI-compatible API, ACP server mode, and
 public AG-UI/A2UI bridge exposure remain parked after v1.0. Allbert remains
 catalog-bound for UI surfaces.
 
@@ -168,7 +168,7 @@ Still parked:
 - remembered or silent MCP tool-call approval (every v0.40 tool call confirms;
   per ADR 0038 there is no remembered tool-call grant);
 - MCP prompts consumption (v0.40 consumes tools and resources only);
-- MCP server mode (Allbert exposing its own MCP server) — covered by the v0.52b
+- MCP server mode (Allbert exposing its own MCP server) — covered by the v0.51
   MCP server-mode surface and the "Public Protocol Interop (Non-MCP)" entry, not
   the v0.40 client.
 
@@ -271,7 +271,7 @@ future work.
 
 Status: parked.
 
-v0.53 plans local-first profile export/import dry runs. Broad remote sync
+v0.57 plans local-first profile export/import dry runs. Broad remote sync
 remains parked.
 
 Still parked:
@@ -324,7 +324,7 @@ Still parked:
 
 Status: parked.
 
-v0.52b MCP server mode is local/public-surface exposure, not a distributed
+v0.51 MCP server mode is local/public-surface exposure, not a distributed
 runtime.
 
 Still parked:
@@ -336,10 +336,10 @@ Still parked:
 
 ### Public Protocol Interop (Non-MCP)
 
-Status: parked. Added in the post-v0.37 planning pass after the v0.52 split.
+Status: parked. Added in the post-v0.37 planning pass after the v0.53 split.
 
-v0.52b ships MCP server mode as the single 1.0 protocol surface (per ADR
-0044). The original v0.52 plan bundled three additional protocol surfaces
+v0.51 ships MCP server mode as the single 1.0 protocol surface (per ADR
+0044). The original v0.53 plan bundled three additional protocol surfaces
 that did not survive the post-v0.37 acceptance-matrix trim.
 
 Still parked:
@@ -355,7 +355,7 @@ review, and its own export/import/eval coverage before promotion.
 
 ### iMessage Channel Adapter
 
-Status: parked. Moved from v0.52 to parking in the post-v0.37 planning pass.
+Status: parked. Moved from v0.53 to parking in the post-v0.37 planning pass.
 
 iMessage requires a macOS-only adapter, opt-in platform constraint, and
 device-pairing recovery story distinct from WhatsApp/Signal/Matrix.

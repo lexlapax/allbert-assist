@@ -14,7 +14,7 @@ under `<ALLBERT_HOME>/images`, v0.49 generated-image outputs under
 `<ALLBERT_HOME>/generated_images`, generated media handles, and browser-research
 downloads. Those retained roots exist only as settings-default strings, are not
 deduplicated, carry no uniform metadata, and have no shared identity. As channels
-(v0.51+) begin forwarding attachments and MCP server mode (v0.52b) begins
+(v0.52+) begin forwarding attachments and MCP server mode (v0.51) begins
 exposing resources, the absence of a canonical artifact home becomes a liability.
 
 Allbert needs **one** uniform, type-agnostic, durable store for artifacts that
@@ -92,8 +92,8 @@ authority boundary.
 
 - Positive: one canonical, deduplicated, type-agnostic artifact home; uniform
   provenance/metadata; trace-safe identity; no third-party supply-chain or
-  maintenance risk; a clean substrate for v0.51+ channel attachments and v0.52b
-  MCP resource exposure; v0.53 export/import inventories the `artifacts/` root as
+  maintenance risk; a clean substrate for v0.52+ channel attachments and v0.51
+  MCP resource exposure; v0.57 export/import inventories the `artifacts/` root as
   one more Home subtree.
 - Negative: the project owns correctness of atomic writes, dedup, and GC (simple
   and well-trodden — rename-into-place handles the race; identical content is
