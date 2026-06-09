@@ -4,30 +4,23 @@
 
 Proposed for v0.51 Public Protocol Surfaces (`docs/plans/v0.51-plan.md`).
 
-Proposed amendment (v0.51, 2026-06-09 restructure — supersedes the
-MCP-server-only tightening below): v0.51 is promoted to a full release and
-**expands to three public surfaces** — MCP server, an **OpenAI-compatible HTTP
-API** (`/v1/chat/completions`, re-decided IN: a minimal turn→runner mapping
-reaches the large OpenAI-API ecosystem), and an **ACP server** (re-decided IN:
-covers editor agents such as Zed at low marginal cost over the stdio transport;
-the ACP `session/request_permission` response is advisory and never authorizes).
-The public **AG-UI/A2UI bridge stays PARKED** post-1.0 (still internal/test-only).
+Proposed amendment (v0.51, 2026-06-09 restructure): v0.51 is promoted to a
+full release and expands to three public surfaces — MCP server, an
+OpenAI-compatible HTTP API (`/v1/chat/completions`), and an ACP server. The
+earlier MCP-server-only tightening is superseded. Public AG-UI/A2UI and MCP
+Apps iframe UI remain parked post-1.0.
+
 All three honor the same authority rules uniformly: never more authority than a
 local workspace user; every effectful call through `Actions.Runner.run/3` +
-Security Central + confirmations + traces + audits; **no external-client
-self-approval** (operator-owned Approval Handoff, `:confirmation_pending` + id);
-HTTP-bearing surfaces require per-client Settings-Central tokens (encrypted, never
-logged) behind the v0.35 CSP baseline + rate-limit + redaction; stdio surfaces
-under ADR 0009 bounds; the non-exposable set (settings/secrets/signals/traces/
-confirmation store/registry/`:internal` actions/system namespaces, and
-confirmation-decision actions) is unchanged and applies to all three. `hermes_mcp`
-provides MCP protocol framing only; Allbert owns ingress auth and authority.
-Flips to Accepted at v0.51 M1.
-
-Scope tightened in the post-v0.37 planning pass: v1.0 public protocol exposure
-is **MCP server mode only**. OpenAI-compatible local HTTP API, ACP server
-mode, and public AG-UI/A2UI bridge are parked post-1.0 in
-`docs/plans/future-features.md` under "Public Protocol Interop".
+Security Central + confirmations + traces + audits; no external-client
+self-approval (operator-owned Approval Handoff, `:confirmation_pending` + id);
+HTTP-bearing surfaces require per-client Settings-Central tokens (encrypted,
+never logged) behind the v0.35 CSP baseline + rate-limit + redaction; stdio
+surfaces remain under ADR 0009 bounds. The non-exposable set (settings,
+secrets, signals, traces, confirmation store, registry internals,
+`:internal` actions, system namespaces, and confirmation-decision actions) is
+unchanged and applies to all three. `hermes_mcp` provides MCP protocol framing
+only; Allbert owns ingress auth and authority. Flips to Accepted at v0.51 M1.
 
 ## Context
 
@@ -36,51 +29,58 @@ against configured MCP servers under Settings Central, Resource Access, and
 Security Central policy. The symmetric question is whether Allbert should also
 expose itself as an MCP **server** so external agents (Claude Desktop,
 Cursor, ChatGPT MCP clients, other agent runtimes) can call Allbert's actions
-and read Allbert's memory namespaces.
+and read enabled Allbert memory namespaces.
 
-The original v0.53 plan bundled MCP server with OpenAI-compatible HTTP API,
-ACP server mode, and public AG-UI/A2UI bridge under one "public protocol
-exposure" policy. The post-v0.37 planning pass split these because:
+The 2026-06-09 roadmap restructure re-decided the public-protocol split:
 
-- **MCP server mode** is the highest-value protocol surface: it integrates
-  Allbert directly with the most widely-adopted agent ecosystem in late 2026
-  (Claude Desktop, Cursor, JetBrains MCP, several editor extensions).
-- **OpenAI-compatible API** has unclear operator demand. Most operators use
-  Allbert through CLI or workspace; few want Allbert to pretend to be OpenAI.
-  Parked until concrete demand exists.
-- **ACP server mode** has narrower adoption than MCP. Editor integration via
-  MCP server covers the same operator need with broader client compatibility.
-  Parked.
-- **Public AG-UI/A2UI bridge** is currently internal-only and test-only
-  (v0.26). Promoting to a public HTTP/WS endpoint expands surface area we are
-  not ready to freeze at 1.0. Parked.
+- **MCP server mode** remains the highest-value agent interop surface and is
+  symmetric with the v0.40 MCP client work.
+- **OpenAI-compatible API** is in scope because `/v1/chat/completions` reaches a
+  large client ecosystem with a bounded conversational-turn adapter rather than
+  a new authority path.
+- **ACP server mode** is in scope because editor agents can enter Allbert
+  through stdio JSON-RPC at low marginal cost over the existing process-boundary
+  story.
+- **Public AG-UI/A2UI bridge** stays parked because the v0.26 bridge is
+  internal/test-only and public HTTP/WS UI exposure would freeze a broader UI
+  protocol surface prematurely.
+- **MCP Apps iframe UI** stays parked because remote UI code, CSP expansion, and
+  iframe/component reconciliation need a separate trust decision.
 
-Bundling all four would have shipped three surfaces with weak operator
-justification and locked AG-UI/A2UI prematurely. The single-surface scope
-keeps the v0.51 ADR focused.
+The expanded scope is acceptable only because all three shipped surfaces remain
+thin adapters over existing Allbert runtime and action boundaries.
 
 ## Decision
 
-v0.51 implements MCP server mode under the following rules:
+v0.51 implements MCP server mode, an OpenAI-compatible API, and an ACP server
+under the following rules:
 
 - Allbert MCP server exposes **registered actions as MCP tools** and **app
-  memory namespaces as MCP resources**. Settings, secrets, raw runtime
-  signals, and confirmation-storage internals are not exposed.
-- The exposed tool set is operator-configurable in Settings Central. The
-  default tool set is empty; operators explicitly enable tools.
-- The exposed memory resource set is operator-configurable per app
-  namespace. Default-empty; explicit enablement.
-- External MCP clients **never receive more authority than local workspace
-  users**. Every effectful call still routes through `Actions.Runner.run/3`,
-  Security Central, Resource Access, confirmations, traces, and audits.
-- External MCP clients **cannot approve their own confirmations**. Approval
-  Handoff remains operator-owned and renders through workspace or origin
-  channel. An external MCP client that triggers a confirmation-needing tool
-  sees a `:confirmation_pending` response with the confirmation id; the
-  operator approves through their usual surface.
-- MCP server transport supports stdio (for editor/desktop integrations) and
-  optionally HTTP streamable mode (where a public endpoint exists and CSP
-  policy permits). HTTP transport adds the v0.35 CSP baseline reconciliation.
+  memory namespaces as MCP resources**. Tool calls dispatch through
+  `Actions.Runner.run/3`.
+- The OpenAI-compatible `/v1/chat/completions` endpoint enters Allbert as a
+  bounded conversational turn through `Runtime.submit_user_input/1`; any
+  selected effectful action still routes through `Actions.Runner.run/3`.
+- ACP `session/prompt` enters Allbert as a bounded conversational turn through
+  `Runtime.submit_user_input/1`; ACP `session/request_permission` maps to
+  Approval Handoff but is advisory and never authorizes execution by itself.
+- Settings, secrets, raw runtime signals, confirmation-storage internals,
+  registry internals, `:internal` actions, system namespaces, and confirmation-
+  decision actions are not exposed through any surface.
+- The exposed tool and memory-resource sets are operator-configurable in
+  Settings Central. Defaults are disabled and empty; operators explicitly enable
+  surfaces, tools, and namespaces.
+- External clients **never receive more authority than local workspace users**.
+  Every effectful call still routes through `Actions.Runner.run/3`, Security
+  Central, Resource Access, confirmations, traces, and audits.
+- External clients **cannot approve their own confirmations**. Approval Handoff
+  remains operator-owned and renders through workspace or origin channel. A
+  confirmation-needing call sees `:confirmation_pending` or the surface-shaped
+  equivalent with the confirmation id; the operator approves through their usual
+  surface.
+- MCP and ACP stdio transports remain under ADR 0009 bounds. HTTP-bearing
+  surfaces (MCP streamable HTTP and OpenAI-compatible API) use Allbert's
+  authenticated/CSP/rate-limited ingress rather than a second ingress.
 - Authentication for HTTP transport: a per-client token issued through
   Settings Central. Tokens are encrypted at rest and never logged.
 - Rate limits, redaction, and audit policy apply uniformly: external clients
@@ -88,23 +88,22 @@ v0.51 implements MCP server mode under the following rules:
 
 ## Consequences
 
-- Allbert becomes reachable from the MCP-client ecosystem without bringing
-  three unproven protocol surfaces into 1.0.
-- Operators who want OpenAI-compatible API, ACP, or AG-UI/A2UI access track
-  the parked entries in `future-features.md` and can revisit post-1.0 when
-  operator demand or external-protocol stability warrants it.
+- Allbert becomes reachable from MCP clients, OpenAI-compatible API clients, and
+  ACP editor agents without creating new authority paths.
+- Operators who want public AG-UI/A2UI or MCP Apps iframe UI access track the
+  parked entries in `future-features.md` and can revisit post-1.0 when operator
+  demand or external-protocol stability warrants it.
 - Tool/resource exposure is opt-in. An empty exposure is a valid 1.0
   configuration.
-- The v0.57 security eval sweep covers MCP server mode (client/tool isolation,
-  cross-client identity confusion, prompt injection through MCP request
-  payload, self-approval denial, resource-scope leakage) without needing to
-  cover three additional protocol surfaces.
+- The v0.57 security eval sweep covers all three v0.51 public surfaces: client/
+  tool isolation, cross-client identity confusion, prompt injection through
+  inbound payloads, self-approval denial, resource-scope leakage, HTTP token
+  replay/rate-limit posture, and ACP permission-response non-authority.
 
 ## Non-Goals
 
-- No OpenAI-compatible local HTTP API in 1.0.
-- No ACP server mode in 1.0.
 - No public AG-UI/A2UI bridge in 1.0.
+- No MCP Apps iframe UI in 1.0.
 - No hosted multi-user authorization model.
 - No cloud sync service.
 - No remote UI code execution.

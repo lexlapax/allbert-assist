@@ -143,9 +143,9 @@ Still parked (the remainder):
 
 Status: parked.
 
-v0.51 plans MCP server mode. OpenAI-compatible API, ACP server mode, and
-public AG-UI/A2UI bridge exposure remain parked after v1.0. Allbert remains
-catalog-bound for UI surfaces.
+v0.51 plans MCP server mode, an OpenAI-compatible API, and ACP server mode.
+MCP Apps iframe exposure and public AG-UI/A2UI bridge exposure remain parked
+after v1.0. Allbert remains catalog-bound for UI surfaces.
 
 Still parked:
 
@@ -169,8 +169,7 @@ Still parked:
   per ADR 0038 there is no remembered tool-call grant);
 - MCP prompts consumption (v0.40 consumes tools and resources only);
 - MCP server mode (Allbert exposing its own MCP server) — covered by the v0.51
-  MCP server-mode surface and the "Public Protocol Interop (Non-MCP)" entry, not
-  the v0.40 client.
+  Public Protocol Surfaces plan, not the v0.40 client.
 
 ### MCP Tool Discovery v0.42-Deferred Remainder
 
@@ -324,8 +323,8 @@ Still parked:
 
 Status: parked.
 
-v0.51 MCP server mode is local/public-surface exposure, not a distributed
-runtime.
+v0.51 public protocol exposure is local public-surface exposure, not a
+distributed runtime.
 
 Still parked:
 
@@ -334,24 +333,25 @@ Still parked:
 - hosted scheduler/worker coordination;
 - distributed confirmation ownership.
 
-### Public Protocol Interop (Non-MCP)
+### Public UI Protocol Interop Remainder
 
 Status: parked. Added in the post-v0.37 planning pass after the v0.53 split.
 
-v0.51 ships MCP server mode as the single 1.0 protocol surface (per ADR
-0044). The original v0.53 plan bundled three additional protocol surfaces
-that did not survive the post-v0.37 acceptance-matrix trim.
+v0.51 ships MCP server mode, an OpenAI-compatible API, and ACP server mode
+(per ADR 0044). The original v0.53 plan also bundled public UI protocol
+exposure that remains too broad for the 1.0 arc.
 
 Still parked:
 
-- OpenAI-compatible local HTTP API;
-- ACP (Agent Client Protocol) server mode;
 - public AG-UI / A2UI HTTP/WS bridge promoted from the v0.26 internal
   semantic-mapping bridge;
-- shared auth/rate-limit/CSP/redaction policy beyond MCP server scope.
+- MCP Apps iframe UI;
+- third-party remote UI code trust policy;
+- CSP expansion and component reconciliation for public UI protocols;
+- additional public protocol surfaces beyond the v0.51 MCP/OpenAI/ACP set.
 
-Each surface requires its own operator-demand evidence, its own auth/CSP
-review, and its own export/import/eval coverage before promotion.
+Each remainder requires its own operator-demand evidence, auth/CSP review,
+remote-UI trust story, and export/import/eval coverage before promotion.
 
 ### iMessage Channel Adapter
 

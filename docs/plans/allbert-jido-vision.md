@@ -389,11 +389,11 @@ The app/surface contract exists so the workspace shell does not invent app
 discovery or arbitrary node shapes. `AllbertAssist.App.Registry` provides app
 navigation and lookup. `AllbertAssist.Surface` defines validated component
 nodes. `AllbertAssist.App.SurfaceProvider` lets apps produce task surfaces as
-signals or registered action results. After the v0.41 insertion, only MCP server
-mode remains in the 1.0 arc as v0.51; OpenAI-compatible API, ACP server mode,
-and public AG-UI/A2UI bridge remain parked post-1.0. MCP Apps iframe
-compatibility remains parked; Allbert's primary stance is still declarative,
-catalog-bound surfaces over arbitrary remote UI code.
+signals or registered action results. After the 2026-06-09 roadmap restructure,
+v0.51 includes MCP server mode, OpenAI-compatible API, and ACP server mode.
+Public AG-UI/A2UI bridge exposure and MCP Apps iframe compatibility remain
+parked post-1.0; Allbert's primary stance is still declarative, catalog-bound
+surfaces over arbitrary remote UI code.
 
 StockSage LiveViews start as standard app surfaces. v0.27 proves real
 StockSage renderers in StockSage-owned `/stocksage/...` surfaces. After the
@@ -712,8 +712,8 @@ historical aliases only and remain in old reference notes for continuity.
   `release.v050b`, deterministic browser-validation fixture seeding, and the
   operator/developer browser guides — the plugin grants no authority and owns no
   store internals.
-- v0.51: MCP Server Mode (expanded full release; resequenced ahead of the
-  channel packs). Allbert exposes registered actions as MCP tools and memory
+- v0.51: Public Protocol Surfaces (expanded full release; resequenced ahead of
+  the channel packs). Allbert exposes registered actions as MCP tools and memory
   namespaces as MCP resources, plus an OpenAI-compatible HTTP API and an ACP
   server surface (ADR 0044). Public AG-UI/A2UI bridge stays parked post-1.0.
 - v0.52: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
