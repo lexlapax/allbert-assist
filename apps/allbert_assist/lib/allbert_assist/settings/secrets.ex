@@ -3,6 +3,8 @@ defmodule AllbertAssist.Settings.Secrets do
   Encrypted local secret store for user-supplied Settings Central credentials.
   """
 
+  alias AllbertAssist.PublicProtocol.TokenAuth
+  alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Audit
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.Store
@@ -285,45 +287,23 @@ defmodule AllbertAssist.Settings.Secrets do
   end
 
   defp statuses_from_plaintext(plaintext, namespace) do
-    provider_statuses =
-      plaintext
-      |> get_in(["secrets", "providers"])
-      |> case do
-        providers when is_map(providers) -> Enum.flat_map(providers, &provider_secret_status/1)
-        _other -> []
-      end
-
-    channel_statuses =
-      plaintext
-      |> get_in(["secrets", "channels"])
-      |> case do
-        channels when is_map(channels) -> Enum.flat_map(channels, &channel_secret_status/1)
-        _other -> []
-      end
-
-    mcp_statuses =
-      plaintext
-      |> get_in(["secrets", "mcp"])
-      |> case do
-        servers when is_map(servers) -> Enum.flat_map(servers, &mcp_secret_status/1)
-        _other -> []
-      end
-
-    public_protocol_statuses =
-      plaintext
-      |> get_in(["secrets", "public_protocol"])
-      |> case do
-        surfaces when is_map(surfaces) ->
-          Enum.flat_map(surfaces, &public_protocol_secret_status/1)
-
-        _other ->
-          []
-      end
-
-    (provider_statuses ++ channel_statuses ++ mcp_statuses ++ public_protocol_statuses)
+    [
+      secret_statuses(plaintext, "providers", &provider_secret_status/1),
+      secret_statuses(plaintext, "channels", &channel_secret_status/1),
+      secret_statuses(plaintext, "mcp", &mcp_secret_status/1),
+      secret_statuses(plaintext, "public_protocol", &public_protocol_secret_status/1)
+    ]
+    |> List.flatten()
     |> Enum.filter(fn %{secret_ref: ref} ->
       is_nil(namespace) or String.starts_with?(ref, namespace)
     end)
+  end
+
+  defp secret_statuses(plaintext, key, callback) do
+    case get_in(plaintext, ["secrets", key]) do
+      entries when is_map(entries) -> Enum.flat_map(entries, callback)
+      _other -> []
+    end
   end
 
   defp provider_secret_status({provider, attrs}) do
@@ -423,7 +403,7 @@ defmodule AllbertAssist.Settings.Secrets do
   end
 
   defp public_protocol_from_ref(secret_ref) do
-    AllbertAssist.PublicProtocol.TokenAuth.parse_secret_ref(secret_ref)
+    TokenAuth.parse_secret_ref(secret_ref)
   end
 
   defp plaintext_secret_path(secret_ref) do
@@ -457,7 +437,7 @@ defmodule AllbertAssist.Settings.Secrets do
     if provider_ref?(secret_ref) do
       with {:ok, provider} <- provider_from_ref(secret_ref),
            {:ok, _resolved} <-
-             AllbertAssist.Settings.put(
+             Settings.put(
                "providers.#{provider}.api_key_ref",
                secret_ref,
                Map.put(context, :audit?, false)
@@ -485,7 +465,7 @@ defmodule AllbertAssist.Settings.Secrets do
   defp mcp_ref?(_secret_ref), do: false
 
   defp public_protocol_ref?(secret_ref) when is_binary(secret_ref),
-    do: AllbertAssist.PublicProtocol.TokenAuth.public_protocol_secret_ref?(secret_ref)
+    do: TokenAuth.public_protocol_secret_ref?(secret_ref)
 
   defp public_protocol_ref?(_secret_ref), do: false
 

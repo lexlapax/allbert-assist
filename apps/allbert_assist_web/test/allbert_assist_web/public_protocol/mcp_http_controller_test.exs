@@ -6,8 +6,8 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
   alias AllbertAssist.PublicProtocol.RateLimiter
   alias AllbertAssist.PublicProtocol.TokenAuth
   alias AllbertAssist.Settings
-  alias AllbertAssistWeb.Plugs.PublicProtocolBodyReader
   alias AllbertAssistWeb.Plugs.PublicProtocolBodyCap
+  alias AllbertAssistWeb.Plugs.PublicProtocolBodyReader
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)

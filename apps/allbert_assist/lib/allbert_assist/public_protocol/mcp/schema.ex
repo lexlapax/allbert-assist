@@ -40,8 +40,6 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Schema do
     |> Map.put_new("additionalProperties", false)
   end
 
-  defp normalize_schema(_schema), do: @empty_object
-
   defp annotations(%Capability{} = capability) do
     %{
       "readOnlyHint" => read_only?(capability),

@@ -143,7 +143,7 @@ Still parked (the remainder):
 
 Status: parked.
 
-v0.51 plans MCP server mode, an OpenAI-compatible API, and ACP server mode.
+v0.51 ships MCP server mode, an OpenAI-compatible API, and ACP server mode.
 MCP Apps iframe exposure and public AG-UI/A2UI bridge exposure remain parked
 after v1.0. Allbert remains catalog-bound for UI surfaces.
 
@@ -168,8 +168,8 @@ Still parked:
 - remembered or silent MCP tool-call approval (every v0.40 tool call confirms;
   per ADR 0038 there is no remembered tool-call grant);
 - MCP prompts consumption (v0.40 consumes tools and resources only);
-- MCP server mode (Allbert exposing its own MCP server) — covered by the v0.51
-  Public Protocol Surfaces plan, not the v0.40 client.
+- MCP server mode (Allbert exposing its own MCP server) — shipped by the v0.51
+  Public Protocol Surfaces release, not the v0.40 client.
 
 ### MCP Tool Discovery v0.42-Deferred Remainder
 

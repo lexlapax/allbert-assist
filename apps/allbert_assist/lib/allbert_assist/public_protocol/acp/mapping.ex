@@ -27,7 +27,7 @@ defmodule AllbertAssist.PublicProtocol.Acp.Mapping do
           optional(:data) => map()
         }
 
-  @spec protocol_version() :: pos_integer()
+  @spec protocol_version() :: 1
   def protocol_version, do: @protocol_version
 
   @spec surface() :: String.t()
@@ -202,7 +202,7 @@ defmodule AllbertAssist.PublicProtocol.Acp.Mapping do
   @spec invalid_params(String.t(), String.t(), String.t() | nil) :: error()
   def invalid_params(message, code, param) do
     %{
-      code: -32602,
+      code: -32_602,
       message: message,
       data: compact_data(%{"code" => code, "param" => param})
     }
@@ -210,15 +210,15 @@ defmodule AllbertAssist.PublicProtocol.Acp.Mapping do
 
   @spec parse_error(String.t()) :: error()
   def parse_error(message),
-    do: %{code: -32700, message: message, data: %{"code" => "parse_error"}}
+    do: %{code: -32_700, message: message, data: %{"code" => "parse_error"}}
 
   @spec invalid_request(String.t()) :: error()
   def invalid_request(message),
-    do: %{code: -32600, message: message, data: %{"code" => "invalid_request"}}
+    do: %{code: -32_600, message: message, data: %{"code" => "invalid_request"}}
 
   @spec method_not_found(String.t(), String.t()) :: error()
   def method_not_found(message, code),
-    do: %{code: -32601, message: message, data: %{"code" => code}}
+    do: %{code: -32_601, message: message, data: %{"code" => code}}
 
   defp pending_prompt_outbound(runtime_response, session, request_id) do
     attrs = %{
@@ -357,7 +357,7 @@ defmodule AllbertAssist.PublicProtocol.Acp.Mapping do
 
   defp server_error(message, code) do
     %{
-      code: -32000,
+      code: -32_000,
       message: message,
       data: %{"code" => code}
     }

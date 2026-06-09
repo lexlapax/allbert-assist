@@ -108,19 +108,7 @@ defmodule AllbertAssist.PublicProtocol.ResultReadback do
 
     case attrs_from_confirmation(record, now) do
       {:ok, attrs} ->
-        count =
-          CallResult
-          |> where([call], call.confirmation_id == ^confirmation_id)
-          |> where([call], call.status != ^@expired)
-          |> Repo.all()
-          |> Enum.reduce(0, fn call_result, count ->
-            case update_call_result(call_result, attrs) do
-              {:ok, _updated} -> count + 1
-              {:error, _changeset} -> count
-            end
-          end)
-
-        {:ok, count}
+        {:ok, sync_call_results(confirmation_id, attrs)}
 
       :pending ->
         {:ok, 0}
@@ -131,6 +119,21 @@ defmodule AllbertAssist.PublicProtocol.ResultReadback do
   end
 
   def sync_confirmation(_record, _opts), do: {:error, :invalid_confirmation_record}
+
+  defp sync_call_results(confirmation_id, attrs) do
+    CallResult
+    |> where([call], call.confirmation_id == ^confirmation_id)
+    |> where([call], call.status != ^@expired)
+    |> Repo.all()
+    |> Enum.reduce(0, &count_synced_result(&1, &2, attrs))
+  end
+
+  defp count_synced_result(call_result, count, attrs) do
+    case update_call_result(call_result, attrs) do
+      {:ok, _updated} -> count + 1
+      {:error, _changeset} -> count
+    end
+  end
 
   @doc "Expire all non-expired rows whose readback TTL has elapsed."
   @spec sweep_expired(keyword()) :: {:ok, non_neg_integer()}

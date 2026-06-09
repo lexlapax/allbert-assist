@@ -72,12 +72,13 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
 
   @spec serve_stdio() :: no_return()
   def serve_stdio do
-    IO.stream(:stdio, :line)
-    |> Enum.reduce(new_state(), fn line, state ->
-      {:ok, outbound, state} = handle_line(line, state)
-      Enum.each(outbound, &IO.write(:stdio, &1))
-      state
-    end)
+    _final_state =
+      IO.stream(:stdio, :line)
+      |> Enum.reduce(new_state(), fn line, state ->
+        {:ok, outbound, state} = handle_line(line, state)
+        Enum.each(outbound, &IO.write(:stdio, &1))
+        state
+      end)
 
     Process.sleep(:infinity)
   end

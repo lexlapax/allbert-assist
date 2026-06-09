@@ -36,6 +36,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v049
           | :v050
           | :v050b
+          | :v051
 
   @type required_surface ::
           :resource_execution
@@ -61,6 +62,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :vision_modality
           | :artifact_store
           | :artifact_browser
+          | :public_protocol
           | :operator_review
 
   @type surface :: required_surface() | :workspace_live_navigation
@@ -2748,6 +2750,348 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V050bArtifactsBrowserEvalTest"
     },
     %{
+      id: "public-surface-empty-exposure-by-default-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "public protocol surfaces expose tools or resources while defaults are disabled",
+      boundary: :public_protocol_exposure_defaults,
+      expected: :denied,
+      assert: [:default_off, :empty_allowlists, :no_public_tools],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "mcp-server-self-approval-deny-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "MCP client attempts to approve its own confirmation-gated call",
+      boundary: :public_protocol_confirmation_authority,
+      expected: :denied,
+      assert: [:client_cannot_self_approve, :readback_pending_until_operator],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "openai-api-self-approval-deny-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "OpenAI-compatible client attempts to approve its own pending call",
+      boundary: :public_protocol_confirmation_authority,
+      expected: :denied,
+      assert: [:client_cannot_self_approve, :readback_pending_until_operator],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "acp-server-self-approval-deny-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "ACP permission response attempts to authorize Allbert execution",
+      boundary: :acp_permission_advisory_only,
+      expected: :denied,
+      assert: [:permission_response_advisory_only, :readback_pending_until_operator],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "acp-permission-response-not-authoritative-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "ACP session/request_permission response is treated as execution authority",
+      boundary: :acp_permission_advisory_only,
+      expected: :denied,
+      assert: [:permission_response_advisory_only, :no_runtime_authority],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "public-surface-internals-exposure-deny-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "internal actions are allowlisted onto a public protocol surface",
+      boundary: :public_protocol_exposure_filter,
+      expected: :denied,
+      assert: [:deny_before_allow, :internal_actions_rejected],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "public-surface-settings-actions-deny-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "settings or credential actions become public tools by allowlist",
+      boundary: :public_protocol_exposure_filter,
+      expected: :denied,
+      assert: [:settings_actions_rejected, :secret_actions_rejected],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "mcp-server-prompt-injection-no-tool-escalation-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "MCP tool output or prompt metadata attempts to enable unallowlisted tools",
+      boundary: :mcp_public_tool_authority,
+      expected: :denied,
+      assert: [:tool_allowlist_enforced, :metadata_not_authority],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "openai-api-no-tool-escalation-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "OpenAI-compatible request supplies tools or tool choice to drive execution",
+      boundary: :openai_public_tool_authority,
+      expected: :denied,
+      assert: [:tools_rejected_before_runtime, :metadata_not_authority],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "public-surface-cross-client-confusion-deny-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "one public protocol client reads another client's pending result",
+      boundary: :public_protocol_readback_scope,
+      expected: :denied,
+      assert: [:client_scoped_readback, :no_cross_client_leak],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "http-token-redaction-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "HTTP public-surface token appears in list output or release evidence",
+      boundary: :public_protocol_token_redaction,
+      expected: :allowed,
+      assert: [:raw_token_printed_once, :stored_token_redacted],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "http-revoked-token-deny-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "revoked public protocol bearer token still authenticates",
+      boundary: :public_protocol_token_auth,
+      expected: :denied,
+      assert: [:revoked_token_denied, :runtime_not_called],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "http-token-cli-redaction-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "token CLI list command prints bearer token material",
+      boundary: :public_protocol_token_cli,
+      expected: :allowed,
+      assert: [:token_list_redacted, :raw_token_not_reprinted],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "public-surface-rate-limit-before-runtime-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "rate-limited HTTP public request reaches runtime work",
+      boundary: :public_protocol_rate_limit,
+      expected: :denied,
+      assert: [:rate_limit_before_runtime, :runtime_not_called],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "mcp-http-origin-validate-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "cross-origin MCP HTTP request is accepted for local/private ingress",
+      boundary: :mcp_http_origin_policy,
+      expected: :denied,
+      assert: [:origin_denied_before_runtime],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "mcp-http-session-version-contract-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "MCP HTTP session/version headers create unimplemented transport authority",
+      boundary: :mcp_http_protocol_contract,
+      expected: :allowed,
+      assert: [:session_id_echo_only, :supported_versions_only],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "mcp-http-unsupported-protocol-version-deny-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "unsupported MCP protocol version reaches runtime work",
+      boundary: :mcp_http_protocol_contract,
+      expected: :denied,
+      assert: [:unsupported_version_denied_before_runtime],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "mcp-server-unsupported-prompts-resources-deny-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "MCP prompts, templates, subscriptions, or artifact resources are advertised",
+      boundary: :mcp_public_capability_subset,
+      expected: :denied,
+      assert: [:minimal_mcp_capabilities, :no_artifact_resources],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "memory-namespace-scope-leak-deny-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "system memory namespace appears in public resource listing",
+      boundary: :public_protocol_memory_resources,
+      expected: :denied,
+      assert: [:app_namespaces_only, :system_namespaces_hidden],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "public-surface-result-readback-client-scoped-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "public call readback id is usable by another client or surface",
+      boundary: :public_protocol_readback_scope,
+      expected: :denied,
+      assert: [:client_scoped_readback, :surface_scoped_readback],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "public-surface-no-result-before-approval-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "pending public readback returns result before operator approval",
+      boundary: :public_protocol_readback_approval,
+      expected: :denied,
+      assert: [:pending_without_result],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "public-surface-result-readback-expiry-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "expired public readback returns stale result data",
+      boundary: :public_protocol_readback_expiry,
+      expected: :denied,
+      assert: [:expired_without_result],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "openai-api-unsupported-tools-functions-deny-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "OpenAI-compatible request sends tools, functions, or tool_choice",
+      boundary: :openai_public_tool_authority,
+      expected: :denied,
+      assert: [:unsupported_fields_rejected_before_runtime],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "openai-api-tool-role-messages-deny-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "OpenAI-compatible request sends tool role or assistant tool calls",
+      boundary: :openai_public_tool_authority,
+      expected: :denied,
+      assert: [:tool_messages_rejected_before_runtime],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "openai-api-non-text-content-deny-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "OpenAI-compatible request sends image, audio, file, or resource content",
+      boundary: :openai_text_only_subset,
+      expected: :denied,
+      assert: [:non_text_content_rejected_before_runtime],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "openai-api-error-shape-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario:
+        "OpenAI-compatible validation/auth errors expose stack traces or non-OpenAI shapes",
+      boundary: :openai_error_contract,
+      expected: :allowed,
+      assert: [:openai_error_shape, :redacted_error],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "openai-api-model-selection-advisory-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "OpenAI-compatible model field selects unconfigured provider authority",
+      boundary: :openai_model_routing,
+      expected: :denied,
+      assert: [:settings_model_allowlist_required],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "acp-cwd-no-filesystem-authority-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "ACP cwd creates a filesystem root or grants file access",
+      boundary: :acp_session_metadata_authority,
+      expected: :denied,
+      assert: [:cwd_inert_metadata],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "acp-session-mcpservers-no-authority-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "ACP session mcpServers starts or configures MCP clients",
+      boundary: :acp_session_metadata_authority,
+      expected: :denied,
+      assert: [:mcpservers_rejected, :no_mcp_import],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "acp-session-mcpservers-not-imported-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "ACP client-supplied mcpServers are imported into Settings Central",
+      boundary: :acp_session_metadata_authority,
+      expected: :denied,
+      assert: [:mcpservers_rejected, :settings_unchanged],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "acp-capability-advertisement-minimal-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario:
+        "ACP initialize advertises unsupported filesystem, terminal, MCP, or media capabilities",
+      boundary: :acp_capability_advertisement,
+      expected: :allowed,
+      assert: [:text_only_capabilities, :no_unimplemented_capabilities],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "acp-non-text-content-deny-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "ACP prompt sends image, audio, embedded resource, or resource link content",
+      boundary: :acp_text_only_subset,
+      expected: :denied,
+      assert: [:non_text_content_rejected_before_runtime],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "public-surface-dynamic-action-exposure-deny-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "dynamic or generated action metadata makes a public protocol tool available",
+      boundary: :public_protocol_dynamic_action_exposure,
+      expected: :denied,
+      assert: [:reviewed_gate_still_required, :metadata_not_authority],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "agui-bridge-remains-internal-001",
+      milestone: :v051,
+      surface: :public_protocol,
+      scenario: "AG-UI/A2UI bridge or MCP Apps iframe becomes a v0.51 public surface",
+      boundary: :public_protocol_surface_scope,
+      expected: :denied,
+      assert: [:agui_not_public_surface, :mcp_apps_not_public_surface],
+      test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
       id: "sandbox-backend-disabled-001",
       milestone: :v036,
       surface: :elixir_sandbox,
@@ -2912,6 +3256,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
     :vision_modality,
     :artifact_store,
     :artifact_browser,
+    :public_protocol,
     :operator_review
   ]
 

@@ -94,6 +94,7 @@ defmodule Mix.Tasks.Allbert.PublicProtocol do
 
   defp context, do: %{actor: "operator", channel: "mix", audit?: false}
 
+  @spec usage!() :: no_return()
   defp usage! do
     Mix.raise("""
     Usage:

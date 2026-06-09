@@ -24,6 +24,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v049
       mix allbert.test release.v050
       mix allbert.test release.v050b
+      mix allbert.test release.v051
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -88,6 +89,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v049"]), do: release_v049()
   def run(["release.v050"]), do: release_v050()
   def run(["release.v050b"]), do: release_v050b()
+  def run(["release.v051"]), do: release_v051()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -1388,6 +1390,129 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   ]
 
+  @release_v051_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "public_protocol_foundations",
+      title: "public protocol trust tier, settings, exposure, auth, rate-limit, and readback",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/security/public_surface_policy_test.exs",
+        "test/allbert_assist/settings/public_surface_schema_test.exs",
+        "test/allbert_assist/public_protocol/exposure_filter_test.exs",
+        "test/allbert_assist/public_protocol/token_auth_test.exs",
+        "test/allbert_assist/public_protocol/rate_limiter_test.exs",
+        "test/allbert_assist/public_protocol/result_readback_test.exs"
+      ],
+      coverage: [
+        "inbound public-surface permission/floor",
+        "Settings Central public-surface schema",
+        "deny-before-allow exposure filter",
+        "token auth and rate limiting",
+        "client-scoped poll-by-id readback"
+      ]
+    },
+    %{
+      id: "mcp_stdio_core",
+      title: "MCP stdio server, resources, readback, and CLI",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/public_protocol/mcp_stdio_server_test.exs",
+        "test/allbert_assist/public_protocol/http_ingress_test.exs",
+        "test/mix/tasks/allbert_mcp_server_test.exs"
+      ],
+      coverage: [
+        "MCP stdio JSON-RPC server subset",
+        "tool/resource allowlists",
+        "MCP HTTP ingress helper contract",
+        "MCP CLI status/tools/resources"
+      ]
+    },
+    %{
+      id: "mcp_http_web",
+      title: "MCP HTTP controller and shared public API ingress",
+      cwd: :web,
+      executable: "mix",
+      args: ["test", "test/allbert_assist_web/public_protocol/mcp_http_controller_test.exs"],
+      coverage: [
+        "POST /mcp JSON-only subset",
+        "token auth, rate-limit, body cap, secure headers",
+        "Origin/session/protocol-version handling"
+      ]
+    },
+    %{
+      id: "openai_compatible_api",
+      title: "OpenAI-compatible text-only API shim",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/public_protocol/openai_mapping_test.exs"],
+      coverage: [
+        "text-only Chat Completions mapping",
+        "model allowlist through Settings Central",
+        "tools/media/unknown-field rejection"
+      ]
+    },
+    %{
+      id: "openai_compatible_web",
+      title: "OpenAI-compatible HTTP controller",
+      cwd: :web,
+      executable: "mix",
+      args: ["test", "test/allbert_assist_web/public_protocol/openai_controller_test.exs"],
+      coverage: [
+        "GET /v1/models",
+        "POST /v1/chat/completions",
+        "streaming event-stream facade",
+        "OpenAI-shaped auth/rate/validation errors"
+      ]
+    },
+    %{
+      id: "acp_stdio_core",
+      title: "ACP stdio server and CLI",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/public_protocol/acp_mapping_test.exs",
+        "test/allbert_assist/public_protocol/acp_stdio_server_test.exs",
+        "test/mix/tasks/allbert_acp_server_test.exs"
+      ],
+      coverage: [
+        "ACP v1 stdio JSON-RPC subset",
+        "text-only prompt mapping",
+        "cwd/mcpServers/permissionMode non-authority",
+        "advisory permission request behavior"
+      ]
+    },
+    %{
+      id: "public_protocol_security_eval",
+      title: "v0.51 public-protocol security eval inventory and release evals",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v051_public_protocol_eval_test.exs",
+        "test/security/security_eval_case_test.exs",
+        "test/mix/tasks/allbert_test_task_test.exs"
+      ],
+      coverage: [
+        "34 v0.51 public-protocol eval rows",
+        "release.v051 task usage registration",
+        "empty exposure defaults, no self-approval, HTTP ingress, readback scope, MCP/OpenAI/ACP subset contracts"
+      ]
+    }
+  ]
+
   defp release_v042 do
     env = owned_env("release-v042", 0)
     home = env_value(env, "ALLBERT_HOME")
@@ -1872,6 +1997,51 @@ defmodule Mix.Tasks.Allbert.Test do
     end
   end
 
+  defp release_v051 do
+    env = owned_env("release-v051", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v051")
+    File.mkdir_p!(evidence_dir)
+    cleanup_release_v051_evidence!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v051_steps, &run_release_v051_step(&1, env))
+    secret_scan = release_v051_secret_scan(home)
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v051",
+      version: "v0.51",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; tests use local public-protocol fixtures and no live external clients",
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path =
+      Path.join(evidence_dir, "release-v051-#{DateTime.to_unix(started_at)}.json")
+
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v051 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v051 failed; evidence: #{evidence_path}")
+    end
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -1919,6 +2089,41 @@ defmodule Mix.Tasks.Allbert.Test do
     |> Path.join("release-v050b-*.json")
     |> Path.wildcard()
     |> Enum.each(&File.rm!/1)
+  end
+
+  defp cleanup_release_v051_evidence!(evidence_dir) do
+    evidence_dir
+    |> Path.join("release-v051-*.json")
+    |> Path.wildcard()
+    |> Enum.each(&File.rm!/1)
+  end
+
+  defp run_release_v051_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args,
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v051 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
   end
 
   defp run_release_v050b_step(step, env) do
@@ -2692,6 +2897,60 @@ defmodule Mix.Tasks.Allbert.Test do
     result
   end
 
+  defp release_v051_secret_scan(home) do
+    Enum.each(
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces"),
+        Path.join(home, "confirmations"),
+        Path.join(home, "traces"),
+        Path.join(home, "artifacts"),
+        Path.join(home, "audio"),
+        Path.join(home, "images"),
+        Path.join(home, "generated_images"),
+        Path.join(home, "tmp/voice-captures"),
+        Path.join(home, "tmp/image-inputs"),
+        Path.join(home, "tmp/generated-images"),
+        Path.join(home, "cache/browser")
+      ],
+      &File.mkdir_p!/1
+    )
+
+    roots =
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces"),
+        Path.join(home, "confirmations"),
+        Path.join(home, "traces"),
+        Path.join(home, "artifacts"),
+        Path.join(home, "audio"),
+        Path.join(home, "images"),
+        Path.join(home, "generated_images"),
+        Path.join(home, "tmp/voice-captures"),
+        Path.join(home, "tmp/image-inputs"),
+        Path.join(home, "tmp/generated-images"),
+        Path.join(home, "cache/browser")
+      ]
+      |> Enum.filter(&File.exists?/1)
+
+    files =
+      roots
+      |> Enum.flat_map(&Path.wildcard(Path.join(&1, "**/*")))
+      |> Enum.filter(&File.regular?/1)
+
+    findings = release_v042_secret_findings(files, home)
+
+    result = %{
+      status: if(findings == [], do: "passed", else: "failed"),
+      scanned_roots: Enum.map(roots, &Path.relative_to(&1, home)),
+      scanned_file_count: length(files),
+      findings: findings
+    }
+
+    print_output("release.v051 secret_scan", Jason.encode!(result, pretty: true))
+    result
+  end
+
   defp release_v050b_browser_fixture(results) do
     output =
       results
@@ -3449,6 +3708,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v049
       mix allbert.test release.v050
       mix allbert.test release.v050b
+      mix allbert.test release.v051
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

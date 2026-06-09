@@ -111,6 +111,7 @@ defmodule Mix.Tasks.Allbert.McpServer do
     end
   end
 
+  @spec usage() :: no_return()
   defp usage do
     Mix.raise("""
     Usage:

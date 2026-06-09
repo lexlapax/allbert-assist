@@ -10,6 +10,77 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.51.0 - Public Protocol Surfaces
+
+Status: implemented as the v0.51 release. Current version metadata is
+`0.51.0`; ready for operator manual validation before the release tag.
+
+Operator doc: `docs/operator/public-protocol-surfaces.md`.
+Developer doc: `docs/developer/public-protocol-surfaces.md`.
+
+### Added
+
+- Public MCP server surface over the existing runtime/action boundary:
+  `mix allbert.mcp_server status|tools list|resources list|stdio`, MCP stdio,
+  and JSON-only MCP HTTP `POST /mcp`.
+- OpenAI-compatible HTTP shim for `GET /v1/models` and
+  `POST /v1/chat/completions`, bounded to text Chat Completions compatibility.
+- ACP stdio server for the implemented text-session subset:
+  `mix allbert.acp_server status|stdio`.
+- Inbound public-surface trust tier from ADR 0055:
+  `:public_surface_call_inbound`, Settings-Central client tokens, rate limiting,
+  API secure headers, bounded body handling, and client-scoped poll-by-id result
+  readback.
+- `mix allbert.public_protocol token create|rotate|revoke|list` for HTTP
+  client bearer tokens.
+- `mix allbert.test release.v051`, including deterministic fixture coverage for
+  public-surface foundations, MCP stdio/HTTP, OpenAI-compatible mapping/web,
+  ACP stdio, v0.51 security evals, and secret scan evidence.
+- 34 v0.51 public-protocol security eval rows under the `:public_protocol`
+  surface.
+
+### Changed
+
+- Umbrella, core app, web app, and `AllbertAssist.App.CoreApp.version/0`
+  metadata now report `0.51.0`.
+- Action registry capability discovery now ensures modules are loaded before
+  checking exported capability metadata, removing startup-order drift in web
+  app phases.
+- Roadmap, plan, request-flow, operator, and developer docs now describe v0.51
+  as implemented and ready for manual validation.
+
+### Security
+
+- Public surfaces are default-off and default-empty. Tool exposure requires both
+  `exposure: :agent` eligibility and explicit Settings Central allowlisting
+  after deny-before-allow filtering.
+- External clients cannot self-approve confirmations. ACP permission responses
+  are advisory only, and confirmation-pending public calls resolve through
+  operator-owned approval plus client-scoped readback.
+- HTTP surfaces require Settings-Central client entries and Settings Secrets
+  token material; absent, invalid, revoked, or rate-limited requests fail before
+  runtime work.
+- v0.51 is text-first. OpenAI/ACP non-text content, client-supplied tools,
+  filesystem roots, and client-supplied MCP servers are rejected before runtime
+  work.
+- v0.51 does not serve artifacts as MCP resources. Future artifact serving must
+  route through Artifacts Central and `:artifact_read`; raw store paths and
+  `artifact://` metadata are never permission authority.
+
+### Verification
+
+- `MIX_ENV=test mix compile --warnings-as-errors` passed.
+- `MIX_ENV=test mix test apps/allbert_assist_web/test/allbert_assist_web/public_protocol/mcp_http_controller_test.exs apps/allbert_assist/test/allbert_assist/public_protocol/mcp_stdio_server_test.exs apps/allbert_assist/test/allbert_assist/public_protocol/acp_mapping_test.exs apps/allbert_assist/test/allbert_assist/public_protocol/openai_mapping_test.exs apps/allbert_assist/test/allbert_assist/public_protocol/exposure_filter_test.exs apps/allbert_assist/test/allbert_assist/public_protocol/result_readback_test.exs apps/allbert_assist/test/allbert_assist/public_protocol/http_ingress_test.exs apps/allbert_assist/test/mix/tasks/allbert_mcp_server_test.exs apps/allbert_assist/test/mix/tasks/allbert_acp_server_test.exs apps/allbert_assist/test/allbert_assist/settings/secrets_test.exs`
+  passed with 45 tests and 0 failures.
+- `MIX_ENV=test mix test apps/allbert_assist/test/security/v051_public_protocol_eval_test.exs apps/allbert_assist/test/security/security_eval_case_test.exs apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs apps/allbert_assist/test/allbert_assist/actions/registry_test.exs`
+  passed with 29 tests and 0 failures.
+- `MIX_ENV=test mix allbert.test release.v051` passed. Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-10629/home/release_evidence/v051/release-v051-1781033058.json`.
+- `MIX_ENV=test mix allbert.test release` passed. Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13251/home/release_evidence/gates/release-2026-06-09T19_26_13Z.json`.
+- The v0.51 evidence scan found no `database is locked`, `SQLITE_BUSY`,
+  `Exqlite.Connection`, or `DBConnection.ConnectionError` noise.
+
 ## v0.50.1 - Artifacts Browser
 
 Status: released and tagged as `v0.50.1` on 2026-06-09. Current version
