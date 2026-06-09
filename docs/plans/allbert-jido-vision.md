@@ -699,7 +699,7 @@ historical aliases only and remain in old reference notes for continuity.
   ephemeral scratch and historical Browser cache outside the M5 backfill. Adds
   `:v050` artifact-store eval rows and `release.v050`.
   Content-addressed identity and thread links never grant permission.
-- v0.50b: Artifacts Browser. The operator browsing repository for Artifacts
+- v0.50b: Artifacts Browser. Implemented as `0.50.1`. The operator browsing repository for Artifacts
   Central as a plugin/app (`plugins/allbert.artifacts/`, plugin id
   `allbert.artifacts`, modeled on StockSage and `allbert.browser`): a workspace
   `:canvas_panels` panel (M1 complete), an
@@ -708,9 +708,10 @@ historical aliases only and remain in old reference notes for continuity.
   CLI (M3 complete; `list|show|threads|doctor|rm`), all reading the store only
   through core `:artifact_read` actions and rendering redacted metadata only.
   M4 completes panel + CLI filters by type, origin, thread, since date,
-  retention, lifecycle, and limit. Adds `:v050b` artifact-browser eval rows,
-  `release.v050b`, and deterministic browser-validation fixture seeding — the
-  plugin grants no authority and owns no store internals.
+  retention, lifecycle, and limit. M5 adds `:v050b` artifact-browser eval rows,
+  `release.v050b`, deterministic browser-validation fixture seeding, and the
+  operator/developer browser guides — the plugin grants no authority and owns no
+  store internals.
 - v0.51: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
   through the existing channel adapter and plugin contracts; v0.51 also amends
   ADR 0016 to lock the channel approval-primitive contract before mobile

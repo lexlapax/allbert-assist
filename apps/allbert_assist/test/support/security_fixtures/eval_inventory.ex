@@ -35,6 +35,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v048
           | :v049
           | :v050
+          | :v050b
 
   @type required_surface ::
           :resource_execution
@@ -59,6 +60,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :voice_modality
           | :vision_modality
           | :artifact_store
+          | :artifact_browser
           | :operator_review
 
   @type surface :: required_surface() | :workspace_live_navigation
@@ -2706,6 +2708,46 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V050ArtifactStoreEvalTest"
     },
     %{
+      id: "artifacts-browser-read-only-via-action-001",
+      milestone: :v050b,
+      surface: :artifact_browser,
+      scenario: "Artifacts Browser reads metadata through direct store access instead of actions",
+      boundary: :artifact_browser_action_boundary,
+      expected: :allowed,
+      assert: [:runner_action_only, :permission_gate_applies, :no_direct_store_fallback],
+      test_module: "AllbertAssist.Security.V050bArtifactsBrowserEvalTest"
+    },
+    %{
+      id: "artifacts-browser-no-raw-bytes-rendered-001",
+      milestone: :v050b,
+      surface: :artifact_browser,
+      scenario: "Artifacts Browser panel, page, or CLI renders raw artifact bytes",
+      boundary: :artifact_browser_redaction,
+      expected: :allowed,
+      assert: [:metadata_only, :no_raw_bytes, :no_local_path],
+      test_module: "AllbertAssist.Security.V050bArtifactsBrowserEvalTest"
+    },
+    %{
+      id: "artifacts-browser-grants-no-authority-001",
+      milestone: :v050b,
+      surface: :artifact_browser,
+      scenario: "Artifacts Browser plugin or row metadata grants store authority",
+      boundary: :artifact_browser_plugin_contract,
+      expected: :denied,
+      assert: [:plugin_data_only, :content_address_inert, :read_permission_still_required],
+      test_module: "AllbertAssist.Security.V050bArtifactsBrowserEvalTest"
+    },
+    %{
+      id: "artifacts-browser-delete-confirmation-001",
+      milestone: :v050b,
+      surface: :artifact_browser,
+      scenario: "Artifacts Browser delete removes an artifact without core confirmation",
+      boundary: :artifact_browser_delete_confirmation,
+      expected: :needs_confirmation,
+      assert: [:needs_confirmation, :core_delete_action, :object_retained_until_approved],
+      test_module: "AllbertAssist.Security.V050bArtifactsBrowserEvalTest"
+    },
+    %{
       id: "sandbox-backend-disabled-001",
       milestone: :v036,
       surface: :elixir_sandbox,
@@ -2869,6 +2911,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
     :voice_modality,
     :vision_modality,
     :artifact_store,
+    :artifact_browser,
     :operator_review
   ]
 

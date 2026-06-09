@@ -1,7 +1,8 @@
 # Artifact Store Developer Guide
 
 Status: v0.50 implemented. This guide summarizes the core Artifacts Central
-code seams. v0.50b owns the operator browser surfaces.
+code seams. v0.50b/`0.50.1` owns the operator browser surfaces; see
+`docs/developer/artifacts-browser.md`.
 
 ## Storage
 

@@ -1,8 +1,9 @@
 # Artifacts Central Operator Guide
 
-Status: v0.50 implemented. Use this guide for operating the core artifact store
-before the v0.50 release tag. The browsing panel, detail page, and
-`mix allbert.artifacts` CLI ship later in v0.50b.
+Status: v0.50 implemented. Use this guide for operating the core artifact
+store. The browsing panel, detail page, and `mix allbert.artifacts` CLI ship in
+the v0.50b/`0.50.1` Artifacts Browser sidecar; see
+`docs/operator/artifacts-browser.md`.
 
 ## Operator Posture
 
@@ -52,7 +53,7 @@ paths remain scratch and are not migrated.
 
 Historical Browser cache files are not migrated by v0.50. Browser-found
 artifacts can become durable only through approved artifact write flows; the
-operator browsing repository ships in v0.50b.
+operator browsing repository ships in v0.50b as Artifacts Browser.
 
 ## Bounds
 

@@ -19,10 +19,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.50.0 adds the
-  # Artifacts Central durable artifact store.
+  # the app (release-pinned, not semantic-per-app). v0.50.1 adds the
+  # Artifacts Browser sidecar over the v0.50 Artifacts Central store.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.50.0"
+  def version, do: "0.50.1"
 
   @impl true
   def validate(_opts), do: :ok
