@@ -42,10 +42,13 @@ defmodule AllbertAssistWeb.Endpoint do
 
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
+  plug AllbertAssistWeb.Plugs.PublicProtocolBodyCap
 
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
+    body_reader: {AllbertAssistWeb.Plugs.PublicProtocolBodyReader, :read_body, []},
+    length: 10_485_760,
     json_decoder: Phoenix.json_library()
 
   plug Plug.MethodOverride

@@ -1,6 +1,6 @@
 # Public Protocol Surfaces
 
-Status: planned for v0.51.
+Status: in implementation for v0.51; M1-M4 implemented, M5-M7 planned.
 
 This document is the implementation contract for the v0.51 MCP server,
 OpenAI-compatible API, and ACP server adapters. The authoritative planning set
@@ -58,6 +58,11 @@ v0.51 is text-first.
 - MCP tool/resource calls expose operator-enabled Allbert actions/resources.
   Embedded image/audio/resource content in tool outputs or prompts is not
   authority to read artifacts, fetch URLs, transcribe audio, or run vision.
+  v0.51 M3/M4 do not serve artifacts as MCP resources. If artifact serving is
+  required later, the implementation must use Artifacts Central and
+  `:artifact_read` policy through a public-safe adapter, Settings Central
+  allowlists, redaction, and byte/bounds tests. Do not expose raw artifact store
+  paths or make existing internal artifact actions public by metadata alone.
 - OpenAI-compatible `/v1/chat/completions` accepts string content and text
   content parts. Reject `tools`, `functions`, `tool_calls`, `tool_choice`,
   non-text parts, `modalities`, `audio`, and unsupported `response_format` or
@@ -117,6 +122,21 @@ directly in the endpoint/router and do not start a Hermes-owned HTTP listener.
 Hermes may frame MCP protocol data after Allbert-owned Phoenix/Plug ingress has
 already enforced body caps, token auth, rate limits, API secure headers, Origin
 and session policy, and protocol-version denial.
+
+The v0.51 M4 MCP HTTP subset is:
+
+- `POST /mcp` with JSON-RPC `initialize`, `tools/list`, `tools/call`,
+  `resources/list`, and `resources/read`; JSON responses only, no SSE claim.
+- `mcp-protocol-version` optional; `2025-06-18` and `2025-03-26` accepted,
+  unsupported newer versions rejected before runtime work.
+- `mcp-session-id` echoed when supplied, with no durable HTTP session store in
+  M4.
+- Authenticated `DELETE /mcp` returns `405`.
+- HTTP auth requires `x-allbert-client-id` and `authorization: Bearer <token>`.
+  Client entries, token refs, token material, rate limits, feature flags, and
+  body caps are Settings Central / Settings Secrets state only.
+- Origin is accepted only for loopback origins on loopback request hosts; absent
+  Origin is accepted.
 
 Bearer tokens are reusable credentials. v0.51 must prove token redaction,
 revocation denial, and rate-limit-before-runtime behavior. Do not claim replay

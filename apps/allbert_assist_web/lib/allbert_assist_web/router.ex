@@ -15,6 +15,10 @@ defmodule AllbertAssistWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :public_protocol_api do
+    plug AllbertAssistWeb.Plugs.PublicProtocolHeaders
+  end
+
   pipeline :theme_css do
     plug :put_secure_browser_headers
     plug AllbertAssistWeb.Plugs.ContentSecurityPolicy, :theme
@@ -45,10 +49,12 @@ defmodule AllbertAssistWeb.Router do
     live "/apps/stocksage/analyses/:id", StockSageWeb.AnalysisLive, :show
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", AllbertAssistWeb do
-  #   pipe_through :api
-  # end
+  scope "/", AllbertAssistWeb.PublicProtocol do
+    pipe_through [:api, :public_protocol_api]
+
+    post "/mcp", McpHttpController, :handle
+    delete "/mcp", McpHttpController, :delete
+  end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:allbert_assist_web, :dev_routes) do

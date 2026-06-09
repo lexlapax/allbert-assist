@@ -12,7 +12,8 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
   alias AllbertAssist.Runtime.Response, as: RuntimeResponse
   alias AllbertAssist.Settings
 
-  @surface "mcp_stdio"
+  @stdio_surface "mcp_stdio"
+  @http_surface "mcp_http"
   @default_client_id "stdio-client"
   @resource_scheme "allbert-memory"
 
@@ -24,14 +25,24 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
           required(:namespace) => map()
         }
 
-  @spec surface_enabled?() :: boolean()
-  def surface_enabled? do
+  @spec surface_enabled?(String.t()) :: boolean()
+  def surface_enabled?(surface \\ @stdio_surface)
+
+  def surface_enabled?(@stdio_surface) do
     enabled?("mcp_server.enabled") and enabled?("mcp_server.stdio.enabled")
   end
 
-  @spec enabled_tools() :: {:ok, [Capability.t()]} | {:error, term()}
-  def enabled_tools do
-    if surface_enabled?() do
+  def surface_enabled?(@http_surface) do
+    enabled?("mcp_server.enabled") and enabled?("mcp_server.streamable_http.enabled")
+  end
+
+  def surface_enabled?(_surface), do: false
+
+  @spec enabled_tools(String.t()) :: {:ok, [Capability.t()]} | {:error, term()}
+  def enabled_tools(surface \\ @stdio_surface) do
+    surface = normalize_surface(surface)
+
+    if surface_enabled?(surface) do
       with {:ok, allowlist} <- Settings.get("mcp_server.tools_enabled") do
         ExposureFilter.filter_tools(allowlist)
       end
@@ -40,9 +51,11 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
     end
   end
 
-  @spec enabled_resources() :: {:ok, [resource()]} | {:error, term()}
-  def enabled_resources do
-    if surface_enabled?() do
+  @spec enabled_resources(String.t()) :: {:ok, [resource()]} | {:error, term()}
+  def enabled_resources(surface \\ @stdio_surface) do
+    surface = normalize_surface(surface)
+
+    if surface_enabled?(surface) do
       with {:ok, allowlist} <- Settings.get("mcp_server.memory_namespaces_enabled"),
            {:ok, namespaces} <- ExposureFilter.filter_memory_namespaces(allowlist) do
         {:ok, Enum.map(namespaces, &resource_from_namespace/1)}
@@ -52,16 +65,16 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
     end
   end
 
-  @spec tool_specs() :: {:ok, [{String.t(), keyword()}]} | {:error, term()}
-  def tool_specs do
-    with {:ok, tools} <- enabled_tools() do
+  @spec tool_specs(String.t()) :: {:ok, [{String.t(), keyword()}]} | {:error, term()}
+  def tool_specs(surface \\ @stdio_surface) do
+    with {:ok, tools} <- enabled_tools(surface) do
       {:ok, Enum.map(tools, &{&1.name, Schema.tool_definition(&1)})}
     end
   end
 
-  @spec resource_specs() :: {:ok, [{String.t(), keyword()}]} | {:error, term()}
-  def resource_specs do
-    with {:ok, resources} <- enabled_resources() do
+  @spec resource_specs(String.t()) :: {:ok, [{String.t(), keyword()}]} | {:error, term()}
+  def resource_specs(surface \\ @stdio_surface) do
+    with {:ok, resources} <- enabled_resources(surface) do
       {:ok,
        Enum.map(resources, fn resource ->
          {resource.uri,
@@ -74,25 +87,33 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
     end
   end
 
-  @spec call_tool(String.t(), map(), map()) :: {:ok, map()} | {:error, term()}
-  def call_tool(name, params, context) when is_binary(name) and is_map(params) do
-    with {:ok, tools} <- enabled_tools(),
+  @spec call_tool(String.t(), map(), map(), String.t() | nil) :: {:ok, map()} | {:error, term()}
+  def call_tool(name, params, context, surface \\ nil)
+
+  def call_tool(name, params, context, surface) when is_binary(name) and is_map(params) do
+    surface = normalize_surface(surface || context_surface(context))
+
+    with {:ok, tools} <- enabled_tools(surface),
          {:ok, capability} <- fetch_tool(tools, name),
-         {:ok, response} <- Runner.run(name, params, runner_context(context, capability)) do
-      response_to_payload(response, name, context)
+         {:ok, response} <- Runner.run(name, params, runner_context(context, capability, surface)) do
+      response_to_payload(response, name, context, surface)
     end
   end
 
-  @spec read_resource(String.t(), map()) :: {:ok, map()} | {:error, term()}
-  def read_resource(uri, _context) when is_binary(uri) do
-    with {:ok, resources} <- enabled_resources(),
+  @spec read_resource(String.t(), map(), String.t() | nil) :: {:ok, map()} | {:error, term()}
+  def read_resource(uri, context, surface \\ nil)
+
+  def read_resource(uri, context, surface) when is_binary(uri) do
+    surface = normalize_surface(surface || context_surface(context))
+
+    with {:ok, resources} <- enabled_resources(surface),
          {:ok, resource} <- fetch_resource(resources, uri) do
       {:ok,
        %{
          "uri" => resource.uri,
          "name" => resource.name,
          "description" => resource.description,
-         "surface" => @surface,
+         "surface" => surface,
          "resource_type" => "app_memory_namespace",
          "app_id" => atom_to_string(resource.namespace.app_id),
          "namespace" => atom_to_string(resource.namespace.namespace),
@@ -115,10 +136,10 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
     "#{@resource_scheme}://#{atom_to_string(app_id)}/#{atom_to_string(namespace)}"
   end
 
-  defp response_to_payload(response, name, context) do
+  defp response_to_payload(response, name, context, surface) do
     case RuntimeResponse.status(response) do
       :needs_confirmation ->
-        pending_payload(response, name, context)
+        pending_payload(response, name, context, surface)
 
       :denied ->
         {:ok,
@@ -144,11 +165,11 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
     end
   end
 
-  defp pending_payload(response, name, context) do
+  defp pending_payload(response, name, context, surface) do
     confirmation_id = confirmation_id(response)
 
     attrs = %{
-      surface: @surface,
+      surface: surface,
       client_id: client_id(context),
       action_label: name,
       confirmation_id: confirmation_id,
@@ -167,15 +188,15 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
     end
   end
 
-  defp runner_context(context, %Capability{} = capability) do
+  defp runner_context(context, %Capability{} = capability, surface) do
     public_protocol =
       context
       |> Map.get(:public_protocol, %{})
-      |> Map.merge(%{surface: @surface, client_id: client_id(context)})
+      |> Map.merge(%{surface: surface, client_id: client_id(context)})
 
     context
-    |> Map.put(:surface, @surface)
-    |> Map.put(:channel, :mcp_stdio)
+    |> Map.put(:surface, surface)
+    |> Map.put(:channel, channel_for_surface(surface))
     |> Map.put(:public_protocol, public_protocol)
     |> Map.put(:action_capability, Capability.summary(capability))
   end
@@ -213,6 +234,17 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
       _other -> false
     end
   end
+
+  defp context_surface(%{public_protocol: %{surface: surface}}), do: surface
+  defp context_surface(%{public_protocol: %{"surface" => surface}}), do: surface
+  defp context_surface(_context), do: @stdio_surface
+
+  defp normalize_surface(@stdio_surface), do: @stdio_surface
+  defp normalize_surface(@http_surface), do: @http_surface
+  defp normalize_surface(_surface), do: @stdio_surface
+
+  defp channel_for_surface(@http_surface), do: :mcp_http
+  defp channel_for_surface(_surface), do: :mcp_stdio
 
   defp confirmation_id(%{confirmation_id: id}) when is_binary(id), do: id
   defp confirmation_id(%{"confirmation_id" => id}) when is_binary(id), do: id
