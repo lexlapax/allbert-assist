@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed for v0.51 Public Protocol Surfaces (`docs/plans/v0.51-plan.md`).
+Accepted at v0.51 M1 for Public Protocol Surfaces (`docs/plans/v0.51-plan.md`).
 
 Proposed amendment (v0.51, 2026-06-09 restructure): v0.51 is promoted to a
 full release and expands to three public surfaces — MCP server, an
@@ -23,8 +23,8 @@ secrets, signals, traces, confirmation store, registry internals,
 `:internal` actions, system namespaces, and confirmation-decision actions) is
 unchanged and applies to all three. `hermes_mcp` provides MCP protocol framing
 only; Allbert owns ingress auth and authority. This ADR (exposure: which
-surfaces, what they expose) and ADR 0055 (inbound trust/auth/readback) both flip
-to Accepted at v0.51 M1.
+surfaces, what they expose) and ADR 0055 (inbound trust/auth/readback) were
+accepted at v0.51 M1.
 
 The v0.51 public surfaces are also a **text-first protocol subset**. MCP,
 OpenAI-compatible Chat Completions, and ACP can carry richer content forms in

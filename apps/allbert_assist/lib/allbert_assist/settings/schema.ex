@@ -11,6 +11,8 @@ defmodule AllbertAssist.Settings.Schema do
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.PublicProtocol.ExposureFilter
+  alias AllbertAssist.PublicProtocol.TokenAuth
   alias AllbertAssist.Resources.OperationClass
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
@@ -123,6 +125,44 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.mcp_server_connect",
     "permissions.mcp_tool_call",
     "permissions.mcp_resource_read",
+    "permissions.public_surface_call_inbound",
+    "mcp_server.schema_version",
+    "mcp_server.enabled",
+    "mcp_server.stdio.enabled",
+    "mcp_server.streamable_http.enabled",
+    "mcp_server.streamable_http.bind_host",
+    "mcp_server.streamable_http.port",
+    "mcp_server.tools_enabled",
+    "mcp_server.memory_namespaces_enabled",
+    "mcp_server.clients",
+    "mcp_server.clients.*.enabled",
+    "mcp_server.clients.*.token_ref",
+    "mcp_server.clients.*.rate_limit.limit",
+    "mcp_server.clients.*.rate_limit.period_ms",
+    "mcp_server.clients.*.rate_limit.burst",
+    "openai_api.schema_version",
+    "openai_api.enabled",
+    "openai_api.path_prefix",
+    "openai_api.models_enabled",
+    "openai_api.tools_enabled",
+    "openai_api.memory_namespaces_enabled",
+    "openai_api.clients",
+    "openai_api.clients.*.enabled",
+    "openai_api.clients.*.token_ref",
+    "openai_api.clients.*.rate_limit.limit",
+    "openai_api.clients.*.rate_limit.period_ms",
+    "openai_api.clients.*.rate_limit.burst",
+    "public_protocol.schema_version",
+    "public_protocol.result_readback_ttl_ms",
+    "public_protocol.max_body_bytes",
+    "acp_server.schema_version",
+    "acp_server.enabled",
+    "acp_server.stdio.enabled",
+    "acp_server.tools_enabled",
+    "acp_server.memory_namespaces_enabled",
+    "acp_server.session.load_enabled",
+    "acp_server.session.resume_enabled",
+    "acp_server.session.additional_directories_enabled",
     "permissions.browser_session_start",
     "permissions.browser_navigate",
     "permissions.browser_extract",
@@ -963,6 +1003,182 @@ defmodule AllbertAssist.Settings.Schema do
     "app_registry.registration_enabled" => %{
       type: :boolean,
       default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "mcp_server.schema_version" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 1
+    },
+    "mcp_server.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "mcp_server.stdio.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "mcp_server.streamable_http.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "mcp_server.streamable_http.bind_host" => %{
+      type: :loopback_bind_host,
+      default: "127.0.0.1",
+      writable?: true,
+      sensitive?: false
+    },
+    "mcp_server.streamable_http.port" => %{
+      type: :port_or_nil,
+      default: nil,
+      writable?: true,
+      sensitive?: false
+    },
+    "mcp_server.tools_enabled" => %{
+      type: :public_tool_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "mcp_server.memory_namespaces_enabled" => %{
+      type: :public_memory_namespace_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "mcp_server.clients" => %{
+      type: :public_protocol_clients,
+      default: %{},
+      writable?: true,
+      sensitive?: true,
+      surface: "mcp_http"
+    },
+    "openai_api.schema_version" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 1
+    },
+    "openai_api.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "openai_api.path_prefix" => %{
+      type: :public_api_path_prefix,
+      default: "/v1",
+      writable?: true,
+      sensitive?: false
+    },
+    "openai_api.models_enabled" => %{
+      type: :profile_ref_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "openai_api.tools_enabled" => %{
+      type: :public_tool_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "openai_api.memory_namespaces_enabled" => %{
+      type: :public_memory_namespace_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "openai_api.clients" => %{
+      type: :public_protocol_clients,
+      default: %{},
+      writable?: true,
+      sensitive?: true,
+      surface: "openai_api"
+    },
+    "public_protocol.schema_version" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 1
+    },
+    "public_protocol.result_readback_ttl_ms" => %{
+      type: :bounded_integer,
+      default: 3_600_000,
+      writable?: true,
+      sensitive?: false,
+      min: 60_000,
+      max: 86_400_000
+    },
+    "public_protocol.max_body_bytes" => %{
+      type: :bounded_integer,
+      default: 1_048_576,
+      writable?: true,
+      sensitive?: false,
+      min: 1024,
+      max: 10_485_760
+    },
+    "acp_server.schema_version" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 1
+    },
+    "acp_server.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "acp_server.stdio.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "acp_server.tools_enabled" => %{
+      type: :public_tool_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "acp_server.memory_namespaces_enabled" => %{
+      type: :public_memory_namespace_list,
+      default: [],
+      writable?: true,
+      sensitive?: false
+    },
+    "acp_server.session.load_enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "acp_server.session.resume_enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "acp_server.session.additional_directories_enabled" => %{
+      type: :boolean,
+      default: false,
       writable?: true,
       sensitive?: false
     },
@@ -1871,6 +2087,13 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
+    "permissions.public_surface_call_inbound" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["needs_confirmation", "denied"]
+    },
     "permissions.browser_session_start" => %{
       type: :enum,
       default: "needs_confirmation",
@@ -2615,6 +2838,14 @@ defmodule AllbertAssist.Settings.Schema do
     "confirmation" => %{type: :enum, allowed_values: ["required", "denied"]}
   }
 
+  @public_protocol_client_schema %{
+    "enabled" => %{type: :boolean},
+    "token_ref" => %{type: :public_protocol_secret_ref},
+    "rate_limit.limit" => %{type: :bounded_integer, min: 1, max: 10_000},
+    "rate_limit.period_ms" => %{type: :bounded_integer, min: 100, max: 86_400_000},
+    "rate_limit.burst" => %{type: :bounded_integer, min: 0, max: 10_000}
+  }
+
   @defaults %{
     "allbert" => %{
       "jido" => %{
@@ -2811,6 +3042,7 @@ defmodule AllbertAssist.Settings.Schema do
       "mcp_server_connect" => "needs_confirmation",
       "mcp_tool_call" => "needs_confirmation",
       "mcp_resource_read" => "allowed",
+      "public_surface_call_inbound" => "needs_confirmation",
       "browser_session_start" => "needs_confirmation",
       "browser_navigate" => "needs_confirmation",
       "browser_extract" => "allowed",
@@ -2990,6 +3222,45 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "app_registry" => %{
       "registration_enabled" => true
+    },
+    "mcp_server" => %{
+      "schema_version" => 1,
+      "enabled" => false,
+      "stdio" => %{"enabled" => false},
+      "streamable_http" => %{
+        "enabled" => false,
+        "bind_host" => "127.0.0.1",
+        "port" => nil
+      },
+      "tools_enabled" => [],
+      "memory_namespaces_enabled" => [],
+      "clients" => %{}
+    },
+    "openai_api" => %{
+      "schema_version" => 1,
+      "enabled" => false,
+      "path_prefix" => "/v1",
+      "models_enabled" => [],
+      "tools_enabled" => [],
+      "memory_namespaces_enabled" => [],
+      "clients" => %{}
+    },
+    "public_protocol" => %{
+      "schema_version" => 1,
+      "result_readback_ttl_ms" => 3_600_000,
+      "max_body_bytes" => 1_048_576
+    },
+    "acp_server" => %{
+      "schema_version" => 1,
+      "enabled" => false,
+      "stdio" => %{"enabled" => false},
+      "tools_enabled" => [],
+      "memory_namespaces_enabled" => [],
+      "session" => %{
+        "load_enabled" => false,
+        "resume_enabled" => false,
+        "additional_directories_enabled" => false
+      }
     },
     "execution" => %{
       "local" => %{
@@ -3264,6 +3535,7 @@ defmodule AllbertAssist.Settings.Schema do
          :ok <- validate_model_profiles(settings),
          :ok <- validate_model_preferences(settings),
          :ok <- validate_mcp(settings),
+         :ok <- validate_public_protocol(settings),
          :ok <- validate_runtime_refs(settings),
          :ok <- validate_dynamic_codegen(settings),
          :ok <- validate_templates(settings),
@@ -3296,10 +3568,25 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   def sensitive_key?(key) do
-    key
-    |> String.split(~r/[._-]/, trim: true)
-    |> Enum.any?(&(&1 in ["secret", "token", "password", "api", "key", "private", "credential"]))
+    if public_protocol_settings_key?(key) do
+      false
+    else
+      key
+      |> String.split(~r/[._-]/, trim: true)
+      |> Enum.any?(
+        &(&1 in ["secret", "token", "password", "api", "key", "private", "credential"])
+      )
+    end
   end
+
+  defp public_protocol_settings_key?(key) when is_binary(key) do
+    String.starts_with?(key, "openai_api.") or
+      String.starts_with?(key, "mcp_server.") or
+      String.starts_with?(key, "acp_server.") or
+      String.starts_with?(key, "public_protocol.")
+  end
+
+  defp public_protocol_settings_key?(_key), do: false
 
   defp validate_known_key_value(key, value, settings) do
     schema_for_key(key)
@@ -3326,6 +3613,11 @@ defmodule AllbertAssist.Settings.Schema do
 
       Regex.match?(~r/^mcp\.servers\.[^.]+\.[^.]+$/, key) ->
         key |> split_key() |> List.last() |> then(&Map.fetch!(@mcp_server_schema, &1))
+
+      public_protocol_client_key?(key) ->
+        key
+        |> public_protocol_client_field()
+        |> then(&Map.fetch!(@public_protocol_client_schema, &1))
     end
   end
 
@@ -3559,6 +3851,22 @@ defmodule AllbertAssist.Settings.Schema do
   defp validate_mcp_server_constraint(name, _attrs, _settings),
     do: {:error, {:invalid_setting, "mcp.servers.#{name}", :expected_map}}
 
+  defp validate_public_protocol(settings) do
+    with :ok <- validate_public_surface_clients(settings, "mcp_server", "mcp_http"),
+         :ok <- validate_public_surface_clients(settings, "openai_api", "openai_api") do
+      :ok
+    end
+  end
+
+  defp validate_public_surface_clients(settings, namespace, surface) do
+    clients = get_dotted(settings, "#{namespace}.clients") || %{}
+
+    case validate_public_protocol_clients(clients, surface) do
+      :ok -> :ok
+      {:error, reason} -> {:error, {:invalid_setting, "#{namespace}.clients", reason}}
+    end
+  end
+
   defp validate_enabled_stdio_mcp_server(attrs, settings) do
     with :ok <- require_mcp_string(attrs, "command"),
          :ok <- validate_stdio_launcher_allowed(Map.fetch!(attrs, "command"), settings),
@@ -3708,6 +4016,39 @@ defmodule AllbertAssist.Settings.Schema do
   defp validate_value(%{type: :string_or_empty}, value, _key, _settings),
     do: {:error, {:expected_string, value}}
 
+  defp validate_value(%{type: :loopback_bind_host}, value, _key, _settings)
+       when is_binary(value) do
+    if value in ["127.0.0.1", "localhost", "::1"] do
+      :ok
+    else
+      {:error, {:expected_loopback_bind_host, value}}
+    end
+  end
+
+  defp validate_value(%{type: :loopback_bind_host}, value, _key, _settings),
+    do: {:error, {:expected_loopback_bind_host, value}}
+
+  defp validate_value(%{type: :port_or_nil}, nil, _key, _settings), do: :ok
+
+  defp validate_value(%{type: :port_or_nil}, value, _key, _settings) when is_integer(value) do
+    if value >= 1 and value <= 65_535, do: :ok, else: {:error, {:out_of_range, 1, 65_535}}
+  end
+
+  defp validate_value(%{type: :port_or_nil}, value, _key, _settings),
+    do: {:error, {:expected_port_or_nil, value}}
+
+  defp validate_value(%{type: :public_api_path_prefix}, value, _key, _settings)
+       when is_binary(value) do
+    if Regex.match?(~r/^\/[A-Za-z0-9_\/-]*$/, value) and value == "/v1" do
+      :ok
+    else
+      {:error, {:expected_public_api_path_prefix, "/v1"}}
+    end
+  end
+
+  defp validate_value(%{type: :public_api_path_prefix}, value, _key, _settings),
+    do: {:error, {:expected_public_api_path_prefix, value}}
+
   defp validate_value(%{type: :email_or_empty}, "", _key, _settings), do: :ok
 
   defp validate_value(%{type: :email_or_empty}, value, _key, _settings)
@@ -3770,6 +4111,47 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_value(%{type: :string_list}, value, _key, _settings),
     do: {:error, {:expected_string_list, value}}
+
+  defp validate_value(%{type: :public_tool_list}, value, _key, _settings) when is_list(value) do
+    case ExposureFilter.filter_tools(value) do
+      {:ok, _tools} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_value(%{type: :public_tool_list}, value, _key, _settings),
+    do: {:error, {:expected_public_tool_list, value}}
+
+  defp validate_value(%{type: :public_memory_namespace_list}, value, _key, _settings)
+       when is_list(value) do
+    case ExposureFilter.filter_memory_namespaces(value) do
+      {:ok, _namespaces} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_value(%{type: :public_memory_namespace_list}, value, _key, _settings),
+    do: {:error, {:expected_public_memory_namespace_list, value}}
+
+  defp validate_value(%{type: :public_protocol_clients, surface: surface}, value, _key, _settings)
+       when is_map(value) do
+    validate_public_protocol_clients(value, surface)
+  end
+
+  defp validate_value(%{type: :public_protocol_clients}, value, _key, _settings),
+    do: {:error, {:expected_public_protocol_clients, value}}
+
+  defp validate_value(%{type: :public_protocol_secret_ref}, value, _key, _settings)
+       when is_binary(value) do
+    if TokenAuth.public_protocol_secret_ref?(value) do
+      :ok
+    else
+      {:error, :invalid_public_protocol_secret_ref}
+    end
+  end
+
+  defp validate_value(%{type: :public_protocol_secret_ref}, value, _key, _settings),
+    do: {:error, {:expected_public_protocol_secret_ref, value}}
 
   defp validate_value(%{type: :model_capabilities}, value, _key, _settings),
     do: ProviderCatalog.validate_capabilities(value)
@@ -4182,6 +4564,102 @@ defmodule AllbertAssist.Settings.Schema do
 
   defp validate_channel_identity_entry(entry), do: {:error, {:invalid_channel_identity, entry}}
 
+  defp validate_public_protocol_clients(clients, surface) when is_map(clients) do
+    Enum.reduce_while(clients, :ok, fn {client_id, attrs}, :ok ->
+      case validate_public_protocol_client(client_id, attrs, surface) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp validate_public_protocol_clients(clients, _surface),
+    do: {:error, {:expected_public_protocol_clients, clients}}
+
+  defp validate_public_protocol_client(client_id, attrs, surface) when is_map(attrs) do
+    with :ok <- TokenAuth.validate_client_id(client_id),
+         :ok <- validate_public_protocol_client_keys(attrs),
+         :ok <- validate_public_protocol_client_enabled(attrs),
+         :ok <- validate_public_protocol_client_token_ref(client_id, attrs, surface) do
+      validate_public_protocol_rate_limit(Map.get(attrs, "rate_limit", %{}))
+    end
+  end
+
+  defp validate_public_protocol_client(client_id, _attrs, _surface),
+    do: {:error, {:invalid_public_protocol_client, client_id, :expected_map}}
+
+  defp validate_public_protocol_client_keys(attrs) do
+    allowed = ~w[enabled token_ref rate_limit]
+
+    attrs
+    |> Map.keys()
+    |> Enum.map(&to_string/1)
+    |> Enum.find(&(&1 not in allowed))
+    |> case do
+      nil -> :ok
+      key -> {:error, {:public_protocol_client_unknown_key, key}}
+    end
+  end
+
+  defp validate_public_protocol_client_enabled(attrs) do
+    case Map.get(attrs, "enabled", Map.get(attrs, :enabled, false)) do
+      value when is_boolean(value) -> :ok
+      value -> {:error, {:public_protocol_client_invalid_enabled, value}}
+    end
+  end
+
+  defp validate_public_protocol_client_token_ref(client_id, attrs, surface) do
+    enabled? = Map.get(attrs, "enabled", Map.get(attrs, :enabled, false))
+
+    case Map.get(attrs, "token_ref", Map.get(attrs, :token_ref)) do
+      value when is_binary(value) ->
+        validate_public_protocol_client_token_ref_value(value, surface, client_id)
+
+      nil when enabled? == false ->
+        :ok
+
+      value ->
+        {:error, {:public_protocol_client_invalid_token_ref, value}}
+    end
+  end
+
+  defp validate_public_protocol_client_token_ref_value(value, surface, client_id) do
+    case TokenAuth.parse_secret_ref(value) do
+      {:ok, ^surface, ^client_id, "bearer_token"} ->
+        :ok
+
+      {:ok, other_surface, other_client_id, _name} ->
+        {:error, {:token_ref_mismatch, other_surface, other_client_id}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp validate_public_protocol_rate_limit(rate_limit) when is_map(rate_limit) do
+    allowed = ~w[limit period_ms burst]
+
+    with nil <- Enum.find(Map.keys(rate_limit), &(to_string(&1) not in allowed)),
+         :ok <- validate_optional_rate_limit_field(rate_limit, "limit", 1, 10_000),
+         :ok <- validate_optional_rate_limit_field(rate_limit, "period_ms", 100, 86_400_000) do
+      validate_optional_rate_limit_field(rate_limit, "burst", 0, 10_000)
+    else
+      key when is_binary(key) -> {:error, {:public_protocol_rate_limit_unknown_key, key}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp validate_public_protocol_rate_limit(rate_limit),
+    do: {:error, {:public_protocol_rate_limit_expected_map, rate_limit}}
+
+  defp validate_optional_rate_limit_field(rate_limit, key, min, max) do
+    case Map.get(rate_limit, key, Map.get(rate_limit, String.to_atom(key))) do
+      nil -> :ok
+      value when is_integer(value) and value >= min and value <= max -> :ok
+      value -> {:error, {:public_protocol_rate_limit_out_of_range, key, value, min, max}}
+    end
+  end
+
   defp validate_identity_string(entry, key) do
     value = identity_field(entry, key)
 
@@ -4364,7 +4842,25 @@ defmodule AllbertAssist.Settings.Schema do
       Regex.match?(
         ~r/^mcp\.servers\.[^.]+\.(enabled|transport|command|args|env|base_url|headers|auth_ref|tool_allowlist|tool_denylist|confirmation)$/,
         key
+      ) ||
+      Regex.match?(
+        ~r/^(mcp_server|openai_api)\.clients\.[^.]+\.(enabled|token_ref|rate_limit\.(limit|period_ms|burst))$/,
+        key
       )
+  end
+
+  defp public_protocol_client_key?(key) do
+    Regex.match?(
+      ~r/^(mcp_server|openai_api)\.clients\.[^.]+\.(enabled|token_ref|rate_limit\.(limit|period_ms|burst))$/,
+      key
+    )
+  end
+
+  defp public_protocol_client_field(key) do
+    key
+    |> split_key()
+    |> Enum.drop(3)
+    |> Enum.join(".")
   end
 
   defp default_key?(key) do
