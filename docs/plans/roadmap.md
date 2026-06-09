@@ -2701,7 +2701,8 @@ ADR: `docs/adr/0021-intent-objective-capability-and-advisory-boundary.md`
 Status: implemented as `0.46.0`; ready for operator manual validation before
 release tagging. Inserted in the post-v0.45 planning pass to give the v0.24
 delegate-agent substrate a second consumer before the v1.0 freeze. The
-v0.47-v0.53 arc shifted down by one to open this slot.
+v0.47-v0.53 arc shifted down by one to open this slot (the arc later extended to
+v0.57 in the 2026-06-09 restructure).
 
 Shipped scope:
 
