@@ -100,6 +100,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.PlanBuild.StartPlanRun
   alias AllbertAssist.Actions.Plugins.ListPlugins
   alias AllbertAssist.Actions.Plugins.ShowPlugin
+  alias AllbertAssist.Actions.PublicProtocol.GetPublicCallResult
   alias AllbertAssist.Actions.Resources.ListResourceGrants
   alias AllbertAssist.Actions.Resources.RememberResourceGrant
   alias AllbertAssist.Actions.Resources.RevokeResourceGrant
@@ -195,6 +196,7 @@ defmodule AllbertAssist.Actions.Registry do
     ShowApp,
     ListPlugins,
     ShowPlugin,
+    GetPublicCallResult,
     PreviewPlan,
     OpenCalendarPanel,
     OpenMailPanel,

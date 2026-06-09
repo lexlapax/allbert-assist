@@ -114,6 +114,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "show_app",
              "list_plugins",
              "show_plugin",
+             "get_public_call_result",
              "preview_plan",
              "open_calendar_panel",
              "open_mail_panel",
@@ -740,6 +741,16 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert approve_confirmation.permission == :confirmation_decide
     assert approve_confirmation.exposure == :internal
     refute approve_confirmation.resumable?
+
+    assert {:ok, deny_confirmation} = Registry.capability("deny_confirmation")
+    assert deny_confirmation.permission == :confirmation_decide
+    assert deny_confirmation.exposure == :internal
+
+    assert {:ok, get_public_call_result} = Registry.capability("get_public_call_result")
+    assert get_public_call_result.permission == :read_only
+    assert get_public_call_result.execution_mode == :read_only
+    assert get_public_call_result.exposure == :agent
+    assert get_public_call_result.confirmation == :not_required
 
     assert {:ok, list_resource_grants} = Registry.capability("list_resource_grants")
     assert list_resource_grants.permission == :read_only

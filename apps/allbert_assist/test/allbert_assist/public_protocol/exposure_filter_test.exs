@@ -31,6 +31,20 @@ defmodule AllbertAssist.PublicProtocol.ExposureFilterTest do
     assert capability.exposure == :agent
   end
 
+  test "public readback is exposable but confirmation decisions remain internal" do
+    assert {:ok, [capability]} = ExposureFilter.filter_tools(["get_public_call_result"])
+
+    assert capability.name == "get_public_call_result"
+    assert capability.exposure == :agent
+    assert capability.execution_mode == :read_only
+
+    assert {:ok, approve_confirmation} = Registry.capability("approve_confirmation")
+    assert ExposureFilter.non_exposable_reason(approve_confirmation) == :not_agent_exposable
+
+    assert {:ok, deny_confirmation} = Registry.capability("deny_confirmation")
+    assert ExposureFilter.non_exposable_reason(deny_confirmation) == :not_agent_exposable
+  end
+
   test "unknown tools are configuration errors" do
     assert {:error, {:non_exposable_tools, [%{name: "missing_tool", reason: :unknown_action}]}} =
              ExposureFilter.filter_tools(["missing_tool"])
