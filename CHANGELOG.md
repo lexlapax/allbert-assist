@@ -75,10 +75,12 @@ Developer doc: `docs/developer/artifacts-browser.md`.
 - Chrome extension validation passed on `http://localhost:4063`: workspace
   filters rendered the fixture row, the detail page rendered linked provenance,
   raw fixture bytes were absent, and neither page had horizontal overflow.
-- Post-remediation Chrome extension revalidation on `http://localhost:4062`
-  was blocked by extension communication timeouts despite diagnostics confirming
-  Chrome running, the Codex Chrome Extension enabled in the Default profile, and
-  a correct native-host manifest. No v0.50b UI code changed in the remediation.
+- Post-remediation Chrome extension revalidation passed on
+  `http://localhost:4062` after a full Chrome restart cleared a wedged
+  extension/native-host session. Chrome browser control verified the filtered
+  workspace panel, release fixture detail route, metadata/provenance rendering,
+  metadata-only redaction, unique `Workspace panel` return link, and zero
+  detail-page console warnings/errors.
 
 ## v0.50.0 - Artifacts Central
 
