@@ -88,6 +88,8 @@ defmodule AllbertAssist.Channels.Discord.Parser do
          external_user_id: user_id,
          external_chat_id: Map.get(data, "channel_id"),
          external_message_id: interaction_id,
+         guild_id: optional_string(Map.get(data, "guild_id")),
+         channel_id: optional_string(Map.get(data, "channel_id")),
          callback_data: custom_id,
          verb: verb,
          confirmation_id: confirmation_id,

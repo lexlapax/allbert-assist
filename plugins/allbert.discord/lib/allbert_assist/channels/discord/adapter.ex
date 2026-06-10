@@ -6,6 +6,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
   require Logger
 
   alias AllbertAssist.Channels
+  alias AllbertAssist.Channels.ConfirmationCallback
   alias AllbertAssist.Channels.Discord.Client
   alias AllbertAssist.Channels.Discord.Parser
   alias AllbertAssist.Channels.Discord.Renderer
@@ -72,7 +73,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
         {handle_message(fields, state), state}
 
       {:interaction_create, fields} ->
-        {insert_rejected_event(fields.external_event_id, "interaction_deferred_to_m5"), state}
+        {handle_interaction(fields, state), state}
 
       {:unsupported, fields} ->
         {insert_rejected_event(fields.external_event_id, fields.type), state}
@@ -86,6 +87,19 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
     case insert_received_event(fields, "inbound") do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
         process_received_message(event, fields, state)
+
+      {:ok, :duplicate} ->
+        {:ok, :duplicate}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp handle_interaction(fields, state) do
+    case insert_received_event(fields, "callback") do
+      {:ok, %AllbertAssist.Channels.Event{} = event} ->
+        process_callback(event, fields, state)
 
       {:ok, :duplicate} ->
         {:ok, :duplicate}
@@ -131,15 +145,52 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
          :ok <- reject_echo(fields),
          {:ok, user_id} <- resolve_identity(fields, state),
          session_id <- session_id(fields),
-         {:ok, response} <- submit_runtime(fields, user_id, session_id),
-         {:ok, rendered} <- Renderer.render_response(response, renderer_opts(state)),
-         {:ok, delivered} <- deliver_rendered(fields, rendered, state),
-         :ok <- record_outbound_refs(response, fields, delivered),
-         {:ok, event} <- mark_processed(event, response, user_id, session_id) do
+         {:ok, event, rendered} <-
+           process_text_or_runtime(event, fields, state, user_id, session_id) do
       {:ok, {:processed, event, rendered}}
     else
       {:error, reason} ->
         Logger.debug("discord simulated event rejected: #{inspect(Redactor.redact(reason))}")
+        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:ok, :rejected}
+    end
+  end
+
+  defp process_text_or_runtime(event, fields, state, user_id, session_id) do
+    case ConfirmationCallback.parse_typed_command(fields.text) do
+      {:ok, action, confirmation_id} ->
+        with {:ok, response} <-
+               run_confirmation_callback(fields, user_id, session_id, action, confirmation_id),
+             {:ok, rendered} <- render_confirmation_response(response, state),
+             {:ok, _delivered} <- deliver_rendered(fields, rendered, state),
+             {:ok, event} <- mark_callback_processed(event, response, user_id, session_id) do
+          {:ok, event, rendered}
+        end
+
+      :ignore ->
+        with {:ok, response} <- submit_runtime(fields, user_id, session_id),
+             {:ok, rendered} <- Renderer.render_response(response, renderer_opts(state)),
+             {:ok, delivered} <- deliver_rendered(fields, rendered, state),
+             :ok <- record_outbound_refs(response, fields, delivered),
+             {:ok, event} <- mark_processed(event, response, user_id, session_id) do
+          {:ok, event, rendered}
+        end
+    end
+  end
+
+  defp process_callback(event, fields, state) do
+    with :ok <- validate_interaction_allowlist(fields, state),
+         {:ok, user_id} <- resolve_identity(fields, state),
+         session_id <-
+           Channels.derive_session_id("discord", fields.external_user_id, fields.external_chat_id),
+         {:ok, response} <- run_confirmation_callback(fields, user_id, session_id),
+         {:ok, rendered} <- render_confirmation_response(response, state),
+         {:ok, _delivered} <- deliver_callback_result(fields, rendered, state),
+         {:ok, event} <- mark_callback_processed(event, response, user_id, session_id) do
+      {:ok, {:processed, event, rendered}}
+    else
+      {:error, reason} ->
+        Logger.debug("discord callback rejected: #{inspect(Redactor.redact(reason))}")
         {:ok, _event} = mark_rejected_or_failed(event, reason)
         {:ok, :rejected}
     end
@@ -158,6 +209,25 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
 
       allowed_channel_ids != [] and fields.channel_id not in allowed_channel_ids and
           fields.parent_channel_id not in allowed_channel_ids ->
+        {:error, :channel_not_allowed}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_interaction_allowlist(fields, state) do
+    allowed_guild_ids = Map.get(state.settings, "allowed_guild_ids", [])
+    allowed_channel_ids = Map.get(state.settings, "allowed_channel_ids", [])
+
+    cond do
+      is_nil(fields.guild_id) ->
+        :ok
+
+      fields.guild_id not in allowed_guild_ids ->
+        {:error, :guild_not_allowed}
+
+      allowed_channel_ids != [] and fields.channel_id not in allowed_channel_ids ->
         {:error, :channel_not_allowed}
 
       true ->
@@ -259,6 +329,60 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
     end)
   end
 
+  defp run_confirmation_callback(fields, user_id, session_id) do
+    run_confirmation_callback(fields, user_id, session_id, fields.verb, fields.confirmation_id)
+  end
+
+  defp run_confirmation_callback(fields, user_id, session_id, action, confirmation_id) do
+    ConfirmationCallback.run(%{
+      action: action,
+      confirmation_id: confirmation_id,
+      channel: "discord",
+      user_id: user_id,
+      session_id: session_id,
+      surface: "discord_interaction",
+      resolver_metadata: %{
+        provider: @provider,
+        external_event_id: fields.external_event_id,
+        external_user_id: fields.external_user_id,
+        external_chat_id: fields.external_chat_id,
+        external_message_id: fields.external_message_id,
+        callback_data: callback_marker(fields)
+      }
+    })
+  end
+
+  defp callback_marker(fields), do: Map.get(fields, :callback_data) || Map.get(fields, :text)
+
+  defp render_confirmation_response(response, state) do
+    Renderer.render_response(%{message: ConfirmationCallback.reply_text(response)},
+      max_text_bytes: Map.get(state.settings, "max_text_bytes", 2000),
+      render_buttons: false
+    )
+  end
+
+  defp deliver_callback_result(fields, rendered, state) do
+    delivered =
+      rendered
+      |> Enum.with_index()
+      |> Enum.reduce_while({:ok, []}, fn {payload, index}, {:ok, delivered} ->
+        case Client.create_message(
+               state.token_ref,
+               fields.channel_id || fields.external_chat_id,
+               payload,
+               state.client_opts
+             ) do
+          {:ok, message} ->
+            {:cont, {:ok, delivered ++ [%{part_id: to_string(index), message: message}]}}
+
+          {:error, reason} ->
+            {:halt, {:error, reason}}
+        end
+      end)
+
+    delivered
+  end
+
   defp put_reply_reference(payload, %{message_reference: nil}), do: payload
 
   defp put_reply_reference(payload, fields) do
@@ -296,11 +420,30 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
     })
   end
 
+  defp mark_callback_processed(event, response, user_id, session_id) do
+    Channels.update_event(event, %{
+      status: "processed",
+      user_id: user_id,
+      session_id: session_id,
+      input_signal_id:
+        response_value(response_value(response, :runner_metadata) || %{}, :requested_signal_id)
+    })
+  end
+
   defp mark_rejected_or_failed(event, reason) do
     status =
       case reason do
         reason
-        when reason in [:guild_not_allowed, :channel_not_allowed, :not_mapped, :disabled] ->
+        when reason in [
+               :guild_not_allowed,
+               :channel_not_allowed,
+               :not_mapped,
+               :disabled,
+               :wrong_user,
+               :wrong_channel,
+               :not_found,
+               :unsupported_callback_action
+             ] ->
           "rejected"
 
         _reason ->

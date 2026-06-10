@@ -660,16 +660,21 @@ defmodule Mix.Tasks.Allbert.Channels do
   end
 
   defp simulate_discord_callback!(external_user_id, custom_id) do
-    event = %{
-      "t" => "INTERACTION_CREATE",
-      "d" => %{
-        "id" => "sim_" <> Ecto.UUID.generate(),
-        "user" => %{"id" => external_user_id},
-        "data" => %{"custom_id" => custom_id}
-      }
-    }
-
-    with {:ok, adapter} <- Discord.Adapter.start_link(name: nil, client_opts: [mode: :stub]),
+    with {:ok, settings} <- Channels.channel_settings("discord"),
+         event <-
+           %{
+             "t" => "INTERACTION_CREATE",
+             "d" =>
+               %{
+                 "id" => "sim_" <> Ecto.UUID.generate(),
+                 "guild_id" => first_setting(settings, "allowed_guild_ids"),
+                 "channel_id" => first_setting(settings, "allowed_channel_ids"),
+                 "user" => %{"id" => external_user_id},
+                 "data" => %{"custom_id" => custom_id}
+               }
+               |> compact()
+           },
+         {:ok, adapter} <- Discord.Adapter.start_link(name: nil, client_opts: [mode: :stub]),
          result <- Discord.Adapter.simulate_gateway_event(adapter, event) do
       GenServer.stop(adapter)
       {:ok, {:poll, "discord", result}}
@@ -776,6 +781,20 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   defp validate_slack_token_ref(_token_ref, :app),
     do: Mix.raise("Slack set-app-token accepts only secret://channels/slack/... refs")
+
+  defp first_setting(settings, key) do
+    case Map.get(settings, key, []) do
+      [value | _rest] -> value
+      value when is_binary(value) and value != "" -> value
+      _other -> nil
+    end
+  end
+
+  defp compact(map) do
+    map
+    |> Enum.reject(fn {_key, value} -> value in [nil, %{}, []] end)
+    |> Map.new()
+  end
 
   defp identity_field(map, key), do: Map.get(map, key, Map.get(map, String.to_atom(key)))
 
