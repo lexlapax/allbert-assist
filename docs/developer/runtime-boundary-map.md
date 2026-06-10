@@ -86,7 +86,7 @@ facades until their milestones implement and document them.
 | v0.47 | Self-improvement suggestion facade | Expected to produce inert trace-derived suggestions, reviewed memory/workflow draft facades, and draft handoffs only; not authority, enablement, or live integration. |
 | v0.48-v0.49 | Media resource facades | v0.48 models audio STT/TTS resources plus registered provider-backed actions; v0.49 consumes the same pattern for image/screenshot resources. Shared profile media metadata is routing context only; video remains future scope unless a later plan accepts it. |
 | v0.51 | Public protocol facades | Expected to expose Allbert registered actions and app memory namespaces as MCP tools/resources and provide OpenAI-compatible HTTP + ACP adapters under shared auth/redaction/confirmation policy. Text-first subset only: OpenAI/ACP image, audio, resource, filesystem-root, and client-supplied MCP-server payloads do not grant media/filesystem/MCP authority. MCP targets pinned Hermes-supported protocol versions; OpenAI is a bounded Chat Completions shim, not full API parity. |
-| v0.52 | Team-channel facades | Expected to expose Discord and Slack channel adapters under the existing channel contract and v0.52 ADR 0016 amendment. |
+| v0.52 | Team-channel facades | Expected to expose Discord and Slack channel adapters under the existing channel contract and v0.52 ADR 0016 amendment. Provider thread refs scope channel sessions/replies only; Allbert conversation `thread_id` stays runtime-owned. |
 | v0.53 | Mobile channel facades | Expected to expose WhatsApp, Signal, and Matrix channel adapters under the existing channel contract. |
 
 ## Compatibility Shims And Exit Criteria

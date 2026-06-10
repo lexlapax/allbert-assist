@@ -719,7 +719,8 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.52: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
   through the existing channel adapter and plugin contracts; v0.52 also amends
   ADR 0016 to lock the channel approval-primitive contract before mobile
-  channels need it.
+  channels need it. Provider-native thread ids are preserved as channel session
+  and reply-routing metadata; they do not become a second conversation runtime.
 - v0.53: Channel Pack 2 - WhatsApp, Signal, and Matrix. iMessage parked
   (macOS-only platform constraint).
 - v0.54: Intent Deepening. Deepens the intent subsystem (ADR 0019/0034) so a
