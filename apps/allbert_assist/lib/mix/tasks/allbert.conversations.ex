@@ -51,7 +51,6 @@ defmodule Mix.Tasks.Allbert.Conversations do
     case UnifiedHistory.show_thread(user!(opts), thread_id, limit: limit(opts[:limit])) do
       {:ok, history} -> print_history(history)
       {:error, {:thread_not_found, _id}} -> Mix.raise("Thread not found")
-      {:error, reason} -> Mix.raise("Could not show conversation: #{inspect(reason)}")
     end
   end
 

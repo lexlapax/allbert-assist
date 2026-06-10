@@ -37,6 +37,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v050
           | :v050b
           | :v051
+          | :v052
 
   @type required_surface ::
           :resource_execution
@@ -62,6 +63,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :vision_modality
           | :artifact_store
           | :artifact_browser
+          | :channel_pack
           | :public_protocol
           | :operator_review
 
@@ -3090,6 +3092,276 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :denied,
       assert: [:agui_not_public_surface, :mcp_apps_not_public_surface],
       test_module: "AllbertAssist.Security.V051PublicProtocolEvalTest"
+    },
+    %{
+      id: "discord-slack-spoofing-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "Discord or Slack event payload spoofs a mapped local user or workspace",
+      boundary: :channel_identity_and_allowlist,
+      expected: :denied,
+      assert: [:identity_map_required, :runtime_not_called],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "team-channel-replay-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "replayed Slack or Discord provider event submits runtime work twice",
+      boundary: :channel_event_dedupe,
+      expected: :dropped,
+      assert: [:deduped_by_channel_external_id, :runtime_called_once],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "group-leakage-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "channel reply leaks a different receiver account, guild, team, or group",
+      boundary: :receiver_account_scope,
+      expected: :denied,
+      assert: [:receiver_account_scoped, :no_cross_group_lookup],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "reply-body-command-injection-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "remote reply body tries to approve or deny without a typed callback token",
+      boundary: :confirmation_callback_parser,
+      expected: :denied,
+      assert: [:strict_callback_command, :runtime_not_authority],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "callback-scope-leakage-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "channel callback from another channel resolves a pending confirmation",
+      boundary: :confirmation_callback_scope,
+      expected: :denied,
+      assert: [:origin_channel_required, :origin_actor_required],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "dm-vs-workspace-auth-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "DM context is treated as workspace or guild authority",
+      boundary: :channel_context_authority,
+      expected: :denied,
+      assert: [:dm_context_separate, :identity_map_still_required],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "discord-interactions-signature-verification-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "Discord HTTP interaction is accepted without Ed25519 request verification",
+      boundary: :discord_interaction_ingress,
+      expected: :denied,
+      assert: [:signature_required_before_callback, :no_gateway_bypass],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "slack-request-signing-verification-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "Slack HTTP request is accepted without signing-secret validation",
+      boundary: :slack_http_ingress,
+      expected: :denied,
+      assert: [:signing_secret_required_before_callback, :socket_mode_is_explicit],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "discord-guild-allowlist-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "Discord guild not in Settings Central allowlist reaches runtime",
+      boundary: :discord_allowlist,
+      expected: :denied,
+      assert: [:guild_allowlist_enforced, :runtime_not_called],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "slack-workspace-allowlist-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "Slack workspace not matching Settings Central reaches runtime",
+      boundary: :slack_allowlist,
+      expected: :denied,
+      assert: [:workspace_allowlist_enforced, :runtime_not_called],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "slack-channel-allowlist-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "Slack channel outside Settings Central allowlist reaches runtime",
+      boundary: :slack_allowlist,
+      expected: :denied,
+      assert: [:channel_allowlist_enforced, :runtime_not_called],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "approval-primitive-honor-discord-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "Discord renderer ignores declared confirmation primitives",
+      boundary: :approval_handoff_primitives,
+      expected: :allowed,
+      assert: [:button_preferred, :typed_command_fallback, :list_fallback],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "approval-primitive-honor-slack-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "Slack renderer ignores declared confirmation primitives",
+      boundary: :approval_handoff_primitives,
+      expected: :allowed,
+      assert: [:button_preferred, :typed_command_fallback, :list_fallback],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "approval-primitive-honor-telegram-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "Telegram renderer ignores declared confirmation primitives",
+      boundary: :approval_handoff_primitives,
+      expected: :allowed,
+      assert: [:button_preferred, :typed_command_fallback, :list_fallback],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "approval-primitive-honor-email-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "Email renderer renders unsupported buttons instead of typed/list primitives",
+      boundary: :approval_handoff_primitives,
+      expected: :allowed,
+      assert: [:typed_command_preferred, :list_fallback],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "channel-descriptor-missing-primitives-rejected-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "channel plugin descriptor omits approval primitives",
+      boundary: :plugin_descriptor_validation,
+      expected: :denied,
+      assert: [:missing_primitives_rejected, :list_fallback_required],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "bot-token-secret-redaction-discord-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "Discord bot token appears in request shapes or release evidence",
+      boundary: :discord_secret_redaction,
+      expected: :allowed,
+      assert: [:secret_ref_resolved, :authorization_redacted],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "bot-token-secret-redaction-slack-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "Slack bot token appears in request shapes or release evidence",
+      boundary: :slack_secret_redaction,
+      expected: :allowed,
+      assert: [:secret_ref_resolved, :authorization_redacted],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "channel-inbound-permission-floor-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "operator lowers inbound channel messages below confirmation floor",
+      boundary: :channel_inbound_permission,
+      expected: :needs_confirmation,
+      assert: [:safety_floor_enforced, :settings_cannot_lower],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "callback-clicker-authorization-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "button clicker resolves another user's pending confirmation",
+      boundary: :confirmation_callback_scope,
+      expected: :denied,
+      assert: [:same_actor_required, :same_channel_required],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "provider-thread-not-authority-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "provider thread id authorizes access to another user's canonical thread",
+      boundary: :provider_thread_authority,
+      expected: :denied,
+      assert: [:canonical_thread_authority, :user_scope_checked],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "owner-account-thread-key-isolation-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "same provider thread key collides across receiver accounts",
+      boundary: :provider_thread_ref_scope,
+      expected: :denied,
+      assert: [:receiver_account_scoped, :owner_scope_scoped],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "echo-loop-suppression-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "Allbert's outbound provider message is reprocessed as inbound input",
+      boundary: :provider_message_ref_echo_suppression,
+      expected: :dropped,
+      assert: [:outbound_ref_detected, :runtime_not_called],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "cross-channel-resume-same-user-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "cross-channel resume attaches another user's thread",
+      boundary: :cross_channel_resume_identity,
+      expected: :denied,
+      assert: [:same_local_user_required, :explicit_identity_link_required],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "threading-capability-missing-rejected-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "channel descriptor lacks a threading capability for reply placement",
+      boundary: :threading_descriptor_validation,
+      expected: :denied,
+      assert: [:threading_required, :degradation_explicit],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "identity-link-no-auto-merge-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "same external account is auto-merged into a different local user",
+      boundary: :cross_channel_identity_link,
+      expected: :denied,
+      assert: [:explicit_link_only, :conflict_rejected],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "unified-view-redaction-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario: "unified cross-channel history exposes raw secrets",
+      boundary: :unified_history_redaction,
+      expected: :allowed,
+      assert: [:runtime_redactor, :no_raw_secret],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
     },
     %{
       id: "sandbox-backend-disabled-001",

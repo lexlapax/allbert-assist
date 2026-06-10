@@ -2,8 +2,8 @@
 
 ## Status
 
-Proposed for v0.52 Channel Pack 1 + Cross-Channel Conversation Threading
-(`docs/plans/v0.52-plan.md`). Flips to Accepted at the v0.52 closeout milestone.
+Accepted at the v0.52 closeout milestone for Channel Pack 1 +
+Cross-Channel Conversation Threading (`docs/plans/v0.52-plan.md`).
 
 This ADR adds a **system-wide conversation-thread construct** that spans every
 channel. ADR 0016 owns the channel boundary + approval primitives; ADR 0056 owns

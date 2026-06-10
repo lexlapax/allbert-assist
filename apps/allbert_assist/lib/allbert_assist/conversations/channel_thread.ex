@@ -182,7 +182,22 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   def lookup_message_thread(_attrs), do: {:error, :invalid_message_ref}
 
   @doc "Resolve a channel reply/thread target from a normalized ref and descriptor."
-  @spec resolve_reply_target(map(), map()) :: {:ok, map()} | {:error, term()}
+  @spec resolve_reply_target(map(), map()) ::
+          {:ok,
+           %{
+             strategy: :flat_stream | :native_thread | :reply_chain | :rich_surface,
+             threading: :flat | :native_threads | :reply_chain | :rich,
+             channel: binary(),
+             receiver_account_ref: binary(),
+             provider_thread_key: binary(),
+             provider_thread_ref: map()
+           }}
+          | {:error,
+             :invalid_channel_thread_ref
+             | :invalid_threading_capability
+             | :missing_provider_thread_key
+             | :missing_provider_thread_ref
+             | :missing_required_string}
   def resolve_reply_target(attrs, descriptor) when is_map(attrs) and is_map(descriptor) do
     with {:ok, ref} <- normalize_ref(attrs),
          {:ok, threading} <- threading_capability(descriptor) do

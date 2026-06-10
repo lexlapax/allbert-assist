@@ -25,11 +25,13 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v050
       mix allbert.test release.v050b
       mix allbert.test release.v051
+      mix allbert.test release.v052
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
       mix allbert.test external-smoke -- docker_sandbox
       mix allbert.test external-smoke -- docker_full_gate
+      mix allbert.test external-smoke -- discord_slack
 
   `mix precommit` is a compatibility shortcut for `mix allbert.test commit`;
   release evidence is `mix allbert.test release`.
@@ -57,6 +59,17 @@ defmodule Mix.Tasks.Allbert.Test do
     "AllbertAssist.SecurityEvalCase" => :security_eval_serial,
     "StockSage.DataCase" => :db_serial
   }
+
+  @owner_prefixes [
+    {"apps/allbert_assist_web/", :web},
+    {"apps/allbert_assist/", :core},
+    {"plugins/stocksage/", :stocksage},
+    {"plugins/allbert.telegram/", :telegram},
+    {"plugins/allbert.email/", :email},
+    {"plugins/allbert.discord/", :discord},
+    {"plugins/allbert.slack/", :slack},
+    {"plugins/allbert.notes_files/", :notes_files}
+  ]
 
   @lanes ~w[
     pure_async
@@ -92,6 +105,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v050"]), do: release_v050()
   def run(["release.v050b"]), do: release_v050b()
   def run(["release.v051"]), do: release_v051()
+  def run(["release.v052"]), do: release_v052()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -1518,6 +1532,97 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   ]
 
+  @release_v052_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "channel_pack_contracts",
+      title: "channel primitives, inbound trust tier, plugin descriptors, and thread substrate",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/security/channel_inbound_policy_test.exs",
+        "test/allbert_assist/channels_test.exs",
+        "test/allbert_assist/plugin/validator_test.exs",
+        "test/allbert_assist/approval/handoff_test.exs",
+        "test/allbert_assist/conversations/channel_thread_test.exs"
+      ],
+      coverage: [
+        "channel_message_inbound confirmation floor",
+        "registered channel descriptors with approval primitives and threading",
+        "provider-thread ref uniqueness, message refs, identity links, and echo detection"
+      ]
+    },
+    %{
+      id: "discord_slack_channel_plugins",
+      title: "Discord and Slack plugin adapters, parsers, renderers, and clients",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/channels/discord_test.exs",
+        "test/allbert_assist/channels/slack_test.exs"
+      ],
+      coverage: [
+        "Discord Gateway and Slack Socket Mode parser normalization",
+        "allowlist and identity-map rejection before runtime",
+        "confirmation callback scoping, threaded reply placement, and token redaction"
+      ]
+    },
+    %{
+      id: "cross_channel_history_cli",
+      title: "cross-channel unified history and operator CLI surfaces",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/conversations/unified_history_test.exs",
+        "test/mix/tasks/allbert_channels_test.exs",
+        "test/mix/tasks/allbert_conversations_test.exs"
+      ],
+      coverage: [
+        "redacted unified history across provider message refs",
+        "same-user cross-channel resume with explicit identity links",
+        "operator CLI status, show, and resume commands"
+      ]
+    },
+    %{
+      id: "workspace_continuity_web",
+      title: "workspace unified-history continuity strip",
+      cwd: :web,
+      executable: "mix",
+      args: ["test", "test/allbert_assist_web/live/workspace_live_test.exs"],
+      coverage: [
+        "LiveView renders redacted cross-channel continuity without owning channel authority",
+        "workspace UI keeps stable layout across provider channel chips"
+      ]
+    },
+    %{
+      id: "channel_pack_security_eval",
+      title: "v0.52 channel-pack security eval inventory and release evals",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v052_channel_pack_eval_test.exs",
+        "test/security/security_eval_case_test.exs",
+        "test/mix/tasks/allbert_test_task_test.exs"
+      ],
+      coverage: [
+        "27 v0.52 channel-pack eval rows",
+        "release.v052 and discord_slack external-smoke task usage registration",
+        "identity/allowlist, callback scope, token redaction, threading authority, and unified-history redaction"
+      ]
+    }
+  ]
+
   defp release_v042 do
     env = owned_env("release-v042", 0)
     home = env_value(env, "ALLBERT_HOME")
@@ -2047,6 +2152,52 @@ defmodule Mix.Tasks.Allbert.Test do
     end
   end
 
+  defp release_v052 do
+    env = owned_env("release-v052", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v052")
+    File.mkdir_p!(evidence_dir)
+    cleanup_release_v052_evidence!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v052_steps, &run_release_v052_step(&1, env))
+    secret_scan = release_v052_secret_scan(home)
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v052",
+      version: "v0.52",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; tests use local channel fixtures, Req.Test HTTP fixtures, and no live Slack/Discord clients",
+      required_external_smoke: "mix allbert.test external-smoke -- discord_slack",
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path =
+      Path.join(evidence_dir, "release-v052-#{DateTime.to_unix(started_at)}.json")
+
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v052 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v052 failed; evidence: #{evidence_path}")
+    end
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -2103,6 +2254,13 @@ defmodule Mix.Tasks.Allbert.Test do
     |> Enum.each(&File.rm!/1)
   end
 
+  defp cleanup_release_v052_evidence!(evidence_dir) do
+    evidence_dir
+    |> Path.join("release-v052-*.json")
+    |> Path.wildcard()
+    |> Enum.each(&File.rm!/1)
+  end
+
   defp run_release_v051_step(step, env) do
     started = System.monotonic_time(:millisecond)
     cwd = release_step_cwd(step.cwd)
@@ -2116,6 +2274,34 @@ defmodule Mix.Tasks.Allbert.Test do
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v051 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
+  defp run_release_v052_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args,
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v052 #{step.id}", output)
 
     %{
       id: step.id,
@@ -2956,6 +3142,60 @@ defmodule Mix.Tasks.Allbert.Test do
     result
   end
 
+  defp release_v052_secret_scan(home) do
+    Enum.each(
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces"),
+        Path.join(home, "confirmations"),
+        Path.join(home, "traces"),
+        Path.join(home, "artifacts"),
+        Path.join(home, "audio"),
+        Path.join(home, "images"),
+        Path.join(home, "generated_images"),
+        Path.join(home, "tmp/voice-captures"),
+        Path.join(home, "tmp/image-inputs"),
+        Path.join(home, "tmp/generated-images"),
+        Path.join(home, "cache/browser")
+      ],
+      &File.mkdir_p!/1
+    )
+
+    roots =
+      [
+        Path.join(home, "settings"),
+        Path.join(home, "memory/traces"),
+        Path.join(home, "confirmations"),
+        Path.join(home, "traces"),
+        Path.join(home, "artifacts"),
+        Path.join(home, "audio"),
+        Path.join(home, "images"),
+        Path.join(home, "generated_images"),
+        Path.join(home, "tmp/voice-captures"),
+        Path.join(home, "tmp/image-inputs"),
+        Path.join(home, "tmp/generated-images"),
+        Path.join(home, "cache/browser")
+      ]
+      |> Enum.filter(&File.exists?/1)
+
+    files =
+      roots
+      |> Enum.flat_map(&Path.wildcard(Path.join(&1, "**/*")))
+      |> Enum.filter(&File.regular?/1)
+
+    findings = release_v042_secret_findings(files, home)
+
+    result = %{
+      status: if(findings == [], do: "passed", else: "failed"),
+      scanned_roots: Enum.map(roots, &Path.relative_to(&1, home)),
+      scanned_file_count: length(files),
+      findings: findings
+    }
+
+    print_output("release.v052 secret_scan", Jason.encode!(result, pretty: true))
+    result
+  end
+
   defp release_v050b_browser_fixture(results) do
     output =
       results
@@ -3054,6 +3294,7 @@ defmodule Mix.Tasks.Allbert.Test do
     Mix.shell().info("- browser_research_delegate")
     Mix.shell().info("- docker_sandbox")
     Mix.shell().info("- docker_full_gate")
+    Mix.shell().info("- discord_slack")
   end
 
   defp run_external_smoke(["browser_research"]) do
@@ -3096,6 +3337,19 @@ defmodule Mix.Tasks.Allbert.Test do
       "mix",
       ["test", "test/allbert_assist/sandbox_test.exs", "--only", "docker_full_gate"],
       [{"ALLBERT_DOCKER_FULL_GATE_TEST", "1"} | owned_env("external-smoke-docker-full-gate", 0)]
+    )
+  end
+
+  defp run_external_smoke(["discord_slack"]) do
+    run_cmd!(
+      "external-smoke discord_slack",
+      app_cwd(:core),
+      "mix",
+      ["test", "test/external/discord_slack_smoke_test.exs"],
+      [
+        {"ALLBERT_DISCORD_SLACK_EXTERNAL_SMOKE", "1"}
+        | owned_env("external-smoke-discord-slack", 0)
+      ]
     )
   end
 
@@ -3587,17 +3841,9 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp owner(path) do
-    cond do
-      String.starts_with?(path, "apps/allbert_assist_web/") -> :web
-      String.starts_with?(path, "apps/allbert_assist/") -> :core
-      String.starts_with?(path, "plugins/stocksage/") -> :stocksage
-      String.starts_with?(path, "plugins/allbert.telegram/") -> :telegram
-      String.starts_with?(path, "plugins/allbert.email/") -> :email
-      String.starts_with?(path, "plugins/allbert.discord/") -> :discord
-      String.starts_with?(path, "plugins/allbert.slack/") -> :slack
-      String.starts_with?(path, "plugins/allbert.notes_files/") -> :notes_files
-      true -> :unknown
-    end
+    Enum.find_value(@owner_prefixes, :unknown, fn {prefix, owner} ->
+      if String.starts_with?(path, prefix), do: owner
+    end)
   end
 
   defp app_cwd(owner)
@@ -3717,11 +3963,13 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v050
       mix allbert.test release.v050b
       mix allbert.test release.v051
+      mix allbert.test release.v052
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
       mix allbert.test external-smoke -- docker_sandbox
       mix allbert.test external-smoke -- docker_full_gate
+      mix allbert.test external-smoke -- discord_slack
 
     `mix precommit` is a compatibility shortcut for `mix allbert.test commit`;
     release evidence is `mix allbert.test release`.

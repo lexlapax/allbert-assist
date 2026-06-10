@@ -30,7 +30,7 @@ defmodule AllbertAssist.Channels.ConfirmationCallback do
   def run(_attrs), do: {:error, :invalid_callback}
 
   @spec parse_typed_command(String.t()) ::
-          {:ok, :approve | :deny | :show, String.t()} | :ignore | {:error, term()}
+          {:ok, :approve | :deny | :show, String.t()} | :ignore
   def parse_typed_command(text) when is_binary(text) do
     case Regex.run(@typed_command_re, String.trim(text)) do
       [_full, action, confirmation_id] ->

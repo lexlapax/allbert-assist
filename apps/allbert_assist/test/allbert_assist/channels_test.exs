@@ -6,10 +6,16 @@ defmodule AllbertAssist.ChannelsTest do
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.Identity
+  alias AllbertAssist.Channels.LocalSurface
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Plugins.Discord, as: DiscordPlugin
+  alias AllbertAssist.Plugins.Email, as: EmailPlugin
+  alias AllbertAssist.Plugins.Slack, as: SlackPlugin
+  alias AllbertAssist.Plugins.Telegram, as: TelegramPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Fragments
 
   setup do
     ensure_default_channel_plugins()
@@ -252,7 +258,7 @@ defmodule AllbertAssist.ChannelsTest do
 
     test "local web and CLI surfaces declare rich threading without adapter authority" do
       descriptors =
-        AllbertAssist.Channels.LocalSurface.descriptors()
+        LocalSurface.descriptors()
         |> Map.new(&{&1.channel_id, &1})
 
       assert %{
@@ -325,10 +331,10 @@ defmodule AllbertAssist.ChannelsTest do
   defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 
   defp ensure_default_channel_plugins do
-    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
-    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Discord)
-    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Slack)
-    AllbertAssist.Settings.Fragments.clear_cache()
+    _ = PluginRegistry.register_module(TelegramPlugin)
+    _ = PluginRegistry.register_module(EmailPlugin)
+    _ = PluginRegistry.register_module(DiscordPlugin)
+    _ = PluginRegistry.register_module(SlackPlugin)
+    Fragments.clear_cache()
   end
 end
