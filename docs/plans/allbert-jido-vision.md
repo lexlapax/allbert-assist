@@ -356,9 +356,10 @@ adapters share the same channel substrate, identity mapping posture, durable
 event dedupe model, and Approval Handoff rendering contract. v0.17 moves
 Telegram and email into shipped source-tree channel plugins so later channels
 can arrive through the same extension path. The v1.0 arc now makes that path
-concrete after the capability-first arc: Discord and Slack land in v0.52;
-WhatsApp, Signal, and Matrix land in v0.53. SMS, iMessage, native packaged UI,
-hosted channel fan-out, and
+concrete after the capability-first arc: Discord and Slack shipped in v0.52;
+WhatsApp, Signal, and Matrix land in v0.53 along with the custody, daemon,
+trust-class, signed-webhook, and phone-redaction constructs those channels force.
+SMS, iMessage, native packaged UI, hosted channel fan-out, and
 other broad distribution paths remain parked until after the channel packs
 prove the substrate. Each channel should translate external input into signals
 and render agent output back into the medium without owning the agent logic.
@@ -716,17 +717,21 @@ historical aliases only and remain in old reference notes for continuity.
   the channel packs). Allbert exposes registered actions as MCP tools and memory
   namespaces as MCP resources, plus an OpenAI-compatible HTTP API and an ACP
   server surface (ADR 0044). Public AG-UI/A2UI bridge stays parked post-1.0.
-- v0.52: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
-  through the existing channel adapter and plugin contracts; v0.52 also amends
-  ADR 0016 to lock the channel approval-primitive contract before mobile
-  channels need it. ADR 0057 adds one system-wide cross-channel conversation
-  threading construct: `conversation_threads.id` remains canonical, provider
-  thread ids are owner/account-scoped routing metadata, existing web/CLI/
-  Telegram/email surfaces retrofit onto the same substrate, and the
-  owner-scope hook avoids a post-1.0 multi-user/multi-tenant schema redo without
-  introducing hosted tenancy in v0.52.
-- v0.53: Channel Pack 2 - WhatsApp, Signal, and Matrix. iMessage parked
-  (macOS-only platform constraint).
+- v0.52: Channel Pack 1 - Discord And Slack shipped as `0.52.0`. Team/community
+  chat reach now expands through the existing channel adapter and plugin
+  contracts; v0.52 also accepts the ADR 0016 channel approval-primitive
+  amendment before mobile channels need it. ADR 0057 adds one system-wide
+  cross-channel conversation threading construct: `conversation_threads.id`
+  remains canonical, provider thread ids are owner/account-scoped routing
+  metadata, existing web/CLI/Telegram/email surfaces retrofit onto the same
+  substrate, and the owner-scope hook avoids a post-1.0 multi-user/multi-tenant
+  schema redo without introducing hosted tenancy in v0.52.
+- v0.53: Channel Pack 2 - Matrix + WhatsApp (Cloud API) + Signal
+  (`signal-cli` daemon). Also finishes the system-wide constructs the mobile
+  channels force: KeyCustody, channel trust-class gating, public signed-webhook
+  ingress, descriptor reply-key/quote-TTL consumption, phone-PII redaction, and
+  mandatory `:list` approval fallback. Viber is documented on paper + deferred;
+  iMessage/SMS parked.
 - v0.54: Intent Deepening. Deepens the intent subsystem (ADR 0019/0034) so a
   chat-primary surface routes reliably; model output stays advisory.
 - v0.55: Web UX Redo. Re-layouts `/workspace` (ADR 0023/0024 kept) — chat

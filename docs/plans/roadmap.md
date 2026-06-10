@@ -3143,15 +3143,14 @@ model, `thread_channel_refs` / `conversation_message_refs` /
 `threading:` capability + degradation ladder, echo-loop suppression, explicit
 identity links, unified history view, explicit resume)
 
-Status: planned; **expanded in the pass-3 zoom-out** from "Discord + Slack" to
-"Discord + Slack + a system-wide cross-channel conversation-thread construct
-(ADR 0057), with Telegram/email/web/CLI retrofitted"; pass-4 hardening locked
-the owner/account/key schema and runtime handoff so provider ids cannot become
-canonical authority. Substrate-first, one version, nine milestones (M0-M8).
-Promoted from
-`docs/archives/version-1.0-planning-03.md`; not implemented. Moved after the
-v0.44-v0.49 capability arc because Discord/Slack expand operator reach rather
-than unlock the core 1.0 capability stack.
+Status: implemented as `0.52.0`; ready for operator real-provider smoke and
+manual validation before release tag. The pass-3 zoom-out expanded the milestone
+from "Discord + Slack" to "Discord + Slack + a system-wide cross-channel
+conversation-thread construct (ADR 0057), with Telegram/email/web/CLI
+retrofitted"; pass-4 hardening locked the owner/account/key schema and runtime
+handoff so provider ids cannot become canonical authority. Substrate-first, one
+version, nine milestones (M0-M8). Promoted from
+`docs/archives/version-1.0-planning-03.md`.
 
 Expected direction:
 
@@ -3231,16 +3230,18 @@ Expected direction:
     Retrofits the web + CLI unified view.
   - **Public signed webhook (ADR 0056 amendment):** WhatsApp Cloud API verifies
     `X-Hub-Signature-256` raw-body HMAC before parse, reusing the v0.51 HTTP
-    ingress (body cap, secure headers, rate-limit).
+    ingress controls (body cap, secure headers, rate-limit) through a
+    webhook-aware raw-body/pre-parser branch.
   - **Descriptor flag consumption + phone-PII redaction:** wire the v0.52
     declared-only `reply_key_type` (Signal timestamp) / `quote_ttl_ms` (WhatsApp
     30-day degrade); redact E.164 phone numbers; Signal keys on ACI, not phone.
 - Channels (corrected from the skeleton): **Matrix** = raw `Req` + `/sync`,
   **unencrypted rooms only** (no Elixir E2EE), `:native_threads`/`:reply_chain`,
-  `typed_command`/`link` (no portable Matrix bot-button primitive). **WhatsApp**
-  Cloud API, `:reply_chain` + quote-TTL, in-session `:button`, `:server_readable`.
-  **Signal** via `signal-cli`, `:reply_chain` reply-by-timestamp, ACI identity,
-  `:e2ee_origin`.
+  `typed_command`/`link`/`list` (no portable Matrix bot-button primitive).
+  **WhatsApp** Cloud API, `:reply_chain` + quote-TTL, in-session `:button` with
+  `typed_command`/`link`/`list` fallback, `:server_readable`. **Signal** via
+  `signal-cli`, `:reply_chain` reply-by-timestamp, ACI identity,
+  `typed_command`/`link`/`list`, `:e2ee_origin`.
 - Substrate-first sequencing: constructs (M0-M4) before adapters (M5-M7);
   pairing/identity/delivery (M8); evals + **required per-platform real-provider
   live smokes** + closeout (M9).

@@ -75,7 +75,7 @@ Still parked:
 Status: parked.
 
 Discord and Slack shipped in v0.52. **Matrix, WhatsApp (Cloud API), and Signal
-(signal-cli daemon) are built in v0.53.** SMS and iMessage remain parked.
+(`signal-cli` daemon) are v0.53 build scope.** SMS and iMessage remain parked.
 
 Still parked:
 
@@ -95,8 +95,9 @@ the bot **auth token** (vs WhatsApp's `X-Hub-Signature-256` keyed by a separate
 app secret — same construct, Viber-specific verifier + secret slot), raw `Req` +
 a Phoenix controller (the only Hex lib `viberex` is dead since 2018),
 `threading: :flat` (no reply/thread primitive — linear per-`sender.id` stream),
-approval primitives `:button` + `:link` + `typed_command` (keyboard `reply`
-buttons round-trip the payload as a normal message), `trust_class:
+approval primitives `:button` + `:typed_command` + `:link` + `:list`
+(keyboard `reply` buttons round-trip the payload as a normal message, and
+`:list` remains the mandatory ADR 0016 fallback), `trust_class:
 :server_readable` (bot traffic is TLS-in-transit, server-readable — **not**
 E2EE-origin), and an opaque, stable, per-bot `sender.id` with **no phone PII**
 (cleaner than WhatsApp's `wa_id`).
@@ -556,7 +557,7 @@ doctor fields, and release evidence before implementation:
 - generic audio understanding that is not transcription;
 - video ingestion, sampled-frame analysis, or video generation;
 - required bundled-local engine packaging for every operator;
-- Discord voice after Discord channel support lands.
+- Discord voice after v0.52 Discord text-channel support.
 
 ### Anonymous Telemetry Policy
 
