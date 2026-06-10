@@ -7,6 +7,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
   test "documents the runtime permission classes" do
     assert PermissionGate.permission_classes() == [
              :read_only,
+             :conversation_write,
              :memory_write,
              :command_plan,
              :command_execute,
@@ -56,6 +57,16 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :settings_secret_write,
              :settings_secret_read
            ]
+  end
+
+  test "allows local conversation continuity writes" do
+    decision = PermissionGate.authorize(:conversation_write, %{})
+
+    assert decision.permission == :conversation_write
+    assert decision.decision == :allowed
+    assert decision.policy.safety_floor == :allowed
+    assert decision.risk.tier == :low
+    assert PermissionGate.allowed?(decision)
   end
 
   test "requires confirmation for StockSage analysis execution" do

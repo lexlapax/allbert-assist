@@ -18,6 +18,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     Workspace
   }
 
+  alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Intent.Handoff
   alias AllbertAssist.McpRegistryFixtures
@@ -137,6 +138,44 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     refute html =~ "Prompt composer"
     refute html =~ "Runtime response timeline"
     refute html =~ "component not implemented"
+  end
+
+  test "mount renders redacted unified channel continuity for the active thread", %{conn: conn} do
+    assert {:ok, thread} = Conversations.create_general_thread("local", "Continuity")
+    assert {:ok, user_message} = Conversations.append_user_message(thread, "from slack")
+
+    assert {:ok, assistant_message} =
+             Conversations.append_assistant_message(thread, "token sk-live123")
+
+    assert {:ok, _ref} =
+             ChannelThread.record_message_ref(%{
+               canonical_thread_id: thread.id,
+               canonical_message_id: user_message.id,
+               channel: "slack",
+               receiver_account_ref: "slack:T0123",
+               provider_message_id: "slack-user-1",
+               direction: :in
+             })
+
+    assert {:ok, _ref} =
+             ChannelThread.record_message_ref(%{
+               canonical_thread_id: thread.id,
+               canonical_message_id: assistant_message.id,
+               channel: "email",
+               receiver_account_ref: "email:mailbox:alice@example.com",
+               provider_message_id: "<assistant@example.com>",
+               direction: :out
+             })
+
+    {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread.id}")
+
+    assert has_element?(view, "#workspace-unified-history[data-channel-count='2']")
+    assert has_element?(view, "#workspace-unified-history [data-channel='slack']")
+    assert has_element?(view, "#workspace-unified-history [data-channel='email']")
+
+    panel = view |> element("#workspace-unified-history") |> render()
+    assert panel =~ "token [REDACTED]"
+    refute panel =~ "sk-live123"
   end
 
   test "discovery suggestions panel routes connect affordance to confirmation gate", %{conn: conn} do

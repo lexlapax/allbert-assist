@@ -25,6 +25,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Confirmations.ExpireConfirmations
   alias AllbertAssist.Actions.Confirmations.ListConfirmations
   alias AllbertAssist.Actions.Confirmations.ShowConfirmation
+  alias AllbertAssist.Actions.Conversations.ResumeThreadOnChannel
   alias AllbertAssist.Actions.DynamicPlugins.DisableLiveLoader, as: DisableDynamicLiveLoader
   alias AllbertAssist.Actions.DynamicPlugins.DiscardDraft, as: DiscardDynamicDraft
   alias AllbertAssist.Actions.DynamicPlugins.IntegrateDraft, as: IntegrateDynamicDraft
@@ -192,6 +193,7 @@ defmodule AllbertAssist.Actions.Registry do
     SynthesizeVoice,
     ListChannels,
     ShowChannel,
+    ResumeThreadOnChannel,
     ListApps,
     ShowApp,
     ListPlugins,

@@ -16,6 +16,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
      |> assign(
        active_objectives: Map.get(context, :active_objectives, []),
        conversation_messages: Map.get(context, :conversation_messages, []),
+       unified_history: Map.get(context, :unified_history),
        prompt: Map.get(state, :prompt, ""),
        prompt_placeholder: Map.get(state, :prompt_placeholder, "Ask the agent something..."),
        response: Map.get(state, :response),
@@ -90,6 +91,42 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           <span>{@thread_notice}</span>
         </section>
       <% end %>
+
+      <section
+        :if={unified_history_messages(@unified_history) != []}
+        id="workspace-unified-history"
+        class="workspace-unified-history"
+        data-channel-count={length(unified_history_channels(@unified_history))}
+        aria-labelledby="workspace-unified-history-title"
+      >
+        <div class="workspace-unified-history-header">
+          <h3 id="workspace-unified-history-title">Continuity</h3>
+          <span class="workspace-unified-history-order">Allbert order</span>
+        </div>
+        <ol class="workspace-unified-history-list">
+          <li
+            :for={message <- unified_history_messages(@unified_history)}
+            id={"workspace-unified-history-#{message.id}"}
+            class="workspace-unified-history-item"
+          >
+            <span class="workspace-unified-history-role">{message.role}</span>
+            <span class="workspace-unified-history-content">{message.content}</span>
+            <span class="workspace-unified-history-channels">
+              <span :if={message.channel_refs == []} class="workspace-unified-history-channel">
+                local
+              </span>
+              <span
+                :for={ref <- message.channel_refs}
+                class="workspace-unified-history-channel"
+                data-channel={ref.channel}
+                title={ref.receiver_account_ref}
+              >
+                {ref.channel}
+              </span>
+            </span>
+          </li>
+        </ol>
+      </section>
 
       <div
         id="workspace-chat-timeline"
@@ -545,6 +582,12 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
 
   defp bool_attribute(true), do: "true"
   defp bool_attribute(false), do: "false"
+
+  defp unified_history_messages(%{messages: messages}) when is_list(messages), do: messages
+  defp unified_history_messages(_history), do: []
+
+  defp unified_history_channels(%{channels: channels}) when is_list(channels), do: channels
+  defp unified_history_channels(_history), do: []
 
   defp voice_capture_ready?(capture) do
     voice_capture_value(capture, :status) in [:approved, "approved"] and
