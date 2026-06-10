@@ -63,6 +63,10 @@ defmodule AllbertAssist.Channels.Slack.Renderer do
     }
   end
 
+  defp approval_message(:typed_command, %{text: text, commands: commands}) do
+    %{text: text <> "\n" <> Enum.join(commands, "\n")}
+  end
+
   defp approval_message(_primitive, %{text: text}), do: %{text: text}
 
   defp chunks("", _limit), do: [%{text: ""}]

@@ -8,6 +8,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
   alias AllbertAssist.Channels.Discord.Client
   alias AllbertAssist.Channels.Discord.Client.GatewayPort
   alias AllbertAssist.Channels.Discord.Parser
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -19,6 +20,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
@@ -55,6 +57,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
+      restore_env(Confirmations, original_confirmations_config)
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
@@ -289,6 +292,74 @@ defmodule AllbertAssist.Channels.DiscordTest do
     GenServer.stop(adapter)
   end
 
+  test "confirmation callbacks resolve through registered actions with resolver metadata" do
+    assert {:ok, confirmation} = create_confirmation!("conf_discord_deny", "discord")
+
+    assert {:ok, adapter} =
+             Adapter.start_link(name: nil, client_opts: [mode: :stub, capture_to: self()])
+
+    interaction = %{
+      "t" => "INTERACTION_CREATE",
+      "d" => %{
+        "id" => "discord_callback_1",
+        "guild_id" => "987654321",
+        "channel_id" => "22222",
+        "user" => %{"id" => "11111"},
+        "data" => %{"custom_id" => "allbert:v1:deny:#{confirmation["id"]}"}
+      }
+    }
+
+    assert {:ok, {:processed, event, [rendered]}} =
+             Adapter.simulate_gateway_event(adapter, interaction)
+
+    assert_receive {:discord_create_message, "22222", payload}
+    assert payload.content =~ "denied"
+    assert rendered.content =~ "denied"
+
+    GenServer.stop(adapter)
+
+    assert event.direction == "callback"
+    assert event.status == "processed"
+    assert event.user_id == "alice"
+
+    assert {:ok, resolved} = Confirmations.read(confirmation["id"])
+    assert resolved["status"] == "denied"
+    assert resolved["operator_resolution"]["resolver_actor"] == "alice"
+    assert resolved["operator_resolution"]["resolver_channel"] == "discord"
+    assert resolved["operator_resolution"]["resolver_metadata"]["callback_data"] =~ "deny"
+  end
+
+  test "typed confirmation commands resolve without runtime submission" do
+    assert {:ok, confirmation} = create_confirmation!("conf_discord_typed", "discord")
+
+    assert {:ok, adapter} =
+             Adapter.start_link(name: nil, client_opts: [mode: :stub, capture_to: self()])
+
+    command =
+      Parser.simulated_message_event(%{
+        message_id: "discord_typed_command",
+        guild_id: "987654321",
+        channel_id: "22222",
+        user_id: "11111",
+        application_id: "123456",
+        text: "ALLBERT:DENY:#{confirmation["id"]}"
+      })
+
+    assert {:ok, {:processed, event, [rendered]}} =
+             Adapter.simulate_gateway_event(adapter, command)
+
+    assert_receive {:discord_create_message, "22222", payload}
+    assert payload.content =~ "denied"
+    assert rendered.content =~ "denied"
+    refute_received {:runtime_request, %{text: "ALLBERT:DENY:" <> _rest}}
+
+    GenServer.stop(adapter)
+
+    assert event.status == "processed"
+    assert {:ok, resolved} = Confirmations.read(confirmation["id"])
+    assert resolved["status"] == "denied"
+  end
+
   test "different Discord native thread channels produce different sessions" do
     assert {:ok, first} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
     assert {:ok, second} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
@@ -350,6 +421,18 @@ defmodule AllbertAssist.Channels.DiscordTest do
                [%{"external_user_id" => "11111", "user_id" => "alice", "enabled" => true}],
                %{audit?: false}
              )
+  end
+
+  defp create_confirmation!(id, channel) do
+    Confirmations.create(%{
+      id: id,
+      origin: %{actor: "alice", channel: channel, surface: "discord-test"},
+      target_action: %{name: "external_network_request"},
+      target_permission: :external_network,
+      target_execution_mode: :external_network_unavailable,
+      security_decision: %{permission: :external_network, decision: :needs_confirmation},
+      params_summary: %{url: "https://example.com"}
+    })
   end
 
   defp restore_plugins(original_plugins) do

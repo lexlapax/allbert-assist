@@ -8,6 +8,7 @@ defmodule AllbertAssist.Channels.SlackTest do
   alias AllbertAssist.Channels.Slack.Client
   alias AllbertAssist.Channels.Slack.Client.SocketModePort
   alias AllbertAssist.Channels.Slack.Parser
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -19,6 +20,7 @@ defmodule AllbertAssist.Channels.SlackTest do
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
@@ -52,6 +54,7 @@ defmodule AllbertAssist.Channels.SlackTest do
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
+      restore_env(Confirmations, original_confirmations_config)
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
@@ -272,6 +275,97 @@ defmodule AllbertAssist.Channels.SlackTest do
     GenServer.stop(adapter)
   end
 
+  test "confirmation callbacks resolve through registered actions with resolver metadata" do
+    assert {:ok, confirmation} = create_confirmation!("conf_slack_deny", "slack")
+
+    assert {:ok, adapter} =
+             Adapter.start_link(name: nil, client_opts: [mode: :stub, capture_to: self()])
+
+    interactive =
+      Parser.simulated_interactive(%{
+        team_id: "T0123ABCDE",
+        channel_id: "C0123ABCDE",
+        user_id: "U0123ABCDE",
+        action_id: "allbert:v1:deny:#{confirmation["id"]}"
+      })
+
+    assert {:ok, {:processed, event, [rendered]}} =
+             Adapter.simulate_socket_envelope(adapter, interactive)
+
+    assert_receive {:slack_chat_post_message, payload}
+    assert payload.text =~ "denied"
+    assert payload.channel == "C0123ABCDE"
+    assert rendered.text =~ "denied"
+
+    GenServer.stop(adapter)
+
+    assert event.direction == "callback"
+    assert event.status == "processed"
+    assert event.user_id == "alice"
+
+    assert {:ok, resolved} = Confirmations.read(confirmation["id"])
+    assert resolved["status"] == "denied"
+    assert resolved["operator_resolution"]["resolver_actor"] == "alice"
+    assert resolved["operator_resolution"]["resolver_channel"] == "slack"
+    assert resolved["operator_resolution"]["resolver_metadata"]["callback_data"] =~ "deny"
+  end
+
+  test "Slack callbacks cannot resolve Discord-origin confirmations" do
+    assert {:ok, confirmation} = create_confirmation!("conf_discord_origin", "discord")
+
+    assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
+
+    interactive =
+      Parser.simulated_interactive(%{
+        team_id: "T0123ABCDE",
+        channel_id: "C0123ABCDE",
+        user_id: "U0123ABCDE",
+        action_id: "allbert:v1:deny:#{confirmation["id"]}"
+      })
+
+    external_event_id = interactive["envelope_id"]
+
+    assert {:ok, :rejected} = Adapter.simulate_socket_envelope(adapter, interactive)
+
+    GenServer.stop(adapter)
+
+    assert %{status: "rejected", reason: ":wrong_channel"} =
+             Repo.get_by!(AllbertAssist.Channels.Event, external_event_id: external_event_id)
+
+    assert {:ok, pending} = Confirmations.read(confirmation["id"])
+    assert pending["status"] == "pending"
+  end
+
+  test "typed confirmation commands resolve without runtime submission" do
+    assert {:ok, confirmation} = create_confirmation!("conf_slack_typed", "slack")
+
+    assert {:ok, adapter} =
+             Adapter.start_link(name: nil, client_opts: [mode: :stub, capture_to: self()])
+
+    command =
+      Parser.simulated_event(%{
+        ts: "1718040000.000501",
+        team_id: "T0123ABCDE",
+        channel_id: "C0123ABCDE",
+        user_id: "U0123ABCDE",
+        text: "ALLBERT:DENY:#{confirmation["id"]}"
+      })
+
+    assert {:ok, {:processed, event, [rendered]}} =
+             Adapter.simulate_socket_envelope(adapter, command)
+
+    assert_receive {:slack_chat_post_message, payload}
+    assert payload.text =~ "denied"
+    assert rendered.text =~ "denied"
+    refute_received {:runtime_request, %{text: "ALLBERT:DENY:" <> _rest}}
+
+    GenServer.stop(adapter)
+
+    assert event.status == "processed"
+    assert {:ok, resolved} = Confirmations.read(confirmation["id"])
+    assert resolved["status"] == "denied"
+  end
+
   test "different Slack thread roots produce different sessions" do
     assert {:ok, first} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
     assert {:ok, second} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
@@ -329,6 +423,18 @@ defmodule AllbertAssist.Channels.SlackTest do
                [%{"external_user_id" => "U0123ABCDE", "user_id" => "alice", "enabled" => true}],
                %{audit?: false}
              )
+  end
+
+  defp create_confirmation!(id, channel) do
+    Confirmations.create(%{
+      id: id,
+      origin: %{actor: "alice", channel: channel, surface: "slack-test"},
+      target_action: %{name: "external_network_request"},
+      target_permission: :external_network,
+      target_execution_mode: :external_network_unavailable,
+      security_decision: %{permission: :external_network, decision: :needs_confirmation},
+      params_summary: %{url: "https://example.com"}
+    })
   end
 
   defp restore_plugins(original_plugins) do

@@ -61,6 +61,10 @@ defmodule AllbertAssist.Channels.Discord.Renderer do
     }
   end
 
+  defp approval_message(:typed_command, %{text: text, commands: commands}) do
+    %{content: text <> "\n" <> Enum.join(commands, "\n")}
+  end
+
   defp approval_message(_primitive, %{text: text}), do: %{content: text}
 
   defp chunks("", _limit), do: [%{content: ""}]

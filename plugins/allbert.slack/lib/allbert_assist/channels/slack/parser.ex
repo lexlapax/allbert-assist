@@ -40,6 +40,10 @@ defmodule AllbertAssist.Channels.Slack.Parser do
          external_user_id: user_id,
          external_chat_id: get_in(payload, ["channel", "id"]),
          external_message_id: get_in(payload, ["message", "ts"]),
+         team_id: get_in(payload, ["team", "id"]),
+         channel_id: get_in(payload, ["channel", "id"]),
+         thread_ts:
+           get_in(payload, ["message", "thread_ts"]) || get_in(payload, ["message", "ts"]),
          callback_data: action_id,
          verb: verb,
          confirmation_id: confirmation_id,

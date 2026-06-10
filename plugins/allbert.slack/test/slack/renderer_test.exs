@@ -28,4 +28,20 @@ defmodule AllbertSlack.RendererTest do
                button.action_id == "allbert:v1:approve:conf_123"
            end)
   end
+
+  test "falls back to typed commands when Slack buttons are disabled" do
+    assert {:ok, [message]} =
+             Renderer.render_response(
+               %{
+                 approval_handoff: %{
+                   confirmation_id: "conf_123",
+                   summary: "Run the command?"
+                 }
+               },
+               render_buttons: false
+             )
+
+    assert message.text =~ "ALLBERT:APPROVE:conf_123"
+    refute Map.has_key?(message, :blocks)
+  end
 end
