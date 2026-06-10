@@ -3128,7 +3128,7 @@ Expected direction:
   The full release gate also passed:
   `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13250/home/release_evidence/gates/release-2026-06-09T21_27_25Z.json`.
 
-## v0.52: Channel Pack 1 - Discord And Slack
+## v0.52: Channel Pack 1 (Discord And Slack) + Cross-Channel Conversation Threading
 
 Plan: `docs/plans/v0.52-plan.md`
 Request flow: `docs/plans/v0.52-request-flow.md`
@@ -3136,16 +3136,31 @@ ADRs: `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
 (v0.52 amendment — channel boundary + approval primitives),
 `docs/adr/0056-channel-inbound-trust-tier.md` (NEW — the
 `:channel_message_inbound` permission class + floor + per-interaction
-clicker-authorization; channel counterpart to ADR 0055)
+clicker-authorization; channel counterpart to ADR 0055),
+`docs/adr/0057-cross-channel-conversation-threading.md` (NEW — canonical thread
+model, `thread_channel_refs` / `conversation_message_refs` mapping tables,
+`threading:` capability + degradation ladder, echo-loop suppression, explicit
+identity links, unified history view, explicit resume)
 
-Status: planned; implementation-ready for M0 after the channel plan pass-3
-readiness patch. Promoted from `docs/archives/version-1.0-planning-03.md`;
-not implemented. Moved after the v0.44-v0.49 capability arc because
-Discord/Slack expand operator reach rather than unlock the core 1.0
-capability stack.
+Status: planned; **expanded in the pass-3 zoom-out** from "Discord + Slack" to
+"Discord + Slack + a system-wide cross-channel conversation-thread construct
+(ADR 0057), with Telegram/email/web/CLI retrofitted." Substrate-first, one
+version, nine milestones (M0-M8). Promoted from
+`docs/archives/version-1.0-planning-03.md`; not implemented. Moved after the
+v0.44-v0.49 capability arc because Discord/Slack expand operator reach rather
+than unlock the core 1.0 capability stack.
 
 Expected direction:
 
+- **Cross-channel conversation threading (ADR 0057):** the existing
+  `conversation_threads.id` is the canonical thread id; two durable join tables
+  (`thread_channel_refs`, `conversation_message_refs` with `direction` for
+  echo-suppression + `part_id`) map it per channel; a per-adapter `threading:`
+  capability (`:native_threads | :reply_chain | :flat | :rich`) drives reply
+  placement + a degradation ladder; a unified read-only history view + an
+  explicit `resume_thread_on_channel` action + explicit (never auto-merged)
+  cross-channel identity links. Telegram/email/web/CLI are retrofitted onto the
+  substrate (M6) with byte-equivalent existing output.
 - Add Discord and Slack source-tree channel plugins.
 - Reuse v0.16 channel identity, event dedupe, runtime submission, Approval
   Handoff, and redaction boundaries.

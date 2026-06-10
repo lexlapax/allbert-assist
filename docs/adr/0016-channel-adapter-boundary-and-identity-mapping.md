@@ -224,8 +224,13 @@ This amendment scopes the channel **boundary and approval-primitive contract**.
 The channel **inbound trust tier** — the `:channel_message_inbound` permission
 class and its safety floor, plus the per-interaction clicker-authorization and
 ack-before-runtime invariants — is decided in **ADR 0056** (the channel
-counterpart to ADR 0055 public-surface inbound and ADR 0038 outbound MCP). ADR
-0016 stays the boundary/identity/primitive umbrella; ADR 0056 owns inbound trust.
+counterpart to ADR 0055 public-surface inbound and ADR 0038 outbound MCP). The
+**cross-channel conversation-thread construct** — the canonical thread model, the
+`thread_channel_refs` / `conversation_message_refs` mapping tables, the
+`threading:` descriptor field, the degradation ladder, echo-loop suppression,
+explicit identity links, the unified history view, and the explicit resume action
+— is decided in **ADR 0057**. ADR 0016 stays the boundary/identity/primitive
+umbrella; ADR 0056 owns inbound trust; ADR 0057 owns cross-channel threading.
 
 ### Context
 
