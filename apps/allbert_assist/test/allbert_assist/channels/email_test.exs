@@ -8,6 +8,7 @@ defmodule AllbertAssist.Channels.EmailTest do
   alias AllbertAssist.Channels.Email.SmtpClient
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -248,6 +249,39 @@ defmodule AllbertAssist.Channels.EmailTest do
 
       assert body =~ "Runtime response: Hi Allbert"
       assert opts[:in_reply_to] == "msg-1@example.com"
+      assert is_binary(opts[:message_id])
+      assert opts[:message_id] =~ "@allbert.local"
+
+      assert_received {:runtime_request,
+                       %{
+                         channel: "email",
+                         user_id: "alice",
+                         provider_message_id: "msg-1@example.com"
+                       } = request}
+
+      assert request.channel_thread_ref.channel == "email"
+
+      assert request.channel_thread_ref.receiver_account_ref ==
+               "email:mailbox:allbert@example.com"
+
+      assert request.channel_thread_ref.provider_thread_ref["provider_thread_root"] ==
+               "msg-1@example.com"
+
+      refs =
+        ConversationMessageRef
+        |> where([ref], ref.channel == "email")
+        |> order_by([ref], asc: ref.direction)
+        |> Repo.all()
+
+      assert Enum.any?(
+               refs,
+               &(&1.direction == "in" and &1.provider_message_id == "msg-1@example.com")
+             )
+
+      assert Enum.any?(
+               refs,
+               &(&1.direction == "out" and &1.provider_message_id == opts[:message_id])
+             )
     end
 
     test "dedupes replayed Message-ID values and still marks seen" do
@@ -260,6 +294,31 @@ defmodule AllbertAssist.Channels.EmailTest do
       assert {:ok, %{processed: 1}} = Adapter.poll_once(server)
       assert {:ok, %{duplicates: 1}} = Adapter.poll_once(server)
       assert Agent.get(fake, &length(&1.seen)) == 2
+    end
+
+    test "suppresses email echoes by outbound Message-ID" do
+      configure_email!()
+      configure_runtime!()
+      fake = start_fake_imap!(%{"1" => plain_email()})
+      server = :"email-echo-#{System.unique_integer([:positive])}"
+      start_email_server!(server, fake)
+
+      assert {:ok, %{processed: 1}} = Adapter.poll_once(server)
+      assert_received {:runtime_request, %{text: "Hi Allbert"}}
+
+      assert_received {:smtp_sent, _from, _to, _subject, _body, opts}
+      outbound_message_id = Keyword.fetch!(opts, :message_id)
+
+      Agent.update(fake, fn state ->
+        put_in(state.messages["2"], plain_email(outbound_message_id))
+      end)
+
+      assert {:ok, %{duplicates: 1, rejected: 1}} = Adapter.poll_once(server)
+      refute_received {:runtime_request, %{provider_message_id: ^outbound_message_id}}
+
+      event = Channels.get_event_by_external_id("email", outbound_message_id)
+      assert event.status == "rejected"
+      assert event.reason == ":echo_suppressed"
     end
 
     test "unmapped senders and oversized bodies are rejected before runtime" do

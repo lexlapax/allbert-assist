@@ -23,7 +23,7 @@ defmodule AllbertAssist.Channels.Email.SmtpClient do
       {"From", from_header(from, Keyword.get(opts, :from_name))},
       {"To", Enum.join(List.wrap(to), ", ")},
       {"Subject", sanitize_header(subject)},
-      {"Message-ID", "<#{Ecto.UUID.generate()}@allbert.local>"},
+      {"Message-ID", "<#{message_id(opts)}>"},
       {"MIME-Version", "1.0"},
       {"Content-Type", "text/plain; charset=utf-8"}
     ]
@@ -56,6 +56,13 @@ defmodule AllbertAssist.Channels.Email.SmtpClient do
   defp normalize_result({:ok, _receipt}), do: :ok
   defp normalize_result({:error, reason}), do: {:error, reason}
   defp normalize_result(other), do: {:error, other}
+
+  defp message_id(opts) do
+    case Keyword.get(opts, :message_id) do
+      value when is_binary(value) and value != "" -> value
+      _value -> "#{Ecto.UUID.generate()}@allbert.local"
+    end
+  end
 
   defp from_header(address, nil), do: address
   defp from_header(address, ""), do: address

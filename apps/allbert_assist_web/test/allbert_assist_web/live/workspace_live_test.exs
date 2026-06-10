@@ -1,6 +1,7 @@
 defmodule AllbertAssistWeb.WorkspaceLiveTest do
   use AllbertAssistWeb.ConnCase, async: false, lane: :external_runtime_serial
 
+  import Ecto.Query
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.{
@@ -10,12 +11,14 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     Marketplace,
     Objectives,
     Paths,
+    Repo,
     Runtime,
     Session,
     Settings,
     Workspace
   }
 
+  alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Intent.Handoff
   alias AllbertAssist.McpRegistryFixtures
   alias AllbertAssist.Resources.{Grants, ResourceURI, Scope}
@@ -1720,6 +1723,21 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert request.thread_id == thread_id
     assert request.session_id == "web-local"
     assert request.active_app == :allbert
+    assert String.starts_with?(request.provider_message_id, "live_view:in:")
+    assert request.channel_thread_ref.channel == "live_view"
+    assert request.channel_thread_ref.receiver_account_ref == "web:workspace"
+    assert request.channel_thread_ref.provider_thread_ref["provider"] == "phoenix_live_view"
+    assert request.channel_thread_ref.provider_thread_ref["surface"] == "live_view"
+    assert request.metadata.local_surface == "live_view"
+
+    assert [%ConversationMessageRef{direction: "in"}] =
+             Repo.all(
+               from(ref in ConversationMessageRef,
+                 where:
+                   ref.channel == "live_view" and
+                     ref.provider_message_id == ^request.provider_message_id
+               )
+             )
 
     assert has_element?(view, "#agent-response")
     assert html =~ "Runtime LiveView response: Say hello from the runtime boundary."

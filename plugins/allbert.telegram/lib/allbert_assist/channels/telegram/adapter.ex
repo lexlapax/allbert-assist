@@ -11,6 +11,7 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   alias AllbertAssist.Channels.Telegram.Client
   alias AllbertAssist.Channels.Telegram.Parser
   alias AllbertAssist.Channels.Telegram.Renderer
+  alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Runtime.Paths, as: RuntimePaths
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime
@@ -205,8 +206,13 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   end
 
   defp handle_text_message(event, fields, state) do
+    fields = put_thread_fields(fields, state)
+    {text, new_thread?} = prompt_text(fields.text)
+    fields = maybe_isolate_new_provider_thread(fields, new_thread?)
+
     with :ok <- validate_chat(fields, state),
          :ok <- validate_text_size(fields, state),
+         :ok <- reject_echo(fields),
          {:ok, user_id} <- resolve_identity(fields, state),
          session_id <-
            Channels.derive_session_id(
@@ -214,10 +220,10 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
              fields.external_user_id,
              fields.external_chat_id
            ),
-         {text, new_thread?} <- prompt_text(fields.text),
          {:ok, response} <- submit_runtime(text, user_id, session_id, fields, new_thread?),
          {:ok, chunks, keyboard} <- render_response(response, state),
-         :ok <- deliver_chunks(fields.external_chat_id, chunks, keyboard, state),
+         {:ok, delivered} <- deliver_chunks(fields.external_chat_id, chunks, keyboard, state, fields),
+         :ok <- record_outbound_refs(response, fields, delivered),
          {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
       {:ok, :processed}
     else
@@ -228,8 +234,11 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   end
 
   defp handle_voice_message(event, fields, state) do
+    fields = put_thread_fields(fields, state)
+
     with :ok <- validate_chat(fields, state),
          :ok <- validate_voice_size(fields),
+         :ok <- reject_echo(fields),
          {:ok, user_id} <- resolve_identity(fields, state),
          session_id <-
            Channels.derive_session_id(
@@ -251,7 +260,9 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
                  voice_runtime_metadata(fields, audio, transcription)
                ),
              {:ok, chunks, keyboard} <- render_response(response, state),
-             :ok <- deliver_chunks(fields.external_chat_id, chunks, keyboard, state),
+             {:ok, delivered} <-
+               deliver_chunks(fields.external_chat_id, chunks, keyboard, state, fields),
+             :ok <- record_outbound_refs(response, fields, delivered),
              {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
           {:ok, :processed}
         end
@@ -333,18 +344,114 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   defp prompt_text("/new " <> text), do: {String.trim(text), true}
   defp prompt_text(text), do: {text, false}
 
+  defp put_thread_fields(fields, state) do
+    receiver_account_ref = telegram_receiver_account_ref(fields, state)
+    provider_thread_ref = telegram_provider_thread_ref(fields)
+
+    fields
+    |> Map.put(:receiver_account_ref, receiver_account_ref)
+    |> Map.put(:provider_thread_ref, provider_thread_ref)
+    |> Map.put(:channel_thread_ref, channel_thread_ref(receiver_account_ref, provider_thread_ref))
+    |> Map.put(:known_thread_id, known_thread_id_from_reply(receiver_account_ref, fields))
+  end
+
+  defp maybe_isolate_new_provider_thread(fields, true) do
+    provider_thread_ref =
+      telegram_provider_thread_ref(fields, "message:#{fields.external_message_id}")
+
+    fields
+    |> Map.put(:provider_thread_ref, provider_thread_ref)
+    |> Map.put(:channel_thread_ref, channel_thread_ref(fields.receiver_account_ref, provider_thread_ref))
+    |> Map.delete(:known_thread_id)
+  end
+
+  defp maybe_isolate_new_provider_thread(fields, _new_thread?), do: fields
+
+  defp reject_echo(fields) do
+    if ChannelThread.echo?(%{
+         channel: "telegram",
+         receiver_account_ref: fields.receiver_account_ref,
+         provider_message_id: fields.external_message_id
+       }) do
+      {:error, :echo_suppressed}
+    else
+      :ok
+    end
+  end
+
+  defp telegram_receiver_account_ref(fields, state) do
+    bot_ref =
+      state.settings
+      |> Map.get("bot_token_ref", "secret://channels/telegram/bot_token")
+      |> ChannelThread.provider_thread_key()
+
+    "telegram:bot:#{bot_ref}:chat:#{fields.external_chat_id}"
+  end
+
+  defp telegram_provider_thread_ref(fields, provider_thread_root \\ nil) do
+    %{
+      provider: "telegram",
+      chat_id: fields.external_chat_id,
+      chat_type: Map.get(fields, :chat_type),
+      message_thread_id: Map.get(fields, :message_thread_id),
+      provider_thread_root: provider_thread_root || telegram_provider_thread_root(fields),
+      reply_to_message_id: Map.get(fields, :reply_to_message_id)
+    }
+    |> compact()
+  end
+
+  defp telegram_provider_thread_root(%{message_thread_id: message_thread_id} = fields)
+       when is_binary(message_thread_id) and message_thread_id != "" do
+    "topic:#{message_thread_id}:user:#{fields.external_user_id}"
+  end
+
+  defp telegram_provider_thread_root(%{reply_to_message_id: reply_to_message_id})
+       when is_binary(reply_to_message_id) and reply_to_message_id != "" do
+    "reply:#{reply_to_message_id}"
+  end
+
+  defp telegram_provider_thread_root(fields), do: "message:#{fields.external_message_id}"
+
+  defp channel_thread_ref(receiver_account_ref, provider_thread_ref) do
+    %{
+      channel: "telegram",
+      receiver_account_ref: receiver_account_ref,
+      provider_thread_ref: provider_thread_ref
+    }
+  end
+
+  defp known_thread_id_from_reply(receiver_account_ref, %{reply_to_message_id: reply_to_message_id})
+       when is_binary(reply_to_message_id) and reply_to_message_id != "" do
+    case ChannelThread.lookup_message_thread(%{
+           channel: "telegram",
+           receiver_account_ref: receiver_account_ref,
+           provider_message_id: reply_to_message_id
+         }) do
+      {:ok, thread_id} -> thread_id
+      {:error, _reason} -> nil
+    end
+  end
+
+  defp known_thread_id_from_reply(_receiver_account_ref, _fields), do: nil
+
+  defp compact(map) do
+    Map.reject(map, fn {_key, value} -> value in [nil, ""] end)
+  end
+
   defp submit_runtime(text, user_id, session_id, fields, new_thread?) do
     submit_runtime(text, user_id, session_id, fields, new_thread?, %{})
   end
 
   defp submit_runtime(text, user_id, session_id, fields, new_thread?, extra_metadata) do
-    Runtime.submit_user_input(%{
+    %{
       text: text,
       channel: "telegram",
       user_id: user_id,
       operator_id: user_id,
       session_id: session_id,
       new_thread: new_thread?,
+      channel_thread_ref: fields.channel_thread_ref,
+      provider_message_id: fields.external_message_id,
       metadata:
         %{
           channel: "telegram",
@@ -352,11 +459,26 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
           external_event_id: fields.external_event_id,
           external_user_id: fields.external_user_id,
           external_chat_id: fields.external_chat_id,
-          external_message_id: fields.external_message_id
+          external_message_id: fields.external_message_id,
+          receiver_account_ref: fields.receiver_account_ref,
+          provider_thread_ref: fields.provider_thread_ref,
+          message_thread_id: Map.get(fields, :message_thread_id),
+          reply_to_message_id: Map.get(fields, :reply_to_message_id)
         }
         |> Map.merge(extra_metadata)
-    })
+    }
+    |> maybe_put_known_thread_id(fields, new_thread?)
+    |> Runtime.submit_user_input()
   end
+
+  defp maybe_put_known_thread_id(attrs, fields, false) do
+    case Map.get(fields, :known_thread_id) do
+      thread_id when is_binary(thread_id) and thread_id != "" -> Map.put(attrs, :thread_id, thread_id)
+      _thread_id -> attrs
+    end
+  end
+
+  defp maybe_put_known_thread_id(attrs, _fields, _new_thread?), do: attrs
 
   defp fetch_voice_audio(fields, state) do
     max_bytes = voice_download_max_bytes()
@@ -531,24 +653,53 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
     )
   end
 
-  defp deliver_chunks(_chat_id, [], _keyboard, _state), do: :ok
+  defp deliver_chunks(chat_id, chunks, keyboard, state, fields) do
+    chunks
+    |> Enum.with_index()
+    |> Enum.reduce_while({:ok, []}, fn {chunk, index}, {:ok, delivered} ->
+      keyboard = if index == 0, do: keyboard, else: nil
 
-  defp deliver_chunks(chat_id, [chunk], keyboard, state) do
-    case Client.send_message(
-           state.token,
-           chat_id,
-           chunk,
-           Keyword.merge(state.req_options, reply_markup: keyboard)
-         ) do
-      {:ok, _result} -> :ok
-      {:error, reason} -> {:error, {:delivery_failed, reason}}
-    end
+      opts =
+        state.req_options
+        |> Keyword.merge(reply_markup: keyboard)
+        |> maybe_put_reply_options(fields)
+
+      case Client.send_message(state.token, chat_id, chunk, opts) do
+        {:ok, message} ->
+          {:cont, {:ok, delivered ++ [%{part_id: to_string(index), message: message}]}}
+
+        {:error, reason} ->
+          {:halt, {:error, {:delivery_failed, reason}}}
+      end
+    end)
   end
 
-  defp deliver_chunks(chat_id, [chunk | rest], keyboard, state) do
-    with :ok <- deliver_chunks(chat_id, [chunk], keyboard, state) do
-      deliver_chunks(chat_id, rest, nil, state)
-    end
+  defp maybe_put_reply_options(opts, fields) do
+    opts
+    |> maybe_put_keyword(:reply_to_message_id, Map.get(fields, :external_message_id))
+    |> maybe_put_keyword(:message_thread_id, Map.get(fields, :message_thread_id))
+  end
+
+  defp maybe_put_keyword(opts, _key, nil), do: opts
+  defp maybe_put_keyword(opts, _key, ""), do: opts
+  defp maybe_put_keyword(opts, key, value), do: Keyword.put(opts, key, value)
+
+  defp record_outbound_refs(response, fields, delivered) do
+    delivered
+    |> Enum.reduce_while(:ok, fn delivered_part, :ok ->
+      attrs =
+        fields.channel_thread_ref
+        |> Map.put(:canonical_message_id, response_value(response, :assistant_message_id))
+        |> Map.put(:canonical_thread_id, response_value(response, :thread_id))
+        |> Map.put(:provider_message_id, Map.get(delivered_part.message, "message_id"))
+        |> Map.put(:part_id, delivered_part.part_id)
+        |> Map.put(:direction, :out)
+
+      case ChannelThread.record_message_ref(attrs) do
+        {:ok, _ref} -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
   end
 
   defp mark_processed(event, response, user_id, session_id) do
@@ -651,8 +802,12 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
 
   defp deliver_callback_result(nil, _chunks, _state), do: :ok
 
-  defp deliver_callback_result(chat_id, chunks, state),
-    do: deliver_chunks(chat_id, chunks, nil, state)
+  defp deliver_callback_result(chat_id, chunks, state) do
+    case deliver_chunks(chat_id, chunks, nil, state, %{external_message_id: nil}) do
+      {:ok, _delivered} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
 
   defp answer_callback(callback_query_id, message, state) do
     case Client.answer_callback_query(state.token, callback_query_id, message, state.req_options) do

@@ -249,6 +249,33 @@ defmodule AllbertAssist.ChannelsTest do
       assert :typed_command in slack_primitives
       assert :list in slack_primitives
     end
+
+    test "local web and CLI surfaces declare rich threading without adapter authority" do
+      descriptors =
+        AllbertAssist.Channels.LocalSurface.descriptors()
+        |> Map.new(&{&1.channel_id, &1})
+
+      assert %{
+               provider: "local_cli",
+               primitives: cli_primitives,
+               threading: :rich,
+               receiver_account_ref: "cli:default"
+             } = Map.fetch!(descriptors, "cli")
+
+      assert :typed_command in cli_primitives
+      assert :list in cli_primitives
+
+      assert %{
+               provider: "phoenix_live_view",
+               primitives: web_primitives,
+               threading: :rich,
+               receiver_account_ref: "web:workspace"
+             } = Map.fetch!(descriptors, "live_view")
+
+      assert :button in web_primitives
+      assert :typed_command in web_primitives
+      assert :list in web_primitives
+    end
   end
 
   describe "channel summaries" do

@@ -140,17 +140,46 @@ defmodule AllbertAssist.Conversations.ChannelThread do
               ref.channel == ^attrs.channel and
               ref.receiver_account_ref == ^attrs.receiver_account_ref and
               ref.provider_message_id == ^attrs.provider_message_id and
-              ref.part_id == ^attrs.part_id and
               ref.direction == "out",
           limit: 1
 
-      not is_nil(Repo.one(query))
+      query
+      |> maybe_filter_message_part(attrs.part_id)
+      |> Repo.one()
+      |> is_nil()
+      |> Kernel.not()
     else
       _error -> false
     end
   end
 
   def echo?(_attrs), do: false
+
+  @doc "Look up the canonical thread that owns a provider message id."
+  @spec lookup_message_thread(map()) :: {:ok, String.t()} | {:error, :not_found | term()}
+  def lookup_message_thread(attrs) when is_map(attrs) do
+    with {:ok, attrs} <- normalize_echo_ref(attrs) do
+      query =
+        from ref in ConversationMessageRef,
+          where:
+            ref.owner_scope == ^attrs.owner_scope and
+              ref.channel == ^attrs.channel and
+              ref.receiver_account_ref == ^attrs.receiver_account_ref and
+              ref.provider_message_id == ^attrs.provider_message_id,
+          order_by: [asc: ref.part_id],
+          limit: 1
+
+      query
+      |> maybe_filter_message_part(attrs.part_id)
+      |> Repo.one()
+      |> case do
+        %ConversationMessageRef{canonical_thread_id: thread_id} -> {:ok, thread_id}
+        nil -> {:error, :not_found}
+      end
+    end
+  end
+
+  def lookup_message_thread(_attrs), do: {:error, :invalid_message_ref}
 
   @doc "Resolve a channel reply/thread target from a normalized ref and descriptor."
   @spec resolve_reply_target(map(), map()) :: {:ok, map()} | {:error, term()}
@@ -257,7 +286,7 @@ defmodule AllbertAssist.Conversations.ChannelThread do
          {:ok, channel} <- required_string(field(attrs, :channel)),
          {:ok, receiver_account_ref} <- required_string(field(attrs, :receiver_account_ref)),
          {:ok, provider_message_id} <- required_string(field(attrs, :provider_message_id)),
-         {:ok, part_id} <- required_string(field(attrs, :part_id) || @default_part_id) do
+         {:ok, part_id} <- optional_part_id(field(attrs, :part_id)) do
       {:ok,
        %{
          owner_scope: owner_scope,
@@ -362,6 +391,11 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   defp maybe_filter(query, :receiver_account_ref, value),
     do: where(query, [link], link.receiver_account_ref == ^value)
 
+  defp maybe_filter_message_part(query, nil), do: query
+
+  defp maybe_filter_message_part(query, part_id),
+    do: where(query, [ref], ref.part_id == ^part_id)
+
   defp normalize_direction(value) when value in [:in, "in"], do: {:ok, "in"}
   defp normalize_direction(value) when value in [:out, "out"], do: {:ok, "out"}
   defp normalize_direction(_value), do: {:error, :invalid_direction}
@@ -380,6 +414,9 @@ defmodule AllbertAssist.Conversations.ChannelThread do
       value -> {:ok, value}
     end
   end
+
+  defp optional_part_id(nil), do: {:ok, nil}
+  defp optional_part_id(value), do: required_string(value)
 
   defp normalize_optional_string(nil), do: nil
   defp normalize_optional_string(value), do: normalize_string(value)
