@@ -11,12 +11,17 @@ WhatsApp Cloud API (and the deferred Viber twin) are **public HTTPS webhook**
 channels: the provider POSTs inbound events to a publicly reachable endpoint. The
 inbound trust tier extends to that shape — Allbert verifies the provider's
 **raw-body HMAC signature before parsing** (WhatsApp `X-Hub-Signature-256` keyed
-by the app secret; Viber `X-Viber-Content-Signature` keyed by the auth token),
-with `Plug.Crypto.secure_compare/2`, and **reuses the v0.51 authenticated HTTP
-ingress** (request body caps, API secure-header posture, inbound rate-limit)
-rather than a second ingress. An absent/invalid signature is rejected before any
-runtime work; the registration/verification handshake (WhatsApp `hub.challenge`)
-is answered without granting authority. Self-hosted operators without a public
+by the app secret, computed with `:crypto.mac(:hmac, :sha256, ...)`; Viber
+`X-Viber-Content-Signature` keyed by the auth token), with
+`Plug.Crypto.secure_compare/2`. It **reuses** the v0.51 ingress's rate-limiter
+(keyed on the provider install bucket), secure-header posture, body cap, and
+router pipeline rather than a second ingress — but the verification itself is
+**net-new**: v0.51's body reader does not retain the raw body (it streams and
+discards), and v0.51's auth is bearer-token-based, so v0.53 adds raw-body
+preservation (cache before `Plug.Parsers`) and a **signature-auth plug distinct
+from the bearer-token auth**. An absent/invalid signature is rejected before any
+parsing or runtime work; the registration/verification handshake (WhatsApp
+`hub.challenge`) is answered without granting authority. Self-hosted operators without a public
 URL use a tunnel; the signed webhook is the only inbound path for these channels.
 `:channel_message_inbound` and all v0.52 invariants apply unchanged. This
 amendment flips to Accepted at the v0.53 closeout milestone. See
