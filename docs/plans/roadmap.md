@@ -3194,35 +3194,57 @@ Expected direction:
   Nostrum / `slack_elixir`), reconciled with the Req-only rule and ADR 0050.
   Discord reads free-text only on @mention + DM via the privileged
   `MESSAGE_CONTENT` intent; Slack via mention + DM in Socket Mode.
-- **Release authority is a required real-provider live smoke** (sandbox Discord
-  bot + Slack workspace, real tokens) before the v0.52 tag; the deterministic
-  stub lane is the fast/CI gate, not the release authority.
+- `mix allbert.test release.v052` is the deterministic fast/CI gate for the
+  implemented surface. `mix allbert.test external-smoke -- discord_slack`
+  records real outbound/threading/echo evidence against sandbox Discord and
+  Slack providers, and operator manual validation covers live inbound delivery,
+  button approval, and unmapped-clicker rejection before the v0.52 tag.
 
-## v0.53: Channel Pack 2 - WhatsApp, Signal, And Matrix
+## v0.53: Channel Pack 2 (Matrix, WhatsApp, Signal) + System-Wide Custody/Trust Constructs
 
 Plan: `docs/plans/v0.53-plan.md`
 Request flow: `docs/plans/v0.53-request-flow.md`
+ADRs: `docs/adr/0056-...` (v0.53 amendment — public signed webhook),
+`docs/adr/0057-...` (threading substrate consumed),
+`docs/adr/0058-key-custody-and-channel-daemon-supervision.md` (NEW),
+`docs/adr/0059-channel-trust-class-and-relay-gating.md` (NEW).
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
-not implemented. Scope tightened in the post-v0.37 planning pass: **iMessage
-parked** (macOS-only platform constraint), public protocol interop split into
-v0.51 (MCP server + OpenAI-compatible API + ACP).
+Status: planned; **deepened in the v0.53 first implementation-readiness pass**
+from a skeleton to a deep plan (M0-M9, one large release). Scope: build
+**Matrix + WhatsApp (Cloud API) + Signal (signal-cli daemon)**; **Viber**
+documented on paper as a validated WhatsApp-twin and **deferred** (~€100/mo
+standing bot fee); **iMessage + SMS parked**. Public protocol interop is v0.51.
 
 Expected direction:
 
-- Add WhatsApp, Signal, and Matrix plugins after the Discord/Slack channel
-  patterns are proven.
-- Reuse the v0.52 ADR 0016 approval-primitive amendment and ADR 0057 threading
-  contract. WhatsApp and Signal declare `typed_command` approval support and
-  `threading: :reply_chain` (quote/reply ids with provider TTL constraints);
-  Matrix declares `button` for bot-room contexts and `typed_command` otherwise,
-  with `threading: :native_threads` when `m.thread` is available and
-  `:reply_chain` fallback.
-- Keep provider-specific pairing, delivery/retry/dedupe, platform limits, and
-  privacy behavior explicit in Settings Central and operator docs.
-- Keep SMS and iMessage parked. iMessage moves to `future-features.md` because
-  its macOS-only platform constraint warrants a dedicated platform-policy
-  decision rather than 1.0-arc bundling.
+- v0.53 is not "three more plugins" — it **finishes the system-wide constructs
+  v0.52 declared but did not build**, because Matrix/WhatsApp/Signal force them:
+  - **Key Custody (ADR 0058):** an in-BEAM `:sensitive` decrypt-once secret-
+    custody GenServer (0 new deps; `:crypto` + `plug_crypto`) replacing
+    decrypt-on-every-read, plus supervised external `signal-cli` daemon custody
+    (muontrap/erlexec, 0600 keys + localhost socket). Explicitly does **not**
+    claim locked/zeroed memory (not achievable on the BEAM).
+  - **Channel trust-class gating (ADR 0059):** completes ADR 0057's E2EE-origin
+    promise — a `trust_class` field (`:e2ee_origin`/`:server_readable`/`:local`),
+    the unified view excludes cross-channel E2EE-origin content by default
+    (audited opt-in), resume-onto-weaker-class requires an audited confirmation.
+    Retrofits the web + CLI unified view.
+  - **Public signed webhook (ADR 0056 amendment):** WhatsApp Cloud API verifies
+    `X-Hub-Signature-256` raw-body HMAC before parse, reusing the v0.51 HTTP
+    ingress (body cap, secure headers, rate-limit).
+  - **Descriptor flag consumption + phone-PII redaction:** wire the v0.52
+    declared-only `reply_key_type` (Signal timestamp) / `quote_ttl_ms` (WhatsApp
+    30-day degrade); redact E.164 phone numbers; Signal keys on ACI, not phone.
+- Channels (corrected from the skeleton): **Matrix** = raw `Req` + `/sync`,
+  **unencrypted rooms only** (no Elixir E2EE), `:native_threads`/`:reply_chain`,
+  `typed_command`/`link` (no portable Matrix bot-button primitive). **WhatsApp**
+  Cloud API, `:reply_chain` + quote-TTL, in-session `:button`, `:server_readable`.
+  **Signal** via `signal-cli`, `:reply_chain` reply-by-timestamp, ACI identity,
+  `:e2ee_origin`.
+- Substrate-first sequencing: constructs (M0-M4) before adapters (M5-M7);
+  pairing/identity/delivery (M8); evals + **required per-platform real-provider
+  live smokes** + closeout (M9).
+- Keep SMS, iMessage, and the Viber build parked in `future-features.md`.
 
 ## v0.54: Intent Deepening
 

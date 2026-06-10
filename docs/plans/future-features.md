@@ -74,8 +74,8 @@ Still parked:
 
 Status: parked.
 
-Discord and Slack are planned for v0.52. WhatsApp, Signal, and Matrix are
-planned for v0.53. SMS and iMessage remain parked.
+Discord and Slack shipped in v0.52. **Matrix, WhatsApp (Cloud API), and Signal
+(signal-cli daemon) are built in v0.53.** SMS and iMessage remain parked.
 
 Still parked:
 
@@ -83,6 +83,35 @@ Still parked:
 - short-message truncation and partial-output UX;
 - cost, rate-limit, and abuse policy;
 - provider delivery failure handling.
+
+### Viber Channel Adapter
+
+Status: parked (validated on paper in the v0.53 pass; build deferred).
+
+Viber's Bot API is a clean **structural twin of the v0.53 WhatsApp Cloud API
+channel** and confirms the public signed-webhook ingress construct generalizes:
+public HTTPS webhook with an `X-Viber-Content-Signature` raw-body HMAC keyed by
+the bot **auth token** (vs WhatsApp's `X-Hub-Signature-256` keyed by a separate
+app secret — same construct, Viber-specific verifier + secret slot), raw `Req` +
+a Phoenix controller (the only Hex lib `viberex` is dead since 2018),
+`threading: :flat` (no reply/thread primitive — linear per-`sender.id` stream),
+approval primitives `:button` + `:link` + `typed_command` (keyboard `reply`
+buttons round-trip the payload as a normal message), `trust_class:
+:server_readable` (bot traffic is TLS-in-transit, server-readable — **not**
+E2EE-origin), and an opaque, stable, per-bot `sender.id` with **no phone PII**
+(cleaner than WhatsApp's `wa_id`).
+
+Deferred because every Viber bot created after 2024-02-05 carries a **~€100/month
+standing maintenance fee** (plus per-message for out-of-session) — poor value for
+a single-operator self-host versus Telegram/Matrix/WhatsApp, and Viber's user
+base is regionally concentrated. Trivial to build on the v0.53 webhook construct
+if a specific operator needs Viber reach.
+
+Still parked:
+
+- the standing monthly bot fee + per-message commercial gate;
+- subscriber persistence (no list API) and the 24h session window;
+- the Admin Panel bot-account approval flow.
 
 ### Agent URI Execution And Broader Agent Endpoints
 
