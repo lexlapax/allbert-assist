@@ -23,6 +23,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   }
 
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Conversations.UnifiedHistory
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Resources.ImageBounds
   alias AllbertAssist.Resources.ImageMetadata
@@ -1459,6 +1460,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       canvas_tiles: tiles,
       ephemeral_surfaces: surfaces,
       conversation_messages: conversation_messages(thread_id, user_id),
+      unified_history: unified_history(thread_id, user_id),
       recent_threads: recent_threads(user_id),
       registered_apps: apps,
       workspace_layout: layout,
@@ -1529,6 +1531,17 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       end
     rescue
       DBConnection.ConnectionError -> []
+    end
+  end
+
+  defp unified_history(thread_id, user_id) do
+    try do
+      case UnifiedHistory.show_thread(user_id, thread_id, limit: 12) do
+        {:ok, history} -> history
+        {:error, _reason} -> nil
+      end
+    rescue
+      DBConnection.ConnectionError -> nil
     end
   end
 
@@ -2372,6 +2385,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       thread_id: assigns.thread_id,
       active_objectives: assigns.active_objectives,
       conversation_messages: assigns.conversation_messages,
+      unified_history: assigns.unified_history,
       recent_threads: assigns.recent_threads,
       registered_apps: assigns.registered_apps,
       workspace_mobile_tab: assigns.workspace_mobile_tab,

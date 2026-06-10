@@ -19,6 +19,7 @@ defmodule AllbertAssist.Security.Risk do
   @doc "Return the default risk tier for a permission."
   @spec tier(atom()) :: tier()
   def tier(:read_only), do: :minimal
+  def tier(:conversation_write), do: :low
   def tier(:memory_write), do: :low
   def tier(:command_plan), do: :low
   def tier(:settings_write), do: :medium
@@ -69,6 +70,10 @@ defmodule AllbertAssist.Security.Risk do
   def tier(_permission), do: :critical
 
   defp reasons(:read_only, _tier, _context), do: ["local read-only inspection"]
+
+  defp reasons(:conversation_write, _tier, _context),
+    do: ["local canonical conversation mapping write"]
+
   defp reasons(:memory_write, _tier, _context), do: ["durable markdown memory write"]
   defp reasons(:command_plan, _tier, _context), do: ["non-executing command planning"]
   defp reasons(:settings_write, _tier, _context), do: ["operator-visible settings change"]

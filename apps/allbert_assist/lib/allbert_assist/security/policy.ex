@@ -57,6 +57,7 @@ defmodule AllbertAssist.Security.Policy do
 
   @default_decisions %{
     read_only: :allowed,
+    conversation_write: :allowed,
     memory_write: :allowed,
     command_plan: :allowed,
     command_execute: :denied,
@@ -125,6 +126,7 @@ defmodule AllbertAssist.Security.Policy do
 
   @type permission ::
           :read_only
+          | :conversation_write
           | :memory_write
           | :command_plan
           | :command_execute
@@ -179,6 +181,7 @@ defmodule AllbertAssist.Security.Policy do
   def permission_classes do
     [
       :read_only,
+      :conversation_write,
       :memory_write,
       :command_plan,
       :command_execute,

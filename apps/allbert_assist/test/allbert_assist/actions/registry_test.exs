@@ -110,6 +110,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "synthesize_voice",
              "list_channels",
              "show_channel",
+             "resume_thread_on_channel",
              "list_apps",
              "show_app",
              "list_plugins",
@@ -245,6 +246,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert "set_provider_credential" in agent_action_names
     assert "list_channels" in agent_action_names
     assert "show_channel" in agent_action_names
+    assert "resume_thread_on_channel" in agent_action_names
     assert "list_apps" in agent_action_names
     assert "show_app" in agent_action_names
     assert "list_plugins" in agent_action_names
@@ -424,6 +426,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert set_active_model_profile.permission == :settings_write
     assert set_active_model_profile.exposure == :agent
     assert set_active_model_profile.execution_mode == :settings_write
+
+    assert {:ok, resume_thread_on_channel} = Registry.capability("resume_thread_on_channel")
+    assert resume_thread_on_channel.permission == :conversation_write
+    assert resume_thread_on_channel.exposure == :agent
+    assert resume_thread_on_channel.execution_mode == :conversation_resume
 
     assert {:ok, mcp_doctor_server} = Registry.capability("mcp_doctor_server")
     assert mcp_doctor_server.permission == :read_only
