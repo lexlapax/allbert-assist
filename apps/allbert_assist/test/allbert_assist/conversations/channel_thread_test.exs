@@ -98,6 +98,19 @@ defmodule AllbertAssist.Conversations.ChannelThreadTest do
              part_id: "0"
            })
 
+    assert ChannelThread.echo?(%{
+             channel: "slack",
+             receiver_account_ref: "slack:T0123",
+             provider_message_id: "bot-1718040000.000201"
+           })
+
+    assert {:ok, thread.id} ==
+             ChannelThread.lookup_message_thread(%{
+               channel: "slack",
+               receiver_account_ref: "slack:T0123",
+               provider_message_id: "bot-1718040000.000201"
+             })
+
     refute ChannelThread.echo?(%{
              channel: "slack",
              receiver_account_ref: "slack:T0123",

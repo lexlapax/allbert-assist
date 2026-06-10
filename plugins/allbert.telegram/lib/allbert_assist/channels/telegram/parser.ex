@@ -12,6 +12,8 @@ defmodule AllbertAssist.Channels.Telegram.Parser do
          external_user_id: from_id,
          external_chat_id: chat_id,
          external_message_id: message_id,
+         message_thread_id: optional_string(Map.get(message, "message_thread_id")),
+         reply_to_message_id: reply_to_message_id(message),
          chat_type: get_in(message, ["chat", "type"]),
          text: text,
          raw_summary: "telegram text message #{message_id}"
@@ -33,6 +35,8 @@ defmodule AllbertAssist.Channels.Telegram.Parser do
          external_user_id: from_id,
          external_chat_id: chat_id,
          external_message_id: message_id,
+         message_thread_id: optional_string(Map.get(message, "message_thread_id")),
+         reply_to_message_id: reply_to_message_id(message),
          chat_type: get_in(message, ["chat", "type"]),
          voice_file_id: file_id,
          voice_file_unique_id: Map.get(voice, "file_unique_id"),
@@ -85,6 +89,12 @@ defmodule AllbertAssist.Channels.Telegram.Parser do
 
   defp message_id(%{"message_id" => id}), do: {:ok, to_string(id)}
   defp message_id(_message), do: {:error, "missing message_id"}
+
+  defp optional_string(nil), do: nil
+  defp optional_string(value), do: to_string(value)
+
+  defp reply_to_message_id(%{"reply_to_message" => %{"message_id" => id}}), do: to_string(id)
+  defp reply_to_message_id(_message), do: nil
 
   defp voice_file_id(%{"file_id" => file_id}) when is_binary(file_id) and file_id != "",
     do: {:ok, file_id}

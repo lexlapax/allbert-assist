@@ -11,6 +11,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   alias AllbertAssist.App.CoreApp
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Artifacts.MediaRetention
+  alias AllbertAssist.Channels.LocalSurface
   alias AllbertAssist.Confirmations
 
   alias AllbertAssist.Confirmations.{
@@ -2075,6 +2076,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         canvas_destination: socket.assigns.canvas_destination
       }
       |> maybe_put_runtime_metadata(metadata)
+      |> put_local_surface_ref(socket)
 
     socket
     |> assign(
@@ -2227,6 +2229,24 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp maybe_put_runtime_metadata(request, metadata) when metadata in [nil, %{}], do: request
   defp maybe_put_runtime_metadata(request, metadata), do: Map.put(request, :metadata, metadata)
+
+  defp put_local_surface_ref(request, socket) do
+    case LocalSurface.thread_ref(:live_view, %{
+           request_id: Ecto.UUID.generate(),
+           user_id: socket.assigns.user_id,
+           thread_id: socket.assigns.thread_id,
+           session_id: socket.assigns.session_id
+         }) do
+      {:ok, ref} ->
+        request
+        |> Map.put(:channel_thread_ref, ref.channel_thread_ref)
+        |> Map.put(:provider_message_id, ref.provider_message_id)
+        |> Map.update(:metadata, ref.metadata, &Map.merge(&1, ref.metadata))
+
+      {:error, :unknown_local_surface} ->
+        request
+    end
+  end
 
   defp dismiss_intent_surface(socket, params, _dismissed_by) do
     case optional_param(params, "surface-id") do

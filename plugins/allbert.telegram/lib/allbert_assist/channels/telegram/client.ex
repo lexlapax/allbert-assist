@@ -35,11 +35,21 @@ defmodule AllbertAssist.Channels.Telegram.Client do
             "chat_id" => chat_id,
             "text" => text
           }
-          |> maybe_put("reply_markup", Keyword.get(opts, :reply_markup)),
+          |> maybe_put("reply_markup", Keyword.get(opts, :reply_markup))
+          |> maybe_put("reply_parameters", reply_parameters(opts))
+          |> maybe_put("message_thread_id", Keyword.get(opts, :message_thread_id)),
         receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
       ],
       opts
     )
+  end
+
+  defp reply_parameters(opts) do
+    case Keyword.get(opts, :reply_to_message_id) do
+      nil -> nil
+      "" -> nil
+      message_id -> %{"message_id" => message_id}
+    end
   end
 
   def answer_callback_query(token, callback_query_id, text \\ nil, opts \\ []) do

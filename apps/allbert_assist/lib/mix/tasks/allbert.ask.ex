@@ -30,6 +30,7 @@ defmodule Mix.Tasks.Allbert.Ask do
   use Mix.Task
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Channels.LocalSurface
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.MediaOutputs
@@ -106,9 +107,13 @@ defmodule Mix.Tasks.Allbert.Ask do
   end
 
   defp submit(prompt, opts, voice_result) do
+    channel = opts[:channel] || :cli
+    user_id = blank_to_nil(opts[:user]) || blank_to_nil(opts[:operator]) || "local"
+    request_id = Ecto.UUID.generate()
+
     %{
       text: prompt,
-      channel: opts[:channel] || :cli
+      channel: channel
     }
     |> maybe_put(:user_id, blank_to_nil(opts[:user]))
     |> maybe_put(:operator_id, blank_to_nil(opts[:operator]))
@@ -116,8 +121,27 @@ defmodule Mix.Tasks.Allbert.Ask do
     |> maybe_put(:session_id, blank_to_nil(opts[:session]))
     |> maybe_put(:active_app, blank_to_nil(opts[:active_app]))
     |> maybe_put(:new_thread, opts[:new_thread])
-    |> maybe_put(:metadata, voice_request_metadata(voice_result))
+    |> maybe_put_local_surface_ref(channel, %{
+      request_id: request_id,
+      user_id: user_id,
+      thread_id: blank_to_nil(opts[:thread]),
+      session_id: blank_to_nil(opts[:session])
+    })
+    |> merge_metadata(voice_request_metadata(voice_result))
     |> Runtime.submit_user_input()
+  end
+
+  defp maybe_put_local_surface_ref(attrs, channel, ref_attrs) do
+    case LocalSurface.thread_ref(channel, ref_attrs) do
+      {:ok, ref} ->
+        attrs
+        |> Map.put(:channel_thread_ref, ref.channel_thread_ref)
+        |> Map.put(:provider_message_id, ref.provider_message_id)
+        |> merge_metadata(ref.metadata)
+
+      {:error, :unknown_local_surface} ->
+        attrs
+    end
   end
 
   defp print_result({:ok, response}) do
@@ -298,6 +322,12 @@ defmodule Mix.Tasks.Allbert.Ask do
 
   defp voice_request_metadata(%{voice_metadata: voice_metadata}) do
     %{voice: voice_metadata}
+  end
+
+  defp merge_metadata(params, nil), do: params
+
+  defp merge_metadata(params, metadata) when is_map(metadata) do
+    Map.update(params, :metadata, metadata, &Map.merge(&1, metadata))
   end
 
   defp validate_identity!(opts) do

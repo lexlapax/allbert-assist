@@ -8,6 +8,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
   alias AllbertAssist.Channels.Telegram.Renderer
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Objectives
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -70,7 +71,21 @@ defmodule AllbertAssist.Channels.TelegramTest do
       assert fields.external_user_id == "123"
       assert fields.external_chat_id == "456"
       assert fields.external_message_id == "10"
+      assert fields.message_thread_id == nil
+      assert fields.reply_to_message_id == nil
       assert fields.text == "hello"
+    end
+
+    test "parses topic and reply metadata for threaded placement" do
+      update =
+        text_update(104, "reply in topic", 22)
+        |> put_in(["message", "message_thread_id"], 7)
+        |> put_in(["message", "reply_to_message"], %{"message_id" => 21})
+
+      assert {:text_message, fields} = Parser.parse_update(update)
+      assert fields.external_message_id == "22"
+      assert fields.message_thread_id == "7"
+      assert fields.reply_to_message_id == "21"
     end
 
     test "parses voice notes" do
@@ -133,6 +148,24 @@ defmodule AllbertAssist.Channels.TelegramTest do
 
       assert {:ok, %{"message_id" => 99}} =
                Client.send_message("token", "456", "hello", plug: {Req.Test, __MODULE__})
+
+      Req.Test.expect(__MODULE__, fn conn ->
+        assert conn.request_path == "/bottoken/sendMessage"
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        decoded = Jason.decode!(body)
+        assert decoded["chat_id"] == "456"
+        assert decoded["text"] == "threaded"
+        assert decoded["reply_parameters"] == %{"message_id" => "10"}
+        assert decoded["message_thread_id"] == "7"
+        json(conn, %{"ok" => true, "result" => %{"message_id" => 100}})
+      end)
+
+      assert {:ok, %{"message_id" => 100}} =
+               Client.send_message("token", "456", "threaded",
+                 reply_to_message_id: "10",
+                 message_thread_id: "7",
+                 plug: {Req.Test, __MODULE__}
+               )
 
       Req.Test.expect(__MODULE__, fn conn ->
         assert conn.request_path == "/bottoken/answerCallbackQuery"
@@ -310,6 +343,7 @@ defmodule AllbertAssist.Channels.TelegramTest do
           decoded = Jason.decode!(body)
           assert decoded["chat_id"] == "456"
           assert decoded["text"] =~ "Runtime response: hello from tg"
+          assert decoded["reply_parameters"] == %{"message_id" => "10"}
           json(conn, %{"ok" => true, "result" => %{"message_id" => 99}})
       end)
 
@@ -334,8 +368,59 @@ defmodule AllbertAssist.Channels.TelegramTest do
              ]
 
       assert_received {:runtime_request, %{channel: "telegram", user_id: "alice"} = request}
+      assert request.provider_message_id == "10"
+      assert request.channel_thread_ref.channel == "telegram"
+      assert request.channel_thread_ref.receiver_account_ref =~ "telegram:bot:ptk_"
+      assert request.channel_thread_ref.receiver_account_ref =~ ":chat:456"
+
+      assert request.channel_thread_ref.provider_thread_ref["provider_thread_root"] ==
+               "message:10"
+
       assert request.metadata.external_event_id == "210"
       assert request.metadata.external_chat_id == "456"
+
+      refs =
+        ConversationMessageRef
+        |> where([ref], ref.channel == "telegram")
+        |> order_by([ref], asc: ref.direction)
+        |> Repo.all()
+
+      assert Enum.any?(refs, &(&1.direction == "in" and &1.provider_message_id == "10"))
+      assert Enum.any?(refs, &(&1.direction == "out" and &1.provider_message_id == "99"))
+    end
+
+    test "suppresses Telegram echoes before runtime resubmission" do
+      configure_telegram!(identity_map: [%{external_user_id: "123", user_id: "alice"}])
+      configure_runtime!()
+
+      Req.Test.stub(__MODULE__, fn
+        %{request_path: "/bottoken/getUpdates", query_string: query_string} = conn ->
+          query = Query.decode(query_string)
+
+          updates =
+            case query["offset"] do
+              "1" -> [text_update(240, "first")]
+              "241" -> [text_update(241, "bot echo", 99)]
+            end
+
+          json(conn, %{"ok" => true, "result" => updates || []})
+
+        %{request_path: "/bottoken/sendMessage"} = conn ->
+          json(conn, %{"ok" => true, "result" => %{"message_id" => 99}})
+      end)
+
+      server = :"telegram-echo-#{System.unique_integer([:positive])}"
+      start_telegram_server!(server)
+
+      assert {:ok, %{processed: 1}} = Adapter.poll_once(server)
+      assert_received {:runtime_request, %{text: "first"}}
+
+      assert {:ok, %{processed: 0, rejected: 1, failed: 0}} = Adapter.poll_once(server)
+      refute_received {:runtime_request, %{text: "bot echo"}}
+
+      event = Channels.get_event_by_external_id("telegram", "241")
+      assert event.status == "rejected"
+      assert event.reason == ":echo_suppressed"
     end
 
     test "mapped voice note downloads, transcribes, and submits text through runtime" do
@@ -593,11 +678,11 @@ defmodule AllbertAssist.Channels.TelegramTest do
     pid
   end
 
-  defp text_update(update_id, text \\ "hello") do
+  defp text_update(update_id, text \\ "hello", message_id \\ 10) do
     %{
       "update_id" => update_id,
       "message" => %{
-        "message_id" => 10,
+        "message_id" => message_id,
         "from" => %{"id" => 123},
         "chat" => %{"id" => 456, "type" => "private"},
         "text" => text

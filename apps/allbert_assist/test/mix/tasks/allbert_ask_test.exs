@@ -6,6 +6,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Execution.Audit
   alias AllbertAssist.Memory
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -92,6 +93,25 @@ defmodule Mix.Tasks.Allbert.AskTest do
     assert output =~ "Thread: thr_"
     assert output =~ "Actions:"
     assert output =~ "- direct_answer (completed)"
+
+    assert_received {:agent_request,
+                     %{
+                       channel: :cli,
+                       provider_message_id: provider_message_id,
+                       channel_thread_ref: channel_thread_ref
+                     }}
+
+    assert String.starts_with?(provider_message_id, "cli:in:")
+    assert channel_thread_ref.channel == "cli"
+    assert channel_thread_ref.receiver_account_ref == "cli:default"
+    assert channel_thread_ref.provider_thread_ref["provider"] == "local_cli"
+    assert channel_thread_ref.provider_thread_ref["surface"] == "cli"
+
+    assert [%ConversationMessageRef{direction: "in"}] =
+             Repo.all(
+               from ref in ConversationMessageRef,
+                 where: ref.channel == "cli" and ref.provider_message_id == ^provider_message_id
+             )
   end
 
   test "passes user and new thread options through the runtime" do
