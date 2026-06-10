@@ -48,6 +48,7 @@ defmodule AllbertAssist.Settings.PublicSurfaceSchemaTest do
     assert Settings.safe_write_key?("openai_api.clients.local.rate_limit.limit")
     assert Settings.safe_write_key?("public_protocol.result_readback_sweep_interval_ms")
     assert Settings.safe_write_key?("permissions.public_surface_call_inbound")
+    assert Settings.safe_write_key?("permissions.channel_message_inbound")
 
     assert {:ok, resolved} =
              Settings.put("mcp_server.streamable_http.port", 4100, %{audit?: false})

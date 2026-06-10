@@ -200,6 +200,41 @@ defmodule AllbertAssist.ChannelsTest do
       refute telegram =~ "123"
       refute email =~ "alice"
     end
+
+    test "provider thread roots participate in session derivation without leaking ids" do
+      root_a = "T1:C1:thread-a"
+      root_b = "T1:C1:thread-b"
+
+      slack_a = Channels.derive_session_id("slack", "U123", root_a)
+      slack_b = Channels.derive_session_id("slack", "U123", root_b)
+
+      assert slack_a == Channels.derive_session_id("slack", "U123", root_a)
+      assert slack_a != slack_b
+      assert String.starts_with?(slack_a, "ch_sl_")
+      assert String.length(slack_a) == 38
+      refute slack_a =~ "U123"
+      refute slack_a =~ "thread-a"
+    end
+  end
+
+  describe "channel descriptors" do
+    test "registered channel plugins declare approval primitives and threading" do
+      descriptors = Map.new(PluginRegistry.registered_channels(), &{&1.channel_id, &1})
+
+      assert %{primitives: telegram_primitives, threading: :reply_chain} =
+               Map.fetch!(descriptors, "telegram")
+
+      assert :button in telegram_primitives
+      assert :typed_command in telegram_primitives
+      assert :list in telegram_primitives
+
+      assert %{primitives: email_primitives, threading: :reply_chain} =
+               Map.fetch!(descriptors, "email")
+
+      refute :button in email_primitives
+      assert :typed_command in email_primitives
+      assert :list in email_primitives
+    end
   end
 
   describe "channel summaries" do

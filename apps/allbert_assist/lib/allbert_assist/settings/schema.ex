@@ -126,6 +126,7 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.mcp_tool_call",
     "permissions.mcp_resource_read",
     "permissions.public_surface_call_inbound",
+    "permissions.channel_message_inbound",
     "mcp_server.schema_version",
     "mcp_server.enabled",
     "mcp_server.stdio.enabled",
@@ -2103,6 +2104,13 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["needs_confirmation", "denied"]
     },
+    "permissions.channel_message_inbound" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["needs_confirmation", "denied"]
+    },
     "permissions.browser_session_start" => %{
       type: :enum,
       default: "needs_confirmation",
@@ -3052,6 +3060,7 @@ defmodule AllbertAssist.Settings.Schema do
       "mcp_tool_call" => "needs_confirmation",
       "mcp_resource_read" => "allowed",
       "public_surface_call_inbound" => "needs_confirmation",
+      "channel_message_inbound" => "needs_confirmation",
       "browser_session_start" => "needs_confirmation",
       "browser_navigate" => "needs_confirmation",
       "browser_extract" => "allowed",
@@ -4931,7 +4940,7 @@ defmodule AllbertAssist.Settings.Schema do
   def plugin_schema do
     :plugin
     |> safe_registered_settings()
-    |> Enum.flat_map(&normalize_plugin_schema_entry/1)
+    |> Enum.flat_map(&normalize_plugin_schema_entry(&1, []))
     |> Map.new()
   end
 
@@ -4996,22 +5005,27 @@ defmodule AllbertAssist.Settings.Schema do
   defp normalize_app_schema_entry(_entry), do: []
 
   @doc false
-  def normalize_plugin_schema_entries(entries) when is_list(entries) do
+  def normalize_plugin_schema_entries(entries, opts \\ [])
+
+  def normalize_plugin_schema_entries(entries, opts) when is_list(entries) do
     entries
-    |> Enum.flat_map(&normalize_plugin_schema_entry/1)
+    |> Enum.flat_map(&normalize_plugin_schema_entry(&1, opts))
     |> Map.new()
   end
 
-  def normalize_plugin_schema_entries(_entries), do: %{}
+  def normalize_plugin_schema_entries(_entries, _opts), do: %{}
 
-  defp normalize_plugin_schema_entry(entry) when is_map(entry) do
+  defp normalize_plugin_schema_entry(entry, opts) when is_map(entry) do
     key = schema_field(entry, :key)
 
     cond do
       valid_plugin_setting_key?(key) ->
         normalize_schema_entry(entry)
 
-      Map.has_key?(@schema, key) ->
+      channel_setting_key_allowed?(key, opts) ->
+        normalize_schema_entry(entry)
+
+      Map.has_key?(@schema, key) and not channel_setting_key?(key) ->
         normalize_schema_entry(entry)
 
       true ->
@@ -5019,7 +5033,7 @@ defmodule AllbertAssist.Settings.Schema do
     end
   end
 
-  defp normalize_plugin_schema_entry(_entry), do: []
+  defp normalize_plugin_schema_entry(_entry, _opts), do: []
 
   defp normalize_schema_entry(entry) when is_map(entry) do
     key = schema_field(entry, :key)
@@ -5075,6 +5089,38 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp valid_plugin_setting_key?(_key), do: false
+
+  defp channel_setting_key_allowed?(key, opts) when is_binary(key) do
+    channel_setting_key?(key) and trusted_source_tree_plugin?(Keyword.get(opts, :plugin)) and
+      Enum.any?(channel_settings_prefixes(Keyword.get(opts, :plugin)), fn prefix ->
+        key == prefix or String.starts_with?(key, prefix <> ".")
+      end)
+  end
+
+  defp channel_setting_key_allowed?(_key, _opts), do: false
+
+  defp channel_setting_key?(key) when is_binary(key), do: String.starts_with?(key, "channels.")
+  defp channel_setting_key?(_key), do: false
+
+  defp trusted_source_tree_plugin?(plugin) when is_map(plugin) do
+    Map.get(plugin, :source) in [:shipped, :project] and
+      Map.get(plugin, :trust_status) == :trusted
+  end
+
+  defp trusted_source_tree_plugin?(_plugin), do: false
+
+  defp channel_settings_prefixes(plugin) when is_map(plugin) do
+    plugin
+    |> Map.get(:channels, [])
+    |> Enum.flat_map(fn
+      %{settings_prefix: prefix} when is_binary(prefix) -> [prefix]
+      %{"settings_prefix" => prefix} when is_binary(prefix) -> [prefix]
+      _descriptor -> []
+    end)
+    |> Enum.uniq()
+  end
+
+  defp channel_settings_prefixes(_plugin), do: []
 
   defp reserved_plugin_settings_namespace?(namespace) do
     namespace in [

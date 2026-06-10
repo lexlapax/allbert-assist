@@ -28,6 +28,8 @@ defmodule AllbertAssist.Plugins.Telegram do
         settings_prefix: "channels.telegram",
         identity_map_key: "channels.telegram.identity_map",
         session_strategy: {:telegram_chat, prefix: "ch_tg_"},
+        primitives: [:button, :typed_command, :list],
+        threading: :reply_chain,
         plugin_id: plugin_id(),
         source: :shipped,
         status: :enabled

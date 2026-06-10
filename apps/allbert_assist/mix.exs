@@ -67,6 +67,7 @@ defmodule AllbertAssist.MixProject do
       {:swoosh, "~> 1.16"},
       {:gen_smtp, "~> 1.0"},
       {:req, "~> 0.5"},
+      {:websockex, "~> 0.5"},
       {:hermes_mcp, "~> 0.14"},
       {:plug, "~> 1.19"},
       {:bandit, "~> 1.5"},
