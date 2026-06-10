@@ -158,6 +158,8 @@ defmodule AllbertAssist.Channels.Slack.Client do
   defp stub_chat_post_message(payload, opts) do
     case stub_result(opts) do
       :success ->
+        maybe_capture(opts, {:slack_chat_post_message, payload})
+
         channel = Map.get(payload, :channel, Map.get(payload, "channel"))
         text = Map.get(payload, :text, Map.get(payload, "text", ""))
 
@@ -203,6 +205,13 @@ defmodule AllbertAssist.Channels.Slack.Client do
   end
 
   defp validate_token_ref(_token_ref), do: {:error, :invalid_slack_token_ref}
+
+  defp maybe_capture(opts, message) do
+    case Keyword.get(opts, :capture_to) do
+      pid when is_pid(pid) -> send(pid, message)
+      _other -> :ok
+    end
+  end
 
   defp simulated_ts do
     {mega, seconds, micro} = :os.timestamp()

@@ -17,6 +17,9 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels email unmap --external-user EMAIL
       mix allbert.channels email simulate --external-user EMAIL [--new-thread] "prompt"
       mix allbert.channels email poll-once
+      mix allbert.channels identity-links add --link LINK --channel CHANNEL --receiver RECEIVER --external-user EXTERNAL --user USER
+      mix allbert.channels identity-links list [--link LINK] [--user USER]
+      mix allbert.channels identity-links remove --link LINK --channel CHANNEL --receiver RECEIVER --external-user EXTERNAL
       mix allbert.channels discord set-token TOKEN_REF
       mix allbert.channels discord set-application-id APPLICATION_ID
       mix allbert.channels discord add-guild GUILD_ID
@@ -44,6 +47,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.Slack
   alias AllbertAssist.Channels.Telegram
+  alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
@@ -57,7 +61,9 @@ defmodule Mix.Tasks.Allbert.Channels do
     custom_id: :string,
     external_user: :string,
     guild: :string,
+    link: :string,
     new_thread: :boolean,
+    receiver: :string,
     thread_ts: :string,
     thread_channel: :string,
     type: :string,
@@ -158,6 +164,56 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   defp dispatch(["email", "poll-once"]) do
     {:ok, {:poll, "email", Email.Adapter.poll_once()}}
+  end
+
+  defp dispatch(["identity-links", "add" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+
+    attrs = %{
+      link_id: required!(opts, :link),
+      user_id: required!(opts, :user),
+      channel: required!(opts, :channel),
+      receiver_account_ref: required!(opts, :receiver),
+      external_user_id: required!(opts, :external_user)
+    }
+
+    with {:ok, link} <- ChannelThread.link_identity(attrs) do
+      {:ok, {:identity_link, link}}
+    end
+  end
+
+  defp dispatch(["identity-links", "list" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+
+    filters =
+      %{
+        link_id: Keyword.get(opts, :link),
+        user_id: Keyword.get(opts, :user),
+        channel: Keyword.get(opts, :channel),
+        receiver_account_ref: Keyword.get(opts, :receiver)
+      }
+      |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
+      |> Map.new()
+
+    {:ok, {:identity_links, ChannelThread.list_identity_links(filters)}}
+  end
+
+  defp dispatch(["identity-links", "remove" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+
+    attrs = %{
+      link_id: required!(opts, :link),
+      channel: required!(opts, :channel),
+      receiver_account_ref: required!(opts, :receiver),
+      external_user_id: required!(opts, :external_user)
+    }
+
+    with {:ok, link} <- ChannelThread.unlink_identity(attrs) do
+      {:ok, {:identity_unlinked, link}}
+    end
   end
 
   defp dispatch(["discord", "set-token", token_ref]) do
@@ -319,6 +375,9 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels email unmap --external-user EMAIL
       mix allbert.channels email simulate --external-user EMAIL [--new-thread] "prompt"
       mix allbert.channels email poll-once
+      mix allbert.channels identity-links add --link LINK --channel CHANNEL --receiver RECEIVER --external-user EXTERNAL --user USER
+      mix allbert.channels identity-links list [--link LINK] [--user USER]
+      mix allbert.channels identity-links remove --link LINK --channel CHANNEL --receiver RECEIVER --external-user EXTERNAL
       mix allbert.channels discord set-token TOKEN_REF
       mix allbert.channels discord set-application-id APPLICATION_ID
       mix allbert.channels discord add-guild GUILD_ID
@@ -385,6 +444,22 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   defp print_result({:ok, {:unmapped, channel, external_user_id}}) do
     Mix.shell().info("#{channel} #{external_user_id} unmapped")
+  end
+
+  defp print_result({:ok, {:identity_link, link}}) do
+    Mix.shell().info(identity_link_line(link, "linked"))
+  end
+
+  defp print_result({:ok, {:identity_unlinked, link}}) do
+    Mix.shell().info(identity_link_line(link, "unlinked"))
+  end
+
+  defp print_result({:ok, {:identity_links, []}}) do
+    Mix.shell().info("identity links: none")
+  end
+
+  defp print_result({:ok, {:identity_links, links}}) do
+    Enum.each(links, &Mix.shell().info(identity_link_line(&1, "link")))
   end
 
   defp print_result({:ok, {:simulate, event, rendered}}) do
@@ -722,6 +797,10 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   defp doctor_status(doctor) do
     Map.get(doctor, "status", Map.get(doctor, :status, "unknown"))
+  end
+
+  defp identity_link_line(link, prefix) do
+    "#{prefix} #{link.link_id} user=#{link.user_id} channel=#{link.channel} receiver=#{link.receiver_account_ref} external_user=#{link.external_user_id}"
   end
 
   defp response_error(%{error: error}), do: error

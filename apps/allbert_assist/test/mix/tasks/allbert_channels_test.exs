@@ -227,6 +227,91 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     end
   end
 
+  test "manages explicit cross-channel identity links" do
+    add_slack_output =
+      capture_io(fn ->
+        assert :ok =
+                 ChannelsTask.run([
+                   "identity-links",
+                   "add",
+                   "--link",
+                   "link_alice",
+                   "--channel",
+                   "slack",
+                   "--receiver",
+                   "slack:team:T0123ABCDE",
+                   "--external-user",
+                   "U0123ABCDE",
+                   "--user",
+                   "alice"
+                 ])
+      end)
+
+    assert add_slack_output =~ "linked link_alice user=alice channel=slack"
+    assert add_slack_output =~ "receiver=slack:team:T0123ABCDE"
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok =
+               ChannelsTask.run([
+                 "identity-links",
+                 "add",
+                 "--link",
+                 "link_alice",
+                 "--channel",
+                 "discord",
+                 "--receiver",
+                 "discord:app:123456:guild:987654321",
+                 "--external-user",
+                 "11111",
+                 "--user",
+                 "alice"
+               ])
+    end)
+
+    Mix.Task.reenable("allbert.channels")
+
+    list_output =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["identity-links", "list", "--link", "link_alice"])
+      end)
+
+    assert list_output =~ "link link_alice user=alice channel=discord"
+    assert list_output =~ "link link_alice user=alice channel=slack"
+
+    Mix.Task.reenable("allbert.channels")
+
+    remove_output =
+      capture_io(fn ->
+        assert :ok =
+                 ChannelsTask.run([
+                   "identity-links",
+                   "remove",
+                   "--link",
+                   "link_alice",
+                   "--channel",
+                   "slack",
+                   "--receiver",
+                   "slack:team:T0123ABCDE",
+                   "--external-user",
+                   "U0123ABCDE"
+                 ])
+      end)
+
+    assert remove_output =~ "unlinked link_alice user=alice channel=slack"
+
+    Mix.Task.reenable("allbert.channels")
+
+    list_after_remove =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["identity-links", "list", "--link", "link_alice"])
+      end)
+
+    assert list_after_remove =~ "link link_alice user=alice channel=discord"
+    refute list_after_remove =~ "channel=slack"
+  end
+
   test "maps identities and simulates both channels without provider access" do
     capture_io(fn ->
       assert :ok =

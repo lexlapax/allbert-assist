@@ -172,21 +172,7 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   @doc "Create an explicit cross-channel identity link entry."
   @spec link_identity(map()) :: {:ok, CrossChannelIdentityLink.t()} | {:error, term()}
   def link_identity(attrs) when is_map(attrs) do
-    attrs =
-      attrs
-      |> atomize_known_keys([
-        :owner_scope,
-        :link_id,
-        :user_id,
-        :channel,
-        :receiver_account_ref,
-        :external_user_id
-      ])
-      |> Map.put_new(:owner_scope, @owner_scope)
-      |> Map.update(:owner_scope, @owner_scope, &normalize_string/1)
-      |> Map.update(:channel, nil, &normalize_string/1)
-      |> Map.update(:receiver_account_ref, nil, &normalize_string/1)
-      |> Map.update(:external_user_id, nil, &normalize_string/1)
+    attrs = normalize_identity_link_attrs(attrs)
 
     case Repo.get_by(CrossChannelIdentityLink, identity_link_keys(attrs)) do
       nil ->
@@ -194,12 +180,49 @@ defmodule AllbertAssist.Conversations.ChannelThread do
         |> CrossChannelIdentityLink.changeset(attrs)
         |> Repo.insert()
 
-      %CrossChannelIdentityLink{} = existing ->
+      %CrossChannelIdentityLink{user_id: existing_user_id} = existing
+      when existing_user_id == attrs.user_id ->
         {:ok, existing}
+
+      %CrossChannelIdentityLink{} = existing ->
+        {:error, {:identity_link_conflict, existing.user_id}}
     end
   end
 
   def link_identity(_attrs), do: {:error, :invalid_identity_link}
+
+  @doc "List explicit cross-channel identity links."
+  @spec list_identity_links(map()) :: [CrossChannelIdentityLink.t()]
+  def list_identity_links(filters \\ %{}) when is_map(filters) do
+    filters = normalize_identity_link_attrs(filters)
+
+    CrossChannelIdentityLink
+    |> where([link], link.owner_scope == ^Map.get(filters, :owner_scope, @owner_scope))
+    |> maybe_filter(:link_id, Map.get(filters, :link_id))
+    |> maybe_filter(:user_id, Map.get(filters, :user_id))
+    |> maybe_filter(:channel, Map.get(filters, :channel))
+    |> maybe_filter(:receiver_account_ref, Map.get(filters, :receiver_account_ref))
+    |> order_by([link],
+      asc: link.link_id,
+      asc: link.channel,
+      asc: link.receiver_account_ref,
+      asc: link.external_user_id
+    )
+    |> Repo.all()
+  end
+
+  @doc "Delete one explicit cross-channel identity link entry."
+  @spec unlink_identity(map()) :: {:ok, CrossChannelIdentityLink.t()} | {:error, term()}
+  def unlink_identity(attrs) when is_map(attrs) do
+    attrs = normalize_identity_link_attrs(attrs)
+
+    case Repo.get_by(CrossChannelIdentityLink, identity_link_keys(attrs)) do
+      nil -> {:error, :not_found}
+      %CrossChannelIdentityLink{} = existing -> Repo.delete(existing)
+    end
+  end
+
+  def unlink_identity(_attrs), do: {:error, :invalid_identity_link}
 
   defp normalize_message_ref(attrs) do
     attrs = atomize_message_ref_keys(attrs)
@@ -311,6 +334,33 @@ defmodule AllbertAssist.Conversations.ChannelThread do
     ])
     |> Map.take([:owner_scope, :link_id, :channel, :receiver_account_ref, :external_user_id])
   end
+
+  defp normalize_identity_link_attrs(attrs) do
+    attrs
+    |> atomize_known_keys([
+      :owner_scope,
+      :link_id,
+      :user_id,
+      :channel,
+      :receiver_account_ref,
+      :external_user_id
+    ])
+    |> Map.put_new(:owner_scope, @owner_scope)
+    |> Map.update(:owner_scope, @owner_scope, &normalize_string/1)
+    |> Map.update(:link_id, nil, &normalize_string/1)
+    |> Map.update(:user_id, nil, &normalize_string/1)
+    |> Map.update(:channel, nil, &normalize_string/1)
+    |> Map.update(:receiver_account_ref, nil, &normalize_string/1)
+    |> Map.update(:external_user_id, nil, &normalize_string/1)
+  end
+
+  defp maybe_filter(query, _field, value) when value in [nil, ""], do: query
+  defp maybe_filter(query, :link_id, value), do: where(query, [link], link.link_id == ^value)
+  defp maybe_filter(query, :user_id, value), do: where(query, [link], link.user_id == ^value)
+  defp maybe_filter(query, :channel, value), do: where(query, [link], link.channel == ^value)
+
+  defp maybe_filter(query, :receiver_account_ref, value),
+    do: where(query, [link], link.receiver_account_ref == ^value)
 
   defp normalize_direction(value) when value in [:in, "in"], do: {:ok, "in"}
   defp normalize_direction(value) when value in [:out, "out"], do: {:ok, "out"}

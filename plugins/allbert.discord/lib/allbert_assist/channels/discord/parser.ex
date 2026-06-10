@@ -117,6 +117,7 @@ defmodule AllbertAssist.Channels.Discord.Parser do
     user_id = to_string(field(attrs, :user_id) || field(attrs, :user))
     message_id = to_string(field(attrs, :message_id) || "sim_" <> Ecto.UUID.generate())
     application_id = optional_string(field(attrs, :application_id))
+    message_reference = field(attrs, :message_reference)
     text = to_string(field(attrs, :text) || "")
 
     %{
@@ -130,6 +131,7 @@ defmodule AllbertAssist.Channels.Discord.Parser do
           "thread_channel_id" => thread_channel_id,
           "application_id" => application_id,
           "content" => text,
+          "message_reference" => message_reference,
           "author" => %{"id" => user_id, "username" => "fixture-user", "bot" => false},
           "mentions" => mentions(application_id)
         }

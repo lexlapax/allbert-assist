@@ -169,12 +169,16 @@ defmodule AllbertAssist.Channels.Discord.Client do
   defp stub_create_message(channel_id, payload, opts) do
     case stub_result(opts) do
       :success ->
+        maybe_capture(opts, {:discord_create_message, to_string(channel_id), payload})
+
         {:ok,
          %{
            "id" => "bot_" <> Ecto.UUID.generate(),
            "channel_id" => to_string(channel_id),
            "content" => Map.get(payload, :content, Map.get(payload, "content", "")),
-           "components" => Map.get(payload, :components, Map.get(payload, "components", []))
+           "components" => Map.get(payload, :components, Map.get(payload, "components", [])),
+           "message_reference" =>
+             Map.get(payload, :message_reference, Map.get(payload, "message_reference"))
          }}
 
       :unauthorized ->
@@ -206,6 +210,13 @@ defmodule AllbertAssist.Channels.Discord.Client do
   end
 
   defp validate_token_ref(_token_ref), do: {:error, :invalid_discord_token_ref}
+
+  defp maybe_capture(opts, message) do
+    case Keyword.get(opts, :capture_to) do
+      pid when is_pid(pid) -> send(pid, message)
+      _other -> :ok
+    end
+  end
 
   defp redact_body(body) when is_map(body), do: Map.drop(body, ["token", "authorization"])
   defp redact_body(_body), do: %{}
