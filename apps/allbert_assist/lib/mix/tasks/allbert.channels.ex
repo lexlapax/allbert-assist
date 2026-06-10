@@ -23,6 +23,7 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels
+  alias AllbertAssist.Channels.Discord
   alias AllbertAssist.Channels.Email
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.Telegram
@@ -34,8 +35,12 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   @switches [
     chat: :string,
+    channel: :string,
+    custom_id: :string,
     external_user: :string,
+    guild: :string,
     new_thread: :boolean,
+    thread_channel: :string,
     type: :string,
     user: :string
   ]
@@ -136,6 +141,78 @@ defmodule Mix.Tasks.Allbert.Channels do
     {:ok, {:poll, "email", Email.Adapter.poll_once()}}
   end
 
+  defp dispatch(["discord", "set-token", token_ref]) do
+    with :ok <- validate_discord_token_ref(token_ref),
+         {:ok, _setting} <-
+           Settings.put("channels.discord.bot_token_ref", token_ref, %{audit?: false}) do
+      {:ok, {:secret_ref, "discord", "bot_token"}}
+    end
+  end
+
+  defp dispatch(["discord", "set-application-id", application_id]) do
+    with {:ok, _setting} <-
+           Settings.put("channels.discord.application_id", application_id, %{audit?: false}) do
+      {:ok, {:setting, "discord", "application_id", application_id}}
+    end
+  end
+
+  defp dispatch(["discord", "add-guild", guild_id]) do
+    add_setting_list_value!("discord", "allowed_guild_ids", guild_id)
+  end
+
+  defp dispatch(["discord", "remove-guild", guild_id]) do
+    remove_setting_list_value!("discord", "allowed_guild_ids", guild_id)
+  end
+
+  defp dispatch(["discord", "add-channel", channel_id]) do
+    add_setting_list_value!("discord", "allowed_channel_ids", channel_id)
+  end
+
+  defp dispatch(["discord", "remove-channel", channel_id]) do
+    remove_setting_list_value!("discord", "allowed_channel_ids", channel_id)
+  end
+
+  defp dispatch(["discord", "map" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+    put_identity!("discord", required!(opts, :external_user), required!(opts, :user))
+  end
+
+  defp dispatch(["discord", "unmap" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+    remove_identity!("discord", required!(opts, :external_user))
+  end
+
+  defp dispatch(["discord", "simulate" | rest]) do
+    {opts, args, invalid} = parse!(rest)
+    reject_invalid!(invalid)
+
+    simulate_discord!(
+      required!(opts, :guild),
+      required!(opts, :channel),
+      required!(opts, :user),
+      Keyword.get(opts, :thread_channel),
+      single_arg!(args, "Prompt is required")
+    )
+  end
+
+  defp dispatch(["discord", "simulate-callback" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+
+    simulate_discord_callback!(
+      required!(opts, :user),
+      required!(opts, :custom_id)
+    )
+  end
+
+  defp dispatch(["discord", "doctor"]) do
+    with {:ok, response} <- completed_action("discord_doctor", %{}) do
+      {:ok, {:doctor, "discord", response.doctor}}
+    end
+  end
+
   defp dispatch(_args) do
     Mix.raise("""
     Usage:
@@ -151,6 +228,18 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels email unmap --external-user EMAIL
       mix allbert.channels email simulate --external-user EMAIL [--new-thread] "prompt"
       mix allbert.channels email poll-once
+      mix allbert.channels discord set-token TOKEN_REF
+      mix allbert.channels discord set-application-id APPLICATION_ID
+      mix allbert.channels discord add-guild GUILD_ID
+      mix allbert.channels discord remove-guild GUILD_ID
+      mix allbert.channels discord add-channel CHANNEL_ID
+      mix allbert.channels discord remove-channel CHANNEL_ID
+      mix allbert.channels discord map --external-user EXTERNAL --user USER
+      mix allbert.channels discord unmap --external-user EXTERNAL
+      mix allbert.channels discord simulate --guild GUILD --channel CHANNEL --user EXTERNAL "prompt"
+      mix allbert.channels discord simulate --guild GUILD --channel CHANNEL --thread-channel THREAD --user EXTERNAL "prompt"
+      mix allbert.channels discord simulate-callback --user EXTERNAL --custom-id allbert:v1:<verb>:<id>
+      mix allbert.channels discord doctor
     """)
   end
 
@@ -168,11 +257,24 @@ defmodule Mix.Tasks.Allbert.Channels do
     Mix.shell().info("Enabled: #{channel.enabled}")
     Mix.shell().info("Identities: #{channel.identity_count}")
     Mix.shell().info("Credentials: #{credential_status(channel.credential_status)}")
+    maybe_print_doctor(channel)
     Mix.shell().info("Last event: #{inspect(channel.last_event)}")
   end
 
   defp print_result({:ok, {:secret, channel, secret_name}}) do
     Mix.shell().info("#{channel} #{secret_name}=stored")
+  end
+
+  defp print_result({:ok, {:secret_ref, channel, secret_name}}) do
+    Mix.shell().info("#{channel} #{secret_name}_ref=stored")
+  end
+
+  defp print_result({:ok, {:setting, channel, key, _value}}) do
+    Mix.shell().info("#{channel} #{key}=stored")
+  end
+
+  defp print_result({:ok, {:list_setting, channel, key, values}}) do
+    Mix.shell().info("#{channel} #{key}=#{Enum.join(values, ",")}")
   end
 
   defp print_result({:ok, {:identity, channel, external_user_id, user_id}}) do
@@ -193,6 +295,17 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   defp print_result({:ok, {:poll, channel, result}}) do
     Mix.shell().info("#{channel} poll_once: #{inspect(result)}")
+  end
+
+  defp print_result({:ok, {:doctor, channel, result}}) do
+    Mix.shell().info("#{channel} doctor status=#{Map.get(result, :status)}")
+
+    Mix.shell().info(
+      "auth_ok=#{Map.get(result, :auth_ok)} endpoint_ok=#{Map.get(result, :endpoint_ok)}"
+    )
+
+    Mix.shell().info("gateway=#{Map.get(result, :gateway_status)}")
+    Mix.shell().info("bot=#{Map.get(result, :bot_username, "unknown")}")
   end
 
   defp print_result({:error, reason}) do
@@ -266,6 +379,26 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   defp set_email_password!(type, _password), do: {:error, {:unknown_email_password_type, type}}
 
+  defp add_setting_list_value!(channel, key, value) do
+    setting_key = "channels.#{channel}.#{key}"
+    {:ok, values} = Settings.get(setting_key)
+    updated = values |> Kernel.++([to_string(value)]) |> Enum.uniq()
+
+    with {:ok, _setting} <- Settings.put(setting_key, updated, %{audit?: false}) do
+      {:ok, {:list_setting, channel, key, updated}}
+    end
+  end
+
+  defp remove_setting_list_value!(channel, key, value) do
+    setting_key = "channels.#{channel}.#{key}"
+    {:ok, values} = Settings.get(setting_key)
+    updated = Enum.reject(values, &(&1 == to_string(value)))
+
+    with {:ok, _setting} <- Settings.put(setting_key, updated, %{audit?: false}) do
+      {:ok, {:list_setting, channel, key, updated}}
+    end
+  end
+
   defp simulate_telegram!(external_user_id, chat_id, text) do
     with {:ok, settings} <- Channels.channel_settings("telegram"),
          {:ok, user_id} <-
@@ -331,6 +464,47 @@ defmodule Mix.Tasks.Allbert.Channels do
     end
   end
 
+  defp simulate_discord!(guild_id, channel_id, external_user_id, thread_channel_id, text) do
+    with {:ok, settings} <- Channels.channel_settings("discord"),
+         event <-
+           Discord.Parser.simulated_message_event(%{
+             guild_id: guild_id,
+             channel_id: channel_id,
+             thread_channel_id: thread_channel_id,
+             user_id: external_user_id,
+             application_id: Map.get(settings, "application_id"),
+             text: text
+           }),
+         {:ok, adapter} <- Discord.Adapter.start_link(name: nil, client_opts: [mode: :stub]),
+         result <- Discord.Adapter.simulate_gateway_event(adapter, event) do
+      GenServer.stop(adapter)
+      normalize_discord_simulation(result)
+    end
+  end
+
+  defp simulate_discord_callback!(external_user_id, custom_id) do
+    event = %{
+      "t" => "INTERACTION_CREATE",
+      "d" => %{
+        "id" => "sim_" <> Ecto.UUID.generate(),
+        "user" => %{"id" => external_user_id},
+        "data" => %{"custom_id" => custom_id}
+      }
+    }
+
+    with {:ok, adapter} <- Discord.Adapter.start_link(name: nil, client_opts: [mode: :stub]),
+         result <- Discord.Adapter.simulate_gateway_event(adapter, event) do
+      GenServer.stop(adapter)
+      {:ok, {:poll, "discord", result}}
+    end
+  end
+
+  defp normalize_discord_simulation({:ok, {:processed, event, rendered}}) do
+    {:ok, {:simulate, event, Enum.map(rendered, &Map.get(&1, :content, ""))}}
+  end
+
+  defp normalize_discord_simulation(other), do: {:ok, {:poll, "discord", other}}
+
   defp mark_simulated_event(event, response, user_id, session_id) do
     Channels.update_event(event, %{
       status: "processed",
@@ -372,6 +546,12 @@ defmodule Mix.Tasks.Allbert.Channels do
   defp reject_invalid!([]), do: :ok
   defp reject_invalid!(invalid), do: Mix.raise("Invalid option(s): #{inspect(invalid)}")
 
+  defp validate_discord_token_ref("secret://channels/discord/" <> rest) when rest != "",
+    do: :ok
+
+  defp validate_discord_token_ref(_token_ref),
+    do: Mix.raise("Discord set-token accepts only secret://channels/discord/... refs")
+
   defp identity_field(map, key), do: Map.get(map, key, Map.get(map, String.to_atom(key)))
 
   defp credential_status(statuses) when is_map(statuses) do
@@ -383,6 +563,16 @@ defmodule Mix.Tasks.Allbert.Channels do
   end
 
   defp credential_status(_statuses), do: "unknown"
+
+  defp maybe_print_doctor(%{doctor: doctor}) when is_map(doctor) do
+    Mix.shell().info("Doctor: #{doctor_status(doctor)}")
+  end
+
+  defp maybe_print_doctor(_channel), do: :ok
+
+  defp doctor_status(doctor) do
+    Map.get(doctor, "status", Map.get(doctor, :status, "unknown"))
+  end
 
   defp response_error(%{error: error}), do: error
   defp response_error(%{message: message}), do: message

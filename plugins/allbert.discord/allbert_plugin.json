@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "plugin_id": "allbert.discord",
+  "name": "Allbert Discord Channel",
+  "version": "0.52.0",
+  "kind": "channel",
+  "module": "AllbertAssist.Plugins.Discord",
+  "contributions": {
+    "channels": ["discord"],
+    "apps": [],
+    "actions": ["discord_doctor"]
+  }
+}

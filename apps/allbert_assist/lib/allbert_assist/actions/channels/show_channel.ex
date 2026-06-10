@@ -90,6 +90,36 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
     }
   end
 
+  defp detail("discord", settings, summary) do
+    %{
+      channel: "discord",
+      provider: "discord_gateway",
+      enabled: Map.get(settings, "enabled", false),
+      response_style: Map.get(settings, "response_style"),
+      application_id: Map.get(settings, "application_id"),
+      allowed_guild_count: length(Map.get(settings, "allowed_guild_ids", [])),
+      allowed_channel_count: length(Map.get(settings, "allowed_channel_ids", [])),
+      identity_count: length(Map.get(settings, "identity_map", [])),
+      gateway_intents: Map.get(settings, "gateway_intents", []),
+      max_text_bytes: Map.get(settings, "max_text_bytes"),
+      render_approval_buttons: Map.get(settings, "render_approval_buttons"),
+      credential_status: summary.credential_status,
+      doctor: discord_doctor_state(),
+      last_event: summary.last_event
+    }
+  end
+
+  defp detail(channel, settings, summary) do
+    %{
+      channel: channel,
+      provider: summary.provider,
+      enabled: Map.get(settings, "enabled", false),
+      identity_count: length(Map.get(settings, "identity_map", [])),
+      credential_status: summary.credential_status,
+      last_event: summary.last_event
+    }
+  end
+
   defp message(detail) do
     """
     Channel #{detail.channel}: #{detail.provider}
@@ -99,6 +129,13 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
     Last event: #{inspect(detail.last_event)}
     """
     |> String.trim()
+  end
+
+  defp discord_doctor_state do
+    case AllbertAssist.Channels.Discord.Doctor.read_state() do
+      {:ok, state} -> state
+      {:error, :not_found} -> %{"status" => "not_run"}
+    end
   end
 
   defp denied(channel, permission_decision, reason) do

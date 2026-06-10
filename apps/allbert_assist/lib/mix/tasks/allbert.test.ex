@@ -46,7 +46,8 @@ defmodule Mix.Tasks.Allbert.Test do
     "apps/allbert_assist_web/test",
     "plugins/stocksage/test",
     "plugins/allbert.telegram/test",
-    "plugins/allbert.email/test"
+    "plugins/allbert.email/test",
+    "plugins/allbert.discord/test"
   ]
 
   @template_defaults %{
@@ -383,6 +384,7 @@ defmodule Mix.Tasks.Allbert.Test do
           "test",
           "../../plugins/allbert.telegram/test",
           "../../plugins/allbert.email/test",
+          "../../plugins/allbert.discord/test",
           "../../plugins/allbert.notes_files/test"
         ],
         env
@@ -3589,12 +3591,14 @@ defmodule Mix.Tasks.Allbert.Test do
       String.starts_with?(path, "plugins/stocksage/") -> :stocksage
       String.starts_with?(path, "plugins/allbert.telegram/") -> :telegram
       String.starts_with?(path, "plugins/allbert.email/") -> :email
+      String.starts_with?(path, "plugins/allbert.discord/") -> :discord
       String.starts_with?(path, "plugins/allbert.notes_files/") -> :notes_files
       true -> :unknown
     end
   end
 
-  defp app_cwd(owner) when owner in [:core, :stocksage, :telegram, :email, :notes_files] do
+  defp app_cwd(owner)
+       when owner in [:core, :stocksage, :telegram, :email, :discord, :notes_files] do
     Path.join(root(), "apps/allbert_assist")
   end
 
