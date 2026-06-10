@@ -9,6 +9,7 @@ defmodule AllbertAssist.Plugin.Discovery do
     "allbert.telegram" => AllbertAssist.Plugins.Telegram,
     "allbert.email" => AllbertAssist.Plugins.Email,
     "allbert.discord" => AllbertAssist.Plugins.Discord,
+    "allbert.slack" => AllbertAssist.Plugins.Slack,
     "allbert.notes_files" => AllbertNotesFiles.Plugin,
     "allbert.browser" => AllbertBrowser.Plugin,
     "allbert.artifacts" => AllbertArtifacts.Plugin,

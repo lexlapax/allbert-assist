@@ -39,6 +39,7 @@ defmodule AllbertAssist.MixProject do
       Path.expand("../../plugins/allbert.telegram/lib", __DIR__),
       Path.expand("../../plugins/allbert.email/lib", __DIR__),
       Path.expand("../../plugins/allbert.discord/lib", __DIR__),
+      Path.expand("../../plugins/allbert.slack/lib", __DIR__),
       Path.expand("../../plugins/allbert.notes_files/lib", __DIR__),
       Path.expand("../../plugins/allbert.browser/lib", __DIR__),
       Path.expand("../../plugins/allbert.artifacts/lib/allbert_artifacts", __DIR__),

@@ -109,6 +109,24 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
     }
   end
 
+  defp detail("slack", settings, summary) do
+    %{
+      channel: "slack",
+      provider: "slack_socket_mode",
+      enabled: Map.get(settings, "enabled", false),
+      response_style: Map.get(settings, "response_style"),
+      workspace_team_id: Map.get(settings, "workspace_team_id"),
+      allowed_channel_count: length(Map.get(settings, "allowed_channel_ids", [])),
+      identity_count: length(Map.get(settings, "identity_map", [])),
+      socket_mode: get_in(settings, ["socket_mode", "enabled"]),
+      max_text_bytes: Map.get(settings, "max_text_bytes"),
+      render_approval_buttons: Map.get(settings, "render_approval_buttons"),
+      credential_status: summary.credential_status,
+      doctor: slack_doctor_state(),
+      last_event: summary.last_event
+    }
+  end
+
   defp detail(channel, settings, summary) do
     %{
       channel: channel,
@@ -133,6 +151,13 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
 
   defp discord_doctor_state do
     case AllbertAssist.Channels.Discord.Doctor.read_state() do
+      {:ok, state} -> state
+      {:error, :not_found} -> %{"status" => "not_run"}
+    end
+  end
+
+  defp slack_doctor_state do
+    case AllbertAssist.Channels.Slack.Doctor.read_state() do
       {:ok, state} -> state
       {:error, :not_found} -> %{"status" => "not_run"}
     end
