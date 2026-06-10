@@ -3,6 +3,7 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
 
   import ExUnit.CaptureIO
 
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
@@ -22,6 +23,7 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
+    ensure_stocksage_app_registered!()
     Mix.Task.reenable("allbert.mcp_server")
 
     on_exit(fn ->
@@ -142,6 +144,19 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
   defp enable_mcp_stdio! do
     assert {:ok, _setting} = Settings.put("mcp_server.enabled", true, %{audit?: false})
     assert {:ok, _setting} = Settings.put("mcp_server.stdio.enabled", true, %{audit?: false})
+  end
+
+  defp ensure_stocksage_app_registered! do
+    assert AppRegistry.register(StockSage.App) in [
+             {:ok, :stocksage},
+             {:error, {:app_id_taken, :stocksage}}
+           ]
+
+    assert {:ok, %{module: StockSage.App}} = AppRegistry.lookup(:stocksage)
+
+    assert Enum.any?(AppRegistry.registered_memory_namespaces(), fn namespace ->
+             namespace.app_id == :stocksage and namespace.namespace == :stocksage
+           end)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
