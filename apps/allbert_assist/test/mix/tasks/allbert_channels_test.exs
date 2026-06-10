@@ -62,6 +62,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
     PluginRegistry.register_module(AllbertAssist.Plugins.Email)
     PluginRegistry.register_module(AllbertAssist.Plugins.Discord)
+    PluginRegistry.register_module(AllbertAssist.Plugins.Slack)
     AllbertAssist.Settings.Fragments.clear_cache()
   end
 
@@ -79,6 +80,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert list_output =~ "telegram provider=telegram_bot_api"
     assert list_output =~ "email provider=email_imap"
     assert list_output =~ "discord provider=discord_gateway"
+    assert list_output =~ "slack provider=slack_socket_mode"
     refute list_output =~ "token"
 
     Mix.Task.reenable("allbert.channels")
@@ -111,6 +113,17 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert discord_show_output =~ "Channel: discord"
     assert discord_show_output =~ "Provider: discord_gateway"
     assert discord_show_output =~ "Doctor: not_run"
+
+    Mix.Task.reenable("allbert.channels")
+
+    slack_show_output =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["show", "slack"])
+      end)
+
+    assert slack_show_output =~ "Channel: slack"
+    assert slack_show_output =~ "Provider: slack_socket_mode"
+    assert slack_show_output =~ "Doctor: not_run"
   end
 
   test "stores credentials without printing secret values" do
@@ -152,12 +165,64 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
     assert get_in(user_settings, ["channels", "discord", "bot_token_ref"]) ==
              "secret://channels/discord/bot_token"
+
+    Mix.Task.reenable("allbert.channels")
+
+    slack_output =
+      capture_io(fn ->
+        assert :ok =
+                 ChannelsTask.run([
+                   "slack",
+                   "set-token",
+                   "secret://channels/slack/bot_token"
+                 ])
+      end)
+
+    assert slack_output =~ "slack bot_token_ref=stored"
+
+    Mix.Task.reenable("allbert.channels")
+
+    slack_app_output =
+      capture_io(fn ->
+        assert :ok =
+                 ChannelsTask.run([
+                   "slack",
+                   "set-app-token",
+                   "secret://channels/slack/app_token"
+                 ])
+      end)
+
+    assert slack_app_output =~ "slack app_token_ref=stored"
+
+    assert {:ok, user_settings} = Settings.read_user_settings()
+
+    assert get_in(user_settings, ["channels", "slack", "bot_token_ref"]) ==
+             "secret://channels/slack/bot_token"
+
+    assert get_in(user_settings, ["channels", "slack", "app_token_ref"]) ==
+             "secret://channels/slack/app_token"
   end
 
   test "rejects raw Discord credentials" do
     assert_raise Mix.Error, ~r/secret:\/\/channels\/discord/, fn ->
       capture_io(fn ->
         ChannelsTask.run(["discord", "set-token", "RAW_DISCORD_TOKEN"])
+      end)
+    end
+  end
+
+  test "rejects raw Slack credentials" do
+    assert_raise Mix.Error, ~r/secret:\/\/channels\/slack/, fn ->
+      capture_io(fn ->
+        ChannelsTask.run(["slack", "set-token", "xoxb-raw-token"])
+      end)
+    end
+
+    Mix.Task.reenable("allbert.channels")
+
+    assert_raise Mix.Error, ~r/secret:\/\/channels\/slack/, fn ->
+      capture_io(fn ->
+        ChannelsTask.run(["slack", "set-app-token", "xapp-raw-token"])
       end)
     end
   end
@@ -328,6 +393,87 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert discord_output =~ "User: alice"
     assert discord_output =~ "Task channel response: discord hello"
     assert_received {:runtime_request, %{channel: "discord", text: "discord hello"}}
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok =
+               ChannelsTask.run([
+                 "slack",
+                 "set-token",
+                 "secret://channels/slack/bot_token"
+               ])
+    end)
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok =
+               ChannelsTask.run([
+                 "slack",
+                 "set-app-token",
+                 "secret://channels/slack/app_token"
+               ])
+    end)
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok = ChannelsTask.run(["slack", "set-team-id", "T0123ABCDE"])
+    end)
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok = ChannelsTask.run(["slack", "add-channel", "C0123ABCDE"])
+    end)
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok =
+               ChannelsTask.run([
+                 "slack",
+                 "map",
+                 "--external-user",
+                 "U0123ABCDE",
+                 "--user",
+                 "alice"
+               ])
+    end)
+
+    Mix.Task.reenable("allbert.channels")
+
+    assert {:ok, _setting} = Settings.put("channels.slack.enabled", true, %{audit?: false})
+
+    slack_doctor =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["slack", "doctor"])
+      end)
+
+    assert slack_doctor =~ "slack doctor status=ok"
+    refute slack_doctor =~ "Bearer "
+
+    Mix.Task.reenable("allbert.channels")
+
+    slack_output =
+      capture_io(fn ->
+        assert :ok =
+                 ChannelsTask.run([
+                   "slack",
+                   "simulate",
+                   "--channel",
+                   "C0123ABCDE",
+                   "--user",
+                   "U0123ABCDE",
+                   "slack hello"
+                 ])
+      end)
+
+    assert slack_output =~ "status=processed"
+    assert slack_output =~ "User: alice"
+    assert slack_output =~ "Task channel response: slack hello"
+    assert_received {:runtime_request, %{channel: "slack", text: "slack hello"}}
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

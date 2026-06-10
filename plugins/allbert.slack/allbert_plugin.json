@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "plugin_id": "allbert.slack",
+  "name": "Allbert Slack Channel",
+  "version": "0.52.0",
+  "kind": "channel",
+  "module": "AllbertAssist.Plugins.Slack",
+  "contributions": {
+    "channels": ["slack"],
+    "apps": [],
+    "actions": ["slack_doctor"]
+  }
+}

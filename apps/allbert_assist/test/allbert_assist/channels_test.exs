@@ -241,6 +241,13 @@ defmodule AllbertAssist.ChannelsTest do
       assert :button in discord_primitives
       assert :typed_command in discord_primitives
       assert :list in discord_primitives
+
+      assert %{primitives: slack_primitives, threading: :native_threads} =
+               Map.fetch!(descriptors, "slack")
+
+      assert :button in slack_primitives
+      assert :typed_command in slack_primitives
+      assert :list in slack_primitives
     end
   end
 
@@ -276,11 +283,14 @@ defmodule AllbertAssist.ChannelsTest do
       telegram_status = channels["telegram"].credential_status
       email_status = channels["email"].credential_status
       discord_status = channels["discord"].credential_status
+      slack_status = channels["slack"].credential_status
 
       assert telegram_status["channels.telegram.bot_token_ref"] == :missing
       assert email_status["channels.email.imap_password_ref"] == :missing
       assert email_status["channels.email.smtp_password_ref"] == :missing
       assert discord_status["channels.discord.bot_token_ref"] == :missing
+      assert slack_status["channels.slack.bot_token_ref"] == :missing
+      assert slack_status["channels.slack.app_token_ref"] == :missing
     end
   end
 
@@ -291,6 +301,7 @@ defmodule AllbertAssist.ChannelsTest do
     _ = PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
     _ = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
     _ = PluginRegistry.register_module(AllbertAssist.Plugins.Discord)
+    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Slack)
     AllbertAssist.Settings.Fragments.clear_cache()
   end
 end

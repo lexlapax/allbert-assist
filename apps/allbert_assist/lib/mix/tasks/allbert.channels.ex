@@ -5,7 +5,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   ## Usage
 
       mix allbert.channels list
-      mix allbert.channels show telegram
+      mix allbert.channels show telegram|email|discord|slack
       mix allbert.channels telegram set-token TOKEN
       mix allbert.channels telegram map --external-user EXTERNAL --user USER
       mix allbert.channels telegram unmap --external-user EXTERNAL
@@ -17,6 +17,22 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels email unmap --external-user EMAIL
       mix allbert.channels email simulate --external-user EMAIL [--new-thread] "prompt"
       mix allbert.channels email poll-once
+      mix allbert.channels discord set-token TOKEN_REF
+      mix allbert.channels discord set-application-id APPLICATION_ID
+      mix allbert.channels discord add-guild GUILD_ID
+      mix allbert.channels discord add-channel CHANNEL_ID
+      mix allbert.channels discord map --external-user EXTERNAL --user USER
+      mix allbert.channels discord simulate --guild GUILD --channel CHANNEL --user EXTERNAL "prompt"
+      mix allbert.channels discord simulate-callback --user EXTERNAL --custom-id allbert:v1:<verb>:<id>
+      mix allbert.channels discord doctor
+      mix allbert.channels slack set-token TOKEN_REF
+      mix allbert.channels slack set-app-token APP_TOKEN_REF
+      mix allbert.channels slack set-team-id TEAM_ID
+      mix allbert.channels slack add-channel CHANNEL_ID
+      mix allbert.channels slack map --external-user EXTERNAL --user USER
+      mix allbert.channels slack simulate --channel CHANNEL [--thread-ts TS] --user EXTERNAL "prompt"
+      mix allbert.channels slack simulate-callback --channel CHANNEL --user EXTERNAL --action-id allbert:v1:<verb>:<id>
+      mix allbert.channels slack doctor
   """
 
   use Mix.Task
@@ -26,6 +42,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   alias AllbertAssist.Channels.Discord
   alias AllbertAssist.Channels.Email
   alias AllbertAssist.Channels.Identity
+  alias AllbertAssist.Channels.Slack
   alias AllbertAssist.Channels.Telegram
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
@@ -34,12 +51,14 @@ defmodule Mix.Tasks.Allbert.Channels do
   @shortdoc "Inspect and operate local channel adapters"
 
   @switches [
+    action_id: :string,
     chat: :string,
     channel: :string,
     custom_id: :string,
     external_user: :string,
     guild: :string,
     new_thread: :boolean,
+    thread_ts: :string,
     thread_channel: :string,
     type: :string,
     user: :string
@@ -213,6 +232,78 @@ defmodule Mix.Tasks.Allbert.Channels do
     end
   end
 
+  defp dispatch(["slack", "set-token", token_ref]) do
+    with :ok <- validate_slack_token_ref(token_ref, :bot),
+         {:ok, _setting} <-
+           Settings.put("channels.slack.bot_token_ref", token_ref, %{audit?: false}) do
+      {:ok, {:secret_ref, "slack", "bot_token"}}
+    end
+  end
+
+  defp dispatch(["slack", "set-app-token", token_ref]) do
+    with :ok <- validate_slack_token_ref(token_ref, :app),
+         {:ok, _setting} <-
+           Settings.put("channels.slack.app_token_ref", token_ref, %{audit?: false}) do
+      {:ok, {:secret_ref, "slack", "app_token"}}
+    end
+  end
+
+  defp dispatch(["slack", "set-team-id", team_id]) do
+    with {:ok, _setting} <-
+           Settings.put("channels.slack.workspace_team_id", team_id, %{audit?: false}) do
+      {:ok, {:setting, "slack", "workspace_team_id", team_id}}
+    end
+  end
+
+  defp dispatch(["slack", "add-channel", channel_id]) do
+    add_setting_list_value!("slack", "allowed_channel_ids", channel_id)
+  end
+
+  defp dispatch(["slack", "remove-channel", channel_id]) do
+    remove_setting_list_value!("slack", "allowed_channel_ids", channel_id)
+  end
+
+  defp dispatch(["slack", "map" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+    put_identity!("slack", required!(opts, :external_user), required!(opts, :user))
+  end
+
+  defp dispatch(["slack", "unmap" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+    remove_identity!("slack", required!(opts, :external_user))
+  end
+
+  defp dispatch(["slack", "simulate" | rest]) do
+    {opts, args, invalid} = parse!(rest)
+    reject_invalid!(invalid)
+
+    simulate_slack!(
+      required!(opts, :channel),
+      required!(opts, :user),
+      Keyword.get(opts, :thread_ts),
+      single_arg!(args, "Prompt is required")
+    )
+  end
+
+  defp dispatch(["slack", "simulate-callback" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+
+    simulate_slack_callback!(
+      required!(opts, :user),
+      required!(opts, :channel),
+      required!(opts, :action_id)
+    )
+  end
+
+  defp dispatch(["slack", "doctor"]) do
+    with {:ok, response} <- completed_action("slack_doctor", %{}) do
+      {:ok, {:doctor, "slack", response.doctor}}
+    end
+  end
+
   defp dispatch(_args) do
     Mix.raise("""
     Usage:
@@ -240,6 +331,17 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels discord simulate --guild GUILD --channel CHANNEL --thread-channel THREAD --user EXTERNAL "prompt"
       mix allbert.channels discord simulate-callback --user EXTERNAL --custom-id allbert:v1:<verb>:<id>
       mix allbert.channels discord doctor
+      mix allbert.channels slack set-token TOKEN_REF
+      mix allbert.channels slack set-app-token APP_TOKEN_REF
+      mix allbert.channels slack set-team-id TEAM_ID
+      mix allbert.channels slack add-channel CHANNEL_ID
+      mix allbert.channels slack remove-channel CHANNEL_ID
+      mix allbert.channels slack map --external-user EXTERNAL --user USER
+      mix allbert.channels slack unmap --external-user EXTERNAL
+      mix allbert.channels slack simulate --channel CHANNEL --user EXTERNAL "prompt"
+      mix allbert.channels slack simulate --channel CHANNEL --thread-ts TS --user EXTERNAL "prompt"
+      mix allbert.channels slack simulate-callback --channel CHANNEL --user EXTERNAL --action-id allbert:v1:<verb>:<id>
+      mix allbert.channels slack doctor
     """)
   end
 
@@ -499,11 +601,50 @@ defmodule Mix.Tasks.Allbert.Channels do
     end
   end
 
+  defp simulate_slack!(channel_id, external_user_id, thread_ts, text) do
+    with {:ok, settings} <- Channels.channel_settings("slack"),
+         event <-
+           Slack.Parser.simulated_event(%{
+             team_id: Map.get(settings, "workspace_team_id"),
+             channel_id: channel_id,
+             thread_ts: thread_ts,
+             user_id: external_user_id,
+             text: text
+           }),
+         {:ok, adapter} <- Slack.Adapter.start_link(name: nil, client_opts: [mode: :stub]),
+         result <- Slack.Adapter.simulate_socket_envelope(adapter, event) do
+      GenServer.stop(adapter)
+      normalize_slack_simulation(result)
+    end
+  end
+
+  defp simulate_slack_callback!(external_user_id, channel_id, action_id) do
+    with {:ok, settings} <- Channels.channel_settings("slack"),
+         event <-
+           Slack.Parser.simulated_interactive(%{
+             team_id: Map.get(settings, "workspace_team_id"),
+             channel_id: channel_id,
+             user_id: external_user_id,
+             action_id: action_id
+           }),
+         {:ok, adapter} <- Slack.Adapter.start_link(name: nil, client_opts: [mode: :stub]),
+         result <- Slack.Adapter.simulate_socket_envelope(adapter, event) do
+      GenServer.stop(adapter)
+      {:ok, {:poll, "slack", result}}
+    end
+  end
+
   defp normalize_discord_simulation({:ok, {:processed, event, rendered}}) do
     {:ok, {:simulate, event, Enum.map(rendered, &Map.get(&1, :content, ""))}}
   end
 
   defp normalize_discord_simulation(other), do: {:ok, {:poll, "discord", other}}
+
+  defp normalize_slack_simulation({:ok, {:processed, event, rendered}}) do
+    {:ok, {:simulate, event, Enum.map(rendered, &Map.get(&1, :text, ""))}}
+  end
+
+  defp normalize_slack_simulation(other), do: {:ok, {:poll, "slack", other}}
 
   defp mark_simulated_event(event, response, user_id, session_id) do
     Channels.update_event(event, %{
@@ -551,6 +692,15 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   defp validate_discord_token_ref(_token_ref),
     do: Mix.raise("Discord set-token accepts only secret://channels/discord/... refs")
+
+  defp validate_slack_token_ref("secret://channels/slack/" <> rest, _kind) when rest != "",
+    do: :ok
+
+  defp validate_slack_token_ref(_token_ref, :bot),
+    do: Mix.raise("Slack set-token accepts only secret://channels/slack/... refs")
+
+  defp validate_slack_token_ref(_token_ref, :app),
+    do: Mix.raise("Slack set-app-token accepts only secret://channels/slack/... refs")
 
   defp identity_field(map, key), do: Map.get(map, key, Map.get(map, String.to_atom(key)))
 
