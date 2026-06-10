@@ -3138,14 +3138,17 @@ ADRs: `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
 `:channel_message_inbound` permission class + floor + per-interaction
 clicker-authorization; channel counterpart to ADR 0055),
 `docs/adr/0057-cross-channel-conversation-threading.md` (NEW — canonical thread
-model, `thread_channel_refs` / `conversation_message_refs` mapping tables,
+model, `thread_channel_refs` / `conversation_message_refs` /
+`cross_channel_identity_links` tables, owner/account/key scope fields,
 `threading:` capability + degradation ladder, echo-loop suppression, explicit
 identity links, unified history view, explicit resume)
 
 Status: planned; **expanded in the pass-3 zoom-out** from "Discord + Slack" to
 "Discord + Slack + a system-wide cross-channel conversation-thread construct
-(ADR 0057), with Telegram/email/web/CLI retrofitted." Substrate-first, one
-version, nine milestones (M0-M8). Promoted from
+(ADR 0057), with Telegram/email/web/CLI retrofitted"; pass-4 hardening locked
+the owner/account/key schema and runtime handoff so provider ids cannot become
+canonical authority. Substrate-first, one version, nine milestones (M0-M8).
+Promoted from
 `docs/archives/version-1.0-planning-03.md`; not implemented. Moved after the
 v0.44-v0.49 capability arc because Discord/Slack expand operator reach rather
 than unlock the core 1.0 capability stack.
@@ -3153,12 +3156,16 @@ than unlock the core 1.0 capability stack.
 Expected direction:
 
 - **Cross-channel conversation threading (ADR 0057):** the existing
-  `conversation_threads.id` is the canonical thread id; two durable join tables
-  (`thread_channel_refs`, `conversation_message_refs` with `direction` for
-  echo-suppression + `part_id`) map it per channel; a per-adapter `threading:`
-  capability (`:native_threads | :reply_chain | :flat | :rich`) drives reply
-  placement + a degradation ladder; a unified read-only history view + an
-  explicit `resume_thread_on_channel` action + explicit (never auto-merged)
+  `conversation_threads.id` is the canonical thread id; durable SQLite tables
+  (`thread_channel_refs`, `conversation_message_refs`, and
+  `cross_channel_identity_links`) map it per channel using `owner_scope`,
+  `receiver_account_ref`, and deterministic `provider_thread_key` fields.
+  v0.52 writes `owner_scope: "local"` only, preserving a post-1.0
+  multi-user/multi-tenant migration path without introducing hosted tenancy.
+  A per-adapter `threading:` capability
+  (`:native_threads | :reply_chain | :flat | :rich`) drives reply placement + a
+  degradation ladder; a unified read-only history view + an explicit
+  `resume_thread_on_channel` action + explicit (never auto-merged)
   cross-channel identity links. Telegram/email/web/CLI are retrofitted onto the
   substrate (M6) with byte-equivalent existing output.
 - Add Discord and Slack source-tree channel plugins.
@@ -3205,9 +3212,12 @@ Expected direction:
 
 - Add WhatsApp, Signal, and Matrix plugins after the Discord/Slack channel
   patterns are proven.
-- Reuse the v0.52 ADR 0016 amendment for channel approval primitives. WhatsApp
-  and Signal declare `typed_command` support; Matrix declares `button` for
-  bot-room contexts and `typed_command` otherwise.
+- Reuse the v0.52 ADR 0016 approval-primitive amendment and ADR 0057 threading
+  contract. WhatsApp and Signal declare `typed_command` approval support and
+  `threading: :reply_chain` (quote/reply ids with provider TTL constraints);
+  Matrix declares `button` for bot-room contexts and `typed_command` otherwise,
+  with `threading: :native_threads` when `m.thread` is available and
+  `:reply_chain` fallback.
 - Keep provider-specific pairing, delivery/retry/dedupe, platform limits, and
   privacy behavior explicit in Settings Central and operator docs.
 - Keep SMS and iMessage parked. iMessage moves to `future-features.md` because
