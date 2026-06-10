@@ -297,18 +297,39 @@ The declarations live in the channel descriptor map returned by
 ```
 
 `AllbertAssist.Plugin.Registry` validates the field at plugin
-discovery and rejects descriptors missing the field, declaring an
-empty list, declaring an unknown primitive, or omitting `:list`. The
-selection rule consumes the field at the `Approval.Handoff.render/2`
-boundary (see plan §"Approval Primitive Selection"); existing
-Telegram + email renderers consume the selected primitive instead of
+discovery through `AllbertAssist.Plugin.Validator` and rejects descriptors
+missing the field, declaring an empty list, declaring an unknown primitive, or
+omitting `:list`. The selection rule consumes the field at the
+`Approval.Handoff.render/2` boundary (see plan §"Approval Primitive Selection");
+existing Telegram + email renderers consume the selected primitive instead of
 hand-rolling their choice (v0.52 M0).
+
+### Provider Threads And Conversation History
+
+Discord and Slack add provider-native reply context, but that context remains
+channel metadata under this ADR:
+
+- Slack `thread_ts` and message `ts` values may scope channel `session_id`
+  continuity and outbound reply placement.
+- Discord thread channel ids may scope channel `session_id` continuity; ordinary
+  Discord `message_reference` values are outbound reply-placement metadata.
+- None of those provider ids are Allbert conversation `thread_id` authority.
+  Internal conversation history remains owned by the v0.12 Thread/Message model
+  and selected through `Conversations.resolve_thread/1` during
+  `Runtime.submit_user_input/1`.
+
+Adapters record a redacted `provider_thread_ref` in `channel_events` metadata /
+payload summaries for dedupe, traceability, and provider reply routing. A
+durable provider-thread-to-Allbert-thread mapping table is outside v0.52 and
+requires a future ADR/plan update.
 
 ### Non-Goals For This Amendment
 
 - No channel-specific approval logic in core. The primitive set is closed; new
   primitives require an ADR amendment, not adapter-level invention.
-- No new permission classes or confirmation shapes.
+- No new permission classes in this amendment and no new confirmation shapes.
+  ADR 0056 separately introduces the single v0.52 channel inbound permission
+  class (`:channel_message_inbound`) and its safety floor.
 - No bypass of `Actions.Runner.run/3`, Security Central, or the durable
   confirmation store.
 - No primitive that returns rich operator input beyond the three v0.52

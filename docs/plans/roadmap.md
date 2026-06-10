@@ -3151,6 +3151,11 @@ Expected direction:
   Handoff, and redaction boundaries.
 - Prove workspace/server identity mapping, group/channel authorization, mention
   handling, threaded replies, and callback affordances.
+- Lock the provider-thread bridge: Slack `thread_ts` / root message `ts` and
+  Discord thread-channel / `message_reference` metadata scope channel
+  `session_id` continuity and reply placement, but internal Allbert
+  conversation `thread_id` remains runtime-owned by
+  `Conversations.resolve_thread/1`.
 - **Amend ADR 0016** to declare the four standardized approval primitives —
   `{list, button, typed_command, link}` — each channel adapter declares its
   supported subset in its plugin descriptor; `Approval.Handoff` picks the

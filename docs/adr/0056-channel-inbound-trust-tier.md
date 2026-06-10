@@ -52,6 +52,10 @@ Channel inbound is untrusted **yet distinct** from public-surface inbound:
 - Sender metadata, message fields, callback/component payloads
   (Discord `custom_id`, Slack `action_id`/`value`), `cwd`-equivalent client
   hints, and interactive-component identity claims **never grant authority**.
+- Provider reply/thread metadata (Slack `thread_ts`, Slack message `ts`,
+  Discord thread-channel ids, Discord `message_reference`) may scope channel
+  session continuity and outbound reply placement, but it is never Allbert
+  conversation `thread_id` authority and never grants permission.
 - Every effectful call routes through `Actions.Runner.run/3`, Security Central,
   Resource Access, confirmations, traces, and audits — the same path as a local
   workspace user.
