@@ -212,13 +212,9 @@ list.
 
 ## v0.52 Amendment: Channel Approval Primitives
 
-Status: Proposed for v0.52 Channel Pack 1 - Discord And Slack
-(`docs/plans/v0.52-plan.md`). Becomes binding for v0.52 and all later
-channel adapters including v0.53 mobile channels.
-
-M8 closeout flips this line to `Accepted for v0.52 Channel Pack 1 -
-Discord And Slack` per the §"M8 Closeout Discipline" checklist in the
-plan.
+Status: Accepted for v0.52 Channel Pack 1 - Discord And Slack
+(`docs/plans/v0.52-plan.md`). Binding for v0.52 and all later channel adapters
+including v0.53 mobile channels.
 
 This amendment scopes the channel **boundary and approval-primitive contract**.
 The channel **inbound trust tier** — the `:channel_message_inbound` permission
@@ -240,8 +236,8 @@ v0.16 shipped two adapters with two different approval-rendering shapes:
 Telegram inline keyboard buttons and email typed commands. v0.17 packaged
 both as plugin adapters but did not formalize the rendering contract. By
 v0.52 (Discord + Slack), the field needs Discord buttons / Slack Block Kit;
-v0.53 mobile channels need WhatsApp typed commands, Signal typed commands,
-and Matrix buttons-or-typed-commands. Without a formal primitive set, each
+v0.53 mobile channels need WhatsApp in-session buttons plus text fallbacks,
+Signal typed commands, and Matrix typed commands / links. Without a formal primitive set, each
 adapter would re-invent its own Approval Handoff rendering.
 
 ### Decision
@@ -254,7 +250,8 @@ channel adapter declares its supported subset in its plugin descriptor:
   Universal fallback; every adapter supports `:list` so Approval Handoff
   always has a delivery path.
 - **`:button`** — render an interactive button affordance (Telegram inline
-  keyboard, Discord component, Slack Block Kit, Matrix message buttons).
+  keyboard, Discord component, Slack Block Kit, WhatsApp in-session interactive
+  reply buttons).
   Operator taps a button; callback resolves the confirmation.
 - **`:typed_command`** — render a textual command syntax (`ALLBERT:APPROVE:<id>`)
   the operator types back in a reply. Email and text-first messaging
@@ -285,9 +282,9 @@ Adapter declarations as of v0.53:
 | Email     | `:typed_command`, `:list`                            |
 | Discord   | `:button`, `:typed_command`, `:list`                 |
 | Slack     | `:button`, `:typed_command`, `:list`                 |
-| WhatsApp  | `:typed_command`, `:link`, `:list`                   |
+| WhatsApp  | `:button`, `:typed_command`, `:link`, `:list`        |
 | Signal    | `:typed_command`, `:link`, `:list`                   |
-| Matrix    | `:button` (bot rooms), `:typed_command`, `:list`     |
+| Matrix    | `:typed_command`, `:link`, `:list`                   |
 
 Adapters MUST always declare `:list` as a fallback. Adapters that ship without
 declaring the supported set MUST be rejected by the channel registry.
@@ -347,8 +344,9 @@ requires a future ADR/plan update.
 
 - v0.52 lands Discord and Slack with `:button` rendering through the same
   Approval Handoff path as Telegram.
-- v0.53 lands WhatsApp/Signal/Matrix with explicit primitive declarations
-  rather than ad-hoc rendering.
+- v0.53 lands WhatsApp/Signal/Matrix with explicit primitive declarations,
+  preserves `:list` as the mandatory fallback, and does not claim a portable
+  Matrix button primitive.
 - The v0.57 cross-surface eval sweep adds an `approval-primitive-honor`
   check per adapter.
 - v1.0 freezes the channel-adapter boundary including this primitive

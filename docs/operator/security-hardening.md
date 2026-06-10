@@ -317,8 +317,48 @@ eval surfaces until their capability work lands.
   `self-improvement-integrate-requires-confirmation-001`,
   `self-improvement-unsafe-capability-request-denied-001`, and
   `self-improvement-marketplace-publish-confirmation-001`.
-- Discord, Slack, WhatsApp, Signal, and Matrix identity mapping,
-  replay, pairing, group leakage, and callback ownership.
+- Channel Pack 1 (v0.52 implemented surface): Discord and Slack use the shared
+  channel adapter boundary, ADR 0016 approval primitives, ADR 0056
+  `:channel_message_inbound` floor, and ADR 0057 cross-channel threading.
+  External provider ids, callback ids, Slack `thread_ts`, Discord message ids,
+  `owner_scope`, and `receiver_account_ref` are not permission authority.
+  Allowlists and identity mapping gate runtime submission, callback clickers are
+  re-resolved per interaction, bot tokens are Settings Central secret refs, and
+  `ChannelThread` records outbound refs only for reply placement and echo-loop
+  suppression. Implemented eval rows:
+  `discord-slack-spoofing-001`,
+  `team-channel-replay-001`,
+  `group-leakage-001`,
+  `reply-body-command-injection-001`,
+  `callback-scope-leakage-001`,
+  `dm-vs-workspace-auth-001`,
+  `discord-interactions-signature-verification-001`,
+  `slack-request-signing-verification-001`,
+  `discord-guild-allowlist-001`,
+  `slack-workspace-allowlist-001`,
+  `slack-channel-allowlist-001`,
+  `approval-primitive-honor-discord-001`,
+  `approval-primitive-honor-slack-001`,
+  `approval-primitive-honor-telegram-001`,
+  `approval-primitive-honor-email-001`,
+  `channel-descriptor-missing-primitives-rejected-001`,
+  `bot-token-secret-redaction-discord-001`,
+  `bot-token-secret-redaction-slack-001`,
+  `channel-inbound-permission-floor-001`,
+  `callback-clicker-authorization-001`,
+  `provider-thread-not-authority-001`,
+  `owner-account-thread-key-isolation-001`,
+  `echo-loop-suppression-001`,
+  `cross-channel-resume-same-user-001`,
+  `threading-capability-missing-rejected-001`,
+  `identity-link-no-auto-merge-001`, and
+  `unified-view-redaction-001`.
+- v0.53 adds Matrix, WhatsApp Cloud API, and Signal `signal-cli` scope:
+  identity mapping, replay, pairing, group leakage, callback ownership,
+  KeyCustody leak/audit checks, signal-cli socket/key-file permissions,
+  trust-class unified-view/resume gating, WhatsApp raw-body signature denial
+  before parse, phone-number redaction, reply-key/quote-TTL behavior, and
+  mandatory `:list` approval fallback coverage remain v0.53 scope.
 - Voice, image, screenshot, and generated media resource retention, redaction,
   provider cost, and cloud-upload policy. v0.48 narrows the voice portion:
   microphone capture and credentialed remote STT/TTS stay confirmation-gated,
