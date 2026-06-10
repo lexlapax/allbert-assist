@@ -220,6 +220,13 @@ M5 closeout flips this line to `Accepted for v0.52 Channel Pack 1 -
 Discord And Slack` per the §"M5 Closeout Discipline" checklist in the
 plan.
 
+This amendment scopes the channel **boundary and approval-primitive contract**.
+The channel **inbound trust tier** — the `:channel_message_inbound` permission
+class and its safety floor, plus the per-interaction clicker-authorization and
+ack-before-runtime invariants — is decided in **ADR 0056** (the channel
+counterpart to ADR 0055 public-surface inbound and ADR 0038 outbound MCP). ADR
+0016 stays the boundary/identity/primitive umbrella; ADR 0056 owns inbound trust.
+
 ### Context
 
 v0.16 shipped two adapters with two different approval-rendering shapes:

@@ -3132,10 +3132,13 @@ Expected direction:
 
 Plan: `docs/plans/v0.52-plan.md`
 Request flow: `docs/plans/v0.52-request-flow.md`
-ADR: `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
-(v0.52 amendment for approval primitives)
+ADRs: `docs/adr/0016-channel-adapter-boundary-and-identity-mapping.md`
+(v0.52 amendment — channel boundary + approval primitives),
+`docs/adr/0056-channel-inbound-trust-tier.md` (NEW — the
+`:channel_message_inbound` permission class + floor + per-interaction
+clicker-authorization; channel counterpart to ADR 0055)
 
-Status: planned; implementation-ready for M0 after the channel plan pass-2
+Status: planned; implementation-ready for M0 after the channel plan pass-3
 readiness patch. Promoted from `docs/archives/version-1.0-planning-03.md`;
 not implemented. Moved after the v0.44-v0.49 capability arc because
 Discord/Slack expand operator reach rather than unlock the core 1.0
@@ -3155,6 +3158,18 @@ Expected direction:
   honors provider settings such as `render_approval_buttons: false`. Telegram:
   button. Email: typed_command. Discord: button. Slack: button. Mobile
   channels (v0.53) inherit the same contract.
+- **Introduce ADR 0056 (Channel Inbound Trust Tier):** a new
+  `:channel_message_inbound` permission class (floor `:needs_confirmation`),
+  the channel counterpart to v0.51's ADR 0055, with a per-interaction
+  clicker-authorization invariant (the clicker is re-resolved on every button
+  tap, never trusted from the payload) and ack-before-runtime ordering.
+- **Transport vehicle locked by an M0 spike** (raw `Req` + reviewed WS client vs
+  Nostrum / `slack_elixir`), reconciled with the Req-only rule and ADR 0050.
+  Discord reads free-text only on @mention + DM via the privileged
+  `MESSAGE_CONTENT` intent; Slack via mention + DM in Socket Mode.
+- **Release authority is a required real-provider live smoke** (sandbox Discord
+  bot + Slack workspace, real tokens) before the v0.52 tag; the deterministic
+  stub lane is the fast/CI gate, not the release authority.
 
 ## v0.53: Channel Pack 2 - WhatsApp, Signal, And Matrix
 
