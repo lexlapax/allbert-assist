@@ -719,8 +719,12 @@ historical aliases only and remain in old reference notes for continuity.
 - v0.52: Channel Pack 1 - Discord And Slack. Team/community chat reach expands
   through the existing channel adapter and plugin contracts; v0.52 also amends
   ADR 0016 to lock the channel approval-primitive contract before mobile
-  channels need it. Provider-native thread ids are preserved as channel session
-  and reply-routing metadata; they do not become a second conversation runtime.
+  channels need it. ADR 0057 adds one system-wide cross-channel conversation
+  threading construct: `conversation_threads.id` remains canonical, provider
+  thread ids are owner/account-scoped routing metadata, existing web/CLI/
+  Telegram/email surfaces retrofit onto the same substrate, and the
+  owner-scope hook avoids a post-1.0 multi-user/multi-tenant schema redo without
+  introducing hosted tenancy in v0.52.
 - v0.53: Channel Pack 2 - WhatsApp, Signal, and Matrix. iMessage parked
   (macOS-only platform constraint).
 - v0.54: Intent Deepening. Deepens the intent subsystem (ADR 0019/0034) so a

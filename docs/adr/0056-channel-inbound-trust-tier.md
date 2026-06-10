@@ -3,7 +3,7 @@
 ## Status
 
 Proposed for v0.52 Channel Pack 1 — Discord And Slack
-(`docs/plans/v0.52-plan.md`). Flips to Accepted at v0.52 M5.
+(`docs/plans/v0.52-plan.md`). Flips to Accepted at v0.52 M8 closeout.
 
 This ADR is the **channel** counterpart to ADR 0055 (the public-surface inbound
 trust tier) and ADR 0038 (the outbound MCP client trust tier). ADR 0016 decides

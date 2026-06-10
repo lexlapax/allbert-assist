@@ -216,8 +216,8 @@ Status: Proposed for v0.52 Channel Pack 1 - Discord And Slack
 (`docs/plans/v0.52-plan.md`). Becomes binding for v0.52 and all later
 channel adapters including v0.53 mobile channels.
 
-M5 closeout flips this line to `Accepted for v0.52 Channel Pack 1 -
-Discord And Slack` per the §"M5 Closeout Discipline" checklist in the
+M8 closeout flips this line to `Accepted for v0.52 Channel Pack 1 -
+Discord And Slack` per the §"M8 Closeout Discipline" checklist in the
 plan.
 
 This amendment scopes the channel **boundary and approval-primitive contract**.
@@ -226,11 +226,13 @@ class and its safety floor, plus the per-interaction clicker-authorization and
 ack-before-runtime invariants — is decided in **ADR 0056** (the channel
 counterpart to ADR 0055 public-surface inbound and ADR 0038 outbound MCP). The
 **cross-channel conversation-thread construct** — the canonical thread model, the
-`thread_channel_refs` / `conversation_message_refs` mapping tables, the
-`threading:` descriptor field, the degradation ladder, echo-loop suppression,
-explicit identity links, the unified history view, and the explicit resume action
-— is decided in **ADR 0057**. ADR 0016 stays the boundary/identity/primitive
-umbrella; ADR 0056 owns inbound trust; ADR 0057 owns cross-channel threading.
+`thread_channel_refs` / `conversation_message_refs` /
+`cross_channel_identity_links` tables, owner/account-scoped provider thread
+keys, the `threading:` descriptor field, the degradation ladder,
+echo-loop suppression, explicit identity links, the unified history view, and
+the explicit resume action — is decided in **ADR 0057**. ADR 0016 stays the
+boundary/identity/primitive umbrella; ADR 0056 owns inbound trust; ADR 0057 owns
+cross-channel threading.
 
 ### Context
 
