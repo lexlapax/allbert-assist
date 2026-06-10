@@ -38,6 +38,7 @@ defmodule AllbertAssist.Settings.PublicSurfaceSchemaTest do
     assert {:ok, []} = Settings.get("acp_server.tools_enabled")
 
     assert {:ok, 3_600_000} = Settings.get("public_protocol.result_readback_ttl_ms")
+    assert {:ok, 60_000} = Settings.get("public_protocol.result_readback_sweep_interval_ms")
     assert {:ok, 1_048_576} = Settings.get("public_protocol.max_body_bytes")
   end
 
@@ -45,6 +46,7 @@ defmodule AllbertAssist.Settings.PublicSurfaceSchemaTest do
     assert Settings.safe_write_key?("mcp_server.streamable_http.bind_host")
     assert Settings.safe_write_key?("mcp_server.clients.local.enabled")
     assert Settings.safe_write_key?("openai_api.clients.local.rate_limit.limit")
+    assert Settings.safe_write_key?("public_protocol.result_readback_sweep_interval_ms")
     assert Settings.safe_write_key?("permissions.public_surface_call_inbound")
 
     assert {:ok, resolved} =
@@ -60,6 +62,10 @@ defmodule AllbertAssist.Settings.PublicSurfaceSchemaTest do
 
     assert {:error, {:invalid_setting, "openai_api.path_prefix", _reason}} =
              Settings.put("openai_api.path_prefix", "/v2", %{audit?: false})
+
+    assert {:error,
+            {:invalid_setting, "public_protocol.result_readback_sweep_interval_ms", _reason}} =
+             Settings.put("public_protocol.result_readback_sweep_interval_ms", 0, %{audit?: false})
   end
 
   test "client maps validate ids, token refs, and rate limits" do

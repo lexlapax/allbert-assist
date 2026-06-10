@@ -163,7 +163,10 @@ Only `create` and `rotate` print the new raw bearer token, once. This
 bearer-token posture is an Allbert local/private ingress-auth subset, not MCP
 OAuth 2.1 protected-resource or authorization-server parity.
 
-MCP stdio and ACP stdio keep stdout protocol-clean. Logs go to stderr. The ACP
+MCP stdio and ACP stdio keep stdout protocol-clean. Logs go to stderr. MCP
+stdio uses an Allbert-owned JSON-RPC line adapter over the shared MCP runtime;
+do not route the public stdio surface through a dependency-owned transport
+unless that path is reverified with an OS subprocess stdout fixture. The ACP
 operator entrypoint is `mix allbert.acp_server status|stdio`.
 
 ## Result Readback
@@ -180,7 +183,9 @@ action/turn label, confirmation id when present, trace id,
 created/resolved/expires timestamps, status, and redacted result/error metadata.
 Statuses are `pending`, `approved_with_result`, `denied`, and `expired`.
 Entries expire after `public_protocol.result_readback_ttl_ms`; expired entries
-return `expired` and no result bytes.
+return `expired` and no result bytes. The supervised readback sweeper runs on
+`public_protocol.result_readback_sweep_interval_ms` so expired result/error bytes
+are zeroed even when a client never polls again.
 
 Readback never exposes raw confirmation records, `show_confirmation`,
 `list_confirmations`, trace bodies, or secrets. Unknown and cross-client ids
@@ -195,12 +200,12 @@ MIX_ENV=test mix allbert.test release.v051
 ```
 
 The clean M7 evidence is
-`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-13250/home/release_evidence/v051/release-v051-1781040338.json`.
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-8644/home/release_evidence/v051/release-v051-1781052400.json`.
 It covers the public-surface foundations, MCP stdio, MCP HTTP ingress,
 OpenAI-compatible mapping and web controller, ACP stdio, 34 `:v051`
-public-protocol security eval rows, and the secret scan. The evidence scan found
-no `database is locked`, `SQLITE_BUSY`, `Exqlite.Connection`, or
-`DBConnection.ConnectionError` noise.
+public-protocol security eval rows, and the secret scan. Evidence scans found no
+`public protocol result readback sweep failed`, `database is locked`,
+`SQLITE_BUSY`, `Exqlite.Connection`, or `DBConnection.ConnectionError` noise.
 
 The full release gate also passed before manual validation handoff:
-`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13250/home/release_evidence/gates/release-2026-06-09T21_27_25Z.json`.
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-9474/home/release_evidence/gates/release-2026-06-10T00_49_04Z.json`.

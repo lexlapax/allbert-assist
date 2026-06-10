@@ -48,6 +48,12 @@ Developer doc: `docs/developer/public-protocol-surfaces.md`.
   app phases.
 - HTTP public-surface rate limiting now fails closed if the supervised limiter
   is unavailable, and auth error responses apply API secure headers directly.
+- MCP stdio now uses an Allbert-owned JSON-RPC line adapter for the public
+  transport while retaining Hermes schema/callback support. The real OS
+  subprocess fixture asserts stdout contains only protocol frames.
+- Result-readback expiry now has a supervised Settings-Central sweeper
+  (`public_protocol.result_readback_sweep_interval_ms`) so expired rows are
+  zeroed without relying on a later client poll.
 - Roadmap, plan, request-flow, operator, and developer docs now describe v0.51
   as implemented and ready for manual validation.
 
@@ -74,16 +80,16 @@ Developer doc: `docs/developer/public-protocol-surfaces.md`.
 ### Verification
 
 - `MIX_ENV=test mix compile --warnings-as-errors` passed.
-- `MIX_ENV=test mix test apps/allbert_assist_web/test/allbert_assist_web/public_protocol/mcp_http_controller_test.exs apps/allbert_assist/test/allbert_assist/public_protocol/mcp_stdio_server_test.exs apps/allbert_assist/test/allbert_assist/public_protocol/acp_mapping_test.exs apps/allbert_assist/test/allbert_assist/public_protocol/openai_mapping_test.exs apps/allbert_assist/test/allbert_assist/public_protocol/exposure_filter_test.exs apps/allbert_assist/test/allbert_assist/public_protocol/result_readback_test.exs apps/allbert_assist/test/allbert_assist/public_protocol/http_ingress_test.exs apps/allbert_assist/test/mix/tasks/allbert_mcp_server_test.exs apps/allbert_assist/test/mix/tasks/allbert_acp_server_test.exs apps/allbert_assist/test/allbert_assist/settings/secrets_test.exs`
-  passed with 45 tests and 0 failures.
-- `MIX_ENV=test mix test apps/allbert_assist/test/security/v051_public_protocol_eval_test.exs apps/allbert_assist/test/security/security_eval_case_test.exs apps/allbert_assist/test/mix/tasks/allbert_test_task_test.exs apps/allbert_assist/test/allbert_assist/actions/registry_test.exs`
-  passed with 29 tests and 0 failures.
+- Focused remediation suites for stdio stdout discipline, MCP/ACP subprocess
+  fixtures, readback sweeping, settings schema, and MCP HTTP protocol-version
+  headers passed before the release gates.
 - `MIX_ENV=test mix allbert.test release.v051` passed. Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-13250/home/release_evidence/v051/release-v051-1781040338.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-8644/home/release_evidence/v051/release-v051-1781052400.json`.
 - `MIX_ENV=test mix allbert.test release` passed. Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13250/home/release_evidence/gates/release-2026-06-09T21_27_25Z.json`.
-- The v0.51 evidence scan found no `database is locked`, `SQLITE_BUSY`,
-  `Exqlite.Connection`, or `DBConnection.ConnectionError` noise.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-9474/home/release_evidence/gates/release-2026-06-10T00_49_04Z.json`.
+- Evidence scans found no `public protocol result readback sweep failed`,
+  `database is locked`, `SQLITE_BUSY`, `Exqlite.Connection`, or
+  `DBConnection.ConnectionError` noise.
 
 ## v0.50.1 - Artifacts Browser
 

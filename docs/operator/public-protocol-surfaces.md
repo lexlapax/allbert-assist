@@ -61,6 +61,10 @@ mix allbert.mcp_server resources list
 mix allbert.mcp_server stdio
 ```
 
+The stdio command writes only JSON-RPC protocol frames to stdout. Runtime,
+startup, and transport logs go to stderr so MCP clients can treat stdout as the
+protocol stream.
+
 MCP HTTP uses the Phoenix API ingress:
 
 ```sh
@@ -122,10 +126,10 @@ MIX_ENV=test mix allbert.test release.v051
 ```
 
 Current clean evidence:
-`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-13250/home/release_evidence/v051/release-v051-1781040338.json`.
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-8644/home/release_evidence/v051/release-v051-1781052400.json`.
 
 Current full release evidence:
-`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13250/home/release_evidence/gates/release-2026-06-09T21_27_25Z.json`.
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-9474/home/release_evidence/gates/release-2026-06-10T00_49_04Z.json`.
 
 Before tagging, repeat opt-in real-client smokes against a disposable
 `ALLBERT_HOME` for one MCP client, one OpenAI-API client, and one ACP editor.

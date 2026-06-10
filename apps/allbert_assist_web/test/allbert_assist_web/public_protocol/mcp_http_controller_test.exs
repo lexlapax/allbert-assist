@@ -118,6 +118,12 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
 
     assert conn.status == 400
     assert json_response(conn, 400)["error"]["message"] == "Unsupported MCP protocol version."
+
+    assert get_resp_header(conn, "content-security-policy") == [
+             "default-src 'none'; frame-ancestors 'none'"
+           ]
+
+    assert get_resp_header(conn, "cache-control") == ["no-store"]
   end
 
   test "resources/list and resources/read use the HTTP surface context", %{conn: conn} do

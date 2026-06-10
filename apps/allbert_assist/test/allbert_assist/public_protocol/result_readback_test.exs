@@ -2,7 +2,9 @@ defmodule AllbertAssist.PublicProtocol.ResultReadbackTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.PublicProtocol.CallResult
   alias AllbertAssist.PublicProtocol.ResultReadback
+  alias AllbertAssist.PublicProtocol.ResultReadbackSweeper
 
   @now ~U[2026-06-09 12:00:00Z]
 
@@ -171,5 +173,43 @@ defmodule AllbertAssist.PublicProtocol.ResultReadbackTest do
              ResultReadback.get_for_client(fresh.id, "mcp_http", "claude", now: @now)
 
     assert fresh_view.status == :pending
+  end
+
+  test "supervised sweeper clears expired rows without client polling" do
+    now = DateTime.utc_now()
+
+    assert {:ok, call_result} =
+             ResultReadback.create(
+               %{
+                 surface: "mcp_http",
+                 client_id: "claude",
+                 action_label: "stale",
+                 result: %{message: "stored result"},
+                 expires_at: DateTime.add(now, -1, :second)
+               },
+               now: now
+             )
+
+    name = :"result_readback_sweeper_#{System.unique_integer([:positive])}"
+
+    start_supervised!({ResultReadbackSweeper, name: name, interval_ms: 25, schedule?: true})
+
+    assert eventually(fn ->
+             updated = Repo.get!(CallResult, call_result.id)
+             updated.status == "expired" and updated.result == %{} and updated.error == %{}
+           end)
+  end
+
+  defp eventually(fun, attempts \\ 20)
+
+  defp eventually(_fun, 0), do: false
+
+  defp eventually(fun, attempts) do
+    if fun.() do
+      true
+    else
+      Process.sleep(25)
+      eventually(fun, attempts - 1)
+    end
   end
 end

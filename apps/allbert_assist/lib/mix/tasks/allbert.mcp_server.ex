@@ -12,12 +12,21 @@ defmodule Mix.Tasks.Allbert.McpServer do
 
   alias AllbertAssist.PublicProtocol.Mcp.ProtocolVersions
   alias AllbertAssist.PublicProtocol.Mcp.Runtime
-  alias AllbertAssist.PublicProtocol.Mcp.Server
+  alias AllbertAssist.PublicProtocol.Mcp.StdioServer
+  alias AllbertAssist.PublicProtocol.StdioGuard
   alias AllbertAssist.Settings
 
   @shortdoc "Inspect or run the public MCP server"
 
   @impl true
+  def run(["stdio"]) do
+    Mix.Task.run("app.config")
+    StdioGuard.silence_stdout!()
+    Mix.Task.run("app.start")
+    StdioGuard.protect_stdout!()
+    stdio()
+  end
+
   def run(args) do
     Mix.Task.run("app.start")
 
@@ -25,7 +34,6 @@ defmodule Mix.Tasks.Allbert.McpServer do
       ["status"] -> status()
       ["tools", "list"] -> list_tools()
       ["resources", "list"] -> list_resources()
-      ["stdio"] -> stdio()
       _other -> usage()
     end
   end
@@ -65,18 +73,7 @@ defmodule Mix.Tasks.Allbert.McpServer do
   end
 
   defp stdio do
-    ensure_hermes_registry!()
-
-    case Hermes.Server.Supervisor.start_link(Server, transport: :stdio) do
-      {:ok, _pid} ->
-        Process.sleep(:infinity)
-
-      {:error, {:already_started, _pid}} ->
-        Process.sleep(:infinity)
-
-      {:error, reason} ->
-        Mix.raise("Could not start MCP stdio server: #{inspect(reason)}")
-    end
+    StdioServer.serve_stdio()
   end
 
   defp count(:tools) do
@@ -97,17 +94,6 @@ defmodule Mix.Tasks.Allbert.McpServer do
     case Settings.get(key) do
       {:ok, true} -> true
       _other -> false
-    end
-  end
-
-  defp ensure_hermes_registry! do
-    case Process.whereis(Hermes.Server.Registry) do
-      nil ->
-        {:ok, _pid} = Supervisor.start_link([Hermes.Server.Registry], strategy: :one_for_one)
-        :ok
-
-      _pid ->
-        :ok
     end
   end
 

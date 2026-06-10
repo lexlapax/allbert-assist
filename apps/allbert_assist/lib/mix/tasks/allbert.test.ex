@@ -1411,7 +1411,8 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist/public_protocol/exposure_filter_test.exs",
         "test/allbert_assist/public_protocol/token_auth_test.exs",
         "test/allbert_assist/public_protocol/rate_limiter_test.exs",
-        "test/allbert_assist/public_protocol/result_readback_test.exs"
+        "test/allbert_assist/public_protocol/result_readback_test.exs",
+        "test/allbert_assist/public_protocol/stdio_guard_test.exs"
       ],
       coverage: [
         "inbound public-surface permission/floor",

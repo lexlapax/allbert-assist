@@ -10,17 +10,25 @@ defmodule Mix.Tasks.Allbert.AcpServer do
 
   alias AllbertAssist.PublicProtocol.Acp.Mapping
   alias AllbertAssist.PublicProtocol.Acp.Server
+  alias AllbertAssist.PublicProtocol.StdioGuard
   alias AllbertAssist.Settings
 
   @shortdoc "Inspect or run the public ACP stdio server"
 
   @impl true
+  def run(["stdio"]) do
+    Mix.Task.run("app.config")
+    StdioGuard.silence_stdout!()
+    Mix.Task.run("app.start")
+    StdioGuard.protect_stdout!()
+    Server.serve_stdio()
+  end
+
   def run(args) do
     Mix.Task.run("app.start")
 
     case args do
       ["status"] -> status()
-      ["stdio"] -> Server.serve_stdio()
       _other -> usage()
     end
   end

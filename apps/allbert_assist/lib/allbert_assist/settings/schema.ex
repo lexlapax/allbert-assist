@@ -154,6 +154,7 @@ defmodule AllbertAssist.Settings.Schema do
     "openai_api.clients.*.rate_limit.burst",
     "public_protocol.schema_version",
     "public_protocol.result_readback_ttl_ms",
+    "public_protocol.result_readback_sweep_interval_ms",
     "public_protocol.max_body_bytes",
     "acp_server.schema_version",
     "acp_server.enabled",
@@ -1122,6 +1123,14 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false,
       min: 60_000,
+      max: 86_400_000
+    },
+    "public_protocol.result_readback_sweep_interval_ms" => %{
+      type: :bounded_integer,
+      default: 60_000,
+      writable?: true,
+      sensitive?: false,
+      min: 1_000,
       max: 86_400_000
     },
     "public_protocol.max_body_bytes" => %{
@@ -3248,6 +3257,7 @@ defmodule AllbertAssist.Settings.Schema do
     "public_protocol" => %{
       "schema_version" => 1,
       "result_readback_ttl_ms" => 3_600_000,
+      "result_readback_sweep_interval_ms" => 60_000,
       "max_body_bytes" => 1_048_576
     },
     "acp_server" => %{
