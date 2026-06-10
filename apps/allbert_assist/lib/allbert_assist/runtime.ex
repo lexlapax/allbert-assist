@@ -23,6 +23,7 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Conversations
+  alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Runtime.MediaOutputs
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response
@@ -59,6 +60,8 @@ defmodule AllbertAssist.Runtime do
           trace_id: nil | String.t(),
           signal_id: String.t(),
           input_signal_id: String.t(),
+          user_message_id: String.t() | nil,
+          assistant_message_id: String.t() | nil,
           user_id: String.t(),
           operator_id: String.t(),
           thread_id: String.t(),
@@ -102,6 +105,8 @@ defmodule AllbertAssist.Runtime do
          :ok <- log_signal(input_signal),
          :ok <- log_runtime_turn_started(input_signal, request),
          {:ok, user_message} <- persist_user_message(request, input_signal),
+         request <- put_user_message_id(request, user_message),
+         request <- maybe_record_inbound_channel_refs(request, user_message),
          request <- put_thread_context(request, user_message),
          {:ok, agent_response} <- agent_runner().(input_signal, request),
          {:ok, response_signal} <- new_response_signal(input_signal, request, agent_response),
@@ -125,17 +130,20 @@ defmodule AllbertAssist.Runtime do
       |> fetch_value(:text)
       |> normalize_text()
 
+    channel = fetch_value(attrs, :channel) || :unknown
+
     with {:ok, text} <- text,
          {:ok, identity} <- identity(attrs),
          {:ok, session_id} <- normalize_session_id(attrs),
-         {:ok, thread} <- resolve_thread(attrs, identity.user_id, text) do
+         {:ok, channel_thread_ref} <- normalize_channel_thread_ref(channel, attrs),
+         {:ok, thread} <- resolve_thread(attrs, identity.user_id, text, channel_thread_ref) do
       session_context = session_context(identity.user_id, session_id)
       app_context = resolve_active_app(attrs, session_context)
 
       {:ok,
        %{
          text: text,
-         channel: fetch_value(attrs, :channel) || :unknown,
+         channel: channel,
          user_id: identity.user_id,
          operator_id: identity.operator_id,
          thread_id: thread.id,
@@ -144,6 +152,9 @@ defmodule AllbertAssist.Runtime do
          active_app: app_context.active_app,
          thread_context: empty_thread_context(identity.user_id, thread.id),
          conversation_thread: thread,
+         channel_thread_ref: channel_thread_ref,
+         provider_message_id: provider_message_id(attrs),
+         provider_message_part_id: provider_message_part_id(attrs),
          metadata: fetch_value(attrs, :metadata) || %{},
          diagnostics: session_context.diagnostics ++ app_context.diagnostics,
          timeout_ms: fetch_value(attrs, :timeout_ms) || @default_timeout_ms
@@ -243,17 +254,82 @@ defmodule AllbertAssist.Runtime do
     end
   end
 
-  defp resolve_thread(attrs, user_id, text) do
+  defp resolve_thread(attrs, user_id, text, channel_thread_ref) do
     Conversations.resolve_thread(%{
       user_id: user_id,
       text: text,
-      thread_id: fetch_value(attrs, :thread_id),
+      thread_id: fetch_value(attrs, :thread_id) || mapped_thread_id(channel_thread_ref),
       new_thread: fetch_value(attrs, :new_thread)
     })
   end
 
+  defp mapped_thread_id(nil), do: nil
+
+  defp mapped_thread_id(channel_thread_ref) do
+    case ChannelThread.lookup_thread(channel_thread_ref) do
+      {:ok, thread_id} -> thread_id
+      {:error, :not_found} -> nil
+      {:error, _reason} -> nil
+    end
+  end
+
   defp fetch_value(attrs, key) do
     Map.get(attrs, key) || Map.get(attrs, Atom.to_string(key))
+  end
+
+  defp normalize_channel_thread_ref(channel, attrs) do
+    case channel_thread_ref_attrs(channel, attrs) do
+      nil -> {:ok, nil}
+      ref_attrs -> ChannelThread.normalize_ref(ref_attrs)
+    end
+  end
+
+  defp channel_thread_ref_attrs(channel, attrs) do
+    case fetch_value(attrs, :channel_thread_ref) do
+      ref_attrs when is_map(ref_attrs) ->
+        ref_attrs
+        |> Map.put_new(:channel, channel)
+        |> maybe_put_ref_attr(:receiver_account_ref, fetch_value(attrs, :receiver_account_ref))
+
+      _other ->
+        provider_thread_ref = fetch_value(attrs, :provider_thread_ref)
+        provider_thread_key = fetch_value(attrs, :provider_thread_key)
+        receiver_account_ref = fetch_value(attrs, :receiver_account_ref)
+
+        if provider_thread_ref || provider_thread_key || receiver_account_ref do
+          %{
+            channel: channel,
+            receiver_account_ref: receiver_account_ref,
+            provider_thread_ref: provider_thread_ref,
+            provider_thread_key: provider_thread_key
+          }
+        end
+    end
+  end
+
+  defp maybe_put_ref_attr(attrs, _key, nil), do: attrs
+  defp maybe_put_ref_attr(attrs, key, value), do: Map.put_new(attrs, key, value)
+
+  defp provider_message_id(attrs) do
+    fetch_value(attrs, :provider_message_id) ||
+      fetch_value(attrs, :external_message_id) ||
+      metadata_value(attrs, :provider_message_id) ||
+      metadata_value(attrs, :external_message_id)
+  end
+
+  defp provider_message_part_id(attrs) do
+    fetch_value(attrs, :provider_message_part_id) ||
+      fetch_value(attrs, :part_id) ||
+      metadata_value(attrs, :provider_message_part_id) ||
+      metadata_value(attrs, :part_id) ||
+      "0"
+  end
+
+  defp metadata_value(attrs, key) do
+    case fetch_value(attrs, :metadata) do
+      metadata when is_map(metadata) -> fetch_value(metadata, key)
+      _metadata -> nil
+    end
   end
 
   defp request_started_at(attrs) do
@@ -374,6 +450,8 @@ defmodule AllbertAssist.Runtime do
       trace_id: nil,
       signal_id: response_signal.id,
       input_signal_id: input_signal.id,
+      user_message_id: request.user_message_id,
+      assistant_message_id: nil,
       user_id: request.user_id,
       operator_id: request.operator_id,
       thread_id: request.thread_id,
@@ -400,6 +478,60 @@ defmodule AllbertAssist.Runtime do
       input_signal_id: input_signal.id,
       metadata: metadata
     })
+  end
+
+  defp put_user_message_id(request, user_message) do
+    Map.put(request, :user_message_id, user_message.id)
+  end
+
+  defp maybe_record_inbound_channel_refs(%{channel_thread_ref: nil} = request, _user_message),
+    do: request
+
+  defp maybe_record_inbound_channel_refs(request, user_message) do
+    ref = Map.put(request.channel_thread_ref, :canonical_thread_id, request.thread_id)
+
+    request
+    |> record_channel_thread_link(ref)
+    |> record_inbound_message_ref(ref, user_message)
+  end
+
+  defp record_channel_thread_link(request, ref) do
+    case ChannelThread.link_thread(ref) do
+      {:ok, _thread_ref} ->
+        request
+
+      {:error, reason} ->
+        add_request_diagnostic(request, %{
+          source: :channel_thread,
+          operation: :link_thread,
+          error: inspect(Redactor.redact(reason))
+        })
+    end
+  end
+
+  defp record_inbound_message_ref(%{provider_message_id: nil} = request, _ref, _user_message),
+    do: request
+
+  defp record_inbound_message_ref(request, ref, user_message) do
+    attrs =
+      ref
+      |> Map.put(:canonical_message_id, user_message.id)
+      |> Map.put(:canonical_thread_id, request.thread_id)
+      |> Map.put(:provider_message_id, request.provider_message_id)
+      |> Map.put(:part_id, request.provider_message_part_id)
+      |> Map.put(:direction, :in)
+
+    case ChannelThread.record_message_ref(attrs) do
+      {:ok, _message_ref} ->
+        request
+
+      {:error, reason} ->
+        add_request_diagnostic(request, %{
+          source: :channel_thread,
+          operation: :record_message_ref,
+          error: inspect(Redactor.redact(reason))
+        })
+    end
   end
 
   defp put_thread_context(request, user_message) do
@@ -450,8 +582,8 @@ defmodule AllbertAssist.Runtime do
         }
 
         case Conversations.append_assistant_message(thread, response.message, attrs) do
-          {:ok, _message} ->
-            response
+          {:ok, message} ->
+            %{response | assistant_message_id: message.id}
 
           {:error, reason} ->
             add_diagnostic(response, %{source: :conversation_history, error: inspect(reason)})
@@ -602,6 +734,10 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp add_diagnostic(response, diagnostic), do: Response.append_diagnostic(response, diagnostic)
+
+  defp add_request_diagnostic(request, diagnostic) do
+    Map.update!(request, :diagnostics, &(&1 ++ [diagnostic]))
+  end
 
   defp normalize_session_id(attrs) do
     case fetch_value(attrs, :session_id) do
