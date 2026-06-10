@@ -50,6 +50,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
       Mix.Task.reenable("allbert.channels")
+      AllbertAssist.Settings.Fragments.clear_cache()
       File.rm_rf!(root)
     end)
 
@@ -60,6 +61,8 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     PluginRegistry.clear()
     PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
     PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+    PluginRegistry.register_module(AllbertAssist.Plugins.Discord)
+    AllbertAssist.Settings.Fragments.clear_cache()
   end
 
   defp restore_plugins(original_plugins) do
@@ -75,6 +78,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
     assert list_output =~ "telegram provider=telegram_bot_api"
     assert list_output =~ "email provider=email_imap"
+    assert list_output =~ "discord provider=discord_gateway"
     refute list_output =~ "token"
 
     Mix.Task.reenable("allbert.channels")
@@ -96,6 +100,17 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
     assert email_show_output =~ "Channel: email"
     assert email_show_output =~ "Provider: email_imap"
+
+    Mix.Task.reenable("allbert.channels")
+
+    discord_show_output =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["show", "discord"])
+      end)
+
+    assert discord_show_output =~ "Channel: discord"
+    assert discord_show_output =~ "Provider: discord_gateway"
+    assert discord_show_output =~ "Doctor: not_run"
   end
 
   test "stores credentials without printing secret values" do
@@ -118,6 +133,33 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert email_output =~ "email imap_password=stored"
     refute email_output =~ "imap-secret"
     assert Secrets.status("secret://channels/email/imap_password") == :configured
+
+    Mix.Task.reenable("allbert.channels")
+
+    discord_output =
+      capture_io(fn ->
+        assert :ok =
+                 ChannelsTask.run([
+                   "discord",
+                   "set-token",
+                   "secret://channels/discord/bot_token"
+                 ])
+      end)
+
+    assert discord_output =~ "discord bot_token_ref=stored"
+
+    assert {:ok, user_settings} = Settings.read_user_settings()
+
+    assert get_in(user_settings, ["channels", "discord", "bot_token_ref"]) ==
+             "secret://channels/discord/bot_token"
+  end
+
+  test "rejects raw Discord credentials" do
+    assert_raise Mix.Error, ~r/secret:\/\/channels\/discord/, fn ->
+      capture_io(fn ->
+        ChannelsTask.run(["discord", "set-token", "RAW_DISCORD_TOKEN"])
+      end)
+    end
   end
 
   test "maps identities and simulates both channels without provider access" do
@@ -214,6 +256,78 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
     assert length(Enum.uniq(email_threads)) == 2
     assert Repo.aggregate(Event, :count) == 3
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok =
+               ChannelsTask.run([
+                 "discord",
+                 "set-token",
+                 "secret://channels/discord/bot_token"
+               ])
+    end)
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok = ChannelsTask.run(["discord", "set-application-id", "123456"])
+    end)
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok = ChannelsTask.run(["discord", "add-guild", "987654321"])
+    end)
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok =
+               ChannelsTask.run([
+                 "discord",
+                 "map",
+                 "--external-user",
+                 "11111",
+                 "--user",
+                 "alice"
+               ])
+    end)
+
+    Mix.Task.reenable("allbert.channels")
+
+    assert {:ok, _setting} = Settings.put("channels.discord.enabled", true, %{audit?: false})
+
+    discord_doctor =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["discord", "doctor"])
+      end)
+
+    assert discord_doctor =~ "discord doctor status=ok"
+    refute discord_doctor =~ "Bot "
+
+    Mix.Task.reenable("allbert.channels")
+
+    discord_output =
+      capture_io(fn ->
+        assert :ok =
+                 ChannelsTask.run([
+                   "discord",
+                   "simulate",
+                   "--guild",
+                   "987654321",
+                   "--channel",
+                   "22222",
+                   "--user",
+                   "11111",
+                   "discord hello"
+                 ])
+      end)
+
+    assert discord_output =~ "status=processed"
+    assert discord_output =~ "User: alice"
+    assert discord_output =~ "Task channel response: discord hello"
+    assert_received {:runtime_request, %{channel: "discord", text: "discord hello"}}
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

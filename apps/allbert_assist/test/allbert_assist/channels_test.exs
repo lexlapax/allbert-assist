@@ -234,6 +234,13 @@ defmodule AllbertAssist.ChannelsTest do
       refute :button in email_primitives
       assert :typed_command in email_primitives
       assert :list in email_primitives
+
+      assert %{primitives: discord_primitives, threading: :native_threads} =
+               Map.fetch!(descriptors, "discord")
+
+      assert :button in discord_primitives
+      assert :typed_command in discord_primitives
+      assert :list in discord_primitives
     end
   end
 
@@ -265,14 +272,15 @@ defmodule AllbertAssist.ChannelsTest do
       File.mkdir_p!(Path.dirname(settings_path))
       File.write!(settings_path, "[not, a, map]\n")
 
-      assert [
-               %{channel: "telegram", credential_status: telegram_status},
-               %{channel: "email", credential_status: email_status}
-             ] = Channels.list_channels()
+      channels = Map.new(Channels.list_channels(), &{&1.channel, &1})
+      telegram_status = channels["telegram"].credential_status
+      email_status = channels["email"].credential_status
+      discord_status = channels["discord"].credential_status
 
       assert telegram_status["channels.telegram.bot_token_ref"] == :missing
       assert email_status["channels.email.imap_password_ref"] == :missing
       assert email_status["channels.email.smtp_password_ref"] == :missing
+      assert discord_status["channels.discord.bot_token_ref"] == :missing
     end
   end
 
@@ -282,5 +290,7 @@ defmodule AllbertAssist.ChannelsTest do
   defp ensure_default_channel_plugins do
     _ = PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
     _ = PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+    _ = PluginRegistry.register_module(AllbertAssist.Plugins.Discord)
+    AllbertAssist.Settings.Fragments.clear_cache()
   end
 end

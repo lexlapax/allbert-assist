@@ -1,0 +1,31 @@
+defmodule AllbertDiscord.RendererTest do
+  use ExUnit.Case, async: true
+
+  alias AllbertAssist.Channels.Discord.Renderer
+
+  test "chunks ordinary Discord messages at the Discord limit" do
+    assert {:ok, [first, second]} =
+             Renderer.render_response(%{message: String.duplicate("x", 2001)})
+
+    assert byte_size(first.content) == 2000
+    assert second.content == "x"
+  end
+
+  test "renders approval handoff as Discord button components" do
+    assert {:ok, [message]} =
+             Renderer.render_response(%{
+               approval_handoff: %{
+                 confirmation_id: "conf_123",
+                 summary: "Run the command?"
+               }
+             })
+
+    assert message.content =~ "conf_123"
+    assert [%{type: 1, components: buttons}] = message.components
+
+    assert Enum.any?(buttons, fn button ->
+             button.type == 2 and button.label == "Approve" and
+               button.custom_id == "allbert:v1:approve:conf_123"
+           end)
+  end
+end
