@@ -1,6 +1,7 @@
 defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
   use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
   alias AllbertAssist.PublicProtocol.Mcp.ProtocolVersions
@@ -25,6 +26,7 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
+    ensure_stocksage_app_registered!()
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
@@ -216,6 +218,19 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
   defp allow_namespaces!(namespaces) do
     assert {:ok, _setting} =
              Settings.put("mcp_server.memory_namespaces_enabled", namespaces, %{audit?: false})
+  end
+
+  defp ensure_stocksage_app_registered! do
+    assert AppRegistry.register(StockSage.App) in [
+             {:ok, :stocksage},
+             {:error, {:app_id_taken, :stocksage}}
+           ]
+
+    assert {:ok, %{module: StockSage.App}} = AppRegistry.lookup(:stocksage)
+
+    assert Enum.any?(AppRegistry.registered_memory_namespaces(), fn namespace ->
+             namespace.app_id == :stocksage and namespace.namespace == :stocksage
+           end)
   end
 
   defp enable_external_fixture! do

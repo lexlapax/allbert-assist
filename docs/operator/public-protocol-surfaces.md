@@ -1,7 +1,7 @@
 # Public Protocol Surfaces
 
-Status: implemented in v0.51 as `0.51.0`; ready for operator manual validation
-before release tag.
+Status: released in v0.51 as `0.51.0`; deterministic release evidence is
+current. Real-client validation steps remain below for operators.
 
 Allbert can be reached by three public protocol surfaces:
 
@@ -125,13 +125,13 @@ Run the deterministic release lane first:
 MIX_ENV=test mix allbert.test release.v051
 ```
 
-Current clean evidence:
-`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-8644/home/release_evidence/v051/release-v051-1781052400.json`.
+Current v0.51 evidence, including the v0.51 secret scan:
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-13252/home/release_evidence/v051/release-v051-1781069964.json`.
 
 Current full release evidence:
-`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-9474/home/release_evidence/gates/release-2026-06-10T00_49_04Z.json`.
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-7/home/release_evidence/gates/release-2026-06-10T04_50_39Z.json`.
 
-Before tagging, repeat opt-in real-client smokes against a disposable
+For operator validation, repeat opt-in real-client smokes against a disposable
 `ALLBERT_HOME` for one MCP client, one OpenAI-API client, and one ACP editor.
 For each surface, verify the enabled tool/resource list, a text prompt, a
 confirmation-pending call, operator approval through the workspace, and

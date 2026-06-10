@@ -12,8 +12,8 @@ changelog entries or release notes.
 
 ## v0.51.0 - Public Protocol Surfaces
 
-Status: implemented as the v0.51 release. Current version metadata is
-`0.51.0`; ready for operator manual validation before the release tag.
+Status: released and tagged as `v0.51.0` on 2026-06-10. Current version
+metadata is `0.51.0`.
 
 Operator doc: `docs/operator/public-protocol-surfaces.md`.
 Developer doc: `docs/developer/public-protocol-surfaces.md`.
@@ -55,7 +55,8 @@ Developer doc: `docs/developer/public-protocol-surfaces.md`.
   (`public_protocol.result_readback_sweep_interval_ms`) so expired rows are
   zeroed without relying on a later client poll.
 - Roadmap, plan, request-flow, operator, and developer docs now describe v0.51
-  as implemented and ready for manual validation.
+  as implemented with current release evidence and documented operator
+  validation steps.
 
 ### Security
 
@@ -84,12 +85,14 @@ Developer doc: `docs/developer/public-protocol-surfaces.md`.
   fixtures, readback sweeping, settings schema, and MCP HTTP protocol-version
   headers passed before the release gates.
 - `MIX_ENV=test mix allbert.test release.v051` passed. Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-8644/home/release_evidence/v051/release-v051-1781052400.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-13252/home/release_evidence/v051/release-v051-1781069964.json`.
 - `MIX_ENV=test mix allbert.test release` passed. Evidence:
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-9474/home/release_evidence/gates/release-2026-06-10T00_49_04Z.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-7/home/release_evidence/gates/release-2026-06-10T04_50_39Z.json`.
 - Evidence scans found no `public protocol result readback sweep failed`,
-  `database is locked`, `SQLITE_BUSY`, `Exqlite.Connection`, or
-  `DBConnection.ConnectionError` noise.
+  `database is locked`, `SQLITE_BUSY`, `Exqlite.Connection`,
+  `DBConnection.ConnectionError`, or `unknown_app_namespace` noise. The
+  v0.51 milestone gate owns the v0.51 secret-scan evidence; the aggregate
+  release gate is the full compile/test/Dialyzer handoff.
 
 ## v0.50.1 - Artifacts Browser
 

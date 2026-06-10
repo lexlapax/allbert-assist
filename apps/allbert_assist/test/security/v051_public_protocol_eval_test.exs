@@ -6,6 +6,7 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
   @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Registry
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
   alias AllbertAssist.PublicProtocol.Acp.Mapping, as: AcpMapping
@@ -102,6 +103,7 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
+    ensure_stocksage_app_registered!()
     RateLimiter.reset_for_test()
 
     on_exit(fn ->
@@ -459,6 +461,19 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
   defp allow_namespaces!(namespaces) do
     assert {:ok, _setting} =
              Settings.put("mcp_server.memory_namespaces_enabled", namespaces, %{audit?: false})
+  end
+
+  defp ensure_stocksage_app_registered! do
+    assert AppRegistry.register(StockSage.App) in [
+             {:ok, :stocksage},
+             {:error, {:app_id_taken, :stocksage}}
+           ]
+
+    assert {:ok, %{module: StockSage.App}} = AppRegistry.lookup(:stocksage)
+
+    assert Enum.any?(AppRegistry.registered_memory_namespaces(), fn namespace ->
+             namespace.app_id == :stocksage and namespace.namespace == :stocksage
+           end)
   end
 
   defp set_rate_limit!(client_id, rate_limit) do
