@@ -10,6 +10,91 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.52.0 - Channel Pack 1 And Cross-Channel Threading
+
+Status: implemented as `0.52.0` on 2026-06-10 and ready for operator
+real-provider smoke/manual validation before release tag. Current version
+metadata is `0.52.0`.
+
+Plan: `docs/plans/v0.52-plan.md`.
+Request flow: `docs/plans/v0.52-request-flow.md`.
+Operator docs: `docs/operator/discord-channel.md`,
+`docs/operator/slack-channel.md`.
+Developer docs: `docs/developer/channel-approval-primitives.md`,
+`docs/developer/cross-channel-threading.md`.
+
+### Added
+
+- Discord and Slack source-tree channel plugins with adapters, parsers,
+  renderers, redacted clients, provider doctors, Settings Central fragments,
+  and `mix allbert.channels discord|slack` CLI surfaces.
+- ADR 0016 channel approval primitives through
+  `AllbertAssist.Approval.Handoff.render/2`; Discord, Slack, Telegram, email,
+  web, and CLI descriptors now declare their supported primitive sets.
+- ADR 0056 channel inbound trust tier:
+  `:channel_message_inbound` has a `:needs_confirmation` floor, allowlist and
+  identity checks run before runtime submission, and callback clickers are
+  re-resolved per interaction.
+- ADR 0057 cross-channel conversation threading:
+  `thread_channel_refs`, `conversation_message_refs`, and
+  `cross_channel_identity_links`; `Conversations.ChannelThread`; unified
+  redacted history; explicit `resume_thread_on_channel`; and echo-loop
+  suppression for Allbert's own outbound provider messages.
+- `mix allbert.conversations show|resume` for operator inspection and explicit
+  cross-channel resume.
+- `mix allbert.test release.v052` deterministic release lane and
+  `mix allbert.test external-smoke -- discord_slack` real-provider smoke harness.
+- 27 v0.52 `:channel_pack` security eval rows covering ingress spoofing,
+  replay/dedupe, group leakage, callback scope, primitive selection, secret
+  redaction, inbound permission floor, provider-thread non-authority, explicit
+  identity links, same-user resume, and unified-history redaction.
+
+### Changed
+
+- Telegram, email, web, and CLI channel surfaces now declare `threading:` and
+  write through the shared cross-channel thread substrate without changing their
+  existing operator-visible output.
+- Version metadata now reports `0.52.0` across the umbrella, core app, web app,
+  README, and `AllbertAssist.App.CoreApp.version/0`.
+- Roadmap, vision, future-features, security-hardening, request-flow, and agent
+  context docs now describe v0.52 as implemented substrate for v0.53 mobile
+  channels.
+- ADR 0016's v0.52 amendment, ADR 0056, and ADR 0057 are accepted for the
+  implemented v0.52 surface.
+
+### Security
+
+- Provider thread ids, provider message ids, Slack `thread_ts`, Discord
+  `message_reference`, callback ids, `owner_scope`, and
+  `receiver_account_ref` are routing metadata only; they never grant permission
+  or become Allbert `thread_id` authority.
+- Discord and Slack token settings are secret refs; raw bot/app tokens are
+  resolved only through Settings Central secrets in real client mode and are
+  redacted from request-shape diagnostics, traces, audits, and release evidence.
+- Discord Interactions HTTP, Slack Events API HTTP, Discord sharding, Slack
+  multi-workspace OAuth, and hosted channel fan-out remain parked.
+
+### Verification
+
+- `MIX_ENV=test mix compile --warnings-as-errors` passed during M8 closeout.
+- Focused M8 suite passed: `37 tests, 0 failures`.
+- Focused v0.52 eval sanity suite passed: `9 tests, 0 failures`.
+- `MIX_ENV=test mix allbert.test release.v052` passed with deterministic
+  evidence at
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v052/p0-10563/home/release_evidence/v052/release-v052-1781129699.json`.
+  Step counts: channel contracts 36 tests, Discord/Slack plugins 23 tests,
+  cross-channel history/CLI 12 tests, workspace continuity web 69 tests,
+  channel-pack security eval 18 tests; secret scan passed with no findings.
+- Full `MIX_ENV=test mix allbert.test release` passed with evidence at
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13253/home/release_evidence/gates/release-2026-06-10T21_29_55Z.json`.
+  Phase counts: core 1720 tests, web 151 tests, StockSage 197 tests, channel
+  plugins 19 tests, Dialyzer 0 errors; compile, dependency, format, Credo, and
+  evidence noise scans passed.
+- `mix allbert.test external-smoke -- discord_slack` remains required before
+  release tag with sandbox Discord/Slack credentials. Operator manual validation
+  must also cover live inbound @mention/DM delivery, button approval, and
+  unmapped-clicker rejection before tag.
+
 ## v0.51.0 - Public Protocol Surfaces
 
 Status: released and tagged as `v0.51.0` on 2026-06-10. Current version

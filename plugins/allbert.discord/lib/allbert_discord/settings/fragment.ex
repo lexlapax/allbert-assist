@@ -53,7 +53,6 @@ defmodule AllbertDiscord.Settings.Fragment do
     "allowed_guild_ids"
   ]
 
-  @spec settings_schema() :: [map()]
   def settings_schema, do: @settings_schema
 
   @spec required_when_enabled(map()) :: [atom()]

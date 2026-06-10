@@ -33,7 +33,8 @@ defmodule AllbertAssist.Conversations.UnifiedHistory do
         }
 
   @doc "Return a redacted, read-mostly unified history for one user-owned thread."
-  @spec show_thread(String.t(), String.t(), keyword()) :: {:ok, history()} | {:error, term()}
+  @spec show_thread(String.t(), String.t(), keyword()) ::
+          {:ok, history()} | {:error, {:thread_not_found, String.t()}}
   def show_thread(user_id, thread_id, opts \\ []) do
     limit = opts |> Keyword.get(:limit, @default_limit) |> normalize_limit()
 
@@ -271,7 +272,6 @@ defmodule AllbertAssist.Conversations.UnifiedHistory do
       end
     else
       {:error, :missing_required_string} -> {:error, :missing_external_user_id}
-      error -> error
     end
   end
 

@@ -193,8 +193,7 @@ defmodule AllbertAssist.Channels.Slack.Parser do
 
   defp required(_map, key), do: {:error, "missing #{key}"}
 
-  defp get_map(map, key) when is_map(map), do: Map.get(map, key, %{})
-  defp get_map(_map, _key), do: %{}
+  defp get_map(map, key), do: Map.get(map, key, %{})
 
   defp field(map, key), do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
 

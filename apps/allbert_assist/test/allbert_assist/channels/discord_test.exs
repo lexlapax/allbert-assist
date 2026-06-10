@@ -12,11 +12,13 @@ defmodule AllbertAssist.Channels.DiscordTest do
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Plugins.Discord, as: DiscordPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Trace
+  alias AllbertDiscord.Settings.Fragment, as: DiscordSettingsFragment
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -39,8 +41,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
 
     PluginRegistry.clear()
 
-    assert {:ok, "allbert.discord"} =
-             PluginRegistry.register_module(AllbertAssist.Plugins.Discord)
+    assert {:ok, "allbert.discord"} = PluginRegistry.register_module(DiscordPlugin)
 
     Fragments.clear_cache()
 
@@ -71,7 +72,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
   end
 
   test "plugin descriptor declares the v0.52 Discord channel contract" do
-    assert [descriptor] = AllbertAssist.Plugins.Discord.channels()
+    assert [descriptor] = DiscordPlugin.channels()
 
     assert descriptor.channel_id == "discord"
     assert descriptor.provider == "discord_gateway"
@@ -87,7 +88,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
 
   test "settings fragment reports required fields when Discord is enabled" do
     diagnostics =
-      AllbertDiscord.Settings.Fragment.required_when_enabled(%{
+      DiscordSettingsFragment.required_when_enabled(%{
         "enabled" => true,
         "bot_token_ref" => "",
         "application_id" => "",

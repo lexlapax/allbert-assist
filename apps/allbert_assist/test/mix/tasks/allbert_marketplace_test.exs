@@ -8,6 +8,8 @@ defmodule Mix.Tasks.Allbert.MarketplaceTest do
   alias AllbertAssist.Marketplace.Bundle
   alias AllbertAssist.Marketplace.Catalog
   alias AllbertAssist.Paths
+  alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Fragments
   alias Mix.Tasks.Allbert.Marketplace, as: MarketplaceTask
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR"]
@@ -15,13 +17,18 @@ defmodule Mix.Tasks.Allbert.MarketplaceTest do
   setup do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
     home = temp_path("home")
     System.put_env("ALLBERT_HOME", home)
     Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+    Fragments.clear_cache()
 
     on_exit(fn ->
       restore_app_env(Paths, original_paths_config)
+      restore_app_env(Settings, original_settings_config)
       restore_env(original_env)
+      Fragments.clear_cache()
       Mix.Task.reenable("allbert.marketplace")
       File.rm_rf!(home)
     end)

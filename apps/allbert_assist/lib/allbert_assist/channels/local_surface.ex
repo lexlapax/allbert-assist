@@ -25,7 +25,6 @@ defmodule AllbertAssist.Channels.LocalSurface do
     receiver_account_ref: "web:workspace"
   }
 
-  @spec descriptors() :: [map()]
   def descriptors, do: [@cli, @live_view]
 
   @spec descriptor(atom() | String.t()) :: {:ok, map()} | {:error, :unknown_local_surface}

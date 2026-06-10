@@ -7,8 +7,13 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Plugins.Discord, as: DiscordPlugin
+  alias AllbertAssist.Plugins.Email, as: EmailPlugin
+  alias AllbertAssist.Plugins.Slack, as: SlackPlugin
+  alias AllbertAssist.Plugins.Telegram, as: TelegramPlugin
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Trace
   alias Mix.Tasks.Allbert.Channels, as: ChannelsTask
@@ -50,7 +55,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
       Mix.Task.reenable("allbert.channels")
-      AllbertAssist.Settings.Fragments.clear_cache()
+      Fragments.clear_cache()
       File.rm_rf!(root)
     end)
 
@@ -59,11 +64,11 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
   defp register_channel_plugins do
     PluginRegistry.clear()
-    PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-    PluginRegistry.register_module(AllbertAssist.Plugins.Email)
-    PluginRegistry.register_module(AllbertAssist.Plugins.Discord)
-    PluginRegistry.register_module(AllbertAssist.Plugins.Slack)
-    AllbertAssist.Settings.Fragments.clear_cache()
+    PluginRegistry.register_module(TelegramPlugin)
+    PluginRegistry.register_module(EmailPlugin)
+    PluginRegistry.register_module(DiscordPlugin)
+    PluginRegistry.register_module(SlackPlugin)
+    Fragments.clear_cache()
   end
 
   defp restore_plugins(original_plugins) do

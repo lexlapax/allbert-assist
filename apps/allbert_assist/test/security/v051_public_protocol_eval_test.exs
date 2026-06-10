@@ -9,6 +9,7 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.PublicProtocol.Acp.Mapping, as: AcpMapping
   alias AllbertAssist.PublicProtocol.Acp.Server, as: AcpServer
   alias AllbertAssist.PublicProtocol.ExposureFilter
@@ -103,8 +104,6 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
-    ensure_stocksage_app_registered!()
-    RateLimiter.reset_for_test()
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
@@ -114,6 +113,9 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
       RateLimiter.reset_for_test()
       File.rm_rf!(root)
     end)
+
+    ensure_stocksage_app_registered!()
+    RateLimiter.reset_for_test()
 
     {:ok, root: root}
   end
@@ -464,6 +466,11 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
   end
 
   defp ensure_stocksage_app_registered! do
+    assert PluginRegistry.register_module(StockSage.Plugin) in [
+             {:ok, "stocksage"},
+             {:error, {:plugin_id_taken, "stocksage"}}
+           ]
+
     assert AppRegistry.register(StockSage.App) in [
              {:ok, :stocksage},
              {:error, {:app_id_taken, :stocksage}}

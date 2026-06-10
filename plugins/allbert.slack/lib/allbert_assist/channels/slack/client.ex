@@ -3,6 +3,7 @@ defmodule AllbertAssist.Channels.Slack.Client do
 
   alias AllbertAssist.External.HttpPolicy
   alias AllbertAssist.External.RequestSpec
+  alias AllbertAssist.Settings.Secrets
 
   @base_url "https://slack.com/api"
   @default_max_response_bytes 1_048_576
@@ -33,17 +34,19 @@ defmodule AllbertAssist.Channels.Slack.Client do
 
   defp request(method, token_ref, path, request_opts, opts) do
     with :ok <- validate_token_ref(token_ref),
+         {:ok, token} <- resolve_token(token_ref),
          request <- build_request(method, token_ref, path, request_opts),
          :ok <- validate_policy(request, request_opts, opts) do
       [
         method: method,
         url: request.url,
-        headers: [{"authorization", "Bearer " <> token_ref}],
+        headers: [{"authorization", "Bearer " <> token}],
         retry: false,
         redirect: false,
         receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
       ]
       |> Keyword.merge(request_opts)
+      |> Keyword.merge(Keyword.take(opts, [:plug]))
       |> Req.request()
       |> normalize_response()
     end
@@ -205,6 +208,25 @@ defmodule AllbertAssist.Channels.Slack.Client do
   end
 
   defp validate_token_ref(_token_ref), do: {:error, :invalid_slack_token_ref}
+
+  defp resolve_token(token_ref) do
+    case Secrets.get_secret(token_ref) do
+      {:ok, token} when is_binary(token) ->
+        token = String.trim(token)
+
+        if token == "" do
+          {:error, :missing_slack_token}
+        else
+          {:ok, token}
+        end
+
+      {:ok, _token} ->
+        {:error, :missing_slack_token}
+
+      {:error, reason} ->
+        {:error, {:slack_token_unavailable, reason}}
+    end
+  end
 
   defp maybe_capture(opts, message) do
     case Keyword.get(opts, :capture_to) do

@@ -464,7 +464,6 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
     end
   end
 
-  defp event_result(result, _success), do: result
   defp event_result(result), do: event_result(result, nil)
 
   defp response_value(response, key) when is_map(response) do

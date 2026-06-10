@@ -12,11 +12,13 @@ defmodule AllbertAssist.Channels.SlackTest do
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Plugins.Slack, as: SlackPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Trace
+  alias AllbertSlack.Settings.Fragment, as: SlackSettingsFragment
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -38,7 +40,7 @@ defmodule AllbertAssist.Channels.SlackTest do
     Application.delete_env(:allbert_assist, Trace)
 
     PluginRegistry.clear()
-    assert {:ok, "allbert.slack"} = PluginRegistry.register_module(AllbertAssist.Plugins.Slack)
+    assert {:ok, "allbert.slack"} = PluginRegistry.register_module(SlackPlugin)
     Fragments.clear_cache()
 
     parent = self()
@@ -68,7 +70,7 @@ defmodule AllbertAssist.Channels.SlackTest do
   end
 
   test "plugin descriptor declares the v0.52 Slack channel contract" do
-    assert [descriptor] = AllbertAssist.Plugins.Slack.channels()
+    assert [descriptor] = SlackPlugin.channels()
 
     assert descriptor.channel_id == "slack"
     assert descriptor.provider == "slack_socket_mode"
@@ -84,7 +86,7 @@ defmodule AllbertAssist.Channels.SlackTest do
 
   test "settings fragment reports required fields when Slack is enabled" do
     diagnostics =
-      AllbertSlack.Settings.Fragment.required_when_enabled(%{
+      SlackSettingsFragment.required_when_enabled(%{
         "enabled" => true,
         "bot_token_ref" => "",
         "app_token_ref" => "",
