@@ -6,6 +6,7 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
   alias AllbertAssist.PublicProtocol.Mcp.ProtocolVersions
   alias AllbertAssist.PublicProtocol.Mcp.Runtime
   alias AllbertAssist.PublicProtocol.Mcp.Server
+  alias AllbertAssist.PublicProtocol.Mcp.StdioServer
   alias AllbertAssist.PublicProtocol.ResultReadback
   alias AllbertAssist.Settings
   alias Hermes.Server.Frame
@@ -65,6 +66,48 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
     assert [%{name: "direct_answer"}] = Frame.get_tools(frame)
     assert [%{uri: "allbert-memory://stocksage/stocksage"}] = Frame.get_resources(frame)
     assert frame.assigns.public_protocol_client_id == "fixture-client"
+  end
+
+  test "Allbert-owned stdio adapter initializes with protocol-only JSON-RPC output" do
+    {:ok, [line], state} =
+      StdioServer.handle_line(
+        ~s({"jsonrpc":"2.0","id":"init","method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"fixture-client"}}}\n),
+        StdioServer.new_state()
+      )
+
+    assert state.initialized?
+    assert state.client_id == "fixture-client"
+
+    assert {:ok,
+            %{
+              "jsonrpc" => "2.0",
+              "id" => "init",
+              "result" => %{
+                "protocolVersion" => "2025-06-18",
+                "serverInfo" => %{"name" => "allbert-assist"},
+                "capabilities" => %{"tools" => %{}, "resources" => %{}}
+              }
+            }} = Jason.decode(line)
+  end
+
+  test "Allbert-owned stdio adapter lists only Settings-allowlisted tools" do
+    enable_mcp_stdio!()
+    allow_tools!(["direct_answer"])
+
+    {:ok, [_line], state} =
+      StdioServer.handle_line(
+        ~s({"jsonrpc":"2.0","id":"init","method":"initialize","params":{"protocolVersion":"2025-06-18"}}\n),
+        StdioServer.new_state()
+      )
+
+    {:ok, [line], _state} =
+      StdioServer.handle_line(
+        ~s({"jsonrpc":"2.0","id":"tools","method":"tools/list"}\n),
+        state
+      )
+
+    assert {:ok, %{"result" => %{"tools" => [%{"name" => "direct_answer"}]}}} =
+             Jason.decode(line)
   end
 
   test "enabled app memory namespaces are exposed as MCP resources" do
@@ -152,11 +195,13 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
   test "M3 server code does not configure Hermes StreamableHTTP transport" do
     server_source = File.read!("lib/allbert_assist/public_protocol/mcp/server.ex")
     runtime_source = File.read!("lib/allbert_assist/public_protocol/mcp/runtime.ex")
+    task_source = File.read!("lib/mix/tasks/allbert.mcp_server.ex")
 
     refute server_source =~ "StreamableHTTP"
     refute server_source =~ "transport: :streamable_http"
     refute runtime_source =~ "StreamableHTTP"
     refute runtime_source =~ "Application.get_env"
+    refute task_source =~ "Hermes.Server.Supervisor"
   end
 
   defp enable_mcp_stdio! do

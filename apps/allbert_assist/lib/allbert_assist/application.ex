@@ -25,6 +25,7 @@ defmodule AllbertAssist.Application do
         {Task.Supervisor, name: AllbertAssist.TaskSupervisor},
         AllbertAssist.Artifacts.GC,
         AllbertAssist.PublicProtocol.RateLimiter,
+        AllbertAssist.PublicProtocol.ResultReadbackSweeper,
         AllbertAssist.Objectives.AgentRegistry,
         AllbertAssist.Jido
       ]

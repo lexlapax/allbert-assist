@@ -1,11 +1,11 @@
 defmodule AllbertAssist.PublicProtocol.Mcp.Server do
   @moduledoc """
-  v0.51 public MCP stdio server.
+  v0.51 public MCP Hermes callback server.
 
-  Hermes is used for MCP framing and lifecycle callbacks only. HTTP ingress for
-  MCP is added separately through Allbert-owned Plug/Phoenix request handling so
-  it can enforce body caps, token authentication, rate limits, headers, and
-  protocol-version denial before runtime work.
+  Hermes is used for MCP schemas and server callbacks. Public MCP transports are
+  Allbert-owned ingress layers so HTTP can enforce body caps, token
+  authentication, rate limits, headers, and protocol-version denial before
+  runtime work, and stdio can keep stdout reserved for protocol frames.
   """
 
   alias AllbertAssist.App.CoreApp
