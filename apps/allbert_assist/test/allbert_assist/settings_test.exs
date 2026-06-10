@@ -1281,6 +1281,75 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("plugins.example.settings.mode", "reckless", %{audit?: false})
   end
 
+  test "trusted source-tree channel plugins may own their channel settings subtree" do
+    PluginRegistry.clear()
+
+    assert {:ok, "allbert.discord"} =
+             PluginRegistry.register_entry(channel_settings_plugin("allbert.discord", "discord"))
+
+    assert {:ok, false} = Settings.get("channels.discord.enabled")
+    assert {:ok, "[REDACTED]"} = Settings.get("channels.discord.bot_token_ref")
+    assert "channels.discord.enabled" in Settings.safe_write_keys()
+
+    assert {:ok, plugin_fragment} = Fragments.fragment_for_key("channels.discord.enabled")
+    assert plugin_fragment.id == "plugin:allbert.discord"
+    assert plugin_fragment.source == :plugin
+    assert "channels.discord.enabled" in plugin_fragment.safe_write_keys
+
+    assert {:ok, resolved} =
+             Settings.put("channels.discord.enabled", true, %{audit?: false})
+
+    assert resolved.value == true
+
+    assert {:ok, token_ref} =
+             Settings.put(
+               "channels.discord.bot_token_ref",
+               "secret://channels/discord/bot_token",
+               %{audit?: false}
+             )
+
+    assert token_ref.value == "[REDACTED]"
+  end
+
+  test "channel plugin settings reject cross-provider and home namespace claims" do
+    PluginRegistry.clear()
+
+    assert {:ok, "allbert.slack"} =
+             PluginRegistry.register_entry(
+               channel_settings_plugin("allbert.slack", "slack",
+                 settings_schema: [
+                   %{
+                     key: "channels.discord.enabled",
+                     type: :boolean,
+                     default: false,
+                     writable?: true,
+                     sensitive?: false
+                   }
+                 ]
+               )
+             )
+
+    refute Settings.safe_write_key?("channels.discord.enabled")
+
+    assert {:error, {:unknown_setting, "channels.discord.enabled"}} =
+             Settings.put("channels.discord.enabled", true, %{audit?: false})
+
+    PluginRegistry.clear()
+
+    assert {:ok, "home.discord"} =
+             PluginRegistry.register_entry(
+               channel_settings_plugin("home.discord", "discord",
+                 source: :home,
+                 trust_status: :pending
+               )
+             )
+
+    refute Settings.safe_write_key?("channels.discord.enabled")
+
+    assert {:error, {:unknown_setting, "channels.discord.enabled"}} =
+             Settings.put("channels.discord.enabled", true, %{audit?: false})
+  end
+
   test "browser plugin settings schema resolves defaults and invariants" do
     PluginRegistry.clear()
     assert {:ok, "allbert.browser"} = PluginRegistry.register_module(AllbertBrowser.Plugin)
@@ -1925,6 +1994,49 @@ defmodule AllbertAssist.SettingsTest do
 
   defp temp_path(name) do
     Path.join(System.tmp_dir!(), "allbert-settings-#{name}-#{System.unique_integer([:positive])}")
+  end
+
+  defp channel_settings_plugin(plugin_id, channel, opts \\ []) do
+    %PluginEntry{
+      plugin_id: plugin_id,
+      display_name: Keyword.get(opts, :display_name, String.capitalize(channel)),
+      version: "0.1.0",
+      kind: "channel",
+      source: Keyword.get(opts, :source, :project),
+      status: :enabled,
+      trust_status: Keyword.get(opts, :trust_status, :trusted),
+      channels: [
+        %{
+          plugin_id: plugin_id,
+          channel_id: channel,
+          provider: "#{channel}_api",
+          settings_prefix: "channels.#{channel}",
+          secret_refs: ["channels.#{channel}.bot_token_ref"],
+          session_strategy: {:provider_thread, prefix: "ch_#{channel}_"},
+          primitives: [:list],
+          threading: :native_threads,
+          status: :enabled,
+          child_spec: {Agent, fn -> [] end}
+        }
+      ],
+      settings_schema:
+        Keyword.get(opts, :settings_schema, [
+          %{
+            key: "channels.#{channel}.enabled",
+            type: :boolean,
+            default: false,
+            writable?: true,
+            sensitive?: false
+          },
+          %{
+            key: "channels.#{channel}.bot_token_ref",
+            type: :channel_secret_ref,
+            default: "secret://channels/#{channel}/bot_token",
+            writable?: true,
+            sensitive?: true
+          }
+        ])
+    }
   end
 
   defp restore_env(original_env) do

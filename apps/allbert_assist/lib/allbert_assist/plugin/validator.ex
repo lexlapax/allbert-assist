@@ -13,6 +13,8 @@ defmodule AllbertAssist.Plugin.Validator do
   @sources [:shipped, :project, :home]
   @statuses [:enabled, :disabled, :invalid, :rejected]
   @trust_statuses [:trusted, :pending, :untrusted]
+  @approval_primitives [:button, :typed_command, :link, :list]
+  @threading_capabilities [:native_threads, :reply_chain, :flat, :rich]
 
   @spec validate_module(module(), keyword() | map()) ::
           {:ok, Entry.t()} | {:error, term(), [map()]}
@@ -155,6 +157,7 @@ defmodule AllbertAssist.Plugin.Validator do
       |> validate_bounded_string(module.display_name(), :display_name, 64)
       |> validate_bounded_string(module.version(), :version, 32)
       |> validate_module_lists(module)
+      |> validate_channel_descriptors(module.channels())
       |> duplicate_contribution_diagnostics(module)
 
     if Enum.any?(diagnostics, &(&1.severity == :error)) do
@@ -250,6 +253,100 @@ defmodule AllbertAssist.Plugin.Validator do
       end
     end)
   end
+
+  defp validate_channel_descriptors(diagnostics, channels) when is_list(channels) do
+    Enum.reduce(channels, diagnostics, fn descriptor, acc ->
+      acc
+      |> validate_channel_descriptor_map(descriptor)
+      |> validate_channel_primitives(descriptor)
+      |> validate_channel_threading(descriptor)
+    end)
+  end
+
+  defp validate_channel_descriptors(diagnostics, _channels) do
+    [
+      diagnostic(:error, :invalid_channels, "channels must be a list of descriptor maps.")
+      | diagnostics
+    ]
+  end
+
+  defp validate_channel_descriptor_map(diagnostics, descriptor) when is_map(descriptor),
+    do: diagnostics
+
+  defp validate_channel_descriptor_map(diagnostics, _descriptor) do
+    [
+      diagnostic(:error, :invalid_channel_descriptor, "Channel descriptor must be a map.")
+      | diagnostics
+    ]
+  end
+
+  defp validate_channel_primitives(diagnostics, descriptor) when is_map(descriptor) do
+    primitives = Map.get(descriptor, :primitives, Map.get(descriptor, "primitives"))
+
+    cond do
+      not is_list(primitives) ->
+        [
+          diagnostic(
+            :error,
+            :missing_channel_primitives,
+            "Channel descriptor missing primitives."
+          )
+          | diagnostics
+        ]
+
+      primitives == [] ->
+        [
+          diagnostic(:error, :empty_channel_primitives, "Channel primitives must not be empty.")
+          | diagnostics
+        ]
+
+      not Enum.all?(primitives, &(&1 in @approval_primitives)) ->
+        [
+          diagnostic(
+            :error,
+            :invalid_channel_primitive,
+            "Channel descriptor declares an unknown primitive.",
+            allowed: @approval_primitives
+          )
+          | diagnostics
+        ]
+
+      :list not in primitives ->
+        [
+          diagnostic(
+            :error,
+            :missing_channel_list_primitive,
+            "Channel primitives must include :list."
+          )
+          | diagnostics
+        ]
+
+      true ->
+        diagnostics
+    end
+  end
+
+  defp validate_channel_primitives(diagnostics, _descriptor), do: diagnostics
+
+  defp validate_channel_threading(diagnostics, descriptor) when is_map(descriptor) do
+    threading = Map.get(descriptor, :threading, Map.get(descriptor, "threading"))
+
+    if threading in @threading_capabilities do
+      diagnostics
+    else
+      [
+        diagnostic(
+          :error,
+          :invalid_channel_threading,
+          "Channel descriptor has invalid threading.",
+          allowed: @threading_capabilities
+        )
+        | diagnostics
+      ]
+    end
+  end
+
+  defp validate_channel_threading(diagnostics, _descriptor), do: diagnostics
 
   defp duplicate_contribution_diagnostics(diagnostics, module) do
     diagnostics ++

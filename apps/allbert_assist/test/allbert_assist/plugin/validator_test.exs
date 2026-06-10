@@ -65,10 +65,88 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
     @impl true
     def channels do
       [
-        %{channel_id: "duplicate"},
-        %{channel_id: "duplicate"}
+        %{channel_id: "duplicate", primitives: [:list], threading: :flat},
+        %{channel_id: "duplicate", primitives: [:list], threading: :flat}
       ]
     end
+  end
+
+  defmodule MissingPrimitivesChannelPlugin do
+    use AllbertAssist.Plugin
+
+    @impl true
+    def plugin_id, do: "example.missing_primitives"
+
+    @impl true
+    def display_name, do: "Missing Primitives"
+
+    @impl true
+    def version, do: "0.1.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def channels, do: [%{channel_id: "missing_primitives", threading: :flat}]
+  end
+
+  defmodule InvalidPrimitiveChannelPlugin do
+    use AllbertAssist.Plugin
+
+    @impl true
+    def plugin_id, do: "example.invalid_primitive"
+
+    @impl true
+    def display_name, do: "Invalid Primitive"
+
+    @impl true
+    def version, do: "0.1.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def channels,
+      do: [%{channel_id: "invalid_primitive", primitives: [:button], threading: :flat}]
+  end
+
+  defmodule UnknownPrimitiveChannelPlugin do
+    use AllbertAssist.Plugin
+
+    @impl true
+    def plugin_id, do: "example.unknown_primitive"
+
+    @impl true
+    def display_name, do: "Unknown Primitive"
+
+    @impl true
+    def version, do: "0.1.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def channels,
+      do: [%{channel_id: "unknown_primitive", primitives: [:list, :magic], threading: :flat}]
+  end
+
+  defmodule InvalidThreadingChannelPlugin do
+    use AllbertAssist.Plugin
+
+    @impl true
+    def plugin_id, do: "example.invalid_threading"
+
+    @impl true
+    def display_name, do: "Invalid Threading"
+
+    @impl true
+    def version, do: "0.1.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def channels, do: [%{channel_id: "invalid_threading", primitives: [:list], threading: :magic}]
   end
 
   test "validates plugin modules into normalized entries without atomizing ids" do
@@ -107,6 +185,34 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
 
     assert Enum.any?(entry.diagnostics, &(&1.kind == :duplicate_channel_id))
     assert Enum.any?(entry.diagnostics, &(&1.kind == :duplicate_skill_path))
+  end
+
+  test "rejects channel descriptors missing primitives" do
+    assert {:error, :invalid_plugin, diagnostics} =
+             Validator.validate_module(MissingPrimitivesChannelPlugin)
+
+    assert Enum.any?(diagnostics, &(&1.kind == :missing_channel_primitives))
+  end
+
+  test "rejects channel primitive declarations without list fallback" do
+    assert {:error, :invalid_plugin, diagnostics} =
+             Validator.validate_module(InvalidPrimitiveChannelPlugin)
+
+    assert Enum.any?(diagnostics, &(&1.kind == :missing_channel_list_primitive))
+  end
+
+  test "rejects unknown channel primitive declarations" do
+    assert {:error, :invalid_plugin, diagnostics} =
+             Validator.validate_module(UnknownPrimitiveChannelPlugin)
+
+    assert Enum.any?(diagnostics, &(&1.kind == :invalid_channel_primitive))
+  end
+
+  test "rejects channel descriptors with invalid threading" do
+    assert {:error, :invalid_plugin, diagnostics} =
+             Validator.validate_module(InvalidThreadingChannelPlugin)
+
+    assert Enum.any?(diagnostics, &(&1.kind == :invalid_channel_threading))
   end
 
   test "normalizes valid skill-only manifests" do

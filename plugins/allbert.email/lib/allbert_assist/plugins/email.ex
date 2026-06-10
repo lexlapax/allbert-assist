@@ -31,6 +31,8 @@ defmodule AllbertAssist.Plugins.Email do
         settings_prefix: "channels.email",
         identity_map_key: "channels.email.identity_map",
         session_strategy: {:email_sender, prefix: "ch_em_"},
+        primitives: [:typed_command, :list],
+        threading: :reply_chain,
         plugin_id: plugin_id(),
         source: :shipped,
         status: :enabled

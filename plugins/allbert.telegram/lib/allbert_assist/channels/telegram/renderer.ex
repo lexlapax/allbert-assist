@@ -1,8 +1,7 @@
 defmodule AllbertAssist.Channels.Telegram.Renderer do
   @moduledoc false
 
-  alias AllbertAssist.Intent.ApprovalHandoff
-  alias AllbertAssist.Confirmations.ObjectiveContext
+  alias AllbertAssist.Approval.Handoff
   alias AllbertAssist.Runtime.MediaOutputs
 
   @telegram_limit 4096
@@ -25,36 +24,36 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
   end
 
   def render_approval_handoff(handoff_data, opts \\ []) do
-    text =
-      (ObjectiveContext.lines(handoff_data) ++ ApprovalHandoff.lines(handoff_data))
-      |> case do
-        [] -> ["Approval required."]
-        lines -> lines
-      end
-      |> Enum.join("\n")
+    descriptor = effective_descriptor(opts)
 
-    keyboard =
-      if Keyword.get(opts, :render_buttons, true) do
-        approval_keyboard(confirmation_id(handoff_data))
-      end
+    with {:ok, {primitive, payload}} <- Handoff.render(handoff_data, descriptor) do
+      keyboard =
+        if primitive == :button do
+          approval_keyboard(payload)
+        end
 
-    {:ok, chunks(text, @telegram_limit), keyboard}
+      {:ok, chunks(payload.text, @telegram_limit), keyboard}
+    end
   end
 
-  defp approval_keyboard(nil), do: nil
+  defp effective_descriptor(opts) do
+    primitives =
+      if Keyword.get(opts, :render_buttons, true) do
+        [:button, :typed_command, :list]
+      else
+        [:typed_command, :list]
+      end
 
-  defp approval_keyboard(confirmation_id) do
-    actions = [
-      {"Approve", "approve"},
-      {"Deny", "deny"},
-      {"Show", "show"}
-    ]
+    %{primitives: primitives, threading: :reply_chain}
+  end
 
+  defp approval_keyboard(%{buttons: buttons}) when is_list(buttons) do
     buttons =
-      Enum.flat_map(actions, fn {label, action} ->
-        data = "allbert:v1:#{action}:#{confirmation_id}"
+      Enum.flat_map(buttons, fn button ->
+        data = Map.get(button, :callback_data)
+        label = Map.get(button, :label)
 
-        if byte_size(data) <= @callback_limit do
+        if is_binary(data) and is_binary(label) and byte_size(data) <= @callback_limit do
           [[%{"text" => label, "callback_data" => data}]]
         else
           []
@@ -63,6 +62,8 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
 
     if buttons == [], do: nil, else: %{"inline_keyboard" => buttons}
   end
+
+  defp approval_keyboard(_payload), do: nil
 
   defp chunks("", _limit), do: [""]
 
@@ -80,8 +81,6 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
     end)
     |> then(fn {chunks, current, _bytes} -> Enum.reverse([current | chunks]) end)
   end
-
-  defp confirmation_id(handoff_data), do: response_field(handoff_data, :confirmation_id)
 
   defp with_media_outputs(text, runtime_response) do
     outputs =

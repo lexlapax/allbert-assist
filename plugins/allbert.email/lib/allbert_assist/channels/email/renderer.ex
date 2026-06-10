@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Channels.Email.Renderer do
   @moduledoc false
 
+  alias AllbertAssist.Approval.Handoff
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Confirmations.ObjectiveContext
 
@@ -23,27 +24,43 @@ defmodule AllbertAssist.Channels.Email.Renderer do
     subject = reply_subject(Keyword.get(opts, :subject, "Approval required"))
     confirmation_id = response_field(handoff_data, :confirmation_id)
 
-    body =
-      [
-        "Allbert needs your approval:",
-        "",
-        ObjectiveContext.lines(handoff_data),
-        "",
-        ApprovalHandoff.lines(handoff_data),
-        "",
-        "To approve, reply with this exact line:",
-        "ALLBERT:APPROVE:#{confirmation_id}",
-        "",
-        "To deny:",
-        "ALLBERT:DENY:#{confirmation_id}",
-        "",
-        "To see current status:",
-        "ALLBERT:SHOW:#{confirmation_id}"
-      ]
-      |> List.flatten()
-      |> Enum.join("\n")
+    with {:ok, {:typed_command, payload}} <-
+           Handoff.render(handoff_data, %{
+             primitives: [:typed_command, :list],
+             threading: :reply_chain
+           }) do
+      commands = Map.get(payload, :commands, typed_commands(confirmation_id))
 
-    {:ok, subject, bound_body(body, opts), nil}
+      body =
+        [
+          "Allbert needs your approval:",
+          "",
+          ObjectiveContext.lines(handoff_data),
+          "",
+          ApprovalHandoff.lines(handoff_data),
+          "",
+          "To approve, reply with this exact line:",
+          Enum.at(commands, 0, "ALLBERT:APPROVE:#{confirmation_id}"),
+          "",
+          "To deny:",
+          Enum.at(commands, 1, "ALLBERT:DENY:#{confirmation_id}"),
+          "",
+          "To see current status:",
+          Enum.at(commands, 2, "ALLBERT:SHOW:#{confirmation_id}")
+        ]
+        |> List.flatten()
+        |> Enum.join("\n")
+
+      {:ok, subject, bound_body(body, opts), nil}
+    end
+  end
+
+  defp typed_commands(confirmation_id) do
+    [
+      "ALLBERT:APPROVE:#{confirmation_id}",
+      "ALLBERT:DENY:#{confirmation_id}",
+      "ALLBERT:SHOW:#{confirmation_id}"
+    ]
   end
 
   defp reply_subject(""), do: "Re: Allbert"

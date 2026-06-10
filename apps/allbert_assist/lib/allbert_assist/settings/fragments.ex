@@ -95,7 +95,7 @@ defmodule AllbertAssist.Settings.Fragments do
     opts
     |> plugin_entries()
     |> Enum.map(fn plugin ->
-      schema = Schema.normalize_plugin_schema_entries(plugin.settings_schema)
+      schema = Schema.normalize_plugin_schema_entries(plugin.settings_schema, plugin: plugin)
 
       Fragment.new!(%{
         id: "plugin:#{plugin.plugin_id}",
