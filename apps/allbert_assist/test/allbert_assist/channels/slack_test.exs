@@ -195,6 +195,83 @@ defmodule AllbertAssist.Channels.SlackTest do
     assert Enum.any?(refs, &(&1.direction == "out"))
   end
 
+  test "adapter rejects unmapped users and non-allowlisted workspaces or channels before runtime" do
+    assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
+
+    unmapped =
+      Parser.simulated_event(%{
+        ts: "1718040000.000301",
+        team_id: "T0123ABCDE",
+        channel_id: "C0123ABCDE",
+        user_id: "UUNKNOWN",
+        text: "from stranger"
+      })
+
+    denied_workspace =
+      Parser.simulated_event(%{
+        ts: "1718040000.000302",
+        team_id: "T9999",
+        channel_id: "C0123ABCDE",
+        user_id: "U0123ABCDE",
+        text: "from denied workspace"
+      })
+
+    denied_channel =
+      Parser.simulated_event(%{
+        ts: "1718040000.000303",
+        team_id: "T0123ABCDE",
+        channel_id: "C9999",
+        user_id: "U0123ABCDE",
+        text: "from denied channel"
+      })
+
+    assert {:ok, :rejected} = Adapter.simulate_socket_envelope(adapter, unmapped)
+    assert {:ok, :rejected} = Adapter.simulate_socket_envelope(adapter, denied_workspace)
+    assert {:ok, :rejected} = Adapter.simulate_socket_envelope(adapter, denied_channel)
+
+    GenServer.stop(adapter)
+
+    assert %{status: "rejected", reason: ":not_mapped"} =
+             Repo.get_by!(AllbertAssist.Channels.Event, external_event_id: "1718040000.000301")
+
+    assert %{status: "rejected", reason: ":team_not_allowed"} =
+             Repo.get_by!(AllbertAssist.Channels.Event, external_event_id: "1718040000.000302")
+
+    assert %{status: "rejected", reason: ":channel_not_allowed"} =
+             Repo.get_by!(AllbertAssist.Channels.Event, external_event_id: "1718040000.000303")
+
+    refute_received {:runtime_request, _request}
+  end
+
+  test "adapter preserves Slack thread_ts without treating it as canonical thread authority" do
+    assert {:ok, adapter} =
+             Adapter.start_link(name: nil, client_opts: [mode: :stub, capture_to: self()])
+
+    event =
+      Parser.simulated_event(%{
+        ts: "1718040000.000401",
+        team_id: "T0123ABCDE",
+        channel_id: "C0123ABCDE",
+        thread_ts: "1718040000.000100",
+        user_id: "U0123ABCDE",
+        text: "thread placement"
+      })
+
+    assert {:ok, {:processed, processed_event, _rendered}} =
+             Adapter.simulate_socket_envelope(adapter, event)
+
+    assert_receive {:slack_chat_post_message, payload}
+    assert payload.channel == "C0123ABCDE"
+    assert payload.thread_ts == "1718040000.000100"
+    assert processed_event.thread_id != "1718040000.000100"
+
+    assert_received {:runtime_request, request}
+    assert request.channel_thread_ref.provider_thread_ref["thread_ts"] == "1718040000.000100"
+    assert request.channel_thread_ref.receiver_account_ref == "slack:team:T0123ABCDE"
+
+    GenServer.stop(adapter)
+  end
+
   test "different Slack thread roots produce different sessions" do
     assert {:ok, first} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
     assert {:ok, second} = Adapter.start_link(name: nil, client_opts: [mode: :stub])

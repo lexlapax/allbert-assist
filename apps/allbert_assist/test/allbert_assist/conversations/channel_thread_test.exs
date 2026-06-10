@@ -135,7 +135,7 @@ defmodule AllbertAssist.Conversations.ChannelThreadTest do
   end
 
   test "identity links are explicit durable rows and duplicate-safe" do
-    attrs = %{
+    slack_attrs = %{
       link_id: "link_alice",
       user_id: "alice",
       channel: "slack",
@@ -143,10 +143,41 @@ defmodule AllbertAssist.Conversations.ChannelThreadTest do
       external_user_id: "U0123"
     }
 
-    assert {:ok, link} = ChannelThread.link_identity(attrs)
-    assert {:ok, duplicate} = ChannelThread.link_identity(attrs)
+    discord_attrs = %{
+      link_id: "link_alice",
+      user_id: "alice",
+      channel: "discord",
+      receiver_account_ref: "discord:app:123456:guild:987654321",
+      external_user_id: "11111"
+    }
+
+    assert [] = ChannelThread.list_identity_links(%{link_id: "link_alice"})
+
+    assert {:ok, link} = ChannelThread.link_identity(slack_attrs)
+    assert {:ok, duplicate} = ChannelThread.link_identity(slack_attrs)
     assert duplicate.id == link.id
-    assert Repo.aggregate(CrossChannelIdentityLink, :count, :id) == 1
+
+    conflicting = Map.put(slack_attrs, :user_id, "bob")
+    assert {:error, {:identity_link_conflict, "alice"}} = ChannelThread.link_identity(conflicting)
+
+    assert {:ok, _discord_link} = ChannelThread.link_identity(discord_attrs)
+
+    assert [discord_link, slack_link] =
+             ChannelThread.list_identity_links(%{link_id: "link_alice"})
+
+    assert discord_link.channel == "discord"
+    assert slack_link.channel == "slack"
+
+    assert [slack_link] = ChannelThread.list_identity_links(%{user_id: "alice", channel: "slack"})
+
+    assert Repo.aggregate(CrossChannelIdentityLink, :count, :id) == 2
+
+    assert {:ok, removed} = ChannelThread.unlink_identity(slack_attrs)
+    assert removed.id == slack_link.id
+    assert {:error, :not_found} = ChannelThread.unlink_identity(slack_attrs)
+
+    assert [remaining] = ChannelThread.list_identity_links(%{link_id: "link_alice"})
+    assert remaining.channel == "discord"
   end
 
   test "runtime maps known provider thread refs and records inbound message refs" do

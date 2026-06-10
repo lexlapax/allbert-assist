@@ -196,6 +196,99 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert Enum.any?(refs, &(&1.direction == "out"))
   end
 
+  test "adapter rejects unmapped users and non-allowlisted channels before runtime" do
+    assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
+
+    unmapped =
+      Parser.simulated_message_event(%{
+        message_id: "discord_unmapped",
+        guild_id: "987654321",
+        channel_id: "22222",
+        user_id: "99999",
+        application_id: "123456",
+        text: "from stranger"
+      })
+
+    denied_channel =
+      Parser.simulated_message_event(%{
+        message_id: "discord_denied_channel",
+        guild_id: "987654321",
+        channel_id: "33333",
+        user_id: "11111",
+        application_id: "123456",
+        text: "from denied channel"
+      })
+
+    assert {:ok, :rejected} = Adapter.simulate_gateway_event(adapter, unmapped)
+    assert {:ok, :rejected} = Adapter.simulate_gateway_event(adapter, denied_channel)
+
+    GenServer.stop(adapter)
+
+    assert %{status: "rejected", reason: ":not_mapped"} =
+             Repo.get_by!(AllbertAssist.Channels.Event, external_event_id: "discord_unmapped")
+
+    assert %{status: "rejected", reason: ":channel_not_allowed"} =
+             Repo.get_by!(
+               AllbertAssist.Channels.Event,
+               external_event_id: "discord_denied_channel"
+             )
+
+    refute_received {:runtime_request, _request}
+  end
+
+  test "adapter preserves Discord reply placement for message references and native threads" do
+    assert {:ok, adapter} =
+             Adapter.start_link(name: nil, client_opts: [mode: :stub, capture_to: self()])
+
+    reply_event =
+      Parser.simulated_message_event(%{
+        message_id: "discord_reply_source",
+        guild_id: "987654321",
+        channel_id: "22222",
+        user_id: "11111",
+        application_id: "123456",
+        message_reference: %{
+          "message_id" => "source-message",
+          "channel_id" => "22222",
+          "guild_id" => "987654321"
+        },
+        text: "reply placement"
+      })
+
+    thread_event =
+      Parser.simulated_message_event(%{
+        message_id: "discord_thread_source",
+        guild_id: "987654321",
+        channel_id: "22222",
+        thread_channel_id: "thread-44444",
+        user_id: "11111",
+        application_id: "123456",
+        text: "thread placement"
+      })
+
+    assert {:ok, {:processed, reply_processed, _rendered}} =
+             Adapter.simulate_gateway_event(adapter, reply_event)
+
+    assert_receive {:discord_create_message, "22222", reply_payload}
+
+    assert reply_payload.message_reference == %{
+             "message_id" => "source-message",
+             "channel_id" => "22222",
+             "guild_id" => "987654321"
+           }
+
+    assert reply_processed.thread_id != "source-message"
+
+    assert {:ok, {:processed, thread_processed, _rendered}} =
+             Adapter.simulate_gateway_event(adapter, thread_event)
+
+    assert_receive {:discord_create_message, "thread-44444", thread_payload}
+    refute Map.has_key?(thread_payload, :message_reference)
+    assert thread_processed.thread_id != "thread-44444"
+
+    GenServer.stop(adapter)
+  end
+
   test "different Discord native thread channels produce different sessions" do
     assert {:ok, first} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
     assert {:ok, second} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
@@ -247,6 +340,9 @@ defmodule AllbertAssist.Channels.DiscordTest do
 
     assert {:ok, _setting} =
              Settings.put("channels.discord.allowed_guild_ids", ["987654321"], %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("channels.discord.allowed_channel_ids", ["22222"], %{audit?: false})
 
     assert {:ok, _setting} =
              Settings.put(
