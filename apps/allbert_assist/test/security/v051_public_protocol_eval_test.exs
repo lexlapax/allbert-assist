@@ -9,7 +9,6 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
-  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.PublicProtocol.Acp.Mapping, as: AcpMapping
   alias AllbertAssist.PublicProtocol.Acp.Server, as: AcpServer
   alias AllbertAssist.PublicProtocol.ExposureFilter
@@ -23,6 +22,7 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
+  alias AllbertAssist.StockSageRegistryCase
 
   @eval_groups [
     exposure: [
@@ -466,15 +466,7 @@ defmodule AllbertAssist.Security.V051PublicProtocolEvalTest do
   end
 
   defp ensure_stocksage_app_registered! do
-    assert PluginRegistry.register_module(StockSage.Plugin) in [
-             {:ok, "stocksage"},
-             {:error, {:plugin_id_taken, "stocksage"}}
-           ]
-
-    assert AppRegistry.register(StockSage.App) in [
-             {:ok, :stocksage},
-             {:error, {:app_id_taken, :stocksage}}
-           ]
+    assert :ok = StockSageRegistryCase.setup()
 
     assert {:ok, %{module: StockSage.App}} = AppRegistry.lookup(:stocksage)
 
