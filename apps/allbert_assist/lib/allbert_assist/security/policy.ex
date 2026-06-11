@@ -770,6 +770,9 @@ defmodule AllbertAssist.Security.Policy do
   defp reason(:channel_message_inbound, :needs_confirmation, _configured, _floor, _context),
     do: "Inbound channel messages require operator confirmation before effectful work."
 
+  defp reason(:channel_message_inbound, :allowed, _configured, _floor, _context),
+    do: "Inbound channel messages are allowed to enter runtime after channel identity checks."
+
   defp reason(:channel_message_inbound, :denied, _configured, _floor, _context),
     do: "Inbound channel messages are denied by current policy."
 

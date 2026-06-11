@@ -8,7 +8,9 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.ConfirmationCallback
   alias AllbertAssist.Channels.Identity
+  alias AllbertAssist.Channels.InboundTrust
   alias AllbertAssist.Channels.Slack.Client
+  alias AllbertAssist.Channels.Slack.Client.SocketModePort
   alias AllbertAssist.Channels.Slack.Parser
   alias AllbertAssist.Channels.Slack.Renderer
   alias AllbertAssist.Conversations.ChannelThread
@@ -31,7 +33,12 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
 
   @impl true
   def init(opts) do
-    {:ok, load_state(opts)}
+    state =
+      opts
+      |> load_state()
+      |> maybe_start_socket_mode()
+
+    {:ok, state}
   end
 
   @impl true
@@ -53,14 +60,58 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
         {:error, _reason} -> %{}
       end
 
+    enabled? = Map.get(settings, "enabled", false)
+    client_opts = Keyword.get(opts, :client_opts, [])
+
+    client_opts =
+      if enabled? do
+        Keyword.put_new(client_opts, :mode, :real)
+      else
+        client_opts
+      end
+
     %{
       enabled?: Map.get(settings, "enabled", false),
       settings: settings,
       bot_token_ref: Map.get(settings, "bot_token_ref", "secret://channels/slack/bot_token"),
-      client_opts: Keyword.get(opts, :client_opts, []),
+      app_token_ref: Map.get(settings, "app_token_ref", "secret://channels/slack/app_token"),
+      client_opts: client_opts,
+      socket_mode_port_module: Keyword.get(opts, :socket_mode_port, SocketModePort.Real),
+      socket_mode_opts: Keyword.get(opts, :socket_mode_opts, []),
+      socket_mode_port: nil,
+      socket_mode_status: :not_started,
       diagnostics: AllbertSlack.Settings.Fragment.required_when_enabled(settings),
       last_hello: nil
     }
+  end
+
+  defp maybe_start_socket_mode(%{enabled?: false} = state),
+    do: %{state | socket_mode_status: :disabled}
+
+  defp maybe_start_socket_mode(%{diagnostics: diagnostics} = state) when diagnostics != [] do
+    %{state | socket_mode_status: {:not_started, {:invalid_settings, diagnostics}}}
+  end
+
+  defp maybe_start_socket_mode(state) do
+    opts =
+      [
+        owner: self(),
+        app_token_ref: state.app_token_ref,
+        reconnect_max_backoff_ms:
+          Map.get(state.settings, "socket_mode", %{})
+          |> Map.get("reconnect_max_backoff_ms", 30_000),
+        client_opts: state.client_opts
+      ]
+      |> Keyword.merge(state.socket_mode_opts)
+
+    case state.socket_mode_port_module.start_link(opts) do
+      {:ok, pid} ->
+        %{state | socket_mode_port: pid, socket_mode_status: :running}
+
+      {:error, reason} ->
+        Logger.debug("slack socket mode not started: #{inspect(Redactor.redact(reason))}")
+        %{state | socket_mode_status: {:error, reason}}
+    end
   end
 
   defp process_socket_envelope(envelope, state) do
@@ -143,9 +194,10 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
          :ok <- validate_text(fields, state),
          :ok <- reject_echo(fields),
          {:ok, user_id} <- resolve_identity(fields, state),
+         {:ok, inbound_trust} <- authorize_inbound(fields, user_id, :message),
          session_id <- session_id(fields),
          {:ok, event, rendered} <-
-           process_text_or_runtime(event, fields, state, user_id, session_id) do
+           process_text_or_runtime(event, fields, state, user_id, session_id, inbound_trust) do
       {:ok, {:processed, event, rendered}}
     else
       {:error, reason} ->
@@ -155,11 +207,19 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
     end
   end
 
-  defp process_text_or_runtime(event, fields, state, user_id, session_id) do
+  defp process_text_or_runtime(event, fields, state, user_id, session_id, inbound_trust) do
     case ConfirmationCallback.parse_typed_command(fields.text) do
       {:ok, action, confirmation_id} ->
         with {:ok, response} <-
-               run_confirmation_callback(fields, user_id, session_id, action, confirmation_id),
+               run_confirmation_callback(
+                 fields,
+                 state,
+                 user_id,
+                 session_id,
+                 action,
+                 confirmation_id,
+                 inbound_trust
+               ),
              {:ok, rendered} <- render_confirmation_response(response, state),
              {:ok, _delivered} <- deliver_rendered(fields, rendered, state),
              {:ok, event} <- mark_callback_processed(event, response, user_id, session_id) do
@@ -167,7 +227,7 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
         end
 
       :ignore ->
-        with {:ok, response} <- submit_runtime(fields, user_id, session_id),
+        with {:ok, response} <- submit_runtime(fields, user_id, session_id, inbound_trust),
              {:ok, rendered} <- Renderer.render_response(response, renderer_opts(state)),
              {:ok, delivered} <- deliver_rendered(fields, rendered, state),
              :ok <- record_outbound_refs(response, fields, delivered),
@@ -180,9 +240,11 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
   defp process_callback(event, fields, state) do
     with :ok <- validate_callback_allowlist(fields, state),
          {:ok, user_id} <- resolve_identity(fields, state),
+         {:ok, inbound_trust} <- authorize_inbound(fields, user_id, :callback),
          session_id <-
            Channels.derive_session_id("slack", fields.external_user_id, fields.external_chat_id),
-         {:ok, response} <- run_confirmation_callback(fields, user_id, session_id),
+         {:ok, response} <-
+           run_confirmation_callback(fields, state, user_id, session_id, inbound_trust),
          {:ok, rendered} <- render_confirmation_response(response, state),
          {:ok, _delivered} <- deliver_callback_result(fields, rendered, state),
          {:ok, event} <- mark_callback_processed(event, response, user_id, session_id) do
@@ -262,11 +324,23 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
     )
   end
 
+  defp authorize_inbound(fields, user_id, surface) do
+    InboundTrust.authorize(%{
+      user_id: user_id,
+      channel: "slack",
+      provider: @provider,
+      surface: "slack_#{surface}",
+      external_user_id: fields.external_user_id,
+      external_chat_id: fields.external_chat_id,
+      receiver_account_ref: Map.get(fields, :receiver_account_ref)
+    })
+  end
+
   defp session_id(fields) do
     Channels.derive_session_id("slack", fields.external_user_id, fields.thread_ts)
   end
 
-  defp submit_runtime(fields, user_id, session_id) do
+  defp submit_runtime(fields, user_id, session_id, inbound_trust) do
     Runtime.submit_user_input(%{
       text: fields.text,
       channel: "slack",
@@ -283,7 +357,8 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
         external_chat_id: fields.external_chat_id,
         external_message_id: fields.external_message_id,
         receiver_account_ref: fields.receiver_account_ref,
-        provider_thread_ref: fields.provider_thread_ref
+        provider_thread_ref: fields.provider_thread_ref,
+        inbound_trust: inbound_trust
       }
     })
   end
@@ -314,16 +389,33 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
     end)
   end
 
-  defp run_confirmation_callback(fields, user_id, session_id) do
-    run_confirmation_callback(fields, user_id, session_id, fields.verb, fields.confirmation_id)
+  defp run_confirmation_callback(fields, state, user_id, session_id, inbound_trust) do
+    run_confirmation_callback(
+      fields,
+      state,
+      user_id,
+      session_id,
+      fields.verb,
+      fields.confirmation_id,
+      inbound_trust
+    )
   end
 
-  defp run_confirmation_callback(fields, user_id, session_id, action, confirmation_id) do
+  defp run_confirmation_callback(
+         fields,
+         state,
+         user_id,
+         session_id,
+         action,
+         confirmation_id,
+         inbound_trust
+       ) do
     ConfirmationCallback.run(%{
       action: action,
       confirmation_id: confirmation_id,
       channel: "slack",
       user_id: user_id,
+      identity_proof: identity_proof(fields, state, user_id),
       session_id: session_id,
       surface: "slack_interactive",
       resolver_metadata: %{
@@ -332,9 +424,21 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
         external_user_id: fields.external_user_id,
         external_chat_id: fields.external_chat_id,
         external_message_id: fields.external_message_id,
-        callback_data: callback_marker(fields)
+        callback_data: callback_marker(fields),
+        inbound_trust: inbound_trust
       }
     })
+  end
+
+  defp identity_proof(fields, state, user_id) do
+    %{
+      channel: "slack",
+      external_user_id: fields.external_user_id,
+      user_id: user_id,
+      identity_map: Map.get(state.settings, "identity_map", []),
+      receiver_account_ref: Map.get(fields, :receiver_account_ref),
+      external_chat_id: fields.external_chat_id
+    }
   end
 
   defp callback_marker(fields), do: Map.get(fields, :callback_data) || Map.get(fields, :text)
@@ -416,6 +520,7 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
                :wrong_user,
                :wrong_channel,
                :not_found,
+               :channel_message_inbound_denied,
                :unsupported_callback_action
              ] ->
           "rejected"

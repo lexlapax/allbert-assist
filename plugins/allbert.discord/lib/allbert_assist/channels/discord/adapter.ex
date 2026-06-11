@@ -7,10 +7,12 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
 
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.ConfirmationCallback
+  alias AllbertAssist.Channels.Discord.Client.GatewayPort
   alias AllbertAssist.Channels.Discord.Client
   alias AllbertAssist.Channels.Discord.Parser
   alias AllbertAssist.Channels.Discord.Renderer
   alias AllbertAssist.Channels.Identity
+  alias AllbertAssist.Channels.InboundTrust
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
@@ -31,7 +33,11 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
 
   @impl true
   def init(opts) do
-    state = load_state(opts)
+    state =
+      opts
+      |> load_state()
+      |> maybe_start_gateway()
+
     {:ok, state}
   end
 
@@ -54,14 +60,58 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
         {:error, _reason} -> %{}
       end
 
+    enabled? = Map.get(settings, "enabled", false)
+    client_opts = Keyword.get(opts, :client_opts, [])
+
+    client_opts =
+      if enabled? do
+        Keyword.put_new(client_opts, :mode, :real)
+      else
+        client_opts
+      end
+
     %{
       enabled?: Map.get(settings, "enabled", false),
       settings: settings,
       token_ref: Map.get(settings, "bot_token_ref", "secret://channels/discord/bot_token"),
-      client_opts: Keyword.get(opts, :client_opts, []),
+      client_opts: client_opts,
       diagnostics: AllbertDiscord.Settings.Fragment.required_when_enabled(settings),
+      gateway_port_module: Keyword.get(opts, :gateway_port, GatewayPort.Real),
+      gateway_opts: Keyword.get(opts, :gateway_opts, []),
+      gateway_port: nil,
+      gateway_status: :not_started,
       last_ready: nil
     }
+  end
+
+  defp maybe_start_gateway(%{enabled?: false} = state), do: %{state | gateway_status: :disabled}
+
+  defp maybe_start_gateway(%{diagnostics: diagnostics} = state) when diagnostics != [] do
+    %{state | gateway_status: {:not_started, {:invalid_settings, diagnostics}}}
+  end
+
+  defp maybe_start_gateway(state) do
+    opts =
+      [
+        owner: self(),
+        token_ref: state.token_ref,
+        intents: Map.get(state.settings, "gateway_intents", []),
+        heartbeat_jitter?:
+          Map.get(state.settings, "gateway", %{}) |> Map.get("heartbeat_jitter", true),
+        reconnect_max_backoff_ms:
+          Map.get(state.settings, "gateway", %{}) |> Map.get("reconnect_max_backoff_ms", 30_000),
+        client_opts: state.client_opts
+      ]
+      |> Keyword.merge(state.gateway_opts)
+
+    case state.gateway_port_module.start_link(opts) do
+      {:ok, pid} ->
+        %{state | gateway_port: pid, gateway_status: :running}
+
+      {:error, reason} ->
+        Logger.debug("discord gateway not started: #{inspect(Redactor.redact(reason))}")
+        %{state | gateway_status: {:error, reason}}
+    end
   end
 
   defp process_gateway_event(event, state) do
@@ -144,9 +194,10 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
          :ok <- validate_text(fields, state),
          :ok <- reject_echo(fields),
          {:ok, user_id} <- resolve_identity(fields, state),
+         {:ok, inbound_trust} <- authorize_inbound(fields, user_id, :message),
          session_id <- session_id(fields),
          {:ok, event, rendered} <-
-           process_text_or_runtime(event, fields, state, user_id, session_id) do
+           process_text_or_runtime(event, fields, state, user_id, session_id, inbound_trust) do
       {:ok, {:processed, event, rendered}}
     else
       {:error, reason} ->
@@ -156,11 +207,19 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
     end
   end
 
-  defp process_text_or_runtime(event, fields, state, user_id, session_id) do
+  defp process_text_or_runtime(event, fields, state, user_id, session_id, inbound_trust) do
     case ConfirmationCallback.parse_typed_command(fields.text) do
       {:ok, action, confirmation_id} ->
         with {:ok, response} <-
-               run_confirmation_callback(fields, user_id, session_id, action, confirmation_id),
+               run_confirmation_callback(
+                 fields,
+                 state,
+                 user_id,
+                 session_id,
+                 action,
+                 confirmation_id,
+                 inbound_trust
+               ),
              {:ok, rendered} <- render_confirmation_response(response, state),
              {:ok, _delivered} <- deliver_rendered(fields, rendered, state),
              {:ok, event} <- mark_callback_processed(event, response, user_id, session_id) do
@@ -168,7 +227,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
         end
 
       :ignore ->
-        with {:ok, response} <- submit_runtime(fields, user_id, session_id),
+        with {:ok, response} <- submit_runtime(fields, user_id, session_id, inbound_trust),
              {:ok, rendered} <- Renderer.render_response(response, renderer_opts(state)),
              {:ok, delivered} <- deliver_rendered(fields, rendered, state),
              :ok <- record_outbound_refs(response, fields, delivered),
@@ -181,9 +240,11 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
   defp process_callback(event, fields, state) do
     with :ok <- validate_interaction_allowlist(fields, state),
          {:ok, user_id} <- resolve_identity(fields, state),
+         {:ok, inbound_trust} <- authorize_inbound(fields, user_id, :callback),
          session_id <-
            Channels.derive_session_id("discord", fields.external_user_id, fields.external_chat_id),
-         {:ok, response} <- run_confirmation_callback(fields, user_id, session_id),
+         {:ok, response} <-
+           run_confirmation_callback(fields, state, user_id, session_id, inbound_trust),
          {:ok, rendered} <- render_confirmation_response(response, state),
          {:ok, _delivered} <- deliver_callback_result(fields, rendered, state),
          {:ok, event} <- mark_callback_processed(event, response, user_id, session_id) do
@@ -270,6 +331,18 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
     )
   end
 
+  defp authorize_inbound(fields, user_id, surface) do
+    InboundTrust.authorize(%{
+      user_id: user_id,
+      channel: "discord",
+      provider: @provider,
+      surface: "discord_#{surface}",
+      external_user_id: fields.external_user_id,
+      external_chat_id: fields.external_chat_id,
+      receiver_account_ref: Map.get(fields, :receiver_account_ref)
+    })
+  end
+
   defp session_id(fields) do
     Channels.derive_session_id(
       "discord",
@@ -278,7 +351,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
     )
   end
 
-  defp submit_runtime(fields, user_id, session_id) do
+  defp submit_runtime(fields, user_id, session_id, inbound_trust) do
     Runtime.submit_user_input(%{
       text: fields.text,
       channel: "discord",
@@ -296,7 +369,8 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
         external_message_id: fields.external_message_id,
         receiver_account_ref: fields.receiver_account_ref,
         provider_thread_ref: fields.provider_thread_ref,
-        message_reference: fields.message_reference
+        message_reference: fields.message_reference,
+        inbound_trust: inbound_trust
       }
     })
   end
@@ -329,16 +403,33 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
     end)
   end
 
-  defp run_confirmation_callback(fields, user_id, session_id) do
-    run_confirmation_callback(fields, user_id, session_id, fields.verb, fields.confirmation_id)
+  defp run_confirmation_callback(fields, state, user_id, session_id, inbound_trust) do
+    run_confirmation_callback(
+      fields,
+      state,
+      user_id,
+      session_id,
+      fields.verb,
+      fields.confirmation_id,
+      inbound_trust
+    )
   end
 
-  defp run_confirmation_callback(fields, user_id, session_id, action, confirmation_id) do
+  defp run_confirmation_callback(
+         fields,
+         state,
+         user_id,
+         session_id,
+         action,
+         confirmation_id,
+         inbound_trust
+       ) do
     ConfirmationCallback.run(%{
       action: action,
       confirmation_id: confirmation_id,
       channel: "discord",
       user_id: user_id,
+      identity_proof: identity_proof(fields, state, user_id),
       session_id: session_id,
       surface: "discord_interaction",
       resolver_metadata: %{
@@ -347,9 +438,21 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
         external_user_id: fields.external_user_id,
         external_chat_id: fields.external_chat_id,
         external_message_id: fields.external_message_id,
-        callback_data: callback_marker(fields)
+        callback_data: callback_marker(fields),
+        inbound_trust: inbound_trust
       }
     })
+  end
+
+  defp identity_proof(fields, state, user_id) do
+    %{
+      channel: "discord",
+      external_user_id: fields.external_user_id,
+      user_id: user_id,
+      identity_map: Map.get(state.settings, "identity_map", []),
+      receiver_account_ref: Map.get(fields, :receiver_account_ref),
+      external_chat_id: fields.external_chat_id
+    }
   end
 
   defp callback_marker(fields), do: Map.get(fields, :callback_data) || Map.get(fields, :text)
@@ -442,6 +545,7 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
                :wrong_user,
                :wrong_channel,
                :not_found,
+               :channel_message_inbound_denied,
                :unsupported_callback_action
              ] ->
           "rejected"

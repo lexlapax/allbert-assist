@@ -8,6 +8,13 @@ defmodule AllbertAssist.Channels.Slack.Client do
   @base_url "https://slack.com/api"
   @default_max_response_bytes 1_048_576
 
+  def apps_connections_open(app_token_ref, opts \\ []) do
+    case client_mode(opts) do
+      :stub -> stub_apps_connections_open(app_token_ref, opts)
+      :real -> request(:post, app_token_ref, "/apps.connections.open", [], opts)
+    end
+  end
+
   def auth_test(token_ref, opts \\ []) do
     case client_mode(opts) do
       :stub -> stub_auth_test(token_ref, opts)
@@ -147,6 +154,30 @@ defmodule AllbertAssist.Channels.Slack.Client do
              "team_id" => "T0123ABCDE",
              "user_id" => "UALLBERTBOT",
              "bot_id" => "BALLBERTBOT"
+           }}
+
+        :unauthorized ->
+          {:error, {:slack_error, "invalid_auth"}}
+
+        :unavailable ->
+          {:error, {:transport_error, :econnrefused}}
+      end
+    end
+  end
+
+  defp stub_apps_connections_open(app_token_ref, opts) do
+    with :ok <- validate_token_ref(app_token_ref) do
+      case stub_result(opts) do
+        :success ->
+          {:ok,
+           %{
+             "ok" => true,
+             "url" =>
+               Keyword.get(
+                 opts,
+                 :socket_mode_url,
+                 "wss://wss-primary.slack.com/link/?ticket=fixture"
+               )
            }}
 
         :unauthorized ->

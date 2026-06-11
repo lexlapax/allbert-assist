@@ -17,8 +17,27 @@ defmodule AllbertAssist.Channels.DiscordTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Trace
   alias AllbertDiscord.Settings.Fragment, as: DiscordSettingsFragment
+
+  defmodule FakeWebSocket do
+    use GenServer
+
+    def start_link(url, callback, state, opts) do
+      if is_pid(state.owner) do
+        send(
+          state.owner,
+          {:fake_websocket_started, url, callback, Map.delete(state, :token), opts}
+        )
+      end
+
+      GenServer.start_link(__MODULE__, state)
+    end
+
+    @impl true
+    def init(state), do: {:ok, state}
+  end
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -115,6 +134,15 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert request.redacted_headers == [{"authorization", "[REDACTED]"}]
     refute inspect(request.redacted_headers) =~ "Bot "
 
+    gateway_request = Client.gateway_bot_request("secret://channels/discord/bot_token")
+
+    assert gateway_request.method == :get
+    assert gateway_request.path == "/gateway/bot"
+    assert gateway_request.redacted_headers == [{"authorization", "[REDACTED]"}]
+
+    assert {:ok, %{"url" => "wss://gateway.discord.gg"}} =
+             Client.gateway_bot("secret://channels/discord/bot_token")
+
     Application.put_env(:allbert_assist, :discord_client_stub_result, :unauthorized)
 
     assert {:error, {:discord_error, 401, _body}} =
@@ -162,6 +190,64 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert_receive {:discord_gateway_event, %{"t" => "READY"}}
   end
 
+  test "GatewayPort real starts a WebSocket client and handles gateway frames" do
+    assert {:ok, port} =
+             GatewayPort.Real.start_link(
+               owner: self(),
+               token_ref: "secret://channels/discord/bot_token",
+               gateway_url: "wss://gateway.discord.gg",
+               websocket_module: FakeWebSocket
+             )
+
+    assert is_pid(port)
+
+    assert_receive {:fake_websocket_started, url, GatewayPort.Real, start_state, websocket_opts}
+    assert url =~ "wss://gateway.discord.gg"
+    assert url =~ "v=10"
+    assert url =~ "encoding=json"
+    assert start_state.intents > 0
+    refute inspect(start_state) =~ "discord-test-token"
+    assert Keyword.get(websocket_opts, :handle_initial_conn_failure)
+
+    state = %{
+      owner: self(),
+      token: "discord-test-token",
+      intents: 33_280,
+      sequence: nil,
+      session_id: nil,
+      heartbeat_interval_ms: nil,
+      heartbeat_jitter?: false,
+      reconnect_max_backoff_ms: 1_000
+    }
+
+    hello = Jason.encode!(%{"op" => 10, "d" => %{"heartbeat_interval" => 60_000}})
+
+    assert {:reply, {:text, identify_json}, state} =
+             GatewayPort.Real.handle_frame({:text, hello}, state)
+
+    identify = Jason.decode!(identify_json)
+    assert identify["op"] == 2
+    assert identify["d"]["intents"] == 33_280
+    assert identify["d"]["properties"]["browser"] == "allbert"
+
+    dispatch = %{
+      "op" => 0,
+      "t" => "READY",
+      "s" => 7,
+      "d" => %{"session_id" => "gateway-session-1"}
+    }
+
+    assert {:ok, state} = GatewayPort.Real.handle_frame({:text, Jason.encode!(dispatch)}, state)
+    assert state.sequence == 7
+    assert state.session_id == "gateway-session-1"
+    assert_receive {:discord_gateway_event, ^dispatch}
+
+    assert {:reply, {:text, heartbeat_json}, _state} =
+             GatewayPort.Real.handle_info(:heartbeat, state)
+
+    assert Jason.decode!(heartbeat_json) == %{"op" => 1, "d" => 7}
+  end
+
   test "adapter handles simulated inbound messages through runtime and thread refs" do
     assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
 
@@ -188,6 +274,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert_received {:runtime_request, request}
     assert request.channel == "discord"
     assert request.text == "hello allbert"
+    assert request.metadata.inbound_trust.decision == :needs_confirmation
     assert request.channel_thread_ref.receiver_account_ref == "discord:app:123456:guild:987654321"
 
     refs =
@@ -235,6 +322,34 @@ defmodule AllbertAssist.Channels.DiscordTest do
              Repo.get_by!(
                AllbertAssist.Channels.Event,
                external_event_id: "discord_denied_channel"
+             )
+
+    refute_received {:runtime_request, _request}
+  end
+
+  test "adapter rejects channel messages when inbound trust is denied" do
+    assert {:ok, _setting} =
+             Settings.put("permissions.channel_message_inbound", "denied", %{audit?: false})
+
+    assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
+
+    event =
+      Parser.simulated_message_event(%{
+        message_id: "discord_inbound_denied",
+        guild_id: "987654321",
+        channel_id: "22222",
+        user_id: "11111",
+        application_id: "123456",
+        text: "blocked by inbound trust"
+      })
+
+    assert {:ok, :rejected} = Adapter.simulate_gateway_event(adapter, event)
+
+    GenServer.stop(adapter)
+
+    assert %{status: "rejected", reason: ":channel_message_inbound_denied"} =
+             Repo.get_by!(AllbertAssist.Channels.Event,
+               external_event_id: "discord_inbound_denied"
              )
 
     refute_received {:runtime_request, _request}
@@ -420,6 +535,13 @@ defmodule AllbertAssist.Channels.DiscordTest do
              Settings.put(
                "channels.discord.identity_map",
                [%{"external_user_id" => "11111", "user_id" => "alice", "enabled" => true}],
+               %{audit?: false}
+             )
+
+    assert {:ok, _secret} =
+             Secrets.put_secret(
+               "secret://channels/discord/bot_token",
+               "discord-test-token",
                %{audit?: false}
              )
   end

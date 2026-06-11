@@ -44,9 +44,13 @@ Developer docs: `docs/developer/channel-approval-primitives.md`,
   cross-channel resume.
 - `mix allbert.test release.v052` deterministic release lane and
   `mix allbert.test external-smoke -- discord_slack` real-provider smoke harness.
-- 27 v0.52 `:channel_pack` security eval rows covering ingress spoofing,
+- Post-audit remediation replaced the Discord Gateway and Slack Socket Mode
+  deferred transport modules with WebSockex-backed real transport processes, wired
+  adapter startup in configured live mode, and enforced
+  `:channel_message_inbound` before runtime or callback resolution.
+- 28 v0.52 `:channel_pack` security eval rows covering ingress spoofing,
   replay/dedupe, group leakage, callback scope, primitive selection, secret
-  redaction, inbound permission floor, provider-thread non-authority, explicit
+  redaction, inbound permission floor/enforcement, provider-thread non-authority, explicit
   identity links, same-user resume, and unified-history redaction.
 
 ### Changed
@@ -71,23 +75,27 @@ Developer docs: `docs/developer/channel-approval-primitives.md`,
 - Discord and Slack token settings are secret refs; raw bot/app tokens are
   resolved only through Settings Central secrets in real client mode and are
   redacted from request-shape diagnostics, traces, audits, and release evidence.
+- `permissions.channel_message_inbound=denied` rejects mapped Discord/Slack
+  messages after allowlist + identity resolution and before runtime submission
+  or callback resolution.
 - Discord Interactions HTTP, Slack Events API HTTP, Discord sharding, Slack
   multi-workspace OAuth, and hosted channel fan-out remain parked.
 
 ### Verification
 
-- `MIX_ENV=test mix compile --warnings-as-errors` passed during M8 closeout.
-- Focused M8 suite passed: `37 tests, 0 failures`.
-- Focused v0.52 eval sanity suite passed: `9 tests, 0 failures`.
+- `MIX_ENV=test mix compile --warnings-as-errors` passed after post-audit
+  remediation.
+- Focused post-audit channel/eval suite passed: `32 tests, 0 failures`.
+- Focused inbound policy/permission gate passed: `25 tests, 0 failures`.
 - `MIX_ENV=test mix allbert.test release.v052` passed with deterministic
   evidence at
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v052/p0-10563/home/release_evidence/v052/release-v052-1781129699.json`.
-  Step counts: channel contracts 36 tests, Discord/Slack plugins 23 tests,
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v052/p0-11013/home/release_evidence/v052/release-v052-1781154314.json`.
+  Step counts: channel contracts 36 tests, Discord/Slack plugins 27 tests,
   cross-channel history/CLI 12 tests, workspace continuity web 69 tests,
   channel-pack security eval 18 tests; secret scan passed with no findings.
 - Full `MIX_ENV=test mix allbert.test release` passed with evidence at
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13253/home/release_evidence/gates/release-2026-06-10T21_29_55Z.json`.
-  Phase counts: core 1720 tests, web 151 tests, StockSage 197 tests, channel
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13251/home/release_evidence/gates/release-2026-06-11T05_26_39Z.json`.
+  Phase counts: core 1724 tests, web 151 tests, StockSage 197 tests, channel
   plugins 19 tests, Dialyzer 0 errors; compile, dependency, format, Credo, and
   evidence noise scans passed.
 - `mix allbert.test external-smoke -- discord_slack` remains required before

@@ -320,10 +320,14 @@ eval surfaces until their capability work lands.
 - Channel Pack 1 (v0.52 implemented surface): Discord and Slack use the shared
   channel adapter boundary, ADR 0016 approval primitives, ADR 0056
   `:channel_message_inbound` floor, and ADR 0057 cross-channel threading.
+  Post-audit remediation added live WebSockex-backed Discord Gateway and Slack
+  Socket Mode transport processes while keeping release evidence redacted.
   External provider ids, callback ids, Slack `thread_ts`, Discord message ids,
   `owner_scope`, and `receiver_account_ref` are not permission authority.
   Allowlists and identity mapping gate runtime submission, callback clickers are
   re-resolved per interaction, bot tokens are Settings Central secret refs, and
+  `permissions.channel_message_inbound=denied` rejects mapped messages before
+  runtime or callback resolution.
   `ChannelThread` records outbound refs only for reply placement and echo-loop
   suppression. Implemented eval rows:
   `discord-slack-spoofing-001`,
@@ -345,6 +349,7 @@ eval surfaces until their capability work lands.
   `bot-token-secret-redaction-discord-001`,
   `bot-token-secret-redaction-slack-001`,
   `channel-inbound-permission-floor-001`,
+  `channel-inbound-permission-enforcement-001`,
   `callback-clicker-authorization-001`,
   `provider-thread-not-authority-001`,
   `owner-account-thread-key-isolation-001`,

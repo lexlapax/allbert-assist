@@ -1616,9 +1616,9 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/mix/tasks/allbert_test_task_test.exs"
       ],
       coverage: [
-        "27 v0.52 channel-pack eval rows",
+        "28 v0.52 channel-pack eval rows",
         "release.v052 and discord_slack external-smoke task usage registration",
-        "identity/allowlist, callback scope, token redaction, threading authority, and unified-history redaction"
+        "identity/allowlist, inbound permission enforcement, callback scope, token redaction, threading authority, and unified-history redaction"
       ]
     }
   ]
