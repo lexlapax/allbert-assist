@@ -79,6 +79,7 @@ defmodule AllbertAssist.Channels.Discord.Parser do
 
   def parse_gateway_event(%{"t" => "INTERACTION_CREATE", "d" => data}) when is_map(data) do
     with {:ok, interaction_id} <- required(data, "id"),
+         {:ok, interaction_token} <- required(data, "token"),
          {:ok, user_id} <- interaction_user_id(data),
          {:ok, custom_id} <- interaction_custom_id(data),
          {:ok, {verb, confirmation_id}} <- parse_callback_id(custom_id) do
@@ -88,6 +89,7 @@ defmodule AllbertAssist.Channels.Discord.Parser do
          external_user_id: user_id,
          external_chat_id: Map.get(data, "channel_id"),
          external_message_id: interaction_id,
+         interaction_token: interaction_token,
          guild_id: optional_string(Map.get(data, "guild_id")),
          channel_id: optional_string(Map.get(data, "channel_id")),
          callback_data: custom_id,

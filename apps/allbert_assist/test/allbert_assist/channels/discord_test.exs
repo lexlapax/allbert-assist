@@ -140,6 +140,21 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert gateway_request.path == "/gateway/bot"
     assert gateway_request.redacted_headers == [{"authorization", "[REDACTED]"}]
 
+    callback_request =
+      Client.interaction_callback_request("int_1", "interaction-token-secret", %{type: 6})
+
+    assert callback_request.method == :post
+    assert callback_request.path == "/interactions/int_1/[REDACTED]/callback"
+    assert callback_request.url =~ "/interactions/int_1/[REDACTED]/callback"
+    refute inspect(callback_request) =~ "interaction-token-secret"
+
+    assert {:ok, %{"id" => "int_1", "type" => 6}} =
+             Client.interaction_callback("int_1", "interaction-token-secret", %{type: 6},
+               capture_to: self()
+             )
+
+    assert_receive {:discord_interaction_callback, "int_1", %{type: 6}}
+
     assert {:ok, %{"url" => "wss://gateway.discord.gg"}} =
              Client.gateway_bot("secret://channels/discord/bot_token")
 
@@ -174,6 +189,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
       "t" => "INTERACTION_CREATE",
       "d" => %{
         "id" => "int_1",
+        "token" => "interaction-token-secret",
         "user" => %{"id" => "11111"},
         "data" => %{"custom_id" => "allbert:v1:approve:conf_123"}
       }
@@ -182,6 +198,8 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert {:interaction_create, callback} = Parser.parse_gateway_event(interaction)
     assert callback.verb == :approve
     assert callback.confirmation_id == "conf_123"
+    assert callback.interaction_token == "interaction-token-secret"
+    refute callback.raw_summary =~ "interaction-token-secret"
   end
 
   test "GatewayPort stub forwards simulated events to the owner" do
@@ -418,6 +436,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
       "t" => "INTERACTION_CREATE",
       "d" => %{
         "id" => "discord_callback_1",
+        "token" => "interaction-token-secret",
         "guild_id" => "987654321",
         "channel_id" => "22222",
         "user" => %{"id" => "11111"},
@@ -428,7 +447,10 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert {:ok, {:processed, event, [rendered]}} =
              Adapter.simulate_gateway_event(adapter, interaction)
 
-    assert_receive {:discord_create_message, "22222", payload}
+    assert {:discord_interaction_callback, "discord_callback_1", %{type: 6}} =
+             receive_discord_capture()
+
+    assert {:discord_create_message, "22222", payload} = receive_discord_capture()
     assert payload.content =~ "denied"
     assert rendered.content =~ "denied"
 
@@ -568,4 +590,13 @@ defmodule AllbertAssist.Channels.DiscordTest do
 
   defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
   defp restore_app_env(key, value), do: Application.put_env(:allbert_assist, key, value)
+
+  defp receive_discord_capture do
+    receive do
+      {:discord_interaction_callback, _interaction_id, _payload} = message -> message
+      {:discord_create_message, _channel_id, _payload} = message -> message
+    after
+      100 -> flunk("expected Discord capture message")
+    end
+  end
 end
