@@ -39,6 +39,13 @@ defmodule AllbertAssist.Channels.DiscordTest do
     def init(state), do: {:ok, state}
   end
 
+  defmodule FakeGatewaySocket do
+    def close({owner, ref}) when is_pid(owner) do
+      send(owner, {:fake_gateway_socket_closed, ref})
+      :ok
+    end
+  end
+
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
@@ -227,17 +234,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
     refute inspect(start_state) =~ "discord-test-token"
     assert Keyword.get(websocket_opts, :handle_initial_conn_failure)
 
-    state = %{
-      owner: self(),
-      token: "discord-test-token",
-      intents: 33_280,
-      sequence: nil,
-      session_id: nil,
-      resume?: false,
-      heartbeat_interval_ms: nil,
-      heartbeat_jitter?: false,
-      reconnect_max_backoff_ms: 1_000
-    }
+    state = gateway_state(%{sequence: nil, session_id: nil, resume?: false})
 
     hello = Jason.encode!(%{"op" => 10, "d" => %{"heartbeat_interval" => 60_000}})
 
@@ -268,17 +265,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
   end
 
   test "GatewayPort real resumes stored gateway sessions when Discord permits resume" do
-    state = %{
-      owner: self(),
-      token: "discord-test-token",
-      intents: 33_280,
-      sequence: 7,
-      session_id: "gateway-session-1",
-      resume?: true,
-      heartbeat_interval_ms: nil,
-      heartbeat_jitter?: false,
-      reconnect_max_backoff_ms: 1_000
-    }
+    state = gateway_state(%{sequence: 7, session_id: "gateway-session-1", resume?: true})
 
     hello = Jason.encode!(%{"op" => 10, "d" => %{"heartbeat_interval" => 60_000}})
 
@@ -296,12 +283,12 @@ defmodule AllbertAssist.Channels.DiscordTest do
 
     refute resumed_state.resume?
 
-    assert {:close, reconnect_state} =
+    assert {:ok, reconnect_state} =
              GatewayPort.Real.handle_frame({:text, Jason.encode!(%{"op" => 7})}, resumed_state)
 
     assert reconnect_state.resume?
 
-    assert {:close, resumable_state} =
+    assert {:ok, resumable_state} =
              GatewayPort.Real.handle_frame(
                {:text, Jason.encode!(%{"op" => 9, "d" => true})},
                resumed_state
@@ -311,7 +298,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert resumable_state.session_id == "gateway-session-1"
     assert resumable_state.sequence == 7
 
-    assert {:close, identify_state} =
+    assert {:ok, identify_state} =
              GatewayPort.Real.handle_frame(
                {:text, Jason.encode!(%{"op" => 9, "d" => false})},
                resumed_state
@@ -325,6 +312,78 @@ defmodule AllbertAssist.Channels.DiscordTest do
              GatewayPort.Real.handle_frame({:text, hello}, identify_state)
 
     assert Jason.decode!(identify_json)["op"] == 2
+  end
+
+  test "GatewayPort real forces WebSockex disconnect handling for reconnect opcodes" do
+    reconnect_ref = make_ref()
+    reconnect_socket = {self(), reconnect_ref}
+
+    reconnect_state =
+      gateway_state(%{
+        sequence: 7,
+        session_id: "gateway-session-1",
+        resume?: false,
+        conn: fake_gateway_conn(reconnect_socket)
+      })
+
+    assert {:ok, reconnect_state} =
+             GatewayPort.Real.handle_frame(
+               {:text, Jason.encode!(%{"op" => 7})},
+               reconnect_state
+             )
+
+    assert reconnect_state.resume?
+    assert reconnect_state.conn.socket == nil
+    assert_receive {:fake_gateway_socket_closed, ^reconnect_ref}
+    assert_receive {:tcp_closed, ^reconnect_socket}
+
+    resumable_ref = make_ref()
+    resumable_socket = {self(), resumable_ref}
+
+    resumable_state =
+      gateway_state(%{
+        sequence: 7,
+        session_id: "gateway-session-1",
+        resume?: false,
+        conn: fake_gateway_conn(resumable_socket)
+      })
+
+    assert {:ok, resumable_state} =
+             GatewayPort.Real.handle_frame(
+               {:text, Jason.encode!(%{"op" => 9, "d" => true})},
+               resumable_state
+             )
+
+    assert resumable_state.resume?
+    assert resumable_state.session_id == "gateway-session-1"
+    assert resumable_state.sequence == 7
+    assert resumable_state.conn.socket == nil
+    assert_receive {:fake_gateway_socket_closed, ^resumable_ref}
+    assert_receive {:tcp_closed, ^resumable_socket}
+
+    invalid_ref = make_ref()
+    invalid_socket = {self(), invalid_ref}
+
+    invalid_state =
+      gateway_state(%{
+        sequence: 7,
+        session_id: "gateway-session-1",
+        resume?: true,
+        conn: fake_gateway_conn(invalid_socket)
+      })
+
+    assert {:ok, invalid_state} =
+             GatewayPort.Real.handle_frame(
+               {:text, Jason.encode!(%{"op" => 9, "d" => false})},
+               invalid_state
+             )
+
+    refute invalid_state.resume?
+    assert invalid_state.session_id == nil
+    assert invalid_state.sequence == nil
+    assert invalid_state.conn.socket == nil
+    assert_receive {:fake_gateway_socket_closed, ^invalid_ref}
+    assert_receive {:tcp_closed, ^invalid_socket}
   end
 
   test "adapter handles simulated inbound messages through runtime and thread refs" do
@@ -639,6 +698,32 @@ defmodule AllbertAssist.Channels.DiscordTest do
       security_decision: %{permission: :external_network, decision: :needs_confirmation},
       params_summary: %{url: "https://example.com"}
     })
+  end
+
+  defp gateway_state(overrides) do
+    Map.merge(
+      %{
+        owner: self(),
+        token: "discord-test-token",
+        intents: 33_280,
+        sequence: 7,
+        session_id: "gateway-session-1",
+        resume?: false,
+        heartbeat_interval_ms: nil,
+        heartbeat_jitter?: false,
+        reconnect_max_backoff_ms: 1_000,
+        conn: nil
+      },
+      overrides
+    )
+  end
+
+  defp fake_gateway_conn(socket) do
+    %WebSockex.Conn{
+      conn_mod: FakeGatewaySocket,
+      socket: socket,
+      transport: :tcp
+    }
   end
 
   defp restore_plugins(original_plugins) do
