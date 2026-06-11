@@ -6,6 +6,7 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias Mix.Tasks.Allbert.McpServer
 
@@ -23,8 +24,6 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
-    ensure_stocksage_app_registered!()
-    Mix.Task.reenable("allbert.mcp_server")
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
@@ -33,6 +32,9 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
       Mix.Task.reenable("allbert.mcp_server")
       File.rm_rf!(root)
     end)
+
+    ensure_stocksage_app_registered!()
+    Mix.Task.reenable("allbert.mcp_server")
 
     :ok
   end
@@ -147,6 +149,11 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
   end
 
   defp ensure_stocksage_app_registered! do
+    assert PluginRegistry.register_module(StockSage.Plugin) in [
+             {:ok, "stocksage"},
+             {:error, {:plugin_id_taken, "stocksage"}}
+           ]
+
     assert AppRegistry.register(StockSage.App) in [
              {:ok, :stocksage},
              {:error, {:app_id_taken, :stocksage}}
