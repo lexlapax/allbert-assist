@@ -2,6 +2,7 @@ defmodule AllbertAssist.Confirmations.StoreGoldenTest do
   use ExUnit.Case, async: false
   @moduletag :app_env_serial
 
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Store
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
@@ -11,10 +12,12 @@ defmodule AllbertAssist.Confirmations.StoreGoldenTest do
 
   setup do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
+    original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
     Enum.each(@env_vars, &System.delete_env/1)
+    Application.delete_env(:allbert_assist, Confirmations)
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, Settings)
 
@@ -29,6 +32,7 @@ defmodule AllbertAssist.Confirmations.StoreGoldenTest do
     on_exit(fn ->
       File.rm_rf!(home)
       restore_env(original_env)
+      restore_app_env(Confirmations, original_confirmations_config)
       restore_app_env(Paths, original_paths_config)
       restore_app_env(Settings, original_settings_config)
     end)
