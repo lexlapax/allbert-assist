@@ -19,10 +19,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.51.0 adds the public
-  # protocol MCP/OpenAI/ACP surfaces.
+  # the app (release-pinned, not semantic-per-app). v0.51.1 adds the public
+  # protocol validation-harness remediation for the v0.51 corrective tag.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.51.0"
+  def version, do: "0.51.1"
 
   @impl true
   def validate(_opts), do: :ok
