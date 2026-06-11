@@ -35,6 +35,7 @@ defmodule AllbertAssist.Channels.Discord.Client.GatewayPort.Real do
         intents: intents(Keyword.get(opts, :intents, @default_intents)),
         sequence: nil,
         session_id: nil,
+        resume?: false,
         heartbeat_interval_ms: nil,
         heartbeat_jitter?: Keyword.get(opts, :heartbeat_jitter?, true),
         reconnect_max_backoff_ms: Keyword.get(opts, :reconnect_max_backoff_ms, 30_000)
@@ -92,27 +93,17 @@ defmodule AllbertAssist.Channels.Discord.Client.GatewayPort.Real do
     backoff = backoff(attempt, state.reconnect_max_backoff_ms)
     Logger.debug("discord gateway disconnected: #{inspect(Redactor.redact(reason))}")
     Process.sleep(backoff)
-    {:reconnect, state}
+    {:reconnect, mark_resumable(state)}
   end
 
   defp handle_gateway_payload(%{"op" => 10, "d" => %{"heartbeat_interval" => interval}}, state)
        when is_integer(interval) do
     schedule_heartbeat(initial_heartbeat_delay(interval, state.heartbeat_jitter?))
 
-    identify = %{
-      "op" => 2,
-      "d" => %{
-        "token" => state.token,
-        "intents" => state.intents,
-        "properties" => %{
-          "os" => "allbert",
-          "browser" => "allbert",
-          "device" => "allbert"
-        }
-      }
-    }
+    state = %{state | heartbeat_interval_ms: interval}
+    payload = hello_payload(state)
 
-    {:reply, {:text, Jason.encode!(identify)}, %{state | heartbeat_interval_ms: interval}}
+    {:reply, {:text, Jason.encode!(payload)}, %{state | resume?: false}}
   end
 
   defp handle_gateway_payload(
@@ -129,14 +120,56 @@ defmodule AllbertAssist.Channels.Discord.Client.GatewayPort.Real do
   end
 
   defp handle_gateway_payload(%{"op" => 11}, state), do: {:ok, state}
-  defp handle_gateway_payload(%{"op" => opcode}, state) when opcode in [7, 9], do: {:close, state}
+  defp handle_gateway_payload(%{"op" => 7}, state), do: {:close, mark_resumable(state)}
+
+  defp handle_gateway_payload(%{"op" => 9, "d" => true}, state),
+    do: {:close, mark_resumable(state)}
+
+  defp handle_gateway_payload(%{"op" => 9}, state), do: {:close, clear_session(state)}
   defp handle_gateway_payload(_payload, state), do: {:ok, state}
 
   defp maybe_store_session(state, "READY", %{"session_id" => session_id})
        when is_binary(session_id),
-       do: %{state | session_id: session_id}
+       do: %{state | session_id: session_id, resume?: false}
+
+  defp maybe_store_session(state, "RESUMED", _data), do: %{state | resume?: false}
 
   defp maybe_store_session(state, _type, _data), do: state
+
+  defp hello_payload(%{resume?: true, session_id: session_id, sequence: sequence} = state)
+       when is_binary(session_id) and is_integer(sequence) do
+    %{
+      "op" => 6,
+      "d" => %{
+        "token" => state.token,
+        "session_id" => session_id,
+        "seq" => sequence
+      }
+    }
+  end
+
+  defp hello_payload(state) do
+    %{
+      "op" => 2,
+      "d" => %{
+        "token" => state.token,
+        "intents" => state.intents,
+        "properties" => %{
+          "os" => "allbert",
+          "browser" => "allbert",
+          "device" => "allbert"
+        }
+      }
+    }
+  end
+
+  defp mark_resumable(%{session_id: session_id, sequence: sequence} = state)
+       when is_binary(session_id) and is_integer(sequence),
+       do: %{state | resume?: true}
+
+  defp mark_resumable(state), do: state
+
+  defp clear_session(state), do: %{state | session_id: nil, sequence: nil, resume?: false}
 
   defp resolve_token(token_ref) when is_binary(token_ref) do
     case Secrets.get_secret(token_ref) do

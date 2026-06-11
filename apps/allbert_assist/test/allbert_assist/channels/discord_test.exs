@@ -233,6 +233,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
       intents: 33_280,
       sequence: nil,
       session_id: nil,
+      resume?: false,
       heartbeat_interval_ms: nil,
       heartbeat_jitter?: false,
       reconnect_max_backoff_ms: 1_000
@@ -264,6 +265,66 @@ defmodule AllbertAssist.Channels.DiscordTest do
              GatewayPort.Real.handle_info(:heartbeat, state)
 
     assert Jason.decode!(heartbeat_json) == %{"op" => 1, "d" => 7}
+  end
+
+  test "GatewayPort real resumes stored gateway sessions when Discord permits resume" do
+    state = %{
+      owner: self(),
+      token: "discord-test-token",
+      intents: 33_280,
+      sequence: 7,
+      session_id: "gateway-session-1",
+      resume?: true,
+      heartbeat_interval_ms: nil,
+      heartbeat_jitter?: false,
+      reconnect_max_backoff_ms: 1_000
+    }
+
+    hello = Jason.encode!(%{"op" => 10, "d" => %{"heartbeat_interval" => 60_000}})
+
+    assert {:reply, {:text, resume_json}, resumed_state} =
+             GatewayPort.Real.handle_frame({:text, hello}, state)
+
+    assert Jason.decode!(resume_json) == %{
+             "op" => 6,
+             "d" => %{
+               "token" => "discord-test-token",
+               "session_id" => "gateway-session-1",
+               "seq" => 7
+             }
+           }
+
+    refute resumed_state.resume?
+
+    assert {:close, reconnect_state} =
+             GatewayPort.Real.handle_frame({:text, Jason.encode!(%{"op" => 7})}, resumed_state)
+
+    assert reconnect_state.resume?
+
+    assert {:close, resumable_state} =
+             GatewayPort.Real.handle_frame(
+               {:text, Jason.encode!(%{"op" => 9, "d" => true})},
+               resumed_state
+             )
+
+    assert resumable_state.resume?
+    assert resumable_state.session_id == "gateway-session-1"
+    assert resumable_state.sequence == 7
+
+    assert {:close, identify_state} =
+             GatewayPort.Real.handle_frame(
+               {:text, Jason.encode!(%{"op" => 9, "d" => false})},
+               resumed_state
+             )
+
+    refute identify_state.resume?
+    assert identify_state.session_id == nil
+    assert identify_state.sequence == nil
+
+    assert {:reply, {:text, identify_json}, _state} =
+             GatewayPort.Real.handle_frame({:text, hello}, identify_state)
+
+    assert Jason.decode!(identify_json)["op"] == 2
   end
 
   test "adapter handles simulated inbound messages through runtime and thread refs" do
