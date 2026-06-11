@@ -215,6 +215,12 @@ defmodule AllbertAssist.Channels.SlackTest do
              SocketModePort.Real.handle_frame({:text, Jason.encode!(envelope)}, state)
 
     assert Jason.decode!(ack_json) == %{"envelope_id" => "env_real_1"}
+    refute_received {:slack_socket_envelope, ^envelope}
+    assert_receive {:slack_socket_dispatch_after_ack, ^envelope}
+
+    assert {:ok, ^state} =
+             SocketModePort.Real.handle_info({:slack_socket_dispatch_after_ack, envelope}, state)
+
     assert_receive {:slack_socket_envelope, ^envelope}
 
     hello = %{"type" => "hello"}
