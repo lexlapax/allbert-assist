@@ -42,12 +42,19 @@ Developer docs: `docs/developer/channel-approval-primitives.md`,
   suppression for Allbert's own outbound provider messages.
 - `mix allbert.conversations show|resume` for operator inspection and explicit
   cross-channel resume.
-- `mix allbert.test release.v052` deterministic release lane and
-  `mix allbert.test external-smoke -- discord_slack` real-provider smoke harness.
+- `mix allbert.test release.v052` deterministic release lane,
+  `mix allbert.test external-smoke -- discord_slack` real outbound/threading
+  smoke, and `mix allbert.test external-smoke -- messaging_channel_inbound`
+  live messaging-channel inbound smoke.
 - Post-audit remediation replaced the Discord Gateway and Slack Socket Mode
   deferred transport modules with WebSockex-backed real transport processes, wired
   adapter startup in configured live mode, and enforced
   `:channel_message_inbound` before runtime or callback resolution.
+- M8R4 added the generic `messaging_channel_inbound` external smoke for live
+  Discord Gateway `READY`, Slack Socket Mode `hello`, and mapped @mention
+  delivery evidence. DM delivery, provider button approve/deny,
+  unmapped/non-allowlisted click rejection, and reconnect/RESUME remain manual
+  pre-tag evidence.
 - 28 v0.52 `:channel_pack` security eval rows covering ingress spoofing,
   replay/dedupe, group leakage, callback scope, primitive selection, secret
   redaction, inbound permission floor/enforcement, provider-thread non-authority, explicit
@@ -85,6 +92,8 @@ Developer docs: `docs/developer/channel-approval-primitives.md`,
 
 - `MIX_ENV=test mix compile --warnings-as-errors` passed after post-audit
   remediation.
+- M8R focused suite passed after the live-inbound evidence lane was added:
+  `44 tests, 0 failures, 1 skipped`.
 - Focused post-audit channel/eval suite passed: `32 tests, 0 failures`.
 - Focused inbound policy/permission gate passed: `25 tests, 0 failures`.
 - `MIX_ENV=test mix allbert.test release.v052` passed with deterministic
@@ -98,10 +107,11 @@ Developer docs: `docs/developer/channel-approval-primitives.md`,
   Phase counts: core 1724 tests, web 151 tests, StockSage 197 tests, channel
   plugins 19 tests, Dialyzer 0 errors; compile, dependency, format, Credo, and
   evidence noise scans passed.
-- `mix allbert.test external-smoke -- discord_slack` remains required before
-  release tag with sandbox Discord/Slack credentials. Operator manual validation
-  must also cover live inbound @mention/DM delivery, button approval, and
-  unmapped-clicker rejection before tag.
+- `mix allbert.test external-smoke -- discord_slack` and
+  `mix allbert.test external-smoke -- messaging_channel_inbound` remain required
+  before release tag with sandbox Discord/Slack credentials. Operator manual
+  validation must also cover live DM delivery, button approval, unmapped-clicker
+  rejection, and reconnect/RESUME before tag.
 
 ## v0.51.0 - Public Protocol Surfaces
 

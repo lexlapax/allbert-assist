@@ -85,11 +85,37 @@ The smoke sends a real Discord parent message and a real
 echo-suppression metadata, and writes
 `<ALLBERT_HOME>/release_evidence/v052/external-smoke-<ts>.json`.
 
+Then run the shared live inbound smoke. This command opens the real Discord
+Gateway and Slack Socket Mode sessions, waits for Discord `READY` and Slack
+`hello`, prints exact marker messages, and waits for provider-delivered inbound
+messages from mapped users to reach `Runtime.submit_user_input/1`:
+
+```sh
+export ALLBERT_MESSAGING_CHANNEL_INBOUND_TIMEOUT_MS=120000
+export ALLBERT_DISCORD_BOT_TOKEN="..."
+export ALLBERT_DISCORD_APPLICATION_ID="..."
+export ALLBERT_DISCORD_GUILD_ID="..."
+export ALLBERT_DISCORD_CHANNEL_ID="..."
+export ALLBERT_DISCORD_USER_ID="..."
+export ALLBERT_SLACK_BOT_TOKEN="..."
+export ALLBERT_SLACK_APP_TOKEN="..."
+export ALLBERT_SLACK_CHANNEL_ID="..."
+export ALLBERT_SLACK_USER_ID="..."
+mix allbert.test external-smoke -- messaging_channel_inbound
+```
+
+The inbound smoke writes
+`<ALLBERT_HOME>/release_evidence/v052/external-smoke-messaging-inbound-<ts>.json`.
+It proves live channel-session connect and mapped @mention delivery for the
+current Discord/Slack provider pair; it does not replace the manual DM and
+button/clicker checks below.
+
 Manual validation before tag:
 
 - Start Allbert normally with the configured `ALLBERT_HOME`.
-- Send an @mention in the allowlisted guild channel from the mapped user and
-  confirm a runtime request is created.
+- If `messaging_channel_inbound` was not run successfully, send an @mention in
+  the allowlisted guild channel from the mapped user and confirm a runtime
+  request is created.
 - Send a DM from the mapped user and confirm a runtime request is created.
 - Trigger a Discord button confirmation and verify the mapped clicker can
   approve or deny.

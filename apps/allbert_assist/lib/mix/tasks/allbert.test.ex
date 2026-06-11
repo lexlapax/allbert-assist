@@ -32,6 +32,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test external-smoke -- docker_sandbox
       mix allbert.test external-smoke -- docker_full_gate
       mix allbert.test external-smoke -- discord_slack
+      mix allbert.test external-smoke -- messaging_channel_inbound
 
   `mix precommit` is a compatibility shortcut for `mix allbert.test commit`;
   release evidence is `mix allbert.test release`.
@@ -1617,7 +1618,7 @@ defmodule Mix.Tasks.Allbert.Test do
       ],
       coverage: [
         "28 v0.52 channel-pack eval rows",
-        "release.v052 and discord_slack external-smoke task usage registration",
+        "release.v052 and discord_slack/messaging_channel_inbound external-smoke task usage registration",
         "identity/allowlist, inbound permission enforcement, callback scope, token redaction, threading authority, and unified-history redaction"
       ]
     }
@@ -2182,7 +2183,10 @@ defmodule Mix.Tasks.Allbert.Test do
       evidence_dir: evidence_dir,
       external_network:
         "disabled; tests use local channel fixtures, Req.Test HTTP fixtures, and no live Slack/Discord clients",
-      required_external_smoke: "mix allbert.test external-smoke -- discord_slack",
+      required_external_smokes: [
+        "mix allbert.test external-smoke -- discord_slack",
+        "mix allbert.test external-smoke -- messaging_channel_inbound"
+      ],
       steps: results,
       secret_scan: secret_scan
     }
@@ -3295,6 +3299,7 @@ defmodule Mix.Tasks.Allbert.Test do
     Mix.shell().info("- docker_sandbox")
     Mix.shell().info("- docker_full_gate")
     Mix.shell().info("- discord_slack")
+    Mix.shell().info("- messaging_channel_inbound")
   end
 
   defp run_external_smoke(["browser_research"]) do
@@ -3349,6 +3354,19 @@ defmodule Mix.Tasks.Allbert.Test do
       [
         {"ALLBERT_DISCORD_SLACK_EXTERNAL_SMOKE", "1"}
         | owned_env("external-smoke-discord-slack", 0)
+      ]
+    )
+  end
+
+  defp run_external_smoke(["messaging_channel_inbound"]) do
+    run_cmd!(
+      "external-smoke messaging_channel_inbound",
+      app_cwd(:core),
+      "mix",
+      ["test", "test/external/messaging_channel_inbound_smoke_test.exs"],
+      [
+        {"ALLBERT_MESSAGING_CHANNEL_INBOUND_EXTERNAL_SMOKE", "1"}
+        | owned_env("external-smoke-messaging-channel-inbound", 0)
       ]
     )
   end
@@ -3970,6 +3988,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test external-smoke -- docker_sandbox
       mix allbert.test external-smoke -- docker_full_gate
       mix allbert.test external-smoke -- discord_slack
+      mix allbert.test external-smoke -- messaging_channel_inbound
 
     `mix precommit` is a compatibility shortcut for `mix allbert.test commit`;
     release evidence is `mix allbert.test release`.
