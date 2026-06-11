@@ -57,7 +57,7 @@ defmodule AllbertAssist.Channels.Slack.Client.SocketModePort.Real do
         {:ok, state}
 
       {:ok, %{"envelope_id" => envelope_id} = envelope} when is_binary(envelope_id) ->
-        dispatch(envelope, state)
+        send(self(), {:slack_socket_dispatch_after_ack, envelope})
         {:reply, {:text, Jason.encode!(ack_payload(envelope_id, nil))}, state}
 
       {:ok, envelope} when is_map(envelope) ->
@@ -81,6 +81,12 @@ defmodule AllbertAssist.Channels.Slack.Client.SocketModePort.Real do
   end
 
   def handle_cast(_message, state), do: {:ok, state}
+
+  @impl true
+  def handle_info({:slack_socket_dispatch_after_ack, envelope}, state) when is_map(envelope) do
+    dispatch(envelope, state)
+    {:ok, state}
+  end
 
   @impl true
   def handle_disconnect(%{attempt_number: attempt, reason: reason}, state) do
@@ -110,7 +116,9 @@ defmodule AllbertAssist.Channels.Slack.Client.SocketModePort.Real do
   end
 
   defp ack_payload(envelope_id, nil), do: %{"envelope_id" => envelope_id}
-  defp ack_payload(envelope_id, payload), do: %{"envelope_id" => envelope_id, "payload" => payload}
+
+  defp ack_payload(envelope_id, payload),
+    do: %{"envelope_id" => envelope_id, "payload" => payload}
 
   defp backoff(attempt, max_backoff) when is_integer(attempt) and attempt > 0 do
     min(max_backoff, attempt * 250)
