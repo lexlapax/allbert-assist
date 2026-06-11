@@ -2,7 +2,7 @@
 
 **Produced for:** v0.52.0
 **Based on:** `docs/developer/test-strategy.md`, code audit, benchmark records,
-and the June 11, 2026 `release.v052` run
+and the June 11, 2026 `release.v052` and full release runs
 **Scope:** Gap analysis, coverage targets, prioritized recommendations, and example test cases
 
 ---
@@ -32,7 +32,7 @@ v0.52 observation below should be treated as current release evidence.
 
 | Module | Lane | Wall-clock | Proposed next step |
 |---|---|---|---|
-| `AllbertAssistWeb.WorkspaceLiveTest` | `liveview_serial` / release web child | ~256s baseline; 1242.5s in `release.v052` on June 11, 2026 | Split into functional slices or passivate runtime-heavy flows behind fake providers; consider an intermediate testing-strategy release before v0.53 channel expansion |
+| `AllbertAssistWeb.WorkspaceLiveTest` | `liveview_serial` / release web child | ~256s baseline; 1242.5s in `release.v052`; 1410.4s in full `release` web phase on June 11, 2026 | Split into functional slices or passivate runtime-heavy flows behind fake providers; consider an intermediate testing-strategy release before v0.53 channel expansion |
 | `AllbertAssist.Agents.IntentAgentTest` | `external_runtime_serial` | ~154s | Profile which test cases hold real LLM/provider calls; passivate stubs where the test is checking routing logic, not model output |
 | `AllbertAssist.RuntimeIntentAgentTest` | `external_runtime_serial` | ~69s | Same as above — runtime routing logic can be exercised without provider round-trips |
 | `AllbertAssist.Execution.SkillScriptSpecTest` | `external_runtime_serial` | ~63s | Some script exec cases may be promotable to `global_process_serial` via a sandboxed runner stub |
@@ -63,6 +63,23 @@ status and wrote evidence at
   `persistence_failed`, `fragment_body_conflict`, `exception`, and one expected
   invalid-signature fragment drop. The tests still passed, but this is dirty
   release evidence and should be triaged separately from assertion failures.
+
+The subsequent full `MIX_ENV=test mix allbert.test release` run also passed,
+with evidence at
+`release_evidence/gates/release-2026-06-11T14_48_35Z.json`, and reinforced the
+same conclusion:
+
+- Total full-release duration was 2,915.0 seconds.
+- `core_tests` took 1,148.0 seconds for 1727 tests, 0 failures, 6 skipped.
+- `web_tests` took 1,420.0 seconds for 151 tests, 0 failures.
+- `stocksage_tests` took 317.0 seconds for 197 tests, 0 failures.
+- Static compile, deps-unused, format, Credo, channel plugin tests, and Dialyzer
+  all passed quickly relative to the long test phases.
+- Evidence scan found no `database is locked`, `SQLITE_BUSY`,
+  `Exqlite.Connection`, or `DBConnection.ConnectionError` strings, but the
+  full-release web phase reproduced `database_unavailable`,
+  `persistence_failed`, `fragment_body_conflict`, `exception`, and
+  invalid-signature workspace fragment warnings.
 
 This changes the priority of the testing work. The issue is no longer only
 "make release faster"; it is also "make release observable and clean enough to
@@ -168,8 +185,9 @@ Even reclassifying 10–15 files from `external_runtime_serial` to `global_proce
 ### 2. Split WorkspaceLiveTest
 
 This single test file accounted for ~33% of the earlier web test wall-clock
-(256s of 305s web total), and in the June 11, 2026 `release.v052` run it took
-1242.5s as a buffered release child. The recommended approach:
+(256s of 305s web total), and in the June 11, 2026 release runs it took 1242.5s
+as the `release.v052` buffered child and 1410.4s inside the full release
+`web_tests` phase. The recommended approach:
 
 - Profile which test cases in `WorkspaceLiveTest` are slow due to real runtime calls vs. LiveView rendering
 - Extract pure UI-rendering assertions into a `pure_async` or `liveview_serial` file with provider stubs
