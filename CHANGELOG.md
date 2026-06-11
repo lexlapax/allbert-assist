@@ -10,6 +10,31 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.51.1 - Public Protocol Validation Remediation
+
+Status: corrective release candidate for v0.51 operator manual validation.
+Current version metadata is `0.51.1`.
+
+### Changed
+
+- Backported the v0.51 public-protocol validation-harness fix so StockSage app
+  registration seeds `StockSage.Plugin` before validating `StockSage.App`
+  actions.
+- Moved cleanup registration before risky setup assertions in the affected MCP
+  and public-protocol test harnesses so failed setup cannot leak confirmation
+  roots into later tests.
+- Confirmation store tests now clear and restore the confirmations app config,
+  matching the path/settings isolation they already applied.
+- Umbrella, core app, web app, README, and
+  `AllbertAssist.App.CoreApp.version/0` metadata now report `0.51.1`.
+
+### Verification
+
+- M9 focused harness backport test passed with 31 tests and 0 failures:
+  `MIX_ENV=test mix test apps/allbert_assist/test/mix/tasks/allbert_mcp_server_test.exs apps/allbert_assist/test/allbert_assist/public_protocol/mcp_stdio_server_test.exs apps/allbert_assist/test/security/v051_public_protocol_eval_test.exs apps/allbert_assist/test/allbert_assist/confirmations/store_agent_test.exs apps/allbert_assist/test/allbert_assist/confirmations/store_golden_test.exs`.
+- Corrective `release.v051`, full release gate, and fresh manual-validation
+  re-entry evidence are pending.
+
 ## v0.51.0 - Public Protocol Surfaces
 
 Status: released and tagged as `v0.51.0` on 2026-06-10. Current version
