@@ -131,8 +131,10 @@ Current v0.51 evidence, including the v0.51 secret scan:
 Current full release evidence:
 `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-7/home/release_evidence/gates/release-2026-06-10T04_50_39Z.json`.
 
-For operator validation, repeat opt-in real-client smokes against a disposable
-`ALLBERT_HOME` for one MCP client, one OpenAI-API client, and one ACP editor.
-For each surface, verify the enabled tool/resource list, a text prompt, a
-confirmation-pending call, operator approval through the workspace, and
-client-scoped readback.
+Manual real-client validation was not captured before the `v0.51.0` tag. Use
+`docs/plans/v0.51-request-flow.md` "Operator Manual Validation Steps" as the
+shell-authoritative punch list. It covers an isolated `v0.51.0` worktree,
+deterministic gates, disposable manual `ALLBERT_HOME`, Settings Central setup,
+token creation/revocation, MCP HTTP, OpenAI-compatible HTTP, MCP stdio, ACP
+stdio, real external-client checks, readback ownership, negative authority
+checks, and redaction scans.
