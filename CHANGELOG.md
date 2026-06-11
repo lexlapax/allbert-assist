@@ -48,7 +48,26 @@ Current version metadata is `0.51.1`.
   `Exqlite.Connection`, `DBConnection.ConnectionError`, `unknown_app_namespace`,
   `unknown_setting`, raw bearer-token, API-key, or `sk-*` leakage signatures in
   the fresh evidence files/logs.
-- Fresh worktree replay and manual operator validation re-entry remain pending.
+- Test validation disables `tzdata` autoupdate in `MIX_ENV=test`, preventing the
+  dependency release-updater process from adding crash noise to fresh
+  release-gate evidence.
+- M12 fresh worktree replay passed from
+  `/private/tmp/allbert-v051-m12-replay-749fe18b` on corrective commit
+  `749fe18b`.
+- `ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test release.v051`
+  passed in the fresh worktree. Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-362563/home/release_evidence/v051/release-v051-1781214030.json`.
+- `ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test release` passed in
+  the fresh worktree with static compile, deps-unused, format, Credo, core
+  tests, web tests, StockSage tests, channel plugin tests, and Dialyzer all
+  green. Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-8066/home/release_evidence/gates/release-2026-06-11T21_42_50Z.json`.
+- M12 evidence scans found no `tzdata_release_updater`, `FunctionClauseError`,
+  `database is locked`, `SQLITE_BUSY`, `Exqlite.Connection`,
+  `DBConnection.ConnectionError`, `unknown_app_namespace`, `unknown_setting`,
+  raw bearer-token, API-key, or `sk-*` leakage signatures in fresh evidence.
+- Manual operator validation is ready to resume at
+  `docs/plans/v0.51-request-flow.md` step 5.
 
 ## v0.51.0 - Public Protocol Surfaces
 
