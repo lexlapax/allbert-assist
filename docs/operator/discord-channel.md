@@ -71,9 +71,12 @@ mix allbert.channels discord doctor
 mix allbert.channels show discord
 ```
 
-Before tagging v0.52, run the real-provider smoke with a sandbox bot/channel:
+Before tagging v0.52, run the real-provider smoke with a sandbox bot/channel.
+`ALLBERT_TEST_KEEP_TMP=1` keeps the owned smoke home and evidence file
+inspectable after the task exits:
 
 ```sh
+export ALLBERT_TEST_KEEP_TMP=1
 export ALLBERT_DISCORD_BOT_TOKEN="..."
 export ALLBERT_DISCORD_CHANNEL_ID="..."
 export ALLBERT_DISCORD_GUILD_ID="..."
@@ -88,9 +91,11 @@ echo-suppression metadata, and writes
 Then run the shared live inbound smoke. This command opens the real Discord
 Gateway and Slack Socket Mode sessions, waits for Discord `READY` and Slack
 `hello`, prints exact marker messages, and waits for provider-delivered inbound
-messages from mapped users to reach `Runtime.submit_user_input/1`:
+messages from mapped users to reach `Runtime.submit_user_input/1`. Keep the
+owned smoke home for evidence inspection:
 
 ```sh
+export ALLBERT_TEST_KEEP_TMP=1
 export ALLBERT_MESSAGING_CHANNEL_INBOUND_TIMEOUT_MS=120000
 export ALLBERT_DISCORD_BOT_TOKEN="..."
 export ALLBERT_DISCORD_APPLICATION_ID="..."
