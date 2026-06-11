@@ -33,6 +33,7 @@ defmodule AllbertAssist.Channels.Discord.Client.GatewayPort.Real do
         owner: Keyword.get(opts, :owner),
         token: token,
         intents: intents(Keyword.get(opts, :intents, @default_intents)),
+        conn: nil,
         sequence: nil,
         session_id: nil,
         resume?: false,
@@ -60,7 +61,7 @@ defmodule AllbertAssist.Channels.Discord.Client.GatewayPort.Real do
   def push(server, event), do: WebSockex.cast(server, {:push, event})
 
   @impl true
-  def handle_connect(_conn, state), do: {:ok, state}
+  def handle_connect(conn, state), do: {:ok, %{state | conn: conn}}
 
   @impl true
   def handle_frame({:text, frame}, state) do
@@ -120,12 +121,16 @@ defmodule AllbertAssist.Channels.Discord.Client.GatewayPort.Real do
   end
 
   defp handle_gateway_payload(%{"op" => 11}, state), do: {:ok, state}
-  defp handle_gateway_payload(%{"op" => 7}, state), do: {:close, mark_resumable(state)}
+
+  defp handle_gateway_payload(%{"op" => 7}, state),
+    do: reconnect_via_disconnect(mark_resumable(state))
 
   defp handle_gateway_payload(%{"op" => 9, "d" => true}, state),
-    do: {:close, mark_resumable(state)}
+    do: reconnect_via_disconnect(mark_resumable(state))
 
-  defp handle_gateway_payload(%{"op" => 9}, state), do: {:close, clear_session(state)}
+  defp handle_gateway_payload(%{"op" => 9}, state),
+    do: reconnect_via_disconnect(clear_session(state))
+
   defp handle_gateway_payload(_payload, state), do: {:ok, state}
 
   defp maybe_store_session(state, "READY", %{"session_id" => session_id})
@@ -170,6 +175,32 @@ defmodule AllbertAssist.Channels.Discord.Client.GatewayPort.Real do
   defp mark_resumable(state), do: state
 
   defp clear_session(state), do: %{state | session_id: nil, sequence: nil, resume?: false}
+
+  defp reconnect_via_disconnect(state) do
+    {:ok, close_gateway_socket(state)}
+  end
+
+  defp close_gateway_socket(%{conn: %WebSockex.Conn{socket: nil}} = state), do: state
+
+  defp close_gateway_socket(%{conn: %WebSockex.Conn{} = conn} = state) do
+    socket = conn.socket
+    transport = conn.transport
+    closed_conn = WebSockex.Conn.close_socket(conn)
+
+    queue_socket_closed(transport, socket)
+
+    %{state | conn: closed_conn}
+  end
+
+  defp close_gateway_socket(state), do: state
+
+  defp queue_socket_closed(:tcp, socket) when not is_nil(socket),
+    do: send(self(), {:tcp_closed, socket})
+
+  defp queue_socket_closed(:ssl, socket) when not is_nil(socket),
+    do: send(self(), {:ssl_closed, socket})
+
+  defp queue_socket_closed(_transport, _socket), do: :ok
 
   defp resolve_token(token_ref) when is_binary(token_ref) do
     case Secrets.get_secret(token_ref) do
