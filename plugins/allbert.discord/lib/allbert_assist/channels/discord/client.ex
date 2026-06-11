@@ -38,6 +38,16 @@ defmodule AllbertAssist.Channels.Discord.Client do
     end
   end
 
+  def interaction_callback(interaction_id, interaction_token, payload, opts \\ []) do
+    case client_mode(opts) do
+      :stub ->
+        stub_interaction_callback(interaction_id, interaction_token, payload, opts)
+
+      :real ->
+        request_interaction_callback(interaction_id, interaction_token, payload, opts)
+    end
+  end
+
   def create_message_request(token_ref, channel_id, payload) do
     build_request(
       :post,
@@ -45,6 +55,19 @@ defmodule AllbertAssist.Channels.Discord.Client do
       "/channels/#{URI.encode(to_string(channel_id))}/messages",
       json: payload
     )
+  end
+
+  def interaction_callback_request(interaction_id, _interaction_token, payload) do
+    path = redacted_interaction_callback_path(interaction_id)
+
+    %{
+      method: :post,
+      url: @base_url <> path,
+      path: path,
+      headers: [],
+      redacted_headers: [],
+      body: payload
+    }
   end
 
   def users_me_request(token_ref), do: build_request(:get, token_ref, "/users/@me", [])
@@ -69,6 +92,28 @@ defmodule AllbertAssist.Channels.Discord.Client do
         method: method,
         url: request.url,
         headers: [{"authorization", "Bot " <> token}],
+        retry: false,
+        redirect: false,
+        receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
+      ]
+      |> Keyword.merge(request_opts)
+      |> Keyword.delete(:max_response_bytes)
+      |> Keyword.merge(Keyword.take(opts, [:plug]))
+      |> Req.request()
+      |> normalize_response()
+    end
+  end
+
+  defp request_interaction_callback(interaction_id, interaction_token, payload, opts) do
+    request_opts = [json: payload]
+
+    with {:ok, path} <- interaction_callback_path(interaction_id, interaction_token),
+         request <- interaction_callback_request(interaction_id, interaction_token, payload),
+         :ok <- validate_policy(request, request_opts, opts) do
+      [
+        method: :post,
+        url: @base_url <> path,
+        headers: [],
         retry: false,
         redirect: false,
         receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)
@@ -225,6 +270,25 @@ defmodule AllbertAssist.Channels.Discord.Client do
     end
   end
 
+  defp stub_interaction_callback(interaction_id, interaction_token, payload, opts) do
+    with {:ok, interaction_id} <- required_segment(interaction_id, :interaction_id),
+         {:ok, _interaction_token} <- required_segment(interaction_token, :interaction_token) do
+      case stub_result(opts) do
+        :success ->
+          maybe_capture(opts, {:discord_interaction_callback, interaction_id, payload})
+
+          {:ok,
+           %{"id" => interaction_id, "type" => Map.get(payload, :type, Map.get(payload, "type"))}}
+
+        :unauthorized ->
+          {:error, {:discord_error, 401, %{message: "Unauthorized"}}}
+
+        :unavailable ->
+          {:error, {:transport_error, :econnrefused}}
+      end
+    end
+  end
+
   defp client_mode(opts) do
     Keyword.get(opts, :mode, Application.get_env(:allbert_assist, :discord_client_mode, :stub))
   end
@@ -246,6 +310,36 @@ defmodule AllbertAssist.Channels.Discord.Client do
   end
 
   defp validate_token_ref(_token_ref), do: {:error, :invalid_discord_token_ref}
+
+  defp interaction_callback_path(interaction_id, interaction_token) do
+    with {:ok, interaction_id} <- required_segment(interaction_id, :interaction_id),
+         {:ok, interaction_token} <- required_segment(interaction_token, :interaction_token) do
+      {:ok,
+       "/interactions/#{URI.encode_www_form(interaction_id)}/#{URI.encode_www_form(interaction_token)}/callback"}
+    end
+  end
+
+  defp redacted_interaction_callback_path(interaction_id) do
+    interaction_id =
+      interaction_id
+      |> to_string()
+      |> URI.encode_www_form()
+
+    "/interactions/#{interaction_id}/[REDACTED]/callback"
+  end
+
+  defp required_segment(value, _field) when value in [nil, ""],
+    do: {:error, :invalid_discord_interaction}
+
+  defp required_segment(value, _field) do
+    value = value |> to_string() |> String.trim()
+
+    if value == "" do
+      {:error, :invalid_discord_interaction}
+    else
+      {:ok, value}
+    end
+  end
 
   defp resolve_token(token_ref) do
     case Secrets.get_secret(token_ref) do
