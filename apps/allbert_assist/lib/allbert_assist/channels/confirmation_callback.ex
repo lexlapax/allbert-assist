@@ -7,6 +7,7 @@ defmodule AllbertAssist.Channels.ConfirmationCallback do
   """
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Confirmations
 
   @typed_command_re ~r/\AALLBERT:(APPROVE|DENY|SHOW):([A-Za-z0-9_-]+)\z/i
@@ -17,8 +18,9 @@ defmodule AllbertAssist.Channels.ConfirmationCallback do
   def run(attrs) when is_map(attrs) do
     with {:ok, action_name} <- action_name(field(attrs, :action)),
          {:ok, confirmation_id} <- required_string(field(attrs, :confirmation_id)),
-         {:ok, user_id} <- required_string(field(attrs, :user_id)),
          {:ok, channel} <- required_string(field(attrs, :channel)),
+         {:ok, user_id} <- verify_identity_proof(attrs, channel),
+         attrs <- Map.put(attrs, :user_id, user_id),
          {:ok, %{"status" => "pending"} = record} <- read_pending(confirmation_id),
          :ok <- verify_user(record, user_id),
          :ok <- verify_channel(record, channel),
@@ -61,6 +63,49 @@ defmodule AllbertAssist.Channels.ConfirmationCallback do
   defp action_name(action) when action in [:deny, "deny"], do: {:ok, "deny_confirmation"}
   defp action_name(action) when action in [:show, "show"], do: {:ok, "show_confirmation"}
   defp action_name(_action), do: {:error, :unsupported_callback_action}
+
+  defp verify_identity_proof(attrs, channel) do
+    case field(attrs, :identity_proof) do
+      proof when is_map(proof) ->
+        verify_identity_proof(attrs, channel, proof)
+
+      _missing ->
+        {:error, :missing_identity_proof}
+    end
+  end
+
+  defp verify_identity_proof(attrs, channel, proof) do
+    with {:ok, proof_channel} <- required_string(field(proof, :channel)),
+         :ok <- verify_same_channel(channel, proof_channel),
+         {:ok, claimed_user_id} <- required_string(field(attrs, :user_id)),
+         {:ok, proof_user_id} <- required_string(field(proof, :user_id)),
+         :ok <- verify_same_user(claimed_user_id, proof_user_id),
+         {:ok, external_user_id} <- required_string(field(proof, :external_user_id)),
+         identity_map when is_list(identity_map) <- field(proof, :identity_map),
+         {:ok, resolved_user_id} <- Identity.resolve(channel, external_user_id, identity_map),
+         :ok <- verify_same_user(claimed_user_id, resolved_user_id) do
+      {:ok, resolved_user_id}
+    else
+      {:error, reason} -> {:error, reason}
+      _other -> {:error, :invalid_identity_proof}
+    end
+  end
+
+  defp verify_same_channel(channel, proof_channel) do
+    if channel_key(channel) == channel_key(proof_channel) do
+      :ok
+    else
+      {:error, :wrong_channel}
+    end
+  end
+
+  defp verify_same_user(user_id, proof_user_id) do
+    if normalize(user_id) == normalize(proof_user_id) do
+      :ok
+    else
+      {:error, :wrong_user}
+    end
+  end
 
   defp read_pending(confirmation_id) do
     case Confirmations.read(confirmation_id) do

@@ -17,8 +17,24 @@ defmodule AllbertAssist.Channels.SlackTest do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
+  alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Trace
   alias AllbertSlack.Settings.Fragment, as: SlackSettingsFragment
+
+  defmodule FakeWebSocket do
+    use GenServer
+
+    def start_link(url, callback, state, opts) do
+      if is_pid(state.owner) do
+        send(state.owner, {:fake_websocket_started, url, callback, state, opts})
+      end
+
+      GenServer.start_link(__MODULE__, state)
+    end
+
+    @impl true
+    def init(state), do: {:ok, state}
+  end
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -117,6 +133,17 @@ defmodule AllbertAssist.Channels.SlackTest do
     assert request.redacted_headers == [{"authorization", "[REDACTED]"}]
     refute inspect(request.redacted_headers) =~ "Bearer "
 
+    socket_request = Client.apps_connections_open_request("secret://channels/slack/app_token")
+
+    assert socket_request.method == :post
+    assert socket_request.path == "/apps.connections.open"
+    assert socket_request.redacted_headers == [{"authorization", "[REDACTED]"}]
+
+    assert {:ok, %{"ok" => true, "url" => socket_url}} =
+             Client.apps_connections_open("secret://channels/slack/app_token")
+
+    assert socket_url =~ "wss://wss-primary.slack.com"
+
     Application.put_env(:allbert_assist, :slack_client_stub_result, :unauthorized)
 
     assert {:error, {:slack_error, "invalid_auth"}} =
@@ -163,6 +190,38 @@ defmodule AllbertAssist.Channels.SlackTest do
     assert_receive {:slack_socket_ack, %{"envelope_id" => "env_1"}}
   end
 
+  test "SocketModePort real starts a WebSocket client and acks envelopes" do
+    assert {:ok, port} =
+             SocketModePort.Real.start_link(
+               owner: self(),
+               app_token_ref: "secret://channels/slack/app_token",
+               socket_mode_url: "wss://wss-primary.slack.com/link/?ticket=fixture",
+               websocket_module: FakeWebSocket
+             )
+
+    assert is_pid(port)
+
+    assert_receive {:fake_websocket_started, url, SocketModePort.Real, start_state,
+                    websocket_opts}
+
+    assert url =~ "wss://wss-primary.slack.com/link/"
+    assert start_state.owner == self()
+    assert Keyword.get(websocket_opts, :handle_initial_conn_failure)
+
+    state = %{owner: self(), reconnect_max_backoff_ms: 1_000}
+    envelope = %{"type" => "events_api", "envelope_id" => "env_real_1", "payload" => %{}}
+
+    assert {:reply, {:text, ack_json}, ^state} =
+             SocketModePort.Real.handle_frame({:text, Jason.encode!(envelope)}, state)
+
+    assert Jason.decode!(ack_json) == %{"envelope_id" => "env_real_1"}
+    assert_receive {:slack_socket_envelope, ^envelope}
+
+    hello = %{"type" => "hello"}
+    assert {:ok, ^state} = SocketModePort.Real.handle_frame({:text, Jason.encode!(hello)}, state)
+    assert_receive {:slack_socket_envelope, ^hello}
+  end
+
   test "adapter handles simulated inbound messages through runtime and thread refs" do
     assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
 
@@ -188,6 +247,7 @@ defmodule AllbertAssist.Channels.SlackTest do
     assert_received {:runtime_request, request}
     assert request.channel == "slack"
     assert request.text == "hello allbert"
+    assert request.metadata.inbound_trust.decision == :needs_confirmation
     assert request.channel_thread_ref.receiver_account_ref == "slack:team:T0123ABCDE"
 
     refs =
@@ -244,6 +304,31 @@ defmodule AllbertAssist.Channels.SlackTest do
 
     assert %{status: "rejected", reason: ":channel_not_allowed"} =
              Repo.get_by!(AllbertAssist.Channels.Event, external_event_id: "1718040000.000303")
+
+    refute_received {:runtime_request, _request}
+  end
+
+  test "adapter rejects channel messages when inbound trust is denied" do
+    assert {:ok, _setting} =
+             Settings.put("permissions.channel_message_inbound", "denied", %{audit?: false})
+
+    assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
+
+    event =
+      Parser.simulated_event(%{
+        ts: "1718040000.000311",
+        team_id: "T0123ABCDE",
+        channel_id: "C0123ABCDE",
+        user_id: "U0123ABCDE",
+        text: "blocked by inbound trust"
+      })
+
+    assert {:ok, :rejected} = Adapter.simulate_socket_envelope(adapter, event)
+
+    GenServer.stop(adapter)
+
+    assert %{status: "rejected", reason: ":channel_message_inbound_denied"} =
+             Repo.get_by!(AllbertAssist.Channels.Event, external_event_id: "1718040000.000311")
 
     refute_received {:runtime_request, _request}
   end
@@ -425,6 +510,16 @@ defmodule AllbertAssist.Channels.SlackTest do
                [%{"external_user_id" => "U0123ABCDE", "user_id" => "alice", "enabled" => true}],
                %{audit?: false}
              )
+
+    assert {:ok, _secret} =
+             Secrets.put_secret("secret://channels/slack/bot_token", "xoxb-test-token", %{
+               audit?: false
+             })
+
+    assert {:ok, _secret} =
+             Secrets.put_secret("secret://channels/slack/app_token", "xapp-test-token", %{
+               audit?: false
+             })
   end
 
   defp create_confirmation!(id, channel) do

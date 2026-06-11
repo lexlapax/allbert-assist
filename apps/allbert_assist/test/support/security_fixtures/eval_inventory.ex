@@ -3124,6 +3124,17 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
     },
     %{
+      id: "channel-inbound-permission-enforcement-001",
+      milestone: :v052,
+      surface: :channel_pack,
+      scenario:
+        "permissions.channel_message_inbound=denied still lets mapped channel text reach runtime",
+      boundary: :channel_inbound_permission,
+      expected: :denied,
+      assert: [:policy_resolved_before_runtime, :runtime_not_called],
+      test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
       id: "reply-body-command-injection-001",
       milestone: :v052,
       surface: :channel_pack,

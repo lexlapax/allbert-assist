@@ -76,6 +76,7 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
       "discord-slack-spoofing-001",
       "team-channel-replay-001",
       "group-leakage-001",
+      "channel-inbound-permission-enforcement-001",
       "dm-vs-workspace-auth-001",
       "discord-interactions-signature-verification-001",
       "slack-request-signing-verification-001",
@@ -186,7 +187,7 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
     row_ids = Enum.map(rows, & &1.id)
 
     assert MapSet.new(row_ids) == MapSet.new(@eval_ids)
-    assert length(row_ids) == 27
+    assert length(row_ids) == 28
     assert Enum.all?(rows, &(&1.surface == :channel_pack))
     assert Enum.all?(rows, &(&1.test_module == inspect(__MODULE__)))
   end
@@ -276,6 +277,23 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
 
     assert dm_event.user_id == "alice"
 
+    assert {:ok, _setting} =
+             Settings.put("permissions.channel_message_inbound", "denied", %{audit?: false})
+
+    denied_by_policy =
+      SlackParser.simulated_event(%{
+        ts: "1718040000.520004",
+        team_id: "T0123ABCDE",
+        channel_id: "C0123ABCDE",
+        user_id: "U0123ABCDE",
+        text: "blocked by channel inbound policy"
+      })
+
+    assert {:ok, :rejected} = SlackAdapter.simulate_socket_envelope(slack, denied_by_policy)
+
+    assert %{status: "rejected", reason: ":channel_message_inbound_denied"} =
+             Repo.get_by!(AllbertAssist.Channels.Event, external_event_id: "1718040000.520004")
+
     assert Identity.resolve("slack", "UUNKNOWN", slack_identity_map()) == {:error, :not_mapped}
 
     assert {:malformed, "missing gateway dispatch type"} =
@@ -287,6 +305,7 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
     refute_received {:runtime_request, %{text: "workspace spoof"}}
     refute_received {:runtime_request, %{text: "channel spoof"}}
     refute_received {:runtime_request, %{text: "guild spoof"}}
+    refute_received {:runtime_request, %{text: "blocked by channel inbound policy"}}
 
     GenServer.stop(slack)
     GenServer.stop(discord)
@@ -329,7 +348,8 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
                action: :deny,
                confirmation_id: confirmation["id"],
                channel: "slack",
-               user_id: "bob"
+               user_id: "bob",
+               identity_proof: identity_proof("slack", "U0123ABCDE", "bob", slack_identity_map())
              })
 
     assert {:error, :wrong_channel} =
@@ -337,7 +357,14 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
                action: :deny,
                confirmation_id: confirmation["id"],
                channel: "discord",
-               user_id: "alice"
+               user_id: "alice",
+               identity_proof:
+                 identity_proof(
+                   "discord",
+                   "11111",
+                   "alice",
+                   [%{"external_user_id" => "11111", "user_id" => "alice", "enabled" => true}]
+                 )
              })
 
     assert {:ok, pending} = Confirmations.read(confirmation["id"])
@@ -561,6 +588,15 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
 
   defp slack_identity_map do
     [%{"external_user_id" => "U0123ABCDE", "user_id" => "alice", "enabled" => true}]
+  end
+
+  defp identity_proof(channel, external_user_id, user_id, identity_map) do
+    %{
+      channel: channel,
+      external_user_id: external_user_id,
+      user_id: user_id,
+      identity_map: identity_map
+    }
   end
 
   defp create_confirmation!(id, channel) do

@@ -8,6 +8,13 @@ defmodule AllbertAssist.Channels.Discord.Client do
   @base_url "https://discord.com/api/v10"
   @default_max_response_bytes 1_048_576
 
+  def gateway_bot(token_ref, opts \\ []) do
+    case client_mode(opts) do
+      :stub -> stub_gateway_bot(token_ref, opts)
+      :real -> request(:get, token_ref, "/gateway/bot", [], opts)
+    end
+  end
+
   def users_me(token_ref, opts \\ []) do
     case client_mode(opts) do
       :stub -> stub_users_me(token_ref, opts)
@@ -41,6 +48,8 @@ defmodule AllbertAssist.Channels.Discord.Client do
   end
 
   def users_me_request(token_ref), do: build_request(:get, token_ref, "/users/@me", [])
+
+  def gateway_bot_request(token_ref), do: build_request(:get, token_ref, "/gateway/bot", [])
 
   def start_thread_from_message_request(token_ref, channel_id, message_id, payload) do
     build_request(
@@ -158,6 +167,30 @@ defmodule AllbertAssist.Channels.Discord.Client do
              "id" => "000000000000000052",
              "username" => "allbert-fixture",
              "bot" => true
+           }}
+
+        :unauthorized ->
+          {:error, {:discord_error, 401, %{message: "Unauthorized"}}}
+
+        :unavailable ->
+          {:error, {:transport_error, :econnrefused}}
+      end
+    end
+  end
+
+  defp stub_gateway_bot(token_ref, opts) do
+    with :ok <- validate_token_ref(token_ref) do
+      case stub_result(opts) do
+        :success ->
+          {:ok,
+           %{
+             "url" => Keyword.get(opts, :gateway_url, "wss://gateway.discord.gg"),
+             "session_start_limit" => %{
+               "total" => 1000,
+               "remaining" => 1000,
+               "reset_after" => 0,
+               "max_concurrency" => 1
+             }
            }}
 
         :unauthorized ->
