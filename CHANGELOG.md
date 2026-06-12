@@ -113,11 +113,49 @@ Developer docs: `docs/developer/channel-approval-primitives.md`,
   validation must also cover live DM delivery, button approval, unmapped-clicker
   rejection, and reconnect/RESUME before tag.
 
-## v0.51.2 - Manual Validation Determinism
+## v0.51.3 - Settings CLI Public List Parsing
 
 Status: corrective validation record for v0.51 operator manual validation,
 merged after mainline version metadata had advanced to `0.52.0`. The
-`v0.51.2` tag reports `0.51.2`; active mainline metadata remains `0.52.0`.
+`v0.51.3` tag reports `0.51.3`; active mainline metadata remains `0.52.0`.
+
+### Changed
+
+- Fixed `mix allbert.settings set` parsing for the public-protocol list setting
+  types used by the manual-validation checklist:
+  `:public_tool_list`, `:public_memory_namespace_list`, and
+  `:profile_ref_list`.
+- Step 6 commands that pass comma-separated values for
+  `mcp_server.tools_enabled`, `mcp_server.memory_namespaces_enabled`,
+  `openai_api.models_enabled`, `openai_api.tools_enabled`,
+  `acp_server.tools_enabled`, and `acp_server.memory_namespaces_enabled` now
+  send real lists to Settings Central instead of raw strings.
+- Updated the v0.51 manual-validation checklist to use `v0.51.3` and to call
+  out `expected_public_tool_list`, `expected_public_memory_namespace_list`, and
+  `expected_profile_ref_list` as evidence that the operator is not on the
+  corrected validation tag.
+- The corrective tag reports `0.51.3` across the umbrella, core app, web app,
+  README, and `AllbertAssist.App.CoreApp.version/0`; after merge to main,
+  active version metadata remains `0.52.0`.
+
+### Verification
+
+- `MIX_ENV=test mix test apps/allbert_assist/test/mix/tasks/allbert_settings_test.exs`
+  passed with 5 tests and 0 failures.
+- Disposable-home CLI smoke passed after migration with
+  `ALLBERT_HOME=/tmp/allbert-v0513-smoke.5jNjva`,
+  `ALLBERT_HOME_DIR=/tmp/allbert-v0513-smoke.5jNjva`, and
+  `DATABASE_PATH=/tmp/allbert-v0513-smoke.5jNjva/db/allbert_manual.db`.
+  The smoke exercised the six list-valued step 6 writes above; each command
+  printed an updated list value and `Source: operator`.
+- No allbert-wide gate was run for this correction so the operator can resume
+  manual validation quickly from the corrected tag.
+
+## v0.51.2 - Manual Validation Determinism
+
+Status: superseded by `v0.51.3` for v0.51 operator manual validation because
+step 6 public-list writes could fail through the settings CLI. The `v0.51.2`
+tag reports `0.51.2`; active mainline metadata remains `0.52.0`.
 
 ### Changed
 
@@ -158,8 +196,9 @@ merged after mainline version metadata had advanced to `0.52.0`. The
 
 ## v0.51.1 - Public Protocol Validation Remediation
 
-Status: superseded by `v0.51.2` for v0.51 operator manual validation because
-manual/dev CLI startup could still run the `tzdata` release updater. The
+Status: superseded by later corrective tags for v0.51 operator manual
+validation because manual/dev CLI startup could still run the `tzdata` release
+updater. `v0.51.3` is the current v0.51 manual-validation target. The
 `v0.51.1` tag reports `0.51.1`; active mainline metadata remains `0.52.0`.
 
 ### Changed
