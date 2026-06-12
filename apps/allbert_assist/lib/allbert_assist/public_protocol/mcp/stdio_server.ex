@@ -262,8 +262,6 @@ defmodule AllbertAssist.PublicProtocol.Mcp.StdioServer do
   end
 
   defp json_safe(value) when is_list(value), do: Enum.map(value, &stringify_value/1)
-  defp json_safe(value) when is_tuple(value), do: value |> Tuple.to_list() |> json_safe()
-  defp json_safe(value) when is_atom(value), do: Atom.to_string(value)
   defp json_safe(value), do: value
 
   defp stringify_value(value) when is_map(value) and not is_struct(value),

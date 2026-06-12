@@ -91,9 +91,15 @@ defmodule AllbertAssist.Workspace.Fragment do
     {:error, :invalid_envelope}
   end
 
+  # v0.52: the emitter (`emit/1`) is the sole workspace-fragment persistence
+  # authority. `publish_emitted/1` is the only producer of the emitted signal and
+  # it always persists first, so the receiver re-validates the bus envelope as a
+  # forgery gate before SignalBridge broadcasts it for rendering, but does not
+  # re-persist. The old double-write caused redundant `:fragment_body_conflict`
+  # rejections and async sandbox-ownership churn. See ADR 0023 (v0.52 amendment).
   defp validate_received_envelope(%Envelope{} = envelope) do
-    case validate_and_persist(envelope, :receiver) do
-      {:ok, _record} ->
+    case validate(envelope, :receiver) do
+      :ok ->
         {:ok, envelope}
 
       {:error, reason} ->
@@ -101,21 +107,10 @@ defmodule AllbertAssist.Workspace.Fragment do
         {:error, reason}
     end
   rescue
-    _exception in [DBConnection.ConnectionError, DBConnection.OwnershipError] ->
-      Logger.warning(
-        "workspace fragment persistence unavailable emitter=#{inspect(envelope.emitter_id)} " <>
-          "kind=#{inspect(envelope.kind)} fragment_id=#{inspect(envelope.id)} " <>
-          "reason=:database_unavailable"
-      )
-
-      publish_dropped(envelope, :persistence_failed)
-      {:error, :persistence_failed}
-
     exception ->
-      # v0.26a M32: surface enough exception detail for operators to debug
-      # why a fragment dropped without leaking redactable user payload. The
-      # exception struct + message land in the bounded log and the dropped
-      # signal carries the struct name in its reason tuple.
+      # Surface enough exception detail for operators to debug why a fragment
+      # dropped without leaking redactable user payload. The dropped signal
+      # carries the struct name in its reason tuple.
       Logger.warning(
         "workspace fragment exception emitter=#{inspect(envelope.emitter_id)} " <>
           "kind=#{inspect(envelope.kind)} fragment_id=#{inspect(envelope.id)} " <>
@@ -123,11 +118,11 @@ defmodule AllbertAssist.Workspace.Fragment do
       )
 
       publish_dropped(envelope, {:exception, exception.__struct__})
-      {:error, :persistence_failed}
+      {:error, :invalid_envelope}
   catch
     :exit, reason ->
       publish_dropped(envelope, {:exit, reason})
-      {:error, :persistence_failed}
+      {:error, :invalid_envelope}
   end
 
   defp validate_and_persist(%Envelope{} = envelope, rate_scope) do

@@ -91,8 +91,12 @@ defmodule AllbertAssistWeb.SignalBridgeTest do
     assert received_fragment.id == envelope.id
     assert received_fragment.thread_id == "thread-signal-bridge"
 
-    assert_receive {:workspace_event, tile_signal}, 1_000
-    assert tile_signal.type == "allbert.workspace.tile.added"
+    # v0.52: the receiver validates and broadcasts the envelope for rendering but
+    # does not persist it — the emitter is the persistence authority (ADR 0023
+    # v0.52 amendment). A hand-published bus signal that never went through
+    # `Fragment.emit/1` therefore produces no `tile.added`; that signal
+    # originates from the emitter-side Canvas persist.
+    refute_receive {:workspace_event, %{type: "allbert.workspace.tile.added"}}, 200
 
     assert {:ok, workspace_signal} =
              Signal.new(
