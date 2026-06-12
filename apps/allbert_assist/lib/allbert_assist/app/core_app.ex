@@ -19,10 +19,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.51.2 adds deterministic
-  # manual-validation startup for the v0.51 corrective tag.
+  # the app (release-pinned, not semantic-per-app). v0.51.3 fixes public-list
+  # Settings CLI parsing for the v0.51 corrective manual-validation tag.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.51.2"
+  def version, do: "0.51.3"
 
   @impl true
   def validate(_opts), do: :ok
