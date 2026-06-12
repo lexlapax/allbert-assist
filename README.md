@@ -23,7 +23,7 @@ to generate and reuse.
 
 ## Current Shape
 
-The current release is `v0.51.3`. This README is the stable project
+The current release is `v0.51.4`. This README is the stable project
 orientation; release-by-release implementation detail belongs in
 [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in
 [docs/plans/roadmap.md](docs/plans/roadmap.md).

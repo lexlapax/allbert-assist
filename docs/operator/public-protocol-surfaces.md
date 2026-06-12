@@ -1,6 +1,6 @@
 # Public Protocol Surfaces
 
-Status: released in v0.51 as `0.51.0`; `v0.51.3` is the corrective tag for
+Status: released in v0.51 as `0.51.0`; `v0.51.4` is the corrective tag for
 operator manual validation. Real-client validation steps remain below for
 operators.
 
@@ -42,7 +42,7 @@ For list-valued settings, the CLI accepts comma-separated strings and writes a
 real list value. Each manual validation write should print `Source: operator`
 and an `Updated:` line with bracketed list output. If a public list setting
 fails with `expected_public_tool_list`, `expected_public_memory_namespace_list`,
-or `expected_profile_ref_list`, switch to the corrected `v0.51.3` tag before
+or `expected_profile_ref_list`, switch to the corrected `v0.51.4` tag before
 continuing validation.
 
 ## Tokens

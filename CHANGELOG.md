@@ -10,10 +10,39 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
-## v0.51.3 - Settings CLI Public List Parsing
+## v0.51.4 - MCP Tool Call Argument Normalization
 
 Status: corrective release candidate for v0.51 operator manual validation.
-Current version metadata is `0.51.3`.
+Current version metadata is `0.51.4`.
+
+### Changed
+
+- Fixed MCP `tools/call` JSON argument handling so schema-declared JSON string
+  keys, such as `%{"text" => "..."}`, are normalized before crossing the
+  `Actions.Runner.run/3` boundary. This fixes the step 11
+  `direct_answer` HTTP 500 seen during manual validation.
+- Hardened MCP HTTP and stdio tool-result rendering so action error payloads
+  containing tuple-shaped reasons are converted to JSON-safe values instead of
+  crashing response encoding.
+- Updated the v0.51 manual-validation checklist to use `v0.51.4` and to allow
+  an in-progress operator run that already passed steps 1-10 on `v0.51.3` to
+  recreate the manual runtime state on `v0.51.4`, replay steps 5-10, and resume
+  at step 11. Step 4 remains an explicit skip/waiver if it was skipped.
+- Umbrella, core app, web app, README, and
+  `AllbertAssist.App.CoreApp.version/0` metadata now report `0.51.4`.
+
+### Verification
+
+- `MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/public_protocol/mcp_stdio_server_test.exs apps/allbert_assist_web/test/allbert_assist_web/public_protocol/mcp_http_controller_test.exs`
+  passed with 21 tests and 0 failures.
+- No allbert-wide gate was run for this correction so operator manual validation
+  can resume quickly from the corrected tag.
+
+## v0.51.3 - Settings CLI Public List Parsing
+
+Status: superseded by `v0.51.4` for v0.51 operator manual validation because
+step 11 MCP HTTP `tools/call` direct-answer execution could fail on JSON string
+arguments. Version metadata for this corrective tag is `0.51.3`.
 
 ### Changed
 
@@ -48,8 +77,9 @@ Current version metadata is `0.51.3`.
 
 ## v0.51.2 - Manual Validation Determinism
 
-Status: superseded by `v0.51.3` for v0.51 operator manual validation because
-step 6 public-list writes could fail through the settings CLI.
+Status: superseded by later corrective tags for v0.51 operator manual
+validation because step 6 public-list writes could fail through the settings
+CLI. `v0.51.4` is the current v0.51 manual-validation target.
 Version metadata for this corrective tag is `0.51.2`.
 
 ### Changed
@@ -92,7 +122,7 @@ Version metadata for this corrective tag is `0.51.2`.
 
 Status: superseded by later corrective tags for v0.51 operator manual
 validation because manual/dev CLI startup could still run the `tzdata` release
-updater. `v0.51.3` is the current v0.51 manual-validation target.
+updater. `v0.51.4` is the current v0.51 manual-validation target.
 Version metadata for this corrective tag is `0.51.1`.
 
 ### Changed
