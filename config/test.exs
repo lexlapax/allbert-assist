@@ -65,10 +65,6 @@ config :allbert_assist_web, AllbertAssistWeb.Endpoint,
 # Print only warnings and errors during test
 config :logger, level: :warning
 
-# Keep test/release-gate output deterministic; tzdata ships bundled release
-# tables and does not need to poll IANA during tests.
-config :tzdata, :autoupdate, :disabled
-
 # In test we don't send emails
 config :allbert_assist, AllbertAssist.Mailer, adapter: Swoosh.Adapters.Test
 
