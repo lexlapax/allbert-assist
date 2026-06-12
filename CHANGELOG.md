@@ -140,8 +140,19 @@ merged after mainline version metadata had advanced to `0.52.0`. The
 
 - `MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/public_protocol/mcp_stdio_server_test.exs apps/allbert_assist_web/test/allbert_assist_web/public_protocol/mcp_http_controller_test.exs`
   passed with 21 tests and 0 failures.
-- No allbert-wide gate was run for this correction so operator manual validation
-  can resume quickly from the corrected tag.
+- No allbert-wide gate was run for the M17 code correction itself so operator
+  manual validation could resume quickly from the corrected tag.
+- Operator manual validation for `v0.51.4` was accepted on 2026-06-12. Retained
+  evidence used worktree `/private/tmp/allbert-v051-worktree.daztn3`, manual
+  home `/tmp/allbert-v051-manual.yFpsOB`, public-protocol server log
+  `/tmp/allbert-v051-public-protocol-server.log`, and HTTP/stdio artifacts under
+  `/tmp/v051-*`.
+- The manual pass completed the real-client public-surface checks, including
+  CLI Codex OpenAI-compatible client validation, MCP/ACP stdio evidence against
+  the same manual home, confirmation/readback behavior, and the negative
+  AG-UI/A2UI/MCP Apps endpoint checks. Retained scans found no raw token,
+  SQLite, DBConnection, tzdata, or unknown namespace findings in the scanned
+  manual artifacts.
 
 ## v0.51.3 - Settings CLI Public List Parsing
 
