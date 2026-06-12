@@ -84,7 +84,7 @@ defmodule AllbertAssist.Workspace.FragmentTest do
     assert get_in(tile.body, ["fragment", "emitted_at"]) == "2026-05-18T00:00:00Z"
   end
 
-  test "duplicate different-body fragments fail without overwriting stored body" do
+  test "duplicate different-body fragments update the stored body in place" do
     first =
       signed_envelope(%{
         id: "frag_duplicate_different",
@@ -101,11 +101,15 @@ defmodule AllbertAssist.Workspace.FragmentTest do
           valid_surface([%Node{id: "fragment-text", component: :text, props: %{text: "second"}}])
       })
 
+    # v0.52: a trusted emitter re-emitting the same id (same user + thread) with a
+    # changed body is a live update — e.g. an objective card advancing through its
+    # lifecycle — not a conflict. The stored tile body is updated in place rather
+    # than frozen at the first state. See ADR 0023 (v0.52 amendment).
     assert :ok = Fragment.emit(first)
-    assert {:error, :fragment_body_conflict} = Fragment.emit(second)
+    assert :ok = Fragment.emit(second)
 
     assert {:ok, [tile]} = Workspace.canvas_tiles(first.thread_id, first.user_id)
-    assert tile.body["surface"]["nodes"] |> List.first() |> get_in(["props", "text"]) == "first"
+    assert tile.body["surface"]["nodes"] |> List.first() |> get_in(["props", "text"]) == "second"
   end
 
   test "rejects invalid envelope shape and emits a bounded dropped signal" do

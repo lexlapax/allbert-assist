@@ -140,6 +140,21 @@ Tiles are soft-deleted (`deleted_at`) for forensic recovery; hard
 delete is a follow-up operator command (`mix allbert.workspace
 canvas purge --before <date>`).
 
+**v0.52 amendment (re-emit updates a tile in place).** A trusted
+emitter re-emitting the same fragment id for the same `(user_id,
+thread_id)` with a changed body is treated as a **live update**, not a
+conflict: `Canvas.add_tile/1` updates the existing tile's body in place
+(emitting `allbert.workspace.tile.updated`) instead of returning
+`:fragment_body_conflict`. This fixes objective cards (stable id
+`objective_<id>`, body advancing created → running → completed) which
+were previously frozen at their first persisted state — the canvas
+rendered the initial card and silently dropped every lifecycle update.
+Identical-body re-emits remain idempotent; re-emits that change the
+owning `(user_id, thread_id)` are still rejected as
+`:fragment_id_conflict`. Offline browser-originated edits keep their own
+revision/conflict model (§7); this clarification covers only
+emitter-originated re-emission.
+
 **Cap-exceeded policy: FIFO eviction with pinning.** When a tile
 emission would push the per-thread tile count above
 `workspace.canvas.max_tiles_per_thread`, the Canvas store evicts
