@@ -56,6 +56,38 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
     assert get_resp_header(conn, "cache-control") == ["no-store"]
   end
 
+  test "tools/call accepts JSON-string arguments for allowlisted tools", %{conn: conn} do
+    enable_mcp_http!()
+    allow_tools!(["direct_answer"])
+    {:ok, created} = TokenAuth.create(:mcp_http, "claude", context())
+
+    conn =
+      conn
+      |> auth_conn(created.token)
+      |> post_json(%{
+        "jsonrpc" => "2.0",
+        "id" => "call",
+        "method" => "tools/call",
+        "params" => %{
+          "name" => "direct_answer",
+          "arguments" => %{"text" => "hello from v0.51 manual validation"}
+        }
+      })
+
+    assert conn.status == 200
+
+    result = json_response(conn, 200)["result"]
+    assert result["isError"] == false
+
+    assert get_in(result, ["structuredContent", "runner_metadata", "action_name"]) ==
+             "direct_answer"
+
+    assert %{"status" => "completed", "message" => message} =
+             Jason.decode!(get_in(result, ["content", Access.at(0), "text"]))
+
+    assert is_binary(message)
+  end
+
   test "missing token is denied before runtime dispatch", %{conn: conn} do
     enable_mcp_http!()
 

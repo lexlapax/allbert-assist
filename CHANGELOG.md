@@ -113,11 +113,42 @@ Developer docs: `docs/developer/channel-approval-primitives.md`,
   validation must also cover live DM delivery, button approval, unmapped-clicker
   rejection, and reconnect/RESUME before tag.
 
-## v0.51.3 - Settings CLI Public List Parsing
+## v0.51.4 - MCP Tool Call Argument Normalization
 
 Status: corrective validation record for v0.51 operator manual validation,
 merged after mainline version metadata had advanced to `0.52.0`. The
-`v0.51.3` tag reports `0.51.3`; active mainline metadata remains `0.52.0`.
+`v0.51.4` tag reports `0.51.4`; active mainline metadata remains `0.52.0`.
+
+### Changed
+
+- Fixed MCP `tools/call` JSON argument handling so schema-declared JSON string
+  keys, such as `%{"text" => "..."}`, are normalized before crossing the
+  `Actions.Runner.run/3` boundary. This fixes the step 11
+  `direct_answer` HTTP 500 seen during manual validation.
+- Hardened MCP HTTP and stdio tool-result rendering so action error payloads
+  containing tuple-shaped reasons are converted to JSON-safe values instead of
+  crashing response encoding.
+- Updated the v0.51 manual-validation checklist to use `v0.51.4` and to allow
+  an in-progress operator run that already passed steps 1-10 on `v0.51.3` to
+  recreate the manual runtime state on `v0.51.4`, replay steps 5-10, and resume
+  at step 11. Step 4 remains an explicit skip/waiver if it was skipped.
+- The corrective tag reports `0.51.4` across the umbrella, core app, web app,
+  README, and `AllbertAssist.App.CoreApp.version/0`; after merge to main,
+  active version metadata remains `0.52.0`.
+
+### Verification
+
+- `MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/public_protocol/mcp_stdio_server_test.exs apps/allbert_assist_web/test/allbert_assist_web/public_protocol/mcp_http_controller_test.exs`
+  passed with 21 tests and 0 failures.
+- No allbert-wide gate was run for this correction so operator manual validation
+  can resume quickly from the corrected tag.
+
+## v0.51.3 - Settings CLI Public List Parsing
+
+Status: corrective validation record for v0.51 operator manual validation,
+superseded by `v0.51.4` because step 11 MCP HTTP `tools/call` direct-answer
+execution could fail on JSON string arguments. The `v0.51.3` tag reports
+`0.51.3`; active mainline metadata remains `0.52.0`.
 
 ### Changed
 
@@ -153,8 +184,9 @@ merged after mainline version metadata had advanced to `0.52.0`. The
 
 ## v0.51.2 - Manual Validation Determinism
 
-Status: superseded by `v0.51.3` for v0.51 operator manual validation because
-step 6 public-list writes could fail through the settings CLI. The `v0.51.2`
+Status: superseded by later corrective tags for v0.51 operator manual
+validation because step 6 public-list writes could fail through the settings
+CLI. `v0.51.4` is the current v0.51 manual-validation target. The `v0.51.2`
 tag reports `0.51.2`; active mainline metadata remains `0.52.0`.
 
 ### Changed
@@ -198,7 +230,7 @@ tag reports `0.51.2`; active mainline metadata remains `0.52.0`.
 
 Status: superseded by later corrective tags for v0.51 operator manual
 validation because manual/dev CLI startup could still run the `tzdata` release
-updater. `v0.51.3` is the current v0.51 manual-validation target. The
+updater. `v0.51.4` is the current v0.51 manual-validation target. The
 `v0.51.1` tag reports `0.51.1`; active mainline metadata remains `0.52.0`.
 
 ### Changed
