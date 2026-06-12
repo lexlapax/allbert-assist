@@ -7,6 +7,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   """
   use AllbertAssistWeb, :live_view
 
+  require Logger
+
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.App.CoreApp
   alias AllbertAssist.App.Registry, as: AppRegistry
@@ -1407,6 +1409,21 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         socket.assigns.artifacts_browser_filters
       )
     )
+  rescue
+    # v0.52: workspace refresh fans out several Repo reads (tiles, ephemerals,
+    # conversation history). Under transient connection-pool exhaustion — e.g. a
+    # long-running Task holding a checkout while a high-frequency workspace event
+    # triggers a refresh — those reads can raise instead of returning {:error, _}.
+    # Degrade gracefully by keeping the current assigns rather than crashing the
+    # LiveView (which would disconnect the operator); the next event refreshes
+    # once the pool frees up.
+    exception in [DBConnection.ConnectionError] ->
+      Logger.warning(
+        "workspace refresh skipped: database temporarily unavailable " <>
+          "thread_id=#{inspect(socket.assigns[:thread_id])} reason=#{inspect(exception.reason)}"
+      )
+
+      socket
   end
 
   defp refresh_after_runtime_response(socket, %{status: :needs_confirmation}) do

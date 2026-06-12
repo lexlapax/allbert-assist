@@ -9,6 +9,11 @@ decisions shipped in v0.26 — the foundational UI layer that turns
 signal-driven, declaratively-rendered workspace with a per-thread
 canvas of persistent tiles and per-thread ephemeral surfaces.
 
+Amended on 2026-06-12 (v0.52): clarified in §5 that the SignalBridge
+receiver validates and broadcasts fragments but does not persist them —
+`Fragment.emit/1` (the emitter) is the persistence authority. The
+redundant receiver re-persist added in v0.26 was removed.
+
 ## Context
 
 v0.18 (Allbert App Contract And Surface DSL, ADR 0015) shipped:
@@ -245,6 +250,26 @@ rendered. The drop reason (envelope shape, signature mismatch,
 catalog mismatch, unknown emitter, rate limit, oversize) is
 captured in trace metadata for the originating turn so operators
 can debug.
+
+**v0.52 amendment (persistence authority clarification).** The receiver
+path above validates each bus envelope (steps 1–6) and broadcasts
+`{:fragment, envelope}` to PubSub for rendering — it does **not**
+persist. The workspace-fragment persistence authority is the *emitter*:
+`AllbertAssist.Workspace.Fragment.emit/1` validates and persists to the
+Canvas/Ephemeral store (emitting `tile.added` / `ephemeral.opened`)
+before publishing, and is the sole producer of
+`allbert.workspace.fragment.emitted`. A v0.26 hardening pass
+("Harden fragment receiver persistence") had the receiver re-persist the
+same envelope id; because the emitter always persists before publishing,
+that second write was strictly redundant and produced
+`:fragment_body_conflict` rejections when rapid same-id updates raced,
+plus async SQL-sandbox `OwnershipError` churn (`:database_unavailable`)
+in tests where the global SignalBridge process owns no per-test
+connection. v0.52 removes the receiver re-persist, restoring the
+validate-and-broadcast receiver contract this section documents. Forgery
+protection is unchanged: the receiver still drops envelopes failing
+signature, emitter-allowlist, surface, rate-limit, or size validation
+before any broadcast.
 
 ### 6. v0.26 catalog expansion to 42 components (per amended ADR 0015)
 
