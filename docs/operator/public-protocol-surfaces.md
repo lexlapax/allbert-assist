@@ -1,7 +1,8 @@
 # Public Protocol Surfaces
 
-Status: released in v0.51 as `0.51.0`; deterministic release evidence is
-current. Real-client validation steps remain below for operators.
+Status: released in v0.51 as `0.51.0`; `v0.51.3` is the corrective tag for
+operator manual validation. Real-client validation steps remain below for
+operators.
 
 Allbert can be reached by three public protocol surfaces:
 
@@ -20,21 +21,29 @@ Enable only the surface and allowlist entries you intend to test:
 mix allbert.settings set mcp_server.enabled true
 mix allbert.settings set mcp_server.stdio.enabled true
 mix allbert.settings set mcp_server.streamable_http.enabled true
-mix allbert.settings set mcp_server.tools_enabled direct_answer
+mix allbert.settings set mcp_server.tools_enabled direct_answer,external_network_request,get_public_call_result
 mix allbert.settings set mcp_server.memory_namespaces_enabled stocksage.stocksage
 
 mix allbert.settings set openai_api.enabled true
 mix allbert.settings set openai_api.models_enabled local
+mix allbert.settings set openai_api.tools_enabled direct_answer,external_network_request,get_public_call_result
 
 mix allbert.settings set acp_server.enabled true
 mix allbert.settings set acp_server.stdio.enabled true
-mix allbert.settings set acp_server.tools_enabled direct_answer
+mix allbert.settings set acp_server.tools_enabled direct_answer,external_network_request,get_public_call_result
 mix allbert.settings set acp_server.memory_namespaces_enabled stocksage.stocksage
 ```
 
 All public protocol configuration goes through Settings Central. Do not use
 Application env, process env, protocol metadata, ad hoc client flags, or Hermes
 transport options as public-surface authority.
+
+For list-valued settings, the CLI accepts comma-separated strings and writes a
+real list value. Each manual validation write should print `Source: operator`
+and an `Updated:` line with bracketed list output. If a public list setting
+fails with `expected_public_tool_list`, `expected_public_memory_namespace_list`,
+or `expected_profile_ref_list`, switch to the corrected `v0.51.3` tag before
+continuing validation.
 
 ## Tokens
 
