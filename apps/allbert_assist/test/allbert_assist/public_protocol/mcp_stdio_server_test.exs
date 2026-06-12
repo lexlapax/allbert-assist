@@ -138,6 +138,12 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
     assert payload.status == :completed
     assert is_binary(payload.message)
     assert get_in(payload, [:runner_metadata, :action_name]) == "direct_answer"
+
+    assert {:ok, string_key_payload} =
+             Runtime.call_tool("direct_answer", %{"text" => "hello"}, context("fixture-client"))
+
+    assert string_key_payload.status == :completed
+    assert get_in(string_key_payload, [:runner_metadata, :action_name]) == "direct_answer"
   end
 
   test "confirmation-gated tool call creates client-owned public readback id" do

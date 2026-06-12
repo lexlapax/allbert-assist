@@ -95,7 +95,9 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
 
     with {:ok, tools} <- enabled_tools(surface),
          {:ok, capability} <- fetch_tool(tools, name),
-         {:ok, response} <- Runner.run(name, params, runner_context(context, capability, surface)) do
+         normalized_params <- normalize_tool_params(params, capability.module),
+         {:ok, response} <-
+           Runner.run(name, normalized_params, runner_context(context, capability, surface)) do
       response_to_payload(response, name, context, surface)
     end
   end
@@ -205,6 +207,33 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
       nil -> {:error, {:tool_not_exposed, name}}
       capability -> {:ok, capability}
     end
+  end
+
+  defp normalize_tool_params(params, module) when is_map(params) and is_atom(module) do
+    key_map = schema_key_map(module)
+
+    Map.new(params, fn
+      {key, value} when is_binary(key) ->
+        {Map.get(key_map, key, key), value}
+
+      pair ->
+        pair
+    end)
+  end
+
+  defp schema_key_map(module) do
+    if function_exported?(module, :schema, 0) do
+      module.schema()
+      |> Enum.reduce(%{}, fn
+        {key, _opts}, acc when is_atom(key) -> Map.put(acc, Atom.to_string(key), key)
+        key, acc when is_atom(key) -> Map.put(acc, Atom.to_string(key), key)
+        _entry, acc -> acc
+      end)
+    else
+      %{}
+    end
+  rescue
+    _exception -> %{}
   end
 
   defp fetch_resource(resources, uri) do
