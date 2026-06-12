@@ -1,8 +1,8 @@
 # Public Protocol Surfaces
 
-Status: released in v0.51 as `0.51.0`; `v0.51.4` is the corrective tag for
-operator manual validation. Real-client validation steps remain below for
-operators.
+Status: released in v0.51 as `0.51.0`; `v0.51.4` is the corrective tag with
+accepted operator manual validation as of 2026-06-12. Real-client validation
+steps remain below for replay and future corrective checks.
 
 Allbert can be reached by three public protocol surfaces:
 
