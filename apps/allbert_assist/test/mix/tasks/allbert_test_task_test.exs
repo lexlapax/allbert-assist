@@ -50,6 +50,8 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
              "format",
              "credo",
              "core_tests",
+             "core_tests_external_runtime_serial",
+             "core_tests_security_eval_serial",
              "web_tests",
              "stocksage_tests",
              "channel_plugin_tests",
@@ -68,7 +70,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     refute File.read!(evidence_path) =~ "secret-token"
 
     phase_logs = Enum.map(evidence["phases"], &Map.fetch!(&1, "redacted_output_log_path"))
-    assert length(phase_logs) == 9
+    assert length(phase_logs) == 11
     assert Enum.all?(phase_logs, &File.exists?/1)
     refute Enum.any?(phase_logs, &(File.read!(&1) =~ "secret-token"))
   end
