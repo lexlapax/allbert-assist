@@ -10,9 +10,51 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
-## v0.51.1 - Public Protocol Validation Remediation
+## v0.51.2 - Manual Validation Determinism
 
 Status: corrective release candidate for v0.51 operator manual validation.
+Current version metadata is `0.51.2`.
+
+### Changed
+
+- Disabled `tzdata` autoupdate in base configuration so manual validation with
+  `MIX_ENV` unset does not start the dependency release-updater, make an
+  unexpected IANA network request, or emit `tzdata_release_updater` /
+  `FunctionClauseError` noise during CLI startup.
+- Updated the v0.51 manual-validation checklist to use `v0.51.2` and make the
+  validation worktree/ref checks explicit so operators do not accidentally run
+  v0.51 validation commands from `main`.
+- Umbrella, core app, web app, README, and
+  `AllbertAssist.App.CoreApp.version/0` metadata now report `0.51.2`.
+
+### Verification
+
+- `MIX_ENV=test mix compile --warnings-as-errors` passed.
+- Focused v0.51 public-protocol/harness regression suite passed with 24 tests
+  and 0 failures:
+  `MIX_ENV=test mix test apps/allbert_assist/test/mix/tasks/allbert_mcp_server_test.exs apps/allbert_assist/test/allbert_assist/public_protocol/mcp_stdio_server_test.exs apps/allbert_assist/test/security/v051_public_protocol_eval_test.exs apps/allbert_assist/test/allbert_assist/actions/voice_local_runtime_test.exs`.
+- Manual/dev CLI smoke with disposable `ALLBERT_HOME` passed for
+  `mix allbert.settings set mcp_server.enabled true` and
+  `mix allbert.mcp_server status`; startup still emits general dev logger
+  noise, but no `Tzdata downloading new data`, `tzdata_release_updater`, or
+  `FunctionClauseError`.
+- `ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test release.v051` passed.
+  Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v051/p0-13252/home/release_evidence/v051/release-v051-1781220868.json`.
+- `ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test release` passed with
+  static compile, deps-unused, format, Credo, core tests, web tests, StockSage
+  tests, channel plugin tests, and Dialyzer all green. Evidence:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13253/home/release_evidence/gates/release-2026-06-11T23_36_43Z.json`.
+- Evidence and phase-log scans found no `tzdata_release_updater`,
+  `Tzdata downloading`, `FunctionClauseError`, `database is locked`,
+  `SQLITE_BUSY`, `Exqlite.Connection`, `DBConnection.ConnectionError`,
+  `unknown_app_namespace`, `unknown_setting`, raw bearer-token, API-key, or
+  `sk-*` leakage signatures.
+
+## v0.51.1 - Public Protocol Validation Remediation
+
+Status: superseded by `v0.51.2` for v0.51 operator manual validation because
+manual/dev CLI startup could still run the `tzdata` release updater.
 Current version metadata is `0.51.1`.
 
 ### Changed
