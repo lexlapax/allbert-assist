@@ -139,6 +139,7 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
 
   defp tool_result(payload) do
     status = Map.get(payload, :status, Map.get(payload, "status"))
+    safe_payload = json_safe(payload)
 
     is_error? =
       to_string(status) in ["denied", "error", "failed", "unsupported", "unavailable"]
@@ -147,10 +148,10 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
       "content" => [
         %{
           "type" => "text",
-          "text" => Jason.encode!(payload)
+          "text" => Jason.encode!(safe_payload)
         }
       ],
-      "structuredContent" => stringify_keys(payload),
+      "structuredContent" => safe_payload,
       "isError" => is_error?
     }
   end
@@ -180,13 +181,20 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
     end
   end
 
-  defp stringify_keys(map) when is_map(map) and not is_struct(map) do
+  defp json_safe(map) when is_map(map) and not is_struct(map) do
     Map.new(map, fn {key, value} -> {to_string(key), stringify_value(value)} end)
   end
 
+  defp json_safe(value) when is_list(value), do: Enum.map(value, &stringify_value/1)
+  defp json_safe(value) when is_tuple(value), do: value |> Tuple.to_list() |> json_safe()
+  defp json_safe(value) when is_atom(value), do: Atom.to_string(value)
+  defp json_safe(value), do: value
+
   defp stringify_value(value) when is_map(value) and not is_struct(value),
-    do: stringify_keys(value)
+    do: json_safe(value)
 
   defp stringify_value(value) when is_list(value), do: Enum.map(value, &stringify_value/1)
+  defp stringify_value(value) when is_tuple(value), do: value |> Tuple.to_list() |> json_safe()
+  defp stringify_value(value) when is_atom(value), do: Atom.to_string(value)
   defp stringify_value(value), do: value
 end
