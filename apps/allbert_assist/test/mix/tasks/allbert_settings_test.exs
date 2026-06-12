@@ -133,6 +133,101 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
     assert {:ok, ["search", "read"]} = Settings.get("mcp.servers.demo.tool_allowlist")
   end
 
+  test "sets public protocol list settings from comma-separated CLI values" do
+    mcp_tools_output =
+      capture_io(fn ->
+        assert :ok =
+                 SettingsTask.run([
+                   "set",
+                   "mcp_server.tools_enabled",
+                   "direct_answer,external_network_request,get_public_call_result"
+                 ])
+      end)
+
+    assert mcp_tools_output =~
+             "Updated: mcp_server.tools_enabled=[\"direct_answer\", \"external_network_request\", \"get_public_call_result\"]"
+
+    assert {:ok, ["direct_answer", "external_network_request", "get_public_call_result"]} =
+             Settings.get("mcp_server.tools_enabled")
+
+    mcp_namespaces_output =
+      capture_io(fn ->
+        assert :ok =
+                 SettingsTask.run([
+                   "set",
+                   "mcp_server.memory_namespaces_enabled",
+                   "stocksage.stocksage"
+                 ])
+      end)
+
+    assert mcp_namespaces_output =~
+             "Updated: mcp_server.memory_namespaces_enabled=[\"stocksage.stocksage\"]"
+
+    assert {:ok, ["stocksage.stocksage"]} =
+             Settings.get("mcp_server.memory_namespaces_enabled")
+
+    models_output =
+      capture_io(fn ->
+        assert :ok =
+                 SettingsTask.run([
+                   "set",
+                   "openai_api.models_enabled",
+                   "local"
+                 ])
+      end)
+
+    assert models_output =~ "Updated: openai_api.models_enabled=[\"local\"]"
+    assert {:ok, ["local"]} = Settings.get("openai_api.models_enabled")
+
+    openai_tools_output =
+      capture_io(fn ->
+        assert :ok =
+                 SettingsTask.run([
+                   "set",
+                   "openai_api.tools_enabled",
+                   "direct_answer,external_network_request,get_public_call_result"
+                 ])
+      end)
+
+    assert openai_tools_output =~
+             "Updated: openai_api.tools_enabled=[\"direct_answer\", \"external_network_request\", \"get_public_call_result\"]"
+
+    assert {:ok, ["direct_answer", "external_network_request", "get_public_call_result"]} =
+             Settings.get("openai_api.tools_enabled")
+
+    acp_tools_output =
+      capture_io(fn ->
+        assert :ok =
+                 SettingsTask.run([
+                   "set",
+                   "acp_server.tools_enabled",
+                   "direct_answer,external_network_request,get_public_call_result"
+                 ])
+      end)
+
+    assert acp_tools_output =~
+             "Updated: acp_server.tools_enabled=[\"direct_answer\", \"external_network_request\", \"get_public_call_result\"]"
+
+    assert {:ok, ["direct_answer", "external_network_request", "get_public_call_result"]} =
+             Settings.get("acp_server.tools_enabled")
+
+    acp_namespaces_output =
+      capture_io(fn ->
+        assert :ok =
+                 SettingsTask.run([
+                   "set",
+                   "acp_server.memory_namespaces_enabled",
+                   "stocksage.stocksage"
+                 ])
+      end)
+
+    assert acp_namespaces_output =~
+             "Updated: acp_server.memory_namespaces_enabled=[\"stocksage.stocksage\"]"
+
+    assert {:ok, ["stocksage.stocksage"]} =
+             Settings.get("acp_server.memory_namespaces_enabled")
+  end
+
   test "provider list and set-key use stdin and redact raw key", %{root: root} do
     initial_output = capture_io(fn -> assert :ok = SettingsTask.run(["providers", "list"]) end)
     assert initial_output =~ "openai"

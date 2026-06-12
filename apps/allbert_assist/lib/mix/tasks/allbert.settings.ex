@@ -221,7 +221,13 @@ defmodule Mix.Tasks.Allbert.Settings do
 
   defp string_list_setting?(key) do
     case Map.get(Settings.schema(), key) do
-      %{type: :string_list} ->
+      %{type: type}
+      when type in [
+             :string_list,
+             :profile_ref_list,
+             :public_tool_list,
+             :public_memory_namespace_list
+           ] ->
         true
 
       _schema ->
