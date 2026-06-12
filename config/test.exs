@@ -49,9 +49,15 @@ File.mkdir_p!(Path.dirname(database_path))
 # The MIX_TEST_PARTITION environment variable can be used
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
+# pool_size must comfortably exceed `mix test`'s concurrency (max_cases defaults
+# to schedulers_online * 2). With pool_size: 5 against ~40 concurrent cases, a
+# single held connection (e.g. a LiveView Task running inside a Repo transaction)
+# starved the pool and surfaced as DBConnection queue_timeout flakes in the
+# release gate's web/LiveView tests. Track the scheduler count plus headroom for
+# connections held across async boundaries.
 config :allbert_assist, AllbertAssist.Repo,
   database: database_path,
-  pool_size: 5,
+  pool_size: System.schedulers_online() * 2 + 8,
   busy_timeout: 15_000,
   pool: Ecto.Adapters.SQL.Sandbox
 
