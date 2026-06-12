@@ -208,7 +208,15 @@ defmodule AllbertAssist.Workspace.Canvas do
         if semantic_body(loaded.body) == semantic_body(Persistence.normalize_body(attrs.body)) do
           {:ok, loaded}
         else
-          {:error, :fragment_body_conflict}
+          # v0.52: a trusted emitter re-emitting the same fragment id (already
+          # confirmed same user + thread) with a changed body is a live update —
+          # e.g. an objective card advancing through its lifecycle — not a
+          # conflict. Update the tile body in place rather than dropping it as
+          # :fragment_body_conflict (which froze the persisted snapshot at its
+          # first state). Cross-(user,thread) id reuse is still rejected upstream
+          # as :fragment_id_conflict. body_yaml_path is dropped so the existing
+          # tile's body file is reused. See ADR 0023 (v0.52 amendment).
+          update_tile(loaded.id, Map.delete(attrs, :body_yaml_path))
         end
 
       {:error, reason} ->
