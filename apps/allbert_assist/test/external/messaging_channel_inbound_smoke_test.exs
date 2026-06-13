@@ -17,6 +17,7 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Plugins.Discord, as: DiscordPlugin
   alias AllbertAssist.Plugins.Slack, as: SlackPlugin
+  alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
@@ -125,6 +126,15 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
       discord_channel_id: System.get_env("ALLBERT_DISCORD_CHANNEL_ID"),
       discord_user_id: System.get_env("ALLBERT_DISCORD_USER_ID")
     }
+  end
+
+  setup do
+    # Adapters (spawned processes) write channel_events to the owned home DB.
+    # test_helper puts the Repo in :manual sandbox mode; check out a shared
+    # connection so the test process AND the adapter processes can use it.
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
+    Ecto.Adapters.SQL.Sandbox.mode(Repo, {:shared, self()})
+    :ok
   end
 
   test "real Gateway and Socket Mode sessions deliver operator-sent inbound messages", context do

@@ -13,6 +13,7 @@ defmodule AllbertAssist.External.DiscordSlackSmokeTest do
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Paths
+  alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
 
@@ -77,6 +78,15 @@ defmodule AllbertAssist.External.DiscordSlackSmokeTest do
       discord_channel_id: System.get_env("ALLBERT_DISCORD_CHANNEL_ID"),
       discord_guild_id: System.get_env("ALLBERT_DISCORD_GUILD_ID")
     }
+  end
+
+  setup do
+    # The smoke writes to the owned home DB (threads, message refs). test_helper
+    # puts the Repo in :manual sandbox mode, so check out a shared connection the
+    # test process can use; without this the first Repo call raises OwnershipError.
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
+    Ecto.Adapters.SQL.Sandbox.mode(Repo, {:shared, self()})
+    :ok
   end
 
   test "real channel delivery preserves thread placement and echo metadata", context do
