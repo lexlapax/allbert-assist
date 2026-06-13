@@ -28,9 +28,12 @@ and multi-install hosted tenancy are not part of v0.52.
 Stand up a throwaway application and bot before configuring Allbert. All steps
 are in the [Discord Developer Portal](https://discord.com/developers/applications).
 
-1. **Create the application.** New Application → name it (e.g.
-   `allbert-sandbox`). Copy the **Application ID** from General Information; this
-   is `DISCORD_APPLICATION_ID`.
+1. **Create the application.** New Application → name it **`allbert-assist`**
+   (Discord **rejects any application name containing the word "discord"**, so do
+   not use `allbert-discord` or similar — `allbert-assist` is the recommended
+   allbert-unique name and matches the client identity Allbert presents on the
+   Gateway). Copy the **Application ID** from General Information; this is
+   `DISCORD_APPLICATION_ID`.
 2. **Create the bot + token.** Bot page → Reset Token → copy the bot token once
    (it is shown only once). This is the value you store under the `secret://`
    ref below — never paste it into a CLI argument or commit it.

@@ -244,7 +244,7 @@ defmodule AllbertAssist.Channels.DiscordTest do
     identify = Jason.decode!(identify_json)
     assert identify["op"] == 2
     assert identify["d"]["intents"] == 33_280
-    assert identify["d"]["properties"]["browser"] == "allbert"
+    assert identify["d"]["properties"]["browser"] == "allbert-assist"
 
     dispatch = %{
       "op" => 0,
