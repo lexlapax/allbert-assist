@@ -20,7 +20,8 @@ defmodule AllbertAssist.Channels.Slack.Client.SocketModePort.Real do
     with {:ok, socket_url} <- socket_url(app_token_ref, client_opts, opts) do
       state = %{
         owner: Keyword.get(opts, :owner),
-        reconnect_max_backoff_ms: Keyword.get(opts, :reconnect_max_backoff_ms, 30_000)
+        reconnect_max_backoff_ms: Keyword.get(opts, :reconnect_max_backoff_ms, 30_000),
+        graceful_reconnect?: false
       }
 
       websocket_module = Keyword.get(opts, :websocket_module, WebSockex)
@@ -56,6 +57,18 @@ defmodule AllbertAssist.Channels.Slack.Client.SocketModePort.Real do
         dispatch(envelope, state)
         {:ok, state}
 
+      {:ok, %{"type" => "disconnect"} = envelope} ->
+        # Slack proactively asks the client to reconnect (reason "warning" /
+        # "refresh_requested" / "too_many_connections"). Close and let
+        # handle_disconnect reopen — WITHOUT dispatching the frame to the adapter
+        # (otherwise it is persisted as a spurious rejected event). Mark the
+        # reconnect graceful so handle_disconnect skips the error backoff sleep.
+        Logger.debug(
+          "slack socket mode disconnect frame: #{inspect(Redactor.redact(Map.get(envelope, "reason")))}"
+        )
+
+        {:close, %{state | graceful_reconnect?: true}}
+
       {:ok, %{"envelope_id" => envelope_id} = envelope} when is_binary(envelope_id) ->
         send(self(), {:slack_socket_dispatch_after_ack, envelope})
         {:reply, {:text, Jason.encode!(ack_payload(envelope_id, nil))}, state}
@@ -89,6 +102,13 @@ defmodule AllbertAssist.Channels.Slack.Client.SocketModePort.Real do
   end
 
   @impl true
+  def handle_disconnect(%{reason: reason}, %{graceful_reconnect?: true} = state) do
+    # Server-requested reconnect: reopen promptly with no backoff sleep, so the
+    # WebSockex callback never blocks on a graceful connection rotation.
+    Logger.debug("slack socket mode reconnecting (graceful): #{inspect(Redactor.redact(reason))}")
+    {:reconnect, %{state | graceful_reconnect?: false}}
+  end
+
   def handle_disconnect(%{attempt_number: attempt, reason: reason}, state) do
     backoff = backoff(attempt, state.reconnect_max_backoff_ms)
     Logger.debug("slack socket mode disconnected: #{inspect(Redactor.redact(reason))}")

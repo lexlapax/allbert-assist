@@ -45,7 +45,8 @@ defmodule AllbertAssist.Security.Redactor do
   @secret_value_patterns [
     ~r/\b(sk-[A-Za-z0-9_-]{6,})\b/,
     ~r/\b(ghp_[A-Za-z0-9_]{6,})\b/,
-    ~r/\b(xox[baprs]-[A-Za-z0-9-]{6,})\b/
+    ~r/\b(xox[baprs]-[A-Za-z0-9-]{6,})\b/,
+    ~r/\b(xapp-[A-Za-z0-9-]{6,})\b/
   ]
 
   @type posture :: %{
