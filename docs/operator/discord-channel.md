@@ -204,85 +204,147 @@ Manual validation before tag:
 
 ## Operator validation walkthrough (every click)
 
-This is the exhaustive, no-assumptions version of the manual checks above, written
-for the human operator. "🧑" marks an action you perform in the Discord client;
-"🤖" marks a shell command the agent/release engineer runs (you hand off at those
-points). Steps assume the **Sandbox setup** and **Configure** sections above are
-already done and the four `ALLBERT_DISCORD_*` ids/token are in your `.env`.
+The complete linear runbook, one atomic action per step, from a blank slate to a
+torn-down sandbox. **🧑 = you do it in the Discord UI; 🤖 = a shell command the
+agent/release engineer runs** (you hand the agent the `.env` and they run those).
+Each 🧑 step ends with the **expected result** so you know it worked before moving
+on. This expands the summary in *Sandbox setup* / *Configure* above into
+click-level detail; the env-var names match.
 
-### Prepare the second (unmapped) account — needed for the clicker-rejection check
+### Part 1 — create the application and bot 🧑
 
-Discord's built-in account switcher only keeps **one account active at a time**,
-but the clicker-rejection check needs a *second* account that can click a button
-**while your main account is also usable**. Run the two accounts in two separate
-places:
+1. Open [discord.com/developers/applications](https://discord.com/developers/applications)
+   and sign in with your **main** Discord account.
+2. Click **New Application** (top-right). A dialog opens.
+3. In **Name**, type `allbert-assist` (⚠️ Discord rejects any name containing the
+   word "discord"). Tick the terms checkbox → click **Create**.
+   *Expected:* the app's **General Information** page opens.
+4. On **General Information**, find **Application ID** → click **Copy**.
+   *Record it as* `ALLBERT_DISCORD_APPLICATION_ID`.
+5. In the left sidebar click **Bot**.
+6. Click **Reset Token**. A confirmation pop-up appears → click **Yes, do it!**.
+   If your account has 2FA, type your **6-digit authenticator code** → **Submit**.
+   *Expected:* a fresh token string appears with a **Copy** button.
+7. Click **Copy** under the token and paste it **straight into your `.env`** as
+   `ALLBERT_DISCORD_BOT_TOKEN`. (It is shown once; if you lose it, repeat step 6.)
+   Never paste it into chat, a terminal argument, or a commit.
+8. Still on the **Bot** page, scroll to **Privileged Gateway Intents**. Toggle
+   **MESSAGE CONTENT INTENT** to ON (blue). Leave Presence and Server Members OFF.
+   *Expected:* a **Save Changes** bar appears → click **Save Changes**.
 
-1. 🧑 Keep your **main (mapped) account** signed in to the **Discord desktop
-   app** (or one browser).
-2. 🧑 Sign your **second account** in to a **different surface** — the Discord
-   **web app** at [discord.com/app](https://discord.com/app) in a regular browser
-   window, or a private/incognito window, or a second browser profile. Both
-   sessions are then live in parallel. (If you do not have a second account,
-   create one with a different email at [discord.com/register](https://discord.com/register).)
-3. 🧑 Invite the second account into your sandbox server: in the desktop app
-   click the **server name** at the top-left → **Invite People** → **Copy** the
-   invite link → paste it into the second account's session → **Accept Invite**.
-   Confirm the second account now appears in the server member list.
+### Part 2 — create a test server and add the bot 🧑
 
-The second account does **not** get a `discord map` entry — that is the whole
-point: it stays unmapped so its button click must be rejected.
+9. Open the **Discord client** (desktop app or [discord.com/app](https://discord.com/app))
+   signed in as your main account.
+10. In the far-left server rail, click the green **`+` (Add a Server)** button.
+11. In the dialog click **Create My Own** → **For me and my friends** → in
+    **Server Name** type `allbert-sandbox-server` → click **Create**.
+    *Expected:* the new server opens with a `# general` channel.
+12. Back in the Developer Portal, left sidebar → **OAuth2** → **URL Generator**.
+13. In the **Integration Type** dropdown choose **Guild Install** (not "User
+    Install").
+14. Under **Scopes**, tick **`bot`**.
+    *Expected:* a **Bot Permissions** panel appears below.
+15. In **Bot Permissions** tick **View Channels**, **Send Messages**, and **Read
+    Message History**.
+16. Scroll to the bottom; the **Generated URL** field has filled in
+    automatically. Click its **Copy** button. (There is no Save button — copying
+    the URL is the action.)
+17. Paste that URL into a **browser address bar** and press Enter.
+    *Expected:* Discord shows an authorization prompt.
+18. In the **"Add to Server"** dropdown pick `allbert-sandbox-server` → **Continue**
+    → review permissions → **Authorize** → complete the **CAPTCHA**.
+    *Expected:* a success page; the bot `allbert-assist` now appears in the
+    server's right-hand member list (offline/grey until Allbert runs).
 
-### Run the smokes (Phase B)
+### Part 3 — prepare the second (unmapped) account 🧑
 
-4. 🧑 Tell the agent your `.env` is populated.
-5. 🤖 Outbound smoke (`external-smoke -- discord_slack`). 🧑 **Watch your channel**:
-   the bot posts a parent message and a threaded reply. No action needed beyond
-   observing they appear.
-6. 🤖 Inbound smoke (`external-smoke -- messaging_channel_inbound`). It prints an
-   **exact marker message** to send. 🧑 From your **mapped account**, in the
-   allowlisted channel, send that exact text (it will be an @mention of
-   `@allbert-assist`). Watch for the agent to confirm the runtime received it.
+The clicker-rejection check needs a *second* Discord account that can click a
+button **while your main account is also live**. Discord's account switcher keeps
+only **one account active at a time**, so run the two accounts in two surfaces.
 
-### Live channel checks (Phase C — server running)
+19. Keep your **main account** signed in to the **Discord desktop app**.
+20. Sign a **second account** into a **different surface** at the same time: the
+    Discord **web app** ([discord.com/app](https://discord.com/app)) in a normal
+    browser window, OR a private/incognito window, OR a second browser profile.
+    (No second account? Create one with a different email at
+    [discord.com/register](https://discord.com/register).)
+    *Expected:* both accounts are logged in simultaneously, each in its own window.
+21. In the **desktop app** (main account), click the **server name** at the
+    top-left → **Invite People** → click **Copy** on the invite link.
+22. Paste that invite link into the **second account's** window → **Accept
+    Invite** / **Join**.
+    *Expected:* the second account appears in the server member list. Do **not**
+    map this account later — staying unmapped is the whole point.
 
-7. 🤖 The agent starts the live server against the manual home and re-runs the
-   doctor (expect `gateway_status=running`). The bot shows **online** (green) in
-   your server member list.
-8. 🧑 **@mention check.** In the allowlisted channel, type `@allbert-assist`,
-   pick the bot from the autocomplete popup so it becomes a blue mention chip,
-   add a short question (e.g. `@allbert-assist what is 2+2?`), press **Enter**.
-   Expect a reply from the bot. 🤖 The agent confirms a `processed` Discord
-   channel-event row for your user id.
-9. 🧑 **DM check.** Open the **member list** on the right (click the people icon
-   top-right if hidden) → click **`allbert-assist`** → in the popup's **Message**
-   box type any text (e.g. `hello allbert`) → **Enter**. This opens a DM with the
-   bot. Expect a reply. 🤖 The agent confirms a `processed` DM channel-event row.
-10. 🧑 **Approve/deny button (mapped clicker).** Send the bot a prompt that needs
-    confirmation — an action that reaches the network, e.g.
+### Part 4 — copy the four ids 🧑
+
+23. Enable Developer Mode: in the client, **⚙ User Settings** (bottom-left, next
+    to your name) → **Advanced** → toggle **Developer Mode** ON.
+24. Right-click the **server icon** in the left rail → **Copy Server ID** →
+    `.env` `ALLBERT_DISCORD_GUILD_ID`.
+25. Right-click the **target channel** name in the channel list → **Copy Channel
+    ID** → `.env` `ALLBERT_DISCORD_CHANNEL_ID`.
+26. Right-click **your own avatar** (bottom-left) → **Copy User ID** → `.env`
+    `ALLBERT_DISCORD_USER_ID` (this maps to `alice`).
+27. Open the member list (people icon, top-right) → right-click the **second
+    account's** name → **Copy User ID** → `.env` `ALLBERT_DISCORD_UNMAPPED_USER_ID`.
+
+### Part 5 — hand off; agent wires up + smokes
+
+28. 🧑 Tell the agent **"`.env` is ready"**.
+29. 🤖 Agent sources `.env`, runs the outbound smoke
+    (`mix allbert.test external-smoke -- discord_slack`). 🧑 **Watch your channel:**
+    the bot posts a parent message and a threaded reply. *Expected:* both appear;
+    nothing for you to click.
+30. 🤖 Agent runs the inbound smoke
+    (`mix allbert.test external-smoke -- messaging_channel_inbound`) and tells you
+    the **exact marker message** it printed. 🧑 From your **mapped account**, in
+    the allowlisted channel, paste and send that exact text (an @mention of
+    `@allbert-assist`). *Expected:* the agent confirms the smoke saw it reach the
+    runtime and reports `gateway_ready`.
+
+### Part 6 — live channel checks (Allbert server running)
+
+31. 🤖 Agent configures the manual home and starts the live server, then re-runs
+    `mix allbert.channels discord doctor`. *Expected:* `gateway_status=running`;
+    the bot shows **online (green)** in your member list.
+32. 🧑 **@mention.** In the allowlisted channel type `@allbert-assist`, select the
+    bot from the autocomplete popup (it becomes a blue chip), add a question, e.g.
+    `@allbert-assist what is 2+2?`, press **Enter**. *Expected:* the bot replies in
+    the channel. 🤖 Agent confirms a `processed` Discord event for your user id.
+33. 🧑 **DM.** Open the member list → click **`allbert-assist`** → in the popup
+    card's **Message** box at the bottom type `hello allbert` → **Enter**.
+    *Expected:* a DM opens and the bot replies. 🤖 Agent confirms a `processed` DM
+    event. (If Discord blocks the DM: User Settings → **Privacy & Safety** → enable
+    **Direct Messages from server members**, then retry.)
+34. 🧑 **Approve a confirmation (mapped).** In the channel send a prompt that
+    triggers a network action, e.g.
     `@allbert-assist fetch http://127.0.0.1:4052/workspace and summarize it`.
-    Allbert renders an **Approve** / **Deny** button pair. Click **Approve** (or
-    **Deny**) **as your mapped account**. Expect the bot to post the resolved
-    result/decision. 🤖 The agent confirms the callback row is `processed` and the
+    *Expected:* the bot posts a message with **Approve** and **Deny** buttons.
+    Click **Approve** as your main (mapped) account. *Expected:* the bot posts the
+    resolved result. 🤖 Agent confirms the callback row is `processed` and the
     confirmation resolved.
-11. 🧑 **Unmapped-clicker rejection.** Send a **second** confirmation-triggering
-    prompt the same way so a fresh Approve/Deny pair appears. **Before** clicking
-    it from your mapped account, **switch to your second account's session**
-    (the browser/incognito window) and click **Approve** there. Expect an
-    ephemeral "not authorized" style response and **no** resolution. Then, if you
-    like, resolve it properly from the mapped account. 🤖 The agent confirms the
-    unmapped click produced a `rejected` callback row with the second account's
-    external id and the confirmation stayed open until the mapped click.
-12. 🤖 Reconnect/RESUME: the agent restarts the server and inspects the gateway
-    logs. No operator action.
-13. 🤖 Unified history + final token-leak scans + evidence report. No operator
-    action.
+35. 🧑 **Unmapped clicker is rejected.** Send a **second** network-action prompt so
+    a fresh **Approve/Deny** pair appears. **Switch to the second account's
+    window** and click **Approve** there **first**. *Expected:* an ephemeral
+    "not authorized" response and the buttons do **not** resolve. You may then
+    resolve it properly from the main account. 🤖 Agent confirms a `rejected`
+    callback row with the second account's id and that the confirmation stayed open
+    until the mapped click.
 
-### What you actually do, in one line
+### Part 7 — hand off; agent closes out
 
-Set up two account sessions (1–3) → say "`.env` ready" (4) → send the marker
-message (6) → @mention (8) → DM (9) → trigger + approve a confirmation (10) →
-trigger a second one and click it from the unmapped account (11). Everything
-else is the agent.
+36. 🤖 Agent restarts the server to exercise **reconnect/RESUME**, renders the
+    **unified history**, runs final **raw-token leak scans**, and reports all
+    evidence paths. No operator action.
+
+### What you actually touch, in one line
+
+Create app+bot (1–8) → make server + invite bot (9–18) → set up the 2nd account
+(19–22) → copy 4 ids (23–27) → "`.env` ready" (28) → send marker msg (30) →
+@mention (32) → DM (33) → approve a confirmation (34) → 2nd confirmation clicked
+by the unmapped account (35) → teardown (below). Everything else is the agent.
 
 ## Cleanup / teardown
 
