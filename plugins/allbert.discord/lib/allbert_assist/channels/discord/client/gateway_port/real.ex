@@ -15,8 +15,10 @@ defmodule AllbertAssist.Channels.Discord.Client.GatewayPort.Real do
 
   @default_token_ref "secret://channels/discord/bot_token"
   @gateway_query "v=10&encoding=json"
-  @default_intents ["guild_messages", "direct_messages", "message_content"]
+  @interaction_deferred_update_message 6
+  @default_intents ["guilds", "guild_messages", "direct_messages", "message_content"]
   @intent_bits %{
+    "guilds" => 1 <<< 0,
     "guild_messages" => 1 <<< 9,
     "direct_messages" => 1 <<< 12,
     "message_content" => 1 <<< 15
@@ -32,12 +34,14 @@ defmodule AllbertAssist.Channels.Discord.Client.GatewayPort.Real do
       state = %{
         owner: Keyword.get(opts, :owner),
         token: token,
+        client_opts: client_opts,
         intents: intents(Keyword.get(opts, :intents, @default_intents)),
         conn: nil,
         sequence: nil,
         session_id: nil,
         resume?: false,
         heartbeat_interval_ms: nil,
+        last_heartbeat_acked?: true,
         heartbeat_jitter?: Keyword.get(opts, :heartbeat_jitter?, true),
         reconnect_max_backoff_ms: Keyword.get(opts, :reconnect_max_backoff_ms, 30_000)
       }
@@ -81,10 +85,27 @@ defmodule AllbertAssist.Channels.Discord.Client.GatewayPort.Real do
   def handle_cast(_message, state), do: {:ok, state}
 
   @impl true
-  def handle_info(:heartbeat, %{heartbeat_interval_ms: interval} = state)
+  def handle_info(
+        :heartbeat,
+        %{heartbeat_interval_ms: interval, last_heartbeat_acked?: true} = state
+      )
       when is_integer(interval) and interval > 0 do
     schedule_heartbeat(interval)
-    {:reply, {:text, Jason.encode!(%{"op" => 1, "d" => state.sequence})}, state}
+
+    {:reply, {:text, Jason.encode!(%{"op" => 1, "d" => state.sequence})},
+     %{state | last_heartbeat_acked?: false}}
+  end
+
+  def handle_info(
+        :heartbeat,
+        %{heartbeat_interval_ms: interval, last_heartbeat_acked?: false} = state
+      )
+      when is_integer(interval) and interval > 0 do
+    # The previous heartbeat (op 1) was never acknowledged (op 11): the connection
+    # is zombied. Force-close and reconnect via the RESUME path rather than
+    # heartbeating into a dead socket.
+    Logger.debug("discord gateway heartbeat not acknowledged; forcing reconnect")
+    {:ok, close_gateway_socket(mark_resumable(state))}
   end
 
   def handle_info(_message, state), do: {:ok, state}
@@ -101,10 +122,30 @@ defmodule AllbertAssist.Channels.Discord.Client.GatewayPort.Real do
        when is_integer(interval) do
     schedule_heartbeat(initial_heartbeat_delay(interval, state.heartbeat_jitter?))
 
-    state = %{state | heartbeat_interval_ms: interval}
+    state = %{state | heartbeat_interval_ms: interval, last_heartbeat_acked?: true}
     payload = hello_payload(state)
 
     {:reply, {:text, Jason.encode!(payload)}, %{state | resume?: false}}
+  end
+
+  defp handle_gateway_payload(
+         %{"op" => 0, "t" => "INTERACTION_CREATE", "s" => sequence, "d" => data} = payload,
+         state
+       ) do
+    # The interaction acknowledgement is a Discord transport-protocol obligation
+    # (it must reach `POST /interactions/{id}/{token}/callback` within 3s, over
+    # REST). Owning it here — symmetric with the Slack SocketModePort acking the
+    # envelope_id (M8R3) — keeps it off the adapter's serial mailbox, so a slow
+    # message turn can never delay it. The adapter handles the business callback.
+    acknowledge_interaction(data, state)
+
+    state =
+      state
+      |> Map.put(:sequence, sequence)
+      |> maybe_store_session("INTERACTION_CREATE", data)
+
+    if is_pid(state.owner), do: send(state.owner, {:discord_gateway_event, payload})
+    {:ok, state}
   end
 
   defp handle_gateway_payload(
@@ -120,7 +161,8 @@ defmodule AllbertAssist.Channels.Discord.Client.GatewayPort.Real do
     {:ok, state}
   end
 
-  defp handle_gateway_payload(%{"op" => 11}, state), do: {:ok, state}
+  defp handle_gateway_payload(%{"op" => 11}, state),
+    do: {:ok, %{state | last_heartbeat_acked?: true}}
 
   defp handle_gateway_payload(%{"op" => 7}, state),
     do: reconnect_via_disconnect(mark_resumable(state))
@@ -255,10 +297,44 @@ defmodule AllbertAssist.Channels.Discord.Client.GatewayPort.Real do
     |> URI.to_string()
   end
 
-  defp intents(names) when is_list(names) do
-    Enum.reduce(names, 0, fn name, acc ->
-      acc ||| Map.get(@intent_bits, to_string(name), 0)
+  defp acknowledge_interaction(%{"id" => id, "token" => token}, state)
+       when is_binary(id) and is_binary(token) and token != "" do
+    client_opts = state.client_opts
+
+    # Fire the deferred ack off the socket process (REST POST, not a WS reply) so
+    # it never blocks the gateway's heartbeat/receive loop. Best-effort: a failed
+    # ack is logged (redacted), not retried — the 3s window has already passed.
+    Task.start(fn ->
+      case Client.interaction_callback(
+             id,
+             token,
+             %{type: @interaction_deferred_update_message},
+             client_opts
+           ) do
+        {:ok, _response} ->
+          :ok
+
+        {:error, reason} ->
+          Logger.debug("discord interaction ack failed: #{inspect(Redactor.redact(reason))}")
+      end
     end)
+
+    :ok
+  end
+
+  defp acknowledge_interaction(_data, _state), do: :ok
+
+  defp intents(names) when is_list(names) do
+    {known, unknown} = Enum.split_with(names, &Map.has_key?(@intent_bits, to_string(&1)))
+
+    unless unknown == [] do
+      Logger.warning(
+        "discord gateway ignoring unknown intent name(s): #{inspect(unknown)} " <>
+          "(known: #{inspect(Map.keys(@intent_bits))})"
+      )
+    end
+
+    Enum.reduce(known, 0, fn name, acc -> acc ||| Map.fetch!(@intent_bits, to_string(name)) end)
   end
 
   defp intents(value) when is_integer(value), do: value
