@@ -62,10 +62,11 @@ into a disposable sandbox workspace you own.
    - **Your user id** (`SLACK_USER_ID`, starts with `U`): click your avatar →
      **Profile** → the **⋮ (More)** menu → **Copy member ID**. This is the id you
      map to `alice`.
-   - **Unmapped user id** (`SLACK_UNMAPPED_USER_ID`): the member id of a *second*
-     workspace user who is NOT mapped to `alice` (used later to prove an unmapped
-     clicker is rejected). Get it the same way from their profile, or have them
-     send a message and copy their member id.
+   - **Unmapped user id** (`SLACK_UNMAPPED_USER_ID`): a *second* workspace member
+     who is NOT mapped to `alice` (used later to prove an unmapped clicker is
+     rejected). Add them to the workspace if needed, then click their
+     name/avatar (in the member list or on a message they posted) → **View full
+     profile** → **⋮ (More)** → **Copy member ID**.
    - **DM channel id** (`SLACK_DM_CHANNEL_ID`, starts with `D`): open your direct
      message with the bot, then read the `D…` segment in the browser URL —
      `app.slack.com/client/Txxx/`**`Dxxxxxxxx`**. DMs have no "View channel

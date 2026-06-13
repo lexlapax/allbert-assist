@@ -64,14 +64,26 @@ are in the [Discord Developer Portal](https://discord.com/developers/application
    5. **Paste the URL into a browser** and press Enter → in the prompt's **"Add
       to Server"** dropdown pick your test server → **Continue** → **Authorize** →
       complete the CAPTCHA. The bot now appears in that server's member list.
-6. **Collect the ids.** Enable Developer Mode in the Discord client (User
-   Settings → Advanced → Developer Mode), then right-click → **Copy ID** for:
-   - the test server → `DISCORD_GUILD_ID`
-   - the target channel → `DISCORD_CHANNEL_ID`
-   - your own account → `DISCORD_USER_ID` (the user you map to `alice`)
-   - a **second account** that can see the channel but is not you →
-     `DISCORD_UNMAPPED_USER_ID` (used later to prove an unmapped clicker is
-     rejected)
+6. **Collect the ids.** First enable Developer Mode: click the **gear (User
+   Settings)** at the bottom-left next to your name → **Advanced** → toggle
+   **Developer Mode** on (turns blue). That adds a **Copy …​ ID** item to
+   right-click menus across the app (older clients label it just **Copy ID**).
+   All four ids are numeric snowflakes:
+   - **Server id** → in the **left server rail**, right-click the test server's
+     icon → **Copy Server ID** → `DISCORD_GUILD_ID`.
+   - **Channel id** → in the **channel list**, right-click the target text
+     channel's name → **Copy Channel ID** → `DISCORD_CHANNEL_ID`.
+   - **Your user id** → right-click **your own avatar** at the bottom-left (next
+     to your name) → **Copy User ID** → `DISCORD_USER_ID` (the user you map to
+     `alice`). Equivalently, open the server's member list on the right,
+     right-click your name → **Copy User ID**.
+   - **Unmapped user id** → have a **second Discord account** join the test
+     server (it must be able to see the channel but is *not* mapped to `alice`),
+     then in the **member list** right-click that account's name → **Copy User
+     ID** → `DISCORD_UNMAPPED_USER_ID`. (Used later to prove an unmapped clicker
+     is rejected.) If you cannot get a second account into the server, you can
+     instead capture its id from any message it posts — right-click the message
+     author's name → **Copy User ID**.
 
 Bots in 75+ servers must pass Discord privileged-intent verification before the
 `message_content` intent keeps working; a single sandbox server is well under
