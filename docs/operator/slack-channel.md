@@ -47,11 +47,31 @@ into a disposable sandbox workspace you own.
 5. **Interactivity.** Features → Interactivity & Shortcuts → toggle on so
    approval buttons (`block_actions`) are delivered. With Socket Mode on, no
    Request URL is required.
-6. **Install + collect ids.** Install/Reinstall the app to the workspace and
-   copy the **Bot User OAuth Token** (`xoxb-…`, this is `SLACK_BOT_TOKEN`). Note
-   the workspace **team id** (`SLACK_TEAM_ID`, e.g. via *About this workspace*),
-   the target **channel id** (`SLACK_CHANNEL_ID`), and your own **user id**
-   (`SLACK_USER_ID`). Invite the bot into the test channel with `/invite`.
+6. **Install the app + copy the bot token.** Features → OAuth & Permissions →
+   **Install to Workspace** (or *Reinstall* after scope changes) → Allow. On the
+   same page copy the **Bot User OAuth Token** (`xoxb-…`) → `SLACK_BOT_TOKEN`.
+   In the workspace, `/invite @allbert-assist` into the test channel.
+7. **Collect the ids.** All of these are easiest from Slack opened in a **web
+   browser** ([app.slack.com](https://app.slack.com)); member ids are
+   desktop/web only (not visible on mobile):
+   - **Team id** (`SLACK_TEAM_ID`, starts with `T`): the segment after
+     `/client/` in the browser URL — `app.slack.com/client/`**`Txxxxxxxx`**`/…`.
+   - **Channel id** (`SLACK_CHANNEL_ID`, starts with `C`): right-click the
+     channel in the sidebar → **View channel details** → scroll to the bottom for
+     the **Channel ID**; or read the `C…` segment in the channel's URL.
+   - **Your user id** (`SLACK_USER_ID`, starts with `U`): click your avatar →
+     **Profile** → the **⋮ (More)** menu → **Copy member ID**. This is the id you
+     map to `alice`.
+   - **Unmapped user id** (`SLACK_UNMAPPED_USER_ID`): the member id of a *second*
+     workspace user who is NOT mapped to `alice` (used later to prove an unmapped
+     clicker is rejected). Get it the same way from their profile, or have them
+     send a message and copy their member id.
+   - **DM channel id** (`SLACK_DM_CHANNEL_ID`, starts with `D`): open your direct
+     message with the bot, then read the `D…` segment in the browser URL —
+     `app.slack.com/client/Txxx/`**`Dxxxxxxxx`**. DMs have no "View channel
+     details" panel, so the URL is the reliable source. This id is only used to
+     confirm the manual DM check landed on the right conversation; it is **not**
+     added to the channel allowlist (M8R6 gates DMs by the identity map).
 
 Use an internal (non-Marketplace) app; distributed-app OAuth and multi-workspace
 install are out of scope for v0.52.
