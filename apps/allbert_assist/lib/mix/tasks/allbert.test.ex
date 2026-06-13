@@ -377,73 +377,70 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp release_phases do
     env = owned_env("release", 0)
+    partitions = default_partition_count()
 
     [
       phase("static_compile", root(), "mix", ["compile", "--warnings-as-errors"], env),
       phase("deps_unused", root(), "mix", ["deps.unlock", "--unused"], env),
       phase("format", root(), "mix", ["format", "--check-formatted"], env),
-      phase("credo", root(), "mix", ["credo", "--strict"], env)
-    ] ++
-      core_test_phases(env) ++
-      [
-        phase("web_tests", app_cwd(:web), "mix", ["test"], env),
-        phase(
-          "stocksage_tests",
-          app_cwd(:core),
-          "mix",
-          ["test", "../../plugins/stocksage/test/stocksage", "../../plugins/stocksage/test/mix"],
-          env
-        ),
-        phase(
-          "channel_plugin_tests",
-          app_cwd(:core),
-          "mix",
-          [
-            "test",
-            "../../plugins/allbert.telegram/test",
-            "../../plugins/allbert.email/test",
-            "../../plugins/allbert.discord/test",
-            "../../plugins/allbert.slack/test",
-            "../../plugins/allbert.notes_files/test"
-          ],
-          env
-        ),
-        phase("dialyzer", root(), "mix", ["dialyzer"], env)
-      ]
-  end
-
-  # The release gate runs in a single VM. `external_runtime_serial` and
-  # `security_eval_serial` are the designated single-VM serial lanes (see
-  # serial_core/1): they mutate process-global state not covered by the Ecto
-  # sandbox (App.Registry register/unregister, Settings Central, external
-  # runtime) and MUST run with no concurrency. The gate previously ran the whole
-  # core suite via one concurrent `mix test`, so these raced and flaked. Exclude
-  # them from the concurrent run and run each serially (`--max-cases 1`).
-  #
-  # db_serial / liveview_serial stay concurrent — the Ecto sandbox isolates them
-  # and the enlarged test pool_size prevents connection-starvation timeouts. The
-  # app_env_serial / home_fs_serial / global_process_serial *partition* lanes also
-  # stay concurrent here (prepush parallelizes them across partitions rather than
-  # single-VM serializing them); single-VM serializing those large lanes would
-  # dominate gate runtime for little benefit.
-  defp core_test_phases(env) do
-    serial_lanes = ~w(external_runtime_serial security_eval_serial)
-
-    exclude_args = Enum.flat_map(serial_lanes, &["--exclude", &1])
-    concurrent = phase("core_tests", app_cwd(:core), "mix", ["test" | exclude_args], env)
-
-    serial =
-      Enum.map(serial_lanes, fn lane ->
-        phase(
-          "core_tests_#{lane}",
-          app_cwd(:core),
-          "mix",
-          ["test", "--only", lane, "--max-cases", "1"],
-          env
-        )
-      end)
-
-    [concurrent | serial]
+      phase("credo", root(), "mix", ["credo", "--strict"], env),
+      # Core partition-safe lanes (pure_async + db/app_env/home_fs/global_process)
+      # run in ISOLATED partitions, exactly as prepush does. This is the flakiness
+      # root-cause fix: tests that mutate global singletons (App.Registry, Settings
+      # Central, PluginRegistry) — intent/engine_test, skills/registry_test,
+      # browser_actions_test — run serially inside an isolated home/DB instead of
+      # racing in one concurrent `mix test`. async_groups also covers every owner's
+      # pure_async files.
+      phase(
+        "high_coverage_fast_local",
+        root(),
+        "mix",
+        ["allbert.test", "fast-local", "--core-lanes", "--partitions", to_string(partitions)],
+        env
+      ),
+      # external_runtime_serial / security_eval_serial are not partition-safe
+      # (serial_core/1 forces a single VM); run each as a single-VM serial lane.
+      phase(
+        "core_external_runtime_serial",
+        root(),
+        "mix",
+        ["allbert.test", "serial-core", "--lane", "external_runtime_serial"],
+        env
+      ),
+      phase(
+        "core_security_eval_serial",
+        root(),
+        "mix",
+        ["allbert.test", "serial-core", "--lane", "security_eval_serial"],
+        env
+      ),
+      # web / stocksage / channel-plugin suites keep their existing plain `mix test`
+      # coverage. These owners are not churn sources; the web LiveView timeout
+      # flakes are addressed by the enlarged test pool_size.
+      phase("web_tests", app_cwd(:web), "mix", ["test"], env),
+      phase(
+        "stocksage_tests",
+        app_cwd(:core),
+        "mix",
+        ["test", "../../plugins/stocksage/test/stocksage", "../../plugins/stocksage/test/mix"],
+        env
+      ),
+      phase(
+        "channel_plugin_tests",
+        app_cwd(:core),
+        "mix",
+        [
+          "test",
+          "../../plugins/allbert.telegram/test",
+          "../../plugins/allbert.email/test",
+          "../../plugins/allbert.discord/test",
+          "../../plugins/allbert.slack/test",
+          "../../plugins/allbert.notes_files/test"
+        ],
+        env
+      ),
+      phase("dialyzer", root(), "mix", ["dialyzer"], env)
+    ]
   end
 
   defp phase(id, cwd, executable, args, env) do
