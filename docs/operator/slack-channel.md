@@ -21,6 +21,40 @@ internal, non-Marketplace Slack app for v0.52 validation.
   interactivity enabled for buttons.
 - One mapped Slack user id, one workspace team id, and one allowlisted channel.
 
+## Sandbox setup (Slack app config)
+
+Stand up a throwaway internal app before configuring Allbert. All steps are at
+[api.slack.com/apps](https://api.slack.com/apps) → Create New App → **From
+scratch**, installed into a disposable sandbox workspace you own.
+
+1. **Bot token scopes.** Features → OAuth & Permissions → *Bot Token Scopes*,
+   add **`app_mentions:read`** (receive @mentions), **`im:history`** (read DM
+   message events), and **`chat:write`** (post replies). These three are exactly
+   the set the doctor diffs against; missing any is flagged as
+   `missing_bot_scopes`.
+2. **Enable Socket Mode.** Settings → Socket Mode → toggle **Enable Socket
+   Mode** on. This lets the app receive events over a WebSocket with no public
+   Request URL.
+3. **App-level token.** Settings → Basic Information → *App-Level Tokens* →
+   Generate Token and Scopes → add the **`connections:write`** scope. The token
+   starts with `xapp-`; this is `SLACK_APP_TOKEN`. (`connections:write` is what
+   lets the app open the Socket Mode WebSocket; it is validated implicitly when
+   the socket connects, separately from the bot-token scope diff.)
+4. **Event subscriptions.** Features → Event Subscriptions → Enable Events, then
+   under *Subscribe to bot events* add **`app_mention`** and **`message.im`**
+   (DMs). Save.
+5. **Interactivity.** Features → Interactivity & Shortcuts → toggle on so
+   approval buttons (`block_actions`) are delivered. With Socket Mode on, no
+   Request URL is required.
+6. **Install + collect ids.** Install/Reinstall the app to the workspace and
+   copy the **Bot User OAuth Token** (`xoxb-…`, this is `SLACK_BOT_TOKEN`). Note
+   the workspace **team id** (`SLACK_TEAM_ID`, e.g. via *About this workspace*),
+   the target **channel id** (`SLACK_CHANNEL_ID`), and your own **user id**
+   (`SLACK_USER_ID`). Invite the bot into the test channel with `/invite`.
+
+Use an internal (non-Marketplace) app; distributed-app OAuth and multi-workspace
+install are out of scope for v0.52.
+
 ## Configure
 
 Use a disposable `ALLBERT_HOME` for smoke and release validation:
@@ -70,6 +104,21 @@ Run the redacted doctor:
 mix allbert.channels slack doctor
 mix allbert.channels show slack
 ```
+
+The doctor reports the **live** Socket Mode transport status (`running` when the
+adapter holds an open Socket Mode session, `disabled` when the channel is off,
+`error`/`not_started` otherwise) — not a placeholder — so run it against a
+running Allbert to confirm the session is actually up. It also captures the bot
+token's granted OAuth scopes (`X-OAuth-Scopes`) and flags `missing_bot_scopes`
+with the specific missing scope names when `app_mentions:read`, `im:history`, or
+`chat:write` is absent. Token values never appear in the output.
+
+DM behavior is governed by `channels.slack.response_style`
+(`mention` | `always` | `dm_only`, default `mention`): DMs are admitted under
+`mention`/`always`/`dm_only` and gated by the identity map (not the channel
+allowlist), while `dm_only` also suppresses channel @mentions. Provider echoes
+(the bot's own posts, other bots, and edit/delete tombstones) are dropped before
+any `channel_events` row is written.
 
 Before tagging v0.52, run the real-provider smoke with a sandbox workspace and
 channel. `ALLBERT_TEST_KEEP_TMP=1` keeps the owned smoke home and evidence file
@@ -126,6 +175,27 @@ Manual validation before tag:
   verify it is rejected before confirmation resolution.
 - Confirm `mix allbert.conversations show THREAD_ID --user alice` renders a
   redacted unified history and no raw token or provider payload appears.
+
+## Cleanup / teardown
+
+After validation, tear the sandbox down so no live credential or app lingers:
+
+1. **Disable the channel** so Allbert stops opening Socket Mode:
+   `mix allbert.settings set channels.slack.enabled false`. Confirm
+   `mix allbert.channels slack doctor` now reports `socket_mode_status=disabled`.
+2. **Revoke the tokens.** In the app's OAuth & Permissions page, *Revoke All
+   OAuth Tokens* (invalidates the `xoxb-` bot token); on Basic Information,
+   delete the `xapp-` app-level token. Both are immediately dead even if a copy
+   leaked.
+3. **Remove the bot from the channel/workspace** (`/remove @allbert-sandbox`, or
+   uninstall the app from the workspace under Settings → Install App).
+4. **Delete the app** at [api.slack.com/apps](https://api.slack.com/apps) →
+   the app → Settings → Delete App, if the sandbox is no longer needed.
+5. **Discard the disposable home and its evidence:**
+   `rm -rf "$ALLBERT_HOME"` (copy out `release_evidence/v052/` first if keeping
+   it for the release record). Unset the `ALLBERT_SLACK_*` env vars holding raw
+   tokens:
+   `unset ALLBERT_SLACK_BOT_TOKEN ALLBERT_SLACK_APP_TOKEN ALLBERT_SLACK_CHANNEL_ID ALLBERT_SLACK_USER_ID`.
 
 ## Troubleshooting
 

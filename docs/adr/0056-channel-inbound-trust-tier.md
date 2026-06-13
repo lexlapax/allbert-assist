@@ -102,10 +102,26 @@ Channel inbound is untrusted **yet distinct** from public-surface inbound:
 - **Allowlist before runtime.** Discord guild + channel allowlists and the Slack
   channel allowlist gate inbound handling before `Runtime.submit_user_input/1`.
   Non-allowlisted surfaces produce a rejected `channel_events` record and no
-  submission.
+  submission. The message path and the interactive/callback path apply the
+  **same allowlist predicate** (team/guild + channel) so an unmapped surface
+  cannot reach the runtime through either entry (clarified v0.52 M8R6/M8R7;
+  Slack `validate_allowlist`/`validate_callback_allowlist`, Discord guild/channel
+  predicates unified).
 - **Identity must be mapped.** An inbound event without a `Channels.Identity`
   entry produces a rejected-unknown `channel_events` record and no submission;
   there is no implicit `user_id`.
+- **DM inbound is gated by the identity map, not a channel allowlist.** A direct
+  message carries no guild/team-channel id an operator can pre-list (Slack DMs
+  use an ephemeral `D…` id; a Discord DM has no `guild_id`). The identity map is
+  therefore the DM authorization gate: only a mapped external sender resolves to
+  a local user and passes, while the channel-id allowlist applies to
+  team/guild channels only (the DM bypasses it but remains team/workspace
+  scoped). This is the identity-map-is-the-DM-allowlist posture — no separate DM
+  allowlist setting is introduced, because the identity map already names exactly
+  the senders allowed to DM the bot. Slack DM admission additionally honors
+  `channels.slack.response_style` (`mention`/`always`/`dm_only`); `dm_only`
+  serves DMs only, and provider echoes (`bot_id`/`subtype`/own bot user id) are
+  dropped before any `channel_events` write (v0.52 M8R6).
 - **Clicker re-authorized per interaction.** A button/component tap re-resolves
   the **clicker's** external id through the identity map on every tap; the
   callback payload's embedded user fields are never trusted as authority. An

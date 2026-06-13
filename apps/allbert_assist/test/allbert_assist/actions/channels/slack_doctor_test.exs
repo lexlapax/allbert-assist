@@ -52,13 +52,42 @@ defmodule AllbertAssist.Actions.Channels.SlackDoctorTest do
     assert response.doctor.status == :ok
     assert response.doctor.auth_ok
     assert response.doctor.endpoint_ok
-    assert response.doctor.socket_mode_status == :stub
+    # Live transport status from the (disabled-in-test) adapter, not a constant.
+    assert response.doctor.socket_mode_status == :disabled
+    assert response.doctor.missing_scopes == []
+    assert "chat:write" in response.doctor.granted_scopes
+    refute :missing_bot_scopes in response.doctor.diagnostics
     assert response.message =~ "Slack doctor"
     refute inspect(response) =~ "Bearer "
 
     assert {:ok, state} = Doctor.read_state()
     assert state["status"] == "ok"
     assert state["team"] == "Allbert Fixture"
+    assert state["socket_mode_status"] == "disabled"
+  end
+
+  test "flags missing bot scopes as a warning without leaking the token" do
+    assert {:ok, result} =
+             Doctor.diagnose(client_opts: [mode: :stub, stub_scopes: ["chat:write"]])
+
+    assert result.status == :warning
+    assert "app_mentions:read" in result.missing_scopes
+    assert "im:history" in result.missing_scopes
+    assert :missing_bot_scopes in result.diagnostics
+    refute inspect(result) =~ "Bearer "
+  end
+
+  test "normalizes injected live socket status without leaking internal reasons" do
+    assert {:ok, running} =
+             Doctor.diagnose(client_opts: [mode: :stub], transport_status: :running)
+
+    assert running.socket_mode_status == :running
+
+    assert {:ok, errored} =
+             Doctor.diagnose(client_opts: [mode: :stub], transport_status: {:error, :boom})
+
+    assert errored.socket_mode_status == :error
+    refute inspect(errored) =~ "boom"
   end
 
   test "reports token rejection without leaking credentials" do

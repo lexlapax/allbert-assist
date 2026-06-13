@@ -7,6 +7,11 @@ defmodule AllbertAssist.Channels.Slack.Client do
 
   @base_url "https://slack.com/api"
   @default_max_response_bytes 1_048_576
+  # Bot-token scopes the Slack channel needs to receive @mentions + DMs and post
+  # replies. Used as the default stub scope set and as the doctor's required set.
+  @default_bot_scopes ["app_mentions:read", "im:history", "chat:write"]
+
+  def default_bot_scopes, do: @default_bot_scopes
 
   def apps_connections_open(app_token_ref, opts \\ []) do
     case client_mode(opts) do
@@ -19,6 +24,21 @@ defmodule AllbertAssist.Channels.Slack.Client do
     case client_mode(opts) do
       :stub -> stub_auth_test(token_ref, opts)
       :real -> request(:post, token_ref, "/auth.test", [], opts)
+    end
+  end
+
+  @doc """
+  Run `auth.test` and also return the granted OAuth scopes from the
+  `X-OAuth-Scopes` response header.
+
+  Returns `{:ok, %{auth: body, scopes: [scope]}}`. The provider doctor diffs the
+  scopes against `default_bot_scopes/0` to flag a misconfigured bot token before
+  manual validation, without ever exposing the token itself.
+  """
+  def auth_test_scopes(token_ref, opts \\ []) do
+    case client_mode(opts) do
+      :stub -> stub_auth_test_scopes(token_ref, opts)
+      :real -> real_auth_test_scopes(token_ref, opts)
     end
   end
 
@@ -40,6 +60,13 @@ defmodule AllbertAssist.Channels.Slack.Client do
   end
 
   defp request(method, token_ref, path, request_opts, opts) do
+    case run_request(method, token_ref, path, request_opts, opts) do
+      {:error, reason} when is_atom(reason) or is_tuple(reason) -> {:error, reason}
+      response -> normalize_response(response)
+    end
+  end
+
+  defp run_request(method, token_ref, path, request_opts, opts) do
     with :ok <- validate_token_ref(token_ref),
          {:ok, token} <- resolve_token(token_ref),
          request <- build_request(method, token_ref, path, request_opts),
@@ -55,9 +82,33 @@ defmodule AllbertAssist.Channels.Slack.Client do
       |> Keyword.merge(request_opts)
       |> Keyword.merge(Keyword.take(opts, [:plug]))
       |> Req.request()
-      |> normalize_response()
     end
   end
+
+  defp real_auth_test_scopes(token_ref, opts) do
+    case run_request(:post, token_ref, "/auth.test", [], opts) do
+      {:ok, %{status: status, body: %{"ok" => true} = body} = response}
+      when status in 200..299 ->
+        {:ok, %{auth: body, scopes: parse_oauth_scopes(response)}}
+
+      {:error, reason} when is_atom(reason) or is_tuple(reason) ->
+        {:error, reason}
+
+      other ->
+        normalize_response(other)
+    end
+  end
+
+  defp parse_oauth_scopes(%{headers: headers}) when is_map(headers) do
+    headers
+    |> Map.get("x-oauth-scopes", [])
+    |> List.wrap()
+    |> Enum.flat_map(&String.split(&1, ","))
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  defp parse_oauth_scopes(_response), do: []
 
   defp build_request(method, token_ref, path, request_opts) do
     %{
@@ -144,17 +195,19 @@ defmodule AllbertAssist.Channels.Slack.Client do
   defp stub_auth_test(token_ref, opts) do
     with :ok <- validate_token_ref(token_ref) do
       case stub_result(opts) do
+        :success -> {:ok, stub_auth_body()}
+        :unauthorized -> {:error, {:slack_error, "invalid_auth"}}
+        :unavailable -> {:error, {:transport_error, :econnrefused}}
+      end
+    end
+  end
+
+  defp stub_auth_test_scopes(token_ref, opts) do
+    with :ok <- validate_token_ref(token_ref) do
+      case stub_result(opts) do
         :success ->
           {:ok,
-           %{
-             "ok" => true,
-             "url" => "https://allbert-fixture.slack.com/",
-             "team" => "Allbert Fixture",
-             "user" => "bot",
-             "team_id" => "T0123ABCDE",
-             "user_id" => "UALLBERTBOT",
-             "bot_id" => "BALLBERTBOT"
-           }}
+           %{auth: stub_auth_body(), scopes: Keyword.get(opts, :stub_scopes, @default_bot_scopes)}}
 
         :unauthorized ->
           {:error, {:slack_error, "invalid_auth"}}
@@ -163,6 +216,18 @@ defmodule AllbertAssist.Channels.Slack.Client do
           {:error, {:transport_error, :econnrefused}}
       end
     end
+  end
+
+  defp stub_auth_body do
+    %{
+      "ok" => true,
+      "url" => "https://allbert-fixture.slack.com/",
+      "team" => "Allbert Fixture",
+      "user" => "bot",
+      "team_id" => "T0123ABCDE",
+      "user_id" => "UALLBERTBOT",
+      "bot_id" => "BALLBERTBOT"
+    }
   end
 
   defp stub_apps_connections_open(app_token_ref, opts) do
