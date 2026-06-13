@@ -25,7 +25,8 @@ internal, non-Marketplace Slack app for v0.52 validation.
 
 Stand up a throwaway internal app before configuring Allbert. All steps are at
 [api.slack.com/apps](https://api.slack.com/apps) → Create New App → **From
-scratch**, installed into a disposable sandbox workspace you own.
+scratch** (name it **`allbert-assist`**, matching the Discord app), installed
+into a disposable sandbox workspace you own.
 
 1. **Bot token scopes.** Features → OAuth & Permissions → *Bot Token Scopes*,
    add **`app_mentions:read`** (receive @mentions), **`im:history`** (read DM
@@ -187,7 +188,7 @@ After validation, tear the sandbox down so no live credential or app lingers:
    OAuth Tokens* (invalidates the `xoxb-` bot token); on Basic Information,
    delete the `xapp-` app-level token. Both are immediately dead even if a copy
    leaked.
-3. **Remove the bot from the channel/workspace** (`/remove @allbert-sandbox`, or
+3. **Remove the bot from the channel/workspace** (`/remove @allbert-assist`, or
    uninstall the app from the workspace under Settings → Install App).
 4. **Delete the app** at [api.slack.com/apps](https://api.slack.com/apps) →
    the app → Settings → Delete App, if the sandbox is no longer needed.

@@ -202,9 +202,9 @@ defmodule AllbertAssist.Channels.Discord.Client.GatewayPort.Real do
         "token" => state.token,
         "intents" => state.intents,
         "properties" => %{
-          "os" => "allbert",
-          "browser" => "allbert",
-          "device" => "allbert"
+          "os" => "allbert-assist",
+          "browser" => "allbert-assist",
+          "device" => "allbert-assist"
         }
       }
     }
