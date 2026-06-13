@@ -67,6 +67,7 @@ defmodule AllbertAssist.Channels.Slack.Parser do
     ts = to_string(field(attrs, :ts) || simulated_ts())
     thread_ts = field(attrs, :thread_ts)
     text = to_string(field(attrs, :text) || "")
+    event_type = to_string(field(attrs, :type) || field(attrs, :event_type) || "app_mention")
 
     %{
       "type" => "events_api",
@@ -77,9 +78,12 @@ defmodule AllbertAssist.Channels.Slack.Parser do
         "team_id" => team_id,
         "event" =>
           %{
-            "type" => "app_mention",
+            "type" => event_type,
             "user" => user_id,
             "channel" => channel_id,
+            "channel_type" => field(attrs, :channel_type),
+            "subtype" => field(attrs, :subtype),
+            "bot_id" => field(attrs, :bot_id),
             "text" => text,
             "ts" => ts,
             "event_ts" => ts,
@@ -143,6 +147,8 @@ defmodule AllbertAssist.Channels.Slack.Parser do
           })
       }
 
+      channel_type = optional_string(Map.get(event, "channel_type"))
+
       {:message,
        %{
          external_event_id: Map.get(event, "client_msg_id") || ts,
@@ -154,6 +160,14 @@ defmodule AllbertAssist.Channels.Slack.Parser do
          channel_id: channel_id,
          thread_ts: thread_ts,
          text: Map.get(event, "text", ""),
+         # Provider-fidelity signals: faithfully surface the Slack event shape so
+         # the adapter (not the parser) can apply response_style / DM gating and
+         # bot/own/subtype echo filtering. The parser stays policy-free.
+         event_type: optional_string(Map.get(event, "type")),
+         channel_type: channel_type,
+         subtype: optional_string(Map.get(event, "subtype")),
+         bot_id: optional_string(Map.get(event, "bot_id")),
+         is_dm?: channel_type == "im",
          receiver_account_ref: receiver_account_ref,
          provider_thread_ref: Redactor.redact(provider_thread_ref),
          channel_thread_ref: channel_thread_ref,

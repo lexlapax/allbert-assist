@@ -493,6 +493,210 @@ defmodule AllbertAssist.Channels.SlackTest do
     assert first_processed.session_id != second_processed.session_id
   end
 
+  test "parser surfaces provider-fidelity signals (event_type, channel_type, subtype, bot_id, is_dm?)" do
+    dm =
+      Parser.simulated_event(%{
+        type: "message",
+        channel_type: "im",
+        team_id: "T0123ABCDE",
+        channel_id: "D0123ABCDE",
+        user_id: "U0123ABCDE",
+        text: "dm hello"
+      })
+
+    assert {:message, dm_fields} = Parser.parse_socket_envelope(dm)
+    assert dm_fields.event_type == "message"
+    assert dm_fields.channel_type == "im"
+    assert dm_fields.is_dm? == true
+    assert dm_fields.subtype == nil
+    assert dm_fields.bot_id == nil
+
+    bot =
+      Parser.simulated_event(%{
+        type: "message",
+        subtype: "bot_message",
+        bot_id: "B0999",
+        team_id: "T0123ABCDE",
+        channel_id: "C0123ABCDE",
+        user_id: "U0123ABCDE",
+        text: "echo"
+      })
+
+    assert {:message, bot_fields} = Parser.parse_socket_envelope(bot)
+    assert bot_fields.subtype == "bot_message"
+    assert bot_fields.bot_id == "B0999"
+    assert bot_fields.is_dm? == false
+
+    mention =
+      Parser.simulated_event(%{
+        team_id: "T0123ABCDE",
+        channel_id: "C0123ABCDE",
+        user_id: "U0123ABCDE",
+        text: "hey"
+      })
+
+    assert {:message, mention_fields} = Parser.parse_socket_envelope(mention)
+    assert mention_fields.event_type == "app_mention"
+    assert mention_fields.is_dm? == false
+  end
+
+  test "adapter ignores provider echoes (bot_id and edit/delete subtypes) without persisting an event" do
+    assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
+
+    bot_id_event =
+      Parser.simulated_event(%{
+        ts: "1718040000.000401",
+        type: "message",
+        bot_id: "B0999",
+        team_id: "T0123ABCDE",
+        channel_id: "C0123ABCDE",
+        user_id: "U0123ABCDE",
+        text: "i am a bot"
+      })
+
+    assert {:ok, :ignored} = Adapter.simulate_socket_envelope(adapter, bot_id_event)
+
+    ["bot_message", "message_changed", "message_deleted"]
+    |> Enum.with_index()
+    |> Enum.each(fn {subtype, index} ->
+      event =
+        Parser.simulated_event(%{
+          ts: "1718040000.00041#{index}",
+          type: "message",
+          subtype: subtype,
+          team_id: "T0123ABCDE",
+          channel_id: "C0123ABCDE",
+          user_id: "U0123ABCDE",
+          text: "edited or removed"
+        })
+
+      assert {:ok, :ignored} = Adapter.simulate_socket_envelope(adapter, event)
+    end)
+
+    GenServer.stop(adapter)
+
+    assert Repo.aggregate(AllbertAssist.Channels.Event, :count) == 0
+    refute_received {:runtime_request, _request}
+  end
+
+  test "adapter honors response_style gating (dm_only ignores channel mentions, processes DMs)" do
+    assert {:ok, _setting} =
+             Settings.put("channels.slack.response_style", "dm_only", %{audit?: false})
+
+    assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
+
+    mention =
+      Parser.simulated_event(%{
+        ts: "1718040000.000501",
+        team_id: "T0123ABCDE",
+        channel_id: "C0123ABCDE",
+        user_id: "U0123ABCDE",
+        text: "hey allbert"
+      })
+
+    dm =
+      Parser.simulated_event(%{
+        ts: "1718040000.000502",
+        type: "message",
+        channel_type: "im",
+        team_id: "T0123ABCDE",
+        channel_id: "D0123ABCDE",
+        user_id: "U0123ABCDE",
+        text: "dm hey"
+      })
+
+    assert {:ok, :ignored} = Adapter.simulate_socket_envelope(adapter, mention)
+    assert {:ok, {:processed, _event, _rendered}} = Adapter.simulate_socket_envelope(adapter, dm)
+
+    GenServer.stop(adapter)
+  end
+
+  test "adapter gates DMs by the identity map rather than the channel allowlist" do
+    assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
+
+    mapped_dm =
+      Parser.simulated_event(%{
+        ts: "1718040000.000601",
+        type: "message",
+        channel_type: "im",
+        team_id: "T0123ABCDE",
+        channel_id: "D0123ABCDE",
+        user_id: "U0123ABCDE",
+        text: "mapped dm"
+      })
+
+    unmapped_dm =
+      Parser.simulated_event(%{
+        ts: "1718040000.000602",
+        type: "message",
+        channel_type: "im",
+        team_id: "T0123ABCDE",
+        channel_id: "D0123ABCDE",
+        user_id: "USTRANGER",
+        text: "stranger dm"
+      })
+
+    assert {:ok, {:processed, _e, _r}} = Adapter.simulate_socket_envelope(adapter, mapped_dm)
+    assert {:ok, :rejected} = Adapter.simulate_socket_envelope(adapter, unmapped_dm)
+
+    GenServer.stop(adapter)
+  end
+
+  test "adapter ignores its own posts identified by bot user id" do
+    assert {:ok, _setting} = Settings.put("channels.slack.enabled", true, %{audit?: false})
+    Fragments.clear_cache()
+
+    assert {:ok, adapter} =
+             Adapter.start_link(
+               name: nil,
+               client_opts: [mode: :stub],
+               socket_mode_port: SocketModePort.Stub
+             )
+
+    own =
+      Parser.simulated_event(%{
+        ts: "1718040000.000701",
+        team_id: "T0123ABCDE",
+        channel_id: "C0123ABCDE",
+        user_id: "UALLBERTBOT",
+        text: "echo of my own message"
+      })
+
+    assert {:ok, :ignored} = Adapter.simulate_socket_envelope(adapter, own)
+
+    GenServer.stop(adapter)
+    refute_received {:runtime_request, _request}
+  end
+
+  test "SocketModePort reconnects on a disconnect frame without dispatching it" do
+    state = %{owner: self(), reconnect_max_backoff_ms: 1_000, graceful_reconnect?: false}
+    disconnect = %{"type" => "disconnect", "reason" => "refresh_requested"}
+
+    assert {:close, closed_state} =
+             SocketModePort.Real.handle_frame({:text, Jason.encode!(disconnect)}, state)
+
+    assert closed_state.graceful_reconnect? == true
+    refute_received {:slack_socket_envelope, _envelope}
+
+    assert {:reconnect, reconnected} =
+             SocketModePort.Real.handle_disconnect(
+               %{attempt_number: 1, reason: :normal},
+               closed_state
+             )
+
+    assert reconnected.graceful_reconnect? == false
+  end
+
+  test "redactor masks Slack app-level (xapp-) and bot (xoxb-) token shapes" do
+    redacted =
+      AllbertAssist.Security.Redactor.redact(
+        "connect xapp-1-A0000-secret and xoxb-1111-bottoken in one line"
+      )
+
+    refute redacted =~ "xapp-1-A0000-secret"
+    refute redacted =~ "xoxb-1111-bottoken"
+  end
+
   defp configure_slack do
     assert {:ok, _setting} =
              Settings.put("channels.slack.bot_token_ref", "secret://channels/slack/bot_token", %{

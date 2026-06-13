@@ -19,6 +19,11 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
 
   @provider "slack_socket_mode"
 
+  # Message subtypes that are echoes of our own / other bots' activity or edits,
+  # never fresh user input. Dropping them at admission prevents reply loops that
+  # `ChannelThread.echo?` (outbound-ref matching) alone does not cover.
+  @echo_subtypes ~w[bot_message message_changed message_deleted]
+
   def start_link(opts) do
     case Keyword.fetch(opts, :name) do
       {:ok, nil} -> GenServer.start_link(__MODULE__, opts)
@@ -36,6 +41,7 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
     state =
       opts
       |> load_state()
+      |> resolve_bot_identity()
       |> maybe_start_socket_mode()
 
     {:ok, state}
@@ -80,9 +86,26 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
       socket_mode_opts: Keyword.get(opts, :socket_mode_opts, []),
       socket_mode_port: nil,
       socket_mode_status: :not_started,
+      bot_user_id: nil,
       diagnostics: AllbertSlack.Settings.Fragment.required_when_enabled(settings),
       last_hello: nil
     }
+  end
+
+  # Resolve our own bot user id (best-effort, once at startup) so admission can
+  # drop the bot's own posts even when Slack omits `bot_id`/`subtype`. A failed
+  # or stubbed-out auth.test simply leaves `bot_user_id` nil; the bot_id/subtype
+  # echo filters still apply.
+  defp resolve_bot_identity(%{enabled?: false} = state), do: state
+
+  defp resolve_bot_identity(state) do
+    case Client.auth_test(state.bot_token_ref, state.client_opts) do
+      {:ok, %{"user_id" => user_id}} when is_binary(user_id) and user_id != "" ->
+        %{state | bot_user_id: user_id}
+
+      _other ->
+        state
+    end
   end
 
   defp maybe_start_socket_mode(%{enabled?: false} = state),
@@ -120,7 +143,18 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
         {{:ok, {:hello, fields}}, %{state | last_hello: DateTime.utc_now()}}
 
       {:message, fields} ->
-        {handle_message(fields, state), state}
+        case admit_message(fields, state) do
+          :admit ->
+            {handle_message(fields, state), state}
+
+          {:ignore, reason} ->
+            # Not fresh user input for us (provider echo, or excluded by
+            # response_style). Drop without persisting a channel_event row so
+            # high-volume chatter and bot echoes cannot flood the audit trail or
+            # trigger reply loops.
+            Logger.debug("slack message ignored (#{reason})")
+            {{:ok, :ignored}, state}
+        end
 
       {:interactive, fields} ->
         {handle_interactive(fields, state), state}
@@ -257,6 +291,38 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
     end
   end
 
+  # Decide whether an inbound Slack message event is something we should act on,
+  # before any DB write. Two gates: (1) provider echo — the bot's own posts,
+  # other bots, and edit/delete tombstones; (2) response_style — `mention`
+  # (app_mention + DMs), `always` (also plain channel messages), `dm_only` (DMs
+  # only). DMs themselves are still authorized downstream by the identity map.
+  defp admit_message(fields, state) do
+    cond do
+      provider_echo?(fields, state) -> {:ignore, :echo_provider}
+      not response_style_admits?(fields, state) -> {:ignore, :response_style}
+      true -> :admit
+    end
+  end
+
+  defp provider_echo?(fields, state) do
+    not is_nil(Map.get(fields, :bot_id)) or
+      Map.get(fields, :subtype) in @echo_subtypes or
+      (is_binary(state.bot_user_id) and fields.external_user_id == state.bot_user_id)
+  end
+
+  defp response_style_admits?(fields, state) do
+    style = Map.get(state.settings, "response_style", "mention")
+
+    cond do
+      dm?(fields) -> style in ["mention", "always", "dm_only"]
+      mention?(fields) -> style in ["mention", "always"]
+      true -> style == "always"
+    end
+  end
+
+  defp dm?(fields), do: Map.get(fields, :is_dm?, false)
+  defp mention?(fields), do: Map.get(fields, :event_type) == "app_mention"
+
   defp validate_allowlist(fields, state) do
     workspace_team_id = Map.get(state.settings, "workspace_team_id", "")
     allowed_channel_ids = Map.get(state.settings, "allowed_channel_ids", [])
@@ -264,6 +330,13 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
     cond do
       workspace_team_id not in ["", fields.team_id] ->
         {:error, :team_not_allowed}
+
+      # DMs (channel_type "im") carry an ephemeral `D…` id that is never in the
+      # channel allowlist; per ADR 0056 the identity map is their authorization
+      # gate (enforced by resolve_identity downstream), so they bypass the
+      # channel-id allowlist here while still being team-scoped.
+      dm?(fields) ->
+        :ok
 
       fields.channel_id not in allowed_channel_ids ->
         {:error, :channel_not_allowed}
