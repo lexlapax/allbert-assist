@@ -31,6 +31,24 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
     GenServer.call(server, {:simulate_gateway_event, event})
   end
 
+  @doc """
+  Report the adapter's live gateway transport status for the provider doctor.
+
+  Returns `:not_started` when no adapter process is running (so the doctor never
+  reports a connection that does not exist) and `:unavailable` if the running
+  adapter cannot answer in time. A running adapter returns its raw status
+  (`:running` | `:disabled` | `{:error, _}` | `{:not_started, _}`); the doctor
+  normalizes and redacts before surfacing it.
+  """
+  def status(server \\ __MODULE__) do
+    case GenServer.whereis(server) do
+      nil -> :not_started
+      pid -> GenServer.call(pid, :status, 1_000)
+    end
+  catch
+    :exit, _reason -> :unavailable
+  end
+
   @impl true
   def init(opts) do
     state =
@@ -42,6 +60,10 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
   end
 
   @impl true
+  def handle_call(:status, _from, state) do
+    {:reply, state.gateway_status, state}
+  end
+
   def handle_call({:simulate_gateway_event, event}, _from, state) do
     {reply, state} = process_gateway_event(event, state)
     {:reply, reply, state}

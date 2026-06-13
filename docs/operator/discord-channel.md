@@ -23,6 +23,37 @@ and multi-install hosted tenancy are not part of v0.52.
 - One mapped Discord user id and one allowlisted channel. Guild messages require
   the guild id to be allowlisted; DMs do not carry a guild id.
 
+## Sandbox setup (Discord Developer Portal)
+
+Stand up a throwaway application and bot before configuring Allbert. All steps
+are in the [Discord Developer Portal](https://discord.com/developers/applications).
+
+1. **Create the application.** New Application → name it (e.g.
+   `allbert-sandbox`). Copy the **Application ID** from General Information; this
+   is `DISCORD_APPLICATION_ID`.
+2. **Create the bot + token.** Bot page → Reset Token → copy the bot token once
+   (it is shown only once). This is the value you store under the `secret://`
+   ref below — never paste it into a CLI argument or commit it.
+3. **Enable the privileged intent.** On the Bot page, under *Privileged Gateway
+   Intents*, toggle **MESSAGE CONTENT INTENT** on. Without it the Gateway
+   connects but `message_create` payloads arrive with empty `content`, so
+   free-text @mention/DM handling silently fails. (Also leave Server Members
+   off — Allbert does not need it.) The doctor flags a missing
+   `message_content` intent in `channels.discord.gateway_intents`, but the
+   portal toggle is the provider-side half and must also be on.
+4. **Invite the bot to a sandbox guild.** OAuth2 → URL Generator → select the
+   `bot` scope, then under Bot Permissions select **View Channels**, **Send
+   Messages**, and **Read Message History**. Open the generated URL and add the
+   bot to a disposable test guild you own. Note the guild id
+   (`DISCORD_GUILD_ID`) and the target channel id (`DISCORD_CHANNEL_ID`) with
+   Developer Mode enabled in the Discord client (right-click → Copy ID).
+5. **Note the test user id.** Right-click your own account → Copy ID. This is the
+   `DISCORD_USER_ID` you map to a local Allbert user.
+
+Bots in 75+ guilds must pass Discord privileged-intent verification before the
+`message_content` intent keeps working; a single sandbox guild is well under
+that threshold.
+
 ## Configure
 
 Use a disposable `ALLBERT_HOME` for smoke and release validation:
@@ -70,6 +101,13 @@ Run the redacted doctor:
 mix allbert.channels discord doctor
 mix allbert.channels show discord
 ```
+
+The doctor reports the **live** Gateway transport status (`running` when the
+adapter holds an open Gateway session, `disabled` when the channel is off,
+`error`/`not_started` otherwise) — not a placeholder — so run it against a
+running Allbert to confirm the session is actually up. It also flags
+`missing_message_content_intent` when `channels.discord.gateway_intents` omits
+`message_content` (the Allbert-side half of step 3 above).
 
 Before tagging v0.52, run the real-provider smoke with a sandbox bot/channel.
 `ALLBERT_TEST_KEEP_TMP=1` keeps the owned smoke home and evidence file
@@ -128,6 +166,25 @@ Manual validation before tag:
   verify it is rejected before confirmation resolution.
 - Confirm `mix allbert.conversations show THREAD_ID --user alice` renders a
   redacted unified history and no raw token or provider payload appears.
+
+## Cleanup / teardown
+
+After validation, tear the sandbox down so no live credential or bot lingers:
+
+1. **Disable the channel** so Allbert stops opening the Gateway:
+   `mix allbert.settings set channels.discord.enabled false`. Confirm
+   `mix allbert.channels discord doctor` now reports `gateway_status=disabled`.
+2. **Reset the bot token** in the Developer Portal (Bot → Reset Token). This
+   immediately invalidates the token Allbert held, even if a copy leaked.
+3. **Remove the bot from the test guild** (Server Settings → Integrations →
+   the bot → Remove), or delete the disposable guild entirely.
+4. **Delete the application** in the Developer Portal (General Information →
+   Delete App) if the sandbox is no longer needed.
+5. **Discard the disposable home and its evidence:**
+   `rm -rf "$ALLBERT_HOME"` (skip if you are keeping the
+   `release_evidence/v052/` artifacts for the release record — copy them out
+   first). Unset the `ALLBERT_DISCORD_*` env vars holding raw tokens:
+   `unset ALLBERT_DISCORD_BOT_TOKEN ALLBERT_DISCORD_APPLICATION_ID ALLBERT_DISCORD_GUILD_ID ALLBERT_DISCORD_CHANNEL_ID ALLBERT_DISCORD_USER_ID`.
 
 ## Troubleshooting
 

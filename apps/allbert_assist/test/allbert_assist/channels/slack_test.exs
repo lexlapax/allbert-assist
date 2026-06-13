@@ -687,6 +687,15 @@ defmodule AllbertAssist.Channels.SlackTest do
     assert reconnected.graceful_reconnect? == false
   end
 
+  test "adapter exposes live transport status for the provider doctor" do
+    assert Adapter.status(__MODULE__.NoSuchAdapter) == :not_started
+
+    assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
+    assert Adapter.status(adapter) == :disabled
+
+    GenServer.stop(adapter)
+  end
+
   test "redactor masks Slack app-level (xapp-) and bot (xoxb-) token shapes" do
     redacted =
       AllbertAssist.Security.Redactor.redact(

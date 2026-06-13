@@ -750,6 +750,15 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert first_processed.session_id != second_processed.session_id
   end
 
+  test "adapter exposes live transport status for the provider doctor (M8R7)" do
+    assert Adapter.status(__MODULE__.NoSuchAdapter) == :not_started
+
+    assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
+    assert Adapter.status(adapter) == :disabled
+
+    GenServer.stop(adapter)
+  end
+
   defp configure_discord do
     assert {:ok, _setting} =
              Settings.put(
