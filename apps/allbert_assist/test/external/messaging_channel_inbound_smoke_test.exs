@@ -23,23 +23,37 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Trace
 
-  @required_env [
-    "ALLBERT_SLACK_BOT_TOKEN",
-    "ALLBERT_SLACK_APP_TOKEN",
-    "ALLBERT_SLACK_CHANNEL_ID",
-    "ALLBERT_SLACK_USER_ID",
+  # Per-provider required env. Only the targeted providers
+  # (ALLBERT_SMOKE_PROVIDERS, default both) are required, configured, and
+  # connected, so a Discord-only or Slack-only operator can validate one provider
+  # without standing up the other.
+  @discord_required [
     "ALLBERT_DISCORD_BOT_TOKEN",
     "ALLBERT_DISCORD_APPLICATION_ID",
     "ALLBERT_DISCORD_GUILD_ID",
     "ALLBERT_DISCORD_CHANNEL_ID",
     "ALLBERT_DISCORD_USER_ID"
   ]
+  @slack_required [
+    "ALLBERT_SLACK_BOT_TOKEN",
+    "ALLBERT_SLACK_APP_TOKEN",
+    "ALLBERT_SLACK_CHANNEL_ID",
+    "ALLBERT_SLACK_USER_ID"
+  ]
 
   setup_all do
-    missing = Enum.filter(@required_env, &(System.get_env(&1) in [nil, ""]))
+    providers = targeted_providers()
+
+    required =
+      if("discord" in providers, do: @discord_required, else: []) ++
+        if "slack" in providers, do: @slack_required, else: []
+
+    missing = Enum.filter(required, &(System.get_env(&1) in [nil, ""]))
 
     if missing != [] do
-      flunk("missing required Discord/Slack inbound smoke env vars: #{Enum.join(missing, ", ")}")
+      flunk(
+        "missing required inbound smoke env vars for providers #{inspect(providers)}: #{Enum.join(missing, ", ")}"
+      )
     end
 
     home =
@@ -58,8 +72,8 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
     Application.delete_env(:allbert_assist, Trace)
 
     PluginRegistry.clear()
-    assert {:ok, "allbert.discord"} = PluginRegistry.register_module(DiscordPlugin)
-    assert {:ok, "allbert.slack"} = PluginRegistry.register_module(SlackPlugin)
+    if "discord" in providers, do: {:ok, _} = PluginRegistry.register_module(DiscordPlugin)
+    if "slack" in providers, do: {:ok, _} = PluginRegistry.register_module(SlackPlugin)
     Fragments.clear_cache()
 
     Application.put_env(:allbert_assist, Runtime,
@@ -72,13 +86,24 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
     Mix.Task.reenable("ecto.migrate.allbert")
     Mix.Task.run("ecto.migrate.allbert", ["--quiet"])
 
-    put_secret!("secret://channels/slack/bot_token", System.fetch_env!("ALLBERT_SLACK_BOT_TOKEN"))
-    put_secret!("secret://channels/slack/app_token", System.fetch_env!("ALLBERT_SLACK_APP_TOKEN"))
+    if "slack" in providers do
+      put_secret!(
+        "secret://channels/slack/bot_token",
+        System.fetch_env!("ALLBERT_SLACK_BOT_TOKEN")
+      )
 
-    put_secret!(
-      "secret://channels/discord/bot_token",
-      System.fetch_env!("ALLBERT_DISCORD_BOT_TOKEN")
-    )
+      put_secret!(
+        "secret://channels/slack/app_token",
+        System.fetch_env!("ALLBERT_SLACK_APP_TOKEN")
+      )
+    end
+
+    if "discord" in providers do
+      put_secret!(
+        "secret://channels/discord/bot_token",
+        System.fetch_env!("ALLBERT_DISCORD_BOT_TOKEN")
+      )
+    end
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
@@ -91,61 +116,38 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
 
     %{
       home: home,
+      providers: providers,
       timeout_ms: timeout_ms(),
-      slack_channel_id: System.fetch_env!("ALLBERT_SLACK_CHANNEL_ID"),
-      slack_user_id: System.fetch_env!("ALLBERT_SLACK_USER_ID"),
-      discord_application_id: System.fetch_env!("ALLBERT_DISCORD_APPLICATION_ID"),
-      discord_guild_id: System.fetch_env!("ALLBERT_DISCORD_GUILD_ID"),
-      discord_channel_id: System.fetch_env!("ALLBERT_DISCORD_CHANNEL_ID"),
-      discord_user_id: System.fetch_env!("ALLBERT_DISCORD_USER_ID")
+      slack_channel_id: System.get_env("ALLBERT_SLACK_CHANNEL_ID"),
+      slack_user_id: System.get_env("ALLBERT_SLACK_USER_ID"),
+      discord_application_id: System.get_env("ALLBERT_DISCORD_APPLICATION_ID"),
+      discord_guild_id: System.get_env("ALLBERT_DISCORD_GUILD_ID"),
+      discord_channel_id: System.get_env("ALLBERT_DISCORD_CHANNEL_ID"),
+      discord_user_id: System.get_env("ALLBERT_DISCORD_USER_ID")
     }
   end
 
   test "real Gateway and Socket Mode sessions deliver operator-sent inbound messages", context do
     started_at = DateTime.utc_now()
     marker = "allbert-v052-inbound-#{DateTime.to_unix(started_at)}"
+    discord? = "discord" in context.providers
+    slack? = "slack" in context.providers
 
-    assert {:ok, slack_auth} =
-             SlackClient.auth_test("secret://channels/slack/bot_token", mode: :real)
+    discord_bot = if discord?, do: start_discord!(context), else: nil
 
-    slack_team_id = Map.fetch!(slack_auth, "team_id")
-    slack_bot_user_id = Map.fetch!(slack_auth, "user_id")
+    {slack_team_id, slack_bot_user_id} =
+      if slack?, do: start_slack!(context), else: {nil, nil}
 
-    assert {:ok, discord_bot} =
-             DiscordClient.users_me("secret://channels/discord/bot_token", mode: :real)
+    print_marker_instructions(context, marker, discord_bot, slack_bot_user_id)
 
-    configure_slack!(context, slack_team_id)
-    configure_discord!(context)
+    expected_channels =
+      [] ++ if(discord?, do: ["discord"], else: []) ++ if(slack?, do: ["slack"], else: [])
 
-    assert {:ok, discord_adapter} = DiscordAdapter.start_link(name: nil)
-    assert {:ok, slack_adapter} = SlackAdapter.start_link(name: nil)
+    requests = wait_for_runtime_requests(expected_channels, marker, context.timeout_ms)
 
-    assert :ok =
-             wait_for_adapter_state(discord_adapter, context.timeout_ms, fn state ->
-               state.last_ready != nil
-             end)
-
-    assert :ok =
-             wait_for_adapter_state(slack_adapter, context.timeout_ms, fn state ->
-               state.last_hello != nil
-             end)
-
-    IO.puts("""
-    messaging_channel_inbound marker: #{marker}
-    Send from mapped Discord user #{context.discord_user_id} in guild #{context.discord_guild_id}/channel #{context.discord_channel_id}:
-      <@#{discord_bot["id"]}> #{marker} discord
-    Send from mapped Slack user #{context.slack_user_id} in channel #{context.slack_channel_id}:
-      <@#{slack_bot_user_id}> #{marker} slack
-    Waiting up to #{context.timeout_ms}ms for provider-delivered inbound events.
-    """)
-
-    requests = wait_for_runtime_requests(["discord", "slack"], marker, context.timeout_ms)
-
-    evidence_path =
-      write_evidence!(context.home, started_at, %{
-        marker: marker,
-        timeout_ms: context.timeout_ms,
-        discord: %{
+    discord_evidence =
+      if discord? do
+        %{
           gateway_ready?: true,
           bot_user_id: discord_bot["id"],
           application_id: context.discord_application_id,
@@ -154,8 +156,14 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
           mapped_user_id: context.discord_user_id,
           runtime_request?: Map.has_key?(requests, "discord"),
           runtime_text: requests["discord"].text
-        },
-        slack: %{
+        }
+      else
+        :skipped
+      end
+
+    slack_evidence =
+      if slack? do
+        %{
           socket_mode_hello?: true,
           team_id: slack_team_id,
           bot_user_id: slack_bot_user_id,
@@ -163,15 +171,85 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
           mapped_user_id: context.slack_user_id,
           runtime_request?: Map.has_key?(requests, "slack"),
           runtime_text: requests["slack"].text
-        },
+        }
+      else
+        :skipped
+      end
+
+    evidence_path =
+      write_evidence!(context.home, started_at, %{
+        marker: marker,
+        providers: context.providers,
+        timeout_ms: context.timeout_ms,
+        discord: discord_evidence,
+        slack: slack_evidence,
         manual_followups_required: [
-          "Discord button approve/deny from the mapped clicker",
-          "Slack button approve/deny from the mapped clicker",
+          "button approve/deny from the mapped clicker",
           "unmapped or non-allowlisted callback rejection before confirmation resolution"
         ]
       })
 
     IO.puts("messaging_channel_inbound external smoke evidence: #{evidence_path}")
+  end
+
+  defp start_discord!(context) do
+    assert {:ok, discord_bot} =
+             DiscordClient.users_me("secret://channels/discord/bot_token", mode: :real)
+
+    configure_discord!(context)
+    assert {:ok, discord_adapter} = DiscordAdapter.start_link(name: nil)
+
+    assert :ok =
+             wait_for_adapter_state(discord_adapter, context.timeout_ms, fn state ->
+               state.last_ready != nil
+             end)
+
+    discord_bot
+  end
+
+  defp start_slack!(context) do
+    assert {:ok, slack_auth} =
+             SlackClient.auth_test("secret://channels/slack/bot_token", mode: :real)
+
+    slack_team_id = Map.fetch!(slack_auth, "team_id")
+    slack_bot_user_id = Map.fetch!(slack_auth, "user_id")
+
+    configure_slack!(context, slack_team_id)
+    assert {:ok, slack_adapter} = SlackAdapter.start_link(name: nil)
+
+    assert :ok =
+             wait_for_adapter_state(slack_adapter, context.timeout_ms, fn state ->
+               state.last_hello != nil
+             end)
+
+    {slack_team_id, slack_bot_user_id}
+  end
+
+  defp print_marker_instructions(context, marker, discord_bot, slack_bot_user_id) do
+    discord_line =
+      if discord_bot do
+        """
+        Send from mapped Discord user #{context.discord_user_id} in guild #{context.discord_guild_id}/channel #{context.discord_channel_id}:
+          <@#{discord_bot["id"]}> #{marker} discord
+        """
+      else
+        ""
+      end
+
+    slack_line =
+      if slack_bot_user_id do
+        """
+        Send from mapped Slack user #{context.slack_user_id} in channel #{context.slack_channel_id}:
+          <@#{slack_bot_user_id}> #{marker} slack
+        """
+      else
+        ""
+      end
+
+    IO.puts("""
+    messaging_channel_inbound marker: #{marker}
+    #{discord_line}#{slack_line}Waiting up to #{context.timeout_ms}ms for provider-delivered inbound events.
+    """)
   end
 
   defp configure_slack!(context, slack_team_id) do
@@ -276,13 +354,24 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
     MapSet.member?(expected, channel) and String.contains?(text, marker)
   end
 
+  defp targeted_providers do
+    case System.get_env("ALLBERT_SMOKE_PROVIDERS") do
+      value when value in [nil, ""] ->
+        ["discord", "slack"]
+
+      value ->
+        value |> String.split(",", trim: true) |> Enum.map(&String.trim/1)
+    end
+  end
+
   defp write_evidence!(home, started_at, evidence) do
     evidence_dir = Path.join(home, "release_evidence/v052")
     File.mkdir_p!(evidence_dir)
 
     body =
       Map.merge(evidence, %{
-        gate: "mix allbert.test external-smoke -- messaging_channel_inbound",
+        gate:
+          "mix allbert.test external-smoke -- #{Enum.join(["inbound" | evidence.providers], "_")}",
         version: "v0.52",
         status: "passed",
         generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),

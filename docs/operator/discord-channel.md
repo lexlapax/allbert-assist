@@ -153,8 +153,11 @@ export ALLBERT_TEST_KEEP_TMP=1
 export ALLBERT_DISCORD_BOT_TOKEN="..."
 export ALLBERT_DISCORD_CHANNEL_ID="..."
 export ALLBERT_DISCORD_GUILD_ID="..."
-mix allbert.test external-smoke -- discord_slack
+mix allbert.test external-smoke -- discord
 ```
+
+(Use `-- discord` to validate Discord alone; `-- discord_slack` runs both
+providers and additionally requires the Slack creds.)
 
 The smoke sends a real Discord parent message and a real
 `message_reference` reply, records `ChannelThread` outbound refs, asserts
@@ -181,6 +184,10 @@ export ALLBERT_SLACK_CHANNEL_ID="..."
 export ALLBERT_SLACK_USER_ID="..."
 mix allbert.test external-smoke -- messaging_channel_inbound
 ```
+
+For Discord alone, run `-- inbound_discord` and export only the
+`ALLBERT_DISCORD_*` vars; the combined `messaging_channel_inbound` above
+additionally requires the Slack creds.
 
 The inbound smoke writes
 `<ALLBERT_HOME>/release_evidence/v052/external-smoke-messaging-inbound-<ts>.json`.
@@ -293,14 +300,15 @@ only **one account active at a time**, so run the two accounts in two surfaces.
 ### Part 5 — hand off; agent wires up + smokes
 
 28. 🧑 Tell the agent **"`.env` is ready"**.
-29. 🤖 Agent sources `.env`, runs the outbound smoke
-    (`mix allbert.test external-smoke -- discord_slack`). 🧑 **Watch your channel:**
+29. 🤖 Agent sources `.env`, runs the **Discord-only** delivery smoke
+    (`mix allbert.test external-smoke -- discord`). 🧑 **Watch your channel:**
     the bot posts a parent message and a threaded reply. *Expected:* both appear;
-    nothing for you to click.
-30. 🤖 Agent runs the inbound smoke
-    (`mix allbert.test external-smoke -- messaging_channel_inbound`) and tells you
-    the **exact marker message** it printed. 🧑 From your **mapped account**, in
-    the allowlisted channel, paste and send that exact text (an @mention of
+    nothing for you to click. (The combined `discord_slack` selector needs Slack
+    creds too; `discord` validates Discord alone.)
+30. 🤖 Agent runs the **Discord-only** inbound smoke
+    (`mix allbert.test external-smoke -- inbound_discord`) and tells you the
+    **exact marker message** it printed. 🧑 From your **mapped account**, in the
+    allowlisted channel, paste and send that exact text (an @mention of
     `@allbert-assist`). *Expected:* the agent confirms the smoke saw it reach the
     runtime and reports `gateway_ready`.
 

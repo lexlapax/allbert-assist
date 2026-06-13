@@ -150,8 +150,11 @@ inspectable after the task exits:
 export ALLBERT_TEST_KEEP_TMP=1
 export ALLBERT_SLACK_BOT_TOKEN="..."
 export ALLBERT_SLACK_CHANNEL_ID="..."
-mix allbert.test external-smoke -- discord_slack
+mix allbert.test external-smoke -- slack
 ```
+
+(Use `-- slack` to validate Slack alone; `-- discord_slack` runs both providers
+and additionally requires the Discord creds.)
 
 The smoke sends a real Slack parent message and a real `thread_ts` reply,
 records `ChannelThread` outbound refs, asserts echo-suppression metadata, and
@@ -177,6 +180,10 @@ export ALLBERT_SLACK_CHANNEL_ID="..."
 export ALLBERT_SLACK_USER_ID="..."
 mix allbert.test external-smoke -- messaging_channel_inbound
 ```
+
+For Slack alone, run `-- inbound_slack` and export only the `ALLBERT_SLACK_*`
+vars; the combined `messaging_channel_inbound` above additionally requires the
+Discord creds.
 
 The inbound smoke writes
 `<ALLBERT_HOME>/release_evidence/v052/external-smoke-messaging-inbound-<ts>.json`.
@@ -283,13 +290,16 @@ env-var names match. All app-config steps are at
 ### Part 8 — hand off; agent wires up + smokes
 
 22. 🧑 Tell the agent **"`.env` is ready"**.
-23. 🤖 Agent runs the outbound smoke (`external-smoke -- discord_slack`). 🧑
-    **Watch your channel:** the bot posts a parent message and a threaded reply.
-    *Expected:* both appear; nothing to click.
-24. 🤖 Agent runs the inbound smoke (`external-smoke -- messaging_channel_inbound`)
-    and tells you the **exact marker message**. 🧑 From your **mapped account**, in
-    the allowlisted channel, send that exact text (an @mention of the bot).
-    *Expected:* agent reports `socket_mode_hello` and that the runtime saw it.
+23. 🤖 Agent runs the **Slack-only** delivery smoke
+    (`mix allbert.test external-smoke -- slack`). 🧑 **Watch your channel:** the
+    bot posts a parent message and a threaded reply. *Expected:* both appear;
+    nothing to click. (The combined `discord_slack` selector needs Discord creds
+    too; `slack` validates Slack alone.)
+24. 🤖 Agent runs the **Slack-only** inbound smoke
+    (`mix allbert.test external-smoke -- inbound_slack`) and tells you the **exact
+    marker message**. 🧑 From your **mapped account**, in the allowlisted channel,
+    send that exact text (an @mention of the bot). *Expected:* agent reports
+    `socket_mode_hello` and that the runtime saw it.
 
 ### Part 9 — live channel checks (Allbert server running)
 

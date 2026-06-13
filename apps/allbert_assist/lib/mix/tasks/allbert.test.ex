@@ -3331,8 +3331,12 @@ defmodule Mix.Tasks.Allbert.Test do
     Mix.shell().info("- browser_research_delegate")
     Mix.shell().info("- docker_sandbox")
     Mix.shell().info("- docker_full_gate")
-    Mix.shell().info("- discord_slack")
-    Mix.shell().info("- messaging_channel_inbound")
+    Mix.shell().info("- discord_slack (delivery; both providers)")
+    Mix.shell().info("- discord (delivery; Discord only)")
+    Mix.shell().info("- slack (delivery; Slack only)")
+    Mix.shell().info("- messaging_channel_inbound (inbound; both providers)")
+    Mix.shell().info("- inbound_discord (inbound; Discord only)")
+    Mix.shell().info("- inbound_slack (inbound; Slack only)")
   end
 
   defp run_external_smoke(["browser_research"]) do
@@ -3378,35 +3382,49 @@ defmodule Mix.Tasks.Allbert.Test do
     )
   end
 
-  defp run_external_smoke(["discord_slack"]) do
-    run_cmd!(
-      "external-smoke discord_slack",
-      app_cwd(:core),
-      "mix",
-      ["test", "test/external/discord_slack_smoke_test.exs"],
-      [
-        {"ALLBERT_DISCORD_SLACK_EXTERNAL_SMOKE", "1"}
-        | owned_env("external-smoke-discord-slack", 0)
-      ]
-    )
-  end
+  defp run_external_smoke(["discord_slack"]), do: run_delivery_smoke("discord,slack")
+  defp run_external_smoke(["discord"]), do: run_delivery_smoke("discord")
+  defp run_external_smoke(["slack"]), do: run_delivery_smoke("slack")
 
-  defp run_external_smoke(["messaging_channel_inbound"]) do
-    run_cmd!(
-      "external-smoke messaging_channel_inbound",
-      app_cwd(:core),
-      "mix",
-      ["test", "test/external/messaging_channel_inbound_smoke_test.exs"],
-      [
-        {"ALLBERT_MESSAGING_CHANNEL_INBOUND_EXTERNAL_SMOKE", "1"}
-        | owned_env("external-smoke-messaging-channel-inbound", 0)
-      ]
-    )
-  end
+  defp run_external_smoke(["messaging_channel_inbound"]), do: run_inbound_smoke("discord,slack")
+  defp run_external_smoke(["inbound_discord"]), do: run_inbound_smoke("discord")
+  defp run_external_smoke(["inbound_slack"]), do: run_inbound_smoke("slack")
 
   defp run_external_smoke(args) do
     Mix.raise(
       "unknown external smoke #{Enum.join(args, " ")}; run `mix allbert.test external-smoke list`"
+    )
+  end
+
+  defp run_delivery_smoke(providers) do
+    slug = String.replace(providers, ",", "-")
+
+    run_cmd!(
+      "external-smoke channel-delivery (#{providers})",
+      app_cwd(:core),
+      "mix",
+      ["test", "test/external/discord_slack_smoke_test.exs"],
+      [
+        {"ALLBERT_DISCORD_SLACK_EXTERNAL_SMOKE", "1"},
+        {"ALLBERT_SMOKE_PROVIDERS", providers}
+        | owned_env("external-smoke-delivery-#{slug}", 0)
+      ]
+    )
+  end
+
+  defp run_inbound_smoke(providers) do
+    slug = String.replace(providers, ",", "-")
+
+    run_cmd!(
+      "external-smoke channel-inbound (#{providers})",
+      app_cwd(:core),
+      "mix",
+      ["test", "test/external/messaging_channel_inbound_smoke_test.exs"],
+      [
+        {"ALLBERT_MESSAGING_CHANNEL_INBOUND_EXTERNAL_SMOKE", "1"},
+        {"ALLBERT_SMOKE_PROVIDERS", providers}
+        | owned_env("external-smoke-inbound-#{slug}", 0)
+      ]
     )
   end
 
