@@ -3,6 +3,10 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
   @moduletag :external_runtime_serial
   @moduletag :home_fs_serial
   @moduletag :app_env_serial
+  # The test waits for an operator to send a real inbound message; ExUnit's
+  # default per-test timeout is 60s, which would kill the wait early. Let the
+  # internal deadline (ALLBERT_MESSAGING_CHANNEL_INBOUND_TIMEOUT_MS) govern.
+  @moduletag timeout: :infinity
 
   if System.get_env("ALLBERT_MESSAGING_CHANNEL_INBOUND_EXTERNAL_SMOKE") != "1" do
     @moduletag skip:
@@ -132,14 +136,27 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
     # Adapters (spawned processes) write channel_events to the owned home DB.
     # test_helper puts the Repo in :manual sandbox mode; check out a shared
     # connection so the test process AND the adapter processes can use it.
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
+    # Large ownership_timeout — this test holds the connection while waiting (up
+    # to 5 min) for a real operator message; the default 120s ownership timeout
+    # would drop the connection mid-wait and silently break inbound DB writes.
+    # Use 1h, comfortably above ALLBERT_MESSAGING_CHANNEL_INBOUND_TIMEOUT_MS.
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo, ownership_timeout: 3_600_000)
     Ecto.Adapters.SQL.Sandbox.mode(Repo, {:shared, self()})
     :ok
   end
 
   test "real Gateway and Socket Mode sessions deliver operator-sent inbound messages", context do
     started_at = DateTime.utc_now()
-    marker = "allbert-v052-inbound-#{DateTime.to_unix(started_at)}"
+    # Allow the marker to be supplied via env so the operator/agent knows the
+    # exact text to send up front. stdout is buffered when captured (non-TTY), so
+    # the printed marker may not be visible until the process exits; a supplied
+    # marker removes that dependency. Falls back to a timestamped default.
+    marker =
+      case System.get_env("ALLBERT_SMOKE_MARKER") do
+        value when value in [nil, ""] -> "allbert-v052-inbound-#{DateTime.to_unix(started_at)}"
+        value -> value
+      end
+
     discord? = "discord" in context.providers
     slack? = "slack" in context.providers
 
