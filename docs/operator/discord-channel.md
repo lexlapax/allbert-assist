@@ -44,17 +44,37 @@ are in the [Discord Developer Portal](https://discord.com/developers/application
    off — Allbert does not need it.) The doctor flags a missing
    `message_content` intent in `channels.discord.gateway_intents`, but the
    portal toggle is the provider-side half and must also be on.
-4. **Invite the bot to a sandbox guild.** OAuth2 → URL Generator → select the
-   `bot` scope, then under Bot Permissions select **View Channels**, **Send
-   Messages**, and **Read Message History**. Open the generated URL and add the
-   bot to a disposable test guild you own. Note the guild id
-   (`DISCORD_GUILD_ID`) and the target channel id (`DISCORD_CHANNEL_ID`) with
-   Developer Mode enabled in the Discord client (right-click → Copy ID).
-5. **Note the test user id.** Right-click your own account → Copy ID. This is the
-   `DISCORD_USER_ID` you map to a local Allbert user.
+4. **Create a disposable test server ("guild").** Discord's API calls a server a
+   *guild*; a "disposable test guild" just means a throwaway Discord **server you
+   create and own**. In the Discord desktop/web client, click the **`+`** ("Add a
+   Server") at the bottom of the left server rail → **Create My Own** → **For me
+   and my friends** → name it (e.g. `allbert-sandbox-server`) → **Create**. You
+   are its owner, so you can add the bot now and delete the whole server during
+   teardown.
+5. **Invite the bot to that server.** Developer Portal → **OAuth2 → URL
+   Generator**:
+   1. **Integration Type** dropdown → choose **Guild Install** (this is the
+      add-to-a-server flow; "User Install" installs the app onto a user account,
+      which Allbert does not use).
+   2. **Scopes** → check **`bot`**.
+   3. A **Bot Permissions** panel appears → check **View Channels**, **Send
+      Messages**, **Read Message History**.
+   4. There is **no Save button** — the page auto-builds a **Generated URL** at
+      the bottom. Click **Copy**.
+   5. **Paste the URL into a browser** and press Enter → in the prompt's **"Add
+      to Server"** dropdown pick your test server → **Continue** → **Authorize** →
+      complete the CAPTCHA. The bot now appears in that server's member list.
+6. **Collect the ids.** Enable Developer Mode in the Discord client (User
+   Settings → Advanced → Developer Mode), then right-click → **Copy ID** for:
+   - the test server → `DISCORD_GUILD_ID`
+   - the target channel → `DISCORD_CHANNEL_ID`
+   - your own account → `DISCORD_USER_ID` (the user you map to `alice`)
+   - a **second account** that can see the channel but is not you →
+     `DISCORD_UNMAPPED_USER_ID` (used later to prove an unmapped clicker is
+     rejected)
 
-Bots in 75+ guilds must pass Discord privileged-intent verification before the
-`message_content` intent keeps working; a single sandbox guild is well under
+Bots in 75+ servers must pass Discord privileged-intent verification before the
+`message_content` intent keeps working; a single sandbox server is well under
 that threshold.
 
 ## Configure
