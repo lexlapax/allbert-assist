@@ -198,6 +198,61 @@ Manual validation before tag:
 - Confirm `mix allbert.conversations show THREAD_ID --user alice` renders a
   redacted unified history and no raw token or provider payload appears.
 
+## Operator validation walkthrough (every click)
+
+Exhaustive, no-assumptions version for the human operator. "🧑" = you act in
+Slack; "🤖" = a shell command the agent runs (you hand off there). Assumes the
+**Sandbox setup** and **Configure** sections are done and the
+`ALLBERT_SLACK_*` ids/tokens are in your `.env`.
+
+### Prepare the second (unmapped) member — for the clicker-rejection check
+
+1. 🧑 The unmapped clicker is simply a **second human member of the workspace**
+   who is NOT mapped to `alice`. Invite one: in Slack, workspace name →
+   **Invite people to <workspace>** → send the invite → have them accept. (Or use
+   any existing teammate.) Capture their member id as `SLACK_UNMAPPED_USER_ID`
+   (their profile → ⋮ → **Copy member ID**). They click from their own Slack
+   session, so no parallel-login trick is needed (unlike Discord).
+
+### Run the smokes (Phase B)
+
+2. 🧑 Tell the agent your `.env` is populated.
+3. 🤖 Outbound smoke (`external-smoke -- discord_slack`). 🧑 **Watch your channel**:
+   the bot posts a parent message and a threaded reply — just confirm they appear.
+4. 🤖 Inbound smoke (`external-smoke -- messaging_channel_inbound`). It prints an
+   **exact marker message**. 🧑 From your **mapped account**, in the allowlisted
+   channel, send that exact text (an @mention of the bot).
+
+### Live channel checks (Phase C — server running)
+
+5. 🤖 Agent starts the live server and re-runs the doctor (expect
+   `socket_mode_status=running`). The bot shows active in your workspace.
+6. 🧑 **@mention check.** In the allowlisted channel type `@allbert-assist`, pick
+   the bot from the autocomplete, add a short question, send. Expect a reply.
+   🤖 Agent confirms a `processed` Slack channel-event row for your user id.
+7. 🧑 **DM check.** Click **`allbert-assist`** in the sidebar (or search it in the
+   DMs section), send any message (e.g. `hello allbert`). Expect a reply. 🤖 Agent
+   confirms a `processed` DM row with `chat=<your D… id>`.
+8. 🧑 **Approve/deny button (mapped clicker).** Send a prompt that needs
+   confirmation, e.g. `@allbert-assist fetch http://127.0.0.1:4052/workspace and
+   summarize it`. Slack renders **Approve**/**Deny** buttons. Click one **as
+   yourself**. Expect the resolved result. 🤖 Agent confirms the callback row is
+   `processed` and the confirmation resolved.
+9. 🧑 **Unmapped-clicker rejection.** Send a **second** confirmation-triggering
+   prompt so a fresh button pair appears. Have the **second (unmapped) member**
+   click **Approve** from *their* Slack before you do. Expect an ephemeral
+   not-authorized response and no resolution. 🤖 Agent confirms a `rejected`
+   callback row with the unmapped member's id and an unresolved confirmation.
+10. 🤖 Unified history + final token-leak scans + evidence report. No operator
+    action.
+
+### What you actually do, in one line
+
+Invite/identify a second member (1) → say "`.env` ready" (2) → send the marker
+message (4) → @mention (6) → DM (7) → trigger + approve a confirmation (8) →
+trigger a second and have the unmapped member click it (9). Everything else is
+the agent.
+
 ## Cleanup / teardown
 
 After validation, tear the sandbox down so no live credential or app lingers:

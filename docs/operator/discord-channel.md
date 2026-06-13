@@ -202,6 +202,88 @@ Manual validation before tag:
 - Confirm `mix allbert.conversations show THREAD_ID --user alice` renders a
   redacted unified history and no raw token or provider payload appears.
 
+## Operator validation walkthrough (every click)
+
+This is the exhaustive, no-assumptions version of the manual checks above, written
+for the human operator. "🧑" marks an action you perform in the Discord client;
+"🤖" marks a shell command the agent/release engineer runs (you hand off at those
+points). Steps assume the **Sandbox setup** and **Configure** sections above are
+already done and the four `ALLBERT_DISCORD_*` ids/token are in your `.env`.
+
+### Prepare the second (unmapped) account — needed for the clicker-rejection check
+
+Discord's built-in account switcher only keeps **one account active at a time**,
+but the clicker-rejection check needs a *second* account that can click a button
+**while your main account is also usable**. Run the two accounts in two separate
+places:
+
+1. 🧑 Keep your **main (mapped) account** signed in to the **Discord desktop
+   app** (or one browser).
+2. 🧑 Sign your **second account** in to a **different surface** — the Discord
+   **web app** at [discord.com/app](https://discord.com/app) in a regular browser
+   window, or a private/incognito window, or a second browser profile. Both
+   sessions are then live in parallel. (If you do not have a second account,
+   create one with a different email at [discord.com/register](https://discord.com/register).)
+3. 🧑 Invite the second account into your sandbox server: in the desktop app
+   click the **server name** at the top-left → **Invite People** → **Copy** the
+   invite link → paste it into the second account's session → **Accept Invite**.
+   Confirm the second account now appears in the server member list.
+
+The second account does **not** get a `discord map` entry — that is the whole
+point: it stays unmapped so its button click must be rejected.
+
+### Run the smokes (Phase B)
+
+4. 🧑 Tell the agent your `.env` is populated.
+5. 🤖 Outbound smoke (`external-smoke -- discord_slack`). 🧑 **Watch your channel**:
+   the bot posts a parent message and a threaded reply. No action needed beyond
+   observing they appear.
+6. 🤖 Inbound smoke (`external-smoke -- messaging_channel_inbound`). It prints an
+   **exact marker message** to send. 🧑 From your **mapped account**, in the
+   allowlisted channel, send that exact text (it will be an @mention of
+   `@allbert-assist`). Watch for the agent to confirm the runtime received it.
+
+### Live channel checks (Phase C — server running)
+
+7. 🤖 The agent starts the live server against the manual home and re-runs the
+   doctor (expect `gateway_status=running`). The bot shows **online** (green) in
+   your server member list.
+8. 🧑 **@mention check.** In the allowlisted channel, type `@allbert-assist`,
+   pick the bot from the autocomplete popup so it becomes a blue mention chip,
+   add a short question (e.g. `@allbert-assist what is 2+2?`), press **Enter**.
+   Expect a reply from the bot. 🤖 The agent confirms a `processed` Discord
+   channel-event row for your user id.
+9. 🧑 **DM check.** Open the **member list** on the right (click the people icon
+   top-right if hidden) → click **`allbert-assist`** → in the popup's **Message**
+   box type any text (e.g. `hello allbert`) → **Enter**. This opens a DM with the
+   bot. Expect a reply. 🤖 The agent confirms a `processed` DM channel-event row.
+10. 🧑 **Approve/deny button (mapped clicker).** Send the bot a prompt that needs
+    confirmation — an action that reaches the network, e.g.
+    `@allbert-assist fetch http://127.0.0.1:4052/workspace and summarize it`.
+    Allbert renders an **Approve** / **Deny** button pair. Click **Approve** (or
+    **Deny**) **as your mapped account**. Expect the bot to post the resolved
+    result/decision. 🤖 The agent confirms the callback row is `processed` and the
+    confirmation resolved.
+11. 🧑 **Unmapped-clicker rejection.** Send a **second** confirmation-triggering
+    prompt the same way so a fresh Approve/Deny pair appears. **Before** clicking
+    it from your mapped account, **switch to your second account's session**
+    (the browser/incognito window) and click **Approve** there. Expect an
+    ephemeral "not authorized" style response and **no** resolution. Then, if you
+    like, resolve it properly from the mapped account. 🤖 The agent confirms the
+    unmapped click produced a `rejected` callback row with the second account's
+    external id and the confirmation stayed open until the mapped click.
+12. 🤖 Reconnect/RESUME: the agent restarts the server and inspects the gateway
+    logs. No operator action.
+13. 🤖 Unified history + final token-leak scans + evidence report. No operator
+    action.
+
+### What you actually do, in one line
+
+Set up two account sessions (1–3) → say "`.env` ready" (4) → send the marker
+message (6) → @mention (8) → DM (9) → trigger + approve a confirmation (10) →
+trigger a second one and click it from the unmapped account (11). Everything
+else is the agent.
+
 ## Cleanup / teardown
 
 After validation, tear the sandbox down so no live credential or bot lingers:
