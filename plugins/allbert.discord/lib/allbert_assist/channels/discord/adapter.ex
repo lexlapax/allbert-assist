@@ -18,7 +18,6 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
   alias AllbertAssist.Runtime.Redactor
 
   @provider "discord_gateway"
-  @interaction_deferred_update_message 6
 
   def start_link(opts) do
     case Keyword.fetch(opts, :name) do
@@ -148,17 +147,21 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
   end
 
   defp handle_interaction(fields, state) do
-    with :ok <- acknowledge_interaction(fields, state) do
-      case insert_received_event(fields, "callback") do
-        {:ok, %AllbertAssist.Channels.Event{} = event} ->
-          process_callback(event, fields, state)
+    # The interaction acknowledgement is fired by the gateway transport
+    # (GatewayPort) before this event is forwarded — a Discord protocol
+    # obligation kept off the adapter's serial mailbox so a slow message turn
+    # cannot delay it past the 3s window. The adapter only resolves the business
+    # callback (confirmation), symmetric with the Slack adapter, whose envelope
+    # ack is owned by SocketModePort (M8R3).
+    case insert_received_event(fields, "callback") do
+      {:ok, %AllbertAssist.Channels.Event{} = event} ->
+        process_callback(event, fields, state)
 
-        {:ok, :duplicate} ->
-          {:ok, :duplicate}
+      {:ok, :duplicate} ->
+        {:ok, :duplicate}
 
-        {:error, reason} ->
-          {:error, reason}
-      end
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -257,22 +260,6 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
         Logger.debug("discord callback rejected: #{inspect(Redactor.redact(reason))}")
         {:ok, _event} = mark_rejected_or_failed(event, reason)
         {:ok, :rejected}
-    end
-  end
-
-  defp acknowledge_interaction(fields, state) do
-    with token when is_binary(token) and token != "" <- Map.get(fields, :interaction_token),
-         {:ok, _response} <-
-           Client.interaction_callback(
-             fields.external_event_id,
-             token,
-             %{type: @interaction_deferred_update_message},
-             state.client_opts
-           ) do
-      :ok
-    else
-      {:error, reason} -> {:error, {:interaction_ack_failed, reason}}
-      _missing -> {:error, :missing_interaction_token}
     end
   end
 

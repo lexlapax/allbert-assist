@@ -386,6 +386,102 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert_receive {:tcp_closed, ^invalid_socket}
   end
 
+  test "GatewayPort real includes the guilds intent and ignores unknown intent names (M8R5)" do
+    assert {:ok, _port} =
+             GatewayPort.Real.start_link(
+               owner: self(),
+               token_ref: "secret://channels/discord/bot_token",
+               gateway_url: "wss://gateway.discord.gg",
+               websocket_module: FakeWebSocket
+             )
+
+    assert_receive {:fake_websocket_started, _url, GatewayPort.Real, default_state, _opts}
+    # guilds(1) + guild_messages(512) + direct_messages(4096) + message_content(32768)
+    assert default_state.intents == 37_377
+
+    log =
+      ExUnit.CaptureLog.capture_log([level: :warning], fn ->
+        assert {:ok, _port} =
+                 GatewayPort.Real.start_link(
+                   owner: self(),
+                   token_ref: "secret://channels/discord/bot_token",
+                   gateway_url: "wss://gateway.discord.gg",
+                   websocket_module: FakeWebSocket,
+                   intents: ["guild_messages", "bogus_intent"]
+                 )
+
+        assert_receive {:fake_websocket_started, _url, GatewayPort.Real, unknown_state, _opts}
+
+        # only the known guild_messages(512) survives; the bogus name is dropped, not silently folded
+        assert unknown_state.intents == 512
+      end)
+
+    assert log =~ "unknown intent name"
+    assert log =~ "bogus_intent"
+  end
+
+  test "GatewayPort real reconnects when a heartbeat is not acknowledged (M8R5)" do
+    ref = make_ref()
+    socket = {self(), ref}
+
+    state =
+      gateway_state(%{
+        heartbeat_interval_ms: 60_000,
+        last_heartbeat_acked?: true,
+        conn: fake_gateway_conn(socket)
+      })
+
+    # first heartbeat sends op 1 and marks the connection as awaiting an ack
+    assert {:reply, {:text, heartbeat_json}, sent_state} =
+             GatewayPort.Real.handle_info(:heartbeat, state)
+
+    assert Jason.decode!(heartbeat_json)["op"] == 1
+    refute sent_state.last_heartbeat_acked?
+
+    # an op 11 ack clears the awaiting flag
+    assert {:ok, acked_state} =
+             GatewayPort.Real.handle_frame({:text, Jason.encode!(%{"op" => 11})}, sent_state)
+
+    assert acked_state.last_heartbeat_acked?
+
+    # with no ack, the next heartbeat tick force-closes the zombied socket and reconnects (resumable)
+    assert {:ok, zombie_state} = GatewayPort.Real.handle_info(:heartbeat, sent_state)
+    assert zombie_state.conn.socket == nil
+    assert zombie_state.resume?
+    assert_receive {:fake_gateway_socket_closed, ^ref}
+    assert_receive {:tcp_closed, ^socket}
+  end
+
+  test "GatewayPort real acknowledges interactions at the transport before dispatch (M8R5)" do
+    state = gateway_state(%{client_opts: [mode: :stub, capture_to: self()]})
+
+    interaction = %{
+      "op" => 0,
+      "t" => "INTERACTION_CREATE",
+      "s" => 9,
+      "d" => %{
+        "id" => "gw_int_1",
+        "token" => "interaction-token-secret",
+        "channel_id" => "22222",
+        "user" => %{"id" => "11111"},
+        "data" => %{"custom_id" => "allbert:v1:approve:conf_1"}
+      }
+    }
+
+    assert {:ok, acked_state} =
+             GatewayPort.Real.handle_frame({:text, Jason.encode!(interaction)}, state)
+
+    # the deferred ack (type 6) is fired by the transport, off the adapter's serial
+    # mailbox, so a slow message turn can never delay it past Discord's 3s window...
+    assert_receive {:discord_interaction_callback, "gw_int_1", %{type: 6}}
+    # ...and the event is still forwarded to the adapter for the business callback
+    assert_receive {:discord_gateway_event,
+                    %{"t" => "INTERACTION_CREATE", "d" => %{"id" => "gw_int_1"}}}
+
+    assert acked_state.sequence == 9
+    refute inspect(acked_state) =~ "interaction-token-secret"
+  end
+
   test "adapter handles simulated inbound messages through runtime and thread refs" do
     assert {:ok, adapter} = Adapter.start_link(name: nil, client_opts: [mode: :stub])
 
@@ -567,9 +663,9 @@ defmodule AllbertAssist.Channels.DiscordTest do
     assert {:ok, {:processed, event, [rendered]}} =
              Adapter.simulate_gateway_event(adapter, interaction)
 
-    assert {:discord_interaction_callback, "discord_callback_1", %{type: 6}} =
-             receive_discord_capture()
-
+    # The interaction ack is now a gateway transport obligation (M8R5/B), fired by
+    # GatewayPort before dispatch — covered by the GatewayPort test. simulate_gateway_event
+    # injects directly into the adapter, so only the business callback delivery is observed here.
     assert {:discord_create_message, "22222", payload} = receive_discord_capture()
     assert payload.content =~ "denied"
     assert rendered.content =~ "denied"
@@ -710,8 +806,10 @@ defmodule AllbertAssist.Channels.DiscordTest do
         session_id: "gateway-session-1",
         resume?: false,
         heartbeat_interval_ms: nil,
+        last_heartbeat_acked?: true,
         heartbeat_jitter?: false,
         reconnect_max_backoff_ms: 1_000,
+        client_opts: [],
         conn: nil
       },
       overrides
