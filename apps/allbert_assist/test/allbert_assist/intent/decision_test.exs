@@ -121,7 +121,13 @@ defmodule AllbertAssist.Intent.DecisionTest do
     registered? = AppRegistry.known_app_id?(:stocksage)
 
     unless registered? do
-      assert {:ok, :stocksage} = AppRegistry.register(StockSage.App)
+      # Tolerate a concurrent/serial-neighbour registration: an earlier test's
+      # on_exit unregister may not have completed when this setup runs, so the app
+      # can already be registered. Accept that rather than failing the assert.
+      assert AppRegistry.register(StockSage.App) in [
+               {:ok, :stocksage},
+               {:error, {:app_id_taken, :stocksage}}
+             ]
     end
 
     on_exit(fn ->

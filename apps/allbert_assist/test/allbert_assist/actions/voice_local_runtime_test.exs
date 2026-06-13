@@ -3,13 +3,40 @@ defmodule AllbertAssist.Actions.VoiceLocalRuntimeTest do
   @moduletag :external_runtime_serial
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Paths
   alias AllbertAssist.Settings
 
   setup do
+    # Isolate Settings Central per test. This lane is single-VM serial, but an
+    # earlier serial test can leave an orphan app setting in the shared store
+    # (e.g. a stocksage setting persisted while stocksage was registered, then
+    # the app unregistered), which makes an unrelated Settings.put fail
+    # validation with {:unknown_setting, "stocksage"}. A per-test home gives a
+    # clean store so these checks are order-independent.
+    original_paths = Application.get_env(:allbert_assist, Paths)
+    original_settings = Application.get_env(:allbert_assist, Settings)
+
+    home =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-voice-runtime-test-#{System.unique_integer([:positive])}"
+      )
+
+    Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
     reset_settings()
-    on_exit(&reset_settings/0)
+
+    on_exit(fn ->
+      restore_app_env(Paths, original_paths)
+      restore_app_env(Settings, original_settings)
+      File.rm_rf(home)
+    end)
+
     :ok
   end
+
+  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
+  defp restore_app_env(key, value), do: Application.put_env(:allbert_assist, key, value)
 
   test "doctor action reports Settings Central enablement and Security Central lifecycle decision" do
     assert {:ok, response} = Runner.run("voice_local_runtime_doctor", %{}, context())
