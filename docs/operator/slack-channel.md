@@ -200,58 +200,130 @@ Manual validation before tag:
 
 ## Operator validation walkthrough (every click)
 
-Exhaustive, no-assumptions version for the human operator. "🧑" = you act in
-Slack; "🤖" = a shell command the agent runs (you hand off there). Assumes the
-**Sandbox setup** and **Configure** sections are done and the
-`ALLBERT_SLACK_*` ids/tokens are in your `.env`.
+The complete linear runbook, one atomic action per step, from a blank slate to a
+torn-down sandbox. **🧑 = you do it in the Slack UI; 🤖 = a shell command the
+agent/release engineer runs.** Each 🧑 step ends with the **expected result**.
+This expands *Sandbox setup* / *Configure* above into click-level detail; the
+env-var names match. All app-config steps are at
+[api.slack.com/apps](https://api.slack.com/apps).
 
-### Prepare the second (unmapped) member — for the clicker-rejection check
+### Part 1 — create the app 🧑
 
-1. 🧑 The unmapped clicker is simply a **second human member of the workspace**
-   who is NOT mapped to `alice`. Invite one: in Slack, workspace name →
-   **Invite people to <workspace>** → send the invite → have them accept. (Or use
-   any existing teammate.) Capture their member id as `SLACK_UNMAPPED_USER_ID`
-   (their profile → ⋮ → **Copy member ID**). They click from their own Slack
-   session, so no parallel-login trick is needed (unlike Discord).
+1. Go to [api.slack.com/apps](https://api.slack.com/apps), sign in, click
+   **Create New App**.
+2. In the dialog click **From scratch**.
+3. In **App Name** type `allbert-assist`; under **Pick a workspace to develop
+   your app in** choose your disposable sandbox workspace → **Create App**.
+   *Expected:* the app's **Basic Information** page opens.
 
-### Run the smokes (Phase B)
+### Part 2 — bot token scopes 🧑
 
-2. 🧑 Tell the agent your `.env` is populated.
-3. 🤖 Outbound smoke (`external-smoke -- discord_slack`). 🧑 **Watch your channel**:
-   the bot posts a parent message and a threaded reply — just confirm they appear.
-4. 🤖 Inbound smoke (`external-smoke -- messaging_channel_inbound`). It prints an
-   **exact marker message**. 🧑 From your **mapped account**, in the allowlisted
-   channel, send that exact text (an @mention of the bot).
+4. Left sidebar → **OAuth & Permissions**.
+5. Scroll to **Scopes → Bot Token Scopes** → **Add an OAuth Scope** → add each of
+   **`app_mentions:read`**, **`im:history`**, **`chat:write`** (type each, pick it
+   from the list). *Expected:* all three chips show under Bot Token Scopes. (These
+   are the exact set the doctor checks; missing one → `missing_bot_scopes`.)
 
-### Live channel checks (Phase C — server running)
+### Part 3 — Socket Mode + app-level token 🧑
 
-5. 🤖 Agent starts the live server and re-runs the doctor (expect
-   `socket_mode_status=running`). The bot shows active in your workspace.
-6. 🧑 **@mention check.** In the allowlisted channel type `@allbert-assist`, pick
-   the bot from the autocomplete, add a short question, send. Expect a reply.
-   🤖 Agent confirms a `processed` Slack channel-event row for your user id.
-7. 🧑 **DM check.** Click **`allbert-assist`** in the sidebar (or search it in the
-   DMs section), send any message (e.g. `hello allbert`). Expect a reply. 🤖 Agent
-   confirms a `processed` DM row with `chat=<your D… id>`.
-8. 🧑 **Approve/deny button (mapped clicker).** Send a prompt that needs
-   confirmation, e.g. `@allbert-assist fetch http://127.0.0.1:4052/workspace and
-   summarize it`. Slack renders **Approve**/**Deny** buttons. Click one **as
-   yourself**. Expect the resolved result. 🤖 Agent confirms the callback row is
-   `processed` and the confirmation resolved.
-9. 🧑 **Unmapped-clicker rejection.** Send a **second** confirmation-triggering
-   prompt so a fresh button pair appears. Have the **second (unmapped) member**
-   click **Approve** from *their* Slack before you do. Expect an ephemeral
-   not-authorized response and no resolution. 🤖 Agent confirms a `rejected`
-   callback row with the unmapped member's id and an unresolved confirmation.
-10. 🤖 Unified history + final token-leak scans + evidence report. No operator
-    action.
+6. Left sidebar → **Socket Mode** → toggle **Enable Socket Mode** ON.
+   *Expected:* a prompt may offer to create an app-level token — you can do it
+   here or in the next step.
+7. Left sidebar → **Basic Information** → scroll to **App-Level Tokens** → click
+   **Generate Token and Scopes**.
+8. In the modal: **Token Name** = `allbert-socket`; click **Add Scope** → choose
+   **`connections:write`**; click **Generate**.
+   *Expected:* a token starting `xapp-` is shown.
+9. **Copy** the `xapp-` token into your `.env` as `ALLBERT_SLACK_APP_TOKEN` →
+   **Done**. (Shown once.)
 
-### What you actually do, in one line
+### Part 4 — event subscriptions + interactivity 🧑
 
-Invite/identify a second member (1) → say "`.env` ready" (2) → send the marker
-message (4) → @mention (6) → DM (7) → trigger + approve a confirmation (8) →
-trigger a second and have the unmapped member click it (9). Everything else is
-the agent.
+10. Left sidebar → **Event Subscriptions** → toggle **Enable Events** ON.
+11. Expand **Subscribe to bot events** → **Add Bot User Event** → add
+    **`app_mention`**, then add **`message.im`** → **Save Changes** (bottom-right).
+    *Expected:* both events listed.
+12. Left sidebar → **Interactivity & Shortcuts** → toggle **Interactivity** ON →
+    **Save Changes**. (With Socket Mode on, no Request URL is needed.)
+
+### Part 5 — install + bot token 🧑
+
+13. Left sidebar → **OAuth & Permissions** → **Install to Workspace** (or
+    **Reinstall to Workspace** if you changed scopes) → review → **Allow**.
+    *Expected:* you return to OAuth & Permissions with a **Bot User OAuth Token**.
+14. **Copy** the **Bot User OAuth Token** (`xoxb-…`) into `.env` as
+    `ALLBERT_SLACK_BOT_TOKEN`.
+15. In the Slack workspace, open the test channel and run
+    `/invite @allbert-assist`. *Expected:* the bot joins the channel.
+
+### Part 6 — collect ids (easiest in a browser at app.slack.com) 🧑
+
+16. **Team id** (`ALLBERT_SLACK_TEAM_ID`, `T…`): open Slack in a browser; copy the
+    segment after `/client/` in the URL — `app.slack.com/client/`**`Txxxxxxxx`**`/…`.
+17. **Channel id** (`ALLBERT_SLACK_CHANNEL_ID`, `C…`): right-click the channel in
+    the sidebar → **View channel details** → scroll to the bottom → copy the
+    **Channel ID**.
+18. **Your member id** (`ALLBERT_SLACK_USER_ID`, `U…`): click your avatar →
+    **Profile** → **⋮ (More)** → **Copy member ID**. Maps to `alice`.
+19. **DM id** (`ALLBERT_SLACK_DM_CHANNEL_ID`, `D…`): click **`allbert-assist`** in
+    the sidebar to open the bot DM; in the browser URL copy the
+    `…/client/Txxx/`**`Dxxxxxxxx`** segment. (Used only to confirm the DM check
+    landed; NOT added to the allowlist.)
+
+### Part 7 — prepare the second (unmapped) member 🧑
+
+20. The unmapped clicker is a **second human member of this workspace** who is
+    NOT mapped to `alice`. Invite one: workspace name (top-left) → **Invite people
+    to <workspace>** → send → have them accept. (Or use any existing teammate.)
+    Unlike Discord, they click from their **own** Slack session, so no
+    parallel-login trick is needed.
+21. Capture their member id: click their name/avatar → **View full profile** →
+    **⋮** → **Copy member ID** → `.env` `ALLBERT_SLACK_UNMAPPED_USER_ID`.
+
+### Part 8 — hand off; agent wires up + smokes
+
+22. 🧑 Tell the agent **"`.env` is ready"**.
+23. 🤖 Agent runs the outbound smoke (`external-smoke -- discord_slack`). 🧑
+    **Watch your channel:** the bot posts a parent message and a threaded reply.
+    *Expected:* both appear; nothing to click.
+24. 🤖 Agent runs the inbound smoke (`external-smoke -- messaging_channel_inbound`)
+    and tells you the **exact marker message**. 🧑 From your **mapped account**, in
+    the allowlisted channel, send that exact text (an @mention of the bot).
+    *Expected:* agent reports `socket_mode_hello` and that the runtime saw it.
+
+### Part 9 — live channel checks (Allbert server running)
+
+25. 🤖 Agent starts the live server and re-runs `mix allbert.channels slack
+    doctor`. *Expected:* `socket_mode_status=running`; the bot shows active.
+26. 🧑 **@mention.** In the allowlisted channel type `@allbert-assist`, pick the
+    bot from the autocomplete, add a question, send. *Expected:* the bot replies.
+    🤖 Agent confirms a `processed` Slack event for your user id.
+27. 🧑 **DM.** Click **`allbert-assist`** in the sidebar (Direct Messages section)
+    → send `hello allbert`. *Expected:* the bot replies. 🤖 Agent confirms a
+    `processed` DM row with `chat=<your D… id>`.
+28. 🧑 **Approve a confirmation (mapped).** Send a network-action prompt, e.g.
+    `@allbert-assist fetch http://127.0.0.1:4052/workspace and summarize it`.
+    *Expected:* the bot posts **Approve**/**Deny** buttons. Click **Approve** as
+    yourself. *Expected:* the bot posts the resolved result. 🤖 Agent confirms a
+    `processed` callback row and that the confirmation resolved.
+29. 🧑 **Unmapped clicker is rejected.** Send a **second** network-action prompt so
+    a fresh button pair appears. Have the **second (unmapped) member** click
+    **Approve** from *their* Slack **before** you do. *Expected:* an ephemeral
+    not-authorized response and no resolution. 🤖 Agent confirms a `rejected`
+    callback row with the unmapped member's id and an unresolved confirmation.
+
+### Part 10 — hand off; agent closes out
+
+30. 🤖 Agent renders the **unified history**, runs final **raw-token leak scans**,
+    and reports evidence paths. No operator action.
+
+### What you actually touch, in one line
+
+Create app (1–3) → scopes (4–5) → Socket Mode + `xapp-` token (6–9) → events +
+interactivity (10–12) → install + `xoxb-` token + invite (13–15) → copy ids
+(16–19) → 2nd member (20–21) → "`.env` ready" (22) → marker msg (24) → @mention
+(26) → DM (27) → approve a confirmation (28) → 2nd confirmation clicked by the
+unmapped member (29) → teardown (below). Everything else is the agent.
 
 ## Cleanup / teardown
 
