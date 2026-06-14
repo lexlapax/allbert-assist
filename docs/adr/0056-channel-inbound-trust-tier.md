@@ -24,7 +24,7 @@ parsing or runtime work; the registration/verification handshake (WhatsApp
 `hub.challenge`) is answered without granting authority. Self-hosted operators without a public
 URL use a tunnel; the signed webhook is the only inbound path for these channels.
 `:channel_message_inbound` and all v0.52 invariants apply unchanged. This
-amendment flips to Accepted at the v0.53 closeout milestone. See
+amendment flips to Accepted at v0.53 M10 closeout after release evidence. See
 `docs/plans/v0.53-plan.md`.
 
 This ADR is the **channel** counterpart to ADR 0055 (the public-surface inbound
