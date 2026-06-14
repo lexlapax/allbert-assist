@@ -3202,7 +3202,7 @@ Expected direction:
   Slack providers, and operator manual validation covers live inbound delivery,
   button approval, and unmapped-clicker rejection before the v0.52 tag.
 
-## v0.53: Channel Pack 2 (Matrix, WhatsApp, Signal) + System-Wide Custody/Trust Constructs
+## v0.53: Channel Pack 1 Retro-Validation (Telegram, Email) + Channel Pack 2 (Matrix, WhatsApp, Signal) + System-Wide Custody/Trust Constructs
 
 Plan: `docs/plans/v0.53-plan.md`
 Request flow: `docs/plans/v0.53-request-flow.md`
@@ -3211,9 +3211,10 @@ ADRs: `docs/adr/0056-...` (v0.53 amendment — public signed webhook),
 `docs/adr/0058-key-custody-and-channel-daemon-supervision.md` (NEW),
 `docs/adr/0059-channel-trust-class-and-relay-gating.md` (NEW).
 
-Status: planned; **deepened in the v0.53 first implementation-readiness pass**
-from a skeleton to a deep plan (M0-M10, one large release). Scope: build
-**Matrix + WhatsApp (Cloud API) + Signal (signal-cli daemon)**; **Viber**
+Status: planned; **deepened in the v0.53 implementation-readiness passes** from a
+skeleton to a deep plan (M0-M10, one large release). Scope: first
+retro-validate **Telegram + email** to Discord/Slack live-provider parity, then
+build **Matrix + WhatsApp (Cloud API) + Signal (signal-cli daemon)**; **Viber**
 documented on paper as a validated WhatsApp-twin and **deferred** (~€100/mo
 standing bot fee); **iMessage + SMS parked**. Public protocol interop is v0.51.
 v0.53 now **opens with a Channel Pack 1 retro-validation milestone (M5)**: the
@@ -3229,8 +3230,9 @@ Expected direction:
   - **Key Custody (ADR 0058):** an in-BEAM `:sensitive` decrypt-once secret-
     custody GenServer (0 new deps; `:crypto` + `plug_crypto`) replacing
     decrypt-on-every-read, plus supervised external `signal-cli` daemon custody
-    (muontrap/erlexec, 0600 keys + localhost socket). Explicitly does **not**
-    claim locked/zeroed memory (not achievable on the BEAM).
+    (muontrap/erlexec, 0600 keys + preferred 0600 UNIX socket, or loopback
+    TCP/HTTP only with auth/ACL controls). Explicitly does **not** claim
+    locked/zeroed memory (not achievable on the BEAM).
   - **Channel trust-class gating (ADR 0059):** completes ADR 0057's E2EE-origin
     promise — a `trust_class` field (`:e2ee_origin`/`:server_readable`/`:local`),
     the unified view excludes cross-channel E2EE-origin content by default
@@ -3252,7 +3254,8 @@ Expected direction:
   `typed_command`/`link`/`list`, `:e2ee_origin`.
 - Substrate-first sequencing: Channel Pack 1 retro-validation (M5) and
   constructs (M0-M4) before adapters (M6-M8); pairing/identity/delivery (M9);
-  evals + **required per-platform real-provider live smokes** + closeout (M10).
+  evals + **required Telegram/email and Matrix/WhatsApp/Signal real-provider live
+  smokes** + closeout (M10).
 - Keep SMS, iMessage, and the Viber build parked in `future-features.md`.
 
 ## v0.54: Intent Deepening
