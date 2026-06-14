@@ -42,6 +42,9 @@ defmodule AllbertAssist.Plugins.Email do
   end
 
   @impl true
+  def actions, do: [AllbertAssist.Actions.Channels.EmailDoctor]
+
+  @impl true
   def settings_schema do
     [
       %{key: "channels.email.enabled", type: :boolean},

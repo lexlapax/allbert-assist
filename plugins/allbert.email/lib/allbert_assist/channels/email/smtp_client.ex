@@ -24,8 +24,10 @@ defmodule AllbertAssist.Channels.Email.SmtpClient do
       {"To", Enum.join(List.wrap(to), ", ")},
       {"Subject", sanitize_header(subject)},
       {"Message-ID", "<#{message_id(opts)}>"},
+      {"Date", rfc5322_date(Keyword.get(opts, :date))},
       {"MIME-Version", "1.0"},
-      {"Content-Type", "text/plain; charset=utf-8"}
+      {"Content-Type", "text/plain; charset=utf-8"},
+      {"Content-Transfer-Encoding", "8bit"}
     ]
 
     headers =
@@ -35,7 +37,7 @@ defmodule AllbertAssist.Channels.Email.SmtpClient do
 
     encoded_headers =
       headers
-      |> Enum.map(fn {name, value} -> "#{name}: #{sanitize_header(value)}" end)
+      |> Enum.map(fn {name, value} -> "#{name}: #{encode_header_value(name, value)}" end)
       |> Enum.join("\r\n")
 
     encoded_headers <> "\r\n\r\n" <> body
@@ -66,7 +68,7 @@ defmodule AllbertAssist.Channels.Email.SmtpClient do
 
   defp from_header(address, nil), do: address
   defp from_header(address, ""), do: address
-  defp from_header(address, name), do: "#{sanitize_header(name)} <#{address}>"
+  defp from_header(address, name), do: "#{encode_phrase(name)} <#{sanitize_header(address)}>"
 
   defp maybe_header(headers, _name, nil), do: headers
   defp maybe_header(headers, _name, ""), do: headers
@@ -78,4 +80,32 @@ defmodule AllbertAssist.Channels.Email.SmtpClient do
     |> String.replace(["\r", "\n"], " ")
     |> String.slice(0, 500)
   end
+
+  defp encode_header_value("Subject", value), do: value |> sanitize_header() |> encode_phrase()
+  defp encode_header_value("From", value), do: sanitize_header(value)
+  defp encode_header_value(_name, value), do: sanitize_header(value)
+
+  defp encode_phrase(value) do
+    value = sanitize_header(value)
+
+    if ascii_printable?(value) do
+      value
+    else
+      "=?UTF-8?B?#{Base.encode64(value)}?="
+    end
+  end
+
+  defp ascii_printable?(value) do
+    value
+    |> String.to_charlist()
+    |> Enum.all?(&(&1 in 32..126))
+  end
+
+  defp rfc5322_date(nil), do: DateTime.utc_now() |> rfc5322_date()
+
+  defp rfc5322_date(%DateTime{} = datetime) do
+    Calendar.strftime(datetime, "%a, %d %b %Y %H:%M:%S +0000")
+  end
+
+  defp rfc5322_date(value), do: sanitize_header(value)
 end

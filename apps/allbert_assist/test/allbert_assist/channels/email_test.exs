@@ -113,6 +113,18 @@ defmodule AllbertAssist.Channels.EmailTest do
       assert fields.html_body =~ "<p>HTML hello</p>"
     end
 
+    test "decodes encoded headers and content-transfer-encoded text bodies" do
+      assert {:ok, fields} = Parser.parse_email(encoded_email())
+
+      assert fields.from_address == "alice@example.com"
+      assert fields.subject == "Prüfung"
+      assert fields.text_body == "Prüfung ✓\n"
+
+      assert {:ok, multipart} = Parser.parse_email(multipart_encoded_email())
+      assert multipart.text_body == "Plain hello\n"
+      assert multipart.html_body == "<p>HTML hello</p>\n"
+    end
+
     test "detects typed confirmation commands before quoted reply" do
       assert Parser.detect_command("ALLBERT:APPROVE:conf_123\n> quoted") ==
                {:command, "approve", "conf_123"}
@@ -141,6 +153,24 @@ defmodule AllbertAssist.Channels.EmailTest do
       assert message =~ "Subject: Re: Hi  Bcc: bad@example.com"
       assert message =~ "In-Reply-To: msg-1@example.com"
       assert message =~ "\r\n\r\nbody"
+    end
+
+    test "formats RFC-style date, transfer encoding, and encoded-word headers" do
+      message =
+        SmtpClient.format_message(
+          "allbert@example.com",
+          "alice@example.com",
+          "Café",
+          "body",
+          from_name: "Allbért",
+          date: ~U[2026-06-14 12:00:00Z]
+        )
+
+      assert message =~ "Date: Sun, 14 Jun 2026 12:00:00 +0000"
+      assert message =~ "MIME-Version: 1.0"
+      assert message =~ "Content-Transfer-Encoding: 8bit"
+      assert message =~ "Subject: =?UTF-8?B?"
+      assert message =~ "From: =?UTF-8?B?"
     end
   end
 
@@ -541,6 +571,41 @@ defmodule AllbertAssist.Channels.EmailTest do
 
     <p>HTML hello</p>
     --abc--
+    """
+  end
+
+  defp encoded_email do
+    """
+    From: =?UTF-8?Q?Alice_=C3=84?= <Alice@Example.COM>
+    To: allbert@example.com
+    Subject: =?UTF-8?Q?Pr=C3=BCfung?=
+    Message-ID: <encoded-1@example.com>
+    Content-Type: text/plain; charset=utf-8
+    Content-Transfer-Encoding: quoted-printable
+
+    Pr=C3=BCfung =E2=9C=93
+    """
+  end
+
+  defp multipart_encoded_email do
+    """
+    From: Alice <alice@example.com>
+    To: allbert@example.com
+    Subject: Encoded Multipart
+    Message-ID: <encoded-2@example.com>
+    Content-Type: multipart/alternative; boundary="enc"
+
+    --enc
+    Content-Type: text/plain; charset=utf-8
+    Content-Transfer-Encoding: base64
+
+    UGxhaW4gaGVsbG8K
+    --enc
+    Content-Type: text/html; charset=utf-8
+    Content-Transfer-Encoding: quoted-printable
+
+    <p>HTML hello</p>
+    --enc--
     """
   end
 

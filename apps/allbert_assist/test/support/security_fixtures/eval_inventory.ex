@@ -38,6 +38,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v050b
           | :v051
           | :v052
+          | :v053
 
   @type required_surface ::
           :resource_execution
@@ -3373,6 +3374,26 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :allowed,
       assert: [:runtime_redactor, :no_raw_secret],
       test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
+    },
+    %{
+      id: "email-content-transfer-encoding-decoded-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "real email arrives with encoded headers and transfer-encoded text parts",
+      boundary: :email_mime_decode,
+      expected: :allowed,
+      assert: [:quoted_printable_decoded, :base64_part_decoded, :encoded_words_decoded],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "telegram-callback-data-within-64b-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "Telegram approval buttons exceed provider callback_data byte limits",
+      boundary: :telegram_callback_data_provider_limit,
+      expected: :allowed,
+      assert: [:callback_data_within_limit, :typed_command_fallback],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
     },
     %{
       id: "sandbox-backend-disabled-001",

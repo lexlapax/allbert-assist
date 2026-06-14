@@ -26,11 +26,16 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v050b
       mix allbert.test release.v051
       mix allbert.test release.v052
+      mix allbert.test release.v053
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
       mix allbert.test external-smoke -- docker_sandbox
       mix allbert.test external-smoke -- docker_full_gate
+      mix allbert.test external-smoke -- telegram
+      mix allbert.test external-smoke -- email
+      mix allbert.test external-smoke -- inbound_telegram
+      mix allbert.test external-smoke -- inbound_email
       mix allbert.test external-smoke -- discord
       mix allbert.test external-smoke -- slack
       mix allbert.test external-smoke -- inbound_discord
@@ -109,6 +114,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v050b"]), do: release_v050b()
   def run(["release.v051"]), do: release_v051()
   def run(["release.v052"]), do: release_v052()
+  def run(["release.v053"]), do: release_v053()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -1659,6 +1665,66 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   ]
 
+  @release_v053_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "telegram_email_channel_plugins",
+      title: "Telegram/email retro-validation adapters, MIME, callbacks, and doctors",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/channels/telegram_test.exs",
+        "test/allbert_assist/channels/email_test.exs",
+        "test/allbert_assist/actions/channels/telegram_doctor_test.exs",
+        "test/allbert_assist/actions/channels/email_doctor_test.exs"
+      ],
+      coverage: [
+        "Telegram callback_data provider limit and fallback commands",
+        "email MIME encoded-word, quoted-printable, and base64 body decoding",
+        "provider doctor redacted envelopes and persisted state"
+      ]
+    },
+    %{
+      id: "channel_cli_and_smoke_registration",
+      title: "channel CLI doctors and independent external-smoke selectors",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/mix/tasks/allbert_channels_test.exs",
+        "test/mix/tasks/allbert_test_task_test.exs"
+      ],
+      coverage: [
+        "Telegram/email doctor CLI commands",
+        "external-smoke -- telegram, -- inbound_telegram, -- email, -- inbound_email usage registration",
+        "legacy Discord/Slack independent selectors stay listed"
+      ]
+    },
+    %{
+      id: "channel_pack_v053_eval",
+      title: "v0.53 Channel Pack 1 remediation eval inventory and tests",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v053_channel_pack_eval_test.exs",
+        "test/security/security_eval_case_test.exs"
+      ],
+      coverage: [
+        "email-content-transfer-encoding-decoded-001",
+        "telegram-callback-data-within-64b-001"
+      ]
+    }
+  ]
+
   defp release_v042 do
     env = owned_env("release-v042", 0)
     home = env_value(env, "ALLBERT_HOME")
@@ -2239,6 +2305,57 @@ defmodule Mix.Tasks.Allbert.Test do
     end
   end
 
+  defp release_v053 do
+    env = owned_env("release-v053", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v053")
+    File.mkdir_p!(evidence_dir)
+    cleanup_release_v053_evidence!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v053_steps, &run_release_v053_step(&1, env))
+    secret_scan = release_v053_secret_scan(home)
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v053",
+      version: "v0.53",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; tests use local channel fixtures, Req.Test HTTP fixtures, and no live Telegram/email providers",
+      required_external_smokes: [
+        "mix allbert.test external-smoke -- telegram",
+        "mix allbert.test external-smoke -- inbound_telegram",
+        "mix allbert.test external-smoke -- email",
+        "mix allbert.test external-smoke -- inbound_email"
+      ],
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path =
+      Path.join(evidence_dir, "release-v053-#{DateTime.to_unix(started_at)}.json")
+
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v053 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v053 failed; evidence: #{evidence_path}")
+    end
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -2302,6 +2419,13 @@ defmodule Mix.Tasks.Allbert.Test do
     |> Enum.each(&File.rm!/1)
   end
 
+  defp cleanup_release_v053_evidence!(evidence_dir) do
+    evidence_dir
+    |> Path.join("release-v053-*.json")
+    |> Path.wildcard()
+    |> Enum.each(&File.rm!/1)
+  end
+
   defp run_release_v051_step(step, env) do
     started = System.monotonic_time(:millisecond)
     cwd = release_step_cwd(step.cwd)
@@ -2343,6 +2467,34 @@ defmodule Mix.Tasks.Allbert.Test do
 
     duration_ms = System.monotonic_time(:millisecond) - started
     print_output("release.v052 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
+  defp run_release_v053_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args,
+        cd: cwd,
+        env: env,
+        stderr_to_stdout: true
+      )
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v053 #{step.id}", output)
 
     %{
       id: step.id,
@@ -3184,6 +3336,14 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp release_v052_secret_scan(home) do
+    release_channel_pack_secret_scan(home, "release.v052")
+  end
+
+  defp release_v053_secret_scan(home) do
+    release_channel_pack_secret_scan(home, "release.v053")
+  end
+
+  defp release_channel_pack_secret_scan(home, label) do
     Enum.each(
       [
         Path.join(home, "settings"),
@@ -3233,7 +3393,7 @@ defmodule Mix.Tasks.Allbert.Test do
       findings: findings
     }
 
-    print_output("release.v052 secret_scan", Jason.encode!(result, pretty: true))
+    print_output("#{label} secret_scan", Jason.encode!(result, pretty: true))
     result
   end
 
@@ -3335,6 +3495,10 @@ defmodule Mix.Tasks.Allbert.Test do
     Mix.shell().info("- browser_research_delegate")
     Mix.shell().info("- docker_sandbox")
     Mix.shell().info("- docker_full_gate")
+    Mix.shell().info("- telegram (delivery; Telegram only)")
+    Mix.shell().info("- email (delivery; email only)")
+    Mix.shell().info("- inbound_telegram (inbound; Telegram only)")
+    Mix.shell().info("- inbound_email (inbound; email only)")
     Mix.shell().info("- discord (delivery; Discord only)")
     Mix.shell().info("- slack (delivery; Slack only)")
     Mix.shell().info("- inbound_discord (inbound; Discord only)")
@@ -3384,6 +3548,10 @@ defmodule Mix.Tasks.Allbert.Test do
     )
   end
 
+  defp run_external_smoke(["telegram"]), do: run_delivery_smoke("telegram")
+  defp run_external_smoke(["email"]), do: run_delivery_smoke("email")
+  defp run_external_smoke(["inbound_telegram"]), do: run_inbound_smoke("telegram")
+  defp run_external_smoke(["inbound_email"]), do: run_inbound_smoke("email")
   defp run_external_smoke(["discord"]), do: run_delivery_smoke("discord")
   defp run_external_smoke(["slack"]), do: run_delivery_smoke("slack")
   defp run_external_smoke(["inbound_discord"]), do: run_inbound_smoke("discord")
@@ -3395,7 +3563,7 @@ defmodule Mix.Tasks.Allbert.Test do
     )
   end
 
-  defp run_delivery_smoke(providers) do
+  defp run_delivery_smoke(providers) when providers in ["discord", "slack"] do
     slug = String.replace(providers, ",", "-")
 
     run_cmd!(
@@ -3411,7 +3579,23 @@ defmodule Mix.Tasks.Allbert.Test do
     )
   end
 
-  defp run_inbound_smoke(providers) do
+  defp run_delivery_smoke(providers) when providers in ["telegram", "email"] do
+    slug = String.replace(providers, ",", "-")
+
+    run_cmd!(
+      "external-smoke telegram-email-delivery (#{providers})",
+      app_cwd(:core),
+      "mix",
+      ["test", "test/external/telegram_email_smoke_test.exs"],
+      [
+        {"ALLBERT_TELEGRAM_EMAIL_EXTERNAL_SMOKE", "1"},
+        {"ALLBERT_SMOKE_PROVIDERS", providers}
+        | owned_env("external-smoke-delivery-#{slug}", 0)
+      ]
+    )
+  end
+
+  defp run_inbound_smoke(providers) when providers in ["discord", "slack"] do
     slug = String.replace(providers, ",", "-")
 
     run_cmd!(
@@ -3421,6 +3605,22 @@ defmodule Mix.Tasks.Allbert.Test do
       ["test", "test/external/messaging_channel_inbound_smoke_test.exs"],
       [
         {"ALLBERT_MESSAGING_CHANNEL_INBOUND_EXTERNAL_SMOKE", "1"},
+        {"ALLBERT_SMOKE_PROVIDERS", providers}
+        | owned_env("external-smoke-inbound-#{slug}", 0)
+      ]
+    )
+  end
+
+  defp run_inbound_smoke(providers) when providers in ["telegram", "email"] do
+    slug = String.replace(providers, ",", "-")
+
+    run_cmd!(
+      "external-smoke telegram-email-inbound (#{providers})",
+      app_cwd(:core),
+      "mix",
+      ["test", "test/external/telegram_email_inbound_smoke_test.exs"],
+      [
+        {"ALLBERT_TELEGRAM_EMAIL_INBOUND_EXTERNAL_SMOKE", "1"},
         {"ALLBERT_SMOKE_PROVIDERS", providers}
         | owned_env("external-smoke-inbound-#{slug}", 0)
       ]
@@ -4032,11 +4232,16 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v050b
       mix allbert.test release.v051
       mix allbert.test release.v052
+      mix allbert.test release.v053
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
       mix allbert.test external-smoke -- docker_sandbox
       mix allbert.test external-smoke -- docker_full_gate
+      mix allbert.test external-smoke -- telegram
+      mix allbert.test external-smoke -- email
+      mix allbert.test external-smoke -- inbound_telegram
+      mix allbert.test external-smoke -- inbound_email
       mix allbert.test external-smoke -- discord
       mix allbert.test external-smoke -- slack
       mix allbert.test external-smoke -- inbound_discord

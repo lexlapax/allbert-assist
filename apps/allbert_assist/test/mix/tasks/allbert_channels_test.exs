@@ -18,6 +18,14 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
   alias AllbertAssist.Trace
   alias Mix.Tasks.Allbert.Channels, as: ChannelsTask
 
+  defmodule FakeDoctorImapClient do
+    def connect(_host, _port, opts), do: {:ok, %{opts: opts}}
+    def login(conn, _username, "imap-secret"), do: {:ok, conn}
+    def select_mailbox(conn, _mailbox), do: {:ok, conn}
+    def search_unseen(_conn), do: {:ok, []}
+    def logout(_conn), do: :ok
+  end
+
   setup do
     original_memory_config = Application.get_env(:allbert_assist, Memory)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -25,6 +33,12 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
+
+    original_telegram_doctor_opts =
+      Application.get_env(:allbert_assist, :telegram_doctor_client_opts)
+
+    original_email_doctor_imap_client =
+      Application.get_env(:allbert_assist, :email_doctor_imap_client)
 
     root =
       Path.join(
@@ -35,6 +49,8 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     Application.put_env(:allbert_assist, Paths, home: root)
     Application.put_env(:allbert_assist, Memory, root: Path.join(root, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
+    Application.put_env(:allbert_assist, :telegram_doctor_client_opts, mode: :stub)
+    Application.put_env(:allbert_assist, :email_doctor_imap_client, FakeDoctorImapClient)
     Application.delete_env(:allbert_assist, Trace)
     register_channel_plugins()
 
@@ -54,6 +70,8 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
+      restore_app_env(:telegram_doctor_client_opts, original_telegram_doctor_opts)
+      restore_app_env(:email_doctor_imap_client, original_email_doctor_imap_client)
       Mix.Task.reenable("allbert.channels")
       Fragments.clear_cache()
       File.rm_rf!(root)
@@ -154,6 +172,18 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
     Mix.Task.reenable("allbert.channels")
 
+    email_smtp_output =
+      capture_io(fn ->
+        assert :ok =
+                 ChannelsTask.run(["email", "set-password", "--type", "smtp", "smtp-secret"])
+      end)
+
+    assert email_smtp_output =~ "email smtp_password=stored"
+    refute email_smtp_output =~ "smtp-secret"
+    assert Secrets.status("secret://channels/email/smtp_password") == :configured
+
+    Mix.Task.reenable("allbert.channels")
+
     discord_output =
       capture_io(fn ->
         assert :ok =
@@ -206,6 +236,63 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
     assert get_in(user_settings, ["channels", "slack", "app_token_ref"]) ==
              "secret://channels/slack/app_token"
+  end
+
+  test "telegram and email doctor commands return redacted envelopes" do
+    capture_io(fn ->
+      assert :ok = ChannelsTask.run(["telegram", "set-token", "tg-secret"])
+    end)
+
+    Mix.Task.reenable("allbert.channels")
+
+    telegram_doctor =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["telegram", "doctor"])
+      end)
+
+    assert telegram_doctor =~ "telegram doctor status=ok"
+    assert telegram_doctor =~ "poller="
+    refute telegram_doctor =~ "tg-secret"
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok = ChannelsTask.run(["email", "set-password", "--type", "imap", "imap-secret"])
+    end)
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok = ChannelsTask.run(["email", "set-password", "--type", "smtp", "smtp-secret"])
+    end)
+
+    assert {:ok, _setting} =
+             Settings.put("channels.email.imap_host", "imap.example.com", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("channels.email.smtp_host", "smtp.example.com", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("channels.email.imap_username", "alice", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("channels.email.smtp_username", "alice", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("channels.email.from_address", "allbert@example.com", %{audit?: false})
+
+    Mix.Task.reenable("allbert.channels")
+
+    email_doctor =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["email", "doctor"])
+      end)
+
+    assert email_doctor =~ "email doctor status=ok"
+    assert email_doctor =~ "imap=true"
+    assert email_doctor =~ "smtp=true"
+    refute email_doctor =~ "imap-secret"
+    refute email_doctor =~ "smtp-secret"
   end
 
   test "rejects raw Discord credentials" do
@@ -568,4 +655,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
+  defp restore_app_env(key, value), do: Application.put_env(:allbert_assist, key, value)
 end

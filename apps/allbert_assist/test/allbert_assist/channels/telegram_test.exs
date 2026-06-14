@@ -240,6 +240,43 @@ defmodule AllbertAssist.Channels.TelegramTest do
              |> Enum.any?(&(&1["callback_data"] == "allbert:v1:approve:conf_123"))
     end
 
+    test "keeps inline keyboard callback data within Telegram provider limits" do
+      assert {:ok, confirmation} = create_confirmation!(nil, "telegram")
+
+      handoff = %{
+        confirmation_id: confirmation["id"],
+        status: :pending,
+        target_action: %{action: %{name: "run_skill_script"}}
+      }
+
+      assert {:ok, [_text], %{"inline_keyboard" => buttons}} =
+               Renderer.render_response(%{approval_handoff: handoff})
+
+      buttons
+      |> List.flatten()
+      |> Enum.each(fn button ->
+        assert is_binary(button["text"])
+        assert byte_size(button["callback_data"]) in 1..64
+      end)
+    end
+
+    test "falls back to typed commands when callback data would exceed provider limit" do
+      long_id = "conf_" <> String.duplicate("long", 20)
+
+      handoff = %{
+        confirmation_id: long_id,
+        status: :pending,
+        target_action: %{action: %{name: "run_skill_script"}}
+      }
+
+      assert {:ok, [text], nil} = Renderer.render_response(%{approval_handoff: handoff})
+
+      assert text =~ "Reply with one exact command:"
+      assert text =~ "ALLBERT:APPROVE:#{long_id}"
+      assert text =~ "ALLBERT:DENY:#{long_id}"
+      assert text =~ "ALLBERT:SHOW:#{long_id}"
+    end
+
     test "renders objective snapshot and stale warning for approval handoffs" do
       assert {:ok, objective} =
                Objectives.create_objective(%{
