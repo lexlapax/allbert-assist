@@ -54,9 +54,12 @@ defmodule AllbertAssist.Channels.Slack.Renderer do
                 type: "button",
                 text: %{type: "plain_text", text: Map.get(button, :label), emoji: true},
                 action_id: Map.get(button, :callback_data),
-                value: Map.get(button, :callback_data),
-                style: button_style(Map.get(button, :action))
+                value: Map.get(button, :callback_data)
               }
+              # Slack rejects `"style": null` ("invalid_blocks"); only set style
+              # for approve/deny and omit it entirely for other buttons (e.g.
+              # "show"/details).
+              |> maybe_put_style(button_style(Map.get(button, :action)))
             end)
         }
       ]
@@ -90,6 +93,9 @@ defmodule AllbertAssist.Channels.Slack.Renderer do
   defp button_style(:approve), do: "primary"
   defp button_style(:deny), do: "danger"
   defp button_style(_action), do: nil
+
+  defp maybe_put_style(button, nil), do: button
+  defp maybe_put_style(button, style), do: Map.put(button, :style, style)
 
   defp with_media_outputs(text, runtime_response) do
     outputs =
