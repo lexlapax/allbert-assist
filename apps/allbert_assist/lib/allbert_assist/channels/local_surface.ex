@@ -14,6 +14,7 @@ defmodule AllbertAssist.Channels.LocalSurface do
     provider: "local_cli",
     primitives: [:typed_command, :list],
     threading: :rich,
+    trust_class: :local,
     receiver_account_ref: "cli:default"
   }
 
@@ -22,6 +23,7 @@ defmodule AllbertAssist.Channels.LocalSurface do
     provider: "phoenix_live_view",
     primitives: [:button, :typed_command, :list],
     threading: :rich,
+    trust_class: :local,
     receiver_account_ref: "web:workspace"
   }
 

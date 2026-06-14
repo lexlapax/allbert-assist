@@ -65,8 +65,18 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
     @impl true
     def channels do
       [
-        %{channel_id: "duplicate", primitives: [:list], threading: :flat},
-        %{channel_id: "duplicate", primitives: [:list], threading: :flat}
+        %{
+          channel_id: "duplicate",
+          primitives: [:list],
+          threading: :flat,
+          trust_class: :server_readable
+        },
+        %{
+          channel_id: "duplicate",
+          primitives: [:list],
+          threading: :flat,
+          trust_class: :server_readable
+        }
       ]
     end
   end
@@ -87,7 +97,8 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
     def validate(_opts), do: :ok
 
     @impl true
-    def channels, do: [%{channel_id: "missing_primitives", threading: :flat}]
+    def channels,
+      do: [%{channel_id: "missing_primitives", threading: :flat, trust_class: :server_readable}]
   end
 
   defmodule InvalidPrimitiveChannelPlugin do
@@ -107,7 +118,14 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
 
     @impl true
     def channels,
-      do: [%{channel_id: "invalid_primitive", primitives: [:button], threading: :flat}]
+      do: [
+        %{
+          channel_id: "invalid_primitive",
+          primitives: [:button],
+          threading: :flat,
+          trust_class: :server_readable
+        }
+      ]
   end
 
   defmodule UnknownPrimitiveChannelPlugin do
@@ -127,7 +145,14 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
 
     @impl true
     def channels,
-      do: [%{channel_id: "unknown_primitive", primitives: [:list, :magic], threading: :flat}]
+      do: [
+        %{
+          channel_id: "unknown_primitive",
+          primitives: [:list, :magic],
+          threading: :flat,
+          trust_class: :server_readable
+        }
+      ]
   end
 
   defmodule InvalidThreadingChannelPlugin do
@@ -146,7 +171,62 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
     def validate(_opts), do: :ok
 
     @impl true
-    def channels, do: [%{channel_id: "invalid_threading", primitives: [:list], threading: :magic}]
+    def channels,
+      do: [
+        %{
+          channel_id: "invalid_threading",
+          primitives: [:list],
+          threading: :magic,
+          trust_class: :server_readable
+        }
+      ]
+  end
+
+  defmodule MissingTrustClassChannelPlugin do
+    use AllbertAssist.Plugin
+
+    @impl true
+    def plugin_id, do: "example.missing_trust_class"
+
+    @impl true
+    def display_name, do: "Missing Trust Class"
+
+    @impl true
+    def version, do: "0.1.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def channels,
+      do: [%{channel_id: "missing_trust_class", primitives: [:list], threading: :flat}]
+  end
+
+  defmodule InvalidTrustClassChannelPlugin do
+    use AllbertAssist.Plugin
+
+    @impl true
+    def plugin_id, do: "example.invalid_trust_class"
+
+    @impl true
+    def display_name, do: "Invalid Trust Class"
+
+    @impl true
+    def version, do: "0.1.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def channels,
+      do: [
+        %{
+          channel_id: "invalid_trust_class",
+          primitives: [:list],
+          threading: :flat,
+          trust_class: :mystery
+        }
+      ]
   end
 
   test "validates plugin modules into normalized entries without atomizing ids" do
@@ -213,6 +293,20 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
              Validator.validate_module(InvalidThreadingChannelPlugin)
 
     assert Enum.any?(diagnostics, &(&1.kind == :invalid_channel_threading))
+  end
+
+  test "rejects channel descriptors missing trust_class" do
+    assert {:error, :invalid_plugin, diagnostics} =
+             Validator.validate_module(MissingTrustClassChannelPlugin)
+
+    assert Enum.any?(diagnostics, &(&1.kind == :missing_channel_trust_class))
+  end
+
+  test "rejects channel descriptors with invalid trust_class" do
+    assert {:error, :invalid_plugin, diagnostics} =
+             Validator.validate_module(InvalidTrustClassChannelPlugin)
+
+    assert Enum.any?(diagnostics, &(&1.kind == :invalid_channel_trust_class))
   end
 
   test "normalizes valid skill-only manifests" do

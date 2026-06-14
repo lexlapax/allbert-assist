@@ -2015,6 +2015,7 @@ defmodule AllbertAssist.SettingsTest do
           session_strategy: {:provider_thread, prefix: "ch_#{channel}_"},
           primitives: [:list],
           threading: :native_threads,
+          trust_class: :server_readable,
           status: :enabled,
           child_spec: {Agent, fn -> [] end}
         }

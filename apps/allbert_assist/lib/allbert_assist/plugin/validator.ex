@@ -15,6 +15,7 @@ defmodule AllbertAssist.Plugin.Validator do
   @trust_statuses [:trusted, :pending, :untrusted]
   @approval_primitives [:button, :typed_command, :link, :list]
   @threading_capabilities [:native_threads, :reply_chain, :flat, :rich]
+  @channel_trust_classes [:e2ee_origin, :server_readable, :local]
 
   @spec validate_module(module(), keyword() | map()) ::
           {:ok, Entry.t()} | {:error, term(), [map()]}
@@ -260,6 +261,7 @@ defmodule AllbertAssist.Plugin.Validator do
       |> validate_channel_descriptor_map(descriptor)
       |> validate_channel_primitives(descriptor)
       |> validate_channel_threading(descriptor)
+      |> validate_channel_trust_class(descriptor)
     end)
   end
 
@@ -347,6 +349,39 @@ defmodule AllbertAssist.Plugin.Validator do
   end
 
   defp validate_channel_threading(diagnostics, _descriptor), do: diagnostics
+
+  defp validate_channel_trust_class(diagnostics, descriptor) when is_map(descriptor) do
+    trust_class = Map.get(descriptor, :trust_class, Map.get(descriptor, "trust_class"))
+
+    cond do
+      trust_class in @channel_trust_classes ->
+        diagnostics
+
+      is_nil(trust_class) ->
+        [
+          diagnostic(
+            :error,
+            :missing_channel_trust_class,
+            "Channel descriptor missing trust_class.",
+            allowed: @channel_trust_classes
+          )
+          | diagnostics
+        ]
+
+      true ->
+        [
+          diagnostic(
+            :error,
+            :invalid_channel_trust_class,
+            "Channel descriptor has invalid trust_class.",
+            allowed: @channel_trust_classes
+          )
+          | diagnostics
+        ]
+    end
+  end
+
+  defp validate_channel_trust_class(diagnostics, _descriptor), do: diagnostics
 
   defp duplicate_contribution_diagnostics(diagnostics, module) do
     diagnostics ++
