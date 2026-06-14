@@ -181,6 +181,91 @@ defmodule AllbertAssist.Conversations.ChannelThreadTest do
     assert flat.strategy == :flat_stream
   end
 
+  test "resolves timestamp reply keys for Signal-style quote targets" do
+    aci = "550e8400-e29b-41d4-a716-446655440000"
+
+    assert {:ok, target} =
+             ChannelThread.resolve_reply_target(
+               %{
+                 channel: "signal",
+                 receiver_account_ref: "signal:primary",
+                 provider_thread_ref: %{
+                   "author_aci" => aci,
+                   "message_timestamp_ms" => 1_718_040_000_000
+                 },
+                 trust_class: :e2ee_origin
+               },
+               %{threading: :reply_chain, reply_key_type: :timestamp}
+             )
+
+    assert target.strategy == :reply_chain
+    assert target.threading == :reply_chain
+    assert target.reply_key_type == :timestamp
+
+    assert target.reply_key == %{
+             type: :timestamp,
+             timestamp_ms: 1_718_040_000_000,
+             author_ref: aci
+           }
+
+    assert target.trust_class == :e2ee_origin
+    assert target.degradation == :none
+  end
+
+  test "degrades expired quote windows to flat stream without changing the provider key" do
+    quoted_at = ~U[2026-01-01 00:00:00Z]
+    checked_at = ~U[2026-01-03 00:00:01Z]
+
+    ref = %{
+      channel: "whatsapp",
+      receiver_account_ref: "whatsapp:waba:123:phone:[REDACTED_PHONE]",
+      provider_thread_ref: %{
+        "context_message_id" => "wamid.HBgM",
+        "message_timestamp_ms" => DateTime.to_unix(quoted_at, :millisecond)
+      },
+      now: checked_at
+    }
+
+    assert {:ok, target} =
+             ChannelThread.resolve_reply_target(ref, %{
+               threading: :reply_chain,
+               reply_key_type: :opaque_id,
+               quote_ttl_ms: 86_400_000
+             })
+
+    assert target.strategy == :flat_stream
+    assert target.threading == :flat
+    assert target.declared_threading == :reply_chain
+    assert target.reply_key_type == :opaque_id
+    assert target.degradation == :quote_ttl_expired
+    assert target.quote_window.expired? == true
+    assert target.quote_window.ttl_ms == 86_400_000
+
+    assert target.provider_thread_key ==
+             ChannelThread.provider_thread_key(ref.provider_thread_ref)
+  end
+
+  test "requires Signal identity links to use ACI UUIDs instead of phone numbers" do
+    aci = "550e8400-e29b-41d4-a716-446655440000"
+
+    attrs = %{
+      link_id: "link_signal_alice",
+      user_id: "alice",
+      channel: "signal",
+      receiver_account_ref: "signal:primary",
+      external_user_id: aci
+    }
+
+    assert {:ok, link} = ChannelThread.link_identity(attrs)
+    assert link.external_user_id == aci
+
+    assert {:error, {:invalid_signal_identity, :aci_required}} =
+             ChannelThread.link_identity(%{attrs | external_user_id: "+15551234567"})
+
+    assert {:error, {:invalid_signal_identity, :aci_required}} =
+             ChannelThread.link_identity(%{attrs | external_user_id: "pni:550e8400"})
+  end
+
   test "identity links are explicit durable rows and duplicate-safe" do
     slack_attrs = %{
       link_id: "link_alice",

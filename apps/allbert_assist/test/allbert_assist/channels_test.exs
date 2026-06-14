@@ -51,6 +51,31 @@ defmodule AllbertAssist.ChannelsTest do
       assert updated.trace_id == "trace_1"
     end
 
+    test "redacts phone numbers before channel events are persisted" do
+      assert {:ok, %Event{} = event} =
+               Channels.create_event(%{
+                 channel: "signal",
+                 provider: "signal_cli",
+                 direction: "inbound",
+                 external_event_id: "signal-phone-redaction",
+                 external_user_id: "+15551234567",
+                 external_chat_id: "signal:+15557654321",
+                 external_message_id: "msg:+442071838750",
+                 status: "received",
+                 payload_summary: "from +15551234567"
+               })
+
+      assert event.external_user_id == "[REDACTED_PHONE]"
+      assert event.external_chat_id == "signal:[REDACTED_PHONE]"
+      assert event.external_message_id == "msg:[REDACTED_PHONE]"
+      assert event.payload_summary == "from [REDACTED_PHONE]"
+
+      persisted = Repo.get!(Event, event.id)
+      refute inspect(persisted) =~ "+15551234567"
+      refute inspect(persisted) =~ "+15557654321"
+      refute inspect(persisted) =~ "+442071838750"
+    end
+
     test "dedupes inbound and callback provider events by channel and external id" do
       attrs = %{
         channel: "telegram",

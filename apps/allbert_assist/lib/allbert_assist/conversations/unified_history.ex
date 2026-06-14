@@ -179,7 +179,7 @@ defmodule AllbertAssist.Conversations.UnifiedHistory do
   defp message_ref_view(%ConversationMessageRef{} = ref) do
     %{
       channel: ref.channel,
-      receiver_account_ref: ref.receiver_account_ref,
+      receiver_account_ref: Redactor.redact(ref.receiver_account_ref, :live_view),
       provider_message_id: Redactor.redact(ref.provider_message_id, :live_view),
       part_id: ref.part_id,
       direction: ref.direction,
@@ -190,7 +190,7 @@ defmodule AllbertAssist.Conversations.UnifiedHistory do
   defp thread_ref_view(%ThreadChannelRef{} = ref) do
     %{
       channel: ref.channel,
-      receiver_account_ref: ref.receiver_account_ref,
+      receiver_account_ref: Redactor.redact(ref.receiver_account_ref, :live_view),
       provider_thread_key: ref.provider_thread_key,
       provider_thread_ref: Redactor.redact(ref.provider_thread_ref || %{}, :live_view),
       trust_class: trust_class_atom(ref.trust_class)
@@ -217,7 +217,7 @@ defmodule AllbertAssist.Conversations.UnifiedHistory do
 
       %{
         channel: channel,
-        receiver_account_ref: receiver_account_ref,
+        receiver_account_ref: Redactor.redact(receiver_account_ref, :live_view),
         message_ref_count: length(refs),
         thread_ref_count: thread_ref_count,
         directions: refs |> Enum.map(& &1.direction) |> Enum.uniq() |> Enum.sort(),
