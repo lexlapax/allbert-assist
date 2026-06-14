@@ -75,7 +75,7 @@ defmodule AllbertAssist.Security.Redactor do
     end)
   end
 
-  def redact(list) when is_list(list), do: Enum.map(list, &redact/1)
+  def redact(list) when is_list(list), do: redact_list(list)
 
   def redact("secret://" <> _rest), do: @secret_ref
 
@@ -89,6 +89,14 @@ defmodule AllbertAssist.Security.Redactor do
   end
 
   def redact(value), do: value
+
+  # Redaction is a safety facade and must be total — it must never raise and take
+  # down a caller (e.g. a channel adapter). `Enum.map/2` raises on an improper
+  # list (tail is not `[]`), so recurse manually and redact a non-list tail
+  # rather than crashing. Proper lists behave exactly as before.
+  defp redact_list([head | tail]) when is_list(tail), do: [redact(head) | redact_list(tail)]
+  defp redact_list([head | tail]), do: [redact(head), redact(tail)]
+  defp redact_list([]), do: []
 
   @doc "Return a short posture summary suitable for operator status."
   @spec posture() :: posture()
