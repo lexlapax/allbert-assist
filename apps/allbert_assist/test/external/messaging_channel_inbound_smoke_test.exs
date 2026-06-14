@@ -70,7 +70,6 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
     original_plugins = PluginRegistry.registered_plugins()
-    parent = self()
 
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
@@ -81,12 +80,10 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
     if "slack" in providers, do: {:ok, _} = PluginRegistry.register_module(SlackPlugin)
     Fragments.clear_cache()
 
-    Application.put_env(:allbert_assist, Runtime,
-      agent_runner: fn _signal, request ->
-        Kernel.send(parent, {:runtime_request, request})
-        {:ok, %{message: "Inbound smoke received: #{request.text}", status: :completed}}
-      end
-    )
+    # NOTE: the agent_runner that notifies the waiter is installed in `setup`
+    # (per-test), NOT here — setup_all runs in a different process, so capturing
+    # `self()` here would send the runtime notification to the wrong process and
+    # the test's receive would never see it.
 
     Mix.Task.reenable("ecto.migrate.allbert")
     Mix.Task.run("ecto.migrate.allbert", ["--quiet"])
@@ -142,6 +139,18 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
     # Use 1h, comfortably above ALLBERT_MESSAGING_CHANNEL_INBOUND_TIMEOUT_MS.
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo, ownership_timeout: 3_600_000)
     Ecto.Adapters.SQL.Sandbox.mode(Repo, {:shared, self()})
+
+    # Install the agent_runner HERE (setup runs in the test process) so the
+    # {:runtime_request, _} notification reaches the process that waits on it.
+    parent = self()
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        Kernel.send(parent, {:runtime_request, request})
+        {:ok, %{message: "Inbound smoke received: #{request.text}", status: :completed}}
+      end
+    )
+
     :ok
   end
 
@@ -170,7 +179,8 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
     expected_channels =
       [] ++ if(discord?, do: ["discord"], else: []) ++ if(slack?, do: ["slack"], else: [])
 
-    requests = wait_for_runtime_requests(expected_channels, marker, context.timeout_ms)
+    requests =
+      wait_for_runtime_requests(expected_channels, marker, context.timeout_ms, context.home)
 
     discord_evidence =
       if discord? do
@@ -340,12 +350,12 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
     end
   end
 
-  defp wait_for_runtime_requests(channels, marker, timeout_ms) do
+  defp wait_for_runtime_requests(channels, marker, timeout_ms, home) do
     deadline = System.monotonic_time(:millisecond) + timeout_ms
-    do_wait_for_runtime_requests(MapSet.new(channels), marker, deadline, %{})
+    do_wait_for_runtime_requests(MapSet.new(channels), marker, deadline, %{}, home)
   end
 
-  defp do_wait_for_runtime_requests(expected, marker, deadline, found) do
+  defp do_wait_for_runtime_requests(expected, marker, deadline, found, home) do
     if MapSet.size(expected) == 0 do
       found
     else
@@ -360,18 +370,57 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
               MapSet.delete(expected, channel),
               marker,
               deadline,
-              Map.put(found, channel, request)
+              Map.put(found, channel, request),
+              home
             )
           else
-            do_wait_for_runtime_requests(expected, marker, deadline, found)
+            do_wait_for_runtime_requests(expected, marker, deadline, found, home)
           end
       after
         remaining ->
+          # No matching runtime request arrived. Dump what the adapters actually
+          # recorded (channel_events: received/rejected + reason) so a silent miss
+          # is diagnosable despite buffered stdout. Uses the shared sandbox
+          # connection, so it sees rows the adapter processes inserted.
+          diag = dump_inbound_diagnostics(home)
+
           flunk(
-            "timed out waiting for inbound runtime requests from #{inspect(MapSet.to_list(expected))}"
+            "timed out waiting for inbound runtime requests from " <>
+              "#{inspect(MapSet.to_list(expected))}\n--- recorded channel_events ---\n#{diag}"
           )
       end
     end
+  end
+
+  defp dump_inbound_diagnostics(home) do
+    import Ecto.Query
+
+    rows =
+      Repo.all(
+        from(e in AllbertAssist.Channels.Event,
+          order_by: [desc: e.inserted_at],
+          limit: 20
+        )
+      )
+
+    text =
+      if rows == [] do
+        "(none — the adapters recorded NO inbound channel_events; the Gateway/" <>
+          "Socket Mode delivered nothing the adapter processed — check intents, " <>
+          "channel/guild allowlist match, and that the message reached the channel)"
+      else
+        Enum.map_join(rows, "\n", fn e ->
+          "#{e.inserted_at} channel=#{e.channel} dir=#{e.direction} " <>
+            "status=#{e.status} ext_user=#{e.external_user_id} " <>
+            "ext_chat=#{e.external_chat_id} reason=#{e.reason}"
+        end)
+      end
+
+    path = Path.join(home, "inbound-diagnostics.txt")
+    File.mkdir_p!(home)
+    File.write!(path, text)
+    IO.puts("inbound diagnostics written: #{path}")
+    text
   end
 
   defp matching_request?(request, expected, marker) do
