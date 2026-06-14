@@ -61,6 +61,27 @@ defmodule AllbertAssist.Runtime.RedactorTest do
     assert Redactor.redact(payload, :sandbox_trial) == Redactor.redact(payload)
   end
 
+  test "redacts E.164 phone numbers across runtime surfaces" do
+    payload = %{
+      external_user_id: "+15551234567",
+      receiver_account_ref: "signal:+15557654321",
+      nested: [
+        "sms from +442071838750",
+        %{safe_id: "550e8400-e29b-41d4-a716-446655440000"}
+      ]
+    }
+
+    redacted = Redactor.redact(payload, :traces)
+
+    assert redacted.external_user_id == "[REDACTED_PHONE]"
+    assert redacted.receiver_account_ref == "signal:[REDACTED_PHONE]"
+    assert hd(redacted.nested) == "sms from [REDACTED_PHONE]"
+    assert inspect(redacted) =~ "[REDACTED_PHONE]"
+    refute inspect(redacted) =~ "+15551234567"
+    refute inspect(redacted) =~ "+15557654321"
+    refute inspect(redacted) =~ "+442071838750"
+  end
+
   test "audio metadata redaction drops raw payloads and local paths" do
     redacted =
       Redactor.redact_audio_metadata(%{

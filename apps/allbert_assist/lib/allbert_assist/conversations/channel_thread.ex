@@ -21,6 +21,29 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   @hash_prefix "ptk_"
   @default_trust_class "server_readable"
   @trust_classes ~w[e2ee_origin server_readable local]
+  @reply_key_types [:opaque_id, :timestamp]
+  @timestamp_keys ~w[
+    message_timestamp_ms
+    quote_timestamp_ms
+    sent_at_ms
+    timestamp_ms
+    message_timestamp
+    timestamp
+    thread_ts
+    ts
+  ]
+  @author_keys ~w[
+    author_aci
+    sender_aci
+    from_aci
+    source_aci
+    aci
+    author_ref
+    sender_ref
+    external_user_id
+    from
+  ]
+  @aci_regex ~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
   @type normalized_ref :: %{
           owner_scope: String.t(),
@@ -192,11 +215,17 @@ defmodule AllbertAssist.Conversations.ChannelThread do
            %{
              strategy: :flat_stream | :native_thread | :reply_chain | :rich_surface,
              threading: :flat | :native_threads | :reply_chain | :rich,
+             declared_threading: :flat | :native_threads | :reply_chain | :rich,
              channel: binary(),
              receiver_account_ref: binary(),
              provider_thread_key: binary(),
              provider_thread_ref: map(),
-             trust_class: atom()
+             trust_class: atom(),
+             reply_key_type: :opaque_id | :timestamp,
+             reply_key: map(),
+             quote_ttl_ms: pos_integer() | nil,
+             quote_window: map() | nil,
+             degradation: :none | :quote_ttl_expired
            }}
           | {:error,
              :invalid_channel_thread_ref
@@ -206,16 +235,27 @@ defmodule AllbertAssist.Conversations.ChannelThread do
              | :missing_required_string}
   def resolve_reply_target(attrs, descriptor) when is_map(attrs) and is_map(descriptor) do
     with {:ok, ref} <- normalize_ref(attrs),
-         {:ok, threading} <- threading_capability(descriptor) do
+         {:ok, declared_threading} <- threading_capability(descriptor),
+         {:ok, reply_key_type} <- reply_key_type(descriptor),
+         {:ok, quote_ttl_ms} <- quote_ttl_ms(descriptor) do
+      quote_window = quote_window(ref.provider_thread_ref, quote_ttl_ms, attrs, descriptor)
+      threading = effective_threading(declared_threading, quote_window)
+
       {:ok,
        %{
          strategy: reply_strategy(threading),
          threading: threading,
+         declared_threading: declared_threading,
          channel: ref.channel,
          receiver_account_ref: ref.receiver_account_ref,
          provider_thread_key: ref.provider_thread_key,
          provider_thread_ref: ref.provider_thread_ref,
-         trust_class: trust_class_atom(ref.trust_class)
+         trust_class: trust_class_atom(ref.trust_class),
+         reply_key_type: reply_key_type,
+         reply_key: reply_key(reply_key_type, ref),
+         quote_ttl_ms: quote_ttl_ms,
+         quote_window: quote_window,
+         degradation: degradation(declared_threading, threading, quote_window)
        }}
     end
   end
@@ -225,18 +265,20 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   def link_identity(attrs) when is_map(attrs) do
     attrs = normalize_identity_link_attrs(attrs)
 
-    case Repo.get_by(CrossChannelIdentityLink, identity_link_keys(attrs)) do
-      nil ->
-        %CrossChannelIdentityLink{}
-        |> CrossChannelIdentityLink.changeset(attrs)
-        |> Repo.insert()
+    with :ok <- validate_identity_link(attrs) do
+      case Repo.get_by(CrossChannelIdentityLink, identity_link_keys(attrs)) do
+        nil ->
+          %CrossChannelIdentityLink{}
+          |> CrossChannelIdentityLink.changeset(attrs)
+          |> Repo.insert()
 
-      %CrossChannelIdentityLink{user_id: existing_user_id} = existing
-      when existing_user_id == attrs.user_id ->
-        {:ok, existing}
+        %CrossChannelIdentityLink{user_id: existing_user_id} = existing
+        when existing_user_id == attrs.user_id ->
+          {:ok, existing}
 
-      %CrossChannelIdentityLink{} = existing ->
-        {:error, {:identity_link_conflict, existing.user_id}}
+        %CrossChannelIdentityLink{} = existing ->
+          {:error, {:identity_link_conflict, existing.user_id}}
+      end
     end
   end
 
@@ -363,6 +405,66 @@ defmodule AllbertAssist.Conversations.ChannelThread do
     end
   end
 
+  defp reply_key_type(descriptor) do
+    case field(descriptor, :reply_key_type) do
+      nil -> {:ok, :opaque_id}
+      value when value in @reply_key_types -> {:ok, value}
+      value when value in ["opaque_id", "timestamp"] -> {:ok, String.to_existing_atom(value)}
+      value -> {:error, {:invalid_reply_key_type, value}}
+    end
+  end
+
+  defp quote_ttl_ms(descriptor) do
+    case field(descriptor, :quote_ttl_ms) do
+      nil -> {:ok, nil}
+      value when is_integer(value) and value > 0 -> {:ok, value}
+      value -> {:error, {:invalid_quote_ttl_ms, value}}
+    end
+  end
+
+  defp quote_window(_provider_thread_ref, nil, _attrs, _descriptor), do: nil
+
+  defp quote_window(provider_thread_ref, ttl_ms, attrs, descriptor) do
+    checked_at = resolver_now(attrs, descriptor)
+    quoted_at = quoted_at(provider_thread_ref)
+    expires_at = if quoted_at, do: DateTime.add(quoted_at, ttl_ms, :millisecond)
+
+    expired? =
+      case quoted_at do
+        %DateTime{} -> DateTime.diff(checked_at, quoted_at, :millisecond) > ttl_ms
+        nil -> false
+      end
+
+    %{
+      ttl_ms: ttl_ms,
+      quoted_at: iso8601_or_nil(quoted_at),
+      checked_at: iso8601_or_nil(checked_at),
+      expires_at: iso8601_or_nil(expires_at),
+      expired?: expired?
+    }
+  end
+
+  defp effective_threading(:reply_chain, %{expired?: true}), do: :flat
+  defp effective_threading(threading, _quote_window), do: threading
+
+  defp degradation(:reply_chain, :flat, %{expired?: true}), do: :quote_ttl_expired
+  defp degradation(_declared_threading, _threading, _quote_window), do: :none
+
+  defp reply_key(:opaque_id, ref) do
+    %{
+      type: :opaque_id,
+      key: ref.provider_thread_key
+    }
+  end
+
+  defp reply_key(:timestamp, ref) do
+    %{
+      type: :timestamp,
+      timestamp_ms: timestamp_ms(ref.provider_thread_ref),
+      author_ref: first_string_value(ref.provider_thread_ref, @author_keys)
+    }
+  end
+
   defp reply_strategy(:native_threads), do: :native_thread
   defp reply_strategy(:reply_chain), do: :reply_chain
   defp reply_strategy(:flat), do: :flat_stream
@@ -409,7 +511,45 @@ defmodule AllbertAssist.Conversations.ChannelThread do
     |> Map.update(:channel, nil, &normalize_string/1)
     |> Map.update(:receiver_account_ref, nil, &normalize_string/1)
     |> Map.update(:external_user_id, nil, &normalize_string/1)
+    |> normalize_signal_identity()
   end
+
+  defp validate_identity_link(%{channel: channel, external_user_id: external_user_id})
+       when is_binary(channel) do
+    if signal_channel?(channel) and not valid_signal_aci?(external_user_id) do
+      {:error, {:invalid_signal_identity, :aci_required}}
+    else
+      :ok
+    end
+  end
+
+  defp validate_identity_link(_attrs), do: :ok
+
+  defp normalize_signal_identity(%{channel: channel, external_user_id: external_user_id} = attrs)
+       when is_binary(channel) and is_binary(external_user_id) do
+    if signal_channel?(channel) do
+      Map.put(attrs, :external_user_id, normalize_signal_aci(external_user_id))
+    else
+      attrs
+    end
+  end
+
+  defp normalize_signal_identity(attrs), do: attrs
+
+  defp signal_channel?(channel), do: String.downcase(channel) == "signal"
+
+  defp normalize_signal_aci(value) do
+    value = normalize_string(value)
+
+    if String.starts_with?(String.downcase(value), "aci:") do
+      value |> String.split(":", parts: 2) |> List.last() |> normalize_string()
+    else
+      value
+    end
+  end
+
+  defp valid_signal_aci?(value) when is_binary(value), do: Regex.match?(@aci_regex, value)
+  defp valid_signal_aci?(_value), do: false
 
   defp maybe_filter(query, _field, value) when value in [nil, ""], do: query
   defp maybe_filter(query, :link_id, value), do: where(query, [link], link.link_id == ^value)
@@ -465,6 +605,158 @@ defmodule AllbertAssist.Conversations.ChannelThread do
 
   defp normalize_optional_string(nil), do: nil
   defp normalize_optional_string(value), do: normalize_string(value)
+
+  defp resolver_now(attrs, descriptor) do
+    value =
+      field(attrs, :now) ||
+        field(attrs, :checked_at) ||
+        field(descriptor, :now) ||
+        DateTime.utc_now()
+
+    normalize_datetime(value)
+  end
+
+  defp quoted_at(provider_thread_ref) do
+    provider_thread_ref
+    |> timestamp_ms()
+    |> case do
+      nil -> nil
+      timestamp_ms -> DateTime.from_unix!(timestamp_ms, :millisecond)
+    end
+  end
+
+  defp timestamp_ms(value) do
+    value
+    |> first_value(@timestamp_keys)
+    |> normalize_timestamp_ms()
+  end
+
+  defp first_string_value(value, keys) do
+    case first_value(value, keys) do
+      nil ->
+        nil
+
+      value ->
+        case normalize_string(value) do
+          "" -> nil
+          string -> string
+        end
+    end
+  end
+
+  defp first_value(%{} = map, keys) do
+    direct =
+      keys
+      |> Enum.find_value(&map_get_string_or_existing_atom(map, &1))
+
+    cond do
+      not is_nil(direct) ->
+        direct
+
+      true ->
+        map
+        |> Map.values()
+        |> Enum.find_value(&first_value(&1, keys))
+    end
+  end
+
+  defp first_value(list, keys) when is_list(list),
+    do: Enum.find_value(list, &first_value(&1, keys))
+
+  defp first_value(_value, _keys), do: nil
+
+  defp map_get_string_or_existing_atom(map, key) do
+    case Map.fetch(map, key) do
+      {:ok, value} ->
+        value
+
+      :error ->
+        try do
+          Map.get(map, String.to_existing_atom(key))
+        rescue
+          ArgumentError -> nil
+        end
+    end
+  end
+
+  defp normalize_datetime(%DateTime{} = datetime), do: datetime
+
+  defp normalize_datetime(%NaiveDateTime{} = datetime) do
+    DateTime.from_naive!(datetime, "Etc/UTC")
+  end
+
+  defp normalize_datetime(value) when is_integer(value) do
+    value
+    |> normalize_timestamp_ms()
+    |> DateTime.from_unix!(:millisecond)
+  end
+
+  defp normalize_datetime(value) when is_binary(value) do
+    case DateTime.from_iso8601(String.trim(value)) do
+      {:ok, datetime, _offset} -> datetime
+      {:error, _reason} -> DateTime.utc_now()
+    end
+  end
+
+  defp normalize_datetime(_value), do: DateTime.utc_now()
+
+  defp normalize_timestamp_ms(nil), do: nil
+
+  defp normalize_timestamp_ms(value) when is_integer(value) do
+    if abs(value) >= 10_000_000_000 do
+      value
+    else
+      value * 1_000
+    end
+  end
+
+  defp normalize_timestamp_ms(value) when is_float(value) do
+    if abs(value) >= 10_000_000_000 do
+      trunc(value)
+    else
+      trunc(value * 1_000)
+    end
+  end
+
+  defp normalize_timestamp_ms(value) when is_binary(value) do
+    value = String.trim(value)
+
+    cond do
+      value == "" ->
+        nil
+
+      true ->
+        parse_timestamp_string(value)
+    end
+  end
+
+  defp normalize_timestamp_ms(_value), do: nil
+
+  defp iso8601_or_nil(%DateTime{} = datetime), do: DateTime.to_iso8601(datetime)
+  defp iso8601_or_nil(nil), do: nil
+
+  defp parse_timestamp_string(value) do
+    case Integer.parse(value) do
+      {integer, ""} ->
+        normalize_timestamp_ms(integer)
+
+      _integer_error ->
+        parse_timestamp_float_or_iso8601(value)
+    end
+  end
+
+  defp parse_timestamp_float_or_iso8601(value) do
+    case Float.parse(value) do
+      {float, ""} ->
+        normalize_timestamp_ms(float)
+
+      _float_error ->
+        case DateTime.from_iso8601(value) do
+          {:ok, datetime, _offset} -> DateTime.to_unix(datetime, :millisecond)
+          {:error, _reason} -> nil
+        end
+    end
+  end
 
   defp normalize_string(value) do
     value

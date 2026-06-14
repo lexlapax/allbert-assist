@@ -82,6 +82,61 @@ defmodule AllbertAssist.Conversations.UnifiedHistoryTest do
     refute inspect(history) =~ "sk-secret123"
   end
 
+  test "redacts phone numbers in unified history content and channel refs" do
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Phone redaction")
+    assert {:ok, message} = Conversations.append_user_message(thread, "text from +15551234567")
+
+    phone_ref = %{
+      channel: "signal",
+      receiver_account_ref: "signal:+15557654321",
+      provider_thread_ref: %{
+        "thread_id" => "signal-phone",
+        "aci" => "550e8400-e29b-41d4-a716-446655440000",
+        "phone" => "+442071838750"
+      },
+      trust_class: :e2ee_origin
+    }
+
+    assert {:ok, _message_ref} =
+             phone_ref
+             |> Map.merge(%{
+               canonical_thread_id: thread.id,
+               canonical_message_id: message.id,
+               provider_message_id: "msg:+15551234567",
+               direction: :in
+             })
+             |> ChannelThread.record_message_ref()
+
+    assert {:ok, _thread_ref} =
+             phone_ref
+             |> Map.put(:canonical_thread_id, thread.id)
+             |> ChannelThread.link_thread()
+
+    assert {:ok, history} =
+             UnifiedHistory.show_thread("alice", thread.id,
+               viewer_channel: "cli",
+               include_e2ee_origin: true,
+               audit_context: %{actor: "alice", channel: "cli"}
+             )
+
+    assert [view] = history.messages
+    assert view.content == "text from [REDACTED_PHONE]"
+    assert [message_ref] = view.channel_refs
+    assert message_ref.receiver_account_ref == "signal:[REDACTED_PHONE]"
+    assert message_ref.provider_message_id == "msg:[REDACTED_PHONE]"
+
+    assert [thread_ref] = history.thread_refs
+    assert thread_ref.receiver_account_ref == "signal:[REDACTED_PHONE]"
+    assert thread_ref.provider_thread_ref["phone"] == "[REDACTED_PHONE]"
+
+    assert [channel] = history.channels
+    assert channel.receiver_account_ref == "signal:[REDACTED_PHONE]"
+
+    refute inspect(history) =~ "+15551234567"
+    refute inspect(history) =~ "+15557654321"
+    refute inspect(history) =~ "+442071838750"
+  end
+
   test "default unified history excludes cross-channel e2ee-origin content" do
     assert {:ok, thread} = Conversations.create_general_thread("alice", "E2EE default")
     assert {:ok, signal_message} = Conversations.append_user_message(thread, "signal secret")

@@ -9,6 +9,7 @@ defmodule AllbertAssist.Security.Redactor do
 
   @redacted "[REDACTED]"
   @secret_ref "[SECRET_REF]"
+  @phone_redaction "[REDACTED_PHONE]"
   # v0.22 M2 audit closeout (moderate gap 10): expanded to cover
   # `raw_bridge_body`/`raw_final_state`/`raw_response` style fields that
   # downstream consumers (StockSage bridge, future advisory providers)
@@ -48,6 +49,7 @@ defmodule AllbertAssist.Security.Redactor do
     ~r/\b(xox[baprs]-[A-Za-z0-9-]{6,})\b/,
     ~r/\b(xapp-[A-Za-z0-9-]{6,})\b/
   ]
+  @phone_value_pattern ~r/(^|[^A-Za-z0-9_])(\+[1-9]\d{6,14})(?![A-Za-z0-9_])/
 
   @type posture :: %{
           sensitive_key_fragments: nonempty_list(String.t()),
@@ -85,6 +87,7 @@ defmodule AllbertAssist.Security.Redactor do
     |> redact_cookie_line()
     |> redact_bearer_value()
     |> redact_secret_shapes()
+    |> redact_phone_numbers()
     |> redact_url()
   end
 
@@ -138,6 +141,10 @@ defmodule AllbertAssist.Security.Redactor do
     Enum.reduce(@secret_value_patterns, value, fn pattern, acc ->
       Regex.replace(pattern, acc, @redacted)
     end)
+  end
+
+  defp redact_phone_numbers(value) do
+    Regex.replace(@phone_value_pattern, value, "\\1#{@phone_redaction}")
   end
 
   defp redact_url(value) do

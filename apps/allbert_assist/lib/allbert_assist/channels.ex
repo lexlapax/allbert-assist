@@ -8,6 +8,7 @@ defmodule AllbertAssist.Channels do
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Repo
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Store
   alias AllbertAssist.Signals
@@ -39,6 +40,7 @@ defmodule AllbertAssist.Channels do
       |> Map.update(:direction, "inbound", &to_string/1)
       |> Map.update(:status, "received", &to_string/1)
       |> put_outbound_event_id()
+      |> redact_event_attrs()
       |> bound_summary_fields()
 
     %Event{}
@@ -52,6 +54,7 @@ defmodule AllbertAssist.Channels do
     attrs =
       attrs
       |> atomize_known_keys(@known_event_keys)
+      |> redact_event_attrs()
       |> bound_summary_fields()
 
     event
@@ -340,6 +343,8 @@ defmodule AllbertAssist.Channels do
   end
 
   defp put_outbound_event_id(attrs), do: attrs
+
+  defp redact_event_attrs(attrs), do: Redactor.redact(attrs, :audits)
 
   defp bound_summary_fields(attrs) do
     attrs

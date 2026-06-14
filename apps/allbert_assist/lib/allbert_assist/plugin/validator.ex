@@ -16,6 +16,7 @@ defmodule AllbertAssist.Plugin.Validator do
   @approval_primitives [:button, :typed_command, :link, :list]
   @threading_capabilities [:native_threads, :reply_chain, :flat, :rich]
   @channel_trust_classes [:e2ee_origin, :server_readable, :local]
+  @reply_key_types [:opaque_id, :timestamp]
 
   @spec validate_module(module(), keyword() | map()) ::
           {:ok, Entry.t()} | {:error, term(), [map()]}
@@ -262,6 +263,8 @@ defmodule AllbertAssist.Plugin.Validator do
       |> validate_channel_primitives(descriptor)
       |> validate_channel_threading(descriptor)
       |> validate_channel_trust_class(descriptor)
+      |> validate_channel_reply_key_type(descriptor)
+      |> validate_channel_quote_ttl_ms(descriptor)
     end)
   end
 
@@ -382,6 +385,56 @@ defmodule AllbertAssist.Plugin.Validator do
   end
 
   defp validate_channel_trust_class(diagnostics, _descriptor), do: diagnostics
+
+  defp validate_channel_reply_key_type(diagnostics, descriptor) when is_map(descriptor) do
+    reply_key_type = Map.get(descriptor, :reply_key_type, Map.get(descriptor, "reply_key_type"))
+
+    cond do
+      is_nil(reply_key_type) ->
+        diagnostics
+
+      reply_key_type in @reply_key_types ->
+        diagnostics
+
+      true ->
+        [
+          diagnostic(
+            :error,
+            :invalid_channel_reply_key_type,
+            "Channel descriptor has invalid reply_key_type.",
+            allowed: @reply_key_types
+          )
+          | diagnostics
+        ]
+    end
+  end
+
+  defp validate_channel_reply_key_type(diagnostics, _descriptor), do: diagnostics
+
+  defp validate_channel_quote_ttl_ms(diagnostics, descriptor) when is_map(descriptor) do
+    quote_ttl_ms = Map.get(descriptor, :quote_ttl_ms, Map.get(descriptor, "quote_ttl_ms"))
+
+    cond do
+      is_nil(quote_ttl_ms) ->
+        diagnostics
+
+      is_integer(quote_ttl_ms) and quote_ttl_ms > 0 ->
+        diagnostics
+
+      true ->
+        [
+          diagnostic(
+            :error,
+            :invalid_channel_quote_ttl_ms,
+            "Channel descriptor has invalid quote_ttl_ms.",
+            allowed: "positive_integer"
+          )
+          | diagnostics
+        ]
+    end
+  end
+
+  defp validate_channel_quote_ttl_ms(diagnostics, _descriptor), do: diagnostics
 
   defp duplicate_contribution_diagnostics(diagnostics, module) do
     diagnostics ++

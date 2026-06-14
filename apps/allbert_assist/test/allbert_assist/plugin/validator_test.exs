@@ -229,6 +229,63 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
       ]
   end
 
+  defmodule InvalidReplyKeyTypeChannelPlugin do
+    use AllbertAssist.Plugin
+
+    @impl true
+    def plugin_id, do: "example.invalid_reply_key_type"
+
+    @impl true
+    def display_name, do: "Invalid Reply Key Type"
+
+    @impl true
+    def version, do: "0.1.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def channels,
+      do: [
+        %{
+          channel_id: "invalid_reply_key_type",
+          primitives: [:list],
+          threading: :reply_chain,
+          trust_class: :server_readable,
+          reply_key_type: :phone_number
+        }
+      ]
+  end
+
+  defmodule InvalidQuoteTtlChannelPlugin do
+    use AllbertAssist.Plugin
+
+    @impl true
+    def plugin_id, do: "example.invalid_quote_ttl"
+
+    @impl true
+    def display_name, do: "Invalid Quote TTL"
+
+    @impl true
+    def version, do: "0.1.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def channels,
+      do: [
+        %{
+          channel_id: "invalid_quote_ttl",
+          primitives: [:list],
+          threading: :reply_chain,
+          trust_class: :server_readable,
+          reply_key_type: :opaque_id,
+          quote_ttl_ms: 0
+        }
+      ]
+  end
+
   test "validates plugin modules into normalized entries without atomizing ids" do
     before_count = :erlang.system_info(:atom_count)
 
@@ -307,6 +364,20 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
              Validator.validate_module(InvalidTrustClassChannelPlugin)
 
     assert Enum.any?(diagnostics, &(&1.kind == :invalid_channel_trust_class))
+  end
+
+  test "rejects channel descriptors with invalid reply_key_type" do
+    assert {:error, :invalid_plugin, diagnostics} =
+             Validator.validate_module(InvalidReplyKeyTypeChannelPlugin)
+
+    assert Enum.any?(diagnostics, &(&1.kind == :invalid_channel_reply_key_type))
+  end
+
+  test "rejects channel descriptors with invalid quote_ttl_ms" do
+    assert {:error, :invalid_plugin, diagnostics} =
+             Validator.validate_module(InvalidQuoteTtlChannelPlugin)
+
+    assert Enum.any?(diagnostics, &(&1.kind == :invalid_channel_quote_ttl_ms))
   end
 
   test "normalizes valid skill-only manifests" do

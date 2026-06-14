@@ -121,12 +121,16 @@ read-only history view + an explicit operator "resume here" action**.
   `:rich` (web, CLI — Allbert controls the surface). Plus orthogonal flags:
   `can_create_thread`, `reply_key_type` (`:opaque_id | :timestamp`),
   `quote_ttl_ms` (e.g. WhatsApp 30 days). The channel registry rejects a channel
-  descriptor missing/declaring an invalid `threading:` value.
+  descriptor missing/declaring an invalid `threading:` value. v0.53 M3 also
+  rejects invalid `reply_key_type` / `quote_ttl_ms` values when present.
 - `AllbertAssist.Conversations.ChannelThread` is the single module that maps
   canonical ⇄ provider refs and picks the render strategy from the capability.
   Its public API accepts one normalized ref struct/map carrying `owner_scope`,
   `channel`, `receiver_account_ref`, `provider_thread_key`, and the redacted
-  `provider_thread_ref`; callers do not hand-roll lookup keys.
+  `provider_thread_ref`; callers do not hand-roll lookup keys. v0.53 M3 extends
+  reply-target resolution with declared/effective threading, reply key metadata,
+  quote-window metadata, and an explicit degradation reason so adapters can
+  consume timestamp replies and quote-TTL fallback without private heuristics.
 
 ### Degradation ladder (canonical → channel)
 1. `:native_threads` → place in the native thread (`thread_ts` / thread channel
