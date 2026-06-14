@@ -12,9 +12,9 @@ changelog entries or release notes.
 
 ## v0.52.0 - Channel Pack 1 And Cross-Channel Threading
 
-Status: implemented as `0.52.0` on 2026-06-10 and ready for operator
-real-provider smoke/manual validation before release tag. Current version
-metadata is `0.52.0`.
+Status: released as `v0.52.0`. Implemented on 2026-06-10; real-provider Discord
+and Slack validation completed on 2026-06-14 (see "Post-implementation
+validation" below), and tagged `v0.52.0`. Current version metadata is `0.52.0`.
 
 Plan: `docs/plans/v0.52-plan.md`.
 Request flow: `docs/plans/v0.52-request-flow.md`.
@@ -107,11 +107,39 @@ Developer docs: `docs/developer/channel-approval-primitives.md`,
   Phase counts: core 1724 tests, web 151 tests, StockSage 197 tests, channel
   plugins 19 tests, Dialyzer 0 errors; compile, dependency, format, Credo, and
   evidence noise scans passed.
-- `mix allbert.test external-smoke -- discord_slack` and
-  `mix allbert.test external-smoke -- messaging_channel_inbound` remain required
-  before release tag with sandbox Discord/Slack credentials. Operator manual
-  validation must also cover live DM delivery, button approval, unmapped-clicker
-  rejection, and reconnect/RESUME before tag.
+### Post-implementation validation (2026-06-14)
+
+Real-provider Discord and Slack validation against sandbox apps, completed
+before the `v0.52.0` tag. Both channels passed the per-provider external smokes
+(`external-smoke -- discord`/`slack`/`inbound_discord`/`inbound_slack`) and the
+live operator manual checks (@mention, DM, approve/deny button, unmapped-clicker
+rejection, reconnect), with clean raw-token/credential leak scans throughout.
+The deterministic `release.v052` gate was re-run green after every fix below.
+
+Provider-fidelity remediations made before validation (fifth implementation
+audit): M8R5 Discord runtime fidelity (gateway-level interaction ack, `guilds`
+intent, heartbeat-ACK zombie detection), M8R6 Slack runtime fidelity
+(`response_style`/DM gating, provider echo filtering, `disconnect`-frame
+reconnect, `xapp-` redaction), M8R7 provider-doctor truthfulness (live transport
+status, intent/scope validation), plus an ADR 0056 DM-gate amendment and
+researched operator sandbox setup/cleanup guides.
+
+Defects the first real validation surfaced and fixed (the stub-based suite could
+not catch these):
+
+- The external smokes had never run live; fixed five harness defects and split
+  them per-provider (`discord`/`slack`/`inbound_discord`/`inbound_slack`); the
+  combined `discord_slack`/`messaging_channel_inbound` selectors were removed as
+  redundant.
+- `Security.Redactor.redact/1` and `Conversations.json_safe/1` raised on an
+  improper list in trace/action_log serialization and crashed the Slack adapter
+  on a real inbound message; both are now total and JSON-safe (hardens Discord
+  and every other surface too).
+- Slack approval buttons were dropped by Slack as `invalid_blocks` because
+  non-approve/deny buttons emitted `style: nil`; the renderer now omits a nil
+  style.
+- Direct messages to the Slack bot were blocked until the app's App Home
+  **Messages Tab** was enabled; added the missing step to the operator guide.
 
 ## v0.51.4 - MCP Tool Call Argument Normalization
 

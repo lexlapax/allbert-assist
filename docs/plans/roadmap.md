@@ -3143,8 +3143,10 @@ model, `thread_channel_refs` / `conversation_message_refs` /
 `threading:` capability + degradation ladder, echo-loop suppression, explicit
 identity links, unified history view, explicit resume)
 
-Status: implemented as `0.52.0`; ready for operator real-provider smoke and
-manual validation before release tag. The pass-3 zoom-out expanded the milestone
+Status: released as `v0.52.0`. Implemented as `0.52.0`; real-provider Discord and
+Slack validation (per-provider smokes + live operator manual checks) completed
+2026-06-14 and tagged `v0.52.0` (see `CHANGELOG.md` "Post-implementation
+validation"). The pass-3 zoom-out expanded the milestone
 from "Discord + Slack" to "Discord + Slack + a system-wide cross-channel
 conversation-thread construct (ADR 0057), with Telegram/email/web/CLI
 retrofitted"; pass-4 hardening locked the owner/account/key schema and runtime
