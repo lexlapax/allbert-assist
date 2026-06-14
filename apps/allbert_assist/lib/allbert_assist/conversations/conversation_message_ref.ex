@@ -15,6 +15,7 @@ defmodule AllbertAssist.Conversations.ConversationMessageRef do
 
   @directions ~w[in out]
   @foreign_key_type :string
+  @trust_classes ~w[e2ee_origin server_readable local]
 
   schema "conversation_message_refs" do
     belongs_to :canonical_message, Message,
@@ -33,6 +34,7 @@ defmodule AllbertAssist.Conversations.ConversationMessageRef do
     field :provider_message_id, :string
     field :part_id, :string, default: "0"
     field :direction, :string
+    field :trust_class, :string, default: "server_readable"
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -50,7 +52,8 @@ defmodule AllbertAssist.Conversations.ConversationMessageRef do
       :receiver_account_ref,
       :provider_message_id,
       :part_id,
-      :direction
+      :direction,
+      :trust_class
     ])
     |> validate_required([
       :canonical_message_id,
@@ -60,9 +63,11 @@ defmodule AllbertAssist.Conversations.ConversationMessageRef do
       :receiver_account_ref,
       :provider_message_id,
       :part_id,
-      :direction
+      :direction,
+      :trust_class
     ])
     |> validate_inclusion(:direction, @directions)
+    |> validate_inclusion(:trust_class, @trust_classes)
     |> validate_length(:canonical_message_id, min: 5, max: 160)
     |> validate_length(:canonical_thread_id, min: 5, max: 160)
     |> validate_length(:owner_scope, min: 1, max: 64)

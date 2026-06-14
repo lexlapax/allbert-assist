@@ -22,6 +22,8 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Channels
+  alias AllbertAssist.Channels.LocalSurface
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Runtime.MediaOutputs
@@ -285,10 +287,13 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp channel_thread_ref_attrs(channel, attrs) do
+    trust_class = fetch_value(attrs, :trust_class) || channel_trust_class(channel)
+
     case fetch_value(attrs, :channel_thread_ref) do
       ref_attrs when is_map(ref_attrs) ->
         ref_attrs
         |> Map.put_new(:channel, channel)
+        |> Map.put_new(:trust_class, trust_class)
         |> maybe_put_ref_attr(:receiver_account_ref, fetch_value(attrs, :receiver_account_ref))
 
       _other ->
@@ -301,9 +306,25 @@ defmodule AllbertAssist.Runtime do
             channel: channel,
             receiver_account_ref: receiver_account_ref,
             provider_thread_ref: provider_thread_ref,
-            provider_thread_key: provider_thread_key
+            provider_thread_key: provider_thread_key,
+            trust_class: trust_class
           }
         end
+    end
+  end
+
+  defp channel_trust_class(channel) do
+    with {:ok, descriptor} <- channel_descriptor(channel) do
+      Map.get(descriptor, :trust_class, :server_readable)
+    else
+      _error -> :server_readable
+    end
+  end
+
+  defp channel_descriptor(channel) do
+    case Channels.channel_descriptor(channel) do
+      {:ok, descriptor} -> {:ok, descriptor}
+      {:error, :unknown_channel} -> LocalSurface.descriptor(channel)
     end
   end
 

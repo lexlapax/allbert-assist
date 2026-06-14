@@ -119,6 +119,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
                 :for={ref <- message.channel_refs}
                 class="workspace-unified-history-channel"
                 data-channel={ref.channel}
+                data-trust-class={ref.trust_class}
                 title={ref.receiver_account_ref}
               >
                 {ref.channel}

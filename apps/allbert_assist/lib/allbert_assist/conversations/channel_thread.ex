@@ -19,13 +19,16 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   @owner_scope "local"
   @default_part_id "0"
   @hash_prefix "ptk_"
+  @default_trust_class "server_readable"
+  @trust_classes ~w[e2ee_origin server_readable local]
 
   @type normalized_ref :: %{
           owner_scope: String.t(),
           channel: String.t(),
           receiver_account_ref: String.t(),
           provider_thread_key: String.t(),
-          provider_thread_ref: map()
+          provider_thread_ref: map(),
+          trust_class: String.t()
         }
 
   @doc "Normalize a channel-owned provider thread ref for lookups and writes."
@@ -42,14 +45,16 @@ defmodule AllbertAssist.Conversations.ChannelThread do
          {:ok, channel} <- required_string(field(attrs, :channel)),
          {:ok, receiver_account_ref} <- required_string(field(attrs, :receiver_account_ref)),
          {:ok, provider_thread_key} <-
-           normalize_provider_thread_key(provider_thread_key, provider_thread_ref) do
+           normalize_provider_thread_key(provider_thread_key, provider_thread_ref),
+         {:ok, trust_class} <- normalize_trust_class(field(attrs, :trust_class)) do
       {:ok,
        %{
          owner_scope: owner_scope,
          channel: channel,
          receiver_account_ref: receiver_account_ref,
          provider_thread_key: provider_thread_key,
-         provider_thread_ref: provider_thread_ref |> json_safe() |> Redactor.redact()
+         provider_thread_ref: provider_thread_ref |> json_safe() |> Redactor.redact(),
+         trust_class: trust_class
        }}
     end
   end
@@ -190,7 +195,8 @@ defmodule AllbertAssist.Conversations.ChannelThread do
              channel: binary(),
              receiver_account_ref: binary(),
              provider_thread_key: binary(),
-             provider_thread_ref: map()
+             provider_thread_ref: map(),
+             trust_class: atom()
            }}
           | {:error,
              :invalid_channel_thread_ref
@@ -208,7 +214,8 @@ defmodule AllbertAssist.Conversations.ChannelThread do
          channel: ref.channel,
          receiver_account_ref: ref.receiver_account_ref,
          provider_thread_key: ref.provider_thread_key,
-         provider_thread_ref: ref.provider_thread_ref
+         provider_thread_ref: ref.provider_thread_ref,
+         trust_class: trust_class_atom(ref.trust_class)
        }}
     end
   end
@@ -279,7 +286,8 @@ defmodule AllbertAssist.Conversations.ChannelThread do
          {:ok, canonical_message_id} <- required_string(field(attrs, :canonical_message_id)),
          {:ok, canonical_thread_id} <-
            canonical_thread_id(canonical_message_id, field(attrs, :canonical_thread_id)),
-         {:ok, part_id} <- required_string(field(attrs, :part_id) || @default_part_id) do
+         {:ok, part_id} <- required_string(field(attrs, :part_id) || @default_part_id),
+         {:ok, trust_class} <- normalize_trust_class(field(attrs, :trust_class)) do
       {:ok,
        %{
          owner_scope: owner_scope,
@@ -289,7 +297,8 @@ defmodule AllbertAssist.Conversations.ChannelThread do
          part_id: part_id,
          direction: direction,
          canonical_message_id: canonical_message_id,
-         canonical_thread_id: canonical_thread_id
+         canonical_thread_id: canonical_thread_id,
+         trust_class: trust_class
        }}
     end
   end
@@ -359,6 +368,10 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   defp reply_strategy(:flat), do: :flat_stream
   defp reply_strategy(:rich), do: :rich_surface
 
+  defp trust_class_atom("e2ee_origin"), do: :e2ee_origin
+  defp trust_class_atom("server_readable"), do: :server_readable
+  defp trust_class_atom("local"), do: :local
+
   defp ref_keys(ref) do
     Map.take(ref, [:owner_scope, :channel, :receiver_account_ref, :provider_thread_key])
   end
@@ -415,6 +428,23 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   defp normalize_direction(value) when value in [:out, "out"], do: {:ok, "out"}
   defp normalize_direction(_value), do: {:error, :invalid_direction}
 
+  defp normalize_trust_class(nil), do: {:ok, @default_trust_class}
+
+  defp normalize_trust_class(value) when is_atom(value),
+    do: value |> Atom.to_string() |> normalize_trust_class()
+
+  defp normalize_trust_class(value) when is_binary(value) do
+    value = value |> String.trim() |> String.trim_leading(":")
+
+    if value in @trust_classes do
+      {:ok, value}
+    else
+      {:error, {:invalid_trust_class, value}}
+    end
+  end
+
+  defp normalize_trust_class(value), do: {:error, {:invalid_trust_class, value}}
+
   defp maybe_put_channel(attrs, channel) when is_map(channel), do: Map.merge(channel, attrs)
   defp maybe_put_channel(attrs, _channel) when is_map_key(attrs, :channel), do: attrs
   defp maybe_put_channel(attrs, channel), do: Map.put(attrs, :channel, channel)
@@ -451,7 +481,8 @@ defmodule AllbertAssist.Conversations.ChannelThread do
       :receiver_account_ref,
       :provider_message_id,
       :part_id,
-      :direction
+      :direction,
+      :trust_class
     ])
   end
 

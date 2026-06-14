@@ -46,6 +46,7 @@ defmodule AllbertAssist.Conversations.ChannelThreadTest do
     assert linked.owner_scope == "local"
     assert linked.channel == "slack"
     assert linked.receiver_account_ref == "slack:T0123"
+    assert linked.trust_class == "server_readable"
 
     assert linked.provider_thread_key ==
              ChannelThread.provider_thread_key(ref.provider_thread_ref)
@@ -128,6 +129,39 @@ defmodule AllbertAssist.Conversations.ChannelThreadTest do
              |> ChannelThread.record_message_ref()
 
     assert inbound_ref.direction == "in"
+    assert inbound_ref.trust_class == "server_readable"
+  end
+
+  test "stamps explicit trust class on thread and message refs" do
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Signal refs")
+    assert {:ok, message} = Conversations.append_user_message(thread, "signal hello")
+
+    ref =
+      %{
+        channel: "signal",
+        receiver_account_ref: "signal:+15551234567",
+        provider_thread_ref: %{"aci" => "aci-1"},
+        trust_class: :e2ee_origin
+      }
+
+    assert {:ok, thread_ref} =
+             ref
+             |> Map.put(:canonical_thread_id, thread.id)
+             |> ChannelThread.link_thread()
+
+    assert thread_ref.trust_class == "e2ee_origin"
+
+    assert {:ok, message_ref} =
+             ref
+             |> Map.merge(%{
+               canonical_thread_id: thread.id,
+               canonical_message_id: message.id,
+               provider_message_id: "signal-message-1",
+               direction: :in
+             })
+             |> ChannelThread.record_message_ref()
+
+    assert message_ref.trust_class == "e2ee_origin"
   end
 
   test "resolves reply targets from descriptor threading capability" do

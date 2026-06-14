@@ -376,6 +376,17 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
          context,
          permission_decision,
          target_decision,
+         "resume_thread_on_channel"
+       ) do
+    resume_conversation_resume(record, reason, context, permission_decision, target_decision)
+  end
+
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
          "run_analysis"
        ) do
     resume_run_analysis(record, reason, context, permission_decision, target_decision)
@@ -405,6 +416,37 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       target_resumed?: false,
       adapter_unavailable?: true
     })
+  end
+
+  defp resume_conversation_resume(record, reason, context, permission_decision, target_decision) do
+    target_context =
+      record
+      |> target_context(context)
+      |> put_in([:confirmation, :approved?], true)
+
+    case Runner.run(
+           "resume_thread_on_channel",
+           Map.get(record, "resume_params_ref", %{}),
+           target_context
+         ) do
+      {:ok, %{status: :completed} = response} ->
+        resolve_status(record, :approved, reason, context, permission_decision, %{
+          target_policy_decision: target_decision,
+          target_resumed?: true,
+          target_status: :completed,
+          target_result: Map.take(response, [:message, :resume, :status])
+        })
+
+      {:ok, response} ->
+        target_status = Map.get(response, :status, :denied)
+
+        resolve_status(record, :approved, reason, context, permission_decision, %{
+          target_policy_decision: target_decision,
+          target_resumed?: target_status == :completed,
+          target_status: target_status,
+          target_result: Map.take(response, [:message, :error, :status])
+        })
+    end
   end
 
   defp resume_external_network_request(
