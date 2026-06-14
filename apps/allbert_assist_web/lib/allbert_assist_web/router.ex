@@ -54,6 +54,8 @@ defmodule AllbertAssistWeb.Router do
 
     post "/mcp", McpHttpController, :handle
     delete "/mcp", McpHttpController, :delete
+    get "/webhooks/whatsapp/:phone_number_id", WhatsAppWebhookController, :verify
+    post "/webhooks/whatsapp/:phone_number_id", WhatsAppWebhookController, :handle
   end
 
   scope "/v1", AllbertAssistWeb.PublicProtocol do

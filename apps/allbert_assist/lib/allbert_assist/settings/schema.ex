@@ -358,6 +358,14 @@ defmodule AllbertAssist.Settings.Schema do
     "channels.email.identity_map",
     "channels.email.max_body_bytes",
     "channels.email.allow_html_replies",
+    "channels.whatsapp.webhook_enabled",
+    "channels.whatsapp.phone_number_id",
+    "channels.whatsapp.waba_id",
+    "channels.whatsapp.app_secret_ref",
+    "channels.whatsapp.webhook_verify_token_ref",
+    "channels.whatsapp.webhook_rate_limit.limit",
+    "channels.whatsapp.webhook_rate_limit.period_ms",
+    "channels.whatsapp.webhook_rate_limit.burst",
     "memory.review_cadence",
     "memory.auto_promote_sensitive_entries",
     "memory.retention_policy",
@@ -880,6 +888,60 @@ defmodule AllbertAssist.Settings.Schema do
       default: false,
       writable?: true,
       sensitive?: false
+    },
+    "channels.whatsapp.webhook_enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.whatsapp.phone_number_id" => %{
+      type: :string_or_empty,
+      default: "",
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.whatsapp.waba_id" => %{
+      type: :string_or_empty,
+      default: "",
+      writable?: true,
+      sensitive?: false
+    },
+    "channels.whatsapp.app_secret_ref" => %{
+      type: :channel_secret_ref,
+      default: "secret://channels/whatsapp/app_secret",
+      writable?: true,
+      sensitive?: true
+    },
+    "channels.whatsapp.webhook_verify_token_ref" => %{
+      type: :channel_secret_ref,
+      default: "secret://channels/whatsapp/webhook_verify_token",
+      writable?: true,
+      sensitive?: true
+    },
+    "channels.whatsapp.webhook_rate_limit.limit" => %{
+      type: :bounded_integer,
+      default: 60,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 10_000
+    },
+    "channels.whatsapp.webhook_rate_limit.period_ms" => %{
+      type: :bounded_integer,
+      default: 60_000,
+      writable?: true,
+      sensitive?: false,
+      min: 100,
+      max: 86_400_000
+    },
+    "channels.whatsapp.webhook_rate_limit.burst" => %{
+      type: :bounded_integer,
+      default: 10,
+      writable?: true,
+      sensitive?: false,
+      min: 0,
+      max: 10_000
     },
     "skills.scan_paths" => %{
       type: :string_list,
@@ -3442,6 +3504,18 @@ defmodule AllbertAssist.Settings.Schema do
         "identity_map" => [],
         "max_body_bytes" => 65_536,
         "allow_html_replies" => false
+      },
+      "whatsapp" => %{
+        "webhook_enabled" => false,
+        "phone_number_id" => "",
+        "waba_id" => "",
+        "app_secret_ref" => "secret://channels/whatsapp/app_secret",
+        "webhook_verify_token_ref" => "secret://channels/whatsapp/webhook_verify_token",
+        "webhook_rate_limit" => %{
+          "limit" => 60,
+          "period_ms" => 60_000,
+          "burst" => 10
+        }
       }
     },
     "jobs" => %{
