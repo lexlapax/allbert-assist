@@ -4,7 +4,7 @@ defmodule Mix.Tasks.Allbert.Conversations do
 
   ## Usage
 
-      mix allbert.conversations show THREAD_ID [--user USER] [--limit 50]
+      mix allbert.conversations show THREAD_ID [--user USER] [--limit 50] [--include-e2ee-origin]
       mix allbert.conversations resume THREAD_ID --channel CHANNEL --user USER --receiver RECEIVER --external-user EXTERNAL --provider-thread-key KEY
       mix allbert.conversations resume THREAD_ID --channel cli --user USER
   """
@@ -19,6 +19,7 @@ defmodule Mix.Tasks.Allbert.Conversations do
   @switches [
     channel: :string,
     external_user: :string,
+    include_e2ee_origin: :boolean,
     limit: :integer,
     provider_thread_key: :string,
     provider_thread_ref: :string,
@@ -48,7 +49,14 @@ defmodule Mix.Tasks.Allbert.Conversations do
     reject_invalid!(invalid)
     reject_args!(args)
 
-    case UnifiedHistory.show_thread(user!(opts), thread_id, limit: limit(opts[:limit])) do
+    history_opts = [
+      limit: limit(opts[:limit]),
+      include_e2ee_origin: opts[:include_e2ee_origin],
+      viewer_channel: "cli",
+      audit_context: %{actor: user!(opts), channel: "cli"}
+    ]
+
+    case UnifiedHistory.show_thread(user!(opts), thread_id, history_opts) do
       {:ok, history} -> print_history(history)
       {:error, {:thread_not_found, _id}} -> Mix.raise("Thread not found")
     end
@@ -96,6 +104,7 @@ defmodule Mix.Tasks.Allbert.Conversations do
     Mix.shell().info("User: #{history.thread.user_id}")
     Mix.shell().info("Ordering: #{history.ordering}")
     Mix.shell().info("Redaction: #{history.redaction}")
+    Mix.shell().info("E2EE-origin hidden: #{history.trust.filtered_e2ee_origin_count}")
     Mix.shell().info("")
 
     if history.channels == [] do
@@ -105,7 +114,7 @@ defmodule Mix.Tasks.Allbert.Conversations do
 
       Enum.each(history.channels, fn channel ->
         Mix.shell().info(
-          "- #{channel.channel} receiver=#{channel.receiver_account_ref} messages=#{channel.message_ref_count} thread_refs=#{channel.thread_ref_count}"
+          "- #{channel.channel} receiver=#{channel.receiver_account_ref} trust=#{Enum.join(channel.trust_classes, ",")} messages=#{channel.message_ref_count} thread_refs=#{channel.thread_ref_count}"
         )
       end)
     end
@@ -120,7 +129,7 @@ defmodule Mix.Tasks.Allbert.Conversations do
 
     Enum.each(message.channel_refs, fn ref ->
       Mix.shell().info(
-        "  #{ref.direction} #{ref.channel}/#{ref.receiver_account_ref} message=#{ref.provider_message_id} part=#{ref.part_id}"
+        "  #{ref.direction} #{ref.channel}/#{ref.receiver_account_ref} trust=#{ref.trust_class} message=#{ref.provider_message_id} part=#{ref.part_id}"
       )
     end)
   end

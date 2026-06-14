@@ -384,9 +384,17 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, 3} = Settings.get("objectives.max_steps_per_turn")
     assert {:ok, 5} = Settings.get("objectives.max_loop_count")
     assert {:ok, "operator"} = Settings.get("objectives.trace_detail")
+    assert {:ok, false} = Settings.get("conversations.unified_history.include_e2ee_origin")
 
     assert {:ok, resolved} = Settings.put("objectives.enabled", false, %{audit?: false})
     assert resolved.value == false
+
+    assert {:ok, resolved} =
+             Settings.put("conversations.unified_history.include_e2ee_origin", true, %{
+               audit?: false
+             })
+
+    assert resolved.value == true
 
     assert {:ok, resolved} = Settings.put("objectives.max_steps_per_turn", 8, %{audit?: false})
     assert resolved.value == 8

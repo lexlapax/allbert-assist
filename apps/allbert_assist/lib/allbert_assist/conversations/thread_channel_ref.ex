@@ -13,6 +13,7 @@ defmodule AllbertAssist.Conversations.ThreadChannelRef do
   alias AllbertAssist.Conversations.Thread
 
   @foreign_key_type :string
+  @trust_classes ~w[e2ee_origin server_readable local]
 
   schema "thread_channel_refs" do
     belongs_to :canonical_thread, Thread,
@@ -25,6 +26,7 @@ defmodule AllbertAssist.Conversations.ThreadChannelRef do
     field :receiver_account_ref, :string
     field :provider_thread_key, :string
     field :provider_thread_ref, :map, default: %{}
+    field :trust_class, :string, default: "server_readable"
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -40,7 +42,8 @@ defmodule AllbertAssist.Conversations.ThreadChannelRef do
       :channel,
       :receiver_account_ref,
       :provider_thread_key,
-      :provider_thread_ref
+      :provider_thread_ref,
+      :trust_class
     ])
     |> validate_required([
       :owner_scope,
@@ -48,8 +51,10 @@ defmodule AllbertAssist.Conversations.ThreadChannelRef do
       :channel,
       :receiver_account_ref,
       :provider_thread_key,
-      :provider_thread_ref
+      :provider_thread_ref,
+      :trust_class
     ])
+    |> validate_inclusion(:trust_class, @trust_classes)
     |> validate_length(:owner_scope, min: 1, max: 64)
     |> validate_length(:canonical_thread_id, min: 5, max: 160)
     |> validate_length(:channel, min: 1, max: 64)

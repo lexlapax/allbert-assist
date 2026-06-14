@@ -29,6 +29,7 @@ defmodule AllbertAssist.Settings.Schema do
     "objectives.max_steps_per_turn",
     "objectives.max_loop_count",
     "objectives.trace_detail",
+    "conversations.unified_history.include_e2ee_origin",
     "runtime.trace_default",
     "runtime.diagnostics_verbosity",
     "intent.model_assist_enabled",
@@ -478,6 +479,12 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false,
       allowed_values: ["operator", "debug"]
+    },
+    "conversations.unified_history.include_e2ee_origin" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
     },
     "runtime.trace_default" => %{
       type: :enum,
@@ -2880,6 +2887,11 @@ defmodule AllbertAssist.Settings.Schema do
       "timezone" => "America/Los_Angeles",
       "communication_style" => "concise",
       "handoff_detail" => "concrete_next_steps"
+    },
+    "conversations" => %{
+      "unified_history" => %{
+        "include_e2ee_origin" => false
+      }
     },
     "runtime" => %{
       "trace_default" => "disabled",

@@ -1553,7 +1553,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp unified_history(thread_id, user_id) do
     try do
-      case UnifiedHistory.show_thread(user_id, thread_id, limit: 12) do
+      case UnifiedHistory.show_thread(user_id, thread_id, limit: 12, viewer_channel: "live_view") do
         {:ok, history} -> history
         {:error, _reason} -> nil
       end
