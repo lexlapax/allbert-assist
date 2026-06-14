@@ -25,8 +25,9 @@ AES-256-GCM via raw `:crypto`, a master key resolved from
 under Allbert Home, a single `secrets.yml.enc` envelope, and `secret://...`
 references. It **re-reads and re-decrypts the whole envelope on every
 `get_secret/2`** — there is no in-memory cache and no single process that holds
-decrypted material. `plug_crypto` is already in the dependency tree; `cloak`,
-`enacl`, `libvault`, `erlexec`, and `muontrap` are not.
+decrypted material. M0 makes `plug_crypto` an explicit direct dependency and
+locks the daemon-supervision deps (`muontrap 1.8.0`, `erlexec 2.3.4`); `cloak`,
+`enacl`, and `libvault` remain out of scope.
 
 v0.53 adds Signal, whose only viable integration is to **supervise an external
 `signal-cli` daemon** that holds a Signal account's E2EE key material on disk and
@@ -109,8 +110,9 @@ local-first app:
 - Decrypted secrets stop being re-derived per read and live in one hardened,
   introspection-excluded process; the win is real and the limits are stated
   honestly rather than oversold.
-- v0.53 adds exactly one new dependency for daemon supervision
-  (`muontrap`, with `erlexec` for macOS/dev); KeyCustody adds none.
+- v0.53 adds exactly the daemon-supervision dependencies locked in M0
+  (`muontrap 1.8.0`, with `erlexec 2.3.4` for macOS/dev); KeyCustody adds no new
+  crypto/storage dependency beyond making existing `plug_crypto` direct.
 - The daemon-supervision construct is reusable: a future WhatsApp-web bridge,
   Signal, or iMessage relay inherit it rather than re-solving supervision/trust.
 - The v0.53 eval set covers: KeyCustody never leaks via inspect/`:sys.get_state`/

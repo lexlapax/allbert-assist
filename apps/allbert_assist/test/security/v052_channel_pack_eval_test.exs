@@ -49,7 +49,8 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
     def validate(_opts), do: :ok
 
     @impl true
-    def channels, do: [%{channel_id: "missing_primitives", threading: :flat}]
+    def channels,
+      do: [%{channel_id: "missing_primitives", threading: :flat, trust_class: :server_readable}]
   end
 
   defmodule MissingThreadingPlugin do
@@ -68,7 +69,14 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
     def validate(_opts), do: :ok
 
     @impl true
-    def channels, do: [%{channel_id: "missing_threading", primitives: [:typed_command, :list]}]
+    def channels,
+      do: [
+        %{
+          channel_id: "missing_threading",
+          primitives: [:typed_command, :list],
+          trust_class: :server_readable
+        }
+      ]
   end
 
   @eval_groups [

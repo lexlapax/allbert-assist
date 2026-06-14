@@ -227,28 +227,44 @@ defmodule AllbertAssist.ChannelsTest do
     test "registered channel plugins declare approval primitives and threading" do
       descriptors = Map.new(PluginRegistry.registered_channels(), &{&1.channel_id, &1})
 
-      assert %{primitives: telegram_primitives, threading: :reply_chain} =
+      assert %{
+               primitives: telegram_primitives,
+               threading: :reply_chain,
+               trust_class: :server_readable
+             } =
                Map.fetch!(descriptors, "telegram")
 
       assert :button in telegram_primitives
       assert :typed_command in telegram_primitives
       assert :list in telegram_primitives
 
-      assert %{primitives: email_primitives, threading: :reply_chain} =
+      assert %{
+               primitives: email_primitives,
+               threading: :reply_chain,
+               trust_class: :server_readable
+             } =
                Map.fetch!(descriptors, "email")
 
       refute :button in email_primitives
       assert :typed_command in email_primitives
       assert :list in email_primitives
 
-      assert %{primitives: discord_primitives, threading: :native_threads} =
+      assert %{
+               primitives: discord_primitives,
+               threading: :native_threads,
+               trust_class: :server_readable
+             } =
                Map.fetch!(descriptors, "discord")
 
       assert :button in discord_primitives
       assert :typed_command in discord_primitives
       assert :list in discord_primitives
 
-      assert %{primitives: slack_primitives, threading: :native_threads} =
+      assert %{
+               primitives: slack_primitives,
+               threading: :native_threads,
+               trust_class: :server_readable
+             } =
                Map.fetch!(descriptors, "slack")
 
       assert :button in slack_primitives
@@ -265,6 +281,7 @@ defmodule AllbertAssist.ChannelsTest do
                provider: "local_cli",
                primitives: cli_primitives,
                threading: :rich,
+               trust_class: :local,
                receiver_account_ref: "cli:default"
              } = Map.fetch!(descriptors, "cli")
 
@@ -275,6 +292,7 @@ defmodule AllbertAssist.ChannelsTest do
                provider: "phoenix_live_view",
                primitives: web_primitives,
                threading: :rich,
+               trust_class: :local,
                receiver_account_ref: "web:workspace"
              } = Map.fetch!(descriptors, "live_view")
 
