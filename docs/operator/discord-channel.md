@@ -156,38 +156,27 @@ export ALLBERT_DISCORD_GUILD_ID="..."
 mix allbert.test external-smoke -- discord
 ```
 
-(Use `-- discord` to validate Discord alone; `-- discord_slack` runs both
-providers and additionally requires the Slack creds.)
-
 The smoke sends a real Discord parent message and a real
 `message_reference` reply, records `ChannelThread` outbound refs, asserts
 echo-suppression metadata, and writes
 `<ALLBERT_HOME>/release_evidence/v052/external-smoke-<ts>.json`.
 
-Then run the shared live inbound smoke. This command opens the real Discord
-Gateway and Slack Socket Mode sessions, waits for Discord `READY` and Slack
-`hello`, prints exact marker messages, and waits for provider-delivered inbound
-messages from mapped users to reach `Runtime.submit_user_input/1`. Keep the
-owned smoke home for evidence inspection:
+Then run the live inbound smoke. It opens the real Discord Gateway, waits for
+`READY`, prints an exact marker message, and waits for the mapped user's
+@mention to reach `Runtime.submit_user_input/1`. Set a generous timeout and
+(optionally) a known marker, since stdout is buffered when captured:
 
 ```sh
 export ALLBERT_TEST_KEEP_TMP=1
-export ALLBERT_MESSAGING_CHANNEL_INBOUND_TIMEOUT_MS=120000
+export ALLBERT_MESSAGING_CHANNEL_INBOUND_TIMEOUT_MS=600000
+export ALLBERT_SMOKE_MARKER="allbert-v052-discord-check"
 export ALLBERT_DISCORD_BOT_TOKEN="..."
 export ALLBERT_DISCORD_APPLICATION_ID="..."
 export ALLBERT_DISCORD_GUILD_ID="..."
 export ALLBERT_DISCORD_CHANNEL_ID="..."
 export ALLBERT_DISCORD_USER_ID="..."
-export ALLBERT_SLACK_BOT_TOKEN="..."
-export ALLBERT_SLACK_APP_TOKEN="..."
-export ALLBERT_SLACK_CHANNEL_ID="..."
-export ALLBERT_SLACK_USER_ID="..."
-mix allbert.test external-smoke -- messaging_channel_inbound
+mix allbert.test external-smoke -- inbound_discord
 ```
-
-For Discord alone, run `-- inbound_discord` and export only the
-`ALLBERT_DISCORD_*` vars; the combined `messaging_channel_inbound` above
-additionally requires the Slack creds.
 
 The inbound smoke writes
 `<ALLBERT_HOME>/release_evidence/v052/external-smoke-messaging-inbound-<ts>.json`.

@@ -140,8 +140,10 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message =~ "mix allbert.test release.v050b"
     assert error.message =~ "mix allbert.test release.v051"
     assert error.message =~ "mix allbert.test release.v052"
-    assert error.message =~ "mix allbert.test external-smoke -- discord_slack"
-    assert error.message =~ "mix allbert.test external-smoke -- messaging_channel_inbound"
+    assert error.message =~ "mix allbert.test external-smoke -- discord"
+    assert error.message =~ "mix allbert.test external-smoke -- slack"
+    assert error.message =~ "mix allbert.test external-smoke -- inbound_discord"
+    assert error.message =~ "mix allbert.test external-smoke -- inbound_slack"
   end
 
   test "phase runner short-circuits after a failing phase", %{evidence_root: root} do
