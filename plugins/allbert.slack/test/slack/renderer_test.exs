@@ -27,6 +27,19 @@ defmodule AllbertSlack.RendererTest do
              button.type == "button" and button.text.text == "Approve" and
                button.action_id == "allbert:v1:approve:conf_123"
            end)
+
+    # Slack rejects `"style": null` with {:slack_error, "invalid_blocks"}, which
+    # silently dropped the whole approval card in live validation. A button must
+    # either omit :style or carry a valid Slack value — never nil.
+    for button <- buttons do
+      case Map.fetch(button, :style) do
+        :error -> :ok
+        {:ok, style} -> assert style in ["primary", "danger"]
+      end
+    end
+
+    # the non-approve/deny ("show"/details) button must omit :style entirely
+    assert Enum.any?(buttons, fn button -> not Map.has_key?(button, :style) end)
   end
 
   test "falls back to typed commands when Slack buttons are disabled" do
