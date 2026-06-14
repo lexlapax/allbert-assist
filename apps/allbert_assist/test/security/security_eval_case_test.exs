@@ -91,7 +91,8 @@ defmodule AllbertAssist.SecurityEvalCaseTest do
                :v050,
                :v050b,
                :v051,
-               :v052
+               :v052,
+               :v053
              ]
 
       assert row.expected in [:allowed, :needs_confirmation, :denied, :dropped, :error]

@@ -51,7 +51,11 @@ defmodule AllbertAssist.Channels.Email.Parser do
     |> Enum.reduce(%{}, fn line, acc ->
       case String.split(line, ":", parts: 2) do
         [name, value] ->
-          Map.put(acc, name |> String.downcase() |> String.trim(), String.trim(value))
+          Map.put(
+            acc,
+            name |> String.downcase() |> String.trim(),
+            value |> String.trim() |> decode_header_value()
+          )
 
         _other ->
           acc
@@ -95,10 +99,10 @@ defmodule AllbertAssist.Channels.Email.Parser do
         extract_multipart(content_type, body)
 
       String.contains?(content_type, "text/html") ->
-        {nil, body}
+        {nil, decode_part_body(headers, body)}
 
       true ->
-        {body, nil}
+        {decode_part_body(headers, body), nil}
     end
   end
 
@@ -122,16 +126,18 @@ defmodule AllbertAssist.Channels.Email.Parser do
   end
 
   defp extract_multipart_part(part, acc) do
-    case split_message(String.trim(part)) do
+    case split_message(normalize_multipart_part(part)) do
       {:ok, headers, part_body} ->
-        headers
-        |> Map.get("content-type", "text/plain")
-        |> String.downcase()
-        |> put_multipart_part(part_body, acc)
+        part_type = headers |> Map.get("content-type", "text/plain") |> String.downcase()
+        put_multipart_part(part_type, decode_part_body(headers, part_body), acc)
 
       {:error, _reason} ->
         acc
     end
+  end
+
+  defp normalize_multipart_part(part) do
+    Regex.replace(~r/\A(?:\r\n|\n)+/, part, "")
   end
 
   defp put_multipart_part(part_type, part_body, {text, html}) do
@@ -173,6 +179,110 @@ defmodule AllbertAssist.Channels.Email.Parser do
 
   defp normalize_optional_message_id(nil), do: nil
   defp normalize_optional_message_id(value), do: normalize_message_id(value)
+
+  defp decode_header_value(value) do
+    Regex.replace(~r/=\?([^?]+)\?([bBqQ])\?([^?]+)\?=/, value, fn original, charset, encoding,
+                                                                   encoded ->
+      with {:ok, bytes} <- decode_encoded_word(encoding, encoded),
+           {:ok, text} <- decode_charset(bytes, charset) do
+        text
+      else
+        _error -> original
+      end
+    end)
+  end
+
+  defp decode_encoded_word(encoding, encoded) when encoding in ["B", "b"] do
+    encoded
+    |> String.replace(~r/\s+/, "")
+    |> Base.decode64()
+  end
+
+  defp decode_encoded_word(encoding, encoded) when encoding in ["Q", "q"] do
+    encoded
+    |> String.replace("_", " ")
+    |> decode_quoted_printable()
+  end
+
+  defp decode_part_body(headers, body) do
+    headers
+    |> Map.get("content-transfer-encoding", "7bit")
+    |> String.downcase()
+    |> String.trim()
+    |> decode_transfer_body(body)
+    |> case do
+      {:ok, bytes} ->
+        headers
+        |> Map.get("content-type", "text/plain")
+        |> charset()
+        |> then(&decode_charset(bytes, &1))
+        |> case do
+          {:ok, text} -> text
+          {:error, _reason} -> bytes
+        end
+
+      {:error, _reason} ->
+        body
+    end
+  end
+
+  defp decode_transfer_body("base64", body) do
+    body
+    |> String.replace(~r/\s+/, "")
+    |> Base.decode64()
+  end
+
+  defp decode_transfer_body("quoted-printable", body), do: decode_quoted_printable(body)
+  defp decode_transfer_body(_encoding, body), do: {:ok, body}
+
+  defp decode_quoted_printable(body) do
+    body
+    |> String.replace("=\r\n", "")
+    |> String.replace("=\n", "")
+    |> decode_quoted_printable_bytes(<<>>)
+  end
+
+  defp decode_quoted_printable_bytes("", acc), do: {:ok, acc}
+
+  defp decode_quoted_printable_bytes("=" <> rest, acc) do
+    case rest do
+      <<hex::binary-size(2), tail::binary>> ->
+        case Integer.parse(hex, 16) do
+          {value, ""} -> decode_quoted_printable_bytes(tail, <<acc::binary, value>>)
+          _other -> decode_quoted_printable_bytes(rest, <<acc::binary, "=">>)
+        end
+
+      _rest ->
+        decode_quoted_printable_bytes(rest, <<acc::binary, "=">>)
+    end
+  end
+
+  defp decode_quoted_printable_bytes(<<char, rest::binary>>, acc) do
+    decode_quoted_printable_bytes(rest, <<acc::binary, char>>)
+  end
+
+  defp charset(content_type) do
+    case Regex.run(~r/charset="?([^";]+)"?/i, content_type) do
+      [_, value] -> value
+      _match -> "utf-8"
+    end
+  end
+
+  defp decode_charset(bytes, charset) when is_binary(bytes) and is_binary(charset) do
+    case charset |> String.downcase() |> String.replace("_", "-") do
+      "utf-8" ->
+        if String.valid?(bytes), do: {:ok, bytes}, else: {:error, :invalid_utf8}
+
+      "us-ascii" ->
+        if String.valid?(bytes), do: {:ok, bytes}, else: {:error, :invalid_ascii}
+
+      "iso-8859-1" ->
+        {:ok, :unicode.characters_to_binary(bytes, :latin1, :utf8)}
+
+      _other ->
+        if String.valid?(bytes), do: {:ok, bytes}, else: {:error, :unsupported_charset}
+    end
+  end
 
   defp attachment_count(raw_bytes) do
     Regex.scan(~r/content-disposition:\s*attachment/iu, raw_bytes)

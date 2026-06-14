@@ -39,6 +39,9 @@ defmodule AllbertAssist.Plugins.Telegram do
   end
 
   @impl true
+  def actions, do: [AllbertAssist.Actions.Channels.TelegramDoctor]
+
+  @impl true
   def settings_schema do
     [
       %{key: "channels.telegram.enabled", type: :boolean},

@@ -27,12 +27,38 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
     descriptor = effective_descriptor(opts)
 
     with {:ok, {primitive, payload}} <- Handoff.render(handoff_data, descriptor) do
-      keyboard =
-        if primitive == :button do
-          approval_keyboard(payload)
-        end
+      {text, keyboard} = render_handoff_payload(primitive, payload, handoff_data)
 
-      {:ok, chunks(payload.text, @telegram_limit), keyboard}
+      {:ok, chunks(text, @telegram_limit), keyboard}
+    end
+  end
+
+  defp render_handoff_payload(:button, payload, handoff_data) do
+    case approval_keyboard(payload) do
+      nil ->
+        fallback_handoff_payload(handoff_data)
+
+      keyboard ->
+        {payload.text, keyboard}
+    end
+  end
+
+  defp render_handoff_payload(:typed_command, payload, _handoff_data) do
+    {typed_command_text(payload), nil}
+  end
+
+  defp render_handoff_payload(:list, payload, _handoff_data) do
+    {numbered_options_text(payload), nil}
+  end
+
+  defp render_handoff_payload(_primitive, payload, _handoff_data), do: {payload.text, nil}
+
+  defp fallback_handoff_payload(handoff_data) do
+    with {:ok, {primitive, payload}} <-
+           Handoff.render(handoff_data, %{primitives: [:typed_command, :list], threading: :reply_chain}) do
+      render_handoff_payload(primitive, payload, handoff_data)
+    else
+      _error -> {"Approval required.", nil}
     end
   end
 
@@ -64,6 +90,32 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
   end
 
   defp approval_keyboard(_payload), do: nil
+
+  defp typed_command_text(%{text: text, commands: commands}) when is_list(commands) do
+    [
+      text,
+      "",
+      "Reply with one exact command:",
+      Enum.map_join(commands, "\n", &"- #{&1}")
+    ]
+    |> Enum.join("\n")
+  end
+
+  defp typed_command_text(%{text: text}), do: text
+
+  defp numbered_options_text(%{text: text, numbered_options: options}) when is_list(options) do
+    [
+      text,
+      "",
+      "Reply with one option command:",
+      Enum.map_join(options, "\n", fn option ->
+        "#{Map.get(option, :index)}. #{Map.get(option, :label)} - #{Map.get(option, :command)}"
+      end)
+    ]
+    |> Enum.join("\n")
+  end
+
+  defp numbered_options_text(%{text: text}), do: text
 
   defp chunks("", _limit), do: [""]
 

@@ -7,6 +7,13 @@ defmodule AllbertAssist.Channels.Telegram.Client do
   @base_url "https://api.telegram.org"
   @default_max_response_bytes 1_048_576
 
+  def get_me(token, opts \\ []) do
+    case client_mode(opts) do
+      :stub -> stub_get_me(token, opts)
+      :real -> request(:get, token, "getMe", [receive_timeout: Keyword.get(opts, :receive_timeout, 10_000)], opts)
+    end
+  end
+
   def get_updates(token, offset, timeout_seconds, opts \\ []) do
     request(
       :get,
@@ -266,6 +273,46 @@ defmodule AllbertAssist.Channels.Telegram.Client do
   end
 
   defp redact_body(_body), do: %{}
+
+  defp stub_get_me(token, opts) do
+    with {:ok, _token} <- validate_non_empty_token(token) do
+      case stub_result(opts) do
+        :success ->
+          {:ok,
+           %{
+             "id" => 52_000_000,
+             "is_bot" => true,
+             "first_name" => "Allbert Fixture",
+             "username" => "allbert_fixture_bot"
+           }}
+
+        :unauthorized ->
+          {:error, {:telegram_error, 401, %{"description" => "Unauthorized"}}}
+
+        :unavailable ->
+          {:error, {:transport_error, :econnrefused}}
+      end
+    end
+  end
+
+  defp validate_non_empty_token(token) when is_binary(token) do
+    token = String.trim(token)
+    if token == "", do: {:error, :missing_telegram_token}, else: {:ok, token}
+  end
+
+  defp validate_non_empty_token(_token), do: {:error, :missing_telegram_token}
+
+  defp client_mode(opts) do
+    Keyword.get(opts, :mode, Application.get_env(:allbert_assist, :telegram_client_mode, :real))
+  end
+
+  defp stub_result(opts) do
+    Keyword.get(
+      opts,
+      :stub_result,
+      Application.get_env(:allbert_assist, :telegram_client_stub_result, :success)
+    )
+  end
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value) when is_map(map), do: Map.put(map, key, value)

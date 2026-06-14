@@ -11,12 +11,14 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels telegram unmap --external-user EXTERNAL
       mix allbert.channels telegram simulate --external-user EXTERNAL --chat CHAT "prompt"
       mix allbert.channels telegram poll-once
+      mix allbert.channels telegram doctor
       mix allbert.channels email set-password --type imap PASSWORD
       mix allbert.channels email set-password --type smtp PASSWORD
       mix allbert.channels email map --external-user EMAIL --user USER
       mix allbert.channels email unmap --external-user EMAIL
       mix allbert.channels email simulate --external-user EMAIL [--new-thread] "prompt"
       mix allbert.channels email poll-once
+      mix allbert.channels email doctor
       mix allbert.channels identity-links add --link LINK --channel CHANNEL --receiver RECEIVER --external-user EXTERNAL --user USER
       mix allbert.channels identity-links list [--link LINK] [--user USER]
       mix allbert.channels identity-links remove --link LINK --channel CHANNEL --receiver RECEIVER --external-user EXTERNAL
@@ -131,6 +133,12 @@ defmodule Mix.Tasks.Allbert.Channels do
     {:ok, {:poll, "telegram", Telegram.Adapter.poll_once()}}
   end
 
+  defp dispatch(["telegram", "doctor"]) do
+    with {:ok, response} <- completed_action("telegram_doctor", %{}) do
+      {:ok, {:doctor, "telegram", response.doctor}}
+    end
+  end
+
   defp dispatch(["email", "set-password" | rest]) do
     {opts, args, invalid} = parse!(rest)
     reject_invalid!(invalid)
@@ -164,6 +172,12 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   defp dispatch(["email", "poll-once"]) do
     {:ok, {:poll, "email", Email.Adapter.poll_once()}}
+  end
+
+  defp dispatch(["email", "doctor"]) do
+    with {:ok, response} <- completed_action("email_doctor", %{}) do
+      {:ok, {:doctor, "email", response.doctor}}
+    end
   end
 
   defp dispatch(["identity-links", "add" | rest]) do
@@ -370,11 +384,13 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels telegram unmap --external-user EXTERNAL
       mix allbert.channels telegram simulate --external-user EXTERNAL --chat CHAT "prompt"
       mix allbert.channels telegram poll-once
+      mix allbert.channels telegram doctor
       mix allbert.channels email set-password --type imap|smtp PASSWORD
       mix allbert.channels email map --external-user EMAIL --user USER
       mix allbert.channels email unmap --external-user EMAIL
       mix allbert.channels email simulate --external-user EMAIL [--new-thread] "prompt"
       mix allbert.channels email poll-once
+      mix allbert.channels email doctor
       mix allbert.channels identity-links add --link LINK --channel CHANNEL --receiver RECEIVER --external-user EXTERNAL --user USER
       mix allbert.channels identity-links list [--link LINK] [--user USER]
       mix allbert.channels identity-links remove --link LINK --channel CHANNEL --receiver RECEIVER --external-user EXTERNAL
@@ -481,8 +497,12 @@ defmodule Mix.Tasks.Allbert.Channels do
       "auth_ok=#{Map.get(result, :auth_ok)} endpoint_ok=#{Map.get(result, :endpoint_ok)}"
     )
 
-    Mix.shell().info("gateway=#{Map.get(result, :gateway_status)}")
-    Mix.shell().info("bot=#{Map.get(result, :bot_username, "unknown")}")
+    maybe_print_doctor_field("gateway", Map.get(result, :gateway_status))
+    maybe_print_doctor_field("socket_mode", Map.get(result, :socket_mode_status))
+    maybe_print_doctor_field("poller", Map.get(result, :poller_status))
+    maybe_print_doctor_field("imap", Map.get(result, :imap_endpoint_ok))
+    maybe_print_doctor_field("smtp", Map.get(result, :smtp_endpoint_ok))
+    maybe_print_doctor_field("bot", Map.get(result, :bot_username))
   end
 
   defp print_result({:error, reason}) do
@@ -813,6 +833,9 @@ defmodule Mix.Tasks.Allbert.Channels do
   end
 
   defp maybe_print_doctor(_channel), do: :ok
+
+  defp maybe_print_doctor_field(_label, nil), do: :ok
+  defp maybe_print_doctor_field(label, value), do: Mix.shell().info("#{label}=#{value}")
 
   defp doctor_status(doctor) do
     Map.get(doctor, "status", Map.get(doctor, :status, "unknown"))
