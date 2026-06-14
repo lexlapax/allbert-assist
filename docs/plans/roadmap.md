@@ -3211,10 +3211,15 @@ ADRs: `docs/adr/0056-...` (v0.53 amendment — public signed webhook),
 `docs/adr/0059-channel-trust-class-and-relay-gating.md` (NEW).
 
 Status: planned; **deepened in the v0.53 first implementation-readiness pass**
-from a skeleton to a deep plan (M0-M9, one large release). Scope: build
+from a skeleton to a deep plan (M0-M10, one large release). Scope: build
 **Matrix + WhatsApp (Cloud API) + Signal (signal-cli daemon)**; **Viber**
 documented on paper as a validated WhatsApp-twin and **deferred** (~€100/mo
 standing bot fee); **iMessage + SMS parked**. Public protocol interop is v0.51.
+v0.53 now **opens with a Channel Pack 1 retro-validation milestone (M5)**: the
+first real-provider live validation of the already-shipped Telegram and email
+channels — brought to Discord/Slack parity (per-provider external smokes,
+provider doctors, operator guides, and live manual checks) — before building
+Matrix/WhatsApp/Signal.
 
 Expected direction:
 
@@ -3244,9 +3249,9 @@ Expected direction:
   `typed_command`/`link`/`list` fallback, `:server_readable`. **Signal** via
   `signal-cli`, `:reply_chain` reply-by-timestamp, ACI identity,
   `typed_command`/`link`/`list`, `:e2ee_origin`.
-- Substrate-first sequencing: constructs (M0-M4) before adapters (M5-M7);
-  pairing/identity/delivery (M8); evals + **required per-platform real-provider
-  live smokes** + closeout (M9).
+- Substrate-first sequencing: Channel Pack 1 retro-validation (M5) and
+  constructs (M0-M4) before adapters (M6-M8); pairing/identity/delivery (M9);
+  evals + **required per-platform real-provider live smokes** + closeout (M10).
 - Keep SMS, iMessage, and the Viber build parked in `future-features.md`.
 
 ## v0.54: Intent Deepening
