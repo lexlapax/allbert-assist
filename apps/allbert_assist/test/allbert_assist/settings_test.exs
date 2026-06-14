@@ -1563,6 +1563,48 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("channels.email.imap_ssl", false, %{})
   end
 
+  test "v0.53 WhatsApp webhook settings are writable and validated" do
+    assert {:ok, false} = Settings.get("channels.whatsapp.webhook_enabled")
+    assert {:ok, ""} = Settings.get("channels.whatsapp.phone_number_id")
+    assert {:ok, "[REDACTED]"} = Settings.get("channels.whatsapp.app_secret_ref")
+    assert {:ok, "[REDACTED]"} = Settings.get("channels.whatsapp.webhook_verify_token_ref")
+
+    assert {:ok, _setting} =
+             Settings.put("channels.whatsapp.phone_number_id", "15551234567", %{
+               audit?: false
+             })
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.whatsapp.app_secret_ref",
+               "secret://channels/whatsapp/app_secret",
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.whatsapp.webhook_verify_token_ref",
+               "secret://channels/whatsapp/webhook_verify_token",
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} =
+             Settings.put("channels.whatsapp.webhook_rate_limit.limit", 10, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("channels.whatsapp.webhook_enabled", true, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "channels.whatsapp.app_secret_ref", _reason}} =
+             Settings.put(
+               "channels.whatsapp.app_secret_ref",
+               "secret://providers/meta/api_key",
+               %{}
+             )
+
+    assert {:error, {:invalid_setting, "channels.whatsapp.webhook_rate_limit.limit", _reason}} =
+             Settings.put("channels.whatsapp.webhook_rate_limit.limit", 0, %{})
+  end
+
   test "skill script execution settings are writable and validated" do
     assert {:ok, policy} =
              Settings.put("permissions.skill_script_execute", "allowed", %{audit?: false})

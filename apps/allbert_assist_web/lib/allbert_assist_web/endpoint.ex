@@ -43,6 +43,7 @@ defmodule AllbertAssistWeb.Endpoint do
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
   plug AllbertAssistWeb.Plugs.PublicProtocolBodyCap
+  plug AllbertAssistWeb.Plugs.PublicProtocolWebhookAuth
 
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
