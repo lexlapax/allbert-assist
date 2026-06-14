@@ -66,9 +66,10 @@ local-first app:
   or refresh the cache so it stays correct. Built on the existing `:crypto`
   AES-256-GCM scheme + `plug_crypto` — **no new mandatory dependency**.
 - Hardening that is actually achievable and required:
-  - `:erlang.process_flag(:sensitive, true)` in `init/1` — excludes the process
-    heap/stack from `erl_crash.dump` and blocks `:sys.get_state`/`:observer`
-    introspection. (Highest-value control.)
+  - `:erlang.process_flag(:sensitive, true)` in `init/1` — retained as
+    crash-dump/observer hardening. M1 implementation testing on the current OTP
+    showed local `:sys.get_state` can still return GenServer state, so this ADR
+    does not treat `:sensitive` as a same-VM introspection boundary.
   - `format_status/1` masks state; a custom `Inspect` prints no secret material;
     each secret is held as a zero-arity closure so accidental `inspect`/exception
     renders `#Fun<...>`, never the value.
@@ -78,11 +79,12 @@ local-first app:
   - Secrets never placed in public ETS, never in signals/traces/`channel_events`
     (existing `Runtime.Redactor`/`Security.Redactor` gating preserved).
 - **Honest scope (normative):** the plan and docs may claim only that secret
-  material is decrypted once, held in one `:sensitive` supervised process,
-  excluded from crash dumps and introspection, never logged, and redacted on
-  inspect. They must **not** claim locked/protected/non-swappable/zeroed memory,
-  or that an in-BEAM process is isolated from other in-VM modules (the BEAM has
-  no in-VM capability boundary; in-process isolation is advisory). Master-key
+  material is decrypted once, held in one supervised process with `:sensitive`
+  enabled, hidden behind closure-backed state, absent from masked status and
+  inspect output, and never logged. They must **not** claim
+  locked/protected/non-swappable/zeroed memory, local `:sys.get_state` denial, or
+  that an in-BEAM process is isolated from other in-VM modules (the BEAM has no
+  in-VM capability boundary; in-process isolation is advisory). Master-key
   sourcing keeps env/config/`.settings_key` (0600); an OS-keychain master-key
   provider may be added as one optional branch, never required.
 

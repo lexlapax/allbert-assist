@@ -35,6 +35,17 @@ defmodule AllbertAssist.Settings.Audit do
     })
   end
 
+  def append_secret_fetch(secret_ref, context \\ %{}) do
+    append(%{
+      key: secret_ref,
+      old: :configured,
+      new: :fetched,
+      context: context,
+      permission: context_value(context, :permission_decision, :allowed),
+      validation: :ok
+    })
+  end
+
   def append(entry) when is_map(entry) do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
     path = audit_path(now)
