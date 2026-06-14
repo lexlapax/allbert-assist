@@ -33,6 +33,19 @@ defmodule AllbertAssist.Runtime.RedactorTest do
     assert struct_map.__struct__ == "AllbertAssist.Runtime.RedactorTest.FixtureStruct"
   end
 
+  test "redact is total on improper lists (must never raise and crash a caller)" do
+    # An improper list (binary tail) crashed Enum.map and took down the Slack
+    # adapter on a real inbound message. Redaction is a safety facade; it must
+    # degrade gracefully instead of raising.
+    improper = [%{api_key: "sk-secret"}, "visible" | "messages"]
+
+    # improper lists are folded into proper (JSON-safe) lists, never raising
+    assert [%{api_key: "[REDACTED]"}, "visible", "messages"] = Redactor.redact(improper)
+    # nested under a map key, mirroring the real crash shape
+    assert %{"data" => [%{api_key: "[REDACTED]"}, "tail"]} =
+             Redactor.redact(%{"data" => [%{api_key: "sk-secret"} | "tail"]})
+  end
+
   test "surface-specific runtime redaction uses the same strict policy" do
     payload = %{
       resource_access: %{raw_response: %{token: "secret"}},

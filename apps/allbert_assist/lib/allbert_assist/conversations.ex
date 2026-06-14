@@ -389,7 +389,14 @@ defmodule AllbertAssist.Conversations do
     Map.new(map, fn {key, value} -> {json_safe_key(key), json_safe(value)} end)
   end
 
-  defp json_safe(list) when is_list(list), do: Enum.map(list, &json_safe/1)
+  # `Enum.map/2` raises on an improper list (non-`[]` tail); json_safe must be
+  # total AND produce a JSON-encodable (proper) list so a malformed
+  # action_log/metadata value cannot crash the caller (a channel adapter
+  # recording a trace) nor break downstream Jason encoding. A non-list tail is
+  # folded in as a final element, turning `[a | "x"]` into `["a", "x"]`.
+  defp json_safe([head | tail]) when is_list(tail), do: [json_safe(head) | json_safe(tail)]
+  defp json_safe([head | tail]), do: [json_safe(head), json_safe(tail)]
+  defp json_safe([]), do: []
 
   defp json_safe(value)
        when is_binary(value) or is_number(value) or is_boolean(value) or is_nil(value),
