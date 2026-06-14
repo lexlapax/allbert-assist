@@ -356,9 +356,13 @@ adapters share the same channel substrate, identity mapping posture, durable
 event dedupe model, and Approval Handoff rendering contract. v0.17 moves
 Telegram and email into shipped source-tree channel plugins so later channels
 can arrive through the same extension path. The v1.0 arc now makes that path
-concrete after the capability-first arc: Discord and Slack shipped in v0.52;
-WhatsApp, Signal, and Matrix land in v0.53 along with the custody, daemon,
-trust-class, signed-webhook, and phone-redaction constructs those channels force.
+concrete after the capability-first arc: Discord and Slack shipped in v0.52
+(with the first real-provider live validation, which proved stub-green is not
+provider-green). v0.53 opens by retro-validating the v0.16 Telegram and email
+channels to that same real-provider parity — since they had only ever been
+stub-tested — and then lands WhatsApp, Signal, and Matrix along with the custody,
+daemon, trust-class, signed-webhook, and phone-redaction constructs those
+channels force.
 SMS, iMessage, native packaged UI, hosted channel fan-out, and
 other broad distribution paths remain parked until after the channel packs
 prove the substrate. Each channel should translate external input into signals
