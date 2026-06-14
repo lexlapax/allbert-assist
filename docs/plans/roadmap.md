@@ -303,8 +303,9 @@ Dependency order from here:
 52. v0.52 Channel Pack 1 (Discord and Slack) + ADR 0016 amendment for the
     channel approval-primitive contract (`{list, button, typed_command, link}`).
     Locks the channel approval shape before mobile channels need it.
-53. v0.53 Channel Pack 2 — WhatsApp, Signal, and Matrix. iMessage is parked
-    (macOS-only platform constraint).
+53. v0.53 Channel Pack 1 retro-validation (Telegram + email, first real-provider
+    live validation) then Channel Pack 2 — WhatsApp, Signal, and Matrix. iMessage
+    is parked (macOS-only platform constraint).
 54. v0.54 Intent Deepening: deepen the intent subsystem (ADR 0019/0034) so a
     chat-primary surface routes reliably — classification, multi-turn and
     clarification handling, disambiguation. Sequenced before the UX redo

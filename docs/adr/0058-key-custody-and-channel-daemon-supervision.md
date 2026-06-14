@@ -3,7 +3,8 @@
 ## Status
 
 Proposed for v0.53 Channel Pack 2 + system-wide constructs
-(`docs/plans/v0.53-plan.md`). Flips to Accepted at the v0.53 closeout milestone.
+(`docs/plans/v0.53-plan.md`). Flips to Accepted at v0.53 M10 closeout after
+release evidence.
 
 This ADR adds two related system-wide constructs that v0.53 forces but that
 benefit the whole runtime:
