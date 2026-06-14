@@ -30,7 +30,8 @@ decrypted material. `plug_crypto` is already in the dependency tree; `cloak`,
 
 v0.53 adds Signal, whose only viable integration is to **supervise an external
 `signal-cli` daemon** that holds a Signal account's E2EE key material on disk and
-speaks JSON-RPC over a local socket. That raises two questions at once: where do
+speaks JSON-RPC over a local control channel (preferred UNIX socket, or explicit
+loopback TCP/HTTP endpoint). That raises two questions at once: where do
 decrypted secrets live in the running app, and how does Allbert supervise an
 external key-holding process under the AGENTS.md rule that bridge/daemon
 processes need an explicit permission/confirmation/sandbox/trace story.
@@ -91,15 +92,18 @@ local-first app:
   `Port` is not used for a long-running daemon.
 - The daemon's key material lives under Allbert Home (`<ALLBERT_HOME>/<channel>/`,
   directory `0700`, key files `0600`, enforced with `File.chmod`, mirroring the
-  existing `.settings_key` pattern). The control channel is a **`0600` UNIX
-  socket or `127.0.0.1`-only** endpoint — never a public bind.
+  existing `.settings_key` pattern). The control channel is local-only: preferred
+  **`0600` UNIX socket**, or explicitly configured **`127.0.0.1`-only TCP/HTTP
+  endpoint with daemon auth/ACL controls** — never a public bind.
 - Starting/stopping/pairing the daemon is an explicit, audited operator action;
   the daemon grants no Allbert authority by existing — all effectful work still
   routes through registered actions, Security Central, confirmations, traces, and
   audits. The daemon is a delivery transport, not an authority path (ADR 0016).
-- For Signal specifically: `signal-cli` in daemon mode exposing JSON-RPC over a
-  `0600` local socket; account keys under `<ALLBERT_HOME>/signal/`; device
-  linking (QR) is an audited operator action.
+- For Signal specifically: `signal-cli` in daemon mode exposing JSON-RPC over the
+  preferred `0600` UNIX socket, or over an explicitly selected loopback TCP/HTTP
+  endpoint only when local bind and auth/ACL controls are configured; account keys
+  under `<ALLBERT_HOME>/signal/`; device linking (QR) is an audited operator
+  action.
 
 ## Consequences
 - Decrypted secrets stop being re-derived per read and live in one hardened,
@@ -110,8 +114,9 @@ local-first app:
 - The daemon-supervision construct is reusable: a future WhatsApp-web bridge,
   Signal, or iMessage relay inherit it rather than re-solving supervision/trust.
 - The v0.53 eval set covers: KeyCustody never leaks via inspect/`:sys.get_state`/
-  crash-dump fixtures, fetch is audited, the signal-cli socket is localhost/0600,
-  and daemon credential files are 0600.
+  crash-dump fixtures, fetch is audited, the signal-cli control endpoint is local
+  only, UNIX socket permissions are 0600 when that mode is used, loopback endpoints
+  require auth/ACL controls when configured, and daemon credential files are 0600.
 
 ## Related
 - ADR 0016 (channel boundary — daemon is transport, not authority), ADR 0006

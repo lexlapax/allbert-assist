@@ -726,12 +726,13 @@ historical aliases only and remain in old reference notes for continuity.
   metadata, existing web/CLI/Telegram/email surfaces retrofit onto the same
   substrate, and the owner-scope hook avoids a post-1.0 multi-user/multi-tenant
   schema redo without introducing hosted tenancy in v0.52.
-- v0.53: Channel Pack 2 - Matrix + WhatsApp (Cloud API) + Signal
-  (`signal-cli` daemon). Also finishes the system-wide constructs the mobile
-  channels force: KeyCustody, channel trust-class gating, public signed-webhook
-  ingress, descriptor reply-key/quote-TTL consumption, phone-PII redaction, and
-  mandatory `:list` approval fallback. Viber is documented on paper + deferred;
-  iMessage/SMS parked.
+- v0.53: Channel Pack 1 retro-validation (Telegram + email live-provider parity)
+  before Channel Pack 2 - Matrix + WhatsApp (Cloud API) + Signal (`signal-cli`
+  daemon). Also finishes the system-wide constructs the mobile channels force:
+  KeyCustody, channel trust-class gating, public signed-webhook ingress,
+  descriptor reply-key/quote-TTL consumption, phone-PII redaction, and mandatory
+  `:list` approval fallback. Viber is documented on paper + deferred; iMessage/SMS
+  parked.
 - v0.54: Intent Deepening. Deepens the intent subsystem (ADR 0019/0034) so a
   chat-primary surface routes reliably; model output stays advisory.
 - v0.55: Web UX Redo. Re-layouts `/workspace` (ADR 0023/0024 kept) — chat
