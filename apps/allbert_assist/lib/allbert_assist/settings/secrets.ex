@@ -6,6 +6,7 @@ defmodule AllbertAssist.Settings.Secrets do
   alias AllbertAssist.PublicProtocol.TokenAuth
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Audit
+  alias AllbertAssist.Settings.KeyCustody
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.Store
   alias AllbertAssist.Settings.YamlCodec
@@ -29,6 +30,7 @@ defmodule AllbertAssist.Settings.Secrets do
          updated_plaintext <- put_plaintext_secret(plaintext, secret_ref, value, context),
          :ok <- write_plaintext(key, updated_plaintext),
          :ok <- maybe_write_setting_ref(secret_ref, context) do
+      KeyCustody.invalidate(secret_ref)
       diagnostics = audit_secret(secret_ref, old_status, :configured, context)
       {:ok, %{secret_ref: secret_ref, status: :configured, diagnostics: diagnostics}}
     end
@@ -37,26 +39,16 @@ defmodule AllbertAssist.Settings.Secrets do
   def put_secret(_secret_ref, _value, _context),
     do: {:error, {:invalid_secret_value, :not_a_string}}
 
-  def get_secret(secret_ref, _context \\ %{}) do
-    with :ok <- validate_secret_ref(secret_ref),
-         {:ok, key} <- master_key(),
-         {:ok, plaintext} <- read_plaintext(key),
-         {:ok, value} <- get_plaintext_secret(plaintext, secret_ref) do
-      {:ok, value}
-    end
-  end
+  def get_secret(secret_ref, context \\ %{}), do: KeyCustody.fetch(secret_ref, context)
 
   def list_secret_status(namespace_or_opts \\ []) do
     namespace = namespace(namespace_or_opts)
 
-    case read_status_tree() do
-      {:ok, plaintext} ->
-        {:ok, statuses_from_plaintext(plaintext, namespace)}
+    case KeyCustody.list_secret_status(namespace) do
+      {:ok, statuses} ->
+        {:ok, statuses}
 
-      {:missing, _reason} ->
-        {:ok, []}
-
-      {:error, {:secret_decrypt_failed, _reason}} ->
+      {:decrypt_failed, _reason} ->
         {:ok, [%{secret_ref: namespace || "secret://", status: :decrypt_failed}]}
     end
   end
@@ -67,6 +59,7 @@ defmodule AllbertAssist.Settings.Secrets do
          {:ok, plaintext} <- read_plaintext(key),
          updated <- delete_plaintext_secret(plaintext, secret_ref),
          :ok <- write_plaintext(key, updated) do
+      KeyCustody.invalidate(secret_ref)
       {:ok, %{secret_ref: secret_ref, status: :missing}}
     end
   end
@@ -83,21 +76,29 @@ defmodule AllbertAssist.Settings.Secrets do
   end
 
   def status(secret_ref) do
-    cond do
-      validate_secret_ref(secret_ref) != :ok ->
-        :invalid_ref
+    KeyCustody.status(secret_ref)
+  end
 
-      not File.exists?(secrets_path()) ->
-        :missing
-
-      true ->
-        case get_secret(secret_ref, %{trusted?: true}) do
-          {:ok, _value} -> :configured
-          {:error, {:secret_not_found, _ref}} -> :missing
-          {:error, {:secret_decrypt_failed, _reason}} -> :decrypt_failed
-          {:error, _reason} -> :missing
-        end
+  @doc false
+  def load_plaintext_for_custody do
+    with {:ok, key} <- master_key(),
+         {:ok, plaintext} <- read_plaintext(key) do
+      {:ok, plaintext}
     end
+  end
+
+  @doc false
+  def plaintext_entries_for_custody(plaintext) do
+    plaintext = ensure_plaintext_shape(plaintext)
+
+    plaintext
+    |> statuses_from_plaintext(nil)
+    |> Enum.flat_map(fn %{secret_ref: secret_ref, status: :configured} ->
+      case get_plaintext_secret(plaintext, secret_ref) do
+        {:ok, value} -> [{secret_ref, value}]
+        {:error, _reason} -> []
+      end
+    end)
   end
 
   def validate_secret_ref(secret_ref) when is_binary(secret_ref) do
@@ -175,17 +176,6 @@ defmodule AllbertAssist.Settings.Secrets do
       decrypt_file(key)
     else
       {:ok, %{"version" => 1, "secrets" => %{}}}
-    end
-  end
-
-  defp read_status_tree do
-    if File.exists?(secrets_path()) do
-      with {:ok, key} <- master_key(),
-           {:ok, plaintext} <- decrypt_file(key) do
-        {:ok, plaintext}
-      end
-    else
-      {:missing, :no_secret_file}
     end
   end
 

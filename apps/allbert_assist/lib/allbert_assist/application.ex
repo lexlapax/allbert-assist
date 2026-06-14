@@ -23,6 +23,7 @@ defmodule AllbertAssist.Application do
         {Phoenix.PubSub, name: AllbertAssist.PubSub},
         {Jido.Signal.Bus, name: AllbertAssist.SignalBus},
         {Task.Supervisor, name: AllbertAssist.TaskSupervisor},
+        AllbertAssist.Settings.Supervisor,
         AllbertAssist.Artifacts.GC,
         AllbertAssist.PublicProtocol.RateLimiter,
         AllbertAssist.PublicProtocol.ResultReadbackSweeper,
