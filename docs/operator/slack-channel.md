@@ -47,6 +47,11 @@ into a disposable sandbox workspace you own.
 5. **Interactivity.** Features → Interactivity & Shortcuts → toggle on so
    approval buttons (`block_actions`) are delivered. With Socket Mode on, no
    Request URL is required.
+5a. **Enable DMs to the app.** Features → **App Home** → **Show Tabs** →
+   **Messages Tab** → turn it on and check **"Allow users to send Slash commands
+   and messages from the messages tab."** Without this, Slack blocks direct
+   messages to the bot ("sending messages to this app has been turned off") and
+   the DM check cannot run. Reload Slack (Cmd/Ctrl+R) after enabling.
 6. **Install the app + copy the bot token.** Features → OAuth & Permissions →
    **Install to Workspace** (or *Reinstall* after scope changes) → Allow. On the
    same page copy the **Bot User OAuth Token** (`xoxb-…`) → `SLACK_BOT_TOKEN`.
@@ -252,6 +257,10 @@ env-var names match. All app-config steps are at
     *Expected:* both events listed.
 12. Left sidebar → **Interactivity & Shortcuts** → toggle **Interactivity** ON →
     **Save Changes**. (With Socket Mode on, no Request URL is needed.)
+12a. Left sidebar → **App Home** → **Show Tabs** → **Messages Tab** ON → check
+    **"Allow users to send Slash commands and messages from the messages tab"**.
+    Required for the DM check — otherwise Slack blocks DMs to the bot ("sending
+    messages to this app has been turned off"). Reload Slack after enabling.
 
 ### Part 5 — install + bot token 🧑
 
