@@ -36,6 +36,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test external-smoke -- email
       mix allbert.test external-smoke -- inbound_telegram
       mix allbert.test external-smoke -- inbound_email
+      mix allbert.test external-smoke -- matrix
       mix allbert.test external-smoke -- discord
       mix allbert.test external-smoke -- slack
       mix allbert.test external-smoke -- inbound_discord
@@ -58,7 +59,8 @@ defmodule Mix.Tasks.Allbert.Test do
     "plugins/allbert.telegram/test",
     "plugins/allbert.email/test",
     "plugins/allbert.discord/test",
-    "plugins/allbert.slack/test"
+    "plugins/allbert.slack/test",
+    "plugins/allbert.matrix/test"
   ]
 
   @template_defaults %{
@@ -76,6 +78,7 @@ defmodule Mix.Tasks.Allbert.Test do
     {"plugins/allbert.email/", :email},
     {"plugins/allbert.discord/", :discord},
     {"plugins/allbert.slack/", :slack},
+    {"plugins/allbert.matrix/", :matrix},
     {"plugins/allbert.notes_files/", :notes_files}
   ]
 
@@ -1709,6 +1712,24 @@ defmodule Mix.Tasks.Allbert.Test do
       ]
     },
     %{
+      id: "matrix_channel_plugin",
+      title: "Matrix plugin fixture sync, threaded send, doctor, and CLI",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/channels/matrix_test.exs",
+        "test/allbert_assist/actions/channels/matrix_doctor_test.exs",
+        "test/external/matrix_smoke_test.exs"
+      ],
+      coverage: [
+        "Matrix Client-Server bearer auth request shapes",
+        "fixture /sync text delivery and threaded m.room.message reply refs",
+        "matrix doctor redacted envelope",
+        "external-smoke -- matrix skip-clean scaffold"
+      ]
+    },
+    %{
       id: "channel_pack_v053_eval",
       title: "v0.53 Channel Pack 1 remediation eval inventory and tests",
       cwd: :core,
@@ -2334,12 +2355,13 @@ defmodule Mix.Tasks.Allbert.Test do
       database_path: database,
       evidence_dir: evidence_dir,
       external_network:
-        "disabled; tests use local channel fixtures, Req.Test HTTP fixtures, and no live Telegram/email providers",
+        "disabled; tests use local channel fixtures, Req.Test HTTP fixtures, and no live Telegram/email/Matrix providers",
       required_external_smokes: [
         "mix allbert.test external-smoke -- telegram",
         "mix allbert.test external-smoke -- inbound_telegram",
         "mix allbert.test external-smoke -- email",
-        "mix allbert.test external-smoke -- inbound_email"
+        "mix allbert.test external-smoke -- inbound_email",
+        "mix allbert.test external-smoke -- matrix"
       ],
       steps: results,
       secret_scan: secret_scan
@@ -3499,6 +3521,7 @@ defmodule Mix.Tasks.Allbert.Test do
     Mix.shell().info("- email (delivery; email only)")
     Mix.shell().info("- inbound_telegram (inbound; Telegram only)")
     Mix.shell().info("- inbound_email (inbound; email only)")
+    Mix.shell().info("- matrix (Matrix only)")
     Mix.shell().info("- discord (delivery; Discord only)")
     Mix.shell().info("- slack (delivery; Slack only)")
     Mix.shell().info("- inbound_discord (inbound; Discord only)")
@@ -3552,6 +3575,7 @@ defmodule Mix.Tasks.Allbert.Test do
   defp run_external_smoke(["email"]), do: run_delivery_smoke("email")
   defp run_external_smoke(["inbound_telegram"]), do: run_inbound_smoke("telegram")
   defp run_external_smoke(["inbound_email"]), do: run_inbound_smoke("email")
+  defp run_external_smoke(["matrix"]), do: run_matrix_smoke()
   defp run_external_smoke(["discord"]), do: run_delivery_smoke("discord")
   defp run_external_smoke(["slack"]), do: run_delivery_smoke("slack")
   defp run_external_smoke(["inbound_discord"]), do: run_inbound_smoke("discord")
@@ -3560,6 +3584,16 @@ defmodule Mix.Tasks.Allbert.Test do
   defp run_external_smoke(args) do
     Mix.raise(
       "unknown external smoke #{Enum.join(args, " ")}; run `mix allbert.test external-smoke list`"
+    )
+  end
+
+  defp run_matrix_smoke do
+    run_cmd!(
+      "external-smoke matrix",
+      app_cwd(:core),
+      "mix",
+      ["test", "test/external/matrix_smoke_test.exs"],
+      [{"ALLBERT_MATRIX_EXTERNAL_SMOKE", "1"} | owned_env("external-smoke-matrix", 0)]
     )
   end
 
@@ -4242,6 +4276,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test external-smoke -- email
       mix allbert.test external-smoke -- inbound_telegram
       mix allbert.test external-smoke -- inbound_email
+      mix allbert.test external-smoke -- matrix
       mix allbert.test external-smoke -- discord
       mix allbert.test external-smoke -- slack
       mix allbert.test external-smoke -- inbound_discord

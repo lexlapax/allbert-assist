@@ -5,7 +5,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   ## Usage
 
       mix allbert.channels list
-      mix allbert.channels show telegram|email|discord|slack
+      mix allbert.channels show telegram|email|discord|slack|matrix
       mix allbert.channels telegram set-token TOKEN
       mix allbert.channels telegram map --external-user EXTERNAL --user USER
       mix allbert.channels telegram unmap --external-user EXTERNAL
@@ -38,6 +38,12 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels slack simulate --channel CHANNEL [--thread-ts TS] --user EXTERNAL "prompt"
       mix allbert.channels slack simulate-callback --channel CHANNEL --user EXTERNAL --action-id allbert:v1:<verb>:<id>
       mix allbert.channels slack doctor
+      mix allbert.channels matrix set-token TOKEN
+      mix allbert.channels matrix map --external-user MXID --user USER
+      mix allbert.channels matrix unmap --external-user MXID
+      mix allbert.channels matrix simulate --room ROOM --user MXID "prompt"
+      mix allbert.channels matrix poll-once
+      mix allbert.channels matrix doctor
   """
 
   use Mix.Task
@@ -47,6 +53,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   alias AllbertAssist.Channels.Discord
   alias AllbertAssist.Channels.Email
   alias AllbertAssist.Channels.Identity
+  alias AllbertAssist.Channels.Matrix
   alias AllbertAssist.Channels.Slack
   alias AllbertAssist.Channels.Telegram
   alias AllbertAssist.Conversations.ChannelThread
@@ -66,6 +73,7 @@ defmodule Mix.Tasks.Allbert.Channels do
     link: :string,
     new_thread: :boolean,
     receiver: :string,
+    room: :string,
     thread_ts: :string,
     thread_channel: :string,
     type: :string,
@@ -177,6 +185,52 @@ defmodule Mix.Tasks.Allbert.Channels do
   defp dispatch(["email", "doctor"]) do
     with {:ok, response} <- completed_action("email_doctor", %{}) do
       {:ok, {:doctor, "email", response.doctor}}
+    end
+  end
+
+  defp dispatch(["matrix", "set-token", token]) do
+    with {:ok, _secret} <-
+           Secrets.put_secret("secret://channels/matrix/access_token", token, secret_context()),
+         {:ok, _setting} <-
+           Settings.put(
+             "channels.matrix.access_token_ref",
+             "secret://channels/matrix/access_token",
+             %{audit?: false}
+           ) do
+      {:ok, {:secret, "matrix", "access_token"}}
+    end
+  end
+
+  defp dispatch(["matrix", "map" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+    put_identity!("matrix", required!(opts, :external_user), required!(opts, :user))
+  end
+
+  defp dispatch(["matrix", "unmap" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+    remove_identity!("matrix", required!(opts, :external_user))
+  end
+
+  defp dispatch(["matrix", "simulate" | rest]) do
+    {opts, args, invalid} = parse!(rest)
+    reject_invalid!(invalid)
+
+    simulate_matrix!(
+      required!(opts, :user),
+      required!(opts, :room),
+      single_arg!(args, "Prompt is required")
+    )
+  end
+
+  defp dispatch(["matrix", "poll-once"]) do
+    {:ok, {:poll, "matrix", Matrix.Adapter.poll_once()}}
+  end
+
+  defp dispatch(["matrix", "doctor"]) do
+    with {:ok, response} <- completed_action("matrix_doctor", %{}) do
+      {:ok, {:doctor, "matrix", response.doctor}}
     end
   end
 
@@ -378,7 +432,7 @@ defmodule Mix.Tasks.Allbert.Channels do
     Mix.raise("""
     Usage:
       mix allbert.channels list
-      mix allbert.channels show telegram|email
+      mix allbert.channels show telegram|email|discord|slack|matrix
       mix allbert.channels telegram set-token TOKEN
       mix allbert.channels telegram map --external-user EXTERNAL --user USER
       mix allbert.channels telegram unmap --external-user EXTERNAL
@@ -417,6 +471,12 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels slack simulate --channel CHANNEL --thread-ts TS --user EXTERNAL "prompt"
       mix allbert.channels slack simulate-callback --channel CHANNEL --user EXTERNAL --action-id allbert:v1:<verb>:<id>
       mix allbert.channels slack doctor
+      mix allbert.channels matrix set-token TOKEN
+      mix allbert.channels matrix map --external-user MXID --user USER
+      mix allbert.channels matrix unmap --external-user MXID
+      mix allbert.channels matrix simulate --room ROOM --user MXID "prompt"
+      mix allbert.channels matrix poll-once
+      mix allbert.channels matrix doctor
     """)
   end
 
@@ -503,6 +563,8 @@ defmodule Mix.Tasks.Allbert.Channels do
     maybe_print_doctor_field("imap", Map.get(result, :imap_endpoint_ok))
     maybe_print_doctor_field("smtp", Map.get(result, :smtp_endpoint_ok))
     maybe_print_doctor_field("bot", Map.get(result, :bot_username))
+    maybe_print_doctor_field("user", Map.get(result, :user_id))
+    maybe_print_doctor_field("rooms", Map.get(result, :allowed_room_count))
   end
 
   defp print_result({:error, reason}) do
@@ -658,6 +720,39 @@ defmodule Mix.Tasks.Allbert.Channels do
          {:ok, _subject, body, _html} <- Email.Renderer.render_response(response),
          {:ok, event} <- mark_simulated_event(event, response, user_id, session_id) do
       {:ok, {:simulate, event, [body]}}
+    end
+  end
+
+  defp simulate_matrix!(external_user_id, room_id, text) do
+    with {:ok, settings} <- Channels.channel_settings("matrix"),
+         {:ok, user_id} <-
+           Identity.resolve("matrix", external_user_id, Map.get(settings, "identity_map", [])),
+         session_id <- Channels.derive_session_id("matrix", external_user_id, room_id),
+         {prompt, new_thread?} <- prompt_text(text),
+         {:ok, event} <-
+           Channels.create_event(%{
+             channel: "matrix",
+             provider: "matrix_client_server",
+             direction: "inbound",
+             external_event_id: "sim_" <> Ecto.UUID.generate(),
+             external_user_id: external_user_id,
+             external_chat_id: room_id,
+             status: "received",
+             payload_summary: "matrix simulate"
+           }),
+         {:ok, response} <-
+           Runtime.submit_user_input(%{
+             text: prompt,
+             channel: "matrix",
+             user_id: user_id,
+             operator_id: user_id,
+             session_id: session_id,
+             new_thread: new_thread?,
+             metadata: simulate_metadata("matrix", "matrix_client_server", event, nil)
+           }),
+         {:ok, rendered} <- Matrix.Renderer.render_response(response),
+         {:ok, event} <- mark_simulated_event(event, response, user_id, session_id) do
+      {:ok, {:simulate, event, rendered}}
     end
   end
 

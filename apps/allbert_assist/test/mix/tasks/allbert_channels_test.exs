@@ -9,6 +9,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Plugins.Discord, as: DiscordPlugin
   alias AllbertAssist.Plugins.Email, as: EmailPlugin
+  alias AllbertAssist.Plugins.Matrix, as: MatrixPlugin
   alias AllbertAssist.Plugins.Slack, as: SlackPlugin
   alias AllbertAssist.Plugins.Telegram, as: TelegramPlugin
   alias AllbertAssist.Runtime
@@ -17,6 +18,8 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Trace
   alias Mix.Tasks.Allbert.Channels, as: ChannelsTask
+
+  setup {Req.Test, :verify_on_exit!}
 
   defmodule FakeDoctorImapClient do
     def connect(_host, _port, opts), do: {:ok, %{opts: opts}}
@@ -40,6 +43,9 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     original_email_doctor_imap_client =
       Application.get_env(:allbert_assist, :email_doctor_imap_client)
 
+    original_matrix_doctor_opts =
+      Application.get_env(:allbert_assist, :matrix_doctor_client_opts)
+
     root =
       Path.join(
         System.tmp_dir!(),
@@ -51,6 +57,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, :telegram_doctor_client_opts, mode: :stub)
     Application.put_env(:allbert_assist, :email_doctor_imap_client, FakeDoctorImapClient)
+    Application.put_env(:allbert_assist, :matrix_doctor_client_opts, plug: {Req.Test, __MODULE__})
     Application.delete_env(:allbert_assist, Trace)
     register_channel_plugins()
 
@@ -72,6 +79,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
       restore_env(Trace, original_trace_config)
       restore_app_env(:telegram_doctor_client_opts, original_telegram_doctor_opts)
       restore_app_env(:email_doctor_imap_client, original_email_doctor_imap_client)
+      restore_app_env(:matrix_doctor_client_opts, original_matrix_doctor_opts)
       Mix.Task.reenable("allbert.channels")
       Fragments.clear_cache()
       File.rm_rf!(root)
@@ -86,6 +94,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     PluginRegistry.register_module(EmailPlugin)
     PluginRegistry.register_module(DiscordPlugin)
     PluginRegistry.register_module(SlackPlugin)
+    PluginRegistry.register_module(MatrixPlugin)
     Fragments.clear_cache()
   end
 
@@ -104,6 +113,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert list_output =~ "email provider=email_imap"
     assert list_output =~ "discord provider=discord_gateway"
     assert list_output =~ "slack provider=slack_socket_mode"
+    assert list_output =~ "matrix provider=matrix_client_server"
     refute list_output =~ "token"
 
     Mix.Task.reenable("allbert.channels")
@@ -147,6 +157,17 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert slack_show_output =~ "Channel: slack"
     assert slack_show_output =~ "Provider: slack_socket_mode"
     assert slack_show_output =~ "Doctor: not_run"
+
+    Mix.Task.reenable("allbert.channels")
+
+    matrix_show_output =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["show", "matrix"])
+      end)
+
+    assert matrix_show_output =~ "Channel: matrix"
+    assert matrix_show_output =~ "Provider: matrix_client_server"
+    assert matrix_show_output =~ "Doctor: not_run"
   end
 
   test "stores credentials without printing secret values" do
@@ -181,6 +202,17 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert email_smtp_output =~ "email smtp_password=stored"
     refute email_smtp_output =~ "smtp-secret"
     assert Secrets.status("secret://channels/email/smtp_password") == :configured
+
+    Mix.Task.reenable("allbert.channels")
+
+    matrix_output =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["matrix", "set-token", "matrix-secret"])
+      end)
+
+    assert matrix_output =~ "matrix access_token=stored"
+    refute matrix_output =~ "matrix-secret"
+    assert Secrets.status("secret://channels/matrix/access_token") == :configured
 
     Mix.Task.reenable("allbert.channels")
 
@@ -239,6 +271,11 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
   end
 
   test "telegram and email doctor commands return redacted envelopes" do
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/_matrix/client/v3/account/whoami"
+      json(conn, %{"user_id" => "@allbert:example.com", "device_id" => "DEVICE"})
+    end)
+
     capture_io(fn ->
       assert :ok = ChannelsTask.run(["telegram", "set-token", "tg-secret"])
     end)
@@ -293,6 +330,34 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert email_doctor =~ "smtp=true"
     refute email_doctor =~ "imap-secret"
     refute email_doctor =~ "smtp-secret"
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok = ChannelsTask.run(["matrix", "set-token", "matrix-secret"])
+    end)
+
+    assert {:ok, _setting} =
+             Settings.put("channels.matrix.homeserver_url", "https://matrix.example.com", %{
+               audit?: false
+             })
+
+    assert {:ok, _setting} =
+             Settings.put("channels.matrix.allowed_room_ids", ["!room:example.com"], %{
+               audit?: false
+             })
+
+    Mix.Task.reenable("allbert.channels")
+
+    matrix_doctor =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["matrix", "doctor"])
+      end)
+
+    assert matrix_doctor =~ "matrix doctor status=ok"
+    assert matrix_doctor =~ "user=@allbert:example.com"
+    assert matrix_doctor =~ "rooms=1"
+    refute matrix_doctor =~ "matrix-secret"
   end
 
   test "rejects raw Discord credentials" do
@@ -651,6 +716,41 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert slack_output =~ "User: alice"
     assert slack_output =~ "Task channel response: slack hello"
     assert_received {:runtime_request, %{channel: "slack", text: "slack hello"}}
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok =
+               ChannelsTask.run([
+                 "matrix",
+                 "map",
+                 "--external-user",
+                 "@alice:example.com",
+                 "--user",
+                 "alice"
+               ])
+    end)
+
+    Mix.Task.reenable("allbert.channels")
+
+    matrix_output =
+      capture_io(fn ->
+        assert :ok =
+                 ChannelsTask.run([
+                   "matrix",
+                   "simulate",
+                   "--room",
+                   "!room:example.com",
+                   "--user",
+                   "@alice:example.com",
+                   "matrix hello"
+                 ])
+      end)
+
+    assert matrix_output =~ "status=processed"
+    assert matrix_output =~ "User: alice"
+    assert matrix_output =~ "Task channel response: matrix hello"
+    assert_received {:runtime_request, %{channel: "matrix", text: "matrix hello"}}
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
@@ -658,4 +758,12 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
   defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
   defp restore_app_env(key, value), do: Application.put_env(:allbert_assist, key, value)
+
+  defp json(conn, body) do
+    status = conn.status || 200
+
+    conn
+    |> Plug.Conn.put_resp_content_type("application/json")
+    |> Plug.Conn.send_resp(status, Jason.encode!(body))
+  end
 end

@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "plugin_id": "allbert.matrix",
+  "name": "Allbert Matrix Channel",
+  "version": "0.53.0",
+  "kind": "channel",
+  "module": "AllbertAssist.Plugins.Matrix",
+  "contributions": {
+    "channels": ["matrix"],
+    "apps": [],
+    "actions": ["matrix_doctor"]
+  }
+}

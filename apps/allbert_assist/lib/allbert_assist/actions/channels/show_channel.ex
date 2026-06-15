@@ -127,6 +127,23 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
     }
   end
 
+  defp detail("matrix", settings, summary) do
+    %{
+      channel: "matrix",
+      provider: "matrix_client_server",
+      enabled: Map.get(settings, "enabled", false),
+      homeserver_url: Map.get(settings, "homeserver_url"),
+      allowed_room_count: length(Map.get(settings, "allowed_room_ids", [])),
+      identity_count: length(Map.get(settings, "identity_map", [])),
+      sync_poll_interval_ms: Map.get(settings, "sync_poll_interval_ms"),
+      sync_timeout_ms: Map.get(settings, "sync_timeout_ms"),
+      max_text_bytes: Map.get(settings, "max_text_bytes"),
+      credential_status: summary.credential_status,
+      doctor: matrix_doctor_state(),
+      last_event: summary.last_event
+    }
+  end
+
   defp detail(channel, settings, summary) do
     %{
       channel: channel,
@@ -158,6 +175,13 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
 
   defp slack_doctor_state do
     case AllbertAssist.Channels.Slack.Doctor.read_state() do
+      {:ok, state} -> state
+      {:error, :not_found} -> %{"status" => "not_run"}
+    end
+  end
+
+  defp matrix_doctor_state do
+    case AllbertAssist.Channels.Matrix.Doctor.read_state() do
       {:ok, state} -> state
       {:error, :not_found} -> %{"status" => "not_run"}
     end
