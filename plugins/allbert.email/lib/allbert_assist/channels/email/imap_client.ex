@@ -23,11 +23,20 @@ defmodule AllbertAssist.Channels.Email.ImapClient do
   end
 
   def login(%__MODULE__{} = conn, username, password) do
-    command(conn, ~s(LOGIN "#{escape(username)}" "#{escape(password)}"))
+    # `command/2` returns `{:ok, conn, response}`, but callers (Adapter, Doctor)
+    # and the public client contract only need `{:ok, conn}` like `connect/3`.
+    # The login response is not consumed; collapse to the 2-tuple so the real
+    # client matches every caller and stub.
+    with {:ok, conn, _response} <-
+           command(conn, ~s(LOGIN "#{escape(username)}" "#{escape(password)}")) do
+      {:ok, conn}
+    end
   end
 
   def select_mailbox(%__MODULE__{} = conn, mailbox) do
-    command(conn, ~s(SELECT "#{escape(mailbox)}"))
+    with {:ok, conn, _response} <- command(conn, ~s(SELECT "#{escape(mailbox)}")) do
+      {:ok, conn}
+    end
   end
 
   def search_unseen(%__MODULE__{} = conn) do

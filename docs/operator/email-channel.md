@@ -7,12 +7,24 @@ cross-channel threading.
 
 ## Requirements
 
-- A disposable mailbox with SMTP and IMAP enabled.
+- A disposable mailbox with SMTP and IMAP enabled, reachable with
+  **password / app-password auth**. The channel speaks IMAP `LOGIN` and SMTP
+  `AUTH` — it does **not** implement OAuth2 / XOAUTH2, so OAuth-only mailboxes
+  (modern Gmail/Microsoft, where basic IMAP/SMTP passwords are disabled) are out
+  of scope; XOAUTH2 support is a future milestone.
 - Separate IMAP and SMTP passwords or app passwords when the provider supports
   them.
 - One mapped sender address and one unmapped sender address for rejection
   checks.
 - A disposable `ALLBERT_HOME` for release validation.
+
+The v0.53 live validation used **AgentMail** (`https://agentmail.to`), an
+API-first inbox with standard IMAP/SMTP where the inbox address is the username
+and the API key is the password: IMAP `imap.agentmail.to:993` (SSL), SMTP
+`smtp.agentmail.to:587` (STARTTLS — use 587, not the implicit-TLS 465 port), and
+the SMTP `From` must equal the inbox address. Any provider that still allows
+password/app-password IMAP+SMTP (Fastmail, Proton Bridge, Zoho, a self-hosted
+server) works the same way.
 
 The v0.53 parser decodes MIME encoded-word headers plus base64 and
 quoted-printable text bodies. This is mandatory for real mailbox validation

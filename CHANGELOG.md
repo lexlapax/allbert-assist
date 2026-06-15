@@ -55,6 +55,22 @@ Developer docs: `docs/developer/key-custody.md`,
   agent-context docs now describe v0.53 as implemented and ready for live
   provider validation.
 
+### Fixed
+
+- Email channel real-provider validation (2026-06-15, against AgentMail
+  IMAP/SMTP) found and fixed three bugs the stub suites missed:
+  - `Channels.Email.ImapClient.login/3` and `select_mailbox/2` returned the
+    3-tuple `{:ok, conn, response}` while the doctor probe and the inbound
+    adapter matched `{:ok, conn}`, crashing real IMAP login with
+    `CaseClauseError`; both now return `{:ok, conn}`.
+  - `Channels.Email.SmtpClient` sent no `tls_options` to gen_smtp, so STARTTLS
+    failed (`:tls_failed`) against modern TLS 1.3 servers; it now pins verified
+    TLS (`verify_peer`, system CA store via `:public_key.cacerts_get()`, SNI,
+    HTTPS hostname matching).
+  - `SmtpClient.normalize_result/1` mis-reported gen_smtp's bare-binary success
+    receipt as an error; a binary receipt is now `:ok` and gen_smtp 3-tuple
+    errors are flattened.
+
 ### Security
 
 - v0.53 adds full `:channel_pack` security eval rows for key custody,
@@ -82,9 +98,14 @@ Developer docs: `docs/developer/key-custody.md`,
   secret scan passed with no findings.
 - `MIX_ENV=test mix allbert.test external-smoke list` passed and lists every
   v0.53 channel validation scaffold independently.
+- Email real-provider smokes passed live (2026-06-15, AgentMail): `email doctor`
+  `status=ok` / `auth_ok=true`, and `external-smoke -- email` and
+  `-- inbound_email` each `1 test, 0 failures` with recorded evidence. Email
+  operator manual checks (MIME decode, typed `APPROVE`/`DENY`/`SHOW`, reply
+  headers) remain before tag.
 - Required live real-provider smokes remain the pre-tag validation gate:
-  `external-smoke -- telegram`, `-- inbound_telegram`, `-- email`,
-  `-- inbound_email`, `-- matrix`, `-- whatsapp`, and `-- signal`.
+  `external-smoke -- telegram`, `-- inbound_telegram`, `-- matrix`,
+  `-- whatsapp`, and `-- signal`.
 
 ## v0.52.0 - Channel Pack 1 And Cross-Channel Threading
 
