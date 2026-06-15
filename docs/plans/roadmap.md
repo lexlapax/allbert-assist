@@ -3211,12 +3211,13 @@ ADRs: `docs/adr/0056-...` (v0.53 amendment — public signed webhook),
 `docs/adr/0058-key-custody-and-channel-daemon-supervision.md` (NEW),
 `docs/adr/0059-channel-trust-class-and-relay-gating.md` (NEW).
 
-Status: planned; **deepened in the v0.53 implementation-readiness passes** from a
-skeleton to a deep plan (M0-M10, one large release). Scope: first
-retro-validate **Telegram + email** to Discord/Slack live-provider parity, then
-build **Matrix + WhatsApp (Cloud API) + Signal (signal-cli daemon)**; **Viber**
-documented on paper as a validated WhatsApp-twin and **deferred** (~€100/mo
-standing bot fee); **iMessage + SMS parked**. Public protocol interop is v0.51.
+Status: implemented as `0.53.0` through M10 and ready for operator real-provider
+validation before the release tag; live Telegram/email and Matrix/WhatsApp/Signal
+smokes remain required. Scope: first retro-validate **Telegram + email** to
+Discord/Slack live-provider parity, then build **Matrix + WhatsApp (Cloud API) +
+Signal (signal-cli daemon)**; **Viber** documented on paper as a validated
+WhatsApp-twin and **deferred** (~€100/mo standing bot fee); **iMessage + SMS
+parked**. Public protocol interop is v0.51.
 v0.53 now **opens with a Channel Pack 1 retro-validation milestone (M5)**: the
 first real-provider live validation of the already-shipped Telegram and email
 channels — brought to Discord/Slack parity (per-provider external smokes,

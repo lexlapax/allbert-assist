@@ -10,6 +10,82 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.53.0 - Channel Pack 1 Retro-Validation And Channel Pack 2
+
+Status: implemented as `0.53.0` and ready for required real-provider validation
+before the release tag. Current version metadata is `0.53.0`.
+
+Plan: `docs/plans/v0.53-plan.md`.
+Request flow: `docs/plans/v0.53-request-flow.md`.
+Operator docs: `docs/operator/telegram-channel.md`,
+`docs/operator/email-channel.md`, `docs/operator/matrix-channel.md`,
+`docs/operator/whatsapp-channel.md`, `docs/operator/signal-channel.md`.
+Developer docs: `docs/developer/key-custody.md`,
+`docs/developer/channel-trust-class.md`.
+
+### Added
+
+- Telegram and email retro-validation to Discord/Slack parity: provider doctors,
+  per-provider external-smoke selectors, operator guides, live-validation
+  runbooks, MIME decoding fixes, and Telegram callback-data limit handling.
+- Matrix, WhatsApp Cloud API, and Signal `signal-cli` channel plugins with
+  adapters, parsers, renderers, redacted clients, provider doctors, setup checks,
+  Settings Central fragments, and independent external-smoke selectors.
+- Key Custody and Signal daemon custody: decrypt-once in-BEAM secret custody,
+  audited secret fetches, `signal-cli` local control diagnostics, `0600` socket
+  checks, and key-file permission repair.
+- Channel trust classes and relay gating: `:e2ee_origin`,
+  `:server_readable`, and `:local`; unified-history E2EE-origin default
+  exclusion; audited opt-in; and confirmed/audited trust-downgrade resume.
+- WhatsApp signed-webhook ingress using raw-body HMAC verification before parse,
+  provider/install rate limiting, and provider-specific webhook setup docs.
+- `mix allbert.test release.v053` deterministic release lane and independent
+  live-smoke selectors for `telegram`, `inbound_telegram`, `email`,
+  `inbound_email`, `matrix`, `whatsapp`, and `signal`.
+
+### Changed
+
+- Version metadata now reports `0.53.0` across the umbrella, core app, web app,
+  README, and `AllbertAssist.App.CoreApp.version/0`.
+- Channel descriptors now require the ADR 0016 `:list` fallback and validate
+  trust class, reply-key type, and quote TTL fields.
+- ADR 0056's public signed-webhook amendment, ADR 0058, and ADR 0059 are
+  accepted for the implemented v0.53 surface.
+- Roadmap, request-flow, security-hardening, operator, developer, and
+  agent-context docs now describe v0.53 as implemented and ready for live
+  provider validation.
+
+### Security
+
+- v0.53 adds full `:channel_pack` security eval rows for key custody,
+  Signal local-control custody, trust-class stamping, E2EE-origin view/resume
+  gating, WhatsApp webhook signature verification, phone/ACI handling,
+  timestamp replies, quote TTL degradation, descriptor validation, Matrix
+  encrypted-room exclusion, provider-thread non-authority, identity-link
+  non-merge, and Channel Pack 1 Telegram/email regressions.
+- Provider metadata, phone numbers, Signal source numbers, provider thread ids,
+  channel descriptors, and callback data remain routing/input metadata only;
+  they never grant authority.
+- Matrix encrypted room events are rejected as unsupported in v0.53; only
+  unencrypted Matrix rooms are in scope.
+
+### Verification
+
+- Focused M10 security/eval suite passed:
+  `MIX_ENV=test mix test apps/allbert_assist/test/security/v053_channel_pack_eval_test.exs apps/allbert_assist/test/security/security_eval_case_test.exs`
+  (`11 tests, 0 failures`).
+- `MIX_ENV=test mix allbert.test release.v053` passed with deterministic
+  evidence at
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v053/p0-13380/home/release_evidence/v053/release-v053-1781489630.json`.
+  Step counts: Telegram/email 46 tests, channel CLI/smoke registration 18 tests,
+  Matrix 11 tests, WhatsApp 13 tests, Signal 12 tests, v0.53 evals 11 tests;
+  secret scan passed with no findings.
+- `MIX_ENV=test mix allbert.test external-smoke list` passed and lists every
+  v0.53 channel validation scaffold independently.
+- Required live real-provider smokes remain the pre-tag validation gate:
+  `external-smoke -- telegram`, `-- inbound_telegram`, `-- email`,
+  `-- inbound_email`, `-- matrix`, `-- whatsapp`, and `-- signal`.
+
 ## v0.52.0 - Channel Pack 1 And Cross-Channel Threading
 
 Status: released as `v0.52.0`. Implemented on 2026-06-10; real-provider Discord

@@ -2,9 +2,9 @@
 
 ## Status
 
-Proposed for v0.53 Channel Pack 2 + system-wide constructs
-(`docs/plans/v0.53-plan.md`). Flips to Accepted at v0.53 M10 closeout after
-release evidence.
+Accepted at v0.53 M10 implementation closeout for Channel Pack 2 + system-wide
+constructs (`docs/plans/v0.53-plan.md`). Live provider smoke validation remains
+the pre-tag release gate.
 
 This ADR **completes a promise ADR 0057 made but did not build**: that
 "E2EE-origin content is never relayed without explicit operator action." v0.52

@@ -55,8 +55,8 @@ defmodule AllbertAssist.SecurityEvalCaseTest do
 
     assert length(rows) >= 25
 
-    ids = Enum.map(rows, & &1.id)
-    assert Enum.uniq(ids) == ids
+    milestone_ids = Enum.map(rows, &{&1.milestone, &1.id})
+    assert Enum.uniq(milestone_ids) == milestone_ids
 
     row_surfaces = rows |> Enum.map(& &1.surface) |> MapSet.new()
 

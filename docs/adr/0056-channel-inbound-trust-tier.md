@@ -5,7 +5,7 @@
 Accepted at v0.52 M8 closeout for Channel Pack 1 - Discord And Slack
 (`docs/plans/v0.52-plan.md`).
 
-Proposed amendment (v0.53, public signed-webhook inbound): v0.52 channels were
+Accepted amendment (v0.53, public signed-webhook inbound): v0.52 channels were
 outbound-initiated (Discord Gateway, Slack Socket Mode) with no public URL. v0.53
 WhatsApp Cloud API (and the deferred Viber twin) are **public HTTPS webhook**
 channels: the provider POSTs inbound events to a publicly reachable endpoint. The
@@ -24,8 +24,8 @@ parsing or runtime work; the registration/verification handshake (WhatsApp
 `hub.challenge`) is answered without granting authority. Self-hosted operators without a public
 URL use a tunnel; the signed webhook is the only inbound path for these channels.
 `:channel_message_inbound` and all v0.52 invariants apply unchanged. This
-amendment flips to Accepted at v0.53 M10 closeout after release evidence. See
-`docs/plans/v0.53-plan.md`.
+amendment was accepted at v0.53 M10 implementation closeout; live provider smoke
+validation remains the pre-tag release gate. See `docs/plans/v0.53-plan.md`.
 
 This ADR is the **channel** counterpart to ADR 0055 (the public-surface inbound
 trust tier) and ADR 0038 (the outbound MCP client trust tier). ADR 0016 decides

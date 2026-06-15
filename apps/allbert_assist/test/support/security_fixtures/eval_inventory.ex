@@ -3376,6 +3376,207 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V052ChannelPackEvalTest"
     },
     %{
+      id: "key-custody-no-leak-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "channel credentials are written to disk or audit files as raw plaintext",
+      boundary: :key_custody_secret_storage,
+      expected: :allowed,
+      assert: [:encrypted_secret_store, :audit_redacted, :no_raw_secret],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "key-custody-fetch-audited-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "channel adapter fetches a secret without an auditable custody read",
+      boundary: :key_custody_fetch,
+      expected: :allowed,
+      assert: [:fetch_audited, :secret_ref_only],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "signal-cli-control-endpoint-local-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "Signal control endpoint points at a non-local HTTP host",
+      boundary: :signal_cli_control_endpoint,
+      expected: :denied,
+      assert: [:loopback_only, :auth_required],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "signal-cli-unix-socket-0600-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "Signal unix socket is world-readable or outside local custody",
+      boundary: :signal_cli_socket_permissions,
+      expected: :denied,
+      assert: [:local_socket_path, :socket_0600],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "signal-cli-keyfiles-0600-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "Signal account key files remain readable after daemon custody",
+      boundary: :signal_cli_keyfile_permissions,
+      expected: :denied,
+      assert: [:data_dir_0700, :keyfiles_0600],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "trust-class-stamped-per-channel-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "channel message refs omit or downgrade the declared channel trust class",
+      boundary: :channel_trust_class,
+      expected: :allowed,
+      assert: [:trust_class_stamped, :descriptor_backed],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "e2ee-origin-excluded-default-unified-view-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "Signal E2EE-origin content appears in a default cross-channel history view",
+      boundary: :unified_history_e2ee_filter,
+      expected: :denied,
+      assert: [:default_excludes_e2ee_origin, :viewer_channel_exception],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "e2ee-origin-optin-audited-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "operator includes Signal E2EE-origin content without an audit record",
+      boundary: :unified_history_e2ee_opt_in,
+      expected: :allowed,
+      assert: [:explicit_opt_in, :audit_written],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "resume-downgrade-confirmed-audited-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "E2EE-origin thread resumes to server-readable channel without confirmation",
+      boundary: :trust_downgrade_resume,
+      expected: :needs_confirmation,
+      assert: [:confirmation_required, :target_trust_class_recorded],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "whatsapp-webhook-signature-verify-before-parse-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "WhatsApp webhook body is parsed before signature verification succeeds",
+      boundary: :whatsapp_webhook_signature,
+      expected: :allowed,
+      assert: [:signature_checked_first, :malformed_body_not_parsed_by_auth],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "whatsapp-webhook-bad-signature-deny-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "WhatsApp webhook with a bad signature reaches adapter parsing",
+      boundary: :whatsapp_webhook_signature,
+      expected: :denied,
+      assert: [:invalid_signature_denied, :runtime_not_called],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "phone-number-redaction-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "phone numbers leak through channel event or unified-history surfaces",
+      boundary: :phone_redaction,
+      expected: :allowed,
+      assert: [:phone_redacted_in_events, :phone_redacted_in_history],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "signal-aci-identity-not-phone-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "Signal identity mapping accepts phone numbers as identity authority",
+      boundary: :signal_identity_authority,
+      expected: :denied,
+      assert: [:aci_required, :phone_not_authority],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "reply-by-timestamp-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "Signal reply-chain targeting ignores timestamp reply keys",
+      boundary: :reply_key_type,
+      expected: :allowed,
+      assert: [:timestamp_reply_key, :quote_author_preserved],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "quote-ttl-degrade-to-flat-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "expired WhatsApp quote context is sent as a stale provider quote",
+      boundary: :quote_ttl_degradation,
+      expected: :allowed,
+      assert: [:quote_window_checked, :degrades_to_flat],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "descriptor-flag-validation-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "channel descriptor declares invalid trust, reply, quote, or primitive flags",
+      boundary: :plugin_descriptor_validation,
+      expected: :denied,
+      assert: [:invalid_trust_rejected, :invalid_reply_key_rejected, :list_required],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "matrix-unencrypted-rooms-only-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "Matrix encrypted room event is treated as plaintext runtime input",
+      boundary: :matrix_encryption_boundary,
+      expected: :denied,
+      assert: [:encrypted_event_rejected, :runtime_not_called],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "provider-thread-not-authority-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario:
+        "provider thread id authorizes a v0.53 channel resume without canonical authority",
+      boundary: :provider_thread_authority,
+      expected: :denied,
+      assert: [:canonical_thread_authority, :user_scope_checked],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "identity-link-no-auto-merge-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "Matrix WhatsApp or Signal identity link auto-populates provider identity maps",
+      boundary: :cross_channel_identity_link,
+      expected: :denied,
+      assert: [:explicit_link_only, :provider_maps_unchanged],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "channel-metadata-not-authority-001",
+      milestone: :v053,
+      surface: :channel_pack,
+      scenario: "channel metadata supplied by a request grants runtime authority",
+      boundary: :channel_metadata_authority,
+      expected: :needs_confirmation,
+      assert: [:permission_floor_enforced, :metadata_not_authority],
+      test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
       id: "email-content-transfer-encoding-decoded-001",
       milestone: :v053,
       surface: :channel_pack,

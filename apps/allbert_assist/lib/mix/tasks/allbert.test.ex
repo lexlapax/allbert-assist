@@ -1780,7 +1780,7 @@ defmodule Mix.Tasks.Allbert.Test do
     },
     %{
       id: "channel_pack_v053_eval",
-      title: "v0.53 Channel Pack 1 remediation eval inventory and tests",
+      title: "v0.53 channel-pack security eval inventory and tests",
       cwd: :core,
       executable: "mix",
       args: [
@@ -1789,8 +1789,12 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/security/security_eval_case_test.exs"
       ],
       coverage: [
-        "email-content-transfer-encoding-decoded-001",
-        "telegram-callback-data-within-64b-001"
+        "key custody no-leak and audited fetch rows",
+        "Signal local control, socket mode, keyfile custody, and ACI identity rows",
+        "WhatsApp webhook signature verification and bad-signature denial rows",
+        "trust-class stamping, descriptor validation, Matrix encrypted-room exclusion, and inbound policy floor rows",
+        "E2EE unified-history exclusion/opt-in, downgrade confirmation, reply timestamp, quote TTL, provider-thread, and identity-link rows",
+        "Channel Pack 1 email/Telegram remediation regression rows"
       ]
     }
   ]

@@ -358,16 +358,17 @@ eval surfaces until their capability work lands.
   `threading-capability-missing-rejected-001`,
   `identity-link-no-auto-merge-001`, and
   `unified-view-redaction-001`.
-- v0.53 opens by retro-validating the older Telegram and email channels against
-  real providers before new mobile adapters land: provider doctors, outbound and
-  inbound external smokes, operator guides, live manual checks, evidence capture,
-  and raw-token/credential leak scans are release-blocking M5 scope.
-- v0.53 adds Matrix, WhatsApp Cloud API, and Signal `signal-cli` scope:
+- v0.53 retro-validates the older Telegram and email channels against real
+  providers before the release tag: provider doctors, outbound and inbound
+  external smokes, operator guides, live manual checks, evidence capture, and
+  raw-token/credential leak scans are the validation gate.
+- v0.53 implements Matrix, WhatsApp Cloud API, and Signal `signal-cli` coverage:
   identity mapping, replay, pairing, group leakage, callback ownership,
   KeyCustody leak/audit checks, signal-cli local-control endpoint/key-file
   permissions, trust-class unified-view/resume gating, WhatsApp raw-body signature
   denial before parse, phone-number redaction, reply-key/quote-TTL behavior, and
-  mandatory `:list` approval fallback coverage remain v0.53 scope.
+  mandatory `:list` approval fallback checks are covered by the `:v053`
+  `:channel_pack` eval set.
 - Voice, image, screenshot, and generated media resource retention, redaction,
   provider cost, and cloud-upload policy. v0.48 narrows the voice portion:
   microphone capture and credentialed remote STT/TTS stay confirmation-gated,
