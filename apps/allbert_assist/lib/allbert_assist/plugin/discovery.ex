@@ -11,6 +11,7 @@ defmodule AllbertAssist.Plugin.Discovery do
     "allbert.discord" => AllbertAssist.Plugins.Discord,
     "allbert.slack" => AllbertAssist.Plugins.Slack,
     "allbert.matrix" => AllbertAssist.Plugins.Matrix,
+    "allbert.whatsapp" => AllbertAssist.Plugins.WhatsApp,
     "allbert.notes_files" => AllbertNotesFiles.Plugin,
     "allbert.browser" => AllbertBrowser.Plugin,
     "allbert.artifacts" => AllbertArtifacts.Plugin,

@@ -12,6 +12,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
   alias AllbertAssist.Plugins.Matrix, as: MatrixPlugin
   alias AllbertAssist.Plugins.Slack, as: SlackPlugin
   alias AllbertAssist.Plugins.Telegram, as: TelegramPlugin
+  alias AllbertAssist.Plugins.WhatsApp, as: WhatsAppPlugin
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
@@ -46,6 +47,9 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     original_matrix_doctor_opts =
       Application.get_env(:allbert_assist, :matrix_doctor_client_opts)
 
+    original_whatsapp_doctor_opts =
+      Application.get_env(:allbert_assist, :whatsapp_doctor_client_opts)
+
     root =
       Path.join(
         System.tmp_dir!(),
@@ -58,6 +62,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     Application.put_env(:allbert_assist, :telegram_doctor_client_opts, mode: :stub)
     Application.put_env(:allbert_assist, :email_doctor_imap_client, FakeDoctorImapClient)
     Application.put_env(:allbert_assist, :matrix_doctor_client_opts, plug: {Req.Test, __MODULE__})
+    Application.put_env(:allbert_assist, :whatsapp_doctor_client_opts, mode: :stub)
     Application.delete_env(:allbert_assist, Trace)
     register_channel_plugins()
 
@@ -80,6 +85,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
       restore_app_env(:telegram_doctor_client_opts, original_telegram_doctor_opts)
       restore_app_env(:email_doctor_imap_client, original_email_doctor_imap_client)
       restore_app_env(:matrix_doctor_client_opts, original_matrix_doctor_opts)
+      restore_app_env(:whatsapp_doctor_client_opts, original_whatsapp_doctor_opts)
       Mix.Task.reenable("allbert.channels")
       Fragments.clear_cache()
       File.rm_rf!(root)
@@ -95,6 +101,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     PluginRegistry.register_module(DiscordPlugin)
     PluginRegistry.register_module(SlackPlugin)
     PluginRegistry.register_module(MatrixPlugin)
+    PluginRegistry.register_module(WhatsAppPlugin)
     Fragments.clear_cache()
   end
 
@@ -114,6 +121,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert list_output =~ "discord provider=discord_gateway"
     assert list_output =~ "slack provider=slack_socket_mode"
     assert list_output =~ "matrix provider=matrix_client_server"
+    assert list_output =~ "whatsapp provider=whatsapp_cloud_api"
     refute list_output =~ "token"
 
     Mix.Task.reenable("allbert.channels")
@@ -168,6 +176,17 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert matrix_show_output =~ "Channel: matrix"
     assert matrix_show_output =~ "Provider: matrix_client_server"
     assert matrix_show_output =~ "Doctor: not_run"
+
+    Mix.Task.reenable("allbert.channels")
+
+    whatsapp_show_output =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["show", "whatsapp"])
+      end)
+
+    assert whatsapp_show_output =~ "Channel: whatsapp"
+    assert whatsapp_show_output =~ "Provider: whatsapp_cloud_api"
+    assert whatsapp_show_output =~ "Doctor: not_run"
   end
 
   test "stores credentials without printing secret values" do
@@ -213,6 +232,17 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert matrix_output =~ "matrix access_token=stored"
     refute matrix_output =~ "matrix-secret"
     assert Secrets.status("secret://channels/matrix/access_token") == :configured
+
+    Mix.Task.reenable("allbert.channels")
+
+    whatsapp_output =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["whatsapp", "set-token", "whatsapp-secret"])
+      end)
+
+    assert whatsapp_output =~ "whatsapp access_token=stored"
+    refute whatsapp_output =~ "whatsapp-secret"
+    assert Secrets.status("secret://channels/whatsapp/access_token") == :configured
 
     Mix.Task.reenable("allbert.channels")
 
@@ -270,7 +300,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
              "secret://channels/slack/app_token"
   end
 
-  test "telegram and email doctor commands return redacted envelopes" do
+  test "channel doctor commands return redacted envelopes" do
     Req.Test.expect(__MODULE__, fn conn ->
       assert conn.request_path == "/_matrix/client/v3/account/whoami"
       json(conn, %{"user_id" => "@allbert:example.com", "device_id" => "DEVICE"})
@@ -358,6 +388,37 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert matrix_doctor =~ "user=@allbert:example.com"
     assert matrix_doctor =~ "rooms=1"
     refute matrix_doctor =~ "matrix-secret"
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok = ChannelsTask.run(["whatsapp", "set-token", "whatsapp-secret"])
+    end)
+
+    assert {:ok, _setting} =
+             Settings.put("channels.whatsapp.phone_number_id", "15551234567", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.whatsapp.identity_map",
+               [%{external_user_id: "+15550001111", user_id: "alice"}],
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} =
+             Settings.put("channels.whatsapp.webhook_enabled", true, %{audit?: false})
+
+    Mix.Task.reenable("allbert.channels")
+
+    whatsapp_doctor =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["whatsapp", "doctor"])
+      end)
+
+    assert whatsapp_doctor =~ "whatsapp doctor status=ok"
+    assert whatsapp_doctor =~ "adapter="
+    refute whatsapp_doctor =~ "whatsapp-secret"
+    refute whatsapp_doctor =~ "+15551234567"
   end
 
   test "rejects raw Discord credentials" do
@@ -751,6 +812,69 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert matrix_output =~ "User: alice"
     assert matrix_output =~ "Task channel response: matrix hello"
     assert_received {:runtime_request, %{channel: "matrix", text: "matrix hello"}}
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok = ChannelsTask.run(["whatsapp", "set-token", "whatsapp-secret"])
+    end)
+
+    assert {:ok, _setting} =
+             Settings.put("channels.whatsapp.phone_number_id", "15551234567", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("channels.whatsapp.enabled", true, %{audit?: false})
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok =
+               ChannelsTask.run([
+                 "whatsapp",
+                 "map",
+                 "--external-user",
+                 "+15550001111",
+                 "--user",
+                 "alice"
+               ])
+    end)
+
+    Mix.Task.reenable("allbert.channels")
+
+    whatsapp_output =
+      capture_io(fn ->
+        assert :ok =
+                 ChannelsTask.run([
+                   "whatsapp",
+                   "simulate",
+                   "--from",
+                   "+15550001111",
+                   "whatsapp hello"
+                 ])
+      end)
+
+    assert whatsapp_output =~ "status=processed"
+    assert whatsapp_output =~ "User: alice"
+    assert whatsapp_output =~ "whatsapp processed=1"
+    assert_received {:runtime_request, %{channel: "whatsapp", text: "whatsapp hello"}}
+
+    Mix.Task.reenable("allbert.channels")
+
+    whatsapp_button_output =
+      capture_io(fn ->
+        assert :ok =
+                 ChannelsTask.run([
+                   "whatsapp",
+                   "simulate-button",
+                   "--from",
+                   "+15550001111",
+                   "--button-id",
+                   "allbert:v1:approve:missing_confirmation"
+                 ])
+      end)
+
+    assert whatsapp_button_output =~ "whatsapp poll_once:"
+    assert whatsapp_button_output =~ "rejected: 1"
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

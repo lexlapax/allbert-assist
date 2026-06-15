@@ -2,8 +2,8 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookController do
   @moduledoc """
   WhatsApp Cloud API signed-webhook ingress substrate.
 
-  v0.53 M4 stops at verified ingress. The WhatsApp adapter in M7 consumes this
-  route after parser/adapter mapping exists.
+  The M4 public-protocol substrate authenticates this route before JSON parsing.
+  M7 hands verified payloads to the WhatsApp channel adapter.
   """
 
   use AllbertAssistWeb, :controller
@@ -24,6 +24,11 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookController do
 
   def handle(conn, params) do
     raw_body = conn.private[:allbert_public_protocol_raw_body] || ""
+    auth = conn.assigns[:public_protocol_auth] || %{}
+
+    adapter_result =
+      AllbertAssist.Channels.WhatsApp.Adapter.handle_webhook_payload(params, auth)
+      |> normalize_adapter_result()
 
     conn
     |> put_status(202)
@@ -32,9 +37,21 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookController do
       "surface" => "whatsapp_webhook",
       "phone_number_id" => conn.path_params["phone_number_id"],
       "object" => Map.get(params, "object"),
-      "raw_body_sha256" => sha256(raw_body)
+      "raw_body_sha256" => sha256(raw_body),
+      "adapter" => adapter_result
     })
   end
+
+  defp normalize_adapter_result({:ok, summary}), do: stringify(summary)
+
+  defp normalize_adapter_result({:error, reason}),
+    do: %{"status" => "error", "reason" => inspect(reason)}
+
+  defp stringify(map) when is_map(map) do
+    Map.new(map, fn {key, value} -> {to_string(key), stringify(value)} end)
+  end
+
+  defp stringify(value), do: value
 
   defp sha256(value) do
     :crypto.hash(:sha256, value)

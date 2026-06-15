@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "plugin_id": "allbert.whatsapp",
+  "name": "Allbert WhatsApp Channel",
+  "version": "0.53.0",
+  "kind": "channel",
+  "module": "AllbertAssist.Plugins.WhatsApp",
+  "contributions": {
+    "channels": ["whatsapp"],
+    "apps": [],
+    "actions": ["whatsapp_doctor"]
+  }
+}

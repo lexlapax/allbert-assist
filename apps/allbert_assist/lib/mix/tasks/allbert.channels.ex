@@ -5,7 +5,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   ## Usage
 
       mix allbert.channels list
-      mix allbert.channels show telegram|email|discord|slack|matrix
+      mix allbert.channels show telegram|email|discord|slack|matrix|whatsapp
       mix allbert.channels telegram set-token TOKEN
       mix allbert.channels telegram map --external-user EXTERNAL --user USER
       mix allbert.channels telegram unmap --external-user EXTERNAL
@@ -44,9 +44,17 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels matrix simulate --room ROOM --user MXID "prompt"
       mix allbert.channels matrix poll-once
       mix allbert.channels matrix doctor
+      mix allbert.channels whatsapp set-token TOKEN
+      mix allbert.channels whatsapp map --external-user PHONE --user USER
+      mix allbert.channels whatsapp unmap --external-user PHONE
+      mix allbert.channels whatsapp simulate --from PHONE [--message-id WAMID] "prompt"
+      mix allbert.channels whatsapp simulate-button --from PHONE --button-id allbert:v1:<verb>:<id>
+      mix allbert.channels whatsapp doctor
   """
 
   use Mix.Task
+
+  import Ecto.Query
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels
@@ -56,6 +64,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   alias AllbertAssist.Channels.Matrix
   alias AllbertAssist.Channels.Slack
   alias AllbertAssist.Channels.Telegram
+  alias AllbertAssist.Channels.WhatsApp
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
@@ -65,12 +74,15 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   @switches [
     action_id: :string,
+    button_id: :string,
     chat: :string,
     channel: :string,
     custom_id: :string,
     external_user: :string,
     guild: :string,
     link: :string,
+    from: :string,
+    message_id: :string,
     new_thread: :boolean,
     receiver: :string,
     room: :string,
@@ -231,6 +243,58 @@ defmodule Mix.Tasks.Allbert.Channels do
   defp dispatch(["matrix", "doctor"]) do
     with {:ok, response} <- completed_action("matrix_doctor", %{}) do
       {:ok, {:doctor, "matrix", response.doctor}}
+    end
+  end
+
+  defp dispatch(["whatsapp", "set-token", token]) do
+    with {:ok, _secret} <-
+           Secrets.put_secret("secret://channels/whatsapp/access_token", token, secret_context()),
+         {:ok, _setting} <-
+           Settings.put(
+             "channels.whatsapp.access_token_ref",
+             "secret://channels/whatsapp/access_token",
+             %{audit?: false}
+           ) do
+      {:ok, {:secret, "whatsapp", "access_token"}}
+    end
+  end
+
+  defp dispatch(["whatsapp", "map" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+    put_identity!("whatsapp", required!(opts, :external_user), required!(opts, :user))
+  end
+
+  defp dispatch(["whatsapp", "unmap" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+    remove_identity!("whatsapp", required!(opts, :external_user))
+  end
+
+  defp dispatch(["whatsapp", "simulate" | rest]) do
+    {opts, args, invalid} = parse!(rest)
+    reject_invalid!(invalid)
+
+    simulate_whatsapp!(
+      required!(opts, :from),
+      Keyword.get(opts, :message_id),
+      single_arg!(args, "Prompt is required")
+    )
+  end
+
+  defp dispatch(["whatsapp", "simulate-button" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+
+    simulate_whatsapp_button!(
+      required!(opts, :from),
+      required!(opts, :button_id)
+    )
+  end
+
+  defp dispatch(["whatsapp", "doctor"]) do
+    with {:ok, response} <- completed_action("whatsapp_doctor", %{}) do
+      {:ok, {:doctor, "whatsapp", response.doctor}}
     end
   end
 
@@ -432,7 +496,7 @@ defmodule Mix.Tasks.Allbert.Channels do
     Mix.raise("""
     Usage:
       mix allbert.channels list
-      mix allbert.channels show telegram|email|discord|slack|matrix
+      mix allbert.channels show telegram|email|discord|slack|matrix|whatsapp
       mix allbert.channels telegram set-token TOKEN
       mix allbert.channels telegram map --external-user EXTERNAL --user USER
       mix allbert.channels telegram unmap --external-user EXTERNAL
@@ -477,6 +541,12 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels matrix simulate --room ROOM --user MXID "prompt"
       mix allbert.channels matrix poll-once
       mix allbert.channels matrix doctor
+      mix allbert.channels whatsapp set-token TOKEN
+      mix allbert.channels whatsapp map --external-user PHONE --user USER
+      mix allbert.channels whatsapp unmap --external-user PHONE
+      mix allbert.channels whatsapp simulate --from PHONE [--message-id WAMID] "prompt"
+      mix allbert.channels whatsapp simulate-button --from PHONE --button-id allbert:v1:<verb>:<id>
+      mix allbert.channels whatsapp doctor
     """)
   end
 
@@ -560,6 +630,7 @@ defmodule Mix.Tasks.Allbert.Channels do
     maybe_print_doctor_field("gateway", Map.get(result, :gateway_status))
     maybe_print_doctor_field("socket_mode", Map.get(result, :socket_mode_status))
     maybe_print_doctor_field("poller", Map.get(result, :poller_status))
+    maybe_print_doctor_field("adapter", Map.get(result, :adapter_status))
     maybe_print_doctor_field("imap", Map.get(result, :imap_endpoint_ok))
     maybe_print_doctor_field("smtp", Map.get(result, :smtp_endpoint_ok))
     maybe_print_doctor_field("bot", Map.get(result, :bot_username))
@@ -756,6 +827,43 @@ defmodule Mix.Tasks.Allbert.Channels do
     end
   end
 
+  defp simulate_whatsapp!(external_user_id, message_id, text) do
+    with {:ok, settings} <- Channels.channel_settings("whatsapp"),
+         payload <-
+           WhatsApp.Parser.simulated_text_webhook(%{
+             from: external_user_id,
+             phone_number_id: Map.get(settings, "phone_number_id"),
+             display_phone_number: Map.get(settings, "phone_number_id"),
+             waba_id: Map.get(settings, "waba_id"),
+             message_id: message_id || "sim_" <> Ecto.UUID.generate(),
+             text: text
+           }),
+         {:ok, adapter} <-
+           WhatsApp.Adapter.start_link(name: nil, req_options: [mode: :stub]),
+         result <- WhatsApp.Adapter.simulate_webhook_event(adapter, payload) do
+      GenServer.stop(adapter)
+      normalize_whatsapp_simulation(result)
+    end
+  end
+
+  defp simulate_whatsapp_button!(external_user_id, button_id) do
+    with {:ok, settings} <- Channels.channel_settings("whatsapp"),
+         payload <-
+           WhatsApp.Parser.simulated_button_webhook(%{
+             from: external_user_id,
+             phone_number_id: Map.get(settings, "phone_number_id"),
+             display_phone_number: Map.get(settings, "phone_number_id"),
+             waba_id: Map.get(settings, "waba_id"),
+             button_id: button_id
+           }),
+         {:ok, adapter} <-
+           WhatsApp.Adapter.start_link(name: nil, req_options: [mode: :stub]),
+         result <- WhatsApp.Adapter.simulate_webhook_event(adapter, payload) do
+      GenServer.stop(adapter)
+      {:ok, {:poll, "whatsapp", result}}
+    end
+  end
+
   defp simulate_discord!(guild_id, channel_id, external_user_id, thread_channel_id, text) do
     with {:ok, settings} <- Channels.channel_settings("discord"),
          event <-
@@ -840,6 +948,21 @@ defmodule Mix.Tasks.Allbert.Channels do
   end
 
   defp normalize_slack_simulation(other), do: {:ok, {:poll, "slack", other}}
+
+  defp normalize_whatsapp_simulation({:ok, %{processed: processed} = summary})
+       when processed > 0 do
+    event =
+      AllbertAssist.Repo.one(
+        from event in AllbertAssist.Channels.Event,
+          where: event.channel == "whatsapp",
+          order_by: [desc: event.inserted_at],
+          limit: 1
+      )
+
+    {:ok, {:simulate, event, ["whatsapp processed=#{summary.processed}"]}}
+  end
+
+  defp normalize_whatsapp_simulation(other), do: {:ok, {:poll, "whatsapp", other}}
 
   defp mark_simulated_event(event, response, user_id, session_id) do
     Channels.update_event(event, %{

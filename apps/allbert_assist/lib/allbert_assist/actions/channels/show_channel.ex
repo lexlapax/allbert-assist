@@ -144,6 +144,24 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
     }
   end
 
+  defp detail("whatsapp", settings, summary) do
+    %{
+      channel: "whatsapp",
+      provider: "whatsapp_cloud_api",
+      enabled: Map.get(settings, "enabled", false),
+      webhook_enabled: Map.get(settings, "webhook_enabled", false),
+      phone_number_id: Map.get(settings, "phone_number_id"),
+      waba_id: Map.get(settings, "waba_id"),
+      identity_count: length(Map.get(settings, "identity_map", [])),
+      max_text_bytes: Map.get(settings, "max_text_bytes"),
+      render_approval_buttons: Map.get(settings, "render_approval_buttons"),
+      quote_ttl_ms: Map.get(settings, "quote_ttl_ms"),
+      credential_status: summary.credential_status,
+      doctor: whatsapp_doctor_state(),
+      last_event: summary.last_event
+    }
+  end
+
   defp detail(channel, settings, summary) do
     %{
       channel: channel,
@@ -182,6 +200,13 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
 
   defp matrix_doctor_state do
     case AllbertAssist.Channels.Matrix.Doctor.read_state() do
+      {:ok, state} -> state
+      {:error, :not_found} -> %{"status" => "not_run"}
+    end
+  end
+
+  defp whatsapp_doctor_state do
+    case AllbertAssist.Channels.WhatsApp.Doctor.read_state() do
       {:ok, state} -> state
       {:error, :not_found} -> %{"status" => "not_run"}
     end

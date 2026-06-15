@@ -20,6 +20,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Channels.ListChannels
   alias AllbertAssist.Actions.Channels.ShowChannel
+  alias AllbertAssist.Actions.Channels.WhatsAppDoctor
   alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
   alias AllbertAssist.Actions.Confirmations.DenyConfirmation
   alias AllbertAssist.Actions.Confirmations.ExpireConfirmations
@@ -193,6 +194,7 @@ defmodule AllbertAssist.Actions.Registry do
     SynthesizeVoice,
     ListChannels,
     ShowChannel,
+    WhatsAppDoctor,
     ResumeThreadOnChannel,
     ListApps,
     ShowApp,
