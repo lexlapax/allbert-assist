@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "plugin_id": "allbert.signal",
+  "name": "Allbert Signal Channel",
+  "version": "0.53.0",
+  "kind": "channel",
+  "module": "AllbertAssist.Plugins.Signal",
+  "contributions": {
+    "channels": ["signal"],
+    "apps": [],
+    "actions": ["signal_doctor", "signal_link_device"]
+  }
+}

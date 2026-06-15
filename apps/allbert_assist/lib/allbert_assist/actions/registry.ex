@@ -20,6 +20,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Channels.ListChannels
   alias AllbertAssist.Actions.Channels.ShowChannel
+  alias AllbertAssist.Actions.Channels.SignalDoctor
+  alias AllbertAssist.Actions.Channels.SignalLinkDevice
   alias AllbertAssist.Actions.Channels.WhatsAppDoctor
   alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
   alias AllbertAssist.Actions.Confirmations.DenyConfirmation
@@ -195,6 +197,7 @@ defmodule AllbertAssist.Actions.Registry do
     ListChannels,
     ShowChannel,
     WhatsAppDoctor,
+    SignalDoctor,
     ResumeThreadOnChannel,
     ListApps,
     ShowApp,
@@ -321,7 +324,8 @@ defmodule AllbertAssist.Actions.Registry do
     RenderTemplate,
     ValidateTemplate,
     ScaffoldTemplate,
-    CreateFromTemplate
+    CreateFromTemplate,
+    SignalLinkDevice
   ]
 
   @actions @agent_actions ++ @internal_actions

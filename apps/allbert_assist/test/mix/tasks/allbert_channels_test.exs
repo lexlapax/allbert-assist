@@ -10,6 +10,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
   alias AllbertAssist.Plugins.Discord, as: DiscordPlugin
   alias AllbertAssist.Plugins.Email, as: EmailPlugin
   alias AllbertAssist.Plugins.Matrix, as: MatrixPlugin
+  alias AllbertAssist.Plugins.Signal, as: SignalPlugin
   alias AllbertAssist.Plugins.Slack, as: SlackPlugin
   alias AllbertAssist.Plugins.Telegram, as: TelegramPlugin
   alias AllbertAssist.Plugins.WhatsApp, as: WhatsAppPlugin
@@ -50,6 +51,9 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     original_whatsapp_doctor_opts =
       Application.get_env(:allbert_assist, :whatsapp_doctor_client_opts)
 
+    original_signal_doctor_opts =
+      Application.get_env(:allbert_assist, :signal_doctor_client_opts)
+
     root =
       Path.join(
         System.tmp_dir!(),
@@ -63,6 +67,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     Application.put_env(:allbert_assist, :email_doctor_imap_client, FakeDoctorImapClient)
     Application.put_env(:allbert_assist, :matrix_doctor_client_opts, plug: {Req.Test, __MODULE__})
     Application.put_env(:allbert_assist, :whatsapp_doctor_client_opts, mode: :stub)
+    Application.put_env(:allbert_assist, :signal_doctor_client_opts, mode: :stub)
     Application.delete_env(:allbert_assist, Trace)
     register_channel_plugins()
 
@@ -86,6 +91,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
       restore_app_env(:email_doctor_imap_client, original_email_doctor_imap_client)
       restore_app_env(:matrix_doctor_client_opts, original_matrix_doctor_opts)
       restore_app_env(:whatsapp_doctor_client_opts, original_whatsapp_doctor_opts)
+      restore_app_env(:signal_doctor_client_opts, original_signal_doctor_opts)
       Mix.Task.reenable("allbert.channels")
       Fragments.clear_cache()
       File.rm_rf!(root)
@@ -102,6 +108,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     PluginRegistry.register_module(SlackPlugin)
     PluginRegistry.register_module(MatrixPlugin)
     PluginRegistry.register_module(WhatsAppPlugin)
+    PluginRegistry.register_module(SignalPlugin)
     Fragments.clear_cache()
   end
 
@@ -122,6 +129,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert list_output =~ "slack provider=slack_socket_mode"
     assert list_output =~ "matrix provider=matrix_client_server"
     assert list_output =~ "whatsapp provider=whatsapp_cloud_api"
+    assert list_output =~ "signal provider=signal_cli_jsonrpc"
     refute list_output =~ "token"
 
     Mix.Task.reenable("allbert.channels")
@@ -187,6 +195,17 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert whatsapp_show_output =~ "Channel: whatsapp"
     assert whatsapp_show_output =~ "Provider: whatsapp_cloud_api"
     assert whatsapp_show_output =~ "Doctor: not_run"
+
+    Mix.Task.reenable("allbert.channels")
+
+    signal_show_output =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["show", "signal"])
+      end)
+
+    assert signal_show_output =~ "Channel: signal"
+    assert signal_show_output =~ "Provider: signal_cli_jsonrpc"
+    assert signal_show_output =~ "Doctor: not_run"
   end
 
   test "stores credentials without printing secret values" do
@@ -419,6 +438,30 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert whatsapp_doctor =~ "adapter="
     refute whatsapp_doctor =~ "whatsapp-secret"
     refute whatsapp_doctor =~ "+15551234567"
+
+    Mix.Task.reenable("allbert.channels")
+
+    assert {:ok, _setting} =
+             Settings.put("channels.signal.account_identifier", "+15551234567", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.signal.local_aci",
+               "2f8f8f44-8f1a-4db3-a56a-8e0612f6f001",
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} = Settings.put("channels.signal.enabled", true, %{audit?: false})
+
+    signal_doctor =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["signal", "doctor"])
+      end)
+
+    assert signal_doctor =~ "signal doctor status=ok"
+    assert signal_doctor =~ "control=socket"
+    assert signal_doctor =~ "local_only=true"
+    refute signal_doctor =~ "+15551234567"
   end
 
   test "rejects raw Discord credentials" do
@@ -875,6 +918,46 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
     assert whatsapp_button_output =~ "whatsapp poll_once:"
     assert whatsapp_button_output =~ "rejected: 1"
+
+    Mix.Task.reenable("allbert.channels")
+
+    assert {:ok, _setting} =
+             Settings.put("channels.signal.account_identifier", "+15551234567", %{audit?: false})
+
+    assert {:ok, _setting} = Settings.put("channels.signal.enabled", true, %{audit?: false})
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok =
+               ChannelsTask.run([
+                 "signal",
+                 "map",
+                 "--aci",
+                 "2f8f8f44-8f1a-4db3-a56a-8e0612f6f001",
+                 "--user",
+                 "alice"
+               ])
+    end)
+
+    Mix.Task.reenable("allbert.channels")
+
+    signal_output =
+      capture_io(fn ->
+        assert :ok =
+                 ChannelsTask.run([
+                   "signal",
+                   "simulate",
+                   "--aci",
+                   "2f8f8f44-8f1a-4db3-a56a-8e0612f6f001",
+                   "signal hello"
+                 ])
+      end)
+
+    assert signal_output =~ "status=processed"
+    assert signal_output =~ "User: alice"
+    assert signal_output =~ "signal processed=1"
+    assert_received {:runtime_request, %{channel: "signal", text: "signal hello"}}
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

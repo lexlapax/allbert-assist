@@ -5,7 +5,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   ## Usage
 
       mix allbert.channels list
-      mix allbert.channels show telegram|email|discord|slack|matrix|whatsapp
+      mix allbert.channels show telegram|email|discord|slack|matrix|whatsapp|signal
       mix allbert.channels telegram set-token TOKEN
       mix allbert.channels telegram map --external-user EXTERNAL --user USER
       mix allbert.channels telegram unmap --external-user EXTERNAL
@@ -50,6 +50,11 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels whatsapp simulate --from PHONE [--message-id WAMID] "prompt"
       mix allbert.channels whatsapp simulate-button --from PHONE --button-id allbert:v1:<verb>:<id>
       mix allbert.channels whatsapp doctor
+      mix allbert.channels signal map --aci ACI --user USER
+      mix allbert.channels signal unmap --aci ACI
+      mix allbert.channels signal simulate --aci ACI [--message-id TIMESTAMP_MS] "prompt"
+      mix allbert.channels signal link --account ACCOUNT [--device-name NAME]
+      mix allbert.channels signal doctor
   """
 
   use Mix.Task
@@ -62,6 +67,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   alias AllbertAssist.Channels.Email
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.Matrix
+  alias AllbertAssist.Channels.Signal
   alias AllbertAssist.Channels.Slack
   alias AllbertAssist.Channels.Telegram
   alias AllbertAssist.Channels.WhatsApp
@@ -74,10 +80,13 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   @switches [
     action_id: :string,
+    account: :string,
+    aci: :string,
     button_id: :string,
     chat: :string,
     channel: :string,
     custom_id: :string,
+    device_name: :string,
     external_user: :string,
     guild: :string,
     link: :string,
@@ -298,6 +307,48 @@ defmodule Mix.Tasks.Allbert.Channels do
     end
   end
 
+  defp dispatch(["signal", "map" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+    put_signal_identity!(required!(opts, :aci), required!(opts, :user))
+  end
+
+  defp dispatch(["signal", "unmap" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+    remove_identity!("signal", normalize_signal_aci!(required!(opts, :aci)))
+  end
+
+  defp dispatch(["signal", "simulate" | rest]) do
+    {opts, args, invalid} = parse!(rest)
+    reject_invalid!(invalid)
+
+    simulate_signal!(
+      required!(opts, :aci),
+      Keyword.get(opts, :message_id),
+      single_arg!(args, "Prompt is required")
+    )
+  end
+
+  defp dispatch(["signal", "link" | rest]) do
+    {opts, [], invalid} = parse!(rest)
+    reject_invalid!(invalid)
+
+    with {:ok, response} <-
+           completed_action("signal_link_device", %{
+             account: required!(opts, :account),
+             device_name: Keyword.get(opts, :device_name, "Allbert")
+           }) do
+      {:ok, {:signal_link, response}}
+    end
+  end
+
+  defp dispatch(["signal", "doctor"]) do
+    with {:ok, response} <- completed_action("signal_doctor", %{}) do
+      {:ok, {:doctor, "signal", response.doctor}}
+    end
+  end
+
   defp dispatch(["identity-links", "add" | rest]) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
@@ -496,7 +547,7 @@ defmodule Mix.Tasks.Allbert.Channels do
     Mix.raise("""
     Usage:
       mix allbert.channels list
-      mix allbert.channels show telegram|email|discord|slack|matrix|whatsapp
+      mix allbert.channels show telegram|email|discord|slack|matrix|whatsapp|signal
       mix allbert.channels telegram set-token TOKEN
       mix allbert.channels telegram map --external-user EXTERNAL --user USER
       mix allbert.channels telegram unmap --external-user EXTERNAL
@@ -547,6 +598,11 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels whatsapp simulate --from PHONE [--message-id WAMID] "prompt"
       mix allbert.channels whatsapp simulate-button --from PHONE --button-id allbert:v1:<verb>:<id>
       mix allbert.channels whatsapp doctor
+      mix allbert.channels signal map --aci ACI --user USER
+      mix allbert.channels signal unmap --aci ACI
+      mix allbert.channels signal simulate --aci ACI [--message-id TIMESTAMP_MS] "prompt"
+      mix allbert.channels signal link --account ACCOUNT [--device-name NAME]
+      mix allbert.channels signal doctor
     """)
   end
 
@@ -631,11 +687,18 @@ defmodule Mix.Tasks.Allbert.Channels do
     maybe_print_doctor_field("socket_mode", Map.get(result, :socket_mode_status))
     maybe_print_doctor_field("poller", Map.get(result, :poller_status))
     maybe_print_doctor_field("adapter", Map.get(result, :adapter_status))
+    maybe_print_doctor_field("control", Map.get(result, :control_mode))
+    maybe_print_doctor_field("local_only", Map.get(result, :control_local_only))
     maybe_print_doctor_field("imap", Map.get(result, :imap_endpoint_ok))
     maybe_print_doctor_field("smtp", Map.get(result, :smtp_endpoint_ok))
     maybe_print_doctor_field("bot", Map.get(result, :bot_username))
     maybe_print_doctor_field("user", Map.get(result, :user_id))
     maybe_print_doctor_field("rooms", Map.get(result, :allowed_room_count))
+  end
+
+  defp print_result({:ok, {:signal_link, response}}) do
+    Mix.shell().info("signal device_link=status=#{response.status}")
+    Mix.shell().info("signal link_data=#{Map.get(response, :link_data)}")
   end
 
   defp print_result({:error, reason}) do
@@ -667,6 +730,11 @@ defmodule Mix.Tasks.Allbert.Channels do
     with {:ok, _setting} <- Settings.put(key, updated, %{audit?: false}) do
       {:ok, {:identity, channel, external_user_id, user_id}}
     end
+  end
+
+  defp put_signal_identity!(aci, user_id) do
+    aci = normalize_signal_aci!(aci)
+    put_identity!("signal", aci, user_id)
   end
 
   defp remove_identity!(channel, external_user_id) do
@@ -864,6 +932,25 @@ defmodule Mix.Tasks.Allbert.Channels do
     end
   end
 
+  defp simulate_signal!(aci, message_id, text) do
+    aci = normalize_signal_aci!(aci)
+    timestamp_ms = signal_message_timestamp(message_id)
+
+    with {:ok, settings} <- Channels.channel_settings("signal"),
+         notification <-
+           Signal.Parser.simulated_receive_notification(%{
+             source_aci: aci,
+             timestamp_ms: timestamp_ms,
+             text: text
+           }),
+         {:ok, adapter} <-
+           Signal.Adapter.start_link(name: nil, client_opts: [mode: :stub]),
+         result <- Signal.Adapter.simulate_daemon_notification(adapter, notification) do
+      GenServer.stop(adapter)
+      normalize_signal_simulation(result, settings)
+    end
+  end
+
   defp simulate_discord!(guild_id, channel_id, external_user_id, thread_channel_id, text) do
     with {:ok, settings} <- Channels.channel_settings("discord"),
          event <-
@@ -963,6 +1050,40 @@ defmodule Mix.Tasks.Allbert.Channels do
   end
 
   defp normalize_whatsapp_simulation(other), do: {:ok, {:poll, "whatsapp", other}}
+
+  defp normalize_signal_simulation({:ok, %{processed: processed} = summary}, _settings)
+       when processed > 0 do
+    event =
+      AllbertAssist.Repo.one(
+        from event in AllbertAssist.Channels.Event,
+          where: event.channel == "signal",
+          order_by: [desc: event.inserted_at],
+          limit: 1
+      )
+
+    {:ok, {:simulate, event, ["signal processed=#{summary.processed}"]}}
+  end
+
+  defp normalize_signal_simulation(other, _settings), do: {:ok, {:poll, "signal", other}}
+
+  defp normalize_signal_aci!(aci) do
+    aci = Signal.Parser.normalize_aci(aci)
+
+    if Signal.Parser.valid_aci?(aci) do
+      aci
+    else
+      Mix.raise("Signal identity must be an ACI UUID")
+    end
+  end
+
+  defp signal_message_timestamp(nil), do: System.system_time(:millisecond)
+
+  defp signal_message_timestamp(value) do
+    case Integer.parse(to_string(value)) do
+      {timestamp, ""} -> timestamp
+      _error -> Mix.raise("--message-id must be a Signal timestamp in milliseconds")
+    end
+  end
 
   defp mark_simulated_event(event, response, user_id, session_id) do
     Channels.update_event(event, %{

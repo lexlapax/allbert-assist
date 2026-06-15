@@ -162,6 +162,23 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
     }
   end
 
+  defp detail("signal", settings, summary) do
+    %{
+      channel: "signal",
+      provider: "signal_cli_jsonrpc",
+      enabled: Map.get(settings, "enabled", false),
+      account_configured: configured?(Map.get(settings, "account_identifier")),
+      local_aci_configured: configured?(Map.get(settings, "local_aci")),
+      control_mode: Map.get(settings, "control_mode"),
+      identity_count: length(Map.get(settings, "identity_map", [])),
+      allowed_aci_count: length(Map.get(settings, "allowed_aci_ids", [])),
+      max_text_bytes: Map.get(settings, "max_text_bytes"),
+      credential_status: summary.credential_status,
+      doctor: signal_doctor_state(),
+      last_event: summary.last_event
+    }
+  end
+
   defp detail(channel, settings, summary) do
     %{
       channel: channel,
@@ -211,6 +228,15 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
       {:error, :not_found} -> %{"status" => "not_run"}
     end
   end
+
+  defp signal_doctor_state do
+    case AllbertAssist.Channels.Signal.Doctor.read_state() do
+      {:ok, state} -> state
+      {:error, :not_found} -> %{"status" => "not_run"}
+    end
+  end
+
+  defp configured?(value), do: is_binary(value) and String.trim(value) != ""
 
   defp denied(channel, permission_decision, reason) do
     {:ok,

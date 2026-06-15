@@ -147,6 +147,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message =~ "mix allbert.test external-smoke -- inbound_email"
     assert error.message =~ "mix allbert.test external-smoke -- matrix"
     assert error.message =~ "mix allbert.test external-smoke -- whatsapp"
+    assert error.message =~ "mix allbert.test external-smoke -- signal"
     assert error.message =~ "mix allbert.test external-smoke -- discord"
     assert error.message =~ "mix allbert.test external-smoke -- slack"
     assert error.message =~ "mix allbert.test external-smoke -- inbound_discord"
