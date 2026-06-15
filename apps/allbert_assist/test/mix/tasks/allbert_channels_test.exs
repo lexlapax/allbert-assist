@@ -4,6 +4,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Channels.Event
+  alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -206,6 +207,154 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert signal_show_output =~ "Channel: signal"
     assert signal_show_output =~ "Provider: signal_cli_jsonrpc"
     assert signal_show_output =~ "Doctor: not_run"
+  end
+
+  test "checks Matrix WhatsApp and Signal setup readiness independently" do
+    matrix_incomplete =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["setup-check", "matrix"])
+      end)
+
+    assert matrix_incomplete =~ "matrix setup status=incomplete"
+    assert matrix_incomplete =~ "missing_enabled"
+    assert matrix_incomplete =~ "mix allbert.test external-smoke -- matrix"
+    refute matrix_incomplete =~ "matrix-secret"
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok = ChannelsTask.run(["matrix", "set-token", "matrix-secret"])
+    end)
+
+    assert {:ok, _setting} =
+             Settings.put("channels.matrix.homeserver_url", "https://matrix.example.com", %{
+               audit?: false
+             })
+
+    assert {:ok, _setting} =
+             Settings.put("channels.matrix.allowed_room_ids", ["!room:example.com"], %{
+               audit?: false
+             })
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.matrix.identity_map",
+               [%{external_user_id: "@alice:example.com", user_id: "alice"}],
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} = Settings.put("channels.matrix.enabled", true, %{audit?: false})
+
+    Mix.Task.reenable("allbert.channels")
+
+    matrix_ready =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["setup-check", "matrix"])
+      end)
+
+    assert matrix_ready =~ "matrix setup status=ready"
+    assert matrix_ready =~ "missing=none"
+    assert matrix_ready =~ "automatic_provider_retry=false"
+    refute matrix_ready =~ "matrix-secret"
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
+      assert :ok = ChannelsTask.run(["whatsapp", "set-token", "whatsapp-secret"])
+    end)
+
+    assert {:ok, _secret} =
+             Secrets.put_secret(
+               "secret://channels/whatsapp/app_secret",
+               "whatsapp-app-secret",
+               %{audit?: false}
+             )
+
+    assert {:ok, _secret} =
+             Secrets.put_secret(
+               "secret://channels/whatsapp/webhook_verify_token",
+               "whatsapp-verify-secret",
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.whatsapp.app_secret_ref",
+               "secret://channels/whatsapp/app_secret",
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.whatsapp.webhook_verify_token_ref",
+               "secret://channels/whatsapp/webhook_verify_token",
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} =
+             Settings.put("channels.whatsapp.phone_number_id", "15551234567", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("channels.whatsapp.waba_id", "waba-1", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.whatsapp.identity_map",
+               [%{external_user_id: "+15550001111", user_id: "alice"}],
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} =
+             Settings.put("channels.whatsapp.webhook_enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} = Settings.put("channels.whatsapp.enabled", true, %{audit?: false})
+
+    Mix.Task.reenable("allbert.channels")
+
+    whatsapp_ready =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["setup-check", "whatsapp"])
+      end)
+
+    assert whatsapp_ready =~ "whatsapp setup status=ready"
+    assert whatsapp_ready =~ "missing=none"
+    assert whatsapp_ready =~ "mix allbert.test external-smoke -- whatsapp"
+    refute whatsapp_ready =~ "whatsapp-secret"
+    refute whatsapp_ready =~ "15551234567"
+
+    aci = "2f8f8f44-8f1a-4db3-a56a-8e0612f6f001"
+    local_aci = "5c4e9f85-f2a7-4f58-a0d8-2a6f4b4d8001"
+
+    assert {:ok, _setting} =
+             Settings.put("channels.signal.account_identifier", "+15551234567", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("channels.signal.local_aci", local_aci, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put(
+               "channels.signal.identity_map",
+               [%{external_user_id: aci, user_id: "alice"}],
+               %{audit?: false}
+             )
+
+    assert {:ok, _setting} =
+             Settings.put("channels.signal.allowed_aci_ids", [aci], %{audit?: false})
+
+    assert {:ok, _setting} = Settings.put("channels.signal.enabled", true, %{audit?: false})
+
+    Mix.Task.reenable("allbert.channels")
+
+    signal_ready =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["setup-check", "signal"])
+      end)
+
+    assert signal_ready =~ "signal setup status=ready"
+    assert signal_ready =~ "missing=none"
+    assert signal_ready =~ "mix allbert.test external-smoke -- signal"
+    assert signal_ready =~ "pair=mix allbert.channels signal link --account <account>"
+    refute signal_ready =~ "+15551234567"
   end
 
   test "stores credentials without printing secret values" do
@@ -571,6 +720,62 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
     assert list_after_remove =~ "link link_alice user=alice channel=discord"
     refute list_after_remove =~ "channel=slack"
+  end
+
+  test "M9 channel identity links never auto-merge provider identity maps" do
+    for {channel, receiver, external_user} <- [
+          {"matrix", "matrix:homeserver:example:room:!room:example.com", "@alice:example.com"},
+          {"whatsapp", "whatsapp:waba:waba-1:phone:[REDACTED_PHONE]", "+15550001111"},
+          {"signal", "signal:account:local-aci", "2f8f8f44-8f1a-4db3-a56a-8e0612f6f001"}
+        ] do
+      Mix.Task.reenable("allbert.channels")
+
+      capture_io(fn ->
+        assert :ok =
+                 ChannelsTask.run([
+                   "identity-links",
+                   "add",
+                   "--link",
+                   "link_alice_m9",
+                   "--channel",
+                   channel,
+                   "--receiver",
+                   receiver,
+                   "--external-user",
+                   external_user,
+                   "--user",
+                   "alice"
+                 ])
+      end)
+    end
+
+    Mix.Task.reenable("allbert.channels")
+
+    list_output =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["identity-links", "list", "--link", "link_alice_m9"])
+      end)
+
+    assert list_output =~ "channel=matrix"
+    assert list_output =~ "channel=whatsapp"
+    assert list_output =~ "channel=signal"
+
+    assert {:ok, matrix_map} = Settings.get("channels.matrix.identity_map")
+    assert {:ok, whatsapp_map} = Settings.get("channels.whatsapp.identity_map")
+    assert {:ok, signal_map} = Settings.get("channels.signal.identity_map")
+
+    assert matrix_map == []
+    assert whatsapp_map == []
+    assert signal_map == []
+
+    assert Identity.resolve("matrix", "@alice:example.com", matrix_map) == {:error, :not_mapped}
+    assert Identity.resolve("whatsapp", "+15550001111", whatsapp_map) == {:error, :not_mapped}
+
+    assert Identity.resolve(
+             "signal",
+             "2f8f8f44-8f1a-4db3-a56a-8e0612f6f001",
+             signal_map
+           ) == {:error, :not_mapped}
   end
 
   test "maps identities and simulates both channels without provider access" do

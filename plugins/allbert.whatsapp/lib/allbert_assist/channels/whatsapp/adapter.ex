@@ -175,6 +175,11 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
          {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
       {:ok, :processed}
     else
+      {:error, {:delivery_failed, _reason} = reason} ->
+        Logger.debug("whatsapp event failed: #{inspect(Redactor.redact(reason))}")
+        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:error, reason}
+
       {:error, reason} ->
         Logger.debug("whatsapp event rejected: #{inspect(Redactor.redact(reason))}")
         {:ok, _event} = mark_rejected_or_failed(event, reason)
@@ -211,6 +216,11 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
          {:ok, _event} <- mark_callback_processed(event, response, user_id, session_id) do
       {:ok, :processed}
     else
+      {:error, {:delivery_failed, _reason} = reason} ->
+        Logger.debug("whatsapp callback failed: #{inspect(Redactor.redact(reason))}")
+        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:error, reason}
+
       {:error, reason} ->
         Logger.debug("whatsapp callback rejected: #{inspect(Redactor.redact(reason))}")
         {:ok, _event} = mark_rejected_or_failed(event, reason)

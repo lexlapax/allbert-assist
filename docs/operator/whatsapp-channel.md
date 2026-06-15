@@ -65,10 +65,13 @@ MIX_ENV=test mix allbert.test release.v053
 Run the redacted doctor:
 
 ```sh
+mix allbert.channels setup-check whatsapp
 mix allbert.channels whatsapp doctor
 mix allbert.channels show whatsapp
 ```
 
+`setup-check` reports redacted Settings Central readiness, missing fields, the
+independent WhatsApp smoke command, and the no-automatic-provider-retry posture.
 The doctor calls Graph API phone metadata, reports auth/endpoint state and local
 adapter status, writes a redacted state envelope under the Allbert cache root,
 and must not print the raw access token or phone number.

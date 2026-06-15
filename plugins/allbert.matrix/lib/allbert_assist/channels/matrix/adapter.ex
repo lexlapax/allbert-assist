@@ -130,7 +130,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
 
     summary =
       Enum.reduce(events, %{processed: 0, duplicates: 0, rejected: 0, failed: 0}, fn event,
-                                                                                    summary ->
+                                                                                     summary ->
         case process_parsed_event(event, state) do
           {:ok, :processed} -> Map.update!(summary, :processed, &(&1 + 1))
           {:ok, :duplicate} -> Map.update!(summary, :duplicates, &(&1 + 1))
@@ -168,14 +168,20 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
          :ok <- validate_text_size(fields, state),
          :ok <- reject_echo(fields),
          {:ok, user_id} <- resolve_identity(fields, state),
-         session_id <- Channels.derive_session_id("matrix", fields.external_user_id, fields.room_id),
+         session_id <-
+           Channels.derive_session_id("matrix", fields.external_user_id, fields.room_id),
          {:ok, response} <- submit_runtime(text, user_id, session_id, fields, new_thread?),
-         {:ok, chunks} <- Renderer.render_response(response, max_text_bytes: max_text_bytes(state)),
+         {:ok, chunks} <-
+           Renderer.render_response(response, max_text_bytes: max_text_bytes(state)),
          {:ok, delivered} <- deliver_chunks(fields.room_id, chunks, state, fields),
          :ok <- record_outbound_refs(response, fields, delivered),
          {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
       {:ok, :processed}
     else
+      {:error, {:delivery_failed, _reason} = reason} ->
+        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:error, reason}
+
       {:error, reason} ->
         {:ok, _event} = mark_rejected_or_failed(event, reason)
         {:ok, :rejected}
@@ -203,7 +209,8 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
       channel: "matrix",
       provider: @provider,
       direction: "inbound",
-      external_event_id: Map.get(fields, :external_event_id) || "malformed_#{Ecto.UUID.generate()}",
+      external_event_id:
+        Map.get(fields, :external_event_id) || "malformed_#{Ecto.UUID.generate()}",
       external_chat_id: Map.get(fields, :external_chat_id),
       status: "rejected",
       reason: Map.get(fields, :type, "unsupported_event"),
@@ -244,7 +251,11 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
   end
 
   defp resolve_identity(fields, state) do
-    Identity.resolve("matrix", fields.external_user_id, Map.get(state.settings, "identity_map", []))
+    Identity.resolve(
+      "matrix",
+      fields.external_user_id,
+      Map.get(state.settings, "identity_map", [])
+    )
   end
 
   defp prompt_text("/new " <> text), do: {String.trim(text), true}
@@ -262,11 +273,15 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
   end
 
   defp maybe_isolate_new_provider_thread(fields, true) do
-    provider_thread_ref = matrix_provider_thread_ref(%{fields | thread_root_event_id: fields.external_message_id})
+    provider_thread_ref =
+      matrix_provider_thread_ref(%{fields | thread_root_event_id: fields.external_message_id})
 
     fields
     |> Map.put(:provider_thread_ref, provider_thread_ref)
-    |> Map.put(:channel_thread_ref, channel_thread_ref(fields.receiver_account_ref, provider_thread_ref))
+    |> Map.put(
+      :channel_thread_ref,
+      channel_thread_ref(fields.receiver_account_ref, provider_thread_ref)
+    )
     |> Map.delete(:known_thread_id)
   end
 
@@ -346,8 +361,11 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
 
   defp maybe_put_known_thread_id(attrs, fields, false) do
     case Map.get(fields, :known_thread_id) do
-      thread_id when is_binary(thread_id) and thread_id != "" -> Map.put(attrs, :thread_id, thread_id)
-      _thread_id -> attrs
+      thread_id when is_binary(thread_id) and thread_id != "" ->
+        Map.put(attrs, :thread_id, thread_id)
+
+      _thread_id ->
+        attrs
     end
   end
 
@@ -360,7 +378,14 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
       content = Renderer.message_content(chunk, matrix_reply_fields(fields))
       txn_id = Ecto.UUID.generate()
 
-      case Client.send_message(state.homeserver_url, state.access_token, room_id, txn_id, content, state.req_options) do
+      case Client.send_message(
+             state.homeserver_url,
+             state.access_token,
+             room_id,
+             txn_id,
+             content,
+             state.req_options
+           ) do
         {:ok, %{"event_id" => event_id} = message} ->
           delivered_part = %{
             part_id: to_string(index),

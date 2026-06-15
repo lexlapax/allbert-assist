@@ -5,6 +5,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
   import Plug.Conn
 
   alias AllbertAssist.Channels
+  alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.Matrix.Adapter
   alias AllbertAssist.Channels.Matrix.Client
   alias AllbertAssist.Channels.Matrix.Parser
@@ -232,6 +233,110 @@ defmodule AllbertAssist.Channels.MatrixTest do
                from ref in ConversationMessageRef,
                  where: ref.channel == "matrix" and ref.provider_message_id == "$reply1"
              )
+
+    GenServer.stop(pid)
+  end
+
+  test "adapter dedupes repeated sync events without a second runtime submission" do
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/_matrix/client/v3/sync"
+
+      json(conn, %{
+        "next_batch" => "s2",
+        "rooms" => %{
+          "join" => %{
+            "!room:example.com" => %{
+              "timeline" => %{"events" => [matrix_text_event("$event-dupe", "hello once")]}
+            }
+          }
+        }
+      })
+    end)
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.method == "PUT"
+      json(conn, %{"event_id" => "$reply-dupe"})
+    end)
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/_matrix/client/v3/sync"
+
+      json(conn, %{
+        "next_batch" => "s3",
+        "rooms" => %{
+          "join" => %{
+            "!room:example.com" => %{
+              "timeline" => %{"events" => [matrix_text_event("$event-dupe", "hello once")]}
+            }
+          }
+        }
+      })
+    end)
+
+    server = :"matrix-adapter-dupe-#{System.unique_integer([:positive])}"
+
+    assert {:ok, pid} =
+             Adapter.start_link(
+               name: server,
+               auto_poll?: false,
+               req_options: [plug: {Req.Test, __MODULE__}]
+             )
+
+    Req.Test.allow(__MODULE__, self(), pid)
+
+    assert {:ok, %{processed: 1, duplicates: 0}} = Adapter.poll_once(server)
+    assert_receive {:runtime_request, %{channel: "matrix", text: "hello once"}}, 1000
+
+    assert {:ok, %{processed: 0, duplicates: 1}} = Adapter.poll_once(server)
+    refute_received {:runtime_request, %{channel: "matrix"}}
+
+    GenServer.stop(pid)
+  end
+
+  test "adapter records delivery failure without automatic provider retry" do
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/_matrix/client/v3/sync"
+
+      json(conn, %{
+        "next_batch" => "s2",
+        "rooms" => %{
+          "join" => %{
+            "!room:example.com" => %{
+              "timeline" => %{"events" => [matrix_text_event("$event-fail", "fail once")]}
+            }
+          }
+        }
+      })
+    end)
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.method == "PUT"
+
+      conn
+      |> put_status(503)
+      |> json(%{"errcode" => "M_UNAVAILABLE", "error" => "temporarily unavailable"})
+    end)
+
+    server = :"matrix-adapter-fail-#{System.unique_integer([:positive])}"
+
+    assert {:ok, pid} =
+             Adapter.start_link(
+               name: server,
+               auto_poll?: false,
+               req_options: [plug: {Req.Test, __MODULE__}]
+             )
+
+    Req.Test.allow(__MODULE__, self(), pid)
+
+    assert {:ok, %{processed: 0, failed: 1}} = Adapter.poll_once(server)
+
+    assert %Event{status: "failed", error: error} =
+             Repo.one(
+               from event in Event,
+                 where: event.channel == "matrix" and event.external_event_id == "$event-fail"
+             )
+
+    assert error =~ "matrix_error"
 
     GenServer.stop(pid)
   end

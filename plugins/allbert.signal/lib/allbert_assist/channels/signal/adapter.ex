@@ -136,6 +136,11 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
          {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
       {:ok, :processed}
     else
+      {:error, {:delivery_failed, _reason} = reason} ->
+        Logger.debug("signal event failed: #{inspect(Redactor.redact(reason))}")
+        {:ok, _event} = mark_rejected_or_failed(event, reason)
+        {:error, reason}
+
       {:error, reason} ->
         Logger.debug("signal event rejected: #{inspect(Redactor.redact(reason))}")
         {:ok, _event} = mark_rejected_or_failed(event, reason)

@@ -62,14 +62,17 @@ MIX_ENV=test mix allbert.test release.v053
 Run the redacted doctor:
 
 ```sh
+mix allbert.channels setup-check signal
 mix allbert.channels signal doctor
 mix allbert.channels show signal
 ```
 
-The doctor enforces the Allbert Home data directory, reports local-only control
-state, checks socket/key-file permissions when present, writes a redacted state
-envelope under the Allbert cache root, and must not print the account phone
-number or any control auth secret.
+`setup-check` reports redacted Settings Central readiness, missing fields, the
+independent Signal smoke command, the `signal link` pairing command, and the
+no-automatic-provider-retry posture. The doctor enforces the Allbert Home data
+directory, reports local-only control state, checks socket/key-file permissions
+when present, writes a redacted state envelope under the Allbert cache root, and
+must not print the account phone number or any control auth secret.
 
 Run the Signal smoke independently. This command must not require Telegram,
 email, Matrix, WhatsApp, Discord, or Slack env:

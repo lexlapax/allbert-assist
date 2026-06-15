@@ -2,6 +2,7 @@ defmodule AllbertAssist.Channels.SignalTest do
   use AllbertAssist.DataCase, async: false
 
   import Ecto.Query
+  import Plug.Conn
 
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
@@ -21,6 +22,8 @@ defmodule AllbertAssist.Channels.SignalTest do
 
   @aci "2f8f8f44-8f1a-4db3-a56a-8e0612f6f001"
   @local_aci "5c4e9f85-f2a7-4f58-a0d8-2a6f4b4d8001"
+
+  setup {Req.Test, :verify_on_exit!}
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -209,6 +212,76 @@ defmodule AllbertAssist.Channels.SignalTest do
     GenServer.stop(pid)
   end
 
+  test "adapter dedupes repeated daemon notifications without a second runtime submission" do
+    notification =
+      Parser.simulated_receive_notification(%{
+        source_aci: @aci,
+        timestamp_ms: 1_781_477_700_000,
+        text: "hello once"
+      })
+
+    server = :"signal-adapter-dupe-#{System.unique_integer([:positive])}"
+
+    assert {:ok, pid} = Adapter.start_link(name: server, client_opts: [mode: :stub])
+
+    assert {:ok, %{processed: 1, duplicates: 0}} =
+             Adapter.simulate_daemon_notification(server, notification)
+
+    assert_receive {:runtime_request, %{channel: "signal", text: "hello once"}}, 1000
+
+    assert {:ok, %{processed: 0, duplicates: 1}} =
+             Adapter.simulate_daemon_notification(server, notification)
+
+    refute_received {:runtime_request, %{channel: "signal"}}
+
+    GenServer.stop(pid)
+  end
+
+  test "adapter records delivery failure without automatic provider retry" do
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.method == "POST"
+      assert conn.request_path == "/api/v1/rpc"
+
+      conn
+      |> put_status(503)
+      |> json(%{"error" => %{"message" => "temporarily unavailable"}})
+    end)
+
+    notification =
+      Parser.simulated_receive_notification(%{
+        source_aci: @aci,
+        timestamp_ms: 1_781_477_800_000,
+        text: "fail once"
+      })
+
+    server = :"signal-adapter-fail-#{System.unique_integer([:positive])}"
+
+    assert {:ok, pid} =
+             Adapter.start_link(
+               name: server,
+               client_opts: [
+                 mode: :loopback_http,
+                 base_url: "http://127.0.0.1:8080",
+                 plug: {Req.Test, __MODULE__}
+               ]
+             )
+
+    Req.Test.allow(__MODULE__, self(), pid)
+
+    assert {:ok, %{processed: 0, failed: 1}} =
+             Adapter.simulate_daemon_notification(server, notification)
+
+    assert %Event{status: "failed", error: error} =
+             Repo.one(
+               from event in Event,
+                 where: event.channel == "signal" and event.external_message_id == "1781477800000"
+             )
+
+    assert error =~ "signal_http_error"
+
+    GenServer.stop(pid)
+  end
+
   defp configure_signal!(root) do
     assert {:ok, _setting} =
              Settings.put("channels.signal.account_identifier", "+15551234567", %{audit?: false})
@@ -235,6 +308,14 @@ defmodule AllbertAssist.Channels.SignalTest do
   defp restore_plugins(original_plugins) do
     PluginRegistry.clear()
     Enum.each(original_plugins, &PluginRegistry.register_entry/1)
+  end
+
+  defp json(conn, body) do
+    status = conn.status || 200
+
+    conn
+    |> put_resp_content_type("application/json")
+    |> send_resp(status, Jason.encode!(body))
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

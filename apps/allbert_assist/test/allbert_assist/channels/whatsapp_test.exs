@@ -225,6 +225,84 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
     GenServer.stop(pid)
   end
 
+  test "adapter dedupes repeated webhook messages without a second runtime submission" do
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.method == "POST"
+      json(conn, %{"messages" => [%{"id" => "wamid.outbound.dupe"}]})
+    end)
+
+    payload =
+      Parser.simulated_text_webhook(%{
+        from: "+15550001111",
+        phone_number_id: "15551234567",
+        message_id: "wamid.dupe",
+        text: "hello once"
+      })
+
+    server = :"whatsapp-adapter-dupe-#{System.unique_integer([:positive])}"
+
+    assert {:ok, pid} =
+             Adapter.start_link(
+               name: server,
+               req_options: [plug: {Req.Test, __MODULE__}]
+             )
+
+    Req.Test.allow(__MODULE__, self(), pid)
+
+    assert {:ok, %{processed: 1, duplicates: 0}} =
+             Adapter.simulate_webhook_event(server, payload)
+
+    assert_receive {:runtime_request, %{channel: "whatsapp", text: "hello once"}}, 1000
+
+    assert {:ok, %{processed: 0, duplicates: 1}} =
+             Adapter.simulate_webhook_event(server, payload)
+
+    refute_received {:runtime_request, %{channel: "whatsapp"}}
+
+    GenServer.stop(pid)
+  end
+
+  test "adapter records delivery failure without automatic provider retry" do
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.method == "POST"
+
+      conn
+      |> put_status(503)
+      |> json(%{"error" => %{"message" => "temporarily unavailable"}})
+    end)
+
+    payload =
+      Parser.simulated_text_webhook(%{
+        from: "+15550001111",
+        phone_number_id: "15551234567",
+        message_id: "wamid.fail",
+        text: "fail once"
+      })
+
+    server = :"whatsapp-adapter-fail-#{System.unique_integer([:positive])}"
+
+    assert {:ok, pid} =
+             Adapter.start_link(
+               name: server,
+               req_options: [plug: {Req.Test, __MODULE__}]
+             )
+
+    Req.Test.allow(__MODULE__, self(), pid)
+
+    assert {:ok, %{processed: 0, failed: 1}} =
+             Adapter.simulate_webhook_event(server, payload)
+
+    assert %Event{status: "failed", error: error} =
+             Repo.one(
+               from event in Event,
+                 where: event.channel == "whatsapp" and event.external_message_id == "wamid.fail"
+             )
+
+    assert error =~ "whatsapp_error"
+
+    GenServer.stop(pid)
+  end
+
   test "adapter degrades reply-chain quotes after quote TTL expires" do
     old_timestamp = DateTime.utc_now() |> DateTime.add(-2, :day) |> DateTime.to_unix()
 

@@ -6,6 +6,7 @@ defmodule Mix.Tasks.Allbert.Channels do
 
       mix allbert.channels list
       mix allbert.channels show telegram|email|discord|slack|matrix|whatsapp|signal
+      mix allbert.channels setup-check matrix|whatsapp|signal
       mix allbert.channels telegram set-token TOKEN
       mix allbert.channels telegram map --external-user EXTERNAL --user USER
       mix allbert.channels telegram unmap --external-user EXTERNAL
@@ -119,6 +120,12 @@ defmodule Mix.Tasks.Allbert.Channels do
   defp dispatch(["show", channel]) do
     with {:ok, response} <- completed_action("show_channel", %{channel: channel}) do
       {:ok, {:show, response.channel}}
+    end
+  end
+
+  defp dispatch(["setup-check", channel]) do
+    with {:ok, response} <- completed_action("channel_setup_check", %{channel: channel}) do
+      {:ok, {:setup_check, response.setup}}
     end
   end
 
@@ -548,6 +555,7 @@ defmodule Mix.Tasks.Allbert.Channels do
     Usage:
       mix allbert.channels list
       mix allbert.channels show telegram|email|discord|slack|matrix|whatsapp|signal
+      mix allbert.channels setup-check matrix|whatsapp|signal
       mix allbert.channels telegram set-token TOKEN
       mix allbert.channels telegram map --external-user EXTERNAL --user USER
       mix allbert.channels telegram unmap --external-user EXTERNAL
@@ -622,6 +630,27 @@ defmodule Mix.Tasks.Allbert.Channels do
     Mix.shell().info("Credentials: #{credential_status(channel.credential_status)}")
     maybe_print_doctor(channel)
     Mix.shell().info("Last event: #{inspect(channel.last_event)}")
+  end
+
+  defp print_result({:ok, {:setup_check, setup}}) do
+    Mix.shell().info("#{setup.channel} setup status=#{setup.setup_status}")
+    Mix.shell().info("enabled=#{setup.enabled}")
+    Mix.shell().info("missing=#{diagnostic_status(setup.diagnostics)}")
+    Mix.shell().info("settings=#{setup_fields(setup.required_settings)}")
+    Mix.shell().info("secrets=#{secret_fields(setup.secret_status)}")
+    Mix.shell().info("doctor=#{Map.get(setup.commands, :doctor)}")
+    Mix.shell().info("smoke=#{Map.get(setup.commands, :smoke)}")
+
+    case Map.get(setup.commands, :pair) do
+      command when is_binary(command) -> Mix.shell().info("pair=#{command}")
+      _command -> :ok
+    end
+
+    retry = setup.retry_posture || %{}
+
+    Mix.shell().info(
+      "automatic_provider_retry=#{Map.get(retry, :automatic_provider_retry?, false)}"
+    )
   end
 
   defp print_result({:ok, {:secret, channel, secret_name}}) do
@@ -1166,6 +1195,38 @@ defmodule Mix.Tasks.Allbert.Channels do
   end
 
   defp credential_status(_statuses), do: "unknown"
+
+  defp diagnostic_status([]), do: "none"
+
+  defp diagnostic_status(diagnostics) do
+    diagnostics
+    |> Enum.map(&to_string/1)
+    |> Enum.join(",")
+  end
+
+  defp setup_fields(fields) do
+    fields
+    |> Enum.map(fn field ->
+      "#{field.name}=#{setup_field_status(field)}"
+    end)
+    |> Enum.join(",")
+  end
+
+  defp setup_field_status(%{required?: true, configured?: true}), do: "configured"
+  defp setup_field_status(%{required?: true, configured?: false}), do: "missing"
+  defp setup_field_status(%{required?: false, configured?: true}), do: "configured_optional"
+  defp setup_field_status(%{required?: false, configured?: false}), do: "optional"
+
+  defp secret_fields(fields) do
+    fields
+    |> Enum.map(fn field ->
+      "#{field.name}=#{field.status}#{secret_required_suffix(field)}"
+    end)
+    |> Enum.join(",")
+  end
+
+  defp secret_required_suffix(%{required?: true}), do: ""
+  defp secret_required_suffix(%{required?: false}), do: "_optional"
 
   defp maybe_print_doctor(%{doctor: doctor}) when is_map(doctor) do
     Mix.shell().info("Doctor: #{doctor_status(doctor)}")

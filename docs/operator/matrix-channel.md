@@ -50,10 +50,13 @@ MIX_ENV=test mix allbert.test release.v053
 Run the redacted doctor:
 
 ```sh
+mix allbert.channels setup-check matrix
 mix allbert.channels matrix doctor
 mix allbert.channels show matrix
 ```
 
+`setup-check` reports redacted Settings Central readiness, missing fields, the
+independent Matrix smoke command, and the no-automatic-provider-retry posture.
 The doctor calls `GET /_matrix/client/v3/account/whoami`, reports redacted
 credential/endpoint state, and includes local poller status (`running`,
 `disabled`, `not_started`, `error`, or `unavailable`).

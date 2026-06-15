@@ -19,6 +19,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Artifacts.PutArtifact
   alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Channels.ListChannels
+  alias AllbertAssist.Actions.Channels.SetupCheck
   alias AllbertAssist.Actions.Channels.ShowChannel
   alias AllbertAssist.Actions.Channels.SignalDoctor
   alias AllbertAssist.Actions.Channels.SignalLinkDevice
@@ -196,6 +197,7 @@ defmodule AllbertAssist.Actions.Registry do
     SynthesizeVoice,
     ListChannels,
     ShowChannel,
+    SetupCheck,
     WhatsAppDoctor,
     SignalDoctor,
     ResumeThreadOnChannel,

@@ -110,6 +110,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "synthesize_voice",
              "list_channels",
              "show_channel",
+             "channel_setup_check",
+             "whatsapp_doctor",
+             "signal_doctor",
              "resume_thread_on_channel",
              "list_apps",
              "show_app",
@@ -233,7 +236,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "render_template",
              "validate_template",
              "scaffold_template",
-             "create_from_template"
+             "create_from_template",
+             "signal_link_device"
            ]
 
     assert Registry.duplicate_names() == []
@@ -246,6 +250,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert "set_provider_credential" in agent_action_names
     assert "list_channels" in agent_action_names
     assert "show_channel" in agent_action_names
+    assert "channel_setup_check" in agent_action_names
+    assert "whatsapp_doctor" in agent_action_names
+    assert "signal_doctor" in agent_action_names
     assert "resume_thread_on_channel" in agent_action_names
     assert "list_apps" in agent_action_names
     assert "show_app" in agent_action_names
@@ -391,7 +398,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "render_template",
              "validate_template",
              "scaffold_template",
-             "create_from_template"
+             "create_from_template",
+             "signal_link_device"
            ]
 
     assert {:ok, append_memory} = Registry.capability("append_memory")
