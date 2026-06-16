@@ -12,7 +12,7 @@ defmodule AllbertAssist.Intent.Router.Index do
   """
   use GenServer
 
-  alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
+  alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Intent.Router.Embedder
 
   @enforce_keys []
@@ -75,7 +75,7 @@ defmodule AllbertAssist.Intent.Router.Index do
   def handle_call(:state, _from, state), do: {:reply, state, state}
 
   defp build do
-    descriptors = ExtensionsRegistry.registered_intent_descriptors()
+    descriptors = DescriptorResolver.resolve()
     do_build(descriptors)
   end
 
