@@ -61,15 +61,12 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
     end
   end
 
-  describe "DefaultRouter Stage 1 (M2)" do
-    test "carries the shortlist on a :defer outcome under :two_stage_local" do
+  describe "DefaultRouter (Stage 1 feeds Stage 2)" do
+    test "defers to the deterministic ladder when the Stage 2 model is unavailable" do
       {:ok, _} = Settings.put("intent.router_strategy", "two_stage_local", %{audit?: false})
-      assert {:ok, %Outcome{kind: :defer, reason: reason, diagnostics: diag}} =
-               Router.route(%{text: "create a note"}, [])
-
-      assert reason in [:stage1_only, :prefilter_fallback]
-      # when the index/embedder are available, a shortlist is carried
-      if reason == :stage1_only, do: assert(is_list(diag.shortlist))
+      # Stage 1 runs (FakeEmbedder), but no Stage 2 fake is set, so the real
+      # disambiguator cannot reach a model and the router defers.
+      assert {:ok, %Outcome{kind: :defer}} = Router.route(%{text: "create a note"}, [])
     end
   end
 

@@ -629,7 +629,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "intent.router_model_profile" => %{
       type: :profile_ref,
-      default: "local",
+      default: "router_local",
       writable?: true,
       sensitive?: false
     },
@@ -3066,7 +3066,7 @@ defmodule AllbertAssist.Settings.Schema do
       "direct_answer_model_profile" => "local",
       "router_strategy" => "deterministic",
       "router_embedding_profile" => "embedding_local",
-      "router_model_profile" => "local",
+      "router_model_profile" => "router_local",
       "router_escalation_profile" => "",
       "router_top_k" => 5,
       "router_min_confidence" => 0.6,
@@ -3174,6 +3174,14 @@ defmodule AllbertAssist.Settings.Schema do
         "model" => "nomic-embed-text",
         "capabilities" => ["embeddings"],
         "timeout_ms" => 30_000
+      },
+      "router_local" => %{
+        "provider" => "local_ollama",
+        "model" => "qwen2.5:7b",
+        "capabilities" => ["text_generation"],
+        "temperature" => 0.0,
+        "max_tokens" => 512,
+        "timeout_ms" => 45_000
       }
     },
     "agents" => %{
