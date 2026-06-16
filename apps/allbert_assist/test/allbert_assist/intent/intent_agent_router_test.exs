@@ -52,6 +52,27 @@ defmodule AllbertAssist.Agents.IntentAgentRouterTest do
     assert PendingStore.take(uid, tid) == :none
   end
 
+  test "an :execute outcome for an app-scoped action runs in its app (reaches confirmation, not denied)", %{uid: uid, tid: tid} do
+    # write_note is scoped to :notes_files; from a neutral active app the runner
+    # used to deny it (:app_scope_denied). The router execute now sets the active
+    # app to the action's app, so it reaches the confirmation gate instead.
+    Application.put_env(
+      :allbert_assist,
+      :intent_router_fake_outcome,
+      Outcome.execute("write_note", %{title: "v054", body: "hello"}, 1.0)
+    )
+
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "create a note titled v054 with body hello",
+               user_id: uid,
+               thread_id: tid
+             })
+
+    refute response.status == :denied
+    assert response.status == :needs_confirmation
+  end
+
   defp restore(key, nil), do: Application.delete_env(:allbert_assist, key)
   defp restore(key, value), do: Application.put_env(:allbert_assist, key, value)
 end

@@ -316,12 +316,32 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp run_router_action(action_name, slots, text, context, %Decision{} = decision) do
-    execution_context = Map.put(context, :decision, decision)
+    execution_context =
+      context
+      |> put_router_active_app(action_name)
+      |> Map.put(:decision, decision)
+
     params = action_name |> registry_action_params(text, execution_context) |> merge_router_slots(slots)
 
     action_name
     |> run_action(params, text, execution_context)
     |> attach_decision(decision, context)
+  end
+
+  # v0.54 (ADR 0034/0060): a router-selected app-scoped action runs **in its own
+  # app**. Set the execution-context active app to the action's `app_id` so the
+  # runner's app-scope gate permits it — this is the direct-execute equivalent of
+  # the former app handoff (which switched the active app before running). Routing
+  # grants no authority: the action's own permission/confirmation gate is unchanged,
+  # and only the registry-validated selected action's app is set (for this run only).
+  defp put_router_active_app(context, action_name) do
+    case Registry.capability(action_name) do
+      {:ok, %{app_id: app_id}} when not is_nil(app_id) ->
+        Map.put(context, :active_app, app_id)
+
+      _other ->
+        context
+    end
   end
 
   defp merge_router_slots(params, slots) when is_map(slots) do
