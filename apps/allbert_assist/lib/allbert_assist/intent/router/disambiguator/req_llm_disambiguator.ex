@@ -26,7 +26,7 @@ defmodule AllbertAssist.Intent.Router.Disambiguator.ReqLLMDisambiguator do
   @impl true
   def select(query, shortlist, context, opts) do
     with :ok <- ensure_req_llm(),
-         {:ok, profile_name} <- profile_name(),
+         {:ok, profile_name} <- profile_name(opts),
          {:ok, profile} <- Settings.resolve_model_profile(profile_name),
          {:ok, spec} <- ModelRuntime.model_spec(profile),
          {:ok, response} <-
@@ -92,10 +92,16 @@ defmodule AllbertAssist.Intent.Router.Disambiguator.ReqLLMDisambiguator do
     )
   end
 
-  defp profile_name do
-    case Settings.get("intent.router_model_profile") do
-      {:ok, name} when is_binary(name) and name != "" -> {:ok, name}
-      _other -> {:error, :missing_router_model_profile}
+  defp profile_name(opts) do
+    case Keyword.get(opts, :model_profile) do
+      value when is_binary(value) and value != "" ->
+        {:ok, value}
+
+      _other ->
+        case Settings.get("intent.router_model_profile") do
+          {:ok, name} when is_binary(name) and name != "" -> {:ok, name}
+          _other -> {:error, :missing_router_model_profile}
+        end
     end
   end
 

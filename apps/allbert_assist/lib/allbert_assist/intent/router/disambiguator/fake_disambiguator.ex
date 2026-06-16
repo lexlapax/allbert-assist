@@ -7,7 +7,11 @@ defmodule AllbertAssist.Intent.Router.Disambiguator.FakeDisambiguator do
   @behaviour AllbertAssist.Intent.Router.Disambiguator.Behaviour
 
   @impl true
-  def select(_query, _shortlist, _context, _opts) do
-    Application.get_env(:allbert_assist, :intent_router_fake_selection, {:error, :no_fake_selection})
+  def select(_query, _shortlist, _context, opts) do
+    if Keyword.get(opts, :model_profile) do
+      Application.get_env(:allbert_assist, :intent_router_fake_escalated_selection, {:error, :no_escalated_selection})
+    else
+      Application.get_env(:allbert_assist, :intent_router_fake_selection, {:error, :no_fake_selection})
+    end
   end
 end

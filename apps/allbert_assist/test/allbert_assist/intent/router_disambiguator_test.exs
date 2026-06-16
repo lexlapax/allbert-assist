@@ -24,6 +24,7 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
       embedder: Application.get_env(:allbert_assist, :intent_router_embedder),
       disambiguator: Application.get_env(:allbert_assist, :intent_router_disambiguator),
       selection: Application.get_env(:allbert_assist, :intent_router_fake_selection),
+      escalated: Application.get_env(:allbert_assist, :intent_router_fake_escalated_selection),
       override: Application.get_env(:allbert_assist, :intent_router_strategy_override)
     }
 
@@ -41,6 +42,7 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
       restore(:intent_router_embedder, original.embedder)
       restore(:intent_router_disambiguator, original.disambiguator)
       restore(:intent_router_fake_selection, original.selection)
+      restore(:intent_router_fake_escalated_selection, original.escalated)
       restore(:intent_router_strategy_override, original.override)
     end)
 
@@ -94,6 +96,36 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
       Application.put_env(:allbert_assist, :intent_router_strategy_override, :two_stage_local)
       Application.put_env(:allbert_assist, :intent_router_fake_selection, {:ok, %{selected: "__answer__", confidence: 0.9}})
       assert {:ok, %Outcome{kind: :answer}} = Router.route(%{text: "hello there"}, [])
+    end
+  end
+
+  describe "hosted escalation (M7, off by default)" do
+    test "a low-confidence outcome clarifies when no escalation profile is configured" do
+      Application.put_env(:allbert_assist, :intent_router_fake_selection, {:ok, %{selected: "create_note", confidence: 0.3}})
+
+      assert {:ok, %Outcome{kind: :clarify}} =
+               Disambiguator.disambiguate("note", @shortlist, 0.5, %{}, @opts)
+    end
+
+    test "escalation re-selects with the hosted profile and can resolve to execute (audited)" do
+      Application.put_env(:allbert_assist, :intent_router_fake_selection, {:ok, %{selected: "create_note", confidence: 0.3}})
+      Application.put_env(:allbert_assist, :intent_router_fake_escalated_selection, {:ok, %{selected: "create_note", confidence: 0.95}})
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          assert {:ok, %Outcome{kind: :execute, action_name: "create_note"}} =
+                   Disambiguator.disambiguate("note", @shortlist, 0.5, %{thread_id: "t"}, @opts ++ [escalation_profile: "anthropic_fast"])
+        end)
+
+      assert log =~ "intent_router_escalation"
+    end
+
+    test "escalation falls back to clarify when the hosted selection is unavailable" do
+      Application.put_env(:allbert_assist, :intent_router_fake_selection, {:ok, %{selected: "create_note", confidence: 0.3}})
+      Application.put_env(:allbert_assist, :intent_router_fake_escalated_selection, {:error, :provider_down})
+
+      assert {:ok, %Outcome{kind: :clarify}} =
+               Disambiguator.disambiguate("note", @shortlist, 0.5, %{}, @opts ++ [escalation_profile: "anthropic_fast"])
     end
   end
 

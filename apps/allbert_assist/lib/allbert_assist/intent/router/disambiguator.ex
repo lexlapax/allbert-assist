@@ -19,11 +19,15 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
   (tests use `Disambiguator.FakeDisambiguator`). The gate is pure (`decide/4`).
   """
   alias AllbertAssist.Intent.Router.Outcome
+  alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
+
+  require Logger
 
   @answer "__answer__"
   @none "__none__"
   @clarify "__clarify__"
+  @escalatable_notes [:low_confidence, :ambiguous_margin, :selection_not_in_shortlist]
 
   defmodule Behaviour do
     @moduledoc "Behaviour for the Stage 2 selection model boundary (ADR 0060)."
@@ -48,8 +52,62 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
   @spec disambiguate(String.t(), [map()], float(), map(), keyword()) :: {:ok, Outcome.t()}
   def disambiguate(query, shortlist, margin, context, opts \\ []) do
     case impl().select(query, shortlist, context, opts) do
-      {:ok, selection} -> {:ok, decide(selection, shortlist, margin, opts)}
-      {:error, reason} -> {:ok, Outcome.defer(:disambiguator_unavailable, %{reason: inspect(reason)})}
+      {:ok, selection} ->
+        outcome = decide(selection, shortlist, margin, opts)
+        {:ok, maybe_escalate(outcome, query, shortlist, margin, context, opts)}
+
+      {:error, reason} ->
+        {:ok, Outcome.defer(:disambiguator_unavailable, %{reason: inspect(reason)})}
+    end
+  end
+
+  # ── optional hosted escalation (ADR 0061; off by default) ────────────────────
+
+  defp maybe_escalate(%Outcome{kind: :clarify, diagnostics: %{note: note}} = outcome, query, shortlist, margin, context, opts)
+       when note in @escalatable_notes do
+    cond do
+      Keyword.get(opts, :escalated) ->
+        outcome
+
+      profile = escalation_profile(opts) ->
+        audit_escalation(query, profile, context, note)
+        escalate(query, shortlist, margin, context, opts, profile, outcome)
+
+      true ->
+        outcome
+    end
+  end
+
+  defp maybe_escalate(outcome, _query, _shortlist, _margin, _context, _opts), do: outcome
+
+  defp escalate(query, shortlist, margin, context, opts, profile, fallback) do
+    esc_opts = opts |> Keyword.put(:model_profile, profile) |> Keyword.put(:escalated, true)
+
+    case impl().select(query, shortlist, context, esc_opts) do
+      {:ok, selection} -> decide(selection, shortlist, margin, esc_opts)
+      {:error, _reason} -> fallback
+    end
+  end
+
+  defp escalation_profile(opts) do
+    case Keyword.get(opts, :escalation_profile) || setting_string("intent.router_escalation_profile") do
+      value when is_binary(value) and value != "" -> value
+      _other -> nil
+    end
+  end
+
+  defp audit_escalation(query, profile, context, note) do
+    Logger.warning(
+      "[intent_router_escalation] low-confidence (#{note}) routed to hosted profile=#{profile} " <>
+        "thread=#{inspect(Map.get(context, :thread_id) || Map.get(context, "thread_id"))} " <>
+        "text=#{query |> to_string() |> Redactor.redact() |> String.slice(0, 120)}"
+    )
+  end
+
+  defp setting_string(key) do
+    case Settings.get(key) do
+      {:ok, value} when is_binary(value) -> value
+      _other -> nil
     end
   end
 
