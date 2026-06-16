@@ -52,7 +52,10 @@ defmodule AllbertAssist.Security.Policy do
     workflow_read: "permissions.workflow_read",
     workflow_run_start: "permissions.workflow_run_start",
     plan_cancel: "permissions.plan_cancel",
-    marketplace_install: "permissions.marketplace_install"
+    marketplace_install: "permissions.marketplace_install",
+    email_send: "permissions.email_send",
+    channel_message_send: "permissions.channel_message_send",
+    calendar_write: "permissions.calendar_write"
   }
 
   @default_decisions %{
@@ -104,6 +107,11 @@ defmodule AllbertAssist.Security.Policy do
     workflow_run_start: :needs_confirmation,
     plan_cancel: :allowed,
     marketplace_install: :allowed,
+    # v0.54 M10 outbound compose actions: effectful + externally visible, so they
+    # default to needs_confirmation (routing never auto-sends; ADR 0063).
+    email_send: :needs_confirmation,
+    channel_message_send: :needs_confirmation,
+    calendar_write: :needs_confirmation,
     settings_secret_write: :allowed,
     settings_secret_read: :denied
   }
@@ -173,6 +181,9 @@ defmodule AllbertAssist.Security.Policy do
           | :workflow_run_start
           | :plan_cancel
           | :marketplace_install
+          | :email_send
+          | :channel_message_send
+          | :calendar_write
           | :settings_secret_write
           | :settings_secret_read
 
@@ -228,6 +239,9 @@ defmodule AllbertAssist.Security.Policy do
       :workflow_run_start,
       :plan_cancel,
       :marketplace_install,
+      :email_send,
+      :channel_message_send,
+      :calendar_write,
       :settings_secret_write,
       :settings_secret_read
     ]

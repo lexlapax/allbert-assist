@@ -189,6 +189,9 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.workflow_run_start",
     "permissions.plan_cancel",
     "permissions.marketplace_install",
+    "permissions.email_send",
+    "permissions.channel_message_send",
+    "permissions.calendar_write",
     "workflows.enabled",
     "workflows.max_steps_per_workflow",
     "workflows.max_workflows_loaded_per_request",
@@ -2354,6 +2357,27 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
+    "permissions.email_send" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.channel_message_send" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.calendar_write" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
     "execution.local.enabled" => %{
       type: :boolean,
       default: false,
@@ -3277,7 +3301,10 @@ defmodule AllbertAssist.Settings.Schema do
       "workflow_read" => "allowed",
       "workflow_run_start" => "needs_confirmation",
       "plan_cancel" => "allowed",
-      "marketplace_install" => "allowed"
+      "marketplace_install" => "allowed",
+      "email_send" => "needs_confirmation",
+      "channel_message_send" => "needs_confirmation",
+      "calendar_write" => "needs_confirmation"
     },
     "workflows" => %{
       "enabled" => true,

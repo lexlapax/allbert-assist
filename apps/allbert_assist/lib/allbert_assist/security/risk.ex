@@ -67,6 +67,11 @@ defmodule AllbertAssist.Security.Risk do
   def tier(:online_skill_import), do: :high
   def tier(:command_execute), do: :high
   def tier(:settings_secret_read), do: :critical
+  # v0.54 M10 outbound compose (ADR 0063): externally-visible sends are high risk;
+  # calendar writes via a confirmed MCP call are medium.
+  def tier(:email_send), do: :high
+  def tier(:channel_message_send), do: :high
+  def tier(:calendar_write), do: :medium
   def tier(_permission), do: :critical
 
   defp reasons(:read_only, _tier, _context), do: ["local read-only inspection"]
@@ -164,6 +169,13 @@ defmodule AllbertAssist.Security.Risk do
 
   defp reasons(:marketplace_install, _tier, _context),
     do: ["local marketplace bundle write into disabled untrusted state"]
+
+  defp reasons(:email_send, _tier, _context), do: ["confirmed outbound email send"]
+
+  defp reasons(:channel_message_send, _tier, _context),
+    do: ["confirmed outbound channel message send (identity-allowlisted)"]
+
+  defp reasons(:calendar_write, _tier, _context), do: ["confirmed calendar event write via MCP"]
 
   defp reasons(:skill_script_execute, _tier, _context), do: ["trusted skill script execution"]
   defp reasons(:settings_secret_write, _tier, _context), do: ["encrypted credential write"]

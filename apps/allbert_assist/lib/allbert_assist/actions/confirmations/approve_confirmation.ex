@@ -83,6 +83,17 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     generate_image
   ]
 
+  # v0.54 M10 (ADR 0063): actions that opt into the generic confirmation resume —
+  # on approval they re-run via Runner.run with their stored resume_params_ref,
+  # gated by the permission re-check. This is additive and explicit: every other
+  # action keeps its existing family dispatch / :adapter_unavailable behaviour
+  # (regression-locked; the 8 catch-all resumables are unchanged).
+  @generic_resume_actions ~w[
+    send_email
+    send_channel_message
+    create_calendar_event
+  ]
+
   @impl true
   def run(%{id: id} = params, context) do
     permission_decision = PermissionGate.authorize(:confirmation_decide, context)
@@ -409,6 +420,18 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
          context,
          permission_decision,
          target_decision,
+         action_name
+       )
+       when action_name in @generic_resume_actions do
+    resume_generic(action_name, record, reason, context, permission_decision, target_decision)
+  end
+
+  defp resume_registered_action(
+         record,
+         reason,
+         context,
+         permission_decision,
+         target_decision,
          _action_name
        ) do
     resolve_status(record, :adapter_unavailable, reason, context, permission_decision, %{
@@ -416,6 +439,43 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       target_resumed?: false,
       adapter_unavailable?: true
     })
+  end
+
+  # v0.54 M10 (ADR 0063): generic opt-in resume — re-run the opted-in action via
+  # Runner.run with its stored resume_params_ref after the permission re-check.
+  defp resume_generic(action_name, record, reason, context, permission_decision, target_decision) do
+    target_context =
+      record
+      |> target_context(context)
+      |> put_in([:confirmation, :approved?], true)
+
+    case Runner.run(action_name, Map.get(record, "resume_params_ref", %{}), target_context) do
+      {:ok, %{status: status} = response}
+      when status in [:completed, :needs_confirmation, :failed, :cancelled] ->
+        resolve_status(record, :approved, reason, context, permission_decision, %{
+          target_policy_decision: target_decision,
+          target_resumed?: true,
+          target_status: status,
+          target_result: %{status: status, output_data: Map.get(response, :output_data, %{})}
+        })
+
+      {:ok, response} ->
+        target_status = Map.get(response, :status, :denied)
+
+        resolve_status(
+          record,
+          :denied,
+          reason || "#{action_name} target did not complete: #{inspect(target_status)}",
+          context,
+          permission_decision,
+          %{
+            target_policy_decision: target_decision,
+            target_resumed?: false,
+            target_status: target_status,
+            blocked_by_policy?: target_status == :denied
+          }
+        )
+    end
   end
 
   defp resume_conversation_resume(record, reason, context, permission_decision, target_decision) do
