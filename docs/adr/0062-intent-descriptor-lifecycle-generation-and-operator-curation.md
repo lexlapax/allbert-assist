@@ -1,6 +1,7 @@
 # ADR 0062: Intent Descriptor Lifecycle — Generation, Layered Curation & Reindex Hooks
 
-Status: Proposed (v0.54 M9; do not implement until the milestone is approved)
+Status: Accepted (v0.54 M9; in-scope for v0.54, gates the tag — operator decision
+2026-06-16). Implementation-ready; APIs below verified against the codebase.
 Date: 2026-06-16
 Related: ADR 0060 (two-stage router + approval-gate separation), ADR 0061 (local
 embedding + router model tiers), ADR 0047 (doctor envelope), ADR 0019 (cross-surface
@@ -120,6 +121,30 @@ index, surfaced as both an action and a mix task (doctor envelope, ADR 0047):
   listing descriptors by domain with source badges (code / generated / override),
   coverage stats, edit/disable, review-generated-drafts, and a trigger-optimize
   button — edits write the override md and audit, gated like other operator writes.
+
+## Implementation surface (verified against the codebase)
+
+- **Signal subscription**: `Jido.Signal.Bus.subscribe(AllbertAssist.SignalBus,
+  "/allbert/dynamic_codegen/registered", dispatch: {:pid, target: self(),
+  delivery_mode: :async})`; subscriber receives `{:signal, %Jido.Signal{type:
+  ...}}` in `handle_info/2` (existing precedent: `Artifacts.IngestionConsumer`).
+  Index gains `:subscription_id` + `:rebuild_timer`; debounce via
+  `Process.send_after(self(), :rebuild_debounced, ms)`.
+- **Resolver wrap point**: `Intent.Router.Index.build/0` calls
+  `Extensions.Registry.registered_intent_descriptors/0` (registry.ex:79) today; the
+  new `DescriptorResolver.resolve/1` wraps it and layers generated + override.
+- **Descriptor shape**: `%Intent.Router`/`Intent.Descriptor{}` (descriptor.ex) with
+  `Descriptor.normalize_many/2` (:96) for validation.
+- **Generation**: `router_local` via ReqLLM, json_schema mode, local-only/redacted
+  (ADR 0061); heuristic fallback from action `name/0`+`description/0`+`capability/0`.
+- **Review tier**: `Drafts.Store.create_*_draft/2` (store.ex) → `promote_draft/2`
+  (:205); a `Drafts.Promotion.promote_descriptor/2` writes the override md.
+- **Action + task**: new `Actions.Intent.OptimizeIntentDescriptors`
+  (`use AllbertAssist.Action`); `mix allbert.intent optimize|reindex|list|show|
+  edit|disable|review|promote` (extends the existing `doctor` dispatch).
+- **Settings**: `intent.descriptor_autoaccept` (default `false`) in Schema specs +
+  defaults + safe_write_keys. Storage under `<ALLBERT_HOME>/intents/{generated,
+  overrides,drafts,audit}/`.
 
 ## Authority invariants (unchanged; reaffirmed)
 
