@@ -100,12 +100,15 @@ Developer docs: `docs/developer/key-custody.md`,
   v0.53 channel validation scaffold independently.
 - Email real-provider smokes passed live (2026-06-15, AgentMail): `email doctor`
   `status=ok` / `auth_ok=true`, and `external-smoke -- email` and
-  `-- inbound_email` each `1 test, 0 failures` with recorded evidence. Email
-  operator manual checks (MIME decode, typed `APPROVE`/`DENY`/`SHOW`, reply
-  headers) remain before tag.
+  `-- inbound_email` each `1 test, 0 failures` with recorded evidence.
+- Telegram real-provider smokes passed live (2026-06-15, BotFather bot):
+  `telegram doctor` `status=ok` / `auth_ok=true`, and `external-smoke -- telegram`
+  and `-- inbound_telegram` each `1 test, 0 failures` with recorded evidence; no
+  code changes were required.
+- Email and Telegram operator manual checks (approval primitives, email MIME
+  decode, unmapped-clicker rejection) remain before tag.
 - Required live real-provider smokes remain the pre-tag validation gate:
-  `external-smoke -- telegram`, `-- inbound_telegram`, `-- matrix`,
-  `-- whatsapp`, and `-- signal`.
+  `external-smoke -- matrix`, `-- whatsapp`, and `-- signal`.
 
 ## v0.52.0 - Channel Pack 1 And Cross-Channel Threading
 
