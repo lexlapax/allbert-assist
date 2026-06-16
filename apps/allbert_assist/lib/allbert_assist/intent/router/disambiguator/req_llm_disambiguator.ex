@@ -88,7 +88,14 @@ defmodule AllbertAssist.Intent.Router.Disambiguator.ReqLLMDisambiguator do
     |> Keyword.merge(
       temperature: 0.0,
       max_tokens: ModelRuntime.max_tokens(profile, 512),
-      receive_timeout: timeout
+      receive_timeout: timeout,
+      # Force native json_schema structured output. ReqLLM's `:auto` mode picks
+      # OpenAI strict tool-calling for models whose registry metadata is unknown
+      # (every local Ollama model), which Ollama's /v1 endpoint does not honor and
+      # returns an empty object. Ollama *does* support response_format json_schema,
+      # so this is what makes local Stage-2 disambiguation work (ADR 0061). Hosted
+      # OpenAI models support json_schema too; non-openai providers ignore it.
+      openai_structured_output_mode: :json_schema
     )
   end
 

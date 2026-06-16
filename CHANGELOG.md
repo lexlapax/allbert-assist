@@ -57,6 +57,13 @@ ADRs: `docs/adr/0060-two-stage-intent-router-and-approval-gate-separation.md`,
   `endpoint=unavailable`. The default embedder now asserts the `embeddings`
   capability the resolved profile already declares (ADR 0061) on the inline spec,
   so the local model is accepted (768-dim vectors; Stage-1 prefilter live).
+- Stage-2 disambiguation returned an empty model object against Ollama because
+  ReqLLM's `:auto` structured-output mode picks OpenAI strict tool-calling for
+  models with unknown registry metadata (every local Ollama model), which Ollama's
+  `/v1` endpoint does not honor. The disambiguator now forces
+  `openai_structured_output_mode: :json_schema` (Ollama's native structured
+  output; hosted OpenAI supports it too), so live local Stage-2 selection works
+  instead of silently deferring to the deterministic ladder.
 
 ### Security
 
