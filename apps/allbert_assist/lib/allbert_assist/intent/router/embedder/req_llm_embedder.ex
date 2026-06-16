@@ -31,12 +31,27 @@ defmodule AllbertAssist.Intent.Router.Embedder.ReqLLMEmbedder do
       |> ModelRuntime.request_opts()
       |> Keyword.merge(Keyword.take(opts, [:receive_timeout]))
 
-    case ReqLLM.embed(spec, texts, request_opts) do
+    case ReqLLM.embed(with_embedding_capability(spec, profile), texts, request_opts) do
       {:ok, vectors} when is_list(vectors) -> {:ok, normalize_vectors(vectors)}
       {:error, reason} -> {:error, reason}
       other -> {:error, {:unexpected_embed_result, other}}
     end
   end
+
+  # ReqLLM 1.13 gates `embed/3` on registry capability metadata, which local
+  # Ollama embedding models (e.g. `nomic-embed-text`) lack. When the resolved
+  # profile declares the `embeddings` capability (ADR 0061), assert it inline on
+  # the spec so ReqLLM accepts the local model instead of rejecting it as
+  # "does not support embedding operations".
+  defp with_embedding_capability(spec, profile) when is_map(spec) do
+    if "embeddings" in (Map.get(profile, :capabilities) || []) do
+      Map.put(spec, :capabilities, %{embeddings: true})
+    else
+      spec
+    end
+  end
+
+  defp with_embedding_capability(spec, _profile), do: spec
 
   # ReqLLM returns [[float]] for a list input; guard a single-vector return too.
   defp normalize_vectors([h | _] = vectors) when is_number(h), do: [vectors]

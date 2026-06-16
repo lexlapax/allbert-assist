@@ -49,6 +49,15 @@ ADRs: `docs/adr/0060-two-stage-intent-router-and-approval-gate-separation.md`,
 - Intent routing default flipped to `two_stage_local` (the test environment is
   forced to `deterministic` via an app-env override so the suite stays offline).
 
+### Fixed
+
+- Local embedding probe failed against Ollama because ReqLLM 1.13 gates `embed/3`
+  on registry capability metadata, which local embedding models (e.g.
+  `nomic-embed-text`) lack — `mix allbert.intent doctor` reported
+  `endpoint=unavailable`. The default embedder now asserts the `embeddings`
+  capability the resolved profile already declares (ADR 0061) on the inline spec,
+  so the local model is accepted (768-dim vectors; Stage-1 prefilter live).
+
 ### Security
 
 - The router selects *which* action within the registry-validated candidate set;
