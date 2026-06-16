@@ -58,14 +58,30 @@ defmodule AllbertAssist.Intent.Router.Disambiguator.ReqLLMDisambiguator do
     """
     Choose how to handle the operator request by selecting exactly one option.
 
+    `selected` must be a candidate action name below, or one of `__clarify__`,
+    `__answer__`, `__none__`.
+
+    Candidate actions are listed **best-match first** (most relevant at the top).
+
     Rules:
-    - `selected` must be one of the candidate action names below, or one of:
-      `__clarify__` (the request is ambiguous between candidates),
-      `__answer__` (no action is needed; answer directly),
-      `__none__` (none of the candidates fit; out of scope).
+    - Pick the SINGLE best-matching action when one fits the request. Prefer the
+      highest-ranked candidate that fits; pick a lower-ranked one only if it clearly
+      fits the request better. Prefer acting over asking.
+    - Match the request's domain to the action; do NOT pick an action from a
+      different domain. E.g. taking a SCREENSHOT of a URL is a browser action, not
+      image generation; SUMMARIZING an inbox is a mail action, not URL summarization.
+    - `__answer__`: ONLY for general knowledge or conversation that no candidate can
+      serve (e.g. "what is the capital of France"). If a candidate would RETRIEVE
+      the answer from the user's own data (list/show/read/recall their notes,
+      memory, settings, models, skills, channels, apps, objectives, marketplace…),
+      pick that candidate — a question phrased as "what … do I have / what do you
+      remember / what's in …" is a retrieval action, not `__answer__`.
+    - `__none__`: no candidate action fits the request (out of scope / unsupported).
+    - `__clarify__`: ONLY when two or more candidates genuinely and equally fit and
+      you cannot choose — never for a merely-related neighbour.
     - Do not invent an action name that is not in the list.
     - Put any extracted arguments in `slots` as a JSON object (or {}).
-    - Use low confidence when uncertain; prefer `__clarify__` over guessing.
+    - Set `confidence` honestly: high when one action clearly fits, low when unsure.
 
     Recent context (may be empty):
     #{to_string(Map.get(context, :summary, ""))}
@@ -73,7 +89,7 @@ defmodule AllbertAssist.Intent.Router.Disambiguator.ReqLLMDisambiguator do
     Operator request:
     #{query}
 
-    Candidate actions:
+    Candidate actions (best-match first):
     #{candidates}
     """
   end
