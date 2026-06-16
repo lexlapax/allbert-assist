@@ -1,0 +1,63 @@
+defmodule AllbertAssist.Intent.Router.OptimizerTest do
+  @moduledoc "v0.54 M9.3c — descriptor store + optimize/coverage (heuristic, offline)."
+  use ExUnit.Case, async: false
+  @moduletag :app_env_serial
+
+  alias AllbertAssist.Intent.Router.DescriptorResolver
+  alias AllbertAssist.Intent.Router.DescriptorStore
+  alias AllbertAssist.Intent.Router.Optimizer
+  alias AllbertAssist.Paths
+
+  setup do
+    original_home = System.get_env("ALLBERT_HOME")
+    original_paths = Application.get_env(:allbert_assist, Paths)
+
+    System.put_env(
+      "ALLBERT_HOME",
+      Path.join(System.tmp_dir!(), "allbert-opt-#{System.unique_integer([:positive])}")
+    )
+
+    Application.delete_env(:allbert_assist, Paths)
+
+    on_exit(fn ->
+      if original_home,
+        do: System.put_env("ALLBERT_HOME", original_home),
+        else: System.delete_env("ALLBERT_HOME")
+
+      if original_paths,
+        do: Application.put_env(:allbert_assist, Paths, original_paths),
+        else: Application.delete_env(:allbert_assist, Paths)
+    end)
+
+    :ok
+  end
+
+  test "store put/load round-trips a generated descriptor for an uncovered agent action" do
+    {:ok, _path} =
+      DescriptorStore.put(:generated, %{
+        app_id: :allbert,
+        action_name: "show_app",
+        label: "Show app",
+        examples: ["show app"],
+        synonyms: ["app details"],
+        required_slots: []
+      })
+
+    loaded = DescriptorStore.load(:generated)
+    assert Enum.any?(loaded, &(&1.action_name == "show_app"))
+    # the resolver surfaces the generated descriptor
+    assert DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
+  end
+
+  test "optimize generates descriptors for uncovered agent actions (heuristic, no rebuild)" do
+    before_cov = Optimizer.coverage()
+    assert before_cov.missing > 0
+
+    result = Optimizer.optimize(strategy: :heuristic, rebuild: false)
+    after_cov = Optimizer.coverage()
+
+    assert after_cov.missing < before_cov.missing
+    assert length(result.generated) > 0
+    assert after_cov.generated >= length(result.generated)
+  end
+end

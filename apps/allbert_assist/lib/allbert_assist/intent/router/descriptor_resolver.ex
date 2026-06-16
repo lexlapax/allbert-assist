@@ -20,6 +20,7 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
   alias AllbertAssist.Intent.Descriptor
+  alias AllbertAssist.Intent.Router.DescriptorStore
 
   @spec resolve(keyword()) :: [Descriptor.t()]
   def resolve(opts \\ []) do
@@ -69,11 +70,19 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
     _exception -> :allbert
   end
 
-  # M9.3c — local-model descriptor generation for uncovered actions.
-  defp generated_layer(_opts), do: []
+  # Accepted machine-generated descriptors (review-tier ones are NOT loaded).
+  defp generated_layer(_opts), do: safe_store_load(:generated)
 
-  # M9.4 — operator-curated md/yaml overrides under <ALLBERT_HOME>/intents/overrides.
-  defp override_layer(_opts), do: []
+  # Operator-curated descriptors (highest precedence).
+  defp override_layer(_opts), do: safe_store_load(:overrides)
+
+  defp safe_store_load(tier) do
+    DescriptorStore.load(tier)
+  rescue
+    _exception -> []
+  catch
+    :exit, _reason -> []
+  end
 
   # ── dedup ────────────────────────────────────────────────────────────────────
 

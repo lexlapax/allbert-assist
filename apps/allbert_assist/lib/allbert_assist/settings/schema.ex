@@ -55,6 +55,7 @@ defmodule AllbertAssist.Settings.Schema do
     "intent.context_window",
     "intent.disambiguation_margin",
     "intent.pending_clarification_ttl_ms",
+    "intent.descriptor_autoaccept",
     "model_preferences.primary",
     "model_preferences.tasks.*",
     "model_preferences.capabilities.*",
@@ -664,6 +665,12 @@ defmodule AllbertAssist.Settings.Schema do
       max: 60_000
     },
     "intent.multiturn_enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "intent.descriptor_autoaccept" => %{
       type: :boolean,
       default: false,
       writable?: true,
@@ -3072,6 +3079,7 @@ defmodule AllbertAssist.Settings.Schema do
       "router_min_confidence" => 0.6,
       "router_model_timeout_ms" => 20_000,
       "multiturn_enabled" => false,
+      "descriptor_autoaccept" => false,
       "context_window" => 6,
       "disambiguation_margin" => 0.12,
       "pending_clarification_ttl_ms" => 120_000

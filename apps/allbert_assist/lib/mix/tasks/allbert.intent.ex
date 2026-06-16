@@ -20,7 +20,10 @@ defmodule Mix.Tasks.Allbert.Intent do
   use Mix.Task
 
   alias AllbertAssist.Intent.Bench
+  alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Intent.Router.Doctor
+  alias AllbertAssist.Intent.Router.Index
+  alias AllbertAssist.Intent.Router.Optimizer
 
   @impl true
   def run(args) do
@@ -40,8 +43,41 @@ defmodule Mix.Tasks.Allbert.Intent do
     Bench.run(opts) |> print_bench()
   end
 
+  defp dispatch(["optimize" | rest]) do
+    {opts, _rest, _invalid} =
+      OptionParser.parse(rest, strict: [heuristic: :boolean])
+
+    strategy = if opts[:heuristic], do: :heuristic, else: :model
+    result = Optimizer.optimize(strategy: strategy)
+    Mix.shell().info("generated=#{length(result.generated)} review_pending=#{length(result.reviewed)}")
+    print_coverage(result.coverage)
+  end
+
+  defp dispatch(["reindex"]) do
+    state = Index.rebuild()
+    Mix.shell().info("index status=#{state.status} size=#{length(state.entries)}")
+  end
+
+  defp dispatch(["list"]) do
+    DescriptorResolver.resolve()
+    |> Enum.sort_by(& &1.action_name)
+    |> Enum.each(fn d ->
+      Mix.shell().info("  #{d.action_name} [#{d.source}] #{d.app_id}")
+    end)
+  end
+
   defp dispatch(_args),
-    do: Mix.raise("Usage: mix allbert.intent doctor | bench [--subset|--holdout]")
+    do:
+      Mix.raise(
+        "Usage: mix allbert.intent doctor | bench [--subset|--holdout] | optimize [--heuristic] | reindex | list"
+      )
+
+  defp print_coverage(c) do
+    Mix.shell().info(
+      "coverage: routable=#{c.routable}/#{c.agent_exposed} missing=#{c.missing} " <>
+        "generated=#{c.generated} review_pending=#{c.review_pending} overridden=#{c.overridden}"
+    )
+  end
 
   defp print_bench(%{summary: s}) do
     Mix.shell().info("""
@@ -71,5 +107,7 @@ defmodule Mix.Tasks.Allbert.Intent do
     model_profile=#{e.model_profile} escalation=#{e.escalation_profile}
     index status=#{e.index_status} size=#{e.index_size} built_at=#{e.index_built_at}
     """)
+
+    print_coverage(Optimizer.coverage())
   end
 end
