@@ -93,3 +93,9 @@ config :phoenix_live_view,
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
   sort_verified_routes_query_params: true
+
+# v0.54 intent router: force the deterministic strategy in tests so the suite
+# never reaches the live Ollama embedding / LLM disambiguation path. Router-
+# specific tests opt in by setting :intent_router_strategy_override to
+# :two_stage_local in their setup (with FakeEmbedder/FakeDisambiguator).
+config :allbert_assist, intent_router_strategy_override: :deterministic

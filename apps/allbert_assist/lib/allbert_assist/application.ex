@@ -29,6 +29,7 @@ defmodule AllbertAssist.Application do
         AllbertAssist.PublicProtocol.ResultReadbackSweeper,
         AllbertAssist.Objectives.AgentRegistry,
         AllbertAssist.Intent.Router.Index,
+        AllbertAssist.Intent.Router.PendingStore,
         AllbertAssist.Jido
       ]
       |> maybe_add_plugin_supervisor()

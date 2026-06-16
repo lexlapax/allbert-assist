@@ -24,6 +24,7 @@ defmodule AllbertAssist.Intent.RouterTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_router_config = Application.get_env(:allbert_assist, :intent_router)
     original_fake = Application.get_env(:allbert_assist, :intent_router_fake_outcome)
+    original_override = Application.get_env(:allbert_assist, :intent_router_strategy_override)
 
     home = Path.join(System.tmp_dir!(), "allbert-router-test-#{System.unique_integer([:positive])}")
     System.put_env("ALLBERT_HOME", home)
@@ -36,6 +37,7 @@ defmodule AllbertAssist.Intent.RouterTest do
       restore(Settings, original_settings_config)
       restore(:intent_router, original_router_config)
       restore(:intent_router_fake_outcome, original_fake)
+      restore(:intent_router_strategy_override, original_override)
     end)
 
     :ok
@@ -52,31 +54,31 @@ defmodule AllbertAssist.Intent.RouterTest do
       end
     end
 
-    test "router_strategy defaults to deterministic and rejects an invalid enum value" do
-      assert Schema.get_dotted(Schema.defaults(), "intent.router_strategy") == "deterministic"
+    test "router_strategy default is two_stage_local and rejects an invalid enum value" do
+      assert Schema.get_dotted(Schema.defaults(), "intent.router_strategy") == "two_stage_local"
       assert :ok = Schema.validate_key_value("intent.router_strategy", "two_stage_local")
       assert :ok = Schema.validate_key_value("intent.router_strategy", "deterministic")
       assert {:error, _} = Schema.validate_key_value("intent.router_strategy", "bogus")
     end
 
     test "settings round-trip for router_strategy" do
-      assert {:ok, "deterministic"} = Settings.get("intent.router_strategy")
-      assert {:ok, _} = Settings.put("intent.router_strategy", "two_stage_local", %{audit?: false})
       assert {:ok, "two_stage_local"} = Settings.get("intent.router_strategy")
+      assert {:ok, _} = Settings.put("intent.router_strategy", "deterministic", %{audit?: false})
+      assert {:ok, "deterministic"} = Settings.get("intent.router_strategy")
     end
   end
 
   describe "Router dispatch (M0)" do
-    test "strategy/0 defaults to :deterministic" do
+    test "strategy/0 honors the test override (:deterministic)" do
       assert Router.strategy() == :deterministic
     end
 
-    test "route/3 defers under the deterministic default" do
+    test "route/3 defers under the deterministic strategy" do
       assert {:ok, %Outcome{kind: :defer}} = Router.route(%{text: "hi"}, [])
     end
 
     test "route/3 delegates to the configured impl under :two_stage_local" do
-      {:ok, _} = Settings.put("intent.router_strategy", "two_stage_local", %{audit?: false})
+      Application.put_env(:allbert_assist, :intent_router_strategy_override, :two_stage_local)
       Application.put_env(:allbert_assist, :intent_router, FakeRouter)
       Application.put_env(:allbert_assist, :intent_router_fake_outcome, Outcome.execute("create_note", %{"title" => "x"}, 0.9))
 

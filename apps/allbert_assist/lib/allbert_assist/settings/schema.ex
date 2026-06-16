@@ -616,7 +616,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "intent.router_strategy" => %{
       type: :enum,
-      default: "deterministic",
+      default: "two_stage_local",
       writable?: true,
       sensitive?: false,
       allowed_values: ["deterministic", "two_stage_local"]
@@ -3064,7 +3064,7 @@ defmodule AllbertAssist.Settings.Schema do
       "clarify_floor" => 0.3,
       "direct_answer_model_enabled" => false,
       "direct_answer_model_profile" => "local",
-      "router_strategy" => "deterministic",
+      "router_strategy" => "two_stage_local",
       "router_embedding_profile" => "embedding_local",
       "router_model_profile" => "router_local",
       "router_escalation_profile" => "",

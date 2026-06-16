@@ -23,7 +23,8 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
       settings: Application.get_env(:allbert_assist, Settings),
       embedder: Application.get_env(:allbert_assist, :intent_router_embedder),
       disambiguator: Application.get_env(:allbert_assist, :intent_router_disambiguator),
-      selection: Application.get_env(:allbert_assist, :intent_router_fake_selection)
+      selection: Application.get_env(:allbert_assist, :intent_router_fake_selection),
+      override: Application.get_env(:allbert_assist, :intent_router_strategy_override)
     }
 
     System.put_env("ALLBERT_HOME", Path.join(System.tmp_dir!(), "allbert-router-disamb-#{System.unique_integer([:positive])}"))
@@ -40,6 +41,7 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
       restore(:intent_router_embedder, original.embedder)
       restore(:intent_router_disambiguator, original.disambiguator)
       restore(:intent_router_fake_selection, original.selection)
+      restore(:intent_router_strategy_override, original.override)
     end)
 
     :ok
@@ -89,7 +91,7 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
 
   describe "Router full path (Stage 1 -> Stage 2)" do
     test "routes a request end-to-end to :answer via fakes" do
-      {:ok, _} = Settings.put("intent.router_strategy", "two_stage_local", %{audit?: false})
+      Application.put_env(:allbert_assist, :intent_router_strategy_override, :two_stage_local)
       Application.put_env(:allbert_assist, :intent_router_fake_selection, {:ok, %{selected: "__answer__", confidence: 0.9}})
       assert {:ok, %Outcome{kind: :answer}} = Router.route(%{text: "hello there"}, [])
     end

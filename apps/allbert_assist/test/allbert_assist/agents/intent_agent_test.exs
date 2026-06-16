@@ -227,7 +227,10 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
                  input_signal_id: "sig-intent-handoff"
                })
 
-      assert response.status == :completed
+      # v0.54 (ADR 0060): the app-handoff is no longer an inert dead-end — it is
+      # rendered as a channel-answerable clarification (no app action is run), and
+      # the intent_handoff metadata is preserved for the web canvas surface.
+      assert response.status == :needs_clarification
       assert response.decision.intent == :app_handoff
       assert response.decision.active_app == :allbert
       assert response.intent_handoff.app_id == :stocksage
@@ -252,7 +255,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
                  input_signal_id: "sig-intent-clarify"
                })
 
-      assert response.status == :completed
+      assert response.status == :needs_clarification
       assert response.decision.intent == :clarify_intent
       assert response.message =~ "Which ticker"
       assert response.intent_handoff.missing_slots == ["ticker"]

@@ -15,6 +15,7 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
     original_settings = Application.get_env(:allbert_assist, Settings)
     original_embedder = Application.get_env(:allbert_assist, :intent_router_embedder)
     original_error = Application.get_env(:allbert_assist, :intent_router_embedder_error)
+    original_override = Application.get_env(:allbert_assist, :intent_router_strategy_override)
 
     home = Path.join(System.tmp_dir!(), "allbert-router-prefilter-#{System.unique_integer([:positive])}")
     System.put_env("ALLBERT_HOME", home)
@@ -29,6 +30,7 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
       restore(Settings, original_settings)
       restore(:intent_router_embedder, original_embedder)
       restore(:intent_router_embedder_error, original_error)
+      restore(:intent_router_strategy_override, original_override)
     end)
 
     :ok
@@ -63,7 +65,7 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
 
   describe "DefaultRouter (Stage 1 feeds Stage 2)" do
     test "defers to the deterministic ladder when the Stage 2 model is unavailable" do
-      {:ok, _} = Settings.put("intent.router_strategy", "two_stage_local", %{audit?: false})
+      Application.put_env(:allbert_assist, :intent_router_strategy_override, :two_stage_local)
       # Stage 1 runs (FakeEmbedder), but no Stage 2 fake is set, so the real
       # disambiguator cannot reach a model and the router defers.
       assert {:ok, %Outcome{kind: :defer}} = Router.route(%{text: "create a note"}, [])

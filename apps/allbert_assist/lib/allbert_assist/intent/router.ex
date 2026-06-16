@@ -28,6 +28,16 @@ defmodule AllbertAssist.Intent.Router do
 
   @spec strategy() :: :two_stage_local | :deterministic
   def strategy do
+    # An app-env override (set in config/test.exs to :deterministic) takes
+    # precedence so the test suite never reaches the live embedding/LLM path;
+    # production reads the Settings Central default (`:two_stage_local`).
+    case Application.get_env(:allbert_assist, :intent_router_strategy_override) do
+      nil -> strategy_from_settings()
+      override when is_atom(override) -> override
+    end
+  end
+
+  defp strategy_from_settings do
     case Settings.get("intent.router_strategy") do
       {:ok, value} -> normalize_strategy(value)
       _other -> :deterministic

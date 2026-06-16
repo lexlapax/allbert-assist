@@ -13,10 +13,16 @@ defmodule AllbertAssist.Agents.IntentAgent do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Intent.ApprovalHandoff
+  alias AllbertAssist.Intent.ConversationContext
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.Engine
   alias AllbertAssist.Intent.Handoff
+  alias AllbertAssist.Intent.PendingClarification
   alias AllbertAssist.Intent.ResourceAccess
+  alias AllbertAssist.Intent.Router
+  alias AllbertAssist.Intent.Router.ClarifyResolver
+  alias AllbertAssist.Intent.Router.Outcome
+  alias AllbertAssist.Intent.Router.PendingStore
   alias AllbertAssist.Objectives.Engine.Agent, as: ObjectivesEngine
   alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Resources.ResourceURI
@@ -233,6 +239,36 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp run_validated_route(route, text, context, %Decision{} = decision) do
+    # v0.54 (ADR 0060): first resolve any pending clarification this reply answers;
+    # otherwise route via the two-stage intent router (which defers to the
+    # deterministic ladder under `:deterministic` or on model/index unavailability).
+    case resolve_pending_clarification(text, context, decision) do
+      {:resolved, result} -> result
+      :none -> route_with_router(route, text, context, decision)
+    end
+  end
+
+  defp route_with_router(route, text, context, %Decision{} = decision) do
+    case router_outcome(text, context) do
+      {:ok, %Outcome{kind: :execute, action_name: action_name, slots: slots}}
+      when is_binary(action_name) ->
+        run_router_action(action_name, slots, text, context, decision)
+
+      {:ok, %Outcome{kind: :clarify} = outcome} ->
+        {:ok, router_clarify_response(outcome, context, decision)}
+
+      {:ok, %Outcome{kind: :answer}} ->
+        run_deterministic_route(:direct_answer, text, context, decision)
+
+      {:ok, %Outcome{kind: :none}} ->
+        {:ok, router_none_response(decision)}
+
+      _defer ->
+        run_deterministic_route(route, text, context, decision)
+    end
+  end
+
+  defp run_deterministic_route(route, text, context, %Decision{} = decision) do
     cond do
       Decision.refused?(decision) ->
         {:ok, decision_refusal_response(decision)}
@@ -254,6 +290,164 @@ defmodule AllbertAssist.Agents.IntentAgent do
         |> attach_decision(decision, context)
     end
   end
+
+  # ── v0.54 intent router integration (ADR 0060) ───────────────────────────────
+
+  defp router_outcome(text, context) do
+    request = context |> Map.get(:request, %{}) |> Map.put(:text, text)
+
+    conversation =
+      ConversationContext.from_thread_context(
+        Map.get(request, :thread_context, %{}) || %{},
+        prior_app: Map.get(request, :active_app)
+      )
+
+    router_context = %{
+      summary: conversation.summary,
+      prior_app: conversation.prior_app,
+      prior_action: conversation.prior_action
+    }
+
+    Router.route(request, [], router_context)
+  rescue
+    _exception -> {:ok, Outcome.defer(:router_error)}
+  catch
+    :exit, _reason -> {:ok, Outcome.defer(:router_exit)}
+  end
+
+  defp run_router_action(action_name, slots, text, context, %Decision{} = decision) do
+    execution_context = Map.put(context, :decision, decision)
+    params = action_name |> registry_action_params(text, execution_context) |> merge_router_slots(slots)
+
+    action_name
+    |> run_action(params, text, execution_context)
+    |> attach_decision(decision, context)
+  end
+
+  defp merge_router_slots(params, slots) when is_map(slots) do
+    Enum.reduce(slots, params, fn {key, value}, acc ->
+      case router_slot_key(key) do
+        nil -> acc
+        atom_key -> Map.put_new(acc, atom_key, value)
+      end
+    end)
+  end
+
+  defp merge_router_slots(params, _slots), do: params
+
+  defp router_slot_key(key) when is_atom(key), do: key
+
+  defp router_slot_key(key) when is_binary(key) do
+    String.to_existing_atom(key)
+  rescue
+    ArgumentError -> nil
+  end
+
+  defp router_slot_key(_key), do: nil
+
+  defp router_clarify_response(%Outcome{shortlist: shortlist, question: question}, context, %Decision{} = decision) do
+    options = clarify_options(shortlist)
+    persist_clarification(context, question, options)
+    clarification_response(decision, question, options)
+  end
+
+  defp clarify_options(shortlist) do
+    shortlist
+    |> List.wrap()
+    |> Enum.map(fn item ->
+      %{
+        kind: :action,
+        id: to_string(Map.get(item, :action_name) || Map.get(item, :id) || ""),
+        label: Map.get(item, :label)
+      }
+    end)
+    |> Enum.reject(&(&1.id == ""))
+  end
+
+  defp persist_clarification(context, question, options) do
+    request = Map.get(context, :request, %{})
+    now = DateTime.utc_now()
+
+    PendingStore.put(%PendingClarification{
+      thread_id: Map.get(request, :thread_id),
+      user_id: Map.get(request, :user_id),
+      session_id: Map.get(request, :session_id),
+      question: question,
+      options: options,
+      created_at: now,
+      expires_at: DateTime.add(now, clarification_ttl_ms(), :millisecond)
+    })
+
+    :ok
+  rescue
+    _exception -> :ok
+  catch
+    :exit, _reason -> :ok
+  end
+
+  defp clarification_response(%Decision{} = decision, question, options) do
+    %{
+      message: question,
+      status: :needs_clarification,
+      decision: decision,
+      resource_access: [],
+      approval_handoff: nil,
+      diagnostics: decision.diagnostics,
+      intent_clarification: %{question: question, options: options},
+      actions: [%{name: "clarify_intent", status: :awaiting_clarification, permission: :read_only}]
+    }
+  end
+
+  defp router_none_response(%Decision{} = decision) do
+    %{
+      message: "I couldn't match that to anything I can do. Could you rephrase or ask for something else?",
+      status: :completed,
+      decision: decision,
+      resource_access: [],
+      approval_handoff: nil,
+      diagnostics: decision.diagnostics,
+      actions: []
+    }
+  end
+
+  defp resolve_pending_clarification(text, context, %Decision{} = decision) do
+    request = Map.get(context, :request, %{})
+
+    case take_pending(Map.get(request, :user_id), Map.get(request, :thread_id)) do
+      {:ok, %PendingClarification{options: options}} ->
+        case ClarifyResolver.resolve(text, options) do
+          {:ok, %{id: action_name}} when is_binary(action_name) and action_name != "" ->
+            {:resolved, run_router_action(action_name, %{}, text, context, decision)}
+
+          _no_match ->
+            :none
+        end
+
+      :none ->
+        :none
+    end
+  end
+
+  defp take_pending(user_id, thread_id) do
+    PendingStore.take(user_id, thread_id)
+  rescue
+    _exception -> :none
+  catch
+    :exit, _reason -> :none
+  end
+
+  defp clarification_ttl_ms do
+    case Settings.get("intent.pending_clarification_ttl_ms") do
+      {:ok, value} when is_integer(value) -> value
+      _other -> 120_000
+    end
+  end
+
+  defp handoff_clarify_options(%Decision{selected_action: action}) when is_binary(action) and action != "" do
+    [%{kind: :action, id: action, label: action}]
+  end
+
+  defp handoff_clarify_options(_decision), do: []
 
   defp execution_route_for_decision(
          :direct_answer,
@@ -1512,27 +1706,31 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
     case Handoff.from_decision(decision) do
       {:ok, handoff} ->
+        # v0.54 (ADR 0060): no channel dead-end. Persist the proposal as a
+        # clarification so the next reply ("yes" / naming the app action) binds,
+        # while keeping the workspace proposal + intent_handoff metadata for the
+        # web canvas surface.
         WorkspaceEmitters.intent_proposal(handoff, context.request)
         handoff_map = Handoff.to_map(handoff)
+        options = handoff_clarify_options(decision)
+        question = Handoff.message(handoff)
+        persist_clarification(context, question, options)
 
-        %{
-          message: Handoff.message(handoff),
-          status: :completed,
-          active_app: decision.active_app,
-          decision: decision,
-          resource_access: [],
-          approval_handoff: nil,
-          intent_handoff: handoff_map,
-          diagnostics: decision.diagnostics,
-          actions: [
-            %{
-              name: Atom.to_string(handoff.kind),
-              status: :completed,
-              permission: :read_only,
-              intent_handoff: handoff_map
-            }
-          ]
-        }
+        decision
+        |> clarification_response(question, options)
+        |> Map.put(:active_app, decision.active_app)
+        |> Map.put(:intent_handoff, handoff_map)
+        |> Map.update!(:actions, fn actions ->
+          actions ++
+            [
+              %{
+                name: Atom.to_string(handoff.kind),
+                status: :awaiting_clarification,
+                permission: :read_only,
+                intent_handoff: handoff_map
+              }
+            ]
+        end)
 
       {:error, reason} ->
         Response.error("Unable to prepare app handoff: #{inspect(reason)}", reason,
