@@ -313,9 +313,13 @@ Dependency order from here:
     as the default selector, plus the original deepening (multi-turn context,
     generalized disambiguation, clarification turn-state; ADR 0019/0034) — and it
     **removes the app-handoff channel dead-end** so a channel message reaches the
-    approve/deny gate. Resequenced ahead of completing v0.53 (its channel approval
-    workflow depends on the router) and before the v0.55 UX redo (chat quality
-    depends on intent).
+    approve/deny gate. Expanded 2026-06-16 (post-validation) to also carry **M9 —
+    intent descriptor lifecycle** (coverage across the action surface + generation +
+    reindex hooks + operator md curation + a comprehensive golden-set; ADR 0062) and
+    **M10 — outbound compose actions** (send_email / send_channel_message /
+    create_calendar_event via MCP; ADR 0063); M9+M10 are in v0.54 and gate the tag.
+    Resequenced ahead of completing v0.53 (its channel approval workflow depends on
+    the router) and before the v0.55 UX redo (chat quality depends on intent).
 55. v0.55 Web UX Redo: re-layout `/workspace` (ADR 0023/0024 kept) — chat
     primary, ephemeral surfaces become popups, canvas demoted, labels cleaned
     up ("Conversations" replaces "threads"); references ChatGPT/Claude/Hermes.
@@ -3217,11 +3221,17 @@ ADRs: `docs/adr/0056-...` (v0.53 amendment — public signed webhook),
 `docs/adr/0058-key-custody-and-channel-daemon-supervision.md` (NEW),
 `docs/adr/0059-channel-trust-class-and-relay-gating.md` (NEW).
 
-Status: implemented as `0.53.0` through M10 and ready for operator real-provider
-validation before the release tag; live Telegram/email and Matrix/WhatsApp/Signal
-smokes remain required. Scope: first retro-validate **Telegram + email** to
-Discord/Slack live-provider parity, then build **Matrix + WhatsApp (Cloud API) +
-Signal (signal-cli daemon)**; **Viber** documented on paper as a validated
+Status: implemented as `0.53.0` through M10; version metadata stays `0.53.0`
+(tag-blocked). **Telegram + email live real-provider validation is done
+(2026-06-16):** email surfaced and fixed three IMAP/SMTP bugs (login/select 3-tuple,
+verified-TLS SMTP, success-as-error normalization — see CHANGELOG v0.53 §Fixed);
+Telegram doctor + delivery + inbound smokes passed with **0 code bugs**. That
+validation is what **found the channel *approval* dead-end** in the intent router —
+so the v0.53 channel approve/deny manual check is **blocked on the v0.54 router**
+and resumes once v0.54 lands. **Still pending: Matrix / WhatsApp / Signal
+real-provider live smokes.** Scope: first retro-validate **Telegram + email** to
+Discord/Slack live-provider parity (done), then build **Matrix + WhatsApp (Cloud
+API) + Signal (signal-cli daemon)**; **Viber** documented on paper as a validated
 WhatsApp-twin and **deferred** (~€100/mo standing bot fee); **iMessage + SMS
 parked**. Public protocol interop is v0.51.
 v0.53 now **opens with a Channel Pack 1 retro-validation milestone (M5)**: the
@@ -3269,23 +3279,33 @@ Expected direction:
 
 Plan: `docs/plans/v0.54-plan.md`
 Request flow: `docs/plans/v0.54-request-flow.md`
+ADRs: `docs/adr/0060-...` (two-stage router + approval-gate separation, Accepted),
+`docs/adr/0061-...` (local embedding + router model tiers, Accepted),
+`docs/adr/0062-intent-descriptor-lifecycle-generation-and-operator-curation.md`
+(NEW; M9; Accepted),
+`docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (NEW; M10;
+Accepted). Amends ADR 0019/0034.
 
-Status: **implemented (M0–M8, 2026-06-16); `mix allbert.test release.v054` green.**
-NEW in the 2026-06-09 roadmap restructure; deepened and resequenced 2026-06-16 to
-carry a two-stage intent router (ADR 0060/0061, both Accepted), sequenced **ahead
-of completing v0.53** (the v0.53 channel approval workflow depends on the router)
-and before the v0.55 Web UX redo. The version-metadata bump + tag are deferred
-pending the operator manual-validation punchlist
-(`docs/plans/v0.54-request-flow.md`), which also unblocks the v0.53 channel
-approval manual checks.
+Status (2026-06-16): **M0–M8 implemented and on `main`** (`mix allbert.test
+release.v054` green); the two-stage router is the default selector. Live
+local-model validation then surfaced three ReqLLM↔Ollama integration fixes + a
+gate fix (all shipped — see v0.54-plan.md Appendix B) and a US-origin model A/B
+that set the defaults: `router_local` = **llama3.1:8b**, a **local** escalation
+tier `router_escalation_local` = gemma4:26b (Appendix A). **M9 (intent descriptor
+lifecycle + coverage + golden-set) and M10 (outbound compose actions) are now
+in-scope for v0.54 and gate the tag** (operator decision 2026-06-16); both are
+**planned + implementation-ready, execution on hold pending operator review**. The
+version-metadata bump (0.53.0 → 0.54.0) + tag are deferred behind M9 + M10 + the
+operator manual-validation punchlist (`docs/plans/v0.54-request-flow.md`), which
+also unblocks the v0.53 channel approval manual checks.
 
 Expected direction:
 
 - A local-first **two-stage intent router** (ADR 0060/0061): embedding prefilter
   → constrained LLM disambiguation over a shortlist → confidence gate, as the
   **default selector**, with the deterministic ladder kept as fast-path + offline
-  fallback. Adds a local text-embedding capability + router model tiers
-  (embedding + 7–8B local default + optional audited hosted escalation).
+  fallback. Local text-embedding capability + US-origin router model tiers
+  (nomic-embed-text + llama3.1:8b default + local gemma4:26b escalation).
 - **Removes the app-handoff channel dead-end**: a channel message that maps to a
   `confirmation: :required` action now executes and reaches the approve/deny
   primitive instead of proposing inert text. This is the v0.53 channel approval
@@ -3293,8 +3313,24 @@ Expected direction:
 - The original deepening (ADR 0019/0034: `Intent.Engine`, `Classifier`,
   `Descriptor`/`Handoff`): stronger classification, bounded multi-turn context,
   generalized disambiguation, and a TTL'd clarification turn-state.
+- **M9 — intent descriptor lifecycle (ADR 0062):** the router only had 18
+  descriptors for 154 actions (42 agent-exposed). M9 expands coverage the canonical
+  way (`intent_descriptors/0`), then makes descriptors **self-maintaining** —
+  generated for actions that lack them (local model), layered with operator md
+  curation (code < generated < override), re-derived on action-set change via
+  SignalBus reindex hooks + debounce, with an `optimize_intent_descriptors` action,
+  `mix allbert.intent optimize|reindex|list|…`, an operator Intents web panel, and a
+  comprehensive golden-set + replay-bench. Generated descriptors for
+  dynamic/write-code actions are inert until operator-promoted. Routable ≠
+  executable.
+- **M10 — outbound compose actions (ADR 0063):** three NEW effectful actions for
+  intents the router can recognize but couldn't execute — `send_email` (wraps the
+  existing SMTP send), `send_channel_message` (per-adapter outbound with
+  identity-allowlist + trust-class gating before dispatch), `create_calendar_event`
+  (via a connected Google Calendar **MCP** server; graceful degrade if none). Each
+  is `confirmation: :required` behind the existing gate.
 - Keep model output advisory re: authority; intent never grants authority; the
-  approval gate stays a separate layer (ADR 0019, ADR 0060).
+  approval gate stays a separate layer (ADR 0019, ADR 0060, ADR 0062, ADR 0063).
 
 ## v0.55: Web UX Redo
 
