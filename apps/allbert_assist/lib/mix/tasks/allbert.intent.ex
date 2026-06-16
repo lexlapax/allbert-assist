@@ -19,8 +19,10 @@ defmodule Mix.Tasks.Allbert.Intent do
 
   use Mix.Task
 
+  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Intent.Bench
   alias AllbertAssist.Intent.Router.DescriptorResolver
+  alias AllbertAssist.Intent.Router.DescriptorStore
   alias AllbertAssist.Intent.Router.Doctor
   alias AllbertAssist.Intent.Router.Index
   alias AllbertAssist.Intent.Router.Optimizer
@@ -66,11 +68,69 @@ defmodule Mix.Tasks.Allbert.Intent do
     end)
   end
 
+  defp dispatch(["show", action]) do
+    case Enum.find(DescriptorResolver.resolve(), &(&1.action_name == action)) do
+      nil ->
+        Mix.shell().info("no resolved descriptor for #{action}")
+
+      d ->
+        Mix.shell().info("""
+        #{d.action_name} [#{d.source}] app_id=#{d.app_id}
+          label: #{d.label}
+          examples: #{inspect(d.examples)}
+          synonyms: #{inspect(d.synonyms)}
+          override file: #{Path.join(DescriptorStore.dir(:overrides), "#{d.app_id}__#{action}.exs")}
+        """)
+    end
+  end
+
+  defp dispatch(["disable", action]) do
+    {:ok, path} =
+      DescriptorStore.put(:overrides, %{
+        app_id: descriptor_app_id(action),
+        action_name: action,
+        disabled: true
+      })
+
+    Mix.shell().info("disabled #{action} (#{path}); run `mix allbert.intent reindex` to apply")
+  end
+
+  defp dispatch(["promote", action]) do
+    case DescriptorStore.promote(:review, :generated, descriptor_app_id(action), action) do
+      {:ok, path} ->
+        Mix.shell().info("promoted #{action} -> #{path}; run `mix allbert.intent reindex` to apply")
+
+      {:error, reason} ->
+        Mix.shell().info("could not promote #{action}: #{inspect(reason)}")
+    end
+  end
+
+  defp dispatch(["review"]) do
+    case DescriptorStore.read_attrs(:review) do
+      [] ->
+        Mix.shell().info("no descriptors pending review")
+
+      attrs ->
+        Enum.each(attrs, fn a ->
+          Mix.shell().info("  #{Map.get(a, :action_name) || Map.get(a, "action_name")}")
+        end)
+    end
+  end
+
   defp dispatch(_args),
     do:
       Mix.raise(
-        "Usage: mix allbert.intent doctor | bench [--subset|--holdout] | optimize [--heuristic] | reindex | list"
+        "Usage: mix allbert.intent doctor | bench [--subset|--holdout] | " <>
+          "optimize [--heuristic] | reindex | list | show ACTION | disable ACTION | " <>
+          "promote ACTION | review"
       )
+
+  defp descriptor_app_id(action) do
+    case ActionsRegistry.capability(action) do
+      {:ok, capability} -> capability.app_id || :allbert
+      _other -> :allbert
+    end
+  end
 
   defp print_coverage(c) do
     Mix.shell().info(

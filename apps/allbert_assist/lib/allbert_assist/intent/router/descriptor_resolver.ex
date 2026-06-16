@@ -24,6 +24,8 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
 
   @spec resolve(keyword()) :: [Descriptor.t()]
   def resolve(opts \\ []) do
+    disabled = disabled_keys()
+
     [
       app_plugin_layer(opts),
       action_module_layer(opts),
@@ -32,6 +34,18 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
     ]
     |> List.flatten()
     |> dedup_later_wins()
+    |> Enum.reject(fn descriptor ->
+      MapSet.member?(disabled, {descriptor.app_id, descriptor.action_name})
+    end)
+  end
+
+  # Operator overrides may mark an action non-routable with `%{..., disabled: true}`.
+  defp disabled_keys do
+    safe_store_attrs(:overrides)
+    |> Enum.filter(fn attrs -> Map.get(attrs, :disabled) == true end)
+    |> MapSet.new(fn attrs ->
+      {Map.get(attrs, :app_id), to_string(Map.get(attrs, :action_name))}
+    end)
   end
 
   # ── layers ───────────────────────────────────────────────────────────────────
@@ -78,6 +92,14 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
 
   defp safe_store_load(tier) do
     DescriptorStore.load(tier)
+  rescue
+    _exception -> []
+  catch
+    :exit, _reason -> []
+  end
+
+  defp safe_store_attrs(tier) do
+    DescriptorStore.read_attrs(tier)
   rescue
     _exception -> []
   catch

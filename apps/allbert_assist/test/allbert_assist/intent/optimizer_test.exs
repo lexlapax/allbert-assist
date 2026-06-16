@@ -60,4 +60,34 @@ defmodule AllbertAssist.Intent.Router.OptimizerTest do
     assert length(result.generated) > 0
     assert after_cov.generated >= length(result.generated)
   end
+
+  test "an operator disable override removes an action from the resolved set" do
+    assert DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "write_note"))
+
+    {:ok, _path} =
+      DescriptorStore.put(:overrides, %{
+        app_id: :notes_files,
+        action_name: "write_note",
+        disabled: true
+      })
+
+    refute DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "write_note"))
+  end
+
+  test "promote moves a review descriptor to generated (review is inert, generated loads)" do
+    attrs = %{
+      app_id: :allbert,
+      action_name: "show_app",
+      label: "Show app",
+      examples: ["show app"],
+      synonyms: ["app details"],
+      required_slots: []
+    }
+
+    {:ok, _path} = DescriptorStore.put(:review, attrs)
+    refute DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
+
+    {:ok, _dest} = DescriptorStore.promote(:review, :generated, :allbert, "show_app")
+    assert DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
+  end
 end
