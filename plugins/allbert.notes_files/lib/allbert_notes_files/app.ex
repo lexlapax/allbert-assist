@@ -66,13 +66,28 @@ defmodule AllbertNotesFiles.App do
     [
       %{
         app_id: :notes_files,
+        action_name: "write_note",
+        label: "Create or write a local note",
+        examples: [
+          "create a note titled groceries with milk and eggs",
+          "write a note: call the dentist tomorrow",
+          "save a note about the planning meeting",
+          "make a new note for the trip checklist"
+        ],
+        synonyms: ["create note", "write note", "new note", "add note", "save note", "make note"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :notes_files,
         action_name: "search_notes",
         label: "Search local notes",
         examples: [
           "find notes about onboarding",
-          "search notes for release checklist"
+          "search notes for release checklist",
+          "look up my notes on billing"
         ],
-        synonyms: ["notes", "local notes", "find notes", "search notes"],
+        synonyms: ["search notes", "find notes", "look up notes", "search my notes"],
         required_slots: [],
         handoff_required?: true
       },

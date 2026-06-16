@@ -98,7 +98,11 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       "preview_plan",
       "open_calendar_panel",
       "open_mail_panel",
-      "open_github_panel"
+      "open_github_panel",
+      # channel-pack agent actions (v0.52/v0.53), always registered in the test env
+      "channel_setup_check",
+      "signal_doctor",
+      "whatsapp_doctor"
     ]
 
     browser_actions = [

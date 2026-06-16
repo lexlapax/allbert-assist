@@ -61,6 +61,18 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
       Application.put_env(:allbert_assist, :intent_router_embedder_error, :down)
       assert {:fallback, _reason} = Prefilter.shortlist("create a note")
     end
+
+    test "a create-a-note request shortlists write_note (M6 descriptor-coverage fix)" do
+      AllbertAssist.Intent.Router.Index.rebuild()
+      assert {:ok, %{shortlist: shortlist}} = Prefilter.shortlist("create a note titled groceries with milk")
+      scores = Map.new(shortlist, fn s -> {s.action_name, s.score} end)
+
+      assert Map.has_key?(scores, "write_note"), "write_note should be shortlisted for a create request"
+      # the original mis-route: write_note must not lose to search_notes
+      if Map.has_key?(scores, "search_notes") do
+        assert scores["write_note"] >= scores["search_notes"]
+      end
+    end
   end
 
   describe "DefaultRouter (Stage 1 feeds Stage 2)" do
