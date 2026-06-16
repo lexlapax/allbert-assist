@@ -305,11 +305,17 @@ Dependency order from here:
     Locks the channel approval shape before mobile channels need it.
 53. v0.53 Channel Pack 1 retro-validation (Telegram + email, first real-provider
     live validation) then Channel Pack 2 — WhatsApp, Signal, and Matrix. iMessage
-    is parked (macOS-only platform constraint).
-54. v0.54 Intent Deepening: deepen the intent subsystem (ADR 0019/0034) so a
-    chat-primary surface routes reliably — classification, multi-turn and
-    clarification handling, disambiguation. Sequenced before the UX redo
-    because chat quality depends on intent.
+    is parked (macOS-only platform constraint). Note: live validation (2026-06-16)
+    found the channel *approval* workflow dead-ends in the intent router, so v0.54
+    is resequenced ahead to fix it; v0.53's manual approval checks resume after.
+54. v0.54 Intent Deepening: a local-first **two-stage intent router** (embedding
+    prefilter → constrained LLM disambiguation → confidence gate; ADR 0060/0061)
+    as the default selector, plus the original deepening (multi-turn context,
+    generalized disambiguation, clarification turn-state; ADR 0019/0034) — and it
+    **removes the app-handoff channel dead-end** so a channel message reaches the
+    approve/deny gate. Resequenced ahead of completing v0.53 (its channel approval
+    workflow depends on the router) and before the v0.55 UX redo (chat quality
+    depends on intent).
 55. v0.55 Web UX Redo: re-layout `/workspace` (ADR 0023/0024 kept) — chat
     primary, ephemeral surfaces become popups, canvas demoted, labels cleaned
     up ("Conversations" replaces "threads"); references ChatGPT/Claude/Hermes.
@@ -3265,16 +3271,27 @@ Plan: `docs/plans/v0.54-plan.md`
 Request flow: `docs/plans/v0.54-request-flow.md`
 
 Status: planned. NEW in the 2026-06-09 roadmap restructure; full plan authored
-in the restructure Phase B (research R2). Sequenced before the v0.55 Web UX redo
-because chat quality depends on intent.
+in the restructure Phase B (research R2). **Deepened and resequenced 2026-06-16**
+to carry a two-stage intent router (ADR 0060/0061). Now sequenced **ahead of
+completing v0.53** (the v0.53 channel approval workflow depends on the router) as
+well as before the v0.55 Web UX redo (chat quality depends on intent).
 
 Expected direction:
 
-- Deepen the intent subsystem (ADR 0019/0034: `Intent.Engine`, `Classifier`,
-  `Descriptor`/`Handoff`) so a chat-primary conversation surface routes
-  reliably — stronger classification, multi-turn and clarification handling,
-  and disambiguation.
-- Keep model output advisory only; intent never grants authority (ADR 0019).
+- A local-first **two-stage intent router** (ADR 0060/0061): embedding prefilter
+  → constrained LLM disambiguation over a shortlist → confidence gate, as the
+  **default selector**, with the deterministic ladder kept as fast-path + offline
+  fallback. Adds a local text-embedding capability + router model tiers
+  (embedding + 7–8B local default + optional audited hosted escalation).
+- **Removes the app-handoff channel dead-end**: a channel message that maps to a
+  `confirmation: :required` action now executes and reaches the approve/deny
+  primitive instead of proposing inert text. This is the v0.53 channel approval
+  blocker found in live validation (2026-06-16).
+- The original deepening (ADR 0019/0034: `Intent.Engine`, `Classifier`,
+  `Descriptor`/`Handoff`): stronger classification, bounded multi-turn context,
+  generalized disambiguation, and a TTL'd clarification turn-state.
+- Keep model output advisory re: authority; intent never grants authority; the
+  approval gate stays a separate layer (ADR 0019, ADR 0060).
 
 ## v0.55: Web UX Redo
 

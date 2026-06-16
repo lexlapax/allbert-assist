@@ -181,7 +181,14 @@ Allbert separates three layers of state across the runtime:
 - **Intent** captures what the user appears to mean *now*. It is per-turn,
   inert (`AllbertAssist.Intent.Decision`), and proposal-shaped. Intent
   ranking through `Intent.Engine` is candidate-ranking infrastructure
-  (ADR 0019). Intent never grants authority.
+  (ADR 0019). Intent never grants authority. v0.54 deepens this into a
+  local-first **two-stage intent router** (embedding prefilter → constrained
+  LLM disambiguation → confidence gate; ADR 0060/0061): a better *selector*
+  within the same registry-validated candidate set that reaches the existing
+  approval gate (it removes the app-handoff channel dead-end) — while the
+  authority model is unchanged (selection is advisory; the runner, permission,
+  and `confirmation`/`ConfirmationCallback` gates remain the only authority
+  boundary).
 - **Objective** captures what Allbert is trying to accomplish *across one or
   more steps, confirmations, channels, jobs, and turns*. Objectives are
   durable SQLite rows (`objectives`, `objective_steps`, `objective_events`)
