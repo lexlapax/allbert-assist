@@ -7,9 +7,13 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
   maps the selection to a `Router.Outcome`:
 
     * a real shortlisted action with confidence ≥ `intent.router_min_confidence`
-      and a non-ambiguous margin → `:execute`
-    * low confidence, ambiguous margin, or a selection outside the shortlist →
-      `:clarify` (a targeted question scoped to the shortlist)
+      → `:execute`. A tight Stage-1 margin (< `intent.disambiguation_margin`)
+      does **not** veto a *decisive* selection (confidence ≥ `@decisive_confidence`):
+      Stage 2 is the selection authority (ADR 0060) and the embedding margin is a
+      noisy, length-sensitive signal, so a confident Stage-2 pick wins.
+    * a tight margin with only borderline confidence, plain low confidence, or a
+      selection outside the shortlist → `:clarify` (a targeted question scoped to
+      the shortlist), which may escalate to a higher-tier model
     * `__answer__` / `__none__` → `:answer` / `:none`
     * model unavailable / timeout → `:defer` (the router uses the deterministic
       ladder)
@@ -28,6 +32,9 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
   @none "__none__"
   @clarify "__clarify__"
   @escalatable_notes [:low_confidence, :ambiguous_margin, :selection_not_in_shortlist]
+  # A Stage-2 selection at/above this confidence overrides a tight Stage-1 margin
+  # (the embedding margin is noisy and length-sensitive; Stage 2 is the authority).
+  @decisive_confidence 0.8
 
   defmodule Behaviour do
     @moduledoc "Behaviour for the Stage 2 selection model boundary (ADR 0060)."
@@ -61,7 +68,11 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
     end
   end
 
-  # ── optional hosted escalation (ADR 0061; off by default) ────────────────────
+  # ── escalation to a higher-tier profile (ADR 0061) ───────────────────────────
+  # Default `intent.router_escalation_profile` is a local higher-tier model
+  # (`router_escalation_local`, gemma4:26b). A low-confidence / ambiguous /
+  # out-of-shortlist selection by the primary router model escalates once to the
+  # escalation profile (which may also be hosted). Always audited.
 
   defp maybe_escalate(%Outcome{kind: :clarify, diagnostics: %{note: note}} = outcome, query, shortlist, margin, context, opts)
        when note in @escalatable_notes do
@@ -98,7 +109,7 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
 
   defp audit_escalation(query, profile, context, note) do
     Logger.warning(
-      "[intent_router_escalation] low-confidence (#{note}) routed to hosted profile=#{profile} " <>
+      "[intent_router_escalation] low-confidence (#{note}) routed to profile=#{profile} " <>
         "thread=#{inspect(Map.get(context, :thread_id) || Map.get(context, "thread_id"))} " <>
         "text=#{query |> to_string() |> Redactor.redact() |> String.slice(0, 120)}"
     )
@@ -125,7 +136,9 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
       selected == @clarify -> clarify(shortlist, Map.put(diag, :note, :model_requested_clarify))
       not in_shortlist?(selected, shortlist) -> clarify(shortlist, Map.put(diag, :note, :selection_not_in_shortlist))
       confidence < min_conf -> clarify(shortlist, Map.put(diag, :note, :low_confidence))
-      ambiguous?(margin, shortlist, opts) -> clarify(shortlist, Map.put(diag, :note, :ambiguous_margin))
+      ambiguous?(margin, shortlist, opts) and confidence < @decisive_confidence ->
+        clarify(shortlist, Map.put(diag, :note, :ambiguous_margin))
+
       true -> Outcome.execute(selected, Map.get(selection, :slots, %{}), confidence, diag)
     end
   end

@@ -70,12 +70,19 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
              Disambiguator.decide(%{selected: "create_note", confidence: 0.3}, @shortlist, 0.5, @opts)
   end
 
-  # intent-router-escalation-audited-off-by-default-001
-  test "escalation is off by default: low confidence falls to clarify, never a remote call" do
+  # intent-router-escalation-local-by-default-001
+  test "escalation default is a LOCAL profile (no remote egress); disabling falls to clarify" do
+    # The shipped escalation target is local-only, so default escalation never egresses.
+    {:ok, profile_name} = Settings.get("intent.router_escalation_profile")
+    assert profile_name == "router_escalation_local"
+    {:ok, profile} = Settings.resolve_model_profile(profile_name)
+    assert profile.provider_endpoint_kind == "local_endpoint"
+
+    # With escalation explicitly disabled, a low-confidence selection clarifies (no escalation call).
     Application.put_env(:allbert_assist, :intent_router_fake_selection, {:ok, %{selected: "create_note", confidence: 0.3}})
 
     assert {:ok, %Outcome{kind: :clarify}} =
-             Disambiguator.disambiguate("note", @shortlist, 0.5, %{}, @opts)
+             Disambiguator.disambiguate("note", @shortlist, 0.5, %{}, @opts ++ [escalation_profile: ""])
   end
 
   # intent-router-create-vs-search-001 (the original mis-route regression)

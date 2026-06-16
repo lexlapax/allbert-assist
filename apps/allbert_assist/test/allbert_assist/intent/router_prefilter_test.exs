@@ -3,6 +3,7 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
   @moduletag :app_env_serial
 
   alias AllbertAssist.Intent.Router
+  alias AllbertAssist.Intent.Router.Disambiguator.FakeDisambiguator
   alias AllbertAssist.Intent.Router.Embedder.FakeEmbedder
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Intent.Router.Prefilter
@@ -78,8 +79,19 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
   describe "DefaultRouter (Stage 1 feeds Stage 2)" do
     test "defers to the deterministic ladder when the Stage 2 model is unavailable" do
       Application.put_env(:allbert_assist, :intent_router_strategy_override, :two_stage_local)
-      # Stage 1 runs (FakeEmbedder), but no Stage 2 fake is set, so the real
-      # disambiguator cannot reach a model and the router defers.
+      # Deterministically simulate an unavailable Stage 2 model (independent of
+      # whether a local Ollama happens to be running): the fake selection boundary
+      # returns {:error, _} when no selection is configured, so the router defers.
+      prev_disamb = Application.get_env(:allbert_assist, :intent_router_disambiguator)
+      prev_sel = Application.get_env(:allbert_assist, :intent_router_fake_selection)
+      Application.put_env(:allbert_assist, :intent_router_disambiguator, FakeDisambiguator)
+      Application.delete_env(:allbert_assist, :intent_router_fake_selection)
+
+      on_exit(fn ->
+        restore(:intent_router_disambiguator, prev_disamb)
+        restore(:intent_router_fake_selection, prev_sel)
+      end)
+
       assert {:ok, %Outcome{kind: :defer}} = Router.route(%{text: "create a note"}, [])
     end
   end

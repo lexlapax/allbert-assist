@@ -635,7 +635,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "intent.router_escalation_profile" => %{
       type: :string_or_empty,
-      default: "",
+      default: "router_escalation_local",
       writable?: true,
       sensitive?: false
     },
@@ -657,7 +657,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "intent.router_model_timeout_ms" => %{
       type: :bounded_integer,
-      default: 4000,
+      default: 20_000,
       writable?: true,
       sensitive?: false,
       min: 250,
@@ -3067,10 +3067,10 @@ defmodule AllbertAssist.Settings.Schema do
       "router_strategy" => "two_stage_local",
       "router_embedding_profile" => "embedding_local",
       "router_model_profile" => "router_local",
-      "router_escalation_profile" => "",
+      "router_escalation_profile" => "router_escalation_local",
       "router_top_k" => 5,
       "router_min_confidence" => 0.6,
-      "router_model_timeout_ms" => 4000,
+      "router_model_timeout_ms" => 20_000,
       "multiturn_enabled" => false,
       "context_window" => 6,
       "disambiguation_margin" => 0.12,
@@ -3177,11 +3177,19 @@ defmodule AllbertAssist.Settings.Schema do
       },
       "router_local" => %{
         "provider" => "local_ollama",
-        "model" => "qwen2.5:7b",
+        "model" => "llama3.1:8b",
         "capabilities" => ["text_generation"],
         "temperature" => 0.0,
         "max_tokens" => 512,
         "timeout_ms" => 45_000
+      },
+      "router_escalation_local" => %{
+        "provider" => "local_ollama",
+        "model" => "gemma4:26b",
+        "capabilities" => ["text_generation"],
+        "temperature" => 0.0,
+        "max_tokens" => 512,
+        "timeout_ms" => 60_000
       }
     },
     "agents" => %{

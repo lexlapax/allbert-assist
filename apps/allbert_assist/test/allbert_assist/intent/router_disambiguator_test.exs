@@ -60,8 +60,13 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
                Disambiguator.decide(%{selected: "create_note", confidence: 0.3}, @shortlist, 0.5, @opts)
     end
 
-    test "ambiguous margin clarifies even at high confidence" do
-      assert %Outcome{kind: :clarify} =
+    test "tight margin clarifies at borderline confidence but yields to a decisive pick" do
+      # Borderline confidence (>= min 0.6 but < decisive 0.8) on a tight margin -> clarify.
+      assert %Outcome{kind: :clarify, diagnostics: %{note: :ambiguous_margin}} =
+               Disambiguator.decide(%{selected: "create_note", confidence: 0.7}, @shortlist, 0.05, @opts)
+
+      # A decisive Stage-2 confidence overrides a tight Stage-1 margin -> execute.
+      assert %Outcome{kind: :execute, action_name: "create_note"} =
                Disambiguator.decide(%{selected: "create_note", confidence: 0.95}, @shortlist, 0.05, @opts)
     end
 
@@ -99,15 +104,15 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
     end
   end
 
-  describe "hosted escalation (M7, off by default)" do
-    test "a low-confidence outcome clarifies when no escalation profile is configured" do
+  describe "escalation (M7, local-by-default, audited)" do
+    test "a low-confidence outcome clarifies when escalation is disabled" do
       Application.put_env(:allbert_assist, :intent_router_fake_selection, {:ok, %{selected: "create_note", confidence: 0.3}})
 
       assert {:ok, %Outcome{kind: :clarify}} =
-               Disambiguator.disambiguate("note", @shortlist, 0.5, %{}, @opts)
+               Disambiguator.disambiguate("note", @shortlist, 0.5, %{}, @opts ++ [escalation_profile: ""])
     end
 
-    test "escalation re-selects with the hosted profile and can resolve to execute (audited)" do
+    test "escalation re-selects with the escalation profile and can resolve to execute (audited)" do
       Application.put_env(:allbert_assist, :intent_router_fake_selection, {:ok, %{selected: "create_note", confidence: 0.3}})
       Application.put_env(:allbert_assist, :intent_router_fake_escalated_selection, {:ok, %{selected: "create_note", confidence: 0.95}})
 
