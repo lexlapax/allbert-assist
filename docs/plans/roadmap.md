@@ -3296,7 +3296,7 @@ lifecycle + coverage + golden-set) and M10 (outbound compose actions) are now
 in-scope for v0.54 and gate the tag** (operator decision 2026-06-16); both are
 **planned + implementation-ready, execution on hold pending operator review**. The
 version-metadata bump (0.53.0 → 0.54.0) + tag are deferred behind M9 + M10 + the
-operator manual-validation punchlist (`docs/plans/v0.54-request-flow.md`), which
+request-flow F-H validation path (`docs/plans/v0.54-request-flow.md`), which
 also unblocks the v0.53 channel approval manual checks.
 
 Expected direction:
@@ -3314,9 +3314,11 @@ Expected direction:
   `Descriptor`/`Handoff`): stronger classification, bounded multi-turn context,
   generalized disambiguation, and a TTL'd clarification turn-state.
 - **M9 — intent descriptor lifecycle (ADR 0062):** the router only had **12**
-  descriptors for **192** actions (**47** agent-exposed; live count 2026-06-16). M9
-  expands coverage the canonical way (`intent_descriptors/0`, dual-source: app- and
-  action-module), then makes descriptors **self-maintaining** —
+  descriptors for **192** actions. The live registry returns **49** agent modules,
+  but two channel doctor actions declare internal capability metadata, so M9 must
+  normalize/exclude them and targets a **47-action effective routable inventory**.
+  M9 expands coverage the canonical way (`intent_descriptors/0`, dual-source:
+  app- and action-module), then makes descriptors **self-maintaining** —
   generated for actions that lack them (local model), layered with operator md
   curation (code < generated < override), re-derived on action-set change via
   SignalBus reindex hooks + debounce, with an `optimize_intent_descriptors` action,

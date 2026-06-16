@@ -9,17 +9,21 @@ intent enrichment), ADR 0034 (conversational app intent handoff).
 
 ## Context
 
-The two-stage intent router (ADR 0060) routes over **intent descriptors** gathered
-from each app/plugin's `intent_descriptors/0` callback
-(`Extensions.Registry.registered_intent_descriptors/0`), embedded into an in-memory
-`Intent.Router.Index`. Manual validation (2026-06-16) plus a zoom-out of the action
-surface exposed two structural problems:
+The two-stage intent router (ADR 0060) routes over **intent descriptors** originally
+gathered only from app/plugin `intent_descriptors/0` callbacks
+(`Extensions.Registry.registered_intent_descriptors/0`) and embedded into an
+in-memory `Intent.Router.Index`. Manual validation (2026-06-16) plus a zoom-out of
+the action surface exposed two structural problems:
 
-1. **Coverage is static and partial.** Of **154 registered actions** (42
-   agent-exposed), only **18** declare descriptors, and they are
-   notes/stocks/marketplace/panel-centric. Whole domains a user speaks (email,
-   calendar, memory, research, image-gen, channels, settings/model, skills/plugin
-   authoring, MCP, objectives) have no descriptor and cannot route.
+1. **Coverage is static and partial.** The live registry has **192 registered
+   actions** and `Actions.Registry.agent_modules/0` currently returns **49** modules.
+   Two of those (`signal_doctor`, `whatsapp_doctor`) declare internal capability
+   metadata and should not be routable natural-language targets, so the intended
+   descriptor target is the **47-action effective routable inventory** after that
+   cleanup/exclusion. Only **12** actions have descriptors today, and they are
+   notes/stocks/research/browser/panel-centric. Whole domains a user speaks (email,
+   calendar, memory, image-gen, channels, settings/model, skills/plugin authoring,
+   MCP, objectives) have no descriptor and cannot route.
 
 2. **Descriptors do not track a changing action set.** The action set is dynamic —
    it changes at runtime via plugin install, marketplace bundles, and especially
@@ -27,9 +31,10 @@ surface exposed two structural problems:
    registers new action modules live). But:
    - The action *list* is re-queried fresh on every call
      (`Actions.Registry.modules/0 = static ++ plugin_actions() ++ dynamic_actions()`),
-     **yet descriptors only come from modules exporting `intent_descriptors/0`** —
-     dynamically-generated actions typically don't, so they are invisible to the
-     router though registered and callable.
+     **yet descriptors only come from app/plugin modules exporting
+     `intent_descriptors/0`** — action modules and dynamically-generated actions are
+     invisible to the router unless a separate resolver reads them, though
+     registered and callable.
    - The `Index` is rebuilt **lazily** and has **no subscriber** to the
      `allbert.dynamic_codegen.{registered,rolled_back,reconcile_completed}` signals
      that already fire on the SignalBus (currently unused). So after an integrate /
@@ -45,15 +50,19 @@ routing hint into authority.
 ### 1. Layered descriptor resolution (precedence)
 
 Introduce `Intent.Router.DescriptorResolver`, which produces the descriptor set the
-Index builds from by merging three layers, deduped by `{app_id, action_name}` with
+Index builds from by merging four layers, deduped by `{app_id, action_name}` with
 **later layers winning** (mirrors `Settings.Store` `deep_merge(defaults, overrides)`):
 
-1. **Code-declared** — `intent_descriptors/0` from app/plugin authors. Authoritative
-   base for hand-written extensions.
-2. **Generated** — descriptors synthesized for registered, agent-exposed actions
+1. **App/plugin-module code-declared** — existing `intent_descriptors/0` from
+   app/plugin authors via `Extensions.Registry.registered_intent_descriptors/0`.
+   This remains the authoritative base for hand-written extension descriptors.
+2. **Action-module code-declared** — new resolver scan over live action modules that
+   export `intent_descriptors/0`, so M9.1 descriptors may be co-located with the
+   action implementation without changing the app/plugin registry contract.
+3. **Generated** — descriptors synthesized for registered, agent-exposed actions
    that lack a code descriptor (esp. dynamic/write-code actions). Persisted as
    md/yaml under `<ALLBERT_HOME>/intents/generated/`.
-3. **Operator overrides** — operator-curated md/yaml under
+4. **Operator overrides** — operator-curated md/yaml under
    `<ALLBERT_HOME>/intents/overrides/`. Highest precedence; can tweak
    label/examples/synonyms, **disable** a descriptor, or mark an action
    **non-routable**.
@@ -132,7 +141,8 @@ index, surfaced as both an action and a mix task (doctor envelope, ADR 0047):
   `Process.send_after(self(), :rebuild_debounced, ms)`.
 - **Resolver wrap point**: `Intent.Router.Index.build/0` calls
   `Extensions.Registry.registered_intent_descriptors/0` (registry.ex:79) today; the
-  new `DescriptorResolver.resolve/1` wraps it and layers generated + override.
+  new `DescriptorResolver.resolve/1` wraps it, scans live action modules exporting
+  `intent_descriptors/0`, then layers generated + override.
 - **Descriptor shape**: `%Intent.Router`/`Intent.Descriptor{}` (descriptor.ex) with
   `Descriptor.normalize_many/2` (:96) for validation.
 - **Generation**: `router_local` via ReqLLM, json_schema mode, local-only/redacted
@@ -167,9 +177,10 @@ index, surfaced as both an action and a mix task (doctor envelope, ADR 0047):
   action + `mix allbert.intent optimize|reindex`, Index SignalBus subscription +
   debounce, three registration signals, an `intents/` home tree, the Intents web
   panel, and `intent.descriptor_autoaccept` setting.
-- Doctor gains a coverage report; new eval rows (new action becomes routable after
-  reindex; operator override wins; generated descriptor grants no authority;
-  rollback removes routability; reindex debounced; dynamic action inert-until-promoted).
+- Doctor gains a coverage report over the effective routable inventory; new eval
+  rows (new action becomes routable after reindex; operator override wins; generated
+  descriptor grants no authority; rollback removes routability; reindex debounced;
+  dynamic action inert-until-promoted; internal-capability actions are not routable).
 - Net effect: the router's coverage tracks the live action set, operators can curate
   routing in md without code, and authority/security posture is unchanged.
 

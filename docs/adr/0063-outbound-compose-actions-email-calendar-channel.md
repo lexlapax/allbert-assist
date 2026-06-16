@@ -52,6 +52,22 @@ declaring its own intent descriptor (consumed by the ADR 0062 lifecycle).
 Routing to these actions grants no authority (ADR 0060); the confirmation gate is
 the sole execution boundary; the router never auto-sends.
 
+Before the three actions are implemented, M10 must land the shared execution
+contracts they depend on:
+
+- **Permissions:** register `:email_send`, `:channel_message_send`, and
+  `:calendar_write` across Security Policy, Risk floors, Settings Schema defaults /
+  safe-write keys, and the security eval inventory. Each defaults to a
+  `:needs_confirmation` floor.
+- **Generic resumable confirmation resume:** approval of any registered action with
+  `resumable?: true` and a stored `resume_params_ref` re-runs that action through
+  `Actions.Runner.run/3` after the permission re-check. Non-resumable or unknown
+  action families still fail closed; approval does not create a hidden adapter path.
+- **Outbound boundary:** `send_channel_message` calls
+  `AllbertAssist.Channels.Outbound.send/4` (or the equivalent adapter behaviour
+  callback), implemented for every connected adapter before the action ships. The
+  action never calls provider clients directly.
+
 ### `send_email`
 
 - `app_id: :email`, `permission: :email_send`, `execution_mode: :smtp_send`.
@@ -63,7 +79,7 @@ the sole execution boundary; the router never auto-sends.
 
 ### `send_channel_message`
 
-- `permission: :channel_send`, `execution_mode: :channel_post`.
+- `permission: :channel_message_send`, `execution_mode: :channel_post`.
 - slots: `channel` (required), `target` (thread/conversation/user, required), `body`
   (required).
 - **gating (the heart of this action):** before send, resolve `target` against the
@@ -71,8 +87,9 @@ the sole execution boundary; the router never auto-sends.
   `{:ok,user_id}|{:error,:not_mapped|:disabled}`) and enforce the trust-class floor
   (`:server_readable` unless explicitly approved; ADR 0059). A send to an
   un-allowlisted/disabled target is **rejected before dispatch**, not confirmed.
-- backend: the per-channel adapter outbound path (e.g. Slack
-  `Client.chat_post_message/3`); record provenance via
+- backend: `AllbertAssist.Channels.Outbound.send/4`, which dispatches to the
+  per-channel adapter outbound path (e.g. Slack `Client.chat_post_message/3`);
+  record provenance via
   `Conversations.ChannelThread.record_message_ref/1`.
 
 ### `create_calendar_event` (MCP-backed)
@@ -109,9 +126,10 @@ credential custody.
 ## Consequences
 
 - New actions `send_email`, `send_channel_message`, `create_calendar_event`; new
-  permissions `:email_send`, `:channel_send`, `:calendar_write`; descriptors for
-  each (ADR 0062 indexes them). M10 `:v054` eval rows (send-email-confirmed,
-  channel-target-gated, calendar-mcp-backed, outbound-grants-no-authority).
+  permissions `:email_send`, `:channel_message_send`, `:calendar_write`;
+  descriptors for each (ADR 0062 indexes them). M10 `:v054` eval rows
+  (send-email-confirmed, channel-target-gated, calendar-mcp-backed,
+  outbound-grants-no-authority, generic-resume, permission-floors).
 - The M9 golden-set rows for "send an email…", "schedule a meeting…", "send a slack
   message…" flip from `handoff`/`answer` to `execute`.
 - v0.54 footprint grows (M10 gates the tag); calendar depends on an external MCP

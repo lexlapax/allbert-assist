@@ -744,8 +744,12 @@ historical aliases only and remain in old reference notes for continuity.
   descriptor reply-key/quote-TTL consumption, phone-PII redaction, and mandatory
   `:list` approval fallback. Viber is documented on paper + deferred; iMessage/SMS
   parked.
-- v0.54: Intent Deepening. Deepens the intent subsystem (ADR 0019/0034) so a
-  chat-primary surface routes reliably; model output stays advisory.
+- v0.54: Intent Deepening. M0-M8 implement the local two-stage router and remove
+  the app-handoff channel approval dead-end; M9/M10 are now tag-blocking scope:
+  descriptor lifecycle/coverage/golden-set work (ADR 0062) and outbound compose
+  actions for email, calendar, and channel send (ADR 0063). Model output stays
+  advisory, and v0.53 channel approval validation resumes only after this path is
+  green.
 - v0.55: Web UX Redo. Re-layouts `/workspace` (ADR 0023/0024 kept) — chat
   primary, ephemeral surfaces become popups, canvas demoted, "Conversations"
   replaces "threads"; references ChatGPT/Claude/Hermes.

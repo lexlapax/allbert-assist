@@ -12,18 +12,19 @@ changelog entries or release notes.
 
 ## v0.54.0 - Intent Deepening: Two-Stage Local Intent Router
 
-Status: implemented across M0–M8; `mix allbert.test release.v054` is green. The
-shipped default routing strategy is the local two-stage router
-(`intent.router_strategy = two_stage_local`). **Version/tag is deferred**: v0.53
-is implemented-but-untagged and its channel-approval validation depends on this
-router, so the version-metadata bump and tagging are a sequencing decision after
-the v0.54 punchlist (metadata currently remains `0.53.0`). Live local-model
-routing and the channel approve/deny workflow are validated by the operator
-manual-validation punchlist in `docs/plans/v0.54-request-flow.md`.
+Status: implemented across M0-M8; `mix allbert.test release.v054` is green for the
+pre-M9/M10 lane. The shipped default routing strategy is the local two-stage router
+(`intent.router_strategy = two_stage_local`). **Version/tag is deferred**: v0.53 is
+implemented-but-untagged and its channel-approval validation depends on this router,
+so the version-metadata bump and tagging wait on the v0.54 M9/M10 scope
+(descriptor lifecycle + outbound compose actions) and the F-H validation path in
+`docs/plans/v0.54-request-flow.md` (metadata currently remains `0.53.0`).
 
 Plan: `docs/plans/v0.54-plan.md`. Request flow: `docs/plans/v0.54-request-flow.md`.
 ADRs: `docs/adr/0060-two-stage-intent-router-and-approval-gate-separation.md`,
-`docs/adr/0061-local-embedding-capability-and-router-model-tiers.md` (Accepted).
+`docs/adr/0061-local-embedding-capability-and-router-model-tiers.md`,
+`docs/adr/0062-intent-descriptor-lifecycle-generation-and-operator-curation.md`,
+and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted).
 
 ### Added
 
@@ -40,6 +41,10 @@ ADRs: `docs/adr/0060-two-stage-intent-router-and-approval-gate-separation.md`,
   channel-answerable clarification loop with a TTL `PendingStore` +
   `ClarifyResolver`; a `write_note` intent descriptor that closes the
   create-vs-search mis-route.
+- M9/M10 accepted as tag-blocking v0.54 scope: descriptor lifecycle/coverage/
+  golden-set work (ADR 0062) and outbound compose actions for email, calendar, and
+  channel send (ADR 0063). These are planned, not yet shipped in this changelog
+  entry.
 
 ### Changed
 
@@ -83,16 +88,18 @@ ADRs: `docs/adr/0060-two-stage-intent-router-and-approval-gate-separation.md`,
 
 ### Verification
 
-- `mix allbert.test release.v054` passed (router unit suite + intent integration +
-  the `:v054` eval + a clean secret scan); `mix compile --warnings-as-errors`
-  clean. The pre-tag gate is the operator manual-validation punchlist in
-  `docs/plans/v0.54-request-flow.md` (live local-model routing, a channel message
-  reaching approve/deny, and the clarify loop).
+- `mix allbert.test release.v054` passed for the M0-M8 router lane (router unit
+  suite + intent integration + the `:v054` eval + a clean secret scan);
+  `mix compile --warnings-as-errors` clean. The pre-tag gate now additionally
+  requires M9/M10 implementation, their `release.v054` lane expansion, and the
+  request-flow F-H validation checklist.
 
 ## v0.53.0 - Channel Pack 1 Retro-Validation And Channel Pack 2
 
-Status: implemented as `0.53.0` and ready for required real-provider validation
-before the release tag. Current version metadata is `0.53.0`.
+Status: implemented as `0.53.0`. Telegram + email delivery/inbound live validation
+passed, but approval-rendering checks are blocked behind v0.54 M9/M10 validation;
+Matrix/WhatsApp/Signal real-provider live smokes remain pending. Current version
+metadata is `0.53.0`.
 
 Plan: `docs/plans/v0.53-plan.md`.
 Request flow: `docs/plans/v0.53-request-flow.md`.
