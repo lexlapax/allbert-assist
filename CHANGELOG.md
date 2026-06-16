@@ -41,6 +41,17 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
   channel-answerable clarification loop with a TTL `PendingStore` +
   `ClarifyResolver`; a `write_note` intent descriptor that closes the
   create-vs-search mis-route.
+- **Intent descriptor lifecycle (M9, ADR 0062):** descriptor coverage 12→29 across
+  the agent-exposed surface (agent set reconciled 47→50; `Descriptor.normalize`
+  accepts core `app_id: nil` actions under reserved `:allbert`); a layered
+  `DescriptorResolver` (app/plugin < action-module < generated < operator override,
+  with `disabled` overrides); reindex-on-signal (the Index subscribes to
+  `allbert.dynamic_codegen.**` and debounce-rebuilds); `DescriptorStore` +
+  `Optimizer` generation (heuristic; local-only/advisory; dynamic/write-code
+  descriptors inert in a review tier until promoted unless
+  `intent.descriptor_autoaccept`); `mix allbert.intent bench|optimize|reindex|list|
+  show|disable|promote|review` + a coverage report in `doctor`; a 34-case golden-set
+  + `Intent.Bench`. Web Intents panel deferred to v0.55.
 - M9/M10 accepted as tag-blocking v0.54 scope: descriptor lifecycle/coverage/
   golden-set work (ADR 0062) and outbound compose actions for email, calendar, and
   channel send (ADR 0063). These are planned, not yet shipped in this changelog

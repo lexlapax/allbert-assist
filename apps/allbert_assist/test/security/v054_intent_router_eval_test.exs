@@ -11,10 +11,13 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
 
   alias AllbertAssist.Intent.Router
   alias AllbertAssist.Intent.Router.ClarifyResolver
+  alias AllbertAssist.Intent.Router.DescriptorResolver
+  alias AllbertAssist.Intent.Router.DescriptorStore
   alias AllbertAssist.Intent.Router.Disambiguator
   alias AllbertAssist.Intent.Router.Disambiguator.FakeDisambiguator
   alias AllbertAssist.Intent.Router.Embedder.FakeEmbedder
   alias AllbertAssist.Intent.Router.Index
+  alias AllbertAssist.Intent.Router.Optimizer
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Intent.Router.Prefilter
   alias AllbertAssist.Paths
@@ -112,6 +115,63 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
     assert Schema.get_dotted(Schema.defaults(), "intent.router_strategy") == "two_stage_local"
     # the test env override keeps the suite deterministic
     assert Router.strategy() == :deterministic
+  end
+
+  # ── M9 descriptor-lifecycle eval rows (ADR 0062) ─────────────────────────────
+
+  # intent-descriptor-new-action-routable-after-reindex-001
+  test "a generated descriptor makes an uncovered action routable (resolved)" do
+    refute DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
+
+    {:ok, _path} =
+      DescriptorStore.put(:generated, %{
+        app_id: :allbert,
+        action_name: "show_app",
+        label: "Show app",
+        examples: ["show app"],
+        synonyms: ["app"],
+        required_slots: []
+      })
+
+    assert DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
+  end
+
+  # intent-descriptor-override-precedence-001 (disable removes a descriptor)
+  test "an operator disable override removes an action from the resolved set" do
+    assert DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "write_note"))
+
+    {:ok, _path} =
+      DescriptorStore.put(:overrides, %{app_id: :notes_files, action_name: "write_note", disabled: true})
+
+    refute DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "write_note"))
+  end
+
+  # intent-descriptor-grants-no-authority-001 (routable != executable)
+  test "a descriptor does not change the action's confirmation gate" do
+    descriptor = DescriptorResolver.resolve() |> Enum.find(&(&1.action_name == "write_note"))
+    assert descriptor.capability.confirmation == :required
+  end
+
+  # intent-descriptor-dynamic-inert-until-promoted-001
+  test "a review-tier descriptor is inert until promoted" do
+    attrs = %{app_id: :allbert, action_name: "show_app", label: "Show app", examples: ["show app"], synonyms: ["app"], required_slots: []}
+    {:ok, _} = DescriptorStore.put(:review, attrs)
+    refute DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
+
+    {:ok, _} = DescriptorStore.promote(:review, :generated, :allbert, "show_app")
+    assert DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
+  end
+
+  # intent-descriptor-generation-local-only-001 (heuristic generation is offline)
+  test "heuristic descriptor generation is deterministic and offline" do
+    module =
+      AllbertAssist.Actions.Registry.modules()
+      |> Enum.find(&(&1.name() == "show_app"))
+
+    attrs = Optimizer.generate(module, :heuristic)
+    assert attrs.action_name == "show_app"
+    assert is_binary(attrs.label) and attrs.label != ""
+    assert is_list(attrs.examples) and attrs.examples != []
   end
 
   defp clarify_options do
