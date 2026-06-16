@@ -59,10 +59,22 @@ contracts they depend on:
   `:calendar_write` across Security Policy, Risk floors, Settings Schema defaults /
   safe-write keys, and the security eval inventory. Each defaults to a
   `:needs_confirmation` floor.
-- **Generic resumable confirmation resume:** approval of any registered action with
-  `resumable?: true` and a stored `resume_params_ref` re-runs that action through
-  `Actions.Runner.run/3` after the permission re-check. Non-resumable or unknown
-  action families still fail closed; approval does not create a hidden adapter path.
+- **Opt-in generic confirmation resume (additive, audited — not a catch-all swap).**
+  `approve_confirmation` resumes via ~15 family clauses + 7 `@*_action_names` lists +
+  `plan_step_confirm`, with a catch-all → `:adapter_unavailable`. Verified
+  2026-06-16: of **40 `resumable?: true` actions, 32 are family-handled** and **8 hit
+  the catch-all** (`browser_start_session`, `browser_navigate`, `browser_click`,
+  `browser_fill`, `browser_download`, `delete_artifact`, `install_marketplace_bundle`,
+  `rollback_marketplace_install`). Because some of those 8 resume via other paths
+  and/or are not idempotent, M10 must **not** replace the catch-all blindly. Instead:
+  (1) **audit** the 40 resumables vs the dispatch and record the catch-all set in the
+  eval inventory; (2) add an **opt-in** generic resume (capability marker
+  `generic_resume?: true` or an explicit allow-set) that re-runs an opted-in action
+  with a stored `resume_params_ref` through `Actions.Runner.run/3` **after the
+  permission re-check** (the approval *is* the authority); the 3 M10 actions opt in.
+  Everything not opted in keeps its **current** family dispatch / `:adapter_unavailable`
+  behavior — a regression eval locks the 8 catch-all actions and the existing
+  families. Approval never creates a hidden adapter path.
 - **Outbound boundary:** `send_channel_message` calls
   `AllbertAssist.Channels.Outbound.send/4` (or the equivalent adapter behaviour
   callback), implemented for every connected adapter before the action ships. The
@@ -129,7 +141,9 @@ credential custody.
   permissions `:email_send`, `:channel_message_send`, `:calendar_write`;
   descriptors for each (ADR 0062 indexes them). M10 `:v054` eval rows
   (send-email-confirmed, channel-target-gated, calendar-mcp-backed,
-  outbound-grants-no-authority, generic-resume, permission-floors).
+  outbound-grants-no-authority, generic-resume [opt-in],
+  resume-no-regression [the 8 catch-all + existing families behavior-locked],
+  permission-floors).
 - The M9 golden-set rows for "send an email…", "schedule a meeting…", "send a slack
   message…" flip from `handoff`/`answer` to `execute`.
 - v0.54 footprint grows (M10 gates the tag); calendar depends on an external MCP
