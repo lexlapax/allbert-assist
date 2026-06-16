@@ -15,8 +15,19 @@ defmodule AllbertAssist.Intent.Router.Index do
   alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Intent.Router.Embedder
 
+  # v0.54 M9.3b: rebuild when the action set changes. Subscribe to the
+  # dynamic-codegen lifecycle signals (already published; ADR 0062 reindex hooks)
+  # and coalesce bursts into one rebuild via a short debounce window.
+  @signal_path "allbert.dynamic_codegen.**"
+  @rebuild_debounce_ms 2_000
+
   @enforce_keys []
-  defstruct entries: [], status: :not_built, built_at: nil, error: nil
+  defstruct entries: [],
+            status: :not_built,
+            built_at: nil,
+            error: nil,
+            subscription_id: nil,
+            rebuild_timer: nil
 
   @type entry :: %{
           action_name: String.t(),
@@ -64,15 +75,65 @@ defmodule AllbertAssist.Intent.Router.Index do
   # ── GenServer ────────────────────────────────────────────────────────────────
 
   @impl true
-  def init(_opts), do: {:ok, %__MODULE__{}}
+  def init(_opts), do: {:ok, subscribe(%__MODULE__{})}
 
   @impl true
-  def handle_call(:rebuild, _from, _state) do
+  def handle_call(:rebuild, _from, state) do
     built = build()
-    {:reply, built, built}
+    {:reply, built, %{built | subscription_id: state.subscription_id}}
   end
 
   def handle_call(:state, _from, state), do: {:reply, state, state}
+
+  @impl true
+  # An action-set change arrived (dynamic plugin integrate/rollback/reconcile):
+  # mark the index stale and debounce a rebuild so a burst coalesces into one.
+  def handle_info({:signal, _signal}, state) do
+    {:noreply, %{state | status: :not_built, rebuild_timer: reschedule(state.rebuild_timer)}}
+  end
+
+  def handle_info(:rebuild_debounced, state) do
+    built = build()
+    {:noreply, %{built | subscription_id: state.subscription_id}}
+  end
+
+  def handle_info(:retry_subscribe, %__MODULE__{subscription_id: nil} = state),
+    do: {:noreply, subscribe(state)}
+
+  def handle_info(_message, state), do: {:noreply, state}
+
+  # ── reindex hooks ────────────────────────────────────────────────────────────
+
+  defp subscribe(state) do
+    if Application.get_env(:allbert_assist, :intent_index_reindex_on_signal, true) do
+      case safe_subscribe() do
+        {:ok, subscription_id} ->
+          %{state | subscription_id: subscription_id}
+
+        _error ->
+          # Bus may not be up yet at boot; retry without blocking init.
+          Process.send_after(self(), :retry_subscribe, @rebuild_debounce_ms)
+          state
+      end
+    else
+      state
+    end
+  end
+
+  defp safe_subscribe do
+    Jido.Signal.Bus.subscribe(AllbertAssist.SignalBus, @signal_path)
+  rescue
+    _exception -> {:error, :subscribe_failed}
+  catch
+    :exit, _reason -> {:error, :subscribe_exit}
+  end
+
+  defp reschedule(nil), do: Process.send_after(self(), :rebuild_debounced, @rebuild_debounce_ms)
+
+  defp reschedule(timer) do
+    Process.cancel_timer(timer)
+    Process.send_after(self(), :rebuild_debounced, @rebuild_debounce_ms)
+  end
 
   defp build do
     descriptors = DescriptorResolver.resolve()

@@ -99,3 +99,8 @@ config :phoenix,
 # specific tests opt in by setting :intent_router_strategy_override to
 # :two_stage_local in their setup (with FakeEmbedder/FakeDisambiguator).
 config :allbert_assist, intent_router_strategy_override: :deterministic
+
+# Keep the router Index from subscribing to the SignalBus in tests — a stray
+# dynamic-codegen signal must not trigger a live-embedder rebuild. The reindex
+# handle_info logic is unit-tested directly (router_index_reindex_test).
+config :allbert_assist, :intent_index_reindex_on_signal, false
