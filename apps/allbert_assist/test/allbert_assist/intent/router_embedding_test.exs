@@ -51,8 +51,7 @@ defmodule AllbertAssist.Intent.RouterEmbeddingTest do
 
   describe "Index" do
     test "rebuild builds from the registry with the local embedder" do
-      pid = start_supervised!(Index)
-      assert is_pid(pid)
+      assert is_pid(Process.whereis(Index))
       built = Index.rebuild()
       assert built.status == :built
       assert is_list(built.entries)

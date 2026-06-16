@@ -28,6 +28,7 @@ defmodule AllbertAssist.Application do
         AllbertAssist.PublicProtocol.RateLimiter,
         AllbertAssist.PublicProtocol.ResultReadbackSweeper,
         AllbertAssist.Objectives.AgentRegistry,
+        AllbertAssist.Intent.Router.Index,
         AllbertAssist.Jido
       ]
       |> maybe_add_plugin_supervisor()
