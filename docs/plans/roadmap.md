@@ -3313,9 +3313,10 @@ Expected direction:
 - The original deepening (ADR 0019/0034: `Intent.Engine`, `Classifier`,
   `Descriptor`/`Handoff`): stronger classification, bounded multi-turn context,
   generalized disambiguation, and a TTL'd clarification turn-state.
-- **M9 — intent descriptor lifecycle (ADR 0062):** the router only had 18
-  descriptors for 154 actions (42 agent-exposed). M9 expands coverage the canonical
-  way (`intent_descriptors/0`), then makes descriptors **self-maintaining** —
+- **M9 — intent descriptor lifecycle (ADR 0062):** the router only had **12**
+  descriptors for **192** actions (**47** agent-exposed; live count 2026-06-16). M9
+  expands coverage the canonical way (`intent_descriptors/0`, dual-source: app- and
+  action-module), then makes descriptors **self-maintaining** —
   generated for actions that lack them (local model), layered with operator md
   curation (code < generated < override), re-derived on action-set change via
   SignalBus reindex hooks + debounce, with an `optimize_intent_descriptors` action,

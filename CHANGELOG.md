@@ -31,8 +31,8 @@ ADRs: `docs/adr/0060-two-stage-intent-router-and-approval-gate-separation.md`,
   LLM disambiguation over a shortlist → confidence gate, as the default selector,
   with the deterministic ladder kept as fast-path + offline fallback.
   `Intent.Router` behaviour + `Router.Outcome`, `Prefilter`, `Disambiguator`
-  (confidence gate + optional hosted escalation), `Embedder` (local Ollama, no
-  egress) + utterance `Index` + `mix allbert.intent doctor`.
+  (confidence gate + escalation tier — local by default, hosted opt-in), `Embedder`
+  (local Ollama, no egress) + utterance `Index` + `mix allbert.intent doctor`.
 - Local `embeddings` model capability + `embedding_local` / `router_local` model
   profiles (ADR 0061); new `intent.router_*` plus multi-turn /
   `pending_clarification_ttl_ms` settings.
@@ -64,14 +64,22 @@ ADRs: `docs/adr/0060-two-stage-intent-router-and-approval-gate-separation.md`,
   `openai_structured_output_mode: :json_schema` (Ollama's native structured
   output; hosted OpenAI supports it too), so live local Stage-2 selection works
   instead of silently deferring to the deterministic ladder.
+- Default router model set to a US-origin, A/B-validated local model: `router_local`
+  = `llama3.1:8b` (replacing qwen2.5:7b); the escalation tier defaults to a **local**
+  profile `router_escalation_local` = `gemma4:26b` (no egress, audited), **on by
+  default** (was hosted/off-by-default); `intent.router_model_timeout_ms` raised
+  4000 → 20000 for local cold-start. A tight Stage-1 margin no longer vetoes a
+  decisive (≥ 0.8) Stage-2 selection (the embedding margin is noisy/length-sensitive;
+  Stage 2 is the selection authority).
 
 ### Security
 
 - The router selects *which* action within the registry-validated candidate set;
   it grants no authority — the runner, permission, and `confirmation` /
   `ConfirmationCallback` gates are unchanged (ADR 0060 approval-gate separation).
-  Hosted escalation is off by default and audited when enabled. Embeddings are
-  local-only with no network egress.
+  The escalation tier defaults to a **local** profile (`router_escalation_local`,
+  no egress) and is audited; hosted escalation is opt-in. Embeddings are local-only
+  with no network egress.
 
 ### Verification
 

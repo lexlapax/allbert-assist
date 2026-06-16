@@ -2462,7 +2462,7 @@ defmodule Mix.Tasks.Allbert.Test do
         "router dispatch/outcome + strategy override",
         "local embedding + utterance index + doctor",
         "Stage 1 prefilter shortlist + margin + fallback",
-        "Stage 2 constrained disambiguation + confidence gate + hosted escalation",
+        "Stage 2 constrained disambiguation + confidence gate + escalation (local by default)",
         "clarify resolver bind/no-match",
         "pending-clarification TTL + cross-user isolation",
         "bounded/redacted multi-turn context"
@@ -2488,7 +2488,7 @@ defmodule Mix.Tasks.Allbert.Test do
       args: ["test", "test/security/v054_intent_router_eval_test.exs"],
       coverage: [
         "shortlist-constrained selection / authority-unchanged",
-        "low-confidence clarifies; escalation off-by-default",
+        "low-confidence clarifies; escalation local-by-default (no egress)",
         "create-vs-search descriptor regression",
         "clarify is channel-answerable (no dead-end)",
         "shipped default is two_stage_local"
