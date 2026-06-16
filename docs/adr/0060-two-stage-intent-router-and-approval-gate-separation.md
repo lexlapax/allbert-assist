@@ -9,6 +9,13 @@ release.v054`. Live local-model routing (the embedding + LLM disambiguation
 against Ollama) is validated by the operator manual-validation punchlist in
 `docs/plans/v0.54-request-flow.md`.
 
+**Amendment (2026-06-16, M9):** descriptors are no longer purely static. The
+descriptor set is **lifecycle-managed** (generated for actions lacking declarations,
+layered with operator curation, re-derived on action-set change via SignalBus
+hooks) per **ADR 0062**. The approval-gate separation here is unchanged and
+reaffirmed: a descriptor — code-declared, generated, or operator-authored — is a
+routing hint only; routable ≠ executable.
+
 This ADR is the **routing foundation** of v0.54 Intent Deepening (ADR 0019/0034),
 **resequenced ahead of completing v0.53** because the v0.53 channel approval
 workflow depends on it: a channel message that should run an action — and, for a

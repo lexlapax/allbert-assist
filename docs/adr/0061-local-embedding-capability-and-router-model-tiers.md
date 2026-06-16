@@ -95,9 +95,26 @@ Constraints from the local-first vision and the routing research:
   model at a documented reliability cost, or pin `intent.router_strategy =
   :deterministic`.
 
+## Amendments
+
+- **2026-06-16 (manual validation):** the default embedder asserts the profile's
+  declared `embeddings` capability inline (ReqLLM 1.13 gates `embed/3` on registry
+  metadata local Ollama models lack); the Stage-2 disambiguator forces
+  `openai_structured_output_mode: :json_schema` (Ollama-native). Default
+  `router_local` = **llama3.1:8b** (US-origin, A/B-validated; see v0.54-plan.md
+  Appendix A); a **local** `router_escalation_local` (gemma4:26b) is the default
+  escalation profile (no egress, audited) — the escalation tier is **local by
+  default**, not hosted/off; `intent.router_model_timeout_ms` raised to 20000 for
+  local cold-start.
+- **2026-06-16 (M9):** the local router/embedding models also power the
+  **descriptor generator** (ADR 0062) — synthesizing routing descriptors for
+  actions that lack them, local-only and redacted.
+
 ## Related
 
-- ADR 0060 (two-stage intent router — the consumer of this substrate), ADR 0051
+- ADR 0060 (two-stage intent router — the consumer of this substrate),
+  ADR 0062 (intent descriptor lifecycle — generation uses these local tiers),
+  ADR 0051
   (provider capability preferences), ADR 0052 (local voice runtime endpoint —
   the Ollama-posture precedent), ADR 0006 (Security Central — escalation audit),
   ADR 0047 (provider doctor envelope).
