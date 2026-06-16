@@ -107,6 +107,7 @@ Use these as starting points, then narrow further from the active task:
 - Workspace shell, ephemeral UI, canvas, offline editing, Fragments, or app
   surfaces: read ADR 0015, ADR 0023, `docs/plans/v0.26-plan.md`, and
   `docs/plans/v0.26-request-flow.md`.
+- Always use zoom-out skill and then zoom back in when designing or fixing bugs
 
 ## Non-Negotiables
 

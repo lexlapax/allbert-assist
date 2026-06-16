@@ -1661,10 +1661,20 @@ defmodule AllbertAssist.Agents.IntentAgent do
        ) do
     trace_metadata
     |> Map.get(:extracted_slots, %{})
-    |> Map.new(fn {key, value} -> {normalize_param_key(key), value} end)
+    |> normalize_extracted_slots()
   end
 
   defp descriptor_params_from_decision(_decision, _action_name), do: %{}
+
+  # Slots originate from (possibly degraded) model output. A well-formed payload is
+  # a map; under a timeout/partial decode a model can emit a list or scalar instead.
+  # Coerce anything that is not a map of params to an empty slot set so a malformed
+  # payload degrades to "no slots" rather than crashing the execute path.
+  defp normalize_extracted_slots(slots) when is_map(slots) do
+    Map.new(slots, fn {key, value} -> {normalize_param_key(key), value} end)
+  end
+
+  defp normalize_extracted_slots(_slots), do: %{}
 
   defp normalize_param_key(key) when is_atom(key), do: key
 
