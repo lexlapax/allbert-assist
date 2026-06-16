@@ -623,7 +623,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "intent.router_embedding_profile" => %{
       type: :profile_ref,
-      default: "local",
+      default: "embedding_local",
       writable?: true,
       sensitive?: false
     },
@@ -3065,7 +3065,7 @@ defmodule AllbertAssist.Settings.Schema do
       "direct_answer_model_enabled" => false,
       "direct_answer_model_profile" => "local",
       "router_strategy" => "deterministic",
-      "router_embedding_profile" => "local",
+      "router_embedding_profile" => "embedding_local",
       "router_model_profile" => "local",
       "router_escalation_profile" => "",
       "router_top_k" => 5,
@@ -3085,6 +3085,7 @@ defmodule AllbertAssist.Settings.Schema do
       },
       "capabilities" => %{
         "text_generation" => ["local", "fast"],
+        "embeddings" => ["embedding_local"],
         "speech_to_text" => ["voice_stt_local", "voice_stt_openai", "voice_stt_gemini"],
         "text_to_speech" => ["voice_tts_local", "voice_tts_openai", "voice_tts_gemini"],
         "vision_input" => ["vision_openai", "vision_gemini"],
@@ -3167,6 +3168,12 @@ defmodule AllbertAssist.Settings.Schema do
         "temperature" => 0.1,
         "max_tokens" => 8192,
         "timeout_ms" => 60_000
+      },
+      "embedding_local" => %{
+        "provider" => "local_ollama",
+        "model" => "nomic-embed-text",
+        "capabilities" => ["embeddings"],
+        "timeout_ms" => 30_000
       }
     },
     "agents" => %{
