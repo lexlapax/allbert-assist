@@ -198,8 +198,6 @@ defmodule AllbertAssist.Actions.Registry do
     ListChannels,
     ShowChannel,
     SetupCheck,
-    WhatsAppDoctor,
-    SignalDoctor,
     ResumeThreadOnChannel,
     ListApps,
     ShowApp,
@@ -209,16 +207,25 @@ defmodule AllbertAssist.Actions.Registry do
     PreviewPlan,
     OpenCalendarPanel,
     OpenMailPanel,
-    OpenGithubPanel
+    OpenGithubPanel,
+    # v0.54 M9.1: read-only verbs promoted from :internal to :agent so the router
+    # can route to them (capability exposure also flipped to :agent). Effectful
+    # internal verbs stay internal pending a confirmation-gate decision.
+    ListMarketplaceEntries,
+    ListObjectives,
+    McpFindTools
   ]
 
   @internal_actions [
+    # Channel doctors declare exposure: :internal; keep them out of the agent set
+    # so agent_modules/0 agrees with capability exposure (v0.54 M9.1 reconcile).
+    WhatsAppDoctor,
+    SignalDoctor,
     McpDoctorServer,
     McpListTools,
     McpListResources,
     McpReadResource,
     McpCallTool,
-    McpFindTools,
     McpFetchServerManifest,
     McpEvaluateServer,
     McpConnectServer,
@@ -242,7 +249,6 @@ defmodule AllbertAssist.Actions.Registry do
     ImportRemoteSkill,
     ImportLocalSkill,
     MarketplaceDoctor,
-    ListMarketplaceEntries,
     InspectMarketplaceEntry,
     InstallMarketplaceBundle,
     RollbackMarketplaceInstall,
@@ -293,7 +299,6 @@ defmodule AllbertAssist.Actions.Registry do
     RetrieveActiveMemory,
     PromoteConversationTurn,
     SyncAppLesson,
-    ListObjectives,
     ShowObjective,
     CancelObjective,
     ContinueObjective,

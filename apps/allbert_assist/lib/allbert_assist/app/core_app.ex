@@ -120,7 +120,179 @@ defmodule AllbertAssist.App.CoreApp do
         required_slots: [],
         handoff_required?: false
       }
-    ] ++ MarketplaceSurfaceProvider.intent_descriptors()
+    ] ++ core_agent_descriptors() ++ MarketplaceSurfaceProvider.intent_descriptors()
+  end
+
+  # v0.54 M9.1: descriptor coverage for agent-exposed core verbs. Core actions carry
+  # `app_id: nil`; declared here under the reserved `:allbert` id (ADR 0062 Option 1,
+  # accepted in Descriptor.normalize). Routing grants no authority — effectful
+  # actions still hit their permission/confirmation gate.
+  defp core_agent_descriptors do
+    [
+      %{
+        app_id: :allbert,
+        action_name: "append_memory",
+        label: "Remember a fact in memory",
+        examples: [
+          "remember that my anniversary is June 20",
+          "note to self: the wifi password is on the router",
+          "remember I prefer aisle seats"
+        ],
+        synonyms: ["remember", "remember that", "note to self", "memorize", "keep in mind"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "read_recent_memory",
+        label: "Recall recent memory",
+        examples: [
+          "what do you remember about me",
+          "what do you remember",
+          "recall my recent notes to self"
+        ],
+        synonyms: ["recall", "what do you remember", "my memory", "recent memory"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "generate_image",
+        label: "Generate an image",
+        examples: [
+          "generate an image of a red bicycle",
+          "create a picture of a mountain sunset",
+          "make an image of a robot reading a book"
+        ],
+        synonyms: ["generate image", "create image", "make a picture", "draw", "image of"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "list_settings",
+        label: "Show settings",
+        examples: ["show my settings", "list settings", "what are my current settings"],
+        synonyms: ["settings", "show settings", "list settings", "my settings"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "update_setting",
+        label: "Change a setting",
+        examples: [
+          "change a setting",
+          "set the intent router strategy to deterministic",
+          "update my setting"
+        ],
+        synonyms: ["change setting", "update setting", "set setting", "configure"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "set_active_model_profile",
+        label: "Switch the active model profile",
+        examples: [
+          "switch to the fast model",
+          "use the local model profile",
+          "set the active model to slow"
+        ],
+        synonyms: ["switch model", "use model", "set model", "change model profile"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "list_model_profiles",
+        label: "List model profiles",
+        examples: ["what models do I have", "list model profiles", "show available models"],
+        synonyms: ["list models", "model profiles", "available models"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "list_objectives",
+        label: "List objectives",
+        examples: ["what are my open goals", "list my objectives", "show my goals"],
+        synonyms: ["my goals", "objectives", "open goals", "list objectives"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "find_mcp_tools",
+        label: "Find MCP tools",
+        examples: ["what MCP tools do I have", "find mcp tools", "list available mcp tools"],
+        synonyms: ["mcp tools", "find tools", "available tools"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "list_channels",
+        label: "List channels",
+        examples: ["list my channels", "what channels are connected", "show channels"],
+        synonyms: ["channels", "my channels", "connected channels"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "resume_thread_on_channel",
+        label: "Resume a thread on a channel",
+        examples: [
+          "resume my telegram thread",
+          "continue this conversation on slack",
+          "resume thread on discord"
+        ],
+        synonyms: ["resume thread", "continue on channel", "resume on"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "list_apps",
+        label: "List apps",
+        examples: ["list my apps", "what apps are installed", "show apps"],
+        synonyms: ["apps", "my apps", "installed apps"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "list_plugins",
+        label: "List plugins",
+        examples: ["list my plugins", "what plugins are installed", "show plugins"],
+        synonyms: ["plugins", "my plugins", "installed plugins"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "list_skills",
+        label: "List skills",
+        examples: ["what skills do I have", "list my skills", "show available skills"],
+        synonyms: ["skills", "my skills", "available skills", "list skills"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "run_shell_command",
+        label: "Run a shell command",
+        examples: [
+          "run the command ls -la",
+          "run a shell command",
+          "execute df -h in the shell"
+        ],
+        synonyms: ["run command", "shell command", "execute command", "run in shell"],
+        required_slots: [],
+        handoff_required?: true
+      }
+    ]
   end
 
   def fallback_surface(:workspace), do: {:ok, "Allbert workspace is available at /workspace."}

@@ -192,7 +192,7 @@ defmodule AllbertAssist.Intent.Descriptor do
     case ActionsRegistry.capability(action_name) do
       {:ok, capability} ->
         cond do
-          capability.app_id != app_id ->
+          not app_id_matches?(capability.app_id, app_id) ->
             {:error, {:action_app_mismatch, app_id, action_name}}
 
           capability.exposure != :agent ->
@@ -206,6 +206,14 @@ defmodule AllbertAssist.Intent.Descriptor do
         {:error, {:unknown_action, action_name, reason}}
     end
   end
+
+  # v0.54 M9.1 (Option 1, ADR 0062): core actions carry `app_id: nil` but the
+  # descriptor system needs a non-nil app_id. Treat `nil` capability app_id as the
+  # reserved `:allbert` core id so core actions can be descriptorized without
+  # mutating their capability metadata (which memory namespaces / surfaces / handoff
+  # / traces depend on). Plugin/app actions still match their own app_id exactly.
+  defp app_id_matches?(nil, :allbert), do: true
+  defp app_id_matches?(capability_app_id, app_id), do: capability_app_id == app_id
 
   defp inert_capability(app_id, action_name, attrs, opts) do
     with {:ok, permission} <- capability_atom(field(attrs, :permission, :read_only), [:read_only]),

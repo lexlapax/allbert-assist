@@ -3,7 +3,7 @@ defmodule AllbertAssist.Actions.Objectives.ListObjectives do
 
   use AllbertAssist.Action,
     permission: :read_only,
-    exposure: :internal,
+    exposure: :agent,
     execution_mode: :objectives_read,
     skill_backed?: false,
     confirmation: :not_required,

@@ -3,7 +3,7 @@ defmodule AllbertAssist.Actions.Marketplace.ListEntries do
 
   use AllbertAssist.Action,
     permission: :read_only,
-    exposure: :internal,
+    exposure: :agent,
     execution_mode: :marketplace_browse,
     skill_backed?: false,
     confirmation: :not_required,

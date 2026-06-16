@@ -3,7 +3,7 @@ defmodule AllbertAssist.Actions.Mcp.FindTools do
 
   use AllbertAssist.Action,
     permission: :tool_discovery,
-    exposure: :internal,
+    exposure: :agent,
     execution_mode: :mcp_discovery,
     skill_backed?: false,
     confirmation: :not_required,

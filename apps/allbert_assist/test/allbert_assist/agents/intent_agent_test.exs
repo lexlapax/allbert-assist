@@ -101,8 +101,11 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       "open_github_panel",
       # channel-pack agent actions (v0.52/v0.53), always registered in the test env
       "channel_setup_check",
-      "signal_doctor",
-      "whatsapp_doctor"
+      # v0.54 M9.1: read-only verbs promoted :internal -> :agent (signal_doctor /
+      # whatsapp_doctor moved the other way — they declare exposure: :internal).
+      "list_marketplace_entries",
+      "list_objectives",
+      "find_mcp_tools"
     ]
 
     browser_actions = [

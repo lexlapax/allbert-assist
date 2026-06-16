@@ -104,4 +104,32 @@ defmodule AllbertAssist.Intent.DescriptorTest do
              missing_slots: []
            }
   end
+
+  # v0.54 M9.1 (ADR 0062 Option 1): core actions carry app_id: nil but are
+  # descriptorizable under the reserved :allbert id.
+  test "normalizes a core (app_id: nil) action under the reserved :allbert id" do
+    assert {:ok, descriptor} =
+             Descriptor.normalize(%{
+               app_id: :allbert,
+               action_name: "append_memory",
+               label: "Remember a fact in memory",
+               examples: ["remember that my anniversary is June 20"],
+               synonyms: ["remember"],
+               required_slots: []
+             })
+
+    assert descriptor.id == "allbert:append_memory"
+    assert descriptor.capability.exposure == :agent
+  end
+
+  test "still rejects a descriptor whose action is genuinely internal" do
+    # delete_memory_entry is exposure: :internal — must not be descriptorizable.
+    assert {:error, %{reason: {:action_not_agent_exposed, "delete_memory_entry"}}} =
+             Descriptor.normalize(%{
+               app_id: :allbert,
+               action_name: "delete_memory_entry",
+               label: "Bad internal descriptor",
+               required_slots: []
+             })
+  end
 end
