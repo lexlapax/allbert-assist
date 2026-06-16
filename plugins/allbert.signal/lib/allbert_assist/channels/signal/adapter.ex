@@ -495,4 +495,22 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
   end
 
   defp account_fingerprint(_value), do: "configured"
+
+  # v0.54 M10 (ADR 0063): outbound compose boundary callback. `target` is a Signal
+  # recipient (ACI/number per the account's identity policy).
+  @doc false
+  def deliver_outbound(target, body, _opts) when is_binary(target) and is_binary(body) do
+    case AllbertAssist.Channels.channel_settings("signal") do
+      {:ok, settings} ->
+        account = Map.get(settings, "account_identifier")
+
+        case Client.send_message(account, target, body, []) do
+          {:ok, result} -> {:ok, %{channel: "signal", target: target, result: result}}
+          {:error, reason} -> {:error, reason}
+        end
+
+      _other ->
+        {:error, :signal_not_configured}
+    end
+  end
 end

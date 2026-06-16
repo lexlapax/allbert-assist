@@ -92,6 +92,9 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     send_email
     send_channel_message
     create_calendar_event
+    install_marketplace_bundle
+    create_skill
+    continue_objective
   ]
 
   @impl true

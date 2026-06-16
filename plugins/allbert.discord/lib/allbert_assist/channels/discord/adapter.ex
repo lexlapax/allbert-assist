@@ -601,4 +601,23 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
   defp response_value(response, key) when is_map(response) do
     Map.get(response, key) || Map.get(response, Atom.to_string(key))
   end
+
+  # v0.54 M10 (ADR 0063): outbound compose boundary callback. `target` is a Discord
+  # channel id.
+  @doc false
+  def deliver_outbound(target, body, _opts) when is_binary(target) and is_binary(body) do
+    case AllbertAssist.Channels.channel_settings("discord") do
+      {:ok, settings} ->
+        token_ref = Map.get(settings, "bot_token_ref", "secret://channels/discord/bot_token")
+
+        case Client.create_message(token_ref, target, %{content: body}, []) do
+          {:ok, result} -> {:ok, %{channel: "discord", target: target, result: result}}
+          {:error, reason} -> {:error, reason}
+          other -> {:error, other}
+        end
+
+      _other ->
+        {:error, :discord_not_configured}
+    end
+  end
 end

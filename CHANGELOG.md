@@ -52,6 +52,18 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
   `intent.descriptor_autoaccept`); `mix allbert.intent bench|optimize|reindex|list|
   show|disable|promote|review` + a coverage report in `doctor`; a 34-case golden-set
   + `Intent.Bench`. Web Intents panel deferred to v0.55.
+- **Outbound compose actions (M10, ADR 0063):** `send_email` (SMTP), `send_channel_message`
+  (via the new `Channels.Outbound` boundary + identity-allowlist gating before
+  dispatch), `create_calendar_event` (calendar MCP; graceful degrade) — all
+  effectful, agent-routable, behind a shared `Actions.Outbound.Gate`
+  (confirmation-required → opt-in generic resume on approval). New permissions
+  `:email_send`/`:channel_message_send`/`:calendar_write` (needs_confirmation floor).
+  `deliver_outbound` wired for Slack/Telegram/Discord/WhatsApp/Signal (Matrix degrades
+  via the boundary, pending). Promoted 4 effectful verbs to agent-routable with the
+  confirmation gate: `install_marketplace_bundle`/`create_skill`/`continue_objective`
+  (CLI callers handle needs_confirmation) and `cancel_objective` (kept not_required —
+  internal plan-engine caller). Descriptor coverage 36; golden-set gap rows flip to
+  execute; M10 `:v054` eval rows.
 - M9/M10 accepted as tag-blocking v0.54 scope: descriptor lifecycle/coverage/
   golden-set work (ADR 0062) and outbound compose actions for email, calendar, and
   channel send (ADR 0063). These are planned, not yet shipped in this changelog

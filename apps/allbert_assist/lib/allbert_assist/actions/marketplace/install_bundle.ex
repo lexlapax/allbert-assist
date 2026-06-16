@@ -3,10 +3,10 @@ defmodule AllbertAssist.Actions.Marketplace.InstallBundle do
 
   use AllbertAssist.Action,
     permission: :marketplace_install,
-    exposure: :internal,
+    exposure: :agent,
     execution_mode: :marketplace_install_bundle,
     skill_backed?: false,
-    confirmation: :not_required,
+    confirmation: :required,
     resumable?: true,
     name: "install_marketplace_bundle",
     description: "Install a shipped Marketplace Lite bundle disabled and untrusted.",

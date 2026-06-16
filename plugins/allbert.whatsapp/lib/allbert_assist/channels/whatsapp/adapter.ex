@@ -677,4 +677,19 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
   defp compact(map) do
     Map.reject(map, fn {_key, value} -> value in [nil, "", %{}, []] end)
   end
+
+  # v0.54 M10 (ADR 0063): outbound compose boundary callback. `target` is a WhatsApp
+  # recipient phone number (E.164).
+  @doc false
+  def deliver_outbound(target, body, _opts) when is_binary(target) and is_binary(body) do
+    with {:ok, settings} <- AllbertAssist.Channels.channel_settings("whatsapp"),
+         {:ok, token} <- AllbertAssist.Settings.Secrets.get_secret(Map.get(settings, "access_token_ref")),
+         phone_id when is_binary(phone_id) <- Map.get(settings, "phone_number_id"),
+         {:ok, result} <- Client.send_text(token, phone_id, target, body, []) do
+      {:ok, %{channel: "whatsapp", target: target, result: result}}
+    else
+      {:error, reason} -> {:error, reason}
+      _other -> {:error, :whatsapp_not_configured}
+    end
+  end
 end

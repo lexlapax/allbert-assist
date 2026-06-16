@@ -220,7 +220,12 @@ defmodule AllbertAssist.Actions.Registry do
     # v0.54 M10 outbound compose actions (ADR 0063)
     SendEmail,
     SendChannelMessage,
-    CreateCalendarEvent
+    CreateCalendarEvent,
+    # v0.54 M10 effectful-verb promotions (gated; cancel_objective stays not_required)
+    InstallMarketplaceBundle,
+    CreateSkill,
+    ContinueObjective,
+    CancelObjective
   ]
 
   @internal_actions [
@@ -248,7 +253,6 @@ defmodule AllbertAssist.Actions.Registry do
     PromoteObjectiveDraft,
     PromoteCapabilityGapDraft,
     ValidateSkill,
-    CreateSkill,
     RunSkillScript,
     RunPackageInstall,
     AuditOnlineSkill,
@@ -257,7 +261,6 @@ defmodule AllbertAssist.Actions.Registry do
     ImportLocalSkill,
     MarketplaceDoctor,
     InspectMarketplaceEntry,
-    InstallMarketplaceBundle,
     RollbackMarketplaceInstall,
     ListInstalledMarketplaceBundles,
     VerifyMarketplaceBundleHash,
@@ -307,8 +310,6 @@ defmodule AllbertAssist.Actions.Registry do
     PromoteConversationTurn,
     SyncAppLesson,
     ShowObjective,
-    CancelObjective,
-    ContinueObjective,
     DelegateAgent,
     ListWorkflows,
     InspectWorkflow,

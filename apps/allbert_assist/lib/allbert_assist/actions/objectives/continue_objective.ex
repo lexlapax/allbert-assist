@@ -3,10 +3,11 @@ defmodule AllbertAssist.Actions.Objectives.ContinueObjective do
 
   use AllbertAssist.Action,
     permission: :objective_write,
-    exposure: :internal,
+    exposure: :agent,
     execution_mode: :objective_engine,
     skill_backed?: false,
-    confirmation: :not_required,
+    confirmation: :required,
+    resumable?: true,
     name: "continue_objective",
     description: "Continue a durable objective after approval or operator intervention.",
     category: "objectives",

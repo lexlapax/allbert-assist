@@ -109,7 +109,12 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       # v0.54 M10 outbound compose actions
       "send_email",
       "send_channel_message",
-      "create_calendar_event"
+      "create_calendar_event",
+      # v0.54 M10 effectful-verb promotions
+      "install_marketplace_bundle",
+      "create_skill",
+      "continue_objective",
+      "cancel_objective"
     ]
 
     browser_actions = [

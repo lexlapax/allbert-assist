@@ -5,10 +5,11 @@ defmodule AllbertAssist.Actions.Skills.CreateSkill do
 
   use AllbertAssist.Action,
     permission: :skill_write,
-    exposure: :internal,
+    exposure: :agent,
     execution_mode: :skill_write,
     skill_backed?: false,
-    confirmation: :not_required,
+    confirmation: :required,
+    resumable?: true,
     notes: "Operator helper; writes standard SKILL.md scaffolds only.",
     name: "create_skill",
     description: "Create a local Agent Skill wrapper for a registered Allbert action.",

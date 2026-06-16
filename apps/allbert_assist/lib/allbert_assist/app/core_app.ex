@@ -331,6 +331,51 @@ defmodule AllbertAssist.App.CoreApp do
         synonyms: ["schedule a meeting", "create event", "add to calendar", "book a meeting"],
         required_slots: [],
         handoff_required?: true
+      },
+      # v0.54 M10 effectful-verb promotions (gated)
+      %{
+        app_id: :allbert,
+        action_name: "install_marketplace_bundle",
+        label: "Install a marketplace bundle",
+        examples: [
+          "install the allbert/research-helpers skill",
+          "install a bundle from the marketplace",
+          "add the research helpers marketplace skill"
+        ],
+        synonyms: ["install marketplace", "install bundle", "install skill", "add marketplace skill"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "create_skill",
+        label: "Create a skill",
+        examples: [
+          "create a skill that drafts standup notes",
+          "make a new skill for summarizing meetings",
+          "scaffold a skill called release-notes"
+        ],
+        synonyms: ["create skill", "make a skill", "new skill", "scaffold skill"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "continue_objective",
+        label: "Continue an objective",
+        examples: ["continue my goal", "resume the objective", "keep going on my objective"],
+        synonyms: ["continue objective", "resume objective", "continue goal"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "cancel_objective",
+        label: "Cancel an objective",
+        examples: ["cancel my objective", "stop the goal", "abandon this objective"],
+        synonyms: ["cancel objective", "stop goal", "abandon objective"],
+        required_slots: [],
+        handoff_required?: true
       }
     ]
   end

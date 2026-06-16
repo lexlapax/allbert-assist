@@ -3,7 +3,10 @@ defmodule AllbertAssist.Actions.Objectives.CancelObjective do
 
   use AllbertAssist.Action,
     permission: :objective_write,
-    exposure: :internal,
+    # v0.54 M10: agent-routable. confirmation stays :not_required because the plan
+    # engine (cancel_plan_run) calls this internally and needs immediate cancel; a
+    # cooperative objective cancel is low-risk (Risk tier matches plan_cancel).
+    exposure: :agent,
     execution_mode: :objective_engine,
     skill_backed?: false,
     confirmation: :not_required,

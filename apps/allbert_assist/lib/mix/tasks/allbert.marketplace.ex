@@ -216,8 +216,18 @@ defmodule Mix.Tasks.Allbert.Marketplace do
   defp completed_action(action_name, params) do
     with {:ok, response} <- action_response(action_name, params) do
       case Response.status(response) do
-        :completed -> {:ok, response}
-        _status -> {:error, response_error(response)}
+        :completed ->
+          {:ok, response}
+
+        :needs_confirmation ->
+          # v0.54 M10: this action is now confirmation-gated. Surface the approval
+          # path instead of failing.
+          id = Map.get(response, :confirmation_id) || get_in(response, [:confirmation, "id"])
+          Mix.shell().info("Needs confirmation. Approve with: mix allbert.confirmations approve #{id}")
+          {:ok, response}
+
+        _status ->
+          {:error, response_error(response)}
       end
     end
   end
