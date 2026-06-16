@@ -44,6 +44,17 @@ defmodule AllbertAssist.Settings.Schema do
     "intent.clarify_floor",
     "intent.direct_answer_model_enabled",
     "intent.direct_answer_model_profile",
+    "intent.router_strategy",
+    "intent.router_embedding_profile",
+    "intent.router_model_profile",
+    "intent.router_escalation_profile",
+    "intent.router_top_k",
+    "intent.router_min_confidence",
+    "intent.router_model_timeout_ms",
+    "intent.multiturn_enabled",
+    "intent.context_window",
+    "intent.disambiguation_margin",
+    "intent.pending_clarification_ttl_ms",
     "model_preferences.primary",
     "model_preferences.tasks.*",
     "model_preferences.capabilities.*",
@@ -602,6 +613,85 @@ defmodule AllbertAssist.Settings.Schema do
       default: "local",
       writable?: true,
       sensitive?: false
+    },
+    "intent.router_strategy" => %{
+      type: :enum,
+      default: "deterministic",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["deterministic", "two_stage_local"]
+    },
+    "intent.router_embedding_profile" => %{
+      type: :profile_ref,
+      default: "local",
+      writable?: true,
+      sensitive?: false
+    },
+    "intent.router_model_profile" => %{
+      type: :profile_ref,
+      default: "local",
+      writable?: true,
+      sensitive?: false
+    },
+    "intent.router_escalation_profile" => %{
+      type: :string_or_empty,
+      default: "",
+      writable?: true,
+      sensitive?: false
+    },
+    "intent.router_top_k" => %{
+      type: :bounded_integer,
+      default: 5,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 20
+    },
+    "intent.router_min_confidence" => %{
+      type: :bounded_float,
+      default: 0.6,
+      writable?: true,
+      sensitive?: false,
+      min: 0.0,
+      max: 1.0
+    },
+    "intent.router_model_timeout_ms" => %{
+      type: :bounded_integer,
+      default: 4000,
+      writable?: true,
+      sensitive?: false,
+      min: 250,
+      max: 60_000
+    },
+    "intent.multiturn_enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "intent.context_window" => %{
+      type: :bounded_integer,
+      default: 6,
+      writable?: true,
+      sensitive?: false,
+      min: 0,
+      max: 24
+    },
+    "intent.disambiguation_margin" => %{
+      type: :bounded_float,
+      default: 0.12,
+      writable?: true,
+      sensitive?: false,
+      min: 0.0,
+      max: 1.0
+    },
+    "intent.pending_clarification_ttl_ms" => %{
+      type: :bounded_integer,
+      default: 120_000,
+      writable?: true,
+      sensitive?: false,
+      min: 1000,
+      max: 3_600_000
     },
     "model_preferences.schema_version" => %{
       type: :bounded_integer,
@@ -2973,7 +3063,18 @@ defmodule AllbertAssist.Settings.Schema do
       "handoff_margin" => 0.15,
       "clarify_floor" => 0.3,
       "direct_answer_model_enabled" => false,
-      "direct_answer_model_profile" => "local"
+      "direct_answer_model_profile" => "local",
+      "router_strategy" => "deterministic",
+      "router_embedding_profile" => "local",
+      "router_model_profile" => "local",
+      "router_escalation_profile" => "",
+      "router_top_k" => 5,
+      "router_min_confidence" => 0.6,
+      "router_model_timeout_ms" => 4000,
+      "multiturn_enabled" => false,
+      "context_window" => 6,
+      "disambiguation_margin" => 0.12,
+      "pending_clarification_ttl_ms" => 120_000
     },
     "model_preferences" => %{
       "schema_version" => 1,

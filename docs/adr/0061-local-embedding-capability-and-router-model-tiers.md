@@ -12,10 +12,11 @@ It lands in v0.54, resequenced ahead of completing v0.53.
 
 ## Context
 
-ADR 0060's Stage 1 prefilter requires **text embeddings**, but the codebase has
-**no embedding or vector capability** today — a repo-wide search for
-`embed`/`vector` finds nothing in `apps/` or `plugins/`. What does exist and is
-reused:
+ADR 0060's Stage 1 prefilter requires **text embeddings**. The `embeddings`
+capability is already named in `Settings.ProviderCatalog.known_capabilities/0`,
+but **no model profile declares it and there is no embedding client, no vector,
+and no index** — a repo-wide search for an embedding client/`vector` finds
+nothing in `apps/` or `plugins/`. What does exist and is reused:
 
 - A model-resolution layer: `Models.for(capability)` + `model_profiles.*` +
   `model_routing` capability aliases (e.g. `text_generation → ["local", "fast"]`).
@@ -40,10 +41,13 @@ Constraints from the local-first vision and the routing research:
 
 ### Local embedding capability
 
-- Add a `:text_embedding` model capability and an **embedding profile** resolved
-  through the existing `Models.for/model_profiles` machinery. Default to a local
-  Ollama embedding model (e.g. `nomic-embed-text` or a `bge-small` GGUF), reusing
-  the voice `ollama_base_url` host posture.
+- Use the existing **`embeddings`** model capability (already named in
+  `Settings.ProviderCatalog.known_capabilities/0`) and add an **embedding
+  profile** resolved through the existing `Models.for/model_profiles` machinery.
+  Default to a local Ollama embedding model (e.g. `nomic-embed-text` or a
+  `bge-small` GGUF), reusing the voice `ollama_base_url` host posture. (The
+  capability exists today, but no model profile declares it and there is no
+  embedding client or index — those are net-new.)
 - A thin `Intent.Router.Embedder` client calls the Ollama embeddings endpoint and
   returns vectors. **No external vector database.** The action/descriptor
   **utterance index is an in-memory cosine index** built at boot from the
@@ -78,7 +82,7 @@ Constraints from the local-first vision and the routing research:
 
 ## Consequences
 
-- New local embedding path: client + `:text_embedding` capability + profile +
+- New local embedding path: client + `embeddings`-capability profile + index +
   in-memory utterance index + doctor. Adds an Ollama embedding model the operator
   pulls; the doctor reports availability and the router degrades to the
   deterministic fallback (ADR 0060) if it is missing.
