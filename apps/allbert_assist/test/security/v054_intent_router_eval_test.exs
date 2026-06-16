@@ -9,6 +9,9 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
   @moduletag :security_eval_serial
   @moduletag :app_env_serial
 
+  alias AllbertAssist.Actions.Calendar.CreateCalendarEvent
+  alias AllbertAssist.Actions.Channels.SendChannelMessage
+  alias AllbertAssist.Actions.Email.SendEmail
   alias AllbertAssist.Intent.Router
   alias AllbertAssist.Intent.Router.ClarifyResolver
   alias AllbertAssist.Intent.Router.DescriptorResolver
@@ -172,6 +175,44 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
     assert attrs.action_name == "show_app"
     assert is_binary(attrs.label) and attrs.label != ""
     assert is_list(attrs.examples) and attrs.examples != []
+  end
+
+  # ── M10 outbound-compose eval rows (ADR 0063) ────────────────────────────────
+
+  # m10-permission-floors-001
+  test "outbound permissions default to a needs_confirmation floor" do
+    for permission <- [:email_send, :channel_message_send, :calendar_write] do
+      assert AllbertAssist.Security.Policy.resolve(permission, %{}).effective == :needs_confirmation
+    end
+  end
+
+  # m10-send-email-reaches-confirmation-001 (+ outbound-grants-no-authority)
+  test "send_email reaches the confirmation gate and never auto-sends" do
+    assert {:ok, response} = SendEmail.run(%{to: "a@example.com", body: "hello"}, %{})
+    assert response.status == :needs_confirmation
+    assert is_binary(response.confirmation_id)
+  end
+
+  # m10-channel-send-target-gated-001
+  test "send_channel_message rejects an un-allowlisted target before dispatch" do
+    assert {:ok, response} = SendChannelMessage.run(%{channel: "slack", target: "#random", body: "hi"}, %{})
+    assert response.status == :stopped
+    assert match?({:target_rejected, _}, response.error)
+  end
+
+  # m10-calendar-mcp-backed-001 (graceful when no calendar MCP server)
+  test "create_calendar_event degrades gracefully without a calendar MCP server" do
+    assert {:ok, response} = CreateCalendarEvent.run(%{title: "sync", start: "tomorrow 3pm"}, %{})
+    assert response.status in [:answer, :failed]
+  end
+
+  # m10-outbound-resumable-001 (confirmation-gated + opt-in resumable; routable != executable)
+  test "outbound actions are confirmation-required and resumable" do
+    for module <- [SendEmail, SendChannelMessage, CreateCalendarEvent] do
+      capability = module.capability()
+      assert capability.confirmation == :required
+      assert capability.resumable? == true
+    end
   end
 
   defp clarify_options do

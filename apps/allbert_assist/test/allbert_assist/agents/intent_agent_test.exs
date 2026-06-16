@@ -105,7 +105,11 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
       # whatsapp_doctor moved the other way — they declare exposure: :internal).
       "list_marketplace_entries",
       "list_objectives",
-      "find_mcp_tools"
+      "find_mcp_tools",
+      # v0.54 M10 outbound compose actions
+      "send_email",
+      "send_channel_message",
+      "create_calendar_event"
     ]
 
     browser_actions = [

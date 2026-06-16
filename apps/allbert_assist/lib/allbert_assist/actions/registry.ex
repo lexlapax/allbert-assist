@@ -21,7 +21,10 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Channels.ListChannels
   alias AllbertAssist.Actions.Channels.SetupCheck
   alias AllbertAssist.Actions.Channels.ShowChannel
+  alias AllbertAssist.Actions.Calendar.CreateCalendarEvent
+  alias AllbertAssist.Actions.Channels.SendChannelMessage
   alias AllbertAssist.Actions.Channels.SignalDoctor
+  alias AllbertAssist.Actions.Email.SendEmail
   alias AllbertAssist.Actions.Channels.SignalLinkDevice
   alias AllbertAssist.Actions.Channels.WhatsAppDoctor
   alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
@@ -213,7 +216,11 @@ defmodule AllbertAssist.Actions.Registry do
     # internal verbs stay internal pending a confirmation-gate decision.
     ListMarketplaceEntries,
     ListObjectives,
-    McpFindTools
+    McpFindTools,
+    # v0.54 M10 outbound compose actions (ADR 0063)
+    SendEmail,
+    SendChannelMessage,
+    CreateCalendarEvent
   ]
 
   @internal_actions [

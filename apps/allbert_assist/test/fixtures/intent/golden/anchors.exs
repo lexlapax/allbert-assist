@@ -90,13 +90,13 @@
   %{id: "shell-001", category: "shell", utterance: "run the command ls -la",
     context: %{}, expected: %{kind: :execute, action: "run_shell_command"}, rationale: "shell (confirmation:required)"},
 
-  # ── Gaps (no executable action — M10) → graceful, never a dead-end ────────────
-  %{id: "gap-email-send-001", category: "gap", utterance: "send an email to alice@example.com about lunch",
-    context: %{}, expected: %{kind: :answer}, rationale: "no send_email action until M10 — graceful answer"},
-  %{id: "gap-calendar-create-001", category: "gap", utterance: "schedule a meeting tomorrow at 3pm",
-    context: %{}, expected: %{kind: :answer}, rationale: "no create_calendar_event until M10"},
-  %{id: "gap-channel-send-001", category: "gap", utterance: "send a slack message to #eng saying hi",
-    context: %{}, expected: %{kind: :answer}, rationale: "no send_channel_message until M10"},
+  # ── Outbound compose (M10 actions; ADR 0063) ─────────────────────────────────
+  %{id: "outbound-email-001", category: "email", utterance: "send an email to alice@example.com about lunch",
+    context: %{}, expected: %{kind: :execute, action: "send_email"}, rationale: "M10 send_email (confirmation-gated)"},
+  %{id: "outbound-calendar-001", category: "calendar", utterance: "schedule a meeting tomorrow at 3pm",
+    context: %{}, expected: %{kind: :execute, action: "create_calendar_event"}, rationale: "M10 create_calendar_event (MCP)"},
+  %{id: "outbound-channel-001", category: "channels", utterance: "send a slack message to #eng saying hi",
+    context: %{}, expected: %{kind: :execute, action: "send_channel_message"}, rationale: "M10 send_channel_message (gated)"},
 
   # ── Out-of-scope / answer / adversarial ──────────────────────────────────────
   %{id: "answer-001", category: "answer", utterance: "what is the capital of France",

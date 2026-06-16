@@ -890,4 +890,15 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   defp redact({:telegram_error, status, body}), do: {:telegram_error, status, body}
   defp redact({:transport_error, reason}), do: {:transport_error, reason}
   defp redact(reason), do: reason
+
+  # v0.54 M10 (ADR 0063): outbound compose boundary callback. Sends `body` to
+  # `target` (a chat id) via the bot token resolved from channel settings.
+  @doc false
+  def deliver_outbound(target, body, _opts) when is_binary(target) and is_binary(body) do
+    with {:ok, settings} <- AllbertAssist.Channels.channel_settings("telegram"),
+         {:ok, token} <- resolve_token(settings),
+         {:ok, result} <- Client.send_message(token, target, body, []) do
+      {:ok, %{channel: "telegram", target: target, result: result}}
+    end
+  end
 end

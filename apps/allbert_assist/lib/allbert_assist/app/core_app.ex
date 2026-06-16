@@ -291,6 +291,46 @@ defmodule AllbertAssist.App.CoreApp do
         synonyms: ["run command", "shell command", "execute command", "run in shell"],
         required_slots: [],
         handoff_required?: true
+      },
+      # v0.54 M10 outbound compose (ADR 0063)
+      %{
+        app_id: :allbert,
+        action_name: "send_email",
+        label: "Send an email",
+        examples: [
+          "send an email to alice@example.com about lunch",
+          "email bob@example.com saying the report is ready",
+          "draft an email to the team about the release"
+        ],
+        synonyms: ["send email", "email", "compose email", "draft email", "write an email"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "send_channel_message",
+        label: "Send a channel message",
+        examples: [
+          "send a slack message to #eng saying hi",
+          "post to the general channel that the deploy is done",
+          "message the team channel"
+        ],
+        synonyms: ["send a message", "post to channel", "message channel", "send to slack"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "create_calendar_event",
+        label: "Create a calendar event",
+        examples: [
+          "schedule a meeting tomorrow at 3pm",
+          "create a calendar event for the sync on Friday",
+          "add a meeting with Alice next Monday"
+        ],
+        synonyms: ["schedule a meeting", "create event", "add to calendar", "book a meeting"],
+        required_slots: [],
+        handoff_required?: true
       }
     ]
   end

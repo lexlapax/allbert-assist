@@ -643,4 +643,23 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
   defp response_value(response, key) when is_map(response) do
     Map.get(response, key) || Map.get(response, Atom.to_string(key))
   end
+
+  # v0.54 M10 (ADR 0063): outbound compose boundary callback. Resolves the bot token
+  # from channel settings and posts to `target` (a channel/conversation id).
+  @doc false
+  def deliver_outbound(target, body, _opts) when is_binary(target) and is_binary(body) do
+    case AllbertAssist.Channels.channel_settings("slack") do
+      {:ok, settings} ->
+        token_ref = Map.get(settings, "bot_token_ref", "secret://channels/slack/bot_token")
+
+        case Client.chat_post_message(token_ref, %{channel: target, text: body}, []) do
+          {:ok, result} -> {:ok, %{channel: "slack", target: target, result: result}}
+          {:error, reason} -> {:error, reason}
+          other -> {:error, other}
+        end
+
+      _other ->
+        {:error, :slack_not_configured}
+    end
+  end
 end
