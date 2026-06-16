@@ -2,9 +2,12 @@
 
 ## Status
 
-Proposed for v0.54 (Intent Deepening) — `docs/plans/v0.54-plan.md`. Accepted at
-v0.54 M7 closeout after release evidence (the golden-set intent eval and the
-channel approval end-to-end regression pass with recorded evidence).
+Accepted (v0.54 Intent Deepening, M8 closeout, 2026-06-16) —
+`docs/plans/v0.54-plan.md`. The two-stage router shipped across M0–M7; the
+`:v054` intent-router eval and the router suite pass under `mix allbert.test
+release.v054`. Live local-model routing (the embedding + LLM disambiguation
+against Ollama) is validated by the operator manual-validation punchlist in
+`docs/plans/v0.54-request-flow.md`.
 
 This ADR is the **routing foundation** of v0.54 Intent Deepening (ADR 0019/0034),
 **resequenced ahead of completing v0.53** because the v0.53 channel approval

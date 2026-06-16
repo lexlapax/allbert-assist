@@ -3270,11 +3270,14 @@ Expected direction:
 Plan: `docs/plans/v0.54-plan.md`
 Request flow: `docs/plans/v0.54-request-flow.md`
 
-Status: planned. NEW in the 2026-06-09 roadmap restructure; full plan authored
-in the restructure Phase B (research R2). **Deepened and resequenced 2026-06-16**
-to carry a two-stage intent router (ADR 0060/0061). Now sequenced **ahead of
-completing v0.53** (the v0.53 channel approval workflow depends on the router) as
-well as before the v0.55 Web UX redo (chat quality depends on intent).
+Status: **implemented (M0–M8, 2026-06-16); `mix allbert.test release.v054` green.**
+NEW in the 2026-06-09 roadmap restructure; deepened and resequenced 2026-06-16 to
+carry a two-stage intent router (ADR 0060/0061, both Accepted), sequenced **ahead
+of completing v0.53** (the v0.53 channel approval workflow depends on the router)
+and before the v0.55 Web UX redo. The version-metadata bump + tag are deferred
+pending the operator manual-validation punchlist
+(`docs/plans/v0.54-request-flow.md`), which also unblocks the v0.53 channel
+approval manual checks.
 
 Expected direction:
 

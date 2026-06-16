@@ -10,6 +10,61 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.54.0 - Intent Deepening: Two-Stage Local Intent Router
+
+Status: implemented across M0–M8; `mix allbert.test release.v054` is green. The
+shipped default routing strategy is the local two-stage router
+(`intent.router_strategy = two_stage_local`). **Version/tag is deferred**: v0.53
+is implemented-but-untagged and its channel-approval validation depends on this
+router, so the version-metadata bump and tagging are a sequencing decision after
+the v0.54 punchlist (metadata currently remains `0.53.0`). Live local-model
+routing and the channel approve/deny workflow are validated by the operator
+manual-validation punchlist in `docs/plans/v0.54-request-flow.md`.
+
+Plan: `docs/plans/v0.54-plan.md`. Request flow: `docs/plans/v0.54-request-flow.md`.
+ADRs: `docs/adr/0060-two-stage-intent-router-and-approval-gate-separation.md`,
+`docs/adr/0061-local-embedding-capability-and-router-model-tiers.md` (Accepted).
+
+### Added
+
+- Two-stage local intent router (ADR 0060): an embedding prefilter → constrained
+  LLM disambiguation over a shortlist → confidence gate, as the default selector,
+  with the deterministic ladder kept as fast-path + offline fallback.
+  `Intent.Router` behaviour + `Router.Outcome`, `Prefilter`, `Disambiguator`
+  (confidence gate + optional hosted escalation), `Embedder` (local Ollama, no
+  egress) + utterance `Index` + `mix allbert.intent doctor`.
+- Local `embeddings` model capability + `embedding_local` / `router_local` model
+  profiles (ADR 0061); new `intent.router_*` plus multi-turn /
+  `pending_clarification_ttl_ms` settings.
+- Bounded, redacted multi-turn intent context (`ConversationContext`); a
+  channel-answerable clarification loop with a TTL `PendingStore` +
+  `ClarifyResolver`; a `write_note` intent descriptor that closes the
+  create-vs-search mis-route.
+
+### Changed
+
+- The app-handoff channel dead-end is removed: an app-routable channel request now
+  executes (reaching the `confirmation: :required` approve/deny primitive) or
+  renders an answerable clarification — never inert text.
+- Intent routing default flipped to `two_stage_local` (the test environment is
+  forced to `deterministic` via an app-env override so the suite stays offline).
+
+### Security
+
+- The router selects *which* action within the registry-validated candidate set;
+  it grants no authority — the runner, permission, and `confirmation` /
+  `ConfirmationCallback` gates are unchanged (ADR 0060 approval-gate separation).
+  Hosted escalation is off by default and audited when enabled. Embeddings are
+  local-only with no network egress.
+
+### Verification
+
+- `mix allbert.test release.v054` passed (router unit suite + intent integration +
+  the `:v054` eval + a clean secret scan); `mix compile --warnings-as-errors`
+  clean. The pre-tag gate is the operator manual-validation punchlist in
+  `docs/plans/v0.54-request-flow.md` (live local-model routing, a channel message
+  reaching approve/deny, and the clarify loop).
+
 ## v0.53.0 - Channel Pack 1 Retro-Validation And Channel Pack 2
 
 Status: implemented as `0.53.0` and ready for required real-provider validation

@@ -2,8 +2,10 @@
 
 ## Status
 
-Proposed for v0.54 (Intent Deepening) — `docs/plans/v0.54-plan.md`. Accepted at
-v0.54 M7 closeout after release evidence.
+Accepted (v0.54 Intent Deepening, M8 closeout, 2026-06-16) —
+`docs/plans/v0.54-plan.md`. Shipped across M1 (embedding capability + index +
+doctor) and M3/M7 (router model tiers + optional hosted escalation); green under
+`mix allbert.test release.v054`.
 
 This ADR provides the model substrate the two-stage intent router (ADR 0060)
 needs: a **local text-embedding capability** (which does not exist today) and the

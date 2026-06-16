@@ -124,6 +124,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v051"]), do: release_v051()
   def run(["release.v052"]), do: release_v052()
   def run(["release.v053"]), do: release_v053()
+  def run(["release.v054"]), do: release_v054()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -2431,6 +2432,136 @@ defmodule Mix.Tasks.Allbert.Test do
     if status != "passed" do
       Mix.raise("release.v053 failed; evidence: #{evidence_path}")
     end
+  end
+
+  @release_v054_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "router_unit",
+      title: "two-stage intent router unit suite",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/intent/router_test.exs",
+        "test/allbert_assist/intent/router_embedding_test.exs",
+        "test/allbert_assist/intent/router_prefilter_test.exs",
+        "test/allbert_assist/intent/router_disambiguator_test.exs",
+        "test/allbert_assist/intent/router_clarify_resolver_test.exs",
+        "test/allbert_assist/intent/router_pending_store_test.exs",
+        "test/allbert_assist/intent/conversation_context_test.exs"
+      ],
+      coverage: [
+        "router dispatch/outcome + strategy override",
+        "local embedding + utterance index + doctor",
+        "Stage 1 prefilter shortlist + margin + fallback",
+        "Stage 2 constrained disambiguation + confidence gate + hosted escalation",
+        "clarify resolver bind/no-match",
+        "pending-clarification TTL + cross-user isolation",
+        "bounded/redacted multi-turn context"
+      ]
+    },
+    %{
+      id: "intent_agent_router",
+      title: "router integration in the intent flow (execute/clarify/none, no dead-end)",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/intent/intent_agent_router_test.exs"],
+      coverage: [
+        "clarify renders a channel-answerable question + persists pending state",
+        "none declines gracefully",
+        "app-handoff dead-end removed"
+      ]
+    },
+    %{
+      id: "v054_eval",
+      title: ":v054 intent-router golden-set / security eval",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/security/v054_intent_router_eval_test.exs"],
+      coverage: [
+        "shortlist-constrained selection / authority-unchanged",
+        "low-confidence clarifies; escalation off-by-default",
+        "create-vs-search descriptor regression",
+        "clarify is channel-answerable (no dead-end)",
+        "shipped default is two_stage_local"
+      ]
+    }
+  ]
+
+  defp release_v054 do
+    env = owned_env("release-v054", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v054")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v054_steps, &run_release_v054_step(&1, env))
+    secret_scan = release_channel_pack_secret_scan(home, "release.v054")
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v054",
+      version: "v0.54",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; the local two-stage router defers to the deterministic ladder under the test override, and embedding/LLM selection use local fakes",
+      notes:
+        "the shipped intent.router_strategy default is two_stage_local; live local-model routing is exercised by the operator manual-validation punchlist in docs/plans/v0.54-request-flow.md",
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v054-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v054 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v054 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v054_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v054 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
   end
 
   defp cleanup_release_v046_evidence!(evidence_dir) do
