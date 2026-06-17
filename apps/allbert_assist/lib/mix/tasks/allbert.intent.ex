@@ -6,6 +6,7 @@ defmodule Mix.Tasks.Allbert.Intent do
 
       mix allbert.intent doctor
       mix allbert.intent bench [--subset | --holdout]
+      mix allbert.intent edit ACTION
 
   `doctor` probes the local embedder and reports the router strategy, configured
   profiles, and utterance-index state in a redacted ADR 0047 envelope.
@@ -68,7 +69,7 @@ defmodule Mix.Tasks.Allbert.Intent do
     DescriptorResolver.resolve()
     |> Enum.sort_by(& &1.action_name)
     |> Enum.each(fn d ->
-      Mix.shell().info("  #{d.action_name} [#{d.source}] #{d.app_id}")
+      Mix.shell().info("  #{d.action_name} source=#{source_label(d.source)} app_id=#{d.app_id}")
     end)
   end
 
@@ -91,6 +92,20 @@ defmodule Mix.Tasks.Allbert.Intent do
           synonyms: #{inspect(d.synonyms)}
           override file: #{override_path}
         """)
+    end
+  end
+
+  defp dispatch(["edit", action]) do
+    case descriptor_for_action(action) do
+      nil ->
+        Mix.raise("no resolved descriptor for #{action}")
+
+      descriptor ->
+        {:ok, path} = DescriptorStore.put(:overrides, override_attrs(descriptor))
+
+        Mix.shell().info(
+          "override #{action} -> #{path}; edit this YAML and run `mix allbert.intent reindex` to apply"
+        )
     end
   end
 
@@ -145,8 +160,8 @@ defmodule Mix.Tasks.Allbert.Intent do
     do:
       Mix.raise(
         "Usage: mix allbert.intent doctor | bench [--subset|--holdout] | " <>
-          "optimize [--heuristic] | reindex | list | show ACTION | disable ACTION | " <>
-          "promote ACTION | review"
+          "optimize [--heuristic] | reindex | list | show ACTION | edit ACTION | " <>
+          "disable ACTION | promote ACTION | review"
       )
 
   defp descriptor_app_id(action) do
@@ -164,6 +179,33 @@ defmodule Mix.Tasks.Allbert.Intent do
   defp tier_option("overrides", _default), do: :overrides
   defp tier_option("override", _default), do: :overrides
   defp tier_option(_value, default), do: default
+
+  defp descriptor_for_action(action) do
+    Enum.find(DescriptorResolver.resolve(), &(&1.action_name == action))
+  end
+
+  defp override_attrs(descriptor) do
+    %{
+      app_id: descriptor.app_id,
+      action_name: descriptor.action_name,
+      label: descriptor.label,
+      destination: descriptor.destination,
+      examples: descriptor.examples,
+      synonyms: descriptor.synonyms,
+      required_slots: descriptor.required_slots,
+      optional_slots: descriptor.optional_slots,
+      slot_extractors: descriptor.slot_extractors,
+      vocabulary: descriptor.vocabulary,
+      handoff_required?: descriptor.handoff_required?,
+      disabled: false
+    }
+    |> Enum.reject(fn {_key, value} -> value in [nil, [], %{}] end)
+    |> Map.new()
+  end
+
+  defp source_label(:app), do: "code"
+  defp source_label(:overrides), do: "override"
+  defp source_label(source), do: to_string(source)
 
   defp print_coverage(c) do
     Mix.shell().info(
