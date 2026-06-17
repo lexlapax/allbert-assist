@@ -14,9 +14,10 @@ changelog entries or release notes.
 
 Status: implemented through M11. The shipped default routing strategy is the local
 two-stage router (`intent.router_strategy = two_stage_local`), version metadata now
-reports `0.54.0`, and the post-audit release tag is `v0.54.0`. v0.54 unblocks the
-v0.53 channel approval validation path after the tag; Matrix/WhatsApp/Signal
-real-provider smokes remain v0.53 validation work.
+reports `0.54.0`, and the post-audit release tag is `v0.54.0`. v0.54 unblocked
+the v0.53 channel approval validation path; Telegram/email approval/rejection
+checks subsequently passed, while Matrix/WhatsApp/Signal real-provider smokes
+remain v0.53 validation work.
 
 Plan: `docs/plans/v0.54-plan.md`. Request flow: `docs/plans/v0.54-request-flow.md`.
 ADRs: `docs/adr/0060-two-stage-intent-router-and-approval-gate-separation.md`,
@@ -153,9 +154,10 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
 
 ## v0.53.0 - Channel Pack 1 Retro-Validation And Channel Pack 2
 
-Status: implemented as `0.53.0`. Telegram + email delivery/inbound live validation
-passed; approval-rendering checks resume after the v0.54 tag. Matrix/WhatsApp/
-Signal real-provider live smokes remain pending. Current version metadata is
+Status: implemented as `0.53.0`. Telegram + email delivery/inbound plus manual
+approval/rejection/poll-resume validation passed after the v0.54 router
+prerequisite landed. Matrix/WhatsApp/Signal real-provider live smokes remain
+pending. Current version metadata is
 `0.54.0` because v0.54 is the active release closeout.
 
 Plan: `docs/plans/v0.53-plan.md`.
@@ -219,6 +221,11 @@ Developer docs: `docs/developer/key-custody.md`,
   - `SmtpClient.normalize_result/1` mis-reported gen_smtp's bare-binary success
     receipt as an error; a binary receipt is now `:ok` and gen_smtp 3-tuple
     errors are flattened.
+- Matrix typed approval commands now route through the shared
+  `ConfirmationCallback` guard as channel callback events. Exact
+  `ALLBERT:APPROVE|DENY|SHOW:<confirmation_id>` replies no longer fall through
+  to the runtime router as ordinary Matrix text, so the v0.53 Matrix approval
+  validation step is executable.
 
 ### Security
 
@@ -254,8 +261,9 @@ Developer docs: `docs/developer/key-custody.md`,
   `telegram doctor` `status=ok` / `auth_ok=true`, and `external-smoke -- telegram`
   and `-- inbound_telegram` each `1 test, 0 failures` with recorded evidence; no
   code changes were required.
-- Email and Telegram operator manual checks (approval primitives, email MIME
-  decode, unmapped-clicker rejection) remain before tag.
+- Email and Telegram operator manual checks passed live in the manual validation
+  home after v0.54: approval primitives, email MIME decode, mapped approval,
+  unmapped-clicker rejection, and poll-resume behavior.
 - Required live real-provider smokes remain the pre-tag validation gate:
   `external-smoke -- matrix`, `-- whatsapp`, and `-- signal`.
 

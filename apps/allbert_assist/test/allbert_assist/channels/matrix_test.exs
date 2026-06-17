@@ -10,6 +10,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
   alias AllbertAssist.Channels.Matrix.Client
   alias AllbertAssist.Channels.Matrix.Parser
   alias AllbertAssist.Channels.Matrix.Renderer
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -26,6 +27,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
@@ -58,6 +60,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
+      restore_env(Confirmations, original_confirmations_config)
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
@@ -293,6 +296,64 @@ defmodule AllbertAssist.Channels.MatrixTest do
     GenServer.stop(pid)
   end
 
+  test "typed confirmation commands resolve without runtime submission" do
+    assert {:ok, confirmation} = create_confirmation!("conf_matrix_typed", "matrix")
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/_matrix/client/v3/sync"
+
+      json(conn, %{
+        "next_batch" => "s2",
+        "rooms" => %{
+          "join" => %{
+            "!room:example.com" => %{
+              "timeline" => %{
+                "events" => [
+                  matrix_text_event("$event-command", "ALLBERT:DENY:#{confirmation["id"]}")
+                ]
+              }
+            }
+          }
+        }
+      })
+    end)
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.method == "PUT"
+
+      {:ok, body, conn} = read_body(conn)
+      decoded = Jason.decode!(body)
+      assert decoded["body"] =~ "denied"
+
+      json(conn, %{"event_id" => "$reply-command"})
+    end)
+
+    server = :"matrix-adapter-command-#{System.unique_integer([:positive])}"
+
+    assert {:ok, pid} =
+             Adapter.start_link(
+               name: server,
+               auto_poll?: false,
+               req_options: [plug: {Req.Test, __MODULE__}]
+             )
+
+    Req.Test.allow(__MODULE__, self(), pid)
+
+    assert {:ok, %{processed: 1, rejected: 0, failed: 0}} = Adapter.poll_once(server)
+    refute_received {:runtime_request, %{text: "ALLBERT:DENY:" <> _rest}}
+
+    assert %Event{status: "processed", direction: "callback"} =
+             Repo.one(
+               from event in Event,
+                 where: event.channel == "matrix" and event.external_event_id == "$event-command"
+             )
+
+    assert {:ok, resolved} = Confirmations.read(confirmation["id"])
+    assert resolved["status"] == "denied"
+
+    GenServer.stop(pid)
+  end
+
   test "adapter records delivery failure without automatic provider retry" do
     Req.Test.expect(__MODULE__, fn conn ->
       assert conn.request_path == "/_matrix/client/v3/sync"
@@ -383,6 +444,18 @@ defmodule AllbertAssist.Channels.MatrixTest do
       event_id: event_id,
       sender: "@alice:example.com",
       text: text
+    })
+  end
+
+  defp create_confirmation!(id, channel) do
+    Confirmations.create(%{
+      id: id,
+      origin: %{actor: "alice", channel: channel, surface: "matrix-test"},
+      target_action: %{name: "external_network_request"},
+      target_permission: :external_network,
+      target_execution_mode: :external_network_unavailable,
+      security_decision: %{permission: :external_network, decision: :needs_confirmation},
+      params_summary: %{url: "https://example.com"}
     })
   end
 

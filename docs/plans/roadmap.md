@@ -306,8 +306,8 @@ Dependency order from here:
 53. v0.53 Channel Pack 1 retro-validation (Telegram + email, first real-provider
     live validation) then Channel Pack 2 — WhatsApp, Signal, and Matrix. iMessage
     is parked (macOS-only platform constraint). Note: live validation (2026-06-16)
-    found the channel *approval* workflow dead-ends in the intent router, so v0.54
-    is resequenced ahead to fix it; v0.53's manual approval checks resume after.
+    found the channel *approval* workflow dead-ended in the intent router, so v0.54
+    was resequenced ahead to fix it; Telegram/email manual approval checks now pass.
 54. v0.54 Intent Deepening: a local-first **two-stage intent router** (embedding
     prefilter → constrained LLM disambiguation → confidence gate; ADR 0060/0061)
     as the default selector, plus the original deepening (multi-turn context,
@@ -3233,14 +3233,14 @@ ADRs: `docs/adr/0056-...` (v0.53 amendment — public signed webhook),
 
 Status: implemented as `0.53.0` through M10; version metadata stays `0.53.0`
 (tag-blocked). **Telegram + email live real-provider validation is done
-(2026-06-16):** email surfaced and fixed three IMAP/SMTP bugs (login/select 3-tuple,
+(2026-06-17):** email surfaced and fixed three IMAP/SMTP bugs (login/select 3-tuple,
 verified-TLS SMTP, success-as-error normalization — see CHANGELOG v0.53 §Fixed);
-Telegram doctor + delivery + inbound smokes passed with **0 code bugs**. That
-validation is what **found the channel *approval* dead-end** in the intent router —
-so the v0.53 channel approve/deny manual check is **blocked on the v0.54 router**
-and resumes once v0.54 lands. **Still pending: Matrix / WhatsApp / Signal
-real-provider live smokes.** Scope: first retro-validate **Telegram + email** to
-Discord/Slack live-provider parity (done), then build **Matrix + WhatsApp (Cloud
+Telegram doctor + delivery + inbound smokes passed with **0 code bugs**, and both
+channels' approval/rejection/poll-resume manual checks passed after v0.54 landed
+the required router/descriptor/outbound prerequisite. **Still pending: Matrix /
+WhatsApp / Signal real-provider live smokes.** Scope: first retro-validate
+**Telegram + email** to Discord/Slack live-provider parity (done), then build
+**Matrix + WhatsApp (Cloud
 API) + Signal (signal-cli daemon)**; **Viber** documented on paper as a validated
 WhatsApp-twin and **deferred** (~€100/mo standing bot fee); **iMessage + SMS
 parked**. Public protocol interop is v0.51.
@@ -3281,8 +3281,8 @@ Expected direction:
   `typed_command`/`link`/`list`, `:e2ee_origin`.
 - Substrate-first sequencing: Channel Pack 1 retro-validation (M5) and
   constructs (M0-M4) before adapters (M6-M8); pairing/identity/delivery (M9);
-  evals + **required Telegram/email and Matrix/WhatsApp/Signal real-provider live
-  smokes** + closeout (M10).
+  evals + **completed Telegram/email retro-validation and required
+  Matrix/WhatsApp/Signal real-provider live smokes** + closeout (M10).
 - Keep SMS, iMessage, and the Viber build parked in `future-features.md`.
 
 ## v0.54: Intent Deepening

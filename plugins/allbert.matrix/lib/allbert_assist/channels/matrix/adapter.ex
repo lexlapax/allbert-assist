@@ -6,6 +6,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
   require Logger
 
   alias AllbertAssist.Channels
+  alias AllbertAssist.Channels.ConfirmationCallback
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.Matrix.Client
   alias AllbertAssist.Channels.Matrix.Parser
@@ -151,11 +152,12 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
   defp process_text_event(fields, state) do
     fields = put_thread_fields(fields, state)
     {text, new_thread?} = prompt_text(fields.text)
+    command = ConfirmationCallback.parse_typed_command(text)
     fields = maybe_isolate_new_provider_thread(fields, new_thread?)
 
-    case insert_received_event(fields, "inbound") do
+    case insert_received_event(fields, event_direction(command)) do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
-        handle_text_event(event, fields, text, new_thread?, state)
+        handle_text_event(event, fields, text, new_thread?, command, state)
 
       {:ok, :duplicate} ->
         {:ok, :duplicate}
@@ -165,18 +167,29 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
     end
   end
 
-  defp handle_text_event(event, fields, text, new_thread?, state) do
+  defp event_direction({:ok, _action, _confirmation_id}), do: "callback"
+  defp event_direction(:ignore), do: "inbound"
+
+  defp handle_text_event(event, fields, text, new_thread?, command, state) do
     with :ok <- validate_room(fields, state),
          :ok <- validate_text_size(fields, state),
          :ok <- reject_echo(fields),
          {:ok, user_id} <- resolve_identity(fields, state),
          session_id <-
            Channels.derive_session_id("matrix", fields.external_user_id, fields.room_id),
-         {:ok, response} <- submit_runtime(text, user_id, session_id, fields, new_thread?),
-         {:ok, chunks} <-
-           Renderer.render_response(response, max_text_bytes: max_text_bytes(state)),
+         {:ok, response, record_refs?} <-
+           process_text_or_callback(
+             command,
+             text,
+             user_id,
+             session_id,
+             fields,
+             new_thread?,
+             state
+           ),
+         {:ok, chunks} <- render_processed_response(response, record_refs?, state),
          {:ok, delivered} <- deliver_chunks(fields.room_id, chunks, state, fields),
-         :ok <- record_outbound_refs(response, fields, delivered),
+         :ok <- maybe_record_outbound_refs(record_refs?, response, fields, delivered),
          {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
       {:ok, :processed}
     else
@@ -189,6 +202,64 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
         {:ok, :rejected}
     end
   end
+
+  defp process_text_or_callback(
+         {:ok, action, confirmation_id},
+         _text,
+         user_id,
+         session_id,
+         fields,
+         _new_thread?,
+         state
+       ) do
+    with {:ok, response} <-
+           ConfirmationCallback.run(%{
+             action: action,
+             confirmation_id: confirmation_id,
+             channel: "matrix",
+             user_id: user_id,
+             session_id: session_id,
+             surface: "matrix_typed_command",
+             identity_proof: %{
+               channel: "matrix",
+               user_id: user_id,
+               external_user_id: fields.external_user_id,
+               identity_map: Map.get(state.settings, "identity_map", [])
+             },
+             resolver_metadata: %{
+               provider: @provider,
+               external_event_id: fields.external_event_id,
+               external_user_id: fields.external_user_id,
+               external_chat_id: fields.room_id,
+               external_message_id: fields.external_message_id,
+               command: "ALLBERT:#{String.upcase(to_string(action))}:#{confirmation_id}"
+             }
+           }) do
+      {:ok, response, false}
+    end
+  end
+
+  defp process_text_or_callback(:ignore, text, user_id, session_id, fields, new_thread?, _state) do
+    with {:ok, response} <- submit_runtime(text, user_id, session_id, fields, new_thread?) do
+      {:ok, response, true}
+    end
+  end
+
+  defp render_processed_response(response, true, state) do
+    Renderer.render_response(response, max_text_bytes: max_text_bytes(state))
+  end
+
+  defp render_processed_response(response, false, state) do
+    Renderer.render_response(%{message: ConfirmationCallback.reply_text(response)},
+      max_text_bytes: max_text_bytes(state)
+    )
+  end
+
+  defp maybe_record_outbound_refs(true, response, fields, delivered) do
+    record_outbound_refs(response, fields, delivered)
+  end
+
+  defp maybe_record_outbound_refs(false, _response, _fields, _delivered), do: :ok
 
   defp insert_received_event(fields, direction) do
     %{
