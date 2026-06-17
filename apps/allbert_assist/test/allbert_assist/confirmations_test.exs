@@ -98,6 +98,50 @@ defmodule AllbertAssist.ConfirmationsTest do
     assert audit =~ "resolution_reason: not needed"
   end
 
+  test "create and resolve tolerate malformed list tails in action metadata" do
+    attrs =
+      base_attrs()
+      |> put_in([:runner_metadata, :messages], [%{api_key: "sk-runner"}, :visible | :tail])
+      |> put_in([:params_summary, :resource_refs], [%{secret: "sk-param"} | :tail])
+
+    assert {:ok, record} = Confirmations.create(attrs, ttl_minutes: 10, now: now())
+
+    assert record["runner_metadata"]["messages"] == [
+             %{"api_key" => "[REDACTED]"},
+             "visible",
+             "tail"
+           ]
+
+    assert record["params_summary"]["resource_refs"] == [
+             %{"secret" => "[REDACTED]"},
+             "tail"
+           ]
+
+    assert {:ok, resolved} =
+             Confirmations.resolve(
+               record["id"],
+               :approved,
+               %{
+                 resolver_actor: "local",
+                 resolver_channel: :discord,
+                 target_status: "completed",
+                 target_result: %{messages: [%{api_key: "sk-result"} | :tail]},
+                 remembered_grants: [%{token: "sk-grant"} | :tail]
+               },
+               now: DateTime.add(now(), 60, :second)
+             )
+
+    assert resolved["operator_resolution"]["target_result"]["messages"] == [
+             %{"api_key" => "[REDACTED]"},
+             "tail"
+           ]
+
+    assert resolved["operator_resolution"]["remembered_grants"] == [
+             %{"token" => "[REDACTED]"},
+             "tail"
+           ]
+  end
+
   test "expire resolves only records past their ttl" do
     assert {:ok, expired} = Confirmations.create(base_attrs(), ttl_minutes: 1, now: now())
 

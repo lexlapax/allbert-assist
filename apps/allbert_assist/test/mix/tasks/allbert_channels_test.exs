@@ -5,6 +5,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
 
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.Identity
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -899,6 +900,12 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     Mix.Task.reenable("allbert.channels")
 
     capture_io(fn ->
+      assert :ok = ChannelsTask.run(["discord", "add-channel", "22222"])
+    end)
+
+    Mix.Task.reenable("allbert.channels")
+
+    capture_io(fn ->
       assert :ok =
                ChannelsTask.run([
                  "discord",
@@ -944,6 +951,37 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert discord_output =~ "User: alice"
     assert discord_output =~ "Task channel response: discord hello"
     assert_received {:runtime_request, %{channel: "discord", text: "discord hello"}}
+
+    Mix.Task.reenable("allbert.channels")
+
+    assert {:ok, confirmation} =
+             Confirmations.create(%{
+               origin: %{actor: "alice", channel: :discord, surface: "mix allbert.channels"},
+               target_action: %{name: "write_note"},
+               target_permission: :notes_file_write,
+               target_execution_mode: :notes_file_write,
+               security_decision: %{permission: :notes_file_write, decision: :needs_confirmation},
+               params_summary: %{title: "discord callback"}
+             })
+
+    discord_callback_output =
+      capture_io(fn ->
+        assert :ok =
+                 ChannelsTask.run([
+                   "discord",
+                   "simulate-callback",
+                   "--user",
+                   "11111",
+                   "--custom-id",
+                   "allbert:v1:deny:#{confirmation["id"]}"
+                 ])
+      end)
+
+    assert discord_callback_output =~ "status=processed"
+    assert discord_callback_output =~ "denied"
+    refute discord_callback_output =~ "missing token"
+    assert {:ok, resolved} = Confirmations.read(confirmation["id"])
+    assert resolved["status"] == "denied"
 
     Mix.Task.reenable("allbert.channels")
 

@@ -167,9 +167,9 @@ defmodule AllbertAssist.Confirmations.Record do
   defp target_result(_value), do: nil
 
   defp redacted_value(value) when is_map(value), do: redacted_map(value)
-  defp redacted_value(value) when is_list(value), do: Enum.map(value, &redacted_value/1)
+  defp redacted_value(value) when is_list(value), do: map_list(value, &redacted_value/1)
   defp redacted_value(nil), do: nil
-  defp redacted_value(value), do: value
+  defp redacted_value(value), do: stringify_value(value)
 
   defp target_action(attrs) do
     attrs
@@ -190,19 +190,21 @@ defmodule AllbertAssist.Confirmations.Record do
 
   defp stringify_keys(map) do
     Map.new(map, fn
-      {key, value} when is_map(value) ->
-        {to_string(key), stringify_keys(value)}
-
-      {key, value} when is_list(value) ->
-        {to_string(key), Enum.map(value, &stringify_list_value/1)}
-
       {key, value} ->
-        {to_string(key), stringify_value(value)}
+        {to_string(key), stringify_nested_value(value)}
     end)
   end
 
-  defp stringify_list_value(value) when is_map(value), do: stringify_keys(value)
-  defp stringify_list_value(value), do: stringify_value(value)
+  defp stringify_nested_value(value) when is_map(value), do: stringify_keys(value)
+
+  defp stringify_nested_value(value) when is_list(value),
+    do: map_list(value, &stringify_nested_value/1)
+
+  defp stringify_nested_value(value), do: stringify_value(value)
+
+  defp map_list([head | tail], fun) when is_list(tail), do: [fun.(head) | map_list(tail, fun)]
+  defp map_list([head | tail], fun), do: [fun.(head), fun.(tail)]
+  defp map_list([], _fun), do: []
 
   defp stringify_value(nil), do: nil
   defp stringify_value(value) when is_boolean(value), do: value

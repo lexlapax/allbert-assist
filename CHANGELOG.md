@@ -83,6 +83,15 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
   120s for the live local router/model path instead of using the default 5s
   `GenServer.call` timeout; this affects `mix allbert.channels discord simulate`
   and `simulate-callback` only.
+- **v0.54 confirmation-metadata hardening:** confirmation records now fold
+  malformed nested list tails into proper redacted/stringified lists during both
+  pending-record creation and approval resolution, preventing channel-originated
+  action metadata from surfacing `Enum.reduce/3`/`FunctionClauseError` failures
+  before an approval handoff can render.
+- **v0.54 Discord callback-simulator hardening:** `mix allbert.channels discord
+  simulate-callback` now builds a parser-valid local interaction with a synthetic
+  interaction token and prints normalized processed callback output, so optional
+  channel validation reaches approve/deny instead of `missing token`.
 - M9/M10 accepted as tag-blocking v0.54 scope: descriptor lifecycle/coverage/
   golden-set work (ADR 0062) and outbound compose actions for email, calendar, and
   channel send (ADR 0063). These are planned, not yet shipped in this changelog

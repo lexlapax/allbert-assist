@@ -248,11 +248,17 @@ defmodule AllbertAssist.Confirmations.Store.Persistence do
   defp stringify_resolution_value(value) when is_boolean(value), do: value
   defp stringify_resolution_value(value) when is_atom(value), do: Atom.to_string(value)
   defp stringify_resolution_value(value) when is_map(value), do: stringify_keys_deep(value)
-
-  defp stringify_resolution_value(value) when is_list(value),
-    do: Enum.map(value, &stringify_resolution_value/1)
+  defp stringify_resolution_value(value) when is_list(value), do: stringify_resolution_list(value)
 
   defp stringify_resolution_value(value), do: value
+
+  defp stringify_resolution_list([head | tail]) when is_list(tail),
+    do: [stringify_resolution_value(head) | stringify_resolution_list(tail)]
+
+  defp stringify_resolution_list([head | tail]),
+    do: [stringify_resolution_value(head), stringify_resolution_value(tail)]
+
+  defp stringify_resolution_list([]), do: []
 
   defp stringify_keys_deep(map) do
     map

@@ -1008,6 +1008,7 @@ defmodule Mix.Tasks.Allbert.Channels do
              "d" =>
                %{
                  "id" => "sim_" <> Ecto.UUID.generate(),
+                 "token" => "sim_token_" <> Ecto.UUID.generate(),
                  "guild_id" => first_setting(settings, "allowed_guild_ids"),
                  "channel_id" => first_setting(settings, "allowed_channel_ids"),
                  "user" => %{"id" => external_user_id},
@@ -1019,7 +1020,7 @@ defmodule Mix.Tasks.Allbert.Channels do
          result <-
            Discord.Adapter.simulate_gateway_event(adapter, event, @simulate_gateway_timeout_ms) do
       GenServer.stop(adapter)
-      {:ok, {:poll, "discord", result}}
+      normalize_discord_simulation(result)
     end
   end
 
