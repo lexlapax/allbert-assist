@@ -2482,7 +2482,7 @@ defmodule Mix.Tasks.Allbert.Test do
     },
     %{
       id: "v054_eval",
-      title: ":v054 intent-router golden-set / security eval",
+      title: ":v054 router, descriptor lifecycle, outbound, and security eval",
       cwd: :core,
       executable: "mix",
       args: ["test", "test/security/v054_intent_router_eval_test.exs"],
@@ -2491,6 +2491,8 @@ defmodule Mix.Tasks.Allbert.Test do
         "low-confidence clarifies; escalation local-by-default (no egress)",
         "create-vs-search descriptor regression",
         "clarify is channel-answerable (no dead-end)",
+        "descriptor YAML lifecycle foundation + inert review tier",
+        "outbound compose permissions + confirmation/resume posture",
         "shipped default is two_stage_local"
       ]
     }

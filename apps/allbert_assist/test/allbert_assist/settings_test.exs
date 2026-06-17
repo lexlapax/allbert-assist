@@ -106,6 +106,7 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, "local"} = Settings.get("intent.direct_answer_model_profile")
     assert Settings.schema()["intent.direct_answer_model_profile"].default == "local"
     assert {:ok, true} = Settings.get("intent.reindex_on_registration_signal")
+    assert {:ok, "calendar"} = Settings.get("intent.calendar_mcp_server")
     assert {:ok, true} = Settings.get("active_memory.enabled")
     assert {:ok, 5} = Settings.get("active_memory.top_k")
     assert {:ok, 2048} = Settings.get("active_memory.chunk_max_bytes")
@@ -120,6 +121,12 @@ defmodule AllbertAssist.SettingsTest do
 
     assert resolved.value == 120
     assert {:ok, 120} = Settings.get("intent.max_candidates")
+
+    assert {:ok, resolved} =
+             Settings.put("intent.calendar_mcp_server", "work_calendar", %{audit?: false})
+
+    assert resolved.value == "work_calendar"
+    assert {:ok, "work_calendar"} = Settings.get("intent.calendar_mcp_server")
 
     assert {:ok, resolved} =
              Settings.put("active_memory.score_weights.identity_inclusion", 2.0, %{

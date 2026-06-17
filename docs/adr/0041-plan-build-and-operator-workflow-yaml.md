@@ -345,7 +345,7 @@ trace ingestion can re-read the file if needed for debugging).
   primitives; v0.44 plan cards render through existing channel-specific
   affordances and are expressible in
   `:typed_command`/`:button`/`:link`/`:list` without re-litigation.
-- **v0.57 Hardening / Export-Import** preserves the
+- **v0.58 Hardening / Export-Import** preserves the
   `<ALLBERT_HOME>/workflows/` directory and the `workflows.*` +
   `plan.*` core settings namespace with `schema_version: 1` per the
   ADR 0046 migration policy.

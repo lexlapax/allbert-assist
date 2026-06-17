@@ -204,7 +204,7 @@ atom enum. The v0.45 set:
   marketplace action before read/write work.
 - `:marketplace_schema_version_mismatch` — settings
   `marketplace.schema_version` does not match the expected fragment
-  version (preview of ADR 0046's v0.57 runtime migration
+  version (preview of ADR 0046's v0.58 runtime migration
   semantics).
 - `:marketplace_schema_version_unavailable` — settings
   `marketplace.schema_version` could not be read.
@@ -377,7 +377,7 @@ community submissions need them.
 ADR 0046 schema_version convention gets its second user
 (`marketplace.schema_version: 1` joins v0.44's
 `workflows.schema_version: 1`), establishing the field as a stable
-convention before v0.57 ships the runtime migration tool.
+convention before v0.58 ships the runtime migration tool.
 
 v0.47 self-improvement gets a stable trace pattern source
 (marketplace entries + install state) for trace-to-skill draft

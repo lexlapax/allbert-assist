@@ -744,21 +744,24 @@ historical aliases only and remain in old reference notes for continuity.
   descriptor reply-key/quote-TTL consumption, phone-PII redaction, and mandatory
   `:list` approval fallback. Viber is documented on paper + deferred; iMessage/SMS
   parked.
-- v0.54: Intent Deepening. M0-M8 implement the local two-stage router and remove
-  the app-handoff channel approval dead-end; M9/M10 are now tag-blocking scope:
-  descriptor lifecycle/coverage/golden-set work (ADR 0062) and outbound compose
-  actions for email, calendar, and channel send (ADR 0063). Model output stays
-  advisory, and v0.53 channel approval validation resumes only after this path is
-  green.
+- v0.54: Intent Deepening. Implements the local two-stage router, removes the
+  app-handoff channel approval dead-end, ships the ADR 0062 descriptor lifecycle
+  foundation, and adds outbound compose actions for email, calendar, and channel
+  send (ADR 0063). Model output stays advisory, Matrix generic outbound degrades
+  until v0.56 M1, and v0.53 channel approval validation resumes only after the
+  v0.54 tag.
 - v0.55: Web UX Redo. Re-layouts `/workspace` (ADR 0023/0024 kept) — chat
   primary, ephemeral surfaces become popups, canvas demoted, "Conversations"
   replaces "threads"; references ChatGPT/Claude/Hermes.
 - v0.56: Channel Parity + TUI. Explicit channel capability/parity matrix and a
   proper TUI/terminal channel under the ADR 0016 contract.
-- v0.57: Hardening, Export/Import, Settings Migration, And Final RC. No new
+- v0.57: Intent Descriptor Learning + Registration Lifecycle Completion. Completes
+  ADR 0062 with local-model descriptor generation, learned-review mining,
+  operator-exposed optimization, and full app/plugin/action registration signals.
+- v0.58: Hardening, Export/Import, Settings Migration, And Final RC. No new
   user-facing capability; portability, settings schema migration tool per ADR
-  0046, security evals including self-improvement and MCP server, and
-  release-candidate evidence.
+  0046, security evals including self-improvement and MCP server, ADR 0065
+  param-contract enforcement, and release-candidate evidence.
 - v1.0: Stability Release And **Tiered Public Contract Freeze**. No new
   features. Tier 1 freezes Runtime, Actions/permissions, Plugin, App, Settings
   Central schema shape, Allbert Home layout, Channel adapter boundary, and

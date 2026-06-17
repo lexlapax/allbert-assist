@@ -1,9 +1,10 @@
 defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
   @moduledoc """
-  v0.54 intent-router golden-set / security eval (ADR 0060/0061). Consolidates the
-  behavior- and authority-relevant router invariants as deterministic assertions
-  (local fakes; no live model). The full functional coverage lives in the
-  `intent/router_*` test files; this set is the release gate's named eval rows.
+  v0.54 router, descriptor lifecycle foundation, outbound compose, and security
+  eval (ADR 0060/0061/0062/0063). Consolidates the behavior- and authority-
+  relevant invariants as deterministic assertions (local fakes; no live model).
+  The full functional coverage lives in the focused test files; this set is the
+  release gate's named eval rows.
   """
   use ExUnit.Case, async: false
   @moduletag :security_eval_serial
@@ -220,7 +221,7 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
   end
 
   # intent-descriptor-dynamic-inert-until-promoted-001 /
-  # intent-descriptor-learned-memory-proposal-inert-001
+  # intent-descriptor-review-tier-inert-001
   test "a review-tier descriptor is inert until promoted" do
     attrs = %{
       app_id: :allbert,
@@ -238,7 +239,7 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
     assert DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
   end
 
-  # intent-descriptor-generation-local-only-001 (heuristic generation is offline)
+  # intent-descriptor-heuristic-generation-local-only-001
   test "heuristic descriptor generation is deterministic and offline" do
     module =
       AllbertAssist.Actions.Registry.modules()

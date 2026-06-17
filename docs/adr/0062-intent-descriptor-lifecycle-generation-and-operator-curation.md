@@ -1,11 +1,39 @@
 # ADR 0062: Intent Descriptor Lifecycle — Generation, Layered Curation & Reindex Hooks
 
-Status: Accepted (v0.54 M9; in-scope for v0.54, gates the tag — operator decision
-2026-06-16). Implementation-ready; APIs below verified against the codebase.
+Status: Accepted (v0.54 M9 foundation; v0.57 completion scope inserted after
+post-implementation audit). v0.54 gates the tag with the heuristic/YAML/CLI
+foundation; v0.57 completes the model-generation, learned-mining,
+operator-action, and full registration-signal lifecycle.
 Date: 2026-06-16
 Related: ADR 0060 (two-stage router + approval-gate separation), ADR 0061 (local
 embedding + router model tiers), ADR 0047 (doctor envelope), ADR 0019 (cross-surface
 intent enrichment), ADR 0034 (conversational app intent handoff).
+
+## Post-Implementation Correction
+
+The v0.54 implementation intentionally shipped a narrower but safe foundation:
+
+- dual-source `DescriptorResolver` over app/plugin-module and action-module
+  descriptors, plus generated YAML and operator overrides;
+- data-only YAML descriptor/vocabulary storage;
+- heuristic-only `Optimizer.generate/2`;
+- CLI curation (`doctor|bench|optimize|reindex|list|show|edit|disable|review|promote`);
+- an inert review tier and operator promotion path;
+- reindex-on-signal for the existing `allbert.dynamic_codegen.**` lifecycle.
+
+The following originally planned ADR 0062 pieces are **not** v0.54 shipped
+behavior and are now assigned to v0.57:
+
+- local-model descriptor generation through `router_local`;
+- learned-review proposal mining from memory, clarifications, confirmations,
+  traces, and operator corrections;
+- the operator-exposed `optimize_intent_descriptors` registered action;
+- `allbert.app.registered`, `allbert.plugin.registered`, and
+  `allbert.action.registry_changed` signal emission/consumption.
+
+This correction does not weaken the authority invariant: every descriptor remains
+only a routing hint, and active routing changes still require code declaration,
+accepted generated YAML, or operator override/promotion.
 
 ## Context
 
@@ -148,6 +176,14 @@ or executable parsing logic.
 
 ### 3. Descriptor generation and learning (local, advisory)
 
+**v0.54 shipped foundation:** `Optimizer.generate/2` is heuristic-only and
+offline. It writes advisory descriptor attrs from action name/description style
+metadata and never calls a model. Review-tier descriptors are inert until
+operator promotion.
+
+**v0.57 completion:** the advanced generation and learning loop below is the
+inserted v0.57 milestone (`docs/plans/v0.57-plan.md`), not v0.54 shipped behavior.
+
 A generation pass derives candidate descriptors (label, 3–6 example utterances,
 synonyms, slot hints) for actions missing them, from the action's `name/0`,
 `description/0`, and `capability/0`, using the **local** `router_local` model
@@ -164,7 +200,7 @@ never emits raw prompts to traces.
   can opt into auto-accept-with-audit for trusted generated descriptors in trusted
   environments.
 - Memory-analysis and trace-analysis proposals are **always learned-review** in
-  v0.54. They may add synonyms, positive phrases, negative phrases, slot markers,
+  v0.57. They may add synonyms, positive phrases, negative phrases, slot markers,
   or examples with evidence references, but they do not update active routing until
   promoted by an operator.
 
@@ -182,10 +218,11 @@ The learning loop is bounded and local:
 ### 4. The reindex / optimize entry point
 
 A single runnable maintenance operation re-derives descriptors and rebuilds the
-index, surfaced as both an action and a mix task (doctor envelope, ADR 0047):
+index. v0.54 shipped the Mix task/CLI path; v0.57 adds the registered action
+surface (doctor envelope, ADR 0047):
 
-- Action `optimize_intent_descriptors` (operator-exposed) and
-  `mix allbert.intent optimize` / `mix allbert.intent reindex`.
+- v0.54: `mix allbert.intent optimize` / `mix allbert.intent reindex`.
+- v0.57: action `optimize_intent_descriptors` (operator-exposed).
 - Steps: scan the live action registry → diff against resolved descriptors →
   generate candidates for uncovered actions (→ `learned/review/` or accepted
   `generated/` per policy) → rebuild the Index → emit an audit + a **coverage
@@ -198,11 +235,10 @@ index, surfaced as both an action and a mix task (doctor envelope, ADR 0047):
   for the reconciled action set without blocking boot.
 - **On action-set change**: Settings Central owns
   `intent.reindex_on_registration_signal` (default `true`). When enabled, the
-  Index **subscribes** to the SignalBus lifecycle events —
-  `allbert.dynamic_codegen.{registered,rolled_back,reconcile_completed}`
-  (existing), plus `allbert.app.registered` / `allbert.plugin.registered` /
-  `allbert.action.registry_changed` signals emitted from `App.Registry` /
-  `Plugin.Registry` / `ActionsOverlay` registration paths. On receipt it marks the
+  v0.54 Index subscribes to the existing `allbert.dynamic_codegen.**` lifecycle
+  events. v0.57 completes this hook with `allbert.app.registered`,
+  `allbert.plugin.registered`, and `allbert.action.registry_changed` signals
+  emitted from the canonical app, plugin, and action registration paths. On receipt it marks the
   index `:not_built` (lazy rebuild) **and** enqueues a descriptor-generation pass
   for newly-seen actions. Disabling the setting is an operator escape hatch for
   controlled tests or recovery only; the product default is to keep plugin/app/action
@@ -250,14 +286,15 @@ index, surfaced as both an action and a mix task (doctor envelope, ADR 0047):
 - **Descriptor store**: use existing `Settings.YamlCodec` (`YamlElixir` + `Ymlr`)
   for data-only read/write; remove `Code.eval_file/1`; write atomically under
   Allbert Home; reject path escapes and invalid YAML fail-closed.
-- **Generation**: `router_local` via ReqLLM, json_schema mode, local-only/redacted
-  (ADR 0061); heuristic fallback from action `name/0`+`description/0`+`capability/0`.
-- **Review tier**: YAML proposals under `intents/learned/review/`; `review` shows
-  evidence and diff against the active descriptor; `promote` writes accepted YAML
-  to `generated/` or `overrides/` and audits the change.
-- **Action + task**: new `Actions.Intent.OptimizeIntentDescriptors`
-  (`use AllbertAssist.Action`); `mix allbert.intent optimize|reindex|list|show|
-  edit|disable|review|promote` (extends the existing `doctor` dispatch).
+- **Generation**: v0.54 heuristic fallback from action
+  `name/0`+`description/0`+`capability/0`; v0.57 adds `router_local` via ReqLLM,
+  json_schema mode, local-only/redacted (ADR 0061), with heuristic fallback.
+- **Review tier**: v0.54 stores and promotes review-tier YAML manually; v0.57 adds
+  learned proposal mining into `intents/learned/review/` with evidence and support
+  counts.
+- **Action + task**: v0.54 ships `mix allbert.intent
+  optimize|reindex|list|show|edit|disable|review|promote`; v0.57 adds
+  `Actions.Intent.OptimizeIntentDescriptors` (`use AllbertAssist.Action`).
 - **Settings**: `intent.descriptor_autoaccept` (default `false`) and
   `intent.reindex_on_registration_signal` (default `true`) in Schema specs +
   defaults + safe_write_keys. Storage under `<ALLBERT_HOME>/intents/{generated,
@@ -281,11 +318,14 @@ index, surfaced as both an action and a mix task (doctor envelope, ADR 0047):
 
 ## Consequences
 
-- New: `DescriptorResolver`, a YAML descriptor/vocabulary store, a descriptor
-  generator, a learned-review proposal tier, the `optimize_intent_descriptors`
-  action + `mix allbert.intent optimize|reindex`, Index SignalBus subscription +
-  debounce, three registration signals, an `intents/` home tree,
+- New in v0.54: `DescriptorResolver`, a YAML descriptor/vocabulary store, a
+  heuristic descriptor generator, inert review-tier storage/promotion, `mix
+  allbert.intent optimize|reindex`, Index SignalBus subscription + debounce for
+  `allbert.dynamic_codegen.**`, an `intents/` home tree,
   `intent.descriptor_autoaccept`, and a future Intents web panel target.
+- New in v0.57: model-backed descriptor generation, learned-review proposal
+  mining, the `optimize_intent_descriptors` action, and the app/plugin/action
+  registration signals that complete automatic reindex on all action-set changes.
 - Doctor gains a coverage report over the effective routable inventory; new eval
   rows (new action becomes routable after reindex; operator override wins; generated
   descriptor grants no authority; rollback removes routability; reindex debounced;

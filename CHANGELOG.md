@@ -12,13 +12,11 @@ changelog entries or release notes.
 
 ## v0.54.0 - Intent Deepening: Two-Stage Local Intent Router
 
-Status: implemented across M0-M8; `mix allbert.test release.v054` is green for the
-pre-M9/M10 lane. The shipped default routing strategy is the local two-stage router
-(`intent.router_strategy = two_stage_local`). **Version/tag is deferred**: v0.53 is
-implemented-but-untagged and its channel-approval validation depends on this router,
-so the version-metadata bump and tagging wait on the v0.54 M9/M10 scope
-(descriptor lifecycle + outbound compose actions) and the F-H validation path in
-`docs/plans/v0.54-request-flow.md` (metadata currently remains `0.53.0`).
+Status: implemented through M11. The shipped default routing strategy is the local
+two-stage router (`intent.router_strategy = two_stage_local`), version metadata now
+reports `0.54.0`, and the post-audit release tag is `v0.54.0`. v0.54 unblocks the
+v0.53 channel approval validation path after the tag; Matrix/WhatsApp/Signal
+real-provider smokes remain v0.53 validation work.
 
 Plan: `docs/plans/v0.54-plan.md`. Request flow: `docs/plans/v0.54-request-flow.md`.
 ADRs: `docs/adr/0060-two-stage-intent-router-and-approval-gate-separation.md`,
@@ -41,25 +39,27 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
   channel-answerable clarification loop with a TTL `PendingStore` +
   `ClarifyResolver`; a `write_note` intent descriptor that closes the
   create-vs-search mis-route.
-- **Intent descriptor lifecycle (M9, ADR 0062):** descriptor coverage 12→29 across
-  the agent-exposed surface (agent set reconciled 47→50; `Descriptor.normalize`
-  accepts core `app_id: nil` actions under reserved `:allbert`); a layered
+- **Intent descriptor lifecycle foundation (M9, ADR 0062):** the live inventory
+  audit started from 192 registered actions, 47 agent-routable actions, and 12
+  descriptor-backed actions; v0.54 adds dual-source descriptors, a layered
   `DescriptorResolver` (app/plugin < action-module < generated < operator override,
-  with `disabled` overrides); reindex-on-signal (the Index subscribes to
-  `allbert.dynamic_codegen.**` and debounce-rebuilds); `DescriptorStore` +
-  `Optimizer` generation (heuristic; local-only/advisory; dynamic/write-code
-  descriptors inert in a review tier until promoted unless
-  `intent.descriptor_autoaccept`); `mix allbert.intent bench|optimize|reindex|list|
-  show|disable|promote|review` + a coverage report in `doctor`; a 34-case golden-set
-  + `Intent.Bench`. Web Intents panel deferred to v0.55.
+  with `disabled` overrides), data-only YAML generated/override stores, heuristic
+  local-only descriptor generation via `mix allbert.intent optimize`, dynamic-
+  codegen reindex hooks, `intent.reindex_on_registration_signal=true`, and
+  `intent.descriptor_autoaccept=false`. Generated descriptors for dynamic/write-code
+  actions remain inert until promoted unless explicitly autoaccepted. The web
+  Intents panel is deferred to v0.55; local-model generation, learned-review mining,
+  `optimize_intent_descriptors`, and app/plugin/action registration signals move to
+  v0.57.
 - **Outbound compose actions (M10, ADR 0063):** `send_email` (SMTP), `send_channel_message`
   (via the new `Channels.Outbound` boundary + identity-allowlist gating before
   dispatch), `create_calendar_event` (calendar MCP; graceful degrade) — all
   effectful, agent-routable, behind a shared `Actions.Outbound.Gate`
   (confirmation-required → opt-in generic resume on approval). New permissions
   `:email_send`/`:channel_message_send`/`:calendar_write` (needs_confirmation floor).
-  `deliver_outbound` wired for Slack/Telegram/Discord/WhatsApp/Signal (Matrix degrades
-  via the boundary, pending). Promoted 4 effectful verbs to agent-routable with the
+  `deliver_outbound` wired for Slack/Telegram/Discord/WhatsApp/Signal; Matrix
+  gracefully degrades and generic outbound is deferred to v0.56 M1. Promoted 4
+  effectful verbs to agent-routable with the
   confirmation gate: `install_marketplace_bundle`/`create_skill`/`continue_objective`
   (CLI callers handle needs_confirmation) and `cancel_objective` (kept not_required —
   internal plan-engine caller). Descriptor coverage 36; golden-set gap rows flip to
@@ -78,7 +78,7 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
   Router-selected actions now also preflight required param presence from the
   registered action schema before `Runner.run/3`; missing required params clarify
   in-channel instead of surfacing action-body `:missing_*` errors. Full typed
-  per-action param-contract enforcement remains deferred to v0.57 M7 / ADR 0065.
+  per-action param-contract enforcement remains deferred to v0.58 M7 / ADR 0065.
 - **v0.54 validation-tool hardening:** Discord channel simulation now waits up to
   120s for the live local router/model path instead of using the default 5s
   `GenServer.call` timeout; this affects `mix allbert.channels discord simulate`
@@ -92,10 +92,6 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
   simulate-callback` now builds a parser-valid local interaction with a synthetic
   interaction token and prints normalized processed callback output, so optional
   channel validation reaches approve/deny instead of `missing token`.
-- M9/M10 accepted as tag-blocking v0.54 scope: descriptor lifecycle/coverage/
-  golden-set work (ADR 0062) and outbound compose actions for email, calendar, and
-  channel send (ADR 0063). These are planned, not yet shipped in this changelog
-  entry.
 
 ### Changed
 
@@ -104,6 +100,9 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
   renders an answerable clarification — never inert text.
 - Intent routing default flipped to `two_stage_local` (the test environment is
   forced to `deterministic` via an app-env override so the suite stays offline).
+- `intent.calendar_mcp_server` is now a Settings Central key with default
+  `"calendar"` so `create_calendar_event` resolves its MCP server id through user/
+  operator configuration instead of an undeclared setting.
 
 ### Fixed
 
@@ -139,18 +138,18 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
 
 ### Verification
 
-- `mix allbert.test release.v054` passed for the M0-M8 router lane (router unit
-  suite + intent integration + the `:v054` eval + a clean secret scan);
-  `mix compile --warnings-as-errors` clean. The pre-tag gate now additionally
-  requires M9/M10 implementation, their `release.v054` lane expansion, and the
-  request-flow F-H validation checklist.
+- `mix allbert.test release.v054` passed with router unit, intent-agent router,
+  v0.54 eval, and secret-scan lanes green. Manual validation A-H passed with
+  expected graceful-degrade outcomes for missing calendar MCP and Matrix generic
+  outbound. `mix compile --warnings-as-errors`, `mix allbert.test docs`, focused
+  settings tests, and `git diff --check` are the post-audit closeout gates.
 
 ## v0.53.0 - Channel Pack 1 Retro-Validation And Channel Pack 2
 
 Status: implemented as `0.53.0`. Telegram + email delivery/inbound live validation
-passed, but approval-rendering checks are blocked behind v0.54 M9/M10 validation;
-Matrix/WhatsApp/Signal real-provider live smokes remain pending. Current version
-metadata is `0.53.0`.
+passed; approval-rendering checks resume after the v0.54 tag. Matrix/WhatsApp/
+Signal real-provider live smokes remain pending. Current version metadata is
+`0.54.0` because v0.54 is the active release closeout.
 
 Plan: `docs/plans/v0.53-plan.md`.
 Request flow: `docs/plans/v0.53-request-flow.md`.

@@ -5,7 +5,7 @@ Date: 2026-06-16
 Related: ADR 0060 (two-stage router + approval-gate separation — produces
 `Outcome` slots), ADR 0062 (descriptor lifecycle — `extracted_slots` on the
 engine `Decision`), ADR 0006 (Security Central — routing grants no authority).
-Successor: v0.57 M7 / ADR 0065 (central action **param-contract** enforcement),
+Successor: v0.58 M7 / ADR 0065 (central action **param-contract** enforcement),
 the larger schema-validation follow-on this ADR deliberately scopes out beyond
 the router-required-presence guard added during v0.54 M11 validation.
 
@@ -51,6 +51,15 @@ params (`title`/`body`) for underspecified utterances. The action body then
 returned an operator-visible `:missing_title` / `:missing_body` error. That is
 not a malformed slot payload; it is a missing required-param preflight at the
 router execution boundary.
+
+A channel-validation pass also exposed the same general crash class at the
+confirmation metadata persistence layer: malformed nested list tails could reach
+record serialization and surface `Enum.reduce/3` / `FunctionClauseError` before a
+channel approval handoff rendered. v0.54 M11 hardened confirmation record
+creation and approval resolution to fold malformed list tails into proper
+redacted/stringified lists. That fix is adjacent to this ADR's slot seam rather
+than part of `Intent.Slots`, but both close untrusted-shape failures before
+operator-visible approval flows.
 
 ## Decision
 
@@ -108,4 +117,4 @@ permission, app-scope, or confirmation decision is changed.
   router required-presence (rejecting unknown or typed-invalid params for *all*
   callers/actions). That requires resolving the injected-context-key split
   (`user_id`/`thread_id`/`session_id`) and an eval sweep across all actions —
-  tracked as v0.57 M7 / ADR 0065.
+  tracked as v0.58 M7 / ADR 0065.

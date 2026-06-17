@@ -93,7 +93,7 @@ authority boundary.
 - Positive: one canonical, deduplicated, type-agnostic artifact home; uniform
   provenance/metadata; trace-safe identity; no third-party supply-chain or
   maintenance risk; a clean substrate for v0.52+ channel attachments and v0.51
-  MCP resource exposure; v0.57 export/import inventories the `artifacts/` root as
+  MCP resource exposure; v0.58 export/import inventories the `artifacts/` root as
   one more Home subtree.
 - Negative: the project owns correctness of atomic writes, dedup, and GC (simple
   and well-trodden — rename-into-place handles the race; identical content is

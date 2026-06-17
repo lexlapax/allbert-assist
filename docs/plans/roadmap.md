@@ -243,7 +243,7 @@ Dependency order from here:
     schema, Allbert-author seed bundles, provenance/hash/version/rollback
     metadata, disabled/untrusted installs, browse-only plugin index metadata,
     workspace/intent/CLI surfaces, and marketplace doctor. Community-submission
-    governance remains parked. Started the v0.57 ADR for settings schema
+    governance remains parked. Started the v0.58 ADR for settings schema
     migration policy (ADR 0046).
 45.1. v0.45.1 Gate Transparency and Precommit Decomposition — implemented as
     `0.45.1`: commit/prepush/release command split, timed direct release
@@ -314,12 +314,12 @@ Dependency order from here:
     generalized disambiguation, clarification turn-state; ADR 0019/0034) — and it
     **removes the app-handoff channel dead-end** so a channel message reaches the
     approve/deny gate. Expanded 2026-06-16 (post-validation) to also carry **M9 —
-    intent descriptor lifecycle** (coverage across the action surface +
-    data-only YAML descriptor/vocabulary generation + learned-review proposals from
-    memory/trace analysis + reindex hooks + operator YAML curation + a comprehensive
-    golden-set; ADR 0062) and
+    intent descriptor lifecycle foundation** (coverage across the action surface +
+    data-only YAML descriptor/vocabulary generation, dynamic-codegen reindex hooks,
+    operator YAML curation, and a comprehensive golden-set; ADR 0062) and
     **M10 — outbound compose actions** (send_email / send_channel_message /
     create_calendar_event via MCP; ADR 0063); M9+M10 are in v0.54 and gate the tag.
+    The advanced ADR 0062 self-optimizing pieces move to v0.57.
     Resequenced ahead of completing v0.53 (its channel approval workflow depends on
     the router) and before the v0.55 UX redo (chat quality depends on intent).
 55. v0.55 Web UX Redo: re-layout `/workspace` (ADR 0023/0024 kept) — chat
@@ -328,13 +328,19 @@ Dependency order from here:
 56. v0.56 Channel Parity + TUI: explicit channel capability/parity matrix and a
     proper TUI/terminal channel under the ADR 0016 contract (not just
     `mix allbert.ask`).
-57. v0.57 Hardening, export/import, settings schema migration substrate, and
+57. v0.57 Intent Descriptor Learning + Registration Lifecycle Completion:
+    completes ADR 0062 with local-model descriptor generation, learned-review
+    proposal mining from reviewed runtime evidence, operator-exposed
+    `optimize_intent_descriptors`, and full app/plugin/action registration
+    reindex signals. Model/learned proposals remain inert until operator
+    promotion and never grant authority.
+58. v0.58 Hardening, export/import, settings schema migration substrate, and
     final RC: no new user-facing capability; Allbert Home portability,
     cross-surface security eval sweep, operator docs, performance hardening,
     CSP reconciliation, settings schema migration tool (per ADR 0046),
     central action param-contract enforcement (M7, ADR 0065; precursor v0.54
     ADR 0064), and release-candidate closeout.
-58. v1.0 Stability release and **tiered public contract freeze**: no new
+59. v1.0 Stability release and **tiered public contract freeze**: no new
     features; freeze Tier 1 (Runtime, Actions/permissions, Plugin, App,
     Settings Central schema shape, Allbert Home layout, Channel adapter
     boundary, Resource Access URI/grants) and Tier 2 (SurfaceProvider, Surface
@@ -2678,7 +2684,7 @@ Shipped scope:
   out of 1.0.
 - **Started drafting ADR 0046** (Settings Central schema migration policy) here
   because marketplace adds new settings fragments; ADR is accepted before
-  v0.57 implements the migration tool.
+  v0.58 implements the migration tool.
 
 ## v0.45.1: Gate Transparency And Precommit Decomposition - implemented as 0.45.1
 
@@ -2716,7 +2722,8 @@ Status: implemented as `0.46.0`; ready for operator manual validation before
 release tagging. Inserted in the post-v0.45 planning pass to give the v0.24
 delegate-agent substrate a second consumer before the v1.0 freeze. The
 v0.47-v0.53 arc shifted down by one to open this slot (the arc later extended to
-v0.57 in the 2026-06-09 restructure).
+v0.57 in the 2026-06-09 restructure, then v0.58 in the v0.54 post-audit
+renumbering).
 
 Shipped scope:
 
@@ -3289,18 +3296,13 @@ ADRs: `docs/adr/0060-...` (two-stage router + approval-gate separation, Accepted
 `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (NEW; M10;
 Accepted). Amends ADR 0019/0034.
 
-Status (2026-06-16): **M0–M8 implemented and on `main`** (`mix allbert.test
-release.v054` green); the two-stage router is the default selector. Live
-local-model validation then surfaced three ReqLLM↔Ollama integration fixes + a
-gate fix (all shipped — see v0.54-plan.md Appendix B) and a US-origin model A/B
-that set the defaults: `router_local` = **llama3.1:8b**, a **local** escalation
-tier `router_escalation_local` = gemma4:26b (Appendix A). **M9 (intent descriptor
-lifecycle + coverage + golden-set) and M10 (outbound compose actions) are now
-in-scope for v0.54 and gate the tag** (operator decision 2026-06-16); both are
-**planned + implementation-ready, execution on hold pending operator review**. The
-version-metadata bump (0.53.0 → 0.54.0) + tag are deferred behind M9 + M10 + the
-request-flow F-H validation path (`docs/plans/v0.54-request-flow.md`), which
-also unblocks the v0.53 channel approval manual checks.
+Status (2026-06-17): **implemented through M11**. `mix allbert.test release.v054`
+passed, the two-stage router is the default selector, version metadata is bumped
+to `0.54.0`, and the post-audit closeout tags `v0.54.0` after gates pass. Live
+local-model validation surfaced ReqLLM/Ollama integration fixes, slot/param seam
+hardening, Discord validation-tool fixes, descriptor grammar fixes, and outbound
+descriptor fixes (all shipped; see v0.54-plan.md Appendix B). v0.54 now unblocks
+v0.53 approval validation after the tag.
 
 Expected direction:
 
@@ -3316,32 +3318,26 @@ Expected direction:
 - The original deepening (ADR 0019/0034: `Intent.Engine`, `Classifier`,
   `Descriptor`/`Handoff`): stronger classification, bounded multi-turn context,
   generalized disambiguation, and a TTL'd clarification turn-state.
-- **M9 — intent descriptor lifecycle (ADR 0062):** the router only had **12**
-  descriptors for **192** actions. The live registry returns **49** agent modules,
-  but two channel doctor actions declare internal capability metadata, so M9 must
-  normalize/exclude them and targets a **47-action effective routable inventory**.
-  M9 expands coverage the canonical way (`intent_descriptors/0`, dual-source:
-  app- and action-module), then makes descriptors **self-maintaining** —
-  generated for actions that lack them (local model), stored as data-only YAML
-  descriptor/vocabulary files, layered with operator YAML curation (code <
-  generated < override), and re-derived on action-set change via SignalBus reindex
-  hooks + debounce. The embedding Index and active-app engine descriptor path both
-  consume the layered `DescriptorResolver` output, including action/generated/
-  override source badges, so higher-precedence slot descriptors cannot be dropped
-  by an older app-only descriptor path. Memory/trace analysis may create
-  learned-review YAML proposals, but those are inert until promoted. M9 also adds
-  `optimize_intent_descriptors`,
-  `mix allbert.intent optimize|reindex|list|…`, CLI curation with audited YAML
-  overrides (web Intents panel deferred to v0.55), and a comprehensive golden-set +
-  replay-bench. Generated descriptors for
-  dynamic/write-code actions are inert until operator-promoted. Routable ≠
-  executable.
+- **M9 — intent descriptor lifecycle foundation (ADR 0062):** the audit baseline
+  was **192** registered actions, **47** effective agent-routable actions, and
+  **12** descriptor-backed actions. v0.54 expands coverage the canonical way
+  (`intent_descriptors/0`, dual-source app- and action-module), stores generated
+  and override descriptors as data-only YAML, layers them through
+  `DescriptorResolver`, supports audited CLI curation, adds heuristic
+  local-only generation via `mix allbert.intent optimize`, and reindexes on
+  dynamic-codegen registration signals. Generated descriptors for dynamic/write-code
+  actions are inert until operator-promoted unless explicitly autoaccepted.
+  Routable != executable. The web Intents panel remains v0.55.
+  **Moved to v0.57:** local-model descriptor generation, learned-review proposal
+  mining, the `optimize_intent_descriptors` action, and full app/plugin/action
+  registration signals.
 - **M10 — outbound compose actions (ADR 0063):** three NEW effectful actions for
   intents the router can recognize but couldn't execute — `send_email` (wraps the
   existing SMTP send), `send_channel_message` (per-adapter outbound with
   identity-allowlist + trust-class gating before dispatch), `create_calendar_event`
-  (via a connected Google Calendar **MCP** server; graceful degrade if none). Each
-  is `confirmation: :required` behind the existing gate.
+  (via a configurable calendar **MCP** server id; graceful degrade if none). Each
+  is `confirmation: :required` behind the existing gate. Matrix generic outbound
+  gracefully degrades in v0.54 and is deferred to **v0.56 M1**.
 - Keep model output advisory re: authority; intent never grants authority; the
   approval gate stays a separate layer (ADR 0019, ADR 0060, ADR 0062, ADR 0063).
 
@@ -3378,10 +3374,35 @@ Expected direction:
   contract (with identity, dedupe, approval primitives), not just the
   `mix allbert.ask` task.
 
-## v0.57: Hardening, Export/Import, Settings Migration, And Final RC
+## v0.57: Intent Descriptor Learning + Registration Lifecycle Completion
 
 Plan: `docs/plans/v0.57-plan.md`
 Request flow: `docs/plans/v0.57-request-flow.md`
+
+Status: planned. Inserted by the v0.54 post-implementation audit so the advanced
+ADR 0062 lifecycle remains in the 1.0 arc rather than being parked.
+
+Expected direction:
+
+- Complete ADR 0062 beyond the v0.54 foundation.
+- Generate descriptor drafts through the local `router_local` model with bounded,
+  redacted prompts, deterministic YAML validation, and heuristic fallback.
+- Mine learned-review proposals from reviewed memory, resolved clarifications,
+  approved confirmations, redacted intent traces, and explicit operator
+  corrections.
+- Expose an operator-confirmable `optimize_intent_descriptors` action in addition
+  to the existing Mix flow.
+- Complete reindex-on-registration for `allbert.app.registered`,
+  `allbert.plugin.registered`, and `allbert.action.registry_changed`, alongside
+  the v0.54 dynamic-codegen signals.
+- Prove in evals that model output and learned proposals grant no authority,
+  routing only changes after operator promotion, and registration signals rebuild
+  correctly.
+
+## v0.58: Hardening, Export/Import, Settings Migration, And Final RC
+
+Plan: `docs/plans/v0.58-plan.md`
+Request flow: `docs/plans/v0.58-request-flow.md`
 ADR: `docs/adr/0046-settings-schema-migration-policy.md` (accepted here;
 drafted in v0.45)
 
@@ -3455,9 +3476,9 @@ disposable-home checkpoint the release cannot ship without:
 6. Operator can review and approve a multi-step plan before execution
    (v0.44).
 7. Operator can export Allbert Home and re-import on a second machine with
-   identical behavior, including settings migration (v0.57 + ADR 0046).
+   identical behavior, including settings migration (v0.58 + ADR 0046).
 8. All warning, security, precommit, and cross-surface eval gates pass
-   (v0.57).
+   (v0.58).
 
 ### Capabilities That Ship In The Arc But Are Not Freeze-Blocking
 

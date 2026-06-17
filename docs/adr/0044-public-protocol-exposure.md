@@ -140,7 +140,7 @@ under the following rules:
   demand or external-protocol stability warrants it.
 - Tool/resource exposure is opt-in. An empty exposure is a valid 1.0
   configuration.
-- The v0.57 security eval sweep covers all three v0.51 public surfaces: client/
+- The v0.58 security eval sweep covers all three v0.51 public surfaces: client/
   tool isolation, cross-client identity confusion, prompt injection through
   inbound payloads, self-approval denial, resource-scope leakage, HTTP token
   redaction/revocation/rate-limit posture, HTTP Origin/session behavior,
