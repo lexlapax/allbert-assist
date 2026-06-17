@@ -314,8 +314,10 @@ Dependency order from here:
     generalized disambiguation, clarification turn-state; ADR 0019/0034) — and it
     **removes the app-handoff channel dead-end** so a channel message reaches the
     approve/deny gate. Expanded 2026-06-16 (post-validation) to also carry **M9 —
-    intent descriptor lifecycle** (coverage across the action surface + generation +
-    reindex hooks + operator md curation + a comprehensive golden-set; ADR 0062) and
+    intent descriptor lifecycle** (coverage across the action surface +
+    data-only YAML descriptor/vocabulary generation + learned-review proposals from
+    memory/trace analysis + reindex hooks + operator YAML curation + a comprehensive
+    golden-set; ADR 0062) and
     **M10 — outbound compose actions** (send_email / send_channel_message /
     create_calendar_event via MCP; ADR 0063); M9+M10 are in v0.54 and gate the tag.
     Resequenced ahead of completing v0.53 (its channel approval workflow depends on
@@ -3320,11 +3322,14 @@ Expected direction:
   normalize/exclude them and targets a **47-action effective routable inventory**.
   M9 expands coverage the canonical way (`intent_descriptors/0`, dual-source:
   app- and action-module), then makes descriptors **self-maintaining** —
-  generated for actions that lack them (local model), layered with operator md
-  curation (code < generated < override), re-derived on action-set change via
-  SignalBus reindex hooks + debounce, with an `optimize_intent_descriptors` action,
-  `mix allbert.intent optimize|reindex|list|…`, an operator Intents web panel, and a
-  comprehensive golden-set + replay-bench. Generated descriptors for
+  generated for actions that lack them (local model), stored as data-only YAML
+  descriptor/vocabulary files, layered with operator YAML curation (code <
+  generated < override), and re-derived on action-set change via SignalBus reindex
+  hooks + debounce. Memory/trace analysis may create learned-review YAML proposals,
+  but those are inert until promoted. M9 also adds `optimize_intent_descriptors`,
+  `mix allbert.intent optimize|reindex|list|…`, CLI curation with audited YAML
+  overrides (web Intents panel deferred to v0.55), and a comprehensive golden-set +
+  replay-bench. Generated descriptors for
   dynamic/write-code actions are inert until operator-promoted. Routable ≠
   executable.
 - **M10 — outbound compose actions (ADR 0063):** three NEW effectful actions for

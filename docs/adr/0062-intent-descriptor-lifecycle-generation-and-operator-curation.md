@@ -50,7 +50,8 @@ routing hint into authority.
 ### 1. Layered descriptor resolution (precedence)
 
 Introduce `Intent.Router.DescriptorResolver`, which produces the descriptor set the
-Index builds from by merging four layers, deduped by `{app_id, action_name}` with
+Index builds from by merging four active layers, deduped by
+`{app_id, action_name}` with
 **later layers winning** (mirrors `Settings.Store` `deep_merge(defaults, overrides)`):
 
 1. **App/plugin-module code-declared** — existing `intent_descriptors/0` from
@@ -59,18 +60,74 @@ Index builds from by merging four layers, deduped by `{app_id, action_name}` wit
 2. **Action-module code-declared** — new resolver scan over live action modules that
    export `intent_descriptors/0`, so M9.1 descriptors may be co-located with the
    action implementation without changing the app/plugin registry contract.
-3. **Generated** — descriptors synthesized for registered, agent-exposed actions
-   that lack a code descriptor (esp. dynamic/write-code actions). Persisted as
-   md/yaml under `<ALLBERT_HOME>/intents/generated/`.
-4. **Operator overrides** — operator-curated md/yaml under
-   `<ALLBERT_HOME>/intents/overrides/`. Highest precedence; can tweak
-   label/examples/synonyms, **disable** a descriptor, or mark an action
+3. **Accepted generated YAML** — descriptors synthesized for registered,
+   agent-exposed actions that lack a code descriptor and have been accepted for
+   routing. Persisted as data-only YAML under
+   `<ALLBERT_HOME>/intents/generated/`.
+4. **Operator overrides YAML** — operator-curated data-only YAML under
+   `<ALLBERT_HOME>/intents/overrides/`. Highest active precedence; can tweak
+   label/examples/synonyms/vocabulary, **disable** a descriptor, or mark an action
    **non-routable**.
+
+A fifth **non-active learned-review tier** lives under
+`<ALLBERT_HOME>/intents/learned/review/`. It is where descriptor/vocabulary
+proposals produced from reviewed memory, resolved clarification turns, approved
+confirmations, and operator corrections land. The resolver does **not** load this
+tier; proposals become routable only after operator promotion into `generated/` or
+`overrides/`.
 
 The merge is advisory-only: it changes *which* candidates the router shortlists,
 never *whether* an action may run.
 
-### 2. Descriptor generation (local, advisory)
+### 2. YAML descriptor and vocabulary files
+
+Lifecycle-managed descriptor payloads are **data-only YAML**, never `.exs` or any
+other executable format. The descriptor YAML is also the editable vocabulary file:
+the router/ranker compiles it into the in-memory index during startup, `reindex`,
+or optimize. Domain-specific routing words do not belong hard-coded in
+`ranker.ex`; code should stay generic and consume normalized descriptor/vocabulary
+data.
+
+One file represents one `{app_id, action_name}` descriptor:
+
+```yaml
+schema_version: 1
+app_id: notes_files
+action_name: write_note
+label: Write note
+description: Create or replace a local markdown note.
+examples:
+  - create a note titled quarterly goals with body grow retention
+  - write a note named travel plans saying pack adapters
+synonyms:
+  - create note
+  - write note
+slots:
+  title:
+    required: true
+  body:
+    required: true
+vocabulary:
+  phrases:
+    - create a note
+    - write a note
+    - note titled
+  negative_phrases:
+    - find my notes
+    - search notes
+  allow_single_token_match: false
+disabled: false
+```
+
+`DescriptorStore` reads/writes these files through `Settings.YamlCodec` and atomic
+same-directory writes. It must reject symlinks, path traversal, directories, files
+outside Allbert Home, non-map YAML documents, unknown schema versions, and
+unregistered actions. Invalid YAML fails closed with a diagnostic in
+`mix allbert.intent doctor`; it is never evaluated. Existing `.exs` descriptor
+files are implementation drift and must be replaced before v0.54 validation
+continues.
+
+### 3. Descriptor generation and learning (local, advisory)
 
 A generation pass derives candidate descriptors (label, 3–6 example utterances,
 synonyms, slot hints) for actions missing them, from the action's `name/0`,
@@ -83,12 +140,27 @@ never emits raw prompts to traces.
 - Code-declared descriptors from installed plugins are **trusted** (the author
   wrote them).
 - Generated descriptors for **dynamic/write-code-originated** actions land in a
-  **review tier** (inert) by default and require operator promotion
-  (reuse the `Drafts` propose→review→promote + confirmation pattern) before they
+  **review tier** (inert) by default and require operator promotion before they
   become routable. A setting (`intent.descriptor_autoaccept`, default `false`)
-  can opt into auto-accept-with-audit for trusted environments.
+  can opt into auto-accept-with-audit for trusted generated descriptors in trusted
+  environments.
+- Memory-analysis and trace-analysis proposals are **always learned-review** in
+  v0.54. They may add synonyms, positive phrases, negative phrases, slot markers,
+  or examples with evidence references, but they do not update active routing until
+  promoted by an operator.
 
-### 3. The reindex / optimize entry point
+The learning loop is bounded and local:
+
+1. Inputs: reviewed/kept memory, resolved clarification turns, approved
+   confirmations, explicit operator corrections, and redacted intent traces.
+2. Output: YAML proposal files under `intents/learned/review/` with evidence refs,
+   support counts, timestamps, and a confidence score.
+3. Promotion: `mix allbert.intent review|promote` moves selected proposals into
+   `generated/` or `overrides/` with confirmation + audit.
+4. Non-goals: no secrets, no raw private message dumps, no external egress, no
+   silent active-route mutation from memory analysis.
+
+### 4. The reindex / optimize entry point
 
 A single runnable maintenance operation re-derives descriptors and rebuilds the
 index, surfaced as both an action and a mix task (doctor envelope, ADR 0047):
@@ -96,11 +168,12 @@ index, surfaced as both an action and a mix task (doctor envelope, ADR 0047):
 - Action `optimize_intent_descriptors` (operator-exposed) and
   `mix allbert.intent optimize` / `mix allbert.intent reindex`.
 - Steps: scan the live action registry → diff against resolved descriptors →
-  generate candidates for uncovered actions (→ review tier or generated/) →
-  rebuild the Index → emit an audit + a **coverage report** (routable / missing /
-  generated / overridden / disabled), visible in `mix allbert.intent doctor`.
+  generate candidates for uncovered actions (→ `learned/review/` or accepted
+  `generated/` per policy) → rebuild the Index → emit an audit + a **coverage
+  report** (routable / missing / generated / learned-review / overridden /
+  disabled), visible in `mix allbert.intent doctor`.
 
-### 4. Reindex hooks (when it runs)
+### 5. Reindex hooks (when it runs)
 
 - **Startup**: Index build stays lazy; a debounced boot reconcile ensures coverage
   for the reconciled action set without blocking boot.
@@ -113,23 +186,27 @@ index, surfaced as both an action and a mix task (doctor envelope, ADR 0047):
   for newly-seen actions.
 - **Debounce**: bursts (e.g. boot reconcile registering many drafts) coalesce into
   one rebuild + one generation pass via a short debounce window.
-- **Manual**: `mix allbert.intent optimize|reindex`, the web Intents panel button,
-  and operator restart.
+- **Manual**: `mix allbert.intent optimize|reindex`, operator restart, and the web
+  Intents panel button when that surface lands (deferred out of v0.54).
 
-### 5. Operator curation surfaces (md-first)
+### 6. Operator curation surfaces (YAML-first)
 
-- **Storage**: `<ALLBERT_HOME>/intents/{generated,overrides,drafts,audit}/` —
-  operator-editable md/yaml whose shape mirrors the `Intent.Descriptor` struct.
-  Overrides and promotions are **trusted-local** (same trust class as settings /
-  memory md), audited append-only under `intents/audit/`.
+- **Storage**:
+  `<ALLBERT_HOME>/intents/{generated,learned/review,overrides,audit}/` —
+  operator-editable YAML whose shape mirrors the `Intent.Descriptor` struct plus
+  bounded vocabulary/evidence metadata. Overrides and promotions are
+  **trusted-local** (same trust class as settings / reviewed memory), audited
+  append-only under `intents/audit/`.
 - **CLI** (`mix allbert.intent`): `doctor` (+coverage), `list` (resolved
   descriptors with source-layer badges), `show <action>`, `optimize`/`reindex`,
-  `edit <action>` (open the override md), `disable <action>`, `review` /
+  `edit <action>` (open the override YAML), `disable <action>`, `review` /
   `promote <draft>`.
-- **Web**: an **Intents panel** in `WorkspaceLive` (`@workspace_tools` + `intents`)
-  listing descriptors by domain with source badges (code / generated / override),
-  coverage stats, edit/disable, review-generated-drafts, and a trigger-optimize
-  button — edits write the override md and audit, gated like other operator writes.
+- **Web**: an eventual **Intents panel** in `WorkspaceLive`
+  (`@workspace_tools` + `intents`) listing descriptors by domain with source badges
+  (code / generated / override), coverage stats, edit/disable,
+  review-generated-drafts, and a trigger-optimize button. This is the target UI
+  surface, but v0.54 acceptance uses the CLI curation surface and defers the web
+  panel to v0.55.
 
 ## Implementation surface (verified against the codebase)
 
@@ -142,47 +219,55 @@ index, surfaced as both an action and a mix task (doctor envelope, ADR 0047):
 - **Resolver wrap point**: `Intent.Router.Index.build/0` calls
   `Extensions.Registry.registered_intent_descriptors/0` (registry.ex:79) today; the
   new `DescriptorResolver.resolve/1` wraps it, scans live action modules exporting
-  `intent_descriptors/0`, then layers generated + override.
+  `intent_descriptors/0`, then layers accepted generated YAML + operator override
+  YAML. Learned-review YAML is listed/reviewed but not loaded by the resolver.
 - **Descriptor shape**: `%Intent.Router`/`Intent.Descriptor{}` (descriptor.ex) with
   `Descriptor.normalize_many/2` (:96) for validation.
+- **Descriptor store**: use existing `Settings.YamlCodec` (`YamlElixir` + `Ymlr`)
+  for data-only read/write; remove `Code.eval_file/1`; write atomically under
+  Allbert Home; reject path escapes and invalid YAML fail-closed.
 - **Generation**: `router_local` via ReqLLM, json_schema mode, local-only/redacted
   (ADR 0061); heuristic fallback from action `name/0`+`description/0`+`capability/0`.
-- **Review tier**: `Drafts.Store.create_*_draft/2` (store.ex) → `promote_draft/2`
-  (:205); a `Drafts.Promotion.promote_descriptor/2` writes the override md.
+- **Review tier**: YAML proposals under `intents/learned/review/`; `review` shows
+  evidence and diff against the active descriptor; `promote` writes accepted YAML
+  to `generated/` or `overrides/` and audits the change.
 - **Action + task**: new `Actions.Intent.OptimizeIntentDescriptors`
   (`use AllbertAssist.Action`); `mix allbert.intent optimize|reindex|list|show|
   edit|disable|review|promote` (extends the existing `doctor` dispatch).
 - **Settings**: `intent.descriptor_autoaccept` (default `false`) in Schema specs +
   defaults + safe_write_keys. Storage under `<ALLBERT_HOME>/intents/{generated,
-  overrides,drafts,audit}/`.
+  learned/review,overrides,audit}/`.
 
 ## Authority invariants (unchanged; reaffirmed)
 
-- A descriptor — code, generated, or operator — is a **routing hint only**. It never
-  grants authority, never sets a `confirmation_id`, never lowers a safety floor.
-  The runner + Security Central + the confirmation gate remain the only authority
-  boundary (ADR 0060).
+- A descriptor — code, generated, learned-review, or operator — is a **routing hint
+  only**. It never grants authority, never sets a `confirmation_id`, never lowers a
+  safety floor. The runner + Security Central + the confirmation gate remain the
+  only authority boundary (ADR 0060).
 - Making an action *routable* does not make it *executable*: its own
   permission/confirmation/exposure still govern. A generated descriptor for a
   `confirmation: :required` action still hits approve/deny.
-- Generation is **local-only** (no egress), bounded, redacted; operator overrides
-  are trusted-local and audited. Generated descriptors for dynamic/write-code
-  actions are inert until operator-promoted (default).
+- Generation and learning are **local-only** (no egress), bounded, redacted;
+  operator overrides are trusted-local and audited. Generated descriptors for
+  dynamic/write-code actions and all memory-analysis proposals are inert until
+  operator-promoted (default).
 - The router still only routes within the registry-validated candidate set; a
   resolved descriptor for an unregistered/removed action is dropped on rebuild.
 
 ## Consequences
 
-- New: `DescriptorResolver`, a descriptor generator, the `optimize_intent_descriptors`
+- New: `DescriptorResolver`, a YAML descriptor/vocabulary store, a descriptor
+  generator, a learned-review proposal tier, the `optimize_intent_descriptors`
   action + `mix allbert.intent optimize|reindex`, Index SignalBus subscription +
-  debounce, three registration signals, an `intents/` home tree, the Intents web
-  panel, and `intent.descriptor_autoaccept` setting.
+  debounce, three registration signals, an `intents/` home tree,
+  `intent.descriptor_autoaccept`, and a future Intents web panel target.
 - Doctor gains a coverage report over the effective routable inventory; new eval
   rows (new action becomes routable after reindex; operator override wins; generated
   descriptor grants no authority; rollback removes routability; reindex debounced;
   dynamic action inert-until-promoted; internal-capability actions are not routable).
 - Net effect: the router's coverage tracks the live action set, operators can curate
-  routing in md without code, and authority/security posture is unchanged.
+  routing vocabulary in YAML without code, and authority/security posture is
+  unchanged.
 
 ## Alternatives considered
 
@@ -193,5 +278,10 @@ index, surfaced as both an action and a mix task (doctor envelope, ADR 0047):
   actions silently become routable; kept as an opt-in setting.
 - **Poll/watchdog the registry on an interval.** Rejected in favor of
   signal-subscription + debounce (events already exist; polling adds latency/waste).
-- **Store curation in the DB / settings.yml.** Rejected in favor of md/yaml files
-  consistent with memory/drafts, so operators can edit in an editor and diff.
+- **Store curation in the DB / settings.yml.** Rejected in favor of data-only YAML
+  descriptor/vocabulary files under Allbert Home, so operators can edit in an
+  editor and diff.
+- **Store descriptors as `.exs` files.** Rejected: executable descriptor payloads
+  are unnecessary, harder for operators to edit safely, and violate the data-only
+  boundary this lifecycle needs. Existing `.exs` descriptor-store code is
+  implementation drift to remove.
