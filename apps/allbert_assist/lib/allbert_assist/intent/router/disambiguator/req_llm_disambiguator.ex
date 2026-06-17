@@ -9,6 +9,7 @@ defmodule AllbertAssist.Intent.Router.Disambiguator.ReqLLMDisambiguator do
   """
   @behaviour AllbertAssist.Intent.Router.Disambiguator.Behaviour
 
+  alias AllbertAssist.Intent.Slots
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.ModelRuntime
 
@@ -128,16 +129,10 @@ defmodule AllbertAssist.Intent.Router.Disambiguator.ReqLLMDisambiguator do
     end
   end
 
-  defp parse_slots(value) when is_map(value), do: value
-
-  defp parse_slots(value) when is_binary(value) and value != "" do
-    case Jason.decode(value) do
-      {:ok, map} when is_map(map) -> map
-      _other -> %{}
-    end
-  end
-
-  defp parse_slots(_value), do: %{}
+  # The constrained-output schema declares `slots` as a string (JSON object) so
+  # the model emits serialized slots; `Intent.Slots.normalize/1` is the single
+  # canonical coercion to a map (decoding JSON, degrading malformed payloads).
+  defp parse_slots(value), do: Slots.normalize(value)
 
   defp field(map, key) when is_map(map),
     do: Map.get(map, key) || Map.get(map, to_string(key))

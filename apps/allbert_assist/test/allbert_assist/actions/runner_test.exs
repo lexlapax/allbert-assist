@@ -175,6 +175,19 @@ defmodule AllbertAssist.Actions.RunnerTest do
     assert unregistered.message =~ "not registered"
   end
 
+  test "non-map params are rejected as :invalid_params, never reaching an action body" do
+    # The Runner is the central seam: a malformed (non-map) params payload must
+    # not run any action, and is distinct from an unknown/unregistered action.
+    assert {:ok, response} = Runner.run("direct_answer", ["not", "a", "map"], context())
+
+    assert response.status == :error
+    assert response.runner_metadata.status == :error
+    assert response.runner_metadata.error == {:invalid_params, :non_map}
+    assert response.message =~ "params must be a map"
+    # The raw (possibly sensitive) payload is not echoed back.
+    refute response.message =~ "not"
+  end
+
   test "action errors are returned as structured error responses" do
     assert {:ok, response} =
              Runner.run(

@@ -329,8 +329,9 @@ Dependency order from here:
 57. v0.57 Hardening, export/import, settings schema migration substrate, and
     final RC: no new user-facing capability; Allbert Home portability,
     cross-surface security eval sweep, operator docs, performance hardening,
-    CSP reconciliation, settings schema migration tool (per ADR 0046), and
-    release-candidate closeout.
+    CSP reconciliation, settings schema migration tool (per ADR 0046),
+    central action param-contract enforcement (M7, ADR 0065; precursor v0.54
+    ADR 0064), and release-candidate closeout.
 58. v1.0 Stability release and **tiered public contract freeze**: no new
     features; freeze Tier 1 (Runtime, Actions/permissions, Plugin, App,
     Settings Central schema shape, Allbert Home layout, Channel adapter

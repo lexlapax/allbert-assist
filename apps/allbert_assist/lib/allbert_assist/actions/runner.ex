@@ -31,8 +31,8 @@ defmodule AllbertAssist.Actions.Runner do
     end
   end
 
-  def run(action_or_name, _params, context) when is_map(context) do
-    unknown_action_response(action_or_name, %{}, context)
+  def run(action_or_name, params, context) when is_map(context) do
+    invalid_params_response(action_or_name, params, context)
   end
 
   defp run_registered(action_module, params, context) do
@@ -131,6 +131,51 @@ defmodule AllbertAssist.Actions.Runner do
       skill_metadata: Redactor.redact(Map.get(context, :skill_metadata)),
       action_capability: Redactor.redact(Map.get(context, :action_capability)),
       error: {:unknown_action, unknown}
+    }
+
+    {:ok, attach_runner_metadata(response, metadata)}
+  end
+
+  # A non-map `params` payload never reaches an action body. The Runner is the
+  # central seam that rejects it with `:invalid_params` — distinct from an
+  # unknown/unregistered action — so callers get correct semantics and no action
+  # runs on a malformed payload. The raw value is not embedded (it may carry
+  # untrusted/sensitive content); only its shape is reported.
+  defp invalid_params_response(action_or_name, _params, context) do
+    action_name = unknown_action_name(action_or_name)
+    started_at = System.monotonic_time(:millisecond)
+
+    requested_signal =
+      action_name
+      |> Signals.action_requested(nil, %{}, context)
+      |> log_signal()
+
+    response =
+      Response.error("Action #{action_name} rejected: params must be a map.", {:invalid_params, :non_map},
+        actions: [Response.action(action_name, :error, error: {:invalid_params, :non_map})]
+      )
+
+    duration_ms = System.monotonic_time(:millisecond) - started_at
+    status = response_status(response)
+
+    completed_signal =
+      action_name
+      |> Signals.action_completed(nil, status, response, context, duration_ms)
+      |> log_signal()
+
+    metadata = %{
+      runner_action_id: runner_action_id(requested_signal),
+      requested_signal_id: signal_id(requested_signal),
+      completed_signal_id: signal_id(completed_signal),
+      action_name: action_name,
+      action_module: nil,
+      status: status,
+      duration_ms: duration_ms,
+      permission_decision: nil,
+      selected_skill: Map.get(context, :selected_skill),
+      skill_metadata: Redactor.redact(Map.get(context, :skill_metadata)),
+      action_capability: Redactor.redact(Map.get(context, :action_capability)),
+      error: {:invalid_params, :non_map}
     }
 
     {:ok, attach_runner_metadata(response, metadata)}

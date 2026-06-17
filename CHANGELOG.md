@@ -64,6 +64,18 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
   (CLI callers handle needs_confirmation) and `cancel_objective` (kept not_required —
   internal plan-engine caller). Descriptor coverage 36; golden-set gap rows flip to
   execute; M10 `:v054` eval rows.
+- **Central slot/param normalization seam (M11, ADR 0064):** new
+  `AllbertAssist.Intent.Slots` is the single seam where (possibly degraded) model
+  output becomes action params — `normalize/1` (coerce any payload to a map;
+  decode JSON strings; degrade lists/scalars/garbage to `%{}`), plus `merge/3`
+  and `to_params/2` that preserve the two producer key-policies (router drops
+  unknown atoms + `put_new`; engine is lenient). The router producer
+  (`ReqLLMDisambiguator.parse_slots`) and both `IntentAgent` consumers
+  (`merge_router_slots`, `descriptor_params_from_decision`) now funnel through it,
+  replacing five scattered inline coercions. `Actions.Runner.run/3` now rejects a
+  non-map params payload as `:invalid_params` (distinct from `:unknown_action`)
+  without embedding the raw value, so no action body runs on a malformed payload.
+  Full per-action param-contract enforcement is deferred to v0.57 M7 / ADR 0065.
 - M9/M10 accepted as tag-blocking v0.54 scope: descriptor lifecycle/coverage/
   golden-set work (ADR 0062) and outbound compose actions for email, calendar, and
   channel send (ADR 0063). These are planned, not yet shipped in this changelog

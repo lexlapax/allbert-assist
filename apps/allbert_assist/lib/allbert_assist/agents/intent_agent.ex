@@ -23,6 +23,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   alias AllbertAssist.Intent.Router.ClarifyResolver
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Intent.Router.PendingStore
+  alias AllbertAssist.Intent.Slots
   alias AllbertAssist.Objectives.Engine.Agent, as: ObjectivesEngine
   alias AllbertAssist.Resources.Ref
   alias AllbertAssist.Resources.ResourceURI
@@ -344,26 +345,10 @@ defmodule AllbertAssist.Agents.IntentAgent do
     end
   end
 
-  defp merge_router_slots(params, slots) when is_map(slots) do
-    Enum.reduce(slots, params, fn {key, value}, acc ->
-      case router_slot_key(key) do
-        nil -> acc
-        atom_key -> Map.put_new(acc, atom_key, value)
-      end
-    end)
-  end
-
-  defp merge_router_slots(params, _slots), do: params
-
-  defp router_slot_key(key) when is_atom(key), do: key
-
-  defp router_slot_key(key) when is_binary(key) do
-    String.to_existing_atom(key)
-  rescue
-    ArgumentError -> nil
-  end
-
-  defp router_slot_key(_key), do: nil
+  # Router slots are (possibly degraded) model output. `Intent.Slots` is the
+  # single canonical seam that coerces them to a map, drops keys that do not
+  # resolve to an existing atom, and never overwrites a param already set.
+  defp merge_router_slots(params, slots), do: Slots.merge(params, slots, key_mode: :existing_atom)
 
   defp router_clarify_response(%Outcome{shortlist: shortlist, question: question}, context, %Decision{} = decision) do
     options = clarify_options(shortlist)
@@ -1659,34 +1644,14 @@ defmodule AllbertAssist.Agents.IntentAgent do
          %Decision{selected_action: action_name, trace_metadata: trace_metadata},
          action_name
        ) do
+    # Engine-extracted slots flow through the same canonical seam (`:lenient`
+    # key policy keeps unknown string keys for the descriptor-params map).
     trace_metadata
     |> Map.get(:extracted_slots, %{})
-    |> normalize_extracted_slots()
+    |> Slots.to_params(:lenient)
   end
 
   defp descriptor_params_from_decision(_decision, _action_name), do: %{}
-
-  # Slots originate from (possibly degraded) model output. A well-formed payload is
-  # a map; under a timeout/partial decode a model can emit a list or scalar instead.
-  # Coerce anything that is not a map of params to an empty slot set so a malformed
-  # payload degrades to "no slots" rather than crashing the execute path.
-  defp normalize_extracted_slots(slots) when is_map(slots) do
-    Map.new(slots, fn {key, value} -> {normalize_param_key(key), value} end)
-  end
-
-  defp normalize_extracted_slots(_slots), do: %{}
-
-  defp normalize_param_key(key) when is_atom(key), do: key
-
-  defp normalize_param_key(key) when is_binary(key) do
-    try do
-      String.to_existing_atom(key)
-    rescue
-      ArgumentError -> key
-    end
-  end
-
-  defp normalize_param_key(key), do: key
 
   defp maybe_put_source_text_param(params, action_name, text) when is_binary(text) do
     with {:ok, module} <- Registry.resolve(action_name),
