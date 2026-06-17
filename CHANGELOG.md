@@ -221,11 +221,11 @@ Developer docs: `docs/developer/key-custody.md`,
   - `SmtpClient.normalize_result/1` mis-reported gen_smtp's bare-binary success
     receipt as an error; a binary receipt is now `:ok` and gen_smtp 3-tuple
     errors are flattened.
-- Matrix typed approval commands now route through the shared
+- Matrix and WhatsApp typed approval commands now route through the shared
   `ConfirmationCallback` guard as channel callback events. Exact
   `ALLBERT:APPROVE|DENY|SHOW:<confirmation_id>` replies no longer fall through
-  to the runtime router as ordinary Matrix text, so the v0.53 Matrix approval
-  validation step is executable.
+  to the runtime router as ordinary channel text, so the v0.53 typed approval
+  validation steps are executable.
 
 ### Security
 

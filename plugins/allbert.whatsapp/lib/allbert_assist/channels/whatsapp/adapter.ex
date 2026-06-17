@@ -144,11 +144,12 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
   defp process_text_event(fields, auth_context, state) do
     fields = put_thread_fields(fields, state)
     {text, new_thread?} = prompt_text(fields.text)
+    command = ConfirmationCallback.parse_typed_command(text)
     fields = maybe_isolate_new_provider_thread(fields, new_thread?)
 
-    case insert_received_event(fields, "inbound") do
+    case insert_received_event(fields, event_direction(command)) do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
-        handle_text_event(event, fields, auth_context, state, text, new_thread?)
+        handle_text_event(event, fields, auth_context, state, text, new_thread?, command)
 
       {:ok, :duplicate} ->
         {:ok, :duplicate}
@@ -158,21 +159,33 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
     end
   end
 
-  defp handle_text_event(event, fields, auth_context, state, text, new_thread?) do
+  defp event_direction({:ok, _action, _confirmation_id}), do: "callback"
+  defp event_direction(:ignore), do: "inbound"
+
+  defp handle_text_event(event, fields, auth_context, state, text, new_thread?, command) do
     with :ok <- validate_enabled(state),
          :ok <- validate_phone(fields, auth_context, state),
          :ok <- validate_text(fields, state),
          :ok <- reject_echo(fields),
          {:ok, user_id} <- resolve_identity(fields, state),
-         {:ok, inbound_trust} <- authorize_inbound(fields, user_id, :message),
+         {:ok, inbound_trust} <- authorize_inbound(fields, user_id, inbound_surface(command)),
          session_id <-
            Channels.derive_session_id("whatsapp", fields.external_user_id, fields.phone_number_id),
-         {:ok, response} <-
-           submit_runtime(text, user_id, session_id, fields, new_thread?, inbound_trust),
-         {:ok, rendered} <- Renderer.render_response(response, renderer_opts(state)),
+         {:ok, response, callback?} <-
+           process_text_or_callback(
+             command,
+             text,
+             user_id,
+             session_id,
+             fields,
+             new_thread?,
+             inbound_trust,
+             state
+           ),
+         {:ok, rendered} <- render_processed_response(response, callback?, state),
          {:ok, delivered} <- deliver_rendered(fields, rendered, state),
-         :ok <- record_outbound_refs(response, fields, delivered),
-         {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
+         :ok <- maybe_record_outbound_refs(callback?, response, fields, delivered),
+         {:ok, _event} <- mark_text_processed(callback?, event, response, user_id, session_id) do
       {:ok, :processed}
     else
       {:error, {:delivery_failed, _reason} = reason} ->
@@ -185,6 +198,79 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
         {:ok, _event} = mark_rejected_or_failed(event, reason)
         {:ok, :rejected}
     end
+  end
+
+  defp inbound_surface({:ok, _action, _confirmation_id}), do: :callback
+  defp inbound_surface(:ignore), do: :message
+
+  defp process_text_or_callback(
+         {:ok, action, confirmation_id},
+         _text,
+         user_id,
+         session_id,
+         fields,
+         _new_thread?,
+         inbound_trust,
+         state
+       ) do
+    with {:ok, response} <-
+           ConfirmationCallback.run(%{
+             action: action,
+             confirmation_id: confirmation_id,
+             channel: "whatsapp",
+             user_id: user_id,
+             identity_proof: identity_proof(fields, state, user_id),
+             session_id: session_id,
+             surface: "whatsapp_typed_command",
+             resolver_metadata: %{
+               provider: @provider,
+               external_event_id: fields.external_event_id,
+               external_user_id: fields.external_user_id,
+               external_chat_id: fields.phone_number_id,
+               external_message_id: fields.external_message_id,
+               command: "ALLBERT:#{String.upcase(to_string(action))}:#{confirmation_id}",
+               inbound_trust: inbound_trust
+             }
+           }) do
+      {:ok, response, true}
+    end
+  end
+
+  defp process_text_or_callback(
+         :ignore,
+         text,
+         user_id,
+         session_id,
+         fields,
+         new_thread?,
+         inbound_trust,
+         _state
+       ) do
+    with {:ok, response} <-
+           submit_runtime(text, user_id, session_id, fields, new_thread?, inbound_trust) do
+      {:ok, response, false}
+    end
+  end
+
+  defp render_processed_response(response, true, state),
+    do: render_confirmation_response(response, state)
+
+  defp render_processed_response(response, false, state) do
+    Renderer.render_response(response, renderer_opts(state))
+  end
+
+  defp maybe_record_outbound_refs(true, _response, _fields, _delivered), do: :ok
+
+  defp maybe_record_outbound_refs(false, response, fields, delivered) do
+    record_outbound_refs(response, fields, delivered)
+  end
+
+  defp mark_text_processed(true, event, response, user_id, session_id) do
+    mark_callback_processed(event, response, user_id, session_id)
+  end
+
+  defp mark_text_processed(false, event, response, user_id, session_id) do
+    mark_processed(event, response, user_id, session_id)
   end
 
   defp process_button_event(fields, auth_context, state) do
@@ -683,7 +769,8 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
   @doc false
   def deliver_outbound(target, body, _opts) when is_binary(target) and is_binary(body) do
     with {:ok, settings} <- AllbertAssist.Channels.channel_settings("whatsapp"),
-         {:ok, token} <- AllbertAssist.Settings.Secrets.get_secret(Map.get(settings, "access_token_ref")),
+         {:ok, token} <-
+           AllbertAssist.Settings.Secrets.get_secret(Map.get(settings, "access_token_ref")),
          phone_id when is_binary(phone_id) <- Map.get(settings, "phone_number_id"),
          {:ok, result} <- Client.send_text(token, phone_id, target, body, []) do
       {:ok, %{channel: "whatsapp", target: target, result: result}}

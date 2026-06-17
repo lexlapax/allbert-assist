@@ -9,6 +9,7 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
   alias AllbertAssist.Channels.WhatsApp.Adapter
   alias AllbertAssist.Channels.WhatsApp.Client
   alias AllbertAssist.Channels.WhatsApp.Parser
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -24,6 +25,7 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
 
   setup do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
@@ -63,6 +65,7 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
 
     on_exit(fn ->
       restore_env(Paths, original_paths_config)
+      restore_env(Confirmations, original_confirmations_config)
       restore_env(Runtime, original_runtime_config)
       restore_env(Settings, original_settings_config)
       restore_env(Trace, original_trace_config)
@@ -262,6 +265,56 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
     GenServer.stop(pid)
   end
 
+  test "typed confirmation commands resolve without runtime submission" do
+    assert {:ok, confirmation} = create_confirmation!("conf_whatsapp_typed", "whatsapp")
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.method == "POST"
+
+      {:ok, body, conn} = read_body(conn)
+      decoded = Jason.decode!(body)
+      assert decoded["text"]["body"] =~ "denied"
+
+      json(conn, %{"messages" => [%{"id" => "wamid.typed.outbound"}]})
+    end)
+
+    payload =
+      Parser.simulated_text_webhook(%{
+        from: "+15550001111",
+        phone_number_id: "15551234567",
+        message_id: "wamid.typed.command",
+        text: "ALLBERT:DENY:#{confirmation["id"]}"
+      })
+
+    server = :"whatsapp-adapter-typed-#{System.unique_integer([:positive])}"
+
+    assert {:ok, pid} =
+             Adapter.start_link(
+               name: server,
+               req_options: [plug: {Req.Test, __MODULE__}]
+             )
+
+    Req.Test.allow(__MODULE__, self(), pid)
+
+    assert {:ok, %{processed: 1, rejected: 0, failed: 0}} =
+             Adapter.simulate_webhook_event(server, payload)
+
+    refute_received {:runtime_request, %{text: "ALLBERT:DENY:" <> _rest}}
+
+    assert %Event{status: "processed", direction: "callback"} =
+             Repo.one(
+               from event in Event,
+                 where:
+                   event.channel == "whatsapp" and
+                     event.external_message_id == "wamid.typed.command"
+             )
+
+    assert {:ok, resolved} = Confirmations.read(confirmation["id"])
+    assert resolved["status"] == "denied"
+
+    GenServer.stop(pid)
+  end
+
   test "adapter records delivery failure without automatic provider retry" do
     Req.Test.expect(__MODULE__, fn conn ->
       assert conn.method == "POST"
@@ -369,6 +422,18 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
              Settings.put("channels.whatsapp.webhook_enabled", true, %{audit?: false})
 
     assert {:ok, _setting} = Settings.put("channels.whatsapp.enabled", true, %{audit?: false})
+  end
+
+  defp create_confirmation!(id, channel) do
+    Confirmations.create(%{
+      id: id,
+      origin: %{actor: "alice", channel: channel, surface: "whatsapp-test"},
+      target_action: %{name: "external_network_request"},
+      target_permission: :external_network,
+      target_execution_mode: :external_network_unavailable,
+      security_decision: %{permission: :external_network, decision: :needs_confirmation},
+      params_summary: %{url: "https://example.com"}
+    })
   end
 
   defp restore_plugins(original_plugins) do
