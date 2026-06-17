@@ -78,6 +78,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   alias AllbertAssist.Settings.Secrets
 
   @shortdoc "Inspect and operate local channel adapters"
+  @simulate_gateway_timeout_ms 120_000
 
   @switches [
     action_id: :string,
@@ -992,7 +993,8 @@ defmodule Mix.Tasks.Allbert.Channels do
              text: text
            }),
          {:ok, adapter} <- Discord.Adapter.start_link(name: nil, client_opts: [mode: :stub]),
-         result <- Discord.Adapter.simulate_gateway_event(adapter, event) do
+         result <-
+           Discord.Adapter.simulate_gateway_event(adapter, event, @simulate_gateway_timeout_ms) do
       GenServer.stop(adapter)
       normalize_discord_simulation(result)
     end
@@ -1014,7 +1016,8 @@ defmodule Mix.Tasks.Allbert.Channels do
                |> compact()
            },
          {:ok, adapter} <- Discord.Adapter.start_link(name: nil, client_opts: [mode: :stub]),
-         result <- Discord.Adapter.simulate_gateway_event(adapter, event) do
+         result <-
+           Discord.Adapter.simulate_gateway_event(adapter, event, @simulate_gateway_timeout_ms) do
       GenServer.stop(adapter)
       {:ok, {:poll, "discord", result}}
     end

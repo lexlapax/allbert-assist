@@ -79,6 +79,10 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
   registered action schema before `Runner.run/3`; missing required params clarify
   in-channel instead of surfacing action-body `:missing_*` errors. Full typed
   per-action param-contract enforcement remains deferred to v0.57 M7 / ADR 0065.
+- **v0.54 validation-tool hardening:** Discord channel simulation now waits up to
+  120s for the live local router/model path instead of using the default 5s
+  `GenServer.call` timeout; this affects `mix allbert.channels discord simulate`
+  and `simulate-callback` only.
 - M9/M10 accepted as tag-blocking v0.54 scope: descriptor lifecycle/coverage/
   golden-set work (ADR 0062) and outbound compose actions for email, calendar, and
   channel send (ADR 0063). These are planned, not yet shipped in this changelog

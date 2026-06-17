@@ -27,8 +27,8 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
     end
   end
 
-  def simulate_gateway_event(server \\ __MODULE__, event) do
-    GenServer.call(server, {:simulate_gateway_event, event})
+  def simulate_gateway_event(server \\ __MODULE__, event, timeout \\ 5_000) do
+    GenServer.call(server, {:simulate_gateway_event, event}, timeout)
   end
 
   @doc """
