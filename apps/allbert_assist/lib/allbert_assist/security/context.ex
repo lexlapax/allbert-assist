@@ -5,6 +5,7 @@ defmodule AllbertAssist.Security.Context do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Runtime.SafeTerm
   alias AllbertAssist.Skills
 
   @doc "Normalize runtime context into the categories Security Central needs."
@@ -176,7 +177,9 @@ defmodule AllbertAssist.Security.Context do
   end
 
   defp resource_summary(%{spec: %{resources: resources}}) when is_list(resources) do
-    Enum.map(resources, fn resource ->
+    resources
+    |> SafeTerm.filter_list(&is_map/1)
+    |> Enum.map(fn resource ->
       %{
         kind: Map.get(resource, :kind),
         relative_path: Map.get(resource, :relative_path),
@@ -302,7 +305,9 @@ defmodule AllbertAssist.Security.Context do
   end
 
   defp secret_refs(list, refs) when is_list(list) do
-    Enum.reduce(list, refs, &secret_refs/2)
+    list
+    |> SafeTerm.to_list()
+    |> Enum.reduce(refs, &secret_refs/2)
   end
 
   defp secret_refs(_term, refs), do: refs

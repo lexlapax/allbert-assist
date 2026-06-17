@@ -484,14 +484,43 @@ defmodule AllbertAssist.Intent.Engine do
          [%{} = top | _rest] <-
            descriptor_candidates_for_decision(candidates, classifier_candidate),
          score <- Ranker.score(top),
-         true <- score >= clarify_floor(),
-         {:ok, handoff} <-
+         true <- score >= clarify_floor() do
+      if registered_descriptor_candidate?(top) do
+        case descriptor_action_kind(top) do
+          :registry_action ->
+            descriptor_registry_action_attrs(top, request, app_context, classifier_diagnostic)
+
+          :clarify_intent ->
+            descriptor_clarification_attrs(
+              top,
+              candidates,
+              request,
+              app_context,
+              classifier_diagnostic
+            )
+        end
+      else
+        descriptor_handoff_attrs(top, candidates, request, app_context, classifier_diagnostic)
+      end
+    else
+      _no_descriptor_action -> nil
+    end
+  end
+
+  defp descriptor_handoff_attrs(
+         candidate,
+         candidates,
+         request,
+         app_context,
+         classifier_diagnostic
+       ) do
+    with {:ok, handoff} <-
            Handoff.new(
              handoff_attrs(
-               descriptor_decision_kind(top, candidates),
-               top,
+               descriptor_decision_kind(candidate, candidates),
+               candidate,
                request,
-               descriptor_margin(top, candidates)
+               descriptor_margin(candidate, candidates)
              )
            ) do
       %{
@@ -1404,13 +1433,18 @@ defmodule AllbertAssist.Intent.Engine do
   defp memory_append_text?(text) when is_binary(text) do
     normalized = String.downcase(text)
 
-    String.contains?(normalized, "remember") ||
-      String.contains?(normalized, "my name is") ||
-      String.contains?(normalized, "i prefer") ||
-      String.contains?(normalized, "save this")
+    not sensitive_memory_text?(normalized) and
+      (String.contains?(normalized, "remember") ||
+         String.contains?(normalized, "my name is") ||
+         String.contains?(normalized, "i prefer") ||
+         String.contains?(normalized, "save this"))
   end
 
   defp memory_append_text?(_text), do: false
+
+  defp sensitive_memory_text?(text) do
+    Regex.match?(~r/\b(password|passphrase|secret|api[_ -]?key|token|private key)\b/i, text)
+  end
 
   defp memory_read_text?(text) when is_binary(text) do
     normalized = String.downcase(text)

@@ -76,6 +76,22 @@ defmodule AllbertAssist.Intent.CandidateTest do
     refute candidate.trace_metadata.api_key == "secret-value"
   end
 
+  test "redacts and normalizes malformed trace metadata list tails" do
+    candidate =
+      Candidate.new!(%{
+        kind: :direct_answer,
+        id: "direct",
+        source: :deterministic,
+        trace_metadata: %{
+          values: [%{api_key: "secret-value"} | %{token: "another-secret"}]
+        }
+      })
+
+    assert [%{} = first, %{} = second] = candidate.trace_metadata.values
+    refute first.api_key == "secret-value"
+    refute second.token == "another-secret"
+  end
+
   defp safe_existing_atom?(value) do
     _atom = String.to_existing_atom(value)
     true

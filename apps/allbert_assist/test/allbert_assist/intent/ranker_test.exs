@@ -115,6 +115,110 @@ defmodule AllbertAssist.Intent.RankerTest do
     assert ranked.trace_metadata.ranking_reason == :action_text_match
   end
 
+  test "descriptor vocabulary phrases are data-driven and can block negative phrases" do
+    write_note =
+      EvalFixtures.candidate(
+        kind: :app_intent,
+        id: "notes_files:write_note",
+        action_name: "write_note",
+        source: :app,
+        status: :candidate,
+        selected?: false,
+        score: 0.2,
+        app_id: :notes_files,
+        trace_metadata: %{
+          descriptor: %{
+            label: "Write note",
+            action_name: "write_note",
+            examples: [],
+            synonyms: [],
+            vocabulary: %{
+              phrases: ["note titled"],
+              negative_phrases: ["find my notes"],
+              allow_single_token_match: false
+            }
+          }
+        }
+      )
+
+    search_notes =
+      EvalFixtures.candidate(
+        kind: :app_intent,
+        id: "notes_files:search_notes",
+        action_name: "search_notes",
+        source: :app,
+        status: :candidate,
+        selected?: false,
+        score: 0.21,
+        app_id: :notes_files,
+        trace_metadata: %{
+          descriptor: %{
+            label: "Search notes",
+            action_name: "search_notes",
+            examples: ["find my notes"],
+            synonyms: ["search notes"]
+          }
+        }
+      )
+
+    assert [%{id: "notes_files:write_note"} = ranked | _rest] =
+             Ranker.rank([search_notes, write_note], %{text: "create a note titled chan"})
+
+    assert ranked.trace_metadata.ranking_reason == :descriptor_text_match
+
+    assert [%{id: "notes_files:search_notes"} | _rest] =
+             Ranker.rank([search_notes, write_note], %{text: "find my notes about goals"})
+  end
+
+  test "descriptor text matching tolerates small grammar gaps" do
+    write_note =
+      EvalFixtures.candidate(
+        kind: :app_intent,
+        id: "notes_files:write_note",
+        action_name: "write_note",
+        source: :app,
+        status: :candidate,
+        selected?: false,
+        score: 0.2,
+        app_id: :notes_files,
+        trace_metadata: %{
+          descriptor: %{
+            label: "Create or write a local note",
+            action_name: "write_note",
+            examples: ["create a note titled groceries with body milk and eggs"],
+            synonyms: ["create note", "write note", "save note"]
+          }
+        }
+      )
+
+    search_notes =
+      EvalFixtures.candidate(
+        kind: :app_intent,
+        id: "notes_files:search_notes",
+        action_name: "search_notes",
+        source: :app,
+        status: :candidate,
+        selected?: false,
+        score: 0.2,
+        app_id: :notes_files,
+        trace_metadata: %{
+          descriptor: %{
+            label: "Search local notes",
+            action_name: "search_notes",
+            examples: ["find notes about onboarding"],
+            synonyms: ["search notes", "find notes"]
+          }
+        }
+      )
+
+    assert [%{id: "notes_files:write_note"} = ranked | _rest] =
+             Ranker.rank([search_notes, write_note], %{
+               text: "create a note titled fallback with body hi"
+             })
+
+    assert ranked.trace_metadata.ranking_reason == :descriptor_text_match
+  end
+
   test "descriptor matching prefers exact phrases over generic words in labels" do
     run_analysis =
       EvalFixtures.candidate(

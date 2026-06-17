@@ -64,9 +64,12 @@ defmodule AllbertAssist.Intent.Router.Index do
   @doc "The utterance text indexed for a descriptor (label ; examples ; synonyms)."
   @spec utterance_text(map()) :: String.t()
   def utterance_text(descriptor) do
+    vocabulary = Map.get(descriptor, :vocabulary, %{}) || %{}
+
     [to_string(descriptor.label)]
     |> Kernel.++(Map.get(descriptor, :examples, []))
     |> Kernel.++(Map.get(descriptor, :synonyms, []))
+    |> Kernel.++(Map.get(vocabulary, :phrases, []) || Map.get(vocabulary, "phrases", []))
     |> Enum.map(&to_string/1)
     |> Enum.reject(&(&1 == ""))
     |> Enum.join(" ; ")

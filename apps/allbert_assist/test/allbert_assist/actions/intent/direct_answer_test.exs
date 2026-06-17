@@ -80,6 +80,22 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswerTest do
     assert response.direct_answer[:model_enabled?] == false
   end
 
+  test "disabled model path tolerates malformed image input list tails" do
+    assert {:ok, response} =
+             DirectAnswer.run(%{text: "What is this?"}, %{
+               actor: "alice",
+               request: %{
+                 metadata: %{
+                   image_inputs: [%{api_key: "secret-value", resource_uri: "image://one"} | :tail]
+                 }
+               }
+             })
+
+    assert response.status == :completed
+    assert response.direct_answer.source == :bounded_fallback
+    refute inspect(response) =~ "secret-value"
+  end
+
   test "enabled model path uses the configured answerer and redacted metadata" do
     Application.put_env(:allbert_assist, DirectAnswer, answerer: FakeAnswerer)
 

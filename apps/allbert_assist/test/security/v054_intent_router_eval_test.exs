@@ -44,7 +44,11 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
       override: Application.get_env(:allbert_assist, :intent_router_strategy_override)
     }
 
-    System.put_env("ALLBERT_HOME", Path.join(System.tmp_dir!(), "allbert-v054-eval-#{System.unique_integer([:positive])}"))
+    System.put_env(
+      "ALLBERT_HOME",
+      Path.join(System.tmp_dir!(), "allbert-v054-eval-#{System.unique_integer([:positive])}")
+    )
+
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, Settings)
     Application.put_env(:allbert_assist, :intent_router_embedder, FakeEmbedder)
@@ -52,7 +56,10 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
     Application.delete_env(:allbert_assist, :intent_router_embedder_error)
 
     on_exit(fn ->
-      if original.home, do: System.put_env("ALLBERT_HOME", original.home), else: System.delete_env("ALLBERT_HOME")
+      if original.home,
+        do: System.put_env("ALLBERT_HOME", original.home),
+        else: System.delete_env("ALLBERT_HOME")
+
       restore(Paths, original.paths)
       restore(Settings, original.settings)
       restore(:intent_router_embedder, original.embedder)
@@ -67,13 +74,23 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
   # intent-router-shortlist-constrained-001 / authority-unchanged-001
   test "a selection outside the shortlist never executes (no hallucinated action)" do
     assert %Outcome{kind: :clarify} =
-             Disambiguator.decide(%{selected: "delete_all_files", confidence: 0.99}, @shortlist, 0.5, @opts)
+             Disambiguator.decide(
+               %{selected: "delete_all_files", confidence: 0.99},
+               @shortlist,
+               0.5,
+               @opts
+             )
   end
 
   # intent-router-low-confidence-clarifies-001
   test "low confidence clarifies rather than guessing" do
     assert %Outcome{kind: :clarify} =
-             Disambiguator.decide(%{selected: "create_note", confidence: 0.3}, @shortlist, 0.5, @opts)
+             Disambiguator.decide(
+               %{selected: "create_note", confidence: 0.3},
+               @shortlist,
+               0.5,
+               @opts
+             )
   end
 
   # intent-router-escalation-local-by-default-001
@@ -85,24 +102,41 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
     assert profile.provider_endpoint_kind == "local_endpoint"
 
     # With escalation explicitly disabled, a low-confidence selection clarifies (no escalation call).
-    Application.put_env(:allbert_assist, :intent_router_fake_selection, {:ok, %{selected: "create_note", confidence: 0.3}})
+    Application.put_env(
+      :allbert_assist,
+      :intent_router_fake_selection,
+      {:ok, %{selected: "create_note", confidence: 0.3}}
+    )
 
     assert {:ok, %Outcome{kind: :clarify}} =
-             Disambiguator.disambiguate("note", @shortlist, 0.5, %{}, @opts ++ [escalation_profile: ""])
+             Disambiguator.disambiguate(
+               "note",
+               @shortlist,
+               0.5,
+               %{},
+               @opts ++ [escalation_profile: ""]
+             )
   end
 
   # intent-router-create-vs-search-001 (the original mis-route regression)
   test "create-a-note shortlists write_note at or above search_notes" do
     Index.rebuild()
-    assert {:ok, %{shortlist: shortlist}} = Prefilter.shortlist("create a note titled groceries with milk")
+
+    assert {:ok, %{shortlist: shortlist}} =
+             Prefilter.shortlist("create a note titled groceries with milk")
+
     scores = Map.new(shortlist, fn s -> {s.action_name, s.score} end)
     assert Map.has_key?(scores, "write_note")
-    if Map.has_key?(scores, "search_notes"), do: assert(scores["write_note"] >= scores["search_notes"])
+
+    if Map.has_key?(scores, "search_notes"),
+      do: assert(scores["write_note"] >= scores["search_notes"])
   end
 
   # intent-router-no-app-handoff-deadend-channel-001
   test "a clarify outcome is channel-answerable (carries a question + shortlist), not a dead-end" do
-    outcome = Disambiguator.decide(%{selected: "__clarify__", confidence: 0.9}, @shortlist, 0.5, @opts)
+    outcome =
+      Disambiguator.decide(%{selected: "__clarify__", confidence: 0.9}, @shortlist, 0.5, @opts)
+
     assert %Outcome{kind: :clarify, shortlist: @shortlist} = outcome
     assert is_binary(outcome.question) and outcome.question != ""
   end
@@ -110,7 +144,9 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
   # intent-clarify-reply-revalidated-001 / pending-clarification re-classify-fresh
   test "an unrelated clarification reply does not bind (re-classified fresh)" do
     assert :no_match = ClarifyResolver.resolve("what's the weather", clarify_options())
-    assert {:ok, %{id: "search_notes"}} = ClarifyResolver.resolve("the second one", clarify_options())
+
+    assert {:ok, %{id: "search_notes"}} =
+             ClarifyResolver.resolve("the second one", clarify_options())
   end
 
   # intent-router-default-two-stage-local
@@ -126,17 +162,33 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
   test "a generated descriptor makes an uncovered action routable (resolved)" do
     refute DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
 
-    {:ok, _path} =
+    {:ok, path} =
       DescriptorStore.put(:generated, %{
         app_id: :allbert,
         action_name: "show_app",
         label: "Show app",
         examples: ["show app"],
         synonyms: ["app"],
+        vocabulary: %{phrases: ["show app"], allow_single_token_match: false},
         required_slots: []
       })
 
+    assert String.ends_with?(path, "/intents/generated/allbert/show_app.yaml")
     assert DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
+  end
+
+  # intent-descriptor-yaml-store-data-only-001 /
+  # intent-descriptor-invalid-yaml-fails-closed-001
+  test "descriptor store is data-only YAML and invalid files fail closed" do
+    generated = DescriptorStore.dir(:generated)
+    File.mkdir_p!(Path.join(generated, "allbert"))
+    File.write!(Path.join([generated, "allbert", "unsafe.exs"]), "%{action_name: \"show_app\"}")
+    File.write!(Path.join([generated, "allbert", "broken.yaml"]), "not: [valid\n")
+
+    refute DescriptorStore.read_attrs(:generated)
+           |> Enum.any?(
+             &((Map.get(&1, "action_name") || Map.get(&1, :action_name)) == "show_app")
+           )
   end
 
   # intent-descriptor-override-precedence-001 (disable removes a descriptor)
@@ -144,7 +196,11 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
     assert DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "write_note"))
 
     {:ok, _path} =
-      DescriptorStore.put(:overrides, %{app_id: :notes_files, action_name: "write_note", disabled: true})
+      DescriptorStore.put(:overrides, %{
+        app_id: :notes_files,
+        action_name: "write_note",
+        disabled: true
+      })
 
     refute DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "write_note"))
   end
@@ -155,9 +211,18 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
     assert descriptor.capability.confirmation == :required
   end
 
-  # intent-descriptor-dynamic-inert-until-promoted-001
+  # intent-descriptor-dynamic-inert-until-promoted-001 /
+  # intent-descriptor-learned-memory-proposal-inert-001
   test "a review-tier descriptor is inert until promoted" do
-    attrs = %{app_id: :allbert, action_name: "show_app", label: "Show app", examples: ["show app"], synonyms: ["app"], required_slots: []}
+    attrs = %{
+      app_id: :allbert,
+      action_name: "show_app",
+      label: "Show app",
+      examples: ["show app"],
+      synonyms: ["app"],
+      required_slots: []
+    }
+
     {:ok, _} = DescriptorStore.put(:review, attrs)
     refute DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
 
@@ -182,7 +247,8 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
   # m10-permission-floors-001
   test "outbound permissions default to a needs_confirmation floor" do
     for permission <- [:email_send, :channel_message_send, :calendar_write] do
-      assert AllbertAssist.Security.Policy.resolve(permission, %{}).effective == :needs_confirmation
+      assert AllbertAssist.Security.Policy.resolve(permission, %{}).effective ==
+               :needs_confirmation
     end
   end
 
@@ -195,7 +261,9 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
 
   # m10-channel-send-target-gated-001
   test "send_channel_message rejects an un-allowlisted target before dispatch" do
-    assert {:ok, response} = SendChannelMessage.run(%{channel: "slack", target: "#random", body: "hi"}, %{})
+    assert {:ok, response} =
+             SendChannelMessage.run(%{channel: "slack", target: "#random", body: "hi"}, %{})
+
     assert response.status == :stopped
     assert match?({:target_rejected, _}, response.error)
   end

@@ -6,8 +6,8 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
   generates a candidate descriptor for each (local model when available, else a
   heuristic from the action name/description), persists it, and rebuilds the index:
 
-    * regular static actions  -> `:generated` tier (loaded)
-    * dynamic / write-code actions -> `:review` tier (inert) unless
+    * regular static actions  -> `:generated` YAML tier (loaded)
+    * dynamic / write-code actions -> `:review` / learned-review tier (inert) unless
       `intent.descriptor_autoaccept` is true (then `:generated`)
 
   Generation is **local-only** (no egress) and advisory — a descriptor never grants
@@ -33,7 +33,10 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
         tier = tier_for(module.name(), dynamic, autoaccept)
         {:ok, _path} = DescriptorStore.put(tier, attrs)
         audit(module.name(), tier, strategy)
-        if tier == :generated, do: {[module.name() | gen], rev}, else: {gen, [module.name() | rev]}
+
+        if tier == :generated,
+          do: {[module.name() | gen], rev},
+          else: {gen, [module.name() | rev]}
       end)
 
     rebuild_index(opts)
@@ -45,6 +48,7 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
   def coverage do
     agent = agent_action_names()
     resolved = resolved_action_names()
+
     %{
       agent_exposed: MapSet.size(agent),
       routable: MapSet.size(MapSet.intersection(agent, resolved)),
@@ -81,6 +85,11 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
       label: phrase |> String.capitalize(),
       examples: Enum.uniq([phrase, "please #{phrase}"]),
       synonyms: Enum.uniq([phrase, hd(words)]),
+      vocabulary: %{
+        phrases: Enum.uniq([phrase]),
+        negative_phrases: [],
+        allow_single_token_match: false
+      },
       required_slots: [],
       handoff_required?: true
     }

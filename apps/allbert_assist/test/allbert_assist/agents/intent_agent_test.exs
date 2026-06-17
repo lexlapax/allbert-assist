@@ -229,7 +229,7 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert list_workflows_response.decision.selected_action == "list_workflows"
   end
 
-  test "neutral app descriptor returns handoff response without running the app action" do
+  test "neutral app registered descriptor reaches the normal confirmation gate" do
     with_stocksage_registered(fn ->
       assert {:ok, response} =
                IntentAgent.respond(%{
@@ -243,17 +243,20 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
                  input_signal_id: "sig-intent-handoff"
                })
 
-      # v0.54 (ADR 0060): the app-handoff is no longer an inert dead-end — it is
-      # rendered as a channel-answerable clarification (no app action is run), and
-      # the intent_handoff metadata is preserved for the web canvas surface.
-      assert response.status == :needs_clarification
-      assert response.decision.intent == :app_handoff
+      # v0.54 (ADR 0060): a registered descriptor from a neutral surface now
+      # runs through the normal action boundary. Routing still grants no
+      # authority; StockSage analysis stops at its confirmation gate.
+      assert response.status == :needs_confirmation
+      assert response.decision.intent == :registry_action
+      assert response.decision.selected_action == "run_analysis"
       assert response.decision.active_app == :allbert
-      assert response.intent_handoff.app_id == :stocksage
-      assert response.intent_handoff.action_name == "run_analysis"
-      assert response.intent_handoff.extracted_slots == %{"ticker" => "CIEN"}
-      refute response.approval_handoff
-      refute Enum.any?(response.actions, &Map.has_key?(&1, :confirmation_id))
+      assert response.decision.trace_metadata.app_id == :stocksage
+      assert response.decision.trace_metadata.extracted_slots == %{ticker: "CIEN"}
+      assert response.approval_handoff.target_action.action["name"] == "run_analysis"
+
+      assert Enum.any?(response.actions, fn action ->
+               get_in(action, [:approval_handoff, :confirmation_id]) == response.confirmation_id
+             end)
     end)
   end
 

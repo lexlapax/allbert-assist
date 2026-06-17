@@ -135,10 +135,21 @@ defmodule AllbertAssist.App.CoreApp do
         label: "Remember a fact in memory",
         examples: [
           "remember that my anniversary is June 20",
-          "note to self: the wifi password is on the router",
+          "note to self: the team retro is every Friday",
           "remember I prefer aisle seats"
         ],
         synonyms: ["remember", "remember that", "note to self", "memorize", "keep in mind"],
+        vocabulary: %{
+          negative_phrases: [
+            "my password",
+            "my passphrase",
+            "my secret",
+            "my token",
+            "my api key",
+            "private key"
+          ],
+          allow_single_token_match: false
+        },
         required_slots: [],
         handoff_required?: true
       },
@@ -342,7 +353,12 @@ defmodule AllbertAssist.App.CoreApp do
           "install a bundle from the marketplace",
           "add the research helpers marketplace skill"
         ],
-        synonyms: ["install marketplace", "install bundle", "install skill", "add marketplace skill"],
+        synonyms: [
+          "install marketplace",
+          "install bundle",
+          "install skill",
+          "add marketplace skill"
+        ],
         required_slots: [],
         handoff_required?: true
       },

@@ -10,6 +10,7 @@ defmodule AllbertAssist.Intent.Candidate do
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Runtime.SafeTerm
 
   @kinds ~w[action skill surface job channel memory objective refusal app_intent direct_answer]a
   @sources ~w[deterministic registry app plugin job channel memory objective trace model]a
@@ -266,7 +267,7 @@ defmodule AllbertAssist.Intent.Candidate do
   end
 
   defp normalize_list(nil), do: []
-  defp normalize_list(value) when is_list(value), do: value
+  defp normalize_list(value) when is_list(value), do: SafeTerm.to_list(value)
   defp normalize_list(value), do: [value]
 
   defp normalize_map(value) when is_map(value), do: value
@@ -276,7 +277,7 @@ defmodule AllbertAssist.Intent.Candidate do
 
   defp redact_value(value) when is_binary(value), do: bounded_string(value)
   defp redact_value(value) when is_map(value), do: redact_map(value)
-  defp redact_value(value) when is_list(value), do: Enum.map(value, &redact_value/1)
+  defp redact_value(value) when is_list(value), do: SafeTerm.map_list(value, &redact_value/1)
   defp redact_value(value), do: value
 
   defp field(map, key, default \\ nil)

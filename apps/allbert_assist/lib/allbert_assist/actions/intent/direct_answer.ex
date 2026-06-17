@@ -28,6 +28,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   alias AllbertAssist.Memory.ActiveMemory
   alias AllbertAssist.Resources.{ImageBounds, ImageMetadata}
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Runtime.SafeTerm
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Models
@@ -300,7 +301,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
 
     metadata
     |> image_input_values()
-    |> Enum.filter(&is_map/1)
+    |> SafeTerm.filter_list(&is_map/1)
   end
 
   defp image_input_values(metadata) when is_map(metadata) do
@@ -316,6 +317,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
 
   defp validate_image_inputs(image_inputs, profile, settings) do
     image_inputs
+    |> SafeTerm.to_list()
     |> Enum.reduce_while({:ok, []}, fn image_input, {:ok, acc} ->
       case validate_image_input(image_input, profile, settings) do
         {:ok, metadata} -> {:cont, {:ok, [metadata | acc]}}
@@ -392,7 +394,9 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   defp maybe_put_image_input_field(metadata, key, value), do: Map.put(metadata, key, value)
 
   defp cleanup_transient_image_inputs(image_inputs) do
-    Enum.each(image_inputs, &cleanup_transient_image_input/1)
+    image_inputs
+    |> SafeTerm.to_list()
+    |> Enum.each(&cleanup_transient_image_input/1)
   end
 
   defp cleanup_transient_image_input(image_input) do

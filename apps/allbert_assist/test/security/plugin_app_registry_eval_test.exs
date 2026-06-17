@@ -240,7 +240,7 @@ defmodule AllbertAssist.Security.PluginAppRegistryEvalTest do
     assert eval.trace.confirmations_created == 0
   end
 
-  test "app-handoff-bypass-001: neutral app intent handoff does not execute StockSage" do
+  test "app-handoff-bypass-001: neutral app intent reaches StockSage confirmation gate" do
     fixture = EvalInventory.row!("app-handoff-bypass-001")
 
     assert {:ok, _setting} =
@@ -269,17 +269,17 @@ defmodule AllbertAssist.Security.PluginAppRegistryEvalTest do
             %{
               decision:
                 if(
-                  response.status == :completed and
-                    response.decision.intent == :app_handoff and
-                    response.decision.selected_action == nil and
-                    after_count == before_count,
-                  do: :denied,
+                  response.status == :needs_confirmation and
+                    response.decision.intent == :registry_action and
+                    response.decision.selected_action == "run_analysis" and
+                    after_count == before_count + 1,
+                  do: :needs_confirmation,
                   else: :allowed
                 ),
               result: response,
               trace: %{
                 fixture_id: fixture.id,
-                boundary: :intent_handoff,
+                boundary: :approval_gate,
                 confirmations_before: before_count,
                 confirmations_after: after_count,
                 selected_action: response.decision.selected_action,
@@ -290,9 +290,9 @@ defmodule AllbertAssist.Security.PluginAppRegistryEvalTest do
         })
       )
 
-    assert_denied(eval)
-    assert eval.result.intent_handoff.action_name == "run_analysis"
-    assert eval.trace.confirmations_after == eval.trace.confirmations_before
+    assert_needs_confirmation(eval)
+    assert eval.result.approval_handoff.target_action.action["name"] == "run_analysis"
+    assert eval.trace.confirmations_after == eval.trace.confirmations_before + 1
   end
 
   test "StockSage-scoped registered action jobs reach normal confirmation" do

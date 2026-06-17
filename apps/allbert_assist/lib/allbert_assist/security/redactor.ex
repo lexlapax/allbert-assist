@@ -43,6 +43,7 @@ defmodule AllbertAssist.Security.Redactor do
   ]
   @sensitive_query_names ~w[token api_key key secret password bearer access_token auth session]
   @status_keys ["credential_status", "secret_status", "secret_ref_display"]
+  @non_sensitive_key_names ["allow_single_token_match"]
   @secret_value_patterns [
     ~r/\b(sk-[A-Za-z0-9_-]{6,})\b/,
     ~r/\b(ghp_[A-Za-z0-9_]{6,})\b/,
@@ -121,6 +122,7 @@ defmodule AllbertAssist.Security.Redactor do
       |> String.downcase()
 
     normalized not in @status_keys and
+      normalized not in @non_sensitive_key_names and
       (normalized in @sensitive_key_names or
          Enum.any?(@sensitive_key_fragments, &String.contains?(normalized, &1)))
   end

@@ -411,19 +411,20 @@ defmodule StockSage.ActionsTest do
     assert decision.trace_metadata.extracted_slots == %{symbol: "AAPL"}
   end
 
-  test "Engine.decide does NOT select run_analysis when active_app is not stocksage" do
-    # Cross-app routing must remain explicit. Without the StockSage session
-    # the active-app boost does not apply and the engine falls back to its
-    # default (direct_answer) for the same phrasing.
+  test "Engine.decide selects registered StockSage descriptors from neutral app context" do
+    # v0.54 removes the neutral app-handoff dead-end. Routing still grants no
+    # authority; the selected action must run through its normal permission gate.
     assert {:ok, decision} =
              Engine.decide(%{
                text: "analyze AAPL for 2026-05-01",
                user_id: "alice"
              })
 
-    refute decision.selected_action == "run_analysis",
-           "run_analysis should not be selected without active_app: :stocksage; " <>
-             "got selected_action=#{inspect(decision.selected_action)}"
+    assert decision.intent == :registry_action
+    assert decision.selected_action == "run_analysis"
+    assert decision.active_app == :allbert
+    assert decision.trace_metadata.app_id == :stocksage
+    assert decision.trace_metadata.descriptor_candidate_id == "stocksage:run_analysis"
   end
 
   test "intent agent uses descriptor params for active StockSage trends" do
@@ -493,7 +494,7 @@ defmodule StockSage.ActionsTest do
     assert [%{symbol: "AAPL", thread_id: "thr-queue-descriptor"}] = Queue.list_entries("alice")
   end
 
-  test "neutral queue descriptor handoff creates no queue row" do
+  test "neutral queue descriptor runs through the registered action boundary" do
     assert {:ok, response} =
              IntentAgent.respond(%{
                text: "queue analysis for AAPL",
@@ -504,11 +505,13 @@ defmodule StockSage.ActionsTest do
              })
 
     assert response.status == :completed
-    assert response.decision.intent == :app_handoff
-    assert response.intent_handoff.action_name == "queue_analysis"
-    assert response.intent_handoff.extracted_slots == %{"symbol" => "AAPL"}
+    assert response.decision.intent == :registry_action
+    assert response.decision.selected_action == "queue_analysis"
+    assert response.decision.trace_metadata.extracted_slots == %{symbol: "AAPL"}
     refute Enum.any?(response.actions, &Map.has_key?(&1, :confirmation_id))
-    assert [] = Queue.list_entries("alice")
+
+    assert [%{symbol: "AAPL", thread_id: "thr-neutral-queue-handoff"}] =
+             Queue.list_entries("alice")
   end
 
   test "neutral queue descriptor missing symbol asks for clarification" do
@@ -521,7 +524,7 @@ defmodule StockSage.ActionsTest do
                session_id: "sess-neutral-queue-clarify"
              })
 
-    assert response.status == :completed
+    assert response.status == :needs_clarification
     assert response.decision.intent == :clarify_intent
     assert response.intent_handoff.action_name == "queue_analysis"
     assert response.intent_handoff.missing_slots == ["symbol"]

@@ -51,7 +51,11 @@ defmodule Mix.Tasks.Allbert.Intent do
 
     strategy = if opts[:heuristic], do: :heuristic, else: :model
     result = Optimizer.optimize(strategy: strategy)
-    Mix.shell().info("generated=#{length(result.generated)} review_pending=#{length(result.reviewed)}")
+
+    Mix.shell().info(
+      "generated=#{length(result.generated)} review_pending=#{length(result.reviewed)}"
+    )
+
     print_coverage(result.coverage)
   end
 
@@ -74,12 +78,18 @@ defmodule Mix.Tasks.Allbert.Intent do
         Mix.shell().info("no resolved descriptor for #{action}")
 
       d ->
+        override_path =
+          case DescriptorStore.path(:overrides, d.app_id, action) do
+            {:ok, path} -> path
+            {:error, reason} -> inspect(reason)
+          end
+
         Mix.shell().info("""
         #{d.action_name} [#{d.source}] app_id=#{d.app_id}
           label: #{d.label}
           examples: #{inspect(d.examples)}
           synonyms: #{inspect(d.synonyms)}
-          override file: #{Path.join(DescriptorStore.dir(:overrides), "#{d.app_id}__#{action}.exs")}
+          override file: #{override_path}
         """)
     end
   end
@@ -95,10 +105,21 @@ defmodule Mix.Tasks.Allbert.Intent do
     Mix.shell().info("disabled #{action} (#{path}); run `mix allbert.intent reindex` to apply")
   end
 
-  defp dispatch(["promote", action]) do
-    case DescriptorStore.promote(:review, :generated, descriptor_app_id(action), action) do
+  defp dispatch(["promote", action | rest]) do
+    {opts, _rest, _invalid} =
+      OptionParser.parse(rest,
+        strict: [from: :string, to: :string],
+        aliases: [f: :from, t: :to]
+      )
+
+    from = tier_option(opts[:from], :review)
+    to = tier_option(opts[:to], :generated)
+
+    case DescriptorStore.promote(from, to, descriptor_app_id(action), action) do
       {:ok, path} ->
-        Mix.shell().info("promoted #{action} -> #{path}; run `mix allbert.intent reindex` to apply")
+        Mix.shell().info(
+          "promoted #{action} -> #{path}; run `mix allbert.intent reindex` to apply"
+        )
 
       {:error, reason} ->
         Mix.shell().info("could not promote #{action}: #{inspect(reason)}")
@@ -112,7 +133,10 @@ defmodule Mix.Tasks.Allbert.Intent do
 
       attrs ->
         Enum.each(attrs, fn a ->
-          Mix.shell().info("  #{Map.get(a, :action_name) || Map.get(a, "action_name")}")
+          Mix.shell().info(
+            "  #{Map.get(a, :action_name) || Map.get(a, "action_name")} " <>
+              "app_id=#{Map.get(a, :app_id) || Map.get(a, "app_id")}"
+          )
         end)
     end
   end
@@ -132,10 +156,19 @@ defmodule Mix.Tasks.Allbert.Intent do
     end
   end
 
+  defp tier_option(nil, default), do: default
+  defp tier_option("learned", _default), do: :review
+  defp tier_option("learned-review", _default), do: :review
+  defp tier_option("review", _default), do: :review
+  defp tier_option("generated", _default), do: :generated
+  defp tier_option("overrides", _default), do: :overrides
+  defp tier_option("override", _default), do: :overrides
+  defp tier_option(_value, default), do: default
+
   defp print_coverage(c) do
     Mix.shell().info(
       "coverage: routable=#{c.routable}/#{c.agent_exposed} missing=#{c.missing} " <>
-        "generated=#{c.generated} review_pending=#{c.review_pending} overridden=#{c.overridden}"
+        "generated=#{c.generated} learned_review=#{c.review_pending} overridden=#{c.overridden}"
     )
   end
 

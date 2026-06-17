@@ -147,7 +147,7 @@ defmodule AllbertAssist.Intent.ClassifierTest do
     refute inspect(descriptor) =~ "secret"
   end
 
-  test "classifier-selected app descriptor remains an explicit handoff" do
+  test "classifier-selected registered app descriptor selects the registry action" do
     enable_fake_classifier!()
 
     FakeClassifier.put_result(
@@ -162,15 +162,16 @@ defmodule AllbertAssist.Intent.ClassifierTest do
 
     assert {:ok, decision} = Engine.decide(EvalFixtures.request(text: "analyze CIEN"))
 
-    assert decision.intent == :app_handoff
-    assert decision.selected_action == nil
-    assert decision.trace_metadata.intent_handoff.action_name == "run_analysis"
+    assert decision.intent == :registry_action
+    assert decision.selected_action == "run_analysis"
+    assert decision.trace_metadata.descriptor_candidate_id == "stocksage:run_analysis"
+    assert decision.trace_metadata.extracted_slots == %{ticker: "CIEN"}
     assert decision.trace_metadata.classifier.status == :used
     assert decision.trace_metadata.classifier.selected_kind == :app_intent
     assert decision.trace_metadata.classifier.selected_id == "stocksage:run_analysis"
   end
 
-  test "classifier app action proposal that is not collected cannot bypass handoff" do
+  test "classifier app action proposal that is not collected cannot bypass registry validation" do
     enable_fake_classifier!()
 
     FakeClassifier.put_result(
@@ -185,10 +186,10 @@ defmodule AllbertAssist.Intent.ClassifierTest do
 
     assert {:ok, decision} = Engine.decide(EvalFixtures.request(text: "analyze CIEN"))
 
-    assert decision.intent == :app_handoff
-    assert decision.selected_action == nil
-    assert decision.trace_metadata.intent_handoff.app_id == :stocksage
-    assert decision.trace_metadata.intent_handoff.action_name == "run_analysis"
+    assert decision.intent == :registry_action
+    assert decision.selected_action == "run_analysis"
+    assert decision.trace_metadata.app_id == :stocksage
+    assert decision.trace_metadata.descriptor_candidate_id == "stocksage:run_analysis"
     assert decision.trace_metadata.classifier.status == :unknown_candidate
     assert decision.trace_metadata.classifier.selected_kind == :action
   end
@@ -208,8 +209,9 @@ defmodule AllbertAssist.Intent.ClassifierTest do
 
     assert {:ok, decision} = Engine.decide(EvalFixtures.request(text: "analyze CIEN"))
 
-    assert decision.intent == :app_handoff
-    assert decision.trace_metadata.intent_handoff.action_name == "run_analysis"
+    assert decision.intent == :registry_action
+    assert decision.selected_action == "run_analysis"
+    assert decision.trace_metadata.descriptor_candidate_id == "stocksage:run_analysis"
     assert decision.trace_metadata.classifier.status == :unknown_candidate
     assert decision.trace_metadata.classifier.selected_kind == :app_intent
     assert decision.trace_metadata.classifier.selected_id == "stocksage:not_real"

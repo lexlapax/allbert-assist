@@ -46,6 +46,17 @@ defmodule AllbertAssist.Runtime.RedactorTest do
              Redactor.redact(%{"data" => [%{api_key: "sk-secret"} | "tail"]})
   end
 
+  test "descriptor vocabulary token-match flag is not treated as a secret key" do
+    redacted =
+      Redactor.redact(%{
+        allow_single_token_match: false,
+        token: "secret-token-value"
+      })
+
+    assert redacted.allow_single_token_match == false
+    assert redacted.token == "[REDACTED]"
+  end
+
   test "surface-specific runtime redaction uses the same strict policy" do
     payload = %{
       resource_access: %{raw_response: %{token: "secret"}},

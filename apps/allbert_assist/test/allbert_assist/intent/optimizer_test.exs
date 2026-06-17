@@ -33,20 +33,46 @@ defmodule AllbertAssist.Intent.Router.OptimizerTest do
   end
 
   test "store put/load round-trips a generated descriptor for an uncovered agent action" do
-    {:ok, _path} =
+    {:ok, path} =
       DescriptorStore.put(:generated, %{
         app_id: :allbert,
         action_name: "show_app",
         label: "Show app",
         examples: ["show app"],
         synonyms: ["app details"],
+        vocabulary: %{
+          phrases: ["show app"],
+          negative_phrases: ["hide app"],
+          allow_single_token_match: false
+        },
         required_slots: []
       })
 
+    assert path =~ "/intents/generated/allbert/show_app.yaml"
+    refute String.ends_with?(path, ".exs")
+    assert File.read!(path) =~ "schema_version: 1"
+
     loaded = DescriptorStore.load(:generated)
-    assert Enum.any?(loaded, &(&1.action_name == "show_app"))
+
+    assert Enum.any?(
+             loaded,
+             &(&1.action_name == "show_app" and &1.vocabulary.phrases == ["show app"])
+           )
+
     # the resolver surfaces the generated descriptor
     assert DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
+  end
+
+  test "store ignores executable and invalid descriptor payloads fail-closed" do
+    generated = DescriptorStore.dir(:generated)
+    File.mkdir_p!(Path.join(generated, "allbert"))
+    File.write!(Path.join([generated, "allbert", "unsafe.exs"]), "%{action_name: \"show_app\"}\n")
+    File.write!(Path.join([generated, "allbert", "broken.yaml"]), "not: [valid\n")
+
+    refute DescriptorStore.read_attrs(:generated)
+           |> Enum.any?(
+             &((Map.get(&1, :action_name) || Map.get(&1, "action_name")) == "show_app")
+           )
   end
 
   test "optimize generates descriptors for uncovered agent actions (heuristic, no rebuild)" do
@@ -85,6 +111,7 @@ defmodule AllbertAssist.Intent.Router.OptimizerTest do
     }
 
     {:ok, _path} = DescriptorStore.put(:review, attrs)
+    assert DescriptorStore.dir(:review) =~ "/intents/learned/review"
     refute DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
 
     {:ok, _dest} = DescriptorStore.promote(:review, :generated, :allbert, "show_app")

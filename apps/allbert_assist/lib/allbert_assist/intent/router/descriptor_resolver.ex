@@ -42,9 +42,9 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
   # Operator overrides may mark an action non-routable with `%{..., disabled: true}`.
   defp disabled_keys do
     safe_store_attrs(:overrides)
-    |> Enum.filter(fn attrs -> Map.get(attrs, :disabled) == true end)
+    |> Enum.filter(fn attrs -> truthy?(field(attrs, :disabled)) end)
     |> MapSet.new(fn attrs ->
-      {Map.get(attrs, :app_id), to_string(Map.get(attrs, :action_name))}
+      {normalize_app_id(field(attrs, :app_id)), to_string(field(attrs, :action_name))}
     end)
   end
 
@@ -125,5 +125,23 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
       end)
 
     reversed
+  end
+
+  defp normalize_app_id(value) when is_binary(value) do
+    String.to_existing_atom(value)
+  rescue
+    ArgumentError -> value
+  end
+
+  defp normalize_app_id(value), do: value
+
+  defp truthy?(true), do: true
+  defp truthy?("true"), do: true
+  defp truthy?(_value), do: false
+
+  defp field(map, key, default \\ nil)
+
+  defp field(map, key, default) when is_map(map) do
+    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
   end
 end

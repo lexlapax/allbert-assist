@@ -51,6 +51,24 @@ defmodule AllbertAssist.Agents.IntentAgentRouterTest do
     assert Enum.map(pending.options, & &1.id) == ["create_note", "search_notes"]
   end
 
+  test "a malformed :clarify shortlist is normalized before rendering", %{uid: uid, tid: tid} do
+    shortlist = [%{action_name: "write_note", label: "Write note"} | :tail]
+
+    Application.put_env(
+      :allbert_assist,
+      :intent_router_fake_outcome,
+      Outcome.clarify(shortlist, "Which notes action?")
+    )
+
+    assert {:ok, response} =
+             IntentAgent.respond(%{text: "note", user_id: uid, thread_id: tid})
+
+    assert response.status == :needs_clarification
+    assert [%{id: "write_note"}] = response.intent_clarification.options
+    assert {:ok, pending} = PendingStore.take(uid, tid)
+    assert [%{id: "write_note"}] = pending.options
+  end
+
   test "a :none outcome declines gracefully (not a dead-end)", %{uid: uid, tid: tid} do
     Application.put_env(:allbert_assist, :intent_router_fake_outcome, Outcome.none())
 

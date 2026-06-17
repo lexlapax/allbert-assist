@@ -133,7 +133,7 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert length(candidates) <= 80
   end
 
-  test "neutral app intent descriptor produces handoff without executing app action" do
+  test "neutral app registered intent descriptor selects the registry action" do
     request = EvalFixtures.request(text: "analyze CIEN", active_app: :allbert)
     candidates = Engine.collect_candidates(request)
 
@@ -148,12 +148,12 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert descriptor.trace_metadata.missing_slots == []
 
     assert {:ok, decision} = Engine.decide(request)
-    assert decision.intent == :app_handoff
-    refute decision.selected_action == "run_analysis"
+    assert decision.intent == :registry_action
+    assert decision.selected_action == "run_analysis"
     assert decision.active_app == :allbert
-    assert decision.trace_metadata.intent_handoff.app_id == :stocksage
-    assert decision.trace_metadata.intent_handoff.action_name == "run_analysis"
-    assert decision.trace_metadata.intent_handoff.extracted_slots == %{"ticker" => "CIEN"}
+    assert decision.trace_metadata.app_id == :stocksage
+    assert decision.trace_metadata.descriptor_candidate_id == "stocksage:run_analysis"
+    assert decision.trace_metadata.extracted_slots == %{ticker: "CIEN"}
 
     assert Enum.any?(
              decision.trace_metadata.intent_candidates.descriptors,
@@ -191,16 +191,16 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert decision.trace_metadata.extracted_slots == %{symbol: "AAPL"}
   end
 
-  test "neutral queue descriptor produces handoff without executing queue action" do
+  test "neutral queue descriptor selects the registered queue action" do
     assert {:ok, decision} =
              Engine.decide(
                EvalFixtures.request(text: "queue analysis for AAPL", active_app: :allbert)
              )
 
-    assert decision.intent == :app_handoff
-    refute decision.selected_action == "queue_analysis"
-    assert decision.trace_metadata.intent_handoff.action_name == "queue_analysis"
-    assert decision.trace_metadata.intent_handoff.extracted_slots == %{"symbol" => "AAPL"}
+    assert decision.intent == :registry_action
+    assert decision.selected_action == "queue_analysis"
+    assert decision.trace_metadata.descriptor_candidate_id == "stocksage:queue_analysis"
+    assert decision.trace_metadata.extracted_slots == %{symbol: "AAPL"}
   end
 
   test "neutral queue descriptor with missing symbol asks for clarification" do
@@ -213,7 +213,7 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert decision.trace_metadata.intent_handoff.missing_slots == ["symbol"]
   end
 
-  test "v0.42 integration descriptors propose panel and notes handoffs without authorizing" do
+  test "registered integration descriptors select their registry actions" do
     cases = [
       {"show me today's agenda", :allbert, "open_calendar_panel", "workspace:calendar"},
       {"summarize my inbox", :allbert, "open_mail_panel", "workspace:mail"},
@@ -225,16 +225,16 @@ defmodule AllbertAssist.Intent.EngineTest do
       assert {:ok, decision} =
                Engine.decide(EvalFixtures.request(text: text, active_app: :allbert))
 
-      assert decision.intent == :app_handoff
-      refute decision.selected_action == action_name
-      assert decision.trace_metadata.intent_handoff.app_id == app_id
-      assert decision.trace_metadata.intent_handoff.action_name == action_name
-      assert decision.trace_metadata.intent_handoff.permission == :read_only
+      assert decision.intent == :registry_action
+      assert decision.selected_action == action_name
+      assert decision.trace_metadata.app_id == app_id
+      assert decision.trace_metadata.descriptor.action_name == action_name
+      assert decision.trace_metadata.descriptor.capability.permission == :read_only
 
       if destination do
-        assert decision.trace_metadata.intent_handoff.destination == destination
+        assert decision.trace_metadata.descriptor.destination == destination
       else
-        refute Map.has_key?(decision.trace_metadata.intent_handoff, :destination)
+        assert is_nil(decision.trace_metadata.descriptor.destination)
       end
 
       assert Enum.any?(

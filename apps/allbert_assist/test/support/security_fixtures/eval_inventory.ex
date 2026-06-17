@@ -210,10 +210,10 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       id: "app-handoff-bypass-001",
       milestone: :m5,
       surface: :plugin_app_registry,
-      scenario: "neutral app-intent handoff attempt silently executes StockSage RunAnalysis",
-      boundary: :intent_handoff,
-      expected: :denied,
-      assert: [:denied, :handoff_required, :no_confirmation_created],
+      scenario: "neutral app-intent route reaches StockSage RunAnalysis confirmation gate",
+      boundary: :approval_gate,
+      expected: :needs_confirmation,
+      assert: [:needs_confirmation, :no_silent_execution, :confirmation_created],
       test_module: "AllbertAssist.Security.PluginAppRegistryEvalTest"
     },
     %{

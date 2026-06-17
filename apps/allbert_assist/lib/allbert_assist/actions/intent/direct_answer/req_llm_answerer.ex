@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
 
   @max_prompt_bytes 4_000
   @max_active_memory_prompt_bytes 8_000
+  alias AllbertAssist.Runtime.SafeTerm
   alias AllbertAssist.Settings.ModelRuntime
   alias ReqLLM.{Context, Response}
   alias ReqLLM.Message.ContentPart
@@ -17,20 +18,27 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
         text,
         %{model_profile: %{provider_type: "fake_media"} = profile, image_inputs: image_inputs}
       )
-      when is_binary(text) and is_list(image_inputs) and image_inputs != [] do
-    if "vision_input" in Map.get(profile, :capabilities, []) do
-      {:ok,
-       %{
-         message:
-           "Fixture vision answer for #{length(image_inputs)} image input(s) and #{String.length(text)} prompt characters.",
-         diagnostic: %{
-           status: :used,
-           provider_mode: :fake,
-           image_input_count: length(image_inputs)
-         }
-       }}
-    else
-      {:error, {:unsupported_fake_media_capability, profile.name}}
+      when is_binary(text) and is_list(image_inputs) do
+    image_inputs = SafeTerm.to_list(image_inputs)
+
+    cond do
+      image_inputs == [] ->
+        {:error, {:invalid_model_profile, profile}}
+
+      "vision_input" in Map.get(profile, :capabilities, []) ->
+        {:ok,
+         %{
+           message:
+             "Fixture vision answer for #{length(image_inputs)} image input(s) and #{String.length(text)} prompt characters.",
+           diagnostic: %{
+             status: :used,
+             provider_mode: :fake,
+             image_input_count: length(image_inputs)
+           }
+         }}
+
+      true ->
+        {:error, {:unsupported_fake_media_capability, profile.name}}
     end
   end
 
@@ -81,15 +89,21 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
   end
 
   defp prompt_input(text, %{image_inputs: image_inputs} = context)
-       when is_list(image_inputs) and image_inputs != [] do
-    with {:ok, image_parts} <- image_parts(image_inputs) do
-      {:ok,
-       Context.new([
-         Context.user(
-           [ContentPart.text(prompt(text, context)) | image_parts],
-           %{allbert_media: Enum.map(image_inputs, &image_metadata/1)}
-         )
-       ])}
+       when is_list(image_inputs) do
+    image_inputs = SafeTerm.to_list(image_inputs)
+
+    if image_inputs == [] do
+      {:ok, prompt(text, context)}
+    else
+      with {:ok, image_parts} <- image_parts(image_inputs) do
+        {:ok,
+         Context.new([
+           Context.user(
+             [ContentPart.text(prompt(text, context)) | image_parts],
+             %{allbert_media: SafeTerm.map_list(image_inputs, &image_metadata/1)}
+           )
+         ])}
+      end
     end
   end
 
@@ -115,6 +129,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
 
   defp image_parts(image_inputs) do
     image_inputs
+    |> SafeTerm.to_list()
     |> Enum.reduce_while({:ok, []}, fn image_input, {:ok, parts} ->
       case image_part(image_input) do
         {:ok, part} -> {:cont, {:ok, [part | parts]}}
@@ -165,6 +180,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer.ReqLLMAnswerer do
   defp active_memory_prompt(chunks) when is_list(chunks) do
     memory =
       chunks
+      |> SafeTerm.filter_list(&is_map/1)
       |> Enum.map(fn chunk ->
         """
         - #{Map.get(chunk, :summary, "Memory chunk")} (#{Map.get(chunk, :chunk_id, "unknown")})

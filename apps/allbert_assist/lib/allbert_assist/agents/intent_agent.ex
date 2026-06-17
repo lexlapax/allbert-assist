@@ -29,6 +29,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
   alias AllbertAssist.Resources.ResourceURI
   alias AllbertAssist.Resources.Scope
   alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Runtime.SafeTerm
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
   alias AllbertAssist.Skills.ActionPlan
@@ -369,7 +370,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp clarify_options(shortlist) do
     shortlist
-    |> List.wrap()
+    |> SafeTerm.wrap_list()
+    |> Enum.filter(&is_map/1)
     |> Enum.map(fn item ->
       %{
         kind: :action,
@@ -509,7 +511,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
   defp execution_route_for_decision(route, _decision), do: route
 
   defp bridge_registry_action_from_direct_route?(action_name, decision) do
-    text_to_media_registry_action?(action_name) ||
+    decision.intent == :registry_action ||
+      text_to_media_registry_action?(action_name) ||
       active_app_registry_action?(action_name, decision)
   end
 
@@ -1630,7 +1633,17 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp run_route({:registry_action, action_name}, text, context) do
-    run_action(action_name, registry_action_params(action_name, text, context), text, context)
+    execution_context = put_action_active_app(context, action_name)
+    params = registry_action_params(action_name, text, execution_context)
+
+    case {Map.get(execution_context, :decision),
+          missing_required_action_params(action_name, params)} do
+      {%Decision{} = decision, [_ | _] = missing} ->
+        {:ok, router_missing_params_response(action_name, missing, execution_context, decision)}
+
+      _ready ->
+        run_action(action_name, params, text, execution_context)
+    end
   end
 
   defp run_skill_action(skill_name, action_name, params, text, context) do
@@ -1652,6 +1665,16 @@ defmodule AllbertAssist.Agents.IntentAgent do
       |> Map.merge(Map.new(opts))
 
     Runner.run(action_name, params, runner_context)
+  end
+
+  defp put_action_active_app(context, action_name) do
+    case Registry.capability(action_name) do
+      {:ok, %{app_id: app_id}} when not is_nil(app_id) ->
+        Map.put(context, :active_app, app_id)
+
+      _other ->
+        context
+    end
   end
 
   defp registry_action_params(action_name, text, %{request: request} = context) do

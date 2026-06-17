@@ -26,6 +26,7 @@ defmodule AllbertAssist.Intent.Descriptor do
     required_slots: [],
     optional_slots: [],
     slot_extractors: %{},
+    vocabulary: %{},
     handoff_required?: true,
     capability: %{}
   ]
@@ -43,6 +44,7 @@ defmodule AllbertAssist.Intent.Descriptor do
           required_slots: [atom()],
           optional_slots: [atom()],
           slot_extractors: %{atom() => atom()},
+          vocabulary: map(),
           handoff_required?: boolean(),
           capability: map()
         }
@@ -67,7 +69,8 @@ defmodule AllbertAssist.Intent.Descriptor do
          {:ok, required_slots} <- slot_list(field(attrs, :required_slots, [])),
          {:ok, optional_slots} <- slot_list(field(attrs, :optional_slots, [])),
          {:ok, slot_extractors} <-
-           slot_extractors(field(attrs, :slot_extractors, %{}), required_slots ++ optional_slots) do
+           slot_extractors(field(attrs, :slot_extractors, %{}), required_slots ++ optional_slots),
+         {:ok, vocabulary} <- vocabulary(field(attrs, :vocabulary, %{})) do
       {:ok,
        %__MODULE__{
          id: "#{app_id}:#{action_name}",
@@ -82,6 +85,7 @@ defmodule AllbertAssist.Intent.Descriptor do
          required_slots: required_slots,
          optional_slots: optional_slots -- required_slots,
          slot_extractors: slot_extractors,
+         vocabulary: vocabulary,
          handoff_required?: field(attrs, :handoff_required?, true) == true,
          capability: capability
        }}
@@ -365,6 +369,31 @@ defmodule AllbertAssist.Intent.Descriptor do
   end
 
   defp slot_extractor(value), do: {:error, {:invalid_slot_extractor, value}}
+
+  defp vocabulary(nil), do: {:ok, %{}}
+
+  defp vocabulary(%{} = values) do
+    with {:ok, phrases} <-
+           bounded_string_list(vocabulary_list(values, :phrases), :vocabulary_phrases),
+         {:ok, positive_phrases} <-
+           bounded_string_list(vocabulary_list(values, :positive_phrases), :vocabulary_phrases),
+         {:ok, negative_phrases} <-
+           bounded_string_list(
+             vocabulary_list(values, :negative_phrases),
+             :vocabulary_negative_phrases
+           ) do
+      {:ok,
+       %{
+         phrases: Enum.uniq(phrases ++ positive_phrases),
+         negative_phrases: negative_phrases,
+         allow_single_token_match: field(values, :allow_single_token_match, true) != false
+       }}
+    end
+  end
+
+  defp vocabulary(_values), do: {:error, {:invalid_field, :vocabulary}}
+
+  defp vocabulary_list(values, key), do: field(values, key, [])
 
   defp extract_slot(:ticker_symbol, text) do
     case Regex.run(~r/\b[A-Z]{1,5}(?:[._-][A-Z]{1,4})?\b/, text) do
