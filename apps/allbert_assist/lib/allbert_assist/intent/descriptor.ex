@@ -49,8 +49,9 @@ defmodule AllbertAssist.Intent.Descriptor do
           capability: map()
         }
 
-  @slot_extractors [:ticker_symbol]
+  @slot_extractors [:ticker_symbol, :title_phrase, :body_phrase]
   @max_descriptor_text 120
+  @max_extracted_slot_text 1_000
   @max_list_items 20
   @slot_regex ~r/^[a-z][a-z0-9_]*$/
   @destination_regex ~r/^(app|workspace):[a-z][a-z0-9_]*$/
@@ -402,7 +403,49 @@ defmodule AllbertAssist.Intent.Descriptor do
     end
   end
 
+  defp extract_slot(:title_phrase, text) do
+    text
+    |> extract_phrase([
+      ~r/\b(?:titled|title|called|named)\s+(.+?)(?:\s+(?:with\s+)?body\b|\s+body\b|$)/i
+    ])
+    |> trim_extracted_slot()
+  end
+
+  defp extract_slot(:body_phrase, text) do
+    text
+    |> extract_phrase([
+      ~r/\bwith\s+body\s+(.+)$/i,
+      ~r/\bbody\s+(.+)$/i
+    ])
+    |> trim_extracted_slot()
+  end
+
   defp extract_slot(_extractor, _text), do: nil
+
+  defp extract_phrase(text, patterns) do
+    Enum.find_value(patterns, fn pattern ->
+      case Regex.run(pattern, text, capture: :all_but_first) do
+        [value | _rest] -> value
+        _other -> nil
+      end
+    end)
+  end
+
+  defp trim_extracted_slot(nil), do: nil
+
+  defp trim_extracted_slot(value) when is_binary(value) do
+    value =
+      value
+      |> String.trim()
+      |> String.trim(~s("'))
+      |> String.trim()
+
+    cond do
+      value == "" -> nil
+      byte_size(value) <= @max_extracted_slot_text -> value
+      true -> binary_part(value, 0, @max_extracted_slot_text)
+    end
+  end
 
   defp diagnostic(reason, attrs, opts) do
     %{

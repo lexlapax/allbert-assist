@@ -80,6 +80,7 @@ defmodule AllbertNotesFiles.App do
         ],
         synonyms: ["create note", "write note", "new note", "add note", "save note", "make note"],
         required_slots: [:title, :body],
+        slot_extractors: %{title: :title_phrase, body: :body_phrase},
         optional_slots: [:path],
         handoff_required?: true
       },

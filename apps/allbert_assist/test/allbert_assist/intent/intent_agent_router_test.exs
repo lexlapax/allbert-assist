@@ -128,6 +128,31 @@ defmodule AllbertAssist.Agents.IntentAgentRouterTest do
     assert [%{id: "write_note", missing_params: ["title", "body"]}] = pending.options
   end
 
+  test "deterministic fallback carries descriptor-extracted write_note slots into confirmation",
+       %{uid: uid, tid: tid} do
+    Application.put_env(:allbert_assist, :intent_router_strategy_override, :deterministic)
+
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "create a note titled fallback with body hi",
+               user_id: uid,
+               thread_id: tid
+             })
+
+    assert response.status == :needs_confirmation
+    refute Enum.any?(response.actions, &(&1.name == "clarify_intent"))
+  end
+
+  test "deterministic descriptor clarification emits one clarify action", %{uid: uid, tid: tid} do
+    Application.put_env(:allbert_assist, :intent_router_strategy_override, :deterministic)
+
+    assert {:ok, response} =
+             IntentAgent.respond(%{text: "create a note", user_id: uid, thread_id: tid})
+
+    assert response.status == :needs_clarification
+    assert [%{name: "clarify_intent", status: :awaiting_clarification}] = response.actions
+  end
+
   defp restore(key, nil), do: Application.delete_env(:allbert_assist, key)
   defp restore(key, value), do: Application.put_env(:allbert_assist, key, value)
 end

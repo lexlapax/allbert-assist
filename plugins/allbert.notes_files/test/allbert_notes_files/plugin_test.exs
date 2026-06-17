@@ -187,7 +187,11 @@ defmodule AllbertNotesFiles.PluginTest do
              &(&1.app_id == :notes_files and &1.action_name == "search_notes")
            )
 
-    assert %{required_slots: [:title, :body], optional_slots: [:path]} =
+    assert %{
+             required_slots: [:title, :body],
+             optional_slots: [:path],
+             slot_extractors: %{title: :title_phrase, body: :body_phrase}
+           } =
              Enum.find(
                descriptors,
                &(&1.app_id == :notes_files and &1.action_name == "write_note")

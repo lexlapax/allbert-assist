@@ -80,6 +80,30 @@ defmodule AllbertAssist.Intent.DescriptorTest do
            }
   end
 
+  test "extracts bounded title and body phrases from operator syntax" do
+    assert {:ok, descriptor} =
+             Descriptor.normalize(%{
+               app_id: :stocksage,
+               action_name: "run_analysis",
+               label: "Run StockSage analysis",
+               required_slots: [:title, :body],
+               slot_extractors: %{title: :title_phrase, body: :body_phrase}
+             })
+
+    assert Descriptor.extract_slots(
+             descriptor,
+             ~s(create a note titled fallback with body hi)
+           ) == %{
+             extracted_slots: %{title: "fallback", body: "hi"},
+             missing_slots: []
+           }
+
+    assert Descriptor.extract_slots(descriptor, "create a note titled fallback") == %{
+             extracted_slots: %{title: "fallback"},
+             missing_slots: [:body]
+           }
+  end
+
   test "extracts optional slots without making them required" do
     assert {:ok, descriptor} =
              Descriptor.normalize(%{

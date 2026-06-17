@@ -1814,17 +1814,6 @@ defmodule AllbertAssist.Agents.IntentAgent do
         |> clarification_response(question, options)
         |> Map.put(:active_app, decision.active_app)
         |> Map.put(:intent_handoff, handoff_map)
-        |> Map.update!(:actions, fn actions ->
-          actions ++
-            [
-              %{
-                name: Atom.to_string(handoff.kind),
-                status: :awaiting_clarification,
-                permission: :read_only,
-                intent_handoff: handoff_map
-              }
-            ]
-        end)
 
       {:error, reason} ->
         Response.error("Unable to prepare app handoff: #{inspect(reason)}", reason,

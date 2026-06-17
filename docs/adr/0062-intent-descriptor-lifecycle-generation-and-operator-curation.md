@@ -107,6 +107,9 @@ slots:
     required: true
   body:
     required: true
+slot_extractors:
+  title: title_phrase
+  body: body_phrase
 vocabulary:
   phrases:
     - create a note
@@ -126,6 +129,11 @@ unregistered actions. Invalid YAML fails closed with a diagnostic in
 `mix allbert.intent doctor`; it is never evaluated. Existing `.exs` descriptor
 files are implementation drift and must be replaced before v0.54 validation
 continues.
+
+Slot extraction stays code-whitelisted even when descriptor metadata is
+operator-editable. YAML may name approved extractors such as `ticker_symbol`,
+`title_phrase`, or `body_phrase`; it may not define regexes, scripts, functions,
+or executable parsing logic.
 
 ### 3. Descriptor generation and learning (local, advisory)
 
