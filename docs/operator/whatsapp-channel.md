@@ -95,6 +95,19 @@ Manual validation before tag:
 
 - Start Allbert normally with the configured `ALLBERT_HOME` and public webhook
   URL.
+- Validate the signed-webhook auth path locally (no Meta/tunnel required) against
+  a running `mix phx.server`. `whatsapp post-webhook` computes the same
+  `X-Hub-Signature-256` HMAC the ingress checks and issues a real HTTP POST;
+  `--bad-signature` confirms the pre-parse 401 denial. (`whatsapp simulate` injects
+  in-process and bypasses this auth — it is routing-only, not signature evidence.)
+
+  ```sh
+  mix allbert.channels whatsapp post-webhook --url http://127.0.0.1:4000 \
+    --from "$ALLBERT_WHATSAPP_TO_PHONE" "whatsapp inbound auth check"        # → HTTP 200
+  mix allbert.channels whatsapp post-webhook --url http://127.0.0.1:4000 --bad-signature \
+    --from "$ALLBERT_WHATSAPP_TO_PHONE" "whatsapp deny check"               # → HTTP 401
+  ```
+
 - Send a text message from the mapped phone number and confirm the M4 signed
   webhook reaches the WhatsApp adapter, creates a channel event, resolves the
   mapped user, and submits to runtime.

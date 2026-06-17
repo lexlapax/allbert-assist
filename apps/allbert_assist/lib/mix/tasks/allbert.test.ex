@@ -37,6 +37,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test external-smoke -- inbound_telegram
       mix allbert.test external-smoke -- inbound_email
       mix allbert.test external-smoke -- matrix
+      mix allbert.test external-smoke -- inbound_matrix
       mix allbert.test external-smoke -- whatsapp
       mix allbert.test external-smoke -- signal
       mix allbert.test external-smoke -- discord
@@ -1717,7 +1718,7 @@ defmodule Mix.Tasks.Allbert.Test do
       ],
       coverage: [
         "Telegram/email/Matrix/WhatsApp/Signal doctor CLI commands",
-        "external-smoke -- telegram, -- inbound_telegram, -- email, -- inbound_email, -- matrix, -- whatsapp, -- signal usage registration",
+        "external-smoke -- telegram, -- inbound_telegram, -- email, -- inbound_email, -- matrix, -- inbound_matrix, -- whatsapp, -- signal usage registration",
         "Discord/Slack independent selectors stay listed"
       ]
     },
@@ -3722,7 +3723,8 @@ defmodule Mix.Tasks.Allbert.Test do
     Mix.shell().info("- email (delivery; email only)")
     Mix.shell().info("- inbound_telegram (inbound; Telegram only)")
     Mix.shell().info("- inbound_email (inbound; email only)")
-    Mix.shell().info("- matrix (Matrix only)")
+    Mix.shell().info("- matrix (delivery; Matrix only)")
+    Mix.shell().info("- inbound_matrix (inbound; Matrix only)")
     Mix.shell().info("- whatsapp (WhatsApp only)")
     Mix.shell().info("- signal (Signal only)")
     Mix.shell().info("- discord (delivery; Discord only)")
@@ -3779,6 +3781,7 @@ defmodule Mix.Tasks.Allbert.Test do
   defp run_external_smoke(["inbound_telegram"]), do: run_inbound_smoke("telegram")
   defp run_external_smoke(["inbound_email"]), do: run_inbound_smoke("email")
   defp run_external_smoke(["matrix"]), do: run_matrix_smoke()
+  defp run_external_smoke(["inbound_matrix"]), do: run_matrix_inbound_smoke()
   defp run_external_smoke(["whatsapp"]), do: run_whatsapp_smoke()
   defp run_external_smoke(["signal"]), do: run_signal_smoke()
   defp run_external_smoke(["discord"]), do: run_delivery_smoke("discord")
@@ -3799,6 +3802,19 @@ defmodule Mix.Tasks.Allbert.Test do
       "mix",
       ["test", "test/external/matrix_smoke_test.exs"],
       [{"ALLBERT_MATRIX_EXTERNAL_SMOKE", "1"} | owned_env("external-smoke-matrix", 0)]
+    )
+  end
+
+  defp run_matrix_inbound_smoke do
+    run_cmd!(
+      "external-smoke matrix-inbound",
+      app_cwd(:core),
+      "mix",
+      ["test", "test/external/matrix_inbound_smoke_test.exs"],
+      [
+        {"ALLBERT_MATRIX_INBOUND_EXTERNAL_SMOKE", "1"}
+        | owned_env("external-smoke-inbound-matrix", 0)
+      ]
     )
   end
 
@@ -4513,6 +4529,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test external-smoke -- inbound_telegram
       mix allbert.test external-smoke -- inbound_email
       mix allbert.test external-smoke -- matrix
+      mix allbert.test external-smoke -- inbound_matrix
       mix allbert.test external-smoke -- whatsapp
       mix allbert.test external-smoke -- signal
       mix allbert.test external-smoke -- discord

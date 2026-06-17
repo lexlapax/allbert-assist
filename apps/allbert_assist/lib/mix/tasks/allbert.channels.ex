@@ -50,6 +50,7 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels whatsapp unmap --external-user PHONE
       mix allbert.channels whatsapp simulate --from PHONE [--message-id WAMID] "prompt"
       mix allbert.channels whatsapp simulate-button --from PHONE --button-id allbert:v1:<verb>:<id>
+      mix allbert.channels whatsapp post-webhook --from PHONE [--message-id WAMID] [--bad-signature] [--url BASE] "prompt"
       mix allbert.channels whatsapp doctor
       mix allbert.channels signal map --aci ACI --user USER
       mix allbert.channels signal unmap --aci ACI
@@ -84,6 +85,7 @@ defmodule Mix.Tasks.Allbert.Channels do
     action_id: :string,
     account: :string,
     aci: :string,
+    bad_signature: :boolean,
     button_id: :string,
     chat: :string,
     channel: :string,
@@ -100,6 +102,7 @@ defmodule Mix.Tasks.Allbert.Channels do
     thread_ts: :string,
     thread_channel: :string,
     type: :string,
+    url: :string,
     user: :string
   ]
 
@@ -317,6 +320,19 @@ defmodule Mix.Tasks.Allbert.Channels do
     simulate_whatsapp_button!(
       required!(opts, :from),
       required!(opts, :button_id)
+    )
+  end
+
+  defp dispatch(["whatsapp", "post-webhook" | rest]) do
+    {opts, args, invalid} = parse!(rest)
+    reject_invalid!(invalid)
+
+    post_whatsapp_webhook!(
+      required!(opts, :from),
+      Keyword.get(opts, :message_id),
+      Keyword.get(opts, :bad_signature, false),
+      Keyword.get(opts, :url),
+      single_arg!(args, "Prompt is required")
     )
   end
 
@@ -617,6 +633,7 @@ defmodule Mix.Tasks.Allbert.Channels do
       mix allbert.channels whatsapp unmap --external-user PHONE
       mix allbert.channels whatsapp simulate --from PHONE [--message-id WAMID] "prompt"
       mix allbert.channels whatsapp simulate-button --from PHONE --button-id allbert:v1:<verb>:<id>
+      mix allbert.channels whatsapp post-webhook --from PHONE [--message-id WAMID] [--bad-signature] [--url BASE] "prompt"
       mix allbert.channels whatsapp doctor
       mix allbert.channels signal map --aci ACI --user USER
       mix allbert.channels signal unmap --aci ACI
@@ -735,6 +752,35 @@ defmodule Mix.Tasks.Allbert.Channels do
     maybe_print_doctor_field("bot", Map.get(result, :bot_username))
     maybe_print_doctor_field("user", Map.get(result, :user_id))
     maybe_print_doctor_field("rooms", Map.get(result, :allowed_room_count))
+  end
+
+  defp print_result({:ok, {:webhook_post, status, body, expected, bad_signature?}}) do
+    label =
+      if bad_signature?,
+        do: "whatsapp post-webhook (bad-signature)",
+        else: "whatsapp post-webhook (signed)"
+
+    Mix.shell().info("#{label} -> HTTP #{status}")
+    Mix.shell().info("response: #{body}")
+
+    verdict =
+      case {expected, status} do
+        {:accept_200, 200} ->
+          "PASS: signature verified and webhook accepted (HTTP 200)"
+
+        {:deny_401, 401} ->
+          "PASS: invalid signature rejected before parse (HTTP 401)"
+
+        {:accept_200, other} ->
+          "UNEXPECTED: expected HTTP 200, got #{other} " <>
+            "(check that mix phx.server is running and channels.whatsapp.webhook_enabled, " <>
+            "phone_number_id, and app_secret_ref are configured)"
+
+        {:deny_401, other} ->
+          "UNEXPECTED: expected HTTP 401 for a bad signature, got #{other}"
+      end
+
+    Mix.shell().info(verdict)
   end
 
   defp print_result({:ok, {:signal_link, response}}) do
@@ -952,6 +998,79 @@ defmodule Mix.Tasks.Allbert.Channels do
          result <- WhatsApp.Adapter.simulate_webhook_event(adapter, payload) do
       GenServer.stop(adapter)
       normalize_whatsapp_simulation(result)
+    end
+  end
+
+  # Validates the live ADR 0056 signed-webhook auth path locally: it computes the
+  # same `sha256=`-prefixed HMAC the ingress checks and issues a real HTTP POST to a
+  # running endpoint, so (unlike `whatsapp simulate`, which injects in-process and
+  # bypasses the HTTP/signature layer) it exercises `X-Hub-Signature-256`
+  # verification before parse. `--bad-signature` sends a wrong digest to confirm the
+  # HTTP 401 denial.
+  defp post_whatsapp_webhook!(from, message_id, bad_signature?, base_url, text) do
+    with {:ok, settings} <- Channels.channel_settings("whatsapp"),
+         {:ok, phone_number_id} <- whatsapp_phone_number_id(settings),
+         app_secret_ref <-
+           Map.get(settings, "app_secret_ref", "secret://channels/whatsapp/app_secret"),
+         {:ok, app_secret} <- Secrets.get_secret(app_secret_ref, secret_context()) do
+      payload =
+        WhatsApp.Parser.simulated_text_webhook(%{
+          from: from,
+          phone_number_id: phone_number_id,
+          display_phone_number: Map.get(settings, "phone_number_id"),
+          waba_id: Map.get(settings, "waba_id"),
+          message_id: message_id || "wamid." <> Ecto.UUID.generate(),
+          text: text
+        })
+
+      raw_body = Jason.encode!(payload)
+      signature = whatsapp_webhook_signature(app_secret, raw_body, bad_signature?)
+      base = base_url || System.get_env("ALLBERT_WEBHOOK_BASE_URL") || "http://127.0.0.1:4000"
+
+      url =
+        String.trim_trailing(base, "/") <> "/webhooks/whatsapp/" <> URI.encode(phone_number_id)
+
+      post_signed_whatsapp_webhook(url, raw_body, signature, bad_signature?)
+    end
+  end
+
+  defp whatsapp_phone_number_id(settings) do
+    case Map.get(settings, "phone_number_id") do
+      value when is_binary(value) and value != "" -> {:ok, value}
+      _other -> {:error, :whatsapp_phone_number_id_not_configured}
+    end
+  end
+
+  defp whatsapp_webhook_signature(app_secret, raw_body, false) do
+    "sha256=" <> Base.encode16(:crypto.mac(:hmac, :sha256, app_secret, raw_body), case: :lower)
+  end
+
+  defp whatsapp_webhook_signature(_app_secret, _raw_body, true) do
+    # Correct shape (64 lowercase hex), wrong bytes: passes the format check so the
+    # ingress reaches `secure_compare`, which then rejects it as invalid.
+    "sha256=" <> String.duplicate("0", 64)
+  end
+
+  defp post_signed_whatsapp_webhook(url, raw_body, signature, bad_signature?) do
+    expected = if bad_signature?, do: :deny_401, else: :accept_200
+
+    case Req.post(url,
+           headers: [
+             {"content-type", "application/json"},
+             {"x-hub-signature-256", signature}
+           ],
+           body: raw_body,
+           decode_body: false,
+           retry: false
+         ) do
+      {:ok, %Req.Response{status: status, body: body}} ->
+        {:ok, {:webhook_post, status, to_string(body), expected, bad_signature?}}
+
+      {:error, exception} when is_exception(exception) ->
+        {:error, {:webhook_post_transport, Exception.message(exception)}}
+
+      {:error, reason} ->
+        {:error, {:webhook_post_transport, reason}}
     end
   end
 

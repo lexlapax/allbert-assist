@@ -27,6 +27,20 @@ URL use a tunnel; the signed webhook is the only inbound path for these channels
 amendment was accepted at v0.53 M10 implementation closeout; live provider smoke
 validation remains the pre-tag release gate. See `docs/plans/v0.53-plan.md`.
 
+Operator validation of this signature path (v0.53 closeout): the signature/verify-token
+contract is exercised **locally without a tunnel** by `mix allbert.channels whatsapp
+post-webhook` — it computes the same `sha256=`-prefixed HMAC over the exact raw body
+and issues a real HTTP POST to `/webhooks/whatsapp/{phone_number_id}` on a running
+endpoint (loopback admitted because the request carries no `Origin` header), and
+`--bad-signature` confirms the `:invalid_webhook_signature` → HTTP 401 denial before
+any parse. This is deliberately **distinct from `mix allbert.channels whatsapp
+simulate`**, which injects the parsed event in-process (`:stub` mode) and therefore
+**bypasses the HTTP ingress and this trust tier**: `simulate` validates
+parsing/identity/routing only and must not be read as evidence for the signature
+boundary. The deterministic guarantees stay covered by the `:v053` eval rows
+`whatsapp-webhook-signature-verify-before-parse-001` and
+`whatsapp-webhook-bad-signature-deny-001`.
+
 This ADR is the **channel** counterpart to ADR 0055 (the public-surface inbound
 trust tier) and ADR 0038 (the outbound MCP client trust tier). ADR 0016 decides
 the channel **boundary** — which adapters exist, how external identity maps to a

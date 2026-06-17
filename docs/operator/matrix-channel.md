@@ -77,6 +77,21 @@ unencrypted room, records a `ChannelThread` outbound ref, asserts echo
 suppression, and writes
 `<ALLBERT_HOME>/release_evidence/v053/external-smoke-matrix-<ts>.json`.
 
+The inbound `/sync` path has its own interactive smoke (parity with
+`inbound_telegram`). It also needs `ALLBERT_MATRIX_USER_ID` (the mapped MXID); when
+it prints a marker, send the exact `<marker> matrix` line from that MXID in the
+allowlisted room:
+
+```sh
+export ALLBERT_MATRIX_USER_ID="@mapped:example.org"
+export ALLBERT_MATRIX_INBOUND_TIMEOUT_MS=600000
+mix allbert.test external-smoke -- inbound_matrix
+```
+
+It starts the adapter (which auto-polls `/sync`; the first sync uses `since=nil`
+and returns only post-start events), routes the marker to the runtime, and writes
+`<ALLBERT_HOME>/release_evidence/v053/external-smoke-inbound-matrix-<ts>.json`.
+
 Manual validation before tag:
 
 - Start Allbert normally with the configured `ALLBERT_HOME`.

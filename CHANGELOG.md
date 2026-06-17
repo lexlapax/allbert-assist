@@ -184,7 +184,13 @@ Developer docs: `docs/developer/key-custody.md`,
   provider/install rate limiting, and provider-specific webhook setup docs.
 - `mix allbert.test release.v053` deterministic release lane and independent
   live-smoke selectors for `telegram`, `inbound_telegram`, `email`,
-  `inbound_email`, `matrix`, `whatsapp`, and `signal`.
+  `inbound_email`, `matrix`, `inbound_matrix`, `whatsapp`, and `signal`.
+- v0.53 validation closeout: `external-smoke -- inbound_matrix` live smoke
+  (drives the Matrix `/sync` poll to runtime with an operator marker, at parity
+  with `inbound_telegram`), and `mix allbert.channels whatsapp post-webhook`
+  (signed real-HTTP POST to the local WhatsApp webhook, with `--bad-signature` to
+  confirm the `X-Hub-Signature-256` 401 denial — validating the ADR 0056 auth
+  path that `whatsapp simulate` bypasses).
 
 ### Changed
 
