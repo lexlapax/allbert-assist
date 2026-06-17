@@ -326,6 +326,36 @@ defmodule AllbertAssist.Channels.EmailTest do
       assert Agent.get(fake, &length(&1.seen)) == 2
     end
 
+    test "resumes replayed Message-ID values left in received state" do
+      configure_email!()
+      configure_runtime!()
+      fake = start_fake_imap!(%{"1" => plain_email("msg-resume@example.com")})
+
+      assert {:ok, _event} =
+               Channels.create_event(%{
+                 channel: "email",
+                 provider: "email_imap",
+                 direction: "inbound",
+                 external_event_id: "msg-resume@example.com",
+                 external_user_id: "alice@example.com",
+                 external_message_id: "1",
+                 status: "received"
+               })
+
+      server = :"email-resume-received-#{System.unique_integer([:positive])}"
+      start_email_server!(server, fake)
+
+      assert {:ok, %{processed: 1, duplicates: 0, rejected: 0, failed: 0}} =
+               Adapter.poll_once(server)
+
+      assert_received {:runtime_request, %{text: "Hi Allbert"}}
+
+      event = Channels.get_event_by_external_id("email", "msg-resume@example.com")
+      assert event.status == "processed"
+      assert event.user_id == "alice"
+      assert String.starts_with?(event.thread_id, "thr_")
+    end
+
     test "suppresses email echoes by outbound Message-ID" do
       configure_email!()
       configure_runtime!()

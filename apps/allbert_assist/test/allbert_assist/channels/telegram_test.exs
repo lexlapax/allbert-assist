@@ -367,6 +367,45 @@ defmodule AllbertAssist.Channels.TelegramTest do
       assert {:ok, %{processed: 0, duplicates: 1}} = Adapter.poll_once(server)
     end
 
+    test "resumes duplicate updates left in received state" do
+      configure_telegram!(identity_map: [%{external_user_id: "123", user_id: "alice"}])
+      configure_runtime!()
+
+      assert {:ok, _event} =
+               Channels.create_event(%{
+                 channel: "telegram",
+                 provider: "telegram_bot_api",
+                 direction: "inbound",
+                 external_event_id: "211",
+                 external_user_id: "123",
+                 external_chat_id: "456",
+                 external_message_id: "10",
+                 status: "received"
+               })
+
+      Req.Test.stub(__MODULE__, fn
+        %{request_path: "/bottoken/getUpdates"} = conn ->
+          json(conn, %{"ok" => true, "result" => [text_update(211, "/new resumed tg")]})
+
+        %{request_path: "/bottoken/sendMessage"} = conn ->
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          decoded = Jason.decode!(body)
+          assert decoded["text"] =~ "Runtime response: resumed tg"
+          json(conn, %{"ok" => true, "result" => %{"message_id" => 99}})
+      end)
+
+      server = :"telegram-resume-received-#{System.unique_integer([:positive])}"
+      start_telegram_server!(server)
+
+      assert {:ok, %{processed: 1, duplicates: 0, rejected: 0, failed: 0}} =
+               Adapter.poll_once(server)
+
+      event = Channels.get_event_by_external_id("telegram", "211")
+      assert event.status == "processed"
+      assert event.user_id == "alice"
+      assert String.starts_with?(event.thread_id, "thr_")
+    end
+
     test "mapped text submits through runtime, sends response, and updates event metadata" do
       configure_telegram!(identity_map: [%{external_user_id: "123", user_id: "alice"}])
       configure_runtime!()

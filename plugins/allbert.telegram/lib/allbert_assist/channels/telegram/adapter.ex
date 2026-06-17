@@ -863,7 +863,14 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   defp event_result({:ok, _event}, inserted_status), do: {:ok, inserted_status}
 
   defp event_result({:error, %Ecto.Changeset{} = changeset}, _inserted_status) do
-    if duplicate_event?(changeset), do: {:ok, :duplicate}, else: {:error, changeset}
+    if duplicate_event?(changeset) do
+      case Channels.received_event_from_duplicate(changeset, "telegram") do
+        %AllbertAssist.Channels.Event{} = event -> {:ok, event}
+        nil -> {:ok, :duplicate}
+      end
+    else
+      {:error, changeset}
+    end
   end
 
   defp duplicate_event?(changeset) do

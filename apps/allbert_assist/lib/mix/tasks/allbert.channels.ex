@@ -105,11 +105,22 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   @impl true
   def run(args) do
+    disable_channel_auto_poll!()
     Mix.Task.run("app.start")
 
     args
     |> dispatch()
     |> print_result()
+  end
+
+  defp disable_channel_auto_poll! do
+    opts = Application.get_env(:allbert_assist, AllbertAssist.Channels.Supervisor, [])
+
+    Application.put_env(
+      :allbert_assist,
+      AllbertAssist.Channels.Supervisor,
+      Keyword.put(opts, :auto_poll?, false)
+    )
   end
 
   defp dispatch(["list"]) do

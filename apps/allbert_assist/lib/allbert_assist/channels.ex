@@ -76,6 +76,24 @@ defmodule AllbertAssist.Channels do
     )
   end
 
+  @spec received_event_from_duplicate(Ecto.Changeset.t(), String.t()) :: Event.t() | nil
+  def received_event_from_duplicate(%Ecto.Changeset{} = changeset, channel)
+      when is_binary(channel) do
+    external_event_id = Ecto.Changeset.get_field(changeset, :external_event_id)
+
+    if is_binary(external_event_id) and external_event_id != "" do
+      Repo.one(
+        from event in Event,
+          where:
+            event.channel == ^channel and
+              event.external_event_id == ^external_event_id and
+              event.direction in ["inbound", "callback"] and
+              event.status == "received",
+          limit: 1
+      )
+    end
+  end
+
   @spec max_inbound_integer_event_id(String.t()) :: non_neg_integer()
   def max_inbound_integer_event_id(channel) when is_binary(channel) do
     Event

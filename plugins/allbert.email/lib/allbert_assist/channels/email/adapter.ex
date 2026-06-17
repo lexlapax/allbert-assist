@@ -586,7 +586,14 @@ defmodule AllbertAssist.Channels.Email.Adapter do
   defp event_result({:ok, event}), do: {:ok, event}
 
   defp event_result({:error, %Ecto.Changeset{} = changeset}) do
-    if duplicate_event?(changeset), do: {:ok, :duplicate}, else: {:error, changeset}
+    if duplicate_event?(changeset) do
+      case Channels.received_event_from_duplicate(changeset, "email") do
+        %AllbertAssist.Channels.Event{} = event -> {:ok, event}
+        nil -> {:ok, :duplicate}
+      end
+    else
+      {:error, changeset}
+    end
   end
 
   defp duplicate_event?(changeset) do
