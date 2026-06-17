@@ -185,13 +185,17 @@ index, surfaced as both an action and a mix task (doctor envelope, ADR 0047):
 
 - **Startup**: Index build stays lazy; a debounced boot reconcile ensures coverage
   for the reconciled action set without blocking boot.
-- **On action-set change**: the Index **subscribes** to the SignalBus lifecycle
-  events — `allbert.dynamic_codegen.{registered,rolled_back,reconcile_completed}`
-  (existing), plus new `allbert.app.registered` / `allbert.plugin.registered` /
+- **On action-set change**: Settings Central owns
+  `intent.reindex_on_registration_signal` (default `true`). When enabled, the
+  Index **subscribes** to the SignalBus lifecycle events —
+  `allbert.dynamic_codegen.{registered,rolled_back,reconcile_completed}`
+  (existing), plus `allbert.app.registered` / `allbert.plugin.registered` /
   `allbert.action.registry_changed` signals emitted from `App.Registry` /
   `Plugin.Registry` / `ActionsOverlay` registration paths. On receipt it marks the
   index `:not_built` (lazy rebuild) **and** enqueues a descriptor-generation pass
-  for newly-seen actions.
+  for newly-seen actions. Disabling the setting is an operator escape hatch for
+  controlled tests or recovery only; the product default is to keep plugin/app/action
+  registration reflected in intent routing.
 - **Debounce**: bursts (e.g. boot reconcile registering many drafts) coalesce into
   one rebuild + one generation pass via a short debounce window.
 - **Manual**: `mix allbert.intent optimize|reindex`, operator restart, and the web
@@ -242,7 +246,8 @@ index, surfaced as both an action and a mix task (doctor envelope, ADR 0047):
 - **Action + task**: new `Actions.Intent.OptimizeIntentDescriptors`
   (`use AllbertAssist.Action`); `mix allbert.intent optimize|reindex|list|show|
   edit|disable|review|promote` (extends the existing `doctor` dispatch).
-- **Settings**: `intent.descriptor_autoaccept` (default `false`) in Schema specs +
+- **Settings**: `intent.descriptor_autoaccept` (default `false`) and
+  `intent.reindex_on_registration_signal` (default `true`) in Schema specs +
   defaults + safe_write_keys. Storage under `<ALLBERT_HOME>/intents/{generated,
   learned/review,overrides,audit}/`.
 

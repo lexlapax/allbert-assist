@@ -14,6 +14,7 @@ defmodule AllbertAssist.Intent.Router.Index do
 
   alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Intent.Router.Embedder
+  alias AllbertAssist.Settings
 
   # v0.54 M9.3b: rebuild when the action set changes. Subscribe to the
   # dynamic-codegen lifecycle signals (already published; ADR 0062 reindex hooks)
@@ -108,7 +109,7 @@ defmodule AllbertAssist.Intent.Router.Index do
   # ── reindex hooks ────────────────────────────────────────────────────────────
 
   defp subscribe(state) do
-    if Application.get_env(:allbert_assist, :intent_index_reindex_on_signal, true) do
+    if reindex_on_registration_signal?() do
       case safe_subscribe() do
         {:ok, subscription_id} ->
           %{state | subscription_id: subscription_id}
@@ -120,6 +121,19 @@ defmodule AllbertAssist.Intent.Router.Index do
       end
     else
       state
+    end
+  end
+
+  defp reindex_on_registration_signal? do
+    case Application.fetch_env(:allbert_assist, :intent_index_reindex_on_signal) do
+      {:ok, value} when is_boolean(value) ->
+        value
+
+      _other ->
+        case Settings.get("intent.reindex_on_registration_signal") do
+          {:ok, value} when is_boolean(value) -> value
+          _fallback -> true
+        end
     end
   end
 

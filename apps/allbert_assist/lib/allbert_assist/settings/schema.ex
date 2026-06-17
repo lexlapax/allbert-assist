@@ -51,6 +51,7 @@ defmodule AllbertAssist.Settings.Schema do
     "intent.router_top_k",
     "intent.router_min_confidence",
     "intent.router_model_timeout_ms",
+    "intent.reindex_on_registration_signal",
     "intent.multiturn_enabled",
     "intent.context_window",
     "intent.disambiguation_margin",
@@ -666,6 +667,12 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       min: 250,
       max: 60_000
+    },
+    "intent.reindex_on_registration_signal" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
     },
     "intent.multiturn_enabled" => %{
       type: :boolean,
@@ -3102,6 +3109,7 @@ defmodule AllbertAssist.Settings.Schema do
       "router_top_k" => 5,
       "router_min_confidence" => 0.6,
       "router_model_timeout_ms" => 20_000,
+      "reindex_on_registration_signal" => true,
       "multiturn_enabled" => false,
       "descriptor_autoaccept" => false,
       "context_window" => 6,

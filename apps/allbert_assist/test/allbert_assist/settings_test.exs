@@ -105,6 +105,7 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, 0.3} = Settings.get("intent.clarify_floor")
     assert {:ok, "local"} = Settings.get("intent.direct_answer_model_profile")
     assert Settings.schema()["intent.direct_answer_model_profile"].default == "local"
+    assert {:ok, true} = Settings.get("intent.reindex_on_registration_signal")
     assert {:ok, true} = Settings.get("active_memory.enabled")
     assert {:ok, 5} = Settings.get("active_memory.top_k")
     assert {:ok, 2048} = Settings.get("active_memory.chunk_max_bytes")
