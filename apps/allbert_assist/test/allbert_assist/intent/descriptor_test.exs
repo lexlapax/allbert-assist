@@ -98,9 +98,38 @@ defmodule AllbertAssist.Intent.DescriptorTest do
              missing_slots: []
            }
 
+    assert Descriptor.extract_slots(
+             descriptor,
+             "create a note titled groceries with milk and eggs"
+           ) == %{
+             extracted_slots: %{title: "groceries", body: "milk and eggs"},
+             missing_slots: []
+           }
+
     assert Descriptor.extract_slots(descriptor, "create a note titled fallback") == %{
              extracted_slots: %{title: "fallback"},
              missing_slots: [:body]
+           }
+  end
+
+  test "extracts note paths from read/open note phrases" do
+    assert {:ok, descriptor} =
+             Descriptor.normalize(%{
+               app_id: :notes_files,
+               action_name: "read_note",
+               label: "Read a local note",
+               required_slots: [:path],
+               slot_extractors: %{path: :note_path_phrase}
+             })
+
+    assert Descriptor.extract_slots(descriptor, "read the scratch note") == %{
+             extracted_slots: %{path: "scratch.md"},
+             missing_slots: []
+           }
+
+    assert Descriptor.extract_slots(descriptor, "open notes/release-checklist") == %{
+             extracted_slots: %{path: "notes/release-checklist.md"},
+             missing_slots: []
            }
   end
 

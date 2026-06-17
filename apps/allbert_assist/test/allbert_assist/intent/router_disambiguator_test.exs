@@ -151,6 +151,34 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
       assert slots.body == "hi"
     end
 
+    test "single-token requests clarify when multiple actions remain plausible" do
+      shortlist = [
+        %{action_name: "search_notes", app_id: :notes_files, label: "Search local notes"},
+        %{
+          action_name: "write_note",
+          app_id: :notes_files,
+          label: "Create or write a local note",
+          required_slots: [:title, :body],
+          extracted_slots: %{}
+        },
+        %{
+          action_name: "read_note",
+          app_id: :notes_files,
+          label: "Read a local note",
+          required_slots: [:path],
+          extracted_slots: %{}
+        }
+      ]
+
+      assert %Outcome{kind: :clarify, diagnostics: %{note: :low_information_query}} =
+               Disambiguator.decide(
+                 %{selected: "search_notes", confidence: 0.95, slots: %{}},
+                 shortlist,
+                 0.5,
+                 @opts ++ [query: "note"]
+               )
+    end
+
     test "sentinels map to clarify / answer / none" do
       assert %Outcome{kind: :clarify} =
                Disambiguator.decide(
@@ -237,7 +265,7 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
         ExUnit.CaptureLog.capture_log(fn ->
           assert {:ok, %Outcome{kind: :execute, action_name: "create_note"}} =
                    Disambiguator.disambiguate(
-                     "note",
+                     "create note",
                      @shortlist,
                      0.5,
                      %{thread_id: "t"},

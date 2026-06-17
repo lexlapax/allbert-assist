@@ -15,6 +15,9 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
   alias AllbertAssist.Intent.Router.Index
   alias AllbertAssist.Settings
 
+  @complete_required_slots_boost 0.35
+  @missing_required_slots_penalty 0.25
+
   @type ranked :: %{
           action_name: String.t(),
           app_id: term(),
@@ -48,16 +51,18 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
       entries
       |> Enum.map(fn entry ->
         slots = extracted_slots(entry, query)
+        required_slots = Map.get(entry, :required_slots, [])
+        base_score = Embedder.cosine(query_vector, entry.vector)
 
         %{
           action_name: entry.action_name,
           app_id: entry.app_id,
           label: entry.label,
-          required_slots: Map.get(entry, :required_slots, []),
+          required_slots: required_slots,
           optional_slots: Map.get(entry, :optional_slots, []),
           extracted_slots: slots.extracted_slots,
           missing_slots: slots.missing_slots,
-          score: Embedder.cosine(query_vector, entry.vector)
+          score: slot_adjusted_score(base_score, required_slots, slots)
         }
       end)
       |> Enum.sort_by(& &1.score, :desc)
@@ -75,6 +80,21 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
   end
 
   defp extracted_slots(_entry, _query), do: %{extracted_slots: %{}, missing_slots: []}
+
+  defp slot_adjusted_score(score, [], _slots), do: score
+
+  defp slot_adjusted_score(score, required_slots, slots) when is_list(required_slots) do
+    cond do
+      slots.missing_slots == [] and map_size(slots.extracted_slots) > 0 ->
+        score + @complete_required_slots_boost
+
+      slots.missing_slots != [] ->
+        max(score - @missing_required_slots_penalty, 0.0)
+
+      true ->
+        score
+    end
+  end
 
   defp ensure_index do
     case index_state() do

@@ -107,6 +107,7 @@ defmodule AllbertNotesFiles.App do
         ],
         synonyms: ["read note", "open note", "show note"],
         required_slots: [:path],
+        slot_extractors: %{path: :note_path_phrase},
         handoff_required?: true
       }
     ]

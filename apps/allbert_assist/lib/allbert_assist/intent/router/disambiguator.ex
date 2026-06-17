@@ -61,7 +61,8 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
   def disambiguate(query, shortlist, margin, context, opts \\ []) do
     case impl().select(query, shortlist, context, opts) do
       {:ok, selection} ->
-        outcome = decide(selection, shortlist, margin, opts)
+        decision_opts = Keyword.put(opts, :query, query)
+        outcome = decide(selection, shortlist, margin, decision_opts)
         {:ok, maybe_escalate(outcome, query, shortlist, margin, context, opts)}
 
       {:error, reason} ->
@@ -138,6 +139,7 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
     confidence = normalize_confidence(Map.get(selection, :confidence))
     min_conf = min_confidence(opts)
     diag = base_diag(selection, confidence, margin)
+    query = Keyword.get(opts, :query)
     selected_item = shortlist_item(selected, shortlist)
     slots = merged_slots(selection, selected_item)
     missing_slots = missing_required_slots(selected_item, slots)
@@ -154,6 +156,9 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
 
       is_nil(selected_item) ->
         clarify(shortlist, Map.put(diag, :note, :selection_not_in_shortlist))
+
+      low_information_query?(query, shortlist) ->
+        clarify(shortlist, Map.put(diag, :note, :low_information_query))
 
       confidence < min_conf ->
         clarify(shortlist, Map.put(diag, :note, :low_confidence))
@@ -223,6 +228,17 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
   defp ambiguous?(margin, shortlist, opts) do
     length(shortlist) >= 2 and margin < disambiguation_margin(opts)
   end
+
+  defp low_information_query?(query, shortlist) when is_binary(query) do
+    tokens =
+      query
+      |> String.downcase()
+      |> String.split(~r/[^a-z0-9]+/u, trim: true)
+
+    length(tokens) == 1 and length(shortlist) >= 2
+  end
+
+  defp low_information_query?(_query, _shortlist), do: false
 
   defp base_diag(selection, confidence, margin) do
     %{confidence: confidence, margin: margin, reason: Map.get(selection, :reason)}

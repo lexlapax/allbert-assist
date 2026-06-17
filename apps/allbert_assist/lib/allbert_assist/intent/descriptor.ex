@@ -49,7 +49,7 @@ defmodule AllbertAssist.Intent.Descriptor do
           capability: map()
         }
 
-  @slot_extractors [:ticker_symbol, :title_phrase, :body_phrase]
+  @slot_extractors [:ticker_symbol, :title_phrase, :body_phrase, :note_path_phrase]
   @max_descriptor_text 120
   @max_extracted_slot_text 1_000
   @max_list_items 20
@@ -406,7 +406,7 @@ defmodule AllbertAssist.Intent.Descriptor do
   defp extract_slot(:title_phrase, text) do
     text
     |> extract_phrase([
-      ~r/\b(?:titled|title|called|named)\s+(.+?)(?:\s+(?:with\s+)?body\b|\s+body\b|$)/i
+      ~r/\b(?:titled|title|called|named)\s+(.+?)(?:\s+(?:with\s+body|body|with|saying|that\s+says|says)\b|$)/i
     ])
     |> trim_extracted_slot()
   end
@@ -415,9 +415,20 @@ defmodule AllbertAssist.Intent.Descriptor do
     text
     |> extract_phrase([
       ~r/\bwith\s+body\s+(.+)$/i,
-      ~r/\bbody\s+(.+)$/i
+      ~r/\bbody\s+(.+)$/i,
+      ~r/\b(?:saying|that\s+says|says)\s+(.+)$/i,
+      ~r/\b(?:titled|title|called|named)\s+.+?\s+with\s+(.+)$/i
     ])
     |> trim_extracted_slot()
+  end
+
+  defp extract_slot(:note_path_phrase, text) do
+    text
+    |> extract_phrase([
+      ~r/\b(?:read|open|show)\s+(?:the\s+)?(.+?)\s+note\b/i,
+      ~r/\b(?:read|open|show)\s+(?:note\s+)?(.+?)(?:\.md)?$/i
+    ])
+    |> note_path_from_phrase()
   end
 
   defp extract_slot(_extractor, _text), do: nil
@@ -444,6 +455,31 @@ defmodule AllbertAssist.Intent.Descriptor do
       value == "" -> nil
       byte_size(value) <= @max_extracted_slot_text -> value
       true -> binary_part(value, 0, @max_extracted_slot_text)
+    end
+  end
+
+  defp note_path_from_phrase(nil), do: nil
+
+  defp note_path_from_phrase(value) when is_binary(value) do
+    case trim_extracted_slot(value) do
+      nil ->
+        nil
+
+      value ->
+        cond do
+          String.ends_with?(String.downcase(value), ".md") ->
+            value
+
+          String.contains?(value, "/") ->
+            value <> ".md"
+
+          true ->
+            value
+            |> String.downcase()
+            |> String.replace(~r/[^a-z0-9]+/, "-")
+            |> String.trim("-")
+            |> then(&if(&1 == "", do: nil, else: &1 <> ".md"))
+        end
     end
   end
 

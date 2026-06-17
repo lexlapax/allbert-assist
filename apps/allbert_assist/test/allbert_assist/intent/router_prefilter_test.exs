@@ -75,7 +75,7 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
       AllbertAssist.Intent.Router.Index.rebuild()
 
       assert {:ok, %{shortlist: shortlist}} =
-               Prefilter.shortlist("create a note titled groceries with body milk")
+               Prefilter.shortlist("create a note titled groceries with milk")
 
       scores = Map.new(shortlist, fn s -> {s.action_name, s.score} end)
 
@@ -90,6 +90,22 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
       if Map.has_key?(scores, "search_notes") do
         assert scores["write_note"] >= scores["search_notes"]
       end
+
+      if Map.has_key?(scores, "read_note") do
+        assert scores["write_note"] >= scores["read_note"]
+      end
+    end
+
+    test "a read-note request shortlists read_note with a path slot" do
+      AllbertAssist.Intent.Router.Index.rebuild()
+
+      assert {:ok, %{shortlist: shortlist}} = Prefilter.shortlist("read the scratch note")
+
+      read_note = Enum.find(shortlist, &(&1.action_name == "read_note"))
+
+      assert read_note
+      assert read_note.extracted_slots.path == "scratch.md"
+      assert read_note.missing_slots == []
     end
   end
 

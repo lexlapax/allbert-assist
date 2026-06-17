@@ -196,6 +196,15 @@ defmodule AllbertNotesFiles.PluginTest do
                descriptors,
                &(&1.app_id == :notes_files and &1.action_name == "write_note")
              )
+
+    assert %{
+             required_slots: [:path],
+             slot_extractors: %{path: :note_path_phrase}
+           } =
+             Enum.find(
+               descriptors,
+               &(&1.app_id == :notes_files and &1.action_name == "read_note")
+             )
   end
 
   test "workspace panels hydrate note rows from read-only file context" do
