@@ -322,11 +322,18 @@ defmodule AllbertAssist.Agents.IntentAgent do
       |> put_router_active_app(action_name)
       |> Map.put(:decision, decision)
 
-    params = action_name |> registry_action_params(text, execution_context) |> merge_router_slots(slots)
+    params =
+      action_name |> registry_action_params(text, execution_context) |> merge_router_slots(slots)
 
-    action_name
-    |> run_action(params, text, execution_context)
-    |> attach_decision(decision, context)
+    case missing_required_action_params(action_name, params) do
+      [] ->
+        action_name
+        |> run_action(params, text, execution_context)
+        |> attach_decision(decision, context)
+
+      missing ->
+        {:ok, router_missing_params_response(action_name, missing, context, decision)}
+    end
   end
 
   # v0.54 (ADR 0034/0060): a router-selected app-scoped action runs **in its own
@@ -350,7 +357,11 @@ defmodule AllbertAssist.Agents.IntentAgent do
   # resolve to an existing atom, and never overwrites a param already set.
   defp merge_router_slots(params, slots), do: Slots.merge(params, slots, key_mode: :existing_atom)
 
-  defp router_clarify_response(%Outcome{shortlist: shortlist, question: question}, context, %Decision{} = decision) do
+  defp router_clarify_response(
+         %Outcome{shortlist: shortlist, question: question},
+         context,
+         %Decision{} = decision
+       ) do
     options = clarify_options(shortlist)
     persist_clarification(context, question, options)
     clarification_response(decision, question, options)
@@ -368,6 +379,28 @@ defmodule AllbertAssist.Agents.IntentAgent do
     end)
     |> Enum.reject(&(&1.id == ""))
   end
+
+  defp router_missing_params_response(action_name, missing, context, %Decision{} = decision) do
+    label = action_label(action_name)
+    missing_names = format_param_names(missing)
+
+    question =
+      "I can run #{label}, but I need #{missing_names} first. Please provide the missing details."
+
+    options = [
+      %{
+        kind: :action,
+        id: action_name,
+        label: label,
+        missing_params: Enum.map(missing, &Atom.to_string/1)
+      }
+    ]
+
+    persist_clarification(context, question, options)
+    clarification_response(decision, question, options)
+  end
+
+  defp action_label(action_name), do: action_name |> to_string() |> String.replace("_", " ")
 
   defp persist_clarification(context, question, options) do
     request = Map.get(context, :request, %{})
@@ -399,13 +432,16 @@ defmodule AllbertAssist.Agents.IntentAgent do
       approval_handoff: nil,
       diagnostics: decision.diagnostics,
       intent_clarification: %{question: question, options: options},
-      actions: [%{name: "clarify_intent", status: :awaiting_clarification, permission: :read_only}]
+      actions: [
+        %{name: "clarify_intent", status: :awaiting_clarification, permission: :read_only}
+      ]
     }
   end
 
   defp router_none_response(%Decision{} = decision) do
     %{
-      message: "I couldn't match that to anything I can do. Could you rephrase or ask for something else?",
+      message:
+        "I couldn't match that to anything I can do. Could you rephrase or ask for something else?",
       status: :completed,
       decision: decision,
       resource_access: [],
@@ -448,7 +484,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
     end
   end
 
-  defp handoff_clarify_options(%Decision{selected_action: action}) when is_binary(action) and action != "" do
+  defp handoff_clarify_options(%Decision{selected_action: action})
+       when is_binary(action) and action != "" do
     [%{kind: :action, id: action, label: action}]
   end
 
@@ -1673,6 +1710,29 @@ defmodule AllbertAssist.Agents.IntentAgent do
     end
   end
 
+  defp missing_required_action_params(action_name, params) do
+    with {:ok, module} <- Registry.resolve(action_name),
+         true <- function_exported?(module, :schema, 0),
+         schema when is_list(schema) <- module.schema() do
+      schema
+      |> required_schema_keys()
+      |> Enum.reject(&present_param?(params, &1))
+    else
+      _other -> []
+    end
+  end
+
+  defp required_schema_keys(schema) do
+    schema
+    |> Enum.flat_map(fn
+      {key, opts} when is_atom(key) and is_list(opts) ->
+        if Keyword.get(opts, :required) == true, do: [key], else: []
+
+      _entry ->
+        []
+    end)
+  end
+
   defp required_schema_key?(schema, key) do
     Enum.any?(schema, fn
       {^key, opts} when is_list(opts) -> Keyword.get(opts, :required) == true
@@ -1689,6 +1749,22 @@ defmodule AllbertAssist.Agents.IntentAgent do
       end
     end)
   end
+
+  defp format_param_names([one]), do: format_param_name(one)
+
+  defp format_param_names([first, second]),
+    do: "#{format_param_name(first)} and #{format_param_name(second)}"
+
+  defp format_param_names(names) do
+    {last, rest} = List.pop_at(names, -1)
+
+    rest
+    |> Enum.map(&format_param_name/1)
+    |> Enum.join(", ")
+    |> Kernel.<>(", and #{format_param_name(last)}")
+  end
+
+  defp format_param_name(name), do: name |> Atom.to_string() |> String.replace("_", " ")
 
   defp intent_handoff_decision?(%Decision{intent: intent})
        when intent in [:app_handoff, :clarify_intent],

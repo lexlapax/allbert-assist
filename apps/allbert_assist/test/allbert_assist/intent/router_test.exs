@@ -20,19 +20,38 @@ defmodule AllbertAssist.Intent.RouterTest do
 
   setup do
     original_home = System.get_env("ALLBERT_HOME")
+    original_home_dir = System.get_env("ALLBERT_HOME_DIR")
+    original_database_path = System.get_env("DATABASE_PATH")
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_router_config = Application.get_env(:allbert_assist, :intent_router)
     original_fake = Application.get_env(:allbert_assist, :intent_router_fake_outcome)
     original_override = Application.get_env(:allbert_assist, :intent_router_strategy_override)
 
-    home = Path.join(System.tmp_dir!(), "allbert-router-test-#{System.unique_integer([:positive])}")
+    home =
+      Path.join(System.tmp_dir!(), "allbert-router-test-#{System.unique_integer([:positive])}")
+
+    database_path = Path.join([home, "db", "allbert_router_test.db"])
+    File.mkdir_p!(Path.dirname(database_path))
     System.put_env("ALLBERT_HOME", home)
+    System.put_env("ALLBERT_HOME_DIR", home)
+    System.put_env("DATABASE_PATH", database_path)
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, Settings)
 
     on_exit(fn ->
-      if original_home, do: System.put_env("ALLBERT_HOME", original_home), else: System.delete_env("ALLBERT_HOME")
+      if original_home,
+        do: System.put_env("ALLBERT_HOME", original_home),
+        else: System.delete_env("ALLBERT_HOME")
+
+      if original_home_dir,
+        do: System.put_env("ALLBERT_HOME_DIR", original_home_dir),
+        else: System.delete_env("ALLBERT_HOME_DIR")
+
+      if original_database_path,
+        do: System.put_env("DATABASE_PATH", original_database_path),
+        else: System.delete_env("DATABASE_PATH")
+
       restore(Paths, original_paths_config)
       restore(Settings, original_settings_config)
       restore(:intent_router, original_router_config)
@@ -80,7 +99,12 @@ defmodule AllbertAssist.Intent.RouterTest do
     test "route/3 delegates to the configured impl under :two_stage_local" do
       Application.put_env(:allbert_assist, :intent_router_strategy_override, :two_stage_local)
       Application.put_env(:allbert_assist, :intent_router, FakeRouter)
-      Application.put_env(:allbert_assist, :intent_router_fake_outcome, Outcome.execute("create_note", %{"title" => "x"}, 0.9))
+
+      Application.put_env(
+        :allbert_assist,
+        :intent_router_fake_outcome,
+        Outcome.execute("create_note", %{"title" => "x"}, 0.9)
+      )
 
       assert {:ok, %Outcome{kind: :execute, action_name: "create_note", confidence: 0.9}} =
                Router.route(%{text: "create a note"}, [])
@@ -89,26 +113,43 @@ defmodule AllbertAssist.Intent.RouterTest do
 
   describe "Outcome constructors" do
     test "each kind builds the expected struct" do
-      assert %Outcome{kind: :execute, action_name: "a", slots: %{"k" => 1}} = Outcome.execute("a", %{"k" => 1})
-      assert %Outcome{kind: :clarify, shortlist: [%{id: "x"}], question: "which?"} = Outcome.clarify([%{id: "x"}], "which?")
+      assert %Outcome{kind: :execute, action_name: "a", slots: %{"k" => 1}} =
+               Outcome.execute("a", %{"k" => 1})
+
+      assert %Outcome{kind: :clarify, shortlist: [%{id: "x"}], question: "which?"} =
+               Outcome.clarify([%{id: "x"}], "which?")
+
       assert %Outcome{kind: :answer} = Outcome.answer()
       assert %Outcome{kind: :none} = Outcome.none()
-      assert %Outcome{kind: :defer, reason: :strategy_deterministic} = Outcome.defer(:strategy_deterministic)
+
+      assert %Outcome{kind: :defer, reason: :strategy_deterministic} =
+               Outcome.defer(:strategy_deterministic)
     end
   end
 
   describe "state contracts" do
     test "PendingClarification.expired? honors expires_at" do
       now = ~U[2026-06-16 00:00:00Z]
-      future = %PendingClarification{thread_id: "t", options: [], expires_at: ~U[2026-06-16 00:05:00Z]}
-      past = %PendingClarification{thread_id: "t", options: [], expires_at: ~U[2026-06-15 23:55:00Z]}
+
+      future = %PendingClarification{
+        thread_id: "t",
+        options: [],
+        expires_at: ~U[2026-06-16 00:05:00Z]
+      }
+
+      past = %PendingClarification{
+        thread_id: "t",
+        options: [],
+        expires_at: ~U[2026-06-15 23:55:00Z]
+      }
 
       refute PendingClarification.expired?(future, now)
       assert PendingClarification.expired?(past, now)
     end
 
     test "ConversationContext.empty/0 carries no prior-turn signal" do
-      assert %ConversationContext{summary: "", prior_action: nil, turn_count: 0} = ConversationContext.empty()
+      assert %ConversationContext{summary: "", prior_action: nil, turn_count: 0} =
+               ConversationContext.empty()
     end
   end
 

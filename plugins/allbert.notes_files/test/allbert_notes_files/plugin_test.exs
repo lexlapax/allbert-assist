@@ -180,10 +180,18 @@ defmodule AllbertNotesFiles.PluginTest do
     assert fragment.id == "app:notes_files"
     assert fragment.schema["apps.notes_files.notes_root"].default == "<ALLBERT_HOME>/notes"
 
+    descriptors = ExtensionsRegistry.registered_intent_descriptors(app: [server: app_registry])
+
     assert Enum.any?(
-             ExtensionsRegistry.registered_intent_descriptors(app: [server: app_registry]),
+             descriptors,
              &(&1.app_id == :notes_files and &1.action_name == "search_notes")
            )
+
+    assert %{required_slots: [:title, :body], optional_slots: [:path]} =
+             Enum.find(
+               descriptors,
+               &(&1.app_id == :notes_files and &1.action_name == "write_note")
+             )
   end
 
   test "workspace panels hydrate note rows from read-only file context" do

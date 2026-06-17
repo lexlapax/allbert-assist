@@ -75,7 +75,10 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
   replacing five scattered inline coercions. `Actions.Runner.run/3` now rejects a
   non-map params payload as `:invalid_params` (distinct from `:unknown_action`)
   without embedding the raw value, so no action body runs on a malformed payload.
-  Full per-action param-contract enforcement is deferred to v0.57 M7 / ADR 0065.
+  Router-selected actions now also preflight required param presence from the
+  registered action schema before `Runner.run/3`; missing required params clarify
+  in-channel instead of surfacing action-body `:missing_*` errors. Full typed
+  per-action param-contract enforcement remains deferred to v0.57 M7 / ADR 0065.
 - M9/M10 accepted as tag-blocking v0.54 scope: descriptor lifecycle/coverage/
   golden-set work (ADR 0062) and outbound compose actions for email, calendar, and
   channel send (ADR 0063). These are planned, not yet shipped in this changelog

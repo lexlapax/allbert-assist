@@ -48,8 +48,12 @@ defmodule AllbertNotesFiles.App do
   @impl AllbertAssist.App
   def surfaces do
     [
-      list_panel([empty_state("notes-empty", "No notes found", "The configured notes root is empty.")]),
-      detail_panel([empty_state("note-detail-empty", "No note selected", "Select or read a note.")])
+      list_panel([
+        empty_state("notes-empty", "No notes found", "The configured notes root is empty.")
+      ]),
+      detail_panel([
+        empty_state("note-detail-empty", "No note selected", "Select or read a note.")
+      ])
     ]
   end
 
@@ -69,13 +73,14 @@ defmodule AllbertNotesFiles.App do
         action_name: "write_note",
         label: "Create or write a local note",
         examples: [
-          "create a note titled groceries with milk and eggs",
-          "write a note: call the dentist tomorrow",
-          "save a note about the planning meeting",
-          "make a new note for the trip checklist"
+          "create a note titled groceries with body milk and eggs",
+          "write a note titled dentist reminder with body call the dentist tomorrow",
+          "save a note titled planning meeting with body next steps",
+          "make a new note titled trip checklist with body packing and tickets"
         ],
         synonyms: ["create note", "write note", "new note", "add note", "save note", "make note"],
-        required_slots: [],
+        required_slots: [:title, :body],
+        optional_slots: [:path],
         handoff_required?: true
       },
       %{
@@ -100,7 +105,7 @@ defmodule AllbertNotesFiles.App do
           "open the scratch note"
         ],
         synonyms: ["read note", "open note", "show note"],
-        required_slots: [],
+        required_slots: [:path],
         handoff_required?: true
       }
     ]
@@ -134,7 +139,8 @@ defmodule AllbertNotesFiles.App do
     }
   end
 
-  defp note_rows([]), do: [empty_state("notes-empty", "No notes found", "The configured notes root is empty.")]
+  defp note_rows([]),
+    do: [empty_state("notes-empty", "No notes found", "The configured notes root is empty.")]
 
   defp note_rows(notes) do
     Enum.map(notes, fn note ->
@@ -151,7 +157,13 @@ defmodule AllbertNotesFiles.App do
   end
 
   defp detail_nodes(nil) do
-    [empty_state("note-detail-empty", "No note selected", "Search or read a note to inspect details.")]
+    [
+      empty_state(
+        "note-detail-empty",
+        "No note selected",
+        "Search or read a note to inspect details."
+      )
+    ]
   end
 
   defp detail_nodes(note) do

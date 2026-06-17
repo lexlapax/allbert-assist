@@ -6,7 +6,8 @@ Related: ADR 0060 (two-stage router + approval-gate separation — produces
 `Outcome` slots), ADR 0062 (descriptor lifecycle — `extracted_slots` on the
 engine `Decision`), ADR 0006 (Security Central — routing grants no authority).
 Successor: v0.57 M7 / ADR 0065 (central action **param-contract** enforcement),
-the larger schema-validation follow-on this ADR deliberately scopes out.
+the larger schema-validation follow-on this ADR deliberately scopes out beyond
+the router-required-presence guard added during v0.54 M11 validation.
 
 ## Context
 
@@ -44,6 +45,13 @@ The defensiveness worked but was scattered across five sites with no single
 source of truth — inconsistent with the project's "settings central /
 registration central" principle.
 
+A later A2/A3 live punchlist pass found a distinct but adjacent failure:
+the Stage-2 router could correctly select `write_note` while omitting required
+params (`title`/`body`) for underspecified utterances. The action body then
+returned an operator-visible `:missing_title` / `:missing_body` error. That is
+not a malformed slot payload; it is a missing required-param preflight at the
+router execution boundary.
+
 ## Decision
 
 Introduce **one canonical seam**, `AllbertAssist.Intent.Slots`, for the
@@ -76,6 +84,15 @@ slot → action-param boundary, and correct the Runner's invalid-params semantic
 `:unknown_action` — and never embeds the raw payload (it may carry
 untrusted/sensitive content). No action body runs on a malformed payload.
 
+### Router required-param presence guard
+
+For router-selected actions only, `IntentAgent.run_router_action/5` now checks
+the selected action module's registered schema after context injection and slot
+merge, before `Actions.Runner.run/3`. If any `required: true` schema key is
+absent or blank, the turn returns `needs_clarification` naming the missing fields
+and persists an answerable pending clarification. No action body runs, and no
+permission, app-scope, or confirmation decision is changed.
+
 ## Consequences
 
 - One place to reason about "what shape do slots have when they become params,"
@@ -84,7 +101,11 @@ untrusted/sensitive content). No action body runs on a malformed payload.
   action's own permission/confirmation gate is unchanged (ADR 0006).
 - A degraded model payload degrades to "no slots" uniformly instead of risking a
   crash on any future caller that forgets to guard.
-- **Scoped out:** enforcing each action's registered schema centrally (rejecting
-  unknown/typed-invalid params for *all* actions). That requires resolving the
-  injected-context-key split (`user_id`/`thread_id`/`session_id`) and an eval
-  sweep across all actions — tracked as v0.57 M7 / ADR 0065.
+- Router-selected actions no longer surface action-body `:missing_*` errors when
+  the model selected an action but failed to supply required slots; they clarify
+  in-channel instead.
+- **Scoped out:** enforcing each action's registered schema centrally beyond
+  router required-presence (rejecting unknown or typed-invalid params for *all*
+  callers/actions). That requires resolving the injected-context-key split
+  (`user_id`/`thread_id`/`session_id`) and an eval sweep across all actions —
+  tracked as v0.57 M7 / ADR 0065.
