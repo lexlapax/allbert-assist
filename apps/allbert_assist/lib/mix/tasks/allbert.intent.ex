@@ -7,6 +7,7 @@ defmodule Mix.Tasks.Allbert.Intent do
       mix allbert.intent doctor
       mix allbert.intent bench [--subset | --holdout]
       mix allbert.intent edit ACTION
+      mix allbert.intent enable ACTION
 
   `doctor` probes the local embedder and reports the router strategy, configured
   profiles, and utterance-index state in a redacted ADR 0047 envelope.
@@ -120,6 +121,14 @@ defmodule Mix.Tasks.Allbert.Intent do
     Mix.shell().info("disabled #{action} (#{path}); run `mix allbert.intent reindex` to apply")
   end
 
+  defp dispatch(["enable", action]) do
+    {:ok, path} = DescriptorStore.delete(:overrides, descriptor_app_id(action), action)
+
+    Mix.shell().info(
+      "enabled #{action} (removed override #{path}); run `mix allbert.intent reindex` to apply"
+    )
+  end
+
   defp dispatch(["promote", action | rest]) do
     {opts, _rest, _invalid} =
       OptionParser.parse(rest,
@@ -161,7 +170,7 @@ defmodule Mix.Tasks.Allbert.Intent do
       Mix.raise(
         "Usage: mix allbert.intent doctor | bench [--subset|--holdout] | " <>
           "optimize [--heuristic] | reindex | list | show ACTION | edit ACTION | " <>
-          "disable ACTION | promote ACTION | review"
+          "disable ACTION | enable ACTION | promote ACTION | review"
       )
 
   defp descriptor_app_id(action) do

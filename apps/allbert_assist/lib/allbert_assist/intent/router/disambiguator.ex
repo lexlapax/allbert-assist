@@ -22,6 +22,7 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
   `Application.put_env(:allbert_assist, :intent_router_disambiguator, impl)`
   (tests use `Disambiguator.FakeDisambiguator`). The gate is pure (`decide/4`).
   """
+  alias AllbertAssist.Intent.Slots
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
@@ -74,7 +75,14 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
   # out-of-shortlist selection by the primary router model escalates once to the
   # escalation profile (which may also be hosted). Always audited.
 
-  defp maybe_escalate(%Outcome{kind: :clarify, diagnostics: %{note: note}} = outcome, query, shortlist, margin, context, opts)
+  defp maybe_escalate(
+         %Outcome{kind: :clarify, diagnostics: %{note: note}} = outcome,
+         query,
+         shortlist,
+         margin,
+         context,
+         opts
+       )
        when note in @escalatable_notes do
     cond do
       Keyword.get(opts, :escalated) ->
@@ -101,7 +109,8 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
   end
 
   defp escalation_profile(opts) do
-    case Keyword.get(opts, :escalation_profile) || setting_string("intent.router_escalation_profile") do
+    case Keyword.get(opts, :escalation_profile) ||
+           setting_string("intent.router_escalation_profile") do
       value when is_binary(value) and value != "" -> value
       _other -> nil
     end
@@ -129,17 +138,39 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
     confidence = normalize_confidence(Map.get(selection, :confidence))
     min_conf = min_confidence(opts)
     diag = base_diag(selection, confidence, margin)
+    selected_item = shortlist_item(selected, shortlist)
+    slots = merged_slots(selection, selected_item)
+    missing_slots = missing_required_slots(selected_item, slots)
 
     cond do
-      selected == @answer -> Outcome.answer(diag)
-      selected == @none -> Outcome.none(diag)
-      selected == @clarify -> clarify(shortlist, Map.put(diag, :note, :model_requested_clarify))
-      not in_shortlist?(selected, shortlist) -> clarify(shortlist, Map.put(diag, :note, :selection_not_in_shortlist))
-      confidence < min_conf -> clarify(shortlist, Map.put(diag, :note, :low_confidence))
+      selected == @answer ->
+        Outcome.answer(diag)
+
+      selected == @none ->
+        Outcome.none(diag)
+
+      selected == @clarify ->
+        clarify(shortlist, Map.put(diag, :note, :model_requested_clarify))
+
+      is_nil(selected_item) ->
+        clarify(shortlist, Map.put(diag, :note, :selection_not_in_shortlist))
+
+      confidence < min_conf ->
+        clarify(shortlist, Map.put(diag, :note, :low_confidence))
+
       ambiguous?(margin, shortlist, opts) and confidence < @decisive_confidence ->
         clarify(shortlist, Map.put(diag, :note, :ambiguous_margin))
 
-      true -> Outcome.execute(selected, Map.get(selection, :slots, %{}), confidence, diag)
+      missing_slots != [] ->
+        clarify(
+          shortlist,
+          diag
+          |> Map.put(:note, :missing_required_slots)
+          |> Map.put(:missing_slots, missing_slots)
+        )
+
+      true ->
+        Outcome.execute(selected, slots, confidence, diag)
     end
   end
 
@@ -159,8 +190,35 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
     end
   end
 
-  defp in_shortlist?(selected, shortlist),
-    do: Enum.any?(shortlist, &(to_string(Map.get(&1, :action_name)) == selected))
+  defp shortlist_item(selected, shortlist),
+    do: Enum.find(shortlist, &(to_string(Map.get(&1, :action_name)) == selected))
+
+  defp merged_slots(selection, shortlist_item) do
+    %{}
+    |> Slots.merge(Map.get(shortlist_item || %{}, :extracted_slots, %{}),
+      key_mode: :lenient,
+      overwrite: true
+    )
+    |> Slots.merge(Map.get(selection, :slots, %{}), key_mode: :lenient, overwrite: true)
+  end
+
+  defp missing_required_slots(nil, _slots), do: []
+
+  defp missing_required_slots(shortlist_item, slots) do
+    shortlist_item
+    |> Map.get(:required_slots, [])
+    |> Enum.reject(&present_slot?(slots, &1))
+  end
+
+  defp present_slot?(slots, slot) do
+    Enum.any?([slot, to_string(slot)], fn key ->
+      case Map.get(slots, key) do
+        value when is_binary(value) -> String.trim(value) != ""
+        nil -> false
+        _value -> true
+      end
+    end)
+  end
 
   defp ambiguous?(margin, shortlist, opts) do
     length(shortlist) >= 2 and margin < disambiguation_margin(opts)
@@ -170,14 +228,18 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
     %{confidence: confidence, margin: margin, reason: Map.get(selection, :reason)}
   end
 
-  defp normalize_confidence(value) when is_number(value), do: value * 1.0 |> max(0.0) |> min(1.0)
+  defp normalize_confidence(value) when is_number(value),
+    do: (value * 1.0) |> max(0.0) |> min(1.0)
+
   defp normalize_confidence(_value), do: 0.0
 
   defp min_confidence(opts),
     do: Keyword.get(opts, :min_confidence) || setting_float("intent.router_min_confidence", 0.6)
 
   defp disambiguation_margin(opts),
-    do: Keyword.get(opts, :disambiguation_margin) || setting_float("intent.disambiguation_margin", 0.12)
+    do:
+      Keyword.get(opts, :disambiguation_margin) ||
+        setting_float("intent.disambiguation_margin", 0.12)
 
   defp setting_float(key, default) do
     case Settings.get(key) do

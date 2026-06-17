@@ -85,6 +85,20 @@ defmodule AllbertAssist.Intent.Router.DescriptorStore do
     end
   end
 
+  @doc "Delete a descriptor attrs map from a tier; missing files are a no-op."
+  @spec delete(atom(), String.t() | atom(), String.t() | atom()) ::
+          {:ok, String.t()} | {:error, term()}
+  def delete(tier, app_id, action) when tier in @tiers do
+    with {:ok, file} <- path(tier, app_id, action),
+         :ok <- safe_delete_target?(file) do
+      case File.rm(file) do
+        :ok -> {:ok, file}
+        {:error, :enoent} -> {:ok, file}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
   defp yaml_files(path) do
     case File.ls(path) do
       {:ok, entries} ->
@@ -175,6 +189,19 @@ defmodule AllbertAssist.Intent.Router.DescriptorStore do
   end
 
   defp safe_destination?(path) do
+    cond do
+      not yaml_file?(path) or not under_root?(path) ->
+        {:error, :unsafe_path}
+
+      File.exists?(path) ->
+        safe_existing_file?(path)
+
+      true ->
+        :ok
+    end
+  end
+
+  defp safe_delete_target?(path) do
     cond do
       not yaml_file?(path) or not under_root?(path) ->
         {:error, :unsafe_path}

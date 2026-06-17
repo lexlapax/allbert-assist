@@ -10,6 +10,7 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
   deterministic ladder. The index is built lazily on first use (it is not built
   at boot, so a default `:deterministic` install never embeds).
   """
+  alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Intent.Router.Embedder
   alias AllbertAssist.Intent.Router.Index
   alias AllbertAssist.Settings
@@ -27,7 +28,7 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
   def shortlist(query, opts \\ []) when is_binary(query) do
     with {:ok, entries} <- ensure_index(),
          {:ok, [query_vector | _]} <- Embedder.embed([query], opts) do
-      ranked = rank(query_vector, entries, top_k(opts))
+      ranked = rank(query_vector, entries, top_k(opts), query)
       {:ok, Map.put(ranked, :query_vector, query_vector)}
     else
       {:fallback, _reason} = fallback -> fallback
@@ -39,13 +40,23 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
   @doc "Pure cosine ranking of `entries` against `query_vector`; top-`k` + margin."
   @spec rank([float()], [map()], pos_integer()) :: %{shortlist: [ranked()], margin: float()}
   def rank(query_vector, entries, k) when is_list(entries) and is_integer(k) and k > 0 do
+    rank(query_vector, entries, k, "")
+  end
+
+  defp rank(query_vector, entries, k, query) when is_list(entries) and is_integer(k) and k > 0 do
     ranked =
       entries
       |> Enum.map(fn entry ->
+        slots = extracted_slots(entry, query)
+
         %{
           action_name: entry.action_name,
           app_id: entry.app_id,
           label: entry.label,
+          required_slots: Map.get(entry, :required_slots, []),
+          optional_slots: Map.get(entry, :optional_slots, []),
+          extracted_slots: slots.extracted_slots,
+          missing_slots: slots.missing_slots,
           score: Embedder.cosine(query_vector, entry.vector)
         }
       end)
@@ -58,6 +69,12 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
   defp margin([%{score: s1}, %{score: s2} | _rest]), do: s1 - s2
   defp margin([%{score: s1}]), do: s1
   defp margin([]), do: 0.0
+
+  defp extracted_slots(%{descriptor: %Descriptor{} = descriptor}, query) do
+    Descriptor.extract_slots(descriptor, query)
+  end
+
+  defp extracted_slots(_entry, _query), do: %{extracted_slots: %{}, missing_slots: []}
 
   defp ensure_index do
     case index_state() do

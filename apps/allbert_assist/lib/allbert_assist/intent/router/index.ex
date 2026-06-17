@@ -159,6 +159,9 @@ defmodule AllbertAssist.Intent.Router.Index do
               app_id: descriptor.app_id,
               label: to_string(descriptor.label),
               text: utterance_text(descriptor),
+              descriptor: descriptor,
+              required_slots: descriptor.required_slots,
+              optional_slots: descriptor.optional_slots,
               vector: vector
             }
           end)

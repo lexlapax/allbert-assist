@@ -56,6 +56,22 @@ defmodule Mix.Tasks.Allbert.IntentTest do
     assert list_output =~ "append_memory source=override app_id=allbert"
   end
 
+  test "enable removes a disable override and restores the resolved descriptor" do
+    disable_output =
+      capture_io(fn -> assert :ok = IntentTask.run(["disable", "append_memory"]) end)
+
+    assert disable_output =~ "disabled append_memory"
+
+    disabled_list = capture_io(fn -> assert :ok = IntentTask.run(["list"]) end)
+    refute disabled_list =~ "append_memory source="
+
+    enable_output = capture_io(fn -> assert :ok = IntentTask.run(["enable", "append_memory"]) end)
+    assert enable_output =~ "enabled append_memory"
+
+    restored_list = capture_io(fn -> assert :ok = IntentTask.run(["list"]) end)
+    assert restored_list =~ "append_memory source=code app_id=allbert"
+  end
+
   test "review lists learned proposals and promote makes them generated" do
     {:ok, _path} =
       DescriptorStore.put(:review, %{

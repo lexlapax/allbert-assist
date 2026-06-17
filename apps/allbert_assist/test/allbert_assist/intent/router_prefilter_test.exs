@@ -18,7 +18,12 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
     original_error = Application.get_env(:allbert_assist, :intent_router_embedder_error)
     original_override = Application.get_env(:allbert_assist, :intent_router_strategy_override)
 
-    home = Path.join(System.tmp_dir!(), "allbert-router-prefilter-#{System.unique_integer([:positive])}")
+    home =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-router-prefilter-#{System.unique_integer([:positive])}"
+      )
+
     System.put_env("ALLBERT_HOME", home)
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, Settings)
@@ -26,7 +31,10 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
     Application.delete_env(:allbert_assist, :intent_router_embedder_error)
 
     on_exit(fn ->
-      if original_home, do: System.put_env("ALLBERT_HOME", original_home), else: System.delete_env("ALLBERT_HOME")
+      if original_home,
+        do: System.put_env("ALLBERT_HOME", original_home),
+        else: System.delete_env("ALLBERT_HOME")
+
       restore(Paths, original_paths)
       restore(Settings, original_settings)
       restore(:intent_router_embedder, original_embedder)
@@ -65,10 +73,19 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
 
     test "a create-a-note request shortlists write_note (M6 descriptor-coverage fix)" do
       AllbertAssist.Intent.Router.Index.rebuild()
-      assert {:ok, %{shortlist: shortlist}} = Prefilter.shortlist("create a note titled groceries with milk")
+
+      assert {:ok, %{shortlist: shortlist}} =
+               Prefilter.shortlist("create a note titled groceries with body milk")
+
       scores = Map.new(shortlist, fn s -> {s.action_name, s.score} end)
 
-      assert Map.has_key?(scores, "write_note"), "write_note should be shortlisted for a create request"
+      assert Map.has_key?(scores, "write_note"),
+             "write_note should be shortlisted for a create request"
+
+      write_note = Enum.find(shortlist, &(&1.action_name == "write_note"))
+      assert write_note.extracted_slots.title == "groceries"
+      assert write_note.extracted_slots.body == "milk"
+
       # the original mis-route: write_note must not lose to search_notes
       if Map.has_key?(scores, "search_notes") do
         assert scores["write_note"] >= scores["search_notes"]
