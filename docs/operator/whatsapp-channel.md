@@ -103,7 +103,7 @@ Manual validation before tag:
 
   ```sh
   mix allbert.channels whatsapp post-webhook --url http://127.0.0.1:4000 \
-    --from "$ALLBERT_WHATSAPP_TO_PHONE" "whatsapp inbound auth check"        # → HTTP 200
+    --from "$ALLBERT_WHATSAPP_TO_PHONE" "whatsapp inbound auth check"        # → HTTP 202
   mix allbert.channels whatsapp post-webhook --url http://127.0.0.1:4000 --bad-signature \
     --from "$ALLBERT_WHATSAPP_TO_PHONE" "whatsapp deny check"               # → HTTP 401
   ```

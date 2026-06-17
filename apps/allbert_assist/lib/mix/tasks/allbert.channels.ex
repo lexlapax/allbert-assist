@@ -765,14 +765,14 @@ defmodule Mix.Tasks.Allbert.Channels do
 
     verdict =
       case {expected, status} do
-        {:accept_200, 200} ->
-          "PASS: signature verified and webhook accepted (HTTP 200)"
+        {:accept_202, 202} ->
+          "PASS: signature verified and webhook accepted (HTTP 202)"
 
         {:deny_401, 401} ->
           "PASS: invalid signature rejected before parse (HTTP 401)"
 
-        {:accept_200, other} ->
-          "UNEXPECTED: expected HTTP 200, got #{other} " <>
+        {:accept_202, other} ->
+          "UNEXPECTED: expected HTTP 202, got #{other} " <>
             "(check that mix phx.server is running and channels.whatsapp.webhook_enabled, " <>
             "phone_number_id, and app_secret_ref are configured)"
 
@@ -1052,7 +1052,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   end
 
   defp post_signed_whatsapp_webhook(url, raw_body, signature, bad_signature?) do
-    expected = if bad_signature?, do: :deny_401, else: :accept_200
+    expected = if bad_signature?, do: :deny_401, else: :accept_202
 
     case Req.post(url,
            headers: [
