@@ -16,13 +16,15 @@ defmodule AllbertAssist.Channels.Email.Adapter do
 
   @provider "email_imap"
   @max_backoff_ms 60_000
+  @poll_once_call_timeout_ms 120_000
 
   def start_link(opts) do
     name = Keyword.get(opts, :name, __MODULE__)
     GenServer.start_link(__MODULE__, opts, name: name)
   end
 
-  def poll_once(server \\ __MODULE__), do: GenServer.call(server, :poll_once, 30_000)
+  def poll_once(server \\ __MODULE__, timeout_ms \\ @poll_once_call_timeout_ms),
+    do: GenServer.call(server, :poll_once, timeout_ms)
 
   @impl true
   def init(opts) do
@@ -445,8 +447,11 @@ defmodule AllbertAssist.Channels.Email.Adapter do
 
   defp maybe_put_known_thread_id(attrs, fields, false) do
     case Map.get(fields, :known_thread_id) do
-      thread_id when is_binary(thread_id) and thread_id != "" -> Map.put(attrs, :thread_id, thread_id)
-      _thread_id -> attrs
+      thread_id when is_binary(thread_id) and thread_id != "" ->
+        Map.put(attrs, :thread_id, thread_id)
+
+      _thread_id ->
+        attrs
     end
   end
 

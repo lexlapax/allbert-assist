@@ -16,13 +16,15 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
 
   @provider "matrix_client_server"
   @max_backoff_ms 60_000
+  @poll_once_call_timeout_ms 120_000
 
   def start_link(opts) do
     name = Keyword.get(opts, :name, __MODULE__)
     GenServer.start_link(__MODULE__, opts, name: name)
   end
 
-  def poll_once(server \\ __MODULE__), do: GenServer.call(server, :poll_once)
+  def poll_once(server \\ __MODULE__, timeout_ms \\ @poll_once_call_timeout_ms),
+    do: GenServer.call(server, :poll_once, timeout_ms)
 
   @impl true
   def init(opts) do

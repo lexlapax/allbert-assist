@@ -23,13 +23,15 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
   @telegram_file_download_max_bytes 20 * 1024 * 1024
   @telegram_voice_extensions ~w[.ogg .oga .mp3 .m4a .wav .webm]
   @callback_data_re ~r/\Aallbert:v1:(approve|deny|show):([A-Za-z0-9_-]+)\z/
+  @poll_once_call_timeout_ms 120_000
 
   def start_link(opts) do
     name = Keyword.get(opts, :name, __MODULE__)
     GenServer.start_link(__MODULE__, opts, name: name)
   end
 
-  def poll_once(server \\ __MODULE__), do: GenServer.call(server, :poll_once)
+  def poll_once(server \\ __MODULE__, timeout_ms \\ @poll_once_call_timeout_ms),
+    do: GenServer.call(server, :poll_once, timeout_ms)
 
   @impl true
   def init(opts) do
@@ -222,7 +224,8 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
            ),
          {:ok, response} <- submit_runtime(text, user_id, session_id, fields, new_thread?),
          {:ok, chunks, keyboard} <- render_response(response, state),
-         {:ok, delivered} <- deliver_chunks(fields.external_chat_id, chunks, keyboard, state, fields),
+         {:ok, delivered} <-
+           deliver_chunks(fields.external_chat_id, chunks, keyboard, state, fields),
          :ok <- record_outbound_refs(response, fields, delivered),
          {:ok, _event} <- mark_processed(event, response, user_id, session_id) do
       {:ok, :processed}
@@ -361,7 +364,10 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
 
     fields
     |> Map.put(:provider_thread_ref, provider_thread_ref)
-    |> Map.put(:channel_thread_ref, channel_thread_ref(fields.receiver_account_ref, provider_thread_ref))
+    |> Map.put(
+      :channel_thread_ref,
+      channel_thread_ref(fields.receiver_account_ref, provider_thread_ref)
+    )
     |> Map.delete(:known_thread_id)
   end
 
@@ -420,7 +426,9 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
     }
   end
 
-  defp known_thread_id_from_reply(receiver_account_ref, %{reply_to_message_id: reply_to_message_id})
+  defp known_thread_id_from_reply(receiver_account_ref, %{
+         reply_to_message_id: reply_to_message_id
+       })
        when is_binary(reply_to_message_id) and reply_to_message_id != "" do
     case ChannelThread.lookup_message_thread(%{
            channel: "telegram",
@@ -473,8 +481,11 @@ defmodule AllbertAssist.Channels.Telegram.Adapter do
 
   defp maybe_put_known_thread_id(attrs, fields, false) do
     case Map.get(fields, :known_thread_id) do
-      thread_id when is_binary(thread_id) and thread_id != "" -> Map.put(attrs, :thread_id, thread_id)
-      _thread_id -> attrs
+      thread_id when is_binary(thread_id) and thread_id != "" ->
+        Map.put(attrs, :thread_id, thread_id)
+
+      _thread_id ->
+        attrs
     end
   end
 
