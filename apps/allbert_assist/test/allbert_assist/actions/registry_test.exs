@@ -111,8 +111,6 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "list_channels",
              "show_channel",
              "channel_setup_check",
-             "whatsapp_doctor",
-             "signal_doctor",
              "resume_thread_on_channel",
              "list_apps",
              "show_app",
@@ -123,12 +121,23 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "open_calendar_panel",
              "open_mail_panel",
              "open_github_panel",
+             "list_marketplace_entries",
+             "list_objectives",
+             "find_mcp_tools",
+             "send_email",
+             "send_channel_message",
+             "create_calendar_event",
+             "install_marketplace_bundle",
+             "create_skill",
+             "continue_objective",
+             "cancel_objective",
+             "whatsapp_doctor",
+             "signal_doctor",
              "mcp_doctor_server",
              "mcp_list_tools",
              "mcp_list_resources",
              "mcp_read_resource",
              "mcp_call_tool",
-             "find_mcp_tools",
              "mcp_fetch_server_manifest",
              "mcp_evaluate_server",
              "mcp_server_connect",
@@ -144,7 +153,6 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "promote_objective_draft",
              "promote_capability_gap_draft",
              "validate_skill",
-             "create_skill",
              "run_skill_script",
              "run_package_install",
              "audit_online_skill",
@@ -152,9 +160,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "import_remote_skill",
              "import_local_skill",
              "marketplace_doctor",
-             "list_marketplace_entries",
              "inspect_marketplace_entry",
-             "install_marketplace_bundle",
              "rollback_marketplace_install",
              "list_installed_marketplace_bundles",
              "verify_marketplace_bundle_hash",
@@ -203,10 +209,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "retrieve_active_memory",
              "promote_conversation_turn",
              "sync_app_lesson",
-             "list_objectives",
              "show_objective",
-             "cancel_objective",
-             "continue_objective",
              "delegate_agent",
              "list_workflows",
              "inspect_workflow",
@@ -251,8 +254,6 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert "list_channels" in agent_action_names
     assert "show_channel" in agent_action_names
     assert "channel_setup_check" in agent_action_names
-    assert "whatsapp_doctor" in agent_action_names
-    assert "signal_doctor" in agent_action_names
     assert "resume_thread_on_channel" in agent_action_names
     assert "list_apps" in agent_action_names
     assert "show_app" in agent_action_names
@@ -260,6 +261,18 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert "show_plugin" in agent_action_names
     assert "generate_image" in agent_action_names
     assert "synthesize_voice" in agent_action_names
+    assert "list_marketplace_entries" in agent_action_names
+    assert "list_objectives" in agent_action_names
+    assert "find_mcp_tools" in agent_action_names
+    assert "send_email" in agent_action_names
+    assert "send_channel_message" in agent_action_names
+    assert "create_calendar_event" in agent_action_names
+    assert "install_marketplace_bundle" in agent_action_names
+    assert "create_skill" in agent_action_names
+    assert "continue_objective" in agent_action_names
+    assert "cancel_objective" in agent_action_names
+    refute "whatsapp_doctor" in agent_action_names
+    refute "signal_doctor" in agent_action_names
     refute "mcp_doctor_server" in agent_action_names
     refute "mcp_list_tools" in agent_action_names
     refute "mcp_list_resources" in agent_action_names
@@ -285,12 +298,13 @@ defmodule AllbertAssist.Actions.RegistryTest do
              Enum.map(Registry.agent_modules(), & &1.name())
 
     assert Enum.map(Registry.internal_capabilities(), & &1.name) == [
+             "whatsapp_doctor",
+             "signal_doctor",
              "mcp_doctor_server",
              "mcp_list_tools",
              "mcp_list_resources",
              "mcp_read_resource",
              "mcp_call_tool",
-             "find_mcp_tools",
              "mcp_fetch_server_manifest",
              "mcp_evaluate_server",
              "mcp_server_connect",
@@ -306,7 +320,6 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "promote_objective_draft",
              "promote_capability_gap_draft",
              "validate_skill",
-             "create_skill",
              "run_skill_script",
              "run_package_install",
              "audit_online_skill",
@@ -314,9 +327,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "import_remote_skill",
              "import_local_skill",
              "marketplace_doctor",
-             "list_marketplace_entries",
              "inspect_marketplace_entry",
-             "install_marketplace_bundle",
              "rollback_marketplace_install",
              "list_installed_marketplace_bundles",
              "verify_marketplace_bundle_hash",
@@ -365,10 +376,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "retrieve_active_memory",
              "promote_conversation_turn",
              "sync_app_lesson",
-             "list_objectives",
              "show_objective",
-             "cancel_objective",
-             "continue_objective",
              "delegate_agent",
              "list_workflows",
              "inspect_workflow",
@@ -412,12 +420,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
 
     assert {:ok, create_skill} = Registry.capability("create_skill")
     assert create_skill.permission == :skill_write
-    assert create_skill.exposure == :internal
+    assert create_skill.exposure == :agent
     refute create_skill.skill_backed?
 
     assert {:ok, list_objectives} = Registry.capability("list_objectives")
     assert list_objectives.permission == :read_only
-    assert list_objectives.exposure == :internal
+    assert list_objectives.exposure == :agent
     assert list_objectives.execution_mode == :objectives_read
 
     assert {:ok, doctor_model_profile} = Registry.capability("doctor_model_profile")
@@ -460,7 +468,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
 
     assert {:ok, find_mcp_tools} = Registry.capability("find_mcp_tools")
     assert find_mcp_tools.permission == :tool_discovery
-    assert find_mcp_tools.exposure == :internal
+    assert find_mcp_tools.exposure == :agent
     assert find_mcp_tools.execution_mode == :mcp_discovery
 
     assert {:ok, mcp_fetch_server_manifest} = Registry.capability("mcp_fetch_server_manifest")
@@ -526,7 +534,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
 
     assert {:ok, cancel_objective} = Registry.capability("cancel_objective")
     assert cancel_objective.permission == :objective_write
-    assert cancel_objective.exposure == :internal
+    assert cancel_objective.exposure == :agent
     assert cancel_objective.execution_mode == :objective_engine
 
     assert {:ok, delegate_agent} = Registry.capability("delegate_agent")

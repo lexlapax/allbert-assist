@@ -92,6 +92,13 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
   simulate-callback` now builds a parser-valid local interaction with a synthetic
   interaction token and prints normalized processed callback output, so optional
   channel validation reaches approve/deny instead of `missing token`.
+- **v0.54 release-gate hardening:** `release.v054` now includes the action
+  registry exposure/order contract, so v0.54's promoted agent surface
+  (`list_marketplace_entries`, `list_objectives`, `find_mcp_tools`, outbound
+  compose, and gated effectful verbs) and internal channel doctors cannot drift
+  silently. The v0.54 descriptor eval now uses collision-resistant temporary
+  homes and cleans them up, preventing stale generated descriptor YAML from a
+  prior BEAM run from contaminating release evidence.
 
 ### Changed
 

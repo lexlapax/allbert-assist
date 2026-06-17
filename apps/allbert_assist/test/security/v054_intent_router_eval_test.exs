@@ -45,10 +45,14 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
       override: Application.get_env(:allbert_assist, :intent_router_strategy_override)
     }
 
-    System.put_env(
-      "ALLBERT_HOME",
-      Path.join(System.tmp_dir!(), "allbert-v054-eval-#{System.unique_integer([:positive])}")
-    )
+    home =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-v054-eval-#{System.os_time(:nanosecond)}-#{System.unique_integer([:positive])}"
+      )
+
+    File.rm_rf!(home)
+    System.put_env("ALLBERT_HOME", home)
 
     Application.delete_env(:allbert_assist, Paths)
     Application.delete_env(:allbert_assist, Settings)
@@ -67,6 +71,7 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
       restore(:intent_router_disambiguator, original.disambiguator)
       restore(:intent_router_fake_selection, original.selection)
       restore(:intent_router_strategy_override, original.override)
+      File.rm_rf!(home)
     end)
 
     :ok

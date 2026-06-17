@@ -2481,6 +2481,19 @@ defmodule Mix.Tasks.Allbert.Test do
       ]
     },
     %{
+      id: "registry_contract",
+      title: "action registry exposure/order contract",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/allbert_assist/actions/registry_test.exs"],
+      coverage: [
+        "stable runtime action order",
+        "agent/internal exposure split",
+        "v0.54 promoted action surface",
+        "canonical capability metadata"
+      ]
+    },
+    %{
       id: "v054_eval",
       title: ":v054 router, descriptor lifecycle, outbound, and security eval",
       cwd: :core,
