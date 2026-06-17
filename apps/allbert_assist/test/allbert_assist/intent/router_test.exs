@@ -81,6 +81,9 @@ defmodule AllbertAssist.Intent.RouterTest do
     end
 
     test "settings round-trip for router_strategy" do
+      assert {:ok, _} =
+               Settings.put("intent.router_strategy", "two_stage_local", %{audit?: false})
+
       assert {:ok, "two_stage_local"} = Settings.get("intent.router_strategy")
       assert {:ok, _} = Settings.put("intent.router_strategy", "deterministic", %{audit?: false})
       assert {:ok, "deterministic"} = Settings.get("intent.router_strategy")

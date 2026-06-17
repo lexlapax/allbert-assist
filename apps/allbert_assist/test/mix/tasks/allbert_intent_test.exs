@@ -55,4 +55,30 @@ defmodule Mix.Tasks.Allbert.IntentTest do
     list_output = capture_io(fn -> assert :ok = IntentTask.run(["list"]) end)
     assert list_output =~ "append_memory source=override app_id=allbert"
   end
+
+  test "review lists learned proposals and promote makes them generated" do
+    {:ok, _path} =
+      DescriptorStore.put(:review, %{
+        app_id: :allbert,
+        action_name: "show_app",
+        label: "Show app",
+        examples: ["show app"],
+        synonyms: ["app details"],
+        required_slots: []
+      })
+
+    review_output = capture_io(fn -> assert :ok = IntentTask.run(["review"]) end)
+    assert review_output =~ "show_app app_id=allbert"
+
+    promote_output =
+      capture_io(fn ->
+        assert :ok = IntentTask.run(["promote", "show_app", "--from", "learned"])
+      end)
+
+    assert promote_output =~ "promoted show_app ->"
+    assert promote_output =~ "/intents/generated/allbert/show_app.yaml"
+
+    list_output = capture_io(fn -> assert :ok = IntentTask.run(["list"]) end)
+    assert list_output =~ "show_app source=generated app_id=allbert"
+  end
 end
