@@ -40,6 +40,28 @@ defmodule AllbertAssist.Actions.Calendar.CreateCalendarEvent do
 
   @tool "create_event"
 
+  def intent_descriptors do
+    [
+      %{
+        action_name: "create_calendar_event",
+        label: "Create a calendar event",
+        examples: [
+          "schedule a meeting tomorrow at 3pm",
+          "schedule a meeting tomorrow 3pm titled sync",
+          "create a calendar event called launch review tomorrow at 10am"
+        ],
+        synonyms: ["schedule meeting", "create calendar event", "add calendar event"],
+        required_slots: [:title, :start],
+        optional_slots: [:duration, :attendees, :location],
+        slot_extractors: %{
+          title: :calendar_title_phrase,
+          start: :calendar_start_phrase
+        },
+        handoff_required?: true
+      }
+    ]
+  end
+
   @impl true
   def run(params, context) do
     with {:ok, title} <- required(params, :title),

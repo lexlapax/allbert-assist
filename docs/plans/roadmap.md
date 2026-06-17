@@ -3325,8 +3325,12 @@ Expected direction:
   generated for actions that lack them (local model), stored as data-only YAML
   descriptor/vocabulary files, layered with operator YAML curation (code <
   generated < override), and re-derived on action-set change via SignalBus reindex
-  hooks + debounce. Memory/trace analysis may create learned-review YAML proposals,
-  but those are inert until promoted. M9 also adds `optimize_intent_descriptors`,
+  hooks + debounce. The embedding Index and active-app engine descriptor path both
+  consume the layered `DescriptorResolver` output, including action/generated/
+  override source badges, so higher-precedence slot descriptors cannot be dropped
+  by an older app-only descriptor path. Memory/trace analysis may create
+  learned-review YAML proposals, but those are inert until promoted. M9 also adds
+  `optimize_intent_descriptors`,
   `mix allbert.intent optimize|reindex|list|…`, CLI curation with audited YAML
   overrides (web Intents panel deferred to v0.55), and a comprehensive golden-set +
   replay-bench. Generated descriptors for

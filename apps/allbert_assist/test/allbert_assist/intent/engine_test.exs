@@ -161,6 +161,36 @@ defmodule AllbertAssist.Intent.EngineTest do
            )
   end
 
+  test "neutral app descriptor path uses layered outbound action descriptors" do
+    request =
+      EvalFixtures.request(
+        text: "send an email to you@example.com saying hello",
+        active_app: :allbert
+      )
+
+    candidates = Engine.collect_candidates(request)
+
+    assert descriptor =
+             Enum.find(
+               candidates,
+               &match?(%{kind: :app_intent, app_id: :allbert, action_name: "send_email"}, &1)
+             )
+
+    assert descriptor.source == :action
+    assert descriptor.trace_metadata.descriptor.source == :action
+    assert descriptor.trace_metadata.descriptor.required_slots == [:to, :body]
+    assert descriptor.trace_metadata.extracted_slots == %{to: "you@example.com", body: "hello"}
+    assert descriptor.trace_metadata.missing_slots == []
+
+    assert {:ok, decision} = Engine.decide(request)
+    assert decision.intent == :registry_action
+    assert decision.selected_action == "send_email"
+    assert decision.trace_metadata.descriptor_candidate_id == "allbert:send_email"
+    assert decision.trace_metadata.descriptor.source == :action
+    assert decision.trace_metadata.extracted_slots == %{to: "you@example.com", body: "hello"}
+    assert decision.trace_metadata.missing_slots == []
+  end
+
   test "missing app descriptor slots ask for clarification" do
     assert {:ok, decision} =
              Engine.decide(EvalFixtures.request(text: "analyze", active_app: :allbert))

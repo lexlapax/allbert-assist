@@ -36,6 +36,28 @@ defmodule AllbertAssist.Actions.Email.SendEmail do
   alias AllbertAssist.Channels.Email.SmtpClient
   alias AllbertAssist.Settings.Secrets
 
+  def intent_descriptors do
+    [
+      %{
+        action_name: "send_email",
+        label: "Send an outbound email",
+        examples: [
+          "send an email to alice@example.com saying hello",
+          "email bob@example.com about lunch",
+          "send an email to team@example.com with body deployment is complete"
+        ],
+        synonyms: ["send email", "email", "outbound email"],
+        required_slots: [:to, :body],
+        optional_slots: [:subject],
+        slot_extractors: %{
+          to: :email_address,
+          body: :message_body_phrase
+        },
+        handoff_required?: true
+      }
+    ]
+  end
+
   @impl true
   def run(params, context) do
     with {:ok, to} <- required(params, :to),
@@ -61,7 +83,8 @@ defmodule AllbertAssist.Actions.Email.SendEmail do
       )
     else
       {:error, reason} ->
-        {:ok, %{message: "send_email: #{inspect(reason)}", status: :failed, error: reason, actions: []}}
+        {:ok,
+         %{message: "send_email: #{inspect(reason)}", status: :failed, error: reason, actions: []}}
     end
   end
 

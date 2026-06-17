@@ -49,7 +49,18 @@ defmodule AllbertAssist.Intent.Descriptor do
           capability: map()
         }
 
-  @slot_extractors [:ticker_symbol, :title_phrase, :body_phrase, :note_path_phrase]
+  @slot_extractors [
+    :ticker_symbol,
+    :title_phrase,
+    :body_phrase,
+    :note_path_phrase,
+    :email_address,
+    :message_body_phrase,
+    :channel_name_phrase,
+    :channel_target_phrase,
+    :calendar_title_phrase,
+    :calendar_start_phrase
+  ]
   @max_descriptor_text 120
   @max_extracted_slot_text 1_000
   @max_list_items 20
@@ -426,9 +437,67 @@ defmodule AllbertAssist.Intent.Descriptor do
     text
     |> extract_phrase([
       ~r/\b(?:read|open|show)\s+(?:the\s+)?(.+?)\s+note\b/i,
-      ~r/\b(?:read|open|show)\s+(?:note\s+)?(.+?)(?:\.md)?$/i
+      ~r/\b(?:read|open|show)\s+note\s+(.+?)(?:\.md)?$/i,
+      ~r/\b(?:read|open|show)\s+(.+?(?:\/.+?|\.md))$/i
     ])
     |> note_path_from_phrase()
+  end
+
+  defp extract_slot(:email_address, text) do
+    text
+    |> extract_phrase([
+      ~r/\bto\s+([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})\b/i,
+      ~r/\b([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})\b/i
+    ])
+    |> trim_extracted_slot()
+  end
+
+  defp extract_slot(:message_body_phrase, text) do
+    text
+    |> extract_phrase([
+      ~r/\bwith\s+body\s+(.+)$/i,
+      ~r/\bbody\s+(.+)$/i,
+      ~r/\b(?:saying|that\s+says|says)\s+(.+)$/i,
+      ~r/\babout\s+(.+)$/i
+    ])
+    |> trim_extracted_slot()
+  end
+
+  defp extract_slot(:channel_name_phrase, text) do
+    text
+    |> extract_phrase([
+      ~r/\bsend\s+a\s+([a-z][a-z0-9_-]*)\s+message\b/i,
+      ~r/\b(?:on|via)\s+([a-z][a-z0-9_-]*)\b/i
+    ])
+    |> trim_extracted_slot()
+    |> downcase_slot()
+  end
+
+  defp extract_slot(:channel_target_phrase, text) do
+    text
+    |> extract_phrase([
+      ~r/\bto\s+(#[A-Za-z0-9._-]+|@[A-Za-z0-9._-]+|[A-Za-z0-9._-]+)(?:\s+(?:saying|that\s+says|says|with\s+body|body)\b|$)/i
+    ])
+    |> trim_extracted_slot()
+  end
+
+  defp extract_slot(:calendar_title_phrase, text) do
+    text
+    |> extract_phrase([
+      ~r/\b(?:titled|title|called|named)\s+(.+?)$/i,
+      ~r/\bschedule\s+(?:a|an|the)?\s*(.+?)(?:\s+(?:tomorrow|today|tonight|next\s+\w+|\d{1,2}(?::\d{2})?\s*(?:am|pm)?|\d{4}-\d{2}-\d{2})\b|$)/i
+    ])
+    |> trim_extracted_slot()
+  end
+
+  defp extract_slot(:calendar_start_phrase, text) do
+    text
+    |> extract_phrase([
+      ~r/\b((?:tomorrow|today|tonight|next\s+\w+)(?:\s+at)?\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/i,
+      ~r/\b(\d{4}-\d{2}-\d{2}(?:\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)?)\b/i,
+      ~r/\b((?:tomorrow|today|tonight|next\s+\w+))\b/i
+    ])
+    |> trim_extracted_slot()
   end
 
   defp extract_slot(_extractor, _text), do: nil
@@ -457,6 +526,9 @@ defmodule AllbertAssist.Intent.Descriptor do
       true -> binary_part(value, 0, @max_extracted_slot_text)
     end
   end
+
+  defp downcase_slot(nil), do: nil
+  defp downcase_slot(value) when is_binary(value), do: String.downcase(value)
 
   defp note_path_from_phrase(nil), do: nil
 

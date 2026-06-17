@@ -12,13 +12,13 @@ defmodule AllbertAssist.Intent.Engine do
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Channels
-  alias AllbertAssist.Extensions.Registry, as: ExtensionsRegistry
   alias AllbertAssist.Intent.Candidate
   alias AllbertAssist.Intent.Classifier
   alias AllbertAssist.Intent.Decision
   alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Intent.Handoff
   alias AllbertAssist.Intent.Ranker
+  alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Jobs
   alias AllbertAssist.Memory
   alias AllbertAssist.Memory.Index, as: MemoryIndex
@@ -460,7 +460,7 @@ defmodule AllbertAssist.Intent.Engine do
 
   defp descriptor_candidates(request) do
     if descriptors_enabled?() do
-      ExtensionsRegistry.registered_intent_descriptors()
+      DescriptorResolver.resolve()
       |> Enum.map(&candidate_from_descriptor(&1, request))
       |> Enum.reject(&is_nil/1)
     else

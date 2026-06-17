@@ -36,6 +36,28 @@ defmodule AllbertAssist.Actions.Channels.SendChannelMessage do
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.Outbound
 
+  def intent_descriptors do
+    [
+      %{
+        action_name: "send_channel_message",
+        label: "Send an outbound channel message",
+        examples: [
+          "send a slack message to #eng saying hi",
+          "send a discord message to #general with body release is ready",
+          "send a telegram message to @alice saying hello"
+        ],
+        synonyms: ["send channel message", "send slack message", "send discord message"],
+        required_slots: [:channel, :target, :body],
+        slot_extractors: %{
+          channel: :channel_name_phrase,
+          target: :channel_target_phrase,
+          body: :message_body_phrase
+        },
+        handoff_required?: true
+      }
+    ]
+  end
+
   @impl true
   def run(params, context) do
     with {:ok, channel} <- required(params, :channel),
@@ -57,7 +79,8 @@ defmodule AllbertAssist.Actions.Channels.SendChannelMessage do
       {:error, {:target_rejected, reason}} ->
         {:ok,
          %{
-           message: "Refusing to send: target #{inspect(reason)} (not allowlisted on this channel).",
+           message:
+             "Refusing to send: target #{inspect(reason)} (not allowlisted on this channel).",
            status: :stopped,
            error: {:target_rejected, reason},
            actions: []

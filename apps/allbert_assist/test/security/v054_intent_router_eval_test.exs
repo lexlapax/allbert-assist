@@ -182,32 +182,40 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
   test "descriptor store is data-only YAML and invalid files fail closed" do
     generated = DescriptorStore.dir(:generated)
     File.mkdir_p!(Path.join(generated, "allbert"))
-    File.write!(Path.join([generated, "allbert", "unsafe.exs"]), "%{action_name: \"show_app\"}")
+
+    File.write!(
+      Path.join([generated, "allbert", "unsafe.exs"]),
+      "%{action_name: \"unsafe_code_action\"}"
+    )
+
     File.write!(Path.join([generated, "allbert", "broken.yaml"]), "not: [valid\n")
 
     refute DescriptorStore.read_attrs(:generated)
            |> Enum.any?(
-             &((Map.get(&1, "action_name") || Map.get(&1, :action_name)) == "show_app")
+             &((Map.get(&1, "action_name") || Map.get(&1, :action_name)) ==
+                 "unsafe_code_action")
            )
   end
 
   # intent-descriptor-override-precedence-001 (disable removes a descriptor)
   test "an operator disable override removes an action from the resolved set" do
-    assert DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "write_note"))
+    assert DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "send_email"))
 
     {:ok, _path} =
       DescriptorStore.put(:overrides, %{
-        app_id: :notes_files,
-        action_name: "write_note",
+        app_id: :allbert,
+        action_name: "send_email",
         disabled: true
       })
 
-    refute DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "write_note"))
+    refute DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "send_email"))
   end
 
   # intent-descriptor-grants-no-authority-001 (routable != executable)
   test "a descriptor does not change the action's confirmation gate" do
-    descriptor = DescriptorResolver.resolve() |> Enum.find(&(&1.action_name == "write_note"))
+    descriptor = DescriptorResolver.resolve() |> Enum.find(&(&1.action_name == "send_email"))
+    assert descriptor.source == :action
+    assert descriptor.required_slots == [:to, :body]
     assert descriptor.capability.confirmation == :required
   end
 

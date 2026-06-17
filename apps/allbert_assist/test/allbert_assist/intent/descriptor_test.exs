@@ -133,6 +133,62 @@ defmodule AllbertAssist.Intent.DescriptorTest do
            }
   end
 
+  test "extracts outbound compose slots from operator phrases" do
+    assert {:ok, email} =
+             Descriptor.normalize(%{
+               app_id: :allbert,
+               action_name: "send_email",
+               label: "Send an outbound email",
+               required_slots: [:to, :body],
+               slot_extractors: %{to: :email_address, body: :message_body_phrase}
+             })
+
+    assert Descriptor.extract_slots(email, "send an email to you@example.com saying hello") == %{
+             extracted_slots: %{to: "you@example.com", body: "hello"},
+             missing_slots: []
+           }
+
+    assert Descriptor.extract_slots(email, "send an email to alice@example.com about lunch") == %{
+             extracted_slots: %{to: "alice@example.com", body: "lunch"},
+             missing_slots: []
+           }
+
+    assert {:ok, channel} =
+             Descriptor.normalize(%{
+               app_id: :allbert,
+               action_name: "send_channel_message",
+               label: "Send an outbound channel message",
+               required_slots: [:channel, :target, :body],
+               slot_extractors: %{
+                 channel: :channel_name_phrase,
+                 target: :channel_target_phrase,
+                 body: :message_body_phrase
+               }
+             })
+
+    assert Descriptor.extract_slots(channel, "send a slack message to #random saying hi") == %{
+             extracted_slots: %{channel: "slack", target: "#random", body: "hi"},
+             missing_slots: []
+           }
+
+    assert {:ok, calendar} =
+             Descriptor.normalize(%{
+               app_id: :allbert,
+               action_name: "create_calendar_event",
+               label: "Create a calendar event",
+               required_slots: [:title, :start],
+               slot_extractors: %{
+                 title: :calendar_title_phrase,
+                 start: :calendar_start_phrase
+               }
+             })
+
+    assert Descriptor.extract_slots(calendar, "schedule a meeting tomorrow 3pm titled sync") == %{
+             extracted_slots: %{title: "sync", start: "tomorrow 3pm"},
+             missing_slots: []
+           }
+  end
+
   test "extracts optional slots without making them required" do
     assert {:ok, descriptor} =
              Descriptor.normalize(%{

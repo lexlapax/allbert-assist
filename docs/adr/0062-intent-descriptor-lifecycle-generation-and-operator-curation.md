@@ -79,6 +79,17 @@ tier; proposals become routable only after operator promotion into `generated/` 
 The merge is advisory-only: it changes *which* candidates the router shortlists,
 never *whether* an action may run.
 
+All descriptor consumers must use this resolved layered set. The embedding Index
+and the older `Intent.Engine` app-intent candidate path both consume
+`DescriptorResolver.resolve/1`; neither may call
+`Extensions.Registry.registered_intent_descriptors/0` directly as its final source
+of truth. Candidate normalization must accept descriptor-layer source atoms
+(`:app`, `:plugin`, `:action`, `:generated`, `:overrides`, `:review`,
+`:learned_review`) so higher-precedence action/generated/operator descriptors are
+not silently dropped before ranking. Slot-aware ranking is generic: completed
+required slots may boost a descriptor, while missing required slots lead to
+clarification rather than execution.
+
 ### 2. YAML descriptor and vocabulary files
 
 Lifecycle-managed descriptor payloads are **data-only YAML**, never `.exs` or any
@@ -228,11 +239,12 @@ index, surfaced as both an action and a mix task (doctor envelope, ADR 0047):
   ...}}` in `handle_info/2` (existing precedent: `Artifacts.IngestionConsumer`).
   Index gains `:subscription_id` + `:rebuild_timer`; debounce via
   `Process.send_after(self(), :rebuild_debounced, ms)`.
-- **Resolver wrap point**: `Intent.Router.Index.build/0` calls
-  `Extensions.Registry.registered_intent_descriptors/0` (registry.ex:79) today; the
-  new `DescriptorResolver.resolve/1` wraps it, scans live action modules exporting
-  `intent_descriptors/0`, then layers accepted generated YAML + operator override
-  YAML. Learned-review YAML is listed/reviewed but not loaded by the resolver.
+- **Resolver wrap point**: all routing descriptor consumers call
+  `DescriptorResolver.resolve/1`. The resolver wraps
+  `Extensions.Registry.registered_intent_descriptors/0`, scans live action modules
+  exporting `intent_descriptors/0`, then layers accepted generated YAML + operator
+  override YAML. Learned-review YAML is listed/reviewed but not loaded by the
+  resolver.
 - **Descriptor shape**: `%Intent.Router`/`Intent.Descriptor{}` (descriptor.ex) with
   `Descriptor.normalize_many/2` (:96) for validation.
 - **Descriptor store**: use existing `Settings.YamlCodec` (`YamlElixir` + `Ymlr`)

@@ -107,6 +107,38 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
       assert read_note.extracted_slots.path == "scratch.md"
       assert read_note.missing_slots == []
     end
+
+    test "outbound compose requests carry required slots into the shortlist" do
+      AllbertAssist.Intent.Router.Index.rebuild()
+
+      assert {:ok, %{shortlist: email_shortlist}} =
+               Prefilter.shortlist("send an email to you@example.com saying hello")
+
+      email = Enum.find(email_shortlist, &(&1.action_name == "send_email"))
+      assert email
+      assert email.extracted_slots.to == "you@example.com"
+      assert email.extracted_slots.body == "hello"
+      assert email.missing_slots == []
+
+      assert {:ok, %{shortlist: channel_shortlist}} =
+               Prefilter.shortlist("send a slack message to #random saying hi")
+
+      channel = Enum.find(channel_shortlist, &(&1.action_name == "send_channel_message"))
+      assert channel
+      assert channel.extracted_slots.channel == "slack"
+      assert channel.extracted_slots.target == "#random"
+      assert channel.extracted_slots.body == "hi"
+      assert channel.missing_slots == []
+
+      assert {:ok, %{shortlist: calendar_shortlist}} =
+               Prefilter.shortlist("schedule a meeting tomorrow 3pm titled sync")
+
+      calendar = Enum.find(calendar_shortlist, &(&1.action_name == "create_calendar_event"))
+      assert calendar
+      assert calendar.extracted_slots.title == "sync"
+      assert calendar.extracted_slots.start == "tomorrow 3pm"
+      assert calendar.missing_slots == []
+    end
   end
 
   describe "DefaultRouter (Stage 1 feeds Stage 2)" do

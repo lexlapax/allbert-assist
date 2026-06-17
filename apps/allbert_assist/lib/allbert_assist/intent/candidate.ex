@@ -13,7 +13,10 @@ defmodule AllbertAssist.Intent.Candidate do
   alias AllbertAssist.Runtime.SafeTerm
 
   @kinds ~w[action skill surface job channel memory objective refusal app_intent direct_answer]a
-  @sources ~w[deterministic registry app plugin job channel memory objective trace model]a
+  @sources ~w[
+    deterministic registry app plugin action generated overrides review learned_review
+    job channel memory objective trace model
+  ]a
   @statuses ~w[selected candidate rejected unavailable]a
   @max_string_bytes 240
   @default_total_limit 80

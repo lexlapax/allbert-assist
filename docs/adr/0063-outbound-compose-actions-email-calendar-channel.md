@@ -52,6 +52,17 @@ declaring its own intent descriptor (consumed by the ADR 0062 lifecycle).
 Routing to these actions grants no authority (ADR 0060); the confirmation gate is
 the sole execution boundary; the router never auto-sends.
 
+Each outbound action also declares an action-module `intent_descriptors/0`
+descriptor consumed through ADR 0062's `DescriptorResolver`. The descriptor must
+name the same required slots as the action schema and map them to generic
+extractors so the router carries slots into the action boundary before
+confirmation: `send_email` → `to/body`, `send_channel_message` →
+`channel/target/body`, `create_calendar_event` → `title/start`. App-level
+discovery descriptors may exist, but the action-module descriptor is the
+executable slot contract and wins by resolver precedence. Bodies remain absent
+from approval summaries even though they are stored in `resume_params_ref` for the
+approved send.
+
 Before the three actions are implemented, M10 must land the shared execution
 contracts they depend on:
 

@@ -10,6 +10,8 @@ defmodule AllbertAssist.Intent.Ranker do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Intent.Candidate
 
+  @complete_required_slots_boost 0.35
+
   @spec rank([Candidate.t() | map()], map()) :: [Candidate.t() | map()]
   def rank(candidates, context \\ %{}) when is_list(candidates) do
     ranking_context = ranking_context(context)
@@ -44,6 +46,7 @@ defmodule AllbertAssist.Intent.Ranker do
     candidate
     |> apply_active_app_affinity(context)
     |> apply_descriptor_text_match(context)
+    |> apply_descriptor_slot_completeness()
     |> apply_surface_text_match(context)
     |> apply_action_text_match(context)
     |> apply_skill_text_match(context)
@@ -82,6 +85,30 @@ defmodule AllbertAssist.Intent.Ranker do
   end
 
   defp apply_descriptor_text_match(candidate, _context), do: candidate
+
+  defp apply_descriptor_slot_completeness(candidate) do
+    descriptor = get_in_trace(candidate, :descriptor) || %{}
+    required_slots = field(descriptor, :required_slots, [])
+    extracted_slots = get_in_trace(candidate, :extracted_slots) || %{}
+    missing_slots = get_in_trace(candidate, :missing_slots) || []
+
+    cond do
+      field(candidate, :kind) != :app_intent or required_slots == [] ->
+        candidate
+
+      missing_slots == [] and map_size(extracted_slots) > 0 ->
+        candidate
+        |> put_field(:score, score(candidate) + @complete_required_slots_boost)
+        |> put_trace(:slot_ranking_reason, :complete_required_slots)
+
+      missing_slots != [] ->
+        candidate
+        |> put_trace(:slot_ranking_reason, :missing_required_slots)
+
+      true ->
+        candidate
+    end
+  end
 
   defp apply_surface_text_match(candidate, %{text: text}) do
     if field(candidate, :kind) == :surface and surface_text_match?(candidate, text) do

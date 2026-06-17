@@ -24,4 +24,15 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolverTest do
     # the M9.1 core descriptors resolve under the reserved :allbert id
     assert MapSet.member?(resolved_keys, {:allbert, "append_memory"})
   end
+
+  test "resolve/0 includes M10 outbound action-module slot descriptors" do
+    descriptor =
+      DescriptorResolver.resolve()
+      |> Enum.find(&(&1.app_id == :allbert and &1.action_name == "send_email"))
+
+    assert descriptor.source == :action
+    assert descriptor.required_slots == [:to, :body]
+    assert descriptor.slot_extractors.to == :email_address
+    assert descriptor.slot_extractors.body == :message_body_phrase
+  end
 end
