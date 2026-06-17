@@ -87,7 +87,8 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   # on approval they re-run via Runner.run with their stored resume_params_ref,
   # gated by the permission re-check. This is additive and explicit: every other
   # action keeps its existing family dispatch / :adapter_unavailable behaviour
-  # (regression-locked; the 8 catch-all resumables are unchanged).
+  # (regression-locked; v0.54 deliberately migrated install_marketplace_bundle
+  # while leaving the remaining historical catch-all resumables unchanged).
   @generic_resume_actions ~w[
     send_email
     send_channel_message

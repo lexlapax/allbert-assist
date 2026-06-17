@@ -68,7 +68,7 @@ ingestion sensor. Two follow-on concerns need their own decision:
   `artifact_thread_links` table, and the registered read/write/query actions.
   These are core because durable Home data must derive from Allbert Home, the
   scheme/permissions/redactor are Security Central + Resource Access concerns,
-  and channels (v0.52), MCP (v0.51), and export (v0.57) depend on the store. A
+  and channels (v0.52), MCP (v0.51), and export (v0.58) depend on the store. A
   plugin cannot define a resource scheme, register Security Central permissions,
   add a Home root, or own a sensor over core capture flows.
 - **Plugin/app (Artifacts Browser, v0.50b):** the operator browsing repository,

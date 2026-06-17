@@ -83,7 +83,7 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
   120s for the live local router/model path instead of using the default 5s
   `GenServer.call` timeout; this affects `mix allbert.channels discord simulate`
   and `simulate-callback` only.
-- **v0.54 confirmation-metadata hardening:** confirmation records now fold
+- **M11 confirmation-metadata hardening:** confirmation records now fold
   malformed nested list tails into proper redacted/stringified lists during both
   pending-record creation and approval resolution, preventing channel-originated
   action metadata from surfacing `Enum.reduce/3`/`FunctionClauseError` failures

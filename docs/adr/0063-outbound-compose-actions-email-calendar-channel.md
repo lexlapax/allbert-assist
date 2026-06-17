@@ -73,22 +73,25 @@ contracts they depend on:
 - **Opt-in generic confirmation resume (additive, audited — not a catch-all swap).**
   `approve_confirmation` resumes via ~15 family clauses + 7 `@*_action_names` lists +
   `plan_step_confirm`, with a catch-all → `:adapter_unavailable`. Verified
-  2026-06-16: of **40 `resumable?: true` actions, 32 are family-handled** and **8 hit
-  the catch-all** (`browser_start_session`, `browser_navigate`, `browser_click`,
-  `browser_fill`, `browser_download`, `delete_artifact`, `install_marketplace_bundle`,
-  `rollback_marketplace_install`). Because some of those 8 resume via other paths
-  and/or are not idempotent, M10 must **not** replace the catch-all blindly. Instead:
+  2026-06-16 before M10: of **40 `resumable?: true` actions, 32 were
+  family-handled** and **8 hit the catch-all** (`browser_start_session`,
+  `browser_navigate`, `browser_click`, `browser_fill`, `browser_download`,
+  `delete_artifact`, `install_marketplace_bundle`, `rollback_marketplace_install`).
+  Because some of those 8 resume via other paths and/or are not idempotent, M10
+  must **not** replace the catch-all blindly. Instead:
   (1) **audit** the 40 resumables vs the dispatch and record the catch-all set in the
   eval inventory; (2) add an **opt-in** generic resume (capability marker
   `generic_resume?: true` or an explicit allow-set) that re-runs an opted-in action
   with a stored `resume_params_ref` through `Actions.Runner.run/3` **after the
-  permission re-check** (the approval *is* the authority); the 3 M10 actions opt in.
-  Everything not opted in keeps its **current** family dispatch / `:adapter_unavailable`
-  behavior — a regression eval locks the 8 catch-all actions and the existing
-  families. Approval never creates a hidden adapter path.
+  permission re-check** (the approval *is* the authority); the 3 M10 actions and
+  `install_marketplace_bundle` opt in. Everything not opted in keeps its
+  **current** family dispatch / `:adapter_unavailable` behavior — a regression eval
+  locks the remaining 7 catch-all actions and the existing families. Approval never
+  creates a hidden adapter path.
 - **Outbound boundary:** `send_channel_message` calls
   `AllbertAssist.Channels.Outbound.send/4` (or the equivalent adapter behaviour
-  callback), implemented for every connected adapter before the action ships. The
+  callback), implemented for ready connected adapters before the action ships.
+  Matrix generic outbound degrades gracefully and is deferred to v0.56 M1. The
   action never calls provider clients directly.
 
 ### `send_email`
@@ -153,7 +156,7 @@ credential custody.
   descriptors for each (ADR 0062 indexes them). M10 `:v054` eval rows
   (send-email-confirmed, channel-target-gated, calendar-mcp-backed,
   outbound-grants-no-authority, generic-resume [opt-in],
-  resume-no-regression [the 8 catch-all + existing families behavior-locked],
+  resume-no-regression [the remaining 7 catch-all + existing families behavior-locked],
   permission-floors).
 - The M9 golden-set rows for "send an email…", "schedule a meeting…", "send a slack
   message…" flip from `handoff`/`answer` to `execute`.

@@ -347,7 +347,7 @@ requires a future ADR/plan update.
 - v0.53 lands WhatsApp/Signal/Matrix with explicit primitive declarations,
   preserves `:list` as the mandatory fallback, and does not claim a portable
   Matrix button primitive.
-- The v0.57 cross-surface eval sweep adds an `approval-primitive-honor`
+- The v0.58 cross-surface eval sweep adds an `approval-primitive-honor`
   check per adapter.
 - v1.0 freezes the channel-adapter boundary including this primitive
   contract.

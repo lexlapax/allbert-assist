@@ -279,7 +279,7 @@ post-v0.37 planning policy that v0.45 adopts the ADR 0046 draft
 declared at the fragment schema layer and is read-only at v0.45.
 
 ADR 0046 (Settings Central Schema Migration Policy) drafts the
-convention at v0.45 but accepts the migration runner at v0.57. v0.45
+convention at v0.45 but accepts the migration runner at v0.58. v0.45
 only adopts the field convention; the runtime migration semantics
 ship with the accepted ADR.
 
@@ -361,7 +361,7 @@ version is needed.
   fragment composes through the v0.31 substrate, with
   `schema_version: 1` per ADR 0046 draft.
 - **ADR 0046** (settings schema migration policy): drafted at v0.45;
-  accepted at v0.57. v0.45 adopts the `schema_version` field
+  accepted at v0.58. v0.45 adopts the `schema_version` field
   convention only.
 - **ADR 0047** (provider doctor contract): `marketplace_doctor`
   follows the ADR 0047 redacted shape (matches v0.40 MCP doctor,
