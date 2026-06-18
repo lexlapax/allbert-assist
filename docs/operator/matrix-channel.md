@@ -238,7 +238,8 @@ Manual validation before tag:
 
 - Start Allbert normally with the configured `ALLBERT_HOME`.
 - Send a text `m.room.message` from the mapped MXID in the allowlisted room and
-  confirm a runtime request is created. If `poll-once` reports only duplicates,
+  confirm a runtime request is created. If `poll-once` reports only duplicates
+  and/or non-actionable rejections such as Matrix state events or bot echoes,
   send one new mapped message and run `poll-once` again; do not clear or redact
   the room to make validation pass.
 - Send from an unmapped MXID and confirm the request is rejected before runtime.

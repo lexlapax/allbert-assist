@@ -294,7 +294,12 @@ defmodule AllbertAssist.Channels.MatrixTest do
         "rooms" => %{
           "join" => %{
             "!room:example.com" => %{
-              "timeline" => %{"events" => [matrix_text_event("$old-sync", "already seen")]}
+              "timeline" => %{
+                "events" => [
+                  %{"event_id" => "$state-sync", "type" => "m.room.history_visibility"},
+                  matrix_text_event("$old-sync", "already seen")
+                ]
+              }
             }
           }
         }
@@ -339,7 +344,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
 
     Req.Test.allow(__MODULE__, self(), pid)
 
-    assert {:ok, %{processed: 1, duplicates: 2, rejected: 0, failed: 0}} =
+    assert {:ok, %{processed: 1, duplicates: 2, rejected: 1, failed: 0}} =
              Adapter.poll_once(server)
 
     assert_receive {:runtime_request,

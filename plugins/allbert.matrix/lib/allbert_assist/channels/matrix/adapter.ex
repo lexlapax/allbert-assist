@@ -156,7 +156,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
   end
 
   defp maybe_catch_up_messages(summary, next_since, sync, state) do
-    if cold_duplicate_only_sync?(summary, next_since, state) do
+    if cold_sync_without_actionable_events?(summary, next_since, state) do
       sync
       |> catch_up_room_ids(state)
       |> Enum.reduce(summary, fn room_id, acc ->
@@ -167,10 +167,10 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
     end
   end
 
-  defp cold_duplicate_only_sync?(summary, next_since, state) do
+  defp cold_sync_without_actionable_events?(summary, next_since, state) do
     state.since in [nil, ""] and is_binary(next_since) and next_since != "" and
-      summary.duplicates > 0 and
-      summary.processed == 0 and summary.rejected == 0 and summary.failed == 0
+      summary.processed == 0 and summary.failed == 0 and
+      summary.duplicates + summary.rejected > 0
   end
 
   defp catch_up_room_ids(sync, state) do
