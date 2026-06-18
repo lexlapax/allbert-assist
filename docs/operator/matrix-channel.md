@@ -35,15 +35,17 @@ homeserver.
 2. From the bot or mapped account, click `+` next to the current Space name in
    the left panel, choose `New room`, and create a private room named
    `allbert-v053-validation`.
-3. Leave `Private Rooms | Enable end-to-end encryption` off. If encryption is
-   enabled, create a fresh room; Matrix room encryption cannot be disabled after
-   it is enabled.
+3. If Element shows `Private Rooms | Enable end-to-end encryption`, leave it
+   off. Some Element Web deployments hide this control or apply
+   client/homeserver defaults, so do not treat the UI as proof.
 4. Invite the bot, mapped, and unmapped accounts by full MXID. Accept the invite
    in the bot and unmapped sessions.
 5. Open `Room Settings` -> `Advanced` and copy the internal room id. Use the
    value that starts with `!`, not a public alias that starts with `#`.
-6. Open `Room Settings` -> `Security & Privacy` and confirm encryption is still
-   off.
+6. After the bot has joined, prove the room is unencrypted through the Matrix
+   state API. Encryption is enabled by an `m.room.encryption` state event;
+   `404 M_NOT_FOUND` means the room has no encryption state and is suitable for
+   v0.53.
 7. For the encrypted-room rejection check, create a second private room with
    encryption intentionally on, invite/accept the bot, and do not put that room
    id in `channels.matrix.allowed_room_ids`.
@@ -78,6 +80,61 @@ curl -fsS "$ALLBERT_MATRIX_HOMESERVER_URL/_matrix/client/v3/account/whoami" \
 
 The token has full access to the bot account. Store it only through
 `mix allbert.channels matrix set-token`.
+
+Check the validation room for encryption state:
+
+```sh
+export ALLBERT_MATRIX_ROOM_ID="!room:example.org"
+export ALLBERT_MATRIX_ROOM_ID_ESCAPED="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["ALLBERT_MATRIX_ROOM_ID"], safe=""))')"
+status="$(curl -sS -o /tmp/allbert-matrix-encryption-state.json -w "%{http_code}" \
+  "$ALLBERT_MATRIX_HOMESERVER_URL/_matrix/client/v3/rooms/$ALLBERT_MATRIX_ROOM_ID_ESCAPED/state/m.room.encryption/" \
+  -H "Authorization: Bearer $ALLBERT_MATRIX_ACCESS_TOKEN")"
+case "$status" in
+  404) echo "PASS: Matrix room has no m.room.encryption state" ;;
+  200) echo "FAIL: Matrix room is encrypted; create a new unencrypted room"; python3 -m json.tool /tmp/allbert-matrix-encryption-state.json; false ;;
+  *) echo "FAIL: unexpected Matrix encryption-state status $status"; cat /tmp/allbert-matrix-encryption-state.json; false ;;
+esac
+```
+
+If Element Web creates an encrypted private room and exposes no encryption
+control, create the validation room through the Matrix API without an
+`m.room.encryption` initial state:
+
+```sh
+python3 - <<'PY' >/tmp/allbert-matrix-create-room.json
+import json, os
+print(json.dumps({
+  "visibility": "private",
+  "preset": "private_chat",
+  "name": "allbert-v053-validation",
+  "topic": "Allbert v0.53 Matrix validation",
+  "invite": [
+    os.environ["ALLBERT_MATRIX_USER_ID"],
+    os.environ["ALLBERT_MATRIX_UNMAPPED_USER_ID"]
+  ],
+  "initial_state": [
+    {
+      "type": "m.room.history_visibility",
+      "state_key": "",
+      "content": {"history_visibility": "joined"}
+    }
+  ]
+}))
+PY
+curl -fsS "$ALLBERT_MATRIX_HOMESERVER_URL/_matrix/client/v3/createRoom" \
+  -H "Authorization: Bearer $ALLBERT_MATRIX_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data-binary @/tmp/allbert-matrix-create-room.json \
+  >/tmp/allbert-matrix-create-room-response.json
+export ALLBERT_MATRIX_ROOM_ID="$(python3 -c 'import json; print(json.load(open("/tmp/allbert-matrix-create-room-response.json"))["room_id"])')"
+rm -f /tmp/allbert-matrix-create-room.json /tmp/allbert-matrix-create-room-response.json
+echo "$ALLBERT_MATRIX_ROOM_ID"
+```
+
+Have the mapped/unmapped accounts accept the invites, send one seed message, and
+re-run the encryption-state check. If the API-created room still has
+`m.room.encryption`, the homeserver/client policy is not suitable for v0.53
+validation; use a sandbox homeserver that allows unencrypted rooms.
 
 ## Configure
 
