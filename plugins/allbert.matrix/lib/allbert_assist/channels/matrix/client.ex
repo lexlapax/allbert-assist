@@ -14,6 +14,7 @@ defmodule AllbertAssist.Channels.Matrix.Client do
     params =
       %{"timeout" => timeout_ms}
       |> maybe_put("since", since)
+      |> maybe_put("filter", Keyword.get(opts, :filter))
 
     request(:get, homeserver_url, access_token, "/sync", [params: params], opts)
   end
@@ -38,15 +39,17 @@ defmodule AllbertAssist.Channels.Matrix.Client do
     )
   end
 
-  def sync_request(homeserver_url, since, timeout_ms) do
+  def sync_request(homeserver_url, since, timeout_ms, opts \\ []) do
     params =
       %{"timeout" => timeout_ms}
       |> maybe_put("since", since)
+      |> maybe_put("filter", Keyword.get(opts, :filter))
 
     build_request(:get, homeserver_url, "/sync", params: params)
   end
 
-  def whoami_request(homeserver_url), do: build_request(:get, homeserver_url, "/account/whoami", [])
+  def whoami_request(homeserver_url),
+    do: build_request(:get, homeserver_url, "/account/whoami", [])
 
   defp request(method, homeserver_url, access_token, path, request_opts, opts) do
     with {:ok, token} <- validate_access_token(access_token),

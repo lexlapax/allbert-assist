@@ -44,6 +44,13 @@ defmodule AllbertMatrix.Settings.Fragment do
       default: 30_000,
       min: 0,
       max: 300_000
+    },
+    %{
+      key: "channels.matrix.sync_timeline_limit",
+      type: :bounded_integer,
+      default: 50,
+      min: 1,
+      max: 500
     }
   ]
 

@@ -32,6 +32,15 @@ homeserver.
    account, and one unmapped user account. In Element, click `Create Account`;
    click `Edit` beside the homeserver if you need a non-default homeserver. Save
    the full MXIDs, such as `@allbert-v053-mapped:example.org`.
+
+   | Role | Env var | Purpose |
+   | --- | --- | --- |
+   | Bot account | `ALLBERT_MATRIX_BOT_USER` / `ALLBERT_MATRIX_BOT_USER_ID` | Allbert logs in, polls `/sync`, and sends replies as this account. |
+   | Bot token | `ALLBERT_MATRIX_ACCESS_TOKEN` | Token owned by the bot account; never use the mapped or unmapped user's token. |
+   | Mapped human | `ALLBERT_MATRIX_USER_ID` | External sender mapped to local user `alice`. |
+   | Unmapped human | `ALLBERT_MATRIX_UNMAPPED_USER_ID` | External sender expected to be rejected. |
+   | Room | `ALLBERT_MATRIX_ROOM_ID` | Unencrypted validation room allowlisted for the bot. |
+
 2. From the bot or mapped account, click `+` next to the current Space name in
    the left panel, choose `New room`, and create a private room named
    `allbert-v053-validation`.
@@ -50,8 +59,9 @@ homeserver.
    encryption intentionally on, invite/accept the bot, and do not put that room
    id in `channels.matrix.allowed_room_ids`.
 
-Obtain the bot access token from Element `Profile` -> `All Settings` ->
-`Help & About` -> `Your Access Token`, or use the Matrix password login API:
+Obtain the **bot account** access token from Element `Profile` ->
+`All Settings` -> `Help & About` -> `Your Access Token`, or use the Matrix
+password login API for the bot account only:
 
 ```sh
 export ALLBERT_MATRIX_HOMESERVER_URL="https://matrix.example.org"
@@ -75,11 +85,16 @@ export ALLBERT_MATRIX_BOT_USER_ID="$(python3 -c 'import json; print(json.load(op
 rm -f /tmp/allbert-matrix-login.json /tmp/allbert-matrix-login-response.json
 unset ALLBERT_MATRIX_BOT_PASSWORD
 curl -fsS "$ALLBERT_MATRIX_HOMESERVER_URL/_matrix/client/v3/account/whoami" \
-  -H "Authorization: Bearer $ALLBERT_MATRIX_ACCESS_TOKEN" | python3 -m json.tool
+  -H "Authorization: Bearer $ALLBERT_MATRIX_ACCESS_TOKEN" \
+  >/tmp/allbert-matrix-whoami.json
+python3 -m json.tool /tmp/allbert-matrix-whoami.json
+export ALLBERT_MATRIX_BOT_USER_ID="$(python3 -c 'import json; print(json.load(open("/tmp/allbert-matrix-whoami.json"))["user_id"])')"
+test "$ALLBERT_MATRIX_BOT_USER_ID" = "$ALLBERT_MATRIX_BOT_USER"
 ```
 
 The token has full access to the bot account. Store it only through
-`mix allbert.channels matrix set-token`.
+`mix allbert.channels matrix set-token`. If `whoami.user_id` is not the bot MXID,
+you have the wrong token; do not proceed with a mapped or unmapped user's token.
 
 Check the validation room for encryption state:
 
@@ -143,14 +158,23 @@ export ALLBERT_HOME="$(mktemp -d /tmp/allbert-matrix.XXXXXX)"
 mix ecto.migrate.allbert --quiet
 
 mix allbert.settings set channels.matrix.homeserver_url "$ALLBERT_MATRIX_HOMESERVER_URL"
+# This stores the bot account token. It must be for ALLBERT_MATRIX_BOT_USER,
+# not for ALLBERT_MATRIX_USER_ID or ALLBERT_MATRIX_UNMAPPED_USER_ID.
 mix allbert.channels matrix set-token "$ALLBERT_MATRIX_ACCESS_TOKEN"
 mix allbert.settings set channels.matrix.allowed_room_ids '["'"$ALLBERT_MATRIX_ROOM_ID"'"]'
+# This maps the mapped human MXID to local user alice. No human token is used.
 mix allbert.channels matrix map --external-user "$ALLBERT_MATRIX_USER_ID" --user alice
 mix allbert.settings set channels.matrix.enabled true
+mix allbert.settings get channels.matrix.sync_timeout_ms
+mix allbert.settings get channels.matrix.sync_timeline_limit
 ```
 
 The settings output must show `channels.matrix.access_token_ref` as a
-`secret://` value and must not print the raw access token.
+`secret://` value and must not print the raw access token. The polling defaults
+should report `channels.matrix.sync_timeout_ms=30000` and
+`channels.matrix.sync_timeline_limit=50`. Do not set `sync_timeout_ms=0` for
+normal validation; Allbert keeps the HTTP receive timeout above the Matrix
+long-poll timeout internally.
 
 ## Verify
 
@@ -191,9 +215,9 @@ suppression, and writes
 `<ALLBERT_HOME>/release_evidence/v053/external-smoke-matrix-<ts>.json`.
 
 The inbound `/sync` path has its own interactive smoke (parity with
-`inbound_telegram`). It also needs `ALLBERT_MATRIX_USER_ID` (the mapped MXID); when
-it prints a marker, send the exact `<marker> matrix` line from that MXID in the
-allowlisted room:
+`inbound_telegram`). It also needs `ALLBERT_MATRIX_USER_ID` (the mapped MXID).
+The task streams its marker prompt live; when it prints a marker, send the exact
+`<marker> matrix` line from that MXID in the allowlisted room:
 
 ```sh
 export ALLBERT_MATRIX_USER_ID="@mapped:example.org"
@@ -201,9 +225,12 @@ export ALLBERT_MATRIX_INBOUND_TIMEOUT_MS=600000
 mix allbert.test external-smoke -- inbound_matrix
 ```
 
-It starts the adapter (which auto-polls `/sync`; the first sync uses `since=nil`
-and returns only post-start events), routes the marker to the runtime, and writes
+It starts the adapter, which auto-polls `/sync` with a bounded message timeline
+filter. The smoke keys on the printed marker, routes that mapped message to the
+runtime, and writes
 `<ALLBERT_HOME>/release_evidence/v053/external-smoke-inbound-matrix-<ts>.json`.
+Any bounded recent room history returned by `since=nil` is provider backlog, not
+release evidence.
 
 Manual validation before tag:
 
@@ -211,10 +238,34 @@ Manual validation before tag:
 - Send a text `m.room.message` from the mapped MXID in the allowlisted room and
   confirm a runtime request is created.
 - Send from an unmapped MXID and confirm the request is rejected before runtime.
+- Trigger a note-write confirmation from the mapped MXID:
+  `create a note titled matrixapproval with body hi`; run
+  `mix allbert.channels matrix poll-once`; capture the pending confirmation id
+  from `mix allbert.confirmations list`.
+- From the mapped MXID, send `ALLBERT:APPROVE:<confirmation_id>` in the same
+  room; run `mix allbert.channels matrix poll-once`; confirm the bot replies and
+  `mix allbert.confirmations list --resolved` shows the confirmation approved.
+- Trigger a second note-write confirmation, then send
+  `ALLBERT:APPROVE:<confirmation_id>` from the unmapped MXID. After
+  `mix allbert.channels matrix poll-once`, the confirmation must still be
+  pending. Clean it up from the mapped MXID with
+  `ALLBERT:DENY:<confirmation_id>`.
 - Confirm outbound replies include `m.relates_to.rel_type = m.thread`,
   `event_id` for the thread root, and `m.in_reply_to` fallback metadata.
 - Send or observe an encrypted room event and confirm it is rejected/unsupported
   rather than decrypted or treated as runtime input.
+- Inspect recent Matrix rows when a check is ambiguous:
+
+  ```sh
+  export DATABASE_PATH="${DATABASE_PATH:-$ALLBERT_HOME/db/allbert_manual.db}"
+  sqlite3 -header -column "$DATABASE_PATH" \
+  "select id, inserted_at, direction, status, external_user_id, user_id, thread_id, reason, payload_summary
+   from channel_events
+   where channel='matrix'
+   order by inserted_at desc
+   limit 16;"
+  ```
+
 - Run `rg -i 'access_token|token|password|secret|\+[0-9]{6,}' "$ALLBERT_HOME" || true`
   and resolve any raw-token or phone-number hits before release.
 

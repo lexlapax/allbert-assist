@@ -18,6 +18,8 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
   @provider "matrix_client_server"
   @max_backoff_ms 60_000
   @poll_once_call_timeout_ms 120_000
+  @default_sync_timeline_limit 50
+  @sync_receive_timeout_buffer_ms 5_000
 
   def start_link(opts) do
     name = Keyword.get(opts, :name, __MODULE__)
@@ -62,6 +64,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
       backoff_ms: 0,
       sync_poll_interval_ms: 2000,
       sync_timeout_ms: 30_000,
+      sync_timeline_limit: @default_sync_timeline_limit,
       req_options: Keyword.get(opts, :req_options, [])
     }
 
@@ -76,7 +79,9 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
           homeserver_url: homeserver_url,
           access_token: access_token,
           sync_poll_interval_ms: Map.get(settings, "sync_poll_interval_ms", 2000),
-          sync_timeout_ms: Map.get(settings, "sync_timeout_ms", 30_000)
+          sync_timeout_ms: Map.get(settings, "sync_timeout_ms", 30_000),
+          sync_timeline_limit:
+            Map.get(settings, "sync_timeline_limit", @default_sync_timeline_limit)
       }
     else
       false -> %{base | diagnostics: [:disabled]}
@@ -116,7 +121,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
            state.access_token,
            state.since,
            state.sync_timeout_ms,
-           state.req_options
+           sync_req_options(state)
          ) do
       {:ok, sync} ->
         {summary, next_since} = process_sync(sync, state)
@@ -547,6 +552,29 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
   end
 
   defp max_text_bytes(state), do: Map.get(state.settings, "max_text_bytes", 4000)
+
+  defp sync_req_options(state) do
+    state.req_options
+    |> Keyword.put_new(:receive_timeout, sync_receive_timeout_ms(state))
+    |> Keyword.put(:filter, sync_filter(state))
+  end
+
+  defp sync_receive_timeout_ms(%{sync_timeout_ms: timeout_ms})
+       when is_integer(timeout_ms) and timeout_ms > 0,
+       do: timeout_ms + @sync_receive_timeout_buffer_ms
+
+  defp sync_receive_timeout_ms(_state), do: 10_000
+
+  defp sync_filter(state) do
+    Jason.encode!(%{
+      "room" => %{
+        "timeline" => %{
+          "limit" => state.sync_timeline_limit,
+          "types" => ["m.room.message", "m.room.encrypted"]
+        }
+      }
+    })
+  end
 
   defp compact(map) do
     Map.reject(map, fn {_key, value} -> value in [nil, ""] end)

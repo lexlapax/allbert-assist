@@ -226,6 +226,12 @@ Developer docs: `docs/developer/key-custody.md`,
   `ALLBERT:APPROVE|DENY|SHOW:<confirmation_id>` replies no longer fall through
   to the runtime router as ordinary channel text, so the v0.53 typed approval
   validation steps are executable.
+- Matrix live validation found and fixed two `/sync` fidelity gaps: the adapter
+  now keeps the HTTP receive timeout above the configured long-poll timeout, and
+  sends a bounded message timeline filter (`channels.matrix.sync_timeline_limit`,
+  default `50`) so mapped/unmapped typed-command approvals are visible without
+  using the old `sync_timeout_ms=0` manual workaround. Interactive inbound smoke
+  output now streams the marker prompt live.
 
 ### Security
 
@@ -248,10 +254,11 @@ Developer docs: `docs/developer/key-custody.md`,
   (`11 tests, 0 failures`).
 - `MIX_ENV=test mix allbert.test release.v053` passed with deterministic
   evidence at
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v053/p0-13380/home/release_evidence/v053/release-v053-1781489630.json`.
-  Step counts: Telegram/email 46 tests, channel CLI/smoke registration 18 tests,
-  Matrix 11 tests, WhatsApp 13 tests, Signal 12 tests, v0.53 evals 11 tests;
-  secret scan passed with no findings.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v053/p0-13378/home/release_evidence/v053/release-v053-1781758682.json`.
+  Post-remediation step counts: Telegram/email 48 tests, channel CLI/smoke
+  registration 18 tests, Matrix 13 tests (1 skipped live env), WhatsApp 14 tests
+  (1 skipped live env), Signal 12 tests (1 skipped live env), v0.53 evals 11
+  tests; secret scan passed with no findings.
 - `MIX_ENV=test mix allbert.test external-smoke list` passed and lists every
   v0.53 channel validation scaffold independently.
 - Email real-provider smokes passed live (2026-06-15, AgentMail): `email doctor`
@@ -264,6 +271,9 @@ Developer docs: `docs/developer/key-custody.md`,
 - Email and Telegram operator manual checks passed live in the manual validation
   home after v0.54: approval primitives, email MIME decode, mapped approval,
   unmapped-clicker rejection, and poll-resume behavior.
+- Matrix validation setup and delivery/inbound smoke reached the live provider;
+  manual typed approval validation is resuming after the `/sync` timeout/filter
+  remediation above.
 - Required live real-provider smokes remain the pre-tag validation gate:
   `external-smoke -- matrix`, `-- whatsapp`, and `-- signal`.
 

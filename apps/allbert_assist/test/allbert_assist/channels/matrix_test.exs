@@ -109,6 +109,10 @@ defmodule AllbertAssist.Channels.MatrixTest do
       assert get_req_header(conn, "authorization") == ["Bearer matrix-secret"]
       refute conn.query_string =~ "access_token"
 
+      query = URI.decode_query(conn.query_string)
+      assert query["timeout"] == "30000"
+      refute Map.has_key?(query, "filter")
+
       json(conn, %{"next_batch" => "s1", "rooms" => %{"join" => %{}}})
     end)
 
@@ -130,6 +134,18 @@ defmodule AllbertAssist.Channels.MatrixTest do
 
     assert inspect(request) =~ "[REDACTED]"
     refute inspect(request) =~ "matrix-secret"
+  end
+
+  test "client can include a Matrix sync filter without query credentials" do
+    filter = Jason.encode!(%{"room" => %{"timeline" => %{"limit" => 50}}})
+    request = Client.sync_request("https://matrix.example.com", "s1", 0, filter: filter)
+    query = URI.decode_query(URI.parse(request.url).query)
+
+    assert request.path == "/_matrix/client/v3/sync"
+    assert query["timeout"] == "0"
+    assert query["since"] == "s1"
+    assert Jason.decode!(query["filter"]) == %{"room" => %{"timeline" => %{"limit" => 50}}}
+    refute request.url =~ "access_token"
   end
 
   test "parser extracts text events and rejects encrypted events" do
@@ -178,6 +194,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
     Req.Test.expect(__MODULE__, fn conn ->
       assert conn.request_path == "/_matrix/client/v3/sync"
       assert get_req_header(conn, "authorization") == ["Bearer matrix-secret"]
+      assert_matrix_sync_query(conn)
 
       json(conn, %{
         "next_batch" => "s2",
@@ -243,6 +260,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
   test "adapter dedupes repeated sync events without a second runtime submission" do
     Req.Test.expect(__MODULE__, fn conn ->
       assert conn.request_path == "/_matrix/client/v3/sync"
+      assert_matrix_sync_query(conn)
 
       json(conn, %{
         "next_batch" => "s2",
@@ -263,6 +281,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
 
     Req.Test.expect(__MODULE__, fn conn ->
       assert conn.request_path == "/_matrix/client/v3/sync"
+      assert_matrix_sync_query(conn, "s2")
 
       json(conn, %{
         "next_batch" => "s3",
@@ -301,6 +320,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
 
     Req.Test.expect(__MODULE__, fn conn ->
       assert conn.request_path == "/_matrix/client/v3/sync"
+      assert_matrix_sync_query(conn)
 
       json(conn, %{
         "next_batch" => "s2",
@@ -357,6 +377,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
   test "adapter records delivery failure without automatic provider retry" do
     Req.Test.expect(__MODULE__, fn conn ->
       assert conn.request_path == "/_matrix/client/v3/sync"
+      assert_matrix_sync_query(conn)
 
       json(conn, %{
         "next_batch" => "s2",
@@ -457,6 +478,23 @@ defmodule AllbertAssist.Channels.MatrixTest do
       security_decision: %{permission: :external_network, decision: :needs_confirmation},
       params_summary: %{url: "https://example.com"}
     })
+  end
+
+  defp assert_matrix_sync_query(conn, since \\ nil) do
+    query = URI.decode_query(conn.query_string)
+    filter = Jason.decode!(query["filter"])
+
+    assert query["timeout"] == "30000"
+    assert query["since"] == since
+
+    assert filter == %{
+             "room" => %{
+               "timeline" => %{
+                 "limit" => 50,
+                 "types" => ["m.room.message", "m.room.encrypted"]
+               }
+             }
+           }
   end
 
   defp restore_plugins(original_plugins) do

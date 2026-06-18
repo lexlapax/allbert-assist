@@ -3814,7 +3814,8 @@ defmodule Mix.Tasks.Allbert.Test do
       [
         {"ALLBERT_MATRIX_INBOUND_EXTERNAL_SMOKE", "1"}
         | owned_env("external-smoke-inbound-matrix", 0)
-      ]
+      ],
+      stream?: true
     )
   end
 
@@ -3882,7 +3883,8 @@ defmodule Mix.Tasks.Allbert.Test do
         {"ALLBERT_MESSAGING_CHANNEL_INBOUND_EXTERNAL_SMOKE", "1"},
         {"ALLBERT_SMOKE_PROVIDERS", providers}
         | owned_env("external-smoke-inbound-#{slug}", 0)
-      ]
+      ],
+      stream?: true
     )
   end
 
@@ -3898,7 +3900,8 @@ defmodule Mix.Tasks.Allbert.Test do
         {"ALLBERT_TELEGRAM_EMAIL_INBOUND_EXTERNAL_SMOKE", "1"},
         {"ALLBERT_SMOKE_PROVIDERS", providers}
         | owned_env("external-smoke-inbound-#{slug}", 0)
-      ]
+      ],
+      stream?: true
     )
   end
 
@@ -4104,8 +4107,25 @@ defmodule Mix.Tasks.Allbert.Test do
   end
 
   defp run_cmd!(label, cwd, executable, args, env, opts \\ []) do
-    {output, status} = System.cmd(executable, args, cd: cwd, env: env, stderr_to_stdout: true)
-    print_output(label, output)
+    stream? = Keyword.get(opts, :stream?, false)
+
+    {output, status} =
+      if stream? do
+        Mix.shell().info("==> #{label}")
+
+        System.cmd(executable, args,
+          cd: cwd,
+          env: env,
+          stderr_to_stdout: true,
+          into: IO.stream(:stdio, :line)
+        )
+      else
+        System.cmd(executable, args, cd: cwd, env: env, stderr_to_stdout: true)
+      end
+
+    unless stream? do
+      print_output(label, output)
+    end
 
     if Keyword.get(opts, :cleanup?, true) do
       cleanup_owned_env(env)
