@@ -235,8 +235,8 @@ Developer docs: `docs/developer/key-custody.md`,
 - Matrix live validation also found that matrix.org can return an older bounded
   timeline slice for cold `/sync` while `/rooms/{roomId}/messages` shows newer
   room events. Short-lived `matrix poll-once` runs now catch up through
-  `/messages` from the returned `next_batch` token when cold `/sync` yields no
-  new actionable events, while preserving the same dedupe, room allowlist,
+  latest-backward `/messages` without a `from` token when cold `/sync` yields
+  no new actionable events, while preserving the same dedupe, room allowlist,
   identity, and confirmation guards.
 - Matrix/Element typed-command validation found that some client reply/fallback
   bodies can prefix exact commands with a display name, for example
@@ -265,9 +265,9 @@ Developer docs: `docs/developer/key-custody.md`,
   (`11 tests, 0 failures`).
 - `MIX_ENV=test mix allbert.test release.v053` passed with deterministic
   evidence at
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v053/p0-13380/home/release_evidence/v053/release-v053-1781764138.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v053/p0-13378/home/release_evidence/v053/release-v053-1781765028.json`.
   Post-remediation step counts: Telegram/email 48 tests, channel CLI/smoke
-  registration 18 tests, Matrix 16 tests (1 skipped live env), WhatsApp 14 tests
+  registration 18 tests, Matrix 17 tests (1 skipped live env), WhatsApp 14 tests
   (1 skipped live env), Signal 12 tests (1 skipped live env), v0.53 evals 11
   tests; secret scan passed with no findings.
 - `MIX_ENV=test mix allbert.test external-smoke list` passed and lists every

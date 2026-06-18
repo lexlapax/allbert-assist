@@ -160,7 +160,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
       sync
       |> catch_up_room_ids(state)
       |> Enum.reduce(summary, fn room_id, acc ->
-        merge_summary(acc, catch_up_room(room_id, next_since, state))
+        merge_summary(acc, catch_up_room(room_id, state))
       end)
     else
       summary
@@ -185,12 +185,12 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
     |> Enum.filter(&(&1 in allowed_room_ids))
   end
 
-  defp catch_up_room(room_id, next_since, state) do
+  defp catch_up_room(room_id, state) do
     case Client.messages(
            state.homeserver_url,
            state.access_token,
            room_id,
-           next_since,
+           nil,
            state.sync_timeline_limit,
            state.req_options
          ) do

@@ -175,8 +175,8 @@ should report `channels.matrix.sync_timeout_ms=30000` and
 `channels.matrix.sync_timeline_limit=50`. Do not set `sync_timeout_ms=0` for
 normal validation; Allbert keeps the HTTP receive timeout above the Matrix
 long-poll timeout internally. For short-lived operator `poll-once` runs, Allbert
-also catches up through Matrix `/rooms/{roomId}/messages` from the returned
-`next_batch` token when a cold `/sync` returns only already-seen events.
+also catches up through latest Matrix `/rooms/{roomId}/messages` history without
+a `from` token when a cold `/sync` returns only already-seen events.
 
 ## Verify
 

@@ -159,6 +159,17 @@ defmodule AllbertAssist.Channels.MatrixTest do
     refute request.url =~ "access_token"
   end
 
+  test "client can build latest Matrix messages requests without a from token" do
+    request = Client.messages_request("https://matrix.example.com", "!room:example.com", nil, 50)
+    query = URI.decode_query(URI.parse(request.url).query)
+
+    assert request.path == "/_matrix/client/v3/rooms/%21room%3Aexample.com/messages"
+    assert query["dir"] == "b"
+    refute Map.has_key?(query, "from")
+    assert query["limit"] == "50"
+    refute request.url =~ "access_token"
+  end
+
   test "parser extracts text events and rejects encrypted events" do
     events =
       Parser.parse_sync(%{
@@ -310,7 +321,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
       assert conn.request_path == "/_matrix/client/v3/rooms/%21room%3Aexample.com/messages"
       query = URI.decode_query(conn.query_string)
       assert query["dir"] == "b"
-      assert query["from"] == "s2"
+      refute Map.has_key?(query, "from")
       assert query["limit"] == "50"
 
       json(conn, %{
