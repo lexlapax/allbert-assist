@@ -23,6 +23,62 @@ The current HTTP policy denies loopback and private IP homeserver URLs. Use a
 public sandbox homeserver endpoint for validation unless a later plan explicitly
 adds a bounded local-homeserver policy.
 
+## Element Setup
+
+Use Element Web/Desktop or another Matrix client against the same public/sandbox
+homeserver.
+
+1. Create three accounts: a disposable Allbert bot account, one mapped user
+   account, and one unmapped user account. In Element, click `Create Account`;
+   click `Edit` beside the homeserver if you need a non-default homeserver. Save
+   the full MXIDs, such as `@allbert-v053-mapped:example.org`.
+2. From the bot or mapped account, click `+` next to the current Space name in
+   the left panel, choose `New room`, and create a private room named
+   `allbert-v053-validation`.
+3. Leave `Private Rooms | Enable end-to-end encryption` off. If encryption is
+   enabled, create a fresh room; Matrix room encryption cannot be disabled after
+   it is enabled.
+4. Invite the bot, mapped, and unmapped accounts by full MXID. Accept the invite
+   in the bot and unmapped sessions.
+5. Open `Room Settings` -> `Advanced` and copy the internal room id. Use the
+   value that starts with `!`, not a public alias that starts with `#`.
+6. Open `Room Settings` -> `Security & Privacy` and confirm encryption is still
+   off.
+7. For the encrypted-room rejection check, create a second private room with
+   encryption intentionally on, invite/accept the bot, and do not put that room
+   id in `channels.matrix.allowed_room_ids`.
+
+Obtain the bot access token from Element `Profile` -> `All Settings` ->
+`Help & About` -> `Your Access Token`, or use the Matrix password login API:
+
+```sh
+export ALLBERT_MATRIX_HOMESERVER_URL="https://matrix.example.org"
+export ALLBERT_MATRIX_BOT_USER="@allbert-v053-bot:example.org"
+read -rsp "Matrix bot password: " ALLBERT_MATRIX_BOT_PASSWORD; echo
+python3 - <<'PY' >/tmp/allbert-matrix-login.json
+import json, os
+print(json.dumps({
+  "type": "m.login.password",
+  "identifier": {"type": "m.id.user", "user": os.environ["ALLBERT_MATRIX_BOT_USER"]},
+  "password": os.environ["ALLBERT_MATRIX_BOT_PASSWORD"],
+  "initial_device_display_name": "allbert-v053-validation"
+}))
+PY
+curl -fsS "$ALLBERT_MATRIX_HOMESERVER_URL/_matrix/client/v3/login" \
+  -H "Content-Type: application/json" \
+  --data-binary @/tmp/allbert-matrix-login.json \
+  >/tmp/allbert-matrix-login-response.json
+export ALLBERT_MATRIX_ACCESS_TOKEN="$(python3 -c 'import json; print(json.load(open("/tmp/allbert-matrix-login-response.json"))["access_token"])')"
+export ALLBERT_MATRIX_BOT_USER_ID="$(python3 -c 'import json; print(json.load(open("/tmp/allbert-matrix-login-response.json"))["user_id"])')"
+rm -f /tmp/allbert-matrix-login.json /tmp/allbert-matrix-login-response.json
+unset ALLBERT_MATRIX_BOT_PASSWORD
+curl -fsS "$ALLBERT_MATRIX_HOMESERVER_URL/_matrix/client/v3/account/whoami" \
+  -H "Authorization: Bearer $ALLBERT_MATRIX_ACCESS_TOKEN" | python3 -m json.tool
+```
+
+The token has full access to the bot account. Store it only through
+`mix allbert.channels matrix set-token`.
+
 ## Configure
 
 ```sh

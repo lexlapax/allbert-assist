@@ -23,6 +23,51 @@ not part of M7.
 Phone numbers must be treated as personal data. CLI, doctor, event, thread, and
 release-evidence output must not expose raw phone numbers or tokens.
 
+## Meta Setup
+
+1. Open `https://developers.facebook.com/apps`, create an app, choose the
+   `Connect with customers through WhatsApp` use case, and associate the app
+   with a business portfolio.
+2. Add/open the WhatsApp product. In `WhatsApp` -> `API Setup`, connect or
+   create a WhatsApp Business Account. Save the WhatsApp Business Account ID as
+   `ALLBERT_WHATSAPP_WABA_ID`.
+3. Select the test `From` business number and save its `Phone number ID` as
+   `ALLBERT_WHATSAPP_PHONE_NUMBER_ID`. This id is numeric and is not the
+   display phone number.
+4. Generate/copy the temporary access token or scoped system-user token as
+   `ALLBERT_WHATSAPP_ACCESS_TOKEN`.
+5. Add the mapped recipient in the `To`/recipient test list and complete Meta's
+   WhatsApp verification-code flow on that handset. Use the E.164 number,
+   including `+`, for `ALLBERT_WHATSAPP_MAPPED_PHONE` and
+   `ALLBERT_WHATSAPP_TO_PHONE`.
+6. Add and verify a second recipient as `ALLBERT_WHATSAPP_UNMAPPED_PHONE` when
+   available. If no second real WhatsApp handset is available, use
+   `mix allbert.channels whatsapp post-webhook --from ...` as the local signed
+   unmapped surrogate and record that exception in validation notes.
+7. In `App Settings` -> `Basic`, reveal/copy the App Secret as
+   `ALLBERT_WHATSAPP_APP_SECRET`.
+8. Choose a random webhook verify token. Register the webhook only after Allbert
+   and a public HTTPS tunnel are running.
+
+```sh
+export ALLBERT_WHATSAPP_ACCESS_TOKEN="..."
+export ALLBERT_WHATSAPP_PHONE_NUMBER_ID="15551234567"
+export ALLBERT_WHATSAPP_WABA_ID="..."
+export ALLBERT_WHATSAPP_MAPPED_PHONE="+15550001111"
+export ALLBERT_WHATSAPP_UNMAPPED_PHONE="+15550002222"
+export ALLBERT_WHATSAPP_TO_PHONE="$ALLBERT_WHATSAPP_MAPPED_PHONE"
+export ALLBERT_WHATSAPP_APP_SECRET="..."
+export ALLBERT_WHATSAPP_WEBHOOK_VERIFY_TOKEN="$(openssl rand -hex 24)"
+curl -fsS "https://graph.facebook.com/v23.0/${ALLBERT_WHATSAPP_PHONE_NUMBER_ID}/messages" \
+  -H "Authorization: Bearer ${ALLBERT_WHATSAPP_ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"messaging_product":"whatsapp","recipient_type":"individual","to":"'"${ALLBERT_WHATSAPP_TO_PHONE#+}"'","type":"text","text":{"body":"allbert v0.53 whatsapp api setup check"}}' \
+  | python3 -m json.tool
+```
+
+Expected: Meta returns a message id and the mapped handset receives the test
+message.
+
 ## Configure
 
 ```sh
@@ -53,6 +98,7 @@ https://<public-host>/webhooks/whatsapp/<ALLBERT_WHATSAPP_PHONE_NUMBER_ID>
 The verify token must match `secret://channels/whatsapp/webhook_verify_token`.
 The POST signature is verified before JSON parsing with the configured
 `secret://channels/whatsapp/app_secret`.
+Subscribe the webhook field named `messages`.
 
 ## Verify
 
