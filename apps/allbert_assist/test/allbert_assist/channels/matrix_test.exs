@@ -474,6 +474,70 @@ defmodule AllbertAssist.Channels.MatrixTest do
     GenServer.stop(pid)
   end
 
+  test "Element display-name prefixed typed commands resolve without runtime submission" do
+    assert {:ok, confirmation} = create_confirmation!("conf_matrix_prefixed", "matrix")
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/_matrix/client/v3/sync"
+      assert_matrix_sync_query(conn)
+
+      json(conn, %{
+        "next_batch" => "s2",
+        "rooms" => %{
+          "join" => %{
+            "!room:example.com" => %{
+              "timeline" => %{
+                "events" => [
+                  matrix_text_event(
+                    "$event-prefixed-command",
+                    "Lex Lapax:ALLBERT:DENY:#{confirmation["id"]}"
+                  )
+                ]
+              }
+            }
+          }
+        }
+      })
+    end)
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.method == "PUT"
+
+      {:ok, body, conn} = read_body(conn)
+      decoded = Jason.decode!(body)
+      assert decoded["body"] =~ "denied"
+
+      json(conn, %{"event_id" => "$reply-prefixed-command"})
+    end)
+
+    server = :"matrix-adapter-prefixed-command-#{System.unique_integer([:positive])}"
+
+    assert {:ok, pid} =
+             Adapter.start_link(
+               name: server,
+               auto_poll?: false,
+               req_options: [plug: {Req.Test, __MODULE__}]
+             )
+
+    Req.Test.allow(__MODULE__, self(), pid)
+
+    assert {:ok, %{processed: 1, rejected: 0, failed: 0}} = Adapter.poll_once(server)
+    refute_received {:runtime_request, %{text: "Lex Lapax:ALLBERT:DENY:" <> _rest}}
+
+    assert %Event{status: "processed", direction: "callback"} =
+             Repo.one(
+               from event in Event,
+                 where:
+                   event.channel == "matrix" and
+                     event.external_event_id == "$event-prefixed-command"
+             )
+
+    assert {:ok, resolved} = Confirmations.read(confirmation["id"])
+    assert resolved["status"] == "denied"
+
+    GenServer.stop(pid)
+  end
+
   test "adapter records delivery failure without automatic provider retry" do
     Req.Test.expect(__MODULE__, fn conn ->
       assert conn.request_path == "/_matrix/client/v3/sync"

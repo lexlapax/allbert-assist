@@ -221,7 +221,7 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
   defp process_text_event(fields, state) do
     fields = put_thread_fields(fields, state)
     {text, new_thread?} = prompt_text(fields.text)
-    command = ConfirmationCallback.parse_typed_command(text)
+    command = ConfirmationCallback.parse_typed_command(text, matrix_typed_command_opts())
     fields = maybe_isolate_new_provider_thread(fields, new_thread?)
 
     case insert_received_event(fields, event_direction(command)) do
@@ -238,6 +238,10 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
 
   defp event_direction({:ok, _action, _confirmation_id}), do: "callback"
   defp event_direction(:ignore), do: "inbound"
+
+  defp matrix_typed_command_opts do
+    [line_fallback?: true, display_name_prefix?: true]
+  end
 
   defp handle_text_event(event, fields, text, new_thread?, command, state) do
     with :ok <- validate_room(fields, state),

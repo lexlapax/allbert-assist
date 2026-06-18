@@ -250,6 +250,10 @@ Manual validation before tag:
 - From the mapped MXID, send `ALLBERT:APPROVE:<confirmation_id>` in the same
   room; run `mix allbert.channels matrix poll-once`; confirm the bot replies and
   `mix allbert.confirmations list --resolved` shows the confirmation approved.
+  Element may render reply/fallback text with a display-name prefix such as
+  `Lex Lapax:ALLBERT:APPROVE:<confirmation_id>`; Matrix normalizes that bounded
+  fallback before callback handling, but the safest operator action is still to
+  send the exact command as a plain room message.
 - Trigger a second note-write confirmation, then send
   `ALLBERT:APPROVE:<confirmation_id>` from the unmapped MXID. After
   `mix allbert.channels matrix poll-once`, the confirmation must still be

@@ -238,6 +238,11 @@ Developer docs: `docs/developer/key-custody.md`,
   `/messages` from the returned `next_batch` token when cold `/sync` yields no
   new actionable events, while preserving the same dedupe, room allowlist,
   identity, and confirmation guards.
+- Matrix/Element typed-command validation found that some client reply/fallback
+  bodies can prefix exact commands with a display name, for example
+  `Lex Lapax:ALLBERT:APPROVE:<id>`. The shared confirmation parser remains exact
+  by default; Matrix opts into bounded line/display-name normalization before the
+  same identity and confirmation-scope callback guard runs.
 
 ### Security
 
@@ -260,9 +265,9 @@ Developer docs: `docs/developer/key-custody.md`,
   (`11 tests, 0 failures`).
 - `MIX_ENV=test mix allbert.test release.v053` passed with deterministic
   evidence at
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v053/p0-13379/home/release_evidence/v053/release-v053-1781763279.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v053/p0-13380/home/release_evidence/v053/release-v053-1781764138.json`.
   Post-remediation step counts: Telegram/email 48 tests, channel CLI/smoke
-  registration 18 tests, Matrix 15 tests (1 skipped live env), WhatsApp 14 tests
+  registration 18 tests, Matrix 16 tests (1 skipped live env), WhatsApp 14 tests
   (1 skipped live env), Signal 12 tests (1 skipped live env), v0.53 evals 11
   tests; secret scan passed with no findings.
 - `MIX_ENV=test mix allbert.test external-smoke list` passed and lists every

@@ -349,6 +349,14 @@ defmodule AllbertAssist.Security.V052ChannelPackEvalTest do
     assert :ignore =
              ConfirmationCallback.parse_typed_command("please approve allbert:v1:deny:conf_v052")
 
+    assert :ignore =
+             ConfirmationCallback.parse_typed_command("Lex Lapax:ALLBERT:DENY:conf_v052")
+
+    assert {:ok, :deny, "conf_v052"} =
+             ConfirmationCallback.parse_typed_command("Lex Lapax:ALLBERT:DENY:conf_v052",
+               display_name_prefix?: true
+             )
+
     assert {:ok, confirmation} = create_confirmation!("conf_v052_scope", "slack")
 
     assert {:error, :wrong_user} =

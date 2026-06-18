@@ -11,6 +11,7 @@ defmodule AllbertAssist.Channels.ConfirmationCallback do
   alias AllbertAssist.Confirmations
 
   @typed_command_re ~r/\AALLBERT:(APPROVE|DENY|SHOW):([A-Za-z0-9_-]+)\z/i
+  @display_name_prefixed_typed_command_re ~r/\A[^:\r\n]{1,80}:(ALLBERT:(?:APPROVE|DENY|SHOW):[A-Za-z0-9_-]+)\z/i
 
   @type action :: :approve | :deny | :show | String.t()
 
@@ -31,19 +32,61 @@ defmodule AllbertAssist.Channels.ConfirmationCallback do
 
   def run(_attrs), do: {:error, :invalid_callback}
 
+  @spec parse_typed_command(String.t(), keyword()) ::
+          {:ok, :approve | :deny | :show, String.t()} | :ignore
+  def parse_typed_command(text, opts \\ [])
+
   @spec parse_typed_command(String.t()) ::
           {:ok, :approve | :deny | :show, String.t()} | :ignore
-  def parse_typed_command(text) when is_binary(text) do
-    case Regex.run(@typed_command_re, String.trim(text)) do
+  def parse_typed_command(text, opts) when is_binary(text) and is_list(opts) do
+    text
+    |> typed_command_candidates(opts)
+    |> Enum.find_value(:ignore, &parse_exact_typed_command/1)
+  end
+
+  def parse_typed_command(_text, _opts), do: :ignore
+
+  defp parse_exact_typed_command(text) do
+    case Regex.run(@typed_command_re, text) do
       [_full, action, confirmation_id] ->
         {:ok, action |> String.downcase() |> String.to_atom(), confirmation_id}
 
       _match ->
-        :ignore
+        nil
     end
   end
 
-  def parse_typed_command(_text), do: :ignore
+  defp typed_command_candidates(text, opts) do
+    trimmed = String.trim(text)
+
+    line_candidates =
+      if Keyword.get(opts, :line_fallback?, false) do
+        text
+        |> String.split(["\r\n", "\n"], trim: true)
+        |> Enum.map(&String.trim/1)
+      else
+        []
+      end
+
+    display_name_candidates =
+      if Keyword.get(opts, :display_name_prefix?, false) do
+        [trimmed | line_candidates]
+        |> Enum.flat_map(&strip_display_name_prefix/1)
+      else
+        []
+      end
+
+    [trimmed | line_candidates ++ display_name_candidates]
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.uniq()
+  end
+
+  defp strip_display_name_prefix(text) do
+    case Regex.run(@display_name_prefixed_typed_command_re, text) do
+      [_full, command] -> [command]
+      _match -> []
+    end
+  end
 
   @spec reply_text(map()) :: String.t()
   def reply_text(%{message: message}) when is_binary(message), do: message
