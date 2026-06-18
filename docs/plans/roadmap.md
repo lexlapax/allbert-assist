@@ -3237,8 +3237,11 @@ Status: implemented as `0.53.0` through M10; version metadata stays `0.53.0`
 verified-TLS SMTP, success-as-error normalization — see CHANGELOG v0.53 §Fixed);
 Telegram doctor + delivery + inbound smokes passed with **0 code bugs**, and both
 channels' approval/rejection/poll-resume manual checks passed after v0.54 landed
-the required router/descriptor/outbound prerequisite. **Still pending: Matrix /
-WhatsApp / Signal real-provider live smokes.** Scope: first retro-validate
+the required router/descriptor/outbound prerequisite. **Matrix real-provider
+validation is done (2026-06-18):** delivery and inbound smokes passed, mapped
+approval callbacks processed, unmapped callbacks were rejected, and the release
+owner accepted the encrypted-room exclusion as validated for this pass.
+**Still pending: WhatsApp / Signal real-provider live smokes.** Scope: first retro-validate
 **Telegram + email** to Discord/Slack live-provider parity (done), then build
 **Matrix + WhatsApp (Cloud
 API) + Signal (signal-cli daemon)**; **Viber** documented on paper as a validated

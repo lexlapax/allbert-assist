@@ -16,8 +16,9 @@ Status: implemented through M11. The shipped default routing strategy is the loc
 two-stage router (`intent.router_strategy = two_stage_local`), version metadata now
 reports `0.54.0`, and the post-audit release tag is `v0.54.0`. v0.54 unblocked
 the v0.53 channel approval validation path; Telegram/email approval/rejection
-checks subsequently passed, while Matrix/WhatsApp/Signal real-provider smokes
-remain v0.53 validation work.
+checks subsequently passed, Matrix real-provider validation subsequently passed
+after Matrix sync/catch-up remediations, and WhatsApp/Signal real-provider
+smokes remain v0.53 validation work.
 
 Plan: `docs/plans/v0.54-plan.md`. Request flow: `docs/plans/v0.54-request-flow.md`.
 ADRs: `docs/adr/0060-two-stage-intent-router-and-approval-gate-separation.md`,
@@ -156,7 +157,10 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
 
 Status: implemented as `0.53.0`. Telegram + email delivery/inbound plus manual
 approval/rejection/poll-resume validation passed after the v0.54 router
-prerequisite landed. Matrix/WhatsApp/Signal real-provider live smokes remain
+prerequisite landed. Matrix delivery, inbound, mapped approval, and unmapped
+callback rejection validation passed on 2026-06-18 after Matrix sync/catch-up
+remediations; the release owner accepted the encrypted-room exclusion as
+validated for this pass. WhatsApp/Signal real-provider live smokes remain
 pending. Current version metadata is
 `0.54.0` because v0.54 is the active release closeout.
 
