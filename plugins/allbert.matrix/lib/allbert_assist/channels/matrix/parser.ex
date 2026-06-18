@@ -8,6 +8,12 @@ defmodule AllbertAssist.Channels.Matrix.Parser do
 
   def parse_sync(_sync), do: []
 
+  def parse_messages(room_id, %{"chunk" => events}) when is_list(events) do
+    Enum.map(events, &parse_event(room_id, &1))
+  end
+
+  def parse_messages(_room_id, _messages), do: []
+
   def simulated_message_event(attrs) when is_map(attrs) do
     %{
       "event_id" => Map.fetch!(attrs, :event_id),

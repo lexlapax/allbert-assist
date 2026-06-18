@@ -135,19 +135,83 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
 
   defp process_sync(sync, state) do
     events = Parser.parse_sync(sync)
+    next_since = Map.get(sync, "next_batch")
 
-    summary =
-      Enum.reduce(events, %{processed: 0, duplicates: 0, rejected: 0, failed: 0}, fn event,
-                                                                                     summary ->
-        case process_parsed_event(event, state) do
-          {:ok, :processed} -> Map.update!(summary, :processed, &(&1 + 1))
-          {:ok, :duplicate} -> Map.update!(summary, :duplicates, &(&1 + 1))
-          {:ok, :rejected} -> Map.update!(summary, :rejected, &(&1 + 1))
-          {:error, _reason} -> Map.update!(summary, :failed, &(&1 + 1))
-        end
+    summary = process_parsed_events(events, state)
+    summary = maybe_catch_up_messages(summary, next_since, sync, state)
+
+    {summary, next_since}
+  end
+
+  defp process_parsed_events(events, state) do
+    Enum.reduce(events, %{processed: 0, duplicates: 0, rejected: 0, failed: 0}, fn event,
+                                                                                   summary ->
+      case process_parsed_event(event, state) do
+        {:ok, :processed} -> Map.update!(summary, :processed, &(&1 + 1))
+        {:ok, :duplicate} -> Map.update!(summary, :duplicates, &(&1 + 1))
+        {:ok, :rejected} -> Map.update!(summary, :rejected, &(&1 + 1))
+        {:error, _reason} -> Map.update!(summary, :failed, &(&1 + 1))
+      end
+    end)
+  end
+
+  defp maybe_catch_up_messages(summary, next_since, sync, state) do
+    if cold_duplicate_only_sync?(summary, next_since, state) do
+      sync
+      |> catch_up_room_ids(state)
+      |> Enum.reduce(summary, fn room_id, acc ->
+        merge_summary(acc, catch_up_room(room_id, next_since, state))
       end)
+    else
+      summary
+    end
+  end
 
-    {summary, Map.get(sync, "next_batch")}
+  defp cold_duplicate_only_sync?(summary, next_since, state) do
+    state.since in [nil, ""] and is_binary(next_since) and next_since != "" and
+      summary.duplicates > 0 and
+      summary.processed == 0 and summary.rejected == 0 and summary.failed == 0
+  end
+
+  defp catch_up_room_ids(sync, state) do
+    allowed_room_ids = Map.get(state.settings, "allowed_room_ids", [])
+
+    sync
+    |> get_in(["rooms", "join"])
+    |> case do
+      rooms when is_map(rooms) -> Map.keys(rooms)
+      _rooms -> []
+    end
+    |> Enum.filter(&(&1 in allowed_room_ids))
+  end
+
+  defp catch_up_room(room_id, next_since, state) do
+    case Client.messages(
+           state.homeserver_url,
+           state.access_token,
+           room_id,
+           next_since,
+           state.sync_timeline_limit,
+           state.req_options
+         ) do
+      {:ok, messages} ->
+        Parser.parse_messages(room_id, messages)
+        |> Enum.reverse()
+        |> process_parsed_events(state)
+
+      {:error, reason} ->
+        Logger.warning("matrix messages catch-up failed: #{inspect(redact(reason))}")
+        %{processed: 0, duplicates: 0, rejected: 0, failed: 1}
+    end
+  end
+
+  defp merge_summary(left, right) do
+    %{
+      processed: left.processed + right.processed,
+      duplicates: left.duplicates + right.duplicates,
+      rejected: left.rejected + right.rejected,
+      failed: left.failed + right.failed
+    }
   end
 
   defp process_parsed_event({:text_message, fields}, state), do: process_text_event(fields, state)

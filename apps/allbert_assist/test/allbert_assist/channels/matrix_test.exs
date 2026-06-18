@@ -148,6 +148,17 @@ defmodule AllbertAssist.Channels.MatrixTest do
     refute request.url =~ "access_token"
   end
 
+  test "client can build a Matrix messages pagination request without query credentials" do
+    request = Client.messages_request("https://matrix.example.com", "!room:example.com", "s2", 50)
+    query = URI.decode_query(URI.parse(request.url).query)
+
+    assert request.path == "/_matrix/client/v3/rooms/%21room%3Aexample.com/messages"
+    assert query["dir"] == "b"
+    assert query["from"] == "s2"
+    assert query["limit"] == "50"
+    refute request.url =~ "access_token"
+  end
+
   test "parser extracts text events and rejects encrypted events" do
     events =
       Parser.parse_sync(%{
@@ -253,6 +264,90 @@ defmodule AllbertAssist.Channels.MatrixTest do
                from ref in ConversationMessageRef,
                  where: ref.channel == "matrix" and ref.provider_message_id == "$reply1"
              )
+
+    GenServer.stop(pid)
+  end
+
+  test "cold poll catches up latest messages when initial sync only returns duplicates" do
+    assert {:ok, %{"allowed_room_ids" => ["!room:example.com"]}} =
+             Channels.channel_settings("matrix")
+
+    assert {:ok, _event} =
+             Channels.create_event(%{
+               channel: "matrix",
+               provider: "matrix_client_server",
+               direction: "inbound",
+               external_event_id: "$old-sync",
+               external_user_id: "@alice:example.com",
+               external_chat_id: "!room:example.com",
+               external_message_id: "$old-sync",
+               status: "processed",
+               payload_summary: "matrix text message $old-sync"
+             })
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/_matrix/client/v3/sync"
+      assert_matrix_sync_query(conn)
+
+      json(conn, %{
+        "next_batch" => "s2",
+        "rooms" => %{
+          "join" => %{
+            "!room:example.com" => %{
+              "timeline" => %{"events" => [matrix_text_event("$old-sync", "already seen")]}
+            }
+          }
+        }
+      })
+    end)
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.request_path == "/_matrix/client/v3/rooms/%21room%3Aexample.com/messages"
+      query = URI.decode_query(conn.query_string)
+      assert query["dir"] == "b"
+      assert query["from"] == "s2"
+      assert query["limit"] == "50"
+
+      json(conn, %{
+        "chunk" => [
+          matrix_text_event("$caught-up", "create a note titled matrixapproval4 with body hi"),
+          matrix_text_event("$old-sync", "already seen")
+        ]
+      })
+    end)
+
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.method == "PUT"
+
+      {:ok, body, conn} = read_body(conn)
+      decoded = Jason.decode!(body)
+
+      assert decoded["body"] ==
+               "Matrix response: create a note titled matrixapproval4 with body hi"
+
+      json(conn, %{"event_id" => "$reply-caught-up"})
+    end)
+
+    server = :"matrix-adapter-catch-up-#{System.unique_integer([:positive])}"
+
+    assert {:ok, pid} =
+             Adapter.start_link(
+               name: server,
+               auto_poll?: false,
+               req_options: [plug: {Req.Test, __MODULE__}]
+             )
+
+    Req.Test.allow(__MODULE__, self(), pid)
+
+    assert {:ok, %{processed: 1, duplicates: 2, rejected: 0, failed: 0}} =
+             Adapter.poll_once(server)
+
+    assert_receive {:runtime_request,
+                    %{
+                      channel: "matrix",
+                      text: "create a note titled matrixapproval4 with body hi"
+                    }},
+                   1000
 
     GenServer.stop(pid)
   end

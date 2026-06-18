@@ -232,6 +232,12 @@ Developer docs: `docs/developer/key-custody.md`,
   default `50`) so mapped/unmapped typed-command approvals are visible without
   using the old `sync_timeout_ms=0` manual workaround. Interactive inbound smoke
   output now streams the marker prompt live.
+- Matrix live validation also found that matrix.org can return an older bounded
+  timeline slice for cold `/sync` while `/rooms/{roomId}/messages` shows newer
+  room events. Short-lived `matrix poll-once` runs now catch up through
+  `/messages` from the returned `next_batch` token when cold `/sync` yields no
+  new actionable events, while preserving the same dedupe, room allowlist,
+  identity, and confirmation guards.
 
 ### Security
 
@@ -254,9 +260,9 @@ Developer docs: `docs/developer/key-custody.md`,
   (`11 tests, 0 failures`).
 - `MIX_ENV=test mix allbert.test release.v053` passed with deterministic
   evidence at
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v053/p0-13378/home/release_evidence/v053/release-v053-1781758682.json`.
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v053/p0-11138/home/release_evidence/v053/release-v053-1781761017.json`.
   Post-remediation step counts: Telegram/email 48 tests, channel CLI/smoke
-  registration 18 tests, Matrix 13 tests (1 skipped live env), WhatsApp 14 tests
+  registration 18 tests, Matrix 15 tests (1 skipped live env), WhatsApp 14 tests
   (1 skipped live env), Signal 12 tests (1 skipped live env), v0.53 evals 11
   tests; secret scan passed with no findings.
 - `MIX_ENV=test mix allbert.test external-smoke list` passed and lists every

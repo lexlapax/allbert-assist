@@ -30,6 +30,21 @@ defmodule AllbertAssist.Channels.Matrix.Client do
     )
   end
 
+  def messages(homeserver_url, access_token, room_id, from_token, limit, opts \\ []) do
+    params =
+      %{"dir" => "b", "limit" => limit}
+      |> maybe_put("from", from_token)
+
+    request(
+      :get,
+      homeserver_url,
+      access_token,
+      "/rooms/#{encode_path(room_id)}/messages",
+      [params: params],
+      opts
+    )
+  end
+
   def send_message_request(homeserver_url, room_id, txn_id, content) do
     build_request(
       :put,
@@ -50,6 +65,14 @@ defmodule AllbertAssist.Channels.Matrix.Client do
 
   def whoami_request(homeserver_url),
     do: build_request(:get, homeserver_url, "/account/whoami", [])
+
+  def messages_request(homeserver_url, room_id, from_token, limit) do
+    params =
+      %{"dir" => "b", "limit" => limit}
+      |> maybe_put("from", from_token)
+
+    build_request(:get, homeserver_url, "/rooms/#{encode_path(room_id)}/messages", params: params)
+  end
 
   defp request(method, homeserver_url, access_token, path, request_opts, opts) do
     with {:ok, token} <- validate_access_token(access_token),

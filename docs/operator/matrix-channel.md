@@ -174,7 +174,9 @@ The settings output must show `channels.matrix.access_token_ref` as a
 should report `channels.matrix.sync_timeout_ms=30000` and
 `channels.matrix.sync_timeline_limit=50`. Do not set `sync_timeout_ms=0` for
 normal validation; Allbert keeps the HTTP receive timeout above the Matrix
-long-poll timeout internally.
+long-poll timeout internally. For short-lived operator `poll-once` runs, Allbert
+also catches up through Matrix `/rooms/{roomId}/messages` from the returned
+`next_batch` token when a cold `/sync` returns only already-seen events.
 
 ## Verify
 
@@ -226,8 +228,8 @@ mix allbert.test external-smoke -- inbound_matrix
 ```
 
 It starts the adapter, which auto-polls `/sync` with a bounded message timeline
-filter. The smoke keys on the printed marker, routes that mapped message to the
-runtime, and writes
+filter and the same `/messages` catch-up used by `poll-once`. The smoke keys on
+the printed marker, routes that mapped message to the runtime, and writes
 `<ALLBERT_HOME>/release_evidence/v053/external-smoke-inbound-matrix-<ts>.json`.
 Any bounded recent room history returned by `since=nil` is provider backlog, not
 release evidence.
@@ -236,7 +238,9 @@ Manual validation before tag:
 
 - Start Allbert normally with the configured `ALLBERT_HOME`.
 - Send a text `m.room.message` from the mapped MXID in the allowlisted room and
-  confirm a runtime request is created.
+  confirm a runtime request is created. If `poll-once` reports only duplicates,
+  send one new mapped message and run `poll-once` again; do not clear or redact
+  the room to make validation pass.
 - Send from an unmapped MXID and confirm the request is rejected before runtime.
 - Trigger a note-write confirmation from the mapped MXID:
   `create a note titled matrixapproval with body hi`; run
