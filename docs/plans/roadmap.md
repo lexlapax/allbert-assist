@@ -3236,11 +3236,10 @@ ADRs: `docs/adr/0056-...` (v0.53 amendment — public signed webhook),
 `docs/adr/0057-...` (threading substrate consumed),
 `docs/adr/0058-key-custody-and-channel-daemon-supervision.md` (NEW),
 `docs/adr/0059-channel-trust-class-and-relay-gating.md` (NEW),
-`docs/adr/0066-capability-release-availability-gate.md` (NEW; Proposed until
-M11 code/tests land).
+`docs/adr/0066-capability-release-availability-gate.md` (Accepted).
 
-Status: implemented as `0.53.0` through M10; M11 capability release
-availability remains before the tag. Version metadata stays `0.53.0`
+Status: implemented as `0.53.0` through M11; Discord/Slack regression
+validation remains before the tag. Version metadata stays `0.53.0`
 (tag-blocked). **Telegram + email live real-provider validation is done
 (2026-06-17):** email surfaced and fixed three IMAP/SMTP bugs (login/select 3-tuple,
 verified-TLS SMTP, success-as-error normalization — see CHANGELOG v0.53 §Fixed);
@@ -3258,8 +3257,9 @@ deterministic evals. Signal is implemented as a `signal-cli` bridge, but live
 validation is parked in `future-features.md` because it requires
 operator-managed daemon/linked-device onboarding that is too high-friction for
 v0.53 release authority. M11 records and enforces both as
-implemented-not-released via ADR 0066, with undeclared capabilities released by
-default for compatibility. Scope: first retro-validate
+implemented-not-released via plugin-owned YAML release declarations under ADR
+0066, with undeclared capabilities released by default for compatibility.
+Scope: first retro-validate
 **Telegram + email** to Discord/Slack live-provider parity (done), then build
 **Matrix + WhatsApp (Cloud
 API) + Signal (signal-cli daemon)**; **Viber** documented on paper as a validated

@@ -1,0 +1,8 @@
+declarations:
+  - kind: channel
+    id: whatsapp
+    release_status: implemented_not_released
+    live_use_allowed: false
+    decision: "Implemented in v0.53 as the WhatsApp Cloud API adapter, but not released for live channel use. v0.53 live validation was provider-blocked by Meta setup/object/registration failures; future WhatsApp Cloud API or WhatsApp Web/Baileys onboarding is parked in future-features."
+    decision_ref: docs/plans/v0.53-plan.md
+    future_features_ref: docs/plans/future-features.md

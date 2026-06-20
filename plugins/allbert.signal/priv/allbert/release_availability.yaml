@@ -1,0 +1,8 @@
+declarations:
+  - kind: channel
+    id: signal
+    release_status: implemented_not_released
+    live_use_allowed: false
+    decision: "Implemented in v0.53 as a signal-cli JSON-RPC bridge, but not released for live channel use. v0.53 live validation was deferred because Signal requires operator-managed daemon/link-device onboarding; future advanced-bridge onboarding is parked in future-features."
+    decision_ref: docs/plans/v0.53-plan.md
+    future_features_ref: docs/plans/future-features.md

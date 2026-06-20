@@ -1,7 +1,6 @@
 # ADR 0066: Capability Release Availability Gate
 
-Status: Proposed (v0.53 M11; accepted only after code, tests, docs, and release
-gate evidence land).
+Status: Accepted.
 Date: 2026-06-20
 Related: ADR 0016 (channel boundary), ADR 0017 (plugin contract), ADR 0056
 (channel inbound trust tier), ADR 0057 (cross-channel threading), ADR 0058
@@ -59,13 +58,20 @@ decisions still happen at the existing action/channel/permission boundaries.
 
 ### Declaration source
 
-Plugin-owned release declarations are preferred. For v0.53 M11, ship
-declarations only where the release decision is non-default:
+Plugin-owned release declarations are preferred. v0.53 M11 ships non-default
+declarations as plugin-owned YAML at
+`plugins/<plugin>/priv/allbert/release_availability.yaml`; the plugin validator
+loads those declarations during registration and rejects declarations for
+capabilities not contributed by that plugin. Code callbacks remain an extension
+seam for future plugin implementations, but the v0.53 WhatsApp/Signal decisions
+are data declarations, not core hardcoded exceptions.
+
+For v0.53 M11, ship declarations only where the release decision is non-default:
 
 - WhatsApp channel: implemented, not released for live use.
 - Signal channel: implemented, not released for live use.
-- Signal live-link/send actions that would initiate the advanced bridge may also
-  be declared if they need direct action-runner blocking.
+- Future Signal live-link/send action declarations can be added if those actions
+  need direct action-runner blocking beyond the channel-level gate.
 
 An optional operator/developer YAML overlay can be added later, but v0.53 must
 not require a complete 12-plugin metadata sweep before closeout.

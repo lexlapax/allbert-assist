@@ -164,6 +164,43 @@ defmodule AllbertAssist.Actions.RunnerTest do
     assert response.actions == []
   end
 
+  test "blocks explicitly unreleased action refs without blocking undeclared actions" do
+    assert {:ok, "example.runner_actions"} =
+             PluginRegistry.register_entry(%PluginEntry{
+               plugin_id: "example.runner_actions",
+               display_name: "Example Runner Actions",
+               version: "0.1.0",
+               kind: "actions",
+               source: :project,
+               status: :enabled,
+               trust_status: :trusted,
+               actions: [PluginEcho],
+               release_availability: [
+                 %{
+                   kind: :action,
+                   id: "runner_plugin_echo",
+                   release_status: :implemented_not_released,
+                   live_use_allowed?: false,
+                   decision: "Implemented, but not released for live use.",
+                   decision_ref: "docs/plans/example.md",
+                   future_features_ref: nil
+                 }
+               ]
+             })
+
+    assert {:ok, blocked} = Runner.run("runner_plugin_echo", %{text: "hello"}, context())
+
+    assert blocked.status == :unavailable
+
+    assert blocked.error ==
+             {:implemented_not_released, %{kind: :action, id: "runner_plugin_echo"}}
+
+    assert blocked.message =~ "implemented but not released"
+
+    assert {:ok, released} = Runner.run("direct_answer", %{text: "hello"}, context())
+    assert released.status == :completed
+  end
+
   test "unknown names and unregistered modules never execute" do
     assert {:ok, missing} = Runner.run("missing_action", %{}, context())
     assert missing.status == :denied

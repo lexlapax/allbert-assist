@@ -158,8 +158,8 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
 
 ## v0.53.0 - Channel Pack 1 Retro-Validation And Channel Pack 2
 
-Status: implemented as `0.53.0` through M10; M11 capability release
-availability remains before the tag. Telegram + email delivery/inbound plus manual
+Status: implemented as `0.53.0` through M11; Discord and Slack regression
+validation remains before the tag. Telegram + email delivery/inbound plus manual
 approval/rejection/poll-resume validation passed after the v0.54 router
 prerequisite landed. Matrix delivery, inbound, mapped approval, and unmapped
 callback rejection validation passed on 2026-06-18 after Matrix sync/catch-up
@@ -202,9 +202,10 @@ Developer docs: `docs/developer/key-custody.md`,
 - `mix allbert.test release.v053` deterministic release lane and independent
   live-smoke selectors for `telegram`, `inbound_telegram`, `email`,
   `inbound_email`, `matrix`, `inbound_matrix`, `whatsapp`, and `signal`.
-- M11 capability release availability plan and ADR 0066 for implemented-vs-
-  released truth. WhatsApp and Signal are implemented-not-released in v0.53; this
-  does not remove code and does not grant or revoke security authority.
+- M11 capability release availability substrate and ADR 0066 for implemented-vs-
+  released truth. WhatsApp and Signal are declared by plugin-owned YAML as
+  implemented-not-released in v0.53; this does not remove code and does not
+  grant or revoke security authority.
 - v0.53 validation closeout: `external-smoke -- inbound_matrix` live smoke
   (drives the Matrix `/sync` poll to runtime with an operator marker, at parity
   with `inbound_telegram`), and `mix allbert.channels whatsapp post-webhook`
@@ -221,8 +222,8 @@ Developer docs: `docs/developer/key-custody.md`,
 - ADR 0056's public signed-webhook amendment, ADR 0058, and ADR 0059 are
   accepted for the implemented v0.53 surface.
 - Roadmap, request-flow, security-hardening, operator, developer, and
-  agent-context docs now describe v0.53 as implemented through M10 with M11
-  release availability pending before tag.
+  agent-context docs now describe v0.53 as implemented through M11 with
+  Discord/Slack regression validation pending before tag.
 
 ### Fixed
 

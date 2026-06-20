@@ -646,7 +646,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   defp print_result({:ok, {:list, channels}}) do
     Enum.each(channels, fn channel ->
       Mix.shell().info(
-        "#{channel.channel} provider=#{channel.provider} enabled=#{channel.enabled} identities=#{channel.identity_count} credentials=#{credential_status(channel.credential_status)}"
+        "#{channel.channel} provider=#{channel.provider} release=#{channel.release_status} enabled=#{channel.enabled} identities=#{channel.identity_count} credentials=#{credential_status(channel.credential_status)}"
       )
     end)
   end
@@ -654,6 +654,8 @@ defmodule Mix.Tasks.Allbert.Channels do
   defp print_result({:ok, {:show, channel}}) do
     Mix.shell().info("Channel: #{channel.channel}")
     Mix.shell().info("Provider: #{channel.provider}")
+    Mix.shell().info("Release status: #{channel.release_status}")
+    maybe_print_release_decision(channel)
     Mix.shell().info("Enabled: #{channel.enabled}")
     Mix.shell().info("Identities: #{channel.identity_count}")
     Mix.shell().info("Credentials: #{credential_status(channel.credential_status)}")
@@ -663,6 +665,8 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   defp print_result({:ok, {:setup_check, setup}}) do
     Mix.shell().info("#{setup.channel} setup status=#{setup.setup_status}")
+    Mix.shell().info("release=#{setup.release_status}")
+    maybe_print_release_decision(setup)
     Mix.shell().info("enabled=#{setup.enabled}")
     Mix.shell().info("missing=#{diagnostic_status(setup.diagnostics)}")
     Mix.shell().info("settings=#{setup_fields(setup.required_settings)}")
@@ -1361,6 +1365,15 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   defp secret_required_suffix(%{required?: true}), do: ""
   defp secret_required_suffix(%{required?: false}), do: "_optional"
+
+  defp maybe_print_release_decision(%{release_decision: %{live_use_allowed?: true}}), do: :ok
+
+  defp maybe_print_release_decision(%{release_decision: %{decision: decision}})
+       when is_binary(decision) do
+    Mix.shell().info("Release decision: #{decision}")
+  end
+
+  defp maybe_print_release_decision(_value), do: :ok
 
   defp maybe_print_doctor(%{doctor: doctor}) when is_map(doctor) do
     Mix.shell().info("Doctor: #{doctor_status(doctor)}")

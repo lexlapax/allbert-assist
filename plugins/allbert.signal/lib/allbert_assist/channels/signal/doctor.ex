@@ -33,10 +33,36 @@ defmodule AllbertAssist.Channels.Signal.Doctor do
   def state_path, do: Path.join(Paths.cache_root(), @state_path)
 
   defp run_checks(settings, opts) do
+    release_decision = Channels.channel_release_decision("signal")
+    adapter_status = transport_status(opts)
+
+    unless release_decision.live_use_allowed? do
+      diagnostics = [:implemented_not_released]
+
+      %{
+        status: :implemented_not_released,
+        release_status: release_decision.release_status,
+        release_decision: release_decision,
+        auth_ok: true,
+        endpoint_ok: false,
+        adapter_status: adapter_status,
+        control_mode: Map.get(settings, "control_mode", "socket"),
+        control_local_only: false,
+        account_configured: configured?(Map.get(settings, "account_identifier")),
+        local_aci_configured: configured?(Map.get(settings, "local_aci")),
+        identity_count: length(Map.get(settings, "identity_map", [])),
+        diagnostics: diagnostics,
+        checked_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      }
+    else
+      run_live_checks(settings, opts, release_decision, adapter_status)
+    end
+  end
+
+  defp run_live_checks(settings, opts, release_decision, adapter_status) do
     custody = Daemon.ensure_custody!(settings)
     control = Daemon.control_diagnostics(settings)
     diagnostics = settings_diagnostics(settings) ++ control.diagnostics
-    adapter_status = transport_status(opts)
     client_opts = client_opts(settings, opts)
 
     endpoint =
@@ -47,6 +73,8 @@ defmodule AllbertAssist.Channels.Signal.Doctor do
 
     %{
       status: doctor_status(diagnostics, endpoint),
+      release_status: release_decision.release_status,
+      release_decision: release_decision,
       auth_ok: auth_ok?(control),
       endpoint_ok: endpoint == :ok and control.ok?,
       adapter_status: adapter_status,

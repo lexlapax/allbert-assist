@@ -63,6 +63,7 @@ defmodule AllbertAssist.Actions.Channels.SendChannelMessage do
     with {:ok, channel} <- required(params, :channel),
          {:ok, target} <- required(params, :target),
          {:ok, body} <- required(params, :body),
+         :ok <- live_channel_available(channel),
          :ok <- gate_target(channel, target) do
       Gate.run(
         %{
@@ -86,6 +87,9 @@ defmodule AllbertAssist.Actions.Channels.SendChannelMessage do
            actions: []
          }}
 
+      {:error, {:release_unavailable, status, channel, decision}} ->
+        {:ok, unreleased_channel(channel, status, decision)}
+
       {:error, reason} ->
         {:ok,
          %{
@@ -95,6 +99,34 @@ defmodule AllbertAssist.Actions.Channels.SendChannelMessage do
            actions: []
          }}
     end
+  end
+
+  defp live_channel_available(channel) do
+    case Channels.channel_live_use_error(channel) do
+      {:released, _decision} ->
+        :ok
+
+      {status, decision} ->
+        {:error, {:release_unavailable, status, channel, decision}}
+    end
+  end
+
+  defp unreleased_channel(channel, status, decision) do
+    %{
+      message:
+        "Channel #{channel} is implemented but not released for live use: #{decision.decision}",
+      status: :stopped,
+      error: {status, %{kind: decision.kind, id: decision.id}},
+      release_decision: decision,
+      actions: [
+        %{
+          name: "send_channel_message",
+          status: :stopped,
+          error: {status, %{kind: decision.kind, id: decision.id}},
+          release_decision: decision
+        }
+      ]
+    }
   end
 
   # Resolve the target against the channel identity allowlist before any dispatch.

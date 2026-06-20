@@ -286,6 +286,138 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
       ]
   end
 
+  defmodule ReleaseAvailabilityPlugin do
+    use AllbertAssist.Plugin
+
+    @impl true
+    def plugin_id, do: "example.release_availability"
+
+    @impl true
+    def display_name, do: "Release Availability"
+
+    @impl true
+    def version, do: "0.1.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def channels do
+      [
+        %{
+          channel_id: "example_release_channel",
+          primitives: [:list],
+          threading: :flat,
+          trust_class: :server_readable
+        }
+      ]
+    end
+
+    @impl true
+    def release_availability do
+      [
+        %{
+          kind: :channel,
+          id: "example_release_channel",
+          release_status: :implemented_not_released,
+          live_use_allowed?: false,
+          decision: "Implemented, but not released for live use.",
+          decision_ref: "docs/plans/example.md",
+          future_features_ref: "docs/plans/future-features.md"
+        }
+      ]
+    end
+  end
+
+  defmodule InvalidReleaseAvailabilityPlugin do
+    use AllbertAssist.Plugin
+
+    @impl true
+    def plugin_id, do: "example.invalid_release_availability"
+
+    @impl true
+    def display_name, do: "Invalid Release Availability"
+
+    @impl true
+    def version, do: "0.1.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def release_availability, do: [%{kind: :channel, id: "missing_status"}]
+  end
+
+  defmodule YamlReleaseAvailabilityPlugin do
+    use AllbertAssist.Plugin
+
+    @impl true
+    def plugin_id, do: "example.yaml_release_availability"
+
+    @impl true
+    def display_name, do: "YAML Release Availability"
+
+    @impl true
+    def version, do: "0.1.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def channels do
+      [
+        %{
+          channel_id: "yaml_release_channel",
+          primitives: [:list],
+          threading: :flat,
+          trust_class: :server_readable
+        }
+      ]
+    end
+  end
+
+  defmodule CrossOwnedReleaseAvailabilityPlugin do
+    use AllbertAssist.Plugin
+
+    @impl true
+    def plugin_id, do: "example.cross_owned_release_availability"
+
+    @impl true
+    def display_name, do: "Cross-Owned Release Availability"
+
+    @impl true
+    def version, do: "0.1.0"
+
+    @impl true
+    def validate(_opts), do: :ok
+
+    @impl true
+    def channels do
+      [
+        %{
+          channel_id: "owned_channel",
+          primitives: [:list],
+          threading: :flat,
+          trust_class: :server_readable
+        }
+      ]
+    end
+
+    @impl true
+    def release_availability do
+      [
+        %{
+          kind: :channel,
+          id: "other_channel",
+          release_status: :implemented_not_released,
+          live_use_allowed?: false,
+          decision: "This plugin must not be able to block another channel.",
+          decision_ref: "docs/plans/example.md"
+        }
+      ]
+    end
+  end
+
   test "validates plugin modules into normalized entries without atomizing ids" do
     before_count = :erlang.system_info(:atom_count)
 
@@ -301,6 +433,7 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
     assert entry.trust_status == :trusted
     assert entry.module == ValidPlugin
     assert entry.root_path == "/tmp/plugin"
+    assert entry.release_availability == []
     assert after_count == before_count
   end
 
@@ -378,6 +511,62 @@ defmodule AllbertAssist.Plugin.ValidatorTest do
              Validator.validate_module(InvalidQuoteTtlChannelPlugin)
 
     assert Enum.any?(diagnostics, &(&1.kind == :invalid_channel_quote_ttl_ms))
+  end
+
+  test "normalizes plugin release availability declarations" do
+    assert {:ok, entry} = Validator.validate_module(ReleaseAvailabilityPlugin)
+
+    assert [
+             %{
+               kind: :channel,
+               id: "example_release_channel",
+               release_status: :implemented_not_released,
+               live_use_allowed?: false
+             }
+           ] = entry.release_availability
+  end
+
+  test "loads plugin-owned release availability YAML" do
+    root = Path.join(System.tmp_dir!(), "plugin-validator-#{System.unique_integer([:positive])}")
+    File.mkdir_p!(Path.join([root, "priv", "allbert"]))
+
+    File.write!(Path.join([root, "priv", "allbert", "release_availability.yaml"]), """
+    declarations:
+      - kind: channel
+        id: yaml_release_channel
+        release_status: implemented_not_released
+        live_use_allowed: false
+        decision: "Implemented, but not released for live use."
+        decision_ref: docs/plans/example.md
+    """)
+
+    on_exit(fn -> File.rm_rf!(root) end)
+
+    assert {:ok, entry} =
+             Validator.validate_module(YamlReleaseAvailabilityPlugin, root_path: root)
+
+    assert [
+             %{
+               kind: :channel,
+               id: "yaml_release_channel",
+               release_status: :implemented_not_released,
+               live_use_allowed?: false
+             }
+           ] = entry.release_availability
+  end
+
+  test "rejects release declarations for capabilities not owned by the plugin" do
+    assert {:error, :invalid_plugin, diagnostics} =
+             Validator.validate_module(CrossOwnedReleaseAvailabilityPlugin)
+
+    assert Enum.any?(diagnostics, &(&1.kind == :release_availability_not_owned))
+  end
+
+  test "rejects invalid plugin release availability declarations" do
+    assert {:error, :invalid_plugin, diagnostics} =
+             Validator.validate_module(InvalidReleaseAvailabilityPlugin)
+
+    assert Enum.any?(diagnostics, &(&1.kind == :invalid_release_availability))
   end
 
   test "normalizes valid skill-only manifests" do

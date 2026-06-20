@@ -1707,6 +1707,25 @@ defmodule Mix.Tasks.Allbert.Test do
       ]
     },
     %{
+      id: "capability_release_gate",
+      title: "M11 capability release availability declarations and runtime gates",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/capabilities/release_availability_test.exs",
+        "test/allbert_assist/plugin/validator_test.exs",
+        "test/allbert_assist/actions/runner_test.exs",
+        "test/allbert_assist/actions/channels/send_channel_message_test.exs"
+      ],
+      coverage: [
+        "undeclared capabilities default to released",
+        "plugin-owned YAML/callback declarations normalize and enforce ownership",
+        "explicit action/channel release blocks stop before runtime/provider dispatch",
+        "declared unavailable channels do not affect Discord/Slack or other released surfaces"
+      ]
+    },
+    %{
       id: "channel_cli_and_smoke_registration",
       title: "channel CLI doctors and independent external-smoke selectors",
       cwd: :core,

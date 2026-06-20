@@ -20,6 +20,7 @@ defmodule AllbertAssist.Plugin.Entry do
     actions: [],
     skill_paths: [],
     settings_schema: [],
+    release_availability: [],
     children: :ignore,
     diagnostics: []
   ]
@@ -44,6 +45,7 @@ defmodule AllbertAssist.Plugin.Entry do
           actions: [module()],
           skill_paths: [Path.t()],
           settings_schema: [map()],
+          release_availability: [map()],
           children: Supervisor.child_spec() | :ignore,
           diagnostics: [map()]
         }
@@ -68,6 +70,7 @@ defmodule AllbertAssist.Plugin.Entry do
         actions: length(entry.actions),
         skill_paths: length(entry.skill_paths),
         settings_schema: length(entry.settings_schema),
+        release_availability: length(entry.release_availability),
         child_spec: entry.children != :ignore
       },
       diagnostics: entry.diagnostics

@@ -5,6 +5,7 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
 
   require Logger
 
+  alias AllbertAssist.Capabilities.ReleaseAvailability
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.ConfirmationCallback
   alias AllbertAssist.Channels.Identity
@@ -55,13 +56,36 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
 
   @impl true
   def handle_call(:status, _from, state) do
-    {:reply, if(state.enabled?, do: :running, else: :disabled), state}
+    {:reply, channel_status(state), state}
   end
 
   def handle_call({:handle_webhook_payload, payload, auth_context}, _from, state) do
-    {reply, state} = process_webhook(payload, auth_context, state)
+    {reply, state} =
+      case ensure_live_use_allowed(auth_context) do
+        :ok -> process_webhook(payload, auth_context, state)
+        {:error, reason} -> {{:error, reason}, state}
+      end
+
     {:reply, reply, state}
   end
+
+  defp channel_status(state) do
+    cond do
+      not ReleaseAvailability.live_use_allowed?({:channel, "whatsapp"}) ->
+        :implemented_not_released
+
+      state.enabled? ->
+        :running
+
+      true ->
+        :disabled
+    end
+  end
+
+  defp ensure_live_use_allowed(%{surface: "whatsapp_simulate"}), do: :ok
+
+  defp ensure_live_use_allowed(_auth_context),
+    do: ReleaseAvailability.ensure_live_use_allowed({:channel, "whatsapp"})
 
   defp server(opts) do
     case Keyword.get(opts, :server, __MODULE__) do
@@ -768,7 +792,8 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
   # recipient phone number (E.164).
   @doc false
   def deliver_outbound(target, body, _opts) when is_binary(target) and is_binary(body) do
-    with {:ok, settings} <- AllbertAssist.Channels.channel_settings("whatsapp"),
+    with :ok <- ReleaseAvailability.ensure_live_use_allowed({:channel, "whatsapp"}),
+         {:ok, settings} <- AllbertAssist.Channels.channel_settings("whatsapp"),
          {:ok, token} <-
            AllbertAssist.Settings.Secrets.get_secret(Map.get(settings, "access_token_ref")),
          phone_id when is_binary(phone_id) <- Map.get(settings, "phone_number_id"),

@@ -1,7 +1,9 @@
 defmodule AllbertAssist.Plugin.Validator do
   @moduledoc false
 
+  alias AllbertAssist.Capabilities.ReleaseAvailability
   alias AllbertAssist.Plugin.Entry
+  alias AllbertAssist.Settings.YamlCodec
 
   @plugin_id_regex ~r/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$/
   @required_callbacks [
@@ -77,6 +79,7 @@ defmodule AllbertAssist.Plugin.Validator do
       actions: [],
       skill_paths: manifest_skill_paths(manifest, root_path),
       settings_schema: [],
+      release_availability: [],
       children: :ignore,
       diagnostics: diagnostics
     }
@@ -149,6 +152,7 @@ defmodule AllbertAssist.Plugin.Validator do
     source = Map.get(opts, :source, :shipped)
     status = Map.get(opts, :status, :enabled)
     trust_status = trust_status_for(source, opts)
+    release_availability = module_release_availability(module, opts)
 
     diagnostics =
       []
@@ -160,6 +164,7 @@ defmodule AllbertAssist.Plugin.Validator do
       |> validate_bounded_string(module.version(), :version, 32)
       |> validate_module_lists(module)
       |> validate_channel_descriptors(module.channels())
+      |> validate_release_availability(release_availability, module)
       |> duplicate_contribution_diagnostics(module)
 
     if Enum.any?(diagnostics, &(&1.severity == :error)) do
@@ -182,6 +187,7 @@ defmodule AllbertAssist.Plugin.Validator do
          actions: module.actions(),
          skill_paths: module.skill_paths(),
          settings_schema: module.settings_schema(),
+         release_availability: normalized_release_availability(release_availability),
          children: module.child_spec([]),
          diagnostics: diagnostics
        }}
@@ -435,6 +441,184 @@ defmodule AllbertAssist.Plugin.Validator do
   end
 
   defp validate_channel_quote_ttl_ms(diagnostics, _descriptor), do: diagnostics
+
+  defp validate_release_availability(diagnostics, {:ok, declarations}, module) do
+    case release_availability_ownership_errors(declarations, module) do
+      [] ->
+        diagnostics
+
+      errors ->
+        [
+          diagnostic(
+            :error,
+            :release_availability_not_owned,
+            "Plugin release availability declarations must describe capabilities contributed by the same plugin.",
+            errors: errors
+          )
+          | diagnostics
+        ]
+    end
+  end
+
+  defp validate_release_availability(diagnostics, {:error, errors}, _module) do
+    [
+      diagnostic(
+        :error,
+        :invalid_release_availability,
+        "Plugin release availability declarations are invalid.",
+        errors: errors
+      )
+      | diagnostics
+    ]
+  end
+
+  defp normalized_release_availability({:ok, declarations}), do: declarations
+  defp normalized_release_availability({:error, _errors}), do: []
+
+  defp module_release_availability(module, opts) do
+    with {:ok, yaml_declarations} <- yaml_release_availability(module, opts) do
+      module
+      |> callback_release_availability()
+      |> append_release_declarations(yaml_declarations)
+      |> ReleaseAvailability.normalize_declarations()
+    end
+  end
+
+  defp callback_release_availability(module) do
+    if function_exported?(module, :release_availability, 0),
+      do: module.release_availability(),
+      else: []
+  end
+
+  defp append_release_declarations(declarations, yaml_declarations) when is_list(declarations),
+    do: declarations ++ yaml_declarations
+
+  defp append_release_declarations(declarations, _yaml_declarations), do: declarations
+
+  defp yaml_release_availability(module, opts) do
+    case release_availability_yaml_path(module, opts) do
+      nil ->
+        {:ok, []}
+
+      path ->
+        path
+        |> YamlCodec.read_file()
+        |> yaml_release_declarations(path)
+    end
+  end
+
+  defp release_availability_yaml_path(module, opts) do
+    root_path = Map.get(opts, :root_path) || inferred_plugin_root(module)
+
+    if is_binary(root_path) do
+      Path.join([root_path, "priv", "allbert", "release_availability.yaml"])
+    end
+  end
+
+  defp inferred_plugin_root(module) do
+    with true <- function_exported?(module, :plugin_id, 0),
+         plugin_id when is_binary(plugin_id) <- module.plugin_id(),
+         root_path <- Path.expand(Path.join(["plugins", plugin_id]), File.cwd!()),
+         true <- File.dir?(root_path) do
+      root_path
+    else
+      _other -> nil
+    end
+  end
+
+  defp yaml_release_declarations({:ok, map}, path) when is_map(map) do
+    case Map.get(map, "declarations", Map.get(map, :declarations, [])) do
+      declarations when is_list(declarations) ->
+        {:ok, declarations}
+
+      _other ->
+        {:error, [{:invalid_release_availability_yaml, path, :expected_declarations_list}]}
+    end
+  end
+
+  defp yaml_release_declarations({:error, reason}, path) do
+    {:error, [{:release_availability_yaml_parse_failed, path, reason}]}
+  end
+
+  defp release_availability_ownership_errors(declarations, module) do
+    declarations
+    |> Enum.reject(&owned_release_declaration?(&1, module))
+    |> Enum.map(fn declaration ->
+      %{kind: declaration.kind, id: declaration.id, plugin_id: module.plugin_id()}
+    end)
+  end
+
+  defp owned_release_declaration?(%{kind: :channel, id: id}, module),
+    do: id in channel_ids(module)
+
+  defp owned_release_declaration?(%{kind: :plugin, id: id}, module),
+    do: id == module.plugin_id()
+
+  defp owned_release_declaration?(%{kind: :action, id: id}, module),
+    do: id in action_names(module)
+
+  defp owned_release_declaration?(%{kind: :app, id: id}, module),
+    do: id in app_ids(module)
+
+  defp owned_release_declaration?(_declaration, _module), do: false
+
+  defp channel_ids(module) do
+    module.channels()
+    |> List.wrap()
+    |> Enum.flat_map(fn descriptor ->
+      if is_map(descriptor) do
+        case Map.get(descriptor, :channel_id, Map.get(descriptor, "channel_id")) do
+          id when is_binary(id) -> [id]
+          _other -> []
+        end
+      else
+        []
+      end
+    end)
+  end
+
+  defp action_names(module) do
+    module.actions()
+    |> List.wrap()
+    |> Enum.flat_map(&action_name/1)
+  end
+
+  defp action_name(action_module) when is_atom(action_module) do
+    with true <- Code.ensure_loaded?(action_module),
+         true <- function_exported?(action_module, :name, 0),
+         name when is_binary(name) <- action_module.name() do
+      [name]
+    else
+      _other -> []
+    end
+  rescue
+    _exception -> []
+  end
+
+  defp action_name(_action_module), do: []
+
+  defp app_ids(module) do
+    module.apps()
+    |> List.wrap()
+    |> Enum.flat_map(&app_id/1)
+  end
+
+  defp app_id(app_module) when is_atom(app_module) do
+    with true <- Code.ensure_loaded?(app_module),
+         true <- function_exported?(app_module, :app_id, 0) do
+      case app_module.app_id() do
+        id when is_atom(id) -> [Atom.to_string(id)]
+        id when is_binary(id) -> [id]
+        _other -> []
+      end
+    else
+      _other -> []
+    end
+  rescue
+    _exception -> []
+  end
+
+  defp app_id(_app_module), do: []
 
   defp duplicate_contribution_diagnostics(diagnostics, module) do
     diagnostics ++

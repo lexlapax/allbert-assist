@@ -130,12 +130,18 @@ mix allbert.channels show whatsapp
 
 `setup-check` reports redacted Settings Central readiness, missing fields, the
 independent WhatsApp smoke command, and the no-automatic-provider-retry posture.
-The doctor calls Graph API phone metadata, reports auth/endpoint state and local
-adapter status, writes a redacted state envelope under the Allbert cache root,
-and must not print the raw access token or phone number.
+For v0.53, `setup-check`, `whatsapp doctor`, and `show whatsapp` report
+`implemented_not_released` from the plugin-owned release availability
+declaration; they do not require live Meta Graph API success. If a future
+release changes the WhatsApp declaration to released, the doctor should call
+Graph API phone metadata, report auth/endpoint state and local adapter status,
+write a redacted state envelope under the Allbert cache root, and never print
+the raw access token or phone number.
 
-Run the WhatsApp smoke independently. This command must not require Telegram,
-email, Matrix, Discord, Slack, or Signal env:
+Future-only live smoke. This is not required for v0.53 while WhatsApp is
+`implemented_not_released`. If a future release changes the WhatsApp declaration
+to released, run the smoke independently; it must not require Telegram, email,
+Matrix, Discord, Slack, or Signal env:
 
 ```sh
 export ALLBERT_TEST_KEEP_TMP=1
@@ -145,9 +151,9 @@ export ALLBERT_WHATSAPP_TO_PHONE="+15550001111"
 mix allbert.test external-smoke -- whatsapp
 ```
 
-It calls Graph API phone metadata, sends one real text message through
-`/<phone_number_id>/messages`, and writes
-`<ALLBERT_HOME>/release_evidence/v053/external-smoke-whatsapp-<ts>.json`.
+In a released future state, it calls Graph API phone metadata, sends one real
+text message through `/<phone_number_id>/messages`, and writes release evidence
+under `<ALLBERT_HOME>/release_evidence/`.
 
 Manual validation when a working Meta Cloud API account is available:
 

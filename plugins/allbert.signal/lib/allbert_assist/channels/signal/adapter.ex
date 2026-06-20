@@ -5,6 +5,7 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
 
   require Logger
 
+  alias AllbertAssist.Capabilities.ReleaseAvailability
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
@@ -47,13 +48,36 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
 
   @impl true
   def handle_call(:status, _from, state) do
-    {:reply, if(state.enabled?, do: :running, else: :disabled), state}
+    {:reply, channel_status(state), state}
   end
 
   def handle_call({:handle_notification, notification, auth_context}, _from, state) do
-    {reply, state} = process_notification(notification, auth_context, state)
+    {reply, state} =
+      case ensure_live_use_allowed(auth_context) do
+        :ok -> process_notification(notification, auth_context, state)
+        {:error, reason} -> {{:error, reason}, state}
+      end
+
     {:reply, reply, state}
   end
+
+  defp channel_status(state) do
+    cond do
+      not ReleaseAvailability.live_use_allowed?({:channel, "signal"}) ->
+        :implemented_not_released
+
+      state.enabled? ->
+        :running
+
+      true ->
+        :disabled
+    end
+  end
+
+  defp ensure_live_use_allowed(%{surface: "signal_simulate"}), do: :ok
+
+  defp ensure_live_use_allowed(_auth_context),
+    do: ReleaseAvailability.ensure_live_use_allowed({:channel, "signal"})
 
   defp load_state(opts) do
     settings =
@@ -500,17 +524,19 @@ defmodule AllbertAssist.Channels.Signal.Adapter do
   # recipient (ACI/number per the account's identity policy).
   @doc false
   def deliver_outbound(target, body, _opts) when is_binary(target) and is_binary(body) do
-    case AllbertAssist.Channels.channel_settings("signal") do
-      {:ok, settings} ->
-        account = Map.get(settings, "account_identifier")
+    with :ok <- ReleaseAvailability.ensure_live_use_allowed({:channel, "signal"}) do
+      case AllbertAssist.Channels.channel_settings("signal") do
+        {:ok, settings} ->
+          account = Map.get(settings, "account_identifier")
 
-        case Client.send_message(account, target, body, []) do
-          {:ok, result} -> {:ok, %{channel: "signal", target: target, result: result}}
-          {:error, reason} -> {:error, reason}
-        end
+          case Client.send_message(account, target, body, []) do
+            {:ok, result} -> {:ok, %{channel: "signal", target: target, result: result}}
+            {:error, reason} -> {:error, reason}
+          end
 
-      _other ->
-        {:error, :signal_not_configured}
+        _other ->
+          {:error, :signal_not_configured}
+      end
     end
   end
 end

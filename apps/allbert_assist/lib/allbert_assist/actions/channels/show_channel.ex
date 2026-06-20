@@ -55,6 +55,8 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
     %{
       channel: "telegram",
       provider: "telegram_bot_api",
+      release_status: summary.release_status,
+      release_decision: summary.release_decision,
       enabled: Map.get(settings, "enabled", false),
       response_style: Map.get(settings, "response_style"),
       identity_count: length(Map.get(settings, "identity_map", [])),
@@ -73,6 +75,8 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
     %{
       channel: "email",
       provider: "email_imap",
+      release_status: summary.release_status,
+      release_decision: summary.release_decision,
       enabled: Map.get(settings, "enabled", false),
       response_style: Map.get(settings, "response_style"),
       imap_host: Map.get(settings, "imap_host"),
@@ -94,6 +98,8 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
     %{
       channel: "discord",
       provider: "discord_gateway",
+      release_status: summary.release_status,
+      release_decision: summary.release_decision,
       enabled: Map.get(settings, "enabled", false),
       response_style: Map.get(settings, "response_style"),
       application_id: Map.get(settings, "application_id"),
@@ -113,6 +119,8 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
     %{
       channel: "slack",
       provider: "slack_socket_mode",
+      release_status: summary.release_status,
+      release_decision: summary.release_decision,
       enabled: Map.get(settings, "enabled", false),
       response_style: Map.get(settings, "response_style"),
       workspace_team_id: Map.get(settings, "workspace_team_id"),
@@ -131,6 +139,8 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
     %{
       channel: "matrix",
       provider: "matrix_client_server",
+      release_status: summary.release_status,
+      release_decision: summary.release_decision,
       enabled: Map.get(settings, "enabled", false),
       homeserver_url: Map.get(settings, "homeserver_url"),
       allowed_room_count: length(Map.get(settings, "allowed_room_ids", [])),
@@ -148,6 +158,8 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
     %{
       channel: "whatsapp",
       provider: "whatsapp_cloud_api",
+      release_status: summary.release_status,
+      release_decision: summary.release_decision,
       enabled: Map.get(settings, "enabled", false),
       webhook_enabled: Map.get(settings, "webhook_enabled", false),
       phone_number_id: Map.get(settings, "phone_number_id"),
@@ -166,6 +178,8 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
     %{
       channel: "signal",
       provider: "signal_cli_jsonrpc",
+      release_status: summary.release_status,
+      release_decision: summary.release_decision,
       enabled: Map.get(settings, "enabled", false),
       account_configured: configured?(Map.get(settings, "account_identifier")),
       local_aci_configured: configured?(Map.get(settings, "local_aci")),
@@ -183,6 +197,8 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
     %{
       channel: channel,
       provider: summary.provider,
+      release_status: summary.release_status,
+      release_decision: summary.release_decision,
       enabled: Map.get(settings, "enabled", false),
       identity_count: length(Map.get(settings, "identity_map", [])),
       credential_status: summary.credential_status,
@@ -193,6 +209,8 @@ defmodule AllbertAssist.Actions.Channels.ShowChannel do
   defp message(detail) do
     """
     Channel #{detail.channel}: #{detail.provider}
+    Release status: #{detail.release_status}
+    Release decision: #{detail.release_decision.decision}
     Enabled: #{detail.enabled}
     Identities: #{detail.identity_count}
     Credentials: #{inspect(detail.credential_status)}

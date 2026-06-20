@@ -18,6 +18,7 @@ defmodule AllbertAssist.Actions.Channels.SetupCheck do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Capabilities.ReleaseAvailability
   alias AllbertAssist.Channels
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings.Secrets
@@ -61,13 +62,16 @@ defmodule AllbertAssist.Actions.Channels.SetupCheck do
   defp setup_check(channel, descriptor, settings) do
     required_settings = required_settings(channel, settings)
     secret_status = secret_status(channel, descriptor, settings)
-    diagnostics = diagnostics(required_settings, secret_status)
+    release_decision = Channels.channel_release_decision(channel)
+    diagnostics = diagnostics(channel, required_settings, secret_status)
 
     %{
       channel: channel,
       provider: descriptor.provider,
+      release_status: release_decision.release_status,
+      release_decision: release_decision,
       enabled: Map.get(settings, "enabled", false),
-      setup_status: if(diagnostics == [], do: :ready, else: :incomplete),
+      setup_status: setup_status(release_decision, diagnostics),
       required_settings: required_settings,
       secret_status: secret_status,
       diagnostics: diagnostics,
@@ -180,7 +184,7 @@ defmodule AllbertAssist.Actions.Channels.SetupCheck do
   defp secret_status(ref) when is_binary(ref) and ref != "", do: Secrets.status(ref)
   defp secret_status(_ref), do: :missing
 
-  defp diagnostics(required_settings, secret_status) do
+  defp diagnostics(channel, required_settings, secret_status) do
     setting_diagnostics =
       required_settings
       |> Enum.filter(&(&1.required? and not &1.configured?))
@@ -191,8 +195,20 @@ defmodule AllbertAssist.Actions.Channels.SetupCheck do
       |> Enum.filter(&(&1.required? and &1.status != :configured))
       |> Enum.map(&String.to_atom("missing_secret_" <> short_secret_name(&1.name)))
 
-    setting_diagnostics ++ secret_diagnostics
+    release_diagnostics =
+      case ReleaseAvailability.diagnostic({:channel, channel}) do
+        nil -> []
+        diagnostic -> [diagnostic]
+      end
+
+    setting_diagnostics ++ secret_diagnostics ++ release_diagnostics
   end
+
+  defp setup_status(%{release_status: :implemented_not_released}, _diagnostics),
+    do: :implemented_not_released
+
+  defp setup_status(_release_decision, []), do: :ready
+  defp setup_status(_release_decision, _diagnostics), do: :incomplete
 
   defp short_secret_name(setting_path), do: setting_path |> String.split(".") |> List.last()
 

@@ -212,10 +212,14 @@ mix allbert.channels show signal
 
 `setup-check` reports redacted Settings Central readiness, missing fields, the
 independent Signal smoke command, the `signal link` pairing command, and the
-no-automatic-provider-retry posture. The doctor enforces the Allbert Home data
-directory, reports local-only control state, checks socket/key-file permissions
-when present, writes a redacted state envelope under the Allbert cache root, and
-must not print the account phone number or any control auth secret.
+no-automatic-provider-retry posture. For v0.53, `setup-check`,
+`signal doctor`, and `show signal` report `implemented_not_released` from the
+plugin-owned release availability declaration; they do not require
+`signal-cli` daemon/link-device onboarding. If a future release changes the
+Signal declaration to released, the doctor should enforce the Allbert Home data
+directory, report local-only control state, check socket/key-file permissions
+when present, write a redacted state envelope under the Allbert cache root, and
+never print the account phone number or any control auth secret.
 
 Optional future live smoke. This command must not require Telegram, email,
 Matrix, WhatsApp, Discord, or Slack env, but it is not required for the v0.53

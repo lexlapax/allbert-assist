@@ -5,6 +5,7 @@ defmodule AllbertAssist.Actions.Runner do
 
   alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Registry
+  alias AllbertAssist.Capabilities.ReleaseAvailability
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Signals
@@ -47,8 +48,8 @@ defmodule AllbertAssist.Actions.Runner do
     runner_context = runner_context(context, action_module, requested_signal)
 
     response =
-      case app_scope_check(action_module, runner_context) do
-        :ok -> safe_run(action_module, params, runner_context)
+      case release_availability_check(action_name, action_module) do
+        :ok -> app_scope_or_run(action_module, params, runner_context)
         {:denied, response} -> {:ok, response}
       end
       |> Response.from_action_result(action_name)
@@ -88,6 +89,13 @@ defmodule AllbertAssist.Actions.Runner do
     catch
       kind, reason ->
         {:error, {kind, reason}}
+    end
+  end
+
+  defp app_scope_or_run(action_module, params, runner_context) do
+    case app_scope_check(action_module, runner_context) do
+      :ok -> safe_run(action_module, params, runner_context)
+      {:denied, response} -> {:ok, response}
     end
   end
 
@@ -151,7 +159,9 @@ defmodule AllbertAssist.Actions.Runner do
       |> log_signal()
 
     response =
-      Response.error("Action #{action_name} rejected: params must be a map.", {:invalid_params, :non_map},
+      Response.error(
+        "Action #{action_name} rejected: params must be a map.",
+        {:invalid_params, :non_map},
         actions: [Response.action(action_name, :error, error: {:invalid_params, :non_map})]
       )
 
@@ -218,6 +228,60 @@ defmodule AllbertAssist.Actions.Runner do
         {:ok, capability} -> Capability.summary(capability)
         {:error, _reason} -> nil
       end
+  end
+
+  defp release_availability_check(action_name, action_module) do
+    action_module
+    |> release_refs(action_name)
+    |> Enum.find_value(:ok, fn ref ->
+      case ReleaseAvailability.ensure_live_use_allowed(ref) do
+        :ok ->
+          false
+
+        {:error, {status, decision}} ->
+          {:denied, release_availability_blocked(action_name, status, decision)}
+      end
+    end)
+  end
+
+  defp release_refs(action_module, action_name) do
+    capability =
+      case Registry.capability(action_module) do
+        {:ok, capability} -> capability
+        {:error, _reason} -> %{}
+      end
+
+    [
+      {:action, action_name},
+      plugin_release_ref(Map.get(capability, :plugin_id)),
+      app_release_ref(Map.get(capability, :app_id))
+    ]
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp plugin_release_ref(plugin_id) when is_binary(plugin_id), do: {:plugin, plugin_id}
+  defp plugin_release_ref(_plugin_id), do: nil
+
+  defp app_release_ref(app_id) when is_atom(app_id) and not is_nil(app_id),
+    do: {:app, Atom.to_string(app_id)}
+
+  defp app_release_ref(app_id) when is_binary(app_id), do: {:app, app_id}
+  defp app_release_ref(_app_id), do: nil
+
+  defp release_availability_blocked(action_name, status, decision) do
+    reason = {status, %{kind: decision.kind, id: decision.id}}
+
+    Response.unavailable(
+      "Action #{action_name} is implemented but not released for live use: #{decision.decision}",
+      reason,
+      actions: [
+        Response.action(action_name, :unavailable,
+          error: reason,
+          release_decision: Redactor.redact(decision)
+        )
+      ],
+      release_decision: Redactor.redact(decision)
+    )
   end
 
   defp app_scope_check(action_module, context) do

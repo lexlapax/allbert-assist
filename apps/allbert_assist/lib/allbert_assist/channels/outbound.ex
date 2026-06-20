@@ -24,8 +24,12 @@ defmodule AllbertAssist.Channels.Outbound do
   @spec send(String.t(), String.t(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
   def send(channel, target, body, opts \\ [])
       when is_binary(channel) and is_binary(target) and is_binary(body) do
-    with {:ok, module} <- adapter_module(channel),
-         true <- function_exported?(module, :deliver_outbound, 3) || {:error, :outbound_not_implemented} do
+    with true <-
+           Channels.channel_live_use_allowed?(channel) ||
+             {:error, Channels.channel_live_use_error(channel)},
+         {:ok, module} <- adapter_module(channel),
+         true <-
+           function_exported?(module, :deliver_outbound, 3) || {:error, :outbound_not_implemented} do
       module.deliver_outbound(target, body, opts)
     else
       {:error, reason} -> {:error, reason}

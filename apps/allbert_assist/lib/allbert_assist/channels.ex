@@ -5,6 +5,7 @@ defmodule AllbertAssist.Channels do
 
   import Ecto.Query
 
+  alias AllbertAssist.Capabilities.ReleaseAvailability
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Repo
@@ -137,6 +138,16 @@ defmodule AllbertAssist.Channels do
     |> Enum.map(&channel_summary/1)
   end
 
+  @spec channel_release_decision(String.t()) :: ReleaseAvailability.decision()
+  def channel_release_decision(channel), do: ReleaseAvailability.decision({:channel, channel})
+
+  @spec channel_live_use_allowed?(String.t()) :: boolean()
+  def channel_live_use_allowed?(channel),
+    do: ReleaseAvailability.live_use_allowed?({:channel, channel})
+
+  @spec channel_live_use_error(String.t()) :: {atom(), ReleaseAvailability.decision()}
+  def channel_live_use_error(channel), do: ReleaseAvailability.blocked_reason({:channel, channel})
+
   @spec channel_settings(String.t()) :: {:ok, map()} | {:error, :unknown_channel}
   def channel_settings(channel) when is_binary(channel) do
     with {:ok, descriptor} <- channel_descriptor(channel),
@@ -223,6 +234,8 @@ defmodule AllbertAssist.Channels do
       provider: descriptor.provider,
       plugin_id: descriptor.plugin_id,
       source: descriptor.source,
+      release_status: ReleaseAvailability.release_status({:channel, channel}),
+      release_decision: ReleaseAvailability.decision({:channel, channel}),
       enabled: Map.get(settings, "enabled", false),
       identity_count: settings |> Map.get("identity_map", []) |> length(),
       credential_status: credential_status(descriptor),

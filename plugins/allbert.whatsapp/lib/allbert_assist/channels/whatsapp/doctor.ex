@@ -33,16 +33,20 @@ defmodule AllbertAssist.Channels.WhatsApp.Doctor do
   def state_path, do: Path.join(Paths.cache_root(), @state_path)
 
   defp run_checks(settings, opts) do
+    release_decision = Channels.channel_release_decision("whatsapp")
     diagnostics = settings_diagnostics(settings)
     access_token_ref = Map.get(settings, "access_token_ref")
     adapter_status = transport_status(opts)
 
-    with {:ok, phone_number_id} <- phone_number_id(settings),
+    with true <- release_decision.live_use_allowed? || {:error, :implemented_not_released},
+         {:ok, phone_number_id} <- phone_number_id(settings),
          {:ok, access_token} <- resolve_access_token(access_token_ref),
          {:ok, phone} <-
            Client.phone_number(access_token, phone_number_id, client_opts(settings, opts)) do
       %{
         status: doctor_status(diagnostics),
+        release_status: release_decision.release_status,
+        release_decision: release_decision,
         auth_ok: true,
         endpoint_ok: true,
         adapter_status: adapter_status,
@@ -58,7 +62,9 @@ defmodule AllbertAssist.Channels.WhatsApp.Doctor do
     else
       {:error, reason} ->
         %{
-          status: :error,
+          status: doctor_error_status(reason),
+          release_status: release_decision.release_status,
+          release_decision: release_decision,
           auth_ok: auth_ok?(reason),
           endpoint_ok: false,
           adapter_status: adapter_status,
@@ -126,6 +132,9 @@ defmodule AllbertAssist.Channels.WhatsApp.Doctor do
   defp doctor_status([]), do: :ok
   defp doctor_status(_diagnostics), do: :warning
 
+  defp doctor_error_status(:implemented_not_released), do: :implemented_not_released
+  defp doctor_error_status(_reason), do: :error
+
   defp require_present(diagnostics, settings, key, diagnostic) do
     maybe_add(diagnostics, blank?(Map.get(settings, key)), diagnostic)
   end
@@ -142,6 +151,7 @@ defmodule AllbertAssist.Channels.WhatsApp.Doctor do
   defp normalize_reason({:whatsapp_error, 401, _body}), do: :token_rejected
   defp normalize_reason({:transport_error, _reason}), do: :network_unavailable
   defp normalize_reason({:whatsapp_http_policy_denied, _reason}), do: :http_policy_denied
+  defp normalize_reason(:implemented_not_released), do: :implemented_not_released
   defp normalize_reason(reason) when is_atom(reason), do: reason
   defp normalize_reason(reason), do: inspect(Redactor.redact(reason))
 

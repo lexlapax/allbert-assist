@@ -21,6 +21,7 @@ defmodule AllbertAssist.Plugin do
   @callback actions() :: [module()]
   @callback skill_paths() :: [Path.t()]
   @callback settings_schema() :: [map()]
+  @callback release_availability() :: [map()]
   @callback child_spec(opts :: keyword() | map()) :: Supervisor.child_spec() | :ignore
 
   defmacro __using__(_opts) do
@@ -43,6 +44,9 @@ defmodule AllbertAssist.Plugin do
       def settings_schema, do: []
 
       @impl AllbertAssist.Plugin
+      def release_availability, do: []
+
+      @impl AllbertAssist.Plugin
       def child_spec(_opts), do: :ignore
 
       defoverridable apps: 0,
@@ -50,6 +54,7 @@ defmodule AllbertAssist.Plugin do
                      actions: 0,
                      skill_paths: 0,
                      settings_schema: 0,
+                     release_availability: 0,
                      child_spec: 1
     end
   end
