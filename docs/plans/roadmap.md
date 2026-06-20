@@ -307,7 +307,13 @@ Dependency order from here:
     live validation) then Channel Pack 2 — WhatsApp, Signal, and Matrix. iMessage
     is parked (macOS-only platform constraint). Note: live validation (2026-06-16)
     found the channel *approval* workflow dead-ended in the intent router, so v0.54
-    was resequenced ahead to fix it; Telegram/email manual approval checks now pass.
+    was resequenced ahead to fix it; Telegram/email/Matrix manual checks now pass.
+M11 adds capability release availability (ADR 0066): WhatsApp and Signal are
+implemented but not released for live use in v0.53 because their provider/
+bridge onboarding is too high-friction for the release bar. Discord/Slack remain
+released from v0.52, but must be revalidated as v0.53 closeout regressions
+after M11 shared channel plumbing changes; that does not make them new v0.53
+feature scope.
 54. v0.54 Intent Deepening: a local-first **two-stage intent router** (embedding
     prefilter → constrained LLM disambiguation → confidence gate; ADR 0060/0061)
     as the default selector, plus the original deepening (multi-turn context,
@@ -3229,9 +3235,12 @@ Request flow: `docs/plans/v0.53-request-flow.md`
 ADRs: `docs/adr/0056-...` (v0.53 amendment — public signed webhook),
 `docs/adr/0057-...` (threading substrate consumed),
 `docs/adr/0058-key-custody-and-channel-daemon-supervision.md` (NEW),
-`docs/adr/0059-channel-trust-class-and-relay-gating.md` (NEW).
+`docs/adr/0059-channel-trust-class-and-relay-gating.md` (NEW),
+`docs/adr/0066-capability-release-availability-gate.md` (NEW; Proposed until
+M11 code/tests land).
 
-Status: implemented as `0.53.0` through M10; version metadata stays `0.53.0`
+Status: implemented as `0.53.0` through M10; M11 capability release
+availability remains before the tag. Version metadata stays `0.53.0`
 (tag-blocked). **Telegram + email live real-provider validation is done
 (2026-06-17):** email surfaced and fixed three IMAP/SMTP bugs (login/select 3-tuple,
 verified-TLS SMTP, success-as-error normalization — see CHANGELOG v0.53 §Fixed);
@@ -3241,7 +3250,16 @@ the required router/descriptor/outbound prerequisite. **Matrix real-provider
 validation is done (2026-06-18):** delivery and inbound smokes passed, mapped
 approval callbacks processed, unmapped callbacks were rejected, and the release
 owner accepted the encrypted-room exclusion as validated for this pass.
-**Still pending: WhatsApp / Signal real-provider live smokes.** Scope: first retro-validate
+WhatsApp Cloud API is implemented but live Cloud API validation is
+provider-blocked/deferred after Meta returned object/permission and
+unregistered-account failures in both the developer UI and Graph API; the
+signed-webhook auth path remains covered locally by `whatsapp post-webhook` and
+deterministic evals. Signal is implemented as a `signal-cli` bridge, but live
+validation is parked in `future-features.md` because it requires
+operator-managed daemon/linked-device onboarding that is too high-friction for
+v0.53 release authority. M11 records and enforces both as
+implemented-not-released via ADR 0066, with undeclared capabilities released by
+default for compatibility. Scope: first retro-validate
 **Telegram + email** to Discord/Slack live-provider parity (done), then build
 **Matrix + WhatsApp (Cloud
 API) + Signal (signal-cli daemon)**; **Viber** documented on paper as a validated
@@ -3284,9 +3302,12 @@ Expected direction:
   `typed_command`/`link`/`list`, `:e2ee_origin`.
 - Substrate-first sequencing: Channel Pack 1 retro-validation (M5) and
   constructs (M0-M4) before adapters (M6-M8); pairing/identity/delivery (M9);
-  evals + **completed Telegram/email retro-validation and required
-  Matrix/WhatsApp/Signal real-provider live smokes** + closeout (M10).
-- Keep SMS, iMessage, and the Viber build parked in `future-features.md`.
+  evals + **completed Telegram/email retro-validation, completed Matrix
+  real-provider live smokes, parked WhatsApp Cloud API live validation, parked
+  Signal advanced-bridge live validation** + capability release availability
+  closeout (M11).
+- Keep SMS, iMessage, the Viber build, WhatsApp Cloud API/Baileys onboarding, and
+  Signal advanced-bridge onboarding parked in `future-features.md`.
 
 ## v0.54: Intent Deepening
 

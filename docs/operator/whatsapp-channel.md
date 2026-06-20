@@ -1,10 +1,22 @@
 # WhatsApp Channel Operator Guide
 
-Status: implemented in v0.53 M7 as Channel Pack 2. This guide covers the
-shipped WhatsApp Cloud API surface: signed webhook ingress from M4, text
-outbound delivery through Graph API, in-session interactive approval buttons,
-reply-chain quote metadata with 24h TTL degradation, ADR 0056 inbound trust, and
-ADR 0057 cross-channel threading.
+Status: implemented in v0.53 M7 as Channel Pack 2, but **not released for live
+use in v0.53**. ADR 0066 records WhatsApp as `implemented_not_released`; live
+send/inbound release remains parked until a future provider/onboarding milestone.
+This guide covers the shipped WhatsApp Cloud API surface: signed webhook ingress
+from M4, text outbound delivery through Graph API, in-session interactive
+approval buttons, reply-chain quote metadata with 24h TTL degradation, ADR 0056
+inbound trust, and ADR 0057 cross-channel threading.
+
+Validation status (2026-06-20): the adapter and signed-webhook path are
+implemented, but live Meta Cloud API validation is provider-blocked/deferred for
+v0.53 release authority after Meta returned object/permission and
+unregistered-account failures in both the developer UI and Graph API. Keep this
+guide as the Cloud API setup/runbook for operators who already have a working
+WABA and phone-number-id. v0.53 validation does not require this guide to pass;
+live use should return an implemented-not-released status until a future release
+changes the decision. A WhatsApp Web/Baileys linked-device bridge is a different
+provider/trust model and is not part of this guide.
 
 Media messages, template-message initiation outside WhatsApp's customer-care
 window, reactions, catalog flows, payments, and multi-number WABA management are
@@ -137,7 +149,7 @@ It calls Graph API phone metadata, sends one real text message through
 `/<phone_number_id>/messages`, and writes
 `<ALLBERT_HOME>/release_evidence/v053/external-smoke-whatsapp-<ts>.json`.
 
-Manual validation before tag:
+Manual validation when a working Meta Cloud API account is available:
 
 - Start Allbert normally with the configured `ALLBERT_HOME` and public webhook
   URL.

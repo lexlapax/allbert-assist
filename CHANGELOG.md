@@ -17,8 +17,11 @@ two-stage router (`intent.router_strategy = two_stage_local`), version metadata 
 reports `0.54.0`, and the post-audit release tag is `v0.54.0`. v0.54 unblocked
 the v0.53 channel approval validation path; Telegram/email approval/rejection
 checks subsequently passed, Matrix real-provider validation subsequently passed
-after Matrix sync/catch-up remediations, and WhatsApp/Signal real-provider
-smokes remain v0.53 validation work.
+after Matrix sync/catch-up remediations, and v0.53 M11 now records
+WhatsApp/Signal as implemented-not-released behind a capability release
+availability gate after Meta setup/object/registration failures and Signal
+daemon/link-device onboarding proved too high-friction for the v0.53 release
+bar.
 
 Plan: `docs/plans/v0.54-plan.md`. Request flow: `docs/plans/v0.54-request-flow.md`.
 ADRs: `docs/adr/0060-two-stage-intent-router-and-approval-gate-separation.md`,
@@ -155,14 +158,22 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
 
 ## v0.53.0 - Channel Pack 1 Retro-Validation And Channel Pack 2
 
-Status: implemented as `0.53.0`. Telegram + email delivery/inbound plus manual
+Status: implemented as `0.53.0` through M10; M11 capability release
+availability remains before the tag. Telegram + email delivery/inbound plus manual
 approval/rejection/poll-resume validation passed after the v0.54 router
 prerequisite landed. Matrix delivery, inbound, mapped approval, and unmapped
 callback rejection validation passed on 2026-06-18 after Matrix sync/catch-up
 remediations; the release owner accepted the encrypted-room exclusion as
-validated for this pass. WhatsApp/Signal real-provider live smokes remain
-pending. Current version metadata is
-`0.54.0` because v0.54 is the active release closeout.
+validated for this pass. WhatsApp Cloud API is implemented, but not released for
+live use after Meta returned object/permission and unregistered-account failures
+in both the developer UI and Graph API; the local signed-webhook auth path
+remains covered by `whatsapp post-webhook` and deterministic eval rows. Signal is
+implemented as a `signal-cli` bridge, but not released for live use because it
+requires operator-managed daemon/linked-device onboarding. ADR 0066 records the
+release-availability gate: undeclared capabilities default released, explicit
+unreleased declarations fail closed, and Security Central remains authority.
+Current version metadata is `0.54.0` because v0.54 is the active release
+closeout.
 
 Plan: `docs/plans/v0.53-plan.md`.
 Request flow: `docs/plans/v0.53-request-flow.md`.
@@ -191,6 +202,9 @@ Developer docs: `docs/developer/key-custody.md`,
 - `mix allbert.test release.v053` deterministic release lane and independent
   live-smoke selectors for `telegram`, `inbound_telegram`, `email`,
   `inbound_email`, `matrix`, `inbound_matrix`, `whatsapp`, and `signal`.
+- M11 capability release availability plan and ADR 0066 for implemented-vs-
+  released truth. WhatsApp and Signal are implemented-not-released in v0.53; this
+  does not remove code and does not grant or revoke security authority.
 - v0.53 validation closeout: `external-smoke -- inbound_matrix` live smoke
   (drives the Matrix `/sync` poll to runtime with an operator marker, at parity
   with `inbound_telegram`), and `mix allbert.channels whatsapp post-webhook`
@@ -207,8 +221,8 @@ Developer docs: `docs/developer/key-custody.md`,
 - ADR 0056's public signed-webhook amendment, ADR 0058, and ADR 0059 are
   accepted for the implemented v0.53 surface.
 - Roadmap, request-flow, security-hardening, operator, developer, and
-  agent-context docs now describe v0.53 as implemented and ready for live
-  provider validation.
+  agent-context docs now describe v0.53 as implemented through M10 with M11
+  release availability pending before tag.
 
 ### Fixed
 
@@ -286,11 +300,15 @@ Developer docs: `docs/developer/key-custody.md`,
 - Email and Telegram operator manual checks passed live in the manual validation
   home after v0.54: approval primitives, email MIME decode, mapped approval,
   unmapped-clicker rejection, and poll-resume behavior.
-- Matrix validation setup and delivery/inbound smoke reached the live provider;
-  manual typed approval validation is resuming after the `/sync` timeout/filter
-  remediation above.
-- Required live real-provider smokes remain the pre-tag validation gate:
-  `external-smoke -- matrix`, `-- whatsapp`, and `-- signal`.
+- Matrix validation setup, delivery/inbound smoke, mapped approval, and unmapped
+  callback rejection passed after the `/sync` timeout/filter remediation above.
+- WhatsApp Cloud API and Signal live smokes are future/provider runbooks, not
+  v0.53 tag requirements. WhatsApp's local signed-webhook path remains covered
+  by `whatsapp post-webhook` and deterministic eval rows. M11 must still land the
+  release-availability gate and final regression before the v0.53 tag.
+- Discord/Slack remain released from v0.52; after M11 code lands they must pass
+  v0.53 closeout regression for shared channel plumbing, but they are not new
+  v0.53 feature scope.
 
 ## v0.52.0 - Channel Pack 1 And Cross-Channel Threading
 

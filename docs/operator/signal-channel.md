@@ -1,10 +1,20 @@
 # Signal Channel Operator Guide
 
-Status: implemented in v0.53 M8 as Channel Pack 2. This guide covers the
-shipped Signal surface: `signal-cli` JSON-RPC daemon integration, local control
-endpoint checks, Allbert Home key custody permissions, ACI-keyed identity,
-reply-chain quote-by-timestamp delivery, ADR 0056 inbound trust, and ADR 0059
-`:e2ee_origin` trust-class stamping.
+Status: implemented in v0.53 M8 as Channel Pack 2, but **not released for live
+use in v0.53**. ADR 0066 records Signal as `implemented_not_released`; live
+bridge release remains parked until a future onboarding/provider milestone
+removes the need for operator-managed `signal-cli` daemon/link-device setup.
+This guide covers the shipped Signal surface: `signal-cli` JSON-RPC daemon
+integration, local control endpoint checks, Allbert Home key custody
+permissions, ACI-keyed identity, reply-chain quote-by-timestamp delivery, ADR
+0056 inbound trust, and ADR 0059 `:e2ee_origin` trust-class stamping.
+
+Validation status (2026-06-20): deterministic Signal adapter/custody paths are
+implemented, but live validation is deferred for v0.53 release authority. Keep
+this guide as an advanced runbook for operators who explicitly choose to manage
+`signal-cli`; v0.53 validation does not require it to pass, and live use should
+return an implemented-not-released status until a future release changes the
+decision.
 
 Signal account registration, contact discovery, groups, attachments, reactions,
 and non-daemon transports are not part of M8.
@@ -207,8 +217,9 @@ directory, reports local-only control state, checks socket/key-file permissions
 when present, writes a redacted state envelope under the Allbert cache root, and
 must not print the account phone number or any control auth secret.
 
-Run the Signal smoke independently. This command must not require Telegram,
-email, Matrix, WhatsApp, Discord, or Slack env:
+Optional future live smoke. This command must not require Telegram, email,
+Matrix, WhatsApp, Discord, or Slack env, but it is not required for the v0.53
+tag:
 
 ```sh
 # If you started the socket daemon for manual validation, stop it and start the
@@ -225,7 +236,7 @@ It calls the configured loopback JSON-RPC endpoint, sends one real Signal text
 message through `signal-cli`, and writes
 `<ALLBERT_HOME>/release_evidence/v053/external-smoke-signal-<ts>.json`.
 
-Manual validation before tag:
+Optional future manual validation:
 
 - Start Allbert normally with the configured `ALLBERT_HOME` and `signal-cli`
   daemon.

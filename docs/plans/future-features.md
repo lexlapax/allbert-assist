@@ -74,8 +74,10 @@ Still parked:
 
 Status: parked.
 
-Discord and Slack shipped in v0.52. **Matrix, WhatsApp (Cloud API), and Signal
-(`signal-cli` daemon) are v0.53 build scope.** SMS and iMessage remain parked.
+Discord and Slack shipped in v0.52. **Matrix shipped and validated in v0.53.**
+WhatsApp (Cloud API) and Signal (`signal-cli` daemon) are implemented in v0.53
+but not released for live use; their lower-friction live onboarding work is
+parked below. SMS and iMessage remain parked.
 
 Still parked:
 
@@ -83,6 +85,46 @@ Still parked:
 - short-message truncation and partial-output UX;
 - cost, rate-limit, and abuse policy;
 - provider delivery failure handling.
+
+### WhatsApp Live Channel Release
+
+Status: parked after v0.53 M11.
+
+v0.53 implemented the WhatsApp Cloud API adapter, signed-webhook ingress, setup
+checks, doctor, renderer, deterministic tests, and local `post-webhook` auth
+validation. Live Cloud API validation did not become release authority because
+Meta onboarding returned object/permission and account-registration failures in
+both the developer UI and Graph API.
+
+Future work must decide whether to:
+
+- harden the Cloud API production/test onboarding flow enough for a
+  single-operator release bar;
+- evaluate a WhatsApp Web/Baileys linked-device provider as a separate
+  provider/trust model with its own ADR, custody story, and maintenance risk;
+- define operator-friction acceptance criteria before marking WhatsApp live use
+  released.
+
+Until then, v0.53 records WhatsApp as implemented-not-released through ADR 0066.
+
+### Signal Advanced-Bridge Release
+
+Status: parked after v0.53 M11.
+
+v0.53 implemented the Signal `signal-cli` bridge, local custody checks, setup
+checks, doctor, renderer, trust-class stamping, deterministic tests, and
+advanced live runbook. Live validation is not v0.53 release authority because it
+requires operator-managed daemon/link-device onboarding, ACI discovery, and
+local control endpoint setup.
+
+Future work must decide whether to:
+
+- provide a lower-friction managed bridge or setup assistant;
+- define a clearer privacy/security model for local linked-device custody;
+- prove the setup can be run by an operator without installing and managing
+  `signal-cli` by hand.
+
+Until then, v0.53 records Signal as implemented-not-released through ADR 0066.
 
 ### Viber Channel Adapter
 
