@@ -9,7 +9,7 @@ machine-derived from channel descriptors via `ChannelParity` /
 `mix allbert.channels status`) and a persistent **TUI/terminal channel**
 (`channel_id: "tui"`, provider `"terminal"`, primitives `[:typed_command,
 :list]`), distinct from the non-channel `mix allbert.ask` (`:cli`) label. Flips
-to Accepted at v0.55 M7. See `docs/plans/v0.55-plan.md`. See ADR 0067 for the
+to Accepted at v0.55 M6. See `docs/plans/v0.55-plan.md`. See ADR 0067 for the
 TUI descriptor detail, the split tool-result payload extension (ADR 0029/0030),
 and the scrollback-native rendering model.
 

@@ -70,10 +70,11 @@ contract:
   same trace and conversational memory every channel session gets, rather than
   the stateless one-shot of `mix allbert.ask`.
 
-`channel_id: "tui"`, provider `"terminal"`, registered through the surface
-catalog (ADR 0030) like any other surface. Security Central (ADR 0006) and the
-channel inbound trust tier (ADR 0056) apply unchanged: routing to this channel
-grants no authority.
+`channel_id: "tui"`, provider `"terminal"`. The TUI is a **channel adapter**
+(ADR 0016) that consumes the ADR 0030 renderer's split-payload extension; it is
+**not** a workspace surface/zone in the ADR 0023/0030 surface-catalog sense.
+Security Central (ADR 0006) and the channel inbound trust tier (ADR 0056) apply
+unchanged: routing to this channel grants no authority.
 
 ### The split tool result pattern (amendment/extension to ADR 0029 and ADR 0030)
 

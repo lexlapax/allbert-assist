@@ -329,11 +329,18 @@ scope.
     Resequenced ahead of completing v0.53 (its channel approval workflow depends on
     the router) and before the v0.58 UX redo (chat quality depends on intent).
 55. v0.55 Channel Parity + TUI/Terminal Channel: explicit channel capability/
-    parity matrix, `mix allbert.channels status`, and a proper TUI/terminal
-    channel under the ADR 0016 contract (list-shaped identity map, dedupe,
-    approval primitives), not just `mix allbert.ask`. Harvests Pi's split tool
-    result (`model_payload` vs. `surface_payload`; ADR 0029/0030) and the live
-    region as the foundation for v0.57 streamed terminal rendering. ADR 0067.
+    parity matrix and a proper TUI/terminal channel under the ADR 0016 contract
+    (list-shaped identity map, dedupe, approval primitives, a basic
+    `mix allbert.tui` launcher), not just `mix allbert.ask`. Harvests Pi's split
+    tool result (`model_payload` vs. `surface_payload`; ADR 0029/0030) and the
+    live region as the foundation for v0.57 streamed terminal rendering. ADR 0067.
+55.1. v0.55.1 TUI Operator/Validation Console: makes the v0.55 TUI the persistent,
+    mix-free operator/validation console — in-TUI slash-commands (`/status`,
+    `/confirmations`, `/events`, `/channels`, `/settings get`, `/help`) and
+    `mix allbert.channels status`, each a registered **read-only, operator-only**
+    inspection action (not an intent candidate) resolved through
+    `Actions.Runner.run/3`. Migrates interactive operator validation onto one warm
+    BEAM (no cold per-turn `mix` calls). Point release; arc unchanged. ADR 0070.
 56. v0.56 Intent Descriptor Learning + Registration Lifecycle Completion:
     completes ADR 0062 with local-model descriptor generation, learned-review
     proposal mining from reviewed runtime evidence, operator-exposed
@@ -3399,15 +3406,40 @@ Expected direction:
 
 - Establish an explicit channel capability/parity matrix across web, Telegram,
   email, Discord, Slack, and the mobile channels (lightweight acceptance frame;
-  the exhaustive cross-surface eval sweep stays in v0.59), plus
-  `mix allbert.channels status` as the operator-readable channel status view.
+  the exhaustive cross-surface eval sweep stays in v0.59).
 - Introduce a proper TUI/terminal channel — a real channel under the ADR 0016
-  contract (with list-shaped identity mapping, event dedupe, approval primitives),
-  not just the `mix allbert.ask` task.
+  contract (list-shaped identity mapping, event dedupe, approval primitives, a
+  basic `mix allbert.tui` launcher), not just the `mix allbert.ask` task.
 - Harvest Pi's split tool result (`model_payload` vs. `surface_payload`) into
   the typed response contract (ADR 0029/0030) as the foundation for terminal
   rendering without model-context chrome leakage. v0.55 lands the split and live
   region; v0.57 owns true streamed diff/token semantics.
+
+## v0.55.1: TUI Operator/Validation Console
+
+Plan: `docs/plans/v0.55b-plan.md`
+Request flow: `docs/plans/v0.55b-request-flow.md`
+ADR: `docs/adr/0070-tui-operator-console-and-read-only-operator-actions.md`
+(Proposed; accept in v0.55.1)
+
+Status: planned. NEW in the 2026-06-21 split of v0.55. Point release after
+`0.55.0`; the v0.56-v0.59 arc is unchanged.
+
+Expected direction:
+
+- Make the v0.55 TUI the persistent, mix-free operator/validation console: one
+  warm BEAM (DB open, `Channels.Supervisor` up) for interactive operator work and
+  go-forward operator validation, instead of cold per-turn `mix allbert.ask`.
+- In-TUI slash-commands (`/status`, `/confirmations`, `/events`, `/channels`,
+  `/settings get`, `/help`) and `mix allbert.channels status`, each a registered
+  **read-only, operator-only** inspection action resolved through
+  `Actions.Runner.run/3` — not intent candidates, no mutation, redacted output,
+  backed by the same read facades the existing `mix allbert.*` tasks use (ADR
+  0070).
+- Migrate the operator-validation/testing instructions onto the warm console;
+  `mix allbert.test` (deterministic CI gates) is unchanged.
+- Reinforces the v0.57 Pi-mode foundation: Pi-mode runs in this same persistent
+  session.
 
 ## v0.56: Intent Descriptor Learning + Registration Lifecycle Completion
 
