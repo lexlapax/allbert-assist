@@ -38,3 +38,8 @@ M2 adds the shipped `allbert.tui` descriptor. The TUI row is intentionally local
 remote outbound target; completed turns render through the terminal scrollback
 from `surface_payload`, while runtime conversation history stores
 `model_payload`.
+
+M4 makes the parity report release-authoritative. `mix allbert.test release.v055`
+runs `test/mix/tasks/allbert_channels_test.exs` plus the `:v055` security eval
+lane, which asserts the TUI and Matrix rows match descriptor-derived runtime
+truth instead of this prose file.

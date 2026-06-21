@@ -39,6 +39,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v051
           | :v052
           | :v053
+          | :v055
 
   @type required_surface ::
           :resource_execution
@@ -3595,6 +3596,126 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :allowed,
       assert: [:callback_data_within_limit, :typed_command_fallback],
       test_module: "AllbertAssist.Security.V053ChannelPackEvalTest"
+    },
+    %{
+      id: "channel-parity-matrix-matches-descriptors-001",
+      milestone: :v055,
+      surface: :channel_pack,
+      scenario: "channel parity matrix drifts from registered descriptors",
+      boundary: :channel_descriptor_parity,
+      expected: :allowed,
+      assert: [:descriptor_derived_matrix, :list_fallback_present, :turn_complete_streaming],
+      test_module: "AllbertAssist.Security.V055TUIChannelEvalTest"
+    },
+    %{
+      id: "matrix-generic-outbound-parity-001",
+      milestone: :v055,
+      surface: :channel_pack,
+      scenario: "Matrix remains the only channel without generic outbound parity",
+      boundary: :channel_outbound_parity,
+      expected: :allowed,
+      assert: [:matrix_deliver_outbound_implemented, :parity_reports_implemented],
+      test_module: "AllbertAssist.Security.V055TUIChannelEvalTest"
+    },
+    %{
+      id: "tui-inbound-turn-dedupe-001",
+      milestone: :v055,
+      surface: :channel_pack,
+      scenario: "replayed terminal input event invokes runtime more than once",
+      boundary: :channel_event_dedupe,
+      expected: :allowed,
+      assert: [:duplicate_event_rejected, :single_runtime_submission],
+      test_module: "AllbertAssist.Security.V055TUIChannelEvalTest"
+    },
+    %{
+      id: "tui-identity-map-001",
+      milestone: :v055,
+      surface: :channel_pack,
+      scenario: "unmapped terminal profile reaches runtime as an operator",
+      boundary: :terminal_identity_mapping,
+      expected: :denied,
+      assert: [:identity_map_required, :runtime_not_called],
+      test_module: "AllbertAssist.Security.V055TUIChannelEvalTest"
+    },
+    %{
+      id: "tui-crash-isolation-001",
+      milestone: :v055,
+      surface: :channel_pack,
+      scenario: "TUI adapter crash terminates sibling channel supervision",
+      boundary: :channel_supervision,
+      expected: :allowed,
+      assert: [:one_for_one_restart, :sibling_survives],
+      test_module: "AllbertAssist.Security.V055TUIChannelEvalTest"
+    },
+    %{
+      id: "approval-primitive-honor-tui-001",
+      milestone: :v055,
+      surface: :channel_pack,
+      scenario: "terminal approval rendering exposes web-style buttons or links",
+      boundary: :approval_handoff_rendering,
+      expected: :allowed,
+      assert: [:typed_command_rendered, :list_fallback_rendered, :no_button_url],
+      test_module: "AllbertAssist.Security.V055TUIChannelEvalTest"
+    },
+    %{
+      id: "tui-confirmation-resolve-001",
+      milestone: :v055,
+      surface: :channel_pack,
+      scenario: "typed terminal confirmation command bypasses same-channel identity proof",
+      boundary: :confirmation_resolution,
+      expected: :allowed,
+      assert: [:same_channel_resolves, :wrong_channel_denied],
+      test_module: "AllbertAssist.Security.V055TUIChannelEvalTest"
+    },
+    %{
+      id: "tui-no-authority-001",
+      milestone: :v055,
+      surface: :channel_pack,
+      scenario: "terminal channel metadata grants active app or resource authority",
+      boundary: :channel_metadata_authority,
+      expected: :needs_confirmation,
+      assert: [:metadata_not_authority, :channel_message_floor],
+      test_module: "AllbertAssist.Security.V055TUIChannelEvalTest"
+    },
+    %{
+      id: "tui-redaction-001",
+      milestone: :v055,
+      surface: :channel_pack,
+      scenario: "terminal channel event stores raw phone or secret-looking identifiers",
+      boundary: :channel_event_redaction,
+      expected: :allowed,
+      assert: [:redacted_event_fields, :bounded_summary],
+      test_module: "AllbertAssist.Security.V055TUIChannelEvalTest"
+    },
+    %{
+      id: "split-payload-contract-001",
+      milestone: :v055,
+      surface: :channel_pack,
+      scenario: "surface payload leaks decorated terminal text back into model history",
+      boundary: :runtime_response_contract,
+      expected: :allowed,
+      assert: [:model_payload_persisted, :surface_payload_rendered_only],
+      test_module: "AllbertAssist.Security.V055TUIChannelEvalTest"
+    },
+    %{
+      id: "split-payload-defaulting-001",
+      milestone: :v055,
+      surface: :channel_pack,
+      scenario: "legacy runtime responses without split payload fields lose message text",
+      boundary: :runtime_response_contract,
+      expected: :allowed,
+      assert: [:legacy_message_defaults_model_and_surface],
+      test_module: "AllbertAssist.Security.V055TUIChannelEvalTest"
+    },
+    %{
+      id: "tui-owl-runtime-dep-001",
+      milestone: :v055,
+      surface: :channel_pack,
+      scenario: "terminal renderer relies on a test-only Owl dependency",
+      boundary: :runtime_dependency,
+      expected: :allowed,
+      assert: [:owl_runtime_dependency, :renderer_modules_loaded],
+      test_module: "AllbertAssist.Security.V055TUIChannelEvalTest"
     },
     %{
       id: "sandbox-backend-disabled-001",

@@ -27,6 +27,8 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v051
       mix allbert.test release.v052
       mix allbert.test release.v053
+      mix allbert.test release.v054
+      mix allbert.test release.v055
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -126,6 +128,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v052"]), do: release_v052()
   def run(["release.v053"]), do: release_v053()
   def run(["release.v054"]), do: release_v054()
+  def run(["release.v055"]), do: release_v055()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -2599,6 +2602,129 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  @release_v055_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "channel_parity",
+      title: "descriptor-derived channel parity matrix and CLI",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/mix/tasks/allbert_channels_test.exs"
+      ],
+      coverage: [
+        "ChannelParity verifies all registered descriptors include list fallback",
+        "Matrix generic outbound reports implemented",
+        "TUI descriptor appears as terminal typed_command/list rich threading"
+      ]
+    },
+    %{
+      id: "tui_channel",
+      title: "TUI adapter, renderer, approval callback, and split payload units",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/channels/tui_test.exs",
+        "test/allbert_assist/runtime_test.exs"
+      ],
+      coverage: [
+        "terminal input identity mapping, dedupe, and event persistence",
+        "typed approval commands resolve only same-channel confirmations",
+        "surface payload renders while model payload persists cleanly"
+      ]
+    },
+    %{
+      id: "v055_eval",
+      title: ":v055 channel parity and TUI security eval inventory",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/security/v055_tui_channel_eval_test.exs"],
+      coverage: [
+        "12 v0.55 eval rows wired into EvalInventory",
+        "TUI no-authority, identity, dedupe, redaction, and crash isolation",
+        "approval primitive rendering and typed confirmation resolution",
+        "split-payload contract and Owl runtime dependency"
+      ]
+    }
+  ]
+
+  defp release_v055 do
+    env = owned_env("release-v055", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v055")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v055_steps, &run_release_v055_step(&1, env))
+    secret_scan = release_channel_pack_secret_scan(home, "release.v055")
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v055",
+      version: "v0.55",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; channel parity, TUI input, approval callbacks, and split payload rendering run against local fixtures",
+      notes:
+        "live terminal interaction and Matrix provider delivery remain covered by the v0.55 operator-validation punchlist in docs/plans/v0.55-request-flow.md before tag",
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v055-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v055 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v055 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v055_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v055 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -4558,6 +4684,8 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v051
       mix allbert.test release.v052
       mix allbert.test release.v053
+      mix allbert.test release.v054
+      mix allbert.test release.v055
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

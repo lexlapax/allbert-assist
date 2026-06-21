@@ -1,8 +1,9 @@
 # TUI Channel Operator Guide
 
-Status: v0.55 M2/M3 implemented. This guide covers the shipped terminal channel
+Status: v0.55 M2-M4 implemented. This guide covers the shipped terminal channel
 descriptor, basic `mix allbert.tui` launcher, identity mapping, split-payload
-rendering seam, and typed approval rendering/resolution.
+rendering seam, typed approval rendering/resolution, and the deterministic
+`release.v055` gate.
 
 ## Requirements
 
@@ -47,11 +48,13 @@ Type `/quit` or `/exit` to stop the launcher.
 
 ## Verify
 
-Run the deterministic M2 focused tests before live validation:
+Run the deterministic focused tests before live validation:
 
 ```sh
 MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/channels/tui_test.exs
 MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/runtime_test.exs
+MIX_ENV=test mix test apps/allbert_assist/test/security/v055_tui_channel_eval_test.exs
+MIX_ENV=test mix allbert.test release.v055
 ```
 
 Manual M2 smoke:

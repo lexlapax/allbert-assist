@@ -46,6 +46,11 @@ the first consumer that materially diverges the two payloads: it may draw
 terminal framing from `surface_payload`, while memory and subsequent model turns
 consume only `model_payload`.
 
+Implementation note (v0.55 M4): `AllbertAssist.Channels.TUI.Renderer` consumes
+`surface_payload` first and falls back to `model_payload` / `message`. The
+`release.v055` gate verifies that this renderer behavior stays separate from
+model-facing conversation persistence.
+
 ## Consequences
 
 - v0.32 adds workspace panels by extending one catalog/registry path.

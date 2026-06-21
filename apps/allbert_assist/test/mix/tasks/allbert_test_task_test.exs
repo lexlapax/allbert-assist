@@ -141,6 +141,8 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message =~ "mix allbert.test release.v051"
     assert error.message =~ "mix allbert.test release.v052"
     assert error.message =~ "mix allbert.test release.v053"
+    assert error.message =~ "mix allbert.test release.v054"
+    assert error.message =~ "mix allbert.test release.v055"
     assert error.message =~ "mix allbert.test external-smoke -- telegram"
     assert error.message =~ "mix allbert.test external-smoke -- email"
     assert error.message =~ "mix allbert.test external-smoke -- inbound_telegram"

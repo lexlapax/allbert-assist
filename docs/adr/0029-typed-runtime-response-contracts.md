@@ -54,6 +54,12 @@ Runtime and memory code must consume `model_payload`; renderers may consume
 `surface_payload`. Terminal chrome, prompts, paging markers, and live-block
 artifacts must never be stored as model-facing payload.
 
+Implementation note (v0.55 M4): `AllbertAssist.Runtime.Response.normalize/2`
+now fills `message`, `model_payload`, and `surface_payload` for both legacy
+single-payload responses and split-payload responses. The TUI eval row
+`split-payload-contract-001` verifies terminal `surface_payload` is rendered
+while conversation history stores only `model_payload`.
+
 ## Consequences
 
 - v0.32 panels can render action/objective status without special cases.
