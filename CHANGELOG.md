@@ -158,10 +158,11 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
 
 ## v0.53.0 - Channel Pack 1 Retro-Validation And Channel Pack 2
 
-Status: implemented as `0.53.0` through M11; Discord and Slack regression
-validation remains before the tag. Telegram + email delivery/inbound plus manual
-approval/rejection/poll-resume validation passed after the v0.54 router
-prerequisite landed. Matrix delivery, inbound, mapped approval, and unmapped
+Status: implemented as `0.53.0` through M11; Discord regression validation has
+passed, and Slack regression validation remains before the tag. Telegram +
+email delivery/inbound plus manual approval/rejection/poll-resume validation
+passed after the v0.54 router prerequisite landed. Matrix delivery, inbound,
+mapped approval, and unmapped
 callback rejection validation passed on 2026-06-18 after Matrix sync/catch-up
 remediations; the release owner accepted the encrypted-room exclusion as
 validated for this pass. WhatsApp Cloud API is implemented, but not released for
@@ -222,8 +223,8 @@ Developer docs: `docs/developer/key-custody.md`,
 - ADR 0056's public signed-webhook amendment, ADR 0058, and ADR 0059 are
   accepted for the implemented v0.53 surface.
 - Roadmap, request-flow, security-hardening, operator, developer, and
-  agent-context docs now describe v0.53 as implemented through M11 with
-  Discord/Slack regression validation pending before tag.
+  agent-context docs now describe v0.53 as implemented through M11 with Discord
+  regression passed and Slack regression pending before tag.
 
 ### Fixed
 
@@ -305,11 +306,11 @@ Developer docs: `docs/developer/key-custody.md`,
   callback rejection passed after the `/sync` timeout/filter remediation above.
 - WhatsApp Cloud API and Signal live smokes are future/provider runbooks, not
   v0.53 tag requirements. WhatsApp's local signed-webhook path remains covered
-  by `whatsapp post-webhook` and deterministic eval rows. M11 must still land the
-  release-availability gate and final regression before the v0.53 tag.
-- Discord/Slack remain released from v0.52; after M11 code lands they must pass
-  v0.53 closeout regression for shared channel plumbing, but they are not new
-  v0.53 feature scope.
+  by `whatsapp post-webhook` and deterministic eval rows. M11 still requires the
+  final Slack regression and deterministic gates before the v0.53 tag.
+- Discord/Slack remain released from v0.52; Discord has passed v0.53 M11
+  closeout regression, and Slack remains pending for shared channel plumbing.
+  They are not new v0.53 feature scope.
 
 ## v0.52.0 - Channel Pack 1 And Cross-Channel Threading
 

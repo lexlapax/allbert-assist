@@ -311,9 +311,10 @@ Dependency order from here:
 M11 adds capability release availability (ADR 0066): WhatsApp and Signal are
 implemented but not released for live use in v0.53 because their provider/
 bridge onboarding is too high-friction for the release bar. Discord/Slack remain
-released from v0.52, but must be revalidated as v0.53 closeout regressions
-after M11 shared channel plumbing changes; that does not make them new v0.53
-feature scope.
+released from v0.52; Discord regression has passed for v0.53 M11, and Slack must
+still be revalidated as the remaining v0.53 closeout regression after M11 shared
+channel plumbing changes. That does not make either channel new v0.53 feature
+scope.
 54. v0.54 Intent Deepening: a local-first **two-stage intent router** (embedding
     prefilter → constrained LLM disambiguation → confidence gate; ADR 0060/0061)
     as the default selector, plus the original deepening (multi-turn context,
@@ -3238,9 +3239,9 @@ ADRs: `docs/adr/0056-...` (v0.53 amendment — public signed webhook),
 `docs/adr/0059-channel-trust-class-and-relay-gating.md` (NEW),
 `docs/adr/0066-capability-release-availability-gate.md` (Accepted).
 
-Status: implemented as `0.53.0` through M11; Discord/Slack regression
-validation remains before the tag. Version metadata stays `0.53.0`
-(tag-blocked). **Telegram + email live real-provider validation is done
+Status: implemented as `0.53.0` through M11; Discord regression validation has
+passed, and Slack regression validation remains before the tag. Version metadata
+stays `0.53.0` (tag-blocked). **Telegram + email live real-provider validation is done
 (2026-06-17):** email surfaced and fixed three IMAP/SMTP bugs (login/select 3-tuple,
 verified-TLS SMTP, success-as-error normalization — see CHANGELOG v0.53 §Fixed);
 Telegram doctor + delivery + inbound smokes passed with **0 code bugs**, and both
