@@ -58,6 +58,8 @@ defmodule AllbertAssist.Runtime do
 
   @type response :: %{
           message: String.t(),
+          model_payload: String.t(),
+          surface_payload: String.t(),
           status: atom(),
           trace_id: nil | String.t(),
           signal_id: String.t(),
@@ -405,7 +407,9 @@ defmodule AllbertAssist.Runtime do
       @agent_responded,
       %{
         input_signal_id: input_signal.id,
-        message: agent_response.message,
+        message: agent_response.model_payload,
+        model_payload: agent_response.model_payload,
+        surface_payload: agent_response.surface_payload,
         status: agent_response.status,
         user_id: request.user_id,
         operator_id: request.operator_id,
@@ -467,6 +471,8 @@ defmodule AllbertAssist.Runtime do
 
     %{
       message: agent_response.message,
+      model_payload: agent_response.model_payload,
+      surface_payload: agent_response.surface_payload,
       status: agent_response.status,
       trace_id: nil,
       signal_id: response_signal.id,
@@ -602,7 +608,7 @@ defmodule AllbertAssist.Runtime do
           metadata: metadata
         }
 
-        case Conversations.append_assistant_message(thread, response.message, attrs) do
+        case Conversations.append_assistant_message(thread, response.model_payload, attrs) do
           {:ok, message} ->
             %{response | assistant_message_id: message.id}
 

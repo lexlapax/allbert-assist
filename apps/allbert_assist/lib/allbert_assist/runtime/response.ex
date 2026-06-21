@@ -41,6 +41,8 @@ defmodule AllbertAssist.Runtime.Response do
 
   @type t :: %{
           required(:message) => String.t(),
+          required(:model_payload) => String.t(),
+          required(:surface_payload) => String.t(),
           required(:status) => status(),
           required(:actions) => list(),
           optional(:decision) => map() | nil,
@@ -144,9 +146,14 @@ defmodule AllbertAssist.Runtime.Response do
   def normalize(response, opts) when is_map(response) do
     default_message = Keyword.get(opts, :default_message, inspect(response, pretty: true))
     default_status = Keyword.get(opts, :default_status, :completed)
+    message = message(response, default_message)
+    model_payload = model_payload(response, message)
+    surface_payload = surface_payload(response, model_payload)
 
     response
-    |> put_if_absent(:message, message(response, default_message))
+    |> put_if_absent(:message, message)
+    |> put_if_absent(:model_payload, model_payload)
+    |> put_if_absent(:surface_payload, surface_payload)
     |> Map.put(:status, status(response, default_status))
     |> Map.put(:actions, actions(response))
     |> Map.put(:decision, decision(response))
@@ -238,9 +245,26 @@ defmodule AllbertAssist.Runtime.Response do
 
   defp message(%{message: message}, _default) when is_binary(message), do: message
   defp message(%{"message" => message}, _default) when is_binary(message), do: message
+  defp message(%{model_payload: payload}, _default) when is_binary(payload), do: payload
+  defp message(%{"model_payload" => payload}, _default) when is_binary(payload), do: payload
   defp message(%{content: content}, _default) when is_binary(content), do: content
   defp message(%{"content" => content}, _default) when is_binary(content), do: content
   defp message(_response, default), do: default
+
+  defp model_payload(%{model_payload: payload}, _fallback) when is_binary(payload), do: payload
+
+  defp model_payload(%{"model_payload" => payload}, _fallback) when is_binary(payload),
+    do: payload
+
+  defp model_payload(_response, fallback), do: fallback
+
+  defp surface_payload(%{surface_payload: payload}, _fallback) when is_binary(payload),
+    do: payload
+
+  defp surface_payload(%{"surface_payload" => payload}, _fallback) when is_binary(payload),
+    do: payload
+
+  defp surface_payload(_response, fallback), do: fallback
 
   defp actions(%{actions: actions}) when is_list(actions), do: actions
   defp actions(%{"actions" => actions}) when is_list(actions), do: actions

@@ -145,6 +145,39 @@ defmodule AllbertAssist.RuntimeTest do
            ]
   end
 
+  test "persists model payload while returning surface payload for renderers" do
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, _request ->
+        {:ok,
+         %{
+           model_payload: "Clean model response.",
+           surface_payload: "\e[32mSurface response.\e[0m",
+           status: :completed
+         }}
+      end
+    )
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Split the response payload.",
+               channel: :test,
+               operator_id: "local"
+             })
+
+    assert response.message == "Clean model response."
+    assert response.model_payload == "Clean model response."
+    assert response.surface_payload == "\e[32mSurface response.\e[0m"
+
+    assert {:ok, %{messages: messages}} = Conversations.show_thread("local", response.thread_id)
+
+    assert Enum.map(messages, & &1.content) == [
+             "Split the response payload.",
+             "Clean model response."
+           ]
+
+    refute Enum.any?(messages, &String.contains?(&1.content, "Surface response"))
+  end
+
   test "accepts string keys and default local identity" do
     assert {:ok, response} =
              Runtime.submit_user_input(%{

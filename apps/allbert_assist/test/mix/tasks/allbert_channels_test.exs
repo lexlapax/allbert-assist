@@ -15,6 +15,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
   alias AllbertAssist.Plugins.Signal, as: SignalPlugin
   alias AllbertAssist.Plugins.Slack, as: SlackPlugin
   alias AllbertAssist.Plugins.Telegram, as: TelegramPlugin
+  alias AllbertAssist.Plugins.TUI, as: TUIPlugin
   alias AllbertAssist.Plugins.WhatsApp, as: WhatsAppPlugin
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
@@ -111,6 +112,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     PluginRegistry.register_module(MatrixPlugin)
     PluginRegistry.register_module(WhatsAppPlugin)
     PluginRegistry.register_module(SignalPlugin)
+    PluginRegistry.register_module(TUIPlugin)
     Fragments.clear_cache()
   end
 
@@ -132,6 +134,7 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert list_output =~ "matrix provider=matrix_client_server"
     assert list_output =~ "whatsapp provider=whatsapp_cloud_api"
     assert list_output =~ "signal provider=signal_cli_jsonrpc"
+    assert list_output =~ "tui provider=terminal"
     refute list_output =~ "token"
 
     Mix.Task.reenable("allbert.channels")
@@ -208,6 +211,16 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert signal_show_output =~ "Channel: signal"
     assert signal_show_output =~ "Provider: signal_cli_jsonrpc"
     assert signal_show_output =~ "Doctor: not_run"
+
+    Mix.Task.reenable("allbert.channels")
+
+    tui_show_output =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["show", "tui"])
+      end)
+
+    assert tui_show_output =~ "Channel: tui"
+    assert tui_show_output =~ "Provider: terminal"
   end
 
   test "prints descriptor-derived channel parity report" do
@@ -220,9 +233,12 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert parity_output =~ "live_view"
     assert parity_output =~ "telegram"
     assert parity_output =~ "matrix"
+    assert parity_output =~ "tui"
     assert parity_output =~ "typed_command+link+list"
+    assert parity_output =~ "typed_command+list"
     assert parity_output =~ "turn_complete"
     assert parity_output =~ "channels.matrix.identity_map"
+    assert parity_output =~ "channels.tui.identity_map"
     assert parity_output =~ "implemented"
     refute parity_output =~ "secret"
     refute parity_output =~ "token"

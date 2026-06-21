@@ -97,6 +97,22 @@ This split is the contracted foundation for future **streamed terminal
 rendering**: v0.55 lands the payload separation and live-region render substrate;
 v0.57 Pi-mode owns true streamed diff/token semantics.
 
+### M2 implementation checkpoint
+
+As of 2026-06-21, the normalized runtime response contract populates
+`model_payload` and `surface_payload` for every response. Single-payload callers
+continue to default both fields to the existing `message`. Split callers may
+provide `model_payload` and `surface_payload`; runtime response signals expose
+both, renderers consume `surface_payload`, and conversation history persists only
+`model_payload`.
+
+The first terminal adapter implementation is the shipped `plugins/allbert.tui`
+plugin. It registers provider `"terminal"`, `trust_class: :local`,
+`primitives: [:typed_command, :list]`, `threading: :rich`, and
+`session_strategy: {:tui_session, prefix: "ch_tui_"}`. The basic
+`mix allbert.tui` launcher starts the Owl input loop and scrollback renderer;
+approval-specific rendering remains the next M3 layer on the same channel.
+
 ## Rendering Model
 
 The TUI is **scrollback-native and line-oriented**. Completed turns are written

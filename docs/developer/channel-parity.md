@@ -30,3 +30,11 @@ M1 closes the v0.54-deferred Matrix generic outbound gap: Matrix now implements
 boundary as Telegram, Slack, Discord, WhatsApp, and Signal. The mapped Matrix
 target for outbound is the Matrix room id, and it must also appear in
 `channels.matrix.allowed_room_ids`.
+
+M2 adds the shipped `allbert.tui` descriptor. The TUI row is intentionally local:
+`channel_id: "tui"`, provider `"terminal"`, `trust_class: :local`,
+`primitives: [:typed_command, :list]`, `threading: :rich`, identity map
+`channels.tui.identity_map`, and turn-complete streaming. It has no generic
+remote outbound target; completed turns render through the terminal scrollback
+from `surface_payload`, while runtime conversation history stores
+`model_payload`.
