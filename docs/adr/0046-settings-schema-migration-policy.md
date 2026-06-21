@@ -180,7 +180,7 @@ one-release warning cycle.
 
 - **v0.45 Marketplace Lite**: draft ADR 0046 begins because marketplace
   introduces new fragment keys and is a good test case for the policy.
-- **v0.47-v0.55 milestones**: each new fragment SHOULD declare
+- **v0.47-v0.58 milestones**: each new fragment SHOULD declare
   `schema_version: 1` and add deprecation metadata for any key changes per
   this policy (even if the migration tool does not yet exist).
 - **v0.59 Hardening**: ADR 0046 accepted; `mix allbert.settings.migrate`

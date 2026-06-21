@@ -342,7 +342,7 @@ future work.
 
 Status: parked.
 
-v0.58 plans local-first profile export/import dry runs. Broad remote sync
+v0.59 plans local-first profile export/import dry runs. Broad remote sync
 remains parked.
 
 Still parked:

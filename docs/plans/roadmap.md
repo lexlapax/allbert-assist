@@ -3254,7 +3254,7 @@ ADRs: `docs/adr/0056-...` (v0.53 amendment — public signed webhook),
 `docs/adr/0059-channel-trust-class-and-relay-gating.md` (NEW),
 `docs/adr/0066-capability-release-availability-gate.md` (Accepted).
 
-Status: validation complete and release-ready for `0.53.0` through M11. Version
+Status: released and tagged as `v0.53.0` on 2026-06-21 after M11. Version
 metadata for the historical v0.53 implementation was `0.53.0`; current mainline
 metadata is `0.54.0` because v0.54 has already closed. **Telegram + email live
 real-provider validation is done
@@ -3340,9 +3340,9 @@ ADRs: `docs/adr/0060-...` (two-stage router + approval-gate separation, Accepted
 `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (NEW; M10;
 Accepted). Amends ADR 0019/0034.
 
-Status (2026-06-17): **implemented through M11**. `mix allbert.test release.v054`
-passed, the two-stage router is the default selector, version metadata is bumped
-to `0.54.0`, and the post-audit closeout tags `v0.54.0` after gates pass. Live
+Status: released and tagged as `v0.54.0` on 2026-06-17. `mix allbert.test release.v054`
+passed, the two-stage router is the default selector, and version metadata is
+`0.54.0`. Live
 local-model validation surfaced ReqLLM/Ollama integration fixes, slot/param seam
 hardening, Discord validation-tool fixes, descriptor grammar fixes, and outbound
 descriptor fixes (all shipped; see v0.54-plan.md Appendix B). v0.54 now unblocks
@@ -3389,7 +3389,7 @@ Expected direction:
 
 Plan: `docs/plans/v0.55-plan.md`
 Request flow: `docs/plans/v0.55-request-flow.md`
-ADR: `docs/adr/0067-tui-terminal-channel.md` (to draft)
+ADR: `docs/adr/0067-tui-terminal-channel.md` (Proposed; accept in v0.55)
 
 Status: planned. NEW in the 2026-06-09 roadmap restructure; full plan authored
 in Phase B (research R4). Moved from v0.56 to v0.55 in the 2026-06-21 replan.
@@ -3437,7 +3437,8 @@ Expected direction:
 
 Plan: `docs/plans/v0.57-plan.md`
 Request flow: `docs/plans/v0.57-request-flow.md`
-ADR: `docs/adr/0068-pi-mode-coding-surface-and-local-coding-trust-tier.md` (to draft)
+ADR: `docs/adr/0068-pi-mode-coding-surface-and-local-coding-trust-tier.md`
+(Proposed; accept in v0.57)
 Rationale: `docs/archives/pi-integration-rethink.md`
 
 Status: planned. NEW in the 2026-06-21 replan. Incorporates the Pi-vs-Allbert
@@ -3486,8 +3487,9 @@ Expected direction:
 Plan: `docs/plans/v0.59-plan.md`
 Request flow: `docs/plans/v0.59-request-flow.md`
 ADR: `docs/adr/0046-settings-schema-migration-policy.md` (accepted here;
-drafted in v0.45); `docs/adr/0069-operator-onboarding-flow.md` (to draft, if the
-onboarding flow constrains design)
+drafted in v0.45); `docs/adr/0065-central-action-param-contract-enforcement.md`
+(Proposed; accept in v0.59 M7); `docs/adr/0069-operator-onboarding-flow.md`
+(Proposed; accept in v0.59 M8)
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
 not implemented. Settings schema migration substrate added in the post-v0.37

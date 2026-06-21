@@ -53,9 +53,9 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
   codegen reindex hooks, `intent.reindex_on_registration_signal=true`, and
   `intent.descriptor_autoaccept=false`. Generated descriptors for dynamic/write-code
   actions remain inert until promoted unless explicitly autoaccepted. The web
-  Intents panel is deferred to v0.55; local-model generation, learned-review mining,
+  Intents panel is deferred to v0.58; local-model generation, learned-review mining,
   `optimize_intent_descriptors`, and app/plugin/action registration signals move to
-  v0.57.
+  v0.56.
 - **Outbound compose actions (M10, ADR 0063):** `send_email` (SMTP), `send_channel_message`
   (via the new `Channels.Outbound` boundary + identity-allowlist gating before
   dispatch), `create_calendar_event` (calendar MCP; graceful degrade) — all
@@ -63,7 +63,7 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
   (confirmation-required → opt-in generic resume on approval). New permissions
   `:email_send`/`:channel_message_send`/`:calendar_write` (needs_confirmation floor).
   `deliver_outbound` wired for Slack/Telegram/Discord/WhatsApp/Signal; Matrix
-  gracefully degrades and generic outbound is deferred to v0.56 M1. Promoted 4
+  gracefully degrades and generic outbound is deferred to v0.55 M1. Promoted 4
   effectful verbs to agent-routable with the
   confirmation gate: `install_marketplace_bundle`/`create_skill`/`continue_objective`
   (CLI callers handle needs_confirmation) and `cancel_objective` (kept not_required —
@@ -83,7 +83,7 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
   Router-selected actions now also preflight required param presence from the
   registered action schema before `Runner.run/3`; missing required params clarify
   in-channel instead of surfacing action-body `:missing_*` errors. Full typed
-  per-action param-contract enforcement remains deferred to v0.58 M7 / ADR 0065.
+  per-action param-contract enforcement remains deferred to v0.59 M7 / ADR 0065.
 - **v0.54 validation-tool hardening:** Discord channel simulation now waits up to
   120s for the live local router/model path instead of using the default 5s
   `GenServer.call` timeout; this affects `mix allbert.channels discord simulate`

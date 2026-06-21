@@ -413,7 +413,7 @@ covering the new attack surface.
   (unified surface catalog, renderer, extension registry), ADR 0031
   (settings schema fragments and authority).
 - Forward-pins: ADR 0046 (settings schema migration policy; v0.44
-  declares `workflows.*` + `plan.*` at `schema_version: 1`; v0.56
+  declares `workflows.*` + `plan.*` at `schema_version: 1`; v0.59
   ships the migration tool).
 - Composes with: ADR 0049 (development gates and test
   parallelization) for the `release.v044` deterministic gate.
