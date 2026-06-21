@@ -60,7 +60,8 @@ defmodule AllbertAssist.Umbrella.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.18", only: :test, runtime: false},
-      {:igniter, "~> 0.7", only: [:dev, :test]}
+      {:igniter, "~> 0.7", only: [:dev, :test]},
+      {:owl, "~> 0.13"}
     ]
   end
 

@@ -597,6 +597,46 @@ defmodule AllbertAssist.Channels.Matrix.Adapter do
     Channels.update_event(event, %{status: "rejected", reason: inspect(reason)})
   end
 
+  @doc false
+  def deliver_outbound(target, body, opts) when is_binary(target) and is_binary(body) do
+    with {:ok, settings} <- Channels.channel_settings("matrix"),
+         :ok <- validate_outbound_room(target, settings),
+         {:ok, homeserver_url} <- homeserver_url(settings),
+         {:ok, access_token} <- resolve_access_token(settings) do
+      content = Renderer.message_content(body)
+      txn_id = Keyword.get(opts, :txn_id, Ecto.UUID.generate())
+      req_options = Keyword.get(opts, :req_options, [])
+
+      case Client.send_message(homeserver_url, access_token, target, txn_id, content, req_options) do
+        {:ok, %{"event_id" => event_id} = result} ->
+          {:ok,
+           %{
+             channel: "matrix",
+             target: target,
+             event_id: event_id,
+             txn_id: txn_id,
+             result: result
+           }}
+
+        {:ok, result} ->
+          {:error, {:missing_event_id, result}}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  defp validate_outbound_room(room_id, settings) do
+    allowed = Map.get(settings, "allowed_room_ids", [])
+
+    if room_id in allowed do
+      :ok
+    else
+      {:error, :room_not_allowed}
+    end
+  end
+
   defp event_result(result, inserted_status \\ :processed)
 
   defp event_result({:ok, event}, :processed), do: {:ok, event}

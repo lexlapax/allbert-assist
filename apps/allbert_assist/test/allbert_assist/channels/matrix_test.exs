@@ -10,6 +10,7 @@ defmodule AllbertAssist.Channels.MatrixTest do
   alias AllbertAssist.Channels.Matrix.Client
   alias AllbertAssist.Channels.Matrix.Parser
   alias AllbertAssist.Channels.Matrix.Renderer
+  alias AllbertAssist.Channels.Outbound
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Paths
@@ -596,6 +597,34 @@ defmodule AllbertAssist.Channels.MatrixTest do
     assert error =~ "matrix_error"
 
     GenServer.stop(pid)
+  end
+
+  test "generic outbound sends through Channels.Outbound" do
+    Req.Test.expect(__MODULE__, fn conn ->
+      assert conn.method == "PUT"
+
+      assert conn.request_path ==
+               "/_matrix/client/v3/rooms/%21room%3Aexample.com/send/m.room.message/txn-out"
+
+      assert get_req_header(conn, "authorization") == ["Bearer matrix-secret"]
+
+      {:ok, body, conn} = read_body(conn)
+      decoded = Jason.decode!(body)
+      assert decoded["msgtype"] == "m.text"
+      assert decoded["body"] == "v055 outbound check"
+
+      json(conn, %{"event_id" => "$outbound-event"})
+    end)
+
+    assert {:ok, receipt} =
+             Outbound.send("matrix", "!room:example.com", "v055 outbound check",
+               req_options: [plug: {Req.Test, __MODULE__}],
+               txn_id: "txn-out"
+             )
+
+    assert receipt.channel == "matrix"
+    assert receipt.target == "!room:example.com"
+    assert receipt.event_id == "$outbound-event"
   end
 
   defp configure_matrix! do

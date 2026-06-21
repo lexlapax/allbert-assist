@@ -65,6 +65,7 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels
+  alias AllbertAssist.Channels.ChannelParity
   alias AllbertAssist.Channels.Discord
   alias AllbertAssist.Channels.Email
   alias AllbertAssist.Channels.Identity
@@ -129,6 +130,15 @@ defmodule Mix.Tasks.Allbert.Channels do
   defp dispatch(["list"]) do
     with {:ok, response} <- completed_action("list_channels", %{}) do
       {:ok, {:list, response.channels}}
+    end
+  end
+
+  defp dispatch(["--parity"]), do: dispatch(["parity"])
+
+  defp dispatch(["parity"]) do
+    case ChannelParity.verify() do
+      :ok -> {:ok, {:parity, ChannelParity.table()}}
+      {:error, errors} -> {:error, {:channel_parity_drift, errors}}
     end
   end
 
@@ -582,6 +592,7 @@ defmodule Mix.Tasks.Allbert.Channels do
     Mix.raise("""
     Usage:
       mix allbert.channels list
+      mix allbert.channels --parity
       mix allbert.channels show telegram|email|discord|slack|matrix|whatsapp|signal
       mix allbert.channels setup-check matrix|whatsapp|signal
       mix allbert.channels telegram set-token TOKEN
@@ -649,6 +660,10 @@ defmodule Mix.Tasks.Allbert.Channels do
         "#{channel.channel} provider=#{channel.provider} release=#{channel.release_status} enabled=#{channel.enabled} identities=#{channel.identity_count} credentials=#{credential_status(channel.credential_status)}"
       )
     end)
+  end
+
+  defp print_result({:ok, {:parity, table}}) do
+    Mix.shell().info(table)
   end
 
   defp print_result({:ok, {:show, channel}}) do

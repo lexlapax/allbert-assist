@@ -210,6 +210,24 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     assert signal_show_output =~ "Doctor: not_run"
   end
 
+  test "prints descriptor-derived channel parity report" do
+    parity_output =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["--parity"])
+      end)
+
+    assert parity_output =~ "channel"
+    assert parity_output =~ "live_view"
+    assert parity_output =~ "telegram"
+    assert parity_output =~ "matrix"
+    assert parity_output =~ "typed_command+link+list"
+    assert parity_output =~ "turn_complete"
+    assert parity_output =~ "channels.matrix.identity_map"
+    assert parity_output =~ "implemented"
+    refute parity_output =~ "secret"
+    refute parity_output =~ "token"
+  end
+
   test "checks Matrix WhatsApp and Signal setup readiness independently" do
     matrix_incomplete =
       capture_io(fn ->

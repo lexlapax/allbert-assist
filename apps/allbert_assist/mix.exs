@@ -79,6 +79,7 @@ defmodule AllbertAssist.MixProject do
       {:bandit, "~> 1.5"},
       {:muontrap, "~> 1.8"},
       {:erlexec, "~> 2.3"},
+      {:owl, "~> 0.13"},
       {:tzdata, "~> 1.1"},
       {:jsv, "~> 0.19"},
       {:yaml_elixir, "~> 2.12"},
