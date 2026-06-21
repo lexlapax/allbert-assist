@@ -204,7 +204,7 @@ atom enum. The v0.45 set:
   marketplace action before read/write work.
 - `:marketplace_schema_version_mismatch` — settings
   `marketplace.schema_version` does not match the expected fragment
-  version (preview of ADR 0046's v0.58 runtime migration
+  version (preview of ADR 0046's v0.59 runtime migration
   semantics).
 - `:marketplace_schema_version_unavailable` — settings
   `marketplace.schema_version` could not be read.
@@ -279,7 +279,7 @@ post-v0.37 planning policy that v0.45 adopts the ADR 0046 draft
 declared at the fragment schema layer and is read-only at v0.45.
 
 ADR 0046 (Settings Central Schema Migration Policy) drafts the
-convention at v0.45 but accepts the migration runner at v0.58. v0.45
+convention at v0.45 but accepts the migration runner at v0.59. v0.45
 only adopts the field convention; the runtime migration semantics
 ship with the accepted ADR.
 
@@ -361,7 +361,7 @@ version is needed.
   fragment composes through the v0.31 substrate, with
   `schema_version: 1` per ADR 0046 draft.
 - **ADR 0046** (settings schema migration policy): drafted at v0.45;
-  accepted at v0.58. v0.45 adopts the `schema_version` field
+  accepted at v0.59. v0.45 adopts the `schema_version` field
   convention only.
 - **ADR 0047** (provider doctor contract): `marketplace_doctor`
   follows the ADR 0047 redacted shape (matches v0.40 MCP doctor,
@@ -377,7 +377,7 @@ community submissions need them.
 ADR 0046 schema_version convention gets its second user
 (`marketplace.schema_version: 1` joins v0.44's
 `workflows.schema_version: 1`), establishing the field as a stable
-convention before v0.58 ships the runtime migration tool.
+convention before v0.59 ships the runtime migration tool.
 
 v0.47 self-improvement gets a stable trace pattern source
 (marketplace entries + install state) for trace-to-skill draft

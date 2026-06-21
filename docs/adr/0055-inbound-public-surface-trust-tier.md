@@ -173,7 +173,7 @@ Two facts from the v0.51 readiness sweep shape this decision:
 - v0.51 must build genuinely new substrate (Settings-Secrets per-client tokens, a
   token-auth plug, an inbound rate-limiter, and the poll-by-id readback) — these
   are not "thin adapters." The plan budgets milestones for them.
-- The v0.58 security eval sweep covers this tier: self-approval denial, token
+- The v0.59 security eval sweep covers this tier: self-approval denial, token
   redaction/revocation, rate-limit-before-runtime, client-scoped readback,
   no-result-before-approval, readback expiry, cross-client confusion,
   unsupported media/resource payload denial, and metadata-never-authority (ACP).

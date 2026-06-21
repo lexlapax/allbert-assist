@@ -5,7 +5,7 @@ Date: 2026-06-16
 Related: ADR 0060 (two-stage router + approval-gate separation — produces
 `Outcome` slots), ADR 0062 (descriptor lifecycle — `extracted_slots` on the
 engine `Decision`), ADR 0006 (Security Central — routing grants no authority).
-Successor: v0.58 M7 / ADR 0065 (central action **param-contract** enforcement),
+Successor: v0.59 M7 / ADR 0065 (central action **param-contract** enforcement),
 the larger schema-validation follow-on this ADR deliberately scopes out beyond
 the router-required-presence guard added during v0.54 M11 validation.
 
@@ -117,4 +117,4 @@ permission, app-scope, or confirmation decision is changed.
   router required-presence (rejecting unknown or typed-invalid params for *all*
   callers/actions). That requires resolving the injected-context-key split
   (`user_id`/`thread_id`/`session_id`) and an eval sweep across all actions —
-  tracked as v0.58 M7 / ADR 0065.
+  tracked as v0.59 M7 / ADR 0065.

@@ -682,7 +682,7 @@ contract does not change.
 - `docs/plans/v0.26-plan.md` (this milestone's implementation contract)
 - `docs/plans/v0.26-request-flow.md` (this milestone's runtime/user flow)
 - `docs/plans/allbert-jido-vision.md` L359–379 (workspace + canvas + ephemeral vision)
-- `docs/plans/project-direction-rethink-01.md` L517–520 (surfaces render, do not own state)
+- `docs/archives/project-direction-rethink-01.md` L517–520 (surfaces render, do not own state)
 - `docs/plans/future-features.md` UI Protocol Interop section
 - ADR 0006 — Security Central
 - ADR 0007 — Jido-Native Internal Runtime Boundaries (substrate)

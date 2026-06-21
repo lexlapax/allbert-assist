@@ -7,7 +7,7 @@ objective runtime work in `docs/adr/0021-intent-objective-capability-
 and-advisory-boundary.md` and `docs/plans/v0.24-plan.md`. It is
 research material, not load-bearing for implementation. The
 project-direction rethink draft
-(`docs/plans/project-direction-rethink-01.md`) previously inlined this
+(`docs/archives/project-direction-rethink-01.md`) previously inlined this
 material; moving it here keeps the rethink doc and the ADR focused
 on Allbert-specific decisions.
 

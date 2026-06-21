@@ -5,7 +5,7 @@
 Accepted and implemented in v0.32 Workspace-Only App UI And Settings Central
 (`docs/plans/v0.32-plan.md`).
 
-Proposed revision (v0.55, 2026-06-09 restructure): re-layout `/workspace` to a
+Proposed revision (v0.58, 2026-06-09 restructure): re-layout `/workspace` to a
 **chat-primary** shell — chat is the main column with a collapsible left
 **Conversations** rail; ephemeral surfaces render as **modals/popovers** (not an
 inline bottom row); the canvas is **demoted** to a launcher destination/drawer;
@@ -13,7 +13,7 @@ operator-facing label is **"Conversations"** (UI strings only; internal
 `Conversations.Thread`, catalog atoms, events, topics, settings keys unchanged;
 the volatile `Session.Scratchpad` is untouched). Re-skin only — the ADR 0023
 substrate + Surface DSL/catalog are unchanged; no model-generated UI; `/workspace`
-stays canonical. Flips to Accepted at v0.55 M5. See `docs/plans/v0.55-plan.md`.
+stays canonical. Flips to Accepted at v0.58 M5. See `docs/plans/v0.58-plan.md`.
 
 This ADR graduates the "Workspace Hooks" /
 plugin-contributed workspace regions reserved in ADR 0023 §1, extends the

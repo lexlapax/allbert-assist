@@ -39,6 +39,10 @@ When documents conflict, use this order:
 
 Flag conflicts instead of silently choosing stale historical guidance.
 
+`docs/plans/allbert-jido-vision.md` is the timeless vision / north star: stable,
+version-agnostic, and edited only during deliberate vision-level planning. It
+carries no release scope — see `docs/plans/roadmap.md` for the version sequence.
+
 ## Context Budget
 
 - Keep context focused. Do not bulk-read historical plans or the whole

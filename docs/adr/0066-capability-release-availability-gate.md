@@ -5,7 +5,7 @@ Date: 2026-06-20
 Related: ADR 0016 (channel boundary), ADR 0017 (plugin contract), ADR 0056
 (channel inbound trust tier), ADR 0057 (cross-channel threading), ADR 0058
 (key custody and daemon supervision), ADR 0059 (channel trust class), ADR 0006
-(Security Central). ADR 0065 remains reserved for the v0.58 central action
+(Security Central). ADR 0065 remains reserved for the v0.59 central action
 param-contract enforcement work and must not be reused by this decision.
 
 ## Context

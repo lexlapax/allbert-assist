@@ -67,11 +67,12 @@ Do not load every section by default.
 | Public Protocol Surfaces (implemented as `0.51.0`): registered actions as MCP tools; app memory namespaces as MCP resources; OpenAI-compatible HTTP API; ACP server; AG-UI/A2UI parked. Inbound trust tier (ADR 0055): `:public_surface_call_inbound` permission (floor `:needs_confirmation`), per-client Settings-Central tokens, net-new inbound rate-limiter, API secure-header posture, and a poll-by-id result-readback action (`:agent`-exposable, client-scoped, never before approval). v0.51 is a text-first protocol subset: OpenAI/ACP image, audio, resource, filesystem-root, artifacts, and client-supplied MCP-server payloads do not grant media/filesystem/MCP/artifact authority; artifacts are not MCP resources unless a future adapter routes through Artifacts Central + `:artifact_read`. Release lane: `mix allbert.test release.v051`. | ADR 0044 (exposure), ADR 0055 (inbound trust), ADR 0038 (symmetric outbound tier), `docs/plans/v0.51-plan.md`, `docs/plans/v0.51-request-flow.md`, `docs/developer/public-protocol-surfaces.md`, `docs/operator/public-protocol-surfaces.md` | v0.51 / 0.51.0 |
 | Discord and Slack channel plugins + ADR 0016 amendment for channel approval primitives, **plus a system-wide cross-channel conversation-thread construct (ADR 0057)**. Implemented as `0.52.0` across nine milestones (M0-M8), substrate-first, one version. Inbound trust tier (ADR 0056): new `:channel_message_inbound` permission class (floor `:needs_confirmation`, registered at every Security.Policy/Risk/Settings.Schema spot, cannot be lowered below floor), per-interaction clicker re-authorization, ack-before-runtime dedupe. **Threading (ADR 0057):** canonical thread id = existing `conversation_threads.id`; `thread_channel_refs` + `conversation_message_refs` + `cross_channel_identity_links` with `owner_scope`, `receiver_account_ref`, deterministic `provider_thread_key`, `direction` echo-suppression, and `part_id`; `Conversations.ChannelThread`; per-adapter `threading:` descriptor (`:native_threads`/`:reply_chain`/`:flat`/`:rich`) + degradation ladder; `channel_events.thread_id` canonical-only; unified read-only history view; explicit `resume_thread_on_channel` (same user_id + explicit link when identities differ); explicit never-auto-merged cross-channel identity links; Telegram/email/web/CLI retrofitted (M6, byte-equivalent). v0.52 uses `owner_scope: "local"` only so post-1.0 multi-tenant work does not require a second canonical thread id. Transport vehicle locked by an M0 spike (raw Req + reviewed WS client vs Nostrum/slack_elixir; ADR 0050); Discord free-text on @mention+DM via privileged MESSAGE_CONTENT intent; Slack Socket Mode. Release lane: `mix allbert.test release.v052`; required pre-tag provider smoke: `mix allbert.test external-smoke -- discord_slack` plus manual live inbound/callback checks. | ADR 0016, ADR 0017, ADR 0056 (inbound trust), ADR 0057 (cross-channel threading), ADR 0050 (dependency compat), `docs/plans/v0.52-plan.md`, `docs/plans/v0.52-request-flow.md`, `docs/operator/discord-channel.md`, `docs/operator/slack-channel.md`, `docs/developer/channel-approval-primitives.md`, `docs/developer/cross-channel-threading.md` | v0.52 / 0.52.0 |
 | **Channel Pack 1 retro-validation (Telegram + email) + Channel Pack 2: Matrix + WhatsApp (Cloud API) + Signal (signal-cli daemon)**; validation complete and release-ready for `0.53.0` through M11. Telegram + email delivery/inbound live smokes and manual approval/rejection/poll-resume checks passed after the v0.54 router prerequisite landed. Matrix delivery/inbound smokes plus mapped approval and unmapped callback rejection passed after the Matrix sync/catch-up remediations, with release-owner acceptance of the encrypted-room exclusion for this pass. Discord/Slack remain v0.52-released channels and passed v0.53 M11 delivery/inbound regression after shared-channel changes. WhatsApp Cloud API is implemented but not released for live use after Meta setup/object/registration failures; its signed-webhook auth path remains covered locally and by evals. Signal is implemented as a `signal-cli` bridge, but not released for live use because it requires operator-managed daemon/linked-device onboarding. ADR 0066 defines the capability release gate: undeclared capabilities default released; explicit `live_use_allowed: false` fails closed; v0.53 stores the WhatsApp/Signal decisions as plugin-owned YAML release declarations. `:list` remains the mandatory fallback primitive. Matrix scope stays unencrypted rooms only, and Matrix/WhatsApp typed approval commands are adapter-handled callback events rather than runtime text. | ADR 0016, ADR 0017, ADR 0056 (v0.53 amendment), ADR 0057, ADR 0058, ADR 0059, ADR 0066, ADR 0050, `docs/plans/v0.53-plan.md`, `docs/plans/v0.53-request-flow.md` | v0.53 / 0.53.0 |
-| Intent deepening for chat-primary routing, implemented as `0.54.0`: ADR 0060 two-stage local router; ADR 0061 local embedding/router tiers; ADR 0062 descriptor lifecycle **foundation** (dual-source descriptors, layered data-only YAML resolver/store, heuristic generation, CLI curation, dynamic-codegen reindex); ADR 0063 outbound compose actions for email/channel/calendar; ADR 0064 slot/param seam hardening. Matrix generic outbound degrades and is deferred to v0.56 M1. Local-model descriptor generation, learned-review mining, `optimize_intent_descriptors`, and app/plugin/action registration signals move to v0.57. Full typed action param contracts move to v0.58 M7 / ADR 0065. | ADR 0060, ADR 0061, ADR 0062, ADR 0063, ADR 0064, ADR 0019, ADR 0034, ADR 0016/0056/0059, `docs/plans/v0.54-plan.md`, `docs/plans/v0.54-request-flow.md` | v0.54 / 0.54.0 |
-| Web UX redo: chat-primary `/workspace`, ephemeral -> popups, canvas demoted, "Conversations" relabel, plus the Intents web panel over the v0.54 descriptor YAML lifecycle (override files are `.yaml`). Surface substrate kept. | ADR 0023, ADR 0024, ADR 0015, ADR 0062, `docs/plans/v0.55-plan.md`, `docs/plans/v0.55-request-flow.md` | v0.55 |
-| Channel parity matrix + proper TUI/terminal channel under the ADR 0016 contract and ADR 0057 `threading: :rich` substrate. M1 also closes the v0.54-deferred Matrix generic outbound implementation behind `Channels.Outbound`. | ADR 0016, ADR 0057, `docs/plans/v0.56-plan.md`, `docs/plans/v0.56-request-flow.md` | v0.56 |
-| Intent Descriptor Learning + Registration Lifecycle Completion: completes ADR 0062 with local-model descriptor generation, learned-review mining, operator-exposed optimization, and full app/plugin/action registration reindex signals. | ADR 0062, `docs/plans/v0.57-plan.md`, `docs/plans/v0.57-request-flow.md` | v0.57 |
-| Release candidate hardening, export/import, settings schema migration, ADR 0065 central param contracts, and 1.0 tiered contract freeze | ADR 0046, ADR 0065, `docs/plans/v0.58-plan.md`, `docs/plans/v0.58-request-flow.md`, `docs/plans/v1.0-plan.md`, `docs/plans/v1.0-request-flow.md` | v0.58-v1.0 |
+| Intent deepening for chat-primary routing, implemented as `0.54.0`: ADR 0060 two-stage local router; ADR 0061 local embedding/router tiers; ADR 0062 descriptor lifecycle **foundation** (dual-source descriptors, layered data-only YAML resolver/store, heuristic generation, CLI curation, dynamic-codegen reindex); ADR 0063 outbound compose actions for email/channel/calendar; ADR 0064 slot/param seam hardening. Matrix generic outbound degrades and is deferred to v0.55 M1. Local-model descriptor generation, learned-review mining, `optimize_intent_descriptors`, and app/plugin/action registration signals move to v0.56. Full typed action param contracts move to v0.59 M7 / ADR 0065. | ADR 0060, ADR 0061, ADR 0062, ADR 0063, ADR 0064, ADR 0019, ADR 0034, ADR 0016/0056/0059, `docs/plans/v0.54-plan.md`, `docs/plans/v0.54-request-flow.md` | v0.54 / 0.54.0 |
+| Channel parity matrix + proper TUI/terminal channel under the ADR 0016 contract and ADR 0057 `threading: :rich` substrate; harvests Pi's split tool-result pattern (ADR 0067 extending ADR 0029/0030) as the foundation for the v0.57 Pi-mode coding surface. M1 also closes the v0.54-deferred Matrix generic outbound implementation behind `Channels.Outbound`. | ADR 0016, ADR 0067, ADR 0057, ADR 0029, ADR 0030, `docs/plans/v0.55-plan.md`, `docs/plans/v0.55-request-flow.md` | v0.55 |
+| Intent Descriptor Learning + Registration Lifecycle Completion: completes ADR 0062 with local-model descriptor generation, learned-review mining, operator-exposed optimization, and full app/plugin/action registration reindex signals. | ADR 0062, `docs/plans/v0.56-plan.md`, `docs/plans/v0.56-request-flow.md` | v0.56 |
+| Pi-mode coding surface: a gated terminal coding surface (four boundary actions read/write/edit/bash through `Actions.Runner.run/3`, sub-1000-token prompt, streamed split-payload diffs, full-file context) on the one authority spine, plus a named local-coding/sandbox-level-0 trust tier (extends ADR 0009) — never YOLO-default, never for channel-originated or generated-code sessions; deterministic acceptance and Security Central stay intact. Builds on the v0.55 TUI + split tool-result payload. | ADR 0068, ADR 0067, ADR 0009, ADR 0016, `docs/plans/v0.57-plan.md`, `docs/plans/v0.57-request-flow.md`, `docs/archives/pi-integration-rethink.md` | v0.57 |
+| Web UX redo: chat-primary `/workspace`, ephemeral -> popups, canvas demoted, "Conversations" relabel, plus the Intents web panel over the v0.54 descriptor YAML lifecycle (override files are `.yaml`). Surface substrate kept. | ADR 0023, ADR 0024, ADR 0015, ADR 0062, `docs/plans/v0.58-plan.md`, `docs/plans/v0.58-request-flow.md` | v0.58 |
+| Release candidate hardening, export/import, settings schema migration, operator onboarding simplification (ADR 0069, via the v0.55 TUI), ADR 0065 central param contracts, and 1.0 tiered contract freeze | ADR 0046, ADR 0065, ADR 0069, `docs/plans/v0.59-plan.md`, `docs/plans/v0.59-request-flow.md`, `docs/plans/v1.0-plan.md`, `docs/plans/v1.0-request-flow.md` | v0.59-v1.0 |
 
 ## v0.41 Test Lane Classification
 
@@ -494,7 +495,7 @@ Implemented v0.41 gates:
   workspace panel and intent routing, CLI subcommands, custom Allbert
   Home-rooted install/cache settings, master disable switch, workflow-YAML
   forward-pin validation, and ADR 0047-style marketplace doctor. Community
-  submissions stay parked. Drafts ADR 0046 for v0.58.
+  submissions stay parked. Drafts ADR 0046 for v0.59.
 - v0.45.1 (implemented as `0.45.1`): Gate Transparency And Precommit
   Decomposition. Adds `mix allbert.test commit`, `mix allbert.test prepush`,
   timed direct release phases, redacted gate evidence, and `mix precommit` as
@@ -615,22 +616,28 @@ Implemented v0.41 gates:
   removes the v0.53 channel approval dead-end; M9 adds the ADR 0062 descriptor
   lifecycle foundation; M10 adds outbound compose actions for email, calendar, and
   channel send (ADR 0063); M11 hardens slot/param normalization (ADR 0064). Model
-  output stays advisory. Matrix generic outbound is deferred to v0.56 M1.
-- v0.55 (planned): Web UX Redo. Re-layouts `/workspace` (ADR 0023/0024 kept) —
-  chat primary, ephemeral surfaces become popups, canvas demoted, labels cleaned
-  up ("Conversations" replaces "threads"); references ChatGPT/Claude/Hermes.
-- v0.56 (planned): Channel Parity + TUI. Explicit channel capability/parity
-  matrix, Matrix generic outbound gap closure, and a proper TUI/terminal channel
-  under the ADR 0016 contract.
-- v0.57 (planned): Intent Descriptor Learning + Registration Lifecycle Completion.
+  output stays advisory. Matrix generic outbound is deferred to v0.55 M1.
+- v0.55 (planned): Channel Parity + TUI/Terminal Channel. Explicit channel
+  capability/parity matrix, Matrix generic outbound gap closure, and a proper
+  TUI/terminal channel under the ADR 0016 contract; harvests Pi's split
+  tool-result pattern (ADR 0067) as the v0.57 coding-surface foundation.
+- v0.56 (planned): Intent Descriptor Learning + Registration Lifecycle Completion.
   Completes ADR 0062 with local-model generation, learned-review mining,
   operator-exposed optimization, and app/plugin/action registration reindex
   signals.
-- v0.58 (planned): Hardening, Export/Import, Settings Migration, And Final RC.
-  Adds no new user-facing capability; proves portability, accepts and
-  implements ADR 0046 (`mix allbert.settings.migrate`), runs the cross-surface
-  eval sweep over v0.40-v0.57, implements ADR 0065 param-contract enforcement, and
-  gathers RC evidence.
+- v0.57 (planned): Pi-mode Coding Surface. A gated terminal coding surface (four
+  boundary actions through `Actions.Runner.run/3`, sub-1000-token prompt, split
+  diffs, full-file context) plus a local-coding/sandbox-level-0 trust tier
+  (ADR 0068/0067/0009) — never YOLO-default, deterministic acceptance intact.
+- v0.58 (planned): Web UX Redo. Re-layouts `/workspace` (ADR 0023/0024 kept) —
+  chat primary, ephemeral surfaces become popups, canvas demoted, labels cleaned
+  up ("Conversations" replaces "threads"); references ChatGPT/Claude/Hermes.
+- v0.59 (planned): Hardening, Export/Import, Settings Migration, Operator
+  Onboarding, And Final RC. Adds no new user-facing capability; proves
+  portability, accepts and implements ADR 0046 (`mix allbert.settings.migrate`),
+  adds a guided first-run onboarding path via the v0.55 TUI (ADR 0069), runs the
+  cross-surface eval sweep over v0.40-v0.58, implements ADR 0065 param-contract
+  enforcement, and gathers RC evidence.
 - v1.0 (planned): Stability Release And **Tiered Public Contract Freeze**.
   Adds no new features; Tier 1 freezes Runtime, Actions/permissions, Plugin,
   App, Settings Central schema shape, Allbert Home layout, Channel adapter

@@ -22,7 +22,7 @@ workflow depends on it: a channel message that should run an action — and, for
 `confirmation: :required` action, render approve/deny buttons — currently
 dead-ends in an app-handoff text proposal instead. v0.54 also carries the
 remaining intent depth (multi-turn memory of intent, chat-primary refinements)
-built on this router; the v0.55 UX redo follows.
+built on this router; the v0.58 UX redo follows.
 
 ## Context
 
@@ -153,7 +153,7 @@ low-confidence tail.
 - v0.54 carries this router foundation plus the remaining intent depth
   (multi-turn memory of intent, chat-primary refinements); it is implemented
   ahead of completing v0.53 (the channel approval workflow depends on it) and
-  ahead of the v0.55 UX redo (chat quality depends on intent).
+  ahead of the v0.58 UX redo (chat quality depends on intent).
 
 ## Related
 

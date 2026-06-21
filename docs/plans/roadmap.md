@@ -243,7 +243,7 @@ Dependency order from here:
     schema, Allbert-author seed bundles, provenance/hash/version/rollback
     metadata, disabled/untrusted installs, browse-only plugin index metadata,
     workspace/intent/CLI surfaces, and marketplace doctor. Community-submission
-    governance remains parked. Started the v0.58 ADR for settings schema
+    governance remains parked. Started the v0.59 ADR for settings schema
     migration policy (ADR 0046).
 45.1. v0.45.1 Gate Transparency and Precommit Decomposition — implemented as
     `0.45.1`: commit/prepush/release command split, timed direct release
@@ -325,28 +325,43 @@ scope.
     operator YAML curation, and a comprehensive golden-set; ADR 0062) and
     **M10 — outbound compose actions** (send_email / send_channel_message /
     create_calendar_event via MCP; ADR 0063); M9+M10 are in v0.54 and gate the tag.
-    The advanced ADR 0062 self-optimizing pieces move to v0.57.
+    The advanced ADR 0062 self-optimizing pieces move to v0.56.
     Resequenced ahead of completing v0.53 (its channel approval workflow depends on
-    the router) and before the v0.55 UX redo (chat quality depends on intent).
-55. v0.55 Web UX Redo: re-layout `/workspace` (ADR 0023/0024 kept) — chat
-    primary, ephemeral surfaces become popups, canvas demoted, labels cleaned
-    up ("Conversations" replaces "threads"); references ChatGPT/Claude/Hermes.
-56. v0.56 Channel Parity + TUI: explicit channel capability/parity matrix and a
-    proper TUI/terminal channel under the ADR 0016 contract (not just
-    `mix allbert.ask`).
-57. v0.57 Intent Descriptor Learning + Registration Lifecycle Completion:
+    the router) and before the v0.58 UX redo (chat quality depends on intent).
+55. v0.55 Channel Parity + TUI/Terminal Channel: explicit channel capability/
+    parity matrix and a proper TUI/terminal channel under the ADR 0016 contract
+    (identity, dedupe, approval primitives), not just `mix allbert.ask`. Harvests
+    Pi's split tool result (model-facing vs. surface payload; ADR 0029/0030) as
+    the foundation for streamed terminal rendering. ADR 0067.
+56. v0.56 Intent Descriptor Learning + Registration Lifecycle Completion:
     completes ADR 0062 with local-model descriptor generation, learned-review
     proposal mining from reviewed runtime evidence, operator-exposed
     `optimize_intent_descriptors`, and full app/plugin/action registration
     reindex signals. Model/learned proposals remain inert until operator
     promotion and never grant authority.
-58. v0.58 Hardening, export/import, settings schema migration substrate, and
-    final RC: no new user-facing capability; Allbert Home portability,
-    cross-surface security eval sweep, operator docs, performance hardening,
-    CSP reconciliation, settings schema migration tool (per ADR 0046),
-    central action param-contract enforcement (M7, ADR 0065; precursor v0.54
-    ADR 0064), and release-candidate closeout.
-59. v1.0 Stability release and **tiered public contract freeze**: no new
+57. v0.57 Pi-mode Coding Surface: a gated terminal coding surface on the one
+    authority spine — four boundary actions (read/write/edit/bash) through
+    `Actions.Runner.run/3`, sub-1000-token prompt, streamed split-payload diffs,
+    full-file context discipline, and a named "local coding / sandbox level 0"
+    trust tier (extends ADR 0009). Never YOLO-by-default, never for
+    channel-originated or generated-code sessions; deterministic acceptance and
+    Security Central stay intact. ADR 0068; rationale in
+    `docs/archives/pi-integration-rethink.md`.
+58. v0.58 Web UX Redo: re-layout `/workspace` (ADR 0023/0024 kept) — chat
+    primary, ephemeral surfaces become popups, canvas demoted, labels cleaned
+    up ("Conversations" replaces "threads"); references ChatGPT/Claude/Hermes.
+    Sequenced after intent (v0.56) and the channel/coding surfaces (v0.55/0.57)
+    so chat quality is mature first.
+59. v0.59 Hardening, export/import, settings schema migration substrate,
+    operator onboarding simplification, and final RC: no new user-facing
+    capability; Allbert Home portability, cross-surface security eval sweep,
+    operator docs, performance hardening, CSP reconciliation, settings schema
+    migration tool (per ADR 0046), central action param-contract enforcement
+    (M7, ADR 0065; precursor v0.54 ADR 0064), a genuinely easy first-run
+    operator onboarding path over the existing settings/secrets/channel-pairing/
+    doctor flows surfaced through the v0.55 TUI (ADR 0069), and
+    release-candidate closeout.
+60. v1.0 Stability release and **tiered public contract freeze**: no new
     features; freeze Tier 1 (Runtime, Actions/permissions, Plugin, App,
     Settings Central schema shape, Allbert Home layout, Channel adapter
     boundary, Resource Access URI/grants) and Tier 2 (SurfaceProvider, Surface
@@ -1280,7 +1295,7 @@ Request flow: `docs/plans/v0.23-request-flow.md`
 Status: implemented through M5 closeout and ready for operator manual
 verification. Release tag pending operator acceptance. NEW milestone inserted
 by the project-direction rethink (see
-`docs/plans/project-direction-rethink-01.md`). Closes the clearest part of
+`docs/archives/project-direction-rethink-01.md`). Closes the clearest part of
 the gap between the original Jido-substrate vision and the current code before
 v0.24 ships `Objectives.Engine` as another new Jido.Agent.
 
@@ -1345,7 +1360,7 @@ Research note: `docs/research/objective-runtime-research.md`
 
 Status: released and tagged as `v0.24` on 2026-05-17 after M6 closeout,
 post-audit hardening, and release verification. NEW milestone inserted by the
-project-direction rethink (see `docs/plans/project-direction-rethink-01.md`).
+project-direction rethink (see `docs/archives/project-direction-rethink-01.md`).
 Adds the durable multi-step work substrate that v0.25 native financial
 specialist agents, v0.26 workspace shell, and future apps will build on.
 
@@ -2690,7 +2705,7 @@ Shipped scope:
   out of 1.0.
 - **Started drafting ADR 0046** (Settings Central schema migration policy) here
   because marketplace adds new settings fragments; ADR is accepted before
-  v0.58 implements the migration tool.
+  v0.59 implements the migration tool.
 
 ## v0.45.1: Gate Transparency And Precommit Decomposition - implemented as 0.45.1
 
@@ -2729,7 +2744,8 @@ release tagging. Inserted in the post-v0.45 planning pass to give the v0.24
 delegate-agent substrate a second consumer before the v1.0 freeze. The
 v0.47-v0.53 arc shifted down by one to open this slot (the arc later extended to
 v0.57 in the 2026-06-09 restructure, then v0.58 in the v0.54 post-audit
-renumbering).
+renumbering, then v0.59 in the 2026-06-21 replan that reordered v0.55-v0.59 and
+inserted the v0.57 Pi-mode coding surface).
 
 Shipped scope:
 
@@ -3355,8 +3371,8 @@ Expected direction:
   local-only generation via `mix allbert.intent optimize`, and reindexes on
   dynamic-codegen registration signals. Generated descriptors for dynamic/write-code
   actions are inert until operator-promoted unless explicitly autoaccepted.
-  Routable != executable. The web Intents panel remains v0.55.
-  **Moved to v0.57:** local-model descriptor generation, learned-review proposal
+  Routable != executable. The web Intents panel remains v0.58.
+  **Moved to v0.56:** local-model descriptor generation, learned-review proposal
   mining, the `optimize_intent_descriptors` action, and full app/plugin/action
   registration signals.
 - **M10 — outbound compose actions (ADR 0063):** three NEW effectful actions for
@@ -3365,50 +3381,40 @@ Expected direction:
   identity-allowlist + trust-class gating before dispatch), `create_calendar_event`
   (via a configurable calendar **MCP** server id; graceful degrade if none). Each
   is `confirmation: :required` behind the existing gate. Matrix generic outbound
-  gracefully degrades in v0.54 and is deferred to **v0.56 M1**.
+  gracefully degrades in v0.54 and is deferred to **v0.55 M1**.
 - Keep model output advisory re: authority; intent never grants authority; the
   approval gate stays a separate layer (ADR 0019, ADR 0060, ADR 0062, ADR 0063).
 
-## v0.55: Web UX Redo
+## v0.55: Channel Parity + TUI/Terminal Channel
 
 Plan: `docs/plans/v0.55-plan.md`
 Request flow: `docs/plans/v0.55-request-flow.md`
+ADR: `docs/adr/0067-tui-terminal-channel.md` (to draft)
 
 Status: planned. NEW in the 2026-06-09 roadmap restructure; full plan authored
-in Phase B (research R3).
-
-Expected direction:
-
-- Re-layout the existing `/workspace` Surface substrate (ADR 0023/0024 kept):
-  chat becomes the primary surface, ephemeral surfaces become popups/modals,
-  the canvas is demoted to a launcher/secondary, and UI labels are cleaned up —
-  **"Conversations"** replaces the "threads" label (no internal rename; the
-  volatile `Session.Scratchpad` concept is untouched).
-- References the ChatGPT, Claude, and Hermes (nousresearch) agent UIs.
-
-## v0.56: Channel Parity + TUI/Terminal Channel
-
-Plan: `docs/plans/v0.56-plan.md`
-Request flow: `docs/plans/v0.56-request-flow.md`
-
-Status: planned. NEW in the 2026-06-09 roadmap restructure; full plan authored
-in Phase B (research R4).
+in Phase B (research R4). Moved from v0.56 to v0.55 in the 2026-06-21 replan.
 
 Expected direction:
 
 - Establish an explicit channel capability/parity matrix across web, Telegram,
-  email, Discord, Slack, and the mobile channels.
+  email, Discord, Slack, and the mobile channels (lightweight acceptance frame;
+  the exhaustive cross-surface eval sweep stays in v0.59).
 - Introduce a proper TUI/terminal channel — a real channel under the ADR 0016
   contract (with identity, dedupe, approval primitives), not just the
   `mix allbert.ask` task.
+- Harvest Pi's split tool result (model-facing payload vs. surface render
+  payload) into the typed response contract (ADR 0029/0030) as the foundation
+  for streamed terminal rendering — the substrate the v0.57 Pi-mode coding
+  surface builds on.
 
-## v0.57: Intent Descriptor Learning + Registration Lifecycle Completion
+## v0.56: Intent Descriptor Learning + Registration Lifecycle Completion
 
-Plan: `docs/plans/v0.57-plan.md`
-Request flow: `docs/plans/v0.57-request-flow.md`
+Plan: `docs/plans/v0.56-plan.md`
+Request flow: `docs/plans/v0.56-request-flow.md`
 
 Status: planned. Inserted by the v0.54 post-implementation audit so the advanced
-ADR 0062 lifecycle remains in the 1.0 arc rather than being parked.
+ADR 0062 lifecycle remains in the 1.0 arc rather than being parked. Moved from
+v0.57 to v0.56 in the 2026-06-21 replan.
 
 Expected direction:
 
@@ -3427,16 +3433,66 @@ Expected direction:
   routing only changes after operator promotion, and registration signals rebuild
   correctly.
 
-## v0.58: Hardening, Export/Import, Settings Migration, And Final RC
+## v0.57: Pi-mode Coding Surface
+
+Plan: `docs/plans/v0.57-plan.md`
+Request flow: `docs/plans/v0.57-request-flow.md`
+ADR: `docs/adr/0068-pi-mode-coding-surface-and-local-coding-trust-tier.md` (to draft)
+Rationale: `docs/archives/pi-integration-rethink.md`
+
+Status: planned. NEW in the 2026-06-21 replan. Incorporates the Pi-vs-Allbert
+analysis: keep Allbert's authority spine, give it Pi's minimal inner loop where
+it helps (a gated coding surface), and adopt Pi's split-tool-result and
+minimalism budget.
+
+Expected direction:
+
+- A gated terminal coding surface as a channel/app under ADR 0016, on the one
+  authority spine — same `Actions.Runner.run/3`, Security Central, trace, and
+  memory as every other surface.
+- Four boundary actions (`read`/`write`/`edit`/`bash`) through the action
+  runner, a sub-1000-token system prompt, streamed diffs via the v0.55 split
+  payload, and a full-file context-gathering discipline.
+- A named "local coding / sandbox level 0" trust tier (extends ADR 0009): a
+  single trusted operator, main session, terminal channel — never the default,
+  never for channel-originated or generated-code sessions.
+- An operator affordance for mid-session model switch (req_llm context handoff).
+- Non-goals: no YOLO-by-default; no weakening of the action boundary, Security
+  Central, or confirmations; no model-decides-it's-done for effectful or
+  generated-code work; keep MCP-first with lazy disclosure; no sibling runtime.
+
+## v0.58: Web UX Redo
 
 Plan: `docs/plans/v0.58-plan.md`
 Request flow: `docs/plans/v0.58-request-flow.md`
+
+Status: planned. NEW in the 2026-06-09 roadmap restructure; full plan authored
+in Phase B (research R3). Moved from v0.55 to v0.58 in the 2026-06-21 replan so
+it lands right before v0.59 hardening, on top of mature intent and surfaces.
+
+Expected direction:
+
+- Re-layout the existing `/workspace` Surface substrate (ADR 0023/0024 kept):
+  chat becomes the primary surface, ephemeral surfaces become popups/modals,
+  the canvas is demoted to a launcher/secondary, and UI labels are cleaned up —
+  **"Conversations"** replaces the "threads" label (no internal rename; the
+  volatile `Session.Scratchpad` concept is untouched).
+- References the ChatGPT, Claude, and Hermes (nousresearch) agent UIs.
+- Sequenced after v0.56 intent deepening and the v0.55/v0.57 channel and coding
+  surfaces, so the chat-primary redo lands on top of mature routing.
+
+## v0.59: Hardening, Export/Import, Settings Migration, Operator Onboarding, And Final RC
+
+Plan: `docs/plans/v0.59-plan.md`
+Request flow: `docs/plans/v0.59-request-flow.md`
 ADR: `docs/adr/0046-settings-schema-migration-policy.md` (accepted here;
-drafted in v0.45)
+drafted in v0.45); `docs/adr/0069-operator-onboarding-flow.md` (to draft, if the
+onboarding flow constrains design)
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
 not implemented. Settings schema migration substrate added in the post-v0.37
-planning pass.
+planning pass; moved from v0.58 to v0.59 and given operator-onboarding scope in
+the 2026-06-21 replan.
 
 Expected direction:
 
@@ -3447,11 +3503,17 @@ Expected direction:
   per-fragment `schema_version`, additive-only between minor releases,
   one-release deprecation window, `mix allbert.settings.migrate` runner,
   operator-visible pending-migration report on boot.
+- **Make operator onboarding genuinely easy:** a guided first-run/setup path
+  over the *existing* settings, secrets, channel-pairing, and doctor flows —
+  framed as hardening/polish of paths that already exist, not a new capability —
+  surfaced through the v0.55 TUI channel.
 - Run the full security eval sweep across MCP client, integrations, browser,
   channels (Discord/Slack and WhatsApp/Signal/Matrix), Plan/Build,
   marketplace, self-improvement, voice, vision, and the v0.51 public protocol
   surfaces (MCP server, OpenAI-compatible API, ACP). Public AG-UI/A2UI and MCP
   Apps iframe evals remain parked.
+- Central action param-contract enforcement (M7, ADR 0065; precursor v0.54
+  ADR 0064).
 - Gather final RC evidence for the v1.0 contract freeze.
 
 ## v1.0: Stability Release And Public Contract Freeze
@@ -3504,9 +3566,9 @@ disposable-home checkpoint the release cannot ship without:
 6. Operator can review and approve a multi-step plan before execution
    (v0.44).
 7. Operator can export Allbert Home and re-import on a second machine with
-   identical behavior, including settings migration (v0.58 + ADR 0046).
+   identical behavior, including settings migration (v0.59 + ADR 0046).
 8. All warning, security, precommit, and cross-surface eval gates pass
-   (v0.58).
+   (v0.59).
 
 ### Capabilities That Ship In The Arc But Are Not Freeze-Blocking
 

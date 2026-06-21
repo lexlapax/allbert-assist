@@ -241,6 +241,11 @@ Core rules:
   diagnostics.
 - Model output must be validated against known skills, known actions, known
   permissions, and known execution modes before it can affect behavior.
+- Hold a minimalism budget: keep the inner conversational loop's system prompt
+  and default tool surface small, lazy-load the rest, and for each new capability
+  ask whether it belongs in the kernel or behind a contract/plugin/skill (see the
+  Design Posture in `docs/plans/allbert-jido-vision.md` and
+  `docs/archives/pi-integration-rethink.md`).
 
 ## Allbert Home
 

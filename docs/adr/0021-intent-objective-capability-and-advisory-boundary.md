@@ -44,7 +44,7 @@ the gap:
    one work item that spans two `RunAnalysis` confirmations.
 
 The project-direction rethink draft
-(`docs/plans/project-direction-rethink-01.md`) proposes adding an
+(`docs/archives/project-direction-rethink-01.md`) proposes adding an
 objective runtime layer between intent selection and action execution.
 This ADR records the binding decisions that govern that layer.
 
@@ -1022,7 +1022,7 @@ advisory; the deterministic acceptance check (against
 
 ## References
 
-- `docs/plans/project-direction-rethink-01.md` — the rethink draft
+- `docs/archives/project-direction-rethink-01.md` — the rethink draft
   that motivates this ADR.
 - `docs/plans/v0.23-plan.md` — Jido State-Machine Convergence
   (prerequisite).

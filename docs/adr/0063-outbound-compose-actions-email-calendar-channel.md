@@ -91,7 +91,7 @@ contracts they depend on:
 - **Outbound boundary:** `send_channel_message` calls
   `AllbertAssist.Channels.Outbound.send/4` (or the equivalent adapter behaviour
   callback), implemented for ready connected adapters before the action ships.
-  Matrix generic outbound degrades gracefully and is deferred to v0.56 M1. The
+  Matrix generic outbound degrades gracefully and is deferred to v0.55 M1. The
   action never calls provider clients directly.
 
 ### `send_email`

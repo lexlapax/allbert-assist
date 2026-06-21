@@ -2,13 +2,13 @@
 
 Status: Accepted
 
-Proposed amendment (v0.56, 2026-06-09 restructure): add the channel
+Proposed amendment (v0.55, 2026-06-09 restructure): add the channel
 capability/parity matrix as a first-class artifact (canonical prose here +
 machine-derived from channel descriptors via `ChannelParity` /
 `mix allbert.channels --parity`) and a persistent **TUI/terminal channel**
 (`channel_id: "tui"`, provider `"terminal"`, primitives `[:typed_command,
 :list]`), distinct from the non-channel `mix allbert.ask` (`:cli`) label. Flips
-to Accepted at v0.56 M4. See `docs/plans/v0.56-plan.md`.
+to Accepted at v0.55 M4. See `docs/plans/v0.55-plan.md`.
 
 Date: 2026-05-14
 
@@ -347,7 +347,7 @@ requires a future ADR/plan update.
 - v0.53 lands WhatsApp/Signal/Matrix with explicit primitive declarations,
   preserves `:list` as the mandatory fallback, and does not claim a portable
   Matrix button primitive.
-- The v0.58 cross-surface eval sweep adds an `approval-primitive-honor`
+- The v0.59 cross-surface eval sweep adds an `approval-primitive-honor`
   check per adapter.
 - v1.0 freezes the channel-adapter boundary including this primitive
   contract.

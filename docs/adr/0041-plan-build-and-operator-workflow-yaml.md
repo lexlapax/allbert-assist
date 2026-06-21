@@ -345,7 +345,7 @@ trace ingestion can re-read the file if needed for debugging).
   primitives; v0.44 plan cards render through existing channel-specific
   affordances and are expressible in
   `:typed_command`/`:button`/`:link`/`:list` without re-litigation.
-- **v0.58 Hardening / Export-Import** preserves the
+- **v0.59 Hardening / Export-Import** preserves the
   `<ALLBERT_HOME>/workflows/` directory and the `workflows.*` +
   `plan.*` core settings namespace with `schema_version: 1` per the
   ADR 0046 migration policy.
@@ -413,7 +413,7 @@ covering the new attack surface.
   (unified surface catalog, renderer, extension registry), ADR 0031
   (settings schema fragments and authority).
 - Forward-pins: ADR 0046 (settings schema migration policy; v0.44
-  declares `workflows.*` + `plan.*` at `schema_version: 1`; v0.57
+  declares `workflows.*` + `plan.*` at `schema_version: 1`; v0.56
   ships the migration tool).
 - Composes with: ADR 0049 (development gates and test
   parallelization) for the `release.v044` deterministic gate.

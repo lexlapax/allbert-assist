@@ -3,10 +3,10 @@
 ## Status
 
 Proposed (draft begins during v0.45 Marketplace Lite because marketplace adds
-new settings fragments). Accepted at v0.58 Hardening + Export/Import + Final
+new settings fragments). Accepted at v0.59 Hardening + Export/Import + Final
 RC where the migration tool ships.
 
-### v0.45 vs v0.58 split
+### v0.45 vs v0.59 split
 
 v0.45 adopts the **`schema_version` field convention only**: every new
 plugin-owned or feature-owned settings fragment declares
@@ -18,7 +18,7 @@ field validates at the fragment schema layer and is read-only.
 - v0.45 ships `marketplace.schema_version: 1` as the first new
   fragment to adopt the convention from M1.
 
-v0.58 ships the **runtime migration tool** + bump semantics +
+v0.59 ships the **runtime migration tool** + bump semantics +
 fail-closed handling for unknown schema versions at boot. The ADR
 flips to Accepted then.
 
@@ -49,7 +49,7 @@ silently breaking operator settings.
 
 The v1.0 acceptance matrix (per `docs/plans/roadmap.md`) requires
 disposable-home export/import on a second machine. That requirement implies
-a migration policy because export from v0.40 + import on v0.58 must work.
+a migration policy because export from v0.40 + import on v0.59 must work.
 
 ## Decision
 
@@ -141,8 +141,8 @@ config. They live under `lib/allbert_assist/settings/migrations/`.
 
 ### 6. Export/import preserves schema_version
 
-v0.58 export/import preserves each fragment's `schema_version` so a profile
-exported from v0.43 and imported on v0.58 is correctly identified as needing
+v0.59 export/import preserves each fragment's `schema_version` so a profile
+exported from v0.43 and imported on v0.59 is correctly identified as needing
 migrations and runs through `mix allbert.settings.migrate` before the second
 machine accepts the profile.
 
@@ -161,7 +161,7 @@ one-release warning cycle.
 - Plugin and app authors who register settings fragments inherit the
   deprecation policy automatically.
 - The migration audit trail is operator-inspectable and exports cleanly.
-- v0.58 export/import has a binding contract for what schema_version metadata
+- v0.59 export/import has a binding contract for what schema_version metadata
   to include.
 - v1.0 contract freeze covers the migration policy itself, not the
   ever-evolving key list.
@@ -180,10 +180,10 @@ one-release warning cycle.
 
 - **v0.45 Marketplace Lite**: draft ADR 0046 begins because marketplace
   introduces new fragment keys and is a good test case for the policy.
-- **v0.47-v0.56 milestones**: each new fragment SHOULD declare
+- **v0.47-v0.55 milestones**: each new fragment SHOULD declare
   `schema_version: 1` and add deprecation metadata for any key changes per
   this policy (even if the migration tool does not yet exist).
-- **v0.58 Hardening**: ADR 0046 accepted; `mix allbert.settings.migrate`
+- **v0.59 Hardening**: ADR 0046 accepted; `mix allbert.settings.migrate`
   implemented; export/import preserves `schema_version`; doctor shows pending
   migrations.
 - **v1.0**: migration policy frozen as Tier 1 contract; individual keys
