@@ -329,10 +329,11 @@ scope.
     Resequenced ahead of completing v0.53 (its channel approval workflow depends on
     the router) and before the v0.58 UX redo (chat quality depends on intent).
 55. v0.55 Channel Parity + TUI/Terminal Channel: explicit channel capability/
-    parity matrix and a proper TUI/terminal channel under the ADR 0016 contract
-    (identity, dedupe, approval primitives), not just `mix allbert.ask`. Harvests
-    Pi's split tool result (model-facing vs. surface payload; ADR 0029/0030) as
-    the foundation for streamed terminal rendering. ADR 0067.
+    parity matrix, `mix allbert.channels status`, and a proper TUI/terminal
+    channel under the ADR 0016 contract (list-shaped identity map, dedupe,
+    approval primitives), not just `mix allbert.ask`. Harvests Pi's split tool
+    result (`model_payload` vs. `surface_payload`; ADR 0029/0030) and the live
+    region as the foundation for v0.57 streamed terminal rendering. ADR 0067.
 56. v0.56 Intent Descriptor Learning + Registration Lifecycle Completion:
     completes ADR 0062 with local-model descriptor generation, learned-review
     proposal mining from reviewed runtime evidence, operator-exposed
@@ -3398,14 +3399,15 @@ Expected direction:
 
 - Establish an explicit channel capability/parity matrix across web, Telegram,
   email, Discord, Slack, and the mobile channels (lightweight acceptance frame;
-  the exhaustive cross-surface eval sweep stays in v0.59).
+  the exhaustive cross-surface eval sweep stays in v0.59), plus
+  `mix allbert.channels status` as the operator-readable channel status view.
 - Introduce a proper TUI/terminal channel — a real channel under the ADR 0016
-  contract (with identity, dedupe, approval primitives), not just the
-  `mix allbert.ask` task.
-- Harvest Pi's split tool result (model-facing payload vs. surface render
-  payload) into the typed response contract (ADR 0029/0030) as the foundation
-  for streamed terminal rendering — the substrate the v0.57 Pi-mode coding
-  surface builds on.
+  contract (with list-shaped identity mapping, event dedupe, approval primitives),
+  not just the `mix allbert.ask` task.
+- Harvest Pi's split tool result (`model_payload` vs. `surface_payload`) into
+  the typed response contract (ADR 0029/0030) as the foundation for terminal
+  rendering without model-context chrome leakage. v0.55 lands the split and live
+  region; v0.57 owns true streamed diff/token semantics.
 
 ## v0.56: Intent Descriptor Learning + Registration Lifecycle Completion
 

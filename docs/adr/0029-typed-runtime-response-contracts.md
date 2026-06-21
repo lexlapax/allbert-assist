@@ -35,6 +35,25 @@ unavailable results. `AllbertAssist.Runtime`, `AllbertAssist.Actions.Runner`,
 branches use the helper without changing existing operator-facing copy,
 confirmation semantics, or transport protocol fields.
 
+## v0.55 Amendment: Split Model/Surface Payloads
+
+Status: Proposed for v0.55 Channel Parity + TUI/Terminal Channel
+(`docs/plans/v0.55-plan.md`; ADR 0067).
+
+The typed response contract gains two optional fields:
+
+- `model_payload` — canonical content threaded into conversation history,
+  memory, and later model context.
+- `surface_payload` — renderer-specific content for the current surface. For the
+  TUI this may include terminal framing, paging hints, ANSI styling metadata, or
+  live-region render data.
+
+If neither field is present, existing `message` behavior remains the default. If
+only `model_payload` is present, `surface_payload` defaults to `model_payload`.
+Runtime and memory code must consume `model_payload`; renderers may consume
+`surface_payload`. Terminal chrome, prompts, paging markers, and live-block
+artifacts must never be stored as model-facing payload.
+
 ## Consequences
 
 - v0.32 panels can render action/objective status without special cases.

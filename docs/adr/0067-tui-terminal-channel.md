@@ -55,8 +55,10 @@ extension of the `mix allbert.ask` task. It satisfies the full ADR 0016 channel
 contract:
 
 - **Identity mapping.** The local terminal operator maps to a workspace
-  identity through the same identity-map seam every channel uses; the terminal
-  is not an implicit super-user.
+  identity through the same list-shaped identity-map seam every channel uses
+  (`external_user_id` terminal profile → local `user_id`); the terminal is not
+  an implicit super-user and does not get a shorthand `{"default":"local"}`
+  contract.
 - **Event dedupe.** Inbound terminal events (keystrokes/submits/resubmits,
   reconnect replays) pass the same inbound dedupe the channel boundary requires.
 - **Approval primitives.** `confirmation: :required` actions surface the
@@ -76,32 +78,32 @@ grants no authority.
 ### The split tool result pattern (amendment/extension to ADR 0029 and ADR 0030)
 
 Extend the typed response contract (`AllbertAssist.Runtime.Response`, ADR 0029)
-so a single typed result can carry **two distinct payloads**:
+so a single typed result can carry **two distinct named payloads**:
 
-- a **model-facing payload** — the canonical content the model and conversational
-  memory reason over; and
-- a **surface render payload** — what the surface (here, the terminal) actually
-  draws, including stream framing, paging/truncation affordances, and
+- `model_payload` — the canonical content the model and conversational memory
+  reason over; and
+- `surface_payload` — what the surface (here, the terminal) actually draws,
+  including live-region framing, paging/truncation affordances, and
   surface-specific formatting that must **not** leak back into model context.
 
-When a result carries only one payload, the surface render payload defaults to
-the model-facing payload, so existing CLI/LiveView behaviour and operator-facing
-copy are unchanged. The surface catalog/renderer (ADR 0030) is extended to honor
-the split: a renderer draws the surface payload; the runtime threads only the
-model-facing payload into memory and subsequent turns.
+When a result carries only one payload, `surface_payload` defaults to
+`model_payload`, so existing CLI/LiveView behaviour and operator-facing copy are
+unchanged. The surface catalog/renderer (ADR 0030) is extended to honor the
+split: a renderer draws `surface_payload`; the runtime threads only
+`model_payload` into memory and subsequent turns.
 
-This split is the contracted foundation for **streamed terminal rendering**: the
-terminal can render an evolving surface payload (a growing diff, incremental
-tokens) while the model-facing payload settles to its canonical final form.
+This split is the contracted foundation for future **streamed terminal
+rendering**: v0.55 lands the payload separation and live-region render substrate;
+v0.57 Pi-mode owns true streamed diff/token semantics.
 
 ## Rendering Model
 
 The TUI is **scrollback-native and line-oriented**. Completed turns are written
 as static scrollback lines (`Owl.Data` / `IO.ANSI` styling) so the terminal
 keeps its native scrolling and search. A SINGLE `Owl.LiveScreen` live block
-renders the active input prompt and the in-progress/streaming line — a
-differential update of only the bottom region, wrapped in synchronized-output
-escape sequences to avoid flicker (the same approach as the Pi coding agent).
+renders the active input prompt and the in-progress/live status line — a
+differential update of only the bottom region, using synchronized-output escape
+sequences where supported to avoid flicker.
 
 Explicitly: NO alternate-screen buffer, NO full-viewport ownership, NO
 full-screen redraw.
@@ -116,9 +118,9 @@ the Pi rationale in `docs/archives/pi-integration-rethink.md`.
 v0.55 deliberately lands two seams as the substrate that ADR 0068 (Pi-mode
 coding surface) extends ADDITIVELY, so Pi-mode needs no rework of this channel:
 
-1. The **split tool-result payload seam** — a model-facing payload separate from
-   the surface-render payload (extends ADR 0029/0030) — established in v0.55 even
-   though the v0.55 TUI consumes it simply.
+1. The **split tool-result payload seam** — `model_payload` separate from
+   `surface_payload` (extends ADR 0029/0030) — established in v0.55 even though
+   the v0.55 TUI consumes it simply.
 2. The **live region** as the streaming-render substrate Pi-mode draws streamed
    diffs into.
 
@@ -137,7 +139,7 @@ channel.
 - The typed response contract gains a model-facing vs. surface-render split.
   Single-payload results are unaffected; no operator-facing copy, confirmation
   semantics, or transport fields change for existing callers.
-- Streamed terminal rendering has a contracted seam: surface framing never
+- Future streamed terminal rendering has a contracted seam: surface framing never
   pollutes model context.
 - This channel and the split-result pattern are the **substrate the v0.57
   Pi-mode coding surface (ADR 0068) builds on** — its streamed split-payload

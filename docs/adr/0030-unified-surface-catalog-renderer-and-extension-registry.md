@@ -33,6 +33,19 @@ The v0.30 StockSage pass-through workspace adapters and
 tests proved `/agent` and `/stocksage/*` still render the v0.27 StockSage card
 DOM handles through the shared catalog path.
 
+## v0.55 Amendment: Split Payload Rendering
+
+Status: Proposed for v0.55 Channel Parity + TUI/Terminal Channel
+(`docs/plans/v0.55-plan.md`; ADR 0067).
+
+Renderers are extended to honor the ADR 0029 split-payload response contract:
+they draw `surface_payload` when present and fall back to `model_payload` /
+`message` for single-payload responses. The runtime-facing catalog remains a
+discovery/rendering path, not an authority grant. The TUI terminal renderer is
+the first consumer that materially diverges the two payloads: it may draw
+terminal framing from `surface_payload`, while memory and subsequent model turns
+consume only `model_payload`.
+
 ## Consequences
 
 - v0.32 adds workspace panels by extending one catalog/registry path.

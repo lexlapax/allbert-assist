@@ -5,12 +5,18 @@ Status: Accepted
 Proposed amendment (v0.55, 2026-06-09 restructure): add the channel
 capability/parity matrix as a first-class artifact (canonical prose here +
 machine-derived from channel descriptors via `ChannelParity` /
-`mix allbert.channels --parity`) and a persistent **TUI/terminal channel**
+`mix allbert.channels --parity`, plus operator-readable
+`mix allbert.channels status`) and a persistent **TUI/terminal channel**
 (`channel_id: "tui"`, provider `"terminal"`, primitives `[:typed_command,
 :list]`), distinct from the non-channel `mix allbert.ask` (`:cli`) label. Flips
 to Accepted at v0.55 M7. See `docs/plans/v0.55-plan.md`. See ADR 0067 for the
 TUI descriptor detail, the split tool-result payload extension (ADR 0029/0030),
 and the scrollback-native rendering model.
+
+The v0.55 TUI channel uses the same Settings Central identity-map shape as other
+channels: a list of entries mapping an external terminal profile id such as
+`"default"` to a local `user_id`, optionally disabled per entry. It must not
+introduce a terminal-only shorthand map or implicitly claim `"local"`.
 
 Date: 2026-05-14
 

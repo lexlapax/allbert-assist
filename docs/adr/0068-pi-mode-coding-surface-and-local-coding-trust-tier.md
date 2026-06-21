@@ -14,13 +14,14 @@ Rationale source: `docs/archives/pi-integration-rethink.md`.
 
 ## Context
 
-The v0.55 terminal channel (ADR 0067) makes a real, streamed, identity-mapped
-terminal surface available with a split model-facing/surface-render payload. That
-opens a concrete question the rethink in `docs/archives/pi-integration-rethink.md`
-raises: can Allbert host a focused terminal **coding** surface — read/write/edit
-files and run shell — without becoming a second authority spine, and without
-adopting the "YOLO, auto-approve everything, let the model decide when it's done"
-posture that off-the-shelf terminal coding agents default to?
+The v0.55 terminal channel (ADR 0067) makes a real, identity-mapped terminal
+surface available with a split `model_payload` / `surface_payload` contract and a
+live-region render substrate. That opens a concrete question the rethink in
+`docs/archives/pi-integration-rethink.md` raises: can Allbert host a focused
+terminal **coding** surface — read/write/edit files and run shell — without
+becoming a second authority spine, and without adopting the "YOLO, auto-approve
+everything, let the model decide when it's done" posture that off-the-shelf
+terminal coding agents default to?
 
 The constraints are firm. Allbert has **one** authority spine: every effectful
 operation goes through `Actions.Runner.run/3`, the action boundary, Security
