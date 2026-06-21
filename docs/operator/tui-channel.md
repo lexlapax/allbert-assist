@@ -1,8 +1,8 @@
 # TUI Channel Operator Guide
 
-Status: v0.55 M2 implemented. This guide covers the shipped terminal channel
-descriptor, basic `mix allbert.tui` launcher, identity mapping, and split-payload
-rendering seam. Approval rendering and typed approval resolution are M3 scope.
+Status: v0.55 M2/M3 implemented. This guide covers the shipped terminal channel
+descriptor, basic `mix allbert.tui` launcher, identity mapping, split-payload
+rendering seam, and typed approval rendering/resolution.
 
 ## Requirements
 
@@ -62,6 +62,17 @@ Manual M2 smoke:
 - Empty `channels.tui.identity_map`, restart the launcher if needed, and confirm
   the same terminal input is rejected without an assistant response.
 - Restore the identity map before continuing to later M3/M5 validation.
+
+Manual M3 approval smoke:
+
+- Trigger an action that returns `status: :needs_confirmation`.
+- Confirm the TUI prints exact typed commands plus numbered options:
+  `ALLBERT:APPROVE:<id>`, `ALLBERT:DENY:<id>`, and `ALLBERT:SHOW:<id>`.
+- Type one exact approval command at the same prompt.
+- Confirm the resolution result is printed and `mix allbert.confirmations list`
+  shows the confirmation resolved for channel `tui`.
+- Confirm no button/link affordance or target URL is printed in the terminal
+  approval handoff.
 
 Split-payload rule: runtime conversation history stores `model_payload`; terminal
 renderers draw `surface_payload`. Terminal framing, ANSI styling, paging hints, or

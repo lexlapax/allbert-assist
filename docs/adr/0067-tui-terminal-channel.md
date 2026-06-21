@@ -110,8 +110,11 @@ The first terminal adapter implementation is the shipped `plugins/allbert.tui`
 plugin. It registers provider `"terminal"`, `trust_class: :local`,
 `primitives: [:typed_command, :list]`, `threading: :rich`, and
 `session_strategy: {:tui_session, prefix: "ch_tui_"}`. The basic
-`mix allbert.tui` launcher starts the Owl input loop and scrollback renderer;
-approval-specific rendering remains the next M3 layer on the same channel.
+`mix allbert.tui` launcher starts the Owl input loop and scrollback renderer.
+The M3 layer renders approval handoffs as typed commands plus numbered options
+and resolves typed `ALLBERT:APPROVE|DENY|SHOW:<id>` commands through
+`Channels.ConfirmationCallback`, preserving identity proof and same-channel
+checks.
 
 ## Rendering Model
 

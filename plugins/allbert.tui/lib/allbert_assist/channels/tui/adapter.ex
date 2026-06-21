@@ -6,6 +6,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   require Logger
 
   alias AllbertAssist.Channels
+  alias AllbertAssist.Channels.ConfirmationCallback
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
   alias AllbertAssist.Channels.TUI.Renderer
@@ -159,10 +160,12 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
   defp process_text(text, opts, state) do
     fields = fields(text, opts, state)
+    command = ConfirmationCallback.parse_typed_command(fields.text)
+    direction = if command == :ignore, do: "inbound", else: "callback"
 
-    case insert_received_event(fields) do
+    case insert_received_event(fields, direction) do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
-        {handle_received_event(event, fields, state), state}
+        {handle_received_event(event, fields, command, state), state}
 
       {:ok, :duplicate} ->
         {{:ok, :duplicate}, state}
@@ -193,11 +196,11 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     }
   end
 
-  defp insert_received_event(fields) do
+  defp insert_received_event(fields, direction) do
     %{
       channel: @channel,
       provider: @provider,
-      direction: "inbound",
+      direction: direction,
       external_event_id: fields.external_event_id,
       external_user_id: fields.external_user_id,
       external_chat_id: fields.external_chat_id,
@@ -209,13 +212,14 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     |> event_result()
   end
 
-  defp handle_received_event(event, fields, state) do
+  defp handle_received_event(event, fields, command, state) do
     with :ok <- validate_text(fields.text),
          {:ok, user_id} <- resolve_identity(fields, state),
-         {:ok, inbound_trust} <- authorize_inbound(fields, user_id),
+         {:ok, inbound_trust} <- authorize_inbound(fields, user_id, command),
          session_id <-
            Channels.derive_session_id(@channel, fields.external_user_id, fields.external_chat_id),
-         {:ok, response} <- submit_runtime(fields, user_id, session_id, inbound_trust),
+         {:ok, response} <-
+           process_text_or_callback(command, fields, state, user_id, session_id, inbound_trust),
          {:ok, rendered} <-
            Renderer.render_response(response, max_text_bytes: state.max_text_bytes),
          :ok <- emit_rendered(rendered, state),
@@ -240,16 +244,69 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     )
   end
 
-  defp authorize_inbound(fields, user_id) do
+  defp authorize_inbound(fields, user_id, command) do
     InboundTrust.authorize(%{
       user_id: user_id,
       channel: @channel,
       provider: @provider,
-      surface: "tui_prompt",
+      surface: tui_surface(command),
       external_user_id: fields.external_user_id,
       external_chat_id: fields.external_chat_id,
       receiver_account_ref: fields.receiver_account_ref
     })
+  end
+
+  defp tui_surface(:ignore), do: "tui_prompt"
+  defp tui_surface({:ok, _action, _confirmation_id}), do: "tui_typed_command"
+
+  defp process_text_or_callback(:ignore, fields, _state, user_id, session_id, inbound_trust) do
+    submit_runtime(fields, user_id, session_id, inbound_trust)
+  end
+
+  defp process_text_or_callback(
+         {:ok, action, confirmation_id},
+         fields,
+         state,
+         user_id,
+         session_id,
+         _inbound_trust
+       ) do
+    with {:ok, response} <-
+           ConfirmationCallback.run(%{
+             action: action,
+             confirmation_id: confirmation_id,
+             channel: @channel,
+             user_id: user_id,
+             session_id: session_id,
+             surface: "tui_typed_command",
+             identity_proof: identity_proof(fields, state, user_id),
+             resolver_metadata: %{
+               provider: @provider,
+               external_event_id: fields.external_event_id,
+               external_user_id: fields.external_user_id,
+               external_chat_id: fields.external_chat_id,
+               external_message_id: fields.external_message_id,
+               command: "ALLBERT:#{String.upcase(to_string(action))}:#{confirmation_id}"
+             }
+           }) do
+      {:ok,
+       %{
+         model_payload: ConfirmationCallback.reply_text(response),
+         surface_payload: Renderer.confirmation_reply(response),
+         status: :completed
+       }}
+    end
+  end
+
+  defp identity_proof(fields, state, user_id) do
+    %{
+      channel: @channel,
+      user_id: user_id,
+      external_user_id: fields.external_user_id,
+      external_chat_id: fields.external_chat_id,
+      receiver_account_ref: fields.receiver_account_ref,
+      identity_map: Map.get(state.settings, "identity_map", [])
+    }
   end
 
   defp submit_runtime(fields, user_id, session_id, inbound_trust) do
@@ -302,9 +359,17 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
   defp mark_rejected_or_failed(event, reason) do
     status =
-      if reason in [:empty_text, :not_mapped, :disabled, :channel_message_inbound_denied],
-        do: "rejected",
-        else: "failed"
+      if reason in [
+           :empty_text,
+           :not_mapped,
+           :disabled,
+           :wrong_channel,
+           :wrong_user,
+           :unsupported_callback_action,
+           :channel_message_inbound_denied
+         ],
+         do: "rejected",
+         else: "failed"
 
     Channels.update_event(event, %{status: status, reason: inspect(Redactor.redact(reason))})
   end
