@@ -10,7 +10,12 @@ surface catalog/renderer — the terminal surface registers here), ADR 0006
 (Security Central — a channel grants no authority), ADR 0056 (channel inbound
 trust tier — invariants unchanged).
 Successor: ADR 0068 (v0.57 Pi-mode coding surface), which builds directly on
-this channel and on the split-result pattern established here.
+this channel and on the split-result pattern established here — Pi-mode builds
+on this ADR's split-payload seam and live region.
+
+ADR 0016's v0.55 amendment owns the channel reservation and the
+capability/parity-matrix artifact; this ADR (0067) owns the descriptor detail,
+the split-payload extension, and the rendering model.
 
 ## Context
 
@@ -88,6 +93,41 @@ model-facing payload into memory and subsequent turns.
 This split is the contracted foundation for **streamed terminal rendering**: the
 terminal can render an evolving surface payload (a growing diff, incremental
 tokens) while the model-facing payload settles to its canonical final form.
+
+## Rendering Model
+
+The TUI is **scrollback-native and line-oriented**. Completed turns are written
+as static scrollback lines (`Owl.Data` / `IO.ANSI` styling) so the terminal
+keeps its native scrolling and search. A SINGLE `Owl.LiveScreen` live block
+renders the active input prompt and the in-progress/streaming line — a
+differential update of only the bottom region, wrapped in synchronized-output
+escape sequences to avoid flicker (the same approach as the Pi coding agent).
+
+Explicitly: NO alternate-screen buffer, NO full-viewport ownership, NO
+full-screen redraw.
+
+Rationale: `owl` is a top-to-bottom CLI toolkit explicitly distinct from
+full-screen TUI libraries; `ratatouille` / `ex_termbox` / `ExNcurses` are
+rejected (native build + full-screen takeover that loses scrollback). Reference:
+the Pi rationale in `docs/archives/pi-integration-rethink.md`.
+
+## Foundation For v0.57 Pi-mode
+
+v0.55 deliberately lands two seams as the substrate that ADR 0068 (Pi-mode
+coding surface) extends ADDITIVELY, so Pi-mode needs no rework of this channel:
+
+1. The **split tool-result payload seam** — a model-facing payload separate from
+   the surface-render payload (extends ADR 0029/0030) — established in v0.55 even
+   though the v0.55 TUI consumes it simply.
+2. The **live region** as the streaming-render substrate Pi-mode draws streamed
+   diffs into.
+
+Plus: v0.55 keeps the action boundary level-0-compatible (maps to `"local"`
+identity, every action through `Actions.Runner.run/3` + Security Central) so
+v0.57 can add the named "local coding / sandbox level 0" trust tier on the SAME
+adapter/channel without weakening the boundary. Pi-mode runs IN the same
+persistent TUI session (the v0.55 operator/validation console), not a new
+channel.
 
 ## Consequences
 

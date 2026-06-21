@@ -8,7 +8,9 @@ machine-derived from channel descriptors via `ChannelParity` /
 `mix allbert.channels --parity`) and a persistent **TUI/terminal channel**
 (`channel_id: "tui"`, provider `"terminal"`, primitives `[:typed_command,
 :list]`), distinct from the non-channel `mix allbert.ask` (`:cli`) label. Flips
-to Accepted at v0.55 M4. See `docs/plans/v0.55-plan.md`.
+to Accepted at v0.55 M7. See `docs/plans/v0.55-plan.md`. See ADR 0067 for the
+TUI descriptor detail, the split tool-result payload extension (ADR 0029/0030),
+and the scrollback-native rendering model.
 
 Date: 2026-05-14
 
