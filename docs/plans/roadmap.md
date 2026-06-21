@@ -311,8 +311,7 @@ Dependency order from here:
 M11 adds capability release availability (ADR 0066): WhatsApp and Signal are
 implemented but not released for live use in v0.53 because their provider/
 bridge onboarding is too high-friction for the release bar. Discord/Slack remain
-released from v0.52; Discord regression has passed for v0.53 M11, and Slack must
-still be revalidated as the remaining v0.53 closeout regression after M11 shared
+released from v0.52; both passed v0.53 M11 closeout regression after M11 shared
 channel plumbing changes. That does not make either channel new v0.53 feature
 scope.
 54. v0.54 Intent Deepening: a local-first **two-stage intent router** (embedding
@@ -3239,9 +3238,10 @@ ADRs: `docs/adr/0056-...` (v0.53 amendment — public signed webhook),
 `docs/adr/0059-channel-trust-class-and-relay-gating.md` (NEW),
 `docs/adr/0066-capability-release-availability-gate.md` (Accepted).
 
-Status: implemented as `0.53.0` through M11; Discord regression validation has
-passed, and Slack regression validation remains before the tag. Version metadata
-stays `0.53.0` (tag-blocked). **Telegram + email live real-provider validation is done
+Status: validation complete and release-ready for `0.53.0` through M11. Version
+metadata for the historical v0.53 implementation was `0.53.0`; current mainline
+metadata is `0.54.0` because v0.54 has already closed. **Telegram + email live
+real-provider validation is done
 (2026-06-17):** email surfaced and fixed three IMAP/SMTP bugs (login/select 3-tuple,
 verified-TLS SMTP, success-as-error normalization — see CHANGELOG v0.53 §Fixed);
 Telegram doctor + delivery + inbound smokes passed with **0 code bugs**, and both
@@ -3250,6 +3250,9 @@ the required router/descriptor/outbound prerequisite. **Matrix real-provider
 validation is done (2026-06-18):** delivery and inbound smokes passed, mapped
 approval callbacks processed, unmapped callbacks were rejected, and the release
 owner accepted the encrypted-room exclusion as validated for this pass.
+**Discord + Slack v0.53 M11 regression validation is done (2026-06-21):**
+delivery and inbound smokes passed for both v0.52-released channels after M11
+shared-channel changes.
 WhatsApp Cloud API is implemented but live Cloud API validation is
 provider-blocked/deferred after Meta returned object/permission and
 unregistered-account failures in both the developer UI and Graph API; the
