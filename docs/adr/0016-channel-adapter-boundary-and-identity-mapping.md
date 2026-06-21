@@ -5,13 +5,16 @@ Status: Accepted
 Proposed amendment (v0.55, 2026-06-09 restructure): add the channel
 capability/parity matrix as a first-class artifact (canonical prose here +
 machine-derived from channel descriptors via `ChannelParity` /
-`mix allbert.channels --parity`, plus operator-readable
-`mix allbert.channels status`) and a persistent **TUI/terminal channel**
+`mix allbert.channels --parity`) and a persistent **TUI/terminal channel**
 (`channel_id: "tui"`, provider `"terminal"`, primitives `[:typed_command,
 :list]`), distinct from the non-channel `mix allbert.ask` (`:cli`) label. Flips
 to Accepted at v0.55 M6. See `docs/plans/v0.55-plan.md`. See ADR 0067 for the
 TUI descriptor detail, the split tool-result payload extension (ADR 0029/0030),
 and the scrollback-native rendering model.
+
+Follow-on amendment (v0.55.1): ADR 0070 adds the operator-readable
+`mix allbert.channels status` report and the in-TUI read-only slash-command
+console. Status is intentionally not part of the v0.55 channel/parity amendment.
 
 The v0.55 TUI channel uses the same Settings Central identity-map shape as other
 channels: a list of entries mapping an external terminal profile id such as

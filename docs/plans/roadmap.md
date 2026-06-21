@@ -337,8 +337,9 @@ scope.
 55.1. v0.55.1 TUI Operator/Validation Console: makes the v0.55 TUI the persistent,
     mix-free operator/validation console — in-TUI slash-commands (`/status`,
     `/confirmations`, `/events`, `/channels`, `/settings get`, `/help`) and
-    `mix allbert.channels status`, each a registered **read-only, operator-only**
-    inspection action (not an intent candidate) resolved through
+    `mix allbert.channels status`, each backed by registered **read-only internal**
+    inspection actions, reachable only through the slash-command allowlist or their
+    explicit Mix task twin, never intent candidates, resolved through
     `Actions.Runner.run/3`. Migrates interactive operator validation onto one warm
     BEAM (no cold per-turn `mix` calls). Point release; arc unchanged. ADR 0070.
 56. v0.56 Intent Descriptor Learning + Registration Lifecycle Completion:
@@ -358,8 +359,8 @@ scope.
 58. v0.58 Web UX Redo: re-layout `/workspace` (ADR 0023/0024 kept) — chat
     primary, ephemeral surfaces become popups, canvas demoted, labels cleaned
     up ("Conversations" replaces "threads"); references ChatGPT/Claude/Hermes.
-    Sequenced after intent (v0.56) and the channel/coding surfaces (v0.55/0.57)
-    so chat quality is mature first.
+    Sequenced after intent (v0.56) and the channel/console/coding surfaces
+    (v0.55/v0.55.1/v0.57) so chat quality is mature first.
 59. v0.59 Hardening, export/import, settings schema migration substrate,
     operator onboarding simplification, and final RC: no new user-facing
     capability; Allbert Home portability, cross-surface security eval sweep,
@@ -367,7 +368,7 @@ scope.
     migration tool (per ADR 0046), central action param-contract enforcement
     (M7, ADR 0065; precursor v0.54 ADR 0064), a genuinely easy first-run
     operator onboarding path over the existing settings/secrets/channel-pairing/
-    doctor flows surfaced through the v0.55 TUI (ADR 0069), and
+    doctor flows surfaced through the v0.55.1 TUI console (ADR 0069), and
     release-candidate closeout.
 60. v1.0 Stability release and **tiered public contract freeze**: no new
     features; freeze Tier 1 (Runtime, Actions/permissions, Plugin, App,
@@ -3432,10 +3433,11 @@ Expected direction:
   go-forward operator validation, instead of cold per-turn `mix allbert.ask`.
 - In-TUI slash-commands (`/status`, `/confirmations`, `/events`, `/channels`,
   `/settings get`, `/help`) and `mix allbert.channels status`, each a registered
-  **read-only, operator-only** inspection action resolved through
-  `Actions.Runner.run/3` — not intent candidates, no mutation, redacted output,
-  backed by the same read facades the existing `mix allbert.*` tasks use (ADR
-  0070).
+  **read-only internal** inspection action resolved through `Actions.Runner.run/3`
+  and reachable only through the slash-command allowlist or explicit Mix task twin
+  — not intent candidates, no mutation, redacted output, backed by the same
+  read-report DTO source / existing action reads the `mix allbert.*` tasks render
+  (ADR 0070).
 - Migrate the operator-validation/testing instructions onto the warm console;
   `mix allbert.test` (deterministic CI gates) is unchanged.
 - Reinforces the v0.57 Pi-mode foundation: Pi-mode runs in this same persistent
@@ -3513,8 +3515,9 @@ Expected direction:
   **"Conversations"** replaces the "threads" label (no internal rename; the
   volatile `Session.Scratchpad` concept is untouched).
 - References the ChatGPT, Claude, and Hermes (nousresearch) agent UIs.
-- Sequenced after v0.56 intent deepening and the v0.55/v0.57 channel and coding
-  surfaces, so the chat-primary redo lands on top of mature routing.
+- Sequenced after v0.56 intent deepening and the v0.55/v0.55.1/v0.57
+  channel/console/coding surfaces, so the chat-primary redo lands on top of
+  mature routing.
 
 ## v0.59: Hardening, Export/Import, Settings Migration, Operator Onboarding, And Final RC
 
@@ -3542,7 +3545,7 @@ Expected direction:
 - **Make operator onboarding genuinely easy:** a guided first-run/setup path
   over the *existing* settings, secrets, channel-pairing, and doctor flows —
   framed as hardening/polish of paths that already exist, not a new capability —
-  surfaced through the v0.55 TUI channel.
+  surfaced through the v0.55.1 TUI console.
 - Run the full security eval sweep across MCP client, integrations, browser,
   channels (Discord/Slack and WhatsApp/Signal/Matrix), Plan/Build,
   marketplace, self-improvement, voice, vision, and the v0.51 public protocol
