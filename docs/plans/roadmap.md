@@ -344,7 +344,7 @@ scope.
     BEAM (no cold per-turn `mix` calls). Point release; arc unchanged. ADR 0070.
 56. v0.56 Intent Descriptor Learning + Registration Lifecycle Completion:
     completes ADR 0062 with local-model descriptor generation, learned-review
-    proposal mining from reviewed runtime evidence, operator-exposed
+    proposal mining from reviewed runtime evidence, operator-callable
     `optimize_intent_descriptors`, and full app/plugin/action registration
     reindex signals. Model/learned proposals remain inert until operator
     promotion and never grant authority.
@@ -3464,7 +3464,7 @@ ADRs: `docs/adr/0062-...` (completion amendment),
 Status: planned. Inserted by the v0.54 post-implementation audit so the advanced
 ADR 0062 lifecycle remains in the 1.0 arc rather than being parked. Moved from
 v0.57 to v0.56 in the 2026-06-21 replan. Deepened 2026-06-22 from a 6-milestone
-foundation into a 15-milestone release (M0-M14) after the readiness pass: routing
+foundation into a 16-milestone release (M0-M15) after the readiness pass: routing
 accuracy, full coverage, and model recommendations became first-class pillars.
 
 Expected direction:
@@ -3473,7 +3473,7 @@ Expected direction:
   generation (bounded, redacted, deterministic YAML, heuristic fallback);
   learned-review proposal mining from reviewed memory, resolved clarifications,
   approved confirmations, redacted intent traces, and operator corrections; the
-  operator-exposed `optimize_intent_descriptors` action; and full
+  operator-callable `optimize_intent_descriptors` action; and full
   reindex-on-registration for `allbert.app.registered`,
   `allbert.plugin.registered`, and `allbert.action.registry_changed` alongside the
   v0.54 dynamic-codegen signals.
@@ -3489,14 +3489,15 @@ Expected direction:
   guide (`docs/operator/model-recommendations.md`), recommended Settings Central
   defaults per purpose, and per-purpose reporting folded into
   `mix allbert.intent doctor` + `mix allbert.settings model-doctor`. v0.56 also
-  corrects the repo-wide `gemma4:*` defaults (no such public Ollama tags) to
-  `gemma3:27b`/`gemma3n:e2b`.
+  keeps repo-wide defaults aligned to current public Ollama tags
+  (`gemma4:26b` escalation and the existing `gemma4:e2b` local STT default).
 - **Operator Action Layer (systemic):** every intent/eval/model operation — including
   the shipped v0.54 `mix allbert.intent` CLI — becomes a registered Jido action through
-  `Actions.Runner.run/3` (reads `:internal`/`:read_only`; mutations operator-exposed +
-  gated), so CLI, TUI slash, the v0.58 web panels, and any channel are thin views over
-  one implementation (extends ADR 0070). Now 16 milestones (M0-M15); gate thresholds
-  0.85 overall / 0.80 per-domain; corpus capture→add→commit to a committed fixture.
+  `Actions.Runner.run/3` (reads `:internal`/`:read_only`; mutations callable only from
+  explicit operator surfaces/tasks + gated), so CLI, TUI slash, and the v0.58 web
+  operator panels are thin views over one implementation (extends ADR 0070). Now 16
+  milestones (M0-M15); gate thresholds 0.85 overall / 0.80 per-domain; corpus
+  capture→add→commit to a committed fixture.
 - Cross-cutting: all new settings go through Settings Central, all security
   decisions through Security Central, and every operator read-model (coverage,
   descriptor list, eval/gate status, model recommendations) is a redacted DTO from a

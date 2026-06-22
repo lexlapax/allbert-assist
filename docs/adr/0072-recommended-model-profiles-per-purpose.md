@@ -66,24 +66,23 @@ Operator Action Layer pattern). For each purpose it returns **recommended** vs
 remote-egress-warning` — using the ADR 0047 doctor envelope (redacted; never prints
 secrets or raw endpoints).
 
-### Correct model tags (no `gemma4:*`)
+### Current public model tags
 
-The recommended defaults must reference **real public Ollama tags**. The escalation
-default is corrected from the non-existent `gemma4:26b` to `gemma3:27b` (alternative
-`gemma2:27b`), and the local STT default from `gemma4:e2b` to `gemma3n:e2b` (the
-Gemma 3n effective-parameter tag). The Settings Central schema defaults
-(`settings/schema.ex`), `voice/local_runtime/config.ex`,
-`docs/developer/provider-capabilities.md`, and the `gemma4` references in ADR 0052 /
-ADR 0061 are reconciled to the corrected tags during v0.56 M4; `model_doctor` then
-guards against recurrence by reporting `not-pulled`/`under-capable`.
+The recommended defaults must reference **real public Ollama tags** and stay aligned
+with Settings Central. Current public Ollama docs list `gemma4:26b` as the local
+workstation escalation tag and `gemma4:e2b` / `gemma4:e4b` as edge local tags. v0.56
+therefore keeps the existing Settings Central defaults (`router_escalation_local` =
+`gemma4:26b`, local STT validation default = `gemma4:e2b`) and reconciles stale docs
+that claimed `gemma4:*` was unavailable. `model_doctor` guards against drift by
+reporting `not-pulled`/`under-capable` for missing or insufficient local models.
 
 ### 4. UI/UX surfacing
 
-The recommendation read-model (purpose → recommended/configured/status) is exposed
-as a read-only DTO so operator surfaces can render it: the CLI doctors render it in
-v0.56; the v0.58 Web UX redo renders it in a Settings/Models panel; a future TUI
-affordance can surface it through the v0.55.1 console pattern. v0.56 ships the DTO +
-CLI; web/TUI rendering is flagged for v0.58 (see the v0.56 plan UI/UX milestone).
+The recommendation read-model (purpose -> recommended/configured/status) is exposed
+as a read-only DTO so operator surfaces can render it: the CLI doctors and TUI
+`/models` read render it in v0.56; the v0.58 Web UX redo renders it in a
+Settings/Models panel. v0.56 ships the DTO plus CLI/TUI rendering; web rendering is
+flagged for v0.58 (see the v0.56 plan UI/UX milestone).
 
 ## Authority invariants
 

@@ -23,7 +23,7 @@ small/wrong capability) · `not-pulled` (local model not downloaded) ·
 |---|---|---|---|---|---|---|
 | Intent Stage-1 embedding | `nomic-embed-text` (or `bge-small`) via Ollama | — keep local | embeddings, ~300M–1.4B | **local-only required** | `intent.router_embedding_profile = embedding_local` | Prefilter returns fallback → deterministic ladder |
 | Intent Stage-2 disambiguation | `llama3.1:8b` | a capable hosted chat model | constrained-object/JSON, 7–8B | local-first | `intent.router_model_profile = router_local` | heuristic / clarify |
-| Intent escalation (low-confidence tail) | `gemma3:27b` (or `gemma2:27b`) (local) | capable hosted | larger reasoning | local default; egress audited | `intent.router_escalation_profile = router_escalation_local` | second pass -> clarify |
+| Intent escalation (low-confidence tail) | `gemma4:26b` (local) | capable hosted | larger reasoning | local default; egress audited | `intent.router_escalation_profile = router_escalation_local` | second pass -> clarify |
 | Descriptor generation (v0.56) | reuse `router_local` | opt-in hosted | json_schema generation | local-only, redacted | reuses `intent.router_model_profile` | heuristic generator |
 | Intent eval **live** bench (v0.56) | reuse `router_local` | — | same as disambiguation | local | reuses `intent.router_model_profile` | deterministic gate is model-free |
 | Main conversational loop | `:capable` / `:thinking` (object), `:fast` (text/stream) | per provider | text + structured output | operator choice | `jido_ai` aliases (config) + Settings Central model profiles | graceful decline |
@@ -41,13 +41,13 @@ already uses). Typical setup:
 ```sh
 ollama pull nomic-embed-text
 ollama pull llama3.1:8b
-ollama pull gemma3:27b      # optional local escalation tier (or gemma2:27b)
+ollama pull gemma4:26b      # optional local escalation tier
 mix allbert.intent doctor   # confirm embedder + router model report ok
 ```
 
-> Tag note: earlier defaults referenced `gemma4:*` tags that are not in the public
-> Ollama library (which lists gemma2 / gemma3 / gemma3n). v0.56 corrects the escalation
-> default to `gemma3:27b` and the local STT default to `gemma3n:e2b`; `model_doctor`
+> Tag note: current Ollama model docs list `gemma4:26b` for local workstation
+> escalation and `gemma4:e2b` / `gemma4:e4b` for edge local use. v0.56 keeps the
+> existing Settings Central defaults aligned to those public tags; `model_doctor`
 > reports `not-pulled` for any tag you have not yet pulled.
 
 ## Privacy and egress

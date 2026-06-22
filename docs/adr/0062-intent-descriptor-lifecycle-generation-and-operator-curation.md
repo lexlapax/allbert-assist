@@ -27,7 +27,7 @@ behavior and are now assigned to v0.56:
 - local-model descriptor generation through `router_local`;
 - learned-review proposal mining from memory, clarifications, confirmations,
   traces, and operator corrections;
-- the operator-exposed `optimize_intent_descriptors` registered action;
+- the operator-callable `optimize_intent_descriptors` registered action;
 - `allbert.app.registered`, `allbert.plugin.registered`, and
   `allbert.action.registry_changed` signal emission/consumption.
 
@@ -233,7 +233,8 @@ index. v0.54 shipped the Mix task/CLI path; v0.56 adds the registered action
 surface (doctor envelope, ADR 0047):
 
 - v0.54: `mix allbert.intent optimize` / `mix allbert.intent reindex`.
-- v0.56: action `optimize_intent_descriptors` (operator-exposed).
+- v0.56: action `optimize_intent_descriptors` (internal action callable only from
+  explicit operator surfaces/tasks).
 - Steps: scan the live action registry → diff against resolved descriptors →
   generate candidates for uncovered actions (→ `learned/review/` or accepted
   `generated/` per policy) → rebuild the Index → emit an audit + a **coverage

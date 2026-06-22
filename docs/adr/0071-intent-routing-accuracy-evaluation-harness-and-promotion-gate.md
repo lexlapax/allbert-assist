@@ -134,14 +134,15 @@ in `safe_write_keys`); the gate reads them through the schema, never hard-codes 
 ### 6. Operations are registered actions
 
 Every eval operation is a **registered Jido action** resolved through
-`Actions.Runner.run/3`, not Mix-task-local code — so the Mix CLI, the TUI, the v0.58
-web panels, and any channel are thin views over one implementation (extends ADR 0070).
+`Actions.Runner.run/3`, not Mix-task-local code — so the Mix CLI, the TUI, and the
+v0.58 web operator panels are thin views over one implementation (extends ADR 0070).
 Reads (`intent_eval_run`, plus the lifecycle `intent_doctor`/`intent_coverage`/
 `intent_list_descriptors`/`intent_list_review`) are `exposure: :internal`,
 `permission: :read_only`, absent from `Actions.Registry.agent_modules/0`, and never
 intent candidates. Mutations (`intent_eval_baseline`/`capture`/`add`,
-`promote_intent_descriptor`, `optimize_intent_descriptors`) are operator-exposed and
-audited; the ones that touch routing call the gate helper rather than re-implementing it.
+`promote_intent_descriptor`, `optimize_intent_descriptors`) are callable only from
+explicit operator surfaces/tasks and audited; the ones that touch routing call the
+gate helper rather than re-implementing it.
 
 ## Authority invariants
 
