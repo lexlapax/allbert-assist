@@ -202,16 +202,13 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
     assert_eval_group!(:tui_supervision)
 
     tui_child =
-      Supervisor.child_spec(
-        {TUIAdapter,
-         [
-           name: nil,
-           enabled?: true,
-           auto_input?: false,
-           live_screen?: false,
-           output_fun: fn _line -> :ok end
-         ]},
-        id: "tui"
+      tui_descriptor_child_spec!(
+        name: nil,
+        enabled?: true,
+        auto_input?: false,
+        live_screen?: false,
+        output_fun: fn _line -> :ok end,
+        restart: :transient
       )
 
     sibling_child =
@@ -222,6 +219,7 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
 
     old_tui_pid = child_pid!(supervisor, "tui")
     sibling_pid = child_pid!(supervisor, :sibling)
+    launcher = Task.async(fn -> TUIAdapter.run_supervised_forever(supervisor) end)
 
     Process.exit(old_tui_pid, :kill)
     new_tui_pid = eventually_child_pid!(supervisor, "tui", old_tui_pid)
@@ -229,6 +227,10 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
     assert Process.alive?(sibling_pid)
     assert Process.alive?(new_tui_pid)
     refute new_tui_pid == old_tui_pid
+    assert nil == Task.yield(launcher, 50)
+
+    GenServer.stop(new_tui_pid, :normal)
+    assert :normal == Task.await(launcher, 1_000)
   end
 
   test "TUI approval rendering honors typed-command/list primitives and same-channel resolution" do
@@ -385,6 +387,18 @@ defmodule AllbertAssist.Security.V055TUIChannelEvalTest do
 
   defp row!(rows, channel) do
     Enum.find(rows, &(&1.channel == channel)) || flunk("missing parity row #{channel}")
+  end
+
+  defp tui_descriptor_child_spec!(opts) do
+    Channels.channel_child_specs(channel_child_opts: %{"tui" => opts})
+    |> Enum.find_value(fn
+      %{id: "tui"} = child -> child
+      _child -> nil
+    end)
+    |> case do
+      nil -> flunk("missing descriptor-derived tui child spec")
+      child -> child
+    end
   end
 
   defp child_pid!(supervisor, child_id) do

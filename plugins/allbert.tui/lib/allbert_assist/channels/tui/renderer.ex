@@ -129,8 +129,6 @@ defmodule AllbertAssist.Channels.TUI.Renderer do
     Map.get(map, key, Map.get(map, Atom.to_string(key), default))
   end
 
-  defp response_field(_map, _key, default), do: default
-
   defp normalize_text(text) when is_binary(text) do
     text
     |> String.replace("\r\n", "\n")

@@ -3400,8 +3400,11 @@ Plan: `docs/plans/v0.55-plan.md`
 Request flow: `docs/plans/v0.55-request-flow.md`
 ADR: `docs/adr/0067-tui-terminal-channel.md` (Proposed; accept in v0.55)
 
-Status: planned. NEW in the 2026-06-09 roadmap restructure; full plan authored
-in Phase B (research R4). Moved from v0.56 to v0.55 in the 2026-06-21 replan.
+Status: implemented through M4, with M5 manual validation and M6 release closeout
+pending. NEW in the 2026-06-09 roadmap restructure; full plan authored in Phase B
+(research R4). Moved from v0.56 to v0.55 in the 2026-06-21 replan. A post-M4
+audit correction routes the live `mix allbert.tui` prompt through the
+descriptor-derived `Channels.Supervisor` child before M5 manual validation.
 
 Expected direction:
 

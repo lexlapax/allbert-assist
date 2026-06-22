@@ -618,12 +618,14 @@ Implemented v0.41 gates:
   lifecycle foundation; M10 adds outbound compose actions for email, calendar, and
   channel send (ADR 0063); M11 hardens slot/param normalization (ADR 0064). Model
   output stays advisory. Matrix generic outbound is deferred to v0.55 M1.
-- v0.55 (planned): Channel Parity + TUI/Terminal Channel. Explicit channel
-  capability/parity matrix, Matrix generic outbound gap closure, and a proper
-  TUI/terminal channel under the ADR 0016 contract using the shared list-shaped
-  identity map (basic `mix allbert.tui` launcher); harvests Pi's
-  `model_payload`/`surface_payload` split (ADR 0067 extending ADR 0029/0030) and
-  live region as the v0.57 coding-surface foundation.
+- v0.55 (implemented through M4; M5/M6 pending): Channel Parity + TUI/Terminal
+  Channel. Explicit channel capability/parity matrix, Matrix generic outbound gap
+  closure, and a proper TUI/terminal channel under the ADR 0016 contract using
+  the shared list-shaped identity map (basic supervised `mix allbert.tui`
+  launcher); harvests Pi's `model_payload`/`surface_payload` split (ADR 0067
+  extending ADR 0029/0030) and live region as the v0.57 coding-surface
+  foundation. A post-M4 audit correction made the live prompt the
+  descriptor-derived `Channels.Supervisor` child before M5 manual validation.
 - v0.55.1 (planned): TUI Operator/Validation Console (point release). The v0.55
   TUI becomes the persistent, mix-free operator/validation console — in-TUI
   slash-commands + `mix allbert.channels status` backed by registered read-only

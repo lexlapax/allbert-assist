@@ -187,7 +187,7 @@ defmodule AllbertAssist.Channels do
   def channel_child_specs(opts \\ []) do
     PluginRegistry.registered_channels()
     |> Enum.filter(&(&1.status == :enabled))
-    |> Enum.map(&descriptor_child_spec(&1, opts))
+    |> Enum.map(&descriptor_child_spec(&1, descriptor_child_opts(&1, opts)))
   end
 
   defp descriptor_child_spec(%{child_spec: {module, descriptor_opts}} = descriptor, opts) do
@@ -202,6 +202,22 @@ defmodule AllbertAssist.Channels do
 
   defp descriptor_child_spec(%{child_spec: child_spec}, _opts),
     do: Supervisor.child_spec(child_spec, [])
+
+  defp descriptor_child_opts(%{channel_id: channel_id}, opts) do
+    channel_child_opts =
+      opts
+      |> Keyword.get(:channel_child_opts, %{})
+      |> child_opts_for_channel(channel_id)
+
+    opts
+    |> Keyword.delete(:channel_child_opts)
+    |> Keyword.merge(channel_child_opts)
+  end
+
+  defp child_opts_for_channel(child_opts, channel_id) when is_map(child_opts),
+    do: Map.get(child_opts, channel_id, []) || []
+
+  defp child_opts_for_channel(_child_opts, _channel_id), do: []
 
   defp legacy_channel_settings(channel) when channel in ["telegram", "email"] do
     with {:ok, settings, _user_settings} <- Store.resolved_settings(),

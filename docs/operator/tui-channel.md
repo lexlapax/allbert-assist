@@ -1,9 +1,9 @@
 # TUI Channel Operator Guide
 
-Status: v0.55 M2-M4 implemented. This guide covers the shipped terminal channel
-descriptor, basic `mix allbert.tui` launcher, identity mapping, split-payload
-rendering seam, typed approval rendering/resolution, and the deterministic
-`release.v055` gate.
+Status: v0.55 M2-M4 implemented, with the post-M4 supervision correction landed.
+This guide covers the shipped terminal channel descriptor, basic `mix allbert.tui`
+launcher, identity mapping, split-payload rendering seam, typed approval
+rendering/resolution, and the deterministic `release.v055` gate.
 
 ## Requirements
 
@@ -41,10 +41,10 @@ and no secrets.
 mix allbert.tui
 ```
 
-The launcher boots the app and starts a persistent Owl input loop for the terminal
-channel. Completed responses render into normal terminal scrollback; the adapter
-uses a single `Owl.LiveScreen` status block for the active prompt/status line.
-Type `/quit` or `/exit` to stop the launcher.
+The launcher boots the app with TUI-specific `Channels.Supervisor` child options
+and waits on the supervised TUI child. Completed responses render into normal
+terminal scrollback; the adapter uses a single `Owl.LiveScreen` status block for
+the active prompt/status line. Type `/quit` or `/exit` to stop the launcher.
 
 ## Verify
 

@@ -17,6 +17,16 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   @channel "tui"
   @quit_commands MapSet.new(["/quit", "/exit"])
 
+  def child_spec(opts) do
+    %{
+      id: Keyword.get(opts, :id, __MODULE__),
+      start: {__MODULE__, :start_link, [opts]},
+      restart: Keyword.get(opts, :restart, :permanent),
+      shutdown: 5_000,
+      type: :worker
+    }
+  end
+
   def start_link(opts) do
     case Keyword.fetch(opts, :name) do
       {:ok, nil} -> GenServer.start_link(__MODULE__, opts)
@@ -29,20 +39,9 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     GenServer.call(server, {:submit, text, opts}, Keyword.get(opts, :timeout_ms, 120_000))
   end
 
-  def run_forever(opts \\ []) do
-    opts =
-      opts
-      |> Keyword.put_new(:name, nil)
-      |> Keyword.put_new(:enabled?, true)
-      |> Keyword.put_new(:auto_input?, true)
-      |> Keyword.put_new(:live_screen?, true)
-
-    with {:ok, pid} <- start_link(opts) do
-      ref = Process.monitor(pid)
-
-      receive do
-        {:DOWN, ^ref, :process, ^pid, reason} -> reason
-      end
+  def run_supervised_forever(supervisor \\ AllbertAssist.Channels.Supervisor) do
+    with {:ok, pid} <- supervised_pid(supervisor) do
+      wait_for_supervised_child(supervisor, pid)
     end
   end
 
@@ -388,6 +387,60 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       {:error, changeset}
     end
   end
+
+  defp supervised_pid(supervisor) do
+    supervisor
+    |> Supervisor.which_children()
+    |> Enum.find_value(fn
+      {"tui", pid, :worker, _modules} when is_pid(pid) -> {:ok, pid}
+      {__MODULE__, pid, :worker, _modules} when is_pid(pid) -> {:ok, pid}
+      _child -> nil
+    end)
+    |> case do
+      {:ok, pid} -> {:ok, pid}
+      nil -> {:error, :tui_child_not_started}
+    end
+  catch
+    :exit, reason -> {:error, reason}
+  end
+
+  defp wait_for_supervised_child(supervisor, pid) do
+    ref = Process.monitor(pid)
+
+    receive do
+      {:DOWN, ^ref, :process, ^pid, reason} ->
+        if launcher_exit?(reason) do
+          reason
+        else
+          Logger.debug("tui supervised child exited; waiting for restart: #{inspect(reason)}")
+
+          with {:ok, restarted_pid} <- await_supervised_restart(supervisor, pid) do
+            wait_for_supervised_child(supervisor, restarted_pid)
+          end
+        end
+    end
+  end
+
+  defp await_supervised_restart(supervisor, old_pid, attempts \\ 50)
+
+  defp await_supervised_restart(_supervisor, _old_pid, 0),
+    do: {:error, :tui_child_not_restarted}
+
+  defp await_supervised_restart(supervisor, old_pid, attempts) do
+    case supervised_pid(supervisor) do
+      {:ok, pid} when pid != old_pid ->
+        {:ok, pid}
+
+      _other ->
+        Process.sleep(100)
+        await_supervised_restart(supervisor, old_pid, attempts - 1)
+    end
+  end
+
+  defp launcher_exit?(:normal), do: true
+  defp launcher_exit?(:shutdown), do: true
+  defp launcher_exit?({:shutdown, _reason}), do: true
+  defp launcher_exit?(_reason), do: false
 
   defp update_live_status(%{live_screen?: false} = state, _status), do: state
 
