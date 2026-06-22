@@ -186,6 +186,8 @@ defmodule AllbertAssist.Channels.TUITest do
                  "- /confirmations\n" <>
                  "- /events\n" <>
                  "- /channels\n" <>
+                 "- /intents\n" <>
+                 "- /models\n" <>
                  "- /settings get\n" <>
                  "- /help"
              ]}} = Adapter.submit(server, "/help", external_event_id: "evt-tui-slash-help")
@@ -193,6 +195,8 @@ defmodule AllbertAssist.Channels.TUITest do
     refute_received {:runtime_request, _request}
     assert_receive {:tui_output, rendered}
     assert rendered =~ "/status"
+    assert rendered =~ "/intents"
+    assert rendered =~ "/models"
     assert rendered =~ "/settings get"
     refute Repo.get_by(Event, channel: "tui", external_event_id: "evt-tui-slash-help")
   end
@@ -310,7 +314,9 @@ defmodule AllbertAssist.Channels.TUITest do
           "operator_confirmations",
           "operator_events",
           "operator_channels",
-          "operator_setting_get"
+          "operator_setting_get",
+          "intent_coverage",
+          "model_doctor"
         ] do
       assert {:ok, module} = Registry.resolve(action_name)
       capability = module.capability()

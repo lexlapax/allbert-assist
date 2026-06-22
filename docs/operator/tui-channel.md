@@ -3,7 +3,8 @@
 Status: shipped in v0.55.0. This guide covers the shipped terminal channel
 descriptor, basic `mix allbert.tui` launcher, identity mapping, split-payload
 rendering seam, typed approval rendering/resolution, warm TUI validation, and the
-deterministic `release.v055` gate.
+deterministic `release.v055` gate. v0.56 extends the same warm console with
+read-only `/intents` and `/models` validation views.
 The full release-validation checklist is
 `docs/plans/v0.55-request-flow.md#operator-validation-punchlist-v055-persistent-tui-session`.
 
@@ -111,6 +112,23 @@ For the exact v0.55.1 operator-validation command sequence, use
 Inside that punchlist, confirmation state is inspected with `/confirmations` at
 the live TUI prompt; do not run `mix allbert.confirmations list` between
 in-session checks.
+
+## v0.56 Intent/Model Validation Reads
+
+v0.56 adds two read-only slash commands for release validation:
+
+- `/intents` renders the same redacted `intent_coverage` DTO used by
+  `mix allbert.intent coverage`: routable coverage, missing count, generated
+  descriptors, learned-review proposals, overrides, and disabled overrides.
+- `/models` renders the same redacted `model_doctor` DTO used by
+  `mix allbert.settings model-doctor`: per-purpose recommended profile/model,
+  configured profile/model, local-pull/egress status, and diagnostics.
+
+Both commands require the mapped TUI identity, execute through
+`Actions.Runner.run/3`, render only the action `surface_payload`, and do not
+create channel-event rows or model turns. They are slash-allowlisted operator
+reads only; natural-language requests to inspect intents or models must not
+route into these internal actions.
 
 Legacy v0.55 manual M2 smoke:
 

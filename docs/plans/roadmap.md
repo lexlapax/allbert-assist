@@ -3557,6 +3557,12 @@ Expected direction:
 - Sequenced after v0.56 intent deepening and the v0.55/v0.55.1/v0.57
   channel/console/coding surfaces, so the chat-primary redo lands on top of
   mature routing.
+- Implements the v0.56 M12 web handoff: Intents and Settings/Models panels
+  render the registered action DTOs (`intent_coverage`,
+  `intent_list_descriptors`, `intent_show_descriptor`, `intent_eval_run`,
+  `intent_list_review`, `model_doctor`) through `Actions.Runner.run/3`, with
+  no CLI scraping, direct store reads, secret/endpoint leakage, or new
+  authority.
 
 ## v0.59: Hardening, Export/Import, Settings Migration, Operator Onboarding, And Final RC
 

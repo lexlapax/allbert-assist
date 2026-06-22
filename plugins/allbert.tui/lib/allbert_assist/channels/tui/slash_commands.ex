@@ -8,6 +8,8 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
     "/confirmations",
     "/events",
     "/channels",
+    "/intents",
+    "/models",
     "/settings get",
     "/help"
   ]
@@ -78,6 +80,12 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
 
       ["/channels"] ->
         {:action, "operator_channels", %{}}
+
+      ["/intents"] ->
+        {:action, "intent_coverage", %{}}
+
+      ["/models"] ->
+        {:action, "model_doctor", %{}}
 
       ["/settings", "get", key] ->
         key = String.trim(key)
