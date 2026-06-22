@@ -8,6 +8,7 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
   alias AllbertAssist.Intent.Router.Index
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Intent.Router.Prefilter
+  alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.ProviderPreconditions
@@ -66,6 +67,28 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
       # scores are sorted descending
       [%{score: s1}, %{score: s2}] = result.shortlist
       assert s1 >= s2
+    end
+
+    test "descriptor phrase matches add a bounded signal over embeddings" do
+      {:ok, resume} =
+        Descriptor.normalize(%{
+          app_id: :allbert,
+          action_name: "resume_thread_on_channel",
+          label: "Resume a thread on a channel",
+          examples: ["resume my telegram thread"],
+          synonyms: ["resume thread"],
+          required_slots: []
+        })
+
+      entries = [
+        descriptor_entry(resume),
+        entry("list_skills", :allbert, "List skills", "what skills do I have list skills")
+      ]
+
+      query = "resume my telegram thread"
+
+      assert %{shortlist: [%{action_name: "resume_thread_on_channel"} | _]} =
+               Prefilter.rank(FakeEmbedder.vector(query), entries, 2, query)
     end
   end
 
@@ -167,6 +190,21 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
 
   defp entry(action, app, label, text) do
     %{action_name: action, app_id: app, label: label, vector: FakeEmbedder.vector(text)}
+  end
+
+  defp descriptor_entry(descriptor) do
+    text = Index.utterance_text(descriptor)
+
+    %{
+      action_name: descriptor.action_name,
+      app_id: descriptor.app_id,
+      label: descriptor.label,
+      text: text,
+      descriptor: descriptor,
+      required_slots: descriptor.required_slots,
+      optional_slots: descriptor.optional_slots,
+      vector: FakeEmbedder.vector(text)
+    }
   end
 
   defp restore(key, nil) when is_atom(key), do: Application.delete_env(:allbert_assist, key)

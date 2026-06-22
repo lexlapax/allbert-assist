@@ -123,6 +123,14 @@ defmodule StockSage.App do
           "financial analysis",
           "stocksage"
         ],
+        vocabulary: %{
+          negative_phrases: [
+            "show stock analysis",
+            "show stocksage analysis",
+            "open analysis",
+            "analysis details"
+          ]
+        },
         required_slots: [:ticker],
         slot_extractors: %{ticker: :ticker_symbol},
         handoff_required?: true
@@ -143,6 +151,44 @@ defmodule StockSage.App do
           "performance trends",
           "stock trends",
           "trends"
+        ],
+        required_slots: [],
+        optional_slots: [:symbol],
+        slot_extractors: %{symbol: :ticker_symbol},
+        handoff_required?: true
+      },
+      %{
+        app_id: :stocksage,
+        action_name: "list_analyses",
+        label: "List StockSage analyses",
+        examples: [
+          "list stock analyses",
+          "show recent StockSage analyses",
+          "what analyses have I run"
+        ],
+        synonyms: [
+          "list analyses",
+          "recent analyses",
+          "stock analyses",
+          "stocksage history"
+        ],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :stocksage,
+        action_name: "show_analysis",
+        label: "Show StockSage analysis",
+        examples: [
+          "show stock analysis AAPL",
+          "show the StockSage analysis for MSFT",
+          "open analysis details"
+        ],
+        synonyms: [
+          "show analysis",
+          "analysis details",
+          "stock analysis details",
+          "open analysis"
         ],
         required_slots: [],
         optional_slots: [:symbol],

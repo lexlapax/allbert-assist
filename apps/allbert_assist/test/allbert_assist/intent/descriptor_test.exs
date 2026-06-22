@@ -119,6 +119,11 @@ defmodule AllbertAssist.Intent.DescriptorTest do
              missing_slots: []
            }
 
+    assert Descriptor.extract_slots(descriptor, "save a note: call the dentist tomorrow") == %{
+             extracted_slots: %{title: "note", body: "call the dentist tomorrow"},
+             missing_slots: []
+           }
+
     assert Descriptor.extract_slots(descriptor, "create a note titled fallback") == %{
              extracted_slots: %{title: "fallback"},
              missing_slots: [:body]
@@ -143,6 +148,11 @@ defmodule AllbertAssist.Intent.DescriptorTest do
     assert Descriptor.extract_slots(descriptor, "open notes/release-checklist") == %{
              extracted_slots: %{path: "notes/release-checklist.md"},
              missing_slots: []
+           }
+
+    assert Descriptor.extract_slots(descriptor, "open resource foo://unsupported") == %{
+             extracted_slots: %{},
+             missing_slots: [:path]
            }
   end
 

@@ -125,9 +125,17 @@ defmodule AllbertAssist.Intent.Router.OptimizerTest do
 
     {:ok, _path} = DescriptorStore.put(:review, attrs)
     assert DescriptorStore.dir(:review) =~ "/intents/learned/review"
-    refute DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
+
+    refute generated_descriptor?(:allbert, "show_app")
 
     {:ok, _dest} = DescriptorStore.promote(:review, :generated, :allbert, "show_app")
-    assert DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
+    assert generated_descriptor?(:allbert, "show_app")
+  end
+
+  defp generated_descriptor?(app_id, action_name) do
+    DescriptorResolver.resolve()
+    |> Enum.any?(
+      &(&1.app_id == app_id and &1.action_name == action_name and &1.source == :generated)
+    )
   end
 end

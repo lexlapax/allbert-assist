@@ -120,7 +120,9 @@ defmodule AllbertAssist.App.CoreApp do
         required_slots: [],
         handoff_required?: false
       }
-    ] ++ core_agent_descriptors() ++ MarketplaceSurfaceProvider.intent_descriptors()
+    ] ++
+      core_agent_descriptors() ++
+      v056_full_coverage_descriptors() ++ MarketplaceSurfaceProvider.intent_descriptors()
   end
 
   # v0.54 M9.1: descriptor coverage for agent-exposed core verbs. Core actions carry
@@ -390,6 +392,268 @@ defmodule AllbertAssist.App.CoreApp do
         label: "Cancel an objective",
         examples: ["cancel my objective", "stop the goal", "abandon this objective"],
         synonyms: ["cancel objective", "stop goal", "abandon objective"],
+        required_slots: [],
+        handoff_required?: true
+      }
+    ]
+  end
+
+  defp v056_full_coverage_descriptors do
+    [
+      %{
+        app_id: :allbert,
+        action_name: "activate_skill",
+        label: "Activate a skill",
+        examples: ["activate the tdd skill", "enable the grill-me skill", "turn on pdf skill"],
+        synonyms: ["activate skill", "enable skill", "turn on skill"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "channel_setup_check",
+        label: "Check channel setup",
+        examples: [
+          "check channel setup",
+          "run the channel setup check",
+          "verify my channel configuration"
+        ],
+        synonyms: ["channel setup", "setup check", "channel configuration check"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "direct_answer",
+        label: "Answer directly",
+        examples: [
+          "answer directly: why is the sky blue",
+          "just answer this question",
+          "give me a direct answer"
+        ],
+        synonyms: ["direct answer", "answer directly", "just answer"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "doctor_model_profile",
+        label: "Doctor a model profile",
+        examples: [
+          "doctor the local model profile",
+          "check the router model profile",
+          "diagnose model profile health"
+        ],
+        synonyms: ["model doctor", "doctor model profile", "model profile health"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "doctor_voice_provider",
+        label: "Doctor a voice provider",
+        examples: [
+          "doctor the voice provider",
+          "check voice provider health",
+          "diagnose speech provider setup"
+        ],
+        synonyms: ["voice doctor", "voice provider doctor", "speech provider health"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "explain_setting",
+        label: "Explain a setting",
+        examples: [
+          "explain the operator.timezone setting",
+          "why is this setting set",
+          "show the layers for operator timezone"
+        ],
+        synonyms: ["explain setting", "setting layers", "why setting"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "external_network_request",
+        label: "Plan an external network request",
+        examples: [
+          "fetch https://example.com with a GET request",
+          "make an external network request",
+          "call this HTTP endpoint"
+        ],
+        synonyms: ["external network request", "http request", "fetch url", "call endpoint"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "get_public_call_result",
+        label: "Get a public protocol call result",
+        examples: [
+          "get public call result abc123",
+          "show public call result",
+          "fetch the public protocol result"
+        ],
+        synonyms: ["public call result", "public protocol result", "get call result"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "list_provider_profiles",
+        label: "List provider profiles",
+        examples: [
+          "list provider profiles",
+          "show configured providers",
+          "what provider profiles do I have"
+        ],
+        synonyms: ["provider profiles", "configured providers", "list providers"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "plan_package_install",
+        label: "Plan a package install",
+        examples: [
+          "plan installing the jq package",
+          "plan a package install",
+          "prepare installing ripgrep"
+        ],
+        synonyms: ["plan package install", "package install plan", "install package plan"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "plan_shell_command",
+        label: "Plan a shell command",
+        examples: [
+          "plan the shell command to list files",
+          "plan running ls -la",
+          "prepare a shell command"
+        ],
+        synonyms: ["plan shell command", "shell command plan", "prepare command"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "read_setting",
+        label: "Read one setting",
+        examples: [
+          "read setting operator.timezone",
+          "show setting intent.router_strategy",
+          "get the operator communication style setting"
+        ],
+        synonyms: ["read setting", "show setting", "get setting"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "read_skill",
+        label: "Read a skill",
+        examples: ["read the tdd skill", "open the skill instructions", "show the pdf skill"],
+        synonyms: ["read skill", "open skill", "show skill"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "search_online_skills",
+        label: "Search online skills",
+        examples: [
+          "search online skills for pdf extraction",
+          "find installable skills for spreadsheets",
+          "look up online skills"
+        ],
+        synonyms: ["search online skills", "find online skills", "installable skills"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "set_provider_credential",
+        label: "Set a provider credential",
+        examples: [
+          "set the openai provider credential",
+          "configure the anthropic api key",
+          "update provider credential"
+        ],
+        synonyms: ["set provider credential", "provider api key", "configure provider key"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "show_app",
+        label: "Show an app",
+        examples: ["show the allbert app", "show app details", "open the telegram app info"],
+        synonyms: ["show app", "app details", "app info"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "show_channel",
+        label: "Show a channel",
+        examples: [
+          "show the telegram channel",
+          "show channel slack",
+          "open channel details"
+        ],
+        synonyms: ["show channel", "channel details", "channel info"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "show_online_skill",
+        label: "Show an online skill",
+        examples: [
+          "show the online skill pdf extraction",
+          "open online skill details",
+          "show installable skill details"
+        ],
+        synonyms: ["show online skill", "online skill details", "installable skill details"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "show_plugin",
+        label: "Show a plugin",
+        examples: ["show the telegram plugin", "show plugin details", "open plugin info"],
+        synonyms: ["show plugin", "plugin details", "plugin info"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "synthesize_voice",
+        label: "Synthesize voice",
+        examples: [
+          "synthesize voice saying hello",
+          "speak this text out loud",
+          "generate text to speech"
+        ],
+        synonyms: ["synthesize voice", "text to speech", "speak text", "generate speech"],
+        required_slots: [],
+        handoff_required?: true
+      },
+      %{
+        app_id: :allbert,
+        action_name: "unsupported_resource_workflow",
+        label: "Handle an unsupported resource workflow",
+        examples: [
+          "open resource foo://unsupported",
+          "handle this unsupported resource",
+          "what can you do with this resource URI"
+        ],
+        synonyms: ["unsupported resource", "resource workflow", "unknown resource"],
         required_slots: [],
         handoff_required?: true
       }

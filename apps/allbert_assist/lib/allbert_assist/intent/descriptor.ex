@@ -421,16 +421,21 @@ defmodule AllbertAssist.Intent.Descriptor do
   end
 
   defp extract_slot(:title_phrase, text) do
-    text
-    |> extract_phrase([
-      ~r/\b(?:titled|title|called|named)\s+(.+?)(?:\s+(?:with\s+body|body|with|saying|that\s+says|says)\b|$)/i
-    ])
-    |> trim_extracted_slot()
+    if note_colon_body?(text) do
+      "note"
+    else
+      text
+      |> extract_phrase([
+        ~r/\b(?:titled|title|called|named)\s+(.+?)(?:\s+(?:with\s+body|body|with|saying|that\s+says|says)\b|$)/i
+      ])
+      |> trim_extracted_slot()
+    end
   end
 
   defp extract_slot(:body_phrase, text) do
     text
     |> extract_phrase([
+      ~r/\b(?:save|write|create|make)\s+a\s+note\s*:\s*(.+)$/i,
       ~r/\bwith\s+body\s+(.+)$/i,
       ~r/\bbody\s+(.+)$/i,
       ~r/\b(?:saying|that\s+says|says)\s+(.+)$/i,
@@ -508,6 +513,11 @@ defmodule AllbertAssist.Intent.Descriptor do
 
   defp extract_slot(_extractor, _text), do: nil
 
+  defp note_colon_body?(text) when is_binary(text),
+    do: Regex.match?(~r/\b(?:save|write|create|make)\s+a\s+note\s*:\s*\S/i, text)
+
+  defp note_colon_body?(_text), do: false
+
   defp accepted_ticker_candidate?(ticker, explicit?),
     do: explicit? || String.length(ticker) > 1
 
@@ -556,6 +566,9 @@ defmodule AllbertAssist.Intent.Descriptor do
 
   defp note_path_from_trimmed_phrase(value) do
     cond do
+      String.contains?(value, "://") ->
+        nil
+
       String.ends_with?(String.downcase(value), ".md") ->
         value
 

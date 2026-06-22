@@ -17,6 +17,9 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
 
   @complete_required_slots_boost 0.35
   @missing_required_slots_penalty 0.25
+  @descriptor_text_match_boost 0.35
+  @descriptor_text_match_token_boost 0.04
+  @descriptor_text_match_cap 0.25
 
   @type ranked :: %{
           action_name: String.t(),
@@ -42,17 +45,24 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
 
   @doc "Pure cosine ranking of `entries` against `query_vector`; top-`k` + margin."
   @spec rank([float()], [map()], pos_integer()) :: %{shortlist: [ranked()], margin: float()}
+  @spec rank([float()], [map()], pos_integer(), String.t()) :: %{
+          shortlist: [ranked()],
+          margin: float()
+        }
   def rank(query_vector, entries, k) when is_list(entries) and is_integer(k) and k > 0 do
     rank(query_vector, entries, k, "")
   end
 
-  defp rank(query_vector, entries, k, query) when is_list(entries) and is_integer(k) and k > 0 do
+  def rank(query_vector, entries, k, query)
+      when is_list(entries) and is_integer(k) and k > 0 and is_binary(query) do
     ranked =
       entries
       |> Enum.map(fn entry ->
         slots = extracted_slots(entry, query)
         required_slots = Map.get(entry, :required_slots, [])
-        base_score = Embedder.cosine(query_vector, entry.vector)
+
+        base_score =
+          Embedder.cosine(query_vector, entry.vector) + descriptor_text_boost(entry, query)
 
         %{
           action_name: entry.action_name,
@@ -80,6 +90,110 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
   end
 
   defp extracted_slots(_entry, _query), do: %{extracted_slots: %{}, missing_slots: []}
+
+  defp descriptor_text_boost(%{descriptor: %Descriptor{} = descriptor} = entry, query) do
+    descriptor_text_match_score(entry, descriptor, query)
+    |> case do
+      score when score > 0 ->
+        @descriptor_text_match_boost +
+          min(score * @descriptor_text_match_token_boost, @descriptor_text_match_cap)
+
+      _score ->
+        0.0
+    end
+  end
+
+  defp descriptor_text_boost(_entry, _query), do: 0.0
+
+  defp descriptor_text_match_score(_entry, _descriptor, query) when not is_binary(query), do: 0
+
+  defp descriptor_text_match_score(entry, descriptor, query) do
+    vocabulary = Map.get(descriptor, :vocabulary, %{}) || %{}
+    allow_single? = field(vocabulary, :allow_single_token_match, true) != false
+
+    negative_values = field(vocabulary, :negative_phrases, []) || []
+
+    if Enum.any?(negative_values, &(descriptor_phrase_match_score(query, &1, true) > 0)) do
+      0
+    else
+      descriptor_values(entry, descriptor, vocabulary)
+      |> Enum.map(&descriptor_phrase_match_score(query, &1, allow_single?))
+      |> Enum.max(fn -> 0 end)
+    end
+  end
+
+  defp descriptor_values(entry, descriptor, vocabulary) do
+    [
+      Map.get(entry, :label),
+      Map.get(entry, :action_name),
+      Map.get(descriptor, :label),
+      Map.get(descriptor, :action_name)
+    ] ++
+      Map.get(descriptor, :examples, []) ++
+      Map.get(descriptor, :synonyms, []) ++
+      (field(vocabulary, :phrases, []) || [])
+  end
+
+  defp descriptor_phrase_match_score(text, value, allow_single?) when is_binary(value) do
+    normalized_text = normalize_text(text)
+    normalized_value = normalize_text(value)
+    text_tokens = String.split(normalized_text, " ", trim: true)
+    value_tokens = String.split(normalized_value, " ", trim: true)
+    token_count = length(value_tokens)
+
+    cond do
+      normalized_value == "" ->
+        0
+
+      phrase_token_match?(normalized_text, normalized_value) ->
+        token_count
+
+      token_count > 1 and ordered_token_match?(text_tokens, value_tokens) ->
+        token_count
+
+      single_token_match?(allow_single?, value_tokens, text_tokens) ->
+        1
+
+      true ->
+        0
+    end
+  end
+
+  defp descriptor_phrase_match_score(_text, _value, _allow_single?), do: 0
+
+  defp normalize_text(value) when is_binary(value) do
+    value
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/u, " ")
+    |> String.trim()
+  end
+
+  defp phrase_token_match?(normalized_text, normalized_value) do
+    text_tokens = String.split(normalized_text, " ", trim: true)
+    value_tokens = String.split(normalized_value, " ", trim: true)
+
+    value_tokens != [] and
+      text_tokens
+      |> Enum.chunk_every(length(value_tokens), 1, :discard)
+      |> Enum.any?(&(&1 == value_tokens))
+  end
+
+  defp ordered_token_match?(_text_tokens, []), do: false
+  defp ordered_token_match?(text_tokens, tokens), do: do_ordered_token_match?(text_tokens, tokens)
+
+  defp do_ordered_token_match?(_text_tokens, []), do: true
+
+  defp do_ordered_token_match?(text_tokens, [token | rest]) do
+    case Enum.drop_while(text_tokens, &(&1 != token)) do
+      [_matched | remaining] -> do_ordered_token_match?(remaining, rest)
+      [] -> false
+    end
+  end
+
+  defp single_token_match?(true, [token], text_tokens),
+    do: String.length(token) >= 4 and token in text_tokens
+
+  defp single_token_match?(_allow_single?, _value_tokens, _text_tokens), do: false
 
   defp slot_adjusted_score(score, [], _slots), do: score
 
@@ -132,4 +246,10 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
       _other -> default
     end
   end
+
+  defp field(map, key, default) when is_map(map) do
+    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
+  end
+
+  defp field(_map, _key, default), do: default
 end

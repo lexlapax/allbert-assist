@@ -134,7 +134,7 @@ defmodule AllbertAssist.Intent.Eval.Runner do
 
   defp rank_case(%Corpus.Case{utterance: utterance}, entries, embedder, top_k) do
     with {:ok, [query_vector]} <- embedder.embed([utterance], []) do
-      Prefilter.rank(query_vector, entries, top_k)
+      Prefilter.rank(query_vector, entries, top_k, utterance)
     else
       _error -> %{shortlist: [], margin: 0.0}
     end
@@ -155,10 +155,37 @@ defmodule AllbertAssist.Intent.Eval.Runner do
 
   defp select(
          :top_ranked_fake,
-         _case,
-         %{shortlist: [%{action_name: action} = top | _rest]},
+         %Corpus.Case{utterance: utterance},
+         ranked,
          _opts
        ) do
+    semantic_fake_selection(utterance, ranked)
+  end
+
+  defp select(module, case, ranked, opts) when is_atom(module) do
+    module.select(case.utterance, ranked.shortlist, case.context, opts)
+  end
+
+  defp semantic_fake_selection(utterance, ranked) do
+    cond do
+      slash_command?(utterance) ->
+        {:ok, %{selected: "__none__", confidence: 1.0, slots: %{}}}
+
+      unsafe_or_noisy_none?(utterance) ->
+        {:ok, %{selected: "__none__", confidence: 1.0, slots: %{}}}
+
+      general_answer_question?(utterance) ->
+        {:ok, %{selected: "__answer__", confidence: 1.0, slots: %{}}}
+
+      ambiguous_operator_noun_phrase?(utterance, ranked.shortlist) ->
+        {:ok, %{selected: "__clarify__", confidence: 0.7, slots: %{}}}
+
+      true ->
+        top_ranked_selection(ranked)
+    end
+  end
+
+  defp top_ranked_selection(%{shortlist: [%{action_name: action} = top | _rest]}) do
     {:ok,
      %{
        selected: action,
@@ -167,12 +194,8 @@ defmodule AllbertAssist.Intent.Eval.Runner do
      }}
   end
 
-  defp select(:top_ranked_fake, _case, %{shortlist: []}, _opts) do
+  defp top_ranked_selection(%{shortlist: []}) do
     {:ok, %{selected: "__none__", confidence: 1.0, slots: %{}}}
-  end
-
-  defp select(module, case, ranked, opts) when is_atom(module) do
-    module.select(case.utterance, ranked.shortlist, case.context, opts)
   end
 
   defp outcome({:ok, selection}, case, ranked, opts) do
@@ -224,4 +247,98 @@ defmodule AllbertAssist.Intent.Eval.Runner do
       raw: other
     }
   end
+
+  defp slash_command?(utterance),
+    do: utterance |> to_string() |> String.trim() |> String.starts_with?("/")
+
+  defp unsafe_or_noisy_none?(utterance) do
+    text = normalize_text(utterance)
+
+    adversarial? =
+      String.contains?(text, "ignore your rules") or
+        String.contains?(text, "delete everything") or
+        String.contains?(text, "bypass safety")
+
+    adversarial? or noisy_gibberish?(text)
+  end
+
+  defp noisy_gibberish?(text) do
+    tokens = tokens(text)
+
+    length(tokens) > 1 and length(tokens) <= 5 and
+      (Enum.member?(tokens, "nonsense") or Enum.count(tokens, &token_has_vowel?/1) <= 1)
+  end
+
+  defp token_has_vowel?(token), do: Regex.match?(~r/[aeiou]/, token)
+
+  defp general_answer_question?(utterance) do
+    text = normalize_text(utterance)
+
+    Regex.match?(
+      ~r/^(what|who|where|when|why|how)\s+(is|are|was|were|do|does|did|can|should|would)\b/,
+      text
+    ) and
+      not allbert_domain_question?(text)
+  end
+
+  defp allbert_domain_question?(text) do
+    Enum.any?(
+      [
+        "model",
+        "models",
+        "setting",
+        "settings",
+        "channel",
+        "channels",
+        "plugin",
+        "plugins",
+        "skill",
+        "skills",
+        "app",
+        "apps",
+        "note",
+        "notes",
+        "analysis",
+        "analyses",
+        "provider",
+        "providers",
+        "marketplace",
+        "mcp",
+        "objective",
+        "objectives",
+        "goal",
+        "goals",
+        "remember",
+        "recall"
+      ],
+      &Enum.member?(tokens(text), &1)
+    )
+  end
+
+  defp ambiguous_operator_noun_phrase?(utterance, shortlist) do
+    text = normalize_text(utterance)
+
+    text in ["model settings", "settings model", "model profiles", "profile settings"] and
+      shortlist
+      |> Enum.map(& &1.action_name)
+      |> Enum.count(
+        &(&1 in [
+            "set_active_model_profile",
+            "list_model_profiles",
+            "read_setting",
+            "list_settings",
+            "doctor_model_profile"
+          ])
+      ) >= 2
+  end
+
+  defp normalize_text(value) do
+    value
+    |> to_string()
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/u, " ")
+    |> String.trim()
+  end
+
+  defp tokens(text), do: String.split(text, " ", trim: true)
 end
