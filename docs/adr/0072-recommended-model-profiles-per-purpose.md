@@ -56,12 +56,26 @@ existing capability/egress path (ADR 0051/0006).
 ### 3. The doctor verifies (folded into existing surfaces)
 
 Per-purpose model reporting folds into the **existing** doctor surfaces — no new
-`mix allbert.models` task. `mix allbert.intent doctor` reports the intent-purpose
-rows (embedding / disambiguation / escalation / generation / eval lane), and a
-consolidated `mix allbert.settings model-doctor` reports every purpose. For each:
-**recommended** vs **configured** vs **status** — `ok | missing | under-capable |
-not-pulled | remote-egress-warning` — using the ADR 0047 doctor envelope
-(redacted; never prints secrets or raw endpoints).
+`mix allbert.models` task. It is implemented as a **registered read-only internal
+action** `model_doctor` (`exposure: :internal`, `permission: :read_only`) resolved
+through `Actions.Runner.run/3`, so `mix allbert.settings model-doctor`, the
+`mix allbert.intent doctor` intent rows, the TUI `/models` read, and the v0.58
+Settings/Models panel are all thin views over the same action (the ADR 0070 / v0.56
+Operator Action Layer pattern). For each purpose it returns **recommended** vs
+**configured** vs **status** — `ok | missing | under-capable | not-pulled |
+remote-egress-warning` — using the ADR 0047 doctor envelope (redacted; never prints
+secrets or raw endpoints).
+
+### Correct model tags (no `gemma4:*`)
+
+The recommended defaults must reference **real public Ollama tags**. The escalation
+default is corrected from the non-existent `gemma4:26b` to `gemma3:27b` (alternative
+`gemma2:27b`), and the local STT default from `gemma4:e2b` to `gemma3n:e2b` (the
+Gemma 3n effective-parameter tag). The Settings Central schema defaults
+(`settings/schema.ex`), `voice/local_runtime/config.ex`,
+`docs/developer/provider-capabilities.md`, and the `gemma4` references in ADR 0052 /
+ADR 0061 are reconciled to the corrected tags during v0.56 M4; `model_doctor` then
+guards against recurrence by reporting `not-pulled`/`under-capable`.
 
 ### 4. UI/UX surfacing
 

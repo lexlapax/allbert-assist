@@ -64,9 +64,18 @@ negative: false         # true => this utterance must NOT route to `action` (neg
 holdout: false          # holdout cases never tune thresholds
 ```
 
-The corpus is **seeded by hand** across every routable domain and **grown by
-operators** from redacted real mis-routes via `mix allbert.intent eval capture`
-(below). It is frozen and versioned; changes are diffable in review.
+The corpus is **seeded by hand** across every routable domain. It is **grown** via a
+capture → add → commit flow that keeps CI deterministic:
+
+1. `intent_eval_capture` (action) writes a **redacted** candidate from a real mis-route
+   (trace / `doctor` / resolved clarification) to `<ALLBERT_HOME>/intents/eval/captured/`.
+2. The operator reviews the candidate.
+3. `intent_eval_add` (dev/repo action) promotes a reviewed candidate **into the committed
+   fixture** `test/fixtures/intent/eval/<domain>/*.yaml`.
+
+The **committed fixture is the only source the deterministic gate (and CI) reads** —
+captures under Allbert Home never affect the gate until added and committed. The corpus
+is versioned and diffable in review.
 
 ### 2. Two lanes: deterministic gate, live operator bench
 
@@ -95,18 +104,19 @@ required slot must clarify, not mis-execute); and **negative-route violations**
 
 - overall or any per-domain top-1 accuracy regresses below the recorded
   **baseline** (no-regression rule), **or**
-- overall accuracy is below an absolute **floor** that ratchets up but never down,
-  **or**
+- overall accuracy is below the absolute **floor** (`intent.eval.min_accuracy`,
+  default **0.85**) or any per-domain accuracy is below
+  `intent.eval.min_per_domain_accuracy` (default **0.80**) — the floor ratchets up but
+  never down, **or**
 - **any** negative-route violation occurs (zero tolerance), **or**
 - slot-extraction accuracy or clarify-vs-execute correctness regresses below
   baseline.
 
-The baseline is a committed, versioned artifact recorded by
-`mix allbert.intent eval baseline`. Both rules apply: no-regression always, plus a
-ratcheting absolute floor. Thresholds live in **Settings Central**
-(`intent.eval.min_accuracy`, `intent.eval.min_per_domain_accuracy`,
-`intent.eval.block_on_regression`, defaults set conservatively); the gate reads
-them through the schema, never hard-codes them.
+The baseline is a committed, versioned artifact recorded by the `intent_eval_baseline`
+action. Both rules apply: no-regression always, plus the ratcheting absolute floor.
+Thresholds live in **Settings Central** (`intent.eval.min_accuracy` 0.85,
+`intent.eval.min_per_domain_accuracy` 0.80, `intent.eval.block_on_regression` true; all
+in `safe_write_keys`); the gate reads them through the schema, never hard-codes them.
 
 ### 5. Wiring (promotion + release)
 
@@ -120,6 +130,18 @@ them through the schema, never hard-codes them.
   mis-route (from traces / `doctor` / a resolved clarification) into the corpus,
   so the corpus tracks real drift; capture writes go through the same
   redaction/path-safety rules as the descriptor store.
+
+### 6. Operations are registered actions
+
+Every eval operation is a **registered Jido action** resolved through
+`Actions.Runner.run/3`, not Mix-task-local code — so the Mix CLI, the TUI, the v0.58
+web panels, and any channel are thin views over one implementation (extends ADR 0070).
+Reads (`intent_eval_run`, plus the lifecycle `intent_doctor`/`intent_coverage`/
+`intent_list_descriptors`/`intent_list_review`) are `exposure: :internal`,
+`permission: :read_only`, absent from `Actions.Registry.agent_modules/0`, and never
+intent candidates. Mutations (`intent_eval_baseline`/`capture`/`add`,
+`promote_intent_descriptor`, `optimize_intent_descriptors`) are operator-exposed and
+audited; the ones that touch routing call the gate helper rather than re-implementing it.
 
 ## Authority invariants
 

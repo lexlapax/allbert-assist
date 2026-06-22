@@ -3488,12 +3488,20 @@ Expected direction:
 - **Recommend which model to use for what** (ADR 0072): a consolidated operator
   guide (`docs/operator/model-recommendations.md`), recommended Settings Central
   defaults per purpose, and per-purpose reporting folded into
-  `mix allbert.intent doctor` + `mix allbert.settings model-doctor`.
+  `mix allbert.intent doctor` + `mix allbert.settings model-doctor`. v0.56 also
+  corrects the repo-wide `gemma4:*` defaults (no such public Ollama tags) to
+  `gemma3:27b`/`gemma3n:e2b`.
+- **Operator Action Layer (systemic):** every intent/eval/model operation — including
+  the shipped v0.54 `mix allbert.intent` CLI — becomes a registered Jido action through
+  `Actions.Runner.run/3` (reads `:internal`/`:read_only`; mutations operator-exposed +
+  gated), so CLI, TUI slash, the v0.58 web panels, and any channel are thin views over
+  one implementation (extends ADR 0070). Now 16 milestones (M0-M15); gate thresholds
+  0.85 overall / 0.80 per-domain; corpus capture→add→commit to a committed fixture.
 - Cross-cutting: all new settings go through Settings Central, all security
   decisions through Security Central, and every operator read-model (coverage,
-  descriptor list, eval/gate status, model recommendations) is a redacted DTO —
-  rendered in CLI in v0.56, with the web Intents + Settings/Models panels contracted
-  and flagged to the v0.58 Web UX redo.
+  descriptor list, eval/gate status, model recommendations) is a redacted DTO from a
+  read action — rendered in CLI + minimal TUI reads in v0.56, with the web Intents +
+  Settings/Models panels contracted and flagged to the v0.58 Web UX redo.
 - Prove in evals that model output and learned proposals grant no authority, routing
   only changes after operator promotion (and passing the accuracy gate), the right
   agent fires across surfaces, registration signals rebuild correctly, and the model
