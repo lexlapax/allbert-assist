@@ -2,6 +2,14 @@ defmodule AllbertAssist.Tools.FinderTest do
   use ExUnit.Case, async: false
   @moduletag :external_runtime_serial
 
+  @operator_action_names [
+    "operator_status",
+    "operator_confirmations",
+    "operator_events",
+    "operator_channels",
+    "operator_setting_get"
+  ]
+
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.Tools.Finder
@@ -52,6 +60,20 @@ defmodule AllbertAssist.Tools.FinderTest do
            )
 
     assert Agent.get(__MODULE__.CallLog, & &1) == []
+  end
+
+  test "local source excludes internal operator inspection actions from suggestions" do
+    assert {:ok, candidates} =
+             Local.search("operator", %{context: %{include_configured_mcp?: false}, limit: 100})
+
+    candidate_names = candidates |> Enum.map(& &1.name) |> MapSet.new()
+
+    for action_name <- @operator_action_names do
+      refute MapSet.member?(candidate_names, action_name)
+    end
+
+    local_actions = Enum.filter(candidates, &(&1.source == :local_action))
+    assert Enum.all?(local_actions, &(Map.get(&1.signals, :exposure) == :agent))
   end
 
   test "local source degrades when skill registry fails" do

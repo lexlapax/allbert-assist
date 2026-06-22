@@ -7,6 +7,7 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Actions.Registry
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.TUI.Adapter, as: TUIAdapter
   alias AllbertAssist.Channels.TUI.SlashCommands
@@ -261,6 +262,15 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
     agent_capability_names = Registry.agent_capabilities() |> Enum.map(& &1.name) |> MapSet.new()
     descriptor_names = DescriptorResolver.resolve() |> Enum.map(& &1.action_name) |> MapSet.new()
 
+    assert {:ok, tool_response} =
+             Runner.run(
+               "find_tools",
+               %{query: "operator", limit: 100},
+               Map.put(operator_context(), :include_configured_mcp?, false)
+             )
+
+    tool_candidate_names = tool_response.candidates |> Enum.map(& &1.name) |> MapSet.new()
+
     for action_name <- @operator_action_names do
       assert {:ok, module} = Registry.resolve(action_name)
       capability = module.capability()
@@ -271,6 +281,7 @@ defmodule AllbertAssist.Security.V0551OperatorConsoleEvalTest do
       refute MapSet.member?(agent_names, action_name)
       refute MapSet.member?(agent_capability_names, action_name)
       refute MapSet.member?(descriptor_names, action_name)
+      refute MapSet.member?(tool_candidate_names, action_name)
     end
   end
 

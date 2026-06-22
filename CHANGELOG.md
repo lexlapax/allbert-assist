@@ -12,9 +12,8 @@ changelog entries or release notes.
 
 ## v0.55.1 - Persistent TUI Operator/Validation Console
 
-Status: release-ready as `v0.55.1` on 2026-06-22. Current version metadata
-reports `0.55.1`; the release tag is intentionally deferred per operator
-instruction.
+Status: released and tagged as `v0.55.1` on 2026-06-22. Current version
+metadata reports `0.55.1`.
 
 Plan: `docs/plans/v0.55b-plan.md`. Request flow:
 `docs/plans/v0.55b-request-flow.md`. ADR:
@@ -29,7 +28,8 @@ Plan: `docs/plans/v0.55b-plan.md`. Request flow:
   (`operator_status`, `operator_confirmations`, `operator_events`,
   `operator_channels`, `operator_setting_get`) resolved through
   `Actions.Runner.run/3`, exposed only through the slash allowlist or explicit
-  Mix twin, and excluded from model-routable intent candidates.
+  Mix twin, and excluded from model-routable intent candidates and tool
+  discovery suggestions.
 - `AllbertAssist.Operator.Inspection`, the shared redacted report facade behind
   warm slash views and cold operator status views.
 - `mix allbert.channels status`, sharing the `/channels` operator report source
@@ -37,19 +37,22 @@ Plan: `docs/plans/v0.55b-plan.md`. Request flow:
 - Deterministic `mix allbert.test release.v0551`, covering migration,
   slash/operator units, the `:v0551` security eval lane, inventory validation,
   and the channel-pack secret scan.
+- StockSage descriptor ticker extraction now ignores bare single-letter capital
+  words unless the operator marks them explicitly with `$` or a `ticker`/`symbol`
+  phrase; e.g. `analyze ticker I` still extracts `I`, while ordinary prose such
+  as `I prefer...` does not.
 
 ### Validation
 
 - M5 warm-console operator validation passed on 2026-06-22 in one
-  transcript-captured `mix allbert.tui` session. Evidence summary:
-  `docs/release-evidence/v0551/M5-operator-validation.md`.
+  transcript-captured `mix allbert.tui` session; release evidence was verified
+  during closeout and is not retained as a committed artifact.
 - `ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test release.v0551` passed
-  with retained evidence at
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v0551/p0-13379/home/release_evidence/v0551/release-v0551-1782112068.json`.
-- The full release gate passed during M6 closeout with evidence at
-  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13378/home/release_evidence/gates/release-2026-06-22T13_10_00Z.json`;
-  the retained logs were scanned for SQLite/DB connection noise before
-  release-tag handoff.
+  during M5 and was rerun during release closeout; evidence JSON was verified
+  locally.
+- The full release gate passed during M6 closeout and again during the final
+  release cleanup; release evidence was verified locally and logs were scanned
+  for SQLite/DB connection noise before tagging.
 - The docs gate, compile warning gate, and drift scans were rerun during M6
   closeout.
 

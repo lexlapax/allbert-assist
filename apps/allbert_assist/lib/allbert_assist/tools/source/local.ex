@@ -51,7 +51,7 @@ defmodule AllbertAssist.Tools.Source.Local do
     do: search_with_diagnostics(to_string(query || ""), opts)
 
   defp action_candidates do
-    ActionsRegistry.capabilities()
+    ActionsRegistry.agent_capabilities()
     |> Enum.map(&action_candidate/1)
     |> Enum.flat_map(&ok_list/1)
   end
