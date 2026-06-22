@@ -4,6 +4,8 @@ Status: v0.55 M2-M4 implemented, with the post-M4 supervision correction landed.
 This guide covers the shipped terminal channel descriptor, basic `mix allbert.tui`
 launcher, identity mapping, split-payload rendering seam, typed approval
 rendering/resolution, and the deterministic `release.v055` gate.
+The full release-validation checklist is
+`docs/plans/v0.55-request-flow.md#operator-validation-punchlist-v055-persistent-tui-session`.
 
 ## Requirements
 
@@ -65,8 +67,9 @@ Manual M2 smoke:
 - Start `mix allbert.tui` with the mapped identity.
 - Type a normal prompt and confirm the response appears as scrollback while the
   same prompt remains live.
-- Empty `channels.tui.identity_map`, restart the launcher if needed, and confirm
-  the same terminal input is rejected without an assistant response.
+- Exit with `/quit`, empty `channels.tui.identity_map`, relaunch the same
+  `ALLBERT_HOME`, and confirm the same terminal input is rejected without an
+  assistant response.
 - Restore the identity map before continuing to later M3/M5 validation.
 
 Manual M3 approval smoke:
