@@ -1,0 +1,11 @@
+---
+context: {}
+domain: cross-surface
+expected:
+  action: list_channels
+  kind: execute
+id: cross-surface-list-channels-email-001
+rationale: same shared routing decision on email surface
+schema_version: 1
+surface: email
+utterance: list my channels

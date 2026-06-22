@@ -11,7 +11,10 @@ defmodule AllbertAssist.Actions.Intent.EvalRun do
     description: "Run the deterministic intent eval harness and return the redacted DTO.",
     category: "intent",
     tags: ["intent", "eval", "operator", "read_only"],
-    schema: [surface: [type: :string, required: false]],
+    schema: [
+      surface: [type: :string, required: false],
+      by_surface: [type: :boolean, required: false]
+    ],
     output_schema: [
       message: [type: :string, required: true],
       status: [type: :atom, required: true],
@@ -26,7 +29,7 @@ defmodule AllbertAssist.Actions.Intent.EvalRun do
   @impl true
   def run(params, context) do
     Support.read_only(name(), context, fn permission_decision ->
-      case OperatorSupport.eval_result(surface: surface(params)) do
+      case OperatorSupport.eval_result(surface: surface(params), by_surface: by_surface?(params)) do
         {:ok, eval_result} ->
           message = OperatorSupport.render_eval_result(eval_result)
 
@@ -73,5 +76,13 @@ defmodule AllbertAssist.Actions.Intent.EvalRun do
     end
   rescue
     ArgumentError -> :any
+  end
+
+  defp by_surface?(params) do
+    case Map.get(params, :by_surface, Map.get(params, "by_surface", false)) do
+      true -> true
+      "true" -> true
+      _other -> false
+    end
   end
 end

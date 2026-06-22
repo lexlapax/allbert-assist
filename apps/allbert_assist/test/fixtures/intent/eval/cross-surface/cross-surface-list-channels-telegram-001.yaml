@@ -1,0 +1,11 @@
+---
+context: {}
+domain: cross-surface
+expected:
+  action: list_channels
+  kind: execute
+id: cross-surface-list-channels-telegram-001
+rationale: same shared routing decision on Telegram surface
+schema_version: 1
+surface: telegram
+utterance: list my channels

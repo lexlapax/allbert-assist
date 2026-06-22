@@ -1,0 +1,11 @@
+---
+context: {}
+domain: cross-surface
+expected:
+  action: list_channels
+  kind: execute
+id: cross-surface-list-channels-whatsapp-001
+rationale: same shared routing decision on WhatsApp surface
+schema_version: 1
+surface: whatsapp
+utterance: list my channels

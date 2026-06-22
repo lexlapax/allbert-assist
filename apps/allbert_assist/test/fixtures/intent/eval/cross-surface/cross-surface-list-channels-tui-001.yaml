@@ -1,0 +1,11 @@
+---
+context: {}
+domain: cross-surface
+expected:
+  action: list_channels
+  kind: execute
+id: cross-surface-list-channels-tui-001
+rationale: same shared routing decision on TUI surface
+schema_version: 1
+surface: tui
+utterance: list my channels

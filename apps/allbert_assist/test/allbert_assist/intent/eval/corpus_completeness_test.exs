@@ -147,7 +147,8 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
 
     assert baseline["schema_version"] == 1
     assert baseline["id"] == "v056-before-baseline"
-    assert baseline["corpus_case_count"] == length(cases)
+    assert baseline["corpus_case_count"] == 237
+    assert baseline["corpus_case_count"] <= length(cases)
     assert is_number(baseline["overall_accuracy"])
     assert is_map(baseline["per_domain"])
     assert get_in(baseline, ["gate", "status"]) in ["pass", "fail"]

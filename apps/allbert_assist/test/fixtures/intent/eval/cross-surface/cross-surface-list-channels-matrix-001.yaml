@@ -1,0 +1,11 @@
+---
+context: {}
+domain: cross-surface
+expected:
+  action: list_channels
+  kind: execute
+id: cross-surface-list-channels-matrix-001
+rationale: same shared routing decision on Matrix surface
+schema_version: 1
+surface: matrix
+utterance: list my channels

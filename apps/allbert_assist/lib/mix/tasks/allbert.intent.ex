@@ -9,7 +9,7 @@ defmodule Mix.Tasks.Allbert.Intent do
       mix allbert.intent list
       mix allbert.intent show ACTION
       mix allbert.intent review
-      mix allbert.intent eval run
+      mix allbert.intent eval run [--surface SURFACE | --by-surface]
       mix allbert.intent bench [--subset | --holdout]
       mix allbert.intent edit ACTION
       mix allbert.intent enable ACTION
@@ -54,7 +54,8 @@ defmodule Mix.Tasks.Allbert.Intent do
   end
 
   defp dispatch(["eval", "run" | rest]) do
-    {opts, _rest, _invalid} = OptionParser.parse(rest, strict: [surface: :string])
+    {opts, _rest, _invalid} =
+      OptionParser.parse(rest, strict: [surface: :string, by_surface: :boolean])
 
     "intent_eval_run"
     |> completed_action(Map.new(opts))
@@ -163,7 +164,7 @@ defmodule Mix.Tasks.Allbert.Intent do
     do:
       Mix.raise(
         "Usage: mix allbert.intent doctor | bench [--subset|--holdout] | " <>
-          "coverage | eval run [--surface SURFACE] | optimize [--heuristic] | reindex | " <>
+          "coverage | eval run [--surface SURFACE|--by-surface] | optimize [--heuristic] | reindex | " <>
           "list | show ACTION | edit ACTION | disable ACTION | enable ACTION | promote ACTION | review"
       )
 

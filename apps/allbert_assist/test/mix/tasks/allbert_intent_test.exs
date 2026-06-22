@@ -83,6 +83,16 @@ defmodule Mix.Tasks.Allbert.IntentTest do
     assert_cli_matches_action(["coverage"], "intent_coverage", %{})
   end
 
+  test "eval run can render the deterministic by-surface report" do
+    output = capture_io(fn -> assert :ok = IntentTask.run(["eval", "run", "--by-surface"]) end)
+
+    assert output =~ "intent eval run total="
+    assert output =~ "surface runs:"
+    assert output =~ "web: total="
+    assert output =~ "tui: total="
+    assert output =~ "telegram: total="
+  end
+
   test "review lists learned proposals and promote makes them generated" do
     {:ok, _path} =
       DescriptorStore.put(:review, %{

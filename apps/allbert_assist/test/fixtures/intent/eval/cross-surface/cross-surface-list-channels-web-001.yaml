@@ -1,0 +1,11 @@
+---
+context: {}
+domain: cross-surface
+expected:
+  action: list_channels
+  kind: execute
+id: cross-surface-list-channels-web-001
+rationale: same shared routing decision on web surface
+schema_version: 1
+surface: web
+utterance: list my channels

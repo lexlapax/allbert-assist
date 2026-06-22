@@ -24,11 +24,11 @@ developer reviews and promotes them into this fixture tree.
 Current fixture domains/directories:
 
 ```text
-adversarial, answer, apps, browser, calendar, channels, confirmations, email,
-external, github, golden, image, marketplace, mcp, memory, model,
-negative-doctor, negative-internal, negative-operator, negative-slash, none,
-notes, objectives, packages, plan-build, plugins, public-protocol, research,
-resources, settings, shell, skills, stocks, voice
+adversarial, answer, apps, browser, calendar, channels, confirmations,
+cross-surface, email, external, github, golden, image, marketplace, mcp,
+memory, model, negative-doctor, negative-internal, negative-operator,
+negative-slash, none, notes, objectives, packages, plan-build, plugins,
+public-protocol, research, resources, settings, shell, skills, stocks, voice
 ```
 
 Use the closest existing domain. Add a new domain only when the behavior has a

@@ -1,0 +1,11 @@
+---
+context: {}
+domain: cross-surface
+expected:
+  action: list_channels
+  kind: execute
+id: cross-surface-list-channels-signal-001
+rationale: same shared routing decision on Signal surface
+schema_version: 1
+surface: signal
+utterance: list my channels

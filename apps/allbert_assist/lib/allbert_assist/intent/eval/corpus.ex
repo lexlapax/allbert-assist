@@ -30,6 +30,9 @@ defmodule AllbertAssist.Intent.Eval.Corpus do
   @valid_kinds ~w(execute clarify answer none)a
   @valid_surfaces ~w(any web tui telegram discord slack matrix whatsapp signal email)a
 
+  @spec surfaces() :: [atom()]
+  def surfaces, do: @valid_surfaces
+
   @type t :: %Case{
           id: String.t(),
           domain: String.t(),

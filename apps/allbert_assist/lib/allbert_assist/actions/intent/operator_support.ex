@@ -83,6 +83,7 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
   @spec eval_result(keyword()) :: {:ok, map()} | {:error, term()}
   def eval_result(opts \\ []) do
     surface = Keyword.get(opts, :surface, :any)
+    by_surface? = Keyword.get(opts, :by_surface, false)
 
     with {:ok, cases} <- Corpus.load() do
       run = Runner.run(cases, surface: surface)
@@ -96,7 +97,8 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
          run_metadata: run.metadata,
          baseline: public_baseline(baseline),
          score: score_dto(score),
-         gate: gate_dto(score, baseline_raw)
+         gate: gate_dto(score, baseline_raw),
+         surface_runs: surface_runs(score, by_surface?)
        }}
     end
   end
@@ -168,10 +170,24 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
     [
       "intent eval run total=#{score.total} passed=#{score.passed} accuracy=#{score.overall_accuracy} gate=#{gate.status}",
       "negative_violations=#{length(score.negative_violations)} baseline=#{baseline_id(eval_result.baseline)}",
-      render_domain_scores(score.per_domain)
+      render_domain_scores(score.per_domain),
+      render_surface_runs(Map.get(eval_result, :surface_runs, %{}))
     ]
     |> Enum.reject(&(&1 in [nil, ""]))
     |> Enum.join("\n")
+  end
+
+  defp surface_runs(_score, false), do: %{}
+
+  defp surface_runs(score, true) do
+    score.per_surface
+    |> Map.drop(["any"])
+    |> Map.new(fn {surface, stats} ->
+      {surface,
+       stats
+       |> Map.take([:total, :passed, :accuracy])
+       |> Map.put(:overall_accuracy, stats.accuracy)}
+    end)
   end
 
   defp descriptor_dto(descriptor) do
@@ -257,6 +273,20 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
       "  #{domain}: #{stats.passed}/#{stats.total} accuracy=#{stats.accuracy}"
     end)
     |> Enum.join("\n")
+  end
+
+  defp render_surface_runs(surface_runs) when surface_runs in [%{}, nil], do: nil
+
+  defp render_surface_runs(surface_runs) do
+    lines =
+      surface_runs
+      |> Enum.sort_by(fn {surface, _stats} -> to_string(surface) end)
+      |> Enum.map(fn {surface, stats} ->
+        "  #{surface}: total=#{stats.total} passed=#{stats.passed} " <>
+          "accuracy=#{stats.overall_accuracy}"
+      end)
+
+    Enum.join(["surface runs:" | lines], "\n")
   end
 
   defp baseline_id(nil), do: "none"
