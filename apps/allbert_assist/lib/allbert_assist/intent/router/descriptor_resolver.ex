@@ -24,7 +24,10 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
 
   @spec resolve(keyword()) :: [Descriptor.t()]
   def resolve(opts \\ []) do
-    disabled = disabled_keys()
+    disabled =
+      if Keyword.get(opts, :ignore_disabled?, false),
+        do: MapSet.new(),
+        else: disabled_keys()
 
     [
       app_plugin_layer(opts),
@@ -87,8 +90,20 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
   # Accepted machine-generated descriptors (review-tier ones are NOT loaded).
   defp generated_layer(_opts), do: safe_store_load(:generated)
 
-  # Operator-curated descriptors (highest precedence).
-  defp override_layer(_opts), do: safe_store_load(:overrides)
+  # Operator-curated descriptors (highest precedence). Disabled override files are
+  # disable markers only; they must not normalize into empty descriptor content
+  # when callers intentionally compute an enabled candidate set.
+  defp override_layer(_opts) do
+    :overrides
+    |> safe_store_attrs()
+    |> Enum.reject(fn attrs -> truthy?(field(attrs, :disabled)) end)
+    |> Descriptor.normalize_many(source: :overrides)
+    |> Map.fetch!(:descriptors)
+  rescue
+    _exception -> []
+  catch
+    :exit, _reason -> []
+  end
 
   defp safe_store_load(tier) do
     DescriptorStore.load(tier)

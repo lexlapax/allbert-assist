@@ -29,18 +29,37 @@ defmodule AllbertAssist.Intent.Eval.Gate do
   @spec check_promotion(map(), keyword()) :: :ok | {:error, [map()]}
   def check_promotion(attrs, opts \\ []) when is_map(attrs) do
     with {:ok, candidate} <- Descriptor.normalize(attrs, source: :promotion_candidate),
-         {:ok, cases} <- Corpus.load() do
-      descriptors =
-        opts
-        |> Keyword.get(:descriptors, DescriptorResolver.resolve())
-        |> with_candidate(candidate)
-
-      baseline = Keyword.get(opts, :baseline, baseline_raw())
-      cases |> Runner.run(descriptors: descriptors) |> check(baseline)
+         descriptors <-
+           opts
+           |> Keyword.get(:descriptors, DescriptorResolver.resolve())
+           |> with_candidate(candidate) do
+      check_descriptors(descriptors, opts)
     else
       {:error, diagnostic} ->
         {:error, [%{reason: :invalid_promotion_descriptor, diagnostic: diagnostic}]}
     end
+  end
+
+  @spec check_descriptors([Descriptor.t()], keyword()) :: :ok | {:error, [map()]}
+  def check_descriptors(descriptors, opts \\ []) when is_list(descriptors) do
+    with {:ok, cases} <- Corpus.load() do
+      baseline = Keyword.get(opts, :baseline, baseline_raw())
+      cases |> Runner.run(descriptors: descriptors) |> check(baseline)
+    else
+      {:error, reason} ->
+        {:error, [%{reason: :promotion_gate_unavailable, diagnostic: reason}]}
+    end
+  end
+
+  @spec check_removal(atom(), String.t(), keyword()) :: :ok | {:error, [map()]}
+  def check_removal(app_id, action_name, opts \\ [])
+      when is_atom(app_id) and is_binary(action_name) do
+    descriptors =
+      opts
+      |> Keyword.get(:descriptors, DescriptorResolver.resolve())
+      |> Enum.reject(&(&1.app_id == app_id and &1.action_name == action_name))
+
+    check_descriptors(descriptors, opts)
   end
 
   defp with_candidate(descriptors, candidate) do

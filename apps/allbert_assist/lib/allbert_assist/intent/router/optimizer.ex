@@ -16,6 +16,7 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
   alias AllbertAssist.Intent.Descriptor
+  alias AllbertAssist.Intent.Eval.Gate
   alias AllbertAssist.Intent.Router.{DescriptorResolver, DescriptorStore, Index}
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
@@ -60,27 +61,38 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
   @max_prompt_chars 5_000
   @slot_name ~r/^[a-z][a-z0-9_]*$/
 
-  @spec optimize(keyword()) :: %{coverage: map(), generated: [String.t()], reviewed: [String.t()]}
+  @spec optimize(keyword()) :: %{
+          coverage: map(),
+          generated: [String.t()],
+          reviewed: [String.t()],
+          rejected: [map()]
+        }
   def optimize(opts \\ []) do
     strategy = Keyword.get(opts, :strategy, :model)
     dynamic = dynamic_action_names()
     autoaccept = autoaccept?()
 
-    {generated, reviewed} =
+    {generated, reviewed, rejected} =
       uncovered_agent_modules()
-      |> Enum.reduce({[], []}, fn module, {gen, rev} ->
+      |> Enum.reduce({[], [], []}, fn module, {gen, rev, rej} ->
         attrs = generate(module, strategy, opts)
         tier = tier_for(module.name(), dynamic, autoaccept)
-        {:ok, _path} = DescriptorStore.put(tier, attrs)
-        audit(module.name(), tier, strategy)
 
-        if tier == :generated,
-          do: {[module.name() | gen], rev},
-          else: {gen, [module.name() | rev]}
+        case accept_candidate(module, tier, attrs, strategy) do
+          {:generated, name} -> {[name | gen], rev, rej}
+          {:reviewed, name} -> {gen, [name | rev], rej}
+          {:rejected, rejection} -> {gen, [module.name() | rev], [rejection | rej]}
+        end
       end)
 
     rebuild_index(opts)
-    %{coverage: coverage(), generated: Enum.reverse(generated), reviewed: Enum.reverse(reviewed)}
+
+    %{
+      coverage: coverage(),
+      generated: Enum.reverse(generated),
+      reviewed: Enum.reverse(reviewed),
+      rejected: Enum.reverse(rejected)
+    }
   end
 
   @doc "Coverage report over the agent-exposed action surface."
@@ -135,6 +147,33 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
 
   def generate(module, :heuristic, _opts), do: heuristic(module)
   def generate(module, _strategy, opts), do: generate(module, :heuristic, opts)
+
+  defp accept_candidate(module, :generated, attrs, strategy) do
+    case Gate.check_promotion(attrs) do
+      :ok ->
+        {:ok, _path} = DescriptorStore.put(:generated, attrs)
+        audit(module.name(), :generated, strategy)
+        {:generated, module.name()}
+
+      {:error, failures} ->
+        review_attrs = Map.put(attrs, :gate_failures, failures)
+        {:ok, _path} = DescriptorStore.put(:review, review_attrs)
+        audit(module.name(), :review, strategy)
+
+        {:rejected,
+         %{
+           action_name: module.name(),
+           app_id: Map.get(attrs, :app_id),
+           failures: failures
+         }}
+    end
+  end
+
+  defp accept_candidate(module, tier, attrs, strategy) do
+    {:ok, _path} = DescriptorStore.put(tier, attrs)
+    audit(module.name(), tier, strategy)
+    {:reviewed, module.name()}
+  end
 
   # ── generation ───────────────────────────────────────────────────────────────
 

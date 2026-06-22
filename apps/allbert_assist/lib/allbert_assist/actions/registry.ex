@@ -52,6 +52,12 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.Coverage, as: IntentCoverage
   alias AllbertAssist.Actions.Intent.DirectAnswer
   alias AllbertAssist.Actions.Intent.Doctor, as: IntentDoctor
+  alias AllbertAssist.Actions.Intent.DisableDescriptor, as: DisableIntentDescriptor
+  alias AllbertAssist.Actions.Intent.EditDescriptor, as: EditIntentDescriptor
+  alias AllbertAssist.Actions.Intent.EnableDescriptor, as: EnableIntentDescriptor
+  alias AllbertAssist.Actions.Intent.EvalAdd, as: IntentEvalAdd
+  alias AllbertAssist.Actions.Intent.EvalBaseline, as: IntentEvalBaseline
+  alias AllbertAssist.Actions.Intent.EvalCapture, as: IntentEvalCapture
   alias AllbertAssist.Actions.Intent.EvalRun, as: IntentEvalRun
   alias AllbertAssist.Actions.Intent.ExplainIntent
   alias AllbertAssist.Actions.Intent.ExternalNetworkRequest
@@ -59,9 +65,12 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.ListDescriptors, as: IntentListDescriptors
   alias AllbertAssist.Actions.Intent.ListReview, as: IntentListReview
   alias AllbertAssist.Actions.Intent.ListSkills
+  alias AllbertAssist.Actions.Intent.OptimizeDescriptors, as: OptimizeIntentDescriptors
   alias AllbertAssist.Actions.Intent.PlanShellCommand
+  alias AllbertAssist.Actions.Intent.PromoteDescriptor, as: PromoteIntentDescriptor
   alias AllbertAssist.Actions.Intent.ReadRecentMemory
   alias AllbertAssist.Actions.Intent.ReadSkill
+  alias AllbertAssist.Actions.Intent.ReindexDescriptors, as: ReindexIntentDescriptors
   alias AllbertAssist.Actions.Intent.RunShellCommand
   alias AllbertAssist.Actions.Intent.ShowDescriptor, as: IntentShowDescriptor
   alias AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow
@@ -320,6 +329,15 @@ defmodule AllbertAssist.Actions.Registry do
     IntentCoverage,
     IntentEvalRun,
     IntentListReview,
+    OptimizeIntentDescriptors,
+    PromoteIntentDescriptor,
+    ReindexIntentDescriptors,
+    EditIntentDescriptor,
+    DisableIntentDescriptor,
+    EnableIntentDescriptor,
+    IntentEvalBaseline,
+    IntentEvalCapture,
+    IntentEvalAdd,
     ListMemoryEntries,
     ReadMemoryEntry,
     ReviewMemoryEntry,

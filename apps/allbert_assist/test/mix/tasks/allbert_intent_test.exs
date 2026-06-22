@@ -57,11 +57,18 @@ defmodule Mix.Tasks.Allbert.IntentTest do
     assert list_output =~ "append_memory source=override app_id=allbert"
   end
 
-  test "enable removes a disable override and restores the resolved descriptor" do
+  test "disable is gate-backed and enable removes a reviewed disable override" do
     disable_output =
       capture_io(fn -> assert :ok = IntentTask.run(["disable", "append_memory"]) end)
 
-    assert disable_output =~ "disabled append_memory"
+    assert disable_output =~ "could not disable append_memory: gate failed"
+
+    {:ok, _path} =
+      DescriptorStore.put(:overrides, %{
+        app_id: :allbert,
+        action_name: "append_memory",
+        disabled: true
+      })
 
     disabled_list = capture_io(fn -> assert :ok = IntentTask.run(["list"]) end)
     refute disabled_list =~ "append_memory source="
@@ -91,6 +98,60 @@ defmodule Mix.Tasks.Allbert.IntentTest do
     assert output =~ "web: total="
     assert output =~ "tui: total="
     assert output =~ "telegram: total="
+  end
+
+  test "eval capture and add are thin views over registered actions", %{home: home} do
+    fixture_root =
+      Path.join(
+        File.cwd!(),
+        "tmp/allbert-intent-task-fixture-#{System.unique_integer([:positive])}"
+      )
+
+    on_exit(fn -> File.rm_rf!(fixture_root) end)
+
+    capture_output =
+      capture_io(fn ->
+        assert :ok =
+                 IntentTask.run([
+                   "eval",
+                   "capture",
+                   "trace-123",
+                   "--id",
+                   "task-capture-001",
+                   "--domain",
+                   "captured",
+                   "--surface",
+                   "tui",
+                   "--utterance",
+                   "operator saw a routing miss",
+                   "--kind",
+                   "none",
+                   "--rationale",
+                   "operator reviewed"
+                 ])
+      end)
+
+    assert capture_output =~ "captured intent eval case task-capture-001 ->"
+
+    captured_path =
+      Path.join([home, "intents", "eval", "captured", "task-capture-001.yaml"])
+
+    assert File.exists?(captured_path)
+
+    add_output =
+      capture_io(fn ->
+        assert :ok =
+                 IntentTask.run([
+                   "eval",
+                   "add",
+                   "task-capture-001",
+                   "--fixture-root",
+                   fixture_root
+                 ])
+      end)
+
+    assert add_output =~ "added intent eval case task-capture-001 ->"
+    assert File.exists?(Path.join([fixture_root, "captured", "task-capture-001.yaml"]))
   end
 
   test "review lists learned proposals and promote makes them generated" do

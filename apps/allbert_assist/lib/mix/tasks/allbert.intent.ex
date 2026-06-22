@@ -10,6 +10,9 @@ defmodule Mix.Tasks.Allbert.Intent do
       mix allbert.intent show ACTION
       mix allbert.intent review
       mix allbert.intent eval run [--surface SURFACE | --by-surface]
+      mix allbert.intent eval baseline [--id ID]
+      mix allbert.intent eval capture [REF] --domain DOMAIN --utterance TEXT --kind KIND [--action ACTION]
+      mix allbert.intent eval add ID [--fixture-root PATH]
       mix allbert.intent bench [--subset | --holdout]
       mix allbert.intent edit ACTION
       mix allbert.intent enable ACTION
@@ -26,15 +29,8 @@ defmodule Mix.Tasks.Allbert.Intent do
 
   use Mix.Task
 
-  alias AllbertAssist.Actions.Intent.OperatorSupport
   alias AllbertAssist.Actions.Runner, as: ActionsRunner
-  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Intent.Bench
-  alias AllbertAssist.Intent.Eval.Gate
-  alias AllbertAssist.Intent.Router.DescriptorResolver
-  alias AllbertAssist.Intent.Router.DescriptorStore
-  alias AllbertAssist.Intent.Router.Index
-  alias AllbertAssist.Intent.Router.Optimizer
 
   @impl true
   def run(args) do
@@ -63,6 +59,57 @@ defmodule Mix.Tasks.Allbert.Intent do
     |> print_message()
   end
 
+  defp dispatch(["eval", "baseline" | rest]) do
+    {opts, _rest, _invalid} =
+      OptionParser.parse(rest, strict: [id: :string, fixture_root: :string])
+
+    "intent_eval_baseline"
+    |> completed_action(Map.new(opts))
+    |> print_message()
+  end
+
+  defp dispatch(["eval", "capture" | rest]) do
+    {opts, refs, _invalid} =
+      OptionParser.parse(rest,
+        strict: [
+          id: :string,
+          domain: :string,
+          surface: :string,
+          utterance: :string,
+          kind: :string,
+          action: :string,
+          negative: :boolean,
+          holdout: :boolean,
+          rationale: :string
+        ]
+      )
+
+    params =
+      opts
+      |> Map.new()
+      |> maybe_put_ref(refs)
+
+    "intent_eval_capture"
+    |> completed_action(params)
+    |> print_message()
+  end
+
+  defp dispatch(["eval", "add" | rest]) do
+    {opts, refs, _invalid} =
+      OptionParser.parse(rest,
+        strict: [id: :string, path: :string, fixture_root: :string, force: :boolean]
+      )
+
+    params =
+      opts
+      |> Map.new()
+      |> maybe_put_id(refs)
+
+    "intent_eval_add"
+    |> completed_action(params)
+    |> print_message()
+  end
+
   defp dispatch(["bench" | rest]) do
     {opts, _rest, _invalid} =
       OptionParser.parse(rest, strict: [subset: :boolean, holdout: :boolean])
@@ -74,19 +121,15 @@ defmodule Mix.Tasks.Allbert.Intent do
     {opts, _rest, _invalid} =
       OptionParser.parse(rest, strict: [heuristic: :boolean])
 
-    strategy = if opts[:heuristic], do: :heuristic, else: :model
-    result = Optimizer.optimize(strategy: strategy)
-
-    Mix.shell().info(
-      "generated=#{length(result.generated)} review_pending=#{length(result.reviewed)}"
-    )
-
-    print_coverage(result.coverage)
+    "optimize_intent_descriptors"
+    |> completed_action(Map.new(opts))
+    |> print_message()
   end
 
   defp dispatch(["reindex"]) do
-    state = Index.rebuild()
-    Mix.shell().info("index status=#{state.status} size=#{length(state.entries)}")
+    "reindex_intent_descriptors"
+    |> completed_action(%{})
+    |> print_message()
   end
 
   defp dispatch(["list"]) do
@@ -102,36 +145,21 @@ defmodule Mix.Tasks.Allbert.Intent do
   end
 
   defp dispatch(["edit", action]) do
-    case descriptor_for_action(action) do
-      nil ->
-        Mix.raise("no resolved descriptor for #{action}")
-
-      descriptor ->
-        {:ok, path} = DescriptorStore.put(:overrides, override_attrs(descriptor))
-
-        Mix.shell().info(
-          "override #{action} -> #{path}; edit this YAML and run `mix allbert.intent reindex` to apply"
-        )
-    end
+    "edit_intent_descriptor"
+    |> completed_action(%{action: action})
+    |> print_message()
   end
 
   defp dispatch(["disable", action]) do
-    {:ok, path} =
-      DescriptorStore.put(:overrides, %{
-        app_id: descriptor_app_id(action),
-        action_name: action,
-        disabled: true
-      })
-
-    Mix.shell().info("disabled #{action} (#{path}); run `mix allbert.intent reindex` to apply")
+    "disable_intent_descriptor"
+    |> completed_action(%{action: action})
+    |> print_message()
   end
 
   defp dispatch(["enable", action]) do
-    {:ok, path} = DescriptorStore.delete(:overrides, descriptor_app_id(action), action)
-
-    Mix.shell().info(
-      "enabled #{action} (removed override #{path}); run `mix allbert.intent reindex` to apply"
-    )
+    "enable_intent_descriptor"
+    |> completed_action(%{action: action})
+    |> print_message()
   end
 
   defp dispatch(["promote", action | rest]) do
@@ -141,22 +169,9 @@ defmodule Mix.Tasks.Allbert.Intent do
         aliases: [f: :from, t: :to]
       )
 
-    from = tier_option(opts[:from], :review)
-    to = tier_option(opts[:to], :generated)
-
-    app_id = descriptor_app_id(action)
-
-    with {:ok, attrs} <- promotion_attrs(from, app_id, action),
-         :ok <- Gate.check_promotion(attrs),
-         {:ok, path} <- DescriptorStore.promote(from, to, to_string(app_id), action) do
-      Mix.shell().info("promoted #{action} -> #{path}; run `mix allbert.intent reindex` to apply")
-    else
-      {:error, failures} when is_list(failures) ->
-        Mix.shell().info("could not promote #{action}: gate failed #{inspect(failures)}")
-
-      {:error, reason} ->
-        Mix.shell().info("could not promote #{action}: #{inspect(reason)}")
-    end
+    "promote_intent_descriptor"
+    |> completed_action(Map.merge(Map.new(opts), %{action: action}))
+    |> print_message()
   end
 
   defp dispatch(["review"]) do
@@ -169,7 +184,8 @@ defmodule Mix.Tasks.Allbert.Intent do
     do:
       Mix.raise(
         "Usage: mix allbert.intent doctor | bench [--subset|--holdout] | " <>
-          "coverage | eval run [--surface SURFACE|--by-surface] | optimize [--heuristic] | reindex | " <>
+          "coverage | eval run [--surface SURFACE|--by-surface] | eval baseline|capture|add | " <>
+          "optimize [--heuristic] | reindex | " <>
           "list | show ACTION | edit ACTION | disable ACTION | enable ACTION | promote ACTION | review"
       )
 
@@ -188,67 +204,6 @@ defmodule Mix.Tasks.Allbert.Intent do
   end
 
   defp print_message(%{message: message}), do: Mix.shell().info(message)
-
-  defp descriptor_app_id(action) do
-    case ActionsRegistry.capability(action) do
-      {:ok, capability} -> capability.app_id || :allbert
-      _other -> :allbert
-    end
-  end
-
-  defp tier_option(nil, default), do: default
-  defp tier_option("learned", _default), do: :review
-  defp tier_option("learned-review", _default), do: :review
-  defp tier_option("review", _default), do: :review
-  defp tier_option("generated", _default), do: :generated
-  defp tier_option("overrides", _default), do: :overrides
-  defp tier_option("override", _default), do: :overrides
-  defp tier_option(_value, default), do: default
-
-  defp descriptor_for_action(action) do
-    Enum.find(DescriptorResolver.resolve(), &(&1.action_name == action))
-  end
-
-  defp promotion_attrs(tier, app_id, action) do
-    DescriptorStore.read_attrs(tier)
-    |> Enum.find(fn attrs ->
-      normalize_app_id(field(attrs, :app_id)) == app_id and
-        to_string(field(attrs, :action_name)) == action
-    end)
-    |> case do
-      nil -> {:error, :not_found}
-      attrs -> {:ok, attrs}
-    end
-  end
-
-  defp override_attrs(descriptor) do
-    %{
-      app_id: descriptor.app_id,
-      action_name: descriptor.action_name,
-      label: descriptor.label,
-      destination: descriptor.destination,
-      examples: descriptor.examples,
-      synonyms: descriptor.synonyms,
-      required_slots: descriptor.required_slots,
-      optional_slots: descriptor.optional_slots,
-      slot_extractors: descriptor.slot_extractors,
-      vocabulary: descriptor.vocabulary,
-      handoff_required?: descriptor.handoff_required?,
-      disabled: false
-    }
-    |> Enum.reject(fn {_key, value} -> value in [nil, [], %{}] end)
-    |> Map.new()
-  end
-
-  defp print_coverage(c), do: Mix.shell().info(OperatorSupport.render_coverage(c))
-
-  defp normalize_app_id(value) when is_binary(value) do
-    String.to_existing_atom(value)
-  rescue
-    ArgumentError -> value
-  end
-
-  defp normalize_app_id(value), do: value
 
   defp print_bench(%{summary: s}) do
     Mix.shell().info("""
@@ -270,9 +225,9 @@ defmodule Mix.Tasks.Allbert.Intent do
     end
   end
 
-  defp field(map, key, default \\ nil)
+  defp maybe_put_ref(params, [ref | _rest]), do: Map.put(params, :ref, ref)
+  defp maybe_put_ref(params, _refs), do: params
 
-  defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, to_string(key), default))
-  end
+  defp maybe_put_id(params, [id | _rest]), do: Map.put_new(params, :id, id)
+  defp maybe_put_id(params, _refs), do: params
 end
