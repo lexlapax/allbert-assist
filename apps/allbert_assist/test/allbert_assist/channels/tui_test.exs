@@ -164,6 +164,63 @@ defmodule AllbertAssist.Channels.TUITest do
     refute_received {:runtime_request, _request}
   end
 
+  test "slash help renders canonical commands without runtime submission or channel event" do
+    configure_tui!()
+    parent = self()
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn line -> send(parent, {:tui_output, line}) end
+             )
+
+    assert {:ok,
+            {:slash,
+             [
+               "Available slash commands:\n" <>
+                 "- /status\n" <>
+                 "- /confirmations\n" <>
+                 "- /events\n" <>
+                 "- /channels\n" <>
+                 "- /settings get\n" <>
+                 "- /help"
+             ]}} = Adapter.submit(server, "/help", external_event_id: "evt-tui-slash-help")
+
+    refute_received {:runtime_request, _request}
+    assert_receive {:tui_output, rendered}
+    assert rendered =~ "/status"
+    assert rendered =~ "/settings get"
+    refute Repo.get_by(Event, channel: "tui", external_event_id: "evt-tui-slash-help")
+  end
+
+  test "unknown slash command is inert and does not echo arguments" do
+    configure_tui!()
+    parent = self()
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn line -> send(parent, {:tui_output, line}) end
+             )
+
+    assert {:ok, {:slash, [rendered]}} =
+             Adapter.submit(server, "/bogus token=secret",
+               external_event_id: "evt-tui-slash-unknown"
+             )
+
+    assert rendered == "Unknown slash command. Type /help for available commands."
+    refute rendered =~ "secret"
+    refute_received {:runtime_request, _request}
+    assert_receive {:tui_output, ^rendered}
+    refute Repo.get_by(Event, channel: "tui", external_event_id: "evt-tui-slash-unknown")
+  end
+
   test "adapter generated terminal event ids are stable across launcher restarts" do
     configure_tui!()
 

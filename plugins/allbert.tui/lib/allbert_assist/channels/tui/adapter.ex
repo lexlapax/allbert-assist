@@ -10,6 +10,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
   alias AllbertAssist.Channels.TUI.Renderer
+  alias AllbertAssist.Channels.TUI.SlashCommands
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
 
@@ -145,7 +146,15 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
   defp process_text(_text, _opts, %{enabled?: false} = state), do: {{:error, :disabled}, state}
 
-  defp process_text(text, opts, state) do
+  defp process_text(text, opts, state) when is_binary(text) do
+    if SlashCommands.slash?(text) do
+      dispatch_slash(text, state)
+    else
+      process_inbound_text(text, opts, state)
+    end
+  end
+
+  defp process_inbound_text(text, opts, state) do
     fields = fields(text, opts, state)
     command = ConfirmationCallback.parse_typed_command(fields.text)
     direction = if command == :ignore, do: "inbound", else: "callback"
@@ -160,6 +169,30 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       {:error, reason} ->
         {{:error, reason}, clear_live_status(state)}
     end
+  end
+
+  defp dispatch_slash(text, state) do
+    with {:ok, response} <- SlashCommands.dispatch(text, slash_context(state)),
+         {:ok, rendered} <-
+           Renderer.render_response(response, max_text_bytes: state.max_text_bytes),
+         state <- clear_live_status(state),
+         :ok <- emit_rendered(rendered, state) do
+      {{:ok, {:slash, rendered}}, state}
+    else
+      {:error, reason} ->
+        state = clear_live_status(state)
+        Logger.debug("tui slash command failed: #{inspect(Redactor.redact(reason))}")
+        {{:error, reason}, state}
+    end
+  end
+
+  defp slash_context(state) do
+    %{
+      channel: @channel,
+      provider: @provider,
+      external_user_id: state.profile,
+      receiver_account_ref: "tui:#{state.profile}"
+    }
   end
 
   defp fields(text, opts, state) do
