@@ -45,3 +45,27 @@ plus the `:v055` security eval lane, which asserts the TUI and Matrix rows match
 descriptor-derived runtime truth instead of this prose file. The separate live
 Matrix provider smoke is credential-dependent; the closeout attempt is recorded
 as blocked by an inactive Matrix token, not by the parity or outbound code path.
+
+## v0.55.1 Operator Console Status
+
+v0.55.1 adds a status surface on top of the v0.55 parity foundation without
+changing the parity matrix itself:
+
+- in-session slash commands: `/status`, `/confirmations`, `/events`, `/channels`,
+  `/settings get`, and `/help`;
+- cold status twin: `mix allbert.channels status`;
+- backing rule: slash commands and the cold status report are registered
+  read-only internal inspection actions resolved through `Actions.Runner.run/3`,
+  reachable only through the TUI slash allowlist or explicit Mix task twin, never
+  intent candidates;
+- source-of-truth rule: `/channels` and `mix allbert.channels status` reuse the
+  descriptor-derived channel reads plus the shared supervisor/process-status read;
+  the TUI must not reimplement channel, `channel_events`, confirmation, or settings
+  reads in adapter code;
+- validation rule: manual operator validation uses the warm in-session slash
+  commands, while `tui-slash-source-of-truth-001` and `release.v0551` prove
+  `/channels` and `mix allbert.channels status` agree.
+
+The status command is intentionally not part of v0.55's `mix allbert.channels
+--parity` contract. It belongs to the v0.55.1 operator/validation console
+described by ADR 0070 and `docs/plans/v0.55b-request-flow.md`.

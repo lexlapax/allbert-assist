@@ -1,10 +1,9 @@
 # TUI Channel Operator Guide
 
-Status: shipped in the v0.55.0 release-prepared closeout, with tag pending
-operator approval. This guide covers the shipped terminal channel descriptor,
-basic `mix allbert.tui` launcher, identity mapping, split-payload rendering seam,
-typed approval rendering/resolution, warm TUI validation, and the deterministic
-`release.v055` gate.
+Status: shipped in v0.55.0. This guide covers the shipped terminal channel
+descriptor, basic `mix allbert.tui` launcher, identity mapping, split-payload
+rendering seam, typed approval rendering/resolution, warm TUI validation, and the
+deterministic `release.v055` gate.
 The full release-validation checklist is
 `docs/plans/v0.55-request-flow.md#operator-validation-punchlist-v055-persistent-tui-session`.
 
@@ -20,11 +19,12 @@ The full release-validation checklist is
 
 ```sh
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-tui.XXXXXX)"
-mix ecto.migrate.allbert --quiet
+mix allbert.ecto.migrate --quiet
 
 mix allbert.settings set channels.tui.identity_map '[{"external_user_id":"default","user_id":"local","enabled":true}]'
 mix allbert.settings get channels.tui.identity_map
 mix allbert.settings set channels.tui.enabled true
+mix allbert.settings get channels.tui.enabled
 ```
 
 Check the descriptor-derived channel summary and parity matrix:
@@ -81,6 +81,30 @@ ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test release.v055
 
 `ALLBERT_TEST_KEEP_TMP=1` keeps the release gate's owned temporary home so the
 printed `release.v055 evidence:` path remains readable after the Mix task exits.
+
+## v0.55.1 Warm Console Standard
+
+v0.55.1 (`docs/plans/v0.55b-request-flow.md`) hardens this same TUI into the
+persistent operator/validation console. The go-forward interactive validation
+standard is:
+
+- run the deterministic `mix allbert.test release.v0551` gate first;
+- prepare a fresh `ALLBERT_HOME`, migrate it with `mix allbert.ecto.migrate
+  --quiet`, configure `channels.tui.identity_map`, enable `channels.tui.enabled`,
+  and preflight the Notes/files `write_note` route before launch;
+- launch one transcript-captured `mix allbert.tui` session and keep it open for
+  the whole manual punchlist;
+- issue operator inspections through the in-session slash commands only:
+  `/status`, `/confirmations`, `/events`, `/channels`, `/settings get`, and
+  `/help`;
+- do not use cold `mix allbert.ask` or cold `mix allbert.*` inspection commands
+  between in-session checks;
+- retain the redacted transcript and the `release.v0551` evidence path outside
+  disposable `/tmp` state for M6 closeout.
+
+`mix allbert.channels status` is the cold-task twin for deterministic parity and
+source-of-truth evidence; it is not a manual in-session substitute for `/channels`
+inside the v0.55.1 punchlist.
 
 Manual M2 smoke:
 
