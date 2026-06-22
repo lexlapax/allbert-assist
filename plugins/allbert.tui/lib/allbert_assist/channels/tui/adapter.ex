@@ -50,7 +50,6 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     state =
       opts
       |> load_state()
-      |> maybe_start_live_screen()
       |> emit_banner()
 
     if state.enabled? and state.auto_input? do
@@ -109,6 +108,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       profile: profile,
       live_screen?: Keyword.get(opts, :live_screen?, false),
       live_screen_server: Keyword.get(opts, :live_screen_server, Owl.LiveScreen),
+      live_status_active?: false,
       input_fun: Keyword.get(opts, :input_fun, &default_input/1),
       output_fun: Keyword.get(opts, :output_fun),
       max_text_bytes: Map.get(settings, "max_text_bytes", 12_000)
@@ -123,21 +123,6 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       "" -> "default"
       profile -> profile
     end
-  end
-
-  defp maybe_start_live_screen(%{live_screen?: false} = state), do: state
-
-  defp maybe_start_live_screen(state) do
-    add_live_block(state.live_screen_server, state.profile)
-    state
-  rescue
-    error ->
-      Logger.debug("tui live screen unavailable: #{Exception.message(error)}")
-      %{state | live_screen?: false}
-  catch
-    :exit, reason ->
-      Logger.debug("tui live screen unavailable: #{inspect(reason)}")
-      %{state | live_screen?: false}
   end
 
   defp add_live_block(server, profile) do
@@ -167,20 +152,20 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
     case insert_received_event(fields, direction) do
       {:ok, %AllbertAssist.Channels.Event{} = event} ->
-        {handle_received_event(event, fields, command, state), state}
+        handle_received_event(event, fields, command, state)
 
       {:ok, :duplicate} ->
-        {{:ok, :duplicate}, state}
+        {{:ok, :duplicate}, clear_live_status(state)}
 
       {:error, reason} ->
-        {{:error, reason}, state}
+        {{:error, reason}, clear_live_status(state)}
     end
   end
 
   defp fields(text, opts, state) do
     event_id =
       Keyword.get(opts, :external_event_id) ||
-        "tui-#{System.unique_integer([:positive, :monotonic])}"
+        "tui-#{Ecto.UUID.generate()}"
 
     %{
       text: String.trim(text),
@@ -224,14 +209,16 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
            process_text_or_callback(command, fields, state, user_id, session_id, inbound_trust),
          {:ok, rendered} <-
            Renderer.render_response(response, max_text_bytes: state.max_text_bytes),
+         state <- clear_live_status(state),
          :ok <- emit_rendered(rendered, state),
          {:ok, event} <- mark_processed(event, response, user_id, session_id) do
-      {:ok, {:processed, event, rendered}}
+      {{:ok, {:processed, event, rendered}}, state}
     else
       {:error, reason} ->
+        state = clear_live_status(state)
         Logger.debug("tui event rejected: #{inspect(Redactor.redact(reason))}")
         {:ok, _event} = mark_rejected_or_failed(event, reason)
-        {:ok, :rejected}
+        {{:ok, :rejected}, state}
     end
   end
 
@@ -351,7 +338,11 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     output_fun.(line)
   end
 
-  defp emit_output(line, %{live_screen?: true, live_screen_server: server}) do
+  defp emit_output(line, %{
+         live_screen?: true,
+         live_status_active?: true,
+         live_screen_server: server
+       }) do
     Owl.IO.puts(line, server)
     Owl.LiveScreen.await_render(server)
   end
@@ -456,6 +447,30 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   defp launcher_exit?(_reason), do: false
 
   defp update_live_status(%{live_screen?: false} = state, _status), do: state
+  defp update_live_status(state, :ready), do: clear_live_status(state)
+
+  defp update_live_status(%{live_status_active?: false} = state, status) do
+    server = state.live_screen_server
+
+    add_live_block(server, state.profile)
+
+    Owl.LiveScreen.update(
+      server,
+      :allbert_tui_status,
+      Renderer.status(state.profile, status)
+    )
+
+    Owl.LiveScreen.await_render(server)
+    %{state | live_status_active?: true}
+  rescue
+    error ->
+      Logger.debug("tui live screen unavailable: #{Exception.message(error)}")
+      %{state | live_screen?: false, live_status_active?: false}
+  catch
+    :exit, reason ->
+      Logger.debug("tui live screen unavailable: #{inspect(reason)}")
+      %{state | live_screen?: false, live_status_active?: false}
+  end
 
   defp update_live_status(state, status) do
     Owl.LiveScreen.update(
@@ -467,9 +482,30 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     Owl.LiveScreen.await_render(state.live_screen_server)
     state
   rescue
-    _error -> %{state | live_screen?: false}
+    error ->
+      Logger.debug("tui live screen unavailable: #{Exception.message(error)}")
+      %{state | live_screen?: false, live_status_active?: false}
   catch
-    :exit, _reason -> %{state | live_screen?: false}
+    :exit, reason ->
+      Logger.debug("tui live screen unavailable: #{inspect(reason)}")
+      %{state | live_screen?: false, live_status_active?: false}
+  end
+
+  defp clear_live_status(%{live_status_active?: false} = state), do: state
+
+  defp clear_live_status(state) do
+    Owl.LiveScreen.update(state.live_screen_server, :allbert_tui_status, [])
+    Owl.LiveScreen.await_render(state.live_screen_server)
+    Owl.LiveScreen.flush(state.live_screen_server)
+    %{state | live_status_active?: false}
+  rescue
+    error ->
+      Logger.debug("tui live screen unavailable: #{Exception.message(error)}")
+      %{state | live_screen?: false, live_status_active?: false}
+  catch
+    :exit, reason ->
+      Logger.debug("tui live screen unavailable: #{inspect(reason)}")
+      %{state | live_screen?: false, live_status_active?: false}
   end
 
   defp response_value(response, key) when is_map(response) do

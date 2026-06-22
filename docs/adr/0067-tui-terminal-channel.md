@@ -120,10 +120,11 @@ checks.
 
 The TUI is **scrollback-native and line-oriented**. Completed turns are written
 as static scrollback lines (`Owl.Data` / `IO.ANSI` styling) so the terminal
-keeps its native scrolling and search. A SINGLE `Owl.LiveScreen` live block
-renders the active input prompt and the in-progress/live status line — a
-differential update of only the bottom region, using synchronized-output escape
-sequences where supported to avoid flicker.
+keeps its native scrolling and search. The active prompt uses normal terminal
+input so operator-typed text remains visible. A SINGLE transient
+`Owl.LiveScreen` live block renders in-progress/live status when no input prompt
+is waiting — a differential update of only the bottom region, using
+synchronized-output escape sequences where supported to avoid flicker.
 
 Explicitly: NO alternate-screen buffer, NO full-viewport ownership, NO
 full-screen redraw.

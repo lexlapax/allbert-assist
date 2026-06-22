@@ -164,6 +164,47 @@ defmodule AllbertAssist.Channels.TUITest do
     refute_received {:runtime_request, _request}
   end
 
+  test "adapter generated terminal event ids are stable across launcher restarts" do
+    configure_tui!()
+
+    assert {:ok, first_server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn _line -> :ok end
+             )
+
+    assert {:ok, {:processed, first_event, _rendered}} =
+             Adapter.submit(first_server, "first generated id")
+
+    assert_receive {:runtime_request, _request}
+    GenServer.stop(first_server)
+
+    assert {:ok, second_server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn _line -> :ok end
+             )
+
+    assert {:ok, {:processed, second_event, _rendered}} =
+             Adapter.submit(second_server, "second generated id")
+
+    assert_receive {:runtime_request, _request}
+
+    assert first_event.external_event_id =~
+             ~r/^tui-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
+    assert second_event.external_event_id =~
+             ~r/^tui-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
+    refute first_event.external_event_id == second_event.external_event_id
+  end
+
   test "renderer emits typed commands and numbered approval options" do
     handoff = %{
       confirmation_id: "conf_tui_render",
