@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: onboarding_step_complete
+  kind: execute
+id: internal-onboarding-step-complete-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action onboarding_step_complete

@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-operator
+expected:
+  action: edit_intent_descriptor
+  kind: execute
+id: planned-operator-edit-intent-descriptor-negative-001
+negative: true
+rationale: planned v0.56 operator action is slash/task-only, not natural-language routable
+schema_version: 1
+utterance: operator run edit_intent_descriptor

@@ -1,0 +1,9 @@
+---
+context: {}
+domain: settings
+expected:
+  kind: clarify
+id: settings-model-ambiguous-001
+rationale: model profile list/update/read is ambiguous
+schema_version: 1
+utterance: model settings

@@ -1,0 +1,10 @@
+---
+context: {}
+domain: public-protocol
+expected:
+  action: get_public_call_result
+  kind: execute
+id: get-public-call-result-001
+rationale: read a public protocol call result
+schema_version: 1
+utterance: get public call result abc123

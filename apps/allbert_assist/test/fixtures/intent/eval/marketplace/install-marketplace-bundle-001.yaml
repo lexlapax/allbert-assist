@@ -1,0 +1,10 @@
+---
+context: {}
+domain: marketplace
+expected:
+  action: install_marketplace_bundle
+  kind: execute
+id: install-marketplace-bundle-001
+rationale: marketplace install is routable and permission gated
+schema_version: 1
+utterance: install the marketplace bundle notes

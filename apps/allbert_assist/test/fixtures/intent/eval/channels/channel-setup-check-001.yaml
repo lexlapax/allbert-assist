@@ -1,0 +1,10 @@
+---
+context: {}
+domain: channels
+expected:
+  action: channel_setup_check
+  kind: execute
+id: channel-setup-check-001
+rationale: channel setup check
+schema_version: 1
+utterance: check channel setup

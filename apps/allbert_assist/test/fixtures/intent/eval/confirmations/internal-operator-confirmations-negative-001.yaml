@@ -1,0 +1,11 @@
+---
+context: {}
+domain: confirmations
+expected:
+  action: operator_confirmations
+  kind: execute
+id: internal-operator-confirmations-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action operator_confirmations

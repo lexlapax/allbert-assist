@@ -1,0 +1,10 @@
+---
+context: {}
+domain: plugins
+expected:
+  action: show_plugin
+  kind: execute
+id: show-plugin-001
+rationale: inspect one plugin
+schema_version: 1
+utterance: show the telegram plugin

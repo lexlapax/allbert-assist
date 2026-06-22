@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-operator
+expected:
+  action: operator_channels
+  kind: execute
+id: internal-operator-channels-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action operator_channels

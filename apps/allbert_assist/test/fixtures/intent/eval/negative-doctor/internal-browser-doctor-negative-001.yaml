@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-doctor
+expected:
+  action: browser_doctor
+  kind: execute
+id: internal-browser-doctor-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action browser_doctor

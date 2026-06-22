@@ -1,0 +1,10 @@
+---
+context: {}
+domain: skills
+expected:
+  action: show_online_skill
+  kind: execute
+id: show-online-skill-001
+rationale: inspect one online skill candidate
+schema_version: 1
+utterance: show the online skill pdf extraction

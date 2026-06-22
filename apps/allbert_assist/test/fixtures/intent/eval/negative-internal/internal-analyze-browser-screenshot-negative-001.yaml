@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: analyze_browser_screenshot
+  kind: execute
+id: internal-analyze-browser-screenshot-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action analyze_browser_screenshot

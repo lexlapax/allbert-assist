@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: run_sandbox_gate
+  kind: execute
+id: internal-run-sandbox-gate-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action run_sandbox_gate

@@ -1,0 +1,10 @@
+---
+context: {}
+domain: negative-slash
+expected:
+  kind: none
+id: slash-settings-get-negative-001
+negative: true
+rationale: TUI slash line is a command, not a model turn
+schema_version: 1
+utterance: /settings get operator.timezone

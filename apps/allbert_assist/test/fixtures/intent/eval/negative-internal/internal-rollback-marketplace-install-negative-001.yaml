@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: rollback_marketplace_install
+  kind: execute
+id: internal-rollback-marketplace-install-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action rollback_marketplace_install

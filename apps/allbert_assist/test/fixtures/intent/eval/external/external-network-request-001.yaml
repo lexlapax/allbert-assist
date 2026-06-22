@@ -1,0 +1,10 @@
+---
+context: {}
+domain: external
+expected:
+  action: external_network_request
+  kind: execute
+id: external-network-request-001
+rationale: explicit external network request
+schema_version: 1
+utterance: fetch https://example.com with a GET request

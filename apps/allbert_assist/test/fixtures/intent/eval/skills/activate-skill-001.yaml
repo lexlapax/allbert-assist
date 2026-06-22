@@ -1,0 +1,10 @@
+---
+context: {}
+domain: skills
+expected:
+  action: activate_skill
+  kind: execute
+id: activate-skill-001
+rationale: activate a local skill for the session
+schema_version: 1
+utterance: activate the tdd skill

@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: disable_dynamic_live_loader
+  kind: execute
+id: internal-disable-dynamic-live-loader-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action disable_dynamic_live_loader

@@ -1,0 +1,10 @@
+---
+context: {}
+domain: shell
+expected:
+  action: plan_shell_command
+  kind: execute
+id: plan-shell-command-001
+rationale: plan shell without executing
+schema_version: 1
+utterance: plan the shell command to list files

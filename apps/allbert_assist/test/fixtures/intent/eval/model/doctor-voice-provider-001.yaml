@@ -1,0 +1,10 @@
+---
+context: {}
+domain: model
+expected:
+  action: doctor_voice_provider
+  kind: execute
+id: doctor-voice-provider-001
+rationale: voice provider doctor is routable read
+schema_version: 1
+utterance: doctor the voice provider

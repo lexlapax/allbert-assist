@@ -1,0 +1,10 @@
+---
+context: {}
+domain: settings
+expected:
+  action: read_setting
+  kind: execute
+id: read-setting-001
+rationale: read one setting
+schema_version: 1
+utterance: read setting operator.timezone

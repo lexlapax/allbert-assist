@@ -1,0 +1,10 @@
+---
+context: {}
+domain: answer
+expected:
+  action: direct_answer
+  kind: execute
+id: direct-answer-001
+rationale: direct answer action is routable but grants no external authority
+schema_version: 1
+utterance: 'answer directly: why is the sky blue'

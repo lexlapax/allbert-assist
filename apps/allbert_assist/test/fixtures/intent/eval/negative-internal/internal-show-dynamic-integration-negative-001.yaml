@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: show_dynamic_integration
+  kind: execute
+id: internal-show-dynamic-integration-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action show_dynamic_integration

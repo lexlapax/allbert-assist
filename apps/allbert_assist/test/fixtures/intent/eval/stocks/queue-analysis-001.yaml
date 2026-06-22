@@ -1,0 +1,10 @@
+---
+context: {}
+domain: stocks
+expected:
+  action: queue_analysis
+  kind: execute
+id: queue-analysis-001
+rationale: stocksage queued analysis
+schema_version: 1
+utterance: queue analysis for MSFT

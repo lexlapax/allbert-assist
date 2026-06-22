@@ -68,6 +68,25 @@ defmodule AllbertAssist.Intent.Eval.CorpusTest do
     assert case.expected.slots == %{"ticker" => :present}
   end
 
+  test "ignores baseline artifacts while loading corpus directories" do
+    root = tmp_dir("corpus-baseline")
+    File.mkdir_p!(Path.join(root, "notes"))
+
+    File.write!(Path.join(root, "baseline.yaml"), "overall_accuracy: 0.0\n")
+
+    File.write!(Path.join(root, "notes/create.yaml"), """
+    id: notes-create-001
+    domain: notes
+    utterance: create a note
+    expected:
+      kind: execute
+      action: write_note
+    """)
+
+    assert {:ok, [case]} = Corpus.load(path: root)
+    assert case.id == "notes-create-001"
+  end
+
   test "rejects unsafe non-yaml corpus paths" do
     root = tmp_dir("corpus-unsafe")
     File.mkdir_p!(root)

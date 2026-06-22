@@ -1,0 +1,10 @@
+---
+context: {}
+domain: stocks
+expected:
+  action: list_analyses
+  kind: execute
+id: list-analyses-001
+rationale: stocksage analysis inventory
+schema_version: 1
+utterance: list stock analyses

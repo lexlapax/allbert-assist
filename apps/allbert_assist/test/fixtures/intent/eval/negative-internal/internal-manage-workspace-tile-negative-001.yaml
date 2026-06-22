@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: manage_workspace_tile
+  kind: execute
+id: internal-manage-workspace-tile-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action manage_workspace_tile

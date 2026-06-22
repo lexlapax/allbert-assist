@@ -1,0 +1,10 @@
+---
+context: {}
+domain: skills
+expected:
+  action: create_skill
+  kind: execute
+id: create-skill-001
+rationale: skill creation is routable and gated
+schema_version: 1
+utterance: create a skill for invoice cleanup

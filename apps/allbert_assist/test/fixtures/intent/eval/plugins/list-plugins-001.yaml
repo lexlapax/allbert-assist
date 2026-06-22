@@ -1,0 +1,10 @@
+---
+context: {}
+domain: plugins
+expected:
+  action: list_plugins
+  kind: execute
+id: list-plugins-001
+rationale: list installed plugins
+schema_version: 1
+utterance: list plugins

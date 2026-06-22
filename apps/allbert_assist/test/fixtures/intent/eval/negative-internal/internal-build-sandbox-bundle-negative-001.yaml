@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: build_sandbox_bundle
+  kind: execute
+id: internal-build-sandbox-bundle-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action build_sandbox_bundle

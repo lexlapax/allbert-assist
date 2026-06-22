@@ -1,0 +1,10 @@
+---
+context: {}
+domain: channels
+expected:
+  action: show_channel
+  kind: execute
+id: show-channel-001
+rationale: inspect one channel
+schema_version: 1
+utterance: show the telegram channel

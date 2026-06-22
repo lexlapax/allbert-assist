@@ -1,0 +1,10 @@
+---
+context: {}
+domain: objectives
+expected:
+  action: continue_objective
+  kind: execute
+id: continue-objective-001
+rationale: continue objective
+schema_version: 1
+utterance: continue my objective about release notes

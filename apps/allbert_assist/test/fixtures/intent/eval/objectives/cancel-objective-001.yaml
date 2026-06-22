@@ -1,0 +1,10 @@
+---
+context: {}
+domain: objectives
+expected:
+  action: cancel_objective
+  kind: execute
+id: cancel-objective-001
+rationale: cancel objective
+schema_version: 1
+utterance: cancel my objective about release notes

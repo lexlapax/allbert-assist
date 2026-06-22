@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: stocksage_fetch_sentiment
+  kind: execute
+id: internal-stocksage-fetch-sentiment-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action stocksage_fetch_sentiment

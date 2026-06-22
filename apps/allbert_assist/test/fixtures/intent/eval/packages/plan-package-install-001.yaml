@@ -1,0 +1,10 @@
+---
+context: {}
+domain: packages
+expected:
+  action: plan_package_install
+  kind: execute
+id: plan-package-install-001
+rationale: package install planning only
+schema_version: 1
+utterance: plan installing the jq package

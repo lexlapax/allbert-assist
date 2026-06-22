@@ -1,0 +1,10 @@
+---
+context: {}
+domain: model
+expected:
+  action: list_provider_profiles
+  kind: execute
+id: list-provider-profiles-001
+rationale: list configured providers
+schema_version: 1
+utterance: list provider profiles

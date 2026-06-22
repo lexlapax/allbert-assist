@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: show_stocksage_agent
+  kind: execute
+id: internal-show-stocksage-agent-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action show_stocksage_agent

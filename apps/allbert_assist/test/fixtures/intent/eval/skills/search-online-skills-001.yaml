@@ -1,0 +1,10 @@
+---
+context: {}
+domain: skills
+expected:
+  action: search_online_skills
+  kind: execute
+id: search-online-skills-001
+rationale: online skill search is routable and gated by external-network policy
+schema_version: 1
+utterance: search online skills for pdf extraction

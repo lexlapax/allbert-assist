@@ -1,0 +1,10 @@
+---
+context: {}
+domain: model
+expected:
+  action: doctor_model_profile
+  kind: execute
+id: doctor-model-profile-001
+rationale: model profile doctor is routable read
+schema_version: 1
+utterance: doctor the local model profile

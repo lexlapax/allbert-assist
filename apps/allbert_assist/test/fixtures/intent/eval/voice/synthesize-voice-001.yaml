@@ -1,0 +1,10 @@
+---
+context: {}
+domain: voice
+expected:
+  action: synthesize_voice
+  kind: execute
+id: synthesize-voice-001
+rationale: voice synthesis action
+schema_version: 1
+utterance: synthesize voice saying hello

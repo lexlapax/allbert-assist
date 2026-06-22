@@ -1,0 +1,9 @@
+---
+context: {}
+domain: stocks
+expected:
+  kind: clarify
+id: stocks-ambiguous-001
+rationale: analysis/trends/list/show/queue stock action is ambiguous
+schema_version: 1
+utterance: stock

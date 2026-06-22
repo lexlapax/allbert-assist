@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-doctor
+expected:
+  action: matrix_doctor
+  kind: execute
+id: internal-matrix-doctor-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action matrix_doctor

@@ -1,0 +1,10 @@
+---
+context: {}
+domain: settings
+expected:
+  action: explain_setting
+  kind: execute
+id: explain-setting-001
+rationale: explain setting provenance
+schema_version: 1
+utterance: explain the operator.timezone setting

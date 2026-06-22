@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: record_workspace_offline_update
+  kind: execute
+id: internal-record-workspace-offline-update-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action record_workspace_offline_update

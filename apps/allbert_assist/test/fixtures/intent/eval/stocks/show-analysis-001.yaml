@@ -1,0 +1,10 @@
+---
+context: {}
+domain: stocks
+expected:
+  action: show_analysis
+  kind: execute
+id: show-analysis-001
+rationale: stocksage analysis detail
+schema_version: 1
+utterance: show stock analysis AAPL

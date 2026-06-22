@@ -1,0 +1,10 @@
+---
+context: {}
+domain: skills
+expected:
+  action: read_skill
+  kind: execute
+id: read-skill-001
+rationale: read a local skill
+schema_version: 1
+utterance: read the tdd skill

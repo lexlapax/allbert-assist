@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-doctor
+expected:
+  action: email_doctor
+  kind: execute
+id: internal-email-doctor-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action email_doctor

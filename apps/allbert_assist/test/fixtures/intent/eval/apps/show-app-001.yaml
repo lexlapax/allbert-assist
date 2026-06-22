@@ -1,0 +1,10 @@
+---
+context: {}
+domain: apps
+expected:
+  action: show_app
+  kind: execute
+id: show-app-001
+rationale: inspect one app
+schema_version: 1
+utterance: show the allbert app

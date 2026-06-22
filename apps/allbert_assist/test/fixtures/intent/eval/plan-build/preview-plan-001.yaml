@@ -1,0 +1,10 @@
+---
+context: {}
+domain: plan-build
+expected:
+  action: preview_plan
+  kind: execute
+id: preview-plan-001
+rationale: plan/build preview
+schema_version: 1
+utterance: preview my current plan

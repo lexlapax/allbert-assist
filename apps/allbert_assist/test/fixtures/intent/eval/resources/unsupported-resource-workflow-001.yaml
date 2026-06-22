@@ -1,0 +1,10 @@
+---
+context: {}
+domain: resources
+expected:
+  action: unsupported_resource_workflow
+  kind: execute
+id: unsupported-resource-workflow-001
+rationale: unsupported resource workflow handoff
+schema_version: 1
+utterance: open resource foo://unsupported

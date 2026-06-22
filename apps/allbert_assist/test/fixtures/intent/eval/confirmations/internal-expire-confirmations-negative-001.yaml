@@ -1,0 +1,11 @@
+---
+context: {}
+domain: confirmations
+expected:
+  action: expire_confirmations
+  kind: execute
+id: internal-expire-confirmations-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action expire_confirmations

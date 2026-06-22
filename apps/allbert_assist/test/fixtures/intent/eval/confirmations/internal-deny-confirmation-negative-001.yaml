@@ -1,0 +1,11 @@
+---
+context: {}
+domain: confirmations
+expected:
+  action: deny_confirmation
+  kind: execute
+id: internal-deny-confirmation-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action deny_confirmation

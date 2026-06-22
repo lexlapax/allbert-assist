@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: list_installed_marketplace_bundles
+  kind: execute
+id: internal-list-installed-marketplace-bundles-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action list_installed_marketplace_bundles

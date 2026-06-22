@@ -1,0 +1,9 @@
+---
+context: {}
+domain: objectives
+expected:
+  kind: clarify
+id: objectives-ambiguous-001
+rationale: list/continue/cancel objective is ambiguous
+schema_version: 1
+utterance: goal

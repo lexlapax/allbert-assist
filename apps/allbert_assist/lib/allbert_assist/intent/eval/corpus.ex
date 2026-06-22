@@ -91,15 +91,18 @@ defmodule AllbertAssist.Intent.Eval.Corpus do
   defp expand_path(path) do
     cond do
       File.dir?(path) ->
-        Path.wildcard(Path.join(path, "**/*.yaml")) ++ Path.wildcard(Path.join(path, "**/*.yml"))
+        (Path.wildcard(Path.join(path, "**/*.yaml")) ++ Path.wildcard(Path.join(path, "**/*.yml")))
+        |> Enum.reject(&baseline_artifact?/1)
 
       File.regular?(path) ->
-        [path]
+        if baseline_artifact?(path), do: [], else: [path]
 
       true ->
         []
     end
   end
+
+  defp baseline_artifact?(path), do: Path.basename(path) in ["baseline.yaml", "baseline.yml"]
 
   defp read_files(files) do
     Enum.reduce_while(files, {:ok, []}, fn file, {:ok, acc} ->

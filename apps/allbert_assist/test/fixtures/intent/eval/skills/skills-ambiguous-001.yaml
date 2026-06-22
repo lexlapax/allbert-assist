@@ -1,0 +1,9 @@
+---
+context: {}
+domain: skills
+expected:
+  kind: clarify
+id: skills-ambiguous-001
+rationale: read/activate/search/create skill is ambiguous
+schema_version: 1
+utterance: skill

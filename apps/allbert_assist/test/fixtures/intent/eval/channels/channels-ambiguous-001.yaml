@@ -1,0 +1,9 @@
+---
+context: {}
+domain: channels
+expected:
+  kind: clarify
+id: channels-ambiguous-001
+rationale: list/show/setup/resume/send channel is ambiguous
+schema_version: 1
+utterance: channel

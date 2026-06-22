@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-doctor
+expected:
+  action: voice_local_runtime_doctor
+  kind: execute
+id: internal-voice-local-runtime-doctor-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action voice_local_runtime_doctor
