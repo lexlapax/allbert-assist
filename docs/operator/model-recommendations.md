@@ -23,7 +23,7 @@ small/wrong capability) · `not-pulled` (local model not downloaded) ·
 |---|---|---|---|---|---|---|
 | Intent Stage-1 embedding | `nomic-embed-text` (or `bge-small`) via Ollama | — keep local | embeddings, ~300M–1.4B | **local-only required** | `intent.router_embedding_profile = embedding_local` | Prefilter returns fallback → deterministic ladder |
 | Intent Stage-2 disambiguation | `llama3.1:8b` | a capable hosted chat model | constrained-object/JSON, 7–8B | local-first | `intent.router_model_profile = router_local` | heuristic / clarify |
-| Intent escalation (low-confidence tail) | `gemma2:27b` (local) | capable hosted | larger reasoning | local default; egress audited | `intent.router_escalation_profile = router_escalation_local` | second pass → clarify |
+| Intent escalation (low-confidence tail) | `gemma4:26b` (local) | capable hosted | larger reasoning | local default; egress audited | `intent.router_escalation_profile = router_escalation_local` | second pass -> clarify |
 | Descriptor generation (v0.56) | reuse `router_local` | opt-in hosted | json_schema generation | local-only, redacted | reuses `intent.router_model_profile` | heuristic generator |
 | Intent eval **live** bench (v0.56) | reuse `router_local` | — | same as disambiguation | local | reuses `intent.router_model_profile` | deterministic gate is model-free |
 | Main conversational loop | `:capable` / `:thinking` (object), `:fast` (text/stream) | per provider | text + structured output | operator choice | `jido_ai` aliases (config) + Settings Central model profiles | graceful decline |
@@ -41,7 +41,7 @@ already uses). Typical setup:
 ```sh
 ollama pull nomic-embed-text
 ollama pull llama3.1:8b
-ollama pull gemma2:27b      # optional escalation tier
+ollama pull gemma4:26b      # optional local escalation tier
 mix allbert.intent doctor   # confirm embedder + router model report ok
 ```
 
@@ -49,6 +49,9 @@ mix allbert.intent doctor   # confirm embedder + router model report ok
 
 - Local profiles never leave the machine. The embedder enforces a local-only
   endpoint and refuses a remote profile (ADR 0061).
+- `router_escalation_local` is local by default and should report as local in the
+  doctor. Hosted escalation remains an explicit Settings Central override and
+  must be doctor-flagged with `remote-egress-warning`.
 - Any hosted profile is an explicit operator opt-in, configured through Settings
   Central and audited at the capability/egress boundary (ADR 0051, Security
   Central / ADR 0006). The doctor flags a configured hosted profile with

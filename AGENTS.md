@@ -214,6 +214,12 @@ Use these as starting points, then narrow further from the active task:
 ## Workflow
 
 - For docs-only changes, run `git diff --check`.
+- After v0.55.1, interactive/manual operator validation defaults to one
+  persistent `mix allbert.tui` session. Cold Mix tasks are allowed for setup,
+  deterministic gates, provider/model preflight, and post-session evidence
+  checks only. In-session checks use TUI slash commands or planned TUI read
+  affordances; do not fall back to cold per-turn `mix allbert.ask` or cold
+  inspection tasks unless the active request-flow explicitly says why.
 - When creating or auditing a milestone plan for implementation readiness, add
   development-lane annotations: parallel workstreams, serial barriers, focused
   tests/gates, external smokes, full-precommit timing, and the rejoin point for
