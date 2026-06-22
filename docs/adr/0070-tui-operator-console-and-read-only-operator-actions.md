@@ -51,8 +51,11 @@ candidates**. The two-stage intent router (ADR 0060) must never select them: the
 are absent from `Actions.Registry.agent_modules/0`, excluded from generated or
 curated intent descriptors, and unavailable to Stage-1 prefilter and Stage-2
 disambiguation, so the model cannot route a user utterance to operator
-inspection. Routing decides which *user-facing* action runs; operator inspection
-is reachable only through the explicit slash-command surface.
+inspection. The same exclusion extends to every other model-reachable surface —
+tool-discovery suggestions and the capability-inventory candidate set — so there
+is no back door by which a conversation turn reaches an inspection read. Routing
+decides which *user-facing* action runs; operator inspection is reachable only
+through the explicit slash-command surface.
 
 ### No mutation, no authority, redacted output
 
@@ -65,8 +68,11 @@ render an operator-readable summary; they never create a confirmation, set a
 
 The TUI slash-command router maps each `/cmd` to its registered read-only internal
 action; `mix allbert.channels status` renders the **same read-report DTO source**
-behind the `/channels` action. The slash surface and the `mix` report converge on
-one implementation rather than diverging into two command surfaces.
+behind the `/channels` action. Concretely, `/channels` and `mix allbert.channels
+status` reuse the existing `list_channels` read action plus a supervisor-status
+read; the TUI does not reimplement channel-status, `channel_events`, confirmation,
+or settings reads in a parallel path. The slash surface and the `mix` report
+converge on one implementation rather than diverging into two command surfaces.
 
 ## Consequences
 
