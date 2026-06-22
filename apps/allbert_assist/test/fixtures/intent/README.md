@@ -15,11 +15,24 @@ developer reviews and promotes them into this fixture tree.
 - `eval/negative-internal/` covers internal action names that must never be
   natural-language route targets.
 - `eval/negative-doctor/` covers doctor/operator inspection phrasing.
-- `eval/operator-actions/` covers planned v0.56 operator-action names before
+- `eval/negative-operator/` covers planned v0.56 operator-action names before
   implementation makes them available.
-- `eval/tui-slash/` covers TUI slash commands. Slash lines are never model turns.
+- `eval/negative-slash/` covers TUI slash commands. Slash lines are never model turns.
 - `eval/baseline.yaml` records the M2 BEFORE result. It is evidence, not a
   corpus case, and the loader intentionally skips it.
+
+Current fixture domains/directories:
+
+```text
+adversarial, answer, apps, browser, calendar, channels, confirmations, email,
+external, github, golden, image, marketplace, mcp, memory, model,
+negative-doctor, negative-internal, negative-operator, negative-slash, none,
+notes, objectives, packages, plan-build, plugins, public-protocol, research,
+resources, settings, shell, skills, stocks, voice
+```
+
+Use the closest existing domain. Add a new domain only when the behavior has a
+meaningfully different routing contract, not just a new action name.
 
 ## Case Shape
 
@@ -45,6 +58,51 @@ Valid `expected.kind` values are `execute`, `clarify`, `answer`, and `none`.
 Use `negative: true` when a phrase must not execute the named action or any
 operator/internal action. For slot checks, use a literal value or a list entry
 when presence is enough.
+
+### Surfaces
+
+`surface` scopes when a case participates in cross-surface runs. Valid values:
+
+```text
+any, web, tui, telegram, discord, slack, matrix, whatsapp, signal, email
+```
+
+- `any` is the default and runs in every deterministic surface pass.
+- A surface-specific value runs for `any` plus that named surface only.
+- Surface affects delivery context, not authority. The same utterance should
+  select the same action across surfaces unless the case explicitly proves a
+  surface-only safety rule.
+- TUI slash lines belong in `negative-slash/`; they are command lines, not model
+  turns, and must not become routable natural-language actions.
+
+### Expected Kinds
+
+- `execute`: the router should select `expected.action`. This kind requires an
+  `action` field. Add `slots` when the case proves slot extraction.
+- `clarify`: the router should ask a follow-up question instead of executing.
+  Use for missing required slots or genuinely ambiguous sibling actions.
+- `answer`: the request should be answered conversationally, not routed to an
+  action. Do not use this for "what do I have/show/list/read" requests when a
+  retrieval action exists.
+- `none`: no available action or conversational answer should handle the
+  utterance.
+
+For `negative: true`, the scorer checks for forbidden execution. If
+`expected.action` is present, executing that action is a violation; if it is
+absent, executing any action is a violation. Non-execute outcomes are acceptable
+unless the case also has a stricter `expected.kind` assertion.
+
+Slot expectations support two forms:
+
+```yaml
+slots:
+  ticker: AAPL       # exact value required
+```
+
+```yaml
+slots:
+  - body             # presence required; value may vary
+```
 
 ## Adding Cases
 
