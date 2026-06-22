@@ -96,6 +96,11 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Objectives.ListObjectives
   alias AllbertAssist.Actions.Objectives.ShowObjective
   alias AllbertAssist.Actions.Onboarding.StepComplete, as: OnboardingStepComplete
+  alias AllbertAssist.Actions.Operator.Channels, as: OperatorChannels
+  alias AllbertAssist.Actions.Operator.Confirmations, as: OperatorConfirmations
+  alias AllbertAssist.Actions.Operator.Events, as: OperatorEvents
+  alias AllbertAssist.Actions.Operator.SettingGet, as: OperatorSettingGet
+  alias AllbertAssist.Actions.Operator.Status, as: OperatorStatus
   alias AllbertAssist.Actions.Packages.PlanPackageInstall
   alias AllbertAssist.Actions.Packages.RunPackageInstall
   alias AllbertAssist.Actions.PlanBuild.CancelPlanRun
@@ -277,6 +282,11 @@ defmodule AllbertAssist.Actions.Registry do
     RunSandboxCommand,
     RunSandboxGate,
     DiscardSandboxBundle,
+    OperatorStatus,
+    OperatorConfirmations,
+    OperatorEvents,
+    OperatorChannels,
+    OperatorSettingGet,
     ListConfirmations,
     ShowConfirmation,
     ApproveConfirmation,

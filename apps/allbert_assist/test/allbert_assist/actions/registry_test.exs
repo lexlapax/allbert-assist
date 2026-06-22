@@ -177,6 +177,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "run_sandbox_command",
              "run_sandbox_gate",
              "discard_sandbox_bundle",
+             "operator_status",
+             "operator_confirmations",
+             "operator_events",
+             "operator_channels",
+             "operator_setting_get",
              "list_confirmations",
              "show_confirmation",
              "approve_confirmation",
@@ -281,6 +286,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     refute "marketplace_doctor" in agent_action_names
     refute "security_status" in agent_action_names
     refute "security_review" in agent_action_names
+    refute "operator_status" in agent_action_names
+    refute "operator_confirmations" in agent_action_names
+    refute "operator_events" in agent_action_names
+    refute "operator_channels" in agent_action_names
+    refute "operator_setting_get" in agent_action_names
     refute "capture_workspace_voice" in agent_action_names
     refute "transcribe_voice" in agent_action_names
     refute "record_trace" in agent_action_names
@@ -344,6 +354,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "run_sandbox_command",
              "run_sandbox_gate",
              "discard_sandbox_bundle",
+             "operator_status",
+             "operator_confirmations",
+             "operator_events",
+             "operator_channels",
+             "operator_setting_get",
              "list_confirmations",
              "show_confirmation",
              "approve_confirmation",

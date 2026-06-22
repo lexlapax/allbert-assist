@@ -172,13 +172,20 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   defp dispatch_slash(text, state) do
-    with {:ok, response} <- SlashCommands.dispatch(text, slash_context(state)),
+    with {:ok, context} <- slash_context(text, state),
+         {:ok, response} <- SlashCommands.dispatch(text, context),
          {:ok, rendered} <-
            Renderer.render_response(response, max_text_bytes: state.max_text_bytes),
          state <- clear_live_status(state),
          :ok <- emit_rendered(rendered, state) do
       {{:ok, {:slash, rendered}}, state}
     else
+      {:error, :disabled} ->
+        render_unavailable_slash(:disabled, state)
+
+      {:error, :not_mapped} ->
+        render_unavailable_slash(:not_mapped, state)
+
       {:error, reason} ->
         state = clear_live_status(state)
         Logger.debug("tui slash command failed: #{inspect(Redactor.redact(reason))}")
@@ -186,12 +193,67 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     end
   end
 
-  defp slash_context(state) do
+  defp render_unavailable_slash(reason, state) do
+    response = SlashCommands.unavailable_response(reason)
+
+    with {:ok, rendered} <-
+           Renderer.render_response(response, max_text_bytes: state.max_text_bytes),
+         state <- clear_live_status(state),
+         :ok <- emit_rendered(rendered, state) do
+      {{:ok, {:slash, rendered}}, state}
+    else
+      {:error, render_reason} ->
+        state = clear_live_status(state)
+
+        Logger.debug(
+          "tui slash unavailable render failed: #{inspect(Redactor.redact(render_reason))}"
+        )
+
+        {{:error, render_reason}, state}
+    end
+  end
+
+  defp slash_context(text, state) do
+    if SlashCommands.requires_identity?(text) do
+      with {:ok, user_id} <- resolve_identity(%{external_user_id: state.profile}, state) do
+        {:ok, Map.merge(base_slash_context(state), identity_context(user_id, state))}
+      end
+    else
+      {:ok, base_slash_context(state)}
+    end
+  end
+
+  defp base_slash_context(state) do
     %{
       channel: @channel,
       provider: @provider,
+      surface: "tui_slash_command",
       external_user_id: state.profile,
-      receiver_account_ref: "tui:#{state.profile}"
+      receiver_account_ref: "tui:#{state.profile}",
+      request: %{
+        channel: @channel,
+        provider: @provider,
+        surface: "tui_slash_command",
+        external_user_id: state.profile,
+        receiver_account_ref: "tui:#{state.profile}"
+      }
+    }
+  end
+
+  defp identity_context(user_id, state) do
+    %{
+      actor: user_id,
+      user_id: user_id,
+      operator_id: user_id,
+      request: %{
+        channel: @channel,
+        provider: @provider,
+        surface: "tui_slash_command",
+        external_user_id: state.profile,
+        receiver_account_ref: "tui:#{state.profile}",
+        user_id: user_id,
+        operator_id: user_id
+      }
     }
   end
 

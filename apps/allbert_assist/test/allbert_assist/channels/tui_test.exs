@@ -1,6 +1,7 @@
 defmodule AllbertAssist.Channels.TUITest do
   use AllbertAssist.DataCase, async: false
 
+  alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.TUI.Adapter
@@ -219,6 +220,131 @@ defmodule AllbertAssist.Channels.TUITest do
     refute_received {:runtime_request, _request}
     assert_receive {:tui_output, ^rendered}
     refute Repo.get_by(Event, channel: "tui", external_event_id: "evt-tui-slash-unknown")
+  end
+
+  test "operator slash data commands run internal read-only actions without runtime or channel events" do
+    configure_tui!()
+    assert {:ok, confirmation} = create_confirmation!("conf_tui_operator_console", "tui")
+    parent = self()
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn line -> send(parent, {:tui_output, line}) end
+             )
+
+    assert {:ok, {:processed, _event, _rendered}} =
+             Adapter.submit(server, "seed event", external_event_id: "evt-tui-inspection-seed")
+
+    assert_receive {:runtime_request, %{text: "seed event"}}
+    assert_receive {:tui_output, "[surface] seed event"}
+
+    assert {:ok, {:slash, [status]}} =
+             Adapter.submit(server, "/status", external_event_id: "evt-tui-slash-status")
+
+    assert status =~ "Operator status:"
+    assert status =~ "beam_os_pid:"
+    assert status =~ "operator_id: alice"
+    assert status =~ "Channels.Supervisor:"
+    refute_received {:runtime_request, _request}
+    refute Repo.get_by(Event, channel: "tui", external_event_id: "evt-tui-slash-status")
+
+    assert {:ok, {:slash, [channels]}} =
+             Adapter.submit(server, "/channels", external_event_id: "evt-tui-slash-channels")
+
+    assert channels =~ "Channels ("
+    assert channels =~ "tui: provider=terminal enabled=true identities=1"
+    refute_received {:runtime_request, _request}
+    refute Repo.get_by(Event, channel: "tui", external_event_id: "evt-tui-slash-channels")
+
+    assert {:ok, {:slash, [confirmations]}} =
+             Adapter.submit(server, "/confirmations",
+               external_event_id: "evt-tui-slash-confirmations"
+             )
+
+    assert confirmations =~ confirmation["id"]
+    assert confirmations =~ "status=pending"
+    assert confirmations =~ "target=external_network_request"
+    refute_received {:runtime_request, _request}
+    refute Repo.get_by(Event, channel: "tui", external_event_id: "evt-tui-slash-confirmations")
+
+    assert {:ok, {:slash, [events]}} =
+             Adapter.submit(server, "/events", external_event_id: "evt-tui-slash-events")
+
+    assert events =~ "Recent channel events"
+    assert events =~ "evt-tui-inspection-seed"
+    refute events =~ "evt-tui-slash-events"
+    refute_received {:runtime_request, _request}
+    refute Repo.get_by(Event, channel: "tui", external_event_id: "evt-tui-slash-events")
+
+    assert {:ok, {:slash, [setting]}} =
+             Adapter.submit(server, "/settings get channels.tui.identity_map",
+               external_event_id: "evt-tui-slash-setting"
+             )
+
+    assert setting =~ "Setting channels.tui.identity_map:"
+    assert setting =~ "alice"
+    refute setting =~ "secret"
+    refute_received {:runtime_request, _request}
+    refute Repo.get_by(Event, channel: "tui", external_event_id: "evt-tui-slash-setting")
+
+    assert {:ok, {:slash, [invalid_setting]}} =
+             Adapter.submit(server, "/settings get token=secret",
+               external_event_id: "evt-tui-slash-setting-missing"
+             )
+
+    assert invalid_setting == "Invalid setting key."
+    refute invalid_setting =~ "secret"
+    refute_received {:runtime_request, _request}
+    refute Repo.get_by(Event, channel: "tui", external_event_id: "evt-tui-slash-setting-missing")
+  end
+
+  test "operator inspection actions are internal slash-only candidates" do
+    agent_action_names = Enum.map(Registry.agent_modules(), & &1.name())
+
+    for action_name <- [
+          "operator_status",
+          "operator_confirmations",
+          "operator_events",
+          "operator_channels",
+          "operator_setting_get"
+        ] do
+      assert {:ok, module} = Registry.resolve(action_name)
+      capability = module.capability()
+
+      assert capability.permission == :read_only
+      assert capability.exposure == :internal
+      assert capability.confirmation == :not_required
+      refute action_name in agent_action_names
+    end
+  end
+
+  test "operator slash commands require mapped TUI identity before runner dispatch" do
+    assert {:ok, _setting} = Settings.put("channels.tui.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = Settings.put("channels.tui.identity_map", [], %{audit?: false})
+    parent = self()
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn line -> send(parent, {:tui_output, line}) end
+             )
+
+    assert {:ok, {:slash, [rendered]}} =
+             Adapter.submit(server, "/status", external_event_id: "evt-tui-slash-unmapped")
+
+    assert rendered ==
+             "Slash command unavailable: terminal profile is not mapped to an Allbert user."
+
+    refute_received {:runtime_request, _request}
+    assert_receive {:tui_output, ^rendered}
+    refute Repo.get_by(Event, channel: "tui", external_event_id: "evt-tui-slash-unmapped")
   end
 
   test "adapter generated terminal event ids are stable across launcher restarts" do

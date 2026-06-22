@@ -1,6 +1,8 @@
 defmodule AllbertAssist.Channels.TUI.SlashCommands do
   @moduledoc false
 
+  alias AllbertAssist.Actions.Runner
+
   @canonical_commands [
     "/status",
     "/confirmations",
@@ -22,31 +24,98 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
   @spec canonical_commands() :: [String.t()]
   def canonical_commands, do: @canonical_commands
 
+  @spec requires_identity?(String.t()) :: boolean()
+  def requires_identity?(text) when is_binary(text) do
+    case text |> normalize() |> route() do
+      {:action, _name, _params} -> true
+      {:local, _response} -> false
+    end
+  end
+
+  def requires_identity?(_text), do: false
+
   @spec dispatch(String.t(), map()) :: {:ok, map()}
-  def dispatch(text, _context \\ %{}) when is_binary(text) do
-    text
-    |> normalize()
-    |> route()
+  def dispatch(text, context \\ %{}) when is_binary(text) do
+    case text |> normalize() |> route() do
+      {:local, response} ->
+        {:ok, response}
+
+      {:action, action_name, params} ->
+        Runner.run(action_name, params, context)
+    end
+  end
+
+  @spec unavailable_response(atom()) :: map()
+  def unavailable_response(:disabled) do
+    local_response(
+      "Slash command unavailable: terminal profile is disabled.",
+      "TUI operator slash command unavailable: disabled identity."
+    )
+  end
+
+  def unavailable_response(_reason) do
+    local_response(
+      "Slash command unavailable: terminal profile is not mapped to an Allbert user.",
+      "TUI operator slash command unavailable: unmapped identity."
+    )
   end
 
   defp normalize(text), do: String.trim(text)
 
-  defp route("/help") do
-    {:ok,
-     %{
-       status: :completed,
-       surface_payload: help_text(),
-       model_payload: "TUI operator slash help."
-     }}
+  defp route(text) do
+    case String.split(text, ~r/\s+/, parts: 3, trim: true) do
+      ["/help"] ->
+        {:local, local_response(help_text(), "TUI operator slash help.")}
+
+      ["/status"] ->
+        {:action, "operator_status", %{}}
+
+      ["/confirmations"] ->
+        {:action, "operator_confirmations", %{status: "all"}}
+
+      ["/events"] ->
+        {:action, "operator_events", %{limit: 10}}
+
+      ["/channels"] ->
+        {:action, "operator_channels", %{}}
+
+      ["/settings", "get", key] ->
+        key = String.trim(key)
+
+        cond do
+          key == "" ->
+            {:local,
+             local_response("Usage: /settings get <key>", "Malformed TUI settings slash command.")}
+
+          not valid_setting_key?(key) ->
+            {:local,
+             local_response("Invalid setting key.", "Malformed TUI settings slash command.")}
+
+          true ->
+            {:action, "operator_setting_get", %{key: key}}
+        end
+
+      ["/settings", "get"] ->
+        {:local,
+         local_response("Usage: /settings get <key>", "Malformed TUI settings slash command.")}
+
+      _unknown ->
+        {:local,
+         local_response(
+           "Unknown slash command. Type /help for available commands.",
+           "Unknown TUI operator slash command."
+         )}
+    end
   end
 
-  defp route(_unknown) do
-    {:ok,
-     %{
-       status: :completed,
-       surface_payload: "Unknown slash command. Type /help for available commands.",
-       model_payload: "Unknown TUI operator slash command."
-     }}
+  defp valid_setting_key?(key), do: Regex.match?(~r/^[A-Za-z0-9_.-]+$/, key)
+
+  defp local_response(surface_payload, model_payload) do
+    %{
+      status: :completed,
+      surface_payload: surface_payload,
+      model_payload: model_payload
+    }
   end
 
   defp help_text do

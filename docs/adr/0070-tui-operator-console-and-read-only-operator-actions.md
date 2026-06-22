@@ -79,7 +79,8 @@ Two clarifications on "reuse": (1) the slash backings are `exposure: :internal`
 reads. Sharing a *context facade / report DTO* with an existing `exposure: :agent`
 read (e.g. `read_setting`) is fine, but the `:agent` action is **not** itself the
 slash backing — wiring a slash to an `:agent` action would leave it model-routable
-and, for `read_setting`, would emit an unredacted `inspect(setting.value)`. (2)
+and would not provide the operator-specific DTO/redaction boundary for sensitive
+settings layers. (2)
 `/help` and any unknown slash are handled **router-local** — no action, no Runner —
 so not every `/cmd` is an action invocation.
 
