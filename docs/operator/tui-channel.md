@@ -106,7 +106,13 @@ standard is:
 source-of-truth evidence; it is not a manual in-session substitute for `/channels`
 inside the v0.55.1 punchlist.
 
-Manual M2 smoke:
+For the exact v0.55.1 operator-validation command sequence, use
+`docs/plans/v0.55b-request-flow.md#operator-validation-punchlist-v0551-run-entirely-in-session`.
+Inside that punchlist, confirmation state is inspected with `/confirmations` at
+the live TUI prompt; do not run `mix allbert.confirmations list` between
+in-session checks.
+
+Legacy v0.55 manual M2 smoke:
 
 - Start `mix allbert.tui` with the mapped identity.
 - Type a normal prompt and confirm the response appears as scrollback while the
@@ -116,14 +122,15 @@ Manual M2 smoke:
   assistant response.
 - Restore the identity map before continuing to later M3/M5 validation.
 
-Manual M3 approval smoke:
+Legacy v0.55 manual M3 approval smoke:
 
 - Trigger an action that returns `status: :needs_confirmation`.
 - Confirm the TUI prints exact typed commands plus numbered options:
   `ALLBERT:APPROVE:<id>`, `ALLBERT:DENY:<id>`, and `ALLBERT:SHOW:<id>`.
 - Type one exact approval command at the same prompt.
-- Confirm the resolution result is printed and `mix allbert.confirmations list`
-  shows the confirmation resolved for channel `tui`.
+- Confirm the resolution result is printed. For v0.55.1 validation, inspect the
+  resolved confirmation with `/confirmations` inside the same TUI session; do not
+  use cold `mix allbert.confirmations list` until after the session is closed.
 - Confirm no button/link affordance or target URL is printed in the terminal
   approval handoff.
 
