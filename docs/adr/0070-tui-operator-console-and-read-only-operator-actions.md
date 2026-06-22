@@ -66,13 +66,22 @@ render an operator-readable summary; they never create a confirmation, set a
 
 ### One report source, two entry points
 
-The TUI slash-command router maps each `/cmd` to its registered read-only internal
-action; `mix allbert.channels status` renders the **same read-report DTO source**
-behind the `/channels` action. Concretely, `/channels` and `mix allbert.channels
-status` reuse the existing `list_channels` read action plus a supervisor-status
-read; the TUI does not reimplement channel-status, `channel_events`, confirmation,
-or settings reads in a parallel path. The slash surface and the `mix` report
-converge on one implementation rather than diverging into two command surfaces.
+The TUI slash-command router maps each data `/cmd` to its registered read-only
+internal action; `mix allbert.channels status` renders the **same read-report DTO
+source** behind the `/channels` action. Concretely, `/channels` and
+`mix allbert.channels status` reuse the existing `list_channels` read action plus a
+supervisor-status read; the TUI does not reimplement channel-status,
+`channel_events`, confirmation, or settings reads in a parallel path. The slash
+surface and the `mix` report converge on one implementation rather than diverging
+into two command surfaces.
+
+Two clarifications on "reuse": (1) the slash backings are `exposure: :internal`
+reads. Sharing a *context facade / report DTO* with an existing `exposure: :agent`
+read (e.g. `read_setting`) is fine, but the `:agent` action is **not** itself the
+slash backing — wiring a slash to an `:agent` action would leave it model-routable
+and, for `read_setting`, would emit an unredacted `inspect(setting.value)`. (2)
+`/help` and any unknown slash are handled **router-local** — no action, no Runner —
+so not every `/cmd` is an action invocation.
 
 ## Consequences
 
