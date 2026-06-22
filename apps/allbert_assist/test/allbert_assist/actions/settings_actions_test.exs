@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
   alias AllbertAssist.Actions.Settings.ListModelProfiles
   alias AllbertAssist.Actions.Settings.ListProviderProfiles
   alias AllbertAssist.Actions.Settings.ListSettings
+  alias AllbertAssist.Actions.Settings.ModelDoctor, as: ModelDoctorAction
   alias AllbertAssist.Actions.Settings.ReadSetting
   alias AllbertAssist.Actions.Settings.SetActiveModelProfile
   alias AllbertAssist.Actions.Settings.SetProviderCredential
@@ -119,6 +120,64 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert response.message =~ "credential=missing"
     assert Enum.any?(response.models, &(&1.name == "fast"))
     refute response.message =~ "api_key"
+  end
+
+  test "model doctor reports the recommendation matrix without leaking secrets" do
+    Req.Test.stub(__MODULE__, fn conn ->
+      assert conn.request_path == "/api/tags"
+
+      Req.Test.json(conn, %{
+        "models" => [
+          %{"model" => "nomic-embed-text", "context_length" => 2048},
+          %{"model" => "llama3.1:8b", "context_length" => 128_000},
+          %{"model" => "gemma4:26b", "context_length" => 256_000}
+        ]
+      })
+    end)
+
+    assert {:ok, response} =
+             ModelDoctorAction.run(%{}, %{req_options: [plug: {Req.Test, __MODULE__}]})
+
+    assert response.status == :completed
+    assert response.message =~ "model doctor ok="
+    assert response.message =~ "intent_embedding status=ok"
+    assert response.message =~ "intent_escalation status=ok"
+    assert response.model_doctor.summary["ok"] >= 3
+
+    rows = Map.new(response.model_doctor.rows, &{&1.id, &1})
+    assert rows["intent_embedding"].recommended_model == "nomic-embed-text"
+    assert rows["intent_disambiguation"].recommended_model == "llama3.1:8b"
+    assert rows["intent_escalation"].recommended_model == "gemma4:26b"
+    assert rows["pi_mode_coding"].status == "missing"
+
+    refute inspect(response) =~ "secret://"
+    refute inspect(response) =~ "api_key"
+    refute inspect(response) =~ "sk-"
+    refute response.message =~ "http://"
+  end
+
+  test "model doctor flags not-pulled, under-capable, and remote egress states" do
+    assert {:ok, _setting} =
+             Settings.put("intent.router_embedding_profile", "local", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("intent.router_escalation_profile", "fast", %{audit?: false})
+
+    Req.Test.stub(__MODULE__, fn conn ->
+      assert conn.request_path == "/api/tags"
+      Req.Test.json(conn, %{"models" => []})
+    end)
+
+    assert {:ok, response} =
+             ModelDoctorAction.run(%{}, %{req_options: [plug: {Req.Test, __MODULE__}]})
+
+    rows = Map.new(response.model_doctor.rows, &{&1.id, &1})
+
+    assert rows["intent_embedding"].status == "under-capable"
+    assert rows["intent_disambiguation"].status == "not-pulled"
+    assert rows["intent_escalation"].status == "remote-egress-warning"
+    assert rows["intent_escalation"].endpoint_kind == "credentialed_remote"
+    refute inspect(response) =~ "secret://"
   end
 
   test "doctor diagnostics use the fixed ADR 0047 catalog" do

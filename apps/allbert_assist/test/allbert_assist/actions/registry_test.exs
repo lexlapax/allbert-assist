@@ -182,6 +182,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "operator_events",
              "operator_channels",
              "operator_setting_get",
+             "model_doctor",
              "list_confirmations",
              "show_confirmation",
              "approve_confirmation",
@@ -201,6 +202,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "record_trace",
              "explain_intent",
              "list_intent_candidates",
+             "intent_doctor",
+             "intent_list_descriptors",
+             "intent_show_descriptor",
+             "intent_coverage",
+             "intent_eval_run",
+             "intent_list_review",
              "list_memory_entries",
              "read_memory_entry",
              "review_memory_entry",
@@ -359,6 +366,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "operator_events",
              "operator_channels",
              "operator_setting_get",
+             "model_doctor",
              "list_confirmations",
              "show_confirmation",
              "approve_confirmation",
@@ -378,6 +386,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "record_trace",
              "explain_intent",
              "list_intent_candidates",
+             "intent_doctor",
+             "intent_list_descriptors",
+             "intent_show_descriptor",
+             "intent_coverage",
+             "intent_eval_run",
+             "intent_list_review",
              "list_memory_entries",
              "read_memory_entry",
              "review_memory_entry",
@@ -447,6 +461,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert doctor_model_profile.permission == :read_only
     assert doctor_model_profile.exposure == :agent
     assert doctor_model_profile.execution_mode == :settings_read
+
+    assert {:ok, model_doctor} = Registry.capability("model_doctor")
+    assert model_doctor.permission == :read_only
+    assert model_doctor.exposure == :internal
+    assert model_doctor.execution_mode == :settings_read
 
     assert {:ok, doctor_voice_provider} = Registry.capability("doctor_voice_provider")
     assert doctor_voice_provider.permission == :read_only

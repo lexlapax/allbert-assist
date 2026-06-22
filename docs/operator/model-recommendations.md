@@ -1,7 +1,8 @@
 # Allbert Model Recommendations (Which Model For What)
 
-Status: authored for v0.56 (ADR 0072). This is the canonical operator guide for
-*which model to use for what purpose* in Allbert. It is **advice**: actual
+Status: implemented for v0.56 M4 (ADR 0072; ADR acceptance still happens at v0.56
+closeout). This is the canonical operator guide for *which model to use for what
+purpose* in Allbert. It is **advice**: actual
 configuration lives in Settings Central, and you override any row with the
 documented key. No recommendation enables network egress or lowers a safety
 floor — hosted profiles are always an explicit, audited operator opt-in.
@@ -45,10 +46,11 @@ ollama pull gemma4:26b      # optional local escalation tier
 mix allbert.intent doctor   # confirm embedder + router model report ok
 ```
 
-> Tag note: current Ollama model docs list `gemma4:26b` for local workstation
-> escalation and `gemma4:e2b` / `gemma4:e4b` for edge local use. v0.56 keeps the
-> existing Settings Central defaults aligned to those public tags; `model_doctor`
-> reports `not-pulled` for any tag you have not yet pulled.
+> Tag note (rechecked against official Ollama library pages on 2026-06-22):
+> current Ollama model docs list `gemma4:26b` for local workstation escalation and
+> `gemma4:e2b` / `gemma4:e4b` for edge local use. v0.56 keeps the existing Settings
+> Central defaults aligned to those public tags; `model_doctor` reports `not-pulled`
+> for any tag you have not yet pulled.
 
 ## Privacy and egress
 

@@ -247,6 +247,21 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
              Settings.get("acp_server.memory_namespaces_enabled")
   end
 
+  test "model-doctor renders the per-purpose recommendation matrix" do
+    assert {:ok, _setting} =
+             Settings.put("providers.local_ollama.base_url", "http://127.0.0.1:1/v1", %{
+               audit?: false
+             })
+
+    output = capture_io(fn -> assert :ok = SettingsTask.run(["model-doctor"]) end)
+
+    assert output =~ "model doctor ok="
+    assert output =~ "intent_embedding"
+    assert output =~ "intent_escalation"
+    refute output =~ "secret://"
+    refute output =~ "api_key"
+  end
+
   test "provider list and set-key use stdin and redact raw key", %{root: root} do
     initial_output = capture_io(fn -> assert :ok = SettingsTask.run(["providers", "list"]) end)
     assert initial_output =~ "openai"

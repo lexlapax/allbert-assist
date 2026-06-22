@@ -23,6 +23,7 @@ defmodule AllbertAssist.Actions.Intent.Doctor do
   alias AllbertAssist.Actions.Intent.OperatorSupport
   alias AllbertAssist.Actions.Operator.Support
   alias AllbertAssist.Intent.Router.Doctor, as: RouterDoctor
+  alias AllbertAssist.Settings.ModelRecommendations
 
   @impl true
   def run(_params, context) do
@@ -30,7 +31,14 @@ defmodule AllbertAssist.Actions.Intent.Doctor do
       {:ok, router} = RouterDoctor.diagnose()
       coverage = OperatorSupport.coverage()
       baseline = OperatorSupport.baseline_summary() |> public_baseline()
-      message = OperatorSupport.render_doctor(router, coverage, baseline)
+      model_report = ModelRecommendations.diagnose(context, scope: :intent)
+
+      message =
+        [
+          OperatorSupport.render_doctor(router, coverage, baseline),
+          ModelRecommendations.render(model_report)
+        ]
+        |> Enum.join("\n")
 
       {:ok,
        %{
@@ -39,7 +47,12 @@ defmodule AllbertAssist.Actions.Intent.Doctor do
          surface_payload: message,
          status: :completed,
          permission_decision: permission_decision,
-         intent_doctor: %{router: router, coverage: coverage, baseline: baseline},
+         intent_doctor: %{
+           router: router,
+           coverage: coverage,
+           baseline: baseline,
+           model_doctor: model_report
+         },
          actions: [
            Support.action(name(), :completed, permission_decision, %{
              report: %{router_status: router.status, coverage: coverage.routable}

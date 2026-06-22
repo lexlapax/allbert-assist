@@ -9,6 +9,7 @@ defmodule Mix.Tasks.Allbert.Settings do
       mix allbert.settings explain operator.timezone
       mix allbert.settings set operator.communication_style concise
       mix allbert.settings providers list
+      mix allbert.settings model-doctor
       printf 'sk-test\\n' | mix allbert.settings providers set-key openai
   """
 
@@ -59,6 +60,12 @@ defmodule Mix.Tasks.Allbert.Settings do
     end
   end
 
+  defp dispatch(["model-doctor"]) do
+    with {:ok, response} <- completed_action("model_doctor", %{}) do
+      {:ok, {:model_doctor, response.message}}
+    end
+  end
+
   defp dispatch(["providers", "set-key", provider]) do
     with {:ok, api_key} <- read_provider_key(provider),
          {:ok, response} <-
@@ -85,6 +92,7 @@ defmodule Mix.Tasks.Allbert.Settings do
       mix allbert.settings explain KEY
       mix allbert.settings set KEY VALUE
       mix allbert.settings providers list
+      mix allbert.settings model-doctor
       mix allbert.settings providers set-key PROVIDER
     """)
   end
@@ -126,6 +134,10 @@ defmodule Mix.Tasks.Allbert.Settings do
   defp print_result({:ok, {:provider_key, provider, result}}) do
     Mix.shell().info("#{provider} credential=#{result.credential_status}")
     print_diagnostics(Map.get(result, :diagnostics, []))
+  end
+
+  defp print_result({:ok, {:model_doctor, message}}) do
+    Mix.shell().info(message)
   end
 
   defp print_result({:error, reason}) do
