@@ -46,7 +46,9 @@ mix allbert.tui
 The launcher boots the app with TUI-specific `Channels.Supervisor` child options
 and waits on the supervised TUI child. Completed responses render into normal
 terminal scrollback; the adapter uses a single `Owl.LiveScreen` status block for
-the active prompt/status line. Type `/quit` or `/exit` to stop the launcher.
+the live status line, for example `tui(default) ready`, while the actual input
+prompt remains the only `allbert:default>` line. Type `/quit` or `/exit` to stop
+the launcher.
 Plain settings/channel inspection tasks may start the supervised descriptor child
 when `channels.tui.enabled` is true, but that child is non-interactive and quiet;
 only `mix allbert.tui` enables the live input loop and banner.

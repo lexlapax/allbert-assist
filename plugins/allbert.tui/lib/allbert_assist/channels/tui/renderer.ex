@@ -15,7 +15,15 @@ defmodule AllbertAssist.Channels.TUI.Renderer do
   def prompt(profile), do: [Owl.Data.tag("allbert", :cyan), ":", profile, "> "]
 
   @spec status(String.t(), atom()) :: Owl.Data.t()
-  def status(profile, state), do: [prompt(profile), Owl.Data.tag(to_string(state), :light_black)]
+  def status(profile, state) do
+    [
+      Owl.Data.tag("tui", :light_black),
+      "(",
+      profile,
+      ") ",
+      Owl.Data.tag(to_string(state), :light_black)
+    ]
+  end
 
   @spec render_response(map(), keyword()) :: {:ok, [String.t()]}
   def render_response(response, opts \\ []) when is_map(response) do

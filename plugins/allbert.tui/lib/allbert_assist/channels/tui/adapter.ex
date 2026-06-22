@@ -453,6 +453,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       Renderer.status(state.profile, status)
     )
 
+    Owl.LiveScreen.await_render(state.live_screen_server)
     state
   rescue
     _error -> %{state | live_screen?: false}
@@ -464,6 +465,21 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     Map.get(response, key) || Map.get(response, Atom.to_string(key))
   end
 
-  defp default_input(prompt), do: Owl.IO.input(label: prompt)
+  defp default_input(prompt) do
+    prompt
+    |> Owl.Data.to_chardata()
+    |> IO.gets()
+    |> normalize_input()
+  end
+
+  defp normalize_input(value) when is_binary(value) do
+    case String.trim(value) do
+      "" -> nil
+      text -> text
+    end
+  end
+
+  defp normalize_input(_value), do: nil
+
   defp default_output(line), do: Owl.IO.puts(line)
 end

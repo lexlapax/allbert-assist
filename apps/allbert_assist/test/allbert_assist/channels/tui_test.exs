@@ -188,6 +188,15 @@ defmodule AllbertAssist.Channels.TUITest do
     refute rendered =~ "http"
   end
 
+  test "renderer status line does not duplicate the input prompt" do
+    prompt_text = Renderer.prompt("default") |> Owl.Data.untag() |> IO.iodata_to_binary()
+    status_text = Renderer.status("default", :ready) |> Owl.Data.untag() |> IO.iodata_to_binary()
+
+    assert prompt_text == "allbert:default> "
+    assert status_text == "tui(default) ready"
+    refute status_text =~ "allbert:default>"
+  end
+
   test "typed confirmation commands resolve without runtime submission" do
     configure_tui!()
     assert {:ok, confirmation} = create_confirmation!("conf_tui_typed", "tui")
