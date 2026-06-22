@@ -25,6 +25,10 @@ erl_crash.dump
 # Local Allbert runtime data.
 /var/allbert/memory/
 
+# Raw local release-validation transcripts can contain ANSI control sequences
+# and machine-local paths. Commit redacted evidence notes instead.
+/docs/release-evidence/**/*.log
+
 # OS-generated files (e.g. from macOS Finder, Windows Explorer).
 .DS_Store
 Thumbs.db

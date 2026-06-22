@@ -143,6 +143,12 @@ v0.55 closeout note: the operator accepted the warm TUI A1-A5 validation on
 recorded as blocked by inactive Matrix credentials until the operator refreshes
 the provider token.
 
+v0.55.1 M5 closeout note: the warm-console operator-validation punchlist passed
+on 2026-06-22 in one transcript-captured `mix allbert.tui` session. The redacted
+evidence summary is
+`docs/release-evidence/v0551/M5-operator-validation.md`; raw `.log` transcripts
+under `docs/release-evidence/` are local evidence files and are ignored by git.
+
 ## Cleanup
 
 Disable `channels.tui.enabled` in any temporary validation home and keep release
