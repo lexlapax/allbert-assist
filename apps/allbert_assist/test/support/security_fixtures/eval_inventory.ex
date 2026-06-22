@@ -41,6 +41,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v053
           | :v055
           | :v0551
+          | :v056
 
   @type required_surface ::
           :resource_execution
@@ -68,6 +69,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :artifact_browser
           | :channel_pack
           | :public_protocol
+          | :intent_routing
           | :operator_review
 
   @type surface :: required_surface() | :workspace_live_navigation
@@ -3797,6 +3799,213 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V0551OperatorConsoleEvalTest"
     },
     %{
+      id: "intent-descriptor-model-generation-local-only-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario:
+        "descriptor generation uses the local router profile and redacts provider details",
+      boundary: :descriptor_generation_model_profile,
+      expected: :allowed,
+      assert: [:local_model_profile, :redacted_prompt, :no_remote_egress],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-descriptor-model-invalid-fallback-heuristic-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario:
+        "invalid descriptor model output falls back to a deterministic heuristic proposal",
+      boundary: :descriptor_generation_validation,
+      expected: :allowed,
+      assert: [:invalid_model_output_rejected, :heuristic_fallback],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-descriptor-learned-review-inert-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario: "learned review proposals become active routing descriptors without promotion",
+      boundary: :descriptor_review_tier,
+      expected: :denied,
+      assert: [:review_tier_inert, :proposal_redacted],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-descriptor-promotion-required-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario: "a review descriptor affects routing before the operator promotes it",
+      boundary: :descriptor_promotion_gate,
+      expected: :denied,
+      assert: [:promotion_required, :review_inert_until_promoted],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-descriptor-optimize-action-grants-no-authority-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario:
+        "optimize_intent_descriptors becomes an agent-routable or permission-granting action",
+      boundary: :operator_action_layer,
+      expected: :denied,
+      assert: [:internal_action_only, :not_agent_routable, :no_permission_change],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-descriptor-registration-signal-rebuild-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario: "app/plugin/action registration changes mark the intent index stale",
+      boundary: :registration_signal_lifecycle,
+      expected: :allowed,
+      assert: [:registration_signal_marks_stale, :debounced_rebuild],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-descriptor-reindex-disabled-escape-hatch-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario: "the reindex-on-registration escape hatch disables signal subscription",
+      boundary: :registration_signal_escape_hatch,
+      expected: :allowed,
+      assert: [:escape_hatch_disables_subscription],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-descriptor-rollback-removes-routability-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario: "a rolled-back generated descriptor remains routable",
+      boundary: :descriptor_rollback,
+      expected: :denied,
+      assert: [:rollback_removes_descriptor, :routing_set_rebuilt],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-descriptor-redaction-no-raw-prompts-or-secrets-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario:
+        "descriptor generation or capture persists raw prompts, secret refs, or credentials",
+      boundary: :descriptor_redaction,
+      expected: :denied,
+      assert: [:raw_secret_absent, :raw_prompt_absent],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-routing-accuracy-baseline-gate-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario:
+        "the routing accuracy release gate checks the committed baseline and threshold floors",
+      boundary: :routing_accuracy_gate,
+      expected: :allowed,
+      assert: [:baseline_gate_checked, :accuracy_floor_met],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-routing-negative-route-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario: "negative internal/operator/slash cases route to executable actions",
+      boundary: :negative_route_guard,
+      expected: :denied,
+      assert: [:zero_negative_violations],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-routing-cross-surface-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario: "the same deterministic utterance routes consistently across channel surfaces",
+      boundary: :cross_surface_routing,
+      expected: :allowed,
+      assert: [:surface_consistency],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-slot-extraction-accuracy-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario: "required slots remain covered when action selection appears correct",
+      boundary: :slot_extraction_gate,
+      expected: :allowed,
+      assert: [:slot_accuracy_complete],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-clarify-vs-execute-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario: "clarification cases and executable cases stay separated",
+      boundary: :clarify_execute_gate,
+      expected: :allowed,
+      assert: [:clarify_execute_accuracy_complete],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-promotion-blocked-on-regression-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario: "a descriptor promotion that regresses routing mutates active descriptor storage",
+      boundary: :promotion_regression_gate,
+      expected: :denied,
+      assert: [:promotion_rejected, :no_mutation_on_gate_failure],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-generated-descriptor-no-misroute-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario:
+        "generated descriptors pass the deterministic gate without committed-corpus misroutes",
+      boundary: :generated_descriptor_routing,
+      expected: :allowed,
+      assert: [:generated_descriptors_gate_clean],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-operations-action-backed-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario:
+        "operator intent/model operations bypass Actions.Runner or become natural-language tools",
+      boundary: :operator_action_layer,
+      expected: :denied,
+      assert: [:registered_actions, :runner_metadata_present, :not_agent_routable],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-eval-corpus-deterministic-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario: "the eval gate ignores uncommitted captures and replays deterministically",
+      boundary: :eval_corpus_source_of_truth,
+      expected: :allowed,
+      assert: [:committed_fixture_only, :deterministic_replay, :capture_writes_home_only],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-model-doctor-no-secret-leak-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario: "model_doctor leaks secret refs, API keys, endpoints, or provider payloads",
+      boundary: :model_doctor_redaction,
+      expected: :denied,
+      assert: [:doctor_output_redacted],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
+      id: "intent-model-recommendation-grants-no-egress-001",
+      milestone: :v056,
+      surface: :intent_routing,
+      scenario: "model recommendations silently opt into hosted egress or provider calls",
+      boundary: :model_recommendation_authority,
+      expected: :denied,
+      assert: [:recommendation_advisory_only, :remote_egress_warning],
+      test_module: "AllbertAssist.Security.V056IntentEvalTest"
+    },
+    %{
       id: "sandbox-backend-disabled-001",
       milestone: :v036,
       surface: :elixir_sandbox,
@@ -3962,6 +4171,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
     :artifact_store,
     :artifact_browser,
     :public_protocol,
+    :intent_routing,
     :operator_review
   ]
 

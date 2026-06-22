@@ -3461,11 +3461,12 @@ ADRs: `docs/adr/0062-...` (completion amendment),
 (NEW; accept in v0.56),
 `docs/adr/0072-recommended-model-profiles-per-purpose.md` (NEW; accept in v0.56).
 
-Status: planned. Inserted by the v0.54 post-implementation audit so the advanced
-ADR 0062 lifecycle remains in the 1.0 arc rather than being parked. Moved from
-v0.57 to v0.56 in the 2026-06-21 replan. Deepened 2026-06-22 from a 6-milestone
-foundation into a 16-milestone release (M0-M15) after the readiness pass: routing
-accuracy, full coverage, and model recommendations became first-class pillars.
+Status: in progress; M0-M13 are implemented and M14 warm-TUI operator validation is
+next. Inserted by the v0.54 post-implementation audit so the advanced ADR 0062
+lifecycle remains in the 1.0 arc rather than being parked. Moved from v0.57 to
+v0.56 in the 2026-06-21 replan. Deepened 2026-06-22 from a 6-milestone foundation
+into a 16-milestone release (M0-M15) after the readiness pass: routing accuracy,
+full coverage, and model recommendations became first-class pillars.
 
 Expected direction:
 
