@@ -9,9 +9,11 @@ defmodule AllbertAssist.App.Registry do
 
   use GenServer
 
+  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.App.Validator
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments, as: SettingsFragments
+  alias AllbertAssist.Signals
 
   @default_table :allbert_app_registry
   @nil_aliases ["", "none", "general"]
@@ -59,7 +61,13 @@ defmodule AllbertAssist.App.Registry do
   @spec register(module(), keyword()) :: {:ok, atom()} | {:error, term()}
   def register(module, opts \\ []) do
     result = GenServer.call(server(opts), {:register, module, registration_opts(opts)})
-    if match?({:ok, _app_id}, result), do: clear_settings_schema_cache()
+
+    if match?({:ok, _app_id}, result) do
+      clear_settings_schema_cache()
+      {:ok, app_id} = result
+      emit_app_registered(module, app_id)
+    end
+
     result
   catch
     :exit, _reason -> {:error, :unavailable}
@@ -67,8 +75,10 @@ defmodule AllbertAssist.App.Registry do
 
   @spec unregister(atom(), keyword()) :: :ok
   def unregister(app_id, opts \\ []) do
+    existed? = known_app_id?(app_id, opts)
     result = GenServer.call(server(opts), {:unregister, app_id})
     clear_settings_schema_cache()
+    if existed?, do: emit_app_unregistered(app_id)
     result
   catch
     :exit, _reason -> :ok
@@ -76,8 +86,10 @@ defmodule AllbertAssist.App.Registry do
 
   @spec clear(keyword()) :: :ok
   def clear(opts \\ []) do
+    count = opts |> registered_apps() |> length()
     result = GenServer.call(server(opts), :clear)
     clear_settings_schema_cache()
+    if count > 0, do: emit_app_registry_cleared(count)
     result
   catch
     :exit, _reason -> :ok
@@ -580,6 +592,51 @@ defmodule AllbertAssist.App.Registry do
 
     :ok
   end
+
+  defp emit_app_registered(module, app_id) do
+    metadata = %{
+      app_id: app_id,
+      app_module: inspect(module),
+      action_names: action_names(module)
+    }
+
+    Signals.emit_registration(:app_registered, metadata)
+    ActionsRegistry.emit_registry_changed(:app_registered, metadata)
+  end
+
+  defp emit_app_unregistered(app_id) do
+    metadata = %{app_id: app_id}
+    Signals.emit_registration(:app_unregistered, metadata)
+    ActionsRegistry.emit_registry_changed(:app_unregistered, metadata)
+  end
+
+  defp emit_app_registry_cleared(count) do
+    metadata = %{cleared_count: count}
+    Signals.emit_registration(:app_registry_cleared, metadata)
+    ActionsRegistry.emit_registry_changed(:app_registry_cleared, metadata)
+  end
+
+  defp action_names(module) do
+    if function_exported?(module, :actions, 0) do
+      module.actions() |> List.wrap() |> Enum.map(&safe_action_name/1)
+    else
+      []
+    end
+  rescue
+    _exception -> []
+  catch
+    :exit, _reason -> []
+  end
+
+  defp safe_action_name(module) when is_atom(module) do
+    if Code.ensure_loaded?(module) and function_exported?(module, :name, 0) do
+      module.name()
+    else
+      inspect(module)
+    end
+  end
+
+  defp safe_action_name(value), do: inspect(value)
 
   defp configured(key, default) do
     :allbert_assist

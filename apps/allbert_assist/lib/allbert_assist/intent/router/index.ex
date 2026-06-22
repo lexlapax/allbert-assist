@@ -18,10 +18,15 @@ defmodule AllbertAssist.Intent.Router.Index do
   alias AllbertAssist.SignalBus
   alias Jido.Signal.Bus, as: JidoSignalBus
 
-  # v0.54 M9.3b: rebuild when the action set changes. Subscribe to the
-  # dynamic-codegen lifecycle signals (already published; ADR 0062 reindex hooks)
+  # v0.54 M9.3b/v0.56 M11: rebuild when the action/app/plugin set changes.
+  # Subscribe to dynamic-codegen plus canonical registration lifecycle signals
   # and coalesce bursts into one rebuild via a short debounce window.
-  @signal_path "allbert.dynamic_codegen.**"
+  @signal_paths [
+    "allbert.dynamic_codegen.**",
+    "allbert.app.**",
+    "allbert.plugin.**",
+    "allbert.action.registry_changed"
+  ]
   @rebuild_debounce_ms 2_000
 
   @enforce_keys []
@@ -77,6 +82,10 @@ defmodule AllbertAssist.Intent.Router.Index do
     |> Enum.reject(&(&1 == ""))
     |> Enum.join(" ; ")
   end
+
+  @doc "Signal path subscriptions that can mark the index stale."
+  @spec signal_paths() :: [String.t()]
+  def signal_paths, do: @signal_paths
 
   # ── GenServer ────────────────────────────────────────────────────────────────
 
@@ -140,7 +149,23 @@ defmodule AllbertAssist.Intent.Router.Index do
   end
 
   defp safe_subscribe do
-    JidoSignalBus.subscribe(SignalBus, @signal_path)
+    subscriptions =
+      Enum.map(@signal_paths, fn path ->
+        {path, JidoSignalBus.subscribe(SignalBus, path)}
+      end)
+
+    ids =
+      subscriptions
+      |> Enum.flat_map(fn
+        {_path, {:ok, subscription_id}} -> [subscription_id]
+        {_path, _error} -> []
+      end)
+
+    if ids == [] do
+      {:error, :subscribe_failed}
+    else
+      {:ok, ids}
+    end
   rescue
     _exception -> {:error, :subscribe_failed}
   catch

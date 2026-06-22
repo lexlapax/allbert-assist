@@ -192,6 +192,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Signals
 
   @agent_actions [
     DirectAnswer,
@@ -499,6 +500,18 @@ defmodule AllbertAssist.Actions.Registry do
   @doc "Return action registry diagnostics, including plugin action collisions."
   @spec diagnostics() :: [map()]
   def diagnostics, do: plugin_action_diagnostics() ++ ActionsOverlay.diagnostics()
+
+  @doc "Emit an advisory action-registry-changed signal for index subscribers."
+  @spec emit_registry_changed(atom(), map()) :: :ok
+  def emit_registry_changed(reason, metadata \\ %{}) when is_atom(reason) and is_map(metadata) do
+    metadata =
+      metadata
+      |> Map.put(:reason, reason)
+      |> Map.put(:registered_action_count, length(names()))
+      |> Map.put(:agent_action_count, length(agent_modules()))
+
+    Signals.emit_registration(:action_registry_changed, metadata)
+  end
 
   defp resolve_name(name, original) do
     normalized = normalize_name(name)

@@ -141,4 +141,21 @@ defmodule AllbertAssist.SignalsTest do
 
     assert byte_size(signal.data.observation_summary) <= 2_003
   end
+
+  test "registration lifecycle helpers redact and publish through the signal bus" do
+    assert {:ok, _subscription_id} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.app.**")
+
+    Signals.emit_registration(:app_registered, %{
+      app_id: :signal_test_app,
+      app_module: "SignalTestApp",
+      api_key: "sk-registration-secret"
+    })
+
+    assert_receive {:signal, signal}, 1_000
+    assert signal.type == "allbert.app.registered"
+    assert signal.data.app_id == :signal_test_app
+    assert signal.data.api_key == "[REDACTED]"
+    refute inspect(signal.data) =~ "sk-registration-secret"
+  end
 end

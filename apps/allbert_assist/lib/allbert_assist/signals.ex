@@ -17,6 +17,15 @@ defmodule AllbertAssist.Signals do
   @runtime_turn_started "allbert.runtime.turn.started"
   @runtime_turn_completed "allbert.runtime.turn.completed"
 
+  @registration_signal_types %{
+    app_registered: "allbert.app.registered",
+    app_unregistered: "allbert.app.unregistered",
+    app_registry_cleared: "allbert.app.registry_cleared",
+    plugin_registered: "allbert.plugin.registered",
+    plugin_registry_cleared: "allbert.plugin.registry_cleared",
+    action_registry_changed: "allbert.action.registry_changed"
+  }
+
   @sandbox_signal_types %{
     backend_resolved: "allbert.sandbox.backend_resolved",
     command_started: "allbert.sandbox.command.started",
@@ -82,6 +91,10 @@ defmodule AllbertAssist.Signals do
     %{started: @runtime_turn_started, completed: @runtime_turn_completed}
   end
 
+  @doc "Return registration lifecycle signal names."
+  @spec registration_signal_types() :: %{atom() => String.t()}
+  def registration_signal_types, do: @registration_signal_types
+
   @doc "Return channel lifecycle signal names."
   @spec channel_signal_types() :: %{atom() => String.t()}
   def channel_signal_types, do: @channel_signal_types
@@ -125,6 +138,34 @@ defmodule AllbertAssist.Signals do
       )
     else
       :error -> {:error, {:unknown_dynamic_codegen_signal, kind}}
+    end
+  end
+
+  @doc "Create a registration lifecycle signal."
+  @spec registration_lifecycle(atom(), map()) :: {:ok, Signal.t()} | {:error, term()}
+  def registration_lifecycle(kind, metadata) when is_atom(kind) and is_map(metadata) do
+    with {:ok, type} <- Map.fetch(@registration_signal_types, kind) do
+      Signal.new(
+        type,
+        Redactor.redact(metadata),
+        source: "/allbert/registration/#{kind}",
+        subject:
+          Map.get(metadata, :app_id) ||
+            Map.get(metadata, "app_id") ||
+            Map.get(metadata, :plugin_id) ||
+            Map.get(metadata, "plugin_id")
+      )
+    else
+      :error -> {:error, {:unknown_registration_signal, kind}}
+    end
+  end
+
+  @doc "Publish a registration lifecycle signal, logging and swallowing bus failures."
+  @spec emit_registration(atom(), map()) :: :ok
+  def emit_registration(kind, metadata) when is_atom(kind) and is_map(metadata) do
+    case registration_lifecycle(kind, metadata) do
+      {:ok, signal} -> log(signal)
+      {:error, reason} -> Logger.debug("registration signal skipped reason=#{inspect(reason)}")
     end
   end
 

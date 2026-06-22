@@ -9,10 +9,12 @@ defmodule AllbertAssist.Plugin.Registry do
 
   use GenServer
 
+  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Plugin.Entry
   alias AllbertAssist.Plugin.Validator
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments, as: SettingsFragments
+  alias AllbertAssist.Signals
 
   @default_table :allbert_plugin_registry
   @control_opts [:server]
@@ -52,7 +54,13 @@ defmodule AllbertAssist.Plugin.Registry do
   @spec register_module(module(), keyword()) :: {:ok, String.t()} | {:error, term()}
   def register_module(module, opts \\ []) do
     result = GenServer.call(server(opts), {:register_module, module, registration_opts(opts)})
-    if match?({:ok, _plugin_id}, result), do: clear_settings_schema_cache()
+
+    if match?({:ok, _plugin_id}, result) do
+      clear_settings_schema_cache()
+      {:ok, plugin_id} = result
+      emit_plugin_registered(plugin_id, opts)
+    end
+
     result
   catch
     :exit, _reason -> {:error, :unavailable}
@@ -61,7 +69,13 @@ defmodule AllbertAssist.Plugin.Registry do
   @spec register_manifest(map(), keyword()) :: {:ok, String.t()} | {:error, term()}
   def register_manifest(manifest, opts \\ []) do
     result = GenServer.call(server(opts), {:register_manifest, manifest, registration_opts(opts)})
-    if match?({:ok, _plugin_id}, result), do: clear_settings_schema_cache()
+
+    if match?({:ok, _plugin_id}, result) do
+      clear_settings_schema_cache()
+      {:ok, plugin_id} = result
+      emit_plugin_registered(plugin_id, opts)
+    end
+
     result
   catch
     :exit, _reason -> {:error, :unavailable}
@@ -70,7 +84,13 @@ defmodule AllbertAssist.Plugin.Registry do
   @spec register_entry(Entry.t(), keyword()) :: {:ok, String.t()} | {:error, term()}
   def register_entry(%Entry{} = entry, opts \\ []) do
     result = GenServer.call(server(opts), {:register_entry, entry})
-    if match?({:ok, _plugin_id}, result), do: clear_settings_schema_cache()
+
+    if match?({:ok, _plugin_id}, result) do
+      clear_settings_schema_cache()
+      {:ok, plugin_id} = result
+      emit_plugin_registered(plugin_id, opts)
+    end
+
     result
   catch
     :exit, _reason -> {:error, :unavailable}
@@ -164,8 +184,10 @@ defmodule AllbertAssist.Plugin.Registry do
 
   @spec clear(keyword()) :: :ok
   def clear(opts \\ []) do
+    count = opts |> registered_plugins() |> length()
     result = GenServer.call(server(opts), :clear)
     clear_settings_schema_cache()
+    if count > 0, do: emit_plugin_registry_cleared(count)
     result
   catch
     :exit, _reason -> :ok
@@ -305,6 +327,44 @@ defmodule AllbertAssist.Plugin.Registry do
 
     :ok
   end
+
+  defp emit_plugin_registered(plugin_id, opts) do
+    metadata =
+      case lookup(plugin_id, opts) do
+        {:ok, entry} -> plugin_metadata(entry)
+        {:error, :not_found} -> %{plugin_id: plugin_id, action_names: []}
+      end
+
+    Signals.emit_registration(:plugin_registered, metadata)
+    ActionsRegistry.emit_registry_changed(:plugin_registered, metadata)
+  end
+
+  defp emit_plugin_registry_cleared(count) do
+    metadata = %{cleared_count: count}
+    Signals.emit_registration(:plugin_registry_cleared, metadata)
+    ActionsRegistry.emit_registry_changed(:plugin_registry_cleared, metadata)
+  end
+
+  defp plugin_metadata(%Entry{} = entry) do
+    %{
+      plugin_id: entry.plugin_id,
+      display_name: entry.display_name,
+      status: entry.status,
+      trust_status: entry.trust_status,
+      action_names: Enum.map(entry.actions, &safe_action_name/1),
+      app_modules: Enum.map(entry.apps, &inspect/1)
+    }
+  end
+
+  defp safe_action_name(module) when is_atom(module) do
+    if Code.ensure_loaded?(module) and function_exported?(module, :name, 0) do
+      module.name()
+    else
+      inspect(module)
+    end
+  end
+
+  defp safe_action_name(value), do: inspect(value)
 
   defp configured(key, default) do
     :allbert_assist

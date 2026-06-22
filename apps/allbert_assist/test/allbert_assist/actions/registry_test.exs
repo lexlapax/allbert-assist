@@ -9,6 +9,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias Jido.Signal.Bus
 
   defmodule PluginEcho do
     use Jido.Action,
@@ -958,6 +959,53 @@ defmodule AllbertAssist.Actions.RegistryTest do
              )
 
     assert Registry.capabilities_for_app(:missing_app) == []
+  end
+
+  test "app and plugin registration emit lifecycle and action registry signals" do
+    on_exit(fn -> AllbertAssist.App.Registry.unregister(:action_tagging_app) end)
+
+    assert {:ok, _app_subscription} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.app.**")
+
+    assert {:ok, _plugin_subscription} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.plugin.**")
+
+    assert {:ok, _action_subscription} =
+             Bus.subscribe(AllbertAssist.SignalBus, "allbert.action.registry_changed")
+
+    assert {:ok, :action_tagging_app} = AllbertAssist.App.Registry.register(ActionTaggingApp)
+
+    assert_receive {:signal, %{type: "allbert.app.registered"} = app_signal}, 1_000
+    assert app_signal.data.app_id == :action_tagging_app
+    assert app_signal.data.action_names == ["direct_answer"]
+
+    assert_receive {:signal, %{type: "allbert.action.registry_changed"} = action_signal},
+                   1_000
+
+    assert action_signal.data.reason == :app_registered
+    assert action_signal.data.app_id == :action_tagging_app
+
+    assert {:ok, "example.signals"} =
+             PluginRegistry.register_entry(%PluginEntry{
+               plugin_id: "example.signals",
+               display_name: "Example Signals",
+               version: "0.1.0",
+               kind: "actions",
+               source: :project,
+               status: :enabled,
+               trust_status: :trusted,
+               actions: [PluginEcho]
+             })
+
+    assert_receive {:signal, %{type: "allbert.plugin.registered"} = plugin_signal}, 1_000
+    assert plugin_signal.data.plugin_id == "example.signals"
+    assert plugin_signal.data.action_names == ["plugin_echo"]
+
+    assert_receive {:signal, %{type: "allbert.action.registry_changed"} = plugin_action_signal},
+                   1_000
+
+    assert plugin_action_signal.data.reason == :plugin_registered
+    assert plugin_action_signal.data.plugin_id == "example.signals"
   end
 
   test "merges plugin-contributed actions with capability provenance" do
