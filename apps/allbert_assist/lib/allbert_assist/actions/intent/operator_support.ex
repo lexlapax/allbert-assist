@@ -158,7 +158,11 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
 
   def render_review(proposals) do
     proposals
-    |> Enum.map(fn proposal -> "  #{proposal.action_name} app_id=#{proposal.app_id}" end)
+    |> Enum.map(fn proposal ->
+      "  #{proposal.action_name} app_id=#{proposal.app_id} " <>
+        "support=#{proposal.support_count} confidence=#{proposal.confidence || "n/a"} " <>
+        "evidence=#{proposal.evidence_count}"
+    end)
     |> Enum.join("\n")
   end
 
@@ -216,7 +220,11 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
       examples_count: attrs |> field(:examples, []) |> List.wrap() |> length(),
       synonyms_count: attrs |> field(:synonyms, []) |> List.wrap() |> length(),
       required_slots: field(attrs, :required_slots, []),
-      disabled?: truthy?(field(attrs, :disabled))
+      disabled?: truthy?(field(attrs, :disabled)),
+      support_count: field(attrs, :support_count, 0),
+      confidence: field(attrs, :confidence),
+      evidence_count: attrs |> field(:evidence_refs, []) |> List.wrap() |> length(),
+      last_seen_at: field(attrs, :last_seen_at)
     }
   end
 
