@@ -51,6 +51,21 @@ Plain settings/channel inspection tasks may start the supervised descriptor chil
 when `channels.tui.enabled` is true, but that child is non-interactive and quiet;
 only `mix allbert.tui` enables the live input loop and banner.
 
+`mix allbert.tui` keeps the live terminal readable by default: startup
+plugin/query chatter is suppressed, app logs below warning stay quiet after
+startup, and Ecto query debug logs are disabled. To turn post-start diagnostic
+logs back on for a specific run:
+
+```sh
+ALLBERT_TUI_LOG_LEVEL=debug mix allbert.tui
+```
+
+To suppress even warnings while checking the prompt/rendering path:
+
+```sh
+ALLBERT_TUI_LOG_LEVEL=none mix allbert.tui
+```
+
 ## Verify
 
 Run the deterministic focused tests before live validation:
