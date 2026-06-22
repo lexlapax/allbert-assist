@@ -5,6 +5,11 @@ defmodule Mix.Tasks.Allbert.Intent do
   ## Usage
 
       mix allbert.intent doctor
+      mix allbert.intent coverage
+      mix allbert.intent list
+      mix allbert.intent show ACTION
+      mix allbert.intent review
+      mix allbert.intent eval run
       mix allbert.intent bench [--subset | --holdout]
       mix allbert.intent edit ACTION
       mix allbert.intent enable ACTION
@@ -21,11 +26,12 @@ defmodule Mix.Tasks.Allbert.Intent do
 
   use Mix.Task
 
+  alias AllbertAssist.Actions.Intent.OperatorSupport
+  alias AllbertAssist.Actions.Runner, as: ActionsRunner
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Intent.Bench
   alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Intent.Router.DescriptorStore
-  alias AllbertAssist.Intent.Router.Doctor
   alias AllbertAssist.Intent.Router.Index
   alias AllbertAssist.Intent.Router.Optimizer
 
@@ -36,8 +42,23 @@ defmodule Mix.Tasks.Allbert.Intent do
   end
 
   defp dispatch(["doctor"]) do
-    {:ok, envelope} = Doctor.diagnose()
-    print_doctor(envelope)
+    "intent_doctor"
+    |> completed_action(%{})
+    |> print_message()
+  end
+
+  defp dispatch(["coverage"]) do
+    "intent_coverage"
+    |> completed_action(%{})
+    |> print_message()
+  end
+
+  defp dispatch(["eval", "run" | rest]) do
+    {opts, _rest, _invalid} = OptionParser.parse(rest, strict: [surface: :string])
+
+    "intent_eval_run"
+    |> completed_action(Map.new(opts))
+    |> print_message()
   end
 
   defp dispatch(["bench" | rest]) do
@@ -67,33 +88,15 @@ defmodule Mix.Tasks.Allbert.Intent do
   end
 
   defp dispatch(["list"]) do
-    DescriptorResolver.resolve()
-    |> Enum.sort_by(& &1.action_name)
-    |> Enum.each(fn d ->
-      Mix.shell().info("  #{d.action_name} source=#{source_label(d.source)} app_id=#{d.app_id}")
-    end)
+    "intent_list_descriptors"
+    |> completed_action(%{})
+    |> print_message()
   end
 
   defp dispatch(["show", action]) do
-    case Enum.find(DescriptorResolver.resolve(), &(&1.action_name == action)) do
-      nil ->
-        Mix.shell().info("no resolved descriptor for #{action}")
-
-      d ->
-        override_path =
-          case DescriptorStore.path(:overrides, d.app_id, action) do
-            {:ok, path} -> path
-            {:error, reason} -> inspect(reason)
-          end
-
-        Mix.shell().info("""
-        #{d.action_name} [#{d.source}] app_id=#{d.app_id}
-          label: #{d.label}
-          examples: #{inspect(d.examples)}
-          synonyms: #{inspect(d.synonyms)}
-          override file: #{override_path}
-        """)
-    end
+    "intent_show_descriptor"
+    |> completed_action(%{action: action})
+    |> print_message()
   end
 
   defp dispatch(["edit", action]) do
@@ -151,27 +154,34 @@ defmodule Mix.Tasks.Allbert.Intent do
   end
 
   defp dispatch(["review"]) do
-    case DescriptorStore.read_attrs(:review) do
-      [] ->
-        Mix.shell().info("no descriptors pending review")
-
-      attrs ->
-        Enum.each(attrs, fn a ->
-          Mix.shell().info(
-            "  #{Map.get(a, :action_name) || Map.get(a, "action_name")} " <>
-              "app_id=#{Map.get(a, :app_id) || Map.get(a, "app_id")}"
-          )
-        end)
-    end
+    "intent_list_review"
+    |> completed_action(%{})
+    |> print_message()
   end
 
   defp dispatch(_args),
     do:
       Mix.raise(
         "Usage: mix allbert.intent doctor | bench [--subset|--holdout] | " <>
-          "optimize [--heuristic] | reindex | list | show ACTION | edit ACTION | " <>
-          "disable ACTION | enable ACTION | promote ACTION | review"
+          "coverage | eval run [--surface SURFACE] | optimize [--heuristic] | reindex | " <>
+          "list | show ACTION | edit ACTION | disable ACTION | enable ACTION | promote ACTION | review"
       )
+
+  defp completed_action(name, params) do
+    {:ok, response} = ActionsRunner.run(name, params, operator_context())
+    response
+  end
+
+  defp operator_context do
+    %{
+      actor: "local",
+      operator_id: "local",
+      channel: :mix,
+      request: %{operator_id: "local", channel: :mix, source: "mix allbert.intent"}
+    }
+  end
+
+  defp print_message(%{message: message}), do: Mix.shell().info(message)
 
   defp descriptor_app_id(action) do
     case ActionsRegistry.capability(action) do
@@ -212,16 +222,7 @@ defmodule Mix.Tasks.Allbert.Intent do
     |> Map.new()
   end
 
-  defp source_label(:app), do: "code"
-  defp source_label(:overrides), do: "override"
-  defp source_label(source), do: to_string(source)
-
-  defp print_coverage(c) do
-    Mix.shell().info(
-      "coverage: routable=#{c.routable}/#{c.agent_exposed} missing=#{c.missing} " <>
-        "generated=#{c.generated} learned_review=#{c.review_pending} overridden=#{c.overridden}"
-    )
-  end
+  defp print_coverage(c), do: Mix.shell().info(OperatorSupport.render_coverage(c))
 
   defp print_bench(%{summary: s}) do
     Mix.shell().info("""
@@ -241,17 +242,5 @@ defmodule Mix.Tasks.Allbert.Intent do
         Mix.shell().info("  #{f.id}: expected=#{inspect(f.expected)} actual=#{inspect(f.actual)}")
       end)
     end
-  end
-
-  defp print_doctor(e) do
-    Mix.shell().info("""
-    intent router doctor status=#{e.status}
-    strategy=#{e.strategy}
-    embedding_profile=#{e.embedding_profile} endpoint=#{e.embedding_endpoint} dim=#{e.embedding_dim}
-    model_profile=#{e.model_profile} escalation=#{e.escalation_profile}
-    index status=#{e.index_status} size=#{e.index_size} built_at=#{e.index_built_at}
-    """)
-
-    print_coverage(Optimizer.coverage())
   end
 end

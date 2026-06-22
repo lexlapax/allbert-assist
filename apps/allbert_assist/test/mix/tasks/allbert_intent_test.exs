@@ -4,6 +4,7 @@ defmodule Mix.Tasks.Allbert.IntentTest do
 
   import ExUnit.CaptureIO
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Intent.Router.DescriptorStore
   alias AllbertAssist.Paths
   alias Mix.Tasks.Allbert.Intent, as: IntentTask
@@ -72,6 +73,16 @@ defmodule Mix.Tasks.Allbert.IntentTest do
     assert restored_list =~ "append_memory source=code app_id=allbert"
   end
 
+  test "read commands render the registered action DTO messages" do
+    assert_cli_matches_action(["list"], "intent_list_descriptors", %{})
+
+    assert_cli_matches_action(["show", "append_memory"], "intent_show_descriptor", %{
+      action: "append_memory"
+    })
+
+    assert_cli_matches_action(["coverage"], "intent_coverage", %{})
+  end
+
   test "review lists learned proposals and promote makes them generated" do
     {:ok, _path} =
       DescriptorStore.put(:review, %{
@@ -85,6 +96,7 @@ defmodule Mix.Tasks.Allbert.IntentTest do
 
     review_output = capture_io(fn -> assert :ok = IntentTask.run(["review"]) end)
     assert review_output =~ "show_app app_id=allbert"
+    assert clean_output(review_output) == action_message("intent_list_review", %{})
 
     promote_output =
       capture_io(fn ->
@@ -97,4 +109,25 @@ defmodule Mix.Tasks.Allbert.IntentTest do
     list_output = capture_io(fn -> assert :ok = IntentTask.run(["list"]) end)
     assert list_output =~ "show_app source=generated app_id=allbert"
   end
+
+  defp assert_cli_matches_action(args, action, params) do
+    output = capture_io(fn -> assert :ok = IntentTask.run(args) end)
+    assert clean_output(output) == action_message(action, params)
+  end
+
+  defp action_message(action, params) do
+    {:ok, response} = Runner.run(action, params, operator_context())
+    response.message
+  end
+
+  defp operator_context do
+    %{
+      actor: "local",
+      operator_id: "local",
+      channel: :mix,
+      request: %{operator_id: "local", channel: :mix, source: "mix allbert.intent"}
+    }
+  end
+
+  defp clean_output(output), do: String.trim_trailing(output)
 end

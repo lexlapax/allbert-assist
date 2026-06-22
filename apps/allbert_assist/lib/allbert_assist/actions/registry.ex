@@ -49,15 +49,21 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Integrations.OpenMailPanel
   alias AllbertAssist.Actions.Intent.ActivateSkill
   alias AllbertAssist.Actions.Intent.AppendMemory
+  alias AllbertAssist.Actions.Intent.Coverage, as: IntentCoverage
   alias AllbertAssist.Actions.Intent.DirectAnswer
+  alias AllbertAssist.Actions.Intent.Doctor, as: IntentDoctor
+  alias AllbertAssist.Actions.Intent.EvalRun, as: IntentEvalRun
   alias AllbertAssist.Actions.Intent.ExplainIntent
   alias AllbertAssist.Actions.Intent.ExternalNetworkRequest
   alias AllbertAssist.Actions.Intent.ListIntentCandidates
+  alias AllbertAssist.Actions.Intent.ListDescriptors, as: IntentListDescriptors
+  alias AllbertAssist.Actions.Intent.ListReview, as: IntentListReview
   alias AllbertAssist.Actions.Intent.ListSkills
   alias AllbertAssist.Actions.Intent.PlanShellCommand
   alias AllbertAssist.Actions.Intent.ReadRecentMemory
   alias AllbertAssist.Actions.Intent.ReadSkill
   alias AllbertAssist.Actions.Intent.RunShellCommand
+  alias AllbertAssist.Actions.Intent.ShowDescriptor, as: IntentShowDescriptor
   alias AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow
   alias AllbertAssist.Actions.Jobs.RegistryHealth
   alias AllbertAssist.Actions.Jobs.TraceSummary
@@ -306,6 +312,12 @@ defmodule AllbertAssist.Actions.Registry do
     RecordTrace,
     ExplainIntent,
     ListIntentCandidates,
+    IntentDoctor,
+    IntentListDescriptors,
+    IntentShowDescriptor,
+    IntentCoverage,
+    IntentEvalRun,
+    IntentListReview,
     ListMemoryEntries,
     ReadMemoryEntry,
     ReviewMemoryEntry,
