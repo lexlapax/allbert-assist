@@ -1,0 +1,11 @@
+---
+context: {}
+domain: channels
+expected:
+  action: resume_thread_on_channel
+  kind: execute
+holdout: true
+id: channels-resume-001
+rationale: resume thread
+schema_version: 1
+utterance: resume my telegram thread

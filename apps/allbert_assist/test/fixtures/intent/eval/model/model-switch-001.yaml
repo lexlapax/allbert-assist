@@ -1,0 +1,10 @@
+---
+context: {}
+domain: model
+expected:
+  action: set_active_model_profile
+  kind: execute
+id: model-switch-001
+rationale: switch model
+schema_version: 1
+utterance: switch to the fast model

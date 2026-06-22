@@ -1,0 +1,10 @@
+---
+context: {}
+domain: image
+expected:
+  action: generate_image
+  kind: execute
+id: image-gen-001
+rationale: image gen (confirmation:required)
+schema_version: 1
+utterance: generate an image of a red bicycle

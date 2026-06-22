@@ -1,0 +1,9 @@
+---
+context: {}
+domain: none
+expected:
+  kind: none
+id: none-001
+rationale: no candidate fits
+schema_version: 1
+utterance: asdkfj qwioutr zzz nonsense

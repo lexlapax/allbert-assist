@@ -1,0 +1,11 @@
+---
+context: {}
+domain: notes
+expected:
+  action: write_note
+  kind: execute
+holdout: true
+id: notes-create-002
+rationale: save = write
+schema_version: 1
+utterance: 'save a note: call the dentist tomorrow'

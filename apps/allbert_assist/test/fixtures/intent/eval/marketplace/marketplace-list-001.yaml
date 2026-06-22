@@ -1,0 +1,10 @@
+---
+context: {}
+domain: marketplace
+expected:
+  action: list_marketplace_entries
+  kind: execute
+id: marketplace-list-001
+rationale: browse catalog
+schema_version: 1
+utterance: what's in the marketplace

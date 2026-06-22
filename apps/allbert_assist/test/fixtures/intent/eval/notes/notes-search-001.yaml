@@ -1,0 +1,10 @@
+---
+context: {}
+domain: notes
+expected:
+  action: search_notes
+  kind: execute
+id: notes-search-001
+rationale: find = search
+schema_version: 1
+utterance: find my notes about onboarding

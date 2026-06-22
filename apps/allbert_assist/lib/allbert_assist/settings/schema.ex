@@ -51,6 +51,9 @@ defmodule AllbertAssist.Settings.Schema do
     "intent.router_top_k",
     "intent.router_min_confidence",
     "intent.router_model_timeout_ms",
+    "intent.eval.min_accuracy",
+    "intent.eval.min_per_domain_accuracy",
+    "intent.eval.block_on_regression",
     "intent.reindex_on_registration_signal",
     "intent.calendar_mcp_server",
     "intent.multiturn_enabled",
@@ -668,6 +671,28 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       min: 250,
       max: 60_000
+    },
+    "intent.eval.min_accuracy" => %{
+      type: :bounded_float,
+      default: 0.85,
+      writable?: true,
+      sensitive?: false,
+      min: 0.0,
+      max: 1.0
+    },
+    "intent.eval.min_per_domain_accuracy" => %{
+      type: :bounded_float,
+      default: 0.8,
+      writable?: true,
+      sensitive?: false,
+      min: 0.0,
+      max: 1.0
+    },
+    "intent.eval.block_on_regression" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
     },
     "intent.reindex_on_registration_signal" => %{
       type: :boolean,
@@ -3116,6 +3141,11 @@ defmodule AllbertAssist.Settings.Schema do
       "router_top_k" => 5,
       "router_min_confidence" => 0.6,
       "router_model_timeout_ms" => 20_000,
+      "eval" => %{
+        "min_accuracy" => 0.85,
+        "min_per_domain_accuracy" => 0.8,
+        "block_on_regression" => true
+      },
       "reindex_on_registration_signal" => true,
       "calendar_mcp_server" => "calendar",
       "multiturn_enabled" => false,

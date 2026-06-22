@@ -1,0 +1,10 @@
+---
+context: {}
+domain: memory
+expected:
+  action: read_recent_memory
+  kind: execute
+id: memory-recall-001
+rationale: recall
+schema_version: 1
+utterance: what do you remember about me

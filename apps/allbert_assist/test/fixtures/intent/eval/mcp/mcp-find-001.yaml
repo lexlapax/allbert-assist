@@ -1,0 +1,10 @@
+---
+context: {}
+domain: mcp
+expected:
+  action: find_mcp_tools
+  kind: execute
+id: mcp-find-001
+rationale: tool discovery
+schema_version: 1
+utterance: what MCP tools do I have

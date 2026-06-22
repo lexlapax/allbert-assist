@@ -1,0 +1,10 @@
+---
+context: {}
+domain: objectives
+expected:
+  action: list_objectives
+  kind: execute
+id: objectives-list-001
+rationale: read objectives
+schema_version: 1
+utterance: what are my open goals

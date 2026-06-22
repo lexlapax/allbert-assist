@@ -1,0 +1,11 @@
+---
+context: {}
+domain: model
+expected:
+  action: list_model_profiles
+  kind: execute
+holdout: true
+id: model-list-001
+rationale: list models
+schema_version: 1
+utterance: what models do I have

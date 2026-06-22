@@ -1,0 +1,10 @@
+---
+context: {}
+domain: research
+expected:
+  action: research
+  kind: execute
+id: research-001
+rationale: delegate research
+schema_version: 1
+utterance: research supply chain resilience

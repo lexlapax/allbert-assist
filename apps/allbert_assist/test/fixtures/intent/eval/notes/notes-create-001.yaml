@@ -1,0 +1,10 @@
+---
+context: {}
+domain: notes
+expected:
+  action: write_note
+  kind: execute
+id: notes-create-001
+rationale: explicit create
+schema_version: 1
+utterance: create a note titled groceries with milk and eggs

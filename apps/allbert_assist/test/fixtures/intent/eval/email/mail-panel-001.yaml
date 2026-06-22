@@ -1,0 +1,10 @@
+---
+context: {}
+domain: email
+expected:
+  action: open_mail_panel
+  kind: execute
+id: mail-panel-001
+rationale: no mail-summary action; panel handoff
+schema_version: 1
+utterance: summarize my inbox

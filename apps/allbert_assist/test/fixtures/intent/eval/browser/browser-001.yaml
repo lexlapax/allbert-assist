@@ -1,0 +1,10 @@
+---
+context: {}
+domain: browser
+expected:
+  action: browser_research_handoff
+  kind: execute
+id: browser-001
+rationale: url + screenshot verb
+schema_version: 1
+utterance: screenshot https://example.com

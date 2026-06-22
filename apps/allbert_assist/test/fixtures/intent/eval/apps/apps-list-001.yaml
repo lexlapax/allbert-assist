@@ -1,0 +1,10 @@
+---
+context: {}
+domain: apps
+expected:
+  action: list_apps
+  kind: execute
+id: apps-list-001
+rationale: read apps
+schema_version: 1
+utterance: what apps are installed

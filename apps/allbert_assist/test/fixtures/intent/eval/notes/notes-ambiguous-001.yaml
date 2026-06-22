@@ -1,0 +1,9 @@
+---
+context: {}
+domain: notes
+expected:
+  kind: clarify
+id: notes-ambiguous-001
+rationale: "bare 'note' — create vs search vs read"
+schema_version: 1
+utterance: note

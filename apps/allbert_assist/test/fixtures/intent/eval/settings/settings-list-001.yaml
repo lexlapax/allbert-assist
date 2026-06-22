@@ -1,0 +1,10 @@
+---
+context: {}
+domain: settings
+expected:
+  action: list_settings
+  kind: execute
+id: settings-list-001
+rationale: read settings
+schema_version: 1
+utterance: show my settings

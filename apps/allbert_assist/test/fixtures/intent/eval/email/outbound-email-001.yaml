@@ -1,0 +1,10 @@
+---
+context: {}
+domain: email
+expected:
+  action: send_email
+  kind: execute
+id: outbound-email-001
+rationale: M10 send_email (confirmation-gated)
+schema_version: 1
+utterance: send an email to alice@example.com about lunch

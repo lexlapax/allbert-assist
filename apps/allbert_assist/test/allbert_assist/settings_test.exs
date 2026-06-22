@@ -105,6 +105,9 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, 0.3} = Settings.get("intent.clarify_floor")
     assert {:ok, "local"} = Settings.get("intent.direct_answer_model_profile")
     assert Settings.schema()["intent.direct_answer_model_profile"].default == "local"
+    assert {:ok, 0.85} = Settings.get("intent.eval.min_accuracy")
+    assert {:ok, 0.8} = Settings.get("intent.eval.min_per_domain_accuracy")
+    assert {:ok, true} = Settings.get("intent.eval.block_on_regression")
     assert {:ok, true} = Settings.get("intent.reindex_on_registration_signal")
     assert {:ok, "calendar"} = Settings.get("intent.calendar_mcp_server")
     assert {:ok, true} = Settings.get("active_memory.enabled")
@@ -129,6 +132,16 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, "work_calendar"} = Settings.get("intent.calendar_mcp_server")
 
     assert {:ok, resolved} =
+             Settings.put("intent.eval.min_accuracy", 0.9, %{audit?: false})
+
+    assert resolved.value == 0.9
+
+    assert {:ok, resolved} =
+             Settings.put("intent.eval.block_on_regression", false, %{audit?: false})
+
+    assert resolved.value == false
+
+    assert {:ok, resolved} =
              Settings.put("active_memory.score_weights.identity_inclusion", 2.0, %{
                audit?: false
              })
@@ -137,6 +150,9 @@ defmodule AllbertAssist.SettingsTest do
 
     assert {:error, {:invalid_setting, "intent.model_min_confidence", _reason}} =
              Settings.put("intent.model_min_confidence", 1.5, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "intent.eval.min_accuracy", _reason}} =
+             Settings.put("intent.eval.min_accuracy", 1.5, %{audit?: false})
 
     assert {:error, {:invalid_setting, "intent.handoff_threshold", _reason}} =
              Settings.put("intent.handoff_threshold", 1.5, %{audit?: false})

@@ -1,0 +1,12 @@
+---
+context: {}
+domain: stocks
+expected:
+  action: run_analysis
+  kind: execute
+  slots:
+    - ticker
+id: stocks-analyze-001
+rationale: ticker slot
+schema_version: 1
+utterance: analyze AAPL

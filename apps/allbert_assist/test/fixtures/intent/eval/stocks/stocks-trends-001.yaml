@@ -1,0 +1,10 @@
+---
+context: {}
+domain: stocks
+expected:
+  action: get_trends
+  kind: execute
+id: stocks-trends-001
+rationale: trends
+schema_version: 1
+utterance: show trends for TSLA

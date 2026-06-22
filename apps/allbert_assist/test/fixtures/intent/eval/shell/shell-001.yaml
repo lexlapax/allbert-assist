@@ -1,0 +1,10 @@
+---
+context: {}
+domain: shell
+expected:
+  action: run_shell_command
+  kind: execute
+id: shell-001
+rationale: shell (confirmation:required)
+schema_version: 1
+utterance: run the command ls -la

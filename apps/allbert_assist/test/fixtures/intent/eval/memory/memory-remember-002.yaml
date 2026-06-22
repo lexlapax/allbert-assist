@@ -1,0 +1,11 @@
+---
+context: {}
+domain: memory
+expected:
+  action: append_memory
+  kind: execute
+holdout: true
+id: memory-remember-002
+rationale: note-to-self idiom
+schema_version: 1
+utterance: 'note to self: the wifi password is on the router'

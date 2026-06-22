@@ -1,0 +1,9 @@
+---
+context: {}
+domain: answer
+expected:
+  kind: answer
+id: answer-001
+rationale: general knowledge — direct answer
+schema_version: 1
+utterance: what is the capital of France

@@ -1,0 +1,10 @@
+---
+context: {}
+domain: calendar
+expected:
+  action: create_calendar_event
+  kind: execute
+id: outbound-calendar-001
+rationale: M10 create_calendar_event (MCP)
+schema_version: 1
+utterance: schedule a meeting tomorrow at 3pm

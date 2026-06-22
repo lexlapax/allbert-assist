@@ -1,0 +1,10 @@
+---
+context: {}
+domain: calendar
+expected:
+  action: open_calendar_panel
+  kind: execute
+id: calendar-panel-001
+rationale: agenda = calendar panel
+schema_version: 1
+utterance: show me today's agenda

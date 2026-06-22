@@ -1,0 +1,10 @@
+---
+context: {}
+domain: channels
+expected:
+  action: list_channels
+  kind: execute
+id: channels-list-001
+rationale: read channels
+schema_version: 1
+utterance: list my channels

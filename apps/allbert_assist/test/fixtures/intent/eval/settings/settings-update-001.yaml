@@ -1,0 +1,10 @@
+---
+context: {}
+domain: settings
+expected:
+  action: update_setting
+  kind: execute
+id: settings-update-001
+rationale: change a setting
+schema_version: 1
+utterance: set the intent router strategy to deterministic

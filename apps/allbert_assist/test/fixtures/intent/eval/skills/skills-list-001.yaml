@@ -1,0 +1,10 @@
+---
+context: {}
+domain: skills
+expected:
+  action: list_skills
+  kind: execute
+id: skills-list-001
+rationale: read skills
+schema_version: 1
+utterance: what skills do I have

@@ -1,0 +1,10 @@
+---
+context: {}
+domain: channels
+expected:
+  action: send_channel_message
+  kind: execute
+id: outbound-channel-001
+rationale: M10 send_channel_message (gated)
+schema_version: 1
+utterance: 'send a slack message to #eng saying hi'

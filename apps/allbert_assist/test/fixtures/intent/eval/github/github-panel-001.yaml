@@ -1,0 +1,11 @@
+---
+context: {}
+domain: github
+expected:
+  action: open_github_panel
+  kind: execute
+holdout: true
+id: github-panel-001
+rationale: PRs = github panel
+schema_version: 1
+utterance: list my open PRs

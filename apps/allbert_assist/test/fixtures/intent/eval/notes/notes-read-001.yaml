@@ -1,0 +1,10 @@
+---
+context: {}
+domain: notes
+expected:
+  action: read_note
+  kind: execute
+id: notes-read-001
+rationale: read a specific note
+schema_version: 1
+utterance: read the scratch note

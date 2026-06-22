@@ -1,0 +1,10 @@
+---
+context: {}
+domain: memory
+expected:
+  action: append_memory
+  kind: execute
+id: memory-remember-001
+rationale: remember = append_memory
+schema_version: 1
+utterance: remember that my anniversary is June 20
