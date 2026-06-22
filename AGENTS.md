@@ -82,6 +82,13 @@ Use these as starting points, then narrow further from the active task:
   intent descriptors, conversational app handoff, or clarification: read
   ADR 0019, ADR 0034, the active plan, and latest intent-related changelog
   entries.
+- Two-stage intent router, descriptor lifecycle/generation/learning, routing
+  accuracy, the routing-accuracy evaluation harness + promotion gate, or which
+  model to use for what: read ADR 0060, ADR 0061, ADR 0062, ADR 0071 (routing-
+  accuracy harness + blocking gate), ADR 0072 (recommended model profiles per
+  purpose), `docs/plans/v0.56-plan.md`, `docs/plans/v0.56-request-flow.md`, and
+  `docs/operator/model-recommendations.md`. The eval gate and model
+  recommendations grant no authority; routing is a hint only.
 - Objectives, objective steps, objective events, advisory providers, world
   models, capability inventory, or any multi-step / cross-turn work: read
   ADR 0021, `docs/plans/v0.24-plan.md`, `docs/plans/v0.24-request-flow.md`,

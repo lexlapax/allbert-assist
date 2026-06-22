@@ -1,13 +1,22 @@
 # Allbert Assist
 
 Allbert Assist is a local-first assistant runtime for long-running personal
-work. It is built as an Elixir/Phoenix umbrella application around supervised
-OTP processes, Jido actions and agents, durable confirmations, Security
-Central, Settings Central, markdown-first memory, Allbert Home, and inspectable
-runtime traces.
+work — and, on the same spine, an operator/developer workspace with messaging
+channels and a persistent terminal console. It is built as an Elixir/Phoenix
+umbrella application around supervised OTP processes, Jido actions and agents,
+durable confirmations, Security Central, Settings Central, markdown-first
+memory, Allbert Home, and inspectable runtime traces.
 
-Phoenix LiveView, Mix tasks, channels, and plugin apps are operator surfaces
-over the runtime. The center of the system is the signal-driven assistant
+Its posture is a minimal inner loop on a structured authority spine: a small
+system prompt and a few default tools (the rest disclosed lazily) drive each
+turn, while every side effect still resolves through a validated,
+permission-checked action.
+
+Phoenix LiveView, Mix tasks, messaging channels, a persistent terminal/TUI
+console, and plugin apps are operator surfaces over the runtime. A gated
+terminal coding surface ("Pi-mode") is a planned extension of the same spine —
+a minimal inner loop on Allbert's authority boundary, never a separate
+unguarded harness. The center of the system is the signal-driven assistant
 runtime and its registered action boundary.
 
 ## Why It Exists
@@ -81,21 +90,11 @@ manually proven first.
 
 The roadmap is intentionally incremental: prove a contract through real
 runtime use, document its authority boundary, add release evidence, and only
-then make the contract easier to reuse. The current roadmap sequence has
-operator-supervised self-improvement discovery/local drafts in v0.47, handoff
-drafts in v0.47b/`0.47.1`, provider-capability-backed voice in v0.48,
-vision/image generation in v0.49, Artifacts Central in v0.50, the
-Artifacts Browser sidecar in v0.50b/`0.50.1`, public protocol surfaces in
-v0.51, and Discord/Slack plus cross-channel threading in v0.52.
-Fake providers are test fixtures only; operator-facing provider milestones
-target real configured endpoints/providers.
-Vision/image generation in v0.49 consumes the v0.48 provider capability
-substrate rather than adding a separate image-provider framework. v0.51 exposes
-Allbert through MCP, an OpenAI-compatible HTTP shim, and ACP while preserving the
-existing runtime/action/security boundaries.
-Use [CHANGELOG.md](CHANGELOG.md) for shipped release details and
-[docs/plans/roadmap.md](docs/plans/roadmap.md) for the current milestone
-sequence.
+then make the contract easier to reuse. Operator-facing provider milestones
+target real configured endpoints; fake providers are test fixtures only.
+
+See [docs/plans/roadmap.md](docs/plans/roadmap.md) for the current milestone
+sequence and [CHANGELOG.md](CHANGELOG.md) for shipped release details.
 
 ## Start Here
 

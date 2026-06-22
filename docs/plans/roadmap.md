@@ -3452,31 +3452,52 @@ Closeout shape:
 - Reinforces the v0.57 Pi-mode foundation: Pi-mode runs in this same persistent
   session.
 
-## v0.56: Intent Descriptor Learning + Registration Lifecycle Completion
+## v0.56: Intent Descriptor Learning + Registration Lifecycle Completion + Routing-Accuracy Gate + Model Recommendations
 
 Plan: `docs/plans/v0.56-plan.md`
 Request flow: `docs/plans/v0.56-request-flow.md`
+ADRs: `docs/adr/0062-...` (completion amendment),
+`docs/adr/0071-intent-routing-accuracy-evaluation-harness-and-promotion-gate.md`
+(NEW; accept in v0.56),
+`docs/adr/0072-recommended-model-profiles-per-purpose.md` (NEW; accept in v0.56).
 
 Status: planned. Inserted by the v0.54 post-implementation audit so the advanced
 ADR 0062 lifecycle remains in the 1.0 arc rather than being parked. Moved from
-v0.57 to v0.56 in the 2026-06-21 replan.
+v0.57 to v0.56 in the 2026-06-21 replan. Deepened 2026-06-22 from a 6-milestone
+foundation into a 15-milestone release (M0-M14) after the readiness pass: routing
+accuracy, full coverage, and model recommendations became first-class pillars.
 
 Expected direction:
 
-- Complete ADR 0062 beyond the v0.54 foundation.
-- Generate descriptor drafts through the local `router_local` model with bounded,
-  redacted prompts, deterministic YAML validation, and heuristic fallback.
-- Mine learned-review proposals from reviewed memory, resolved clarifications,
-  approved confirmations, redacted intent traces, and explicit operator
-  corrections.
-- Expose an operator-confirmable `optimize_intent_descriptors` action in addition
-  to the existing Mix flow.
-- Complete reindex-on-registration for `allbert.app.registered`,
-  `allbert.plugin.registered`, and `allbert.action.registry_changed`, alongside
-  the v0.54 dynamic-codegen signals.
-- Prove in evals that model output and learned proposals grant no authority,
-  routing only changes after operator promotion, and registration signals rebuild
-  correctly.
+- Complete ADR 0062 beyond the v0.54 foundation: local `router_local` descriptor
+  generation (bounded, redacted, deterministic YAML, heuristic fallback);
+  learned-review proposal mining from reviewed memory, resolved clarifications,
+  approved confirmations, redacted intent traces, and operator corrections; the
+  operator-exposed `optimize_intent_descriptors` action; and full
+  reindex-on-registration for `allbert.app.registered`,
+  `allbert.plugin.registered`, and `allbert.action.registry_changed` alongside the
+  v0.54 dynamic-codegen signals.
+- **Make routing correct, not just covered:** curate descriptors for the full
+  ~47-action routable inventory (only 12 are covered today), and add a deterministic
+  routing-accuracy evaluation harness (ADR 0071) — a data-only YAML corpus, scorer,
+  and **blocking** promotion + release gate (no-regression vs a committed baseline,
+  a ratcheting absolute floor, and zero negative-route violations, including the
+  standing guarantee that v0.55.1 operator-inspection / `exposure: :internal` /
+  doctor actions never route). A live `mix allbert.intent bench` lane stays the
+  operator's model-quality signal.
+- **Recommend which model to use for what** (ADR 0072): a consolidated operator
+  guide (`docs/operator/model-recommendations.md`), recommended Settings Central
+  defaults per purpose, and per-purpose reporting folded into
+  `mix allbert.intent doctor` + `mix allbert.settings model-doctor`.
+- Cross-cutting: all new settings go through Settings Central, all security
+  decisions through Security Central, and every operator read-model (coverage,
+  descriptor list, eval/gate status, model recommendations) is a redacted DTO —
+  rendered in CLI in v0.56, with the web Intents + Settings/Models panels contracted
+  and flagged to the v0.58 Web UX redo.
+- Prove in evals that model output and learned proposals grant no authority, routing
+  only changes after operator promotion (and passing the accuracy gate), the right
+  agent fires across surfaces, registration signals rebuild correctly, and the model
+  doctor leaks no secrets and grants no egress.
 
 ## v0.57: Pi-mode Coding Surface
 

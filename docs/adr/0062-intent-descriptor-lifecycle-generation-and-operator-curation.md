@@ -31,9 +31,20 @@ behavior and are now assigned to v0.56:
 - `allbert.app.registered`, `allbert.plugin.registered`, and
   `allbert.action.registry_changed` signal emission/consumption.
 
+The v0.56 readiness pass (2026-06-22) added two coupled decisions the lifecycle now
+depends on: **ADR 0071** introduces a deterministic routing-accuracy evaluation
+harness and makes it a **blocking** gate — `optimize_intent_descriptors`, `mix
+allbert.intent promote`, and `release.v056` all run `Intent.Eval.Gate.check`, and a
+regression vs the committed baseline or any negative-route violation **rejects the
+promotion / fails the release**; and **ADR 0072** ships per-purpose model
+recommendations + Settings Central recommended defaults + per-purpose doctor coverage
+for the local models this lifecycle uses. v0.56 also targets the full ~47-action
+routable inventory, not just the machinery.
+
 This correction does not weaken the authority invariant: every descriptor remains
 only a routing hint, and active routing changes still require code declaration,
-accepted generated YAML, or operator override/promotion.
+accepted generated YAML, or operator override/promotion that passes the ADR 0071
+gate.
 
 ## Context
 

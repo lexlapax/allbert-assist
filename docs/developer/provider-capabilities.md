@@ -1,5 +1,11 @@
 # Provider Capabilities Developer Notes
 
+> For the operator-facing "which model to use for what purpose" recommendation
+> (intent embedding/disambiguation/escalation/generation/eval, conversational loop,
+> voice, image, codegen), see `docs/operator/model-recommendations.md` (ADR 0072).
+> This developer note documents the capability substrate; the operator guide is the
+> canonical recommendation source.
+
 Status: implemented through v0.49. v0.48 landed the shared provider-capability
 substrate plus executable local endpoint, OpenAI remote, and Gemini remote
 STT/TTS paths while keeping fake providers as automated-test fixtures only.
