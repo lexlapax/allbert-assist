@@ -44,35 +44,84 @@ defmodule AllbertAssist.Intent.Engine do
 
   defp decide_without_explicit_route(request) do
     app_context = active_app_context(request)
-    candidates = ranked_candidates(request)
-    {classifier_candidate, classifier_diagnostic} = classifier_candidate(candidates, request)
 
-    attrs =
-      descriptor_decision_attrs(
-        candidates,
-        request,
-        app_context,
-        classifier_diagnostic,
-        classifier_candidate
-      ) ||
-        descriptor_action_attrs(
-          candidates,
-          request,
-          app_context,
-          classifier_diagnostic,
-          classifier_candidate
-        ) ||
-        case selected_route_candidate(classifier_candidate, candidates, request) do
-          nil ->
-            direct_answer_attrs(request, app_context, classifier_diagnostic)
+    {attrs, classifier_diagnostic} =
+      if natural_language_operator_report_request?(request) do
+        {direct_answer_attrs(request, app_context, nil), nil}
+      else
+        candidates = ranked_candidates(request)
+        {classifier_candidate, classifier_diagnostic} = classifier_candidate(candidates, request)
 
-          candidate ->
-            decision_attrs_for_candidate(candidate, request, app_context, classifier_diagnostic)
-        end
+        attrs =
+          descriptor_decision_attrs(
+            candidates,
+            request,
+            app_context,
+            classifier_diagnostic,
+            classifier_candidate
+          ) ||
+            descriptor_action_attrs(
+              candidates,
+              request,
+              app_context,
+              classifier_diagnostic,
+              classifier_candidate
+            ) ||
+            case selected_route_candidate(classifier_candidate, candidates, request) do
+              nil ->
+                direct_answer_attrs(request, app_context, classifier_diagnostic)
+
+              candidate ->
+                decision_attrs_for_candidate(
+                  candidate,
+                  request,
+                  app_context,
+                  classifier_diagnostic
+                )
+            end
+
+        {attrs, classifier_diagnostic}
+      end
 
     with {:ok, decision} <- build_decision(attrs, request, classifier_diagnostic) do
       {:ok, put_candidate_metadata(decision, %{request: request})}
     end
+  end
+
+  defp natural_language_operator_report_request?(request) do
+    request
+    |> field(:text, "")
+    |> operator_report_text?()
+  end
+
+  defp operator_report_text?(text) when is_binary(text) do
+    normalized = normalize_report_text(text)
+    tokens = MapSet.new(String.split(normalized, " ", trim: true))
+
+    starts_like_question? =
+      Regex.match?(~r/^(what|show|list|give|tell|display|inspect)\b/, normalized)
+
+    operator_event_context? =
+      MapSet.member?(tokens, "events") and
+        Enum.any?(
+          ["channel", "channels", "operator", "tui"],
+          &MapSet.member?(tokens, &1)
+        )
+
+    starts_like_question? and
+      (String.contains?(normalized, "channel events") or
+         String.contains?(normalized, "model settings") or
+         operator_event_context?)
+  end
+
+  defp operator_report_text?(_text), do: false
+
+  defp normalize_report_text(value) do
+    value
+    |> to_string()
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/u, " ")
+    |> String.trim()
   end
 
   @spec put_candidate_metadata(Decision.t(), map()) :: Decision.t()

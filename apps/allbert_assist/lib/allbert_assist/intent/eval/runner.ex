@@ -174,6 +174,9 @@ defmodule AllbertAssist.Intent.Eval.Runner do
       unsafe_or_noisy_none?(utterance) ->
         {:ok, %{selected: "__none__", confidence: 1.0, slots: %{}}}
 
+      operator_report_text?(utterance) ->
+        {:ok, %{selected: "__answer__", confidence: 1.0, slots: %{}}}
+
       general_answer_question?(utterance) ->
         {:ok, %{selected: "__answer__", confidence: 1.0, slots: %{}}}
 
@@ -313,6 +316,23 @@ defmodule AllbertAssist.Intent.Eval.Runner do
       ],
       &Enum.member?(tokens(text), &1)
     )
+  end
+
+  defp operator_report_text?(utterance) do
+    text = normalize_text(utterance)
+    tokens = MapSet.new(tokens(text))
+
+    operator_event_context? =
+      MapSet.member?(tokens, "events") and
+        Enum.any?(
+          ["channel", "channels", "operator", "tui"],
+          &MapSet.member?(tokens, &1)
+        )
+
+    Regex.match?(~r/^(what|show|list|give|tell|display|inspect)\b/, text) and
+      (String.contains?(text, "channel events") or
+         String.contains?(text, "model settings") or
+         operator_event_context?)
   end
 
   defp ambiguous_operator_noun_phrase?(utterance, shortlist) do

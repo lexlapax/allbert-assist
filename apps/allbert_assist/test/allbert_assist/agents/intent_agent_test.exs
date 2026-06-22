@@ -185,6 +185,30 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert server_response.decision.selected_action == "find_tools"
   end
 
+  test "natural-language operator report phrasing stays side-effect-free" do
+    assert {:ok, response} =
+             IntentAgent.respond(%{
+               text: "what are my recent channel events and model settings?",
+               channel: :tui,
+               user_id: "local",
+               operator_id: "local",
+               thread_id: "thr-operator-report-guard",
+               session_id: "sess-operator-report-guard",
+               input_signal_id: "sig-operator-report-guard"
+             })
+
+    assert response.status == :completed
+    assert response.decision.selected_action == "direct_answer"
+
+    assert [%{name: "direct_answer", permission_decision: %{decision: :allowed}}] =
+             response.actions
+
+    refute response.message =~ "provider=telegram_bot_api"
+    refute response.message =~ "provider=terminal"
+    refute response.message =~ "model doctor ok="
+    assert response.message =~ "side-effect-free"
+  end
+
   test "routes documented Plan/Build intent corpus", %{root: root} do
     copy_workflow_fixture!("multi_step", root)
 
