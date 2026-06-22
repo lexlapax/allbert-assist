@@ -12,8 +12,9 @@ changelog entries or release notes.
 
 ## v0.55.1 - Persistent TUI Operator/Validation Console
 
-Status: released and tagged as `v0.55.1` on 2026-06-22. Current version metadata
-reports `0.55.1`.
+Status: release-ready as `v0.55.1` on 2026-06-22. Current version metadata
+reports `0.55.1`; the release tag is intentionally deferred per operator
+instruction.
 
 Plan: `docs/plans/v0.55b-plan.md`. Request flow:
 `docs/plans/v0.55b-request-flow.md`. ADR:
@@ -47,14 +48,15 @@ Plan: `docs/plans/v0.55b-plan.md`. Request flow:
   `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v0551/p0-13379/home/release_evidence/v0551/release-v0551-1782112068.json`.
 - The full release gate passed during M6 closeout with evidence at
   `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13378/home/release_evidence/gates/release-2026-06-22T13_10_00Z.json`;
-  the retained logs were scanned for SQLite/DB connection noise before tag.
+  the retained logs were scanned for SQLite/DB connection noise before
+  release-tag handoff.
 - The docs gate, compile warning gate, and drift scans were rerun during M6
   closeout.
 
 ## v0.55.0 - Channel Parity + TUI/Terminal Channel
 
 Status: released and tagged as `v0.55.0` on 2026-06-22. Version metadata now
-reports `0.55.1` after the follow-on v0.55.1 point release.
+reports `0.55.1` after the follow-on v0.55.1 closeout.
 
 Plan: `docs/plans/v0.55-plan.md`. Request flow:
 `docs/plans/v0.55-request-flow.md`. ADRs: `docs/adr/0067-tui-terminal-channel.md`

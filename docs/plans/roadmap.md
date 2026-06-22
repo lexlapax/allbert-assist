@@ -3431,11 +3431,12 @@ Request flow: `docs/plans/v0.55b-request-flow.md`
 ADR: `docs/adr/0070-tui-operator-console-and-read-only-operator-actions.md`
 (Accepted in v0.55.1)
 
-Status: released as `0.55.1` on 2026-06-22. Point release after `0.55.0`; the
-v0.56-v0.59 arc is unchanged. M6 full release evidence:
+Status: release-ready as `0.55.1` on 2026-06-22; the release tag is
+intentionally deferred per operator instruction. Point release after `0.55.0`;
+the v0.56-v0.59 arc is unchanged. M6 full release evidence:
 `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13378/home/release_evidence/gates/release-2026-06-22T13_10_00Z.json`.
 
-Shipped shape:
+Closeout shape:
 
 - Make the v0.55 TUI the persistent, mix-free operator/validation console: one
   warm BEAM (DB open, `Channels.Supervisor` up) for interactive operator work and
