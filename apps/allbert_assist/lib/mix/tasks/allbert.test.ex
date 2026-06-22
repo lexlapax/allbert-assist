@@ -29,6 +29,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v053
       mix allbert.test release.v054
       mix allbert.test release.v055
+      mix allbert.test release.v0551
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -129,6 +130,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v053"]), do: release_v053()
   def run(["release.v054"]), do: release_v054()
   def run(["release.v055"]), do: release_v055()
+  def run(["release.v0551"]), do: release_v0551()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -2725,6 +2727,119 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  @release_v0551_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "operator_console_units",
+      title: "slash parser, inspection actions, and channel status units",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/channels/tui_test.exs",
+        "test/mix/tasks/allbert_channels_test.exs",
+        "test/allbert_assist/actions/registry_test.exs"
+      ],
+      coverage: [
+        "TUI slash parser handles canonical, unknown, and malformed commands",
+        "operator inspection actions execute only as internal read-only actions",
+        "mix allbert.channels status uses the shared operator inspection facade"
+      ]
+    },
+    %{
+      id: "v0551_eval",
+      title: ":v0551 operator console security eval inventory",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v0551_operator_console_eval_test.exs",
+        "test/security/security_eval_case_test.exs"
+      ],
+      coverage: [
+        "v0.55.1 eval rows are wired into EvalInventory",
+        "warm slash inspection commands avoid model turns and channel-event writes",
+        "warm /channels and cold mix allbert.channels status share one redacted report",
+        "operator inspection actions stay absent from intent descriptors and model candidates"
+      ]
+    }
+  ]
+
+  defp release_v0551 do
+    env = owned_env("release-v0551", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v0551")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v0551_steps, &run_release_v0551_step(&1, env))
+    secret_scan = release_channel_pack_secret_scan(home, "release.v0551")
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v0551",
+      version: "v0.55.1",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; operator console commands, warm TUI inspection, and channel status run against local fixtures",
+      notes:
+        "live warm TUI operator validation remains covered by the v0.55b M5 punchlist in docs/plans/v0.55b-request-flow.md before v0.55.1 closeout",
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v0551-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v0551 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v0551 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v0551_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v0551 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -4686,6 +4801,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v053
       mix allbert.test release.v054
       mix allbert.test release.v055
+      mix allbert.test release.v0551
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

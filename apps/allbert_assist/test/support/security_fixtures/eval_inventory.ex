@@ -40,6 +40,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v052
           | :v053
           | :v055
+          | :v0551
 
   @type required_surface ::
           :resource_execution
@@ -3716,6 +3717,84 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :allowed,
       assert: [:owl_runtime_dependency, :renderer_modules_loaded],
       test_module: "AllbertAssist.Security.V055TUIChannelEvalTest"
+    },
+    %{
+      id: "tui-slash-readonly-001",
+      milestone: :v0551,
+      surface: :channel_pack,
+      scenario:
+        "TUI slash inspection commands mutate state, call the model, or expose agent-routable authority",
+      boundary: :tui_operator_slash_boundary,
+      expected: :allowed,
+      assert: [:runner_resolved_internal_actions, :no_model_turn, :no_channel_event],
+      test_module: "AllbertAssist.Security.V0551OperatorConsoleEvalTest"
+    },
+    %{
+      id: "tui-slash-source-of-truth-001",
+      milestone: :v0551,
+      surface: :channel_pack,
+      scenario: "the warm /channels view and cold mix allbert.channels status drift apart",
+      boundary: :operator_read_source_of_truth,
+      expected: :allowed,
+      assert: [:same_report_payload, :shared_operator_inspection_facade],
+      test_module: "AllbertAssist.Security.V0551OperatorConsoleEvalTest"
+    },
+    %{
+      id: "tui-console-warm-session-001",
+      milestone: :v0551,
+      surface: :channel_pack,
+      scenario:
+        "operator validation uses fresh cold BEAM processes instead of one warm TUI session",
+      boundary: :warm_session_validation,
+      expected: :allowed,
+      assert: [:stable_beam_identity, :same_session_status_after_turn],
+      test_module: "AllbertAssist.Security.V0551OperatorConsoleEvalTest"
+    },
+    %{
+      id: "tui-channel-status-redaction-001",
+      milestone: :v0551,
+      surface: :channel_pack,
+      scenario: "channel status inspection prints secret refs or credential material",
+      boundary: :operator_status_redaction,
+      expected: :allowed,
+      assert: [:status_output_secret_free, :credential_status_only],
+      test_module: "AllbertAssist.Security.V0551OperatorConsoleEvalTest"
+    },
+    %{
+      id: "tui-settings-get-redaction-001",
+      milestone: :v0551,
+      surface: :channel_pack,
+      scenario:
+        "slash settings get reads a secret-bearing setting through an agent action or leaks the secret",
+      boundary: :operator_setting_redaction,
+      expected: :allowed,
+      assert: [:operator_setting_action_used, :plaintext_secret_absent],
+      test_module: "AllbertAssist.Security.V0551OperatorConsoleEvalTest"
+    },
+    %{
+      id: "tui-slash-parse-001",
+      milestone: :v0551,
+      surface: :channel_pack,
+      scenario: "unknown or malformed slash input becomes a model turn or channel event",
+      boundary: :tui_slash_parser,
+      expected: :allowed,
+      assert: [:unknown_slash_inert, :malformed_settings_get_inert],
+      test_module: "AllbertAssist.Security.V0551OperatorConsoleEvalTest"
+    },
+    %{
+      id: "tui-inspection-not-agent-candidate-001",
+      milestone: :v0551,
+      surface: :channel_pack,
+      scenario:
+        "operator inspection actions appear in intent descriptors, agent modules, or model-reachable candidate lists",
+      boundary: :intent_candidate_exclusion,
+      expected: :denied,
+      assert: [
+        :absent_from_agent_modules,
+        :absent_from_descriptors,
+        :absent_from_agent_capabilities
+      ],
+      test_module: "AllbertAssist.Security.V0551OperatorConsoleEvalTest"
     },
     %{
       id: "sandbox-backend-disabled-001",
