@@ -3,8 +3,16 @@ defmodule AllbertAssist.Intent.Eval.Gate do
   Blocking routing-accuracy gate for descriptor promotion and release checks.
   """
 
+  alias AllbertAssist.Intent.Descriptor
+  alias AllbertAssist.Intent.Eval.{Corpus, Runner}
+  alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Intent.Eval.Scorer
   alias AllbertAssist.Settings
+
+  @baseline_candidates [
+    "apps/allbert_assist/test/fixtures/intent/eval/baseline.yaml",
+    "test/fixtures/intent/eval/baseline.yaml"
+  ]
 
   @spec check(map(), map() | nil) :: :ok | {:error, [map()]}
   def check(run_or_score, baseline \\ nil) do
@@ -16,6 +24,29 @@ defmodule AllbertAssist.Intent.Eval.Gate do
     else
       {:error, regressions}
     end
+  end
+
+  @spec check_promotion(map(), keyword()) :: :ok | {:error, [map()]}
+  def check_promotion(attrs, opts \\ []) when is_map(attrs) do
+    with {:ok, candidate} <- Descriptor.normalize(attrs, source: :promotion_candidate),
+         {:ok, cases} <- Corpus.load() do
+      descriptors =
+        opts
+        |> Keyword.get(:descriptors, DescriptorResolver.resolve())
+        |> with_candidate(candidate)
+
+      baseline = Keyword.get(opts, :baseline, baseline_raw())
+      cases |> Runner.run(descriptors: descriptors) |> check(baseline)
+    else
+      {:error, diagnostic} ->
+        {:error, [%{reason: :invalid_promotion_descriptor, diagnostic: diagnostic}]}
+    end
+  end
+
+  defp with_candidate(descriptors, candidate) do
+    descriptors
+    |> Enum.reject(&(&1.app_id == candidate.app_id and &1.action_name == candidate.action_name))
+    |> Kernel.++([candidate])
   end
 
   defp ensure_score(%{overall_accuracy: _} = score, _baseline), do: score
@@ -95,6 +126,21 @@ defmodule AllbertAssist.Intent.Eval.Gate do
     case Settings.get(key) do
       {:ok, value} when is_boolean(value) -> value
       _other -> default
+    end
+  end
+
+  defp baseline_raw do
+    @baseline_candidates
+    |> Enum.find(&File.exists?/1)
+    |> case do
+      nil ->
+        nil
+
+      path ->
+        case YamlElixir.read_from_file(path) do
+          {:ok, %{} = baseline} -> baseline
+          _error -> nil
+        end
     end
   end
 end

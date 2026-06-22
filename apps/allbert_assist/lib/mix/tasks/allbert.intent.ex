@@ -30,6 +30,7 @@ defmodule Mix.Tasks.Allbert.Intent do
   alias AllbertAssist.Actions.Runner, as: ActionsRunner
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Intent.Bench
+  alias AllbertAssist.Intent.Eval.Gate
   alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Intent.Router.DescriptorStore
   alias AllbertAssist.Intent.Router.Index
@@ -143,11 +144,15 @@ defmodule Mix.Tasks.Allbert.Intent do
     from = tier_option(opts[:from], :review)
     to = tier_option(opts[:to], :generated)
 
-    case DescriptorStore.promote(from, to, to_string(descriptor_app_id(action)), action) do
-      {:ok, path} ->
-        Mix.shell().info(
-          "promoted #{action} -> #{path}; run `mix allbert.intent reindex` to apply"
-        )
+    app_id = descriptor_app_id(action)
+
+    with {:ok, attrs} <- promotion_attrs(from, app_id, action),
+         :ok <- Gate.check_promotion(attrs),
+         {:ok, path} <- DescriptorStore.promote(from, to, to_string(app_id), action) do
+      Mix.shell().info("promoted #{action} -> #{path}; run `mix allbert.intent reindex` to apply")
+    else
+      {:error, failures} when is_list(failures) ->
+        Mix.shell().info("could not promote #{action}: gate failed #{inspect(failures)}")
 
       {:error, reason} ->
         Mix.shell().info("could not promote #{action}: #{inspect(reason)}")
@@ -204,6 +209,18 @@ defmodule Mix.Tasks.Allbert.Intent do
     Enum.find(DescriptorResolver.resolve(), &(&1.action_name == action))
   end
 
+  defp promotion_attrs(tier, app_id, action) do
+    DescriptorStore.read_attrs(tier)
+    |> Enum.find(fn attrs ->
+      normalize_app_id(field(attrs, :app_id)) == app_id and
+        to_string(field(attrs, :action_name)) == action
+    end)
+    |> case do
+      nil -> {:error, :not_found}
+      attrs -> {:ok, attrs}
+    end
+  end
+
   defp override_attrs(descriptor) do
     %{
       app_id: descriptor.app_id,
@@ -225,6 +242,14 @@ defmodule Mix.Tasks.Allbert.Intent do
 
   defp print_coverage(c), do: Mix.shell().info(OperatorSupport.render_coverage(c))
 
+  defp normalize_app_id(value) when is_binary(value) do
+    String.to_existing_atom(value)
+  rescue
+    ArgumentError -> value
+  end
+
+  defp normalize_app_id(value), do: value
+
   defp print_bench(%{summary: s}) do
     Mix.shell().info("""
     intent bench accuracy=#{s.accuracy} (#{s.passed}/#{s.total}) avg=#{s.avg_ms}ms max=#{s.max_ms}ms
@@ -243,5 +268,11 @@ defmodule Mix.Tasks.Allbert.Intent do
         Mix.shell().info("  #{f.id}: expected=#{inspect(f.expected)} actual=#{inspect(f.actual)}")
       end)
     end
+  end
+
+  defp field(map, key, default \\ nil)
+
+  defp field(map, key, default) when is_map(map) do
+    Map.get(map, key, Map.get(map, to_string(key), default))
   end
 end

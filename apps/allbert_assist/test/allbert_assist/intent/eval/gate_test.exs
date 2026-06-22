@@ -70,6 +70,30 @@ defmodule AllbertAssist.Intent.Eval.GateTest do
     assert [%{reason: :regression, metric: :overall_accuracy}] = failures
   end
 
+  test "promotion check passes a compatible descriptor and rejects a regressing candidate" do
+    assert :ok =
+             Gate.check_promotion(%{
+               app_id: :allbert,
+               action_name: "list_channels",
+               label: "List channels",
+               examples: ["list my channels"],
+               synonyms: ["channels"],
+               required_slots: []
+             })
+
+    assert {:error, failures} =
+             Gate.check_promotion(%{
+               app_id: :allbert,
+               action_name: "list_channels",
+               label: "List channels",
+               examples: ["list my channels"],
+               synonyms: ["channels"],
+               required_slots: [:channel]
+             })
+
+    assert Enum.any?(failures, &(&1.reason in [:regression, :domain_accuracy_below_floor]))
+  end
+
   defp restore(key, nil), do: Application.delete_env(:allbert_assist, key)
   defp restore(key, value), do: Application.put_env(:allbert_assist, key, value)
 end

@@ -120,6 +120,26 @@ defmodule Mix.Tasks.Allbert.IntentTest do
     assert list_output =~ "show_app source=generated app_id=allbert"
   end
 
+  test "promote rejects a descriptor that fails the routing gate without mutating files" do
+    {:ok, review_path} =
+      DescriptorStore.put(:review, %{
+        app_id: :allbert,
+        action_name: "list_channels",
+        label: "List channels",
+        examples: ["list my channels"],
+        synonyms: ["channels"],
+        required_slots: [:channel]
+      })
+
+    output = capture_io(fn -> assert :ok = IntentTask.run(["promote", "list_channels"]) end)
+
+    assert output =~ "could not promote list_channels: gate failed"
+    assert File.exists?(review_path)
+
+    assert {:ok, generated_path} = DescriptorStore.path(:generated, :allbert, "list_channels")
+    refute File.exists?(generated_path)
+  end
+
   defp assert_cli_matches_action(args, action, params) do
     output = capture_io(fn -> assert :ok = IntentTask.run(args) end)
     assert clean_output(output) == action_message(action, params)
