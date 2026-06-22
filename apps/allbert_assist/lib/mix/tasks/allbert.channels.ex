@@ -5,6 +5,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   ## Usage
 
       mix allbert.channels list
+      mix allbert.channels status
       mix allbert.channels show telegram|email|discord|slack|matrix|whatsapp|signal
       mix allbert.channels setup-check matrix|whatsapp|signal
       mix allbert.channels telegram set-token TOKEN
@@ -130,6 +131,12 @@ defmodule Mix.Tasks.Allbert.Channels do
   defp dispatch(["list"]) do
     with {:ok, response} <- completed_action("list_channels", %{}) do
       {:ok, {:list, response.channels}}
+    end
+  end
+
+  defp dispatch(["status"]) do
+    with {:ok, response} <- completed_action("operator_channels", %{}) do
+      {:ok, {:status, response}}
     end
   end
 
@@ -592,6 +599,7 @@ defmodule Mix.Tasks.Allbert.Channels do
     Mix.raise("""
     Usage:
       mix allbert.channels list
+      mix allbert.channels status
       mix allbert.channels --parity
       mix allbert.channels show telegram|email|discord|slack|matrix|whatsapp|signal
       mix allbert.channels setup-check matrix|whatsapp|signal
@@ -660,6 +668,14 @@ defmodule Mix.Tasks.Allbert.Channels do
         "#{channel.channel} provider=#{channel.provider} release=#{channel.release_status} enabled=#{channel.enabled} identities=#{channel.identity_count} credentials=#{credential_status(channel.credential_status)}"
       )
     end)
+  end
+
+  defp print_result({:ok, {:status, response}}) do
+    response
+    |> response_value(:surface_payload)
+    |> to_string()
+    |> String.split("\n", trim: true)
+    |> Enum.each(fn line -> Mix.shell().info(line) end)
   end
 
   defp print_result({:ok, {:parity, table}}) do

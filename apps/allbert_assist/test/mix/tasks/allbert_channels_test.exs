@@ -244,6 +244,22 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
     refute parity_output =~ "token"
   end
 
+  test "prints shared operator channel status report" do
+    status_output =
+      capture_io(fn ->
+        assert :ok = ChannelsTask.run(["status"])
+      end)
+
+    assert status_output =~ "Channels ("
+    assert status_output =~ "Channels.Supervisor:"
+    assert status_output =~ "telegram: provider=telegram_bot_api"
+    assert status_output =~ "tui: provider=terminal"
+    assert status_output =~ "credentials="
+    refute status_output =~ "secret://"
+    refute status_output =~ "bot_token"
+    refute status_output =~ "app_token"
+  end
+
   test "checks Matrix WhatsApp and Signal setup readiness independently" do
     matrix_incomplete =
       capture_io(fn ->

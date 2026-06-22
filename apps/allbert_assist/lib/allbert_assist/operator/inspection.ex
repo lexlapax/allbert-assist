@@ -118,15 +118,19 @@ defmodule AllbertAssist.Operator.Inspection do
 
   @spec render_channels(map()) :: String.t()
   def render_channels(%{channels: channels} = report) when is_list(channels) do
+    supervisor = Map.get(report, :channels_supervisor, %{})
+
     rows =
       channels
       |> Enum.map(fn channel ->
         "- #{channel.channel}: provider=#{channel.provider} enabled=#{channel.enabled} " <>
-          "identities=#{channel.identity_count} release=#{channel.release_status}"
+          "identities=#{channel.identity_count} release=#{channel.release_status} " <>
+          "credentials=#{credential_summary(channel.credential_status)}"
       end)
 
     [
       "Channels (#{report.count}):",
+      "- Channels.Supervisor: #{supervisor_line(supervisor)}",
       rows
     ]
     |> List.flatten()
@@ -324,6 +328,20 @@ defmodule AllbertAssist.Operator.Inspection do
 
   defp supervisor_line(%{status: status} = supervisor),
     do: "#{status} child_count=#{supervisor.child_count}"
+
+  defp credential_summary(statuses) when is_map(statuses) do
+    statuses
+    |> Map.values()
+    |> Enum.uniq()
+    |> Enum.map(&to_string/1)
+    |> Enum.join(",")
+    |> case do
+      "" -> "none"
+      summary -> summary
+    end
+  end
+
+  defp credential_summary(_statuses), do: "unknown"
 
   defp blank(nil), do: "n/a"
   defp blank(""), do: "n/a"
