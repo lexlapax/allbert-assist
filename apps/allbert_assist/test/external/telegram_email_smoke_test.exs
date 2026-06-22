@@ -18,6 +18,7 @@ defmodule AllbertAssist.External.TelegramEmailSmokeTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias Ecto.Adapters.SQL.Sandbox
 
   @telegram_required ["ALLBERT_TELEGRAM_BOT_TOKEN", "ALLBERT_TELEGRAM_CHAT_ID"]
   @email_required [
@@ -105,8 +106,8 @@ defmodule AllbertAssist.External.TelegramEmailSmokeTest do
   end
 
   setup do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
-    Ecto.Adapters.SQL.Sandbox.mode(Repo, {:shared, self()})
+    :ok = Sandbox.checkout(Repo)
+    Sandbox.mode(Repo, {:shared, self()})
     :ok
   end
 

@@ -223,7 +223,11 @@ defmodule Mix.Tasks.Allbert.Marketplace do
           # v0.54 M10: this action is now confirmation-gated. Surface the approval
           # path instead of failing.
           id = Map.get(response, :confirmation_id) || get_in(response, [:confirmation, "id"])
-          Mix.shell().info("Needs confirmation. Approve with: mix allbert.confirmations approve #{id}")
+
+          Mix.shell().info(
+            "Needs confirmation. Approve with: mix allbert.confirmations approve #{id}"
+          )
+
           {:ok, response}
 
         _status ->

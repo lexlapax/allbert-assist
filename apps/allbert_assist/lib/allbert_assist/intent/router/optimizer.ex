@@ -44,7 +44,16 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
   end
 
   @doc "Coverage report over the agent-exposed action surface."
-  @spec coverage() :: map()
+  @type coverage_report :: %{
+          agent_exposed: non_neg_integer(),
+          routable: non_neg_integer(),
+          missing: non_neg_integer(),
+          generated: non_neg_integer(),
+          review_pending: non_neg_integer(),
+          overridden: non_neg_integer()
+        }
+
+  @spec coverage() :: coverage_report()
   def coverage do
     agent = agent_action_names()
     resolved = resolved_action_names()
@@ -110,17 +119,21 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
   defp agent_action_names,
     do: ActionsRegistry.agent_modules() |> MapSet.new(& &1.name())
 
+  @spec dynamic_action_names() :: [String.t()]
   defp dynamic_action_names do
-    ActionsOverlay.modules() |> MapSet.new(& &1.name())
+    ActionsOverlay.modules()
+    |> Enum.map(& &1.name())
+    |> Enum.uniq()
   rescue
-    _exception -> MapSet.new()
+    _exception -> []
   catch
-    :exit, _reason -> MapSet.new()
+    :exit, _reason -> []
   end
 
+  @spec tier_for(String.t(), [String.t()], boolean()) :: :generated | :review
   defp tier_for(name, dynamic, autoaccept) do
     cond do
-      not MapSet.member?(dynamic, name) -> :generated
+      name not in dynamic -> :generated
       autoaccept -> :generated
       true -> :review
     end

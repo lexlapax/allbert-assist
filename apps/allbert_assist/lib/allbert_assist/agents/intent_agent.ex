@@ -498,39 +498,13 @@ defmodule AllbertAssist.Agents.IntentAgent do
          %Decision{
            intent: :registry_action,
            selected_action: action_name
-         } = decision
+         }
        )
        when is_binary(action_name) do
-    if bridge_registry_action_from_direct_route?(action_name, decision) do
-      {:registry_action, action_name}
-    else
-      :direct_answer
-    end
+    {:registry_action, action_name}
   end
 
   defp execution_route_for_decision(route, _decision), do: route
-
-  defp bridge_registry_action_from_direct_route?(action_name, decision) do
-    decision.intent == :registry_action ||
-      text_to_media_registry_action?(action_name) ||
-      active_app_registry_action?(action_name, decision)
-  end
-
-  defp text_to_media_registry_action?(action_name),
-    do: action_name in ["generate_image", "synthesize_voice"]
-
-  defp active_app_registry_action?(action_name, %Decision{active_app: active_app})
-       when not is_nil(active_app) do
-    case Registry.capability(action_name) do
-      {:ok, capability} -> same_app_id?(capability.app_id, active_app)
-      {:error, _reason} -> false
-    end
-  end
-
-  defp active_app_registry_action?(_action_name, _decision), do: false
-
-  defp same_app_id?(nil, _active_app), do: false
-  defp same_app_id?(app_id, active_app), do: app_id == active_app
 
   defp surface_navigation_response(%Decision{} = decision) do
     target = Map.get(decision.trace_metadata, :surface_target, %{})

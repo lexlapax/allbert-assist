@@ -47,7 +47,12 @@ defmodule AllbertAssist.Intent.Router.Outcome do
 
   @spec clarify([map()], String.t(), map()) :: t()
   def clarify(shortlist, question, diagnostics \\ %{}) do
-    %__MODULE__{kind: :clarify, shortlist: shortlist, question: question, diagnostics: diagnostics}
+    %__MODULE__{
+      kind: :clarify,
+      shortlist: shortlist,
+      question: question,
+      diagnostics: diagnostics
+    }
   end
 
   @spec answer(map()) :: t()

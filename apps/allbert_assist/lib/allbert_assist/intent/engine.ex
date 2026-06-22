@@ -485,25 +485,35 @@ defmodule AllbertAssist.Intent.Engine do
            descriptor_candidates_for_decision(candidates, classifier_candidate),
          score <- Ranker.score(top),
          true <- score >= clarify_floor() do
-      if registered_descriptor_candidate?(top) do
-        case descriptor_action_kind(top) do
-          :registry_action ->
-            descriptor_registry_action_attrs(top, request, app_context, classifier_diagnostic)
-
-          :clarify_intent ->
-            descriptor_clarification_attrs(
-              top,
-              candidates,
-              request,
-              app_context,
-              classifier_diagnostic
-            )
-        end
-      else
-        descriptor_handoff_attrs(top, candidates, request, app_context, classifier_diagnostic)
-      end
+      if registered_descriptor_candidate?(top),
+        do:
+          registered_descriptor_attrs(
+            top,
+            candidates,
+            request,
+            app_context,
+            classifier_diagnostic
+          ),
+        else:
+          descriptor_handoff_attrs(top, candidates, request, app_context, classifier_diagnostic)
     else
       _no_descriptor_action -> nil
+    end
+  end
+
+  defp registered_descriptor_attrs(top, candidates, request, app_context, classifier_diagnostic) do
+    case descriptor_action_kind(top) do
+      :registry_action ->
+        descriptor_registry_action_attrs(top, request, app_context, classifier_diagnostic)
+
+      :clarify_intent ->
+        descriptor_clarification_attrs(
+          top,
+          candidates,
+          request,
+          app_context,
+          classifier_diagnostic
+        )
     end
   end
 

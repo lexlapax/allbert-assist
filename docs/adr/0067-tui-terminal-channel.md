@@ -1,6 +1,6 @@
 # ADR 0067: TUI/Terminal Channel
 
-Status: Proposed (v0.55).
+Status: Accepted (v0.55).
 Date: 2026-06-21
 Related: ADR 0016 (channel adapter boundary + identity mapping — this channel
 is registered under that contract; the v0.55 amendment already reserves

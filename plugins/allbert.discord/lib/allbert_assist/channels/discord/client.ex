@@ -352,9 +352,6 @@ defmodule AllbertAssist.Channels.Discord.Client do
           {:ok, token}
         end
 
-      {:ok, _token} ->
-        {:error, :missing_discord_token}
-
       {:error, reason} ->
         {:error, {:discord_token_unavailable, reason}}
     end

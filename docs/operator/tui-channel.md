@@ -1,9 +1,10 @@
 # TUI Channel Operator Guide
 
-Status: v0.55 M2-M4 implemented, with the post-M4 supervision correction landed.
-This guide covers the shipped terminal channel descriptor, basic `mix allbert.tui`
-launcher, identity mapping, split-payload rendering seam, typed approval
-rendering/resolution, and the deterministic `release.v055` gate.
+Status: shipped in the v0.55.0 release-prepared closeout, with tag pending
+operator approval. This guide covers the shipped terminal channel descriptor,
+basic `mix allbert.tui` launcher, identity mapping, split-payload rendering seam,
+typed approval rendering/resolution, warm TUI validation, and the deterministic
+`release.v055` gate.
 The full release-validation checklist is
 `docs/plans/v0.55-request-flow.md#operator-validation-punchlist-v055-persistent-tui-session`.
 
@@ -45,10 +46,9 @@ mix allbert.tui
 
 The launcher boots the app with TUI-specific `Channels.Supervisor` child options
 and waits on the supervised TUI child. Completed responses render into normal
-terminal scrollback; the adapter uses a single `Owl.LiveScreen` status block for
-the live status line, for example `tui(default) ready`, while the actual input
-prompt remains the only `allbert:default>` line. Type `/quit` or `/exit` to stop
-the launcher.
+terminal scrollback. Transient status output may appear while a turn is running,
+but it detaches before the next prompt; the actual input prompt remains the only
+`allbert:default>` line. Type `/quit` or `/exit` to stop the launcher.
 Plain settings/channel inspection tasks may start the supervised descriptor child
 when `channels.tui.enabled` is true, but that child is non-interactive and quiet;
 only `mix allbert.tui` enables the live input loop and banner.
@@ -106,6 +106,11 @@ Manual M3 approval smoke:
 Split-payload rule: runtime conversation history stores `model_payload`; terminal
 renderers draw `surface_payload`. Terminal framing, ANSI styling, paging hints, or
 LiveScreen prompt text must not be stored as model-facing conversation content.
+
+v0.55 closeout note: the operator accepted the warm TUI A1-A5 validation on
+2026-06-22. The separate Matrix live provider smoke is not TUI validation and is
+recorded as blocked by inactive Matrix credentials until the operator refreshes
+the provider token.
 
 ## Cleanup
 

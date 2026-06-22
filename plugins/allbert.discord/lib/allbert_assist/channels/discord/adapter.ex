@@ -613,7 +613,6 @@ defmodule AllbertAssist.Channels.Discord.Adapter do
         case Client.create_message(token_ref, target, %{content: body}, []) do
           {:ok, result} -> {:ok, %{channel: "discord", target: target, result: result}}
           {:error, reason} -> {:error, reason}
-          other -> {:error, other}
         end
 
       _other ->

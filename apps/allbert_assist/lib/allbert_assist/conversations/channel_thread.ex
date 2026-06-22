@@ -649,14 +649,12 @@ defmodule AllbertAssist.Conversations.ChannelThread do
       keys
       |> Enum.find_value(&map_get_string_or_existing_atom(map, &1))
 
-    cond do
-      not is_nil(direct) ->
-        direct
-
-      true ->
-        map
-        |> Map.values()
-        |> Enum.find_value(&first_value(&1, keys))
+    if is_nil(direct) do
+      map
+      |> Map.values()
+      |> Enum.find_value(&first_value(&1, keys))
+    else
+      direct
     end
   end
 
@@ -721,12 +719,10 @@ defmodule AllbertAssist.Conversations.ChannelThread do
   defp normalize_timestamp_ms(value) when is_binary(value) do
     value = String.trim(value)
 
-    cond do
-      value == "" ->
-        nil
-
-      true ->
-        parse_timestamp_string(value)
+    if value == "" do
+      nil
+    else
+      parse_timestamp_string(value)
     end
   end
 

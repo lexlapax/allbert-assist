@@ -589,7 +589,6 @@ defmodule AllbertAssist.Channels.WhatsApp.Adapter do
   defp quote_degradation(fields, state) do
     case reply_target(fields, state) do
       %{degradation: degradation} -> degradation
-      _target -> :none
     end
   end
 

@@ -15,6 +15,7 @@ defmodule AllbertAssist.External.WhatsAppSmokeTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
+  alias Ecto.Adapters.SQL.Sandbox
 
   @required [
     "ALLBERT_WHATSAPP_ACCESS_TOKEN",
@@ -68,8 +69,8 @@ defmodule AllbertAssist.External.WhatsAppSmokeTest do
   end
 
   setup do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
-    Ecto.Adapters.SQL.Sandbox.mode(Repo, {:shared, self()})
+    :ok = Sandbox.checkout(Repo)
+    Sandbox.mode(Repo, {:shared, self()})
     :ok
   end
 

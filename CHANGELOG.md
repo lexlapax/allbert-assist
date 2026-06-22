@@ -10,6 +10,66 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.55.0 - Channel Parity + TUI/Terminal Channel
+
+Status: release-prepared after operator validation on 2026-06-22. Version
+metadata reports `0.55.0`; the `v0.55.0` tag is intentionally pending operator
+approval.
+
+Plan: `docs/plans/v0.55-plan.md`. Request flow:
+`docs/plans/v0.55-request-flow.md`. ADRs: `docs/adr/0067-tui-terminal-channel.md`
+plus the v0.55 accepted amendments in ADR 0016, ADR 0029, and ADR 0030.
+
+### Added
+
+- Machine-derived channel parity via
+  `AllbertAssist.Channels.ChannelParity` and `mix allbert.channels --parity`,
+  documented in `docs/developer/channel-parity.md`. The matrix derives shipped
+  descriptors plus local CLI/LiveView surface declarations and records
+  primitives, threading, identity, approval rendering, attachments, streaming,
+  outbound, release status, and live-use posture.
+- A first-class `tui` terminal channel plugin (`plugins/allbert.tui`) under the
+  ADR 0016 channel boundary: list-shaped `channels.tui.identity_map`, local trust
+  class, `:rich` threading, inbound `channel_events` dedupe, and a basic
+  supervised `mix allbert.tui` launcher.
+- Terminal approval rendering for `:typed_command` plus `:list`, with
+  `ALLBERT:APPROVE|DENY|SHOW:<id>` routed through the same confirmation callback
+  and `Actions.Runner.run/3` path used by other channels.
+- Split runtime response payloads: `model_payload` is the model/history-facing
+  payload; `surface_payload` is renderer-facing and may carry terminal framing.
+  The TUI renderer consumes `surface_payload` while conversation history stores
+  only `model_payload`, establishing the v0.57 Pi-mode rendering substrate.
+
+### Changed
+
+- Matrix generic outbound closes the v0.54-deferred gap. Matrix now implements
+  `deliver_outbound/3` behind `Channels.Outbound`, so mapped Matrix targets no
+  longer use the v0.54 `:outbound_not_implemented` graceful degrade in code.
+- `mix allbert.tui` uses the descriptor-derived child under
+  `Channels.Supervisor`; ordinary settings/channel inspection tasks keep the
+  TUI child non-interactive and quiet.
+- The TUI prompt/render path avoids prompt-overlap status chatter in the live
+  terminal. Transient status is detached before the next prompt; the prompt
+  remains the single input line.
+
+### Validation
+
+- Warm TUI manual validation A1-A5 is accepted with manual home
+  `/tmp/allbert-v055-manual.5dnFTs`.
+- Deterministic gate `ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test release.v055`
+  passed with evidence at
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v055/p0-9223/home/release_evidence/v055/release-v055-1782106838.json`.
+- Formatter drift from the inherited v0.54 intent-router files was repaired
+  during closeout so `MIX_ENV=test mix format --check-formatted` is green.
+- Static release gates are clean: `MIX_ENV=test mix compile --warnings-as-errors`,
+  `MIX_ENV=test mix credo --strict`, and `MIX_ENV=test mix dialyzer` all report
+  zero release-blocking issues.
+- Focused TUI/runtime/security tests and docs gates were green during closeout.
+- Matrix real-provider smoke was attempted and blocked by provider auth:
+  `M_UNKNOWN_TOKEN` / `Token is not active` from Matrix `whoami`. This is
+  recorded as a credential/provider-state blocker for live Matrix smoke, not as
+  a v0.55 code failure and not as a passing provider smoke.
+
 ## v0.54.0 - Intent Deepening: Two-Stage Local Intent Router
 
 Status: implemented through M11. The shipped default routing strategy is the local
@@ -173,8 +233,8 @@ implemented as a `signal-cli` bridge, but not released for live use because it
 requires operator-managed daemon/linked-device onboarding. ADR 0066 records the
 release-availability gate: undeclared capabilities default released, explicit
 unreleased declarations fail closed, and Security Central remains authority.
-Current version metadata is `0.54.0` because v0.54 is the active release
-closeout.
+Current version metadata is `0.55.0` because v0.55 release closeout is prepared
+and awaiting the operator-held tag.
 
 Plan: `docs/plans/v0.53-plan.md`.
 Request flow: `docs/plans/v0.53-request-flow.md`.

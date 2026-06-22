@@ -338,15 +338,6 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     output_fun.(line)
   end
 
-  defp emit_output(line, %{
-         live_screen?: true,
-         live_status_active?: true,
-         live_screen_server: server
-       }) do
-    Owl.IO.puts(line, server)
-    Owl.LiveScreen.await_render(server)
-  end
-
   defp emit_output(line, _state), do: default_output(line)
 
   defp mark_processed(event, response, user_id, session_id) do

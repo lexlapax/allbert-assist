@@ -27,9 +27,11 @@ defmodule AllbertAssist.Settings.KeyCustody do
   defimpl Inspect, for: State do
     import Inspect.Algebra
 
+    alias AllbertAssist.Settings.KeyCustody
+
     def inspect(state, opts) do
       state
-      |> AllbertAssist.Settings.KeyCustody.redacted_state()
+      |> KeyCustody.redacted_state()
       |> to_doc(opts)
       |> concat_prefix()
     end
@@ -187,12 +189,10 @@ defmodule AllbertAssist.Settings.KeyCustody do
   defp ensure_loaded(%State{} = state) do
     {root, path} = location()
 
-    cond do
-      state.loaded? and state.root == root and state.secrets_path == path ->
-        {:ok, state}
-
-      true ->
-        load_state(%{state | root: root, secrets_path: path})
+    if state.loaded? and state.root == root and state.secrets_path == path do
+      {:ok, state}
+    else
+      load_state(%{state | root: root, secrets_path: path})
     end
   end
 

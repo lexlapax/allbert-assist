@@ -131,7 +131,8 @@ defmodule AllbertAssist.Intent.Bench do
       by_category: by_category,
       avg_ms: if(total > 0, do: div(Enum.sum(latencies), total), else: 0),
       max_ms: Enum.max(latencies, fn -> 0 end),
-      failures: results |> Enum.reject(& &1.pass) |> Enum.map(&Map.take(&1, [:id, :expected, :actual]))
+      failures:
+        results |> Enum.reject(& &1.pass) |> Enum.map(&Map.take(&1, [:id, :expected, :actual]))
     }
   end
 

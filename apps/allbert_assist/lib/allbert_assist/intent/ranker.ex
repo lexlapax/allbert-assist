@@ -92,22 +92,29 @@ defmodule AllbertAssist.Intent.Ranker do
     extracted_slots = get_in_trace(candidate, :extracted_slots) || %{}
     missing_slots = get_in_trace(candidate, :missing_slots) || []
 
-    cond do
-      field(candidate, :kind) != :app_intent or required_slots == [] ->
-        candidate
-
-      missing_slots == [] and map_size(extracted_slots) > 0 ->
-        candidate
-        |> put_field(:score, score(candidate) + @complete_required_slots_boost)
-        |> put_trace(:slot_ranking_reason, :complete_required_slots)
-
-      missing_slots != [] ->
-        candidate
-        |> put_trace(:slot_ranking_reason, :missing_required_slots)
-
-      true ->
-        candidate
+    if descriptor_slot_candidate?(candidate, required_slots) do
+      apply_descriptor_slot_signal(candidate, extracted_slots, missing_slots)
+    else
+      candidate
     end
+  end
+
+  defp descriptor_slot_candidate?(candidate, required_slots),
+    do: field(candidate, :kind) == :app_intent and required_slots != []
+
+  defp apply_descriptor_slot_signal(candidate, extracted_slots, []) do
+    if map_size(extracted_slots) > 0 do
+      candidate
+      |> put_field(:score, score(candidate) + @complete_required_slots_boost)
+      |> put_trace(:slot_ranking_reason, :complete_required_slots)
+    else
+      candidate
+    end
+  end
+
+  defp apply_descriptor_slot_signal(candidate, _extracted_slots, _missing_slots) do
+    candidate
+    |> put_trace(:slot_ranking_reason, :missing_required_slots)
   end
 
   defp apply_surface_text_match(candidate, %{text: text}) do
@@ -244,25 +251,20 @@ defmodule AllbertAssist.Intent.Ranker do
     normalized_value = normalize_text(value)
     text_tokens = String.split(normalized_text, " ", trim: true)
     value_tokens = String.split(normalized_value, " ", trim: true)
+    token_count = length(value_tokens)
 
     cond do
       normalized_value == "" ->
         0
 
       phrase_token_match?(normalized_text, normalized_value) ->
-        length(value_tokens)
+        token_count
 
-      length(value_tokens) > 1 and ordered_token_match?(text_tokens, value_tokens) ->
-        length(value_tokens)
+      token_count > 1 and ordered_token_match?(text_tokens, value_tokens) ->
+        token_count
 
-      allow_single? and length(value_tokens) == 1 ->
-        [token] = value_tokens
-
-        if String.length(token) >= 4 and token in text_tokens do
-          1
-        else
-          0
-        end
+      single_token_match?(allow_single?, value_tokens, text_tokens) ->
+        1
 
       true ->
         0
@@ -270,6 +272,11 @@ defmodule AllbertAssist.Intent.Ranker do
   end
 
   defp descriptor_phrase_match_score(_text, _value, _allow_single?), do: 0
+
+  defp single_token_match?(true, [token], text_tokens),
+    do: String.length(token) >= 4 and token in text_tokens
+
+  defp single_token_match?(_allow_single?, _value_tokens, _text_tokens), do: false
 
   defp phrase_token_match?(normalized_text, normalized_value) do
     text_tokens = String.split(normalized_text, " ", trim: true)

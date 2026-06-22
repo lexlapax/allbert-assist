@@ -27,6 +27,7 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Trace
+  alias Ecto.Adapters.SQL.Sandbox
 
   # Per-provider required env. Only the targeted providers
   # (ALLBERT_SMOKE_PROVIDERS, default both) are required, configured, and
@@ -137,8 +138,8 @@ defmodule AllbertAssist.External.MessagingChannelInboundSmokeTest do
     # to 5 min) for a real operator message; the default 120s ownership timeout
     # would drop the connection mid-wait and silently break inbound DB writes.
     # Use 1h, comfortably above ALLBERT_MESSAGING_CHANNEL_INBOUND_TIMEOUT_MS.
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo, ownership_timeout: 3_600_000)
-    Ecto.Adapters.SQL.Sandbox.mode(Repo, {:shared, self()})
+    :ok = Sandbox.checkout(Repo, ownership_timeout: 3_600_000)
+    Sandbox.mode(Repo, {:shared, self()})
 
     # Install the agent_runner HERE (setup runs in the test process) so the
     # {:runtime_request, _} notification reaches the process that waits on it.

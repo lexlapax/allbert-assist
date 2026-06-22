@@ -51,8 +51,6 @@ defmodule AllbertAssist.Intent.Router.Embedder.ReqLLMEmbedder do
     end
   end
 
-  defp with_embedding_capability(spec, _profile), do: spec
-
   # ReqLLM returns [[float]] for a list input; guard a single-vector return too.
   defp normalize_vectors([h | _] = vectors) when is_number(h), do: [vectors]
   defp normalize_vectors(vectors), do: vectors

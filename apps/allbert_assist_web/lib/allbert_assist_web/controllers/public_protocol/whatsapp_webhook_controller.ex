@@ -8,6 +8,8 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookController do
 
   use AllbertAssistWeb, :controller
 
+  alias AllbertAssist.Channels.WhatsApp.Adapter, as: WhatsAppAdapter
+
   def verify(conn, %{"hub.challenge" => challenge}) do
     challenge = conn.private[:allbert_public_protocol_webhook_challenge] || challenge
 
@@ -27,7 +29,7 @@ defmodule AllbertAssistWeb.PublicProtocol.WhatsAppWebhookController do
     auth = conn.assigns[:public_protocol_auth] || %{}
 
     adapter_result =
-      AllbertAssist.Channels.WhatsApp.Adapter.handle_webhook_payload(params, auth)
+      WhatsAppAdapter.handle_webhook_payload(params, auth)
       |> normalize_adapter_result()
 
     conn

@@ -655,7 +655,6 @@ defmodule AllbertAssist.Channels.Slack.Adapter do
         case Client.chat_post_message(token_ref, %{channel: target, text: body}, []) do
           {:ok, result} -> {:ok, %{channel: "slack", target: target, result: result}}
           {:error, reason} -> {:error, reason}
-          other -> {:error, other}
         end
 
       _other ->

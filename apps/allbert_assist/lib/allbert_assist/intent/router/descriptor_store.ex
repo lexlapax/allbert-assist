@@ -19,17 +19,20 @@ defmodule AllbertAssist.Intent.Router.DescriptorStore do
   @loaded_tiers ~w(generated overrides)a
   @safe_component ~r/^[a-z][a-z0-9_]*$/
 
+  @type tier :: :generated | :review | :learned_review | :overrides | :audit
+  @type loaded_tier :: :generated | :overrides
+
   @spec root() :: String.t()
   def root, do: Path.join(Paths.home(), "intents")
 
-  @spec dir(atom()) :: String.t()
+  @spec dir(tier()) :: String.t()
   def dir(tier) when tier in [:review, :learned_review],
     do: Path.join([root(), "learned", "review"])
 
   def dir(tier) when tier in @tiers, do: Path.join(root(), to_string(tier))
 
   @doc "Canonical YAML path for one descriptor in a tier."
-  @spec path(atom(), atom() | String.t(), atom() | String.t()) ::
+  @spec path(tier(), atom() | String.t(), atom() | String.t()) ::
           {:ok, String.t()} | {:error, term()}
   def path(tier, app_id, action_name) when tier in @tiers do
     with {:ok, app_id} <- safe_component(app_id, :app_id),
@@ -39,7 +42,7 @@ defmodule AllbertAssist.Intent.Router.DescriptorStore do
   end
 
   @doc "Normalized descriptors persisted in a loaded tier (`:generated` or `:overrides`)."
-  @spec load(atom()) :: [Descriptor.t()]
+  @spec load(loaded_tier()) :: [Descriptor.t()]
   def load(tier) when tier in @loaded_tiers do
     tier
     |> read_attrs()
@@ -48,7 +51,7 @@ defmodule AllbertAssist.Intent.Router.DescriptorStore do
   end
 
   @doc "Raw descriptor attrs maps in a tier (unnormalized; for listing/review)."
-  @spec read_attrs(atom()) :: [map()]
+  @spec read_attrs(tier()) :: [map()]
   def read_attrs(tier) when tier in @tiers do
     tier
     |> dir()
@@ -57,7 +60,7 @@ defmodule AllbertAssist.Intent.Router.DescriptorStore do
   end
 
   @doc "Write a descriptor attrs map into a tier; returns the file path."
-  @spec put(atom(), map()) :: {:ok, String.t()} | {:error, term()}
+  @spec put(tier(), map()) :: {:ok, String.t()} | {:error, term()}
   def put(tier, %{} = attrs) when tier in @tiers do
     with {:ok, app_id} <- fetch(attrs, :app_id),
          {:ok, action} <- fetch(attrs, :action_name),
@@ -70,7 +73,7 @@ defmodule AllbertAssist.Intent.Router.DescriptorStore do
   end
 
   @doc "Move a descriptor from one tier to another (e.g. promote review -> generated)."
-  @spec promote(atom(), atom(), String.t(), String.t()) :: {:ok, String.t()} | {:error, term()}
+  @spec promote(tier(), tier(), String.t(), String.t()) :: {:ok, String.t()} | {:error, term()}
   def promote(from, to, app_id, action) when from in @tiers and to in @tiers do
     with {:ok, src} <- path(from, app_id, action),
          :ok <- safe_existing_file?(src),
@@ -86,7 +89,7 @@ defmodule AllbertAssist.Intent.Router.DescriptorStore do
   end
 
   @doc "Delete a descriptor attrs map from a tier; missing files are a no-op."
-  @spec delete(atom(), String.t() | atom(), String.t() | atom()) ::
+  @spec delete(tier(), String.t() | atom(), String.t() | atom()) ::
           {:ok, String.t()} | {:error, term()}
   def delete(tier, app_id, action) when tier in @tiers do
     with {:ok, file} <- path(tier, app_id, action),

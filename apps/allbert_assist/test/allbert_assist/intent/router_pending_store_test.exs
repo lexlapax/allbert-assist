@@ -11,10 +11,12 @@ defmodule AllbertAssist.Intent.Router.PendingStoreTest do
     %PendingClarification{
       user_id: user,
       thread_id: thread,
-      options: Keyword.get(opts, :options, [%{kind: :action, id: "create_note", label: "Create note"}]),
+      options:
+        Keyword.get(opts, :options, [%{kind: :action, id: "create_note", label: "Create note"}]),
       question: "Q?",
       created_at: now,
-      expires_at: Keyword.get(opts, :expires_at, DateTime.add(DateTime.utc_now(), 60_000, :millisecond))
+      expires_at:
+        Keyword.get(opts, :expires_at, DateTime.add(DateTime.utc_now(), 60_000, :millisecond))
     }
   end
 

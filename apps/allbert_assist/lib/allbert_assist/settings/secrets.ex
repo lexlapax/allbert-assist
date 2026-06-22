@@ -276,7 +276,7 @@ defmodule AllbertAssist.Settings.Secrets do
     put_in_secret_path(ensure_plaintext_shape(plaintext), path, nil)
   end
 
-  defp statuses_from_plaintext(plaintext, namespace) do
+  defp statuses_from_plaintext(plaintext, nil) do
     [
       secret_statuses(plaintext, "providers", &provider_secret_status/1),
       secret_statuses(plaintext, "channels", &channel_secret_status/1),
@@ -284,9 +284,6 @@ defmodule AllbertAssist.Settings.Secrets do
       secret_statuses(plaintext, "public_protocol", &public_protocol_secret_status/1)
     ]
     |> List.flatten()
-    |> Enum.filter(fn %{secret_ref: ref} ->
-      is_nil(namespace) or String.starts_with?(ref, namespace)
-    end)
   end
 
   defp secret_statuses(plaintext, key, callback) do

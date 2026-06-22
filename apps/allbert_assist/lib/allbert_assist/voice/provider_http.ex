@@ -266,9 +266,6 @@ defmodule AllbertAssist.Voice.ProviderHTTP do
         credential = String.trim(credential)
         if credential == "", do: credential_missing(profile), else: {:ok, credential}
 
-      {:ok, _credential} ->
-        credential_missing(profile)
-
       {:error, {:secret_not_found, _ref}} ->
         credential_missing(profile)
 

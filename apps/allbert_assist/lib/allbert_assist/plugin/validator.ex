@@ -565,17 +565,17 @@ defmodule AllbertAssist.Plugin.Validator do
   defp channel_ids(module) do
     module.channels()
     |> List.wrap()
-    |> Enum.flat_map(fn descriptor ->
-      if is_map(descriptor) do
-        case Map.get(descriptor, :channel_id, Map.get(descriptor, "channel_id")) do
-          id when is_binary(id) -> [id]
-          _other -> []
-        end
-      else
-        []
-      end
-    end)
+    |> Enum.flat_map(&channel_id/1)
   end
+
+  defp channel_id(%{} = descriptor) do
+    case Map.get(descriptor, :channel_id, Map.get(descriptor, "channel_id")) do
+      id when is_binary(id) -> [id]
+      _other -> []
+    end
+  end
+
+  defp channel_id(_descriptor), do: []
 
   defp action_names(module) do
     module.actions()

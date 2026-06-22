@@ -221,7 +221,7 @@ defmodule AllbertAssist.Channels.Email.Parser do
           {:error, _reason} -> bytes
         end
 
-      {:error, _reason} ->
+      :error ->
         body
     end
   end

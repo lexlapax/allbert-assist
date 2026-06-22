@@ -29,9 +29,9 @@ defmodule AllbertAssist.Actions.Conversations.ResumeThreadOnChannel do
       actions: [type: {:list, :map}, required: true]
     ]
 
-  alias AllbertAssist.Conversations.UnifiedHistory
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
+  alias AllbertAssist.Conversations.UnifiedHistory
   alias AllbertAssist.Security.PermissionGate
 
   @permission :conversation_write

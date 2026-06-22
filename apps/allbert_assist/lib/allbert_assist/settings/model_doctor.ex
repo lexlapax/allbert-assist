@@ -323,9 +323,6 @@ defmodule AllbertAssist.Settings.ModelDoctor do
           {:error, {:credential_unavailable, :invalid_credential_format, host}}
         end
 
-      {:ok, _value} ->
-        {:error, {:credential_unavailable, :invalid_credential_format, host}}
-
       {:error, {:secret_not_found, _ref}} ->
         {:error, {:credential_missing, host}}
 

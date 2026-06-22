@@ -15,6 +15,7 @@ defmodule Mix.Tasks.Allbert.Tui do
   @shortdoc "Run the local Allbert terminal TUI"
   @supervisor AllbertAssist.Channels.Supervisor
   @log_level_help "debug, info, warning, error, or none"
+  @silent_log_level :emergency
 
   @impl true
   def run(args) do
@@ -48,9 +49,9 @@ defmodule Mix.Tasks.Allbert.Tui do
 
   defp silence_startup_logging! do
     StdioGuard.silence_stdout!()
-    Application.put_env(:logger, :level, :none)
-    Logger.configure(level: :none)
-    _result = :logger.set_primary_config(:level, :none)
+    Application.put_env(:logger, :level, @silent_log_level)
+    Logger.configure(level: @silent_log_level)
+    _result = :logger.set_primary_config(:level, @silent_log_level)
     :ok
   end
 
@@ -113,7 +114,7 @@ defmodule Mix.Tasks.Allbert.Tui do
         :error
 
       "none" ->
-        :none
+        @silent_log_level
 
       "" ->
         :warning

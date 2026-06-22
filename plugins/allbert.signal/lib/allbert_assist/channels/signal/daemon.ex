@@ -112,14 +112,14 @@ defmodule AllbertAssist.Channels.Signal.Daemon do
   end
 
   defp loopback_http_diagnostics(settings) do
-    base_url = Map.get(settings, "loopback_http_base_url", "")
-    uri = URI.parse(base_url)
+    base_url = Map.get(settings, "loopback_http_base_url")
+    uri = URI.parse(to_string(base_url || ""))
     auth_ref = Map.get(settings, "control_auth_ref")
     auth_configured? = Secrets.status(auth_ref) == :configured
 
     diagnostics =
       []
-      |> maybe_add(base_url in [nil, ""], :missing_loopback_http_base_url)
+      |> maybe_add(missing_loopback_base_url?(base_url), :missing_loopback_http_base_url)
       |> maybe_add(uri.scheme not in ["http", "https"], :signal_control_endpoint_not_http)
       |> maybe_add(uri.host not in ["127.0.0.1", "localhost", "::1"], :not_loopback)
       |> maybe_add(not auth_configured?, :missing_control_auth)
@@ -172,7 +172,8 @@ defmodule AllbertAssist.Channels.Signal.Daemon do
     String.starts_with?(path, home) or String.starts_with?(path, System.tmp_dir!())
   end
 
-  defp local_path?(_path), do: false
+  defp missing_loopback_base_url?(value) when value in [nil, ""], do: true
+  defp missing_loopback_base_url?(_value), do: false
 
   defp maybe_add(diagnostics, true, diagnostic), do: diagnostics ++ [diagnostic]
   defp maybe_add(diagnostics, false, _diagnostic), do: diagnostics

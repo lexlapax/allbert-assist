@@ -146,7 +146,5 @@ defmodule AllbertAssist.Actions.Outbound.Gate do
   defp field(map, key) when is_map(map),
     do: Map.get(map, key) || Map.get(map, to_string(key))
 
-  defp field(_map, _key), do: nil
-
   defp humanize(name), do: name |> String.replace("_", " ") |> String.capitalize()
 end

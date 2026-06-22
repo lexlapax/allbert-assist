@@ -70,7 +70,10 @@ defmodule AllbertAssist.Intent.ConversationContext do
     messages
     |> Enum.map(fn message ->
       role = message |> field(:role) |> to_string()
-      content = message |> field(:content) |> to_string() |> Redactor.redact() |> bounded(@line_limit)
+
+      content =
+        message |> field(:content) |> to_string() |> Redactor.redact() |> bounded(@line_limit)
+
       "#{role}: #{content}"
     end)
     |> Enum.join("\n")

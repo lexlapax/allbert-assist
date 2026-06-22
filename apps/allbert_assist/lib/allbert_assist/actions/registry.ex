@@ -17,14 +17,13 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Artifacts.GetArtifact
   alias AllbertAssist.Actions.Artifacts.ListArtifacts
   alias AllbertAssist.Actions.Artifacts.PutArtifact
+  alias AllbertAssist.Actions.Calendar.CreateCalendarEvent
   alias AllbertAssist.Actions.Capability
   alias AllbertAssist.Actions.Channels.ListChannels
+  alias AllbertAssist.Actions.Channels.SendChannelMessage
   alias AllbertAssist.Actions.Channels.SetupCheck
   alias AllbertAssist.Actions.Channels.ShowChannel
-  alias AllbertAssist.Actions.Calendar.CreateCalendarEvent
-  alias AllbertAssist.Actions.Channels.SendChannelMessage
   alias AllbertAssist.Actions.Channels.SignalDoctor
-  alias AllbertAssist.Actions.Email.SendEmail
   alias AllbertAssist.Actions.Channels.SignalLinkDevice
   alias AllbertAssist.Actions.Channels.WhatsAppDoctor
   alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
@@ -43,6 +42,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.DynamicPlugins.RunDraftTrial, as: RunDynamicDraftTrial
   alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicDraft
   alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicIntegration
+  alias AllbertAssist.Actions.Email.SendEmail
   alias AllbertAssist.Actions.Image.GenerateImage
   alias AllbertAssist.Actions.Integrations.OpenCalendarPanel
   alias AllbertAssist.Actions.Integrations.OpenGithubPanel

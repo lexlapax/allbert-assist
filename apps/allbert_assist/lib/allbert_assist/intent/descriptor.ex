@@ -534,24 +534,25 @@ defmodule AllbertAssist.Intent.Descriptor do
 
   defp note_path_from_phrase(value) when is_binary(value) do
     case trim_extracted_slot(value) do
-      nil ->
-        nil
+      nil -> nil
+      value -> note_path_from_trimmed_phrase(value)
+    end
+  end
 
-      value ->
-        cond do
-          String.ends_with?(String.downcase(value), ".md") ->
-            value
+  defp note_path_from_trimmed_phrase(value) do
+    cond do
+      String.ends_with?(String.downcase(value), ".md") ->
+        value
 
-          String.contains?(value, "/") ->
-            value <> ".md"
+      String.contains?(value, "/") ->
+        value <> ".md"
 
-          true ->
-            value
-            |> String.downcase()
-            |> String.replace(~r/[^a-z0-9]+/, "-")
-            |> String.trim("-")
-            |> then(&if(&1 == "", do: nil, else: &1 <> ".md"))
-        end
+      true ->
+        value
+        |> String.downcase()
+        |> String.replace(~r/[^a-z0-9]+/, "-")
+        |> String.trim("-")
+        |> then(&if(&1 == "", do: nil, else: &1 <> ".md"))
     end
   end
 

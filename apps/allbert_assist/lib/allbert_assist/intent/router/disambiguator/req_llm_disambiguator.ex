@@ -21,7 +21,11 @@ defmodule AllbertAssist.Intent.Router.Disambiguator.ReqLLMDisambiguator do
     ],
     confidence: [type: :float, required: true, doc: "Confidence 0.0-1.0 in the selection."],
     reason: [type: :string, required: false, doc: "Short operator-safe explanation."],
-    slots: [type: :string, required: false, doc: "JSON object of extracted argument slots, or {}."]
+    slots: [
+      type: :string,
+      required: false,
+      doc: "JSON object of extracted argument slots, or {}."
+    ]
   ]
 
   @impl true
@@ -31,7 +35,12 @@ defmodule AllbertAssist.Intent.Router.Disambiguator.ReqLLMDisambiguator do
          {:ok, profile} <- Settings.resolve_model_profile(profile_name),
          {:ok, spec} <- ModelRuntime.model_spec(profile),
          {:ok, response} <-
-           ReqLLM.generate_object(spec, prompt(query, shortlist, context), @schema, request_opts(profile, opts)),
+           ReqLLM.generate_object(
+             spec,
+             prompt(query, shortlist, context),
+             @schema,
+             request_opts(profile, opts)
+           ),
          object when is_map(object) <- ReqLLM.Response.object(response) do
       {:ok,
        %{

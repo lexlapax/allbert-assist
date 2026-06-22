@@ -22,8 +22,8 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
   `Application.put_env(:allbert_assist, :intent_router_disambiguator, impl)`
   (tests use `Disambiguator.FakeDisambiguator`). The gate is pure (`decide/4`).
   """
-  alias AllbertAssist.Intent.Slots
   alias AllbertAssist.Intent.Router.Outcome
+  alias AllbertAssist.Intent.Slots
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
 
@@ -144,39 +144,109 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
     slots = merged_slots(selection, selected_item)
     missing_slots = missing_required_slots(selected_item, slots)
 
-    cond do
-      selected == @answer ->
+    case selection_outcome(
+           selected,
+           selected_item,
+           query,
+           shortlist,
+           confidence,
+           min_conf,
+           margin,
+           opts
+         ) do
+      :answer ->
         Outcome.answer(diag)
 
-      selected == @none ->
+      :none ->
         Outcome.none(diag)
 
-      selected == @clarify ->
-        clarify(shortlist, Map.put(diag, :note, :model_requested_clarify))
+      {:clarify, note} ->
+        clarify(shortlist, Map.put(diag, :note, note))
 
+      :execute ->
+        execute_or_clarify_missing_slots(
+          selected,
+          slots,
+          confidence,
+          diag,
+          shortlist,
+          missing_slots
+        )
+    end
+  end
+
+  defp selection_outcome(
+         selected,
+         selected_item,
+         query,
+         shortlist,
+         confidence,
+         min_conf,
+         margin,
+         opts
+       ) do
+    sentinel_outcome(selected) ||
+      routed_selection_outcome(
+        selected_item,
+        query,
+        shortlist,
+        confidence,
+        min_conf,
+        margin,
+        opts
+      )
+  end
+
+  defp sentinel_outcome(@answer), do: :answer
+  defp sentinel_outcome(@none), do: :none
+  defp sentinel_outcome(@clarify), do: {:clarify, :model_requested_clarify}
+  defp sentinel_outcome(_selected), do: nil
+
+  defp routed_selection_outcome(
+         selected_item,
+         query,
+         shortlist,
+         confidence,
+         min_conf,
+         margin,
+         opts
+       ) do
+    cond do
       is_nil(selected_item) ->
-        clarify(shortlist, Map.put(diag, :note, :selection_not_in_shortlist))
+        {:clarify, :selection_not_in_shortlist}
 
       low_information_query?(query, shortlist) ->
-        clarify(shortlist, Map.put(diag, :note, :low_information_query))
+        {:clarify, :low_information_query}
 
       confidence < min_conf ->
-        clarify(shortlist, Map.put(diag, :note, :low_confidence))
+        {:clarify, :low_confidence}
 
       ambiguous?(margin, shortlist, opts) and confidence < @decisive_confidence ->
-        clarify(shortlist, Map.put(diag, :note, :ambiguous_margin))
-
-      missing_slots != [] ->
-        clarify(
-          shortlist,
-          diag
-          |> Map.put(:note, :missing_required_slots)
-          |> Map.put(:missing_slots, missing_slots)
-        )
+        {:clarify, :ambiguous_margin}
 
       true ->
-        Outcome.execute(selected, slots, confidence, diag)
+        :execute
     end
+  end
+
+  defp execute_or_clarify_missing_slots(selected, slots, confidence, diag, _shortlist, []) do
+    Outcome.execute(selected, slots, confidence, diag)
+  end
+
+  defp execute_or_clarify_missing_slots(
+         _selected,
+         _slots,
+         _confidence,
+         diag,
+         shortlist,
+         missing_slots
+       ) do
+    clarify(
+      shortlist,
+      diag
+      |> Map.put(:note, :missing_required_slots)
+      |> Map.put(:missing_slots, missing_slots)
+    )
   end
 
   # ── gate helpers ─────────────────────────────────────────────────────────────

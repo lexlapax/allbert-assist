@@ -5,6 +5,7 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
   alias AllbertAssist.Intent.Router
   alias AllbertAssist.Intent.Router.Disambiguator.FakeDisambiguator
   alias AllbertAssist.Intent.Router.Embedder.FakeEmbedder
+  alias AllbertAssist.Intent.Router.Index
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Intent.Router.Prefilter
   alias AllbertAssist.Paths
@@ -72,7 +73,7 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
     end
 
     test "a create-a-note request shortlists write_note (M6 descriptor-coverage fix)" do
-      AllbertAssist.Intent.Router.Index.rebuild()
+      Index.rebuild()
 
       assert {:ok, %{shortlist: shortlist}} =
                Prefilter.shortlist("create a note titled groceries with milk")
@@ -97,7 +98,7 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
     end
 
     test "a read-note request shortlists read_note with a path slot" do
-      AllbertAssist.Intent.Router.Index.rebuild()
+      Index.rebuild()
 
       assert {:ok, %{shortlist: shortlist}} = Prefilter.shortlist("read the scratch note")
 
@@ -109,7 +110,7 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
     end
 
     test "outbound compose requests carry required slots into the shortlist" do
-      AllbertAssist.Intent.Router.Index.rebuild()
+      Index.rebuild()
 
       assert {:ok, %{shortlist: email_shortlist}} =
                Prefilter.shortlist("send an email to you@example.com saying hello")

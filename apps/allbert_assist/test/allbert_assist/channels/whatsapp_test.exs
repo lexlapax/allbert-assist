@@ -20,6 +20,7 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Trace
+  alias AllbertWhatsApp.Settings.Fragment, as: WhatsAppSettingsFragment
 
   setup {Req.Test, :verify_on_exit!}
 
@@ -95,7 +96,7 @@ defmodule AllbertAssist.Channels.WhatsAppTest do
 
   test "settings fragment reports required fields when WhatsApp is enabled" do
     diagnostics =
-      AllbertWhatsApp.Settings.Fragment.required_when_enabled(%{
+      WhatsAppSettingsFragment.required_when_enabled(%{
         "enabled" => true,
         "access_token_ref" => "",
         "phone_number_id" => ""

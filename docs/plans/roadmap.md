@@ -3398,13 +3398,18 @@ Expected direction:
 
 Plan: `docs/plans/v0.55-plan.md`
 Request flow: `docs/plans/v0.55-request-flow.md`
-ADR: `docs/adr/0067-tui-terminal-channel.md` (Proposed; accept in v0.55)
+ADR: `docs/adr/0067-tui-terminal-channel.md` (Accepted in v0.55)
 
-Status: implemented through M4, with M5 manual validation and M6 release closeout
-pending. NEW in the 2026-06-09 roadmap restructure; full plan authored in Phase B
-(research R4). Moved from v0.56 to v0.55 in the 2026-06-21 replan. A post-M4
-audit correction routes the live `mix allbert.tui` prompt through the
-descriptor-derived `Channels.Supervisor` child before M5 manual validation.
+Status: release-prepared with version metadata `0.55.0`; tag pending explicit
+operator approval. NEW in the 2026-06-09 roadmap restructure; full plan authored
+in Phase B (research R4). Moved from v0.56 to v0.55 in the 2026-06-21 replan.
+M0-M4 landed on 2026-06-21. Post-M4 audit corrections route the live
+`mix allbert.tui` prompt through the descriptor-derived `Channels.Supervisor`
+child and stabilize prompt rendering. M5 warm TUI validation was operator-
+accepted on 2026-06-22. The separate Matrix live provider smoke was attempted and
+blocked by inactive Matrix credentials (`M_UNKNOWN_TOKEN`, "Token is not
+active"), while deterministic Matrix outbound/parity gates cover the
+v0.54-deferred code path.
 
 Expected direction:
 

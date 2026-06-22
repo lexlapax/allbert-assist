@@ -45,7 +45,10 @@ defmodule AllbertAssist.Intent.Router.PendingStore do
     case Map.fetch(state, key) do
       {:ok, pending} ->
         state = Map.delete(state, key)
-        if PendingClarification.expired?(pending, now), do: {:reply, :none, state}, else: {:reply, {:ok, pending}, state}
+
+        if PendingClarification.expired?(pending, now),
+          do: {:reply, :none, state},
+          else: {:reply, {:ok, pending}, state}
 
       :error ->
         {:reply, :none, state}

@@ -15,6 +15,7 @@ defmodule AllbertAssist.Channels.SlackTest do
   alias AllbertAssist.Plugins.Slack, as: SlackPlugin
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Security.Redactor
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
@@ -698,9 +699,7 @@ defmodule AllbertAssist.Channels.SlackTest do
 
   test "redactor masks Slack app-level (xapp-) and bot (xoxb-) token shapes" do
     redacted =
-      AllbertAssist.Security.Redactor.redact(
-        "connect xapp-1-A0000-secret and xoxb-1111-bottoken in one line"
-      )
+      Redactor.redact("connect xapp-1-A0000-secret and xoxb-1111-bottoken in one line")
 
     refute redacted =~ "xapp-1-A0000-secret"
     refute redacted =~ "xoxb-1111-bottoken"

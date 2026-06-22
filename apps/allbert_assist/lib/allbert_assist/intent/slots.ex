@@ -52,7 +52,8 @@ defmodule AllbertAssist.Intent.Slots do
   descriptor-params map the caller then merges into the base params.
   """
   @spec to_params(term(), key_mode()) :: map()
-  def to_params(slots, key_mode \\ :lenient), do: merge(%{}, slots, key_mode: key_mode, overwrite: true)
+  def to_params(slots, key_mode \\ :lenient),
+    do: merge(%{}, slots, key_mode: key_mode, overwrite: true)
 
   @doc """
   Merge a (normalized) slot payload into `params`.

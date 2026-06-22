@@ -19,6 +19,7 @@ defmodule AllbertAssist.Channels.SignalTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Trace
+  alias AllbertSignal.Settings.Fragment, as: SignalSettingsFragment
 
   @aci "2f8f8f44-8f1a-4db3-a56a-8e0612f6f001"
   @local_aci "5c4e9f85-f2a7-4f58-a0d8-2a6f4b4d8001"
@@ -96,7 +97,7 @@ defmodule AllbertAssist.Channels.SignalTest do
 
   test "settings fragment reports required fields when Signal is enabled" do
     diagnostics =
-      AllbertSignal.Settings.Fragment.required_when_enabled(%{
+      SignalSettingsFragment.required_when_enabled(%{
         "enabled" => true,
         "account_identifier" => "",
         "control_mode" => "loopback_http",

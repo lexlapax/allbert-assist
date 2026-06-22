@@ -35,7 +35,7 @@ DOM handles through the shared catalog path.
 
 ## v0.55 Amendment: Split Payload Rendering
 
-Status: Proposed for v0.55 Channel Parity + TUI/Terminal Channel
+Status: Accepted for v0.55 Channel Parity + TUI/Terminal Channel
 (`docs/plans/v0.55-plan.md`; ADR 0067).
 
 Renderers are extended to honor the ADR 0029 split-payload response contract:

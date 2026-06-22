@@ -108,8 +108,6 @@ defmodule AllbertAssist.Channels.Slack.Client do
     |> Enum.reject(&(&1 == ""))
   end
 
-  defp parse_oauth_scopes(_response), do: []
-
   defp build_request(method, token_ref, path, request_opts) do
     %{
       method: method,
@@ -315,9 +313,6 @@ defmodule AllbertAssist.Channels.Slack.Client do
         else
           {:ok, token}
         end
-
-      {:ok, _token} ->
-        {:error, :missing_slack_token}
 
       {:error, reason} ->
         {:error, {:slack_token_unavailable, reason}}

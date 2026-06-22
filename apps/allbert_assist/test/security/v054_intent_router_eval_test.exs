@@ -25,6 +25,7 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Intent.Router.Prefilter
   alias AllbertAssist.Paths
+  alias AllbertAssist.Security.Policy
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Schema
 
@@ -261,8 +262,7 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
   # m10-permission-floors-001
   test "outbound permissions default to a needs_confirmation floor" do
     for permission <- [:email_send, :channel_message_send, :calendar_write] do
-      assert AllbertAssist.Security.Policy.resolve(permission, %{}).effective ==
-               :needs_confirmation
+      assert Policy.resolve(permission, %{}).effective == :needs_confirmation
     end
   end
 

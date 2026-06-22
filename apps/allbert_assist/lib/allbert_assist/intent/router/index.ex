@@ -15,6 +15,8 @@ defmodule AllbertAssist.Intent.Router.Index do
   alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Intent.Router.Embedder
   alias AllbertAssist.Settings
+  alias AllbertAssist.SignalBus
+  alias Jido.Signal.Bus, as: JidoSignalBus
 
   # v0.54 M9.3b: rebuild when the action set changes. Subscribe to the
   # dynamic-codegen lifecycle signals (already published; ADR 0062 reindex hooks)
@@ -138,7 +140,7 @@ defmodule AllbertAssist.Intent.Router.Index do
   end
 
   defp safe_subscribe do
-    Jido.Signal.Bus.subscribe(AllbertAssist.SignalBus, @signal_path)
+    JidoSignalBus.subscribe(SignalBus, @signal_path)
   rescue
     _exception -> {:error, :subscribe_failed}
   catch

@@ -233,7 +233,11 @@ defmodule Mix.Tasks.Allbert.Objectives do
       {:ok, %{status: :needs_confirmation} = response} ->
         # v0.54 M10: continue_objective is now confirmation-gated.
         id = Map.get(response, :confirmation_id) || get_in(response, [:confirmation, "id"])
-        Mix.shell().info("Needs confirmation. Approve with: mix allbert.confirmations approve #{id}")
+
+        Mix.shell().info(
+          "Needs confirmation. Approve with: mix allbert.confirmations approve #{id}"
+        )
+
         {:ok, response}
 
       {:ok, response} ->

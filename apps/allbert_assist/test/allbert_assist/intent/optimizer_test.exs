@@ -83,7 +83,7 @@ defmodule AllbertAssist.Intent.Router.OptimizerTest do
 
     if before_cov.missing > 0 do
       assert after_cov.missing < before_cov.missing
-      assert length(result.generated) > 0
+      assert result.generated != []
     else
       assert after_cov.missing == 0
       assert result.generated == []

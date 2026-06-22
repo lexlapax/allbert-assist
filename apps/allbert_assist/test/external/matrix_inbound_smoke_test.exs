@@ -20,6 +20,7 @@ defmodule AllbertAssist.External.MatrixInboundSmokeTest do
   alias AllbertAssist.Settings.Fragments
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Trace
+  alias Ecto.Adapters.SQL.Sandbox
 
   @required [
     "ALLBERT_MATRIX_HOMESERVER_URL",
@@ -80,8 +81,8 @@ defmodule AllbertAssist.External.MatrixInboundSmokeTest do
   end
 
   setup do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo, ownership_timeout: 3_600_000)
-    Ecto.Adapters.SQL.Sandbox.mode(Repo, {:shared, self()})
+    :ok = Sandbox.checkout(Repo, ownership_timeout: 3_600_000)
+    Sandbox.mode(Repo, {:shared, self()})
 
     parent = self()
 

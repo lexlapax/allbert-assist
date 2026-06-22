@@ -139,7 +139,7 @@ defmodule Mix.Tasks.Allbert.Intent do
     from = tier_option(opts[:from], :review)
     to = tier_option(opts[:to], :generated)
 
-    case DescriptorStore.promote(from, to, descriptor_app_id(action), action) do
+    case DescriptorStore.promote(from, to, to_string(descriptor_app_id(action)), action) do
       {:ok, path} ->
         Mix.shell().info(
           "promoted #{action} -> #{path}; run `mix allbert.intent reindex` to apply"

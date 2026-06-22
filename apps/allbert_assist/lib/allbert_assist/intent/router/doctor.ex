@@ -14,7 +14,21 @@ defmodule AllbertAssist.Intent.Router.Doctor do
 
   @state_path Path.join(["intent", "router", "doctor", "state.json"])
 
-  @spec diagnose(keyword()) :: {:ok, map()}
+  @spec diagnose(keyword()) ::
+          {:ok,
+           %{
+             checked_at: String.t(),
+             embedding_dim: non_neg_integer() | nil,
+             embedding_endpoint: :available | :unavailable,
+             embedding_profile: term(),
+             escalation_profile: term(),
+             index_built_at: String.t() | nil,
+             index_size: non_neg_integer(),
+             index_status: :built | :error | :not_built | :not_started | :unavailable,
+             model_profile: term(),
+             status: :ok | :unavailable,
+             strategy: :deterministic | :two_stage_local
+           }}
   def diagnose(opts \\ []) do
     result = run_checks(opts)
     :ok = write_state(result)

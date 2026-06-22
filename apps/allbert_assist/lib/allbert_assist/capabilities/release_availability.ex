@@ -21,13 +21,23 @@ defmodule AllbertAssist.Capabilities.ReleaseAvailability do
     future_features_ref: nil
   }
 
-  @type capability_ref :: {atom(), String.t()}
-  @type declaration :: map()
+  @type capability_kind :: :channel | :action | :plugin | :app
+  @type release_status :: :released | :implemented_not_released
+  @type capability_ref :: {capability_kind(), String.t()}
+  @type declaration :: %{
+          required(:kind) => capability_kind(),
+          required(:id) => String.t(),
+          required(:release_status) => release_status(),
+          required(:live_use_allowed?) => boolean(),
+          required(:decision) => String.t(),
+          required(:decision_ref) => String.t() | nil,
+          required(:future_features_ref) => String.t() | nil
+        }
 
   @type decision :: %{
-          required(:kind) => atom(),
+          required(:kind) => capability_kind(),
           required(:id) => String.t(),
-          required(:release_status) => atom(),
+          required(:release_status) => release_status(),
           required(:live_use_allowed?) => boolean(),
           required(:decision) => String.t(),
           required(:decision_ref) => String.t() | nil,
@@ -46,7 +56,7 @@ defmodule AllbertAssist.Capabilities.ReleaseAvailability do
   @spec live_use_allowed?(capability_ref(), keyword()) :: boolean()
   def live_use_allowed?(ref, opts \\ []), do: decision(ref, opts).live_use_allowed?
 
-  @spec release_status(capability_ref(), keyword()) :: atom()
+  @spec release_status(capability_ref(), keyword()) :: release_status()
   def release_status(ref, opts \\ []), do: decision(ref, opts).release_status
 
   @spec implemented_not_released?(capability_ref(), keyword()) :: boolean()
@@ -59,13 +69,13 @@ defmodule AllbertAssist.Capabilities.ReleaseAvailability do
     if live_use_allowed?(ref, opts), do: :ok, else: {:error, blocked_reason(ref, opts)}
   end
 
-  @spec blocked_reason(capability_ref(), keyword()) :: {atom(), decision()}
+  @spec blocked_reason(capability_ref(), keyword()) :: {release_status(), decision()}
   def blocked_reason(ref, opts \\ []) do
     release_decision = decision(ref, opts)
     {release_decision.release_status, release_decision}
   end
 
-  @spec diagnostic(capability_ref(), keyword()) :: atom() | nil
+  @spec diagnostic(capability_ref(), keyword()) :: :implemented_not_released | nil
   def diagnostic(ref, opts \\ []) do
     if implemented_not_released?(ref, opts), do: :implemented_not_released, else: nil
   end
@@ -175,13 +185,6 @@ defmodule AllbertAssist.Capabilities.ReleaseAvailability do
          ]) do
       value when is_boolean(value) -> {:ok, value}
       _other -> {:error, {:invalid_boolean, :live_use_allowed?}}
-    end
-  end
-
-  defp declaration_boolean(declaration, key) do
-    case declaration_value(declaration, key) do
-      value when is_boolean(value) -> {:ok, value}
-      _other -> {:error, {:invalid_boolean, key}}
     end
   end
 

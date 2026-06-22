@@ -16,6 +16,7 @@ defmodule AllbertAssist.External.DiscordSlackSmokeTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
+  alias Ecto.Adapters.SQL.Sandbox
 
   # Per-provider required env. Only the targeted providers
   # (ALLBERT_SMOKE_PROVIDERS, default both) are required and exercised, so a
@@ -84,8 +85,8 @@ defmodule AllbertAssist.External.DiscordSlackSmokeTest do
     # The smoke writes to the owned home DB (threads, message refs). test_helper
     # puts the Repo in :manual sandbox mode, so check out a shared connection the
     # test process can use; without this the first Repo call raises OwnershipError.
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
-    Ecto.Adapters.SQL.Sandbox.mode(Repo, {:shared, self()})
+    :ok = Sandbox.checkout(Repo)
+    Sandbox.mode(Repo, {:shared, self()})
     :ok
   end
 

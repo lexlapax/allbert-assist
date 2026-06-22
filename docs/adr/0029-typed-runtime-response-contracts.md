@@ -37,7 +37,7 @@ confirmation semantics, or transport protocol fields.
 
 ## v0.55 Amendment: Split Model/Surface Payloads
 
-Status: Proposed for v0.55 Channel Parity + TUI/Terminal Channel
+Status: Accepted for v0.55 Channel Parity + TUI/Terminal Channel
 (`docs/plans/v0.55-plan.md`; ADR 0067).
 
 The typed response contract gains two optional fields:

@@ -28,7 +28,12 @@ defmodule AllbertAssist.Intent.SlotsTest do
     test "keeps existing-atom keys and drops unknown keys" do
       # :title exists as an atom here (referenced below); :nonexistent_slot_xyz does not.
       _ = :title
-      params = Slots.merge(%{}, %{"title" => "v054", "nonexistent_slot_xyz" => "x"}, key_mode: :existing_atom)
+
+      params =
+        Slots.merge(%{}, %{"title" => "v054", "nonexistent_slot_xyz" => "x"},
+          key_mode: :existing_atom
+        )
+
       assert params[:title] == "v054"
       refute Map.has_key?(params, "nonexistent_slot_xyz")
     end
