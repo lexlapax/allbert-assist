@@ -75,6 +75,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         if MapSet.member?(@quit_commands, command) do
           {:stop, :normal, state}
         else
+          state = update_live_status(state, :processing)
           {_reply, state} = process_text(command, [], state)
           Process.send_after(self(), :read_input, 0)
           {:noreply, state}
@@ -109,7 +110,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       live_screen?: Keyword.get(opts, :live_screen?, false),
       live_screen_server: Keyword.get(opts, :live_screen_server, Owl.LiveScreen),
       input_fun: Keyword.get(opts, :input_fun, &default_input/1),
-      output_fun: Keyword.get(opts, :output_fun, &default_output/1),
+      output_fun: Keyword.get(opts, :output_fun),
       max_text_bytes: Map.get(settings, "max_text_bytes", 12_000)
     }
   end
@@ -152,7 +153,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   defp emit_banner(state) do
     state.profile
     |> Renderer.banner()
-    |> Enum.each(state.output_fun)
+    |> Enum.each(&emit_output(&1, state))
 
     state
   end
@@ -342,10 +343,20 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   defp emit_rendered(rendered, state) do
-    Enum.each(rendered, state.output_fun)
-    update_live_status(state, :ready)
+    Enum.each(rendered, &emit_output(&1, state))
     :ok
   end
+
+  defp emit_output(line, %{output_fun: output_fun}) when is_function(output_fun, 1) do
+    output_fun.(line)
+  end
+
+  defp emit_output(line, %{live_screen?: true, live_screen_server: server}) do
+    Owl.IO.puts(line, server)
+    Owl.LiveScreen.await_render(server)
+  end
+
+  defp emit_output(line, _state), do: default_output(line)
 
   defp mark_processed(event, response, user_id, session_id) do
     Channels.update_event(event, %{
