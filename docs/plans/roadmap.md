@@ -3400,8 +3400,8 @@ Plan: `docs/plans/v0.55-plan.md`
 Request flow: `docs/plans/v0.55-request-flow.md`
 ADR: `docs/adr/0067-tui-terminal-channel.md` (Accepted in v0.55)
 
-Status: release-prepared with version metadata `0.55.0`; tag pending explicit
-operator approval. NEW in the 2026-06-09 roadmap restructure; full plan authored
+Status: released and tagged as `v0.55.0` on 2026-06-22; current metadata now
+reports `0.55.1` after the follow-on point release. NEW in the 2026-06-09 roadmap restructure; full plan authored
 in Phase B (research R4). Moved from v0.56 to v0.55 in the 2026-06-21 replan.
 M0-M4 landed on 2026-06-21. Post-M4 audit corrections route the live
 `mix allbert.tui` prompt through the descriptor-derived `Channels.Supervisor`
@@ -3429,12 +3429,13 @@ Expected direction:
 Plan: `docs/plans/v0.55b-plan.md`
 Request flow: `docs/plans/v0.55b-request-flow.md`
 ADR: `docs/adr/0070-tui-operator-console-and-read-only-operator-actions.md`
-(Proposed; accept in v0.55.1)
+(Accepted in v0.55.1)
 
-Status: planned. NEW in the 2026-06-21 split of v0.55. Point release after
-`0.55.0`; the v0.56-v0.59 arc is unchanged.
+Status: released as `0.55.1` on 2026-06-22. Point release after `0.55.0`; the
+v0.56-v0.59 arc is unchanged. M6 full release evidence:
+`/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13378/home/release_evidence/gates/release-2026-06-22T13_10_00Z.json`.
 
-Expected direction:
+Shipped shape:
 
 - Make the v0.55 TUI the persistent, mix-free operator/validation console: one
   warm BEAM (DB open, `Channels.Supervisor` up) for interactive operator work and

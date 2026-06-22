@@ -19,11 +19,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.54.0 adds the
-  # two-stage intent router, descriptor lifecycle foundation, and outbound
-  # compose actions.
+  # the app (release-pinned, not semantic-per-app). v0.55.1 adds the
+  # persistent TUI operator/validation console and read-only inspection surface.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.54.0"
+  def version, do: "0.55.1"
 
   @impl true
   def validate(_opts), do: :ok

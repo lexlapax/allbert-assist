@@ -10,6 +10,7 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
   alias AllbertAssist.Intent.Router.Prefilter
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ProviderPreconditions
 
   setup do
     original_home = System.get_env("ALLBERT_HOME")
@@ -30,6 +31,8 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
     Application.delete_env(:allbert_assist, Settings)
     Application.put_env(:allbert_assist, :intent_router_embedder, FakeEmbedder)
     Application.delete_env(:allbert_assist, :intent_router_embedder_error)
+
+    ProviderPreconditions.ensure_notes_files_descriptors!()
 
     on_exit(fn ->
       if original_home,

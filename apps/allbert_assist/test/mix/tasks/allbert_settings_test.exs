@@ -5,6 +5,7 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.Settings
+  alias AllbertAssist.TestSupport.ProviderPreconditions
   alias Mix.Tasks.Allbert.Settings, as: SettingsTask
 
   setup do
@@ -14,6 +15,7 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
       Path.join(System.tmp_dir!(), "allbert-settings-task-#{System.unique_integer([:positive])}")
 
     Application.put_env(:allbert_assist, Settings, root: root)
+    ProviderPreconditions.ensure_tui_settings_schema!()
 
     on_exit(fn ->
       restore_env(Settings, original_settings_config)

@@ -7,17 +7,23 @@ defmodule AllbertAssist.Intent.Router.OptimizerTest do
   alias AllbertAssist.Intent.Router.DescriptorStore
   alias AllbertAssist.Intent.Router.Optimizer
   alias AllbertAssist.Paths
+  alias AllbertAssist.TestSupport.ProviderPreconditions
 
   setup do
     original_home = System.get_env("ALLBERT_HOME")
     original_paths = Application.get_env(:allbert_assist, Paths)
 
-    System.put_env(
-      "ALLBERT_HOME",
-      Path.join(System.tmp_dir!(), "allbert-opt-#{System.unique_integer([:positive])}")
-    )
+    home =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-opt-#{System.unique_integer([:positive, :monotonic])}"
+      )
+
+    File.rm_rf!(home)
+    System.put_env("ALLBERT_HOME", home)
 
     Application.delete_env(:allbert_assist, Paths)
+    ProviderPreconditions.ensure_notes_files_descriptors!()
 
     on_exit(fn ->
       if original_home,
@@ -27,6 +33,8 @@ defmodule AllbertAssist.Intent.Router.OptimizerTest do
       if original_paths,
         do: Application.put_env(:allbert_assist, Paths, original_paths),
         else: Application.delete_env(:allbert_assist, Paths)
+
+      File.rm_rf!(home)
     end)
 
     :ok

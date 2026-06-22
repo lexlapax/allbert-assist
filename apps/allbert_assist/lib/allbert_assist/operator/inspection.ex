@@ -47,7 +47,7 @@ defmodule AllbertAssist.Operator.Inspection do
     }
   end
 
-  @spec events(map()) :: map()
+  @spec events(map()) :: %{count: non_neg_integer(), events: [any()], limit: integer()}
   def events(params \\ %{}) when is_map(params) do
     limit = event_limit(params)
 
@@ -62,7 +62,11 @@ defmodule AllbertAssist.Operator.Inspection do
     %{count: length(events), limit: limit, events: events}
   end
 
-  @spec confirmations(map()) :: map()
+  @spec confirmations(map()) :: %{
+          confirmations: [any()],
+          count: non_neg_integer(),
+          status: term()
+        }
   def confirmations(params \\ %{}) when is_map(params) do
     status = Map.get(params, :status) || Map.get(params, "status") || "all"
 
@@ -116,7 +120,6 @@ defmodule AllbertAssist.Operator.Inspection do
     |> Enum.join("\n")
   end
 
-  @spec render_channels(map()) :: String.t()
   def render_channels(%{channels: channels} = report) when is_list(channels) do
     supervisor = Map.get(report, :channels_supervisor, %{})
 
@@ -137,7 +140,6 @@ defmodule AllbertAssist.Operator.Inspection do
     |> Enum.join("\n")
   end
 
-  @spec render_events(map()) :: String.t()
   def render_events(%{events: []} = report) do
     "Recent channel events (0/#{report.limit}): none"
   end
@@ -158,7 +160,6 @@ defmodule AllbertAssist.Operator.Inspection do
     |> Enum.join("\n")
   end
 
-  @spec render_confirmations(map()) :: String.t()
   def render_confirmations(%{confirmations: []} = report) do
     "Confirmations (0, status=#{report.status}): none"
   end

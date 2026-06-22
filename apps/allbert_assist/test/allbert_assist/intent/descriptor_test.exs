@@ -3,10 +3,13 @@ defmodule AllbertAssist.Intent.DescriptorTest do
   @moduletag :global_process_serial
 
   alias AllbertAssist.Intent.Descriptor
+  alias AllbertAssist.TestSupport.ProviderPreconditions
 
-  setup :setup_stocksage_registry
-
-  defp setup_stocksage_registry(context), do: AllbertAssist.StockSageRegistryCase.setup(context)
+  setup do
+    ProviderPreconditions.ensure_stocksage_descriptors!()
+    ProviderPreconditions.ensure_notes_files_descriptors!()
+    :ok
+  end
 
   test "normalizes inert descriptors for registered app actions" do
     assert {:ok, descriptor} =
@@ -77,6 +80,16 @@ defmodule AllbertAssist.Intent.DescriptorTest do
     assert Descriptor.extract_slots(descriptor, "analyze") == %{
              extracted_slots: %{},
              missing_slots: [:ticker]
+           }
+
+    assert Descriptor.extract_slots(descriptor, "I prefer my password to be hunter2.") == %{
+             extracted_slots: %{},
+             missing_slots: [:ticker]
+           }
+
+    assert Descriptor.extract_slots(descriptor, "analyze ticker I") == %{
+             extracted_slots: %{ticker: "I"},
+             missing_slots: []
            }
   end
 

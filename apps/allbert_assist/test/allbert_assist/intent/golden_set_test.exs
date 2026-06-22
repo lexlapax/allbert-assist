@@ -12,6 +12,14 @@ defmodule AllbertAssist.Intent.GoldenSetTest do
 
   alias AllbertAssist.Extensions.Registry, as: Ext
   alias AllbertAssist.Intent.Bench
+  alias AllbertAssist.TestSupport.ProviderPreconditions
+
+  setup do
+    ProviderPreconditions.ensure_stocksage_descriptors!()
+    ProviderPreconditions.ensure_notes_files_descriptors!()
+    ProviderPreconditions.ensure_browser_descriptors!()
+    :ok
+  end
 
   test "fixture loads and every case is well-formed" do
     cases = Bench.load_cases()

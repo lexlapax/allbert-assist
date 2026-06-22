@@ -28,39 +28,48 @@ defmodule AllbertAssist.Actions.Operator.SettingGet do
     key = Map.get(params, :key) || Map.get(params, "key")
 
     Support.read_only(name(), context, fn permission_decision ->
-      case Inspection.setting(key, context) do
-        {:ok, setting} ->
-          message = Inspection.render_setting(setting)
-
-          {:ok,
-           %{
-             message: message,
-             model_payload: "Operator setting report.",
-             surface_payload: message,
-             status: :completed,
-             permission_decision: permission_decision,
-             setting: setting,
-             actions: [
-               Support.action(name(), :completed, permission_decision, %{key: setting.key})
-             ]
-           }}
-
-        {:error, reason} ->
-          message = Inspection.render_setting_error(to_string(key || ""), reason)
-          status = if reason == :not_found, do: :not_found, else: :error
-
-          {:ok,
-           %{
-             message: message,
-             model_payload: "Operator setting request failed.",
-             surface_payload: message,
-             status: status,
-             permission_decision: permission_decision,
-             actions: [
-               Support.action(name(), status, permission_decision, %{error: reason})
-             ]
-           }}
-      end
+      setting_response(key, context, permission_decision)
     end)
+  end
+
+  defp setting_response(key, context, permission_decision) do
+    case Inspection.setting(key, context) do
+      {:ok, setting} -> setting_success(setting, permission_decision)
+      {:error, reason} -> setting_error(key, reason, permission_decision)
+    end
+  end
+
+  defp setting_success(setting, permission_decision) do
+    message = Inspection.render_setting(setting)
+
+    {:ok,
+     %{
+       message: message,
+       model_payload: "Operator setting report.",
+       surface_payload: message,
+       status: :completed,
+       permission_decision: permission_decision,
+       setting: setting,
+       actions: [
+         Support.action(name(), :completed, permission_decision, %{key: setting.key})
+       ]
+     }}
+  end
+
+  defp setting_error(key, reason, permission_decision) do
+    message = Inspection.render_setting_error(key, reason)
+    status = if reason == :not_found, do: :not_found, else: :error
+
+    {:ok,
+     %{
+       message: message,
+       model_payload: "Operator setting request failed.",
+       surface_payload: message,
+       status: status,
+       permission_decision: permission_decision,
+       actions: [
+         Support.action(name(), status, permission_decision, %{error: reason})
+       ]
+     }}
   end
 end

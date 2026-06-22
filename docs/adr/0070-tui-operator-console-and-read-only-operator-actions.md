@@ -1,6 +1,6 @@
 # ADR 0070: TUI Operator Console And Read-Only Operator Actions
 
-Status: Proposed (v0.55.1).
+Status: Accepted (v0.55.1).
 Date: 2026-06-21
 Related: ADR 0067 (TUI/terminal channel — this console runs on that channel),
 ADR 0016 (channel adapter boundary — channels do not own conversation history /

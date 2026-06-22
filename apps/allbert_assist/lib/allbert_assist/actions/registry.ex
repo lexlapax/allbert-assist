@@ -510,8 +510,12 @@ defmodule AllbertAssist.Actions.Registry do
   end
 
   defp plugin_actions do
-    plugin_action_entries()
-    |> Enum.reject(&plugin_action_duplicate?/1)
+    entries = plugin_action_entries()
+    static_names = static_action_names()
+    duplicate_names = duplicate_plugin_action_names(entries)
+
+    entries
+    |> Enum.reject(&plugin_action_duplicate?(&1, static_names, duplicate_names))
     |> Enum.map(& &1.module)
   end
 
@@ -527,14 +531,17 @@ defmodule AllbertAssist.Actions.Registry do
     end)
   end
 
-  defp plugin_action_duplicate?(entry) do
-    entry.name in static_action_names() or
-      entry.name in duplicate_plugin_action_names()
+  defp plugin_action_duplicate?(entry, static_names, duplicate_names) do
+    MapSet.member?(static_names, entry.name) or MapSet.member?(duplicate_names, entry.name)
   end
 
   defp plugin_action_diagnostics do
-    plugin_action_entries()
-    |> Enum.filter(&plugin_action_duplicate?/1)
+    entries = plugin_action_entries()
+    static_names = static_action_names()
+    duplicate_names = duplicate_plugin_action_names(entries)
+
+    entries
+    |> Enum.filter(&plugin_action_duplicate?(&1, static_names, duplicate_names))
     |> Enum.map(fn entry ->
       %{
         plugin_id: entry.plugin_id,
@@ -547,16 +554,18 @@ defmodule AllbertAssist.Actions.Registry do
     end)
   end
 
-  defp duplicate_plugin_action_names do
-    plugin_action_entries()
+  defp duplicate_plugin_action_names(entries) do
+    entries
     |> Enum.map(& &1.name)
     |> Enum.frequencies()
     |> Enum.filter(fn {_name, count} -> count > 1 end)
     |> Enum.map(fn {name, _count} -> name end)
+    |> MapSet.new()
   end
 
   defp static_action_names do
     Enum.map(@actions, &normalize_name(&1.name()))
+    |> MapSet.new()
   end
 
   defp valid_plugin_action?(module) do

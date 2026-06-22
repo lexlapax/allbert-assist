@@ -185,11 +185,6 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
       {:error, :not_mapped} ->
         render_unavailable_slash(:not_mapped, state)
-
-      {:error, reason} ->
-        state = clear_live_status(state)
-        Logger.debug("tui slash command failed: #{inspect(Redactor.redact(reason))}")
-        {{:error, reason}, state}
     end
   end
 

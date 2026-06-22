@@ -10,11 +10,51 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.55.1 - Persistent TUI Operator/Validation Console
+
+Status: released and tagged as `v0.55.1` on 2026-06-22. Current version metadata
+reports `0.55.1`.
+
+Plan: `docs/plans/v0.55b-plan.md`. Request flow:
+`docs/plans/v0.55b-request-flow.md`. ADR:
+`docs/adr/0070-tui-operator-console-and-read-only-operator-actions.md`
+(Accepted).
+
+### Added
+
+- Persistent TUI operator slash commands: `/status`, `/confirmations`, `/events`,
+  `/channels`, `/settings get <key>`, and `/help`.
+- Registered read-only internal operator inspection actions
+  (`operator_status`, `operator_confirmations`, `operator_events`,
+  `operator_channels`, `operator_setting_get`) resolved through
+  `Actions.Runner.run/3`, exposed only through the slash allowlist or explicit
+  Mix twin, and excluded from model-routable intent candidates.
+- `AllbertAssist.Operator.Inspection`, the shared redacted report facade behind
+  warm slash views and cold operator status views.
+- `mix allbert.channels status`, sharing the `/channels` operator report source
+  and printing channel/supervisor status without credential material.
+- Deterministic `mix allbert.test release.v0551`, covering migration,
+  slash/operator units, the `:v0551` security eval lane, inventory validation,
+  and the channel-pack secret scan.
+
+### Validation
+
+- M5 warm-console operator validation passed on 2026-06-22 in one
+  transcript-captured `mix allbert.tui` session. Evidence summary:
+  `docs/release-evidence/v0551/M5-operator-validation.md`.
+- `ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test release.v0551` passed
+  with retained evidence at
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v0551/p0-13379/home/release_evidence/v0551/release-v0551-1782112068.json`.
+- The full release gate passed during M6 closeout with evidence at
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13378/home/release_evidence/gates/release-2026-06-22T13_10_00Z.json`;
+  the retained logs were scanned for SQLite/DB connection noise before tag.
+- The docs gate, compile warning gate, and drift scans were rerun during M6
+  closeout.
+
 ## v0.55.0 - Channel Parity + TUI/Terminal Channel
 
-Status: release-prepared after operator validation on 2026-06-22. Version
-metadata reports `0.55.0`; the `v0.55.0` tag is intentionally pending operator
-approval.
+Status: released and tagged as `v0.55.0` on 2026-06-22. Version metadata now
+reports `0.55.1` after the follow-on v0.55.1 point release.
 
 Plan: `docs/plans/v0.55-plan.md`. Request flow:
 `docs/plans/v0.55-request-flow.md`. ADRs: `docs/adr/0067-tui-terminal-channel.md`
@@ -233,8 +273,8 @@ implemented as a `signal-cli` bridge, but not released for live use because it
 requires operator-managed daemon/linked-device onboarding. ADR 0066 records the
 release-availability gate: undeclared capabilities default released, explicit
 unreleased declarations fail closed, and Security Central remains authority.
-Current version metadata is `0.55.0` because v0.55 release closeout is prepared
-and awaiting the operator-held tag.
+Current version metadata is `0.55.1` after the v0.55.1 operator-console point
+release.
 
 Plan: `docs/plans/v0.53-plan.md`.
 Request flow: `docs/plans/v0.53-request-flow.md`.

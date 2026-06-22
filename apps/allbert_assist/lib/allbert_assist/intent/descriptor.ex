@@ -408,10 +408,16 @@ defmodule AllbertAssist.Intent.Descriptor do
   defp vocabulary_list(values, key), do: field(values, key, [])
 
   defp extract_slot(:ticker_symbol, text) do
-    case Regex.run(~r/\b[A-Z]{1,5}(?:[._-][A-Z]{1,4})?\b/, text) do
-      [ticker] -> ticker
-      _other -> nil
-    end
+    Regex.scan(
+      ~r/(?:^|[^A-Za-z0-9._$-])(\$?)([A-Z]{1,5}(?:[._-][A-Z]{1,4})?)(?=$|[^A-Za-z0-9._-])/,
+      text,
+      capture: :all_but_first
+    )
+    |> Enum.find_value(fn [sigil, ticker] ->
+      if accepted_ticker_candidate?(ticker, explicit_ticker_reference?(sigil, ticker, text)) do
+        ticker
+      end
+    end)
   end
 
   defp extract_slot(:title_phrase, text) do
@@ -501,6 +507,15 @@ defmodule AllbertAssist.Intent.Descriptor do
   end
 
   defp extract_slot(_extractor, _text), do: nil
+
+  defp accepted_ticker_candidate?(ticker, explicit?),
+    do: explicit? || String.length(ticker) > 1
+
+  defp explicit_ticker_reference?("$", _ticker, _text), do: true
+
+  defp explicit_ticker_reference?(_sigil, ticker, text) do
+    Regex.match?(~r/\b(?:ticker|symbol)\s+\$?#{Regex.escape(ticker)}\b/, text)
+  end
 
   defp extract_phrase(text, patterns) do
     Enum.find_value(patterns, fn pattern ->

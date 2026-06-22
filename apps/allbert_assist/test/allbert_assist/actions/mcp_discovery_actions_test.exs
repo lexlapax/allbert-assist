@@ -79,7 +79,7 @@ defmodule AllbertAssist.Actions.McpDiscoveryActionsTest do
   test "MCP discovery actions are registered with tool-discovery permission" do
     assert {:ok, find_mcp_tools} = Registry.capability("find_mcp_tools")
     assert find_mcp_tools.permission == :tool_discovery
-    assert find_mcp_tools.exposure == :internal
+    assert find_mcp_tools.exposure == :agent
     assert find_mcp_tools.execution_mode == :mcp_discovery
 
     assert {:ok, fetch_manifest} = Registry.capability("mcp_fetch_server_manifest")

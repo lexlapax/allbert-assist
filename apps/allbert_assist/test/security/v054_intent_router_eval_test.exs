@@ -28,6 +28,7 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
   alias AllbertAssist.Security.Policy
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Schema
+  alias AllbertAssist.TestSupport.ProviderPreconditions
 
   @shortlist [
     %{action_name: "create_note", app_id: :notes_files, label: "Create or write a local note"},
@@ -60,6 +61,7 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
     Application.put_env(:allbert_assist, :intent_router_embedder, FakeEmbedder)
     Application.put_env(:allbert_assist, :intent_router_disambiguator, FakeDisambiguator)
     Application.delete_env(:allbert_assist, :intent_router_embedder_error)
+    ProviderPreconditions.ensure_notes_files_descriptors!()
 
     on_exit(fn ->
       if original.home,

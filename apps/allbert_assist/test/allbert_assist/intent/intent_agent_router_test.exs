@@ -6,6 +6,7 @@ defmodule AllbertAssist.Agents.IntentAgentRouterTest do
   alias AllbertAssist.Intent.Router.FakeRouter
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Intent.Router.PendingStore
+  alias AllbertAssist.TestSupport.ProviderPreconditions
 
   setup do
     original = %{
@@ -16,6 +17,7 @@ defmodule AllbertAssist.Agents.IntentAgentRouterTest do
 
     Application.put_env(:allbert_assist, :intent_router, FakeRouter)
     Application.put_env(:allbert_assist, :intent_router_strategy_override, :two_stage_local)
+    ProviderPreconditions.ensure_notes_files_descriptors!()
 
     on_exit(fn ->
       restore(:intent_router, original.router)

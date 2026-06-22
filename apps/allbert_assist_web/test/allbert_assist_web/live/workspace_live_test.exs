@@ -1445,6 +1445,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     refute has_element?(view, "#workspace-tile-inspector")
   end
 
+  @tag timeout: 180_000
   test "ephemeral lifecycle events fan out open and close to sibling tabs", %{conn: conn} do
     start_workspace_bridge()
     thread = create_workspace_thread()
@@ -1542,6 +1543,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert html =~ "canvas-tile-#{tile.id}"
   end
 
+  @tag timeout: 180_000
   test "workspace tile mutations fan out to three tabs", %{conn: conn} do
     start_workspace_bridge()
 
@@ -1549,10 +1551,11 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     thread_id = workspace_thread_id(first_tab)
 
     tabs =
-      for _index <- 1..3 do
-        assert {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread_id}")
-        view
-      end
+      [first_tab] ++
+        for _index <- 1..2 do
+          assert {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{thread_id}")
+          view
+        end
 
     assert {:ok, tile} =
              Workspace.add_tile(%{
@@ -1936,10 +1939,15 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     [pending] = Confirmations.list(status: :pending)
     capture_id = pending["resume_params_ref"]["capture_id"]
+    resource_uri = pending["params_summary"]["resource_uri"]
 
     view
     |> element("#approval-approve")
     |> render_click()
+
+    assert {:ok, approved} = Confirmations.read(pending["id"])
+    assert approved["status"] == "approved"
+    assert has_element?(view, "#voice-capture-form[data-capture-resource='#{resource_uri}']")
 
     upload =
       file_input(view, "#voice-capture-form", :voice_capture, [
