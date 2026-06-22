@@ -39,6 +39,7 @@ defmodule Mix.Tasks.Allbert.Tui do
         existing_tui_child_opts,
         enabled?: true,
         auto_input?: true,
+        emit_banner?: true,
         live_screen?: true,
         restart: :transient
       )

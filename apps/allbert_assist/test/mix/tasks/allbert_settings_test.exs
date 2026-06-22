@@ -131,6 +131,23 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
              "Updated: mcp.servers.demo.tool_allowlist=[\"search\", \"read\"]"
 
     assert {:ok, ["search", "read"]} = Settings.get("mcp.servers.demo.tool_allowlist")
+
+    identity_map_output =
+      capture_io(fn ->
+        assert :ok =
+                 SettingsTask.run([
+                   "set",
+                   "channels.tui.identity_map",
+                   ~s([{"external_user_id":"default","user_id":"local","enabled":true}])
+                 ])
+      end)
+
+    assert identity_map_output =~ "Updated: channels.tui.identity_map=["
+
+    assert {:ok, [%{"external_user_id" => "default", "user_id" => "local"} = entry]} =
+             Settings.get("channels.tui.identity_map")
+
+    assert entry["enabled"] == true
   end
 
   test "sets public protocol list settings from comma-separated CLI values" do

@@ -125,6 +125,22 @@ defmodule AllbertAssist.Channels.TUITest do
     refute Enum.any?(messages, &String.contains?(&1.content, "[surface]"))
   end
 
+  test "non-interactive supervised child stays quiet without launcher opts" do
+    configure_tui!()
+    parent = self()
+
+    assert {:ok, _server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn line -> send(parent, {:tui_output, line}) end
+             )
+
+    refute_receive {:tui_output, _line}, 50
+  end
+
   test "adapter treats repeated terminal event ids as duplicates" do
     configure_tui!()
 
@@ -181,6 +197,7 @@ defmodule AllbertAssist.Channels.TUITest do
              Adapter.start_link(
                name: nil,
                auto_input?: false,
+               emit_banner?: true,
                enabled?: true,
                live_screen?: false,
                output_fun: fn line -> send(parent, {:tui_output, line}) end

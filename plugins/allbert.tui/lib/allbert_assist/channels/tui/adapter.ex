@@ -103,6 +103,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     %{
       enabled?: enabled?,
       auto_input?: Keyword.get(opts, :auto_input?, false),
+      emit_banner?: Keyword.get(opts, :emit_banner?, Keyword.get(opts, :auto_input?, false)),
       settings: settings,
       profile: profile,
       live_screen?: Keyword.get(opts, :live_screen?, false),
@@ -146,6 +147,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   defp emit_banner(%{enabled?: false} = state), do: state
+  defp emit_banner(%{emit_banner?: false} = state), do: state
 
   defp emit_banner(state) do
     state.profile

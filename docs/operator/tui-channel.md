@@ -19,9 +19,9 @@ rendering/resolution, and the deterministic `release.v055` gate.
 export ALLBERT_HOME="$(mktemp -d /tmp/allbert-tui.XXXXXX)"
 mix ecto.migrate.allbert --quiet
 
-mix allbert.settings set channels.tui.enabled true
 mix allbert.settings set channels.tui.identity_map '[{"external_user_id":"default","user_id":"local","enabled":true}]'
 mix allbert.settings get channels.tui.identity_map
+mix allbert.settings set channels.tui.enabled true
 ```
 
 Check the descriptor-derived channel summary and parity matrix:
@@ -45,6 +45,9 @@ The launcher boots the app with TUI-specific `Channels.Supervisor` child options
 and waits on the supervised TUI child. Completed responses render into normal
 terminal scrollback; the adapter uses a single `Owl.LiveScreen` status block for
 the active prompt/status line. Type `/quit` or `/exit` to stop the launcher.
+Plain settings/channel inspection tasks may start the supervised descriptor child
+when `channels.tui.enabled` is true, but that child is non-interactive and quiet;
+only `mix allbert.tui` enables the live input loop and banner.
 
 ## Verify
 

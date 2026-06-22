@@ -173,6 +173,7 @@ defmodule Mix.Tasks.Allbert.Settings do
 
   defp parse_value(key, value) do
     cond do
+      channel_identity_map_setting?(key) -> parse_channel_identity_map(value)
       string_list_setting?(key) -> parse_string_list(value)
       string_map_setting?(key) -> parse_string_map(value)
       true -> parse_scalar_value(value)
@@ -242,6 +243,26 @@ defmodule Mix.Tasks.Allbert.Settings do
     case Map.get(Settings.schema(), key) do
       %{type: :mcp_secret_ref_string_map} -> true
       _schema -> Regex.match?(~r/^mcp\.servers\.[^.]+\.(env|headers)$/, key)
+    end
+  end
+
+  defp channel_identity_map_setting?(key) do
+    case Map.get(Settings.schema(), key) do
+      %{type: :channel_identity_map} -> true
+      _schema -> false
+    end
+  end
+
+  defp parse_channel_identity_map(value) do
+    case Jason.decode(value) do
+      {:ok, entries} when is_list(entries) ->
+        entries
+
+      {:ok, _other} ->
+        Mix.raise("Expected channel identity map settings to be a JSON array of objects.")
+
+      {:error, reason} ->
+        Mix.raise("Invalid channel identity map JSON: #{Exception.message(reason)}")
     end
   end
 
