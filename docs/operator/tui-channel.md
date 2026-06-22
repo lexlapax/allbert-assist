@@ -59,8 +59,11 @@ Run the deterministic focused tests before live validation:
 MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/channels/tui_test.exs
 MIX_ENV=test mix test apps/allbert_assist/test/allbert_assist/runtime_test.exs
 MIX_ENV=test mix test apps/allbert_assist/test/security/v055_tui_channel_eval_test.exs
-MIX_ENV=test mix allbert.test release.v055
+ALLBERT_TEST_KEEP_TMP=1 MIX_ENV=test mix allbert.test release.v055
 ```
+
+`ALLBERT_TEST_KEEP_TMP=1` keeps the release gate's owned temporary home so the
+printed `release.v055 evidence:` path remains readable after the Mix task exits.
 
 Manual M2 smoke:
 
