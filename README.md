@@ -32,8 +32,8 @@ to generate and reuse.
 
 ## Current Shape
 
-The current release-prepared version is `v0.56.0`; the release tag is pending
-operator approval. This README is the stable project orientation;
+The current released version is `v0.56.0`, tagged on 2026-06-23. This README is
+the stable project orientation;
 release-by-release implementation detail belongs in
 [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in
 [docs/plans/roadmap.md](docs/plans/roadmap.md).

@@ -12,8 +12,8 @@ changelog entries or release notes.
 
 ## v0.56.0 - Intent Descriptor Learning + Routing-Accuracy Gate
 
-Status: release-prepared as `0.56.0` on 2026-06-23. The `v0.56.0` tag is
-pending operator approval. Current version metadata reports `0.56.0`.
+Status: released and tagged as `v0.56.0` on 2026-06-23. Current version metadata
+reports `0.56.0`.
 
 Plan: `docs/plans/v0.56-plan.md`. Request flow:
 `docs/plans/v0.56-request-flow.md`. ADRs:

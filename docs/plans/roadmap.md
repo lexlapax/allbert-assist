@@ -3465,8 +3465,8 @@ ADRs: `docs/adr/0062-...` (completion amendment),
 (Accepted),
 `docs/adr/0072-recommended-model-profiles-per-purpose.md` (Accepted).
 
-Status: release-prepared as `0.56.0` on 2026-06-23; the `v0.56.0` tag is pending
-operator approval. Inserted by the v0.54 post-implementation audit so the advanced
+Status: released and tagged as `v0.56.0` on 2026-06-23. Inserted by the v0.54
+post-implementation audit so the advanced
 ADR 0062 lifecycle remains in the 1.0 arc rather than being parked. Moved from
 v0.57 to v0.56 in the 2026-06-21 replan. Deepened 2026-06-22 from a 6-milestone
 foundation into a 16-milestone release (M0-M15) after the readiness pass: routing
