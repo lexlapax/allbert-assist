@@ -18,8 +18,10 @@ Rationale source: `docs/archives/pi-integration-rethink.md`.
 ## Context
 
 The v0.55 terminal channel (ADR 0067) makes a real, identity-mapped terminal
-surface available with a split `model_payload` / `surface_payload` contract and a
-live-region render substrate. That opens a concrete question the rethink in
+surface available with a **static** split `model_payload` / `surface_payload`
+contract (a complete `surface_payload` render; no incremental/streaming path —
+that live-region substrate is net-new v0.57 work). That opens a concrete question
+the rethink in
 `docs/archives/pi-integration-rethink.md` raises: can Allbert host a focused
 terminal **coding** surface — read/write/edit files and run shell — without
 becoming a second authority spine, and without adopting the "YOLO, auto-approve
@@ -43,29 +45,47 @@ generated-code work that judgement must be **deterministic**, not model-asserted
 
 Introduce **Pi-mode**, a gated terminal coding surface implemented as a
 channel/app on the existing terminal channel (ADR 0067) — **not** a new runtime
-or a new authority path. Its capability is exactly **four boundary actions**, each
-a registered action invoked through `Actions.Runner.run/3`:
+or a new authority path. Its default capability is **six tools** — four effectful
+boundary actions plus two read-only search actions — each a registered action
+invoked through `Actions.Runner.run/3`:
 
 - **read** — read file/context (chunked by default, offset/limit; see the
   context discipline below);
 - **write** — create a file;
-- **edit** — modify an existing file (exact-match replacement);
+- **edit** — modify an existing file (exact-match replacement; an exact-match miss
+  returns a clear failure so the model re-reads and retries, rather than a silent
+  no-op — the most common friction in peer coding agents);
 - **bash** — run a shell command at **sandbox Level 1** (ADR 0009), under the
-  local-coding tier policy defined below.
+  local-coding tier policy defined below;
+- **grep** — search file contents (ripgrep-backed, `.gitignore`-aware,
+  `permission: :read_only`, runs unprompted);
+- **glob** — find files by path pattern (`permission: :read_only`, unprompted).
+
+`grep`/`glob` are first-class because relegating code search to MCP would feel
+impoverished to Claude Code / Gemini users (2 of the 3 peer CLIs ship them
+built-in). Capabilities **beyond** these six remain MCP-first, lazy-disclosed.
 
 Surface discipline:
 
-- a **sub-1000-token surface budget** — the coding system prompt **and the four
-  tool definitions together** stay under ~1000 tokens (Pi's actual bar is
+- a **sub-1000-token surface budget** — the coding system prompt **and the tool
+  definitions together** stay under ~1000 tokens (Pi's actual bar is
   prompt + tool-defs combined, against the configured tokenizer), not a sprawling
   agent harness;
-- **streamed split-payload diffs** — the model-facing `model_payload` carries the
-  canonical change while the terminal renders the `surface_payload` diff. v0.55
-  shipped only the **static** split; **v0.57 builds the coding diff live-region
-  renderer and the progressive tool-argument streaming** (parse tool-call
-  arguments as they arrive) that make diffs render as the model writes.
-  Result-payload streaming is not assumed; the streamed unit is the tool-call
-  argument stream.
+- **streamed split-payload diffs + assistant-text token streaming** — the
+  model-facing `model_payload` carries the canonical change while the terminal
+  renders the `surface_payload` diff. v0.55 shipped only the **static** split;
+  **v0.57 builds the coding-diff live-region renderer, the progressive
+  tool-argument streaming** (parse tool-call arguments as they arrive), **and
+  token-by-token streaming of the assistant's prose** — so the turn feels live, as
+  in every peer CLI. Token streaming requires the runtime to emit model token
+  deltas (today's response is turn-complete); the diff streamed unit is the
+  tool-call argument stream, not the tool result;
+- **interactive affordances** — **coder-facing approval modes**
+  (`default`/`accept-edits`/`plan`/`tier`) + per-repo "always allow this command"
+  (a confirmation-cost/persistence layer over Security Central, granting no
+  authority; `plan` is read-only), **Esc-to-cancel** a running turn (work kept +
+  traced) with a **queued correction**, and a familiar coding **slash set**
+  (`/help`, `/model`, `/clear`, `/init`, `/diff`, `/compact`);
 - **context discipline (Pi's actual practice)** — gather context through
   **chunked reads** (offset/limit) and, for larger investigations,
   **separate context-gathering sessions plus file artifacts**, rather than always
@@ -74,9 +94,19 @@ Surface discipline:
   resist full reads. The discipline is deliberate context gathering, not
   whole-file ingestion.)
 
-Every one of the four actions is an ordinary registered action: it passes the
-action boundary, Security Central, and its own confirmation gate. The surface
-selects and sequences; it grants no authority.
+Every one of the six tools is an ordinary registered action: it passes the action
+boundary, Security Central, and its own confirmation gate (`grep`/`glob` are
+read-only and run unprompted). The surface selects and sequences; it grants no
+authority.
+
+**The interactive turn vs. "done."** Like Claude Code / Codex / Gemini, the
+ordinary turn is an interactive REPL: the model loops (propose tool calls → read
+results → repeat) and the **turn ends naturally when the model stops emitting tool
+calls**, returning control to the operator prompt. The separate rule — "the model
+never decides it is *done*" — governs **deterministic acceptance gates** for
+effectful or generated-code work (evidence + confirmation), not the end of a
+conversational turn. Implementers must not gate every turn-end; that would feel
+alien to a coder.
 
 ### Named "local-coding operator" trust tier (extends ADR 0056; runs at sandbox Level 1)
 
@@ -127,8 +157,10 @@ decision in the v0.57 plan.
   sessions, which keep their existing tiers. In particular, raw-shell `bash` is
   reachable only at this tier; every other caller is argv-only or refused.
 - **No weakening of the action boundary, Security Central, or confirmations.**
-  The four actions run through `Actions.Runner.run/3` and Security Central
-  (ADR 0006) exactly like any other action; confirmation gates are unchanged.
+  All six tools run through `Actions.Runner.run/3` and Security Central
+  (ADR 0006) exactly like any other action; approval modes and "always allow"
+  change only confirmation cost, never the authority path; confirmation gates are
+  unchanged.
 - **The model never decides it is "done"** for effectful or generated-code work.
   Acceptance is governed by **deterministic acceptance rules**, not the model's
   self-assessment.

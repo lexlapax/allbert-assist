@@ -351,13 +351,16 @@ scope.
     per-purpose model recommendations. Model/learned proposals remain inert
     until operator promotion and never grant authority.
 57. v0.57 Pi-mode Coding Surface: a gated terminal coding surface on the one
-    authority spine — four boundary actions (read/write/edit/bash) through
-    `Actions.Runner.run/3`, sub-1000-token prompt+tool-defs budget, net-new
-    streamed split-payload diffs, chunked-read context discipline, and a named
+    authority spine — a **six-tool** default (read/write/edit/bash + read-only
+    grep/glob) through `Actions.Runner.run/3`, sub-1000-token prompt+tool-defs
+    budget, chunked-read context discipline, **coder-ergonomics parity** with
+    Claude Code / Pi / Codex / Gemini CLI (approval modes + per-repo "always
+    allow", assistant-text token streaming + diff streaming over the v0.55 static
+    split, Esc-to-cancel + queued steering, coding slash set), and a named
     "local-coding operator" trust tier (ADR 0056 lineage at ADR 0009 Level 1,
     not "level 0"). Never YOLO-by-default, never for channel-originated or
-    generated-code sessions; deterministic acceptance and Security Central stay
-    intact. ADR 0068; rationale in
+    generated-code sessions; modes grant no authority; deterministic acceptance
+    gates and Security Central stay intact. Milestones M0–M6. ADR 0068; rationale in
     `docs/archives/pi-integration-rethink.md`.
 58. v0.58 Web UX Redo + Surface Policy: re-layout `/workspace` (ADR 0023/0024
     kept) — chat primary, ephemeral surfaces become popups, canvas demoted,
@@ -3535,17 +3538,25 @@ Expected direction:
 - A gated terminal coding surface as a channel/app under ADR 0016, on the one
   authority spine — same `Actions.Runner.run/3`, Security Central, trace, and
   memory as every other surface.
-- Four boundary actions (`read`/`write`/`edit`/`bash`) through the action
-  runner, a sub-1000-token prompt+tool-defs budget, **net-new** streamed diffs (a
-  coding diff live-region renderer over the v0.55 **static** split payload), and
-  a chunked-read context discipline (offset/limit + artifacts, not whole-file).
-  `bash` runs host processes at sandbox Level 1; raw shell only at the tier below.
+- **Six default tools** — four effectful boundary actions
+  (`read`/`write`/`edit`/`bash`) + two read-only search actions (`grep`/`glob`,
+  ripgrep-backed, unprompted) — through the action runner, a sub-1000-token
+  prompt+tool-defs budget, and a chunked-read context discipline (offset/limit +
+  artifacts, not whole-file). `bash` runs host processes at sandbox Level 1; raw
+  shell only at the tier below.
+- **Coder-ergonomics parity** (benchmarked against Claude Code / Pi / Codex /
+  Gemini CLI): coder-facing approval modes (`default`/`accept-edits`/`plan`/`tier`)
+  + per-repo "always allow", **net-new** live rendering (assistant-text token
+  streaming + progressive tool-argument diff streaming over the v0.55 **static**
+  split), Esc-to-cancel + queued steering, and a familiar coding slash set
+  (`/help`/`/model`/`/clear`/`/init`/`/diff`/`/compact`).
 - A named "local-coding operator" trust tier (ADR 0056 lineage, running at ADR
   0009 **Level 1** — not "level 0"): a single trusted operator, main session,
   terminal channel — never the default, never for channel-originated or
-  generated-code sessions; lowers confirmation burden only, not isolation.
+  generated-code sessions; lowers confirmation burden only, not isolation. Modes
+  and "always allow" grant no authority.
 - An operator affordance for mid-session model switch (req_llm message-history
-  handoff; best-effort cross-provider).
+  handoff; best-effort cross-provider). Milestones renumbered to a clean M0–M6.
 - Non-goals: no YOLO-by-default; no weakening of the action boundary, Security
   Central, or confirmations; no model-decides-it's-done for effectful or
   generated-code work; keep MCP-first with lazy disclosure; no sibling runtime.

@@ -99,8 +99,9 @@ split: a renderer draws `surface_payload`; the runtime threads only
 `model_payload` into memory and subsequent turns.
 
 This split is the contracted foundation for future **streamed terminal
-rendering**: v0.55 lands the payload separation and live-region render substrate;
-v0.57 Pi-mode owns true streamed diff/token semantics.
+rendering**: v0.55 lands the **static** payload separation (a complete
+`surface_payload` render); the live-region substrate and true streamed diff/token
+semantics are **v0.57-owned** — v0.55 ships no incremental render path.
 
 ### M2 implementation checkpoint
 
