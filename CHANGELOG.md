@@ -61,12 +61,34 @@ Plan: `docs/plans/v0.56-plan.md`. Request flow:
   secret scan.
 - `mix allbert.intent eval run` passed at the end of manual validation with
   246/246 cases, zero negative-route violations, and gate status `pass`.
-- The committed baseline was ratcheted to `v056-release-baseline` from the final
-  246-case deterministic pass; the live `mix allbert.intent bench` remains
-  advisory, forces the live two-stage strategy, and reports router defer reasons
-  when local model setup is incomplete.
+- The committed baseline is ratcheted to `v056-release-baseline` from the
+  post-M14b 254-case deterministic pass; the live `mix allbert.intent bench`
+  remains advisory, forces the live two-stage strategy, and reports router
+  defer reasons when local model setup is incomplete.
 - Docs gate, diff check, warning gate, and stale-placeholder/drift greps were
   clean during M15 closeout.
+- Post-audit re-verification (2026-06-23): deterministic `mix allbert.intent eval
+  run` passed 254/254 with gate `pass` and zero negative-route violations; the
+  advisory `mix allbert.intent bench` passed 34/34 under the forced two-stage
+  local strategy with `nomic-embed-text` + `llama3.1:8b`; `mix allbert.settings
+  model-doctor` reported `not-pulled=0`; and `release.v056` passed with evidence
+  retained locally.
+
+### Fixed
+
+- Post-audit gate hardening (M14b): negative-route scoring now defaults to
+  no-execute semantics with an explicit `forbidden_action` mode for sibling-action
+  probes, the router and deterministic eval share a single input guard for
+  slash/operator-inspection phrasing, the advisory live bench loads only literal
+  fixture data (no executable AST), prefilter/ranker scoring knobs moved to
+  Settings Central, and the committed corpus grew to 254 cases with the baseline
+  ratcheted to `v056-release-baseline` at 1.0 accuracy.
+- Model-doctor local availability matching now treats Ollama's implicit `:latest`
+  tag as equivalent to a bare configured model id (e.g. `nomic-embed-text` <->
+  `nomic-embed-text:latest`), so a pulled embedding model is no longer reported
+  `not-pulled`. Normalization is applied to both the configured and
+  provider-returned ids, with provider-catalog and model-doctor regression
+  coverage.
 
 ## v0.55.1 - Persistent TUI Operator/Validation Console
 
