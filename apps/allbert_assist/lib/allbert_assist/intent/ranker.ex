@@ -9,15 +9,15 @@ defmodule AllbertAssist.Intent.Ranker do
 
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Intent.Candidate
-
-  @complete_required_slots_boost 0.35
+  alias AllbertAssist.Intent.Router.ScoringProfile
 
   @spec rank([Candidate.t() | map()], map()) :: [Candidate.t() | map()]
   def rank(candidates, context \\ %{}) when is_list(candidates) do
     ranking_context = ranking_context(context)
+    scoring = ScoringProfile.ranker()
 
     candidates
-    |> Enum.map(&score_candidate(&1, ranking_context))
+    |> Enum.map(&score_candidate(&1, ranking_context, scoring))
     |> Enum.sort_by(&score_for_sort/1, :desc)
   end
 
@@ -42,11 +42,11 @@ defmodule AllbertAssist.Intent.Ranker do
 
   def exact_text_match?(_text, _value), do: false
 
-  defp score_candidate(candidate, context) do
+  defp score_candidate(candidate, context, scoring) do
     candidate
     |> apply_active_app_affinity(context)
-    |> apply_descriptor_text_match(context)
-    |> apply_descriptor_slot_completeness()
+    |> apply_descriptor_text_match(context, scoring)
+    |> apply_descriptor_slot_completeness(scoring)
     |> apply_surface_text_match(context)
     |> apply_action_text_match(context)
     |> apply_skill_text_match(context)
@@ -68,14 +68,18 @@ defmodule AllbertAssist.Intent.Ranker do
 
   defp apply_active_app_affinity(candidate, _context), do: candidate
 
-  defp apply_descriptor_text_match(candidate, %{text: text}) when is_binary(text) do
+  defp apply_descriptor_text_match(candidate, %{text: text}, scoring) when is_binary(text) do
     match_score = descriptor_text_match_score(candidate, text)
 
     if field(candidate, :kind) == :app_intent and match_score > 0 and
          get_in_trace(candidate, :ranking_reason) != :descriptor_text_match do
       boost(
         candidate,
-        0.45 + min(match_score * 0.05, 0.25),
+        scoring.descriptor_text_match_boost +
+          min(
+            match_score * scoring.descriptor_text_match_unit_boost,
+            scoring.descriptor_text_match_cap
+          ),
         :descriptor_text_match,
         "Request text matched an app intent descriptor."
       )
@@ -84,16 +88,16 @@ defmodule AllbertAssist.Intent.Ranker do
     end
   end
 
-  defp apply_descriptor_text_match(candidate, _context), do: candidate
+  defp apply_descriptor_text_match(candidate, _context, _scoring), do: candidate
 
-  defp apply_descriptor_slot_completeness(candidate) do
+  defp apply_descriptor_slot_completeness(candidate, scoring) do
     descriptor = get_in_trace(candidate, :descriptor) || %{}
     required_slots = field(descriptor, :required_slots, [])
     extracted_slots = get_in_trace(candidate, :extracted_slots) || %{}
     missing_slots = get_in_trace(candidate, :missing_slots) || []
 
     if descriptor_slot_candidate?(candidate, required_slots) do
-      apply_descriptor_slot_signal(candidate, extracted_slots, missing_slots)
+      apply_descriptor_slot_signal(candidate, extracted_slots, missing_slots, scoring)
     else
       candidate
     end
@@ -102,17 +106,17 @@ defmodule AllbertAssist.Intent.Ranker do
   defp descriptor_slot_candidate?(candidate, required_slots),
     do: field(candidate, :kind) == :app_intent and required_slots != []
 
-  defp apply_descriptor_slot_signal(candidate, extracted_slots, []) do
+  defp apply_descriptor_slot_signal(candidate, extracted_slots, [], scoring) do
     if map_size(extracted_slots) > 0 do
       candidate
-      |> put_field(:score, score(candidate) + @complete_required_slots_boost)
+      |> put_field(:score, score(candidate) + scoring.complete_required_slots_boost)
       |> put_trace(:slot_ranking_reason, :complete_required_slots)
     else
       candidate
     end
   end
 
-  defp apply_descriptor_slot_signal(candidate, _extracted_slots, _missing_slots) do
+  defp apply_descriptor_slot_signal(candidate, _extracted_slots, _missing_slots, _scoring) do
     candidate
     |> put_trace(:slot_ranking_reason, :missing_required_slots)
   end

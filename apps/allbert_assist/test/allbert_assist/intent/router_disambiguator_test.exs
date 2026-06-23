@@ -228,6 +228,26 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
 
       assert {:ok, %Outcome{kind: :answer}} = Router.route(%{text: "hello there"}, [])
     end
+
+    test "command-shaped operator/internal requests are guarded before model selection" do
+      Application.put_env(:allbert_assist, :intent_router_strategy_override, :two_stage_local)
+
+      Application.put_env(
+        :allbert_assist,
+        :intent_router_fake_selection,
+        {:ok, %{selected: "create_note", confidence: 0.99}}
+      )
+
+      assert {:ok,
+              %Outcome{
+                kind: :none,
+                diagnostics: %{note: :operator_internal_action_request}
+              }} =
+               Router.route(%{text: "operator inspect internal action browser_click"}, [])
+
+      assert {:ok, %Outcome{kind: :none, diagnostics: %{note: :slash_command}}} =
+               Router.route(%{text: "/status"}, [])
+    end
   end
 
   describe "escalation (M7, local-by-default, audited)" do

@@ -1,0 +1,10 @@
+---
+context: {}
+domain: mcp
+expected:
+  action: find_mcp_tools
+  kind: execute
+id: mcp-find-002
+rationale: second positive MCP tool-discovery phrasing
+schema_version: 1
+utterance: find MCP tools for calendar

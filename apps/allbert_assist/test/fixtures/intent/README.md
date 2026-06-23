@@ -55,9 +55,11 @@ rationale: Covers a direct memory write request.
 ```
 
 Valid `expected.kind` values are `execute`, `clarify`, `answer`, and `none`.
-Use `negative: true` when a phrase must not execute the named action or any
-operator/internal action. For slot checks, use a literal value or a list entry
-when presence is enough.
+Use `negative: true` when a phrase must not execute. This defaults to
+`negative_mode: no_execute`, which means **any** execute outcome is a violation.
+Use the narrower `negative_mode: forbidden_action` only for a deliberate sibling
+confusion probe where executing a specific `forbidden_action` is the only failure.
+For slot checks, use a literal value or a list entry when presence is enough.
 
 ### Surfaces
 
@@ -87,10 +89,15 @@ any, web, tui, telegram, discord, slack, matrix, whatsapp, signal, email
 - `none`: no available action or conversational answer should handle the
   utterance.
 
-For `negative: true`, the scorer checks for forbidden execution. If
-`expected.action` is present, executing that action is a violation; if it is
-absent, executing any action is a violation. Non-execute outcomes are acceptable
-unless the case also has a stricter `expected.kind` assertion.
+For `negative: true`, the scorer checks forbidden execution before normal accuracy:
+
+- default / `negative_mode: no_execute`: any `execute` outcome is a violation.
+- `negative_mode: forbidden_action`: only executing `forbidden_action` (or
+  `expected.action` when `forbidden_action` is omitted) is a violation.
+
+Operator/internal/doctor/slash-command cases must use the default no-execute mode.
+Non-execute outcomes are acceptable unless the case also has a stricter
+`expected.kind` assertion.
 
 Slot expectations support two forms:
 
@@ -131,6 +138,7 @@ behavior, and negative-route behavior cannot silently regress.
 
 Historical note: the original M2 BEFORE baseline was a failing 237-case snapshot
 used during implementation to measure progress. It was replaced before tagging by
-the release baseline (`v056-release-baseline`, 246 cases, 1.0 accuracy). The
+the release baseline (`v056-release-baseline`, 254 cases, 1.0 accuracy after M14b). The
 legacy live-bench anchor fixture still exists under `test/fixtures/intent/golden`;
-it is intentionally separate from this deterministic release-gate corpus.
+it is intentionally separate from this deterministic release-gate corpus and is
+loaded through a literal data-only parser, never `Code.eval_file/1`.

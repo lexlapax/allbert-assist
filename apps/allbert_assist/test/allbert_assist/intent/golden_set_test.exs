@@ -61,7 +61,7 @@ defmodule AllbertAssist.Intent.GoldenSetTest do
     fixture =
       Path.join(
         System.tmp_dir!(),
-        "allbert-bench-strategy-#{System.unique_integer([:positive])}.exs"
+        "allbert-bench-strategy-#{System.unique_integer([:positive])}.terms"
       )
 
     on_exit(fn ->
@@ -106,6 +106,43 @@ defmodule AllbertAssist.Intent.GoldenSetTest do
 
     assert Application.get_env(:allbert_assist, :intent_router_strategy_override) ==
              :deterministic
+  end
+
+  test "bench fixture loader rejects executable fixture content without running it" do
+    fixture =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-bench-executable-#{System.unique_integer([:positive])}.terms"
+      )
+
+    env_key = "ALLBERT_BENCH_EXECUTED"
+    original_env = System.get_env(env_key)
+    System.delete_env(env_key)
+
+    on_exit(fn ->
+      File.rm(fixture)
+
+      if original_env do
+        System.put_env(env_key, original_env)
+      else
+        System.delete_env(env_key)
+      end
+    end)
+
+    File.write!(
+      fixture,
+      """
+      [
+        System.put_env("#{env_key}", "yes")
+      ]
+      """
+    )
+
+    assert_raise ArgumentError, ~r/not data-only literal terms/, fn ->
+      Bench.load_cases(fixture: fixture)
+    end
+
+    refute System.get_env(env_key)
   end
 
   defp restore_env(key, nil), do: Application.delete_env(:allbert_assist, key)

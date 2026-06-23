@@ -1,0 +1,10 @@
+---
+context: {}
+domain: github
+expected:
+  action: open_github_panel
+  kind: execute
+id: github-panel-002
+rationale: second positive GitHub panel phrasing
+schema_version: 1
+utterance: show my pull requests

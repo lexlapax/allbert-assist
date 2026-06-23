@@ -49,7 +49,8 @@ The labeled routing corpus is **data-only YAML** under
 philosophy: operators edit and diff in an editor, never `.exs`). Representative
 shipped v0.54 golden anchors are ported into this format. The legacy
 `test/fixtures/intent/golden/anchors.terms` file remains only as the advisory live
-bench anchor set until a later cleanup deliberately retires it. One case:
+bench anchor set, but it must be loaded as literal data only; the bench never uses
+`Code.eval_file/1` or any executable fixture loader. One case:
 
 ```yaml
 schema_version: 1
@@ -64,7 +65,7 @@ expected:
   slots:                # optional expected slot extractions
     title: quarterly goals
     body: grow retention
-negative: false         # true => this utterance must NOT route to `action` (negative-route case)
+negative: false         # true => negative-route case; default is no execution allowed
 holdout: false          # holdout cases never tune thresholds
 ```
 
@@ -90,20 +91,25 @@ is versioned and diffable in review.
   `mix allbert.test release.v056`.
 - **Live operator bench (advisory).** The existing `mix allbert.intent bench`
   replays the legacy golden anchor fixture through the real `router_local` model
-  with the live two-stage strategy forced even from test/dev shells. Reported,
-  never blocking in CI; run by an operator (see ADR 0072 for which model to
-  configure). Failures include the router reason so missing local models are
-  visible instead of being confused with deterministic routing.
+  with the live two-stage strategy forced even from test/dev shells. The fixture
+  loader is data-only and rejects executable forms. Reported, never blocking in CI;
+  run by an operator (see ADR 0072 for which model to configure). Failures include
+  the router reason so missing local models are visible instead of being confused
+  with deterministic routing.
 
 ### 3. Scorer metrics
 
 `Scorer` computes, over the deterministic run: overall and **per-domain** and
 **per-surface** top-1 action accuracy; a confusion matrix (which domain steals
 from which); slot-extraction accuracy; clarify-vs-execute correctness (a missing
-required slot must clarify, not mis-execute); and **negative-route violations**
-(any `negative: true` case that routed, plus the standing guarantee that
+required slot must clarify, not mis-execute); and **negative-route violations**.
+Negative cases support two explicit meanings: no action may execute (default for
+operator/internal/doctor/slash language), or a named `forbidden_action` must not
+execute when a fixture is testing a narrower sibling-action confusion. A negative
+case may not pass by executing an unrelated public action unless it explicitly uses
+the narrower forbidden-action mode. The standing guarantee remains that
 `exposure: :internal` / operator-inspection / doctor actions never route — ADR
-0062, ADR 0070).
+0062, ADR 0070.
 
 ### 4. Gate policy (blocking)
 

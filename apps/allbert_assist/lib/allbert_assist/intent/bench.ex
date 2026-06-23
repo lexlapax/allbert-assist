@@ -53,13 +53,61 @@ defmodule AllbertAssist.Intent.Bench do
   @spec load_cases(keyword()) :: [map()]
   def load_cases(opts \\ []) do
     path = Keyword.get(opts, :fixture) || fixture_path()
-    {cases, _binding} = Code.eval_file(path)
-    cases
+
+    case load_literal_terms(path) do
+      {:ok, cases} when is_list(cases) ->
+        cases
+
+      {:ok, other} ->
+        raise ArgumentError,
+              "intent bench fixture #{path} must contain a list of literal cases, got: #{inspect(other)}"
+
+      {:error, reason} ->
+        raise ArgumentError,
+              "intent bench fixture #{path} is not data-only literal terms: #{inspect(reason)}"
+    end
   end
 
   defp fixture_path do
     Enum.find(@fixture_candidates, &File.exists?/1) || hd(@fixture_candidates)
   end
+
+  defp load_literal_terms(path) do
+    with {:ok, source} <- File.read(path),
+         {:ok, ast} <- Code.string_to_quoted(source, file: path),
+         {:ok, terms} <- literal(ast) do
+      {:ok, terms}
+    end
+  end
+
+  defp literal({:%{}, _meta, pairs}) when is_list(pairs) do
+    Enum.reduce_while(pairs, {:ok, %{}}, fn {key_ast, value_ast}, {:ok, acc} ->
+      with {:ok, key} <- literal(key_ast),
+           {:ok, value} <- literal(value_ast) do
+        {:cont, {:ok, Map.put(acc, key, value)}}
+      else
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp literal(list) when is_list(list) do
+    Enum.reduce_while(list, {:ok, []}, fn item, {:ok, acc} ->
+      case literal(item) do
+        {:ok, value} -> {:cont, {:ok, [value | acc]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, values} -> {:ok, Enum.reverse(values)}
+      error -> error
+    end
+  end
+
+  defp literal(value) when is_binary(value) or is_number(value) or is_atom(value),
+    do: {:ok, value}
+
+  defp literal(other), do: {:error, {:executable_or_unsupported_term, other}}
 
   defp filter_split(cases, opts) do
     cond do

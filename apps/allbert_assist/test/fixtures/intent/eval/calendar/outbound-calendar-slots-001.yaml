@@ -1,0 +1,13 @@
+---
+context: {}
+domain: calendar
+expected:
+  action: create_calendar_event
+  kind: execute
+  slots:
+    start: tomorrow 3pm
+    title: sync
+id: outbound-calendar-slots-001
+rationale: calendar event extracts title and start slots
+schema_version: 1
+utterance: schedule a meeting tomorrow 3pm titled sync

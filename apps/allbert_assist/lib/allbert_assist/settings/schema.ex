@@ -51,6 +51,15 @@ defmodule AllbertAssist.Settings.Schema do
     "intent.router_top_k",
     "intent.router_min_confidence",
     "intent.router_model_timeout_ms",
+    "intent.router_scoring.prefilter.complete_required_slots_boost",
+    "intent.router_scoring.prefilter.missing_required_slots_penalty",
+    "intent.router_scoring.prefilter.descriptor_text_match_boost",
+    "intent.router_scoring.prefilter.descriptor_text_match_unit_boost",
+    "intent.router_scoring.prefilter.descriptor_text_match_cap",
+    "intent.router_scoring.ranker.complete_required_slots_boost",
+    "intent.router_scoring.ranker.descriptor_text_match_boost",
+    "intent.router_scoring.ranker.descriptor_text_match_unit_boost",
+    "intent.router_scoring.ranker.descriptor_text_match_cap",
     "intent.eval.min_accuracy",
     "intent.eval.min_per_domain_accuracy",
     "intent.eval.block_on_regression",
@@ -671,6 +680,78 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       min: 250,
       max: 60_000
+    },
+    "intent.router_scoring.prefilter.complete_required_slots_boost" => %{
+      type: :bounded_float,
+      default: 0.35,
+      writable?: true,
+      sensitive?: false,
+      min: 0.0,
+      max: 1.0
+    },
+    "intent.router_scoring.prefilter.missing_required_slots_penalty" => %{
+      type: :bounded_float,
+      default: 0.25,
+      writable?: true,
+      sensitive?: false,
+      min: 0.0,
+      max: 1.0
+    },
+    "intent.router_scoring.prefilter.descriptor_text_match_boost" => %{
+      type: :bounded_float,
+      default: 0.35,
+      writable?: true,
+      sensitive?: false,
+      min: 0.0,
+      max: 1.0
+    },
+    "intent.router_scoring.prefilter.descriptor_text_match_unit_boost" => %{
+      type: :bounded_float,
+      default: 0.04,
+      writable?: true,
+      sensitive?: false,
+      min: 0.0,
+      max: 1.0
+    },
+    "intent.router_scoring.prefilter.descriptor_text_match_cap" => %{
+      type: :bounded_float,
+      default: 0.25,
+      writable?: true,
+      sensitive?: false,
+      min: 0.0,
+      max: 1.0
+    },
+    "intent.router_scoring.ranker.complete_required_slots_boost" => %{
+      type: :bounded_float,
+      default: 0.35,
+      writable?: true,
+      sensitive?: false,
+      min: 0.0,
+      max: 1.0
+    },
+    "intent.router_scoring.ranker.descriptor_text_match_boost" => %{
+      type: :bounded_float,
+      default: 0.45,
+      writable?: true,
+      sensitive?: false,
+      min: 0.0,
+      max: 1.0
+    },
+    "intent.router_scoring.ranker.descriptor_text_match_unit_boost" => %{
+      type: :bounded_float,
+      default: 0.05,
+      writable?: true,
+      sensitive?: false,
+      min: 0.0,
+      max: 1.0
+    },
+    "intent.router_scoring.ranker.descriptor_text_match_cap" => %{
+      type: :bounded_float,
+      default: 0.25,
+      writable?: true,
+      sensitive?: false,
+      min: 0.0,
+      max: 1.0
     },
     "intent.eval.min_accuracy" => %{
       type: :bounded_float,
@@ -3141,6 +3222,21 @@ defmodule AllbertAssist.Settings.Schema do
       "router_top_k" => 5,
       "router_min_confidence" => 0.6,
       "router_model_timeout_ms" => 20_000,
+      "router_scoring" => %{
+        "prefilter" => %{
+          "complete_required_slots_boost" => 0.35,
+          "missing_required_slots_penalty" => 0.25,
+          "descriptor_text_match_boost" => 0.35,
+          "descriptor_text_match_unit_boost" => 0.04,
+          "descriptor_text_match_cap" => 0.25
+        },
+        "ranker" => %{
+          "complete_required_slots_boost" => 0.35,
+          "descriptor_text_match_boost" => 0.45,
+          "descriptor_text_match_unit_boost" => 0.05,
+          "descriptor_text_match_cap" => 0.25
+        }
+      },
       "eval" => %{
         "min_accuracy" => 0.85,
         "min_per_domain_accuracy" => 0.8,

@@ -4452,7 +4452,7 @@ defmodule Mix.Tasks.Allbert.Test do
             {:ok, label, migrate_output <> test_output}
 
           empty_partition_output?(test_output, test_paths) ->
-            {:ok, label, migrate_output <> test_output}
+            {:ok, label, migrate_output <> empty_partition_message(lane)}
 
           true ->
             {:error, label, status, migrate_output <> test_output}
@@ -4477,6 +4477,9 @@ defmodule Mix.Tasks.Allbert.Test do
 
     empty_only_filter? or empty_explicit_partition?
   end
+
+  defp empty_partition_message(lane),
+    do: "no #{lane} tests assigned to this partition\n"
 
   defp serial_lane_paths(:core, _lane), do: []
 

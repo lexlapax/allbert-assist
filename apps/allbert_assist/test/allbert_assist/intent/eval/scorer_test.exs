@@ -70,18 +70,54 @@ defmodule AllbertAssist.Intent.Eval.ScorerTest do
     assert %{metric: :per_domain_accuracy, domain: "notes", previous: 1.0, current: 0.0} in score.gate.regressions
   end
 
-  defp result(case, actual), do: %{case: case, actual: actual}
+  test "negative cases default to no execution, with explicit forbidden-action mode available" do
+    no_execute_case =
+      case!("operator-negative-001", "operator", :execute, "intent_doctor", %{}, true)
 
-  defp case!(id, domain, kind, action, slots \\ %{}, negative? \\ false) do
-    {:ok, case} =
-      Corpus.validate(%{
-        id: id,
-        domain: domain,
-        utterance: id,
-        expected: %{kind: kind, action: action, slots: slots},
-        negative: negative?
+    forbidden_action_case =
+      case!(%{
+        id: "operator-forbidden-action-001",
+        domain: "operator",
+        utterance: "operator-forbidden-action-001",
+        expected: %{kind: :execute, action: "intent_doctor"},
+        negative: true,
+        negative_mode: :forbidden_action
       })
 
+    score =
+      Scorer.score(%{
+        results: [
+          result(no_execute_case, %{kind: :execute, action: "preview_plan"}),
+          result(forbidden_action_case, %{kind: :execute, action: "preview_plan"})
+        ]
+      })
+
+    assert [
+             %{
+               id: "operator-negative-001",
+               negative_mode: :no_execute,
+               forbidden_action: "intent_doctor",
+               actual_action: "preview_plan"
+             }
+           ] = score.negative_violations
+
+    assert score.passed == 1
+  end
+
+  defp result(case, actual), do: %{case: case, actual: actual}
+
+  defp case!(attrs) when is_map(attrs) do
+    {:ok, case} = Corpus.validate(attrs)
     case
+  end
+
+  defp case!(id, domain, kind, action, slots \\ %{}, negative? \\ false) do
+    case!(%{
+      id: id,
+      domain: domain,
+      utterance: id,
+      expected: %{kind: kind, action: action, slots: slots},
+      negative: negative?
+    })
   end
 end

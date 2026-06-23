@@ -13,13 +13,8 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
   alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Intent.Router.Embedder
   alias AllbertAssist.Intent.Router.Index
+  alias AllbertAssist.Intent.Router.ScoringProfile
   alias AllbertAssist.Settings
-
-  @complete_required_slots_boost 0.35
-  @missing_required_slots_penalty 0.25
-  @descriptor_text_match_boost 0.35
-  @descriptor_text_match_token_boost 0.04
-  @descriptor_text_match_cap 0.25
 
   @type ranked :: %{
           action_name: String.t(),
@@ -55,6 +50,8 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
 
   def rank(query_vector, entries, k, query)
       when is_list(entries) and is_integer(k) and k > 0 and is_binary(query) do
+    scoring = ScoringProfile.prefilter()
+
     ranked =
       entries
       |> Enum.map(fn entry ->
@@ -62,7 +59,8 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
         required_slots = Map.get(entry, :required_slots, [])
 
         base_score =
-          Embedder.cosine(query_vector, entry.vector) + descriptor_text_boost(entry, query)
+          Embedder.cosine(query_vector, entry.vector) +
+            descriptor_text_boost(entry, query, scoring)
 
         %{
           action_name: entry.action_name,
@@ -72,7 +70,7 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
           optional_slots: Map.get(entry, :optional_slots, []),
           extracted_slots: slots.extracted_slots,
           missing_slots: slots.missing_slots,
-          score: slot_adjusted_score(base_score, required_slots, slots)
+          score: slot_adjusted_score(base_score, required_slots, slots, scoring)
         }
       end)
       |> Enum.sort_by(& &1.score, :desc)
@@ -91,19 +89,19 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
 
   defp extracted_slots(_entry, _query), do: %{extracted_slots: %{}, missing_slots: []}
 
-  defp descriptor_text_boost(%{descriptor: %Descriptor{} = descriptor} = entry, query) do
+  defp descriptor_text_boost(%{descriptor: %Descriptor{} = descriptor} = entry, query, scoring) do
     descriptor_text_match_score(entry, descriptor, query)
     |> case do
       score when score > 0 ->
-        @descriptor_text_match_boost +
-          min(score * @descriptor_text_match_token_boost, @descriptor_text_match_cap)
+        scoring.descriptor_text_match_boost +
+          min(score * scoring.descriptor_text_match_unit_boost, scoring.descriptor_text_match_cap)
 
       _score ->
         0.0
     end
   end
 
-  defp descriptor_text_boost(_entry, _query), do: 0.0
+  defp descriptor_text_boost(_entry, _query, _scoring), do: 0.0
 
   defp descriptor_text_match_score(entry, descriptor, query) do
     vocabulary = Map.get(descriptor, :vocabulary, %{}) || %{}
@@ -193,15 +191,15 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
 
   defp single_token_match?(_allow_single?, _value_tokens, _text_tokens), do: false
 
-  defp slot_adjusted_score(score, [], _slots), do: score
+  defp slot_adjusted_score(score, [], _slots, _scoring), do: score
 
-  defp slot_adjusted_score(score, required_slots, slots) when is_list(required_slots) do
+  defp slot_adjusted_score(score, required_slots, slots, scoring) when is_list(required_slots) do
     cond do
       slots.missing_slots == [] and map_size(slots.extracted_slots) > 0 ->
-        score + @complete_required_slots_boost
+        score + scoring.complete_required_slots_boost
 
       slots.missing_slots != [] ->
-        max(score - @missing_required_slots_penalty, 0.0)
+        max(score - scoring.missing_required_slots_penalty, 0.0)
 
       true ->
         score

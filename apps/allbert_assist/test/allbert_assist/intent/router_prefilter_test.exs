@@ -90,6 +90,42 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
       assert %{shortlist: [%{action_name: "resume_thread_on_channel"} | _]} =
                Prefilter.rank(FakeEmbedder.vector(query), entries, 2, query)
     end
+
+    test "descriptor text signal reads Settings Central scoring values" do
+      {:ok, write_note} =
+        Descriptor.normalize(%{
+          app_id: :notes_files,
+          action_name: "write_note",
+          label: "Create or write a local note",
+          examples: ["create a note titled groceries"],
+          synonyms: ["create note"],
+          required_slots: []
+        })
+
+      entries = [
+        %{
+          action_name: "search_notes",
+          app_id: :notes_files,
+          label: "Search notes",
+          vector: [0.0, 1.0]
+        },
+        descriptor_entry(write_note) |> Map.put(:vector, [0.0, 1.0])
+      ]
+
+      query = "create a note titled release check"
+
+      assert %{shortlist: [%{action_name: "write_note"} | _]} =
+               Prefilter.rank([1.0, 0.0], entries, 2, query)
+
+      {:ok, _} =
+        Settings.put("intent.router_scoring.prefilter.descriptor_text_match_boost", 0.0)
+
+      {:ok, _} =
+        Settings.put("intent.router_scoring.prefilter.descriptor_text_match_unit_boost", 0.0)
+
+      assert %{shortlist: [%{action_name: "search_notes"} | _]} =
+               Prefilter.rank([1.0, 0.0], entries, 2, query)
+    end
   end
 
   describe "shortlist/2 (embed + index)" do

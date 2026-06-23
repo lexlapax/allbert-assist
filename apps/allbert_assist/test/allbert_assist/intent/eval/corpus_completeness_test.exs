@@ -102,6 +102,39 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
     assert MapSet.difference(positive_actions, allowed_positive_actions) == MapSet.new()
   end
 
+  test "slot-bearing cases cover more than one action family" do
+    assert {:ok, cases} = Corpus.load()
+
+    slot_cases =
+      Enum.filter(cases, fn case ->
+        not case.negative? and map_size(case.expected.slots || %{}) > 0
+      end)
+
+    slot_actions = slot_cases |> Enum.map(& &1.expected.action) |> MapSet.new()
+
+    assert length(slot_cases) >= 4
+
+    assert MapSet.subset?(
+             MapSet.new(~w(send_email send_channel_message create_calendar_event run_analysis)),
+             slot_actions
+           )
+  end
+
+  test "operator/internal negative cases default to no-execute semantics" do
+    assert {:ok, cases} = Corpus.load()
+
+    for case <- cases,
+        case.negative?,
+        case.domain in [
+          "confirmations",
+          "negative-doctor",
+          "negative-internal",
+          "negative-operator"
+        ] do
+      assert case.negative_mode == :no_execute
+    end
+  end
+
   test "negative execute cases enumerate internal and planned operator actions" do
     assert {:ok, cases} = Corpus.load()
 
@@ -148,7 +181,7 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
     assert baseline["schema_version"] == 1
     assert baseline["id"] == "v056-release-baseline"
     assert baseline["corpus_case_count"] == length(cases)
-    assert baseline["corpus_case_count"] == 246
+    assert baseline["corpus_case_count"] == 254
     assert baseline["overall_accuracy"] == 1.0
     assert is_map(baseline["per_domain"])
     assert get_in(baseline, ["gate", "status"]) == "pass"

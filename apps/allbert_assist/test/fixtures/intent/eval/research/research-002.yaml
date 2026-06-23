@@ -1,0 +1,10 @@
+---
+context: {}
+domain: research
+expected:
+  action: research
+  kind: execute
+id: research-002
+rationale: second positive research phrasing
+schema_version: 1
+utterance: summarize the research on local-first agents

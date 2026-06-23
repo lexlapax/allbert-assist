@@ -10,6 +10,7 @@ defmodule AllbertAssist.Intent.Router.DefaultRouter do
   @behaviour AllbertAssist.Intent.Router.Behaviour
 
   alias AllbertAssist.Intent.Router.Disambiguator
+  alias AllbertAssist.Intent.Router.InputGuard
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Intent.Router.Prefilter
 
@@ -17,12 +18,18 @@ defmodule AllbertAssist.Intent.Router.DefaultRouter do
   def route(request, _candidates, context) do
     query = request |> Map.get(:text, "") |> to_string()
 
-    case Prefilter.shortlist(query) do
-      {:ok, %{shortlist: shortlist, margin: margin}} ->
-        Disambiguator.disambiguate(query, shortlist, margin, context)
+    case InputGuard.guarded_outcome(query) do
+      {:ok, %Outcome{} = outcome} ->
+        {:ok, outcome}
 
-      {:fallback, reason} ->
-        {:ok, Outcome.defer(:prefilter_fallback, %{reason: inspect(reason)})}
+      :continue ->
+        case Prefilter.shortlist(query) do
+          {:ok, %{shortlist: shortlist, margin: margin}} ->
+            Disambiguator.disambiguate(query, shortlist, margin, context)
+
+          {:fallback, reason} ->
+            {:ok, Outcome.defer(:prefilter_fallback, %{reason: inspect(reason)})}
+        end
     end
   end
 end

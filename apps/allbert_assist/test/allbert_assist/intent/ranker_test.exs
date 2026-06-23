@@ -3,8 +3,35 @@ defmodule AllbertAssist.Intent.RankerTest do
 
   alias AllbertAssist.Intent.EvalFixtures
   alias AllbertAssist.Intent.Ranker
+  alias AllbertAssist.Paths
+  alias AllbertAssist.Settings
 
   setup {AllbertAssist.StockSageRegistryCase, :setup}
+
+  setup do
+    original_home = System.get_env("ALLBERT_HOME")
+    original_paths = Application.get_env(:allbert_assist, Paths)
+    original_settings = Application.get_env(:allbert_assist, Settings)
+
+    System.put_env(
+      "ALLBERT_HOME",
+      Path.join(System.tmp_dir!(), "allbert-ranker-#{System.unique_integer([:positive])}")
+    )
+
+    Application.delete_env(:allbert_assist, Paths)
+    Application.delete_env(:allbert_assist, Settings)
+
+    on_exit(fn ->
+      if original_home,
+        do: System.put_env("ALLBERT_HOME", original_home),
+        else: System.delete_env("ALLBERT_HOME")
+
+      restore(Paths, original_paths)
+      restore(Settings, original_settings)
+    end)
+
+    :ok
+  end
 
   test "active app boosts matching app candidates when context is app-specific" do
     stocksage =
@@ -219,6 +246,59 @@ defmodule AllbertAssist.Intent.RankerTest do
     assert ranked.trace_metadata.ranking_reason == :descriptor_text_match
   end
 
+  test "descriptor text boost reads Settings Central scoring values" do
+    write_note =
+      EvalFixtures.candidate(
+        kind: :app_intent,
+        id: "notes_files:write_note",
+        action_name: "write_note",
+        source: :app,
+        status: :candidate,
+        selected?: false,
+        score: 0.2,
+        app_id: :notes_files,
+        trace_metadata: %{
+          descriptor: %{
+            label: "Create or write a local note",
+            action_name: "write_note",
+            examples: ["create a note titled groceries"],
+            synonyms: ["create note"]
+          }
+        }
+      )
+
+    search_notes =
+      EvalFixtures.candidate(
+        kind: :app_intent,
+        id: "notes_files:search_notes",
+        action_name: "search_notes",
+        source: :app,
+        status: :candidate,
+        selected?: false,
+        score: 0.4,
+        app_id: :notes_files,
+        trace_metadata: %{
+          descriptor: %{
+            label: "Search notes",
+            action_name: "search_notes",
+            examples: ["find notes"],
+            synonyms: ["search notes"]
+          }
+        }
+      )
+
+    assert [%{id: "notes_files:write_note"} | _rest] =
+             Ranker.rank([search_notes, write_note], %{text: "create a note titled release"})
+
+    {:ok, _} = Settings.put("intent.router_scoring.ranker.descriptor_text_match_boost", 0.0)
+
+    {:ok, _} =
+      Settings.put("intent.router_scoring.ranker.descriptor_text_match_unit_boost", 0.0)
+
+    assert [%{id: "notes_files:search_notes"} | _rest] =
+             Ranker.rank([search_notes, write_note], %{text: "create a note titled release"})
+  end
+
   test "descriptor matching prefers exact phrases over generic words in labels" do
     run_analysis =
       EvalFixtures.candidate(
@@ -308,4 +388,7 @@ defmodule AllbertAssist.Intent.RankerTest do
 
     assert ranked_job.trace_metadata.ranking_reason == :job_text_match
   end
+
+  defp restore(key, nil), do: Application.delete_env(:allbert_assist, key)
+  defp restore(key, value), do: Application.put_env(:allbert_assist, key, value)
 end

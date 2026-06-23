@@ -1,0 +1,14 @@
+---
+context: {}
+domain: channels
+expected:
+  action: send_channel_message
+  kind: execute
+  slots:
+    body: release is ready
+    channel: discord
+    target: "#general"
+id: outbound-channel-slots-001
+rationale: outbound channel message extracts channel, target, and body slots
+schema_version: 1
+utterance: "send a discord message to #general with body release is ready"

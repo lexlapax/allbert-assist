@@ -1,0 +1,10 @@
+---
+context: {}
+domain: browser
+expected:
+  action: browser_research_handoff
+  kind: execute
+id: browser-extract-text-001
+rationale: browser text extraction handoff
+schema_version: 1
+utterance: extract text from https://example.com

@@ -17,6 +17,8 @@ defmodule AllbertAssist.Intent.Eval.Corpus do
               context: %{},
               expected: %{kind: :none, slots: %{}},
               negative?: false,
+              negative_mode: :no_execute,
+              forbidden_action: nil,
               holdout?: false,
               rationale: nil,
               path: nil
@@ -47,10 +49,12 @@ defmodule AllbertAssist.Intent.Eval.Corpus do
     "context" => :context,
     "domain" => :domain,
     "expected" => :expected,
+    "forbidden_action" => :forbidden_action,
     "holdout" => :holdout,
     "id" => :id,
     "kind" => :kind,
     "negative" => :negative,
+    "negative_mode" => :negative_mode,
     "rationale" => :rationale,
     "schema_version" => :schema_version,
     "slots" => :slots,
@@ -69,6 +73,8 @@ defmodule AllbertAssist.Intent.Eval.Corpus do
           context: map(),
           expected: map(),
           negative?: boolean(),
+          negative_mode: :no_execute | :forbidden_action,
+          forbidden_action: String.t() | nil,
           holdout?: boolean(),
           rationale: String.t() | nil,
           path: String.t() | nil
@@ -180,7 +186,9 @@ defmodule AllbertAssist.Intent.Eval.Corpus do
          {:ok, domain} <- required_domain(attrs),
          {:ok, utterance} <- required_string(attrs, :utterance),
          {:ok, surface} <- normalize_surface(Map.get(attrs, :surface, :any)),
-         {:ok, expected} <- normalize_expected(expected) do
+         {:ok, expected} <- normalize_expected(expected),
+         {:ok, negative_mode} <- normalize_negative_mode(attrs),
+         {:ok, forbidden_action} <- normalize_forbidden_action(attrs, expected) do
       {:ok,
        %Case{
          id: id,
@@ -190,6 +198,8 @@ defmodule AllbertAssist.Intent.Eval.Corpus do
          context: normalize_map(Map.get(attrs, :context, %{})),
          expected: expected,
          negative?: truthy?(Map.get(attrs, :negative, false)),
+         negative_mode: negative_mode,
+         forbidden_action: forbidden_action,
          holdout?: truthy?(Map.get(attrs, :holdout, false)),
          rationale: optional_string(Map.get(attrs, :rationale)),
          path: path
@@ -256,6 +266,27 @@ defmodule AllbertAssist.Intent.Eval.Corpus do
   defp normalize_action(_kind, nil), do: {:ok, nil}
   defp normalize_action(_kind, value) when is_binary(value), do: {:ok, value}
   defp normalize_action(_kind, value), do: {:ok, to_string(value)}
+
+  defp normalize_negative_mode(%{negative_mode: value}) do
+    case normalize_atom(value) do
+      mode when mode in [:no_execute, :forbidden_action] -> {:ok, mode}
+      _other -> {:error, {:invalid_negative_mode, value}}
+    end
+  end
+
+  defp normalize_negative_mode(%{forbidden_action: _value}), do: {:ok, :forbidden_action}
+  defp normalize_negative_mode(_attrs), do: {:ok, :no_execute}
+
+  defp normalize_forbidden_action(attrs, expected) do
+    value = Map.get(attrs, :forbidden_action, Map.get(expected, :action))
+
+    case value do
+      nil -> {:ok, nil}
+      value when is_binary(value) and value != "" -> {:ok, value}
+      value when is_atom(value) -> {:ok, Atom.to_string(value)}
+      value -> {:error, {:invalid_forbidden_action, value}}
+    end
+  end
 
   defp normalize_slots(nil), do: %{}
   defp normalize_slots(slots) when is_map(slots), do: normalize_map(slots)

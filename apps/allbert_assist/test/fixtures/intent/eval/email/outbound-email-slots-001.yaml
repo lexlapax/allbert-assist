@@ -1,0 +1,13 @@
+---
+context: {}
+domain: email
+expected:
+  action: send_email
+  kind: execute
+  slots:
+    body: deployment is complete
+    to: team@example.com
+id: outbound-email-slots-001
+rationale: outbound email extracts recipient and body slots
+schema_version: 1
+utterance: send an email to team@example.com with body deployment is complete

@@ -12,6 +12,7 @@ defmodule AllbertAssist.Intent.Eval.Runner do
   alias AllbertAssist.Intent.Router.Disambiguator
   alias AllbertAssist.Intent.Router.Embedder.FakeEmbedder
   alias AllbertAssist.Intent.Router.Index
+  alias AllbertAssist.Intent.Router.InputGuard
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Intent.Router.Prefilter
 
@@ -167,21 +168,24 @@ defmodule AllbertAssist.Intent.Eval.Runner do
   end
 
   defp semantic_fake_selection(utterance, ranked) do
-    cond do
-      slash_command?(utterance) ->
-        {:ok, %{selected: "__none__", confidence: 1.0, slots: %{}}}
+    case InputGuard.sentinel_selection(utterance) do
+      {:ok, selection} ->
+        {:ok, selection}
 
-      unsafe_or_noisy_none?(utterance) ->
-        {:ok, %{selected: "__none__", confidence: 1.0, slots: %{}}}
+      :continue ->
+        cond do
+          unsafe_or_noisy_none?(utterance) ->
+            {:ok, %{selected: "__none__", confidence: 1.0, slots: %{}}}
 
-      general_answer_question?(utterance) ->
-        {:ok, %{selected: "__answer__", confidence: 1.0, slots: %{}}}
+          general_answer_question?(utterance) ->
+            {:ok, %{selected: "__answer__", confidence: 1.0, slots: %{}}}
 
-      ambiguous_operator_noun_phrase?(utterance, ranked.shortlist) ->
-        {:ok, %{selected: "__clarify__", confidence: 0.7, slots: %{}}}
+          ambiguous_operator_noun_phrase?(utterance, ranked.shortlist) ->
+            {:ok, %{selected: "__clarify__", confidence: 0.7, slots: %{}}}
 
-      true ->
-        top_ranked_selection(ranked)
+          true ->
+            top_ranked_selection(ranked)
+        end
     end
   end
 
@@ -247,9 +251,6 @@ defmodule AllbertAssist.Intent.Eval.Runner do
       raw: other
     }
   end
-
-  defp slash_command?(utterance),
-    do: utterance |> to_string() |> String.trim() |> String.starts_with?("/")
 
   defp unsafe_or_noisy_none?(utterance) do
     text = normalize_text(utterance)

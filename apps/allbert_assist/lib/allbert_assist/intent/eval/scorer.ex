@@ -112,18 +112,34 @@ defmodule AllbertAssist.Intent.Eval.Scorer do
     |> Enum.map(fn %{case: case, actual: actual} ->
       %{
         id: case.id,
+        negative_mode: negative_mode(case),
         expected_action: Map.get(case.expected, :action),
+        forbidden_action: forbidden_action(case),
         actual_action: actual_action(actual)
       }
     end)
   end
 
-  defp negative_violation?(%{negative?: true, expected: expected}, actual) do
-    actual_kind(actual) == :execute and
-      (is_nil(Map.get(expected, :action)) or actual_action(actual) == Map.get(expected, :action))
+  defp negative_violation?(%{negative?: true} = case, actual) do
+    case negative_mode(case) do
+      :forbidden_action ->
+        forbidden = forbidden_action(case)
+
+        actual_kind(actual) == :execute and
+          (is_nil(forbidden) or actual_action(actual) == forbidden)
+
+      :no_execute ->
+        actual_kind(actual) == :execute
+    end
   end
 
   defp negative_violation?(_case, _actual), do: false
+
+  defp negative_mode(case), do: Map.get(case, :negative_mode, :no_execute)
+
+  defp forbidden_action(case) do
+    Map.get(case, :forbidden_action) || Map.get(case.expected, :action)
+  end
 
   defp gate_summary(score, baseline) do
     %{
