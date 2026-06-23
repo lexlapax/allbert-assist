@@ -185,28 +185,43 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert server_response.decision.selected_action == "find_tools"
   end
 
-  test "natural-language operator report phrasing stays side-effect-free" do
-    assert {:ok, response} =
-             IntentAgent.respond(%{
-               text: "what are my recent channel events and model settings?",
-               channel: :tui,
-               user_id: "local",
-               operator_id: "local",
-               thread_id: "thr-operator-report-guard",
-               session_id: "sess-operator-report-guard",
-               input_signal_id: "sig-operator-report-guard"
-             })
+  test "natural-language operator report phrasing returns a bounded assistant summary" do
+    for {text, signal_id} <- [
+          {"what are my recent channel events and model settings?", "sig-operator-report-guard"},
+          {"whar are my recent channel events and model settings?",
+           "sig-operator-report-typo-guard"}
+        ] do
+      assert {:ok, response} =
+               IntentAgent.respond(%{
+                 text: text,
+                 channel: :tui,
+                 user_id: "local",
+                 operator_id: "local",
+                 thread_id: "thr-operator-report-guard",
+                 session_id: "sess-operator-report-guard",
+                 input_signal_id: signal_id
+               })
 
-    assert response.status == :completed
-    assert response.decision.selected_action == "direct_answer"
+      assert response.status == :completed
+      assert response.decision.selected_action == "list_settings"
 
-    assert [%{name: "direct_answer", permission_decision: %{decision: :allowed}}] =
-             response.actions
+      assert [
+               %{
+                 name: "list_settings",
+                 permission_decision: %{decision: :allowed},
+                 settings_metadata: %{render_mode: :assistant_summary}
+               }
+             ] = response.actions
 
-    refute response.message =~ "provider=telegram_bot_api"
-    refute response.message =~ "provider=terminal"
-    refute response.message =~ "model doctor ok="
-    assert response.message =~ "side-effect-free"
+      assert response.message =~ "Settings Central has"
+      assert response.message =~ "won't dump the full operator report"
+      refute response.message =~ "Settings Central values:"
+      refute response.message =~ "provider=telegram_bot_api"
+      refute response.message =~ "provider=terminal"
+      refute response.message =~ "model_profiles.fast.max_tokens"
+      refute response.message =~ "api_key_ref"
+      refute response.message =~ "model doctor ok="
+    end
   end
 
   test "routes documented Plan/Build intent corpus", %{root: root} do
@@ -316,7 +331,8 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
              })
 
     assert list_response.status == :completed
-    assert list_response.message =~ "operator.timezone"
+    assert list_response.message =~ "Settings Central has"
+    refute list_response.message =~ "operator.timezone"
     assert [%{name: "list_settings"}] = list_response.actions
 
     assert {:ok, read_response} =

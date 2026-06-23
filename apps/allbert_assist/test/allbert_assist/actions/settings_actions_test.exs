@@ -39,12 +39,37 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
   test "list/read/explain settings actions return settings metadata" do
     assert {:ok, list_response} = ListSettings.run(%{}, %{})
     assert list_response.status == :completed
-    assert list_response.message =~ "operator.timezone"
-    assert list_response.message =~ "model_profiles.fast.max_tokens: 1024"
-    assert list_response.message =~ "providers.openai.api_key_ref: \"[REDACTED]\""
+    assert list_response.message =~ "Settings Central has"
+    assert list_response.message =~ "won't dump the full operator report"
+    refute list_response.message =~ "operator.timezone"
+    refute list_response.message =~ "model_profiles.fast.max_tokens"
+    refute list_response.message =~ "api_key_ref"
     assert Enum.any?(list_response.settings, &(&1.key == "operator.timezone"))
-    assert [%{name: "list_settings", settings_metadata: %{count: count}}] = list_response.actions
+
+    assert [
+             %{
+               name: "list_settings",
+               settings_metadata: %{count: count, render_mode: :assistant_summary}
+             }
+           ] = list_response.actions
+
     assert count > 0
+
+    assert {:ok, report_response} =
+             ListSettings.run(%{render_mode: "operator_report"}, %{})
+
+    assert report_response.status == :completed
+    assert report_response.message =~ "Settings Central values:"
+    assert report_response.message =~ "operator.timezone"
+    assert report_response.message =~ "model_profiles.fast.max_tokens: 1024"
+    assert report_response.message =~ "providers.openai.api_key_ref: \"[REDACTED]\""
+
+    assert [
+             %{
+               name: "list_settings",
+               settings_metadata: %{render_mode: :operator_report}
+             }
+           ] = report_response.actions
 
     assert {:ok, read_response} = ReadSetting.run(%{key: "operator.timezone"}, %{})
     assert read_response.status == :completed

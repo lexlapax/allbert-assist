@@ -30,7 +30,7 @@ defmodule Mix.Tasks.Allbert.Settings do
   end
 
   defp dispatch(["list"]) do
-    with {:ok, response} <- completed_action("list_settings", %{}) do
+    with {:ok, response} <- completed_action("list_settings", %{render_mode: "operator_report"}) do
       {:ok, response.settings}
     end
   end

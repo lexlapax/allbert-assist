@@ -11,7 +11,7 @@ defmodule AllbertAssist.Actions.Channels.ListChannels do
     description: "List configured Allbert channel adapters.",
     category: "channels",
     tags: ["channels", "read_only"],
-    schema: [],
+    schema: [render_mode: [type: :string, required: false]],
     output_schema: [
       message: [type: :string, required: true],
       status: [type: :atom, required: true],
@@ -22,18 +22,24 @@ defmodule AllbertAssist.Actions.Channels.ListChannels do
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
-  def run(_params, context) do
+  def run(params, context) do
     permission_decision = PermissionGate.authorize(:read_only, context)
+    render_mode = render_mode(params, context)
 
     if PermissionGate.allowed?(permission_decision) do
       channels = Channels.list_channels()
 
       {:ok,
        %{
-         message: message(channels),
+         message: message(channels, render_mode),
          status: :completed,
          channels: channels,
-         actions: [action(:completed, permission_decision, %{channel_count: length(channels)})]
+         actions: [
+           action(:completed, permission_decision, %{
+             channel_count: length(channels),
+             render_mode: render_mode
+           })
+         ]
        }}
     else
       {:ok,
@@ -46,14 +52,24 @@ defmodule AllbertAssist.Actions.Channels.ListChannels do
     end
   end
 
-  defp message([]), do: "No configured channels."
+  defp message([], :operator_report), do: "No configured channels."
 
-  defp message(channels) do
+  defp message(channels, :operator_report) do
     channels
     |> Enum.map(fn channel ->
       "- #{channel.channel} provider=#{channel.provider} enabled=#{channel.enabled} identities=#{channel.identity_count}"
     end)
     |> Enum.join("\n")
+  end
+
+  defp message(channels, :assistant_summary) do
+    total = length(channels)
+    enabled = Enum.count(channels, & &1.enabled)
+    disabled = total - enabled
+
+    "Channel registry has #{total} adapters (#{enabled} enabled, #{disabled} disabled). " <>
+      "I can discuss channel setup safely here, but I won't dump the operator inventory " <>
+      "in chat. Use `/channels` for the TUI operator report."
   end
 
   defp action(status, permission_decision, metadata) do
@@ -65,4 +81,14 @@ defmodule AllbertAssist.Actions.Channels.ListChannels do
       channel_metadata: metadata
     }
   end
+
+  defp render_mode(params, context) do
+    case field(params, :render_mode) || field(params, :mode) || field(context, :render_mode) do
+      value when value in [:operator_report, "operator_report", :raw, "raw"] -> :operator_report
+      _other -> :assistant_summary
+    end
+  end
+
+  defp field(map, key) when is_map(map), do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
+  defp field(_map, _key), do: nil
 end

@@ -356,11 +356,13 @@ scope.
     channel-originated or generated-code sessions; deterministic acceptance and
     Security Central stay intact. ADR 0068; rationale in
     `docs/archives/pi-integration-rethink.md`.
-58. v0.58 Web UX Redo: re-layout `/workspace` (ADR 0023/0024 kept) — chat
-    primary, ephemeral surfaces become popups, canvas demoted, labels cleaned
-    up ("Conversations" replaces "threads"); references ChatGPT/Claude/Hermes.
-    Sequenced after intent (v0.56) and the channel/console/coding surfaces
-    (v0.55/v0.55.1/v0.57) so chat quality is mature first.
+58. v0.58 Web UX Redo + Surface Policy: re-layout `/workspace` (ADR 0023/0024
+    kept) — chat primary, ephemeral surfaces become popups, canvas demoted,
+    labels cleaned up ("Conversations" replaces "threads"); references
+    ChatGPT/Claude/Hermes. Adds operator-managed surface policy for
+    raw-vs-summary report shape, redaction/display bounds, and explicit operator
+    affordances. Sequenced after intent (v0.56) and the channel/console/coding
+    surfaces (v0.55/v0.55.1/v0.57) so chat quality is mature first.
 59. v0.59 Hardening, export/import, settings schema migration substrate,
     operator onboarding simplification, and final RC: no new user-facing
     capability; Allbert Home portability, cross-surface security eval sweep,
@@ -3538,7 +3540,7 @@ Expected direction:
   Central, or confirmations; no model-decides-it's-done for effectful or
   generated-code work; keep MCP-first with lazy disclosure; no sibling runtime.
 
-## v0.58: Web UX Redo
+## v0.58: Web UX Redo + Surface Policy
 
 Plan: `docs/plans/v0.58-plan.md`
 Request flow: `docs/plans/v0.58-request-flow.md`
@@ -3564,6 +3566,11 @@ Expected direction:
   `intent_list_review`, `model_doctor`) through `Actions.Runner.run/3`, with
   no CLI scraping, direct store reads, secret/endpoint leakage, or new
   authority.
+- Adds the formal operator-managed surface policy layer: Settings Central-backed
+  policy DTOs/actions and a web panel controlling per-surface report mode,
+  redaction/display profile, row/count bounds, and explicit-affordance
+  requirements. This policy is presentation governance only: descriptors remain
+  routing vocabulary, and Security Central remains authority.
 
 ## v0.59: Hardening, Export/Import, Settings Migration, Operator Onboarding, And Final RC
 

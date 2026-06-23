@@ -82,28 +82,25 @@ defmodule AllbertAssist.Intent.EngineTest do
     assert decision.trace_metadata.intent_candidates.engine_version == "v0.19"
   end
 
-  test "operator report phrasing requires explicit slash commands" do
-    assert {:ok, decision} =
-             Engine.decide(
-               EvalFixtures.request(
-                 text: "what are my recent channel events and model settings?",
-                 channel: :tui
+  test "operator report phrasing stays in normal action routing" do
+    for text <- [
+          "what are my recent channel events and model settings?",
+          "whar are my recent channel events and model settings?"
+        ] do
+      assert {:ok, decision} =
+               Engine.decide(
+                 EvalFixtures.request(
+                   text: text,
+                   channel: :tui
+                 )
                )
-             )
 
-    assert decision.intent == :direct_answer
-    assert decision.selected_action == "direct_answer"
+      assert decision.intent == :registry_action
+      assert decision.selected_action == "list_settings"
 
-    selected = decision.trace_metadata.intent_candidates.selected
-    assert selected.id == "direct_answer"
-
-    rejected_actions =
-      decision.trace_metadata.intent_candidates.rejected
-      |> Enum.map(& &1.action_name)
-      |> MapSet.new()
-
-    assert MapSet.member?(rejected_actions, "list_settings")
-    assert MapSet.member?(rejected_actions, "list_channels")
+      selected = decision.trace_metadata.intent_candidates.selected
+      assert selected.id == "list_settings"
+    end
   end
 
   test "decide preserves a deterministic route decision as the engine-selected route" do

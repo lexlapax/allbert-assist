@@ -129,7 +129,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   end
 
   defp dispatch(["list"]) do
-    with {:ok, response} <- completed_action("list_channels", %{}) do
+    with {:ok, response} <- completed_action("list_channels", %{render_mode: "operator_report"}) do
       {:ok, {:list, response.channels}}
     end
   end
