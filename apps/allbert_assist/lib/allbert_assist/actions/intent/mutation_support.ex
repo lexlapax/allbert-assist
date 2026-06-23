@@ -47,7 +47,6 @@ defmodule AllbertAssist.Actions.Intent.MutationSupport do
     )
   end
 
-  @spec finish(String.t(), map(), PermissionGate.decision(), map()) :: {:ok, map()}
   def finish(action_name, result, permission_decision, metadata \\ %{}) do
     status = Map.get(result, :status, :completed)
 
@@ -57,7 +56,7 @@ defmodule AllbertAssist.Actions.Intent.MutationSupport do
      |> Map.put(:actions, [action(action_name, status, permission_decision, metadata)])}
   end
 
-  @spec optimize(map()) :: {:ok, map()} | {:error, term()}
+  @spec optimize(map()) :: {:ok, map()}
   def optimize(params) do
     result = Optimizer.optimize(strategy: strategy(params))
     rejected_count = length(Map.get(result, :rejected, []))
@@ -82,7 +81,6 @@ defmodule AllbertAssist.Actions.Intent.MutationSupport do
      }}
   end
 
-  @spec reindex() :: {:ok, map()}
   def reindex do
     state = Index.rebuild()
     message = "index status=#{state.status} size=#{length(state.entries)}"
@@ -125,7 +123,6 @@ defmodule AllbertAssist.Actions.Intent.MutationSupport do
     end
   end
 
-  @spec disable(String.t()) :: {:ok, map()}
   def disable(action_name) do
     app_id = descriptor_app_id(action_name)
 

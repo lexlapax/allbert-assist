@@ -10,10 +10,61 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.56.0 - Intent Descriptor Learning + Routing-Accuracy Gate
+
+Status: release-prepared as `0.56.0` on 2026-06-23. The `v0.56.0` tag is
+pending operator approval. Current version metadata reports `0.56.0`.
+
+Plan: `docs/plans/v0.56-plan.md`. Request flow:
+`docs/plans/v0.56-request-flow.md`. ADRs:
+`docs/adr/0062-intent-descriptor-lifecycle-generation-and-operator-curation.md`
+(v0.56 completion), `docs/adr/0071-intent-routing-accuracy-evaluation-harness-and-promotion-gate.md`
+(Accepted), and `docs/adr/0072-recommended-model-profiles-per-purpose.md`
+(Accepted).
+
+### Added
+
+- Deterministic intent routing-accuracy harness (ADR 0071): data-only YAML
+  corpus, scorer, baseline/capture/add flow, and a blocking promotion/release
+  gate with no-regression, absolute accuracy floors, and zero negative-route
+  violations.
+- Full v0.56 descriptor lifecycle completion (ADR 0062): local-model descriptor
+  generation with heuristic fallback, learned-review mining, full routable
+  descriptor coverage, operator-callable mutation/read actions, and
+  app/plugin/action registration signal reindex hooks.
+- Operator Action Layer for intent/eval/model operations: existing
+  `mix allbert.intent` and model-doctor surfaces now resolve through registered
+  actions and `Actions.Runner.run/3`; mutation paths remain explicit operator
+  surfaces/tasks plus gate checks.
+- Per-purpose model recommendation matrix (ADR 0072) via
+  `docs/operator/model-recommendations.md`, Settings Central defaults, and
+  redacted `mix allbert.intent doctor` / `mix allbert.settings model-doctor`
+  reporting aligned to current local defaults such as `llama3.1:8b` and
+  `gemma4:26b`.
+- TUI validation reads `/intents` and `/models`, backed by internal read-only
+  actions, slash-allowlisted only, and absent from natural-language intent
+  candidates.
+- Natural-language operator summary boundary: ordinary prompts can receive
+  bounded assistant summaries for agent-exposed reads, while raw operator reports
+  remain explicit slash/Mix/future-panel affordances.
+
+### Validation
+
+- M14 manual validation passed in one persistent `mix allbert.tui` session after
+  `release.v056` and prelaunch setup; raw transcript and release JSON evidence
+  were retained locally and not committed.
+- `release.v056` passed with the deterministic intent eval, descriptor lifecycle
+  units, model/TUI operator-read units, v0.56 security eval rows, and release-home
+  secret scan.
+- `mix allbert.intent eval run` passed at the end of manual validation with
+  246/246 cases, zero negative-route violations, and gate status `pass`.
+- Docs gate, diff check, warning gate, and stale-placeholder/drift greps were
+  clean during M15 closeout.
+
 ## v0.55.1 - Persistent TUI Operator/Validation Console
 
 Status: released and tagged as `v0.55.1` on 2026-06-22. Current version
-metadata reports `0.55.1`.
+metadata now reports `0.56.0` after the v0.56 closeout.
 
 Plan: `docs/plans/v0.55b-plan.md`. Request flow:
 `docs/plans/v0.55b-request-flow.md`. ADR:
@@ -59,7 +110,7 @@ Plan: `docs/plans/v0.55b-plan.md`. Request flow:
 ## v0.55.0 - Channel Parity + TUI/Terminal Channel
 
 Status: released and tagged as `v0.55.0` on 2026-06-22. Version metadata now
-reports `0.55.1` after the follow-on v0.55.1 closeout.
+reports `0.56.0` after the follow-on v0.55.1 and v0.56 closeouts.
 
 Plan: `docs/plans/v0.55-plan.md`. Request flow:
 `docs/plans/v0.55-request-flow.md`. ADRs: `docs/adr/0067-tui-terminal-channel.md`
@@ -278,8 +329,7 @@ implemented as a `signal-cli` bridge, but not released for live use because it
 requires operator-managed daemon/linked-device onboarding. ADR 0066 records the
 release-availability gate: undeclared capabilities default released, explicit
 unreleased declarations fail closed, and Security Central remains authority.
-Current version metadata is `0.55.1` after the v0.55.1 operator-console point
-release.
+Current version metadata is `0.56.0` after the v0.56 closeout.
 
 Plan: `docs/plans/v0.53-plan.md`.
 Request flow: `docs/plans/v0.53-request-flow.md`.

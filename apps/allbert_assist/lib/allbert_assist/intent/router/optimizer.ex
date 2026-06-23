@@ -260,8 +260,6 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
     end
   end
 
-  defp descriptor_attrs(_module, _object), do: {:error, :invalid_model_object}
-
   defp model_prompt(module) do
     snapshot =
       %{
@@ -510,10 +508,7 @@ defmodule AllbertAssist.Intent.Router.Optimizer do
       |> redact_embedded_secret_refs()
       |> String.trim()
 
-    cond do
-      value == "" -> nil
-      true -> String.slice(value, 0, @max_model_text)
-    end
+    if value == "", do: nil, else: String.slice(value, 0, @max_model_text)
   end
 
   defp bounded_text(_value), do: nil

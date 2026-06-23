@@ -345,9 +345,10 @@ scope.
 56. v0.56 Intent Descriptor Learning + Registration Lifecycle Completion:
     completes ADR 0062 with local-model descriptor generation, learned-review
     proposal mining from reviewed runtime evidence, operator-callable
-    `optimize_intent_descriptors`, and full app/plugin/action registration
-    reindex signals. Model/learned proposals remain inert until operator
-    promotion and never grant authority.
+    `optimize_intent_descriptors`, full app/plugin/action registration reindex
+    signals, the ADR 0071 blocking routing-accuracy gate, and ADR 0072
+    per-purpose model recommendations. Model/learned proposals remain inert
+    until operator promotion and never grant authority.
 57. v0.57 Pi-mode Coding Surface: a gated terminal coding surface on the one
     authority spine — four boundary actions (read/write/edit/bash) through
     `Actions.Runner.run/3`, sub-1000-token prompt, streamed split-payload diffs,
@@ -3403,8 +3404,9 @@ Request flow: `docs/plans/v0.55-request-flow.md`
 ADR: `docs/adr/0067-tui-terminal-channel.md` (Accepted in v0.55)
 
 Status: released and tagged as `v0.55.0` on 2026-06-22; current metadata now
-reports `0.55.1` after the follow-on point release. NEW in the 2026-06-09 roadmap restructure; full plan authored
-in Phase B (research R4). Moved from v0.56 to v0.55 in the 2026-06-21 replan.
+reports `0.56.0` after the follow-on v0.55.1 and v0.56 closeouts. NEW in the
+2026-06-09 roadmap restructure; full plan authored in Phase B (research R4).
+Moved from v0.56 to v0.55 in the 2026-06-21 replan.
 M0-M4 landed on 2026-06-21. Post-M4 audit corrections route the live
 `mix allbert.tui` prompt through the descriptor-derived `Channels.Supervisor`
 child and stabilize prompt rendering. M5 warm TUI validation was operator-
@@ -3460,15 +3462,15 @@ Plan: `docs/plans/v0.56-plan.md`
 Request flow: `docs/plans/v0.56-request-flow.md`
 ADRs: `docs/adr/0062-...` (completion amendment),
 `docs/adr/0071-intent-routing-accuracy-evaluation-harness-and-promotion-gate.md`
-(NEW; accept in v0.56),
-`docs/adr/0072-recommended-model-profiles-per-purpose.md` (NEW; accept in v0.56).
+(Accepted),
+`docs/adr/0072-recommended-model-profiles-per-purpose.md` (Accepted).
 
-Status: in progress; M0-M13 are implemented and M14 warm-TUI operator validation is
-next. Inserted by the v0.54 post-implementation audit so the advanced ADR 0062
-lifecycle remains in the 1.0 arc rather than being parked. Moved from v0.57 to
-v0.56 in the 2026-06-21 replan. Deepened 2026-06-22 from a 6-milestone foundation
-into a 16-milestone release (M0-M15) after the readiness pass: routing accuracy,
-full coverage, and model recommendations became first-class pillars.
+Status: release-prepared as `0.56.0` on 2026-06-23; the `v0.56.0` tag is pending
+operator approval. Inserted by the v0.54 post-implementation audit so the advanced
+ADR 0062 lifecycle remains in the 1.0 arc rather than being parked. Moved from
+v0.57 to v0.56 in the 2026-06-21 replan. Deepened 2026-06-22 from a 6-milestone
+foundation into a 16-milestone release (M0-M15) after the readiness pass: routing
+accuracy, full coverage, and model recommendations became first-class pillars.
 
 Expected direction:
 

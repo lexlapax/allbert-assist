@@ -19,10 +19,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.55.1 adds the
-  # persistent TUI operator/validation console and read-only inspection surface.
+  # the app (release-pinned, not semantic-per-app). v0.56 completes the intent
+  # descriptor lifecycle, eval gate, model recommendations, and TUI validation reads.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.55.1"
+  def version, do: "0.56.0"
 
   @impl true
   def validate(_opts), do: :ok

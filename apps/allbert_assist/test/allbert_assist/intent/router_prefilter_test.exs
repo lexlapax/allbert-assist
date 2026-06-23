@@ -2,13 +2,13 @@ defmodule AllbertAssist.Intent.RouterPrefilterTest do
   use ExUnit.Case, async: false
   @moduletag :app_env_serial
 
+  alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Intent.Router
   alias AllbertAssist.Intent.Router.Disambiguator.FakeDisambiguator
   alias AllbertAssist.Intent.Router.Embedder.FakeEmbedder
   alias AllbertAssist.Intent.Router.Index
   alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Intent.Router.Prefilter
-  alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
   alias AllbertAssist.TestSupport.ProviderPreconditions

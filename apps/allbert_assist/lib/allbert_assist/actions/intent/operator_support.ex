@@ -24,7 +24,6 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
 
   def descriptor(_action), do: nil
 
-  @spec coverage() :: map()
   def coverage do
     agent_names =
       ActionsRegistry.agent_modules()
@@ -63,7 +62,6 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
     |> Enum.sort_by(&{&1.app_id, &1.action_name})
   end
 
-  @spec baseline_summary() :: map() | nil
   def baseline_summary do
     with path when is_binary(path) <- Enum.find(@baseline_candidates, &File.exists?/1),
          {:ok, %{} = baseline} <- YamlElixir.read_from_file(path) do
@@ -80,7 +78,6 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
     end
   end
 
-  @spec eval_result(keyword()) :: {:ok, map()} | {:error, term()}
   def eval_result(opts \\ []) do
     surface = Keyword.get(opts, :surface, :any)
     by_surface? = Keyword.get(opts, :by_surface, false)
@@ -166,7 +163,6 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
     |> Enum.join("\n")
   end
 
-  @spec render_eval_result(map()) :: String.t()
   def render_eval_result(eval_result) do
     score = eval_result.score
     gate = eval_result.gate

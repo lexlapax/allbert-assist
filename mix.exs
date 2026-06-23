@@ -4,7 +4,7 @@ defmodule AllbertAssist.Umbrella.MixProject do
   def project do
     [
       apps_path: "apps",
-      version: "0.55.1",
+      version: "0.56.0",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),

@@ -516,8 +516,6 @@ defmodule AllbertAssist.Intent.Descriptor do
   defp note_colon_body?(text) when is_binary(text),
     do: Regex.match?(~r/\b(?:save|write|create|make)\s+a\s+note\s*:\s*\S/i, text)
 
-  defp note_colon_body?(_text), do: false
-
   defp accepted_ticker_candidate?(ticker, explicit?),
     do: explicit? || String.length(ticker) > 1
 

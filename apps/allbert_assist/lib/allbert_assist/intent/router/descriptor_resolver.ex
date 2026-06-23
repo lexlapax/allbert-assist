@@ -26,7 +26,7 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
   def resolve(opts \\ []) do
     disabled =
       if Keyword.get(opts, :ignore_disabled?, false),
-        do: MapSet.new(),
+        do: [],
         else: disabled_keys()
 
     [
@@ -38,7 +38,7 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
     |> List.flatten()
     |> dedup_later_wins()
     |> Enum.reject(fn descriptor ->
-      MapSet.member?(disabled, {descriptor.app_id, descriptor.action_name})
+      {descriptor.app_id, descriptor.action_name} in disabled
     end)
   end
 
@@ -46,7 +46,7 @@ defmodule AllbertAssist.Intent.Router.DescriptorResolver do
   defp disabled_keys do
     safe_store_attrs(:overrides)
     |> Enum.filter(fn attrs -> truthy?(field(attrs, :disabled)) end)
-    |> MapSet.new(fn attrs ->
+    |> Enum.map(fn attrs ->
       {normalize_app_id(field(attrs, :app_id)), to_string(field(attrs, :action_name))}
     end)
   end

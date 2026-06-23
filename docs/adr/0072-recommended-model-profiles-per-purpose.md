@@ -1,6 +1,6 @@
 # ADR 0072: Recommended Model Profiles Per Purpose
 
-Status: Proposed (v0.56; accept at v0.56 closeout).
+Status: Accepted (v0.56 M15 closeout, 2026-06-23).
 Date: 2026-06-22
 Related: ADR 0051 (provider capability preferences), ADR 0061 (local embedding +
 router model tiers), ADR 0047 (provider doctor contract), ADR 0062 (intent

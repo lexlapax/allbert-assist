@@ -29,8 +29,36 @@ defmodule AllbertAssist.Intent.Eval.Corpus do
 
   @valid_kinds ~w(execute clarify answer none)a
   @valid_surfaces ~w(any web tui telegram discord slack matrix whatsapp signal email)a
+  @type surface ::
+          :any
+          | :discord
+          | :email
+          | :matrix
+          | :signal
+          | :slack
+          | :telegram
+          | :tui
+          | :web
+          | :whatsapp
 
-  @spec surfaces() :: [atom()]
+  @known_keys %{
+    "action" => :action,
+    "category" => :category,
+    "context" => :context,
+    "domain" => :domain,
+    "expected" => :expected,
+    "holdout" => :holdout,
+    "id" => :id,
+    "kind" => :kind,
+    "negative" => :negative,
+    "rationale" => :rationale,
+    "schema_version" => :schema_version,
+    "slots" => :slots,
+    "surface" => :surface,
+    "utterance" => :utterance
+  }
+
+  @spec surfaces() :: [surface(), ...]
   def surfaces, do: @valid_surfaces
 
   @type t :: %Case{
@@ -213,8 +241,6 @@ defmodule AllbertAssist.Intent.Eval.Corpus do
     end
   end
 
-  defp normalize_expected(other), do: {:error, {:invalid_expected, other}}
-
   defp normalize_kind(value) do
     kind = normalize_atom(value)
 
@@ -262,23 +288,8 @@ defmodule AllbertAssist.Intent.Eval.Corpus do
   end
 
   defp known_key(key) do
-    case String.replace(key, "-", "_") do
-      "id" -> :id
-      "schema_version" -> :schema_version
-      "domain" -> :domain
-      "category" -> :category
-      "surface" -> :surface
-      "utterance" -> :utterance
-      "context" -> :context
-      "expected" -> :expected
-      "negative" -> :negative
-      "holdout" -> :holdout
-      "rationale" -> :rationale
-      "kind" -> :kind
-      "action" -> :action
-      "slots" -> :slots
-      other -> other
-    end
+    normalized = String.replace(key, "-", "_")
+    Map.get(@known_keys, normalized, normalized)
   end
 
   defp normalize_atom(value) when is_atom(value), do: value

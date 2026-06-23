@@ -51,8 +51,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.AppendMemory
   alias AllbertAssist.Actions.Intent.Coverage, as: IntentCoverage
   alias AllbertAssist.Actions.Intent.DirectAnswer
-  alias AllbertAssist.Actions.Intent.Doctor, as: IntentDoctor
   alias AllbertAssist.Actions.Intent.DisableDescriptor, as: DisableIntentDescriptor
+  alias AllbertAssist.Actions.Intent.Doctor, as: IntentDoctor
   alias AllbertAssist.Actions.Intent.EditDescriptor, as: EditIntentDescriptor
   alias AllbertAssist.Actions.Intent.EnableDescriptor, as: EnableIntentDescriptor
   alias AllbertAssist.Actions.Intent.EvalAdd, as: IntentEvalAdd
@@ -61,8 +61,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.EvalRun, as: IntentEvalRun
   alias AllbertAssist.Actions.Intent.ExplainIntent
   alias AllbertAssist.Actions.Intent.ExternalNetworkRequest
-  alias AllbertAssist.Actions.Intent.ListIntentCandidates
   alias AllbertAssist.Actions.Intent.ListDescriptors, as: IntentListDescriptors
+  alias AllbertAssist.Actions.Intent.ListIntentCandidates
   alias AllbertAssist.Actions.Intent.ListReview, as: IntentListReview
   alias AllbertAssist.Actions.Intent.ListSkills
   alias AllbertAssist.Actions.Intent.OptimizeDescriptors, as: OptimizeIntentDescriptors

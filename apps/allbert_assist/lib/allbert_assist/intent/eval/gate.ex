@@ -4,9 +4,8 @@ defmodule AllbertAssist.Intent.Eval.Gate do
   """
 
   alias AllbertAssist.Intent.Descriptor
-  alias AllbertAssist.Intent.Eval.{Corpus, Runner}
+  alias AllbertAssist.Intent.Eval.{Corpus, Runner, Scorer}
   alias AllbertAssist.Intent.Router.DescriptorResolver
-  alias AllbertAssist.Intent.Eval.Scorer
   alias AllbertAssist.Settings
 
   @baseline_candidates [

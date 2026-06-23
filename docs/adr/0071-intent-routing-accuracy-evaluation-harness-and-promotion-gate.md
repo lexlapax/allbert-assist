@@ -1,6 +1,6 @@
 # ADR 0071: Intent Routing-Accuracy Evaluation Harness And Promotion Gate
 
-Status: Proposed (v0.56; accept at v0.56 closeout).
+Status: Accepted (v0.56 M15 closeout, 2026-06-23).
 Date: 2026-06-22
 Related: ADR 0060 (two-stage intent router + approval-gate separation), ADR 0061
 (local embedding + router model tiers), ADR 0062 (intent descriptor lifecycle —

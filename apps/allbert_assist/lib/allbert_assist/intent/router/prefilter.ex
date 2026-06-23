@@ -105,8 +105,6 @@ defmodule AllbertAssist.Intent.Router.Prefilter do
 
   defp descriptor_text_boost(_entry, _query), do: 0.0
 
-  defp descriptor_text_match_score(_entry, _descriptor, query) when not is_binary(query), do: 0
-
   defp descriptor_text_match_score(entry, descriptor, query) do
     vocabulary = Map.get(descriptor, :vocabulary, %{}) || %{}
     allow_single? = field(vocabulary, :allow_single_token_match, true) != false

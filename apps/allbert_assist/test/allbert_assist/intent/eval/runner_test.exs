@@ -1,9 +1,9 @@
 defmodule AllbertAssist.Intent.Eval.RunnerTest do
   use ExUnit.Case, async: true
 
+  alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Intent.Eval.Corpus
   alias AllbertAssist.Intent.Eval.Runner
-  alias AllbertAssist.Intent.Descriptor
   alias AllbertAssist.Intent.Router.Embedder.FakeEmbedder
 
   test "replays corpus cases deterministically through Stage-1 ranking" do

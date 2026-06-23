@@ -1,9 +1,9 @@
 # ADR 0062: Intent Descriptor Lifecycle — Generation, Layered Curation & Reindex Hooks
 
-Status: Accepted (v0.54 M9 foundation; v0.56 completion scope inserted after
-post-implementation audit). v0.54 gates the tag with the heuristic/YAML/CLI
-foundation; v0.56 completes the model-generation, learned-mining,
-operator-action, and full registration-signal lifecycle.
+Status: Accepted (v0.54 M9 foundation; v0.56 completion accepted at v0.56 M15
+closeout on 2026-06-23). v0.54 gates the tag with the heuristic/YAML/CLI
+foundation; v0.56 completes the model-generation, learned-mining, operator-action,
+eval-gated promotion, model-recommendation, and full registration-signal lifecycle.
 Date: 2026-06-16
 Related: ADR 0060 (two-stage router + approval-gate separation), ADR 0061 (local
 embedding + router model tiers), ADR 0047 (doctor envelope), ADR 0019 (cross-surface

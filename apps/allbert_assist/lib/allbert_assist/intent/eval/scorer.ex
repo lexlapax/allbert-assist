@@ -79,24 +79,24 @@ defmodule AllbertAssist.Intent.Eval.Scorer do
   end
 
   defp slot_accuracy(scored) do
-    slot_checks =
-      scored
-      |> Enum.flat_map(fn %{case: case, actual: actual} ->
-        case Map.get(case.expected, :slots, %{}) do
-          slots when slots in [%{}, nil] ->
-            []
-
-          slots ->
-            Enum.map(slots, fn {slot, value} ->
-              actual_value = slot_value(actual_slots(actual), slot)
-              (value == :present && present?(actual_value)) || actual_value == value
-            end)
-        end
-      end)
+    slot_checks = Enum.flat_map(scored, &slot_checks/1)
 
     total = length(slot_checks)
     passed = Enum.count(slot_checks, & &1)
     %{total: total, passed: passed, accuracy: ratio(passed, total)}
+  end
+
+  defp slot_checks(%{case: case, actual: actual}) do
+    case Map.get(case.expected, :slots, %{}) do
+      slots when slots in [%{}, nil] ->
+        []
+
+      slots ->
+        Enum.map(slots, fn {slot, value} ->
+          actual_value = slot_value(actual_slots(actual), slot)
+          (value == :present && present?(actual_value)) || actual_value == value
+        end)
+    end
   end
 
   defp clarify_vs_execute(scored) do
