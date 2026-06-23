@@ -532,7 +532,8 @@ defmodule AllbertAssist.Settings.ModelDoctor do
   defp model_entries(_body), do: []
 
   defp model_entry_matches?(%{} = entry, model_ids) when is_list(model_ids) do
-    model_id(entry) in model_ids
+    normalized_ids = Enum.map(model_ids, &ProviderCatalog.normalize_model_id/1)
+    model_id(entry) in normalized_ids
   end
 
   defp model_entry_matches?(_entry, _model), do: false
@@ -542,11 +543,8 @@ defmodule AllbertAssist.Settings.ModelDoctor do
     |> Map.get("id")
     |> Kernel.||(Map.get(entry, "model"))
     |> Kernel.||(Map.get(entry, "name"))
-    |> normalize_model_name()
+    |> ProviderCatalog.normalize_model_id()
   end
-
-  defp normalize_model_name("models/" <> model), do: model
-  defp normalize_model_name(model), do: model
 
   defp context_window(entry) do
     ["context_window", "context_length", "context", "max_context_length"]

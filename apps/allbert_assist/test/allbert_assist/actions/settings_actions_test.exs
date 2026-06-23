@@ -186,7 +186,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
       Req.Test.json(conn, %{
         "models" => [
-          %{"model" => "nomic-embed-text", "context_length" => 2048},
+          %{"model" => "nomic-embed-text:latest", "context_length" => 2048},
           %{"model" => "llama3.1:8b", "context_length" => 128_000},
           %{"model" => "gemma4:26b", "context_length" => 256_000}
         ]

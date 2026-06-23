@@ -196,6 +196,15 @@ defmodule AllbertAssist.SettingsTest do
              "claude-haiku-4-5-20251001"
            ]
 
+    assert ProviderCatalog.equivalent_model_ids("openai_compatible", "nomic-embed-text") == [
+             "nomic-embed-text",
+             "nomic-embed-text:latest"
+           ]
+
+    assert ProviderCatalog.equivalent_model_ids("openai_compatible", "llama3.1:8b") == [
+             "llama3.1:8b"
+           ]
+
     catalog_aliases = ProviderCatalog.jido_model_aliases()
 
     assert catalog_aliases.local == "openai:llama3.2:3b"

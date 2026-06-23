@@ -148,13 +148,25 @@ defmodule AllbertAssist.Settings.ProviderCatalog do
     |> Enum.filter(&(profile_provider_type(&1) == provider_type))
     |> Enum.find(&model_matches?(&1, model))
     |> case do
-      nil -> [model]
-      entry -> [model | model_ids(entry)] |> Enum.uniq()
+      nil -> equivalent_ids(provider_type, [model])
+      entry -> equivalent_ids(provider_type, [model | model_ids(entry)])
     end
   end
 
-  def equivalent_model_ids(_provider_type, model) when is_binary(model), do: [model]
+  def equivalent_model_ids(provider_type, model) when is_binary(model),
+    do: equivalent_ids(provider_type, [model])
+
   def equivalent_model_ids(_provider_type, _model), do: []
+
+  @doc "Normalize provider model ids for availability matching."
+  @spec normalize_model_id(String.t()) :: String.t()
+  def normalize_model_id("models/" <> model), do: normalize_model_id(model)
+
+  def normalize_model_id(model) when is_binary(model) do
+    model
+    |> String.trim()
+    |> String.replace_suffix(":latest", "")
+  end
 
   defp map_section!(key) do
     case Map.fetch!(@catalog, key) do
@@ -306,7 +318,14 @@ defmodule AllbertAssist.Settings.ProviderCatalog do
 
   defp valid_audio_sample_rate?(_value), do: false
 
-  defp model_matches?(entry, model), do: model in model_ids(entry)
+  defp model_matches?(entry, model) do
+    normalized_model = normalize_model_id(model)
+
+    entry
+    |> model_ids()
+    |> Enum.map(&normalize_model_id/1)
+    |> Enum.member?(normalized_model)
+  end
 
   defp model_ids(entry) do
     id = Map.get(entry, "model")
@@ -315,6 +334,25 @@ defmodule AllbertAssist.Settings.ProviderCatalog do
     [id | aliases]
     |> Enum.filter(&is_binary/1)
   end
+
+  defp equivalent_ids(provider_type, ids) do
+    ids
+    |> Enum.filter(&is_binary/1)
+    |> Enum.flat_map(&model_id_equivalents(provider_type, &1))
+    |> Enum.uniq()
+  end
+
+  defp model_id_equivalents("openai_compatible", model) do
+    normalized = normalize_model_id(model)
+
+    cond do
+      model != normalized -> [model, normalized]
+      String.contains?(model, ":") -> [model]
+      true -> [model, "#{model}:latest"]
+    end
+  end
+
+  defp model_id_equivalents(_provider_type, model), do: [model]
 
   defp put_jido_model_alias({name, profile}, aliases) do
     with true <- "text_generation" in Map.get(profile, "capabilities", []),
