@@ -38,8 +38,11 @@ That gap matters now for two reasons:
   incremental tokens, diffs being written, or long tool results: the surface's
   rendering scaffolding (ANSI, paging hints, truncation markers, render frames)
   must not feed back into the model context as if it were model-facing content.
-  v0.55 lands that split and the live-region substrate; v0.57 owns true
-  streamed token/diff semantics.
+  v0.55 lands that split as a **static** `model_payload`/`surface_payload`
+  contract (the renderer draws a complete `surface_payload`; only `model_payload`
+  threads into memory). The **live-region substrate and true streamed token/diff
+  semantics are deferred to v0.57**, which owns them — v0.55 ships no incremental
+  render path.
 
 A real terminal channel must therefore do two things at once: register a genuine
 channel under the ADR 0016 contract (not a dressed-up `mix allbert.ask`), and
@@ -145,12 +148,14 @@ coding surface) extends ADDITIVELY, so Pi-mode needs no rework of this channel:
 2. The **live region** as the streaming-render substrate Pi-mode draws streamed
    diffs into.
 
-Plus: v0.55 keeps the action boundary level-0-compatible (terminal profile
-resolved through the list-shaped identity map to a configured local `user_id`,
-every action through `Actions.Runner.run/3` + Security Central) so v0.57 can add
-the named "local coding / sandbox level 0" trust tier on the SAME adapter/channel
-without weakening the boundary. Pi-mode runs IN the same persistent TUI channel
-session, hardened by the v0.55.1 operator/validation console, not a new channel.
+Plus: v0.55 keeps the action boundary tier-ready (terminal profile resolved
+through the list-shaped identity map to a configured local `user_id`, every action
+through `Actions.Runner.run/3` + Security Central) so v0.57 can add the named
+**local-coding operator** trust tier (ADR 0056 lineage, running at sandbox
+Level 1 — not "level 0"; see ADR 0068 and the ADR 0009 v0.57 clarification) on the
+SAME adapter/channel without weakening the boundary. Pi-mode runs IN the same
+persistent TUI channel session, hardened by the v0.55.1 operator/validation
+console, not a new channel.
 
 ## Consequences
 

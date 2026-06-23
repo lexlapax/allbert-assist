@@ -138,3 +138,24 @@ The v0.36 sandbox produces bounded redacted reports only. It does not load
 generated modules into the core node, register actions, grant permissions,
 enable skills, run migrations, or install dependencies. v0.37 may consume those
 reports as evidence for a separate operator-confirmed live integration gate.
+
+## v0.57 Clarification: Sandbox Level vs. Trust Tier
+
+Sandbox **level** (how isolated execution is) and **trust tier** (who the caller
+is) are **orthogonal axes**. A level describes the isolation posture
+(0 inert … 4 microVM). A named trust tier — established by the channel inbound
+trust-tier convention (ADR 0056) — describes the caller's standing and may
+**modulate the confirmation burden at a given level** without changing that
+level's isolation guarantees.
+
+Concretely: interactive local host execution (an explicit executable/args run
+through a registered action) is **Level 1** — never Level 0, which is inert
+planning with no process execution. A trust tier that makes the gate "cheap" for
+a trusted local caller does so by reducing the confirmation prompt while **still
+running policy, redaction, trace, and audit at Level 1**. It does not move
+execution to Level 0 and it does not weaken Level 1's isolation.
+
+v0.57's Pi-mode coding surface (ADR 0068) is the first consumer of this
+distinction: its "local-coding operator" tier is a named trust tier running at
+**sandbox Level 1**, not a redefinition of Level 0. Earlier v0.57 drafts that
+called it "sandbox level 0" are superseded by this clarification.

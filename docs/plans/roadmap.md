@@ -3534,12 +3534,16 @@ Expected direction:
   authority spine — same `Actions.Runner.run/3`, Security Central, trace, and
   memory as every other surface.
 - Four boundary actions (`read`/`write`/`edit`/`bash`) through the action
-  runner, a sub-1000-token system prompt, streamed diffs via the v0.55 split
-  payload, and a full-file context-gathering discipline.
-- A named "local coding / sandbox level 0" trust tier (extends ADR 0009): a
-  single trusted operator, main session, terminal channel — never the default,
-  never for channel-originated or generated-code sessions.
-- An operator affordance for mid-session model switch (req_llm context handoff).
+  runner, a sub-1000-token prompt+tool-defs budget, **net-new** streamed diffs (a
+  live-region substrate over the v0.55 **static** split payload), and a
+  chunked-read context discipline (offset/limit + artifacts, not whole-file).
+  `bash` runs host processes at sandbox Level 1; raw shell only at the tier below.
+- A named "local-coding operator" trust tier (ADR 0056 lineage, running at ADR
+  0009 **Level 1** — not "level 0"): a single trusted operator, main session,
+  terminal channel — never the default, never for channel-originated or
+  generated-code sessions; lowers confirmation burden only, not isolation.
+- An operator affordance for mid-session model switch (req_llm message-history
+  handoff; best-effort cross-provider).
 - Non-goals: no YOLO-by-default; no weakening of the action boundary, Security
   Central, or confirmations; no model-decides-it's-done for effectful or
   generated-code work; keep MCP-first with lazy disclosure; no sibling runtime.
