@@ -168,22 +168,23 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
   # ── M9 descriptor-lifecycle eval rows (ADR 0062) ─────────────────────────────
 
   # intent-descriptor-new-action-routable-after-reindex-001
-  test "a generated descriptor makes an uncovered action routable (resolved)" do
-    refute DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
+  test "a generated descriptor from the generated tier is resolved" do
+    assert %{source: source} = descriptor_for("show_app")
+    refute source == :generated
 
     {:ok, path} =
       DescriptorStore.put(:generated, %{
         app_id: :allbert,
         action_name: "show_app",
-        label: "Show app",
-        examples: ["show app"],
-        synonyms: ["app"],
-        vocabulary: %{phrases: ["show app"], allow_single_token_match: false},
+        label: "Generated show app",
+        examples: ["generated show app"],
+        synonyms: ["generated app"],
+        vocabulary: %{phrases: ["generated show app"], allow_single_token_match: false},
         required_slots: []
       })
 
     assert String.ends_with?(path, "/intents/generated/allbert/show_app.yaml")
-    assert DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
+    assert %{source: :generated, label: "Generated show app"} = descriptor_for("show_app")
   end
 
   # intent-descriptor-yaml-store-data-only-001 /
@@ -234,17 +235,19 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
     attrs = %{
       app_id: :allbert,
       action_name: "show_app",
-      label: "Show app",
-      examples: ["show app"],
-      synonyms: ["app"],
+      label: "Review show app",
+      examples: ["review show app"],
+      synonyms: ["review app"],
       required_slots: []
     }
 
     {:ok, _} = DescriptorStore.put(:review, attrs)
-    refute DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
+
+    refute DescriptorResolver.resolve()
+           |> Enum.any?(&(&1.action_name == "show_app" and &1.source == :review))
 
     {:ok, _} = DescriptorStore.promote(:review, :generated, :allbert, "show_app")
-    assert DescriptorResolver.resolve() |> Enum.any?(&(&1.action_name == "show_app"))
+    assert %{source: :generated, label: "Review show app"} = descriptor_for("show_app")
   end
 
   # intent-descriptor-heuristic-generation-local-only-001
@@ -301,6 +304,11 @@ defmodule AllbertAssist.Security.V054IntentRouterEvalTest do
 
   defp clarify_options do
     Enum.map(@shortlist, fn s -> %{kind: :action, id: s.action_name, label: s.label} end)
+  end
+
+  defp descriptor_for(action_name) do
+    DescriptorResolver.resolve()
+    |> Enum.find(&(&1.action_name == action_name))
   end
 
   defp restore(key, nil) when is_atom(key), do: Application.delete_env(:allbert_assist, key)

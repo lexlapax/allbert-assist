@@ -55,7 +55,8 @@ defmodule Mix.Tasks.Allbert.Settings do
   end
 
   defp dispatch(["providers", "list"]) do
-    with {:ok, response} <- completed_action("list_provider_profiles", %{}) do
+    with {:ok, response} <-
+           completed_action("list_provider_profiles", %{render_mode: "operator_report"}) do
       {:ok, {:providers, response.providers}}
     end
   end

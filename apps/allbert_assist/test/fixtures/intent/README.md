@@ -18,17 +18,17 @@ developer reviews and promotes them into this fixture tree.
 - `eval/negative-operator/` covers planned v0.56 operator-action names before
   implementation makes them available.
 - `eval/negative-slash/` covers TUI slash commands. Slash lines are never model turns.
-- `eval/baseline.yaml` records the M2 BEFORE result. It is evidence, not a
-  corpus case, and the loader intentionally skips it.
+- `eval/baseline.yaml` records the current v0.56 release ratchet baseline. It
+  is evidence, not a corpus case, and the loader intentionally skips it.
 
 Current fixture domains/directories:
 
 ```text
 adversarial, answer, apps, browser, calendar, channels, confirmations,
-cross-surface, email, external, github, golden, image, marketplace, mcp,
-memory, model, negative-doctor, negative-internal, negative-operator,
-negative-slash, none, notes, objectives, packages, plan-build, plugins,
-public-protocol, research, resources, settings, shell, skills, stocks, voice
+cross-surface, email, external, github, image, marketplace, mcp, memory, model,
+negative-doctor, negative-internal, negative-operator, negative-slash, none,
+notes, objectives, packages, plan-build, plugins, public-protocol, research,
+resources, settings, shell, skills, stocks, voice
 ```
 
 Use the closest existing domain. Add a new domain only when the behavior has a
@@ -123,6 +123,14 @@ slots:
 
 ## Baseline Semantics
 
-`eval/baseline.yaml` is a snapshot of the M2 BEFORE run. It may fail the final
-gate. Later milestones compare against it so descriptor changes cannot regress
-accuracy or negative-route behavior while moving toward the v0.56 release gate.
+`eval/baseline.yaml` is the committed v0.56 release ratchet baseline, generated
+from the deterministic runner with `mix allbert.intent eval baseline`. It should
+match the full committed corpus and pass the gate. Future descriptor changes
+compare against it so routing accuracy, slot accuracy, clarify-vs-execute
+behavior, and negative-route behavior cannot silently regress.
+
+Historical note: the original M2 BEFORE baseline was a failing 237-case snapshot
+used during implementation to measure progress. It was replaced before tagging by
+the release baseline (`v056-release-baseline`, 246 cases, 1.0 accuracy). The
+legacy live-bench anchor fixture still exists under `test/fixtures/intent/golden`;
+it is intentionally separate from this deterministic release-gate corpus.

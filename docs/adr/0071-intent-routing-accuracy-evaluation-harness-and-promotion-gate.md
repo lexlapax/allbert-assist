@@ -11,12 +11,14 @@ test parallelization).
 ## Context
 
 ADR 0062 lets descriptors be generated (heuristic in v0.54, local-model in v0.56)
-and learned-mined, then promoted into active routing. ADR 0062's own audit found
-that only **12 of ~47 routable actions** have descriptors today; v0.56 generates
-and curates descriptors for the remaining domains (email, calendar, memory,
-image-gen, channels, settings/model, skills/plugin authoring, MCP, objectives).
-Adding ~35 new routing targets through a local model and a learned-mining loop is
-the largest routing-behavior change since the two-stage router shipped.
+and learned-review proposals be mined from reviewed evidence, then promoted into
+active routing. ADR 0062's own audit found that only **12 routable actions** had
+descriptors before v0.56; v0.56 generates and curates descriptors for the current
+`Actions.Registry.agent_modules/0` inventory (`57/57` at closeout), including
+email, calendar, memory, image-gen, channels, settings/model, skills/plugin
+authoring, MCP, and objectives. Adding that many routing targets through local
+model generation and proposal-mining infrastructure is the largest
+routing-behavior change since the two-stage router shipped.
 
 The existing intent test surface (the `golden_set_test.exs` structural guard, the
 live `mix allbert.intent bench` replay, and the `:v054` authority evals) proves
@@ -44,8 +46,10 @@ negative-route guarantee breaks.
 
 The labeled routing corpus is **data-only YAML** under
 `test/fixtures/intent/eval/<domain>/*.yaml` (mirroring the ADR 0062 descriptor
-philosophy: operators edit and diff in an editor, never `.exs`). The shipped v0.54
-`anchors.exs` golden set is migrated into this format. One case:
+philosophy: operators edit and diff in an editor, never `.exs`). Representative
+shipped v0.54 golden anchors are ported into this format. The legacy
+`test/fixtures/intent/golden/anchors.terms` file remains only as the advisory live
+bench anchor set until a later cleanup deliberately retires it. One case:
 
 ```yaml
 schema_version: 1
@@ -85,8 +89,11 @@ is versioned and diffable in review.
   the result is reproducible and provider-free. This is the lane in
   `mix allbert.test release.v056`.
 - **Live operator bench (advisory).** The existing `mix allbert.intent bench`
-  replays the same corpus through the real `router_local` model. Reported, never
-  blocking in CI; run by an operator (see ADR 0072 for which model to configure).
+  replays the legacy golden anchor fixture through the real `router_local` model
+  with the live two-stage strategy forced even from test/dev shells. Reported,
+  never blocking in CI; run by an operator (see ADR 0072 for which model to
+  configure). Failures include the router reason so missing local models are
+  visible instead of being confused with deterministic routing.
 
 ### 3. Scorer metrics
 

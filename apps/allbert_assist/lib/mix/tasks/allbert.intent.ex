@@ -207,7 +207,7 @@ defmodule Mix.Tasks.Allbert.Intent do
 
   defp print_bench(%{summary: s}) do
     Mix.shell().info("""
-    intent bench accuracy=#{s.accuracy} (#{s.passed}/#{s.total}) avg=#{s.avg_ms}ms max=#{s.max_ms}ms
+    intent bench strategy=#{s.router_strategy} accuracy=#{s.accuracy} (#{s.passed}/#{s.total}) avg=#{s.avg_ms}ms max=#{s.max_ms}ms
     """)
 
     s.by_category

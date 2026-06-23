@@ -2,7 +2,7 @@ defmodule AllbertAssist.Intent.Bench do
   @moduledoc """
   v0.54 M9.2 — intent-router golden-set replay bench.
 
-  Replays the hand-crafted anchor cases (`test/fixtures/intent/golden/anchors.exs`)
+  Replays the hand-crafted anchor cases (`test/fixtures/intent/golden/anchors.terms`)
   through the **live** two-stage router (`Intent.Router.route/3`) and reports
   per-category accuracy, calibration, clarify/answer/none/none rates, escalation
   rate, and latency. Surfaced via `mix allbert.intent bench`.
@@ -18,8 +18,8 @@ defmodule AllbertAssist.Intent.Bench do
   # Resolved robustly because cwd differs between `mix run` (umbrella root) and
   # `mix test` (the app directory).
   @fixture_candidates [
-    "apps/allbert_assist/test/fixtures/intent/golden/anchors.exs",
-    "test/fixtures/intent/golden/anchors.exs"
+    "apps/allbert_assist/test/fixtures/intent/golden/anchors.terms",
+    "test/fixtures/intent/golden/anchors.terms"
   ]
 
   @type case_result :: %{
@@ -27,15 +27,26 @@ defmodule AllbertAssist.Intent.Bench do
           category: String.t(),
           pass: boolean(),
           expected: map(),
-          actual: %{kind: atom(), action: String.t() | nil, confidence: float() | nil},
+          actual: %{
+            kind: atom(),
+            action: String.t() | nil,
+            confidence: float() | nil,
+            reason: term()
+          },
           ms: non_neg_integer()
         }
 
   @spec run(keyword()) :: %{cases: [case_result()], summary: map()}
   def run(opts \\ []) do
-    cases = opts |> load_cases() |> filter_split(opts)
-    results = Enum.map(cases, &score_case/1)
-    %{cases: results, summary: summarize(results)}
+    with_router_strategy(Keyword.get(opts, :router_strategy, :two_stage_local), fn ->
+      cases = opts |> load_cases() |> filter_split(opts)
+      results = Enum.map(cases, &score_case/1)
+
+      %{
+        cases: results,
+        summary: summarize(results) |> Map.put(:router_strategy, Router.strategy())
+      }
+    end)
   end
 
   @doc "Load the golden-set cases from the fixture file."
@@ -89,10 +100,10 @@ defmodule AllbertAssist.Intent.Bench do
     :exit, _reason -> :error
   end
 
-  defp actual_of(%Outcome{kind: kind, action_name: action, confidence: conf}),
-    do: %{kind: kind, action: action, confidence: conf}
+  defp actual_of(%Outcome{kind: kind, action_name: action, confidence: conf, reason: reason}),
+    do: %{kind: kind, action: action, confidence: conf, reason: reason}
 
-  defp actual_of(nil), do: %{kind: :error, action: nil, confidence: nil}
+  defp actual_of(nil), do: %{kind: :error, action: nil, confidence: nil, reason: :route_error}
 
   # :execute requires the same action name; other kinds match on kind alone.
   defp match_expected?(%{kind: :execute, action: a}, %Outcome{kind: :execute, action_name: a}),
@@ -138,4 +149,20 @@ defmodule AllbertAssist.Intent.Bench do
 
   defp ratio(_n, 0), do: 0.0
   defp ratio(n, d), do: Float.round(n / d, 3)
+
+  defp with_router_strategy(nil, fun), do: fun.()
+
+  defp with_router_strategy(strategy, fun) do
+    original = Application.get_env(:allbert_assist, :intent_router_strategy_override)
+    Application.put_env(:allbert_assist, :intent_router_strategy_override, strategy)
+
+    try do
+      fun.()
+    after
+      restore_env(:intent_router_strategy_override, original)
+    end
+  end
+
+  defp restore_env(key, nil), do: Application.delete_env(:allbert_assist, key)
+  defp restore_env(key, value), do: Application.put_env(:allbert_assist, key, value)
 end

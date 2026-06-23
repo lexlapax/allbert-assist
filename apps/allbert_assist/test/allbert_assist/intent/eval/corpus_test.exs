@@ -36,7 +36,7 @@ defmodule AllbertAssist.Intent.Eval.CorpusTest do
     assert case.path == path
   end
 
-  test "loads the migrated committed golden corpus" do
+  test "loads the committed YAML eval corpus" do
     assert {:ok, cases} = Corpus.load()
     assert length(cases) >= 30
     assert Enum.any?(cases, &(&1.id == "notes-create-001" and &1.domain == "notes"))

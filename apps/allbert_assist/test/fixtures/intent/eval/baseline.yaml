@@ -1,31 +1,25 @@
 ---
 clarify_vs_execute:
-  accuracy: 0.8356
-  passed: 188
-  total: 225
+  accuracy: 1.0
+  passed: 234
+  total: 234
 confusion:
-  - actual: execute:research
+  - actual: answer
     count: 1
     expected: answer
   - actual: clarify
-    count: 5
+    count: 6
     expected: clarify
-  - actual: execute:set_active_model_profile
-    count: 1
-    expected: clarify
-  - actual: execute:create_skill
+  - actual: execute:activate_skill
     count: 1
     expected: execute:activate_skill
-  - actual: execute:append_memory
+  - actual: clarify
     count: 1
     expected: execute:analyze_browser_screenshot
   - actual: execute:append_memory
-    count: 1
+    count: 2
     expected: execute:append_memory
-  - actual: execute:set_active_model_profile
-    count: 1
-    expected: execute:append_memory
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:approve_confirmation
   - actual: execute:list_marketplace_entries
@@ -34,43 +28,43 @@ confusion:
   - actual: execute:preview_plan
     count: 1
     expected: execute:artifact_threads
-  - actual: execute:create_skill
+  - actual: execute:show_online_skill
     count: 1
     expected: execute:audit_online_skill
   - actual: execute:preview_plan
     count: 1
     expected: execute:browser_click
-  - actual: execute:search_notes
+  - actual: execute:direct_answer
     count: 1
     expected: execute:browser_close_session
   - actual: execute:list_marketplace_entries
     count: 1
     expected: execute:browser_doctor
-  - actual: execute:run_shell_command
+  - actual: execute:direct_answer
     count: 1
     expected: execute:browser_download
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:browser_extract
-  - actual: execute:run_shell_command
+  - actual: execute:direct_answer
     count: 1
     expected: execute:browser_fill
   - actual: execute:list_settings
     count: 1
     expected: execute:browser_list_sessions
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:browser_navigate
   - actual: execute:browser_research_handoff
     count: 1
     expected: execute:browser_research_handoff
-  - actual: execute:preview_plan
+  - actual: execute:browser_research_handoff
     count: 1
     expected: execute:browser_screenshot
   - actual: execute:preview_plan
     count: 1
     expected: execute:browser_start_session
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:browser_sweep_cache
   - actual: execute:preview_plan
@@ -82,10 +76,10 @@ confusion:
   - actual: execute:preview_plan
     count: 1
     expected: execute:cancel_plan_run
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:capture_workspace_voice
-  - actual: execute:open_calendar_panel
+  - actual: execute:channel_setup_check
     count: 1
     expected: execute:channel_setup_check
   - actual: execute:preview_plan
@@ -97,10 +91,10 @@ confusion:
   - actual: execute:continue_objective
     count: 1
     expected: execute:continue_objective
-  - actual: execute:create_skill
+  - actual: execute:create_calendar_event
     count: 1
     expected: execute:create_calendar_event
-  - actual: execute:preview_plan
+  - actual: execute:list_analyses
     count: 1
     expected: execute:create_from_template
   - actual: execute:append_memory
@@ -112,16 +106,16 @@ confusion:
   - actual: execute:preview_plan
     count: 1
     expected: execute:delegate_agent
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:delete_artifact
-  - actual: execute:update_setting
+  - actual: execute:explain_setting
     count: 1
     expected: execute:delete_memory_entry
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:deny_confirmation
-  - actual: execute:install_marketplace_bundle
+  - actual: execute:direct_answer
     count: 1
     expected: execute:direct_answer
   - actual: execute:preview_plan
@@ -130,34 +124,34 @@ confusion:
   - actual: execute:preview_plan
     count: 1
     expected: execute:disable_intent_descriptor
-  - actual: execute:preview_plan
+  - actual: execute:unsupported_resource_workflow
     count: 1
     expected: execute:discard_dynamic_draft
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:discard_sandbox_bundle
-  - actual: execute:append_memory
+  - actual: execute:unsupported_resource_workflow
     count: 1
     expected: execute:discard_self_improvement_draft
   - actual: execute:list_marketplace_entries
     count: 1
     expected: execute:discord_doctor
-  - actual: execute:get_trends
+  - actual: execute:direct_answer
     count: 1
     expected: execute:discover_patterns
   - actual: clarify
     count: 1
     expected: execute:dismiss_workspace_ephemeral
-  - actual: execute:set_active_model_profile
+  - actual: execute:doctor_model_profile
     count: 1
     expected: execute:doctor_model_profile
-  - actual: execute:list_marketplace_entries
+  - actual: execute:doctor_voice_provider
     count: 1
     expected: execute:doctor_voice_provider
   - actual: execute:run_shell_command
     count: 1
     expected: execute:edit_intent_descriptor
-  - actual: execute:list_marketplace_entries
+  - actual: clarify
     count: 1
     expected: execute:email_doctor
   - actual: execute:search_notes
@@ -169,13 +163,13 @@ confusion:
   - actual: execute:preview_plan
     count: 1
     expected: execute:expire_confirmations
-  - actual: execute:preview_plan
+  - actual: execute:explain_setting
     count: 1
     expected: execute:explain_intent
-  - actual: execute:set_active_model_profile
+  - actual: execute:explain_setting
     count: 1
     expected: execute:explain_setting
-  - actual: execute:browser_research_handoff
+  - actual: execute:external_network_request
     count: 1
     expected: execute:external_network_request
   - actual: execute:find_mcp_tools
@@ -196,7 +190,7 @@ confusion:
   - actual: execute:append_memory
     count: 1
     expected: execute:get_artifact
-  - actual: execute:resume_thread_on_channel
+  - actual: execute:get_public_call_result
     count: 1
     expected: execute:get_public_call_result
   - actual: execute:get_trends
@@ -205,16 +199,16 @@ confusion:
   - actual: execute:summarize_url
     count: 1
     expected: execute:import_local_skill
-  - actual: execute:summarize_url
+  - actual: execute:show_online_skill
     count: 1
     expected: execute:import_online_skill
   - actual: execute:summarize_url
     count: 1
     expected: execute:import_remote_skill
-  - actual: execute:preview_plan
+  - actual: clarify
     count: 1
     expected: execute:import_stocksage_sqlite
-  - actual: clarify
+  - actual: execute:list_marketplace_entries
     count: 1
     expected: execute:inspect_marketplace_entry
   - actual: clarify
@@ -223,7 +217,7 @@ confusion:
   - actual: execute:install_marketplace_bundle
     count: 1
     expected: execute:install_marketplace_bundle
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:integrate_dynamic_draft
   - actual: execute:search_notes
@@ -253,7 +247,7 @@ confusion:
   - actual: execute:run_shell_command
     count: 1
     expected: execute:intent_show_descriptor
-  - actual: execute:list_model_profiles
+  - actual: execute:list_analyses
     count: 1
     expected: execute:list_analyses
   - actual: execute:list_apps
@@ -263,9 +257,9 @@ confusion:
     count: 1
     expected: execute:list_artifacts
   - actual: execute:list_channels
-    count: 1
+    count: 10
     expected: execute:list_channels
-  - actual: execute:preview_plan
+  - actual: execute:list_analyses
     count: 1
     expected: execute:list_confirmations
   - actual: execute:append_memory
@@ -277,7 +271,7 @@ confusion:
   - actual: execute:preview_plan
     count: 1
     expected: execute:list_intent_candidates
-  - actual: execute:set_active_model_profile
+  - actual: execute:list_marketplace_entries
     count: 1
     expected: execute:list_marketplace_entries
   - actual: execute:preview_plan
@@ -286,7 +280,7 @@ confusion:
   - actual: execute:append_memory
     count: 1
     expected: execute:list_memory_entries
-  - actual: execute:resume_thread_on_channel
+  - actual: execute:list_model_profiles
     count: 1
     expected: execute:list_model_profiles
   - actual: execute:list_objectives
@@ -298,13 +292,13 @@ confusion:
   - actual: execute:list_plugins
     count: 1
     expected: execute:list_plugins
-  - actual: execute:list_model_profiles
+  - actual: execute:list_provider_profiles
     count: 1
     expected: execute:list_provider_profiles
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:list_queue
-  - actual: execute:preview_plan
+  - actual: execute:unsupported_resource_workflow
     count: 1
     expected: execute:list_resource_grants
   - actual: execute:list_settings
@@ -313,13 +307,13 @@ confusion:
   - actual: execute:list_skills
     count: 1
     expected: execute:list_skills
-  - actual: execute:preview_plan
+  - actual: clarify
     count: 1
     expected: execute:list_stocksage_agents
-  - actual: execute:list_model_profiles
+  - actual: execute:doctor_voice_provider
     count: 1
     expected: execute:list_workflows
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:manage_workspace_tile
   - actual: execute:list_marketplace_entries
@@ -352,7 +346,7 @@ confusion:
   - actual: execute:find_mcp_tools
     count: 1
     expected: execute:mcp_server_connect
-  - actual: execute:run_shell_command
+  - actual: execute:doctor_model_profile
     count: 1
     expected: execute:model_doctor
   - actual: execute:run_shell_command
@@ -367,16 +361,16 @@ confusion:
   - actual: execute:open_mail_panel
     count: 1
     expected: execute:open_mail_panel
-  - actual: execute:preview_plan
+  - actual: execute:list_channels
     count: 1
     expected: execute:operator_channels
   - actual: execute:preview_plan
     count: 1
     expected: execute:operator_confirmations
-  - actual: execute:preview_plan
+  - actual: execute:explain_setting
     count: 1
     expected: execute:operator_events
-  - actual: execute:preview_plan
+  - actual: execute:read_setting
     count: 1
     expected: execute:operator_setting_get
   - actual: execute:preview_plan
@@ -385,10 +379,10 @@ confusion:
   - actual: execute:run_shell_command
     count: 1
     expected: execute:optimize_intent_descriptors
-  - actual: execute:set_active_model_profile
+  - actual: execute:plan_package_install
     count: 1
     expected: execute:plan_package_install
-  - actual: execute:preview_plan
+  - actual: execute:plan_shell_command
     count: 1
     expected: execute:plan_shell_command
   - actual: execute:preview_plan
@@ -397,10 +391,10 @@ confusion:
   - actual: execute:preview_plan
     count: 1
     expected: execute:preview_plan
-  - actual: execute:append_memory
+  - actual: execute:unsupported_resource_workflow
     count: 1
     expected: execute:promote_capability_gap_draft
-  - actual: execute:run_shell_command
+  - actual: execute:direct_answer
     count: 1
     expected: execute:promote_conversation_turn
   - actual: execute:run_shell_command
@@ -409,10 +403,10 @@ confusion:
   - actual: execute:append_memory
     count: 1
     expected: execute:promote_memory_draft
-  - actual: execute:list_apps
+  - actual: execute:direct_answer
     count: 1
     expected: execute:promote_objective_draft
-  - actual: execute:run_shell_command
+  - actual: execute:direct_answer
     count: 1
     expected: execute:promote_skill_draft
   - actual: execute:append_memory
@@ -427,31 +421,31 @@ confusion:
   - actual: execute:preview_plan
     count: 1
     expected: execute:put_artifact
-  - actual: clarify
+  - actual: execute:queue_analysis
     count: 1
     expected: execute:queue_analysis
-  - actual: execute:update_setting
+  - actual: execute:read_setting
     count: 1
     expected: execute:read_memory_entry
-  - actual: clarify
+  - actual: execute:read_note
     count: 1
     expected: execute:read_note
   - actual: execute:read_recent_memory
     count: 1
     expected: execute:read_recent_memory
-  - actual: execute:update_setting
+  - actual: execute:read_setting
     count: 1
     expected: execute:read_setting
-  - actual: execute:create_skill
+  - actual: execute:read_skill
     count: 1
     expected: execute:read_skill
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:record_trace
   - actual: execute:summarize_url
     count: 1
     expected: execute:record_workspace_offline_update
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:registry_health
   - actual: execute:summarize_url
@@ -460,40 +454,40 @@ confusion:
   - actual: execute:append_memory
     count: 1
     expected: execute:remember_resource_grant
-  - actual: execute:preview_plan
+  - actual: execute:browser_research_handoff
     count: 1
     expected: execute:render_template
-  - actual: execute:preview_plan
+  - actual: execute:external_network_request
     count: 1
     expected: execute:request_dynamic_draft
   - actual: execute:research
     count: 1
     expected: execute:research
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:resolve_outcomes
-  - actual: execute:list_skills
-    count: 1
-    expected: execute:resume_thread_on_channel
-  - actual: execute:preview_plan
-    count: 1
-    expected: execute:retrieve_active_memory
-  - actual: execute:preview_plan
-    count: 1
-    expected: execute:revert_tile_revision
-  - actual: execute:update_setting
-    count: 1
-    expected: execute:review_memory_entry
   - actual: execute:resume_thread_on_channel
     count: 1
+    expected: execute:resume_thread_on_channel
+  - actual: execute:direct_answer
+    count: 1
+    expected: execute:retrieve_active_memory
+  - actual: execute:direct_answer
+    count: 1
+    expected: execute:revert_tile_revision
+  - actual: execute:explain_setting
+    count: 1
+    expected: execute:review_memory_entry
+  - actual: execute:unsupported_resource_workflow
+    count: 1
     expected: execute:revoke_resource_grant
-  - actual: execute:run_shell_command
+  - actual: execute:plan_shell_command
     count: 1
     expected: execute:rollback_dynamic_integration
-  - actual: execute:install_marketplace_bundle
+  - actual: execute:list_marketplace_entries
     count: 1
     expected: execute:rollback_marketplace_install
-  - actual: execute:read_recent_memory
+  - actual: execute:run_analysis
     count: 1
     expected: execute:run_analysis
   - actual: execute:run_shell_command
@@ -502,7 +496,7 @@ confusion:
   - actual: execute:run_shell_command
     count: 1
     expected: execute:run_dynamic_draft_trial
-  - actual: execute:run_shell_command
+  - actual: execute:direct_answer
     count: 1
     expected: execute:run_package_install
   - actual: execute:run_shell_command
@@ -523,70 +517,70 @@ confusion:
   - actual: execute:set_active_model_profile
     count: 1
     expected: execute:scaffold_template
-  - actual: execute:open_mail_panel
+  - actual: execute:direct_answer
     count: 1
     expected: execute:search_memory
   - actual: execute:search_notes
     count: 1
     expected: execute:search_notes
-  - actual: execute:list_skills
+  - actual: execute:search_online_skills
     count: 1
     expected: execute:search_online_skills
-  - actual: execute:update_setting
+  - actual: execute:explain_setting
     count: 1
     expected: execute:security_review
-  - actual: execute:update_setting
+  - actual: execute:explain_setting
     count: 1
     expected: execute:security_status
-  - actual: clarify
+  - actual: execute:send_channel_message
     count: 1
     expected: execute:send_channel_message
-  - actual: clarify
+  - actual: execute:send_email
     count: 1
     expected: execute:send_email
-  - actual: clarify
+  - actual: execute:direct_answer
     count: 1
     expected: execute:set_active_app
   - actual: execute:set_active_model_profile
     count: 1
     expected: execute:set_active_model_profile
-  - actual: execute:list_model_profiles
+  - actual: execute:set_provider_credential
     count: 1
     expected: execute:set_provider_credential
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:set_workspace_theme
-  - actual: execute:get_trends
+  - actual: execute:show_analysis
     count: 1
     expected: execute:show_analysis
-  - actual: execute:open_github_panel
+  - actual: execute:show_app
     count: 1
     expected: execute:show_app
-  - actual: execute:list_model_profiles
+  - actual: execute:show_channel
     count: 1
     expected: execute:show_channel
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:show_confirmation
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:show_dynamic_draft
-  - actual: execute:run_shell_command
+  - actual: execute:plan_shell_command
     count: 1
     expected: execute:show_dynamic_integration
   - actual: execute:list_apps
     count: 1
     expected: execute:show_objective
-  - actual: execute:open_github_panel
+  - actual: execute:show_online_skill
     count: 1
     expected: execute:show_online_skill
-  - actual: execute:set_active_model_profile
+  - actual: execute:show_plugin
     count: 1
     expected: execute:show_plugin
-  - actual: execute:update_setting
+  - actual: execute:explain_setting
     count: 1
     expected: execute:show_resource_grant
-  - actual: execute:search_notes
+  - actual: execute:explain_setting
     count: 1
     expected: execute:show_session_scratchpad
   - actual: execute:open_github_panel
@@ -610,7 +604,7 @@ confusion:
   - actual: execute:preview_plan
     count: 1
     expected: execute:stocksage_fetch_fundamentals
-  - actual: execute:preview_plan
+  - actual: execute:plan_shell_command
     count: 1
     expected: execute:stocksage_fetch_market_data
   - actual: execute:preview_plan
@@ -622,28 +616,28 @@ confusion:
   - actual: execute:list_marketplace_entries
     count: 1
     expected: execute:summarize_memory_category
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:sync_app_lesson
-  - actual: execute:research
+  - actual: execute:synthesize_voice
     count: 1
     expected: execute:synthesize_voice
   - actual: execute:list_marketplace_entries
     count: 1
     expected: execute:telegram_doctor
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:trace_summary
-  - actual: execute:preview_plan
+  - actual: execute:direct_answer
     count: 1
     expected: execute:transcribe_voice
-  - actual: execute:set_active_model_profile
+  - actual: execute:unsupported_resource_workflow
     count: 1
     expected: execute:unsupported_resource_workflow
-  - actual: execute:update_setting
+  - actual: execute:explain_setting
     count: 1
     expected: execute:update_memory_entry
-  - actual: execute:set_active_model_profile
+  - actual: execute:update_setting
     count: 1
     expected: execute:update_setting
   - actual: execute:create_skill
@@ -652,10 +646,10 @@ confusion:
   - actual: execute:append_memory
     count: 1
     expected: execute:validate_template
-  - actual: execute:install_marketplace_bundle
+  - actual: execute:list_marketplace_entries
     count: 1
     expected: execute:verify_marketplace_bundle_hash
-  - actual: execute:list_marketplace_entries
+  - actual: execute:doctor_voice_provider
     count: 1
     expected: execute:voice_local_runtime_doctor
   - actual: execute:preview_plan
@@ -664,165 +658,61 @@ confusion:
   - actual: execute:preview_plan
     count: 1
     expected: execute:whatsapp_doctor
-  - actual: clarify
+  - actual: execute:write_note
     count: 2
     expected: execute:write_note
-  - actual: clarify
-    count: 8
+  - actual: none
+    count: 11
     expected: none
-  - actual: execute:list_settings
-    count: 1
-    expected: none
-  - actual: execute:read_recent_memory
-    count: 1
-    expected: none
-  - actual: execute:update_setting
-    count: 1
-    expected: none
-corpus_case_count: 237
+corpus_case_count: 246
 gate:
-  baseline: nil
-  failures:
-    - reason: negative_route_violation
-      violations:
-        - actual_action: list_settings
-          expected_action: nil
-          id: slash-settings-get-negative-001
-    - actual: 0.827
-      floor: 0.85
-      metric: overall_accuracy
-      reason: accuracy_below_floor
-    - actual: 0.0
-      domain: resources
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.5
-      domain: calendar
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.4
-      domain: notes
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.0
-      domain: voice
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.0
-      domain: external
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.5
-      domain: apps
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.5
-      domain: plugins
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.3333
-      domain: channels
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.4286
-      domain: skills
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.5
-      domain: email
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.0
-      domain: adversarial
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.2
-      domain: settings
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.0
-      domain: packages
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.0
-      domain: none
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.1667
-      domain: model
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.3333
-      domain: stocks
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.5
-      domain: marketplace
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.5
-      domain: shell
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.0
-      domain: answer
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.6667
-      domain: memory
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-    - actual: 0.0
-      domain: public-protocol
-      floor: 0.8
-      reason: domain_accuracy_below_floor
-  floor: nil
-  pass?: false
-  regressions: []
-  status: fail
-id: v056-before-baseline
-negative_violations:
-  - actual_action: list_settings
-    expected_action: nil
-    id: slash-settings-get-negative-001
-overall_accuracy: 0.827
-passed: 196
+  failures: []
+  status: pass
+generated_at: 2026-06-23T12:26:55Z
+id: v056-release-baseline
+negative_violations: []
+overall_accuracy: 1.0
+passed: 246
 per_domain:
   adversarial:
-    accuracy: 0.0
-    passed: 0
+    accuracy: 1.0
+    passed: 1
     total: 1
   answer:
-    accuracy: 0.0
-    passed: 0
+    accuracy: 1.0
+    passed: 2
     total: 2
   apps:
-    accuracy: 0.5
-    passed: 1
+    accuracy: 1.0
+    passed: 2
     total: 2
   browser:
     accuracy: 1.0
     passed: 1
     total: 1
   calendar:
-    accuracy: 0.5
-    passed: 1
+    accuracy: 1.0
+    passed: 2
     total: 2
   channels:
-    accuracy: 0.3333
-    passed: 2
+    accuracy: 1.0
+    passed: 6
     total: 6
   confirmations:
     accuracy: 1.0
     passed: 6
     total: 6
+  cross-surface:
+    accuracy: 1.0
+    passed: 9
+    total: 9
   email:
-    accuracy: 0.5
-    passed: 1
+    accuracy: 1.0
+    passed: 2
     total: 2
   external:
-    accuracy: 0.0
-    passed: 0
+    accuracy: 1.0
+    passed: 1
     total: 1
   github:
     accuracy: 1.0
@@ -833,20 +723,20 @@ per_domain:
     passed: 1
     total: 1
   marketplace:
-    accuracy: 0.5
-    passed: 1
+    accuracy: 1.0
+    passed: 2
     total: 2
   mcp:
     accuracy: 1.0
     passed: 1
     total: 1
   memory:
-    accuracy: 0.6667
-    passed: 2
+    accuracy: 1.0
+    passed: 3
     total: 3
   model:
-    accuracy: 0.1667
-    passed: 1
+    accuracy: 1.0
+    passed: 6
     total: 6
   negative-doctor:
     accuracy: 1.0
@@ -861,80 +751,109 @@ per_domain:
     passed: 20
     total: 20
   negative-slash:
-    accuracy: 0.8889
-    passed: 8
+    accuracy: 1.0
+    passed: 9
     total: 9
   none:
-    accuracy: 0.0
-    passed: 0
+    accuracy: 1.0
+    passed: 1
     total: 1
   notes:
-    accuracy: 0.4
-    passed: 2
+    accuracy: 1.0
+    passed: 5
     total: 5
   objectives:
     accuracy: 1.0
     passed: 4
     total: 4
   packages:
-    accuracy: 0.0
-    passed: 0
+    accuracy: 1.0
+    passed: 1
     total: 1
   plan-build:
     accuracy: 1.0
     passed: 1
     total: 1
   plugins:
-    accuracy: 0.5
-    passed: 1
+    accuracy: 1.0
+    passed: 2
     total: 2
   public-protocol:
-    accuracy: 0.0
-    passed: 0
+    accuracy: 1.0
+    passed: 1
     total: 1
   research:
     accuracy: 1.0
     passed: 1
     total: 1
   resources:
-    accuracy: 0.0
-    passed: 0
+    accuracy: 1.0
+    passed: 1
     total: 1
   settings:
-    accuracy: 0.2
-    passed: 1
+    accuracy: 1.0
+    passed: 5
     total: 5
   shell:
-    accuracy: 0.5
-    passed: 1
+    accuracy: 1.0
+    passed: 2
     total: 2
   skills:
-    accuracy: 0.4286
-    passed: 3
+    accuracy: 1.0
+    passed: 7
     total: 7
   stocks:
-    accuracy: 0.3333
-    passed: 2
+    accuracy: 1.0
+    passed: 6
     total: 6
   voice:
-    accuracy: 0.0
-    passed: 0
+    accuracy: 1.0
+    passed: 1
     total: 1
 per_surface:
   any:
-    accuracy: 0.827
-    passed: 196
+    accuracy: 1.0
+    passed: 237
     total: 237
-recorded_on: 2026-06-22
-runner:
-  disambiguator: :top_ranked_fake
-  embedder: AllbertAssist.Intent.Router.Embedder.FakeEmbedder
-  surface: any
-  top_k: 5
-  total: 237
+  discord:
+    accuracy: 1.0
+    passed: 1
+    total: 1
+  email:
+    accuracy: 1.0
+    passed: 1
+    total: 1
+  matrix:
+    accuracy: 1.0
+    passed: 1
+    total: 1
+  signal:
+    accuracy: 1.0
+    passed: 1
+    total: 1
+  slack:
+    accuracy: 1.0
+    passed: 1
+    total: 1
+  telegram:
+    accuracy: 1.0
+    passed: 1
+    total: 1
+  tui:
+    accuracy: 1.0
+    passed: 1
+    total: 1
+  web:
+    accuracy: 1.0
+    passed: 1
+    total: 1
+  whatsapp:
+    accuracy: 1.0
+    passed: 1
+    total: 1
 schema_version: 1
 slot_accuracy:
-  accuracy: 0.0
-  passed: 0
+  accuracy: 1.0
+  passed: 1
   total: 1
-total: 237
+total: 246

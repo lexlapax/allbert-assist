@@ -131,20 +131,53 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert {:ok, response} = ListProviderProfiles.run(%{}, %{})
 
     assert response.status == :completed
-    assert response.message =~ "endpoint_kind=credentialed_remote"
-    assert response.message =~ "credential=missing"
+    assert response.message =~ "Provider registry has"
+    assert response.message =~ "won't dump the full operator report"
+    refute response.message =~ "endpoint_kind=credentialed_remote"
+    refute response.message =~ "credential=missing"
     assert Enum.any?(response.providers, &(&1.name == "openai"))
     refute response.message =~ "api_key"
+
+    assert [
+             %{
+               name: "list_provider_profiles",
+               settings_metadata: %{render_mode: :assistant_summary}
+             }
+           ] = response.actions
+
+    assert {:ok, report_response} =
+             ListProviderProfiles.run(%{render_mode: "operator_report"}, %{})
+
+    assert report_response.message =~ "Provider profiles:"
+    assert report_response.message =~ "endpoint_kind=credentialed_remote"
+    assert report_response.message =~ "credential=missing"
+    refute report_response.message =~ "api_key"
   end
 
   test "model profile action returns only redacted credential status" do
     assert {:ok, response} = ListModelProfiles.run(%{}, %{})
 
     assert response.status == :completed
-    assert response.message =~ "endpoint_kind=local_endpoint"
-    assert response.message =~ "credential=missing"
+    assert response.message =~ "Model registry has"
+    assert response.message =~ "won't dump the full operator report"
+    refute response.message =~ "endpoint_kind=local_endpoint"
+    refute response.message =~ "credential=missing"
     assert Enum.any?(response.models, &(&1.name == "fast"))
     refute response.message =~ "api_key"
+
+    assert [
+             %{
+               name: "list_model_profiles",
+               settings_metadata: %{render_mode: :assistant_summary}
+             }
+           ] = response.actions
+
+    assert {:ok, report_response} = ListModelProfiles.run(%{render_mode: "operator_report"}, %{})
+
+    assert report_response.message =~ "Model profiles:"
+    assert report_response.message =~ "endpoint_kind=local_endpoint"
+    assert report_response.message =~ "credential=missing"
+    refute report_response.message =~ "api_key"
   end
 
   test "model doctor reports the recommendation matrix without leaking secrets" do

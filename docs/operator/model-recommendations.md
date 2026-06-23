@@ -1,7 +1,7 @@
 # Allbert Model Recommendations (Which Model For What)
 
-Status: implemented for v0.56 M4 (ADR 0072; ADR acceptance still happens at v0.56
-closeout). This is the canonical operator guide for *which model to use for what
+Status: implemented and accepted for v0.56 (ADR 0072). This is the canonical
+operator guide for *which model to use for what
 purpose* in Allbert. It is **advice**: actual
 configuration lives in Settings Central, and you override any row with the
 documented key. No recommendation enables network egress or lowers a safety
@@ -66,8 +66,10 @@ mix allbert.intent doctor   # confirm embedder + router model report ok
   Central and audited at the capability/egress boundary (ADR 0051, Security
   Central / ADR 0006). The doctor flags a configured hosted profile with
   `remote-egress-warning` so it is never a surprise.
-- Descriptor generation and learned mining are local-only and redacted by default
-  (ADR 0062); they never emit raw prompts or secrets to traces.
+- Descriptor generation is local-only and redacted by default. Learned-review
+  proposal-mining infrastructure accepts reviewed evidence maps and redacts them
+  before writing review YAML; v0.56 does not wire autonomous runtime producers
+  (ADR 0062).
 
 ## Related
 

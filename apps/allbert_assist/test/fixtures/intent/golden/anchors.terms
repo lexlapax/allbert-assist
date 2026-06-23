@@ -69,7 +69,7 @@
   %{
     id: "memory-remember-002",
     category: "memory",
-    utterance: "note to self: the wifi password is on the router",
+    utterance: "note to self: the router is on the hallway shelf",
     context: %{},
     expected: %{kind: :execute, action: "append_memory"},
     rationale: "note-to-self idiom",

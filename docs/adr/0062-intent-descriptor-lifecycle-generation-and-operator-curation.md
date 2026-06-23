@@ -25,8 +25,8 @@ The following originally planned ADR 0062 pieces are **not** v0.54 shipped
 behavior and are now assigned to v0.56:
 
 - local-model descriptor generation through `router_local`;
-- learned-review proposal mining from memory, clarifications, confirmations,
-  traces, and operator corrections;
+- learned-review proposal-mining infrastructure for reviewed evidence maps from
+  memory, clarifications, confirmations, traces, and operator corrections;
 - the operator-callable `optimize_intent_descriptors` registered action;
 - `allbert.app.registered`, `allbert.plugin.registered`, and
   `allbert.action.registry_changed` signal emission/consumption.
@@ -38,8 +38,8 @@ allbert.intent promote`, and `release.v056` all run `Intent.Eval.Gate.check`, an
 regression vs the committed baseline or any negative-route violation **rejects the
 promotion / fails the release**; and **ADR 0072** ships per-purpose model
 recommendations + Settings Central recommended defaults + per-purpose doctor coverage
-for the local models this lifecycle uses. v0.56 also targets the full ~47-action
-routable inventory, not just the machinery.
+for the local models this lifecycle uses. v0.56 also targets the full current
+routable inventory (`57/57` at closeout), not just the machinery.
 
 This correction does not weaken the authority invariant: every descriptor remains
 only a routing hint, and active routing changes still require code declaration,
@@ -58,11 +58,12 @@ the action surface exposed two structural problems:
    actions** and `Actions.Registry.agent_modules/0` currently returns **49** modules.
    Two of those (`signal_doctor`, `whatsapp_doctor`) declare internal capability
    metadata and should not be routable natural-language targets, so the intended
-   descriptor target is the **47-action effective routable inventory** after that
-   cleanup/exclusion. Only **12** actions have descriptors today, and they are
+   descriptor target was the original effective routable inventory estimate after
+   that cleanup/exclusion. v0.56 closeout covers the current `agent_modules/0`
+   inventory (`57/57`). Only **12** actions had descriptors at audit time, and they were
    notes/stocks/research/browser/panel-centric. Whole domains a user speaks (email,
    calendar, memory, image-gen, channels, settings/model, skills/plugin authoring,
-   MCP, objectives) have no descriptor and cannot route.
+   MCP, objectives) had no descriptor and could not route.
 
 2. **Descriptors do not track a changing action set.** The action set is dynamic —
    it changes at runtime via plugin install, marketplace bundles, and especially

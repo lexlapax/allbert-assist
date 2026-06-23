@@ -26,8 +26,10 @@ defmodule Mix.Tasks.Allbert.Model do
   end
 
   defp dispatch(["list"]) do
-    with {:ok, providers_response} <- completed_action("list_provider_profiles", %{}),
-         {:ok, models_response} <- completed_action("list_model_profiles", %{}),
+    with {:ok, providers_response} <-
+           completed_action("list_provider_profiles", %{render_mode: "operator_report"}),
+         {:ok, models_response} <-
+           completed_action("list_model_profiles", %{render_mode: "operator_report"}),
          {:ok, active_profile} <- Settings.get("intent.model_profile"),
          {:ok, assist_enabled?} <- Settings.get("intent.model_assist_enabled") do
       {:ok,

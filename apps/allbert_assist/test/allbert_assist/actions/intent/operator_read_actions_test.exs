@@ -117,7 +117,7 @@ defmodule AllbertAssist.Actions.Intent.OperatorReadActionsTest do
 
     assert response.status == :completed
     assert response.eval_result.corpus_case_count > 0
-    assert response.eval_result.baseline.id == "v056-before-baseline"
+    assert response.eval_result.baseline.id == "v056-release-baseline"
     assert response.eval_result.gate.status in [:pass, :fail]
     assert is_list(response.eval_result.score.negative_violations)
     assert response.message =~ "intent eval run total="

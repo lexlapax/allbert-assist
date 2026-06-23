@@ -143,6 +143,16 @@ defmodule AllbertAssist.Intent.Eval.Scorer do
       score.overall_accuracy,
       metric(baseline, :overall_accuracy)
     )
+    |> maybe_regression(
+      :slot_accuracy,
+      metric(score.slot_accuracy, :accuracy),
+      nested_metric(baseline, :slot_accuracy, :accuracy)
+    )
+    |> maybe_regression(
+      :clarify_vs_execute_accuracy,
+      metric(score.clarify_vs_execute, :accuracy),
+      nested_metric(baseline, :clarify_vs_execute, :accuracy)
+    )
     |> Kernel.++(domain_regressions(score.per_domain, metric(baseline, :per_domain) || %{}))
   end
 
@@ -178,6 +188,8 @@ defmodule AllbertAssist.Intent.Eval.Scorer do
 
   defp baseline_id(nil), do: nil
   defp baseline_id(baseline), do: metric(baseline, :id) || metric(baseline, :baseline)
+
+  defp nested_metric(map, key, nested_key), do: map |> metric(key) |> metric(nested_key)
 
   defp metric(map, key) when is_map(map), do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
   defp metric(_map, _key), do: nil

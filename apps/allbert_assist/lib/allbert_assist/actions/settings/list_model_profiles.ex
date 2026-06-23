@@ -11,7 +11,7 @@ defmodule AllbertAssist.Actions.Settings.ListModelProfiles do
     description: "List model profiles with redacted credential status.",
     category: "settings",
     tags: ["settings", "models", "read_only"],
-    schema: [],
+    schema: [render_mode: [type: :string, required: false]],
     output_schema: [
       message: [type: :string, required: true],
       status: [type: :atom, required: true],
@@ -22,13 +22,14 @@ defmodule AllbertAssist.Actions.Settings.ListModelProfiles do
   alias AllbertAssist.Settings
 
   @impl true
-  def run(_params, context) do
+  def run(params, context) do
     permission_decision = PermissionGate.authorize(:read_only, context)
+    render_mode = render_mode(params, context)
     {:ok, models} = Settings.list_model_profiles()
 
     {:ok,
      %{
-       message: message(models),
+       message: message(models, render_mode),
        status: PermissionGate.response_status(permission_decision),
        models: models,
        actions: [
@@ -37,13 +38,13 @@ defmodule AllbertAssist.Actions.Settings.ListModelProfiles do
            status: :completed,
            permission: :read_only,
            permission_decision: permission_decision,
-           settings_metadata: %{model_count: length(models)}
+           settings_metadata: %{model_count: length(models), render_mode: render_mode}
          }
        ]
      }}
   end
 
-  defp message(models) do
+  defp message(models, :operator_report) do
     rendered =
       models
       |> Enum.map(
@@ -53,4 +54,22 @@ defmodule AllbertAssist.Actions.Settings.ListModelProfiles do
 
     "Model profiles:\n\n#{rendered}"
   end
+
+  defp message(models, :assistant_summary) do
+    total = length(models)
+
+    "Model registry has #{total} profiles loaded. I can discuss model setup safely here, " <>
+      "but I won't dump the full operator report in chat. Use `/models` for the TUI " <>
+      "model doctor or `mix allbert.model list` for the full operator report."
+  end
+
+  defp render_mode(params, context) do
+    case field(params, :render_mode) || field(params, :mode) || field(context, :render_mode) do
+      value when value in [:operator_report, "operator_report", :raw, "raw"] -> :operator_report
+      _other -> :assistant_summary
+    end
+  end
+
+  defp field(map, key) when is_map(map), do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
+  defp field(_map, _key), do: nil
 end

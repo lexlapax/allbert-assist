@@ -3476,17 +3476,19 @@ Expected direction:
 
 - Complete ADR 0062 beyond the v0.54 foundation: local `router_local` descriptor
   generation (bounded, redacted, deterministic YAML, heuristic fallback);
-  learned-review proposal mining from reviewed memory, resolved clarifications,
-  approved confirmations, redacted intent traces, and operator corrections; the
+  learned-review proposal-mining infrastructure for reviewed evidence maps from
+  memory, resolved clarifications, approved confirmations, redacted intent traces,
+  and operator corrections; the
   operator-callable `optimize_intent_descriptors` action; and full
   reindex-on-registration for `allbert.app.registered`,
   `allbert.plugin.registered`, and `allbert.action.registry_changed` alongside the
   v0.54 dynamic-codegen signals.
 - **Make routing correct, not just covered:** curate descriptors for the full
-  ~47-action routable inventory (only 12 are covered today), and add a deterministic
+  current routable inventory (`57/57` at closeout; only 12 were covered at audit
+  time), and add a deterministic
   routing-accuracy evaluation harness (ADR 0071) — a data-only YAML corpus, scorer,
-  and **blocking** promotion + release gate (no-regression vs a committed baseline,
-  a ratcheting absolute floor, and zero negative-route violations, including the
+  and **blocking** promotion + release gate (no-regression vs the ratcheted
+  committed release baseline, a ratcheting absolute floor, and zero negative-route violations, including the
   standing guarantee that v0.55.1 operator-inspection / `exposure: :internal` /
   doctor actions never route). A live `mix allbert.intent bench` lane stays the
   operator's model-quality signal.
@@ -3565,7 +3567,8 @@ Expected direction:
 - Implements the v0.56 M12 web handoff: Intents and Settings/Models panels
   render the registered action DTOs (`intent_coverage`,
   `intent_list_descriptors`, `intent_show_descriptor`, `intent_eval_run`,
-  `intent_list_review`, `model_doctor`) through `Actions.Runner.run/3`, with
+  `intent_list_review`, `model_doctor`, `list_model_profiles`,
+  `list_provider_profiles`) through `Actions.Runner.run/3`, with
   no CLI scraping, direct store reads, secret/endpoint leakage, or new
   authority.
 - Adds the formal operator-managed surface policy layer: Settings Central-backed

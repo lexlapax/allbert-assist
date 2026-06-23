@@ -26,12 +26,14 @@ Plan: `docs/plans/v0.56-plan.md`. Request flow:
 
 - Deterministic intent routing-accuracy harness (ADR 0071): data-only YAML
   corpus, scorer, baseline/capture/add flow, and a blocking promotion/release
-  gate with no-regression, absolute accuracy floors, and zero negative-route
+  gate with no-regression against the ratcheted v0.56 release baseline, absolute
+  accuracy floors, slot/clarify regression checks, and zero negative-route
   violations.
 - Full v0.56 descriptor lifecycle completion (ADR 0062): local-model descriptor
-  generation with heuristic fallback, learned-review mining, full routable
-  descriptor coverage, operator-callable mutation/read actions, and
-  app/plugin/action registration signal reindex hooks.
+  generation with heuristic fallback, learned-review proposal-mining
+  infrastructure, full current routable descriptor coverage (`57/57` at closeout),
+  operator-callable mutation/read actions, and app/plugin/action registration
+  signal reindex hooks.
 - Operator Action Layer for intent/eval/model operations: existing
   `mix allbert.intent` and model-doctor surfaces now resolve through registered
   actions and `Actions.Runner.run/3`; mutation paths remain explicit operator
@@ -45,8 +47,9 @@ Plan: `docs/plans/v0.56-plan.md`. Request flow:
   actions, slash-allowlisted only, and absent from natural-language intent
   candidates.
 - Natural-language operator summary boundary: ordinary prompts can receive
-  bounded assistant summaries for agent-exposed reads, while raw operator reports
-  remain explicit slash/Mix/future-panel affordances.
+  bounded assistant summaries for agent-exposed settings/channel/model/provider
+  reads, while raw operator reports remain explicit slash/Mix/future-panel
+  affordances.
 
 ### Validation
 
@@ -58,6 +61,10 @@ Plan: `docs/plans/v0.56-plan.md`. Request flow:
   secret scan.
 - `mix allbert.intent eval run` passed at the end of manual validation with
   246/246 cases, zero negative-route violations, and gate status `pass`.
+- The committed baseline was ratcheted to `v056-release-baseline` from the final
+  246-case deterministic pass; the live `mix allbert.intent bench` remains
+  advisory, forces the live two-stage strategy, and reports router defer reasons
+  when local model setup is incomplete.
 - Docs gate, diff check, warning gate, and stale-placeholder/drift greps were
   clean during M15 closeout.
 
@@ -209,9 +216,9 @@ and `docs/adr/0063-outbound-compose-actions-email-calendar-channel.md` (Accepted
   codegen reindex hooks, `intent.reindex_on_registration_signal=true`, and
   `intent.descriptor_autoaccept=false`. Generated descriptors for dynamic/write-code
   actions remain inert until promoted unless explicitly autoaccepted. The web
-  Intents panel is deferred to v0.58; local-model generation, learned-review mining,
-  `optimize_intent_descriptors`, and app/plugin/action registration signals move to
-  v0.56.
+  Intents panel is deferred to v0.58; local-model generation, learned-review
+  proposal-mining infrastructure, `optimize_intent_descriptors`, and
+  app/plugin/action registration signals move to v0.56.
 - **Outbound compose actions (M10, ADR 0063):** `send_email` (SMTP), `send_channel_message`
   (via the new `Channels.Outbound` boundary + identity-allowlist gating before
   dispatch), `create_calendar_event` (calendar MCP; graceful degrade) — all

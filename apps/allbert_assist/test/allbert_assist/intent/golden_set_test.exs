@@ -12,6 +12,8 @@ defmodule AllbertAssist.Intent.GoldenSetTest do
 
   alias AllbertAssist.Extensions.Registry, as: Ext
   alias AllbertAssist.Intent.Bench
+  alias AllbertAssist.Intent.Router.FakeRouter
+  alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.TestSupport.ProviderPreconditions
 
   setup do
@@ -48,4 +50,64 @@ defmodule AllbertAssist.Intent.GoldenSetTest do
              "#{c.id}: expected execute action #{inspect(action)} has no descriptor (not routable)"
     end
   end
+
+  test "live bench forces two-stage router strategy even under deterministic test config" do
+    original = %{
+      router: Application.get_env(:allbert_assist, :intent_router),
+      outcome: Application.get_env(:allbert_assist, :intent_router_fake_outcome),
+      override: Application.get_env(:allbert_assist, :intent_router_strategy_override)
+    }
+
+    fixture =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-bench-strategy-#{System.unique_integer([:positive])}.exs"
+      )
+
+    on_exit(fn ->
+      restore_env(:intent_router, original.router)
+      restore_env(:intent_router_fake_outcome, original.outcome)
+      restore_env(:intent_router_strategy_override, original.override)
+      File.rm(fixture)
+    end)
+
+    File.write!(
+      fixture,
+      inspect(
+        [
+          %{
+            id: "bench-strategy-001",
+            category: "notes",
+            utterance: "create a note",
+            expected: %{kind: :execute, action: "write_note"}
+          }
+        ],
+        pretty: true,
+        limit: :infinity
+      )
+    )
+
+    Application.put_env(:allbert_assist, :intent_router_strategy_override, :deterministic)
+    Application.put_env(:allbert_assist, :intent_router, FakeRouter)
+
+    Application.put_env(
+      :allbert_assist,
+      :intent_router_fake_outcome,
+      Outcome.execute("write_note")
+    )
+
+    assert %{
+             cases: [result],
+             summary: %{total: 1, passed: 1, accuracy: 1.0, router_strategy: :two_stage_local}
+           } =
+             Bench.run(fixture: fixture)
+
+    assert result.actual.kind == :execute
+
+    assert Application.get_env(:allbert_assist, :intent_router_strategy_override) ==
+             :deterministic
+  end
+
+  defp restore_env(key, nil), do: Application.delete_env(:allbert_assist, key)
+  defp restore_env(key, value), do: Application.put_env(:allbert_assist, key, value)
 end

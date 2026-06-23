@@ -137,21 +137,21 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
     end
   end
 
-  test "BEFORE baseline artifact is present and not parsed as a corpus case" do
+  test "release baseline artifact is present and not parsed as a corpus case" do
     assert {:ok, cases} = Corpus.load()
-    refute Enum.any?(cases, &(&1.id == "v056-before-baseline"))
+    refute Enum.any?(cases, &(&1.id == "v056-release-baseline"))
 
     path = baseline_path()
     assert File.exists?(path)
     assert {:ok, baseline} = YamlElixir.read_from_file(path)
 
     assert baseline["schema_version"] == 1
-    assert baseline["id"] == "v056-before-baseline"
-    assert baseline["corpus_case_count"] == 237
-    assert baseline["corpus_case_count"] <= length(cases)
-    assert is_number(baseline["overall_accuracy"])
+    assert baseline["id"] == "v056-release-baseline"
+    assert baseline["corpus_case_count"] == length(cases)
+    assert baseline["corpus_case_count"] == 246
+    assert baseline["overall_accuracy"] == 1.0
     assert is_map(baseline["per_domain"])
-    assert get_in(baseline, ["gate", "status"]) in ["pass", "fail"]
+    assert get_in(baseline, ["gate", "status"]) == "pass"
   end
 
   defp baseline_path do

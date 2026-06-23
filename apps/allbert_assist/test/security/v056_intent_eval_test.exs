@@ -11,15 +11,19 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
   alias AllbertAssist.Actions.Channels.SendChannelMessage
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner, as: ActionsRunner
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Channels.TUI.SlashCommands
   alias AllbertAssist.Intent.Eval.{Corpus, Gate, Runner, Scorer}
   alias AllbertAssist.Intent.Learning.Miner
   alias AllbertAssist.Intent.Router.DescriptorResolver
   alias AllbertAssist.Intent.Router.DescriptorStore
+  alias AllbertAssist.Intent.Router.Disambiguator.FakeDisambiguator
   alias AllbertAssist.Intent.Router.Embedder.FakeEmbedder
   alias AllbertAssist.Intent.Router.Index
   alias AllbertAssist.Intent.Router.Optimizer
   alias AllbertAssist.Paths
+  alias AllbertAssist.Plugin.Discovery
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.SecurityFixtures.EvalInventory
   alias AllbertAssist.Settings
 
@@ -135,9 +139,20 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
   setup do
     original_home = System.get_env("ALLBERT_HOME")
     original_home_dir = System.get_env("ALLBERT_HOME_DIR")
+    original_apps = AppRegistry.registered_apps()
+    original_plugins = PluginRegistry.registered_plugins()
     original_paths = Application.get_env(:allbert_assist, Paths)
     original_settings = Application.get_env(:allbert_assist, Settings)
     original_embedder = Application.get_env(:allbert_assist, :intent_router_embedder)
+    original_embedder_error = Application.get_env(:allbert_assist, :intent_router_embedder_error)
+    original_disambiguator = Application.get_env(:allbert_assist, :intent_router_disambiguator)
+    original_fake_selection = Application.get_env(:allbert_assist, :intent_router_fake_selection)
+
+    original_fake_escalated_selection =
+      Application.get_env(:allbert_assist, :intent_router_fake_escalated_selection)
+
+    original_fake_outcome = Application.get_env(:allbert_assist, :intent_router_fake_outcome)
+    original_strategy = Application.get_env(:allbert_assist, :intent_router_strategy_override)
     original_reindex = Application.get_env(:allbert_assist, :intent_index_reindex_on_signal)
 
     home =
@@ -148,9 +163,16 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
 
     System.put_env("ALLBERT_HOME", home)
     System.delete_env("ALLBERT_HOME_DIR")
+    reset_bootstrap_registries!()
     Application.put_env(:allbert_assist, Paths, home: home)
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
     Application.put_env(:allbert_assist, :intent_router_embedder, FakeEmbedder)
+    Application.put_env(:allbert_assist, :intent_router_disambiguator, FakeDisambiguator)
+    Application.delete_env(:allbert_assist, :intent_router_embedder_error)
+    Application.delete_env(:allbert_assist, :intent_router_fake_selection)
+    Application.delete_env(:allbert_assist, :intent_router_fake_escalated_selection)
+    Application.delete_env(:allbert_assist, :intent_router_fake_outcome)
+    Application.delete_env(:allbert_assist, :intent_router_strategy_override)
     Application.delete_env(:allbert_assist, :intent_index_reindex_on_signal)
 
     on_exit(fn ->
@@ -162,9 +184,17 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
         do: System.put_env("ALLBERT_HOME_DIR", original_home_dir),
         else: System.delete_env("ALLBERT_HOME_DIR")
 
+      restore_plugins(original_plugins)
+      restore_apps(original_apps)
       restore_env(Paths, original_paths)
       restore_env(Settings, original_settings)
       restore_env(:intent_router_embedder, original_embedder)
+      restore_env(:intent_router_embedder_error, original_embedder_error)
+      restore_env(:intent_router_disambiguator, original_disambiguator)
+      restore_env(:intent_router_fake_selection, original_fake_selection)
+      restore_env(:intent_router_fake_escalated_selection, original_fake_escalated_selection)
+      restore_env(:intent_router_fake_outcome, original_fake_outcome)
+      restore_env(:intent_router_strategy_override, original_strategy)
       restore_env(:intent_index_reindex_on_signal, original_reindex)
       File.rm_rf!(home)
     end)
@@ -522,4 +552,50 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
 
   defp restore_env(key, value) when is_atom(key),
     do: Application.put_env(:allbert_assist, key, value)
+
+  defp restore_plugins(plugins) do
+    PluginRegistry.clear()
+    Enum.each(plugins, &PluginRegistry.register_entry/1)
+  end
+
+  defp restore_apps(apps) do
+    AppRegistry.clear()
+
+    Enum.each(apps, fn
+      %{module: module} when is_atom(module) -> AppRegistry.register(module)
+      _entry -> :ok
+    end)
+  end
+
+  defp reset_bootstrap_registries! do
+    PluginRegistry.clear()
+    AppRegistry.clear()
+
+    Discovery.discover()
+    |> Enum.each(&register_discovery!/1)
+
+    configured_apps()
+    |> Kernel.++(PluginRegistry.registered_apps())
+    |> Enum.uniq()
+    |> Enum.each(&AppRegistry.register/1)
+  end
+
+  defp register_discovery!({:module, module, opts}) do
+    {:ok, _plugin_id} = PluginRegistry.register_module(module, opts)
+  end
+
+  defp register_discovery!({:entry, entry}) do
+    {:ok, _plugin_id} = PluginRegistry.register_entry(entry)
+  end
+
+  defp register_discovery!({:diagnostic, key, diagnostics}) do
+    PluginRegistry.put_diagnostics(to_string(key), diagnostics)
+  end
+
+  defp configured_apps do
+    case Application.get_env(:allbert_assist, :apps, [AllbertAssist.App.CoreApp]) do
+      apps when is_list(apps) -> apps
+      _other -> [AllbertAssist.App.CoreApp]
+    end
+  end
 end

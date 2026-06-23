@@ -61,7 +61,9 @@ action** `model_doctor` (`exposure: :internal`, `permission: :read_only`) resolv
 through `Actions.Runner.run/3`, so `mix allbert.settings model-doctor`, the
 `mix allbert.intent doctor` intent rows, the TUI `/models` read, and the v0.58
 Settings/Models panel are all thin views over the same action (the ADR 0070 / v0.56
-Operator Action Layer pattern). For each purpose it returns **recommended** vs
+Operator Action Layer pattern). The v0.58 panel also consumes the bounded
+`list_model_profiles` and `list_provider_profiles` read actions for profile inventory
+display under surface policy. For each purpose `model_doctor` returns **recommended** vs
 **configured** vs **status** — `ok | missing | under-capable | not-pulled |
 remote-egress-warning` — using the ADR 0047 doctor envelope (redacted; never prints
 secrets or raw endpoints).
@@ -81,8 +83,9 @@ reporting `not-pulled`/`under-capable` for missing or insufficient local models.
 The recommendation read-model (purpose -> recommended/configured/status) is exposed
 as a read-only DTO so operator surfaces can render it: the CLI doctors and TUI
 `/models` read render it in v0.56; the v0.58 Web UX redo renders it in a
-Settings/Models panel. v0.56 ships the DTO plus CLI/TUI rendering; web rendering is
-flagged for v0.58 (see the v0.56 plan UI/UX milestone).
+Settings/Models panel alongside bounded model/provider profile inventories.
+v0.56 ships the DTO plus CLI/TUI rendering; web rendering and operator-managed
+raw-report policy are flagged for v0.58 (see the v0.56 plan UI/UX milestone).
 
 ## Authority invariants
 

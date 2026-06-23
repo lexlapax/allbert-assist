@@ -44,20 +44,28 @@ defmodule AllbertAssist.Intent.Eval.ScorerTest do
   test "reports regressions against a baseline score" do
     run = %{
       results: [
-        result(case!("notes-create-001", "notes", :execute, "write_note"), %{kind: :none})
+        result(
+          case!("notes-create-001", "notes", :execute, "write_note", %{"title" => :present}),
+          %{kind: :none}
+        )
       ]
     }
 
     baseline = %{
       id: "before",
       overall_accuracy: 1.0,
-      per_domain: %{"notes" => %{accuracy: 1.0}}
+      per_domain: %{"notes" => %{accuracy: 1.0}},
+      slot_accuracy: %{accuracy: 1.0},
+      clarify_vs_execute: %{accuracy: 1.0}
     }
 
     score = Scorer.score(run, baseline)
 
     assert score.gate.baseline == "before"
     assert %{metric: :overall_accuracy, previous: 1.0, current: 0.0} in score.gate.regressions
+    assert %{metric: :slot_accuracy, previous: 1.0, current: 0.0} in score.gate.regressions
+
+    assert %{metric: :clarify_vs_execute_accuracy, previous: 1.0, current: 0.0} in score.gate.regressions
 
     assert %{metric: :per_domain_accuracy, domain: "notes", previous: 1.0, current: 0.0} in score.gate.regressions
   end
