@@ -332,8 +332,9 @@ scope.
     parity matrix and a proper TUI/terminal channel under the ADR 0016 contract
     (list-shaped identity map, dedupe, approval primitives, a basic
     `mix allbert.tui` launcher), not just `mix allbert.ask`. Harvests Pi's split
-    tool result (`model_payload` vs. `surface_payload`; ADR 0029/0030) and the
-    live region as the foundation for v0.57 streamed terminal rendering. ADR 0067.
+    tool result (`model_payload` vs. `surface_payload`; ADR 0029/0030), plus
+    scrollback rendering and a transient Owl status/live block that v0.57 can
+    extend with its own streamed diff renderer. ADR 0067.
 55.1. v0.55.1 TUI Operator/Validation Console: makes the v0.55 TUI the persistent,
     mix-free operator/validation console — in-TUI slash-commands (`/status`,
     `/confirmations`, `/events`, `/channels`, `/settings get`, `/help`) and
@@ -351,11 +352,12 @@ scope.
     until operator promotion and never grant authority.
 57. v0.57 Pi-mode Coding Surface: a gated terminal coding surface on the one
     authority spine — four boundary actions (read/write/edit/bash) through
-    `Actions.Runner.run/3`, sub-1000-token prompt, streamed split-payload diffs,
-    full-file context discipline, and a named "local coding / sandbox level 0"
-    trust tier (extends ADR 0009). Never YOLO-by-default, never for
-    channel-originated or generated-code sessions; deterministic acceptance and
-    Security Central stay intact. ADR 0068; rationale in
+    `Actions.Runner.run/3`, sub-1000-token prompt+tool-defs budget, net-new
+    streamed split-payload diffs, chunked-read context discipline, and a named
+    "local-coding operator" trust tier (ADR 0056 lineage at ADR 0009 Level 1,
+    not "level 0"). Never YOLO-by-default, never for channel-originated or
+    generated-code sessions; deterministic acceptance and Security Central stay
+    intact. ADR 0068; rationale in
     `docs/archives/pi-integration-rethink.md`.
 58. v0.58 Web UX Redo + Surface Policy: re-layout `/workspace` (ADR 0023/0024
     kept) — chat primary, ephemeral surfaces become popups, canvas demoted,
@@ -3535,8 +3537,8 @@ Expected direction:
   memory as every other surface.
 - Four boundary actions (`read`/`write`/`edit`/`bash`) through the action
   runner, a sub-1000-token prompt+tool-defs budget, **net-new** streamed diffs (a
-  live-region substrate over the v0.55 **static** split payload), and a
-  chunked-read context discipline (offset/limit + artifacts, not whole-file).
+  coding diff live-region renderer over the v0.55 **static** split payload), and
+  a chunked-read context discipline (offset/limit + artifacts, not whole-file).
   `bash` runs host processes at sandbox Level 1; raw shell only at the tier below.
 - A named "local-coding operator" trust tier (ADR 0056 lineage, running at ADR
   0009 **Level 1** — not "level 0"): a single trusted operator, main session,

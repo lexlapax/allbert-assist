@@ -10,8 +10,10 @@ surface catalog/renderer — the terminal surface registers here), ADR 0006
 (Security Central — a channel grants no authority), ADR 0056 (channel inbound
 trust tier — invariants unchanged).
 Successor: ADR 0068 (v0.57 Pi-mode coding surface), which builds directly on
-this channel and on the split-result pattern established here — Pi-mode builds
-on this ADR's split-payload seam and live region.
+this channel and on the split-result pattern established here. Pi-mode builds on
+this ADR's split-payload seam, scrollback rendering, and transient Owl
+status/live block; the progressive coding-diff live-region renderer is v0.57
+work.
 
 ADR 0016's v0.55 amendment owns the channel reservation and the
 capability/parity-matrix artifact; this ADR (0067) owns the descriptor detail,
@@ -40,9 +42,9 @@ That gap matters now for two reasons:
   must not feed back into the model context as if it were model-facing content.
   v0.55 lands that split as a **static** `model_payload`/`surface_payload`
   contract (the renderer draws a complete `surface_payload`; only `model_payload`
-  threads into memory). The **live-region substrate and true streamed token/diff
-  semantics are deferred to v0.57**, which owns them — v0.55 ships no incremental
-  render path.
+  threads into memory). The **coding diff live-region renderer and true streamed
+  token/diff semantics are deferred to v0.57**, which owns them — v0.55 ships no
+  incremental diff render path.
 
 A real terminal channel must therefore do two things at once: register a genuine
 channel under the ADR 0016 contract (not a dressed-up `mix allbert.ask`), and
@@ -145,8 +147,9 @@ coding surface) extends ADDITIVELY, so Pi-mode needs no rework of this channel:
 1. The **split tool-result payload seam** — `model_payload` separate from
    `surface_payload` (extends ADR 0029/0030) — established in v0.55 even though
    the v0.55 TUI consumes it simply.
-2. The **live region** as the streaming-render substrate Pi-mode draws streamed
-   diffs into.
+2. The scrollback render model plus a transient Owl status/live block. Pi-mode
+   may extend that terminal rendering shape, but the progressive coding-diff
+   live-region renderer remains v0.57-owned.
 
 Plus: v0.55 keeps the action boundary tier-ready (terminal profile resolved
 through the list-shaped identity map to a configured local `user_id`, every action

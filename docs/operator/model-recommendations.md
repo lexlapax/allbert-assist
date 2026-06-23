@@ -32,7 +32,7 @@ small/wrong capability) · `not-pulled` (local model not downloaded) ·
 | Vision / image generation | per provider catalog (v0.49) | image provider (audited) | image generation | per provider | image profile | provider doctor reports gap |
 | Codegen committee (Author/Critic) | `:capable` / `:thinking` | capable hosted | strong reasoning, long context | sandboxed; gated | codegen profiles | gate report blocks |
 | Advisory critics / LLM-judge | `:capable` (local) | hosted (audited) | reasoning | advisory-only (never authority) | per-feature profile | advisory output dropped |
-| Pi-mode coding (v0.57, forward-looking) | capable local coding model + mid-session switch | capable hosted | coding, long context | local coding / sandbox level 0 | (defined in v0.57) | (v0.57) |
+| Pi-mode coding (v0.57, forward-looking) | capable local coding model + mid-session switch | capable hosted | coding, long context | local-coding operator trust tier at sandbox Level 1; audited, never default | `coding.model_profile` (defined in v0.57) | default model or graceful decline |
 
 ## Pulling local models
 

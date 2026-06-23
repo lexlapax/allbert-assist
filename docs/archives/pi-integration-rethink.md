@@ -2,6 +2,16 @@
 
 *Comparison + integration recommendation. Written to sit next to `docs/archives/project-direction-rethink-01.md` and could become an ADR or `docs/archives/pi-integration-rethink.md`. Grounded in the repo at `v0.54.0`, 64 ADRs, the Jido vision, and the existing Hermes/OpenClaw comparison.*
 
+> **Supersession note (v0.57 second-pass readiness, 2026-06-23):** This archive
+> is historical rationale, not current implementation or operator authority.
+> Active v0.57 docs supersede this file's references to "sandbox level 0",
+> "local coding / level 0", "full-file context", and "full-file-read". The
+> current contract is: local-coding operator is a named trust tier, not a sandbox
+> level, and it runs at ADR 0009 Level 1; Pi-mode context discipline is chunked
+> reads (offset/limit) plus artifacts, not whole-file ingestion. Use ADR 0009,
+> ADR 0068, `docs/plans/v0.57-plan.md`, and
+> `docs/plans/v0.57-request-flow.md` for implementation and operator authority.
+
 ---
 
 ## Verdict (decision-grade)

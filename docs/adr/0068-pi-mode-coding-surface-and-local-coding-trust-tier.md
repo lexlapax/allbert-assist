@@ -61,10 +61,11 @@ Surface discipline:
   agent harness;
 - **streamed split-payload diffs** — the model-facing `model_payload` carries the
   canonical change while the terminal renders the `surface_payload` diff. v0.55
-  shipped only the **static** split; **v0.57 builds the live-region substrate and
-  the progressive tool-argument streaming** (parse tool-call arguments as they
-  arrive) that make diffs render as the model writes. Result-payload streaming is
-  not assumed; the streamed unit is the tool-call argument stream.
+  shipped only the **static** split; **v0.57 builds the coding diff live-region
+  renderer and the progressive tool-argument streaming** (parse tool-call
+  arguments as they arrive) that make diffs render as the model writes.
+  Result-payload streaming is not assumed; the streamed unit is the tool-call
+  argument stream.
 - **context discipline (Pi's actual practice)** — gather context through
   **chunked reads** (offset/limit) and, for larger investigations,
   **separate context-gathering sessions plus file artifacts**, rather than always
@@ -147,9 +148,9 @@ decision in the v0.57 plan.
   Central, confirmations, sandbox levels, and MCP-first are unchanged; "done" for
   effectful/generated-code work is deterministic, not model-asserted.
 - This surface depends on the v0.55 terminal channel and **static** split-result
-  pattern (ADR 0067). The **streaming** half — the live-region substrate and
-  progressive tool-argument rendering — is **net-new v0.57 work**, not a v0.55
-  inheritance; v0.55 ships no incremental render path.
+  pattern (ADR 0067). The **streaming** half — the coding diff live-region
+  renderer and progressive tool-argument rendering — is **net-new v0.57 work**,
+  not a v0.55 inheritance; v0.55 ships no incremental render path.
 - Raw-shell `bash` widens the host-execution surface relative to
   `run_shell_command`. The exposure is bounded by the tier (single trusted local
   operator only), cwd confinement, timeout, and audit; the security boundary is
