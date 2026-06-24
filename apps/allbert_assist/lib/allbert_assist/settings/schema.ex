@@ -122,6 +122,9 @@ defmodule AllbertAssist.Settings.Schema do
     "permissions.memory_write",
     "permissions.command_plan",
     "permissions.command_execute",
+    "permissions.coding_file_read",
+    "permissions.coding_file_write",
+    "permissions.coding_shell_execute",
     "permissions.external_network",
     "permissions.package_install",
     "permissions.online_skill_import",
@@ -2176,6 +2179,27 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
+    "permissions.coding_file_read" => %{
+      type: :enum,
+      default: "allowed",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.coding_file_write" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
+    "permissions.coding_shell_execute" => %{
+      type: :enum,
+      default: "needs_confirmation",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["allowed", "needs_confirmation", "denied"]
+    },
     "permissions.external_network" => %{
       type: :enum,
       default: "needs_confirmation",
@@ -3401,6 +3425,9 @@ defmodule AllbertAssist.Settings.Schema do
       "memory_write" => "allowed",
       "command_plan" => "allowed",
       "command_execute" => "denied",
+      "coding_file_read" => "allowed",
+      "coding_file_write" => "needs_confirmation",
+      "coding_shell_execute" => "needs_confirmation",
       "external_network" => "needs_confirmation",
       "package_install" => "denied",
       "online_skill_import" => "denied",

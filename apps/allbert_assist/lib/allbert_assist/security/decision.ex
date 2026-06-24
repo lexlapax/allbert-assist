@@ -14,16 +14,17 @@ defmodule AllbertAssist.Security.Decision do
     context = Map.get(attrs, :context, %{})
     risk = Map.get(attrs, :risk, %{tier: :critical, reasons: ["missing risk classification"]})
     policy = Map.get(attrs, :policy, %{})
+    requires_confirmation? = requires_confirmation?(decision, context)
 
     base = %{
       permission: permission,
       decision: decision,
       reason: Map.fetch!(attrs, :reason),
-      requires_confirmation: decision == :needs_confirmation,
+      requires_confirmation: requires_confirmation?,
       source: Map.get(attrs, :source, __MODULE__),
       risk: risk,
       redaction: redaction(),
-      trace: trace(permission, decision, risk, policy, context),
+      trace: trace(permission, decision, risk, policy, context, requires_confirmation?),
       context: context,
       trust_boundary: trust_boundary(context),
       policy: policy
@@ -52,12 +53,15 @@ defmodule AllbertAssist.Security.Decision do
     }
   end
 
-  defp trace(permission, decision, risk, policy, context) do
+  defp requires_confirmation?(:needs_confirmation, _context), do: true
+  defp requires_confirmation?(_decision, _context), do: false
+
+  defp trace(permission, decision, risk, policy, context, requires_confirmation?) do
     %{
       permission: permission,
       decision: decision,
       risk_tier: Map.get(risk, :tier),
-      requires_confirmation: decision == :needs_confirmation,
+      requires_confirmation: requires_confirmation?,
       policy_source: Map.get(policy, :source),
       trust_boundary: trust_boundary_name(context)
     }

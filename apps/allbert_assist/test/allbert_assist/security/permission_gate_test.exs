@@ -11,6 +11,9 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :memory_write,
              :command_plan,
              :command_execute,
+             :coding_file_read,
+             :coding_file_write,
+             :coding_shell_execute,
              :external_network,
              :package_install,
              :online_skill_import,
@@ -327,6 +330,55 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     refute PermissionGate.allowed?(decision)
     assert PermissionGate.response_status(decision) == :denied
     assert_compatibility_fields(decision)
+  end
+
+  test "registers v0.57 coding permissions with declared floors" do
+    assert :coding_file_read in PermissionGate.permission_classes()
+    assert :coding_file_write in PermissionGate.permission_classes()
+    assert :coding_shell_execute in PermissionGate.permission_classes()
+    refute :coding_session_write in PermissionGate.permission_classes()
+
+    read = PermissionGate.authorize(:coding_file_read, %{})
+    assert read.decision == :allowed
+    assert read.policy.setting_key == "permissions.coding_file_read"
+    assert read.policy.safety_floor == :allowed
+    assert read.risk.tier == :medium
+    refute read.requires_confirmation
+
+    for permission <- [:coding_file_write, :coding_shell_execute] do
+      decision = PermissionGate.authorize(permission, %{})
+
+      assert decision.decision == :needs_confirmation
+      assert decision.policy.setting_key == "permissions.#{permission}"
+      assert decision.policy.safety_floor == :needs_confirmation
+      assert decision.risk.tier == :high
+      assert decision.requires_confirmation
+      assert decision.trace.requires_confirmation
+      assert_compatibility_fields(decision)
+    end
+  end
+
+  test "declares v0.57 approval modes and local-coding tier vocabulary" do
+    assert PermissionGate.approval_modes() == [:default, :accept_edits, :plan, :tier]
+    assert PermissionGate.coding_tiers() == [:none, :local_coding_operator]
+
+    trusted_context = %{
+      actor: %{id: "local"},
+      channel: %{name: :tui},
+      session: %{main?: true},
+      coding: %{trusted_operator_id: "local", approval_mode: "accept-edits"}
+    }
+
+    assert PermissionGate.coding_tier(trusted_context) == :local_coding_operator
+    assert PermissionGate.approval_mode(trusted_context) == :accept_edits
+
+    assert PermissionGate.coding_tier(%{trusted_context | channel: %{name: :telegram}}) == :none
+    assert PermissionGate.coding_tier(%{trusted_context | session: %{main?: false}}) == :none
+
+    assert PermissionGate.coding_tier(Map.put(trusted_context, :channel_originated?, true)) ==
+             :none
+
+    assert PermissionGate.approval_mode(%{coding: %{approval_mode: "bogus"}}) == :default
   end
 
   test "requires confirmation for external network access" do

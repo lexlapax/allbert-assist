@@ -3529,13 +3529,13 @@ Expected direction:
 Plan: `docs/plans/v0.57-plan.md`
 Request flow: `docs/plans/v0.57-request-flow.md`
 ADR: `docs/adr/0068-pi-mode-coding-surface-and-local-coding-trust-tier.md`
-(Proposed; accept in v0.57)
+(Accepted in v0.57 M0)
 Rationale: `docs/archives/pi-integration-rethink.md`
 
-Status: planned. NEW in the 2026-06-21 replan. Incorporates the Pi-vs-Allbert
-analysis: keep Allbert's authority spine, give it Pi's minimal inner loop where
-it helps (a gated coding surface), and adopt Pi's split-tool-result and
-minimalism budget.
+Status: in progress; M0 contracts/API/upstream verification implemented
+2026-06-23. NEW in the 2026-06-21 replan. Incorporates the Pi-vs-Allbert analysis:
+keep Allbert's authority spine, give it Pi's minimal inner loop where it helps (a
+gated coding surface), and adopt Pi's split-tool-result and minimalism budget.
 
 Expected direction:
 

@@ -22,6 +22,9 @@ defmodule AllbertAssist.Security.Risk do
   def tier(:conversation_write), do: :low
   def tier(:memory_write), do: :low
   def tier(:command_plan), do: :low
+  def tier(:coding_file_read), do: :medium
+  def tier(:coding_file_write), do: :high
+  def tier(:coding_shell_execute), do: :high
   def tier(:settings_write), do: :medium
   def tier(:skill_write), do: :medium
   def tier(:dynamic_codegen_request), do: :medium
@@ -81,6 +84,9 @@ defmodule AllbertAssist.Security.Risk do
 
   defp reasons(:memory_write, _tier, _context), do: ["durable markdown memory write"]
   defp reasons(:command_plan, _tier, _context), do: ["non-executing command planning"]
+  defp reasons(:coding_file_read, _tier, _context), do: ["bounded local coding file read/search"]
+  defp reasons(:coding_file_write, _tier, _context), do: ["local coding file write/edit"]
+  defp reasons(:coding_shell_execute, _tier, _context), do: ["local coding shell execution"]
   defp reasons(:settings_write, _tier, _context), do: ["operator-visible settings change"]
   defp reasons(:skill_write, _tier, _context), do: ["local skill scaffold write"]
 

@@ -10,6 +10,9 @@ defmodule AllbertAssist.Security.Policy do
     memory_write: "permissions.memory_write",
     command_plan: "permissions.command_plan",
     command_execute: "permissions.command_execute",
+    coding_file_read: "permissions.coding_file_read",
+    coding_file_write: "permissions.coding_file_write",
+    coding_shell_execute: "permissions.coding_shell_execute",
     external_network: "permissions.external_network",
     package_install: "permissions.package_install",
     online_skill_import: "permissions.online_skill_import",
@@ -64,6 +67,9 @@ defmodule AllbertAssist.Security.Policy do
     memory_write: :allowed,
     command_plan: :allowed,
     command_execute: :denied,
+    coding_file_read: :allowed,
+    coding_file_write: :needs_confirmation,
+    coding_shell_execute: :needs_confirmation,
     external_network: :needs_confirmation,
     package_install: :denied,
     online_skill_import: :denied,
@@ -138,6 +144,9 @@ defmodule AllbertAssist.Security.Policy do
           | :memory_write
           | :command_plan
           | :command_execute
+          | :coding_file_read
+          | :coding_file_write
+          | :coding_shell_execute
           | :external_network
           | :package_install
           | :online_skill_import
@@ -196,6 +205,9 @@ defmodule AllbertAssist.Security.Policy do
       :memory_write,
       :command_plan,
       :command_execute,
+      :coding_file_read,
+      :coding_file_write,
+      :coding_shell_execute,
       :external_network,
       :package_install,
       :online_skill_import,
@@ -312,6 +324,42 @@ defmodule AllbertAssist.Security.Policy do
     Enum.map(permission_classes(), &resolve(&1, context, settings))
   end
 
+  @doc "Return the Pi-mode approval-mode vocabulary in stable order."
+  @spec approval_modes() :: nonempty_list(:default | :accept_edits | :plan | :tier)
+  def approval_modes, do: [:default, :accept_edits, :plan, :tier]
+
+  @doc "Read the requested Pi-mode approval mode from a context map."
+  @spec approval_mode(map()) :: :default | :accept_edits | :plan | :tier
+  def approval_mode(context) when is_map(context) do
+    context
+    |> coding_context_value(:approval_mode)
+    |> Kernel.||(coding_context_value(context, :default_approval_mode))
+    |> normalize_approval_mode()
+  end
+
+  def approval_mode(_context), do: :default
+
+  @doc "Return the known Pi-mode coding trust tiers."
+  @spec coding_tiers() :: nonempty_list(:none | :local_coding_operator)
+  def coding_tiers, do: [:none, :local_coding_operator]
+
+  @doc """
+  Resolve the Pi-mode local-coding trust tier from explicit context.
+
+  M0 deliberately keeps this context-only. M7 wires Settings Central and the
+  confirmation-cost seam on top of the same vocabulary.
+  """
+  @spec coding_tier(map()) :: :local_coding_operator | :none
+  def coding_tier(context) when is_map(context) do
+    if local_coding_operator_context?(context) do
+      :local_coding_operator
+    else
+      :none
+    end
+  end
+
+  def coding_tier(_context), do: :none
+
   @doc "Return the v0.05 safety floor for a permission."
   @spec safety_floor(atom()) :: :allowed | :needs_confirmation | :denied
   def safety_floor(permission), do: safety_floor(permission, %{})
@@ -319,6 +367,9 @@ defmodule AllbertAssist.Security.Policy do
   @doc "Return the effective safety floor for a permission and context."
   @spec safety_floor(atom(), map()) :: :allowed | :needs_confirmation | :denied
   def safety_floor(:command_execute, _context), do: :needs_confirmation
+  def safety_floor(:coding_file_read, _context), do: :allowed
+  def safety_floor(:coding_file_write, _context), do: :needs_confirmation
+  def safety_floor(:coding_shell_execute, _context), do: :needs_confirmation
   def safety_floor(:external_network, _context), do: :needs_confirmation
   def safety_floor(:package_install, _context), do: :needs_confirmation
   def safety_floor(:online_skill_import, _context), do: :needs_confirmation
@@ -398,6 +449,54 @@ defmodule AllbertAssist.Security.Policy do
 
   defp deployment_mode_path(context, {:field, key}), do: field(context, key)
   defp deployment_mode_path(context, path), do: get_in(context, path)
+
+  defp local_coding_operator_context?(context) do
+    trusted_operator_id = coding_context_value(context, :trusted_operator_id)
+    actor_id = actor_id(context)
+
+    trusted_operator_id not in [nil, ""] and actor_id == trusted_operator_id and
+      channel_name(context) in [:tui, "tui"] and main_session?(context) and
+      not disallowed_coding_origin?(context)
+  end
+
+  defp actor_id(context) do
+    get_in(context, [:actor, :id]) || get_in(context, ["actor", "id"]) ||
+      field(context, :operator_id) || field(context, :actor)
+  end
+
+  defp channel_name(context) do
+    get_in(context, [:channel, :name]) || get_in(context, ["channel", "name"]) ||
+      field(context, :channel)
+  end
+
+  defp main_session?(context) do
+    get_in(context, [:session, :main?]) == true or get_in(context, ["session", "main?"]) == true or
+      field(context, :main_session?) == true or field(context, :session_kind) in [:main, "main"]
+  end
+
+  defp disallowed_coding_origin?(context) do
+    field(context, :channel_originated?) == true or field(context, :scheduled?) == true or
+      field(context, :generated_code_session?) == true or
+      get_in(context, [:coding, :generated_code_session?]) == true or
+      get_in(context, ["coding", "generated_code_session?"]) == true
+  end
+
+  defp coding_context_value(context, key) do
+    field(context, key) || get_in(context, [:coding, key]) ||
+      get_in(context, ["coding", Atom.to_string(key)])
+  end
+
+  defp normalize_approval_mode(:default), do: :default
+  defp normalize_approval_mode("default"), do: :default
+  defp normalize_approval_mode(:accept_edits), do: :accept_edits
+  defp normalize_approval_mode(:"accept-edits"), do: :accept_edits
+  defp normalize_approval_mode("accept-edits"), do: :accept_edits
+  defp normalize_approval_mode("accept_edits"), do: :accept_edits
+  defp normalize_approval_mode(:plan), do: :plan
+  defp normalize_approval_mode("plan"), do: :plan
+  defp normalize_approval_mode(:tier), do: :tier
+  defp normalize_approval_mode("tier"), do: :tier
+  defp normalize_approval_mode(_value), do: :default
 
   defp field(map, key) when is_map(map),
     do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
@@ -520,6 +619,30 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:command_execute, :denied, _configured, _floor, _context),
     do: "Command execution is denied until local execution is explicitly enabled and confirmed."
+
+  defp reason(:coding_file_read, :allowed, _configured, _floor, _context),
+    do:
+      "Pi-mode bounded file reads and searches are allowed through policy-bounded coding actions."
+
+  defp reason(:coding_file_read, :needs_confirmation, _configured, _floor, _context),
+    do: "Pi-mode bounded file reads and searches require confirmation by current policy."
+
+  defp reason(:coding_file_read, :denied, _configured, _floor, _context),
+    do: "Pi-mode bounded file reads and searches are denied by current policy."
+
+  defp reason(:coding_file_write, :needs_confirmation, _configured, _floor, _context),
+    do:
+      "Pi-mode file writes and edits require confirmation unless a later local-coding tier suppresses only the prompt."
+
+  defp reason(:coding_file_write, :denied, _configured, _floor, _context),
+    do: "Pi-mode file writes and edits are denied by current policy."
+
+  defp reason(:coding_shell_execute, :needs_confirmation, _configured, _floor, _context),
+    do:
+      "Pi-mode shell execution requires confirmation unless a later local-coding tier suppresses only the prompt."
+
+  defp reason(:coding_shell_execute, :denied, _configured, _floor, _context),
+    do: "Pi-mode shell execution is denied by current policy."
 
   defp reason(:external_network, :needs_confirmation, _configured, _floor, _context),
     do: "External network access requires confirmation and a configured v0.10 adapter."

@@ -1,6 +1,6 @@
 # ADR 0068: Pi-mode Coding Surface and Local-Coding Trust Tier
 
-Status: Proposed (v0.57).
+Status: Accepted (v0.57 M0).
 Date: 2026-06-21
 Related: ADR 0067 (TUI/terminal channel + split tool result — the foundation
 this surface streams over), ADR 0009 (local execution sandbox levels — the

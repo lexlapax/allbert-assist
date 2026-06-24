@@ -20,6 +20,9 @@ defmodule AllbertAssist.Security.PermissionGate do
           | :memory_write
           | :command_plan
           | :command_execute
+          | :coding_file_read
+          | :coding_file_write
+          | :coding_shell_execute
           | :external_network
           | :package_install
           | :online_skill_import
@@ -73,6 +76,18 @@ defmodule AllbertAssist.Security.PermissionGate do
 
   @doc "Return the permission classes recognized by the compatibility gate."
   def permission_classes, do: Policy.permission_classes()
+
+  @doc "Return the Pi-mode approval-mode vocabulary."
+  def approval_modes, do: Policy.approval_modes()
+
+  @doc "Read the Pi-mode approval mode from a context map."
+  def approval_mode(context), do: Policy.approval_mode(context)
+
+  @doc "Return the Pi-mode coding trust-tier vocabulary."
+  def coding_tiers, do: Policy.coding_tiers()
+
+  @doc "Resolve the Pi-mode coding trust tier from explicit context."
+  def coding_tier(context), do: Policy.coding_tier(context)
 
   @doc """
   Authorize a permission class through Security Central.
