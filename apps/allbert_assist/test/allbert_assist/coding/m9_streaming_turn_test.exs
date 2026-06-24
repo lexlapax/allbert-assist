@@ -1,9 +1,18 @@
 defmodule AllbertAssist.Coding.M9StreamingTurnTest do
-  use ExUnit.Case, async: false
+  use AllbertAssist.DataCase, async: false
 
+  alias AllbertAssist.Paths
+  alias AllbertAssist.Settings
   alias AllbertAssist.Coding.StreamingTurn
   alias AllbertAssist.Coding.TurnSupervisor
   alias AllbertAssist.Agents.IntentAgent
+
+  @env_vars [
+    "ALLBERT_HOME",
+    "ALLBERT_HOME_DIR",
+    "ALLBERT_SETTINGS_ROOT",
+    "ALLBERT_SETTINGS_MASTER_KEY"
+  ]
 
   defmodule FakeReqLLM do
     def stream_text(model_spec, prompt, opts) do
@@ -89,7 +98,65 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
       end
     end
 
-    defp metadata(:tool_read, prompt) do
+    defp stream(:tool_write, _parent, prompt) do
+      if tool_result_context?(prompt) do
+        [
+          ReqLLM.StreamChunk.text("Write is pending approval."),
+          ReqLLM.StreamChunk.meta(%{finish_reason: "stop"})
+        ]
+      else
+        [
+          ReqLLM.StreamChunk.tool_call(
+            "write",
+            %{"path" => "pending-write.txt", "content" => "pending\n"},
+            %{id: "call-write"}
+          ),
+          ReqLLM.StreamChunk.meta(%{finish_reason: "tool_calls"})
+        ]
+      end
+    end
+
+    defp stream(:tool_edit, _parent, prompt) do
+      if tool_result_context?(prompt) do
+        [
+          ReqLLM.StreamChunk.text("Edit is pending approval."),
+          ReqLLM.StreamChunk.meta(%{finish_reason: "stop"})
+        ]
+      else
+        [
+          ReqLLM.StreamChunk.tool_call(
+            "edit",
+            %{
+              "path" => "editable.txt",
+              "old_text" => "old\n",
+              "new_text" => "new\n"
+            },
+            %{id: "call-edit"}
+          ),
+          ReqLLM.StreamChunk.meta(%{finish_reason: "tool_calls"})
+        ]
+      end
+    end
+
+    defp stream(:tool_bash, _parent, prompt) do
+      if tool_result_context?(prompt) do
+        [
+          ReqLLM.StreamChunk.text("Bash is pending approval."),
+          ReqLLM.StreamChunk.meta(%{finish_reason: "stop"})
+        ]
+      else
+        [
+          ReqLLM.StreamChunk.tool_call(
+            "bash",
+            %{"executable" => "printf", "args" => ["ran"], "cwd" => "."},
+            %{id: "call-bash"}
+          ),
+          ReqLLM.StreamChunk.meta(%{finish_reason: "tool_calls"})
+        ]
+      end
+    end
+
+    defp metadata(mode, prompt) when mode in [:tool_read, :tool_write, :tool_edit, :tool_bash] do
       if tool_result_context?(prompt),
         do: %{finish_reason: :stop},
         else: %{finish_reason: :tool_calls}
@@ -105,16 +172,27 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
   end
 
   setup do
+    original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_streaming_config = Application.get_env(:allbert_assist, StreamingTurn)
     original_fake_config = Application.get_env(:allbert_assist, FakeReqLLM)
 
-    root =
+    home =
       Path.join(
         System.tmp_dir!(),
         "allbert-coding-m9-#{System.unique_integer([:positive])}"
       )
 
+    root = Path.join(home, "workspace")
+
+    Enum.each(@env_vars, &System.delete_env/1)
+    System.put_env("ALLBERT_HOME", home)
+    Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+
     File.mkdir_p!(root)
+    configure_settings!(root)
 
     Application.put_env(:allbert_assist, StreamingTurn,
       req_llm_client: FakeReqLLM,
@@ -123,12 +201,15 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
     )
 
     on_exit(fn ->
+      restore_env(original_env)
+      restore_app_env(Paths, original_paths_config)
+      restore_app_env(Settings, original_settings_config)
       restore_app_env(StreamingTurn, original_streaming_config)
       restore_app_env(FakeReqLLM, original_fake_config)
-      File.rm_rf!(root)
+      File.rm_rf!(home)
     end)
 
-    {:ok, root: root}
+    {:ok, home: home, root: root}
   end
 
   test "coding turn opens a ReqLLM stream and emits assistant deltas before completion", %{
@@ -312,6 +393,90 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
     assert tool_result.text =~ "needle"
   end
 
+  test "model-proposed effectful tools return pending confirmations without applying effects", %{
+    root: root
+  } do
+    File.write!(Path.join(root, "editable.txt"), "old\n")
+
+    for {mode, expected} <- [
+          {:tool_write,
+           %{
+             message: "Write is pending approval.",
+             action: "write",
+             id: "call-write",
+             status: :needs_confirmation,
+             path: "pending-write.txt",
+             unchanged?: fn ->
+               refute File.exists?(Path.join(root, "pending-write.txt"))
+             end
+           }},
+          {:tool_edit,
+           %{
+             message: "Edit is pending approval.",
+             action: "edit",
+             id: "call-edit",
+             status: :needs_confirmation,
+             path: "editable.txt",
+             unchanged?: fn ->
+               assert File.read!(Path.join(root, "editable.txt")) == "old\n"
+             end
+           }},
+          {:tool_bash,
+           %{
+             message: "Bash is pending approval.",
+             action: "bash",
+             id: "call-bash",
+             status: :needs_confirmation,
+             path: nil,
+             unchanged?: fn -> :ok end
+           }}
+        ] do
+      parent = self()
+      turn_id = unique_turn_id("#{expected.action}-pending")
+
+      Application.put_env(:allbert_assist, FakeReqLLM,
+        parent: parent,
+        turn_id: turn_id,
+        mode: mode
+      )
+
+      assert {:ok, response} =
+               StreamingTurn.answer(
+                 "try #{expected.action} through the model loop",
+                 streaming_context(root, turn_id, parent)
+               )
+
+      assert_receive {:stream_text_called, _model, %ReqLLM.Context{}, first_opts, _pid}, 1_000
+
+      assert_receive {:stream_text_called, _model, %ReqLLM.Context{} = second_prompt, _opts,
+                      _pid},
+                     1_000
+
+      assert length(Keyword.fetch!(first_opts, :tools)) == 6
+      assert Enum.any?(second_prompt.messages, &(&1.role == :tool))
+
+      assert response.status == expected.status
+      assert response.message == expected.message
+      assert response.approval_handoff
+      assert response.coding_turn.tool_call_count == 1
+      assert [%{name: action_name, status: :needs_confirmation} | _] = response.actions
+      assert action_name == expected.action
+
+      tool_result = Enum.find(response.stream_events, &(&1.type == :tool_result_delta))
+      assert tool_result.tool_call_id == expected.id
+      assert tool_result.tool_name == expected.action
+      assert tool_result.text =~ "needs_confirmation"
+      assert tool_result.text =~ "confirmation_id"
+      refute tool_result.text =~ "exit_status"
+
+      if expected.path do
+        assert tool_result.text =~ expected.path
+      end
+
+      expected.unchanged?.()
+    end
+  end
+
   defp streaming_context(root, turn_id, sink) do
     %{
       request: %{
@@ -396,6 +561,23 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
 
   defp resolve_test_model_profile(profile), do: {:error, {:unknown_profile, profile}}
 
+  defp configure_settings!(root) do
+    settings = %{
+      "execution" => %{
+        "local" => %{
+          "enabled" => true,
+          "allowed_roots" => [root],
+          "allowed_commands" => ["printf"],
+          "env_allowlist" => [],
+          "max_timeout_ms" => 1_000,
+          "max_output_bytes" => 2_000
+        }
+      }
+    }
+
+    assert {:ok, _settings} = Settings.write_user_settings(settings)
+  end
+
   defp assert_stream_text_called(task, turn_id, timeout \\ 5_000) do
     receive do
       {:stream_text_called, _model_spec, _prompt, _opts, _stream_pid} = message ->
@@ -438,4 +620,11 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
 
   defp restore_app_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_app_env(module, value), do: Application.put_env(:allbert_assist, module, value)
+
+  defp restore_env(original_env) do
+    Enum.each(original_env, fn
+      {key, nil} -> System.delete_env(key)
+      {key, value} -> System.put_env(key, value)
+    end)
+  end
 end
