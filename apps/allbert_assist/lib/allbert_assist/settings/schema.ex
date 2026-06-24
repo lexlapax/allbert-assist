@@ -85,6 +85,8 @@ defmodule AllbertAssist.Settings.Schema do
     "coding.bash.timeout_ms",
     "coding.bash.max_output_bytes",
     "coding.bash.allow_raw_shell",
+    "coding.turn.supervised",
+    "coding.turn.max_ms",
     "coding.streaming.enabled",
     "coding.streaming.turn_complete_fallback",
     "active_memory.enabled",
@@ -2281,6 +2283,20 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false
     },
+    "coding.turn.supervised" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "coding.turn.max_ms" => %{
+      type: :bounded_integer,
+      default: 120_000,
+      writable?: true,
+      sensitive?: false,
+      min: 100,
+      max: 600_000
+    },
     "coding.streaming.enabled" => %{
       type: :boolean,
       default: true,
@@ -3536,6 +3552,10 @@ defmodule AllbertAssist.Settings.Schema do
         "timeout_ms" => 120_000,
         "max_output_bytes" => 120_000,
         "allow_raw_shell" => false
+      },
+      "turn" => %{
+        "supervised" => true,
+        "max_ms" => 120_000
       },
       "streaming" => %{
         "enabled" => true,

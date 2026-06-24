@@ -24,6 +24,7 @@ defmodule AllbertAssist.Runtime do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.LocalSurface
+  alias AllbertAssist.Coding.TurnSupervisor, as: CodingTurnSupervisor
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Runtime.MediaOutputs
@@ -52,6 +53,8 @@ defmodule AllbertAssist.Runtime do
           active_app: atom() | nil,
           thread_context: map(),
           metadata: map(),
+          coding_turn?: boolean(),
+          coding_turn_id: nil | String.t(),
           diagnostics: list(),
           timeout_ms: pos_integer()
         }
@@ -112,7 +115,7 @@ defmodule AllbertAssist.Runtime do
          request <- put_user_message_id(request, user_message),
          request <- maybe_record_inbound_channel_refs(request, user_message),
          request <- put_thread_context(request, user_message),
-         {:ok, agent_response} <- agent_runner().(input_signal, request),
+         {:ok, agent_response} <- run_agent_turn(input_signal, request),
          {:ok, response_signal} <- new_response_signal(input_signal, request, agent_response),
          :ok <- log_signal(response_signal) do
       response = build_response(input_signal, response_signal, agent_response, request)
@@ -160,6 +163,8 @@ defmodule AllbertAssist.Runtime do
          provider_message_id: provider_message_id(attrs),
          provider_message_part_id: provider_message_part_id(attrs),
          metadata: fetch_value(attrs, :metadata) || %{},
+         coding_turn?: coding_turn?(attrs),
+         coding_turn_id: coding_turn_id(attrs),
          diagnostics: session_context.diagnostics ++ app_context.diagnostics,
          timeout_ms: fetch_value(attrs, :timeout_ms) || @default_timeout_ms
        }}
@@ -355,6 +360,26 @@ defmodule AllbertAssist.Runtime do
     end
   end
 
+  defp coding_turn?(attrs) do
+    truthy?(fetch_value(attrs, :coding_turn?)) ||
+      truthy?(fetch_value(attrs, :coding_turn)) ||
+      truthy?(metadata_value(attrs, :coding_turn?)) ||
+      truthy?(metadata_value(attrs, :coding_turn)) ||
+      truthy?(metadata_value(attrs, :pi_mode?)) ||
+      truthy?(metadata_value(attrs, :pi_mode)) ||
+      metadata_value(attrs, :surface) in ["pi_mode", "coding", "tui_pi_mode"]
+  end
+
+  defp coding_turn_id(attrs) do
+    fetch_value(attrs, :coding_turn_id) ||
+      fetch_value(attrs, :turn_id) ||
+      metadata_value(attrs, :coding_turn_id) ||
+      metadata_value(attrs, :turn_id)
+  end
+
+  defp truthy?(value) when value in [true, "true", "1", 1], do: true
+  defp truthy?(_value), do: false
+
   defp request_started_at(attrs) do
     attrs
     |> fetch_value(:request_started_at)
@@ -463,6 +488,26 @@ defmodule AllbertAssist.Runtime do
       input_signal_id: signal.id,
       input_signal_type: signal.type
     })
+  end
+
+  defp run_agent_turn(input_signal, %{coding_turn?: true} = request) do
+    CodingTurnSupervisor.run(coding_turn_metadata(input_signal, request), fn ->
+      agent_runner().(input_signal, request)
+    end)
+  end
+
+  defp run_agent_turn(input_signal, request), do: agent_runner().(input_signal, request)
+
+  defp coding_turn_metadata(input_signal, request) do
+    %{
+      turn_id: request.coding_turn_id || "coding-turn-#{input_signal.id}",
+      input_signal_id: input_signal.id,
+      user_id: request.user_id,
+      operator_id: request.operator_id,
+      thread_id: request.thread_id,
+      session_id: request.session_id,
+      channel: request.channel
+    }
   end
 
   defp build_response(input_signal, response_signal, agent_response, request) do

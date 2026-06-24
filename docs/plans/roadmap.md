@@ -3533,8 +3533,9 @@ ADR: `docs/adr/0068-pi-mode-coding-surface-and-local-coding-trust-tier.md`
 Rationale: `docs/archives/pi-integration-rethink.md`
 
 Status: in progress; M0 contracts/API/upstream verification, M1
-read/search/path substrate, M2 write/edit file effects, and M3 bash runner
-contract, and M4 stream-event pipeline/live renderer implemented 2026-06-23. NEW
+read/search/path substrate, M2 write/edit file effects, M3 bash runner contract,
+M4 stream-event pipeline/live renderer, and M5 async turn-execution boundary
+implemented 2026-06-23. NEW
 in the 2026-06-21 replan.
 Incorporates the Pi-vs-Allbert analysis:
 keep Allbert's authority spine, give it Pi's minimal inner loop where it helps (a
@@ -3561,7 +3562,8 @@ Expected direction:
   **async turn-execution boundary** that makes real Esc-to-cancel possible, queued
   steering, and a familiar coding slash set
   (`/help`/`/model`/`/clear`/`/init`/`/diff`/`/compact`; `/model`/`/clear`/`/compact`
-  ungated). Milestones M0–M9; the named substrate (`deps/req_llm`
+  ungated). Milestones M0–M9; M6 still wires real Esc/provider-stream
+  cancellation and queued steering. The named substrate (`deps/req_llm`
   `Context`/`StreamResponse`/`StreamChunk`, `Owl.LiveScreen`, `Resources.Grants`)
   is verified to exist.
 - A named "local-coding operator" trust tier (ADR 0056 lineage, running at ADR

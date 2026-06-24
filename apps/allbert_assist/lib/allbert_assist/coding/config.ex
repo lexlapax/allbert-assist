@@ -19,7 +19,9 @@ defmodule AllbertAssist.Coding.Config do
     bash_max_output_bytes: 120_000,
     bash_allow_raw_shell?: false,
     streaming_enabled?: true,
-    streaming_turn_complete_fallback?: true
+    streaming_turn_complete_fallback?: true,
+    turn_supervised?: true,
+    turn_max_ms: 120_000
   }
 
   @doc "Return the configured cwd jail root, before path expansion."
@@ -94,6 +96,14 @@ defmodule AllbertAssist.Coding.Config do
         "coding.streaming.turn_complete_fallback",
         @defaults.streaming_turn_complete_fallback?
       )
+
+  @doc "Return true when coding turns should run under the M5 supervised boundary."
+  @spec turn_supervised?() :: boolean()
+  def turn_supervised?, do: boolean("coding.turn.supervised", @defaults.turn_supervised?)
+
+  @doc "Return the hard wall-clock ceiling for a supervised coding turn."
+  @spec turn_max_ms() :: pos_integer()
+  def turn_max_ms, do: positive_integer("coding.turn.max_ms", @defaults.turn_max_ms)
 
   defp positive_integer(key, default) do
     case setting(key, default) do

@@ -22,6 +22,7 @@ defmodule AllbertAssist.Application do
         {DNSCluster, query: Application.get_env(:allbert_assist, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: AllbertAssist.PubSub},
         {Jido.Signal.Bus, name: AllbertAssist.SignalBus},
+        {Registry, keys: :unique, name: AllbertAssist.Coding.TurnRegistry},
         {Task.Supervisor, name: AllbertAssist.TaskSupervisor},
         AllbertAssist.Settings.Supervisor,
         AllbertAssist.Artifacts.GC,
