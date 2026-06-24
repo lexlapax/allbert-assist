@@ -86,7 +86,10 @@ defmodule AllbertAssist.Coding.StreamPipeline do
     StreamEvent.new(:turn_complete, attrs)
   end
 
-  defp event_from_chunk(%ReqLLM.StreamChunk{type: :content} = chunk, turn_id, sequence) do
+  @doc "Convert one provider stream chunk into a stream event, or nil for metadata-only chunks."
+  @spec event_from_chunk(term(), String.t(), non_neg_integer()) ::
+          {:ok, StreamEvent.t() | nil} | {:error, term()}
+  def event_from_chunk(%ReqLLM.StreamChunk{type: :content} = chunk, turn_id, sequence) do
     StreamEvent.new(:assistant_token_delta, %{
       turn_id: turn_id,
       sequence: sequence,
@@ -95,7 +98,7 @@ defmodule AllbertAssist.Coding.StreamPipeline do
     })
   end
 
-  defp event_from_chunk(%ReqLLM.StreamChunk{type: :thinking} = chunk, turn_id, sequence) do
+  def event_from_chunk(%ReqLLM.StreamChunk{type: :thinking} = chunk, turn_id, sequence) do
     StreamEvent.new(:assistant_token_delta, %{
       turn_id: turn_id,
       sequence: sequence,
@@ -104,7 +107,7 @@ defmodule AllbertAssist.Coding.StreamPipeline do
     })
   end
 
-  defp event_from_chunk(%ReqLLM.StreamChunk{type: :tool_call} = chunk, turn_id, sequence) do
+  def event_from_chunk(%ReqLLM.StreamChunk{type: :tool_call} = chunk, turn_id, sequence) do
     StreamEvent.new(:tool_call_argument_delta, %{
       turn_id: turn_id,
       sequence: sequence,
@@ -115,18 +118,18 @@ defmodule AllbertAssist.Coding.StreamPipeline do
     })
   end
 
-  defp event_from_chunk(%ReqLLM.StreamChunk{type: :meta}, _turn_id, _sequence), do: {:ok, nil}
+  def event_from_chunk(%ReqLLM.StreamChunk{type: :meta}, _turn_id, _sequence), do: {:ok, nil}
 
-  defp event_from_chunk(%ReqLLM.StreamChunk{type: other}, _turn_id, _sequence),
+  def event_from_chunk(%ReqLLM.StreamChunk{type: other}, _turn_id, _sequence),
     do: {:error, {:unsupported_stream_chunk_type, other}}
 
-  defp event_from_chunk(%{type: _type} = chunk, turn_id, sequence) do
+  def event_from_chunk(%{type: _type} = chunk, turn_id, sequence) do
     chunk
     |> struct_from_map()
     |> event_from_chunk(turn_id, sequence)
   end
 
-  defp event_from_chunk(_chunk, _turn_id, _sequence), do: {:error, :invalid_stream_chunk}
+  def event_from_chunk(_chunk, _turn_id, _sequence), do: {:error, :invalid_stream_chunk}
 
   defp struct_from_map(chunk) do
     %ReqLLM.StreamChunk{

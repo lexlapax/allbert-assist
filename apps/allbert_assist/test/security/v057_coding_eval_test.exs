@@ -19,6 +19,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
   alias AllbertAssist.Coding.StreamEvent
   alias AllbertAssist.Coding.StreamPipeline
   alias AllbertAssist.Coding.StreamRenderer
+  alias AllbertAssist.Coding.ToolLoop
   alias AllbertAssist.Coding.TurnSupervisor
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -64,6 +65,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
       pi-mode-prompt-token-budget-001
       pi-mode-context-discipline-chunked-001
       pi-mode-default-tool-surface-001
+      pi-mode-agent-loop-model-tools-001
       pi-mode-model-switch-preserves-authority-001
     ),
     streaming_cancel: ~w(
@@ -263,6 +265,43 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
 
     assert {:ok, session} = CodingSession.start(workspace, trusted_context(workspace))
     assert Enum.map(session.req_llm_context.tools, & &1.name) == @tool_names
+  end
+
+  test "agent loop exposes six session-local model tools and routes proposals through Runner", %{
+    workspace: workspace
+  } do
+    assert_eval_group!(:prompt_context_model)
+
+    assert {:ok, tools} = ToolLoop.tools(tool_loop_context(workspace))
+    assert Enum.map(tools, & &1.name) == @tool_names
+
+    read_call =
+      ReqLLM.ToolCall.new("call-read", "read", Jason.encode!(%{path: "sample.txt", limit: 1}))
+
+    assert {:ok, read_result} = ToolLoop.execute(read_call, tools)
+    assert read_result.status == "completed"
+    assert read_result.tool_call_id == "call-read"
+    assert read_result.message =~ "sample.txt"
+    assert read_result.message =~ "alpha"
+    assert [%{name: "read", status: :completed} | _] = read_result.actions
+
+    write_call =
+      ReqLLM.ToolCall.new(
+        "call-write",
+        "write",
+        Jason.encode!(%{path: "loop-new.txt", content: "hello\n"})
+      )
+
+    assert {:ok, write_result} = ToolLoop.execute(write_call, tools)
+    assert write_result.status == "needs_confirmation"
+    assert write_result.tool_call_id == "call-write"
+    assert is_map(write_result.approval_handoff)
+    refute File.exists?(Path.join(workspace, "loop-new.txt"))
+
+    assert {:ok, out_of_session_tools} = ToolLoop.tools(%{})
+    assert {:ok, denied_result} = ToolLoop.execute(read_call, out_of_session_tools)
+    assert denied_result.status == "denied"
+    assert [%{name: "read", status: :denied} | _] = denied_result.actions
   end
 
   test "file effects are cwd-jailed gated and split surface diffs from model payload", %{
@@ -688,6 +727,27 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
 
   defp approval_context(workspace, approval_mode) do
     put_in(trusted_context(workspace), [:coding, :approval_mode], approval_mode)
+  end
+
+  defp tool_loop_context(workspace) do
+    %{
+      request: %{
+        channel: :tui,
+        operator_id: "local",
+        user_id: "local",
+        session: %{main?: true},
+        metadata: %{
+          surface: "pi_mode",
+          coding: %{
+            cwd_jail: workspace,
+            workspace_root: workspace,
+            pi_mode_enabled: true,
+            trusted_operator_id: "local",
+            model_profile: "coding_local"
+          }
+        }
+      }
+    }
   end
 
   defp refute_event(external_event_id) do

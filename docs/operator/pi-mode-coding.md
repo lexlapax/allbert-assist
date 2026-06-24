@@ -1,7 +1,7 @@
 # Pi-Mode Coding Operator Guide
 
-Status: v0.57 M0-M9.2 are implemented. Release closeout is blocked on warm
-operator validation against a real streaming-capable coding profile. This guide
+Status: v0.57 M0-M9.8 are implemented. Release closeout is blocked on warm
+operator validation against a real streaming/tool-capable coding profile. This guide
 describes the operator workflow for the Pi-mode coding surface. The
 release-authoritative validation checklist lives in
 `docs/plans/v0.57-request-flow.md#operator-validation`.
@@ -62,7 +62,7 @@ change the trusted operator, approval mode, cwd jail, permissions, or confirmati
 behavior. Live assistant-token streaming and provider-level Esc cancel use the
 selected profile/provider path through `ReqLLM.stream_text` and
 `ReqLLM.StreamResponse.cancel`; release validation must use a profile that supports
-both.
+streaming, tool calling, and provider cancel.
 
 ## Approval Modes
 
@@ -93,6 +93,12 @@ All six coding actions are internal registered capabilities. They are not
 intent-agent tools, public protocol tools, or channel-routable actions outside an
 active Pi-mode session; a direct out-of-session call is denied before filesystem or
 shell work starts.
+
+Inside an active Pi-mode coding turn, the six actions are bound as session-local
+`ReqLLM.Tool` definitions. Model-proposed tool calls are advisory; Allbert executes
+them only through `Actions.Runner.run/3`, appends bounded tool results back into the
+session `ReqLLM.Context`, and continues streaming until the model stops calling
+tools. The TUI-held session context is updated after the turn; `/clear` resets it.
 
 `write` and `edit` use the coding file-write permission. `edit` is exact-match and
 must fail clearly when the match is missing.
@@ -145,6 +151,8 @@ For release closeout, keep:
 - the TUI transcript path;
 - whether provider streaming/provider cancel were validated with the selected
   `coding.model_profile`;
+- whether model-driven `read`/`grep`/`write` or `edit`/`bash` calls executed
+  through the agent loop with expected confirmation behavior;
 - any failed command and its exact output.
 
 The allowlist store must live under Allbert Home, not the repo. Transcripts and

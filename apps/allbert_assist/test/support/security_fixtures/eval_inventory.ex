@@ -4173,6 +4173,17 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V057CodingEvalTest"
     },
     %{
+      id: "pi-mode-agent-loop-model-tools-001",
+      milestone: :v057,
+      surface: :pi_mode_coding,
+      scenario:
+        "Model-proposed Pi-mode coding tool calls reach the Runner inside an active session",
+      boundary: :agent_tool_loop,
+      expected: :allowed,
+      assert: [:req_llm_tools, :runner_execution, :confirmation_preserved],
+      test_module: "AllbertAssist.Security.V057CodingEvalTest"
+    },
+    %{
       id: "pi-mode-approval-mode-grants-no-authority-001",
       milestone: :v057,
       surface: :pi_mode_coding,

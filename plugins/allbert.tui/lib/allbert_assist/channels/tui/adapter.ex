@@ -107,11 +107,16 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     end
   end
 
-  def handle_info({:coding_tui_turn_finished, turn_id, _reply}, state) do
+  def handle_info({:coding_tui_turn_finished, turn_id, reply}, state) do
+    handle_info({:coding_tui_turn_finished, turn_id, reply, nil}, state)
+  end
+
+  def handle_info({:coding_tui_turn_finished, turn_id, _reply, pi_session}, state) do
     state =
       case state.current_turn do
         %{turn_id: ^turn_id} ->
           state
+          |> maybe_put_pi_session(pi_session)
           |> Map.put(:current_turn, nil)
           |> start_queued_correction()
 
@@ -264,23 +269,25 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       |> Keyword.put(:stream_event_sink, parent)
       |> Keyword.put_new(:surface, "pi_mode")
       |> Keyword.put_new(:coding_session, CodingSession.metadata(state.pi_session))
+      |> Keyword.put_new(:coding_req_llm_context, pi_session_context(state.pi_session))
 
     task_state = %{state | current_turn: nil, queued_correction: nil}
 
     case start_turn_task(fn ->
-           reply =
+           {reply, pi_session} =
              try do
-               {reply, _state} = process_inbound_text(text, turn_opts, task_state)
-               reply
+               {reply, next_state} = process_inbound_text(text, turn_opts, task_state)
+               {reply, next_state.pi_session}
              rescue
                exception ->
-                 {:error, {exception.__struct__, Exception.message(exception)}}
+                 {{:error, {exception.__struct__, Exception.message(exception)}},
+                  task_state.pi_session}
              catch
                kind, reason ->
-                 {:error, {kind, Redactor.redact(reason)}}
+                 {{:error, {kind, Redactor.redact(reason)}}, task_state.pi_session}
              end
 
-           send(parent, {:coding_tui_turn_finished, turn_id, reply})
+           send(parent, {:coding_tui_turn_finished, turn_id, reply, pi_session})
          end) do
       {:ok, pid} ->
         {{:ok, {:accepted, turn_id}},
@@ -804,6 +811,22 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     Map.put(context, :coding, CodingSession.metadata(state.pi_session))
   end
 
+  defp maybe_put_pi_session(state, nil), do: state
+  defp maybe_put_pi_session(state, pi_session), do: %{state | pi_session: pi_session}
+
+  defp pi_session_context(%{req_llm_context: %ReqLLM.Context{} = context}), do: context
+  defp pi_session_context(_session), do: nil
+
+  defp maybe_update_pi_session_from_response(
+         %{coding_session_context: %ReqLLM.Context{} = context},
+         %{pi_session: pi_session} = state
+       )
+       when is_map(pi_session) do
+    %{state | pi_session: Map.put(pi_session, :req_llm_context, context)}
+  end
+
+  defp maybe_update_pi_session_from_response(_response, state), do: state
+
   defp coding_context(context, state) do
     context
     |> Map.put(:channel, %{name: :tui, trust: :local})
@@ -834,6 +857,8 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       stream_event_sink: Keyword.get(opts, :stream_event_sink),
       coding_session:
         Keyword.get(opts, :coding_session) || CodingSession.metadata(state.pi_session),
+      coding_req_llm_context:
+        Keyword.get(opts, :coding_req_llm_context) || pi_session_context(state.pi_session),
       surface: Keyword.get(opts, :surface),
       raw_summary: "tui input #{event_id}"
     }
@@ -863,6 +888,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
            Channels.derive_session_id(@channel, fields.external_user_id, fields.external_chat_id),
          {:ok, response} <-
            process_text_or_callback(command, fields, state, user_id, session_id, inbound_trust),
+         state <- maybe_update_pi_session_from_response(response, state),
          {:ok, rendered} <-
            Renderer.render_response(response, max_text_bytes: state.max_text_bytes),
          state <- clear_live_status(state),
@@ -985,6 +1011,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     |> maybe_put(:stream_event_sink, fields.stream_event_sink)
     |> maybe_put(:coding_turn?, fields.coding_turn?)
     |> maybe_put(:coding_turn_id, fields.coding_turn_id)
+    |> maybe_put(:coding_req_llm_context, fields.coding_req_llm_context)
     |> Runtime.submit_user_input()
   end
 

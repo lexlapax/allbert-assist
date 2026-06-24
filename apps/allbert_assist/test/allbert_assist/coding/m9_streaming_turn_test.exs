@@ -14,20 +14,23 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
 
       send(parent, {:stream_text_called, model_spec, prompt, opts, self()})
 
+      {:ok, metadata_handle} =
+        ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> metadata(mode, prompt) end)
+
       {:ok,
        %ReqLLM.StreamResponse{
-         stream: stream(mode, parent),
-         metadata_handle: nil,
+         stream: stream(mode, parent, prompt),
+         metadata_handle: metadata_handle,
          cancel: fn ->
            send(parent, {:provider_cancelled, turn_id})
            :ok
          end,
          model: model_spec,
-         context: ReqLLM.Context.new([])
+         context: prompt
        }}
     end
 
-    defp stream(:two_chunk, parent) do
+    defp stream(:two_chunk, parent, _prompt) do
       Stream.resource(
         fn -> 0 end,
         fn
@@ -50,7 +53,7 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
       )
     end
 
-    defp stream(:blocked, parent) do
+    defp stream(:blocked, parent, _prompt) do
       Stream.resource(
         fn -> :start end,
         fn
@@ -69,6 +72,36 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
         fn _state -> :ok end
       )
     end
+
+    defp stream(:tool_read, _parent, prompt) do
+      if tool_result_context?(prompt) do
+        [
+          ReqLLM.StreamChunk.text("The file contains needle."),
+          ReqLLM.StreamChunk.meta(%{finish_reason: "stop"})
+        ]
+      else
+        [
+          ReqLLM.StreamChunk.tool_call("read", %{"path" => "sample.txt", "limit" => 3}, %{
+            id: "call-read"
+          }),
+          ReqLLM.StreamChunk.meta(%{finish_reason: "tool_calls"})
+        ]
+      end
+    end
+
+    defp metadata(:tool_read, prompt) do
+      if tool_result_context?(prompt),
+        do: %{finish_reason: :stop},
+        else: %{finish_reason: :tool_calls}
+    end
+
+    defp metadata(_mode, _prompt), do: %{finish_reason: :stop}
+
+    defp tool_result_context?(%ReqLLM.Context{messages: messages}) do
+      Enum.any?(messages, &(&1.role == :tool))
+    end
+
+    defp tool_result_context?(_prompt), do: false
   end
 
   setup do
@@ -80,6 +113,8 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
         System.tmp_dir!(),
         "allbert-coding-m9-#{System.unique_integer([:positive])}"
       )
+
+    File.mkdir_p!(root)
 
     Application.put_env(:allbert_assist, StreamingTurn,
       req_llm_client: FakeReqLLM,
@@ -224,6 +259,59 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
     assert [%{name: "direct_answer", status: :completed}] = response.actions
   end
 
+  test "model-proposed read tool executes through Runner and continues the stream", %{
+    root: root
+  } do
+    File.write!(Path.join(root, "sample.txt"), "alpha\nneedle\nomega\n")
+
+    parent = self()
+    turn_id = unique_turn_id("tool-read")
+
+    Application.put_env(:allbert_assist, FakeReqLLM,
+      parent: parent,
+      turn_id: turn_id,
+      mode: :tool_read
+    )
+
+    assert {:ok, response} =
+             StreamingTurn.answer(
+               "read sample.txt and summarize it",
+               streaming_context(root, turn_id, parent)
+             )
+
+    assert_receive {:stream_text_called, _model, %ReqLLM.Context{} = first_prompt, first_opts,
+                    _pid},
+                   1_000
+
+    assert_receive {:stream_text_called, _model, %ReqLLM.Context{} = second_prompt, second_opts,
+                    _pid},
+                   1_000
+
+    assert length(Keyword.fetch!(first_opts, :tools)) == 6
+    assert length(Keyword.fetch!(second_opts, :tools)) == 6
+    refute Enum.any?(first_prompt.messages, &(&1.role == :tool))
+    assert Enum.any?(second_prompt.messages, &(&1.role == :tool))
+
+    assert response.status == :completed
+    assert response.message == "The file contains needle."
+    assert response.coding_turn.source == :req_llm_stream_tool_loop
+    assert response.coding_turn.tool_call_count == 1
+    assert [%{name: "read", status: :completed} | _] = response.actions
+    assert %ReqLLM.Context{} = response.coding_session_context
+
+    assert Enum.map(response.stream_events, & &1.type) == [
+             :tool_call_argument_delta,
+             :tool_call_argument_complete,
+             :tool_result_delta,
+             :assistant_token_delta,
+             :turn_complete
+           ]
+
+    tool_result = Enum.find(response.stream_events, &(&1.type == :tool_result_delta))
+    assert tool_result.text =~ "sample.txt"
+    assert tool_result.text =~ "needle"
+  end
+
   defp streaming_context(root, turn_id, sink) do
     %{
       request: %{
@@ -233,12 +321,14 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
         coding_turn?: true,
         coding_turn_id: turn_id,
         stream_event_sink: sink,
+        session: %{main?: true},
         metadata: %{
           surface: "pi_mode",
           coding: %{
             cwd_jail: root,
             workspace_root: root,
             pi_mode_enabled: true,
+            trusted_operator_id: "local",
             model_profile: "coding_local"
           }
         }
@@ -257,12 +347,14 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
       coding_turn?: true,
       coding_turn_id: turn_id,
       stream_event_sink: sink,
+      session: %{main?: true},
       metadata: %{
         surface: "pi_mode",
         coding: %{
           cwd_jail: root,
           workspace_root: root,
           pi_mode_enabled: true,
+          trusted_operator_id: "local",
           model_profile: "coding_local"
         }
       }

@@ -13,6 +13,8 @@ defmodule AllbertAssist.Coding.StreamingTurn do
   alias AllbertAssist.Coding.Config
   alias AllbertAssist.Coding.Prompt
   alias AllbertAssist.Coding.StreamPipeline
+  alias AllbertAssist.Coding.StreamEvent
+  alias AllbertAssist.Coding.ToolLoop
   alias AllbertAssist.Coding.TurnSupervisor
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
@@ -20,6 +22,7 @@ defmodule AllbertAssist.Coding.StreamingTurn do
   alias ReqLLM.Context
 
   @max_prompt_bytes 12_000
+  @max_tool_iterations 8
 
   @spec answer(String.t(), map()) :: {:ok, map()} | {:error, term()}
   def answer(text, context) when is_binary(text) and is_map(context) do
@@ -28,22 +31,14 @@ defmodule AllbertAssist.Coding.StreamingTurn do
          {:ok, profile_name} <- model_profile_name(context),
          {:ok, profile} <- resolve_model_profile(profile_name),
          {:ok, model_spec} <- ModelRuntime.model_spec(profile),
-         {:ok, prompt_input} <- prompt_input(text, context),
-         {:ok, stream_response} <-
-           req_llm_client().stream_text(model_spec, prompt_input, request_opts(profile)),
+         {:ok, tools} <- ToolLoop.tools(context),
+         {:ok, prompt_input} <- prompt_input(text, context, tools),
          turn_id <- turn_id(context),
-         cancel_status <- register_stream_cancel(turn_id, stream_response),
          emit_fun <- emit_fun(context, turn_id),
-         {:ok, events} <-
-           StreamPipeline.emit_stream_response(stream_response, [turn_id: turn_id], emit_fun),
-         {:ok, response} <- response_from_events(text, profile, events, context, cancel_status),
-         {:ok, complete_event} <-
-           StreamPipeline.turn_complete_event(response,
-             turn_id: turn_id,
-             sequence: length(events)
-           ) do
-      emit_fun.(complete_event)
-      {:ok, Map.put(response, :stream_events, events ++ [complete_event])}
+         loop_state <-
+           initial_loop_state(text, context, profile, model_spec, tools, turn_id, emit_fun),
+         {:ok, response} <- run_loop(prompt_input, loop_state, 0) do
+      {:ok, response}
     else
       {:error, reason} -> {:error, reason}
     end
@@ -68,14 +63,14 @@ defmodule AllbertAssist.Coding.StreamingTurn do
     end
   end
 
-  defp prompt_input(text, context) do
+  defp prompt_input(text, context, tools) do
     prompt = Prompt.surface_bundle()
+    base_context = req_llm_context(context) || Context.new([Context.system(prompt.system_prompt)])
 
     {:ok,
-     Context.new([
-       Context.system(prompt.system_prompt),
-       Context.user(operator_prompt(text, context, prompt))
-     ])}
+     base_context
+     |> Context.append(Context.user(operator_prompt(text, context, prompt)))
+     |> Map.put(:tools, tools)}
   end
 
   defp operator_prompt(text, context, prompt) do
@@ -93,65 +88,289 @@ defmodule AllbertAssist.Coding.StreamingTurn do
     |> String.trim()
   end
 
-  defp request_opts(profile) do
+  defp request_opts(profile, tools) do
     profile
     |> ModelRuntime.request_opts()
     |> Keyword.merge(
       temperature: Map.get(profile, :temperature, 0.2),
       max_tokens: ModelRuntime.max_tokens(profile, 2_000),
-      receive_timeout: Map.get(profile, :timeout_ms, Config.turn_max_ms())
+      receive_timeout: Map.get(profile, :timeout_ms, Config.turn_max_ms()),
+      tools: tools
     )
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
   end
 
-  defp response_from_events(text, profile, events, context, cancel_status) do
+  defp initial_loop_state(text, context, profile, model_spec, tools, turn_id, emit_fun) do
+    %{
+      text: text,
+      context: context,
+      profile: profile,
+      model_spec: model_spec,
+      tools: tools,
+      turn_id: turn_id,
+      emit_fun: emit_fun,
+      events: [],
+      sequence: 0,
+      cancel_statuses: [],
+      tool_results: [],
+      tool_actions: [],
+      approval_handoffs: []
+    }
+  end
+
+  defp run_loop(_prompt_input, %{turn_id: turn_id}, iteration)
+       when iteration >= @max_tool_iterations do
+    {:error, {:coding_tool_loop_limit_exceeded, turn_id, @max_tool_iterations}}
+  end
+
+  defp run_loop(prompt_input, state, iteration) do
+    with {:ok, stream_response} <-
+           req_llm_client().stream_text(
+             state.model_spec,
+             prompt_input,
+             request_opts(state.profile, state.tools)
+           ),
+         cancel_status <- register_stream_cancel(state.turn_id, stream_response),
+         {:ok, llm_response, stream_events, sequence} <-
+           consume_stream_response(stream_response, state),
+         state <- append_stream_result(state, stream_events, sequence, cancel_status),
+         tool_calls <- actionable_tool_calls(llm_response) do
+      case tool_calls do
+        [] ->
+          finalize_response(prompt_input, llm_response, state)
+
+        [_ | _] ->
+          with {:ok, next_context, state} <-
+                 execute_tool_calls(llm_response.context || prompt_input, tool_calls, state) do
+            run_loop(next_context, state, iteration + 1)
+          end
+      end
+    end
+  end
+
+  defp consume_stream_response(stream_response, state) do
+    {:ok, events_agent} = Agent.start_link(fn -> [] end)
+    counter = :counters.new(1, [])
+    :counters.add(counter, 1, state.sequence)
+
+    result =
+      ReqLLM.StreamResponse.process_stream(stream_response,
+        on_chunk: fn chunk ->
+          sequence = :counters.get(counter, 1)
+          :counters.add(counter, 1, 1)
+
+          case StreamPipeline.event_from_chunk(chunk, state.turn_id, sequence) do
+            {:ok, nil} ->
+              :ok
+
+            {:ok, event} ->
+              state.emit_fun.(event)
+              Agent.update(events_agent, &[event | &1])
+
+            {:error, reason} ->
+              throw({:stream_event_error, reason})
+          end
+        end
+      )
+
+    events = Agent.get(events_agent, &Enum.reverse/1)
+    sequence = :counters.get(counter, 1)
+    Agent.stop(events_agent)
+
+    case result do
+      {:ok, llm_response} -> {:ok, llm_response, events, sequence}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp append_stream_result(state, events, sequence, cancel_status) do
+    %{
+      state
+      | events: state.events ++ events,
+        sequence: sequence,
+        cancel_statuses: state.cancel_statuses ++ [cancel_status]
+    }
+  end
+
+  defp execute_tool_calls(context, tool_calls, state) do
+    Enum.reduce_while(tool_calls, {:ok, context, state}, fn tool_call, {:ok, context, state} ->
+      with {:ok, result} <- ToolLoop.execute(tool_call, state.tools),
+           {:ok, complete_event} <- tool_call_complete_event(tool_call, state),
+           state <- emit_and_record_event(state, complete_event),
+           result_text <- ToolLoop.result_text(result),
+           {:ok, result_event} <- tool_result_event(result, result_text, state),
+           state <- emit_and_record_event(state, result_event) do
+        tool_message =
+          Context.tool_result(
+            Map.get(result, :tool_call_id),
+            Map.get(result, :tool) || tool_name(tool_call),
+            result_text
+          )
+
+        context = Context.append(context, tool_message)
+
+        state = %{
+          state
+          | tool_results: state.tool_results ++ [tool_result_summary(result)],
+            tool_actions: state.tool_actions ++ ToolLoop.action_summaries(result),
+            approval_handoffs: state.approval_handoffs ++ approval_handoffs(result)
+        }
+
+        {:cont, {:ok, context, state}}
+      else
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp tool_call_complete_event(tool_call, state) do
+    call = normalize_tool_call(tool_call)
+
+    StreamEvent.new(:tool_call_argument_complete, %{
+      turn_id: state.turn_id,
+      sequence: state.sequence,
+      tool_call_id: call.id,
+      tool_name: call.name,
+      arguments_delta: Redactor.redact(call.arguments || %{}),
+      metadata: %{source: :req_llm_tool_loop}
+    })
+  end
+
+  defp tool_result_event(result, result_text, state) do
+    StreamEvent.new(:tool_result_delta, %{
+      turn_id: state.turn_id,
+      sequence: state.sequence,
+      tool_call_id: Map.get(result, :tool_call_id),
+      tool_name: Map.get(result, :tool),
+      text: result_text,
+      metadata: %{
+        source: :req_llm_tool_loop,
+        status: Map.get(result, :status)
+      }
+    })
+  end
+
+  defp emit_and_record_event(state, event) do
+    state.emit_fun.(event)
+
+    %{
+      state
+      | events: state.events ++ [event],
+        sequence: state.sequence + 1
+    }
+  end
+
+  defp finalize_response(prompt_input, llm_response, state) do
     message =
-      events
-      |> Enum.filter(&assistant_text_event?/1)
-      |> Enum.map_join("", & &1.text)
+      (ReqLLM.Response.text(llm_response) || streamed_text(state.events))
       |> String.trim()
 
     if message == "" do
       {:error, :empty_streamed_model_text}
     else
-      turn_id = turn_id(context)
+      final_context = llm_response.context || prompt_input
+      response = response_from_message(message, state, final_context)
 
-      {:ok,
-       %{
-         message: message,
-         model_payload: message,
-         surface_payload: message,
-         status: :completed,
-         turn_id: turn_id,
-         direct_answer: %{
-           source: :coding_stream,
-           model_profile: profile.name,
-           provider: profile.provider,
-           model: profile.model,
-           prompt: %{request_bytes: byte_size(text)},
-           diagnostic: %{status: :used, stream_cancel_registration: cancel_status}
-         },
-         diagnostics: [
-           %{
-             source: :coding_streaming_turn,
-             status: :provider_stream_connected,
-             turn_id: turn_id,
-             model_profile: profile.name,
-             provider: profile.provider,
-             model: profile.model,
-             stream_cancel_registration: cancel_status
-           }
-         ],
-         coding_turn: %{
-           turn_id: turn_id,
-           status: :completed,
-           source: :req_llm_stream,
-           model_profile: profile.name,
-           provider: profile.provider,
-           model: profile.model
-         }
-       }}
+      with {:ok, complete_event} <-
+             StreamPipeline.turn_complete_event(response,
+               turn_id: state.turn_id,
+               sequence: state.sequence
+             ) do
+        state.emit_fun.(complete_event)
+        {:ok, Map.put(response, :stream_events, state.events ++ [complete_event])}
+      end
     end
+  end
+
+  defp response_from_message(message, state, final_context) do
+    status = response_status(state)
+
+    %{
+      message: message,
+      model_payload: message,
+      surface_payload: message,
+      status: status,
+      turn_id: state.turn_id,
+      actions: state.tool_actions,
+      approval_handoff: List.first(state.approval_handoffs),
+      coding_session_context: final_context,
+      direct_answer: %{
+        source: :coding_stream,
+        model_profile: state.profile.name,
+        provider: state.profile.provider,
+        model: state.profile.model,
+        prompt: %{request_bytes: byte_size(state.text)},
+        diagnostic: %{
+          status: :used,
+          stream_cancel_registration: state.cancel_statuses,
+          tool_loop_iterations: length(state.cancel_statuses),
+          tool_call_count: length(state.tool_results)
+        }
+      },
+      diagnostics: [
+        %{
+          source: :coding_streaming_turn,
+          status: :provider_stream_connected,
+          turn_id: state.turn_id,
+          model_profile: state.profile.name,
+          provider: state.profile.provider,
+          model: state.profile.model,
+          stream_cancel_registration: state.cancel_statuses,
+          tool_call_count: length(state.tool_results)
+        }
+      ],
+      coding_turn: %{
+        turn_id: state.turn_id,
+        status: status,
+        source: :req_llm_stream_tool_loop,
+        model_profile: state.profile.name,
+        provider: state.profile.provider,
+        model: state.profile.model,
+        tool_calls: state.tool_results,
+        tool_call_count: length(state.tool_results)
+      }
+    }
+  end
+
+  defp response_status(%{tool_results: tool_results}) do
+    if Enum.any?(tool_results, &(Map.get(&1, :status) == "needs_confirmation")) do
+      :needs_confirmation
+    else
+      :completed
+    end
+  end
+
+  defp actionable_tool_calls(%ReqLLM.Response{} = response) do
+    response
+    |> ReqLLM.Response.tool_calls()
+    |> Enum.reject(&ReqLLM.ToolCall.builtin?/1)
+    |> Enum.map(&normalize_tool_call/1)
+    |> Enum.reject(&(is_nil(&1.name) or &1.name == ""))
+  end
+
+  defp normalize_tool_call(%ReqLLM.ToolCall{} = call), do: ReqLLM.ToolCall.to_map(call)
+  defp normalize_tool_call(%{} = call), do: ReqLLM.ToolCall.from_map(call)
+
+  defp tool_result_summary(result) do
+    %{
+      id: Map.get(result, :tool_call_id),
+      name: Map.get(result, :tool),
+      status: Map.get(result, :status),
+      ok?: Map.get(result, :ok)
+    }
+  end
+
+  defp approval_handoffs(%{approval_handoff: handoff}) when is_map(handoff), do: [handoff]
+  defp approval_handoffs(_result), do: []
+
+  defp tool_name(%ReqLLM.ToolCall{} = call), do: ReqLLM.ToolCall.name(call)
+  defp tool_name(%{} = call), do: Map.get(call, :name) || Map.get(call, "name")
+  defp tool_name(_call), do: nil
+
+  defp streamed_text(events) do
+    events
+    |> Enum.filter(&assistant_text_event?/1)
+    |> Enum.map_join("", & &1.text)
   end
 
   defp assistant_text_event?(%{type: :assistant_token_delta, metadata: metadata}) do
@@ -240,6 +459,17 @@ defmodule AllbertAssist.Coding.StreamingTurn do
       field(request, :coding) ||
       field(context, :coding) ||
       %{}
+  end
+
+  defp req_llm_context(context) do
+    request = request(context)
+
+    case field(request, :coding_req_llm_context) ||
+           field(context, :coding_req_llm_context) ||
+           field(coding_context(context), :req_llm_context) do
+      %ReqLLM.Context{} = req_llm_context -> req_llm_context
+      _other -> nil
+    end
   end
 
   defp request(context), do: field(context, :request) || %{}

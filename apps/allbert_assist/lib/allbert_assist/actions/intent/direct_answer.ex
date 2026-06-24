@@ -48,23 +48,26 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     permission_decision = permission_decision(context, image_inputs)
     answer = answer(text, context, permission_decision, image_inputs)
 
+    direct_answer_action = %{
+      name: "direct_answer",
+      status: :completed,
+      permission: :read_only,
+      permission_decision: permission_decision,
+      direct_answer: answer.direct_answer
+    }
+
+    attrs = answer.attrs || %{}
+
     response =
       %{
         message: answer.message,
         status: PermissionGate.response_status(permission_decision),
         permission_decision: permission_decision,
         direct_answer: answer.direct_answer,
-        actions: [
-          %{
-            name: "direct_answer",
-            status: :completed,
-            permission: :read_only,
-            permission_decision: permission_decision,
-            direct_answer: answer.direct_answer
-          }
-        ]
+        actions: [direct_answer_action]
       }
-      |> Map.merge(answer.attrs)
+      |> Map.merge(Map.delete(attrs, :actions))
+      |> Map.update!(:actions, &(&1 ++ Map.get(attrs, :actions, [])))
 
     {:ok, response}
   end
@@ -130,11 +133,15 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
           direct_answer: response.direct_answer,
           attrs:
             Map.take(response, [
+              :status,
               :model_payload,
               :surface_payload,
+              :approval_handoff,
               :stream_events,
               :turn_id,
               :coding_turn,
+              :coding_session_context,
+              :actions,
               :diagnostics
             ])
         }

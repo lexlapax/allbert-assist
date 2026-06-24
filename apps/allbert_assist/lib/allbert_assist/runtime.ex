@@ -55,6 +55,7 @@ defmodule AllbertAssist.Runtime do
           metadata: map(),
           coding_turn?: boolean(),
           coding_turn_id: nil | String.t(),
+          coding_req_llm_context: nil | ReqLLM.Context.t(),
           stream_event_sink: nil | pid() | (map() -> term()),
           diagnostics: list(),
           timeout_ms: pos_integer()
@@ -166,6 +167,7 @@ defmodule AllbertAssist.Runtime do
          metadata: fetch_value(attrs, :metadata) || %{},
          coding_turn?: coding_turn?(attrs),
          coding_turn_id: coding_turn_id(attrs),
+         coding_req_llm_context: fetch_value(attrs, :coding_req_llm_context),
          stream_event_sink: fetch_value(attrs, :stream_event_sink),
          diagnostics: session_context.diagnostics ++ app_context.diagnostics,
          timeout_ms: fetch_value(attrs, :timeout_ms) || @default_timeout_ms
@@ -490,6 +492,7 @@ defmodule AllbertAssist.Runtime do
       metadata: metadata,
       coding_turn?: request.coding_turn?,
       coding_turn_id: request.coding_turn_id,
+      coding_req_llm_context: request.coding_req_llm_context,
       stream_event_sink: request.stream_event_sink,
       timeout_ms: request.timeout_ms,
       input_signal_id: signal.id,
@@ -549,6 +552,7 @@ defmodule AllbertAssist.Runtime do
     |> maybe_put(:stream_events, Map.get(agent_response, :stream_events))
     |> maybe_put(:turn_id, Map.get(agent_response, :turn_id))
     |> maybe_put(:coding_turn, Map.get(agent_response, :coding_turn))
+    |> maybe_put(:coding_session_context, Map.get(agent_response, :coding_session_context))
     |> maybe_put_media_outputs(media_outputs)
   end
 
@@ -699,8 +703,8 @@ defmodule AllbertAssist.Runtime do
     turn = %{
       input_signal: input_signal,
       response_signal: response_signal,
-      request: request,
-      response: response,
+      request: trace_request(request),
+      response: trace_response(response),
       agent: IntentAgent
     }
 
@@ -717,6 +721,10 @@ defmodule AllbertAssist.Runtime do
         add_diagnostic(response, %{source: :trace, error: inspect(reason)})
     end
   end
+
+  defp trace_request(request), do: Map.drop(request, [:coding_req_llm_context])
+
+  defp trace_response(response), do: Map.drop(response, [:coding_session_context])
 
   defp trace_context(input_signal, request) do
     %{
