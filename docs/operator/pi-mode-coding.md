@@ -1,6 +1,6 @@
 # Pi-Mode Coding Operator Guide
 
-Status: v0.57 M0-M9.21 are implemented. Release closeout is blocked on warm
+Status: v0.57 M0-M9.22 are implemented. Release closeout is blocked on warm
 operator validation against a real streaming/tool-capable coding profile. This guide
 describes the operator workflow for the Pi-mode coding surface. The
 release-authoritative validation checklist lives in
@@ -145,7 +145,13 @@ In TUI validation, typed confirmation commands approve, deny, or show a pending
 confirmation. Remembering a command grant uses the confirmation CLI in a second
 terminal with the same `ALLBERT_HOME`: `mix allbert.confirmations approve
 <confirmation-id> --remember exact`. Inspect and revoke the stored grant with
-`mix allbert.resources grants list|show|revoke`.
+`mix allbert.resources grants list|show|revoke`. A successful remembered `bash`
+approval prints `status=approved`, `Target: bash status=completed`, and
+`Remembered grant: ... run_shell_command execute canonical_command:...`. If the
+target command completed but the CLI ends with `:resource_ref_not_found`, the
+running code is older than M9.22 or the command-grant handoff regressed; create a
+fresh pending command confirmation after updating before retrying the remember
+step.
 
 ## Tool Boundaries
 

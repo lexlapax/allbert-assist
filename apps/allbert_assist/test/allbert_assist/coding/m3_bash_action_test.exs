@@ -84,6 +84,42 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
     assert get_in(metadata.target_result, [:output_data, :stdout_preview]) =~ workspace
   end
 
+  test "bash approval can remember an exact command grant", %{workspace: workspace} do
+    assert {:ok, response} =
+             Runner.run("bash", %{command: "pwd", cwd: "."}, context(workspace))
+
+    assert response.status == :needs_confirmation
+
+    assert {:ok, approval} =
+             Runner.run(
+               "approve_confirmation",
+               %{
+                 id: response.confirmation_id,
+                 remember_scope: "exact",
+                 reason: "remember pwd"
+               },
+               context(workspace)
+             )
+
+    assert approval.status == :completed
+    assert approval.confirmation["status"] == "approved"
+    assert [remembered] = approval.confirmation["operator_resolution"]["remembered_grants"]
+    assert remembered["operation_class"] == "run_shell_command"
+    assert get_in(remembered, ["scope", "kind"]) == "canonical_command"
+    assert get_in(remembered, ["metadata", "grant_kind"]) == "coding_command"
+
+    assert {:ok, [grant]} = Settings.get("resource_grants.remembered")
+    assert grant["id"] == remembered["id"]
+
+    assert {:ok, repeated} =
+             Runner.run("bash", %{command: "pwd", cwd: "."}, context(workspace))
+
+    assert repeated.status == :completed
+    assert repeated.permission_decision.decision == :needs_confirmation
+    refute repeated.permission_decision.requires_confirmation
+    refute Map.has_key?(repeated, :confirmation_id)
+  end
+
   test "bash treats plain command strings as argv commands", %{workspace: workspace} do
     assert {:ok, response} =
              Runner.run("bash", %{"command" => "pwd", "cwd" => "."}, context(workspace))

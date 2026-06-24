@@ -8,6 +8,7 @@ defmodule AllbertAssist.Resources.GrantHandoff do
   re-checked by `AllbertAssist.Resources.Grants`.
   """
 
+  alias AllbertAssist.Coding.CommandGrants
   alias AllbertAssist.Resources.Grants
 
   @none [nil, "", "none", :none, false]
@@ -86,13 +87,47 @@ defmodule AllbertAssist.Resources.GrantHandoff do
     if scope in @none do
       {:ok, []}
     else
-      refs = resource_refs(record)
-
-      refs
-      |> selected_refs(attrs)
-      |> remember_selected(record, attrs, context, scope)
+      maybe_remember_command_grant(record, attrs, context, scope) ||
+        record
+        |> resource_refs()
+        |> selected_refs(attrs)
+        |> remember_selected(record, attrs, context, scope)
     end
   end
+
+  defp maybe_remember_command_grant(record, attrs, context, scope) do
+    if coding_command_confirmation?(record) do
+      remember_command_grant(record, attrs, context, scope)
+    else
+      nil
+    end
+  end
+
+  defp remember_command_grant(_record, _attrs, _context, scope) when scope != :exact do
+    {:error, {:remember_scope_unavailable, to_string(scope)}}
+  end
+
+  defp remember_command_grant(record, attrs, context, :exact) do
+    command_params = Map.get(record, "resume_params_ref", %{})
+
+    with {:ok, grant} <-
+           CommandGrants.remember(command_params,
+             context: context,
+             permission: :coding_shell_execute,
+             reason: field(attrs, :reason),
+             expires_at: field(attrs, :expires_at),
+             audit?: field(attrs, :audit?)
+           ) do
+      {:ok, [grant]}
+    end
+  end
+
+  defp coding_command_confirmation?(record) when is_map(record) do
+    get_in(record, ["target_action", "name"]) == "bash" and
+      Map.get(record, "target_permission") in ["coding_shell_execute", :coding_shell_execute]
+  end
+
+  defp coding_command_confirmation?(_record), do: false
 
   @spec summary(map()) :: map()
   def summary(grant) when is_map(grant) do

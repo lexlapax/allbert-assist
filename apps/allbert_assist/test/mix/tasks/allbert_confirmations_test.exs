@@ -201,6 +201,43 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
     assert grant["operation_class"] == "run_skill_script"
   end
 
+  test "approves and remembers Pi-mode bash confirmations", %{root: root} do
+    workspace = Path.join(root, "workspace")
+    File.mkdir_p!(Path.join(workspace, ".git"))
+    put_bash_validation_settings!(workspace)
+
+    assert {:ok, pending_response} =
+             Runner.run(
+               "bash",
+               %{"command" => "pwd", "cwd" => "."},
+               pi_context(workspace)
+             )
+
+    assert pending_response.status == :needs_confirmation
+
+    approve_output =
+      capture_io(fn ->
+        assert :ok =
+                 ConfirmationsTask.run([
+                   "approve",
+                   pending_response.confirmation_id,
+                   "--reason",
+                   "v0.57 remember pwd",
+                   "--remember",
+                   "exact"
+                 ])
+      end)
+
+    assert approve_output =~ "status=approved"
+    assert approve_output =~ "Target: bash status=completed"
+    assert approve_output =~ "Remembered grant:"
+
+    assert {:ok, [grant]} = Settings.get("resource_grants.remembered")
+    assert grant["operation_class"] == "run_shell_command"
+    assert get_in(grant, ["scope", "kind"]) == "canonical_command"
+    assert get_in(grant, ["metadata", "grant_kind"]) == "coding_command"
+  end
+
   defp base_attrs do
     %{
       origin: %{actor: "local", channel: :cli, surface: "mix allbert.ask"},
@@ -248,6 +285,47 @@ defmodule Mix.Tasks.Allbert.ConfirmationsTest do
     }
 
     assert {:ok, _settings} = Settings.write_user_settings(settings)
+  end
+
+  defp put_bash_validation_settings!(workspace) do
+    settings = %{
+      "execution" => %{
+        "local" => %{
+          "enabled" => true,
+          "allowed_roots" => [workspace],
+          "allowed_commands" => ["pwd", "printf"],
+          "env_allowlist" => [],
+          "max_timeout_ms" => 1_000,
+          "max_output_bytes" => 2_000,
+          "require_confirmation" => true
+        }
+      }
+    }
+
+    assert {:ok, _settings} = Settings.write_user_settings(settings)
+    assert {:ok, _setting} = Settings.put("coding.pi_mode.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = Settings.put("coding.trusted_operator_id", "local", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("coding.default_approval_mode", "accept-edits", %{audit?: false})
+  end
+
+  defp pi_context(workspace) do
+    %{
+      actor: "local",
+      operator_id: "local",
+      user_id: "local",
+      channel: %{name: :tui, trust: :local},
+      surface: :tui,
+      cwd_jail: workspace,
+      coding: %{
+        cwd_jail: workspace,
+        pi_mode_enabled: true,
+        trusted_operator_id: "local",
+        approval_mode: "accept-edits"
+      },
+      session: %{main?: true}
+    }
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
