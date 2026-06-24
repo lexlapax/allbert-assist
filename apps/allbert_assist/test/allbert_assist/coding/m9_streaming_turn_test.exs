@@ -156,7 +156,84 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
       end
     end
 
-    defp metadata(mode, prompt) when mode in [:tool_read, :tool_write, :tool_edit, :tool_bash] do
+    defp stream(:multi_tool, _parent, prompt) do
+      if tool_result_context?(prompt) do
+        [
+          ReqLLM.StreamChunk.text("Read and grep completed."),
+          ReqLLM.StreamChunk.meta(%{finish_reason: "stop"})
+        ]
+      else
+        [
+          ReqLLM.StreamChunk.tool_call("read", %{"path" => "sample.txt", "limit" => 4}, %{
+            id: "call-multi-read"
+          }),
+          ReqLLM.StreamChunk.tool_call(
+            "grep",
+            %{"pattern" => "needle", "path" => ".", "max_results" => 5},
+            %{id: "call-multi-grep"}
+          ),
+          ReqLLM.StreamChunk.meta(%{finish_reason: "tool_calls"})
+        ]
+      end
+    end
+
+    defp stream(:cwd_escape, _parent, prompt) do
+      if tool_result_context?(prompt) do
+        [
+          ReqLLM.StreamChunk.text("Cwd escape denied."),
+          ReqLLM.StreamChunk.meta(%{finish_reason: "stop"})
+        ]
+      else
+        [
+          ReqLLM.StreamChunk.tool_call("read", %{"path" => "../outside.txt"}, %{
+            id: "call-cwd-escape"
+          }),
+          ReqLLM.StreamChunk.meta(%{finish_reason: "tool_calls"})
+        ]
+      end
+    end
+
+    defp stream(:raw_shell_without_tier, _parent, prompt) do
+      if tool_result_context?(prompt) do
+        [
+          ReqLLM.StreamChunk.text("Raw shell denied."),
+          ReqLLM.StreamChunk.meta(%{finish_reason: "stop"})
+        ]
+      else
+        [
+          ReqLLM.StreamChunk.tool_call(
+            "bash",
+            %{"command" => "printf denied", "cwd" => "."},
+            %{id: "call-raw-shell"}
+          ),
+          ReqLLM.StreamChunk.meta(%{finish_reason: "tool_calls"})
+        ]
+      end
+    end
+
+    defp stream(:loop_limit, _parent, prompt) do
+      [
+        ReqLLM.StreamChunk.tool_call(
+          "glob",
+          %{"pattern" => "*.txt", "max_results" => 1},
+          %{id: "call-loop-#{tool_result_count(prompt)}"}
+        ),
+        ReqLLM.StreamChunk.meta(%{finish_reason: "tool_calls"})
+      ]
+    end
+
+    defp metadata(:loop_limit, _prompt), do: %{finish_reason: :tool_calls}
+
+    defp metadata(mode, prompt)
+         when mode in [
+                :tool_read,
+                :tool_write,
+                :tool_edit,
+                :tool_bash,
+                :multi_tool,
+                :cwd_escape,
+                :raw_shell_without_tier
+              ] do
       if tool_result_context?(prompt),
         do: %{finish_reason: :stop},
         else: %{finish_reason: :tool_calls}
@@ -169,6 +246,12 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
     end
 
     defp tool_result_context?(_prompt), do: false
+
+    defp tool_result_count(%ReqLLM.Context{messages: messages}) do
+      Enum.count(messages, &(&1.role == :tool))
+    end
+
+    defp tool_result_count(_prompt), do: 0
   end
 
   setup do
@@ -477,6 +560,162 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
     end
   end
 
+  test "model-proposed multi-tool sequence executes each tool before continuing", %{
+    root: root
+  } do
+    File.write!(Path.join(root, "sample.txt"), "alpha\nneedle\nomega\n")
+
+    parent = self()
+    turn_id = unique_turn_id("multi-tool")
+
+    Application.put_env(:allbert_assist, FakeReqLLM,
+      parent: parent,
+      turn_id: turn_id,
+      mode: :multi_tool
+    )
+
+    assert {:ok, response} =
+             StreamingTurn.answer(
+               "read sample.txt and grep for needle",
+               streaming_context(root, turn_id, parent)
+             )
+
+    assert_receive {:stream_text_called, _model, %ReqLLM.Context{} = first_prompt, first_opts,
+                    _pid},
+                   1_000
+
+    assert_receive {:stream_text_called, _model, %ReqLLM.Context{} = second_prompt, second_opts,
+                    _pid},
+                   1_000
+
+    assert length(Keyword.fetch!(first_opts, :tools)) == 6
+    assert length(Keyword.fetch!(second_opts, :tools)) == 6
+    refute Enum.any?(first_prompt.messages, &(&1.role == :tool))
+    assert Enum.count(second_prompt.messages, &(&1.role == :tool)) == 2
+
+    assert response.status == :completed
+    assert response.message == "Read and grep completed."
+    assert response.coding_turn.tool_call_count == 2
+    assert Enum.map(response.coding_turn.tool_calls, & &1.name) == ["read", "grep"]
+    assert Enum.map(response.coding_turn.tool_calls, & &1.status) == ["completed", "completed"]
+    assert Enum.map(response.actions, & &1.name) == ["read", "grep"]
+
+    assert [
+             %{tool_call_id: "call-multi-read", tool_name: "read"} = read_result,
+             %{tool_call_id: "call-multi-grep", tool_name: "grep"} = grep_result
+           ] = tool_result_events(response)
+
+    assert read_result.text =~ "sample.txt"
+    assert read_result.text =~ "needle"
+    assert grep_result.text =~ "matches=1"
+    assert grep_result.text =~ "sample.txt"
+  end
+
+  test "model-proposed cwd escape returns a denied tool result without reading outside jail", %{
+    root: root
+  } do
+    File.write!(Path.join(Path.dirname(root), "outside.txt"), "secret outside\n")
+
+    parent = self()
+    turn_id = unique_turn_id("cwd-escape")
+
+    Application.put_env(:allbert_assist, FakeReqLLM,
+      parent: parent,
+      turn_id: turn_id,
+      mode: :cwd_escape
+    )
+
+    assert {:ok, response} =
+             StreamingTurn.answer(
+               "read the file outside this repo",
+               streaming_context(root, turn_id, parent)
+             )
+
+    assert_receive {:stream_text_called, _model, %ReqLLM.Context{}, _opts, _pid}, 1_000
+
+    assert_receive {:stream_text_called, _model, %ReqLLM.Context{} = second_prompt, _opts, _pid},
+                   1_000
+
+    assert Enum.any?(second_prompt.messages, &(&1.role == :tool))
+    assert response.status == :completed
+    assert response.message == "Cwd escape denied."
+    assert response.coding_turn.tool_call_count == 1
+    assert [%{name: "read", status: :denied} | _] = response.actions
+
+    assert [%{tool_call_id: "call-cwd-escape", tool_name: "read"} = tool_result] =
+             tool_result_events(response)
+
+    assert tool_result.text =~ "\"status\":\"denied\""
+    assert tool_result.text =~ "path_outside_cwd_jail"
+    refute tool_result.text =~ "secret outside"
+  end
+
+  test "model-proposed raw shell without local-coding tier returns a denied tool result", %{
+    root: root
+  } do
+    assert {:ok, _setting} = Settings.put("coding.bash.allow_raw_shell", true, %{audit?: false})
+
+    parent = self()
+    turn_id = unique_turn_id("raw-shell")
+
+    Application.put_env(:allbert_assist, FakeReqLLM,
+      parent: parent,
+      turn_id: turn_id,
+      mode: :raw_shell_without_tier
+    )
+
+    assert {:ok, response} =
+             StreamingTurn.answer(
+               "run this raw shell command",
+               streaming_context_without_tier(root, turn_id, parent)
+             )
+
+    assert_receive {:stream_text_called, _model, %ReqLLM.Context{}, _opts, _pid}, 1_000
+
+    assert_receive {:stream_text_called, _model, %ReqLLM.Context{} = second_prompt, _opts, _pid},
+                   1_000
+
+    assert Enum.any?(second_prompt.messages, &(&1.role == :tool))
+    assert response.status == :completed
+    assert response.message == "Raw shell denied."
+    assert response.coding_turn.tool_call_count == 1
+    assert [%{name: "bash", status: :denied} | _] = response.actions
+
+    assert [%{tool_call_id: "call-raw-shell", tool_name: "bash"} = tool_result] =
+             tool_result_events(response)
+
+    assert tool_result.text =~ "\"status\":\"denied\""
+    assert tool_result.text =~ "local_coding_operator_required"
+    refute tool_result.text =~ "exit_status"
+  end
+
+  test "model-proposed tools stop at the max tool iteration limit", %{root: root} do
+    File.write!(Path.join(root, "sample.txt"), "loop\n")
+
+    parent = self()
+    turn_id = unique_turn_id("loop-limit")
+
+    Application.put_env(:allbert_assist, FakeReqLLM,
+      parent: parent,
+      turn_id: turn_id,
+      mode: :loop_limit
+    )
+
+    assert {:error, {:coding_tool_loop_limit_exceeded, ^turn_id, 8}} =
+             StreamingTurn.answer(
+               "keep calling tools forever",
+               streaming_context(root, turn_id, parent)
+             )
+
+    for expected_tool_messages <- 0..7 do
+      assert_receive {:stream_text_called, _model, %ReqLLM.Context{} = prompt, opts, _pid}, 1_000
+      assert length(Keyword.fetch!(opts, :tools)) == 6
+      assert Enum.count(prompt.messages, &(&1.role == :tool)) == expected_tool_messages
+    end
+
+    refute_receive {:stream_text_called, _model, _prompt, _opts, _pid}, 50
+  end
+
   defp streaming_context(root, turn_id, sink) do
     %{
       request: %{
@@ -499,6 +738,19 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
         }
       }
     }
+  end
+
+  defp streaming_context_without_tier(root, turn_id, sink) do
+    put_in(
+      streaming_context(root, turn_id, sink),
+      [
+        :request,
+        :metadata,
+        :coding,
+        :trusted_operator_id
+      ],
+      "someone-else"
+    )
   end
 
   defp agent_request(root, turn_id, sink) do
@@ -544,6 +796,10 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
     messages
     |> Enum.flat_map(& &1.content)
     |> Enum.map_join("\n", &(&1.text || ""))
+  end
+
+  defp tool_result_events(response) do
+    Enum.filter(response.stream_events, &(&1.type == :tool_result_delta))
   end
 
   defp resolve_test_model_profile("coding_local") do
