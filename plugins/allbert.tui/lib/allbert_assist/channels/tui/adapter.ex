@@ -11,6 +11,8 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   alias AllbertAssist.Channels.InboundTrust
   alias AllbertAssist.Channels.TUI.Renderer
   alias AllbertAssist.Channels.TUI.SlashCommands
+  alias AllbertAssist.Coding.Config, as: CodingConfig
+  alias AllbertAssist.Coding.TurnSupervisor, as: CodingTurnSupervisor
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
 
@@ -40,6 +42,10 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     GenServer.call(server, {:submit, text, opts}, Keyword.get(opts, :timeout_ms, 120_000))
   end
 
+  def cancel_current_turn(server \\ __MODULE__, reason \\ :operator_escape) do
+    GenServer.call(server, {:cancel_current_turn, reason}, 120_000)
+  end
+
   def run_supervised_forever(supervisor \\ AllbertAssist.Channels.Supervisor) do
     with {:ok, pid} <- supervised_pid(supervisor) do
       wait_for_supervised_child(supervisor, pid)
@@ -62,7 +68,12 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
   @impl true
   def handle_call({:submit, text, opts}, _from, state) do
-    {reply, state} = process_text(text, opts, state)
+    {reply, state} = handle_text_submission(text, opts, state)
+    {:reply, reply, state}
+  end
+
+  def handle_call({:cancel_current_turn, reason}, _from, state) do
+    {reply, state} = cancel_current_turn_state(reason, state)
     {:reply, reply, state}
   end
 
@@ -70,13 +81,19 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   def handle_info(:read_input, state) do
     state = update_live_status(state, :ready)
 
-    case state.input_fun.(Renderer.prompt(state.profile)) do
+    case state.input_fun.(Renderer.prompt(state.profile)) |> normalize_input() do
+      :escape ->
+        {reply, state} = cancel_current_turn_state(:operator_escape, state)
+        maybe_emit_cancel_feedback(reply, state)
+        Process.send_after(self(), :read_input, 0)
+        {:noreply, state}
+
       command when is_binary(command) ->
         if MapSet.member?(@quit_commands, command) do
           {:stop, :normal, state}
         else
           state = update_live_status(state, :processing)
-          {_reply, state} = process_text(command, [], state)
+          {_reply, state} = handle_text_submission(command, [async?: state.coding_mode?], state)
           Process.send_after(self(), :read_input, 0)
           {:noreply, state}
         end
@@ -85,6 +102,25 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         Process.send_after(self(), :read_input, 0)
         {:noreply, state}
     end
+  end
+
+  def handle_info({:coding_tui_turn_finished, turn_id, _reply}, state) do
+    state =
+      case state.current_turn do
+        %{turn_id: ^turn_id} ->
+          state
+          |> Map.put(:current_turn, nil)
+          |> start_queued_correction()
+
+        _other ->
+          state
+      end
+
+    if state.auto_input? do
+      Process.send_after(self(), :read_input, 0)
+    end
+
+    {:noreply, state}
   end
 
   defp load_state(opts) do
@@ -112,7 +148,10 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       live_status_active?: false,
       input_fun: Keyword.get(opts, :input_fun, &default_input/1),
       output_fun: Keyword.get(opts, :output_fun),
-      max_text_bytes: Map.get(settings, "max_text_bytes", 12_000)
+      max_text_bytes: Map.get(settings, "max_text_bytes", 12_000),
+      coding_mode?: Keyword.get(opts, :coding_mode?, false),
+      current_turn: nil,
+      queued_correction: nil
     }
   end
 
@@ -151,6 +190,145 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       dispatch_slash(text, state)
     else
       process_inbound_text(text, opts, state)
+    end
+  end
+
+  defp handle_text_submission(text, opts, state) when is_binary(text) do
+    cond do
+      escape_text?(text) ->
+        cancel_current_turn_state(:operator_escape, state)
+
+      queueable_correction?(text, state) ->
+        queue_correction(text, opts, state)
+
+      async_coding_turn?(text, opts, state) ->
+        start_async_coding_turn(text, opts, state)
+
+      true ->
+        process_text(text, opts, state)
+    end
+  end
+
+  defp queueable_correction?(text, state) do
+    state.coding_mode? and
+      CodingConfig.steer_enabled?() and
+      not is_nil(state.current_turn) and
+      not SlashCommands.slash?(text)
+  end
+
+  defp async_coding_turn?(text, opts, state) do
+    state.coding_mode? and
+      CodingConfig.steer_enabled?() and
+      Keyword.get(opts, :async?, false) and
+      not SlashCommands.slash?(text)
+  end
+
+  defp queue_correction(text, opts, state) do
+    current_turn_id = state.current_turn.turn_id
+    emit_output("Queued correction for next coding turn.", state)
+
+    {{:ok, {:queued, current_turn_id}},
+     %{state | queued_correction: {text, Keyword.delete(opts, :async?)}}}
+  end
+
+  defp start_async_coding_turn(text, opts, state) do
+    turn_id = coding_turn_id(opts)
+    parent = self()
+
+    turn_opts =
+      opts
+      |> Keyword.delete(:async?)
+      |> Keyword.put(:coding_turn?, true)
+      |> Keyword.put(:coding_turn_id, turn_id)
+      |> Keyword.put_new(:surface, "pi_mode")
+
+    task_state = %{state | current_turn: nil, queued_correction: nil}
+
+    case start_turn_task(fn ->
+           reply =
+             try do
+               {reply, _state} = process_inbound_text(text, turn_opts, task_state)
+               reply
+             rescue
+               exception ->
+                 {:error, {exception.__struct__, Exception.message(exception)}}
+             catch
+               kind, reason ->
+                 {:error, {kind, Redactor.redact(reason)}}
+             end
+
+           send(parent, {:coding_tui_turn_finished, turn_id, reply})
+         end) do
+      {:ok, pid} ->
+        {{:ok, {:accepted, turn_id}},
+         %{state | current_turn: %{turn_id: turn_id, pid: pid, started_at: timestamp()}}}
+
+      {:error, reason} ->
+        {{:error, reason}, state}
+    end
+  end
+
+  defp start_queued_correction(%{queued_correction: nil} = state), do: state
+
+  defp start_queued_correction(%{queued_correction: {text, opts}} = state) do
+    {_reply, state} =
+      start_async_coding_turn(text, Keyword.put(opts, :async?, true), %{
+        state
+        | queued_correction: nil
+      })
+
+    state
+  end
+
+  defp cancel_current_turn_state(_reason, %{current_turn: nil} = state),
+    do: {{:error, :no_current_turn}, state}
+
+  defp cancel_current_turn_state(reason, state) do
+    if CodingConfig.steer_enabled?() do
+      turn_id = state.current_turn.turn_id
+      reply = cancel_registered_turn(turn_id, reason, 20)
+      {reply, state}
+    else
+      {{:error, :steer_disabled}, state}
+    end
+  end
+
+  defp cancel_registered_turn(turn_id, reason, retries) do
+    case CodingTurnSupervisor.cancel(turn_id, reason) do
+      {:ok, result} ->
+        {:ok, {:cancel_requested, result}}
+
+      {:error, :not_found} when retries > 0 ->
+        Process.sleep(50)
+        cancel_registered_turn(turn_id, reason, retries - 1)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp maybe_emit_cancel_feedback({:ok, {:cancel_requested, %{turn_id: turn_id}}}, state),
+    do: emit_output("Cancellation requested for coding turn #{turn_id}.", state)
+
+  defp maybe_emit_cancel_feedback({:error, :no_current_turn}, state),
+    do: emit_output("No coding turn is currently running.", state)
+
+  defp maybe_emit_cancel_feedback({:error, :steer_disabled}, state),
+    do: emit_output("Coding steering is disabled.", state)
+
+  defp maybe_emit_cancel_feedback(_reply, _state), do: :ok
+
+  defp coding_turn_id(opts) do
+    Keyword.get(opts, :coding_turn_id) ||
+      Keyword.get(opts, :turn_id) ||
+      "tui-coding-#{Ecto.UUID.generate()}"
+  end
+
+  defp start_turn_task(fun) do
+    if Process.whereis(AllbertAssist.TaskSupervisor) do
+      Task.Supervisor.start_child(AllbertAssist.TaskSupervisor, fun)
+    else
+      Task.start(fun)
     end
   end
 
@@ -269,6 +447,9 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         profile: state.profile,
         provider_thread_root: "profile:#{state.profile}"
       },
+      coding_turn?: Keyword.get(opts, :coding_turn?),
+      coding_turn_id: Keyword.get(opts, :coding_turn_id) || Keyword.get(opts, :turn_id),
+      surface: Keyword.get(opts, :surface),
       raw_summary: "tui input #{event_id}"
     }
   end
@@ -389,15 +570,8 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   defp submit_runtime(fields, user_id, session_id, inbound_trust) do
-    Runtime.submit_user_input(%{
-      text: fields.text,
-      channel: @channel,
-      user_id: user_id,
-      operator_id: user_id,
-      session_id: session_id,
-      channel_thread_ref: channel_thread_ref(fields),
-      provider_message_id: fields.external_message_id,
-      metadata: %{
+    metadata =
+      %{
         channel: @channel,
         provider: @provider,
         external_event_id: fields.external_event_id,
@@ -408,7 +582,23 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         provider_thread_ref: fields.provider_thread_ref,
         inbound_trust: inbound_trust
       }
-    })
+      |> maybe_put(:coding_turn?, fields.coding_turn?)
+      |> maybe_put(:coding_turn_id, fields.coding_turn_id)
+      |> maybe_put(:surface, fields.surface)
+
+    %{
+      text: fields.text,
+      channel: @channel,
+      user_id: user_id,
+      operator_id: user_id,
+      session_id: session_id,
+      channel_thread_ref: channel_thread_ref(fields),
+      provider_message_id: fields.external_message_id,
+      metadata: metadata
+    }
+    |> maybe_put(:coding_turn?, fields.coding_turn?)
+    |> maybe_put(:coding_turn_id, fields.coding_turn_id)
+    |> Runtime.submit_user_input()
   end
 
   defp channel_thread_ref(fields) do
@@ -593,6 +783,13 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     Map.get(response, key) || Map.get(response, Atom.to_string(key))
   end
 
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  defp timestamp, do: DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+
+  defp escape_text?(text) when is_binary(text), do: normalize_input(text) == :escape
+
   defp default_input(prompt) do
     prompt
     |> Owl.Data.to_chardata()
@@ -600,9 +797,13 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     |> normalize_input()
   end
 
+  defp normalize_input(:escape), do: :escape
+  defp normalize_input({:escape, _reason}), do: :escape
+
   defp normalize_input(value) when is_binary(value) do
     case String.trim(value) do
       "" -> nil
+      "\e" -> :escape
       text -> text
     end
   end

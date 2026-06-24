@@ -1,15 +1,16 @@
 defmodule AllbertAssist.Coding.TurnSupervisor do
   @moduledoc """
-  M5 async boundary for Pi-mode coding turns.
+  M5/M6 async boundary for Pi-mode coding turns.
 
   This module does not grant authority or run tools directly. It wraps an
   already-authoritative runtime turn segment in `AllbertAssist.TaskSupervisor`,
   registers the in-flight task by turn id, and converts task shutdown/timeout
-  into a partial runtime response so the normal response signal, trace, and
-  conversation persistence paths still run.
+  into a partial runtime response so the normal response signal, trace,
+  conversation persistence, and stream-event paths still run.
   """
 
   alias AllbertAssist.Coding.Config
+  alias AllbertAssist.Coding.StreamEvent
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response
 
@@ -52,16 +53,77 @@ defmodule AllbertAssist.Coding.TurnSupervisor do
   end
 
   @doc """
+  Register the provider/model stream cancel callback for the current turn task.
+
+  Elixir registries can only update a value from the process that owns the
+  registration. Call this from inside the running coding turn task after the
+  provider stream has been opened.
+  """
+  @spec register_stream_cancel(turn_id(), (-> term()), keyword()) ::
+          :ok | {:error, :not_owner | term()}
+  def register_stream_cancel(turn_id, cancel_fun, opts \\ [])
+      when is_binary(turn_id) and is_function(cancel_fun, 0) do
+    registry = Keyword.get(opts, :registry, @registry)
+
+    metadata = %{
+      fun: cancel_fun,
+      registered_at: now(),
+      source: Keyword.get(opts, :source, :provider_stream)
+    }
+
+    case Registry.update_value(registry, turn_id, fn value ->
+           Map.put(value, :stream_cancel, metadata)
+         end) do
+      {_new_value, _old_value} -> :ok
+      :error -> {:error, :not_owner}
+    end
+  catch
+    :exit, reason -> {:error, reason}
+  end
+
+  @doc """
+  Cancel an in-flight coding turn.
+
+  Cancellation invokes a registered provider stream cancel callback first, then
+  shuts down the supervised turn task through its registry entry. If the task is
+  still alive after the configured grace window, it is killed so the turn cannot
+  remain orphaned.
+  """
+  @spec cancel(turn_id(), term(), keyword()) ::
+          {:ok,
+           %{
+             turn_id: turn_id(),
+             stream_cancel: :ok | :not_registered | {:error, term()},
+             shutdown: :ok | {:ok, :killed}
+           }}
+          | {:error, term()}
+  def cancel(turn_id, reason \\ :operator_escape, opts \\ []) when is_binary(turn_id) do
+    with {:ok, turn} <- lookup(turn_id, opts) do
+      stream_cancel = cancel_stream(turn)
+      shutdown = shutdown_task(turn, reason, opts)
+
+      {:ok,
+       %{
+         turn_id: turn_id,
+         stream_cancel: stream_cancel,
+         shutdown: shutdown
+       }}
+    end
+  end
+
+  @doc """
   Shut down an in-flight turn task.
 
-  M6 wires this to Esc and provider stream cancellation. M5 exposes only the
-  addressable task boundary and partial-response behavior.
+  This is the registry-level task shutdown primitive. M6 `cancel/3` should be
+  preferred when provider stream cancellation is available.
   """
   @spec shutdown(turn_id(), term(), keyword()) :: :ok | {:error, term()}
   def shutdown(turn_id, reason \\ :shutdown, opts \\ []) when is_binary(turn_id) do
-    with {:ok, %{pid: pid}} <- lookup(turn_id, opts) do
-      Process.exit(pid, {:shutdown, reason})
-      :ok
+    with {:ok, turn} <- lookup(turn_id, opts) do
+      case shutdown_task(turn, reason, opts) do
+        :ok -> :ok
+        {:ok, _status} -> :ok
+      end
     end
   end
 
@@ -157,6 +219,8 @@ defmodule AllbertAssist.Coding.TurnSupervisor do
           }
         )
       ],
+      stream_events: stream_events(status, metadata, reason_text),
+      turn_id: turn_id,
       diagnostics: [
         %{
           source: :coding_turn,
@@ -183,6 +247,57 @@ defmodule AllbertAssist.Coding.TurnSupervisor do
   defp exit_status({:shutdown, _reason}), do: :cancelled
   defp exit_status(:killed), do: :cancelled
   defp exit_status(_reason), do: :failed
+
+  defp stream_events(:cancelled, metadata, reason_text) do
+    case StreamEvent.new(:turn_cancelled, %{
+           turn_id: metadata.turn_id,
+           reason: reason_text,
+           metadata: %{partial?: true}
+         }) do
+      {:ok, event} -> [event]
+      {:error, _reason} -> []
+    end
+  end
+
+  defp stream_events(_status, _metadata, _reason_text), do: []
+
+  defp cancel_stream(%{stream_cancel: %{fun: cancel_fun}}) when is_function(cancel_fun, 0) do
+    cancel_fun.()
+    :ok
+  rescue
+    exception -> {:error, {exception.__struct__, Exception.message(exception)}}
+  catch
+    kind, reason -> {:error, {kind, Redactor.redact(reason)}}
+  end
+
+  defp cancel_stream(_turn), do: :not_registered
+
+  defp shutdown_task(%{pid: pid}, reason, opts) when is_pid(pid) do
+    grace_ms = Keyword.get(opts, :grace_ms, Config.cancel_grace_ms())
+    Process.exit(pid, {:shutdown, reason})
+
+    case await_task_exit(pid, grace_ms) do
+      :down ->
+        :ok
+
+      :alive ->
+        Process.exit(pid, :kill)
+        {:ok, :killed}
+    end
+  end
+
+  defp await_task_exit(pid, grace_ms) when is_pid(pid) do
+    ref = Process.monitor(pid)
+
+    receive do
+      {:DOWN, ^ref, :process, ^pid, _reason} ->
+        :down
+    after
+      grace_ms ->
+        Process.demonitor(ref, [:flush])
+        :alive
+    end
+  end
 
   defp normalize_metadata(metadata) when is_map(metadata) do
     turn_id =

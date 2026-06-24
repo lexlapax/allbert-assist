@@ -535,6 +535,9 @@ defmodule AllbertAssist.Runtime do
       approval_handoff: agent_response.approval_handoff,
       diagnostics: request.diagnostics ++ agent_response.diagnostics
     }
+    |> maybe_put(:stream_events, Map.get(agent_response, :stream_events))
+    |> maybe_put(:turn_id, Map.get(agent_response, :turn_id))
+    |> maybe_put(:coding_turn, Map.get(agent_response, :coding_turn))
     |> maybe_put_media_outputs(media_outputs)
   end
 

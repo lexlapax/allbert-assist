@@ -3562,8 +3562,9 @@ Expected direction:
   **async turn-execution boundary** that makes real Esc-to-cancel possible, queued
   steering, and a familiar coding slash set
   (`/help`/`/model`/`/clear`/`/init`/`/diff`/`/compact`; `/model`/`/clear`/`/compact`
-  ungated). Milestones M0–M9; M6 still wires real Esc/provider-stream
-  cancellation and queued steering. The named substrate (`deps/req_llm`
+  ungated). Milestones M0–M9; M6 now wires real registered provider-stream
+  cancellation, bounded registry task shutdown, `turn_cancelled`, partial traces,
+  and queued steering. The named substrate (`deps/req_llm`
   `Context`/`StreamResponse`/`StreamChunk`, `Owl.LiveScreen`, `Resources.Grants`)
   is verified to exist.
 - A named "local-coding operator" trust tier (ADR 0056 lineage, running at ADR

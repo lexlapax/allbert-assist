@@ -1,6 +1,6 @@
 # Pi-Mode Coding Operator Guide
 
-Status: planned for v0.57; M0-M5 are implemented. This guide describes the target
+Status: planned for v0.57; M0-M6 are implemented. This guide describes the target
 operator workflow for the Pi-mode coding surface after implementation. The
 release-authoritative validation checklist lives in
 `docs/plans/v0.57-request-flow.md#operator-validation`.
@@ -118,7 +118,8 @@ For release closeout, keep:
 - the `release.v057 evidence:` path printed by the deterministic gate;
 - `$V057_MANUAL_HOME`;
 - the TUI transcript path;
-- whether cancellation used direct provider abort or degraded to timeout;
+- whether cancellation used the registered provider stream abort callback or
+  degraded to bounded registry task shutdown;
 - any failed command and its exact output.
 
 The allowlist store must live under Allbert Home, not the repo. Transcripts and

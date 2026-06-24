@@ -21,7 +21,9 @@ defmodule AllbertAssist.Coding.Config do
     streaming_enabled?: true,
     streaming_turn_complete_fallback?: true,
     turn_supervised?: true,
-    turn_max_ms: 120_000
+    turn_max_ms: 120_000,
+    steer_enabled?: true,
+    cancel_grace_ms: 2_000
   }
 
   @doc "Return the configured cwd jail root, before path expansion."
@@ -104,6 +106,14 @@ defmodule AllbertAssist.Coding.Config do
   @doc "Return the hard wall-clock ceiling for a supervised coding turn."
   @spec turn_max_ms() :: pos_integer()
   def turn_max_ms, do: positive_integer("coding.turn.max_ms", @defaults.turn_max_ms)
+
+  @doc "Return true when coding turns can be cancelled or steered from the TUI."
+  @spec steer_enabled?() :: boolean()
+  def steer_enabled?, do: boolean("coding.steer.enabled", @defaults.steer_enabled?)
+
+  @doc "Return the grace window before cancellation falls back to hard shutdown."
+  @spec cancel_grace_ms() :: pos_integer()
+  def cancel_grace_ms, do: positive_integer("coding.cancel.grace_ms", @defaults.cancel_grace_ms)
 
   defp positive_integer(key, default) do
     case setting(key, default) do

@@ -89,6 +89,8 @@ defmodule AllbertAssist.Settings.Schema do
     "coding.turn.max_ms",
     "coding.streaming.enabled",
     "coding.streaming.turn_complete_fallback",
+    "coding.steer.enabled",
+    "coding.cancel.grace_ms",
     "active_memory.enabled",
     "active_memory.top_k",
     "active_memory.chunk_max_bytes",
@@ -2309,6 +2311,20 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false
     },
+    "coding.steer.enabled" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "coding.cancel.grace_ms" => %{
+      type: :bounded_integer,
+      default: 2_000,
+      writable?: true,
+      sensitive?: false,
+      min: 100,
+      max: 60_000
+    },
     "permissions.coding_file_read" => %{
       type: :enum,
       default: "allowed",
@@ -3560,6 +3576,12 @@ defmodule AllbertAssist.Settings.Schema do
       "streaming" => %{
         "enabled" => true,
         "turn_complete_fallback" => true
+      },
+      "steer" => %{
+        "enabled" => true
+      },
+      "cancel" => %{
+        "grace_ms" => 2_000
       }
     },
     "skills" => %{
