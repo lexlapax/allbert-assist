@@ -5,7 +5,7 @@ defmodule AllbertAssist.Actions.Coding.Write do
 
   use AllbertAssist.Action,
     permission: :coding_file_write,
-    exposure: :agent,
+    exposure: :internal,
     execution_mode: :coding_file_write,
     skill_backed?: false,
     confirmation: :required,
@@ -31,17 +31,23 @@ defmodule AllbertAssist.Actions.Coding.Write do
   alias AllbertAssist.Coding.Config
   alias AllbertAssist.Coding.FileEffects
   alias AllbertAssist.Coding.PathPolicy
+  alias AllbertAssist.Coding.SessionGuard
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision =
-      PermissionGate.authorize(:coding_file_write, action_context(params, context))
+    with {:ok, context} <- SessionGuard.ensure_active(context) do
+      permission_decision =
+        PermissionGate.authorize(:coding_file_write, action_context(params, context))
 
-    if permission_decision.decision == :denied do
-      blocked_response(permission_decision)
+      if permission_decision.decision == :denied do
+        blocked_response(permission_decision)
+      else
+        prepare_and_gate(params, context)
+      end
     else
-      prepare_and_gate(params, context)
+      {:error, reason, context} ->
+        denied_response(reason, SessionGuard.denied_decision(:coding_file_write, context, reason))
     end
   end
 

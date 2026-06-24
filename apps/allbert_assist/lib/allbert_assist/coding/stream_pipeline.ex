@@ -41,9 +41,26 @@ defmodule AllbertAssist.Coding.StreamPipeline do
           {:ok, [StreamEvent.t()]} | {:error, term()}
   def emit_stream_response(%ReqLLM.StreamResponse{stream: stream}, opts, emit_fun)
       when is_function(emit_fun, 1) do
-    with {:ok, events} <- events_from_chunks(stream, opts) do
-      Enum.each(events, emit_fun)
-      {:ok, events}
+    turn_id = Keyword.fetch!(opts, :turn_id)
+    start_sequence = Keyword.get(opts, :start_sequence, 0)
+
+    stream
+    |> Enum.reduce_while({:ok, start_sequence, []}, fn chunk, {:ok, sequence, events} ->
+      case event_from_chunk(chunk, turn_id, sequence) do
+        {:ok, nil} ->
+          {:cont, {:ok, sequence + 1, events}}
+
+        {:ok, event} ->
+          emit_fun.(event)
+          {:cont, {:ok, sequence + 1, [event | events]}}
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, _sequence, events} -> {:ok, Enum.reverse(events)}
+      {:error, reason} -> {:error, reason}
     end
   end
 

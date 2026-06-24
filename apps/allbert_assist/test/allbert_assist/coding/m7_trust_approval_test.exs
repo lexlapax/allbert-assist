@@ -65,7 +65,11 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
        %{workspace: workspace} do
     context = trusted_context(workspace)
 
-    assert PermissionGate.coding_tier(context) == :none
+    assert PermissionGate.coding_tier(put_in(context, [:coding, :pi_mode_enabled], false)) ==
+             :none
+
+    assert PermissionGate.coding_tier(put_in(context, [:coding, :trusted_operator_id], nil)) ==
+             :none
 
     put_pi_mode_settings!()
 
@@ -238,7 +242,7 @@ defmodule AllbertAssist.Coding.M7TrustApprovalTest do
       channel: %{name: :tui, trust: :local},
       surface: :tui,
       cwd_jail: workspace,
-      coding: %{cwd_jail: workspace},
+      coding: %{cwd_jail: workspace, pi_mode_enabled: true, trusted_operator_id: "local"},
       session: %{main?: true}
     }
   end

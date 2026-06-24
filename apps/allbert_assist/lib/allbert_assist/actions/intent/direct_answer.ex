@@ -25,6 +25,8 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     ]
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Coding.Config, as: CodingConfig
+  alias AllbertAssist.Coding.StreamingTurn
   alias AllbertAssist.Memory.ActiveMemory
   alias AllbertAssist.Resources.{ImageBounds, ImageMetadata}
   alias AllbertAssist.Runtime.Redactor
@@ -44,42 +46,55 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   def run(%{text: text}, context) do
     image_inputs = image_inputs(context)
     permission_decision = permission_decision(context, image_inputs)
-    {message, direct_answer} = answer(text, context, permission_decision, image_inputs)
+    answer = answer(text, context, permission_decision, image_inputs)
 
-    {:ok,
-     %{
-       message: message,
-       status: PermissionGate.response_status(permission_decision),
-       permission_decision: permission_decision,
-       direct_answer: direct_answer,
-       actions: [
-         %{
-           name: "direct_answer",
-           status: :completed,
-           permission: :read_only,
-           permission_decision: permission_decision,
-           direct_answer: direct_answer
-         }
-       ]
-     }}
+    response =
+      %{
+        message: answer.message,
+        status: PermissionGate.response_status(permission_decision),
+        permission_decision: permission_decision,
+        direct_answer: answer.direct_answer,
+        actions: [
+          %{
+            name: "direct_answer",
+            status: :completed,
+            permission: :read_only,
+            permission_decision: permission_decision,
+            direct_answer: answer.direct_answer
+          }
+        ]
+      }
+      |> Map.merge(answer.attrs)
+
+    {:ok, response}
   end
 
   defp answer(text, context, permission_decision, image_inputs) do
     if PermissionGate.allowed?(permission_decision) do
-      case Settings.get("intent.direct_answer_model_enabled") do
-        {:ok, true} -> model_answer(text, context, image_inputs)
-        {:ok, false} -> fallback(:model_disabled)
-        {:error, reason} -> fallback({:settings_unavailable, reason})
-      end
+      model_answer(text, context, image_inputs)
     else
       fallback(:permission_denied)
     end
   end
 
-  defp model_answer(text, context, []), do: text_model_answer(text, context)
+  defp model_answer(text, context, []) do
+    if coding_streaming_request?(context) do
+      coding_streaming_answer(text, context)
+    else
+      direct_text_model_answer(text, context)
+    end
+  end
 
   defp model_answer(text, context, image_inputs),
     do: vision_model_answer(text, context, image_inputs)
+
+  defp direct_text_model_answer(text, context) do
+    case Settings.get("intent.direct_answer_model_enabled") do
+      {:ok, true} -> text_model_answer(text, context)
+      {:ok, false} -> fallback(:model_disabled)
+      {:error, reason} -> fallback({:settings_unavailable, reason})
+    end
+  end
 
   defp text_model_answer(text, context) do
     with {:ok, resolution} <- Models.for(:direct_answer, context),
@@ -90,7 +105,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
              text,
              Map.merge(context, %{model_profile: profile, active_memory: active_memory.chunks})
            ) do
-      {
+      answer_result(
         response.message,
         %{
           source: :model,
@@ -101,9 +116,35 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
           active_memory: ActiveMemory.trace_metadata(active_memory),
           diagnostic: Map.get(response, :diagnostic, %{status: :used})
         }
-      }
+      )
     else
       {:error, reason} -> fallback({:model_unavailable, reason})
+    end
+  end
+
+  defp coding_streaming_answer(text, context) do
+    case StreamingTurn.answer(text, context) do
+      {:ok, response} ->
+        %{
+          message: response.message,
+          direct_answer: response.direct_answer,
+          attrs:
+            Map.take(response, [
+              :model_payload,
+              :surface_payload,
+              :stream_events,
+              :turn_id,
+              :coding_turn,
+              :diagnostics
+            ])
+        }
+
+      {:error, reason} ->
+        if CodingConfig.streaming_turn_complete_fallback?() do
+          fallback({:coding_stream_unavailable, reason})
+        else
+          fallback({:model_unavailable, reason})
+        end
     end
   end
 
@@ -124,7 +165,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
                  image_inputs: bounded_inputs
                })
              ) do
-        {
+        answer_result(
           response.message,
           %{
             source: :model,
@@ -136,7 +177,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
             media: %{image_inputs: Enum.map(bounded_inputs, &Redactor.redact_image_metadata/1)},
             diagnostic: Map.get(response, :diagnostic, %{status: :used})
           }
-        }
+        )
       else
         {:ok, false} -> fallback(:vision_disabled)
         {:error, reason} -> fallback({:model_unavailable, reason})
@@ -198,6 +239,20 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
       get_in(context, [:request, Atom.to_string(key)])
   end
 
+  defp coding_streaming_request?(context) do
+    request = Map.get(context, :request) || Map.get(context, "request") || %{}
+    metadata = field(request, :metadata) || %{}
+
+    truthy?(field(request, :coding_turn?)) ||
+      truthy?(field(request, :coding_turn)) ||
+      truthy?(field(metadata, :coding_turn?)) ||
+      truthy?(field(metadata, :coding_turn)) ||
+      field(metadata, :surface) in ["pi_mode", "coding", "tui_pi_mode"]
+  end
+
+  defp truthy?(value) when value in [true, "true", "1", 1], do: true
+  defp truthy?(_value), do: false
+
   defp active_memory_now(context) do
     [:now, :request_started_at, :started_at, :requested_at]
     |> Enum.find_value(&context_timestamp(context, &1))
@@ -229,14 +284,15 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   defp normalize_timestamp(_value), do: nil
 
   defp fallback(reason) do
-    {
-      fallback_message(reason),
-      %{
+    %{
+      message: fallback_message(reason),
+      direct_answer: %{
         source: @fallback_source,
         reason: bounded_reason(reason),
         model_enabled?: model_enabled?(),
         diagnostic: %{status: :fallback}
-      }
+      },
+      attrs: %{}
     }
   end
 
@@ -257,6 +313,9 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
 
         {:model_unavailable, _reason} ->
           "The configured direct-answer model was unavailable."
+
+        {:coding_stream_unavailable, _reason} ->
+          "The configured coding stream was unavailable."
       end
 
     """
@@ -265,6 +324,10 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
     #{detail}
     """
     |> String.trim()
+  end
+
+  defp answer_result(message, direct_answer) do
+    %{message: message, direct_answer: direct_answer, attrs: %{}}
   end
 
   defp answerer do

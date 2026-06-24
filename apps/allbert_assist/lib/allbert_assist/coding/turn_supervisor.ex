@@ -330,7 +330,15 @@ defmodule AllbertAssist.Coding.TurnSupervisor do
 
   defp atomize_known_keys(metadata) do
     Enum.reduce(
-      [:input_signal_id, :user_id, :operator_id, :thread_id, :session_id, :channel],
+      [
+        :input_signal_id,
+        :user_id,
+        :operator_id,
+        :thread_id,
+        :session_id,
+        :channel,
+        :stream_event_sink
+      ],
       %{},
       fn key, acc ->
         case field(metadata, key) do

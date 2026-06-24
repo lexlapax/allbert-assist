@@ -55,6 +55,7 @@ defmodule AllbertAssist.Runtime do
           metadata: map(),
           coding_turn?: boolean(),
           coding_turn_id: nil | String.t(),
+          stream_event_sink: nil | pid() | (map() -> term()),
           diagnostics: list(),
           timeout_ms: pos_integer()
         }
@@ -165,6 +166,7 @@ defmodule AllbertAssist.Runtime do
          metadata: fetch_value(attrs, :metadata) || %{},
          coding_turn?: coding_turn?(attrs),
          coding_turn_id: coding_turn_id(attrs),
+         stream_event_sink: fetch_value(attrs, :stream_event_sink),
          diagnostics: session_context.diagnostics ++ app_context.diagnostics,
          timeout_ms: fetch_value(attrs, :timeout_ms) || @default_timeout_ms
        }}
@@ -474,6 +476,8 @@ defmodule AllbertAssist.Runtime do
 
   @spec run_intent_agent(Signal.t(), request()) :: {:ok, map()} | {:error, term()}
   defp run_intent_agent(signal, request) do
+    metadata = maybe_put(request.metadata, :stream_event_sink, request.stream_event_sink)
+
     IntentAgent.respond(%{
       text: request.text,
       channel: request.channel,
@@ -483,7 +487,10 @@ defmodule AllbertAssist.Runtime do
       session_id: request.session_id,
       active_app: request.active_app,
       thread_context: request.thread_context,
-      metadata: request.metadata,
+      metadata: metadata,
+      coding_turn?: request.coding_turn?,
+      coding_turn_id: request.coding_turn_id,
+      stream_event_sink: request.stream_event_sink,
       timeout_ms: request.timeout_ms,
       input_signal_id: signal.id,
       input_signal_type: signal.type
@@ -491,7 +498,10 @@ defmodule AllbertAssist.Runtime do
   end
 
   defp run_agent_turn(input_signal, %{coding_turn?: true} = request) do
-    CodingTurnSupervisor.run(coding_turn_metadata(input_signal, request), fn ->
+    metadata = coding_turn_metadata(input_signal, request)
+    request = %{request | coding_turn_id: metadata.turn_id}
+
+    CodingTurnSupervisor.run(metadata, fn ->
       agent_runner().(input_signal, request)
     end)
   end
@@ -506,7 +516,8 @@ defmodule AllbertAssist.Runtime do
       operator_id: request.operator_id,
       thread_id: request.thread_id,
       session_id: request.session_id,
-      channel: request.channel
+      channel: request.channel,
+      stream_event_sink: request.stream_event_sink
     }
   end
 

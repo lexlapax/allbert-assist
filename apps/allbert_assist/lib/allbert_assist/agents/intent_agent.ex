@@ -176,7 +176,13 @@ defmodule AllbertAssist.Agents.IntentAgent do
   def respond(%{text: text} = request) when is_binary(text) do
     text = String.trim(text)
     context = %{request: request, agent: __MODULE__}
-    route = text |> route(context) |> execution_route(text)
+
+    route =
+      if coding_turn?(context) do
+        :direct_answer
+      else
+        text |> route(context) |> execution_route(text)
+      end
 
     case decision_for_route(route, text, context) do
       {:ok, decision} ->
@@ -251,6 +257,14 @@ defmodule AllbertAssist.Agents.IntentAgent do
   end
 
   defp route_with_router(route, text, context, %Decision{} = decision) do
+    if coding_turn?(context) do
+      run_deterministic_route(:direct_answer, text, context, decision)
+    else
+      route_with_router_outcome(route, text, context, decision)
+    end
+  end
+
+  defp route_with_router_outcome(route, text, context, %Decision{} = decision) do
     case router_outcome(text, context) do
       {:ok, %Outcome{kind: :execute, action_name: action_name, slots: slots}}
       when is_binary(action_name) ->
@@ -269,6 +283,33 @@ defmodule AllbertAssist.Agents.IntentAgent do
         run_deterministic_route(route, text, context, decision)
     end
   end
+
+  defp coding_turn?(%{request: request}) when is_map(request) do
+    metadata = field(request, :metadata, %{}) || %{}
+
+    truthy?(field(request, :coding_turn?)) ||
+      truthy?(field(request, :coding_turn)) ||
+      truthy?(field(metadata, :coding_turn?)) ||
+      truthy?(field(metadata, :coding_turn)) ||
+      field(metadata, :surface) in ["pi_mode", "coding", "tui_pi_mode"]
+  end
+
+  defp coding_turn?(_context), do: false
+
+  defp truthy?(value) when value in [true, "true", "1", 1], do: true
+  defp truthy?(_value), do: false
+
+  defp field(map, key, default \\ nil)
+
+  defp field(map, key, default) when is_map(map) do
+    cond do
+      Map.has_key?(map, key) -> Map.get(map, key)
+      Map.has_key?(map, Atom.to_string(key)) -> Map.get(map, Atom.to_string(key))
+      true -> default
+    end
+  end
+
+  defp field(_map, _key, default), do: default
 
   defp run_deterministic_route(route, text, context, %Decision{} = decision) do
     cond do

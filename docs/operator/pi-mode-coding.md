@@ -1,8 +1,9 @@
 # Pi-Mode Coding Operator Guide
 
-Status: v0.57 M0-M9 are implemented; release closeout is waiting on manual
-operator validation. This guide describes the operator workflow for the Pi-mode
-coding surface. The release-authoritative validation checklist lives in
+Status: v0.57 M0-M9.2 are implemented. Release closeout is blocked on warm
+operator validation against a real streaming-capable coding profile. This guide
+describes the operator workflow for the Pi-mode coding surface. The
+release-authoritative validation checklist lives in
 `docs/plans/v0.57-request-flow.md#operator-validation`.
 
 Pi-mode runs inside the persistent `tui` channel. It is not a separate runtime and
@@ -31,6 +32,7 @@ mix allbert.settings set coding.pi_mode.enabled true
 mix allbert.settings set coding.trusted_operator_id local
 mix allbert.settings set coding.default_approval_mode default
 mix allbert.settings set coding.workspace.cwd_jail "$(pwd)"
+mix allbert.settings set coding.model_profile coding_local
 ```
 
 Check the important values:
@@ -41,10 +43,26 @@ mix allbert.settings get coding.pi_mode.enabled
 mix allbert.settings get coding.trusted_operator_id
 mix allbert.settings get coding.default_approval_mode
 mix allbert.settings get coding.workspace.cwd_jail
+mix allbert.settings get coding.model_profile
 ```
 
 Expected: every value matches the command above, and the cwd jail is the repo root
 being validated.
+
+## Coding Model Profile
+
+`coding.model_profile` is the persisted profile Pi-mode uses at `/pi` session
+start. The default is `coding_local`; it should point to a local or private
+code-capable model profile with enough context for repo work. Use hosted coding
+profiles only after explicitly accepting source-code egress for that validation
+home.
+
+`/model <profile>` changes only the in-memory Pi-mode session profile. It does not
+change the trusted operator, approval mode, cwd jail, permissions, or confirmation
+behavior. Live assistant-token streaming and provider-level Esc cancel use the
+selected profile/provider path through `ReqLLM.stream_text` and
+`ReqLLM.StreamResponse.cancel`; release validation must use a profile that supports
+both.
 
 ## Approval Modes
 
@@ -70,6 +88,11 @@ grant.
 `read`, `grep`, and `glob` are read-only but sensitive. They run without a
 confirmation prompt, but still pass Runner/Security Central and enforce cwd jail,
 ignore policy, output caps, redaction, trace, and audit.
+
+All six coding actions are internal registered capabilities. They are not
+intent-agent tools, public protocol tools, or channel-routable actions outside an
+active Pi-mode session; a direct out-of-session call is denied before filesystem or
+shell work starts.
 
 `write` and `edit` use the coding file-write permission. `edit` is exact-match and
 must fail clearly when the match is missing.
@@ -120,8 +143,8 @@ For release closeout, keep:
 - the `release.v057 evidence:` path printed by the deterministic gate;
 - `$V057_MANUAL_HOME`;
 - the TUI transcript path;
-- whether cancellation used the registered provider stream abort callback or
-  degraded to bounded registry task shutdown;
+- whether provider streaming/provider cancel were validated with the selected
+  `coding.model_profile`;
 - any failed command and its exact output.
 
 The allowlist store must live under Allbert Home, not the repo. Transcripts and

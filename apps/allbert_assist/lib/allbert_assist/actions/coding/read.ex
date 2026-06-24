@@ -5,7 +5,7 @@ defmodule AllbertAssist.Actions.Coding.Read do
 
   use AllbertAssist.Action,
     permission: :coding_file_read,
-    exposure: :agent,
+    exposure: :internal,
     execution_mode: :coding_file_read,
     skill_backed?: false,
     confirmation: :not_required,
@@ -28,17 +28,23 @@ defmodule AllbertAssist.Actions.Coding.Read do
 
   alias AllbertAssist.Coding.Config
   alias AllbertAssist.Coding.PathPolicy
+  alias AllbertAssist.Coding.SessionGuard
   alias AllbertAssist.Security.PermissionGate
 
   @impl true
   def run(params, context) do
-    permission_decision =
-      PermissionGate.authorize(:coding_file_read, action_context(params, context))
+    with {:ok, context} <- SessionGuard.ensure_active(context) do
+      permission_decision =
+        PermissionGate.authorize(:coding_file_read, action_context(params, context))
 
-    if PermissionGate.allowed?(permission_decision) do
-      run_read(params, permission_decision, context)
+      if PermissionGate.allowed?(permission_decision) do
+        run_read(params, permission_decision, context)
+      else
+        blocked_response(permission_decision)
+      end
     else
-      blocked_response(permission_decision)
+      {:error, reason, context} ->
+        denied_response(reason, SessionGuard.denied_decision(:coding_file_read, context, reason))
     end
   end
 

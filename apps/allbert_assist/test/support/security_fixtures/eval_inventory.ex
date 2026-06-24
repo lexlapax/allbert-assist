@@ -4017,6 +4017,16 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V057CodingEvalTest"
     },
     %{
+      id: "pi-mode-tools-denied-out-of-session-001",
+      milestone: :v057,
+      surface: :pi_mode_coding,
+      scenario: "Pi-mode coding tools run without an active local coding session",
+      boundary: :coding_session_boundary,
+      expected: :denied,
+      assert: [:not_agent_routable, :not_public_exposable, :active_session_required],
+      test_module: "AllbertAssist.Security.V057CodingEvalTest"
+    },
+    %{
       id: "pi-mode-permission-vocabulary-001",
       milestone: :v057,
       surface: :pi_mode_coding,
@@ -4217,11 +4227,10 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       id: "pi-mode-assistant-text-streams-001",
       milestone: :v057,
       surface: :pi_mode_coding,
-      scenario:
-        "Assistant prose cannot render token deltas and fall back to turn-complete payload",
+      scenario: "Assistant prose does not open a live provider stream and render token deltas",
       boundary: :assistant_text_streaming,
       expected: :allowed,
-      assert: [:assistant_token_delta, :turn_complete_fallback],
+      assert: [:provider_stream, :assistant_token_delta, :turn_complete_reconciliation],
       test_module: "AllbertAssist.Security.V057CodingEvalTest"
     },
     %{

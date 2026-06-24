@@ -45,6 +45,26 @@ defmodule AllbertAssist.PublicProtocol.ExposureFilterTest do
     assert ExposureFilter.non_exposable_reason(deny_confirmation) == :not_agent_exposable
   end
 
+  test "Pi-mode coding actions are not public protocol tools" do
+    for name <- ["read", "grep", "glob", "write", "edit", "bash"] do
+      assert {:ok, capability} = Registry.capability(name)
+      assert capability.exposure == :internal
+      assert ExposureFilter.non_exposable_reason(capability) == :not_agent_exposable
+    end
+
+    assert {:error, {:non_exposable_tools, rejected}} =
+             ExposureFilter.filter_tools(["read", "grep", "glob", "write", "edit", "bash"])
+
+    assert Enum.map(rejected, & &1.reason) == [
+             :not_agent_exposable,
+             :not_agent_exposable,
+             :not_agent_exposable,
+             :not_agent_exposable,
+             :not_agent_exposable,
+             :not_agent_exposable
+           ]
+  end
+
   test "unknown tools are configuration errors" do
     assert {:error, {:non_exposable_tools, [%{name: "missing_tool", reason: :unknown_action}]}} =
              ExposureFilter.filter_tools(["missing_tool"])

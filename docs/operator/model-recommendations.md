@@ -32,7 +32,17 @@ small/wrong capability) · `not-pulled` (local model not downloaded) ·
 | Vision / image generation | per provider catalog (v0.49) | image provider (audited) | image generation | per provider | image profile | provider doctor reports gap |
 | Codegen committee (Author/Critic) | `:capable` / `:thinking` | capable hosted | strong reasoning, long context | sandboxed; gated | codegen profiles | gate report blocks |
 | Advisory critics / LLM-judge | `:capable` (local) | hosted (audited) | reasoning | advisory-only (never authority) | per-feature profile | advisory output dropped |
-| Pi-mode coding (v0.57, forward-looking) | capable local coding model + mid-session switch | capable hosted | coding, long context | local-coding operator trust tier at sandbox Level 1; audited, never default | `coding.model_profile` (defined in v0.57) | default model or graceful decline |
+| Pi-mode coding (v0.57) | `coding_local`: capable local/private coding model + mid-session switch | capable hosted coding profile, explicit egress opt-in | coding, long context, tool-use; `ReqLLM.stream_text` + `StreamResponse.cancel` | local-coding operator trust tier at sandbox Level 1; audited, never default | `coding.model_profile = coding_local` by default; `/model <profile>` is session-only | turn-complete fallback or graceful decline; no hosted fallback without operator choice |
+
+For Pi-mode, prefer `coding_local` for repository work. It should resolve to a
+local or private model profile that can handle code context and tool-use. Hosted
+profiles are acceptable only when the operator explicitly accepts source-code
+egress for that home/session. `/model <profile>` changes the in-memory Pi-mode
+session model only; it never changes permissions, approval mode, trusted operator,
+cwd jail, or confirmation behavior. Live assistant-token streaming and
+provider-level Esc cancel use the selected provider path with `ReqLLM.stream_text`
+and `ReqLLM.StreamResponse.cancel`; validation should choose a coding profile that
+supports both.
 
 ## Pulling local models
 

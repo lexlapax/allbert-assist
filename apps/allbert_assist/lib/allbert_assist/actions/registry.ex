@@ -209,12 +209,6 @@ defmodule AllbertAssist.Actions.Registry do
     ActivateSkill,
     PlanShellCommand,
     RunShellCommand,
-    CodingRead,
-    CodingGrep,
-    CodingGlob,
-    CodingWrite,
-    CodingEdit,
-    CodingBash,
     UnsupportedResourceWorkflow,
     ExternalNetworkRequest,
     PlanPackageInstall,
@@ -263,6 +257,14 @@ defmodule AllbertAssist.Actions.Registry do
   ]
 
   @internal_actions [
+    # Coding actions are session-only Pi-mode tools. Keep them registered for
+    # Runner.run/3 but out of the general intent-agent surface.
+    CodingRead,
+    CodingGrep,
+    CodingGlob,
+    CodingWrite,
+    CodingEdit,
+    CodingBash,
     # Channel doctors declare exposure: :internal; keep them out of the agent set
     # so agent_modules/0 agrees with capability exposure (v0.54 M9.1 reconcile).
     WhatsAppDoctor,

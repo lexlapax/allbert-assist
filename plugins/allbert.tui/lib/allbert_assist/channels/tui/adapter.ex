@@ -9,6 +9,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   alias AllbertAssist.Channels.ConfirmationCallback
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
+  alias AllbertAssist.Channels.TUI.LiveRegion
   alias AllbertAssist.Channels.TUI.Renderer
   alias AllbertAssist.Channels.TUI.SlashCommands
   alias AllbertAssist.Coding.Config, as: CodingConfig
@@ -121,6 +122,19 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     if state.auto_input? do
       Process.send_after(self(), :read_input, 0)
     end
+
+    {:noreply, state}
+  end
+
+  def handle_info({:coding_stream_event, turn_id, event}, state) do
+    state =
+      case state.current_turn do
+        %{turn_id: ^turn_id, live_region: live_region} when is_map(live_region) ->
+          apply_live_stream_event(state, event)
+
+        _other ->
+          state
+      end
 
     {:noreply, state}
   end
@@ -240,12 +254,14 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   defp start_async_coding_turn(text, opts, state) do
     turn_id = coding_turn_id(opts)
     parent = self()
+    {live_region, state} = start_coding_live_region(turn_id, state)
 
     turn_opts =
       opts
       |> Keyword.delete(:async?)
       |> Keyword.put(:coding_turn?, true)
       |> Keyword.put(:coding_turn_id, turn_id)
+      |> Keyword.put(:stream_event_sink, parent)
       |> Keyword.put_new(:surface, "pi_mode")
       |> Keyword.put_new(:coding_session, CodingSession.metadata(state.pi_session))
 
@@ -268,11 +284,59 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
          end) do
       {:ok, pid} ->
         {{:ok, {:accepted, turn_id}},
-         %{state | current_turn: %{turn_id: turn_id, pid: pid, started_at: timestamp()}}}
+         %{
+           state
+           | current_turn: %{
+               turn_id: turn_id,
+               pid: pid,
+               live_region: live_region,
+               started_at: timestamp()
+             }
+         }}
 
       {:error, reason} ->
         {{:error, reason}, state}
     end
+  end
+
+  defp start_coding_live_region(_turn_id, %{live_screen?: false} = state), do: {nil, state}
+
+  defp start_coding_live_region(turn_id, state) do
+    case LiveRegion.start(state.live_screen_server, turn_id, max_text_bytes: state.max_text_bytes) do
+      {:ok, live_region} ->
+        {live_region, state}
+
+      {:error, reason} ->
+        Logger.debug("tui coding live region unavailable: #{inspect(reason)}")
+        {nil, %{state | live_screen?: false}}
+    end
+  rescue
+    error ->
+      Logger.debug("tui coding live region unavailable: #{Exception.message(error)}")
+      {nil, %{state | live_screen?: false}}
+  catch
+    :exit, reason ->
+      Logger.debug("tui coding live region unavailable: #{inspect(reason)}")
+      {nil, %{state | live_screen?: false}}
+  end
+
+  defp apply_live_stream_event(%{current_turn: %{live_region: live_region} = turn} = state, event) do
+    case LiveRegion.apply_event(live_region, event) do
+      {:ok, live_region} ->
+        %{state | current_turn: %{turn | live_region: live_region}}
+
+      {:error, reason} ->
+        Logger.debug("tui coding live stream update failed: #{inspect(reason)}")
+        state
+    end
+  rescue
+    error ->
+      Logger.debug("tui coding live stream update failed: #{Exception.message(error)}")
+      %{state | live_screen?: false}
+  catch
+    :exit, reason ->
+      Logger.debug("tui coding live stream update failed: #{inspect(reason)}")
+      %{state | live_screen?: false}
   end
 
   defp start_queued_correction(%{queued_correction: nil} = state), do: state
@@ -767,6 +831,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       },
       coding_turn?: Keyword.get(opts, :coding_turn?),
       coding_turn_id: Keyword.get(opts, :coding_turn_id) || Keyword.get(opts, :turn_id),
+      stream_event_sink: Keyword.get(opts, :stream_event_sink),
       coding_session:
         Keyword.get(opts, :coding_session) || CodingSession.metadata(state.pi_session),
       surface: Keyword.get(opts, :surface),
@@ -917,6 +982,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       provider_message_id: fields.external_message_id,
       metadata: metadata
     }
+    |> maybe_put(:stream_event_sink, fields.stream_event_sink)
     |> maybe_put(:coding_turn?, fields.coding_turn?)
     |> maybe_put(:coding_turn_id, fields.coding_turn_id)
     |> Runtime.submit_user_input()

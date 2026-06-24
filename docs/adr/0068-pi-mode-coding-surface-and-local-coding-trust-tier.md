@@ -1,6 +1,9 @@
 # ADR 0068: Pi-mode Coding Surface and Local-Coding Trust Tier
 
-Status: Accepted (v0.57 M0).
+Status: Accepted (v0.57 M0). Implementation status is tracked in
+`docs/plans/v0.57-plan.md`: as of M9.2 the six coding actions are internal,
+session-guarded registered capabilities, and production coding turns use
+`ReqLLM.stream_text` with provider-level `StreamResponse.cancel` registration.
 Date: 2026-06-21
 Related: ADR 0067 (TUI/terminal channel + split tool result — the foundation
 this surface streams over), ADR 0009 (local execution sandbox levels — the
@@ -96,7 +99,7 @@ Surface discipline:
   **Esc-to-cancel** a running turn — which requires running the turn under a
   supervised Task (the synchronous v0.55 runtime cannot cancel mid-turn) — with a
   **queued correction**; and a familiar coding **slash set**
-  (`/help`, `/model`, `/clear`, `/init`, `/diff`, `/compact`);
+  (`/help`, `/pi`, `/mode`, `/model`, `/clear`, `/init`, `/diff`, `/compact`);
 - **context discipline (Pi's actual practice)** — gather context through
   **chunked reads** (offset/limit) and, for larger investigations,
   **separate context-gathering sessions plus file artifacts**, rather than always
@@ -106,9 +109,10 @@ Surface discipline:
   whole-file ingestion.)
 
 Every one of the six tools is an ordinary registered action: it passes the action
-boundary, Security Central, and its own policy/confirmation gate. `read`/`grep`/
-`glob` are read-only/sensitive and run without a confirmation prompt; `write`/
-`edit`/`bash` are effectful. The surface selects and sequences; it grants no
+boundary, Security Central, and its own policy/confirmation gate. The implemented
+surface keeps them internal/session-only rather than general intent-agent tools.
+`read`/`grep`/`glob` are read-only/sensitive and run without a confirmation prompt;
+`write`/`edit`/`bash` are effectful. The surface selects and sequences; it grants no
 authority.
 
 The coding slash set is slash-allowlisted and non-routable, but not a hidden

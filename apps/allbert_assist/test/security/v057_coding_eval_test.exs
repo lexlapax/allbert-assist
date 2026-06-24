@@ -23,6 +23,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Plugins.TUI, as: TUIPlugin
+  alias AllbertAssist.PublicProtocol.ExposureFilter
   alias AllbertAssist.Repo
   alias AllbertAssist.Resources.Grants
   alias AllbertAssist.Runtime
@@ -39,6 +40,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
   @eval_groups [
     action_boundary: ~w(
       pi-mode-tools-route-through-runner-001
+      pi-mode-tools-denied-out-of-session-001
       pi-mode-permission-vocabulary-001
       pi-mode-read-search-policy-bounded-001
       pi-mode-bash-policy-bounded-001
@@ -162,8 +164,14 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
     for {name, permission} <- permissions do
       assert {:ok, capability} = Registry.capability(name)
       assert capability.permission == permission
-      assert MapSet.member?(agent_names, name)
+      assert capability.exposure == :internal
+      refute MapSet.member?(agent_names, name)
     end
+
+    assert {:error, {:non_exposable_tools, rejected}} =
+             ExposureFilter.filter_tools(@tool_names)
+
+    assert Enum.map(rejected, & &1.name) == @tool_names
 
     assert Enum.all?([:coding_file_read, :coding_file_write, :coding_shell_execute], fn atom ->
              atom in PermissionGate.permission_classes()
@@ -188,6 +196,29 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
 
     assert response.status == :completed
     assert response.actions |> hd() |> Map.fetch!(:permission) == :coding_file_read
+  end
+
+  test "coding tools deny out-of-session direct invocation before filesystem access", %{
+    workspace: workspace
+  } do
+    assert_eval_group!(:action_boundary)
+
+    assert {:ok, response} = Runner.run("read", %{path: "sample.txt", limit: 1}, %{})
+    assert response.status == :denied
+    assert response.actions |> hd() |> Map.fetch!(:denial_reason) == :coding_session_required
+
+    channel_context =
+      workspace
+      |> trusted_context()
+      |> put_in([:coding, :pi_mode_enabled], false)
+
+    assert {:ok, channel_response} =
+             Runner.run("grep", %{pattern: "needle", max_results: 1}, channel_context)
+
+    assert channel_response.status == :denied
+
+    assert channel_response.actions |> hd() |> Map.fetch!(:denial_reason) ==
+             :coding_session_required
   end
 
   test "read search prompt and context discipline stay bounded", %{workspace: workspace} do
@@ -290,8 +321,11 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
     assert {:ok, channel_write} =
              Runner.run("write", %{path: "channel.txt", content: "blocked\n"}, channel_context)
 
-    assert channel_write.status == :needs_confirmation
-    assert channel_write.permission_decision.requires_confirmation
+    assert channel_write.status == :denied
+
+    assert channel_write.actions |> hd() |> Map.fetch!(:denial_reason) ==
+             :local_coding_operator_required
+
     refute File.exists?(Path.join(workspace, "channel.txt"))
   end
 
@@ -340,7 +374,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
              Runner.run("bash", %{command: "printf hi", cwd: "."}, channel_context)
 
     assert raw_channel.status == :denied
-    assert raw_channel.error == :raw_shell_requires_local_coding_tier
+    assert raw_channel.error == :local_coding_operator_required
 
     assert {:ok, subagent} =
              Runner.run("bash", %{command: "codex run tests", cwd: "."}, context)
@@ -367,8 +401,10 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
     assert PermissionGate.coding_tier(Map.put(context, :scheduled?, true)) == :none
     assert PermissionGate.coding_tier(Map.put(context, :generated_code_session?, true)) == :none
 
+    setting_controlled_context = update_in(context, [:coding], &Map.delete(&1, :pi_mode_enabled))
+
     assert {:ok, _setting} = Settings.put("coding.pi_mode.enabled", false, %{audit?: false})
-    assert PermissionGate.coding_tier(context) == :none
+    assert PermissionGate.coding_tier(setting_controlled_context) == :none
     assert {:ok, _setting} = Settings.put("coding.pi_mode.enabled", true, %{audit?: false})
 
     default_write = PermissionGate.authorize(:coding_file_write, context)
@@ -645,7 +681,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
       channel: %{name: :tui, trust: :local},
       surface: :tui,
       cwd_jail: workspace,
-      coding: %{cwd_jail: workspace},
+      coding: %{cwd_jail: workspace, pi_mode_enabled: true, trusted_operator_id: "local"},
       session: %{main?: true}
     }
   end

@@ -78,6 +78,8 @@ defmodule AllbertAssist.Coding.M6CancelSteerTest do
             send(parent, {:stream_cancelled, request.coding_turn_id})
           end)
 
+        send(parent, {:stream_cancel_registered, request.coding_turn_id})
+
         receive do
           :finish_turn ->
             {:ok, %{message: "should not complete", status: :completed}}
@@ -98,6 +100,7 @@ defmodule AllbertAssist.Coding.M6CancelSteerTest do
       end)
 
     assert_receive {:runner_started, %{coding_turn?: true, coding_turn_id: ^turn_id}}, 5_000
+    assert_receive {:stream_cancel_registered, ^turn_id}, 5_000
 
     assert {:ok, %{stream_cancel: :ok, shutdown: :ok, turn_id: ^turn_id}} =
              TurnSupervisor.cancel(turn_id, :operator_escape)

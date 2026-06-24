@@ -5,7 +5,7 @@ defmodule AllbertAssist.Actions.Coding.Bash do
 
   use AllbertAssist.Action,
     permission: :coding_shell_execute,
-    exposure: :agent,
+    exposure: :internal,
     execution_mode: :coding_shell_execute,
     skill_backed?: false,
     confirmation: :required,
@@ -33,6 +33,7 @@ defmodule AllbertAssist.Actions.Coding.Bash do
 
   alias AllbertAssist.Actions.Outbound.Gate
   alias AllbertAssist.Coding.BashSpec
+  alias AllbertAssist.Coding.SessionGuard
   alias AllbertAssist.Execution.LocalRunner
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Security.PermissionGate
@@ -41,13 +42,21 @@ defmodule AllbertAssist.Actions.Coding.Bash do
 
   @impl true
   def run(params, context) when is_map(params) do
-    permission_decision =
-      PermissionGate.authorize(:coding_shell_execute, action_context(params, context))
+    with {:ok, context} <- SessionGuard.ensure_active(context) do
+      permission_decision =
+        PermissionGate.authorize(:coding_shell_execute, action_context(params, context))
 
-    if permission_decision.decision == :denied do
-      blocked_response(permission_decision)
+      if permission_decision.decision == :denied do
+        blocked_response(permission_decision)
+      else
+        prepare_and_gate(params, context)
+      end
     else
-      prepare_and_gate(params, context)
+      {:error, reason, context} ->
+        denied_response(
+          %{reason: reason},
+          SessionGuard.denied_decision(:coding_shell_execute, context, reason)
+        )
     end
   end
 

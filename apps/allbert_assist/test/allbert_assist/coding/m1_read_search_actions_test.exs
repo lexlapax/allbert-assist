@@ -77,12 +77,14 @@ defmodule AllbertAssist.Coding.M1ReadSearchActionsTest do
     end
   end
 
-  test "read grep and glob are registered agent actions with coding read permission" do
+  test "read grep and glob are registered internal coding capabilities" do
+    agent_action_names = Enum.map(Registry.agent_modules(), & &1.name())
+
     for name <- ["read", "grep", "glob"] do
       assert {:ok, capability} = Registry.capability(name)
       assert capability.permission == :coding_file_read
-      assert capability.exposure == :agent
-      assert name in Enum.map(Registry.agent_modules(), & &1.name())
+      assert capability.exposure == :internal
+      refute name in agent_action_names
     end
   end
 
@@ -196,9 +198,13 @@ defmodule AllbertAssist.Coding.M1ReadSearchActionsTest do
   defp context(workspace) do
     %{
       actor: "local",
+      operator_id: "local",
+      user_id: "local",
       channel: %{name: :tui, trust: :local},
+      surface: :tui,
       cwd_jail: workspace,
-      coding: %{cwd_jail: workspace}
+      coding: %{cwd_jail: workspace, pi_mode_enabled: true, trusted_operator_id: "local"},
+      session: %{main?: true}
     }
   end
 

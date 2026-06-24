@@ -148,13 +148,15 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
 
     assert {:ok, _setting} = Settings.put("coding.bash.allow_raw_shell", true, %{audit?: false})
 
+    non_tier_context = put_in(context(workspace), [:coding, :trusted_operator_id], "other")
+
     assert {:ok, non_tier} =
-             Runner.run("bash", %{command: "printf hello", cwd: "."}, context(workspace))
+             Runner.run("bash", %{command: "printf hello", cwd: "."}, non_tier_context)
 
     assert non_tier.status == :denied
 
     assert non_tier.actions |> hd() |> Map.fetch!(:denial_reason) ==
-             :raw_shell_requires_local_coding_tier
+             :local_coding_operator_required
 
     assert {:ok, raw_pending} =
              Runner.run("bash", %{command: "printf hello", cwd: "."}, tier_context(workspace))
@@ -224,7 +226,7 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
       channel: %{name: :tui, trust: :local},
       surface: :tui,
       cwd_jail: workspace,
-      coding: %{cwd_jail: workspace},
+      coding: %{cwd_jail: workspace, pi_mode_enabled: true, trusted_operator_id: "local"},
       session: %{main?: true}
     }
   end
@@ -235,8 +237,6 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
 
   defp tier_context(workspace) do
     context(workspace)
-    |> put_in([:coding, :pi_mode_enabled], true)
-    |> put_in([:coding, :trusted_operator_id], "local")
   end
 
   defp put_execution_policy!(workspace) do

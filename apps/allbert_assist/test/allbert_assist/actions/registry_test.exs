@@ -92,12 +92,6 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "activate_skill",
              "plan_shell_command",
              "run_shell_command",
-             "read",
-             "grep",
-             "glob",
-             "write",
-             "edit",
-             "bash",
              "unsupported_resource_workflow",
              "external_network_request",
              "plan_package_install",
@@ -138,6 +132,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "create_skill",
              "continue_objective",
              "cancel_objective",
+             "read",
+             "grep",
+             "glob",
+             "write",
+             "edit",
+             "bash",
              "whatsapp_doctor",
              "signal_doctor",
              "mcp_doctor_server",
@@ -299,9 +299,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert "create_skill" in agent_action_names
     assert "continue_objective" in agent_action_names
     assert "cancel_objective" in agent_action_names
-    assert "read" in agent_action_names
-    assert "grep" in agent_action_names
-    assert "glob" in agent_action_names
+    refute "read" in agent_action_names
+    refute "grep" in agent_action_names
+    refute "glob" in agent_action_names
+    refute "write" in agent_action_names
+    refute "edit" in agent_action_names
+    refute "bash" in agent_action_names
     refute "whatsapp_doctor" in agent_action_names
     refute "signal_doctor" in agent_action_names
     refute "mcp_doctor_server" in agent_action_names
@@ -334,6 +337,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
              Enum.map(Registry.agent_modules(), & &1.name())
 
     assert Enum.map(Registry.internal_capabilities(), & &1.name) == [
+             "read",
+             "grep",
+             "glob",
+             "write",
+             "edit",
+             "bash",
              "whatsapp_doctor",
              "signal_doctor",
              "mcp_doctor_server",
@@ -530,17 +539,17 @@ defmodule AllbertAssist.Actions.RegistryTest do
 
     assert {:ok, coding_read} = Registry.capability("read")
     assert coding_read.permission == :coding_file_read
-    assert coding_read.exposure == :agent
+    assert coding_read.exposure == :internal
     assert coding_read.execution_mode == :coding_file_read
 
     assert {:ok, coding_grep} = Registry.capability("grep")
     assert coding_grep.permission == :coding_file_read
-    assert coding_grep.exposure == :agent
+    assert coding_grep.exposure == :internal
     assert coding_grep.execution_mode == :coding_search
 
     assert {:ok, coding_glob} = Registry.capability("glob")
     assert coding_glob.permission == :coding_file_read
-    assert coding_glob.exposure == :agent
+    assert coding_glob.exposure == :internal
     assert coding_glob.execution_mode == :coding_search
 
     assert {:ok, find_mcp_tools} = Registry.capability("find_mcp_tools")
@@ -640,7 +649,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     for name <- ["write", "edit"] do
       assert {:ok, coding_file_effect} = Registry.capability(name)
       assert coding_file_effect.permission == :coding_file_write
-      assert coding_file_effect.exposure == :agent
+      assert coding_file_effect.exposure == :internal
       assert coding_file_effect.execution_mode == :coding_file_write
       assert coding_file_effect.confirmation == :required
       assert coding_file_effect.resumable?
@@ -648,7 +657,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
 
     assert {:ok, bash} = Registry.capability("bash")
     assert bash.permission == :coding_shell_execute
-    assert bash.exposure == :agent
+    assert bash.exposure == :internal
     assert bash.execution_mode == :coding_shell_execute
     assert bash.confirmation == :required
     assert bash.resumable?

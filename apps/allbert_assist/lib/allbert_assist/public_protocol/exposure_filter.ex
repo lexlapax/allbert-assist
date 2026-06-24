@@ -23,7 +23,11 @@ defmodule AllbertAssist.PublicProtocol.ExposureFilter do
                              :local_process,
                              :package_manager_process,
                              :skill_script_process,
-                             :mcp_server_connect
+                             :mcp_server_connect,
+                             :coding_file_read,
+                             :coding_file_write,
+                             :coding_search,
+                             :coding_shell_execute
                            ])
 
   @blocked_permissions MapSet.new([
@@ -34,7 +38,10 @@ defmodule AllbertAssist.PublicProtocol.ExposureFilter do
                          :command_execute,
                          :package_install,
                          :skill_script_execute,
-                         :dynamic_integration
+                         :dynamic_integration,
+                         :coding_file_read,
+                         :coding_file_write,
+                         :coding_shell_execute
                        ])
 
   @type filter_result ::

@@ -217,7 +217,8 @@ defmodule AllbertAssist.Coding.M2WriteEditActionsTest do
       channel: %{name: :tui, trust: :local},
       surface: :tui,
       cwd_jail: workspace,
-      coding: %{cwd_jail: workspace}
+      coding: %{cwd_jail: workspace, pi_mode_enabled: true, trusted_operator_id: "local"},
+      session: %{main?: true}
     }
   end
 

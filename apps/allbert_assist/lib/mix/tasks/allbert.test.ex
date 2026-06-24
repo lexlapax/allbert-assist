@@ -3008,8 +3008,8 @@ defmodule Mix.Tasks.Allbert.Test do
       coverage: ["schema boot", "release-owned DATABASE_PATH"]
     },
     %{
-      id: "coding_m0_m8_units",
-      title: "Pi-mode coding contracts, tools, streaming, trust, and TUI units",
+      id: "coding_m0_m9_units",
+      title: "Pi-mode coding contracts, tools, streaming, trust, TUI, and remediation units",
       cwd: :core,
       executable: "mix",
       args: [
@@ -3023,6 +3023,7 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist/coding/m6_cancel_steer_test.exs",
         "test/allbert_assist/coding/m7_trust_approval_test.exs",
         "test/allbert_assist/coding/m8_session_slash_test.exs",
+        "test/allbert_assist/coding/m9_streaming_turn_test.exs",
         "test/allbert_assist/channels/tui_test.exs",
         "test/mix/tasks/allbert_tui_test.exs",
         "test/mix/tasks/allbert_test_task_test.exs"
@@ -3030,7 +3031,7 @@ defmodule Mix.Tasks.Allbert.Test do
       coverage: [
         "coding actions resolve through Actions.Runner.run/3 and stay cwd-jailed",
         "write/edit/bash effects remain confirmation-gated with clean model payloads",
-        "stream events, async turns, cancellation, and queued steering stay supervised",
+        "stream events, live provider streams, provider cancel, async turns, cancellation, and queued steering stay supervised",
         "local-coding trust tier, approval modes, grants, and slash/session controls preserve Security Central authority"
       ]
     },
