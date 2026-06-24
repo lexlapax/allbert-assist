@@ -428,6 +428,36 @@ defmodule AllbertAssist.Channels.TUITest do
     refute rendered =~ "http"
   end
 
+  test "renderer keeps approval controls when a streamed turn needs confirmation" do
+    handoff = %{
+      confirmation_id: "conf_tui_stream",
+      status: :pending,
+      target_action: %{action: %{name: "write"}},
+      allowed_actions: [:approve, :deny, :details]
+    }
+
+    complete_event = %{
+      type: :turn_complete,
+      turn_id: "turn-stream-confirm",
+      sequence: 1,
+      model_payload: "model text",
+      surface_payload: "streamed confirmation summary",
+      metadata: %{status: :needs_confirmation}
+    }
+
+    assert {:ok, [rendered]} =
+             Renderer.render_response(%{
+               turn_id: "turn-stream-confirm",
+               stream_events: [complete_event],
+               approval_handoff: handoff
+             })
+
+    assert rendered =~ "streamed confirmation summary"
+    assert rendered =~ "Approval: conf_tui_stream status=pending target=write"
+    assert rendered =~ "ALLBERT:APPROVE:conf_tui_stream"
+    assert rendered =~ "Approval options:"
+  end
+
   test "renderer status line does not duplicate the input prompt" do
     prompt_text = Renderer.prompt("default") |> Owl.Data.untag() |> IO.iodata_to_binary()
     status_text = Renderer.status("default", :ready) |> Owl.Data.untag() |> IO.iodata_to_binary()

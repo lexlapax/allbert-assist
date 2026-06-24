@@ -2345,7 +2345,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "coding.model_profile" => %{
       type: :string,
-      default: "coding_local",
+      default: "pi_coding_local",
       writable?: true,
       sensitive?: false
     },
@@ -3549,6 +3549,14 @@ defmodule AllbertAssist.Settings.Schema do
         "max_tokens" => 4096,
         "timeout_ms" => 60_000
       },
+      "pi_coding_local" => %{
+        "provider" => "local_ollama",
+        "model" => "qwen2.5:7b",
+        "aliases" => ["qwen2.5"],
+        "temperature" => 0.1,
+        "max_tokens" => 4096,
+        "timeout_ms" => 60_000
+      },
       "fast" => %{
         "provider" => "openai",
         "model" => "gpt-4o-mini",
@@ -3646,7 +3654,7 @@ defmodule AllbertAssist.Settings.Schema do
         "token_budget" => 1_000,
         "tokenizer" => "simple_words"
       },
-      "model_profile" => "coding_local",
+      "model_profile" => "pi_coding_local",
       "turn" => %{
         "supervised" => true,
         "max_ms" => 120_000

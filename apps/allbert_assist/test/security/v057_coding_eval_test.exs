@@ -187,7 +187,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
           {"permissions.coding_shell_execute", "needs_confirmation"},
           {"coding.prompt.token_budget", 1_000},
           {"coding.prompt.tokenizer", "simple_words"},
-          {"coding.model_profile", "coding_local"}
+          {"coding.model_profile", "pi_coding_local"}
         ] do
       assert key in Schema.safe_write_keys()
       assert :ok = Schema.validate_key_value(key, value)
@@ -709,7 +709,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
              Settings.put("coding.workspace.cwd_jail", workspace, %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("coding.model_profile", "coding_local", %{audit?: false})
+             Settings.put("coding.model_profile", "pi_coding_local", %{audit?: false})
   end
 
   defp trusted_context(workspace) do
@@ -743,7 +743,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
             workspace_root: workspace,
             pi_mode_enabled: true,
             trusted_operator_id: "local",
-            model_profile: "coding_local"
+            model_profile: "pi_coding_local"
           }
         }
       }

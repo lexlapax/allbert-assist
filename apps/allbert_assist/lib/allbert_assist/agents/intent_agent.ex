@@ -1848,7 +1848,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       |> sync_decision_after_response(response, context)
       |> Engine.put_candidate_metadata(context)
 
-    approval_handoff = ApprovalHandoff.to_map(decision.approval_handoff)
+    approval_handoff = approval_handoff_for_response(response, decision)
 
     response =
       response
@@ -1856,6 +1856,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
       |> Map.put(:active_app, decision.active_app)
       |> Map.put(:resource_access, ResourceAccess.to_maps(decision.resource_access))
       |> Map.put(:approval_handoff, approval_handoff)
+      |> maybe_put_confirmation_id(approval_handoff)
       |> Map.update(:actions, [], &attach_approval_handoff(&1, approval_handoff))
       |> Map.update(:diagnostics, decision.diagnostics, &(decision.diagnostics ++ &1))
       |> maybe_frame_objective(decision, context)
@@ -2146,12 +2147,101 @@ defmodule AllbertAssist.Agents.IntentAgent do
 
   defp maybe_approval_handoff(_confirmation, _decision, _response, _context), do: nil
 
+  defp approval_handoff_for_response(response, %Decision{} = decision) do
+    response
+    |> field(:approval_handoff)
+    |> normalize_approval_handoff(response)
+    |> case do
+      nil -> normalize_approval_handoff(decision.approval_handoff, response)
+      handoff -> handoff
+    end
+  end
+
+  defp normalize_approval_handoff(nil, _response), do: nil
+
+  defp normalize_approval_handoff(handoff, response) when is_map(handoff) do
+    handoff = ApprovalHandoff.to_map(handoff)
+
+    case confirmation_id(handoff) || confirmation_id(response) do
+      nil -> handoff
+      id -> Map.put_new(handoff, :confirmation_id, id)
+    end
+  end
+
+  defp normalize_approval_handoff(_handoff, _response), do: nil
+
+  defp maybe_put_confirmation_id(response, nil), do: response
+
+  defp maybe_put_confirmation_id(response, handoff) do
+    case field(response, :confirmation_id) || confirmation_id(handoff) do
+      nil -> response
+      id -> Map.put_new(response, :confirmation_id, id)
+    end
+  end
+
   defp attach_approval_handoff(actions, nil), do: actions
   defp attach_approval_handoff([], _handoff), do: []
 
-  defp attach_approval_handoff([action | rest], handoff) do
+  defp attach_approval_handoff(actions, handoff) do
+    if Enum.any?(actions, &(field(&1, :approval_handoff) != nil)) do
+      actions
+    else
+      target_name = approval_target_name(handoff)
+      attach_to_matching_action(actions, handoff, target_name)
+    end
+  end
+
+  defp attach_to_matching_action(actions, handoff, nil) do
+    [action | rest] = actions
     [Map.put(action, :approval_handoff, handoff) | rest]
   end
+
+  defp attach_to_matching_action(actions, handoff, target_name) do
+    {updated, attached?} =
+      Enum.map_reduce(actions, false, fn action, attached? ->
+        if not attached? and to_string(field(action, :name, "")) == target_name do
+          {Map.put(action, :approval_handoff, handoff), true}
+        else
+          {action, attached?}
+        end
+      end)
+
+    if attached? do
+      updated
+    else
+      attach_to_matching_action(actions, handoff, nil)
+    end
+  end
+
+  defp approval_target_name(handoff) do
+    target = field(handoff, :target_action, %{}) || %{}
+    action = field(target, :action, %{}) || %{}
+
+    case field(action, :name) || field(target, :name) do
+      value when is_binary(value) and value != "" -> value
+      value when is_atom(value) -> Atom.to_string(value)
+      _other -> nil
+    end
+  end
+
+  defp confirmation_id(value) when is_map(value) do
+    field(value, :confirmation_id) ||
+      value |> field(:approval_handoff, %{}) |> field(:confirmation_id) ||
+      value |> field(:confirmation, %{}) |> field(:id) ||
+      confirmation_id_from_actions(field(value, :actions, []))
+  end
+
+  defp confirmation_id(_value), do: nil
+
+  defp confirmation_id_from_actions(actions) when is_list(actions) do
+    Enum.find_value(actions, fn action ->
+      field(action, :confirmation_id) ||
+        action |> field(:metadata, %{}) |> field(:confirmation_id) ||
+        action |> field(:approval_handoff, %{}) |> field(:confirmation_id)
+    end)
+  end
+
+  defp confirmation_id_from_actions(_actions), do: nil
 
   defp decision_refusal_response(%Decision{} = decision) do
     decision = Engine.put_candidate_metadata(decision)

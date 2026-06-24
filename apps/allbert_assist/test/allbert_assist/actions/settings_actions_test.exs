@@ -206,7 +206,8 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert rows["intent_embedding"].recommended_model == "nomic-embed-text"
     assert rows["intent_disambiguation"].recommended_model == "llama3.1:8b"
     assert rows["intent_escalation"].recommended_model == "gemma4:26b"
-    assert rows["pi_mode_coding"].status == "missing"
+    assert rows["pi_mode_coding"].recommended_profile == "pi_coding_local"
+    assert rows["pi_mode_coding"].settings_key == "coding.model_profile"
 
     refute inspect(response) =~ "secret://"
     refute inspect(response) =~ "api_key"

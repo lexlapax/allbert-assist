@@ -83,7 +83,7 @@ defmodule AllbertAssist.Coding.M8SessionSlashTest do
     for {key, value} <- [
           {"coding.prompt.token_budget", 1_000},
           {"coding.prompt.tokenizer", "simple_words"},
-          {"coding.model_profile", "coding_local"}
+          {"coding.model_profile", "pi_coding_local"}
         ] do
       assert key in Schema.safe_write_keys()
       assert %{writable?: true, sensitive?: false} = Schema.schema()[key]
@@ -257,7 +257,7 @@ defmodule AllbertAssist.Coding.M8SessionSlashTest do
     assert {:ok, _setting} = Settings.put("coding.workspace.cwd_jail", repo, %{audit?: false})
 
     assert {:ok, _setting} =
-             Settings.put("coding.model_profile", "coding_local", %{audit?: false})
+             Settings.put("coding.model_profile", "pi_coding_local", %{audit?: false})
   end
 
   defp start_tui(parent) do

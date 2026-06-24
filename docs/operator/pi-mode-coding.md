@@ -1,6 +1,6 @@
 # Pi-Mode Coding Operator Guide
 
-Status: v0.57 M0-M9.12 are implemented. Release closeout is blocked on warm
+Status: v0.57 M0-M9.14 are implemented. Release closeout is blocked on warm
 operator validation against a real streaming/tool-capable coding profile. This guide
 describes the operator workflow for the Pi-mode coding surface. The
 release-authoritative validation checklist lives in
@@ -32,7 +32,9 @@ mix allbert.settings set coding.pi_mode.enabled true
 mix allbert.settings set coding.trusted_operator_id local
 mix allbert.settings set coding.default_approval_mode default
 mix allbert.settings set coding.workspace.cwd_jail "$(pwd)"
-mix allbert.settings set coding.model_profile coding_local
+mix allbert.settings set coding.model_profile pi_coding_local
+ollama pull qwen2.5:7b
+mix allbert.model doctor pi_coding_local
 ```
 
 Check the important values:
@@ -52,17 +54,22 @@ being validated.
 ## Coding Model Profile
 
 `coding.model_profile` is the persisted profile Pi-mode uses at `/pi` session
-start. The default is `coding_local`; it should point to a local or private
-code-capable model profile with enough context for repo work. Use hosted coding
-profiles only after explicitly accepting source-code egress for that validation
-home.
+start. The default is `pi_coding_local`; it should point to a local or private
+model profile that emits real provider tool-call chunks under `ReqLLM.stream_text`
+for the six Pi-mode tools. This is deliberately separate from `coding_local`,
+which remains available for codegen-committee work. Use hosted coding profiles
+only after explicitly accepting source-code egress for that validation home.
 
 `/model <profile>` changes only the in-memory Pi-mode session profile. It does not
 change the trusted operator, approval mode, cwd jail, permissions, or confirmation
 behavior. Live assistant-token streaming and provider-level Esc cancel use the
 selected profile/provider path through `ReqLLM.stream_text` and
 `ReqLLM.StreamResponse.cancel`; release validation must use a profile that supports
-streaming, tool calling, and provider cancel.
+streaming, real tool-call chunks, and provider cancel. If a model emits textual
+markup such as `<function=write>` instead of a real provider tool-call event,
+Pi-mode treats the turn as a profile-compatibility failure and no tool runs.
+During validation, `/pi` should report `model=pi_coding_local` unless the operator
+deliberately selected another known streaming/tool-call-capable profile.
 
 ## Approval Modes
 
@@ -86,6 +93,10 @@ through the normal confirmation path, not inside the same LLM stream. In
 `accept-edits` or `tier` mode, an effect can complete during the same loop only
 when Security Central suppresses the prompt while preserving the original
 `:needs_confirmation` decision, trace, and audit.
+
+In the TUI transcript, a streamed coding turn that needs confirmation must still
+print the exact approval command, for example `ALLBERT:APPROVE:<id>`. Streamed
+assistant text without the approval command is not valid confirmation evidence.
 
 The "always allow this command" affordance stores a remembered command grant under
 Allbert Home, scoped by repo fingerprint, permission, cwd, canonical command, and

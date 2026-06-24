@@ -209,6 +209,7 @@ defmodule AllbertAssist.SettingsTest do
 
     assert catalog_aliases.local == "openai:llama3.2:3b"
     assert catalog_aliases.coding_local == "openai:qwen2.5-coder:7b"
+    assert catalog_aliases.pi_coding_local == "openai:qwen2.5:7b"
     assert catalog_aliases.fast == "openai:gpt-4o-mini"
     assert catalog_aliases.coding == "google:gemini-3.5-flash"
     assert catalog_aliases.voice_text_local == "openai:llama3.2:3b"
@@ -226,6 +227,7 @@ defmodule AllbertAssist.SettingsTest do
     assert Jido.AI.resolve_model(:local) == "openai:llama3.2:3b"
     assert Jido.AI.resolve_model(:coding) == "google:gemini-3.5-flash"
     assert Jido.AI.resolve_model(:coding_local) == "openai:qwen2.5-coder:7b"
+    assert Jido.AI.resolve_model(:pi_coding_local) == "openai:qwen2.5:7b"
     assert Jido.AI.resolve_model(:thinking) == "anthropic:claude-opus-4-8"
   end
 
@@ -1842,6 +1844,11 @@ defmodule AllbertAssist.SettingsTest do
     assert coding_local.provider == "local_ollama"
     assert coding_local.model == "qwen2.5-coder:7b"
     assert coding_local.aliases == ["qwen2.5-coder"]
+
+    assert {:ok, pi_coding_local} = Settings.resolve_model_profile("pi_coding_local")
+    assert pi_coding_local.provider == "local_ollama"
+    assert pi_coding_local.model == "qwen2.5:7b"
+    assert pi_coding_local.aliases == ["qwen2.5"]
 
     assert {:ok, voice_stt} = Settings.resolve_model_profile("voice_stt_fake")
     assert voice_stt.provider == "fake_voice"

@@ -118,6 +118,15 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
       end
     end
 
+    defp stream(:pseudo_tool_text, _parent, _prompt) do
+      [
+        ReqLLM.StreamChunk.text(
+          "I will use the write tool.\n\n<function=write>\n<parameter=path>\ntmp/pseudo.txt\n</parameter>\n</function>\n</tool_call>"
+        ),
+        ReqLLM.StreamChunk.meta(%{finish_reason: "stop"})
+      ]
+    end
+
     defp stream(:tool_edit, _parent, prompt) do
       if tool_result_context?(prompt) do
         [
@@ -316,7 +325,7 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
         end)
       end)
 
-    assert {:stream_text_called, %{provider: :openai, id: "qwen2.5-coder:7b"},
+    assert {:stream_text_called, %{provider: :openai, id: "qwen2.5:7b"},
             %ReqLLM.Context{} = prompt, opts, stream_pid} =
              assert_stream_text_called(task, turn_id)
 
@@ -342,7 +351,7 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
     assert response.status == :completed
     assert response.message == "Hello"
     assert response.direct_answer.source == :coding_stream
-    assert response.direct_answer.model_profile == "coding_local"
+    assert response.direct_answer.model_profile == "pi_coding_local"
     assert response.turn_id == turn_id
 
     assert Enum.map(response.stream_events, & &1.type) == [
@@ -369,8 +378,8 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
         end)
       end)
 
-    assert {:stream_text_called, %{provider: :openai, id: "qwen2.5-coder:7b"}, %ReqLLM.Context{},
-            _opts, _stream_pid} = assert_stream_text_called(task, turn_id)
+    assert {:stream_text_called, %{provider: :openai, id: "qwen2.5:7b"}, %ReqLLM.Context{}, _opts,
+            _stream_pid} = assert_stream_text_called(task, turn_id)
 
     assert_stream_cancel_registered(turn_id)
 
@@ -404,8 +413,8 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
         end)
       end)
 
-    assert {:stream_text_called, %{provider: :openai, id: "qwen2.5-coder:7b"}, %ReqLLM.Context{},
-            _opts, stream_pid} = assert_stream_text_called(task, turn_id, 15_000)
+    assert {:stream_text_called, %{provider: :openai, id: "qwen2.5:7b"}, %ReqLLM.Context{}, _opts,
+            stream_pid} = assert_stream_text_called(task, turn_id, 15_000)
 
     assert_receive {:coding_stream_event, ^turn_id, %{type: :assistant_token_delta, text: "Hel"}},
                    1_000
@@ -462,8 +471,8 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
         end)
       end)
 
-    assert {:stream_text_called, %{provider: :openai, id: "qwen2.5-coder:7b"}, %ReqLLM.Context{},
-            _opts, stream_pid} = assert_stream_text_called(task, turn_id, 15_000)
+    assert {:stream_text_called, %{provider: :openai, id: "qwen2.5:7b"}, %ReqLLM.Context{}, _opts,
+            stream_pid} = assert_stream_text_called(task, turn_id, 15_000)
 
     send(stream_pid, :release_stream)
 
@@ -610,6 +619,77 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
 
       expected.unchanged?.()
     end
+  end
+
+  test "intent agent preserves coding tool approval handoff through direct-answer wrapper", %{
+    root: root
+  } do
+    parent = self()
+    turn_id = unique_turn_id("agent-write-handoff")
+
+    Application.put_env(:allbert_assist, FakeReqLLM,
+      parent: parent,
+      turn_id: turn_id,
+      mode: :tool_write
+    )
+
+    request =
+      root
+      |> agent_request(turn_id, parent)
+      |> Map.put(
+        :text,
+        "Create a disposable validation file pending-write.txt containing exactly pending."
+      )
+
+    assert {:ok, response} = IntentAgent.respond(request)
+
+    assert_receive {:stream_text_called, _model, %ReqLLM.Context{}, _opts, _pid}, 1_000
+    assert_receive {:stream_text_called, _model, %ReqLLM.Context{}, _opts, _pid}, 1_000
+
+    assert response.status == :needs_confirmation
+    assert %{confirmation_id: confirmation_id} = response.approval_handoff
+    assert is_binary(confirmation_id)
+    assert response.confirmation_id == confirmation_id
+    assert get_in(response.approval_handoff, [:target_action, :action, "name"]) == "write"
+
+    write_action = Enum.find(response.actions, &(Map.get(&1, :name) == "write"))
+    assert get_in(write_action, [:approval_handoff, :confirmation_id]) == confirmation_id
+
+    direct_answer_action = Enum.find(response.actions, &(Map.get(&1, :name) == "direct_answer"))
+
+    refute get_in(direct_answer_action, [:approval_handoff, :target_action, :action, :name]) ==
+             "direct_answer"
+
+    refute File.exists?(Path.join(root, "pending-write.txt"))
+  end
+
+  test "textual pseudo tool calls fail without running coding tools", %{root: root} do
+    parent = self()
+    turn_id = unique_turn_id("pseudo-tool")
+
+    Application.put_env(:allbert_assist, FakeReqLLM,
+      parent: parent,
+      turn_id: turn_id,
+      mode: :pseudo_tool_text
+    )
+
+    assert {:ok, response} =
+             StreamingTurn.answer(
+               "write tmp/pseudo.txt",
+               streaming_context(root, turn_id, parent)
+             )
+
+    assert_receive {:stream_text_called, _model, %ReqLLM.Context{}, _opts, _pid}, 1_000
+
+    assert response.status == :error
+    assert response.message =~ "tool-call-looking text"
+    assert response.coding_turn.tool_call_count == 0
+    assert response.actions == []
+
+    assert [%{status: :pseudo_tool_text, reason: :model_emitted_textual_tool_markup}] =
+             response.diagnostics
+
+    refute File.exists?(Path.join(root, "tmp/pseudo.txt"))
   end
 
   test "model-proposed multi-tool sequence executes each tool before continuing", %{
@@ -785,7 +865,7 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
             workspace_root: root,
             pi_mode_enabled: true,
             trusted_operator_id: "local",
-            model_profile: "coding_local"
+            model_profile: "pi_coding_local"
           }
         }
       }
@@ -824,7 +904,7 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
           workspace_root: root,
           pi_mode_enabled: true,
           trusted_operator_id: "local",
-          model_profile: "coding_local"
+          model_profile: "pi_coding_local"
         }
       }
     }
@@ -854,13 +934,13 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
     Enum.filter(response.stream_events, &(&1.type == :tool_result_delta))
   end
 
-  defp resolve_test_model_profile("coding_local") do
+  defp resolve_test_model_profile("pi_coding_local") do
     {:ok,
      %{
-       name: "coding_local",
+       name: "pi_coding_local",
        provider: "local_ollama",
        provider_type: "openai_compatible",
-       model: "qwen2.5-coder:7b",
+       model: "qwen2.5:7b",
        temperature: 0.2,
        max_tokens: 2_000,
        timeout_ms: 120_000

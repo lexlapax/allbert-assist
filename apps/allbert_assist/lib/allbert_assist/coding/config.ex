@@ -25,7 +25,7 @@ defmodule AllbertAssist.Coding.Config do
     command_grants_max_entries_per_repo: 100,
     prompt_token_budget: 1_000,
     prompt_tokenizer: "simple_words",
-    model_profile: "coding_local",
+    model_profile: "pi_coding_local",
     streaming_enabled?: true,
     streaming_turn_complete_fallback?: true,
     turn_supervised?: true,

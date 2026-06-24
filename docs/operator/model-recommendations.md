@@ -32,17 +32,19 @@ small/wrong capability) · `not-pulled` (local model not downloaded) ·
 | Vision / image generation | per provider catalog (v0.49) | image provider (audited) | image generation | per provider | image profile | provider doctor reports gap |
 | Codegen committee (Author/Critic) | `:capable` / `:thinking` | capable hosted | strong reasoning, long context | sandboxed; gated | codegen profiles | gate report blocks |
 | Advisory critics / LLM-judge | `:capable` (local) | hosted (audited) | reasoning | advisory-only (never authority) | per-feature profile | advisory output dropped |
-| Pi-mode coding (v0.57) | `coding_local`: capable local/private coding model + mid-session switch | capable hosted coding profile, explicit egress opt-in | coding, long context, tool-use; `ReqLLM.stream_text` + `StreamResponse.cancel` | local-coding operator trust tier at sandbox Level 1; audited, never default | `coding.model_profile = coding_local` by default; `/model <profile>` is session-only | turn-complete fallback or graceful decline; no hosted fallback without operator choice |
+| Pi-mode coding (v0.57) | `pi_coding_local`: local/private model proven to emit real provider tool calls + mid-session switch | capable hosted coding profile, explicit egress opt-in | coding, long context, real tool-call chunks; `ReqLLM.stream_text` + `StreamResponse.cancel` | local-coding operator trust tier at sandbox Level 1; audited, never default | `coding.model_profile = pi_coding_local` by default; `/model <profile>` is session-only | explicit profile-compatibility diagnostic or graceful decline; no hosted fallback without operator choice |
 
-For Pi-mode, prefer `coding_local` for repository work. It should resolve to a
-local or private model profile that can handle code context and tool-use. Hosted
-profiles are acceptable only when the operator explicitly accepts source-code
-egress for that home/session. `/model <profile>` changes the in-memory Pi-mode
-session model only; it never changes permissions, approval mode, trusted operator,
-cwd jail, or confirmation behavior. Live assistant-token streaming and
-provider-level Esc cancel use the selected provider path with `ReqLLM.stream_text`
-and `ReqLLM.StreamResponse.cancel`; validation should choose a coding profile that
-supports both.
+For Pi-mode, prefer `pi_coding_local` for repository work. It is distinct from
+`coding_local`: `coding_local` remains the codegen-committee fallback, while
+`pi_coding_local` is the interactive tool-loop profile and must emit real
+provider tool-call chunks for `read`/`grep`/`write`/`edit`/`bash`. Hosted profiles
+are acceptable only when the operator explicitly accepts source-code egress for
+that home/session. `/model <profile>` changes the in-memory Pi-mode session model
+only; it never changes permissions, approval mode, trusted operator, cwd jail, or
+confirmation behavior. Live assistant-token streaming and provider-level Esc
+cancel use the selected provider path with `ReqLLM.stream_text` and
+`ReqLLM.StreamResponse.cancel`; validation should choose a coding profile that
+supports streaming, real tool calls, and provider cancel.
 
 ## Pulling local models
 
@@ -52,6 +54,7 @@ already uses). Typical setup:
 ```sh
 ollama pull nomic-embed-text
 ollama pull llama3.1:8b
+ollama pull qwen2.5:7b     # Pi-mode tool-loop profile
 ollama pull gemma4:26b      # optional local escalation tier
 mix allbert.intent doctor   # confirm embedder + router model report ok
 ```

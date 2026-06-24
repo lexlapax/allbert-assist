@@ -172,15 +172,15 @@ defmodule AllbertAssist.Settings.ModelRecommendations do
     %{
       id: :pi_mode_coding,
       purpose: "Pi-mode coding (v0.57)",
-      settings_key: nil,
-      source: :future,
-      recommended_profile: nil,
-      recommended_model: "future v0.57 coding profile",
+      settings_key: "coding.model_profile",
+      source: {:setting, "coding.model_profile"},
+      recommended_profile: "pi_coding_local",
+      recommended_model: "qwen2.5:7b",
       required_capabilities: ["text_generation"],
-      min_size_b: nil,
-      privacy: "future local coding / sandbox level 0",
-      fallback: "Defined in v0.57.",
-      probe?: false
+      min_size_b: 7,
+      privacy: "local/private coding with real provider tool-call chunks",
+      fallback: "Switch to a streaming/tool-call-capable profile.",
+      probe?: true
     }
   ]
 
@@ -275,8 +275,6 @@ defmodule AllbertAssist.Settings.ModelRecommendations do
   defp configured_profiles({:task, task}) do
     configured_profiles({:setting, "model_preferences.tasks.#{task}"})
   end
-
-  defp configured_profiles(:future), do: []
 
   defp setting_value(key) do
     case Settings.get(key) do

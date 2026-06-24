@@ -265,25 +265,48 @@ defmodule AllbertAssist.Coding.StreamingTurn do
       (ReqLLM.Response.text(llm_response) || streamed_text(state.events))
       |> String.trim()
 
-    if message == "" do
-      {:error, :empty_streamed_model_text}
-    else
-      final_context = llm_response.context || prompt_input
-      response = response_from_message(message, state, final_context)
+    cond do
+      message == "" ->
+        {:error, :empty_streamed_model_text}
 
-      with {:ok, complete_event} <-
-             StreamPipeline.turn_complete_event(response,
-               turn_id: state.turn_id,
-               sequence: state.sequence
-             ) do
-        state.emit_fun.(complete_event)
-        {:ok, Map.put(response, :stream_events, state.events ++ [complete_event])}
-      end
+      pseudo_tool_text?(message) and state.tool_results == [] ->
+        final_context = llm_response.context || prompt_input
+
+        response =
+          response_from_message(pseudo_tool_message(state), state, final_context,
+            status: :error,
+            diagnostic_status: :pseudo_tool_text,
+            diagnostic_extra: %{reason: :model_emitted_textual_tool_markup}
+          )
+
+        with {:ok, complete_event} <-
+               StreamPipeline.turn_complete_event(response,
+                 turn_id: state.turn_id,
+                 sequence: state.sequence
+               ) do
+          state.emit_fun.(complete_event)
+          {:ok, Map.put(response, :stream_events, state.events ++ [complete_event])}
+        end
+
+      true ->
+        final_context = llm_response.context || prompt_input
+        response = response_from_message(message, state, final_context)
+
+        with {:ok, complete_event} <-
+               StreamPipeline.turn_complete_event(response,
+                 turn_id: state.turn_id,
+                 sequence: state.sequence
+               ) do
+          state.emit_fun.(complete_event)
+          {:ok, Map.put(response, :stream_events, state.events ++ [complete_event])}
+        end
     end
   end
 
-  defp response_from_message(message, state, final_context) do
-    status = response_status(state)
+  defp response_from_message(message, state, final_context, opts \\ []) do
+    status = Keyword.get(opts, :status, response_status(state))
+    diagnostic_status = Keyword.get(opts, :diagnostic_status, :used)
+    diagnostic_extra = Keyword.get(opts, :diagnostic_extra, %{})
 
     %{
       message: message,
@@ -300,24 +323,31 @@ defmodule AllbertAssist.Coding.StreamingTurn do
         provider: state.profile.provider,
         model: state.profile.model,
         prompt: %{request_bytes: byte_size(state.text)},
-        diagnostic: %{
-          status: :used,
-          stream_cancel_registration: state.cancel_statuses,
-          tool_loop_iterations: length(state.cancel_statuses),
-          tool_call_count: length(state.tool_results)
-        }
+        diagnostic:
+          Map.merge(
+            %{
+              status: diagnostic_status,
+              stream_cancel_registration: state.cancel_statuses,
+              tool_loop_iterations: length(state.cancel_statuses),
+              tool_call_count: length(state.tool_results)
+            },
+            diagnostic_extra
+          )
       },
       diagnostics: [
-        %{
-          source: :coding_streaming_turn,
-          status: :provider_stream_connected,
-          turn_id: state.turn_id,
-          model_profile: state.profile.name,
-          provider: state.profile.provider,
-          model: state.profile.model,
-          stream_cancel_registration: state.cancel_statuses,
-          tool_call_count: length(state.tool_results)
-        }
+        Map.merge(
+          %{
+            source: :coding_streaming_turn,
+            status: diagnostic_status,
+            turn_id: state.turn_id,
+            model_profile: state.profile.name,
+            provider: state.profile.provider,
+            model: state.profile.model,
+            stream_cancel_registration: state.cancel_statuses,
+            tool_call_count: length(state.tool_results)
+          },
+          diagnostic_extra
+        )
       ],
       coding_turn: %{
         turn_id: state.turn_id,
@@ -330,6 +360,21 @@ defmodule AllbertAssist.Coding.StreamingTurn do
         tool_call_count: length(state.tool_results)
       }
     }
+  end
+
+  defp pseudo_tool_text?(message) when is_binary(message) do
+    String.contains?(message, ["<function=", "</tool_call>", "<tool_call", "function_call"])
+  end
+
+  defp pseudo_tool_text?(_message), do: false
+
+  defp pseudo_tool_message(state) do
+    """
+    The selected coding model emitted tool-call-looking text instead of real provider tool-call events. No coding tool ran and no file, shell, or memory effect was applied.
+
+    Switch `coding.model_profile` or `/model` to a profile that produces real `ReqLLM` tool calls for Pi-mode, then retry. Current profile: #{state.profile.name} (#{state.profile.provider}/#{state.profile.model}).
+    """
+    |> String.trim()
   end
 
   defp response_status(%{tool_results: tool_results}) do

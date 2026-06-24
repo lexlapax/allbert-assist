@@ -94,6 +94,20 @@
       "max_tokens": 4096,
       "timeout_ms": 60000
     },
+    "pi_coding_local": {
+      "provider": "local_ollama",
+      "model": "qwen2.5:7b",
+      "aliases": ["qwen2.5"],
+      "capabilities": ["text_generation"],
+      "media": {
+        "input_modalities": ["text"],
+        "output_modalities": ["text"],
+        "deployment_mode": "local_endpoint"
+      },
+      "temperature": 0.1,
+      "max_tokens": 4096,
+      "timeout_ms": 60000
+    },
     "fast": {
       "provider": "openai",
       "model": "gpt-4o-mini",

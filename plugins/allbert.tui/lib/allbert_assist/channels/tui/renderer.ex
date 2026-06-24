@@ -98,7 +98,9 @@ defmodule AllbertAssist.Channels.TUI.Renderer do
   defp response_text(response, max_text_bytes) do
     cond do
       events = stream_events(response) ->
-        render_response_stream_events(response, events, max_text_bytes)
+        response
+        |> render_response_stream_events(events, max_text_bytes)
+        |> maybe_append_approval_handoff(response)
 
       handoff = response_field(response, :approval_handoff) ->
         render_approval_handoff(handoff)
@@ -114,6 +116,13 @@ defmodule AllbertAssist.Channels.TUI.Renderer do
     case render_stream_events(events, turn_id: turn_id, max_text_bytes: max_text_bytes) do
       {:ok, [rendered]} -> rendered
       {:error, _reason} -> surface_text(response)
+    end
+  end
+
+  defp maybe_append_approval_handoff(text, response) do
+    case response_field(response, :approval_handoff) do
+      nil -> text
+      handoff -> Enum.join([text, render_approval_handoff(handoff)], "\n\n")
     end
   end
 
