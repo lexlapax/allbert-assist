@@ -11,8 +11,17 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
     "/intents",
     "/models",
     "/settings get",
+    "/pi",
+    "/mode",
+    "/model",
+    "/clear",
+    "/init",
+    "/diff",
+    "/compact",
     "/help"
   ]
+
+  @coding_session_commands ["/pi", "/mode", "/model", "/clear", "/init", "/diff", "/compact"]
 
   @spec slash?(term()) :: boolean()
   def slash?(text) when is_binary(text) do
@@ -28,13 +37,31 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
 
   @spec requires_identity?(String.t()) :: boolean()
   def requires_identity?(text) when is_binary(text) do
-    case text |> normalize() |> route() do
-      {:action, _name, _params} -> true
-      {:local, _response} -> false
+    normalized = normalize(text)
+
+    cond do
+      coding_session_command?(normalized) ->
+        true
+
+      true ->
+        case route(normalized) do
+          {:action, _name, _params} -> true
+          {:local, _response} -> false
+        end
     end
   end
 
   def requires_identity?(_text), do: false
+
+  @spec coding_session_command?(term()) :: boolean()
+  def coding_session_command?(text) when is_binary(text) do
+    case String.split(normalize(text), ~r/\s+/, parts: 2, trim: true) do
+      [command | _rest] -> command in @coding_session_commands
+      [] -> false
+    end
+  end
+
+  def coding_session_command?(_text), do: false
 
   @spec dispatch(String.t(), map()) :: {:ok, map()}
   def dispatch(text, context \\ %{}) when is_binary(text) do
@@ -60,6 +87,15 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
       "Slash command unavailable: terminal profile is not mapped to an Allbert user.",
       "TUI operator slash command unavailable: unmapped identity."
     )
+  end
+
+  @spec local_response(String.t(), String.t()) :: map()
+  def local_response(surface_payload, model_payload) do
+    %{
+      status: :completed,
+      surface_payload: surface_payload,
+      model_payload: model_payload
+    }
   end
 
   defp normalize(text), do: String.trim(text)
@@ -117,14 +153,6 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
   end
 
   defp valid_setting_key?(key), do: Regex.match?(~r/^[A-Za-z0-9_.-]+$/, key)
-
-  defp local_response(surface_payload, model_payload) do
-    %{
-      status: :completed,
-      surface_payload: surface_payload,
-      model_payload: model_payload
-    }
-  end
 
   defp help_text do
     [

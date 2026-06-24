@@ -3562,14 +3562,17 @@ Expected direction:
   progressive tool-argument diff streaming over the v0.55 **static** split) on a new
   **async turn-execution boundary** that makes real Esc-to-cancel possible, queued
   steering, and a familiar coding slash set
-  (`/help`/`/model`/`/clear`/`/init`/`/diff`/`/compact`; `/model`/`/clear`/`/compact`
+  (`/help`/`/mode`/`/model`/`/clear`/`/init`/`/diff`/`/compact`; `/mode`/`/model`/`/clear`/`/compact`
   ungated). Milestones M0–M9; M6 wires real registered provider-stream
   cancellation, bounded registry task shutdown, `turn_cancelled`, partial traces,
   and queued steering. M7 wires Settings-backed local-coding tier resolution,
   approval modes, and hash-only remembered command grants through the
   `Security.Decision` confirmation-cost seam while preserving
   `:needs_confirmation` decisions, trace, audit, and the `Resources.Grants`
-  lifecycle. The named substrate (`deps/req_llm`
+  lifecycle. M8 wires `Coding.Prompt`, `Coding.Session`, Settings-backed prompt/
+  model keys, `/pi` realpath cwd-jail pinning, `/mode`, `/model`, `/clear`,
+  `/compact`, `/diff`, `@file`, and `/init` over registered read/write actions
+  with the standard TUI approval handoff. The named substrate (`deps/req_llm`
   `Context`/`StreamResponse`/`StreamChunk`, `Owl.LiveScreen`, `Resources.Grants`)
   is verified to exist.
 - A named "local-coding operator" trust tier (ADR 0056 lineage, running at ADR
@@ -3577,10 +3580,10 @@ Expected direction:
   terminal channel — never the default, never for channel-originated or
   generated-code sessions; lowers confirmation burden only, not isolation. Modes
   and "always allow" grant no authority.
-- An operator affordance for mid-session model switch (req_llm message-history
-  handoff; best-effort cross-provider). The final pre-implementation plan expands
-  the work into M0–M8 so contracts, stream events, trust tier, slash behavior,
-  and validation closeout have separate handoffs.
+- Operator affordances for in-session approval-mode switching and mid-session model
+  switch (req_llm message-history handoff; best-effort cross-provider). The final
+  implementation plan expands the work into M0–M9 so contracts, stream events,
+  trust tier, slash behavior, evals, and validation closeout have separate handoffs.
 - Non-goals: no YOLO-by-default; no weakening of the action boundary, Security
   Central, or confirmations; no model-decides-it's-done for effectful or
   generated-code work; keep MCP-first with lazy disclosure; no sibling runtime.

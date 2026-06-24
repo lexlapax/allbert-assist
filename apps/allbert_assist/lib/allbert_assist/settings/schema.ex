@@ -90,6 +90,9 @@ defmodule AllbertAssist.Settings.Schema do
     "coding.default_approval_mode",
     "coding.command_grants.default_ttl_ms",
     "coding.command_grants.max_entries_per_repo",
+    "coding.prompt.token_budget",
+    "coding.prompt.tokenizer",
+    "coding.model_profile",
     "coding.turn.supervised",
     "coding.turn.max_ms",
     "coding.streaming.enabled",
@@ -2325,6 +2328,27 @@ defmodule AllbertAssist.Settings.Schema do
       min: 1,
       max: 1_000
     },
+    "coding.prompt.token_budget" => %{
+      type: :bounded_integer,
+      default: 1_000,
+      writable?: true,
+      sensitive?: false,
+      min: 256,
+      max: 4_000
+    },
+    "coding.prompt.tokenizer" => %{
+      type: :enum,
+      default: "simple_words",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["simple_words"]
+    },
+    "coding.model_profile" => %{
+      type: :string,
+      default: "coding_local",
+      writable?: true,
+      sensitive?: false
+    },
     "coding.turn.supervised" => %{
       type: :boolean,
       default: true,
@@ -3618,6 +3642,11 @@ defmodule AllbertAssist.Settings.Schema do
         "default_ttl_ms" => 86_400_000,
         "max_entries_per_repo" => 100
       },
+      "prompt" => %{
+        "token_budget" => 1_000,
+        "tokenizer" => "simple_words"
+      },
+      "model_profile" => "coding_local",
       "turn" => %{
         "supervised" => true,
         "max_ms" => 120_000

@@ -23,6 +23,9 @@ defmodule AllbertAssist.Coding.Config do
     default_approval_mode: "default",
     command_grants_default_ttl_ms: 86_400_000,
     command_grants_max_entries_per_repo: 100,
+    prompt_token_budget: 1_000,
+    prompt_tokenizer: "simple_words",
+    model_profile: "coding_local",
     streaming_enabled?: true,
     streaming_turn_complete_fallback?: true,
     turn_supervised?: true,
@@ -131,6 +134,29 @@ defmodule AllbertAssist.Coding.Config do
         "coding.command_grants.max_entries_per_repo",
         @defaults.command_grants_max_entries_per_repo
       )
+
+  @doc "Return the Pi-mode prompt + tool-definition token budget."
+  @spec prompt_token_budget() :: pos_integer()
+  def prompt_token_budget,
+    do: positive_integer("coding.prompt.token_budget", @defaults.prompt_token_budget)
+
+  @doc "Return the named tokenizer used for the prompt budget check."
+  @spec prompt_tokenizer() :: String.t()
+  def prompt_tokenizer do
+    case setting("coding.prompt.tokenizer", @defaults.prompt_tokenizer) do
+      "simple_words" -> "simple_words"
+      _other -> @defaults.prompt_tokenizer
+    end
+  end
+
+  @doc "Return the model profile used by a new Pi-mode coding session."
+  @spec model_profile() :: String.t()
+  def model_profile do
+    case setting("coding.model_profile", @defaults.model_profile) do
+      value when is_binary(value) and value != "" -> value
+      _other -> @defaults.model_profile
+    end
+  end
 
   @doc "Return true when coding stream-event live rendering is enabled."
   @spec streaming_enabled?() :: boolean()

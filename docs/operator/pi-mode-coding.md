@@ -1,6 +1,6 @@
 # Pi-Mode Coding Operator Guide
 
-Status: planned for v0.57; M0-M7 are implemented. This guide describes the target
+Status: planned for v0.57; M0-M8 are implemented. This guide describes the target
 operator workflow for the Pi-mode coding surface after implementation. The
 release-authoritative validation checklist lives in
 `docs/plans/v0.57-request-flow.md#operator-validation`.
@@ -85,11 +85,13 @@ intent candidates and do not create model turns:
 | Command | Effect |
 |---|---|
 | `/help` | Router-local read. |
-| `/diff` | Read-only coding diff view through the coding file-read boundary. |
+| `/pi [path]` | Enter Pi-mode and pin the realpath-resolved cwd jail for the session; `/pi off` exits. |
+| `/mode [default\|accept-edits\|plan\|tier]` | Ungated in-memory approval-mode switch; no `:coding_session_write` atom. |
+| `/diff <path>` | Read-only coding diff/context view through the coding file-read boundary. |
 | `/model <profile>` | Ungated in-memory session model change; no `:coding_session_write` atom. |
 | `/clear` | Ungated session context reset; no `:coding_session_write` atom. |
 | `/compact` | Ungated context compaction; no `:coding_session_write` atom. |
-| `/init` | Scaffolds `AGENTS.md` through the coding file-write boundary. |
+| `/init [path]` | Scaffolds a Pi-mode context file through the coding file-write boundary; default path is `.allbert/pi-mode.md`. |
 
 `@file` mentions use the same bounded `read` action as ordinary read requests.
 They never ingest raw paths outside the cwd jail.

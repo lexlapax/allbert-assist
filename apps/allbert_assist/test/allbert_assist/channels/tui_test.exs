@@ -189,6 +189,13 @@ defmodule AllbertAssist.Channels.TUITest do
                  "- /intents\n" <>
                  "- /models\n" <>
                  "- /settings get\n" <>
+                 "- /pi\n" <>
+                 "- /mode\n" <>
+                 "- /model\n" <>
+                 "- /clear\n" <>
+                 "- /init\n" <>
+                 "- /diff\n" <>
+                 "- /compact\n" <>
                  "- /help"
              ]}} = Adapter.submit(server, "/help", external_event_id: "evt-tui-slash-help")
 
@@ -198,6 +205,9 @@ defmodule AllbertAssist.Channels.TUITest do
     assert rendered =~ "/intents"
     assert rendered =~ "/models"
     assert rendered =~ "/settings get"
+    assert rendered =~ "/pi"
+    assert rendered =~ "/mode"
+    assert rendered =~ "/compact"
     refute Repo.get_by(Event, channel: "tui", external_event_id: "evt-tui-slash-help")
   end
 

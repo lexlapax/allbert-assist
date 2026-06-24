@@ -12,7 +12,9 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   alias AllbertAssist.Channels.TUI.Renderer
   alias AllbertAssist.Channels.TUI.SlashCommands
   alias AllbertAssist.Coding.Config, as: CodingConfig
+  alias AllbertAssist.Coding.Session, as: CodingSession
   alias AllbertAssist.Coding.TurnSupervisor, as: CodingTurnSupervisor
+  alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
 
@@ -150,6 +152,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       output_fun: Keyword.get(opts, :output_fun),
       max_text_bytes: Map.get(settings, "max_text_bytes", 12_000),
       coding_mode?: Keyword.get(opts, :coding_mode?, false),
+      pi_session: Keyword.get(opts, :pi_session),
       current_turn: nil,
       queued_correction: nil
     }
@@ -201,6 +204,9 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       queueable_correction?(text, state) ->
         queue_correction(text, opts, state)
 
+      at_file_reference?(text, state) ->
+        read_at_file_reference(text, state)
+
       async_coding_turn?(text, opts, state) ->
         start_async_coding_turn(text, opts, state)
 
@@ -241,6 +247,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       |> Keyword.put(:coding_turn?, true)
       |> Keyword.put(:coding_turn_id, turn_id)
       |> Keyword.put_new(:surface, "pi_mode")
+      |> Keyword.put_new(:coding_session, CodingSession.metadata(state.pi_session))
 
     task_state = %{state | current_turn: nil, queued_correction: nil}
 
@@ -351,7 +358,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
   defp dispatch_slash(text, state) do
     with {:ok, context} <- slash_context(text, state),
-         {:ok, response} <- SlashCommands.dispatch(text, context),
+         {:ok, response, state} <- dispatch_slash_command(text, context, state),
          {:ok, rendered} <-
            Renderer.render_response(response, max_text_bytes: state.max_text_bytes),
          state <- clear_live_status(state),
@@ -365,6 +372,296 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         render_unavailable_slash(:not_mapped, state)
     end
   end
+
+  defp dispatch_slash_command(text, context, state) do
+    normalized = String.trim(text)
+
+    if SlashCommands.coding_session_command?(normalized) do
+      dispatch_coding_slash(normalized, context, state)
+    else
+      with {:ok, response} <- SlashCommands.dispatch(normalized, context) do
+        {:ok, response, state}
+      end
+    end
+  end
+
+  defp dispatch_coding_slash(text, context, state) do
+    case String.split(text, ~r/\s+/, parts: 2, trim: true) do
+      ["/pi"] ->
+        enter_pi_mode(nil, context, state)
+
+      ["/pi", mode] when mode in ["off", "exit", "quit"] ->
+        exit_pi_mode(state)
+
+      ["/pi", path] ->
+        enter_pi_mode(path, context, state)
+
+      ["/mode"] ->
+        current_pi_mode(state)
+
+      ["/mode", mode] ->
+        switch_pi_mode(mode, state)
+
+      ["/model"] ->
+        current_pi_model(state)
+
+      ["/model", profile] ->
+        switch_pi_model(profile, state)
+
+      ["/clear"] ->
+        clear_pi_context(state)
+
+      ["/compact"] ->
+        compact_pi_context(state)
+
+      ["/init"] ->
+        init_pi_mode(".allbert/pi-mode.md", context, state)
+
+      ["/init", path] ->
+        init_pi_mode(path, context, state)
+
+      ["/diff"] ->
+        local_coding_response(
+          "No Pi-mode diff path provided.",
+          "Pi-mode diff had no path.",
+          state
+        )
+
+      ["/diff", path] ->
+        read_pi_path(path, context, state, "diff")
+
+      _other ->
+        local_coding_response(
+          "Unknown slash command. Type /help for available commands.",
+          "Unknown TUI coding slash command.",
+          state
+        )
+    end
+  end
+
+  defp enter_pi_mode(path, context, state) do
+    case CodingSession.start(path, context) do
+      {:ok, session} ->
+        response =
+          SlashCommands.local_response(
+            "Pi-mode entered: cwd_jail=#{session.cwd_jail} model=#{session.model_profile} tokenizer=#{session.prompt.tokenizer} prompt_tokens=#{session.prompt.token_count}/#{session.prompt.token_budget}",
+            "Pi-mode entered with pinned cwd jail and coding model profile."
+          )
+
+        {:ok, response, %{state | coding_mode?: true, pi_session: session}}
+
+      {:error, :pi_mode_disabled} ->
+        local_coding_response(
+          "Pi-mode is disabled. Set coding.pi_mode.enabled true before /pi.",
+          "Pi-mode entry refused because it is disabled.",
+          state
+        )
+
+      {:error, reason} ->
+        local_coding_response(
+          "Pi-mode could not start: #{inspect(Redactor.redact(reason))}.",
+          "Pi-mode entry failed.",
+          state
+        )
+    end
+  end
+
+  defp exit_pi_mode(%{current_turn: %{turn_id: turn_id}} = state) do
+    local_coding_response(
+      "Cannot exit Pi-mode while coding turn #{turn_id} is running. Cancel or wait first.",
+      "Pi-mode exit refused during active turn.",
+      state
+    )
+  end
+
+  defp exit_pi_mode(state) do
+    response = SlashCommands.local_response("Pi-mode exited.", "Pi-mode exited.")
+    {:ok, response, %{state | coding_mode?: false, pi_session: nil, queued_correction: nil}}
+  end
+
+  defp switch_pi_model(_profile, %{pi_session: nil} = state) do
+    local_coding_response(
+      "Enter Pi-mode with /pi before switching models.",
+      "No Pi-mode session.",
+      state
+    )
+  end
+
+  defp switch_pi_model(profile, state) do
+    case CodingSession.switch_model(state.pi_session, profile) do
+      {:ok, session} ->
+        response =
+          SlashCommands.local_response(
+            "Pi-mode model switched to #{session.model_profile}.",
+            "Pi-mode session model profile switched."
+          )
+
+        {:ok, response, %{state | pi_session: session}}
+
+      {:error, reason} ->
+        local_coding_response(
+          "Model switch failed: #{inspect(Redactor.redact(reason))}.",
+          "Pi-mode model switch failed.",
+          state
+        )
+    end
+  end
+
+  defp current_pi_model(%{pi_session: nil} = state) do
+    local_coding_response(
+      "Enter Pi-mode with /pi before reading the model.",
+      "No Pi-mode session.",
+      state
+    )
+  end
+
+  defp current_pi_model(state) do
+    local_coding_response(
+      "Pi-mode model: #{state.pi_session.model_profile}.",
+      "Pi-mode model profile read.",
+      state
+    )
+  end
+
+  defp switch_pi_mode(_mode, %{pi_session: nil} = state) do
+    local_coding_response(
+      "Enter Pi-mode with /pi before switching modes.",
+      "No Pi-mode session.",
+      state
+    )
+  end
+
+  defp switch_pi_mode(mode, state) do
+    case CodingSession.set_approval_mode(state.pi_session, mode) do
+      {:ok, session} ->
+        response =
+          SlashCommands.local_response(
+            "Pi-mode approval mode switched to #{session.approval_mode}.",
+            "Pi-mode session approval mode switched."
+          )
+
+        {:ok, response, %{state | pi_session: session}}
+
+      {:error, reason} ->
+        local_coding_response(
+          "Mode switch failed: #{inspect(Redactor.redact(reason))}.",
+          "Pi-mode mode switch failed.",
+          state
+        )
+    end
+  end
+
+  defp current_pi_mode(%{pi_session: nil} = state) do
+    local_coding_response(
+      "Enter Pi-mode with /pi before reading the mode.",
+      "No Pi-mode session.",
+      state
+    )
+  end
+
+  defp current_pi_mode(state) do
+    local_coding_response(
+      "Pi-mode approval mode: #{state.pi_session.approval_mode}.",
+      "Pi-mode approval mode read.",
+      state
+    )
+  end
+
+  defp clear_pi_context(%{pi_session: nil} = state) do
+    local_coding_response(
+      "Enter Pi-mode with /pi before clearing context.",
+      "No Pi-mode session.",
+      state
+    )
+  end
+
+  defp clear_pi_context(state) do
+    session = CodingSession.clear(state.pi_session)
+
+    response =
+      SlashCommands.local_response("Pi-mode context cleared.", "Pi-mode context cleared.")
+
+    {:ok, response, %{state | pi_session: session}}
+  end
+
+  defp compact_pi_context(%{pi_session: nil} = state) do
+    local_coding_response(
+      "Enter Pi-mode with /pi before compacting context.",
+      "No Pi-mode session.",
+      state
+    )
+  end
+
+  defp compact_pi_context(state) do
+    session = CodingSession.compact(state.pi_session)
+
+    response =
+      SlashCommands.local_response("Pi-mode context compacted.", "Pi-mode context compacted.")
+
+    {:ok, response, %{state | pi_session: session}}
+  end
+
+  defp init_pi_mode(_path, _context, %{pi_session: nil} = state) do
+    local_coding_response("Enter Pi-mode with /pi before /init.", "No Pi-mode session.", state)
+  end
+
+  defp init_pi_mode(path, context, state) do
+    params = %{
+      path: String.trim(path),
+      content: pi_init_content(state.pi_session),
+      source_text: "/init"
+    }
+
+    {:ok, response} =
+      context
+      |> coding_context(state)
+      |> run_coding_action("write", params)
+
+    {:ok, maybe_attach_approval_handoff(response, context), state}
+  end
+
+  defp read_pi_path(_path, _context, %{pi_session: nil} = state, _label) do
+    local_coding_response(
+      "Enter Pi-mode with /pi before reading files.",
+      "No Pi-mode session.",
+      state
+    )
+  end
+
+  defp read_pi_path(path, context, state, label) do
+    params = %{path: String.trim(path), limit: CodingConfig.read_default_limit()}
+
+    {:ok, response} =
+      context
+      |> coding_context(state)
+      |> run_coding_action("read", params)
+
+    response =
+      if label == "diff" do
+        Map.update(response, :surface_payload, "", &("Read-only diff context:\n" <> &1))
+      else
+        response
+      end
+
+    {:ok, response, state}
+  end
+
+  defp local_coding_response(surface_payload, model_payload, state) do
+    {:ok, SlashCommands.local_response(surface_payload, model_payload), state}
+  end
+
+  defp maybe_attach_approval_handoff(%{status: :needs_confirmation} = response, context) do
+    decision = Map.get(response, :permission_decision, %{})
+
+    handoff =
+      decision
+      |> ApprovalHandoff.pending(response, context)
+      |> ApprovalHandoff.to_map()
+
+    Map.put(response, :approval_handoff, handoff)
+  end
+
+  defp maybe_attach_approval_handoff(response, _context), do: response
 
   defp render_unavailable_slash(reason, state) do
     response = SlashCommands.unavailable_response(reason)
@@ -403,21 +700,25 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       surface: "tui_slash_command",
       external_user_id: state.profile,
       receiver_account_ref: "tui:#{state.profile}",
+      session: %{main?: true},
       request: %{
         channel: @channel,
         provider: @provider,
         surface: "tui_slash_command",
         external_user_id: state.profile,
-        receiver_account_ref: "tui:#{state.profile}"
+        receiver_account_ref: "tui:#{state.profile}",
+        session: %{main?: true}
       }
     }
+    |> maybe_attach_coding_context(state)
   end
 
   defp identity_context(user_id, state) do
     %{
-      actor: user_id,
+      actor: %{id: user_id},
       user_id: user_id,
       operator_id: user_id,
+      session: %{main?: true},
       request: %{
         channel: @channel,
         provider: @provider,
@@ -425,9 +726,26 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
         external_user_id: state.profile,
         receiver_account_ref: "tui:#{state.profile}",
         user_id: user_id,
-        operator_id: user_id
+        operator_id: user_id,
+        actor: %{id: user_id},
+        session: %{main?: true}
       }
     }
+    |> maybe_attach_coding_context(state)
+  end
+
+  defp maybe_attach_coding_context(context, %{pi_session: nil}), do: context
+
+  defp maybe_attach_coding_context(context, state) do
+    Map.put(context, :coding, CodingSession.metadata(state.pi_session))
+  end
+
+  defp coding_context(context, state) do
+    context
+    |> Map.put(:channel, %{name: :tui, trust: :local})
+    |> Map.put(:surface, "pi_mode")
+    |> Map.put(:session, %{main?: true})
+    |> Map.put(:coding, CodingSession.metadata(state.pi_session))
   end
 
   defp fields(text, opts, state) do
@@ -449,6 +767,8 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       },
       coding_turn?: Keyword.get(opts, :coding_turn?),
       coding_turn_id: Keyword.get(opts, :coding_turn_id) || Keyword.get(opts, :turn_id),
+      coding_session:
+        Keyword.get(opts, :coding_session) || CodingSession.metadata(state.pi_session),
       surface: Keyword.get(opts, :surface),
       raw_summary: "tui input #{event_id}"
     }
@@ -584,6 +904,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       }
       |> maybe_put(:coding_turn?, fields.coding_turn?)
       |> maybe_put(:coding_turn_id, fields.coding_turn_id)
+      |> maybe_put(:coding, non_empty_map(fields.coding_session))
       |> maybe_put(:surface, fields.surface)
 
     %{
@@ -608,6 +929,56 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       provider_thread_ref: fields.provider_thread_ref
     }
   end
+
+  defp run_coding_action(context, action_name, params) do
+    AllbertAssist.Actions.Runner.run(action_name, params, context)
+  end
+
+  defp at_file_reference?(text, state) do
+    state.coding_mode? and not is_nil(state.pi_session) and
+      Regex.match?(~r/^@[^\s]+$/, String.trim(text))
+  end
+
+  defp read_at_file_reference(text, state) do
+    path = text |> String.trim() |> String.trim_leading("@")
+    context = base_slash_context(state)
+
+    with {:ok, user_id} <- resolve_identity(%{external_user_id: state.profile}, state) do
+      context =
+        context
+        |> Map.merge(identity_context(user_id, state))
+        |> coding_context(state)
+
+      {:ok, response, state} = read_pi_path(path, context, state, "@file")
+
+      with {:ok, rendered} <-
+             Renderer.render_response(response, max_text_bytes: state.max_text_bytes),
+           state <- clear_live_status(state),
+           :ok <- emit_rendered(rendered, state) do
+        {{:ok, {:at_file, rendered}}, state}
+      end
+    else
+      {:error, reason} ->
+        render_unavailable_slash(reason, state)
+    end
+  end
+
+  defp pi_init_content(session) do
+    """
+    # Allbert Pi-Mode
+
+    cwd_jail: #{session.cwd_jail}
+    model_profile: #{session.model_profile}
+    prompt_tokens: #{session.prompt.token_count}/#{session.prompt.token_budget}
+
+    Tools: #{Enum.map_join(session.prompt.tools, ", ", & &1.name)}
+    """
+    |> String.trim()
+    |> Kernel.<>("\n")
+  end
+
+  defp non_empty_map(map) when is_map(map) and map_size(map) > 0, do: map
+  defp non_empty_map(_map), do: nil
 
   defp emit_rendered(rendered, state) do
     Enum.each(rendered, &emit_output(&1, state))
