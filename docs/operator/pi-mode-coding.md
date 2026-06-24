@@ -92,6 +92,12 @@ Allbert Home, scoped by repo fingerprint, permission, cwd, canonical command, an
 optional expiry. It is listable, revocable, auditable, and never a permission
 grant.
 
+In TUI validation, typed confirmation commands approve, deny, or show a pending
+confirmation. Remembering a command grant uses the confirmation CLI in a second
+terminal with the same `ALLBERT_HOME`: `mix allbert.confirmations approve
+<confirmation-id> --remember exact`. Inspect and revoke the stored grant with
+`mix allbert.resources grants list|show|revoke`.
+
 ## Tool Boundaries
 
 `read`, `grep`, and `glob` are read-only but sensitive. They run without a
@@ -175,6 +181,8 @@ For release closeout, keep:
   `coding.model_profile`;
 - whether model-driven `read`/`grep`/`write` or `edit`/`bash` calls executed
   through the agent loop with expected confirmation behavior;
+- the remembered command grant id from validation, plus list/show/revoke results
+  and post-revoke prompt behavior;
 - any failed command and its exact output.
 
 The allowlist store must live under Allbert Home, not the repo. Transcripts and
