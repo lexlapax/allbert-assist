@@ -16,6 +16,12 @@ defmodule AllbertAssist.Coding.PathPolicy do
           required(:relative_path) => String.t(),
           required(:byte_size) => non_neg_integer()
         }
+  @type destination_summary :: %{
+          required(:path) => String.t(),
+          required(:relative_path) => String.t(),
+          required(:parent_path) => String.t(),
+          required(:parent_relative_path) => String.t()
+        }
   @type dir_summary :: %{
           required(:path) => String.t(),
           required(:relative_path) => String.t(),
@@ -57,6 +63,28 @@ defmodule AllbertAssist.Coding.PathPolicy do
     else
       {:error, reason} -> {:error, reason}
       type when is_atom(type) -> {:error, {:not_a_file, type}}
+    end
+  end
+
+  @doc "Resolve a not-yet-existing file destination inside the cwd jail."
+  @spec resolve_new_file(term(), map()) :: {:ok, destination_summary()} | {:error, term()}
+  def resolve_new_file(path, context \\ %{}) do
+    with {:ok, jail} <- jail(context),
+         {:ok, expanded} <- expand_inside_jail(path, jail),
+         :ok <- ensure_inside_jail(expanded, jail),
+         :ok <- ensure_missing_destination(expanded),
+         {:ok, parent} <- resolve_dir(Path.dirname(expanded), %{cwd_jail: jail}),
+         destination <- Path.join(parent.path, Path.basename(expanded)),
+         :ok <- ensure_inside_jail(destination, jail) do
+      {:ok,
+       %{
+         path: destination,
+         relative_path: relative_path(destination, jail),
+         parent_path: parent.path,
+         parent_relative_path: parent.relative_path
+       }}
+    else
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -107,6 +135,22 @@ defmodule AllbertAssist.Coding.PathPolicy do
     end
   end
 
+  @doc false
+  @spec ensure_text_file(String.t()) :: :ok | {:error, term()}
+  def ensure_text_file(path) do
+    case File.open(path, [:read, :binary], fn io -> IO.binread(io, @binary_probe_bytes) end) do
+      {:ok, sample} when is_binary(sample) ->
+        if :binary.match(sample, <<0>>) == :nomatch do
+          :ok
+        else
+          {:error, :binary_file}
+        end
+
+      {:error, reason} ->
+        {:error, {:read_failed, reason}}
+    end
+  end
+
   defp expand_jail(path) when is_binary(path) do
     expanded = Path.expand(path, File.cwd!())
 
@@ -135,6 +179,14 @@ defmodule AllbertAssist.Coding.PathPolicy do
 
   defp ensure_inside_jail(path, jail) do
     if inside_jail?(path, jail), do: :ok, else: {:error, :path_outside_cwd_jail}
+  end
+
+  defp ensure_missing_destination(path) do
+    case File.lstat(path) do
+      {:ok, _stat} -> {:error, :file_exists}
+      {:error, :enoent} -> :ok
+      {:error, reason} -> {:error, {:stat_failed, reason}}
+    end
   end
 
   defp realpath(path), do: {:ok, resolve_symlink_path(path, 0)}
@@ -178,20 +230,6 @@ defmodule AllbertAssist.Coding.PathPolicy do
 
   defp append_path_parts(path, parts) do
     Enum.reduce(parts, path, fn part, acc -> Path.join(acc, part) end)
-  end
-
-  defp ensure_text_file(path) do
-    case File.open(path, [:read, :binary], fn io -> IO.binread(io, @binary_probe_bytes) end) do
-      {:ok, sample} when is_binary(sample) ->
-        if :binary.match(sample, <<0>>) == :nomatch do
-          :ok
-        else
-          {:error, :binary_file}
-        end
-
-      {:error, reason} ->
-        {:error, {:read_failed, reason}}
-    end
   end
 
   defp read_chunk(path, offset, limit, max_bytes) do

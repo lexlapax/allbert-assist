@@ -51,6 +51,27 @@ defmodule AllbertAssist.Confirmations do
           "voice" => get_in(record, ["resume_params_ref", "voice"])
         })
 
+      "write" ->
+        redact_resume_params(record, %{
+          "action" => "write",
+          "path" => get_in(record, ["resume_params_ref", "path"]),
+          "content" => "[REDACTED]",
+          "max_bytes" => get_in(record, ["resume_params_ref", "max_bytes"]),
+          "content_sha256" => get_in(record, ["resume_params_ref", "content_sha256"])
+        })
+
+      "edit" ->
+        redact_resume_params(record, %{
+          "action" => "edit",
+          "path" => get_in(record, ["resume_params_ref", "path"]),
+          "old_text" => "[REDACTED]",
+          "new_text" => "[REDACTED]",
+          "max_bytes" => get_in(record, ["resume_params_ref", "max_bytes"]),
+          "max_replacements" => get_in(record, ["resume_params_ref", "max_replacements"]),
+          "old_text_sha256" => get_in(record, ["resume_params_ref", "old_text_sha256"]),
+          "new_text_sha256" => get_in(record, ["resume_params_ref", "new_text_sha256"])
+        })
+
       _other ->
         record
     end

@@ -80,6 +80,8 @@ defmodule AllbertAssist.Settings.Schema do
     "coding.search.max_output_bytes",
     "coding.search.respect_gitignore",
     "coding.search.respect_allbertignore",
+    "coding.write.max_bytes",
+    "coding.edit.max_replacements",
     "active_memory.enabled",
     "active_memory.top_k",
     "active_memory.chunk_max_bytes",
@@ -2236,6 +2238,22 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false
     },
+    "coding.write.max_bytes" => %{
+      type: :bounded_integer,
+      default: 120_000,
+      writable?: true,
+      sensitive?: false,
+      min: 1_024,
+      max: 1_000_000
+    },
+    "coding.edit.max_replacements" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 1_000
+    },
     "permissions.coding_file_read" => %{
       type: :enum,
       default: "allowed",
@@ -3468,6 +3486,12 @@ defmodule AllbertAssist.Settings.Schema do
         "max_output_bytes" => 120_000,
         "respect_gitignore" => true,
         "respect_allbertignore" => true
+      },
+      "write" => %{
+        "max_bytes" => 120_000
+      },
+      "edit" => %{
+        "max_replacements" => 1
       }
     },
     "skills" => %{

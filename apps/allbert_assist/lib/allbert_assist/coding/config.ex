@@ -12,7 +12,9 @@ defmodule AllbertAssist.Coding.Config do
     search_max_results: 100,
     search_max_output_bytes: 120_000,
     search_respect_gitignore?: true,
-    search_respect_allbertignore?: true
+    search_respect_allbertignore?: true,
+    write_max_bytes: 120_000,
+    edit_max_replacements: 1
   }
 
   @doc "Return the configured cwd jail root, before path expansion."
@@ -51,6 +53,15 @@ defmodule AllbertAssist.Coding.Config do
   @spec respect_allbertignore?() :: boolean()
   def respect_allbertignore?,
     do: boolean("coding.search.respect_allbertignore", @defaults.search_respect_allbertignore?)
+
+  @doc "Return the maximum bytes a single write/edit may persist."
+  @spec write_max_bytes() :: pos_integer()
+  def write_max_bytes, do: positive_integer("coding.write.max_bytes", @defaults.write_max_bytes)
+
+  @doc "Return the maximum exact-match replacements for one edit call."
+  @spec edit_max_replacements() :: pos_integer()
+  def edit_max_replacements,
+    do: positive_integer("coding.edit.max_replacements", @defaults.edit_max_replacements)
 
   defp positive_integer(key, default) do
     case setting(key, default) do

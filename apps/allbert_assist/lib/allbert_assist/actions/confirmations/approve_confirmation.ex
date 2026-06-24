@@ -96,6 +96,8 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     install_marketplace_bundle
     create_skill
     continue_objective
+    write
+    edit
   ]
 
   @impl true
@@ -1907,11 +1909,15 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   defp actor(%{"actor" => actor}), do: actor
   defp actor(_context), do: "local"
 
-  defp channel(%{request: %{channel: channel}}), do: channel
-  defp channel(%{request: %{"channel" => channel}}), do: channel
-  defp channel(%{channel: channel}), do: channel
-  defp channel(%{"channel" => channel}), do: channel
+  defp channel(%{request: %{channel: channel}}), do: normalize_channel(channel)
+  defp channel(%{request: %{"channel" => channel}}), do: normalize_channel(channel)
+  defp channel(%{channel: channel}), do: normalize_channel(channel)
+  defp channel(%{"channel" => channel}), do: normalize_channel(channel)
   defp channel(_context), do: :unknown
+
+  defp normalize_channel(%{name: name}), do: name
+  defp normalize_channel(%{"name" => name}), do: name
+  defp normalize_channel(channel), do: channel
 
   defp surface(%{surface: surface}), do: surface
   defp surface(%{"surface" => surface}), do: surface

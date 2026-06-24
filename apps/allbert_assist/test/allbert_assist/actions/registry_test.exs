@@ -95,6 +95,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "read",
              "grep",
              "glob",
+             "write",
+             "edit",
              "unsupported_resource_workflow",
              "external_network_request",
              "plan_package_install",
@@ -634,6 +636,15 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert run_shell_command.confirmation == :required
     assert run_shell_command.resumable?
 
+    for name <- ["write", "edit"] do
+      assert {:ok, coding_file_effect} = Registry.capability(name)
+      assert coding_file_effect.permission == :coding_file_write
+      assert coding_file_effect.exposure == :agent
+      assert coding_file_effect.execution_mode == :coding_file_write
+      assert coding_file_effect.confirmation == :required
+      assert coding_file_effect.resumable?
+    end
+
     assert {:ok, external_network_request} = Registry.capability("external_network_request")
     assert external_network_request.permission == :external_network
     assert external_network_request.execution_mode == :req_http
@@ -931,6 +942,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert Registry.resumable?("transcribe_voice")
     assert Registry.resumable?("synthesize_voice")
     assert Registry.resumable?("generate_image")
+    assert Registry.resumable?("write")
+    assert Registry.resumable?("edit")
 
     refute Registry.resumable?("direct_answer")
     refute Registry.resumable?("plan_package_install")

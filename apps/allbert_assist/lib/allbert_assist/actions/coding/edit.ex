@@ -1,0 +1,309 @@
+defmodule AllbertAssist.Actions.Coding.Edit do
+  @moduledoc """
+  Apply an exact-match edit inside the Pi-mode cwd jail after confirmation.
+  """
+
+  use AllbertAssist.Action,
+    permission: :coding_file_write,
+    exposure: :agent,
+    execution_mode: :coding_file_write,
+    skill_backed?: false,
+    confirmation: :required,
+    resumable?: true,
+    name: "edit",
+    description: "Apply an exact-match replacement inside a cwd-jailed text file.",
+    category: "coding",
+    tags: ["coding", "file", "edit", "confirmation_required"],
+    schema: [
+      path: [type: :string, required: true],
+      old_text: [type: :string, required: true],
+      new_text: [type: :string, required: true],
+      max_replacements: [type: :integer, required: false],
+      max_bytes: [type: :integer, required: false],
+      source_text: [type: :string, required: false]
+    ],
+    output_schema: [
+      message: [type: :string, required: true],
+      status: [type: :atom, required: true],
+      permission_decision: [type: :map, required: true],
+      actions: [type: {:list, :map}, required: true]
+    ]
+
+  alias AllbertAssist.Actions.Outbound.Gate
+  alias AllbertAssist.Coding.Config
+  alias AllbertAssist.Coding.FileEffects
+  alias AllbertAssist.Coding.PathPolicy
+  alias AllbertAssist.Security.PermissionGate
+
+  @impl true
+  def run(params, context) when is_map(params) do
+    permission_decision =
+      PermissionGate.authorize(:coding_file_write, action_context(params, context))
+
+    if permission_decision.decision == :denied do
+      blocked_response(permission_decision)
+    else
+      prepare_and_gate(params, context)
+    end
+  end
+
+  def run(_params, context) do
+    permission_decision = PermissionGate.authorize(:coding_file_write, context)
+    denied_response(:invalid_params, permission_decision)
+  end
+
+  defp prepare_and_gate(params, context) do
+    with {:ok, prepared} <- prepare(params, context) do
+      spec = %{
+        action_name: "edit",
+        permission: :coding_file_write,
+        execution_mode: :coding_file_write,
+        summary: prepared.summary,
+        resume_params: resume_params(params, prepared)
+      }
+
+      context = action_context(params, context)
+
+      spec
+      |> Gate.run(context, fn ->
+        FileEffects.edit_file(prepared.path, prepared.old_text, prepared.new_text, context,
+          max_bytes: prepared.max_bytes,
+          max_replacements: prepared.max_replacements
+        )
+      end)
+      |> enrich_response(prepared)
+    else
+      {:error, reason, permission_decision} ->
+        denied_response(reason, permission_decision)
+    end
+  end
+
+  defp prepare(params, context) do
+    old_text = text_param(params, :old_text)
+    new_text = text_param(params, :new_text)
+    max_bytes = int_param(params, :max_bytes, Config.write_max_bytes())
+    max_replacements = int_param(params, :max_replacements, Config.edit_max_replacements())
+
+    with :ok <- ensure_nonempty_old_text(old_text),
+         :ok <- ensure_content_size(new_text, max_bytes),
+         {:ok, file} <- PathPolicy.resolve_file(field(params, :path), context),
+         :ok <- ensure_content_size(file.byte_size, max_bytes),
+         :ok <- PathPolicy.ensure_text_file(file.path),
+         {:ok, content} <- File.read(file.path),
+         {:ok, replacements} <- replacement_count(content, old_text, max_replacements),
+         :ok <- ensure_content_size(edited_size(content, old_text, new_text), max_bytes) do
+      summary = %{
+        path: file.relative_path,
+        previous_byte_size: file.byte_size,
+        byte_size: edited_size(content, old_text, new_text),
+        replacements: replacements,
+        old_text_sha256: FileEffects.sha256(old_text),
+        new_text_sha256: FileEffects.sha256(new_text),
+        diff_preview:
+          FileEffects.diff(:edit, file.relative_path, old_text, new_text, replacements),
+        diff_truncated?:
+          FileEffects.diff_truncated?(
+            :edit,
+            file.relative_path,
+            old_text,
+            new_text,
+            replacements
+          )
+      }
+
+      {:ok,
+       %{
+         path: field(params, :path),
+         old_text: old_text,
+         new_text: new_text,
+         max_bytes: max_bytes,
+         max_replacements: max_replacements,
+         summary: summary
+       }}
+    else
+      {:error, reason} ->
+        permission_decision =
+          PermissionGate.authorize(:coding_file_write, action_context(params, context))
+
+        {:error, reason, permission_decision}
+    end
+  end
+
+  defp enrich_response({:ok, response}, prepared) do
+    status = Map.get(response, :status, :completed)
+    payload = payload_for(status, response, prepared.summary)
+
+    {:ok,
+     response
+     |> Map.put(:model_payload, payload)
+     |> Map.put(:surface_payload, payload)
+     |> Map.put(:output_data, output_data(response, prepared.summary))}
+  end
+
+  defp payload_for(:completed, response, _summary) do
+    receipt = Map.get(response, :receipt, %{})
+
+    [
+      "edit completed: ",
+      Map.get(receipt, :relative_path, "unknown"),
+      " replacements=",
+      receipt |> Map.get(:replacements, 0) |> to_string(),
+      "\n\n",
+      Map.get(receipt, :diff, "")
+    ]
+    |> IO.iodata_to_binary()
+  end
+
+  defp payload_for(:needs_confirmation, response, summary) do
+    [
+      Map.get(response, :message, "edit needs confirmation"),
+      "\npath=",
+      summary.path,
+      " replacements=",
+      to_string(summary.replacements),
+      " old_text_sha256=",
+      summary.old_text_sha256,
+      " new_text_sha256=",
+      summary.new_text_sha256,
+      "\n\n",
+      summary.diff_preview
+    ]
+    |> IO.iodata_to_binary()
+  end
+
+  defp payload_for(_status, response, _summary), do: Map.get(response, :message, "")
+
+  defp output_data(response, summary) do
+    response
+    |> Map.get(:receipt, summary)
+    |> Map.take([
+      :relative_path,
+      :byte_size,
+      :previous_byte_size,
+      :content_sha256,
+      :previous_content_sha256,
+      :replacements,
+      :diff_truncated?
+    ])
+  end
+
+  defp resume_params(params, prepared) do
+    %{
+      action: "edit",
+      path: prepared.path,
+      old_text: prepared.old_text,
+      new_text: prepared.new_text,
+      max_bytes: prepared.max_bytes,
+      max_replacements: prepared.max_replacements,
+      old_text_sha256: prepared.summary.old_text_sha256,
+      new_text_sha256: prepared.summary.new_text_sha256,
+      source_text: field(params, :source_text)
+    }
+  end
+
+  defp replacement_count(content, old_text, max_replacements) do
+    count = length(:binary.matches(content, old_text))
+
+    cond do
+      count == 0 -> {:error, :exact_match_not_found}
+      count > max_replacements -> {:error, {:too_many_exact_matches, count, max_replacements}}
+      true -> {:ok, count}
+    end
+  end
+
+  defp edited_size(content, old_text, new_text) do
+    content
+    |> String.replace(old_text, new_text, global: true)
+    |> byte_size()
+  end
+
+  defp blocked_response(permission_decision) do
+    {:ok,
+     %{
+       message:
+         "Coding edit did not run: permission gate returned #{permission_decision.decision}.",
+       status: PermissionGate.response_status(permission_decision),
+       permission_decision: permission_decision,
+       actions: [
+         %{
+           name: "edit",
+           status: PermissionGate.response_status(permission_decision),
+           permission: :coding_file_write,
+           permission_decision: permission_decision,
+           execution: :not_started
+         }
+       ]
+     }}
+  end
+
+  defp denied_response(reason, permission_decision) do
+    {:ok,
+     %{
+       message: "Coding edit was denied: #{inspect(reason)}.",
+       status: :denied,
+       error: reason,
+       permission_decision: permission_decision,
+       actions: [
+         %{
+           name: "edit",
+           status: :denied,
+           permission: :coding_file_write,
+           permission_decision: permission_decision,
+           execution: :not_started,
+           denial_reason: reason
+         }
+       ]
+     }}
+  end
+
+  defp action_context(params, context) do
+    Map.merge(context, %{
+      request: normalized_request(context),
+      resource: %{kind: :local_file, access: :write, path: field(params, :path)}
+    })
+  end
+
+  defp normalized_request(context) do
+    context
+    |> Map.get(:request, %{})
+    |> Map.put(:channel, channel_name(context))
+  end
+
+  defp channel_name(%{channel: %{name: name}}), do: name
+  defp channel_name(%{"channel" => %{"name" => name}}), do: name
+  defp channel_name(%{channel: channel}), do: channel
+  defp channel_name(%{"channel" => channel}), do: channel
+  defp channel_name(_context), do: :unknown
+
+  defp ensure_nonempty_old_text(""), do: {:error, :empty_exact_match}
+  defp ensure_nonempty_old_text(_old_text), do: :ok
+
+  defp ensure_content_size(content, max_bytes) when is_binary(content),
+    do: ensure_content_size(byte_size(content), max_bytes)
+
+  defp ensure_content_size(size, max_bytes) when is_integer(size) and size <= max_bytes, do: :ok
+  defp ensure_content_size(size, max_bytes), do: {:error, {:content_too_large, size, max_bytes}}
+
+  defp int_param(params, key, default) do
+    case field(params, key) do
+      value when is_integer(value) -> value
+      _other -> default
+    end
+  end
+
+  defp text_param(params, key) do
+    case field(params, key) do
+      value when is_binary(value) -> value
+      nil -> ""
+      value -> to_string(value)
+    end
+  end
+
+  defp field(map, key) when is_map(map) do
+    cond do
+      Map.has_key?(map, key) -> Map.get(map, key)
+      Map.has_key?(map, Atom.to_string(key)) -> Map.get(map, Atom.to_string(key))
+      true -> nil
+    end
+  end
+end

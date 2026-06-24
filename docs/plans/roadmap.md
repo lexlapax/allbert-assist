@@ -3532,8 +3532,9 @@ ADR: `docs/adr/0068-pi-mode-coding-surface-and-local-coding-trust-tier.md`
 (Accepted in v0.57 M0)
 Rationale: `docs/archives/pi-integration-rethink.md`
 
-Status: in progress; M0 contracts/API/upstream verification and M1
-read/search/path substrate implemented 2026-06-23. NEW in the 2026-06-21 replan.
+Status: in progress; M0 contracts/API/upstream verification, M1
+read/search/path substrate, and M2 write/edit file effects implemented
+2026-06-23. NEW in the 2026-06-21 replan.
 Incorporates the Pi-vs-Allbert analysis:
 keep Allbert's authority spine, give it Pi's minimal inner loop where it helps (a
 gated coding surface), and adopt Pi's split-tool-result and minimalism budget.
