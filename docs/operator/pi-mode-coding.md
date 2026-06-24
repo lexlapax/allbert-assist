@@ -78,6 +78,15 @@ execute `write`, `edit`, or `bash`.
 tier resolves: trusted operator, main session, `tui`, not channel-originated,
 not scheduled, and not generated-code.
 
+Confirmation timing is mode-dependent. In `default` mode, a model-proposed
+`write`, `edit`, or `bash` returns a pending confirmation and the file/command
+effect has not happened. The model loop may finish after receiving that bounded
+pending result; approving the confirmation resumes the registered action later
+through the normal confirmation path, not inside the same LLM stream. In
+`accept-edits` or `tier` mode, an effect can complete during the same loop only
+when Security Central suppresses the prompt while preserving the original
+`:needs_confirmation` decision, trace, and audit.
+
 The "always allow this command" affordance stores a remembered command grant under
 Allbert Home, scoped by repo fingerprint, permission, cwd, canonical command, and
 optional expiry. It is listable, revocable, auditable, and never a permission
