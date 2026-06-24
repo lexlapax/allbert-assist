@@ -97,6 +97,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "glob",
              "write",
              "edit",
+             "bash",
              "unsupported_resource_workflow",
              "external_network_request",
              "plan_package_install",
@@ -645,6 +646,13 @@ defmodule AllbertAssist.Actions.RegistryTest do
       assert coding_file_effect.resumable?
     end
 
+    assert {:ok, bash} = Registry.capability("bash")
+    assert bash.permission == :coding_shell_execute
+    assert bash.exposure == :agent
+    assert bash.execution_mode == :coding_shell_execute
+    assert bash.confirmation == :required
+    assert bash.resumable?
+
     assert {:ok, external_network_request} = Registry.capability("external_network_request")
     assert external_network_request.permission == :external_network
     assert external_network_request.execution_mode == :req_http
@@ -944,6 +952,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert Registry.resumable?("generate_image")
     assert Registry.resumable?("write")
     assert Registry.resumable?("edit")
+    assert Registry.resumable?("bash")
 
     refute Registry.resumable?("direct_answer")
     refute Registry.resumable?("plan_package_install")

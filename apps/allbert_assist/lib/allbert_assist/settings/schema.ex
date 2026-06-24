@@ -82,6 +82,9 @@ defmodule AllbertAssist.Settings.Schema do
     "coding.search.respect_allbertignore",
     "coding.write.max_bytes",
     "coding.edit.max_replacements",
+    "coding.bash.timeout_ms",
+    "coding.bash.max_output_bytes",
+    "coding.bash.allow_raw_shell",
     "active_memory.enabled",
     "active_memory.top_k",
     "active_memory.chunk_max_bytes",
@@ -2254,6 +2257,28 @@ defmodule AllbertAssist.Settings.Schema do
       min: 1,
       max: 1_000
     },
+    "coding.bash.timeout_ms" => %{
+      type: :bounded_integer,
+      default: 120_000,
+      writable?: true,
+      sensitive?: false,
+      min: 100,
+      max: 600_000
+    },
+    "coding.bash.max_output_bytes" => %{
+      type: :bounded_integer,
+      default: 120_000,
+      writable?: true,
+      sensitive?: false,
+      min: 1_024,
+      max: 1_000_000
+    },
+    "coding.bash.allow_raw_shell" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
     "permissions.coding_file_read" => %{
       type: :enum,
       default: "allowed",
@@ -3492,6 +3517,11 @@ defmodule AllbertAssist.Settings.Schema do
       },
       "edit" => %{
         "max_replacements" => 1
+      },
+      "bash" => %{
+        "timeout_ms" => 120_000,
+        "max_output_bytes" => 120_000,
+        "allow_raw_shell" => false
       }
     },
     "skills" => %{

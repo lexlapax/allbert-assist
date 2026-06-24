@@ -26,6 +26,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Channels.SignalDoctor
   alias AllbertAssist.Actions.Channels.SignalLinkDevice
   alias AllbertAssist.Actions.Channels.WhatsAppDoctor
+  alias AllbertAssist.Actions.Coding.Bash, as: CodingBash
   alias AllbertAssist.Actions.Coding.Edit, as: CodingEdit
   alias AllbertAssist.Actions.Coding.Glob, as: CodingGlob
   alias AllbertAssist.Actions.Coding.Grep, as: CodingGrep
@@ -213,6 +214,7 @@ defmodule AllbertAssist.Actions.Registry do
     CodingGlob,
     CodingWrite,
     CodingEdit,
+    CodingBash,
     UnsupportedResourceWorkflow,
     ExternalNetworkRequest,
     PlanPackageInstall,

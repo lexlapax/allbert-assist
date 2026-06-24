@@ -72,6 +72,19 @@ defmodule AllbertAssist.Confirmations do
           "new_text_sha256" => get_in(record, ["resume_params_ref", "new_text_sha256"])
         })
 
+      "bash" ->
+        redact_resume_params(record, %{
+          "action" => "bash",
+          "mode" => get_in(record, ["resume_params_ref", "mode"]),
+          "executable" => get_in(record, ["resume_params_ref", "executable"]),
+          "args" => "[REDACTED_ARGS]",
+          "command" => "[REDACTED_COMMAND]",
+          "cwd" => get_in(record, ["resume_params_ref", "cwd"]),
+          "timeout_ms" => get_in(record, ["resume_params_ref", "timeout_ms"]),
+          "max_output_bytes" => get_in(record, ["resume_params_ref", "max_output_bytes"]),
+          "env" => "[REDACTED_ENV]"
+        })
+
       _other ->
         record
     end

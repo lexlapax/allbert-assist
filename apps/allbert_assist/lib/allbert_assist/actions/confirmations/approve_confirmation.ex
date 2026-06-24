@@ -98,6 +98,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     continue_objective
     write
     edit
+    bash
   ]
 
   @impl true

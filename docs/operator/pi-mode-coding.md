@@ -1,8 +1,8 @@
 # Pi-Mode Coding Operator Guide
 
-Status: planned for v0.57. This guide describes the target operator workflow for
-the Pi-mode coding surface after implementation. The release-authoritative
-validation checklist lives in
+Status: planned for v0.57; M0-M3 are implemented. This guide describes the target
+operator workflow for the Pi-mode coding surface after implementation. The
+release-authoritative validation checklist lives in
 `docs/plans/v0.57-request-flow.md#operator-validation`.
 
 Pi-mode runs inside the persistent `tui` channel. It is not a separate runtime and
@@ -86,9 +86,9 @@ intent candidates and do not create model turns:
 |---|---|
 | `/help` | Router-local read. |
 | `/diff` | Read-only coding diff view through the coding file-read boundary. |
-| `/model <profile>` | Session model change through the coding session-write boundary. |
-| `/clear` | Session context reset through the coding session-write boundary. |
-| `/compact` | Context compaction through the coding session-write boundary. |
+| `/model <profile>` | Ungated in-memory session model change; no `:coding_session_write` atom. |
+| `/clear` | Ungated session context reset; no `:coding_session_write` atom. |
+| `/compact` | Ungated context compaction; no `:coding_session_write` atom. |
 | `/init` | Scaffolds `AGENTS.md` through the coding file-write boundary. |
 
 `@file` mentions use the same bounded `read` action as ordinary read requests.

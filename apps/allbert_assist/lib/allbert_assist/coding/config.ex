@@ -14,7 +14,10 @@ defmodule AllbertAssist.Coding.Config do
     search_respect_gitignore?: true,
     search_respect_allbertignore?: true,
     write_max_bytes: 120_000,
-    edit_max_replacements: 1
+    edit_max_replacements: 1,
+    bash_timeout_ms: 120_000,
+    bash_max_output_bytes: 120_000,
+    bash_allow_raw_shell?: false
   }
 
   @doc "Return the configured cwd jail root, before path expansion."
@@ -62,6 +65,20 @@ defmodule AllbertAssist.Coding.Config do
   @spec edit_max_replacements() :: pos_integer()
   def edit_max_replacements,
     do: positive_integer("coding.edit.max_replacements", @defaults.edit_max_replacements)
+
+  @doc "Return the maximum wall-clock time for a bash action."
+  @spec bash_timeout_ms() :: pos_integer()
+  def bash_timeout_ms, do: positive_integer("coding.bash.timeout_ms", @defaults.bash_timeout_ms)
+
+  @doc "Return the maximum bytes a bash action may return."
+  @spec bash_max_output_bytes() :: pos_integer()
+  def bash_max_output_bytes,
+    do: positive_integer("coding.bash.max_output_bytes", @defaults.bash_max_output_bytes)
+
+  @doc "Return true when raw shell strings may be considered at the local-coding tier."
+  @spec bash_allow_raw_shell?() :: boolean()
+  def bash_allow_raw_shell?,
+    do: boolean("coding.bash.allow_raw_shell", @defaults.bash_allow_raw_shell?)
 
   defp positive_integer(key, default) do
     case setting(key, default) do

@@ -460,14 +460,26 @@ defmodule AllbertAssist.Security.Policy do
   end
 
   defp actor_id(context) do
-    get_in(context, [:actor, :id]) || get_in(context, ["actor", "id"]) ||
-      field(context, :operator_id) || field(context, :actor)
+    actor = field(context, :actor)
+
+    actor_id_from(actor) || field(context, :operator_id)
   end
 
   defp channel_name(context) do
-    get_in(context, [:channel, :name]) || get_in(context, ["channel", "name"]) ||
-      field(context, :channel)
+    context
+    |> field(:channel)
+    |> channel_name_from()
   end
+
+  defp actor_id_from(%{id: id}), do: id
+  defp actor_id_from(%{"id" => id}), do: id
+  defp actor_id_from(actor) when is_binary(actor) or is_atom(actor), do: actor
+  defp actor_id_from(_actor), do: nil
+
+  defp channel_name_from(%{name: name}), do: name
+  defp channel_name_from(%{"name" => name}), do: name
+  defp channel_name_from(channel) when is_binary(channel) or is_atom(channel), do: channel
+  defp channel_name_from(_channel), do: nil
 
   defp main_session?(context) do
     get_in(context, [:session, :main?]) == true or get_in(context, ["session", "main?"]) == true or
