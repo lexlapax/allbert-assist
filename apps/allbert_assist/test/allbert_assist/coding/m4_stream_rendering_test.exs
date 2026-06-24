@@ -100,6 +100,12 @@ defmodule AllbertAssist.Coding.M4StreamRenderingTest do
     assert live_render =~ "Tool call edit"
     assert live_render =~ "lib/example.ex"
 
+    compact_live_render = Renderer.stream_state(state)
+    assert compact_live_render =~ "Assistant streaming"
+    assert compact_live_render =~ "Tool calls: edit"
+    refute compact_live_render =~ "lib/example.ex"
+    refute compact_live_render =~ "{"
+
     assert {:ok, final_state} = StreamRenderer.apply_event(state, complete_event)
     assert StreamRenderer.render(final_state) == "surface diff"
     refute StreamRenderer.render(final_state) =~ "model-clean"
@@ -136,7 +142,22 @@ defmodule AllbertAssist.Coding.M4StreamRenderingTest do
              StreamEvent.new(:assistant_token_delta, %{turn_id: "turn-1", text: "hello"})
 
     assert {:ok, live_region} = LiveRegion.apply_event(live_region, event)
-    assert_received {:update, :test_coding_stream, "hello"}
+    assert_received {:update, :test_coding_stream, "Assistant streaming (5 bytes)"}
+    assert_received :await_render
+
+    assert {:ok, tool_event} =
+             StreamEvent.new(:tool_call_argument_delta, %{
+               turn_id: "turn-1",
+               tool_call_id: "call-1",
+               tool_name: "read",
+               arguments_delta: %{"path" => "docs/plans/v0.57-plan.md"}
+             })
+
+    assert {:ok, live_region} = LiveRegion.apply_event(live_region, tool_event)
+    assert_received {:update, :test_coding_stream, compact_update}
+    assert compact_update =~ "Tool calls: read"
+    refute compact_update =~ "docs/plans/v0.57-plan.md"
+    refute compact_update =~ "{"
     assert_received :await_render
 
     assert {:ok, _cleared} = LiveRegion.clear(live_region)

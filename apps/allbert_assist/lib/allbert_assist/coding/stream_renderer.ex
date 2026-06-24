@@ -68,9 +68,10 @@ defmodule AllbertAssist.Coding.StreamRenderer do
   @spec render(t(), keyword()) :: String.t()
   def render(state, opts \\ []) do
     max_text_bytes = Keyword.get(opts, :max_text_bytes, @default_max_text_bytes)
+    mode = Keyword.get(opts, :mode, :transcript)
 
     state
-    |> render_text()
+    |> render_text(mode)
     |> Redactor.redact()
     |> bound_text(max_text_bytes)
   end
@@ -130,11 +131,22 @@ defmodule AllbertAssist.Coding.StreamRenderer do
     |> maybe_put(:surface_payload, Map.get(event, :surface_payload))
   end
 
-  defp render_text(%{complete?: true, surface_payload: payload}) when is_binary(payload) do
+  defp render_text(%{complete?: true, surface_payload: payload}, _mode) when is_binary(payload) do
     payload
   end
 
-  defp render_text(state) do
+  defp render_text(state, :live) do
+    [
+      assistant_live_section(state.assistant_text),
+      tool_live_section(state.tool_calls),
+      result_live_section(state.tool_results),
+      cancelled_section(state)
+    ]
+    |> Enum.reject(&blank?/1)
+    |> Enum.join("\n")
+  end
+
+  defp render_text(state, _mode) do
     [
       assistant_section(state.assistant_text),
       tool_section(state.tool_calls),
@@ -147,6 +159,9 @@ defmodule AllbertAssist.Coding.StreamRenderer do
 
   defp assistant_section(""), do: nil
   defp assistant_section(text), do: text
+
+  defp assistant_live_section(""), do: nil
+  defp assistant_live_section(text), do: "Assistant streaming (#{byte_size(text)} bytes)"
 
   defp tool_section(tool_calls) when map_size(tool_calls) == 0, do: nil
 
@@ -166,8 +181,23 @@ defmodule AllbertAssist.Coding.StreamRenderer do
     end)
   end
 
+  defp tool_live_section(tool_calls) when map_size(tool_calls) == 0, do: nil
+
+  defp tool_live_section(tool_calls) do
+    names =
+      tool_calls
+      |> Enum.sort_by(fn {id, _tool} -> id end)
+      |> Enum.map(fn {_id, tool} -> Map.get(tool, :name) || "tool" end)
+      |> Enum.uniq()
+
+    "Tool calls: #{Enum.join(names, ", ")}"
+  end
+
   defp result_section([]), do: nil
   defp result_section(results), do: Enum.join(results, "\n")
+
+  defp result_live_section([]), do: nil
+  defp result_live_section(results), do: "Tool results: #{length(results)} received"
 
   defp cancelled_section(%{cancelled?: true, cancel_reason: reason}),
     do: "Turn cancelled: #{inspect(Redactor.redact(reason))}"

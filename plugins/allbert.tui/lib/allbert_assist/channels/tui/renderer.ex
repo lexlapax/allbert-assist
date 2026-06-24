@@ -55,7 +55,7 @@ defmodule AllbertAssist.Channels.TUI.Renderer do
   @spec stream_state(StreamRenderer.t(), keyword()) :: Owl.Data.t()
   def stream_state(state, opts \\ []) do
     max_text_bytes = Keyword.get(opts, :max_text_bytes, @default_max_text_bytes)
-    StreamRenderer.render(state, max_text_bytes: max_text_bytes)
+    StreamRenderer.render(state, max_text_bytes: max_text_bytes, mode: :live)
   end
 
   def render_approval_handoff(handoff_data) do
