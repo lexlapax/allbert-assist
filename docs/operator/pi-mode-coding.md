@@ -1,6 +1,6 @@
 # Pi-Mode Coding Operator Guide
 
-Status: v0.57 M0-M9.18 are implemented. Release closeout is blocked on warm
+Status: v0.57 M0-M9.19 are implemented. Release closeout is blocked on warm
 operator validation against a real streaming/tool-capable coding profile. This guide
 describes the operator workflow for the Pi-mode coding surface. The
 release-authoritative validation checklist lives in
@@ -115,6 +115,10 @@ when Security Central suppresses the prompt while preserving the original
 In the TUI transcript, a streamed coding turn that needs confirmation must still
 print the exact approval command, for example `ALLBERT:APPROVE:<id>`. Streamed
 assistant text without the approval command is not valid confirmation evidence.
+Typing the exact approval command for a pending coding `write`, `edit`, or `bash`
+must resume the original Pi-mode action with its original cwd jail/session
+context, then resolve the confirmation as approved. `ALLBERT:APPROVE:<id>` printing
+`Confirmation <id> is denied` is a validation failure, not an acceptable denial.
 
 The "always allow this command" affordance stores a remembered command grant under
 Allbert Home, scoped by repo fingerprint, permission, cwd, canonical command, and

@@ -11,6 +11,7 @@ defmodule AllbertAssist.Confirmations.Origin do
   @spec from_context(map(), String.t()) :: map()
   def from_context(context, default_surface) when is_map(context) do
     request = field(context, :request, %{}) || %{}
+    metadata = field(request, :metadata, %{}) || field(context, :metadata, %{}) || %{}
 
     %{
       actor: first_present([field(request, :operator_id), field(context, :actor)], "local"),
@@ -25,6 +26,8 @@ defmodule AllbertAssist.Confirmations.Origin do
       run_id: first_present([field(request, :run_id), field(context, :run_id)]),
       response_target: field(context, :response_target)
     }
+    |> put_optional_map(:session, session_snapshot(context, request))
+    |> put_optional_map(:coding, coding_snapshot(context, request, metadata))
     |> drop_empty()
   end
 
@@ -39,9 +42,58 @@ defmodule AllbertAssist.Confirmations.Origin do
 
   defp field(_map, _key, default), do: default
 
+  defp session_snapshot(context, request) do
+    first_map(field(context, :session), field(request, :session))
+  end
+
+  defp coding_snapshot(context, request, metadata) do
+    request
+    |> field(:coding, %{})
+    |> map_or_empty()
+    |> Map.merge(metadata |> field(:coding, %{}) |> map_or_empty())
+    |> Map.merge(context |> field(:coding, %{}) |> map_or_empty())
+    |> Map.take([
+      :cwd_jail,
+      :workspace_root,
+      :pi_mode_enabled,
+      :pi_mode_enabled?,
+      :approval_mode,
+      :default_approval_mode,
+      :model_profile,
+      :prompt_token_count,
+      :prompt_tokenizer,
+      :channel_originated?,
+      :scheduled?,
+      :generated_code_session?,
+      "cwd_jail",
+      "workspace_root",
+      "pi_mode_enabled",
+      "pi_mode_enabled?",
+      "approval_mode",
+      "default_approval_mode",
+      "model_profile",
+      "prompt_token_count",
+      "prompt_tokenizer",
+      "channel_originated?",
+      "scheduled?",
+      "generated_code_session?"
+    ])
+  end
+
+  defp put_optional_map(map, _key, value) when value in [nil, %{}], do: map
+  defp put_optional_map(map, key, value) when is_map(value), do: Map.put(map, key, value)
+  defp put_optional_map(map, _key, _value), do: map
+
+  defp first_map(value, _fallback) when is_map(value), do: value
+  defp first_map(_value, value) when is_map(value), do: value
+  defp first_map(_value, _fallback), do: %{}
+
   defp first_present(values, default \\ nil) do
     Enum.find(values, default, &(&1 not in [nil, ""]))
   end
+
+  defp map_or_empty(value) when is_map(value), do: value
+  defp map_or_empty(_value), do: %{}
 
   defp drop_empty(map) do
     Map.reject(map, fn {_key, value} -> value in [nil, ""] end)

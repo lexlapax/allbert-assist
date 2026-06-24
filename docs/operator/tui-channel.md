@@ -160,6 +160,9 @@ Legacy v0.55 manual M3 approval smoke:
 - Confirm the resolution result is printed. For v0.55.1 validation, inspect the
   resolved confirmation with `/confirmations` inside the same TUI session; do not
   use cold `mix allbert.confirmations list` until after the session is closed.
+- For a resumable target action, an `ALLBERT:APPROVE:<id>` command must resolve
+  as approved and mark the target resumed; an approve command that prints
+  `Confirmation <id> is denied` is a validation failure.
 - Confirm no button/link affordance or target URL is printed in the terminal
   approval handoff.
 

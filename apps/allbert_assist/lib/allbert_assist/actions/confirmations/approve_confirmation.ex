@@ -1821,6 +1821,8 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
   end
 
   defp target_context(record, context) do
+    resolver = resolver_context(context)
+    context = restore_coding_target_context(record, context)
     target = Map.get(record, "target_action", %{})
     selected_skill = selected_skill_name(record)
     skill_metadata = if selected_skill, do: Map.get(record, "selected_skill", %{}), else: %{}
@@ -1837,7 +1839,7 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       confirmation: %{
         id: Map.get(record, "id"),
         origin: Map.get(record, "origin", %{}),
-        resolver: resolver_context(context),
+        resolver: resolver,
         target_execution_mode: Map.get(record, "target_execution_mode")
       },
       objective_id: objective_id(record),
@@ -1849,6 +1851,91 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
       skill_metadata: skill_metadata
     })
   end
+
+  defp restore_coding_target_context(record, context) do
+    if coding_target?(record) do
+      origin = Map.get(record, "origin", %{})
+
+      coding =
+        origin
+        |> Map.get("coding", %{})
+        |> merge_live_trust_context(coding_context_from(context))
+
+      session = Map.get(origin, "session", %{})
+      request = Map.get(context, :request, Map.get(context, "request", %{}))
+      metadata = Map.get(request, :metadata, Map.get(request, "metadata", %{}))
+
+      request =
+        request
+        |> put_if_present(:channel, Map.get(origin, "channel"))
+        |> put_if_present(:user_id, Map.get(origin, "user_id"))
+        |> put_if_present(
+          :operator_id,
+          Map.get(origin, "operator_id") || Map.get(origin, "actor")
+        )
+        |> put_if_present(:session, session)
+        |> Map.put(:metadata, metadata |> put_if_present(:surface, Map.get(origin, "surface")))
+        |> put_coding_metadata(coding)
+
+      context
+      |> put_if_present(:actor, Map.get(origin, "actor") || Map.get(origin, "operator_id"))
+      |> put_if_present(:user_id, Map.get(origin, "user_id"))
+      |> put_if_present(:operator_id, Map.get(origin, "operator_id") || Map.get(origin, "actor"))
+      |> put_if_present(:channel, Map.get(origin, "channel"))
+      |> put_if_present(:surface, Map.get(origin, "surface"))
+      |> put_if_present(:session, session)
+      |> put_if_present(
+        :cwd_jail,
+        Map.get(coding, "cwd_jail") || Map.get(coding, "workspace_root")
+      )
+      |> put_if_present(:coding, coding)
+      |> Map.put(:request, request)
+    else
+      context
+    end
+  end
+
+  defp coding_target?(record) do
+    target_action_name(record) in ["write", "edit", "bash"] or
+      Map.get(record, "target_permission") in [
+        "coding_file_read",
+        "coding_file_write",
+        "coding_shell_execute"
+      ]
+  end
+
+  defp coding_context_from(context) do
+    request = Map.get(context, :request, Map.get(context, "request", %{}))
+    metadata = Map.get(request, :metadata, Map.get(request, "metadata", %{}))
+
+    %{}
+    |> Map.merge(map_or_empty(Map.get(request, :coding, Map.get(request, "coding", %{}))))
+    |> Map.merge(map_or_empty(Map.get(metadata, :coding, Map.get(metadata, "coding", %{}))))
+    |> Map.merge(map_or_empty(Map.get(context, :coding, Map.get(context, "coding", %{}))))
+  end
+
+  defp map_or_empty(value) when is_map(value), do: value
+  defp map_or_empty(_value), do: %{}
+
+  defp merge_live_trust_context(origin_coding, live_coding) do
+    live_coding =
+      Map.drop(live_coding, [:cwd_jail, :workspace_root, "cwd_jail", "workspace_root"])
+
+    Map.merge(origin_coding, live_coding)
+  end
+
+  defp put_coding_metadata(request, coding) when is_map(coding) and map_size(coding) > 0 do
+    metadata = Map.get(request, :metadata, Map.get(request, "metadata", %{}))
+
+    request
+    |> Map.put(:coding, coding)
+    |> Map.put(:metadata, Map.put(metadata, :coding, coding))
+  end
+
+  defp put_coding_metadata(request, _coding), do: request
+
+  defp put_if_present(map, _key, value) when value in [nil, "", %{}], do: map
+  defp put_if_present(map, key, value), do: Map.put(map, key, value)
 
   defp target_active_app(record) do
     get_in(record, ["origin", "app_id"]) ||

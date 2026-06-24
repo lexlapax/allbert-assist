@@ -5,6 +5,7 @@ defmodule AllbertAssist.Coding.M8SessionSlashTest do
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.TUI.Adapter
   alias AllbertAssist.Channels.TUI.SlashCommands
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Coding.PathPolicy
   alias AllbertAssist.Coding.Prompt
   alias AllbertAssist.Coding.Session, as: CodingSession
@@ -200,8 +201,24 @@ defmodule AllbertAssist.Coding.M8SessionSlashTest do
 
     assert rendered =~ "Approval:"
     assert rendered =~ "target=write"
+    assert [_, confirmation_id] = Regex.run(~r/ALLBERT:APPROVE:([A-Za-z0-9_-]+)/, rendered)
     refute File.exists?(Path.join(repo, "pi-init.md"))
     refute_event("evt-m8-init")
+    refute_received {:runtime_request, _request}
+
+    assert {:ok, {:processed, event, [approval_rendered]}} =
+             Adapter.submit(server, "ALLBERT:APPROVE:#{confirmation_id}",
+               external_event_id: "evt-m8-init-approve"
+             )
+
+    assert event.direction == "callback"
+    assert event.status == "processed"
+    assert approval_rendered =~ "approved"
+    assert File.exists?(Path.join(repo, "pi-init.md"))
+
+    assert {:ok, approved} = Confirmations.read(confirmation_id)
+    assert approved["status"] == "approved"
+    assert get_in(approved, ["operator_resolution", "target_resumed?"]) == true
     refute_received {:runtime_request, _request}
   end
 

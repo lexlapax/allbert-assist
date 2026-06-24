@@ -497,7 +497,10 @@ defmodule AllbertAssist.Security.Policy do
   defp channel_name_from(_channel), do: nil
 
   defp main_session?(context) do
-    get_in(context, [:session, :main?]) == true or get_in(context, ["session", "main?"]) == true or
+    session = field(context, :session) || %{}
+
+    field(session, :main?) == true or get_in(context, [:session, :main?]) == true or
+      get_in(context, ["session", "main?"]) == true or
       field(context, :main_session?) == true or field(context, :session_kind) in [:main, "main"]
   end
 
