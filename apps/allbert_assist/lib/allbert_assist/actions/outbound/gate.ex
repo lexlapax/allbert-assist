@@ -16,6 +16,7 @@ defmodule AllbertAssist.Actions.Outbound.Gate do
   Routing grants no authority; this gate is the only execution boundary. Secrets
   must already be redacted out of `summary` by the caller.
   """
+  alias AllbertAssist.Coding.CommandGrants
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.Origin
   alias AllbertAssist.Security.PermissionGate
@@ -30,13 +31,15 @@ defmodule AllbertAssist.Actions.Outbound.Gate do
 
   @spec run(spec(), map(), (-> {:ok, map()} | {:error, term()})) :: {:ok, map()}
   def run(spec, context, send_fn) when is_function(send_fn, 0) do
+    context = action_spec_context(spec, context)
     decision = PermissionGate.authorize(spec.permission, context)
 
     cond do
       decision.decision == :denied ->
         {:ok, stopped(spec, decision, :permission_denied)}
 
-      PermissionGate.allowed?(decision) or approved_resume?(context) ->
+      PermissionGate.allowed?(decision) or confirmation_prompt_suppressed?(decision) or
+          approved_resume?(context) ->
         execute(spec, decision, send_fn)
 
       decision.decision == :needs_confirmation ->
@@ -140,11 +143,47 @@ defmodule AllbertAssist.Actions.Outbound.Gate do
   defp approved_resume?(%{"confirmation" => %{"approved?" => true}}), do: true
   defp approved_resume?(_context), do: false
 
+  defp confirmation_prompt_suppressed?(%{
+         decision: :needs_confirmation,
+         requires_confirmation: false
+       }),
+       do: true
+
+  defp confirmation_prompt_suppressed?(_decision), do: false
+
+  defp action_spec_context(spec, context) do
+    coding =
+      context
+      |> field(:coding, %{})
+      |> map_value()
+      |> Map.put(:action_name, spec.action_name)
+      |> Map.put(:permission, spec.permission)
+      |> Map.put(:execution_mode, spec.execution_mode)
+      |> maybe_put_command_params(spec)
+
+    Map.put(context, :coding, coding)
+  end
+
+  defp maybe_put_command_params(coding, %{permission: :coding_shell_execute} = spec) do
+    case CommandGrants.canonical_ref(spec.resume_params, permission: spec.permission) do
+      {:ok, ref} -> Map.put(coding, :command_grant_ref, CommandGrants.redacted_ref(ref))
+      {:error, _reason} -> coding
+    end
+  end
+
+  defp maybe_put_command_params(coding, _spec), do: coding
+
   defp confirmation_id(%{"id" => id}), do: id
   defp confirmation_id(%{id: id}), do: id
 
   defp field(map, key) when is_map(map),
     do: Map.get(map, key) || Map.get(map, to_string(key))
+
+  defp field(map, key, default) when is_map(map),
+    do: Map.get(map, key, Map.get(map, to_string(key), default))
+
+  defp map_value(value) when is_map(value), do: value
+  defp map_value(_value), do: %{}
 
   defp humanize(name), do: name |> String.replace("_", " ") |> String.capitalize()
 end

@@ -4,6 +4,7 @@ defmodule AllbertAssist.Security.Context do
   """
 
   alias AllbertAssist.Actions.Registry
+  alias AllbertAssist.Coding.CommandGrants
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.SafeTerm
   alias AllbertAssist.Skills
@@ -22,6 +23,7 @@ defmodule AllbertAssist.Security.Context do
       parent: parent(context),
       skill: skill(context),
       resource: resource(context),
+      coding: coding(context),
       voice: voice(context),
       advisory: advisory(context),
       secret_status: secret_status(context),
@@ -34,20 +36,24 @@ defmodule AllbertAssist.Security.Context do
   defp request_context(context), do: context
 
   defp actor(request, context) do
+    actor =
+      trusted_context_value(context, :operator_id) || trusted_context_value(context, :actor) ||
+        map_value(request, :operator_id) || map_value(request, :actor)
+
     %{
-      id:
-        trusted_context_value(context, :operator_id) || trusted_context_value(context, :actor) ||
-          map_value(request, :operator_id) || map_value(request, :actor) ||
-          "local",
+      id: actor_id(actor) || "local",
       kind: :operator
     }
   end
 
   defp channel(request, context) do
-    name = trusted_context_value(context, :channel) || map_value(request, :channel) || :unknown
+    name =
+      trusted_context_value(context, :channel)
+      |> Kernel.||(map_value(request, :channel))
+      |> channel_name()
 
     %{
-      name: name,
+      name: name || :unknown,
       trust: channel_trust(name)
     }
   end
@@ -62,7 +68,65 @@ defmodule AllbertAssist.Security.Context do
           map_value(request, :runner_requested_signal_id),
       request_id: trusted_context_value(context, :request_id) || map_value(request, :request_id)
     }
+    |> Map.put(:main?, main_session?(request, context))
   end
+
+  defp coding(context) do
+    coding = context |> map_value(:coding) |> map_or_empty()
+
+    %{}
+    |> maybe_put(:approval_mode, map_value(coding, :approval_mode))
+    |> maybe_put(:default_approval_mode, map_value(coding, :default_approval_mode))
+    |> maybe_put(:pi_mode_enabled, map_value(coding, :pi_mode_enabled))
+    |> maybe_put(:pi_mode_enabled?, map_value(coding, :pi_mode_enabled?))
+    |> maybe_put(:pi_mode, map_value(coding, :pi_mode))
+    |> maybe_put(:trusted_operator_id, map_value(coding, :trusted_operator_id))
+    |> maybe_put(:command_grant_ref, command_grant_ref(coding))
+    |> maybe_put(:generated_code_session?, map_value(coding, :generated_code_session?))
+    |> maybe_put(:channel_originated?, map_value(context, :channel_originated?))
+    |> maybe_put(:scheduled?, map_value(context, :scheduled?))
+  end
+
+  defp command_grant_ref(coding) do
+    cond do
+      is_map(map_value(coding, :command_grant_ref)) ->
+        map_value(coding, :command_grant_ref)
+
+      is_map(map_value(coding, :command_params)) ->
+        case CommandGrants.canonical_ref(map_value(coding, :command_params)) do
+          {:ok, ref} -> CommandGrants.redacted_ref(ref)
+          {:error, _reason} -> nil
+        end
+
+      true ->
+        nil
+    end
+  end
+
+  defp main_session?(request, context) do
+    session = map_value(context, :session) || map_value(request, :session) || %{}
+
+    map_value(session, :main?) == true or map_value(context, :main_session?) == true or
+      map_value(request, :main_session?) == true or
+      map_value(context, :session_kind) in [:main, "main"] or
+      map_value(request, :session_kind) in [:main, "main"]
+  end
+
+  defp actor_id(%{id: id}), do: id
+  defp actor_id(%{"id" => id}), do: id
+  defp actor_id(actor) when is_binary(actor) or is_atom(actor), do: actor
+  defp actor_id(_actor), do: nil
+
+  defp channel_name(%{name: name}), do: name
+  defp channel_name(%{"name" => name}), do: name
+  defp channel_name(channel) when is_binary(channel) or is_atom(channel), do: channel
+  defp channel_name(_channel), do: nil
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  defp map_or_empty(value) when is_map(value), do: value
+  defp map_or_empty(_value), do: %{}
 
   defp action(context) do
     metadata = Map.get(context, :action_metadata) || Map.get(context, "action_metadata") || %{}
@@ -279,8 +343,9 @@ defmodule AllbertAssist.Security.Context do
   defp internal_action?("record_trace"), do: true
   defp internal_action?(_name), do: false
 
-  defp channel_trust(name) when name in [:cli, "cli", :live_view, "live_view", :test, "test"],
-    do: :local
+  defp channel_trust(name)
+       when name in [:cli, "cli", :live_view, "live_view", :tui, "tui", :test, "test"],
+       do: :local
 
   defp channel_trust(:unknown), do: :unknown
   defp channel_trust("unknown"), do: :unknown

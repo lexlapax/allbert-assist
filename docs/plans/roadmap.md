@@ -3534,7 +3534,8 @@ Rationale: `docs/archives/pi-integration-rethink.md`
 
 Status: in progress; M0 contracts/API/upstream verification, M1
 read/search/path substrate, M2 write/edit file effects, M3 bash runner contract,
-M4 stream-event pipeline/live renderer, and M5 async turn-execution boundary
+M4 stream-event pipeline/live renderer, M5 async turn-execution boundary, M6
+cancellation/queued steering, and M7 local-coding trust/approval/grants
 implemented 2026-06-23. NEW
 in the 2026-06-21 replan.
 Incorporates the Pi-vs-Allbert analysis:
@@ -3562,9 +3563,13 @@ Expected direction:
   **async turn-execution boundary** that makes real Esc-to-cancel possible, queued
   steering, and a familiar coding slash set
   (`/help`/`/model`/`/clear`/`/init`/`/diff`/`/compact`; `/model`/`/clear`/`/compact`
-  ungated). Milestones M0–M9; M6 now wires real registered provider-stream
+  ungated). Milestones M0–M9; M6 wires real registered provider-stream
   cancellation, bounded registry task shutdown, `turn_cancelled`, partial traces,
-  and queued steering. The named substrate (`deps/req_llm`
+  and queued steering. M7 wires Settings-backed local-coding tier resolution,
+  approval modes, and hash-only remembered command grants through the
+  `Security.Decision` confirmation-cost seam while preserving
+  `:needs_confirmation` decisions, trace, audit, and the `Resources.Grants`
+  lifecycle. The named substrate (`deps/req_llm`
   `Context`/`StreamResponse`/`StreamChunk`, `Owl.LiveScreen`, `Resources.Grants`)
   is verified to exist.
 - A named "local-coding operator" trust tier (ADR 0056 lineage, running at ADR

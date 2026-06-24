@@ -18,6 +18,11 @@ defmodule AllbertAssist.Coding.Config do
     bash_timeout_ms: 120_000,
     bash_max_output_bytes: 120_000,
     bash_allow_raw_shell?: false,
+    pi_mode_enabled?: false,
+    trusted_operator_id: nil,
+    default_approval_mode: "default",
+    command_grants_default_ttl_ms: 86_400_000,
+    command_grants_max_entries_per_repo: 100,
     streaming_enabled?: true,
     streaming_turn_complete_fallback?: true,
     turn_supervised?: true,
@@ -85,6 +90,47 @@ defmodule AllbertAssist.Coding.Config do
   @spec bash_allow_raw_shell?() :: boolean()
   def bash_allow_raw_shell?,
     do: boolean("coding.bash.allow_raw_shell", @defaults.bash_allow_raw_shell?)
+
+  @doc "Return true when Pi-mode local-coding trust affordances may resolve."
+  @spec pi_mode_enabled?() :: boolean()
+  def pi_mode_enabled?,
+    do: boolean("coding.pi_mode.enabled", @defaults.pi_mode_enabled?)
+
+  @doc "Return the configured trusted operator id for local-coding tier checks."
+  @spec trusted_operator_id() :: String.t() | nil
+  def trusted_operator_id do
+    case setting("coding.trusted_operator_id", @defaults.trusted_operator_id) do
+      value when is_binary(value) and value != "" -> value
+      _other -> nil
+    end
+  end
+
+  @doc "Return the configured default Pi-mode approval mode."
+  @spec default_approval_mode() :: String.t()
+  def default_approval_mode do
+    case setting("coding.default_approval_mode", @defaults.default_approval_mode) do
+      value when is_binary(value) and value != "" -> value
+      _other -> @defaults.default_approval_mode
+    end
+  end
+
+  @doc "Return the default expiry for remembered coding command grants."
+  @spec command_grants_default_ttl_ms() :: pos_integer()
+  def command_grants_default_ttl_ms,
+    do:
+      positive_integer(
+        "coding.command_grants.default_ttl_ms",
+        @defaults.command_grants_default_ttl_ms
+      )
+
+  @doc "Return the maximum active remembered command grants per repo fingerprint."
+  @spec command_grants_max_entries_per_repo() :: pos_integer()
+  def command_grants_max_entries_per_repo,
+    do:
+      positive_integer(
+        "coding.command_grants.max_entries_per_repo",
+        @defaults.command_grants_max_entries_per_repo
+      )
 
   @doc "Return true when coding stream-event live rendering is enabled."
   @spec streaming_enabled?() :: boolean()

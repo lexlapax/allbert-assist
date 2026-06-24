@@ -86,6 +86,7 @@ defmodule AllbertAssist.Resources.OperationClass do
     skill_resource_id
     mcp_server
     mcp_tool
+    canonical_command
     browser_session
     plan_run
     workflow_ref
@@ -212,6 +213,7 @@ defmodule AllbertAssist.Resources.OperationClass do
           | :skill_resource_id
           | :mcp_server
           | :mcp_tool
+          | :canonical_command
           | :browser_session
           | :plan_run
           | :workflow_ref

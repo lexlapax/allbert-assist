@@ -1,6 +1,6 @@
 # Pi-Mode Coding Operator Guide
 
-Status: planned for v0.57; M0-M6 are implemented. This guide describes the target
+Status: planned for v0.57; M0-M7 are implemented. This guide describes the target
 operator workflow for the Pi-mode coding surface after implementation. The
 release-authoritative validation checklist lives in
 `docs/plans/v0.57-request-flow.md#operator-validation`.

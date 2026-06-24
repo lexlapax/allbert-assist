@@ -3,8 +3,10 @@ defmodule AllbertAssist.Security.Decision do
   Canonical Security Central decision construction.
   """
 
+  alias AllbertAssist.Coding.CommandGrants
   alias AllbertAssist.Runtime.Audit
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Security.Policy
 
   @doc "Build a canonical decision map with compatibility fields."
   @spec build(map()) :: map()
@@ -14,7 +16,7 @@ defmodule AllbertAssist.Security.Decision do
     context = Map.get(attrs, :context, %{})
     risk = Map.get(attrs, :risk, %{tier: :critical, reasons: ["missing risk classification"]})
     policy = Map.get(attrs, :policy, %{})
-    requires_confirmation? = requires_confirmation?(decision, context)
+    requires_confirmation? = requires_confirmation?(permission, decision, context)
 
     base = %{
       permission: permission,
@@ -53,8 +55,26 @@ defmodule AllbertAssist.Security.Decision do
     }
   end
 
-  defp requires_confirmation?(:needs_confirmation, _context), do: true
-  defp requires_confirmation?(_decision, _context), do: false
+  defp requires_confirmation?(permission, :needs_confirmation, context),
+    do: not confirmation_prompt_suppressed?(permission, context)
+
+  defp requires_confirmation?(_permission, _decision, _context), do: false
+
+  defp confirmation_prompt_suppressed?(permission, context) do
+    Policy.coding_tier(context) == :local_coding_operator and
+      (approval_mode_suppresses?(Policy.approval_mode(context), permission) or
+         command_grant_suppresses?(permission, context))
+  end
+
+  defp approval_mode_suppresses?(:accept_edits, :coding_file_write), do: true
+  defp approval_mode_suppresses?(:tier, :coding_file_write), do: true
+  defp approval_mode_suppresses?(:tier, :coding_shell_execute), do: true
+  defp approval_mode_suppresses?(_mode, _permission), do: false
+
+  defp command_grant_suppresses?(:coding_shell_execute, context),
+    do: CommandGrants.applicable?(:coding_shell_execute, context)
+
+  defp command_grant_suppresses?(_permission, _context), do: false
 
   defp trace(permission, decision, risk, policy, context, requires_confirmation?) do
     %{
@@ -62,10 +82,17 @@ defmodule AllbertAssist.Security.Decision do
       decision: decision,
       risk_tier: Map.get(risk, :tier),
       requires_confirmation: requires_confirmation?,
+      confirmation_cost: confirmation_cost(decision, requires_confirmation?),
+      approval_mode: Policy.approval_mode(context),
+      coding_tier: Policy.coding_tier(context),
       policy_source: Map.get(policy, :source),
       trust_boundary: trust_boundary_name(context)
     }
   end
+
+  defp confirmation_cost(:needs_confirmation, false), do: :suppressed
+  defp confirmation_cost(:needs_confirmation, true), do: :interactive
+  defp confirmation_cost(_decision, _requires_confirmation?), do: :none
 
   defp trust_boundary(context) do
     %{

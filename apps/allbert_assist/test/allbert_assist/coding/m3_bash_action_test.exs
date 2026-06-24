@@ -235,6 +235,7 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
 
   defp tier_context(workspace) do
     context(workspace)
+    |> put_in([:coding, :pi_mode_enabled], true)
     |> put_in([:coding, :trusted_operator_id], "local")
   end
 

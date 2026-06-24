@@ -85,6 +85,11 @@ defmodule AllbertAssist.Settings.Schema do
     "coding.bash.timeout_ms",
     "coding.bash.max_output_bytes",
     "coding.bash.allow_raw_shell",
+    "coding.pi_mode.enabled",
+    "coding.trusted_operator_id",
+    "coding.default_approval_mode",
+    "coding.command_grants.default_ttl_ms",
+    "coding.command_grants.max_entries_per_repo",
     "coding.turn.supervised",
     "coding.turn.max_ms",
     "coding.streaming.enabled",
@@ -2285,6 +2290,41 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false
     },
+    "coding.pi_mode.enabled" => %{
+      type: :boolean,
+      default: false,
+      writable?: true,
+      sensitive?: false
+    },
+    "coding.trusted_operator_id" => %{
+      type: :string_or_nil,
+      default: nil,
+      writable?: true,
+      sensitive?: false
+    },
+    "coding.default_approval_mode" => %{
+      type: :enum,
+      default: "default",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["default", "accept-edits", "accept_edits", "plan", "tier"]
+    },
+    "coding.command_grants.default_ttl_ms" => %{
+      type: :bounded_integer,
+      default: 86_400_000,
+      writable?: true,
+      sensitive?: false,
+      min: 60_000,
+      max: 2_592_000_000
+    },
+    "coding.command_grants.max_entries_per_repo" => %{
+      type: :bounded_integer,
+      default: 100,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 1_000
+    },
     "coding.turn.supervised" => %{
       type: :boolean,
       default: true,
@@ -3568,6 +3608,15 @@ defmodule AllbertAssist.Settings.Schema do
         "timeout_ms" => 120_000,
         "max_output_bytes" => 120_000,
         "allow_raw_shell" => false
+      },
+      "pi_mode" => %{
+        "enabled" => false
+      },
+      "trusted_operator_id" => nil,
+      "default_approval_mode" => "default",
+      "command_grants" => %{
+        "default_ttl_ms" => 86_400_000,
+        "max_entries_per_repo" => 100
       },
       "turn" => %{
         "supervised" => true,

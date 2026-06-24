@@ -366,7 +366,11 @@ defmodule AllbertAssist.Security.PermissionGateTest do
       actor: %{id: "local"},
       channel: %{name: :tui},
       session: %{main?: true},
-      coding: %{trusted_operator_id: "local", approval_mode: "accept-edits"}
+      coding: %{
+        pi_mode_enabled: true,
+        trusted_operator_id: "local",
+        approval_mode: "accept-edits"
+      }
     }
 
     assert PermissionGate.coding_tier(trusted_context) == :local_coding_operator

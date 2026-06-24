@@ -51,6 +51,24 @@ defmodule AllbertAssist.Resources.Grants do
     end
   end
 
+  @doc """
+  Remember an already-built grant record in the shared resource-grant setting.
+
+  This is for resource classes whose canonical scope is not a normal
+  `Resources.Ref` target, while still keeping the same Settings-backed
+  lifecycle, validation, revocation, and audit path.
+  """
+  @spec remember_record(map(), map() | keyword()) :: {:ok, map()} | {:error, term()}
+  def remember_record(record, attrs \\ %{}) when is_map(record) do
+    attrs = attrs_map(attrs)
+    grant = stringify_record(record)
+
+    with {:ok, grants} <- list(),
+         {:ok, _setting} <- Settings.put(@setting_key, grants ++ [grant], settings_context(attrs)) do
+      {:ok, grant}
+    end
+  end
+
   @spec revoke(String.t(), map() | keyword()) :: {:ok, map()} | {:error, term()}
   def revoke(id, attrs \\ %{}) when is_binary(id) do
     attrs = attrs_map(attrs)

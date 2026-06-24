@@ -328,30 +328,29 @@ defmodule AllbertAssist.Security.Policy do
   @spec approval_modes() :: nonempty_list(:default | :accept_edits | :plan | :tier)
   def approval_modes, do: [:default, :accept_edits, :plan, :tier]
 
-  @doc "Read the requested Pi-mode approval mode from a context map."
+  @doc "Read the requested Pi-mode approval mode from context, then Settings Central."
   @spec approval_mode(map()) :: :default | :accept_edits | :plan | :tier
   def approval_mode(context) when is_map(context) do
-    context
-    |> coding_context_value(:approval_mode)
-    |> Kernel.||(coding_context_value(context, :default_approval_mode))
+    (coding_context_value(context, :approval_mode) ||
+       coding_context_value(context, :default_approval_mode) ||
+       setting_value("coding.default_approval_mode", "default"))
     |> normalize_approval_mode()
   end
 
-  def approval_mode(_context), do: :default
+  def approval_mode(_context),
+    do: setting_value("coding.default_approval_mode", "default") |> normalize_approval_mode()
 
   @doc "Return the known Pi-mode coding trust tiers."
   @spec coding_tiers() :: nonempty_list(:none | :local_coding_operator)
   def coding_tiers, do: [:none, :local_coding_operator]
 
   @doc """
-  Resolve the Pi-mode local-coding trust tier from explicit context.
-
-  M0 deliberately keeps this context-only. M7 wires Settings Central and the
-  confirmation-cost seam on top of the same vocabulary.
+  Resolve the Pi-mode local-coding trust tier from Settings Central plus the
+  active request context.
   """
   @spec coding_tier(map()) :: :local_coding_operator | :none
   def coding_tier(context) when is_map(context) do
-    if local_coding_operator_context?(context) do
+    if pi_mode_enabled?(context) and local_coding_operator_context?(context) do
       :local_coding_operator
     else
       :none
@@ -451,12 +450,28 @@ defmodule AllbertAssist.Security.Policy do
   defp deployment_mode_path(context, path), do: get_in(context, path)
 
   defp local_coding_operator_context?(context) do
-    trusted_operator_id = coding_context_value(context, :trusted_operator_id)
+    trusted_operator_id =
+      coding_context_value(context, :trusted_operator_id) ||
+        setting_value("coding.trusted_operator_id", nil)
+
     actor_id = actor_id(context)
 
     trusted_operator_id not in [nil, ""] and actor_id == trusted_operator_id and
       channel_name(context) in [:tui, "tui"] and main_session?(context) and
       not disallowed_coding_origin?(context)
+  end
+
+  defp pi_mode_enabled?(context) do
+    context_value =
+      coding_context_value(context, :pi_mode_enabled) ||
+        coding_context_value(context, :pi_mode_enabled?) ||
+        get_in(context, [:coding, :pi_mode, :enabled]) ||
+        get_in(context, ["coding", "pi_mode", "enabled"])
+
+    case context_value do
+      nil -> truthy?(setting_value("coding.pi_mode.enabled", false))
+      value -> truthy?(value)
+    end
   end
 
   defp actor_id(context) do
@@ -489,6 +504,10 @@ defmodule AllbertAssist.Security.Policy do
   defp disallowed_coding_origin?(context) do
     field(context, :channel_originated?) == true or field(context, :scheduled?) == true or
       field(context, :generated_code_session?) == true or
+      get_in(context, [:coding, :channel_originated?]) == true or
+      get_in(context, ["coding", "channel_originated?"]) == true or
+      get_in(context, [:coding, :scheduled?]) == true or
+      get_in(context, ["coding", "scheduled?"]) == true or
       get_in(context, [:coding, :generated_code_session?]) == true or
       get_in(context, ["coding", "generated_code_session?"]) == true
   end
@@ -509,6 +528,20 @@ defmodule AllbertAssist.Security.Policy do
   defp normalize_approval_mode(:tier), do: :tier
   defp normalize_approval_mode("tier"), do: :tier
   defp normalize_approval_mode(_value), do: :default
+
+  defp truthy?(true), do: true
+  defp truthy?("true"), do: true
+  defp truthy?("1"), do: true
+  defp truthy?(_value), do: false
+
+  defp setting_value(key, default) do
+    case Settings.get(key) do
+      {:ok, value} -> value
+      {:error, _reason} -> default
+    end
+  rescue
+    _exception -> default
+  end
 
   defp field(map, key) when is_map(map),
     do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
@@ -593,6 +626,13 @@ defmodule AllbertAssist.Security.Policy do
   defp context_denial(permission, %{skill: %{trust_status: trust_status, name: name}})
        when not is_nil(name) and permission != :read_only and trust_status not in [nil, :trusted] do
     "Selected skill is not trusted for this permission: #{inspect(name)}."
+  end
+
+  defp context_denial(permission, context)
+       when permission in [:coding_file_write, :coding_shell_execute] do
+    if approval_mode(context) == :plan do
+      "Pi-mode approval mode plan blocks coding writes and shell execution."
+    end
   end
 
   defp context_denial(_permission, _context), do: nil
