@@ -6,6 +6,8 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
   alias AllbertAssist.Coding.StreamingTurn
   alias AllbertAssist.Coding.TurnSupervisor
   alias AllbertAssist.Agents.IntentAgent
+  alias AllbertAssist.Intent.PendingClarification
+  alias AllbertAssist.Intent.Router.PendingStore
 
   @env_vars [
     "ALLBERT_HOME",
@@ -421,6 +423,56 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
     assert response.message == "Hello"
     assert response.direct_answer.source == :coding_stream
     assert [%{name: "direct_answer", status: :completed}] = response.actions
+  end
+
+  test "coding turns bypass pending clarification and registry-action overrides", %{
+    root: root
+  } do
+    parent = self()
+    turn_id = unique_turn_id("agent-pending")
+    thread_id = "test-thread-#{turn_id}"
+    now = DateTime.utc_now()
+
+    :ok =
+      PendingStore.put(%PendingClarification{
+        thread_id: thread_id,
+        user_id: "local",
+        session_id: "test-session",
+        question: "Read a note?",
+        options: [%{kind: :action, id: "read_note", label: "read note"}],
+        created_at: now,
+        expires_at: DateTime.add(now, 120_000, :millisecond)
+      })
+
+    Application.put_env(:allbert_assist, FakeReqLLM,
+      parent: parent,
+      turn_id: turn_id,
+      mode: :two_chunk
+    )
+
+    request =
+      root
+      |> agent_request(turn_id, parent)
+      |> Map.put(:text, "Read docs/plans/v0.57-plan.md")
+
+    task =
+      Task.async(fn ->
+        TurnSupervisor.run(turn_metadata(root, turn_id, parent), fn ->
+          IntentAgent.respond(request)
+        end)
+      end)
+
+    assert {:stream_text_called, %{provider: :openai, id: "qwen2.5-coder:7b"}, %ReqLLM.Context{},
+            _opts, stream_pid} = assert_stream_text_called(task, turn_id, 15_000)
+
+    send(stream_pid, :release_stream)
+
+    assert {:ok, response} = Task.await(task, 5_000)
+    assert response.status == :completed
+    assert response.message == "Hello"
+    assert response.direct_answer.source == :coding_stream
+    assert [%{name: "direct_answer", status: :completed}] = response.actions
+    assert {:ok, %PendingClarification{}} = PendingStore.take("local", thread_id)
   end
 
   test "model-proposed read tool executes through Runner and continues the stream", %{

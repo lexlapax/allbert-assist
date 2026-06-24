@@ -233,16 +233,20 @@ defmodule AllbertAssist.Agents.IntentAgent do
   defp mcp_route?(_route), do: false
 
   defp handle_engine_decision(engine_result, route, text, context, %Decision{} = route_decision) do
-    case engine_result do
-      {:ok, %Decision{intent: :open_surface} = decision} ->
-        {:ok, surface_navigation_response(decision)}
+    if coding_turn?(context) do
+      run_deterministic_route(:direct_answer, text, context, route_decision)
+    else
+      case engine_result do
+        {:ok, %Decision{intent: :open_surface} = decision} ->
+          {:ok, surface_navigation_response(decision)}
 
-      {:ok, %Decision{} = engine_decision} ->
-        decision = if mcp_route?(route), do: route_decision, else: engine_decision
-        run_validated_route(route, text, context, decision)
+        {:ok, %Decision{} = engine_decision} ->
+          decision = if mcp_route?(route), do: route_decision, else: engine_decision
+          run_validated_route(route, text, context, decision)
 
-      {:error, _reason} ->
-        run_validated_route(route, text, context, route_decision)
+        {:error, _reason} ->
+          run_validated_route(route, text, context, route_decision)
+      end
     end
   end
 
