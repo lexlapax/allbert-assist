@@ -3532,8 +3532,9 @@ ADR: `docs/adr/0068-pi-mode-coding-surface-and-local-coding-trust-tier.md`
 (Accepted in v0.57 M0)
 Rationale: `docs/archives/pi-integration-rethink.md`
 
-Status: in progress; M0 contracts/API/upstream verification implemented
-2026-06-23. NEW in the 2026-06-21 replan. Incorporates the Pi-vs-Allbert analysis:
+Status: in progress; M0 contracts/API/upstream verification and M1
+read/search/path substrate implemented 2026-06-23. NEW in the 2026-06-21 replan.
+Incorporates the Pi-vs-Allbert analysis:
 keep Allbert's authority spine, give it Pi's minimal inner loop where it helps (a
 gated coding surface), and adopt Pi's split-tool-result and minimalism budget.
 
@@ -3543,7 +3544,8 @@ Expected direction:
   authority spine — same `Actions.Runner.run/3`, Security Central, trace, and
   memory as every other surface.
 - **Six default tools** — three read-only/sensitive actions
-  (`read`/`grep`/`glob`, ripgrep-backed search, unprompted but policy-bounded) +
+  (`read`/`grep`/`glob`, direct Elixir file-walk/globbing, unprompted but
+  policy-bounded) +
   three effectful actions (`write`/`edit`/`bash`) — through the action runner, a
   sub-1000-token prompt+tool-defs budget, and a chunked-read context discipline
   (offset/limit + artifacts, not whole-file). `bash` runs host processes at

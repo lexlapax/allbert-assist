@@ -92,6 +92,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "activate_skill",
              "plan_shell_command",
              "run_shell_command",
+             "read",
+             "grep",
+             "glob",
              "unsupported_resource_workflow",
              "external_network_request",
              "plan_package_install",
@@ -293,6 +296,9 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert "create_skill" in agent_action_names
     assert "continue_objective" in agent_action_names
     assert "cancel_objective" in agent_action_names
+    assert "read" in agent_action_names
+    assert "grep" in agent_action_names
+    assert "glob" in agent_action_names
     refute "whatsapp_doctor" in agent_action_names
     refute "signal_doctor" in agent_action_names
     refute "mcp_doctor_server" in agent_action_names
@@ -518,6 +524,21 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert mcp_call_tool.permission == :mcp_tool_call
     assert mcp_call_tool.execution_mode == :mcp_tool_call
     assert mcp_call_tool.resumable?
+
+    assert {:ok, coding_read} = Registry.capability("read")
+    assert coding_read.permission == :coding_file_read
+    assert coding_read.exposure == :agent
+    assert coding_read.execution_mode == :coding_file_read
+
+    assert {:ok, coding_grep} = Registry.capability("grep")
+    assert coding_grep.permission == :coding_file_read
+    assert coding_grep.exposure == :agent
+    assert coding_grep.execution_mode == :coding_search
+
+    assert {:ok, coding_glob} = Registry.capability("glob")
+    assert coding_glob.permission == :coding_file_read
+    assert coding_glob.exposure == :agent
+    assert coding_glob.execution_mode == :coding_search
 
     assert {:ok, find_mcp_tools} = Registry.capability("find_mcp_tools")
     assert find_mcp_tools.permission == :tool_discovery

@@ -73,6 +73,13 @@ defmodule AllbertAssist.Settings.Schema do
     "model_preferences.primary",
     "model_preferences.tasks.*",
     "model_preferences.capabilities.*",
+    "coding.workspace.cwd_jail",
+    "coding.read.default_limit",
+    "coding.read.max_bytes",
+    "coding.search.max_results",
+    "coding.search.max_output_bytes",
+    "coding.search.respect_gitignore",
+    "coding.search.respect_allbertignore",
     "active_memory.enabled",
     "active_memory.top_k",
     "active_memory.chunk_max_bytes",
@@ -2179,6 +2186,56 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["allowed", "needs_confirmation", "denied"]
     },
+    "coding.workspace.cwd_jail" => %{
+      type: :string,
+      default: ".",
+      writable?: true,
+      sensitive?: false
+    },
+    "coding.read.default_limit" => %{
+      type: :bounded_integer,
+      default: 2_000,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 20_000
+    },
+    "coding.read.max_bytes" => %{
+      type: :bounded_integer,
+      default: 120_000,
+      writable?: true,
+      sensitive?: false,
+      min: 1_024,
+      max: 1_000_000
+    },
+    "coding.search.max_results" => %{
+      type: :bounded_integer,
+      default: 100,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 10_000
+    },
+    "coding.search.max_output_bytes" => %{
+      type: :bounded_integer,
+      default: 120_000,
+      writable?: true,
+      sensitive?: false,
+      min: 1_024,
+      max: 1_000_000
+    },
+    "coding.search.respect_gitignore" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
+    "coding.search.respect_allbertignore" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
+    },
     "permissions.coding_file_read" => %{
       type: :enum,
       default: "allowed",
@@ -3396,6 +3453,21 @@ defmodule AllbertAssist.Settings.Schema do
         "module" => "AllbertAssist.Agents.IntentAgent",
         "model_profile" => "local",
         "enabled" => true
+      }
+    },
+    "coding" => %{
+      "workspace" => %{
+        "cwd_jail" => "."
+      },
+      "read" => %{
+        "default_limit" => 2_000,
+        "max_bytes" => 120_000
+      },
+      "search" => %{
+        "max_results" => 100,
+        "max_output_bytes" => 120_000,
+        "respect_gitignore" => true,
+        "respect_allbertignore" => true
       }
     },
     "skills" => %{

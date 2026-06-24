@@ -26,6 +26,9 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Channels.SignalDoctor
   alias AllbertAssist.Actions.Channels.SignalLinkDevice
   alias AllbertAssist.Actions.Channels.WhatsAppDoctor
+  alias AllbertAssist.Actions.Coding.Glob, as: CodingGlob
+  alias AllbertAssist.Actions.Coding.Grep, as: CodingGrep
+  alias AllbertAssist.Actions.Coding.Read, as: CodingRead
   alias AllbertAssist.Actions.Confirmations.ApproveConfirmation
   alias AllbertAssist.Actions.Confirmations.DenyConfirmation
   alias AllbertAssist.Actions.Confirmations.ExpireConfirmations
@@ -203,6 +206,9 @@ defmodule AllbertAssist.Actions.Registry do
     ActivateSkill,
     PlanShellCommand,
     RunShellCommand,
+    CodingRead,
+    CodingGrep,
+    CodingGlob,
     UnsupportedResourceWorkflow,
     ExternalNetworkRequest,
     PlanPackageInstall,
