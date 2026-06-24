@@ -117,6 +117,54 @@ defmodule AllbertAssist.Coding.M6CancelSteerTest do
     assert {:error, :not_found} = TurnSupervisor.lookup(turn_id)
   end
 
+  test "cancel without a registered provider stream still shuts down and traces the turn", %{
+    root: root
+  } do
+    parent = self()
+    turn_id = unique_turn_id("no-stream")
+
+    Application.put_env(:allbert_assist, Trace, enabled: true)
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        send(parent, {:runner_started_without_stream, request})
+
+        receive do
+          :finish_turn ->
+            {:ok, %{message: "should not complete", status: :completed}}
+        end
+      end
+    )
+
+    task =
+      Task.async(fn ->
+        Runtime.submit_user_input(%{
+          text: "cancel this non-streamed coding turn",
+          channel: :test,
+          user_id: "m6-no-stream",
+          new_thread: true,
+          coding_turn?: true,
+          coding_turn_id: turn_id
+        })
+      end)
+
+    assert_receive {:runner_started_without_stream,
+                    %{coding_turn?: true, coding_turn_id: ^turn_id}},
+                   5_000
+
+    assert {:ok, %{stream_cancel: :not_registered, shutdown: :ok, turn_id: ^turn_id}} =
+             TurnSupervisor.cancel(turn_id, :operator_escape)
+
+    assert {:ok, response} = Task.await(task, 5_000)
+    assert response.status == :cancelled
+    assert response.message =~ "partial turn was preserved"
+    assert response.trace_id =~ Path.join(root, "traces")
+    assert File.exists?(response.trace_id)
+    assert [%{type: :turn_cancelled, turn_id: ^turn_id}] = response.stream_events
+    assert response.turn_id == turn_id
+    assert {:error, :not_found} = TurnSupervisor.lookup(turn_id)
+  end
+
   test "TUI coding mode queues correction and cancels running turn through registry" do
     configure_tui!()
     parent = self()

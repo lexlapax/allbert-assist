@@ -1,6 +1,6 @@
 # Pi-Mode Coding Operator Guide
 
-Status: v0.57 M0-M9.8 are implemented. Release closeout is blocked on warm
+Status: v0.57 M0-M9.12 are implemented. Release closeout is blocked on warm
 operator validation against a real streaming/tool-capable coding profile. This guide
 describes the operator workflow for the Pi-mode coding surface. The
 release-authoritative validation checklist lives in
@@ -150,6 +150,19 @@ script "$V057_MANUAL_HOME/v057-pi-mode-transcript.txt" mix allbert.tui
 
 Keep this session open for the entire manual punchlist. Do not fall back to cold
 `mix allbert.ask` turns during validation.
+
+## Cancellation
+
+Esc cancellation has two layers. During provider streaming, Pi-mode invokes the
+registered `ReqLLM.StreamResponse.cancel` callback and then shuts down the supervised
+turn task through `Coding.TurnSupervisor`. During an already-running tool action,
+the turn still shuts down and writes partial-turn evidence, but the tool effect is
+bounded by the registered action and command timeout/brutal-kill policy; v0.57 does
+not add a separate child-process cancel hook beyond that action boundary.
+
+For release validation, use a coding profile that streams tokens, emits tool calls,
+and exposes provider cancel. If the selected profile cannot do those three things,
+the provider/model choice is not valid for v0.57 release closeout.
 
 ## Evidence
 
