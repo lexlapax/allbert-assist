@@ -467,6 +467,83 @@ defmodule AllbertAssist.Channels.TUITest do
     refute status_text =~ "allbert:default>"
   end
 
+  test "auto input waits for an async Pi-mode turn before opening the next prompt" do
+    repo =
+      Path.join(System.tmp_dir!(), "allbert-tui-pi-#{System.unique_integer([:positive])}")
+
+    File.mkdir_p!(repo)
+    on_exit(fn -> File.rm_rf(repo) end)
+    configure_pi_tui!(repo)
+    parent = self()
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        Kernel.send(parent, {:runtime_request, self(), request})
+
+        receive do
+          :release_runtime ->
+            {:ok,
+             %{
+               model_payload: "model #{request.text}",
+               surface_payload: "done #{request.text}",
+               status: :completed
+             }}
+        after
+          2_000 ->
+            {:ok,
+             %{
+               model_payload: "model timeout",
+               surface_payload: "done timeout",
+               status: :completed
+             }}
+        end
+      end
+    )
+
+    input_fun = fn prompt ->
+      prompt_text = prompt |> Owl.Data.untag() |> IO.iodata_to_binary()
+      send(parent, {:tui_prompt, prompt_text})
+
+      receive do
+        {:next_input, input} -> input
+      after
+        5_000 -> "/quit"
+      end
+    end
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: true,
+               emit_banner?: false,
+               enabled?: true,
+               live_screen?: false,
+               input_fun: input_fun,
+               output_fun: fn line -> send(parent, {:tui_output, line}) end
+             )
+
+    assert_receive {:tui_prompt, "allbert:default> "}
+    send(server, {:next_input, "/pi #{repo}"})
+    assert_receive {:tui_output, "Pi-mode entered: " <> _entered}, 1_000
+    assert_receive {:tui_prompt, "allbert:default> "}, 1_000
+
+    send(server, {:next_input, "Read docs/plans/v0.57-plan.md"})
+    assert_receive {:runtime_request, runner_pid, request}, 1_000
+    assert Map.fetch!(request, :coding_turn?) == true
+    assert request.text == "Read docs/plans/v0.57-plan.md"
+
+    refute_receive {:tui_prompt, "allbert:default> "}, 100
+    refute_receive {:tui_output, "done Read docs/plans/v0.57-plan.md"}, 100
+
+    send(runner_pid, :release_runtime)
+    assert_receive {:tui_output, "done Read docs/plans/v0.57-plan.md"}, 1_000
+    assert_receive {:tui_prompt, "allbert:default> "}, 1_000
+
+    ref = Process.monitor(server)
+    send(server, {:next_input, "/quit"})
+    assert_receive {:DOWN, ^ref, :process, ^server, :normal}
+  end
+
   test "typed confirmation commands resolve without runtime submission" do
     configure_tui!()
     assert {:ok, confirmation} = create_confirmation!("conf_tui_typed", "tui")
@@ -573,6 +650,20 @@ defmodule AllbertAssist.Channels.TUITest do
                ],
                %{audit?: false}
              )
+  end
+
+  defp configure_pi_tui!(repo) do
+    configure_tui!()
+    assert {:ok, _setting} = Settings.put("coding.pi_mode.enabled", true, %{audit?: false})
+    assert {:ok, _setting} = Settings.put("coding.trusted_operator_id", "alice", %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("coding.default_approval_mode", "default", %{audit?: false})
+
+    assert {:ok, _setting} = Settings.put("coding.workspace.cwd_jail", repo, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("coding.model_profile", "pi_coding_local", %{audit?: false})
   end
 
   defp create_confirmation!(id, channel) do

@@ -96,8 +96,8 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
           {:stop, :normal, state}
         else
           state = update_live_status(state, :processing)
-          {_reply, state} = handle_text_submission(command, [async?: state.coding_mode?], state)
-          Process.send_after(self(), :read_input, 0)
+          {reply, state} = handle_text_submission(command, [async?: state.coding_mode?], state)
+          state = maybe_schedule_next_read(reply, state)
           {:noreply, state}
         end
 
@@ -111,11 +111,14 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     handle_info({:coding_tui_turn_finished, turn_id, reply, nil}, state)
   end
 
-  def handle_info({:coding_tui_turn_finished, turn_id, _reply, pi_session}, state) do
+  def handle_info({:coding_tui_turn_finished, turn_id, reply, pi_session}, state) do
     state =
       case state.current_turn do
         %{turn_id: ^turn_id} ->
           state
+          |> clear_current_live_region()
+          |> clear_live_status()
+          |> emit_async_turn_reply(reply)
           |> maybe_put_pi_session(pi_session)
           |> Map.put(:current_turn, nil)
           |> start_queued_correction()
@@ -124,7 +127,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
           state
       end
 
-    if state.auto_input? do
+    if state.auto_input? and is_nil(state.current_turn) do
       Process.send_after(self(), :read_input, 0)
     end
 
@@ -271,7 +274,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       |> Keyword.put_new(:coding_session, CodingSession.metadata(state.pi_session))
       |> Keyword.put_new(:coding_req_llm_context, pi_session_context(state.pi_session))
 
-    task_state = %{state | current_turn: nil, queued_correction: nil}
+    task_state = quiet_async_task_state(state)
 
     case start_turn_task(fn ->
            {reply, pi_session} =
@@ -346,6 +349,52 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       %{state | live_screen?: false}
   end
 
+  defp clear_current_live_region(%{current_turn: %{live_region: live_region} = turn} = state)
+       when is_map(live_region) do
+    case LiveRegion.clear(live_region) do
+      {:ok, live_region} ->
+        %{state | current_turn: %{turn | live_region: live_region}}
+
+      {:error, reason} ->
+        Logger.debug("tui coding live stream clear failed: #{inspect(reason)}")
+        state
+    end
+  rescue
+    error ->
+      Logger.debug("tui coding live stream clear failed: #{Exception.message(error)}")
+      %{state | live_screen?: false}
+  catch
+    :exit, reason ->
+      Logger.debug("tui coding live stream clear failed: #{inspect(reason)}")
+      %{state | live_screen?: false}
+  end
+
+  defp clear_current_live_region(state), do: state
+
+  defp emit_async_turn_reply(state, {:ok, {:processed, _event, rendered}}) do
+    emit_rendered(rendered, state)
+    state
+  end
+
+  defp emit_async_turn_reply(state, {:ok, {:slash, rendered}}) do
+    emit_rendered(rendered, state)
+    state
+  end
+
+  defp emit_async_turn_reply(state, {:ok, {:at_file, rendered}}) do
+    emit_rendered(rendered, state)
+    state
+  end
+
+  defp emit_async_turn_reply(state, {:ok, _other}), do: state
+
+  defp emit_async_turn_reply(state, {:error, reason}) do
+    emit_output("Pi-mode turn failed: #{inspect(Redactor.redact(reason))}.", state)
+    state
+  end
+
+  defp emit_async_turn_reply(state, _reply), do: state
+
   defp start_queued_correction(%{queued_correction: nil} = state), do: state
 
   defp start_queued_correction(%{queued_correction: {text, opts}} = state) do
@@ -408,6 +457,17 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     else
       Task.start(fun)
     end
+  end
+
+  defp quiet_async_task_state(state) do
+    %{
+      state
+      | current_turn: nil,
+        queued_correction: nil,
+        output_fun: &noop_output/1,
+        live_screen?: false,
+        live_status_active?: false
+    }
   end
 
   defp process_inbound_text(text, opts, state) do
@@ -1243,6 +1303,15 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       %{state | live_screen?: false, live_status_active?: false}
   end
 
+  defp maybe_schedule_next_read({:ok, {:accepted, _turn_id}}, state), do: state
+
+  defp maybe_schedule_next_read(_reply, %{auto_input?: true} = state) do
+    Process.send_after(self(), :read_input, 0)
+    state
+  end
+
+  defp maybe_schedule_next_read(_reply, state), do: state
+
   defp response_value(response, key) when is_map(response) do
     Map.get(response, key) || Map.get(response, Atom.to_string(key))
   end
@@ -1275,4 +1344,6 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   defp normalize_input(_value), do: nil
 
   defp default_output(line), do: Owl.IO.puts(line)
+
+  defp noop_output(_line), do: :ok
 end

@@ -1,6 +1,6 @@
 # Pi-Mode Coding Operator Guide
 
-Status: v0.57 M0-M9.14 are implemented. Release closeout is blocked on warm
+Status: v0.57 M0-M9.15 are implemented. Release closeout is blocked on warm
 operator validation against a real streaming/tool-capable coding profile. This guide
 describes the operator workflow for the Pi-mode coding surface. The
 release-authoritative validation checklist lives in
@@ -70,6 +70,18 @@ markup such as `<function=write>` instead of a real provider tool-call event,
 Pi-mode treats the turn as a profile-compatibility failure and no tool runs.
 During validation, `/pi` should report `model=pi_coding_local` unless the operator
 deliberately selected another known streaming/tool-call-capable profile.
+
+## Terminal Turn Safety
+
+The TUI input loop is line-oriented. Enter each natural-language validation prompt
+as one physical terminal line unless a checklist step explicitly asks for multiple
+commands. A hard newline submits the current line as a complete turn.
+
+During an async Pi-mode coding turn, streamed tool/assistant events and the final
+response should render before the next `allbert:default>` prompt appears. A final
+answer that paints over a prompt, or a prompt that opens while the previous coding
+turn is still streaming, is a TUI turn-loop failure and not acceptable release
+evidence.
 
 ## Approval Modes
 
