@@ -351,17 +351,19 @@ scope.
     per-purpose model recommendations. Model/learned proposals remain inert
     until operator promotion and never grant authority.
 57. v0.57 Pi-mode Coding Surface: a gated terminal coding surface on the one
-    authority spine — a **six-tool** default (read/write/edit/bash + read-only
-    grep/glob) through `Actions.Runner.run/3`, sub-1000-token prompt+tool-defs
-    budget, chunked-read context discipline, **coder-ergonomics parity** with
-    Claude Code / Pi / Codex / Gemini CLI (approval modes + per-repo "always
-    allow", assistant-text token streaming + diff streaming over the v0.55 static
-    split, Esc-to-cancel + queued steering, coding slash set), and a named
-    "local-coding operator" trust tier (ADR 0056 lineage at ADR 0009 Level 1,
-    not "level 0"). Never YOLO-by-default, never for channel-originated or
-    generated-code sessions; modes grant no authority; deterministic acceptance
-    gates and Security Central stay intact. Milestones M0–M6. ADR 0068; rationale in
-    `docs/archives/pi-integration-rethink.md`.
+    authority spine — a **six-tool** default (read-only/sensitive
+    read/grep/glob + effectful write/edit/bash) through
+    `Actions.Runner.run/3`, sub-1000-token prompt+tool-defs budget, chunked-read
+    context discipline, **coder-ergonomics parity** with Claude Code / Pi /
+    Codex / Gemini CLI (approval modes + Allbert Home-rooted per-repo command
+    allowlist, assistant-text token streaming + progressive diff streaming over
+    the v0.55 static split, Esc-to-cancel + queued steering, coding slash set),
+    and a named "local-coding operator" trust tier (ADR 0056 lineage at ADR 0009
+    Level 1, not "level 0"). Never YOLO-by-default, never for channel-originated
+    or generated-code sessions; modes/allowlists grant no authority;
+    deterministic acceptance gates and Security Central stay intact. Milestones
+    M0–M8. ADR 0068; rationale in `docs/archives/pi-integration-rethink.md`;
+    operator handoff in `docs/operator/pi-mode-coding.md`.
 58. v0.58 Web UX Redo + Surface Policy: re-layout `/workspace` (ADR 0023/0024
     kept) — chat primary, ephemeral surfaces become popups, canvas demoted,
     labels cleaned up ("Conversations" replaces "threads"); references
@@ -3538,25 +3540,27 @@ Expected direction:
 - A gated terminal coding surface as a channel/app under ADR 0016, on the one
   authority spine — same `Actions.Runner.run/3`, Security Central, trace, and
   memory as every other surface.
-- **Six default tools** — four effectful boundary actions
-  (`read`/`write`/`edit`/`bash`) + two read-only search actions (`grep`/`glob`,
-  ripgrep-backed, unprompted) — through the action runner, a sub-1000-token
-  prompt+tool-defs budget, and a chunked-read context discipline (offset/limit +
-  artifacts, not whole-file). `bash` runs host processes at sandbox Level 1; raw
-  shell only at the tier below.
+- **Six default tools** — three read-only/sensitive actions
+  (`read`/`grep`/`glob`, ripgrep-backed search, unprompted but policy-bounded) +
+  three effectful actions (`write`/`edit`/`bash`) — through the action runner, a
+  sub-1000-token prompt+tool-defs budget, and a chunked-read context discipline
+  (offset/limit + artifacts, not whole-file). `bash` runs host processes at
+  sandbox Level 1; raw shell only at the local-coding tier.
 - **Coder-ergonomics parity** (benchmarked against Claude Code / Pi / Codex /
   Gemini CLI): coder-facing approval modes (`default`/`accept-edits`/`plan`/`tier`)
-  + per-repo "always allow", **net-new** live rendering (assistant-text token
-  streaming + progressive tool-argument diff streaming over the v0.55 **static**
-  split), Esc-to-cancel + queued steering, and a familiar coding slash set
-  (`/help`/`/model`/`/clear`/`/init`/`/diff`/`/compact`).
+  + an Allbert Home-rooted per-repo command allowlist, **net-new** live rendering
+  (assistant-text token streaming + progressive tool-argument diff streaming over
+  the v0.55 **static** split), Esc-to-cancel + queued steering, and a familiar
+  coding slash set (`/help`/`/model`/`/clear`/`/init`/`/diff`/`/compact`).
 - A named "local-coding operator" trust tier (ADR 0056 lineage, running at ADR
   0009 **Level 1** — not "level 0"): a single trusted operator, main session,
   terminal channel — never the default, never for channel-originated or
   generated-code sessions; lowers confirmation burden only, not isolation. Modes
   and "always allow" grant no authority.
 - An operator affordance for mid-session model switch (req_llm message-history
-  handoff; best-effort cross-provider). Milestones renumbered to a clean M0–M6.
+  handoff; best-effort cross-provider). The final pre-implementation plan expands
+  the work into M0–M8 so contracts, stream events, trust tier, slash behavior,
+  and validation closeout have separate handoffs.
 - Non-goals: no YOLO-by-default; no weakening of the action boundary, Security
   Central, or confirmations; no model-decides-it's-done for effectful or
   generated-code work; keep MCP-first with lazy disclosure; no sibling runtime.

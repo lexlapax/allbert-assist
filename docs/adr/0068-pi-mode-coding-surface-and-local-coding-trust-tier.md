@@ -45,25 +45,32 @@ generated-code work that judgement must be **deterministic**, not model-asserted
 
 Introduce **Pi-mode**, a gated terminal coding surface implemented as a
 channel/app on the existing terminal channel (ADR 0067) — **not** a new runtime
-or a new authority path. Its default capability is **six tools** — four effectful
-boundary actions plus two read-only search actions — each a registered action
+or a new authority path. Its default capability is **six tools** — three
+read-only/sensitive tools plus three effectful tools — each a registered action
 invoked through `Actions.Runner.run/3`:
 
-- **read** — read file/context (chunked by default, offset/limit; see the
-  context discipline below);
-- **write** — create a file;
-- **edit** — modify an existing file (exact-match replacement; an exact-match miss
+- **read** — read file/context (chunked by default, offset/limit; permission
+  atom `:coding_file_read`; see the context discipline below);
+- **grep** — search file contents (ripgrep-backed or equivalent, `.gitignore`-
+  aware; permission atom `:coding_file_read`, no confirmation prompt);
+- **glob** — find files by path pattern (permission atom `:coding_file_read`, no
+  confirmation prompt);
+- **write** — create a file (permission atom `:coding_file_write`);
+- **edit** — modify an existing file (permission atom `:coding_file_write`;
+  exact-match replacement; an exact-match miss
   returns a clear failure so the model re-reads and retries, rather than a silent
   no-op — the most common friction in peer coding agents);
 - **bash** — run a shell command at **sandbox Level 1** (ADR 0009), under the
-  local-coding tier policy defined below;
-- **grep** — search file contents (ripgrep-backed, `.gitignore`-aware,
-  `permission: :read_only`, runs unprompted);
-- **glob** — find files by path pattern (`permission: :read_only`, unprompted).
+  local-coding tier policy defined below (permission atom
+  `:coding_shell_execute`).
 
 `grep`/`glob` are first-class because relegating code search to MCP would feel
 impoverished to Claude Code / Gemini users (2 of the 3 peer CLIs ship them
 built-in). Capabilities **beyond** these six remain MCP-first, lazy-disclosed.
+Read/search actions run without a confirmation prompt, but they still pass
+Runner/Security Central and enforce cwd jail, symlink policy, ignore policy,
+output caps, redaction, trace, and audit. Dotted values such as
+`permissions.coding_file_read` are Settings Central keys, not permission atoms.
 
 Surface discipline:
 
@@ -81,10 +88,11 @@ Surface discipline:
   deltas (today's response is turn-complete); the diff streamed unit is the
   tool-call argument stream, not the tool result;
 - **interactive affordances** — **coder-facing approval modes**
-  (`default`/`accept-edits`/`plan`/`tier`) + per-repo "always allow this command"
-  (a confirmation-cost/persistence layer over Security Central, granting no
-  authority; `plan` is read-only), **Esc-to-cancel** a running turn (work kept +
-  traced) with a **queued correction**, and a familiar coding **slash set**
+  (`default`/`accept-edits`/`plan`/`tier`) + Allbert Home-rooted per-repo
+  "always allow this command" (a confirmation-cost/persistence layer over Security
+  Central, granting no authority; `plan` executes read/search only),
+  **Esc-to-cancel** a running turn (work kept + traced) with a **queued correction**,
+  and a familiar coding **slash set**
   (`/help`, `/model`, `/clear`, `/init`, `/diff`, `/compact`);
 - **context discipline (Pi's actual practice)** — gather context through
   **chunked reads** (offset/limit) and, for larger investigations,
@@ -95,9 +103,15 @@ Surface discipline:
   whole-file ingestion.)
 
 Every one of the six tools is an ordinary registered action: it passes the action
-boundary, Security Central, and its own confirmation gate (`grep`/`glob` are
-read-only and run unprompted). The surface selects and sequences; it grants no
+boundary, Security Central, and its own policy/confirmation gate. `read`/`grep`/
+`glob` are read-only/sensitive and run without a confirmation prompt; `write`/
+`edit`/`bash` are effectful. The surface selects and sequences; it grants no
 authority.
+
+The coding slash set is slash-allowlisted and non-routable, but not a hidden
+effect path. `/help` is router-local; `/diff` and `@file` use
+`:coding_file_read`; `/model`, `/clear`, and `/compact` use
+`:coding_session_write`; `/init` writes through `:coding_file_write`.
 
 **The interactive turn vs. "done."** Like Claude Code / Codex / Gemini, the
 ordinary turn is an interactive REPL: the model loops (propose tool calls → read
@@ -170,15 +184,16 @@ decision in the v0.57 plan.
 ## Consequences
 
 - Allbert gains a focused terminal coding surface that lives entirely on the one
-  authority spine: four registered boundary actions, no second runtime, no second
+  authority spine: six registered coding actions, no second runtime, no second
   security policy.
 - A named **local-coding operator** trust tier (ADR 0056 lineage, running at
   ADR 0009 **Level 1**) makes the single trusted-operator assumption explicit and
   auditable, and bounds it to the main terminal session. It is not a new sandbox
   level and never "level 0".
 - The guardrails preserve every existing invariant: action boundary, Security
-  Central, confirmations, sandbox levels, and MCP-first are unchanged; "done" for
-  effectful/generated-code work is deterministic, not model-asserted.
+  Central, confirmations, sandbox levels, and MCP-first are unchanged; read/search
+  is policy-bounded even when unprompted; "done" for effectful/generated-code work
+  is deterministic, not model-asserted.
 - This surface depends on the v0.55 terminal channel and **static** split-result
   pattern (ADR 0067). The **streaming** half — the coding diff live-region
   renderer and progressive tool-argument rendering — is **net-new v0.57 work**,

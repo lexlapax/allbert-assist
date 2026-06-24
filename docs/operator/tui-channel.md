@@ -130,6 +130,15 @@ create channel-event rows or model turns. They are slash-allowlisted operator
 reads only; natural-language requests to inspect intents or models must not
 route into these internal actions.
 
+## v0.57 Pi-Mode Coding Surface
+
+v0.57 plans a Pi-mode coding surface on top of this same terminal channel. It is
+not a replacement for the base TUI guide: use this document for the shipped
+channel substrate, identity mapping, split-payload seam, and warm-console
+standard; use `docs/operator/pi-mode-coding.md` for the planned coding-surface
+operator setup, approval modes, allowlist behavior, streaming/cancel checks, and
+manual validation handoff.
+
 Legacy v0.55 manual M2 smoke:
 
 - Start `mix allbert.tui` with the mapped identity.

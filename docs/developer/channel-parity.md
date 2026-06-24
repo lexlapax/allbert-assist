@@ -12,6 +12,9 @@ channel descriptors plus the declared local CLI and LiveView surfaces. A green
 report means every row declares approval primitives, includes the universal
 `:list` fallback, and declares threading. It also makes the v0.55 posture
 explicit: all channels are turn-complete; true streaming remains later scope.
+For that later scope, v0.57 owns the Pi-mode live renderer and stream-event
+contract; the parity matrix remains the descriptor-level base-channel report, not
+the coding-surface streaming authority.
 
 Current matrix dimensions:
 
