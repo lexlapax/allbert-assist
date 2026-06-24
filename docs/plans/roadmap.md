@@ -3532,11 +3532,12 @@ ADR: `docs/adr/0068-pi-mode-coding-surface-and-local-coding-trust-tier.md`
 (Accepted in v0.57 M0)
 Rationale: `docs/archives/pi-integration-rethink.md`
 
-Status: in progress; M0 contracts/API/upstream verification, M1
+Status: in progress; M0-M9 implemented and ready for warm TUI operator manual
+validation before release closeout. M0 contracts/API/upstream verification, M1
 read/search/path substrate, M2 write/edit file effects, M3 bash runner contract,
 M4 stream-event pipeline/live renderer, M5 async turn-execution boundary, M6
-cancellation/queued steering, and M7 local-coding trust/approval/grants
-implemented 2026-06-23. NEW
+cancellation/queued steering, M7 local-coding trust/approval/grants, M8 session
+slash matrix, and M9 deterministic eval/release gate implemented 2026-06-23. NEW
 in the 2026-06-21 replan.
 Incorporates the Pi-vs-Allbert analysis:
 keep Allbert's authority spine, give it Pi's minimal inner loop where it helps (a
@@ -3572,9 +3573,11 @@ Expected direction:
   lifecycle. M8 wires `Coding.Prompt`, `Coding.Session`, Settings-backed prompt/
   model keys, `/pi` realpath cwd-jail pinning, `/mode`, `/model`, `/clear`,
   `/compact`, `/diff`, `@file`, and `/init` over registered read/write actions
-  with the standard TUI approval handoff. The named substrate (`deps/req_llm`
-  `Context`/`StreamResponse`/`StreamChunk`, `Owl.LiveScreen`, `Resources.Grants`)
-  is verified to exist.
+  with the standard TUI approval handoff. M9 adds `:v057` security eval rows,
+  `mix allbert.test release.v057`, and split-payload hardening so `write`/`edit`
+  surface diffs stay out of model-facing payloads. The named substrate
+  (`deps/req_llm` `Context`/`StreamResponse`/`StreamChunk`, `Owl.LiveScreen`,
+  `Resources.Grants`) is verified to exist.
 - A named "local-coding operator" trust tier (ADR 0056 lineage, running at ADR
   0009 **Level 1** — not "level 0"): a single trusted operator, main session,
   terminal channel — never the default, never for channel-originated or

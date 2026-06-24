@@ -1,8 +1,8 @@
 # Pi-Mode Coding Operator Guide
 
-Status: planned for v0.57; M0-M8 are implemented. This guide describes the target
-operator workflow for the Pi-mode coding surface after implementation. The
-release-authoritative validation checklist lives in
+Status: v0.57 M0-M9 are implemented; release closeout is waiting on manual
+operator validation. This guide describes the operator workflow for the Pi-mode
+coding surface. The release-authoritative validation checklist lives in
 `docs/plans/v0.57-request-flow.md#operator-validation`.
 
 Pi-mode runs inside the persistent `tui` channel. It is not a separate runtime and

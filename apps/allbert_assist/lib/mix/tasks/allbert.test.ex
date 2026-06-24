@@ -31,6 +31,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v055
       mix allbert.test release.v0551
       mix allbert.test release.v056
+      mix allbert.test release.v057
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -133,6 +134,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v055"]), do: release_v055()
   def run(["release.v0551"]), do: release_v0551()
   def run(["release.v056"]), do: release_v056()
+  def run(["release.v057"]), do: release_v057()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -2996,6 +2998,129 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  @release_v057_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "coding_m0_m8_units",
+      title: "Pi-mode coding contracts, tools, streaming, trust, and TUI units",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/coding/m0_contracts_test.exs",
+        "test/allbert_assist/coding/m1_read_search_actions_test.exs",
+        "test/allbert_assist/coding/m2_write_edit_actions_test.exs",
+        "test/allbert_assist/coding/m3_bash_action_test.exs",
+        "test/allbert_assist/coding/m4_stream_rendering_test.exs",
+        "test/allbert_assist/coding/m5_async_turn_test.exs",
+        "test/allbert_assist/coding/m6_cancel_steer_test.exs",
+        "test/allbert_assist/coding/m7_trust_approval_test.exs",
+        "test/allbert_assist/coding/m8_session_slash_test.exs",
+        "test/allbert_assist/channels/tui_test.exs",
+        "test/mix/tasks/allbert_tui_test.exs",
+        "test/mix/tasks/allbert_test_task_test.exs"
+      ],
+      coverage: [
+        "coding actions resolve through Actions.Runner.run/3 and stay cwd-jailed",
+        "write/edit/bash effects remain confirmation-gated with clean model payloads",
+        "stream events, async turns, cancellation, and queued steering stay supervised",
+        "local-coding trust tier, approval modes, grants, and slash/session controls preserve Security Central authority"
+      ]
+    },
+    %{
+      id: "v057_eval",
+      title: ":v057 Pi-mode coding security eval inventory",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v057_coding_eval_test.exs",
+        "test/security/security_eval_case_test.exs"
+      ],
+      coverage: [
+        "v0.57 eval rows are wired into EvalInventory",
+        "coding tools remain policy-bounded registered actions",
+        "split payloads do not leak TUI diff context into model payloads",
+        "slash commands are non-routable session controls and grant no authority"
+      ]
+    }
+  ]
+
+  defp release_v057 do
+    env = owned_env("release-v057", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v057")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v057_steps, &run_release_v057_step(&1, env))
+    secret_scan = release_channel_pack_secret_scan(home, "release.v057")
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v057",
+      version: "v0.57",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; deterministic Pi-mode coding units and security evals run against local fixtures only",
+      notes:
+        "warm mix allbert.tui operator validation remains required by the v0.57 request flow before release closeout",
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v057-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v057 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v057 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v057_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v057 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -4962,6 +5087,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v055
       mix allbert.test release.v0551
       mix allbert.test release.v056
+      mix allbert.test release.v057
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

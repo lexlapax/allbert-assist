@@ -78,7 +78,10 @@ defmodule AllbertAssist.Coding.M2WriteEditActionsTest do
     assert response.permission_decision.decision == :needs_confirmation
     assert response.confirmation_id
     refute File.exists?(target)
-    assert response.model_payload =~ "--- /dev/null"
+    assert response.model_payload =~ "needs confirmation"
+    assert response.model_payload =~ "content_sha256="
+    refute response.model_payload =~ "--- /dev/null"
+    assert response.surface_payload =~ "--- /dev/null"
 
     assert {:ok, approval} =
              Runner.run(
@@ -98,8 +101,10 @@ defmodule AllbertAssist.Coding.M2WriteEditActionsTest do
              )
 
     assert secret_response.status == :needs_confirmation
-    assert secret_response.model_payload =~ "[REDACTED]"
+    assert secret_response.model_payload =~ "content_sha256="
     refute secret_response.model_payload =~ "sk-secretABC123"
+    assert secret_response.surface_payload =~ "[REDACTED]"
+    refute secret_response.surface_payload =~ "sk-secretABC123"
     assert get_in(secret_response.confirmation, ["resume_params_ref", "content"]) == "[REDACTED]"
     refute File.exists?(Path.join(workspace, "secret_note.txt"))
   end
@@ -119,7 +124,9 @@ defmodule AllbertAssist.Coding.M2WriteEditActionsTest do
 
     assert response.status == :needs_confirmation
     assert File.read!(path) == "alpha\nneedle\nomega\n"
-    assert response.model_payload =~ "exact replacements=1"
+    assert response.model_payload =~ "replacements=1"
+    refute response.model_payload =~ "exact replacements=1"
+    assert response.surface_payload =~ "exact replacements=1"
     assert get_in(response.confirmation, ["resume_params_ref", "old_text"]) == "[REDACTED]"
     assert get_in(response.confirmation, ["resume_params_ref", "new_text"]) == "[REDACTED]"
 
@@ -145,8 +152,10 @@ defmodule AllbertAssist.Coding.M2WriteEditActionsTest do
              )
 
     assert secret_response.status == :needs_confirmation
-    assert secret_response.model_payload =~ "[REDACTED]"
+    assert secret_response.model_payload =~ "new_text_sha256="
     refute secret_response.model_payload =~ "sk-secretABC123"
+    assert secret_response.surface_payload =~ "[REDACTED]"
+    refute secret_response.surface_payload =~ "sk-secretABC123"
   end
 
   test "write refuses traversal, symlink parent escape, and overwrite", %{workspace: workspace} do

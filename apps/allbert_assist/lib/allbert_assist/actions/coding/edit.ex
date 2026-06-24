@@ -131,16 +131,42 @@ defmodule AllbertAssist.Actions.Coding.Edit do
 
   defp enrich_response({:ok, response}, prepared) do
     status = Map.get(response, :status, :completed)
-    payload = payload_for(status, response, prepared.summary)
+    model_payload = model_payload_for(status, response, prepared.summary)
+    surface_payload = surface_payload_for(status, response, prepared.summary)
 
     {:ok,
      response
-     |> Map.put(:model_payload, payload)
-     |> Map.put(:surface_payload, payload)
+     |> Map.put(:model_payload, model_payload)
+     |> Map.put(:surface_payload, surface_payload)
      |> Map.put(:output_data, output_data(response, prepared.summary))}
   end
 
-  defp payload_for(:completed, response, _summary) do
+  defp model_payload_for(:completed, response, _summary) do
+    receipt = Map.get(response, :receipt, %{})
+
+    "edit completed: #{Map.get(receipt, :relative_path, "unknown")} replacements=#{Map.get(receipt, :replacements, 0)} content_sha256=#{Map.get(receipt, :content_sha256, "unknown")} diff_truncated=#{Map.get(receipt, :diff_truncated?, false)}"
+  end
+
+  defp model_payload_for(:needs_confirmation, response, summary) do
+    [
+      Map.get(response, :message, "edit needs confirmation"),
+      "\npath=",
+      summary.path,
+      " replacements=",
+      to_string(summary.replacements),
+      " old_text_sha256=",
+      summary.old_text_sha256,
+      " new_text_sha256=",
+      summary.new_text_sha256,
+      " diff_truncated=",
+      to_string(summary.diff_truncated?)
+    ]
+    |> IO.iodata_to_binary()
+  end
+
+  defp model_payload_for(_status, response, _summary), do: Map.get(response, :message, "")
+
+  defp surface_payload_for(:completed, response, _summary) do
     receipt = Map.get(response, :receipt, %{})
 
     [
@@ -154,7 +180,7 @@ defmodule AllbertAssist.Actions.Coding.Edit do
     |> IO.iodata_to_binary()
   end
 
-  defp payload_for(:needs_confirmation, response, summary) do
+  defp surface_payload_for(:needs_confirmation, response, summary) do
     [
       Map.get(response, :message, "edit needs confirmation"),
       "\npath=",
@@ -171,7 +197,7 @@ defmodule AllbertAssist.Actions.Coding.Edit do
     |> IO.iodata_to_binary()
   end
 
-  defp payload_for(_status, response, _summary), do: Map.get(response, :message, "")
+  defp surface_payload_for(_status, response, _summary), do: Map.get(response, :message, "")
 
   defp output_data(response, summary) do
     response
