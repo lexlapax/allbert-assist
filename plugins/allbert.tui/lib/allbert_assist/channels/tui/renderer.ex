@@ -2,6 +2,7 @@ defmodule AllbertAssist.Channels.TUI.Renderer do
   @moduledoc false
 
   alias AllbertAssist.Approval.Handoff
+  alias AllbertAssist.Coding.StreamRenderer
 
   @default_max_text_bytes 12_000
   @descriptor %{primitives: [:typed_command, :list], threading: :rich}
@@ -29,17 +30,32 @@ defmodule AllbertAssist.Channels.TUI.Renderer do
   def render_response(response, opts \\ []) when is_map(response) do
     max_text_bytes = Keyword.get(opts, :max_text_bytes, @default_max_text_bytes)
 
-    response_text =
-      if handoff = response_field(response, :approval_handoff) do
-        render_approval_handoff(handoff)
-      else
-        surface_text(response)
-      end
+    response_text = response_text(response, max_text_bytes)
 
     response_text
     |> normalize_text()
     |> bound_text(max_text_bytes)
     |> then(&{:ok, [&1]})
+  end
+
+  @spec render_stream_events(Enumerable.t(), keyword()) :: {:ok, [String.t()]} | {:error, term()}
+  def render_stream_events(events, opts \\ []) do
+    turn_id = Keyword.fetch!(opts, :turn_id)
+    max_text_bytes = Keyword.get(opts, :max_text_bytes, @default_max_text_bytes)
+
+    with {:ok, rendered} <-
+           StreamRenderer.render_events(events,
+             turn_id: turn_id,
+             max_text_bytes: max_text_bytes
+           ) do
+      {:ok, [rendered]}
+    end
+  end
+
+  @spec stream_state(StreamRenderer.t(), keyword()) :: Owl.Data.t()
+  def stream_state(state, opts \\ []) do
+    max_text_bytes = Keyword.get(opts, :max_text_bytes, @default_max_text_bytes)
+    StreamRenderer.render(state, max_text_bytes: max_text_bytes)
   end
 
   def render_approval_handoff(handoff_data) do
@@ -77,6 +93,36 @@ defmodule AllbertAssist.Channels.TUI.Renderer do
     response
     |> response_field(:message, inspect(response, pretty: true))
     |> to_string()
+  end
+
+  defp response_text(response, max_text_bytes) do
+    cond do
+      events = stream_events(response) ->
+        render_response_stream_events(response, events, max_text_bytes)
+
+      handoff = response_field(response, :approval_handoff) ->
+        render_approval_handoff(handoff)
+
+      true ->
+        surface_text(response)
+    end
+  end
+
+  defp render_response_stream_events(response, events, max_text_bytes) do
+    turn_id = response_field(response, :turn_id) || response_field(response, :id) || "turn"
+
+    case render_stream_events(events, turn_id: turn_id, max_text_bytes: max_text_bytes) do
+      {:ok, [rendered]} -> rendered
+      {:error, _reason} -> surface_text(response)
+    end
+  end
+
+  defp stream_events(response) do
+    case response_field(response, :stream_events) do
+      [] -> nil
+      nil -> nil
+      events -> events
+    end
   end
 
   defp render_handoff_payload(:typed_command, payload), do: typed_command_text(payload)

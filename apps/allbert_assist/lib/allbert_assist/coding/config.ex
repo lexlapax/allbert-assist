@@ -17,7 +17,9 @@ defmodule AllbertAssist.Coding.Config do
     edit_max_replacements: 1,
     bash_timeout_ms: 120_000,
     bash_max_output_bytes: 120_000,
-    bash_allow_raw_shell?: false
+    bash_allow_raw_shell?: false,
+    streaming_enabled?: true,
+    streaming_turn_complete_fallback?: true
   }
 
   @doc "Return the configured cwd jail root, before path expansion."
@@ -79,6 +81,19 @@ defmodule AllbertAssist.Coding.Config do
   @spec bash_allow_raw_shell?() :: boolean()
   def bash_allow_raw_shell?,
     do: boolean("coding.bash.allow_raw_shell", @defaults.bash_allow_raw_shell?)
+
+  @doc "Return true when coding stream-event live rendering is enabled."
+  @spec streaming_enabled?() :: boolean()
+  def streaming_enabled?, do: boolean("coding.streaming.enabled", @defaults.streaming_enabled?)
+
+  @doc "Return true when streaming renderers should fall back to final split payloads."
+  @spec streaming_turn_complete_fallback?() :: boolean()
+  def streaming_turn_complete_fallback?,
+    do:
+      boolean(
+        "coding.streaming.turn_complete_fallback",
+        @defaults.streaming_turn_complete_fallback?
+      )
 
   defp positive_integer(key, default) do
     case setting(key, default) do

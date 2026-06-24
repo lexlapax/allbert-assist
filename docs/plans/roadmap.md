@@ -3534,7 +3534,8 @@ Rationale: `docs/archives/pi-integration-rethink.md`
 
 Status: in progress; M0 contracts/API/upstream verification, M1
 read/search/path substrate, M2 write/edit file effects, and M3 bash runner
-contract implemented 2026-06-23. NEW in the 2026-06-21 replan.
+contract, and M4 stream-event pipeline/live renderer implemented 2026-06-23. NEW
+in the 2026-06-21 replan.
 Incorporates the Pi-vs-Allbert analysis:
 keep Allbert's authority spine, give it Pi's minimal inner loop where it helps (a
 gated coding surface), and adopt Pi's split-tool-result and minimalism budget.
