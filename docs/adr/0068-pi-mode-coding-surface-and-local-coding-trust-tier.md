@@ -88,11 +88,14 @@ Surface discipline:
   deltas (today's response is turn-complete); the diff streamed unit is the
   tool-call argument stream, not the tool result;
 - **interactive affordances** — **coder-facing approval modes**
-  (`default`/`accept-edits`/`plan`/`tier`) + Allbert Home-rooted per-repo
-  "always allow this command" (a confirmation-cost/persistence layer over Security
-  Central, granting no authority; `plan` executes read/search only),
-  **Esc-to-cancel** a running turn (work kept + traced) with a **queued correction**,
-  and a familiar coding **slash set**
+  (`default`/`accept-edits`/`plan`/`tier`) implemented as a **confirmation-cost seam**
+  in `Security.Decision` (drops only the prompt; preserves the `:needs_confirmation`
+  decision, policy, trace, and audit; grants no authority; `plan` executes
+  read/search only), with "always allow this command" reusing the existing
+  `Resources.Grants` remembered-grant lifecycle (not a parallel allowlist);
+  **Esc-to-cancel** a running turn — which requires running the turn under a
+  supervised Task (the synchronous v0.55 runtime cannot cancel mid-turn) — with a
+  **queued correction**; and a familiar coding **slash set**
   (`/help`, `/model`, `/clear`, `/init`, `/diff`, `/compact`);
 - **context discipline (Pi's actual practice)** — gather context through
   **chunked reads** (offset/limit) and, for larger investigations,
@@ -110,8 +113,11 @@ authority.
 
 The coding slash set is slash-allowlisted and non-routable, but not a hidden
 effect path. `/help` is router-local; `/diff` and `@file` use
-`:coding_file_read`; `/model`, `/clear`, and `/compact` use
-`:coding_session_write`; `/init` writes through `:coding_file_write`.
+`:coding_file_read`; `/init` writes through `:coding_file_write`. `/model`,
+`/clear`, and `/compact` are **ungated session/model ops** — in-memory controls
+with no persistent or external effect, so they carry **no permission atom** (there
+is no `:coding_session_write`; permission-gating an in-memory `/clear` would be
+prompt-fatigue ceremony no peer CLI imposes).
 
 **The interactive turn vs. "done."** Like Claude Code / Codex / Gemini, the
 ordinary turn is an interactive REPL: the model loops (propose tool calls → read
@@ -202,3 +208,21 @@ decision in the v0.57 plan.
   `run_shell_command`. The exposure is bounded by the tier (single trusted local
   operator only), cwd confinement, timeout, and audit; the security boundary is
   the host/container, not OTP.
+- **Clean mid-turn cancellation requires net-new runtime work.** The v0.55 runtime
+  executes a turn **synchronously and blocking** (no handle to an in-flight turn),
+  so Esc-to-cancel is impossible without first running a coding turn's model call
+  under a **supervised Task**. This async turn-execution boundary is its own
+  milestone and the prerequisite for real cancellation (abort the in-flight
+  `ReqLLM.StreamResponse`, not merely abandon it).
+- **The "cheap gate" is a confirmation-cost seam, not an authority change.** It is
+  implemented in `Security.Decision.build/1`: when the tier/mode resolves it sets
+  `requires_confirmation: false` while preserving the `:needs_confirmation`
+  decision, policy, risk, trace, and audit. The decision and the audit trail are
+  unchanged; only the interactive prompt is suppressed.
+- **"Always allow" reuses `Resources.Grants`,** the existing durable, scoped,
+  expirable, revocable, audited remembered-approval lifecycle — a command-scoped
+  grant keyed by repo fingerprint + permission + cwd + canonical (normalized,
+  redacted) command — rather than a second allowlist subsystem.
+- **Coding tool I/O is session-scoped.** Reads, searches, diffs, and shell output
+  stay in the session trace; they are not auto-promoted to markdown-first long-term
+  memory unless the operator explicitly saves them.

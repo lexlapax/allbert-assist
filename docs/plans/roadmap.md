@@ -355,15 +355,17 @@ scope.
     read/grep/glob + effectful write/edit/bash) through
     `Actions.Runner.run/3`, sub-1000-token prompt+tool-defs budget, chunked-read
     context discipline, **coder-ergonomics parity** with Claude Code / Pi /
-    Codex / Gemini CLI (approval modes + Allbert Home-rooted per-repo command
-    allowlist, assistant-text token streaming + progressive diff streaming over
-    the v0.55 static split, Esc-to-cancel + queued steering, coding slash set),
-    and a named "local-coding operator" trust tier (ADR 0056 lineage at ADR 0009
-    Level 1, not "level 0"). Never YOLO-by-default, never for channel-originated
-    or generated-code sessions; modes/allowlists grant no authority;
-    deterministic acceptance gates and Security Central stay intact. Milestones
-    M0–M8. ADR 0068; rationale in `docs/archives/pi-integration-rethink.md`;
-    operator handoff in `docs/operator/pi-mode-coding.md`.
+    Codex / Gemini CLI (approval modes as a `Security.Decision` confirmation-cost
+    seam + per-repo "always allow" reusing `Resources.Grants`, assistant-text token
+    streaming + progressive diff streaming over the v0.55 static split on a new
+    async turn-execution boundary that enables real Esc-to-cancel + queued steering,
+    coding slash set with `/model`/`/clear`/`/compact` ungated), and a named
+    "local-coding operator" trust tier (ADR 0056 lineage at ADR 0009 Level 1, not
+    "level 0"). Never YOLO-by-default, never for channel-originated or
+    generated-code sessions; modes/grants grant no authority; deterministic
+    acceptance gates and Security Central stay intact. Milestones M0–M9. ADR 0068;
+    rationale in `docs/archives/pi-integration-rethink.md`; operator handoff in
+    `docs/operator/pi-mode-coding.md`.
 58. v0.58 Web UX Redo + Surface Policy: re-layout `/workspace` (ADR 0023/0024
     kept) — chat primary, ephemeral surfaces become popups, canvas demoted,
     labels cleaned up ("Conversations" replaces "threads"); references
@@ -3548,10 +3550,16 @@ Expected direction:
   sandbox Level 1; raw shell only at the local-coding tier.
 - **Coder-ergonomics parity** (benchmarked against Claude Code / Pi / Codex /
   Gemini CLI): coder-facing approval modes (`default`/`accept-edits`/`plan`/`tier`)
-  + an Allbert Home-rooted per-repo command allowlist, **net-new** live rendering
-  (assistant-text token streaming + progressive tool-argument diff streaming over
-  the v0.55 **static** split), Esc-to-cancel + queued steering, and a familiar
-  coding slash set (`/help`/`/model`/`/clear`/`/init`/`/diff`/`/compact`).
+  as a confirmation-cost seam in `Security.Decision` (preserves decision/trace/audit)
+  + per-repo "always allow" reusing the `Resources.Grants` remembered-grant
+  lifecycle, **net-new** live rendering (assistant-text token streaming +
+  progressive tool-argument diff streaming over the v0.55 **static** split) on a new
+  **async turn-execution boundary** that makes real Esc-to-cancel possible, queued
+  steering, and a familiar coding slash set
+  (`/help`/`/model`/`/clear`/`/init`/`/diff`/`/compact`; `/model`/`/clear`/`/compact`
+  ungated). Milestones M0–M9; the named substrate (`deps/req_llm`
+  `Context`/`StreamResponse`/`StreamChunk`, `Owl.LiveScreen`, `Resources.Grants`)
+  is verified to exist.
 - A named "local-coding operator" trust tier (ADR 0056 lineage, running at ADR
   0009 **Level 1** — not "level 0"): a single trusted operator, main session,
   terminal channel — never the default, never for channel-originated or
