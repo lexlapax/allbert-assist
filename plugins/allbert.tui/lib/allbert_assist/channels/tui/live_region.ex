@@ -18,8 +18,14 @@ defmodule AllbertAssist.Channels.TUI.LiveRegion do
           required(:max_text_bytes) => pos_integer(),
           optional(:mode) => :owl | :output,
           optional(:output_fun) => (String.t() -> term()),
-          optional(:last_rendered) => String.t() | nil
+          optional(:last_tool_names) => [String.t()],
+          optional(:last_result_count) => non_neg_integer(),
+          optional(:last_assistant_bytes) => non_neg_integer(),
+          optional(:complete_emitted?) => boolean(),
+          optional(:cancelled_emitted?) => boolean()
         }
+
+  @assistant_progress_interval_bytes 256
 
   @doc "Create the coding live-region block and render the empty stream state."
   @spec start(term(), String.t(), keyword()) :: {:ok, t()} | {:error, term()}
@@ -59,7 +65,11 @@ defmodule AllbertAssist.Channels.TUI.LiveRegion do
        mode: :output,
        max_text_bytes: Keyword.get(opts, :max_text_bytes, 12_000),
        output_fun: output_fun,
-       last_rendered: nil
+       last_tool_names: [],
+       last_result_count: 0,
+       last_assistant_bytes: 0,
+       complete_emitted?: false,
+       cancelled_emitted?: false
      }}
   end
 
@@ -123,22 +133,90 @@ defmodule AllbertAssist.Channels.TUI.LiveRegion do
   end
 
   defp maybe_emit_output_progress(live_region) do
-    rendered =
-      Renderer.stream_state(live_region.renderer_state,
-        max_text_bytes: live_region.max_text_bytes
-      )
+    live_region
+    |> maybe_emit_tool_progress()
+    |> maybe_emit_result_progress()
+    |> maybe_emit_assistant_progress()
+    |> maybe_emit_cancelled_progress()
+    |> maybe_emit_complete_progress()
+  end
+
+  defp maybe_emit_tool_progress(%{renderer_state: %{tool_calls: tool_calls}} = live_region) do
+    names = tool_names(tool_calls)
+
+    if names != [] and names != Map.get(live_region, :last_tool_names, []) do
+      live_region
+      |> emit_progress("Tool calls: #{Enum.join(names, ", ")}")
+      |> Map.put(:last_tool_names, names)
+    else
+      live_region
+    end
+  end
+
+  defp maybe_emit_result_progress(%{renderer_state: %{tool_results: results}} = live_region) do
+    count = length(results)
+
+    if count > 0 and count != Map.get(live_region, :last_result_count, 0) do
+      live_region
+      |> emit_progress("Tool results: #{count} received")
+      |> Map.put(:last_result_count, count)
+    else
+      live_region
+    end
+  end
+
+  defp maybe_emit_assistant_progress(%{renderer_state: %{assistant_text: text}} = live_region) do
+    bytes = byte_size(text)
+    last_bytes = Map.get(live_region, :last_assistant_bytes, 0)
 
     cond do
-      rendered in [nil, ""] ->
+      bytes == 0 ->
         live_region
 
-      rendered == Map.get(live_region, :last_rendered) ->
+      last_bytes == 0 or bytes - last_bytes >= @assistant_progress_interval_bytes ->
         live_region
+        |> emit_progress("Assistant streaming (#{bytes} bytes)")
+        |> Map.put(:last_assistant_bytes, bytes)
 
       true ->
-        live_region.output_fun.(rendered)
-        %{live_region | last_rendered: rendered}
+        live_region
     end
+  end
+
+  defp maybe_emit_cancelled_progress(%{renderer_state: %{cancelled?: true}} = live_region) do
+    if Map.get(live_region, :cancelled_emitted?, false) do
+      live_region
+    else
+      live_region
+      |> emit_progress("Turn cancelled")
+      |> Map.put(:cancelled_emitted?, true)
+    end
+  end
+
+  defp maybe_emit_cancelled_progress(live_region), do: live_region
+
+  defp maybe_emit_complete_progress(%{renderer_state: %{complete?: true}} = live_region) do
+    if Map.get(live_region, :complete_emitted?, false) do
+      live_region
+    else
+      live_region
+      |> emit_progress("Turn complete")
+      |> Map.put(:complete_emitted?, true)
+    end
+  end
+
+  defp maybe_emit_complete_progress(live_region), do: live_region
+
+  defp emit_progress(live_region, line) do
+    live_region.output_fun.(line)
+    live_region
+  end
+
+  defp tool_names(tool_calls) do
+    tool_calls
+    |> Enum.sort_by(fn {id, _tool} -> id end)
+    |> Enum.map(fn {_id, tool} -> Map.get(tool, :name) || "tool" end)
+    |> Enum.uniq()
   end
 
   defp screen_call(%{screen_module: module}, function, args) do

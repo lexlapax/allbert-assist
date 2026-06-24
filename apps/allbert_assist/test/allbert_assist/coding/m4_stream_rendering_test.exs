@@ -179,6 +179,21 @@ defmodule AllbertAssist.Coding.M4StreamRenderingTest do
     assert {:ok, live_region} = LiveRegion.apply_event(live_region, text_event)
     assert_receive {:progress, "Assistant streaming (5 bytes)"}
 
+    assert {:ok, tiny_text_event} =
+             StreamEvent.new(:assistant_token_delta, %{turn_id: "turn-output", text: "!"})
+
+    assert {:ok, live_region} = LiveRegion.apply_event(live_region, tiny_text_event)
+    refute_receive {:progress, "Assistant streaming" <> _rest}, 50
+
+    assert {:ok, milestone_text_event} =
+             StreamEvent.new(:assistant_token_delta, %{
+               turn_id: "turn-output",
+               text: String.duplicate("x", 256)
+             })
+
+    assert {:ok, live_region} = LiveRegion.apply_event(live_region, milestone_text_event)
+    assert_receive {:progress, "Assistant streaming (262 bytes)"}
+
     assert {:ok, tool_event} =
              StreamEvent.new(:tool_call_argument_delta, %{
                turn_id: "turn-output",

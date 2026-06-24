@@ -47,9 +47,10 @@ mix allbert.tui
 
 The launcher boots the app with TUI-specific `Channels.Supervisor` child options
 and waits on the supervised TUI child. Completed responses render into normal
-terminal scrollback. Streaming progress also uses transcript-stable scrollback by
-default rather than erased live-screen blocks, so captured validation transcripts
-do not retain blank repaint gaps. The actual input prompt remains the only
+terminal scrollback. Streaming progress also uses transcript-stable, coalesced
+scrollback by default rather than erased live-screen blocks, so captured validation
+transcripts do not retain blank repaint gaps or per-token progress spam. The actual
+input prompt remains the only
 `allbert:default>` line. Type `/quit` or `/exit` to stop the launcher.
 Plain settings/channel inspection tasks may start the supervised descriptor child
 when `channels.tui.enabled` is true, but that child is non-interactive and quiet;
