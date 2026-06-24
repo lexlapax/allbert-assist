@@ -1,6 +1,6 @@
 # Pi-Mode Coding Operator Guide
 
-Status: v0.57 M0-M9.19 are implemented. Release closeout is blocked on warm
+Status: v0.57 M0-M9.20 are implemented. Release closeout is blocked on warm
 operator validation against a real streaming/tool-capable coding profile. This guide
 describes the operator workflow for the Pi-mode coding surface. The
 release-authoritative validation checklist lives in
@@ -18,12 +18,15 @@ does not grant authority by being local. Every coding tool routes through
 - `coding.pi_mode.enabled=true`.
 - `coding.trusted_operator_id` set to the mapped local operator only for the
   validation home or the operator's intended Pi-mode home.
+- Level 1 local execution enabled only for the intended repo root and command
+  set when validating or using Pi-mode `bash`.
 
 ## Configure A Validation Home
 
 ```sh
 export V057_MANUAL_HOME="$(mktemp -d /tmp/allbert-v057-manual.XXXXXX)"
 export ALLBERT_HOME="$V057_MANUAL_HOME"
+export V057_REPO_ROOT="$(pwd)"
 mix allbert.ecto.migrate --quiet
 
 mix allbert.settings set channels.tui.identity_map '[{"external_user_id":"default","user_id":"local","enabled":true}]'
@@ -31,8 +34,12 @@ mix allbert.settings set channels.tui.enabled true
 mix allbert.settings set coding.pi_mode.enabled true
 mix allbert.settings set coding.trusted_operator_id local
 mix allbert.settings set coding.default_approval_mode default
-mix allbert.settings set coding.workspace.cwd_jail "$(pwd)"
+mix allbert.settings set coding.workspace.cwd_jail "$V057_REPO_ROOT"
 mix allbert.settings set coding.model_profile pi_coding_local
+mix allbert.settings set execution.local.enabled true
+mix allbert.settings set execution.local.allowed_roots "[\"$V057_REPO_ROOT\"]"
+mix allbert.settings set execution.local.allowed_commands '["pwd","printf"]'
+mix allbert.settings set execution.local.require_confirmation true
 ollama pull qwen2.5:7b
 mix allbert.model doctor pi_coding_local
 ```
@@ -46,10 +53,19 @@ mix allbert.settings get coding.trusted_operator_id
 mix allbert.settings get coding.default_approval_mode
 mix allbert.settings get coding.workspace.cwd_jail
 mix allbert.settings get coding.model_profile
+mix allbert.settings get execution.local.enabled
+mix allbert.settings get execution.local.allowed_roots
+mix allbert.settings get execution.local.allowed_commands
+mix allbert.settings get execution.local.require_confirmation
 ```
 
 Expected: every value matches the command above, and the cwd jail is the repo root
-being validated.
+being validated. `execution.local.enabled` must be `true`,
+`execution.local.allowed_roots` must contain the repo root,
+`execution.local.allowed_commands` must contain the validation commands, and
+`execution.local.require_confirmation` must be `true`. If `bash` returns
+`:local_execution_disabled`, the Pi-mode approval mode has not been reached; fix
+the Level 1 execution settings in the same `ALLBERT_HOME` before continuing.
 
 ## Coding Model Profile
 
@@ -153,6 +169,12 @@ must fail clearly when the match is missing.
 
 `bash` is host execution at ADR 0009 Level 1. Raw shell strings are available only
 at the local-coding operator tier. Non-tier callers are argv-only or refused.
+Before any Pi-mode approval prompt can appear, `bash` must also pass the
+Settings-backed Level 1 execution policy: `execution.local.enabled=true`, cwd
+inside the allowed root/coding jail, executable present in
+`execution.local.allowed_commands`, env keys allowed, and requested limits within
+policy. A disabled Level 1 policy is a preflight/setup failure, not an
+`accept-edits` behavior.
 
 ## Slash Commands
 
