@@ -92,14 +92,29 @@ defmodule AllbertAssist.Coding.ToolLoop do
     },
     %{
       name: "bash",
-      description: "Run a cwd-jailed Level 1 command with timeout, output caps, and redaction.",
+      description:
+        "Run a cwd-jailed Level 1 command with timeout, output caps, and redaction. Prefer executable plus args; plain command strings are normalized to argv when safe, while shell syntax requires the raw-shell tier.",
       schema: %{
         "type" => "object",
         "properties" => %{
-          "executable" => %{"type" => "string"},
-          "args" => %{"type" => "array", "items" => %{"type" => "string"}},
-          "command" => %{"type" => "string"},
-          "cwd" => %{"type" => "string"},
+          "executable" => %{
+            "type" => "string",
+            "description" => "Executable name or absolute path, for example pwd or printf."
+          },
+          "args" => %{
+            "type" => "array",
+            "items" => %{"type" => "string"},
+            "description" => "Argument vector. Do not include shell operators here."
+          },
+          "command" => %{
+            "type" => "string",
+            "description" =>
+              "Plain command text. Simple text such as pwd or printf 'hi\\n' is converted to argv; shell operators such as pipes, redirection, &&, ;, $(), or backticks require the raw-shell tier."
+          },
+          "cwd" => %{
+            "type" => "string",
+            "description" => "Directory inside the Pi-mode cwd jail."
+          },
           "timeout_ms" => %{"type" => "integer"},
           "max_output_bytes" => %{"type" => "integer"},
           "env" => %{"type" => "object"},

@@ -84,6 +84,28 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
     assert get_in(metadata.target_result, [:output_data, :stdout_preview]) =~ workspace
   end
 
+  test "bash treats plain command strings as argv commands", %{workspace: workspace} do
+    assert {:ok, response} =
+             Runner.run("bash", %{"command" => "pwd", "cwd" => "."}, context(workspace))
+
+    assert response.status == :needs_confirmation
+    assert response.permission_decision.decision == :needs_confirmation
+    assert response.model_payload =~ "mode=argv"
+    assert response.model_payload =~ "executable=\"pwd\""
+    assert get_in(response.confirmation, ["resume_params_ref", "args"]) == "[REDACTED_ARGS]"
+
+    assert {:ok, quoted} =
+             Runner.run(
+               "bash",
+               %{"command" => "printf 'hello world\\n'", "cwd" => "."},
+               context(workspace)
+             )
+
+    assert quoted.status == :needs_confirmation
+    assert quoted.model_payload =~ "mode=argv"
+    assert quoted.model_payload =~ "executable=\"printf\""
+  end
+
   test "bash enforces cwd jail before command execution", %{workspace: workspace} do
     assert {:ok, response} =
              Runner.run(
@@ -141,7 +163,7 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
     workspace: workspace
   } do
     assert {:ok, disabled} =
-             Runner.run("bash", %{command: "printf hello", cwd: "."}, context(workspace))
+             Runner.run("bash", %{command: "printf hello | cat", cwd: "."}, context(workspace))
 
     assert disabled.status == :denied
     assert disabled.actions |> hd() |> Map.fetch!(:denial_reason) == :raw_shell_disabled
@@ -151,7 +173,7 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
     non_tier_context = put_in(context(workspace), [:coding, :trusted_operator_id], "other")
 
     assert {:ok, non_tier} =
-             Runner.run("bash", %{command: "printf hello", cwd: "."}, non_tier_context)
+             Runner.run("bash", %{command: "printf hello | cat", cwd: "."}, non_tier_context)
 
     assert non_tier.status == :denied
 
@@ -159,7 +181,11 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
              :local_coding_operator_required
 
     assert {:ok, raw_pending} =
-             Runner.run("bash", %{command: "printf hello", cwd: "."}, tier_context(workspace))
+             Runner.run(
+               "bash",
+               %{command: "printf hello | cat", cwd: "."},
+               tier_context(workspace)
+             )
 
     assert raw_pending.status == :needs_confirmation
     assert raw_pending.model_payload =~ "mode=raw_shell"
@@ -186,6 +212,18 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
 
     assert response.actions |> hd() |> Map.fetch!(:denial_reason) ==
              :bash_spawned_subagent_not_allowed
+
+    assert {:ok, argv_response} =
+             Runner.run(
+               "bash",
+               %{command: "codex exec do-work", cwd: "."},
+               tier_context(workspace)
+             )
+
+    assert argv_response.status == :denied
+
+    assert argv_response.actions |> hd() |> Map.fetch!(:denial_reason) ==
+             :bash_spawned_subagent_not_allowed
   end
 
   test "bash raw shell enforces env allowlist and requested limits at the tier", %{
@@ -196,7 +234,7 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
     assert {:ok, denied_env} =
              Runner.run(
                "bash",
-               %{command: "printf hello", cwd: ".", env: %{"HIDDEN" => "nope"}},
+               %{command: "printf hello | cat", cwd: ".", env: %{"HIDDEN" => "nope"}},
                tier_context(workspace)
              )
 
@@ -208,7 +246,7 @@ defmodule AllbertAssist.Coding.M3BashActionTest do
     assert {:ok, denied_timeout} =
              Runner.run(
                "bash",
-               %{command: "printf hello", cwd: ".", timeout_ms: 2_000},
+               %{command: "printf hello | cat", cwd: ".", timeout_ms: 2_000},
                tier_context(workspace)
              )
 

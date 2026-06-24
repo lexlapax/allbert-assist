@@ -167,6 +167,24 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
       end
     end
 
+    defp stream(:tool_bash_command_string, _parent, prompt) do
+      if tool_result_context?(prompt) do
+        [
+          ReqLLM.StreamChunk.text("Bash is pending approval."),
+          ReqLLM.StreamChunk.meta(%{finish_reason: "stop"})
+        ]
+      else
+        [
+          ReqLLM.StreamChunk.tool_call(
+            "bash",
+            %{"command" => "pwd", "cwd" => "."},
+            %{id: "call-bash-command-string"}
+          ),
+          ReqLLM.StreamChunk.meta(%{finish_reason: "tool_calls"})
+        ]
+      end
+    end
+
     defp stream(:multi_tool, _parent, prompt) do
       if tool_result_context?(prompt) do
         [
@@ -573,6 +591,15 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
              status: :needs_confirmation,
              path: nil,
              unchanged?: fn -> :ok end
+           }},
+          {:tool_bash_command_string,
+           %{
+             message: "Bash is pending approval.",
+             action: "bash",
+             id: "call-bash-command-string",
+             status: :needs_confirmation,
+             path: nil,
+             unchanged?: fn -> :ok end
            }}
         ] do
       parent = self()
@@ -955,7 +982,7 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
         "local" => %{
           "enabled" => true,
           "allowed_roots" => [root],
-          "allowed_commands" => ["printf"],
+          "allowed_commands" => ["pwd", "printf"],
           "env_allowlist" => [],
           "max_timeout_ms" => 1_000,
           "max_output_bytes" => 2_000

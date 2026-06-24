@@ -399,8 +399,14 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
 
     assert too_long.status == :denied
 
+    assert {:ok, command_string} =
+             Runner.run("bash", %{command: "pwd", cwd: "."}, context)
+
+    assert command_string.status == :needs_confirmation
+    assert command_string.model_payload =~ "mode=argv"
+
     assert {:ok, raw_disabled} =
-             Runner.run("bash", %{command: "printf hi", cwd: "."}, context)
+             Runner.run("bash", %{command: "printf hi | cat", cwd: "."}, context)
 
     assert raw_disabled.status == :denied
     assert raw_disabled.error == :raw_shell_disabled
@@ -410,7 +416,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
     channel_context = Map.put(context, :channel_originated?, true)
 
     assert {:ok, raw_channel} =
-             Runner.run("bash", %{command: "printf hi", cwd: "."}, channel_context)
+             Runner.run("bash", %{command: "printf hi | cat", cwd: "."}, channel_context)
 
     assert raw_channel.status == :denied
     assert raw_channel.error == :local_coding_operator_required

@@ -15,6 +15,7 @@ defmodule AllbertAssist.Coding.BashSpec do
   alias AllbertAssist.Security.PermissionGate
 
   @subagent_command_pattern ~r/(^|\s)(codex|claude|gemini|opencode|cursor|antigravity)(\s|$)/
+  @subagent_executables ~w[codex claude gemini opencode cursor antigravity]
 
   @type t :: %{
           required(:mode) => :argv | :raw_shell,
@@ -26,6 +27,8 @@ defmodule AllbertAssist.Coding.BashSpec do
   @doc "Normalize bash params into an executable command spec."
   @spec normalize(map(), map()) :: {:ok, t()} | {:error, map()}
   def normalize(params, context) when is_map(params) and is_map(context) do
+    params = normalize_plain_command_to_argv(params)
+
     if raw_shell_request?(params) do
       normalize_raw_shell(params, context)
     else
@@ -39,6 +42,7 @@ defmodule AllbertAssist.Coding.BashSpec do
     with {:ok, cwd} <- resolve_cwd(params, context),
          {:ok, policy} <- coding_execution_policy(context),
          command_params <- command_params(params, cwd, policy),
+         :ok <- ensure_no_subagent_argv(command_params),
          {:ok, spec} <- CommandSpec.normalize(command_params, policy: policy) do
       {:ok, build(:argv, spec, params)}
     else
@@ -69,6 +73,59 @@ defmodule AllbertAssist.Coding.BashSpec do
     is_binary(field(params, :command)) and
       field(params, :executable) in [nil, ""]
   end
+
+  defp normalize_plain_command_to_argv(params) do
+    command = text_param(params, :command)
+
+    cond do
+      command == "" ->
+        params
+
+      field(params, :executable) not in [nil, ""] ->
+        params
+
+      raw_shell_syntax?(command) ->
+        params
+
+      true ->
+        case split_plain_command(command) do
+          [executable | args] ->
+            params
+            |> drop_param(:command)
+            |> put_param(:executable, executable)
+            |> put_param(:args, args)
+
+          [] ->
+            params
+        end
+    end
+  end
+
+  defp split_plain_command(command) do
+    OptionParser.split(command)
+  rescue
+    _exception -> []
+  end
+
+  defp raw_shell_syntax?(command) when is_binary(command) do
+    command
+    |> String.to_charlist()
+    |> raw_shell_syntax?(:none)
+  end
+
+  defp raw_shell_syntax?([], _quote), do: false
+
+  defp raw_shell_syntax?([?\\, _escaped | rest], quote) when quote in [:none, :double],
+    do: raw_shell_syntax?(rest, quote)
+
+  defp raw_shell_syntax?([?' | rest], :none), do: raw_shell_syntax?(rest, :single)
+  defp raw_shell_syntax?([?' | rest], :single), do: raw_shell_syntax?(rest, :none)
+  defp raw_shell_syntax?([?" | rest], :none), do: raw_shell_syntax?(rest, :double)
+  defp raw_shell_syntax?([?" | rest], :double), do: raw_shell_syntax?(rest, :none)
+  defp raw_shell_syntax?([char | _rest], :none) when char in ~c";|<>&\n\r`", do: true
+  defp raw_shell_syntax?([?$, ?( | _rest], quote) when quote != :single, do: true
+  defp raw_shell_syntax?([?` | _rest], :double), do: true
+  defp raw_shell_syntax?([_char | rest], quote), do: raw_shell_syntax?(rest, quote)
 
   defp resolve_cwd(params, context) do
     cwd = field(params, :cwd) || "."
@@ -225,6 +282,19 @@ defmodule AllbertAssist.Coding.BashSpec do
     end
   end
 
+  defp ensure_no_subagent_argv(%{executable: executable}) do
+    basename =
+      executable
+      |> to_string()
+      |> Path.basename()
+
+    if basename in @subagent_executables do
+      {:error, :bash_spawned_subagent_not_allowed}
+    else
+      :ok
+    end
+  end
+
   defp denied_spec_error(mode, %CommandSpec{} = spec) do
     %{
       reason: spec.denial_reason || :policy_denied,
@@ -274,6 +344,14 @@ defmodule AllbertAssist.Coding.BashSpec do
       value when is_map(value) -> Map.new(value, fn {key, value} -> {to_string(key), value} end)
       _other -> %{}
     end
+  end
+
+  defp put_param(params, key, value) when is_map(params), do: Map.put(params, key, value)
+
+  defp drop_param(params, key) when is_map(params) do
+    params
+    |> Map.delete(key)
+    |> Map.delete(Atom.to_string(key))
   end
 
   defp field(map, key) when is_map(map) do

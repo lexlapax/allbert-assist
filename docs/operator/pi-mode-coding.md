@@ -1,6 +1,6 @@
 # Pi-Mode Coding Operator Guide
 
-Status: v0.57 M0-M9.20 are implemented. Release closeout is blocked on warm
+Status: v0.57 M0-M9.21 are implemented. Release closeout is blocked on warm
 operator validation against a real streaming/tool-capable coding profile. This guide
 describes the operator workflow for the Pi-mode coding surface. The
 release-authoritative validation checklist lives in
@@ -167,14 +167,23 @@ tools. The TUI-held session context is updated after the turn; `/clear` resets i
 `write` and `edit` use the coding file-write permission. `edit` is exact-match and
 must fail clearly when the match is missing.
 
-`bash` is host execution at ADR 0009 Level 1. Raw shell strings are available only
-at the local-coding operator tier. Non-tier callers are argv-only or refused.
+`bash` is host execution at ADR 0009 Level 1. Prefer the argv shape
+(`executable` plus `args`) for ordinary commands. If a model or operator supplies
+a plain `command` string such as `pwd` or `printf 'hello\n'`, Pi-mode normalizes it
+to argv when no shell syntax is present. Raw shell syntax remains stronger:
+pipes, redirection, `&&`, `;`, backgrounding, command substitution, backticks, and
+newline command separators are raw-shell requests and are available only at the
+local-coding operator tier when `coding.bash.allow_raw_shell=true`. Non-tier
+callers are argv-only or refused.
+
 Before any Pi-mode approval prompt can appear, `bash` must also pass the
 Settings-backed Level 1 execution policy: `execution.local.enabled=true`, cwd
 inside the allowed root/coding jail, executable present in
 `execution.local.allowed_commands`, env keys allowed, and requested limits within
 policy. A disabled Level 1 policy is a preflight/setup failure, not an
-`accept-edits` behavior.
+`accept-edits` behavior. A real `bash` tool call for a simple allowed command that
+ends in a prose workaround instead of a pending confirmation means the running TUI
+process is stale or the bash boundary regressed.
 
 ## Slash Commands
 
