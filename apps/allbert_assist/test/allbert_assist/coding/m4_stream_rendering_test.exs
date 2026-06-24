@@ -108,6 +108,7 @@ defmodule AllbertAssist.Coding.M4StreamRenderingTest do
 
     assert {:ok, final_state} = StreamRenderer.apply_event(state, complete_event)
     assert StreamRenderer.render(final_state) == "surface diff"
+    assert Renderer.stream_state(final_state) == "Turn complete"
     refute StreamRenderer.render(final_state) =~ "model-clean"
 
     assert {:ok, ["surface diff"]} =
@@ -164,5 +165,49 @@ defmodule AllbertAssist.Coding.M4StreamRenderingTest do
     assert_received {:update, :test_coding_stream, []}
     assert_received :await_render
     assert_received :flush
+  end
+
+  test "TUI output progress region writes compact progress without erase rows" do
+    output_fun = fn line -> send(self(), {:progress, line}) end
+
+    assert {:ok, live_region} = LiveRegion.start_output(output_fun, "turn-output")
+    refute_receive {:progress, _line}, 50
+
+    assert {:ok, text_event} =
+             StreamEvent.new(:assistant_token_delta, %{turn_id: "turn-output", text: "hello"})
+
+    assert {:ok, live_region} = LiveRegion.apply_event(live_region, text_event)
+    assert_receive {:progress, "Assistant streaming (5 bytes)"}
+
+    assert {:ok, tool_event} =
+             StreamEvent.new(:tool_call_argument_delta, %{
+               turn_id: "turn-output",
+               tool_call_id: "call-1",
+               tool_name: "grep",
+               arguments_delta: %{"pattern" => "coding.default_approval_mode"}
+             })
+
+    assert {:ok, live_region} = LiveRegion.apply_event(live_region, tool_event)
+    assert_receive {:progress, progress}
+    assert progress =~ "Tool calls: grep"
+    refute progress =~ "coding.default_approval_mode"
+    refute progress =~ "{"
+
+    assert {:ok, complete_event} =
+             StreamPipeline.turn_complete_event(
+               %{
+                 status: :completed,
+                 model_payload: "model-clean",
+                 surface_payload: "final response"
+               },
+               turn_id: "turn-output"
+             )
+
+    assert {:ok, live_region} = LiveRegion.apply_event(live_region, complete_event)
+    assert_receive {:progress, "Turn complete"}
+    refute_receive {:progress, "final response"}, 50
+
+    assert {:ok, _cleared} = LiveRegion.clear(live_region)
+    refute_receive {:progress, _line}, 50
   end
 end

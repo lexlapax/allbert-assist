@@ -15,7 +15,10 @@ defmodule AllbertAssist.Channels.TUI.LiveRegion do
           required(:block_id) => atom(),
           required(:renderer_state) => StreamRenderer.t(),
           required(:active?) => boolean(),
-          required(:max_text_bytes) => pos_integer()
+          required(:max_text_bytes) => pos_integer(),
+          optional(:mode) => :owl | :output,
+          optional(:output_fun) => (String.t() -> term()),
+          optional(:last_rendered) => String.t() | nil
         }
 
   @doc "Create the coding live-region block and render the empty stream state."
@@ -32,6 +35,7 @@ defmodule AllbertAssist.Channels.TUI.LiveRegion do
       block_id: block_id,
       renderer_state: renderer_state,
       active?: true,
+      mode: :owl,
       max_text_bytes: max_text_bytes
     }
 
@@ -41,8 +45,33 @@ defmodule AllbertAssist.Channels.TUI.LiveRegion do
     end
   end
 
+  @doc "Create a transcript-stable progress region backed by ordinary output lines."
+  @spec start_output((String.t() -> term()), String.t(), keyword()) :: {:ok, t()}
+  def start_output(output_fun, turn_id, opts \\ [])
+      when is_function(output_fun, 1) and is_binary(turn_id) and turn_id != "" do
+    {:ok,
+     %{
+       screen: nil,
+       screen_module: nil,
+       block_id: @default_block_id,
+       renderer_state: StreamRenderer.new(turn_id),
+       active?: true,
+       mode: :output,
+       max_text_bytes: Keyword.get(opts, :max_text_bytes, 12_000),
+       output_fun: output_fun,
+       last_rendered: nil
+     }}
+  end
+
   @doc "Apply one stream event and update the live block."
   @spec apply_event(t(), map()) :: {:ok, t()} | {:error, term()}
+  def apply_event(%{mode: :output, active?: true} = live_region, event) do
+    with {:ok, renderer_state} <- StreamRenderer.apply_event(live_region.renderer_state, event) do
+      live_region = %{live_region | renderer_state: renderer_state}
+      {:ok, maybe_emit_output_progress(live_region)}
+    end
+  end
+
   def apply_event(%{active?: true} = live_region, event) do
     with {:ok, renderer_state} <- StreamRenderer.apply_event(live_region.renderer_state, event) do
       live_region = %{live_region | renderer_state: renderer_state}
@@ -58,6 +87,8 @@ defmodule AllbertAssist.Channels.TUI.LiveRegion do
   @doc "Clear and flush the live-region block."
   @spec clear(t()) :: {:ok, t()} | {:error, term()}
   def clear(%{active?: false} = live_region), do: {:ok, live_region}
+
+  def clear(%{mode: :output} = live_region), do: {:ok, %{live_region | active?: false}}
 
   def clear(live_region) do
     with :ok <- screen_call(live_region, :update, [live_region.screen, live_region.block_id, []]),
@@ -81,12 +112,32 @@ defmodule AllbertAssist.Channels.TUI.LiveRegion do
         max_text_bytes: live_region.max_text_bytes
       )
 
-    with :ok <- screen_call(live_region, :update, [
-           live_region.screen,
-           live_region.block_id,
-           rendered
-         ]) do
+    with :ok <-
+           screen_call(live_region, :update, [
+             live_region.screen,
+             live_region.block_id,
+             rendered
+           ]) do
       screen_call(live_region, :await_render, [live_region.screen])
+    end
+  end
+
+  defp maybe_emit_output_progress(live_region) do
+    rendered =
+      Renderer.stream_state(live_region.renderer_state,
+        max_text_bytes: live_region.max_text_bytes
+      )
+
+    cond do
+      rendered in [nil, ""] ->
+        live_region
+
+      rendered == Map.get(live_region, :last_rendered) ->
+        live_region
+
+      true ->
+        live_region.output_fun.(rendered)
+        %{live_region | last_rendered: rendered}
     end
   end
 

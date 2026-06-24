@@ -131,6 +131,8 @@ defmodule AllbertAssist.Coding.StreamRenderer do
     |> maybe_put(:surface_payload, Map.get(event, :surface_payload))
   end
 
+  defp render_text(%{complete?: true}, :live), do: "Turn complete"
+
   defp render_text(%{complete?: true, surface_payload: payload}, _mode) when is_binary(payload) do
     payload
   end

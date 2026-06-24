@@ -82,7 +82,7 @@ defmodule Mix.Tasks.Allbert.Tui do
         enabled?: true,
         auto_input?: true,
         emit_banner?: true,
-        live_screen?: true,
+        live_screen?: false,
         restart: :transient
       )
 

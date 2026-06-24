@@ -309,7 +309,11 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     end
   end
 
-  defp start_coding_live_region(_turn_id, %{live_screen?: false} = state), do: {nil, state}
+  defp start_coding_live_region(turn_id, %{live_screen?: false} = state) do
+    case LiveRegion.start_output(output_fun(state), turn_id, max_text_bytes: state.max_text_bytes) do
+      {:ok, live_region} -> {live_region, state}
+    end
+  end
 
   defp start_coding_live_region(turn_id, state) do
     case LiveRegion.start(state.live_screen_server, turn_id, max_text_bytes: state.max_text_bytes) do
@@ -1143,6 +1147,9 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   defp emit_output(line, _state), do: default_output(line)
+
+  defp output_fun(%{output_fun: output_fun}) when is_function(output_fun, 1), do: output_fun
+  defp output_fun(_state), do: &default_output/1
 
   defp mark_processed(event, response, user_id, session_id) do
     Channels.update_event(event, %{
