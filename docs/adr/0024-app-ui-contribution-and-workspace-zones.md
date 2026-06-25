@@ -5,15 +5,18 @@
 Accepted and implemented in v0.32 Workspace-Only App UI And Settings Central
 (`docs/plans/v0.32-plan.md`).
 
-Proposed revision (v0.58, 2026-06-09 restructure): re-layout `/workspace` to a
-**chat-primary** shell — chat is the main column with a collapsible left
-**Conversations** rail; ephemeral surfaces render as **modals/popovers** (not an
-inline bottom row); the canvas is **demoted** to a launcher destination/drawer;
-operator-facing label is **"Conversations"** (UI strings only; internal
-`Conversations.Thread`, catalog atoms, events, topics, settings keys unchanged;
-the volatile `Session.Scratchpad` is untouched). Re-skin only — the ADR 0023
-substrate + Surface DSL/catalog are unchanged; no model-generated UI; `/workspace`
-stays canonical. Flips to Accepted at v0.58 M5. See `docs/plans/v0.58-plan.md`.
+Proposed revision (v0.58, 2026-06-24 rescope): execute the `/workspace` layout
+revision on the v0.58 web design system, not as a one-off skin. `/workspace`
+becomes a **chat-primary** shell: chat is the main column with a collapsible left
+**Conversations** rail; ephemeral surfaces render as shared
+**modals/popovers**; the canvas is demoted to a launcher destination/drawer; the
+operator-facing label is **"Conversations"**. This is a UI-string-only relabel:
+internal `Conversations.Thread`, catalog atoms, events, topics, settings keys, and
+the volatile `Session.Scratchpad` remain unchanged. ADR 0023 substrate, the
+Surface DSL/catalog boundary, and `/workspace` as the canonical route remain in
+force; no model-generated UI and no new routes. The revision is accepted only at
+v0.58 M15 closeout after M14 operator validation proves the design-system,
+surface-contract, and authority invariants. See `docs/plans/v0.58-plan.md`.
 
 This ADR graduates the "Workspace Hooks" /
 plugin-contributed workspace regions reserved in ADR 0023 §1, extends the

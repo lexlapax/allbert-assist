@@ -327,7 +327,8 @@ scope.
     create_calendar_event via MCP; ADR 0063); M9+M10 are in v0.54 and gate the tag.
     The advanced ADR 0062 self-optimizing pieces move to v0.56.
     Resequenced ahead of completing v0.53 (its channel approval workflow depends on
-    the router) and before the v0.58 UX redo (chat quality depends on intent).
+    the router) and before the v0.58 surface/web consolidation (chat quality
+    depends on intent).
 55. v0.55 Channel Parity + TUI/Terminal Channel: explicit channel capability/
     parity matrix and a proper TUI/terminal channel under the ADR 0016 contract
     (list-shaped identity map, dedupe, approval primitives, a basic
@@ -366,13 +367,15 @@ scope.
     acceptance gates and Security Central stay intact. Milestones M0–M9. ADR 0068;
     rationale in `docs/archives/pi-integration-rethink.md`; operator handoff in
     `docs/operator/pi-mode-coding.md`.
-58. v0.58 Web UX Redo + Surface Policy: re-layout `/workspace` (ADR 0023/0024
-    kept) — chat primary, ephemeral surfaces become popups, canvas demoted,
-    labels cleaned up ("Conversations" replaces "threads"); references
-    ChatGPT/Claude/Hermes. Adds operator-managed surface policy for
-    raw-vs-summary report shape, redaction/display bounds, and explicit operator
-    affordances. Sequenced after intent (v0.56) and the channel/console/coding
-    surfaces (v0.55/v0.55.1/v0.57) so chat quality is mature first.
+58. v0.58 Surface Consistency, Settings Enforcement & Web Design System: the
+    pre-1.0 consolidation release. Unifies web/TUI/channels/Mix/public protocol/
+    Pi-mode on one surface contract (one renderer, uniform events/audit by
+    `surface_id`, identity resolution, action-backed operator reads), enforces
+    Settings Central for all operator-tunable config, builds the web design
+    system (tokens, variant registry, pattern library, shell, catalog for every
+    page), executes the chat-primary workspace and Intents/Settings-Models/
+    Surface-Policy panels on that system, and consolidates redundant helpers.
+    Preserves the original surface-policy goal as presentation governance only.
 59. v0.59 Hardening, export/import, settings schema migration substrate,
     operator onboarding simplification, and final RC: no new user-facing
     capability; Allbert Home portability, cross-surface security eval sweep,
@@ -3518,7 +3521,8 @@ Expected direction:
   decisions through Security Central, and every operator read-model (coverage,
   descriptor list, eval/gate status, model recommendations) is a redacted DTO from a
   read action — rendered in CLI + minimal TUI reads in v0.56, with the web Intents +
-  Settings/Models panels contracted and flagged to the v0.58 Web UX redo.
+  Settings/Models panels contracted and flagged to the v0.58 design-system and
+  surface-consistency release.
 - Prove in evals that model output and learned proposals grant no authority, routing
   only changes after operator promotion (and passing the accuracy gate), the right
   agent fires across surfaces, registration signals rebuild correctly, and the model
@@ -3578,9 +3582,9 @@ ADRs: `docs/adr/0073-cross-surface-contract.md` (NEW),
 ADR 0016/0030/0070, the ADR 0004/0031 settings-enforcement note, and the ADR 0024
 chat-primary revision.
 
-Status: planned. **Rescoped 2026-06-24** from the narrow "Web UX Redo + Surface
-Policy" into the **pre-1.0 consolidation release**, after the v0.57 closeout and a
-full surface/settings/UX/redundancy survey. The original web re-skin, the v0.56 DTO
+Status: planned. **Rescoped 2026-06-24** from the earlier narrow web/policy framing
+into the **pre-1.0 consolidation release**, after the v0.57 closeout and a full
+surface/settings/UX/redundancy survey. The original web re-layout, the v0.56 DTO
 panels, and the operator surface-policy layer are preserved as milestones inside a
 larger four-pillar scope. Sequenced right before v0.59 hardening so the platform is
 internally consistent before the 1.0 freeze.

@@ -103,6 +103,12 @@ sequence and [CHANGELOG.md](CHANGELOG.md) for shipped release details.
   gates.
 - [docs/developer/agent-context-map.md](docs/developer/agent-context-map.md):
   subsystem routing map for deeper work.
+- [docs/developer/surface-contract.md](docs/developer/surface-contract.md):
+  v0.58 cross-surface implementation contract and conformance checklist.
+- [docs/developer/web-design-system.md](docs/developer/web-design-system.md):
+  v0.58 web tokens, variants, pattern library, and shell contract.
+- [docs/operator/workspace.md](docs/operator/workspace.md): operator workspace
+  guide for the chat-primary shell, panels, and surface policy.
 - [docs/plans/roadmap.md](docs/plans/roadmap.md): active roadmap and upcoming
   milestones.
 - [CHANGELOG.md](CHANGELOG.md): released-history details.

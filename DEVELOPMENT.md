@@ -77,8 +77,9 @@ mix phx.server
 Open the current operator LiveView:
 
 ```text
-http://localhost:4000/agent
-http://localhost:4000/settings
+http://localhost:4000/workspace
+http://localhost:4000/jobs
+http://localhost:4000/objectives
 ```
 
 Use the CLI runtime entrypoint:
@@ -115,7 +116,9 @@ mix test apps/allbert_assist/test/allbert_assist/runtime_test.exs
 mix test apps/allbert_assist/test/allbert_assist/memory_test.exs
 mix test apps/allbert_assist/test/allbert_assist/skills/registry_test.exs
 mix test apps/allbert_assist/test/mix/tasks/allbert_ask_test.exs
-mix test apps/allbert_assist_web/test/allbert_assist_web/live/agent_live_test.exs
+mix test apps/allbert_assist_web/test/allbert_assist_web/live/workspace_live_test.exs
+mix test apps/allbert_assist_web/test/allbert_assist_web/live/jobs_live_test.exs
+mix test apps/allbert_assist_web/test/allbert_assist_web/live/objective_live_test.exs
 ```
 
 Docs-only verification:

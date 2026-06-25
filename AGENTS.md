@@ -1,251 +1,138 @@
 # AGENTS.md
 
-This repository is Allbert: an Elixir/OTP assistant runtime built with Phoenix
-and Jido. Phoenix LiveView is one operator/channel interface, not the center of
-the system. The center is a signal-driven runtime, Jido agents and actions,
-Security Central, Settings Central, markdown-first memory, plugins, and
+Allbert is an Elixir/OTP assistant runtime with Phoenix interfaces and Jido at
+the agent/action layer. LiveView is an interface over the runtime, not the
+architecture center. The center is the runtime/action spine, Security Central,
+Settings Central, markdown-first memory, plugins, channels, public protocols, and
 Allbert Home.
 
-This file is intentionally compact because it is loaded into coding-agent
-context often. Do not turn it into release history. Use the roadmap,
-CHANGELOG, ADRs, and active plans as targeted references.
+Keep this file compact. Do not turn it into release history or a subsystem manual.
+Use the roadmap, active plan, request-flow, ADRs, changelog, and
+`docs/developer/agent-context-map.md` as targeted references.
 
-## Start Here
+## Reading Order
 
-Before coding, read only the context needed for the task:
+Before implementation work:
 
 1. `DEVELOPMENT.md`
 2. `docs/plans/roadmap.md`
 3. The active milestone plan in `docs/plans/`
 4. The matching request-flow document, when one exists
-5. Relevant ADRs in `docs/adr/`
-6. Targeted `CHANGELOG.md` entries when released-history context matters
+5. ADRs that constrain the task
+6. Targeted `CHANGELOG.md` entries when shipped history matters
 7. Relevant code and tests before editing
 
-For deeper subsystem routing, use
-`docs/developer/agent-context-map.md`. Load only the relevant section.
+Use `docs/developer/agent-context-map.md` only for deeper subsystem routing or
+released-version context. Do not bulk-read historical plans.
 
-## Document Authority
+## Authority
 
-When documents conflict, use this order:
+When sources conflict, use this order:
 
 1. Current user request
 2. Code and tests
-3. Active milestone plan and request-flow document
+3. Active milestone plan and request-flow
 4. ADRs
 5. `docs/plans/roadmap.md`
-6. `CHANGELOG.md` released-history notes
-7. Historical plans
+6. `CHANGELOG.md`
+7. Historical plans and archives
 
-Flag conflicts instead of silently choosing stale historical guidance.
+Flag conflicts instead of silently following stale guidance. The vision document is
+the north star, not a release-scope source.
 
-`docs/plans/allbert-jido-vision.md` is the timeless vision / north star: stable,
-version-agnostic, and edited only during deliberate vision-level planning. It
-carries no release scope — see `docs/plans/roadmap.md` for the version sequence.
+## Context Discipline
 
-## Context Budget
+- Load the smallest useful context.
+- Prefer active plans, ADRs, focused changelog entries, and local code over broad
+  document sweeps.
+- For architecture or readiness work, zoom out to the roadmap/vision/ADRs first,
+  then zoom back into the relevant files.
+- Use `docs/developer/test-strategy.md` for gate and lane classification.
+- Use `docs/developer/surface-contract.md` and
+  `docs/developer/web-design-system.md` for v0.58 surface/web work.
 
-- Keep context focused. Do not bulk-read historical plans or the whole
-  changelog.
-- Prefer the active plan, relevant ADRs, focused changelog entries, and local
-  code over broad document sweeps.
-- Load `docs/developer/agent-context-map.md` only when a task needs historical
-  or subsystem-specific routing.
-- Use `CHANGELOG.md` to understand what shipped, not as the primary source for
-  current design authority.
+## Context7
 
-## Subsystem Routing
-
-Use these as starting points, then narrow further from the active task:
-
-- Runtime, action runner, signals, Security Central, confirmations, or Resource
-  Access: read relevant active plan/request-flow docs plus ADR 0006, ADR 0007,
-  ADR 0008, ADR 0012, and targeted changelog entries.
-- Test strategy, precommit gates, async eligibility, test partitioning,
-  implementation-readiness audits, milestone parallelization, or development
-  methodology: read ADR 0049, ADR 0050 when dependency/toolchain
-  compatibility is involved, `docs/plans/v0.41-plan.md`,
-  `docs/plans/v0.41-request-flow.md`,
-  `docs/developer/test-strategy.md`, and the "Implementation Plan Readiness"
-  section of `DEVELOPMENT.md`.
-- Local identity, conversation history, sessions, or users: read ADR 0014 and
-  the active plan touching the area.
-- Memory review, promotion, search, indexes, or memory intent candidates: read
-  `docs/plans/v0.21-plan.md`, `docs/plans/v0.21-request-flow.md`, ADR 0014,
-  ADR 0019, and `CHANGELOG.md` v0.21.
-- Plugins, channel plugins, app registration, app surfaces, or generated app
-  structure: read ADR 0015, ADR 0017, the active plan, and the developer app
-  guide when relevant.
-- Channels and external identity mapping: read ADR 0016, the active plan, and
-  latest channel-related changelog entries.
-- Intent ranking, active app routing, classifier hooks, intent traces, app
-  intent descriptors, conversational app handoff, or clarification: read
-  ADR 0019, ADR 0034, the active plan, and latest intent-related changelog
-  entries.
-- Two-stage intent router, descriptor lifecycle/generation/learning, routing
-  accuracy, the routing-accuracy evaluation harness + promotion gate, or which
-  model to use for what: read ADR 0060, ADR 0061, ADR 0062, ADR 0071 (routing-
-  accuracy harness + blocking gate), ADR 0072 (recommended model profiles per
-  purpose), `docs/plans/v0.56-plan.md`, `docs/plans/v0.56-request-flow.md`, and
-  `docs/operator/model-recommendations.md`. The eval gate and model
-  recommendations grant no authority; routing is a hint only.
-- Objectives, objective steps, objective events, advisory providers, world
-  models, capability inventory, or any multi-step / cross-turn work: read
-  ADR 0021, `docs/plans/v0.24-plan.md`, `docs/plans/v0.24-request-flow.md`,
-  and `docs/research/objective-runtime-research.md`. `objective_id` is never
-  authority; advisory provider output is never authority; predictions about
-  user behavior never short-circuit confirmation.
-- Jido.Agent vs. plain GenServer substrate: read the "Jido.Agent vs.
-  GenServer" section in `docs/plans/allbert-jido-vision.md`,
-  `docs/plans/v0.23-plan.md`, and the substrate paragraph in
-  `DEVELOPMENT.md`. Use Jido.Agent when state machines, lifecycle hooks,
-  Skill composition, or successor agents are plausibly useful; use plain
-  GenServer for stateful storage where Jido.Agent buys nothing. New
-  state-bearing modules document their substrate choice in the module
-  `@moduledoc`.
-- StockSage work: read the active StockSage milestone plan, ADR 0018, ADR
-  0017, ADR 0015, and targeted StockSage changelog entries. For Python
-  bridge, `RunAnalysis`, or `:stocksage_analyze` work read ADR 0020,
-  `docs/plans/v0.22-plan.md`, and `CHANGELOG.md` v0.22; bridge code is
-  plugin-owned (under `./plugins/stocksage/`), and the
-  `:stocksage_analyze` safety floor is `:needs_confirmation` and cannot
-  be lowered by settings. For native financial specialist agents read ADR
-  0022 plus `docs/plans/v0.25-plan.md` and
-  `docs/plans/v0.25-request-flow.md`; they are reusable delegate agents under
-  the objective runtime, not a one-for-one Python TradingAgents graph clone.
-  Python bridge calls after v0.25 are explicit comparison/reference runs only,
-  never automatic fallback or a persistent default.
-- Workspace shell, ephemeral UI, canvas, offline editing, Fragments, or app
-  surfaces: read ADR 0015, ADR 0023, `docs/plans/v0.26-plan.md`, and
-  `docs/plans/v0.26-request-flow.md`.
-- Always use zoom-out skill and then zoom back in when designing or fixing bugs
+Use Context7 MCP for fresh docs whenever implementation depends on a library,
+framework, SDK, API, CLI, cloud service, or provider. Start with
+`resolve-library-id`, then query the selected docs. If Context7 is unavailable, use
+official docs or source and say so. Do not use Context7 for general refactoring,
+business-logic debugging, code review, or repository-specific architecture review.
 
 ## Non-Negotiables
 
-- Never include AI-tool attribution in git commits, commit messages, PR text,
-  release notes, or generated docs. Do not add Claude, Codex, Gemini,
-  opencode, Cursor, Antigravity, Pi, or similar generated-by/co-authored-by
-  footers. This project follows strict human supervision during planning,
-  architecture, and development; attribution belongs to the human project
-  authors, not AI coding tools.
-- Preserve user data. Do not delete or rewrite memory, traces, settings,
-  secrets, databases, skill folders, or user-created files unless explicitly
-  asked.
-- Keep code warning-free: no compiler warnings, HEEx/parser warnings, unused
-  aliases/imports, lexical tracker warnings, formatter drift, Credo findings,
-  Dialyzer warnings, or focused-test failures at handoff.
-- Use Context7 MCP for fresh docs whenever implementation depends on a
-  library, framework, SDK, API, CLI, cloud service, or provider. If Context7 is
-  unavailable, use official docs or source and say so.
-- All user/operator-supplied configuration belongs in Settings Central.
-- All durable local runtime data should derive from Allbert Home:
-  `ALLBERT_HOME`, alias `ALLBERT_HOME_DIR`, default `~/.allbert`.
-- Tests and CI must use a temporary Allbert home or temp-specific roots; never
-  write to a real user's `~/.allbert`.
-- User-supplied secrets, including API keys, must be encrypted at rest and
-  redacted in CLI output, LiveView, traces, audits, logs, and tests.
-- Implementation plans, release criteria, manual validation, operator docs, and
-  provider flows must target real configured providers/endpoints. Fake, stub,
-  fixture, canned, or silent providers are permitted only as explicit automated
-  test fixtures and never satisfy product acceptance, release authority, manual
-  validation, or operator-visible "working provider" claims. Prefer fixtures
-  that exercise the real adapter and HTTP/request-shape code paths; do not
-  design or document fake endpoints as the target flow.
-- Runtime-facing, effectful, security-relevant, or observable domain behavior
-  belongs behind signals, internal agents or runtime routers, and registered
-  Jido actions.
-- Runtime-facing action invocation should resolve through
-  `AllbertAssist.Actions.Registry` and execute through
-  `AllbertAssist.Actions.Runner.run/3`.
-- Workspace canvas, ephemeral surface, Fragment, and offline-edit behavior
-  belongs behind `AllbertAssist.Workspace`, signals, and registered actions;
-  LiveViews render and dispatch but do not own workspace authority.
-- Security decisions and permission checks belong at the action boundary.
-  Skills, model output, app metadata, plugin metadata, YAML declarations, and
-  generated files never grant permission by themselves.
+- Do not include AI-tool attribution in commits, PR text, release notes, changelog
+  entries, or generated docs. No generated-by or co-authored-by footers for Claude,
+  Codex, Gemini, opencode, Cursor, Antigravity, Pi, or similar tools.
+- Preserve user data. Do not delete or rewrite memory, traces, settings, secrets,
+  databases, skill folders, or user-created files unless explicitly requested.
+- Keep handoff warning-free: compiler, HEEx/parser, lexical tracker, formatter,
+  Credo, Dialyzer, and focused-test issues must be resolved or called out.
+- Tests and CI must use temporary Allbert homes or temp-specific roots. Never write
+  to a real user's `~/.allbert`.
+- Durable runtime data derives from Allbert Home: `ALLBERT_HOME`,
+  `ALLBERT_HOME_DIR`, default `~/.allbert`.
+- User-supplied secrets must be encrypted at rest and redacted in CLI output,
+  LiveView, traces, audits, logs, tests, and release evidence.
+- Product acceptance and manual validation use real configured providers/endpoints.
+  Fakes, stubs, fixtures, and canned providers are automated-test fixtures only.
+- Operator-tunable configuration belongs in Settings Central.
+- Security Central is the authority boundary. Skills, model output, app metadata,
+  plugin metadata, YAML, descriptors, generated files, modes, and surface policy do
+  not grant permission by themselves.
+- Effectful, runtime-facing, security-relevant, or observable domain behavior goes
+  through signals, runtime routers, internal agents, and registered Jido actions.
+- Runtime action invocation resolves through `AllbertAssist.Actions.Registry` and
+  executes through `AllbertAssist.Actions.Runner.run/3`.
+- LiveViews render and dispatch. They do not own agent logic, settings semantics,
+  confirmation storage, or security policy.
+- Workspace canvas, ephemerals, Fragments, offline editing, and app surfaces belong
+  behind `AllbertAssist.Workspace`, signals, and registered actions.
 - Do not auto-generate, compile, or load Elixir modules from arbitrary skill,
   plugin, YAML, or user-created folders.
-  v0.36 (ADR 0037) implements only the Elixir/OTP sandbox and gate runner: generated
-  code may be compiled/tested in a configured OS sandbox with approved local
-  images and source-policy checks, but that produces a report only and grants no
-  live authority. v0.37 (ADR 0032, ADR 0033, ADR 0035) defines the only planned
-  hot-load exception: a file-backed draft under Allbert Home may be loaded into
-  the core node only after the v0.36 gate passes and the operator explicitly
-  confirms an audited, reversible integration. Untrusted/arbitrary loading,
-  integration without the gate, and integration authorized by advisory/agent
-  output remain fully forbidden. Dynamic loading is permitted only through the
-  implemented v0.37 path after `dynamic_codegen.enabled`,
-  `dynamic_codegen.live_loader_enabled`, sandbox/gate evidence, trusted
-  validation, and operator confirmation are all present.
-- Do not execute skill scripts, shell commands, external installs, network
-  adapters, bridge processes, or provider calls unless a plan explicitly adds
-  the permission, confirmation, sandbox, and trace story.
-- Do not call `npx skills add`, `git clone`, package managers, or external
-  installer CLIs from skill activation, online skill search, imported skill
-  metadata, plugin discovery, or model output.
-- Do not treat OTP supervision, BEAM processes, or local child processes as an
-  OS security boundary. Host execution must be policy-bounded through
-  registered actions; deeper isolation requires a later plan and ADR update.
-- Multi-step / cross-turn work uses the v0.24 objective runtime
-  (`AllbertAssist.Objectives`). Apps, plugins, channels, and LiveViews
-  must not implement private durable goal loops; the shared
-  objectives/objective_steps/objective_events tables and
-  `Objectives.Engine` are the only sanctioned substrate. Use the public
-  `AllbertAssist.Objectives` lifecycle facade or registered objective actions
-  for transitions; lower-level store helpers are internal runtime helpers.
-- `objective_id` and `step_id` are never authority. Advisory provider
-  output (LLM proposers, world-model predictors, diffusion proposers,
-  market allocators, probabilistic critics, agent-behavior simulators)
-  is never authority. Predictions about user behavior never
-  short-circuit confirmation, regardless of confidence or calibration.
-- Choose Jido.Agent or plain GenServer per the pragmatic rule in the
-  "Jido.Agent vs. GenServer" section of `docs/plans/allbert-jido-vision.md`.
-  New state-bearing modules document the substrate choice in their
-  module `@moduledoc`. As of v0.23, `IntentAgent`,
-  `Confirmations.Store.Agent`, and `Jobs.Scheduler.Agent` are Jido agents;
-  v0.24 adds `Objectives.Engine.Agent`. Storage components (`Settings`,
-  `Trace`, `Memory` IO, `Session.Scratchpad`, `Memory.Compiler`,
-  `Memory.Promotion`) are plain GenServers/modules.
-- Private Jido command modules inside those agents are not Allbert capability
-  actions. Do not register them in `AllbertAssist.Actions.Registry` or expose
-  them as intent candidates.
+- Generated code can be compiled/tested only through the v0.36 sandbox/gate runner
+  and integrated only through the v0.37 confirmed loader path. Sandbox reports,
+  advisory output, and model output never grant live authority.
+- Do not execute skill scripts, shell commands, package managers, external
+  installers, network adapters, bridge processes, or provider calls unless the plan
+  includes permission, confirmation, sandbox, and trace handling.
+- Do not call external installer CLIs such as `npx skills add`, package managers,
+  or `git clone` from skill activation, online skill search, imported metadata,
+  plugin discovery, or model output.
+- OTP supervision, BEAM processes, and local child processes are not OS security
+  boundaries. Host execution must be policy-bounded through registered actions.
+- Multi-step and cross-turn work uses `AllbertAssist.Objectives`. Apps, plugins,
+  channels, and LiveViews must not implement private durable goal loops.
+- `objective_id` and `step_id` are never authority. Advisory provider output and
+  predictions about user behavior never short-circuit confirmation.
+- Choose Jido.Agent or plain GenServer by the pragmatic substrate rule in the
+  vision and relevant ADRs. New state-bearing modules document the choice in
+  `@moduledoc`.
+- Private Jido command modules are not Allbert capability actions. Do not register
+  or expose them as intent candidates.
 - Use `Req` for HTTP. Do not add `:httpoison`, `:tesla`, or `:httpc`.
 
 ## Workflow
 
-- For docs-only changes, run `git diff --check`.
-- After v0.55.1, interactive/manual operator validation defaults to one
-  persistent `mix allbert.tui` session. Cold Mix tasks are allowed for setup,
-  deterministic gates, provider/model preflight, and post-session evidence
-  checks only. In-session checks use TUI slash commands or planned TUI read
-  affordances; do not fall back to cold per-turn `mix allbert.ask` or cold
-  inspection tasks unless the active request-flow explicitly says why.
-- When creating or auditing a milestone plan for implementation readiness, add
-  development-lane annotations: parallel workstreams, serial barriers, focused
-  tests/gates, external smokes, full-precommit timing, and the rejoin point for
-  docs, drift review, validation, and commit/release evidence.
-- For v0.41 developer-efficiency work, record the BEFORE benchmark before
-  implementation, re-run and record efficiency benchmarks after each
-  implementation milestone, and reorder remaining batches when the measured
-  delta does not meet the milestone's planned share.
-- For code changes, run focused tests first. The active milestone plan must
-  name the focused tests, whether full `mix precommit` is required before
-  commit or release closeout, any serial lane involved, and which portions may
-  run in parallel versus serial.
-- Use `docs/developer/test-strategy.md` for the v0.41+ gate matrix. Until a
-  narrower gate is explicitly documented for a milestone, the release warning
-  gate remains: `mix compile --warnings-as-errors`, `mix credo --strict`,
-  `mix dialyzer`, and `mix precommit`.
-- After v0.41, use `mix allbert.test fast-local` for the quick daily gate,
+- For docs-only changes, run `git diff --check` and the docs gate when available.
+- After v0.55.1, manual/operator validation defaults to one warm
+  `mix allbert.tui` session. Cold Mix tasks are for setup, deterministic gates,
+  provider/model preflight, and post-session evidence checks unless the active
+  request-flow states otherwise.
+- Implementation-readiness plans must name parallel workstreams, serial barriers,
+  focused tests/gates, external smokes, full-precommit timing, and rejoin points
+  for docs, drift review, validation, and release evidence.
+- For code changes, run focused tests first. The active plan should state whether
+  `mix precommit`, `mix allbert.test release`, Dialyzer, external smoke, or manual
+  validation is required before commit or release closeout.
+- Use `mix allbert.test fast-local` for quick daily gates,
   `mix allbert.test fast-local --core-lanes --stocksage-lanes --web-lanes --partitions N`
-  for the high-coverage local gate, and `mix allbert.test release` for the
-  authoritative release handoff.
-- When adding or reclassifying tests, choose one primary lane from
-  `docs/developer/test-strategy.md`; use the narrowest lane that matches the
-  strongest shared resource, and keep security evals/external runtimes out of
-  fast-local unless a later plan adds an isolation story.
+  for high-coverage local gates, and `mix allbert.test release` for authoritative
+  release handoff unless a later plan supersedes this.
+- When adding or reclassifying tests, pick one primary lane from
+  `docs/developer/test-strategy.md` and keep security evals/external runtimes out
+  of fast-local unless a plan documents isolation.
 - Update request-flow docs as implementation changes.
-- Add or update ADRs when an implementation decision constrains future design.
-- Keep LiveViews thin: they call contexts/actions/runtime boundaries and do not
-  own agent logic, settings semantics, or security policy.
-- Commit titles always follow <version> <milestone> <small title description> or <version> <small title description>
+- Add or revise ADRs when a decision constrains future design.
+- Commit titles follow `<version> <milestone> <small title>` or
+  `<version> <small title>`.
