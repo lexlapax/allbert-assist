@@ -1956,6 +1956,36 @@ a.allbert-chip-link:focus-visible,
   padding: 0.875rem;
 }
 
+.workspace-callout-title,
+.workspace-callout-body,
+.workspace-table-summary {
+  margin: 0;
+}
+
+.workspace-callout-title {
+  color: var(--workspace-fg);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+}
+
+.workspace-callout-body {
+  color: var(--workspace-muted);
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+}
+
+.workspace-callout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.workspace-loading-state {
+  border-style: dashed;
+}
+
 .workspace-approval-inline {
   border-color: var(--allbert-warn);
   box-shadow: inset 4px 0 0 var(--allbert-warn);

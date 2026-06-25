@@ -166,6 +166,24 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
     assert get_in(string_key_payload, [:runner_metadata, :action_name]) == "direct_answer"
   end
 
+  test "tool calls outside the exposed allowlist mark the inbound event rejected" do
+    enable_mcp_stdio!()
+    allow_tools!(["direct_answer"])
+
+    assert {:error, {:tool_not_exposed, "unknown_tool"}} =
+             Runtime.call_tool("unknown_tool", %{}, context("fixture-client"))
+
+    assert %Event{
+             channel: "mcp_stdio",
+             status: "rejected",
+             external_user_id: "fixture-client",
+             user_id: "public-protocol:fixture-client",
+             payload_summary: "tools/call unknown_tool {}"
+           } = event = Repo.get_by(Event, channel: "mcp_stdio", status: "rejected")
+
+    assert event.reason =~ "tool_not_exposed"
+  end
+
   test "confirmation-gated tool call creates client-owned public readback id" do
     enable_mcp_stdio!()
     allow_tools!(["external_network_request"])

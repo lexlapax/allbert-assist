@@ -46,6 +46,21 @@ defmodule AllbertAssist.SettingsCentralNoBypassCheckTest do
     assert Enum.any?(issues, &(&1.message =~ "runtime.trace_default"))
   end
 
+  test "flags dotted operator setting app-config literals without key allowlist updates" do
+    source = """
+    defmodule Example.FutureSettingBypass do
+      def setting, do: Application.get_env(:allbert_assist, "future.operator_setting")
+    end
+    """
+
+    issues =
+      source
+      |> SourceFile.parse("apps/allbert_assist/lib/example_future_setting_bypass.ex")
+      |> SettingsCentralNoBypass.run([])
+
+    assert Enum.any?(issues, &(&1.message =~ "future.operator_setting"))
+  end
+
   test "allows tests and non-operator environment reads" do
     test_source = """
     defmodule ExampleTest do
@@ -87,5 +102,26 @@ defmodule AllbertAssist.SettingsCentralNoBypassCheckTest do
       |> SettingsCentralNoBypass.run([])
 
     assert Enum.count(issues, &(&1.trigger == "Settings.get")) == 2
+  end
+
+  test "flags direct web Settings Store and runtime config reads" do
+    source = """
+    defmodule AllbertAssistWeb.Components.BadStoreRead do
+      def settings, do: AllbertAssist.Settings.Store.resolved_settings()
+      def env, do: System.get_env("ALLBERT_TRACE_ENABLED")
+      def app, do: Application.get_env(:allbert_assist, "workspace.theme.mode")
+    end
+    """
+
+    issues =
+      source
+      |> SourceFile.parse(
+        "apps/allbert_assist_web/lib/allbert_assist_web/components/bad_store_read.ex"
+      )
+      |> SettingsCentralNoBypass.run([])
+
+    assert Enum.any?(issues, &(&1.trigger == "Settings.Store"))
+    assert Enum.any?(issues, &(&1.trigger == "System.get_env"))
+    assert Enum.any?(issues, &(&1.trigger == "Application.get_env"))
   end
 end

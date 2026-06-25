@@ -28,6 +28,38 @@ defmodule AllbertAssistWeb.Workspace.Components.PatternsTest do
     end
   end
 
+  defmodule PatternHost do
+    use Phoenix.Component
+
+    alias AllbertAssistWeb.Workspace.Components.Patterns
+
+    def render(assigns) do
+      ~H"""
+      <Patterns.status_callout id="test-status" title="Saved" message="The setting was saved." />
+      <Patterns.error_callout id="test-error" title="Denied" message="The action was denied." />
+      <Patterns.loading_state id="test-loading" label="Loading panel" detail="Fetching rows." />
+      <Patterns.drawer_shell
+        id="test-drawer"
+        title="Canvas"
+        summary="Workspace drawer"
+        data-workspace-component="utility_drawer"
+      >
+        <p>Drawer body</p>
+      </Patterns.drawer_shell>
+      <Patterns.table_list
+        id="test-table"
+        title="Rows"
+        summary="Bounded rows."
+        row_count={2}
+        max_rows={10}
+      >
+        <Patterns.table_row id="test-row" body="Row one" />
+        <Patterns.table_column id="test-column" body="Column one" />
+      </Patterns.table_list>
+      """
+    end
+  end
+
   test "catalog buttons select variants from props" do
     danger_html =
       render_component(Renderer,
@@ -61,6 +93,10 @@ defmodule AllbertAssistWeb.Workspace.Components.PatternsTest do
              "workspace-button workspace-button-primary",
              "workspace-button-compact"
            ]
+  end
+
+  test "nil button variant falls back to the default variant" do
+    assert Patterns.button_class!(nil) == ["workspace-button workspace-button-primary", nil]
   end
 
   test "status badge selects tone from props" do
@@ -115,5 +151,34 @@ defmodule AllbertAssistWeb.Workspace.Components.PatternsTest do
     assert html =~ ~s(phx-click-away="close_test_modal")
     assert html =~ ~s(phx-window-keydown="close_test_modal")
     assert html =~ ~s(phx-key="escape")
+  end
+
+  test "shared callout, loading, drawer, and table/list patterns expose stable semantics" do
+    html = render_component(&PatternHost.render/1, %{})
+
+    assert html =~ ~s(id="test-status")
+    assert html =~ ~s(data-workspace-pattern="status-callout")
+    assert html =~ ~s(role="status")
+    assert html =~ "The setting was saved."
+
+    assert html =~ ~s(id="test-error")
+    assert html =~ ~s(data-workspace-pattern="error-callout")
+    assert html =~ ~s(role="alert")
+
+    assert html =~ ~s(id="test-loading")
+    assert html =~ ~s(data-workspace-pattern="loading-state")
+    assert html =~ ~s(aria-busy="true")
+
+    assert html =~ ~s(id="test-drawer")
+    assert html =~ ~s(data-workspace-pattern="drawer-shell")
+    assert html =~ ~s(data-state="open")
+    assert html =~ ~s(data-workspace-component="utility_drawer")
+
+    assert html =~ ~s(id="test-table")
+    assert html =~ ~s(data-workspace-pattern="table-list")
+    assert html =~ ~s(data-row-count="2")
+    assert html =~ ~s(data-max-rows="10")
+    assert html =~ ~s(data-workspace-pattern="table-row")
+    assert html =~ ~s(data-workspace-pattern="table-column")
   end
 end

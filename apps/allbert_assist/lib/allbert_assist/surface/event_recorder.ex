@@ -58,6 +58,13 @@ defmodule AllbertAssist.Surface.EventRecorder do
 
   def mark_failed(nil, _reason), do: :ok
 
+  @spec mark_rejected(Event.t() | nil, term()) :: :ok
+  def mark_rejected(%Event{} = event, reason) do
+    update(event, %{status: "rejected", reason: inspect(reason)})
+  end
+
+  def mark_rejected(nil, _reason), do: :ok
+
   defp create(surface_id, attrs, direction, status) do
     attrs =
       attrs

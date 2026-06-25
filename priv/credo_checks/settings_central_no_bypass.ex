@@ -69,6 +69,7 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
       env_issue(line, line_no, issue_meta, params),
       application_setting_issue(line, line_no, lines_by_no, issue_meta, params),
       web_direct_settings_read_issue(line, line_no, source_file, issue_meta),
+      web_infra_config_issue(line, line_no, source_file, issue_meta),
       legacy_trace_enabled_issue(line, line_no, source_file, lines_by_no, issue_meta)
     ]
     |> Enum.reject(&is_nil/1)
@@ -102,6 +103,8 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         |> Params.get(:operator_setting_keys, __MODULE__)
         |> Enum.find(&String.contains?(window, inspect(&1)))
 
+      setting_key = setting_key || dotted_setting_key(window)
+
       if setting_key do
         issue_for(
           issue_meta,
@@ -131,13 +134,25 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
   end
 
   defp web_direct_settings_read_issue(line, line_no, source_file, issue_meta) do
-    if web_surface_source_file?(source_file.filename) and direct_settings_get?(line) do
+    if web_surface_source_file?(source_file.filename) and direct_web_settings_read?(line) do
       issue_for(
         issue_meta,
         line,
         line_no,
-        "Settings.get",
+        direct_web_settings_trigger(line),
         "Read web settings through a registered read action or resolved settings snapshot."
+      )
+    end
+  end
+
+  defp web_infra_config_issue(line, line_no, source_file, issue_meta) do
+    if web_surface_source_file?(source_file.filename) and direct_runtime_config_read?(line) do
+      issue_for(
+        issue_meta,
+        line,
+        line_no,
+        direct_runtime_config_trigger(line),
+        "Web surfaces must not read env/app config directly; route through Settings Central actions."
       )
     end
   end
@@ -145,9 +160,36 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
   defp web_surface_source_file?(filename),
     do: String.starts_with?(filename, "apps/allbert_assist_web/lib/")
 
-  defp direct_settings_get?(line) do
+  defp direct_web_settings_read?(line) do
     String.contains?(line, "Settings.get(") or
-      String.contains?(line, "AllbertAssist.Settings.get(")
+      String.contains?(line, "AllbertAssist.Settings.get(") or
+      String.contains?(line, "Settings.Store") or
+      String.contains?(line, "AllbertAssist.Settings.Store") or
+      String.contains?(line, "Store.resolved_settings(")
+  end
+
+  defp direct_web_settings_trigger(line) do
+    cond do
+      String.contains?(line, "Settings.Store") -> "Settings.Store"
+      String.contains?(line, "AllbertAssist.Settings.Store") -> "AllbertAssist.Settings.Store"
+      String.contains?(line, "Store.resolved_settings(") -> "Store.resolved_settings"
+      true -> "Settings.get"
+    end
+  end
+
+  defp direct_runtime_config_read?(line) do
+    String.contains?(line, "System.get_env") or String.contains?(line, "Application.get_env")
+  end
+
+  defp direct_runtime_config_trigger(line) do
+    if String.contains?(line, "System.get_env"), do: "System.get_env", else: "Application.get_env"
+  end
+
+  defp dotted_setting_key(window) do
+    case Regex.run(~r/"([a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+)"/, window) do
+      [_match, key] -> key
+      _other -> nil
+    end
   end
 
   defp trace_source_file?(filename),

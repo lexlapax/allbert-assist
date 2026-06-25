@@ -3211,11 +3211,13 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist/actions/intent/operator_read_actions_test.exs",
         "test/allbert_assist/actions/intent/operator_mutation_actions_test.exs",
         "test/allbert_assist/actions/surface_policy_actions_test.exs",
+        "test/mix/tasks/allbert_intent_test.exs",
         "test/allbert_assist/actions/registry_test.exs"
       ],
       coverage: [
         "Intents panel DTOs reuse v0.56 registered operator actions",
         "promotion affordances remain gated and non-routable",
+        "mix allbert.intent reports rejected gate outcomes without crashing",
         "Models and surface-policy DTOs redact secrets and grant no public authority",
         "surface_policy read/update actions stay internal registered actions"
       ]

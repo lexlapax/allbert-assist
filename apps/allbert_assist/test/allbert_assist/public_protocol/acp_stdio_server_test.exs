@@ -81,6 +81,15 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
 
     assert response["error"]["data"]["code"] == "surface_disabled"
     refute_received {:runtime_request, _request}
+
+    assert %Event{
+             channel: "acp_stdio",
+             status: "rejected",
+             external_user_id: "zed-fixture",
+             user_id: "public-protocol:zed-fixture",
+             payload_summary: "session/new rejected",
+             reason: "surface_disabled"
+           } = Repo.get_by(Event, channel: "acp_stdio", status: "rejected")
   end
 
   test "session/new rejects client-supplied MCP servers and accepts inert cwd metadata" do
@@ -102,6 +111,13 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
       )
 
     assert rejected["error"]["data"]["code"] == "mcpservers_no_authority"
+
+    assert %Event{
+             channel: "acp_stdio",
+             status: "rejected",
+             payload_summary: "session/new rejected",
+             reason: "mcpservers_no_authority"
+           } = Repo.get_by(Event, channel: "acp_stdio", status: "rejected")
 
     {:ok, [accepted], state} =
       Server.handle_message(
@@ -313,6 +329,40 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
 
     assert response["error"]["data"]["code"] == "client_permission_not_authority"
     refute_received {:runtime_request, _request}
+
+    assert %Event{
+             channel: "acp_stdio",
+             status: "rejected",
+             session_id: ^session_id,
+             payload_summary: "session/request_permission rejected",
+             reason: "client_permission_not_authority"
+           } = Repo.get_by(Event, channel: "acp_stdio", status: "rejected")
+  end
+
+  test "unsupported methods record rejected audit events before runtime" do
+    enable_acp_stdio!()
+    state = initialized_state()
+
+    {:ok, [response], _state} =
+      Server.handle_message(
+        %{
+          "jsonrpc" => "2.0",
+          "id" => 7,
+          "method" => "session/unsupported",
+          "params" => %{}
+        },
+        state
+      )
+
+    assert response["error"]["data"]["code"] == "unsupported_method"
+    refute_received {:runtime_request, _request}
+
+    assert %Event{
+             channel: "acp_stdio",
+             status: "rejected",
+             payload_summary: "session/unsupported rejected",
+             reason: "unsupported_method"
+           } = Repo.get_by(Event, channel: "acp_stdio", status: "rejected")
   end
 
   test "stdio line handler emits newline-delimited JSON-RPC only" do

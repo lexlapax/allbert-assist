@@ -1,6 +1,6 @@
 # ADR 0074: Web Design System And UX Language
 
-Status: Proposed (v0.58); M13 implemented, M13.1B design-system remediation
+Status: Proposed (v0.58); M13 implemented, M13.1B/E design-system remediation
 complete before M14.
 Date: 2026-06-24
 Related: ADR 0023 (workspace canvas/ephemeral substrate — kept), ADR 0024 (live
@@ -51,10 +51,10 @@ component catalog the rendering boundary for **every** web page.
    through the catalog.
 3. **Pattern library.** Shared, accessible HEEx patterns start with the v0.58
    acceptance baseline: modal/popover semantics, empty-state catalog atoms, the
-   drawer shell contract, and variant-controlled buttons/status affordances. Pages
-   compose these patterns; they do not re-implement them. Broader shared
-   loading/streaming, error/status callout, and table/list pattern breadth is a
-   v0.59 hardening target unless M13.1 implements it before M14.
+   drawer shell contract, variant-controlled buttons/status affordances, shared
+   loading state, status/error callouts, and table/list primitives. Pages compose
+   these patterns; they do not re-implement them. This is a component-contract
+   baseline, not a final UX layout redesign.
 4. **Catalog is the boundary for all pages.** Every operator page — `/`,
    workspace, Jobs, Objectives, and the new Intents / Settings-Models /
    Surface-Policy panels — renders through the unified catalog (ADR 0030) inside
@@ -95,8 +95,8 @@ this system, not as a separate one-off re-skin.
 - M13.1B remediated the `/` home page and remaining raw-button drift before M14.
   `/` is an accepted thin landing page, not full catalog content: it emits the
   operator shell contract, consumes tokens, and uses variant-registry buttons.
-  Additional shared loading/error/status/table-list patterns are documented v0.59
-  follow-up work rather than implied v0.58 acceptance.
+  M13.1E added the shared loading/error/status/drawer/table-list pattern baseline
+  and routed obvious page-local copies through it without redesigning layout.
 - The three v0.58 operator panels and any future app UI extend a consistent
   system instead of adding bespoke pages.
 - A documented UX language gives the platform a stable web contract to freeze at

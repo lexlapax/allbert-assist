@@ -102,10 +102,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
       </header>
 
       <%= if @thread_notice do %>
-        <section id="workspace-thread-notice" class="workspace-thread-notice" role="status">
+        <Patterns.status_callout id="workspace-thread-notice" class="workspace-thread-notice">
           <.icon name="hero-information-circle-micro" class="size-4 shrink-0" />
           <span>{@thread_notice}</span>
-        </section>
+        </Patterns.status_callout>
       <% end %>
 
       <section
@@ -261,6 +261,13 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
             </dl>
           </div>
         </article>
+
+        <Patterns.loading_state
+          :if={@asking?}
+          id="agent-loading"
+          label="Allbert is responding"
+          detail="Runtime turn in progress."
+        />
 
         <section
           :if={@conversation_messages == [] and !@response and !prompt_present?(@prompt)}
@@ -575,17 +582,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
         </Patterns.workspace_modal>
       <% end %>
 
-      <%= if @approval_result do %>
-        <section id="approval-result" class="workspace-status-callout">
-          <span>{@approval_result}</span>
-        </section>
-      <% end %>
-
-      <%= if @error do %>
-        <section id="agent-error" class="workspace-error-callout">
-          <span>{@error}</span>
-        </section>
-      <% end %>
+      <Patterns.status_callout id="approval-result" message={@approval_result} />
+      <Patterns.error_callout id="agent-error" message={@error} />
     </section>
     """
   end

@@ -256,18 +256,8 @@ defmodule AllbertAssistWeb.ObjectiveLive do
           </section>
         <% end %>
 
-        <section
-          :if={@response}
-          id="objective-response"
-          class="workspace-status-callout"
-          role="status"
-        >
-          <span>{@response}</span>
-        </section>
-
-        <section :if={@error} id="objective-error" class="workspace-error-callout" role="alert">
-          <span>{@error}</span>
-        </section>
+        <Patterns.status_callout id="objective-response" message={@response} />
+        <Patterns.error_callout id="objective-error" message={@error} />
       </Layouts.operator_shell>
     </Layouts.app>
     """

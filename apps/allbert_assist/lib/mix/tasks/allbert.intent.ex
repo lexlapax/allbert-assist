@@ -191,8 +191,11 @@ defmodule Mix.Tasks.Allbert.Intent do
       )
 
   defp completed_action(name, params) do
-    {:ok, response} = ActionHelper.completed_action(name, params, operator_context())
-    response
+    case ActionHelper.completed_action(name, params, operator_context(), error: :response) do
+      {:ok, response} -> response
+      {:error, %{message: _message} = response} -> response
+      {:error, reason} -> %{message: "intent action #{name} failed: #{inspect(reason)}"}
+    end
   end
 
   defp operator_context do

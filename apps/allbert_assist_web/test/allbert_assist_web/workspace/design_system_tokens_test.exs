@@ -62,6 +62,22 @@ defmodule AllbertAssistWeb.Workspace.DesignSystemTokensTest do
     end
   end
 
+  test "production web source does not reintroduce raw design-system drift" do
+    for path <- web_production_source_paths() do
+      source = File.read!(path)
+      relative = Path.relative_to_cwd(path)
+
+      refute source =~ ~r/class=\{?\s*"[^"]*\bbtn\b/,
+             "#{relative} still declares raw btn classes"
+
+      refute source =~ "text-slate-",
+             "#{relative} still declares Tailwind slate text classes"
+
+      refute source =~ ~r/#[0-9A-Fa-f]{3,6}\b/,
+             "#{relative} still declares hardcoded hex colors"
+    end
+  end
+
   defp css_block!(css, selector) do
     pattern = ~r/#{Regex.escape(selector)}\s*\{(?<body>.*?)\n\}/s
 
@@ -92,5 +108,16 @@ defmodule AllbertAssistWeb.Workspace.DesignSystemTokensTest do
       "workspace/components/plan_build.ex"
     ]
     |> Enum.map(&Path.join(lib_dir, &1))
+  end
+
+  defp web_production_source_paths do
+    lib_dir = Path.expand("../../../lib/allbert_assist_web", __DIR__)
+
+    [
+      Path.wildcard(Path.join(lib_dir, "**/*.ex")),
+      Path.wildcard(Path.join(lib_dir, "**/*.heex"))
+    ]
+    |> List.flatten()
+    |> Enum.sort()
   end
 end

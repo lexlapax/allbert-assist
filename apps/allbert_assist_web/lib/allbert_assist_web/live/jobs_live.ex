@@ -12,6 +12,7 @@ defmodule AllbertAssistWeb.JobsLive do
   alias AllbertAssist.Jobs.Runner
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
+  alias AllbertAssistWeb.Workspace.Components.Patterns
   alias AllbertAssistWeb.Workspace.Renderer, as: WorkspaceRenderer
 
   @impl true
@@ -67,9 +68,7 @@ defmodule AllbertAssistWeb.JobsLive do
         subtitle={"User #{@user_id}"}
         labelledby="jobs-page-title"
       >
-        <p :if={@notice} id="jobs-notice" class="workspace-status-callout" role="status">
-          {@notice}
-        </p>
+        <Patterns.status_callout id="jobs-notice" message={@notice} />
 
         <section id="jobs-list" class="operator-catalog-page" aria-labelledby="jobs-page-title">
           <.live_component

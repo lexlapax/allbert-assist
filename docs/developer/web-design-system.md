@@ -3,7 +3,8 @@
 Status: v0.58 M6-M13 token, variant, pattern baseline, shared shell,
 Jobs/Objectives catalog coverage, chat-primary workspace layout, operator panel
 catalog coverage, surface-policy DTOs, consolidation, and release lane are
-implemented. M13.1 remediation is active before M14 manual validation.
+implemented. M13.1 remediation is complete before the next implementation audit
+and M14 manual validation.
 
 Authority: `docs/adr/0074-web-design-system-and-ux-language.md`,
 `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`,
@@ -25,7 +26,7 @@ catalog boundary, and `/workspace` stay in force.
 | --- | --- |
 | Tokens | Global CSS custom properties for color, type, spacing, radius, elevation, and motion. |
 | Variants | Component variants selected by props, not ad-hoc class strings at call sites. |
-| Patterns | v0.58 baseline: shared modal/popover, catalog empty states, drawer shell contract, and variant-controlled controls; broader loading/error/status/table-list patterns defer to v0.59 unless M13.1 implements them. |
+| Patterns | v0.58 baseline: shared modal/popover, catalog empty states, drawer shell, variant-controlled controls, loading state, status/error callouts, and table/list primitives. |
 | Shell | One app shell with navigation, page header/switchers, and mobile shellbar. |
 | Catalog | All operator pages render through validated catalog atoms and fragments. |
 
@@ -110,8 +111,7 @@ variants fail fast.
 ## Shared Patterns
 
 The pattern library owns behavior that is otherwise easy to drift. v0.58
-acceptance is the shipped baseline; the broader list is the v0.59 hardening
-target unless M13.1 implements it before M14:
+acceptance is the shipped baseline:
 
 - modal/popover: `role="dialog"`, `aria-modal`, focus trap, Esc, click-away,
   labelled heading (v0.58 acceptance);
@@ -119,12 +119,11 @@ target unless M13.1 implements it before M14:
   shell contract);
 - empty state: bounded copy, no fake data (v0.58 catalog atoms);
 - variant-controlled buttons and status affordances (v0.58 acceptance);
-- loading/streaming: consistent live-region semantics (v0.59 unless landed in
-  M13.1);
+- loading/streaming: consistent live-region semantics;
 - error/status callout: redacted technical detail, operator action when available
-  (v0.59 unless landed in M13.1);
-- table/list: bounded rows, explicit sort/filter, no raw secret or endpoint data
-  (v0.59 unless landed in M13.1).
+  through shared callout primitives;
+- table/list: bounded rows, explicit sort/filter affordance points, no raw secret
+  or endpoint data.
 
 Hand-built modals and page-local loading/error shapes are v0.58 cleanup targets.
 
@@ -138,6 +137,18 @@ Implemented M7 modal baseline:
 - The tile inspector carries the shared modal pattern marker and the same dialog/
   FocusTrap/Escape/click-away semantics while retaining the static root tag
   required by Phoenix stateful LiveComponents.
+
+Implemented M13.1E shared pattern baseline:
+
+- `Patterns.status_callout/1` and `Patterns.error_callout/1` own status/error
+  callout semantics and redacted body/action slots.
+- `Patterns.loading_state/1` owns loading live-region semantics.
+- `Patterns.drawer_shell/1` owns the drawer shell contract used by catalog drawer
+  atoms.
+- `Patterns.table_list/1`, `Patterns.table_row/1`, and `Patterns.table_column/1`
+  own the table/list primitive baseline. Stateful catalog atoms that need literal
+  LiveComponent roots mirror the same pattern markers while preserving existing
+  renderer DOM IDs and data attributes.
 
 ## Shell And Page Coverage
 
@@ -230,7 +241,7 @@ Required checks:
 - responsive text that does not overlap or overflow controls;
 - no secret refs, raw prompts, endpoint URLs, provider bodies, or raw descriptor/
   evidence payloads.
-- no raw `btn` class drift in M13.1-touched operator surfaces; use
+- no raw `btn` class drift in production web source; use
   `Patterns.button_class!/1`, `Patterns.compact_button_class!/1`, or catalog
   button atoms.
 
@@ -247,9 +258,8 @@ Required checks:
 - tokens are global and documented;
 - changed components consume tokens;
 - variants are prop-driven;
-- shared modal/drawer baseline and catalog empty states replace page-local copies;
-- broader loading/error/status/table-list patterns are either implemented in
-  M13.1 or explicitly deferred to v0.59;
+- shared modal/drawer/loading/status/error/table-list baselines and catalog empty
+  states replace page-local copies where those shapes exist;
 - shell wraps workspace, jobs, objectives, and panels;
 - `/` satisfies the shell/token/catalog contract or the ADR-accepted thin landing
   exception;

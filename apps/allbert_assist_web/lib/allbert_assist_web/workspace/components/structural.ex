@@ -309,6 +309,8 @@ defmodule AllbertAssistWeb.Workspace.Components.UtilityDrawer do
       class="workspace-utility-drawer-shell workspace-utility-drawer-retired"
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
+      data-workspace-pattern="drawer-shell"
+      data-state="closed"
       data-retired="true"
       aria-labelledby={Base.component_title_id(@node)}
       aria-hidden="true"
@@ -443,7 +445,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
     description: "Editable and read-only canvas tile",
     custom?: true
 
-  alias AllbertAssistWeb.Workspace.Components.Base
+  alias AllbertAssistWeb.Workspace.Components.{Base, Patterns}
 
   @impl true
   def update(assigns, socket) do
@@ -622,11 +624,12 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
     {Base.summary(@node, "Canvas tile")}
       </pre>
 
-      <div
+      <Patterns.status_callout
         :if={conflict?(@node)}
+        id={"workspace-tile-conflict-#{@node.id}"}
         class="workspace-conflict-banner"
         data-workspace-conflict-banner="true"
-        role="status"
+        tone="warning"
       >
         <p>
           Conflict reconciled. {conflict_count(@node)} offline edit(s) were merged into this
@@ -635,14 +638,14 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
         <button
           :if={revert_revision_id(@node)}
           type="button"
-          class="workspace-button workspace-button-secondary mt-2"
+          class={Patterns.button_class!("secondary", "mt-2")}
           phx-click="revert_tile_revision"
           phx-value-tile-id={Base.prop(@node, :tile_id, "")}
           phx-value-revision-id={revert_revision_id(@node)}
         >
           Revert
         </button>
-      </div>
+      </Patterns.status_callout>
 
       <footer class="workspace-tile-footer">
         <span class="workspace-mono">

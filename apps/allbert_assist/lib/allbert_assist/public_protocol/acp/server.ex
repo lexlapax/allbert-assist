@@ -105,7 +105,9 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
 
       {:ok, [success_response(request_id, %{"sessionId" => session.id})], state}
     else
-      {:error, error} -> {:error, error, state}
+      {:error, error} ->
+        record_protocol_rejection("session/new", params, state, error)
+        {:error, error, state}
     end
   end
 
@@ -156,13 +158,16 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
     end
   end
 
-  defp dispatch("session/request_permission", _params, _request_id, state) do
-    {:error, Mapping.advisory_permission_error(), state}
+  defp dispatch("session/request_permission", params, _request_id, state) do
+    error = Mapping.advisory_permission_error()
+    record_protocol_rejection("session/request_permission", params, state, error)
+    {:error, error, state}
   end
 
-  defp dispatch(method, _params, _request_id, state) do
-    {:error, Mapping.method_not_found("Unsupported ACP method: #{method}.", "unsupported_method"),
-     state}
+  defp dispatch(method, params, _request_id, state) do
+    error = Mapping.method_not_found("Unsupported ACP method: #{method}.", "unsupported_method")
+    record_protocol_rejection(method, params, state, error)
+    {:error, error, state}
   end
 
   defp ensure_initialized(%{initialized?: true}), do: :ok
@@ -201,6 +206,28 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
       payload_summary: "session/prompt rejected",
       reason: reason
     })
+  end
+
+  defp record_protocol_rejection(method, params, state, error) do
+    session_id = if is_map(params), do: Map.get(params, "sessionId")
+    reason = get_in(error, [:data, "code"]) || Map.get(error, :message) || inspect(error)
+
+    EventRecorder.record_rejection(Mapping.surface(), %{
+      external_event_id:
+        "#{Mapping.surface()}:#{method_slug(method)}-rejected:#{Ecto.UUID.generate()}",
+      external_user_id: state.client_id,
+      user_id: "public-protocol:#{state.client_id}",
+      session_id: session_id,
+      payload_summary: "#{method} rejected",
+      reason: reason
+    })
+  end
+
+  defp method_slug(method) do
+    method
+    |> to_string()
+    |> String.replace(~r/[^a-zA-Z0-9]+/, "-")
+    |> String.trim("-")
   end
 
   defp success_response(id, result), do: %{"jsonrpc" => "2.0", "id" => id, "result" => result}

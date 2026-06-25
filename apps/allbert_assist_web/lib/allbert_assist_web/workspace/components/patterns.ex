@@ -24,7 +24,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
 
   @doc "Returns the canonical button class for a declared variant."
   def button_class!(variant, extra_class \\ nil) do
-    [fetch_variant!(@button_variants, variant, "button variant"), extra_class]
+    [fetch_variant!(@button_variants, variant || "primary", "button variant"), extra_class]
   end
 
   @doc "Returns the canonical compact button class for dense operator panels."
@@ -33,6 +33,213 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
   @doc "Returns the canonical status-badge class for a declared tone."
   def status_badge_class!(tone, extra_class \\ nil) do
     ["workspace-status-pill", fetch_variant!(@status_tones, tone, "status tone"), extra_class]
+  end
+
+  attr :id, :string, required: true
+  attr :message, :any, default: nil
+  attr :title, :string, default: nil
+  attr :tone, :string, default: "info"
+  attr :class, :any, default: nil
+  attr :live, :string, default: "polite"
+  attr :rest, :global
+
+  slot :inner_block
+  slot :action
+
+  def status_callout(assigns) do
+    assigns = assign(assigns, :tone, normalize_variant(assigns.tone))
+
+    ~H"""
+    <section
+      :if={present?(@message) or @inner_block != []}
+      id={@id}
+      class={["workspace-status-callout", @class]}
+      data-workspace-pattern="status-callout"
+      data-tone={@tone}
+      role="status"
+      aria-live={@live}
+      {@rest}
+    >
+      <p :if={present?(@title)} class="workspace-callout-title">{@title}</p>
+      <p :if={present?(@message)} class="workspace-callout-body">{@message}</p>
+      {render_slot(@inner_block)}
+      <div :if={@action != []} class="workspace-callout-actions">
+        {render_slot(@action)}
+      </div>
+    </section>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :message, :any, default: nil
+  attr :title, :string, default: nil
+  attr :class, :any, default: nil
+  attr :rest, :global
+
+  slot :inner_block
+  slot :action
+
+  def error_callout(assigns) do
+    ~H"""
+    <section
+      :if={present?(@message) or @inner_block != []}
+      id={@id}
+      class={["workspace-error-callout", @class]}
+      data-workspace-pattern="error-callout"
+      role="alert"
+      {@rest}
+    >
+      <p :if={present?(@title)} class="workspace-callout-title">{@title}</p>
+      <p :if={present?(@message)} class="workspace-callout-body">{@message}</p>
+      {render_slot(@inner_block)}
+      <div :if={@action != []} class="workspace-callout-actions">
+        {render_slot(@action)}
+      </div>
+    </section>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :label, :string, required: true
+  attr :detail, :string, default: nil
+  attr :class, :any, default: nil
+  attr :rest, :global
+
+  slot :inner_block
+
+  def loading_state(assigns) do
+    ~H"""
+    <section
+      id={@id}
+      class={["workspace-status-callout workspace-loading-state", @class]}
+      data-workspace-pattern="loading-state"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      {@rest}
+    >
+      <p class="workspace-callout-title">{@label}</p>
+      <p :if={present?(@detail)} class="workspace-callout-body">{@detail}</p>
+      {render_slot(@inner_block)}
+    </section>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :title, :string, required: true
+  attr :summary, :string, default: nil
+  attr :open?, :boolean, default: true
+  attr :retired?, :boolean, default: false
+  attr :hidden?, :boolean, default: false
+  attr :title_id, :string, default: nil
+  attr :class, :any, default: nil
+  attr :title_class, :any, default: nil
+  attr :summary_class, :any, default: nil
+  attr :rest, :global
+
+  slot :inner_block
+
+  def drawer_shell(assigns) do
+    assigns =
+      assigns
+      |> assign(:title_id, assigns.title_id || "#{assigns.id}-title")
+      |> assign(:hidden_state?, assigns.hidden? or not assigns.open?)
+
+    ~H"""
+    <aside
+      id={@id}
+      class={[
+        "workspace-utility-drawer-shell",
+        @retired? && "workspace-utility-drawer-retired",
+        @class
+      ]}
+      data-workspace-pattern="drawer-shell"
+      data-state={if @open?, do: "open", else: "closed"}
+      data-retired={bool_attribute(@retired?)}
+      aria-labelledby={@title_id}
+      aria-hidden={bool_attribute(@hidden_state?)}
+      hidden={@hidden_state?}
+      {@rest}
+    >
+      <h2 id={@title_id} class={[@retired? && "sr-only", @title_class]}>
+        {@title}
+      </h2>
+      <p :if={present?(@summary)} class={[@retired? && "sr-only", @summary_class]}>
+        {@summary}
+      </p>
+      {render_slot(@inner_block)}
+    </aside>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :title, :string, required: true
+  attr :summary, :string, default: nil
+  attr :empty_message, :string, default: "Rows appear here."
+  attr :row_count, :integer, default: nil
+  attr :max_rows, :integer, default: nil
+  attr :title_id, :string, default: nil
+  attr :class, :any, default: nil
+  attr :rest, :global
+
+  slot :inner_block
+
+  def table_list(assigns) do
+    assigns = assign(assigns, :title_id, assigns.title_id || "#{assigns.id}-title")
+
+    ~H"""
+    <section
+      id={@id}
+      class={["workspace-table-shell", @class]}
+      data-workspace-pattern="table-list"
+      data-row-count={@row_count}
+      data-max-rows={@max_rows}
+      aria-labelledby={@title_id}
+      {@rest}
+    >
+      <h2 id={@title_id} class="workspace-card-title">{@title}</h2>
+      <p :if={present?(@summary)} class="workspace-table-summary">{@summary}</p>
+      <div :if={@inner_block == []} class="workspace-table-empty">{@empty_message}</div>
+      {render_slot(@inner_block)}
+    </section>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :body, :any, required: true
+  attr :class, :any, default: nil
+  attr :rest, :global
+
+  slot :inner_block
+
+  def table_row(assigns) do
+    ~H"""
+    <div id={@id} class={["workspace-table-row", @class]} data-workspace-pattern="table-row" {@rest}>
+      <span :if={present?(@body)}>{@body}</span>
+      {render_slot(@inner_block)}
+    </div>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :body, :any, required: true
+  attr :class, :any, default: nil
+  attr :rest, :global
+
+  slot :inner_block
+
+  def table_column(assigns) do
+    ~H"""
+    <span
+      id={@id}
+      class={["workspace-table-column", @class]}
+      data-workspace-pattern="table-column"
+      {@rest}
+    >
+      <span :if={present?(@body)}>{@body}</span>
+      {render_slot(@inner_block)}
+    </span>
+    """
   end
 
   attr :id, :string, required: true
@@ -105,6 +312,13 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
     do: value |> String.trim() |> String.downcase()
 
   defp normalize_variant(value), do: to_string(value)
+
+  defp present?(value) when is_binary(value), do: String.trim(value) != ""
+  defp present?(nil), do: false
+  defp present?(_value), do: true
+
+  defp bool_attribute(true), do: "true"
+  defp bool_attribute(false), do: "false"
 
   defp click_away_event(%{click_away: true, dismiss_event: event}), do: event
   defp click_away_event(_assigns), do: nil

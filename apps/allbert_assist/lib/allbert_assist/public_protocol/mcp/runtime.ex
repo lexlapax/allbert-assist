@@ -113,7 +113,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
         ok
 
       {:error, reason} = error ->
-        EventRecorder.mark_failed(event, reason)
+        mark_tool_error(event, reason)
         error
     end
   end
@@ -238,6 +238,11 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
       capability -> {:ok, capability}
     end
   end
+
+  defp mark_tool_error(event, {:tool_not_exposed, _name} = reason),
+    do: EventRecorder.mark_rejected(event, reason)
+
+  defp mark_tool_error(event, reason), do: EventRecorder.mark_failed(event, reason)
 
   defp normalize_tool_params(params, module) when is_map(params) and is_atom(module) do
     key_map = schema_key_map(module)

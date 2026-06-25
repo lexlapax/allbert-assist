@@ -129,9 +129,11 @@ Second-pass audit findings that affect this surface contract:
   `:agent` reads only under the ADR 0070 carve-out: source-redacted DTOs and
   bounded render modes. Raw operator fields require an internal read or explicit
   operator affordance.
-- Complete in M13.1A: ACP and MCP rejection paths that fail before
+- Complete in M13.1A/E: ACP and MCP rejection paths that fail before
   `Runtime.submit_user_input/1` or `Actions.Runner.run/3` still record
-  rejection/error events with `surface_id`.
+  rejection/error events with `surface_id`, including ACP prompt/session/
+  permission/unsupported-method rejections, MCP resource-read rejections, and MCP
+  tool calls denied before dispatch because the tool is not exposed.
 - Complete in M13.1C: surface-policy report-shape coverage is explicit for
   `list_settings`, `list_channels`, `list_model_profiles`,
   `list_provider_profiles`, `intent_coverage`, `intent_list_descriptors`,
@@ -169,12 +171,12 @@ For each surface:
   descriptor/evidence payloads;
 - focused tests and `mix allbert.test release.v058` cover the surface.
 
-`release.v058` is the M13/M13.1 deterministic gate and passed after M13.1C. It
+`release.v058` is the M13/M13.1 deterministic gate. It
 bundles disposable migration,
 surface contract units, Settings Central guard/schema checks, web/catalog/design
 system units, operator-panel DTO and surface-policy units, helper-consolidation
-regressions, `:v058` eval inventory and behavioral checks, task usage checks, and
-the release-home secret scan.
+regressions, `mix allbert.intent` rejected-path coverage, `:v058` eval inventory
+and behavioral checks, task usage checks, and the release-home secret scan.
 
 ## Operator Evidence
 

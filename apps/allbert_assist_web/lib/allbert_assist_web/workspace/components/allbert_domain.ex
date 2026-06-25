@@ -162,6 +162,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Table do
       class="workspace-table-shell"
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
+      data-workspace-pattern="table-list"
       aria-labelledby={Base.component_title_id(@node)}
     >
       <h2 id={Base.component_title_id(@node)} class="workspace-card-title">
@@ -192,6 +193,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Row do
       class="workspace-table-row"
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
+      data-workspace-pattern="table-row"
     >
       {Base.summary(@node, Base.title(@node, "Row"))}
     </div>
@@ -218,6 +220,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Column do
       class="workspace-table-column"
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
+      data-workspace-pattern="table-column"
     >
       {Base.summary(@node, Base.title(@node, "Column"))}
     </span>
