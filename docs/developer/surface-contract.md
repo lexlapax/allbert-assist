@@ -1,6 +1,7 @@
 # Surface Contract
 
-Status: v0.58 implementation contract; implemented through M13.
+Status: v0.58 implementation contract; implemented through M13 with M13.1
+remediation active before M14.
 
 Authority: `docs/adr/0073-cross-surface-contract.md`,
 `docs/plans/v0.58-plan.md`, and
@@ -116,6 +117,27 @@ Public protocol smoke tests should use public-safe tools such as `direct_answer`
 and `get_public_call_result`, then separately prove that internal operator reads
 are absent from `tools/list`.
 
+## M13.1 Audit Remediation Contract
+
+Second-pass audit findings that affect this surface contract:
+
+- Profile inventory DTOs must be redacted before they leave Settings Central /
+  action code. Do not carry endpoint URLs, API-key references, provider bodies, or
+  raw secret-bearing fields in `providers` or `models` response packets.
+- `list_provider_profiles` and `list_model_profiles` may be assistant-safe
+  `:agent` reads only under the ADR 0070 carve-out: source-redacted DTOs and
+  bounded render modes. Raw operator fields require an internal read or explicit
+  operator affordance.
+- ACP and MCP rejection paths that fail before `Runtime.submit_user_input/1` or
+  `Actions.Runner.run/3` still record rejection/error events with `surface_id`.
+- Surface-policy report-shape coverage is explicit. At M13 the covered read set is
+  `list_settings`, `list_channels`, `list_model_profiles`, and
+  `list_provider_profiles`; M13.1 widens it to `intent_coverage`,
+  `intent_list_descriptors`, `intent_list_review`, and `model_doctor`, or records
+  a narrower ADR 0073 scope before M14.
+- The `:v058` eval module must include behavioral assertions for these contracts,
+  not only EvalInventory row wiring.
+
 ## Settings And Security
 
 - Settings Central is the only source for operator-tunable config.
@@ -144,11 +166,12 @@ For each surface:
   descriptor/evidence payloads;
 - focused tests and `mix allbert.test release.v058` cover the surface.
 
-`release.v058` is the M13 deterministic gate. It bundles disposable migration,
+`release.v058` is the M13 deterministic gate and must pass again after M13.1. It
+bundles disposable migration,
 surface contract units, Settings Central guard/schema checks, web/catalog/design
 system units, operator-panel DTO and surface-policy units, helper-consolidation
-regressions, `:v058` eval inventory checks, task usage checks, and the release-home
-secret scan.
+regressions, `:v058` eval inventory and behavioral checks, task usage checks, and
+the release-home secret scan.
 
 ## Operator Evidence
 

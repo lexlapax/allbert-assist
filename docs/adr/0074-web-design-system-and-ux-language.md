@@ -1,6 +1,7 @@
 # ADR 0074: Web Design System And UX Language
 
-Status: Proposed (v0.58).
+Status: Proposed (v0.58); M13 implemented, M13.1 design-system remediation active
+before M14.
 Date: 2026-06-24
 Related: ADR 0023 (workspace canvas/ephemeral substrate — kept), ADR 0024 (live
 layout authority / zones — revised by v0.58), ADR 0030 (unified surface catalog +
@@ -48,14 +49,20 @@ component catalog the rendering boundary for **every** web page.
    (`variant: :primary | :secondary | :danger`, status tones, card kinds), not by
    ad-hoc CSS class. The registry is the single source of variant truth, rendered
    through the catalog.
-3. **Pattern library.** Shared, accessible HEEx patterns for **modal/popover,
-   loading/streaming, empty state, and error callout**, each with built-in focus
-   management and ARIA. Pages compose patterns; they do not re-implement them.
-4. **Catalog is the boundary for all pages.** Every operator page — workspace,
-   Jobs, Objectives, and the new Intents / Settings-Models / Surface-Policy panels
-   — renders through the unified catalog (ADR 0030) inside **one shared app
-   shell** (navigation, header/switchers, mobile shellbar). Hand-rolled per-page
-   HEEx is removed; Jobs and Objectives are folded into the catalog/shell.
+3. **Pattern library.** Shared, accessible HEEx patterns start with the v0.58
+   acceptance baseline: modal/popover semantics, empty-state catalog atoms, the
+   drawer shell contract, and variant-controlled buttons/status affordances. Pages
+   compose these patterns; they do not re-implement them. Broader shared
+   loading/streaming, error/status callout, and table/list pattern breadth is a
+   v0.59 hardening target unless M13.1 implements it before M14.
+4. **Catalog is the boundary for all pages.** Every operator page — `/`,
+   workspace, Jobs, Objectives, and the new Intents / Settings-Models /
+   Surface-Policy panels — renders through the unified catalog (ADR 0030) inside
+   **one shared app shell** (navigation, header/switchers, mobile shellbar), or an
+   ADR-accepted thin landing shape that still emits the shell data contract,
+   consumes tokens, and uses the variant registry. Hand-rolled per-page HEEx is
+   removed or explicitly deferred; Jobs and Objectives are folded into the
+   catalog/shell.
 5. **UX language doc.** A maintained guide: terminology (incl. the v0.58
    "Conversations" relabel — UI strings only, no internal rename), the spacing/
    type scales, the variant and pattern catalogs, accessibility requirements, and
@@ -85,6 +92,10 @@ this system, not as a separate one-off re-skin.
 - One token system, one variant registry, one pattern library, one app shell, and
   one rendering boundary (the catalog) for every web page; Jobs/Objectives stop
   being discontinuous.
+- M13.1 must remediate the `/` home page and remaining raw-button drift before
+  M14. If additional shared loading/error/status/table-list patterns do not land
+  in M13.1, they are documented v0.59 follow-up work rather than implied v0.58
+  acceptance.
 - The three v0.58 operator panels and any future app UI extend a consistent
   system instead of adding bespoke pages.
 - A documented UX language gives the platform a stable web contract to freeze at

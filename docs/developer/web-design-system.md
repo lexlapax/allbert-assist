@@ -1,9 +1,9 @@
 # Web Design System
 
-Status: v0.58 M6-M11 token, variant, pattern, shared-shell, Jobs/Objectives
-catalog coverage, chat-primary workspace layout, operator panel catalog coverage,
-and surface-policy write/read DTOs implemented; M12-M15 complete consolidation,
-release lane, manual validation, and closeout.
+Status: v0.58 M6-M13 token, variant, pattern baseline, shared shell,
+Jobs/Objectives catalog coverage, chat-primary workspace layout, operator panel
+catalog coverage, surface-policy DTOs, consolidation, and release lane are
+implemented. M13.1 remediation is active before M14 manual validation.
 
 Authority: `docs/adr/0074-web-design-system-and-ux-language.md`,
 `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`,
@@ -25,7 +25,7 @@ catalog boundary, and `/workspace` stay in force.
 | --- | --- |
 | Tokens | Global CSS custom properties for color, type, spacing, radius, elevation, and motion. |
 | Variants | Component variants selected by props, not ad-hoc class strings at call sites. |
-| Patterns | Shared modal, popover, loading, streaming, empty, error, drawer, and table/list patterns. |
+| Patterns | v0.58 baseline: shared modal/popover, catalog empty states, drawer shell contract, and variant-controlled controls; broader loading/error/status/table-list patterns defer to v0.59 unless M13.1 implements them. |
 | Shell | One app shell with navigation, page header/switchers, and mobile shellbar. |
 | Catalog | All operator pages render through validated catalog atoms and fragments. |
 
@@ -109,15 +109,22 @@ variants fail fast.
 
 ## Shared Patterns
 
-The pattern library owns behavior that is otherwise easy to drift:
+The pattern library owns behavior that is otherwise easy to drift. v0.58
+acceptance is the shipped baseline; the broader list is the v0.59 hardening
+target unless M13.1 implements it before M14:
 
 - modal/popover: `role="dialog"`, `aria-modal`, focus trap, Esc, click-away,
-  labelled heading;
-- drawer: focus handoff, keyboard close, stable sizing, no layout shift;
-- loading/streaming: consistent live-region semantics;
-- empty state: bounded copy, no fake data;
-- error callout: redacted technical detail, operator action when available;
-- table/list: bounded rows, explicit sort/filter, no raw secret or endpoint data.
+  labelled heading (v0.58 acceptance);
+- drawer: focus handoff, keyboard close, stable sizing, no layout shift (v0.58
+  shell contract);
+- empty state: bounded copy, no fake data (v0.58 catalog atoms);
+- variant-controlled buttons and status affordances (v0.58 acceptance);
+- loading/streaming: consistent live-region semantics (v0.59 unless landed in
+  M13.1);
+- error/status callout: redacted technical detail, operator action when available
+  (v0.59 unless landed in M13.1);
+- table/list: bounded rows, explicit sort/filter, no raw secret or endpoint data
+  (v0.59 unless landed in M13.1).
 
 Hand-built modals and page-local loading/error shapes are v0.58 cleanup targets.
 
@@ -136,6 +143,8 @@ Implemented M7 modal baseline:
 
 One shell wraps:
 
+- `/` home page after M13.1 remediation, or an ADR-accepted thin landing shape
+  with the shell data contract, tokens, and variant-registry buttons;
 - `/workspace`;
 - `/jobs`;
 - `/objectives/:id` objective detail pages;
@@ -144,7 +153,8 @@ One shell wraps:
 - Surface-Policy panel.
 
 Jobs and Objectives are part of the v0.58 proof because design-system tokens and
-a11y must apply beyond the workspace route.
+a11y must apply beyond the workspace route. The `/` home page is part of the
+M13.1 proof because it was the remaining first-viewport bypass.
 
 Implemented M8 shell baseline:
 
@@ -218,6 +228,8 @@ Required checks:
 - responsive text that does not overlap or overflow controls;
 - no secret refs, raw prompts, endpoint URLs, provider bodies, or raw descriptor/
   evidence payloads.
+- no raw `btn` class drift in M13.1-touched operator surfaces; use
+  `Patterns.button_class!/1` or catalog button atoms.
 
 ## Non-Goals
 
@@ -232,8 +244,12 @@ Required checks:
 - tokens are global and documented;
 - changed components consume tokens;
 - variants are prop-driven;
-- shared modal/drawer/loading/error patterns replace page-local copies;
+- shared modal/drawer baseline and catalog empty states replace page-local copies;
+- broader loading/error/status/table-list patterns are either implemented in
+  M13.1 or explicitly deferred to v0.59;
 - shell wraps workspace, jobs, objectives, and panels;
+- `/` satisfies the shell/token/catalog contract or the ADR-accepted thin landing
+  exception;
 - workspace is chat-primary by default;
 - ephemerals are modal/popover patterns;
 - canvas is a drawer/launcher destination;

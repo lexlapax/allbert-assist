@@ -9,6 +9,13 @@ through the same `:internal`/`:read_only` action layer the TUI and Mix already u
 (ADR 0073). The v0.58 Intents, Settings/Models, and Surface-Policy panels are thin
 views over these registered actions; they remain non-routable and grant no
 authority. No new `:operator` exposure is introduced.
+Second-pass v0.58 audit amendment (2026-06-25): the existing
+`list_provider_profiles` and `list_model_profiles` actions may remain
+`exposure: :agent` only as assistant-safe summary reads after their source DTOs
+drop endpoint URLs and secret refs. Any raw/operator profile report that needs
+fields beyond the redacted DTO must use a separate `:internal` read or an
+explicit operator affordance; an `:agent` action is never the backing for raw
+secret-bearing profile inspection.
 Date: 2026-06-21
 Related: ADR 0067 (TUI/terminal channel — this console runs on that channel),
 ADR 0016 (channel adapter boundary — channels do not own conversation history /
@@ -91,6 +98,12 @@ and would not provide the operator-specific DTO/redaction boundary for sensitive
 settings layers. (2)
 `/help` and any unknown slash are handled **router-local** — no action, no Runner —
 so not every `/cmd` is an action invocation.
+
+v0.58 M13.1 adds one bounded carve-out to that rule: profile inventory reads can
+share an `:agent` action only if the DTO itself is redacted at source and contains
+no endpoint URL, API-key reference, provider body, or raw secret-bearing field.
+The action may still offer an assistant-summary render mode; the operator-report
+mode must remain bounded by surface policy and explicit affordance.
 
 ## Consequences
 
