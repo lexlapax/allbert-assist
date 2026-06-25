@@ -9,6 +9,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
   alias AllbertAssist.Actions.Settings.ListSettings
   alias AllbertAssist.Actions.Settings.ModelDoctor, as: ModelDoctorAction
   alias AllbertAssist.Actions.Settings.ReadSetting
+  alias AllbertAssist.Actions.Settings.ResolvedSettingsSnapshot
   alias AllbertAssist.Actions.Settings.SetActiveModelProfile
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
@@ -80,6 +81,18 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert explain_response.status == :completed
     assert explain_response.message =~ "Layers:"
     assert explain_response.setting.layers != []
+
+    assert {:ok, snapshot_response} = ResolvedSettingsSnapshot.run(%{}, %{})
+    assert snapshot_response.status == :completed
+    assert snapshot_response.settings["operator"]["timezone"] == "America/Los_Angeles"
+
+    assert [
+             %{
+               name: "resolved_settings_snapshot",
+               permission: :read_only,
+               settings_metadata: %{user_settings?: false}
+             }
+           ] = snapshot_response.actions
   end
 
   test "update setting writes safe key and rejects read-only key" do

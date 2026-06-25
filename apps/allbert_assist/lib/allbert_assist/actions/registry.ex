@@ -166,6 +166,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.ListSettings
   alias AllbertAssist.Actions.Settings.ModelDoctor, as: SettingsModelDoctor
   alias AllbertAssist.Actions.Settings.ReadSetting
+  alias AllbertAssist.Actions.Settings.ResolvedSettingsSnapshot
   alias AllbertAssist.Actions.Settings.SetActiveModelProfile
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
@@ -319,6 +320,7 @@ defmodule AllbertAssist.Actions.Registry do
     OperatorChannels,
     OperatorSettingGet,
     SettingsModelDoctor,
+    ResolvedSettingsSnapshot,
     ListConfirmations,
     ShowConfirmation,
     ApproveConfirmation,

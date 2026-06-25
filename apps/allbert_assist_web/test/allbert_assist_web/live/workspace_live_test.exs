@@ -6,6 +6,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
   alias AllbertAssist.{
     Artifacts,
+    Channels,
     Confirmations,
     Conversations,
     Marketplace,
@@ -64,10 +65,10 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     end
 
     Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
-    _ = Session.clear_active_app("local", "web-local")
+    _ = Session.clear_active_app("local", live_view_session_id())
 
     on_exit(fn ->
-      _ = Session.clear_active_app("local", "web-local")
+      _ = Session.clear_active_app("local", live_view_session_id())
       restore_env(Confirmations, original_confirmations_config)
       restore_env(Paths, original_paths_config)
       restore_env(Runtime, original_config)
@@ -1297,7 +1298,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     conn: conn
   } do
     ensure_stocksage_app_registered()
-    assert {:ok, _entry} = Session.set_active_app("local", "web-local", :stocksage)
+    assert {:ok, _entry} = Session.set_active_app("local", live_view_session_id(), :stocksage)
 
     {:ok, view, _html} = live(conn, ~p"/workspace?destination=app:stocksage")
 
@@ -1325,7 +1326,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     action_signal = receive_action_completed("clear_active_app")
     assert action_signal.data.status == :completed
-    assert {:ok, %{active_app: nil}} = Session.get("local", "web-local")
+    assert {:ok, %{active_app: nil}} = Session.get("local", live_view_session_id())
   end
 
   test "canvas tile controls route through the workspace action boundary", %{conn: conn} do
@@ -1764,7 +1765,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     assert_receive {:runtime_request, request}
     assert request.thread_id == thread_id
-    assert request.session_id == "web-local"
+    assert request.session_id == live_view_session_id()
     assert request.active_app == :allbert
     assert String.starts_with?(request.provider_message_id, "live_view:in:")
     assert request.channel_thread_ref.channel == "live_view"
@@ -1793,6 +1794,32 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#agent-status")
     assert html =~ "completed"
     assert has_element?(view, "#agent-signal")
+  end
+
+  test "resolves LiveView identity through the identity map before runtime submit", %{
+    conn: conn
+  } do
+    conn =
+      Plug.Test.init_test_session(conn, %{
+        "live_view_external_user_id" => "browser-op",
+        "live_view_identity_map" => [
+          %{"external_user_id" => "browser-op", "user_id" => "mapped-web-user"}
+        ]
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+
+    view
+    |> element("#agent-form")
+    |> render_submit(%{"prompt" => "Say hello with mapped identity."})
+
+    _html = render_async(view, @runtime_async_timeout)
+
+    assert_receive {:runtime_request, request}
+    assert request.user_id == "mapped-web-user"
+    assert request.operator_id == "mapped-web-user"
+    assert request.session_id == live_view_session_id("browser-op")
+    assert request.metadata.local_surface == "live_view"
   end
 
   test "renders generated image and audio outputs in the chat timeline", %{
@@ -2098,13 +2125,15 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     assert_receive {:runtime_request, request}
     assert request.thread_id == thread_id
-    assert request.session_id == "web-local"
+    assert request.session_id == live_view_session_id()
     assert request.active_app == :allbert
 
     eval =
       live_security_eval(
         fixture,
-        if(request.active_app == :allbert and neutral_session?(Session.get("local", "web-local")),
+        if(
+          request.active_app == :allbert and
+            neutral_session?(Session.get("local", live_view_session_id())),
           do: :denied,
           else: :allowed
         ),
@@ -2132,7 +2161,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     |> render_click()
 
     assert_patch(view, ~p"/workspace?#{[thread_id: thread_id, destination: "app:stocksage"]}")
-    assert neutral_session?(Session.get("local", "web-local"))
+    assert neutral_session?(Session.get("local", live_view_session_id()))
     assert has_element?(view, "#workspace-shell[data-active-app='allbert']")
     assert has_element?(view, "#workspace-shell[data-canvas-destination='app:stocksage']")
     assert has_element?(view, "#workspace-dest-app-stocksage[aria-pressed='true']")
@@ -2145,13 +2174,15 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     assert_receive {:runtime_request, request}
     assert request.thread_id == thread_id
-    assert request.session_id == "web-local"
+    assert request.session_id == live_view_session_id()
     assert request.active_app == :allbert
 
     eval =
       live_security_eval(
         fixture,
-        if(request.active_app == :allbert and neutral_session?(Session.get("local", "web-local")),
+        if(
+          request.active_app == :allbert and
+            neutral_session?(Session.get("local", live_view_session_id())),
           do: :denied,
           else: :allowed
         ),
@@ -2296,7 +2327,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   test "StockSage approval handoff keeps approve action enabled in agent UI", %{conn: conn} do
     Application.delete_env(:allbert_assist, Runtime)
     ensure_stocksage_app_registered()
-    assert {:ok, _entry} = Session.set_active_app("local", "web-local", :stocksage)
+    assert {:ok, _entry} = Session.set_active_app("local", live_view_session_id(), :stocksage)
 
     {:ok, view, _html} = live(conn, ~p"/workspace?destination=app:stocksage")
 
@@ -2684,6 +2715,10 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
         |> Map.put_new(:boundary, fixture.boundary),
       fixture: fixture
     }
+  end
+
+  defp live_view_session_id(external_user_id \\ "web-local") do
+    Channels.derive_session_id("live_view", external_user_id, nil)
   end
 
   defp neutral_session?({:error, :not_found}), do: true

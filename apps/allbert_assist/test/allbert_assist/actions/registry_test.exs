@@ -190,6 +190,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "operator_channels",
              "operator_setting_get",
              "model_doctor",
+             "resolved_settings_snapshot",
              "list_confirmations",
              "show_confirmation",
              "approve_confirmation",
@@ -899,6 +900,12 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert {:ok, show_session_scratchpad} = Registry.capability("show_session_scratchpad")
     assert show_session_scratchpad.permission == :read_only
     assert show_session_scratchpad.execution_mode == :settings_read
+
+    assert {:ok, resolved_settings_snapshot} = Registry.capability("resolved_settings_snapshot")
+    assert resolved_settings_snapshot.permission == :read_only
+    assert resolved_settings_snapshot.execution_mode == :settings_read
+    assert resolved_settings_snapshot.exposure == :internal
+    assert resolved_settings_snapshot.confirmation == :not_required
 
     assert {:ok, capture_workspace_voice} = Registry.capability("capture_workspace_voice")
     assert capture_workspace_voice.permission == :microphone_capture

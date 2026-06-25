@@ -13,6 +13,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   alias AllbertAssist.App.CoreApp
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Artifacts.MediaRetention
+  alias AllbertAssist.Channels
+  alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.LocalSurface
   alias AllbertAssist.Confirmations
 
@@ -36,7 +38,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Session
   alias AllbertAssist.Settings
-  alias AllbertAssist.Settings.{Schema, Store}
+  alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Surface.EventRecorder
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
   alias AllbertAssist.Theme.Layout
@@ -49,7 +51,10 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   alias Jido.Signal
 
   @default_user_id "local"
-  @default_session_id "web-local"
+  @default_external_user_id "web-local"
+  @default_identity_map [
+    %{"external_user_id" => @default_external_user_id, "user_id" => @default_user_id}
+  ]
   @default_prompt_placeholder "Ask Allbert anything…"
   @workspace_tools ~w(onboard create plan_build plan_runs discover marketplace calendar mail github jobs objectives confirmations security settings)
   @voice_capture_accept ~w(.wav .mp3 .m4a .ogg .webm .flac)
@@ -59,14 +64,15 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   @image_input_upload_accept ~w(image/*)
 
   @impl true
-  def mount(params, _session, socket) do
-    user_id = @default_user_id
-    session_id = @default_session_id
+  def mount(params, session, socket) do
+    identity = resolve_live_view_identity(params, session)
+    user_id = identity.user_id
+    session_id = identity.session_id
     {thread_id, thread_notice, sync_thread_url?} = resolve_workspace_thread(params, user_id)
     active_app = resolve_workspace_active_app(user_id, session_id)
     canvas_destination = resolve_canvas_destination(params)
     artifacts_browser_filters = resolve_artifacts_browser_filters(params)
-    settings = workspace_settings_snapshot()
+    settings = workspace_settings_snapshot(user_id, session_id)
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(AllbertAssistWeb.PubSub, SignalBridge.topic_for(user_id))
@@ -134,6 +140,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       |> assign(
         workspace_assigns(
           user_id,
+          session_id,
           thread_id,
           [],
           active_app,
@@ -1196,6 +1203,45 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp maybe_sync_thread_url(socket, _sync?, _thread_id, _canvas_destination), do: socket
 
+  defp resolve_live_view_identity(params, session) do
+    external_user_id = live_view_external_user_id(params, session)
+    identity_map = live_view_identity_map(session)
+    user_id = resolved_live_view_user_id(external_user_id, identity_map)
+
+    %{
+      external_user_id: external_user_id,
+      user_id: user_id,
+      session_id: Channels.derive_session_id("live_view", external_user_id, nil)
+    }
+  end
+
+  defp live_view_external_user_id(params, session) do
+    session_string(session, "live_view_external_user_id") ||
+      first_param(params, ~w(external_user_id user)) ||
+      @default_external_user_id
+  end
+
+  defp live_view_identity_map(session) do
+    case session_value(session, "live_view_identity_map") do
+      entries when is_list(entries) -> entries
+      _other -> @default_identity_map
+    end
+  end
+
+  defp resolved_live_view_user_id(external_user_id, identity_map) do
+    case Identity.resolve("live_view", external_user_id, identity_map) do
+      {:ok, user_id} -> user_id
+      {:error, _reason} -> default_live_view_user_id()
+    end
+  end
+
+  defp default_live_view_user_id do
+    case Identity.resolve("live_view", @default_external_user_id, @default_identity_map) do
+      {:ok, user_id} -> user_id
+      {:error, _reason} -> @default_user_id
+    end
+  end
+
   defp resolve_workspace_active_app(user_id, session_id) do
     session_active_app(user_id, session_id) || :allbert
   end
@@ -1281,6 +1327,20 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   defp first_param(params, keys), do: Enum.find_value(keys, &param(params, &1))
+
+  defp session_string(session, key) do
+    case session_value(session, key) do
+      value when is_binary(value) and value != "" -> value
+      value when is_atom(value) and not is_nil(value) -> Atom.to_string(value)
+      _other -> nil
+    end
+  end
+
+  defp session_value(session, key) when is_map(session) do
+    Map.get(session, key) || Map.get(session, String.to_atom(key))
+  end
+
+  defp session_value(_session, _key), do: nil
 
   defp artifacts_filter_limit(nil), do: nil
 
@@ -1404,6 +1464,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       socket,
       workspace_assigns(
         socket.assigns.user_id,
+        socket.assigns.session_id,
         socket.assigns.thread_id,
         socket.assigns.workspace_badges,
         socket.assigns.active_app,
@@ -1451,6 +1512,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp workspace_assigns(
          user_id,
+         session_id,
          thread_id,
          workspace_badges,
          active_app,
@@ -1464,7 +1526,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     base_context = %{
       user_id: user_id,
       thread_id: thread_id,
-      session_id: @default_session_id,
+      session_id: session_id,
       active_app: active_app,
       canvas_destination: canvas_destination,
       artifacts_browser_filters: artifacts_browser_filters
@@ -1670,10 +1732,33 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   defp tile_by_id(_tiles, _tile_id), do: nil
 
   defp workspace_settings_snapshot do
-    case Store.resolved_settings() do
-      {:ok, settings, _user_settings} -> settings
-      {:error, _reason} -> Settings.defaults()
+    identity = resolve_live_view_identity(%{}, %{})
+    workspace_settings_snapshot(identity.user_id, identity.session_id)
+  end
+
+  defp workspace_settings_snapshot(user_id, session_id) do
+    case Runner.run(
+           "resolved_settings_snapshot",
+           %{},
+           workspace_read_context(user_id, session_id)
+         ) do
+      {:ok, %{status: :completed, settings: settings}} when is_map(settings) ->
+        settings
+
+      _other ->
+        Settings.defaults()
     end
+  end
+
+  defp workspace_read_context(user_id, session_id) do
+    %{
+      actor: user_id,
+      user_id: user_id,
+      operator_id: user_id,
+      session_id: session_id,
+      channel: :live_view,
+      surface: "AllbertAssistWeb.WorkspaceLive"
+    }
   end
 
   defp workspace_theme(settings) do
