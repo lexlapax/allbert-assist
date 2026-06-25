@@ -89,7 +89,11 @@ Primary lane labels: `pure_async`, `db_serial`, `db_partition_safe`,
 `app_env_serial`, `home_fs_serial`, `global_process_serial`, `liveview_serial`,
 `security_eval_serial`, and `external_runtime_serial`.
 
-## v0.58 Implementation Notes
+## Version specific Guidance
+This section is for temporary guidance while planning and implementing a specific version. 
+After or during release, the temporary in-flight guidance below for version specific guidance needs to be removed.
+
+### v0.58 Implementation Notes
 
 When working on v0.58:
 
