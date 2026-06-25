@@ -1,8 +1,9 @@
 # Web Design System
 
-Status: v0.58 M6-M8 token, variant, pattern, shared-shell, and Jobs/Objectives
-catalog coverage implemented; M9-M15 complete chat-primary layout, panels,
-surface-policy, consolidation, release lane, manual validation, and closeout.
+Status: v0.58 M6-M9 token, variant, pattern, shared-shell, Jobs/Objectives
+catalog coverage, and chat-primary workspace layout implemented; M10-M15 complete
+operator panels, surface-policy, consolidation, release lane, manual validation,
+and closeout.
 
 Authority: `docs/adr/0074-web-design-system-and-ux-language.md`,
 `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`,
@@ -172,6 +173,21 @@ The v0.58 workspace default is chat-primary:
 
 Do not rename internal `Conversations.Thread` modules, topics, settings keys,
 events, or database concepts. Do not rename `Session.Scratchpad`.
+
+Implemented M9 workspace layout baseline:
+
+- `/workspace` emits `data-layout-mode="chat-primary"` and `data-canvas-drawer`
+  state on the shell.
+- Desktop layout is a Conversations rail plus primary Chat column. The historical
+  split resizer node remains hidden for renderer compatibility; there is no visible
+  co-equal canvas pane by default.
+- Canvas opens as a right-side drawer from the Chat header, AppBar tile-count chip,
+  launcher destination selection, and direct destination URLs.
+- User-visible rail/switcher labels say **Conversations**, **New conversation**,
+  and **Copy conversation id**. Internal `thread_id` params, DOM IDs, event names,
+  modules, and storage stay unchanged.
+- Ephemeral surfaces retain the shared modal/dialog semantics from the pattern
+  library.
 
 ## Operator Panels
 

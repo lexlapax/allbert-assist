@@ -37,7 +37,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
        voice_capture_upload: Map.get(context, :voice_capture_upload),
        image_input_upload: Map.get(context, :image_input_upload),
        composer_max_bytes: Map.get(context, :composer_max_bytes, 65_536),
-       maximized_pane: Map.get(context, :workspace_maximized_pane)
+       maximized_pane: Map.get(context, :workspace_maximized_pane),
+       canvas_focus?: Map.get(context, :canvas_focus?, false)
      )}
   end
 
@@ -66,6 +67,19 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
             <span>{objective.status}</span>
           </.link>
         </div>
+        <button
+          id="workspace-chat-canvas-toggle"
+          type="button"
+          class="workspace-button workspace-button-secondary"
+          phx-click="toggle_canvas_focus"
+          aria-controls="workspace-node-workspace-canvas-region"
+          aria-expanded={bool_attribute(@canvas_focus?)}
+          aria-label={canvas_toggle_label(@canvas_focus?)}
+          title={canvas_toggle_label(@canvas_focus?)}
+        >
+          <.icon name="hero-rectangle-stack-micro" class="size-4" />
+          <span>Canvas</span>
+        </button>
         <button
           id="workspace-chat-maximize"
           type="button"
@@ -256,7 +270,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
             <.icon name="hero-sparkles-mini" class="size-5" />
           </span>
           <p>
-            Ask Allbert to start a runtime turn. Canvas tiles and approvals appear beside the chat.
+            Ask Allbert to start a runtime turn. Canvas tiles and approvals open from the canvas
+            drawer.
           </p>
         </section>
       </div>
@@ -648,6 +663,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
   end
 
   defp maximize_label(_pane, _maximized), do: "Maximize pane"
+
+  defp canvas_toggle_label(true), do: "Close canvas drawer"
+  defp canvas_toggle_label(false), do: "Open canvas drawer"
 
   defp message_id(%{id: id}) when is_binary(id), do: id
   defp message_id(_message), do: System.unique_integer([:positive])

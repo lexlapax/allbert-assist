@@ -90,8 +90,8 @@ defmodule AllbertAssistWeb.Workspace.Components.NavRail do
           type="button"
           class="allbert-icon-button"
           phx-click="new_thread"
-          aria-label="New thread"
-          title="New thread"
+          aria-label="New conversation"
+          title="New conversation"
         >
           <.icon name="hero-plus-micro" class="size-4" />
         </button>
@@ -133,7 +133,7 @@ defmodule AllbertAssistWeb.Workspace.Components.ThreadList do
       aria-labelledby={Base.component_title_id(@node)}
     >
       <h3 id={Base.component_title_id(@node)} class="workspace-rail-section-title">
-        Threads
+        Conversations
       </h3>
       <div class="workspace-rail-list" role="list">
         <button
@@ -152,13 +152,13 @@ defmodule AllbertAssistWeb.Workspace.Components.ThreadList do
           <span class="workspace-rail-item-title">{thread.title}</span>
           <span class="workspace-rail-item-meta">{short_id(thread.id)}</span>
         </button>
-        <p :if={@recent_threads == []} class="workspace-rail-empty">No threads yet.</p>
+        <p :if={@recent_threads == []} class="workspace-rail-empty">No conversations yet.</p>
       </div>
     </section>
     """
   end
 
-  defp short_id(nil), do: "thread"
+  defp short_id(nil), do: "conversation"
 
   defp short_id(id) when is_binary(id) do
     if String.length(id) > 14, do: String.slice(id, 0, 10) <> "...", else: id
@@ -407,8 +407,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Canvas do
     """
   end
 
-  defp focus_label(true), do: "Restore split view"
-  defp focus_label(false), do: "Focus canvas"
+  defp focus_label(true), do: "Close canvas drawer"
+  defp focus_label(false), do: "Open canvas drawer"
 
   defp destination_label("output"), do: "Output"
   defp destination_label("app:" <> app_id), do: app_id |> humanize_destination()
@@ -851,6 +851,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
        recent_threads: Map.get(context, :recent_threads, []),
        active_objectives: Map.get(context, :active_objectives, []),
        canvas_tiles: Map.get(context, :canvas_tiles, []),
+       canvas_destination: Map.get(context, :canvas_destination, "output"),
+       canvas_focus?: Map.get(context, :canvas_focus?, false),
        ephemeral_surfaces: Map.get(context, :ephemeral_surfaces, []),
        workspace_badges: Map.get(context, :workspace_badges, []),
        workspace_theme: Map.get(context, :workspace_theme, "system"),
@@ -895,7 +897,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
             id="workspace-thread-switcher-toggle"
             type="button"
             class="allbert-chip allbert-chip-mono"
-            title={"Switch thread: #{@thread_id}"}
+            title={"Switch conversation: #{@thread_id}"}
+            aria-label={"Switch conversation: #{@thread_id}"}
             aria-haspopup="menu"
             aria-controls="workspace-thread-switcher-menu"
             aria-expanded={bool_attribute(@thread_switcher_open?)}
@@ -938,7 +941,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
               phx-click="new_thread"
             >
               <.icon name="hero-plus-micro" class="size-4" />
-              <span class="workspace-thread-switcher-title">New thread</span>
+              <span class="workspace-thread-switcher-title">New conversation</span>
             </button>
             <button
               id="workspace-thread-copy-id"
@@ -949,7 +952,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
               data-copy-value={@thread_id}
             >
               <.icon name="hero-clipboard-document-micro" class="size-4" />
-              <span class="workspace-thread-switcher-title">Copy thread id</span>
+              <span class="workspace-thread-switcher-title">Copy conversation id</span>
             </button>
           </div>
         </div>
@@ -982,15 +985,19 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
           <.icon name="hero-flag-micro" class="size-4" />
           {count_label(@active_objectives, "objective")}
         </.link>
-        <a
+        <button
           id="workspace-tile-count-chip"
-          href="#workspace-node-workspace-canvas-region"
+          type="button"
           class="allbert-chip allbert-chip-link"
-          title="Jump to canvas"
+          phx-click="toggle_canvas_focus"
+          aria-controls="workspace-node-workspace-canvas-region"
+          aria-expanded={bool_attribute(@canvas_focus?)}
+          aria-label={canvas_toggle_label(@canvas_focus?, @canvas_destination)}
+          title={canvas_toggle_label(@canvas_focus?, @canvas_destination)}
         >
           <.icon name="hero-rectangle-stack-micro" class="size-4" />
           {count_label(@canvas_tiles, "tile")}
-        </a>
+        </button>
         <a
           id="workspace-ephemeral-count-chip"
           href="#workspace-node-workspace-ephemeral-region"
@@ -1130,6 +1137,12 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
     if app_context?(app), do: humanize_app(app), else: "Neutral"
   end
 
+  defp canvas_toggle_label(true, _destination), do: "Close canvas drawer"
+  defp canvas_toggle_label(false, "output"), do: "Open canvas drawer"
+  defp canvas_toggle_label(false, "workspace:" <> tool), do: "Open #{humanize_app(tool)} drawer"
+  defp canvas_toggle_label(false, "app:" <> app), do: "Open #{humanize_app(app)} drawer"
+  defp canvas_toggle_label(false, _destination), do: "Open canvas drawer"
+
   defp app_context?(app), do: active_app_attribute(app) not in ["", "allbert"]
 
   defp humanize_app(:stocksage), do: "StockSage"
@@ -1140,7 +1153,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
 
   defp humanize_app(_app), do: "App"
 
-  defp short_thread_id(nil), do: "thread"
+  defp short_thread_id(nil), do: "conversation"
 
   defp short_thread_id(thread_id) when is_binary(thread_id) do
     if String.length(thread_id) > 15 do

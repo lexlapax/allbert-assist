@@ -10,13 +10,12 @@ defmodule AllbertAssistWeb.Workspace.ResponsiveTest do
     assert css =~ "@media (min-width: 768px)"
     assert css =~ "@media (max-width: 767.98px)"
     assert css =~ "grid-template-areas:"
-    assert css =~ ~s("nav chat resizer canvas")
+    assert css =~ ~s("nav chat")
+    assert css =~ ~s(#workspace-shell[data-canvas-drawer="open"])
     refute css =~ ~s("chat resizer canvas")
     assert css =~ ~s(#workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-chat)
-    assert css =~ "--workspace-chat-ratio"
     assert css =~ "#workspace-split-resizer"
-    assert css =~ "cursor: col-resize"
-    assert css =~ "min-height: 44px"
+    refute css =~ "cursor: col-resize"
     assert css =~ "position: sticky"
   end
 
@@ -30,7 +29,10 @@ defmodule AllbertAssistWeb.Workspace.ResponsiveTest do
     assert css =~ ~r/#workspace-shell\.workspace-shell\s*\{[^}]*display:\s*flex/m
 
     assert css =~
-             ~r/\.workspace-chat-pane[^{}]*\.workspace-canvas-node\s*\{[^}]*overflow:\s*hidden/m
+             ~r/#workspace-shell #workspace-node-workspace-canvas-region\s*\{[^}]*position:\s*fixed/m
+
+    assert css =~
+             ~r/#workspace-shell #workspace-node-workspace-canvas-region\s*\{[^}]*display:\s*none/m
   end
 
   # v0.34 M6: the mobile shellbar participates in shell flow so it remains

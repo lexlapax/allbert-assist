@@ -97,11 +97,14 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
              "#workspace-shell[data-user-id='local'][data-thread-id='#{thread_id}']"
            )
 
+    assert has_element?(view, "#workspace-shell[data-layout-mode='chat-primary']")
+    assert has_element?(view, "#workspace-shell[data-canvas-drawer='closed']")
     assert has_element?(view, "#workspace-renderer")
     assert has_element?(view, "#allbert-appbar")
     assert has_element?(view, "#workspace-node-workspace-nav-rail")
     assert has_element?(view, "#workspace-launcher")
     assert has_element?(view, "#workspace-component-workspace-thread-list")
+    assert html =~ "Conversations"
     assert has_element?(view, "#workspace-component-workspace-app-launcher")
     refute has_element?(view, "#workspace-node-workspace-utility-drawer")
     refute has_element?(view, "#workspace-node-workspace-objectives")
@@ -115,6 +118,17 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     refute has_element?(view, "#workspace-context-exit")
     assert has_element?(view, "#workspace-thread-switcher-toggle")
     assert has_element?(view, "#workspace-chat-region")
+
+    assert has_element?(
+             view,
+             "#workspace-chat-canvas-toggle[aria-controls='workspace-node-workspace-canvas-region'][aria-expanded='false']"
+           )
+
+    assert has_element?(
+             view,
+             "#workspace-tile-count-chip[aria-controls='workspace-node-workspace-canvas-region'][aria-expanded='false']"
+           )
+
     assert has_element?(view, "#agent-form")
 
     assert has_element?(
@@ -140,6 +154,12 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     refute html =~ "Prompt composer"
     refute html =~ "Runtime response timeline"
     refute html =~ "component not implemented"
+
+    view
+    |> element("#workspace-chat-canvas-toggle")
+    |> render_click()
+
+    assert render(view) =~ ~s(data-canvas-drawer="open")
   end
 
   test "mount renders redacted unified channel continuity for the active thread", %{conn: conn} do
@@ -421,7 +441,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert {:ok, thread} = Conversations.get_thread("local", thread_id)
     assert thread.id == thread_id
     assert has_element?(view, "#workspace-thread-notice[role='status']")
-    assert html =~ "Started a new workspace thread"
+    assert html =~ "Started a new workspace conversation"
     assert html =~ "thr_missing_manual"
     refute html =~ "do not reuse this thread"
     assert_patch(view, ~p"/workspace?thread_id=#{thread_id}")
@@ -506,6 +526,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     assert html =~ ~s(data-launcher-open="false")
     assert has_element?(view, "#workspace-shell[data-mobile-tab='canvas']")
+    assert has_element?(view, "#workspace-shell[data-canvas-drawer='open']")
   end
 
   test "AppBar destination links open workspace Canvas destinations", %{conn: conn} do
@@ -522,6 +543,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     )
 
     assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:objectives']")
+    assert has_element?(view, "#workspace-shell[data-canvas-drawer='open']")
     assert has_element?(view, "#workspace-canvas[data-destination='workspace:objectives']")
 
     view
@@ -1001,6 +1023,10 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     assert menu_html =~ "Current workspace thread"
     assert menu_html =~ "Other workspace thread"
+    assert menu_html =~ "New conversation"
+    assert menu_html =~ "Copy conversation id"
+    refute menu_html =~ "New thread"
+    refute menu_html =~ "Copy thread id"
 
     assert has_element?(
              view,

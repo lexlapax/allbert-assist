@@ -126,7 +126,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         composer_max_bytes: workspace_canvas_tile_body_max_bytes(settings),
         workspace_overflow_open?: false,
         workspace_maximized_pane: nil,
-        canvas_focus?: false
+        canvas_focus?: canvas_destination != "output"
       )
       |> allow_upload(:voice_capture,
         accept: @voice_capture_upload_accept,
@@ -341,7 +341,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
          |> push_navigate(to: workspace_path(thread.id, socket.assigns.canvas_destination))}
 
       {:error, reason} ->
-        {:noreply, assign(socket, :error, "Could not start a new thread: #{inspect(reason)}")}
+        {:noreply,
+         assign(socket, :error, "Could not start a new conversation: #{inspect(reason)}")}
     end
   end
 
@@ -392,7 +393,11 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
     {:noreply,
      socket
-     |> assign(canvas_destination: destination, workspace_mobile_tab: "canvas")
+     |> assign(
+       canvas_destination: destination,
+       workspace_mobile_tab: "canvas",
+       canvas_focus?: true
+     )
      |> assign(:workspace_launcher_open?, false)
      |> refresh_workspace()
      |> push_patch(to: workspace_path(socket.assigns.thread_id, destination))}
@@ -718,6 +723,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         data-theme={theme_attribute(@workspace_theme)}
         data-operator-shell="workspace"
         data-workspace-shell="workspace"
+        data-layout-mode="chat-primary"
         data-workspace-theme={@workspace_theme}
         data-user-id={@user_id}
         data-thread-id={@thread_id}
@@ -730,6 +736,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         data-launcher-open={bool_attribute(@workspace_launcher_open?)}
         data-maximized-pane={@workspace_maximized_pane}
         data-canvas-focus={bool_attribute(@canvas_focus?)}
+        data-canvas-drawer={canvas_drawer_state(@canvas_focus?)}
         data-offline-enabled={bool_attribute(@workspace_offline_enabled?)}
         data-service-worker-url={~p"/workspace-sw.js"}
         data-service-worker-scope="/workspace"
@@ -1159,11 +1166,11 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   defp explicit_thread_id?(_thread_id), do: false
 
   defp thread_recovery_notice({:thread_not_found, thread_id}, requested_thread_id) do
-    "Started a new workspace thread because #{short_thread_id(thread_id || requested_thread_id)} was not found."
+    "Started a new workspace conversation because #{short_thread_id(thread_id || requested_thread_id)} was not found."
   end
 
   defp thread_recovery_notice(_reason, requested_thread_id) do
-    "Started a new workspace thread because #{short_thread_id(requested_thread_id)} could not be opened."
+    "Started a new workspace conversation because #{short_thread_id(requested_thread_id)} could not be opened."
   end
 
   defp short_thread_id(nil), do: "the requested thread"
@@ -1274,9 +1281,13 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     else
       socket
       |> assign(:canvas_destination, destination)
+      |> maybe_open_canvas_drawer(destination)
       |> refresh_workspace()
     end
   end
+
+  defp maybe_open_canvas_drawer(socket, "output"), do: socket
+  defp maybe_open_canvas_drawer(socket, _destination), do: assign(socket, :canvas_focus?, true)
 
   defp assign_artifacts_browser_filters(socket, filters) do
     if Map.get(socket.assigns, :artifacts_browser_filters, %{}) == filters do
@@ -2456,6 +2467,9 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp bool_attribute(true), do: "true"
   defp bool_attribute(false), do: "false"
+
+  defp canvas_drawer_state(true), do: "open"
+  defp canvas_drawer_state(false), do: "closed"
 
   defp active_app_attribute(app) when is_atom(app), do: Atom.to_string(app)
   defp active_app_attribute(app) when is_binary(app), do: app
