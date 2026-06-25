@@ -3,6 +3,8 @@ defmodule AllbertAssistWeb.Workspace.Components.TileInspector do
 
   use AllbertAssistWeb, :live_component
 
+  alias AllbertAssistWeb.Workspace.Components.Patterns
+
   @impl true
   def update(assigns, socket) do
     {:ok, assign(socket, assigns)}
@@ -11,7 +13,12 @@ defmodule AllbertAssistWeb.Workspace.Components.TileInspector do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="workspace-approval-overlay workspace-tile-inspector-overlay">
+    <div
+      class="workspace-approval-overlay workspace-tile-inspector-overlay"
+      data-workspace-pattern="modal"
+      data-state="open"
+      aria-hidden="false"
+    >
       <section
         id="workspace-tile-inspector"
         class="workspace-approval-modal workspace-tile-inspector-modal"
@@ -21,6 +28,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TileInspector do
         aria-describedby="workspace-tile-inspector-summary"
         tabindex="-1"
         phx-hook="FocusTrap"
+        phx-click-away="close_tile_inspector"
         phx-window-keydown="close_tile_inspector"
         phx-key="escape"
       >
@@ -132,7 +140,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TileInspector do
           </button>
           <button
             type="button"
-            class="workspace-button workspace-button-secondary"
+            class={Patterns.button_class!("secondary")}
             phx-click="close_tile_inspector"
           >
             Close

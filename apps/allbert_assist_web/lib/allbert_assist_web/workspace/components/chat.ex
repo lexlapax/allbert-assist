@@ -5,6 +5,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
 
   use AllbertAssistWeb, :live_component
 
+  alias AllbertAssistWeb.Workspace.Components.Patterns
+
   @impl true
   def update(assigns, socket) do
     state = Map.get(assigns, :workspace_state, %{})
@@ -486,84 +488,74 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
       </form>
 
       <%= if @approval_handoff do %>
-        <div
-          id="approval-handoff-overlay"
-          class="workspace-approval-overlay"
-          data-state="open"
-          aria-hidden="false"
+        <Patterns.workspace_modal
+          id="approval-handoff"
+          overlay_id="approval-handoff-overlay"
+          class="workspace-approval-inline"
+          labelledby="approval-title"
+          describedby="approval-confirmation"
         >
-          <section
-            id="approval-handoff"
-            class="workspace-approval-inline workspace-approval-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="approval-title"
-            aria-describedby="approval-confirmation"
-            phx-hook="FocusTrap"
-            tabindex="-1"
-          >
-            <div>
-              <p class="workspace-approval-eyebrow">Approval Required</p>
-              <h2 id="approval-title" class="workspace-card-title">
-                {approval_target_summary(@approval_handoff, @approval_lines)}
-              </h2>
-              <p
-                id="approval-confirmation"
-                class="workspace-card-summary workspace-mono workspace-copy-target"
-                phx-hook="CopyToClipboard"
-                data-copy-value={approval_confirmation_id(@approval_handoff)}
-                role="button"
-                tabindex="0"
-                title="Copy confirmation id"
-              >
-                {approval_confirmation_id(@approval_handoff)}
-              </p>
-            </div>
+          <div>
+            <p class="workspace-approval-eyebrow">Approval Required</p>
+            <h2 id="approval-title" class="workspace-card-title">
+              {approval_target_summary(@approval_handoff, @approval_lines)}
+            </h2>
+            <p
+              id="approval-confirmation"
+              class="workspace-card-summary workspace-mono workspace-copy-target"
+              phx-hook="CopyToClipboard"
+              data-copy-value={approval_confirmation_id(@approval_handoff)}
+              role="button"
+              tabindex="0"
+              title="Copy confirmation id"
+            >
+              {approval_confirmation_id(@approval_handoff)}
+            </p>
+          </div>
 
-            <ul class="workspace-approval-lines">
-              <li :for={line <- @approval_lines}>{line}</li>
-            </ul>
+          <ul class="workspace-approval-lines">
+            <li :for={line <- @approval_lines}>{line}</li>
+          </ul>
 
-            <div class="workspace-approval-actions">
-              <button
-                id="approval-details"
-                type="button"
-                phx-click="toggle_approval_details"
-                class="workspace-button workspace-button-secondary"
-                aria-controls="approval-details-data"
-                aria-expanded={bool_attribute(@show_approval_details?)}
-              >
-                {if @show_approval_details?, do: "Hide details", else: "Details"}
-              </button>
-              <button
-                id="approval-deny"
-                type="button"
-                phx-click="deny_confirmation"
-                phx-value-id={approval_confirmation_id(@approval_handoff)}
-                class="workspace-button workspace-button-danger"
-                phx-disable-with="Denying"
-              >
-                Deny
-              </button>
-              <button
-                id="approval-approve"
-                type="button"
-                phx-click="approve_confirmation"
-                phx-value-id={approval_confirmation_id(@approval_handoff)}
-                class="workspace-button workspace-button-primary"
-                phx-disable-with="Approving"
-              >
-                Approve
-              </button>
-            </div>
+          <div class="workspace-approval-actions">
+            <button
+              id="approval-details"
+              type="button"
+              phx-click="toggle_approval_details"
+              class={Patterns.button_class!("secondary")}
+              aria-controls="approval-details-data"
+              aria-expanded={bool_attribute(@show_approval_details?)}
+            >
+              {if @show_approval_details?, do: "Hide details", else: "Details"}
+            </button>
+            <button
+              id="approval-deny"
+              type="button"
+              phx-click="deny_confirmation"
+              phx-value-id={approval_confirmation_id(@approval_handoff)}
+              class={Patterns.button_class!("danger")}
+              phx-disable-with="Denying"
+            >
+              Deny
+            </button>
+            <button
+              id="approval-approve"
+              type="button"
+              phx-click="approve_confirmation"
+              phx-value-id={approval_confirmation_id(@approval_handoff)}
+              class={Patterns.button_class!("primary")}
+              phx-disable-with="Approving"
+            >
+              Approve
+            </button>
+          </div>
 
-            <pre
-              :if={@show_approval_details?}
-              id="approval-details-data"
-              class="workspace-approval-details"
-            ><%= approval_detail_text(@approval_lines) %></pre>
-          </section>
-        </div>
+          <pre
+            :if={@show_approval_details?}
+            id="approval-details-data"
+            class="workspace-approval-details"
+          ><%= approval_detail_text(@approval_lines) %></pre>
+        </Patterns.workspace_modal>
       <% end %>
 
       <%= if @approval_result do %>

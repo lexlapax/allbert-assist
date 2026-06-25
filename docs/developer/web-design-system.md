@@ -86,7 +86,8 @@ Copy conventions:
 
 ## Variant Registry
 
-Variants are component props:
+Catalog variants are component props. `AllbertAssistWeb.Workspace.Components.Patterns`
+is the current registry owner for the M7 baseline:
 
 ```heex
 <.workspace_button variant="primary" tone="neutral" size="sm" />
@@ -94,9 +95,16 @@ Variants are component props:
 <.workspace_panel kind="operator" density="compact" />
 ```
 
+Implemented M7 registry:
+
+- button variants: `primary`, `secondary`, `danger`;
+- status tones: `info`, `neutral`, `warning`, `danger`, `success` plus `warn`,
+  `error`, and `ok` aliases.
+
+Catalog `:button`, `:action_button`, and `:status_badge` consume these props.
 Avoid class-string branching at call sites. Add a variant only when multiple
-callers need the distinction or the active plan names the state. Unknown variants
-should fail fast in tests.
+callers need the distinction or the active plan names the state. Unknown explicit
+variants fail fast.
 
 ## Shared Patterns
 
@@ -111,6 +119,17 @@ The pattern library owns behavior that is otherwise easy to drift:
 - table/list: bounded rows, explicit sort/filter, no raw secret or endpoint data.
 
 Hand-built modals and page-local loading/error shapes are v0.58 cleanup targets.
+
+Implemented M7 modal baseline:
+
+- `Patterns.workspace_modal/1` renders the overlay + dialog section with
+  `data-workspace-pattern="modal"`, `role="dialog"`, `aria-modal="true"`,
+  `aria-labelledby`, optional `aria-describedby`, `phx-hook="FocusTrap"`,
+  optional Escape handling, and optional click-away handling.
+- The approval handoff uses the shared modal pattern.
+- The tile inspector carries the shared modal pattern marker and the same dialog/
+  FocusTrap/Escape/click-away semantics while retaining the static root tag
+  required by Phoenix stateful LiveComponents.
 
 ## Shell And Page Coverage
 

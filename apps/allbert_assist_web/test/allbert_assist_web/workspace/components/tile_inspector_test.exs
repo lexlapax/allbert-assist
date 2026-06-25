@@ -37,6 +37,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TileInspectorTest do
     html = render_component(TileInspector, id: "tile-inspector-test", tile: tile)
 
     assert html =~ ~s(id="workspace-tile-inspector")
+    assert html =~ ~s(data-workspace-pattern="modal")
     assert html =~ ~s(role="dialog")
     assert html =~ ~s(phx-hook="FocusTrap")
     assert html =~ "Inspection fixture"

@@ -107,6 +107,8 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
              "#approval-handoff[role='dialog'][aria-modal='true'][aria-labelledby='approval-title'][phx-hook='FocusTrap']"
            )
 
+    assert has_element?(view, "#approval-handoff-overlay[data-workspace-pattern='modal']")
+
     assert has_element?(
              view,
              "#approval-details[aria-controls='approval-details-data'][aria-expanded='false']"

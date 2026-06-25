@@ -8,7 +8,6 @@ defmodule AllbertAssistWeb.Workspace.Components.Route do
     custom?: true
 
   alias AllbertAssistWeb.Workspace.Components.Base
-
   @impl true
   def update(assigns, socket), do: {:ok, Base.assign_defaults(socket, assigns)}
 
@@ -32,7 +31,6 @@ defmodule AllbertAssistWeb.Workspace.Components.Timeline do
     custom?: true
 
   alias AllbertAssistWeb.Workspace.Components.Base
-
   @impl true
   def update(assigns, socket), do: {:ok, Base.assign_defaults(socket, assigns)}
 
@@ -58,7 +56,6 @@ defmodule AllbertAssistWeb.Workspace.Components.Composer do
     custom?: true
 
   alias AllbertAssistWeb.Workspace.Components.Base
-
   @impl true
   def update(assigns, socket), do: {:ok, Base.assign_defaults(socket, assigns)}
 
@@ -155,7 +152,11 @@ defmodule AllbertAssistWeb.Workspace.Components.Button do
     <button
       id={Base.dom_id(@node)}
       type="button"
-      class="workspace-button workspace-button-secondary"
+      class={
+        AllbertAssistWeb.Workspace.Components.Patterns.button_class!(
+          Base.prop(@node, :variant, "secondary")
+        )
+      }
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
       data-intent-option={intent_option(@node)}
@@ -192,7 +193,6 @@ defmodule AllbertAssistWeb.Workspace.Components.ActionButton do
     custom?: true
 
   alias AllbertAssistWeb.Workspace.Components.Base
-
   @impl true
   def update(assigns, socket), do: {:ok, Base.assign_defaults(socket, assigns)}
 
@@ -202,7 +202,11 @@ defmodule AllbertAssistWeb.Workspace.Components.ActionButton do
     <button
       id={Base.dom_id(@node)}
       type="button"
-      class="workspace-button workspace-button-primary"
+      class={
+        AllbertAssistWeb.Workspace.Components.Patterns.button_class!(
+          Base.prop(@node, :variant, "primary")
+        )
+      }
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
       phx-click={Base.prop(@node, :phx_click, nil)}
@@ -235,7 +239,6 @@ defmodule AllbertAssistWeb.Workspace.Components.McpEffectForm do
     custom?: true
 
   alias AllbertAssistWeb.Workspace.Components.Base
-
   @impl true
   def update(assigns, socket), do: {:ok, Base.assign_defaults(socket, assigns)}
 
@@ -356,7 +359,11 @@ defmodule AllbertAssistWeb.Workspace.Components.StatusBadge do
     ~H"""
     <span
       id={"workspace-component-#{@node.id}"}
-      class={["workspace-status-pill", status_class(Base.prop(@node, :status, "info"))]}
+      class={
+        AllbertAssistWeb.Workspace.Components.Patterns.status_badge_class!(
+          Base.prop(@node, :tone, Base.prop(@node, :status, "info"))
+        )
+      }
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
     >
@@ -364,15 +371,4 @@ defmodule AllbertAssistWeb.Workspace.Components.StatusBadge do
     </span>
     """
   end
-
-  defp status_class(status) when status in ["warn", :warn, "warning", :warning],
-    do: "workspace-status-warn"
-
-  defp status_class(status) when status in ["danger", :danger, "error", :error],
-    do: "workspace-status-danger"
-
-  defp status_class(status) when status in ["success", :success, "ok", :ok],
-    do: "workspace-status-success"
-
-  defp status_class(_status), do: "workspace-status-neutral"
 end
