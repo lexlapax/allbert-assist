@@ -99,6 +99,41 @@ defmodule AllbertAssistWeb.Workspace.Components.PatternsTest do
     assert Patterns.button_class!(nil) == ["workspace-button workspace-button-primary", nil]
   end
 
+  test "drawer and table contract helpers expose root-safe attrs" do
+    assert Patterns.drawer_shell_class(retired?: true) == [
+             "workspace-utility-drawer-shell",
+             "workspace-utility-drawer-retired",
+             nil
+           ]
+
+    assert Patterns.drawer_shell_attrs(
+             title_id: "drawer-title",
+             open?: false,
+             retired?: true,
+             hidden?: true
+           ) == [
+             {"hidden", true},
+             {"data-workspace-pattern", "drawer-shell"},
+             {"data-state", "closed"},
+             {"data-retired", "true"},
+             {"aria-labelledby", "drawer-title"},
+             {"aria-hidden", "true"}
+           ]
+
+    assert Patterns.table_list_class("extra") == ["workspace-table-shell", "extra"]
+
+    assert Patterns.table_list_attrs(title_id: "table-title", row_count: nil, max_rows: 10) == [
+             {"data-workspace-pattern", "table-list"},
+             {"data-max-rows", 10},
+             {"aria-labelledby", "table-title"}
+           ]
+
+    assert Patterns.table_row_class("selected") == ["workspace-table-row", "selected"]
+    assert Patterns.table_row_attrs() == [{"data-workspace-pattern", "table-row"}]
+    assert Patterns.table_column_class() == ["workspace-table-column", nil]
+    assert Patterns.table_column_attrs() == [{"data-workspace-pattern", "table-column"}]
+  end
+
   test "status badge selects tone from props" do
     html =
       render_component(Renderer,

@@ -14,6 +14,18 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         "ALLBERT_TRACE_ENABLED",
         "ALLBERT_BROWSER_HOST_RESOLVER_RULES"
       ],
+      allowed_infra_env_vars: [
+        "ALLBERT_HOME",
+        "ALLBERT_HOME_DIR",
+        "ALLBERT_SETTINGS_ROOT",
+        "ALLBERT_MEMORY_ROOT",
+        "ALLBERT_ARTIFACTS_ROOT",
+        "ALLBERT_TEST_KEEP_TMP",
+        "ALLBERT_TUI_LOG_LEVEL",
+        "ALLBERT_WEBHOOK_BASE_URL",
+        "ALLBERT_SETTINGS_MASTER_KEY",
+        "ALLBERT_TEMPLATE_SMOKE"
+      ],
       operator_setting_keys: [
         "runtime.trace_default",
         "runtime.trace_recent_entries_limit",
@@ -67,6 +79,7 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
   defp issues_for_line({line_no, line}, source_file, lines_by_no, issue_meta, params) do
     [
       env_issue(line, line_no, issue_meta, params),
+      unknown_allbert_env_issue(line, line_no, issue_meta, params),
       application_setting_issue(line, line_no, lines_by_no, issue_meta, params),
       web_direct_settings_read_issue(line, line_no, source_file, issue_meta),
       web_infra_config_issue(line, line_no, source_file, issue_meta),
@@ -91,6 +104,22 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         inspect(env_var),
         "Read #{env_var} through Settings Central instead of System.get_env/1."
       )
+    end
+  end
+
+  defp unknown_allbert_env_issue(line, line_no, issue_meta, params) do
+    with env_var when is_binary(env_var) <- allbert_env_literal(line),
+         false <- listed_env_var?(env_var, :operator_env_vars, params),
+         false <- listed_env_var?(env_var, :allowed_infra_env_vars, params) do
+      issue_for(
+        issue_meta,
+        line,
+        line_no,
+        inspect(env_var),
+        "Classify #{env_var} as a Settings Central key or explicit infrastructure env before reading it with System.get_env/1."
+      )
+    else
+      _other -> nil
     end
   end
 
@@ -183,6 +212,21 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
 
   defp direct_runtime_config_trigger(line) do
     if String.contains?(line, "System.get_env"), do: "System.get_env", else: "Application.get_env"
+  end
+
+  defp allbert_env_literal(line) do
+    if String.contains?(line, "System.get_env") do
+      case Regex.run(~r/System\.get_env\(\s*"((?:ALLBERT_)[A-Z0-9_]+)"/, line) do
+        [_match, env_var] -> env_var
+        _other -> nil
+      end
+    end
+  end
+
+  defp listed_env_var?(env_var, param_name, params) do
+    params
+    |> Params.get(param_name, __MODULE__)
+    |> Enum.member?(env_var)
   end
 
   defp dotted_setting_key(window) do

@@ -295,6 +295,7 @@ defmodule AllbertAssistWeb.Workspace.Components.UtilityDrawer do
     custom?: true
 
   alias AllbertAssistWeb.Workspace.Components.Base
+  alias AllbertAssistWeb.Workspace.Components.Patterns
 
   @impl true
   def update(assigns, socket) do
@@ -306,15 +307,15 @@ defmodule AllbertAssistWeb.Workspace.Components.UtilityDrawer do
     ~H"""
     <aside
       id={"workspace-component-#{@node.id}"}
-      class="workspace-utility-drawer-shell workspace-utility-drawer-retired"
+      class={Patterns.drawer_shell_class(retired?: true)}
+      {Patterns.drawer_shell_attrs(
+        title_id: Base.component_title_id(@node),
+        open?: false,
+        retired?: true,
+        hidden?: true
+      )}
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
-      data-workspace-pattern="drawer-shell"
-      data-state="closed"
-      data-retired="true"
-      aria-labelledby={Base.component_title_id(@node)}
-      aria-hidden="true"
-      hidden
     >
       <h2 id={Base.component_title_id(@node)} class="sr-only">Retired workspace utility drawer</h2>
       <p class="sr-only">

@@ -47,6 +47,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
   alias AllbertAssist.Workspace.Fragment.Envelope
   alias AllbertAssistWeb.SignalBridge
+  alias AllbertAssistWeb.Workspace.Components.Patterns
   alias AllbertAssistWeb.Workspace.Components.TileInspector
   alias AllbertAssistWeb.Workspace.Renderer, as: WorkspaceRenderer
   alias Jido.Signal
@@ -753,16 +754,14 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         role="region"
         aria-labelledby="workspace-component-title-workspace-header"
       >
-        <div
+        <Patterns.status_callout
           id="workspace-offline-banner"
           class="workspace-offline-banner"
+          tone="warning"
+          message={offline_banner_text(@workspace_offline_enabled?)}
           data-state={offline_banner_state(@workspace_offline_enabled?)}
-          role="status"
-          aria-live="polite"
           hidden={@workspace_offline_enabled?}
-        >
-          {offline_banner_text(@workspace_offline_enabled?)}
-        </div>
+        />
 
         <div id="workspace-mobile-shellbar" class="workspace-mobile-shellbar">
           <button

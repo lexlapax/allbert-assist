@@ -9,6 +9,7 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
   alias AllbertAssist.Surface.Catalog, as: SurfaceCatalog
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace.Catalog
+  alias AllbertAssistWeb.Workspace.Components.Patterns
   alias AllbertAssistWeb.Workspace.Components.Placeholder
   alias AllbertAssistWeb.Workspace.Renderer
 
@@ -113,6 +114,65 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
     refute html =~ "/objectives/"
     refute html =~ "workspace-utility-link"
     refute html =~ ">Tools<"
+  end
+
+  test "drawer and table catalog atoms consume the shared pattern contract" do
+    drawer_html =
+      render_component(Renderer,
+        id: "utility-drawer-contract-renderer",
+        node: %Node{id: "utility-drawer-contract", component: :utility_drawer, props: %{}},
+        renderer_context: renderer_context(),
+        workspace_state: workspace_state()
+      )
+
+    assert_classes(drawer_html, Patterns.drawer_shell_class(retired?: true))
+
+    assert_attrs(
+      drawer_html,
+      Patterns.drawer_shell_attrs(
+        title_id: "workspace-component-title-utility-drawer-contract",
+        open?: false,
+        retired?: true,
+        hidden?: true
+      )
+    )
+
+    table_html =
+      render_component(Renderer,
+        id: "table-contract-renderer",
+        node: %Node{id: "table-contract", component: :table, props: %{title: "Rows"}},
+        renderer_context: renderer_context(),
+        workspace_state: workspace_state()
+      )
+
+    assert_classes(table_html, Patterns.table_list_class())
+
+    assert_attrs(
+      table_html,
+      Patterns.table_list_attrs(title_id: "workspace-component-title-table-contract")
+    )
+
+    row_html =
+      render_component(Renderer,
+        id: "row-contract-renderer",
+        node: %Node{id: "row-contract", component: :row, props: %{body: "Row body"}},
+        renderer_context: renderer_context(),
+        workspace_state: workspace_state()
+      )
+
+    assert_classes(row_html, Patterns.table_row_class())
+    assert_attrs(row_html, Patterns.table_row_attrs())
+
+    column_html =
+      render_component(Renderer,
+        id: "column-contract-renderer",
+        node: %Node{id: "column-contract", component: :column, props: %{body: "Column body"}},
+        renderer_context: renderer_context(),
+        workspace_state: workspace_state()
+      )
+
+    assert_classes(column_html, Patterns.table_column_class())
+    assert_attrs(column_html, Patterns.table_column_attrs())
   end
 
   test "tile and ephemeral nodes expose semantic accessibility roles" do
@@ -493,6 +553,20 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
       asking?: false,
       approval_lines: []
     }
+  end
+
+  defp assert_classes(html, classes) do
+    classes
+    |> List.wrap()
+    |> Enum.reject(&is_nil/1)
+    |> Enum.each(fn class -> assert html =~ class end)
+  end
+
+  defp assert_attrs(html, attrs) do
+    Enum.each(attrs, fn
+      {key, true} -> assert html =~ ~s(#{key})
+      {key, value} -> assert html =~ ~s(#{key}="#{value}")
+    end)
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

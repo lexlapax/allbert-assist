@@ -1129,7 +1129,10 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
              "#workspace-shell[data-offline-enabled='true'][data-service-worker-url='/workspace-sw.js'][data-service-worker-scope='/workspace'][data-offline-shell-url='/workspace-offline.html']"
            )
 
-    assert has_element?(view, "#workspace-offline-banner[hidden][data-state='online']")
+    assert has_element?(
+             view,
+             "#workspace-offline-banner[hidden][data-state='online'][data-workspace-pattern='status-callout']"
+           )
   end
 
   test "offline disabled setting shows disabled workspace banner", %{conn: conn} do
@@ -1139,7 +1142,12 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     {:ok, view, html} = live(conn, ~p"/workspace")
 
     assert has_element?(view, "#workspace-shell[data-offline-enabled='false']")
-    assert has_element?(view, "#workspace-offline-banner[data-state='disabled']")
+
+    assert has_element?(
+             view,
+             "#workspace-offline-banner[data-state='disabled'][data-workspace-pattern='status-callout']"
+           )
+
     refute has_element?(view, "#workspace-offline-banner[hidden]")
     assert html =~ "Offline mode disabled."
   end

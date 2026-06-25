@@ -150,6 +150,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Table do
     custom?: true
 
   alias AllbertAssistWeb.Workspace.Components.Base
+  alias AllbertAssistWeb.Workspace.Components.Patterns
 
   @impl true
   def update(assigns, socket), do: {:ok, Base.assign_defaults(socket, assigns)}
@@ -159,11 +160,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Table do
     ~H"""
     <section
       id={"workspace-component-#{@node.id}"}
-      class="workspace-table-shell"
+      class={Patterns.table_list_class()}
+      {Patterns.table_list_attrs(title_id: Base.component_title_id(@node))}
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
-      data-workspace-pattern="table-list"
-      aria-labelledby={Base.component_title_id(@node)}
     >
       <h2 id={Base.component_title_id(@node)} class="workspace-card-title">
         {Base.title(@node, "Table")}
@@ -181,6 +181,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Row do
     custom?: true
 
   alias AllbertAssistWeb.Workspace.Components.Base
+  alias AllbertAssistWeb.Workspace.Components.Patterns
 
   @impl true
   def update(assigns, socket), do: {:ok, Base.assign_defaults(socket, assigns)}
@@ -190,10 +191,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Row do
     ~H"""
     <div
       id={"workspace-component-#{@node.id}"}
-      class="workspace-table-row"
+      class={Patterns.table_row_class()}
+      {Patterns.table_row_attrs()}
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
-      data-workspace-pattern="table-row"
     >
       {Base.summary(@node, Base.title(@node, "Row"))}
     </div>
@@ -208,6 +209,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Column do
     custom?: true
 
   alias AllbertAssistWeb.Workspace.Components.Base
+  alias AllbertAssistWeb.Workspace.Components.Patterns
 
   @impl true
   def update(assigns, socket), do: {:ok, Base.assign_defaults(socket, assigns)}
@@ -217,10 +219,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Column do
     ~H"""
     <span
       id={"workspace-component-#{@node.id}"}
-      class="workspace-table-column"
+      class={Patterns.table_column_class()}
+      {Patterns.table_column_attrs()}
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
-      data-workspace-pattern="table-column"
     >
       {Base.summary(@node, Base.title(@node, "Column"))}
     </span>

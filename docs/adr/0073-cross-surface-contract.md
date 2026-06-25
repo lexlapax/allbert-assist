@@ -1,7 +1,7 @@
 # ADR 0073: Cross-Surface Contract
 
-Status: Proposed (v0.58); M13 implemented, M13.1A-D complete; ready for
-implementation audit and M14 manual validation.
+Status: Proposed (v0.58); M13 implemented, M13.1A-F complete; ready for the
+fourth-pass implementation audit, then M14 manual validation if no blocker remains.
 Date: 2026-06-24
 Related: ADR 0016 (channel adapter boundary + identity mapping — extended here to
 every surface), ADR 0029/0030 (typed response contract + unified surface
@@ -71,7 +71,8 @@ A conformant surface MUST:
    and error events to the shared channel-event spine keyed by `surface_id`, with
    dedupe and trace, so the audit trail is identical across surfaces. This includes
    protocol rejections that happen before runtime dispatch, such as invalid ACP
-   guard/session requests and MCP resource-read denials.
+   guard/session/permission/unsupported-method requests and MCP resource/tool
+   exposure denials.
 5. **Read operator state through registered actions.** Operator reads
    (confirmations, settings, channels, intents, models, status) resolve through
    the ADR 0070 read-only action layer (`exposure: :internal`,
@@ -83,10 +84,11 @@ A conformant surface MUST:
    `completed_action/2` / `response_error/1`.
 
 A **conformance matrix** (surface × requirement 1–6) is maintained in the v0.58
-plan. M13 implemented the main spine. M13.1 closes the remaining second-pass
-partials before M14. M13.1A closed residual web settings reads plus ACP guard and
-MCP `read_resource` rejection recording; M13.1C closed explicit surface-policy
-report-shape coverage for the named operator-panel reads.
+plan. M13 implemented the main spine. M13.1 closes the remaining audit partials
+before M14. M13.1A closed residual web settings reads plus ACP prompt-guard and
+MCP `read_resource` rejection recording; M13.1E extended rejection recording to
+ACP sibling methods and MCP tool exposure denials; M13.1C closed explicit
+surface-policy report-shape coverage for the named operator-panel reads.
 
 ## v0.58 M13.1 Conformance Notes
 
@@ -100,9 +102,11 @@ edge drift that must be remediated before this ADR can be accepted:
 - `list_provider_profiles` and `list_model_profiles` may remain assistant-safe
   `:agent` reads only under the ADR 0070 carve-out: source-redacted DTOs, bounded
   reports, and no raw operator fields in the agent-routable packet.
-- Complete in M13.1A: public-protocol pre-dispatch rejections record the same
+- Complete in M13.1A/E: public-protocol pre-dispatch rejections record the same
   rejection/error event shape as dispatched runtime failures. M13.1A covers ACP
-  prompt guard `else` returns and MCP resource-read denials.
+  prompt guard `else` returns and MCP resource-read denials; M13.1E extends the
+  proof to ACP session, permission, unsupported-method failures and MCP
+  `tool_not_exposed` denials.
 - Complete in M13.1C: surface policy is presentation governance, not authority.
   It now governs `list_settings`, `list_channels`, `list_model_profiles`,
   `list_provider_profiles`, `intent_coverage`, `intent_list_descriptors`,

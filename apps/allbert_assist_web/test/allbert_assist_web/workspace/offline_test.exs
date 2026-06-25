@@ -81,6 +81,9 @@ defmodule AllbertAssistWeb.Workspace.OfflineTest do
 
     assert offline_shell =~ ~s(id="workspace-offline-shell")
     assert offline_shell =~ ~s(data-offline-shell="true")
+    assert offline_shell =~ ~s(data-workspace-pattern="status-callout")
+    assert offline_shell =~ ~s(data-tone="warning")
+    assert offline_shell =~ ~s(aria-live="polite")
     assert offline_shell =~ ~s(id="workspace-offline-drafts")
     assert offline_shell =~ ~s(src="/assets/js/app.js")
     assert offline_shell =~ "Working offline"

@@ -3,8 +3,8 @@
 Status: v0.58 M6-M13 token, variant, pattern baseline, shared shell,
 Jobs/Objectives catalog coverage, chat-primary workspace layout, operator panel
 catalog coverage, surface-policy DTOs, consolidation, and release lane are
-implemented. M13.1 remediation is complete before the next implementation audit
-and M14 manual validation.
+implemented. M13.1A-F remediation is complete before the fourth-pass
+implementation audit and M14 manual validation.
 
 Authority: `docs/adr/0074-web-design-system-and-ux-language.md`,
 `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`,
@@ -138,17 +138,27 @@ Implemented M7 modal baseline:
   FocusTrap/Escape/click-away semantics while retaining the static root tag
   required by Phoenix stateful LiveComponents.
 
-Implemented M13.1E shared pattern baseline:
+Implemented M13.1E/F shared pattern baseline:
 
 - `Patterns.status_callout/1` and `Patterns.error_callout/1` own status/error
-  callout semantics and redacted body/action slots.
+  callout semantics and redacted body/action slots. The LiveView offline banner
+  routes through the status-callout component; the static offline fallback shell
+  mirrors the same `data-workspace-pattern="status-callout"` contract in plain
+  HTML.
 - `Patterns.loading_state/1` owns loading live-region semantics.
-- `Patterns.drawer_shell/1` owns the drawer shell contract used by catalog drawer
-  atoms.
+- `Patterns.drawer_shell/1` owns the stateless drawer shell component, while
+  `Patterns.drawer_shell_class/1` and `Patterns.drawer_shell_attrs/1` own the
+  root-safe drawer contract used by stateful catalog atoms.
 - `Patterns.table_list/1`, `Patterns.table_row/1`, and `Patterns.table_column/1`
-  own the table/list primitive baseline. Stateful catalog atoms that need literal
-  LiveComponent roots mirror the same pattern markers while preserving existing
-  renderer DOM IDs and data attributes.
+  own the stateless table/list primitive baseline, while
+  `Patterns.table_list_class/1`, `Patterns.table_list_attrs/1`,
+  `Patterns.table_row_class/1`, `Patterns.table_row_attrs/0`,
+  `Patterns.table_column_class/1`, and `Patterns.table_column_attrs/0` own the
+  root-safe contract used by stateful catalog atoms.
+- Stateful `UtilityDrawer`, `Table`, `Row`, and `Column` atoms preserve literal
+  LiveComponent root tags and existing renderer DOM IDs/data attributes, but now
+  consume the same helper contract as the stateless components. Renderer parity
+  tests fail if the stateful and stateless contracts drift.
 
 ## Shell And Page Coverage
 

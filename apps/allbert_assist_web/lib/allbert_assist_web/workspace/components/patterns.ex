@@ -125,6 +125,61 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
     """
   end
 
+  @doc "Returns the canonical class list for the shared drawer shell contract."
+  def drawer_shell_class(opts \\ []) do
+    retired? = Keyword.get(opts, :retired?, false)
+    extra_class = Keyword.get(opts, :class)
+
+    [
+      "workspace-utility-drawer-shell",
+      retired? && "workspace-utility-drawer-retired",
+      extra_class
+    ]
+  end
+
+  @doc "Returns root-safe attrs for stateful or stateless drawer shell renderers."
+  def drawer_shell_attrs(opts) do
+    title_id = Keyword.fetch!(opts, :title_id)
+    open? = Keyword.get(opts, :open?, true)
+    retired? = Keyword.get(opts, :retired?, false)
+    hidden? = Keyword.get(opts, :hidden?, false) or not open?
+
+    [
+      {"data-workspace-pattern", "drawer-shell"},
+      {"data-state", if(open?, do: "open", else: "closed")},
+      {"data-retired", bool_attribute(retired?)},
+      {"aria-labelledby", title_id},
+      {"aria-hidden", bool_attribute(hidden?)}
+    ]
+    |> maybe_attr("hidden", hidden?)
+  end
+
+  @doc "Returns the canonical class list for the shared table/list shell contract."
+  def table_list_class(extra_class \\ nil), do: ["workspace-table-shell", extra_class]
+
+  @doc "Returns root-safe attrs for stateful or stateless table/list renderers."
+  def table_list_attrs(opts) do
+    [
+      {"data-workspace-pattern", "table-list"},
+      {"data-row-count", Keyword.get(opts, :row_count)},
+      {"data-max-rows", Keyword.get(opts, :max_rows)},
+      {"aria-labelledby", Keyword.fetch!(opts, :title_id)}
+    ]
+    |> compact_attrs()
+  end
+
+  @doc "Returns the canonical class list for the shared table row contract."
+  def table_row_class(extra_class \\ nil), do: ["workspace-table-row", extra_class]
+
+  @doc "Returns root-safe attrs for stateful or stateless table row renderers."
+  def table_row_attrs, do: [{"data-workspace-pattern", "table-row"}]
+
+  @doc "Returns the canonical class list for the shared table column contract."
+  def table_column_class(extra_class \\ nil), do: ["workspace-table-column", extra_class]
+
+  @doc "Returns root-safe attrs for stateful or stateless table column renderers."
+  def table_column_attrs, do: [{"data-workspace-pattern", "table-column"}]
+
   attr :id, :string, required: true
   attr :title, :string, required: true
   attr :summary, :string, default: nil
@@ -148,17 +203,13 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
     ~H"""
     <aside
       id={@id}
-      class={[
-        "workspace-utility-drawer-shell",
-        @retired? && "workspace-utility-drawer-retired",
-        @class
-      ]}
-      data-workspace-pattern="drawer-shell"
-      data-state={if @open?, do: "open", else: "closed"}
-      data-retired={bool_attribute(@retired?)}
-      aria-labelledby={@title_id}
-      aria-hidden={bool_attribute(@hidden_state?)}
-      hidden={@hidden_state?}
+      class={drawer_shell_class(retired?: @retired?, class: @class)}
+      {drawer_shell_attrs(
+        title_id: @title_id,
+        open?: @open?,
+        retired?: @retired?,
+        hidden?: @hidden_state?
+      )}
       {@rest}
     >
       <h2 id={@title_id} class={[@retired? && "sr-only", @title_class]}>
@@ -190,11 +241,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
     ~H"""
     <section
       id={@id}
-      class={["workspace-table-shell", @class]}
-      data-workspace-pattern="table-list"
-      data-row-count={@row_count}
-      data-max-rows={@max_rows}
-      aria-labelledby={@title_id}
+      class={table_list_class(@class)}
+      {table_list_attrs(title_id: @title_id, row_count: @row_count, max_rows: @max_rows)}
       {@rest}
     >
       <h2 id={@title_id} class="workspace-card-title">{@title}</h2>
@@ -214,7 +262,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
 
   def table_row(assigns) do
     ~H"""
-    <div id={@id} class={["workspace-table-row", @class]} data-workspace-pattern="table-row" {@rest}>
+    <div id={@id} class={table_row_class(@class)} {table_row_attrs()} {@rest}>
       <span :if={present?(@body)}>{@body}</span>
       {render_slot(@inner_block)}
     </div>
@@ -232,8 +280,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
     ~H"""
     <span
       id={@id}
-      class={["workspace-table-column", @class]}
-      data-workspace-pattern="table-column"
+      class={table_column_class(@class)}
+      {table_column_attrs()}
       {@rest}
     >
       <span :if={present?(@body)}>{@body}</span>
@@ -319,6 +367,13 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
 
   defp bool_attribute(true), do: "true"
   defp bool_attribute(false), do: "false"
+
+  defp compact_attrs(attrs) do
+    Enum.reject(attrs, fn {_key, value} -> is_nil(value) end)
+  end
+
+  defp maybe_attr(attrs, _key, false), do: attrs
+  defp maybe_attr(attrs, key, true), do: [{key, true} | attrs]
 
   defp click_away_event(%{click_away: true, dismiss_event: event}), do: event
   defp click_away_event(_assigns), do: nil

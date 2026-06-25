@@ -61,6 +61,23 @@ defmodule AllbertAssist.SettingsCentralNoBypassCheckTest do
     assert Enum.any?(issues, &(&1.message =~ "future.operator_setting"))
   end
 
+  test "flags unknown ALLBERT env reads unless explicitly classified as infra" do
+    source = """
+    defmodule Example.FutureEnvBypass do
+      def future, do: System.get_env("ALLBERT_FUTURE_OPERATOR_TOGGLE")
+      def home, do: System.get_env("ALLBERT_HOME")
+    end
+    """
+
+    issues =
+      source
+      |> SourceFile.parse("apps/allbert_assist/lib/example_future_env_bypass.ex")
+      |> SettingsCentralNoBypass.run([])
+
+    assert Enum.any?(issues, &(&1.trigger == ~s("ALLBERT_FUTURE_OPERATOR_TOGGLE")))
+    refute Enum.any?(issues, &(&1.trigger == ~s("ALLBERT_HOME")))
+  end
+
   test "allows tests and non-operator environment reads" do
     test_source = """
     defmodule ExampleTest do
