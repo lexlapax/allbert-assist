@@ -9,6 +9,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Onboarding, as: OnboardingContext
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
+  alias AllbertAssistWeb.Workspace.Components.Patterns
 
   @impl true
   def update(assigns, socket) do
@@ -189,7 +190,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
                 phx-click="use_model_profile"
                 phx-target={@myself}
                 phx-value-profile={profile.name}
-                class="btn btn-secondary btn-sm"
+                class={button_class!("secondary")}
               >
                 {"Use #{profile.name}"}
               </button>
@@ -204,7 +205,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
                 type="button"
                 phx-click="doctor_model_profile"
                 phx-target={@myself}
-                class="btn btn-secondary btn-sm"
+                class={button_class!("secondary")}
               >
                 Doctor active profile
               </button>
@@ -220,7 +221,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
                 phx-click="set_model_assist"
                 phx-target={@myself}
                 phx-value-enabled="true"
-                class="btn btn-secondary btn-sm"
+                class={button_class!("secondary")}
               >
                 Enable
               </button>
@@ -230,7 +231,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
                 phx-click="set_model_assist"
                 phx-target={@myself}
                 phx-value-enabled="false"
-                class="btn btn-outline btn-sm"
+                class={button_class!("secondary")}
               >
                 Keep off
               </button>
@@ -247,7 +248,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
                 phx-target={@myself}
                 phx-value-choice="telegram"
                 phx-value-step-id={@onboarding_state.current_step.id}
-                class="btn btn-secondary btn-sm"
+                class={button_class!("secondary")}
               >
                 Telegram
               </button>
@@ -258,7 +259,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
                 phx-target={@myself}
                 phx-value-choice="email"
                 phx-value-step-id={@onboarding_state.current_step.id}
-                class="btn btn-secondary btn-sm"
+                class={button_class!("secondary")}
               >
                 Email
               </button>
@@ -269,7 +270,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
                 phx-target={@myself}
                 phx-value-choice="none"
                 phx-value-step-id={@onboarding_state.current_step.id}
-                class="btn btn-outline btn-sm"
+                class={button_class!("secondary")}
               >
                 Skip
               </button>
@@ -279,7 +280,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
                 phx-click="complete_step"
                 phx-target={@myself}
                 phx-value-step-id={@onboarding_state.current_step.id}
-                class="btn btn-primary btn-sm"
+                class={button_class!("primary")}
               >
                 Configured
               </button>
@@ -295,7 +296,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
                 phx-click="complete_step"
                 phx-target={@myself}
                 phx-value-step-id={@onboarding_state.current_step.id}
-                class="btn btn-primary btn-sm"
+                class={button_class!("primary")}
               >
                 Complete
               </button>
@@ -306,7 +307,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
                 phx-click="skip_step"
                 phx-target={@myself}
                 phx-value-step-id={@onboarding_state.current_step.id}
-                class="btn btn-outline btn-sm"
+                class={button_class!("secondary")}
               >
                 Skip
               </button>
@@ -417,6 +418,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   end
 
   defp run_action(name, params, context), do: apply(Runner, :run, [name, params, context])
+
+  defp button_class!(variant), do: Patterns.compact_button_class!(variant)
 
   defp action_context(socket) do
     context = Map.get(socket.assigns, :renderer_context, %{})

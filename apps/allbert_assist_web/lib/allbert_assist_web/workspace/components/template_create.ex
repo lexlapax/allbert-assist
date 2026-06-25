@@ -13,6 +13,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
   alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssist.Templates
   alias AllbertAssist.Templates.Scaffold
+  alias AllbertAssistWeb.Workspace.Components.Patterns
 
   @default_allowed_patterns ~w[plugin app llm_tool flow objective]
 
@@ -276,11 +277,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
           <button
             id="workspace-create-mode-scaffold"
             type="button"
-            class={[
-              "btn btn-sm",
-              @output_mode == "developer_scaffold" && "btn-primary",
-              @output_mode != "developer_scaffold" && "btn-outline"
-            ]}
+            class={mode_button_class(@output_mode == "developer_scaffold")}
             phx-click="select_template_mode"
             phx-target={@myself}
             phx-value-mode="developer_scaffold"
@@ -291,11 +288,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
           <button
             id="workspace-create-mode-live"
             type="button"
-            class={[
-              "btn btn-sm",
-              @output_mode == "live_integration" && "btn-primary",
-              @output_mode != "live_integration" && "btn-outline"
-            ]}
+            class={mode_button_class(@output_mode == "live_integration")}
             phx-click="select_template_mode"
             phx-target={@myself}
             phx-value-mode="live_integration"
@@ -343,7 +336,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
           <button
             id="workspace-create-run"
             type="button"
-            class="btn btn-primary btn-sm"
+            class={Patterns.compact_button_class!("primary")}
             phx-click="attempt_template_create"
             phx-target={@myself}
             disabled={!@enabled? || @preview.status != :ready}
@@ -367,6 +360,9 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
 
   defp create_enabled?(settings),
     do: setting_value(settings, "templates.create.enabled", false) == true
+
+  defp mode_button_class(true), do: Patterns.compact_button_class!("primary")
+  defp mode_button_class(false), do: Patterns.compact_button_class!("secondary")
 
   defp installed_marketplace_templates do
     case MarketplaceTemplates.list_installed() do

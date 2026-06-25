@@ -4,6 +4,7 @@ defmodule AllbertAssistWeb.Workspace.Components.PatternsTest do
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.Surface.Node
+  alias AllbertAssistWeb.Workspace.Components.Patterns
   alias AllbertAssistWeb.Workspace.Renderer
 
   defmodule ModalHost do
@@ -53,6 +54,13 @@ defmodule AllbertAssistWeb.Workspace.Components.PatternsTest do
 
     assert secondary_action_html =~ ~s(class="workspace-button workspace-button-secondary")
     refute secondary_action_html =~ "workspace-button-primary"
+  end
+
+  test "compact button helper stays behind the variant registry" do
+    assert Patterns.compact_button_class!("primary") == [
+             "workspace-button workspace-button-primary",
+             "workspace-button-compact"
+           ]
   end
 
   test "status badge selects tone from props" do

@@ -4,6 +4,7 @@ defmodule AllbertAssistWeb.Workspace.Components.OperatorPanels do
 
   alias AllbertAssist.Maps
   alias AllbertAssist.Surfaces.ContextBuilder
+  alias AllbertAssistWeb.Workspace.Components.Patterns
 
   @spec action_context(map()) :: map()
   def action_context(assigns) when is_map(assigns) do
@@ -67,6 +68,8 @@ defmodule AllbertAssistWeb.Workspace.Components.OperatorPanels do
       do: "workspace-status-warn"
 
   def status_class(_value), do: "workspace-status-neutral"
+
+  def button_class!(variant), do: Patterns.compact_button_class!(variant)
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.IntentsPanel do
@@ -169,7 +172,7 @@ defmodule AllbertAssistWeb.Workspace.Components.IntentsPanel do
         <button
           type="button"
           id="workspace-intents-refresh"
-          class="btn btn-secondary btn-sm"
+          class={Support.button_class!("secondary")}
           phx-click="refresh_intents"
           phx-target={@myself}
         >
@@ -233,7 +236,7 @@ defmodule AllbertAssistWeb.Workspace.Components.IntentsPanel do
             <button
               type="button"
               id={"workspace-intent-promote-#{Support.safe_id(proposal.action_name)}"}
-              class="btn btn-primary btn-sm"
+              class={Support.button_class!("primary")}
               phx-click="intent_operator_action"
               phx-target={@myself}
               phx-value-operator-action="promote"
@@ -263,7 +266,7 @@ defmodule AllbertAssistWeb.Workspace.Components.IntentsPanel do
               <button
                 type="button"
                 id={"workspace-intent-edit-#{Support.safe_id(descriptor.action_name)}"}
-                class="btn btn-secondary btn-sm"
+                class={Support.button_class!("secondary")}
                 phx-click="intent_operator_action"
                 phx-target={@myself}
                 phx-value-operator-action="edit"
@@ -274,7 +277,7 @@ defmodule AllbertAssistWeb.Workspace.Components.IntentsPanel do
               <button
                 type="button"
                 id={"workspace-intent-toggle-#{Support.safe_id(descriptor.action_name)}"}
-                class="btn btn-secondary btn-sm"
+                class={Support.button_class!("secondary")}
                 phx-click="intent_operator_action"
                 phx-target={@myself}
                 phx-value-operator-action={if descriptor.disabled?, do: "enable", else: "disable"}
@@ -426,7 +429,7 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
         <button
           type="button"
           id="workspace-models-refresh"
-          class="btn btn-secondary btn-sm"
+          class={Support.button_class!("secondary")}
           phx-click="refresh_models"
           phx-target={@myself}
         >
@@ -484,7 +487,7 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
             <button
               type="button"
               id="workspace-models-inventory-toggle"
-              class="btn btn-secondary btn-sm"
+              class={Support.button_class!("secondary")}
               phx-click="toggle_model_inventory"
               phx-target={@myself}
               aria-expanded={@show_model_inventories?}
@@ -665,7 +668,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SurfacePolicyPanel do
         <button
           type="button"
           id="workspace-surface-policy-refresh"
-          class="btn btn-secondary btn-sm"
+          class={Support.button_class!("secondary")}
           phx-click="refresh_surface_policy"
           phx-target={@myself}
         >
@@ -723,7 +726,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SurfacePolicyPanel do
             <button
               type="button"
               id={"workspace-surface-policy-toggle-#{row.surface}-#{row.action_name}"}
-              class="btn btn-secondary btn-sm"
+              class={Support.button_class!("secondary")}
               phx-click="set_surface_policy_mode"
               phx-target={@myself}
               phx-value-surface={row.surface}

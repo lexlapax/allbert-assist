@@ -6,5 +6,7 @@ defmodule AllbertAssistWeb.PageHTML do
   """
   use AllbertAssistWeb, :html
 
+  alias AllbertAssistWeb.Workspace.Components.Patterns
+
   embed_templates "page_html/*"
 end

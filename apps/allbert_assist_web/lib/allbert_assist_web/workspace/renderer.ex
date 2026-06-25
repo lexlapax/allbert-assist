@@ -153,6 +153,9 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
   defp children_class(%Node{component: :badge_strip}),
     do: "workspace-node-children workspace-badge-row"
 
+  defp children_class(%Node{component: :job_card}),
+    do: "workspace-node-children workspace-action-row"
+
   defp children_class(%Node{component: :tabs}),
     do: "workspace-node-children workspace-tabs-children"
 

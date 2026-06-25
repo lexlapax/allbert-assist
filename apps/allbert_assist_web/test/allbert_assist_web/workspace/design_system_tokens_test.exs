@@ -47,8 +47,19 @@ defmodule AllbertAssistWeb.Workspace.DesignSystemTokensTest do
     assert css_block!(css, ".workspace-button") =~
              "var(--allbert-motion-duration-base) var(--allbert-motion-ease-standard)"
 
+    assert css_block!(css, ".workspace-button-compact") =~ "min-height: 2rem"
+
     assert css_block!(css, ".workspace-copy-target") =~
              "var(--allbert-motion-duration-fast) var(--allbert-motion-ease-standard)"
+  end
+
+  test "M13.1B operator surfaces do not use raw daisy button classes" do
+    for path <- m131b_operator_surface_paths() do
+      source = File.read!(path)
+
+      refute source =~ ~r/class=\{?\s*"[^"]*\bbtn\b/,
+             "#{Path.relative_to_cwd(path)} still declares raw btn classes"
+    end
   end
 
   defp css_block!(css, selector) do
@@ -65,5 +76,21 @@ defmodule AllbertAssistWeb.Workspace.DesignSystemTokensTest do
       {index, _length} -> index
       :nomatch -> flunk("missing #{needle}")
     end
+  end
+
+  defp m131b_operator_surface_paths do
+    lib_dir = Path.expand("../../../lib/allbert_assist_web", __DIR__)
+
+    [
+      "controllers/page_html/home.html.heex",
+      "components/core_components.ex",
+      "components/layouts.ex",
+      "workspace/components/operator_panels.ex",
+      "workspace/components/settings_central.ex",
+      "workspace/components/onboarding.ex",
+      "workspace/components/template_create.ex",
+      "workspace/components/plan_build.ex"
+    ]
+    |> Enum.map(&Path.join(lib_dir, &1))
   end
 end

@@ -143,8 +143,8 @@ Implemented M7 modal baseline:
 
 One shell wraps:
 
-- `/` home page after M13.1 remediation, or an ADR-accepted thin landing shape
-  with the shell data contract, tokens, and variant-registry buttons;
+- `/` home page as the M13.1B accepted thin landing shape with the shell data
+  contract, tokens, and variant-registry buttons;
 - `/workspace`;
 - `/jobs`;
 - `/objectives/:id` objective detail pages;
@@ -154,7 +154,8 @@ One shell wraps:
 
 Jobs and Objectives are part of the v0.58 proof because design-system tokens and
 a11y must apply beyond the workspace route. The `/` home page is part of the
-M13.1 proof because it was the remaining first-viewport bypass.
+M13.1 proof because it was the remaining first-viewport bypass; M13.1B closed it
+with a thin landing page rather than full catalog content.
 
 Implemented M8 shell baseline:
 
@@ -162,7 +163,8 @@ Implemented M8 shell baseline:
   attributes, and a token-backed body grid for non-workspace operator pages.
 - `/jobs` renders through `WorkspaceRenderer` using declared `job_card`, `button`,
   and `empty_state` catalog atoms. The old table markup is removed while existing
-  run/pause/resume DOM IDs and events remain stable.
+  run/pause/resume DOM IDs and events remain stable; job-card actions use the
+  catalog action-row child layout.
 - `/objectives/:id` renders summary, action buttons, acceptance rows, steps, events,
   and missing state through catalog atoms; the cancel form is hosted in the shared
   modal pattern.
@@ -229,7 +231,8 @@ Required checks:
 - no secret refs, raw prompts, endpoint URLs, provider bodies, or raw descriptor/
   evidence payloads.
 - no raw `btn` class drift in M13.1-touched operator surfaces; use
-  `Patterns.button_class!/1` or catalog button atoms.
+  `Patterns.button_class!/1`, `Patterns.compact_button_class!/1`, or catalog
+  button atoms.
 
 ## Non-Goals
 

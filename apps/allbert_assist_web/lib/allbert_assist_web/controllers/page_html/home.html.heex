@@ -1,34 +1,48 @@
-<Layouts.app flash={@flash} content_width="wide">
-  <section class="min-h-[70vh] py-12">
-    <div class="max-w-3xl">
-      <div class="flex items-center gap-3">
-        <span class="inline-flex size-11 items-center justify-center rounded-lg bg-[#e8f0f7] text-[#3b5b7a]">
-          <.icon name="hero-sparkles-mini" class="size-6" />
-        </span>
-        <div>
-          <p class="text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Allbert Assist
-          </p>
-          <h1 class="text-3xl font-bold leading-tight text-slate-950 sm:text-4xl">
-            Signal-driven assistant workspace
-          </h1>
+<Layouts.app flash={@flash} content_width="full">
+  <Layouts.operator_shell
+    id="home-operator-shell"
+    active="home"
+    title="Allbert Assist"
+    subtitle="Signal-driven assistant workspace"
+    labelledby="home-page-title"
+  >
+    <section
+      id="home-page"
+      class="operator-catalog-page"
+      data-workspace-page="home"
+      aria-labelledby="home-page-title"
+    >
+      <article class="workspace-card" data-workspace-renderer="thin-landing">
+        <header class="workspace-card-header">
+          <span class="workspace-card-icon" aria-hidden="true">
+            <.icon name="hero-sparkles-mini" class="size-4" />
+          </span>
+          <div class="min-w-0 flex-1">
+            <h2 class="workspace-card-title">Signal-driven assistant workspace</h2>
+            <p class="workspace-card-summary">
+              Runtime-bound requests, persistent canvas work, and focused approvals.
+            </p>
+          </div>
+        </header>
+
+        <p class="mt-4 max-w-3xl text-sm leading-6 text-base-content/70">
+          Allbert routes local operator work through the runtime/action spine,
+          renders workspace surfaces through shared contracts, and keeps
+          inspection surfaces behind the operator shell.
+        </p>
+
+        <div class="mt-5 flex flex-wrap gap-3">
+          <.link navigate={~p"/workspace"} class={Patterns.button_class!("primary")}>
+            Open workspace
+          </.link>
+          <.link
+            navigate={~p"/workspace?#{[destination: "workspace:settings"]}"}
+            class={Patterns.button_class!("secondary")}
+          >
+            Workspace settings
+          </.link>
         </div>
-      </div>
-
-      <p class="mt-6 max-w-2xl text-base leading-7 text-slate-600">
-        Allbert routes local operator requests through the runtime boundary,
-        renders persistent canvas work, and opens ephemeral surfaces for focused
-        approvals and inspection.
-      </p>
-
-      <div class="mt-8 flex flex-wrap gap-3">
-        <.link navigate={~p"/workspace"} class="btn btn-primary">
-          Open workspace
-        </.link>
-        <.link navigate={~p"/workspace"} class="btn btn-outline">
-          Workspace settings
-        </.link>
-      </div>
-    </div>
-  </section>
+      </article>
+    </section>
+  </Layouts.operator_shell>
 </Layouts.app>

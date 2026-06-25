@@ -1,7 +1,7 @@
 # ADR 0074: Web Design System And UX Language
 
-Status: Proposed (v0.58); M13 implemented, M13.1 design-system remediation active
-before M14.
+Status: Proposed (v0.58); M13 implemented, M13.1B design-system remediation
+complete before M14.
 Date: 2026-06-24
 Related: ADR 0023 (workspace canvas/ephemeral substrate — kept), ADR 0024 (live
 layout authority / zones — revised by v0.58), ADR 0030 (unified surface catalog +
@@ -92,10 +92,11 @@ this system, not as a separate one-off re-skin.
 - One token system, one variant registry, one pattern library, one app shell, and
   one rendering boundary (the catalog) for every web page; Jobs/Objectives stop
   being discontinuous.
-- M13.1 must remediate the `/` home page and remaining raw-button drift before
-  M14. If additional shared loading/error/status/table-list patterns do not land
-  in M13.1, they are documented v0.59 follow-up work rather than implied v0.58
-  acceptance.
+- M13.1B remediated the `/` home page and remaining raw-button drift before M14.
+  `/` is an accepted thin landing page, not full catalog content: it emits the
+  operator shell contract, consumes tokens, and uses variant-registry buttons.
+  Additional shared loading/error/status/table-list patterns are documented v0.59
+  follow-up work rather than implied v0.58 acceptance.
 - The three v0.58 operator panels and any future app UI extend a consistent
   system instead of adding bespoke pages.
 - A documented UX language gives the platform a stable web contract to freeze at

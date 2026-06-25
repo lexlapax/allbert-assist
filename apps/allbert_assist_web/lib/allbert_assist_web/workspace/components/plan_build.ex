@@ -6,6 +6,7 @@ defmodule AllbertAssistWeb.Workspace.Components.PlanPreviewPanel do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssistWeb.Workspace.Components.Base
+  alias AllbertAssistWeb.Workspace.Components.Patterns
 
   @impl true
   def update(assigns, socket) do
@@ -98,7 +99,7 @@ defmodule AllbertAssistWeb.Workspace.Components.PlanPreviewPanel do
       <div class="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          class="btn btn-sm"
+          class={Patterns.compact_button_class!("secondary")}
           phx-click="plan_build_toggle_editor"
           phx-target={@myself}
         >
@@ -106,7 +107,7 @@ defmodule AllbertAssistWeb.Workspace.Components.PlanPreviewPanel do
         </button>
         <button
           type="button"
-          class="btn btn-primary btn-sm"
+          class={Patterns.compact_button_class!("primary")}
           phx-click="plan_build_start_run"
           phx-value-workflow-id={preview_value(@preview, :workflow_id)}
         >
@@ -124,7 +125,7 @@ defmodule AllbertAssistWeb.Workspace.Components.PlanPreviewPanel do
           <h3 class="text-base font-semibold">Plan editor</h3>
           <button
             type="button"
-            class="btn btn-ghost btn-sm"
+            class={Patterns.compact_button_class!("secondary")}
             phx-click="plan_build_toggle_editor"
             phx-target={@myself}
           >
@@ -197,7 +198,9 @@ defmodule AllbertAssistWeb.Workspace.Components.PlanPreviewPanel do
             </div>
           </div>
           <div class="mt-3 flex flex-wrap gap-2">
-            <button type="submit" class="btn btn-sm">Recompute preview</button>
+            <button type="submit" class={Patterns.compact_button_class!("secondary")}>
+              Recompute preview
+            </button>
           </div>
         </form>
       </section>
@@ -317,6 +320,7 @@ defmodule AllbertAssistWeb.Workspace.Components.PlanRunProgressPanel do
   use AllbertAssistWeb, :live_component
 
   alias AllbertAssistWeb.Workspace.Components.Base
+  alias AllbertAssistWeb.Workspace.Components.Patterns
 
   @impl true
   def update(assigns, socket) do
@@ -362,7 +366,7 @@ defmodule AllbertAssistWeb.Workspace.Components.PlanRunProgressPanel do
       <div class="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          class="btn btn-error btn-sm"
+          class={Patterns.compact_button_class!("danger")}
           phx-click="plan_build_cancel_run"
           phx-value-objective-id={objective_value(@objective, :id)}
         >

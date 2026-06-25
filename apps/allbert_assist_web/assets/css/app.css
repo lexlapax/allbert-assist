@@ -915,6 +915,14 @@ body {
   gap: 0.75rem;
 }
 
+.workspace-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
 .workspace-pane-header {
   display: flex;
   align-items: center;
@@ -1627,7 +1635,7 @@ a.allbert-chip-link:focus-visible,
   gap: 0.375rem;
   min-height: 44px;
   border: 1px solid transparent;
-  border-radius: 0.5rem;
+  border-radius: var(--allbert-radius-control);
   padding: 0.5rem 0.875rem;
   font-size: 0.875rem;
   font-weight: 700;
@@ -1651,6 +1659,12 @@ a.allbert-chip-link:focus-visible,
 .workspace-button.phx-submit-loading {
   cursor: wait;
   opacity: 0.78;
+}
+
+.workspace-button-compact {
+  min-height: 2rem;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.75rem;
 }
 
 .workspace-button-primary {

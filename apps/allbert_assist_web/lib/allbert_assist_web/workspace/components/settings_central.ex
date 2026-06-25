@@ -17,6 +17,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
   alias AllbertAssist.Settings.Helpers, as: SettingsHelpers
   alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssist.Theme.Status, as: ThemeStatus
+  alias AllbertAssistWeb.Workspace.Components.Patterns
 
   @default_key "operator.communication_style"
 
@@ -340,7 +341,9 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
               >
                 <.input field={@setting_form[:key]} id="settings-key" type="text" label="Key" />
                 <.input field={@setting_form[:value]} id="settings-value" type="text" label="Value" />
-                <button id="settings-save" type="submit" class="btn btn-primary">Save</button>
+                <button id="settings-save" type="submit" class={button_class!("primary")}>
+                  Save
+                </button>
               </.form>
 
               <pre
@@ -450,7 +453,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
                       <button
                         id={"permission-#{permission_dom_id(policy.permission)}-save"}
                         type="submit"
-                        class="btn btn-secondary btn-sm"
+                        class={button_class!("secondary")}
                       >
                         Save
                       </button>
@@ -586,7 +589,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
                         phx-click="approve_confirmation"
                         phx-target={@myself}
                         phx-value-id={confirmation["id"]}
-                        class="btn btn-primary btn-sm"
+                        class={button_class!("primary")}
                         disabled={!@liveview_confirmation_approval?}
                       >
                         Approve
@@ -601,7 +604,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
                         phx-value-id={confirmation["id"]}
                         phx-value-scope="exact"
                         phx-value-resource-index="0"
-                        class="btn btn-secondary btn-sm"
+                        class={button_class!("secondary")}
                         disabled={!@liveview_confirmation_approval?}
                       >
                         Approve + remember
@@ -616,7 +619,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
                         phx-value-id={confirmation["id"]}
                         phx-value-scope="exact"
                         phx-value-remember-all="true"
-                        class="btn btn-secondary btn-sm"
+                        class={button_class!("secondary")}
                         disabled={!@liveview_confirmation_approval?}
                       >
                         Approve + remember all
@@ -640,7 +643,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
                         <button
                           id={"deny-confirmation-#{confirmation["id"]}"}
                           type="submit"
-                          class="btn btn-secondary btn-sm"
+                          class={button_class!("secondary")}
                         >
                           Deny
                         </button>
@@ -743,7 +746,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
                     phx-click="revoke_resource_grant"
                     phx-target={@myself}
                     phx-value-id={grant["id"]}
-                    class="btn btn-secondary btn-sm"
+                    class={button_class!("secondary")}
                     disabled={grant_status(grant) == "revoked"}
                   >
                     Revoke
@@ -782,7 +785,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
                       phx-click="doctor_model_profile"
                       phx-target={@myself}
                       phx-value-profile={model.name}
-                      class="btn btn-secondary btn-sm"
+                      class={button_class!("secondary")}
                     >
                       Doctor
                     </button>
@@ -792,7 +795,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
                       phx-click="use_model_profile"
                       phx-target={@myself}
                       phx-value-profile={model.name}
-                      class="btn btn-primary btn-sm"
+                      class={button_class!("primary")}
                     >
                       Use
                     </button>
@@ -827,7 +830,9 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
               >
                 <.input field={@provider_form[:provider]} type="text" label="Provider" />
                 <.input field={@provider_form[:api_key]} type="password" label="API key" />
-                <button type="submit" class="btn btn-secondary">Set Provider Key</button>
+                <button type="submit" class={button_class!("secondary", nil)}>
+                  Set Provider Key
+                </button>
               </.form>
             </section>
           </main>
@@ -1141,4 +1146,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
   end
 
   defp truthy?(value), do: value in [true, "true", "1", 1, "yes"]
+
+  defp button_class!(variant, extra_class \\ "workspace-button-compact"),
+    do: Patterns.button_class!(variant, extra_class)
 end

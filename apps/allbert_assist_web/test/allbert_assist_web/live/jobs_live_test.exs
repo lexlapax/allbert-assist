@@ -69,6 +69,7 @@ defmodule AllbertAssistWeb.JobsLiveTest do
     assert has_element?(view, "#job-#{job.id}[data-workspace-component='job_card']")
     assert has_element?(view, "#run-#{job.id}[data-workspace-component='button']")
     assert_catalog_components_known!(html)
+    assert html =~ "workspace-action-row"
     refute html =~ "<table"
     assert html =~ "live brief"
     assert html =~ job.id

@@ -1,7 +1,7 @@
 # Surface Contract
 
-Status: v0.58 implementation contract; implemented through M13 with M13.1A
-complete and M13.1B/C remediation active before M14.
+Status: v0.58 implementation contract; implemented through M13 with M13.1A/B
+complete and M13.1C remediation active before M14.
 
 Authority: `docs/adr/0073-cross-surface-contract.md`,
 `docs/plans/v0.58-plan.md`, and

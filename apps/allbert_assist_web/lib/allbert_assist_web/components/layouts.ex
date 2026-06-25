@@ -7,6 +7,7 @@ defmodule AllbertAssistWeb.Layouts do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Surfaces.ContextBuilder
+  alias AllbertAssistWeb.Workspace.Components.Patterns
 
   # Embed all files in layouts/* within this module.
   # The default root.html.heex file contains the HTML
@@ -106,7 +107,7 @@ defmodule AllbertAssistWeb.Layouts do
         </nav>
 
         <div class="allbert-appbar-actions">
-          <.link navigate={~p"/workspace"} class="workspace-button workspace-button-secondary">
+          <.link navigate={~p"/workspace"} class={Patterns.button_class!("secondary")}>
             Workspace
           </.link>
         </div>

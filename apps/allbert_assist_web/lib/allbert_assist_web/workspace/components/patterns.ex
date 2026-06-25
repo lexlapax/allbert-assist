@@ -27,6 +27,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
     [fetch_variant!(@button_variants, variant, "button variant"), extra_class]
   end
 
+  @doc "Returns the canonical compact button class for dense operator panels."
+  def compact_button_class!(variant), do: button_class!(variant, "workspace-button-compact")
+
   @doc "Returns the canonical status-badge class for a declared tone."
   def status_badge_class!(tone, extra_class \\ nil) do
     ["workspace-status-pill", fetch_variant!(@status_tones, tone, "status tone"), extra_class]

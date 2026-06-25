@@ -39,7 +39,17 @@ defmodule AllbertAssistWeb.PageControllerTest do
 
     assert html =~ "Signal-driven assistant workspace"
     assert html =~ "Open workspace"
+    assert html =~ ~s(id="home-operator-shell")
+    assert html =~ ~s(data-workspace-shell="operator")
+    assert html =~ ~s(data-active-page="home")
+    assert html =~ ~s(data-workspace-renderer="thin-landing")
+    assert html =~ ~s(class="workspace-button workspace-button-primary")
+    assert html =~ ~s(class="workspace-button workspace-button-secondary")
     refute html =~ "Phoenix Framework"
+    refute html =~ ~r/\bbtn\b/
+    refute html =~ "text-slate-"
+    refute html =~ "#e8f0f7"
+    refute html =~ "#3b5b7a"
   end
 
   test "root layout applies global design state on non-workspace pages", %{conn: conn} do
