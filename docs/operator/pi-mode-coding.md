@@ -3,9 +3,9 @@
 Status: v0.57 M0-M9.25 are implemented, but live S4.9 validation invalidated the
 M9.23-M9.25 Esc-helper capture strategy. M9.27 proves the raw input-driver
 substrate with `mix allbert.tui --input-driver-proof`, and M9.28 wires that
-driver into normal `mix allbert.tui`. Release closeout is blocked until
-M9.29-M9.30 rewrite validation and re-gate the normal Pi-mode flow. This guide
-describes the operator workflow for the Pi-mode coding surface. The
+driver into normal `mix allbert.tui`. M9.29 rewrites S4.9 around the live driver.
+Release closeout is blocked until M9.30 re-gates the normal Pi-mode flow. This
+guide describes the operator workflow for the Pi-mode coding surface. The
 release-authoritative validation checklist lives in
 `docs/plans/v0.57-request-flow.md#operator-validation`.
 
@@ -104,7 +104,8 @@ literal `^[` scrollback, `Esc cancellation monitor unavailable: ...`, or
 blocked. M9.27's proof harness and M9.28's normal-launch smoke show the
 replacement substrate can consume Esc without `^[`; do not treat `^[` as an
 operator typo. It remains release-blocking TUI input evidence if it appears after
-M9.28, and S4.9 must be rewritten before validation resumes.
+M9.28. S4.9 in the request-flow is the release-authoritative cancellation
+validation.
 
 `/quit` and `/exit` are local TUI lifecycle aliases. They must stop the terminal
 session and must never be routed to the model, even if prior Esc/control bytes were
