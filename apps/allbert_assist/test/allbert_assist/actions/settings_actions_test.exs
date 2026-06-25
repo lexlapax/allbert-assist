@@ -177,6 +177,8 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     refute response.message =~ "credential=missing"
     assert Enum.any?(response.providers, &(&1.name == "openai"))
     refute response.message =~ "api_key"
+    refute Enum.any?(response.providers, &Map.has_key?(&1, :base_url))
+    refute Enum.any?(response.providers, &Map.has_key?(&1, :api_key_ref))
 
     assert [
              %{
@@ -204,6 +206,8 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert report_response.message =~ "endpoint_kind=credentialed_remote"
     assert report_response.message =~ "credential=missing"
     refute report_response.message =~ "api_key"
+    refute Enum.any?(report_response.providers, &Map.has_key?(&1, :base_url))
+    refute Enum.any?(report_response.providers, &Map.has_key?(&1, :api_key_ref))
   end
 
   test "model profile action returns only redacted credential status" do
@@ -216,6 +220,8 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     refute response.message =~ "credential=missing"
     assert Enum.any?(response.models, &(&1.name == "fast"))
     refute response.message =~ "api_key"
+    refute Enum.any?(response.models, &Map.has_key?(&1, :provider_base_url))
+    refute Enum.any?(response.models, &Map.has_key?(&1, :provider_api_key_ref))
 
     assert [
              %{
@@ -241,6 +247,8 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert report_response.message =~ "endpoint_kind=local_endpoint"
     assert report_response.message =~ "credential=missing"
     refute report_response.message =~ "api_key"
+    refute Enum.any?(report_response.models, &Map.has_key?(&1, :provider_base_url))
+    refute Enum.any?(report_response.models, &Map.has_key?(&1, :provider_api_key_ref))
   end
 
   test "model doctor reports the recommendation matrix without leaking secrets" do

@@ -5,6 +5,9 @@ defmodule AllbertAssistWeb.Layouts do
   """
   use AllbertAssistWeb, :html
 
+  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Surfaces.ContextBuilder
+
   # Embed all files in layouts/* within this module.
   # The default root.html.heex file contains the HTML
   # skeleton of your application, namely HTML headers
@@ -202,29 +205,40 @@ defmodule AllbertAssistWeb.Layouts do
 
   defp theme_asset_version, do: AllbertAssist.Theme.Version.stylesheet_version()
 
-  defp root_theme_attribute do
-    case setting_value("workspace.theme.mode", "system") do
+  defp root_theme_attribute(settings) do
+    case setting_value(settings, "workspace.theme.mode", "system") do
       "dark" -> "dark"
       "light" -> "light"
       _theme -> nil
     end
   end
 
-  defp root_high_contrast_attribute do
-    bool_attribute(setting_value("workspace.accessibility.high_contrast", false))
+  defp root_high_contrast_attribute(settings) do
+    bool_attribute(setting_value(settings, "workspace.accessibility.high_contrast", false))
   end
 
-  defp root_reduce_motion_attribute do
-    bool_attribute(setting_value("workspace.accessibility.reduce_motion", false))
+  defp root_reduce_motion_attribute(settings) do
+    bool_attribute(setting_value(settings, "workspace.accessibility.reduce_motion", false))
   end
 
   defp bool_attribute(true), do: "true"
   defp bool_attribute(_value), do: nil
 
-  defp setting_value(key, default) do
-    case AllbertAssist.Settings.get(key) do
-      {:ok, value} -> value
-      {:error, _reason} -> default
+  defp root_settings_snapshot do
+    case Runner.run("resolved_settings_snapshot", %{}, root_read_context()) do
+      {:ok, %{status: :completed, settings: settings}} when is_map(settings) ->
+        settings
+
+      _other ->
+        AllbertAssist.Settings.defaults()
     end
+  end
+
+  defp root_read_context do
+    ContextBuilder.live_view_context(%{}, surface: "AllbertAssistWeb.Layouts")
+  end
+
+  defp setting_value(settings, key, default) when is_map(settings) do
+    get_in(settings, String.split(key, ".")) || default
   end
 end

@@ -10,7 +10,6 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Marketplace.Templates, as: MarketplaceTemplates
-  alias AllbertAssist.Settings
   alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssist.Templates
   alias AllbertAssist.Templates.Scaffold
@@ -20,8 +19,10 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
   @impl true
   def update(assigns, socket) do
     socket = assign(socket, assigns)
-    enabled? = create_enabled?()
-    patterns = visible_patterns()
+    context = action_context(socket.assigns)
+    settings = resolved_settings_snapshot(context)
+    enabled? = create_enabled?(settings)
+    patterns = visible_patterns(settings)
     marketplace_templates = installed_marketplace_templates()
     selected_pattern_id = selected_pattern_id(socket.assigns, patterns)
     selected_pattern = pattern_by_id(patterns, selected_pattern_id)
@@ -34,7 +35,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
         template_params,
         output_mode,
         enabled?,
-        action_context(socket.assigns)
+        context
       )
 
     {:ok,
@@ -364,12 +365,8 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
     """
   end
 
-  defp create_enabled? do
-    case Settings.get("templates.create.enabled") do
-      {:ok, true} -> true
-      _other -> false
-    end
-  end
+  defp create_enabled?(settings),
+    do: setting_value(settings, "templates.create.enabled", false) == true
 
   defp installed_marketplace_templates do
     case MarketplaceTemplates.list_installed() do
@@ -378,16 +375,16 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
     end
   end
 
-  defp visible_patterns do
-    allowed = allowed_patterns()
+  defp visible_patterns(settings) do
+    allowed = allowed_patterns(settings)
 
     Templates.list_patterns()
     |> Enum.filter(&(&1.id in allowed))
   end
 
-  defp allowed_patterns do
-    case Settings.get("templates.allowed_patterns") do
-      {:ok, values} when is_list(values) -> values
+  defp allowed_patterns(settings) do
+    case setting_value(settings, "templates.allowed_patterns", @default_allowed_patterns) do
+      values when is_list(values) -> values
       _other -> @default_allowed_patterns
     end
   end
@@ -616,6 +613,20 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
     assigns
     |> Map.get(:renderer_context, %{})
     |> ContextBuilder.live_view_context(surface: "/workspace")
+  end
+
+  defp resolved_settings_snapshot(context) do
+    case Runner.run("resolved_settings_snapshot", %{}, context) do
+      {:ok, %{status: :completed, settings: settings}} when is_map(settings) ->
+        settings
+
+      _other ->
+        AllbertAssist.Settings.defaults()
+    end
+  end
+
+  defp setting_value(settings, key, default) when is_map(settings) do
+    get_in(settings, String.split(key, ".")) || default
   end
 
   defp parameter_names(nil), do: []

@@ -1,6 +1,7 @@
 # ADR 0073: Cross-Surface Contract
 
-Status: Proposed (v0.58); M13 implemented, M13.1 remediation active before M14.
+Status: Proposed (v0.58); M13 implemented, M13.1A complete, M13.1B/C active
+before M14.
 Date: 2026-06-24
 Related: ADR 0016 (channel adapter boundary + identity mapping — extended here to
 every surface), ADR 0029/0030 (typed response contract + unified surface
@@ -83,8 +84,8 @@ A conformant surface MUST:
 
 A **conformance matrix** (surface × requirement 1–6) is maintained in the v0.58
 plan. M13 implemented the main spine. M13.1 closes the remaining second-pass
-partials before M14: residual web settings reads, ACP guard and MCP
-`read_resource` rejection recording, and explicit documentation of the actual
+partials before M14. M13.1A closed residual web settings reads plus ACP guard and
+MCP `read_resource` rejection recording; M13.1C still owns explicit
 surface-policy report-shape coverage.
 
 ## v0.58 M13.1 Conformance Notes
@@ -92,15 +93,16 @@ surface-policy report-shape coverage.
 The pass-1 implementation audit found no new authority grant, but it did find
 edge drift that must be remediated before this ADR can be accepted:
 
-- Provider/model profile DTOs must be redacted at source. A rendered template
-  that omits endpoint URLs or secret refs is not enough; the DTO handed to web,
-  TUI, CLI, or assistant-safe contexts must not carry those fields.
+- Complete in M13.1A: provider/model profile DTOs are redacted at source. A
+  rendered template that omits endpoint URLs or secret refs is not enough; the
+  DTO handed to web, TUI, CLI, or assistant-safe contexts must not carry those
+  fields.
 - `list_provider_profiles` and `list_model_profiles` may remain assistant-safe
   `:agent` reads only under the ADR 0070 carve-out: source-redacted DTOs, bounded
   reports, and no raw operator fields in the agent-routable packet.
-- Public-protocol pre-dispatch rejections must record the same rejection/error
-  event shape as dispatched runtime failures. M13.1 covers ACP guard `else`
-  returns and MCP resource-read denials.
+- Complete in M13.1A: public-protocol pre-dispatch rejections record the same
+  rejection/error event shape as dispatched runtime failures. M13.1A covers ACP
+  prompt guard `else` returns and MCP resource-read denials.
 - Surface policy is presentation governance, not authority. At M13 it governs
   `list_settings`, `list_channels`, `list_model_profiles`, and
   `list_provider_profiles`; M13.1 either widens policy consultation to

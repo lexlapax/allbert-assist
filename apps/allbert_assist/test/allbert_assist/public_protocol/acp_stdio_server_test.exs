@@ -221,6 +221,15 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
 
     assert response["error"]["data"]["code"] == "unsupported_content_block"
     refute_received {:runtime_request, _request}
+
+    assert %Event{
+             channel: "acp_stdio",
+             status: "rejected",
+             external_user_id: "zed-fixture",
+             user_id: "public-protocol:zed-fixture",
+             session_id: ^session_id,
+             reason: "unsupported_content_block"
+           } = Repo.get_by(Event, channel: "acp_stdio", status: "rejected")
   end
 
   test "confirmation-pending prompt creates client-scoped public readback" do

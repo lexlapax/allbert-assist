@@ -68,6 +68,7 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
     [
       env_issue(line, line_no, issue_meta, params),
       application_setting_issue(line, line_no, lines_by_no, issue_meta, params),
+      web_direct_settings_read_issue(line, line_no, source_file, issue_meta),
       legacy_trace_enabled_issue(line, line_no, source_file, lines_by_no, issue_meta)
     ]
     |> Enum.reject(&is_nil/1)
@@ -127,6 +128,26 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         )
       end
     end
+  end
+
+  defp web_direct_settings_read_issue(line, line_no, source_file, issue_meta) do
+    if web_surface_source_file?(source_file.filename) and direct_settings_get?(line) do
+      issue_for(
+        issue_meta,
+        line,
+        line_no,
+        "Settings.get",
+        "Read web settings through a registered read action or resolved settings snapshot."
+      )
+    end
+  end
+
+  defp web_surface_source_file?(filename),
+    do: String.starts_with?(filename, "apps/allbert_assist_web/lib/")
+
+  defp direct_settings_get?(line) do
+    String.contains?(line, "Settings.get(") or
+      String.contains?(line, "AllbertAssist.Settings.get(")
   end
 
   defp trace_source_file?(filename),

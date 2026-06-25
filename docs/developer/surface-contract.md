@@ -1,7 +1,7 @@
 # Surface Contract
 
-Status: v0.58 implementation contract; implemented through M13 with M13.1
-remediation active before M14.
+Status: v0.58 implementation contract; implemented through M13 with M13.1A
+complete and M13.1B/C remediation active before M14.
 
 Authority: `docs/adr/0073-cross-surface-contract.md`,
 `docs/plans/v0.58-plan.md`, and
@@ -121,15 +121,17 @@ are absent from `tools/list`.
 
 Second-pass audit findings that affect this surface contract:
 
-- Profile inventory DTOs must be redacted before they leave Settings Central /
-  action code. Do not carry endpoint URLs, API-key references, provider bodies, or
-  raw secret-bearing fields in `providers` or `models` response packets.
+- Complete in M13.1A: profile inventory DTOs are redacted before they leave
+  Settings Central / action code. Do not carry endpoint URLs, API-key references,
+  provider bodies, or raw secret-bearing fields in `providers` or `models`
+  response packets.
 - `list_provider_profiles` and `list_model_profiles` may be assistant-safe
   `:agent` reads only under the ADR 0070 carve-out: source-redacted DTOs and
   bounded render modes. Raw operator fields require an internal read or explicit
   operator affordance.
-- ACP and MCP rejection paths that fail before `Runtime.submit_user_input/1` or
-  `Actions.Runner.run/3` still record rejection/error events with `surface_id`.
+- Complete in M13.1A: ACP and MCP rejection paths that fail before
+  `Runtime.submit_user_input/1` or `Actions.Runner.run/3` still record
+  rejection/error events with `surface_id`.
 - Surface-policy report-shape coverage is explicit. At M13 the covered read set is
   `list_settings`, `list_channels`, `list_model_profiles`, and
   `list_provider_profiles`; M13.1 widens it to `intent_coverage`,

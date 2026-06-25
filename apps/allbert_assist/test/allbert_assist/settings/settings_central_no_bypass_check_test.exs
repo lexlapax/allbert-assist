@@ -70,4 +70,22 @@ defmodule AllbertAssist.SettingsCentralNoBypassCheckTest do
              |> SourceFile.parse("apps/allbert_assist/lib/example_home.ex")
              |> SettingsCentralNoBypass.run([])
   end
+
+  test "flags direct Settings.get reads in web production source" do
+    source = """
+    defmodule AllbertAssistWeb.Components.BadSettingsRead do
+      def theme, do: AllbertAssist.Settings.get("workspace.theme.mode")
+      def contrast, do: Settings.get("workspace.accessibility.high_contrast")
+    end
+    """
+
+    issues =
+      source
+      |> SourceFile.parse(
+        "apps/allbert_assist_web/lib/allbert_assist_web/components/bad_settings_read.ex"
+      )
+      |> SettingsCentralNoBypass.run([])
+
+    assert Enum.count(issues, &(&1.trigger == "Settings.get")) == 2
+  end
 end

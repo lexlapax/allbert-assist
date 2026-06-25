@@ -110,17 +110,19 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
   defp provider_profile(_name, _context), do: {:error, :missing_dynamic_codegen_provider_profile}
 
   defp ensure_provider_ready(%{provider: provider}) when is_binary(provider) do
-    with {:ok, providers} <- Settings.list_provider_profiles() do
-      case Enum.find(providers, &(&1.name == provider)) do
-        %{enabled: false} ->
-          {:error, {:dynamic_codegen_provider_disabled, provider}}
+    case Settings.resolve_provider_profile(provider) do
+      {:ok, %{enabled: false}} ->
+        {:error, {:dynamic_codegen_provider_disabled, provider}}
 
-        %{enabled: true, api_key_ref: api_key_ref, credential_status: credential_status} = attrs ->
-          ensure_credentials(provider, Map.get(attrs, :type), api_key_ref, credential_status)
+      {:ok,
+       %{enabled: true, api_key_ref: api_key_ref, credential_status: credential_status} = attrs} ->
+        ensure_credentials(provider, Map.get(attrs, :type), api_key_ref, credential_status)
 
-        nil ->
-          {:error, {:dynamic_codegen_unknown_provider, provider}}
-      end
+      {:error, :not_found} ->
+        {:error, {:dynamic_codegen_unknown_provider, provider}}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

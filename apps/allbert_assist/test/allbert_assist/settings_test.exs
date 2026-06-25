@@ -1832,6 +1832,9 @@ defmodule AllbertAssist.SettingsTest do
   test "provider and model profiles resolve with redacted credential status" do
     assert {:ok, providers} = Settings.list_provider_profiles()
 
+    refute Enum.any?(providers, &Map.has_key?(&1, :base_url))
+    refute Enum.any?(providers, &Map.has_key?(&1, :api_key_ref))
+
     assert Enum.any?(
              providers,
              &(&1.name == "local_ollama" and &1.endpoint_kind == "local_endpoint")
@@ -1854,6 +1857,8 @@ defmodule AllbertAssist.SettingsTest do
     assert local.model == "llama3.2:3b"
     assert local.capabilities == ["text_generation"]
     assert local.media["deployment_mode"] == "local_endpoint"
+    assert Map.has_key?(local, :provider_base_url)
+    assert Map.has_key?(local, :provider_api_key_ref)
 
     assert {:ok, profile} = Settings.resolve_model_profile("fast")
     assert profile.provider == "openai"
@@ -1863,6 +1868,12 @@ defmodule AllbertAssist.SettingsTest do
     assert profile.capabilities == ["text_generation"]
     assert profile.media["deployment_mode"] == "remote_credentialed"
     refute Map.has_key?(profile, :api_key)
+    assert Map.has_key?(profile, :provider_base_url)
+    assert Map.has_key?(profile, :provider_api_key_ref)
+
+    assert {:ok, models} = Settings.list_model_profiles()
+    refute Enum.any?(models, &Map.has_key?(&1, :provider_base_url))
+    refute Enum.any?(models, &Map.has_key?(&1, :provider_api_key_ref))
 
     assert {:error,
             {:invalid_setting, "model_profiles.fast.max_tokens", {:below_provider_minimum, 16}}} =

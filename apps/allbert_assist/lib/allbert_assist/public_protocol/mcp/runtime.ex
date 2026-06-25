@@ -124,19 +124,33 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
   def read_resource(uri, context, surface) when is_binary(uri) do
     surface = normalize_surface(surface || context_surface(context))
 
-    with {:ok, resources} <- enabled_resources(surface),
-         {:ok, resource} <- fetch_resource(resources, uri) do
-      {:ok,
-       %{
-         "uri" => resource.uri,
-         "name" => resource.name,
-         "description" => resource.description,
-         "surface" => surface,
-         "resource_type" => "app_memory_namespace",
-         "app_id" => atom_to_string(resource.namespace.app_id),
-         "namespace" => atom_to_string(resource.namespace.namespace),
-         "writable" => Map.get(resource.namespace, :writable, false)
-       }}
+    result =
+      with {:ok, resources} <- enabled_resources(surface),
+           {:ok, resource} <- fetch_resource(resources, uri) do
+        {:ok,
+         %{
+           "uri" => resource.uri,
+           "name" => resource.name,
+           "description" => resource.description,
+           "surface" => surface,
+           "resource_type" => "app_memory_namespace",
+           "app_id" => atom_to_string(resource.namespace.app_id),
+           "namespace" => atom_to_string(resource.namespace.namespace),
+           "writable" => Map.get(resource.namespace, :writable, false)
+         }}
+      end
+
+    case result do
+      {:ok, _payload} = ok ->
+        ok
+
+      {:error, reason} = error ->
+        EventRecorder.record_rejection(
+          surface,
+          resource_event_attrs(uri, context, surface, reason)
+        )
+
+        error
     end
   end
 
@@ -295,6 +309,18 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
       external_user_id: client_id,
       user_id: "public-protocol:#{client_id}",
       payload_summary: "tools/call #{name} #{param_summary(params)}"
+    }
+  end
+
+  defp resource_event_attrs(uri, context, surface, reason) do
+    client_id = client_id(context)
+
+    %{
+      external_event_id: "#{surface}:resource:#{Ecto.UUID.generate()}",
+      external_user_id: client_id,
+      user_id: "public-protocol:#{client_id}",
+      payload_summary: "resources/read #{uri}",
+      reason: inspect(reason)
     }
   end
 

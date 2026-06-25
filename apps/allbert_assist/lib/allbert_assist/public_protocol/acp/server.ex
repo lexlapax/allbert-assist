@@ -135,12 +135,16 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
       end
     else
       {:error, %{} = error} ->
+        record_prompt_rejection(params, state, error)
         {:error, error, state}
 
       {:error, reason} ->
-        {:error,
-         Mapping.invalid_params("ACP prompt failed: #{inspect(reason)}.", "runtime_error", nil),
-         state}
+        error =
+          Mapping.invalid_params("ACP prompt failed: #{inspect(reason)}.", "runtime_error", nil)
+
+        record_prompt_rejection(params, state, error)
+
+        {:error, error, state}
     end
   end
 
@@ -184,6 +188,20 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
 
   defp prompt_error(reason),
     do: Mapping.invalid_params("ACP prompt failed: #{inspect(reason)}.", "runtime_error", nil)
+
+  defp record_prompt_rejection(params, state, error) do
+    session_id = if is_map(params), do: Map.get(params, "sessionId")
+    reason = get_in(error, [:data, "code"]) || Map.get(error, :message) || inspect(error)
+
+    EventRecorder.record_rejection(Mapping.surface(), %{
+      external_event_id: "#{Mapping.surface()}:prompt-rejected:#{Ecto.UUID.generate()}",
+      external_user_id: state.client_id,
+      user_id: "public-protocol:#{state.client_id}",
+      session_id: session_id,
+      payload_summary: "session/prompt rejected",
+      reason: reason
+    })
+  end
 
   defp success_response(id, result), do: %{"jsonrpc" => "2.0", "id" => id, "result" => result}
 

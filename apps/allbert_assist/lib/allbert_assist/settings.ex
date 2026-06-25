@@ -95,7 +95,7 @@ defmodule AllbertAssist.Settings do
     with {:ok, settings, _user_settings} <- Store.resolved_settings() do
       settings
       |> Map.get("providers", %{})
-      |> Enum.map(fn {name, attrs} -> provider_profile(name, attrs) end)
+      |> Enum.map(fn {name, attrs} -> provider_profile(name, attrs, :redacted) end)
       |> Enum.sort_by(& &1.name)
       |> then(&{:ok, &1})
     end
@@ -105,7 +105,7 @@ defmodule AllbertAssist.Settings do
     with {:ok, settings, _user_settings} <- Store.resolved_settings() do
       settings
       |> Map.get("model_profiles", %{})
-      |> Enum.map(fn {name, attrs} -> model_profile(name, attrs, settings) end)
+      |> Enum.map(fn {name, attrs} -> model_profile(name, attrs, settings, :redacted) end)
       |> Enum.sort_by(& &1.name)
       |> then(&{:ok, &1})
     end
@@ -114,44 +114,48 @@ defmodule AllbertAssist.Settings do
   def resolve_model_profile(name, _context \\ %{}) when is_binary(name) do
     with {:ok, settings, _user_settings} <- Store.resolved_settings(),
          {:ok, attrs} <- fetch_named(settings, "model_profiles", name) do
-      {:ok, model_profile(name, attrs, settings)}
+      {:ok, model_profile(name, attrs, settings, :runtime)}
     end
   end
 
   def resolve_provider_profile(name, _context \\ %{}) when is_binary(name) do
     with {:ok, settings, _user_settings} <- Store.resolved_settings(),
          {:ok, attrs} <- fetch_named(settings, "providers", name) do
-      {:ok, provider_profile(name, attrs)}
+      {:ok, provider_profile(name, attrs, :runtime)}
     end
   end
 
-  defp provider_profile(name, attrs) do
+  defp provider_profile(name, attrs, mode) do
     api_key_ref = Map.get(attrs, "api_key_ref")
 
-    %{
+    profile = %{
       name: name,
       type: Map.get(attrs, "type"),
       enabled: Map.get(attrs, "enabled", false),
       endpoint_kind: endpoint_kind(name, attrs),
-      base_url: Map.get(attrs, "base_url"),
-      api_key_ref: api_key_ref,
       credential_status: secret_status(api_key_ref)
     }
+
+    case mode do
+      :runtime ->
+        Map.merge(profile, %{base_url: Map.get(attrs, "base_url"), api_key_ref: api_key_ref})
+
+      :redacted ->
+        profile
+    end
   end
 
-  defp model_profile(name, attrs, settings) do
+  defp model_profile(name, attrs, settings, mode) do
     provider = Map.get(attrs, "provider")
     provider_attrs = get_in(settings, ["providers", provider]) || %{}
     api_key_ref = Map.get(provider_attrs, "api_key_ref")
 
-    %{
+    profile = %{
       name: name,
       provider: provider,
       provider_type: Map.get(provider_attrs, "type"),
       provider_enabled: Map.get(provider_attrs, "enabled", false),
       provider_endpoint_kind: endpoint_kind(provider, provider_attrs),
-      provider_base_url: Map.get(provider_attrs, "base_url"),
-      provider_api_key_ref: api_key_ref,
       model: Map.get(attrs, "model"),
       aliases: Map.get(attrs, "aliases", []),
       capabilities: Map.get(attrs, "capabilities", []),
@@ -161,6 +165,17 @@ defmodule AllbertAssist.Settings do
       timeout_ms: Map.get(attrs, "timeout_ms"),
       credential_status: secret_status(api_key_ref)
     }
+
+    case mode do
+      :runtime ->
+        Map.merge(profile, %{
+          provider_base_url: Map.get(provider_attrs, "base_url"),
+          provider_api_key_ref: api_key_ref
+        })
+
+      :redacted ->
+        profile
+    end
   end
 
   defp secret_status(nil), do: :missing

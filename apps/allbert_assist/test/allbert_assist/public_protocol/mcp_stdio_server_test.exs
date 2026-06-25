@@ -2,6 +2,7 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
   use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Channels.Event
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
   alias AllbertAssist.PublicProtocol.Mcp.ProtocolVersions
@@ -126,6 +127,25 @@ defmodule AllbertAssist.PublicProtocol.McpStdioServerTest do
     assert payload["resource_type"] == "app_memory_namespace"
     assert payload["app_id"] == "stocksage"
     assert payload["namespace"] == "stocksage"
+  end
+
+  test "resource-read denials record rejected surface events" do
+    enable_mcp_stdio!()
+    allow_namespaces!(["stocksage.stocksage"])
+
+    assert {:error, {:resource_not_exposed, "allbert-memory://missing/namespace"}} =
+             Runtime.read_resource(
+               "allbert-memory://missing/namespace",
+               context("fixture-client")
+             )
+
+    assert %Event{
+             channel: "mcp_stdio",
+             status: "rejected",
+             external_user_id: "fixture-client",
+             user_id: "public-protocol:fixture-client",
+             payload_summary: "resources/read allbert-memory://missing/namespace"
+           } = Repo.get_by(Event, channel: "mcp_stdio", status: "rejected")
   end
 
   test "tool call goes through runner and returns redacted MCP payload" do
