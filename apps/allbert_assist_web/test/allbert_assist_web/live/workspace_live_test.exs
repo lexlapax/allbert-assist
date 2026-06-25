@@ -22,6 +22,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Conversations.ConversationMessageRef
+  alias AllbertAssist.Intent.Router.DescriptorStore
   alias AllbertAssist.Intent.Handoff
   alias AllbertAssist.McpRegistryFixtures
   alias AllbertAssist.Resources.{Grants, ResourceURI, Scope}
@@ -160,6 +161,64 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     |> render_click()
 
     assert render(view) =~ ~s(data-canvas-drawer="open")
+  end
+
+  test "operator panel destinations are routable by URL", %{conn: conn} do
+    thread = create_workspace_thread("Operator panels")
+
+    for {destination, panel_id} <- [
+          {"workspace:intents", "workspace-intents-panel"},
+          {"workspace:models", "workspace-models-panel"},
+          {"workspace:surface_policy", "workspace-surface-policy-panel"}
+        ] do
+      {:ok, view, _html} =
+        live(conn, ~p"/workspace?thread_id=#{thread.id}&destination=#{destination}")
+
+      assert has_element?(
+               view,
+               "#workspace-shell[data-canvas-destination='#{destination}'][data-canvas-drawer='open']"
+             )
+
+      assert has_element?(view, "##{panel_id}")
+    end
+  end
+
+  test "intents panel promotion shows gate rejection without mutating review descriptor", %{
+    conn: conn
+  } do
+    assert {:ok, _review_path} =
+             DescriptorStore.put(:review, %{
+               app_id: :allbert,
+               action_name: "list_channels",
+               label: "List channels",
+               examples: ["list my channels"],
+               synonyms: ["channels"],
+               required_slots: [:channel]
+             })
+
+    thread = create_workspace_thread("Intent gate")
+
+    {:ok, view, html} =
+      live(conn, ~p"/workspace?thread_id=#{thread.id}&destination=workspace:intents")
+
+    assert html =~ "Eval Gate"
+    assert html =~ "deferred"
+    assert has_element?(view, "#workspace-intent-promote-list_channels")
+
+    html =
+      view
+      |> element("#workspace-intent-promote-list_channels")
+      |> render_click()
+
+    assert html =~ "gate failed"
+    assert html =~ "Intent action status: rejected"
+    assert has_element?(view, "#workspace-intent-promote-list_channels")
+
+    assert {:ok, review_path} = DescriptorStore.path(:review, :allbert, "list_channels")
+    assert File.exists?(review_path)
+
+    assert {:ok, generated_path} = DescriptorStore.path(:generated, :allbert, "list_channels")
+    refute File.exists?(generated_path)
   end
 
   test "mount renders redacted unified channel continuity for the active thread", %{conn: conn} do
@@ -2416,6 +2475,86 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#approval-result")
     assert {:ok, denied} = Confirmations.read(pending["id"])
     assert denied["status"] == "denied"
+  end
+
+  test "approval handoff remains visible when response status is not needs_confirmation", %{
+    conn: conn
+  } do
+    parent = self()
+
+    runner = fn _signal, request ->
+      send(parent, {:runtime_request, request})
+
+      {:ok,
+       %{
+         message: "Approval response for #{request.text}",
+         status: :completed,
+         actions: [],
+         approval_handoff: %{
+           confirmation_id: "conf_completed_handoff",
+           status: :pending,
+           target_action: %{action: %{name: "external_network_request"}},
+           resource_access: [
+             %{
+               origin_kind: :remote_url,
+               operation_class: :external_service_request,
+               access_mode: :fetch,
+               scope: %{kind: :url, value: "https://example.com/"}
+             }
+           ],
+           allowed_actions: [:approve, :deny, :details],
+           render_hints: %{target_label: "external_network_request"}
+         }
+       }}
+    end
+
+    Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+
+    view
+    |> element("#agent-form")
+    |> render_submit(%{"prompt" => "Fetch https://example.com from the internet"})
+
+    html = render_async(view, @runtime_async_timeout)
+
+    assert_receive {:runtime_request, %{text: "Fetch https://example.com from the internet"}}
+    assert has_element?(view, "#agent-response")
+    assert has_element?(view, "#approval-handoff")
+    assert has_element?(view, "#approval-approve:not([disabled])")
+    assert html =~ "conf_completed_handoff"
+    assert html =~ "external_network_request"
+    assert html =~ "Resource remote_url external_service_request fetch"
+  end
+
+  test "default runtime approval handoff dismisses without resolving confirmation", %{conn: conn} do
+    Application.delete_env(:allbert_assist, Runtime)
+    configure_external()
+
+    {:ok, view, _html} = live(conn, ~p"/workspace")
+
+    view
+    |> element("#agent-form")
+    |> render_submit(%{"prompt" => "Fetch https://example.com from the internet"})
+
+    html = render_async(view, @runtime_async_timeout)
+
+    assert has_element?(view, "#approval-handoff")
+    assert html =~ ~s(phx-window-keydown="dismiss_approval_handoff")
+    assert html =~ ~s(phx-click-away="dismiss_approval_handoff")
+
+    [pending] = Confirmations.list(status: :pending)
+
+    view
+    |> element("#approval-handoff")
+    |> render_keydown(%{"key" => "Escape"})
+
+    refute has_element?(view, "#approval-handoff")
+    refute has_element?(view, "#approval-approve")
+    refute has_element?(view, "#approval-deny")
+
+    assert {:ok, still_pending} = Confirmations.read(pending["id"])
+    assert still_pending["status"] == "pending"
   end
 
   defp enable_workspace_voice! do

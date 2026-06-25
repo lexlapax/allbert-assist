@@ -7,6 +7,8 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Execution.Audit
+  alias AllbertAssist.Intent.Router.FakeRouter
+  alias AllbertAssist.Intent.Router.Outcome
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
@@ -753,6 +755,51 @@ defmodule AllbertAssist.Agents.IntentAgentTest do
     assert pending["origin"]["channel"] == "test"
     assert pending["selected_skill"]["name"] == "external-network-request"
     assert pending["target_execution_mode"] == "req_http"
+  end
+
+  test "router-selected external network requests preserve prompt URL" do
+    original = %{
+      router: Application.get_env(:allbert_assist, :intent_router),
+      outcome: Application.get_env(:allbert_assist, :intent_router_fake_outcome),
+      override: Application.get_env(:allbert_assist, :intent_router_strategy_override)
+    }
+
+    Application.put_env(:allbert_assist, :intent_router, FakeRouter)
+    Application.put_env(:allbert_assist, :intent_router_strategy_override, :two_stage_local)
+
+    Application.put_env(
+      :allbert_assist,
+      :intent_router_fake_outcome,
+      Outcome.execute("external_network_request", %{}, 1.0)
+    )
+
+    try do
+      assert {:ok, response} =
+               IntentAgent.respond(%{
+                 text: "Fetch https://example.com/ from the internet",
+                 channel: :test,
+                 user_id: "local",
+                 operator_id: "local",
+                 thread_id: "thr-router-external-request",
+                 session_id: "sess-router-external-request",
+                 active_app: :allbert,
+                 input_signal_id: "sig-router-external-request"
+               })
+
+      assert response.status == :needs_confirmation
+      assert response.message =~ "External network request is ready"
+      assert response.message =~ "Request: GET https://example.com/"
+
+      assert [%{request: %{host: "example.com"}, confirmation_id: confirmation_id}] =
+               response.actions
+
+      assert {:ok, pending} = Confirmations.read(confirmation_id)
+      assert pending["params_summary"]["display_url"] == "https://example.com/"
+    after
+      restore_env(:intent_router, original.router)
+      restore_env(:intent_router_fake_outcome, original.outcome)
+      restore_env(:intent_router_strategy_override, original.override)
+    end
   end
 
   test "routes URL summarization to confirmed fetch before summarizer handoff" do

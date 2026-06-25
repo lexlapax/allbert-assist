@@ -509,6 +509,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           class="workspace-approval-inline"
           labelledby="approval-title"
           describedby="approval-confirmation"
+          dismiss_event="dismiss_approval_handoff"
+          click_away={true}
         >
           <div>
             <p class="workspace-approval-eyebrow">Approval Required</p>

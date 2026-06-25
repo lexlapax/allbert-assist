@@ -57,7 +57,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     %{"external_user_id" => @default_external_user_id, "user_id" => @default_user_id}
   ]
   @default_prompt_placeholder "Ask Allbert anything…"
-  @workspace_tools ~w(onboard create plan_build plan_runs discover marketplace calendar mail github jobs objectives confirmations security settings)
+  @workspace_tools ~w(onboard create plan_build plan_runs discover marketplace calendar mail github jobs objectives confirmations security intents models surface_policy settings)
   @voice_capture_accept ~w(.wav .mp3 .m4a .ogg .webm .flac)
   @voice_capture_upload_accept ~w(audio/*)
   @voice_capture_duration_skew_ms 5_000
@@ -228,6 +228,15 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   def handle_event("toggle_approval_details", _params, socket) do
     {:noreply, update(socket, :show_approval_details?, &(!&1))}
+  end
+
+  def handle_event("dismiss_approval_handoff", _params, socket) do
+    {:noreply,
+     assign(socket,
+       approval_handoff: nil,
+       approval_lines: [],
+       show_approval_details?: false
+     )}
   end
 
   # v0.26a M29: keep `assigns.prompt` in sync as the operator types so the
@@ -1487,11 +1496,18 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     socket
   end
 
-  defp refresh_after_runtime_response(socket, _response) do
-    # v0.26a M28: refresh conversation_messages + tiles + ephemerals so the
-    # chat timeline accumulates completed turns without a navigation.
-    refresh_workspace(socket)
+  defp refresh_after_runtime_response(socket, response) do
+    if approval_handoff_present?(Map.get(response, :approval_handoff)) do
+      socket
+    else
+      # v0.26a M28: refresh conversation_messages + tiles + ephemerals so the
+      # chat timeline accumulates completed turns without a navigation.
+      refresh_workspace(socket)
+    end
   end
+
+  defp approval_handoff_present?(handoff) when is_map(handoff), do: map_size(handoff) > 0
+  defp approval_handoff_present?(_handoff), do: false
 
   defp refresh_workspace_runtime(socket) do
     tiles = canvas_tiles(socket.assigns.thread_id, socket.assigns.user_id)

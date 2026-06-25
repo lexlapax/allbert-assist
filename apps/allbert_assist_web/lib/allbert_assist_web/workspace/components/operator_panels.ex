@@ -113,7 +113,7 @@ defmodule AllbertAssistWeb.Workspace.Components.IntentsPanel do
 
   @impl true
   def handle_event("refresh_intents", _params, socket) do
-    {:noreply, refresh(socket)}
+    {:noreply, refresh(socket, include_eval?: true)}
   end
 
   def handle_event(
@@ -203,11 +203,7 @@ defmodule AllbertAssistWeb.Workspace.Components.IntentsPanel do
           </div>
         </section>
 
-        <section
-          :if={@intent_eval}
-          id="workspace-intents-eval"
-          class="workspace-operator-panel-section"
-        >
+        <section id="workspace-intents-eval" class="workspace-operator-panel-section">
           <h3 class="workspace-rail-title">Eval Gate</h3>
           <div class="workspace-operator-metrics">
             <span class={["workspace-status-pill", Support.status_class(gate_status(@intent_eval))]}>
@@ -294,28 +290,47 @@ defmodule AllbertAssistWeb.Workspace.Components.IntentsPanel do
     """
   end
 
-  defp refresh(socket) do
+  defp refresh(socket, opts \\ []) do
     context = Support.action_context(socket.assigns)
+    include_eval? = Keyword.get(opts, :include_eval?, false)
 
     with {:ok, coverage} <- ActionHelper.completed_action("intent_coverage", %{}, context),
          {:ok, descriptors} <-
            ActionHelper.completed_action("intent_list_descriptors", %{}, context),
-         {:ok, review} <- ActionHelper.completed_action("intent_list_review", %{}, context),
-         {:ok, eval} <- ActionHelper.completed_action("intent_eval_run", %{}, context) do
-      assign(socket,
-        intents_loaded?: true,
-        intents_diagnostics: "",
-        intent_coverage: coverage.coverage,
-        intent_eval: eval.eval_result,
-        intent_descriptors: descriptors.descriptors,
-        intent_review: review.proposals
-      )
+         {:ok, review} <- ActionHelper.completed_action("intent_list_review", %{}, context) do
+      socket =
+        assign(socket,
+          intents_loaded?: true,
+          intents_diagnostics: "",
+          intent_coverage: coverage.coverage,
+          intent_descriptors: descriptors.descriptors,
+          intent_review: review.proposals
+        )
+
+      if include_eval? do
+        refresh_eval(socket, context)
+      else
+        socket
+      end
     else
       {:error, reason} ->
         assign(socket,
           intents_loaded?: true,
           intents_diagnostics: inspect(reason)
         )
+    end
+  end
+
+  defp refresh_eval(socket, context) do
+    case ActionHelper.completed_action("intent_eval_run", %{}, context) do
+      {:ok, eval} ->
+        assign(socket,
+          intents_diagnostics: "",
+          intent_eval: eval.eval_result
+        )
+
+      {:error, reason} ->
+        assign(socket, intents_diagnostics: inspect(reason))
     end
   end
 
@@ -327,7 +342,10 @@ defmodule AllbertAssistWeb.Workspace.Components.IntentsPanel do
     end
   end
 
+  defp gate_status(nil), do: "deferred"
   defp gate_status(eval), do: eval |> Support.field(:gate, %{}) |> Support.field(:status)
+
+  defp baseline_id(nil), do: "not run"
   defp baseline_id(eval), do: eval |> Support.field(:baseline, %{}) |> Support.field(:id, "none")
 
   defp score_field(eval, key, default \\ 0) do

@@ -1721,8 +1721,20 @@ defmodule AllbertAssist.Agents.IntentAgent do
     |> maybe_put_param(:thread_id, Map.get(request, :thread_id))
     |> maybe_put_param(:session_id, Map.get(request, :session_id))
     |> Map.merge(descriptor_params(action_name, context))
+    |> maybe_put_text_derived_action_params(action_name, text)
     |> maybe_put_source_text_param(action_name, text)
   end
+
+  defp maybe_put_text_derived_action_params(params, "external_network_request", text)
+       when is_binary(text) do
+    if present_param?(params, :request) or present_param?(params, :url) do
+      params
+    else
+      Map.put(params, :request, network_request(text))
+    end
+  end
+
+  defp maybe_put_text_derived_action_params(params, _action_name, _text), do: params
 
   defp maybe_put_param(params, _key, nil), do: params
   defp maybe_put_param(params, _key, ""), do: params
