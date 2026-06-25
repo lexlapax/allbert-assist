@@ -7,6 +7,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Onboarding, as: OnboardingContext
+  alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
 
   @impl true
   def update(assigns, socket) do
@@ -81,7 +82,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
           socket
           |> record_current_step("completed", note)
-          |> put_flash_notice(response.message)
+          |> put_flash_notice(response_text(response))
 
         {:ok, response} ->
           assign(socket, :onboarding_error, response_error(response))
@@ -375,7 +376,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
       {:ok, response} ->
         socket
         |> assign(:onboarding_notice, "")
-        |> assign(:onboarding_error, Map.get(response, :error) || response.message)
+        |> assign(:onboarding_error, Map.get(response, :error) || response_text(response))
 
       {:error, reason} ->
         socket
@@ -492,6 +493,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   defp optional_label(_step), do: ""
 
   defp user_id(context), do: field(context, :user_id) || "local"
+
+  defp response_text(response) do
+    SurfaceRenderer.response_text(response, %{payload: :surface_payload})
+  end
 
   defp field(map, key) when is_map(map),
     do: Map.get(map, key) || Map.get(map, Atom.to_string(key))

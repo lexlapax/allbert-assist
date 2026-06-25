@@ -35,6 +35,7 @@ defmodule Mix.Tasks.Allbert.Ask do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.MediaOutputs
   alias AllbertAssist.Session
+  alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
   alias AllbertAssist.Trace
 
   @shortdoc "Send one prompt through the Allbert runtime"
@@ -147,7 +148,7 @@ defmodule Mix.Tasks.Allbert.Ask do
   defp print_result({:ok, response}) do
     Mix.shell().info("Status: #{response.status}")
     Mix.shell().info("")
-    Mix.shell().info(response.message)
+    Mix.shell().info(SurfaceRenderer.response_text(response, %{payload: :surface_payload}))
     Mix.shell().info("")
     Mix.shell().info("Signal: #{response.signal_id}")
     Mix.shell().info("Trace: #{response.trace_id || "none"}")

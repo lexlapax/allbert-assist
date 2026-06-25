@@ -37,6 +37,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   alias AllbertAssist.Session
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.{Schema, Store}
+  alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
   alias AllbertAssist.Theme.Layout
   alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
@@ -249,7 +250,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         {:noreply,
          socket
          |> assign(:voice_capture, approved_voice_capture(output_data, %{}))
-         |> assign(response: response.message, status: response.status, error: nil)}
+         |> assign(response: response_text(response), status: response.status, error: nil)}
 
       {:ok, response} ->
         {:noreply,
@@ -431,7 +432,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       {:ok, %{status: :cancelled} = response} ->
         {:noreply,
          socket
-         |> assign(response: response.message, error: nil)
+         |> assign(response: response_text(response), error: nil)
          |> refresh_objectives()
          |> refresh_workspace()}
 
@@ -542,7 +543,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       {:ok, %{status: :completed} = response} ->
         {:noreply,
          socket
-         |> assign(response: response.message, status: response.status, error: nil)
+         |> assign(response: response_text(response), status: response.status, error: nil)
          |> refresh_workspace()}
 
       {:ok, response} ->
@@ -563,7 +564,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       {:ok, %{status: :completed} = response} ->
         {:noreply,
          socket
-         |> assign(response: response.message, status: response.status, error: nil)
+         |> assign(response: response_text(response), status: response.status, error: nil)
          |> refresh_workspace()}
 
       {:ok, response} ->
@@ -586,7 +587,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         {:ok, %{status: :completed} = response} ->
           {:noreply,
            socket
-           |> assign(response: response.message, status: response.status, error: nil)
+           |> assign(response: response_text(response), status: response.status, error: nil)
            |> refresh_workspace()}
 
         {:ok, response} ->
@@ -609,7 +610,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         {:ok, %{status: :completed} = response} ->
           {:noreply,
            socket
-           |> assign(response: response.message, status: response.status, error: nil)
+           |> assign(response: response_text(response), status: response.status, error: nil)
            |> refresh_workspace()}
 
         {:ok, response} ->
@@ -665,7 +666,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       socket
       |> assign(
         asking?: false,
-        response: response.message,
+        response: response_text(response),
         status: response.status,
         signal_id: response.signal_id,
         trace_id: Map.get(response, :trace_id),
@@ -831,7 +832,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       |> ApprovalHandoff.to_map()
 
     assign(socket,
-      response: response.message,
+      response: response_text(response),
       status: response.status,
       approval_handoff: handoff,
       approval_lines: ApprovalHandoff.lines(handoff),
@@ -2448,6 +2449,10 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       thread_switcher_open?: assigns.thread_switcher_open?,
       workspace_overflow_open?: assigns.workspace_overflow_open?
     }
+  end
+
+  defp response_text(response) do
+    SurfaceRenderer.response_text(response, %{payload: :surface_payload})
   end
 
   defp workspace_path(thread_id, canvas_destination) do

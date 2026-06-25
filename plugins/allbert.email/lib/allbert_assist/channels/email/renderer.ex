@@ -4,6 +4,7 @@ defmodule AllbertAssist.Channels.Email.Renderer do
   alias AllbertAssist.Approval.Handoff
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Confirmations.ObjectiveContext
+  alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
 
   def render_response(runtime_response, opts \\ []) do
     subject = reply_subject(Keyword.get(opts, :subject, "Allbert"))
@@ -11,10 +12,7 @@ defmodule AllbertAssist.Channels.Email.Renderer do
     if handoff = response_field(runtime_response, :approval_handoff) do
       render_approval_handoff(handoff, Keyword.put(opts, :subject, subject))
     else
-      body =
-        runtime_response
-        |> response_field(:message, "")
-        |> to_string()
+      body = SurfaceRenderer.response_text(runtime_response, %{payload: :message})
 
       {:ok, subject, bound_body(body, opts), nil}
     end
@@ -71,26 +69,11 @@ defmodule AllbertAssist.Channels.Email.Renderer do
     max_body_bytes = Keyword.get(opts, :max_body_bytes, 65_536)
 
     if byte_size(body) > max_body_bytes do
-      byte_safe_prefix(body, max_body_bytes) <>
+      SurfaceRenderer.bound_text(body, max_body_bytes, "") <>
         "\n\n[Truncated locally; full trace remains in Allbert.]"
     else
       body
     end
-  end
-
-  defp byte_safe_prefix(text, max_bytes) do
-    text
-    |> String.graphemes()
-    |> Enum.reduce_while({"", 0}, fn grapheme, {acc, bytes} ->
-      next_bytes = bytes + byte_size(grapheme)
-
-      if next_bytes > max_bytes do
-        {:halt, {acc, bytes}}
-      else
-        {:cont, {acc <> grapheme, next_bytes}}
-      end
-    end)
-    |> elem(0)
   end
 
   defp sanitize_subject(subject) do

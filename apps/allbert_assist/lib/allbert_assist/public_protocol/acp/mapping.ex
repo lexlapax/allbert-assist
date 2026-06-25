@@ -10,6 +10,7 @@ defmodule AllbertAssist.PublicProtocol.Acp.Mapping do
   alias AllbertAssist.PublicProtocol.ResultReadback
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Settings
+  alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
 
   @surface "acp_stdio"
   @protocol_version 1
@@ -170,7 +171,10 @@ defmodule AllbertAssist.PublicProtocol.Acp.Mapping do
       _status ->
         {:ok,
          [
-           agent_message_chunk(Map.fetch!(session, :id), Map.get(runtime_response, :message, "")),
+           agent_message_chunk(
+             Map.fetch!(session, :id),
+             SurfaceRenderer.response_text(runtime_response, %{payload: :message})
+           ),
            prompt_response(request_id, %{"stopReason" => "end_turn"})
          ]}
     end

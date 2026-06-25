@@ -1,32 +1,36 @@
 defmodule AllbertAssist.Channels.WhatsApp.Renderer do
   @moduledoc false
 
-  alias AllbertAssist.Approval.Handoff
+  alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
 
   @default_limit 4096
   @button_title_limit 20
   @button_id_limit 256
+  @descriptor %{
+    primitives: [:button, :typed_command, :link, :list],
+    threading: :reply_chain,
+    payload: :message
+  }
 
   def render_response(runtime_response, opts \\ []) do
     max_bytes = opts |> Keyword.get(:max_text_bytes, @default_limit) |> min(@default_limit)
+    descriptor = effective_descriptor(opts)
 
-    if handoff = response_field(runtime_response, :approval_handoff) do
-      render_approval_handoff(handoff, opts)
-    else
-      text =
-        runtime_response
-        |> response_field(:message, "")
-        |> to_string()
-
-      {:ok, Enum.map(chunks(text, max_bytes), &%{type: :text, body: &1})}
+    with {:ok, rendered} <-
+           SurfaceRenderer.render_response(runtime_response, descriptor,
+             max_text_bytes: max_bytes
+           ) do
+      case rendered.kind do
+        :approval_handoff -> {:ok, [approval_message(rendered.primitive, rendered.payload)]}
+        _kind -> {:ok, Enum.map(rendered.chunks, &%{type: :text, body: &1})}
+      end
     end
   end
 
   def render_approval_handoff(handoff_data, opts \\ []) do
-    descriptor = effective_descriptor(opts)
-
-    with {:ok, {primitive, payload}} <- Handoff.render(handoff_data, descriptor) do
-      {:ok, [approval_message(primitive, payload)]}
+    with {:ok, rendered} <-
+           SurfaceRenderer.render_approval_handoff(handoff_data, effective_descriptor(opts)) do
+      {:ok, [approval_message(rendered.primitive, rendered.payload)]}
     end
   end
 
@@ -38,7 +42,7 @@ defmodule AllbertAssist.Channels.WhatsApp.Renderer do
         [:typed_command, :link, :list]
       end
 
-    %{primitives: primitives, threading: :reply_chain}
+    Map.put(@descriptor, :primitives, primitives)
   end
 
   defp approval_message(:button, %{text: text, buttons: buttons}) do
@@ -88,43 +92,7 @@ defmodule AllbertAssist.Channels.WhatsApp.Renderer do
 
   defp approval_message(_primitive, %{text: text}), do: %{type: :text, body: text}
 
-  defp chunks("", _limit), do: [""]
-
-  defp chunks(text, limit) do
-    text
-    |> String.graphemes()
-    |> Enum.reduce({[], "", 0}, fn grapheme, {chunks, current, current_bytes} ->
-      grapheme_bytes = byte_size(grapheme)
-
-      if current != "" and current_bytes + grapheme_bytes > limit do
-        {[current | chunks], grapheme, grapheme_bytes}
-      else
-        {chunks, current <> grapheme, current_bytes + grapheme_bytes}
-      end
-    end)
-    |> then(fn {chunks, current, _bytes} -> Enum.reverse([current | chunks]) end)
-  end
-
   defp bounded(value, limit) do
-    value
-    |> to_string()
-    |> String.graphemes()
-    |> Enum.reduce_while({"", 0}, fn grapheme, {acc, bytes} ->
-      grapheme_bytes = byte_size(grapheme)
-
-      if bytes + grapheme_bytes > limit do
-        {:halt, {acc, bytes}}
-      else
-        {:cont, {acc <> grapheme, bytes + grapheme_bytes}}
-      end
-    end)
-    |> elem(0)
+    SurfaceRenderer.bound_text(to_string(value), limit, "")
   end
-
-  defp response_field(map, key, default \\ nil)
-
-  defp response_field(map, key, default) when is_map(map),
-    do: Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-
-  defp response_field(_map, _key, default), do: default
 end

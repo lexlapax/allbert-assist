@@ -10,6 +10,7 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
   alias AllbertAssist.PublicProtocol.{HttpIngress, ResultReadback}
   alias AllbertAssist.Runtime.Response
   alias AllbertAssist.Settings
+  alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
 
   @surface "openai_api"
   @allowed_roles ~w[system developer user assistant]
@@ -230,7 +231,7 @@ defmodule AllbertAssist.PublicProtocol.OpenAI.Mapping do
           "index" => 0,
           "message" => %{
             "role" => "assistant",
-            "content" => Map.get(runtime_response, :message, ""),
+            "content" => SurfaceRenderer.response_text(runtime_response, %{payload: :message}),
             "tool_calls" => nil
           },
           "finish_reason" => "stop",

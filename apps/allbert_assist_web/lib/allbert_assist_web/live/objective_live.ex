@@ -5,6 +5,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
   alias AllbertAssistWeb.SignalBridge
   alias AllbertAssistWeb.Workspace.Components.PlanRunProgressPanel
 
@@ -51,7 +52,12 @@ defmodule AllbertAssistWeb.ObjectiveLive do
       {:ok, %{status: :cancelled} = response} ->
         {:noreply,
          socket
-         |> assign(response: response.message, show_cancel?: false, cancel_reason: "", error: nil)
+         |> assign(
+           response: response_text(response),
+           show_cancel?: false,
+           cancel_reason: "",
+           error: nil
+         )
          |> refresh()}
 
       {:ok, response} ->
@@ -68,7 +74,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
 
     case Runner.run("cancel_plan_run", params, context(socket)) do
       {:ok, %{status: :cancelled} = response} ->
-        {:noreply, socket |> assign(response: response.message, error: nil) |> refresh()}
+        {:noreply, socket |> assign(response: response_text(response), error: nil) |> refresh()}
 
       {:ok, response} ->
         {:noreply, assign(socket, error: Map.get(response, :message, inspect(response)))}
@@ -88,7 +94,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
              :objective_cancelled,
              :objective_failed
            ] ->
-        {:noreply, socket |> assign(response: response.message, error: nil) |> refresh()}
+        {:noreply, socket |> assign(response: response_text(response), error: nil) |> refresh()}
 
       {:ok, response} ->
         {:noreply, assign(socket, error: Map.get(response, :message, inspect(response)))}
@@ -362,4 +368,8 @@ defmodule AllbertAssistWeb.ObjectiveLive do
   defp format_value(value) when is_map(value), do: inspect(value, pretty: false, limit: 10)
   defp format_value(nil), do: "none"
   defp format_value(value), do: to_string(value)
+
+  defp response_text(response) do
+    SurfaceRenderer.response_text(response, %{payload: :surface_payload})
+  end
 end

@@ -1,33 +1,46 @@
 defmodule AllbertAssist.Channels.Telegram.Renderer do
   @moduledoc false
 
-  alias AllbertAssist.Approval.Handoff
-  alias AllbertAssist.Runtime.MediaOutputs
+  alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
 
   @telegram_limit 4096
   @callback_limit 64
+  @descriptor %{
+    primitives: [:button, :typed_command, :list],
+    threading: :reply_chain,
+    payload: :message,
+    media_outputs: true
+  }
 
   def render_response(runtime_response, opts \\ []) do
     max_bytes = Keyword.get(opts, :max_text_bytes, @telegram_limit)
 
-    if handoff = response_field(runtime_response, :approval_handoff) do
-      render_approval_handoff(handoff, opts)
-    else
-      text =
-        runtime_response
-        |> response_field(:message, "")
-        |> to_string()
-        |> with_media_outputs(runtime_response)
+    with {:ok, rendered} <-
+           SurfaceRenderer.render_response(runtime_response, effective_descriptor(opts),
+             max_text_bytes: min(max_bytes, @telegram_limit)
+           ) do
+      case rendered.kind do
+        :approval_handoff ->
+          {text, keyboard} =
+            render_handoff_payload(
+              rendered.primitive,
+              rendered.payload,
+              response_field(runtime_response, :approval_handoff)
+            )
 
-      {:ok, chunks(text, min(max_bytes, @telegram_limit)), nil}
+          {:ok, SurfaceRenderer.chunks(text, @telegram_limit), keyboard}
+
+        _kind ->
+          {:ok, rendered.chunks, nil}
+      end
     end
   end
 
   def render_approval_handoff(handoff_data, opts \\ []) do
-    descriptor = effective_descriptor(opts)
-
-    with {:ok, {primitive, payload}} <- Handoff.render(handoff_data, descriptor) do
-      {text, keyboard} = render_handoff_payload(primitive, payload, handoff_data)
+    with {:ok, rendered} <-
+           SurfaceRenderer.render_approval_handoff(handoff_data, effective_descriptor(opts)) do
+      {text, keyboard} =
+        render_handoff_payload(rendered.primitive, rendered.payload, handoff_data)
 
       {:ok, chunks(text, @telegram_limit), keyboard}
     end
@@ -54,9 +67,12 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
   defp render_handoff_payload(_primitive, payload, _handoff_data), do: {payload.text, nil}
 
   defp fallback_handoff_payload(handoff_data) do
-    with {:ok, {primitive, payload}} <-
-           Handoff.render(handoff_data, %{primitives: [:typed_command, :list], threading: :reply_chain}) do
-      render_handoff_payload(primitive, payload, handoff_data)
+    with {:ok, rendered} <-
+           SurfaceRenderer.render_approval_handoff(handoff_data, %{
+             primitives: [:typed_command, :list],
+             threading: :reply_chain
+           }) do
+      render_handoff_payload(rendered.primitive, rendered.payload, handoff_data)
     else
       _error -> {"Approval required.", nil}
     end
@@ -70,7 +86,7 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
         [:typed_command, :list]
       end
 
-    %{primitives: primitives, threading: :reply_chain}
+    Map.put(@descriptor, :primitives, primitives)
   end
 
   defp approval_keyboard(%{buttons: buttons}) when is_list(buttons) do
@@ -133,39 +149,6 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
     end)
     |> then(fn {chunks, current, _bytes} -> Enum.reverse([current | chunks]) end)
   end
-
-  defp with_media_outputs(text, runtime_response) do
-    outputs =
-      runtime_response
-      |> response_field(:media_outputs, [])
-      |> MediaOutputs.redacted()
-
-    if outputs == [] do
-      text
-    else
-      text <> "\n\nMedia outputs:\n" <> Enum.map_join(outputs, "\n", &media_output_line/1)
-    end
-  end
-
-  defp media_output_line(output) do
-    kind = response_field(output, :kind, "media")
-    mime_type = response_field(output, :mime_type)
-    resource_uri = response_field(output, :resource_uri)
-    source_action = response_field(output, :source_action)
-
-    [
-      "- #{kind}",
-      mime_type,
-      resource_uri,
-      source_action
-    ]
-    |> Enum.reject(&blank?/1)
-    |> Enum.join(" ")
-  end
-
-  defp blank?(nil), do: true
-  defp blank?(""), do: true
-  defp blank?(_value), do: false
 
   defp response_field(map, key, default \\ nil)
 

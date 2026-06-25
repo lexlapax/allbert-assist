@@ -11,6 +11,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response, as: RuntimeResponse
   alias AllbertAssist.Settings
+  alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
 
   @stdio_surface "mcp_stdio"
   @http_surface "mcp_http"
@@ -146,7 +147,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
         {:ok,
          %{
            status: "denied",
-           message: Map.get(response, :message, "Action was denied."),
+           message: response_text(response, "Action was denied."),
            error: Redactor.redact(Map.get(response, :error))
          }}
 
@@ -154,7 +155,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
         {:ok,
          %{
            status: Atom.to_string(status),
-           message: Map.get(response, :message, "Action failed."),
+           message: response_text(response, "Action failed."),
            error: Redactor.redact(Map.get(response, :error))
          }}
 
@@ -182,7 +183,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
       {:ok,
        %{
          status: "confirmation_pending",
-         message: Map.get(response, :message, "Action needs operator confirmation."),
+         message: response_text(response, "Action needs operator confirmation."),
          confirmation_id: confirmation_id,
          public_call_id: call_result.id
        }}
@@ -270,6 +271,13 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
   defp normalize_surface(@stdio_surface), do: @stdio_surface
   defp normalize_surface(@http_surface), do: @http_surface
   defp normalize_surface(_surface), do: @stdio_surface
+
+  defp response_text(response, fallback) do
+    case SurfaceRenderer.response_text(response, %{payload: :message}) do
+      "" -> fallback
+      text -> text
+    end
+  end
 
   defp channel_for_surface(@http_surface), do: :mcp_http
   defp channel_for_surface(_surface), do: :mcp_stdio
