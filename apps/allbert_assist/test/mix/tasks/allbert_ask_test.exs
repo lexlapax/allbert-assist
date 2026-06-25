@@ -4,6 +4,7 @@ defmodule Mix.Tasks.Allbert.AskTest do
   import ExUnit.CaptureIO
 
   alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Channels.Event
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Conversations.ConversationMessageRef
@@ -112,6 +113,9 @@ defmodule Mix.Tasks.Allbert.AskTest do
                from ref in ConversationMessageRef,
                  where: ref.channel == "cli" and ref.provider_message_id == ^provider_message_id
              )
+
+    assert %Event{channel: "cli", status: "processed", user_id: "local"} =
+             Repo.get_by(Event, channel: "cli", external_event_id: provider_message_id)
   end
 
   test "passes user and new thread options through the runtime" do

@@ -1,6 +1,9 @@
 defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
   use AllbertAssistWeb.ConnCase, async: false, lane: :global_process_serial
 
+  import Ecto.Query
+
+  alias AllbertAssist.Channels.Event
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
   alias AllbertAssist.PublicProtocol.RateLimiter
@@ -86,6 +89,20 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
              Jason.decode!(get_in(result, ["content", Access.at(0), "text"]))
 
     assert is_binary(message)
+
+    assert %Event{
+             channel: "mcp_http",
+             status: "processed",
+             external_user_id: "claude",
+             user_id: "public-protocol:claude"
+           } =
+             AllbertAssist.Repo.one(
+               from(event in Event,
+                 where: event.channel == "mcp_http" and event.status == "processed",
+                 order_by: [desc: event.inserted_at],
+                 limit: 1
+               )
+             )
   end
 
   test "missing token is denied before runtime dispatch", %{conn: conn} do

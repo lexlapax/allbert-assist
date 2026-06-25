@@ -11,6 +11,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Runtime.Response, as: RuntimeResponse
   alias AllbertAssist.Settings
+  alias AllbertAssist.Surface.EventRecorder
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
 
   @stdio_surface "mcp_stdio"
@@ -94,12 +95,26 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
   def call_tool(name, params, context, surface) when is_binary(name) and is_map(params) do
     surface = normalize_surface(surface || context_surface(context))
 
-    with {:ok, tools} <- enabled_tools(surface),
-         {:ok, capability} <- fetch_tool(tools, name),
-         normalized_params <- normalize_tool_params(params, capability.module),
-         {:ok, response} <-
-           Runner.run(name, normalized_params, runner_context(context, capability, surface)) do
-      response_to_payload(response, name, context, surface)
+    event =
+      EventRecorder.record_inbound(surface, public_event_attrs(name, params, context, surface))
+
+    result =
+      with {:ok, tools} <- enabled_tools(surface),
+           {:ok, capability} <- fetch_tool(tools, name),
+           normalized_params <- normalize_tool_params(params, capability.module),
+           {:ok, response} <-
+             Runner.run(name, normalized_params, runner_context(context, capability, surface)) do
+        EventRecorder.mark_result(event, {:ok, response})
+        response_to_payload(response, name, context, surface)
+      end
+
+    case result do
+      {:ok, _payload} = ok ->
+        ok
+
+      {:error, reason} = error ->
+        EventRecorder.mark_failed(event, reason)
+        error
     end
   end
 
@@ -271,6 +286,20 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Runtime do
   defp normalize_surface(@stdio_surface), do: @stdio_surface
   defp normalize_surface(@http_surface), do: @http_surface
   defp normalize_surface(_surface), do: @stdio_surface
+
+  defp public_event_attrs(name, params, context, surface) do
+    client_id = client_id(context)
+
+    %{
+      external_event_id: "#{surface}:tool:#{Ecto.UUID.generate()}",
+      external_user_id: client_id,
+      user_id: "public-protocol:#{client_id}",
+      payload_summary: "tools/call #{name} #{param_summary(params)}"
+    }
+  end
+
+  defp param_summary(params) when map_size(params) == 0, do: "{}"
+  defp param_summary(params), do: inspect(Map.keys(params), limit: 10)
 
   defp response_text(response, fallback) do
     case SurfaceRenderer.response_text(response, %{payload: :message}) do

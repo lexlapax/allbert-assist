@@ -10,6 +10,7 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
 
   alias AllbertAssist.App.CoreApp
   alias AllbertAssist.PublicProtocol.Mcp.{ProtocolVersions, Runtime, Schema}
+  alias AllbertAssist.Surface.EventRecorder
 
   @surface "mcp_http"
 
@@ -157,6 +158,8 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
   end
 
   defp rpc_error(conn, status, id, code, message, data) do
+    record_rejection(conn, message)
+
     conn
     |> put_status(status)
     |> maybe_put_session_header()
@@ -169,6 +172,21 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpController do
         "data" => data
       }
     })
+  end
+
+  defp record_rejection(conn, reason) do
+    context = Map.get(conn.assigns, :public_protocol_context, %{})
+    client_id = get_in(context, [:public_protocol, :client_id])
+
+    EventRecorder.record_rejection(@surface, %{
+      external_event_id: "#{@surface}:rejected:#{Ecto.UUID.generate()}",
+      external_user_id: client_id,
+      user_id: if(client_id, do: "public-protocol:#{client_id}"),
+      reason: reason,
+      payload_summary: "mcp_http rejection"
+    })
+
+    :ok
   end
 
   defp maybe_put_session_header(conn) do

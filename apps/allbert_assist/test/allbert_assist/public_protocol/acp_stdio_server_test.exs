@@ -1,6 +1,7 @@
 defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
   use AllbertAssist.DataCase, async: false, lane: :external_runtime_serial
 
+  alias AllbertAssist.Channels.Event
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
   alias AllbertAssist.PublicProtocol.Acp.Server
@@ -150,6 +151,49 @@ defmodule AllbertAssist.PublicProtocol.AcpStdioServerTest do
                          public_protocol: %{surface: "acp_stdio", client_id: "zed-fixture"}
                        }
                      }}
+
+    assert %Event{
+             channel: "acp_stdio",
+             status: "processed",
+             external_user_id: "zed-fixture",
+             user_id: "public-protocol:zed-fixture",
+             session_id: ^session_id
+           } =
+             Repo.get_by(Event, channel: "acp_stdio", status: "processed")
+  end
+
+  test "session/prompt returns structured runtime errors and records failed audit events" do
+    enable_acp_stdio!()
+    {session_id, state} = started_session()
+    parent = self()
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        send(parent, {:runtime_request, request})
+        {:error, :runtime_down}
+      end
+    )
+
+    {:ok, [response], _state} =
+      Server.handle_message(
+        %{
+          "jsonrpc" => "2.0",
+          "id" => 6,
+          "method" => "session/prompt",
+          "params" => %{
+            "sessionId" => session_id,
+            "prompt" => [%{"type" => "text", "text" => "Explain this code"}]
+          }
+        },
+        state
+      )
+
+    assert response["error"]["data"]["code"] == "runtime_error"
+    assert response["error"]["message"] =~ "ACP prompt failed"
+    assert_received {:runtime_request, %{text: "Explain this code"}}
+
+    assert %Event{channel: "acp_stdio", status: "failed", error: ":runtime_down"} =
+             Repo.get_by(Event, channel: "acp_stdio", status: "failed")
   end
 
   test "non-text prompt content is rejected before runtime" do

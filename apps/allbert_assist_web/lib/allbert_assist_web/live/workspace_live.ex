@@ -37,6 +37,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   alias AllbertAssist.Session
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.{Schema, Store}
+  alias AllbertAssist.Surface.EventRecorder
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
   alias AllbertAssist.Theme.Layout
   alias AllbertAssist.Workspace
@@ -2109,6 +2110,12 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       |> maybe_put_runtime_metadata(metadata)
       |> put_local_surface_ref(socket)
 
+    event =
+      EventRecorder.record_inbound(
+        :live_view,
+        surface_event_attrs(runtime_request, prompt, socket.assigns.user_id)
+      )
+
     socket
     |> assign(
       prompt: prompt,
@@ -2124,8 +2131,20 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       show_approval_details?: false
     )
     |> start_async(:ask, fn ->
-      Runtime.submit_user_input(runtime_request)
+      result = Runtime.submit_user_input(runtime_request)
+      EventRecorder.mark_result(event, result)
+      result
     end)
+  end
+
+  defp surface_event_attrs(request, prompt, user_id) do
+    %{
+      external_event_id: Map.get(request, :provider_message_id),
+      user_id: user_id,
+      session_id: Map.get(request, :session_id),
+      thread_id: Map.get(request, :thread_id),
+      payload_summary: prompt
+    }
   end
 
   defp consume_image_inputs(socket) do

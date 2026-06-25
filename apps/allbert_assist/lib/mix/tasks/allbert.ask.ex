@@ -35,6 +35,7 @@ defmodule Mix.Tasks.Allbert.Ask do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.MediaOutputs
   alias AllbertAssist.Session
+  alias AllbertAssist.Surface.EventRecorder
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
   alias AllbertAssist.Trace
 
@@ -112,24 +113,39 @@ defmodule Mix.Tasks.Allbert.Ask do
     user_id = blank_to_nil(opts[:user]) || blank_to_nil(opts[:operator]) || "local"
     request_id = Ecto.UUID.generate()
 
+    request =
+      %{
+        text: prompt,
+        channel: channel
+      }
+      |> maybe_put(:user_id, blank_to_nil(opts[:user]))
+      |> maybe_put(:operator_id, blank_to_nil(opts[:operator]))
+      |> maybe_put(:thread_id, blank_to_nil(opts[:thread]))
+      |> maybe_put(:session_id, blank_to_nil(opts[:session]))
+      |> maybe_put(:active_app, blank_to_nil(opts[:active_app]))
+      |> maybe_put(:new_thread, opts[:new_thread])
+      |> maybe_put_local_surface_ref(channel, %{
+        request_id: request_id,
+        user_id: user_id,
+        thread_id: blank_to_nil(opts[:thread]),
+        session_id: blank_to_nil(opts[:session])
+      })
+      |> merge_metadata(voice_request_metadata(voice_result))
+
+    event = EventRecorder.record_inbound(:cli, surface_event_attrs(request, prompt, user_id))
+    result = Runtime.submit_user_input(request)
+    EventRecorder.mark_result(event, result)
+    result
+  end
+
+  defp surface_event_attrs(request, prompt, user_id) do
     %{
-      text: prompt,
-      channel: channel
-    }
-    |> maybe_put(:user_id, blank_to_nil(opts[:user]))
-    |> maybe_put(:operator_id, blank_to_nil(opts[:operator]))
-    |> maybe_put(:thread_id, blank_to_nil(opts[:thread]))
-    |> maybe_put(:session_id, blank_to_nil(opts[:session]))
-    |> maybe_put(:active_app, blank_to_nil(opts[:active_app]))
-    |> maybe_put(:new_thread, opts[:new_thread])
-    |> maybe_put_local_surface_ref(channel, %{
-      request_id: request_id,
+      external_event_id: Map.get(request, :provider_message_id),
       user_id: user_id,
-      thread_id: blank_to_nil(opts[:thread]),
-      session_id: blank_to_nil(opts[:session])
-    })
-    |> merge_metadata(voice_request_metadata(voice_result))
-    |> Runtime.submit_user_input()
+      session_id: Map.get(request, :session_id),
+      thread_id: Map.get(request, :thread_id),
+      payload_summary: prompt
+    }
   end
 
   defp maybe_put_local_surface_ref(attrs, channel, ref_attrs) do

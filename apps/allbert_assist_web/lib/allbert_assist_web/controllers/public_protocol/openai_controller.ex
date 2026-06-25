@@ -7,6 +7,7 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
 
   alias AllbertAssist.PublicProtocol.OpenAI.Mapping
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Surface.EventRecorder
 
   plug AllbertAssistWeb.Plugs.PublicProtocolOpenAIAuth,
        [surface: "openai_api"] when action in [:chat_completions, :models]
@@ -21,13 +22,42 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIController do
   def chat_completions(conn, params) do
     auth = conn.assigns.public_protocol_auth
 
-    with {:ok, chat} <- Mapping.parse_chat_request(params, auth),
-         {:ok, runtime_response} <- Runtime.submit_user_input(Mapping.runtime_request(chat, auth)),
-         {:ok, body} <- Mapping.chat_completion(runtime_response, chat, auth) do
-      send_chat_response(conn, chat, body)
-    else
-      {:error, %{status: _status} = error} -> send_error(conn, error)
-      {:error, reason} -> send_error(conn, Mapping.runtime_error(reason))
+    case Mapping.parse_chat_request(params, auth) do
+      {:ok, chat} ->
+        event =
+          EventRecorder.record_inbound("openai_api", %{
+            external_event_id: "openai_api:chat:#{Ecto.UUID.generate()}",
+            external_user_id: Map.fetch!(auth, :client_id),
+            user_id: chat.user_id,
+            session_id: Map.get(chat, :session_id),
+            thread_id: Map.get(chat, :thread_id),
+            payload_summary: "chat.completions #{chat.model}"
+          })
+
+        with {:ok, runtime_response} <-
+               Runtime.submit_user_input(Mapping.runtime_request(chat, auth)),
+             {:ok, body} <- Mapping.chat_completion(runtime_response, chat, auth) do
+          EventRecorder.mark_result(event, {:ok, runtime_response})
+          send_chat_response(conn, chat, body)
+        else
+          {:error, %{status: _status} = error} ->
+            EventRecorder.mark_failed(event, error)
+            send_error(conn, error)
+
+          {:error, reason} ->
+            EventRecorder.mark_failed(event, reason)
+            send_error(conn, Mapping.runtime_error(reason))
+        end
+
+      {:error, %{status: _status} = error} ->
+        EventRecorder.record_rejection("openai_api", %{
+          external_event_id: "openai_api:rejected:#{Ecto.UUID.generate()}",
+          external_user_id: Map.get(auth, :client_id),
+          reason: error.code,
+          payload_summary: error.message
+        })
+
+        send_error(conn, error)
     end
   end
 

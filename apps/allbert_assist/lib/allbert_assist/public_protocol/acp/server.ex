@@ -9,6 +9,7 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
 
   alias AllbertAssist.PublicProtocol.Acp.Mapping
   alias AllbertAssist.Runtime
+  alias AllbertAssist.Surface.EventRecorder
 
   defstruct initialized?: false,
             client_id: Mapping.default_client_id(),
@@ -112,11 +113,26 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
     with :ok <- ensure_initialized(state),
          :ok <- ensure_surface_enabled(),
          {:ok, session} <- fetch_session(params, state),
-         {:ok, text} <- Mapping.flatten_prompt(params),
-         {:ok, runtime_response} <-
-           Runtime.submit_user_input(Mapping.runtime_request(text, session)),
-         {:ok, outbound} <- Mapping.prompt_outbound(runtime_response, session, request_id) do
-      {:ok, outbound, state}
+         {:ok, text} <- Mapping.flatten_prompt(params) do
+      event =
+        EventRecorder.record_inbound(Mapping.surface(), %{
+          external_event_id: "#{Mapping.surface()}:prompt:#{Ecto.UUID.generate()}",
+          external_user_id: Map.fetch!(session, :client_id),
+          user_id: "public-protocol:#{Map.fetch!(session, :client_id)}",
+          session_id: Map.fetch!(session, :id),
+          payload_summary: "session/prompt"
+        })
+
+      with {:ok, runtime_response} <-
+             Runtime.submit_user_input(Mapping.runtime_request(text, session)),
+           {:ok, outbound} <- Mapping.prompt_outbound(runtime_response, session, request_id) do
+        EventRecorder.mark_result(event, {:ok, runtime_response})
+        {:ok, outbound, state}
+      else
+        {:error, reason} ->
+          EventRecorder.mark_failed(event, reason)
+          {:error, prompt_error(reason), state}
+      end
     else
       {:error, %{} = error} ->
         {:error, error, state}
@@ -163,6 +179,11 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
     do:
       {:error,
        Mapping.invalid_params("sessionId is required.", "missing_session_id", "sessionId")}
+
+  defp prompt_error(%{} = error), do: error
+
+  defp prompt_error(reason),
+    do: Mapping.invalid_params("ACP prompt failed: #{inspect(reason)}.", "runtime_error", nil)
 
   defp success_response(id, result), do: %{"jsonrpc" => "2.0", "id" => id, "result" => result}
 

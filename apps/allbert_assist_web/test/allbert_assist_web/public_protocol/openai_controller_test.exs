@@ -1,6 +1,9 @@
 defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
   use AllbertAssistWeb.ConnCase, async: false, lane: :global_process_serial
 
+  import Ecto.Query
+
+  alias AllbertAssist.Channels.Event
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
   alias AllbertAssist.PublicProtocol.RateLimiter
@@ -93,6 +96,15 @@ defmodule AllbertAssistWeb.PublicProtocol.OpenAIControllerTest do
                          public_protocol: %{surface: "openai_api", client_id: "openai-client"}
                        }
                      }}
+
+    assert %Event{channel: "openai_api", status: "processed", user_id: "openai-user"} =
+             AllbertAssist.Repo.one(
+               from(event in Event,
+                 where: event.channel == "openai_api" and event.status == "processed",
+                 order_by: [desc: event.inserted_at],
+                 limit: 1
+               )
+             )
   end
 
   test "missing token returns OpenAI-shaped auth error", %{conn: conn} do

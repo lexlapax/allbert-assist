@@ -147,7 +147,7 @@ defmodule AllbertAssist.Operator.Inspection do
   def render_events(%{events: events} = report) when is_list(events) do
     rows =
       Enum.map(events, fn event ->
-        "- #{event.id}: channel=#{event.channel} direction=#{event.direction} " <>
+        "- #{event.id}: surface_id=#{event.surface_id} channel=#{event.channel} direction=#{event.direction} " <>
           "status=#{event.status} external_event_id=#{event.external_event_id} " <>
           "user_id=#{blank(event.user_id)} summary=#{blank(event.payload_summary)}"
       end)
@@ -200,6 +200,7 @@ defmodule AllbertAssist.Operator.Inspection do
   defp event_summary(%Event{} = event) do
     %{
       id: event.id,
+      surface_id: event.channel,
       channel: event.channel,
       provider: event.provider,
       direction: event.direction,

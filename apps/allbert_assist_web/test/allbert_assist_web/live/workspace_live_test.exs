@@ -20,6 +20,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Conversations.ConversationMessageRef
+  alias AllbertAssist.Channels.Event
   alias AllbertAssist.Intent.Handoff
   alias AllbertAssist.McpRegistryFixtures
   alias AllbertAssist.Resources.{Grants, ResourceURI, Scope}
@@ -1779,6 +1780,12 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
                    ref.channel == "live_view" and
                      ref.provider_message_id == ^request.provider_message_id
                )
+             )
+
+    assert %Event{channel: "live_view", status: "processed", user_id: "local"} =
+             Repo.get_by(Event,
+               channel: "live_view",
+               external_event_id: request.provider_message_id
              )
 
     assert has_element?(view, "#agent-response")
