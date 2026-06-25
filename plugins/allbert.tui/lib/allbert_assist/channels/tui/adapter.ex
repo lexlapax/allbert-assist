@@ -9,6 +9,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   alias AllbertAssist.Channels.ConfirmationCallback
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
+  alias AllbertAssist.Channels.TUI.EscapeMonitor
   alias AllbertAssist.Channels.TUI.LiveRegion
   alias AllbertAssist.Channels.TUI.Renderer
   alias AllbertAssist.Channels.TUI.SlashCommands
@@ -116,6 +117,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       case state.current_turn do
         %{turn_id: ^turn_id} ->
           state
+          |> stop_current_escape_monitor()
           |> clear_current_live_region()
           |> clear_live_status()
           |> emit_async_turn_reply(reply)
@@ -132,6 +134,23 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     end
 
     {:noreply, state}
+  end
+
+  def handle_info({:coding_tui_escape, event_ref}, state) do
+    case state.current_turn do
+      %{escape_monitor: %{event_ref: ^event_ref}} ->
+        state = stop_current_escape_monitor(state)
+        {reply, state} = cancel_current_turn_state(:operator_escape, state)
+        maybe_emit_cancel_feedback(reply, state)
+        {:noreply, state}
+
+      _other ->
+        {:noreply, state}
+    end
+  end
+
+  def handle_info({:DOWN, monitor_ref, :process, pid, _reason}, state) do
+    {:noreply, clear_escape_monitor(state, monitor_ref, pid)}
   end
 
   def handle_info({:coding_stream_event, turn_id, event}, state) do
@@ -171,6 +190,9 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       live_screen_server: Keyword.get(opts, :live_screen_server, Owl.LiveScreen),
       live_status_active?: false,
       input_fun: Keyword.get(opts, :input_fun, &default_input/1),
+      escape_monitor?:
+        Keyword.get(opts, :escape_monitor?, Keyword.get(opts, :auto_input?, false)),
+      escape_monitor_fun: Keyword.get(opts, :escape_monitor_fun, &EscapeMonitor.start/2),
       output_fun: Keyword.get(opts, :output_fun),
       max_text_bytes: Map.get(settings, "max_text_bytes", 12_000),
       coding_mode?: Keyword.get(opts, :coding_mode?, false),
@@ -293,6 +315,8 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
            send(parent, {:coding_tui_turn_finished, turn_id, reply, pi_session})
          end) do
       {:ok, pid} ->
+        escape_monitor = start_escape_monitor(state)
+
         {{:ok, {:accepted, turn_id}},
          %{
            state
@@ -300,6 +324,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
                turn_id: turn_id,
                pid: pid,
                live_region: live_region,
+               escape_monitor: escape_monitor,
                started_at: timestamp()
              }
          }}
@@ -418,11 +443,65 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     if CodingConfig.steer_enabled?() do
       turn_id = state.current_turn.turn_id
       reply = cancel_registered_turn(turn_id, reason, 20)
-      {reply, state}
+      {reply, maybe_stop_escape_monitor_after_cancel(reply, state)}
     else
       {{:error, :steer_disabled}, state}
     end
   end
+
+  defp maybe_stop_escape_monitor_after_cancel({:ok, {:cancel_requested, _result}}, state),
+    do: stop_current_escape_monitor(state)
+
+  defp maybe_stop_escape_monitor_after_cancel(_reply, state), do: state
+
+  defp start_escape_monitor(%{auto_input?: true, escape_monitor?: true} = state) do
+    event_ref = make_ref()
+
+    case state.escape_monitor_fun.(self(), event_ref) do
+      {:ok, pid} when is_pid(pid) ->
+        %{
+          event_ref: event_ref,
+          pid: pid,
+          monitor_ref: Process.monitor(pid)
+        }
+
+      :ignore ->
+        nil
+
+      {:error, reason} ->
+        Logger.debug("tui escape monitor did not start: #{inspect(reason)}")
+        nil
+
+      other ->
+        Logger.debug("tui escape monitor returned unexpected result: #{inspect(other)}")
+        nil
+    end
+  rescue
+    error ->
+      Logger.debug("tui escape monitor failed to start: #{Exception.message(error)}")
+      nil
+  end
+
+  defp start_escape_monitor(_state), do: nil
+
+  defp stop_current_escape_monitor(%{current_turn: %{escape_monitor: nil}} = state), do: state
+  defp stop_current_escape_monitor(%{current_turn: nil} = state), do: state
+
+  defp stop_current_escape_monitor(%{current_turn: %{escape_monitor: monitor} = turn} = state) do
+    send(monitor.pid, {:stop_escape_monitor, monitor.event_ref})
+    Process.demonitor(monitor.monitor_ref, [:flush])
+    %{state | current_turn: %{turn | escape_monitor: nil}}
+  end
+
+  defp clear_escape_monitor(%{current_turn: %{escape_monitor: monitor} = turn} = state, ref, pid) do
+    if monitor.monitor_ref == ref and monitor.pid == pid do
+      %{state | current_turn: %{turn | escape_monitor: nil}}
+    else
+      state
+    end
+  end
+
+  defp clear_escape_monitor(state, _ref, _pid), do: state
 
   defp cancel_registered_turn(turn_id, reason, retries) do
     case CodingTurnSupervisor.cancel(turn_id, reason) do

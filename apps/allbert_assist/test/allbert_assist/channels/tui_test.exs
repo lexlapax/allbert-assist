@@ -544,6 +544,113 @@ defmodule AllbertAssist.Channels.TUITest do
     assert_receive {:DOWN, ^ref, :process, ^server, :normal}
   end
 
+  test "auto input escape monitor cancels an async Pi-mode turn before the next prompt" do
+    repo =
+      Path.join(System.tmp_dir!(), "allbert-tui-pi-#{System.unique_integer([:positive])}")
+
+    File.mkdir_p!(repo)
+    on_exit(fn -> File.rm_rf(repo) end)
+    configure_pi_tui!(repo)
+    parent = self()
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        :ok =
+          AllbertAssist.Coding.TurnSupervisor.register_stream_cancel(
+            request.coding_turn_id,
+            fn -> send(parent, {:stream_cancelled, request.coding_turn_id}) end
+          )
+
+        send(parent, {:runtime_request, request})
+
+        receive do
+          :release_runtime ->
+            {:ok,
+             %{
+               model_payload: "model #{request.text}",
+               surface_payload: "done #{request.text}",
+               status: :completed
+             }}
+        after
+          5_000 ->
+            {:ok,
+             %{
+               model_payload: "model timeout",
+               surface_payload: "done timeout",
+               status: :completed
+             }}
+        end
+      end
+    )
+
+    input_fun = fn prompt ->
+      prompt_text = prompt |> Owl.Data.untag() |> IO.iodata_to_binary()
+      send(parent, {:tui_prompt, prompt_text})
+
+      receive do
+        {:next_input, input} -> input
+      after
+        5_000 -> "/quit"
+      end
+    end
+
+    escape_monitor_fun = fn owner, event_ref ->
+      monitor =
+        spawn(fn ->
+          send(parent, {:escape_monitor_started, self(), event_ref})
+
+          receive do
+            :send_escape ->
+              send(owner, {:coding_tui_escape, event_ref})
+
+            {:stop_escape_monitor, ^event_ref} ->
+              :ok
+          after
+            5_000 ->
+              :ok
+          end
+        end)
+
+      {:ok, monitor}
+    end
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: true,
+               emit_banner?: false,
+               enabled?: true,
+               live_screen?: false,
+               input_fun: input_fun,
+               escape_monitor_fun: escape_monitor_fun,
+               output_fun: fn line -> send(parent, {:tui_output, line}) end
+             )
+
+    assert_receive {:tui_prompt, "allbert:default> "}
+    send(server, {:next_input, "/pi #{repo}"})
+    assert_receive {:tui_output, "Pi-mode entered: " <> _entered}, 1_000
+    assert_receive {:tui_prompt, "allbert:default> "}, 1_000
+
+    send(server, {:next_input, "Read docs/plans/v0.57-plan.md"})
+    assert_receive {:runtime_request, request}, 1_000
+    assert request.text == "Read docs/plans/v0.57-plan.md"
+    assert Map.fetch!(request, :coding_turn?) == true
+    assert_receive {:escape_monitor_started, monitor, _event_ref}, 1_000
+
+    refute_receive {:tui_prompt, "allbert:default> "}, 100
+    send(monitor, :send_escape)
+
+    assert_receive {:stream_cancelled, turn_id}, 1_000
+    assert turn_id == request.coding_turn_id
+    assert_receive {:tui_output, "Cancellation requested for coding turn " <> _}, 1_000
+    assert_receive {:tui_output, "Turn cancelled:" <> _}, 1_000
+    assert_receive {:tui_prompt, "allbert:default> "}, 1_000
+
+    ref = Process.monitor(server)
+    send(server, {:next_input, "/quit"})
+    assert_receive {:DOWN, ^ref, :process, ^server, :normal}
+  end
+
   test "typed confirmation commands resolve without runtime submission" do
     configure_tui!()
     assert {:ok, confirmation} = create_confirmation!("conf_tui_typed", "tui")

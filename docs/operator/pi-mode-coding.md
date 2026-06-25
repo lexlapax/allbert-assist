@@ -1,6 +1,6 @@
 # Pi-Mode Coding Operator Guide
 
-Status: v0.57 M0-M9.22 are implemented. Release closeout is blocked on warm
+Status: v0.57 M0-M9.23 are implemented. Release closeout is blocked on warm
 operator validation against a real streaming/tool-capable coding profile. This guide
 describes the operator workflow for the Pi-mode coding surface. The
 release-authoritative validation checklist lives in
@@ -89,9 +89,13 @@ deliberately selected another known streaming/tool-call-capable profile.
 
 ## Terminal Turn Safety
 
-The TUI input loop is line-oriented. Enter each natural-language validation prompt
-as one physical terminal line unless a checklist step explicitly asks for multiple
-commands. A hard newline submits the current line as a complete turn.
+The TUI prompt input is line-oriented. Enter each natural-language validation
+prompt as one physical terminal line unless a checklist step explicitly asks for
+multiple commands. A hard newline submits the current line as a complete turn.
+During an accepted async Pi-mode coding turn, `mix allbert.tui` also runs a
+transient no-echo Esc monitor so a standalone Esc key can cancel the running turn
+without opening a second prompt. Esc must produce cancellation feedback; it must
+not appear in scrollback as literal `^[` characters.
 
 During an async Pi-mode coding turn, progress is written as ordinary transcript
 scrollback, not an erased terminal-live block. It may show assistant byte counts,
