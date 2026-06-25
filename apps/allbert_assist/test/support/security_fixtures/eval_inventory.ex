@@ -43,6 +43,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v0551
           | :v056
           | :v057
+          | :v058
 
   @type required_surface ::
           :resource_execution
@@ -73,7 +74,15 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :intent_routing
           | :operator_review
 
-  @type surface :: required_surface() | :workspace_live_navigation | :pi_mode_coding
+  @type surface ::
+          required_surface()
+          | :workspace_live_navigation
+          | :pi_mode_coding
+          | :surface_consistency
+          | :settings_enforcement
+          | :web_design_system
+          | :surface_policy
+          | :redundancy_consolidation
 
   @type row :: %{
           id: String.t(),
@@ -4304,6 +4313,248 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :denied,
       assert: [:security_central_intact, :no_active_app_authority, :no_resource_grant],
       test_module: "AllbertAssist.Security.V057CodingEvalTest"
+    },
+    %{
+      id: "surface-renderer-unified-parity-001",
+      milestone: :v058,
+      surface: :surface_consistency,
+      scenario: "Surfaces render through divergent text or component rendering paths",
+      boundary: :surface_renderer_contract,
+      expected: :allowed,
+      assert: [:single_renderer, :surface_payload_selected, :model_payload_hidden],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "surface-event-audit-parity-001",
+      milestone: :v058,
+      surface: :surface_consistency,
+      scenario: "Surface events omit the surface id or terminal runtime status from audit views",
+      boundary: :surface_event_audit,
+      expected: :allowed,
+      assert: [:surface_id_recorded, :terminal_status_recorded, :operator_audit_visible],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "web-reads-action-backed-001",
+      milestone: :v058,
+      surface: :surface_consistency,
+      scenario: "Web reads settings or operator data directly instead of registered actions",
+      boundary: :web_action_read_boundary,
+      expected: :denied,
+      assert: [:registered_action_required, :no_liveview_owned_policy],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "web-identity-resolved-001",
+      milestone: :v058,
+      surface: :surface_consistency,
+      scenario: "Web surface uses a hardcoded user identity instead of Identity.resolve",
+      boundary: :surface_identity_resolution,
+      expected: :denied,
+      assert: [:identity_resolved, :no_hardcoded_local_user],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "surface-invocation-shared-001",
+      milestone: :v058,
+      surface: :surface_consistency,
+      scenario: "Surface invocation builds ad-hoc action context instead of shared helpers",
+      boundary: :surface_invocation_context,
+      expected: :allowed,
+      assert: [:shared_invocation_helper, :context_shape_consistent],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "settings-no-bypass-001",
+      milestone: :v058,
+      surface: :settings_enforcement,
+      scenario: "Operator-tunable config is read through env or app config bypasses",
+      boundary: :settings_central_authority,
+      expected: :denied,
+      assert: [:credo_guard, :settings_central_only],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "design-tokens-global-001",
+      milestone: :v058,
+      surface: :web_design_system,
+      scenario: "Workspace design tokens are scoped to one shell instead of global roots",
+      boundary: :web_design_tokens,
+      expected: :allowed,
+      assert: [:global_tokens, :reduced_motion_global, :high_contrast_global],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "component-variant-registry-001",
+      milestone: :v058,
+      surface: :web_design_system,
+      scenario: "Component variants are chosen ad-hoc instead of through explicit props",
+      boundary: :web_component_variants,
+      expected: :allowed,
+      assert: [:variant_props, :unknown_variant_fails_fast],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "pattern-library-a11y-001",
+      milestone: :v058,
+      surface: :web_design_system,
+      scenario: "Shared patterns lose dialog semantics or focus handling",
+      boundary: :web_pattern_accessibility,
+      expected: :allowed,
+      assert: [:dialog_semantics, :focus_trap, :named_controls],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "all-pages-catalog-shell-001",
+      milestone: :v058,
+      surface: :web_design_system,
+      scenario: "Jobs, objectives, or workspace pages bypass the catalog shell",
+      boundary: :web_catalog_shell,
+      expected: :allowed,
+      assert: [:catalog_boundary, :single_workspace_shell],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "chat-primary-default-001",
+      milestone: :v058,
+      surface: :web_design_system,
+      scenario: "Workspace defaults away from chat-primary layout",
+      boundary: :workspace_layout_mode,
+      expected: :allowed,
+      assert: [:chat_primary_default, :canvas_drawer_closed],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "ephemeral-renders-as-modal-dialog-001",
+      milestone: :v058,
+      surface: :web_design_system,
+      scenario: "Ephemeral approval surfaces render as ordinary cards instead of modal dialogs",
+      boundary: :ephemeral_surface_rendering,
+      expected: :allowed,
+      assert: [:modal_dialog, :aria_modal, :focus_trap],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "conversations-relabel-ui-only-001",
+      milestone: :v058,
+      surface: :web_design_system,
+      scenario: "Conversation relabel changes internal thread/session identifiers",
+      boundary: :conversation_ui_label,
+      expected: :allowed,
+      assert: [:ui_label_only, :internal_names_unchanged],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "workspace-shell-validates-against-catalog-001",
+      milestone: :v058,
+      surface: :web_design_system,
+      scenario: "Workspace shell renders unknown or uncataloged components",
+      boundary: :workspace_catalog_validation,
+      expected: :denied,
+      assert: [:known_components_only, :safe_placeholder],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "fragment-emission-hmac-validated-001",
+      milestone: :v058,
+      surface: :web_design_system,
+      scenario: "Workspace fragment emission accepts unsigned or tampered envelopes",
+      boundary: :workspace_fragment_envelope,
+      expected: :denied,
+      assert: [:hmac_validated, :invalid_envelope_dropped],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "launcher-selection-view-only-001",
+      milestone: :v058,
+      surface: :web_design_system,
+      scenario:
+        "Launcher selection grants active app authority instead of changing view destination",
+      boundary: :workspace_launcher_destination,
+      expected: :denied,
+      assert: [:view_only_destination, :no_active_app_authority],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "mobile-single-column-and-reduced-motion-001",
+      milestone: :v058,
+      surface: :web_design_system,
+      scenario: "Mobile layout or reduced-motion support regresses to desktop-only behavior",
+      boundary: :responsive_workspace_shell,
+      expected: :allowed,
+      assert: [:mobile_single_column, :reduced_motion_global],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "intents-panel-v056-dto-parity-001",
+      milestone: :v058,
+      surface: :surface_policy,
+      scenario: "Web Intents panel invents a DTO instead of rendering v0.56 action output",
+      boundary: :operator_panel_dto,
+      expected: :allowed,
+      assert: [:v056_dto_reused, :registered_read_action],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "intents-panel-gated-promotion-001",
+      milestone: :v058,
+      surface: :surface_policy,
+      scenario: "Web Intents promotion affordance bypasses operator mutation gates",
+      boundary: :operator_panel_mutation_gate,
+      expected: :denied,
+      assert: [:promotion_gated, :non_routable_operator_action],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "models-panel-v056-dto-redaction-001",
+      milestone: :v058,
+      surface: :surface_policy,
+      scenario: "Models panel exposes provider endpoints or secrets while rendering DTOs",
+      boundary: :operator_panel_redaction,
+      expected: :denied,
+      assert: [:secrets_redacted, :inventory_affordance_required],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "surface-policy-raw-report-affordance-001",
+      milestone: :v058,
+      surface: :surface_policy,
+      scenario: "Raw or operator reports render without explicit operator affordance",
+      boundary: :surface_policy_report_shape,
+      expected: :denied,
+      assert: [:explicit_affordance_required, :assistant_summary_fallback],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "surface-policy-settings-central-001",
+      milestone: :v058,
+      surface: :surface_policy,
+      scenario: "Surface policy writes bypass Settings Central or lack schema validation",
+      boundary: :surface_policy_settings_authority,
+      expected: :denied,
+      assert: [:settings_central_write, :schema_validated],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "surface-policy-no-authority-grant-001",
+      milestone: :v058,
+      surface: :surface_policy,
+      scenario: "Surface policy configuration grants public tools or execution authority",
+      boundary: :surface_policy_authority,
+      expected: :denied,
+      assert: [:not_agent_exposable, :no_permission_grant],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
+    },
+    %{
+      id: "redundancy-consolidation-no-regression-001",
+      milestone: :v058,
+      surface: :redundancy_consolidation,
+      scenario:
+        "Shared helper consolidation changes mixed-key, stringify, or bounded-limit behavior",
+      boundary: :shared_helper_consolidation,
+      expected: :allowed,
+      assert: [:mixed_key_lookup_stable, :stringify_keys_stable, :limit_clamp_stable],
+      test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
     },
     %{
       id: "sandbox-backend-disabled-001",

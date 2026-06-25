@@ -32,6 +32,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v0551
       mix allbert.test release.v056
       mix allbert.test release.v057
+      mix allbert.test release.v058
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -135,6 +136,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v0551"]), do: release_v0551()
   def run(["release.v056"]), do: release_v056()
   def run(["release.v057"]), do: release_v057()
+  def run(["release.v058"]), do: release_v058()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -3122,6 +3124,211 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  @release_v058_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "surface_contract_units",
+      title: "surface renderer, event/audit, catalog, invocation, and identity units",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/surface/renderer_test.exs",
+        "test/allbert_assist/surface/event_recorder_test.exs",
+        "test/allbert_assist/surface/catalog_test.exs",
+        "test/allbert_assist/workspace/catalog_test.exs",
+        "test/allbert_assist/actions/helper_test.exs",
+        "test/allbert_assist/surfaces/context_builder_test.exs",
+        "test/allbert_assist/public_protocol/result_readback_test.exs",
+        "test/allbert_assist/public_protocol/mcp_stdio_server_test.exs"
+      ],
+      coverage: [
+        "one Surface.Renderer drives surface payload selection and redaction",
+        "surface events/audits record surface_id and terminal runtime status",
+        "catalog-owned workspace components and destinations stay uniform",
+        "shared invocation/context helpers preserve identity and action-backed reads",
+        "public protocol readback uses the same redacted DTO shape"
+      ]
+    },
+    %{
+      id: "settings_enforcement_units",
+      title: "Settings Central guard and operator-tunable schema units",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/settings/settings_central_no_bypass_check_test.exs",
+        "apps/allbert_assist/test/allbert_assist/settings/public_surface_schema_test.exs",
+        "apps/allbert_assist/test/allbert_assist/actions/settings_actions_test.exs",
+        "apps/allbert_assist/test/allbert_assist/actions/channels/list_channels_test.exs"
+      ],
+      coverage: [
+        "operator-tunable config bypasses are caught by the Credo guard",
+        "new v0.58 keys are schema-backed and safe-write validated",
+        "settings/channel operator reports are surface-policy bounded"
+      ]
+    },
+    %{
+      id: "web_catalog_design_units",
+      title: "web catalog, design-system, accessibility, responsive, and shell units",
+      cwd: :web,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist_web/workspace/design_system_tokens_test.exs",
+        "test/allbert_assist_web/workspace/components/patterns_test.exs",
+        "test/allbert_assist_web/workspace/accessibility_test.exs",
+        "test/allbert_assist_web/workspace/responsive_test.exs",
+        "test/allbert_assist_web/workspace/renderer_test.exs",
+        "test/allbert_assist_web/live/workspace_live_test.exs:84",
+        "test/allbert_assist_web/live/workspace_live_test.exs:491",
+        "test/allbert_assist_web/live/workspace_live_test.exs:685",
+        "test/allbert_assist_web/live/workspace_live_test.exs:1122",
+        "test/allbert_assist_web/live/workspace_live_test.exs:1143",
+        "test/allbert_assist_web/live/workspace_live_test.exs:2176"
+      ],
+      coverage: [
+        "global tokens, component variants, and shared modal pattern stay enforced",
+        "chat-primary shell, Conversations label, launcher, canvas drawer, and mobile states render",
+        "ephemerals render as dialogs and fragments enter through the catalog shell",
+        "operator panels render through the web renderer without raw endpoint/secret exposure"
+      ]
+    },
+    %{
+      id: "operator_panel_policy_units",
+      title: "v0.56 operator DTO panels and surface-policy units",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/actions/intent/operator_read_actions_test.exs",
+        "test/allbert_assist/actions/intent/operator_mutation_actions_test.exs",
+        "test/allbert_assist/actions/surface_policy_actions_test.exs",
+        "test/allbert_assist/actions/registry_test.exs"
+      ],
+      coverage: [
+        "Intents panel DTOs reuse v0.56 registered operator actions",
+        "promotion affordances remain gated and non-routable",
+        "Models and surface-policy DTOs redact secrets and grant no public authority",
+        "surface_policy read/update actions stay internal registered actions"
+      ]
+    },
+    %{
+      id: "redundancy_helper_units",
+      title: "shared helper consolidation regression units",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/helper_modules_test.exs",
+        "test/allbert_assist/mcp/registry/official_test.exs",
+        "test/allbert_assist/mcp/registry/pulse_mcp_test.exs",
+        "test/allbert_assist/tools/discovery_test.exs",
+        "test/allbert_assist/tools/mcp_registry_source_test.exs",
+        "test/allbert_assist/tools/finder_test.exs",
+        "test/allbert_assist/actions/mcp_connect_actions_test.exs",
+        "test/allbert_assist/workflows/expander_test.exs",
+        "test/allbert_assist/actions/plan_build_actions_test.exs"
+      ],
+      coverage: [
+        "shared mixed-key, stringify, limit, and setting helpers preserve prior behavior",
+        "MCP registry/connect/discovery, workflow expansion, and Plan-Build callers stay stable"
+      ]
+    },
+    %{
+      id: "v058_eval",
+      title: ":v058 surface consistency security eval inventory",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v058_surface_consistency_eval_test.exs",
+        "test/security/security_eval_case_test.exs",
+        "test/mix/tasks/allbert_test_task_test.exs"
+      ],
+      coverage: [
+        "v0.58 eval rows are wired into EvalInventory",
+        "release.v058 is visible in the Mix task usage",
+        "surface, settings, web, panel-policy, and helper consolidation rows remain complete"
+      ]
+    }
+  ]
+
+  defp release_v058 do
+    env = owned_env("release-v058", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v058")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v058_steps, &run_release_v058_step(&1, env))
+    secret_scan = release_channel_pack_secret_scan(home, "release.v058")
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v058",
+      version: "v0.58",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; deterministic surface, settings, web catalog, operator-panel, surface-policy, and helper-consolidation units run against local fixtures only",
+      notes:
+        "browser-control/manual operator validation remains required by the v0.58 request flow before closeout",
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v058-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v058 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v058 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v058_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v058 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -3586,6 +3793,7 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp release_step_cwd(:core), do: app_cwd(:core)
   defp release_step_cwd(:web), do: app_cwd(:web)
+  defp release_step_cwd(:root), do: root()
 
   defp release_v042_secret_scan(home) do
     Enum.each(
@@ -5089,6 +5297,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v0551
       mix allbert.test release.v056
       mix allbert.test release.v057
+      mix allbert.test release.v058
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

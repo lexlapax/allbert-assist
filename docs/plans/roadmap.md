@@ -3582,7 +3582,8 @@ ADRs: `docs/adr/0073-cross-surface-contract.md` (NEW),
 ADR 0016/0030/0070, the ADR 0004/0031 settings-enforcement note, and the ADR 0024
 chat-primary revision.
 
-Status: implementation in progress, complete through M12. **Rescoped 2026-06-24**
+Status: implementation complete through M13; M14 manual operator validation is next.
+**Rescoped 2026-06-24**
 from the earlier narrow web/policy framing into the **pre-1.0 consolidation
 release**, after the v0.57 closeout and a full surface/settings/UX/redundancy
 survey. The original web re-layout, the v0.56 DTO panels, and the operator
@@ -3616,6 +3617,11 @@ Expected direction (four pillars, all on the existing authority spine):
 - **Operator-managed surface policy** (preserved): Settings-Central-backed policy
   DTOs/actions + a web panel governing per-surface report mode, redaction/display
   profile, bounds, and explicit affordances — presentation governance only.
+- **M13 release gate**: `mix allbert.test release.v058` now bundles disposable
+  migration, surface contract units, Settings Central guard/schema checks,
+  web/catalog/design-system conformance, operator-panel DTO and surface-policy
+  units, helper-consolidation regressions, `:v058` eval inventory checks, task
+  usage checks, and the release-home secret scan.
 
 Hands off to v0.59: the uniform surface base lets v0.59 do settings migration
 (ADR 0046), **central action param-contract enforcement (ADR 0065)** on the now-

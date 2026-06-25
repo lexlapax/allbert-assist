@@ -1,6 +1,6 @@
 # Surface Contract
 
-Status: v0.58 implementation contract; implemented through M12.
+Status: v0.58 implementation contract; implemented through M13.
 
 Authority: `docs/adr/0073-cross-surface-contract.md`,
 `docs/plans/v0.58-plan.md`, and
@@ -142,7 +142,13 @@ For each surface:
 - public protocol tool lists include only public-safe tools;
 - redaction hides secrets, endpoints, raw prompts, provider bodies, and raw
   descriptor/evidence payloads;
-- focused tests and `release.v058` cover the surface.
+- focused tests and `mix allbert.test release.v058` cover the surface.
+
+`release.v058` is the M13 deterministic gate. It bundles disposable migration,
+surface contract units, Settings Central guard/schema checks, web/catalog/design
+system units, operator-panel DTO and surface-policy units, helper-consolidation
+regressions, `:v058` eval inventory checks, task usage checks, and the release-home
+secret scan.
 
 ## Operator Evidence
 

@@ -1,3 +1,5 @@
+{:ok, _apps} = Application.ensure_all_started(:credo)
+
 Code.require_file(
   Path.expand("../../../../../priv/credo_checks/settings_central_no_bypass.ex", __DIR__)
 )
@@ -7,11 +9,6 @@ defmodule AllbertAssist.SettingsCentralNoBypassCheckTest do
 
   alias AllbertAssist.Credo.Check.SettingsCentralNoBypass
   alias Credo.SourceFile
-
-  setup_all do
-    {:ok, _apps} = Application.ensure_all_started(:credo)
-    :ok
-  end
 
   test "flags operator env and app config bypasses in production source" do
     source = """
