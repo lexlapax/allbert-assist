@@ -10,6 +10,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Channels.InboundTrust
   alias AllbertAssist.Channels.TUI.EscapeMonitor
+  alias AllbertAssist.Channels.TUI.InputDriver
   alias AllbertAssist.Channels.TUI.LiveRegion
   alias AllbertAssist.Channels.TUI.Renderer
   alias AllbertAssist.Channels.TUI.SlashCommands
@@ -64,10 +65,17 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       |> emit_banner()
 
     if state.enabled? and state.auto_input? do
-      Process.send_after(self(), :read_input, 0)
+      state = start_auto_input(state)
+      {:ok, state}
+    else
+      {:ok, state}
     end
+  end
 
-    {:ok, state}
+  @impl true
+  def terminate(_reason, state) do
+    stop_input_driver(state)
+    :ok
   end
 
   @impl true
@@ -85,26 +93,40 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   def handle_info(:read_input, state) do
     state = update_live_status(state, :ready)
 
-    case state.input_fun.(Renderer.prompt(state.profile)) |> normalize_input() do
-      :escape ->
-        {reply, state} = cancel_current_turn_state(:operator_escape, state)
-        maybe_emit_cancel_feedback(reply, state)
-        Process.send_after(self(), :read_input, 0)
-        {:noreply, state}
+    state.input_fun.(Renderer.prompt(state.profile))
+    |> normalize_input()
+    |> handle_auto_input(state)
+  end
 
-      command when is_binary(command) ->
-        if MapSet.member?(@quit_commands, command) do
-          {:stop, :normal, state}
-        else
-          state = update_live_status(state, :processing)
-          {reply, state} = handle_text_submission(command, [async?: state.coding_mode?], state)
-          state = maybe_schedule_next_read(reply, state)
-          {:noreply, state}
-        end
+  def handle_info(
+        {:tui_input_line, driver_pid, text},
+        %{input_driver: %{pid: driver_pid}} = state
+      ) do
+    text
+    |> normalize_input()
+    |> handle_auto_input(state)
+  end
 
-      _other ->
-        Process.send_after(self(), :read_input, 0)
-        {:noreply, state}
+  def handle_info({:tui_input_escape, driver_pid}, %{input_driver: %{pid: driver_pid}} = state) do
+    {reply, state} = cancel_current_turn_state(:operator_escape, state)
+    maybe_emit_cancel_feedback(reply, state)
+    {:noreply, state}
+  end
+
+  def handle_info(
+        {:tui_input_quit, driver_pid, _reason},
+        %{input_driver: %{pid: driver_pid}} = state
+      ) do
+    {:stop, :normal, state}
+  end
+
+  def handle_info({:DOWN, monitor_ref, :process, pid, reason}, state) do
+    cond do
+      input_driver_down?(state, monitor_ref, pid) ->
+        {:noreply, handle_input_driver_down(reason, state)}
+
+      true ->
+        {:noreply, clear_escape_monitor(state, monitor_ref, pid)}
     end
   end
 
@@ -130,10 +152,11 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       end
 
     if state.auto_input? and is_nil(state.current_turn) do
-      Process.send_after(self(), :read_input, 0)
+      state = maybe_schedule_next_prompt(state)
+      {:noreply, state}
+    else
+      {:noreply, state}
     end
-
-    {:noreply, state}
   end
 
   def handle_info({:coding_tui_escape, event_ref}, state) do
@@ -149,10 +172,6 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     end
   end
 
-  def handle_info({:DOWN, monitor_ref, :process, pid, _reason}, state) do
-    {:noreply, clear_escape_monitor(state, monitor_ref, pid)}
-  end
-
   def handle_info({:coding_stream_event, turn_id, event}, state) do
     state =
       case state.current_turn do
@@ -164,6 +183,30 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       end
 
     {:noreply, state}
+  end
+
+  defp handle_auto_input(input, state) do
+    case input do
+      :escape ->
+        {reply, state} = cancel_current_turn_state(:operator_escape, state)
+        maybe_emit_cancel_feedback(reply, state)
+        state = maybe_schedule_next_prompt(state)
+        {:noreply, state}
+
+      command when is_binary(command) ->
+        if MapSet.member?(@quit_commands, command) do
+          {:stop, :normal, state}
+        else
+          state = update_live_status(state, :processing)
+          {reply, state} = handle_text_submission(command, [async?: state.coding_mode?], state)
+          state = maybe_schedule_next_read(reply, state)
+          {:noreply, state}
+        end
+
+      _other ->
+        state = maybe_schedule_next_prompt(state)
+        {:noreply, state}
+    end
   end
 
   defp load_state(opts) do
@@ -190,6 +233,10 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       live_screen_server: Keyword.get(opts, :live_screen_server, Owl.LiveScreen),
       live_status_active?: false,
       input_fun: Keyword.get(opts, :input_fun, &default_input/1),
+      input_driver?: Keyword.get(opts, :input_driver?, false),
+      input_driver_fun: Keyword.get(opts, :input_driver_fun, &InputDriver.start_link/2),
+      input_driver_opts: Keyword.get(opts, :input_driver_opts, []),
+      input_driver: nil,
       escape_monitor?:
         Keyword.get(opts, :escape_monitor?, Keyword.get(opts, :auto_input?, false)),
       escape_monitor_fun: Keyword.get(opts, :escape_monitor_fun, &EscapeMonitor.start/2),
@@ -217,6 +264,94 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
       state: Renderer.status(profile, :starting),
       render: &Function.identity/1
     )
+  end
+
+  defp start_auto_input(%{input_driver?: true} = state) do
+    case state.input_driver_fun.(self(), state.input_driver_opts) do
+      {:ok, pid} when is_pid(pid) ->
+        state
+        |> Map.put(:input_driver, %{pid: pid, monitor_ref: Process.monitor(pid)})
+        |> maybe_schedule_next_prompt()
+
+      {:error, reason} ->
+        emit_output(
+          "TUI input driver unavailable: #{inspect(Redactor.redact(reason))}. Falling back to line input; Esc validation will fail.",
+          state
+        )
+
+        Process.send_after(self(), :read_input, 0)
+        %{state | input_driver?: false, input_driver: nil}
+
+      other ->
+        emit_output(
+          "TUI input driver unavailable: #{inspect(Redactor.redact(other))}. Falling back to line input; Esc validation will fail.",
+          state
+        )
+
+        Process.send_after(self(), :read_input, 0)
+        %{state | input_driver?: false, input_driver: nil}
+    end
+  end
+
+  defp start_auto_input(state) do
+    Process.send_after(self(), :read_input, 0)
+    state
+  end
+
+  defp maybe_schedule_next_prompt(%{input_driver: %{pid: pid}} = state) do
+    InputDriver.prompt(pid, Renderer.prompt(state.profile) |> Owl.Data.to_chardata())
+    state
+  end
+
+  defp maybe_schedule_next_prompt(%{auto_input?: true} = state) do
+    Process.send_after(self(), :read_input, 0)
+    state
+  end
+
+  defp maybe_schedule_next_prompt(state), do: state
+
+  defp notify_active_input_turn(%{input_driver: %{pid: pid}} = state, turn_id) do
+    InputDriver.active_turn(pid, turn_id)
+    state
+  end
+
+  defp notify_active_input_turn(state, _turn_id), do: state
+
+  defp stop_input_driver(%{input_driver: %{pid: pid, monitor_ref: monitor_ref}} = state) do
+    Process.demonitor(monitor_ref, [:flush])
+
+    if Process.alive?(pid) do
+      GenServer.stop(pid, :normal, 1_000)
+    end
+
+    %{state | input_driver: nil}
+  rescue
+    error ->
+      Logger.debug("tui input driver stop failed: #{Exception.message(error)}")
+      %{state | input_driver: nil}
+  catch
+    :exit, reason ->
+      Logger.debug("tui input driver stop failed: #{inspect(reason)}")
+      %{state | input_driver: nil}
+  end
+
+  defp stop_input_driver(state), do: state
+
+  defp input_driver_down?(%{input_driver: %{pid: pid, monitor_ref: monitor_ref}}, ref, down_pid),
+    do: ref == monitor_ref and down_pid == pid
+
+  defp input_driver_down?(_state, _ref, _pid), do: false
+
+  defp handle_input_driver_down(reason, state) do
+    Logger.debug("tui input driver exited: #{inspect(reason)}")
+
+    emit_output(
+      "TUI input driver stopped: #{inspect(Redactor.redact(reason))}. Falling back to line input; Esc validation will fail.",
+      state
+    )
+
+    %{state | input_driver: nil, input_driver?: false}
+    |> maybe_schedule_next_prompt()
   end
 
   defp emit_banner(%{enabled?: false} = state), do: state
@@ -316,6 +451,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
          end) do
       {:ok, pid} ->
         escape_monitor = start_escape_monitor(state)
+        state = notify_active_input_turn(state, turn_id)
 
         {{:ok, {:accepted, turn_id}},
          %{
@@ -453,6 +589,8 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     do: stop_current_escape_monitor(state)
 
   defp maybe_stop_escape_monitor_after_cancel(_reply, state), do: state
+
+  defp start_escape_monitor(%{input_driver: %{pid: pid}}) when is_pid(pid), do: nil
 
   defp start_escape_monitor(%{auto_input?: true, escape_monitor?: true} = state) do
     event_ref = make_ref()
@@ -1398,8 +1536,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   defp maybe_schedule_next_read({:ok, {:accepted, _turn_id}}, state), do: state
 
   defp maybe_schedule_next_read(_reply, %{auto_input?: true} = state) do
-    Process.send_after(self(), :read_input, 0)
-    state
+    maybe_schedule_next_prompt(state)
   end
 
   defp maybe_schedule_next_read(_reply, state), do: state

@@ -88,6 +88,8 @@ defmodule Mix.Tasks.Allbert.Tui do
         existing_tui_child_opts,
         enabled?: true,
         auto_input?: true,
+        input_driver?: true,
+        escape_monitor?: false,
         emit_banner?: true,
         live_screen?: false,
         restart: :transient

@@ -531,6 +531,99 @@ defmodule AllbertAssist.Channels.TUITest do
     assert_receive {:input_driver_raw, :disabled}
   end
 
+  test "auto input driver cancels an async Pi-mode turn without escape monitor helper" do
+    repo =
+      Path.join(System.tmp_dir!(), "allbert-tui-pi-#{System.unique_integer([:positive])}")
+
+    File.mkdir_p!(repo)
+    on_exit(fn -> File.rm_rf(repo) end)
+    configure_pi_tui!(repo)
+    parent = self()
+
+    Application.put_env(:allbert_assist, Runtime,
+      agent_runner: fn _signal, request ->
+        :ok =
+          AllbertAssist.Coding.TurnSupervisor.register_stream_cancel(
+            request.coding_turn_id,
+            fn -> send(parent, {:stream_cancelled, request.coding_turn_id}) end
+          )
+
+        send(parent, {:runtime_request, request})
+
+        receive do
+          :release_runtime ->
+            {:ok,
+             %{
+               model_payload: "model #{request.text}",
+               surface_payload: "done #{request.text}",
+               status: :completed
+             }}
+        after
+          5_000 ->
+            {:ok,
+             %{
+               model_payload: "model timeout",
+               surface_payload: "done timeout",
+               status: :completed
+             }}
+        end
+      end
+    )
+
+    callbacks = input_driver_callbacks(parent)
+
+    escape_monitor_fun = fn _owner, _event_ref ->
+      send(parent, :escape_monitor_should_not_start)
+      :ignore
+    end
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: true,
+               input_driver?: true,
+               emit_banner?: false,
+               enabled?: true,
+               live_screen?: false,
+               input_driver_opts: [
+                 enable_raw: callbacks.enable_raw,
+                 disable_raw: callbacks.disable_raw,
+                 start_reader: callbacks.start_reader,
+                 output_fun: callbacks.output_fun
+               ],
+               escape_monitor_fun: escape_monitor_fun,
+               output_fun: fn line -> send(parent, {:tui_output, line}) end
+             )
+
+    assert_receive {:input_driver_raw, :enabled}
+    assert_receive {:input_driver_reader, reader}
+    assert_receive {:input_driver_output, "allbert:default> "}
+
+    send_input_driver_line(reader, "/pi #{repo}")
+    assert_receive {:tui_output, "Pi-mode entered: " <> _entered}, 1_000
+    assert_receive {:input_driver_output, "allbert:default> "}, 1_000
+
+    send_input_driver_line(reader, "Read docs/plans/v0.57-plan.md")
+    assert_receive {:runtime_request, request}, 1_000
+    assert request.text == "Read docs/plans/v0.57-plan.md"
+    assert Map.fetch!(request, :coding_turn?) == true
+    refute_received :escape_monitor_should_not_start
+
+    send(reader, {:send_char, "\e"})
+
+    assert_receive {:stream_cancelled, turn_id}, 1_000
+    assert turn_id == request.coding_turn_id
+    assert_receive {:tui_output, "Cancellation requested for coding turn " <> _}, 1_000
+    assert_receive {:tui_output, "Turn cancelled:" <> _}, 1_000
+    assert_receive {:input_driver_output, "allbert:default> "}, 1_000
+    refute_received {:input_driver_output, "^["}
+
+    ref = Process.monitor(server)
+    send_input_driver_line(reader, "/quit")
+    assert_receive {:DOWN, ^ref, :process, ^server, :normal}
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
   test "auto input waits for an async Pi-mode turn before opening the next prompt" do
     repo =
       Path.join(System.tmp_dir!(), "allbert-tui-pi-#{System.unique_integer([:positive])}")
@@ -954,6 +1047,14 @@ defmodule AllbertAssist.Channels.TUITest do
       :stop ->
         :ok
     end
+  end
+
+  defp send_input_driver_line(reader, line) do
+    line
+    |> String.graphemes()
+    |> Enum.each(fn char -> send(reader, {:send_char, char}) end)
+
+    send(reader, {:send_char, "\n"})
   end
 
   defp create_confirmation!(id, channel) do

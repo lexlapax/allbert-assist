@@ -2,10 +2,10 @@
 
 Status: v0.57 M0-M9.25 are implemented, but live S4.9 validation invalidated the
 M9.23-M9.25 Esc-helper capture strategy. M9.27 proves the raw input-driver
-substrate with `mix allbert.tui --input-driver-proof`. Release closeout is
-blocked until M9.28-M9.30 wire and validate that input driver in normal Pi-mode
-turns. This guide describes the operator workflow for the Pi-mode coding surface.
-The
+substrate with `mix allbert.tui --input-driver-proof`, and M9.28 wires that
+driver into normal `mix allbert.tui`. Release closeout is blocked until
+M9.29-M9.30 rewrite validation and re-gate the normal Pi-mode flow. This guide
+describes the operator workflow for the Pi-mode coding surface. The
 release-authoritative validation checklist lives in
 `docs/plans/v0.57-request-flow.md#operator-validation`.
 
@@ -101,10 +101,10 @@ Single-key Esc cancellation is a Pi-mode extension, not a v0.55 line-mode
 feature. The M9.23-M9.25 side-channel/helper approaches did not pass live S4.9:
 literal `^[` scrollback, `Esc cancellation monitor unavailable: ...`, or
 `/dev/tty: Device not configured` mean the terminal-input substrate is still
-blocked. M9.27's proof harness shows the replacement substrate can consume Esc
-without `^[`; do not treat `^[` as an operator typo. It is release-blocking TUI
-input evidence until the M9.28 interrupt-capable input driver lands in normal TUI
-turns and S4.9 is rewritten.
+blocked. M9.27's proof harness and M9.28's normal-launch smoke show the
+replacement substrate can consume Esc without `^[`; do not treat `^[` as an
+operator typo. It remains release-blocking TUI input evidence if it appears after
+M9.28, and S4.9 must be rewritten before validation resumes.
 
 `/quit` and `/exit` are local TUI lifecycle aliases. They must stop the terminal
 session and must never be routed to the model, even if prior Esc/control bytes were

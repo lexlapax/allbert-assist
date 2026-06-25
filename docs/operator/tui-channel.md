@@ -66,7 +66,9 @@ For the v0.57 terminal-input proof only, run
 `mix allbert.tui --input-driver-proof` inside the same transcript wrapper shape
 used by validation and press Esc. Expected: `PROOF:ESC` with no literal `^[` in
 the transcript. This proof mode does not run a Pi-mode coding turn; normal
-operator validation still uses `mix allbert.tui`.
+operator validation still uses `mix allbert.tui`. As of v0.57 M9.28, normal
+`mix allbert.tui` also uses the interrupt-capable input driver while preserving
+scrollback-native output.
 
 `mix allbert.tui` keeps the live terminal readable by default: startup
 plugin/query chatter is suppressed, app logs below warning stay quiet after
