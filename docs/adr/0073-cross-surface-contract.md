@@ -62,7 +62,8 @@ A conformant surface MUST:
    storage, or `Settings.Store` directly.
 3. **Render through the one renderer.** Surfaces render the typed
    `Runtime.Response` (`model_payload` / `surface_payload`) through the single
-   `Surface.Renderer` against a surface descriptor (primitives, ADR 0052). The
+   `Surface.Renderer` against a surface descriptor (render primitives — the
+   `[:typed_command, :list, :button, :link]` set defined by ADR 0016). The
    five bespoke renderers are collapsed into this one path; `model_payload` never
    leaks `surface_payload` chrome, and only `model_payload` threads into memory.
 4. **Record events + trace uniformly.** Every surface records inbound, rejection,

@@ -14,7 +14,8 @@ Rationale source: the v0.58 rescope web-UX survey (2026-06-24).
 The web app has the bones of a design system but not a coherent one. The v0.58
 survey found:
 
-- A **42-atom component catalog** (ADR 0030) and a declarative workspace tree
+- A **component catalog** (ADR 0030; ~54 registered atoms as of 2026-06-24, the
+  count is not load-bearing) and a declarative workspace tree
   exist, and the workspace renders entirely through the catalog. **Color tokens**
   (CSS custom properties), dark mode, and accessibility semantics
   (`role=dialog`/`aria-modal`/FocusTrap, high-contrast, reduced-motion) exist —
