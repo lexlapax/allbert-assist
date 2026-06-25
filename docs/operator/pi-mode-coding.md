@@ -3,9 +3,10 @@
 Status: v0.57 M0-M9.25 are implemented, but live S4.9 validation invalidated the
 M9.23-M9.25 Esc-helper capture strategy. M9.27 proves the raw input-driver
 substrate with `mix allbert.tui --input-driver-proof`, and M9.28 wires that
-driver into normal `mix allbert.tui`. M9.29 rewrites S4.9 around the live driver.
-Release closeout is blocked until M9.30 re-gates the normal Pi-mode flow. This
-guide describes the operator workflow for the Pi-mode coding surface. The
+driver into normal `mix allbert.tui`. M9.29 rewrites S4.9 around the live driver,
+and M9.30 re-gates the normal Pi-mode flow. Operator validation can resume at
+S4.9 after restarting `mix allbert.tui` on M9.30+ code. This guide describes the
+operator workflow for the Pi-mode coding surface. The
 release-authoritative validation checklist lives in
 `docs/plans/v0.57-request-flow.md#operator-validation`.
 
