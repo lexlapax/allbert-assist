@@ -62,6 +62,12 @@ Esc cancellation is a v0.57 input-driver extension layered on the same channel;
 it is not evidence that the v0.55 scrollback-native TUI needs a full-screen or
 alternate-screen rewrite.
 
+For the v0.57 terminal-input proof only, run
+`mix allbert.tui --input-driver-proof` inside the same transcript wrapper shape
+used by validation and press Esc. Expected: `PROOF:ESC` with no literal `^[` in
+the transcript. This proof mode does not run a Pi-mode coding turn; normal
+operator validation still uses `mix allbert.tui`.
+
 `mix allbert.tui` keeps the live terminal readable by default: startup
 plugin/query chatter is suppressed, app logs below warning stay quiet after
 startup, and Ecto query debug logs are disabled. To turn post-start diagnostic

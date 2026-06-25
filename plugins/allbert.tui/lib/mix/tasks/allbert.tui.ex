@@ -5,11 +5,13 @@ defmodule Mix.Tasks.Allbert.Tui do
   ## Usage
 
       mix allbert.tui
+      mix allbert.tui --input-driver-proof
   """
 
   use Mix.Task
 
   alias AllbertAssist.Channels.TUI.Adapter
+  alias AllbertAssist.Channels.TUI.InputDriver
   alias AllbertAssist.PublicProtocol.StdioGuard
 
   @shortdoc "Run the local Allbert terminal TUI"
@@ -30,8 +32,13 @@ defmodule Mix.Tasks.Allbert.Tui do
         wait_for_tui_exit!()
         :ok
 
+      ["--input-driver-proof"] ->
+        Mix.Task.run("app.config")
+        configure_operator_logging!()
+        run_input_driver_proof!()
+
       _args ->
-        Mix.raise("Usage: mix allbert.tui")
+        Mix.raise("Usage: mix allbert.tui [--input-driver-proof]")
     end
   end
 
@@ -136,6 +143,16 @@ defmodule Mix.Tasks.Allbert.Tui do
       {:shutdown, _reason} -> :ok
       {:error, reason} -> Mix.raise("TUI channel is not running: #{inspect(reason)}")
       reason -> Mix.raise("TUI channel exited unexpectedly: #{inspect(reason)}")
+    end
+  end
+
+  defp run_input_driver_proof! do
+    Owl.IO.puts("Allbert TUI input-driver proof.")
+    Owl.IO.puts("Press Esc to validate single-key capture, or type a line and Enter.")
+
+    case InputDriver.run_proof() do
+      :ok -> :ok
+      {:error, reason} -> Mix.raise("TUI input-driver proof failed: #{inspect(reason)}")
     end
   end
 end

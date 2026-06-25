@@ -6,6 +6,7 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.TUI.Adapter
   alias AllbertAssist.Channels.TUI.EscapeMonitor
+  alias AllbertAssist.Channels.TUI.InputDriver
   alias AllbertAssist.Channels.TUI.Renderer
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
@@ -470,6 +471,66 @@ defmodule AllbertAssist.Channels.TUITest do
     refute status_text =~ "allbert:default>"
   end
 
+  test "input driver emits line events and handles backspace without line-mode input" do
+    parent = self()
+    callbacks = input_driver_callbacks(parent)
+
+    assert {:ok, driver} =
+             InputDriver.start_link(parent,
+               enable_raw: callbacks.enable_raw,
+               disable_raw: callbacks.disable_raw,
+               start_reader: callbacks.start_reader,
+               output_fun: callbacks.output_fun
+             )
+
+    assert_receive {:input_driver_raw, :enabled}
+    assert_receive {:input_driver_reader, reader}
+
+    InputDriver.prompt(driver, "allbert:proof> ")
+    assert_receive {:input_driver_output, "allbert:proof> "}
+
+    send(reader, {:send_char, "h"})
+    send(reader, {:send_char, "i"})
+    send(reader, {:send_char, <<127>>})
+    send(reader, {:send_char, "!"})
+    send(reader, {:send_char, "\n"})
+
+    assert_receive {:input_driver_output, "h"}
+    assert_receive {:input_driver_output, "i"}
+    assert_receive {:input_driver_output, "\b \b"}
+    assert_receive {:input_driver_output, "!"}
+    assert_receive {:input_driver_output, "\n"}
+    assert_receive {:tui_input_line, ^driver, "h!"}
+
+    GenServer.stop(driver)
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
+  test "input driver emits standalone escape without echoing terminal controls" do
+    parent = self()
+    callbacks = input_driver_callbacks(parent)
+
+    assert {:ok, driver} =
+             InputDriver.start_link(parent,
+               enable_raw: callbacks.enable_raw,
+               disable_raw: callbacks.disable_raw,
+               start_reader: callbacks.start_reader,
+               output_fun: callbacks.output_fun
+             )
+
+    assert_receive {:input_driver_raw, :enabled}
+    assert_receive {:input_driver_reader, reader}
+
+    InputDriver.active_turn(driver, "turn-input-driver-escape")
+    send(reader, {:send_char, "\e"})
+
+    assert_receive {:tui_input_escape, ^driver}
+    refute_received {:input_driver_output, "^["}
+
+    GenServer.stop(driver)
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
   test "auto input waits for an async Pi-mode turn before opening the next prompt" do
     repo =
       Path.join(System.tmp_dir!(), "allbert-tui-pi-#{System.unique_integer([:positive])}")
@@ -857,6 +918,42 @@ defmodule AllbertAssist.Channels.TUITest do
 
     assert {:ok, _setting} =
              Settings.put("coding.model_profile", "pi_coding_local", %{audit?: false})
+  end
+
+  defp input_driver_callbacks(parent) do
+    %{
+      enable_raw: fn ->
+        send(parent, {:input_driver_raw, :enabled})
+        :ok
+      end,
+      disable_raw: fn ->
+        send(parent, {:input_driver_raw, :disabled})
+        :ok
+      end,
+      start_reader: fn driver, _read_char ->
+        reader =
+          spawn_link(fn ->
+            send(parent, {:input_driver_reader, self()})
+            input_driver_reader_loop(driver)
+          end)
+
+        {:ok, reader}
+      end,
+      output_fun: fn chardata ->
+        send(parent, {:input_driver_output, IO.iodata_to_binary(chardata)})
+      end
+    }
+  end
+
+  defp input_driver_reader_loop(driver) do
+    receive do
+      {:send_char, char} ->
+        send(driver, {:tui_input_driver_char, self(), char})
+        input_driver_reader_loop(driver)
+
+      :stop ->
+        :ok
+    end
   end
 
   defp create_confirmation!(id, channel) do
