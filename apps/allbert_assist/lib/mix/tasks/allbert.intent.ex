@@ -47,7 +47,7 @@ defmodule Mix.Tasks.Allbert.Intent do
 
   defp dispatch(["coverage"]) do
     "intent_coverage"
-    |> completed_action(%{})
+    |> completed_action(operator_report_params())
     |> print_message()
   end
 
@@ -135,7 +135,7 @@ defmodule Mix.Tasks.Allbert.Intent do
 
   defp dispatch(["list"]) do
     "intent_list_descriptors"
-    |> completed_action(%{})
+    |> completed_action(operator_report_params())
     |> print_message()
   end
 
@@ -177,7 +177,7 @@ defmodule Mix.Tasks.Allbert.Intent do
 
   defp dispatch(["review"]) do
     "intent_list_review"
-    |> completed_action(%{})
+    |> completed_action(operator_report_params())
     |> print_message()
   end
 
@@ -206,6 +206,10 @@ defmodule Mix.Tasks.Allbert.Intent do
   end
 
   defp print_message(%{message: message}), do: Mix.shell().info(message)
+
+  defp operator_report_params do
+    %{render_mode: "operator_report", surface_policy_affordance: true}
+  end
 
   defp print_bench(%{summary: s}) do
     Mix.shell().info("""

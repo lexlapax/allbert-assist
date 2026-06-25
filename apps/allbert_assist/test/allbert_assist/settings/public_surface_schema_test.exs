@@ -104,7 +104,7 @@ defmodule AllbertAssist.Settings.PublicSurfaceSchemaTest do
             {:invalid_setting, "surface_policy.surfaces.mcp_http.list_settings.max_rows", _reason}} =
              Settings.put(
                "surface_policy.surfaces.mcp_http.list_settings.max_rows",
-               999,
+               1001,
                %{audit?: false}
              )
   end

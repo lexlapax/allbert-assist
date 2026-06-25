@@ -1,6 +1,6 @@
 # ADR 0073: Cross-Surface Contract
 
-Status: Proposed (v0.58); M13 implemented, M13.1A/B complete, M13.1C active
+Status: Proposed (v0.58); M13 implemented, M13.1A/B/C complete, M13.1D active
 before M14.
 Date: 2026-06-24
 Related: ADR 0016 (channel adapter boundary + identity mapping — extended here to
@@ -85,8 +85,8 @@ A conformant surface MUST:
 A **conformance matrix** (surface × requirement 1–6) is maintained in the v0.58
 plan. M13 implemented the main spine. M13.1 closes the remaining second-pass
 partials before M14. M13.1A closed residual web settings reads plus ACP guard and
-MCP `read_resource` rejection recording; M13.1C still owns explicit
-surface-policy report-shape coverage.
+MCP `read_resource` rejection recording; M13.1C closed explicit surface-policy
+report-shape coverage for the named operator-panel reads.
 
 ## v0.58 M13.1 Conformance Notes
 
@@ -103,11 +103,11 @@ edge drift that must be remediated before this ADR can be accepted:
 - Complete in M13.1A: public-protocol pre-dispatch rejections record the same
   rejection/error event shape as dispatched runtime failures. M13.1A covers ACP
   prompt guard `else` returns and MCP resource-read denials.
-- Surface policy is presentation governance, not authority. At M13 it governs
-  `list_settings`, `list_channels`, `list_model_profiles`, and
-  `list_provider_profiles`; M13.1 either widens policy consultation to
-  `intent_coverage`, `intent_list_descriptors`, `intent_list_review`, and
-  `model_doctor`, or records a narrower accepted scope before M14.
+- Complete in M13.1C: surface policy is presentation governance, not authority.
+  It now governs `list_settings`, `list_channels`, `list_model_profiles`,
+  `list_provider_profiles`, `intent_coverage`, `intent_list_descriptors`,
+  `intent_list_review`, and `model_doctor`. The added reads remain internal and
+  non-routable; raw operator reports require an explicit surface affordance.
 
 ## Non-goals and guardrails
 

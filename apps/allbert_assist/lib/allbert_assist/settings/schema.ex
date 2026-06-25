@@ -1534,7 +1534,7 @@ defmodule AllbertAssist.Settings.Schema do
       writable?: true,
       sensitive?: false,
       min: 0,
-      max: 500
+      max: 1000
     },
     "surface_policy.defaults.raw_requires_affordance" => %{
       type: :boolean,
@@ -4044,6 +4044,24 @@ defmodule AllbertAssist.Settings.Schema do
       },
       "surfaces" => %{
         "cli" => %{
+          "intent_coverage" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
+          "intent_list_descriptors" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
+          "intent_list_review" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
           "list_channels" => %{
             "render_mode" => "operator_report",
             "redaction_profile" => "standard",
@@ -4065,11 +4083,35 @@ defmodule AllbertAssist.Settings.Schema do
           "list_settings" => %{
             "render_mode" => "operator_report",
             "redaction_profile" => "standard",
-            "max_rows" => 250,
+            "max_rows" => 1000,
+            "raw_requires_affordance" => true
+          },
+          "model_doctor" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
             "raw_requires_affordance" => true
           }
         },
         "tui" => %{
+          "intent_coverage" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
+          "intent_list_descriptors" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
+          "intent_list_review" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
           "list_channels" => %{
             "render_mode" => "operator_report",
             "redaction_profile" => "standard",
@@ -4091,11 +4133,35 @@ defmodule AllbertAssist.Settings.Schema do
           "list_settings" => %{
             "render_mode" => "operator_report",
             "redaction_profile" => "standard",
-            "max_rows" => 250,
+            "max_rows" => 1000,
+            "raw_requires_affordance" => true
+          },
+          "model_doctor" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
             "raw_requires_affordance" => true
           }
         },
         "live_view" => %{
+          "intent_coverage" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
+          "intent_list_descriptors" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
+          "intent_list_review" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
           "list_model_profiles" => %{
             "render_mode" => "operator_report",
             "redaction_profile" => "standard",
@@ -4103,6 +4169,12 @@ defmodule AllbertAssist.Settings.Schema do
             "raw_requires_affordance" => true
           },
           "list_provider_profiles" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
+          "model_doctor" => %{
             "render_mode" => "operator_report",
             "redaction_profile" => "standard",
             "max_rows" => 100,
@@ -5830,7 +5902,7 @@ defmodule AllbertAssist.Settings.Schema do
   end
 
   defp surface_policy_schema("max_rows") do
-    %{type: :bounded_integer, min: 0, max: 500}
+    %{type: :bounded_integer, min: 0, max: 1000}
   end
 
   defp surface_policy_schema("raw_requires_affordance"), do: %{type: :boolean}

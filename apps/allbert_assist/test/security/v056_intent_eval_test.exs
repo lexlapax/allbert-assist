@@ -459,7 +459,7 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
 
     context = Map.put(operator_context(), :req_options, plug: {Req.Test, __MODULE__})
 
-    assert {:ok, response} = ActionsRunner.run("model_doctor", %{}, context)
+    assert {:ok, response} = ActionsRunner.run("model_doctor", operator_report_params(), context)
     assert response.runner_metadata.action_name == "model_doctor"
     assert response.message =~ "model doctor ok="
     assert response.message =~ "intent_embedding"
@@ -538,6 +538,10 @@ defmodule AllbertAssist.Security.V056IntentEvalTest do
       surface: "security_eval",
       request: %{operator_id: "local", user_id: "local", channel: :test}
     }
+  end
+
+  defp operator_report_params do
+    %{render_mode: "operator_report", surface_policy_affordance: true}
   end
 
   defp refute_secret_or_endpoint!(text) do

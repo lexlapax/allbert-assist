@@ -67,12 +67,21 @@ defmodule AllbertAssist.Actions.Intent.OperatorReadActionsTest do
   test "descriptor read actions return redacted DTOs" do
     assert {:ok, list} = Runner.run("intent_list_descriptors", %{}, context())
     assert list.status == :completed
-    assert list.message =~ "append_memory source=code app_id=allbert"
+    assert list.message =~ "Intent registry has"
+    assert list.message =~ "won't dump the operator descriptor inventory"
+    refute list.message =~ "append_memory source=code app_id=allbert"
+    assert [%{render_mode: :assistant_summary}] = list.actions
 
     assert append_memory = Enum.find(list.descriptors, &(&1.action_name == "append_memory"))
     assert append_memory.examples_count >= 1
     refute Map.has_key?(append_memory, :examples)
     refute Map.has_key?(append_memory, :synonyms)
+
+    assert {:ok, report} =
+             Runner.run("intent_list_descriptors", operator_report_params(), context())
+
+    assert report.message =~ "append_memory source=code app_id=allbert"
+    assert [%{render_mode: :operator_report}] = report.actions
 
     assert {:ok, show} =
              Runner.run("intent_show_descriptor", %{action: "append_memory"}, context())
@@ -99,17 +108,19 @@ defmodule AllbertAssist.Actions.Intent.OperatorReadActionsTest do
         required_slots: []
       })
 
-    assert {:ok, coverage} = Runner.run("intent_coverage", %{}, context())
+    assert {:ok, coverage} = Runner.run("intent_coverage", operator_report_params(), context())
     assert coverage.status == :completed
     assert is_integer(coverage.coverage.agent_exposed)
     assert is_list(coverage.coverage.missing)
     assert coverage.coverage.review >= 1
     assert coverage.message =~ "coverage: routable="
+    assert [%{render_mode: :operator_report}] = coverage.actions
 
-    assert {:ok, review} = Runner.run("intent_list_review", %{}, context())
+    assert {:ok, review} = Runner.run("intent_list_review", operator_report_params(), context())
     assert review.status == :completed
     assert [%{action_name: "show_app", app_id: "allbert"}] = review.proposals
     assert review.message =~ "show_app app_id=allbert"
+    assert [%{render_mode: :operator_report}] = review.actions
   end
 
   test "eval run reports the deterministic corpus and current gate truth" do
@@ -130,5 +141,9 @@ defmodule AllbertAssist.Actions.Intent.OperatorReadActionsTest do
       channel: :test,
       request: %{operator_id: "local", channel: :test}
     }
+  end
+
+  defp operator_report_params do
+    %{render_mode: "operator_report", surface: "cli", surface_policy_affordance: true}
   end
 end

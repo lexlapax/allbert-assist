@@ -81,13 +81,13 @@ defmodule Mix.Tasks.Allbert.IntentTest do
   end
 
   test "read commands render the registered action DTO messages" do
-    assert_cli_matches_action(["list"], "intent_list_descriptors", %{})
+    assert_cli_matches_action(["list"], "intent_list_descriptors", operator_report_params())
 
     assert_cli_matches_action(["show", "append_memory"], "intent_show_descriptor", %{
       action: "append_memory"
     })
 
-    assert_cli_matches_action(["coverage"], "intent_coverage", %{})
+    assert_cli_matches_action(["coverage"], "intent_coverage", operator_report_params())
   end
 
   test "eval run can render the deterministic by-surface report" do
@@ -167,7 +167,9 @@ defmodule Mix.Tasks.Allbert.IntentTest do
 
     review_output = capture_io(fn -> assert :ok = IntentTask.run(["review"]) end)
     assert review_output =~ "show_app app_id=allbert"
-    assert clean_output(review_output) == action_message("intent_list_review", %{})
+
+    assert clean_output(review_output) ==
+             action_message("intent_list_review", operator_report_params())
 
     promote_output =
       capture_io(fn ->
@@ -209,6 +211,10 @@ defmodule Mix.Tasks.Allbert.IntentTest do
   defp action_message(action, params) do
     {:ok, response} = Runner.run(action, params, operator_context())
     response.message
+  end
+
+  defp operator_report_params do
+    %{render_mode: "operator_report", surface_policy_affordance: true}
   end
 
   defp operator_context do

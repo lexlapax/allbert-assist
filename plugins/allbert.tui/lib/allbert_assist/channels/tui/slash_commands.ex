@@ -120,10 +120,10 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
         {:action, "operator_channels", %{}}
 
       ["/intents"] ->
-        {:action, "intent_coverage", %{}}
+        {:action, "intent_coverage", operator_report_params()}
 
       ["/models"] ->
-        {:action, "model_doctor", %{}}
+        {:action, "model_doctor", operator_report_params()}
 
       ["/settings", "get", key] ->
         key = String.trim(key)
@@ -155,6 +155,10 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
   end
 
   defp valid_setting_key?(key), do: Regex.match?(~r/^[A-Za-z0-9_.-]+$/, key)
+
+  defp operator_report_params do
+    %{render_mode: "operator_report", surface_policy_affordance: true}
+  end
 
   defp help_text do
     [

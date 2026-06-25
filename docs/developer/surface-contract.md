@@ -1,7 +1,7 @@
 # Surface Contract
 
-Status: v0.58 implementation contract; implemented through M13 with M13.1A/B
-complete and M13.1C remediation active before M14.
+Status: v0.58 implementation contract; implemented through M13 with M13.1A/B/C
+complete and M13.1D rejoin active before M14.
 
 Authority: `docs/adr/0073-cross-surface-contract.md`,
 `docs/plans/v0.58-plan.md`, and
@@ -132,13 +132,14 @@ Second-pass audit findings that affect this surface contract:
 - Complete in M13.1A: ACP and MCP rejection paths that fail before
   `Runtime.submit_user_input/1` or `Actions.Runner.run/3` still record
   rejection/error events with `surface_id`.
-- Surface-policy report-shape coverage is explicit. At M13 the covered read set is
-  `list_settings`, `list_channels`, `list_model_profiles`, and
-  `list_provider_profiles`; M13.1 widens it to `intent_coverage`,
-  `intent_list_descriptors`, `intent_list_review`, and `model_doctor`, or records
-  a narrower ADR 0073 scope before M14.
-- The `:v058` eval module must include behavioral assertions for these contracts,
-  not only EvalInventory row wiring.
+- Complete in M13.1C: surface-policy report-shape coverage is explicit for
+  `list_settings`, `list_channels`, `list_model_profiles`,
+  `list_provider_profiles`, `intent_coverage`, `intent_list_descriptors`,
+  `intent_list_review`, and `model_doctor`. The added reads remain internal and
+  non-routable; raw operator reports require an explicit surface affordance.
+- Complete in M13.1C: the `:v058` eval module includes behavioral assertions for
+  renderer payload no-leak, rejection event `surface_id`, source-redacted profile
+  DTOs, and no-authority operator panels, not only EvalInventory row wiring.
 
 ## Settings And Security
 

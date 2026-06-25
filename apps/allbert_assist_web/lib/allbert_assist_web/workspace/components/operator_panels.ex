@@ -297,10 +297,16 @@ defmodule AllbertAssistWeb.Workspace.Components.IntentsPanel do
     context = Support.action_context(socket.assigns)
     include_eval? = Keyword.get(opts, :include_eval?, false)
 
-    with {:ok, coverage} <- ActionHelper.completed_action("intent_coverage", %{}, context),
+    with {:ok, coverage} <-
+           ActionHelper.completed_action("intent_coverage", operator_report_params(), context),
          {:ok, descriptors} <-
-           ActionHelper.completed_action("intent_list_descriptors", %{}, context),
-         {:ok, review} <- ActionHelper.completed_action("intent_list_review", %{}, context) do
+           ActionHelper.completed_action(
+             "intent_list_descriptors",
+             operator_report_params(),
+             context
+           ),
+         {:ok, review} <-
+           ActionHelper.completed_action("intent_list_review", operator_report_params(), context) do
       socket =
         assign(socket,
           intents_loaded?: true,
@@ -343,6 +349,10 @@ defmodule AllbertAssistWeb.Workspace.Components.IntentsPanel do
       "completed" -> ""
       status -> "Intent action status: #{Support.status_label(status)}"
     end
+  end
+
+  defp operator_report_params do
+    %{render_mode: "operator_report", surface_policy_affordance: true}
   end
 
   defp gate_status(nil), do: "deferred"
@@ -534,7 +544,8 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
   defp refresh(socket) do
     context = Support.action_context(socket.assigns)
 
-    with {:ok, doctor} <- ActionHelper.completed_action("model_doctor", %{}, context),
+    with {:ok, doctor} <-
+           ActionHelper.completed_action("model_doctor", operator_report_params(), context),
          {:ok, providers} <- maybe_load_provider_profiles(socket, context),
          {:ok, models} <- maybe_load_model_profiles(socket, context) do
       assign(socket,

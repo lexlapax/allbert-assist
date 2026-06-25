@@ -63,7 +63,7 @@ defmodule Mix.Tasks.Allbert.Settings do
   end
 
   defp dispatch(["model-doctor"]) do
-    with {:ok, response} <- completed_action("model_doctor", %{}) do
+    with {:ok, response} <- completed_action("model_doctor", operator_report_params()) do
       {:ok, {:model_doctor, response.message}}
     end
   end

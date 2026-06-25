@@ -9,6 +9,13 @@ defmodule AllbertAssist.Actions.SurfacePolicyActionsTest do
   alias AllbertAssist.Settings
   alias AllbertAssist.SurfacePolicy
 
+  @m131c_operator_reads ~w(
+    intent_coverage
+    intent_list_descriptors
+    intent_list_review
+    model_doctor
+  )
+
   setup do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
@@ -35,7 +42,7 @@ defmodule AllbertAssist.Actions.SurfacePolicyActionsTest do
     assert response.surface_policy.effective.surface == "cli"
     assert response.surface_policy.effective.action_name == "list_settings"
     assert response.surface_policy.effective.render_mode == :operator_report
-    assert response.surface_policy.effective.max_rows == 250
+    assert response.surface_policy.effective.max_rows == 1000
     assert response.surface_policy.effective.raw_operator_report_allowed?
 
     assert Enum.any?(response.surface_policy.surfaces, fn row ->
@@ -81,6 +88,27 @@ defmodule AllbertAssist.Actions.SurfacePolicyActionsTest do
              %{render_mode: "operator_report", surface_policy_affordance: true},
              %{surface: "mcp_http"}
            ) == :operator_report
+  end
+
+  test "M13.1C operator-panel reads are policy configured but still require affordance" do
+    assert {:ok, response} = ReadSurfacePolicy.run(%{}, %{})
+
+    for action_name <- @m131c_operator_reads do
+      assert Enum.any?(response.surface_policy.surfaces, fn row ->
+               row.surface == "live_view" and row.action_name == action_name and
+                 row.render_mode == :operator_report
+             end)
+
+      assert SurfacePolicy.render_mode(action_name, %{render_mode: "operator_report"}, %{
+               surface: "live_view"
+             }) == :assistant_summary
+
+      assert SurfacePolicy.render_mode(
+               action_name,
+               %{render_mode: "operator_report", surface_policy_affordance: true},
+               %{surface: "live_view"}
+             ) == :operator_report
+    end
   end
 
   test "policy rejects invalid values and grants no public authority" do

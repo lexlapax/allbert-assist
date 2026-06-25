@@ -268,10 +268,11 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              ModelDoctorAction.run(%{}, %{req_options: [plug: {Req.Test, __MODULE__}]})
 
     assert response.status == :completed
-    assert response.message =~ "model doctor ok="
-    assert response.message =~ "intent_embedding status=ok"
-    assert response.message =~ "intent_escalation status=ok"
+    assert response.message =~ "Model doctor checked"
+    assert response.message =~ "won't dump the operator matrix"
+    refute response.message =~ "intent_embedding status=ok"
     assert response.model_doctor.summary["ok"] >= 3
+    assert [%{render_mode: :assistant_summary}] = response.actions
 
     rows = Map.new(response.model_doctor.rows, &{&1.id, &1})
     assert rows["intent_embedding"].recommended_model == "nomic-embed-text"
@@ -284,6 +285,16 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     refute inspect(response) =~ "api_key"
     refute inspect(response) =~ "sk-"
     refute response.message =~ "http://"
+
+    assert {:ok, report_response} =
+             ModelDoctorAction.run(operator_report_params(), %{
+               req_options: [plug: {Req.Test, __MODULE__}]
+             })
+
+    assert report_response.message =~ "model doctor ok="
+    assert report_response.message =~ "intent_embedding status=ok"
+    assert report_response.message =~ "intent_escalation status=ok"
+    assert [%{render_mode: :operator_report}] = report_response.actions
   end
 
   test "model doctor flags not-pulled, under-capable, and remote egress states" do

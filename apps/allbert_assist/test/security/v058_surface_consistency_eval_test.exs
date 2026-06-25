@@ -5,7 +5,23 @@ defmodule AllbertAssist.Security.V058SurfaceConsistencyEvalTest do
   """
   use AllbertAssist.SecurityEvalCase, async: true
 
+  alias AllbertAssist.Actions.Registry
+  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Channels.Event
+  alias AllbertAssist.Repo
   alias AllbertAssist.SecurityFixtures.EvalInventory
+  alias AllbertAssist.Settings
+  alias AllbertAssist.Surface.EventRecorder
+  alias AllbertAssist.Surface.Renderer
+
+  setup {Req.Test, :verify_on_exit!}
+
+  @m131c_operator_reads ~w(
+    intent_coverage
+    intent_list_descriptors
+    intent_list_review
+    model_doctor
+  )
 
   @eval_groups [
     surface_consistency: ~w(
@@ -75,6 +91,87 @@ defmodule AllbertAssist.Security.V058SurfaceConsistencyEvalTest do
     end
   end
 
+  test "M13.1C renderer and rejection audit behaviors are asserted, not inventory-only" do
+    {:ok, rendered} =
+      Renderer.render_response(
+        %{
+          status: :completed,
+          message: "secret://providers/openai/api_key http://127.0.0.1:11434",
+          surface_payload: "redacted operator surface payload"
+        },
+        %{payload: :surface_payload}
+      )
+
+    assert rendered.text == "redacted operator surface payload"
+    refute rendered.text =~ "secret://"
+    refute rendered.text =~ "http://"
+
+    external_event_id = "v058-m131c-#{System.unique_integer([:positive])}"
+
+    assert %Event{} =
+             EventRecorder.record_rejection(:mcp_stdio, %{
+               external_event_id: external_event_id,
+               external_user_id: "fixture-client",
+               user_id: "public-protocol:fixture-client",
+               reason: "resource_not_exposed",
+               payload_summary: "resources/read allbert-memory://missing/namespace"
+             })
+
+    assert %Event{
+             channel: "mcp_stdio",
+             status: "rejected",
+             reason: "resource_not_exposed",
+             external_user_id: "fixture-client",
+             user_id: "public-protocol:fixture-client"
+           } = Repo.get_by(Event, external_event_id: external_event_id)
+  end
+
+  test "M13.1C profile inventories are source-redacted before actions render them" do
+    assert {:ok, providers} = Settings.list_provider_profiles()
+    assert {:ok, models} = Settings.list_model_profiles()
+
+    assert providers != []
+    assert models != []
+
+    refute Enum.any?(providers, &Map.has_key?(&1, :base_url))
+    refute Enum.any?(providers, &Map.has_key?(&1, :api_key_ref))
+    refute Enum.any?(models, &Map.has_key?(&1, :provider_base_url))
+    refute Enum.any?(models, &Map.has_key?(&1, :provider_api_key_ref))
+
+    refute inspect(providers) =~ "secret://"
+    refute inspect(models) =~ "secret://"
+  end
+
+  test "M13.1C operator-panel reads consult surface policy without gaining authority" do
+    agent_action_names = Enum.map(Registry.agent_modules(), & &1.name())
+
+    Req.Test.stub(__MODULE__, fn conn ->
+      Req.Test.json(conn, %{"models" => []})
+    end)
+
+    for action_name <- @m131c_operator_reads do
+      assert {:ok, capability} = Registry.capability(action_name)
+      assert capability.exposure == :internal
+      assert capability.permission == :read_only
+      assert capability.confirmation == :not_required
+      refute action_name in agent_action_names
+
+      assert {:ok, summary} =
+               Runner.run(
+                 action_name,
+                 %{render_mode: "operator_report", surface: "live_view"},
+                 operator_context()
+               )
+
+      assert action_render_mode(summary) == :assistant_summary
+
+      assert {:ok, report} =
+               Runner.run(action_name, operator_report_params(), operator_context())
+
+      assert action_render_mode(report) == :operator_report
+    end
+  end
+
   defp assert_eval_group!(group, surface) do
     ids = Keyword.fetch!(@eval_groups, group)
     milestone_rows = EvalInventory.rows_for_milestone(:v058)
@@ -86,5 +183,22 @@ defmodule AllbertAssist.Security.V058SurfaceConsistencyEvalTest do
 
   defp find_eval_row!(rows, id) do
     Enum.find(rows, &(&1.id == id)) || flunk("missing v0.58 eval row #{id}")
+  end
+
+  defp action_render_mode(%{actions: [action | _actions]}), do: Map.fetch!(action, :render_mode)
+
+  defp operator_context do
+    %{
+      actor: "local",
+      operator_id: "local",
+      channel: :live_view,
+      surface: "live_view",
+      req_options: [plug: {Req.Test, __MODULE__}],
+      request: %{operator_id: "local", channel: :live_view}
+    }
+  end
+
+  defp operator_report_params do
+    %{render_mode: "operator_report", surface: "live_view", surface_policy_affordance: true}
   end
 end
