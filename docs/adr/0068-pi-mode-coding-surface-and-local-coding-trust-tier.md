@@ -96,9 +96,11 @@ Surface discipline:
   decision, policy, trace, and audit; grants no authority; `plan` executes
   read/search only), with "always allow this command" reusing the existing
   `Resources.Grants` remembered-grant lifecycle (not a parallel allowlist);
-  **Esc-to-cancel** a running turn — which requires running the turn under a
-  supervised Task (the synchronous v0.55 runtime cannot cancel mid-turn) — with a
-  **queued correction**; and a familiar coding **slash set**
+  **Esc-to-cancel** a running turn — which requires both running the turn under a
+  supervised Task (the synchronous v0.55 runtime cannot cancel mid-turn) and an
+  interrupt-capable TUI input driver that can deliver a standalone Esc key while
+  preserving v0.55 native scrollback — with a **queued correction**; and a familiar
+  coding **slash set**
   (`/help`, `/pi`, `/mode`, `/model`, `/clear`, `/init`, `/diff`, `/compact`);
 - **context discipline (Pi's actual practice)** — gather context through
   **chunked reads** (offset/limit) and, for larger investigations,
@@ -218,6 +220,13 @@ decision in the v0.57 plan.
   under a **supervised Task**. This async turn-execution boundary is its own
   milestone and the prerequisite for real cancellation (abort the in-flight
   `ReqLLM.StreamResponse`, not merely abandon it).
+- **Clean operator Esc also requires net-new input work.** The v0.55 terminal
+  channel is line-oriented by design. That foundation remains correct, but a
+  standalone Esc key is not a line-oriented command; Pi-mode must add a narrow
+  interrupt-capable input driver that emits an operator key event during active
+  coding turns. The input driver is authority-neutral: it invokes no tools, grants
+  no permissions, and only routes Esc to `Coding.TurnSupervisor`/provider cancel
+  through the same runtime boundary.
 - **The "cheap gate" is a confirmation-cost seam, not an authority change.** It is
   implemented in `Security.Decision.build/1`: when the tier/mode resolves it sets
   `requires_confirmation: false` while preserving the `:needs_confirmation`

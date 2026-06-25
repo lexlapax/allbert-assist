@@ -56,6 +56,12 @@ Plain settings/channel inspection tasks may start the supervised descriptor chil
 when `channels.tui.enabled` is true, but that child is non-interactive and quiet;
 only `mix allbert.tui` enables the live input loop and banner.
 
+The base TUI is line-oriented by design: typed turns, slash commands, approval
+handoffs, and transcript capture operate on complete lines. Pi-mode's single-key
+Esc cancellation is a v0.57 input-driver extension layered on the same channel;
+it is not evidence that the v0.55 scrollback-native TUI needs a full-screen or
+alternate-screen rewrite.
+
 `mix allbert.tui` keeps the live terminal readable by default: startup
 plugin/query chatter is suppressed, app logs below warning stay quiet after
 startup, and Ecto query debug logs are disabled. To turn post-start diagnostic

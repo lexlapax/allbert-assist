@@ -140,6 +140,21 @@ full-screen TUI libraries; `ratatouille` / `ex_termbox` / `ExNcurses` are
 rejected (native build + full-screen takeover that loses scrollback). Reference:
 the Pi rationale in `docs/archives/pi-integration-rethink.md`.
 
+## Input Model Clarification
+
+The v0.55 TUI input model is intentionally line-oriented. That remains correct
+for typed natural-language turns, slash commands, approval handoff commands,
+native scrollback, and transcript capture. v0.55 does not promise character-level
+key events while a turn is running.
+
+v0.57 Pi-mode adds a separate interrupt requirement: a standalone Esc key must be
+able to cancel an active coding turn. That requirement is additive and belongs to
+the Pi-mode terminal-input substrate, not to a rewrite of the v0.55 channel. A
+future interrupt-capable input driver may emit line events and key events while
+preserving the same channel identity, threading, authority boundary, split-payload
+contract, and scrollback-native output. It must not require alternate-screen or
+full-viewport ownership merely to deliver Esc.
+
 ## Foundation For v0.57 Pi-mode
 
 v0.55 deliberately lands two seams as the substrate that ADR 0068 (Pi-mode

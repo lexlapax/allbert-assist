@@ -1,8 +1,10 @@
 # Pi-Mode Coding Operator Guide
 
-Status: v0.57 M0-M9.25 are implemented. Release closeout is blocked on warm
-operator validation against a real streaming/tool-capable coding profile. This guide
-describes the operator workflow for the Pi-mode coding surface. The
+Status: v0.57 M0-M9.25 are implemented, but live S4.9 validation invalidated the
+M9.23-M9.25 Esc-helper capture strategy. Release closeout is blocked until
+M9.26-M9.30 add and validate an interrupt-capable TUI input driver for
+single-key Esc cancellation. This guide describes the operator workflow for the
+Pi-mode coding surface. The
 release-authoritative validation checklist lives in
 `docs/plans/v0.57-request-flow.md#operator-validation`.
 
@@ -89,15 +91,18 @@ deliberately selected another known streaming/tool-call-capable profile.
 
 ## Terminal Turn Safety
 
-The TUI prompt input is line-oriented. Enter each natural-language validation
-prompt as one physical terminal line unless a checklist step explicitly asks for
-multiple commands. A hard newline submits the current line as a complete turn.
-During an accepted async Pi-mode coding turn, `mix allbert.tui` also runs a
-transient no-echo Esc helper on the controlling terminal (`/dev/tty`) so a
-standalone Esc key can cancel the running turn without opening a second prompt.
-The helper must arm before cancellation is considered available; startup failure
-prints `Esc cancellation monitor unavailable: ...`. Esc must produce cancellation
-feedback; it must not appear in scrollback as literal `^[` characters.
+The base TUI prompt input is line-oriented. Enter each natural-language
+validation prompt as one physical terminal line unless a checklist step
+explicitly asks for multiple commands. A hard newline submits the current line as
+a complete turn.
+
+Single-key Esc cancellation is a Pi-mode extension, not a v0.55 line-mode
+feature. The M9.23-M9.25 side-channel/helper approaches did not pass live S4.9:
+literal `^[` scrollback, `Esc cancellation monitor unavailable: ...`, or
+`/dev/tty: Device not configured` mean the terminal-input substrate is still
+blocked. Do not treat `^[` as an operator typo. It is release-blocking TUI input
+evidence until the M9.28 interrupt-capable input driver lands and S4.9 is
+rewritten.
 
 `/quit` and `/exit` are local TUI lifecycle aliases. They must stop the terminal
 session and must never be routed to the model, even if prior Esc/control bytes were
@@ -245,6 +250,11 @@ turn task through `Coding.TurnSupervisor`. During an already-running tool action
 the turn still shuts down and writes partial-turn evidence, but the tool effect is
 bounded by the registered action and command timeout/brutal-kill policy; v0.57 does
 not add a separate child-process cancel hook beyond that action boundary.
+
+There is also a terminal-input layer. Provider cancel can be correctly wired while
+the operator Esc key still fails to reach it. Release evidence must therefore show
+both: the input driver consumes a standalone Esc without literal `^[`, and the
+runtime invokes the registered provider cancel callback.
 
 For release validation, use a coding profile that streams tokens, emits tool calls,
 and exposes provider cancel. If the selected profile cannot do those three things,
