@@ -98,6 +98,7 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, 3000} = Settings.get("intent.model_timeout_ms")
     assert {:ok, 0.72} = Settings.get("intent.model_min_confidence")
     assert {:ok, 80} = Settings.get("intent.max_candidates")
+    assert {:ok, 0.8} = Settings.get("intent.router_decisive_confidence")
     assert {:ok, true} = Settings.get("intent.trace_rejected_candidates")
     assert {:ok, true} = Settings.get("intent.descriptors_enabled")
     assert {:ok, 0.6} = Settings.get("intent.handoff_threshold")
@@ -113,6 +114,8 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, true} = Settings.get("active_memory.enabled")
     assert {:ok, 5} = Settings.get("active_memory.top_k")
     assert {:ok, 2048} = Settings.get("active_memory.chunk_max_bytes")
+    assert {:ok, 1_000} = Settings.get("active_memory.internal_candidate_limit")
+    assert {:ok, 5} = Settings.get("active_memory.excluded_sample_limit")
     assert {:ok, 30} = Settings.get("active_memory.score_weights.recency_half_life_days")
     assert {:ok, 1.0} = Settings.get("active_memory.score_weights.thread_affinity.same_thread")
     assert {:ok, 0.6} = Settings.get("active_memory.score_weights.thread_affinity.same_app")
@@ -132,6 +135,11 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, "work_calendar"} = Settings.get("intent.calendar_mcp_server")
 
     assert {:ok, resolved} =
+             Settings.put("intent.router_decisive_confidence", 0.9, %{audit?: false})
+
+    assert resolved.value == 0.9
+
+    assert {:ok, resolved} =
              Settings.put("intent.eval.min_accuracy", 0.9, %{audit?: false})
 
     assert resolved.value == 0.9
@@ -148,8 +156,21 @@ defmodule AllbertAssist.SettingsTest do
 
     assert resolved.value == 2.0
 
+    assert {:ok, resolved} =
+             Settings.put("active_memory.internal_candidate_limit", 20, %{audit?: false})
+
+    assert resolved.value == 20
+
+    assert {:ok, resolved} =
+             Settings.put("active_memory.excluded_sample_limit", 2, %{audit?: false})
+
+    assert resolved.value == 2
+
     assert {:error, {:invalid_setting, "intent.model_min_confidence", _reason}} =
              Settings.put("intent.model_min_confidence", 1.5, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "intent.router_decisive_confidence", _reason}} =
+             Settings.put("intent.router_decisive_confidence", 1.5, %{audit?: false})
 
     assert {:error, {:invalid_setting, "intent.eval.min_accuracy", _reason}} =
              Settings.put("intent.eval.min_accuracy", 1.5, %{audit?: false})
@@ -162,6 +183,9 @@ defmodule AllbertAssist.SettingsTest do
 
     assert {:error, {:invalid_setting, "active_memory.top_k", _reason}} =
              Settings.put("active_memory.top_k", 0, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "active_memory.internal_candidate_limit", _reason}} =
+             Settings.put("active_memory.internal_candidate_limit", 0, %{audit?: false})
 
     assert {:error, {:invalid_setting, "active_memory.score_weights.identity_inclusion", _reason}} =
              Settings.put("active_memory.score_weights.identity_inclusion", 0.0, %{
@@ -371,6 +395,7 @@ defmodule AllbertAssist.SettingsTest do
     assert {:ok, "<ALLBERT_HOME>/artifacts"} = Settings.get("artifacts.root")
     assert {:ok, false} = Settings.get("artifacts.retention_enabled")
     assert {:ok, 20_971_520} = Settings.get("artifacts.max_bytes")
+    assert {:ok, 15_000} = Settings.get("artifacts.ingestion_timeout_ms")
     assert {:ok, ["*/*"]} = Settings.get("artifacts.allowed_mime")
     assert {:ok, ["*"]} = Settings.get("artifacts.allowed_types")
     assert {:ok, "content_sha256"} = Settings.get("artifacts.dedup")
@@ -383,6 +408,7 @@ defmodule AllbertAssist.SettingsTest do
     assert Settings.safe_write_key?("artifacts.root")
     assert Settings.safe_write_key?("artifacts.retention_enabled")
     assert Settings.safe_write_key?("artifacts.max_bytes")
+    assert Settings.safe_write_key?("artifacts.ingestion_timeout_ms")
     assert Settings.safe_write_key?("artifacts.allowed_mime")
     assert Settings.safe_write_key?("artifacts.allowed_types")
     assert Settings.safe_write_key?("artifacts.gc.enabled")
@@ -396,12 +422,20 @@ defmodule AllbertAssist.SettingsTest do
     assert resolved.value == 2048
 
     assert {:ok, resolved} =
+             Settings.put("artifacts.ingestion_timeout_ms", 2_000, %{audit?: false})
+
+    assert resolved.value == 2_000
+
+    assert {:ok, resolved} =
              Settings.put("artifacts.allowed_mime", ["image/*", "text/plain"], %{audit?: false})
 
     assert resolved.value == ["image/*", "text/plain"]
 
     assert {:error, {:invalid_setting, "artifacts.max_bytes", _reason}} =
              Settings.put("artifacts.max_bytes", 0, %{audit?: false})
+
+    assert {:error, {:invalid_setting, "artifacts.ingestion_timeout_ms", _reason}} =
+             Settings.put("artifacts.ingestion_timeout_ms", 999, %{audit?: false})
 
     assert {:error, {:read_only_setting, "artifacts.schema_version"}} =
              Settings.put("artifacts.schema_version", 2, %{audit?: false})
@@ -1399,6 +1433,7 @@ defmodule AllbertAssist.SettingsTest do
 
     assert {:ok, false} = Settings.get("browser.enabled")
     assert {:ok, "playwright_chromium"} = Settings.get("browser.driver.kind")
+    assert {:ok, nil} = Settings.get("browser.driver.host_resolver_rules")
     assert {:ok, true} = Settings.get("browser.session.headless")
     assert {:ok, "ephemeral"} = Settings.get("browser.session.profile_mode")
     assert {:ok, 60_000} = Settings.get("browser.session.idle_timeout_ms")
@@ -1415,6 +1450,13 @@ defmodule AllbertAssist.SettingsTest do
              Settings.put("browser.navigation.max_redirects", 3, %{audit?: false})
 
     assert redirects.value == 3
+
+    assert {:ok, host_resolver_rules} =
+             Settings.put("browser.driver.host_resolver_rules", "MAP example.test 127.0.0.1", %{
+               audit?: false
+             })
+
+    assert host_resolver_rules.value == "MAP example.test 127.0.0.1"
 
     assert {:error, {:read_only_setting, "browser.driver.kind"}} =
              Settings.put("browser.driver.kind", "raw_cdp", %{audit?: false})

@@ -26,7 +26,6 @@ defmodule AllbertAssist.External.BrowserResearchDelegateSmokeTest do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_confirmations_config = Application.get_env(:allbert_assist, Confirmations)
     original_driver = Application.get_env(:allbert_browser, :driver)
-    original_resolver_rules = System.get_env("ALLBERT_BROWSER_HOST_RESOLVER_RULES")
 
     root =
       Path.join(
@@ -40,7 +39,6 @@ defmodule AllbertAssist.External.BrowserResearchDelegateSmokeTest do
     Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
     Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
     Application.put_env(:allbert_browser, :driver, AllbertBrowser.Driver.Playwright)
-    System.put_env("ALLBERT_BROWSER_HOST_RESOLVER_RULES", "MAP #{@host} 127.0.0.1")
 
     PluginRegistry.clear()
     AppRegistry.clear()
@@ -53,6 +51,12 @@ defmodule AllbertAssist.External.BrowserResearchDelegateSmokeTest do
     ensure_browser_supervisor()
     close_all_sessions()
     assert {:ok, _setting} = Settings.put("browser.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("browser.driver.host_resolver_rules", "MAP #{@host} 127.0.0.1", %{
+               audit?: false
+             })
+
     assert {:ok, _setting} = Settings.put("research.enabled", true, %{audit?: false})
 
     on_exit(fn ->
@@ -67,7 +71,6 @@ defmodule AllbertAssist.External.BrowserResearchDelegateSmokeTest do
       restore_env(Settings, original_settings_config)
       restore_env(Confirmations, original_confirmations_config)
       restore_env(:allbert_browser, :driver, original_driver)
-      restore_env_var("ALLBERT_BROWSER_HOST_RESOLVER_RULES", original_resolver_rules)
       File.rm_rf!(root)
     end)
 
@@ -218,7 +221,4 @@ defmodule AllbertAssist.External.BrowserResearchDelegateSmokeTest do
   defp restore_env(module, key, value), do: Application.put_env(module, key, value)
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
-
-  defp restore_env_var(key, nil), do: System.delete_env(key)
-  defp restore_env_var(key, value), do: System.put_env(key, value)
 end

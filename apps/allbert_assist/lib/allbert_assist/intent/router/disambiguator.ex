@@ -8,9 +8,10 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
 
     * a real shortlisted action with confidence ≥ `intent.router_min_confidence`
       → `:execute`. A tight Stage-1 margin (< `intent.disambiguation_margin`)
-      does **not** veto a *decisive* selection (confidence ≥ `@decisive_confidence`):
-      Stage 2 is the selection authority (ADR 0060) and the embedding margin is a
-      noisy, length-sensitive signal, so a confident Stage-2 pick wins.
+      does **not** veto a *decisive* selection (confidence ≥
+      `intent.router_decisive_confidence`): Stage 2 is the selection authority
+      (ADR 0060) and the embedding margin is a noisy, length-sensitive signal, so
+      a confident Stage-2 pick wins.
     * a tight margin with only borderline confidence, plain low confidence, or a
       selection outside the shortlist → `:clarify` (a targeted question scoped to
       the shortlist), which may escalate to a higher-tier model
@@ -33,10 +34,6 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
   @none "__none__"
   @clarify "__clarify__"
   @escalatable_notes [:low_confidence, :ambiguous_margin, :selection_not_in_shortlist]
-  # A Stage-2 selection at/above this confidence overrides a tight Stage-1 margin
-  # (the embedding margin is noisy and length-sensitive; Stage 2 is the authority).
-  @decisive_confidence 0.8
-
   defmodule Behaviour do
     @moduledoc "Behaviour for the Stage 2 selection model boundary (ADR 0060)."
     @callback select(
@@ -221,7 +218,7 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
       confidence < min_conf ->
         {:clarify, :low_confidence}
 
-      ambiguous?(margin, shortlist, opts) and confidence < @decisive_confidence ->
+      ambiguous?(margin, shortlist, opts) and confidence < decisive_confidence(opts) ->
         {:clarify, :ambiguous_margin}
 
       true ->
@@ -326,6 +323,11 @@ defmodule AllbertAssist.Intent.Router.Disambiguator do
     do:
       Keyword.get(opts, :disambiguation_margin) ||
         setting_float("intent.disambiguation_margin", 0.12)
+
+  defp decisive_confidence(opts),
+    do:
+      Keyword.get(opts, :decisive_confidence) ||
+        setting_float("intent.router_decisive_confidence", 0.8)
 
   defp setting_float(key, default) do
     case Settings.get(key) do

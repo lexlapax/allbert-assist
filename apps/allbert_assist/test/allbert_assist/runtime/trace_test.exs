@@ -100,15 +100,16 @@ defmodule AllbertAssist.Runtime.TraceTest do
     test_pid = self()
 
     Application.put_env(:allbert_assist, LegacyTrace,
-      enabled: true,
       writer: fn attrs ->
         send(test_pid, {:trace_attrs, attrs})
         {:ok, %{path: "trace-test.md", attrs: attrs}}
       end
     )
 
-    assert Trace.enabled?()
-    assert {:ok, %{path: "trace-test.md"}} = Trace.record_turn(turn("Record trace"))
+    trace_turn = put_in(turn("Record trace"), [:request, :trace], true)
+
+    assert Trace.enabled?(trace_turn)
+    assert {:ok, %{path: "trace-test.md"}} = Trace.record_turn(trace_turn)
     assert_receive {:trace_attrs, %{category: :traces, body: body}}
     assert body =~ "Record trace"
   end

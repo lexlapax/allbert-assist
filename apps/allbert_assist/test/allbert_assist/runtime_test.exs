@@ -517,7 +517,7 @@ defmodule AllbertAssist.RuntimeTest do
   end
 
   test "records an inspectable markdown trace when tracing is enabled", %{root: root} do
-    Application.put_env(:allbert_assist, Trace, enabled: true)
+    AllbertAssist.TraceTestSupport.enable_trace_default!()
 
     response =
       capture_log([level: :info], fn ->
@@ -569,11 +569,26 @@ defmodule AllbertAssist.RuntimeTest do
     assert Path.wildcard(Path.join(root, "**/*.md")) == []
   end
 
+  test "ALLBERT_TRACE_ENABLED no longer enables runtime tracing", %{root: root} do
+    System.put_env("ALLBERT_TRACE_ENABLED", "1")
+
+    assert {:ok, response} =
+             Runtime.submit_user_input(%{
+               text: "Env tracing should stay disabled.",
+               channel: :test,
+               user_id: "alice",
+               new_thread: true
+             })
+
+    assert response.status == :completed
+    assert response.trace_id == nil
+    assert Path.wildcard(Path.join(root, "**/*.md")) == []
+  end
+
   test "trace write failures do not crash the runtime response" do
-    Application.put_env(:allbert_assist, Trace,
-      enabled: true,
-      writer: fn _attrs -> {:error, :disk_full} end
-    )
+    AllbertAssist.TraceTestSupport.enable_trace_default!()
+
+    Application.put_env(:allbert_assist, Trace, writer: fn _attrs -> {:error, :disk_full} end)
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
@@ -604,7 +619,7 @@ defmodule AllbertAssist.RuntimeTest do
     end
 
     Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
-    Application.put_env(:allbert_assist, Trace, enabled: true)
+    AllbertAssist.TraceTestSupport.enable_trace_default!()
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{
@@ -648,7 +663,7 @@ defmodule AllbertAssist.RuntimeTest do
     end
 
     Application.put_env(:allbert_assist, Runtime, agent_runner: runner)
-    Application.put_env(:allbert_assist, Trace, enabled: true)
+    AllbertAssist.TraceTestSupport.enable_trace_default!()
 
     assert {:ok, response} =
              Runtime.submit_user_input(%{

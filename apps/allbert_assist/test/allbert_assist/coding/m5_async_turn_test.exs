@@ -91,7 +91,7 @@ defmodule AllbertAssist.Coding.M5AsyncTurnTest do
     parent = self()
     turn_id = unique_turn_id("shutdown")
 
-    Application.put_env(:allbert_assist, Trace, enabled: true)
+    AllbertAssist.TraceTestSupport.enable_trace_default!()
 
     Application.put_env(:allbert_assist, Runtime,
       agent_runner: fn _signal, _request ->

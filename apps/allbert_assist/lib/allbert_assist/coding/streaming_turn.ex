@@ -12,8 +12,8 @@ defmodule AllbertAssist.Coding.StreamingTurn do
 
   alias AllbertAssist.Coding.Config
   alias AllbertAssist.Coding.Prompt
-  alias AllbertAssist.Coding.StreamPipeline
   alias AllbertAssist.Coding.StreamEvent
+  alias AllbertAssist.Coding.StreamPipeline
   alias AllbertAssist.Coding.ToolLoop
   alias AllbertAssist.Coding.TurnSupervisor
   alias AllbertAssist.Runtime.Redactor
@@ -135,16 +135,18 @@ defmodule AllbertAssist.Coding.StreamingTurn do
            consume_stream_response(stream_response, state),
          state <- append_stream_result(state, stream_events, sequence, cancel_status),
          tool_calls <- actionable_tool_calls(llm_response) do
-      case tool_calls do
-        [] ->
-          finalize_response(prompt_input, llm_response, state)
+      continue_or_finalize(tool_calls, prompt_input, llm_response, state, iteration)
+    end
+  end
 
-        [_ | _] ->
-          with {:ok, next_context, state} <-
-                 execute_tool_calls(llm_response.context || prompt_input, tool_calls, state) do
-            run_loop(next_context, state, iteration + 1)
-          end
-      end
+  defp continue_or_finalize([], prompt_input, llm_response, state, _iteration),
+    do: finalize_response(prompt_input, llm_response, state)
+
+  defp continue_or_finalize(tool_calls, prompt_input, llm_response, state, iteration) do
+    next_prompt = llm_response.context || prompt_input
+
+    with {:ok, next_context, state} <- execute_tool_calls(next_prompt, tool_calls, state) do
+      run_loop(next_context, state, iteration + 1)
     end
   end
 

@@ -10,6 +10,7 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.Channels.TUI.EscapeMonitor
   alias AllbertAssist.Channels.TUI.InputDriver
   alias AllbertAssist.Channels.TUI.Renderer
+  alias AllbertAssist.Coding.TurnSupervisor
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
   alias AllbertAssist.Paths
@@ -613,7 +614,7 @@ defmodule AllbertAssist.Channels.TUITest do
     Application.put_env(:allbert_assist, Runtime,
       agent_runner: fn _signal, request ->
         :ok =
-          AllbertAssist.Coding.TurnSupervisor.register_stream_cancel(
+          TurnSupervisor.register_stream_cancel(
             request.coding_turn_id,
             fn -> send(parent, {:stream_cancelled, request.coding_turn_id}) end
           )
@@ -837,7 +838,7 @@ defmodule AllbertAssist.Channels.TUITest do
     Application.put_env(:allbert_assist, Runtime,
       agent_runner: fn _signal, request ->
         :ok =
-          AllbertAssist.Coding.TurnSupervisor.register_stream_cancel(
+          TurnSupervisor.register_stream_cancel(
             request.coding_turn_id,
             fn -> send(parent, {:stream_cancelled, request.coding_turn_id}) end
           )

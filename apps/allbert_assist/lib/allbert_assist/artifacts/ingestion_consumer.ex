@@ -17,6 +17,7 @@ defmodule AllbertAssist.Artifacts.IngestionConsumer do
   alias AllbertAssist.Artifacts.IngestionSupervisor
   alias AllbertAssist.Artifacts.Store
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Settings
   alias AllbertAssist.Signals
   alias Jido.Sensor.Runtime, as: SensorRuntime
   alias Jido.Signal
@@ -60,7 +61,7 @@ defmodule AllbertAssist.Artifacts.IngestionConsumer do
 
   defp request_signal(bytes, metadata, context, opts) do
     server = Keyword.get(opts, :server, __MODULE__)
-    timeout = Keyword.get(opts, :timeout, @default_timeout)
+    timeout = Keyword.get(opts, :timeout, ingestion_timeout_ms())
     GenServer.call(server, {:emit_ingest_request, bytes, metadata, context}, timeout)
   end
 
@@ -196,6 +197,13 @@ defmodule AllbertAssist.Artifacts.IngestionConsumer do
   end
 
   defp field(_map, _key), do: nil
+
+  defp ingestion_timeout_ms do
+    case Settings.get("artifacts.ingestion_timeout_ms") do
+      {:ok, value} when is_integer(value) and value > 0 -> value
+      _other -> @default_timeout
+    end
+  end
 
   defp request_id do
     "artifact_ingest_" <> Base.url_encode64(:crypto.strong_rand_bytes(12), padding: false)

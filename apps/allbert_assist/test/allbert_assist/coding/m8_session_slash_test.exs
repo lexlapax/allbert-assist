@@ -5,10 +5,10 @@ defmodule AllbertAssist.Coding.M8SessionSlashTest do
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.TUI.Adapter
   alias AllbertAssist.Channels.TUI.SlashCommands
-  alias AllbertAssist.Confirmations
   alias AllbertAssist.Coding.PathPolicy
   alias AllbertAssist.Coding.Prompt
   alias AllbertAssist.Coding.Session, as: CodingSession
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Plugins.TUI, as: TUIPlugin

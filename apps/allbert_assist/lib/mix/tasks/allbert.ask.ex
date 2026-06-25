@@ -38,7 +38,6 @@ defmodule Mix.Tasks.Allbert.Ask do
   alias AllbertAssist.Surface.EventRecorder
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
   alias AllbertAssist.Surfaces.ContextBuilder
-  alias AllbertAssist.Trace
 
   @shortdoc "Send one prompt through the Allbert runtime"
   @switches [
@@ -86,10 +85,6 @@ defmodule Mix.Tasks.Allbert.Ask do
     validate_thread_options!(opts)
     validate_session!(opts)
 
-    if opts[:trace] do
-      enable_trace_for_turn()
-    end
-
     voice_result = maybe_transcribe_voice!(voice_file, opts)
     prompt = prompt_with_voice(prompt, voice_result)
 
@@ -98,15 +93,6 @@ defmodule Mix.Tasks.Allbert.Ask do
 
     print_result(result)
     print_speech_result(speech_result)
-  end
-
-  defp enable_trace_for_turn do
-    trace_config =
-      :allbert_assist
-      |> Application.get_env(Trace, [])
-      |> Keyword.put(:enabled, true)
-
-    Application.put_env(:allbert_assist, Trace, trace_config)
   end
 
   defp submit(prompt, opts, voice_result) do
@@ -121,6 +107,7 @@ defmodule Mix.Tasks.Allbert.Ask do
       }
       |> maybe_put(:user_id, blank_to_nil(opts[:user]))
       |> maybe_put(:operator_id, blank_to_nil(opts[:operator]))
+      |> maybe_put(:trace, opts[:trace])
       |> maybe_put(:thread_id, blank_to_nil(opts[:thread]))
       |> maybe_put(:session_id, blank_to_nil(opts[:session]))
       |> maybe_put(:active_app, blank_to_nil(opts[:active_app]))

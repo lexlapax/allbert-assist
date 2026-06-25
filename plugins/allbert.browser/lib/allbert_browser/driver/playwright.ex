@@ -138,7 +138,10 @@ defmodule AllbertBrowser.Driver.Playwright do
       state
       |> session_params(opts)
       |> Map.put(:format, Atom.to_string(format))
-      |> Map.put(:max_bytes, Keyword.get(opts, :max_bytes, setting("browser.extraction.max_bytes", 1_048_576)))
+      |> Map.put(
+        :max_bytes,
+        Keyword.get(opts, :max_bytes, setting("browser.extraction.max_bytes", 1_048_576))
+      )
 
     command(state.port, "extract", params, timeout_ms(opts))
   end
@@ -148,7 +151,10 @@ defmodule AllbertBrowser.Driver.Playwright do
     params =
       state
       |> session_params(opts)
-      |> Map.put(:max_bytes, Keyword.get(opts, :max_bytes, setting("browser.screenshot.max_bytes", 524_288)))
+      |> Map.put(
+        :max_bytes,
+        Keyword.get(opts, :max_bytes, setting("browser.screenshot.max_bytes", 524_288))
+      )
       |> Map.put(:full_page, setting("browser.screenshot.full_page", false))
       |> Map.put(
         :redact_credential_inputs,
@@ -264,15 +270,23 @@ defmodule AllbertBrowser.Driver.Playwright do
       executable_path: setting("browser.driver.binary_path", nil),
       user_agent: setting("browser.session.user_agent", "AllbertBrowser/0.43 (+local research)"),
       javascript_enabled: setting("browser.session.javascript_enabled", true),
-      host_resolver_rules: System.get_env("ALLBERT_BROWSER_HOST_RESOLVER_RULES")
+      host_resolver_rules: setting("browser.driver.host_resolver_rules", nil)
     }
     |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
     |> Map.new()
   end
 
-  defp timeout_ms(opts), do: Keyword.get(opts, :timeout_ms, setting("browser.navigation.timeout_ms", @default_timeout_ms))
+  defp timeout_ms(opts),
+    do:
+      Keyword.get(
+        opts,
+        :timeout_ms,
+        setting("browser.navigation.timeout_ms", @default_timeout_ms)
+      )
 
-  defp normalize_wait_until(value) when value in ["load", "domcontentloaded", "networkidle", "commit"], do: value
+  defp normalize_wait_until(value)
+       when value in ["load", "domcontentloaded", "networkidle", "commit"], do: value
+
   defp normalize_wait_until(_value), do: "domcontentloaded"
 
   defp node_path do

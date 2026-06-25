@@ -1,10 +1,30 @@
 defmodule AllbertAssist.TraceWorkspaceTest do
   use AllbertAssist.DataCase, async: false
 
+  alias AllbertAssist.Settings
   alias AllbertAssist.Trace
   alias AllbertAssist.Workspace.Canvas
   alias AllbertAssist.Workspace.Ephemeral
   alias Jido.Signal
+
+  setup do
+    original_settings = Application.get_env(:allbert_assist, Settings)
+
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-trace-workspace-#{System.unique_integer([:positive])}"
+      )
+
+    Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
+
+    on_exit(fn ->
+      restore_env(Settings, original_settings)
+      File.rm_rf!(root)
+    end)
+
+    :ok
+  end
 
   test "text renders workspace sections from active state and recent fragment context" do
     user_id = "user-trace-workspace"
@@ -81,6 +101,32 @@ defmodule AllbertAssist.TraceWorkspaceTest do
     assert trace =~ "Recent dropped fragments:\nnone"
   end
 
+  test "runtime.trace_recent_entries_limit bounds workspace fragment trace context" do
+    assert {:ok, _setting} =
+             Settings.put("runtime.trace_recent_entries_limit", 1, %{audit?: false})
+
+    trace =
+      "Trace bounded workspace."
+      |> turn("user-trace-bounded-workspace", "thread-trace-bounded-workspace", %{
+        emitted_fragments: [
+          %{fragment_id: "frag-keep", kind: "canvas_tile"},
+          %{fragment_id: "frag-drop-from-trace", kind: "canvas_tile"}
+        ],
+        dropped_fragments: [
+          %{fragment_id: "drop-keep", kind: "ephemeral_surface"},
+          %{fragment_id: "drop-hide-from-trace", kind: "ephemeral_surface"}
+        ]
+      })
+      |> Trace.text()
+
+    assert trace =~ "- Recent emitted fragments: 1"
+    assert trace =~ "frag-keep"
+    refute trace =~ "frag-drop-from-trace"
+    assert trace =~ "- Recent dropped fragments: 1"
+    assert trace =~ "drop-keep"
+    refute trace =~ "drop-hide-from-trace"
+  end
+
   defp turn(text, user_id, thread_id, workspace \\ %{}) do
     {:ok, input_signal} =
       Signal.new(
@@ -120,4 +166,7 @@ defmodule AllbertAssist.TraceWorkspaceTest do
       agent: AllbertAssist.Agents.IntentAgent
     }
   end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 end

@@ -5,8 +5,8 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
 
   use AllbertAssistWeb, :live_component
 
-  alias AllbertAssist.Confirmations
   alias AllbertAssist.Actions.Helper, as: ActionHelper
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.ExternalRequestMetadata
   alias AllbertAssist.Confirmations.ObjectiveContext
   alias AllbertAssist.Confirmations.OnlineSkillMetadata

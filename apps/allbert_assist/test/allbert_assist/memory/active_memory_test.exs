@@ -201,6 +201,32 @@ defmodule AllbertAssist.Memory.ActiveMemoryTest do
     assert disabled.chunks == []
   end
 
+  test "settings bound internal candidate and excluded sample limits" do
+    for index <- 1..4 do
+      {:ok, entry} = append("alice", "candidate #{index} concise release reports")
+      {:ok, _entry} = keep(entry)
+    end
+
+    assert {:ok, _setting} = Settings.put("active_memory.top_k", 1, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("active_memory.internal_candidate_limit", 2, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("active_memory.excluded_sample_limit", 1, %{audit?: false})
+
+    assert {:ok, result} =
+             ActiveMemory.retrieve("candidate concise reports",
+               user_id: "alice",
+               active_app: nil,
+               now: @now
+             )
+
+    assert result.candidate_count_before_filter == 2
+    assert length(result.chunks) == 1
+    assert length(result.excluded_chunks_sample) == 1
+  end
+
   test "long kept entries are split into scored byte windows without ellipsis" do
     body = String.duplicate("anchor concise release reports ", 80)
 

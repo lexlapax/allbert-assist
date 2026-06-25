@@ -58,6 +58,7 @@ defmodule AllbertBrowser.Plugin do
       schema("browser.driver.node_path", :string_or_nil, nil),
       schema("browser.driver.binary_path", :string_or_nil, nil),
       schema("browser.driver.version_pin", :string_or_nil, nil),
+      schema("browser.driver.host_resolver_rules", :string_or_nil, nil),
       schema("browser.session.max_concurrent", :bounded_integer, 1, min: 1, max: 1),
       schema("browser.session.max_lifetime_ms", :bounded_integer, 300_000,
         min: 1_000,

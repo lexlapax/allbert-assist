@@ -97,6 +97,30 @@ defmodule AllbertAssist.Intent.RouterDisambiguatorTest do
                )
     end
 
+    test "Settings Central controls decisive confidence for tight-margin execution" do
+      assert {:ok, _setting} =
+               Settings.put("intent.router_decisive_confidence", 0.95, %{audit?: false})
+
+      assert %Outcome{kind: :clarify, diagnostics: %{note: :ambiguous_margin}} =
+               Disambiguator.decide(
+                 %{selected: "create_note", confidence: 0.9},
+                 @shortlist,
+                 0.05,
+                 @opts
+               )
+
+      assert {:ok, _setting} =
+               Settings.put("intent.router_decisive_confidence", 0.85, %{audit?: false})
+
+      assert %Outcome{kind: :execute, action_name: "create_note"} =
+               Disambiguator.decide(
+                 %{selected: "create_note", confidence: 0.9},
+                 @shortlist,
+                 0.05,
+                 @opts
+               )
+    end
+
     test "a selection outside the shortlist clarifies (never executes a hallucination)" do
       assert %Outcome{kind: :clarify} =
                Disambiguator.decide(

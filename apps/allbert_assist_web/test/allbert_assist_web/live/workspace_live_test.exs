@@ -19,9 +19,9 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     Workspace
   }
 
+  alias AllbertAssist.Channels.Event
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Conversations.ConversationMessageRef
-  alias AllbertAssist.Channels.Event
   alias AllbertAssist.Intent.Handoff
   alias AllbertAssist.McpRegistryFixtures
   alias AllbertAssist.Resources.{Grants, ResourceURI, Scope}

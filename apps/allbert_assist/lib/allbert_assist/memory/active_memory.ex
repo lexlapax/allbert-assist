@@ -11,8 +11,6 @@ defmodule AllbertAssist.Memory.ActiveMemory do
   alias AllbertAssist.Memory.Entry
   alias AllbertAssist.Settings
 
-  @candidate_limit 1_000
-  @excluded_sample_limit 5
   @seconds_per_day 86_400
   @stop_words_fallback ~w[a an and are about do for from in is me my of on the to what you]
 
@@ -26,7 +24,9 @@ defmodule AllbertAssist.Memory.ActiveMemory do
             same_app: float(),
             general: float()
           },
-          identity_inclusion: float()
+          identity_inclusion: float(),
+          internal_candidate_limit: pos_integer(),
+          excluded_sample_limit: pos_integer()
         }
 
   @type result :: %{
@@ -92,11 +92,11 @@ defmodule AllbertAssist.Memory.ActiveMemory do
   def normalize_terms(_text), do: []
 
   defp retrieve_enabled(settings, scope, terms, now, opts) do
-    with {:ok, entries} <- list_candidates(opts) do
+    with {:ok, entries} <- list_candidates(opts, settings) do
       chunks = Enum.flat_map(entries, &chunks_for_entry(&1, settings.chunk_max_bytes))
       scored = score_chunks(chunks, terms, scope, now, settings)
       selected = Enum.take(scored, settings.top_k)
-      excluded = scored |> Enum.drop(settings.top_k) |> Enum.take(@excluded_sample_limit)
+      excluded = scored |> Enum.drop(settings.top_k) |> Enum.take(settings.excluded_sample_limit)
 
       {:ok,
        %{
@@ -114,15 +114,19 @@ defmodule AllbertAssist.Memory.ActiveMemory do
     end
   end
 
-  defp list_candidates(opts) do
+  defp list_candidates(opts, settings) do
     opts
     |> Keyword.get(:user_id)
     |> case do
       nil ->
-        Memory.list_entries(review_status: :kept, limit: @candidate_limit)
+        Memory.list_entries(review_status: :kept, limit: settings.internal_candidate_limit)
 
       user_id ->
-        Memory.list_entries(user_id: user_id, review_status: :kept, limit: @candidate_limit)
+        Memory.list_entries(
+          user_id: user_id,
+          review_status: :kept,
+          limit: settings.internal_candidate_limit
+        )
     end
   end
 
@@ -343,7 +347,9 @@ defmodule AllbertAssist.Memory.ActiveMemory do
         same_app: setting("active_memory.score_weights.thread_affinity.same_app", 0.6),
         general: setting("active_memory.score_weights.thread_affinity.general", 0.3)
       },
-      identity_inclusion: setting("active_memory.score_weights.identity_inclusion", 1.5)
+      identity_inclusion: setting("active_memory.score_weights.identity_inclusion", 1.5),
+      internal_candidate_limit: setting("active_memory.internal_candidate_limit", 1_000),
+      excluded_sample_limit: setting("active_memory.excluded_sample_limit", 5)
     }
   end
 

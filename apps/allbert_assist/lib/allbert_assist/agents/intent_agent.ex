@@ -236,19 +236,38 @@ defmodule AllbertAssist.Agents.IntentAgent do
     if coding_turn?(context) do
       run_deterministic_route(:direct_answer, text, context, route_decision)
     else
-      case engine_result do
-        {:ok, %Decision{intent: :open_surface} = decision} ->
-          {:ok, surface_navigation_response(decision)}
-
-        {:ok, %Decision{} = engine_decision} ->
-          decision = if mcp_route?(route), do: route_decision, else: engine_decision
-          run_validated_route(route, text, context, decision)
-
-        {:error, _reason} ->
-          run_validated_route(route, text, context, route_decision)
-      end
+      handle_non_coding_engine_decision(engine_result, route, text, context, route_decision)
     end
   end
+
+  defp handle_non_coding_engine_decision(
+         {:ok, %Decision{intent: :open_surface} = decision},
+         _route,
+         _text,
+         _context,
+         _route_decision
+       ),
+       do: {:ok, surface_navigation_response(decision)}
+
+  defp handle_non_coding_engine_decision(
+         {:ok, %Decision{} = engine_decision},
+         route,
+         text,
+         context,
+         route_decision
+       ) do
+    decision = if mcp_route?(route), do: route_decision, else: engine_decision
+    run_validated_route(route, text, context, decision)
+  end
+
+  defp handle_non_coding_engine_decision(
+         {:error, _reason},
+         route,
+         text,
+         context,
+         route_decision
+       ),
+       do: run_validated_route(route, text, context, route_decision)
 
   defp run_validated_route(route, text, context, %Decision{} = decision) do
     # v0.54 (ADR 0060): first resolve any pending clarification this reply answers;

@@ -237,16 +237,16 @@ defmodule AllbertAssist.Coding.ToolLoop do
   defp runner_context(name, args, context) do
     request = field(context, :request) || %{}
     metadata = field(request, :metadata) || field(context, :metadata) || %{}
-    coding = field(metadata, :coding) || field(request, :coding) || field(context, :coding) || %{}
+    coding = first_field([metadata, request, context], :coding, %{})
 
     context
     |> Map.put(:request, request)
     |> Map.put(:coding, coding)
-    |> maybe_put(:channel, field(context, :channel) || field(request, :channel))
-    |> maybe_put(:surface, field(context, :surface) || field(metadata, :surface) || "pi_mode")
-    |> maybe_put(:session, field(context, :session) || field(request, :session) || %{main?: true})
-    |> maybe_put(:operator_id, field(context, :operator_id) || field(request, :operator_id))
-    |> maybe_put(:user_id, field(context, :user_id) || field(request, :user_id))
+    |> maybe_put(:channel, first_field([context, request], :channel))
+    |> maybe_put(:surface, first_field([context, metadata], :surface, "pi_mode"))
+    |> maybe_put(:session, first_field([context, request], :session, %{main?: true}))
+    |> maybe_put(:operator_id, first_field([context, request], :operator_id))
+    |> maybe_put(:user_id, first_field([context, request], :user_id))
     |> Map.put(:selected_route, name)
     |> Map.put(:selected_action, name)
     |> Map.put(:source_text, source_text(name, args))
@@ -359,6 +359,10 @@ defmodule AllbertAssist.Coding.ToolLoop do
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  defp first_field(sources, key, default \\ nil) do
+    Enum.find_value(sources, default, &field(&1, key))
+  end
 
   defp field(map, key) when is_map(map) do
     cond do

@@ -47,14 +47,15 @@ defmodule AllbertAssist.Surfaces.ContextBuilder do
   def live_view_context(socket_or_assigns, opts \\ %{}) do
     opts = to_map(opts)
     assigns = assigns(socket_or_assigns)
-    user_id = field(opts, :user_id) || field(assigns, :user_id) || @default_user_id
+    user_id = first_field([opts, assigns], :user_id, @default_user_id)
     operator_id = field(opts, :operator_id) || user_id
-    session_id = field(opts, :session_id) || field(assigns, :session_id)
-    thread_id = field(opts, :thread_id) || field(assigns, :thread_id)
-    active_app = field(opts, :active_app) || field(assigns, :active_app)
-    canvas_destination = field(opts, :canvas_destination) || field(assigns, :canvas_destination)
+    session_id = first_field([opts, assigns], :session_id)
+    thread_id = first_field([opts, assigns], :thread_id)
+    active_app = first_field([opts, assigns], :active_app)
+    canvas_destination = first_field([opts, assigns], :canvas_destination)
     surface = field(opts, :surface) || "AllbertAssistWeb.WorkspaceLive"
     response_target = field(opts, :response_target) || field(socket_or_assigns, :id)
+    channel = field(opts, :channel) || :live_view
 
     %{
       actor: field(opts, :actor) || user_id,
@@ -64,12 +65,12 @@ defmodule AllbertAssist.Surfaces.ContextBuilder do
       session_id: session_id,
       active_app: active_app,
       canvas_destination: canvas_destination,
-      channel: field(opts, :channel) || :live_view,
+      channel: channel,
       surface: surface,
       response_target: response_target,
       request:
         compact(%{
-          channel: field(opts, :channel) || :live_view,
+          channel: channel,
           user_id: user_id,
           operator_id: operator_id,
           thread_id: thread_id,
@@ -174,6 +175,10 @@ defmodule AllbertAssist.Surfaces.ContextBuilder do
   defp to_map(opts) when is_map(opts), do: opts
   defp to_map(opts) when is_list(opts), do: Map.new(opts)
   defp to_map(_opts), do: %{}
+
+  defp first_field(sources, key, default \\ nil) do
+    Enum.find_value(sources, default, &field(&1, key))
+  end
 
   defp normalize_string(value, default) when is_binary(value) do
     value

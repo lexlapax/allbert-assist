@@ -165,6 +165,7 @@ defmodule AllbertAssist.Runtime do
          provider_message_id: provider_message_id(attrs),
          provider_message_part_id: provider_message_part_id(attrs),
          metadata: fetch_value(attrs, :metadata) || %{},
+         trace: fetch_value(attrs, :trace),
          coding_turn?: coding_turn?(attrs),
          coding_turn_id: coding_turn_id(attrs),
          coding_req_llm_context: fetch_value(attrs, :coding_req_llm_context),

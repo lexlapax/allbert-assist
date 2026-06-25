@@ -31,6 +31,7 @@ defmodule AllbertAssist.Settings.Schema do
     "objectives.trace_detail",
     "conversations.unified_history.include_e2ee_origin",
     "runtime.trace_default",
+    "runtime.trace_recent_entries_limit",
     "runtime.diagnostics_verbosity",
     "intent.model_assist_enabled",
     "intent.model_profile",
@@ -50,6 +51,7 @@ defmodule AllbertAssist.Settings.Schema do
     "intent.router_escalation_profile",
     "intent.router_top_k",
     "intent.router_min_confidence",
+    "intent.router_decisive_confidence",
     "intent.router_model_timeout_ms",
     "intent.router_scoring.prefilter.complete_required_slots_boost",
     "intent.router_scoring.prefilter.missing_required_slots_penalty",
@@ -102,6 +104,8 @@ defmodule AllbertAssist.Settings.Schema do
     "active_memory.enabled",
     "active_memory.top_k",
     "active_memory.chunk_max_bytes",
+    "active_memory.internal_candidate_limit",
+    "active_memory.excluded_sample_limit",
     "active_memory.score_weights.recency_half_life_days",
     "active_memory.score_weights.thread_affinity.same_thread",
     "active_memory.score_weights.thread_affinity.same_app",
@@ -276,6 +280,7 @@ defmodule AllbertAssist.Settings.Schema do
     "artifacts.root",
     "artifacts.retention_enabled",
     "artifacts.max_bytes",
+    "artifacts.ingestion_timeout_ms",
     "artifacts.allowed_mime",
     "artifacts.allowed_types",
     "artifacts.gc.enabled",
@@ -559,6 +564,14 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       allowed_values: ["disabled", "enabled", "denied_only"]
     },
+    "runtime.trace_recent_entries_limit" => %{
+      type: :bounded_integer,
+      default: 5,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 100
+    },
     "runtime.diagnostics_verbosity" => %{
       type: :enum,
       default: "normal",
@@ -697,6 +710,14 @@ defmodule AllbertAssist.Settings.Schema do
     "intent.router_min_confidence" => %{
       type: :bounded_float,
       default: 0.6,
+      writable?: true,
+      sensitive?: false,
+      min: 0.0,
+      max: 1.0
+    },
+    "intent.router_decisive_confidence" => %{
+      type: :bounded_float,
+      default: 0.8,
       writable?: true,
       sensitive?: false,
       min: 0.0,
@@ -887,6 +908,22 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       min: 128,
       max: 8192
+    },
+    "active_memory.internal_candidate_limit" => %{
+      type: :bounded_integer,
+      default: 1_000,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 50_000
+    },
+    "active_memory.excluded_sample_limit" => %{
+      type: :bounded_integer,
+      default: 5,
+      writable?: true,
+      sensitive?: false,
+      min: 0,
+      max: 100
     },
     "active_memory.score_weights.recency_half_life_days" => %{
       type: :bounded_integer,
@@ -2008,6 +2045,12 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       min: 1,
       max: 104_857_600
+    },
+    "artifacts.ingestion_timeout_ms" => %{
+      type: :timeout_ms,
+      default: 15_000,
+      writable?: true,
+      sensitive?: false
     },
     "artifacts.allowed_mime" => %{
       type: :string_list,
@@ -3432,6 +3475,7 @@ defmodule AllbertAssist.Settings.Schema do
     },
     "runtime" => %{
       "trace_default" => "disabled",
+      "trace_recent_entries_limit" => 5,
       "diagnostics_verbosity" => "normal",
       "model_alias" => "local",
       "cost_visibility" => "summary"
@@ -3455,6 +3499,7 @@ defmodule AllbertAssist.Settings.Schema do
       "router_escalation_profile" => "router_escalation_local",
       "router_top_k" => 5,
       "router_min_confidence" => 0.6,
+      "router_decisive_confidence" => 0.8,
       "router_model_timeout_ms" => 20_000,
       "router_scoring" => %{
         "prefilter" => %{
@@ -3831,6 +3876,7 @@ defmodule AllbertAssist.Settings.Schema do
       "root" => "<ALLBERT_HOME>/artifacts",
       "retention_enabled" => false,
       "max_bytes" => 20_971_520,
+      "ingestion_timeout_ms" => 15_000,
       "allowed_mime" => ["*/*"],
       "allowed_types" => ["*"],
       "dedup" => "content_sha256",
@@ -4130,6 +4176,8 @@ defmodule AllbertAssist.Settings.Schema do
       "enabled" => true,
       "top_k" => 5,
       "chunk_max_bytes" => 2048,
+      "internal_candidate_limit" => 1_000,
+      "excluded_sample_limit" => 5,
       "score_weights" => %{
         "recency_half_life_days" => 30,
         "thread_affinity" => %{

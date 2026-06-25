@@ -547,7 +547,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
 
     parent = self()
     turn_id = "v057-cancel-#{unique()}"
-    Application.put_env(:allbert_assist, Trace, enabled: true)
+    AllbertAssist.TraceTestSupport.enable_trace_default!()
 
     Application.put_env(:allbert_assist, Runtime,
       agent_runner: fn _signal, request ->

@@ -2,12 +2,14 @@
   configs: [
     %{
       name: "default",
+      requires: ["priv/credo_checks/settings_central_no_bypass.ex"],
       files: %{
         included: [
           "apps/*/lib/",
           "apps/*/test/",
           "apps/*/web/",
-          "config/"
+          "config/",
+          "plugins/allbert.browser/lib/allbert_browser/driver/playwright.ex"
         ],
         excluded: [~r"/_build/", ~r"/deps/", ~r"/priv/static/"]
       },
@@ -65,7 +67,8 @@
           {Credo.Check.Warning.UnusedPathOperation, []},
           {Credo.Check.Warning.UnusedRegexOperation, []},
           {Credo.Check.Warning.UnusedStringOperation, []},
-          {Credo.Check.Warning.UnusedTupleOperation, []}
+          {Credo.Check.Warning.UnusedTupleOperation, []},
+          {AllbertAssist.Credo.Check.SettingsCentralNoBypass, []}
         ],
         disabled: [
           {Credo.Check.Refactor.MapInto, []},

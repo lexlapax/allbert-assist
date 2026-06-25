@@ -16,6 +16,18 @@ defmodule AllbertAssist.Artifacts.IngestionSensorTest do
 
   @env_vars ["ALLBERT_HOME", "ALLBERT_HOME_DIR", "ALLBERT_SETTINGS_ROOT"]
 
+  defmodule SlowIngestionServer do
+    use GenServer
+
+    def start_link(opts), do: GenServer.start_link(__MODULE__, :ok, opts)
+
+    @impl true
+    def init(:ok), do: {:ok, nil}
+
+    @impl true
+    def handle_call(_request, _from, state), do: {:noreply, state}
+  end
+
   setup do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_paths_config = Application.get_env(:allbert_assist, Paths)
@@ -136,6 +148,30 @@ defmodule AllbertAssist.Artifacts.IngestionSensorTest do
              )
 
     refute Store.exists?(Store.sha256(bytes))
+  end
+
+  test "ingestion consumer call timeout comes from Settings Central" do
+    assert {:ok, _setting} =
+             Settings.put("artifacts.ingestion_timeout_ms", 1_000, %{audit?: false})
+
+    assert {:ok, server} =
+             SlowIngestionServer.start_link(
+               name: :"slow_ingestion_#{System.unique_integer([:positive])}"
+             )
+
+    assert catch_exit(
+             IngestionConsumer.ingest("slow-payload", %{filename: "slow.txt"},
+               server: server,
+               context: context()
+             )
+           ) ==
+             {:timeout,
+              {GenServer, :call,
+               [
+                 server,
+                 {:emit_ingest_request, "slow-payload", %{filename: "slow.txt"}, context()},
+                 1_000
+               ]}}
   end
 
   defp receive_ingestion_signal do

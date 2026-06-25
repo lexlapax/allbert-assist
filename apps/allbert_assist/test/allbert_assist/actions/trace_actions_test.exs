@@ -40,7 +40,7 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
   end
 
   test "records an enabled trace through the action boundary", %{root: root} do
-    Application.put_env(:allbert_assist, Trace, enabled: true)
+    AllbertAssist.TraceTestSupport.enable_trace_default!()
 
     assert {:ok, response} = RecordTrace.run(%{turn: turn("Trace through action.")}, context())
 
@@ -76,10 +76,9 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
   end
 
   test "returns structured errors when trace writing fails" do
-    Application.put_env(:allbert_assist, Trace,
-      enabled: true,
-      writer: fn _attrs -> {:error, :disk_full} end
-    )
+    AllbertAssist.TraceTestSupport.enable_trace_default!()
+
+    Application.put_env(:allbert_assist, Trace, writer: fn _attrs -> {:error, :disk_full} end)
 
     assert {:ok, response} = RecordTrace.run(%{turn: turn("Trace failure.")}, context())
 
@@ -92,7 +91,7 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
   end
 
   test "renders v0.10 capability metadata in traces" do
-    Application.put_env(:allbert_assist, Trace, enabled: true)
+    AllbertAssist.TraceTestSupport.enable_trace_default!()
 
     cases = [
       {
@@ -128,7 +127,7 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
   end
 
   test "renders intent candidate metadata without leaking secret-like values" do
-    Application.put_env(:allbert_assist, Trace, enabled: true)
+    AllbertAssist.TraceTestSupport.enable_trace_default!()
 
     assert {:ok, selected} =
              Candidate.new(%{
@@ -168,7 +167,7 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
   end
 
   test "renders bounded memory intent candidates without entry bodies" do
-    Application.put_env(:allbert_assist, Trace, enabled: true)
+    AllbertAssist.TraceTestSupport.enable_trace_default!()
 
     memory_candidate = %{
       kind: :memory,
@@ -228,7 +227,7 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
   end
 
   test "renders memory review metadata without entry body content" do
-    Application.put_env(:allbert_assist, Trace, enabled: true)
+    AllbertAssist.TraceTestSupport.enable_trace_default!()
 
     trace_turn =
       turn("Review memory.")
@@ -264,7 +263,7 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
   end
 
   test "renders bounded JidoBacked diagnostics only when debug trace is enabled" do
-    Application.put_env(:allbert_assist, Trace, enabled: true)
+    AllbertAssist.TraceTestSupport.enable_trace_default!()
 
     assert {:ok, response} =
              RecordTrace.run(%{turn: turn("Trace without Jido debug.")}, context())
@@ -290,7 +289,7 @@ defmodule AllbertAssist.Actions.TraceActionsTest do
   end
 
   test "renders objective context inline and objective step details" do
-    Application.put_env(:allbert_assist, Trace, enabled: true)
+    AllbertAssist.TraceTestSupport.enable_trace_default!()
 
     objective = %{
       id: "obj_trace",

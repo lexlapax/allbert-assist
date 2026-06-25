@@ -544,7 +544,7 @@ defmodule AllbertAssist.Channels.EmailTest do
   defp configure_runtime! do
     parent = self()
 
-    Application.put_env(:allbert_assist, Trace, enabled: true)
+    AllbertAssist.TraceTestSupport.enable_trace_default!()
 
     Application.put_env(:allbert_assist, Runtime,
       agent_runner: fn _signal, request ->

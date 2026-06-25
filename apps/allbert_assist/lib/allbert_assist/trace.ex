@@ -17,17 +17,17 @@ defmodule AllbertAssist.Trace do
   alias AllbertAssist.Confirmations.ShellCommandMetadata
   alias AllbertAssist.Memory
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Settings
   alias AllbertAssist.Workspace
 
   @model_alias :local
-  @workspace_recent_limit 5
 
   @type result :: {:ok, Memory.entry()} | {:disabled, :tracing_disabled} | {:error, term()}
 
   @doc "Return true when runtime trace recording is enabled."
   @spec enabled?() :: boolean()
   def enabled?(turn \\ %{}) do
-    request_trace_enabled?(turn) || env_enabled?() || config_enabled?() || settings_enabled?(turn)
+    request_trace_enabled?(turn) || settings_enabled?(turn)
   end
 
   @doc "Record one runtime turn as markdown when tracing is enabled."
@@ -62,16 +62,6 @@ defmodule AllbertAssist.Trace do
     |> Keyword.get(:writer, &Memory.append/1)
   end
 
-  defp config_enabled? do
-    :allbert_assist
-    |> Application.get_env(__MODULE__, [])
-    |> Keyword.get(:enabled, false)
-  end
-
-  defp env_enabled? do
-    System.get_env("ALLBERT_TRACE_ENABLED") in ["1", "true", "TRUE", "yes", "YES", "on", "ON"]
-  end
-
   defp request_trace_enabled?(turn) do
     request = Map.get(turn, :request, %{})
     metadata = Map.get(request, :metadata, %{})
@@ -82,7 +72,7 @@ defmodule AllbertAssist.Trace do
   end
 
   defp settings_enabled?(turn) do
-    case AllbertAssist.Settings.get("runtime.trace_default") do
+    case Settings.get("runtime.trace_default") do
       {:ok, "enabled"} -> true
       {:ok, "denied_only"} -> denied_or_confirmation?(turn)
       _other -> false
@@ -1269,7 +1259,16 @@ defmodule AllbertAssist.Trace do
   end
 
   defp recent_entries(nil), do: []
-  defp recent_entries(entries), do: entries |> List.wrap() |> Enum.take(@workspace_recent_limit)
+
+  defp recent_entries(entries),
+    do: entries |> List.wrap() |> Enum.take(trace_recent_entries_limit())
+
+  defp trace_recent_entries_limit do
+    case Settings.get("runtime.trace_recent_entries_limit") do
+      {:ok, value} when is_integer(value) and value > 0 -> value
+      _other -> 5
+    end
+  end
 
   defp workspace_inline(workspace) do
     """

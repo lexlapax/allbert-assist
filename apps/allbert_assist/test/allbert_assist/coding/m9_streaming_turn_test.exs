@@ -1,13 +1,13 @@
 defmodule AllbertAssist.Coding.M9StreamingTurnTest do
   use AllbertAssist.DataCase, async: false
 
-  alias AllbertAssist.Paths
-  alias AllbertAssist.Settings
+  alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.Coding.StreamingTurn
   alias AllbertAssist.Coding.TurnSupervisor
-  alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.Intent.PendingClarification
   alias AllbertAssist.Intent.Router.PendingStore
+  alias AllbertAssist.Paths
+  alias AllbertAssist.Settings
 
   @env_vars [
     "ALLBERT_HOME",
@@ -17,6 +17,9 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
   ]
 
   defmodule FakeReqLLM do
+    alias ReqLLM.StreamResponse
+    alias ReqLLM.StreamResponse.MetadataHandle
+
     def stream_text(model_spec, prompt, opts) do
       config = Application.get_env(:allbert_assist, __MODULE__, [])
       parent = Keyword.fetch!(config, :parent)
@@ -25,11 +28,10 @@ defmodule AllbertAssist.Coding.M9StreamingTurnTest do
 
       send(parent, {:stream_text_called, model_spec, prompt, opts, self()})
 
-      {:ok, metadata_handle} =
-        ReqLLM.StreamResponse.MetadataHandle.start_link(fn -> metadata(mode, prompt) end)
+      {:ok, metadata_handle} = MetadataHandle.start_link(fn -> metadata(mode, prompt) end)
 
       {:ok,
-       %ReqLLM.StreamResponse{
+       %StreamResponse{
          stream: stream(mode, parent, prompt),
          metadata_handle: metadata_handle,
          cancel: fn ->
