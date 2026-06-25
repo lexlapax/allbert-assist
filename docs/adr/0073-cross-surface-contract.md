@@ -54,8 +54,8 @@ A conformant surface MUST:
    the actor is resolved through `Channels.Identity.resolve` against the
    list-shaped identity map (no hardcoded `"local"`), and a session id is derived
    through the shared seam. Non-channel surfaces use a stable `surface_id`
-   (`live_view`, `cli`, `mcp_stdio`, `mcp_http`, `acp`) in place of a provider
-   channel id.
+   (`live_view`, `cli`, `mcp_stdio`, `mcp_http`, `acp`, `openai_api`) in place of
+   a provider channel id.
 2. **Invoke through the spine only.** User turns go through
    `Runtime.submit_user_input/1`; direct operations go through
    `Actions.Runner.run/3`. No surface calls business logic, `Confirmations`

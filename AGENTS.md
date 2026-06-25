@@ -63,7 +63,9 @@ business-logic debugging, code review, or repository-specific architecture revie
 
 - Do not include AI-tool attribution in commits, PR text, release notes, changelog
   entries, or generated docs. No generated-by or co-authored-by footers for Claude,
-  Codex, Gemini, opencode, Cursor, Antigravity, Pi, or similar tools.
+  Codex, Gemini, opencode, Cursor, Antigravity, Pi, or similar tools. The project
+  uses strict human supervision during planning, architecture, and development;
+  attribution belongs to the human project authors, not AI coding tools.
 - Preserve user data. Do not delete or rewrite memory, traces, settings, secrets,
   databases, skill folders, or user-created files unless explicitly requested.
 - Keep handoff warning-free: compiler, HEEx/parser, lexical tracker, formatter,
@@ -106,8 +108,10 @@ business-logic debugging, code review, or repository-specific architecture revie
 - `objective_id` and `step_id` are never authority. Advisory provider output and
   predictions about user behavior never short-circuit confirmation.
 - Choose Jido.Agent or plain GenServer by the pragmatic substrate rule in the
-  vision and relevant ADRs. New state-bearing modules document the choice in
-  `@moduledoc`.
+  vision and relevant ADRs: use Jido.Agent when state machines, lifecycle hooks,
+  Skill composition, or successor agents are plausibly useful; use plain GenServer
+  for stateful storage where Jido.Agent buys nothing. New state-bearing modules
+  document the choice in `@moduledoc`.
 - Private Jido command modules are not Allbert capability actions. Do not register
   or expose them as intent candidates.
 - Use `Req` for HTTP. Do not add `:httpoison`, `:tesla`, or `:httpc`.
