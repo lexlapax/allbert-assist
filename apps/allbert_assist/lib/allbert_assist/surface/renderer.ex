@@ -10,6 +10,7 @@ defmodule AllbertAssist.Surface.Renderer do
 
   alias AllbertAssist.Approval.Handoff
   alias AllbertAssist.Coding.StreamRenderer
+  alias AllbertAssist.Maps
   alias AllbertAssist.Runtime.MediaOutputs
   alias AllbertAssist.Runtime.Response
 
@@ -132,12 +133,7 @@ defmodule AllbertAssist.Surface.Renderer do
   end
 
   @spec field(term(), atom(), term()) :: term()
-  def field(value, key, default \\ nil)
-
-  def field(%{} = map, key, default),
-    do: Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-
-  def field(_value, _key, default), do: default
+  def field(value, key, default \\ nil), do: Maps.field(value, key, default)
 
   defp descriptor(descriptor, opts \\ []) when is_map(descriptor) do
     @default_descriptor

@@ -2,6 +2,7 @@
 defmodule AllbertAssistWeb.Workspace.Components.OperatorPanels do
   @moduledoc false
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Surfaces.ContextBuilder
 
   @spec action_context(map()) :: map()
@@ -25,13 +26,7 @@ defmodule AllbertAssistWeb.Workspace.Components.OperatorPanels do
   def node_props(%{props: props}) when is_map(props), do: props
   def node_props(_node), do: %{}
 
-  def field(map, key, default \\ nil)
-
-  def field(%{} = map, key, default) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  def field(_map, _key, default), do: default
+  def field(map, key, default \\ nil), do: Maps.field(map, key, default)
 
   def safe_id(value) do
     value

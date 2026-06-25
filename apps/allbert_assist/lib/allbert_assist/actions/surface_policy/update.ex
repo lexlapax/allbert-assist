@@ -25,6 +25,7 @@ defmodule AllbertAssist.Actions.SurfacePolicy.Update do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
   alias AllbertAssist.SurfacePolicy
@@ -34,10 +35,10 @@ defmodule AllbertAssist.Actions.SurfacePolicy.Update do
   @impl true
   def run(params, context) do
     permission_decision = PermissionGate.authorize(:settings_write, context)
-    surface = normalize_segment(field(params, :surface))
-    action = normalize_segment(field(params, :action))
-    policy_field = field(params, :field)
-    value = parse_value(policy_field, field(params, :value))
+    surface = normalize_segment(Maps.field(params, :surface))
+    action = normalize_segment(Maps.field(params, :action))
+    policy_field = Maps.field(params, :field)
+    value = parse_value(policy_field, Maps.field(params, :value))
 
     with true <- PermissionGate.allowed?(permission_decision),
          :ok <- validate_field(policy_field),
@@ -119,8 +120,6 @@ defmodule AllbertAssist.Actions.SurfacePolicy.Update do
     |> to_string()
     |> String.replace(~r/[^a-z0-9_]/, "_")
   end
-
-  defp field(map, key), do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
 
   defp action_context(context, permission_decision) do
     request_context = Map.get(context, :request, context)

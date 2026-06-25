@@ -4,6 +4,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Schema do
   """
 
   alias AllbertAssist.Actions.Capability
+  alias AllbertAssist.Serialization
   alias Jido.Action.Schema, as: JidoSchema
 
   @empty_object %{"type" => "object", "properties" => %{}, "additionalProperties" => false}
@@ -34,7 +35,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Schema do
 
   defp normalize_schema(schema) when is_map(schema) do
     schema
-    |> stringify_keys()
+    |> Serialization.stringify_keys()
     |> Map.put_new("type", "object")
     |> Map.put_new("properties", %{})
     |> Map.put_new("additionalProperties", false)
@@ -55,16 +56,4 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Schema do
   defp open_world?(%Capability{execution_mode: :req_http}), do: true
   defp open_world?(%Capability{execution_mode: :mcp_tool_call}), do: true
   defp open_world?(_capability), do: false
-
-  defp stringify_keys(map) when is_map(map) and not is_struct(map) do
-    Map.new(map, fn {key, value} ->
-      {to_string(key), stringify_value(value)}
-    end)
-  end
-
-  defp stringify_value(value) when is_map(value) and not is_struct(value),
-    do: stringify_keys(value)
-
-  defp stringify_value(value) when is_list(value), do: Enum.map(value, &stringify_value/1)
-  defp stringify_value(value), do: value
 end

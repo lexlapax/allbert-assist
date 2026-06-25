@@ -9,11 +9,13 @@ defmodule AllbertAssist.Tools.Source.McpRegistry do
 
   @behaviour AllbertAssist.Tools.SourcePort
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Mcp.Registry.Official
   alias AllbertAssist.Mcp.Registry.PulseMcp
   alias AllbertAssist.Settings
   alias AllbertAssist.Tools.Discovery
   alias AllbertAssist.Tools.ToolCandidate
+  alias AllbertAssist.Validation
 
   @default_limit 25
   @max_limit 100
@@ -251,10 +253,9 @@ defmodule AllbertAssist.Tools.Source.McpRegistry do
   end
 
   defp limit(opts) do
-    case Map.get(opts, :limit, Map.get(opts, "limit", @default_limit)) do
-      value when is_integer(value) and value > 0 -> min(value, @max_limit)
-      _value -> @default_limit
-    end
+    opts
+    |> Maps.field(:limit, @default_limit)
+    |> Validation.clamp_limit(@default_limit, @max_limit)
   end
 
   defp source_timeout_ms(opts) do

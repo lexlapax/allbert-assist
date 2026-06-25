@@ -3,9 +3,11 @@ defmodule AllbertAssist.Tools.Finder do
   Orchestrates tool discovery sources and normalizes merged results.
   """
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Tools.Source.Local
   alias AllbertAssist.Tools.Source.McpRegistry
   alias AllbertAssist.Tools.ToolCandidate
+  alias AllbertAssist.Validation
 
   @default_limit 25
   @max_limit 100
@@ -148,10 +150,9 @@ defmodule AllbertAssist.Tools.Finder do
   end
 
   defp limit(opts) do
-    case Map.get(opts, :limit, Map.get(opts, "limit", @default_limit)) do
-      value when is_integer(value) and value > 0 -> min(value, @max_limit)
-      _value -> @default_limit
-    end
+    opts
+    |> Maps.field(:limit, @default_limit)
+    |> Validation.clamp_limit(@default_limit, @max_limit)
   end
 
   defp diagnostic(source_id, reason) do

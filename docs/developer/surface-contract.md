@@ -1,6 +1,6 @@
 # Surface Contract
 
-Status: v0.58 implementation contract; implemented through M11.
+Status: v0.58 implementation contract; implemented through M12.
 
 Authority: `docs/adr/0073-cross-surface-contract.md`,
 `docs/plans/v0.58-plan.md`, and

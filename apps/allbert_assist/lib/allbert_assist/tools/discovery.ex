@@ -11,6 +11,7 @@ defmodule AllbertAssist.Tools.Discovery do
 
   alias AllbertAssist.External.HttpClient
   alias AllbertAssist.External.RequestSpec
+  alias AllbertAssist.Maps
   alias AllbertAssist.Repo
   alias AllbertAssist.Settings
   alias AllbertAssist.Tools.Discovery.BaselineTrustRecord
@@ -18,6 +19,7 @@ defmodule AllbertAssist.Tools.Discovery do
   alias AllbertAssist.Tools.Discovery.EvaluationReport
   alias AllbertAssist.Tools.Discovery.Suggestion
   alias AllbertAssist.Tools.ToolCandidate
+  alias AllbertAssist.Validation
 
   @dangerous_patterns [
     {~r/\brm\s+-rf\b/i, "destructive_recursive_remove"},
@@ -419,7 +421,7 @@ defmodule AllbertAssist.Tools.Discovery do
   end
 
   defp expires_at(attrs) do
-    case get_any(attrs, [:expires_at, "expires_at"]) do
+    case Maps.get_any(attrs, [:expires_at, "expires_at"]) do
       %DateTime{} = value ->
         value
 
@@ -517,7 +519,7 @@ defmodule AllbertAssist.Tools.Discovery do
 
   defp provider_from_manifest(manifest) do
     manifest
-    |> get_any(["provider", :provider])
+    |> Maps.get_any(["provider", :provider])
     |> case do
       nil -> nil
       value -> to_string(value)
@@ -525,7 +527,7 @@ defmodule AllbertAssist.Tools.Discovery do
   end
 
   defp server_id(manifest) do
-    get_any(manifest, ["name", :name, "id", :id, "url", :url]) || "unknown"
+    Maps.get_any(manifest, ["name", :name, "id", :id, "url", :url]) || "unknown"
   end
 
   defp provenance_level("official", manifest) do
@@ -543,7 +545,7 @@ defmodule AllbertAssist.Tools.Discovery do
   defp repository_url(manifest) do
     get_in(manifest, ["repository", "url"]) ||
       get_in(manifest, [:repository, :url]) ||
-      get_any(manifest, ["source_code_url", :source_code_url])
+      Maps.get_any(manifest, ["source_code_url", :source_code_url])
   end
 
   defp dangerous_command_flags(manifest) do
@@ -658,12 +660,12 @@ defmodule AllbertAssist.Tools.Discovery do
 
   defp remote_urls(manifest) do
     manifest
-    |> get_any(["remotes", :remotes])
+    |> Maps.get_any(["remotes", :remotes])
     |> list_value()
     |> Enum.flat_map(fn remote ->
       [
-        get_any(remote, ["url_direct", :url_direct]),
-        get_any(remote, ["direct_url", :direct_url])
+        Maps.get_any(remote, ["url_direct", :url_direct]),
+        Maps.get_any(remote, ["direct_url", :direct_url])
       ]
     end)
     |> valid_urls()
@@ -671,15 +673,15 @@ defmodule AllbertAssist.Tools.Discovery do
 
   defp package_transport_urls(manifest) do
     manifest
-    |> get_any(["packages", :packages])
+    |> Maps.get_any(["packages", :packages])
     |> list_value()
     |> Enum.flat_map(fn package ->
-      transport = get_any(package, ["transport", :transport]) || %{}
+      transport = Maps.get_any(package, ["transport", :transport]) || %{}
 
       [
-        get_any(transport, ["url", :url]),
-        get_any(transport, ["endpoint", :endpoint]),
-        get_any(transport, ["base_url", :base_url, "baseUrl", :baseUrl])
+        Maps.get_any(transport, ["url", :url]),
+        Maps.get_any(transport, ["endpoint", :endpoint]),
+        Maps.get_any(transport, ["base_url", :base_url, "baseUrl", :baseUrl])
       ]
     end)
     |> valid_urls()
@@ -694,13 +696,13 @@ defmodule AllbertAssist.Tools.Discovery do
 
   defp tool_definition_basis(manifest) do
     %{
-      "name" => get_any(manifest, ["name", :name]),
-      "version" => get_any(manifest, ["version", :version]),
-      "packages" => get_any(manifest, ["packages", :packages]) || [],
-      "remotes" => get_any(manifest, ["remotes", :remotes]) || [],
+      "name" => Maps.get_any(manifest, ["name", :name]),
+      "version" => Maps.get_any(manifest, ["version", :version]),
+      "packages" => Maps.get_any(manifest, ["packages", :packages]) || [],
+      "remotes" => Maps.get_any(manifest, ["remotes", :remotes]) || [],
       "tools" =>
         manifest
-        |> get_any(["tools", :tools])
+        |> Maps.get_any(["tools", :tools])
         |> list_value()
         |> Enum.map(&tool_definition/1)
     }
@@ -708,10 +710,10 @@ defmodule AllbertAssist.Tools.Discovery do
 
   defp tool_definition(tool) when is_map(tool) do
     %{
-      "name" => get_any(tool, ["name", :name]),
-      "description" => get_any(tool, ["description", :description]),
+      "name" => Maps.get_any(tool, ["name", :name]),
+      "description" => Maps.get_any(tool, ["description", :description]),
       "input_schema" =>
-        get_any(tool, ["inputSchema", :inputSchema, "input_schema", :input_schema]) || %{}
+        Maps.get_any(tool, ["inputSchema", :inputSchema, "input_schema", :input_schema]) || %{}
     }
   end
 
@@ -774,16 +776,8 @@ defmodule AllbertAssist.Tools.Discovery do
   defp datetime_to_iso(%DateTime{} = value), do: DateTime.to_iso8601(value)
   defp datetime_to_iso(value), do: value
 
-  defp get_any(nil, _keys), do: nil
-
-  defp get_any(map, keys) when is_map(map) do
-    Enum.find_value(keys, &Map.get(map, &1))
-  end
-
-  defp get_any(_value, _keys), do: nil
-
   defp string_from(map, key) when is_map(map) do
-    get_any(map, [key, Atom.to_string(key)])
+    Maps.get_any(map, [key, Atom.to_string(key)])
     |> case do
       nil -> nil
       value when is_binary(value) -> value
@@ -827,10 +821,9 @@ defmodule AllbertAssist.Tools.Discovery do
   end
 
   defp suggestion_limit(opts) do
-    case Map.get(opts, :limit, Map.get(opts, "limit", 25)) do
-      value when is_integer(value) and value > 0 -> min(value, 100)
-      _value -> 25
-    end
+    opts
+    |> Maps.field(:limit, 25)
+    |> Validation.clamp_limit(25, 100)
   end
 
   defp suggestion_provenance(opts) do
@@ -850,14 +843,14 @@ defmodule AllbertAssist.Tools.Discovery do
   end
 
   defp map_opt(attrs, key, default \\ %{}) do
-    case get_any(attrs, [key, Atom.to_string(key)]) do
+    case Maps.get_any(attrs, [key, Atom.to_string(key)]) do
       value when is_map(value) -> value
       _value -> default
     end
   end
 
   defp list_opt(attrs, key) do
-    case get_any(attrs, [key, Atom.to_string(key)]) do
+    case Maps.get_any(attrs, [key, Atom.to_string(key)]) do
       value when is_list(value) -> value
       _value -> []
     end

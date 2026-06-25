@@ -3582,7 +3582,7 @@ ADRs: `docs/adr/0073-cross-surface-contract.md` (NEW),
 ADR 0016/0030/0070, the ADR 0004/0031 settings-enforcement note, and the ADR 0024
 chat-primary revision.
 
-Status: implementation in progress, complete through M11. **Rescoped 2026-06-24**
+Status: implementation in progress, complete through M12. **Rescoped 2026-06-24**
 from the earlier narrow web/policy framing into the **pre-1.0 consolidation
 release**, after the v0.57 closeout and a full surface/settings/UX/redundancy
 survey. The original web re-layout, the v0.56 DTO panels, and the operator

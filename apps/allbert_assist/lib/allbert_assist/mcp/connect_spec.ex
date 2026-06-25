@@ -3,6 +3,7 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
   Builds a settings-ready MCP server config from inert registry metadata.
   """
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Tools.Discovery
 
   @id_pattern ~r/[^a-z0-9_]+/
@@ -146,10 +147,10 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
 
   defp remote_transport_spec(remote, server_id) do
     transport =
-      normalize_transport(get_any(remote, ["transport", :transport]) || "streamable_http")
+      normalize_transport(Maps.get_any(remote, ["transport", :transport]) || "streamable_http")
 
-    base_url = get_any(remote, ["url_direct", :url_direct, "direct_url", :direct_url])
-    auth_method = get_any(remote, ["authentication_method", :authentication_method])
+    base_url = Maps.get_any(remote, ["url_direct", :url_direct, "direct_url", :direct_url])
+    auth_method = Maps.get_any(remote, ["authentication_method", :authentication_method])
 
     if transport in [:sse, :streamable_http] do
       with :ok <- validate_remote_url(base_url) do
@@ -170,8 +171,8 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
   end
 
   defp package_transport_spec(package, server_id) do
-    transport = get_any(package, ["transport", :transport]) || %{}
-    type = normalize_transport(get_any(transport, ["type", :type]) || "stdio")
+    transport = Maps.get_any(package, ["transport", :transport]) || %{}
+    type = normalize_transport(Maps.get_any(transport, ["type", :type]) || "stdio")
 
     case type do
       :stdio -> stdio_spec(package, transport, server_id)
@@ -182,8 +183,11 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
   end
 
   defp stdio_spec(package, transport, server_id) do
-    command = get_any(transport, ["command", :command]) || get_any(package, ["command", :command])
-    args = get_any(transport, ["args", :args]) || get_any(package, ["args", :args])
+    command =
+      Maps.get_any(transport, ["command", :command]) ||
+        Maps.get_any(package, ["command", :command])
+
+    args = Maps.get_any(transport, ["args", :args]) || Maps.get_any(package, ["args", :args])
     {command, args} = package_command(command, args, package)
     {env, required_secret_refs} = environment_secret_refs(package, server_id)
 
@@ -206,7 +210,7 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
 
   defp http_spec(type, package, transport, server_id) do
     base_url =
-      get_any(transport, [
+      Maps.get_any(transport, [
         "url",
         :url,
         "endpoint",
@@ -217,7 +221,7 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
         :baseUrl
       ])
 
-    auth_method = get_any(package, ["authentication_method", :authentication_method])
+    auth_method = Maps.get_any(package, ["authentication_method", :authentication_method])
 
     if valid_url?(base_url) do
       {auth_ref, required_secret_refs} = auth_ref(auth_method, server_id)
@@ -245,10 +249,10 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
 
   defp package_command(_command, _args, package) do
     registry_type =
-      get_any(package, ["registryType", :registryType, "registry_type", :registry_type])
+      Maps.get_any(package, ["registryType", :registryType, "registry_type", :registry_type])
 
-    identifier = get_any(package, ["identifier", :identifier])
-    version = get_any(package, ["version", :version])
+    identifier = Maps.get_any(package, ["identifier", :identifier])
+    version = Maps.get_any(package, ["version", :version])
 
     case {registry_type, identifier} do
       {"npm", identifier} when is_binary(identifier) ->
@@ -270,7 +274,7 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
 
   defp environment_secret_refs(package, server_id) do
     package
-    |> get_any([
+    |> Maps.get_any([
       "environmentVariables",
       :environmentVariables,
       "environment_variables",
@@ -278,9 +282,12 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
     ])
     |> list_value()
     |> Enum.reduce({%{}, []}, fn env_var, {env, refs} ->
-      name = get_any(env_var, ["name", :name])
-      required? = truthy?(get_any(env_var, ["isRequired", :isRequired, "required", :required]))
-      secret? = truthy?(get_any(env_var, ["isSecret", :isSecret, "secret", :secret]))
+      name = Maps.get_any(env_var, ["name", :name])
+
+      required? =
+        truthy?(Maps.get_any(env_var, ["isRequired", :isRequired, "required", :required]))
+
+      secret? = truthy?(Maps.get_any(env_var, ["isSecret", :isSecret, "secret", :secret]))
 
       if is_binary(name) and name != "" and (required? or secret?) do
         ref = "secret://mcp/#{server_id}/#{String.downcase(name)}"
@@ -301,16 +308,16 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
 
   defp first_remote(manifest) do
     manifest
-    |> get_any(["remotes", :remotes])
+    |> Maps.get_any(["remotes", :remotes])
     |> list_value()
     |> Enum.find(fn remote ->
-      valid_url?(get_any(remote, ["url_direct", :url_direct, "direct_url", :direct_url]))
+      valid_url?(Maps.get_any(remote, ["url_direct", :url_direct, "direct_url", :direct_url]))
     end)
   end
 
   defp first_package(manifest) do
     manifest
-    |> get_any(["packages", :packages])
+    |> Maps.get_any(["packages", :packages])
     |> list_value()
     |> List.first()
   end
@@ -323,7 +330,7 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
 
   defp tool_definition_hash(manifest) do
     manifest
-    |> get_any(["tools", :tools])
+    |> Maps.get_any(["tools", :tools])
     |> list_value()
     |> Discovery.tool_list_hash()
   end
@@ -339,7 +346,7 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
         candidate
         |> Map.get(:remote_server_id)
         |> Kernel.||(Map.get(candidate, :name))
-        |> Kernel.||(get_any(manifest, ["name", :name]))
+        |> Kernel.||(Maps.get_any(manifest, ["name", :name]))
         |> Kernel.||("mcp_server")
         |> slug()
     end
@@ -425,14 +432,6 @@ defmodule AllbertAssist.Mcp.ConnectSpec do
   end
 
   defp opaque_secret_like?(_value), do: false
-
-  defp get_any(nil, _keys), do: nil
-
-  defp get_any(map, keys) when is_map(map) do
-    Enum.find_value(keys, &Map.get(map, &1))
-  end
-
-  defp get_any(_value, _keys), do: nil
 
   defp list_value(value) when is_list(value), do: value
   defp list_value(_value), do: []

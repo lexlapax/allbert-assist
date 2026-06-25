@@ -8,6 +8,7 @@ defmodule AllbertAssist.SurfacePolicy do
   confirmation.
   """
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Settings.Store
 
   @surface_ids ~w(live_view cli tui mcp_stdio mcp_http acp acp_stdio openai_api)
@@ -63,8 +64,8 @@ defmodule AllbertAssist.SurfacePolicy do
   @spec dto(map(), map()) :: map()
   def dto(params \\ %{}, context \\ %{}) do
     with {:ok, settings, _user_settings} <- Store.resolved_settings() do
-      surface = field(params, :surface) || surface_id(params, context)
-      action_name = field(params, :action) || field(params, :action_name)
+      surface = Maps.field(params, :surface) || surface_id(params, context)
+      action_name = Maps.field(params, :action) || Maps.field(params, :action_name)
 
       {:ok,
        %{
@@ -147,15 +148,16 @@ defmodule AllbertAssist.SurfacePolicy do
 
   defp normalize_policy(policy) when is_map(policy) do
     %{
-      render_mode: render_mode_value(field(policy, :render_mode)),
-      redaction_profile: redaction_profile(field(policy, :redaction_profile)),
-      max_rows: max_rows(field(policy, :max_rows)),
-      raw_requires_affordance?: truthy?(field(policy, :raw_requires_affordance))
+      render_mode: render_mode_value(Maps.field(policy, :render_mode)),
+      redaction_profile: redaction_profile(Maps.field(policy, :redaction_profile)),
+      max_rows: max_rows(Maps.field(policy, :max_rows)),
+      raw_requires_affordance?: truthy?(Maps.field(policy, :raw_requires_affordance))
     }
   end
 
   defp requested_render_mode(params, context) do
-    case field(params, :render_mode) || field(params, :mode) || field(context, :render_mode) do
+    case Maps.field(params, :render_mode) || Maps.field(params, :mode) ||
+           Maps.field(context, :render_mode) do
       value when value in [:operator_report, "operator_report", :raw, "raw"] -> :operator_report
       _other -> :assistant_summary
     end
@@ -173,22 +175,22 @@ defmodule AllbertAssist.SurfacePolicy do
   defp max_rows(_value), do: Map.fetch!(@default_policy, :max_rows)
 
   defp explicit_affordance?(params, context) do
-    Enum.any?([params, context, field(context, :request, %{})], fn source ->
-      truthy?(field(source, :surface_policy_affordance)) ||
-        truthy?(field(source, :surface_policy_affordance?)) ||
-        truthy?(field(source, :explicit_affordance)) ||
-        truthy?(field(source, :explicit_affordance?)) ||
-        truthy?(field(source, :raw_affordance)) ||
-        truthy?(field(source, :raw_affordance?))
+    Enum.any?([params, context, Maps.field(context, :request, %{})], fn source ->
+      truthy?(Maps.field(source, :surface_policy_affordance)) ||
+        truthy?(Maps.field(source, :surface_policy_affordance?)) ||
+        truthy?(Maps.field(source, :explicit_affordance)) ||
+        truthy?(Maps.field(source, :explicit_affordance?)) ||
+        truthy?(Maps.field(source, :raw_affordance)) ||
+        truthy?(Maps.field(source, :raw_affordance?))
     end)
   end
 
   defp surface_id(params, context) do
-    field(params, :surface) ||
-      field(context, :surface_id) ||
+    Maps.field(params, :surface) ||
+      Maps.field(context, :surface_id) ||
       public_protocol_surface(context) ||
-      channel_surface(field(context, :channel)) ||
-      surface_label(field(context, :surface)) ||
+      channel_surface(Maps.field(context, :channel)) ||
+      surface_label(Maps.field(context, :surface)) ||
       "live_view"
   end
 
@@ -220,14 +222,6 @@ defmodule AllbertAssist.SurfacePolicy do
     |> to_string()
     |> String.replace(~r/[^a-z0-9_]/, "_")
   end
-
-  defp field(map, key, default \\ nil)
-
-  defp field(%{} = map, key, default) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp field(_map, _key, default), do: default
 
   defp truthy?(true), do: true
   defp truthy?("true"), do: true

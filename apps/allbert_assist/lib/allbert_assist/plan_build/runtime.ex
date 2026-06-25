@@ -12,6 +12,7 @@ defmodule AllbertAssist.PlanBuild.Runtime do
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.{Engine, Objective, Step}
   alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Serialization
 
   @default_step_limit 25
   @plan_step_confirm_action "plan_step_confirm"
@@ -590,15 +591,7 @@ defmodule AllbertAssist.PlanBuild.Runtime do
     end
   end
 
-  defp stringify_keys(%{} = map) do
-    Map.new(map, fn
-      {key, value} when is_atom(key) -> {Atom.to_string(key), stringify_keys(value)}
-      {key, value} -> {to_string(key), stringify_keys(value)}
-    end)
-  end
-
-  defp stringify_keys(list) when is_list(list), do: Enum.map(list, &stringify_keys/1)
-  defp stringify_keys(value), do: value
+  defp stringify_keys(value), do: Serialization.stringify_keys(value)
 
   defp maybe_put(map, nil, _value), do: map
   defp maybe_put(map, "", _value), do: map

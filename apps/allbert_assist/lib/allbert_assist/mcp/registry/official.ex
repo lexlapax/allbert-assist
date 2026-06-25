@@ -9,7 +9,9 @@ defmodule AllbertAssist.Mcp.Registry.Official do
 
   @behaviour AllbertAssist.Mcp.Registry.Provider
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Mcp.Registry.Http
+  alias AllbertAssist.Validation
 
   @default_base_url "https://registry.modelcontextprotocol.io"
   @default_limit 25
@@ -44,7 +46,7 @@ defmodule AllbertAssist.Mcp.Registry.Official do
       server_json?(ref) ->
         {:ok, ref}
 
-      manifest_url = get_any(ref, ["manifest_url", :manifest_url, "url", :url]) ->
+      manifest_url = Maps.get_any(ref, ["manifest_url", :manifest_url, "url", :url]) ->
         fetch_manifest(manifest_url, opts)
 
       true ->
@@ -68,12 +70,12 @@ defmodule AllbertAssist.Mcp.Registry.Official do
     params =
       %{"limit" => page_limit(limit)}
       |> maybe_put("cursor", cursor)
-      |> maybe_put("updated_since", get_any(opts, [:updated_since, "updated_since"]))
+      |> maybe_put("updated_since", Maps.get_any(opts, [:updated_since, "updated_since"]))
 
     url = Http.join_url(base_url(opts), "/v0.1/servers")
 
     with {:ok, response} <- Http.get_json(url, params, opts) do
-      servers = list_value(get_any(response, ["servers", :servers]))
+      servers = list_value(Maps.get_any(response, ["servers", :servers]))
 
       next_cursor =
         get_in(response, ["metadata", "nextCursor"]) || get_in(response, [:metadata, :nextCursor])
@@ -89,24 +91,24 @@ defmodule AllbertAssist.Mcp.Registry.Official do
   end
 
   defp normalize_server(server) when is_map(server) do
-    server_id = get_any(server, ["name", :name, "id", :id])
+    server_id = Maps.get_any(server, ["name", :name, "id", :id])
 
     if present?(server_id) do
       %{
         provider: :official,
         remote_server_id: to_string(server_id),
         name: to_string(server_id),
-        description: string_value(get_any(server, ["description", :description])),
+        description: string_value(Maps.get_any(server, ["description", :description])),
         manifest: server,
-        manifest_url: get_any(server, ["manifest_url", :manifest_url]),
+        manifest_url: Maps.get_any(server, ["manifest_url", :manifest_url]),
         repository_url: repository_url(server),
         server_url: first_remote_url(server),
-        version: get_any(server, ["version", :version]),
-        updated_at: get_any(server, ["updated_at", :updated_at, "updatedAt", :updatedAt]),
+        version: Maps.get_any(server, ["version", :version]),
+        updated_at: Maps.get_any(server, ["updated_at", :updated_at, "updatedAt", :updatedAt]),
         packages: package_summaries(server),
         transport_kinds: transport_kinds(server),
         signals: %{
-          package_count: length(list_value(get_any(server, ["packages", :packages]))),
+          package_count: length(list_value(Maps.get_any(server, ["packages", :packages]))),
           repository_source:
             get_in(server, ["repository", "source"]) || get_in(server, [:repository, :source])
         }
@@ -166,14 +168,14 @@ defmodule AllbertAssist.Mcp.Registry.Official do
 
   defp package_summaries(server) do
     server
-    |> get_any(["packages", :packages])
+    |> Maps.get_any(["packages", :packages])
     |> list_value()
     |> Enum.map(fn package ->
       %{
         registry_type:
-          get_any(package, ["registryType", :registryType, "registry_type", :registry_type]),
-        identifier: get_any(package, ["identifier", :identifier]),
-        version: get_any(package, ["version", :version]),
+          Maps.get_any(package, ["registryType", :registryType, "registry_type", :registry_type]),
+        identifier: Maps.get_any(package, ["identifier", :identifier]),
+        version: Maps.get_any(package, ["version", :version]),
         transport: get_in(package, ["transport", "type"]) || get_in(package, [:transport, :type])
       }
     end)
@@ -190,17 +192,22 @@ defmodule AllbertAssist.Mcp.Registry.Official do
   defp repository_url(server) do
     get_in(server, ["repository", "url"]) ||
       get_in(server, [:repository, :url]) ||
-      get_any(server, ["repository_url", :repository_url, "source_code_url", :source_code_url])
+      Maps.get_any(server, [
+        "repository_url",
+        :repository_url,
+        "source_code_url",
+        :source_code_url
+      ])
   end
 
   defp first_remote_url(server) do
     server
-    |> get_any(["packages", :packages])
+    |> Maps.get_any(["packages", :packages])
     |> list_value()
     |> Enum.find_value(fn package ->
-      transport = get_any(package, ["transport", :transport]) || %{}
+      transport = Maps.get_any(package, ["transport", :transport]) || %{}
 
-      get_any(transport, [
+      Maps.get_any(transport, [
         "url",
         :url,
         "endpoint",
@@ -214,15 +221,16 @@ defmodule AllbertAssist.Mcp.Registry.Official do
   end
 
   defp server_json?(ref),
-    do: present?(get_any(ref, ["name", :name])) and is_list(get_any(ref, ["packages", :packages]))
+    do:
+      present?(Maps.get_any(ref, ["name", :name])) and
+        is_list(Maps.get_any(ref, ["packages", :packages]))
 
-  defp base_url(opts), do: Map.get(opts, :base_url, Map.get(opts, "base_url", @default_base_url))
+  defp base_url(opts), do: Maps.field(opts, :base_url, @default_base_url)
 
   defp limit(opts) do
-    case Map.get(opts, :limit, Map.get(opts, "limit", @default_limit)) do
-      value when is_integer(value) and value > 0 -> min(value, @max_limit)
-      _value -> @default_limit
-    end
+    opts
+    |> Maps.field(:limit, @default_limit)
+    |> Validation.clamp_limit(@default_limit, @max_limit)
   end
 
   defp page_limit(limit), do: min(max(limit * 2, @default_limit), @max_limit)
@@ -237,14 +245,6 @@ defmodule AllbertAssist.Mcp.Registry.Official do
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, _key, ""), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
-
-  defp get_any(nil, _keys), do: nil
-
-  defp get_any(map, keys) when is_map(map) do
-    Enum.find_value(keys, &Map.get(map, &1))
-  end
-
-  defp get_any(_value, _keys), do: nil
 
   defp list_value(value) when is_list(value), do: value
   defp list_value(_value), do: []

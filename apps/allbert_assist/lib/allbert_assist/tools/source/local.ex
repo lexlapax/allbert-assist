@@ -6,10 +6,12 @@ defmodule AllbertAssist.Tools.Source.Local do
   @behaviour AllbertAssist.Tools.SourcePort
 
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
+  alias AllbertAssist.Maps
   alias AllbertAssist.Mcp
   alias AllbertAssist.Settings.Store, as: SettingsStore
   alias AllbertAssist.Skills.Registry, as: SkillsRegistry
   alias AllbertAssist.Tools.ToolCandidate
+  alias AllbertAssist.Validation
 
   @default_limit 25
   @max_limit 100
@@ -279,14 +281,13 @@ defmodule AllbertAssist.Tools.Source.Local do
   defp context(opts), do: Map.get(opts, :context, Map.get(opts, "context", %{}))
 
   defp limit(opts) do
-    case Map.get(opts, :limit, Map.get(opts, "limit", @default_limit)) do
-      value when is_integer(value) and value > 0 -> min(value, @max_limit)
-      _value -> @default_limit
-    end
+    opts
+    |> Maps.field(:limit, @default_limit)
+    |> Validation.clamp_limit(@default_limit, @max_limit)
   end
 
   defp field(map, key, default \\ nil) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
+    Maps.field(map, key, default)
   end
 
   defp ok_list({:ok, value}), do: [value]

@@ -9,9 +9,11 @@ defmodule AllbertAssist.Mcp.Registry.PulseMcp do
 
   @behaviour AllbertAssist.Mcp.Registry.Provider
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Mcp.Registry.Http
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Store
+  alias AllbertAssist.Validation
 
   @default_base_url "https://api.pulsemcp.com/v0beta"
   @default_limit 25
@@ -102,7 +104,7 @@ defmodule AllbertAssist.Mcp.Registry.PulseMcp do
   end
 
   defp normalize_server(server) when is_map(server) do
-    name = get_any(server, ["name", :name])
+    name = Maps.get_any(server, ["name", :name])
 
     if present?(name) do
       %{
@@ -112,17 +114,17 @@ defmodule AllbertAssist.Mcp.Registry.PulseMcp do
         description: description(server),
         manifest: server,
         manifest_url: nil,
-        repository_url: get_any(server, ["source_code_url", :source_code_url]),
-        server_url: first_remote_url(server) || get_any(server, ["url", :url]),
+        repository_url: Maps.get_any(server, ["source_code_url", :source_code_url]),
+        server_url: first_remote_url(server) || Maps.get_any(server, ["url", :url]),
         version: nil,
-        updated_at: get_any(server, ["updated_at", :updated_at]),
+        updated_at: Maps.get_any(server, ["updated_at", :updated_at]),
         packages: package_summaries(server),
         transport_kinds: transport_kinds(server),
         signals: %{
-          github_stars: int_value(get_any(server, ["github_stars", :github_stars])),
+          github_stars: int_value(Maps.get_any(server, ["github_stars", :github_stars])),
           package_download_count:
-            int_value(get_any(server, ["package_download_count", :package_download_count])),
-          total_count: int_value(get_any(server, ["total_count", :total_count]))
+            int_value(Maps.get_any(server, ["package_download_count", :package_download_count])),
+          total_count: int_value(Maps.get_any(server, ["total_count", :total_count]))
         }
       }
     end
@@ -131,7 +133,7 @@ defmodule AllbertAssist.Mcp.Registry.PulseMcp do
   defp normalize_server(_server), do: nil
 
   defp description(server) do
-    get_any(server, [
+    Maps.get_any(server, [
       "short_description",
       :short_description,
       "description",
@@ -143,11 +145,11 @@ defmodule AllbertAssist.Mcp.Registry.PulseMcp do
   end
 
   defp package_summaries(server) do
-    case get_any(server, ["package_name", :package_name]) do
+    case Maps.get_any(server, ["package_name", :package_name]) do
       value when is_binary(value) and value != "" ->
         [
           %{
-            registry_type: get_any(server, ["package_registry", :package_registry]),
+            registry_type: Maps.get_any(server, ["package_registry", :package_registry]),
             identifier: value,
             version: nil,
             transport: nil
@@ -161,19 +163,19 @@ defmodule AllbertAssist.Mcp.Registry.PulseMcp do
 
   defp transport_kinds(server) do
     server
-    |> get_any(["remotes", :remotes])
+    |> Maps.get_any(["remotes", :remotes])
     |> list_value()
-    |> Enum.map(&get_any(&1, ["transport", :transport]))
+    |> Enum.map(&Maps.get_any(&1, ["transport", :transport]))
     |> Enum.reject(&is_nil/1)
     |> Enum.uniq()
   end
 
   defp first_remote_url(server) do
     server
-    |> get_any(["remotes", :remotes])
+    |> Maps.get_any(["remotes", :remotes])
     |> list_value()
     |> Enum.find_value(fn remote ->
-      get_any(remote, ["url_direct", :url_direct, "direct_url", :direct_url])
+      Maps.get_any(remote, ["url_direct", :url_direct, "direct_url", :direct_url])
     end)
   end
 
@@ -228,22 +230,13 @@ defmodule AllbertAssist.Mcp.Registry.PulseMcp do
     |> get_in(String.split(key, "."))
   end
 
-  defp base_url(opts), do: Map.get(opts, :base_url, Map.get(opts, "base_url", @default_base_url))
+  defp base_url(opts), do: Maps.field(opts, :base_url, @default_base_url)
 
   defp limit(opts) do
-    case Map.get(opts, :limit, Map.get(opts, "limit", @default_limit)) do
-      value when is_integer(value) and value > 0 -> min(value, @max_limit)
-      _value -> @default_limit
-    end
+    opts
+    |> Maps.field(:limit, @default_limit)
+    |> Validation.clamp_limit(@default_limit, @max_limit)
   end
-
-  defp get_any(nil, _keys), do: nil
-
-  defp get_any(map, keys) when is_map(map) do
-    Enum.find_value(keys, &Map.get(map, &1))
-  end
-
-  defp get_any(_value, _keys), do: nil
 
   defp list_value(value) when is_list(value), do: value
   defp list_value(_value), do: []

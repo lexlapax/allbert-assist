@@ -57,7 +57,7 @@ release history mirror; use `CHANGELOG.md` for shipped details and
 | v0.55.1 | TUI operator/validation console with read-only slash allowlist. | ADR 0070, v0.55b docs, `docs/operator/tui-channel.md`. |
 | v0.56 | Intent descriptor learning, ADR 0071 routing-accuracy gate, ADR 0072 model recommendations, operator-action layer. | ADR 0062, ADR 0070-0072, v0.56 docs. |
 | v0.57 | Pi-mode coding surface on the one authority spine. | ADR 0068, v0.57 docs, `docs/operator/pi-mode-coding.md`. |
-| v0.58 | In-progress pre-1.0 consolidation implemented through M11: surface contract, settings enforcement, web design system, operator panels, surface policy, redundancy cleanup. | ADR 0073/0074, ADR 0024 revision, `docs/developer/surface-contract.md`, `docs/developer/web-design-system.md`, `docs/operator/workspace.md`, v0.58 docs. |
+| v0.58 | In-progress pre-1.0 consolidation implemented through M12: surface contract, settings enforcement, web design system, operator panels, surface policy, redundancy cleanup. | ADR 0073/0074, ADR 0024 revision, `docs/developer/surface-contract.md`, `docs/developer/web-design-system.md`, `docs/operator/workspace.md`, v0.58 docs. |
 | v0.59 | Planned RC hardening: settings migration, ADR 0065 central param contracts, operator onboarding, security sweep, portability. | ADR 0046/0065/0069, v0.59 docs. |
 | v1.0 | Contract freeze. | v1.0 plan/request-flow and roadmap. |
 

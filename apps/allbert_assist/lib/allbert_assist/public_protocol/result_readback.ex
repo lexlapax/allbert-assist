@@ -13,6 +13,7 @@ defmodule AllbertAssist.PublicProtocol.ResultReadback do
   alias AllbertAssist.PublicProtocol.CallResult
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Serialization
   alias AllbertAssist.Settings
 
   @pending "pending"
@@ -353,18 +354,7 @@ defmodule AllbertAssist.PublicProtocol.ResultReadback do
     end)
   end
 
-  defp stringify_keys(%{} = map) do
-    Map.new(map, fn
-      {key, value} when is_map(value) -> {to_string(key), stringify_keys(value)}
-      {key, value} when is_list(value) -> {to_string(key), Enum.map(value, &stringify_value/1)}
-      {key, value} -> {to_string(key), stringify_value(value)}
-    end)
-  end
-
-  defp stringify_value(%{} = value), do: stringify_keys(value)
-  defp stringify_value(value) when is_list(value), do: Enum.map(value, &stringify_value/1)
-  defp stringify_value(value) when is_atom(value), do: Atom.to_string(value)
-  defp stringify_value(value), do: value
+  defp stringify_keys(value), do: Serialization.stringify_keys(value, atom_values?: true)
 
   defp validate_surface(value) when is_atom(value), do: validate_surface(Atom.to_string(value))
 

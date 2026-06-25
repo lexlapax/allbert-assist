@@ -6,6 +6,7 @@ defmodule AllbertAssist.Workflows do
   module because it holds no process state and grants no authority.
   """
 
+  alias AllbertAssist.Serialization
   alias AllbertAssist.Workflows.{Expander, Loader, SchemaError, Validator}
 
   @ad_hoc_plan_id "ad_hoc_plan"
@@ -178,15 +179,7 @@ defmodule AllbertAssist.Workflows do
   defp falsey?(value) when value in [false, "false", "0", 0, "off"], do: true
   defp falsey?(_value), do: false
 
-  defp stringify_keys(%{} = map) do
-    Map.new(map, fn
-      {key, value} when is_atom(key) -> {Atom.to_string(key), stringify_keys(value)}
-      {key, value} -> {to_string(key), stringify_keys(value)}
-    end)
-  end
-
-  defp stringify_keys(list) when is_list(list), do: Enum.map(list, &stringify_keys/1)
-  defp stringify_keys(value), do: value
+  defp stringify_keys(value), do: Serialization.stringify_keys(value)
 
   defp ad_hoc_workflow(plan_text, inputs) do
     %{

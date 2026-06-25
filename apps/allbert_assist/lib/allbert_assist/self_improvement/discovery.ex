@@ -7,10 +7,12 @@ defmodule AllbertAssist.SelfImprovement.Discovery do
   existing discovery suggestion surface.
   """
 
+  alias AllbertAssist.Maps
   alias AllbertAssist.Memory
   alias AllbertAssist.Objectives
   alias AllbertAssist.SelfImprovement.TraceIndex
   alias AllbertAssist.Tools.Discovery, as: Suggestions
+  alias AllbertAssist.Validation
 
   @default_limit 8
   @max_limit 25
@@ -225,10 +227,9 @@ defmodule AllbertAssist.SelfImprovement.Discovery do
   defp query(params), do: params |> field(:query, field(params, :need, "")) |> to_string()
 
   defp limit(params) do
-    case field(params, :limit) do
-      value when is_integer(value) and value > 0 -> min(value, @max_limit)
-      _value -> @default_limit
-    end
+    params
+    |> field(:limit)
+    |> Validation.clamp_limit(@default_limit, @max_limit)
   end
 
   defp maybe_put(map_or_list, _key, nil), do: map_or_list
@@ -240,11 +241,5 @@ defmodule AllbertAssist.SelfImprovement.Discovery do
 
   defp context_field(context, key), do: field(context, key)
 
-  defp field(map, key, default \\ nil)
-
-  defp field(map, key, default) when is_map(map) and is_atom(key) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp field(_map, _key, default), do: default
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end

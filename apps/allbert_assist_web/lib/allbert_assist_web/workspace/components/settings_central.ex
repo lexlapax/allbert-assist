@@ -14,6 +14,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
   alias AllbertAssist.Confirmations.ResourceMetadata
   alias AllbertAssist.Confirmations.ShellCommandMetadata
   alias AllbertAssist.Confirmations.SkillScriptMetadata
+  alias AllbertAssist.Settings.Helpers, as: SettingsHelpers
   alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssist.Theme.Status, as: ThemeStatus
 
@@ -914,7 +915,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
     |> assign(:resource_grants, resource_grants_response.grants)
     |> assign(
       :liveview_confirmation_approval?,
-      setting_bool(settings, "confirmations.allow_liveview_approval", true)
+      SettingsHelpers.setting_bool(settings, "confirmations.allow_liveview_approval", true)
     )
     |> assign(:selected_key, setting.key)
     |> assign(:selected_value, setting.value)
@@ -1085,15 +1086,6 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
     confirmations
     |> Enum.reverse()
     |> Enum.take(5)
-  end
-
-  defp setting_bool(settings, key, default) do
-    settings
-    |> Enum.find(&(&1.key == key))
-    |> case do
-      %{value: value} when is_boolean(value) -> value
-      _setting -> default
-    end
   end
 
   defp maybe_put(params, _key, nil), do: params

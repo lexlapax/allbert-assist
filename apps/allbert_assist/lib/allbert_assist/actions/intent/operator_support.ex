@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
   alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Intent.Eval.{Corpus, Gate, Runner, Scorer}
   alias AllbertAssist.Intent.Router.{DescriptorResolver, DescriptorStore}
+  alias AllbertAssist.Maps
 
   @baseline_candidates [
     "apps/allbert_assist/test/fixtures/intent/eval/baseline.yaml",
@@ -334,11 +335,5 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
   defp truthy?("true"), do: true
   defp truthy?(_value), do: false
 
-  defp field(map, key, default \\ nil)
-
-  defp field(%{} = map, key, default) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-  end
-
-  defp field(_map, _key, default), do: default
+  defp field(map, key, default \\ nil), do: Maps.field(map, key, default)
 end
