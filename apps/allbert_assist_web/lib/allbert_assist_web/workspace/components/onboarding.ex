@@ -5,6 +5,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
   use AllbertAssistWeb, :live_component
 
+  alias AllbertAssist.Actions.ErrorExtraction
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Onboarding, as: OnboardingContext
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
@@ -394,9 +395,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
 
   defp put_flash_notice(socket, notice), do: assign(socket, :onboarding_notice, notice)
 
-  defp response_error(%{error: error}), do: error
-  defp response_error(%{message: message}), do: message
-  defp response_error(response), do: response
+  defp response_error(response), do: ErrorExtraction.from_response(response)
 
   defp current_step_evidence(socket, step_id) do
     socket.assigns.onboarding_state.steps

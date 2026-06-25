@@ -13,6 +13,7 @@ defmodule Mix.Tasks.Allbert.Conversations do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Conversations.UnifiedHistory
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Inspect and resume canonical Allbert conversations"
 
@@ -135,7 +136,7 @@ defmodule Mix.Tasks.Allbert.Conversations do
   end
 
   defp cli_context do
-    %{surface: :cli, source: :operator_cli}
+    ContextBuilder.cli_context(surface: :cli, source: :operator_cli)
   end
 
   defp reject_invalid!([]), do: :ok

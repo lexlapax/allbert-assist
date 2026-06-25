@@ -19,7 +19,10 @@ defmodule Mix.Tasks.Allbert.Memory do
 
   use Mix.Task
 
+  alias AllbertAssist.Actions.ErrorExtraction
+  alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Inspect Allbert markdown memory"
 
@@ -454,10 +457,7 @@ defmodule Mix.Tasks.Allbert.Memory do
   end
 
   defp completed_action(action_name, params, user_id) do
-    case Runner.run(action_name, params, context(user_id)) do
-      {:ok, %{status: :completed} = response} -> {:ok, response}
-      {:ok, response} -> {:error, response_error(response)}
-    end
+    ActionHelper.completed_action(action_name, params, context(user_id))
   end
 
   defp accepted_action(action_name, params, user_id) do
@@ -470,12 +470,15 @@ defmodule Mix.Tasks.Allbert.Memory do
     end
   end
 
-  defp response_error(%{error: error}), do: error
-  defp response_error(%{message: message}), do: message
-  defp response_error(response), do: response
+  defp response_error(response), do: ErrorExtraction.from_response(response)
 
   defp context(user_id) do
-    %{actor: user_id, user_id: user_id, operator_id: user_id, channel: :cli}
+    ContextBuilder.cli_context(
+      actor: user_id,
+      user_id: user_id,
+      operator_id: user_id,
+      surface: "mix allbert.memory"
+    )
   end
 
   defp user_id!(opts) do

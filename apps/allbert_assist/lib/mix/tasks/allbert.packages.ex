@@ -14,6 +14,7 @@ defmodule Mix.Tasks.Allbert.Packages do
   use Mix.Task
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Plan or request confirmed package installs"
   @switches [
@@ -142,7 +143,7 @@ defmodule Mix.Tasks.Allbert.Packages do
   defp denial_text(reason), do: inspect(reason)
 
   defp context do
-    %{actor: "local", channel: :cli, surface: "mix allbert.packages"}
+    ContextBuilder.cli_context(surface: "mix allbert.packages")
   end
 
   defp usage do

@@ -13,6 +13,7 @@ defmodule Mix.Tasks.Allbert.PublicProtocol do
   use Mix.Task
 
   alias AllbertAssist.PublicProtocol.TokenAuth
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Manage public protocol bearer tokens"
 
@@ -92,7 +93,15 @@ defmodule Mix.Tasks.Allbert.PublicProtocol do
     end
   end
 
-  defp context, do: %{actor: "operator", channel: "mix", audit?: false}
+  defp context do
+    ContextBuilder.cli_context(
+      actor: "operator",
+      user_id: "operator",
+      channel: "mix",
+      surface: "mix allbert.public_protocol",
+      audit?: false
+    )
+  end
 
   @spec usage!() :: no_return()
   defp usage! do

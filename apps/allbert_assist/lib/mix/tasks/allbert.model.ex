@@ -11,8 +11,9 @@ defmodule Mix.Tasks.Allbert.Model do
 
   use Mix.Task
 
-  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.Settings
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Inspect, select, and doctor model profiles"
 
@@ -118,26 +119,10 @@ defmodule Mix.Tasks.Allbert.Model do
   end
 
   defp completed_action(action_name, params) do
-    case Runner.run(action_name, params, context()) do
-      {:ok, %{status: :completed} = response} -> {:ok, response}
-      {:ok, response} -> {:error, response_error(response)}
-    end
+    ActionHelper.completed_action(action_name, params, context())
   end
 
-  defp response_error(%{error: error}), do: error
-
-  defp response_error(%{actions: actions, message: message}) when is_list(actions) do
-    actions
-    |> Enum.find_value(&get_in(&1, [:settings_metadata, :error]))
-    |> case do
-      nil -> message
-      error -> error
-    end
-  end
-
-  defp response_error(%{message: message}), do: message
-
-  defp context, do: %{actor: "local", channel: :cli}
+  defp context, do: ContextBuilder.cli_context(surface: "mix allbert.model")
 
   defp doctor_action(profile) do
     case Settings.resolve_model_profile(profile) do

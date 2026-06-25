@@ -12,6 +12,7 @@ defmodule AllbertAssist.PublicProtocol.HttpIngress do
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Store
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @mcp_http "mcp_http"
   @openai_api "openai_api"
@@ -179,13 +180,7 @@ defmodule AllbertAssist.PublicProtocol.HttpIngress do
 
   @spec public_context(auth_context()) :: map()
   def public_context(%{surface: surface, client_id: client_id}) do
-    %{
-      public_protocol: %{surface: surface, client_id: client_id},
-      request: %{
-        channel: String.to_atom(surface),
-        operator_id: "public-protocol:#{client_id}"
-      }
-    }
+    ContextBuilder.public_protocol_context(surface, client_id)
   end
 
   @type http_status :: 400 | 401 | 403 | 413 | 429

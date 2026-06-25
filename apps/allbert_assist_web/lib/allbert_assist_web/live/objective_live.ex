@@ -3,9 +3,11 @@ defmodule AllbertAssistWeb.ObjectiveLive do
 
   use AllbertAssistWeb, :live_view
 
+  alias AllbertAssist.Actions.ErrorExtraction
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
+  alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssistWeb.SignalBridge
   alias AllbertAssistWeb.Workspace.Components.PlanRunProgressPanel
 
@@ -61,7 +63,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
          |> refresh()}
 
       {:ok, response} ->
-        {:noreply, assign(socket, error: Map.get(response, :message, inspect(response)))}
+        {:noreply, assign(socket, error: response_error(response))}
     end
   end
 
@@ -77,7 +79,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
         {:noreply, socket |> assign(response: response_text(response), error: nil) |> refresh()}
 
       {:ok, response} ->
-        {:noreply, assign(socket, error: Map.get(response, :message, inspect(response)))}
+        {:noreply, assign(socket, error: response_error(response))}
     end
   end
 
@@ -97,7 +99,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
         {:noreply, socket |> assign(response: response_text(response), error: nil) |> refresh()}
 
       {:ok, response} ->
-        {:noreply, assign(socket, error: Map.get(response, :message, inspect(response)))}
+        {:noreply, assign(socket, error: response_error(response))}
     end
   end
 
@@ -275,20 +277,15 @@ defmodule AllbertAssistWeb.ObjectiveLive do
         assign(socket, objective: nil, steps: [], events: [], error: nil)
 
       {:ok, response} ->
-        assign(socket, error: Map.get(response, :message, inspect(response)))
+        assign(socket, error: response_error(response))
     end
   end
 
   defp context(socket) do
-    %{
-      actor: socket.assigns.user_id,
-      user_id: socket.assigns.user_id,
-      operator_id: socket.assigns.user_id,
-      channel: :live_view,
-      surface: "AllbertAssistWeb.ObjectiveLive",
-      response_target: socket.id
-    }
+    ContextBuilder.live_view_context(socket, surface: "AllbertAssistWeb.ObjectiveLive")
   end
+
+  defp response_error(response), do: ErrorExtraction.from_response(response)
 
   defp current_step_text(objective, steps) do
     case objective[:current_step_id] || objective["current_step_id"] do

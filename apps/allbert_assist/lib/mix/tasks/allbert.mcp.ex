@@ -17,7 +17,9 @@ defmodule Mix.Tasks.Allbert.Mcp do
 
   use Mix.Task
 
+  alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssist.Tools.Discovery
   alias AllbertAssist.Tools.Discovery.Scan
 
@@ -200,10 +202,7 @@ defmodule Mix.Tasks.Allbert.Mcp do
   defp scan_lifecycle("resume", opts), do: Scan.resume(opts)
 
   defp completed_action(action_name, params) do
-    case action_result(action_name, params) do
-      {:ok, %{status: :completed} = response} -> {:ok, response}
-      {:ok, response} -> {:error, response_error(response)}
-    end
+    ActionHelper.completed_action(action_name, params, context())
   end
 
   defp action_result(action_name, params) do
@@ -304,10 +303,7 @@ defmodule Mix.Tasks.Allbert.Mcp do
     Mix.raise("MCP command failed: #{inspect(reason)}")
   end
 
-  defp response_error(%{error: error}), do: error
-  defp response_error(%{message: message}), do: message
-
-  defp context, do: %{actor: "local", channel: :cli}
+  defp context, do: ContextBuilder.cli_context(surface: "mix allbert.mcp")
 
   defp reject_invalid!([]), do: :ok
   defp reject_invalid!(invalid), do: Mix.raise("Invalid option(s): #{inspect(invalid)}")

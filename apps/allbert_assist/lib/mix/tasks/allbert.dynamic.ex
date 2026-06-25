@@ -16,7 +16,10 @@ defmodule Mix.Tasks.Allbert.Dynamic do
 
   use Mix.Task
 
+  alias AllbertAssist.Actions.ErrorExtraction
+  alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Inspect v0.37 dynamic capability metadata"
 
@@ -160,10 +163,7 @@ defmodule Mix.Tasks.Allbert.Dynamic do
   end
 
   defp completed_action(action_name, params) do
-    case Runner.run(action_name, params, context()) do
-      {:ok, %{status: :completed} = response} -> {:ok, response}
-      {:ok, response} -> {:error, response_error(response)}
-    end
+    ActionHelper.completed_action(action_name, params, context())
   end
 
   defp rollback(slug, revision) do
@@ -177,11 +177,10 @@ defmodule Mix.Tasks.Allbert.Dynamic do
   end
 
   defp context do
-    %{actor: "local", channel: :cli, surface: "cli"}
+    ContextBuilder.cli_context(surface: "mix allbert.dynamic")
   end
 
-  defp response_error(%{error: error}), do: error
-  defp response_error(%{message: message}), do: message
+  defp response_error(response), do: ErrorExtraction.from_response(response)
 
   defp pattern_label(%{template_pattern_id: nil}), do: ""
   defp pattern_label(%{template_pattern_id: pattern_id}), do: " pattern=#{pattern_id}"

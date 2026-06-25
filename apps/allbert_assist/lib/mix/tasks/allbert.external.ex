@@ -9,6 +9,7 @@ defmodule Mix.Tasks.Allbert.External do
   use Mix.Task
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Create confirmed external service requests"
 
@@ -81,10 +82,6 @@ defmodule Mix.Tasks.Allbert.External do
   defp parse_query(params), do: params
 
   defp context do
-    %{
-      actor: "local",
-      channel: :cli,
-      surface: "mix allbert.external"
-    }
+    ContextBuilder.cli_context(surface: "mix allbert.external")
   end
 end

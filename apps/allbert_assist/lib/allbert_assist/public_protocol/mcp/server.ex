@@ -11,6 +11,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Server do
   alias AllbertAssist.App.CoreApp
   alias AllbertAssist.PublicProtocol.Mcp.ProtocolVersions
   alias AllbertAssist.PublicProtocol.Mcp.Runtime
+  alias AllbertAssist.Surfaces.ContextBuilder
   alias Hermes.MCP.Error
   alias Hermes.Server.Frame
   alias Hermes.Server.Response
@@ -91,13 +92,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.Server do
         get_in(frame.private, [:client_info, :name]) ||
         "stdio-client"
 
-    %{
-      public_protocol: %{surface: "mcp_stdio", client_id: client_id},
-      request: %{
-        channel: :mcp_stdio,
-        operator_id: "public-protocol:#{client_id}"
-      }
-    }
+    ContextBuilder.public_protocol_context("mcp_stdio", client_id)
   end
 
   defp client_id(%{"name" => name}) when is_binary(name) and name != "", do: name

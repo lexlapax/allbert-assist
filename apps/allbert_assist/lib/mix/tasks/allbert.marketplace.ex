@@ -19,9 +19,11 @@ defmodule Mix.Tasks.Allbert.Marketplace do
 
   use Mix.Task
 
+  alias AllbertAssist.Actions.ErrorExtraction
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Marketplace.Catalog
   alias AllbertAssist.Runtime.Response
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Operate Marketplace Lite"
 
@@ -238,8 +240,7 @@ defmodule Mix.Tasks.Allbert.Marketplace do
 
   defp action_response(action_name, params), do: Runner.run(action_name, params, context())
 
-  defp response_error(%{error: error}), do: error
-  defp response_error(%{message: message}), do: message
+  defp response_error(response), do: ErrorExtraction.from_response(response)
 
   defp print_install_target(%{"resolved_install_target" => target}),
     do: Mix.shell().info("Install target: #{target}")
@@ -271,7 +272,7 @@ defmodule Mix.Tasks.Allbert.Marketplace do
   defp diagnostic_message(diagnostic), do: inspect(diagnostic)
 
   defp context do
-    %{actor: "local", channel: :cli, surface: "mix allbert.marketplace"}
+    ContextBuilder.cli_context(surface: "mix allbert.marketplace")
   end
 
   defp maybe_put(params, _key, nil), do: params

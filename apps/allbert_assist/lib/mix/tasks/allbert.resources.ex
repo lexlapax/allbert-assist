@@ -11,7 +11,8 @@ defmodule Mix.Tasks.Allbert.Resources do
 
   use Mix.Task
 
-  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Actions.Helper, as: ActionHelper
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Inspect and revoke remembered resource grants"
 
@@ -91,17 +92,11 @@ defmodule Mix.Tasks.Allbert.Resources do
   defp grant_status(_grant), do: "active"
 
   defp completed_action(action_name, params) do
-    case Runner.run(action_name, params, context()) do
-      {:ok, %{status: :completed} = response} -> {:ok, response}
-      {:ok, response} -> {:error, response_error(response)}
-    end
+    ActionHelper.completed_action(action_name, params, context())
   end
 
-  defp response_error(%{error: error}), do: error
-  defp response_error(%{message: message}), do: message
-
   defp context do
-    %{actor: "local", channel: :cli, surface: "mix allbert.resources"}
+    ContextBuilder.cli_context(surface: "mix allbert.resources")
   end
 
   defp parse_reason(["--reason" | reason_parts]) do

@@ -64,7 +64,7 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   import Ecto.Query
 
-  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.ChannelParity
   alias AllbertAssist.Channels.Discord
@@ -79,6 +79,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Inspect and operate local channel adapters"
   @simulate_gateway_timeout_ms 120_000
@@ -828,10 +829,7 @@ defmodule Mix.Tasks.Allbert.Channels do
   end
 
   defp completed_action(action_name, params) do
-    case Runner.run(action_name, params, context()) do
-      {:ok, %{status: :completed} = response} -> {:ok, response}
-      {:ok, response} -> {:error, response_error(response)}
-    end
+    ActionHelper.completed_action(action_name, params, context())
   end
 
   defp put_identity!(channel, external_user_id, user_id) do
@@ -1423,20 +1421,14 @@ defmodule Mix.Tasks.Allbert.Channels do
     "#{prefix} #{link.link_id} user=#{link.user_id} channel=#{link.channel} receiver=#{link.receiver_account_ref} external_user=#{link.external_user_id}"
   end
 
-  defp response_error(%{error: error}), do: error
-  defp response_error(%{message: message}), do: message
-
   defp response_value(response, key) when is_map(response) do
     Map.get(response, key) || Map.get(response, Atom.to_string(key))
   end
 
   defp context do
-    %{
-      actor: "local",
-      channel: :cli,
-      request: %{channel: :cli, user_id: "local", operator_id: "local"}
-    }
+    ContextBuilder.cli_context(surface: "mix allbert.channels")
   end
 
-  defp secret_context, do: %{actor: "local", channel: :cli, audit?: false}
+  defp secret_context,
+    do: ContextBuilder.cli_context(surface: "mix allbert.channels", audit?: false)
 end

@@ -12,8 +12,9 @@ defmodule Mix.Tasks.Allbert.Onboard do
 
   use Mix.Task
 
-  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.Onboarding
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Frame or resume first-run onboarding"
   @usage_exit 64
@@ -144,7 +145,12 @@ defmodule Mix.Tasks.Allbert.Onboard do
                note: note,
                evidence: Map.get(step, :evidence)
              },
-             %{actor: user_id, user_id: user_id, channel: :cli}
+             ContextBuilder.cli_context(
+               actor: user_id,
+               user_id: user_id,
+               operator_id: user_id,
+               surface: "mix allbert.onboard"
+             )
            ) do
       {:ok, response_state(response)}
     else
@@ -162,14 +168,8 @@ defmodule Mix.Tasks.Allbert.Onboard do
   end
 
   defp completed_action(action_name, params, context) do
-    Runner
-    |> apply(:run, [action_name, params, context])
-    |> completed_runner_result()
+    ActionHelper.completed_action(action_name, params, context)
   end
-
-  defp completed_runner_result({:ok, %{status: :completed} = response}), do: {:ok, response}
-  defp completed_runner_result({:ok, response}), do: {:error, response_error(response)}
-  defp completed_runner_result({:error, reason}), do: {:error, reason}
 
   defp response_state(response) do
     %{
@@ -179,9 +179,6 @@ defmodule Mix.Tasks.Allbert.Onboard do
       created?: false
     }
   end
-
-  defp response_error(%{error: error}), do: error
-  defp response_error(%{message: message}), do: message
 
   defp print_optional_line(_label, nil), do: :ok
   defp print_optional_line(_label, ""), do: :ok

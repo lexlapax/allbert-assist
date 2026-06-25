@@ -12,6 +12,7 @@ defmodule Mix.Tasks.Allbert.Voice.Local do
   use Mix.Task
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssist.Voice.LocalRuntime.Auth
 
   @shortdoc "Doctor and start the Allbert local voice runtime"
@@ -94,7 +95,7 @@ defmodule Mix.Tasks.Allbert.Voice.Local do
     Mix.raise("Local voice runtime command failed: #{response_error(response)}")
   end
 
-  defp context, do: %{actor: "local", channel: :cli}
+  defp context, do: ContextBuilder.cli_context(surface: "mix allbert.voice.local")
 
   defp response_error(%{message: message, error: error}), do: "#{message} #{inspect(error)}"
   defp response_error(%{message: message}), do: message

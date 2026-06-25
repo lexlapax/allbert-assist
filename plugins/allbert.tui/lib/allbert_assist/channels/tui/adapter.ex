@@ -20,6 +20,7 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Runtime
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @provider "terminal"
   @channel "tui"
@@ -1052,46 +1053,27 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
   end
 
   defp base_slash_context(state) do
-    %{
-      channel: @channel,
+    ContextBuilder.channel_context(@channel, nil,
       provider: @provider,
       surface: "tui_slash_command",
       external_user_id: state.profile,
       receiver_account_ref: "tui:#{state.profile}",
-      session: %{main?: true},
-      request: %{
-        channel: @channel,
-        provider: @provider,
-        surface: "tui_slash_command",
-        external_user_id: state.profile,
-        receiver_account_ref: "tui:#{state.profile}",
-        session: %{main?: true}
-      }
-    }
+      session: %{main?: true}
+    )
     |> maybe_attach_coding_context(state)
   end
 
   defp identity_context(user_id, state) do
-    %{
+    ContextBuilder.channel_context(@channel, user_id,
       actor: %{id: user_id},
-      user_id: user_id,
-      operator_id: user_id,
-      session: %{main?: true},
-      request: %{
-        channel: @channel,
-        provider: @provider,
-        surface: "tui_slash_command",
-        external_user_id: state.profile,
-        receiver_account_ref: "tui:#{state.profile}",
-        user_id: user_id,
-        operator_id: user_id,
-        actor: %{id: user_id},
-        session: %{main?: true}
-      }
-    }
+      provider: @provider,
+      surface: "tui_slash_command",
+      external_user_id: state.profile,
+      receiver_account_ref: "tui:#{state.profile}",
+      session: %{main?: true}
+    )
     |> maybe_attach_coding_context(state)
   end
-
   defp maybe_attach_coding_context(context, %{pi_session: nil}), do: context
 
   defp maybe_attach_coding_context(context, state) do

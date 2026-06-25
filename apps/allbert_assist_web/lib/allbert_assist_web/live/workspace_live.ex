@@ -41,6 +41,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Surface.EventRecorder
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
+  alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssist.Theme.Layout
   alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
@@ -1099,40 +1100,20 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   defp approval_context(socket) do
-    user_id = socket.assigns.user_id
-
-    %{
-      actor: user_id,
-      user_id: user_id,
-      operator_id: user_id,
-      channel: :live_view,
-      surface: "AllbertAssistWeb.WorkspaceLive",
-      response_target: socket.id
-    }
+    ContextBuilder.live_view_context(socket, surface: "AllbertAssistWeb.WorkspaceLive")
   end
 
   defp workspace_artifact_context(socket) do
-    user_id = socket.assigns.user_id
-
-    %{
-      actor: user_id,
-      user_id: user_id,
-      operator_id: user_id,
-      channel: :live_view,
-      request: %{
-        operator_id: user_id,
-        user_id: user_id,
-        thread_id: socket.assigns.thread_id,
-        session_id: socket.assigns.session_id
-      }
-    }
+    ContextBuilder.live_view_context(socket, surface: "AllbertAssistWeb.WorkspaceLive")
   end
 
   defp active_objectives(user_id) do
     case Runner.run(
            "list_objectives",
            %{user_id: user_id, status: ["open", "running", "blocked"], limit: 5},
-           %{actor: user_id, user_id: user_id, operator_id: user_id, channel: :live_view}
+           ContextBuilder.live_view_context(%{user_id: user_id},
+             surface: "AllbertAssistWeb.WorkspaceLive"
+           )
          ) do
       {:ok, %{status: :completed, objectives: objectives}} -> objectives
       _other -> []
@@ -1751,14 +1732,10 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   defp workspace_read_context(user_id, session_id) do
-    %{
-      actor: user_id,
-      user_id: user_id,
-      operator_id: user_id,
-      session_id: session_id,
-      channel: :live_view,
+    ContextBuilder.live_view_context(
+      %{user_id: user_id, session_id: session_id},
       surface: "AllbertAssistWeb.WorkspaceLive"
-    }
+    )
   end
 
   defp workspace_theme(settings) do
@@ -2438,17 +2415,11 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   defp run_workspace_action(socket, action_name, params) do
-    Runner.run(action_name, params, %{
-      actor: socket.assigns.user_id,
-      user_id: socket.assigns.user_id,
-      operator_id: socket.assigns.user_id,
-      thread_id: socket.assigns.thread_id,
-      session_id: socket.assigns.session_id,
-      active_app: socket.assigns.active_app,
-      channel: :live_view,
-      surface: "AllbertAssistWeb.WorkspaceLive",
-      response_target: socket.id
-    })
+    Runner.run(
+      action_name,
+      params,
+      ContextBuilder.live_view_context(socket, surface: "AllbertAssistWeb.WorkspaceLive")
+    )
   end
 
   defp revert_tile_revision(socket, tile_id, revision_id) do

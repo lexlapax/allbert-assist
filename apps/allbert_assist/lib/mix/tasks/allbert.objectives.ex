@@ -12,7 +12,10 @@ defmodule Mix.Tasks.Allbert.Objectives do
 
   use Mix.Task
 
+  alias AllbertAssist.Actions.ErrorExtraction
+  alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Inspect durable Allbert objectives"
   @usage_exit 64
@@ -226,23 +229,7 @@ defmodule Mix.Tasks.Allbert.Objectives do
   defp print_field(label, value), do: Mix.shell().info("#{label}: #{value}")
 
   defp completed_action(action_name, params, user_id) do
-    case Runner.run(action_name, params, context(user_id)) do
-      {:ok, %{status: :completed} = response} ->
-        {:ok, response}
-
-      {:ok, %{status: :needs_confirmation} = response} ->
-        # v0.54 M10: continue_objective is now confirmation-gated.
-        id = Map.get(response, :confirmation_id) || get_in(response, [:confirmation, "id"])
-
-        Mix.shell().info(
-          "Needs confirmation. Approve with: mix allbert.confirmations approve #{id}"
-        )
-
-        {:ok, response}
-
-      {:ok, response} ->
-        {:error, response_error(response)}
-    end
+    ActionHelper.completed_action(action_name, params, context(user_id))
   end
 
   defp accepted_action(action_name, params, user_id) do
@@ -255,12 +242,16 @@ defmodule Mix.Tasks.Allbert.Objectives do
     end
   end
 
-  defp response_error(%{error: error}), do: error
-  defp response_error(%{message: message}), do: message
-  defp response_error(response), do: response
+  defp response_error(response), do: ErrorExtraction.from_response(response)
 
   defp context(user_id),
-    do: %{actor: user_id, user_id: user_id, operator_id: user_id, channel: :cli}
+    do:
+      ContextBuilder.cli_context(
+        actor: user_id,
+        user_id: user_id,
+        operator_id: user_id,
+        surface: "mix allbert.objectives"
+      )
 
   defp user_id!(opts) do
     user = blank_to_nil(opts[:user])

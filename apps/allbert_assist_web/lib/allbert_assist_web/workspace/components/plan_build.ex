@@ -4,6 +4,7 @@ defmodule AllbertAssistWeb.Workspace.Components.PlanPreviewPanel do
   use AllbertAssistWeb, :live_component
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssistWeb.Workspace.Components.Base
 
   @impl true
@@ -247,10 +248,7 @@ defmodule AllbertAssistWeb.Workspace.Components.PlanPreviewPanel do
   defp panel_context(socket) do
     socket.assigns
     |> Map.get(:renderer_context, %{})
-    |> Map.take([:actor, :user_id, :operator_id, :channel, :thread_id])
-    |> Map.put_new(:actor, "local")
-    |> Map.put_new(:user_id, "local")
-    |> Map.put_new(:channel, :live_view)
+    |> ContextBuilder.live_view_context(surface: "/workspace")
   end
 
   defp preview_title(preview, node) do

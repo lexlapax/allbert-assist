@@ -12,6 +12,7 @@ defmodule Mix.Tasks.Allbert.Plan do
   use Mix.Task
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Inspect and cancel Plan/Build runs"
   @usage_exit 64
@@ -133,8 +134,11 @@ defmodule Mix.Tasks.Allbert.Plan do
     fail!(@failure_exit, "Plan command failed: #{inspect(reason)}")
   end
 
-  defp context(nil), do: %{actor: "local", user_id: "local", channel: :cli}
-  defp context(user_id), do: %{actor: "local", user_id: user_id, channel: :cli}
+  defp context(nil), do: context("local")
+
+  defp context(user_id) do
+    ContextBuilder.cli_context(actor: "local", user_id: user_id, surface: "mix allbert.plan")
+  end
 
   defp user_id(opts), do: Keyword.get(opts, :user, "local")
 

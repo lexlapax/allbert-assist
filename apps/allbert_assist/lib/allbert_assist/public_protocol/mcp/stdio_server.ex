@@ -9,6 +9,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.StdioServer do
 
   alias AllbertAssist.App.CoreApp
   alias AllbertAssist.PublicProtocol.Mcp.{ProtocolVersions, Runtime, Schema}
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   defstruct initialized?: false, client_id: "stdio-client"
 
@@ -225,10 +226,7 @@ defmodule AllbertAssist.PublicProtocol.Mcp.StdioServer do
   end
 
   defp context(state) do
-    %{
-      public_protocol: %{surface: "mcp_stdio", client_id: state.client_id},
-      request: %{channel: :mcp_stdio, operator_id: "public-protocol:#{state.client_id}"}
-    }
+    ContextBuilder.public_protocol_context("mcp_stdio", state.client_id)
   end
 
   defp client_id(%{"clientInfo" => %{"name" => name}}) when is_binary(name) and name != "",

@@ -11,6 +11,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Marketplace.Templates, as: MarketplaceTemplates
   alias AllbertAssist.Settings
+  alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssist.Templates
   alias AllbertAssist.Templates.Scaffold
 
@@ -612,17 +613,9 @@ defmodule AllbertAssistWeb.Workspace.Components.TemplateCreate do
   end
 
   defp action_context(assigns) do
-    context = Map.get(assigns, :renderer_context, %{})
-
-    %{
-      actor: Map.get(context, :user_id) || "local",
-      operator_id: Map.get(context, :user_id) || "local",
-      user_id: Map.get(context, :user_id) || "local",
-      thread_id: Map.get(context, :thread_id),
-      channel: :live_view,
-      surface: "/workspace",
-      canvas_destination: Map.get(context, :canvas_destination)
-    }
+    assigns
+    |> Map.get(:renderer_context, %{})
+    |> ContextBuilder.live_view_context(surface: "/workspace")
   end
 
   defp parameter_names(nil), do: []

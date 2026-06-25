@@ -11,6 +11,7 @@ defmodule Mix.Tasks.Allbert.Delegate do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Objectives
   alias AllbertAssist.Objectives.AgentRegistry
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Dispatch a registered objective delegate agent"
   @usage_exit 64
@@ -206,15 +207,13 @@ defmodule Mix.Tasks.Allbert.Delegate do
   defp context(user_id, entry) do
     app_id = entry.metadata[:app_id] || entry.metadata["app_id"]
 
-    %{
-      request: %{channel: :cli, user_id: user_id, operator_id: user_id, app_id: app_id},
-      channel: :cli,
+    ContextBuilder.cli_context(
       actor: user_id,
       user_id: user_id,
       operator_id: user_id,
       surface: "cli",
       app_id: app_id
-    }
+    )
   end
 
   defp summary(%{} = report) do

@@ -5,7 +5,8 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
 
   use AllbertAssistWeb, :live_component
 
-  alias AllbertAssist.{Actions.Runner, Confirmations}
+  alias AllbertAssist.Confirmations
+  alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.Confirmations.ExternalRequestMetadata
   alias AllbertAssist.Confirmations.ObjectiveContext
   alias AllbertAssist.Confirmations.OnlineSkillMetadata
@@ -13,6 +14,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
   alias AllbertAssist.Confirmations.ResourceMetadata
   alias AllbertAssist.Confirmations.ShellCommandMetadata
   alias AllbertAssist.Confirmations.SkillScriptMetadata
+  alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssist.Theme.Status, as: ThemeStatus
 
   @default_key "operator.communication_style"
@@ -988,27 +990,8 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
   end
 
   defp completed_action(action_name, params) do
-    case Runner.run(action_name, params, context()) do
-      {:ok, %{status: :completed} = response} -> {:ok, response}
-      {:ok, response} -> {:error, response_error(response)}
-    end
+    ActionHelper.completed_action(action_name, params, context())
   end
-
-  defp response_error(%{error: error}), do: error
-
-  defp response_error(%{actions: actions, message: message}) when is_list(actions) do
-    actions
-    |> Enum.find_value(fn action ->
-      get_in(action, [:settings_metadata, :error]) ||
-        get_in(action, [:confirmation_metadata, :error])
-    end)
-    |> case do
-      nil -> message
-      error -> error
-    end
-  end
-
-  defp response_error(%{message: message}), do: message
 
   defp action_audit_path(response) do
     response
@@ -1017,7 +1000,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
   end
 
   defp context do
-    %{actor: "local", channel: :live_view, surface: "/workspace"}
+    ContextBuilder.live_view_context(%{}, surface: "/workspace")
   end
 
   defp workspace_settings_path(context) do

@@ -29,8 +29,9 @@ defmodule Mix.Tasks.Allbert.Intent do
 
   use Mix.Task
 
-  alias AllbertAssist.Actions.Runner, as: ActionsRunner
+  alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.Intent.Bench
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @impl true
   def run(args) do
@@ -190,17 +191,18 @@ defmodule Mix.Tasks.Allbert.Intent do
       )
 
   defp completed_action(name, params) do
-    {:ok, response} = ActionsRunner.run(name, params, operator_context())
+    {:ok, response} = ActionHelper.completed_action(name, params, operator_context())
     response
   end
 
   defp operator_context do
-    %{
+    ContextBuilder.cli_context(
       actor: "local",
       operator_id: "local",
       channel: :mix,
-      request: %{operator_id: "local", channel: :mix, source: "mix allbert.intent"}
-    }
+      surface: "mix allbert.intent",
+      source: "mix allbert.intent"
+    )
   end
 
   defp print_message(%{message: message}), do: Mix.shell().info(message)

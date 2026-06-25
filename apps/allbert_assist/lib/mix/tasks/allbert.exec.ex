@@ -17,6 +17,7 @@ defmodule Mix.Tasks.Allbert.Exec do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations.ShellCommandMetadata
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Request confirmed local shell execution"
   @switches [
@@ -179,7 +180,7 @@ defmodule Mix.Tasks.Allbert.Exec do
   defp denial_text(reason), do: inspect(reason)
 
   defp context do
-    %{actor: "local", channel: :cli, surface: "mix allbert.exec"}
+    ContextBuilder.cli_context(surface: "mix allbert.exec")
   end
 
   defp maybe_put(params, _key, nil), do: params

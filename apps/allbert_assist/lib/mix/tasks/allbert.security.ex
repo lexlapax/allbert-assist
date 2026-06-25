@@ -10,7 +10,8 @@ defmodule Mix.Tasks.Allbert.Security do
 
   use Mix.Task
 
-  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Actions.Helper, as: ActionHelper
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Inspect Security Central status"
 
@@ -88,14 +89,8 @@ defmodule Mix.Tasks.Allbert.Security do
   end
 
   defp completed_action(action_name, params) do
-    case Runner.run(action_name, params, context()) do
-      {:ok, %{status: :completed} = response} -> {:ok, response}
-      {:ok, response} -> {:error, response_error(response)}
-    end
+    ActionHelper.completed_action(action_name, params, context())
   end
-
-  defp response_error(%{error: error}), do: error
-  defp response_error(%{message: message}), do: message
 
   defp parse_limit(["--limit", value | _rest]), do: value
   defp parse_limit([]), do: 10
@@ -139,6 +134,6 @@ defmodule Mix.Tasks.Allbert.Security do
   end
 
   defp context do
-    %{actor: "local", channel: :cli}
+    ContextBuilder.cli_context(surface: "mix allbert.security")
   end
 end

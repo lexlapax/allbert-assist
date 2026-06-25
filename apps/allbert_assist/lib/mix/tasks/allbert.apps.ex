@@ -11,8 +11,9 @@ defmodule Mix.Tasks.Allbert.Apps do
 
   use Mix.Task
 
-  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.App.Validator
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Inspect and validate registered Allbert workspace apps"
 
@@ -129,13 +130,13 @@ defmodule Mix.Tasks.Allbert.Apps do
   end
 
   defp completed_action(action_name, params) do
-    case Runner.run(action_name, params, context()) do
-      {:ok, %{status: :completed} = response} -> {:ok, response}
-      {:ok, response} -> {:error, {:action_failed, response}}
+    case ActionHelper.completed_action(action_name, params, context(), error: :response) do
+      {:ok, response} -> {:ok, response}
+      {:error, response} -> {:error, {:action_failed, response}}
     end
   end
 
-  defp context, do: %{request: %{channel: :cli, operator_id: "local", user_id: "local"}}
+  defp context, do: ContextBuilder.cli_context(surface: "mix allbert.apps")
 
   defp resolve_module(module_name) when is_binary(module_name) do
     normalized = String.trim(module_name)

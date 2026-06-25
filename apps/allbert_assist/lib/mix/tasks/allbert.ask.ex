@@ -37,6 +37,7 @@ defmodule Mix.Tasks.Allbert.Ask do
   alias AllbertAssist.Session
   alias AllbertAssist.Surface.EventRecorder
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
+  alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssist.Trace
 
   @shortdoc "Send one prompt through the Allbert runtime"
@@ -318,14 +319,15 @@ defmodule Mix.Tasks.Allbert.Ask do
   defp synthesize_speech!({:error, _reason}, _opts), do: nil
 
   defp voice_action_context(opts) do
-    %{
-      actor: blank_to_nil(opts[:user]) || blank_to_nil(opts[:operator]) || "local",
+    user_id = blank_to_nil(opts[:user]) || blank_to_nil(opts[:operator]) || "local"
+
+    ContextBuilder.cli_context(
+      actor: user_id,
+      user_id: user_id,
+      operator_id: user_id,
       channel: opts[:channel] || :cli,
-      request: %{
-        channel: opts[:channel] || :cli,
-        operator_id: blank_to_nil(opts[:operator]) || blank_to_nil(opts[:user]) || "local"
-      }
-    }
+      surface: "mix allbert.ask"
+    )
   end
 
   defp prompt_with_voice(prompt, nil), do: prompt

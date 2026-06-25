@@ -9,6 +9,7 @@ defmodule AllbertAssist.Channels.ConfirmationCallback do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels.Identity
   alias AllbertAssist.Confirmations
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @typed_command_re ~r/\AALLBERT:(APPROVE|DENY|SHOW):([A-Za-z0-9_-]+)\z/i
   @display_name_prefixed_typed_command_re ~r/\A[^:\r\n]{1,80}:(ALLBERT:(?:APPROVE|DENY|SHOW):[A-Za-z0-9_-]+)\z/i
@@ -181,21 +182,12 @@ defmodule AllbertAssist.Channels.ConfirmationCallback do
   defp context(attrs) do
     user_id = field(attrs, :user_id)
     channel = field(attrs, :channel)
-    session_id = field(attrs, :session_id)
 
-    %{
-      actor: user_id,
-      channel: channel,
-      surface: field(attrs, :surface) || "#{channel}_callback",
-      session_id: session_id,
-      request: %{
-        user_id: user_id,
-        operator_id: user_id,
-        channel: channel,
-        session_id: session_id
-      },
+    ContextBuilder.channel_context(channel, user_id,
+      surface: field(attrs, :surface),
+      session_id: field(attrs, :session_id),
       resolver_metadata: field(attrs, :resolver_metadata) || %{}
-    }
+    )
   end
 
   defp required_string(value) do

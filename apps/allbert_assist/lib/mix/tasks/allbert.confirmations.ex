@@ -14,7 +14,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
 
   use Mix.Task
 
-  alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Confirmations.ExternalRequestMetadata
   alias AllbertAssist.Confirmations.ObjectiveContext
@@ -23,6 +23,7 @@ defmodule Mix.Tasks.Allbert.Confirmations do
   alias AllbertAssist.Confirmations.ResourceMetadata
   alias AllbertAssist.Confirmations.ShellCommandMetadata
   alias AllbertAssist.Confirmations.SkillScriptMetadata
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Inspect and resolve Allbert confirmation requests"
 
@@ -147,27 +148,11 @@ defmodule Mix.Tasks.Allbert.Confirmations do
   end
 
   defp completed_action(action_name, params) do
-    case Runner.run(action_name, params, context()) do
-      {:ok, %{status: :completed} = response} -> {:ok, response}
-      {:ok, response} -> {:error, response_error(response)}
-    end
+    ActionHelper.completed_action(action_name, params, context())
   end
-
-  defp response_error(%{error: error}), do: error
-
-  defp response_error(%{actions: actions, message: message}) when is_list(actions) do
-    actions
-    |> Enum.find_value(&get_in(&1, [:confirmation_metadata, :error]))
-    |> case do
-      nil -> message
-      error -> error
-    end
-  end
-
-  defp response_error(%{message: message}), do: message
 
   defp context do
-    %{actor: "local", channel: :cli, surface: "mix allbert.confirmations"}
+    ContextBuilder.cli_context(surface: "mix allbert.confirmations")
   end
 
   defp list_status(["--resolved"]), do: "resolved"

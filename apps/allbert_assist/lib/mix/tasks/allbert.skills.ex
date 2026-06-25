@@ -18,9 +18,11 @@ defmodule Mix.Tasks.Allbert.Skills do
 
   use Mix.Task
 
+  alias AllbertAssist.Actions.ErrorExtraction
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Confirmations.OnlineSkillMetadata
   alias AllbertAssist.Confirmations.SkillScriptMetadata
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Validate and scaffold local Allbert Agent Skills"
 
@@ -211,8 +213,7 @@ defmodule Mix.Tasks.Allbert.Skills do
     end
   end
 
-  defp response_error(%{error: error}), do: error
-  defp response_error(%{message: message}), do: message
+  defp response_error(response), do: ErrorExtraction.from_response(response)
 
   defp runnable_action(action_name, params) do
     case Runner.run(action_name, params, context()) do
@@ -368,7 +369,7 @@ defmodule Mix.Tasks.Allbert.Skills do
   defp maybe_put(params, key, value), do: Map.put(params, key, value)
 
   defp context do
-    %{actor: "local", channel: :cli, surface: "mix allbert.skills", selected_skill: nil}
+    ContextBuilder.cli_context(surface: "mix allbert.skills", selected_skill: nil)
   end
 
   defp print_diagnostics([]), do: Mix.shell().info("Diagnostics: none")

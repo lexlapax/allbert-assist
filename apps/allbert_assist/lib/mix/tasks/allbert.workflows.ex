@@ -12,6 +12,7 @@ defmodule Mix.Tasks.Allbert.Workflows do
   use Mix.Task
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @shortdoc "Inspect v0.44 workflow YAML"
   @usage_exit 64
@@ -109,7 +110,7 @@ defmodule Mix.Tasks.Allbert.Workflows do
   defp fail_response(%{output_data: %{error: error}}), do: fail!(@failure_exit, inspect(error))
   defp fail_response(response), do: fail!(@failure_exit, inspect(response))
 
-  defp context, do: %{actor: "local", user_id: "local", channel: :cli}
+  defp context, do: ContextBuilder.cli_context(surface: "mix allbert.workflows")
 
   defp reject_invalid!([]), do: :ok
   defp reject_invalid!(invalid), do: fail!(@usage_exit, "Invalid options: #{inspect(invalid)}")
