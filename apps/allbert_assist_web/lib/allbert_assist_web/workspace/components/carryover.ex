@@ -161,6 +161,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Button do
       data-workspace-renderer="component"
       data-intent-option={intent_option(@node)}
       phx-click={Base.prop(@node, :phx_click, nil)}
+      phx-value-id={Base.prop(@node, :value_id, Base.prop(@node, :id_value, nil))}
       phx-value-surface-id={Base.prop(@node, :surface_id, nil)}
       phx-value-app-id={Base.prop(@node, :app_id, nil)}
       phx-value-action-name={Base.prop(@node, :action_name, nil)}
@@ -210,6 +211,7 @@ defmodule AllbertAssistWeb.Workspace.Components.ActionButton do
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
       phx-click={Base.prop(@node, :phx_click, nil)}
+      phx-value-id={Base.prop(@node, :value_id, Base.prop(@node, :id_value, nil))}
       phx-value-surface-id={Base.prop(@node, :surface_id, nil)}
       phx-value-app-id={Base.prop(@node, :app_id, nil)}
       phx-value-action-name={Base.prop(@node, :action_name, nil)}

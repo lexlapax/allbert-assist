@@ -4,6 +4,7 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
   import Phoenix.LiveViewTest
 
   alias AllbertAssist.Objectives
+  alias AllbertAssist.Surface.Catalog
 
   test "renders objective details and cancels through registered action", %{conn: conn} do
     assert {:ok, objective} =
@@ -37,13 +38,17 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
     {:ok, view, html} = live(conn, ~p"/objectives/#{objective.id}")
 
     assert html =~ "Analyze AAPL"
+    assert has_element?(view, "#operator-shell[data-active-page='objectives']")
     assert has_element?(view, "#objective-header")
+    assert has_element?(view, "#objective-header [data-workspace-component='objective_card']")
+    assert_catalog_components_known!(html)
     assert has_element?(view, "#objective-step-#{step.id}")
     assert has_element?(view, "#objective-events")
     assert has_element?(view, "#objective-cancel-button")
+    assert has_element?(view, "#objective-cancel-button[data-workspace-component='button']")
     assert has_element?(view, "#objective-continue-button")
     assert html =~ "Min Completed Steps:"
-    assert html =~ ">1<"
+    assert html =~ ~r/>\s*1\s*</
     assert html =~ "Current step: blocked action #{step.id}"
     refute html =~ ~s(%{"min_completed_steps" => 1})
     refute html =~ "Current step: none"
@@ -76,6 +81,9 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
              })
 
     {:ok, view, html} = live(conn, ~p"/objectives/#{objective.id}")
+    assert has_element?(view, "#operator-shell[data-active-page='objectives']")
+    assert has_element?(view, "#objective-header [data-workspace-component='objective_card']")
+    assert_catalog_components_known!(html)
     assert html =~ "Terminal objective"
     assert html =~ "abandoned"
     refute has_element?(view, "#objective-cancel-button")
@@ -86,6 +94,8 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
 
     {:ok, _missing_view, missing_html} = live(conn, ~p"/objectives/obj_missing_live")
     assert missing_html =~ "Objective not found."
+    assert missing_html =~ ~s(data-workspace-component="empty_state")
+    assert_catalog_components_known!(missing_html)
 
     assert {:ok, other_user} =
              Objectives.create_objective(%{
@@ -139,7 +149,9 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
 
     {:ok, view, html} = live(conn, ~p"/objectives/#{objective.id}")
 
+    assert has_element?(view, "#operator-shell[data-active-page='objectives']")
     assert html =~ ~s(data-workspace-component="plan_run_progress_panel")
+    assert_catalog_components_known!(html)
     assert html =~ "workflow:multi_step:1"
     assert html =~ "delegate_agent"
     assert html =~ "Subagent events"
@@ -153,5 +165,18 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
     assert cancel_html =~ "Objective #{objective.id} cancelled"
     assert {:ok, cancelled} = Objectives.get_objective(objective.id)
     assert cancelled.status == "cancelled"
+  end
+
+  defp assert_catalog_components_known!(html) do
+    known_components = Catalog.known_components() |> Enum.map(&Atom.to_string/1)
+
+    rendered_components =
+      ~r/data-workspace-component="([^"]+)"/
+      |> Regex.scan(html, capture: :all_but_first)
+      |> List.flatten()
+      |> Enum.uniq()
+
+    assert rendered_components != []
+    assert Enum.all?(rendered_components, &(&1 in known_components))
   end
 end

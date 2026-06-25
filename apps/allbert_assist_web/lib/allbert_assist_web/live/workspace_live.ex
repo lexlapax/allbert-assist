@@ -716,6 +716,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
           @workspace_reduce_motion? && "workspace-reduce-motion"
         ]}
         data-theme={theme_attribute(@workspace_theme)}
+        data-operator-shell="workspace"
+        data-workspace-shell="workspace"
         data-workspace-theme={@workspace_theme}
         data-user-id={@user_id}
         data-thread-id={@thread_id}

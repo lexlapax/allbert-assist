@@ -11,6 +11,7 @@ defmodule AllbertAssistWeb.JobsLiveTest do
   alias AllbertAssist.Repo
   alias AllbertAssist.Runtime
   alias AllbertAssist.Settings
+  alias AllbertAssist.Surface.Catalog
   alias AllbertAssist.Trace
 
   setup do
@@ -63,6 +64,12 @@ defmodule AllbertAssistWeb.JobsLiveTest do
     {:ok, view, html} = live(conn, ~p"/jobs")
 
     assert html =~ "Scheduled Jobs"
+    assert has_element?(view, "#operator-shell[data-active-page='jobs']")
+    assert has_element?(view, "#jobs-catalog-renderer[data-workspace-renderer='surface']")
+    assert has_element?(view, "#job-#{job.id}[data-workspace-component='job_card']")
+    assert has_element?(view, "#run-#{job.id}[data-workspace-component='button']")
+    assert_catalog_components_known!(html)
+    refute html =~ "<table"
     assert html =~ "live brief"
     assert html =~ job.id
     assert html =~ "status=paused" or html =~ ">paused<"
@@ -113,6 +120,9 @@ defmodule AllbertAssistWeb.JobsLiveTest do
              |> Repo.update()
 
     {:ok, view, html} = live(conn, ~p"/jobs")
+    assert has_element?(view, "#operator-shell[data-active-page='jobs']")
+    assert has_element?(view, "#job-#{blocked_job.id}[data-workspace-component='job_card']")
+    assert_catalog_components_known!(html)
     assert html =~ "blocked live"
     assert html =~ "confirmation conf_live_blocked_job"
 
@@ -149,5 +159,18 @@ defmodule AllbertAssistWeb.JobsLiveTest do
       params_summary: %{url: "https://example.com"},
       resume_params_ref: %{url: "https://example.com"}
     })
+  end
+
+  defp assert_catalog_components_known!(html) do
+    known_components = Catalog.known_components() |> Enum.map(&Atom.to_string/1)
+
+    rendered_components =
+      ~r/data-workspace-component="([^"]+)"/
+      |> Regex.scan(html, capture: :all_but_first)
+      |> List.flatten()
+      |> Enum.uniq()
+
+    assert rendered_components != []
+    assert Enum.all?(rendered_components, &(&1 in known_components))
   end
 end

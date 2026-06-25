@@ -1,8 +1,8 @@
 # Web Design System
 
-Status: v0.58 M6 token and UX-language baseline implemented; M7-M15 complete the
-variant registry, pattern library, shared shell, catalog coverage, panels, manual
-validation, and closeout.
+Status: v0.58 M6-M8 token, variant, pattern, shared-shell, and Jobs/Objectives
+catalog coverage implemented; M9-M15 complete chat-primary layout, panels,
+surface-policy, consolidation, release lane, manual validation, and closeout.
 
 Authority: `docs/adr/0074-web-design-system-and-ux-language.md`,
 `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`,
@@ -137,13 +137,28 @@ One shell wraps:
 
 - `/workspace`;
 - `/jobs`;
-- `/objectives` and `/objectives/:id`;
+- `/objectives/:id` objective detail pages;
 - Intents panel;
 - Settings/Models panel;
 - Surface-Policy panel.
 
 Jobs and Objectives are part of the v0.58 proof because design-system tokens and
 a11y must apply beyond the workspace route.
+
+Implemented M8 shell baseline:
+
+- `Layouts.operator_shell/1` owns shared header, nav, mobile shellbar, shell data
+  attributes, and a token-backed body grid for non-workspace operator pages.
+- `/jobs` renders through `WorkspaceRenderer` using declared `job_card`, `button`,
+  and `empty_state` catalog atoms. The old table markup is removed while existing
+  run/pause/resume DOM IDs and events remain stable.
+- `/objectives/:id` renders summary, action buttons, acceptance rows, steps, events,
+  and missing state through catalog atoms; the cancel form is hosted in the shared
+  modal pattern.
+- `/workspace` keeps its existing renderer-owned shell and now carries the shared
+  operator-shell data contract. The chat-primary layout changes remain M9.
+- There is still no `/objectives` list route; the Objectives nav item returns to
+  the workspace until a later route decision exists.
 
 ## Workspace Layout
 

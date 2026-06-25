@@ -313,7 +313,8 @@ body {
   }
 }
 
-#workspace-shell {
+#workspace-shell,
+.operator-shell {
   background: var(--workspace-bg);
   color: var(--workspace-fg);
   font-family: var(--allbert-font-family);
@@ -323,7 +324,8 @@ body {
 #workspace-shell .workspace-header,
 #workspace-shell [data-workspace-renderer="component"],
 #workspace-shell #agent-response,
-#workspace-shell #approval-handoff {
+#workspace-shell #approval-handoff,
+.operator-shell [data-workspace-renderer="component"] {
   background: var(--workspace-panel);
   border-color: var(--workspace-border);
   border-radius: var(--allbert-radius);
@@ -332,11 +334,22 @@ body {
 }
 
 #workspace-shell .text-base-content\/60,
-#workspace-shell .text-base-content\/70 {
+#workspace-shell .text-base-content\/70,
+.operator-shell .text-base-content\/60,
+.operator-shell .text-base-content\/70 {
   color: var(--workspace-muted);
 }
 
 #workspace-shell
+  :where(
+    input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea,
+    .input,
+    .select,
+    .textarea
+  ),
+.operator-shell
   :where(
     input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
     select,
@@ -352,17 +365,20 @@ body {
   color-scheme: light;
 }
 
-#workspace-shell :where(input, textarea)::placeholder {
+#workspace-shell :where(input, textarea)::placeholder,
+.operator-shell :where(input, textarea)::placeholder {
   color: var(--workspace-field-placeholder);
   opacity: 1;
 }
 
-#workspace-shell :where(select option) {
+#workspace-shell :where(select option),
+.operator-shell :where(select option) {
   background: #ffffff;
   color: var(--workspace-field-fg);
 }
 
-#workspace-shell :where(input, select, textarea):disabled {
+#workspace-shell :where(input, select, textarea):disabled,
+.operator-shell :where(input, select, textarea):disabled {
   border-color: color-mix(in srgb, var(--workspace-field-border) 65%, transparent);
   background-color: var(--workspace-field-bg-disabled);
   color: color-mix(in srgb, var(--workspace-field-fg) 58%, transparent);
@@ -429,6 +445,109 @@ body {
 .allbert-appbar-actions {
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+.operator-shell {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: calc(1rem * var(--allbert-density));
+  min-height: 100vh;
+  padding: calc(1rem * var(--allbert-density));
+}
+
+.operator-shell-appbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.operator-shell-nav,
+.operator-mobile-shellbar {
+  min-width: 0;
+}
+
+.operator-shell-nav-link,
+.operator-mobile-shellbar-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  border: 1px solid var(--workspace-border);
+  border-radius: var(--allbert-radius-control);
+  padding: 0.25rem 0.625rem;
+  color: var(--workspace-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1rem;
+  text-decoration: none;
+  transition:
+    border-color var(--allbert-motion-duration-fast) var(--allbert-motion-ease),
+    background-color var(--allbert-motion-duration-fast) var(--allbert-motion-ease),
+    color var(--allbert-motion-duration-fast) var(--allbert-motion-ease);
+}
+
+.operator-shell-nav-link:hover,
+.operator-shell-nav-link:focus-visible,
+.operator-mobile-shellbar-link:hover,
+.operator-mobile-shellbar-link:focus-visible,
+.operator-shell-nav-link-active,
+.operator-mobile-shellbar-link-active {
+  border-color: var(--workspace-accent);
+  background: var(--allbert-accent-soft);
+  color: var(--workspace-accent);
+}
+
+.operator-mobile-shellbar {
+  display: none;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.operator-shell-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(1rem * var(--allbert-density));
+  width: min(100%, 72rem);
+  margin-inline: auto;
+}
+
+.operator-catalog-page,
+.operator-catalog-section,
+.operator-catalog-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.operator-catalog-actions .workspace-renderer > .workspace-node-children,
+.operator-catalog-actions .workspace-renderer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.operator-section-title {
+  color: var(--workspace-fg);
+  font-size: 0.875rem;
+  font-weight: 750;
+  letter-spacing: 0;
+  line-height: 1.25rem;
+}
+
+.workspace-form-stack,
+.workspace-form-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.workspace-field-label {
+  color: var(--workspace-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1rem;
 }
 
 .allbert-chip,
@@ -709,6 +828,29 @@ body {
 }
 
 @media (max-width: 767.98px) {
+  .operator-shell {
+    min-height: 100dvh;
+    padding: 1rem;
+  }
+
+  .operator-shell .allbert-appbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .operator-shell .allbert-appbar-center {
+    display: none;
+  }
+
+  .operator-mobile-shellbar {
+    display: grid;
+  }
+
+  .operator-mobile-shellbar-link {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+
   #workspace-shell {
     --workspace-mobile-shellbar-space: 5.75rem;
 

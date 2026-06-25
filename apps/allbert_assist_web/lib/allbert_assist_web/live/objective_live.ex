@@ -5,11 +5,14 @@ defmodule AllbertAssistWeb.ObjectiveLive do
 
   alias AllbertAssist.Actions.ErrorExtraction
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
   alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssistWeb.SignalBridge
+  alias AllbertAssistWeb.Workspace.Components.Patterns
   alias AllbertAssistWeb.Workspace.Components.PlanRunProgressPanel
+  alias AllbertAssistWeb.Workspace.Renderer, as: WorkspaceRenderer
 
   @user_id "local"
 
@@ -114,107 +117,109 @@ defmodule AllbertAssistWeb.ObjectiveLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
-      <div class="mx-auto max-w-4xl py-10 space-y-6">
-        <.link navigate={~p"/workspace"} class="text-sm link">Back to workspace</.link>
-
+    <Layouts.app flash={@flash} content_width="full">
+      <Layouts.operator_shell
+        active="objectives"
+        title={objective_title(@objective)}
+        subtitle={objective_subtitle(@objective, @objective_id)}
+        labelledby="objective-page-title"
+      >
         <%= if @objective do %>
-          <section id="objective-header" class="space-y-3">
-            <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div>
-                <h1 class="text-3xl font-bold">{@objective.title}</h1>
-                <p class="text-sm text-base-content/60">{@objective.id}</p>
-              </div>
-              <span class="badge badge-lg">{@objective.status}</span>
-            </div>
-            <p class="whitespace-pre-wrap text-base-content/80">{@objective.objective}</p>
-            <div class="grid gap-2 text-sm text-base-content/60 md:grid-cols-2">
-              <p>User: {@objective.user_id}</p>
-              <p>Active app: {@objective[:active_app] || "none"}</p>
-              <p>Current step: {current_step_text(@objective, @steps)}</p>
-              <p>Loop count: {@objective[:loop_count] || 0}</p>
-            </div>
+          <section id="objective-header" class="operator-catalog-section">
+            <.live_component
+              module={WorkspaceRenderer}
+              id="objective-summary-renderer"
+              surface={objective_summary_surface(@objective, @steps)}
+              renderer_context={%{user_id: @user_id, page: :objectives}}
+              workspace_state={%{}}
+            />
           </section>
 
-          <section id="objective-actions" class="flex flex-wrap gap-2">
-            <button
-              :if={@objective.status not in ["cancelled", "completed", "failed", "abandoned"]}
-              id="objective-cancel-button"
-              type="button"
-              phx-click="show_cancel"
-              class="btn btn-error btn-sm"
-            >
-              Cancel
-            </button>
-            <button
-              :if={@objective.status == "blocked"}
-              id="objective-continue-button"
-              type="button"
-              phx-click="continue_objective"
-              class="btn btn-primary btn-sm"
-            >
-              Continue
-            </button>
+          <section id="objective-actions" class="operator-catalog-actions">
+            <.live_component
+              module={WorkspaceRenderer}
+              id="objective-actions-renderer"
+              surface={objective_actions_surface(@objective)}
+              renderer_context={%{user_id: @user_id, page: :objectives}}
+              workspace_state={%{}}
+            />
           </section>
 
-          <form
+          <Patterns.workspace_modal
             :if={@show_cancel?}
-            id="objective-cancel-modal"
-            phx-submit="cancel_objective"
-            class="rounded border border-base-300 p-4 space-y-3"
+            id="objective-cancel-dialog"
+            overlay_id="objective-cancel-modal-overlay"
+            labelledby="objective-cancel-title"
+            describedby="objective-cancel-help"
+            dismiss_event="hide_cancel"
+            click_away={true}
           >
-            <label class="form-control">
-              <span class="label-text">Reason</span>
-              <textarea
-                id="objective-cancel-reason"
-                name="reason"
-                rows="3"
-                class="textarea textarea-bordered"
-                required
-              ><%= @cancel_reason %></textarea>
-            </label>
-            <div class="flex gap-2">
-              <button id="objective-cancel-submit" type="submit" class="btn btn-error btn-sm">
-                Cancel objective
-              </button>
-              <button type="button" phx-click="hide_cancel" class="btn btn-ghost btn-sm">
-                Keep running
-              </button>
-            </div>
-          </form>
+            <form
+              id="objective-cancel-modal"
+              phx-submit="cancel_objective"
+              class="workspace-form-stack"
+            >
+              <header class="workspace-pane-header">
+                <div class="workspace-pane-title-block">
+                  <h2 id="objective-cancel-title" class="workspace-pane-title">
+                    Cancel Objective
+                  </h2>
+                  <p id="objective-cancel-help" class="workspace-pane-subtitle">
+                    The registered cancel action records the reason and updates every open step.
+                  </p>
+                </div>
+              </header>
 
-          <section id="objective-acceptance" class="rounded border border-base-300 p-4">
-            <h2 class="font-medium">Acceptance</h2>
-            <dl class="mt-2 grid gap-2 text-sm">
-              <div
-                :for={{label, value} <- acceptance_lines(@objective[:acceptance_criteria])}
-                class="flex flex-wrap gap-x-2"
-              >
-                <dt class="font-medium text-base-content/70">{label}</dt>
-                <dd>{value}</dd>
+              <label class="workspace-form-field">
+                <span class="workspace-field-label">Reason</span>
+                <textarea
+                  id="objective-cancel-reason"
+                  name="reason"
+                  rows="3"
+                  class="textarea textarea-bordered"
+                  required
+                ><%= @cancel_reason %></textarea>
+              </label>
+
+              <div class="workspace-pane-actions">
+                <button
+                  id="objective-cancel-submit"
+                  type="submit"
+                  class={Patterns.button_class!("danger")}
+                >
+                  Cancel objective
+                </button>
+                <button
+                  type="button"
+                  phx-click="hide_cancel"
+                  class={Patterns.button_class!("secondary")}
+                >
+                  Keep running
+                </button>
               </div>
-            </dl>
+            </form>
+          </Patterns.workspace_modal>
+
+          <section id="objective-acceptance" class="operator-catalog-section">
+            <.live_component
+              module={WorkspaceRenderer}
+              id="objective-acceptance-renderer"
+              surface={objective_acceptance_surface(@objective)}
+              renderer_context={%{user_id: @user_id, page: :objectives}}
+              workspace_state={%{}}
+            />
           </section>
 
-          <section class="space-y-3">
-            <h2 class="font-medium">Steps</h2>
-            <div id="objective-steps" class="space-y-2">
-              <p :if={@steps == []} class="text-sm text-base-content/60">No steps.</p>
-              <div
-                :for={step <- @steps}
-                id={"objective-step-#{step.id}"}
-                class="rounded border border-base-300 p-3 text-sm"
-              >
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="badge">{step.status}</span>
-                  <span>{step.kind}</span>
-                  <span class="text-base-content/60">{step[:candidate_action] || "no action"}</span>
-                </div>
-                <p :if={step[:confirmation_id]} class="text-xs text-base-content/60">
-                  Confirmation: {step.confirmation_id}
-                </p>
-                <p :if={step[:result_summary]} class="mt-2 text-sm">{step.result_summary}</p>
-              </div>
+          <section class="operator-catalog-section" aria-labelledby="objective-steps-title">
+            <h2 id="objective-steps-title" class="operator-section-title">Steps</h2>
+            <div id="objective-steps">
+              <.live_component
+                module={WorkspaceRenderer}
+                id="objective-steps-renderer"
+                surface={objective_steps_surface(@steps)}
+                renderer_context={%{user_id: @user_id, page: :objectives}}
+                workspace_state={%{}}
+              />
             </div>
           </section>
 
@@ -227,36 +232,250 @@ defmodule AllbertAssistWeb.ObjectiveLive do
             workspace_state={%{}}
           />
 
-          <section class="space-y-3">
-            <h2 class="font-medium">Events</h2>
-            <div id="objective-events" class="space-y-2">
-              <p :if={@events == []} class="text-sm text-base-content/60">No events.</p>
-              <div
-                :for={event <- @events}
-                id={"objective-event-#{event.id}"}
-                class="rounded border border-base-300 p-3 text-sm"
-              >
-                <div class="font-medium">{event.kind}</div>
-                <p class="text-base-content/70">{event.summary}</p>
-              </div>
+          <section class="operator-catalog-section" aria-labelledby="objective-events-title">
+            <h2 id="objective-events-title" class="operator-section-title">Events</h2>
+            <div id="objective-events">
+              <.live_component
+                module={WorkspaceRenderer}
+                id="objective-events-renderer"
+                surface={objective_events_surface(@events)}
+                renderer_context={%{user_id: @user_id, page: :objectives}}
+                workspace_state={%{}}
+              />
             </div>
           </section>
         <% else %>
-          <section id="objective-missing" class="alert alert-warning">
-            <span>Objective not found.</span>
+          <section id="objective-missing" class="operator-catalog-section">
+            <.live_component
+              module={WorkspaceRenderer}
+              id="objective-missing-renderer"
+              surface={objective_missing_surface()}
+              renderer_context={%{user_id: @user_id, page: :objectives}}
+              workspace_state={%{}}
+            />
           </section>
         <% end %>
 
-        <section :if={@response} id="objective-response" class="alert alert-info">
+        <section
+          :if={@response}
+          id="objective-response"
+          class="workspace-status-callout"
+          role="status"
+        >
           <span>{@response}</span>
         </section>
 
-        <section :if={@error} id="objective-error" class="alert alert-error">
+        <section :if={@error} id="objective-error" class="workspace-error-callout" role="alert">
           <span>{@error}</span>
         </section>
-      </div>
+      </Layouts.operator_shell>
     </Layouts.app>
     """
+  end
+
+  defp objective_title(nil), do: "Objective"
+  defp objective_title(objective), do: objective.title
+
+  defp objective_subtitle(nil, objective_id), do: objective_id
+  defp objective_subtitle(objective, _objective_id), do: objective.id
+
+  defp objective_summary_surface(objective, steps) do
+    surface("objective-summary", [
+      %Node{
+        id: "objective-summary",
+        component: :objective_card,
+        props: %{
+          dom_id: "objective-summary-card",
+          title: objective.title,
+          body: objective_summary_text(objective, steps),
+          status: objective.status,
+          objective_id: objective.id
+        }
+      }
+    ])
+  end
+
+  defp objective_actions_surface(objective) do
+    surface("objective-actions", objective_action_nodes(objective))
+  end
+
+  defp objective_action_nodes(objective) do
+    [
+      cancel_objective_node(objective),
+      continue_objective_node(objective)
+    ]
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp cancel_objective_node(objective) do
+    if objective.status not in ["cancelled", "completed", "failed", "abandoned"] do
+      %Node{
+        id: "objective-cancel",
+        component: :button,
+        props: %{
+          dom_id: "objective-cancel-button",
+          title: "Cancel",
+          phx_click: "show_cancel",
+          variant: "danger"
+        }
+      }
+    end
+  end
+
+  defp continue_objective_node(%{status: "blocked"}) do
+    %Node{
+      id: "objective-continue",
+      component: :button,
+      props: %{
+        dom_id: "objective-continue-button",
+        title: "Continue",
+        phx_click: "continue_objective",
+        variant: "primary"
+      }
+    }
+  end
+
+  defp continue_objective_node(_objective), do: nil
+
+  defp objective_acceptance_surface(objective) do
+    nodes =
+      objective[:acceptance_criteria]
+      |> acceptance_lines()
+      |> Enum.map(fn {label, value} ->
+        %Node{
+          id: "objective-acceptance-#{node_fragment(label)}",
+          component: :section,
+          props: %{
+            title: label,
+            body: value
+          }
+        }
+      end)
+
+    surface("objective-acceptance", nodes)
+  end
+
+  defp objective_steps_surface([]) do
+    surface("objective-steps", [
+      %Node{
+        id: "objective-steps-empty",
+        component: :empty_state,
+        props: %{title: "No steps.", body: "This objective has no recorded steps yet."}
+      }
+    ])
+  end
+
+  defp objective_steps_surface(steps) do
+    nodes =
+      Enum.map(steps, fn step ->
+        %Node{
+          id: "objective-step-node-#{step.id}",
+          component: :section,
+          props: %{
+            dom_id: "objective-step-#{step.id}",
+            title:
+              [step_status(step), step_kind(step)] |> Enum.reject(&blank?/1) |> Enum.join(" "),
+            body: step_body(step),
+            status: step_status(step)
+          }
+        }
+      end)
+
+    surface("objective-steps", nodes)
+  end
+
+  defp objective_events_surface([]) do
+    surface("objective-events", [
+      %Node{
+        id: "objective-events-empty",
+        component: :empty_state,
+        props: %{title: "No events.", body: "Runtime events for this objective appear here."}
+      }
+    ])
+  end
+
+  defp objective_events_surface(events) do
+    nodes =
+      Enum.map(events, fn event ->
+        %Node{
+          id: "objective-event-node-#{event.id}",
+          component: :section,
+          props: %{
+            dom_id: "objective-event-#{event.id}",
+            title: event.kind,
+            body: event.summary
+          }
+        }
+      end)
+
+    surface("objective-events", nodes)
+  end
+
+  defp objective_missing_surface do
+    surface("objective-missing", [
+      %Node{
+        id: "objective-missing",
+        component: :empty_state,
+        props: %{title: "Objective not found.", body: "No local objective matched this id."}
+      }
+    ])
+  end
+
+  defp surface(id, nodes) do
+    %Surface{
+      id: id,
+      app_id: :allbert,
+      label: id,
+      kind: :workspace,
+      status: :available,
+      nodes: nodes
+    }
+  end
+
+  defp objective_summary_text(objective, steps) do
+    [
+      objective.objective,
+      "User: #{objective.user_id}",
+      "Active app: #{objective[:active_app] || "none"}",
+      "Current step: #{current_step_text(objective, steps)}",
+      "Loop count: #{objective[:loop_count] || 0}"
+    ]
+    |> Enum.reject(&blank?/1)
+    |> Enum.join(" | ")
+  end
+
+  defp step_body(step) do
+    [
+      step[:candidate_action] || "no action",
+      confirmation_text(step),
+      step[:result_summary]
+    ]
+    |> Enum.reject(&blank?/1)
+    |> Enum.join(" | ")
+  end
+
+  defp confirmation_text(%{confirmation_id: confirmation_id})
+       when is_binary(confirmation_id) and confirmation_id != "" do
+    "Confirmation: #{confirmation_id}"
+  end
+
+  defp confirmation_text(_step), do: nil
+
+  defp node_fragment(value) do
+    value
+    |> to_string()
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/, "-")
+    |> String.trim("-")
+  end
+
+  defp blank?(nil), do: true
+
+  defp blank?(value) do
+    value
+    |> to_string()
+    |> String.trim()
+    |> Kernel.==("")
   end
 
   defp refresh(socket) do

@@ -10,6 +10,9 @@ defmodule AllbertAssistWeb.JobsLive do
   alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Jobs.Run
   alias AllbertAssist.Jobs.Runner
+  alias AllbertAssist.Surface
+  alias AllbertAssist.Surface.Node
+  alias AllbertAssistWeb.Workspace.Renderer, as: WorkspaceRenderer
 
   @impl true
   def mount(params, _session, socket) do
@@ -57,118 +60,169 @@ defmodule AllbertAssistWeb.JobsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <main class="mx-auto max-w-6xl px-6 py-8">
-      <header class="mb-6 flex items-center justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-semibold">Scheduled Jobs</h1>
-          <p class="text-sm text-zinc-600">User {@user_id}</p>
-        </div>
-        <a class="text-sm font-medium text-blue-700 hover:text-blue-900" href="/workspace">
-          Workspace
-        </a>
-      </header>
-
-      <p
-        :if={@notice}
-        id="jobs-notice"
-        class="mb-4 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm"
+    <Layouts.app flash={@flash} content_width="full">
+      <Layouts.operator_shell
+        active="jobs"
+        title="Scheduled Jobs"
+        subtitle={"User #{@user_id}"}
+        labelledby="jobs-page-title"
       >
-        {@notice}
-      </p>
+        <p :if={@notice} id="jobs-notice" class="workspace-status-callout" role="status">
+          {@notice}
+        </p>
 
-      <section id="jobs-list" class="overflow-x-auto">
-        <table class="w-full border-collapse text-left text-sm">
-          <thead>
-            <tr class="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th class="py-2 pr-3">Job</th>
-              <th class="py-2 pr-3">Status</th>
-              <th class="py-2 pr-3">Schedule</th>
-              <th class="py-2 pr-3">Thread</th>
-              <th class="py-2 pr-3">Next</th>
-              <th class="py-2 pr-3">Last</th>
-              <th class="py-2 pr-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr :if={@jobs == []}>
-              <td colspan="7" class="py-5 text-zinc-500">No scheduled jobs.</td>
-            </tr>
-            <tr :for={job <- @jobs} id={"job-#{job.id}"} class="border-b border-zinc-100 align-top">
-              <td class="py-3 pr-3">
-                <div class="font-medium text-zinc-900">{job.name}</div>
-                <div class="font-mono text-xs text-zinc-500">{job.id}</div>
-                <div class="text-xs text-zinc-500">{job.target_type}</div>
-                <div :if={job.blocked_confirmation_id} class="mt-1 text-xs text-amber-700">
-                  confirmation {job.blocked_confirmation_id}
-                </div>
-              </td>
-              <td class="py-3 pr-3">{job.status}</td>
-              <td class="py-3 pr-3">
-                <div>{schedule_text(job.schedule)}</div>
-                <div class="text-xs text-zinc-500">{job.timezone}</div>
-              </td>
-              <td class="py-3 pr-3">{thread_text(job)}</td>
-              <td class="py-3 pr-3">{datetime_text(job.next_due_at)}</td>
-              <td class="py-3 pr-3">{datetime_text(job.last_run_at)}</td>
-              <td class="py-3 pr-3">
-                <div class="flex flex-wrap gap-2">
-                  <button
-                    id={"run-#{job.id}"}
-                    type="button"
-                    phx-click="run"
-                    phx-value-id={job.id}
-                    class="rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50"
-                  >
-                    Run
-                  </button>
-                  <button
-                    :if={job.status == "active"}
-                    id={"pause-#{job.id}"}
-                    type="button"
-                    phx-click="pause"
-                    phx-value-id={job.id}
-                    class="rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50"
-                  >
-                    Pause
-                  </button>
-                  <button
-                    :if={job.status in ["paused", "blocked"]}
-                    id={"resume-#{job.id}"}
-                    type="button"
-                    phx-click="resume"
-                    phx-value-id={job.id}
-                    class="rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50"
-                  >
-                    Resume
-                  </button>
-                </div>
-              </td>
-            </tr>
-            <tr
-              :for={job <- @jobs}
-              id={"runs-#{job.id}"}
-              class="border-b border-zinc-200 bg-zinc-50/50"
-            >
-              <td colspan="7" class="px-3 py-3">
-                <div class="mb-2 text-xs font-semibold uppercase text-zinc-500">Recent Runs</div>
-                <div :if={Map.get(@runs_by_job, job.id, []) == []} class="text-sm text-zinc-500">
-                  No runs.
-                </div>
-                <div :for={run <- Map.get(@runs_by_job, job.id, [])} class="mb-2 text-sm">
-                  <span class="font-mono text-xs text-zinc-500">{run.id}</span>
-                  <span>status={run.status}</span>
-                  <span>trigger={run.trigger}</span>
-                  <span>duration={run.duration_ms || "none"}</span>
-                  <span>confirmation={run.confirmation_id || "none"}</span>
-                  <div :for={line <- handoff_lines(run)} class="text-xs text-amber-700">{line}</div>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-    </main>
+        <section id="jobs-list" class="operator-catalog-page" aria-labelledby="jobs-page-title">
+          <.live_component
+            module={WorkspaceRenderer}
+            id="jobs-catalog-renderer"
+            surface={@jobs_surface}
+            renderer_context={%{user_id: @user_id, page: :jobs}}
+            workspace_state={%{}}
+          />
+        </section>
+      </Layouts.operator_shell>
+    </Layouts.app>
     """
+  end
+
+  defp jobs_surface(jobs, runs_by_job) do
+    %Surface{
+      id: "jobs-page",
+      app_id: :allbert,
+      label: "Scheduled Jobs",
+      kind: :workspace,
+      status: :available,
+      nodes: job_nodes(jobs, runs_by_job)
+    }
+  end
+
+  defp job_nodes([], _runs_by_job) do
+    [
+      %Node{
+        id: "jobs-empty",
+        component: :empty_state,
+        props: %{
+          title: "No scheduled jobs.",
+          body: "Scheduled runtime work appears here after it is created."
+        }
+      }
+    ]
+  end
+
+  defp job_nodes(jobs, runs_by_job) do
+    Enum.map(jobs, fn job ->
+      job_card_node(job, Map.get(runs_by_job, job.id, []))
+    end)
+  end
+
+  defp job_card_node(%Job{} = job, runs) do
+    %Node{
+      id: "job-#{job.id}",
+      component: :job_card,
+      props: %{
+        dom_id: "job-#{job.id}",
+        title: job.name,
+        body: job_body(job, runs),
+        status: job.status,
+        external_id: job.id
+      },
+      children: job_action_nodes(job)
+    }
+  end
+
+  defp job_action_nodes(%Job{} = job) do
+    [
+      %Node{
+        id: "job-#{job.id}-run",
+        component: :button,
+        props: %{
+          dom_id: "run-#{job.id}",
+          title: "Run",
+          phx_click: "run",
+          value_id: job.id,
+          variant: "primary"
+        }
+      },
+      maybe_pause_node(job),
+      maybe_resume_node(job)
+    ]
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp maybe_pause_node(%Job{status: "active"} = job) do
+    %Node{
+      id: "job-#{job.id}-pause",
+      component: :button,
+      props: %{
+        dom_id: "pause-#{job.id}",
+        title: "Pause",
+        phx_click: "pause",
+        value_id: job.id,
+        variant: "secondary"
+      }
+    }
+  end
+
+  defp maybe_pause_node(_job), do: nil
+
+  defp maybe_resume_node(%Job{status: status} = job) when status in ["paused", "blocked"] do
+    %Node{
+      id: "job-#{job.id}-resume",
+      component: :button,
+      props: %{
+        dom_id: "resume-#{job.id}",
+        title: "Resume",
+        phx_click: "resume",
+        value_id: job.id,
+        variant: "secondary"
+      }
+    }
+  end
+
+  defp maybe_resume_node(_job), do: nil
+
+  defp job_body(%Job{} = job, runs) do
+    [
+      "status=#{job.status}",
+      "target=#{job.target_type}",
+      "schedule=#{schedule_text(job.schedule)} #{job.timezone}",
+      "thread=#{thread_text(job)}",
+      "next=#{datetime_text(job.next_due_at)}",
+      "last=#{datetime_text(job.last_run_at)}",
+      blocked_confirmation_text(job),
+      recent_runs_text(runs)
+    ]
+    |> Enum.reject(&blank?/1)
+    |> Enum.join(" | ")
+  end
+
+  defp blocked_confirmation_text(%Job{blocked_confirmation_id: id})
+       when is_binary(id) and id != "" do
+    "confirmation #{id}"
+  end
+
+  defp blocked_confirmation_text(_job), do: nil
+
+  defp recent_runs_text([]), do: "Recent Runs: No runs."
+
+  defp recent_runs_text(runs) do
+    runs
+    |> Enum.map(&run_text/1)
+    |> Enum.join(" | ")
+    |> then(&"Recent Runs: #{&1}")
+  end
+
+  defp run_text(%Run{} = run) do
+    [
+      run.id,
+      "status=#{run.status}",
+      "trigger=#{run.trigger}",
+      "duration=#{run.duration_ms || "none"}",
+      "confirmation=#{run.confirmation_id || "none"}"
+      | handoff_lines(run)
+    ]
+    |> Enum.reject(&blank?/1)
+    |> Enum.join(" ")
   end
 
   defp handle_result(socket, {:ok, notice}) do
@@ -194,6 +248,7 @@ defmodule AllbertAssistWeb.JobsLive do
     socket
     |> assign(:jobs, jobs)
     |> assign(:runs_by_job, runs_by_job)
+    |> assign(:jobs_surface, jobs_surface(jobs, runs_by_job))
   end
 
   defp schedule_text(%{"kind" => "manual"}), do: "manual"
@@ -235,6 +290,15 @@ defmodule AllbertAssistWeb.JobsLive do
   defp datetime_text(nil), do: "none"
   defp datetime_text(%DateTime{} = datetime), do: DateTime.to_iso8601(datetime)
   defp datetime_text(value), do: to_string(value)
+
+  defp blank?(nil), do: true
+
+  defp blank?(value) do
+    value
+    |> to_string()
+    |> String.trim()
+    |> Kernel.==("")
+  end
 
   defp blank_to_default(value, default) do
     value

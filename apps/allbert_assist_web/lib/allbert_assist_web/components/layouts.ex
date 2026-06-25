@@ -59,6 +59,82 @@ defmodule AllbertAssistWeb.Layouts do
   end
 
   @doc """
+  Shared operator app shell for web surfaces that are not the full workspace tree.
+  """
+  attr :id, :string, default: "operator-shell"
+  attr :active, :string, required: true
+  attr :title, :string, required: true
+  attr :subtitle, :string, default: nil
+  attr :labelledby, :string, default: "operator-shell-title"
+
+  slot :inner_block, required: true
+
+  def operator_shell(assigns) do
+    ~H"""
+    <section
+      id={@id}
+      class="operator-shell"
+      data-operator-shell={@active}
+      data-workspace-shell="operator"
+      data-active-page={@active}
+      role="region"
+      aria-labelledby={@labelledby}
+    >
+      <header class="allbert-appbar operator-shell-appbar">
+        <div class="allbert-appbar-brand">
+          <span class="allbert-brand-icon" aria-hidden="true">
+            <.icon name="hero-window-micro" class="size-4" />
+          </span>
+          <div class="min-w-0">
+            <h1 id={@labelledby} class="allbert-appbar-title">{@title}</h1>
+            <p :if={@subtitle} class="allbert-appbar-subtitle">{@subtitle}</p>
+          </div>
+        </div>
+
+        <nav class="allbert-appbar-center operator-shell-nav" aria-label="Operator pages">
+          <.link
+            :for={item <- operator_nav_items(@active)}
+            navigate={item.path}
+            class={["operator-shell-nav-link", item.active? && "operator-shell-nav-link-active"]}
+            aria-current={if(item.active?, do: "page")}
+          >
+            {item.label}
+          </.link>
+        </nav>
+
+        <div class="allbert-appbar-actions">
+          <.link navigate={~p"/workspace"} class="workspace-button workspace-button-secondary">
+            Workspace
+          </.link>
+        </div>
+      </header>
+
+      <nav
+        id="operator-mobile-shellbar"
+        class="operator-mobile-shellbar"
+        aria-label="Operator pages"
+      >
+        <.link
+          :for={item <- operator_nav_items(@active)}
+          navigate={item.path}
+          class={[
+            "operator-mobile-shellbar-link",
+            item.active? && "operator-mobile-shellbar-link-active"
+          ]}
+          aria-current={if(item.active?, do: "page")}
+        >
+          {item.label}
+        </.link>
+      </nav>
+
+      <div class="operator-shell-body">
+        {render_slot(@inner_block)}
+      </div>
+    </section>
+    """
+  end
+
+  @doc """
   Shows the flash group with standard titles and content.
 
   ## Examples
@@ -109,6 +185,14 @@ defmodule AllbertAssistWeb.Layouts do
   defp content_container_class("full"), do: "w-full"
   defp content_container_class("wide"), do: "mx-auto max-w-6xl space-y-4"
   defp content_container_class(_width), do: "mx-auto max-w-2xl space-y-4"
+
+  defp operator_nav_items(active) do
+    [
+      %{label: "Workspace", path: ~p"/workspace", active?: active == "workspace"},
+      %{label: "Jobs", path: ~p"/jobs", active?: active == "jobs"},
+      %{label: "Objectives", path: ~p"/workspace", active?: active == "objectives"}
+    ]
+  end
 
   defp static_asset_version do
     :allbert_assist_web
