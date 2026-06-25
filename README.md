@@ -31,7 +31,7 @@ to generate and reuse.
 
 ## Current Shape
 
-The current released version is `v0.56.0`, tagged on 2026-06-23. This README is
+The current released version is `v0.57.0`, tagged on 2026-06-24. This README is
 the stable project orientation;
 release-by-release implementation detail belongs in
 [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in

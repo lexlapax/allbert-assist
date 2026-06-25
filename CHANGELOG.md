@@ -12,9 +12,8 @@ changelog entries or release notes.
 
 ## v0.57.0 - Pi-Mode Coding Surface
 
-Status: implementation, deterministic gates, and warm operator validation are
-complete; release tag closeout is pending. Current version metadata remains
-`0.56.0` until the release tag is cut.
+Status: released and tagged as `v0.57.0` on 2026-06-24. Current version metadata
+reports `0.57.0`.
 
 Plan: `docs/plans/v0.57-plan.md`. Request flow:
 `docs/plans/v0.57-request-flow.md`. ADR:
@@ -69,7 +68,7 @@ Plan: `docs/plans/v0.57-plan.md`. Request flow:
 ## v0.56.0 - Intent Descriptor Learning + Routing-Accuracy Gate
 
 Status: released and tagged as `v0.56.0` on 2026-06-23. Current version metadata
-reports `0.56.0`.
+reports `0.57.0` after the v0.57 closeout.
 
 Plan: `docs/plans/v0.56-plan.md`. Request flow:
 `docs/plans/v0.56-request-flow.md`. ADRs:
@@ -149,7 +148,7 @@ Plan: `docs/plans/v0.56-plan.md`. Request flow:
 ## v0.55.1 - Persistent TUI Operator/Validation Console
 
 Status: released and tagged as `v0.55.1` on 2026-06-22. Current version
-metadata now reports `0.56.0` after the v0.56 closeout.
+metadata now reports `0.57.0` after the v0.57 closeout.
 
 Plan: `docs/plans/v0.55b-plan.md`. Request flow:
 `docs/plans/v0.55b-request-flow.md`. ADR:
@@ -195,7 +194,7 @@ Plan: `docs/plans/v0.55b-plan.md`. Request flow:
 ## v0.55.0 - Channel Parity + TUI/Terminal Channel
 
 Status: released and tagged as `v0.55.0` on 2026-06-22. Version metadata now
-reports `0.56.0` after the follow-on v0.55.1 and v0.56 closeouts.
+reports `0.57.0` after the follow-on v0.55.1, v0.56, and v0.57 closeouts.
 
 Plan: `docs/plans/v0.55-plan.md`. Request flow:
 `docs/plans/v0.55-request-flow.md`. ADRs: `docs/adr/0067-tui-terminal-channel.md`
@@ -414,7 +413,7 @@ implemented as a `signal-cli` bridge, but not released for live use because it
 requires operator-managed daemon/linked-device onboarding. ADR 0066 records the
 release-availability gate: undeclared capabilities default released, explicit
 unreleased declarations fail closed, and Security Central remains authority.
-Current version metadata is `0.56.0` after the v0.56 closeout.
+Current version metadata is `0.57.0` after the v0.57 closeout.
 
 Plan: `docs/plans/v0.53-plan.md`.
 Request flow: `docs/plans/v0.53-request-flow.md`.

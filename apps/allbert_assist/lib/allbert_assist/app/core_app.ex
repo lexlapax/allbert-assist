@@ -19,10 +19,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.56 completes the intent
-  # descriptor lifecycle, eval gate, model recommendations, and TUI validation reads.
+  # the app (release-pinned, not semantic-per-app). v0.57 adds the Pi-mode coding
+  # surface on the same authority spine.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.56.0"
+  def version, do: "0.57.0"
 
   @impl true
   def validate(_opts), do: :ok

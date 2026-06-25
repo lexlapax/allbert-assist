@@ -3413,7 +3413,7 @@ Request flow: `docs/plans/v0.55-request-flow.md`
 ADR: `docs/adr/0067-tui-terminal-channel.md` (Accepted in v0.55)
 
 Status: released and tagged as `v0.55.0` on 2026-06-22; current metadata now
-reports `0.56.0` after the follow-on v0.55.1 and v0.56 closeouts. NEW in the
+reports `0.57.0` after the follow-on v0.55.1, v0.56, and v0.57 closeouts. NEW in the
 2026-06-09 roadmap restructure; full plan authored in Phase B (research R4).
 Moved from v0.56 to v0.55 in the 2026-06-21 replan.
 M0-M4 landed on 2026-06-21. Post-M4 audit corrections route the live
@@ -3532,9 +3532,10 @@ ADR: `docs/adr/0068-pi-mode-coding-surface-and-local-coding-trust-tier.md`
 (Accepted in v0.57 M0)
 Rationale: `docs/archives/pi-integration-rethink.md`
 
-Status: implementation, deterministic release gate, pre-release audit remediation,
-and warm TUI operator validation are complete; ready for v0.57 release tag
-closeout. NEW in the 2026-06-21 replan. Incorporates the Pi-vs-Allbert analysis:
+Status: released and tagged as `v0.57.0` on 2026-06-24. Implementation,
+deterministic release gate, pre-release audit remediation, and warm TUI operator
+validation are complete. NEW in the 2026-06-21 replan. Incorporates the
+Pi-vs-Allbert analysis:
 keep Allbert's authority spine, give it Pi's minimal inner loop where it helps (a
 gated coding surface), and adopt Pi's split-tool-result and minimalism budget.
 
