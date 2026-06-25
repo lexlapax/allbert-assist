@@ -17,6 +17,8 @@ defmodule AllbertAssist.Coding.TurnSupervisor do
   @registry AllbertAssist.Coding.TurnRegistry
   @task_supervisor AllbertAssist.TaskSupervisor
   @register_timeout_ms 1_000
+  @stream_cancel_register_wait_ms 100
+  @stream_cancel_poll_ms 5
 
   @type turn_id :: String.t()
   @type metadata :: %{required(:turn_id) => turn_id(), optional(atom()) => term()}
@@ -99,7 +101,7 @@ defmodule AllbertAssist.Coding.TurnSupervisor do
           | {:error, term()}
   def cancel(turn_id, reason \\ :operator_escape, opts \\ []) when is_binary(turn_id) do
     with {:ok, turn} <- lookup(turn_id, opts) do
-      stream_cancel = cancel_stream(turn)
+      stream_cancel = cancel_stream(turn, opts)
       shutdown = shutdown_task(turn, reason, opts)
 
       {:ok,
@@ -261,7 +263,8 @@ defmodule AllbertAssist.Coding.TurnSupervisor do
 
   defp stream_events(_status, _metadata, _reason_text), do: []
 
-  defp cancel_stream(%{stream_cancel: %{fun: cancel_fun}}) when is_function(cancel_fun, 0) do
+  defp cancel_stream(%{stream_cancel: %{fun: cancel_fun}}, _opts)
+       when is_function(cancel_fun, 0) do
     cancel_fun.()
     :ok
   rescue
@@ -270,7 +273,45 @@ defmodule AllbertAssist.Coding.TurnSupervisor do
     kind, reason -> {:error, {kind, Redactor.redact(reason)}}
   end
 
-  defp cancel_stream(_turn), do: :not_registered
+  defp cancel_stream(%{turn_id: turn_id, pid: pid}, opts)
+       when is_binary(turn_id) and is_pid(pid) do
+    wait_ms = Keyword.get(opts, :stream_cancel_wait_ms, @stream_cancel_register_wait_ms)
+
+    case await_stream_cancel(turn_id, pid, wait_ms, opts) do
+      {:ok, turn} -> cancel_stream(turn, opts)
+      :not_registered -> :not_registered
+    end
+  end
+
+  defp cancel_stream(_turn, _opts), do: :not_registered
+
+  defp await_stream_cancel(_turn_id, _pid, wait_ms, _opts) when wait_ms <= 0,
+    do: :not_registered
+
+  defp await_stream_cancel(turn_id, pid, wait_ms, opts) do
+    deadline = System.monotonic_time(:millisecond) + wait_ms
+    do_await_stream_cancel(turn_id, pid, deadline, opts)
+  end
+
+  defp do_await_stream_cancel(turn_id, pid, deadline, opts) do
+    cond do
+      not Process.alive?(pid) ->
+        :not_registered
+
+      System.monotonic_time(:millisecond) >= deadline ->
+        :not_registered
+
+      true ->
+        case lookup(turn_id, opts) do
+          {:ok, %{stream_cancel: %{fun: cancel_fun}} = turn} when is_function(cancel_fun, 0) ->
+            {:ok, turn}
+
+          _other ->
+            Process.sleep(@stream_cancel_poll_ms)
+            do_await_stream_cancel(turn_id, pid, deadline, opts)
+        end
+    end
+  end
 
   defp shutdown_task(%{pid: pid}, reason, opts) when is_pid(pid) do
     grace_ms = Keyword.get(opts, :grace_ms, Config.cancel_grace_ms())

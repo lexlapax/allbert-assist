@@ -36,22 +36,22 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
 
       receive do
         {:tui_input_escape, ^driver} ->
-          output_fun.("PROOF:ESC\n")
+          proof_line(output_fun, "PROOF:ESC")
           GenServer.stop(driver)
           :ok
 
         {:tui_input_line, ^driver, line} ->
-          output_fun.("PROOF:LINE #{line}\n")
+          proof_line(output_fun, "PROOF:LINE #{line}")
           GenServer.stop(driver)
           :ok
 
         {:tui_input_quit, ^driver, reason} ->
-          output_fun.("PROOF:QUIT #{reason}\n")
+          proof_line(output_fun, "PROOF:QUIT #{reason}")
           GenServer.stop(driver)
           :ok
       after
         timeout_ms ->
-          output_fun.("PROOF:TIMEOUT\n")
+          proof_line(output_fun, "PROOF:TIMEOUT")
           GenServer.stop(driver)
           {:error, :timeout}
       end
@@ -297,5 +297,9 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
 
   defp default_output(chardata) do
     IO.write(chardata)
+  end
+
+  defp proof_line(output_fun, text) do
+    output_fun.([text, "\r\n"])
   end
 end

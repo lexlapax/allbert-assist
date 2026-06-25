@@ -62,14 +62,6 @@ Esc cancellation is a v0.57 input-driver extension layered on the same channel;
 it is not evidence that the v0.55 scrollback-native TUI needs a full-screen or
 alternate-screen rewrite.
 
-For the v0.57 terminal-input proof only, run
-`mix allbert.tui --input-driver-proof` inside the same transcript wrapper shape
-used by validation and press Esc. Expected: `PROOF:ESC` with no literal `^[` in
-the transcript. This proof mode does not run a Pi-mode coding turn; normal
-operator validation still uses `mix allbert.tui`. As of v0.57 M9.28, normal
-`mix allbert.tui` also uses the interrupt-capable input driver while preserving
-scrollback-native output.
-
 `mix allbert.tui` keeps the live terminal readable by default: startup
 plugin/query chatter is suppressed, app logs below warning stay quiet after
 startup, and Ecto query debug logs are disabled. To turn post-start diagnostic
@@ -148,12 +140,11 @@ route into these internal actions.
 
 ## v0.57 Pi-Mode Coding Surface
 
-v0.57 plans a Pi-mode coding surface on top of this same terminal channel. It is
-not a replacement for the base TUI guide: use this document for the shipped
-channel substrate, identity mapping, split-payload seam, and warm-console
-standard; use `docs/operator/pi-mode-coding.md` for the planned coding-surface
-operator setup, approval modes, allowlist behavior, streaming/cancel checks, and
-manual validation handoff.
+v0.57 adds Pi-mode on top of this same terminal channel. It is not a replacement
+for the base TUI guide: use this document for the shipped channel substrate,
+identity mapping, split-payload seam, and warm-console standard; use
+`docs/operator/pi-mode-coding.md` for Pi-mode operator setup, approval modes,
+allowlist behavior, streaming/cancel checks, and manual validation handoff.
 
 Legacy v0.55 manual M2 smoke:
 

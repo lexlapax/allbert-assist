@@ -1,14 +1,7 @@
 # Pi-Mode Coding Operator Guide
 
-Status: v0.57 M0-M9.25 are implemented, but live S4.9 validation invalidated the
-M9.23-M9.25 Esc-helper capture strategy. M9.27 proves the raw input-driver
-substrate with `mix allbert.tui --input-driver-proof`, and M9.28 wires that
-driver into normal `mix allbert.tui`. M9.29 rewrites S4.9 around the live driver,
-M9.30 re-gates the normal Pi-mode flow, and M9.31 fixes the raw-mode output
-line-discipline regression that made setup prompts drift rightward. Operator
-validation can resume at S4.9 after restarting `mix allbert.tui` on M9.31+ code.
-This guide describes the
-operator workflow for the Pi-mode coding surface. The
+Status: implemented and warm-validated for v0.57 release closeout. This guide
+describes the operator workflow for the Pi-mode coding surface. The
 release-authoritative validation checklist lives in
 `docs/plans/v0.57-request-flow.md#operator-validation`.
 
@@ -77,20 +70,19 @@ the Level 1 execution settings in the same `ALLBERT_HOME` before continuing.
 
 `coding.model_profile` is the persisted profile Pi-mode uses at `/pi` session
 start. The default is `pi_coding_local`; it should point to a local or private
-model profile that emits real provider tool-call chunks under `ReqLLM.stream_text`
-for the six Pi-mode tools. This is deliberately separate from `coding_local`,
-which remains available for codegen-committee work. Use hosted coding profiles
-only after explicitly accepting source-code egress for that validation home.
+model profile that streams assistant text, emits real structured tool calls for
+the six Pi-mode tools, and supports cancellation. This is deliberately separate
+from `coding_local`, which remains available for codegen-committee work. Use
+hosted coding profiles only after explicitly accepting source-code egress for
+that validation home.
 
 `/model <profile>` changes only the in-memory Pi-mode session profile. It does not
 change the trusted operator, approval mode, cwd jail, permissions, or confirmation
-behavior. Live assistant-token streaming and provider-level Esc cancel use the
-selected profile/provider path through `ReqLLM.stream_text` and
-`ReqLLM.StreamResponse.cancel`; release validation must use a profile that supports
-streaming, real tool-call chunks, and provider cancel. If a model emits textual
-markup such as `<function=write>` instead of a real provider tool-call event,
-Pi-mode treats the turn as a profile-compatibility failure and no tool runs.
-During validation, `/pi` should report `model=pi_coding_local` unless the operator
+behavior. Release validation must use a profile that supports streaming, real
+structured tool calls, and provider cancellation. If a model emits textual markup
+such as `<function=write>` instead of a real provider tool-call event, Pi-mode
+treats the turn as a profile-compatibility failure and no tool runs. During
+validation, `/pi` should report `model=pi_coding_local` unless the operator
 deliberately selected another known streaming/tool-call-capable profile.
 
 ## Terminal Turn Safety
@@ -101,21 +93,17 @@ explicitly asks for multiple commands. A hard newline submits the current line a
 a complete turn.
 
 Single-key Esc cancellation is a Pi-mode extension, not a v0.55 line-mode
-feature. The M9.23-M9.25 side-channel/helper approaches did not pass live S4.9:
-literal `^[` scrollback, `Esc cancellation monitor unavailable: ...`, or
-`/dev/tty: Device not configured` mean the terminal-input substrate is still
-blocked. M9.27's proof harness and M9.28's normal-launch smoke show the
-replacement substrate can consume Esc without `^[`; do not treat `^[` as an
-operator typo. It remains release-blocking TUI input evidence if it appears after
-M9.28. S4.9 in the request-flow is the release-authoritative cancellation
-validation.
+feature. Literal `^[` scrollback, `Esc cancellation monitor unavailable: ...`, or
+`/dev/tty: Device not configured` mean the terminal-input driver is not working
+for release validation; do not treat `^[` as an operator typo. S4.9 in the
+request-flow is the release-authoritative cancellation validation.
 
 When the raw input driver is active, TUI-owned output must use terminal CRLF line
 discipline. Slash replies, stream-progress lines, final answers, and the next
 `allbert:default>` prompt should each start at the left edge of a new terminal
 line. If setup commands such as `/pi`, `/model`, `/mode`, `/clear`, or `/compact`
 make the prompt walk rightward across the screen, stop validation and restart on
-M9.31+ code before pressing Esc.
+current v0.57 code before pressing Esc.
 
 `/quit` and `/exit` are local TUI lifecycle aliases. They must stop the terminal
 session and must never be routed to the model, even if prior Esc/control bytes were
@@ -193,10 +181,10 @@ active Pi-mode session; a direct out-of-session call is denied before filesystem
 shell work starts.
 
 Inside an active Pi-mode coding turn, the six actions are bound as session-local
-`ReqLLM.Tool` definitions. Model-proposed tool calls are advisory; Allbert executes
-them only through `Actions.Runner.run/3`, appends bounded tool results back into the
-session `ReqLLM.Context`, and continues streaming until the model stops calling
-tools. The TUI-held session context is updated after the turn; `/clear` resets it.
+tool definitions. Model-proposed tool calls are advisory; Allbert executes them
+only through `Actions.Runner.run/3`, appends bounded tool results back into the
+session context, and continues streaming until the model stops calling tools. The
+TUI-held session context is updated after the turn; `/clear` resets it.
 
 `write` and `edit` use the coding file-write permission. `edit` is exact-match and
 must fail clearly when the match is missing.
@@ -258,11 +246,11 @@ Keep this session open for the entire manual punchlist. Do not fall back to cold
 ## Cancellation
 
 Esc cancellation has two layers. During provider streaming, Pi-mode invokes the
-registered `ReqLLM.StreamResponse.cancel` callback and then shuts down the supervised
-turn task through `Coding.TurnSupervisor`. During an already-running tool action,
-the turn still shuts down and writes partial-turn evidence, but the tool effect is
-bounded by the registered action and command timeout/brutal-kill policy; v0.57 does
-not add a separate child-process cancel hook beyond that action boundary.
+provider cancel callback and then shuts down the supervised turn task. During an
+already-running tool action, the turn still shuts down and writes partial-turn
+evidence, but the tool effect is bounded by the registered action and command
+timeout/brutal-kill policy; v0.57 does not add a separate child-process cancel
+hook beyond that action boundary.
 
 There is also a terminal-input layer. Provider cancel can be correctly wired while
 the operator Esc key still fails to reach it. Release evidence must therefore show

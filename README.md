@@ -13,11 +13,10 @@ turn, while every side effect still resolves through a validated,
 permission-checked action.
 
 Phoenix LiveView, Mix tasks, messaging channels, a persistent terminal/TUI
-console, and plugin apps are operator surfaces over the runtime. A gated
-terminal coding surface ("Pi-mode") is a planned extension of the same spine —
-a minimal inner loop on Allbert's authority boundary, never a separate
-unguarded harness. The center of the system is the signal-driven assistant
-runtime and its registered action boundary.
+console, Pi-mode coding, and plugin apps are operator surfaces over the runtime.
+Pi-mode is a gated terminal coding loop on Allbert's authority boundary, never a
+separate unguarded harness. The center of the system is the signal-driven
+assistant runtime and its registered action boundary.
 
 ## Why It Exists
 

@@ -10,6 +10,62 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.57.0 - Pi-Mode Coding Surface
+
+Status: implementation, deterministic gates, and warm operator validation are
+complete; release tag closeout is pending. Current version metadata remains
+`0.56.0` until the release tag is cut.
+
+Plan: `docs/plans/v0.57-plan.md`. Request flow:
+`docs/plans/v0.57-request-flow.md`. ADR:
+`docs/adr/0068-pi-mode-coding-surface-and-local-coding-trust-tier.md`
+(Accepted).
+
+### Added
+
+- Pi-mode, a gated terminal coding surface inside the persistent `tui` channel,
+  with session-pinned cwd jail, local-coding operator trust tier, approval modes,
+  slash commands, and a six-tool coding loop: `read`, `grep`, `glob`, `write`,
+  `edit`, and `bash`.
+- Streaming coding turns with bounded tool-call/result progress, transcript-stable
+  TUI rendering, queued correction after cancellation, and provider-level Esc
+  cancellation when the configured coding profile supports streaming, tool calls,
+  and cancel.
+- Session-scoped coding tools: the six coding actions are internal registered
+  capabilities, excluded from general intent-agent and public-protocol exposure,
+  and denied outside an active Pi-mode session with the local-coding operator tier.
+- Operator-facing Pi-mode settings for model profile, prompt budget, cwd jail,
+  approval mode, command grants, read/search/write bounds, and Level 1 local
+  execution policy.
+
+### Validation
+
+- Warm operator validation passed in one transcript-captured `mix allbert.tui`
+  session after the S4.9 Esc-cancel retry on the interrupt-capable input driver.
+- `release.v057` passed during pre-release closeout with the coding unit lane,
+  v0.57 eval lane, and release-home secret scan.
+- Focused TUI and streaming-loop tests cover the raw input driver, cancellation,
+  model-proposed tool execution, confirmation behavior, cwd-jail denial, raw-shell
+  denial, and maximum tool-iteration boundary.
+
+### Fixed
+
+- Post-implementation audit remediations wired the live provider streaming path,
+  provider cancel callback, and real model-driven tool loop instead of leaving
+  those as substrate-only tests.
+- Warm-validation remediations fixed Pi-mode routing pinning, profile compatibility
+  diagnostics, streamed approval handoff preservation, prompt-safe async rendering,
+  transcript-stable progress output, typed approval resume context, Level 1 bash
+  preflight documentation, command-string normalization, remembered command-grant
+  handoff, terminal Esc input capture, slash/control-byte hygiene, and raw-mode
+  terminal line discipline.
+- Final release-gate remediation fixed an early-Esc race so cancellation waits
+  briefly for a just-opening provider stream to register its cancel callback before
+  falling back to task-only shutdown.
+- Pre-release documentation cleanup moved implementation history out of README,
+  roadmap, and operator guides while preserving the detailed remediation record in
+  the v0.57 plan and request-flow docs.
+
 ## v0.56.0 - Intent Descriptor Learning + Routing-Accuracy Gate
 
 Status: released and tagged as `v0.56.0` on 2026-06-23. Current version metadata

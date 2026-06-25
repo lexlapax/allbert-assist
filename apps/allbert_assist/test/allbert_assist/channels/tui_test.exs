@@ -573,6 +573,34 @@ defmodule AllbertAssist.Channels.TUITest do
     assert_receive {:input_driver_raw, :disabled}
   end
 
+  test "input driver proof harness emits CRLF proof lines" do
+    parent = self()
+    callbacks = input_driver_callbacks(parent)
+
+    task =
+      Task.async(fn ->
+        InputDriver.run_proof(
+          enable_raw: callbacks.enable_raw,
+          disable_raw: callbacks.disable_raw,
+          start_reader: callbacks.start_reader,
+          output_fun: callbacks.output_fun,
+          timeout_ms: 1_000
+        )
+      end)
+
+    assert_receive {:input_driver_raw, :enabled}
+    assert_receive {:input_driver_reader, reader}
+    assert_receive {:input_driver_output, "allbert:proof> "}
+
+    send(reader, {:send_char, "\e"})
+
+    assert_receive {:input_driver_output, "PROOF:ESC\r\n"}
+    refute_received {:input_driver_output, "PROOF:ESC\n"}
+
+    assert :ok = Task.await(task)
+    assert_receive {:input_driver_raw, :disabled}
+  end
+
   test "auto input driver cancels an async Pi-mode turn without escape monitor helper" do
     repo =
       Path.join(System.tmp_dir!(), "allbert-tui-pi-#{System.unique_integer([:positive])}")

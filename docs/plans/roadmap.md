@@ -3532,25 +3532,17 @@ ADR: `docs/adr/0068-pi-mode-coding-surface-and-local-coding-trust-tier.md`
 (Accepted in v0.57 M0)
 Rationale: `docs/archives/pi-integration-rethink.md`
 
-Status: in progress; M0-M9.2 implemented. Warm TUI operator validation and release
-closeout are blocked on validating a real configured streaming-capable coding
-profile. M0 contracts/API/upstream
-verification, M1 read/search/path substrate, M2
-write/edit file effects, M3 bash runner contract, M4 stream-event pipeline/live
-renderer substrate, M5 async turn-execution boundary, M6 task-level cancellation/
-queued steering, M7 local-coding trust/approval/grants, M8 session slash matrix, M9
-deterministic eval/release gate, M9.1 session-scope remediation, and M9.2 live
-provider streaming/cancel implemented
-2026-06-23. NEW in the 2026-06-21 replan.
-Incorporates the Pi-vs-Allbert analysis:
+Status: implementation, deterministic release gate, pre-release audit remediation,
+and warm TUI operator validation are complete; ready for v0.57 release tag
+closeout. NEW in the 2026-06-21 replan. Incorporates the Pi-vs-Allbert analysis:
 keep Allbert's authority spine, give it Pi's minimal inner loop where it helps (a
 gated coding surface), and adopt Pi's split-tool-result and minimalism budget.
 
 Expected direction:
 
 - A gated terminal coding surface as a channel/app under ADR 0016, on the one
-  authority spine — same `Actions.Runner.run/3`, Security Central, trace, and
-  memory as every other surface.
+  authority spine: the same registered action runner, Security Central, trace,
+  and memory posture as every other surface.
 - **Six default tools** — three read-only/sensitive actions
   (`read`/`grep`/`glob`, direct Elixir file-walk/globbing, unprompted but
   policy-bounded) +
@@ -3560,41 +3552,18 @@ Expected direction:
   sandbox Level 1; raw shell only at the local-coding tier.
 - **Coder-ergonomics parity** (benchmarked against Claude Code / Pi / Codex /
   Gemini CLI): coder-facing approval modes (`default`/`accept-edits`/`plan`/`tier`)
-  as a confirmation-cost seam in `Security.Decision` (preserves decision/trace/audit)
-  + per-repo "always allow" reusing the `Resources.Grants` remembered-grant
-  lifecycle, **net-new** live rendering substrate (assistant-text token streaming +
-  progressive tool-argument diff streaming over the v0.55 **static** split) on a new
-  **async turn-execution boundary** with real provider Esc-to-cancel, queued
-  steering, and a familiar coding slash set
-  (`/help`/`/mode`/`/model`/`/clear`/`/init`/`/diff`/`/compact`; `/mode`/`/model`/`/clear`/`/compact`
-  ungated). Milestones M0-M9.2; M6 wires registered cancel callbacks when present,
-  bounded registry task shutdown, `turn_cancelled`, partial traces, and queued
-  steering; M9.2 makes that callback a real provider `StreamResponse.cancel`.
-  M7 wires Settings-backed local-coding tier resolution,
-  approval modes, and hash-only remembered command grants through the
-  `Security.Decision` confirmation-cost seam while preserving
-  `:needs_confirmation` decisions, trace, audit, and the `Resources.Grants`
-  lifecycle. M8 wires `Coding.Prompt`, `Coding.Session`, Settings-backed prompt/
-  model keys, `/pi` realpath cwd-jail pinning, `/mode`, `/model`, `/clear`,
-  `/compact`, `/diff`, `@file`, and `/init` over internal registered read/write
-  actions with the standard TUI approval handoff. M9 adds `:v057` security eval rows,
-  `mix allbert.test release.v057`, and split-payload hardening so `write`/`edit`
-  surface diffs stay out of model-facing payloads. M9.1 moves the six coding actions
-  out of the general intent/public surface and adds an active-session runtime guard.
-  M9.2 connects coding turns to `ReqLLM.stream_text`, incremental TUI stream events,
-  and provider-level cancel registration.
-  The named substrate
-  (`deps/req_llm` `Context`/`StreamResponse`/`StreamChunk`, `Owl.LiveScreen`,
-  `Resources.Grants`) is verified to exist.
+  as a confirmation-cost seam, per-repo remembered command grants, transcript-stable
+  streaming progress over the v0.55 split-payload contract, async turn execution
+  with Esc-to-cancel, queued correction, and a familiar coding slash set
+  (`/help`/`/mode`/`/model`/`/clear`/`/init`/`/diff`/`/compact`).
 - A named "local-coding operator" trust tier (ADR 0056 lineage, running at ADR
   0009 **Level 1** — not "level 0"): a single trusted operator, main session,
   terminal channel — never the default, never for channel-originated or
   generated-code sessions; lowers confirmation burden only, not isolation. Modes
   and "always allow" grant no authority.
 - Operator affordances for in-session approval-mode switching and mid-session model
-  switch (req_llm message-history handoff; best-effort cross-provider). The final
-  implementation plan expands the work into M0-M9.2 so contracts, stream events,
-  trust tier, slash behavior, evals, and validation closeout have separate handoffs.
+  switch. Detailed implementation milestones, audit remediations, evidence paths,
+  and validation handoffs stay in the v0.57 plan and request-flow docs.
 - Non-goals: no YOLO-by-default; no weakening of the action boundary, Security
   Central, or confirmations; no model-decides-it's-done for effectful or
   generated-code work; keep MCP-first with lazy disclosure; no sibling runtime.

@@ -1,9 +1,10 @@
 # ADR 0068: Pi-mode Coding Surface and Local-Coding Trust Tier
 
-Status: Accepted (v0.57 M0). Implementation status is tracked in
-`docs/plans/v0.57-plan.md`: as of M9.2 the six coding actions are internal,
-session-guarded registered capabilities, and production coding turns use
-`ReqLLM.stream_text` with provider-level `StreamResponse.cancel` registration.
+Status: Accepted (v0.57 M0). Implementation and release-readiness status is
+tracked in `docs/plans/v0.57-plan.md`; the accepted architecture keeps coding
+tools internal and session-guarded, runs model-proposed tool calls through the
+registered action boundary, and keeps provider streaming/cancel as an execution
+detail behind the Pi-mode turn boundary.
 Date: 2026-06-21
 Related: ADR 0067 (TUI/terminal channel + split tool result — the foundation
 this surface streams over), ADR 0009 (local execution sandbox levels — the
@@ -218,15 +219,14 @@ decision in the v0.57 plan.
   executes a turn **synchronously and blocking** (no handle to an in-flight turn),
   so Esc-to-cancel is impossible without first running a coding turn's model call
   under a **supervised Task**. This async turn-execution boundary is its own
-  milestone and the prerequisite for real cancellation (abort the in-flight
-  `ReqLLM.StreamResponse`, not merely abandon it).
+  milestone and the prerequisite for real cancellation: abort the in-flight
+  provider stream, not merely abandon it.
 - **Clean operator Esc also requires net-new input work.** The v0.55 terminal
   channel is line-oriented by design. That foundation remains correct, but a
   standalone Esc key is not a line-oriented command; Pi-mode must add a narrow
   interrupt-capable input driver that emits an operator key event during active
   coding turns. The input driver is authority-neutral: it invokes no tools, grants
-  no permissions, and only routes Esc to `Coding.TurnSupervisor`/provider cancel
-  through the same runtime boundary.
+  no permissions, and only routes Esc to the coding-turn cancellation boundary.
 - **The "cheap gate" is a confirmation-cost seam, not an authority change.** It is
   implemented in `Security.Decision.build/1`: when the tier/mode resolves it sets
   `requires_confirmation: false` while preserving the `:needs_confirmation`
