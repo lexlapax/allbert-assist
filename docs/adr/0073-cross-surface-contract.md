@@ -1,7 +1,7 @@
 # ADR 0073: Cross-Surface Contract
 
-Status: Proposed (v0.58); M13 implemented, M13.1A/B/C complete, M13.1D active
-before M14.
+Status: Proposed (v0.58); M13 implemented, M13.1A-D complete; ready for
+implementation audit and M14 manual validation.
 Date: 2026-06-24
 Related: ADR 0016 (channel adapter boundary + identity mapping — extended here to
 every surface), ADR 0029/0030 (typed response contract + unified surface

@@ -1,7 +1,7 @@
 # Surface Contract
 
-Status: v0.58 implementation contract; implemented through M13 with M13.1A/B/C
-complete and M13.1D rejoin active before M14.
+Status: v0.58 implementation contract; implemented through M13.1 and ready for
+implementation audit and M14 manual validation.
 
 Authority: `docs/adr/0073-cross-surface-contract.md`,
 `docs/plans/v0.58-plan.md`, and
@@ -169,7 +169,7 @@ For each surface:
   descriptor/evidence payloads;
 - focused tests and `mix allbert.test release.v058` cover the surface.
 
-`release.v058` is the M13 deterministic gate and must pass again after M13.1. It
+`release.v058` is the M13/M13.1 deterministic gate and passed after M13.1C. It
 bundles disposable migration,
 surface contract units, Settings Central guard/schema checks, web/catalog/design
 system units, operator-panel DTO and surface-policy units, helper-consolidation
