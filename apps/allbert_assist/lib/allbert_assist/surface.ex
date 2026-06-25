@@ -60,7 +60,12 @@ defmodule AllbertAssist.Surface do
           | :app_launcher
           | :utility_drawer
           | :workspace_panel
+          | :onboarding_panel
+          | :intents_panel
+          | :models_panel
+          | :surface_policy_panel
           | :settings_panel
+          | :template_create_panel
           | :plan_preview_panel
           | :plan_run_progress_panel
           | :workspace

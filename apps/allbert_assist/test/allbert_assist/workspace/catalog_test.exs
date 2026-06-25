@@ -11,7 +11,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
   test "known components returns the current workspace allow-list" do
     components = Catalog.known_components()
 
-    assert length(components) == 54
+    assert length(components) == 57
     assert Enum.uniq(components) == components
 
     assert Enum.all?(
@@ -28,6 +28,9 @@ defmodule AllbertAssist.Workspace.CatalogTest do
                :utility_drawer,
                :workspace_panel,
                :onboarding_panel,
+               :intents_panel,
+               :models_panel,
+               :surface_policy_panel,
                :settings_panel,
                :template_create_panel,
                :plan_preview_panel,
@@ -73,6 +76,9 @@ defmodule AllbertAssist.Workspace.CatalogTest do
              "workspace:objectives",
              "workspace:confirmations",
              "workspace:security",
+             "workspace:intents",
+             "workspace:models",
+             "workspace:surface_policy",
              "workspace:settings"
            ]
 
@@ -168,6 +174,9 @@ defmodule AllbertAssist.Workspace.CatalogTest do
     refute find_node(canvas_children, :job_card, :core_jobs_panel)
     refute find_node(canvas_children, :confirmation_card, :core_confirmations_panel)
     refute find_node(canvas_children, :settings_card, :core_security_panel)
+    refute find_node(canvas_children, :intents_panel, :core_intents_panel)
+    refute find_node(canvas_children, :models_panel, :core_models_panel)
+    refute find_node(canvas_children, :surface_policy_panel, :core_surface_policy_panel)
     refute find_node(canvas_children, :settings_panel, :core_settings_panel)
     refute Map.has_key?(surface.metadata, :panel_diagnostics)
   end
@@ -189,6 +198,30 @@ defmodule AllbertAssist.Workspace.CatalogTest do
     refute find_node(canvas_children, :onboarding_panel, :core_onboarding_panel)
     refute find_node(canvas_children, :job_card, :core_jobs_panel)
     refute find_node(canvas_children, :objective_card, :core_objectives_panel)
+    refute find_node(canvas_children, :intents_panel, :core_intents_panel)
+  end
+
+  test "workspace tree renders M10 operator panel destinations" do
+    for {destination, component, surface_id} <- [
+          {"workspace:intents", :intents_panel, :core_intents_panel},
+          {"workspace:models", :models_panel, :core_models_panel},
+          {"workspace:surface_policy", :surface_policy_panel, :core_surface_policy_panel}
+        ] do
+      surface =
+        Catalog.workspace_tree(
+          user_id: "local",
+          thread_id: "thread-1",
+          canvas_destination: destination
+        )
+
+      assert [%Node{component: :workspace_shell, children: children}] = surface.nodes
+
+      assert %Node{component: :canvas, children: canvas_children} =
+               Enum.find(children, &(&1.component == :canvas))
+
+      assert find_node(canvas_children, component, surface_id)
+      refute find_node(canvas_children, :settings_panel, :core_settings_panel)
+    end
   end
 
   test "workspace tree renders Onboarding as a selected workspace tool destination" do

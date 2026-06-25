@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.Intent.OperatorSupport do
 
   @baseline_candidates [
     "apps/allbert_assist/test/fixtures/intent/eval/baseline.yaml",
+    "../allbert_assist/test/fixtures/intent/eval/baseline.yaml",
     "test/fixtures/intent/eval/baseline.yaml"
   ]
 

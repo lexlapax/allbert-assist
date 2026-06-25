@@ -74,6 +74,24 @@ defmodule AllbertAssist.Workspace.Catalog do
       dom_id: "workspace-security"
     },
     %{
+      id: "workspace:intents",
+      tool: "intents",
+      label: "Intents",
+      dom_id: "workspace-intents"
+    },
+    %{
+      id: "workspace:models",
+      tool: "models",
+      label: "Models",
+      dom_id: "workspace-models"
+    },
+    %{
+      id: "workspace:surface_policy",
+      tool: "surface_policy",
+      label: "Surface Policy",
+      dom_id: "workspace-surface-policy"
+    },
+    %{
       id: "workspace:settings",
       tool: "settings",
       label: "Settings",
@@ -96,6 +114,9 @@ defmodule AllbertAssist.Workspace.Catalog do
     "objectives" => :core_objectives_panel,
     "confirmations" => :core_confirmations_panel,
     "security" => :core_security_panel,
+    "intents" => :core_intents_panel,
+    "models" => :core_models_panel,
+    "surface_policy" => :core_surface_policy_panel,
     "settings" => :core_settings_panel
   }
 

@@ -26,6 +26,7 @@ defmodule AllbertAssist.Intent.Eval.Corpus do
 
   @fixture_candidates [
     "apps/allbert_assist/test/fixtures/intent/eval",
+    "../allbert_assist/test/fixtures/intent/eval",
     "test/fixtures/intent/eval"
   ]
 

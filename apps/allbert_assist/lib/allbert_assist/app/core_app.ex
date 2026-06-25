@@ -742,6 +742,44 @@ defmodule AllbertAssist.App.CoreApp do
           }
         ])
       ]),
+      panel_surface(:core_intents_panel, "Intents", :canvas_panels, 45, [
+        panel_node("core-intents", "Intents", "Coverage, eval status, and descriptor review.", [
+          %Node{
+            id: "intents-panel",
+            component: :intents_panel,
+            props: %{zone: "canvas", title: "Intents"}
+          }
+        ])
+      ]),
+      panel_surface(:core_models_panel, "Models", :canvas_panels, 46, [
+        panel_node("core-models", "Models", "Recommendation matrix and redacted inventories.", [
+          %Node{
+            id: "models-panel",
+            component: :models_panel,
+            props: %{zone: "canvas", title: "Models"}
+          }
+        ])
+      ]),
+      panel_surface(
+        :core_surface_policy_panel,
+        "Surface Policy",
+        :canvas_panels,
+        47,
+        [
+          panel_node(
+            "core-surface-policy",
+            "Surface Policy",
+            "Security Central policy posture and M11 editor entry point.",
+            [
+              %Node{
+                id: "surface-policy-panel",
+                component: :surface_policy_panel,
+                props: %{zone: "canvas", title: "Surface Policy"}
+              }
+            ]
+          )
+        ]
+      ),
       panel_surface(:core_settings_panel, "Settings Central", :canvas_panels, 50, [
         panel_node("core-settings", "Settings Central", "Workspace settings and credentials.", [
           %Node{

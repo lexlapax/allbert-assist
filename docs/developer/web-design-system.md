@@ -1,9 +1,9 @@
 # Web Design System
 
-Status: v0.58 M6-M9 token, variant, pattern, shared-shell, Jobs/Objectives
-catalog coverage, and chat-primary workspace layout implemented; M10-M15 complete
-operator panels, surface-policy, consolidation, release lane, manual validation,
-and closeout.
+Status: v0.58 M6-M10 token, variant, pattern, shared-shell, Jobs/Objectives
+catalog coverage, chat-primary workspace layout, and operator panel catalog
+coverage implemented; M11-M15 complete surface-policy writes, consolidation,
+release lane, manual validation, and closeout.
 
 Authority: `docs/adr/0074-web-design-system-and-ux-language.md`,
 `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`,
@@ -198,8 +198,10 @@ the design system. They render v0.56/v0.58 DTOs through registered actions.
   edit/disable/promote affordances.
 - Settings/Models: recommendation matrix, current configuration, bounded
   inventory, diagnostics.
-- Surface-Policy: per-surface/action report mode, redaction/display profile,
-  bounds, and explicit affordance.
+- Surface-Policy: M10 reads Security Central posture through `security_status` and
+  displays the M11 editor entry point; M11 adds the `surface_policy.*` read/update
+  actions, per-surface/action report mode, redaction/display profile, bounds, and
+  explicit affordance.
 
 Panels may display diagnostics but they do not own authority. Gated mutations stay
 registered actions and confirmation/security decisions stay outside the component.

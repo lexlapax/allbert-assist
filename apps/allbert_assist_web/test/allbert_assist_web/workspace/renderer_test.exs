@@ -3,6 +3,9 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
 
   import Phoenix.LiveViewTest
 
+  alias AllbertAssist.Intent.Router.DescriptorStore
+  alias AllbertAssist.Paths
+  alias AllbertAssist.Settings
   alias AllbertAssist.Surface.Catalog, as: SurfaceCatalog
   alias AllbertAssist.Surface.Node
   alias AllbertAssist.Workspace.Catalog
@@ -15,6 +18,38 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
     :parity_card,
     :debate_round_card
   ]
+
+  setup do
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_settings_config = Application.get_env(:allbert_assist, Settings)
+    original_home = System.get_env("ALLBERT_HOME")
+    original_home_dir = System.get_env("ALLBERT_HOME_DIR")
+
+    root =
+      Path.join(System.tmp_dir!(), "allbert-renderer-#{System.unique_integer([:positive])}")
+
+    System.put_env("ALLBERT_HOME", root)
+    System.delete_env("ALLBERT_HOME_DIR")
+    Application.put_env(:allbert_assist, Paths, home: root)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
+
+    on_exit(fn ->
+      restore_env(Paths, original_paths_config)
+      restore_env(Settings, original_settings_config)
+
+      if original_home,
+        do: System.put_env("ALLBERT_HOME", original_home),
+        else: System.delete_env("ALLBERT_HOME")
+
+      if original_home_dir,
+        do: System.put_env("ALLBERT_HOME_DIR", original_home_dir),
+        else: System.delete_env("ALLBERT_HOME_DIR")
+
+      File.rm_rf!(root)
+    end)
+
+    :ok
+  end
 
   test "dispatch covers every known catalog component" do
     for component <- Catalog.known_components() do
@@ -289,6 +324,103 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
     assert html =~ ~s(role="tabpanel")
   end
 
+  test "M10 intents panel renders v0.56 action DTOs and gated affordances" do
+    {:ok, _path} =
+      DescriptorStore.put(:review, %{
+        app_id: :allbert,
+        action_name: "show_app",
+        label: "Show app",
+        examples: ["show app"],
+        synonyms: ["app details"],
+        required_slots: []
+      })
+
+    html =
+      render_component(Renderer,
+        id: "intents-panel-renderer",
+        node: %Node{
+          id: "intents-panel",
+          component: :intents_panel,
+          props: %{title: "Intents"}
+        },
+        renderer_context: Map.put(renderer_context(), :canvas_destination, "workspace:intents"),
+        workspace_state: workspace_state()
+      )
+
+    assert html =~ ~s(data-workspace-component="intents_panel")
+    assert html =~ ~s(data-action-source="actions-runner")
+    assert html =~ "Coverage"
+    assert html =~ "Eval Gate"
+    assert html =~ ~s(id="workspace-intent-promote-show_app")
+    assert html =~ ~s(phx-value-operator-action="promote")
+    assert html =~ ~s(id="workspace-intent-edit-append_memory")
+    assert html =~ ~s(phx-value-operator-action="edit")
+    refute html =~ "sk-"
+    refute html =~ "api_key"
+    refute html =~ "secret://"
+  end
+
+  test "M10 models panel renders recommendation DTOs behind a bounded inventory affordance" do
+    Req.Test.stub(__MODULE__, fn conn ->
+      Req.Test.json(conn, %{
+        "models" => [
+          %{"model" => "nomic-embed-text", "context_length" => 2048},
+          %{"model" => "llama3.1:8b", "context_length" => 128_000}
+        ]
+      })
+    end)
+
+    html =
+      render_component(Renderer,
+        id: "models-panel-renderer",
+        node: %Node{
+          id: "models-panel",
+          component: :models_panel,
+          props: %{title: "Models"}
+        },
+        renderer_context:
+          renderer_context()
+          |> Map.put(:canvas_destination, "workspace:models")
+          |> Map.put(:req_options, plug: {Req.Test, __MODULE__}),
+        workspace_state: workspace_state()
+      )
+
+    assert html =~ ~s(data-workspace-component="models_panel")
+    assert html =~ ~s(data-action-source="actions-runner")
+    assert html =~ "Recommendation Matrix"
+    assert html =~ ~s(id="workspace-models-inventory-toggle")
+    assert html =~ "Show Rows"
+    refute html =~ "secret://"
+    refute html =~ "api_key"
+    refute html =~ "sk-"
+    refute html =~ "http://"
+  end
+
+  test "M10 surface policy panel renders Security Central DTO posture" do
+    html =
+      render_component(Renderer,
+        id: "surface-policy-panel-renderer",
+        node: %Node{
+          id: "surface-policy-panel",
+          component: :surface_policy_panel,
+          props: %{title: "Surface Policy"}
+        },
+        renderer_context:
+          Map.put(renderer_context(), :canvas_destination, "workspace:surface_policy"),
+        workspace_state: workspace_state()
+      )
+
+    assert html =~ ~s(data-workspace-component="surface_policy_panel")
+    assert html =~ ~s(data-action-source="actions-runner")
+    assert html =~ "Authority Boundary"
+    assert html =~ "Permission needs confirmation"
+    assert html =~ "Floor needs confirmation"
+    assert html =~ "mcp_http"
+    assert html =~ "M11 editor"
+    refute html =~ "secret://"
+    refute html =~ "api_key"
+  end
+
   defp sample_props(:header), do: %{title: "Workspace Header", subtitle: "Subheading"}
   defp sample_props(:empty_state), do: %{title: "Empty", body: "Nothing to render yet."}
   defp sample_props(:link), do: %{label: "Open trace", body: "/trace/example"}
@@ -361,4 +493,7 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
       approval_lines: []
     }
   end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, value), do: Application.put_env(:allbert_assist, module, value)
 end
