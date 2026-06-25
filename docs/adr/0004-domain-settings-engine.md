@@ -4,6 +4,22 @@
 
 Accepted.
 
+Enforcement note (v0.58, 2026-06-24): no surface or subsystem reads
+operator-tunable configuration outside Settings Central. `Application.get_env` /
+`System.get_env` are permitted only for genuine compile-time/infra/deploy config
+(Repo, endpoint, supervision tree, Allbert Home path) and test seams; any
+operator-tunable timeout, limit, threshold, model tag, or feature toggle is a
+Settings Central key. v0.58 fixes the known bypasses (trace `ALLBERT_TRACE_ENABLED`
+→ `runtime.trace_default`; the browser host-resolver env var → a
+`browser.driver.*` key; the hardcoded intent `decisive_confidence` →
+`intent.router_decisive_confidence`; active-memory internal limits, the trace
+recent-entries limit, and the artifact ingestion timeout → keys) and adds a CI
+guard (Credo check + test) that fails when operator-tunable config is read ad-hoc.
+The `Coding.Config` pattern (all reads through `Settings.get` with bounded
+defaults) is the template. Distinct from the v0.59 settings *migration* tool
+(ADR 0046): this note governs the *access path*, ADR 0046 governs schema
+versioning.
+
 ## Context
 
 Allbert is intended to be operated through CLI, LiveView, scheduled jobs, and

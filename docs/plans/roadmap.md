@@ -3569,38 +3569,52 @@ Expected direction:
   Central, or confirmations; no model-decides-it's-done for effectful or
   generated-code work; keep MCP-first with lazy disclosure; no sibling runtime.
 
-## v0.58: Web UX Redo + Surface Policy
+## v0.58: Surface Consistency, Settings Enforcement & Web Design System
 
 Plan: `docs/plans/v0.58-plan.md`
 Request flow: `docs/plans/v0.58-request-flow.md`
+ADRs: `docs/adr/0073-cross-surface-contract.md` (NEW),
+`docs/adr/0074-web-design-system-and-ux-language.md` (NEW), v0.58 amendments to
+ADR 0016/0030/0070, the ADR 0004/0031 settings-enforcement note, and the ADR 0024
+chat-primary revision.
 
-Status: planned. NEW in the 2026-06-09 roadmap restructure; full plan authored
-in Phase B (research R3). Moved from v0.55 to v0.58 in the 2026-06-21 replan so
-it lands right before v0.59 hardening, on top of mature intent and surfaces.
+Status: planned. **Rescoped 2026-06-24** from the narrow "Web UX Redo + Surface
+Policy" into the **pre-1.0 consolidation release**, after the v0.57 closeout and a
+full surface/settings/UX/redundancy survey. The original web re-skin, the v0.56 DTO
+panels, and the operator surface-policy layer are preserved as milestones inside a
+larger four-pillar scope. Sequenced right before v0.59 hardening so the platform is
+internally consistent before the 1.0 freeze.
 
-Expected direction:
+Expected direction (four pillars, all on the existing authority spine):
 
-- Re-layout the existing `/workspace` Surface substrate (ADR 0023/0024 kept):
-  chat becomes the primary surface, ephemeral surfaces become popups/modals,
-  the canvas is demoted to a launcher/secondary, and UI labels are cleaned up —
-  **"Conversations"** replaces the "threads" label (no internal rename; the
-  volatile `Session.Scratchpad` concept is untouched).
-- References the ChatGPT, Claude, and Hermes (nousresearch) agent UIs.
-- Sequenced after v0.56 intent deepening and the v0.55/v0.55.1/v0.57
-  channel/console/coding surfaces, so the chat-primary redo lands on top of
-  mature routing.
-- Implements the v0.56 M12 web handoff: Intents and Settings/Models panels
-  render the registered action DTOs (`intent_coverage`,
-  `intent_list_descriptors`, `intent_show_descriptor`, `intent_eval_run`,
-  `intent_list_review`, `model_doctor`, `list_model_profiles`,
-  `list_provider_profiles`) through `Actions.Runner.run/3`, with
-  no CLI scraping, direct store reads, secret/endpoint leakage, or new
-  authority.
-- Adds the formal operator-managed surface policy layer: Settings Central-backed
-  policy DTOs/actions and a web panel controlling per-surface report mode,
-  redaction/display profile, row/count bounds, and explicit-affordance
-  requirements. This policy is presentation governance only: descriptors remain
-  routing vocabulary, and Security Central remains authority.
+- **Surface consistency (ADR 0073).** Make every surface — web, TUI, channels, Mix,
+  public protocol, Pi-mode — a thin, uniform view over one runtime/action/settings
+  spine: one `Surface.Renderer` (collapsing five bespoke renderers), uniform
+  inbound/rejection/error event recording + audit by `surface_id`,
+  `Identity.resolve`-based identity (no hardcoded `"local"`), operator reads through
+  the ADR 0070 registered-action layer (on the web too), and shared invocation
+  helpers. A conformance matrix is the standing check.
+- **Settings enforcement (ADR 0004/0031 note).** All operator-tunable config goes
+  through Settings Central; fix the known bypasses (trace env var, browser
+  host-resolver, hardcoded intent confidence, active-memory limits, trace/ingestion
+  limits) and add a CI guard. Distinct from v0.59's settings *migration* (ADR 0046).
+- **Web design system & UX language (ADR 0074).** Global design tokens
+  (color/type/spacing/motion), a prop-driven component-variant registry, a shared
+  accessible pattern library, one app shell, and the unified catalog as the
+  rendering boundary for *every* page — Jobs and Objectives are folded in. The
+  chat-primary re-layout ("Conversations" relabel, modal ephemerals, canvas drawer;
+  ChatGPT/Claude/Hermes grammar) and the Intents / Settings-Models / Surface-Policy
+  panels are executed on this system. No model-generated UI; no internal rename; no
+  new routes.
+- **Redundancy consolidation.** Consolidate ~8 duplicated helper families (100+
+  sites) into shared modules so v0.59's final cleanup inherits a clean base.
+- **Operator-managed surface policy** (preserved): Settings-Central-backed policy
+  DTOs/actions + a web panel governing per-surface report mode, redaction/display
+  profile, bounds, and explicit affordances — presentation governance only.
+
+Hands off to v0.59: the uniform surface base lets v0.59 do settings migration
+(ADR 0046), **central action param-contract enforcement (ADR 0065)** on the now-
+uniform invocation path, operator onboarding (ADR 0069), the security sweep, and RC.
 
 ## v0.59: Hardening, Export/Import, Settings Migration, Operator Onboarding, And Final RC
 
@@ -3614,7 +3628,11 @@ drafted in v0.45); `docs/adr/0065-central-action-param-contract-enforcement.md`
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
 not implemented. Settings schema migration substrate added in the post-v0.37
 planning pass; moved from v0.58 to v0.59 and given operator-onboarding scope in
-the 2026-06-21 replan.
+the 2026-06-21 replan. **Builds on the v0.58 consolidation:** the uniform
+cross-surface contract (ADR 0073), the design-system web (ADR 0074), the
+settings-access enforcement, and the redundancy cleanup land first, so v0.59's
+param-contract enforcement (ADR 0065), settings migration (ADR 0046), onboarding,
+and security sweep run on a consistent, clean base.
 
 Expected direction:
 

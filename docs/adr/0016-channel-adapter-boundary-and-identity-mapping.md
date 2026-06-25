@@ -21,6 +21,17 @@ channels: a list of entries mapping an external terminal profile id such as
 `"default"` to a local `user_id`, optionally disabled per entry. It must not
 introduce a terminal-only shorthand map or implicitly claim `"local"`.
 
+Proposed amendment (v0.58, 2026-06-24): the normalize → `Identity.resolve` →
+session-derive → spine → render → record-event methodology defined here is
+extended to **every** surface, not only channels (ADR 0073, Cross-Surface
+Contract). Non-channel surfaces — the web LiveView workspace (`surface_id:
+live_view`), Mix tasks (`cli`), and the public-protocol servers (`mcp_stdio`,
+`mcp_http`, `acp`) — become first-class surfaces that resolve identity through
+the list-shaped identity map (no hardcoded `"local"`), record inbound/rejection/
+error events with dedupe + trace, and render through the single `Surface.Renderer`.
+The web surface stops reading `Confirmations` storage and `Settings.Store`
+directly; operator reads route through the ADR 0070 read-only action layer.
+
 Date: 2026-05-14
 
 ## Context

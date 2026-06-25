@@ -5,6 +5,15 @@
 Accepted in v0.31 M7 Runtime And UI-Substrate Consolidation
 (`docs/plans/v0.31-plan.md`).
 
+Proposed amendment (v0.58, 2026-06-24): the unified catalog becomes the rendering
+boundary for **every** web page, not only the workspace. The Jobs and Objectives
+LiveViews — which currently render hand-rolled HEEx outside the catalog — are
+folded into the catalog inside one shared app shell, and the new Intents,
+Settings/Models, and Surface-Policy operator panels render as catalog components
+(ADR 0074, Web Design System). The single `Surface.Renderer` is also the one
+response-render path across all surfaces (ADR 0073). No model-generated UI; the
+catalog stays the boundary.
+
 ## Context
 
 Surface component truth is currently spread across the Surface DSL, workspace

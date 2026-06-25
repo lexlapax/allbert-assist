@@ -1,6 +1,14 @@
 # ADR 0070: TUI Operator Console And Read-Only Operator Actions
 
 Status: Accepted (v0.55.1).
+Proposed amendment (v0.58, 2026-06-24): the "operator operations are registered
+read-only actions; surfaces are thin views" discipline is extended to the **web**.
+The web workspace stops reading `Confirmations`/`Settings.Store` directly and
+routes operator reads (confirmations, settings, channels, intents, models, status)
+through the same `:internal`/`:read_only` action layer the TUI and Mix already use
+(ADR 0073). The v0.58 Intents, Settings/Models, and Surface-Policy panels are thin
+views over these registered actions; they remain non-routable and grant no
+authority. No new `:operator` exposure is introduced.
 Date: 2026-06-21
 Related: ADR 0067 (TUI/terminal channel — this console runs on that channel),
 ADR 0016 (channel adapter boundary — channels do not own conversation history /

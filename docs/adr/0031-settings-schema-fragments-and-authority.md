@@ -5,6 +5,13 @@
 Accepted in v0.31 M8 Runtime And UI-Substrate Consolidation
 (`docs/plans/v0.31-plan.md`).
 
+Enforcement note (v0.58, 2026-06-24): see the ADR 0004 v0.58 enforcement note —
+every operator-tunable setting is a registered schema-fragment key read through
+Settings Central; surfaces must not keep surface-local config or read
+`Settings.Store`/`Application.get_env` ad-hoc for tunable values. A CI guard
+enforces this. Cross-surface settings reads route through the ADR 0070 read-only
+action layer (ADR 0073).
+
 ## Context
 
 Settings Central is the operator configuration authority, but its schema has
