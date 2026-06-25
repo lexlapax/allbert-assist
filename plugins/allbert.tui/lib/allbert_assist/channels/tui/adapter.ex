@@ -1369,10 +1369,26 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     output_fun.(line)
   end
 
+  defp emit_output(line, %{input_driver: %{pid: pid}}) when is_pid(pid),
+    do: raw_terminal_output(line)
+
   defp emit_output(line, _state), do: default_output(line)
 
   defp output_fun(%{output_fun: output_fun}) when is_function(output_fun, 1), do: output_fun
+  defp output_fun(%{input_driver: %{pid: pid}}) when is_pid(pid), do: &raw_terminal_output/1
   defp output_fun(_state), do: &default_output/1
+
+  defp raw_terminal_output(chardata) do
+    text =
+      chardata
+      |> IO.iodata_to_binary()
+      |> String.replace("\r\n", "\n")
+      |> String.replace("\n", "\r\n")
+
+    suffix = if String.ends_with?(text, "\r\n"), do: "", else: "\r\n"
+
+    IO.write([text, suffix])
+  end
 
   defp mark_processed(event, response, user_id, session_id) do
     Channels.update_event(event, %{

@@ -1,6 +1,8 @@
 defmodule AllbertAssist.Channels.TUITest do
   use AllbertAssist.DataCase, async: false
 
+  import ExUnit.CaptureIO
+
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
@@ -499,11 +501,51 @@ defmodule AllbertAssist.Channels.TUITest do
     assert_receive {:input_driver_output, "i"}
     assert_receive {:input_driver_output, "\b \b"}
     assert_receive {:input_driver_output, "!"}
-    assert_receive {:input_driver_output, "\n"}
+    assert_receive {:input_driver_output, "\r\n"}
     assert_receive {:tui_input_line, ^driver, "h!"}
 
     GenServer.stop(driver)
     assert_receive {:input_driver_raw, :disabled}
+  end
+
+  test "auto input driver keeps adapter output in raw-terminal line discipline" do
+    parent = self()
+    callbacks = input_driver_callbacks(parent)
+
+    output =
+      capture_io(fn ->
+        assert {:ok, server} =
+                 Adapter.start_link(
+                   name: nil,
+                   auto_input?: true,
+                   input_driver?: true,
+                   emit_banner?: false,
+                   enabled?: true,
+                   live_screen?: false,
+                   input_driver_opts: [
+                     enable_raw: callbacks.enable_raw,
+                     disable_raw: callbacks.disable_raw,
+                     start_reader: callbacks.start_reader,
+                     output_fun: callbacks.output_fun
+                   ]
+                 )
+
+        assert_receive {:input_driver_raw, :enabled}
+        assert_receive {:input_driver_reader, reader}
+        assert_receive {:input_driver_output, "allbert:default> "}
+
+        send_input_driver_line(reader, "/mode")
+        assert_receive {:input_driver_output, "\r\n"}
+        assert_receive {:input_driver_output, "allbert:default> "}
+
+        ref = Process.monitor(server)
+        send_input_driver_line(reader, "/quit")
+        assert_receive {:DOWN, ^ref, :process, ^server, :normal}
+        assert_receive {:input_driver_raw, :disabled}
+      end)
+
+    assert output =~
+             "Slash command unavailable: terminal profile is not mapped to an Allbert user.\r\n"
   end
 
   test "input driver emits standalone escape without echoing terminal controls" do

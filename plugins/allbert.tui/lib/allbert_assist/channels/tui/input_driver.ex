@@ -142,7 +142,7 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
         %{state | buffer: ""}
 
       enter?(char) ->
-        state.callbacks.output_fun.("\n")
+        state.callbacks.output_fun.("\r\n")
         line = state.buffer
         send(state.owner, {:tui_input_line, self(), line})
         %{state | mode: next_mode_after_line(state), buffer: ""}
@@ -151,12 +151,12 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
         erase_last_char(state)
 
       ctrl_c?(char) ->
-        state.callbacks.output_fun.("\n")
+        state.callbacks.output_fun.("\r\n")
         send(state.owner, {:tui_input_quit, self(), :ctrl_c})
         %{state | mode: :idle, buffer: ""}
 
       ctrl_d?(char) and state.buffer == "" ->
-        state.callbacks.output_fun.("\n")
+        state.callbacks.output_fun.("\r\n")
         send(state.owner, {:tui_input_quit, self(), :ctrl_d})
         %{state | mode: :idle, buffer: ""}
 

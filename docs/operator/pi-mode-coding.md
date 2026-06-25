@@ -4,8 +4,10 @@ Status: v0.57 M0-M9.25 are implemented, but live S4.9 validation invalidated the
 M9.23-M9.25 Esc-helper capture strategy. M9.27 proves the raw input-driver
 substrate with `mix allbert.tui --input-driver-proof`, and M9.28 wires that
 driver into normal `mix allbert.tui`. M9.29 rewrites S4.9 around the live driver,
-and M9.30 re-gates the normal Pi-mode flow. Operator validation can resume at
-S4.9 after restarting `mix allbert.tui` on M9.30+ code. This guide describes the
+M9.30 re-gates the normal Pi-mode flow, and M9.31 fixes the raw-mode output
+line-discipline regression that made setup prompts drift rightward. Operator
+validation can resume at S4.9 after restarting `mix allbert.tui` on M9.31+ code.
+This guide describes the
 operator workflow for the Pi-mode coding surface. The
 release-authoritative validation checklist lives in
 `docs/plans/v0.57-request-flow.md#operator-validation`.
@@ -108,6 +110,13 @@ operator typo. It remains release-blocking TUI input evidence if it appears afte
 M9.28. S4.9 in the request-flow is the release-authoritative cancellation
 validation.
 
+When the raw input driver is active, TUI-owned output must use terminal CRLF line
+discipline. Slash replies, stream-progress lines, final answers, and the next
+`allbert:default>` prompt should each start at the left edge of a new terminal
+line. If setup commands such as `/pi`, `/model`, `/mode`, `/clear`, or `/compact`
+make the prompt walk rightward across the screen, stop validation and restart on
+M9.31+ code before pressing Esc.
+
 `/quit` and `/exit` are local TUI lifecycle aliases. They must stop the terminal
 session and must never be routed to the model, even if prior Esc/control bytes were
 echoed into the terminal line buffer.
@@ -120,9 +129,9 @@ output while the turn is still running, and it must be coalesced rather than
 printed once per provider token. The final rendered response is the canonical
 transcript output and should appear before the next `allbert:default>` prompt. A
 final answer that paints over a prompt, a prompt that opens while the previous
-coding turn is still streaming, raw transient JSON, blank repaint gaps, or
-per-token progress spam are TUI rendering failures and not acceptable release
-evidence.
+coding turn is still streaming, raw transient JSON, blank repaint gaps, prompt
+rightward drift, or per-token progress spam are TUI rendering failures and not
+acceptable release evidence.
 
 ## Approval Modes
 
