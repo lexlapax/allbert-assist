@@ -5,6 +5,7 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.Channels
   alias AllbertAssist.Channels.Event
   alias AllbertAssist.Channels.TUI.Adapter
+  alias AllbertAssist.Channels.TUI.EscapeMonitor
   alias AllbertAssist.Channels.TUI.Renderer
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
@@ -196,6 +197,8 @@ defmodule AllbertAssist.Channels.TUITest do
                  "- /init\n" <>
                  "- /diff\n" <>
                  "- /compact\n" <>
+                 "- /exit\n" <>
+                 "- /quit\n" <>
                  "- /help"
              ]}} = Adapter.submit(server, "/help", external_event_id: "evt-tui-slash-help")
 
@@ -544,6 +547,60 @@ defmodule AllbertAssist.Channels.TUITest do
     assert_receive {:DOWN, ^ref, :process, ^server, :normal}
   end
 
+  test "auto input treats slash commands with leading terminal controls as local commands" do
+    configure_tui!()
+    parent = self()
+
+    input_fun = fn prompt ->
+      prompt_text = prompt |> Owl.Data.untag() |> IO.iodata_to_binary()
+      send(parent, {:tui_prompt, prompt_text})
+
+      receive do
+        {:next_input, input} -> input
+      after
+        5_000 -> "/quit"
+      end
+    end
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: true,
+               emit_banner?: false,
+               enabled?: true,
+               live_screen?: false,
+               input_fun: input_fun,
+               output_fun: fn line -> send(parent, {:tui_output, line}) end
+             )
+
+    assert_receive {:tui_prompt, "allbert:default> "}
+
+    ref = Process.monitor(server)
+    send(server, {:next_input, "\e/exit"})
+
+    assert_receive {:DOWN, ^ref, :process, ^server, :normal}
+    refute_received {:runtime_request, _request}
+  end
+
+  test "slash help includes both quit aliases" do
+    configure_tui!()
+
+    assert {:ok, server} =
+             Adapter.start_link(
+               name: nil,
+               auto_input?: false,
+               enabled?: true,
+               live_screen?: false,
+               output_fun: fn _line -> :ok end
+             )
+
+    assert {:ok, {:slash, [rendered]}} =
+             Adapter.submit(server, "/help", external_event_id: "evt-tui-help-quit-aliases")
+
+    assert rendered =~ "/exit"
+    assert rendered =~ "/quit"
+  end
+
   test "auto input escape monitor cancels an async Pi-mode turn before the next prompt" do
     repo =
       Path.join(System.tmp_dir!(), "allbert-tui-pi-#{System.unique_integer([:positive])}")
@@ -649,6 +706,35 @@ defmodule AllbertAssist.Channels.TUITest do
     ref = Process.monitor(server)
     send(server, {:next_input, "/quit"})
     assert_receive {:DOWN, ^ref, :process, ^server, :normal}
+  end
+
+  test "escape monitor maps helper escape output to coding escape event" do
+    event_ref = make_ref()
+    parent = self()
+    helper_ref = make_ref()
+
+    start_helper = fn ->
+      monitor = self()
+      send(parent, {:helper_started, monitor, helper_ref})
+      send(monitor, {helper_ref, {:data, {:eol, "READY"}}})
+      {:ok, %{port: helper_ref, os_pid: nil}}
+    end
+
+    stop_helper = fn helper ->
+      send(parent, {:helper_stopped, helper})
+      :ok
+    end
+
+    assert {:ok, monitor} =
+             EscapeMonitor.start(self(), event_ref,
+               start_helper: start_helper,
+               stop_helper: stop_helper
+             )
+
+    assert_receive {:helper_started, ^monitor, ^helper_ref}
+    send(monitor, {helper_ref, {:data, {:eol, "ESC"}}})
+    assert_receive {:coding_tui_escape, ^event_ref}
+    assert_receive {:helper_stopped, %{port: ^helper_ref, os_pid: nil}}
   end
 
   test "typed confirmation commands resolve without runtime submission" do

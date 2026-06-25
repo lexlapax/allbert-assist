@@ -3,130 +3,176 @@ defmodule AllbertAssist.Channels.TUI.EscapeMonitor do
 
   require Logger
 
-  @tty_path "/dev/tty"
-  @poll_time_ds "1"
-  @stty_raw_args ["-echo", "-icanon", "min", "0", "time", @poll_time_ds]
+  @helper_ready "READY"
+  @helper_escape "ESC"
+  @helper_timeout_ms 1_000
 
   def start(owner, event_ref) when is_pid(owner) and is_reference(event_ref) do
-    {:ok,
-     spawn(fn ->
-       monitor_owner = Process.monitor(owner)
-       run(owner, event_ref, monitor_owner)
-     end)}
+    start(owner, event_ref, [])
   end
 
-  defp run(owner, event_ref, monitor_owner) do
-    with {:ok, snapshot} <- stty_snapshot(),
-         :ok <- stty_apply(@stty_raw_args) do
-      try do
-        with {:ok, tty} <- File.open(@tty_path, [:read, :binary]) do
-          try do
-            loop(owner, event_ref, monitor_owner, tty)
-          after
-            File.close(tty)
-          end
-        else
-          {:error, reason} ->
-            Logger.debug("tui escape monitor could not open #{@tty_path}: #{inspect(reason)}")
-            :ok
-        end
-      after
-        restore(snapshot)
-      end
+  def start(owner, event_ref, opts) when is_pid(owner) and is_reference(event_ref) do
+    starter = self()
+    startup_ref = make_ref()
+    callbacks = callbacks(opts)
+
+    pid =
+      spawn(fn ->
+        monitor_owner = Process.monitor(owner)
+        run(owner, event_ref, monitor_owner, starter, startup_ref, callbacks)
+      end)
+
+    receive do
+      {^startup_ref, ^pid, :ready} ->
+        {:ok, pid}
+
+      {^startup_ref, ^pid, {:error, reason}} ->
+        {:error, reason}
+    after
+      @helper_timeout_ms ->
+        send(pid, {:stop_escape_monitor, event_ref})
+        {:error, :escape_monitor_start_timeout}
+    end
+  end
+
+  defp run(owner, event_ref, monitor_owner, starter, startup_ref, callbacks) do
+    with {:ok, helper} <- callbacks.start_helper.() do
+      loop(%{
+        owner: owner,
+        event_ref: event_ref,
+        monitor_owner: monitor_owner,
+        starter: starter,
+        startup_ref: startup_ref,
+        callbacks: callbacks,
+        helper: helper,
+        ready?: false,
+        helper_output: []
+      })
     else
       {:error, reason} ->
         Logger.debug("tui escape monitor unavailable: #{inspect(reason)}")
-        :ok
+        send(starter, {startup_ref, self(), {:error, reason}})
     end
   end
 
-  defp loop(owner, event_ref, monitor_owner, tty) do
+  defp loop(state) do
     receive do
-      {:stop_escape_monitor, ^event_ref} ->
-        :ok
+      {:stop_escape_monitor, event_ref} when event_ref == state.event_ref ->
+        stop_helper(state)
 
-      {:DOWN, ^monitor_owner, :process, ^owner, _reason} ->
-        :ok
-    after
-      0 ->
-        case read_char(tty) do
-          "\e" ->
-            if standalone_escape?(tty) do
-              send(owner, {:coding_tui_escape, event_ref})
-              :ok
-            else
-              loop(owner, event_ref, monitor_owner, tty)
-            end
+      {:DOWN, monitor_owner, :process, owner, _reason}
+      when monitor_owner == state.monitor_owner and owner == state.owner ->
+        stop_helper(state)
 
-          _other ->
-            loop(owner, event_ref, monitor_owner, tty)
-        end
+      {port, {:data, {_line, data}}} when port == state.helper.port ->
+        handle_helper_line(data, state)
+
+      {port, {:data, data}} when port == state.helper.port ->
+        handle_helper_line(data, state)
+
+      {port, {:exit_status, status}} when port == state.helper.port ->
+        helper_exited(status, state)
     end
   end
 
-  defp standalone_escape?(tty) do
-    case read_char(tty) do
-      "" -> true
-      nil -> true
-      :eof -> true
-      {:error, _reason} -> true
-      _sequence_char -> false
+  defp handle_helper_line(data, state) when is_binary(data) do
+    data
+    |> String.trim()
+    |> case do
+      @helper_ready ->
+        send(state.starter, {state.startup_ref, self(), :ready})
+        loop(%{state | ready?: true})
+
+      @helper_escape ->
+        send(state.owner, {:coding_tui_escape, state.event_ref})
+        stop_helper(state)
+
+      "" ->
+        loop(state)
+
+      line ->
+        loop(%{state | helper_output: [line | state.helper_output]})
     end
   end
 
-  defp read_char(tty) do
-    IO.binread(tty, 1)
+  defp handle_helper_line(_data, state), do: loop(state)
+
+  defp helper_exited(0, %{ready?: true} = state), do: state
+
+  defp helper_exited(status, %{ready?: false} = state) do
+    reason = {:escape_monitor_helper_exit, status, Enum.reverse(state.helper_output)}
+    Logger.debug("tui escape monitor helper exited before ready: #{inspect(reason)}")
+    send(state.starter, {state.startup_ref, self(), {:error, reason}})
+    state
+  end
+
+  defp helper_exited(_status, state), do: state
+
+  defp stop_helper(state) do
+    state.callbacks.stop_helper.(state.helper)
+    :ok
+  end
+
+  defp callbacks(opts) do
+    %{
+      start_helper: Keyword.get(opts, :start_helper, &start_shell_helper/0),
+      stop_helper: Keyword.get(opts, :stop_helper, &stop_shell_helper/1)
+    }
+  end
+
+  defp start_shell_helper do
+    port =
+      Port.open({:spawn_executable, "/bin/sh"}, [
+        :binary,
+        :exit_status,
+        :stderr_to_stdout,
+        {:args, ["-c", helper_script()]},
+        {:line, 512}
+      ])
+
+    {:ok, %{port: port, os_pid: os_pid(port)}}
   rescue
     error -> {:error, error}
-  catch
-    :exit, reason -> {:error, reason}
   end
 
-  defp stty_snapshot do
-    run_stty(["-g"], fn output ->
-      {:ok, String.trim(output)}
-    end)
-  end
-
-  defp stty_apply(args) do
-    run_stty(args, fn _output -> :ok end)
-  end
-
-  defp run_stty(args, on_success) do
-    command =
-      args
-      |> Enum.map(&shell_quote/1)
-      |> Enum.join(" ")
-
-    case run_stty_shell("stty #{command} < #{@tty_path}") do
-      {:ok, output} -> on_success.(output)
-      {:error, reason} -> {:error, reason}
+  defp stop_shell_helper(%{port: port, os_pid: os_pid}) do
+    if is_integer(os_pid) do
+      _result = System.cmd("kill", ["-TERM", Integer.to_string(os_pid)], stderr_to_stdout: true)
     end
-  end
 
-  defp run_stty_shell(command) do
-    case System.cmd("sh", ["-c", command], stderr_to_stdout: true) do
-      {output, 0} -> {:ok, output}
-      {output, status} -> {:error, %{status: status, output: String.trim(output)}}
-    end
-  rescue
-    error -> {:error, error}
-  end
-
-  defp restore(snapshot) when is_binary(snapshot) and snapshot != "" do
-    _result =
-      System.cmd("sh", ["-c", "stty \"$1\" < #{@tty_path}", "sh", snapshot],
-        stderr_to_stdout: true
-      )
-
+    Port.close(port)
     :ok
   rescue
     error ->
-      Logger.debug("tui escape monitor restore failed: #{Exception.message(error)}")
+      Logger.debug("tui escape monitor helper stop failed: #{Exception.message(error)}")
+      :ok
+  catch
+    :exit, reason ->
+      Logger.debug("tui escape monitor helper stop failed: #{inspect(reason)}")
       :ok
   end
 
-  defp shell_quote(value) do
-    "'" <> String.replace(value, "'", "'\\''") <> "'"
+  defp os_pid(port) do
+    case Port.info(port, :os_pid) do
+      {:os_pid, os_pid} -> os_pid
+      _other -> nil
+    end
+  end
+
+  defp helper_script do
+    """
+    old=$(stty -g < /dev/tty) || exit 2
+    cleanup() { stty "$old" < /dev/tty >/dev/null 2>&1 || true; }
+    trap cleanup EXIT HUP INT TERM
+    stty -echo -icanon min 0 time 1 < /dev/tty || exit 3
+    printf '#{@helper_ready}\\n'
+    while :; do
+      byte=$(dd bs=1 count=1 2>/dev/null < /dev/tty | od -An -tu1 | tr -d '[:space:]')
+      if [ "$byte" = "27" ]; then
+        printf '#{@helper_escape}\\n'
+        exit 0
+      fi
+    done
+    """
   end
 end

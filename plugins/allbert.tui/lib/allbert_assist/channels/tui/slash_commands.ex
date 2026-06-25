@@ -18,6 +18,8 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
     "/init",
     "/diff",
     "/compact",
+    "/exit",
+    "/quit",
     "/help"
   ]
 

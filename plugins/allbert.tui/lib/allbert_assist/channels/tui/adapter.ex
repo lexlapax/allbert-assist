@@ -470,6 +470,12 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
 
       {:error, reason} ->
         Logger.debug("tui escape monitor did not start: #{inspect(reason)}")
+
+        emit_output(
+          "Esc cancellation monitor unavailable: #{inspect(Redactor.redact(reason))}.",
+          state
+        )
+
         nil
 
       other ->
@@ -1423,11 +1429,15 @@ defmodule AllbertAssist.Channels.TUI.Adapter do
     case String.trim(value) do
       "" -> nil
       "\e" -> :escape
-      text -> text
+      text -> strip_leading_terminal_controls(text)
     end
   end
 
   defp normalize_input(_value), do: nil
+
+  defp strip_leading_terminal_controls(text) do
+    Regex.replace(~r/^[\x00-\x1F\x7F]+/u, text, "")
+  end
 
   defp default_output(line), do: Owl.IO.puts(line)
 
