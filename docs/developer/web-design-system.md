@@ -1,6 +1,8 @@
 # Web Design System
 
-Status: planned v0.58 implementation contract.
+Status: v0.58 M6 token and UX-language baseline implemented; M7-M15 complete the
+variant registry, pattern library, shared shell, catalog coverage, panels, manual
+validation, and closeout.
 
 Authority: `docs/adr/0074-web-design-system-and-ux-language.md`,
 `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`,
@@ -31,7 +33,12 @@ motion apply to `/workspace`, `/jobs`, `/objectives`, and v0.58 panels.
 
 ## Token Contract
 
-Define tokens in `assets/css/app.css` with stable names and documented purpose:
+Built-in tokens live in `apps/allbert_assist_web/assets/css/app.css` under `:root`,
+not under `#workspace-shell`. `#workspace-shell` consumes the same token aliases as
+other pages. User theme CSS remains a post-`app.css` override layer so existing
+workspace theme files continue to work.
+
+Token families:
 
 - color: surface, text, border, accent, danger, warning, success, info;
 - type: family, size scale, weight scale, line-height scale;
@@ -40,8 +47,42 @@ Define tokens in `assets/css/app.css` with stable names and documented purpose:
 - motion: duration, easing, reduced-motion overrides;
 - elevation/focus: shadows, focus rings, active state.
 
-Changed components consume tokens. Do not introduce page-local color/spacing
-systems when an existing token covers the need.
+State selectors are global:
+
+- `data-theme="dark"` applies dark-mode tokens.
+- `data-high-contrast="true"` and `@media (prefers-contrast: more)` apply contrast
+  tokens and thicker focus/border affordances.
+- `data-reduce-motion="true"` and `@media (prefers-reduced-motion: reduce)` suppress
+  scroll/transition/animation motion.
+
+`Layouts.root` emits the Settings-backed `data-theme`, `data-high-contrast`, and
+`data-reduce-motion` attributes so non-workspace pages inherit the design state
+before a workspace shell is present. Changed components consume tokens. Do not
+introduce page-local color, spacing, type, radius, or motion systems when an
+existing token covers the need.
+
+## UX Language
+
+Use consistent operator terms:
+
+- **Workspace**: the canonical operator surface at `/workspace`.
+- **Conversations**: UI label for the thread rail and switcher only; do not rename
+  internal `Conversations.Thread`, session, topic, setting, event, or database
+  concepts.
+- **Canvas**: persistent workspace tiles and app destinations.
+- **Ephemeral**: temporary modal/popover work surfaces with explicit dismissal.
+- **Operator panels**: Intents, Settings/Models, and Surface-Policy panels rendered
+  from registered-action DTOs.
+
+Copy conventions:
+
+- Use direct labels on controls and headings; keep technical detail bounded and
+  redacted.
+- Prefer operator action text over implementation terms when the UI is interactive.
+- Do not surface secret refs, raw prompts, endpoint URLs, provider bodies, or raw
+  descriptor/evidence payloads.
+- Status copy must state the current state first, then the available action when
+  one exists.
 
 ## Variant Registry
 

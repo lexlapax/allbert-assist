@@ -101,8 +101,10 @@ defmodule AllbertAssistWeb.Layouts do
     """
   end
 
-  defp main_class("full"), do: "min-h-screen bg-base-100"
-  defp main_class(_width), do: "min-h-screen bg-base-100 px-4 py-8 sm:px-6 lg:px-8"
+  defp main_class("full"), do: "allbert-page min-h-screen bg-base-100"
+
+  defp main_class(_width),
+    do: "allbert-page min-h-screen bg-base-100 px-4 py-8 sm:px-6 lg:px-8"
 
   defp content_container_class("full"), do: "w-full"
   defp content_container_class("wide"), do: "mx-auto max-w-6xl space-y-4"
@@ -115,4 +117,30 @@ defmodule AllbertAssistWeb.Layouts do
   end
 
   defp theme_asset_version, do: AllbertAssist.Theme.Version.stylesheet_version()
+
+  defp root_theme_attribute do
+    case setting_value("workspace.theme.mode", "system") do
+      "dark" -> "dark"
+      "light" -> "light"
+      _theme -> nil
+    end
+  end
+
+  defp root_high_contrast_attribute do
+    bool_attribute(setting_value("workspace.accessibility.high_contrast", false))
+  end
+
+  defp root_reduce_motion_attribute do
+    bool_attribute(setting_value("workspace.accessibility.reduce_motion", false))
+  end
+
+  defp bool_attribute(true), do: "true"
+  defp bool_attribute(_value), do: nil
+
+  defp setting_value(key, default) do
+    case AllbertAssist.Settings.get(key) do
+      {:ok, value} -> value
+      {:error, _reason} -> default
+    end
+  end
 end

@@ -99,8 +99,11 @@
 /* Use the data attribute for dark mode  */
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
-/* Workspace-local theme tokens. */
-#workspace-shell {
+/* Global design-system tokens. Keep these available before any workspace shell
+   mounts so non-workspace pages inherit the same color, type, spacing, radius,
+   focus, and motion contract. */
+:root {
+  color-scheme: light;
   --allbert-surface-0: #f8fafc;
   --allbert-surface-1: #ffffff;
   --allbert-surface-2: #eef3f8;
@@ -113,14 +116,62 @@
   --allbert-warn: #b45309;
   --allbert-warn-soft: #fffbeb;
   --allbert-danger: #b91c1c;
+  --allbert-danger-soft: #fef2f2;
   --allbert-success: #15803d;
+  --allbert-success-soft: #ecfdf5;
+  --allbert-info: #0f766e;
+  --allbert-info-soft: #ccfbf1;
   --allbert-font-family:
     ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --allbert-font-mono:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    monospace;
+  --allbert-font-size-xs: 0.75rem;
+  --allbert-font-size-sm: 0.8125rem;
+  --allbert-font-size-md: 0.875rem;
+  --allbert-font-size-lg: 1rem;
+  --allbert-font-size-xl: 1.25rem;
+  --allbert-font-size-2xl: 1.875rem;
+  --allbert-font-weight-regular: 400;
+  --allbert-font-weight-medium: 600;
+  --allbert-font-weight-strong: 700;
+  --allbert-font-weight-heavy: 750;
+  --allbert-line-height-tight: 1.25;
+  --allbert-line-height-body: 1.5;
+  --allbert-line-height-copy: 1.625;
   --allbert-font-scale: 1;
   --allbert-density: 1;
-  --allbert-radius: 0.5rem;
+  --allbert-space-0: 0;
+  --allbert-space-1: 0.25rem;
+  --allbert-space-2: 0.5rem;
+  --allbert-space-3: 0.75rem;
+  --allbert-space-4: 1rem;
+  --allbert-space-5: 1.5rem;
+  --allbert-space-6: 2rem;
+  --allbert-space-7: 3rem;
+  --allbert-radius-control: 0.375rem;
+  --allbert-radius-panel: 0.5rem;
+  --allbert-radius-modal: 0.5rem;
+  --allbert-radius-drawer: 0.5rem;
+  --allbert-radius-pill: 999px;
+  --allbert-radius: var(--allbert-radius-panel);
   --allbert-border-width: 1px;
   --allbert-motion-scale: 1;
+  --allbert-motion-duration-fast: 120ms;
+  --allbert-motion-duration-base: 150ms;
+  --allbert-motion-duration-slow: 220ms;
+  --allbert-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --allbert-motion-ease-emphasis: cubic-bezier(0.2, 0, 0, 1.15);
+  --allbert-shadow-sm: 0 1px 2px rgb(15 23 42 / 8%);
+  --allbert-shadow-panel: 0 12px 24px -8px rgb(15 23 42 / 18%);
+  --allbert-shadow-overlay: 0 25px 50px -12px rgb(0 0 0 / 25%);
+  --allbert-focus-ring: 2px solid var(--allbert-accent);
+  --allbert-focus-offset: 2px;
   --workspace-bg: var(--allbert-surface-0);
   --workspace-panel: var(--allbert-surface-1);
   --workspace-panel-muted: var(--allbert-surface-2);
@@ -134,13 +185,10 @@
   --workspace-field-border: #b8c8da;
   --workspace-field-fg: #0f172a;
   --workspace-field-placeholder: #64748b;
-  background: var(--workspace-bg);
-  color: var(--workspace-fg);
-  font-family: var(--allbert-font-family);
-  font-size: calc(1rem * var(--allbert-font-scale));
 }
 
-#workspace-shell[data-theme="dark"] {
+[data-theme="dark"] {
+  color-scheme: dark;
   --allbert-surface-0: #0b1220;
   --allbert-surface-1: #111827;
   --allbert-surface-2: #1e293b;
@@ -153,7 +201,11 @@
   --allbert-warn: #fbbf24;
   --allbert-warn-soft: #422006;
   --allbert-danger: #f87171;
+  --allbert-danger-soft: #3b0a0a;
   --allbert-success: #4ade80;
+  --allbert-success-soft: #052e1a;
+  --allbert-info: #5eead4;
+  --allbert-info-soft: #083344;
   --workspace-field-bg: #eef6ff;
   --workspace-field-bg-disabled: #d8e4f0;
   --workspace-field-border: #8da2ba;
@@ -161,7 +213,7 @@
   --workspace-field-placeholder: #475569;
 }
 
-#workspace-shell[data-high-contrast="true"] {
+[data-high-contrast="true"] {
   --allbert-surface-0: #ffffff;
   --allbert-surface-1: #ffffff;
   --allbert-surface-2: #f1f5f9;
@@ -171,15 +223,17 @@
   --allbert-accent: #123a5a;
   --allbert-accent-contrast: #ffffff;
   --allbert-accent-soft: #dbeafe;
+  --allbert-border-width: 2px;
+  --allbert-focus-ring: 3px solid var(--allbert-accent);
   --workspace-field-bg: #ffffff;
   --workspace-field-bg-disabled: #f1f5f9;
   --workspace-field-border: #000000;
   --workspace-field-fg: #000000;
   --workspace-field-placeholder: #111827;
-  border-width: 2px;
 }
 
-#workspace-shell[data-theme="dark"][data-high-contrast="true"] {
+[data-theme="dark"][data-high-contrast="true"],
+[data-theme="dark"] [data-high-contrast="true"] {
   --allbert-surface-0: #000000;
   --allbert-surface-1: #09090b;
   --allbert-surface-2: #18181b;
@@ -194,6 +248,76 @@
   --workspace-field-border: #ffffff;
   --workspace-field-fg: #000000;
   --workspace-field-placeholder: #111827;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --allbert-text-strong: #000000;
+    --allbert-text-soft: #111827;
+    --allbert-line: #000000;
+    --allbert-border-width: 2px;
+    --allbert-focus-ring: 3px solid var(--allbert-accent);
+  }
+
+  [data-theme="dark"] {
+    --allbert-text-strong: #ffffff;
+    --allbert-text-soft: #f4f4f5;
+    --allbert-line: #ffffff;
+  }
+}
+
+body {
+  background: var(--allbert-surface-0);
+  color: var(--allbert-text-strong);
+  font-family: var(--allbert-font-family);
+  font-size: var(--allbert-font-size-md);
+  line-height: var(--allbert-line-height-body);
+}
+
+:where(a, button, textarea, input, select, [tabindex]):focus-visible {
+  outline: var(--allbert-focus-ring);
+  outline-offset: var(--allbert-focus-offset);
+}
+
+.allbert-page {
+  min-height: 100dvh;
+  background: var(--allbert-surface-0);
+  color: var(--allbert-text-strong);
+}
+
+[data-reduce-motion="true"],
+[data-reduce-motion="true"] *,
+[data-reduce-motion="true"] *::before,
+[data-reduce-motion="true"] *::after {
+  scroll-behavior: auto !important;
+  transition-duration: 0.001ms !important;
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --allbert-motion-scale: 0;
+    --allbert-motion-duration-fast: 0.001ms;
+    --allbert-motion-duration-base: 0.001ms;
+    --allbert-motion-duration-slow: 0.001ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+#workspace-shell {
+  background: var(--workspace-bg);
+  color: var(--workspace-fg);
+  font-family: var(--allbert-font-family);
+  font-size: var(--allbert-font-size-lg);
 }
 
 #workspace-shell .workspace-header,
@@ -334,14 +458,7 @@
 #workspace-shell code,
 #workspace-shell pre,
 #workspace-shell textarea {
-  font-family:
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    "Liberation Mono",
-    monospace;
+  font-family: var(--allbert-font-mono);
 }
 
 .allbert-icon-button {
@@ -355,10 +472,10 @@
   border-radius: 0.5rem;
   cursor: pointer;
   transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease,
-    box-shadow 0.15s ease;
+    background-color var(--allbert-motion-duration-base) var(--allbert-motion-ease-standard),
+    border-color var(--allbert-motion-duration-base) var(--allbert-motion-ease-standard),
+    color var(--allbert-motion-duration-base) var(--allbert-motion-ease-standard),
+    box-shadow var(--allbert-motion-duration-base) var(--allbert-motion-ease-standard);
 }
 
 .allbert-icon-button:disabled {
@@ -925,7 +1042,7 @@ a.allbert-chip-link:focus-visible,
   cursor: pointer;
   border-radius: 0.25rem;
   padding: 0.0625rem 0.25rem;
-  transition: background-color 120ms ease;
+  transition: background-color var(--allbert-motion-duration-fast) var(--allbert-motion-ease-standard);
 }
 
 .workspace-copy-target:hover,
@@ -948,7 +1065,7 @@ a.allbert-chip-link:focus-visible,
   border-radius: 0.25rem;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 120ms ease;
+  transition: opacity var(--allbert-motion-duration-fast) var(--allbert-motion-ease-standard);
   white-space: nowrap;
 }
 
@@ -974,14 +1091,7 @@ a.allbert-chip-link:focus-visible,
 }
 
 .workspace-mono {
-  font-family:
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    "Liberation Mono",
-    monospace;
+  font-family: var(--allbert-font-mono);
 }
 
 .workspace-chat-pane,
@@ -1382,11 +1492,11 @@ a.allbert-chip-link:focus-visible,
   line-height: 1rem;
   cursor: pointer;
   transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease,
-    opacity 0.15s ease,
-    box-shadow 0.15s ease;
+    background-color var(--allbert-motion-duration-base) var(--allbert-motion-ease-standard),
+    border-color var(--allbert-motion-duration-base) var(--allbert-motion-ease-standard),
+    color var(--allbert-motion-duration-base) var(--allbert-motion-ease-standard),
+    opacity var(--allbert-motion-duration-base) var(--allbert-motion-ease-standard),
+    box-shadow var(--allbert-motion-duration-base) var(--allbert-motion-ease-standard);
 }
 
 .workspace-button:disabled,

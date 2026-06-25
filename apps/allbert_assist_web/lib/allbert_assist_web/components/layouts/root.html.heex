@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme={root_theme_attribute()}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -17,7 +17,10 @@
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
   </head>
-  <body>
+  <body
+    data-high-contrast={root_high_contrast_attribute()}
+    data-reduce-motion={root_reduce_motion_attribute()}
+  >
     {@inner_content}
   </body>
 </html>
