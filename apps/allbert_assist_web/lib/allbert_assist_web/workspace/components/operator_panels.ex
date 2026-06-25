@@ -380,7 +380,13 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
   def handle_event("refresh_models", _params, socket), do: {:noreply, refresh(socket)}
 
   def handle_event("toggle_model_inventory", _params, socket) do
-    {:noreply, update(socket, :show_model_inventories?, &(!&1))}
+    socket = update(socket, :show_model_inventories?, &(!&1))
+
+    if socket.assigns.show_model_inventories? do
+      {:noreply, refresh(socket)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -513,18 +519,8 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
     context = Support.action_context(socket.assigns)
 
     with {:ok, doctor} <- ActionHelper.completed_action("model_doctor", %{}, context),
-         {:ok, providers} <-
-           ActionHelper.completed_action(
-             "list_provider_profiles",
-             %{render_mode: "operator_report"},
-             context
-           ),
-         {:ok, models} <-
-           ActionHelper.completed_action(
-             "list_model_profiles",
-             %{render_mode: "operator_report"},
-             context
-           ) do
+         {:ok, providers} <- maybe_load_provider_profiles(socket, context),
+         {:ok, models} <- maybe_load_model_profiles(socket, context) do
       assign(socket,
         models_loaded?: true,
         models_diagnostics: "",
@@ -541,6 +537,26 @@ defmodule AllbertAssistWeb.Workspace.Components.ModelsPanel do
     end
   end
 
+  defp maybe_load_provider_profiles(socket, context) do
+    if socket.assigns.show_model_inventories? do
+      ActionHelper.completed_action("list_provider_profiles", operator_report_params(), context)
+    else
+      {:ok, %{providers: []}}
+    end
+  end
+
+  defp maybe_load_model_profiles(socket, context) do
+    if socket.assigns.show_model_inventories? do
+      ActionHelper.completed_action("list_model_profiles", operator_report_params(), context)
+    else
+      {:ok, %{models: []}}
+    end
+  end
+
+  defp operator_report_params do
+    %{render_mode: "operator_report", surface_policy_affordance: true}
+  end
+
   defp diagnostic_codes(row) do
     row
     |> Support.field(:diagnostics, [])
@@ -553,10 +569,10 @@ defmodule AllbertAssistWeb.Workspace.Components.SurfacePolicyPanel do
   use AllbertAssistWeb, :live_component
 
   alias AllbertAssist.Actions.Helper, as: ActionHelper
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssistWeb.Workspace.Components.OperatorPanels, as: Support
 
   @destination "workspace:surface_policy"
-  @surfaces ~w(live_view cli mcp_stdio mcp_http acp_stdio openai_api)
 
   @impl true
   def update(assigns, socket) do
@@ -569,8 +585,8 @@ defmodule AllbertAssistWeb.Workspace.Components.SurfacePolicyPanel do
       |> assign_new(:renderer_context, fn -> %{} end)
       |> assign_new(:surface_policy_loaded?, fn -> false end)
       |> assign_new(:surface_policy_diagnostics, fn -> "" end)
-      |> assign_new(:security_status, fn -> %{} end)
-      |> assign(:surfaces, @surfaces)
+      |> assign_new(:surface_policy_notice, fn -> "" end)
+      |> assign_new(:surface_policy, fn -> %{defaults: %{}, surfaces: [], effective: nil} end)
 
     open? = Support.open?(socket.assigns, @destination)
     socket = assign(socket, :surface_policy_panel_open?, open?)
@@ -584,6 +600,31 @@ defmodule AllbertAssistWeb.Workspace.Components.SurfacePolicyPanel do
 
   @impl true
   def handle_event("refresh_surface_policy", _params, socket), do: {:noreply, refresh(socket)}
+
+  def handle_event(
+        "set_surface_policy_mode",
+        %{"surface" => surface, "action" => action_name, "mode" => mode},
+        socket
+      ) do
+    context = Support.action_context(socket.assigns)
+
+    {:ok, response} =
+      Runner.run(
+        "surface_policy_update",
+        %{surface: surface, action: action_name, field: "render_mode", value: mode},
+        context
+      )
+
+    socket =
+      refresh(socket)
+      |> assign(
+        :surface_policy_notice,
+        Support.field(response, :message, "Surface policy updated.")
+      )
+      |> assign(:surface_policy_diagnostics, surface_policy_diagnostics(response))
+
+    {:noreply, socket}
+  end
 
   @impl true
   def render(assigns) do
@@ -605,7 +646,7 @@ defmodule AllbertAssistWeb.Workspace.Components.SurfacePolicyPanel do
             Surface Policy
           </h2>
           <p class="workspace-card-summary">
-            Security Central posture now; editable surface policy arrives in M11.
+            Report mode, redaction profile, bounds, and explicit raw-row affordances.
           </p>
         </div>
         <button
@@ -620,10 +661,13 @@ defmodule AllbertAssistWeb.Workspace.Components.SurfacePolicyPanel do
       </header>
 
       <div :if={!@surface_policy_panel_open?} class="workspace-settings-panel-preview">
-        Open the Surface Policy workspace tool to load the Security Central DTO.
+        Open the Surface Policy workspace tool to load the policy DTO.
       </div>
 
       <div :if={@surface_policy_panel_open?} class="workspace-settings-panel-body">
+        <p :if={@surface_policy_notice != ""} id="workspace-surface-policy-notice" class="text-sm">
+          {@surface_policy_notice}
+        </p>
         <p
           :if={@surface_policy_diagnostics != ""}
           id="workspace-surface-policy-diagnostics"
@@ -633,30 +677,48 @@ defmodule AllbertAssistWeb.Workspace.Components.SurfacePolicyPanel do
         </p>
 
         <section id="workspace-surface-policy-posture" class="workspace-operator-panel-section">
-          <h3 class="workspace-rail-title">Authority Boundary</h3>
+          <h3 class="workspace-rail-title">Default Policy</h3>
           <div class="workspace-operator-metrics">
-            <span>Permission {permission_value(@security_status, :effective)}</span>
-            <span>Configured {permission_value(@security_status, :configured_decision)}</span>
-            <span>Floor {floor_value(@security_status)}</span>
-            <span>Source {permission_value(@security_status, :source)}</span>
+            <span>Render {policy_default(@surface_policy, :render_mode)}</span>
+            <span>Redaction {policy_default(@surface_policy, :redaction_profile)}</span>
+            <span>Max rows {policy_default(@surface_policy, :max_rows)}</span>
+            <span>Raw affordance {policy_default(@surface_policy, :raw_requires_affordance?)}</span>
           </div>
           <p class="text-xs">
-            Panel controls remain advisory until M11 adds `surface_policy.*` read/update actions.
+            Security Central still decides authority; surface policy only shapes reports.
           </p>
         </section>
 
         <section id="workspace-surface-policy-surfaces" class="workspace-operator-panel-section">
-          <h3 class="workspace-rail-title">Surface Drafts</h3>
+          <h3 class="workspace-rail-title">Configured Rows</h3>
+          <p :if={policy_rows(@surface_policy) == []} class="text-sm">
+            No configured surface-policy rows.
+          </p>
           <div
-            :for={surface <- @surfaces}
-            id={"workspace-surface-policy-#{surface}"}
+            :for={row <- policy_rows(@surface_policy)}
+            id={"workspace-surface-policy-#{row.surface}-#{row.action_name}"}
             class="workspace-operator-row"
           >
             <div class="min-w-0">
-              <div class="font-medium">{surface}</div>
-              <div class="text-xs">report=bounded-dto redaction=standard affordance=explicit</div>
+              <div class="font-medium">{row.surface} / {row.action_name}</div>
+              <div class="text-xs">
+                report={row.render_mode} redaction={row.redaction_profile} max_rows={row.max_rows} raw_affordance={inspect(
+                  row.raw_requires_affordance?
+                )} source={row.source}
+              </div>
             </div>
-            <span class="workspace-status-pill workspace-status-neutral">M11 editor</span>
+            <button
+              type="button"
+              id={"workspace-surface-policy-toggle-#{row.surface}-#{row.action_name}"}
+              class="btn btn-secondary btn-sm"
+              phx-click="set_surface_policy_mode"
+              phx-target={@myself}
+              phx-value-surface={row.surface}
+              phx-value-action={row.action_name}
+              phx-value-mode={next_render_mode(row.render_mode)}
+            >
+              {next_render_mode_label(row.render_mode)}
+            </button>
           </div>
         </section>
       </div>
@@ -667,12 +729,12 @@ defmodule AllbertAssistWeb.Workspace.Components.SurfacePolicyPanel do
   defp refresh(socket) do
     context = Support.action_context(socket.assigns)
 
-    case ActionHelper.completed_action("security_status", %{}, context) do
+    case ActionHelper.completed_action("surface_policy_read", %{}, context) do
       {:ok, response} ->
         assign(socket,
           surface_policy_loaded?: true,
           surface_policy_diagnostics: "",
-          security_status: response.security_status
+          surface_policy: response.surface_policy
         )
 
       {:error, reason} ->
@@ -683,29 +745,28 @@ defmodule AllbertAssistWeb.Workspace.Components.SurfacePolicyPanel do
     end
   end
 
-  defp permission_value(status, key) do
-    status
-    |> public_surface_policy()
+  defp surface_policy_diagnostics(response) do
+    case Support.field(response, :status) do
+      :completed -> ""
+      "completed" -> ""
+      status -> "Surface policy action status: #{Support.status_label(status)}"
+    end
+  end
+
+  defp policy_default(policy, key) do
+    policy
+    |> Support.field(:defaults, %{})
     |> Support.field(key, "unknown")
     |> Support.status_label()
   end
 
-  defp floor_value(status) do
-    status
-    |> public_surface_floor()
-    |> Support.field(:floor, "unknown")
-    |> Support.status_label()
-  end
+  defp policy_rows(policy), do: Support.field(policy, :surfaces, [])
 
-  defp public_surface_policy(status) do
-    status
-    |> Support.field(:permission_defaults, [])
-    |> Enum.find(%{}, &(Support.field(&1, :permission) == :public_surface_call_inbound))
-  end
+  defp next_render_mode(:operator_report), do: "assistant_summary"
+  defp next_render_mode("operator_report"), do: "assistant_summary"
+  defp next_render_mode(_mode), do: "operator_report"
 
-  defp public_surface_floor(status) do
-    status
-    |> Support.field(:safety_floors, [])
-    |> Enum.find(%{}, &(Support.field(&1, :permission) == :public_surface_call_inbound))
-  end
+  defp next_render_mode_label(:operator_report), do: "Use Summary"
+  defp next_render_mode_label("operator_report"), do: "Use Summary"
+  defp next_render_mode_label(_mode), do: "Allow Report"
 end

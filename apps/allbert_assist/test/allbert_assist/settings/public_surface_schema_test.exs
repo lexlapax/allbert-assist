@@ -40,6 +40,18 @@ defmodule AllbertAssist.Settings.PublicSurfaceSchemaTest do
     assert {:ok, 3_600_000} = Settings.get("public_protocol.result_readback_ttl_ms")
     assert {:ok, 60_000} = Settings.get("public_protocol.result_readback_sweep_interval_ms")
     assert {:ok, 1_048_576} = Settings.get("public_protocol.max_body_bytes")
+
+    assert {:ok, 1} = Settings.get("surface_policy.schema_version")
+    assert {:ok, "assistant_summary"} = Settings.get("surface_policy.defaults.render_mode")
+    assert {:ok, "standard"} = Settings.get("surface_policy.defaults.redaction_profile")
+    assert {:ok, 25} = Settings.get("surface_policy.defaults.max_rows")
+    assert {:ok, true} = Settings.get("surface_policy.defaults.raw_requires_affordance")
+
+    assert {:ok, "operator_report"} =
+             Settings.get("surface_policy.surfaces.cli.list_settings.render_mode")
+
+    assert {:ok, true} =
+             Settings.get("surface_policy.surfaces.cli.list_settings.raw_requires_affordance")
   end
 
   test "public protocol settings are safe writes with bounded validation" do
@@ -49,6 +61,8 @@ defmodule AllbertAssist.Settings.PublicSurfaceSchemaTest do
     assert Settings.safe_write_key?("public_protocol.result_readback_sweep_interval_ms")
     assert Settings.safe_write_key?("permissions.public_surface_call_inbound")
     assert Settings.safe_write_key?("permissions.channel_message_inbound")
+    assert Settings.safe_write_key?("surface_policy.surfaces.cli.list_settings.render_mode")
+    assert Settings.safe_write_key?("surface_policy.surfaces.cli.list_settings.max_rows")
 
     assert {:ok, resolved} =
              Settings.put("mcp_server.streamable_http.port", 4100, %{audit?: false})
@@ -67,6 +81,32 @@ defmodule AllbertAssist.Settings.PublicSurfaceSchemaTest do
     assert {:error,
             {:invalid_setting, "public_protocol.result_readback_sweep_interval_ms", _reason}} =
              Settings.put("public_protocol.result_readback_sweep_interval_ms", 0, %{audit?: false})
+
+    assert {:ok, resolved_policy} =
+             Settings.put(
+               "surface_policy.surfaces.mcp_http.list_settings.render_mode",
+               "operator_report",
+               %{audit?: false}
+             )
+
+    assert resolved_policy.value == "operator_report"
+
+    assert {:error,
+            {:invalid_setting, "surface_policy.surfaces.mcp_http.list_settings.render_mode",
+             _reason}} =
+             Settings.put(
+               "surface_policy.surfaces.mcp_http.list_settings.render_mode",
+               "raw",
+               %{audit?: false}
+             )
+
+    assert {:error,
+            {:invalid_setting, "surface_policy.surfaces.mcp_http.list_settings.max_rows", _reason}} =
+             Settings.put(
+               "surface_policy.surfaces.mcp_http.list_settings.max_rows",
+               999,
+               %{audit?: false}
+             )
   end
 
   test "client maps validate ids, token refs, and rate limits" do

@@ -1,6 +1,6 @@
 # Surface Contract
 
-Status: planned v0.58 implementation contract.
+Status: v0.58 implementation contract; implemented through M11.
 
 Authority: `docs/adr/0073-cross-surface-contract.md`,
 `docs/plans/v0.58-plan.md`, and
@@ -120,9 +120,11 @@ are absent from `tools/list`.
 
 - Settings Central is the only source for operator-tunable config.
 - Security Central is the only authority boundary.
-- Surface policy governs report shape, redaction/display profile, bounds, and
-  explicit affordance. It cannot make `:internal` actions public, lower
-  confirmation floors, bypass confirmation, or grant egress.
+- Surface policy lives in the `surface_policy.*` Settings Central namespace and is
+  read/updated through `surface_policy_read` / `surface_policy_update`. It governs
+  report shape, redaction/display profile, row/count bounds, and explicit raw-report
+  affordance. It cannot make `:internal` actions public, lower confirmation floors,
+  bypass confirmation, or grant egress.
 - Descriptors are routing and presentation vocabulary, not authority.
 
 ## Conformance Checklist

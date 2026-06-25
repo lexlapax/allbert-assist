@@ -189,6 +189,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "operator_events",
              "operator_channels",
              "operator_setting_get",
+             "surface_policy_read",
+             "surface_policy_update",
              "model_doctor",
              "resolved_settings_snapshot",
              "list_confirmations",
@@ -321,6 +323,8 @@ defmodule AllbertAssist.Actions.RegistryTest do
     refute "operator_events" in agent_action_names
     refute "operator_channels" in agent_action_names
     refute "operator_setting_get" in agent_action_names
+    refute "surface_policy_read" in agent_action_names
+    refute "surface_policy_update" in agent_action_names
     refute "capture_workspace_voice" in agent_action_names
     refute "transcribe_voice" in agent_action_names
     refute "record_trace" in agent_action_names
@@ -395,7 +399,10 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "operator_events",
              "operator_channels",
              "operator_setting_get",
+             "surface_policy_read",
+             "surface_policy_update",
              "model_doctor",
+             "resolved_settings_snapshot",
              "list_confirmations",
              "show_confirmation",
              "approve_confirmation",

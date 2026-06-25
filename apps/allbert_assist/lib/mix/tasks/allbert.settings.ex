@@ -31,7 +31,7 @@ defmodule Mix.Tasks.Allbert.Settings do
   end
 
   defp dispatch(["list"]) do
-    with {:ok, response} <- completed_action("list_settings", %{render_mode: "operator_report"}) do
+    with {:ok, response} <- completed_action("list_settings", operator_report_params()) do
       {:ok, response.settings}
     end
   end
@@ -57,7 +57,7 @@ defmodule Mix.Tasks.Allbert.Settings do
 
   defp dispatch(["providers", "list"]) do
     with {:ok, response} <-
-           completed_action("list_provider_profiles", %{render_mode: "operator_report"}) do
+           completed_action("list_provider_profiles", operator_report_params()) do
       {:ok, {:providers, response.providers}}
     end
   end
@@ -167,6 +167,10 @@ defmodule Mix.Tasks.Allbert.Settings do
 
   defp completed_action(action_name, params) do
     ActionHelper.completed_action(action_name, params, context())
+  end
+
+  defp operator_report_params do
+    %{render_mode: "operator_report", surface_policy_affordance: true}
   end
 
   defp parse_value(key, value) do

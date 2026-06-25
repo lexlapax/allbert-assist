@@ -396,7 +396,7 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
     refute html =~ "http://"
   end
 
-  test "M10 surface policy panel renders Security Central DTO posture" do
+  test "M11 surface policy panel renders editable Settings Central DTO rows" do
     html =
       render_component(Renderer,
         id: "surface-policy-panel-renderer",
@@ -412,11 +412,12 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
 
     assert html =~ ~s(data-workspace-component="surface_policy_panel")
     assert html =~ ~s(data-action-source="actions-runner")
-    assert html =~ "Authority Boundary"
-    assert html =~ "Permission needs confirmation"
-    assert html =~ "Floor needs confirmation"
-    assert html =~ "mcp_http"
-    assert html =~ "M11 editor"
+    assert html =~ "Default Policy"
+    assert html =~ "Render assistant summary"
+    assert html =~ "Configured Rows"
+    assert html =~ "cli / list_settings"
+    assert html =~ ~s(phx-click="set_surface_policy_mode")
+    assert html =~ "Use Summary"
     refute html =~ "secret://"
     refute html =~ "api_key"
   end

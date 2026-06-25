@@ -45,7 +45,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     refute list_response.message =~ "operator.timezone"
     refute list_response.message =~ "model_profiles.fast.max_tokens"
     refute list_response.message =~ "api_key_ref"
-    assert Enum.any?(list_response.settings, &(&1.key == "operator.timezone"))
+    assert length(list_response.settings) <= 25
 
     assert [
              %{
@@ -56,14 +56,41 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
     assert count > 0
 
-    assert {:ok, report_response} =
+    assert {:ok, bounded_response} =
              ListSettings.run(%{render_mode: "operator_report"}, %{})
+
+    assert bounded_response.status == :completed
+    assert bounded_response.message =~ "won't dump the full operator report"
+
+    assert [
+             %{
+               name: "list_settings",
+               settings_metadata: %{render_mode: :assistant_summary}
+             }
+           ] = bounded_response.actions
+
+    assert {:ok, report_response} =
+             ListSettings.run(Map.put(operator_report_params(), :namespace, "operator"), %{})
 
     assert report_response.status == :completed
     assert report_response.message =~ "Settings Central values:"
     assert report_response.message =~ "operator.timezone"
-    assert report_response.message =~ "model_profiles.fast.max_tokens: 1024"
-    assert report_response.message =~ "providers.openai.api_key_ref: \"[REDACTED]\""
+
+    assert {:ok, model_report_response} =
+             ListSettings.run(
+               Map.put(operator_report_params(), :namespace, "model_profiles.fast"),
+               %{}
+             )
+
+    assert model_report_response.message =~ "model_profiles.fast.max_tokens: 1024"
+
+    assert {:ok, provider_report_response} =
+             ListSettings.run(
+               Map.put(operator_report_params(), :namespace, "providers.openai"),
+               %{}
+             )
+
+    assert provider_report_response.message =~ "providers.openai.api_key_ref: \"[REDACTED]\""
 
     assert [
              %{
@@ -158,8 +185,20 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              }
            ] = response.actions
 
-    assert {:ok, report_response} =
+    assert {:ok, bounded_response} =
              ListProviderProfiles.run(%{render_mode: "operator_report"}, %{})
+
+    assert bounded_response.message =~ "won't dump the full operator report"
+
+    assert [
+             %{
+               name: "list_provider_profiles",
+               settings_metadata: %{render_mode: :assistant_summary}
+             }
+           ] = bounded_response.actions
+
+    assert {:ok, report_response} =
+             ListProviderProfiles.run(operator_report_params(), %{})
 
     assert report_response.message =~ "Provider profiles:"
     assert report_response.message =~ "endpoint_kind=credentialed_remote"
@@ -185,7 +224,18 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
              }
            ] = response.actions
 
-    assert {:ok, report_response} = ListModelProfiles.run(%{render_mode: "operator_report"}, %{})
+    assert {:ok, bounded_response} = ListModelProfiles.run(%{render_mode: "operator_report"}, %{})
+
+    assert bounded_response.message =~ "won't dump the full operator report"
+
+    assert [
+             %{
+               name: "list_model_profiles",
+               settings_metadata: %{render_mode: :assistant_summary}
+             }
+           ] = bounded_response.actions
+
+    assert {:ok, report_response} = ListModelProfiles.run(operator_report_params(), %{})
 
     assert report_response.message =~ "Model profiles:"
     assert report_response.message =~ "endpoint_kind=local_endpoint"
@@ -513,4 +563,8 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp operator_report_params do
+    %{render_mode: "operator_report", surface: "cli", surface_policy_affordance: true}
+  end
 end

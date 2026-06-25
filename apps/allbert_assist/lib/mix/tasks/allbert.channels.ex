@@ -130,7 +130,8 @@ defmodule Mix.Tasks.Allbert.Channels do
   end
 
   defp dispatch(["list"]) do
-    with {:ok, response} <- completed_action("list_channels", %{render_mode: "operator_report"}) do
+    with {:ok, response} <-
+           completed_action("list_channels", operator_report_params()) do
       {:ok, {:list, response.channels}}
     end
   end
@@ -830,6 +831,10 @@ defmodule Mix.Tasks.Allbert.Channels do
 
   defp completed_action(action_name, params) do
     ActionHelper.completed_action(action_name, params, context())
+  end
+
+  defp operator_report_params do
+    %{render_mode: "operator_report", surface_policy_affordance: true}
   end
 
   defp put_identity!(channel, external_user_id, user_id) do

@@ -179,6 +179,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Skills.SearchOnlineSkills
   alias AllbertAssist.Actions.Skills.ShowOnlineSkill
   alias AllbertAssist.Actions.Skills.ValidateSkill
+  alias AllbertAssist.Actions.SurfacePolicy.Read, as: ReadSurfacePolicy
+  alias AllbertAssist.Actions.SurfacePolicy.Update, as: UpdateSurfacePolicy
   alias AllbertAssist.Actions.Templates.CreateFromTemplate
   alias AllbertAssist.Actions.Templates.RenderTemplate
   alias AllbertAssist.Actions.Templates.ScaffoldTemplate
@@ -319,6 +321,8 @@ defmodule AllbertAssist.Actions.Registry do
     OperatorEvents,
     OperatorChannels,
     OperatorSettingGet,
+    ReadSurfacePolicy,
+    UpdateSurfacePolicy,
     SettingsModelDoctor,
     ResolvedSettingsSnapshot,
     ListConfirmations,

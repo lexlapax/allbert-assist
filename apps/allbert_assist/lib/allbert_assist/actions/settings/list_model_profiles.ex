@@ -11,7 +11,11 @@ defmodule AllbertAssist.Actions.Settings.ListModelProfiles do
     description: "List model profiles with redacted credential status.",
     category: "settings",
     tags: ["settings", "models", "read_only"],
-    schema: [render_mode: [type: :string, required: false]],
+    schema: [
+      render_mode: [type: :string, required: false],
+      surface: [type: :string, required: false],
+      surface_policy_affordance: [type: :boolean, required: false]
+    ],
     output_schema: [
       message: [type: :string, required: true],
       status: [type: :atom, required: true],
@@ -20,31 +24,39 @@ defmodule AllbertAssist.Actions.Settings.ListModelProfiles do
 
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings
+  alias AllbertAssist.SurfacePolicy
 
   @impl true
   def run(params, context) do
     permission_decision = PermissionGate.authorize(:read_only, context)
-    render_mode = render_mode(params, context)
+    policy = SurfacePolicy.report_policy(name(), params, context)
     {:ok, models} = Settings.list_model_profiles()
+    visible_models = bounded(models, policy)
 
     {:ok,
      %{
-       message: message(models, render_mode),
+       message: message(visible_models, length(models), policy),
        status: PermissionGate.response_status(permission_decision),
-       models: models,
+       models: visible_models,
        actions: [
          %{
            name: "list_model_profiles",
            status: :completed,
            permission: :read_only,
            permission_decision: permission_decision,
-           settings_metadata: %{model_count: length(models), render_mode: render_mode}
+           settings_metadata: %{
+             model_count: length(models),
+             rendered_count: length(visible_models),
+             render_mode: policy.render_mode,
+             max_rows: policy.max_rows,
+             surface_policy_source: policy.source
+           }
          }
        ]
      }}
   end
 
-  defp message(models, :operator_report) do
+  defp message(models, total_count, %{render_mode: :operator_report}) do
     rendered =
       models
       |> Enum.map(
@@ -52,24 +64,21 @@ defmodule AllbertAssist.Actions.Settings.ListModelProfiles do
       )
       |> Enum.join("\n")
 
-    "Model profiles:\n\n#{rendered}"
+    suffix =
+      if length(models) < total_count do
+        "\n\nShowing #{length(models)} of #{total_count} rows under surface policy."
+      else
+        ""
+      end
+
+    "Model profiles:\n\n#{rendered}#{suffix}"
   end
 
-  defp message(models, :assistant_summary) do
-    total = length(models)
-
-    "Model registry has #{total} profiles loaded. I can discuss model setup safely here, " <>
+  defp message(_models, total_count, %{render_mode: :assistant_summary}) do
+    "Model registry has #{total_count} profiles loaded. I can discuss model setup safely here, " <>
       "but I won't dump the full operator report in chat. Use `/models` for the TUI " <>
       "model doctor or `mix allbert.model list` for the full operator report."
   end
 
-  defp render_mode(params, context) do
-    case field(params, :render_mode) || field(params, :mode) || field(context, :render_mode) do
-      value when value in [:operator_report, "operator_report", :raw, "raw"] -> :operator_report
-      _other -> :assistant_summary
-    end
-  end
-
-  defp field(map, key) when is_map(map), do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
-  defp field(_map, _key), do: nil
+  defp bounded(rows, policy), do: Enum.take(rows, policy.max_rows)
 end

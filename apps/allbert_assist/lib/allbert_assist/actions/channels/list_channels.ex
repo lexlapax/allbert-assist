@@ -11,7 +11,11 @@ defmodule AllbertAssist.Actions.Channels.ListChannels do
     description: "List configured Allbert channel adapters.",
     category: "channels",
     tags: ["channels", "read_only"],
-    schema: [render_mode: [type: :string, required: false]],
+    schema: [
+      render_mode: [type: :string, required: false],
+      surface: [type: :string, required: false],
+      surface_policy_affordance: [type: :boolean, required: false]
+    ],
     output_schema: [
       message: [type: :string, required: true],
       status: [type: :atom, required: true],
@@ -20,24 +24,29 @@ defmodule AllbertAssist.Actions.Channels.ListChannels do
 
   alias AllbertAssist.Channels
   alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.SurfacePolicy
 
   @impl true
   def run(params, context) do
     permission_decision = PermissionGate.authorize(:read_only, context)
-    render_mode = render_mode(params, context)
+    policy = SurfacePolicy.report_policy(name(), params, context)
 
     if PermissionGate.allowed?(permission_decision) do
       channels = Channels.list_channels()
+      visible_channels = bounded(channels, policy)
 
       {:ok,
        %{
-         message: message(channels, render_mode),
+         message: message(visible_channels, length(channels), policy),
          status: :completed,
-         channels: channels,
+         channels: visible_channels,
          actions: [
            action(:completed, permission_decision, %{
              channel_count: length(channels),
-             render_mode: render_mode
+             rendered_count: length(visible_channels),
+             render_mode: policy.render_mode,
+             max_rows: policy.max_rows,
+             surface_policy_source: policy.source
            })
          ]
        }}
@@ -52,18 +61,27 @@ defmodule AllbertAssist.Actions.Channels.ListChannels do
     end
   end
 
-  defp message([], :operator_report), do: "No configured channels."
+  defp message([], _total_count, %{render_mode: :operator_report}), do: "No configured channels."
 
-  defp message(channels, :operator_report) do
-    channels
-    |> Enum.map(fn channel ->
-      "- #{channel.channel} provider=#{channel.provider} enabled=#{channel.enabled} identities=#{channel.identity_count}"
-    end)
-    |> Enum.join("\n")
+  defp message(channels, total_count, %{render_mode: :operator_report}) do
+    rendered =
+      channels
+      |> Enum.map(fn channel ->
+        "- #{channel.channel} provider=#{channel.provider} enabled=#{channel.enabled} identities=#{channel.identity_count}"
+      end)
+      |> Enum.join("\n")
+
+    suffix =
+      if length(channels) < total_count do
+        "\n\nShowing #{length(channels)} of #{total_count} rows under surface policy."
+      else
+        ""
+      end
+
+    "#{rendered}#{suffix}"
   end
 
-  defp message(channels, :assistant_summary) do
-    total = length(channels)
+  defp message(channels, total, %{render_mode: :assistant_summary}) do
     enabled = Enum.count(channels, & &1.enabled)
     disabled = total - enabled
 
@@ -82,13 +100,5 @@ defmodule AllbertAssist.Actions.Channels.ListChannels do
     }
   end
 
-  defp render_mode(params, context) do
-    case field(params, :render_mode) || field(params, :mode) || field(context, :render_mode) do
-      value when value in [:operator_report, "operator_report", :raw, "raw"] -> :operator_report
-      _other -> :assistant_summary
-    end
-  end
-
-  defp field(map, key) when is_map(map), do: Map.get(map, key, Map.get(map, Atom.to_string(key)))
-  defp field(_map, _key), do: nil
+  defp bounded(rows, policy), do: Enum.take(rows, policy.max_rows)
 end

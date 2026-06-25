@@ -28,9 +28,9 @@ defmodule Mix.Tasks.Allbert.Model do
 
   defp dispatch(["list"]) do
     with {:ok, providers_response} <-
-           completed_action("list_provider_profiles", %{render_mode: "operator_report"}),
+           completed_action("list_provider_profiles", operator_report_params()),
          {:ok, models_response} <-
-           completed_action("list_model_profiles", %{render_mode: "operator_report"}),
+           completed_action("list_model_profiles", operator_report_params()),
          {:ok, active_profile} <- Settings.get("intent.model_profile"),
          {:ok, assist_enabled?} <- Settings.get("intent.model_assist_enabled") do
       {:ok,
@@ -120,6 +120,10 @@ defmodule Mix.Tasks.Allbert.Model do
 
   defp completed_action(action_name, params) do
     ActionHelper.completed_action(action_name, params, context())
+  end
+
+  defp operator_report_params do
+    %{render_mode: "operator_report", surface_policy_affordance: true}
   end
 
   defp context, do: ContextBuilder.cli_context(surface: "mix allbert.model")

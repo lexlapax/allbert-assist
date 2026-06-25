@@ -217,6 +217,15 @@ defmodule AllbertAssist.Settings.Schema do
     "public_protocol.result_readback_ttl_ms",
     "public_protocol.result_readback_sweep_interval_ms",
     "public_protocol.max_body_bytes",
+    "surface_policy.schema_version",
+    "surface_policy.defaults.render_mode",
+    "surface_policy.defaults.redaction_profile",
+    "surface_policy.defaults.max_rows",
+    "surface_policy.defaults.raw_requires_affordance",
+    "surface_policy.surfaces.*.*.render_mode",
+    "surface_policy.surfaces.*.*.redaction_profile",
+    "surface_policy.surfaces.*.*.max_rows",
+    "surface_policy.surfaces.*.*.raw_requires_affordance",
     "acp_server.schema_version",
     "acp_server.enabled",
     "acp_server.stdio.enabled",
@@ -1496,6 +1505,42 @@ defmodule AllbertAssist.Settings.Schema do
       sensitive?: false,
       min: 1024,
       max: 10_485_760
+    },
+    "surface_policy.schema_version" => %{
+      type: :bounded_integer,
+      default: 1,
+      writable?: true,
+      sensitive?: false,
+      min: 1,
+      max: 1
+    },
+    "surface_policy.defaults.render_mode" => %{
+      type: :enum,
+      default: "assistant_summary",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["assistant_summary"]
+    },
+    "surface_policy.defaults.redaction_profile" => %{
+      type: :enum,
+      default: "standard",
+      writable?: true,
+      sensitive?: false,
+      allowed_values: ["standard", "strict"]
+    },
+    "surface_policy.defaults.max_rows" => %{
+      type: :bounded_integer,
+      default: 25,
+      writable?: true,
+      sensitive?: false,
+      min: 0,
+      max: 500
+    },
+    "surface_policy.defaults.raw_requires_affordance" => %{
+      type: :boolean,
+      default: true,
+      writable?: true,
+      sensitive?: false
     },
     "acp_server.schema_version" => %{
       type: :bounded_integer,
@@ -3989,6 +4034,83 @@ defmodule AllbertAssist.Settings.Schema do
       "result_readback_sweep_interval_ms" => 60_000,
       "max_body_bytes" => 1_048_576
     },
+    "surface_policy" => %{
+      "schema_version" => 1,
+      "defaults" => %{
+        "render_mode" => "assistant_summary",
+        "redaction_profile" => "standard",
+        "max_rows" => 25,
+        "raw_requires_affordance" => true
+      },
+      "surfaces" => %{
+        "cli" => %{
+          "list_channels" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
+          "list_model_profiles" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
+          "list_provider_profiles" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
+          "list_settings" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 250,
+            "raw_requires_affordance" => true
+          }
+        },
+        "tui" => %{
+          "list_channels" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
+          "list_model_profiles" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
+          "list_provider_profiles" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
+          "list_settings" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 250,
+            "raw_requires_affordance" => true
+          }
+        },
+        "live_view" => %{
+          "list_model_profiles" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
+          "list_provider_profiles" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          }
+        }
+      }
+    },
     "acp_server" => %{
       "schema_version" => 1,
       "enabled" => false,
@@ -4289,6 +4411,7 @@ defmodule AllbertAssist.Settings.Schema do
          :ok <- validate_model_preferences(settings),
          :ok <- validate_mcp(settings),
          :ok <- validate_public_protocol(settings),
+         :ok <- validate_surface_policy(settings),
          :ok <- validate_runtime_refs(settings),
          :ok <- validate_dynamic_codegen(settings),
          :ok <- validate_templates(settings),
@@ -4371,6 +4494,11 @@ defmodule AllbertAssist.Settings.Schema do
         key
         |> public_protocol_client_field()
         |> then(&Map.fetch!(@public_protocol_client_schema, &1))
+
+      surface_policy_key?(key) ->
+        key
+        |> surface_policy_field()
+        |> surface_policy_schema()
     end
   end
 
@@ -5599,8 +5727,113 @@ defmodule AllbertAssist.Settings.Schema do
       Regex.match?(
         ~r/^(mcp_server|openai_api)\.clients\.[^.]+\.(enabled|token_ref|rate_limit\.(limit|period_ms|burst))$/,
         key
+      ) ||
+      Regex.match?(
+        ~r/^surface_policy\.surfaces\.[a-z0-9_]+\.[a-z0-9_]+\.(render_mode|redaction_profile|max_rows|raw_requires_affordance)$/,
+        key
       )
   end
+
+  defp validate_surface_policy(settings) do
+    settings
+    |> get_in(["surface_policy", "surfaces"])
+    |> case do
+      surfaces when is_map(surfaces) ->
+        reduce_validation(surfaces, fn {surface, actions} ->
+          validate_surface_policy_surface(surface, actions)
+        end)
+
+      other ->
+        {:error, {:invalid_setting, "surface_policy.surfaces", {:expected_map, other}}}
+    end
+  end
+
+  defp validate_surface_policy_surface(surface, actions)
+       when is_binary(surface) and is_map(actions) do
+    if Regex.match?(~r/^[a-z0-9_]+$/, surface) do
+      reduce_validation(actions, fn {action, fields} ->
+        validate_surface_policy_action(surface, action, fields)
+      end)
+    else
+      {:error, {:invalid_setting, "surface_policy.surfaces", {:invalid_surface, surface}}}
+    end
+  end
+
+  defp validate_surface_policy_surface(surface, _actions),
+    do: {:error, {:invalid_setting, "surface_policy.surfaces", {:invalid_surface, surface}}}
+
+  defp reduce_validation(enum, fun) do
+    Enum.reduce_while(enum, :ok, fn item, :ok ->
+      case fun.(item) do
+        :ok -> {:cont, :ok}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp validate_surface_policy_action(surface, action, fields)
+       when is_binary(action) and is_map(fields) do
+    if Regex.match?(~r/^[a-z0-9_]+$/, action) do
+      reduce_validation(fields, fn field_value ->
+        validate_surface_policy_field(surface, action, field_value)
+      end)
+    else
+      invalid_surface_policy_action(surface, action)
+    end
+  end
+
+  defp validate_surface_policy_action(surface, action, _fields),
+    do: invalid_surface_policy_action(surface, action)
+
+  defp validate_surface_policy_field(surface, action, {field, value}) do
+    key = "surface_policy.surfaces.#{surface}.#{action}.#{field}"
+
+    if surface_policy_key?(key) do
+      validate_surface_policy_field_value(key, field, value)
+    else
+      {:error, {:unknown_setting, key}}
+    end
+  end
+
+  defp validate_surface_policy_field_value(key, field, value) do
+    case validate_value(surface_policy_schema(field), value, key, %{}) do
+      :ok -> :ok
+      {:error, reason} -> {:error, {:invalid_setting, key, reason}}
+    end
+  end
+
+  defp invalid_surface_policy_action(surface, action) do
+    {:error, {:invalid_setting, "surface_policy.surfaces.#{surface}", {:invalid_action, action}}}
+  end
+
+  defp surface_policy_key?(key) when is_binary(key) do
+    Regex.match?(
+      ~r/^surface_policy\.surfaces\.[a-z0-9_]+\.[a-z0-9_]+\.(render_mode|redaction_profile|max_rows|raw_requires_affordance)$/,
+      key
+    )
+  end
+
+  defp surface_policy_key?(_key), do: false
+
+  defp surface_policy_field(key) do
+    key
+    |> split_key()
+    |> List.last()
+  end
+
+  defp surface_policy_schema("render_mode") do
+    %{type: :enum, allowed_values: ["assistant_summary", "operator_report"]}
+  end
+
+  defp surface_policy_schema("redaction_profile") do
+    %{type: :enum, allowed_values: ["standard", "strict"]}
+  end
+
+  defp surface_policy_schema("max_rows") do
+    %{type: :bounded_integer, min: 0, max: 500}
+  end
+
+  defp surface_policy_schema("raw_requires_affordance"), do: %{type: :boolean}
 
   defp public_protocol_client_key?(key) do
     Regex.match?(
