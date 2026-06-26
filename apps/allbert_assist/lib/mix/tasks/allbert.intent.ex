@@ -15,7 +15,11 @@ defmodule Mix.Tasks.Allbert.Intent do
       mix allbert.intent eval add ID [--fixture-root PATH]
       mix allbert.intent bench [--subset | --holdout]
       mix allbert.intent edit ACTION
+      mix allbert.intent disable ACTION
       mix allbert.intent enable ACTION
+      mix allbert.intent promote ACTION [--from TIER] [--to TIER]
+      mix allbert.intent optimize [--heuristic]
+      mix allbert.intent reindex
 
   `doctor` probes the local embedder and reports the router strategy, configured
   profiles, and utterance-index state in a redacted ADR 0047 envelope.

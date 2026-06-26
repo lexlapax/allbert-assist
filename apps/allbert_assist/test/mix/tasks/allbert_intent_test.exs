@@ -41,6 +41,15 @@ defmodule Mix.Tasks.Allbert.IntentTest do
     {:ok, home: home}
   end
 
+  test "help documents mutation and maintenance subcommands" do
+    assert {:docs_v1, _, _, _, %{"en" => moduledoc}, _, _} = Code.fetch_docs(IntentTask)
+
+    assert moduledoc =~ "mix allbert.intent disable ACTION"
+    assert moduledoc =~ "mix allbert.intent promote ACTION [--from TIER] [--to TIER]"
+    assert moduledoc =~ "mix allbert.intent optimize [--heuristic]"
+    assert moduledoc =~ "mix allbert.intent reindex"
+  end
+
   test "edit materializes an override YAML descriptor and list reports override source" do
     output = capture_io(fn -> assert :ok = IntentTask.run(["edit", "append_memory"]) end)
     assert output =~ "override append_memory ->"
