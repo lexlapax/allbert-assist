@@ -202,6 +202,24 @@ defmodule AllbertAssistWeb.PublicProtocol.McpHttpControllerTest do
     assert Jason.decode!(text)["surface"] == "mcp_http"
   end
 
+  test "resources/read returns JSON error with 404 for missing public resources", %{conn: conn} do
+    enable_mcp_http!()
+    {:ok, created} = TokenAuth.create(:mcp_http, "claude", context())
+
+    conn =
+      conn
+      |> auth_conn(created.token)
+      |> post_json(%{
+        "jsonrpc" => "2.0",
+        "id" => "missing-resource",
+        "method" => "resources/read",
+        "params" => %{"uri" => "allbert://missing/namespace"}
+      })
+
+    assert conn.status == 404
+    assert json_response(conn, 404)["error"]["message"] == "MCP resource was not found."
+  end
+
   test "session header is echoed and DELETE is explicitly unsupported in v0.51", %{conn: conn} do
     enable_mcp_http!()
     {:ok, created} = TokenAuth.create(:mcp_http, "claude", context())
