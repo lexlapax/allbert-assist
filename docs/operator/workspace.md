@@ -1,6 +1,6 @@
 # Operator Workspace
 
-Status: planned v0.58 operator guide.
+Status: released v0.58 operator guide.
 
 The operator workspace is `/workspace`. v0.58 keeps that route and changes the
 layout and panels on top of the existing authority spine.

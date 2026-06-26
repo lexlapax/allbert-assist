@@ -1,10 +1,9 @@
 # Web Design System
 
-Status: v0.58 M6-M13 token, variant, pattern baseline, shared shell,
-Jobs/Objectives catalog coverage, chat-primary workspace layout, operator panel
-catalog coverage, surface-policy DTOs, consolidation, and release lane are
-implemented. M13.1A-F remediation is complete before the fourth-pass
-implementation audit and M14 manual validation.
+Status: v0.58 shipped design-system baseline. M6-M13 tokens, variants, shared
+patterns, shell, Jobs/Objectives catalog coverage, chat-primary workspace layout,
+operator panel catalog coverage, surface-policy DTOs, consolidation, release lane,
+M13.1A-G remediation, guided M14 manual validation, and M15 closeout are complete.
 
 Authority: `docs/adr/0074-web-design-system-and-ux-language.md`,
 `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`,

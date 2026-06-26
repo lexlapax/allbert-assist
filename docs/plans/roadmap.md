@@ -3577,8 +3577,8 @@ Expected direction:
 
 Plan: `docs/plans/v0.58-plan.md`
 Request flow: `docs/plans/v0.58-request-flow.md`
-ADRs: `docs/adr/0073-cross-surface-contract.md` (NEW),
-`docs/adr/0074-web-design-system-and-ux-language.md` (NEW), v0.58 amendments to
+ADRs: `docs/adr/0073-cross-surface-contract.md` (Accepted),
+`docs/adr/0074-web-design-system-and-ux-language.md` (Accepted), v0.58 amendments to
 ADR 0016/0030/0070, the ADR 0004/0031 settings-enforcement note, and the ADR 0024
 chat-primary revision.
 

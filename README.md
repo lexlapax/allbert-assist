@@ -34,95 +34,91 @@ becoming opaque or unbounded.
 
 ## Current Shape
 
-The current released version is `v0.58.0` (M15 closeout 2026-06-25; the release
-tag is applied separately per project convention). This README is
-the stable project orientation;
-release-by-release implementation detail belongs in
-[CHANGELOG.md](CHANGELOG.md), and forward planning belongs in
+The current release is `v0.58.0`. v0.58 is mainly a consolidation release: it
+makes Allbert's surfaces, settings, web UI patterns, operator panels, and release
+gates more consistent before the v0.59 hardening pass and the 1.0 freeze.
+
+This README is the stable project orientation; release-by-release implementation
+detail belongs in [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in
 [docs/plans/roadmap.md](docs/plans/roadmap.md).
 
-At the project level, Allbert has four durable parts:
+Today, Allbert includes:
 
-- A signal-driven runtime that resolves registered actions, frames objectives,
-  records traces, and keeps permission checks at the action boundary.
-- Operator surfaces, including Phoenix LiveView `/workspace`, Mix tasks,
-  channels, and plugin panels, that render and dispatch but do not own runtime
-  authority.
-- A reviewed extension model for source-tree plugins, apps, actions, settings,
-  channels, workflows, and delegate agents.
-- A local operating posture built around Allbert Home, Settings Central,
-  Security Central, confirmations, redaction, and release gates with bounded
-  evidence.
+- A local assistant runtime that routes user input through registered actions.
+- A web workspace at `/workspace`.
+- Terminal and CLI operator surfaces.
+- Durable confirmations for sensitive work.
+- Settings Central for operator-tunable configuration.
+- Security Central for permission and policy decisions.
+- Markdown-first memory under Allbert Home.
+- Inspectable traces, events, objectives, jobs, and operator reports.
+- Source-tree plugins and app surfaces, with StockSage as the main reference app.
+- Public protocol surfaces with bounded, policy-checked exposure.
 
-StockSage remains the reference plugin app for exercising the platform through
-a concrete domain workflow. Other shipped plugins and operator guides document
-the same contracts in narrower surfaces.
+This is still a developer-operated local project, not a polished consumer app
+installer. It expects a local checkout, configured providers or local model
+endpoints where needed, and an operator who is comfortable running validation
+commands during release work.
 
-## Capability Summary
+## What Allbert Is For
 
-Allbert supports local operator conversations, reviewed plugin app surfaces,
-durable confirmations, trace inspection, markdown memory review, scheduled
-jobs, and cross-turn objectives. Effectful work flows through registered Jido
-actions and policy checks instead of being granted by model output, app
-metadata, workflow YAML, or generated files.
+Allbert is for building a personal AI environment where the assistant can:
 
-The platform also supports reviewed workflow and extension paths: operator
-workflow YAML runs through the Objective Runtime, MCP integrations connect only
-after operator consent, browser-backed work stays policy-bounded, and dynamic
-code paths remain gated, report-producing, and explicitly confirmed before any
-live registration.
+- answer and route local requests;
+- remember information only through reviewable memory paths;
+- resume longer-running work through objectives;
+- expose app-specific workflows through reviewed plugins;
+- show what settings, models, intents, jobs, and policies are active;
+- connect to external tools only through explicit, policy-bounded actions.
+
+It is especially focused on the boundary between useful autonomy and operator
+control. Model output, plugin metadata, YAML, generated files, and app surfaces do
+not grant authority by themselves. Authority comes from registered actions,
+settings, policy checks, and confirmations.
 
 ## Built On
 
-- Elixir, OTP, Phoenix, Phoenix LiveView, Ecto, and SQLite.
-- Jido actions and Jido-backed agents for runtime work and state machines.
-- A signal bus and trace system for observable assistant behavior.
-- Settings Central for operator configuration.
-- Security Central, Resource Access, and confirmation records for permissioned
-  work.
-- Markdown-first memory and Allbert Home (`ALLBERT_HOME`) for local durable
-  state.
-- Source-tree plugins for reviewed apps, channels, actions, settings, and
-  skills.
+Allbert is implemented with Elixir, OTP, Phoenix LiveView, SQLite, and Jido.
+Those details matter for contributors, but the user-facing promise is simpler:
+a supervised local assistant runtime with inspectable state, explicit authority
+boundaries, and multiple operator surfaces over the same core.
 
-## Vision
+## Where It Is Going
 
-Allbert is moving toward a local assistant operating system: apps expose
-reviewed surfaces, actions remain policy-bound, objectives carry long-running
-work, memory stays inspectable, and generated apps inherit contracts that were
-manually proven first.
+Allbert is moving toward a local assistant operating system: a place where
+conversations, memory, settings, tools, background work, plugins, and app
+surfaces share one authority model.
 
-The roadmap is intentionally incremental: prove a contract through real
-runtime use, document its authority boundary, add release evidence, and only
-then make the contract easier to reuse. Operator-facing provider milestones
-target real configured endpoints; fake providers are test fixtures only.
+The roadmap is intentionally incremental. Each release proves a small contract in
+the real runtime, documents the boundary, validates it, and only then makes that
+contract easier to reuse.
 
 See [docs/plans/roadmap.md](docs/plans/roadmap.md) for the current milestone
 sequence and [CHANGELOG.md](CHANGELOG.md) for shipped release details.
 
 ## Start Here
 
-- [AGENTS.md](AGENTS.md): repository rules for coding agents.
-- [DEVELOPMENT.md](DEVELOPMENT.md): local setup, commands, and verification
-  gates.
+If you want to try Allbert locally:
+
+- [docs/operator/onboarding.md](docs/operator/onboarding.md): first local run and
+  operator orientation.
+- [docs/operator/workspace.md](docs/operator/workspace.md): the web workspace,
+  panels, and operator-facing controls.
+- [docs/README.md](docs/README.md): the documentation map.
+- [CHANGELOG.md](CHANGELOG.md): what has shipped and what the current release
+  includes.
+- [docs/plans/roadmap.md](docs/plans/roadmap.md): where the project is going next.
+
+If you are contributing to the codebase:
+
+- [DEVELOPMENT.md](DEVELOPMENT.md): local setup, commands, and verification gates.
+- [AGENTS.md](AGENTS.md): repository rules for coding agents and agent-assisted
+  work.
 - [docs/developer/agent-context-map.md](docs/developer/agent-context-map.md):
   subsystem routing map for deeper work.
-- [docs/developer/surface-contract.md](docs/developer/surface-contract.md):
-  v0.58 cross-surface implementation contract and conformance checklist.
-- [docs/developer/web-design-system.md](docs/developer/web-design-system.md):
-  v0.58 web tokens, variants, pattern library, and shell contract.
-- [docs/operator/workspace.md](docs/operator/workspace.md): operator workspace
-  guide for the chat-primary shell, panels, and surface policy.
-- [docs/plans/roadmap.md](docs/plans/roadmap.md): active roadmap and upcoming
-  milestones.
-- [CHANGELOG.md](CHANGELOG.md): released-history details.
-- [docs/adr](docs/adr): architectural decisions.
-- [docs/developer/test-strategy.md](docs/developer/test-strategy.md): test
-  lane taxonomy, gate matrix, isolation contract, and implementation-plan
-  parallelization annotations.
-- [docs/samples/media](docs/samples/media): committed sample audio and image
-  files for operator manual validation, documentation examples, and focused
-  media smoke testing.
+- [docs/developer/test-strategy.md](docs/developer/test-strategy.md): test lane
+  taxonomy and release gate structure.
+- [docs/adr/README.md](docs/adr/README.md): architectural decisions.
 
 ## Local Development
 

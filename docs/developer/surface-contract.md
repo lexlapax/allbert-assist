@@ -1,7 +1,8 @@
 # Surface Contract
 
-Status: v0.58 implementation contract; implemented through M13.1 and ready for
-implementation audit and M14 manual validation.
+Status: v0.58 shipped implementation contract. M13.1A-G remediation,
+`release.v058`, guided M14 manual validation, final implementation audit, and M15
+closeout are complete.
 
 Authority: `docs/adr/0073-cross-surface-contract.md`,
 `docs/plans/v0.58-plan.md`, and
