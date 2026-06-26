@@ -3,8 +3,8 @@ defmodule Mix.Tasks.Allbert.McpServer do
   Inspect or run the v0.51 public MCP server.
 
       mix allbert.mcp_server status
-      mix allbert.mcp_server tools list
-      mix allbert.mcp_server resources list
+      mix allbert.mcp_server tools list [--surface mcp_stdio|mcp_http]
+      mix allbert.mcp_server resources list [--surface mcp_stdio|mcp_http]
       mix allbert.mcp_server stdio
   """
 
@@ -32,8 +32,10 @@ defmodule Mix.Tasks.Allbert.McpServer do
 
     case args do
       ["status"] -> status()
-      ["tools", "list"] -> list_tools()
-      ["resources", "list"] -> list_resources()
+      ["tools", "list"] -> list_tools("mcp_stdio")
+      ["tools", "list", "--surface", surface] -> list_tools(surface)
+      ["resources", "list"] -> list_resources("mcp_stdio")
+      ["resources", "list", "--surface", surface] -> list_resources(surface)
       _other -> usage()
     end
   end
@@ -48,8 +50,8 @@ defmodule Mix.Tasks.Allbert.McpServer do
     Mix.shell().info("resources=#{count(:resources)}")
   end
 
-  defp list_tools do
-    case Runtime.enabled_tools() do
+  defp list_tools(surface) do
+    case Runtime.enabled_tools(surface) do
       {:ok, tools} ->
         Enum.each(tools, fn tool ->
           Mix.shell().info("#{tool.name}\t#{tool.module.description()}")
@@ -60,8 +62,8 @@ defmodule Mix.Tasks.Allbert.McpServer do
     end
   end
 
-  defp list_resources do
-    case Runtime.enabled_resources() do
+  defp list_resources(surface) do
+    case Runtime.enabled_resources(surface) do
       {:ok, resources} ->
         Enum.each(resources, fn resource ->
           Mix.shell().info("#{resource.uri}\t#{resource.name}\t#{resource.description}")
@@ -102,8 +104,8 @@ defmodule Mix.Tasks.Allbert.McpServer do
     Mix.raise("""
     Usage:
       mix allbert.mcp_server status
-      mix allbert.mcp_server tools list
-      mix allbert.mcp_server resources list
+      mix allbert.mcp_server tools list [--surface mcp_stdio|mcp_http]
+      mix allbert.mcp_server resources list [--surface mcp_stdio|mcp_http]
       mix allbert.mcp_server stdio
     """)
   end

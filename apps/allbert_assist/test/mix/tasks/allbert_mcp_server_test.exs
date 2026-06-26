@@ -66,6 +66,21 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
     refute output =~ "list_settings"
   end
 
+  test "tools list can inspect the HTTP surface when stdio is disabled" do
+    enable_mcp_http!()
+
+    assert {:ok, _setting} =
+             Settings.put("mcp_server.tools_enabled", ["direct_answer"], %{audit?: false})
+
+    output =
+      capture_io(fn ->
+        assert :ok = McpServer.run(["tools", "list", "--surface", "mcp_http"])
+      end)
+
+    assert output =~ "direct_answer"
+    refute output =~ "list_settings"
+  end
+
   test "resources list prints only settings-allowlisted app namespaces" do
     enable_mcp_stdio!()
 
@@ -146,6 +161,13 @@ defmodule Mix.Tasks.AllbertMcpServerTest do
   defp enable_mcp_stdio! do
     assert {:ok, _setting} = Settings.put("mcp_server.enabled", true, %{audit?: false})
     assert {:ok, _setting} = Settings.put("mcp_server.stdio.enabled", true, %{audit?: false})
+  end
+
+  defp enable_mcp_http! do
+    assert {:ok, _setting} = Settings.put("mcp_server.enabled", true, %{audit?: false})
+
+    assert {:ok, _setting} =
+             Settings.put("mcp_server.streamable_http.enabled", true, %{audit?: false})
   end
 
   defp ensure_stocksage_app_registered! do
