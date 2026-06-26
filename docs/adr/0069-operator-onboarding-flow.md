@@ -88,3 +88,15 @@ the differentiator the autonomous-agent competitors cannot copy.
   v0.60 UX affordances (empty states, suggested actions), teaches the packaged
   v0.61 `allbert` entry points, and profile application depends on the
   user-category profile system (ADR 0075).
+
+## First-Model Path (open decision)
+
+QuickStart's "fastest first chat" requires a reachable model. This ADR does **not**
+assume the user already has a hosted API key or a local model; the behaviour for a
+user with neither is an **explicit open decision** resolved in v0.62 M0, choosing
+one of: (a) an assisted local model (Ollama install + one-click pull of a small
+default), (b) a managed hosted free/low-tier default with its own credential,
+abuse, and cost policy, or (c) an honestly-framed bring-your-own-key path that
+states the requirement up front with the most assisted setup possible. The
+QuickStart fast path and the "first useful chat" acceptance criterion are defined
+against the chosen option, never against an assumed pre-existing model.

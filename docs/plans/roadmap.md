@@ -3752,7 +3752,15 @@ Expected direction:
   check, plus an `allbert serve` story for the runtime + web + channels.
 - Completion of the ADR 0070 convergence so the mix-free TUI console absorbs the
   remaining day-to-day admin-inspection reads.
-- OS secret-vault credential handling through Settings Central references.
+- OS secret-vault credential handling through Settings Central references
+  (macOS Keychain / Linux Secret Service required; Windows Credential Manager
+  best-effort).
+- Platform support is explicitly tiered: macOS + Linux are Tier 1 and
+  freeze-blocking; Windows is Tier 2 (WSL2-supported; native packaging/daemon/
+  Credential Manager best-effort, not freeze-blocking).
+- An M0 feasibility spike proves the ERTS-bundled binary boots with the SQLite
+  NIF, compiled web assets, and one plugin on a Tier-1 OS before the packaging
+  mechanism is fixed.
 - No authority change; packaging changes how Allbert is installed and invoked,
   not what any surface may do.
 
@@ -3778,6 +3786,10 @@ Expected direction:
 - Provider/model setup as a first-class wizard step: masked OS-vault credential
   entry, inline doctor verification, local and hosted providers, switchable
   without config edits.
+- An explicit First-Model Path decision (M0) for users with no key and no local
+  model — assisted local model, managed hosted default, or honest
+  bring-your-own-key; the "fastest first chat" is defined against the chosen
+  option, not an assumed pre-existing key.
 - Repo-maintained user-category profiles/personas (researcher, developer, writer,
   ops, general) that seed Settings Central defaults plus suggested apps,
   channels, and intents; apply only after operator review.
@@ -3871,7 +3883,9 @@ the 2026-06-25 1.0 planning pass with 4 product criteria (9-12), then amended to
 require the integrated v0.63 product RC (13). Each item is a disposable-home
 checkpoint the release cannot ship without:
 
-1. First-run setup succeeds on macOS, Linux, and Windows/WSL2 (v0.39).
+1. First-run setup succeeds on macOS and Linux (Tier 1) and on Windows via WSL2;
+   native Windows is Tier 2 best-effort and not freeze-blocking (v0.39 / v0.61
+   platform tiers).
 2. Operator can choose local Ollama, OpenAI, Anthropic, or OpenRouter through
    model/profile control and the doctor (v0.39). The doctor return shape is
    pinned by
@@ -3891,8 +3905,10 @@ checkpoint the release cannot ship without:
 9. [product] A technical prosumer installs Allbert from a packaged binary
    (Homebrew/curl) with no Elixir/OTP toolchain on their machine (v0.61).
 10. [product] A new user completes the guided onboarding wizard — provider/model
-    setup, a selected user-category profile, and a first useful chat — without
-    reading docs and without hand-editing config files (v0.62).
+    setup via the resolved First-Model Path (assisted local model, managed
+    default, or honest bring-your-own-key — not an assumed pre-existing key), a
+    selected user-category profile, and a first useful chat — without reading docs
+    or hand-editing config files (v0.62).
 11. [product] The web workspace meets the professional-UX bar: brand identity,
     motion, coherent visual hierarchy, a real landing surface, and populated
     empty states (v0.60).

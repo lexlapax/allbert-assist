@@ -68,3 +68,20 @@ guided onboarding and the v0.63 product RC lock in the first-run flow.
 - The CLI dispatcher reorganizes entry points; it does not add capability or
   authority — every command still routes through the same runtime/action/settings
   spine (ADR 0073).
+
+## Platform Support Tiers And Feasibility Spike
+
+Two explicit scope decisions, recorded here so they are not assumed downstream:
+
+- **Tier 1 — macOS and Linux** are fully supported and freeze-blocking for v1.0:
+  the binary, Homebrew/curl install, `launchd`/`systemd` daemon, and the macOS
+  Keychain / Linux Secret Service vaults. **Tier 2 — Windows** is supported via
+  WSL2; native Windows packaging, a Scheduled-Task daemon, and Windows Credential
+  Manager are best-effort/beta and **not** v1.0 freeze-blocking unless a later ADR
+  promotes them.
+- **Feasibility spike first.** Because the codebase has no packaging today, the
+  packaging mechanism (Burrito, Bakeware, or a hand-wrapped OTP release) is chosen
+  by a time-boxed v0.61 M0 spike that must prove an ERTS-bundled binary boots with
+  the `exqlite` SQLite NIF, the compiled web assets, and one source-tree plugin on
+  a Tier-1 OS with no toolchain present. The spike result selects the mechanism;
+  this ADR does not pre-commit one.
