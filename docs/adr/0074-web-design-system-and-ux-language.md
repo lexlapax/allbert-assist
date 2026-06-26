@@ -1,7 +1,7 @@
 # ADR 0074: Web Design System And UX Language
 
-Status: Proposed (v0.58); M13 implemented, M13.1B/E/F design-system remediation
-and M13.1G operator-validation precision closure complete before M14.
+Status: Accepted (v0.58). M13 + the M13.1 design-system remediation rounds are
+implemented and M14 manual operator validation passed (2026-06-25).
 Date: 2026-06-24
 Related: ADR 0023 (workspace canvas/ephemeral substrate — kept), ADR 0024 (live
 layout authority / zones — revised by v0.58), ADR 0030 (unified surface catalog +

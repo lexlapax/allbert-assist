@@ -5,7 +5,7 @@
 Accepted and implemented in v0.32 Workspace-Only App UI And Settings Central
 (`docs/plans/v0.32-plan.md`).
 
-Proposed revision (v0.58, 2026-06-24 rescope): execute the `/workspace` layout
+Accepted revision (v0.58): execute the `/workspace` layout
 revision on the v0.58 web design system, not as a one-off skin. `/workspace`
 becomes a **chat-primary** shell: chat is the main column with a collapsible left
 **Conversations** rail; ephemeral surfaces render as shared

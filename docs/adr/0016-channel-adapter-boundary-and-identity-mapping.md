@@ -21,7 +21,7 @@ channels: a list of entries mapping an external terminal profile id such as
 `"default"` to a local `user_id`, optionally disabled per entry. It must not
 introduce a terminal-only shorthand map or implicitly claim `"local"`.
 
-Proposed amendment (v0.58, 2026-06-24): the normalize → `Identity.resolve` →
+Accepted amendment (v0.58): the normalize → `Identity.resolve` →
 session-derive → spine → render → record-event methodology defined here is
 extended to **every** surface, not only channels (ADR 0073, Cross-Surface
 Contract). Non-channel surfaces — the web LiveView workspace (`surface_id:

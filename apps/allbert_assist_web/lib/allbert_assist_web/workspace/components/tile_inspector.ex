@@ -14,23 +14,19 @@ defmodule AllbertAssistWeb.Workspace.Components.TileInspector do
   def render(assigns) do
     ~H"""
     <div
-      class="workspace-approval-overlay workspace-tile-inspector-overlay"
-      data-workspace-pattern="modal"
-      data-state="open"
-      aria-hidden="false"
+      class={Patterns.modal_overlay_class("workspace-tile-inspector-overlay")}
+      {Patterns.modal_overlay_attrs()}
     >
       <section
         id="workspace-tile-inspector"
-        class="workspace-approval-modal workspace-tile-inspector-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="workspace-tile-inspector-title"
-        aria-describedby="workspace-tile-inspector-summary"
-        tabindex="-1"
-        phx-hook="FocusTrap"
-        phx-click-away="close_tile_inspector"
-        phx-window-keydown="close_tile_inspector"
-        phx-key="escape"
+        class={Patterns.modal_section_class("workspace-tile-inspector-modal")}
+        {Patterns.modal_section_attrs(
+          labelledby: "workspace-tile-inspector-title",
+          describedby: "workspace-tile-inspector-summary",
+          click_away_event: "close_tile_inspector",
+          dismiss_event: "close_tile_inspector",
+          dismiss_key: "escape"
+        )}
       >
         <header class="workspace-tile-inspector-header">
           <div class="workspace-tile-inspector-title-block">

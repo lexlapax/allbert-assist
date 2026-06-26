@@ -10,6 +10,60 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.58.0 - Surface Consistency, Settings Enforcement & Web Design System
+
+Status: M15 closeout complete on 2026-06-25; version metadata reports `0.58.0`.
+The release tag `v0.58.0` is applied separately per project convention.
+
+Plan: `docs/plans/v0.58-plan.md`. Request flow:
+`docs/plans/v0.58-request-flow.md`. ADRs:
+`docs/adr/0073-cross-surface-contract.md` and
+`docs/adr/0074-web-design-system-and-ux-language.md` (both Accepted), with v0.58
+amendments to ADR 0016/0030/0070 and a v0.58 revision to ADR 0024.
+
+### Added
+
+- Cross-surface contract: every surface (web, TUI, channels, Mix, public protocol,
+  Pi-mode) is a thin uniform view over one runtime/action/settings spine — one
+  `Surface.Renderer`, uniform inbound/rejection/error events keyed by `surface_id`,
+  `Identity.resolve` instead of hardcoded identity, action-backed operator reads,
+  and shared `Surfaces.ContextBuilder` / `Actions.Helper` invocation.
+- Settings Central enforcement: the known operator-tunable bypasses now resolve
+  through Settings Central, with a custom Credo guard that fails the build on direct
+  `System.get_env` / `Application.get_env` / web `Settings.get` operator-config reads.
+- Web design system: global design tokens, a prop-driven component-variant registry,
+  a shared pattern library (modal, status/error callouts, loading state, and
+  root-safe drawer/table contracts), one app shell, and the unified catalog as the
+  rendering boundary for every page (Jobs and Objectives folded in).
+- Chat-primary workspace re-layout with a collapsible Conversations rail and a
+  canvas drawer, plus operator panels (Intents, Settings/Models, Surface Policy)
+  backed by redacted v0.56 read-action DTOs and the operator-managed surface-policy
+  layer.
+- Redundancy consolidation of duplicated helper families into shared modules,
+  leaving a clean base for the v0.59 final cleanup.
+
+### Validation
+
+- Guided M14 manual operator validation passed S0-S6 on 2026-06-25 after correcting
+  three checklist defects found during the run (MCP tool listing targets the HTTP
+  surface, MCP missing-resource rejection captures the expected HTTP 404, and the S6
+  evidence secret-scan regex compiles under ripgrep).
+- `release.v058` passed through closeout with the surface-contract, settings-
+  enforcement, web-catalog/design, operator-panel/policy, redundancy-helper, and
+  `:v058` eval lanes plus a release-home secret scan.
+
+### Fixed
+
+- Six implementation-audit passes plus manual validation drove the M13.1A-G
+  remediation rounds: the home page now renders through the shell/token/variant
+  system; provider/model profile DTOs are source-redacted; ACP/MCP pre-dispatch
+  rejections are audited; residual direct web settings reads were removed; the
+  `:v058` eval gained behavioral assertions; surface-policy coverage was widened to
+  the named operator reads; and the drawer/table/modal patterns were consolidated to
+  single root-safe contracts with parity tests.
+- Fixed an operator-reachable `mix allbert.intent` crash that raised a `MatchError`
+  on rejected gate outcomes instead of rendering the rejection cleanly.
+
 ## v0.57.0 - Pi-Mode Coding Surface
 
 Status: released and tagged as `v0.57.0` on 2026-06-24. Current version metadata

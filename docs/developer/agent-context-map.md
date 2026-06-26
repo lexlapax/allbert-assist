@@ -57,7 +57,7 @@ release history mirror; use `CHANGELOG.md` for shipped details and
 | v0.55.1 | TUI operator/validation console with read-only slash allowlist. | ADR 0070, v0.55b docs, `docs/operator/tui-channel.md`. |
 | v0.56 | Intent descriptor learning, ADR 0071 routing-accuracy gate, ADR 0072 model recommendations, operator-action layer. | ADR 0062, ADR 0070-0072, v0.56 docs. |
 | v0.57 | Pi-mode coding surface on the one authority spine. | ADR 0068, v0.57 docs, `docs/operator/pi-mode-coding.md`. |
-| v0.58 | Pre-1.0 consolidation implemented through M14: surface contract, settings enforcement, web design system, operator panels, surface policy, redundancy cleanup, `:v058` eval rows, `release.v058`, and guided manual operator validation. Final implementation audit / M15 closeout is next. | ADR 0073/0074, ADR 0024 revision, `docs/developer/surface-contract.md`, `docs/developer/web-design-system.md`, `docs/operator/workspace.md`, v0.58 docs. |
+| v0.58 | Pre-1.0 consolidation: cross-surface contract (one renderer, events/audit by `surface_id`, identity resolution, action-backed reads), Settings Central enforcement, web design system, operator panels, surface policy, and redundancy cleanup. | ADR 0073/0074, ADR 0024 revision, `docs/developer/surface-contract.md`, `docs/developer/web-design-system.md`, `docs/operator/workspace.md`, v0.58 docs. |
 | v0.59 | Planned RC hardening: settings migration, ADR 0065 central param contracts, operator onboarding, security sweep, portability. | ADR 0046/0065/0069, v0.59 docs. |
 | v1.0 | Contract freeze. | v1.0 plan/request-flow and roadmap. |
 
@@ -83,27 +83,14 @@ Use `docs/developer/test-strategy.md` for the full contract.
 | Quick pure/local check | `mix allbert.test fast-local` |
 | High-coverage local check | `mix allbert.test fast-local --core-lanes --stocksage-lanes --web-lanes --partitions N` |
 | Release handoff | `mix allbert.test release` or the version-specific release lane. |
-| v0.58 release readiness | `mix allbert.test release.v058` plus request-flow S0-S6 operator validation passed; run the final implementation audit before M15 closeout. |
+| v0.58 release readiness | `mix allbert.test release.v058`, then the request-flow S0-S6 operator validation. |
 
 Primary lane labels: `pure_async`, `db_serial`, `db_partition_safe`,
 `app_env_serial`, `home_fs_serial`, `global_process_serial`, `liveview_serial`,
 `security_eval_serial`, and `external_runtime_serial`.
 
 ## Version specific Guidance
-This section is for temporary guidance while planning and implementing a specific version. 
-After or during release, the temporary in-flight guidance below for version specific guidance needs to be removed.
 
-### v0.58 Implementation Notes
-
-When working on v0.58:
-
-- read ADR 0073 and `docs/developer/surface-contract.md` before surface code;
-- read ADR 0074 and `docs/developer/web-design-system.md` before web UI code;
-- read `docs/operator/workspace.md` before operator-facing wording or validation;
-- use `mix allbert.test release.v058` as the deterministic v0.58 release handoff
-  gate and rerun it before any validation replay or closeout-changing fix;
-- keep public-protocol validation on public-safe tools and prove internal reads are
-  absent from MCP/OpenAI exposure;
-- use one warm TUI session for manual validation after setup;
-- do not pull v0.59 settings migration, ADR 0065 central param contracts, or
-  onboarding simplification into v0.58.
+This section holds temporary in-flight guidance while a specific version is being
+planned and implemented. It is cleared at release closeout; add the next version's
+working notes here when that work begins.

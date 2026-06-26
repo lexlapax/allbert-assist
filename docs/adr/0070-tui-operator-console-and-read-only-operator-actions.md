@@ -1,7 +1,7 @@
 # ADR 0070: TUI Operator Console And Read-Only Operator Actions
 
 Status: Accepted (v0.55.1).
-Proposed amendment (v0.58, 2026-06-24): the "operator operations are registered
+Accepted amendment (v0.58): the "operator operations are registered
 read-only actions; surfaces are thin views" discipline is extended to the **web**.
 The web workspace stops reading `Confirmations`/`Settings.Store` directly and
 routes operator reads (confirmations, settings, channels, intents, models, status)

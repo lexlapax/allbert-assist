@@ -1,37 +1,41 @@
 # Allbert Assist
 
-Allbert Assist is a local-first assistant runtime for long-running personal
-work — and, on the same spine, an operator/developer workspace with messaging
-channels and a persistent terminal console. It is built as an Elixir/Phoenix
-umbrella application around supervised OTP processes, Jido actions and agents,
-durable confirmations, Security Central, Settings Central, markdown-first
-memory, Allbert Home, and inspectable runtime traces.
+Allbert Assist is a local-first personal AI assistant workspace.
 
-Its posture is a minimal inner loop on a structured authority spine: a small
-system prompt and a few default tools (the rest disclosed lazily) drive each
-turn, while every side effect still resolves through a validated,
-permission-checked action.
+It is designed for people who want an assistant they can run, inspect, configure,
+and grow over time. Allbert can hold conversations, remember operator-reviewed
+information, route requests to approved capabilities, ask for confirmation before
+sensitive work, and keep records of what happened.
 
-Phoenix LiveView, Mix tasks, messaging channels, a persistent terminal/TUI
-console, Pi-mode coding, and plugin apps are operator surfaces over the runtime.
-Pi-mode is a gated terminal coding loop on Allbert's authority boundary, never a
-separate unguarded harness. The center of the system is the signal-driven
-assistant runtime and its registered action boundary.
+Allbert is not just a chatbot with tools attached. Its core idea is that every
+surface — the web workspace, terminal/TUI, CLI tasks, channels, plugins, and
+public protocol endpoints — should go through the same runtime, settings,
+security, confirmation, and trace system. Asking from the browser or asking from
+the terminal should not create a different authority model.
 
 ## Why It Exists
 
-Allbert exists to make a personal assistant that is useful without becoming
-opaque. It keeps local data local, requires explicit confirmation for sensitive
-work, records what happened, and treats apps and plugins as reviewed
-extensions rather than unchecked authority.
+Most agent systems become hard to understand as they gain tools, plugins, memory,
+background jobs, and external connections. Allbert exists to make that growth
+inspectable.
 
-The project direction is intentionally practical: ship small, auditable
-contracts; prove each one through a real app; then make those contracts easier
-to generate and reuse.
+The project is built around a few practical rules:
+
+- Keep local data local by default.
+- Make memory readable and reviewable.
+- Put side effects behind named actions.
+- Ask for confirmation when work is sensitive.
+- Record traces and events so the operator can see what happened.
+- Treat plugins, generated capabilities, and app surfaces as reviewed extensions,
+  not automatic permission grants.
+
+The long-term goal is a personal assistant that can grow with its user without
+becoming opaque or unbounded.
 
 ## Current Shape
 
-The current released version is `v0.57.0`, tagged on 2026-06-24. This README is
+The current released version is `v0.58.0` (M15 closeout 2026-06-25; the release
+tag is applied separately per project convention). This README is
 the stable project orientation;
 release-by-release implementation detail belongs in
 [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in

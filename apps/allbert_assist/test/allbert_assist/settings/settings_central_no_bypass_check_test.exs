@@ -103,6 +103,38 @@ defmodule AllbertAssist.SettingsCentralNoBypassCheckTest do
              |> SettingsCentralNoBypass.run([])
   end
 
+  test "flags unknown non-ALLBERT operator env reads in production source" do
+    source = """
+    defmodule Example.NovelEnvBypass do
+      def toggle, do: System.get_env("OPERATOR_FEATURE_TOGGLE")
+    end
+    """
+
+    issues =
+      source
+      |> SourceFile.parse("apps/allbert_assist/lib/example_novel_env_bypass.ex")
+      |> SettingsCentralNoBypass.run([])
+
+    assert Enum.any?(issues, &(&1.trigger == ~s("OPERATOR_FEATURE_TOGGLE")))
+  end
+
+  test "flags single-segment operator setting keys matching a known namespace root" do
+    source = """
+    defmodule Example.SingleSegmentSettingBypass do
+      def setting, do: Application.get_env(:allbert_assist, "runtime")
+    end
+    """
+
+    issues =
+      source
+      |> SourceFile.parse(
+        "apps/allbert_assist/lib/example_single_segment_setting_bypass.ex"
+      )
+      |> SettingsCentralNoBypass.run([])
+
+    assert Enum.any?(issues, &(&1.trigger == "Application.get_env" and &1.message =~ "runtime"))
+  end
+
   test "flags direct Settings.get reads in web production source" do
     source = """
     defmodule AllbertAssistWeb.Components.BadSettingsRead do

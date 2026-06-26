@@ -79,7 +79,7 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
   defp issues_for_line({line_no, line}, source_file, lines_by_no, issue_meta, params) do
     [
       env_issue(line, line_no, issue_meta, params),
-      unknown_allbert_env_issue(line, line_no, issue_meta, params),
+      unknown_env_issue(line, line_no, issue_meta, params),
       application_setting_issue(line, line_no, lines_by_no, issue_meta, params),
       web_direct_settings_read_issue(line, line_no, source_file, issue_meta),
       web_infra_config_issue(line, line_no, source_file, issue_meta),
@@ -107,8 +107,8 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
     end
   end
 
-  defp unknown_allbert_env_issue(line, line_no, issue_meta, params) do
-    with env_var when is_binary(env_var) <- allbert_env_literal(line),
+  defp unknown_env_issue(line, line_no, issue_meta, params) do
+    with env_var when is_binary(env_var) <- env_var_literal(line),
          false <- listed_env_var?(env_var, :operator_env_vars, params),
          false <- listed_env_var?(env_var, :allowed_infra_env_vars, params) do
       issue_for(
@@ -126,13 +126,12 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
   defp application_setting_issue(line, line_no, lines_by_no, issue_meta, params) do
     if String.contains?(line, "Application.get_env") do
       window = line_window(lines_by_no, line_no)
+      setting_keys = Params.get(params, :operator_setting_keys, __MODULE__)
 
       setting_key =
-        params
-        |> Params.get(:operator_setting_keys, __MODULE__)
-        |> Enum.find(&String.contains?(window, inspect(&1)))
-
-      setting_key = setting_key || dotted_setting_key(window)
+        Enum.find(setting_keys, &String.contains?(window, inspect(&1))) ||
+          dotted_setting_key(window) ||
+          single_segment_setting_key(line, setting_keys)
 
       if setting_key do
         issue_for(
@@ -214,9 +213,9 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
     if String.contains?(line, "System.get_env"), do: "System.get_env", else: "Application.get_env"
   end
 
-  defp allbert_env_literal(line) do
+  defp env_var_literal(line) do
     if String.contains?(line, "System.get_env") do
-      case Regex.run(~r/System\.get_env\(\s*"((?:ALLBERT_)[A-Z0-9_]+)"/, line) do
+      case Regex.run(~r/System\.get_env\(\s*"([A-Z][A-Z0-9_]*)"/, line) do
         [_match, env_var] -> env_var
         _other -> nil
       end
@@ -234,6 +233,16 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
       [_match, key] -> key
       _other -> nil
     end
+  end
+
+  # Catch a single-segment operator key (no dot) that matches a known Settings
+  # Central namespace root, e.g. `Application.get_env(:app, "runtime")`. Matched
+  # on the trigger line only so unrelated config windows are not flagged.
+  defp single_segment_setting_key(line, setting_keys) do
+    setting_keys
+    |> Enum.map(&(&1 |> String.split(".") |> hd()))
+    |> Enum.uniq()
+    |> Enum.find(&String.contains?(line, inspect(&1)))
   end
 
   defp trace_source_file?(filename),

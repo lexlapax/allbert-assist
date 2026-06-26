@@ -134,6 +134,51 @@ defmodule AllbertAssistWeb.Workspace.Components.PatternsTest do
     assert Patterns.table_column_attrs() == [{"data-workspace-pattern", "table-column"}]
   end
 
+  test "modal contract helpers expose root-safe attrs for stateful and stateless renderers" do
+    assert Patterns.modal_overlay_class("workspace-tile-inspector-overlay") == [
+             "workspace-approval-overlay",
+             "workspace-tile-inspector-overlay"
+           ]
+
+    assert Patterns.modal_overlay_attrs() == [
+             {"data-workspace-pattern", "modal"},
+             {"data-state", "open"},
+             {"aria-hidden", "false"}
+           ]
+
+    assert Patterns.modal_section_class("workspace-tile-inspector-modal") == [
+             "workspace-approval-modal",
+             "workspace-tile-inspector-modal"
+           ]
+
+    assert Patterns.modal_section_attrs(
+             labelledby: "title",
+             describedby: "summary",
+             click_away_event: "close_tile_inspector",
+             dismiss_event: "close_tile_inspector"
+           ) == [
+             {"role", "dialog"},
+             {"aria-modal", "true"},
+             {"aria-labelledby", "title"},
+             {"aria-describedby", "summary"},
+             {"tabindex", "-1"},
+             {"phx-hook", "FocusTrap"},
+             {"phx-click-away", "close_tile_inspector"},
+             {"phx-window-keydown", "close_tile_inspector"},
+             {"phx-key", "escape"}
+           ]
+
+    # Optional attrs drop out when absent, so callers never emit empty bindings.
+    assert Patterns.modal_section_attrs(labelledby: "title") == [
+             {"role", "dialog"},
+             {"aria-modal", "true"},
+             {"aria-labelledby", "title"},
+             {"tabindex", "-1"},
+             {"phx-hook", "FocusTrap"},
+             {"phx-key", "escape"}
+           ]
+  end
+
   test "status badge selects tone from props" do
     html =
       render_component(Renderer,

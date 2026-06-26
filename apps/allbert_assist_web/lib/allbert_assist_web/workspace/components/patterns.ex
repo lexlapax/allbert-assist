@@ -180,6 +180,38 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
   @doc "Returns root-safe attrs for stateful or stateless table column renderers."
   def table_column_attrs, do: [{"data-workspace-pattern", "table-column"}]
 
+  @doc "Returns the canonical class list for the shared modal overlay contract."
+  def modal_overlay_class(extra_class \\ nil), do: ["workspace-approval-overlay", extra_class]
+
+  @doc "Returns root-safe attrs for the shared modal overlay element."
+  def modal_overlay_attrs do
+    [
+      {"data-workspace-pattern", "modal"},
+      {"data-state", "open"},
+      {"aria-hidden", "false"}
+    ]
+  end
+
+  @doc "Returns the canonical class list for the shared modal dialog contract."
+  def modal_section_class(extra_class \\ nil), do: ["workspace-approval-modal", extra_class]
+
+  @doc "Returns root-safe attrs for stateful or stateless modal dialog renderers."
+  def modal_section_attrs(opts) do
+    [
+      {"role", "dialog"},
+      {"aria-modal", "true"},
+      {"aria-labelledby", Keyword.fetch!(opts, :labelledby)},
+      {"aria-describedby", Keyword.get(opts, :describedby)},
+      {"tabindex", "-1"},
+      {"phx-hook", "FocusTrap"},
+      {"phx-click-away", Keyword.get(opts, :click_away_event)},
+      {"phx-window-keydown", Keyword.get(opts, :dismiss_event)},
+      {"phx-key", Keyword.get(opts, :dismiss_key, "escape")},
+      {"phx-value-surface-id", Keyword.get(opts, :surface_id)}
+    ]
+    |> compact_attrs()
+  end
+
   attr :id, :string, required: true
   attr :title, :string, required: true
   attr :summary, :string, default: nil
@@ -311,26 +343,18 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
       |> assign(:dismiss_key, dismiss_key(assigns))
 
     ~H"""
-    <div
-      id={@overlay_id}
-      class={["workspace-approval-overlay", @overlay_class]}
-      data-workspace-pattern="modal"
-      data-state="open"
-      aria-hidden="false"
-    >
+    <div id={@overlay_id} class={modal_overlay_class(@overlay_class)} {modal_overlay_attrs()}>
       <section
         id={@id}
-        class={["workspace-approval-modal", @class]}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={@labelledby}
-        aria-describedby={@describedby}
-        tabindex="-1"
-        phx-hook="FocusTrap"
-        phx-click-away={@click_away_event}
-        phx-window-keydown={@dismiss_event}
-        phx-key={@dismiss_key}
-        phx-value-surface-id={@surface_id}
+        class={modal_section_class(@class)}
+        {modal_section_attrs(
+          labelledby: @labelledby,
+          describedby: @describedby,
+          click_away_event: @click_away_event,
+          dismiss_event: @dismiss_event,
+          dismiss_key: @dismiss_key,
+          surface_id: @surface_id
+        )}
       >
         {render_slot(@inner_block)}
       </section>

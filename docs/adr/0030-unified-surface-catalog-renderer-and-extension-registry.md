@@ -5,7 +5,7 @@
 Accepted in v0.31 M7 Runtime And UI-Substrate Consolidation
 (`docs/plans/v0.31-plan.md`).
 
-Proposed amendment (v0.58, 2026-06-24): the unified catalog becomes the rendering
+Accepted amendment (v0.58): the unified catalog becomes the rendering
 boundary for **every** web page, not only the workspace. The Jobs and Objectives
 LiveViews — which currently render hand-rolled HEEx outside the catalog — are
 folded into the catalog inside one shared app shell, and the new Intents,
