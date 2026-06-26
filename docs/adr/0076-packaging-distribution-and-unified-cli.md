@@ -1,13 +1,13 @@
 # ADR 0076: Packaging, Distribution & Unified CLI Entry Points
 
-Status: Proposed (v0.62).
+Status: Proposed (v0.61).
 Date: 2026-06-25
 Related: ADR 0070 (TUI operator console — this completes its mix-free
 convergence), ADR 0067 (TUI/terminal channel), ADR 0004 / ADR 0031 (Settings
-Central), ADR 0069 (onboarding — the vault-ready credential UX lands its OS vault
-here), ADR 0006 (Security Central — packaging changes how Allbert is installed and
-invoked, not what any surface may do), and the Allbert Home layout decisions.
-Anchors the v0.62 Packaging & Entry Points release.
+Central), ADR 0069 (onboarding — v0.62 builds on the entry points and vault
+model defined here), ADR 0006 (Security Central — packaging changes how Allbert
+is installed and invoked, not what any surface may do), and the Allbert Home
+layout decisions. Anchors the v0.61 Packaging & Entry Points release.
 
 ## Context
 
@@ -15,15 +15,15 @@ Allbert is **mix-only** today. The v0.58 maturity review confirmed: no escript, 
 `releases:`, no Burrito/Bakeware, no `rel/`, no install script, no Homebrew, no
 Docker. A new user needs a git checkout plus the full Elixir/OTP toolchain, and
 the start path is `mix setup` → `mix phx.server` / `mix allbert.onboard`. There
-are ~48 flat `mix allbert.*` tasks with no unified binary, no grouped `--help`,
+are 53 flat Mix tasks at the v0.58 closeout review, with no unified binary, no grouped `--help`,
 and operator commands intermixed with developer/CI commands.
 
 For the technical-prosumer 1.0 audience, the toolchain requirement is the
 **dominant adoption blocker** — the exact friction that gets powerful-but-
 Docker/dev-required tools penalized in every 2026 comparison, while packaged
 binaries with one-command install (LM Studio, Jan, OpenClaw, Hermes) win on
-first value. This is the last release that reshapes Allbert Home layout and entry
-points, so it lands immediately before the v1.0 freeze.
+first value. This release reshapes Allbert Home layout and entry points before
+guided onboarding and the v0.63 product RC lock in the first-run flow.
 
 ## Decision
 
@@ -41,22 +41,23 @@ points, so it lands immediately before the v1.0 freeze.
    absorbs the remaining admin-inspection reads so operators never need raw `mix`
    for day-to-day operation.
 5. **OS secret-vault.** Credential storage moves to the OS keychain / secret
-   service, injected at launch, swapping in under the v0.61 vault-ready credential
-   UX (ADR 0069).
+   service, injected at launch, so the v0.62 onboarding wizard can teach the
+   final credential path instead of a temporary one.
 
 ## Consequences
 
 - **Toolchain-free install** — the v1.0 acceptance-matrix install criterion
    becomes achievable for a non-developer-toolchain user.
 - The packaged binary and the grouped CLI surface become **Tier-1 freeze
-   candidates** at v1.0; settling them here (the last entry-point churn) is what
+   candidates** at v1.0; settling them before onboarding and product RC is what
    makes the freeze meaningful.
 - **No authority change.** Packaging changes how Allbert is installed and invoked;
    it does not change what any surface may do. Security Central, confirmations, and
    the action boundary are unchanged; the `mix` tasks remain available for
    development.
 - Allbert Home layout may shift to accommodate packaged-install paths and the OS
-   vault — done here, before the freeze locks the layout.
+   vault — done here, before guided onboarding and product RC lock the
+   user-facing flow.
 
 ## Non-goals and guardrails
 

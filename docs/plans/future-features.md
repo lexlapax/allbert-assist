@@ -356,7 +356,7 @@ Still parked:
 
 Status: parked.
 
-The browser workspace remains the operator UI through v1.0. Note: v0.62 ships a
+The browser workspace remains the operator UI through v1.0. Note: v0.61 ships a
 packaged `allbert` **binary** (a release-built CLI + `serve` daemon with a
 Homebrew/curl install path, ADR 0076) — that is distribution of the existing
 surfaces, not a native GUI shell. The native GUI app below stays parked.

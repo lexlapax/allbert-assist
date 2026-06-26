@@ -1,15 +1,16 @@
 # ADR 0069: Guided Onboarding Flow
 
-Status: Proposed (v0.61). Re-scoped 2026-06-25 from a v0.59 TUI-only "sequence the
+Status: Proposed (v0.62). Re-scoped 2026-06-25 from a v0.59 TUI-only "sequence the
 existing steps" hardening sliver into a real guided-onboarding capability for the
-v0.61 Onboarding & Profiles release.
+v0.62 Guided Onboarding & Profiles release.
 Date: 2026-06-21 (re-scoped 2026-06-25)
 Related: ADR 0074 (web design system — the web wizard renders through it),
 ADR 0067 (TUI/terminal channel — the CLI/terminal wizard surface), ADR 0075
-(user-category settings profiles — onboarding applies them), ADR 0006 (Security
-Central — onboarding grants no authority), the Settings Central decisions
-(settings still flow through Settings Central), and the existing secrets,
-channel-pairing, provider/model, and `doctor` flows this wizard drives.
+(user-category settings profiles — onboarding applies them), ADR 0076
+(packaging and the final `allbert` entry points onboarding teaches), ADR 0006
+(Security Central — onboarding grants no authority), the Settings Central
+decisions (settings still flow through Settings Central), and the existing
+secrets, channel-pairing, provider/model, and `doctor` flows this wizard drives.
 
 ## Context
 
@@ -19,7 +20,7 @@ pairing, and a `doctor` diagnostic. The original v0.59 framing treated onboardin
 as *sequencing* those existing steps — explicitly "hardening, not a new
 capability," surfaced only through the TUI.
 
-Two things changed that framing for the v0.61 product release:
+Two things changed that framing for the v0.62 product release:
 
 1. **The competitive bar.** A 2026 review found a guided, two-track onboarding
    wizard (QuickStart vs Advanced, with a "fastest first chat" path) is now table
@@ -37,7 +38,7 @@ not a polish sliver.
 
 ## Decision
 
-Build a real **guided onboarding wizard** as a first-class v0.61 capability,
+Build a real **guided onboarding wizard** as a first-class v0.62 capability,
 surfaced on **two** surfaces over the same underlying flow:
 
 - **Web** (ADR 0074): auto-launched on first run, the primary surface.
@@ -80,9 +81,10 @@ the differentiator the autonomous-agent competitors cannot copy.
   applies profile presets only through Settings Central; it is not a configuration
   side channel. Secrets, provider/model, channel pairing, and `doctor` remain the
   authoritative flows the wizard drives.
-- **Credential UX is vault-ready.** Masked-key entry writes through the existing
-  encrypted secrets store now, and is designed so the v0.62 OS secret-vault
-  (packaging ADR) swaps in underneath without reworking the wizard.
-- **Depends on v0.60 and ADR 0075.** The web wizard builds on the v0.60 UX
-  affordances (empty states, suggested actions); profile application depends on
-  the user-category profile system (ADR 0075).
+- **Credential UX uses the OS vault.** Masked-key entry writes through the v0.61
+  OS-vault reference model: Settings Central stores references, the OS vault
+  stores secret values.
+- **Depends on v0.60, v0.61, and ADR 0075.** The web wizard builds on the
+  v0.60 UX affordances (empty states, suggested actions), teaches the packaged
+  v0.61 `allbert` entry points, and profile application depends on the
+  user-category profile system (ADR 0075).

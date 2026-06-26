@@ -36,7 +36,8 @@ becoming opaque or unbounded.
 
 The current release is `v0.58.0`. v0.58 is mainly a consolidation release: it
 makes Allbert's surfaces, settings, web UI patterns, operator panels, and release
-gates more consistent before the v0.59 hardening pass and the 1.0 freeze.
+gates more consistent before the v0.59 hardening pass and the remaining
+pre-1.0 product-readiness releases.
 
 This README is the stable project orientation; release-by-release implementation
 detail belongs in [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in

@@ -109,12 +109,12 @@ this system, not as a separate one-off re-skin.
 
 Proposed amendment (v0.60). The v0.58 work delivered a strong token and
 accessibility *substrate* under an operator-utility *surface*. The v0.58 maturity
-review found the gap: zero animations, brand identity effectively absent (the
-shipped logo is the stock Phoenix asset and is not even used in-product), a thin
-landing page, no marketing surface, a flat visual hierarchy, and `system` dark
-mode that falls back to light. v0.60 turns the substrate into a polished product
-surface for the technical-prosumer 1.0 audience, without changing authority or the
-catalog rendering boundary:
+review found the gap: no coherent product motion layer yet, brand identity
+effectively absent, a thin landing page, no marketing surface, a flat visual
+hierarchy, and `system` dark mode that needs explicit OS-preference validation
+across shell/page roots. v0.60 turns the substrate into a polished product
+surface for the technical-prosumer 1.0 audience, without changing authority or
+the catalog rendering boundary:
 
 - **Brand identity** — a real logo/wordmark applied across the shell and a real
   landing surface, retiring the stock framework logo.
@@ -126,7 +126,7 @@ catalog rendering boundary:
 - **Landing/marketing surface** — a real `/` with SEO/OG metadata, replacing the
   ADR-accepted thin-landing exception.
 - **Suggested-action affordances** — "what can I do" entry points on empty/first
-  workspace views (these also seat the v0.61 onboarding wizard).
+  workspace views (these also seat the v0.62 onboarding wizard).
 - **OS dark-mode resolution** so `system` honors the OS preference for app tokens.
 
 Guardrails unchanged: no model-generated UI, no internal rename, no new routes

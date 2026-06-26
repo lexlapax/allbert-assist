@@ -1,12 +1,12 @@
 # ADR 0075: User-Category Settings Profiles (Personas)
 
-Status: Proposed (v0.61).
+Status: Proposed (v0.62).
 Date: 2026-06-25
 Related: ADR 0004 / ADR 0031 (Settings Central — profiles seed defaults through
 it and nowhere else), ADR 0069 (guided onboarding — the primary place a profile
 is applied), ADR 0072 (model recommendations — profiles reference recommended
 model purposes), ADR 0006 (Security Central — profiles grant no authority).
-Anchors the v0.61 "profiles" half of Onboarding & Profiles.
+Anchors the v0.62 "profiles" half of Guided Onboarding & Profiles.
 
 ## Context
 
