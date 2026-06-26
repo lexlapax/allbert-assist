@@ -104,3 +104,32 @@ this system, not as a separate one-off re-skin.
 - This ADR supersedes the narrow "re-skin only" framing of the prior v0.58 plan
   while keeping all of its concrete moves (chat-primary, modal ephemerals, canvas
   demotion, Conversations relabel, the v0.56 DTO panels, the surface-policy layer).
+
+## v0.60 Amendment: Professional UX & Brand Pass
+
+Proposed amendment (v0.60). The v0.58 work delivered a strong token and
+accessibility *substrate* under an operator-utility *surface*. The v0.58 maturity
+review found the gap: zero animations, brand identity effectively absent (the
+shipped logo is the stock Phoenix asset and is not even used in-product), a thin
+landing page, no marketing surface, a flat visual hierarchy, and `system` dark
+mode that falls back to light. v0.60 turns the substrate into a polished product
+surface for the technical-prosumer 1.0 audience, without changing authority or the
+catalog rendering boundary:
+
+- **Brand identity** — a real logo/wordmark applied across the shell and a real
+  landing surface, retiring the stock framework logo.
+- **Motion layer** — entrance/drawer/skeleton transitions over the existing token
+  scales, gated by the reduced-motion axis already in the token system.
+- **Visual-hierarchy craft pass** — depth, emphasis, density, and populated
+  empty/first-run states across `/workspace`, `/jobs`, `/objectives`, and the
+  operator panels.
+- **Landing/marketing surface** — a real `/` with SEO/OG metadata, replacing the
+  ADR-accepted thin-landing exception.
+- **Suggested-action affordances** — "what can I do" entry points on empty/first
+  workspace views (these also seat the v0.61 onboarding wizard).
+- **OS dark-mode resolution** so `system` honors the OS preference for app tokens.
+
+Guardrails unchanged: no model-generated UI, no internal rename, no new routes
+beyond the landing surface, the catalog stays the rendering boundary (ADR 0030),
+and authority is untouched. This amendment is the web-design-system contract that
+freezes (with its additive-only carve-out) at v1.0.

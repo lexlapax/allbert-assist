@@ -1,52 +1,88 @@
-# ADR 0069: Operator Onboarding Flow
+# ADR 0069: Guided Onboarding Flow
 
-Status: Proposed (v0.59).
-Date: 2026-06-21
-Related: ADR 0067 (TUI/terminal channel — the surface this flow is presented
-through), ADR 0006 (Security Central — onboarding grants no authority), the
-Settings Central decisions (settings still flow through Settings Central), and
-the existing secrets, channel-pairing, and `doctor` flows this hardens.
+Status: Proposed (v0.61). Re-scoped 2026-06-25 from a v0.59 TUI-only "sequence the
+existing steps" hardening sliver into a real guided-onboarding capability for the
+v0.61 Onboarding & Profiles release.
+Date: 2026-06-21 (re-scoped 2026-06-25)
+Related: ADR 0074 (web design system — the web wizard renders through it),
+ADR 0067 (TUI/terminal channel — the CLI/terminal wizard surface), ADR 0075
+(user-category settings profiles — onboarding applies them), ADR 0006 (Security
+Central — onboarding grants no authority), the Settings Central decisions
+(settings still flow through Settings Central), and the existing secrets,
+channel-pairing, provider/model, and `doctor` flows this wizard drives.
 
 ## Context
 
 Allbert already has the pieces an operator needs to get running: settings
-(through Settings Central), secrets handling, channel pairing, and a `doctor`
-diagnostic flow. What it lacks is a coherent **first-run path** that walks a new
-operator through those pieces in order. Today the steps exist but are discovered
-piecemeal — an operator has to know which setting to set, which secret to
-provide, which channel to pair, and to run `doctor` to find out what is still
-missing. That is friction, not a missing capability.
+(through Settings Central), secrets handling, provider/model selection, channel
+pairing, and a `doctor` diagnostic. The original v0.59 framing treated onboarding
+as *sequencing* those existing steps — explicitly "hardening, not a new
+capability," surfaced only through the TUI.
 
-The v0.55 terminal channel (ADR 0067) now gives Allbert a real, persistent,
-identity-mapped local surface that can host a guided interactive flow — the
-natural place to present onboarding without inventing a new surface.
+Two things changed that framing for the v0.61 product release:
+
+1. **The competitive bar.** A 2026 review found a guided, two-track onboarding
+   wizard (QuickStart vs Advanced, with a "fastest first chat" path) is now table
+   stakes for local-first assistants — OpenClaw's install wizard and Claude
+   Desktop's opinionated-preset onboarding are the reference. A blank field or a
+   list of steps to run yourself reads as sub-1.0 for a non-trivial first-run.
+2. **The current state.** The v0.58 maturity review found Allbert's onboarding is
+   prototype-grade: `mix allbert.onboard` is *not* interactive (it prints
+   copy-paste shell commands), the web onboarding panel is not auto-launched on
+   first run, credential entry is punted to a separate form, and there are no
+   user-category presets. The pieces exist; the *experience* does not.
+
+For the technical-prosumer 1.0 audience, onboarding is a genuine capability gap,
+not a polish sliver.
 
 ## Decision
 
-Introduce a guided **operator onboarding flow**: a first-run/setup path that makes
-operator onboarding genuinely easy by sequencing the operator through the
-existing settings, secrets, channel-pairing, and `doctor` steps.
+Build a real **guided onboarding wizard** as a first-class v0.61 capability,
+surfaced on **two** surfaces over the same underlying flow:
 
-This is framed deliberately as **hardening and polish of existing paths, not a
-new user-facing capability**. The flow layers **over** the settings, secrets,
-channel-pairing, and `doctor` flows that already exist; it orchestrates and
-presents them, it does not replace or duplicate them.
+- **Web** (ADR 0074): auto-launched on first run, the primary surface.
+- **Interactive CLI/TUI** (ADR 0067): a genuinely interactive terminal wizard —
+  prompts and verifies in place, not copy-paste shell commands.
 
-The flow is surfaced through the **v0.55 TUI/terminal channel (ADR 0067)** — the
-guided first-run experience runs as an interactive terminal flow on that channel
-rather than as a separate surface or a new runtime.
+The wizard is **two-track**:
+
+- **QuickStart** — sensible defaults, the fewest decisions, and a **"fastest first
+  chat"** path that skips channel/integration setup and gets to a working
+  conversation immediately.
+- **Advanced** — full control over provider, model, channels, and profile.
+
+It covers, with opinionated defaults at each step:
+
+1. **Provider/model setup** as a first-class step — masked-key entry, **inline
+   `doctor` verification**, local (Ollama) and hosted (OpenAI/Anthropic/
+   OpenRouter) options, switchable without editing config.
+2. **User-category profile selection** (ADR 0075): the operator picks a persona
+   (researcher / developer / writer / ops / general) and the wizard applies the
+   repo-maintained preset — seeding Settings Central defaults plus suggested apps,
+   channels, and intents — with an explicit review step.
+3. Optional channel pairing and integration setup (skipped on the fast path).
+4. A health-check confirmation the operator can *see* succeed.
+
+The wizard **surfaces the trust spine as a feature**: it presents the
+confirmation/permission/trace model as the safety property it is, not as friction —
+the differentiator the autonomous-agent competitors cannot copy.
 
 ## Consequences
 
-- **Depends on the TUI channel.** Onboarding is presented through the v0.55
-  terminal channel (ADR 0067); it has no surface of its own.
-- **No new authority.** The flow only sequences and presents existing steps. It
-  grants no new authority and adds no new effectful capability — Security Central
-  (ADR 0006) and every existing gate are unchanged.
-- **Settings still flow through Settings Central.** Onboarding writes settings
-  only through Settings Central; it is not a side channel for configuration. The
-  same holds for secrets, channel pairing, and `doctor`, which remain the
-  authoritative flows the onboarding path orchestrates.
-- Operator first-run friction drops without expanding the surface area of what
-  Allbert can do — the value is in legibility and sequencing of paths that
-  already exist.
+- **Two surfaces, one flow.** The web wizard (ADR 0074) and the interactive
+  CLI/TUI wizard (ADR 0067) drive the same underlying onboarding steps; neither
+  forks the logic.
+- **A real capability, not just sequencing.** Unlike the v0.59 framing, this adds
+  interactive provider/credential/profile flows and persona application — but it
+  still adds **no new authority**: every effectful step routes through the existing
+  gates, Security Central (ADR 0006) is unchanged, and profiles seed defaults only.
+- **Settings still flow through Settings Central.** Onboarding writes settings and
+  applies profile presets only through Settings Central; it is not a configuration
+  side channel. Secrets, provider/model, channel pairing, and `doctor` remain the
+  authoritative flows the wizard drives.
+- **Credential UX is vault-ready.** Masked-key entry writes through the existing
+  encrypted secrets store now, and is designed so the v0.62 OS secret-vault
+  (packaging ADR) swaps in underneath without reworking the wizard.
+- **Depends on v0.60 and ADR 0075.** The web wizard builds on the v0.60 UX
+  affordances (empty states, suggested actions); profile application depends on
+  the user-category profile system (ADR 0075).

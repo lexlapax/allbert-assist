@@ -376,21 +376,45 @@ scope.
     page), executes the chat-primary workspace and Intents/Settings-Models/
     Surface-Policy panels on that system, and consolidates redundant helpers.
     Preserves the original surface-policy goal as presentation governance only.
-59. v0.59 Hardening, export/import, settings schema migration substrate,
-    operator onboarding simplification, and final RC: no new user-facing
-    capability; Allbert Home portability, cross-surface security eval sweep,
-    operator docs, performance hardening, CSP reconciliation, settings schema
-    migration tool (per ADR 0046), central action param-contract enforcement
-    (M7, ADR 0065; precursor v0.54 ADR 0064), a genuinely easy first-run
-    operator onboarding path over the existing settings/secrets/channel-pairing/
-    doctor flows surfaced through the v0.55.1 TUI console (ADR 0069), and
-    release-candidate closeout.
-60. v1.0 Stability release and **tiered public contract freeze**: no new
-    features; freeze Tier 1 (Runtime, Actions/permissions, Plugin, App,
-    Settings Central schema shape, Allbert Home layout, Channel adapter
-    boundary, Resource Access URI/grants) and Tier 2 (SurfaceProvider, Surface
-    DSL with additive-only carve-out, workspace canvas/ephemeral substrate
-    minus single-consumer components).
+59. v0.59 Hardening, export/import, settings schema migration substrate, and
+    final RC: no new user-facing capability; Allbert Home portability,
+    cross-surface security eval sweep, operator docs, performance hardening, CSP
+    reconciliation, settings schema migration tool (per ADR 0046), and central
+    action param-contract enforcement (M7, ADR 0065; precursor v0.54 ADR 0064),
+    and release-candidate closeout. (The earlier first-run onboarding sliver is
+    pulled out of v0.59 and grown into a real capability in v0.61.)
+60. v0.60 Web UX Professional Pass: first of three pre-1.0 **product** releases
+    that turn the v0.58 design-system substrate into a polished product surface
+    for the technical-prosumer 1.0 audience. Brand identity (retire the stock
+    Phoenix logo), a motion layer, a visual-hierarchy craft pass across the
+    workspace and operator pages, a real landing/marketing surface with SEO/OG,
+    empty-state and suggested-action affordances, OS dark-mode resolution, and
+    companion-surface polish — the web workspace carries the desktop-UX weight
+    since a native client stays post-1.0. Extends ADR 0074; no authority change.
+61. v0.61 Onboarding & Profiles: a genuine guided onboarding as a real
+    capability (not just sequencing existing steps) — a two-track wizard
+    (QuickStart vs Advanced, plus a "fastest first chat" path) in both the web
+    (auto first-run) and an interactive CLI, provider/model setup with masked-key
+    entry and inline doctor, and **repo-maintained user-category profiles/personas**
+    (researcher, developer, writer, ops, general) that seed defaults and suggested
+    apps/channels/intents. Re-scopes ADR 0069 up and adds a persona-profile ADR;
+    surfaces the trust spine as a feature. No new authority.
+62. v0.62 Packaging & Entry Points: a packaged `allbert` binary (release-built,
+    no Elixir toolchain) with a Homebrew/curl install path, a unified grouped CLI
+    dispatcher (`ask|chat|tui|serve|admin|gen`), background-daemon management
+    (launchd/systemd), completion of the ADR 0070 mix-free TUI console
+    convergence, and OS secret-vault credential handling. The last release to
+    churn Allbert Home layout and entry points before the freeze; adds a
+    packaging/CLI ADR. No authority change.
+63. v1.0 Stability release, **tiered public contract freeze**, and **product
+    launch**: no new features; freeze Tier 1 (Runtime, Actions/permissions,
+    Plugin, App, Settings Central schema shape, Allbert Home layout, Channel
+    adapter boundary, Resource Access URI/grants) and Tier 2 (SurfaceProvider,
+    Surface DSL with additive-only carve-out, workspace canvas/ephemeral substrate
+    minus single-consumer components) — now meaningful because the v0.60-v0.62
+    product work settled the contracts first — plus the extended product
+    acceptance matrix (toolchain-free install, guided onboarding to first value,
+    persona-profile selection, professional-UX bar).
 
 `config.exs` remains deployment and boot configuration. It should not become
 the user/operator settings surface. `ALLBERT_HOME` is bootstrap configuration:
@@ -3634,8 +3658,9 @@ Plan: `docs/plans/v0.59-plan.md`
 Request flow: `docs/plans/v0.59-request-flow.md`
 ADR: `docs/adr/0046-settings-schema-migration-policy.md` (accepted here;
 drafted in v0.45); `docs/adr/0065-central-action-param-contract-enforcement.md`
-(Proposed; accept in v0.59 M7); `docs/adr/0069-operator-onboarding-flow.md`
-(Proposed; accept in v0.59 M8)
+(Proposed; accept in v0.59 M7). Operator onboarding is no longer a v0.59 sliver:
+it is re-scoped up into the v0.61 Onboarding &amp; Profiles release (ADR 0069), so
+v0.59 stays pure engineering hardening with no new user-facing capability.
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
 not implemented. Settings schema migration substrate added in the post-v0.37
@@ -3655,10 +3680,8 @@ Expected direction:
   per-fragment `schema_version`, additive-only between minor releases,
   one-release deprecation window, `mix allbert.settings.migrate` runner,
   operator-visible pending-migration report on boot.
-- **Make operator onboarding genuinely easy:** a guided first-run/setup path
-  over the *existing* settings, secrets, channel-pairing, and doctor flows —
-  framed as hardening/polish of paths that already exist, not a new capability —
-  surfaced through the v0.55.1 TUI console.
+- (Onboarding moved out of v0.59: the guided first-run experience is grown into
+  a real capability in v0.61, not a hardening sliver over existing flows.)
 - Run the full security eval sweep across MCP client, integrations, browser,
   channels (Discord/Slack and WhatsApp/Signal/Matrix), Plan/Build,
   marketplace, self-improvement, voice, vision, and the v0.51 public protocol
@@ -3668,40 +3691,144 @@ Expected direction:
   ADR 0064).
 - Gather final RC evidence for the v1.0 contract freeze.
 
-## v1.0: Stability Release And Public Contract Freeze
+## v0.60: Web UX Professional Pass
+
+Plan: `docs/plans/v0.60-plan.md`
+Request flow: `docs/plans/v0.60-request-flow.md`
+ADR: `docs/adr/0074-web-design-system-and-ux-language.md` (v0.60 amendment:
+brand identity, motion, marketing surface, and the professional craft pass).
+
+Status: planned (pre-1.0 product release 1 of 3). Builds directly on the v0.58
+design-system substrate (tokens, variant registry, pattern library, one shell,
+catalog). The v0.58 maturity review found a strong token/accessibility foundation
+under an operator-utility surface: zero animations, brand identity effectively
+absent (the shipped logo is the stock Phoenix asset), a thin landing page, no
+marketing surface, and a flat visual hierarchy. v0.60 closes that gap for the
+technical-prosumer 1.0 audience.
+
+Expected direction:
+
+- A real brand identity (logo/wordmark, applied across shell and landing),
+  retiring the stock framework logo.
+- A motion layer (entrance/drawer/skeleton transitions) over the existing token
+  scales, respecting the reduced-motion axis.
+- A visual-hierarchy craft pass across `/workspace`, `/jobs`, `/objectives`, and
+  the operator panels — depth, emphasis, density, and empty states.
+- A real landing/marketing surface at `/` with SEO/OG metadata, replacing the
+  ADR-accepted thin-landing exception.
+- Suggested-action and "what can I do" affordances on first/empty workspace views.
+- OS-driven dark mode that actually resolves app tokens (the current `system`
+  setting falls back to light).
+- No model-generated UI, no internal rename, no authority change; the catalog
+  stays the rendering boundary (ADR 0030/0074).
+
+## v0.61: Onboarding & Profiles
+
+Plan: `docs/plans/v0.61-plan.md`
+Request flow: `docs/plans/v0.61-request-flow.md`
+ADR: `docs/adr/0069-operator-onboarding-flow.md` (re-scoped up from
+sequencing-existing-steps to a real guided wizard); a new persona / user-category
+settings-profile ADR.
+
+Status: planned (pre-1.0 product release 2 of 3). Re-scopes the onboarding work
+pulled out of v0.59 into a genuine capability and adds repo-maintained user-
+category profiles. Builds on v0.60's affordances; the credential UX is designed
+vault-ready so v0.62's OS secret-vault swaps in rather than forcing a rebuild.
+
+Expected direction:
+
+- A two-track guided wizard — QuickStart (sensible defaults, fastest first chat)
+  vs Advanced (full control) — surfaced in both the web (auto-launched on first
+  run) and a genuinely interactive CLI (not copy-paste shell commands).
+- Provider/model setup as a first-class wizard step: masked-key entry, inline
+  doctor verification, local and hosted, switchable without config edits.
+- Repo-maintained user-category profiles/personas (researcher, developer, writer,
+  ops, general) that seed Settings Central defaults plus suggested apps, channels,
+  and intents; one-click preset apply with operator review.
+- The onboarding surfaces the trust spine as a feature: it shows the
+  confirmation/permission/trace model as safety, not friction.
+- No new authority; profiles seed defaults only and grant nothing; every
+  effectful step still routes through Security Central and confirmations.
+
+## v0.62: Packaging & Entry Points
+
+Plan: `docs/plans/v0.62-plan.md`
+Request flow: `docs/plans/v0.62-request-flow.md`
+ADR: a new packaging / distribution / unified-CLI ADR; completes the ADR 0070
+mix-free TUI operator console convergence.
+
+Status: planned (pre-1.0 product release 3 of 3). The last release to churn
+Allbert Home layout and entry points, so it lands immediately before the v1.0
+freeze. The v0.58 maturity review found no escript, release, installer, Homebrew,
+or Docker path — a new user needs a git checkout and the full Elixir/OTP
+toolchain — and ~48 flat `mix allbert.*` tasks with no unified binary.
+
+Expected direction:
+
+- A packaged `allbert` binary (release-built; no Elixir toolchain on the user's
+  machine) with a Homebrew/curl install path.
+- A unified, grouped CLI dispatcher (`allbert ask|chat|tui|serve|admin <area>|gen`)
+  that subsumes the flat mix-task sprawl, splitting operator from dev/CI commands.
+- Background-daemon management (launchd/systemd/Scheduled Task) with a health
+  check, plus an `allbert serve` story for the runtime + web + channels.
+- Completion of the ADR 0070 convergence so the mix-free TUI console absorbs the
+  remaining admin-inspection reads.
+- OS secret-vault credential handling, swapping in under the v0.61 vault-ready
+  credential UX.
+- No authority change; packaging changes how Allbert is installed and invoked,
+  not what any surface may do.
+
+## v1.0: Stability Release, Public Contract Freeze, And Product Launch
 
 Plan: `docs/plans/v1.0-plan.md`
 Request flow: `docs/plans/v1.0-request-flow.md`
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not implemented.
+Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not
+implemented. Re-scoped in the 2026-06-25 1.0 planning pass: the freeze now follows
+the v0.60-v0.62 product releases, so 1.0 is both the contract-stability commitment
+and the polished product launch for the technical-prosumer audience.
 
 Expected direction:
 
-- Add no new features.
+- Add no new features; the product capability ships in v0.60-v0.62.
 - Freeze public contracts for Runtime, actions, plugin/app/surface/resource
-  APIs, workspace canvas/ephemeral surfaces, channel adapters, Settings
-  Central, and Allbert Home layout.
-- Treat 1.0 as the stable platform commitment, not a feature ceiling.
+  APIs, workspace canvas/ephemeral surfaces, channel adapters, Settings Central,
+  and Allbert Home layout (tiered Tier 1 / Tier 2 per `v1.0-plan.md`).
+- Treat 1.0 as the stable platform commitment AND a product launch: it must pass
+  the extended product acceptance matrix below, not only the capability checks.
 
 ## v1.0 Strategic Frame And Acceptance Matrix
 
-Allbert is not behind OpenClaw or Hermes on architecture; it is ahead on
-architecture and behind on shipped capability. The v0.38-to-v1.0 arc is a
-delivery push over already-proven substrates: templates first, onboarding and
-provider control next, identity slot + Active Memory, then MCP client,
-MCP-first integrations, browser research, Plan/Build, marketplace seed,
-operator-supervised self-improvement, media, team channels, mobile channels,
-public protocol surfaces, hardening/export with settings migration, final RC
-evidence, and a tiered contract freeze.
+Allbert is ahead of OpenClaw and Hermes on architecture and behind on both
+shipped capability and product surface. A 2026 competitive review found that
+multi-surface operation, messaging channels, skills/subagents, and provider-
+agnostic models are now **table stakes** (OpenClaw and Hermes both ship them,
+with native desktop apps and guided install wizards) — not differentiators.
+Allbert's defensible 1.0 story is therefore **trust**: inspectability, a
+reviewed-plugin model, and a permissioned local authority spine on an OTP
+runtime — the one position the autonomous/self-hacking competitors structurally
+cannot copy.
+
+That story only lands if the product surface matches the now-expected bar:
+zero-friction guided onboarding, secret-vault credential handling, a packaged
+binary, and a polished web workspace. The 2026-06-25 1.0 planning pass therefore
+inserts **three product releases** (v0.60 web UX, v0.61 onboarding & profiles,
+v0.62 packaging & entry points) before the v1.0 freeze, and decouples "contract
+freeze" (an engineering milestone) from "1.0 product launch." The 1.0 audience is
+the **technical prosumer**: comfortable installing a binary and pasting a key, but
+expecting polish and guidance — not a git checkout. A full native desktop client
+remains post-1.0; the web workspace plus packaged binary carry the product weight.
 
 The strategic moat is the safety architecture (Security Central, durable
-confirmations, Resource Access posture, sandbox/gate runner, reversible
-dynamic loader). The 1.0 commitment is to add user-visible capability under
-that authority boundary without compromising it.
+confirmations, Resource Access posture, sandbox/gate runner, reversible dynamic
+loader). The 1.0 commitment is to make that architecture feel like a product
+advantage — surfaced through onboarding and UX as a safety feature — not a setup
+friction tax.
 
 ### 1.0 Acceptance Matrix (freeze-blocking)
 
-Tightened in the post-v0.37 planning pass to 8 criteria. Each item is a
+Tightened in the post-v0.37 planning pass to 8 capability criteria, then extended
+in the 2026-06-25 1.0 planning pass with 4 product criteria (9-12). Each item is a
 disposable-home checkpoint the release cannot ship without:
 
 1. First-run setup succeeds on macOS, Linux, and Windows/WSL2 (v0.39).
@@ -3721,6 +3848,16 @@ disposable-home checkpoint the release cannot ship without:
    identical behavior, including settings migration (v0.59 + ADR 0046).
 8. All warning, security, precommit, and cross-surface eval gates pass
    (v0.59).
+9. [product] A technical prosumer installs Allbert from a packaged binary
+   (Homebrew/curl) with no Elixir/OTP toolchain on their machine (v0.62).
+10. [product] A new user completes the guided onboarding wizard — provider/model
+    setup, a selected user-category profile, and a first useful chat — without
+    reading docs and without hand-editing config files (v0.61).
+11. [product] The web workspace meets the professional-UX bar: brand identity,
+    motion, coherent visual hierarchy, a real landing surface, and populated
+    empty states (v0.60).
+12. [product] A single `allbert` CLI binary exposes a coherent grouped command
+    surface and an `allbert serve` daemon path (v0.62).
 
 ### Capabilities That Ship In The Arc But Are Not Freeze-Blocking
 
