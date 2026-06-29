@@ -127,9 +127,7 @@ defmodule AllbertAssist.SettingsCentralNoBypassCheckTest do
 
     issues =
       source
-      |> SourceFile.parse(
-        "apps/allbert_assist/lib/example_single_segment_setting_bypass.ex"
-      )
+      |> SourceFile.parse("apps/allbert_assist/lib/example_single_segment_setting_bypass.ex")
       |> SettingsCentralNoBypass.run([])
 
     assert Enum.any?(issues, &(&1.trigger == "Application.get_env" and &1.message =~ "runtime"))

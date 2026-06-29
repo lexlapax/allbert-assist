@@ -3363,6 +3363,17 @@ defmodule Mix.Tasks.Allbert.Test do
       coverage: ["schema boot", "release-owned DATABASE_PATH"]
     },
     %{
+      id: "format_check",
+      title: "formatter check for v0.59 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["format", "--check-formatted"],
+      coverage: [
+        "formatter drift fails the v0.59 release handoff",
+        "formatter evidence is captured inside release.v059"
+      ]
+    },
+    %{
       id: "compile_warnings_as_errors",
       title: "compile v0.59 release candidate with warnings as errors",
       cwd: :root,

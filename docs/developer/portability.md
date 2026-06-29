@@ -20,6 +20,10 @@ The envelope must exclude secret-store files and values:
 - `settings/.settings_key`
 - plaintext provider keys, tokens, authorization headers, and endpoint values
 
+Provider-shaped secret values are redacted even when they appear under
+non-sensitive keys. Generic hex strings such as hashes, checksums, and file
+manifest digests are preserved unless their key path is sensitive.
+
 ## Dry-Run Import
 
 `AllbertAssist.Portability.Import.dry_run/2` reads an envelope, validates

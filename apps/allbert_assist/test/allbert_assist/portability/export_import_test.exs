@@ -63,13 +63,13 @@ defmodule AllbertAssist.Portability.ExportImportTest do
     assert Enum.any?(files, &(&1["path"] == "settings/secrets.yml.enc" and not &1["included"]))
     assert Enum.any?(files, &(&1["path"] == "settings/.settings_key" and not &1["included"]))
 
-    envelope_text = inspect(envelope)
+    envelope_text = Jason.encode!(envelope)
     refute envelope_text =~ "sk-test"
     refute envelope_text =~ "raw-secret"
     refute envelope_text =~ "http://127.0.0.1:9999/v1"
     refute envelope_text =~ google_api_key_fixture()
     refute envelope_text =~ aws_access_key_fixture()
-    refute envelope_text =~ String.duplicate("a", 64)
+    assert envelope_text =~ generic_hex_fixture()
   end
 
   test "secret-reference helper returns refs only, never values" do
@@ -159,14 +159,14 @@ defmodule AllbertAssist.Portability.ExportImportTest do
     assert {:ok, _settings} =
              Settings.write_user_settings(%{
                "operator" => %{
-                 "display_name" => "Audit #{google_api_key_fixture()}"
+                 "display_name" => "Audit #{google_api_key_fixture()} #{generic_hex_fixture()}"
                },
                "channels" => %{
                  "email" => %{"from_name" => "Audit #{aws_access_key_fixture()}"}
                },
                "voice" => %{
                  "local_runtime" => %{
-                   "stt_model_alias" => "Audit #{String.duplicate("a", 64)}"
+                   "stt_model_alias" => "Audit local"
                  }
                },
                "providers" => %{
@@ -202,6 +202,7 @@ defmodule AllbertAssist.Portability.ExportImportTest do
 
   defp google_api_key_fixture, do: "AI" <> "zaSyDUMMYSecretShapeForAudit59"
   defp aws_access_key_fixture, do: "AK" <> "IA1234567890ABCDEF"
+  defp generic_hex_fixture, do: String.duplicate("a", 64)
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)

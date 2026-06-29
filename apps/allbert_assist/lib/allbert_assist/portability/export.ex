@@ -19,8 +19,7 @@ defmodule AllbertAssist.Portability.Export do
   @secret_ref_pattern ~r/^secret:\/\/[A-Za-z0-9_\/.-]+$/
   @export_secret_value_patterns [
     ~r/\bAIza[0-9A-Za-z_-]{20,}\b/,
-    ~r/\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/,
-    ~r/\b[A-Fa-f0-9]{32,64}\b/
+    ~r/\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/
   ]
   @domain_roots %{
     "artifacts" => "artifacts",

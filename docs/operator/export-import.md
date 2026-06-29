@@ -30,7 +30,9 @@ redacted=true
 The envelope includes redacted user settings, per-fragment schema versions,
 secret-reference status rows, and a hashes-only Home file manifest. It excludes
 `settings/secrets.yml.enc`, `settings/.settings_key`, cache files, tmp files, and
-secret values.
+secret values. Provider-shaped secret values are redacted even under innocuous
+setting names; benign hashes/checksums remain visible unless their setting path is
+sensitive.
 
 ## Dry-Run Import
 
