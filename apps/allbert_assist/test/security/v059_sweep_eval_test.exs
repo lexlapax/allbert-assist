@@ -29,6 +29,7 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     self_improvement: ~w(v1-eval-sweep-self-improvement-001),
     voice_vision: ~w(v1-eval-sweep-voice-vision-001),
     public_protocol: ~w(v1-eval-sweep-public-protocol-001),
+    perf_csp: ~w(perf-and-csp-baseline-001),
     rc_substrate: ~w(rc-substrate-no-drift-001),
     param_contract:
       ~w(param-contract-enforced-at-runner-001 param-contract-context-not-in-params-001 param-contract-safe-key-normalization-001 param-contract-empty-schema-001 param-contract-catalog-sweep-no-regression-001)
@@ -44,7 +45,7 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     assert MapSet.new(row_ids) == MapSet.new(@eval_ids)
     assert length(row_ids) == length(@eval_ids)
     assert Enum.all?(rows, &(&1.milestone == :v059))
-    assert Enum.all?(rows, &(&1.test_module == inspect(__MODULE__)))
+    assert Enum.all?(rows, &v059_test_module?/1)
 
     assert_eval_group!(:mcp_client_browser, :mcp_client_browser)
     assert_eval_group!(:channels, :channel_pack)
@@ -53,6 +54,7 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     assert_eval_group!(:self_improvement, :self_improvement)
     assert_eval_group!(:voice_vision, :voice_vision)
     assert_eval_group!(:public_protocol, :public_protocol)
+    assert_eval_group!(:perf_csp, :perf_csp)
     assert_eval_group!(:rc_substrate, :rc_substrate)
     assert_eval_group!(:param_contract, :param_contract)
   end
@@ -419,6 +421,14 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
   defp find_eval_row!(rows, id) do
     Enum.find(rows, &(&1.id == id)) || flunk("missing v0.59 eval row #{id}")
   end
+
+  defp v059_test_module?(%{
+         id: "perf-and-csp-baseline-001",
+         test_module: "AllbertAssistWeb.PerfCspBaselineTest"
+       }),
+       do: true
+
+  defp v059_test_module?(%{test_module: test_module}), do: test_module == inspect(__MODULE__)
 
   defp assert_capability!(name, expected) do
     assert {:ok, capability} = Registry.capability(name)

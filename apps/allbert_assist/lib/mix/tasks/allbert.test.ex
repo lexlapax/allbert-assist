@@ -34,6 +34,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v056
       mix allbert.test release.v057
       mix allbert.test release.v058
+      mix allbert.test release.v059
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -139,6 +140,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v056"]), do: release_v056()
   def run(["release.v057"]), do: release_v057()
   def run(["release.v058"]), do: release_v058()
+  def run(["release.v059"]), do: release_v059()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -3351,6 +3353,177 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  @release_v059_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "portability_export_import_units",
+      title: "Home export, dry-run import, rollback, and secret-ref units",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/portability/export_import_test.exs",
+        "test/mix/tasks/allbert_home_test.exs"
+      ],
+      coverage: [
+        "versioned export envelope is redacted",
+        "dry-run import writes diagnostics outside the target Home",
+        "target Home remains byte-identical",
+        "secret references round-trip without values"
+      ]
+    },
+    %{
+      id: "settings_version_boot_units",
+      title: "Settings version contract and boot-check units",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/settings/version_contract_test.exs",
+        "test/allbert_assist/actions/security_actions_test.exs",
+        "test/mix/tasks/allbert_security_test.exs"
+      ],
+      coverage: [
+        "registered fragments report schema_version=1",
+        "additive-only schema diffs are enforced",
+        "forward or invalid stored versions fail closed",
+        "security status exposes the version-contract boot check without secret refs"
+      ]
+    },
+    %{
+      id: "perf_csp_baseline",
+      title: "operator perf thresholds and web CSP target",
+      cwd: :web,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist_web/perf_csp_baseline_test.exs",
+        "--only",
+        "perf_csp_baseline"
+      ],
+      coverage: [
+        "export/import thresholds use max(2s, baseline * 1.25)",
+        "boot-check overhead uses max(50ms, baseline * 1.10)",
+        "landing and workspace CSP forbid remote wildcards and unsafe-inline"
+      ]
+    },
+    %{
+      id: "param_contract_sweep",
+      title: "Runner param-contract sweep over shipped catalog",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "param-contract-sweep"],
+      coverage: [
+        "schema-known string keys normalize without atom creation",
+        "unknown keys fail redacted before action bodies run",
+        "empty-schema and JSON-schema dispositions are explicit",
+        "shipped catalog reports unsupported=0"
+      ]
+    },
+    %{
+      id: "v059_security_sweep",
+      title: "post-M7 v0.59 security and handoff eval rows",
+      cwd: :root,
+      executable: "mix",
+      args: [
+        "test",
+        "apps/allbert_assist/test/security/v059_sweep_eval_test.exs",
+        "apps/allbert_assist/test/security/security_eval_case_test.exs"
+      ],
+      coverage: [
+        "cross-surface v0.40-v0.51 hardening rows remain green",
+        "param-contract inventory rows stay wired after Runner enforcement",
+        "RC substrate handoff has no v0.61/v0.63/v1.0 drift"
+      ]
+    },
+    %{
+      id: "docs_gate",
+      title: "docs gate and release-planning whitespace check",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "docs"],
+      coverage: [
+        "git diff --check is clean",
+        "docs gate is visible in release evidence"
+      ]
+    }
+  ]
+
+  defp release_v059 do
+    env = owned_env("release-v059", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v059")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v059_steps, &run_release_v059_step(&1, env))
+    secret_scan = release_channel_pack_secret_scan(home, "release.v059")
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v059",
+      version: "v0.59",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; deterministic portability, settings-version, perf/CSP, param-contract, and security-sweep units run against local fixtures only",
+      notes:
+        "post-implementation audit and then manual operator validation remain required before v0.59 closeout",
+      steps: results,
+      secret_scan: secret_scan
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v059-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v059 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v059 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v059_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v059 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -5321,6 +5494,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v056
       mix allbert.test release.v057
       mix allbert.test release.v058
+      mix allbert.test release.v059
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

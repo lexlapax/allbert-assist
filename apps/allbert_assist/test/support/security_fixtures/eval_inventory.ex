@@ -74,6 +74,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :public_protocol
           | :intent_routing
           | :operator_review
+          | :perf_csp
 
   @type surface ::
           required_surface()
@@ -4667,6 +4668,21 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         :tokens_redacted
       ],
       test_module: "AllbertAssist.Security.V059SweepEvalTest"
+    },
+    %{
+      id: "perf-and-csp-baseline-001",
+      milestone: :v059,
+      surface: :perf_csp,
+      scenario:
+        "Operator performance thresholds drift or landing/workspace CSP permits remote wildcard sources or unsafe-inline",
+      boundary: :operator_perf_csp_target,
+      expected: :allowed,
+      assert: [
+        :export_import_threshold_formula,
+        :boot_overhead_threshold_formula,
+        :csp_no_remote_wildcard_or_unsafe_inline
+      ],
+      test_module: "AllbertAssistWeb.PerfCspBaselineTest"
     },
     %{
       id: "rc-substrate-no-drift-001",
