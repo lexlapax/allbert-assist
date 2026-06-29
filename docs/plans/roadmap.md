@@ -3900,8 +3900,9 @@ checkpoint the release cannot ship without:
    (v0.44).
 7. Operator can export Allbert Home and re-import on a second machine with
    identical behavior, including settings migration (v0.59 + ADR 0046).
-8. All warning, security, precommit, and cross-surface eval gates pass
-   (v0.59).
+8. All warning, security, precommit, and cross-surface eval gates pass — the
+   v0.59 baseline security sweep plus the v0.63 M5.1 delta-sweep over the
+   v0.60-v0.62 product surfaces (v0.59 + v0.63).
 9. [product] A technical prosumer installs Allbert from a packaged binary
    (Homebrew/curl) with no Elixir/OTP toolchain on their machine (v0.61).
 10. [product] A new user completes the guided onboarding wizard — provider/model
