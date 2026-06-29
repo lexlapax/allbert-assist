@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.ParamContractTest do
   @moduletag :param_contract
 
   alias AllbertAssist.Actions.ParamContract
+  alias AllbertAssist.Actions.Registry, as: ActionsRegistry
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Agents.IntentAgent
   alias AllbertAssist.App.Registry, as: AppRegistry
@@ -16,6 +17,8 @@ defmodule AllbertAssist.Actions.ParamContractTest do
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
   alias AllbertAssist.Workspace.Fragment.Guard
+
+  @identity_context_keys ~w(user_id thread_id session_id)
 
   defmodule StrictEcho do
     use Jido.Action,
@@ -349,6 +352,89 @@ defmodule AllbertAssist.Actions.ParamContractTest do
     end
   end
 
+  test "agent-exposed effectful replay coverage is registry-derived and explicitly dispositioned" do
+    replayed_names =
+      replay_cases()
+      |> Enum.map(fn {action_name, _params, _context_overrides, _accepted_statuses} ->
+        action_name
+      end)
+      |> MapSet.new()
+
+    dispositioned_names =
+      effectful_replay_dispositions()
+      |> Map.keys()
+      |> MapSet.new()
+
+    effectful_names =
+      effectful_agent_capabilities()
+      |> Enum.map(& &1.name)
+      |> MapSet.new()
+
+    replayed_effectful_names = MapSet.intersection(replayed_names, effectful_names)
+
+    missing =
+      effectful_names
+      |> MapSet.difference(MapSet.union(replayed_effectful_names, dispositioned_names))
+      |> MapSet.to_list()
+      |> Enum.sort()
+
+    extra_dispositions =
+      dispositioned_names
+      |> MapSet.difference(effectful_names)
+      |> MapSet.to_list()
+      |> Enum.sort()
+
+    assert missing == []
+    assert extra_dispositions == []
+
+    IO.puts(
+      "param-contract-catalog-sweep-no-regression-001 status=pass " <>
+        "effectful_agent_actions=#{MapSet.size(effectful_names)} " <>
+        "effectful_replay_cases=#{MapSet.size(replayed_effectful_names)} " <>
+        "total_replay_cases=#{MapSet.size(replayed_names)} " <>
+        "dispositions=#{map_size(effectful_replay_dispositions())} " <>
+        "coverage=registry_exact"
+    )
+  end
+
+  test "agent-exposed action schemas do not accept model-controlled identity context params" do
+    catalog_by_name = Map.new(ParamContract.catalog(), &{&1.name, &1})
+    allowlist = identity_schema_allowlist()
+
+    offenders =
+      ActionsRegistry.agent_capabilities()
+      |> Enum.flat_map(fn capability ->
+        known_keys =
+          catalog_by_name
+          |> Map.fetch!(capability.name)
+          |> Map.fetch!(:known_keys)
+
+        for key <- @identity_context_keys,
+            key in known_keys do
+          {capability.name, key}
+        end
+      end)
+      |> Enum.sort()
+
+    unallowlisted = Enum.reject(offenders, &Map.has_key?(allowlist, &1))
+    extra_allowlist = allowlist |> Map.keys() |> Enum.reject(&(&1 in offenders)) |> Enum.sort()
+
+    assert unallowlisted == []
+    assert extra_allowlist == []
+
+    assert {:ok, promote_capability} =
+             ActionsRegistry.capability(AllbertAssist.Actions.Memory.PromoteConversationTurn)
+
+    assert promote_capability.exposure == :internal
+
+    IO.puts(
+      "param-contract-context-not-in-params-001 status=pass " <>
+        "agent_identity_schema_allowlisted=#{map_size(allowlist)} " <>
+        "unallowlisted_agent_identity_schema_params=0 " <>
+        "internal_promote_conversation_turn=true"
+    )
+  end
+
   defp runner_context do
     %{
       actor: "local",
@@ -376,6 +462,57 @@ defmodule AllbertAssist.Actions.ParamContractTest do
        [:needs_confirmation]},
       {"list_provider_profiles", %{}, %{}, [:completed]}
     ]
+  end
+
+  defp effectful_agent_capabilities do
+    ActionsRegistry.agent_capabilities()
+    |> Enum.filter(fn capability ->
+      capability.permission != :read_only or capability.confirmation == :required or
+        capability.resumable?
+    end)
+  end
+
+  defp effectful_replay_dispositions do
+    %{
+      "append_memory" => "memory-write action with no identity params in schema",
+      "cancel_objective" => "objective engine action with explicit objective id params",
+      "continue_objective" => "confirmation-gated objective engine action",
+      "create_skill" => "confirmation-gated skill-write action",
+      "external_network_request" => "confirmation-gated network request",
+      "find_mcp_tools" => "tool discovery action, no effectful replay required",
+      "generate_image" => "confirmation-gated provider call",
+      "install_marketplace_bundle" => "confirmation-gated marketplace install",
+      "plan_shell_command" => "plan-only shell action, no execution authority",
+      "queue_analysis" => "StockSage queue action with app-owned coverage",
+      "resume_thread_on_channel" => "conversation resume action with channel-owned coverage",
+      "run_analysis" => "StockSage confirmation-gated analysis action",
+      "run_shell_command" => "confirmation-gated local process action",
+      "search_online_skills" => "confirmation-gated online skill search",
+      "set_active_model_profile" => "settings-write action with no identity params in schema",
+      "set_provider_credential" => "secret-write action with no identity params in schema",
+      "show_online_skill" => "confirmation-gated online skill detail fetch",
+      "synthesize_voice" => "confirmation-gated provider call",
+      "update_setting" => "settings-write action with no identity params in schema"
+    }
+  end
+
+  defp identity_schema_allowlist do
+    %{
+      {"cancel_objective", "user_id"} => "context-preferred user fallback for legacy callers",
+      {"continue_objective", "user_id"} => "context-preferred user fallback for legacy callers",
+      {"get_trends", "user_id"} => "StockSage read filter; shared helper prefers context",
+      {"list_analyses", "user_id"} => "StockSage read filter; shared helper prefers context",
+      {"list_objectives", "user_id"} => "context-preferred user fallback for legacy callers",
+      {"queue_analysis", "session_id"} => "context-preferred StockSage queue attribution",
+      {"queue_analysis", "thread_id"} => "context-preferred StockSage queue attribution",
+      {"queue_analysis", "user_id"} => "StockSage queue helper prefers context",
+      {"resume_thread_on_channel", "thread_id"} => "explicit domain target thread to resume",
+      {"resume_thread_on_channel", "user_id"} => "context-filled user field for domain call",
+      {"run_analysis", "session_id"} => "context-preferred StockSage analysis attribution",
+      {"run_analysis", "thread_id"} => "context-preferred StockSage analysis attribution",
+      {"run_analysis", "user_id"} => "StockSage analysis helper prefers context",
+      {"show_analysis", "user_id"} => "StockSage read filter; shared helper prefers context"
+    }
   end
 
   defp refute_existing_atom!(key) do

@@ -144,11 +144,17 @@ defmodule StockSage.Actions.RunAnalysis do
         queue_entry_id: blank(Actions.field(params, :queue_entry_id)),
         source_analysis_id: blank(Actions.field(params, :source_analysis_id)),
         objective_id:
-          blank(Actions.field(params, :objective_id) || Actions.field(context, :objective_id)),
-        step_id: blank(Actions.field(params, :step_id) || Actions.field(context, :step_id)),
-        thread_id: blank(Actions.field(params, :thread_id) || Actions.field(context, :thread_id)),
+          Actions.context_field(context, :objective_id) ||
+            Actions.blank_to_nil(Actions.field(params, :objective_id)),
+        step_id:
+          Actions.context_field(context, :step_id) ||
+            Actions.blank_to_nil(Actions.field(params, :step_id)),
+        thread_id:
+          Actions.context_field(context, :thread_id) ||
+            Actions.blank_to_nil(Actions.field(params, :thread_id)),
         session_id:
-          blank(Actions.field(params, :session_id) || Actions.field(context, :session_id)),
+          Actions.context_field(context, :session_id) ||
+            Actions.blank_to_nil(Actions.field(params, :session_id)),
         force_stub: normalize_bool(Actions.field(params, :force_stub))
       }
 

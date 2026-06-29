@@ -42,11 +42,18 @@ defmodule StockSage.Actions.QueueAnalysis do
         attrs = %{
           user_id: user_id,
           symbol: Actions.field(params, :symbol),
-          thread_id: Actions.field(params, :thread_id) || Actions.field(context, :thread_id),
-          session_id: Actions.field(params, :session_id) || Actions.field(context, :session_id),
+          thread_id:
+            Actions.context_field(context, :thread_id) ||
+              Actions.blank_to_nil(Actions.field(params, :thread_id)),
+          session_id:
+            Actions.context_field(context, :session_id) ||
+              Actions.blank_to_nil(Actions.field(params, :session_id)),
           objective_id:
-            Actions.field(params, :objective_id) || Actions.field(context, :objective_id),
-          step_id: Actions.field(params, :step_id) || Actions.field(context, :step_id),
+            Actions.context_field(context, :objective_id) ||
+              Actions.blank_to_nil(Actions.field(params, :objective_id)),
+          step_id:
+            Actions.context_field(context, :step_id) ||
+              Actions.blank_to_nil(Actions.field(params, :step_id)),
           requested_for: parse_date(Actions.field(params, :requested_for)),
           priority: Actions.field(params, :priority, "normal"),
           request: %{

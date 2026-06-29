@@ -3668,7 +3668,7 @@ it is re-scoped up into the v0.62 Guided Onboarding &amp; Profiles release
 and credential-vault model. v0.59 stays pure engineering hardening with no new
 user-facing capability.
 
-Status: implemented through M8.5 with M8.6-M8.8 second-pass audit fixes pending
+Status: implemented through M8.8; third-pass implementation audit is pending
 before operator manual validation. Promoted from
 `docs/archives/version-1.0-planning-03.md`. Settings schema migration substrate
 added in the post-v0.37 planning pass; moved from v0.58 to v0.59 and later

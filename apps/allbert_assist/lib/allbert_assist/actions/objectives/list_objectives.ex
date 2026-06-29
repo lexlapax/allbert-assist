@@ -87,8 +87,8 @@ defmodule AllbertAssist.Actions.Objectives.ListObjectives do
   end
 
   defp user_id(params, context) do
-    case field(params, :user_id) || field(context, :user_id) ||
-           get_in_field(context, [:request, :user_id]) do
+    case field(context, :user_id) || get_in_field(context, [:request, :user_id]) ||
+           field(params, :user_id) do
       value when is_binary(value) and value != "" -> {:ok, value}
       _other -> {:error, :missing_user_id}
     end

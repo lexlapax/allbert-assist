@@ -14,7 +14,7 @@ defmodule AllbertAssist.Actions.Conversations.ResumeThreadOnChannel do
     tags: ["conversations", "channels", "threads"],
     schema: [
       thread_id: [type: :string, required: true],
-      user_id: [type: :string, required: true],
+      user_id: [type: :string, required: false],
       channel: [type: :string, required: true],
       receiver_account_ref: [type: :string, required: false],
       external_user_id: [type: :string, required: false],
@@ -39,7 +39,11 @@ defmodule AllbertAssist.Actions.Conversations.ResumeThreadOnChannel do
   @impl true
   def run(params, context) when is_map(params) do
     permission_decision = PermissionGate.authorize(@permission, context)
-    params = maybe_mark_confirmed(params, context)
+
+    params =
+      params
+      |> put_context_user_id(context)
+      |> maybe_mark_confirmed(context)
 
     with true <- PermissionGate.allowed?(permission_decision),
          {:ok, resume} <- UnifiedHistory.resume_thread_on_channel(params) do
@@ -143,6 +147,13 @@ defmodule AllbertAssist.Actions.Conversations.ResumeThreadOnChannel do
     end
   end
 
+  defp put_context_user_id(params, context) do
+    case field(context, :user_id) || get_in_field(context, [:request, :user_id]) do
+      value when is_binary(value) and value != "" -> Map.put(params, :user_id, value)
+      _missing -> params
+    end
+  end
+
   defp action(status, permission_decision, metadata) do
     %{
       name: "resume_thread_on_channel",
@@ -152,4 +163,18 @@ defmodule AllbertAssist.Actions.Conversations.ResumeThreadOnChannel do
       channel_metadata: metadata
     }
   end
+
+  defp get_in_field(value, keys) do
+    Enum.reduce_while(keys, value, fn key, acc ->
+      case field(acc, key) do
+        nil -> {:halt, nil}
+        value -> {:cont, value}
+      end
+    end)
+  end
+
+  defp field(map, key) when is_map(map),
+    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+
+  defp field(_map, _key), do: nil
 end

@@ -3498,11 +3498,17 @@ defmodule Mix.Tasks.Allbert.Test do
 
     started_at = DateTime.utc_now()
     results = Enum.map(@release_v059_steps, &run_release_v059_step(&1, env))
+    portability_artifacts = release_v059_portability_artifacts(home, evidence_dir, env)
     seed_release_v059_secret_scan_fixture(home)
-    secret_scan = release_channel_pack_secret_scan(home, "release.v059")
+
+    secret_scan =
+      release_channel_pack_secret_scan(home, "release.v059",
+        required_paths: Map.get(portability_artifacts, :required_paths, [])
+      )
 
     status =
-      if Enum.all?(results, &(&1.status == "passed")) and secret_scan.status == "passed" do
+      if Enum.all?(results, &(&1.status == "passed")) and
+           portability_artifacts.status == "passed" and secret_scan.status == "passed" do
         "passed"
       else
         "failed"
@@ -3522,6 +3528,7 @@ defmodule Mix.Tasks.Allbert.Test do
       notes:
         "post-implementation audit and then manual operator validation remain required before v0.59 closeout",
       steps: results,
+      portability_artifacts: Map.drop(portability_artifacts, [:required_paths]),
       secret_scan: secret_scan
     }
 
@@ -4018,6 +4025,92 @@ defmodule Mix.Tasks.Allbert.Test do
       output_sha256: sha256(output),
       redacted_output_tail: output |> redact_release_output() |> tail(12_000)
     }
+  end
+
+  defp release_v059_portability_artifacts(home, evidence_dir, env) do
+    envelope_path = Path.join(evidence_dir, "release-v059-home.envelope.json")
+    diagnostic_path = Path.join(evidence_dir, "release-v059-dry-run-diagnostic.json")
+    target_home = Path.join(Path.dirname(home), "release-v059-dry-run-target-home")
+    File.mkdir_p!(target_home)
+
+    {export_output, export_status} =
+      System.cmd("mix", ["allbert.home.export", "--out", envelope_path],
+        cd: app_cwd(:core),
+        env: env,
+        stderr_to_stdout: true
+      )
+
+    print_output("release.v059 portability_artifacts export", export_output)
+
+    import_env =
+      env
+      |> put_env_value("ALLBERT_HOME", target_home)
+      |> put_env_value("ALLBERT_HOME_DIR", target_home)
+
+    {import_output, import_status} =
+      if export_status == 0 do
+        System.cmd(
+          "mix",
+          [
+            "allbert.home.import",
+            "--dry-run",
+            "--in",
+            envelope_path,
+            "--evidence-out",
+            diagnostic_path
+          ],
+          cd: app_cwd(:core),
+          env: import_env,
+          stderr_to_stdout: true
+        )
+      else
+        {"skipped dry-run import because export failed\n", 1}
+      end
+
+    print_output("release.v059 portability_artifacts dry_run", import_output)
+
+    artifact_paths =
+      [envelope_path, diagnostic_path]
+      |> Enum.filter(&File.regular?/1)
+
+    %{
+      status:
+        if(export_status == 0 and import_status == 0 and length(artifact_paths) == 2,
+          do: "passed",
+          else: "failed"
+        ),
+      export_exit_status: export_status,
+      dry_run_exit_status: import_status,
+      target_home: target_home,
+      required_paths: [envelope_path, diagnostic_path],
+      artifacts:
+        Enum.map(artifact_paths, fn path ->
+          %{
+            kind: artifact_kind(path),
+            path: Path.relative_to(path, home),
+            bytes: File.stat!(path).size,
+            sha256: path |> File.read!() |> sha256()
+          }
+        end),
+      export_output_sha256: sha256(export_output),
+      dry_run_output_sha256: sha256(import_output),
+      redacted_export_output_tail: export_output |> redact_release_output() |> tail(4_000),
+      redacted_dry_run_output_tail: import_output |> redact_release_output() |> tail(4_000)
+    }
+  end
+
+  defp put_env_value(env, key, value) do
+    env
+    |> Enum.reject(fn {existing_key, _value} -> existing_key == key end)
+    |> Kernel.++([{key, value}])
+  end
+
+  defp artifact_kind(path) do
+    cond do
+      String.ends_with?(path, ".envelope.json") -> "export_envelope"
+      String.ends_with?(path, "diagnostic.json") -> "dry_run_diagnostic"
+      true -> "release_artifact"
+    end
   end
 
   defp seed_release_v059_secret_scan_fixture(home) do
@@ -4563,7 +4656,12 @@ defmodule Mix.Tasks.Allbert.Test do
     release_channel_pack_secret_scan(home, "release.v053")
   end
 
-  defp release_channel_pack_secret_scan(home, label) do
+  defp release_channel_pack_secret_scan(home, label, opts \\ []) do
+    required_paths =
+      opts
+      |> Keyword.get(:required_paths, [])
+      |> Enum.map(&Path.expand/1)
+
     Enum.each(
       [
         Path.join(home, "settings"),
@@ -4577,7 +4675,8 @@ defmodule Mix.Tasks.Allbert.Test do
         Path.join(home, "tmp/voice-captures"),
         Path.join(home, "tmp/image-inputs"),
         Path.join(home, "tmp/generated-images"),
-        Path.join(home, "cache/browser")
+        Path.join(home, "cache/browser"),
+        Path.join(home, "release_evidence")
       ],
       &File.mkdir_p!/1
     )
@@ -4595,7 +4694,8 @@ defmodule Mix.Tasks.Allbert.Test do
         Path.join(home, "tmp/voice-captures"),
         Path.join(home, "tmp/image-inputs"),
         Path.join(home, "tmp/generated-images"),
-        Path.join(home, "cache/browser")
+        Path.join(home, "cache/browser"),
+        Path.join(home, "release_evidence")
       ]
       |> Enum.filter(&File.exists?/1)
 
@@ -4605,11 +4705,18 @@ defmodule Mix.Tasks.Allbert.Test do
       |> Enum.filter(&File.regular?/1)
 
     findings = release_v042_secret_findings(files, home)
+    expanded_files = Enum.map(files, &Path.expand/1)
+    missing_required_paths = Enum.reject(required_paths, &(&1 in expanded_files))
 
     result = %{
-      status: if(findings == [], do: "passed", else: "failed"),
+      status: if(findings == [] and missing_required_paths == [], do: "passed", else: "failed"),
       scanned_roots: Enum.map(roots, &Path.relative_to(&1, home)),
       scanned_file_count: length(files),
+      required_scanned_files:
+        required_paths
+        |> Enum.reject(&(&1 in missing_required_paths))
+        |> Enum.map(&Path.relative_to(&1, home)),
+      missing_required_files: Enum.map(missing_required_paths, &Path.relative_to(&1, home)),
       findings: findings
     }
 

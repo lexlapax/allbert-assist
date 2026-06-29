@@ -22,13 +22,9 @@ defmodule StockSage.Actions do
 
   def user_id(params, context) do
     user_id =
-      params
+      context
       |> field(:user_id)
       |> blank_to_nil()
-      |> case do
-        nil -> context |> field(:user_id) |> blank_to_nil()
-        value -> value
-      end
       |> case do
         nil -> context |> get_in([:request, :user_id]) |> blank_to_nil()
         value -> value
@@ -39,6 +35,10 @@ defmodule StockSage.Actions do
       end
       |> case do
         nil -> context |> get_in([:request, :operator_id]) |> blank_to_nil()
+        value -> value
+      end
+      |> case do
+        nil -> params |> field(:user_id) |> blank_to_nil()
         value -> value
       end
 
@@ -55,6 +55,16 @@ defmodule StockSage.Actions do
   end
 
   def field(_map, _key, default), do: default
+
+  def context_field(context, key) do
+    context
+    |> field(key)
+    |> blank_to_nil()
+    |> case do
+      nil -> context |> get_in([:request, key]) |> blank_to_nil()
+      value -> value
+    end
+  end
 
   def positive_limit(value, default) do
     Domain.normalize_limit(value, default, 100)
