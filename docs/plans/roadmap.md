@@ -3662,16 +3662,18 @@ Plan: `docs/plans/v0.59-plan.md`
 Request flow: `docs/plans/v0.59-request-flow.md`
 ADR: `docs/adr/0046-settings-schema-migration-policy.md` (accepted here;
 drafted in v0.45); `docs/adr/0065-central-action-param-contract-enforcement.md`
-(Proposed; accept in v0.59 M7). Operator onboarding is no longer a v0.59 sliver:
+(Accepted in v0.59 M7). Operator onboarding is no longer a v0.59 sliver:
 it is re-scoped up into the v0.62 Guided Onboarding &amp; Profiles release
 (ADR 0069), after v0.61 packaging/entry points settle the user-facing commands
 and credential-vault model. v0.59 stays pure engineering hardening with no new
 user-facing capability.
 
-Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`;
-not implemented. Settings schema migration substrate added in the post-v0.37
-planning pass; moved from v0.58 to v0.59 and later narrowed back to engineering
-substrate after the post-v0.58 product-readiness review. **Builds on the v0.58
+Status: implemented through M8.5 with M8.6-M8.8 second-pass audit fixes pending
+before operator manual validation. Promoted from
+`docs/archives/version-1.0-planning-03.md`. Settings schema migration substrate
+added in the post-v0.37 planning pass; moved from v0.58 to v0.59 and later
+narrowed back to engineering substrate after the post-v0.58 product-readiness
+review. **Builds on the v0.58
 consolidation:** the uniform cross-surface contract (ADR 0073), the design-
 system web (ADR 0074), settings-access enforcement, and redundancy cleanup land
 first, so v0.59's param-contract enforcement (ADR 0065), settings version
