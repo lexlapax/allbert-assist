@@ -12,6 +12,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test fast-local [--core-lanes] [--stocksage-lanes] [--web-lanes] [--partitions N]
       mix allbert.test partition-smoke [--partitions N]
       mix allbert.test serial-core --lane LANE [--partitions N]
+      mix allbert.test param-contract-sweep
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043
@@ -116,6 +117,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["fast-local" | rest]), do: fast_local(rest)
   def run(["partition-smoke" | rest]), do: partition_smoke(rest)
   def run(["serial-core" | rest]), do: serial_core(rest)
+  def run(["param-contract-sweep"]), do: param_contract_sweep()
   def run(["release"]), do: release()
   def run(["release.v042"]), do: release_v042()
   def run(["release.v043"]), do: release_v043()
@@ -368,6 +370,24 @@ defmodule Mix.Tasks.Allbert.Test do
 
   defp release do
     run_phase_gate!("release", release_phases(), evidence?: true, cleanup?: false)
+  end
+
+  defp param_contract_sweep do
+    env = owned_env("param-contract-sweep", 0)
+
+    run_cmd!(
+      "param-contract-sweep",
+      root(),
+      "mix",
+      [
+        "test",
+        "apps/allbert_assist/test/allbert_assist/actions/param_contract_test.exs",
+        "apps/allbert_assist/test/security/v059_sweep_eval_test.exs",
+        "--only",
+        "param_contract"
+      ],
+      env
+    )
   end
 
   defp commit_phases do
@@ -5279,6 +5299,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test fast-local [--core-lanes] [--stocksage-lanes] [--web-lanes] [--partitions N]
       mix allbert.test partition-smoke [--partitions N]
       mix allbert.test serial-core --lane LANE [--partitions N]
+      mix allbert.test param-contract-sweep
       mix allbert.test release
       mix allbert.test release.v042
       mix allbert.test release.v043

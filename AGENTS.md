@@ -118,6 +118,9 @@ business-logic debugging, code review, or repository-specific architecture revie
 
 ## Workflow
 
+- Strict no-doc proliferation: do not create new release-planning docs, sidecar
+  handoff docs, or extra milestone docs without explicit user permission. Fold
+  milestone detail into the active plan, request-flow, and relevant ADRs.
 - For docs-only changes, run `git diff --check` and the docs gate when available.
 - After v0.55.1, manual/operator validation defaults to one warm
   `mix allbert.tui` session. Cold Mix tasks are for setup, deterministic gates,

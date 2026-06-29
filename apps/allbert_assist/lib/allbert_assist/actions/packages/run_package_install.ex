@@ -19,6 +19,7 @@ defmodule AllbertAssist.Actions.Packages.RunPackageInstall do
     category: "packages",
     tags: ["packages", "package_install", "execution"],
     schema: [
+      action: [type: :string, required: false],
       manager: [type: :string, required: true, doc: "Package manager name, such as npm."],
       package: [type: :string, required: false, doc: "Package requested by the operator."],
       packages: [type: {:list, :string}, required: false, doc: "Package specs requested."],

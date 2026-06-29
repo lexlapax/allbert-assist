@@ -15,9 +15,11 @@ defmodule AllbertAssist.Actions.Coding.Write do
     category: "coding",
     tags: ["coding", "file", "write", "confirmation_required"],
     schema: [
+      action: [type: :string, required: false],
       path: [type: :string, required: true],
       content: [type: :string, required: true],
       max_bytes: [type: :integer, required: false],
+      content_sha256: [type: :string, required: false],
       source_text: [type: :string, required: false]
     ],
     output_schema: [

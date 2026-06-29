@@ -1,10 +1,8 @@
 # ADR 0065: Central Action Param-Contract Enforcement
 
-Status: Proposed (v0.59 M7); accepted at v0.59 M7, where the central
-param-contract seam ships — matching the v0.59 plan and request-flow. Updated
-2026-06-29 (v0.59 readiness review) with the code-grounded blast radius, the
-concrete validation mechanism, the Jido runtime caveats, and the actual
-context/param split scope.
+Status: Accepted (v0.59 M7). Updated 2026-06-29 with the shipped central
+param-contract seam, the code-grounded blast radius, the concrete validation
+mechanism, the Jido runtime caveats, and the actual context/param split scope.
 Date: 2026-06-21
 Related: ADR 0064 (central slot/param normalization seam - predecessor), ADR
 0027 (action DSL and capability registry), ADR 0006 (Security Central), ADR 0060
@@ -33,6 +31,9 @@ has a wider blast radius:
   internal) plus plugin/dynamic, ~193 modules with `run/2`; only ~47 carry an
   `is_map(params)`-style guard, so ~146 reach `run/2` unguarded. (The earlier
   "72 of 110" figure is a stale v0.54 snapshot; the real sweep is ~1.7x larger.)
+- **Shipped-catalog evidence (v0.59 M7):** the release sweep runs against the
+  shipped plugin/app registry and currently reports 226 registered action modules,
+  32 empty-schema dispositions, and zero unsupported runtime schema dispositions.
 - **`schema: []` actions need explicit inventory.** A precise 2026-06-29 grep
   finds 32 action modules with `schema: []`, and the implementation must
   regenerate that catalog from the registered action set. Empty schemas cannot be
@@ -89,8 +90,8 @@ mechanism is concrete (no longer "refined during the milestone"):
 - **Validated params are what run.** On success, `Runner.safe_run/3` passes the
   normalized, validated params returned by `validate_params/1` into
   `action_module.run/2`, preserving the typed/defaulted shape that Jido produced.
-- **Release-blocking eval sweep** over the full ~190-action catalog proves valid
-  requests do not regress to `:invalid_params`.
+- **Release-blocking eval sweep** over the full shipped action catalog proves
+  valid requests do not regress to `:invalid_params`.
 
 ADR 0064 remains the predecessor for intent slot normalization. ADR 0065 owns
 typed, catalog-wide param-contract enforcement.

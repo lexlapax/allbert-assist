@@ -89,6 +89,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :self_improvement
           | :voice_vision
           | :rc_substrate
+          | :param_contract
 
   @type row :: %{
           id: String.t(),
@@ -4681,6 +4682,64 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         :v1_freeze_inputs_enumerated,
         :no_scope_drift
       ],
+      test_module: "AllbertAssist.Security.V059SweepEvalTest"
+    },
+    %{
+      id: "param-contract-enforced-at-runner-001",
+      milestone: :v059,
+      surface: :param_contract,
+      scenario: "Runner invokes an action with malformed or unknown params",
+      boundary: :runner_param_contract,
+      expected: :error,
+      assert: [:invalid_params_before_body, :redacted_reason, :no_action_body],
+      test_module: "AllbertAssist.Security.V059SweepEvalTest"
+    },
+    %{
+      id: "param-contract-context-not-in-params-001",
+      milestone: :v059,
+      surface: :param_contract,
+      scenario: "Model-proposed params attempt to supply system context keys",
+      boundary: :context_param_split,
+      expected: :denied,
+      assert: [
+        :context_read_from_runner_context,
+        :user_id_not_param_authority,
+        :schema_does_not_admit_system_context
+      ],
+      test_module: "AllbertAssist.Security.V059SweepEvalTest"
+    },
+    %{
+      id: "param-contract-safe-key-normalization-001",
+      milestone: :v059,
+      surface: :param_contract,
+      scenario: "String-keyed params include schema-known and schema-unknown keys",
+      boundary: :schema_key_normalization,
+      expected: :allowed,
+      assert: [
+        :known_string_keys_normalized,
+        :unknown_strings_do_not_create_atoms,
+        :valid_string_keyed_params_pass
+      ],
+      test_module: "AllbertAssist.Security.V059SweepEvalTest"
+    },
+    %{
+      id: "param-contract-empty-schema-001",
+      milestone: :v059,
+      surface: :param_contract,
+      scenario: "An empty-schema action receives model-proposed params",
+      boundary: :empty_schema_disposition,
+      expected: :error,
+      assert: [:empty_schema_no_params, :unknown_keys_rejected, :body_not_run],
+      test_module: "AllbertAssist.Security.V059SweepEvalTest"
+    },
+    %{
+      id: "param-contract-catalog-sweep-no-regression-001",
+      milestone: :v059,
+      surface: :param_contract,
+      scenario: "Registered action catalog has unsupported or undispositioned schemas",
+      boundary: :registered_action_catalog,
+      expected: :allowed,
+      assert: [:catalog_generated, :no_unsupported_schema, :valid_requests_not_regressed],
       test_module: "AllbertAssist.Security.V059SweepEvalTest"
     },
     %{

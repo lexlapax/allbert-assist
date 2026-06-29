@@ -18,7 +18,8 @@ defmodule AllbertNotesFiles.Actions.WriteNote do
     schema: [
       title: [type: :string, required: true],
       body: [type: :string, required: true],
-      path: [type: :string, required: false]
+      path: [type: :string, required: false],
+      app_id: [type: {:or, [:string, :atom]}, required: false]
     ],
     output_schema: [
       message: [type: :string, required: true],
@@ -128,10 +129,16 @@ defmodule AllbertNotesFiles.Actions.WriteNote do
            confirmation: confirmation,
            confirmation_id: confirmation["id"],
            actions: [
-             Actions.action(@action_name, :needs_confirmation, @permission, permission_decision, %{
-               confirmation_id: confirmation["id"],
-               resource_refs: request.resource_refs
-             })
+             Actions.action(
+               @action_name,
+               :needs_confirmation,
+               @permission,
+               permission_decision,
+               %{
+                 confirmation_id: confirmation["id"],
+                 resource_refs: request.resource_refs
+               }
+             )
            ]
          }}
 

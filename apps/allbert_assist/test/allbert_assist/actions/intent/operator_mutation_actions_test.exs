@@ -4,8 +4,25 @@ defmodule AllbertAssist.Actions.Intent.OperatorMutationActionsTest do
 
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Actions.Runner
-  alias AllbertAssist.Intent.Router.DescriptorStore
+  alias AllbertAssist.App.Registry, as: AppRegistry
+  alias AllbertAssist.Intent.Router.{DescriptorResolver, DescriptorStore}
   alias AllbertAssist.Paths
+  alias AllbertAssist.Plugin.Discovery, as: PluginDiscovery
+  alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Settings
+
+  @required_routing_plugin_ids ~w(
+    allbert.browser
+    allbert.notes_files
+    allbert.research
+    stocksage
+  )
+  @required_descriptor_app_ids ~w(
+    allbert_browser
+    notes_files
+    allbert_research
+    stocksage
+  )a
 
   @mutation_actions ~w(
     optimize_intent_descriptors
@@ -23,6 +40,9 @@ defmodule AllbertAssist.Actions.Intent.OperatorMutationActionsTest do
     original_home = System.get_env("ALLBERT_HOME")
     original_home_dir = System.get_env("ALLBERT_HOME_DIR")
     original_paths = Application.get_env(:allbert_assist, Paths)
+    original_settings = Application.get_env(:allbert_assist, Settings)
+    original_apps = AppRegistry.registered_apps()
+    original_plugins = PluginRegistry.registered_plugins()
 
     home =
       Path.join(
@@ -39,6 +59,10 @@ defmodule AllbertAssist.Actions.Intent.OperatorMutationActionsTest do
     System.put_env("ALLBERT_HOME", home)
     System.delete_env("ALLBERT_HOME_DIR")
     Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
+    restore_shipped_plugins!()
+    restore_shipped_apps!()
+    assert_required_routing_plugins!()
 
     on_exit(fn ->
       if original_home,
@@ -53,6 +77,12 @@ defmodule AllbertAssist.Actions.Intent.OperatorMutationActionsTest do
         do: Application.put_env(:allbert_assist, Paths, original_paths),
         else: Application.delete_env(:allbert_assist, Paths)
 
+      if original_settings,
+        do: Application.put_env(:allbert_assist, Settings, original_settings),
+        else: Application.delete_env(:allbert_assist, Settings)
+
+      restore_plugins!(original_plugins)
+      restore_apps!(original_apps)
       File.rm_rf!(home)
       File.rm_rf!(fixture_root)
     end)
@@ -92,7 +122,7 @@ defmodule AllbertAssist.Actions.Intent.OperatorMutationActionsTest do
                context()
              )
 
-    assert promoted.status == :completed
+    assert promoted.status == :completed, promoted.message
     assert promoted.message =~ "promoted show_app ->"
 
     {:ok, review_path} =
@@ -184,5 +214,65 @@ defmodule AllbertAssist.Actions.Intent.OperatorMutationActionsTest do
       channel: :test,
       request: %{operator_id: "local", channel: :test}
     }
+  end
+
+  defp restore_shipped_plugins! do
+    PluginRegistry.clear()
+
+    PluginDiscovery.shipped_modules()
+    |> Enum.sort_by(fn {plugin_id, _module} -> plugin_id end)
+    |> Enum.each(fn {_plugin_id, module} ->
+      assert {:ok, _plugin_id} = PluginRegistry.register_module(module)
+    end)
+  end
+
+  defp restore_shipped_apps! do
+    AppRegistry.clear()
+
+    plugin_apps =
+      PluginRegistry.registered_plugins()
+      |> Enum.flat_map(& &1.apps)
+
+    [AllbertAssist.App.CoreApp | plugin_apps]
+    |> Enum.uniq()
+    |> Enum.each(fn module ->
+      assert {:ok, _app_id} = AppRegistry.register(module)
+    end)
+  end
+
+  defp restore_plugins!(plugins) do
+    PluginRegistry.clear()
+
+    Enum.each(plugins, fn plugin ->
+      assert {:ok, _plugin_id} = PluginRegistry.register_entry(plugin)
+    end)
+  end
+
+  defp restore_apps!(apps) do
+    AppRegistry.clear()
+
+    Enum.each(apps, fn app ->
+      assert {:ok, _app_id} = AppRegistry.register(Map.fetch!(app, :module))
+    end)
+  end
+
+  defp assert_required_routing_plugins! do
+    plugin_ids =
+      PluginRegistry.registered_plugins()
+      |> Enum.map(& &1.plugin_id)
+      |> MapSet.new()
+
+    descriptor_app_ids =
+      DescriptorResolver.resolve()
+      |> Enum.map(& &1.app_id)
+      |> MapSet.new()
+
+    for plugin_id <- @required_routing_plugin_ids do
+      assert MapSet.member?(plugin_ids, plugin_id), "missing shipped plugin #{plugin_id}"
+    end
+
+    for app_id <- @required_descriptor_app_ids do
+      assert MapSet.member?(descriptor_app_ids, app_id), "missing descriptor app #{app_id}"
+    end
   end
 end

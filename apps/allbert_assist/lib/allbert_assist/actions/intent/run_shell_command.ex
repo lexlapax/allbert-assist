@@ -22,6 +22,7 @@ defmodule AllbertAssist.Actions.Intent.RunShellCommand do
     category: "intent",
     tags: ["intent", "shell", "command_execute", "confirmation_required"],
     schema: [
+      action: [type: :string, required: false],
       executable: [type: :string, required: true, doc: "Executable name or path."],
       args: [type: {:list, :string}, required: false, doc: "Explicit argv list."],
       cwd: [type: :string, required: true, doc: "Working directory inside an allowed root."],

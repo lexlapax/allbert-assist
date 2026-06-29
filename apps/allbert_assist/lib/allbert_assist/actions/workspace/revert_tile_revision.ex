@@ -13,8 +13,7 @@ defmodule AllbertAssist.Actions.Workspace.RevertTileRevision do
     tags: ["workspace", "canvas", "write"],
     schema: [
       tile_id: [type: :string, required: true],
-      revision_id: [type: :string, required: true],
-      user_id: [type: :string, required: false]
+      revision_id: [type: :string, required: true]
     ],
     output_schema: [
       message: [type: :string, required: true],
@@ -26,9 +25,9 @@ defmodule AllbertAssist.Actions.Workspace.RevertTileRevision do
   alias AllbertAssist.Workspace
 
   @impl true
-  def run(%{tile_id: tile_id, revision_id: revision_id} = params, context) do
+  def run(%{tile_id: tile_id, revision_id: revision_id}, context) do
     permission_decision = PermissionGate.authorize(:workspace_canvas_write, context)
-    user_id = Map.get(params, :user_id) || Map.get(context, :user_id) || Map.get(context, :actor)
+    user_id = Map.get(context, :user_id) || Map.get(context, :actor)
 
     with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
          user_id when is_binary(user_id) and user_id != "" <- user_id,

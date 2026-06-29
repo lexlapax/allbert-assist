@@ -16,16 +16,24 @@ defmodule AllbertAssist.Actions.PlanBuild.ConfirmPlanStep do
     tags: ["plan_build", "confirmation", "internal"],
     schema: [
       objective_id: [type: :string, required: true],
-      step_id: [type: :string, required: true],
-      user_id: [type: :string, required: false]
+      step_id: [type: :string, required: true]
     ],
     output_schema: []
 
   @impl true
   def run(params, context) do
     PlanBuildRuntime.advance(
-      Map.get(params, :objective_id) || Map.get(params, "objective_id"),
-      Map.merge(context, %{user_id: Map.get(params, :user_id) || Map.get(params, "user_id")})
+      Map.fetch!(params, :objective_id),
+      Map.merge(context, %{user_id: user_id(context)})
     )
+  end
+
+  defp user_id(context) do
+    Map.get(context, :user_id) ||
+      Map.get(context, "user_id") ||
+      get_in(context, [:request, :user_id]) ||
+      get_in(context, ["request", "user_id"]) ||
+      Map.get(context, :operator_id) ||
+      Map.get(context, :actor)
   end
 end

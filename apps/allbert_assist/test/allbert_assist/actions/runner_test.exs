@@ -8,6 +8,7 @@ defmodule AllbertAssist.Actions.RunnerTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Memory
   alias AllbertAssist.Paths
+  alias AllbertAssist.Plugin.Discovery, as: PluginDiscovery
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Settings
@@ -33,11 +34,32 @@ defmodule AllbertAssist.Actions.RunnerTest do
     def run(%{text: text}, _context), do: {:ok, %{message: "plugin: #{text}", status: :completed}}
   end
 
+  defmodule PluginFailure do
+    use Jido.Action,
+      name: "runner_plugin_failure",
+      description: "Runner failure fixture.",
+      schema: []
+
+    def capability do
+      %{
+        permission: :read_only,
+        exposure: :agent,
+        execution_mode: :read_only,
+        skill_backed?: false,
+        confirmation: :not_required
+      }
+    end
+
+    @impl true
+    def run(_params, _context), do: {:error, :boom}
+  end
+
   setup do
     original_memory_config = Application.get_env(:allbert_assist, Memory)
     original_paths_config = Application.get_env(:allbert_assist, Paths)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_logger_level = Logger.level()
+    original_plugins = PluginRegistry.registered_plugins()
 
     root =
       Path.join(
@@ -57,9 +79,7 @@ defmodule AllbertAssist.Actions.RunnerTest do
       restore_env(Memory, original_memory_config)
       restore_env(Paths, original_paths_config)
       restore_env(Settings, original_settings_config)
-      PluginRegistry.clear()
-      PluginRegistry.register_module(AllbertAssist.Plugins.Telegram)
-      PluginRegistry.register_module(AllbertAssist.Plugins.Email)
+      restore_plugins!(original_plugins)
       File.rm_rf!(root)
     end)
 
@@ -70,7 +90,11 @@ defmodule AllbertAssist.Actions.RunnerTest do
     log =
       capture_log([level: :info], fn ->
         assert {:ok, response} =
-                 Runner.run("direct_answer", %{text: "hello", api_key: "test-key"}, context())
+                 Runner.run(
+                   "direct_answer",
+                   %{text: "hello"},
+                   Map.put(context(), :skill_metadata, %{api_key: "test-key"})
+                 )
 
         assert response.status == :completed
         assert response.runner_metadata.action_name == "direct_answer"
@@ -226,18 +250,26 @@ defmodule AllbertAssist.Actions.RunnerTest do
   end
 
   test "action errors are returned as structured error responses" do
+    assert {:ok, "example.runner_failure"} =
+             PluginRegistry.register_entry(%PluginEntry{
+               plugin_id: "example.runner_failure",
+               display_name: "Example Runner Failure",
+               version: "0.1.0",
+               kind: "actions",
+               source: :project,
+               status: :enabled,
+               trust_status: :trusted,
+               actions: [PluginFailure]
+             })
+
     assert {:ok, response} =
-             Runner.run(
-               "update_setting",
-               %{key: "operator.communication_style"},
-               context()
-             )
+             Runner.run("runner_plugin_failure", %{}, context())
 
     assert response.status == :error
     assert response.runner_metadata.status == :error
-    assert response.message =~ "Action update_setting failed"
+    assert response.message =~ "Action runner_plugin_failure failed"
     assert [%{status: :error, runner_metadata: metadata}] = response.actions
-    assert metadata.action_name == "update_setting"
+    assert metadata.action_name == "runner_plugin_failure"
   end
 
   defp context do
@@ -253,6 +285,26 @@ defmodule AllbertAssist.Actions.RunnerTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp restore_plugins!([]), do: restore_shipped_plugins!()
+
+  defp restore_plugins!(plugins) do
+    PluginRegistry.clear()
+
+    Enum.each(plugins, fn plugin ->
+      assert {:ok, _plugin_id} = PluginRegistry.register_entry(plugin)
+    end)
+  end
+
+  defp restore_shipped_plugins! do
+    PluginRegistry.clear()
+
+    PluginDiscovery.shipped_modules()
+    |> Enum.sort_by(fn {plugin_id, _module} -> plugin_id end)
+    |> Enum.each(fn {_plugin_id, module} ->
+      assert {:ok, _plugin_id} = PluginRegistry.register_module(module)
+    end)
+  end
 
   defp configure_external do
     assert {:ok, _setting} = Settings.put("external_services.enabled", true, %{audit?: false})

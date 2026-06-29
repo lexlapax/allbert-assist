@@ -4,6 +4,7 @@ defmodule AllbertAssist.Actions.Runner do
   """
 
   alias AllbertAssist.Actions.Capability
+  alias AllbertAssist.Actions.ParamContract
   alias AllbertAssist.Actions.Registry
   alias AllbertAssist.Capabilities.ReleaseAvailability
   alias AllbertAssist.Runtime.Redactor
@@ -82,7 +83,13 @@ defmodule AllbertAssist.Actions.Runner do
 
   defp safe_run(action_module, params, context) do
     try do
-      action_module.run(params, context)
+      case ParamContract.normalize_and_validate(action_module, params) do
+        {:ok, validated_params} ->
+          action_module.run(validated_params, context)
+
+        {:error, reason} ->
+          {:ok, invalid_params_response(action_module, reason)}
+      end
     rescue
       exception ->
         {:error, {exception.__struct__, Exception.message(exception)}}
@@ -90,6 +97,26 @@ defmodule AllbertAssist.Actions.Runner do
       kind, reason ->
         {:error, {kind, reason}}
     end
+  end
+
+  defp invalid_params_response(action_module, reason) do
+    action_name = action_module.name()
+    redacted_reason = ParamContract.redacted_reason(reason)
+
+    Response.error(
+      "Action #{action_name} rejected: invalid params.",
+      {:invalid_params, redacted_reason},
+      actions: [
+        Response.action(action_name, :error, error: {:invalid_params, redacted_reason})
+      ],
+      diagnostics: [
+        %{
+          code: :invalid_params,
+          action: action_name,
+          reason: redacted_reason
+        }
+      ]
+    )
   end
 
   defp app_scope_or_run(action_module, params, runner_context) do

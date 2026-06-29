@@ -15,11 +15,14 @@ defmodule AllbertAssist.Actions.Coding.Edit do
     category: "coding",
     tags: ["coding", "file", "edit", "confirmation_required"],
     schema: [
+      action: [type: :string, required: false],
       path: [type: :string, required: true],
       old_text: [type: :string, required: true],
       new_text: [type: :string, required: true],
       max_replacements: [type: :integer, required: false],
       max_bytes: [type: :integer, required: false],
+      old_text_sha256: [type: :string, required: false],
+      new_text_sha256: [type: :string, required: false],
       source_text: [type: :string, required: false]
     ],
     output_schema: [

@@ -15,6 +15,8 @@ defmodule AllbertAssist.Actions.Coding.Bash do
     category: "coding",
     tags: ["coding", "bash", "shell", "confirmation_required"],
     schema: [
+      action: [type: :string, required: false],
+      mode: [type: {:or, [:string, :atom]}, required: false],
       executable: [type: :string, required: false],
       args: [type: {:list, :string}, required: false],
       command: [type: :string, required: false],

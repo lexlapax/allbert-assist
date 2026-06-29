@@ -20,6 +20,7 @@ defmodule AllbertAssist.Actions.Intent.ExternalNetworkRequest do
     category: "intent",
     tags: ["intent", "network", "external_network", "confirmation_required"],
     schema: [
+      action: [type: :string, required: false],
       request: [type: :string, required: false, doc: "The requested network task or URL."],
       url: [type: :string, required: false, doc: "Absolute HTTP(S) URL."],
       profile: [type: :string, required: false, doc: "External service profile name."],

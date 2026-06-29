@@ -16,7 +16,7 @@ defmodule AllbertAssist.Actions.Objectives.DelegateAgent do
       objective_id: [type: :string, required: true],
       step_id: [type: :string, required: true],
       delegate_agent_id: [type: :string, required: true],
-      command: [type: :string, required: false],
+      command: [type: {:or, [:string, :atom]}, required: false],
       params: [type: :map, required: false],
       timeout_ms: [type: :integer, required: false]
     ],

@@ -8,7 +8,11 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
   """
   use AllbertAssist.SecurityEvalCase, async: true
 
+  alias AllbertAssist.Actions.Memory.Context, as: MemoryContext
+  alias AllbertAssist.Actions.ParamContract
+  alias AllbertAssist.Actions.PlanBuild.ConfirmPlanStep
   alias AllbertAssist.Actions.Registry
+  alias AllbertAssist.Actions.Workspace.RevertTileRevision
   alias AllbertAssist.Channels.Identity, as: ChannelIdentity
   alias AllbertAssist.PublicProtocol.ExposureFilter
   alias AllbertAssist.Security.PermissionGate
@@ -25,10 +29,13 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     self_improvement: ~w(v1-eval-sweep-self-improvement-001),
     voice_vision: ~w(v1-eval-sweep-voice-vision-001),
     public_protocol: ~w(v1-eval-sweep-public-protocol-001),
-    rc_substrate: ~w(rc-substrate-no-drift-001)
+    rc_substrate: ~w(rc-substrate-no-drift-001),
+    param_contract:
+      ~w(param-contract-enforced-at-runner-001 param-contract-context-not-in-params-001 param-contract-safe-key-normalization-001 param-contract-empty-schema-001 param-contract-catalog-sweep-no-regression-001)
   ]
   @eval_ids @eval_groups |> Keyword.values() |> List.flatten()
-  @rc_handoff_path Path.expand("../../../../docs/plans/v0.59-rc-handoff.md", __DIR__)
+  @repo_root Path.expand("../../../../", __DIR__)
+  @v059_plan_path Path.expand("../../../../docs/plans/v0.59-plan.md", __DIR__)
 
   test "v0.59 eval inventory rows are complete and grouped by protected surface" do
     rows = EvalInventory.rows_for_milestone(:v059)
@@ -47,6 +54,7 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     assert_eval_group!(:voice_vision, :voice_vision)
     assert_eval_group!(:public_protocol, :public_protocol)
     assert_eval_group!(:rc_substrate, :rc_substrate)
+    assert_eval_group!(:param_contract, :param_contract)
   end
 
   test "v0.59 sweep rows encode concrete pass criteria" do
@@ -296,10 +304,60 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     assert readback.confirmation == :not_required
   end
 
+  @tag :param_contract
+  test "param-contract catalog has explicit dispositions and no unsupported runtime schemas" do
+    catalog = ParamContract.catalog()
+    empty_schema_count = Enum.count(catalog, &(&1.disposition == :no_params))
+
+    assert length(catalog) >= 180
+    assert empty_schema_count > 0
+
+    refute Enum.any?(
+             catalog,
+             &(&1.disposition in [:json_schema_runtime_unsupported, :unsupported_schema])
+           )
+
+    IO.puts(
+      "param-contract-catalog-sweep-no-regression-001 status=pass " <>
+        "actions=#{length(catalog)} empty_schema=#{empty_schema_count} unsupported=0"
+    )
+  end
+
+  @tag :param_contract
+  test "system context is not accepted from params at named cleanup sites" do
+    refute Keyword.has_key?(ConfirmPlanStep.schema(), :user_id)
+    refute Keyword.has_key?(RevertTileRevision.schema(), :user_id)
+
+    assert MemoryContext.user_id(%{user_id: "model"}, %{request: %{user_id: "runner"}}) ==
+             {:ok, "runner"}
+
+    assert MemoryContext.user_id(%{user_id: "model"}, %{}) == {:error, :missing_user_id}
+
+    IO.puts("param-contract-context-not-in-params-001 status=pass context_source=runner_context")
+  end
+
+  @tag :param_contract
+  test "param-contract implementation does not create atoms from provider input" do
+    source =
+      [
+        "apps/allbert_assist/lib/allbert_assist/actions/runner.ex",
+        "apps/allbert_assist/lib/allbert_assist/actions/param_contract.ex"
+      ]
+      |> Enum.map(&Path.join(@repo_root, &1))
+      |> Enum.map(&File.read!/1)
+      |> Enum.join("\n")
+
+    refute source =~ "String.to_atom"
+    refute source =~ ":erlang.binary_to_atom"
+    refute source =~ "binary_to_existing_atom"
+
+    IO.puts("param-contract-safe-key-normalization-001 status=pass atom_creation_calls=0")
+  end
+
   @tag :rc_substrate
   test "rc-substrate handoff enumerates downstream consumers without scope drift" do
     row = EvalInventory.row!("rc-substrate-no-drift-001")
-    handoff = File.read!(@rc_handoff_path)
+    handoff = File.read!(@v059_plan_path)
 
     assert row.surface == :rc_substrate
     assert row.boundary == :release_handoff_contract

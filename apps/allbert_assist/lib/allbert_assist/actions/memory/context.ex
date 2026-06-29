@@ -2,10 +2,8 @@ defmodule AllbertAssist.Actions.Memory.Context do
   @moduledoc false
 
   @spec user_id(map(), map()) :: {:ok, String.t()} | {:error, :missing_user_id}
-  def user_id(params, context) when is_map(params) and is_map(context) do
+  def user_id(_params, context) when is_map(context) do
     [
-      Map.get(params, :user_id),
-      Map.get(params, "user_id"),
       Map.get(context, :user_id),
       Map.get(context, "user_id"),
       get_in(context, [:request, :user_id]),
