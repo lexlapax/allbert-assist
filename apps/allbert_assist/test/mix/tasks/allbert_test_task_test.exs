@@ -162,6 +162,15 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert error.message =~ "mix allbert.test external-smoke -- inbound_slack"
   end
 
+  test "release.v059 includes CLI resume identity regression coverage" do
+    source =
+      Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
+      |> File.read!()
+
+    assert source =~ ~s(id: "cli_resume_identity")
+    assert source =~ ~s(args: ["test", "test/mix/tasks/allbert_conversations_test.exs"])
+  end
+
   test "phase runner short-circuits after a failing phase", %{evidence_root: root} do
     runner = fn
       %{id: "first"} -> {"first ok\n", 0}

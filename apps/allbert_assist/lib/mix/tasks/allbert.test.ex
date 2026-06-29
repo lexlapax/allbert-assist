@@ -3396,6 +3396,17 @@ defmodule Mix.Tasks.Allbert.Test do
       ]
     },
     %{
+      id: "cli_resume_identity",
+      title: "CLI conversation resume preserves operator identity",
+      cwd: :core,
+      executable: "mix",
+      args: ["test", "test/mix/tasks/allbert_conversations_test.exs"],
+      coverage: [
+        "allbert.conversations resume --user threads identity into Runner context",
+        "context identity wins over stale params in resume_thread_on_channel"
+      ]
+    },
+    %{
       id: "portability_export_import_units",
       title: "Home export, dry-run import, rollback, and secret-ref units",
       cwd: :core,
