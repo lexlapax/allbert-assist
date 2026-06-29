@@ -39,8 +39,10 @@ it does not. The true state v0.59 builds on:
   `AllbertAssist.Settings.Fragments.registered_fragments/0` instead of trusting
   a prose count.
 - There is **no `Settings.Migration` behaviour/DSL, no `migrations/` directory,
-  no `mix allbert.settings.migrate` task, and no `mix allbert.settings doctor`
-  subcommand**. They are greenfield.
+  no `mix allbert.settings.migrate` task, and no generic `mix allbert.settings
+  doctor` subcommand**. They are greenfield — though `mix allbert.settings
+  model-doctor` + `Settings.ModelDoctor`/`Settings.DoctorDiagnostics` already exist
+  as the precedent the new settings-doctor read surface should extend.
 
 The example below (`marketplace`) is one of the 13 namespaces that *does* carry a
 `schema_version` row today and has live version checking in
@@ -168,8 +170,9 @@ Tier-1 list names this version/additive contract explicitly.
 - **v0.47-v0.58**: each new fragment SHOULD declare `schema_version: 1` (as a
   schema row, since the first-class field does not exist yet).
 - **v0.59 Hardening**: ADR 0046 accepted; first-class fragment `schema_version`
-  field + 43-namespace backfill; additive-only enforcement; fail-closed boot
-  check; export/import version preservation; documented manual migration path. The
+  field + backfill of every registered fragment (inventory from
+  `registered_fragments/0`); additive-only enforcement; fail-closed boot check;
+  export/import version preservation; documented manual migration path. The
   runtime runner is deferred.
 - **First real non-additive migration (post-v0.59)**: the `mix
   allbert.settings.migrate` runner + `Settings.Migration` DSL + `migrations/`

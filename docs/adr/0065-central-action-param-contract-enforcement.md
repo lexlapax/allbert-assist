@@ -1,8 +1,9 @@
 # ADR 0065: Central Action Param-Contract Enforcement
 
-Status: Proposed (v0.59 M7). Updated 2026-06-29 (v0.59 readiness review) with the
-code-grounded blast radius, the concrete validation mechanism, and the actual
-context/param split scope.
+Status: Proposed (v0.59 M7); accepted at v0.59 M7, where the central
+param-contract seam ships — matching the v0.59 plan and request-flow. Updated
+2026-06-29 (v0.59 readiness review) with the code-grounded blast radius, the
+concrete validation mechanism, and the actual context/param split scope.
 Date: 2026-06-21
 Related: ADR 0064 (central slot/param normalization seam - predecessor), ADR
 0027 (action DSL and capability registry), ADR 0006 (Security Central), ADR 0060
