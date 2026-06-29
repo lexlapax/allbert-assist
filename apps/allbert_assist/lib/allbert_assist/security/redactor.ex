@@ -48,7 +48,9 @@ defmodule AllbertAssist.Security.Redactor do
     ~r/\b(sk-[A-Za-z0-9_-]{6,})\b/,
     ~r/\b(ghp_[A-Za-z0-9_]{6,})\b/,
     ~r/\b(xox[baprs]-[A-Za-z0-9-]{6,})\b/,
-    ~r/\b(xapp-[A-Za-z0-9-]{6,})\b/
+    ~r/\b(xapp-[A-Za-z0-9-]{6,})\b/,
+    ~r/\b(AIza[0-9A-Za-z_-]{20,})\b/,
+    ~r/\b((?:AKIA|ASIA)[A-Z0-9]{16})\b/
   ]
   @phone_value_pattern ~r/(^|[^A-Za-z0-9_])(\+[1-9]\d{6,14})(?![A-Za-z0-9_])/
 

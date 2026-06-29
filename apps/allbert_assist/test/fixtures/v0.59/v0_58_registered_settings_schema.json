@@ -1,0 +1,3298 @@
+{
+  "generated_from": "v0.58.0",
+  "normalization": "atoms->strings, tuples->lists, functions->#Function<schema-callback>, Regex->inspect",
+  "schema": {
+    "plan.run.cancel_grace_ms": {
+      "default": 5000,
+      "max": 30000,
+      "min": 0,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "coding.turn.supervised": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "jobs.default_state": {
+      "allowed_values": [
+        "paused",
+        "active"
+      ],
+      "default": "paused",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "intent.model_assist_enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "mcp.discovery.sources.official.enabled": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "channels.email.from_name": {
+      "default": "Allbert",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "confirmations.allow_cli_approval": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "coding.streaming.turn_complete_fallback": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "artifacts.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "sandbox.elixir.network": {
+      "allowed_values": [
+        "none"
+      ],
+      "default": "none",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "coding.streaming.enabled": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "image.generation.max_pixels": {
+      "default": 33177600,
+      "max": 536870912,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "vision.media.max_pixels": {
+      "default": 33177600,
+      "max": 536870912,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "mcp.discovery.sources.pulsemcp.tenant_ref": {
+      "default": "nil",
+      "sensitive?": "true",
+      "type": "mcp_secret_ref_or_nil",
+      "writable?": "true"
+    },
+    "runtime.trace_default": {
+      "allowed_values": [
+        "disabled",
+        "enabled",
+        "denied_only"
+      ],
+      "default": "disabled",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "coding.edit.max_replacements": {
+      "default": 1,
+      "max": 1000,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "execution.local.env_allowlist": {
+      "default": [
+        "PATH",
+        "LANG",
+        "LC_ALL",
+        "MIX_ENV"
+      ],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "active_memory.score_weights.thread_affinity.same_app": {
+      "default": 0.6,
+      "max": 10.0,
+      "min": 1.0e-6,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "self_improvement.suggestions.ttl_days": {
+      "default": 14,
+      "max": 365,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "external_services.blocked_hosts": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "workspace.fragment.signing_secret": {
+      "default": "nil",
+      "sensitive?": "true",
+      "type": "hex_secret_or_nil",
+      "writable?": "false"
+    },
+    "intent.descriptors_enabled": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.stocksage_write": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "intent.model_min_confidence": {
+      "default": 0.72,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "permissions.channel_message_send": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "permissions.stocksage_analyze": {
+      "allowed_values": [
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "channels.email.imap_username": {
+      "default": "",
+      "sensitive?": "false",
+      "type": "string_or_empty",
+      "writable?": "true"
+    },
+    "permissions.coding_file_read": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "intent.handoff_threshold": {
+      "default": 0.6,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "workflows.max_yaml_bytes_per_file": {
+      "default": 262144,
+      "max": 1048576,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "confirmations.allow_cross_channel_approval": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "image.generation.max_bytes": {
+      "default": 20971520,
+      "max": 104857600,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "workspace.ephemeral.max_active_per_thread": {
+      "default": 16,
+      "max": 64,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "public_protocol.result_readback_sweep_interval_ms": {
+      "default": 60000,
+      "max": 86400000,
+      "min": 1000,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "intent.model_timeout_ms": {
+      "default": 3000,
+      "sensitive?": "false",
+      "type": "timeout_ms",
+      "writable?": "true"
+    },
+    "coding.search.respect_gitignore": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "openai_api.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.mcp_server_connect": {
+      "allowed_values": [
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "channels.email.imap_port": {
+      "default": 993,
+      "max": 65535,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "permissions.online_skill_import": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "denied",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "image.generation.retention_enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "external_services.allowed_hosts": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "workspace.accessibility.high_contrast": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.sandbox_trial": {
+      "allowed_values": [
+        "allowed",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "acp_server.stdio.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.dynamic_codegen_discard": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "mcp.discovery.registry_allowlist": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "channels.whatsapp.webhook_enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "coding.model_profile": {
+      "default": "pi_coding_local",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "vision.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "coding.read.default_limit": {
+      "default": 2000,
+      "max": 20000,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "intent.trace_rejected_candidates": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "coding.write.max_bytes": {
+      "default": 120000,
+      "max": 1000000,
+      "min": 1024,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "channels.email.imap_mailbox": {
+      "default": "INBOX",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "plugins.registration_enabled": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.tool_discovery": {
+      "allowed_values": [
+        "allowed",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "artifacts.trace.redact_bytes": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "voice.local_runtime.stt_backend": {
+      "allowed_values": [
+        "ollama"
+      ],
+      "default": "ollama",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "intent.router_scoring.ranker.descriptor_text_match_unit_boost": {
+      "default": 0.05,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "skills.disabled": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "workspace.fragment.payload_max_bytes": {
+      "default": 65536,
+      "max": 262144,
+      "min": 1024,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "channels.telegram.response_style": {
+      "allowed_values": [
+        "concise",
+        "balanced",
+        "detailed"
+      ],
+      "default": "concise",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "image.generation.retention_root": {
+      "default": "<ALLBERT_HOME>/generated_images",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "marketplace.provenance.require_hash_match": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "false"
+    },
+    "marketplace.schema_version": {
+      "default": 1,
+      "max": 1,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "false"
+    },
+    "intent.router_embedding_profile": {
+      "default": "embedding_local",
+      "sensitive?": "false",
+      "type": "profile_ref",
+      "writable?": "true"
+    },
+    "workflows.max_workflows_loaded_per_request": {
+      "default": 8,
+      "max": 8,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "memory.max_index_entries": {
+      "default": 1000,
+      "max": 100000,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "resource_grants.remembered": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "resource_grants",
+      "writable?": "true"
+    },
+    "coding.prompt.tokenizer": {
+      "allowed_values": [
+        "simple_words"
+      ],
+      "default": "simple_words",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "external_services.allowed_methods": {
+      "default": [
+        "GET",
+        "HEAD"
+      ],
+      "sensitive?": "false",
+      "type": "http_methods",
+      "writable?": "true"
+    },
+    "mcp_server.tools_enabled": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "public_tool_list",
+      "writable?": "true"
+    },
+    "channels.telegram.poll_timeout_seconds": {
+      "default": 25,
+      "max": 50,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "workflows.expression_grammar": {
+      "allowed_values": [
+        "closed_v1"
+      ],
+      "default": "closed_v1",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "false"
+    },
+    "workspace.accessibility.reduce_motion": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "objectives.max_steps_per_turn": {
+      "default": 3,
+      "max": 16,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "openai_api.memory_namespaces_enabled": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "public_memory_namespace_list",
+      "writable?": "true"
+    },
+    "sandbox.elixir.output_bytes": {
+      "default": 65536,
+      "sensitive?": "false",
+      "type": "positive_integer",
+      "writable?": "true"
+    },
+    "channels.email.max_body_bytes": {
+      "default": 65536,
+      "max": 1048576,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "acp_server.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "openai_api.path_prefix": {
+      "default": "/v1",
+      "sensitive?": "false",
+      "type": "public_api_path_prefix",
+      "writable?": "true"
+    },
+    "coding.pi_mode.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "plugins.disabled": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "external_services.retry_policy": {
+      "allowed_values": [
+        "none",
+        "safe_idempotent"
+      ],
+      "default": "none",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "dynamic_codegen.allowed_facades": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "mcp_server.streamable_http.bind_host": {
+      "default": "127.0.0.1",
+      "sensitive?": "false",
+      "type": "loopback_bind_host",
+      "writable?": "true"
+    },
+    "artifacts.allowed_mime": {
+      "default": [
+        "*/*"
+      ],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "execution.local.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "intent.router_scoring.prefilter.descriptor_text_match_unit_boost": {
+      "default": 0.04,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "coding.bash.timeout_ms": {
+      "default": 120000,
+      "max": 600000,
+      "min": 100,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "intent.model_profile": {
+      "default": "local",
+      "sensitive?": "false",
+      "type": "profile_ref",
+      "writable?": "true"
+    },
+    "channels.telegram.allow_confirmation_callbacks": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "workspace.offline.enabled": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "skills.online_import.max_download_bytes": {
+      "default": 1048576,
+      "sensitive?": "false",
+      "type": "positive_integer",
+      "writable?": "true"
+    },
+    "permissions.mcp_tool_call": {
+      "allowed_values": [
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "workspace.fragment.receiver_rate_limit_per_second": {
+      "default": 10,
+      "max": 1000,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "permissions.memory_write": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "skills.trusted_project_roots": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "plan.preview.show_confidence_tier": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "workspace.layout.override_enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "channels.email.smtp_password_ref": {
+      "default": "secret://channels/email/smtp_password",
+      "sensitive?": "true",
+      "type": "channel_secret_ref",
+      "writable?": "true"
+    },
+    "channels.telegram.identity_map": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "channel_identity_map",
+      "writable?": "true"
+    },
+    "intent.router_scoring.prefilter.complete_required_slots_boost": {
+      "default": 0.35,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "plan.run.plan_start_gate": {
+      "allowed_values": [
+        "required"
+      ],
+      "default": "required",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "false"
+    },
+    "channels.email.identity_map": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "channel_identity_map",
+      "writable?": "true"
+    },
+    "package_installs.allowed_roots": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "active_memory.enabled": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "active_memory.score_weights.thread_affinity.general": {
+      "default": 0.3,
+      "max": 10.0,
+      "min": 1.0e-6,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "skills.online_import.sources.skills_sh.cache_ttl_seconds": {
+      "default": 3600,
+      "sensitive?": "false",
+      "type": "positive_integer",
+      "writable?": "true"
+    },
+    "coding.prompt.token_budget": {
+      "default": 1000,
+      "max": 4000,
+      "min": 256,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "mcp.discovery.sources.pulsemcp.api_key_ref": {
+      "default": "nil",
+      "sensitive?": "true",
+      "type": "mcp_secret_ref_or_nil",
+      "writable?": "true"
+    },
+    "artifacts.ingestion_timeout_ms": {
+      "default": 15000,
+      "sensitive?": "false",
+      "type": "timeout_ms",
+      "writable?": "true"
+    },
+    "channels.telegram.allow_group_chats": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "mcp_server.streamable_http.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "voice.local_runtime.stt_model_alias": {
+      "default": "whisper-local",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "voice.audio.max_duration_ms": {
+      "default": 300000,
+      "max": 3600000,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "vision.media.retention_root": {
+      "default": "<ALLBERT_HOME>/images",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "workspace.theme.snippets_enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "memory.retention_policy": {
+      "allowed_values": [
+        "preserve_markdown",
+        "prune_traces_after_30d",
+        "prune_traces_after_90d"
+      ],
+      "default": "preserve_markdown",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "channels.whatsapp.app_secret_ref": {
+      "default": "secret://channels/whatsapp/app_secret",
+      "sensitive?": "true",
+      "type": "channel_secret_ref",
+      "writable?": "true"
+    },
+    "conversations.unified_history.include_e2ee_origin": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "operator.handoff_detail": {
+      "allowed_values": [
+        "brief",
+        "concrete_next_steps",
+        "full_context"
+      ],
+      "default": "concrete_next_steps",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "external_services.allow_redirects": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "channels.telegram.poll_interval_ms": {
+      "default": 2000,
+      "max": 60000,
+      "min": 250,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "confirmations.default_ttl_minutes": {
+      "default": 1440,
+      "sensitive?": "false",
+      "type": "positive_integer",
+      "writable?": "true"
+    },
+    "skills.online_import.sources.skills_sh.api_url": {
+      "default": "https://skills.sh/api",
+      "sensitive?": "false",
+      "type": "url_or_nil",
+      "writable?": "true"
+    },
+    "coding.bash.allow_raw_shell": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "workspace.mobile.breakpoint_px": {
+      "default": 768,
+      "sensitive?": "false",
+      "type": "positive_integer",
+      "writable?": "false"
+    },
+    "intent.descriptor_autoaccept": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "external_services.max_response_bytes": {
+      "default": 1048576,
+      "sensitive?": "false",
+      "type": "positive_integer",
+      "writable?": "true"
+    },
+    "channels.whatsapp.waba_id": {
+      "default": "",
+      "sensitive?": "false",
+      "type": "string_or_empty",
+      "writable?": "true"
+    },
+    "mcp.discovery.scan.schedule": {
+      "allowed_values": [
+        "paused",
+        "daily",
+        "weekly"
+      ],
+      "default": "paused",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "voice.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "plugins.scan_paths": {
+      "default": [
+        "./plugins",
+        "<ALLBERT_HOME>/plugins"
+      ],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "permissions.browser_session_start": {
+      "allowed_values": [
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "sandbox.elixir.backend": {
+      "allowed_values": [
+        "auto",
+        "apple_container",
+        "docker",
+        "podman_rootless",
+        "docker_runsc"
+      ],
+      "default": "auto",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "channels.cli.response_style": {
+      "allowed_values": [
+        "concise",
+        "balanced",
+        "detailed"
+      ],
+      "default": "concise",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "skills.scan_paths": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "active_memory.score_weights.identity_inclusion": {
+      "default": 1.5,
+      "max": 10.0,
+      "min": 1.0e-6,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "permissions.workspace_canvas_write": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "package_installs.max_timeout_ms": {
+      "default": 120000,
+      "sensitive?": "false",
+      "type": "timeout_ms",
+      "writable?": "true"
+    },
+    "mcp_server.schema_version": {
+      "default": 1,
+      "max": 1,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "intent.eval.block_on_regression": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "workspace.offline.indexeddb_quota_mb": {
+      "default": 32,
+      "max": 256,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "surface_policy.schema_version": {
+      "default": 1,
+      "max": 1,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "permissions.stocksage_evidence_fetch": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "intent.max_candidates": {
+      "default": 80,
+      "max": 500,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "execution.local.command_profiles": {
+      "default": {},
+      "sensitive?": "false",
+      "type": "command_profiles",
+      "writable?": "true"
+    },
+    "memory.delete_requires_confirmation": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "mcp.discovery.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "dynamic_codegen.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "intent.router_min_confidence": {
+      "default": 0.6,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "workflows.dir": {
+      "default": "<ALLBERT_HOME>/workflows",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "false"
+    },
+    "marketplace.catalog.source": {
+      "allowed_values": [
+        "shipped"
+      ],
+      "default": "shipped",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "false"
+    },
+    "self_improvement.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "confirmations.auto_expire_on_startup": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "mcp_server.clients": {
+      "default": {},
+      "sensitive?": "true",
+      "surface": "mcp_http",
+      "type": "public_protocol_clients",
+      "writable?": "true"
+    },
+    "permissions.objective_write": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "execution.local.allowed_commands": {
+      "default": [
+        "pwd",
+        "ls",
+        "find",
+        "rg",
+        "cat",
+        "sed",
+        "head",
+        "tail",
+        "wc"
+      ],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "channels.telegram.allowed_chat_ids": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "channels.whatsapp.webhook_rate_limit.period_ms": {
+      "default": 60000,
+      "max": 86400000,
+      "min": 100,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "dynamic_codegen.retention_days": {
+      "default": 30,
+      "max": 365,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "intent.router_escalation_profile": {
+      "default": "router_escalation_local",
+      "sensitive?": "false",
+      "type": "string_or_empty",
+      "writable?": "true"
+    },
+    "self_improvement.trace_index.max_indexed_entries": {
+      "default": 5000,
+      "max": 50000,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "package_installs.max_output_bytes": {
+      "default": 262144,
+      "sensitive?": "false",
+      "type": "positive_integer",
+      "writable?": "true"
+    },
+    "permissions.browser_screenshot": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "marketplace.install.target_dir_templates": {
+      "default": "<ALLBERT_HOME>/marketplace/templates",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "mcp.discovery.sources.pulsemcp.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "vision.media.max_bytes": {
+      "default": 20971520,
+      "max": 104857600,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "channels.email.smtp_host": {
+      "default": "",
+      "sensitive?": "false",
+      "type": "string_or_empty",
+      "writable?": "true"
+    },
+    "artifacts.root": {
+      "default": "<ALLBERT_HOME>/artifacts",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "workspace.theme.mode": {
+      "allowed_values": [
+        "light",
+        "dark",
+        "system"
+      ],
+      "default": "system",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "voice.local_runtime.ollama_stt_model": {
+      "default": "gemma4:e2b",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "artifacts.gc.mode": {
+      "allowed_values": [
+        "on_demand"
+      ],
+      "default": "on_demand",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "false"
+    },
+    "package_installs.global_installs_allowed": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.external_network": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "memory.auto_promote_sensitive_entries": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "memory.prune_requires_confirmation": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.browser_extract": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "workflows.max_steps_per_workflow": {
+      "default": 3,
+      "max": 10,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "channels.email.response_style": {
+      "allowed_values": [
+        "standard",
+        "concise",
+        "detailed"
+      ],
+      "default": "standard",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "acp_server.session.additional_directories_enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "marketplace.install.default_state": {
+      "allowed_values": [
+        "disabled_untrusted"
+      ],
+      "default": "disabled_untrusted",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "false"
+    },
+    "channels.whatsapp.webhook_rate_limit.limit": {
+      "default": 60,
+      "max": 10000,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "coding.search.respect_allbertignore": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.artifact_delete": {
+      "allowed_values": [
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "intent.router_model_timeout_ms": {
+      "default": 20000,
+      "max": 60000,
+      "min": 250,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "voice.local_runtime.tts_model_alias": {
+      "default": "tts-local",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "voice.audio.retention_root": {
+      "default": "<ALLBERT_HOME>/audio",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "operator.display_name": {
+      "default": "local",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "artifacts.retention_enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "coding.search.max_output_bytes": {
+      "default": 120000,
+      "max": 1000000,
+      "min": 1024,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "permissions.public_surface_call_inbound": {
+      "allowed_values": [
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "sandbox.elixir.cpu_limit": {
+      "default": 1.0,
+      "max": 8.0,
+      "min": 0.25,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "confirmations.show_redacted_params": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "voice.trace.redact_audio": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "channels.telegram.max_text_bytes": {
+      "default": 4096,
+      "max": 65536,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "coding.workspace.cwd_jail": {
+      "default": ".",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "workspace.fragment.emission_enabled": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "coding.command_grants.default_ttl_ms": {
+      "default": 86400000,
+      "max": 2592000000,
+      "min": 60000,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "intent.context_window": {
+      "default": 6,
+      "max": 24,
+      "min": 0,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "memory.max_entries_per_category": {
+      "default": 500,
+      "max": 100000,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "workflows.id_pattern": {
+      "default": "^[a-z0-9][a-z0-9_-]*$",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "false"
+    },
+    "acp_server.memory_namespaces_enabled": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "public_memory_namespace_list",
+      "writable?": "true"
+    },
+    "dynamic_codegen.max_provider_usage_units_per_gap": {
+      "default": 20000,
+      "sensitive?": "false",
+      "type": "non_negative_integer_or_nil",
+      "writable?": "true"
+    },
+    "model_preferences.primary": {
+      "default": "local",
+      "sensitive?": "false",
+      "type": "profile_ref",
+      "writable?": "true"
+    },
+    "dynamic_codegen.max_bytes": {
+      "default": 262144,
+      "max": 5242880,
+      "min": 1024,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "memory.promotion_requires_confirmation": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "mcp_server.streamable_http.port": {
+      "default": "nil",
+      "sensitive?": "false",
+      "type": "port_or_nil",
+      "writable?": "true"
+    },
+    "public_protocol.result_readback_ttl_ms": {
+      "default": 3600000,
+      "max": 86400000,
+      "min": 60000,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "coding.turn.max_ms": {
+      "default": 120000,
+      "max": 600000,
+      "min": 100,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "channels.email.smtp_tls": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "workspace.theme.enabled_snippets": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "plan.preview.confidence_tier_engine": {
+      "allowed_values": [
+        "deterministic_v1"
+      ],
+      "default": "deterministic_v1",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "false"
+    },
+    "active_memory.excluded_sample_limit": {
+      "default": 5,
+      "max": 100,
+      "min": 0,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "mcp.stdio.allowed_launchers": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "intent.router_scoring.prefilter.descriptor_text_match_boost": {
+      "default": 0.35,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "skills.online_import.require_confirmation": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "dynamic_codegen.max_provider_calls_per_gap": {
+      "default": 8,
+      "max": 40,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "skills.online_import.max_listing_results": {
+      "default": 25,
+      "sensitive?": "false",
+      "type": "positive_integer",
+      "writable?": "true"
+    },
+    "runtime.diagnostics_verbosity": {
+      "allowed_values": [
+        "quiet",
+        "normal",
+        "verbose"
+      ],
+      "default": "normal",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "marketplace.install.target_dir_skills": {
+      "default": "<ALLBERT_HOME>/marketplace/skills",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "dynamic_codegen.max_files": {
+      "default": 32,
+      "max": 200,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "surface_policy.defaults.render_mode": {
+      "allowed_values": [
+        "assistant_summary"
+      ],
+      "default": "assistant_summary",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "package_installs.git_dependencies_allowed": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "active_memory.internal_candidate_limit": {
+      "default": 1000,
+      "max": 50000,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "permissions.artifact_write": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "permissions.voice_synthesize": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "intent.disambiguation_margin": {
+      "default": 0.12,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "permissions.coding_file_write": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "skills.imported_cache_policy": {
+      "allowed_values": [
+        "disabled",
+        "enabled_manual_trust"
+      ],
+      "default": "disabled",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "plugins.enabled": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "vision.media.retention_enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "surface_policy.defaults.max_rows": {
+      "default": 25,
+      "max": 1000,
+      "min": 0,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "image.trace.redact_images": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "channels.telegram.bot_token_ref": {
+      "default": "secret://channels/telegram/bot_token",
+      "sensitive?": "true",
+      "type": "channel_secret_ref",
+      "writable?": "true"
+    },
+    "dynamic_codegen.allowed_targets": {
+      "default": [
+        "action"
+      ],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "workspace.canvas.tile_body_max_bytes": {
+      "default": 65536,
+      "max": 262144,
+      "min": 1024,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "intent.direct_answer_model_profile": {
+      "default": "local",
+      "sensitive?": "false",
+      "type": "profile_ref",
+      "writable?": "true"
+    },
+    "skills.online_import.trust_after_import": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.command_execute": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "denied",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "permissions.coding_shell_execute": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "permissions.skill_write": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "channels.email.from_address": {
+      "default": "",
+      "sensitive?": "false",
+      "type": "email_or_empty",
+      "writable?": "true"
+    },
+    "self_improvement.schema_version": {
+      "default": 1,
+      "max": 1,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "false"
+    },
+    "permissions.dynamic_integration": {
+      "allowed_values": [
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "permissions.skill_script_execute": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "denied",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "workspace.agui_bridge.enabled": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.voice_transcribe": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "mcp.discovery.registry_denylist": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "intent.router_decisive_confidence": {
+      "default": 0.8,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "memory.review_cadence": {
+      "allowed_values": [
+        "manual",
+        "daily",
+        "weekly"
+      ],
+      "default": "manual",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "channels.email.imap_host": {
+      "default": "",
+      "sensitive?": "false",
+      "type": "string_or_empty",
+      "writable?": "true"
+    },
+    "artifacts.gc.delete_orphans": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "acp_server.tools_enabled": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "public_tool_list",
+      "writable?": "true"
+    },
+    "confirmations.allow_liveview_approval": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "intent.router_scoring.ranker.descriptor_text_match_boost": {
+      "default": 0.45,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "active_memory.score_weights.recency_half_life_days": {
+      "default": 30,
+      "max": 3650,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "coding.command_grants.max_entries_per_repo": {
+      "default": 100,
+      "max": 1000,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "vision.schema_version": {
+      "default": 1,
+      "max": 1,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "false"
+    },
+    "channels.email.allow_html_replies": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "sandbox.elixir.timeout_ms": {
+      "default": 120000,
+      "sensitive?": "false",
+      "type": "timeout_ms",
+      "writable?": "true"
+    },
+    "execution.local.require_confirmation": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "sessions.scratchpad_ttl_minutes": {
+      "default": 30,
+      "max": 1440,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "operator.timezone": {
+      "default": "America/Los_Angeles",
+      "sensitive?": "false",
+      "type": "timezone",
+      "writable?": "true"
+    },
+    "permissions.workflow_run_start": {
+      "allowed_values": [
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "templates.create.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "objectives.enabled": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "jobs.timezone": {
+      "default": "America/Los_Angeles",
+      "sensitive?": "false",
+      "type": "timezone",
+      "writable?": "true"
+    },
+    "execution.skill_scripts.interpreter_profiles": {
+      "default": {},
+      "sensitive?": "false",
+      "type": "interpreter_profiles",
+      "writable?": "true"
+    },
+    "dynamic_codegen.allowed_action_permissions": {
+      "default": [
+        "read_only"
+      ],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "permissions.artifact_read": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "intent.multiturn_enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "plan.preview.show_estimated_cost": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.email_send": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "intent.router_scoring.ranker.complete_required_slots_boost": {
+      "default": 0.35,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "execution.skill_scripts.require_confirmation": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "marketplace.catalog.mirror_on_first_action": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "false"
+    },
+    "channels.whatsapp.webhook_verify_token_ref": {
+      "default": "secret://channels/whatsapp/webhook_verify_token",
+      "sensitive?": "true",
+      "type": "channel_secret_ref",
+      "writable?": "true"
+    },
+    "voice.schema_version": {
+      "default": 1,
+      "max": 1,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "false"
+    },
+    "dynamic_codegen.provider_profile": {
+      "default": "nil",
+      "sensitive?": "false",
+      "type": "string_or_nil",
+      "writable?": "true"
+    },
+    "permissions.voice_local_runtime_manage": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "external_services.redact_response_headers": {
+      "default": [
+        "set-cookie",
+        "authorization"
+      ],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "external_services.redact_request_headers": {
+      "default": [
+        "authorization",
+        "cookie",
+        "x-api-key"
+      ],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "plan.subagent.delegation_visibility": {
+      "allowed_values": [
+        "expanded_inline"
+      ],
+      "default": "expanded_inline",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "false"
+    },
+    "external_services.max_timeout_ms": {
+      "default": 30000,
+      "sensitive?": "false",
+      "type": "timeout_ms",
+      "writable?": "true"
+    },
+    "active_memory.score_weights.thread_affinity.same_thread": {
+      "default": 1.0,
+      "max": 10.0,
+      "min": 1.0e-6,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "vision.trace.redact_images": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "objectives.trace_detail": {
+      "allowed_values": [
+        "operator",
+        "debug"
+      ],
+      "default": "operator",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "surface_policy.defaults.raw_requires_affordance": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "marketplace.provenance.hash_algorithm": {
+      "allowed_values": [
+        "sha256"
+      ],
+      "default": "sha256",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "false"
+    },
+    "channels.email.smtp_port": {
+      "default": 587,
+      "max": 65535,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "surface_policy.defaults.redaction_profile": {
+      "allowed_values": [
+        "standard",
+        "strict"
+      ],
+      "default": "standard",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "channels.live_view.response_style": {
+      "allowed_values": [
+        "concise",
+        "balanced",
+        "detailed"
+      ],
+      "default": "concise",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "sandbox.elixir.memory_mb": {
+      "default": 1024,
+      "max": 8192,
+      "min": 128,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "workflows.enabled": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "workflows.max_param_bytes_per_step": {
+      "default": 65536,
+      "max": 1048576,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "intent.direct_answer_model_enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "artifacts.dedup": {
+      "allowed_values": [
+        "content_sha256"
+      ],
+      "default": "content_sha256",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "false"
+    },
+    "coding.trusted_operator_id": {
+      "default": "nil",
+      "sensitive?": "false",
+      "type": "string_or_nil",
+      "writable?": "true"
+    },
+    "runtime.model_alias": {
+      "default": "local",
+      "sensitive?": "false",
+      "type": "profile_ref",
+      "writable?": "false"
+    },
+    "templates.allowed_patterns": {
+      "default": [
+        "plugin",
+        "app",
+        "llm_tool",
+        "flow",
+        "objective"
+      ],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "channels.email.imap_poll_interval_ms": {
+      "default": 60000,
+      "max": 3600000,
+      "min": 1000,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "intent.router_scoring.prefilter.descriptor_text_match_cap": {
+      "default": 0.25,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "mcp.discovery.auto_connect": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "false"
+    },
+    "permissions.dynamic_codegen_request": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "execution.local.max_timeout_ms": {
+      "default": 30000,
+      "sensitive?": "false",
+      "type": "timeout_ms",
+      "writable?": "true"
+    },
+    "dynamic_codegen.integration_approval_surfaces": {
+      "default": [
+        "cli",
+        "liveview"
+      ],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "coding.search.max_results": {
+      "default": 100,
+      "max": 10000,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "mcp_server.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "mcp.discovery.scan.max_results": {
+      "default": 25,
+      "max": 100,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "channels.whatsapp.webhook_rate_limit.burst": {
+      "default": 10,
+      "max": 10000,
+      "min": 0,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "objectives.max_loop_count": {
+      "default": 5,
+      "max": 32,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "marketplace.catalog.cache_path": {
+      "default": "<ALLBERT_HOME>/marketplace/cache",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "execution.local.require_path_operands_in_allowed_roots": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "dynamic_codegen.live_loader_enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "self_improvement.suggestions.max_open": {
+      "default": 25,
+      "max": 200,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "permissions.image_generate": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "external_services.profiles": {
+      "default": {},
+      "sensitive?": "false",
+      "type": "external_service_profiles",
+      "writable?": "true"
+    },
+    "intent.reindex_on_registration_signal": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "confirmations.require_reason_for_denial": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "package_installs.lifecycle_scripts_allowed": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.confirmation_decide": {
+      "allowed_values": [
+        "allowed",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "intent.router_top_k": {
+      "default": 5,
+      "max": 20,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "execution.local.default_timeout_ms": {
+      "default": 5000,
+      "sensitive?": "false",
+      "type": "timeout_ms",
+      "writable?": "true"
+    },
+    "plan.preview.show_failure_blast_radius": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "acp_server.schema_version": {
+      "default": 1,
+      "max": 1,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "package_installs.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "self_improvement.trace_index.min_repetitions": {
+      "default": 3,
+      "max": 100,
+      "min": 2,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "acp_server.session.resume_enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "intent.router_scoring.prefilter.missing_required_slots_penalty": {
+      "default": 0.25,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "permissions.workflow_read": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "external_services.allowed_paths": {
+      "default": [
+        "/"
+      ],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "package_installs.allowed_managers": {
+      "default": [
+        "npm"
+      ],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "mcp_server.memory_namespaces_enabled": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "public_memory_namespace_list",
+      "writable?": "true"
+    },
+    "permissions.image_input": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "operator.communication_style": {
+      "allowed_values": [
+        "concise",
+        "balanced",
+        "detailed"
+      ],
+      "default": "concise",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "intent.router_scoring.ranker.descriptor_text_match_cap": {
+      "default": 0.25,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "intent.pending_clarification_ttl_ms": {
+      "default": 120000,
+      "max": 3600000,
+      "min": 1000,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "workflows.schema_version": {
+      "default": 1,
+      "max": 1,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "false"
+    },
+    "plugins.trusted_project_roots": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "permissions.command_plan": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "mcp_server.stdio.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "execution.local.blocked_arg_patterns": {
+      "default": [
+        "-i",
+        "--in-place",
+        "-delete",
+        "-exec",
+        "-execdir",
+        "-c",
+        "-e",
+        "--eval",
+        "&&",
+        "||",
+        ";",
+        "|",
+        ">",
+        ">>",
+        "<",
+        "$(",
+        "`",
+        "&"
+      ],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "external_services.max_redirects": {
+      "default": 0,
+      "sensitive?": "false",
+      "type": "non_negative_integer",
+      "writable?": "true"
+    },
+    "voice.local_runtime.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "workspace.signal_bridge.log_dropped_fragments": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "artifacts.allowed_types": {
+      "default": [
+        "*"
+      ],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "openai_api.tools_enabled": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "public_tool_list",
+      "writable?": "true"
+    },
+    "sandbox.elixir.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "intent.handoff_margin": {
+      "default": 0.15,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "runtime.trace_recent_entries_limit": {
+      "default": 5,
+      "max": 100,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "package_installs.require_confirmation": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.browser_form_fill": {
+      "allowed_values": [
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "denied",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "coding.default_approval_mode": {
+      "allowed_values": [
+        "default",
+        "accept-edits",
+        "accept_edits",
+        "plan",
+        "tier"
+      ],
+      "default": "default",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "external_services.default_timeout_ms": {
+      "default": 5000,
+      "sensitive?": "false",
+      "type": "timeout_ms",
+      "writable?": "true"
+    },
+    "self_improvement.drafts.max_open": {
+      "default": 50,
+      "max": 500,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "permissions.browser_download": {
+      "allowed_values": [
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "denied",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "active_memory.top_k": {
+      "default": 5,
+      "max": 20,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "skills.enabled": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "workspace.fragment.rate_limit_per_second": {
+      "default": 10,
+      "max": 1000,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "permissions.channel_message_inbound": {
+      "allowed_values": [
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "self_improvement.trace_index.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "openai_api.schema_version": {
+      "default": 1,
+      "max": 1,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "memory.index_enabled": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "intent.eval.min_per_domain_accuracy": {
+      "default": 0.8,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "public_protocol.schema_version": {
+      "default": 1,
+      "max": 1,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "intent.calendar_mcp_server": {
+      "default": "calendar",
+      "sensitive?": "false",
+      "type": "string_or_empty",
+      "writable?": "true"
+    },
+    "channels.email.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "voice.local_runtime.port": {
+      "default": 5050,
+      "max": 65535,
+      "min": 1024,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "active_memory.chunk_max_bytes": {
+      "default": 2048,
+      "max": 8192,
+      "min": 128,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "workspace.canvas.max_tiles_per_thread": {
+      "default": 64,
+      "max": 256,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "permissions.mcp_resource_read": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "artifacts.max_bytes": {
+      "default": 20971520,
+      "max": 104857600,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "acp_server.session.load_enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "image.schema_version": {
+      "default": 1,
+      "max": 1,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "false"
+    },
+    "sandbox.elixir.image": {
+      "default": "allbert-elixir-otp:local",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "permissions.package_install": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "denied",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "permissions.settings_write": {
+      "allowed_values": [
+        "allowed_safe_keys",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed_safe_keys",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "artifacts.gc.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "openai_api.clients": {
+      "default": {},
+      "sensitive?": "true",
+      "surface": "openai_api",
+      "type": "public_protocol_clients",
+      "writable?": "true"
+    },
+    "openai_api.models_enabled": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "profile_ref_list",
+      "writable?": "true"
+    },
+    "dynamic_codegen.max_repair_iterations": {
+      "default": 2,
+      "max": 8,
+      "min": 0,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "skills.online_import.allowed_sources": {
+      "default": [
+        "skills_sh"
+      ],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "intent.clarify_floor": {
+      "default": 0.3,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "channels.email.imap_password_ref": {
+      "default": "secret://channels/email/imap_password",
+      "sensitive?": "true",
+      "type": "channel_secret_ref",
+      "writable?": "true"
+    },
+    "coding.bash.max_output_bytes": {
+      "default": 120000,
+      "max": 1000000,
+      "min": 1024,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "app_registry.registration_enabled": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "image.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.browser_interact": {
+      "allowed_values": [
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "package_installs.manager_profiles": {
+      "default": {},
+      "sensitive?": "false",
+      "type": "package_manager_profiles",
+      "writable?": "true"
+    },
+    "public_protocol.max_body_bytes": {
+      "default": 1048576,
+      "max": 10485760,
+      "min": 1024,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "voice.audio.retention_enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "intent.router_strategy": {
+      "allowed_values": [
+        "deterministic",
+        "two_stage_local"
+      ],
+      "default": "two_stage_local",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "channels.whatsapp.phone_number_id": {
+      "default": "",
+      "sensitive?": "false",
+      "type": "string_or_empty",
+      "writable?": "true"
+    },
+    "allbert.jido.debug_trace": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "skills.online_import.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "plugins.load_policy": {
+      "allowed_values": [
+        "shipped_and_skill_only",
+        "shipped_only"
+      ],
+      "default": "shipped_and_skill_only",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "plan.run.default_concurrency": {
+      "default": 1,
+      "max": 1,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "false"
+    },
+    "channels.email.smtp_username": {
+      "default": "",
+      "sensitive?": "false",
+      "type": "string_or_empty",
+      "writable?": "true"
+    },
+    "channels.telegram.render_approval_buttons": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "workspace.theme.active": {
+      "default": "nil",
+      "sensitive?": "false",
+      "type": "string_or_nil",
+      "writable?": "true"
+    },
+    "coding.cancel.grace_ms": {
+      "default": 2000,
+      "max": 60000,
+      "min": 100,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "coding.read.max_bytes": {
+      "default": 120000,
+      "max": 1000000,
+      "min": 1024,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "package_installs.default_timeout_ms": {
+      "default": 30000,
+      "sensitive?": "false",
+      "type": "timeout_ms",
+      "writable?": "true"
+    },
+    "channels.telegram.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "marketplace.enabled": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.browser_navigate": {
+      "allowed_values": [
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "permissions.notes_file_write": {
+      "allowed_values": [
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "skills.online_import.sources.skills_sh.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "voice.local_runtime.max_text_bytes": {
+      "default": 16384,
+      "max": 262144,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "model_preferences.schema_version": {
+      "default": 1,
+      "max": 1,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "false"
+    },
+    "jobs.schedule_policy": {
+      "allowed_values": [
+        "operator_approved",
+        "paused"
+      ],
+      "default": "operator_approved",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "voice.local_runtime.tts_backend": {
+      "allowed_values": [
+        "macos_say"
+      ],
+      "default": "macos_say",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "marketplace.installed_state_path": {
+      "default": "<ALLBERT_HOME>/marketplace/installed.json",
+      "sensitive?": "false",
+      "type": "string",
+      "writable?": "true"
+    },
+    "execution.skill_scripts.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.microphone_capture": {
+      "allowed_values": [
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "channels.email.imap_ssl": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "coding.steer.enabled": {
+      "default": "true",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.marketplace_install": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "artifacts.schema_version": {
+      "default": 1,
+      "max": 1,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "false"
+    },
+    "voice.local_runtime.ollama_base_url": {
+      "default": "http://127.0.0.1:11434/v1",
+      "sensitive?": "false",
+      "type": "loopback_http_base_url",
+      "writable?": "true"
+    },
+    "external_services.enabled": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    },
+    "permissions.calendar_write": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "needs_confirmation",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "permissions.plan_cancel": {
+      "allowed_values": [
+        "allowed",
+        "needs_confirmation",
+        "denied"
+      ],
+      "default": "allowed",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "true"
+    },
+    "runtime.cost_visibility": {
+      "allowed_values": [
+        "hidden",
+        "summary",
+        "detailed"
+      ],
+      "default": "summary",
+      "sensitive?": "false",
+      "type": "enum",
+      "writable?": "false"
+    },
+    "execution.local.max_output_bytes": {
+      "default": 65536,
+      "sensitive?": "false",
+      "type": "positive_integer",
+      "writable?": "true"
+    },
+    "skills.online_import.sources.skills_sh.base_url": {
+      "default": "https://skills.sh",
+      "sensitive?": "false",
+      "type": "url_or_nil",
+      "writable?": "true"
+    },
+    "voice.audio.max_bytes": {
+      "default": 10485760,
+      "max": 104857600,
+      "min": 1,
+      "sensitive?": "false",
+      "type": "bounded_integer",
+      "writable?": "true"
+    },
+    "intent.eval.min_accuracy": {
+      "default": 0.85,
+      "max": 1.0,
+      "min": 0.0,
+      "sensitive?": "false",
+      "type": "bounded_float",
+      "writable?": "true"
+    },
+    "intent.router_model_profile": {
+      "default": "router_local",
+      "sensitive?": "false",
+      "type": "profile_ref",
+      "writable?": "true"
+    },
+    "execution.local.allowed_roots": {
+      "default": [],
+      "sensitive?": "false",
+      "type": "string_list",
+      "writable?": "true"
+    },
+    "plan.preview.auto_proceed_green_tier": {
+      "default": "false",
+      "sensitive?": "false",
+      "type": "boolean",
+      "writable?": "true"
+    }
+  },
+  "source": "AllbertAssist.Settings.Fragments.schema/0"
+}

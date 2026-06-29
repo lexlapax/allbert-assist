@@ -3465,6 +3465,7 @@ defmodule Mix.Tasks.Allbert.Test do
 
     started_at = DateTime.utc_now()
     results = Enum.map(@release_v059_steps, &run_release_v059_step(&1, env))
+    seed_release_v059_secret_scan_fixture(home)
     secret_scan = release_channel_pack_secret_scan(home, "release.v059")
 
     status =
@@ -3984,6 +3985,23 @@ defmodule Mix.Tasks.Allbert.Test do
       output_sha256: sha256(output),
       redacted_output_tail: output |> redact_release_output() |> tail(12_000)
     }
+  end
+
+  defp seed_release_v059_secret_scan_fixture(home) do
+    fixture_path = Path.join([home, "traces", "release-v059-secret-scan-fixture.txt"])
+
+    fixture_path
+    |> Path.dirname()
+    |> File.mkdir_p!()
+
+    File.write!(
+      fixture_path,
+      [
+        "release.v059 secret-scan fixture\n",
+        "scan_probe=non_empty_file_set\n",
+        "redaction=[REDACTED]\n"
+      ]
+    )
   end
 
   defp release_step_cwd(:core), do: app_cwd(:core)

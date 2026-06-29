@@ -46,6 +46,21 @@ defmodule AllbertAssist.Runtime.RedactorTest do
              Redactor.redact(%{"data" => [%{api_key: "sk-secret"} | "tail"]})
   end
 
+  test "provider-shaped secret values redact under innocuous keys" do
+    google_key = "AI" <> "zaSyDUMMYSecretShapeForAudit59"
+    aws_key = "AK" <> "IA1234567890ABCDEF"
+
+    redacted =
+      Redactor.redact(%{
+        harmless_note: "contains #{google_key}",
+        visible_list: ["contains #{aws_key}"]
+      })
+
+    assert inspect(redacted) =~ "[REDACTED]"
+    refute inspect(redacted) =~ google_key
+    refute inspect(redacted) =~ aws_key
+  end
+
   test "descriptor vocabulary token-match flag is not treated as a secret key" do
     redacted =
       Redactor.redact(%{

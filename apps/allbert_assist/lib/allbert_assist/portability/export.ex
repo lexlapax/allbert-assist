@@ -7,7 +7,7 @@ defmodule AllbertAssist.Portability.Export do
   alias AllbertAssist.Portability.Envelope
   alias AllbertAssist.Portability.SecretReferences
   alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Settings.Store
+  alias AllbertAssist.Settings
   alias AllbertAssist.Settings.VersionContract
 
   @secret_paths MapSet.new([
@@ -17,6 +17,11 @@ defmodule AllbertAssist.Portability.Export do
 
   @excluded_prefixes ~w(cache/ tmp/)
   @secret_ref_pattern ~r/^secret:\/\/[A-Za-z0-9_\/.-]+$/
+  @export_secret_value_patterns [
+    ~r/\bAIza[0-9A-Za-z_-]{20,}\b/,
+    ~r/\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/,
+    ~r/\b[A-Fa-f0-9]{32,64}\b/
+  ]
   @domain_roots %{
     "artifacts" => "artifacts",
     "audio" => "media",
@@ -45,7 +50,7 @@ defmodule AllbertAssist.Portability.Export do
   def build(opts \\ []) do
     home = Keyword.get_lazy(opts, :home, &Paths.home/0)
 
-    with {:ok, user_settings} <- Store.read_user_settings() do
+    with {:ok, user_settings} <- Settings.read_user_settings() do
       fragments = VersionContract.inventory(user_settings: user_settings)
       files = file_manifest(home)
       secret_refs = SecretReferences.export_rows(user_settings)
@@ -208,13 +213,19 @@ defmodule AllbertAssist.Portability.Export do
     cond do
       secret_ref?(value) -> Redactor.redact(value)
       sensitive_path?(path) -> "[REDACTED]"
-      true -> Redactor.redact(value)
+      true -> value |> Redactor.redact() |> redact_export_secret_shapes()
     end
   end
 
   defp redact_settings(value, _path), do: value
 
   defp secret_ref?(value), do: Regex.match?(@secret_ref_pattern, value)
+
+  defp redact_export_secret_shapes(value) do
+    Enum.reduce(@export_secret_value_patterns, value, fn pattern, acc ->
+      Regex.replace(pattern, acc, "[REDACTED]")
+    end)
+  end
 
   defp sensitive_path?(path) do
     path

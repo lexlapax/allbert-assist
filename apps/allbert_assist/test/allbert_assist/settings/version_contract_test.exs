@@ -9,6 +9,11 @@ defmodule AllbertAssist.Settings.VersionContractTest do
   alias AllbertAssist.Settings.Store
   alias AllbertAssist.Settings.VersionContract
 
+  @v058_schema_fixture Path.expand(
+                         "../../fixtures/v0.59/v0_58_registered_settings_schema.json",
+                         __DIR__
+                       )
+
   setup do
     original_settings_config = Application.get_env(:allbert_assist, Settings)
 
@@ -163,6 +168,62 @@ defmodule AllbertAssist.Settings.VersionContractTest do
     assert {:error, %{removed: ["sample.enabled"]}} = SchemaDiff.compare(before_schema, %{})
     refute SchemaDiff.additive_only?(before_schema, changed_schema)
   end
+
+  test "current registered schema is additive-only against the v0.58 release snapshot" do
+    assert {:ok, body} = File.read(@v058_schema_fixture)
+
+    assert {:ok, %{"generated_from" => "v0.58.0", "schema" => previous_schema}} =
+             Jason.decode(body)
+
+    current_schema = normalize_schema_for_diff(Fragments.schema())
+
+    diff = SchemaDiff.compare(previous_schema, current_schema)
+
+    case diff do
+      {:ok, %{status: :additive, removed: [], changed: []}} ->
+        :ok
+
+      other ->
+        flunk("expected additive-only diff, got: #{inspect(other, limit: :infinity)}")
+    end
+
+    assert SchemaDiff.additive_only?(previous_schema, current_schema)
+
+    changed_current = put_in(current_schema, ["operator.display_name", "default"], "changed")
+
+    assert {:error, %{status: :non_additive, changed: [%{key: "operator.display_name"}]}} =
+             SchemaDiff.compare(current_schema, changed_current)
+  end
+
+  defp normalize_schema_for_diff(%Regex{} = value), do: inspect(value)
+
+  defp normalize_schema_for_diff(%_{} = value) do
+    value
+    |> Map.from_struct()
+    |> normalize_schema_for_diff()
+  end
+
+  defp normalize_schema_for_diff(%{} = value) do
+    value
+    |> Enum.sort_by(fn {key, _inner} -> to_string(key) end)
+    |> Map.new(fn {key, inner} -> {to_string(key), normalize_schema_for_diff(inner)} end)
+  end
+
+  defp normalize_schema_for_diff(value) when is_list(value) do
+    Enum.map(value, &normalize_schema_for_diff/1)
+  end
+
+  defp normalize_schema_for_diff(value) when is_tuple(value) do
+    value
+    |> Tuple.to_list()
+    |> Enum.map(&normalize_schema_for_diff/1)
+  end
+
+  defp normalize_schema_for_diff(value) when is_function(value), do: "#Function<schema-callback>"
+
+  defp normalize_schema_for_diff(value) when is_atom(value), do: Atom.to_string(value)
+
+  defp normalize_schema_for_diff(value), do: value
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
