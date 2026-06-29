@@ -90,6 +90,9 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :self_improvement
           | :voice_vision
           | :rc_substrate
+          | :portability
+          | :settings_version_contract
+          | :secret_metadata
           | :param_contract
 
   @type row :: %{
@@ -4565,6 +4568,139 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V058SurfaceConsistencyEvalTest"
     },
     %{
+      id: "profile-export-redaction-001",
+      milestone: :v059,
+      surface: :portability,
+      scenario:
+        "Allbert Home export omits envelope versioning, fragment versions, or redaction guarantees",
+      boundary: :home_export_envelope,
+      expected: :allowed,
+      assert: [
+        :envelope_version_present,
+        :settings_fragment_versions_present,
+        :secret_values_absent
+      ],
+      test_module: "AllbertAssist.Portability.ExportImportTest"
+    },
+    %{
+      id: "profile-import-dry-run-rollback-001",
+      milestone: :v059,
+      surface: :portability,
+      scenario:
+        "Dry-run import mutates the target Home or lacks a documented manual rollback path",
+      boundary: :home_import_dry_run,
+      expected: :allowed,
+      assert: [
+        :dry_run_true,
+        :applied_false,
+        :target_home_byte_identical
+      ],
+      test_module: "AllbertAssist.Portability.ExportImportTest"
+    },
+    %{
+      id: "self-improvement-inert-after-import-001",
+      milestone: :v059,
+      surface: :portability,
+      scenario:
+        "Imported self-improvement suggestion state auto-applies or executes during dry-run import",
+      boundary: :self_improvement_import_plan,
+      expected: :denied,
+      assert: [
+        :suggestions_inert,
+        :dry_run_applies_nothing,
+        :target_home_byte_identical
+      ],
+      test_module: "AllbertAssist.Portability.ExportImportTest"
+    },
+    %{
+      id: "media-inert-after-import-001",
+      milestone: :v059,
+      surface: :portability,
+      scenario:
+        "Imported voice, vision, or image retention metadata auto-arms capture on the target Home",
+      boundary: :media_import_plan,
+      expected: :denied,
+      assert: [
+        :voice_capture_not_armed,
+        :vision_capture_not_armed,
+        :dry_run_applies_nothing
+      ],
+      test_module: "AllbertAssist.Portability.ExportImportTest"
+    },
+    %{
+      id: "settings-schema-version-field-001",
+      milestone: :v059,
+      surface: :settings_version_contract,
+      scenario:
+        "Registered Settings fragments lack first-class schema_version or omit generated inventory coverage",
+      boundary: :settings_fragment_version_field,
+      expected: :allowed,
+      assert: [
+        :fragment_schema_version_defaults_to_one,
+        :legacy_schema_rows_reconciled,
+        :registered_inventory_generated
+      ],
+      test_module: "AllbertAssist.Settings.VersionContractTest"
+    },
+    %{
+      id: "settings-additive-only-enforced-001",
+      milestone: :v059,
+      surface: :settings_version_contract,
+      scenario: "Settings schema comparison accepts non-additive changes without a version bump",
+      boundary: :settings_schema_diff,
+      expected: :denied,
+      assert: [
+        :additive_change_allowed,
+        :default_change_rejected,
+        :removed_key_rejected
+      ],
+      test_module: "AllbertAssist.Settings.VersionContractTest"
+    },
+    %{
+      id: "settings-boot-check-fail-closed-001",
+      milestone: :v059,
+      surface: :settings_version_contract,
+      scenario: "A Home with forward or invalid Settings fragment versions loads silently",
+      boundary: :settings_boot_check,
+      expected: :denied,
+      assert: [
+        :forward_version_rejected,
+        :invalid_version_rejected,
+        :store_refuses_forward_home
+      ],
+      test_module: "AllbertAssist.Settings.VersionContractTest"
+    },
+    %{
+      id: "secret-reference-round-trip-001",
+      milestone: :v059,
+      surface: :secret_metadata,
+      scenario:
+        "Export/import loses Settings Central secret references or omits missing-target diagnostics",
+      boundary: :secret_reference_manifest,
+      expected: :allowed,
+      assert: [
+        :secret_refs_exported,
+        :secret_ref_status_recorded,
+        :missing_target_refs_reported
+      ],
+      test_module: "AllbertAssist.Portability.ExportImportTest"
+    },
+    %{
+      id: "secret-values-never-exported-001",
+      milestone: :v059,
+      surface: :secret_metadata,
+      scenario:
+        "Export envelope or dry-run diagnostic includes plaintext secret values or sensitive endpoints",
+      boundary: :secret_value_redaction,
+      expected: :denied,
+      assert: [
+        :secret_values_absent,
+        :secret_store_files_excluded,
+        :diagnostic_redacted
+      ],
+      test_module: "AllbertAssist.Portability.ExportImportTest"
+    },
+    %{
       id: "v1-eval-sweep-mcp-client-browser-001",
       milestone: :v059,
       surface: :mcp_client_browser,
@@ -4708,7 +4844,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       boundary: :runner_param_contract,
       expected: :error,
       assert: [:invalid_params_before_body, :redacted_reason, :no_action_body],
-      test_module: "AllbertAssist.Security.V059SweepEvalTest"
+      test_module: "AllbertAssist.Actions.ParamContractTest"
     },
     %{
       id: "param-contract-context-not-in-params-001",
@@ -4736,7 +4872,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         :unknown_strings_do_not_create_atoms,
         :valid_string_keyed_params_pass
       ],
-      test_module: "AllbertAssist.Security.V059SweepEvalTest"
+      test_module: "AllbertAssist.Actions.ParamContractTest"
     },
     %{
       id: "param-contract-empty-schema-001",
@@ -4746,7 +4882,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       boundary: :empty_schema_disposition,
       expected: :error,
       assert: [:empty_schema_no_params, :unknown_keys_rejected, :body_not_run],
-      test_module: "AllbertAssist.Security.V059SweepEvalTest"
+      test_module: "AllbertAssist.Actions.ParamContractTest"
     },
     %{
       id: "param-contract-catalog-sweep-no-regression-001",
@@ -4756,7 +4892,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       boundary: :registered_action_catalog,
       expected: :allowed,
       assert: [:catalog_generated, :no_unsupported_schema, :valid_requests_not_regressed],
-      test_module: "AllbertAssist.Security.V059SweepEvalTest"
+      test_module: "AllbertAssist.Actions.ParamContractTest"
     },
     %{
       id: "sandbox-backend-disabled-001",

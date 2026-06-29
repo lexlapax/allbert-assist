@@ -22,6 +22,11 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
   alias AllbertAssist.Settings.Schema
 
   @eval_groups [
+    portability:
+      ~w(profile-export-redaction-001 profile-import-dry-run-rollback-001 self-improvement-inert-after-import-001 media-inert-after-import-001),
+    settings_version_contract:
+      ~w(settings-schema-version-field-001 settings-additive-only-enforced-001 settings-boot-check-fail-closed-001),
+    secret_metadata: ~w(secret-reference-round-trip-001 secret-values-never-exported-001),
     mcp_client_browser: ~w(v1-eval-sweep-mcp-client-browser-001),
     channels: ~w(v1-eval-sweep-channels-001),
     plan_build: ~w(v1-eval-sweep-plan-build-001),
@@ -48,6 +53,9 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     assert Enum.all?(rows, &v059_test_module?/1)
 
     assert_eval_group!(:mcp_client_browser, :mcp_client_browser)
+    assert_eval_group!(:portability, :portability)
+    assert_eval_group!(:settings_version_contract, :settings_version_contract)
+    assert_eval_group!(:secret_metadata, :secret_metadata)
     assert_eval_group!(:channels, :channel_pack)
     assert_eval_group!(:plan_build, :plan_build)
     assert_eval_group!(:marketplace, :marketplace)
@@ -426,6 +434,16 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
          id: "perf-and-csp-baseline-001",
          test_module: "AllbertAssistWeb.PerfCspBaselineTest"
        }),
+       do: true
+
+  defp v059_test_module?(%{
+         test_module: test_module
+       })
+       when test_module in [
+              "AllbertAssist.Portability.ExportImportTest",
+              "AllbertAssist.Settings.VersionContractTest",
+              "AllbertAssist.Actions.ParamContractTest"
+            ],
        do: true
 
   defp v059_test_module?(%{test_module: test_module}), do: test_module == inspect(__MODULE__)
