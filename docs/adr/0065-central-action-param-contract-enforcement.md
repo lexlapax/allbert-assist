@@ -3,7 +3,8 @@
 Status: Proposed (v0.59 M7); accepted at v0.59 M7, where the central
 param-contract seam ships — matching the v0.59 plan and request-flow. Updated
 2026-06-29 (v0.59 readiness review) with the code-grounded blast radius, the
-concrete validation mechanism, and the actual context/param split scope.
+concrete validation mechanism, the Jido runtime caveats, and the actual
+context/param split scope.
 Date: 2026-06-21
 Related: ADR 0064 (central slot/param normalization seam - predecessor), ADR
 0027 (action DSL and capability registry), ADR 0006 (Security Central), ADR 0060
@@ -17,23 +18,30 @@ Runner `:invalid_params` semantics for non-map params. It deliberately did not
 make every action's registered schema centrally enforceable. That larger change
 has a wider blast radius:
 
-- **Schemas exist but are never enforced.** Action modules declare schemas
-  through `use AllbertAssist.Action` / `Jido.Action`, which generates a
-  NimbleOptions-backed `validate_params/1`. But `Runner.safe_run/3` calls
+- **Schemas exist but are never enforced at the Allbert Runner.** Action modules
+  declare schemas through `use AllbertAssist.Action` / `Jido.Action`, which
+  generates `validate_params/1`. But `Runner.safe_run/3` calls
   `action_module.run(params, context)` directly (`runner.ex:85`), bypassing
   `Jido.Exec` (which would call `validate_params` before the body). The declared
   schemas are dead weight today.
+- **The Jido validator is necessary but not sufficient.** Local Jido source shows
+  `Jido.Action.Runtime.validate_params/2` validates known typed fields, preserves
+  unknown keys for action chains, and treats JSON-schema maps as LLM-facing
+  schemas that are not runtime-validated. Allbert needs a Runner-level strictness
+  wrapper around Jido's typed validation, not only a call to `validate_params/1`.
 - **Blast radius (verified 2026-06-29):** ~188 registered actions (48 agent + 140
   internal) plus plugin/dynamic, ~193 modules with `run/2`; only ~47 carry an
   `is_map(params)`-style guard, so ~146 reach `run/2` unguarded. (The earlier
   "72 of 110" figure is a stale v0.54 snapshot; the real sweep is ~1.7x larger.)
-- **`schema: []` actions (~40)** declare an empty schema; under NimbleOptions
-  strictness an empty schema rejects *any* unspecified key, so turning on
-  enforcement flips currently-passing calls unless these get an explicit
+- **`schema: []` actions need explicit inventory.** A precise 2026-06-29 grep
+  finds 32 action modules with `schema: []`, and the implementation must
+  regenerate that catalog from the registered action set. Empty schemas cannot be
+  left to Jido's default pass-through behavior; each action needs an explicit
   disposition.
 - **Atom-vs-string keys.** Model-proposed params often arrive string-keyed while
   schemas are atom-keyed; today actions hand-normalize. Central validation must
-  normalize keys *before* validating or it rejects well-formed requests.
+  normalize only schema-known string keys to existing schema atoms before
+  validating, without creating atoms from model/provider input.
 - **Context-from-params leakage.** A few actions read *system context* out of
   `params` (`confirm_plan_step.ex:28`, `memory/context.ex:7`,
   `revert_tile_revision.ex:31`); if those keys are validated as schema params they
@@ -48,25 +56,39 @@ param contracts are still enforced action by action.
 v0.59 M7 adds a central action param-contract seam at the Runner boundary. The
 mechanism is concrete (no longer "refined during the milestone"):
 
-- **Reuse the bypassed validator.** The seam calls each action's already-generated
-  `validate_params/1` (produced from its `schema:` by `Jido.Action`) inside
-  `Runner.safe_run/3`, before `action_module.run/2`. No new validation engine and
-  no new Registry plumbing is required — the schema is already exposed per module.
-- **Key normalization first.** Params are normalized (string→atom keys) before
-  validation so well-formed string-keyed requests are not rejected.
+- **Reuse the bypassed validator, with Allbert strictness.** The seam calls each
+  action's already-generated `validate_params/1` (produced from its `schema:` by
+  `Jido.Action`) inside `Runner.safe_run/3`, before `action_module.run/2`, and
+  wraps it with Allbert-owned unknown-key enforcement. No new type-validation
+  engine and no new Registry plumbing is required — the schema is already exposed
+  per module — but Jido's permissive unknown-key behavior is not the final Allbert
+  policy.
+- **Key normalization first, safely.** Params are normalized before validation so
+  well-formed string-keyed requests are not rejected. The normalizer maps a string
+  key to an atom only when that atom is already present in the action schema (or in
+  an explicit open-key disposition); it must not call `String.to_atom/1` or create
+  atoms from untrusted model/provider input.
+- **Unknown-key policy is explicit.** Unknown keys fail with a redacted
+  `:invalid_params` response before any action body runs unless the action has an
+  explicit open-key or compatibility-allowlist disposition. JSON-schema-only
+  actions are either converted to runtime-validatable schemas or dispositioned in
+  the same catalog because Jido does not runtime-validate JSON-schema maps.
 - **The context/param split mostly already exists.** `context` is already a
   separate Runner argument and is never folded into `params` by the Runner
   (`runner_context/3` merges metadata into *context*, not params). The remaining
   split work is narrow: (1) enforce the schema on `params`, and (2) remove the
   context-key reads from `params` in the three named call sites above so system
   context cannot become user-controllable input.
-- **`schema: []` disposition.** The ~40 empty-schema actions are handled
-  explicitly per action — declared "no params" (reject all keys, intentionally),
-  given an open-key/`allow_extra` schema, or added to a reviewed compatibility
-  allowlist — not left to default NimbleOptions strictness.
+- **`schema: []` disposition.** The generated empty-schema catalog is handled
+  explicitly per action — declared `:no_params` (reject all keys, intentionally),
+  given an explicit open-key schema/disposition, or added to a reviewed
+  compatibility allowlist — not left to Jido pass-through behavior.
 - **Failure shape.** A validation failure maps to a clean, redacted
   `:invalid_params` response (the ADR 0064 shape) before any body runs; that
   response shape is a v1.0 freeze contract (below).
+- **Validated params are what run.** On success, `Runner.safe_run/3` passes the
+  normalized, validated params returned by `validate_params/1` into
+  `action_module.run/2`, preserving the typed/defaulted shape that Jido produced.
 - **Release-blocking eval sweep** over the full ~190-action catalog proves valid
   requests do not regress to `:invalid_params`.
 
