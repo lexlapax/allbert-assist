@@ -3,10 +3,10 @@ defmodule AllbertAssist.Actions.ParamContractTest do
   @moduletag :app_env_serial
   @moduletag :param_contract
 
-  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Actions.ParamContract
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Agents.IntentAgent
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Intent.Router.FakeRouter
   alias AllbertAssist.Intent.Router.Outcome

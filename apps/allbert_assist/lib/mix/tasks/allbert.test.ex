@@ -3363,6 +3363,28 @@ defmodule Mix.Tasks.Allbert.Test do
       coverage: ["schema boot", "release-owned DATABASE_PATH"]
     },
     %{
+      id: "compile_warnings_as_errors",
+      title: "compile v0.59 release candidate with warnings as errors",
+      cwd: :root,
+      executable: "mix",
+      args: ["compile", "--warnings-as-errors"],
+      coverage: [
+        "compiler warnings fail the v0.59 release handoff",
+        "compile evidence is captured inside release.v059"
+      ]
+    },
+    %{
+      id: "credo_strict",
+      title: "Credo strict check for v0.59 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["credo", "--strict"],
+      coverage: [
+        "Credo strict findings fail the v0.59 release handoff",
+        "Credo evidence is captured inside release.v059"
+      ]
+    },
+    %{
       id: "portability_export_import_units",
       title: "Home export, dry-run import, rollback, and secret-ref units",
       cwd: :core,
