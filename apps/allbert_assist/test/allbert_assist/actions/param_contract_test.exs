@@ -246,20 +246,16 @@ defmodule AllbertAssist.Actions.ParamContractTest do
   test "registered action catalog has explicit schema dispositions" do
     catalog = ParamContract.catalog()
     names = Enum.map(catalog, & &1.name)
-    empty_schema_count = Enum.count(catalog, &(&1.disposition == :no_params))
+    empty_schema_entries = Enum.filter(catalog, &(&1.schema_type == :empty))
 
     assert Enum.uniq(names) == names
-    assert empty_schema_count > 0
+    assert empty_schema_entries != []
+    assert Enum.all?(empty_schema_entries, &(&1.disposition == :no_params))
 
     refute Enum.any?(
              catalog,
              &(&1.disposition in [:json_schema_runtime_unsupported, :unsupported_schema])
            )
-
-    IO.puts(
-      "param-contract-catalog-sweep-no-regression-001 status=pass " <>
-        "actions=#{length(catalog)} empty_schema=#{empty_schema_count} unsupported=0"
-    )
   end
 
   test "representative shipped valid requests replay with system context outside params" do

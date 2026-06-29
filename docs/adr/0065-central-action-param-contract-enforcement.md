@@ -80,10 +80,12 @@ mechanism is concrete (no longer "refined during the milestone"):
   split work is narrow: (1) enforce the schema on `params`, and (2) remove the
   context-key reads from `params` in the three named call sites above so system
   context cannot become user-controllable input.
-- **`schema: []` disposition.** The generated empty-schema catalog is handled
-  explicitly per action — declared `:no_params` (reject all keys, intentionally),
-  given an explicit open-key schema/disposition, or added to a reviewed
-  compatibility allowlist — not left to Jido pass-through behavior.
+- **`schema: []` disposition.** v0.59 uses the narrowed empty-schema policy:
+  every registered empty-schema action is `:no_params`, with no open-key or
+  compatibility allowlist entries. Unknown params are rejected, and the release
+  sweep locks the shipped registry at
+  `actions=226 empty_schema=32 unsupported=0 empty_schema_disposition=no_params`
+  so this is not left to Jido pass-through behavior.
 - **Failure shape.** A validation failure maps to a clean, redacted
   `:invalid_params` response (the ADR 0064 shape) before any body runs; that
   response shape is a v1.0 freeze contract (below).

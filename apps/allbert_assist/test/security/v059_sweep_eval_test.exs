@@ -6,7 +6,7 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
   routes through Registry, Settings Central, Security Central, or the public
   exposure filter without performing live provider or network work.
   """
-  use AllbertAssist.SecurityEvalCase, async: true
+  use AllbertAssist.SecurityEvalCase, async: false
 
   alias AllbertAssist.Actions.Memory.Context, as: MemoryContext
   alias AllbertAssist.Actions.ParamContract
@@ -317,10 +317,12 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
   @tag :param_contract
   test "param-contract catalog has explicit dispositions and no unsupported runtime schemas" do
     catalog = ParamContract.catalog()
-    empty_schema_count = Enum.count(catalog, &(&1.disposition == :no_params))
+    empty_schema_entries = Enum.filter(catalog, &(&1.schema_type == :empty))
+    empty_schema_count = length(empty_schema_entries)
 
-    assert length(catalog) >= 180
-    assert empty_schema_count > 0
+    assert length(catalog) == 226
+    assert empty_schema_count == 32
+    assert Enum.all?(empty_schema_entries, &(&1.disposition == :no_params))
 
     refute Enum.any?(
              catalog,
@@ -329,7 +331,8 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
 
     IO.puts(
       "param-contract-catalog-sweep-no-regression-001 status=pass " <>
-        "actions=#{length(catalog)} empty_schema=#{empty_schema_count} unsupported=0"
+        "actions=#{length(catalog)} empty_schema=#{empty_schema_count} unsupported=0 " <>
+        "empty_schema_disposition=no_params evidence=shipped_catalog"
     )
   end
 

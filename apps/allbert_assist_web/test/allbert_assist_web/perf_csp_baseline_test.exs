@@ -82,7 +82,8 @@ defmodule AllbertAssistWeb.PerfCspBaselineTest do
     IO.puts(
       "perf-and-csp-baseline-001 boot-check baseline_ms=#{ms(boot_baseline_us)} " <>
         "overhead_ms=#{ms(boot_overhead_us)} target_ms=#{ms(boot_target_us)} " <>
-        "formula=max(50ms, baseline * 1.10)"
+        "formula=max(50ms, baseline * 1.10) " <>
+        "evidence=#{threshold_evidence(boot_baseline_us, @boot_overhead_floor_us)}"
     )
 
     IO.puts(
@@ -134,7 +135,8 @@ defmodule AllbertAssistWeb.PerfCspBaselineTest do
         if(baseline_us > @export_import_floor_us,
           do: "baseline_over_2s_recorded_with_rationale",
           else: "baseline_under_2s_floor_applies"
-        )
+        ),
+      evidence: threshold_evidence(baseline_us, @export_import_floor_us)
     }
   end
 
@@ -142,8 +144,13 @@ defmodule AllbertAssistWeb.PerfCspBaselineTest do
     IO.puts(
       "perf-and-csp-baseline-001 #{label} baseline_ms=#{ms(baseline_us)} " <>
         "measured_ms=#{ms(measured_us)} target_ms=#{ms(target.limit_us)} " <>
-        "formula=max(2s, baseline * 1.25) rationale=#{target.rationale}"
+        "formula=max(2s, baseline * 1.25) rationale=#{target.rationale} " <>
+        "evidence=#{target.evidence}"
     )
+  end
+
+  defp threshold_evidence(baseline_us, floor_us) do
+    if baseline_us > floor_us, do: "regression_guard", else: "smoke_bound"
   end
 
   defp timed_us(fun) do
