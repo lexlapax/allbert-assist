@@ -88,6 +88,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :marketplace
           | :self_improvement
           | :voice_vision
+          | :rc_substrate
 
   @type row :: %{
           id: String.t(),
@@ -4663,6 +4664,22 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         :internal_reads_absent,
         :secret_tools_non_exposable,
         :tokens_redacted
+      ],
+      test_module: "AllbertAssist.Security.V059SweepEvalTest"
+    },
+    %{
+      id: "rc-substrate-no-drift-001",
+      milestone: :v059,
+      surface: :rc_substrate,
+      scenario:
+        "v0.59 handoff omits a downstream consumer, blurs hardening scope, or leaves packaging/onboarding/product-RC drift ambiguous",
+      boundary: :release_handoff_contract,
+      expected: :allowed,
+      assert: [
+        :v061_outputs_enumerated,
+        :v063_outputs_enumerated,
+        :v1_freeze_inputs_enumerated,
+        :no_scope_drift
       ],
       test_module: "AllbertAssist.Security.V059SweepEvalTest"
     },

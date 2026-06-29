@@ -158,9 +158,9 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Session.ClearActiveApp
   alias AllbertAssist.Actions.Session.SetActiveApp
   alias AllbertAssist.Actions.Session.ShowSessionScratchpad
+  alias AllbertAssist.Actions.Settings.Doctor, as: SettingsDoctor
   alias AllbertAssist.Actions.Settings.DoctorModelProfile
   alias AllbertAssist.Actions.Settings.DoctorVoiceProvider
-  alias AllbertAssist.Actions.Settings.Doctor, as: SettingsDoctor
   alias AllbertAssist.Actions.Settings.ExplainSetting
   alias AllbertAssist.Actions.Settings.ListModelProfiles
   alias AllbertAssist.Actions.Settings.ListProviderProfiles

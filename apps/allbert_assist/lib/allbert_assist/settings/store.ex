@@ -4,8 +4,8 @@ defmodule AllbertAssist.Settings.Store do
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings.Audit
   alias AllbertAssist.Settings.Schema
-  alias AllbertAssist.Settings.YamlCodec
   alias AllbertAssist.Settings.VersionContract
+  alias AllbertAssist.Settings.YamlCodec
 
   @app :allbert_assist
 

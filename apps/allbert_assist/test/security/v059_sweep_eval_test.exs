@@ -24,9 +24,11 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     marketplace: ~w(v1-eval-sweep-marketplace-001),
     self_improvement: ~w(v1-eval-sweep-self-improvement-001),
     voice_vision: ~w(v1-eval-sweep-voice-vision-001),
-    public_protocol: ~w(v1-eval-sweep-public-protocol-001)
+    public_protocol: ~w(v1-eval-sweep-public-protocol-001),
+    rc_substrate: ~w(rc-substrate-no-drift-001)
   ]
   @eval_ids @eval_groups |> Keyword.values() |> List.flatten()
+  @rc_handoff_path Path.expand("../../../../docs/plans/v0.59-rc-handoff.md", __DIR__)
 
   test "v0.59 eval inventory rows are complete and grouped by protected surface" do
     rows = EvalInventory.rows_for_milestone(:v059)
@@ -44,6 +46,7 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     assert_eval_group!(:self_improvement, :self_improvement)
     assert_eval_group!(:voice_vision, :voice_vision)
     assert_eval_group!(:public_protocol, :public_protocol)
+    assert_eval_group!(:rc_substrate, :rc_substrate)
   end
 
   test "v0.59 sweep rows encode concrete pass criteria" do
@@ -291,6 +294,59 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     assert readback.name == "get_public_call_result"
     assert readback.permission == :read_only
     assert readback.confirmation == :not_required
+  end
+
+  @tag :rc_substrate
+  test "rc-substrate handoff enumerates downstream consumers without scope drift" do
+    row = EvalInventory.row!("rc-substrate-no-drift-001")
+    handoff = File.read!(@rc_handoff_path)
+
+    assert row.surface == :rc_substrate
+    assert row.boundary == :release_handoff_contract
+    assert row.expected == :allowed
+
+    for needle <- [
+          "v0.61 Packaged-Install Home Layout",
+          "v0.63 Product RC Revalidation",
+          "v1.0 Contract Freeze",
+          "Allbert Home export envelope",
+          "dry-run import diagnostic",
+          "first-class Settings fragment `schema_version`",
+          "secret references",
+          "Settings Central secret-vault references",
+          "packaged-layout portability revalidation",
+          "`release.v059` evidence",
+          "ADR 0046 settings version contract",
+          "ADR 0065 central Runner param seam",
+          "Registry action schema",
+          "`:invalid_params` shape"
+        ] do
+      assert handoff =~ needle
+    end
+
+    refute handoff =~ "TODO"
+    refute handoff =~ "TBD"
+    refute handoff =~ "named target"
+    refute handoff =~ "v0.59 owns packaging"
+    refute handoff =~ "v0.59 owns onboarding"
+    refute handoff =~ "v0.59 owns product RC"
+
+    IO.puts(
+      "rc-substrate-no-drift-001 consumer=v0.61 " <>
+        "output=export-import+settings-version-contract+secret-references status=no-drift"
+    )
+
+    IO.puts(
+      "rc-substrate-no-drift-001 consumer=v0.63 " <>
+        "output=packaged-layout-portability-revalidation+release-v059-evidence status=no-drift"
+    )
+
+    IO.puts(
+      "rc-substrate-no-drift-001 consumer=v1.0 " <>
+        "output=adr0046-settings-version-contract+adr0065-param-seam+invalid-params-shape status=no-drift"
+    )
+
+    IO.puts("rc-substrate-no-drift-001 no-drift consumers=v0.61,v0.63,v1.0")
   end
 
   defp assert_eval_group!(group, surface) do

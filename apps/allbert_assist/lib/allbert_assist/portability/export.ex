@@ -17,6 +17,28 @@ defmodule AllbertAssist.Portability.Export do
 
   @excluded_prefixes ~w(cache/ tmp/)
   @secret_ref_pattern ~r/^secret:\/\/[A-Za-z0-9_\/.-]+$/
+  @domain_roots %{
+    "artifacts" => "artifacts",
+    "audio" => "media",
+    "cache" => "cache",
+    "confirmations" => "confirmations",
+    "db" => "runtime_db",
+    "drafts" => "self_improvement",
+    "dynamic_plugins" => "dynamic_plugins",
+    "execution" => "execution",
+    "external" => "external_services",
+    "generated_images" => "media",
+    "images" => "media",
+    "mcp" => "mcp",
+    "memory" => "memory",
+    "plugins" => "plugins",
+    "sandbox" => "sandbox",
+    "settings" => "settings",
+    "skills" => "skills",
+    "themes" => "themes",
+    "tmp" => "tmp",
+    "workspace" => "workspace"
+  }
 
   @doc "Build an export envelope for the current Allbert Home."
   @spec build(keyword()) :: {:ok, map()} | {:error, term()}
@@ -81,21 +103,23 @@ defmodule AllbertAssist.Portability.Export do
 
   defp regular_files(root) do
     root
-    |> File.ls()
-    |> case do
-      {:ok, entries} ->
-        Enum.flat_map(entries, fn entry ->
-          path = Path.join(root, entry)
+    |> list_dir()
+    |> Enum.map(&Path.join(root, &1))
+    |> Enum.flat_map(&regular_file_paths/1)
+  end
 
-          cond do
-            File.dir?(path) -> regular_files(path)
-            File.regular?(path) -> [path]
-            true -> []
-          end
-        end)
+  defp list_dir(root) do
+    case File.ls(root) do
+      {:ok, entries} -> entries
+      {:error, _reason} -> []
+    end
+  end
 
-      {:error, _reason} ->
-        []
+  defp regular_file_paths(path) do
+    cond do
+      File.dir?(path) -> regular_files(path)
+      File.regular?(path) -> [path]
+      true -> []
     end
   end
 
@@ -144,29 +168,10 @@ defmodule AllbertAssist.Portability.Export do
   end
 
   defp domain(relative) do
-    case String.split(relative, "/", parts: 2) do
-      ["settings" | _] -> "settings"
-      ["memory" | _] -> "memory"
-      ["skills" | _] -> "skills"
-      ["confirmations" | _] -> "confirmations"
-      ["execution" | _] -> "execution"
-      ["sandbox" | _] -> "sandbox"
-      ["dynamic_plugins" | _] -> "dynamic_plugins"
-      ["drafts" | _] -> "self_improvement"
-      ["external" | _] -> "external_services"
-      ["mcp" | _] -> "mcp"
-      ["artifacts" | _] -> "artifacts"
-      ["audio" | _] -> "media"
-      ["images" | _] -> "media"
-      ["generated_images" | _] -> "media"
-      ["workspace" | _] -> "workspace"
-      ["themes" | _] -> "themes"
-      ["db" | _] -> "runtime_db"
-      ["plugins" | _] -> "plugins"
-      ["cache" | _] -> "cache"
-      ["tmp" | _] -> "tmp"
-      _other -> "other"
-    end
+    relative
+    |> String.split("/", parts: 2)
+    |> List.first()
+    |> then(&Map.get(@domain_roots, &1, "other"))
   end
 
   defp domain_counts(files) do
