@@ -376,12 +376,13 @@ scope.
     page), executes the chat-primary workspace and Intents/Settings-Models/
     Surface-Policy panels on that system, and consolidates redundant helpers.
     Preserves the original surface-policy goal as presentation governance only.
-59. v0.59 Hardening, export/import, settings schema migration substrate, and
+59. v0.59 Hardening, export/import, settings version-contract substrate, and
     central action param contracts: no new user-facing capability; Allbert Home
     portability, cross-surface security eval sweep, operator docs, performance
-    hardening, CSP reconciliation, settings schema migration tool (per
-    ADR 0046), and central action param-contract enforcement (M7, ADR 0065;
-    precursor v0.54 ADR 0064). No final RC; no onboarding.
+    hardening, CSP reconciliation, the ADR 0046 settings version contract
+    (first-class `schema_version`, additive-only enforcement, fail-closed boot
+    check; runtime runner deferred), and central action param-contract enforcement
+    (M7, ADR 0065; precursor v0.54 ADR 0064). No final RC; no onboarding.
 60. v0.60 Web UX Professional Pass: first of three pre-1.0 **product capability**
     releases
     that turn the v0.58 design-system substrate into a polished product surface
@@ -2753,8 +2754,9 @@ Shipped scope:
   resolution, remote theme/snippet distribution, and MCP Apps iframe execution
   out of 1.0.
 - **Started drafting ADR 0046** (Settings Central schema migration policy) here
-  because marketplace adds new settings fragments; ADR is accepted before
-  v0.59 implements the migration tool.
+  because marketplace adds new settings fragments; ADR is accepted in v0.59 for
+  the version contract/enforcement substrate, while the runtime migration runner
+  stays deferred until the first real non-additive migration.
 
 ## v0.45.1: Gate Transparency And Precommit Decomposition - implemented as 0.45.1
 
@@ -3629,7 +3631,8 @@ Expected direction (four pillars, all on the existing authority spine):
 - **Settings enforcement (ADR 0004/0031 note).** All operator-tunable config goes
   through Settings Central; fix the known bypasses (trace env var, browser
   host-resolver, hardcoded intent confidence, active-memory limits, trace/ingestion
-  limits) and add a CI guard. Distinct from v0.59's settings *migration* (ADR 0046).
+  limits) and add a CI guard. Distinct from v0.59's settings *version contract*
+  (ADR 0046).
 - **Web design system & UX language (ADR 0074).** Global design tokens
   (color/type/spacing/motion), a prop-driven component-variant registry, a shared
   accessible pattern library, one app shell, and the unified catalog as the
@@ -3649,11 +3652,11 @@ Expected direction (four pillars, all on the existing authority spine):
   units, helper-consolidation regressions, `:v058` eval inventory checks, task
   usage checks, and the release-home secret scan.
 
-Hands off to v0.59: the uniform surface base lets v0.59 do settings migration
-(ADR 0046), **central action param-contract enforcement (ADR 0065)** on the now-
-uniform invocation path, export/import hardening, and the security sweep.
+Hands off to v0.59: the uniform surface base lets v0.59 do the settings version
+contract (ADR 0046), **central action param-contract enforcement (ADR 0065)** on
+the now-uniform invocation path, export/import hardening, and the security sweep.
 
-## v0.59: Hardening, Export/Import, Settings Migration, And Param Contracts
+## v0.59: Hardening, Export/Import, Settings Version Contract, And Param Contracts
 
 Plan: `docs/plans/v0.59-plan.md`
 Request flow: `docs/plans/v0.59-request-flow.md`
@@ -3671,18 +3674,21 @@ planning pass; moved from v0.58 to v0.59 and later narrowed back to engineering
 substrate after the post-v0.58 product-readiness review. **Builds on the v0.58
 consolidation:** the uniform cross-surface contract (ADR 0073), the design-
 system web (ADR 0074), settings-access enforcement, and redundancy cleanup land
-first, so v0.59's param-contract enforcement (ADR 0065), settings migration
-(ADR 0046), export/import, and security sweep run on a consistent base.
+first, so v0.59's param-contract enforcement (ADR 0065), settings version
+contract (ADR 0046), export/import, and security sweep run on a consistent base.
 
 Expected direction:
 
 - Add no new user-facing capability.
-- Prove Allbert Home export/import dry runs, secret migration policy, schema
-  metadata, rollback docs, and identical behavior on a second machine.
-- **Implement the Settings Central schema migration tool** per ADR 0046:
+- Prove Allbert Home export + dry-run import diagnostics, secret-reference
+  policy, schema metadata, rollback docs, and an envelope that v0.63 can later
+  use for packaged-layout import/upgrade validation. v0.59 does not apply an
+  imported Home.
+- **Implement the Settings Central version contract** per ADR 0046:
   per-fragment `schema_version`, additive-only between minor releases,
-  one-release deprecation window, `mix allbert.settings.migrate` runner,
-  operator-visible pending-migration report on boot.
+  one-release deprecation policy, fail-closed forward-version boot check, and
+  operator-visible pending-migration report. The `mix allbert.settings.migrate`
+  runner is deferred until the first real non-additive migration.
 - (Onboarding moved out of v0.59: the guided first-run experience is grown into
   a real capability in v0.62 after v0.61 packaging/entry points land, not a
   hardening sliver over existing flows.)
@@ -3898,8 +3904,10 @@ checkpoint the release cannot ship without:
    scope (v0.43).
 6. Operator can review and approve a multi-step plan before execution
    (v0.44).
-7. Operator can export Allbert Home and re-import on a second machine with
-   identical behavior, including settings migration (v0.59 + ADR 0046).
+7. Operator can export Allbert Home and, by the v0.63 product RC, import or
+   upgrade it on a second machine with behavior preserved. v0.59 supplies the
+   versioned envelope, dry-run diagnostic, secret-reference policy, and ADR 0046
+   settings version contract; v0.63 proves the packaged-layout apply/upgrade path.
 8. All warning, security, precommit, and cross-surface eval gates pass — the
    v0.59 baseline security sweep plus the v0.63 M5.1 delta-sweep over the
    v0.60-v0.62 product surfaces (v0.59 + v0.63).

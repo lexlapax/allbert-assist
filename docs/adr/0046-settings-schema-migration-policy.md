@@ -30,10 +30,14 @@ it does not. The true state v0.59 builds on:
   `schema_version` field** — its struct is `id, owner, source, group, schema,
   defaults, safe_write_keys, metadata`. A fragment cannot "declare" a version
   today.
-- `schema_version` exists only as an ordinary **schema row**, and only for **13
-  of 43 namespaces** (`model_preferences, mcp_server, openai_api, public_protocol,
-  surface_policy, acp_server, workflows, voice, vision, image, artifacts,
-  marketplace, self_improvement`). The other 30 namespaces have no version key.
+- `schema_version` exists only as an ordinary **schema row**, and only for a
+  subset of registered namespaces. The static core list includes
+  `model_preferences, mcp_server, openai_api, public_protocol, surface_policy,
+  acp_server, workflows, voice, vision, image, artifacts, marketplace,
+  self_improvement`; plugin/app fragments such as `research.schema_version` may
+  also declare row-style versions. v0.59 must generate the exact inventory from
+  `AllbertAssist.Settings.Fragments.registered_fragments/0` instead of trusting
+  a prose count.
 - There is **no `Settings.Migration` behaviour/DSL, no `migrations/` directory,
   no `mix allbert.settings.migrate` task, and no `mix allbert.settings doctor`
   subcommand**. They are greenfield.
@@ -63,8 +67,9 @@ contract and enforcement; the runtime migration runner is deferred (below).
 ### 1. First-class per-fragment `schema_version`
 
 v0.59 adds `schema_version` as a **first-class field on
-`AllbertAssist.Settings.Fragment`** (default `1`) and **backfills all 43
-namespaces to `1`**, replacing the inconsistent 13-of-43 schema-row approach. An
+`AllbertAssist.Settings.Fragment`** (default `1`) and **backfills every currently
+registered fragment/namespace to `1`**, replacing the inconsistent schema-row
+approach. The release gate generates and checks the exact fragment inventory. An
 un-versioned stored fragment (no version present) is treated as version `1`. New
 fragment schema changes increment the version.
 
@@ -151,7 +156,8 @@ Tier-1 list names this version/additive contract explicitly.
 - No silent removal of operator-set values.
 - No cross-fragment migration coordination beyond independent per-fragment steps.
 - **No migration of secrets store contents.** Secrets remain in the encrypted
-  secret store under `<ALLBERT_HOME>/secrets/` with its own migration policy. Note
+  Settings Central secret store, currently
+  `<ALLBERT_HOME>/settings/secrets.yml.enc`, with its own migration policy. Note
   that v0.61's plaintext/encrypted-credentials → OS-secret-vault move is a
   separate operator migration **outside** this ADR's scope.
 
