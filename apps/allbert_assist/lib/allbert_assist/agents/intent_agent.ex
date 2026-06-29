@@ -1715,11 +1715,8 @@ defmodule AllbertAssist.Agents.IntentAgent do
     end
   end
 
-  defp registry_action_params(action_name, text, %{request: request} = context) do
+  defp registry_action_params(action_name, text, %{request: _request} = context) do
     %{}
-    |> maybe_put_param(:user_id, Map.get(request, :user_id))
-    |> maybe_put_param(:thread_id, Map.get(request, :thread_id))
-    |> maybe_put_param(:session_id, Map.get(request, :session_id))
     |> Map.merge(descriptor_params(action_name, context))
     |> maybe_put_text_derived_action_params(action_name, text)
     |> maybe_put_source_text_param(action_name, text)

@@ -1,13 +1,21 @@
 defmodule AllbertAssist.Actions.ParamContractTest do
-  use ExUnit.Case, async: false
+  use AllbertAssist.DataCase, async: false, lane: :app_env_serial
   @moduletag :app_env_serial
   @moduletag :param_contract
 
+  alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.Actions.ParamContract
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.Agents.IntentAgent
+  alias AllbertAssist.Confirmations
+  alias AllbertAssist.Intent.Router.FakeRouter
+  alias AllbertAssist.Intent.Router.Outcome
+  alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Discovery, as: PluginDiscovery
   alias AllbertAssist.Plugin.Entry, as: PluginEntry
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
+  alias AllbertAssist.Settings
+  alias AllbertAssist.Workspace.Fragment.Guard
 
   defmodule StrictEcho do
     use Jido.Action,
@@ -92,9 +100,29 @@ defmodule AllbertAssist.Actions.ParamContractTest do
   end
 
   setup do
+    original_confirmations = Application.get_env(:allbert_assist, Confirmations)
+    original_paths = Application.get_env(:allbert_assist, Paths)
+    original_settings = Application.get_env(:allbert_assist, Settings)
     original_plugins = PluginRegistry.registered_plugins()
+    notes_app_registered? = AppRegistry.known_app_id?(:notes_files)
+
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-param-contract-#{System.unique_integer([:positive])}"
+      )
+
+    Application.put_env(:allbert_assist, Paths, home: root)
+    Application.put_env(:allbert_assist, Confirmations, root: Path.join(root, "confirmations"))
+    Application.put_env(:allbert_assist, Settings, root: Path.join(root, "settings"))
 
     PluginRegistry.clear()
+    restore_shipped_plugins!()
+    Guard.reset_for_test()
+
+    unless notes_app_registered? do
+      assert {:ok, :notes_files} = AppRegistry.register(AllbertNotesFiles.App)
+    end
 
     assert {:ok, "example.param_contract"} =
              PluginRegistry.register_entry(%PluginEntry{
@@ -109,8 +137,23 @@ defmodule AllbertAssist.Actions.ParamContractTest do
              })
 
     on_exit(fn ->
+      restore_env(Confirmations, original_confirmations)
+      restore_env(Paths, original_paths)
+      restore_env(Settings, original_settings)
       restore_plugins!(original_plugins)
+      Guard.reset_for_test()
+      unless notes_app_registered?, do: AppRegistry.unregister(:notes_files)
+      File.rm_rf!(root)
     end)
+
+    for key <- [
+          "permissions.email_send",
+          "permissions.channel_message_send",
+          "permissions.calendar_write",
+          "permissions.notes_file_write"
+        ] do
+      assert {:ok, _setting} = Settings.put(key, "needs_confirmation", %{audit?: false})
+    end
 
     :ok
   end
@@ -219,9 +262,132 @@ defmodule AllbertAssist.Actions.ParamContractTest do
     )
   end
 
+  test "representative shipped valid requests replay with system context outside params" do
+    context = runner_context()
+
+    for {action_name, params, context_overrides, accepted_statuses} <- replay_cases() do
+      assert {:ok, response} =
+               Runner.run(action_name, params, Map.merge(context, context_overrides))
+
+      refute match?({:invalid_params, _reason}, Map.get(response, :error)),
+             "#{action_name} rejected representative valid params: #{inspect(response)}"
+
+      assert response.status in accepted_statuses,
+             "#{action_name} returned unexpected status #{inspect(response.status)}"
+    end
+
+    assert {:ok, rejected} =
+             Runner.run(
+               "send_email",
+               %{to: "alice@example.com", body: "hello", user_id: "model-controlled"},
+               context
+             )
+
+    assert rejected.status == :error
+    assert {:invalid_params, {:unknown_params, "send_email", rejected_keys}} = rejected.error
+    assert "user_id" in rejected_keys
+
+    IO.puts(
+      "param-contract-catalog-sweep-no-regression-001 status=pass " <>
+        "replay_valid_requests=true context_source=runner_context"
+    )
+  end
+
+  test "router-selected effectful actions keep request identity out of model params" do
+    original = %{
+      router: Application.get_env(:allbert_assist, :intent_router),
+      outcome: Application.get_env(:allbert_assist, :intent_router_fake_outcome),
+      override: Application.get_env(:allbert_assist, :intent_router_strategy_override)
+    }
+
+    Application.put_env(:allbert_assist, :intent_router, FakeRouter)
+    Application.put_env(:allbert_assist, :intent_router_strategy_override, :two_stage_local)
+
+    Application.put_env(
+      :allbert_assist,
+      :intent_router_fake_outcome,
+      Outcome.execute(
+        "send_email",
+        %{to: "alice@example.com", body: "hello from route"},
+        1.0
+      )
+    )
+
+    try do
+      assert {:ok, response} =
+               IntentAgent.respond(%{
+                 text: "send an email to alice@example.com saying hello from route",
+                 channel: :test,
+                 user_id: "local",
+                 operator_id: "local",
+                 thread_id: "thr-param-contract-route",
+                 session_id: "sess-param-contract-route",
+                 active_app: :allbert,
+                 input_signal_id: "sig-param-contract-route"
+               })
+
+      assert response.status == :needs_confirmation
+      assert response.decision.selected_action == "send_email"
+
+      assert [%{name: "send_email", metadata: %{confirmation_id: confirmation_id}}] =
+               response.actions
+
+      assert {:ok, pending} = Confirmations.read(confirmation_id)
+      assert pending["origin"]["user_id"] == "local"
+      assert pending["origin"]["thread_id"] == "thr-param-contract-route"
+      assert pending["origin"]["session_id"] == "sess-param-contract-route"
+
+      for key <- ~w(user_id thread_id session_id) do
+        refute Map.has_key?(pending["params_summary"], key)
+        refute Map.has_key?(pending["resume_params_ref"], key)
+      end
+
+      IO.puts(
+        "param-contract-catalog-sweep-no-regression-001 status=pass " <>
+          "router_context_params=false"
+      )
+    after
+      restore_env(:intent_router, original.router)
+      restore_env(:intent_router_fake_outcome, original.outcome)
+      restore_env(:intent_router_strategy_override, original.override)
+    end
+  end
+
+  defp runner_context do
+    %{
+      actor: "local",
+      channel: :test,
+      user_id: "local",
+      thread_id: "thr-param-contract",
+      session_id: "sess-param-contract",
+      request: %{
+        user_id: "local",
+        thread_id: "thr-param-contract",
+        session_id: "sess-param-contract",
+        channel: :test
+      }
+    }
+  end
+
+  defp replay_cases do
+    [
+      {"send_email", %{to: "alice@example.com", body: "hello"}, %{}, [:needs_confirmation]},
+      {"send_channel_message", %{channel: "slack", target: "#eng", body: "hello"}, %{},
+       [:needs_confirmation, :stopped]},
+      {"create_calendar_event", %{title: "Sync", start: "tomorrow 10am"}, %{},
+       [:needs_confirmation, :answer]},
+      {"write_note", %{title: "Scratch", body: "hello"}, %{active_app: :notes_files},
+       [:needs_confirmation]},
+      {"list_provider_profiles", %{}, %{}, [:completed]}
+    ]
+  end
+
   defp refute_existing_atom!(key) do
     assert_raise ArgumentError, fn -> String.to_existing_atom(key) end
   end
+
+  defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
+  defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 
   defp restore_plugins!([]), do: restore_shipped_plugins!()
 
