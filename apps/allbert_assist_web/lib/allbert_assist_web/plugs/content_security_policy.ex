@@ -9,7 +9,7 @@ defmodule AllbertAssistWeb.Plugs.ContentSecurityPolicy do
     "img-src 'self' data:",
     "media-src 'self'",
     "font-src 'self'",
-    "connect-src 'self' ws: wss:",
+    "connect-src 'self'",
     "script-src 'self'",
     "base-uri 'self'",
     "frame-ancestors 'none'",

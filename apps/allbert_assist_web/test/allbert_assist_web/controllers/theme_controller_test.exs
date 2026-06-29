@@ -198,7 +198,7 @@ defmodule AllbertAssistWeb.ThemeControllerTest do
     assert [workspace_csp] = get_resp_header(workspace, "content-security-policy")
     assert workspace_csp =~ "default-src 'self'"
     assert workspace_csp =~ "style-src 'self'"
-    assert workspace_csp =~ "connect-src 'self' ws: wss:"
+    assert workspace_csp =~ "connect-src 'self'"
     assert workspace_csp =~ "script-src 'self'"
     refute workspace_csp =~ "unsafe-inline"
 

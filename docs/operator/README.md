@@ -18,6 +18,8 @@ requiring codebase knowledge.
 - [MCP servers](mcp-servers.md)
 - [Browser and research](browser-and-research.md)
 - [Security hardening](security-hardening.md)
+- [Allbert Home export/import](export-import.md)
+- [Settings version contract](settings-version.md)
 
 ## Workflows And Capabilities
 

@@ -29,6 +29,7 @@ gates. Start with the compact maps, then open subsystem guides as needed.
 - [Marketplace Lite](marketplace-lite.md)
 - [MCP client](mcp-client.md)
 - [Plan build](plan-build.md)
+- [Portability](portability.md)
 - [Provider capabilities](provider-capabilities.md)
 - [Sandbox gate runner](sandbox-gate-runner.md)
 - [Self-improvement](self-improvement.md)
