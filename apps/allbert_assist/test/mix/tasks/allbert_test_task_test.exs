@@ -171,6 +171,18 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert source =~ ~s(args: ["test", "test/mix/tasks/allbert_conversations_test.exs"])
   end
 
+  test "release secret scan includes provider-shaped key patterns" do
+    source =
+      Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
+      |> File.read!()
+
+    assert source =~ ~s("google_api_key")
+    assert source =~ ~s("aws_access_key")
+    assert source =~ ~s("aws_session_key")
+    assert source =~ "AIza"
+    assert source =~ "ASIA"
+  end
+
   test "phase runner short-circuits after a failing phase", %{evidence_root: root} do
     runner = fn
       %{id: "first"} -> {"first ok\n", 0}

@@ -288,7 +288,8 @@ defmodule AllbertAssist.Actions.ParamContractTest do
 
     IO.puts(
       "param-contract-catalog-sweep-no-regression-001 status=pass " <>
-        "replay_valid_requests=true context_source=runner_context"
+        "replay_valid_requests=true executable_representatives=#{length(replay_cases())} " <>
+        "context_source=runner_context"
     )
   end
 

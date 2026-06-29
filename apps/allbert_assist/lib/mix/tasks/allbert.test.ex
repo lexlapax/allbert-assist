@@ -4723,6 +4723,7 @@ defmodule Mix.Tasks.Allbert.Test do
       status: if(findings == [] and missing_required_paths == [], do: "passed", else: "failed"),
       scanned_roots: Enum.map(roots, &Path.relative_to(&1, home)),
       scanned_file_count: length(files),
+      secret_pattern_names: Enum.map(secret_patterns(), fn {name, _pattern} -> name end),
       required_scanned_files:
         required_paths
         |> Enum.reject(&(&1 in missing_required_paths))
@@ -4762,9 +4763,11 @@ defmodule Mix.Tasks.Allbert.Test do
   defp secret_patterns do
     [
       {"openai_like_key", ~r/\bsk-[A-Za-z0-9_-]{20,}\b/},
+      {"google_api_key", ~r/\bAIza[0-9A-Za-z_-]{20,}\b/},
       {"github_like_token", ~r/\bgh[pousr]_[A-Za-z0-9_]{20,}\b/},
       {"slack_like_token", ~r/\bxox[baprs]-[A-Za-z0-9-]{20,}\b/},
       {"aws_access_key", ~r/\bAKIA[0-9A-Z]{16}\b/},
+      {"aws_session_key", ~r/\bASIA[0-9A-Z]{16}\b/},
       {"private_key_block", ~r/-----BEGIN [A-Z ]*PRIVATE KEY-----/},
       {
         "raw_secret_assignment",
