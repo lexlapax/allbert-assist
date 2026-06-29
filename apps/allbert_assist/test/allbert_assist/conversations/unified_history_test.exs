@@ -310,6 +310,29 @@ defmodule AllbertAssist.Conversations.UnifiedHistoryTest do
     assert resume.continuity.mode == :rich_surface
   end
 
+  test "resume action takes user identity from Runner context over params" do
+    assert {:ok, thread} = Conversations.create_general_thread("alice", "Context resume")
+
+    assert {:ok, %{status: :completed, resume: resume}} =
+             Runner.run(
+               "resume_thread_on_channel",
+               %{
+                 thread_id: thread.id,
+                 user_id: "local",
+                 channel: "cli"
+               },
+               %{
+                 actor: "alice",
+                 user_id: "alice",
+                 request: %{user_id: "alice", channel: :cli}
+               }
+             )
+
+    assert resume.thread_id == thread.id
+    assert resume.user_id == "alice"
+    assert resume.channel == "cli"
+  end
+
   test "resume to server-readable channel requires confirmation when thread has e2ee-origin content" do
     assert {:ok, thread} = Conversations.create_general_thread("alice", "Downgrade")
     assert {:ok, signal_message} = Conversations.append_user_message(thread, "signal-private")

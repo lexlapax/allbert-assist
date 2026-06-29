@@ -67,11 +67,12 @@ defmodule Mix.Tasks.Allbert.Conversations do
     {opts, args, invalid} = OptionParser.parse(rest, switches: @switches, aliases: @aliases)
     reject_invalid!(invalid)
     reject_args!(args)
+    user_id = user!(opts)
 
     params =
       %{
         thread_id: thread_id,
-        user_id: user!(opts),
+        user_id: user_id,
         channel: required!(opts, :channel),
         receiver_account_ref: opts[:receiver],
         external_user_id: opts[:external_user],
@@ -81,7 +82,7 @@ defmodule Mix.Tasks.Allbert.Conversations do
       |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
       |> Map.new()
 
-    case Runner.run("resume_thread_on_channel", params, cli_context()) do
+    case Runner.run("resume_thread_on_channel", params, cli_context(user_id)) do
       {:ok, %{status: :completed, resume: resume} = response} ->
         Mix.shell().info(response.message)
         Mix.shell().info("Receiver: #{resume.receiver_account_ref}")
@@ -135,8 +136,14 @@ defmodule Mix.Tasks.Allbert.Conversations do
     end)
   end
 
-  defp cli_context do
-    ContextBuilder.cli_context(surface: :cli, source: :operator_cli)
+  defp cli_context(user_id) do
+    ContextBuilder.cli_context(
+      actor: user_id,
+      user_id: user_id,
+      operator_id: user_id,
+      surface: :cli,
+      source: :operator_cli
+    )
   end
 
   defp reject_invalid!([]), do: :ok

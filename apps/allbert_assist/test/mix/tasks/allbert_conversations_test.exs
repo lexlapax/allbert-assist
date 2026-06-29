@@ -86,7 +86,9 @@ defmodule Mix.Tasks.Allbert.ConversationsTest do
       end)
 
     assert output =~ "Resumed thread #{thread.id}"
+    assert output =~ "for alice on cli"
     assert output =~ "Continuity: rich_surface"
+    refute output =~ "for local on cli"
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
