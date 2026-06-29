@@ -5,6 +5,7 @@ defmodule AllbertAssist.Portability.Import do
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Portability.Envelope
+  alias AllbertAssist.Portability.SecretReferences
   alias AllbertAssist.Settings.VersionContract
 
   @doc "Read and dry-run validate an export envelope. This never writes to the target Home."
@@ -108,15 +109,9 @@ defmodule AllbertAssist.Portability.Import do
   end
 
   defp secret_reference_summary(envelope) do
-    refs = envelope["secret_references"] || []
-
-    %{
-      "count" => length(refs),
-      "statuses" =>
-        refs
-        |> Enum.frequencies_by(&Map.get(&1, "status", "unknown"))
-        |> Map.new()
-    }
+    envelope
+    |> Map.get("secret_references", [])
+    |> SecretReferences.target_summary()
   end
 
   defp diagnostic_message("ok", version_report) do

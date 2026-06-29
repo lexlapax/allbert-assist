@@ -5,6 +5,7 @@ defmodule AllbertAssist.Portability.ExportImportTest do
   alias AllbertAssist.Paths
   alias AllbertAssist.Portability.Export
   alias AllbertAssist.Portability.Import
+  alias AllbertAssist.Portability.SecretReferences
   alias AllbertAssist.Settings
 
   setup do
@@ -68,6 +69,22 @@ defmodule AllbertAssist.Portability.ExportImportTest do
     refute envelope_text =~ "http://127.0.0.1:9999/v1"
   end
 
+  test "secret-reference helper returns refs only, never values" do
+    settings = %{
+      "providers" => %{
+        "openai" => %{
+          "api_key_ref" => "secret://providers/openai/api_key",
+          "api_key" => "sk-test"
+        }
+      }
+    }
+
+    assert SecretReferences.collect(settings) == ["secret://providers/openai/api_key"]
+    rows = SecretReferences.export_rows(settings)
+    assert [%{"ref" => "secret://providers/openai/api_key"}] = rows
+    refute inspect(rows) =~ "sk-test"
+  end
+
   test "dry-run import validates envelope and leaves target Home byte-identical", %{
     home_a: home_a,
     home_b: home_b,
@@ -79,6 +96,7 @@ defmodule AllbertAssist.Portability.ExportImportTest do
     File.write!(envelope_path, Jason.encode!(envelope, pretty: true))
 
     before = tree_digest(home_b)
+    Application.put_env(:allbert_assist, Paths, home: home_b)
     assert {:ok, diagnostic} = Import.dry_run(envelope_path, target_home: home_b)
     after_digest = tree_digest(home_b)
 
@@ -89,6 +107,18 @@ defmodule AllbertAssist.Portability.ExportImportTest do
     assert diagnostic["message"] =~ "applied nothing"
     assert get_in(diagnostic, ["inert_import_plan", "self_improvement_suggestions"]) == "inert"
     assert get_in(diagnostic, ["inert_import_plan", "voice_capture"]) == "not_armed"
+    assert get_in(diagnostic, ["secret_references", "required"]) == 1
+    assert get_in(diagnostic, ["secret_references", "missing"]) == 1
+
+    assert [
+             %{
+               "ref" => "secret://providers/openai/api_key",
+               "target_status" => "missing",
+               "missing_in_target" => true
+             }
+           ] = get_in(diagnostic, ["secret_references", "refs"])
+
+    refute inspect(diagnostic) =~ "sk-test"
   end
 
   test "dry-run import fails closed on forward fragment versions", %{
@@ -108,6 +138,7 @@ defmodule AllbertAssist.Portability.ExportImportTest do
     File.write!(envelope_path, Jason.encode!(forward, pretty: true))
 
     before = tree_digest(home_b)
+    Application.put_env(:allbert_assist, Paths, home: home_b)
     assert {:error, diagnostic} = Import.dry_run(envelope_path, target_home: home_b)
     assert before == tree_digest(home_b)
     assert diagnostic["status"] == "blocked"

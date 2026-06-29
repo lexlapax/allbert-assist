@@ -5,8 +5,8 @@ defmodule AllbertAssist.Portability.Export do
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Portability.Envelope
+  alias AllbertAssist.Portability.SecretReferences
   alias AllbertAssist.Runtime.Redactor
-  alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Store
   alias AllbertAssist.Settings.VersionContract
 
@@ -26,7 +26,7 @@ defmodule AllbertAssist.Portability.Export do
     with {:ok, user_settings} <- Store.read_user_settings() do
       fragments = VersionContract.inventory(user_settings: user_settings)
       files = file_manifest(home)
-      secret_refs = secret_references(user_settings)
+      secret_refs = SecretReferences.export_rows(user_settings)
 
       {:ok,
        %{
@@ -186,35 +186,6 @@ defmodule AllbertAssist.Portability.Export do
     |> then(&:crypto.hash(:sha256, &1))
     |> Base.encode16(case: :lower)
   end
-
-  defp secret_references(settings) do
-    settings
-    |> collect_secret_refs()
-    |> Enum.sort()
-    |> Enum.map(fn ref ->
-      %{
-        "ref" => ref,
-        "status" => Secrets.status(ref) |> to_string()
-      }
-    end)
-  end
-
-  defp collect_secret_refs(term),
-    do: term |> collect_secret_refs(MapSet.new()) |> MapSet.to_list()
-
-  defp collect_secret_refs(value, refs) when is_binary(value) do
-    if secret_ref?(value), do: MapSet.put(refs, value), else: refs
-  end
-
-  defp collect_secret_refs(%{} = map, refs) do
-    Enum.reduce(map, refs, fn {_key, value}, acc -> collect_secret_refs(value, acc) end)
-  end
-
-  defp collect_secret_refs(list, refs) when is_list(list) do
-    Enum.reduce(list, refs, &collect_secret_refs/2)
-  end
-
-  defp collect_secret_refs(_term, refs), do: refs
 
   defp redact_settings(settings), do: redact_settings(settings, [])
 
