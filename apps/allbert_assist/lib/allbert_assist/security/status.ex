@@ -9,6 +9,7 @@ defmodule AllbertAssist.Security.Status do
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Store
+  alias AllbertAssist.Settings.VersionContract
 
   @future_boundaries [
     %{name: :confirmation_queue, milestone: "v0.07", status: :implemented},
@@ -39,6 +40,7 @@ defmodule AllbertAssist.Security.Status do
       skill_trust: skill_trust_summary(settings),
       capability_boundaries: capability_boundaries_summary(settings),
       secret_status: secret_status_summary(settings),
+      settings_version_contract: VersionContract.status_from_store(),
       redaction_posture: Redactor.posture(),
       future_boundaries: @future_boundaries
     }
@@ -53,6 +55,7 @@ defmodule AllbertAssist.Security.Status do
       skill_trust: %{error: settings_error},
       capability_boundaries: capability_boundaries_summary(Settings.defaults()),
       secret_status: %{error: settings_error},
+      settings_version_contract: VersionContract.status_from_store(),
       redaction_posture: Redactor.posture(),
       future_boundaries: @future_boundaries
     }

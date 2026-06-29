@@ -31,6 +31,8 @@ defmodule Mix.Tasks.Allbert.SecurityTest do
     assert output =~ "command_execute"
     assert output =~ "Safety floors:"
     assert output =~ "Secrets:"
+    assert output =~ "Settings versions:"
+    assert output =~ "status=ok"
     assert output =~ "Future boundaries:"
     refute output =~ "secret://"
   end

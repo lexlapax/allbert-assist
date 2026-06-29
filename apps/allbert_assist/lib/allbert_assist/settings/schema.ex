@@ -4086,6 +4086,12 @@ defmodule AllbertAssist.Settings.Schema do
             "max_rows" => 1000,
             "raw_requires_affordance" => true
           },
+          "settings_doctor" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
+            "raw_requires_affordance" => true
+          },
           "model_doctor" => %{
             "render_mode" => "operator_report",
             "redaction_profile" => "standard",
@@ -4134,6 +4140,12 @@ defmodule AllbertAssist.Settings.Schema do
             "render_mode" => "operator_report",
             "redaction_profile" => "standard",
             "max_rows" => 1000,
+            "raw_requires_affordance" => true
+          },
+          "settings_doctor" => %{
+            "render_mode" => "operator_report",
+            "redaction_profile" => "standard",
+            "max_rows" => 100,
             "raw_requires_affordance" => true
           },
           "model_doctor" => %{

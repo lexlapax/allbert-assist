@@ -5,6 +5,7 @@ defmodule AllbertAssist.Settings.Store do
   alias AllbertAssist.Settings.Audit
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Settings.YamlCodec
+  alias AllbertAssist.Settings.VersionContract
 
   @app :allbert_assist
 
@@ -34,7 +35,8 @@ defmodule AllbertAssist.Settings.Store do
   def write_user_settings(settings, opts \\ []) when is_map(settings) and is_list(opts) do
     settings = normalize_user_settings(settings)
 
-    with {:ok, merged} <- merge_user_settings(settings),
+    with :ok <- VersionContract.reject_forward_versions(settings),
+         {:ok, merged} <- merge_user_settings(settings),
          :ok <- Schema.validate_settings(merged) do
       ensure_root!()
       write_atomic(settings_path(), YamlCodec.encode!(settings))
@@ -47,6 +49,7 @@ defmodule AllbertAssist.Settings.Store do
 
   def resolved_settings do
     with {:ok, user_settings} <- read_user_settings(),
+         :ok <- VersionContract.reject_forward_versions(user_settings),
          {:ok, merged} <- merge_user_settings(user_settings),
          :ok <- Schema.validate_settings(merged) do
       {:ok, merged, user_settings}

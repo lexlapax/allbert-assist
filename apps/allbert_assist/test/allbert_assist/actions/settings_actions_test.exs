@@ -7,6 +7,7 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
   alias AllbertAssist.Actions.Settings.ListModelProfiles
   alias AllbertAssist.Actions.Settings.ListProviderProfiles
   alias AllbertAssist.Actions.Settings.ListSettings
+  alias AllbertAssist.Actions.Settings.Doctor, as: SettingsDoctorAction
   alias AllbertAssist.Actions.Settings.ModelDoctor, as: ModelDoctorAction
   alias AllbertAssist.Actions.Settings.ReadSetting
   alias AllbertAssist.Actions.Settings.ResolvedSettingsSnapshot
@@ -295,6 +296,25 @@ defmodule AllbertAssist.Actions.SettingsActionsTest do
     assert report_response.message =~ "intent_embedding status=ok"
     assert report_response.message =~ "intent_escalation status=ok"
     assert [%{render_mode: :operator_report}] = report_response.actions
+  end
+
+  test "settings doctor reports fragment version contract without leaking secrets" do
+    assert {:ok, response} = SettingsDoctorAction.run(%{}, %{})
+
+    assert response.status == :completed
+    assert response.message =~ "Settings doctor checked"
+    assert response.settings_version.status == :ok
+    assert response.settings_version.counts.forward == 0
+    assert Enum.any?(response.settings_version.inventory, &(&1.fragment_id == "core:artifacts"))
+    assert [%{settings_version_status: :ok}] = response.actions
+
+    assert {:ok, report_response} =
+             SettingsDoctorAction.run(operator_report_params(), %{})
+
+    assert report_response.message =~ "settings version contract status=ok"
+    assert report_response.message =~ "core:artifacts"
+    refute inspect(report_response) =~ "secret://"
+    refute inspect(report_response) =~ "api_key"
   end
 
   test "model doctor flags not-pulled, under-capable, and remote egress states" do

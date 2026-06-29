@@ -64,6 +64,8 @@ defmodule Mix.Tasks.Allbert.Security do
       "Secrets: providers=#{status.secret_status.providers} configured=#{status.secret_status.configured} missing=#{status.secret_status.missing}"
     )
 
+    print_settings_versions(status.settings_version_contract)
+
     Mix.shell().info("Future boundaries:")
 
     Enum.each(status.future_boundaries, fn boundary ->
@@ -86,6 +88,18 @@ defmodule Mix.Tasks.Allbert.Security do
 
   defp print_result({:error, reason}) do
     Mix.raise("Security command failed: #{inspect(reason)}")
+  end
+
+  defp print_settings_versions(report) do
+    counts = report.counts
+
+    Mix.shell().info(
+      "Settings versions: status=#{report.status} total=#{report.total_fragments} current=#{counts.current} pending=#{counts.pending} forward=#{counts.forward} invalid=#{counts.invalid}"
+    )
+
+    Enum.each(report.diagnostics, fn diagnostic ->
+      Mix.shell().info("- #{diagnostic.fragment_id} #{diagnostic.status}: #{diagnostic.message}")
+    end)
   end
 
   defp completed_action(action_name, params) do

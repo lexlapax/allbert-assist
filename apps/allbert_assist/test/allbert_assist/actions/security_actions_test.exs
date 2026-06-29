@@ -43,6 +43,14 @@ defmodule AllbertAssist.Actions.SecurityActionsTest do
              "npm"
            ]
 
+    assert response.security_status.settings_version_contract.status == :ok
+    assert response.security_status.settings_version_contract.counts.forward == 0
+
+    assert Enum.any?(
+             response.security_status.settings_version_contract.inventory,
+             &(&1.fragment_id == "core:artifacts")
+           )
+
     refute inspect(response) =~ "secret://"
   end
 
@@ -56,6 +64,7 @@ defmodule AllbertAssist.Actions.SecurityActionsTest do
     assert response.runner_metadata.action_name == "security_status"
     assert response.runner_metadata.permission_decision.context.action.name == "security_status"
     assert response.runner_metadata.permission_decision.context.action.registered?
+    assert response.security_status.settings_version_contract.status == :ok
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

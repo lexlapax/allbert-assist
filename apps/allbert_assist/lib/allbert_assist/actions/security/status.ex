@@ -45,7 +45,11 @@ defmodule AllbertAssist.Actions.Security.Status do
            security_metadata: %{
              permission_defaults: length(status.permission_defaults),
              safety_floors: length(status.safety_floors),
-             secret_status: status.secret_status
+             secret_status: status.secret_status,
+             settings_version_contract: %{
+               status: status.settings_version_contract.status,
+               counts: status.settings_version_contract.counts
+             }
            }
          }
        ]
@@ -57,6 +61,7 @@ defmodule AllbertAssist.Actions.Security.Status do
     Security Central status:
     Permissions: #{length(status.permission_defaults)}
     Safety floors: #{length(status.safety_floors)}
+    Settings versions: #{status.settings_version_contract.status}
     Secrets: #{status.secret_status.configured} configured, #{status.secret_status.missing} missing
     """
     |> String.trim()

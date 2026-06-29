@@ -262,6 +262,16 @@ defmodule Mix.Tasks.Allbert.SettingsTest do
     refute output =~ "api_key"
   end
 
+  test "doctor renders the settings version contract inventory" do
+    output = capture_io(fn -> assert :ok = SettingsTask.run(["doctor"]) end)
+
+    assert output =~ "settings version contract status=ok"
+    assert output =~ "core:artifacts"
+    assert output =~ "diagnostics=none"
+    refute output =~ "secret://"
+    refute output =~ "api_key"
+  end
+
   test "provider list and set-key use stdin and redact raw key", %{root: root} do
     initial_output = capture_io(fn -> assert :ok = SettingsTask.run(["providers", "list"]) end)
     assert initial_output =~ "openai"

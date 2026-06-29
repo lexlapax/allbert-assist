@@ -191,6 +191,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "operator_setting_get",
              "surface_policy_read",
              "surface_policy_update",
+             "settings_doctor",
              "model_doctor",
              "resolved_settings_snapshot",
              "list_confirmations",
@@ -401,6 +402,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "operator_setting_get",
              "surface_policy_read",
              "surface_policy_update",
+             "settings_doctor",
              "model_doctor",
              "resolved_settings_snapshot",
              "list_confirmations",
@@ -511,6 +513,11 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert model_doctor.permission == :read_only
     assert model_doctor.exposure == :internal
     assert model_doctor.execution_mode == :settings_read
+
+    assert {:ok, settings_doctor} = Registry.capability("settings_doctor")
+    assert settings_doctor.permission == :read_only
+    assert settings_doctor.exposure == :internal
+    assert settings_doctor.execution_mode == :settings_read
 
     assert {:ok, doctor_voice_provider} = Registry.capability("doctor_voice_provider")
     assert doctor_voice_provider.permission == :read_only
