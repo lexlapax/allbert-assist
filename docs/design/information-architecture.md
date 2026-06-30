@@ -147,7 +147,13 @@ placeholder composition, at least one route-specific composition zone from the
 manifest, keyboard/focus accessibility, reduced-motion behavior, and
 no-authority/no-live-data invariants. It should not attempt the v0.61 visual
 overhaul. The route-specific zone can be a safe placeholder for a component that
-would otherwise read live state in production. The implementation may use one shared
+would otherwise read live state in production. The onboarding and settings
+previews also render safe child catalog nodes from their manifest rows, so those
+routes are not merely single-node zones while still reading no live setup,
+settings, policy, or intent state. When a manifest child atom would render live
+panel controls, the preview uses an inert section placeholder carrying that atom
+in `data-skeleton-composition-component` rather than rendering the live panel. The
+implementation may use one shared
 `AllbertAssistWeb.Skeleton.PreviewLive` with route actions for every manifest row;
 that is intentional when the route manifest remains the source of truth and each
 route action resolves its own title, nav group, active key, and placeholder

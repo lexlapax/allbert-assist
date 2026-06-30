@@ -52,6 +52,18 @@ defmodule AllbertAssistWeb.Skeleton.WalkingSkeletonTest do
                  "[data-skeleton-composition-component='#{composition_component}']"
              )
 
+      for {child_component, child_node_id} <- route_composition_child_nodes(route) do
+        assert child_component in route.catalog_components
+
+        assert has_element?(
+                 view,
+                 "#workspace-node-#{child_node_id}" <>
+                   "[data-skeleton-composition-route='#{route.route_id}']" <>
+                   "[data-skeleton-composition-zone='#{route.active_key}']" <>
+                   "[data-skeleton-composition-component='#{child_component}']"
+               )
+      end
+
       if route.route_id == :launch do
         assert has_element?(view, "#workspace-node-v060-launch-button button[disabled]")
       end
@@ -72,8 +84,12 @@ defmodule AllbertAssistWeb.Skeleton.WalkingSkeletonTest do
       refute html =~ ~s(data-action-source="actions-runner")
     end
 
+    composition_child_route_count =
+      RouteManifest.routes()
+      |> Enum.count(&(route_composition_child_nodes(&1) != []))
+
     IO.puts(
-      "walking-skeleton-routes-resolve-001 status=pass route_count=#{length(RouteManifest.routes())} composition_depth=true route_specific_components=#{length(RouteManifest.routes())}"
+      "walking-skeleton-routes-resolve-001 status=pass route_count=#{length(RouteManifest.routes())} composition_depth=true route_specific_components=#{length(RouteManifest.routes())} composition_child_routes=#{composition_child_route_count}"
     )
 
     IO.puts(
@@ -145,4 +161,18 @@ defmodule AllbertAssistWeb.Skeleton.WalkingSkeletonTest do
   defp route_composition_component(%{route_id: :channels}), do: :channel_card
   defp route_composition_component(%{route_id: :settings}), do: :settings_panel
   defp route_composition_component(%{route_id: :trust}), do: :trace_viewer
+
+  defp route_composition_child_nodes(%{route_id: :onboarding}),
+    do: [
+      {:models_panel, "v060-onboarding-models_panel"},
+      {:status_badge, "v060-onboarding-review-status"}
+    ]
+
+  defp route_composition_child_nodes(%{route_id: :settings}),
+    do: [
+      {:surface_policy_panel, "v060-settings-surface_policy_panel"},
+      {:intents_panel, "v060-settings-intents_panel"}
+    ]
+
+  defp route_composition_child_nodes(_route), do: []
 end

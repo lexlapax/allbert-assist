@@ -181,7 +181,23 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
       route,
       :onboarding_panel,
       "Onboarding wizard zone",
-      "Represents the QuickStart / Advanced wizard shell without loading onboarding state."
+      "Represents the QuickStart / Advanced wizard shell without loading onboarding state.",
+      [
+        placeholder_component_node(
+          route,
+          :models_panel,
+          "Model path placeholder",
+          "No model doctor or provider setup is run in the v0.60 preview.",
+          node_id: "v060-onboarding-models_panel"
+        ),
+        component_node(
+          route,
+          :status_badge,
+          "Review checkpoint placeholder",
+          "Persona and settings seeds remain pending explicit review.",
+          node_id: "v060-onboarding-review-status"
+        )
+      ]
     )
   end
 
@@ -272,7 +288,23 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
       route,
       :settings_panel,
       "Settings and policy zone",
-      "Represents Settings Central, surface policy, and intents without reading settings."
+      "Represents Settings Central, surface policy, and intents without reading settings.",
+      [
+        placeholder_component_node(
+          route,
+          :surface_policy_panel,
+          "Surface policy placeholder",
+          "No grants or policy records are loaded in the v0.60 preview.",
+          node_id: "v060-settings-surface_policy_panel"
+        ),
+        placeholder_component_node(
+          route,
+          :intents_panel,
+          "Intent routing placeholder",
+          "No intent descriptors or routing state are loaded in the v0.60 preview.",
+          node_id: "v060-settings-intents_panel"
+        )
+      ]
     )
   end
 
@@ -299,7 +331,7 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
     )
   end
 
-  defp composition_zone(route, target_component, title, body, children \\ []) do
+  defp composition_zone(route, target_component, title, body, children) do
     props =
       route
       |> composition_props(target_component)
@@ -315,6 +347,17 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
       title,
       body,
       Map.merge(composition_props(route, component), Map.new(props)),
+      []
+    )
+  end
+
+  defp placeholder_component_node(route, target_component, title, body, props) do
+    node(
+      route,
+      :section,
+      title,
+      body,
+      Map.merge(composition_props(route, target_component), Map.new(props)),
       []
     )
   end
