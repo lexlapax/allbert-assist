@@ -24,7 +24,6 @@ defmodule AllbertAssist.DynamicPlugins.Codegen.Producer do
   @manifest_file "manifest.yaml"
 
   @doc "Request a source-bearing action draft for a normalized capability gap."
-  @spec request_draft(map(), map()) :: {:ok, map()} | {:error, term()}
   def request_draft(attrs, context \\ %{}) when is_map(attrs) and is_map(context) do
     with :ok <- ensure_enabled(),
          {:ok, gap} <- CapabilityGap.new(attrs, context),

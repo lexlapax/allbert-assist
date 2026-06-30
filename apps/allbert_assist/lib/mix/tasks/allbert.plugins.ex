@@ -95,10 +95,6 @@ defmodule Mix.Tasks.Allbert.Plugins do
     Mix.raise(response.message)
   end
 
-  defp print_result({:error, reason}) do
-    Mix.raise("Plugins command failed: #{inspect(reason)}")
-  end
-
   defp completed_action(action_name, params) do
     case ActionHelper.completed_action(action_name, params, context(), error: :response) do
       {:ok, response} -> {:ok, response}

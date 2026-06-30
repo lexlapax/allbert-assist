@@ -56,7 +56,7 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
       direct_answer: answer.direct_answer
     }
 
-    attrs = answer.attrs || %{}
+    attrs = answer.attrs
 
     response =
       %{

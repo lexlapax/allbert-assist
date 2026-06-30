@@ -44,8 +44,11 @@ defmodule AllbertAssist.Portability.Export do
     "workspace" => "workspace"
   }
 
+  @type export_envelope :: %{required(String.t()) => binary() | [term()] | 1 | map()}
+  @type export_error :: {:settings_parse_failed, binary() | {term(), term()}}
+
   @doc "Build an export envelope for the current Allbert Home."
-  @spec build(keyword()) :: {:ok, map()} | {:error, term()}
+  @spec build(keyword()) :: {:ok, export_envelope()} | {:error, export_error()}
   def build(opts \\ []) do
     home = Keyword.get_lazy(opts, :home, &Paths.home/0)
 

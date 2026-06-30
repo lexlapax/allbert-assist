@@ -33,6 +33,11 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
         required: false,
         doc: "Expected script resource digest for approval re-checks."
       ],
+      run_id: [
+        type: :string,
+        required: false,
+        doc: "Stable approved-run identifier restored from the confirmation payload."
+      ],
       source_text: [type: :string, required: false, doc: "Original operator prompt."]
     ],
     output_schema: [
@@ -295,7 +300,6 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
 
   defp resume_params(spec, params) do
     %{
-      action: "run_skill_script",
       skill_name: spec.skill_name,
       script_path: spec.script_path,
       expected_sha256: spec.actual_sha256 || spec.expected_sha256,
@@ -303,7 +307,6 @@ defmodule AllbertAssist.Actions.Skills.RunSkillScript do
       cwd: operator_cwd(spec),
       run_id: spec.run_id,
       env: Map.get(params, :env) || Map.get(params, "env") || %{},
-      env_summary: spec.env_summary,
       timeout_ms: spec.timeout_ms,
       max_output_bytes: spec.max_output_bytes,
       source_text: Map.get(params, :source_text) || Map.get(params, "source_text")

@@ -8,8 +8,11 @@ defmodule AllbertAssist.Portability.Import do
   alias AllbertAssist.Portability.SecretReferences
   alias AllbertAssist.Settings.VersionContract
 
+  @type dry_run_diagnostic :: %{required(String.t()) => term()}
+
   @doc "Read and dry-run validate an export envelope. This never writes to the target Home."
-  @spec dry_run(String.t(), keyword()) :: {:ok, map()} | {:error, map()}
+  @spec dry_run(String.t(), keyword()) ::
+          {:ok, dry_run_diagnostic()} | {:error, dry_run_diagnostic()}
   def dry_run(path, opts \\ []) when is_binary(path) do
     target_home = opts |> Keyword.get_lazy(:target_home, &Paths.home/0) |> Path.expand()
 

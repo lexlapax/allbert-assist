@@ -4,7 +4,7 @@ defmodule AllbertAssist.MixProject do
   def project do
     [
       app: :allbert_assist,
-      version: "0.58.0",
+      version: "0.59.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -92,7 +92,8 @@ defmodule AllbertAssist.MixProject do
       {:jido, "~> 2.3"},
       {:jido_action, "~> 2.3"},
       {:jido_signal, "~> 2.2"},
-      {:jido_ai, "~> 2.2"}
+      {:jido_ai, "~> 2.2"},
+      {:credo, "~> 1.7", only: :test, runtime: false}
     ]
   end
 

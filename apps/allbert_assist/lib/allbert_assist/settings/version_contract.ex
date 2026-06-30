@@ -9,6 +9,19 @@ defmodule AllbertAssist.Settings.VersionContract do
   alias AllbertAssist.Settings.Store
 
   @type fragment_status :: :current | :pending | :forward | :invalid
+  @type counts :: %{
+          required(:current) => non_neg_integer(),
+          required(:pending) => non_neg_integer(),
+          required(:forward) => non_neg_integer(),
+          required(:invalid) => non_neg_integer()
+        }
+  @type status_report :: %{
+          required(:status) => :blocked | :ok | :pending,
+          required(:total_fragments) => non_neg_integer(),
+          required(:counts) => counts(),
+          required(:diagnostics) => [term()],
+          required(:inventory) => [map()]
+        }
 
   @doc "Return the generated settings-fragment version inventory."
   @spec inventory(keyword()) :: [map()]
@@ -23,7 +36,7 @@ defmodule AllbertAssist.Settings.VersionContract do
   end
 
   @doc "Return an operator-facing summary of the settings version contract."
-  @spec status(keyword()) :: map()
+  @spec status(keyword()) :: status_report()
   def status(opts \\ []) do
     entries = inventory(opts)
     counts = counts(entries)
@@ -39,7 +52,7 @@ defmodule AllbertAssist.Settings.VersionContract do
   end
 
   @doc "Read current user settings without opening the merged Settings Store, then check versions."
-  @spec status_from_store(keyword()) :: map()
+  @spec status_from_store(keyword()) :: status_report()
   def status_from_store(opts \\ []) do
     user_settings =
       case Store.read_user_settings() do

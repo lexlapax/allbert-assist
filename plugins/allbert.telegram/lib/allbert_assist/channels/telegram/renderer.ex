@@ -152,8 +152,10 @@ defmodule AllbertAssist.Channels.Telegram.Renderer do
 
   defp response_field(map, key, default \\ nil)
 
-  defp response_field(map, key, default) when is_map(map),
-    do: Map.get(map, key, Map.get(map, Atom.to_string(key), default))
-
-  defp response_field(_map, _key, default), do: default
+  defp response_field(map, key, default) when is_map(map) do
+    case Map.fetch(map, key) do
+      {:ok, value} -> value
+      :error -> Map.get(map, Atom.to_string(key), default)
+    end
+  end
 end

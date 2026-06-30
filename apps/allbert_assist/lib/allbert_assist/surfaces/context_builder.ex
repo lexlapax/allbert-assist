@@ -82,7 +82,7 @@ defmodule AllbertAssist.Surfaces.ContextBuilder do
     |> compact()
   end
 
-  @spec channel_context(String.t() | atom(), String.t(), map() | keyword()) :: map()
+  @spec channel_context(String.t() | atom(), String.t() | nil, map() | keyword()) :: map()
   def channel_context(channel, user_id, opts \\ %{}) do
     opts = to_map(opts)
     channel = field(opts, :channel) || channel

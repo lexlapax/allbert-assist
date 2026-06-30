@@ -80,6 +80,10 @@ defmodule AllbertAssist.Runtime do
           decision: map() | nil,
           resource_access: list(),
           approval_handoff: map() | nil,
+          stream_events: list() | nil,
+          turn_id: String.t() | nil,
+          coding_turn: map() | nil,
+          coding_session_context: ReqLLM.Context.t() | nil,
           media_outputs: list(),
           diagnostics: list()
         }

@@ -3668,8 +3668,9 @@ it is re-scoped up into the v0.62 Guided Onboarding &amp; Profiles release
 and credential-vault model. v0.59 stays pure engineering hardening with no new
 user-facing capability.
 
-Status: implemented through M8.8; third-pass implementation audit is pending
-before operator manual validation. Promoted from
+Status: release closeout complete on 2026-06-29; version metadata reports
+`0.59.0`; release tag pending per project convention. Operator validation S0-S8
+and `release.v059` passed. Promoted from
 `docs/archives/version-1.0-planning-03.md`. Settings schema migration substrate
 added in the post-v0.37 planning pass; moved from v0.58 to v0.59 and later
 narrowed back to engineering substrate after the post-v0.58 product-readiness
@@ -3679,14 +3680,14 @@ system web (ADR 0074), settings-access enforcement, and redundancy cleanup land
 first, so v0.59's param-contract enforcement (ADR 0065), settings version
 contract (ADR 0046), export/import, and security sweep run on a consistent base.
 
-Expected direction:
+Delivered:
 
-- Add no new user-facing capability.
-- Prove Allbert Home export + dry-run import diagnostics, secret-reference
+- Added no new user-facing capability.
+- Proved Allbert Home export + dry-run import diagnostics, secret-reference
   policy, schema metadata, rollback docs, and an envelope that v0.63 can later
   use for packaged-layout import/upgrade validation. v0.59 does not apply an
   imported Home.
-- **Implement the Settings Central version contract** per ADR 0046:
+- **Implemented the Settings Central version contract** per ADR 0046:
   per-fragment `schema_version`, additive-only between minor releases,
   one-release deprecation policy, fail-closed forward-version boot check, and
   operator-visible pending-migration report. The `mix allbert.settings.migrate`
@@ -3694,15 +3695,19 @@ Expected direction:
 - (Onboarding moved out of v0.59: the guided first-run experience is grown into
   a real capability in v0.62 after v0.61 packaging/entry points land, not a
   hardening sliver over existing flows.)
-- Run the full security eval sweep across MCP client, integrations, browser,
+- Ran the security eval sweep across MCP client, integrations, browser,
   channels (Discord/Slack and WhatsApp/Signal/Matrix), Plan/Build,
   marketplace, self-improvement, voice, vision, and the v0.51 public protocol
   surfaces (MCP server, OpenAI-compatible API, ACP). Public AG-UI/A2UI and MCP
   Apps iframe evals remain parked.
-- Central action param-contract enforcement (M7, ADR 0065; precursor v0.54
+- Delivered central action param-contract enforcement (M7, ADR 0065; precursor v0.54
   ADR 0064).
-- Produce a clean substrate handoff for v0.60-v0.63 product work. Final
+- Produced a clean substrate handoff for v0.60-v0.63 product work. Final
   integrated product RC evidence belongs to v0.63.
+- Closed the standalone Dialyzer gate before tag: `MIX_ENV=test mix dialyzer`
+  passes with `Total errors: 0`, `Skipped: 0`, and `Unnecessary Skips: 0`.
+- Aligned closeout test migrations with SQLite WAL runtime behavior and verified
+  fresh `release.v059` evidence contains no SQLite startup-lock signatures.
 
 ## v0.60: Web UX Professional Pass
 

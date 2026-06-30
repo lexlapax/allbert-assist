@@ -13,7 +13,7 @@ defmodule AllbertAssist.Actions.Settings.UpdateSetting do
     tags: ["settings", "write"],
     schema: [
       key: [type: :string, required: true],
-      value: [type: :string, required: true]
+      value: [type: :any, required: true, doc: "Typed Settings Central value."]
     ],
     output_schema: [
       message: [type: :string, required: true],

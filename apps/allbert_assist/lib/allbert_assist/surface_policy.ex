@@ -61,7 +61,7 @@ defmodule AllbertAssist.SurfacePolicy do
     end
   end
 
-  @spec dto(map(), map()) :: map()
+  @spec dto(map(), map()) :: {:ok, map()} | {:error, term()}
   def dto(params \\ %{}, context \\ %{}) do
     with {:ok, settings, _user_settings} <- Store.resolved_settings() do
       surface = Maps.field(params, :surface) || surface_id(params, context)

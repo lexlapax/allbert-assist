@@ -10,7 +10,10 @@ defmodule AllbertAssist.Maps do
   def field(value, key, default \\ nil)
 
   def field(%{} = map, key, default) when is_atom(key) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
+    case Map.fetch(map, key) do
+      {:ok, value} -> value
+      :error -> Map.get(map, Atom.to_string(key), default)
+    end
   end
 
   def field(%{} = map, key, default) when is_binary(key) do

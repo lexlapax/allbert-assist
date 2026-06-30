@@ -58,6 +58,7 @@ File.mkdir_p!(Path.dirname(database_path))
 config :allbert_assist, AllbertAssist.Repo,
   database: database_path,
   pool_size: System.schedulers_online() * 2 + 8,
+  journal_mode: :wal,
   busy_timeout: 15_000,
   pool: Ecto.Adapters.SQL.Sandbox
 

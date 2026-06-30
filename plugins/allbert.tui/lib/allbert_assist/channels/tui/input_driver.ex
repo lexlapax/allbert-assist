@@ -287,7 +287,6 @@ defmodule AllbertAssist.Channels.TUI.InputDriver do
       {:error, reason} -> {:error, reason}
       char when is_binary(char) -> {:ok, char}
       char when is_list(char) -> {:ok, List.to_string(char)}
-      other -> {:error, {:unexpected_input, other}}
     end
   end
 

@@ -37,10 +37,11 @@ defmodule AllbertAssist.Confirmations.Origin do
   defp field(map, key, default \\ nil)
 
   defp field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
+    case Map.fetch(map, key) do
+      {:ok, value} -> value
+      :error -> Map.get(map, Atom.to_string(key), default)
+    end
   end
-
-  defp field(_map, _key, default), do: default
 
   defp session_snapshot(context, request) do
     first_map(field(context, :session), field(request, :session))
@@ -82,7 +83,6 @@ defmodule AllbertAssist.Confirmations.Origin do
 
   defp put_optional_map(map, _key, value) when value in [nil, %{}], do: map
   defp put_optional_map(map, key, value) when is_map(value), do: Map.put(map, key, value)
-  defp put_optional_map(map, _key, _value), do: map
 
   defp first_map(value, _fallback) when is_map(value), do: value
   defp first_map(_value, value) when is_map(value), do: value

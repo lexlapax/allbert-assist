@@ -6,11 +6,14 @@ defmodule AllbertAssist.Actions.Helper do
   alias AllbertAssist.Actions.ErrorExtraction
   alias AllbertAssist.Actions.Runner
 
-  @spec completed_action(String.t() | atom(), map()) :: {:ok, map()} | {:error, term()}
+  @type completed_response :: %{required(:status) => term(), optional(any()) => any()}
+
+  @spec completed_action(String.t() | atom(), map()) ::
+          {:ok, completed_response()} | {:error, term()}
   def completed_action(action_name, params), do: completed_action(action_name, params, %{})
 
   @spec completed_action(String.t() | atom(), map(), map(), keyword()) ::
-          {:ok, map()} | {:error, term()}
+          {:ok, completed_response()} | {:error, term()}
   def completed_action(action_name, params, context, opts \\ []) do
     completed_status = Keyword.get(opts, :status, :completed)
 

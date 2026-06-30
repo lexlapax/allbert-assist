@@ -144,8 +144,7 @@ defmodule StockSage.Agents.Commands.Execute do
       ticker: field(request, :ticker, "UNKNOWN"),
       analysis_date: field(request, :analysis_date, "2026-05-15"),
       evidence_mode: field(request, :evidence_mode),
-      fixture: field(request, :fixture, false),
-      user_id: field(request, :user_id)
+      fixture: field(request, :fixture, false)
     }
     |> drop_nil()
   end

@@ -6,7 +6,7 @@ defmodule AllbertAssist.Portability.Envelope do
   @envelope_version 1
 
   @doc "Current export envelope format version."
-  @spec envelope_version() :: pos_integer()
+  @spec envelope_version() :: 1
   def envelope_version, do: @envelope_version
 
   @doc "Validate the minimum envelope shape and version."

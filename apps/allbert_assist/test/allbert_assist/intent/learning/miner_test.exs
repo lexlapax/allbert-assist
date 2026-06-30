@@ -85,7 +85,12 @@ defmodule AllbertAssist.Intent.Learning.MinerTest do
     assert length(proposal.examples) == 1
     assert length(proposal.evidence_refs) == 2
 
-    assert {:ok, review} = Runner.run("intent_list_review", %{}, context())
+    assert {:ok, review} =
+             Runner.run(
+               "intent_list_review",
+               %{render_mode: "operator_report", surface_policy_affordance: true},
+               context()
+             )
 
     assert [%{action_name: "append_memory", support_count: 2, evidence_count: 2}] =
              review.proposals

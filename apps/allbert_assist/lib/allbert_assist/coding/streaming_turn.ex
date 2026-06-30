@@ -233,7 +233,7 @@ defmodule AllbertAssist.Coding.StreamingTurn do
       sequence: state.sequence,
       tool_call_id: call.id,
       tool_name: call.name,
-      arguments_delta: Redactor.redact(call.arguments || %{}),
+      arguments_delta: Redactor.redact(call.arguments),
       metadata: %{source: :req_llm_tool_loop}
     })
   end
@@ -368,8 +368,6 @@ defmodule AllbertAssist.Coding.StreamingTurn do
     String.contains?(message, ["<function=", "</tool_call>", "<tool_call", "function_call"])
   end
 
-  defp pseudo_tool_text?(_message), do: false
-
   defp pseudo_tool_message(state) do
     """
     The selected coding model emitted tool-call-looking text instead of real provider tool-call events. No coding tool ran and no file, shell, or memory effect was applied.
@@ -412,7 +410,6 @@ defmodule AllbertAssist.Coding.StreamingTurn do
 
   defp tool_name(%ReqLLM.ToolCall{} = call), do: ReqLLM.ToolCall.name(call)
   defp tool_name(%{} = call), do: Map.get(call, :name) || Map.get(call, "name")
-  defp tool_name(_call), do: nil
 
   defp streamed_text(events) do
     events
@@ -551,8 +548,6 @@ defmodule AllbertAssist.Coding.StreamingTurn do
     |> Enum.reject(&is_nil/1)
     |> Enum.join(", ")
   end
-
-  defp tool_names(_tools), do: ""
 
   defp bounded_text(text) when byte_size(text) <= @max_prompt_bytes, do: text
 

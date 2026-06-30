@@ -224,7 +224,7 @@ defmodule AllbertAssist.Workspace.OfflineTest do
     assert {:ok, response} =
              Runner.run(
                "revert_tile_revision",
-               %{tile_id: tile.id, revision_id: first.revision.id, user_id: tile.user_id},
+               %{tile_id: tile.id, revision_id: first.revision.id},
                %{actor: tile.user_id, user_id: tile.user_id, channel: :test}
              )
 

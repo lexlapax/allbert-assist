@@ -127,8 +127,6 @@ defmodule AllbertAssist.Resources.GrantHandoff do
       Map.get(record, "target_permission") in ["coding_shell_execute", :coding_shell_execute]
   end
 
-  defp coding_command_confirmation?(_record), do: false
-
   @spec summary(map()) :: map()
   def summary(grant) when is_map(grant) do
     grant

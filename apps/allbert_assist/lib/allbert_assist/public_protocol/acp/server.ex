@@ -139,14 +139,6 @@ defmodule AllbertAssist.PublicProtocol.Acp.Server do
       {:error, %{} = error} ->
         record_prompt_rejection(params, state, error)
         {:error, error, state}
-
-      {:error, reason} ->
-        error =
-          Mapping.invalid_params("ACP prompt failed: #{inspect(reason)}.", "runtime_error", nil)
-
-        record_prompt_rejection(params, state, error)
-
-        {:error, error, state}
     end
   end
 

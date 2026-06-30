@@ -58,7 +58,7 @@ release history mirror; use `CHANGELOG.md` for shipped details and
 | v0.56 | Intent descriptor learning, ADR 0071 routing-accuracy gate, ADR 0072 model recommendations, operator-action layer. | ADR 0062, ADR 0070-0072, v0.56 docs. |
 | v0.57 | Pi-mode coding surface on the one authority spine. | ADR 0068, v0.57 docs, `docs/operator/pi-mode-coding.md`. |
 | v0.58 | Released pre-1.0 consolidation: cross-surface contract (one renderer, events/audit by `surface_id`, identity resolution, action-backed reads), Settings Central enforcement, web design system, operator panels, surface policy, and redundancy cleanup. | ADR 0073/0074, ADR 0024 revision, `docs/developer/surface-contract.md`, `docs/developer/web-design-system.md`, `docs/operator/workspace.md`, v0.58 docs. |
-| v0.59 | Planned hardening substrate: settings version contract (ADR 0046; runner deferred), ADR 0065 central param contracts, security sweep, export/import dry-run portability. No onboarding or final RC. | ADR 0046/0065, v0.59 docs. |
+| v0.59 | Released hardening substrate: dry-run-only Allbert Home portability, Settings version contract (ADR 0046; runner deferred), ADR 0065 central param contracts, security sweep, perf/CSP baseline, and RC-substrate handoff. No onboarding or final RC. | ADR 0046/0065, v0.59 docs, `release.v059`. |
 | v0.60 | Planned pre-1.0 product: web UX professional pass (brand, motion, visual hierarchy, landing/marketing) over the v0.58 design system. | ADR 0074 v0.60 amendment, v0.60 docs. |
 | v0.61 | Planned pre-1.0 product: packaged `allbert` binary, unified CLI, daemon, ADR 0070 TUI convergence, OS secret-vault. | ADR 0076, ADR 0070, v0.61 docs. |
 | v0.62 | Planned pre-1.0 product: guided onboarding wizard + repo-maintained user-category profiles/personas over the packaged entry points. | ADR 0069 (re-scoped), ADR 0075, v0.62 docs. |
@@ -88,6 +88,7 @@ Use `docs/developer/test-strategy.md` for the full contract.
 | High-coverage local check | `mix allbert.test fast-local --core-lanes --stocksage-lanes --web-lanes --partitions N` |
 | Release handoff | `mix allbert.test release` or the version-specific release lane. |
 | v0.58 release readiness | `mix allbert.test release.v058` and request-flow S0-S6 operator validation passed during M15 closeout. |
+| v0.59 release readiness | `mix allbert.test release.v059`, standalone `MIX_ENV=test mix dialyzer`, SQLite startup-lock evidence scan, and request-flow S0-S8 operator validation passed during closeout. |
 
 Primary lane labels: `pure_async`, `db_serial`, `db_partition_safe`,
 `app_env_serial`, `home_fs_serial`, `global_process_serial`, `liveview_serial`,

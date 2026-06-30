@@ -6,6 +6,7 @@ defmodule Mix.Tasks.Allbert.HomeTest do
 
   alias AllbertAssist.Paths
   alias AllbertAssist.Settings
+  alias Exqlite.Sqlite3
   alias Mix.Tasks.Allbert.Home.Export, as: ExportTask
   alias Mix.Tasks.Allbert.Home.Import, as: ImportTask
 
@@ -124,6 +125,7 @@ defmodule Mix.Tasks.Allbert.HomeTest do
       )
 
     assert migrate_status == 0, migrate_output
+    assert sqlite_journal_mode(Path.join([target, "db", "allbert.sqlite3"])) == "wal"
 
     before = tree_digest(target)
 
@@ -170,6 +172,18 @@ defmodule Mix.Tasks.Allbert.HomeTest do
     |> Base.encode16(case: :lower)
   end
 
+  defp sqlite_journal_mode(database_path) do
+    {:ok, conn} = Sqlite3.open(database_path, mode: :readonly)
+
+    try do
+      {:ok, statement} = Sqlite3.prepare(conn, "PRAGMA journal_mode")
+      {:ok, [[mode]]} = Sqlite3.fetch_all(conn, statement)
+      mode
+    after
+      Sqlite3.close(conn)
+    end
+  end
+
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
 
@@ -181,6 +195,7 @@ defmodule Mix.Tasks.Allbert.HomeTest do
     [
       {"ALLBERT_HOME", home},
       {"ALLBERT_HOME_DIR", home},
+      {"DATABASE_PATH", Path.join([home, "db", "allbert.sqlite3"])},
       {"MIX_ENV", "test"}
     ]
   end

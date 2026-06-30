@@ -68,22 +68,8 @@ defmodule AllbertAssist.Channels.TUI.Renderer do
   end
 
   def render_approval_handoff(handoff_data) do
-    with {:ok, %{text: text}} <-
-           SurfaceRenderer.render_approval_handoff(handoff_data, @descriptor) do
-      text
-    else
-      _error -> fallback_approval_handoff(handoff_data)
-    end
-  end
-
-  defp fallback_approval_handoff(handoff_data) do
-    descriptor = Map.drop(@descriptor, [:approval_text, :append_approval_handoff])
-
-    with {:ok, rendered} <- SurfaceRenderer.render_approval_handoff(handoff_data, descriptor) do
-      rendered.text
-    else
-      _error -> "Approval required."
-    end
+    {:ok, %{text: text}} = SurfaceRenderer.render_approval_handoff(handoff_data, @descriptor)
+    text
   end
 
   def confirmation_reply(response) when is_map(response) do
@@ -93,8 +79,9 @@ defmodule AllbertAssist.Channels.TUI.Renderer do
   end
 
   defp response_field(map, key, default) when is_map(map) do
-    Map.get(map, key, Map.get(map, Atom.to_string(key), default))
+    case Map.fetch(map, key) do
+      {:ok, value} -> value
+      :error -> Map.get(map, Atom.to_string(key), default)
+    end
   end
-
-  defp response_field(_map, _key, default), do: default
 end

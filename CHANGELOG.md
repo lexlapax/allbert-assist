@@ -10,6 +10,70 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.59.0 - Hardening: Portability, Settings Version Contract & Param Contracts
+
+Status: release closeout complete on 2026-06-29; version metadata reports
+`0.59.0`. The release tag `v0.59.0` is pending and should be applied separately
+per project convention.
+
+Plan: `docs/plans/v0.59-plan.md`. Request flow:
+`docs/plans/v0.59-request-flow.md`. ADRs:
+`docs/adr/0046-settings-schema-migration-policy.md` and
+`docs/adr/0065-central-action-param-contract-enforcement.md` (both Accepted).
+
+### Added
+
+- Allbert Home portability substrate: `mix allbert.home.export` writes a
+  versioned, redacted envelope with settings fragments, manifest metadata, and
+  secret references only; `mix allbert.home.import --dry-run` validates against a
+  fresh Home, emits diagnostics outside the target Home, and applies nothing.
+- Settings version contract: every registered Settings Central fragment carries a
+  first-class `schema_version`, additive-only schema drift is guarded, forward
+  versions fail closed through doctor/security status, and the runtime migration
+  runner remains deferred per ADR 0046.
+- Central action param-contract enforcement at `Actions.Runner.run/3`, reusing
+  each action's `validate_params/1` with Allbert unknown-key strictness, safe
+  schema-known string-key normalization, redacted `:invalid_params`, and
+  validated params passed to `run/2`.
+- Cross-surface v0.59 eval inventory and RC-substrate handoff covering
+  portability, secret metadata, perf/CSP, MCP/browser, channel pack, plan/build,
+  marketplace, self-improvement, voice/vision, public protocol, and v1.0 freeze
+  inputs.
+
+### Validation
+
+- Operator validation S0-S8 passed on 2026-06-29 using disposable Homes and
+  retained redacted evidence under `/Users/spuri/.allbert-release-evidence/v059`.
+- `release.v059` passed during closeout with formatter, compile warnings-as-
+  errors, Credo strict, CLI resume identity, portability export/import units,
+  settings version boot units, perf/CSP baseline, param-contract sweep, v0.59
+  security sweep, docs gate, real release artifact generation, and release-home
+  leak scan. Fresh closeout evidence also scans clean for SQLite startup-lock
+  signatures (`database is locked` / `Exqlite.Connection`).
+- `MIX_ENV=test mix dialyzer` passes with `Total errors: 0`, `Skipped: 0`, and
+  `Unnecessary Skips: 0`; v0.59 carries no Dialyzer debt.
+
+### Fixed
+
+- Post-implementation audit remediations M8.1-M8.14 closed the false-green
+  param-contract replay gap, eval-inventory traceability, additive-only evidence,
+  export fidelity, real release-artifact leak scanning, CLI resume identity
+  regression, secret-pattern defense-in-depth, and dry-run import inertness at
+  the CLI task boundary, then burned down the Dialyzer warning set to zero and
+  aligned skill-script confirmation resume params with Runner strictness.
+- Aligned test migrations with the runtime SQLite WAL configuration and made
+  Home CLI subprocess validation pass `DATABASE_PATH` with `ALLBERT_HOME`, closing
+  the release-evidence blind spot that could hide cross-home database drift or
+  transient SQLite startup-lock noise.
+- Kept StockSage native evidence identity in Runner context instead of evidence
+  action params, restoring deterministic fixture evidence under the strict
+  v0.59 action-param contract without widening evidence action schemas.
+- Removed model-controllable system context from generic action params while
+  preserving context authority for effectful actions and CLI resume.
+- Repaired operator-validation command drift found during the S0-S8 run,
+  including safe dry-run import hash evidence and forward-version fixture
+  targeting a registered core settings fragment.
+
 ## v0.58.0 - Surface Consistency, Settings Enforcement & Web Design System
 
 Status: M15 closeout complete on 2026-06-25; version metadata reports `0.58.0`.

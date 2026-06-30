@@ -317,8 +317,6 @@ defmodule AllbertAssist.Agents.IntentAgent do
       field(metadata, :surface) in ["pi_mode", "coding", "tui_pi_mode"]
   end
 
-  defp coding_turn?(_context), do: false
-
   defp truthy?(value) when value in [true, "true", "1", 1], do: true
   defp truthy?(_value), do: false
 

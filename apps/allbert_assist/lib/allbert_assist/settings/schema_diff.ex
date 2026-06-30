@@ -3,8 +3,15 @@ defmodule AllbertAssist.Settings.SchemaDiff do
   Additive-only diff checks for Settings Central schema changes.
   """
 
+  @type report :: %{
+          required(:status) => :additive | :non_additive,
+          required(:added) => [term()],
+          required(:removed) => [term()],
+          required(:changed) => [map()]
+        }
+
   @doc "Compare two settings schemas and return a report."
-  @spec compare(map(), map()) :: {:ok, map()} | {:error, map()}
+  @spec compare(map(), map()) :: {:ok, report()} | {:error, report()}
   def compare(previous_schema, current_schema)
       when is_map(previous_schema) and is_map(current_schema) do
     previous_keys = MapSet.new(Map.keys(previous_schema))

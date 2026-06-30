@@ -199,8 +199,7 @@ defmodule AllbertAssist.Coding.ToolLoop do
       ok: ok?,
       status: Atom.to_string(status),
       tool: name,
-      message:
-        bound(normalized.model_payload || normalized.message || "", @max_tool_result_bytes),
+      message: bound(normalized.model_payload, @max_tool_result_bytes),
       actions: summarize_actions(normalized.actions),
       requested_args: Redactor.redact(args)
     }
@@ -223,7 +222,7 @@ defmodule AllbertAssist.Coding.ToolLoop do
       tool_call_id: call.id,
       message: "coding tool failed: #{inspect(Redactor.redact(reason), limit: 40)}",
       error: inspect(Redactor.redact(reason), limit: 40),
-      requested_args: Redactor.redact(call.arguments || %{}),
+      requested_args: Redactor.redact(call.arguments),
       actions: [
         %{
           name: call.name,

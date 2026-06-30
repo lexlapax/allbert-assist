@@ -239,8 +239,9 @@ defmodule AllbertAssist.Execution.SkillScriptSpecTest do
     assert pending["selected_skill"]["name"] == "demo-script"
     assert pending["params_summary"]["script_path"] == "scripts/hello"
     assert pending["params_summary"]["policy_decision"] == "allowed"
+    assert "ALLBERT_SKILL_NAME" in pending["params_summary"]["metadata_env_keys"]
     assert pending["resume_params_ref"]["expected_sha256"] == response.script.script_sha256
-    assert "ALLBERT_SKILL_NAME" in pending["resume_params_ref"]["env_summary"]
+    refute Map.has_key?(pending["resume_params_ref"], "env_summary")
 
     assert response.actions == [
              %{

@@ -22,6 +22,12 @@ defmodule AllbertAssist.Surface.Renderer do
   }
 
   @type descriptor :: map()
+  @type approval_rendered :: %{
+          required(:kind) => :approval_handoff,
+          required(:text) => String.t(),
+          required(:primitive) => atom(),
+          required(:payload) => map()
+        }
   @type rendered :: %{
           required(:kind) => :text | :stream | :approval_handoff,
           required(:text) => String.t(),
@@ -62,7 +68,7 @@ defmodule AllbertAssist.Surface.Renderer do
     end
   end
 
-  @spec render_approval_handoff(map(), descriptor(), keyword()) :: {:ok, rendered()}
+  @spec render_approval_handoff(map(), descriptor(), keyword()) :: {:ok, approval_rendered()}
   def render_approval_handoff(handoff_data, descriptor \\ %{}, opts \\ [])
 
   def render_approval_handoff(handoff_data, descriptor, opts) when is_map(handoff_data) do
@@ -177,10 +183,8 @@ defmodule AllbertAssist.Surface.Renderer do
         text
 
       handoff ->
-        case render_approval_handoff(handoff, descriptor) do
-          {:ok, %{text: handoff_text}} -> Enum.join([text, handoff_text], "\n\n")
-          _error -> text
-        end
+        {:ok, %{text: handoff_text}} = render_approval_handoff(handoff, descriptor)
+        Enum.join([text, handoff_text], "\n\n")
     end
   end
 

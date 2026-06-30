@@ -11,8 +11,10 @@ defmodule AllbertAssist.Coding.SessionGuard do
   alias AllbertAssist.Security.PermissionGate
 
   @type denial_reason :: :coding_session_required | :local_coding_operator_required
+  @type normalized_context :: %{required(:coding) => map(), optional(any()) => any()}
 
-  @spec ensure_active(map()) :: {:ok, map()} | {:error, denial_reason(), map()}
+  @spec ensure_active(map()) ::
+          {:ok, normalized_context()} | {:error, denial_reason(), normalized_context()}
   def ensure_active(context) when is_map(context) do
     normalized = normalize_context(context)
 
@@ -39,7 +41,7 @@ defmodule AllbertAssist.Coding.SessionGuard do
     })
   end
 
-  @spec normalize_context(map()) :: map()
+  @spec normalize_context(map()) :: normalized_context()
   def normalize_context(context) when is_map(context) do
     request = map_value(context, :request) |> map_or_empty()
     metadata = metadata(context, request)
@@ -152,10 +154,11 @@ defmodule AllbertAssist.Coding.SessionGuard do
   defp map_or_empty(_value), do: %{}
 
   defp map_value(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+    case Map.fetch(map, key) do
+      {:ok, value} -> value
+      :error -> Map.get(map, Atom.to_string(key))
+    end
   end
-
-  defp map_value(_map, _key), do: nil
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
