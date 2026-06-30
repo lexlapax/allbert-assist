@@ -410,8 +410,9 @@ scope.
     (`ask|chat|tui|serve|admin|gen`), background-daemon management
     (launchd/systemd), completion of the ADR 0070 mix-free TUI console
     convergence, an M0 feasibility spike, tiered platform support, and OS
-    secret-vault credential handling; bundles a model runtime iff the v0.60
-    First-Model-Path decision (ADR 0078) resolved to assisted-local. Lands before
+    secret-vault credential handling; integrates detect + guided Ollama install and
+    a curated model pull per the v0.60 First-Model-Path decision (ADR 0078:
+    assisted-local default + BYOK fallback; no runtime bundling). Lands before
     onboarding so first-run guidance teaches final entry points; adds ADR 0076.
     No authority change.
 63. v0.63 Guided Onboarding & Profiles: implements the v0.60 onboarding-flow
@@ -3759,9 +3760,10 @@ Expected direction (design + scaffolding only):
   implements as a real guided wizard.
 - An **entry-point and CLI UX design** (grouped command surface, daemon, install
   story) that v0.62 implements as the packaged `allbert` binary.
-- A **First-Model-Path decision** (ADR 0078): assisted local model, managed
-  hosted default, or honest bring-your-own-key — resolved here, early, because
-  the assisted-local option requires the v0.62 package to bundle a model runtime;
+- A **First-Model-Path decision** (ADR 0078): assisted-local model as the default,
+  honest BYOK as the Advanced/fallback path, managed-hosted rejected — resolved
+  here, early, because the assisted-local path requires the v0.62 package to
+  integrate Ollama management (detect + guided install, curated model pull);
   deciding after packaging is built would mean repackaging.
 - A **navigable walking skeleton**: the redesigned IA, routes, and empty screens
   scaffolded end-to-end so the design is walkable and reviewable, with no new
@@ -3827,11 +3829,12 @@ Status: planned (pre-1.0 product capability release 2 of 3; implements the v0.60
 entry-point/CLI UX design; followed by v0.63 onboarding/profiles and the v0.64
 product RC). The post-v0.58 product-readiness review moved packaging before
 guided onboarding: first-run guidance should teach the final `allbert` binary,
-CLI, daemon, and OS-vault credential model, not temporary Mix commands. If the
-v0.60 First-Model-Path decision (ADR 0078) resolved to **assisted local model**,
-this release also bundles a model runtime in the package — the dependency that
-forced the First-Model-Path decision early, so packaging is built once against a
-known answer rather than repackaged afterward.
+CLI, daemon, and OS-vault credential model, not temporary Mix commands. The v0.60
+First-Model-Path decision (ADR 0078) is **assisted-local default + BYOK fallback**,
+so this release integrates Ollama management (detect + guided install, curated model
+pull; the runtime is a managed dependency, not bundled) — the dependency that forced
+the First-Model-Path decision early, so packaging is built once against a known
+answer rather than repackaged afterward.
 
 Expected direction:
 
