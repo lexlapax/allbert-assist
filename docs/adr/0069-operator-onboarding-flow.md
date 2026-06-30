@@ -70,6 +70,10 @@ It covers, with opinionated defaults at each step:
 3. Optional channel pairing and integration setup (skipped on the fast path).
 4. A health-check confirmation the operator can *see* succeed.
 
+The concrete v0.60 M4 onboarding artifact is
+`docs/design/onboarding-flow.md`: two-track wizard UX, step sequence, surfaces,
+QuickStart vs Advanced behavior, review/confirm semantics, and the v0.63 handoff.
+
 The wizard **surfaces the trust spine as a feature**: it presents the
 confirmation/permission/trace model as the safety property it is, not as friction —
 the differentiator the autonomous-agent competitors cannot copy.

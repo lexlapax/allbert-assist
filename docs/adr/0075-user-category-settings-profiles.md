@@ -47,6 +47,10 @@ builds** it in v0.63.
   the source tree — the same trust posture as reviewed plugins, and a deliberate
   contrast with open community preset marketplaces.
 
+The concrete v0.60 M4 persona artifact is `docs/design/persona-model.md`: the
+persona categories, seed envelope, per-persona seed intent, review/confirm
+application model, and v0.63 handoff.
+
 ## Consequences
 
 - A new user gets a tailored, sensible starting point with one choice instead of
