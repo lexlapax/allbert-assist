@@ -1,8 +1,8 @@
 ---
 clarify_vs_execute:
   accuracy: 1.0
-  passed: 242
-  total: 242
+  passed: 252
+  total: 252
 confusion:
   - actual: answer
     count: 1
@@ -28,6 +28,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:artifact_threads
+  - actual: none
+    count: 1
+    expected: execute:bash
   - actual: none
     count: 1
     expected: execute:audit_online_skill
@@ -153,6 +156,9 @@ confusion:
     expected: execute:edit_intent_descriptor
   - actual: none
     count: 1
+    expected: execute:edit
+  - actual: none
+    count: 1
     expected: execute:email_doctor
   - actual: none
     count: 1
@@ -196,6 +202,12 @@ confusion:
   - actual: execute:get_trends
     count: 1
     expected: execute:get_trends
+  - actual: none
+    count: 1
+    expected: execute:glob
+  - actual: none
+    count: 1
+    expected: execute:grep
   - actual: none
     count: 1
     expected: execute:import_local_skill
@@ -427,6 +439,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:read_memory_entry
+  - actual: none
+    count: 1
+    expected: execute:read
   - actual: execute:read_note
     count: 1
     expected: execute:read_note
@@ -618,6 +633,18 @@ confusion:
     expected: execute:summarize_memory_category
   - actual: none
     count: 1
+    expected: execute:resolved_settings_snapshot
+  - actual: none
+    count: 1
+    expected: execute:settings_doctor
+  - actual: none
+    count: 1
+    expected: execute:surface_policy_read
+  - actual: none
+    count: 1
+    expected: execute:surface_policy_update
+  - actual: none
+    count: 1
     expected: execute:sync_app_lesson
   - actual: execute:synthesize_voice
     count: 1
@@ -662,17 +689,20 @@ confusion:
     count: 2
     expected: execute:write_note
   - actual: none
+    count: 1
+    expected: execute:write
+  - actual: none
     count: 11
     expected: none
-corpus_case_count: 254
+corpus_case_count: 264
 gate:
   failures: []
   status: pass
-generated_at: 2026-06-23T14:35:57Z
+generated_at: 2026-06-30T00:00:00Z
 id: v056-release-baseline
 negative_violations: []
 overall_accuracy: 1.0
-passed: 254
+passed: 264
 per_domain:
   adversarial:
     accuracy: 1.0
@@ -744,8 +774,8 @@ per_domain:
     total: 13
   negative-internal:
     accuracy: 1.0
-    passed: 120
-    total: 120
+    passed: 130
+    total: 130
   negative-operator:
     accuracy: 1.0
     passed: 20
@@ -813,8 +843,8 @@ per_domain:
 per_surface:
   any:
     accuracy: 1.0
-    passed: 245
-    total: 245
+    passed: 255
+    total: 255
   discord:
     accuracy: 1.0
     passed: 1
@@ -856,4 +886,4 @@ slot_accuracy:
   accuracy: 1.0
   passed: 8
   total: 8
-total: 254
+total: 264

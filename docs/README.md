@@ -22,17 +22,16 @@ For contributors:
 
 ## Current Release
 
-- [v0.58 plan](plans/v0.58-plan.md)
-- [v0.58 request flow](plans/v0.58-request-flow.md)
+- [v0.59 plan](plans/v0.59-plan.md)
+- [v0.59 request flow](plans/v0.59-request-flow.md)
 - [Surface contract](developer/surface-contract.md)
 - [Web design system](developer/web-design-system.md)
 - [Operator workspace guide](operator/workspace.md)
 
-v0.58 is released as `v0.58.0`. v0.59 is the next hardening substrate release:
-[v0.59 plan](plans/v0.59-plan.md), [v0.59 request flow](plans/v0.59-request-flow.md).
-The remaining pre-1.0 arc is v0.60 web UX, v0.61 packaging/entry points,
-v0.62 guided onboarding/profiles, and v0.63 product RC; see the
-[plans index](plans/README.md) and [roadmap](plans/roadmap.md).
+v0.59 release closeout is complete as `0.59.0`; the release tag is applied
+separately per project convention. The remaining pre-1.0 arc is v0.60 web UX,
+v0.61 packaging/entry points, v0.62 guided onboarding/profiles, and v0.63 product
+RC; see the [plans index](plans/README.md) and [roadmap](plans/roadmap.md).
 
 ## Directory Map
 

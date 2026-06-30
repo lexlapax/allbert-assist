@@ -12,9 +12,9 @@ changelog entries or release notes.
 
 ## v0.59.0 - Hardening: Portability, Settings Version Contract & Param Contracts
 
-Status: release closeout complete on 2026-06-29; version metadata reports
-`0.59.0`. The release tag `v0.59.0` is pending and should be applied separately
-per project convention.
+Status: release closeout complete on 2026-06-30 after final release-audit
+remediation; version metadata reports `0.59.0`. The release tag `v0.59.0` is
+pending and should be applied separately per project convention.
 
 Plan: `docs/plans/v0.59-plan.md`. Request flow:
 `docs/plans/v0.59-request-flow.md`. ADRs:
@@ -55,12 +55,15 @@ Plan: `docs/plans/v0.59-plan.md`. Request flow:
 
 ### Fixed
 
-- Post-implementation audit remediations M8.1-M8.14 closed the false-green
+- Post-implementation audit remediations M8.1-M8.15 closed the false-green
   param-contract replay gap, eval-inventory traceability, additive-only evidence,
   export fidelity, real release-artifact leak scanning, CLI resume identity
   regression, secret-pattern defense-in-depth, and dry-run import inertness at
   the CLI task boundary, then burned down the Dialyzer warning set to zero and
   aligned skill-script confirmation resume params with Runner strictness.
+- Release-audit corpus closure added explicit negative-internal intent fixtures
+  for every registered internal coding/settings/surface action and updated the
+  release-facing docs index so v0.59 is no longer described as future work.
 - Aligned test migrations with the runtime SQLite WAL configuration and made
   Home CLI subprocess validation pass `DATABASE_PATH` with `ALLBERT_HOME`, closing
   the release-evidence blind spot that could hide cross-home database drift or
