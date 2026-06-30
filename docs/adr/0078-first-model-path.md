@@ -81,6 +81,10 @@ branch (ADR 0069 / ADR 0077: try local → fall back to BYOK), and the **v1.0
 acceptance-matrix "first useful chat" criterion** (satisfied by the local default,
 with BYOK fallback).
 
+The concrete v0.60 M3 artifact is `docs/design/first-model-path.md`: the
+QuickStart path, option analysis, first-model-state handoff, and v0.62/v0.63
+packaging/onboarding implications.
+
 **Degrade path.** If robust Ollama integration proves too costly for the v0.62
 window, the acceptable-but-weaker fallback is to ship BYOK-primary for 1.0 and add
 assisted-local immediately after — recorded as a deliberate, documented tradeoff
