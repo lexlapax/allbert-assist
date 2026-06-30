@@ -78,6 +78,11 @@ v0.60 produces a single coherent design covering the whole journey:
    IA and navigation, so the design is validated as a real product shape, not only
    as documents.
 
+The concrete v0.60 M2 artifact is
+`docs/design/information-architecture.md`: sitemap, screen inventory, navigation
+model, screen/workspace composition rules, and the parser-stable preview-route
+manifest consumed by the v0.60 walking skeleton.
+
 Downstream releases implement slices of this one design, in the **unchanged build
 order**:
 
