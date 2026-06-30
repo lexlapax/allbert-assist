@@ -145,7 +145,11 @@ M6 implements one placeholder route per manifest row under the flag-gated
 `/preview` namespace. The route body should prove shell, active navigation, title,
 placeholder composition, keyboard/focus accessibility, reduced-motion behavior,
 and no-authority/no-live-data invariants. It should not attempt the v0.61 visual
-overhaul.
+overhaul. The implementation may use one shared
+`AllbertAssistWeb.Skeleton.PreviewLive` with route actions for every manifest row;
+that is intentional when the route manifest remains the source of truth and each
+route action resolves its own title, nav group, active key, and placeholder
+composition from the manifest.
 
 M7 compares these screens and composition rules with the v0.58 token/component
 substrate. Any missing token, responsive behavior, component variant, empty-state

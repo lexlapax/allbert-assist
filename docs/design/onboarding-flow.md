@@ -94,15 +94,25 @@ tracks require explicit operator confirmation in v0.63.
 
 ## Failure And Repair States
 
-| State | Wizard response |
+The `model_path` step uses exactly the M3 first-model states:
+
+| First-model state | Wizard response |
 |---|---|
-| Local runtime missing | Offer guided install and BYOK fallback. |
-| Curated model missing | Offer model pull with progress/retry/resume. |
-| Below hardware floor | Explain local blocker and recommend BYOK or existing endpoint. |
+| `local_ready` | Continue to first useful chat with local/provider status visible. |
+| `runtime_missing` | Offer guided runtime install and keep BYOK fallback visible. |
+| `runtime_unhealthy` | Show runtime repair guidance and keep BYOK fallback visible. |
+| `model_missing` | Offer curated model pull with progress/retry/resume. |
+| `below_hardware_floor` | Explain the local blocker and recommend BYOK or an existing endpoint. |
+| `byok_ready` | Continue to first useful chat with egress posture visible. |
+| `blocked` | Show the smallest repair action and preserve a skip/resume path. |
+
+Other onboarding outcomes are not first-model states:
+
+| Outcome | Wizard response |
+|---|---|
 | BYOK key invalid | Keep key redacted, show provider doctor result, allow retry or local path. |
 | Profile review declined | Continue with unseeded defaults; do not block first useful chat. |
 | Channel setup failed | Defer channel setup; do not block first useful chat. |
-| Health check blocked | Show the smallest repair action and preserve a skip/resume path. |
 
 ## Handoff To v0.63
 

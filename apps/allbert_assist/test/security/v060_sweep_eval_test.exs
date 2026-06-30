@@ -218,9 +218,17 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
         "| Profile/persona choice card |"
       )
 
+    onboarding_states =
+      section_between(
+        onboarding,
+        "The `model_path` step uses exactly the M3 first-model states:",
+        "Other onboarding outcomes are not first-model states:"
+      )
+
     assert_states_in_order!(first_model_states, "first-model-path")
     assert_states_in_order!(entry_point_states, "entry-point-cli-ux")
     assert_states_in_order!(design_system_states, "design-system-gap-analysis")
+    assert_states_in_order!(onboarding_states, "onboarding-flow")
 
     assert_contains_normalized!(onboarding, [
       "The `model_path` step comes before persona selection",

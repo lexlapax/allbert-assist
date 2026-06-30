@@ -37,7 +37,7 @@ Top-level commands:
 |---|---|---|---|
 | `allbert` | First-run/resume dispatcher. | No single equivalent today. | Detects Home/onboarding/model state and routes to wizard, serve/open, or help. |
 | `allbert ask` | One-shot prompt. | `mix allbert.ask`. | Convenience path; no persistent channel identity. |
-| `allbert chat` | Product chat session in the web workspace or a lightweight terminal session. | Split across web `/workspace`, ask, and TUI. | v0.62 may initially alias to serve/open or TUI while v0.61/v0.63 finish surfaces. |
+| `allbert chat` | Product chat session in the web workspace. | Split across web `/workspace`, ask, and TUI. | Primary target is the web workspace chat; v0.62 may temporarily fall back to a lightweight terminal/TUI session only while the web/onboarding surfaces are still incomplete or unavailable. |
 | `allbert tui` | Persistent terminal operator channel. | `mix allbert.tui`, ADR 0067/0070. | Mix-free daily-use terminal path. |
 | `allbert serve` | Run the local product and web workspace. | `mix phx.server` plus app boot. | Supports foreground and daemon/service management in v0.62. |
 | `allbert admin` | Grouped operator inspection/configuration. | `mix allbert.settings`, `channels`, `jobs`, `objectives`, `confirmations`, `security`, `mcp`, `public_protocol`, etc. | Thin views over existing registered actions/settings boundaries. |
@@ -57,7 +57,7 @@ Allbert - local-first assistant workspace
 
 Start
   allbert serve --open       Start the local web workspace
-  allbert chat               Open or start a chat session
+  allbert chat               Open or start web workspace chat
   allbert ask "..."          Ask one question
   allbert tui                Open the terminal operator console
 
@@ -149,7 +149,7 @@ points and first-run detection; v0.63 implements wizard semantics.
 
 | Future product group | Existing task families | Rule |
 |---|---|---|
-| `ask`, `chat`, `tui`, `serve` | `allbert.ask`, `allbert.tui`, Phoenix server boot. | Product entry commands. |
+| `ask`, `chat`, `tui`, `serve` | `allbert.ask`, `allbert.tui`, Phoenix server boot. | Product entry commands; `chat` is web-workspace-primary, with terminal/TUI fallback only for unavailable or unfinished web/onboarding surfaces. |
 | `admin settings/models` | `allbert.settings`, `allbert.model`, model doctor reads. | Settings Central remains authority. |
 | `admin channels` | `allbert.channels`, channel plugin doctors. | Channel setup remains confirmation/policy bounded. |
 | `admin jobs/objectives` | `allbert.jobs`, `allbert.objectives`. | Operator inspection and control surface. |

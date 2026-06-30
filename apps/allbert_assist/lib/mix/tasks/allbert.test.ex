@@ -3635,7 +3635,7 @@ defmodule Mix.Tasks.Allbert.Test do
     },
     %{
       id: "v060_security_sweep",
-      title: "v0.60 design-artifact, ADR-acceptance, and handoff eval rows",
+      title: "v0.60 design-artifact, ADR-acceptance, coherence, and handoff eval rows",
       cwd: :core,
       executable: "mix",
       args: [
@@ -3647,6 +3647,7 @@ defmodule Mix.Tasks.Allbert.Test do
         "design-artifact presence rows File.read! each of the seven v0.60 docs/design/*.md (1:1)",
         "ADR-acceptance rows File.read! ADR 0077/0078 and assert Accepted (v0.60)",
         "design-only no-authority invariant holds; no new Settings key",
+        "cross-doc coherence holds for first-model states and the persona/FMP boundary",
         "handoff drift-check enumerates v0.61/v0.62/v0.63 consumers"
       ]
     },
