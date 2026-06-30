@@ -140,3 +140,8 @@ Guardrails unchanged: no model-generated UI, no internal rename, no new routes
 beyond the landing surface, the catalog stays the rendering boundary (ADR 0030),
 and authority is untouched. This amendment is the web-design-system contract that
 freezes (with its additive-only carve-out) at v1.0.
+
+The concrete v0.60 M7 amendment input is
+`docs/design/design-system-gap-analysis.md`: token, component-variant, and pattern
+gaps mapped to the M2 composition rules / M6 skeleton screens and owned by the
+v0.61 Presentation Layer Overhaul.
