@@ -16,11 +16,13 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
     adr_acceptance: ~w(adr-0077-accepted-001 adr-0078-first-model-path-accepted-001),
     walking_skeleton:
       ~w(walking-skeleton-routes-resolve-001 walking-skeleton-nav-shell-001 walking-skeleton-a11y-smoke-001 no-new-authority-design-only-001),
-    handoff: ~w(rc-design-handoff-no-drift-001)
+    handoff: ~w(rc-design-handoff-no-drift-001),
+    coherence: ~w(first-model-persona-cross-doc-coherence-001)
   ]
+  @first_model_states ~w(local_ready runtime_missing runtime_unhealthy model_missing below_hardware_floor byok_ready blocked)
   @eval_ids @eval_groups |> Keyword.values() |> List.flatten()
   @sweep_owned_ids @eval_groups
-                   |> Keyword.take([:design_artifacts, :adr_acceptance, :handoff])
+                   |> Keyword.take([:design_artifacts, :adr_acceptance, :handoff, :coherence])
                    |> Keyword.values()
                    |> List.flatten()
   @web_owned_ids Keyword.fetch!(@eval_groups, :walking_skeleton)
@@ -191,6 +193,54 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
     )
   end
 
+  @tag :v060_cross_doc_coherence
+  test "first-model states and persona boundary stay coherent across design docs" do
+    first_model = read!("docs/design/first-model-path.md")
+    entry_point = read!("docs/design/entry-point-cli-ux.md")
+    design_system = read!("docs/design/design-system-gap-analysis.md")
+    onboarding = read!("docs/design/onboarding-flow.md")
+    persona = read!("docs/design/persona-model.md")
+
+    first_model_states =
+      section_between(
+        first_model,
+        "## First-Model State Handoff",
+        "## v0.62 Packaging Implications"
+      )
+
+    entry_point_states =
+      section_between(entry_point, "## First-Model-State Check", "## Wizard Launch Sequence")
+
+    design_system_states =
+      section_between(
+        design_system,
+        "| Model/readiness status variants |",
+        "| Profile/persona choice card |"
+      )
+
+    assert_states_in_order!(first_model_states, "first-model-path")
+    assert_states_in_order!(entry_point_states, "entry-point-cli-ux")
+    assert_states_in_order!(design_system_states, "design-system-gap-analysis")
+
+    assert_contains_normalized!(onboarding, [
+      "The `model_path` step comes before persona selection",
+      "QuickStart can reach first useful chat on the curated local/BYOK path",
+      "persona `model_purpose_map` entries are reviewed seed advice after that path is usable",
+      "not a second hidden model setup gate"
+    ])
+
+    assert_contains_normalized!(persona, [
+      "The First-Model Path in `docs/design/first-model-path.md` is the only pre-first-chat model requirement",
+      "`model_purpose_map` entries are post-first-chat seed recommendations",
+      "they do not require v0.62 to pull extra persona-specific models during QuickStart",
+      "Personas do not add model-install requirements to QuickStart before first useful chat"
+    ])
+
+    IO.puts(
+      "first-model-persona-cross-doc-coherence-001 status=pass states=#{Enum.join(@first_model_states, ",")} persona_model_map=post-first-chat quickstart_extra_model_pulls=none"
+    )
+  end
+
   @tag :rc_design_handoff
   test "v0.60 handoff names downstream consumers without build-scope drift" do
     plan = read!("docs/plans/v0.60-plan.md")
@@ -236,5 +286,51 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
     for phrase <- phrases do
       assert String.contains?(text, phrase), "expected document to contain #{inspect(phrase)}"
     end
+  end
+
+  defp assert_contains_normalized!(text, phrases) when is_list(phrases) do
+    normalized = normalize_whitespace(text)
+
+    for phrase <- phrases do
+      assert String.contains?(normalized, normalize_whitespace(phrase)),
+             "expected document to contain #{inspect(phrase)}"
+    end
+  end
+
+  defp assert_states_in_order!(text, label) do
+    positions =
+      for state <- @first_model_states do
+        case :binary.match(text, state) do
+          {position, _length} ->
+            position
+
+          :nomatch ->
+            flunk("#{label} missing first-model state #{inspect(state)}")
+        end
+      end
+
+    assert positions == Enum.sort(positions),
+           "#{label} first-model states are not in canonical order"
+  end
+
+  defp section_between(text, start_marker, end_marker) do
+    case :binary.match(text, start_marker) do
+      {start_position, _start_length} ->
+        from_start = binary_part(text, start_position, byte_size(text) - start_position)
+
+        case :binary.match(from_start, end_marker) do
+          {end_position, _end_length} -> binary_part(from_start, 0, end_position)
+          :nomatch -> from_start
+        end
+
+      :nomatch ->
+        flunk("document section missing #{inspect(start_marker)}")
+    end
+  end
+
+  defp normalize_whitespace(text) do
+    text
+    |> String.replace(~r/\s+/, " ")
+    |> String.trim()
   end
 end

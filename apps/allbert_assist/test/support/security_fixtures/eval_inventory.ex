@@ -5114,6 +5114,21 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V060SweepEvalTest"
     },
     %{
+      id: "first-model-persona-cross-doc-coherence-001",
+      milestone: :v060,
+      surface: :design_handoff,
+      scenario:
+        "First-model states or persona model-purpose recommendations drift across the v0.60 design docs",
+      boundary: :cross_doc_coherence,
+      expected: :allowed,
+      assert: [
+        :canonical_first_model_states,
+        :persona_after_first_model_path,
+        :no_quickstart_persona_model_pulls
+      ],
+      test_module: "AllbertAssist.Security.V060SweepEvalTest"
+    },
+    %{
       id: "sandbox-backend-disabled-001",
       milestone: :v036,
       surface: :elixir_sandbox,
