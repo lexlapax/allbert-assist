@@ -201,6 +201,26 @@ defmodule AllbertAssist.Workspace.OfflineTest do
     assert updated.data.metadata.revision_id == response.result.revision.id
   end
 
+  test "registered offline update action prefers Runner context identity over params" do
+    assert {:ok, tile} = Canvas.add_tile(tile_attrs("thread-context", "user-context", "base"))
+
+    assert {:ok, response} =
+             Runner.run(
+               "record_workspace_offline_update",
+               %{
+                 tile_id: tile.id,
+                 user_id: "spoofed-user",
+                 thread_id: tile.thread_id,
+                 snapshot: "context-owned snapshot"
+               },
+               %{actor: tile.user_id, user_id: tile.user_id, channel: :test}
+             )
+
+    assert response.status == :completed
+    assert response.result.tile.user_id == tile.user_id
+    assert response.result.revision.authored_by == tile.user_id
+  end
+
   test "registered revert action restores a prior snapshot through the action boundary" do
     assert {:ok, tile} = Canvas.add_tile(tile_attrs("thread-revert", "user-revert", "base"))
 

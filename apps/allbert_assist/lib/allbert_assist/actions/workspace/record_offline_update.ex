@@ -35,7 +35,7 @@ defmodule AllbertAssist.Actions.Workspace.RecordOfflineUpdate do
   @impl true
   def run(params, context) when is_map(params) do
     permission_decision = PermissionGate.authorize(:workspace_canvas_write, context)
-    user_id = field(params, :user_id) || field(context, :user_id) || field(context, :actor)
+    user_id = field(context, :user_id) || field(context, :actor) || field(params, :user_id)
 
     with {:allowed, true} <- {:allowed, PermissionGate.allowed?(permission_decision)},
          user_id when is_binary(user_id) and user_id != "" <- user_id,

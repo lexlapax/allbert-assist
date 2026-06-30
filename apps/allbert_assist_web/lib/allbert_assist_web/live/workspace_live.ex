@@ -1127,7 +1127,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   defp active_objectives(user_id) do
     case Runner.run(
            "list_objectives",
-           %{user_id: user_id, status: ["open", "running", "blocked"], limit: 5},
+           %{user_id: user_id, statuses: ["open", "running", "blocked"], limit: 5},
            ContextBuilder.live_view_context(%{user_id: user_id},
              surface: "AllbertAssistWeb.WorkspaceLive"
            )
@@ -1953,10 +1953,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
            run_workspace_action(
              socket,
              "record_workspace_offline_update",
-             Map.merge(params, %{
-               "thread_id" => socket.assigns.thread_id,
-               "max_bytes" => socket.assigns.workspace_indexeddb_quota_bytes
-             })
+             workspace_tile_editor_action_params(params, socket)
            ) do
       %{
         status: if(result.conflict?, do: "conflict", else: "received"),
@@ -1973,6 +1970,23 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       {:ok, response} ->
         %{status: "rejected", reason: inspect(Map.get(response, :reason, response.status))}
     end
+  end
+
+  defp workspace_tile_editor_action_params(params, socket) when is_map(params) do
+    params
+    |> Map.take([
+      "tile_id",
+      "snapshot",
+      "update",
+      "state_vector",
+      "base_revision_id",
+      "origin",
+      "metadata"
+    ])
+    |> Map.merge(%{
+      "thread_id" => socket.assigns.thread_id,
+      "max_bytes" => socket.assigns.workspace_indexeddb_quota_bytes
+    })
   end
 
   defp submit_voice_capture(socket) do

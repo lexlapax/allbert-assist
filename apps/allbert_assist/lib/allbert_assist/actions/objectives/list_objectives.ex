@@ -14,6 +14,7 @@ defmodule AllbertAssist.Actions.Objectives.ListObjectives do
     schema: [
       user_id: [type: :string, required: false],
       status: [type: :string, required: false],
+      statuses: [type: {:list, :string}, required: false],
       active_app: [type: :string, required: false],
       limit: [type: :integer, required: false]
     ],
@@ -63,6 +64,7 @@ defmodule AllbertAssist.Actions.Objectives.ListObjectives do
   defp opts(params) do
     [
       status: field(params, :status),
+      statuses: field(params, :statuses),
       active_app: field(params, :active_app),
       limit: field(params, :limit)
     ]

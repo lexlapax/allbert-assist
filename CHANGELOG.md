@@ -55,7 +55,7 @@ Plan: `docs/plans/v0.59-plan.md`. Request flow:
 
 ### Fixed
 
-- Post-implementation audit remediations M8.1-M8.15 closed the false-green
+- Post-implementation audit remediations M8.1-M8.16 closed the false-green
   param-contract replay gap, eval-inventory traceability, additive-only evidence,
   export fidelity, real release-artifact leak scanning, CLI resume identity
   regression, secret-pattern defense-in-depth, and dry-run import inertness at
@@ -64,6 +64,9 @@ Plan: `docs/plans/v0.59-plan.md`. Request flow:
 - Release-audit corpus closure added explicit negative-internal intent fixtures
   for every registered internal coding/settings/surface action and updated the
   release-facing docs index so v0.59 is no longer described as future work.
+- Release-audit minor closure aligned tag-pending wording and fixed workspace
+  LiveView editor/objective action calls to satisfy the strict Runner contract
+  under isolated serial execution.
 - Aligned test migrations with the runtime SQLite WAL configuration and made
   Home CLI subprocess validation pass `DATABASE_PATH` with `ALLBERT_HOME`, closing
   the release-evidence blind spot that could hide cross-home database drift or

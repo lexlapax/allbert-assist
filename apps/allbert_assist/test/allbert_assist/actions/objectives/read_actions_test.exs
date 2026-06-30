@@ -32,6 +32,37 @@ defmodule AllbertAssist.Actions.Objectives.ReadActionsTest do
     assert response.runner_metadata.action_capability.permission == :read_only
   end
 
+  test "list_objectives accepts a status list through the strict action contract" do
+    user = unique_user("read_actions_statuses")
+
+    assert {:ok, blocked} =
+             Objectives.create_objective(%{
+               user_id: user,
+               title: "Blocked work",
+               objective: "Waiting on operator.",
+               status: "blocked"
+             })
+
+    assert {:ok, _completed} =
+             Objectives.create_objective(%{
+               user_id: user,
+               title: "Completed work",
+               objective: "Already done.",
+               status: "completed"
+             })
+
+    assert {:ok, response} =
+             Runner.run(
+               "list_objectives",
+               %{statuses: ["open", "running", "blocked"], limit: 5},
+               %{user_id: user, actor: user, channel: :test}
+             )
+
+    assert response.status == :completed
+    assert [%{id: id, status: "blocked"}] = response.objectives
+    assert id == blocked.id
+  end
+
   test "show_objective returns details and rejects cross-user reads" do
     user = unique_user("show_objective")
     other_user = unique_user("show_objective_other")

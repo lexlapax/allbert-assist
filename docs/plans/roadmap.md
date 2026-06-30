@@ -3668,9 +3668,9 @@ it is re-scoped up into the v0.62 Guided Onboarding &amp; Profiles release
 and credential-vault model. v0.59 stays pure engineering hardening with no new
 user-facing capability.
 
-Status: release closeout complete on 2026-06-29; version metadata reports
-`0.59.0`; release tag pending per project convention. Operator validation S0-S8
-and `release.v059` passed. Promoted from
+Status: release closeout complete on 2026-06-30 after final release-audit
+remediations; version metadata reports `0.59.0`; release tag pending per project
+convention. Operator validation S0-S8 and `release.v059` passed. Promoted from
 `docs/archives/version-1.0-planning-03.md`. Settings schema migration substrate
 added in the post-v0.37 planning pass; moved from v0.58 to v0.59 and later
 narrowed back to engineering substrate after the post-v0.58 product-readiness
