@@ -3484,7 +3484,7 @@ defmodule Mix.Tasks.Allbert.Test do
       coverage: [
         "cross-surface v0.40-v0.51 hardening rows remain green",
         "param-contract inventory rows stay wired after Runner enforcement",
-        "RC substrate handoff has no v0.61/v0.63/v1.0 drift"
+        "RC substrate handoff has no v0.62/v0.64/v1.0 drift"
       ]
     },
     %{

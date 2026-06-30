@@ -28,9 +28,9 @@ For contributors:
 - [Web design system](developer/web-design-system.md)
 - [Operator workspace guide](operator/workspace.md)
 
-v0.59 release closeout is complete as `0.59.0`; the release tag is pending and
-should be applied separately per project convention. The remaining pre-1.0 arc is
-v0.60 product experience design, v0.61 presentation layer overhaul, v0.62
+v0.59 release closeout is complete as `0.59.0`; the release tag `v0.59.0` exists.
+The remaining pre-1.0 arc is v0.60 product experience design, v0.61 presentation
+layer overhaul, v0.62
 packaging/entry points, v0.63 guided onboarding/profiles, and v0.64 product RC;
 see the [plans index](plans/README.md) and [roadmap](plans/roadmap.md).
 

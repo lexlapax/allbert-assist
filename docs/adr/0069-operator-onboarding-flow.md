@@ -102,10 +102,9 @@ QuickStart's "fastest first chat" requires a reachable model. This ADR does **no
 assume the user already has a hosted API key or a local model; the behaviour for a
 user with neither is the **First-Model Path decision, now owned by ADR 0078 and
 decided in the v0.60 Product Experience Design release** (no longer a v0.63 M0
-open item). It chooses one of: (a) an assisted local model (Ollama install +
-one-click pull of a small default), (b) a managed hosted free/low-tier default
-with its own credential, abuse, and cost policy, or (c) an honestly-framed
-bring-your-own-key path that states the requirement up front with the most
-assisted setup possible. The QuickStart fast path and the "first useful chat"
-acceptance criterion are built against ADR 0078's chosen option, never against an
-assumed pre-existing model.
+open item). ADR 0078 selects assisted local model setup (Ollama install +
+one-click pull of a curated default) as the QuickStart default, keeps honest
+bring-your-own-key as the Advanced/fallback path, and rejects a managed-hosted
+default. The QuickStart fast path and the "first useful chat" acceptance
+criterion are built against ADR 0078's chosen option, never against an assumed
+pre-existing model.

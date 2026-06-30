@@ -1,6 +1,6 @@
 # ADR 0077: Product Experience Design & Information Architecture
 
-Status: Proposed (v0.60); accepted at v0.60.
+Status: Accepted (v0.60).
 Date: 2026-06-30
 Related: ADR 0074 (web design system & UX language — 0077 owns the IA, navigation,
 and screen/workspace-composition redesign that 0074 explicitly deferred as a

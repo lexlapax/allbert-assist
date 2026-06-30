@@ -13,8 +13,8 @@ changelog entries or release notes.
 ## v0.59.0 - Hardening: Portability, Settings Version Contract & Param Contracts
 
 Status: release closeout complete on 2026-06-30 after final release-audit
-remediation; version metadata reports `0.59.0`. The release tag `v0.59.0` is
-pending and should be applied separately per project convention.
+remediation; version metadata reports `0.59.0`. The release tag `v0.59.0`
+exists.
 
 Plan: `docs/plans/v0.59-plan.md`. Request flow:
 `docs/plans/v0.59-request-flow.md`. ADRs:

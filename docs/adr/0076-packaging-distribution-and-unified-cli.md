@@ -49,11 +49,11 @@ guided onboarding and the v0.64 product RC lock in the first-run flow.
 5. **OS secret-vault.** Credential storage moves to the OS keychain / secret
    service, injected at launch, so the v0.63 onboarding wizard can teach the
    final credential path instead of a temporary one.
-6. **First-Model-Path packaging hook.** If ADR 0078 (decided in v0.60) selects an
-   assisted local-model option, this release may need to **bundle or provision a
-   local model runtime** (e.g. an Ollama install/pull path) alongside the packaged
-   artifact. The packaging mechanism and feasibility spike account for whichever
-   First-Model-Path option ADR 0078 lands on.
+6. **First-Model-Path packaging hook.** ADR 0078 (decided in v0.60) selects an
+   assisted local-model QuickStart, so this release must **detect and guide an
+   Ollama install plus curated model pull** alongside the packaged artifact.
+   Ollama is a managed external dependency, not bundled into the `allbert`
+   binary; BYOK remains the Advanced/fallback path.
 
 ## Consequences
 

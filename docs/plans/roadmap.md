@@ -389,9 +389,10 @@ scope.
     information-architecture / navigation / screen-composition redesign (the
     "final UX layout redesign" deferred from ADR 0074), a persona/user-category
     model, an onboarding-flow design, an entry-point/CLI UX design, the
-    First-Model-Path decision (assisted local / managed hosted / honest BYOK), and
-    a navigable walking skeleton, so the later releases implement one designed
-    journey instead of designing as they go. Gate `release.v060`; adds ADR 0077
+    First-Model-Path decision (assisted-local default + BYOK fallback,
+    managed-hosted rejected), and a navigable walking skeleton, so the later
+    releases implement one designed journey instead of designing as they go. Gate
+    `release.v060`; adds ADR 0077
     (Experience Design & IA) and ADR 0078 (First-Model Path).
 61. v0.61 Presentation Layer Overhaul: first of three pre-1.0 **product
     capability** releases; implements the v0.60 IA/navigation/screen-composition
@@ -3686,8 +3687,8 @@ and credential-vault model. v0.59 stays pure engineering hardening with no new
 user-facing capability.
 
 Status: release closeout complete on 2026-06-30 after final release-audit
-remediations; version metadata reports `0.59.0`; release tag pending per project
-convention. Operator validation S0-S8 and `release.v059` passed. Promoted from
+remediations; version metadata reports `0.59.0`; release tag `v0.59.0` exists.
+Operator validation S0-S8 and `release.v059` passed. Promoted from
 `docs/archives/version-1.0-planning-03.md`. Settings schema migration substrate
 added in the post-v0.37 planning pass; moved from v0.58 to v0.59 and later
 narrowed back to engineering substrate after the post-v0.58 product-readiness
@@ -3730,7 +3731,7 @@ Delivered:
 
 Plan: `docs/plans/v0.60-plan.md`
 Request flow: `docs/plans/v0.60-request-flow.md`
-ADR: `docs/adr/0077-experience-design-and-information-architecture.md`
+ADR: `docs/adr/0077-product-experience-design-and-information-architecture.md`
 (Experience Design & IA); `docs/adr/0078-first-model-path.md` (First-Model Path).
 
 Status: planned (pre-1.0 design release; gate `release.v060`). Design-first
@@ -3769,11 +3770,12 @@ Expected direction (design + scaffolding only):
   scaffolded end-to-end so the design is walkable and reviewable, with no new
   authority — every effectful path still routes through Security Central.
 - No new authority, no new capability, no model-generated UI; the catalog stays
-  the rendering boundary (ADR 0030/0074). Milestones M1-M8 cover the journey map
-  and persona model (M1), the IA/navigation redesign (M2), the screen-composition
-  redesign (M3), the onboarding-flow design (M4), the entry-point/CLI UX design
-  (M5), the First-Model-Path decision (M6, ADR 0078), the navigable walking
-  skeleton (M7), and the design handoff plus `release.v060` gate (M8).
+  the rendering boundary (ADR 0030/0074). Milestones M1-M8 cover the product
+  experience spec (M1), the IA/navigation/composition model (M2), the First-
+  Model-Path decision (M3, ADR 0078), the onboarding-flow and persona-model
+  design (M4), the entry-point/CLI UX design (M5), the navigable walking
+  skeleton (M6), the design-system gap analysis (M7), and the design handoff plus
+  `release.v060` gate (M8).
 
 ## v0.61: Presentation Layer Overhaul
 
@@ -3884,10 +3886,10 @@ Expected direction:
   entry, inline doctor verification, local and hosted providers, switchable
   without config edits.
 - The First-Model Path resolved in v0.60 (ADR 0078) for users with no key and no
-  local model — assisted local model, managed hosted default, or honest
-  bring-your-own-key — implemented as the wizard's provider/model step; the
-  "fastest first chat" is defined against the chosen option, not an assumed
-  pre-existing key.
+  local model — assisted-local QuickStart by guided Ollama install/pull, with
+  honest BYOK as Advanced/fallback and managed-hosted rejected — implemented as
+  the wizard's provider/model step; the "fastest first chat" is defined against
+  the chosen option, not an assumed pre-existing key.
 - Repo-maintained user-category profiles/personas (researcher, developer, writer,
   ops, general) that seed Settings Central defaults plus suggested apps,
   channels, and intents; apply only after operator review.
@@ -3984,9 +3986,9 @@ designed journey instead of designing-as-they-go. Two constraints force pieces
 early. FREEZE-TRAP: v1.0 freezes the presentation contracts (Surface DSL,
 workspace substrate), so the structural overhaul (v0.61) must land before the
 freeze or be locked out of 1.0. FIRST-MODEL-PATH: the decision moves to v0.60
-(ADR 0078) because the "assisted local model" option requires the v0.62 package
-to bundle a runtime — deciding it after packaging is built would mean
-repackaging.
+(ADR 0078) because the chosen assisted-local path requires the v0.62 package to
+detect and guide an Ollama install plus curated model pull — deciding it after
+packaging is built would mean repackaging.
 
 The strategic moat is the safety architecture (Security Central, durable
 confirmations, Resource Access posture, sandbox/gate runner, reversible dynamic
@@ -4026,10 +4028,10 @@ checkpoint the release cannot ship without:
 9. [product] A technical prosumer installs Allbert from a packaged binary
    (Homebrew/curl) with no Elixir/OTP toolchain on their machine (v0.62).
 10. [product] A new user completes the guided onboarding wizard — provider/model
-    setup via the First-Model Path resolved in v0.60 (ADR 0078: assisted local
-    model, managed default, or honest bring-your-own-key — not an assumed
-    pre-existing key, a v0.60 prerequisite), a selected user-category profile, and
-    a first useful chat — without reading docs or hand-editing config files
+    setup via the First-Model Path resolved in v0.60 (ADR 0078: assisted-local
+    default by guided Ollama install/pull, BYOK as Advanced/fallback, and no
+    assumed pre-existing key), a selected user-category profile, and a first
+    useful chat — without reading docs or hand-editing config files
     (v0.63).
 11. [product] The web workspace meets the professional-UX bar: the **overhauled
     information architecture, navigation, and screen composition** from the v0.60
