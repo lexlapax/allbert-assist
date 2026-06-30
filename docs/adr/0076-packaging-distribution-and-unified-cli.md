@@ -4,8 +4,9 @@ Status: Proposed (v0.62).
 Date: 2026-06-25
 Related: ADR 0077 (Product Experience Design & IA — designs the entry-point / CLI
 UX in v0.60 M5; this release implements it in v0.62), ADR 0078 (First-Model Path —
-its chosen option may require bundling a local model runtime in the packaged
-artifact), ADR 0070 (TUI operator console — this completes its mix-free
+its chosen option requires detecting/guiding Ollama setup and managing a curated
+model pull, without bundling the Ollama runtime into the packaged artifact),
+ADR 0070 (TUI operator console — this completes its mix-free
 convergence), ADR 0067 (TUI/terminal channel), ADR 0004 / ADR 0031 (Settings
 Central), ADR 0069 (onboarding — v0.63 builds on the entry points and vault
 model defined here), ADR 0006 (Security Central — packaging changes how Allbert

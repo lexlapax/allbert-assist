@@ -22,17 +22,18 @@ For contributors:
 
 ## Current Release
 
-- [v0.59 plan](plans/v0.59-plan.md)
-- [v0.59 request flow](plans/v0.59-request-flow.md)
+- [v0.60 plan](plans/v0.60-plan.md)
+- [v0.60 request flow](plans/v0.60-request-flow.md)
+- [v0.59 release baseline](plans/v0.59-plan.md)
 - [Surface contract](developer/surface-contract.md)
 - [Web design system](developer/web-design-system.md)
 - [Operator workspace guide](operator/workspace.md)
 
 v0.59 release closeout is complete as `0.59.0`; the release tag `v0.59.0` exists.
-The remaining pre-1.0 arc is v0.60 product experience design, v0.61 presentation
-layer overhaul, v0.62
-packaging/entry points, v0.63 guided onboarding/profiles, and v0.64 product RC;
-see the [plans index](plans/README.md) and [roadmap](plans/roadmap.md). When v0.60
+v0.60 is the active planned implementation target. The remaining pre-1.0 arc is
+v0.60 product experience design, v0.61 presentation layer overhaul, v0.62
+packaging/entry points, v0.63 guided onboarding/profiles, and v0.64 product RC; see
+the [plans index](plans/README.md) and [roadmap](plans/roadmap.md). When v0.60
 lands, its product-experience artifacts are expected under `docs/design/`; until
 then the v0.60 plan/request-flow are authoritative.
 
@@ -41,7 +42,8 @@ then the v0.60 plan/request-flow are authoritative.
 - [adr](adr/README.md) - accepted and proposed architecture decisions.
 - [archives](archives/README.md) - superseded planning references retained for history.
 - [developer](developer/README.md) - implementation contracts, subsystem maps, and gates.
-- design (created by v0.60) - product-experience, IA, and first-model design
+- design (created by v0.60) - product-experience spec, IA, first-model path,
+  onboarding flow, persona model, entry-point/CLI UX, and design-system gap
   artifacts consumed by v0.61-v0.63.
 - [notes](notes/README.md) - source notes that inform the vision.
 - [operator](operator/README.md) - local operator guides and runbooks.
