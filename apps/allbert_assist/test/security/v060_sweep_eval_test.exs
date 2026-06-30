@@ -268,11 +268,17 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
       "The First-Model Path in `docs/design/first-model-path.md` is the only pre-first-chat model requirement",
       "`model_purpose_map` entries are post-first-chat seed recommendations",
       "they do not require v0.62 to pull extra persona-specific models during QuickStart",
+      "Personas are setup seeds only",
+      "daily-use surfaces, authority checks, confirmation floors, and channel/provider behavior are persona-uniform",
+      "The persona id itself is not a runtime mode, trust tier, or hidden policy switch",
       "Personas do not add model-install requirements to QuickStart before first useful chat"
     ])
 
+    refute String.contains?(persona, "Embedding local required")
+    refute String.contains?(persona, "after a Settings Central schema audit")
+
     IO.puts(
-      "first-model-persona-cross-doc-coherence-001 status=pass states=#{Enum.join(@first_model_states, ",")} persona_model_map=post-first-chat quickstart_extra_model_pulls=none"
+      "first-model-persona-cross-doc-coherence-001 status=pass states=#{Enum.join(@first_model_states, ",")} persona_model_map=post-first-chat quickstart_extra_model_pulls=none daily_use=persona-uniform"
     )
   end
 

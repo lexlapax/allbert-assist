@@ -58,20 +58,29 @@ embeddings and a `:capable` / `:thinking` main loop as follow-on setup, while
 model posture are reviewed. Those recommendations never redefine the initial
 curated model that gets the operator to first useful chat.
 
+## Daily-Use Posture
+
+Personas are setup seeds only. After onboarding, daily-use surfaces, authority
+checks, confirmation floors, and channel/provider behavior are persona-uniform
+unless the operator later changes Settings Central, configures a provider or
+channel, or confirms an action through the normal authority path. The persona id
+itself is not a runtime mode, trust tier, or hidden policy switch.
+
 ## Persona Seeds
 
 | persona_id | Settings seed families | Suggested apps/channels/intents | Model-purpose mapping | First useful chat examples |
 |---|---|---|---|---|
 | `general` | `operator.communication_style`, `operator.handoff_detail`, `model_preferences.primary`, objective defaults. | Workspace, Models, Settings, TUI; direct answer, remember/recall memory, objectives. | Main conversational loop local-first; ADR 0072 defaults unless operator chooses hosted. | "Help me understand what Allbert can do locally." / "Summarize my current setup." |
-| `researcher` | `operator.communication_style`, active-memory tuning, `model_preferences.primary`, intent router profiles. | Notes/files, browser or MCP resource reads when configured, mail/calendar optional; summarize, extract, compare, remember citation notes. | Embedding local required; main loop `:capable` or `:thinking`; hosted research only by explicit egress opt-in. | "Summarize these notes into claims and open questions." / "Compare two sources and list evidence." |
+| `researcher` | `operator.communication_style`, active-memory tuning, `model_preferences.primary`, intent router profiles. | Notes/files, browser or MCP resource reads when configured, mail/calendar optional; summarize, extract, compare, remember citation notes. | Local embeddings recommended after review; main loop `:capable` or `:thinking`; hosted research only by explicit egress opt-in. | "Summarize these notes into claims and open questions." / "Compare two sources and list evidence." |
 | `developer` | `coding.model_profile`, `coding.default_approval_mode`, coding read/search limits, `model_preferences.tasks.coding`, intent router profiles. | GitHub, notes/files, TUI/Pi-mode, plan preview; read/grep/glob, plan, code review, remember project facts. | Pi-mode coding profile from ADR 0072; local/private preferred, hosted coding only after source-code egress opt-in. | "Read this repo and propose the smallest safe fix." / "Review this change for regressions." |
 | `writer` | `operator.communication_style`, `operator.handoff_detail`, active-memory tuning, `model_preferences.primary`. | Notes/files, mail, image generation only when configured; draft, revise, outline, summarize. | Main loop `:capable`; advisory critics optional; image generation remains provider-confirmed. | "Turn these rough notes into an outline." / "Rewrite this with a clearer voice." |
 | `ops` | `runtime.diagnostics_verbosity`, `objectives.trace_detail`, `model_preferences.primary`, intent router profiles. | Jobs, Objectives, Calendar/Mail/GitHub panels, channel setup later; status, doctor, triage, plan/run monitoring. | Fast local model for status/triage, escalation profile for complex incidents, hosted only by explicit egress opt-in. | "Give me an operator status brief." / "Triage these pending jobs and blockers." |
 
-Exact seeded values are finalized in v0.63 after a Settings Central schema audit.
-This v0.60 design fixes the persona categories, seed groups, review shape, and
-per-persona intent so the implementation cannot drift back to an undifferentiated
-settings tour.
+The M9.2 pre-audit below confirms which candidate key families already exist as
+Settings Central safe-write keys. Exact per-persona seeded values are still
+finalized in v0.63 during review-diff implementation. This v0.60 design fixes the
+persona categories, seed groups, review shape, and per-persona intent so the
+implementation cannot drift back to an undifferentiated settings tour.
 
 ## Settings Central Seed Pre-Audit
 
@@ -130,6 +139,7 @@ useful chat.
 - Personas do not write secrets or raw endpoints.
 - Personas do not add model-install requirements to QuickStart before first
   useful chat.
+- Personas do not change daily-use runtime behavior by themselves.
 - Existing free-text identity or memory files are not persona definitions.
 
 ## Handoff To v0.63
