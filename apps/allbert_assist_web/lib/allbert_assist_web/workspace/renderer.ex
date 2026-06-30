@@ -74,6 +74,9 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
       phx-window-keydown={node_dismiss_event(@node)}
       phx-key={node_dismiss_key(@node)}
       phx-value-surface-id={node_surface_id(@node)}
+      data-skeleton-composition-route={prop(@node, :skeleton_composition_route)}
+      data-skeleton-composition-zone={prop(@node, :skeleton_composition_zone)}
+      data-skeleton-composition-component={prop(@node, :skeleton_composition_component)}
     >
       <.live_component
         module={SurfaceRenderer}

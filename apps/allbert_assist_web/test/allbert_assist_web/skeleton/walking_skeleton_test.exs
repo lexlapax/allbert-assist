@@ -41,6 +41,21 @@ defmodule AllbertAssistWeb.Skeleton.WalkingSkeletonTest do
       assert has_element?(view, "[data-workspace-component='empty_state']")
       assert has_element?(view, "[data-workspace-component='status_badge']")
 
+      composition_component = route_composition_component(route)
+      assert composition_component in route.catalog_components
+
+      assert has_element?(
+               view,
+               "#workspace-node-v060-#{route.route_id}-composition-zone" <>
+                 "[data-skeleton-composition-route='#{route.route_id}']" <>
+                 "[data-skeleton-composition-zone='#{route.active_key}']" <>
+                 "[data-skeleton-composition-component='#{composition_component}']"
+             )
+
+      if route.route_id == :launch do
+        assert has_element?(view, "#workspace-node-v060-launch-button button[disabled]")
+      end
+
       for nav_item <- RouteManifest.nav_items() do
         assert has_element?(view, "a[href='#{nav_item.path}']", nav_item.label)
       end
@@ -54,10 +69,11 @@ defmodule AllbertAssistWeb.Skeleton.WalkingSkeletonTest do
       refute html =~ "Approve"
       refute html =~ "Promote"
       refute html =~ "Send"
+      refute html =~ ~s(data-action-source="actions-runner")
     end
 
     IO.puts(
-      "walking-skeleton-routes-resolve-001 status=pass route_count=#{length(RouteManifest.routes())}"
+      "walking-skeleton-routes-resolve-001 status=pass route_count=#{length(RouteManifest.routes())} composition_depth=true route_specific_components=#{length(RouteManifest.routes())}"
     )
 
     IO.puts(
@@ -119,4 +135,14 @@ defmodule AllbertAssistWeb.Skeleton.WalkingSkeletonTest do
   defp doc_path do
     Path.expand("../../../../../docs/design/information-architecture.md", __DIR__)
   end
+
+  defp route_composition_component(%{route_id: :launch}), do: :button
+  defp route_composition_component(%{route_id: :onboarding}), do: :onboarding_panel
+  defp route_composition_component(%{route_id: :workspace}), do: :chat
+  defp route_composition_component(%{route_id: :objectives}), do: :objective_card
+  defp route_composition_component(%{route_id: :jobs}), do: :job_card
+  defp route_composition_component(%{route_id: :models}), do: :models_panel
+  defp route_composition_component(%{route_id: :channels}), do: :channel_card
+  defp route_composition_component(%{route_id: :settings}), do: :settings_panel
+  defp route_composition_component(%{route_id: :trust}), do: :trace_viewer
 end

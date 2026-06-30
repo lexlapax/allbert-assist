@@ -3629,6 +3629,7 @@ defmodule Mix.Tasks.Allbert.Test do
       coverage: [
         "every /preview IA-sitemap route resolves through the catalog/shell",
         "preview nav shell exposes the IA navigation model; active route resolves",
+        "route-specific composition zones render for every preview route",
         "keyboard focus / high-contrast / reduced-motion hold across skeleton screens",
         "placeholder screens read no business state and grant no authority"
       ]

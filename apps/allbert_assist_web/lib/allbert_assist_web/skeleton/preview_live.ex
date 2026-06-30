@@ -116,6 +116,7 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
       nodes: [
         node(route, :section, "Screen purpose", purpose(route)),
         node(route, :empty_state, "#{route.title} placeholder", placeholder_copy(route)),
+        route_composition_node(route),
         node(
           route,
           :status_badge,
@@ -128,17 +129,201 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
   end
 
   defp node(route, component, title, body) do
+    node(route, component, title, body, %{}, [])
+  end
+
+  defp node(route, component, title, body, props, children) do
+    default_node_id = "v060-#{route.route_id}-#{component}"
+    {node_id, props} = Map.pop(props, :node_id, default_node_id)
+    default_dom_id = default_dom_id(route, component, node_id, default_node_id)
+
     %Node{
-      id: "v060-#{route.route_id}-#{component}",
+      id: node_id,
       component: component,
-      props: %{
-        title: title,
-        body: body,
-        status: "neutral",
-        tone: "neutral",
-        dom_id: "v060-component-#{route.route_id}-#{component}"
-      },
-      children: []
+      props:
+        Map.merge(
+          %{
+            title: title,
+            body: body,
+            status: "neutral",
+            tone: "neutral",
+            dom_id: default_dom_id
+          },
+          props
+        ),
+      children: children
+    }
+  end
+
+  defp default_dom_id(route, component, default_node_id, default_node_id),
+    do: "v060-component-#{route.route_id}-#{component}"
+
+  defp default_dom_id(_route, _component, node_id, _default_node_id),
+    do: "v060-component-#{node_id}"
+
+  defp route_composition_node(%{route_id: :launch} = route) do
+    composition_zone(
+      route,
+      :button,
+      "Launch action zone",
+      "Declared launch action is rendered as a disabled preview placeholder.",
+      [
+        component_node(route, :button, "Launch placeholder", "No action is wired in v0.60.",
+          disabled?: true,
+          variant: "secondary"
+        )
+      ]
+    )
+  end
+
+  defp route_composition_node(%{route_id: :onboarding} = route) do
+    composition_zone(
+      route,
+      :onboarding_panel,
+      "Onboarding wizard zone",
+      "Represents the QuickStart / Advanced wizard shell without loading onboarding state."
+    )
+  end
+
+  defp route_composition_node(%{route_id: :workspace} = route) do
+    composition_zone(
+      route,
+      :chat,
+      "Chat-primary workspace zone",
+      "Represents chat, timeline, and composer structure without runtime conversation state.",
+      [
+        component_node(route, :timeline, "Timeline placeholder", "Runtime turns stay empty."),
+        component_node(route, :composer, "Composer placeholder", "Prompt entry stays inert.")
+      ]
+    )
+  end
+
+  defp route_composition_node(%{route_id: :objectives} = route) do
+    composition_zone(
+      route,
+      :objective_card,
+      "Objectives composition zone",
+      "Represents durable objective summaries without reading objective state.",
+      [
+        component_node(
+          route,
+          :objective_card,
+          "Objective placeholder",
+          "No objective is loaded in the v0.60 preview."
+        )
+      ]
+    )
+  end
+
+  defp route_composition_node(%{route_id: :jobs} = route) do
+    composition_zone(
+      route,
+      :job_card,
+      "Jobs composition zone",
+      "Represents job cards and scan-friendly run history without scheduler reads.",
+      [
+        component_node(
+          route,
+          :job_card,
+          "Job placeholder",
+          "No job is loaded in the v0.60 preview."
+        ),
+        component_node(route, :table, "Run history placeholder", "Rows appear in v0.61+.")
+      ]
+    )
+  end
+
+  defp route_composition_node(%{route_id: :models} = route) do
+    composition_zone(
+      route,
+      :models_panel,
+      "Model readiness zone",
+      "Represents the model readiness panel without running provider doctors.",
+      [
+        component_node(
+          route,
+          :settings_card,
+          "Model policy placeholder",
+          "Settings Central remains the downstream authority."
+        )
+      ]
+    )
+  end
+
+  defp route_composition_node(%{route_id: :channels} = route) do
+    composition_zone(
+      route,
+      :channel_card,
+      "Channel setup zone",
+      "Represents configured / unconfigured channel cards without opening adapters.",
+      [
+        component_node(
+          route,
+          :channel_card,
+          "Channel placeholder",
+          "No channel is configured here."
+        )
+      ]
+    )
+  end
+
+  defp route_composition_node(%{route_id: :settings} = route) do
+    composition_zone(
+      route,
+      :settings_panel,
+      "Settings and policy zone",
+      "Represents Settings Central, surface policy, and intents without reading settings."
+    )
+  end
+
+  defp route_composition_node(%{route_id: :trust} = route) do
+    composition_zone(
+      route,
+      :trace_viewer,
+      "Trust evidence zone",
+      "Represents traces and confirmations without loading audits or pending approvals.",
+      [
+        component_node(
+          route,
+          :trace_viewer,
+          "Trace placeholder",
+          "No trace is loaded in the v0.60 preview."
+        ),
+        component_node(
+          route,
+          :confirmation_card,
+          "Confirmation placeholder",
+          "No confirmation is pending in the v0.60 preview."
+        )
+      ]
+    )
+  end
+
+  defp composition_zone(route, target_component, title, body, children \\ []) do
+    props =
+      route
+      |> composition_props(target_component)
+      |> Map.put(:node_id, "v060-#{route.route_id}-composition-zone")
+
+    node(route, :section, title, body, props, children)
+  end
+
+  defp component_node(route, component, title, body, props \\ []) do
+    node(
+      route,
+      component,
+      title,
+      body,
+      Map.merge(composition_props(route, component), Map.new(props)),
+      []
+    )
+  end
+
+  defp composition_props(route, component) do
+    %{
+      skeleton_composition_route: Atom.to_string(route.route_id),
+      skeleton_composition_zone: route.active_key,
+      skeleton_composition_component: Atom.to_string(component)
     }
   end
 
