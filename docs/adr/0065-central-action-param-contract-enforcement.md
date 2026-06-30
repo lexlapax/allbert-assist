@@ -111,7 +111,7 @@ typed, catalog-wide param-contract enforcement.
 - **Freeze readiness.** The seam reshapes two Tier-1-frozen surfaces — the
   Registry's exposed action schema and the Runner `:invalid_params` response
   shape — so it must be delivered freeze-ready in v0.59. The v1.0 plan names both
-  in its Tier-1 list; v0.60-v0.63 treat them as additive-only.
+  in its Tier-1 list; v0.61-v0.64 treat them as additive-only.
 
 ## Non-Goals
 

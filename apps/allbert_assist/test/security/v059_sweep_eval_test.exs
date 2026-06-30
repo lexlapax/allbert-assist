@@ -377,8 +377,8 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     assert row.expected == :allowed
 
     for needle <- [
-          "v0.61 Packaged-Install Home Layout",
-          "v0.63 Product RC Revalidation",
+          "v0.62 Packaged-Install Home Layout",
+          "v0.64 Product RC Revalidation",
           "v1.0 Contract Freeze",
           "Allbert Home export envelope",
           "dry-run import diagnostic",
@@ -403,12 +403,12 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     refute handoff =~ "v0.59 owns product RC"
 
     IO.puts(
-      "rc-substrate-no-drift-001 consumer=v0.61 " <>
+      "rc-substrate-no-drift-001 consumer=v0.62 " <>
         "output=export-import+settings-version-contract+secret-references status=no-drift"
     )
 
     IO.puts(
-      "rc-substrate-no-drift-001 consumer=v0.63 " <>
+      "rc-substrate-no-drift-001 consumer=v0.64 " <>
         "output=packaged-layout-portability-revalidation+release-v059-evidence status=no-drift"
     )
 
@@ -417,7 +417,7 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
         "output=adr0046-settings-version-contract+adr0065-param-seam+invalid-params-shape status=no-drift"
     )
 
-    IO.puts("rc-substrate-no-drift-001 no-drift consumers=v0.61,v0.63,v1.0")
+    IO.puts("rc-substrate-no-drift-001 no-drift consumers=v0.62,v0.64,v1.0")
   end
 
   defp assert_eval_group!(group, surface) do

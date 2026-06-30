@@ -7,7 +7,9 @@ Related: ADR 0023 (workspace canvas/ephemeral substrate — kept), ADR 0024 (liv
 layout authority / zones — revised by v0.58), ADR 0030 (unified surface catalog +
 renderer — extended here to be the boundary for every web page), ADR 0015
 (app/surface DSL — kept), ADR 0073 (cross-surface contract — this is its web
-expression). Anchors the v0.58 web design-system pillar.
+expression), ADR 0077 (Product Experience Design & IA — designs the v0.60
+redesign this system is built under, implemented in the v0.61 overhaul).
+Anchors the v0.58 web design-system pillar.
 Rationale source: the v0.58 rescope web-UX survey (2026-06-24).
 
 ## Context
@@ -54,7 +56,10 @@ component catalog the rendering boundary for **every** web page.
    drawer shell contract, variant-controlled buttons/status affordances, shared
    loading state, status/error callouts, and table/list primitives. Pages compose
    these patterns; they do not re-implement them. This is a component-contract
-   baseline, not a final UX layout redesign.
+   baseline, not a final UX layout redesign. That deferred final UX layout
+   redesign is now owned by ADR 0077 (Product Experience Design & Information
+   Architecture) — designed in the v0.60 Product Experience Design release and
+   built on this design system in the v0.61 Presentation Layer Overhaul.
 4. **Catalog is the boundary for all pages.** Every operator page — `/`,
    workspace, Jobs, Objectives, and the new Intents / Settings-Models /
    Surface-Policy panels — renders through the unified catalog (ADR 0030) inside
@@ -105,16 +110,18 @@ this system, not as a separate one-off re-skin.
   while keeping all of its concrete moves (chat-primary, modal ephemerals, canvas
   demotion, Conversations relabel, the v0.56 DTO panels, the surface-policy layer).
 
-## v0.60 Amendment: Professional UX & Brand Pass
+## v0.61 Presentation Layer Overhaul amendment
 
-Proposed amendment (v0.60). The v0.58 work delivered a strong token and
+Proposed amendment (v0.61). The v0.58 work delivered a strong token and
 accessibility *substrate* under an operator-utility *surface*. The v0.58 maturity
 review found the gap: no coherent product motion layer yet, brand identity
 effectively absent, a thin landing page, no marketing surface, a flat visual
 hierarchy, and `system` dark mode that needs explicit OS-preference validation
-across shell/page roots. v0.60 turns the substrate into a polished product
-surface for the technical-prosumer 1.0 audience, without changing authority or
-the catalog rendering boundary:
+across shell/page roots. The v0.61 Presentation Layer Overhaul is not a polish
+pass alone: it **implements the v0.60 IA and screen-composition redesign**
+(ADR 0077) on top of the 0074 design system, then turns the substrate into a
+polished product surface for the technical-prosumer 1.0 audience — without
+changing authority or the catalog rendering boundary:
 
 - **Brand identity** — a real logo/wordmark applied across the shell and a real
   landing surface, retiring the stock framework logo.
@@ -126,7 +133,7 @@ the catalog rendering boundary:
 - **Landing/marketing surface** — a real `/` with SEO/OG metadata, replacing the
   ADR-accepted thin-landing exception.
 - **Suggested-action affordances** — "what can I do" entry points on empty/first
-  workspace views (these also seat the v0.62 onboarding wizard).
+  workspace views (these also seat the v0.63 onboarding wizard).
 - **OS dark-mode resolution** so `system` honors the OS preference for app tokens.
 
 Guardrails unchanged: no model-generated UI, no internal rename, no new routes

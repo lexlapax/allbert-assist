@@ -1,13 +1,16 @@
 # ADR 0076: Packaging, Distribution & Unified CLI Entry Points
 
-Status: Proposed (v0.61).
+Status: Proposed (v0.62).
 Date: 2026-06-25
-Related: ADR 0070 (TUI operator console — this completes its mix-free
+Related: ADR 0077 (Product Experience Design & IA — designs the entry-point / CLI
+UX in v0.60 M5; this release implements it in v0.62), ADR 0078 (First-Model Path —
+its chosen option may require bundling a local model runtime in the packaged
+artifact), ADR 0070 (TUI operator console — this completes its mix-free
 convergence), ADR 0067 (TUI/terminal channel), ADR 0004 / ADR 0031 (Settings
-Central), ADR 0069 (onboarding — v0.62 builds on the entry points and vault
+Central), ADR 0069 (onboarding — v0.63 builds on the entry points and vault
 model defined here), ADR 0006 (Security Central — packaging changes how Allbert
 is installed and invoked, not what any surface may do), and the Allbert Home
-layout decisions. Anchors the v0.61 Packaging & Entry Points release.
+layout decisions. Anchors the v0.62 Packaging & Entry Points release.
 
 ## Context
 
@@ -23,7 +26,7 @@ For the technical-prosumer 1.0 audience, the toolchain requirement is the
 Docker/dev-required tools penalized in every 2026 comparison, while packaged
 binaries with one-command install (LM Studio, Jan, OpenClaw, Hermes) win on
 first value. This release reshapes Allbert Home layout and entry points before
-guided onboarding and the v0.63 product RC lock in the first-run flow.
+guided onboarding and the v0.64 product RC lock in the first-run flow.
 
 ## Decision
 
@@ -33,7 +36,10 @@ guided onboarding and the v0.63 product RC lock in the first-run flow.
 2. **Unified grouped CLI dispatcher.** A single `allbert <group> <command>`
    surface — `ask | chat | tui | serve | admin <area> | gen` — subsuming the flat
    mix-task sprawl, with coherent grouped help. Operator commands are separated
-   from developer/CI commands; the latter stay `mix`-only.
+   from developer/CI commands; the latter stay `mix`-only. The entry-point and CLI
+   *UX* (group/command shape, help layout, first-invocation experience) is designed
+   in the v0.60 Product Experience Design release (ADR 0077 M5); this release
+   implements it.
 3. **Background-daemon management.** `allbert serve` plus install/uninstall of a
    launchd / systemd / Scheduled-Task service, with a health check the user can
    see succeed — covering the runtime, web workspace, and channels.
@@ -41,8 +47,13 @@ guided onboarding and the v0.63 product RC lock in the first-run flow.
    absorbs the remaining admin-inspection reads so operators never need raw `mix`
    for day-to-day operation.
 5. **OS secret-vault.** Credential storage moves to the OS keychain / secret
-   service, injected at launch, so the v0.62 onboarding wizard can teach the
+   service, injected at launch, so the v0.63 onboarding wizard can teach the
    final credential path instead of a temporary one.
+6. **First-Model-Path packaging hook.** If ADR 0078 (decided in v0.60) selects an
+   assisted local-model option, this release may need to **bundle or provision a
+   local model runtime** (e.g. an Ollama install/pull path) alongside the packaged
+   artifact. The packaging mechanism and feasibility spike account for whichever
+   First-Model-Path option ADR 0078 lands on.
 
 ## Consequences
 
@@ -81,7 +92,7 @@ Two explicit scope decisions, recorded here so they are not assumed downstream:
   promotes them.
 - **Feasibility spike first.** Because the codebase has no packaging today, the
   packaging mechanism (Burrito, Bakeware, or a hand-wrapped OTP release) is chosen
-  by a time-boxed v0.61 M0 spike that must prove an ERTS-bundled binary boots with
+  by a time-boxed v0.62 M0 spike that must prove an ERTS-bundled binary boots with
   the `exqlite` SQLite NIF, the compiled web assets, and one source-tree plugin on
   a Tier-1 OS with no toolchain present. The spike result selects the mechanism;
   this ADR does not pre-commit one.

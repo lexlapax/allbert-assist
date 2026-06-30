@@ -1,0 +1,116 @@
+# ADR 0077: Product Experience Design & Information Architecture
+
+Status: Proposed (v0.60); accepted at v0.60.
+Date: 2026-06-30
+Related: ADR 0074 (web design system & UX language — 0077 owns the IA, navigation,
+and screen/workspace-composition redesign that 0074 explicitly deferred as a
+"component-contract baseline, not a final UX layout redesign"), ADR 0069 (guided
+onboarding flow — the flow is *designed* here and *built* in v0.63), ADR 0075
+(user-category settings profiles / personas — the persona model is *designed*
+here and *built* in v0.63), ADR 0076 (packaging & unified CLI — the entry-point /
+first-invocation UX is *designed* here and *built* in v0.62), ADR 0078
+(First-Model Path — decided in the same v0.60 design release this ADR opens),
+ADR 0073 (cross-surface contract — the surface spine the redesigned IA composes
+over, unchanged), ADR 0006 (Security Central — unchanged). Anchors the v0.60
+Product-Experience Design release.
+
+## Context
+
+The v0.60 → v1.0 arc was planned as a strict **linear build-chain**: web UX
+polish → packaging → onboarding → release-candidate hardening, each release
+sequenced by what the next one technically depends on. That order is correct for
+*building*. It is exactly wrong for *designing*, because each release was designed
+in build-order, blind to the consumer that should specify it:
+
+- **v0.60 polish "seated a wizard" that had not been designed.** The empty-state
+  and suggested-action affordances (ADR 0074's v0.61 amendment) were sized to host
+  an onboarding flow whose shape, steps, and persona model do not exist until
+  v0.63 — the surface was being built to fit a thing nobody had drawn.
+- **v0.61 packaging "settled entry points" that onboarding had not validated.**
+  The unified CLI and first-invocation surface (ADR 0076) were to be frozen as
+  Tier-1 candidates before the onboarding flow that is the primary consumer of
+  those entry points had been designed against a real first-run journey.
+- **The structural UX redesign was owned by nobody.** ADR 0074 delivered a strong
+  token/accessibility *substrate* but was explicit that it is "a component-contract
+  baseline, not a final UX layout redesign"; the v0.61 amendment is a brand and
+  craft pass ("not a layout rebuild"). The information architecture, navigation
+  model, and screen/workspace composition — the actual *product shape* — had no
+  owning release. Each release polished or packaged a structure that no release was
+  responsible for designing.
+
+This matters specifically now because of the v1.0 freeze. The **web is the primary
+1.0 product surface** (a native desktop client is post-1.0; the packaged binary
+serves the web workspace). v1.0 freezes the presentation contracts — the Tier-2
+Surface DSL catalog and the workspace substrate — as stable shapes. A redesign
+deferred past v1.0 would freeze today's **operator-utility flat structure** and
+then force a **post-1.0 contract break** to fix it. The design-direction inversion
+(build-order standing in for design-order) does not just risk rework; with a
+freeze at the end of the chain, it *guarantees* rework, on the wrong side of the
+freeze.
+
+## Decision
+
+Insert a **design-first release at v0.60** that produces **one unified
+product-experience design** for the technical-prosumer 1.0 audience, and have every
+downstream release **implement slices of that single design** in the unchanged,
+dependency-ordered build sequence. Separate **design** (front-loaded and unified)
+from **build** (dependency-ordered and incremental).
+
+v0.60 produces a single coherent design covering the whole journey:
+
+1. **The technical-prosumer journey.** One end-to-end narrative —
+   install → first-run → onboard → first-value → daily-use — that the rest of the
+   arc is measured against, so no release designs its slice blind to the slices
+   on either side of it.
+2. **Information architecture, navigation, and screen/workspace composition.** The
+   structural redesign ADR 0074 deferred: the IA (what surfaces exist and how they
+   relate), the navigation model, and how screens and the workspace compose. This
+   is the product-shape decision that previously had no owner; v0.60 owns it.
+3. **The onboarding-flow design** — shape, steps, and branch points — handed to
+   ADR 0069 to *build* in v0.63.
+4. **The persona model** — the user-category model that seeds profile defaults —
+   handed to ADR 0075 to *build* in v0.63.
+5. **The entry-point / first-invocation UX** — how the unified CLI and packaged
+   binary present themselves and first value — handed to ADR 0076 to *build* in
+   v0.62.
+6. **A navigable walking skeleton** — a thin, clickable expression of the redesigned
+   IA and navigation, so the design is validated as a real product shape, not only
+   as documents.
+
+Downstream releases implement slices of this one design, in the **unchanged build
+order**:
+
+- **v0.61** — the structural UX / IA overhaul (implements §2 over the ADR 0074
+  substrate), landing *before* the v1.0 freeze.
+- **v0.62** — packaging & entry points (implements §5; ADR 0076).
+- **v0.63** — guided onboarding & profiles (implements §3 and §4; ADR 0069 / 0075).
+- **v0.64** — product release candidate / hardening.
+
+## Consequences
+
+- **The design-direction inversion is removed**, and with it the rework the
+  build-order-as-design-order plan guaranteed: each downstream release now
+  implements a slice of a design that already accounts for its neighbors.
+- **The structural overhaul (v0.61) lands before the v1.0 freeze**, so the frozen
+  presentation contracts (Tier-2 Surface DSL catalog, workspace substrate) freeze
+  the *redesigned* shapes rather than the operator-utility flat structure — no
+  post-1.0 contract break to fix IA.
+- **v0.60 ships design artifacts plus a navigable skeleton, and no new authority.**
+  It is a design release: the polished surface (v0.61), the packaged entry points
+  (v0.62), and the onboarding flow (v0.63) are *built* in their own releases against
+  this design, not in v0.60.
+- The cost is one inserted release in the arc; the benefit is that the most
+  freeze-sensitive decision in the program — the product shape that v1.0 locks — is
+  made deliberately and up front instead of emerging from build sequencing.
+
+## Non-goals and guardrails
+
+- **No new authority, capability, or egress.** v0.60 produces design artifacts and
+  a thin skeleton; it grants nothing. Security Central, confirmations, and the
+  action boundary (ADR 0006 / ADR 0073) are unchanged.
+- **v0.60 does not implement the polished product surface** — that is v0.61's
+  structural overhaul over the ADR 0074 substrate.
+- **v0.60 does not implement onboarding or profiles** — those are built in v0.63
+  (ADR 0069 / ADR 0075) against the design produced here.
+- **Not a native desktop client.** The web remains the primary 1.0 product surface;
+  a native client stays post-1.0 (ADR 0076).

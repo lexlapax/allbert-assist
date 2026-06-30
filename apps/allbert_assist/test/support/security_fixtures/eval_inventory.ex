@@ -4829,8 +4829,8 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       boundary: :release_handoff_contract,
       expected: :allowed,
       assert: [
-        :v061_outputs_enumerated,
-        :v063_outputs_enumerated,
+        :v062_outputs_enumerated,
+        :v064_outputs_enumerated,
         :v1_freeze_inputs_enumerated,
         :no_scope_drift
       ],

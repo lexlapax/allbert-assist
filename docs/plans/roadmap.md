@@ -383,40 +383,56 @@ scope.
     (first-class `schema_version`, additive-only enforcement, fail-closed boot
     check; runtime runner deferred), and central action param-contract enforcement
     (M7, ADR 0065; precursor v0.54 ADR 0064). No final RC; no onboarding.
-60. v0.60 Web UX Professional Pass: first of three pre-1.0 **product capability**
-    releases
-    that turn the v0.58 design-system substrate into a polished product surface
+60. v0.60 Product Experience Design: a **design-first** release inserted ahead of
+    the four implementation releases; no new authority and no new capability.
+    Front-loads the unified technical-prosumer experience journey, an
+    information-architecture / navigation / screen-composition redesign (the
+    "final UX layout redesign" deferred from ADR 0074), a persona/user-category
+    model, an onboarding-flow design, an entry-point/CLI UX design, the
+    First-Model-Path decision (assisted local / managed hosted / honest BYOK), and
+    a navigable walking skeleton, so the later releases implement one designed
+    journey instead of designing as they go. Gate `release.v060`; adds ADR 0077
+    (Experience Design & IA) and ADR 0078 (First-Model Path).
+61. v0.61 Presentation Layer Overhaul: first of three pre-1.0 **product
+    capability** releases; implements the v0.60 IA/navigation/screen-composition
+    redesign **and** lands the brand/motion/visual-hierarchy/dark-mode polish over
+    it, turning the v0.58 design-system substrate into a polished product surface
     for the technical-prosumer 1.0 audience. Brand identity (retire the stock
     Phoenix logo), a motion layer, a visual-hierarchy craft pass across the
     workspace and operator pages, a real landing/marketing surface with SEO/OG,
-    empty-state and suggested-action affordances, OS dark-mode resolution, and
-    companion-surface polish — the web workspace carries the desktop-UX weight
-    since a native client stays post-1.0. Extends ADR 0074; no authority change.
-61. v0.61 Packaging & Entry Points: a packaged `allbert` binary (release-built,
-    no Elixir toolchain) with a Homebrew/curl install path, a unified grouped CLI
-    dispatcher (`ask|chat|tui|serve|admin|gen`), background-daemon management
+    empty-state and suggested-action affordances, and OS dark-mode resolution —
+    the web workspace carries the desktop-UX weight since a native client stays
+    post-1.0, so this overhaul must precede the v1.0 freeze. ADR 0074 v0.61
+    amendment; no authority change.
+62. v0.62 Packaging & Entry Points: implements the v0.60-designed entry-point/CLI
+    UX — a packaged `allbert` binary (release-built, no Elixir toolchain) with a
+    Homebrew/curl install path, a unified grouped CLI dispatcher
+    (`ask|chat|tui|serve|admin|gen`), background-daemon management
     (launchd/systemd), completion of the ADR 0070 mix-free TUI console
-    convergence, and OS secret-vault credential handling. Lands before
+    convergence, an M0 feasibility spike, tiered platform support, and OS
+    secret-vault credential handling; bundles a model runtime iff the v0.60
+    First-Model-Path decision (ADR 0078) resolved to assisted-local. Lands before
     onboarding so first-run guidance teaches final entry points; adds ADR 0076.
     No authority change.
-62. v0.62 Guided Onboarding & Profiles: a genuine guided onboarding capability
-    over the v0.61 entry points — a two-track wizard (QuickStart vs Advanced,
-    plus a fastest-first-chat path) in both the web and terminal, provider/model
-    setup with masked OS-vault credential entry and inline doctor, and
-    **repo-maintained user-category profiles/personas** (researcher, developer,
-    writer, ops, general) that seed defaults and suggested apps/channels/intents.
-    Re-scopes ADR 0069 up and adds ADR 0075. No new authority.
-63. v0.63 Product RC & Integrated Validation: no new features; validates the
+63. v0.63 Guided Onboarding & Profiles: implements the v0.60 onboarding-flow
+    design and applies the v0.60 persona model over the v0.62 entry points — a
+    two-track wizard (QuickStart vs Advanced, plus a fastest-first-chat path) in
+    both the web and terminal, provider/model setup with masked OS-vault
+    credential entry and inline doctor, and **repo-maintained user-category
+    profiles/personas** (researcher, developer, writer, ops, general) that seed
+    defaults and suggested apps/channels/intents. Consumes ADR 0078; re-scopes
+    ADR 0069 up and adds ADR 0075. No new authority.
+64. v0.64 Product RC & Integrated Validation: no new features; validates the
     clean install -> serve -> onboard -> first chat -> inspect -> integration
     smoke -> export/import or upgrade -> uninstall path across web, CLI, TUI, and
     evidence. This prevents v1.0 from being the first integrated product test.
-64. v1.0 Stability release, **tiered public contract freeze**, and **product
+65. v1.0 Stability release, **tiered public contract freeze**, and **product
     launch**: no new features; freeze Tier 1 (Runtime, Actions/permissions,
     Plugin, App, Settings Central schema shape, Allbert Home layout, Channel
     adapter boundary, Resource Access URI/grants) and Tier 2 (SurfaceProvider,
     Surface DSL with additive-only carve-out, workspace canvas/ephemeral substrate
-    minus single-consumer components) — now meaningful because v0.60-v0.63
-    settled and validated the product path first.
+    minus single-consumer components) — now meaningful because v0.60-v0.64
+    designed, settled, and validated the product path first.
 
 `config.exs` remains deployment and boot configuration. It should not become
 the user/operator settings surface. `ALLBERT_HOME` is bootstrap configuration:
@@ -3663,8 +3679,8 @@ Request flow: `docs/plans/v0.59-request-flow.md`
 ADR: `docs/adr/0046-settings-schema-migration-policy.md` (accepted here;
 drafted in v0.45); `docs/adr/0065-central-action-param-contract-enforcement.md`
 (Accepted in v0.59 M7). Operator onboarding is no longer a v0.59 sliver:
-it is re-scoped up into the v0.62 Guided Onboarding &amp; Profiles release
-(ADR 0069), after v0.61 packaging/entry points settle the user-facing commands
+it is re-scoped up into the v0.63 Guided Onboarding &amp; Profiles release
+(ADR 0069), after v0.62 packaging/entry points settle the user-facing commands
 and credential-vault model. v0.59 stays pure engineering hardening with no new
 user-facing capability.
 
@@ -3684,7 +3700,7 @@ Delivered:
 
 - Added no new user-facing capability.
 - Proved Allbert Home export + dry-run import diagnostics, secret-reference
-  policy, schema metadata, rollback docs, and an envelope that v0.63 can later
+  policy, schema metadata, rollback docs, and an envelope that v0.64 can later
   use for packaged-layout import/upgrade validation. v0.59 does not apply an
   imported Home.
 - **Implemented the Settings Central version contract** per ADR 0046:
@@ -3693,7 +3709,7 @@ Delivered:
   operator-visible pending-migration report. The `mix allbert.settings.migrate`
   runner is deferred until the first real non-additive migration.
 - (Onboarding moved out of v0.59: the guided first-run experience is grown into
-  a real capability in v0.62 after v0.61 packaging/entry points land, not a
+  a real capability in v0.63 after v0.62 packaging/entry points land, not a
   hardening sliver over existing flows.)
 - Ran the security eval sweep across MCP client, integrations, browser,
   channels (Discord/Slack and WhatsApp/Signal/Matrix), Plan/Build,
@@ -3702,31 +3718,90 @@ Delivered:
   Apps iframe evals remain parked.
 - Delivered central action param-contract enforcement (M7, ADR 0065; precursor v0.54
   ADR 0064).
-- Produced a clean substrate handoff for v0.60-v0.63 product work. Final
-  integrated product RC evidence belongs to v0.63.
+- Produced a clean substrate handoff for v0.61-v0.64 product work. Final
+  integrated product RC evidence belongs to v0.64.
 - Closed the standalone Dialyzer gate before tag: `MIX_ENV=test mix dialyzer`
   passes with `Total errors: 0`, `Skipped: 0`, and `Unnecessary Skips: 0`.
 - Aligned closeout test migrations with SQLite WAL runtime behavior and verified
   fresh `release.v059` evidence contains no SQLite startup-lock signatures.
 
-## v0.60: Web UX Professional Pass
+## v0.60: Product Experience Design
 
 Plan: `docs/plans/v0.60-plan.md`
 Request flow: `docs/plans/v0.60-request-flow.md`
-ADR: `docs/adr/0074-web-design-system-and-ux-language.md` (v0.60 amendment:
-brand identity, motion, marketing surface, and the professional craft pass).
+ADR: `docs/adr/0077-experience-design-and-information-architecture.md`
+(Experience Design & IA); `docs/adr/0078-first-model-path.md` (First-Model Path).
 
-Status: planned (pre-1.0 product capability release 1 of 3; followed by the
-v0.63 product RC). Builds directly on the v0.58 design-system substrate (tokens,
-variant registry, pattern library, one shell, catalog). The v0.58 maturity
+Status: planned (pre-1.0 design release; gate `release.v060`). Design-first
+release inserted ahead of the four implementation releases (v0.61 presentation,
+v0.62 packaging, v0.63 onboarding, v0.64 RC) by the post-v0.59 product-readiness
+review. It adds no new authority and ships no new user-facing capability: it
+front-loads the unified product-experience **design** so the later releases each
+implement one designed journey instead of designing-as-they-go. The review found
+the build order (v0.61 -> v0.62 -> v0.63 -> v0.64) correct but the design order
+inverted — each release was being designed blind to the consumer that should
+specify it (polish would seat a wizard not yet designed; packaging would settle
+entry points onboarding had not validated; the structural redesign was unowned).
+v0.60 owns that design as a single artifact and hands a navigable skeleton to the
+implementers.
+
+Expected direction (design + scaffolding only):
+
+- A **unified technical-prosumer experience journey** — one end-to-end map from
+  install to first useful work that the later releases implement, not four
+  separately-designed surfaces (ADR 0077).
+- An **information-architecture, navigation, and screen-composition redesign** —
+  the "final UX layout redesign" deferred from ADR 0074, owned here as the
+  structural design that v0.61 then implements.
+- A **persona / user-category model design** (researcher, developer, writer, ops,
+  general) that v0.63 applies as repo-maintained profiles.
+- An **onboarding-flow design** (two-track QuickStart vs Advanced) that v0.63
+  implements as a real guided wizard.
+- An **entry-point and CLI UX design** (grouped command surface, daemon, install
+  story) that v0.62 implements as the packaged `allbert` binary.
+- A **First-Model-Path decision** (ADR 0078): assisted local model, managed
+  hosted default, or honest bring-your-own-key — resolved here, early, because
+  the assisted-local option requires the v0.62 package to bundle a model runtime;
+  deciding after packaging is built would mean repackaging.
+- A **navigable walking skeleton**: the redesigned IA, routes, and empty screens
+  scaffolded end-to-end so the design is walkable and reviewable, with no new
+  authority — every effectful path still routes through Security Central.
+- No new authority, no new capability, no model-generated UI; the catalog stays
+  the rendering boundary (ADR 0030/0074). Milestones M1-M8 cover the journey map
+  and persona model (M1), the IA/navigation redesign (M2), the screen-composition
+  redesign (M3), the onboarding-flow design (M4), the entry-point/CLI UX design
+  (M5), the First-Model-Path decision (M6, ADR 0078), the navigable walking
+  skeleton (M7), and the design handoff plus `release.v060` gate (M8).
+
+## v0.61: Presentation Layer Overhaul
+
+Plan: `docs/plans/v0.61-plan.md`
+Request flow: `docs/plans/v0.61-request-flow.md`
+ADR: `docs/adr/0074-web-design-system-and-ux-language.md` (v0.61 amendment:
+implements the v0.60 IA/navigation/screen-composition redesign plus brand
+identity, motion, marketing surface, and the professional craft pass).
+
+Status: planned (pre-1.0 product capability release 1 of 3; implements the v0.60
+design; followed by the v0.64 product RC). Builds on the v0.60 experience design
+and the v0.58 design-system substrate (tokens, variant registry, pattern
+library, one shell, catalog). This release does two things at once: it
+**implements the v0.60 structural redesign** — the overhauled information
+architecture, navigation, and screen composition — and lands the **brand /
+motion / visual-hierarchy / dark-mode polish** over it. The v0.58 maturity
 review found a strong token/accessibility foundation under an operator-utility
 surface: motion tokens and scattered transitions exist but not a coherent
 product motion layer; brand identity is effectively absent; `/` is still thin;
-there is no marketing surface; and the hierarchy is utility-flat. v0.60 closes
-that gap for the technical-prosumer 1.0 audience.
+there is no marketing surface; and the hierarchy is utility-flat. The web is the
+primary 1.0 product surface (a native desktop client stays post-1.0), so this
+overhaul must land **before the v1.0 freeze** locks the presentation contracts
+(Surface DSL, workspace substrate) or it is locked out. v0.61 closes that gap for
+the technical-prosumer 1.0 audience.
 
 Expected direction:
 
+- Implementation of the v0.60 **information-architecture, navigation, and
+  screen-composition redesign** across the shell and pages — the structural
+  overhaul, not just surface polish.
 - A real brand identity (logo/wordmark, applied across shell and landing),
   retiring the stock framework logo.
 - A motion layer (entrance/drawer/skeleton transitions) over the existing token
@@ -3741,18 +3816,22 @@ Expected direction:
 - No model-generated UI, no internal rename, no authority change; the catalog
   stays the rendering boundary (ADR 0030/0074).
 
-## v0.61: Packaging & Entry Points
+## v0.62: Packaging & Entry Points
 
-Plan: `docs/plans/v0.61-plan.md`
-Request flow: `docs/plans/v0.61-request-flow.md`
+Plan: `docs/plans/v0.62-plan.md`
+Request flow: `docs/plans/v0.62-request-flow.md`
 ADR: `docs/adr/0076-packaging-distribution-and-unified-cli.md`; completes the
 ADR 0070 mix-free TUI operator console convergence.
 
-Status: planned (pre-1.0 product capability release 2 of 3; followed by v0.62
-onboarding/profiles and the v0.63 product RC). The post-v0.58 product-readiness
-review moved packaging before guided onboarding: first-run guidance should teach
-the final `allbert` binary, CLI, daemon, and OS-vault credential model, not
-temporary Mix commands.
+Status: planned (pre-1.0 product capability release 2 of 3; implements the v0.60
+entry-point/CLI UX design; followed by v0.63 onboarding/profiles and the v0.64
+product RC). The post-v0.58 product-readiness review moved packaging before
+guided onboarding: first-run guidance should teach the final `allbert` binary,
+CLI, daemon, and OS-vault credential model, not temporary Mix commands. If the
+v0.60 First-Model-Path decision (ADR 0078) resolved to **assisted local model**,
+this release also bundles a model runtime in the package — the dependency that
+forced the First-Model-Path decision early, so packaging is built once against a
+known answer rather than repackaged afterward.
 
 Expected direction:
 
@@ -3777,19 +3856,21 @@ Expected direction:
 - No authority change; packaging changes how Allbert is installed and invoked,
   not what any surface may do.
 
-## v0.62: Guided Onboarding & Profiles
+## v0.63: Guided Onboarding & Profiles
 
-Plan: `docs/plans/v0.62-plan.md`
-Request flow: `docs/plans/v0.62-request-flow.md`
+Plan: `docs/plans/v0.63-plan.md`
+Request flow: `docs/plans/v0.63-request-flow.md`
 ADR: `docs/adr/0069-operator-onboarding-flow.md` (re-scoped up from
 sequencing-existing-steps to a real guided wizard);
-`docs/adr/0075-user-category-settings-profiles.md`.
+`docs/adr/0075-user-category-settings-profiles.md`; consumes
+`docs/adr/0078-first-model-path.md` (the v0.60 First-Model-Path decision).
 
-Status: planned (pre-1.0 product capability release 3 of 3; followed by the
-v0.63 product RC). Re-scopes the onboarding work pulled out of v0.59 into a
-genuine capability and adds repo-maintained user-category profiles. Builds on
-v0.60's affordances and v0.61's packaged entry points, grouped CLI, daemon, and
-OS-vault credential model.
+Status: planned (pre-1.0 product capability release 3 of 3; implements the v0.60
+onboarding-flow design and applies the v0.60 persona model; followed by the v0.64
+product RC). Re-scopes the onboarding work pulled out of v0.59 into a genuine
+capability and adds repo-maintained user-category profiles. Builds on the v0.60
+onboarding-flow and persona-model design, v0.61's affordances, and v0.62's
+packaged entry points, grouped CLI, daemon, and OS-vault credential model.
 
 Expected direction:
 
@@ -3799,10 +3880,11 @@ Expected direction:
 - Provider/model setup as a first-class wizard step: masked OS-vault credential
   entry, inline doctor verification, local and hosted providers, switchable
   without config edits.
-- An explicit First-Model Path decision (M0) for users with no key and no local
-  model — assisted local model, managed hosted default, or honest
-  bring-your-own-key; the "fastest first chat" is defined against the chosen
-  option, not an assumed pre-existing key.
+- The First-Model Path resolved in v0.60 (ADR 0078) for users with no key and no
+  local model — assisted local model, managed hosted default, or honest
+  bring-your-own-key — implemented as the wizard's provider/model step; the
+  "fastest first chat" is defined against the chosen option, not an assumed
+  pre-existing key.
 - Repo-maintained user-category profiles/personas (researcher, developer, writer,
   ops, general) that seed Settings Central defaults plus suggested apps,
   channels, and intents; apply only after operator review.
@@ -3811,13 +3893,13 @@ Expected direction:
 - No new authority; profiles seed defaults only and grant nothing; every
   effectful step still routes through Security Central and confirmations.
 
-## v0.63: Product RC & Integrated Validation
+## v0.64: Product RC & Integrated Validation
 
-Plan: `docs/plans/v0.63-plan.md`
-Request flow: `docs/plans/v0.63-request-flow.md`
+Plan: `docs/plans/v0.64-plan.md`
+Request flow: `docs/plans/v0.64-request-flow.md`
 
 Status: planned (pre-1.0 integrated product release candidate). Adds no
-features. Validates the full product path after v0.60-v0.62 land, so v1.0 is not
+features. Validates the full product path after v0.61-v0.63 land, so v1.0 is not
 the first time install, serve, onboarding, first chat, web smoke, CLI/TUI smoke,
 integration smoke, export/import or upgrade, uninstall, and evidence leak scans
 are exercised together.
@@ -3832,7 +3914,7 @@ Expected direction:
 - One real policy-bounded integration path.
 - Export/import or upgrade validation and uninstall behavior.
 - Secret/evidence leak scan, docs gate, warning gate, and deterministic
-  `release.v063`.
+  `release.v064`.
 - No new authority and no feature work; failures are fixed in their owning
   capability area before v1.0.
 
@@ -3843,15 +3925,15 @@ Request flow: `docs/plans/v1.0-request-flow.md`
 
 Status: planned. Promoted from `docs/archives/version-1.0-planning-03.md`; not
 implemented. Re-scoped in the 2026-06-25 1.0 planning pass and amended by the
-post-v0.58 product-readiness review: the freeze now follows the v0.60-v0.62
-product capability releases and the v0.63 integrated product RC, so 1.0 is both
+post-v0.58 product-readiness review: the freeze now follows the v0.61-v0.63
+product capability releases and the v0.64 integrated product RC, so 1.0 is both
 the contract-stability commitment and the polished product launch for the
 technical-prosumer audience.
 
 Expected direction:
 
-- Add no new features; product capability ships in v0.60-v0.62 and is validated
-  end-to-end in v0.63.
+- Add no new features; product capability ships in v0.61-v0.63 and is validated
+  end-to-end in v0.64.
 - Freeze public contracts for Runtime, actions, plugin/app/surface/resource
   APIs, workspace canvas/ephemeral surfaces, channel adapters, Settings Central,
   and Allbert Home layout (tiered Tier 1 / Tier 2 per `v1.0-plan.md`).
@@ -3874,14 +3956,34 @@ That story only lands if the product surface matches the now-expected bar:
 zero-friction guided onboarding, secret-vault credential handling, a packaged
 binary, and a polished web workspace. The 2026-06-25 1.0 planning pass therefore
 inserts three product capability releases before the v1.0 freeze, and the
-post-v0.58 product-readiness review adds v0.63 as the integrated product RC:
-v0.60 web UX, v0.61 packaging & entry points, v0.62 guided onboarding &
-profiles, then v0.63 install/onboard/work validation. That decouples "contract
-freeze" (an engineering milestone) from "1.0 product launch." The 1.0 audience
-is the **technical prosumer**: comfortable installing a binary and pasting a key,
-but expecting polish and guidance — not a git checkout. A full native desktop
-client remains post-1.0; the web workspace plus packaged binary carry the
-product weight.
+post-v0.58 product-readiness review adds v0.64 as the integrated product RC:
+v0.61 presentation-layer overhaul, v0.62 packaging & entry points, v0.63 guided
+onboarding & profiles, then v0.64 install/onboard/work validation. The later
+post-v0.59 product-readiness review then front-loads **v0.60 Product Experience
+Design** ahead of all four, so they implement one designed journey rather than
+designing as they go. That decouples "contract freeze" (an engineering
+milestone) from "1.0 product launch." The 1.0 audience is the **technical
+prosumer**: comfortable installing a binary and pasting a key, but expecting
+polish and guidance — not a git checkout. The **web is the primary 1.0 product
+surface**; a full native desktop client remains post-1.0, so the web workspace
+plus packaged binary carry the product weight, and the v0.61 presentation
+overhaul must precede the v1.0 freeze.
+
+Sequencing rationale: the build order is correct and unchanged — v0.61 ->
+v0.62 -> v0.63 -> v0.64 in dependency order (presentation, then packaging, then
+onboarding over both, then the integrated RC). What was wrong was the **design**
+order: each release was being designed blind to the consumer that should specify
+it. The polish would have seated a wizard not yet designed; packaging would have
+settled entry points onboarding had not validated; the structural IA/screen
+redesign was unowned across all of them. v0.60 front-loads the unified
+product-experience **design** so the four implementation releases build one
+designed journey instead of designing-as-they-go. Two constraints force pieces
+early. FREEZE-TRAP: v1.0 freezes the presentation contracts (Surface DSL,
+workspace substrate), so the structural overhaul (v0.61) must land before the
+freeze or be locked out of 1.0. FIRST-MODEL-PATH: the decision moves to v0.60
+(ADR 0078) because the "assisted local model" option requires the v0.62 package
+to bundle a runtime — deciding it after packaging is built would mean
+repackaging.
 
 The strategic moat is the safety architecture (Security Central, durable
 confirmations, Resource Access posture, sandbox/gate runner, reversible dynamic
@@ -3893,11 +3995,11 @@ friction tax.
 
 Tightened in the post-v0.37 planning pass to 8 capability criteria, extended in
 the 2026-06-25 1.0 planning pass with 4 product criteria (9-12), then amended to
-require the integrated v0.63 product RC (13). Each item is a disposable-home
+require the integrated v0.64 product RC (13). Each item is a disposable-home
 checkpoint the release cannot ship without:
 
 1. First-run setup succeeds on macOS and Linux (Tier 1) and on Windows via WSL2;
-   native Windows is Tier 2 best-effort and not freeze-blocking (v0.39 / v0.61
+   native Windows is Tier 2 best-effort and not freeze-blocking (v0.39 / v0.62
    platform tiers).
 2. Operator can choose local Ollama, OpenAI, Anthropic, or OpenRouter through
    model/profile control and the doctor (v0.39). The doctor return shape is
@@ -3911,29 +4013,40 @@ checkpoint the release cannot ship without:
    scope (v0.43).
 6. Operator can review and approve a multi-step plan before execution
    (v0.44).
-7. Operator can export Allbert Home and, by the v0.63 product RC, import or
+7. Operator can export Allbert Home and, by the v0.64 product RC, import or
    upgrade it on a second machine with behavior preserved. v0.59 supplies the
    versioned envelope, dry-run diagnostic, secret-reference policy, and ADR 0046
-   settings version contract; v0.63 proves the packaged-layout apply/upgrade path.
+   settings version contract; v0.64 proves the packaged-layout apply/upgrade path.
 8. All warning, security, precommit, and cross-surface eval gates pass — the
-   v0.59 baseline security sweep plus the v0.63 M5.1 delta-sweep over the
-   v0.60-v0.62 product surfaces (v0.59 + v0.63).
+   v0.59 baseline security sweep plus the v0.64 M5.1 delta-sweep over the
+   v0.61-v0.63 product surfaces (v0.59 + v0.64).
 9. [product] A technical prosumer installs Allbert from a packaged binary
-   (Homebrew/curl) with no Elixir/OTP toolchain on their machine (v0.61).
+   (Homebrew/curl) with no Elixir/OTP toolchain on their machine (v0.62).
 10. [product] A new user completes the guided onboarding wizard — provider/model
-    setup via the resolved First-Model Path (assisted local model, managed
-    default, or honest bring-your-own-key — not an assumed pre-existing key), a
-    selected user-category profile, and a first useful chat — without reading docs
-    or hand-editing config files (v0.62).
-11. [product] The web workspace meets the professional-UX bar: brand identity,
-    motion, coherent visual hierarchy, a real landing surface, and populated
-    empty states (v0.60).
+    setup via the First-Model Path resolved in v0.60 (ADR 0078: assisted local
+    model, managed default, or honest bring-your-own-key — not an assumed
+    pre-existing key, a v0.60 prerequisite), a selected user-category profile, and
+    a first useful chat — without reading docs or hand-editing config files
+    (v0.63).
+11. [product] The web workspace meets the professional-UX bar: the **overhauled
+    information architecture, navigation, and screen composition** from the v0.60
+    design implemented end-to-end, plus brand identity, motion, coherent visual
+    hierarchy, a real landing surface, and populated empty states (v0.61). The
+    structural overhaul — not only brand/motion/hierarchy — must land before the
+    v1.0 freeze locks the presentation contracts.
 12. [product] A single `allbert` CLI binary exposes a coherent grouped command
-    surface and an `allbert serve` daemon path (v0.61).
+    surface and an `allbert serve` daemon path (v0.62).
 13. [product RC] The integrated clean install -> serve -> onboard -> first chat
     -> inspect -> integration smoke -> export/import or upgrade -> uninstall path
     passes with browser, CLI/TUI, docs, warning, drift, and secret-evidence gates
-    green (v0.63).
+    green (v0.64).
+
+The v0.60 Product Experience Design release is the upstream **prerequisite** for
+items 10 (onboarding flow + persona model + First-Model Path) and 11 (the
+overhauled IA/navigation/screen composition), and resolves the First-Model Path
+(ADR 0078) those items consume. It is a design release, not an independently
+freeze-blocking matrix row: it is verified through the items its design feeds, so
+the matrix stays at 13 items.
 
 ### Capabilities That Ship In The Arc But Are Not Freeze-Blocking
 

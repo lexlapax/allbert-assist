@@ -9,7 +9,7 @@ fail-closed boot check, and export/import version preservation ship. **Re-scoped
 2026-06-29 (v0.59 readiness review):** v0.59 ships the *version contract and
 enforcement substrate*, not a runtime migration-runner engine — see "v0.59 scope
 vs deferred" below. (The v0.59 RC label is historical; the integrated product RC
-moved to v0.63 in the 1.0 rescope.)
+moved to v0.64 in the 1.0 rescope.)
 
 ### v0.45 vs v0.59 split
 
@@ -160,7 +160,7 @@ Tier-1 list names this version/additive contract explicitly.
 - **No migration of secrets store contents.** Secrets remain in the encrypted
   Settings Central secret store, currently
   `<ALLBERT_HOME>/settings/secrets.yml.enc`, with its own migration policy. Note
-  that v0.61's plaintext/encrypted-credentials → OS-secret-vault move is a
+  that v0.62's plaintext/encrypted-credentials → OS-secret-vault move is a
   separate operator migration **outside** this ADR's scope.
 
 ## Implementation Timing

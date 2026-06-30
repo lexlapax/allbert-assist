@@ -1,12 +1,14 @@
 # ADR 0075: User-Category Settings Profiles (Personas)
 
-Status: Proposed (v0.62).
+Status: Proposed (v0.63).
 Date: 2026-06-25
-Related: ADR 0004 / ADR 0031 (Settings Central — profiles seed defaults through
-it and nowhere else), ADR 0069 (guided onboarding — the primary place a profile
-is applied), ADR 0072 (model recommendations — profiles reference recommended
-model purposes), ADR 0006 (Security Central — profiles grant no authority).
-Anchors the v0.62 "profiles" half of Guided Onboarding & Profiles.
+Related: ADR 0077 (Product Experience Design & IA — designs the persona/profile
+model in v0.60 M4; this ADR applies and builds it in v0.63), ADR 0004 / ADR 0031
+(Settings Central — profiles seed defaults through it and nowhere else), ADR 0069
+(guided onboarding — the primary place a profile is applied), ADR 0072 (model
+recommendations — profiles reference recommended model purposes), ADR 0006
+(Security Central — profiles grant no authority).
+Anchors the v0.63 "profiles" half of Guided Onboarding & Profiles.
 
 ## Context
 
@@ -27,7 +29,10 @@ researcher / developer / writer / ops person" into a tailored starting point.
 ## Decision
 
 Introduce **repo-maintained user-category profiles** (personas): declarative,
-version-controlled presets that seed a tailored starting configuration.
+version-controlled presets that seed a tailored starting configuration. The
+persona *model* — the category set and what a profile seeds — is designed in the
+v0.60 Product Experience Design release (ADR 0077 M4); this ADR **applies and
+builds** it in v0.63.
 
 - **Shipped categories** (extensible): `researcher`, `developer`, `writer`,
   `ops`, `general`.
