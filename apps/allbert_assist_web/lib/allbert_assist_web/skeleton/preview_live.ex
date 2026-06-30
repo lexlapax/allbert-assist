@@ -48,7 +48,7 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
           data-skeleton-live-data="false"
           data-authority="none"
           data-settings-keys="0"
-          data-focus-trap-ready="true"
+          data-keyboard-focus-ready="true"
           data-high-contrast-ready="true"
           data-reduced-motion-ready="true"
           data-catalog-components={catalog_components(@route)}

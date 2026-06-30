@@ -5071,11 +5071,12 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       id: "walking-skeleton-a11y-smoke-001",
       milestone: :v060,
       surface: :walking_skeleton,
-      scenario: "The preview shell omits FocusTrap, high-contrast, or reduced-motion readiness",
+      scenario:
+        "The preview shell omits keyboard focus, high-contrast, or reduced-motion readiness",
       boundary: :preview_accessibility_smoke,
       expected: :allowed,
       assert: [
-        :focus_trap_ready,
+        :keyboard_focus_ready,
         :high_contrast_ready,
         :reduced_motion_ready
       ],

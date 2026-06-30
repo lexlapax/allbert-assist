@@ -24,7 +24,7 @@ defmodule AllbertAssistWeb.Skeleton.WalkingSkeletonTest do
       assert html =~ ~s(data-skeleton-live-data="false")
       assert html =~ ~s(data-authority="none")
       assert html =~ ~s(data-settings-keys="0")
-      assert html =~ ~s(data-focus-trap-ready="true")
+      assert html =~ ~s(data-keyboard-focus-ready="true")
       assert html =~ ~s(data-high-contrast-ready="true")
       assert html =~ ~s(data-reduced-motion-ready="true")
 
@@ -65,7 +65,7 @@ defmodule AllbertAssistWeb.Skeleton.WalkingSkeletonTest do
     )
 
     IO.puts(
-      "walking-skeleton-a11y-smoke-001 status=pass focus_trap=true high_contrast=true reduced_motion=true"
+      "walking-skeleton-a11y-smoke-001 status=pass keyboard_focus=true high_contrast=true reduced_motion=true"
     )
 
     IO.puts(
