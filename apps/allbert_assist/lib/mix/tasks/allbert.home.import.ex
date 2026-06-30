@@ -17,8 +17,8 @@ defmodule Mix.Tasks.Allbert.Home.Import do
 
   @impl true
   def run(args) do
-    Mix.Task.run("app.start")
-
+    # Dry-run import must not start the OTP app: supervisors and SQLite WAL/SHM
+    # bookkeeping are target-Home writes even when no import state is applied.
     args
     |> parse!()
     |> dry_run!()

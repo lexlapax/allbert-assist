@@ -103,6 +103,52 @@ defmodule Mix.Tasks.Allbert.HomeTest do
     end
   end
 
+  test "dry-run import CLI leaves a migrated target Home byte-identical", %{
+    evidence: evidence,
+    target: target
+  } do
+    envelope_path = Path.join(evidence, "home.envelope.json")
+    diagnostic_path = Path.join(evidence, "import-diagnostic.json")
+
+    capture_io(fn ->
+      assert :ok = ExportTask.run(["--out", envelope_path])
+    end)
+
+    {migrate_output, migrate_status} =
+      System.cmd(
+        mix_executable(),
+        ["allbert.ecto.migrate", "--quiet"],
+        cd: repo_root(),
+        env: mix_env(target),
+        stderr_to_stdout: true
+      )
+
+    assert migrate_status == 0, migrate_output
+
+    before = tree_digest(target)
+
+    {import_output, import_status} =
+      System.cmd(
+        mix_executable(),
+        [
+          "allbert.home.import",
+          "--dry-run",
+          "--in",
+          envelope_path,
+          "--evidence-out",
+          diagnostic_path
+        ],
+        cd: repo_root(),
+        env: mix_env(target),
+        stderr_to_stdout: true
+      )
+
+    assert import_status == 0, import_output
+    assert import_output =~ "status=ok applied=false"
+    assert File.exists?(diagnostic_path)
+    assert before == tree_digest(target), import_output
+  end
+
   defp tree_digest(root) do
     root
     |> Path.join("**/*")
@@ -126,4 +172,20 @@ defmodule Mix.Tasks.Allbert.HomeTest do
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)
   defp restore_env(module, config), do: Application.put_env(:allbert_assist, module, config)
+
+  defp mix_executable do
+    System.find_executable("mix") || raise "mix executable not found"
+  end
+
+  defp mix_env(home) do
+    [
+      {"ALLBERT_HOME", home},
+      {"ALLBERT_HOME_DIR", home},
+      {"MIX_ENV", "test"}
+    ]
+  end
+
+  defp repo_root do
+    Path.expand("../../../../..", __DIR__)
+  end
 end
