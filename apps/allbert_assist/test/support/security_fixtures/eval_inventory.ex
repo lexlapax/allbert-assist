@@ -5129,6 +5129,21 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V060SweepEvalTest"
     },
     %{
+      id: "persona-seed-preaudit-001",
+      milestone: :v060,
+      surface: :persona_model,
+      scenario:
+        "Persona seed candidates are not pre-audited against existing Settings Central keys or imply v0.60 seed writes",
+      boundary: :persona_seed_schema_preaudit,
+      expected: :allowed,
+      assert: [
+        :existing_safe_write_keys_identified,
+        :exact_values_deferred_to_v063,
+        :no_v060_persona_seed_files
+      ],
+      test_module: "AllbertAssist.Security.V060SweepEvalTest"
+    },
+    %{
       id: "sandbox-backend-disabled-001",
       milestone: :v036,
       surface: :elixir_sandbox,

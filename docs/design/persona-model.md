@@ -73,6 +73,35 @@ This v0.60 design fixes the persona categories, seed groups, review shape, and
 per-persona intent so the implementation cannot drift back to an undifferentiated
 settings tour.
 
+## Settings Central Seed Pre-Audit
+
+M9.2 pre-audits the seed candidates above against the current Settings Central
+schema so v0.63 starts from known key status. This is still design-only: v0.60
+adds no seed file, default override, registry row, Settings write, or persona
+runtime behavior.
+
+| Seed candidate / family | Current schema status | v0.63 action |
+|---|---|---|
+| `operator.communication_style` | Existing safe-write enum: `concise`, `balanced`, `detailed`. | Choose per-persona value during review diff design. |
+| `operator.handoff_detail` | Existing safe-write enum: `brief`, `concrete_next_steps`, `full_context`. | Choose per-persona value during review diff design. |
+| `model_preferences.primary` | Existing safe-write profile reference. | Keep as reviewed preference; do not change QuickStart model-pull requirements. |
+| `model_preferences.tasks.coding` | Existing safe-write wildcard task preference. | Developer persona may propose coding profile order after egress posture review. |
+| `coding.model_profile` | Existing safe-write profile reference. | Developer persona may propose Pi-mode coding profile after source-code egress review. |
+| `coding.default_approval_mode` | Existing safe-write enum. | Developer persona may propose a conservative approval default; never bypass confirmation. |
+| `coding.read.default_limit`, `coding.search.max_results`, `coding.search.max_output_bytes` | Existing safe-write bounded coding limits. | Developer persona may propose reviewed limits within schema bounds. |
+| `intent.router_embedding_profile`, `intent.router_model_profile`, `intent.router_escalation_profile` | Existing safe-write router profile references. | Researcher/developer/ops personas may propose router profile emphasis after model posture review. |
+| `active_memory.enabled`, `active_memory.top_k`, `active_memory.chunk_max_bytes` | Existing safe-write active-memory tuning keys. | Researcher/writer personas may propose memory tuning after explicit review. |
+| `runtime.diagnostics_verbosity` | Existing safe-write enum: `quiet`, `normal`, `verbose`. | Ops persona may propose verbosity, without enabling new authority. |
+| `objectives.trace_detail` | Existing safe-write enum: `operator`, `debug`. | Ops persona may propose trace detail, without changing objective authority. |
+| Objective defaults | Partly covered by existing `objectives.*` keys. | v0.63 must pick exact keys and values; no fuzzy "objective defaults" seed writes. |
+| Suggested apps/channels/intents | Not Settings writes by themselves. | Keep as UI suggestions until the operator configures apps/channels/intents through existing confirmations. |
+
+Open v0.63 decisions: exact seeded values, per-persona default/opt-out behavior,
+whether any active-memory or objective defaults are proposed in QuickStart, and
+the review diff copy for hosted-egress/model-profile warnings. Any key not named
+as an existing safe-write key above must be treated as a v0.63 schema/design
+decision before implementation.
+
 ## Review/Confirm Application Model
 
 Before applying a persona, v0.63 must show a review diff with:

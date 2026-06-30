@@ -9,6 +9,7 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
   use AllbertAssist.SecurityEvalCase, async: false
 
   alias AllbertAssist.SecurityFixtures.EvalInventory
+  alias AllbertAssist.Settings.Schema
 
   @eval_groups [
     design_artifacts:
@@ -17,12 +18,38 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
     walking_skeleton:
       ~w(walking-skeleton-routes-resolve-001 walking-skeleton-nav-shell-001 walking-skeleton-a11y-smoke-001 no-new-authority-design-only-001),
     handoff: ~w(rc-design-handoff-no-drift-001),
-    coherence: ~w(first-model-persona-cross-doc-coherence-001)
+    coherence: ~w(first-model-persona-cross-doc-coherence-001),
+    persona_preaudit: ~w(persona-seed-preaudit-001)
   ]
   @first_model_states ~w(local_ready runtime_missing runtime_unhealthy model_missing below_hardware_floor byok_ready blocked)
+  @persona_seed_safe_keys [
+    "operator.communication_style",
+    "operator.handoff_detail",
+    "model_preferences.primary",
+    "model_preferences.tasks.coding",
+    "coding.model_profile",
+    "coding.default_approval_mode",
+    "coding.read.default_limit",
+    "coding.search.max_results",
+    "coding.search.max_output_bytes",
+    "intent.router_embedding_profile",
+    "intent.router_model_profile",
+    "intent.router_escalation_profile",
+    "active_memory.enabled",
+    "active_memory.top_k",
+    "active_memory.chunk_max_bytes",
+    "runtime.diagnostics_verbosity",
+    "objectives.trace_detail"
+  ]
   @eval_ids @eval_groups |> Keyword.values() |> List.flatten()
   @sweep_owned_ids @eval_groups
-                   |> Keyword.take([:design_artifacts, :adr_acceptance, :handoff, :coherence])
+                   |> Keyword.take([
+                     :design_artifacts,
+                     :adr_acceptance,
+                     :handoff,
+                     :coherence,
+                     :persona_preaudit
+                   ])
                    |> Keyword.values()
                    |> List.flatten()
   @web_owned_ids Keyword.fetch!(@eval_groups, :walking_skeleton)
@@ -246,6 +273,31 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
 
     IO.puts(
       "first-model-persona-cross-doc-coherence-001 status=pass states=#{Enum.join(@first_model_states, ",")} persona_model_map=post-first-chat quickstart_extra_model_pulls=none"
+    )
+  end
+
+  @tag :v060_persona_seed_preaudit
+  test "persona seed pre-audit is anchored to existing Settings Central safe-write keys" do
+    persona = read!("docs/design/persona-model.md")
+
+    for key <- @persona_seed_safe_keys do
+      assert Schema.known_key?(key), "expected Settings Central to know #{inspect(key)}"
+
+      assert Schema.safe_write_key?(key),
+             "expected Settings Central safe-write key #{inspect(key)}"
+
+      assert String.contains?(persona, key), "expected persona pre-audit to name #{inspect(key)}"
+    end
+
+    assert_contains_normalized!(persona, [
+      "## Settings Central Seed Pre-Audit",
+      "v0.60 adds no seed file, default override, registry row, Settings write, or persona runtime behavior",
+      "Open v0.63 decisions: exact seeded values",
+      "Any key not named as an existing safe-write key above must be treated as a v0.63 schema/design decision before implementation"
+    ])
+
+    IO.puts(
+      "persona-seed-preaudit-001 status=pass existing_safe_write_keys=#{length(@persona_seed_safe_keys)} exact_values=v0.63 no_v060_seed_files=true"
     )
   end
 
