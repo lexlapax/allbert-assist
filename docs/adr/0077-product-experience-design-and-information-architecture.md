@@ -22,11 +22,12 @@ sequenced by what the next one technically depends on. That order is correct for
 *building*. It is exactly wrong for *designing*, because each release was designed
 in build-order, blind to the consumer that should specify it:
 
-- **v0.60 polish "seated a wizard" that had not been designed.** The empty-state
-  and suggested-action affordances (ADR 0074's v0.61 amendment) were sized to host
-  an onboarding flow whose shape, steps, and persona model do not exist until
-  v0.63 — the surface was being built to fit a thing nobody had drawn.
-- **v0.61 packaging "settled entry points" that onboarding had not validated.**
+- **The presentation/polish release "seated a wizard" that had not been designed.**
+  The empty-state and suggested-action affordances (ADR 0074's v0.61 overhaul
+  amendment) were sized to host an onboarding flow whose shape, steps, and persona
+  model did not exist until the onboarding release — the surface was being built to
+  fit a thing nobody had drawn.
+- **The packaging release "settled entry points" that onboarding had not validated.**
   The unified CLI and first-invocation surface (ADR 0076) were to be frozen as
   Tier-1 candidates before the onboarding flow that is the primary consumer of
   those entry points had been designed against a real first-run journey.
