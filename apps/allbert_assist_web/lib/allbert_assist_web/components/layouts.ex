@@ -70,6 +70,7 @@ defmodule AllbertAssistWeb.Layouts do
   attr :title, :string, required: true
   attr :subtitle, :string, default: nil
   attr :labelledby, :string, default: "operator-shell-title"
+  attr :nav_items, :list, default: nil
 
   slot :inner_block, required: true
 
@@ -97,7 +98,7 @@ defmodule AllbertAssistWeb.Layouts do
 
         <nav class="allbert-appbar-center operator-shell-nav" aria-label="Operator pages">
           <.link
-            :for={item <- operator_nav_items(@active)}
+            :for={item <- operator_nav_items(@active, @nav_items)}
             navigate={item.path}
             class={["operator-shell-nav-link", item.active? && "operator-shell-nav-link-active"]}
             aria-current={if(item.active?, do: "page")}
@@ -119,7 +120,7 @@ defmodule AllbertAssistWeb.Layouts do
         aria-label="Operator pages"
       >
         <.link
-          :for={item <- operator_nav_items(@active)}
+          :for={item <- operator_nav_items(@active, @nav_items)}
           navigate={item.path}
           class={[
             "operator-mobile-shellbar-link",
@@ -190,12 +191,24 @@ defmodule AllbertAssistWeb.Layouts do
   defp content_container_class("wide"), do: "mx-auto max-w-6xl space-y-4"
   defp content_container_class(_width), do: "mx-auto max-w-2xl space-y-4"
 
-  defp operator_nav_items(active) do
+  defp operator_nav_items(active, nil) do
     [
       %{label: "Workspace", path: ~p"/workspace", active?: active == "workspace"},
       %{label: "Jobs", path: ~p"/jobs", active?: active == "jobs"},
       %{label: "Objectives", path: ~p"/workspace", active?: active == "objectives"}
     ]
+  end
+
+  defp operator_nav_items(active, nav_items) when is_list(nav_items) do
+    Enum.map(nav_items, fn item ->
+      active_key = Map.get(item, :active_key) || Map.get(item, "active_key")
+
+      %{
+        label: Map.get(item, :label) || Map.get(item, "label"),
+        path: Map.get(item, :path) || Map.get(item, "path"),
+        active?: active_key == active
+      }
+    end)
   end
 
   defp static_asset_version do

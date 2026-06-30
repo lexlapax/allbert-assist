@@ -49,6 +49,22 @@ defmodule AllbertAssistWeb.Router do
     live "/apps/stocksage/analyses/:id", StockSageWeb.AnalysisLive, :show
   end
 
+  if Application.compile_env(:allbert_assist_web, :preview_routes) do
+    scope "/preview", AllbertAssistWeb do
+      pipe_through :browser
+
+      live "/", Skeleton.PreviewLive, :launch
+      live "/onboarding", Skeleton.PreviewLive, :onboarding
+      live "/workspace", Skeleton.PreviewLive, :workspace
+      live "/objectives", Skeleton.PreviewLive, :objectives
+      live "/jobs", Skeleton.PreviewLive, :jobs
+      live "/models", Skeleton.PreviewLive, :models
+      live "/channels", Skeleton.PreviewLive, :channels
+      live "/settings", Skeleton.PreviewLive, :settings
+      live "/trust", Skeleton.PreviewLive, :trust
+    end
+  end
+
   scope "/", AllbertAssistWeb.PublicProtocol do
     pipe_through [:api, :public_protocol_api]
 
