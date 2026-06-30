@@ -42,6 +42,22 @@ normal review/confirm and secret-vault paths.
 | `model_purpose_map` | ADR 0072 model-purpose recommendations to emphasize. | Advice only; hosted/egress remains explicit opt-in. |
 | `first_chat_prompts` | Starter prompts for first useful chat. | Prompt suggestions only. |
 
+## Relationship To First-Model Path
+
+The First-Model Path in `docs/design/first-model-path.md` is the only
+pre-first-chat model requirement. QuickStart reaches first useful chat through
+the curated assisted-local model or BYOK fallback before persona model-purpose
+recommendations are applied.
+
+`model_purpose_map` entries are post-first-chat seed recommendations. They may
+suggest future defaults, readiness checks, or Advanced-track choices after
+operator review, but they do not require v0.62 to pull extra persona-specific
+models during QuickStart. For example, `researcher` can recommend local
+embeddings and a `:capable` / `:thinking` main loop as follow-on setup, while
+`developer` can recommend Pi-mode coding profiles after source-code egress and
+model posture are reviewed. Those recommendations never redefine the initial
+curated model that gets the operator to first useful chat.
+
 ## Persona Seeds
 
 | persona_id | Settings seed families | Suggested apps/channels/intents | Model-purpose mapping | First useful chat examples |
@@ -63,7 +79,9 @@ Before applying a persona, v0.63 must show a review diff with:
 
 - Settings Central keys or key families and proposed values.
 - Suggested apps/channels/intents that will become visible or highlighted.
-- Model-purpose mapping advice and any hosted-egress warnings.
+- Model-purpose mapping advice and any hosted-egress warnings, explicitly marked
+  as post-first-chat seed recommendations rather than QuickStart model-pull
+  requirements.
 - Secrets or provider keys required later, all marked as not yet stored unless
   the operator enters them through the OS vault path.
 - Permission statement: no capability, egress, filesystem, channel, MCP,
@@ -81,6 +99,8 @@ useful chat.
 - Personas do not enable channels, providers, MCP servers, tools, or external
   network access by themselves.
 - Personas do not write secrets or raw endpoints.
+- Personas do not add model-install requirements to QuickStart before first
+  useful chat.
 - Existing free-text identity or memory files are not persona definitions.
 
 ## Handoff To v0.63

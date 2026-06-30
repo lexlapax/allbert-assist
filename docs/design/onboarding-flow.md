@@ -36,9 +36,9 @@ and the CLI/TUI wizard; surfaces may differ, but the step semantics do not fork.
 |---|---|---|---|---|
 | `welcome` | Welcome / resume | Explain local-first posture, Allbert Home, and first useful chat goal. | Same, plus explicit path chooser. | None. |
 | `track_select` | Choose track | Default selected; one sentence of what will happen. | Operator chooses full-control setup. | None. |
-| `model_path` | First-Model Path | Use M3 first-model-state: local ready -> continue; runtime/model missing -> guided repair; blocked/declined -> BYOK fallback. | Operator can choose local runtime, existing endpoint, or hosted BYOK up front. | Secrets only through OS vault; model/provider settings through Settings Central after review. |
-| `profile_select` | Persona/profile | Offer `general` by default plus one quick role picker; do not apply silently. | Full persona selection with seed detail visible. | None until review/confirm. |
-| `profile_review` | Review seeds | Compact diff: settings seeds, suggested apps/channels/intents, model-purpose mapping, no permissions granted. | Full diff with per-section opt-out. | Applies only after explicit confirm. |
+| `model_path` | First-Model Path | Use M3 first-model-state: local ready -> continue; runtime/model missing -> guided repair; blocked/declined -> BYOK fallback. This establishes the chat-capable path only; it does not pull persona-specific model tiers. | Operator can choose local runtime, existing endpoint, or hosted BYOK up front. | Secrets only through OS vault; model/provider settings through Settings Central after review. |
+| `profile_select` | Persona/profile | Offer `general` by default plus one quick role picker after the model path is usable; do not apply silently. | Full persona selection with seed detail visible. | None until review/confirm. |
+| `profile_review` | Review seeds | Compact diff: settings seeds, suggested apps/channels/intents, model-purpose mapping as post-first-chat recommendation, no permissions granted. | Full diff with per-section opt-out. | Applies only after explicit confirm. |
 | `health_check` | Verify setup | Run model/provider health check and show repairable blockers. | Run selected provider/model/channel checks. | No authority change; diagnostic evidence only. |
 | `first_chat` | First useful chat | Open workspace with a suggested first prompt and visible model/provider/trust status. | Same, using chosen path. | Conversation/runtime behavior happens through existing runtime. |
 | `optional_connect` | Optional extensions | Deferred until after first useful chat. | Operator may connect channels/apps before or after first chat. | Channel/app setup uses existing confirmations and settings writes. |
@@ -53,8 +53,8 @@ QuickStart is the default for an empty-handed first-run operator:
    pull when needed.
 4. Keep BYOK fallback visible for hardware blockers, declined install, or local
    runtime failures.
-5. Ask for a persona only as a reviewed preset choice, defaulting to `general`
-   when the operator wants the fastest path.
+5. Ask for a persona only after the model path is usable, as a reviewed preset
+   choice, defaulting to `general` when the operator wants the fastest path.
 6. Show a compact profile review before any settings seed is applied.
 7. Land in the workspace and complete first useful chat before suggesting
    channels or deep settings work.
@@ -83,6 +83,8 @@ The review step is mandatory before any persona/profile seed is applied. It show
 - Settings Central keys or key families that will be written.
 - Suggested apps, channels, and intents that will be highlighted.
 - Model-purpose mappings referenced from ADR 0072.
+- Model-purpose mappings are seed recommendations for later defaults, not extra
+  model-pull requirements before first useful chat.
 - Secrets required for BYOK or channels, with OS-vault storage called out.
 - A clear statement that profiles do not grant permission, egress, channel
   authority, file access, or confirmation bypass.
@@ -108,6 +110,10 @@ v0.63 implements this flow as the ADR 0069 guided onboarding capability. It must
 drive all writes through Settings Central, all secrets through the OS vault path,
 all effectful setup through registered actions and confirmations, and all model
 state through the First-Model Path contract from `docs/design/first-model-path.md`.
+The `model_path` step comes before persona selection so QuickStart can reach first
+useful chat on the curated local/BYOK path; persona `model_purpose_map` entries
+are reviewed seed advice after that path is usable, not a second hidden model
+setup gate.
 
 v0.60 M4 is complete when this document and `docs/design/persona-model.md` are
 present as v0.63 design inputs and no v0.60 code, settings, wizard, or profile

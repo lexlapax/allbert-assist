@@ -71,6 +71,15 @@ provider abstraction, and reviewed against ADR 0072's per-purpose recommendation
 matrix. The chosen model may be refreshed by packaging docs/gates when public
 tags or hardware expectations change.
 
+The curated default model is the only QuickStart model requirement before first
+useful chat. Persona-specific `model_purpose_map` recommendations from
+`docs/design/persona-model.md` are reviewed after the first model path is ready;
+they are seed advice for later defaults, not extra model-pull requirements for
+the initial chat. If a persona recommends embeddings, `:capable`, `:thinking`, or
+Pi-mode model profiles, v0.63 may surface that as a follow-on readiness check or
+Advanced-track choice, but QuickStart must not block first useful chat on those
+persona tiers.
+
 ## First-Model State Handoff
 
 M5 entry-point design and v0.62 packaging should be able to reason in these
@@ -122,7 +131,10 @@ settings grid.
 v0.63 onboarding consumes this path for the QuickStart and Advanced branches.
 QuickStart tries assisted-local first, falls back to BYOK, and only claims
 onboarding success when the operator reaches first useful chat or receives a
-specific repairable blocker.
+specific repairable blocker. Persona/profile review happens after the first-model
+path has established a usable chat path; persona model-purpose mappings are
+advisory seed recommendations and must not retroactively change the QuickStart
+curated model requirement.
 
 v0.64 validates install -> first-run -> onboard -> first useful chat against the
 implemented v0.61-v0.63 surfaces and records evidence that the path did not drift
