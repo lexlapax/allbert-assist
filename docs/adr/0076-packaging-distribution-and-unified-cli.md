@@ -56,6 +56,11 @@ guided onboarding and the v0.64 product RC lock in the first-run flow.
    Ollama is a managed external dependency, not bundled into the `allbert`
    binary; BYOK remains the Advanced/fallback path.
 
+The concrete v0.60 M5 entry-point artifact is
+`docs/design/entry-point-cli-ux.md`: command taxonomy, grouped help model,
+first-run detection, first-model-state check, wizard launch sequence, and
+Mix-to-`allbert` mapping for the v0.62 implementation.
+
 ## Consequences
 
 - **Toolchain-free install** — the v1.0 acceptance-matrix install criterion
