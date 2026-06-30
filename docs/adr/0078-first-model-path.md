@@ -2,7 +2,7 @@
 
 Status: Accepted (v0.60). Decision recorded 2026-06-30 — assisted-local model as
 the QuickStart default, bring-your-own-key as the Advanced/fallback path,
-managed-hosted default rejected; implemented across v0.60 M3, v0.61
+managed-hosted default rejected; recorded in v0.60 M3, then realized across v0.61
 (landing/empty-state), v0.62 (packaging), and v0.63 (onboarding).
 Date: 2026-06-30
 Related: ADR 0072 (recommended model profiles per purpose — the
@@ -51,11 +51,12 @@ and the managed-hosted default is rejected.**
     through the v0.62 Homebrew/curl path, then manages a one-click pull of a curated
     default model. Allbert does **not** bundle the Ollama runtime into the `allbert`
     binary — Ollama is a managed external dependency, keeping the binary light.
-  - **Default model — criteria, not a pinned model.** The curated default is
-    selected (and periodically refreshed) at v0.60 M3 / v0.62 against criteria
-    (open-weight, runs on typical prosumer hardware, modest download weight) with no
-    hard licensing or family constraint fixed in this ADR. ADR 0072's
-    recommended-model matrix seeds the first entry.
+  - **Default model — criteria, not a pinned model.** The selection criteria are
+    recorded at v0.60 M3, and the curated default is selected and periodically
+    refreshed in v0.62 against those criteria (open-weight, runs on typical
+    prosumer hardware, modest download weight) with no hard licensing or family
+    constraint fixed in this ADR. ADR 0072's recommended-model matrix seeds the
+    first entry.
 - **Advanced + fallback — honest bring-your-own-key.** The Advanced track lets the
   operator paste a provider key (OpenAI / Anthropic / OpenRouter) or point at an
   existing local model/endpoint. BYOK is also the **graceful fallback**: if the
