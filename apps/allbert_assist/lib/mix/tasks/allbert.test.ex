@@ -3621,6 +3621,17 @@ defmodule Mix.Tasks.Allbert.Test do
       ]
     },
     %{
+      id: "dialyzer",
+      title: "Dialyzer static analysis for v0.60 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["dialyzer"],
+      coverage: [
+        "Dialyzer warnings fail the v0.60 release handoff",
+        "Dialyzer evidence is captured inside release.v060"
+      ]
+    },
+    %{
       id: "walking_skeleton_smoke",
       title: "walking-skeleton routes resolve + nav/a11y smoke",
       cwd: :web,

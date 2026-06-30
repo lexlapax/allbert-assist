@@ -8,6 +8,50 @@ defmodule AllbertAssistWeb.Skeleton.RouteManifest do
 
   alias AllbertAssist.Surface.Catalog
 
+  @type route_id ::
+          :launch
+          | :onboarding
+          | :workspace
+          | :objectives
+          | :jobs
+          | :models
+          | :channels
+          | :settings
+          | :trust
+
+  @type catalog_component ::
+          :approval_card
+          | :button
+          | :channel_card
+          | :chat
+          | :composer
+          | :confirmation_card
+          | :empty_state
+          | :intents_panel
+          | :job_card
+          | :models_panel
+          | :nav_rail
+          | :objective_card
+          | :onboarding_panel
+          | :settings_card
+          | :settings_panel
+          | :status_badge
+          | :surface_policy_panel
+          | :table
+          | :timeline
+          | :trace_viewer
+          | :utility_drawer
+          | :workspace_shell
+
+  @type route :: %{
+          required(:route_id) => route_id(),
+          required(:preview_path) => String.t(),
+          required(:title) => String.t(),
+          required(:nav_group) => String.t(),
+          required(:active_key) => String.t(),
+          required(:catalog_components) => [catalog_component(), ...]
+        }
+
   @routes [
     %{
       route_id: :launch,
@@ -122,7 +166,7 @@ defmodule AllbertAssistWeb.Skeleton.RouteManifest do
     }
   ]
 
-  @spec routes() :: [map()]
+  @spec routes() :: [route(), ...]
   def routes, do: @routes
 
   @spec preview_paths() :: [String.t()]

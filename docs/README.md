@@ -30,12 +30,13 @@ For contributors:
 - [Operator workspace guide](operator/workspace.md)
 
 v0.59 release closeout is complete as `0.59.0`; the release tag `v0.59.0` exists.
-v0.60 is the active planned implementation target. The remaining pre-1.0 arc is
-v0.60 product experience design, v0.61 presentation layer overhaul, v0.62
-packaging/entry points, v0.63 guided onboarding/profiles, and v0.64 product RC; see
-the [plans index](plans/README.md) and [roadmap](plans/roadmap.md). When v0.60
-lands, its product-experience artifacts are expected under `docs/design/`; until
-then the v0.60 plan/request-flow are authoritative.
+v0.60 implementation and second-pass remediation are complete and ready for a
+third post-implementation audit before operator manual validation. The remaining
+pre-1.0 arc is v0.61 presentation layer overhaul, v0.62 packaging/entry points,
+v0.63 guided onboarding/profiles, and v0.64 product RC; see the
+[plans index](plans/README.md) and [roadmap](plans/roadmap.md). The v0.60
+product-experience artifacts live under `docs/design/`; the v0.60
+plan/request-flow remain authoritative until validation closeout.
 
 ## Directory Map
 

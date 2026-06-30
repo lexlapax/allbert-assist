@@ -121,6 +121,12 @@ retrofit after the binary exists:
 - Keep all effectful setup actions confirmation- and policy-bounded; setup copy
   never grants authority by itself.
 
+The seven first-model states in this document are the v0.60 design/test handoff
+contract. They are intentionally enforced by the v0.60 docs/eval sweep, not by a
+new runtime source of truth in this design release. v0.62 packaging and v0.63
+onboarding must introduce or consume a runtime source without inventing divergent
+labels.
+
 ## v0.61 And v0.63 Handoff
 
 v0.61 presentation work consumes this path for launch, empty-state, model-status,

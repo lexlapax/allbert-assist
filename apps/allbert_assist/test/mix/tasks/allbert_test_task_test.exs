@@ -171,6 +171,24 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert source =~ ~s(args: ["test", "test/mix/tasks/allbert_conversations_test.exs"])
   end
 
+  test "release.v060 embeds dialyzer before walking skeleton smoke" do
+    release_v060_steps =
+      Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
+      |> File.read!()
+      |> section_between("@release_v060_steps [", "  defp release_v060 do")
+
+    assert release_v060_steps =~ ~s(id: "credo_strict")
+    assert release_v060_steps =~ ~s(id: "dialyzer")
+    assert release_v060_steps =~ ~s(args: ["dialyzer"])
+    assert release_v060_steps =~ ~s(id: "walking_skeleton_smoke")
+
+    assert string_position!(release_v060_steps, ~s(id: "credo_strict")) <
+             string_position!(release_v060_steps, ~s(id: "dialyzer"))
+
+    assert string_position!(release_v060_steps, ~s(id: "dialyzer")) <
+             string_position!(release_v060_steps, ~s(id: "walking_skeleton_smoke"))
+  end
+
   test "release secret scan includes provider-shaped key patterns" do
     source =
       Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
@@ -323,6 +341,25 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
 
   defp put_changed_files(files) do
     Application.put_env(:allbert_assist, :gate_changed_files, fn -> {:ok, files} end)
+  end
+
+  defp section_between(text, start_marker, end_marker) do
+    {start_position, _start_length} = string_match!(text, start_marker)
+    from_start = binary_part(text, start_position, byte_size(text) - start_position)
+    {end_position, _end_length} = string_match!(from_start, end_marker)
+    binary_part(from_start, 0, end_position)
+  end
+
+  defp string_position!(text, marker) do
+    {position, _length} = string_match!(text, marker)
+    position
+  end
+
+  defp string_match!(text, marker) do
+    case :binary.match(text, marker) do
+      :nomatch -> flunk("expected to find #{inspect(marker)}")
+      match -> match
+    end
   end
 
   defp restore_app_env(key, nil), do: Application.delete_env(:allbert_assist, key)
