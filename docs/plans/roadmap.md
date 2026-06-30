@@ -3734,17 +3734,18 @@ Request flow: `docs/plans/v0.60-request-flow.md`
 ADR: `docs/adr/0077-product-experience-design-and-information-architecture.md`
 (Experience Design & IA); `docs/adr/0078-first-model-path.md` (First-Model Path).
 
-Status: implementation complete on 2026-06-30; post-implementation audit and
-manual operator validation pending; gate `release.v060` is green. Design-first
-release inserted ahead of the four implementation releases (v0.61 presentation,
-v0.62 packaging, v0.63 onboarding, v0.64 RC) by the post-v0.59 product-readiness
-review. It adds no new authority and ships no new user-facing capability: it
-front-loads the unified product-experience **design** so the later releases each
-implement one designed journey instead of designing-as-they-go. The review found
-the build order (v0.61 -> v0.62 -> v0.63 -> v0.64) correct but the design order
-inverted — each release was being designed blind to the consumer that should
-specify it (polish would seat a wizard not yet designed; packaging would settle
-entry points onboarding had not validated; the structural redesign was unowned).
+Status: implementation complete on 2026-06-30; post-implementation remediation
+M8.1-M8.4 plus M9.1-M9.2 planned before manual operator validation; gate
+`release.v060` is green. Design-first release inserted ahead of the four
+implementation releases (v0.61 presentation, v0.62 packaging, v0.63 onboarding,
+v0.64 RC) by the post-v0.59 product-readiness review. It adds no new authority
+and ships no new user-facing capability: it front-loads the unified
+product-experience **design** so the later releases each implement one designed
+journey instead of designing-as-they-go. The review found the build order
+(v0.61 -> v0.62 -> v0.63 -> v0.64) correct but the design order inverted — each
+release was being designed blind to the consumer that should specify it (polish
+would seat a wizard not yet designed; packaging would settle entry points
+onboarding had not validated; the structural redesign was unowned).
 v0.60 owns that design as a single artifact and hands a navigable skeleton to the
 implementers.
 
