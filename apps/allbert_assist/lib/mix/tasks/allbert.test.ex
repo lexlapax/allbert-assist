@@ -35,6 +35,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v057
       mix allbert.test release.v058
       mix allbert.test release.v059
+      mix allbert.test release.v060
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -141,6 +142,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v057"]), do: release_v057()
   def run(["release.v058"]), do: release_v058()
   def run(["release.v059"]), do: release_v059()
+  def run(["release.v060"]), do: release_v060()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -3576,6 +3578,157 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  @release_v060_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "format_check",
+      title: "formatter check for v0.60 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["format", "--check-formatted"],
+      coverage: [
+        "formatter drift fails the v0.60 release handoff",
+        "formatter evidence is captured inside release.v060"
+      ]
+    },
+    %{
+      id: "compile_warnings_as_errors",
+      title: "compile v0.60 release candidate with warnings as errors",
+      cwd: :root,
+      executable: "mix",
+      args: ["compile", "--warnings-as-errors"],
+      coverage: [
+        "compiler warnings fail the v0.60 release handoff",
+        "compile evidence is captured inside release.v060"
+      ]
+    },
+    %{
+      id: "credo_strict",
+      title: "Credo strict check for v0.60 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["credo", "--strict"],
+      coverage: [
+        "Credo strict findings fail the v0.60 release handoff",
+        "Credo evidence is captured inside release.v060"
+      ]
+    },
+    %{
+      id: "walking_skeleton_smoke",
+      title: "walking-skeleton routes resolve + nav/a11y smoke",
+      cwd: :web,
+      executable: "mix",
+      args: ["test", "test/allbert_assist_web/skeleton/walking_skeleton_test.exs"],
+      coverage: [
+        "every /preview IA-sitemap route resolves through the catalog/shell",
+        "preview nav shell exposes the IA navigation model; active route resolves",
+        "FocusTrap / high-contrast / reduced-motion hold across skeleton screens",
+        "placeholder screens read no business state and grant no authority"
+      ]
+    },
+    %{
+      id: "v060_security_sweep",
+      title: "v0.60 design-artifact, ADR-acceptance, and handoff eval rows",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v060_sweep_eval_test.exs",
+        "test/security/security_eval_case_test.exs"
+      ],
+      coverage: [
+        "design-artifact presence rows File.read! each of the seven v0.60 docs/design/*.md (1:1)",
+        "ADR-acceptance rows File.read! ADR 0077/0078 and assert Accepted (v0.60)",
+        "design-only no-authority invariant holds; no new Settings key",
+        "handoff drift-check enumerates v0.61/v0.62/v0.63 consumers"
+      ]
+    },
+    %{
+      id: "docs_gate",
+      title: "docs gate and release-planning whitespace check",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "docs"],
+      coverage: [
+        "git diff --check is clean",
+        "docs gate is visible in release evidence"
+      ]
+    }
+  ]
+
+  defp release_v060 do
+    env = owned_env("release-v060", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v060")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v060_steps, &run_release_v060_step(&1, env))
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v060",
+      version: "v0.60",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; deterministic design-artifact, ADR-acceptance, walking-skeleton, and docs-gate checks run against local files and fixtures only",
+      notes:
+        "post-implementation audit and manual operator validation remain required before v0.60 closeout",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v060-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v060 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v060 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v060_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v060 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -5667,6 +5820,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v057
       mix allbert.test release.v058
       mix allbert.test release.v059
+      mix allbert.test release.v060
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

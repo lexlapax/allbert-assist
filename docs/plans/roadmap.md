@@ -3734,7 +3734,8 @@ Request flow: `docs/plans/v0.60-request-flow.md`
 ADR: `docs/adr/0077-product-experience-design-and-information-architecture.md`
 (Experience Design & IA); `docs/adr/0078-first-model-path.md` (First-Model Path).
 
-Status: planned (pre-1.0 design release; gate `release.v060`). Design-first
+Status: implementation complete on 2026-06-30; post-implementation audit and
+manual operator validation pending; gate `release.v060` is green. Design-first
 release inserted ahead of the four implementation releases (v0.61 presentation,
 v0.62 packaging, v0.63 onboarding, v0.64 RC) by the post-v0.59 product-readiness
 review. It adds no new authority and ships no new user-facing capability: it
@@ -3747,7 +3748,7 @@ entry points onboarding had not validated; the structural redesign was unowned).
 v0.60 owns that design as a single artifact and hands a navigable skeleton to the
 implementers.
 
-Expected direction (design + scaffolding only):
+Implemented scope (design + scaffolding only):
 
 - A **unified technical-prosumer experience journey** — one end-to-end map from
   install to first useful work that the later releases implement, not four

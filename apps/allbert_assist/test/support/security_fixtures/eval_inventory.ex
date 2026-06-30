@@ -45,6 +45,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v057
           | :v058
           | :v059
+          | :v060
 
   @type required_surface ::
           :resource_execution
@@ -94,6 +95,15 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :settings_version_contract
           | :secret_metadata
           | :param_contract
+          | :product_experience
+          | :information_architecture
+          | :first_model_path
+          | :onboarding_design
+          | :persona_model
+          | :entry_point_cli
+          | :design_system
+          | :walking_skeleton
+          | :design_handoff
 
   @type row :: %{
           id: String.t(),
@@ -4893,6 +4903,214 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :allowed,
       assert: [:catalog_generated, :no_unsupported_schema, :valid_requests_not_regressed],
       test_module: "AllbertAssist.Actions.ParamContractTest"
+    },
+    %{
+      id: "product-experience-spec-present-001",
+      milestone: :v060,
+      surface: :product_experience,
+      scenario:
+        "The product experience spec is missing a stage, first-value moment, or downstream owner map",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [
+        :journey_stages_present,
+        :first_useful_chat_named,
+        :downstream_owners_mapped
+      ],
+      test_module: "AllbertAssist.Security.V060SweepEvalTest"
+    },
+    %{
+      id: "information-architecture-spec-present-001",
+      milestone: :v060,
+      surface: :information_architecture,
+      scenario:
+        "The IA artifact omits sitemap, navigation, composition, or preview-route manifest details",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [
+        :sitemap_present,
+        :navigation_model_present,
+        :preview_route_manifest_present
+      ],
+      test_module: "AllbertAssist.Security.V060SweepEvalTest"
+    },
+    %{
+      id: "first-model-path-design-present-001",
+      milestone: :v060,
+      surface: :first_model_path,
+      scenario:
+        "The first-model path design omits the assisted-local decision, BYOK fallback, or packaging handoff",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [
+        :assisted_local_chosen,
+        :byok_fallback_documented,
+        :packaging_handoff_documented
+      ],
+      test_module: "AllbertAssist.Security.V060SweepEvalTest"
+    },
+    %{
+      id: "onboarding-flow-design-present-001",
+      milestone: :v060,
+      surface: :onboarding_design,
+      scenario:
+        "The onboarding flow design omits QuickStart, Advanced, first useful chat, or v0.63 ownership",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [
+        :quickstart_track_present,
+        :advanced_track_present,
+        :v063_consumer_named
+      ],
+      test_module: "AllbertAssist.Security.V060SweepEvalTest"
+    },
+    %{
+      id: "persona-model-design-present-001",
+      milestone: :v060,
+      surface: :persona_model,
+      scenario:
+        "The persona model omits initial personas, review-confirm rules, or seed-only authority constraints",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [
+        :initial_personas_named,
+        :review_confirm_required,
+        :seed_only_no_authority
+      ],
+      test_module: "AllbertAssist.Security.V060SweepEvalTest"
+    },
+    %{
+      id: "entry-point-cli-ux-design-present-001",
+      milestone: :v060,
+      surface: :entry_point_cli,
+      scenario:
+        "The entry-point CLI UX spec omits command taxonomy, first-run detection, or wizard launch",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [
+        :command_taxonomy_present,
+        :first_run_detection_present,
+        :wizard_launch_present
+      ],
+      test_module: "AllbertAssist.Security.V060SweepEvalTest"
+    },
+    %{
+      id: "design-system-gap-analysis-present-001",
+      milestone: :v060,
+      surface: :design_system,
+      scenario:
+        "The design-system gap analysis omits token, component, pattern, or v0.61 consumer gaps",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [
+        :token_gaps_present,
+        :component_variant_gaps_present,
+        :pattern_gaps_present
+      ],
+      test_module: "AllbertAssist.Security.V060SweepEvalTest"
+    },
+    %{
+      id: "adr-0077-accepted-001",
+      milestone: :v060,
+      surface: :information_architecture,
+      scenario: "ADR 0077 is not accepted at v0.60 or omits IA/navigation/composition scope",
+      boundary: :adr_acceptance,
+      expected: :allowed,
+      assert: [
+        :accepted_v060,
+        :information_architecture_decision,
+        :composition_redesign_recorded
+      ],
+      test_module: "AllbertAssist.Security.V060SweepEvalTest"
+    },
+    %{
+      id: "adr-0078-first-model-path-accepted-001",
+      milestone: :v060,
+      surface: :first_model_path,
+      scenario:
+        "ADR 0078 is not accepted at v0.60 or omits the assisted-local/BYOK/managed-hosted decision",
+      boundary: :adr_acceptance,
+      expected: :allowed,
+      assert: [
+        :accepted_v060,
+        :assisted_local_default,
+        :managed_hosted_rejected
+      ],
+      test_module: "AllbertAssist.Security.V060SweepEvalTest"
+    },
+    %{
+      id: "walking-skeleton-routes-resolve-001",
+      milestone: :v060,
+      surface: :walking_skeleton,
+      scenario:
+        "A preview route from the IA manifest fails to resolve through the operator shell and catalog placeholders",
+      boundary: :preview_route_manifest,
+      expected: :allowed,
+      assert: [
+        :routes_resolve,
+        :catalog_components_known,
+        :placeholder_fallback_absent
+      ],
+      test_module: "AllbertAssistWeb.Skeleton.WalkingSkeletonTest"
+    },
+    %{
+      id: "walking-skeleton-nav-shell-001",
+      milestone: :v060,
+      surface: :walking_skeleton,
+      scenario: "The walking skeleton omits grouped IA navigation or active route state",
+      boundary: :preview_navigation_shell,
+      expected: :allowed,
+      assert: [
+        :nav_model_exposed,
+        :active_route_resolves,
+        :inter_screen_links_present
+      ],
+      test_module: "AllbertAssistWeb.Skeleton.WalkingSkeletonTest"
+    },
+    %{
+      id: "walking-skeleton-a11y-smoke-001",
+      milestone: :v060,
+      surface: :walking_skeleton,
+      scenario: "The preview shell omits FocusTrap, high-contrast, or reduced-motion readiness",
+      boundary: :preview_accessibility_smoke,
+      expected: :allowed,
+      assert: [
+        :focus_trap_ready,
+        :high_contrast_ready,
+        :reduced_motion_ready
+      ],
+      test_module: "AllbertAssistWeb.Skeleton.WalkingSkeletonTest"
+    },
+    %{
+      id: "no-new-authority-design-only-001",
+      milestone: :v060,
+      surface: :walking_skeleton,
+      scenario:
+        "The walking skeleton reads business state, exposes effectful affordances, or adds authority/settings",
+      boundary: :design_only_no_authority,
+      expected: :denied,
+      assert: [
+        :no_live_data,
+        :no_effectful_affordance,
+        :no_new_settings_key
+      ],
+      test_module: "AllbertAssistWeb.Skeleton.WalkingSkeletonTest"
+    },
+    %{
+      id: "rc-design-handoff-no-drift-001",
+      milestone: :v060,
+      surface: :design_handoff,
+      scenario:
+        "v0.60 omits downstream design consumers or leaks presentation, packaging, onboarding, or RC build scope",
+      boundary: :release_handoff_contract,
+      expected: :allowed,
+      assert: [
+        :v061_consumers_enumerated,
+        :v062_consumers_enumerated,
+        :v063_consumers_enumerated,
+        :no_build_scope_leak
+      ],
+      test_module: "AllbertAssist.Security.V060SweepEvalTest"
     },
     %{
       id: "sandbox-backend-disabled-001",
