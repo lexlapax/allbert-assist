@@ -103,7 +103,10 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
     """
   end
 
-  defp preview_surface(route) do
+  @doc false
+  # Public so the v0.60b `VisualPreviewLive` styled variants render the exact same
+  # hero compositions under each `data-visual-direction` delta — no rendering drift.
+  def preview_surface(route) do
     %Surface{
       id: :"v060_preview_#{route.route_id}",
       app_id: :allbert,

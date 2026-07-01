@@ -250,6 +250,151 @@
   --workspace-field-placeholder: #111827;
 }
 
+/*
+ * v0.60b M3 — candidate visual directions (disposable design-exploration).
+ *
+ * Each direction is a token/theme delta over the v0.58 substrate, applied via the
+ * data-visual-direction attribute on the styled-variant preview shell. Structural
+ * tokens (font family, radius, density, motion) are contrast-safe and apply
+ * unconditionally; colour tokens are guarded by body:not([data-high-contrast="true"])
+ * so the high-contrast axis always wins, and the reduce-motion axis already forces
+ * transition/animation duration to ~0 with !important. Directions:
+ *   a — Warm Editorial Calm  (humanist serif, warm surfaces, terracotta accent, airy)
+ *   b — Precise Technical Console (monospace, cool surfaces, indigo accent, compact)
+ *   c — Soft Modern Depth   (rounded, tonal violet surfaces, large radius, roomy)
+ */
+
+/* Direction A — Warm Editorial Calm: structural (contrast-safe). */
+[data-visual-direction="a"] {
+  --allbert-font-family: ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype",
+    "Book Antiqua", serif;
+  --allbert-radius-control: 0.5rem;
+  --allbert-radius-panel: 0.75rem;
+  --allbert-radius-modal: 0.75rem;
+  --allbert-radius-drawer: 0.75rem;
+  --allbert-radius: var(--allbert-radius-panel);
+  --allbert-density: 1.15;
+  --allbert-motion-duration-fast: 160ms;
+  --allbert-motion-duration-base: 220ms;
+  --allbert-motion-duration-slow: 320ms;
+  --allbert-motion-ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* Direction A — colours (skipped under high-contrast so that axis wins). */
+body:not([data-high-contrast="true"]) [data-visual-direction="a"] {
+  --allbert-surface-0: #faf6f0;
+  --allbert-surface-1: #fffdf9;
+  --allbert-surface-2: #f1e8db;
+  --allbert-text-strong: #2c2620;
+  --allbert-text-soft: #6b5f4d;
+  --allbert-line: #e3d7c5;
+  --allbert-accent: #b5651d;
+  --allbert-accent-contrast: #ffffff;
+  --allbert-accent-soft: #f6ebdd;
+  --workspace-accent: var(--allbert-accent);
+  --workspace-focus: var(--allbert-accent);
+}
+
+[data-theme="dark"] body:not([data-high-contrast="true"]) [data-visual-direction="a"] {
+  --allbert-surface-0: #1b1712;
+  --allbert-surface-1: #241f18;
+  --allbert-surface-2: #2f2820;
+  --allbert-text-strong: #f4ecdd;
+  --allbert-text-soft: #b9ab94;
+  --allbert-line: #3d352a;
+  --allbert-accent: #dd9257;
+  --allbert-accent-contrast: #1b1712;
+  --allbert-accent-soft: #33291d;
+}
+
+/* Direction B — Precise Technical Console: structural (contrast-safe). */
+[data-visual-direction="b"] {
+  --allbert-font-family: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code",
+    "Roboto Mono", "Courier New", monospace;
+  --allbert-radius-control: 0.1875rem;
+  --allbert-radius-panel: 0.25rem;
+  --allbert-radius-modal: 0.25rem;
+  --allbert-radius-drawer: 0.25rem;
+  --allbert-radius: var(--allbert-radius-panel);
+  --allbert-density: 0.85;
+  --allbert-motion-duration-fast: 90ms;
+  --allbert-motion-duration-base: 110ms;
+  --allbert-motion-duration-slow: 150ms;
+  --allbert-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Direction B — colours (skipped under high-contrast so that axis wins). */
+body:not([data-high-contrast="true"]) [data-visual-direction="b"] {
+  --allbert-surface-0: #f5f6f9;
+  --allbert-surface-1: #ffffff;
+  --allbert-surface-2: #eaedf2;
+  --allbert-text-strong: #12161d;
+  --allbert-text-soft: #59616e;
+  --allbert-line: #d2d7e0;
+  --allbert-accent: #4f6bed;
+  --allbert-accent-contrast: #ffffff;
+  --allbert-accent-soft: #e7eafc;
+  --workspace-accent: var(--allbert-accent);
+  --workspace-focus: var(--allbert-accent);
+}
+
+[data-theme="dark"] body:not([data-high-contrast="true"]) [data-visual-direction="b"] {
+  --allbert-surface-0: #0d1117;
+  --allbert-surface-1: #131923;
+  --allbert-surface-2: #1b2431;
+  --allbert-text-strong: #e8edf4;
+  --allbert-text-soft: #9aa6b5;
+  --allbert-line: #2a3341;
+  --allbert-accent: #8a9dff;
+  --allbert-accent-contrast: #0d1117;
+  --allbert-accent-soft: #1c2740;
+}
+
+/* Direction C — Soft Modern Depth: structural (contrast-safe). */
+[data-visual-direction="c"] {
+  --allbert-font-family: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
+    "Quicksand", system-ui, sans-serif;
+  --allbert-radius-control: 0.875rem;
+  --allbert-radius-panel: 1.25rem;
+  --allbert-radius-modal: 1.25rem;
+  --allbert-radius-drawer: 1.25rem;
+  --allbert-radius: var(--allbert-radius-panel);
+  --allbert-density: 1.1;
+  --allbert-motion-duration-fast: 140ms;
+  --allbert-motion-duration-base: 200ms;
+  --allbert-motion-duration-slow: 300ms;
+  --allbert-motion-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --allbert-motion-ease-emphasis: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --allbert-shadow-panel: 0 18px 40px -12px rgb(60 40 120 / 28%);
+}
+
+/* Direction C — colours (skipped under high-contrast so that axis wins). */
+body:not([data-high-contrast="true"]) [data-visual-direction="c"] {
+  --allbert-surface-0: #f2f1fb;
+  --allbert-surface-1: #ffffff;
+  --allbert-surface-2: #e8e5f7;
+  --allbert-text-strong: #1c1830;
+  --allbert-text-soft: #5b5478;
+  --allbert-line: #ddd8f0;
+  --allbert-accent: #7c6cf0;
+  --allbert-accent-contrast: #ffffff;
+  --allbert-accent-soft: #ece9fd;
+  --workspace-accent: var(--allbert-accent);
+  --workspace-focus: var(--allbert-accent);
+}
+
+[data-theme="dark"] body:not([data-high-contrast="true"]) [data-visual-direction="c"] {
+  --allbert-surface-0: #14121f;
+  --allbert-surface-1: #1c1930;
+  --allbert-surface-2: #251f3d;
+  --allbert-text-strong: #efeafc;
+  --allbert-text-soft: #b3a9d6;
+  --allbert-line: #332c52;
+  --allbert-accent: #a99bf7;
+  --allbert-accent-contrast: #14121f;
+  --allbert-accent-soft: #241d3d;
+}
+
 @media (prefers-contrast: more) {
   :root {
     --allbert-text-strong: #000000;

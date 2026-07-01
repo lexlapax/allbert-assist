@@ -40,6 +40,12 @@ defmodule AllbertAssistWeb.Layouts do
     values: ["narrow", "wide", "full"],
     doc: "the width of the inner content container"
 
+  attr :visual_direction, :string,
+    default: nil,
+    doc:
+      "optional v0.60b preview-only visual-direction id (a|b|c|selected); drives the " <>
+        "[data-visual-direction] token/theme delta on disposable styled-variant routes"
+
   slot :inner_block, required: true
 
   def app(assigns) do
@@ -52,7 +58,12 @@ defmodule AllbertAssistWeb.Layouts do
       Skip to content
     </a>
 
-    <main id="main-content" tabindex="-1" class={main_class(@content_width)}>
+    <main
+      id="main-content"
+      tabindex="-1"
+      class={main_class(@content_width)}
+      data-visual-direction={@visual_direction}
+    >
       <div class={content_container_class(@content_width)}>
         {render_slot(@inner_block)}
       </div>
@@ -72,6 +83,12 @@ defmodule AllbertAssistWeb.Layouts do
   attr :labelledby, :string, default: "operator-shell-title"
   attr :nav_items, :list, default: nil
 
+  attr :visual_direction, :string,
+    default: nil,
+    doc:
+      "optional v0.60b preview-only visual-direction id (a|b|c|selected); drives the " <>
+        "[data-visual-direction] token/theme delta on disposable styled-variant routes"
+
   slot :inner_block, required: true
 
   def operator_shell(assigns) do
@@ -82,6 +99,7 @@ defmodule AllbertAssistWeb.Layouts do
       data-operator-shell={@active}
       data-workspace-shell="operator"
       data-active-page={@active}
+      data-visual-direction={@visual_direction}
       role="region"
       aria-labelledby={@labelledby}
     >

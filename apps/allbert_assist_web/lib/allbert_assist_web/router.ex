@@ -62,6 +62,11 @@ defmodule AllbertAssistWeb.Router do
       live "/channels", Skeleton.PreviewLive, :channels
       live "/settings", Skeleton.PreviewLive, :settings
       live "/trust", Skeleton.PreviewLive, :trust
+
+      # v0.60b disposable styled-variant hero screens: the ≥3 candidate directions
+      # (a|b|c) and the M6 selected proof, each rendered under a data-visual-direction
+      # token/theme delta. Placeholder-only, no live data, no authority.
+      live "/visual/:direction/:screen", Skeleton.VisualPreviewLive, :visual
     end
   end
 
