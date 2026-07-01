@@ -467,6 +467,28 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   def handle_event("plan_build_cancel_run", _params, socket), do: {:noreply, socket}
 
+  def handle_event("plan_build_start_run", %{"workflow-id" => workflow_id}, socket)
+      when is_binary(workflow_id) and workflow_id != "" do
+    params = %{workflow_id: workflow_id, user_id: socket.assigns.user_id}
+
+    # start_plan_run is confirmation-required (permission :workflow_run_start); the
+    # first invocation returns needs_confirmation and surfaces through the normal
+    # workspace approval handoff. v0.61 M10.3 P0-5 wires the previously-unhandled
+    # button so it no longer crashes the LiveView on click.
+    case run_workspace_action(socket, "start_plan_run", params) do
+      {:ok, %{status: :needs_confirmation} = response} ->
+        {:noreply,
+         socket
+         |> assign(response: response_text(response), error: nil)
+         |> assign_confirmation_handoff(response)}
+
+      {:ok, response} ->
+        {:noreply, assign(socket, :error, Map.get(response, :message, inspect(response)))}
+    end
+  end
+
+  def handle_event("plan_build_start_run", _params, socket), do: {:noreply, socket}
+
   def handle_event("workspace_tile_editor_sync", params, socket) do
     {:reply, workspace_tile_editor_reply(params, socket), socket}
   end

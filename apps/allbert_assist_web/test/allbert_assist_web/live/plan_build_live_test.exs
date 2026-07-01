@@ -261,6 +261,19 @@ defmodule AllbertAssistWeb.PlanBuildLiveTest do
     assert runs_html =~ "Run Progress"
   end
 
+  test "Plan/Build Start run button dispatches without crashing the LiveView", %{conn: conn} do
+    {:ok, view, html} = live(conn, ~p"/workspace?destination=workspace:plan_build")
+
+    assert html =~ ~s(phx-click="plan_build_start_run")
+
+    # start_plan_run is confirmation-required; the event must be handled (surfacing a
+    # confirmation handoff or an error), never raise an unmatched-handle_event crash.
+    render_click(view, "plan_build_start_run", %{"workflow-id" => "multi_step"})
+
+    assert Process.alive?(view.pid)
+    assert render(view) =~ "workspace-shell"
+  end
+
   defp preview_packet do
     %{
       workflow_id: "multi_step",

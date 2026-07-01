@@ -167,6 +167,30 @@ defmodule AllbertAssistWeb.ObjectiveLiveTest do
     assert cancelled.status == "cancelled"
   end
 
+  test "workspace fragment/event messages on the shared user topic do not crash the view", %{
+    conn: conn
+  } do
+    assert {:ok, objective} =
+             Objectives.create_objective(%{
+               user_id: "local",
+               title: "Shared topic objective",
+               objective: "Stay alive through fragment traffic.",
+               status: "running",
+               active_app: "allbert",
+               acceptance_criteria: %{"min_completed_steps" => 1}
+             })
+
+    {:ok, view, _html} = live(conn, ~p"/objectives/#{objective.id}")
+
+    # SignalBridge broadcasts these to topic_for("local"), which this view subscribes
+    # to for objective events; unmatched handle_info would crash the process.
+    send(view.pid, {:fragment, %{}})
+    send(view.pid, {:workspace_event, %{}})
+
+    assert render(view) =~ "Shared topic objective"
+    assert Process.alive?(view.pid)
+  end
+
   defp assert_catalog_components_known!(html) do
     known_components = Catalog.known_components() |> Enum.map(&Atom.to_string/1)
 

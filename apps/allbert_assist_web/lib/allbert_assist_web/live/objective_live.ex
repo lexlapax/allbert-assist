@@ -109,6 +109,14 @@ defmodule AllbertAssistWeb.ObjectiveLive do
   @impl true
   def handle_info({:objective_event, _signal}, socket), do: {:noreply, refresh(socket)}
 
+  # SignalBridge broadcasts workspace fragments/events to the same per-user topic this
+  # view subscribes to for objective events. This view only reacts to objective
+  # events; ignore the others rather than crash on an unmatched handle_info (v0.61
+  # M10.3 P0-6).
+  def handle_info({:fragment, _envelope}, socket), do: {:noreply, socket}
+
+  def handle_info({:workspace_event, _signal}, socket), do: {:noreply, socket}
+
   def handle_info(:refresh_objective, socket) do
     if connected?(socket), do: Process.send_after(self(), :refresh_objective, 5_000)
     {:noreply, refresh(socket)}
