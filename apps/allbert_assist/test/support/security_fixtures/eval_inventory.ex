@@ -46,6 +46,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v058
           | :v059
           | :v060
+          | :v060b
 
   @type required_surface ::
           :resource_execution
@@ -104,6 +105,8 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :design_system
           | :walking_skeleton
           | :design_handoff
+          | :visual_language
+          | :visual_direction
 
   @type row :: %{
           id: String.t(),
@@ -5142,6 +5145,238 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         :no_v060_persona_seed_files
       ],
       test_module: "AllbertAssist.Security.V060SweepEvalTest"
+    },
+    %{
+      id: "visual-language-research-present-001",
+      milestone: :v060b,
+      surface: :visual_language,
+      scenario:
+        "The M1 research doc omits the reference survey, extracted principles, or the trust-first mood/direction inventory",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [
+        :reference_survey_present,
+        :visual_interaction_principles_extracted,
+        :mood_direction_inventory_present
+      ],
+      test_module: "AllbertAssist.Security.V060bSweepEvalTest"
+    },
+    %{
+      id: "visual-language-brief-present-001",
+      milestone: :v060b,
+      surface: :visual_language,
+      scenario:
+        "The M2 brief omits a must-satisfy requirement (persona, token/catalog, a11y axes, chat-primary, or performance)",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [
+        :persona_requirement_present,
+        :token_catalog_extensibility_present,
+        :a11y_axes_present,
+        :chat_primary_present,
+        :performance_local_first_present
+      ],
+      test_module: "AllbertAssist.Security.V060bSweepEvalTest"
+    },
+    %{
+      id: "visual-language-rubric-present-001",
+      milestone: :v060b,
+      surface: :visual_language,
+      scenario: "The M2 Evaluation Rubric omits scored axes, a scale, or weighting",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [
+        :rubric_section_present,
+        :scored_axes_present,
+        :scale_and_weighting_present
+      ],
+      test_module: "AllbertAssist.Security.V060bSweepEvalTest"
+    },
+    %{
+      id: "visual-direction-a-present-001",
+      milestone: :v060b,
+      surface: :visual_direction,
+      scenario:
+        "Candidate Direction A omits its Stage-1 wireframe or a Stage-2 scheme facet (color/UX/UI/chat-primary hero)",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [
+        :wireframe_stage_present,
+        :color_scheme_present,
+        :ux_ui_scheme_present,
+        :chat_primary_hero_present
+      ],
+      test_module: "AllbertAssist.Security.V060bSweepEvalTest"
+    },
+    %{
+      id: "visual-direction-b-present-001",
+      milestone: :v060b,
+      surface: :visual_direction,
+      scenario:
+        "Candidate Direction B omits its Stage-1 wireframe or a Stage-2 scheme facet (color/UX/UI/chat-primary hero)",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [
+        :wireframe_stage_present,
+        :color_scheme_present,
+        :ux_ui_scheme_present,
+        :chat_primary_hero_present
+      ],
+      test_module: "AllbertAssist.Security.V060bSweepEvalTest"
+    },
+    %{
+      id: "visual-direction-c-present-001",
+      milestone: :v060b,
+      surface: :visual_direction,
+      scenario:
+        "Candidate Direction C omits its Stage-1 wireframe or a Stage-2 scheme facet (color/UX/UI/chat-primary hero)",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [
+        :wireframe_stage_present,
+        :color_scheme_present,
+        :ux_ui_scheme_present,
+        :chat_primary_hero_present
+      ],
+      test_module: "AllbertAssist.Security.V060bSweepEvalTest"
+    },
+    %{
+      id: "visual-language-comparison-present-001",
+      milestone: :v060b,
+      surface: :visual_language,
+      scenario:
+        "The M4 comparison fails to score every direction on every rubric axis as a decision-ready side-by-side",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [
+        :per_direction_scores_present,
+        :every_rubric_axis_scored,
+        :side_by_side_table_present
+      ],
+      test_module: "AllbertAssist.Security.V060bSweepEvalTest"
+    },
+    %{
+      id: "visual-language-selected-present-001",
+      milestone: :v060b,
+      surface: :visual_language,
+      scenario:
+        "The M5 selected doc fails to name one chosen direction, the rubric rationale, the token/component delta, or the v0.61 build handoff",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [
+        :chosen_direction_named,
+        :rubric_rationale_present,
+        :token_component_delta_present,
+        :v061_build_handoff_present
+      ],
+      test_module: "AllbertAssist.Security.V060bSweepEvalTest"
+    },
+    %{
+      id: "three-divergent-directions-present-001",
+      milestone: :v060b,
+      surface: :visual_direction,
+      scenario:
+        "The three direction docs do not carry distinct token-delta values or distinct Stage-1 wireframes",
+      boundary: :candidate_divergence,
+      expected: :allowed,
+      assert: [
+        :three_direction_docs_present,
+        :distinct_token_deltas,
+        :distinct_wireframes
+      ],
+      test_module: "AllbertAssist.Security.V060bSweepEvalTest"
+    },
+    %{
+      id: "operator-choice-recorded-001",
+      milestone: :v060b,
+      surface: :visual_language,
+      scenario:
+        "The operator's single chosen direction is not recorded consistently in the selected doc and ADR 0079",
+      boundary: :operator_choice,
+      expected: :allowed,
+      assert: [
+        :single_direction_chosen,
+        :recorded_in_selected_doc,
+        :recorded_in_adr_0079
+      ],
+      test_module: "AllbertAssist.Security.V060bSweepEvalTest"
+    },
+    %{
+      id: "adr-0079-accepted-with-choice-001",
+      milestone: :v060b,
+      surface: :visual_language,
+      scenario:
+        "ADR 0079 is not Accepted-with-choice (v0.60b) or fails to name the selected direction among the candidates",
+      boundary: :adr_acceptance,
+      expected: :allowed,
+      assert: [
+        :accepted_with_choice_v060b,
+        :selected_direction_named,
+        :chosen_among_candidates
+      ],
+      test_module: "AllbertAssist.Security.V060bSweepEvalTest"
+    },
+    %{
+      id: "hero-renderings-present-001",
+      milestone: :v060b,
+      surface: :visual_direction,
+      scenario:
+        "The candidate directions do not each render the four hero screens through the catalog/shell with no live data or authority",
+      boundary: :design_only_no_authority,
+      expected: :allowed,
+      assert: [
+        :three_directions_rendered,
+        :four_hero_screens_each,
+        :no_live_data,
+        :no_authority
+      ],
+      test_module: "AllbertAssistWeb.Skeleton.VisualDirectionProofTest"
+    },
+    %{
+      id: "styled-skeleton-proof-001",
+      milestone: :v060b,
+      surface: :visual_direction,
+      scenario:
+        "The chosen direction is not applied to all four skeleton hero screens as a rendered proof with a11y holding and no authority",
+      boundary: :design_only_no_authority,
+      expected: :allowed,
+      assert: [
+        :chosen_direction_proof_rendered,
+        :four_hero_screens,
+        :a11y_axes_hold,
+        :no_live_data_no_authority
+      ],
+      test_module: "AllbertAssistWeb.Skeleton.VisualDirectionProofTest"
+    },
+    %{
+      id: "no-new-authority-design-only-001",
+      milestone: :v060b,
+      surface: :visual_direction,
+      scenario:
+        "A v0.60b styled rendering reads business state, exposes an effectful affordance, or adds authority/egress/Settings key",
+      boundary: :design_only_no_authority,
+      expected: :denied,
+      assert: [
+        :no_live_data,
+        :no_effectful_affordance,
+        :no_new_authority_or_settings_key
+      ],
+      test_module: "AllbertAssist.Security.V060bSweepEvalTest"
+    },
+    %{
+      id: "visual-language-handoff-to-v061-no-drift-001",
+      milestone: :v060b,
+      surface: :design_handoff,
+      scenario:
+        "The handoff fails to name v0.61 as the sole consumer or pulls presentation-build scope into v0.60b",
+      boundary: :design_handoff_contract,
+      expected: :allowed,
+      assert: [
+        :v061_sole_consumer,
+        :chosen_language_plus_delta_output,
+        :downstream_unchanged
+      ],
+      test_module: "AllbertAssist.Security.V060bSweepEvalTest"
     },
     %{
       id: "sandbox-backend-disabled-001",

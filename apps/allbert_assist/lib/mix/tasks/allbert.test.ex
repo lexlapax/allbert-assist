@@ -36,6 +36,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v058
       mix allbert.test release.v059
       mix allbert.test release.v060
+      mix allbert.test release.v060b
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -143,6 +144,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v058"]), do: release_v058()
   def run(["release.v059"]), do: release_v059()
   def run(["release.v060"]), do: release_v060()
+  def run(["release.v060b"]), do: release_v060b()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -3742,6 +3744,172 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  @release_v060b_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "format_check",
+      title: "formatter check for v0.60b release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["format", "--check-formatted"],
+      coverage: [
+        "formatter drift fails the v0.60b visual-language handoff",
+        "formatter evidence is captured inside release.v060b"
+      ]
+    },
+    %{
+      id: "compile_warnings_as_errors",
+      title: "compile v0.60b release candidate with warnings as errors",
+      cwd: :root,
+      executable: "mix",
+      args: ["compile", "--warnings-as-errors"],
+      coverage: [
+        "compiler warnings fail the v0.60b visual-language handoff",
+        "compile evidence is captured inside release.v060b"
+      ]
+    },
+    %{
+      id: "credo_strict",
+      title: "Credo strict check for v0.60b release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["credo", "--strict"],
+      coverage: [
+        "Credo strict findings fail the v0.60b visual-language handoff",
+        "Credo evidence is captured inside release.v060b"
+      ]
+    },
+    %{
+      id: "dialyzer",
+      title: "Dialyzer static analysis for v0.60b release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["dialyzer"],
+      coverage: [
+        "Dialyzer warnings fail the v0.60b visual-language handoff",
+        "included because v0.60b produces styled-variant rendering code",
+        "Dialyzer evidence is captured inside release.v060b"
+      ]
+    },
+    %{
+      id: "visual_direction_proof",
+      title: "≥3 candidate directions + selected proof render the four hero screens",
+      cwd: :web,
+      executable: "mix",
+      args: ["test", "test/allbert_assist_web/skeleton/visual_direction_proof_test.exs"],
+      coverage: [
+        "every /preview/visual/<direction>/<screen> route resolves through the catalog/shell",
+        "≥3 candidate directions each render the four hero screens with their token/theme delta",
+        "the selected proof renders all four hero screens as the chosen direction",
+        "a11y readiness holds; screens read no business state and grant no authority",
+        "the unknown-component placeholder fallback is absent from successful output"
+      ]
+    },
+    %{
+      id: "v060b_security_sweep",
+      title:
+        "v0.60b design-artifact, ADR-acceptance, decision, design-only, and handoff eval rows",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v060b_sweep_eval_test.exs",
+        "test/security/security_eval_case_test.exs"
+      ],
+      coverage: [
+        "design-artifact presence rows File.read! each of the v0.60b docs/design/visual-*.md",
+        "ADR-acceptance row File.read! ADR 0079 and asserts Accepted-with-choice (v0.60b) with a named direction",
+        "the ≥3-candidate-count and operator-decision rows pass with a single recorded choice",
+        "design-only no-authority invariant holds; no new Settings key",
+        "handoff drift-check names v0.61 as the sole consumer; downstream unchanged"
+      ]
+    },
+    %{
+      id: "docs_gate",
+      title: "docs gate and release-planning whitespace check",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "docs"],
+      coverage: [
+        "git diff --check is clean",
+        "docs gate is visible in release evidence"
+      ]
+    }
+  ]
+
+  defp release_v060b do
+    env = owned_env("release-v060b", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v060b")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v060b_steps, &run_release_v060b_step(&1, env))
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v060b",
+      version: "v0.60b",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; deterministic visual-language design-artifact, ADR-acceptance, styled-variant rendering, and docs-gate checks run against local files and fixtures only",
+      notes:
+        "v0.60b is a design + disposable-exploration release; the chosen visual language and its token/component delta hand off to v0.61 only. Manual S4.5 design-review evidence is retained outside the repo",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v060b-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v060b evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v060b failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v060b_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v060b #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -5834,6 +6002,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v058
       mix allbert.test release.v059
       mix allbert.test release.v060
+      mix allbert.test release.v060b
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

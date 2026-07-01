@@ -39,9 +39,10 @@ defmodule AllbertAssistWeb.Skeleton.VisualDirectionManifest do
 
   @doc """
   The operator's M5-chosen canonical direction (ADR 0079). The `:selected` proof route
-  renders as this direction's token/theme delta.
+  renders as this direction's token/theme delta. The spec is pinned to the concrete
+  M5 choice (`:c`) — a broader `direction()` spec would over-approximate the constant.
   """
-  @spec chosen_direction() :: direction()
+  @spec chosen_direction() :: :c
   def chosen_direction, do: @chosen_direction
 
   @doc """
