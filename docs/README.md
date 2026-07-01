@@ -31,7 +31,10 @@ For contributors:
 
 v0.59 release closeout is complete as `0.59.0`; the release tag `v0.59.0` exists.
 v0.60 implementation and post-implementation remediation through M9.6 are complete
-and ready for operator manual validation. The remaining pre-1.0 arc is v0.61
+and ready for operator manual validation. The remaining pre-1.0 arc is v0.60b
+(0.60.1) visual design language & art direction — the visual-language design point
+release that produces at least three candidate directions and has the operator
+choose one (ADR 0079) — then v0.61
 presentation layer overhaul, v0.62 packaging/entry points, v0.63 guided
 onboarding/profiles, and v0.64 product RC; see the [plans index](plans/README.md)
 and [roadmap](plans/roadmap.md). The v0.60 product-experience artifacts live

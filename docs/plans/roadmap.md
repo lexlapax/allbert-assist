@@ -394,9 +394,27 @@ scope.
     releases implement one designed journey instead of designing as they go. Gate
     `release.v060`; adds ADR 0077
     (Experience Design & IA) and ADR 0078 (First-Model Path).
+60b. v0.60b Visual Design Language & Art Direction — a **point release** (0.60.1)
+    inserted between v0.60 and v0.61; it does not renumber v0.61-v0.64. Another
+    design-first release, no new authority and no new capability: it is the
+    *visual*-direction parallel to what ADR 0077 did for *structural* direction.
+    v0.60 designed the IA/structure but a parallel inversion remained for the
+    **visual language** — the look-and-feel, visual identity, density/motion
+    character, and chat-primary composition were owned by nobody, and v0.61 (scoped
+    to craft/implement) would build blind. The v0.60 walking skeleton, rendered
+    through the operator-utility-flat shell, made this visible: structurally sound
+    but visually utilitarian. v0.60b **produces at least three divergent candidate
+    visual/UX design directions** (each viewable as rendered hero screens),
+    evaluates them against a rubric, and has the **operator choose one** canonical
+    visual language that v0.61 then implements. Research milestones (reference/
+    competitive scan, brief/rubric) then design milestones (3 directions ->
+    comparison -> operator selection -> styled-skeleton proof over the v0.60
+    skeleton). Gate `release.v060b`; adds ADR 0079 (Visual Design Language & Art
+    Direction). Sequenced after v0.60 closeout and before v0.61.
 61. v0.61 Presentation Layer Overhaul: first of three pre-1.0 **product
     capability** releases; implements the v0.60 IA/navigation/screen-composition
-    redesign **and** lands the brand/motion/visual-hierarchy/dark-mode polish over
+    redesign **in the v0.60b-chosen visual language** **and** lands the
+    brand/motion/visual-hierarchy/dark-mode polish over
     it, turning the v0.58 design-system substrate into a polished product surface
     for the technical-prosumer 1.0 audience. Brand identity (retire the stock
     Phoenix logo), a motion layer, a visual-hierarchy craft pass across the
@@ -3780,6 +3798,72 @@ Implemented scope (design + scaffolding only):
   skeleton (M6), the design-system gap analysis (M7), and the design handoff plus
   `release.v060` gate (M8).
 
+## v0.60b: Visual Design Language & Art Direction (0.60.1)
+
+Plan: `docs/plans/v0.60b-plan.md`
+Request flow: `docs/plans/v0.60b-request-flow.md`
+ADR: `docs/adr/0079-visual-design-language-and-art-direction.md`
+(Visual Design Language & Art Direction).
+
+Status: planned. A **point release** (version 0.60.1) inserted between v0.60 and
+v0.61; it does **not** renumber v0.61-v0.64 (they keep their versions). Sequenced
+after v0.60 closeout and before v0.61 begins. Like v0.60 it is a **design-first**
+release that adds no new authority and ships no new user-facing capability.
+
+Where v0.60 (ADR 0077) fixed the design-direction inversion for **structure** —
+the information architecture, navigation, and screen composition — a **parallel
+inversion remained for the visual language**, and this release closes it. v0.60b is
+the *visual*-direction parallel to what ADR 0077 did for *structural* direction: it
+designs the **ultra-modern visual/UX design language** — the visual identity,
+look-and-feel, density and motion character, and the chat-primary composition — that
+v0.61 then implements.
+
+The gap the v0.60 walking skeleton surfaced:
+
+- v0.58 was explicitly "a component-contract baseline, not a final UX layout
+  redesign" (ADR 0074) — it settled the design *system*, not the *aesthetic*.
+- v0.60 designed the IA/structure but was **thin on per-screen composition**; the
+  chat-primary re-layout was **asserted more than specified** — the shape is
+  designed, the visual craft over it is not.
+- v0.61 is scoped to **craft/implement**, not to design the visual language, so the
+  ultra-modern aesthetic was owned by nobody and v0.61 would **craft blind**.
+
+Rendered through the current operator-utility-flat shell, the v0.60 skeleton is
+structurally sound but **visually utilitarian**: right IA, tool-like presentation.
+Because the **web is the primary 1.0 surface** and v1.0 **freezes the presentation
+contracts** (Tier-2 Surface DSL catalog, workspace substrate), a visual language
+chosen implicitly during the v0.61 build — or deferred past the freeze — would lock
+today's utilitarian look and force a post-1.0 contract break to modernize it. This
+is the same **freeze-trap** logic as ADR 0077: the visual language must be
+*designed, and chosen,* before v0.61 builds and the freeze locks it.
+
+Planned scope (design + disposable exploration only):
+
+- **A reference/competitive scan** of the modern-tool aesthetic bar and a written
+  **design brief + evaluation rubric** (identity, density, motion character,
+  chat-primary composition, accessibility fit, feasibility over the ADR 0074
+  tokens).
+- **At least three divergent candidate visual/UX design directions**, each **viewable
+  as rendered hero screens** (workspace chat-primary view, an operator page, the
+  landing surface) — real rendered proposals, not adjective mood boards — so the
+  choice is between genuine alternatives.
+- **Comparison and selection**: the directions are evaluated against the rubric and
+  the **operator chooses one** canonical visual language; the choice and its
+  rationale are recorded in ADR 0079 at M5 (Accepted-with-choice).
+- **A styled-skeleton proof**: the chosen language re-skins the v0.60 walking
+  skeleton — a hi-fi visual layer over the low-fi structural scaffold — validating
+  the language as a rendered product, not only as documents. Any styled variants
+  are disposable exploration behind the preview flag.
+- The v0.60 walking skeleton stays the low-fi **structural** scaffold; v0.60b adds
+  the hi-fi **visual direction** on top; **v0.61 implements the chosen aesthetic
+  over the v0.60 IA**. The chosen language **extends ADR 0074** (tokens, variant
+  registry, pattern catalog) and feeds the v0.61 ADR 0074 amendment as its input.
+- No new authority, no new capability, no model-generated UI; the catalog stays the
+  rendering boundary (ADR 0030/0074), and every effectful path still routes through
+  Security Central (ADR 0006/0073). Research milestones (reference/competitive scan,
+  brief/rubric) then design milestones (3 directions -> comparison -> operator
+  selection -> styled-skeleton proof) close the release; gate `release.v060b`.
+
 ## v0.61: Presentation Layer Overhaul
 
 Plan: `docs/plans/v0.61-plan.md`
@@ -3789,12 +3873,15 @@ implements the v0.60 IA/navigation/screen-composition redesign plus brand
 identity, motion, marketing surface, and the professional craft pass).
 
 Status: planned (pre-1.0 product capability release 1 of 3; implements the v0.60
-design; followed by the v0.64 product RC). Builds on the v0.60 experience design
-and the v0.58 design-system substrate (tokens, variant registry, pattern
-library, one shell, catalog). This release does two things at once: it
-**implements the v0.60 structural redesign** — the overhauled information
+design **in the v0.60b-chosen visual language**; followed by the v0.64 product
+RC). Builds on the v0.60 experience design, the **v0.60b-chosen visual/UX design
+language** (ADR 0079), and the v0.58 design-system substrate (tokens, variant
+registry, pattern library, one shell, catalog). This release does two things at
+once: it **implements the v0.60 structural redesign** — the overhauled information
 architecture, navigation, and screen composition — and lands the **brand /
-motion / visual-hierarchy / dark-mode polish** over it. The v0.58 maturity
+motion / visual-hierarchy / dark-mode polish** over it, realizing the visual
+language v0.60b designed and the operator chose rather than inventing one at build
+time. The v0.58 maturity
 review found a strong token/accessibility foundation under an operator-utility
 surface: motion tokens and scattered transitions exist but not a coherent
 product motion layer; brand identity is effectively absent; `/` is still thin;
@@ -3807,8 +3894,9 @@ the technical-prosumer 1.0 audience.
 Expected direction:
 
 - Implementation of the v0.60 **information-architecture, navigation, and
-  screen-composition redesign** across the shell and pages — the structural
-  overhaul, not just surface polish.
+  screen-composition redesign** across the shell and pages, rendered in the
+  **v0.60b-chosen visual language** (ADR 0079) — the structural overhaul plus the
+  chosen aesthetic, not just surface polish.
 - A real brand identity (logo/wordmark, applied across shell and landing),
   retiring the stock framework logo.
 - A motion layer (entrance/drawer/skeleton transitions) over the existing token
@@ -4038,8 +4126,12 @@ checkpoint the release cannot ship without:
     (v0.63).
 11. [product] The web workspace meets the professional-UX bar: the **overhauled
     information architecture, navigation, and screen composition** from the v0.60
-    design implemented end-to-end, plus brand identity, motion, coherent visual
-    hierarchy, a real landing surface, and populated empty states (v0.61). The
+    design implemented end-to-end **in the v0.60b-chosen visual language** (ADR
+    0079), plus brand identity, motion, coherent visual
+    hierarchy, a real landing surface, and populated empty states (v0.61). This now
+    depends on v0.61 implementing the **v0.60b-chosen** visual/UX design language
+    (the operator's selection from at least three rendered candidate directions),
+    not an aesthetic invented at build time. The
     structural overhaul — not only brand/motion/hierarchy — must land before the
     v1.0 freeze locks the presentation contracts.
 12. [product] A single `allbert` CLI binary exposes a coherent grouped command
@@ -4052,9 +4144,11 @@ checkpoint the release cannot ship without:
 The v0.60 Product Experience Design release is the upstream **prerequisite** for
 items 10 (onboarding flow + persona model + First-Model Path) and 11 (the
 overhauled IA/navigation/screen composition), and resolves the First-Model Path
-(ADR 0078) those items consume. It is a design release, not an independently
-freeze-blocking matrix row: it is verified through the items its design feeds, so
-the matrix stays at 13 items.
+(ADR 0078) those items consume. The **v0.60b Visual Design Language** point release
+(0.60.1, ADR 0079) is the further prerequisite for item 11's visual bar: it designs
+and has the operator choose the ultra-modern visual language v0.61 implements. Both
+are design releases, not independently freeze-blocking matrix rows: they are
+verified through the items their designs feed, so the matrix stays at 13 items.
 
 ### Capabilities That Ship In The Arc But Are Not Freeze-Blocking
 
