@@ -52,6 +52,17 @@ defmodule AllbertAssistWeb.Skeleton.RouteManifest do
           required(:catalog_components) => [catalog_component(), ...]
         }
 
+  @type composition_child :: %{
+          required(:component) => catalog_component(),
+          required(:node_id) => String.t(),
+          required(:placeholder?) => boolean()
+        }
+
+  @type composition :: %{
+          required(:component) => catalog_component(),
+          required(:children) => [composition_child(), ...]
+        }
+
   @routes [
     %{
       route_id: :launch,
@@ -166,8 +177,109 @@ defmodule AllbertAssistWeb.Skeleton.RouteManifest do
     }
   ]
 
+  @composition_by_route_id %{
+    launch: %{
+      component: :button,
+      children: [
+        %{component: :button, node_id: "v060-launch-button", placeholder?: false}
+      ]
+    },
+    onboarding: %{
+      component: :onboarding_panel,
+      children: [
+        %{
+          component: :onboarding_panel,
+          node_id: "v060-onboarding-onboarding_panel",
+          placeholder?: true
+        },
+        %{component: :models_panel, node_id: "v060-onboarding-models_panel", placeholder?: true},
+        %{component: :status_badge, node_id: "v060-onboarding-review-status", placeholder?: false}
+      ]
+    },
+    workspace: %{
+      component: :chat,
+      children: [
+        %{component: :chat, node_id: "v060-workspace-chat", placeholder?: true},
+        %{component: :timeline, node_id: "v060-workspace-timeline", placeholder?: false},
+        %{component: :composer, node_id: "v060-workspace-composer", placeholder?: false},
+        %{
+          component: :utility_drawer,
+          node_id: "v060-workspace-utility_drawer",
+          placeholder?: false
+        }
+      ]
+    },
+    objectives: %{
+      component: :objective_card,
+      children: [
+        %{
+          component: :objective_card,
+          node_id: "v060-objectives-objective_card",
+          placeholder?: false
+        },
+        %{component: :timeline, node_id: "v060-objectives-timeline", placeholder?: false}
+      ]
+    },
+    jobs: %{
+      component: :job_card,
+      children: [
+        %{component: :job_card, node_id: "v060-jobs-job_card", placeholder?: false},
+        %{component: :table, node_id: "v060-jobs-table", placeholder?: false}
+      ]
+    },
+    models: %{
+      component: :models_panel,
+      children: [
+        %{component: :models_panel, node_id: "v060-models-models_panel", placeholder?: true},
+        %{component: :settings_card, node_id: "v060-models-settings_card", placeholder?: false}
+      ]
+    },
+    channels: %{
+      component: :channel_card,
+      children: [
+        %{component: :channel_card, node_id: "v060-channels-channel_card", placeholder?: false},
+        %{component: :settings_card, node_id: "v060-channels-settings_card", placeholder?: false}
+      ]
+    },
+    settings: %{
+      component: :settings_panel,
+      children: [
+        %{
+          component: :settings_panel,
+          node_id: "v060-settings-settings_panel",
+          placeholder?: true
+        },
+        %{
+          component: :surface_policy_panel,
+          node_id: "v060-settings-surface_policy_panel",
+          placeholder?: true
+        },
+        %{component: :intents_panel, node_id: "v060-settings-intents_panel", placeholder?: true}
+      ]
+    },
+    trust: %{
+      component: :trace_viewer,
+      children: [
+        %{component: :trace_viewer, node_id: "v060-trust-trace_viewer", placeholder?: false},
+        %{
+          component: :confirmation_card,
+          node_id: "v060-trust-confirmation_card",
+          placeholder?: false
+        },
+        %{component: :approval_card, node_id: "v060-trust-approval_card", placeholder?: false}
+      ]
+    }
+  }
+
   @spec routes() :: [route(), ...]
   def routes, do: @routes
+
+  @spec manifest_catalog_components() :: [catalog_component(), ...]
+  def manifest_catalog_components do
+    @routes
+    |> Enum.flat_map(& &1.catalog_components)
+    |> Enum.uniq()
+  end
 
   @spec preview_paths() :: [String.t()]
   def preview_paths, do: Enum.map(@routes, & &1.preview_path)
@@ -191,6 +303,18 @@ defmodule AllbertAssistWeb.Skeleton.RouteManifest do
   end
 
   def get!(route_id) when is_binary(route_id), do: route_id |> String.to_existing_atom() |> get!()
+
+  @spec composition_for!(route() | route_id()) :: composition()
+  def composition_for!(%{route_id: route_id}), do: composition_for!(route_id)
+
+  def composition_for!(route_id) when is_atom(route_id) do
+    Map.fetch!(@composition_by_route_id, route_id)
+  end
+
+  @spec composition_child_route_count() :: 9
+  def composition_child_route_count do
+    map_size(@composition_by_route_id)
+  end
 
   @spec known_catalog_components?() :: boolean()
   def known_catalog_components? do

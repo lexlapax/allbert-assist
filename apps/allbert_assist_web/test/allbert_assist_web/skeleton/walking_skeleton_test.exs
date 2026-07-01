@@ -3,6 +3,7 @@ defmodule AllbertAssistWeb.Skeleton.WalkingSkeletonTest do
 
   import Phoenix.LiveViewTest
 
+  alias AllbertAssist.Surface.Catalog
   alias AllbertAssistWeb.Skeleton.RouteManifest
 
   @moduletag :v060_walking_skeleton
@@ -11,6 +12,11 @@ defmodule AllbertAssistWeb.Skeleton.WalkingSkeletonTest do
     assert RouteManifest.known_catalog_components?()
     assert RouteManifest.routes() == doc_manifest_rows()
     assert RouteManifest.preview_paths() == Enum.map(doc_manifest_rows(), & &1.preview_path)
+
+    assert MapSet.subset?(
+             MapSet.new(RouteManifest.manifest_catalog_components()),
+             MapSet.new(Catalog.known_components())
+           )
   end
 
   test "every preview route resolves through the operator shell and known catalog placeholders",
@@ -41,7 +47,8 @@ defmodule AllbertAssistWeb.Skeleton.WalkingSkeletonTest do
       assert has_element?(view, "[data-workspace-component='empty_state']")
       assert has_element?(view, "[data-workspace-component='status_badge']")
 
-      composition_component = route_composition_component(route)
+      composition = RouteManifest.composition_for!(route)
+      composition_component = composition.component
       assert composition_component in route.catalog_components
 
       assert has_element?(
@@ -52,16 +59,30 @@ defmodule AllbertAssistWeb.Skeleton.WalkingSkeletonTest do
                  "[data-skeleton-composition-component='#{composition_component}']"
              )
 
-      for {child_component, child_node_id} <- route_composition_child_nodes(route) do
-        assert child_component in route.catalog_components
+      for child <- composition.children do
+        assert child.component in route.catalog_components
 
         assert has_element?(
                  view,
-                 "#workspace-node-#{child_node_id}" <>
+                 "#workspace-node-#{child.node_id}" <>
                    "[data-skeleton-composition-route='#{route.route_id}']" <>
                    "[data-skeleton-composition-zone='#{route.active_key}']" <>
-                   "[data-skeleton-composition-component='#{child_component}']"
+                   "[data-skeleton-composition-component='#{child.component}']"
                )
+
+        assert has_element?(
+                 view,
+                 "#workspace-node-#{child.node_id} [data-workspace-component='#{child.component}']"
+               )
+
+        if child.placeholder? do
+          assert has_element?(
+                   view,
+                   "#workspace-node-#{child.node_id} " <>
+                     "[data-skeleton-placeholder='true']" <>
+                     "[data-skeleton-represents='#{child.component}']"
+                 )
+        end
       end
 
       if route.route_id == :launch do
@@ -73,7 +94,7 @@ defmodule AllbertAssistWeb.Skeleton.WalkingSkeletonTest do
       end
 
       for component <- route.catalog_components do
-        assert has_element?(view, "[data-skeleton-catalog-component='#{component}']")
+        assert_manifest_component_rendered!(view, route, component)
       end
 
       refute html =~ "data-placeholder-component"
@@ -84,12 +105,8 @@ defmodule AllbertAssistWeb.Skeleton.WalkingSkeletonTest do
       refute html =~ ~s(data-action-source="actions-runner")
     end
 
-    composition_child_route_count =
-      RouteManifest.routes()
-      |> Enum.count(&(route_composition_child_nodes(&1) != []))
-
     IO.puts(
-      "walking-skeleton-routes-resolve-001 status=pass route_count=#{length(RouteManifest.routes())} composition_depth=true route_specific_components=#{length(RouteManifest.routes())} composition_child_routes=#{composition_child_route_count}"
+      "walking-skeleton-routes-resolve-001 status=pass route_count=#{length(RouteManifest.routes())} composition_depth=true route_specific_components=#{length(RouteManifest.routes())} composition_child_routes=#{RouteManifest.composition_child_route_count()}"
     )
 
     IO.puts(
@@ -110,6 +127,7 @@ defmodule AllbertAssistWeb.Skeleton.WalkingSkeletonTest do
     html = html_response(conn, 200)
 
     refute html =~ ~s(data-skeleton-preview="v060")
+    refute html =~ "data-skeleton-composition-"
     assert html =~ ~s(data-workspace-shell="operator")
   end
 
@@ -152,27 +170,15 @@ defmodule AllbertAssistWeb.Skeleton.WalkingSkeletonTest do
     Path.expand("../../../../../docs/design/information-architecture.md", __DIR__)
   end
 
-  defp route_composition_component(%{route_id: :launch}), do: :button
-  defp route_composition_component(%{route_id: :onboarding}), do: :onboarding_panel
-  defp route_composition_component(%{route_id: :workspace}), do: :chat
-  defp route_composition_component(%{route_id: :objectives}), do: :objective_card
-  defp route_composition_component(%{route_id: :jobs}), do: :job_card
-  defp route_composition_component(%{route_id: :models}), do: :models_panel
-  defp route_composition_component(%{route_id: :channels}), do: :channel_card
-  defp route_composition_component(%{route_id: :settings}), do: :settings_panel
-  defp route_composition_component(%{route_id: :trust}), do: :trace_viewer
+  defp assert_manifest_component_rendered!(view, _route, :workspace_shell) do
+    assert has_element?(view, "#v060-preview-shell")
+  end
 
-  defp route_composition_child_nodes(%{route_id: :onboarding}),
-    do: [
-      {:models_panel, "v060-onboarding-models_panel"},
-      {:status_badge, "v060-onboarding-review-status"}
-    ]
+  defp assert_manifest_component_rendered!(view, route, :nav_rail) do
+    assert has_element?(view, "#v060-preview-shell a[href='#{route.preview_path}']", route.title)
+  end
 
-  defp route_composition_child_nodes(%{route_id: :settings}),
-    do: [
-      {:surface_policy_panel, "v060-settings-surface_policy_panel"},
-      {:intents_panel, "v060-settings-intents_panel"}
-    ]
-
-  defp route_composition_child_nodes(_route), do: []
+  defp assert_manifest_component_rendered!(view, _route, component) do
+    assert has_element?(view, "[data-workspace-component='#{component}']")
+  end
 end

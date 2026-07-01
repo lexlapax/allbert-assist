@@ -376,3 +376,73 @@ defmodule AllbertAssistWeb.Workspace.Components.StatusBadge do
     """
   end
 end
+
+defmodule AllbertAssistWeb.Workspace.Components.SkeletonPlaceholder do
+  use AllbertAssistWeb.Workspace.Components.Base,
+    component: :skeleton_placeholder,
+    description: "Inert skeleton placeholder",
+    custom?: true
+
+  alias AllbertAssistWeb.Workspace.Components.Base
+
+  @impl true
+  def update(assigns, socket), do: {:ok, Base.assign_defaults(socket, assigns)}
+
+  @impl true
+  def render(assigns) do
+    represented_component = represented_component(assigns.node)
+    assigns = assign(assigns, :represented_component, represented_component)
+
+    ~H"""
+    <article
+      id={Base.dom_id(@node)}
+      class="workspace-card workspace-card-neutral"
+      data-workspace-component={@represented_component}
+      data-workspace-renderer="component"
+      data-skeleton-placeholder="true"
+      data-skeleton-represents={@represented_component}
+      aria-labelledby={Base.component_title_id(@node)}
+    >
+      <header class="workspace-card-header">
+        <span class="workspace-card-icon" aria-hidden="true">
+          <.icon name={Base.component_icon(@represented_component)} class="size-4" />
+        </span>
+        <div class="min-w-0 flex-1">
+          <h2 id={Base.component_title_id(@node)} class="workspace-card-title">
+            {Base.title(@node, titleize(@represented_component))}
+          </h2>
+          <p class="workspace-card-summary">
+            {Base.summary(@node, "Inert v0.60 preview placeholder.")}
+          </p>
+        </div>
+        <span class="workspace-status-pill workspace-status-neutral">
+          preview only
+        </span>
+      </header>
+    </article>
+    """
+  end
+
+  defp represented_component(node) do
+    node
+    |> Base.prop(:represents, :skeleton_placeholder)
+    |> normalize_component()
+  end
+
+  defp normalize_component(component) when is_atom(component), do: component
+
+  defp normalize_component(component) when is_binary(component) do
+    String.to_existing_atom(component)
+  rescue
+    ArgumentError -> :skeleton_placeholder
+  end
+
+  defp normalize_component(_component), do: :skeleton_placeholder
+
+  defp titleize(component) do
+    component
+    |> Atom.to_string()
+    |> String.replace("_", " ")
+    |> String.capitalize()
+  end
+end

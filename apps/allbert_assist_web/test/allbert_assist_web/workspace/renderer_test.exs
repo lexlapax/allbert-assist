@@ -98,6 +98,65 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
     refute html =~ "component not implemented"
   end
 
+  test "skeleton placeholder represents manifest atoms without live panel affordances" do
+    html =
+      render_component(Renderer,
+        id: "skeleton-placeholder-renderer",
+        node: %Node{
+          id: "skeleton-models-panel",
+          component: :skeleton_placeholder,
+          props: %{
+            represents: :models_panel,
+            title: "Models placeholder",
+            body: "No provider inventory is loaded."
+          }
+        },
+        renderer_context: renderer_context(),
+        workspace_state: workspace_state()
+      )
+
+    assert html =~ ~s(data-workspace-component="skeleton_placeholder")
+    assert html =~ ~s(data-workspace-component="models_panel")
+    assert html =~ ~s(data-skeleton-placeholder="true")
+    assert html =~ ~s(data-skeleton-represents="models_panel")
+    refute html =~ ~s(data-action-source="actions-runner")
+    refute html =~ "Recommendation Matrix"
+  end
+
+  test "skeleton composition metadata is scoped to preview nodes" do
+    props = %{
+      skeleton_composition_route: "workspace",
+      skeleton_composition_zone: "work_workspace",
+      skeleton_composition_component: "chat"
+    }
+
+    html =
+      render_component(Renderer,
+        id: "plain-section-renderer",
+        node: %Node{id: "plain-section", component: :section, props: props},
+        renderer_context: renderer_context(),
+        workspace_state: workspace_state()
+      )
+
+    refute html =~ "data-skeleton-composition-"
+
+    preview_html =
+      render_component(Renderer,
+        id: "preview-section-renderer",
+        node: %Node{
+          id: "preview-section",
+          component: :section,
+          props: Map.put(props, :skeleton_preview?, true)
+        },
+        renderer_context: renderer_context(),
+        workspace_state: workspace_state()
+      )
+
+    assert preview_html =~ ~s(data-skeleton-composition-route="workspace")
+    assert preview_html =~ ~s(data-skeleton-composition-zone="work_workspace")
+    assert preview_html =~ ~s(data-skeleton-composition-component="chat")
+  end
+
   test "retired utility drawer renderer is inert if rendered" do
     html =
       render_component(Renderer,

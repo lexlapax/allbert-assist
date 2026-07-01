@@ -74,9 +74,9 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
       phx-window-keydown={node_dismiss_event(@node)}
       phx-key={node_dismiss_key(@node)}
       phx-value-surface-id={node_surface_id(@node)}
-      data-skeleton-composition-route={prop(@node, :skeleton_composition_route)}
-      data-skeleton-composition-zone={prop(@node, :skeleton_composition_zone)}
-      data-skeleton-composition-component={prop(@node, :skeleton_composition_component)}
+      data-skeleton-composition-route={skeleton_prop(@node, :skeleton_composition_route)}
+      data-skeleton-composition-zone={skeleton_prop(@node, :skeleton_composition_zone)}
+      data-skeleton-composition-component={skeleton_prop(@node, :skeleton_composition_component)}
     >
       <.live_component
         module={SurfaceRenderer}
@@ -235,6 +235,12 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
   end
 
   defp prop(_node, _key, fallback), do: fallback
+
+  defp skeleton_prop(%Node{} = node, key) do
+    if prop(node, :skeleton_preview?, false) == true do
+      prop(node, key)
+    end
+  end
 
   defp component_title_id(%Node{id: node_id}), do: "workspace-component-title-#{node_id}"
 end

@@ -155,7 +155,7 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
     }
   end
 
-  defp default_dom_id(route, component, default_node_id, default_node_id),
+  defp default_dom_id(route, component, node_id, default_node_id) when node_id == default_node_id,
     do: "v060-component-#{route.route_id}-#{component}"
 
   defp default_dom_id(_route, _component, node_id, _default_node_id),
@@ -164,11 +164,10 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
   defp route_composition_node(%{route_id: :launch} = route) do
     composition_zone(
       route,
-      :button,
       "Launch action zone",
       "Declared launch action is rendered as a disabled preview placeholder.",
       [
-        component_node(route, :button, "Launch placeholder", "No action is wired in v0.60.",
+        composition_child(route, :button, "Launch placeholder", "No action is wired in v0.60.",
           disabled?: true,
           variant: "secondary"
         )
@@ -179,23 +178,26 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
   defp route_composition_node(%{route_id: :onboarding} = route) do
     composition_zone(
       route,
-      :onboarding_panel,
       "Onboarding wizard zone",
       "Represents the QuickStart / Advanced wizard shell without loading onboarding state.",
       [
-        placeholder_component_node(
+        composition_child(
+          route,
+          :onboarding_panel,
+          "Onboarding panel placeholder",
+          "No onboarding progress, provider setup, or seeded profile state is loaded."
+        ),
+        composition_child(
           route,
           :models_panel,
           "Model path placeholder",
-          "No model doctor or provider setup is run in the v0.60 preview.",
-          node_id: "v060-onboarding-models_panel"
+          "No model doctor or provider setup is run in the v0.60 preview."
         ),
-        component_node(
+        composition_child(
           route,
           :status_badge,
           "Review checkpoint placeholder",
-          "Persona and settings seeds remain pending explicit review.",
-          node_id: "v060-onboarding-review-status"
+          "Persona and settings seeds remain pending explicit review."
         )
       ]
     )
@@ -204,12 +206,23 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
   defp route_composition_node(%{route_id: :workspace} = route) do
     composition_zone(
       route,
-      :chat,
       "Chat-primary workspace zone",
       "Represents chat, timeline, and composer structure without runtime conversation state.",
       [
-        component_node(route, :timeline, "Timeline placeholder", "Runtime turns stay empty."),
-        component_node(route, :composer, "Composer placeholder", "Prompt entry stays inert.")
+        composition_child(
+          route,
+          :chat,
+          "Chat placeholder",
+          "No runtime conversation, objective badges, uploads, or prompt state are loaded."
+        ),
+        composition_child(route, :timeline, "Timeline placeholder", "Runtime turns stay empty."),
+        composition_child(route, :composer, "Composer placeholder", "Prompt entry stays inert."),
+        composition_child(
+          route,
+          :utility_drawer,
+          "Utility drawer placeholder",
+          "Secondary workspace controls stay inert in the v0.60 preview."
+        )
       ]
     )
   end
@@ -217,15 +230,20 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
   defp route_composition_node(%{route_id: :objectives} = route) do
     composition_zone(
       route,
-      :objective_card,
       "Objectives composition zone",
       "Represents durable objective summaries without reading objective state.",
       [
-        component_node(
+        composition_child(
           route,
           :objective_card,
           "Objective placeholder",
           "No objective is loaded in the v0.60 preview."
+        ),
+        composition_child(
+          route,
+          :timeline,
+          "Objective timeline placeholder",
+          "Objective activity stays empty in the v0.60 preview."
         )
       ]
     )
@@ -234,17 +252,16 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
   defp route_composition_node(%{route_id: :jobs} = route) do
     composition_zone(
       route,
-      :job_card,
       "Jobs composition zone",
       "Represents job cards and scan-friendly run history without scheduler reads.",
       [
-        component_node(
+        composition_child(
           route,
           :job_card,
           "Job placeholder",
           "No job is loaded in the v0.60 preview."
         ),
-        component_node(route, :table, "Run history placeholder", "Rows appear in v0.61+.")
+        composition_child(route, :table, "Run history placeholder", "Rows appear in v0.61+.")
       ]
     )
   end
@@ -252,11 +269,16 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
   defp route_composition_node(%{route_id: :models} = route) do
     composition_zone(
       route,
-      :models_panel,
       "Model readiness zone",
       "Represents the model readiness panel without running provider doctors.",
       [
-        component_node(
+        composition_child(
+          route,
+          :models_panel,
+          "Models panel placeholder",
+          "No provider inventory or action-backed model diagnostics are loaded."
+        ),
+        composition_child(
           route,
           :settings_card,
           "Model policy placeholder",
@@ -269,15 +291,20 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
   defp route_composition_node(%{route_id: :channels} = route) do
     composition_zone(
       route,
-      :channel_card,
       "Channel setup zone",
       "Represents configured / unconfigured channel cards without opening adapters.",
       [
-        component_node(
+        composition_child(
           route,
           :channel_card,
           "Channel placeholder",
           "No channel is configured here."
+        ),
+        composition_child(
+          route,
+          :settings_card,
+          "Channel policy placeholder",
+          "Channel settings remain unmodified in the v0.60 preview."
         )
       ]
     )
@@ -286,23 +313,26 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
   defp route_composition_node(%{route_id: :settings} = route) do
     composition_zone(
       route,
-      :settings_panel,
       "Settings and policy zone",
       "Represents Settings Central, surface policy, and intents without reading settings.",
       [
-        placeholder_component_node(
+        composition_child(
+          route,
+          :settings_panel,
+          "Settings panel placeholder",
+          "No Settings Central rows are read in the v0.60 preview."
+        ),
+        composition_child(
           route,
           :surface_policy_panel,
           "Surface policy placeholder",
-          "No grants or policy records are loaded in the v0.60 preview.",
-          node_id: "v060-settings-surface_policy_panel"
+          "No grants or policy records are loaded in the v0.60 preview."
         ),
-        placeholder_component_node(
+        composition_child(
           route,
           :intents_panel,
           "Intent routing placeholder",
-          "No intent descriptors or routing state are loaded in the v0.60 preview.",
-          node_id: "v060-settings-intents_panel"
+          "No intent descriptors or routing state are loaded in the v0.60 preview."
         )
       ]
     )
@@ -311,27 +341,34 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
   defp route_composition_node(%{route_id: :trust} = route) do
     composition_zone(
       route,
-      :trace_viewer,
       "Trust evidence zone",
       "Represents traces and confirmations without loading audits or pending approvals.",
       [
-        component_node(
+        composition_child(
           route,
           :trace_viewer,
           "Trace placeholder",
           "No trace is loaded in the v0.60 preview."
         ),
-        component_node(
+        composition_child(
           route,
           :confirmation_card,
           "Confirmation placeholder",
           "No confirmation is pending in the v0.60 preview."
+        ),
+        composition_child(
+          route,
+          :approval_card,
+          "Approval placeholder",
+          "No approval request is pending in the v0.60 preview."
         )
       ]
     )
   end
 
-  defp composition_zone(route, target_component, title, body, children) do
+  defp composition_zone(route, title, body, children) do
+    target_component = RouteManifest.composition_for!(route).component
+
     props =
       route
       |> composition_props(target_component)
@@ -340,7 +377,25 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
     node(route, :section, title, body, props, children)
   end
 
-  defp component_node(route, component, title, body, props \\ []) do
+  defp composition_child(route, component, title, body, props \\ []) do
+    child =
+      route
+      |> RouteManifest.composition_for!()
+      |> Map.fetch!(:children)
+      |> Enum.find(&(&1.component == component)) ||
+        raise ArgumentError,
+              "unknown v0.60 preview composition child #{inspect(component)} for #{inspect(route.route_id)}"
+
+    props = Keyword.put_new(props, :node_id, child.node_id)
+
+    if child.placeholder? do
+      placeholder_component_node(route, component, title, body, props)
+    else
+      component_node(route, component, title, body, props)
+    end
+  end
+
+  defp component_node(route, component, title, body, props) do
     node(
       route,
       component,
@@ -354,16 +409,20 @@ defmodule AllbertAssistWeb.Skeleton.PreviewLive do
   defp placeholder_component_node(route, target_component, title, body, props) do
     node(
       route,
-      :section,
+      :skeleton_placeholder,
       title,
       body,
-      Map.merge(composition_props(route, target_component), Map.new(props)),
+      Map.merge(
+        composition_props(route, target_component),
+        Map.new(Keyword.put_new(props, :represents, target_component))
+      ),
       []
     )
   end
 
   defp composition_props(route, component) do
     %{
+      skeleton_preview?: true,
       skeleton_composition_route: Atom.to_string(route.route_id),
       skeleton_composition_zone: route.active_key,
       skeleton_composition_component: Atom.to_string(component)
