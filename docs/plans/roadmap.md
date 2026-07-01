@@ -410,7 +410,8 @@ scope.
     competitive scan, brief/rubric) then design milestones (3 directions ->
     comparison -> operator selection -> styled-skeleton proof over the v0.60
     skeleton). Gate `release.v060b`; adds ADR 0079 (Visual Design Language & Art
-    Direction). Sequenced after v0.60 closeout and before v0.61.
+    Direction). **Implemented (0.60.1, tag pending): the operator chose Direction C
+    (Soft Modern Depth) as the canonical visual language v0.61 implements.**
 61. v0.61 Presentation Layer Overhaul: first of three pre-1.0 **product
     capability** releases; implements the v0.60 IA/navigation/screen-composition
     redesign **in the v0.60b-chosen visual language** **and** lands the

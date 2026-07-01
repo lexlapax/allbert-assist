@@ -10,6 +10,52 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.60.1 - Visual Design Language & Art Direction (v0.60b)
+
+Status: implemented and gate-green for `0.60.1` on 2026-06-30; the release tag is
+pending operator approval. A **point release** inserted between v0.60 (0.60.0) and
+v0.61 — the *visual*-direction parallel to what v0.60 did for *structural* direction.
+Design-only: no new authority, capability, egress, confirmation-floor change, or
+Settings key. `mix allbert.test release.v060b` passes (format / compile-warnings /
+Credo strict / Dialyzer / visual-direction proof / `:v060b` security sweep / docs gate).
+
+Plan: `docs/plans/v0.60b-plan.md`. Request flow:
+`docs/plans/v0.60b-request-flow.md`. ADR:
+`docs/adr/0079-visual-design-language-and-art-direction.md`
+(Accepted-with-choice (v0.60b)).
+
+The operator evaluated three divergent candidate visual directions as rendered hero
+screens and **chose Direction C (Soft Modern Depth)** as the canonical visual language
+that v0.61 implements.
+
+### Added
+
+- Visual-language design package under `docs/design/`: the reference/competitive
+  research, the brief + evaluation rubric, three divergent candidate directions
+  (`visual-direction-{a,b,c}.md`, each with a Stage-1 wireframe and a Stage-2
+  color/UX/UI scheme), the comparative evaluation, and the selected canonical language
+  with the token/component delta v0.61 must build.
+- ADR 0079 (Visual Design Language & Art Direction), Accepted-with-choice (v0.60b),
+  naming Direction C.
+- Disposable, flag-gated styled-variant preview surfaces
+  (`/preview/visual/<direction>/<screen>` and the `selected` proof) behind the existing
+  `:preview_routes` flag: a `data-visual-direction` token/theme delta threaded through
+  the app/operator shell, per-direction `--allbert-*` override blocks in
+  `assets/css/app.css`, and `AllbertAssistWeb.Skeleton.VisualDirectionManifest`. The
+  same walking-skeleton hero compositions render through the catalog under each
+  direction; no live data, no authority.
+- A rendered design record under `docs/design/visual-directions/` (the three
+  directions × four hero screens, plus the chosen-C proof) kept for posterity.
+- The `release.v060b` gate lane, the `:v060b` eval inventory rows, and
+  `v060b_sweep_eval_test.exs` / `visual_direction_proof_test.exs`.
+
+### Notes
+
+- No production presentation was built here; v0.60b hands the chosen language +
+  token/component delta to v0.61 (the sole consumer). v0.62/v0.63/v0.64/v1.0 unchanged.
+- The styled-variant preview code is disposable design exploration, not the v0.61
+  build; v0.61 re-implements the chosen language properly over the v0.60 IA.
+
 ## v0.60.0 - Product Experience Design
 
 Status: validation complete and release-ready for `0.60.0` on 2026-06-30.
