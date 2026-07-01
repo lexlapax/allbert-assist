@@ -3893,12 +3893,27 @@ overhaul must land **before the v1.0 freeze** locks the presentation contracts
 (Surface DSL, workspace substrate) or it is locked out. v0.61 closes that gap for
 the technical-prosumer 1.0 audience.
 
+Because v0.60 (structure) and v0.60b (visual language) both left the **per-screen
+layout** thin — only the four v0.60b hero screens were wireframed; five of the nine
+IA surfaces have no chosen composition — v0.61 **front-loads a layout-exploration +
+operator-choice step** before it builds: it renders **≥3 divergent layout systems**
+(3 required, a 4th optional) across **all nine IA surfaces** in Direction C as
+disposable previews, the operator previews them side-by-side and **chooses one**
+(`CHOSEN_LAYOUT`), and the build milestones then implement the chosen layout. This
+mirrors the v0.60b visual-language pattern applied to layout and lands the layout
+decision on the design-first side of the v1.0 freeze. (v0.59 is a hardening release
+and is **not** a v0.61 upstream; v0.61's inputs are v0.58, v0.60, and v0.60b.)
+
 Expected direction:
 
+- A layout-exploration + operator-choice step: ≥3 divergent layout systems across
+  all nine IA surfaces in Direction C, previewed and chosen before the build.
 - Implementation of the v0.60 **information-architecture, navigation, and
-  screen-composition redesign** across the shell and pages, rendered in the
-  **v0.60b-chosen visual language** (ADR 0079) — the structural overhaul plus the
-  chosen aesthetic, not just surface polish.
+  screen-composition redesign** across the shell and pages, in the **operator-chosen
+  layout**, rendered in the **v0.60b-chosen visual language** (Direction C — Soft
+  Modern Depth, ADR 0079), building its token/component delta
+  (`docs/design/visual-language-selected.md`) as first-class tokens/variants — the
+  structural overhaul plus the chosen aesthetic, not just surface polish.
 - A real brand identity (logo/wordmark, applied across shell and landing),
   retiring the stock framework logo.
 - A motion layer (entrance/drawer/skeleton transitions) over the existing token
@@ -3912,6 +3927,11 @@ Expected direction:
   explicitly validated across all shell/page roots.
 - No model-generated UI, no internal rename, no authority change; the catalog
   stays the rendering boundary (ADR 0030/0074).
+
+Gate `release.v061` (migrate / format / compile-warnings-as-errors / Credo strict /
+Dialyzer zero-error / layout-system proof / redesigned-surface proof / `:v061`
+security sweep / docs gate); retires the `:preview_routes` flag and the walking-
+skeleton preview modules at closeout.
 
 ## v0.62: Packaging & Entry Points
 
