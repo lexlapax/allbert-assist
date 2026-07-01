@@ -130,6 +130,22 @@ defmodule AllbertAssistWeb.V061.AccessibilityConformanceTest do
     )
   end
 
+  test "high-contrast semantic status colors meet WCAG AA on the HC surface" do
+    css = File.read!(@css_path)
+    hc = hc_block(css, ~s([data-high-contrast="true"]))
+
+    # The HC surface is #ffffff; the semantic status foregrounds (warn/danger/success/
+    # info), hardened in the HC block, must clear AA on it (the :root values were ~4.5:1).
+    for token <- ~w(--allbert-warn --allbert-danger --allbert-success --allbert-info) do
+      ratio = contrast_ratio(token_hex(hc, token), "#ffffff")
+
+      assert ratio >= 4.5,
+             "HC #{token} contrast #{Float.round(ratio, 2)}:1 is below WCAG AA 4.5:1"
+    end
+
+    IO.puts("a11y-status-contrast-hardened-001 status=pass tokens=warn,danger,success,info")
+  end
+
   # Extract a CSS block body (up to the first `}`) for the rule whose selector list
   # begins with `selector`.
   defp hc_block(css, selector) do
