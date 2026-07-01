@@ -49,6 +49,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
       id="workspace-chat-region"
       class="workspace-chat-pane"
       data-workspace-component={@node.component}
+      data-workspace-pattern="chat-primary-hero"
+      data-workspace-variant="direction-c"
       aria-labelledby="workspace-chat-title"
     >
       <header class="workspace-pane-header workspace-chat-header">

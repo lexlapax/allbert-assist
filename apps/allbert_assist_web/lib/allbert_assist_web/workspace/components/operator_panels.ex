@@ -658,8 +658,10 @@ defmodule AllbertAssistWeb.Workspace.Components.SurfacePolicyPanel do
     ~H"""
     <article
       id="workspace-surface-policy-panel"
-      class="workspace-settings-panel workspace-operator-panel"
+      class="workspace-settings-panel workspace-operator-panel allbert-trust-card"
       data-workspace-component="surface_policy_panel"
+      data-workspace-pattern="trust-soft-card"
+      data-workspace-variant="direction-c"
       data-workspace-renderer="component"
       data-action-source="actions-runner"
       aria-labelledby="workspace-surface-policy-panel-title"

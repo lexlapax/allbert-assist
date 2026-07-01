@@ -125,7 +125,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
         labelledby="objective-page-title"
       >
         <%= if @objective do %>
-          <section id="objective-header" class="operator-catalog-section">
+          <Patterns.elevated_card id="objective-header">
             <.live_component
               module={WorkspaceRenderer}
               id="objective-summary-renderer"
@@ -133,7 +133,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
               renderer_context={%{user_id: @user_id, page: :objectives}}
               workspace_state={%{}}
             />
-          </section>
+          </Patterns.elevated_card>
 
           <section id="objective-actions" class="operator-catalog-actions">
             <.live_component

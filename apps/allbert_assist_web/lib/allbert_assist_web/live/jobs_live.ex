@@ -70,7 +70,7 @@ defmodule AllbertAssistWeb.JobsLive do
       >
         <Patterns.status_callout id="jobs-notice" message={@notice} />
 
-        <section id="jobs-list" class="operator-catalog-page" aria-labelledby="jobs-page-title">
+        <Patterns.elevated_card id="jobs-list" aria-labelledby="jobs-page-title">
           <.live_component
             module={WorkspaceRenderer}
             id="jobs-catalog-renderer"
@@ -78,7 +78,7 @@ defmodule AllbertAssistWeb.JobsLive do
             renderer_context={%{user_id: @user_id, page: :jobs}}
             workspace_state={%{}}
           />
-        </section>
+        </Patterns.elevated_card>
       </Layouts.operator_shell>
     </Layouts.app>
     """
