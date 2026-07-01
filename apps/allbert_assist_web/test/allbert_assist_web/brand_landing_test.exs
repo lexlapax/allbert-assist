@@ -12,6 +12,8 @@ defmodule AllbertAssistWeb.BrandLandingTest do
   @priv Path.expand("../../priv/static", __DIR__)
   @brand_doc Path.expand("../../../../docs/design/brand-identity-selected.md", __DIR__)
 
+  @brand_dir Path.expand("../../../../docs/design/brand", __DIR__)
+
   test "the M5.1 brand identity selection is recorded" do
     doc = File.read!(@brand_doc)
 
@@ -22,6 +24,18 @@ defmodule AllbertAssistWeb.BrandLandingTest do
     IO.puts(
       "brand-identity-selected-recorded-001 status=pass mark=recorded rationale=direction_c"
     )
+  end
+
+  test "the candidate + selected brand renderings are committed for the design record" do
+    for name <- ~w(
+          candidate-1-monogram-filled.svg
+          candidate-2-monogram-outline.svg
+          candidate-3-dot-glyph.svg
+          selected-mark-lockup.svg
+        ) do
+      assert File.exists?(Path.join(@brand_dir, name)),
+             "missing committed brand rendering: #{name}"
+    end
   end
 
   test "the brand mark + OG assets exist and the stock Phoenix logo is retired" do

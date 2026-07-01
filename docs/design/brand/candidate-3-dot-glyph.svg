@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 120" role="img" aria-label="Candidate 3 — chat-dot glyph">
+  <rect width="320" height="120" fill="#f2f1fb" />
+  <rect x="28" y="28" width="64" height="64" rx="20" fill="#7c6cf0" />
+  <circle cx="48" cy="60" r="6" fill="#ffffff" />
+  <circle cx="60" cy="60" r="6" fill="#ffffff" />
+  <circle cx="72" cy="60" r="6" fill="#ffffff" />
+  <text x="112" y="72" font-family="ui-rounded, 'SF Pro Rounded', system-ui, sans-serif" font-size="40" font-weight="700" fill="#1c1830">Allbert</text>
+  <text x="28" y="110" font-family="ui-rounded, system-ui, sans-serif" font-size="13" fill="#5b5478">Candidate 3 — chat-dots glyph (rejected: reads as "typing", not a brand)</text>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 120" role="img" aria-label="Candidate 1 — filled monogram">
+  <rect width="320" height="120" fill="#f2f1fb" />
+  <rect x="28" y="28" width="64" height="64" rx="20" fill="#7c6cf0" />
+  <path d="M46 84 L60 40 L74 84" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+  <line x1="51" y1="70" x2="69" y2="70" stroke="#ffffff" stroke-width="6" stroke-linecap="round" />
+  <text x="112" y="72" font-family="ui-rounded, 'SF Pro Rounded', system-ui, sans-serif" font-size="40" font-weight="700" fill="#1c1830">Allbert</text>
+  <text x="28" y="110" font-family="ui-rounded, system-ui, sans-serif" font-size="13" fill="#5b5478">Candidate 1 — filled violet monogram (chosen)</text>
+</svg>

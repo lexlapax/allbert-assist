@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 200" role="img" aria-label="Selected mark — Allbert lockup">
+  <rect width="640" height="200" fill="#f2f1fb" />
+  <rect x="48" y="48" width="104" height="104" rx="32" fill="#7c6cf0" />
+  <path d="M78 128 L100 70 L122 128" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
+  <line x1="86" y1="112" x2="114" y2="112" stroke="#ffffff" stroke-width="9" stroke-linecap="round" />
+  <text x="184" y="112" font-family="ui-rounded, 'SF Pro Rounded', system-ui, sans-serif" font-size="66" font-weight="700" fill="#1c1830">Allbert</text>
+  <text x="186" y="150" font-family="ui-rounded, system-ui, sans-serif" font-size="24" fill="#5b5478">Selected: Candidate 1 — filled violet monogram + rounded wordmark</text>
+</svg>

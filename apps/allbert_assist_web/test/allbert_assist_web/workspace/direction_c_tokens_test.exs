@@ -88,6 +88,15 @@ defmodule AllbertAssistWeb.Workspace.DirectionCTokensTest do
     assert css =~ ~s([data-theme="dark"] [data-high-contrast="true"] {)
     assert css =~ "@media (prefers-reduced-motion: reduce)"
     assert css =~ "transition-duration: 0.001ms !important"
+
+    # The high-contrast block must redeclare the --workspace-* aliases so HC wins over
+    # the promoted Direction C :root values (which otherwise resolve once at :root to
+    # violet and would leave HC-mode buttons/content below WCAG AA).
+    hc = css_block!(~s([data-high-contrast="true"]))
+    assert hc =~ "--workspace-bg: var(--allbert-surface-0);"
+    assert hc =~ "--workspace-fg: var(--allbert-text-strong);"
+    assert hc =~ "--workspace-accent: var(--allbert-accent);"
+    assert hc =~ "--workspace-border: var(--allbert-line);"
   end
 
   test "the four Direction C variants exist as first-class CSS classes on the tokens" do

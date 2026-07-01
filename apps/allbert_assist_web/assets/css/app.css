@@ -229,6 +229,17 @@
   --allbert-accent-soft: #dbeafe;
   --allbert-border-width: 2px;
   --allbert-focus-ring: 3px solid var(--allbert-accent);
+  /* v0.61 remediation — re-resolve the --workspace-* aliases here so high-contrast
+     wins over the promoted Direction C :root values (the :root aliases resolve once
+     and inherit as fixed values, so they must be redeclared on the HC element). */
+  --workspace-bg: var(--allbert-surface-0);
+  --workspace-panel: var(--allbert-surface-1);
+  --workspace-panel-muted: var(--allbert-surface-2);
+  --workspace-border: var(--allbert-line);
+  --workspace-fg: var(--allbert-text-strong);
+  --workspace-muted: var(--allbert-text-soft);
+  --workspace-accent: var(--allbert-accent);
+  --workspace-focus: var(--allbert-accent);
   --workspace-field-bg: #ffffff;
   --workspace-field-bg-disabled: #f1f5f9;
   --workspace-field-border: #000000;
@@ -247,6 +258,14 @@
   --allbert-accent: #bfdbfe;
   --allbert-accent-contrast: #000000;
   --allbert-accent-soft: #172554;
+  --workspace-bg: var(--allbert-surface-0);
+  --workspace-panel: var(--allbert-surface-1);
+  --workspace-panel-muted: var(--allbert-surface-2);
+  --workspace-border: var(--allbert-line);
+  --workspace-fg: var(--allbert-text-strong);
+  --workspace-muted: var(--allbert-text-soft);
+  --workspace-accent: var(--allbert-accent);
+  --workspace-focus: var(--allbert-accent);
   --workspace-field-bg: #ffffff;
   --workspace-field-bg-disabled: #e5e7eb;
   --workspace-field-border: #ffffff;
