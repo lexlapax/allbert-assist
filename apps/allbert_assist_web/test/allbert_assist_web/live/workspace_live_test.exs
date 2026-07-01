@@ -183,6 +183,24 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     end
   end
 
+  test "the channels destination resolves to a presentation-only channels panel", %{conn: conn} do
+    thread = create_workspace_thread("Channels")
+
+    {:ok, view, html} =
+      live(conn, ~p"/workspace?thread_id=#{thread.id}&destination=workspace:channels")
+
+    # Reaches the channels destination — does NOT degrade to the output canvas.
+    assert has_element?(
+             view,
+             "#workspace-shell[data-canvas-destination='workspace:channels'][data-canvas-drawer='open']"
+           )
+
+    refute has_element?(view, "#workspace-shell[data-canvas-destination='output']")
+
+    # Presentation-only channels content renders (view-only).
+    assert html =~ "Connect Allbert to external channels"
+  end
+
   test "intents panel promotion shows gate rejection without mutating review descriptor", %{
     conn: conn
   } do

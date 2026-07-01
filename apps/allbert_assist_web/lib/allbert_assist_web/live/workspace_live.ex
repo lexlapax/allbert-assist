@@ -58,7 +58,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     %{"external_user_id" => @default_external_user_id, "user_id" => @default_user_id}
   ]
   @default_prompt_placeholder "Ask Allbert anything…"
-  @workspace_tools ~w(onboard create plan_build plan_runs discover marketplace calendar mail github jobs objectives confirmations security intents models surface_policy settings)
+  @workspace_tools ~w(onboard create plan_build plan_runs discover marketplace calendar mail github jobs objectives confirmations security intents models channels surface_policy settings)
   @voice_capture_accept ~w(.wav .mp3 .m4a .ogg .webm .flac)
   @voice_capture_upload_accept ~w(audio/*)
   @voice_capture_duration_skew_ms 5_000

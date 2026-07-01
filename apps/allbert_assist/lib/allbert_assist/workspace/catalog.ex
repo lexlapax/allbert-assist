@@ -86,6 +86,12 @@ defmodule AllbertAssist.Workspace.Catalog do
       dom_id: "workspace-models"
     },
     %{
+      id: "workspace:channels",
+      tool: "channels",
+      label: "Channels",
+      dom_id: "workspace-channels"
+    },
+    %{
       id: "workspace:surface_policy",
       tool: "surface_policy",
       label: "Surface Policy",
@@ -116,6 +122,7 @@ defmodule AllbertAssist.Workspace.Catalog do
     "security" => :core_security_panel,
     "intents" => :core_intents_panel,
     "models" => :core_models_panel,
+    "channels" => :core_channels_panel,
     "surface_policy" => :core_surface_policy_panel,
     "settings" => :core_settings_panel
   }

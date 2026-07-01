@@ -761,6 +761,16 @@ defmodule AllbertAssist.App.CoreApp do
           }
         ])
       ]),
+      panel_surface(:core_channels_panel, "Channels", :canvas_panels, 48, [
+        panel_node(
+          "core-channels",
+          "Channels",
+          "Connect Allbert to external channels and apps. This is a presentation-only " <>
+            "view; configuring a channel routes through Security Central like any other " <>
+            "capability. Connected channels appear here once configured.",
+          []
+        )
+      ]),
       panel_surface(
         :core_surface_policy_panel,
         "Surface Policy",
