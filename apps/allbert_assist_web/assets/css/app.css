@@ -264,6 +264,30 @@
  *   c — Soft Modern Depth   (rounded, tonal violet surfaces, large radius, roomy)
  */
 
+/*
+ * Re-map the workspace-* aliases onto the direction-scoped --allbert-* tokens. The
+ * :root aliases (e.g. --workspace-bg: var(--allbert-surface-0)) are resolved at :root
+ * and inherited as fixed values, so overriding --allbert-surface-0 on the shell does
+ * NOT re-resolve them; redeclaring the aliases on the direction element makes the
+ * shell/panels pick up each direction's surfaces. High-contrast still wins: the colour
+ * tokens below are guarded, so under high-contrast --allbert-* falls back to the HC
+ * palette and these aliases follow it.
+ */
+[data-visual-direction] {
+  --workspace-bg: var(--allbert-surface-0);
+  --workspace-panel: var(--allbert-surface-1);
+  --workspace-panel-muted: var(--allbert-surface-2);
+  --workspace-border: var(--allbert-line);
+  --workspace-fg: var(--allbert-text-strong);
+  --workspace-muted: var(--allbert-text-soft);
+  --workspace-accent: var(--allbert-accent);
+  --workspace-focus: var(--allbert-accent);
+  --workspace-field-bg: var(--allbert-surface-1);
+  --workspace-field-border: var(--allbert-line);
+  --workspace-field-fg: var(--allbert-text-strong);
+  --workspace-field-placeholder: var(--allbert-text-soft);
+}
+
 /* Direction A — Warm Editorial Calm: structural (contrast-safe). */
 [data-visual-direction="a"] {
   --allbert-font-family: ui-serif, Georgia, "Iowan Old Style", "Palatino Linotype",
@@ -291,8 +315,6 @@ body:not([data-high-contrast="true"]) [data-visual-direction="a"] {
   --allbert-accent: #b5651d;
   --allbert-accent-contrast: #ffffff;
   --allbert-accent-soft: #f6ebdd;
-  --workspace-accent: var(--allbert-accent);
-  --workspace-focus: var(--allbert-accent);
 }
 
 [data-theme="dark"] body:not([data-high-contrast="true"]) [data-visual-direction="a"] {
@@ -334,8 +356,6 @@ body:not([data-high-contrast="true"]) [data-visual-direction="b"] {
   --allbert-accent: #4f6bed;
   --allbert-accent-contrast: #ffffff;
   --allbert-accent-soft: #e7eafc;
-  --workspace-accent: var(--allbert-accent);
-  --workspace-focus: var(--allbert-accent);
 }
 
 [data-theme="dark"] body:not([data-high-contrast="true"]) [data-visual-direction="b"] {
@@ -379,8 +399,6 @@ body:not([data-high-contrast="true"]) [data-visual-direction="c"] {
   --allbert-accent: #7c6cf0;
   --allbert-accent-contrast: #ffffff;
   --allbert-accent-soft: #ece9fd;
-  --workspace-accent: var(--allbert-accent);
-  --workspace-focus: var(--allbert-accent);
 }
 
 [data-theme="dark"] body:not([data-high-contrast="true"]) [data-visual-direction="c"] {
