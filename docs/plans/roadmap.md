@@ -416,11 +416,12 @@ scope.
     capability** releases; implements the v0.60 IA/navigation/screen-composition
     redesign **in the v0.60b-chosen visual language** and an operator-chosen
     concrete layout system, with sanitized layout screenshots committed under
-    `docs/design/layout-systems/`, **and** lands the
+    `docs/design/layout-systems/`, designs and records an operator-chosen brand
+    identity with committed renderings under `docs/design/brand/`, **and** lands the
     brand/motion/visual-hierarchy/dark-mode polish over it, turning the v0.58
     design-system substrate into a polished product surface for the
-    technical-prosumer 1.0 audience. Brand identity (retire the stock
-    Phoenix logo), a motion layer, a visual-hierarchy craft pass across the
+    technical-prosumer 1.0 audience. Operator-chosen brand identity (retire the
+    stock Phoenix logo), a motion layer, a visual-hierarchy craft pass across the
     workspace and operator pages, a real landing/marketing surface with SEO/OG,
     empty-state and suggested-action affordances, and OS dark-mode resolution —
     the web workspace carries the desktop-UX weight since a native client stays
@@ -3874,8 +3875,9 @@ Planned scope (design + disposable exploration only):
 Plan: `docs/plans/v0.61-plan.md`
 Request flow: `docs/plans/v0.61-request-flow.md`
 ADR: `docs/adr/0074-web-design-system-and-ux-language.md` (v0.61 amendment:
-implements the v0.60 IA/navigation/screen-composition redesign plus brand
-identity, motion, marketing surface, and the professional craft pass).
+implements the v0.60 IA/navigation/screen-composition redesign plus an
+operator-chosen brand identity, motion, marketing surface, and the professional
+craft pass).
 
 Status: planned (pre-1.0 product capability release 1 of 3; implements the v0.60
 design **in the v0.60b-chosen visual language**; followed by v0.62 packaging,
@@ -3887,7 +3889,10 @@ once: it **implements the v0.60 structural redesign** — the overhauled informa
 architecture, navigation, and screen composition — and lands the **brand /
 motion / visual-hierarchy / dark-mode polish** over it, realizing the visual
 language v0.60b designed and the operator chose rather than inventing one at build
-time. The v0.58 maturity
+time. Brand identity follows the same rule: v0.61 designs candidate marks, records
+the operator-selected mark in `docs/design/brand-identity-selected.md`, commits the
+candidate and selected renderings under `docs/design/brand/`, and only then applies
+the chosen mark. The v0.58 maturity
 review found a strong token/accessibility foundation under an operator-utility
 surface: motion tokens and scattered transitions exist but not a coherent
 product motion layer; brand identity is effectively absent; `/` is still thin;
@@ -3920,8 +3925,10 @@ Expected direction:
   Modern Depth, ADR 0079), building its token/component delta
   (`docs/design/visual-language-selected.md`) as first-class tokens/variants — the
   structural overhaul plus the chosen aesthetic, not just surface polish.
-- A real brand identity (logo/wordmark, applied across shell and landing),
-  retiring the stock framework logo.
+- A real, operator-chosen brand identity (logo/wordmark, favicon/app-icon, OG image
+  direction), recorded in `docs/design/brand-identity-selected.md` with candidate
+  and selected renderings committed under `docs/design/brand/`, then applied across
+  shell and landing while retiring the stock framework logo.
 - A motion layer (entrance/drawer/skeleton transitions) over the existing token
   scales, respecting the reduced-motion axis.
 - A visual-hierarchy craft pass across `/workspace`, `/jobs`, `/objectives`, and

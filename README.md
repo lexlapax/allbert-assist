@@ -42,7 +42,8 @@ placeholder walking skeleton. v0.60b then designed the product's **visual langua
 it produced three divergent candidate visual directions as rendered hero screens,
 evaluated them against a rubric, and the operator **chose Direction C (Soft Modern
 Depth)** as the canonical language that v0.61 will implement over an operator-chosen
-concrete layout system. Both are design-first and ship no new authority or runtime
+concrete layout system; v0.61 also designs, records, and applies an operator-chosen
+brand identity. v0.60/v0.60b are design-first and ship no new authority or runtime
 capability beyond the inert preview scaffold.
 
 The latest published release tag is `v0.60.1` (v0.60b), applied on top of `v0.60.0`;

@@ -128,8 +128,13 @@ changing authority or the catalog rendering boundary:
   operator choice, and commits sanitized screenshots under
   `docs/design/layout-systems/` as the design record. This implements the v0.60 IA
   in a chosen composition; it does not reopen the IA itself.
-- **Brand identity** — a real logo/wordmark applied across the shell and a real
-  landing surface, retiring the stock framework logo.
+- **Brand identity** — v0.61 designs candidate logo/wordmark, favicon/app-icon, and
+  OG-image directions in the chosen Direction C language, records the operator's
+  selected mark in `docs/design/brand-identity-selected.md`, commits all candidate
+  and selected renderings under `docs/design/brand/`, then applies the chosen
+  logo/wordmark across the shell and a real landing surface while retiring the stock
+  framework logo. The build applies a chosen design; it does not silently originate
+  brand identity during implementation.
 - **Motion layer** — entrance/drawer/skeleton transitions over the existing token
   scales, gated by the reduced-motion axis already in the token system.
 - **Visual-hierarchy craft pass** — depth, emphasis, density, and populated
