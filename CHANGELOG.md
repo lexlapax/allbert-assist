@@ -10,6 +10,61 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.60.0 - Product Experience Design
+
+Status: validation complete and release-ready for `0.60.0` on 2026-06-30.
+Operator validation S0-S6, Chrome S4.5, and `release.v060` passed; the release
+tag is pending operator approval. Version metadata reports `0.60.0`.
+
+Plan: `docs/plans/v0.60-plan.md`. Request flow:
+`docs/plans/v0.60-request-flow.md`. ADRs:
+`docs/adr/0077-product-experience-design-and-information-architecture.md` and
+`docs/adr/0078-first-model-path.md` (both Accepted (v0.60)).
+
+### Added
+
+- Product-experience design package under `docs/design/`: the technical-prosumer
+  journey, information architecture, First-Model Path, onboarding flow, persona
+  model, entry-point/CLI UX, and design-system gap analysis for v0.61-v0.63.
+- ADR 0077 accepts the unified product experience, IA, navigation, and
+  composition redesign that v0.61 implements over the v0.58 surface substrate.
+- ADR 0078 accepts assisted-local as the default First-Model Path, BYOK as the
+  fallback, managed-hosted as rejected for this arc, and the QuickStart "first
+  useful chat" contract realized across v0.61-v0.63.
+- A navigable placeholder walking skeleton for the IA preview routes, with
+  manifest-driven route composition, inert `skeleton_placeholder` representation
+  for live-panel atoms, no live data reads, no new authority, and no Settings keys.
+- The deterministic `release.v060` lane covering migrate, formatter, compile
+  warnings-as-errors, Credo strict, Dialyzer, walking-skeleton smoke, v0.60
+  security/coherence/handoff eval rows, docs gate, and release evidence.
+
+### Validation
+
+- Operator validation S0-S6 passed on 2026-06-30 using disposable validation Home
+  `/tmp/allbert-v060-web.uYIRMq`, with retained redacted evidence under
+  `/Users/spuri/.allbert-release-evidence/v060`.
+- Chrome S4.5 rendered all 9 preview routes and passed nav-shell, catalog-render,
+  nav-traversal, composition-depth, no-authority, console-errors=0, keyboard-focus,
+  dark, high-contrast, and reduced-motion checks. Evidence notes:
+  `/Users/spuri/.allbert-release-evidence/v060/s4_5-browser-notes-codex.md`.
+- S5 walking-skeleton eval rows passed with `3 tests, 0 failures`,
+  `composition_child_routes=9`, and the design-only invariant
+  `live_data=false authority=none settings_keys=0`.
+- S6 `release.v060` passed with embedded Dialyzer reporting `Total errors: 0`,
+  `Skipped: 0`, and `Unnecessary Skips: 0`; the handoff, cross-doc coherence, and
+  persona seed pre-audit rows passed. Release evidence JSON:
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release-v060/p0-13381/home/release_evidence/v060/release-v060-1782869733.json`.
+
+### Fixed
+
+- Post-implementation remediations M8.1-M8.4 and M9.1-M9.6 closed the persona /
+  First-Model Path contradiction, made S4.5 executable under a shared disposable
+  Home, embedded the cross-doc coherence gate, deepened skeleton composition for
+  every route, pinned persona seed pre-audit keys, added Dialyzer to the release
+  gate, and removed the remaining third-audit polish nits before validation.
+- Operator validation S4 route extraction now uses `mix run --no-start` so the
+  manifest route file contains only `/preview/*` paths and not app startup logs.
+
 ## v0.59.0 - Hardening: Portability, Settings Version Contract & Param Contracts
 
 Status: release closeout complete on 2026-06-30 after final release-audit

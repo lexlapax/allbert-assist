@@ -29,17 +29,17 @@ For contributors:
 - [Web design system](developer/web-design-system.md)
 - [Operator workspace guide](operator/workspace.md)
 
-v0.59 release closeout is complete as `0.59.0`; the release tag `v0.59.0` exists.
-v0.60 implementation and post-implementation remediation through M9.6 are complete
-and ready for operator manual validation. The remaining pre-1.0 arc is v0.60b
-(0.60.1) visual design language & art direction — the visual-language design point
-release that produces at least three candidate directions and has the operator
-choose one (ADR 0079) — then v0.61
-presentation layer overhaul, v0.62 packaging/entry points, v0.63 guided
-onboarding/profiles, and v0.64 product RC; see the [plans index](plans/README.md)
-and [roadmap](plans/roadmap.md). The v0.60 product-experience artifacts live
-under `docs/design/`; the v0.60 plan/request-flow remain authoritative until
-validation closeout.
+v0.60 implementation, post-implementation remediation through M9.6, and operator
+validation S0-S6 are complete; the release is ready for the `v0.60.0` tag. The
+latest published release tag remains `v0.59.0` until that tag is applied. The
+remaining pre-1.0 arc is v0.60b (0.60.1) visual design language & art direction -
+the visual-language design point release that produces at least three candidate
+directions and has the operator choose one (ADR 0079) - then v0.61 presentation
+layer overhaul, v0.62 packaging/entry points, v0.63 guided onboarding/profiles,
+and v0.64 product RC; see the [plans index](plans/README.md) and
+[roadmap](plans/roadmap.md). The v0.60 product-experience artifacts live under
+`docs/design/`; the v0.60 plan/request-flow retain the validation evidence and
+release handoff.
 
 ## Directory Map
 

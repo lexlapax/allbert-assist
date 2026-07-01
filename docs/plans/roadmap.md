@@ -3752,10 +3752,10 @@ Request flow: `docs/plans/v0.60-request-flow.md`
 ADR: `docs/adr/0077-product-experience-design-and-information-architecture.md`
 (Experience Design & IA); `docs/adr/0078-first-model-path.md` (First-Model Path).
 
-Status: implementation complete on 2026-06-30; post-implementation remediation
-M8.1-M8.4 and M9.1-M9.6 implemented before manual operator validation; gate
-`release.v060` is green and the release is ready for operator manual validation.
-Design-first release inserted ahead of the four
+Status: validation complete and release-ready for `v0.60.0` on 2026-06-30.
+Post-implementation remediation M8.1-M8.4 and M9.1-M9.6, operator validation
+S0-S6, Chrome S4.5, and the `release.v060` gate passed before tag. Design-first
+release inserted ahead of the four
 implementation releases (v0.61 presentation, v0.62 packaging, v0.63 onboarding,
 v0.64 RC) by the post-v0.59 product-readiness review. It adds no new authority
 and ships no new user-facing capability: it front-loads the unified

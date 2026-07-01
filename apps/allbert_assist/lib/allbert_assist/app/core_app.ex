@@ -19,10 +19,10 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.57 adds the Pi-mode coding
-  # surface on the same authority spine.
+  # the app (release-pinned, not semantic-per-app). v0.60 adds the product-
+  # experience preview skeleton and its inert catalog representation.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.57.0"
+  def version, do: "0.60.0"
 
   @impl true
   def validate(_opts), do: :ok

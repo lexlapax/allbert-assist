@@ -34,11 +34,13 @@ becoming opaque or unbounded.
 
 ## Current Shape
 
-The current release is `v0.59.0`. v0.59 is a hardening release: it makes Allbert
-Home export/dry-run import portable and redacted, adds the Settings Central
-version contract, enforces registered action param contracts at the Runner, and
-locks the cross-surface security substrate before the remaining pre-1.0
-product-readiness releases.
+The current release candidate is `v0.60.0`. v0.60 is a design-first product
+experience release: it front-loads the unified journey, information architecture,
+First-Model Path, onboarding/persona inputs, entry-point UX, design-system gap
+analysis, and a navigable placeholder walking skeleton before the remaining
+pre-1.0 product releases. It ships no new authority or runtime capability beyond
+the skeleton scaffold. The latest published release tag remains `v0.59.0` until
+the v0.60 tag is applied.
 
 This README is the stable project orientation; release-by-release implementation
 detail belongs in [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in
