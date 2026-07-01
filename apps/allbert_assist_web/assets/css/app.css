@@ -254,6 +254,31 @@
   --workspace-field-placeholder: #111827;
 }
 
+/* v0.61 M9 — OS dark-mode resolution. When the operator's theme is `system`, the
+   shell emits data-theme="system" (root <html> and #workspace-shell); resolve the
+   Direction C dark set from the OS prefers-color-scheme instead of falling back to
+   light. Explicit [data-theme="light"|"dark"] still win (higher specificity / no
+   media gate); high-contrast still overrides via its own axis. */
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    color-scheme: dark;
+    --allbert-surface-0: #14121f;
+    --allbert-surface-1: #1c1930;
+    --allbert-surface-2: #251f3d;
+    --allbert-text-strong: #efeafc;
+    --allbert-text-soft: #b3a9d6;
+    --allbert-line: #332c52;
+    --allbert-accent: #a99bf7;
+    --allbert-accent-contrast: #14121f;
+    --allbert-accent-soft: #241d3d;
+    --workspace-field-bg: #eef6ff;
+    --workspace-field-bg-disabled: #d8e4f0;
+    --workspace-field-border: #8da2ba;
+    --workspace-field-fg: #0b1220;
+    --workspace-field-placeholder: #475569;
+  }
+}
+
 /*
  * v0.60b M3 — candidate visual directions (disposable design-exploration).
  *
@@ -587,6 +612,54 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
   gap: var(--allbert-space-4);
+}
+
+/* v0.61 M7 — motion layer over the Direction C motion roles (durations/easings from
+   the promoted :root tokens; no hardcoded values). The global [data-reduce-motion]
+   and prefers-reduced-motion rules already collapse every transition/animation to
+   ~instant, so these roles are reduced-motion-gated by construction. */
+@keyframes allbert-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes allbert-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* Entrance role — mount-once surfaces enter with the emphasis overshoot. */
+.allbert-landing-hero,
+.allbert-landing-features > *,
+.operator-nav-group {
+  animation: allbert-card-enter var(--allbert-motion-duration-base)
+    var(--allbert-motion-ease-emphasis) both;
+}
+
+/* Drawer role — the utility drawer slides on the standard ease. */
+[data-workspace-pattern="drawer-shell"] {
+  transition:
+    transform var(--allbert-motion-duration-base) var(--allbert-motion-ease-standard),
+    opacity var(--allbert-motion-duration-fast) var(--allbert-motion-ease-standard);
+}
+
+/* Skeleton/loading role — loading states pulse on the slow duration. */
+[data-workspace-pattern="loading-state"] {
+  animation: allbert-skeleton-pulse var(--allbert-motion-duration-slow)
+    var(--allbert-motion-ease-standard) infinite;
 }
 
 [data-reduce-motion="true"],

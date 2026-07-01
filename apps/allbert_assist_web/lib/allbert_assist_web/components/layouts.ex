@@ -307,11 +307,16 @@ defmodule AllbertAssistWeb.Layouts do
 
   defp theme_asset_version, do: AllbertAssist.Theme.Version.stylesheet_version()
 
+  # v0.61 M9 — emit an explicit `system` theme mode (was nil, which silently fell back
+  # to light). The client/CSS layer resolves `data-theme="system"` against the OS
+  # `prefers-color-scheme` (see the @media (prefers-color-scheme: dark) block in
+  # app.css); explicit light/dark still win. The server cannot know the OS preference,
+  # so this function only names the mode — it must not guess dark/light for `system`.
   defp root_theme_attribute(settings) do
     case setting_value(settings, "workspace.theme.mode", "system") do
       "dark" -> "dark"
       "light" -> "light"
-      _theme -> nil
+      _system -> "system"
     end
   end
 

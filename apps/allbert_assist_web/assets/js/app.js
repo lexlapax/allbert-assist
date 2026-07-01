@@ -34,7 +34,9 @@ const setupAllbertTheme = () => {
   const setTheme = theme => {
     if (theme === "system") {
       localStorage.removeItem(storageKey)
-      document.documentElement.removeAttribute("data-theme")
+      // v0.61 M9 — keep an explicit `system` marker so the CSS resolves it against the
+      // OS prefers-color-scheme; removing the attribute would fall back to light.
+      document.documentElement.setAttribute("data-theme", "system")
     } else {
       localStorage.setItem(storageKey, theme)
       document.documentElement.setAttribute("data-theme", theme)

@@ -2515,7 +2515,9 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp theme_attribute("dark"), do: "dark"
   defp theme_attribute("light"), do: "light"
-  defp theme_attribute(_theme), do: nil
+  # v0.61 M9 — emit `system` so the CSS resolves it against the OS prefers-color-scheme
+  # instead of falling back to light; explicit light/dark still win.
+  defp theme_attribute(_system), do: "system"
 
   defp renderer_context(assigns) do
     %{
