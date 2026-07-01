@@ -362,11 +362,15 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
     """
   end
 
-  # ── Direction C (Soft Modern Depth) first-class variants (v0.61 M3) ─────────────
-  # The four component variants the v0.60b visual-language selection (ADR 0079)
-  # commits v0.61 to build, consuming the promoted :root Direction C tokens
-  # (elevation/depth, large radius, tonal surfaces). M4/M5 dress the shell and
-  # screens with these; they are reusable registry variants, not per-page HEEx.
+  # ── Direction C (Soft Modern Depth) first-class variants (v0.61 M3; M10.2) ──────
+  # The Direction C visual-language selection (ADR 0079) is realized as two reusable
+  # registry components consuming the promoted :root tokens — `elevated_card` (panels,
+  # jobs/objectives/landing) and `nav_pill` (grouped IA navigation) — plus two pattern
+  # markers carried on the richer native surfaces: `chat-primary-hero` on the workspace
+  # chat pane and `trust-soft-card` on the surface-policy panel. The native structures
+  # are richer than a 2-zone/posture component, so a marker + the promoted-token CSS is
+  # the honest wiring (M10.2 removed the never-rendered chat_primary_hero/trust_card
+  # components and their orphan CSS rather than ship dead code).
 
   @doc "Direction C elevated/floating card variant class (soft elevation + large radius)."
   def elevated_card_class(extra_class \\ nil), do: ["allbert-elevated-card", extra_class]
@@ -374,9 +378,6 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
   @doc "Direction C soft nav-pill variant class for the grouped IA navigation."
   def nav_pill_class(active? \\ false, extra_class \\ nil),
     do: ["allbert-nav-pill", active? && "allbert-nav-pill-active", extra_class]
-
-  @doc "Direction C trust-posture soft-card variant class."
-  def trust_card_class(extra_class \\ nil), do: ["allbert-trust-card", extra_class]
 
   attr :id, :string, required: true
   attr :title, :string, default: nil
@@ -396,32 +397,6 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
     >
       <h2 :if={present?(@title)} class="workspace-card-title">{@title}</h2>
       {render_slot(@inner_block)}
-    </section>
-    """
-  end
-
-  attr :id, :string, required: true
-  attr :class, :any, default: nil
-  attr :rest, :global
-  slot :conversation, required: true
-  slot :composer, required: true
-
-  @doc "Direction C chat-primary hero — raised conversation card + floating composer."
-  def chat_primary_hero(assigns) do
-    ~H"""
-    <section
-      id={@id}
-      class={["allbert-chat-hero", @class]}
-      data-workspace-pattern="chat-primary-hero"
-      data-workspace-variant="direction-c"
-      {@rest}
-    >
-      <div class="allbert-chat-hero-conversation" data-chat-hero-zone="conversation">
-        {render_slot(@conversation)}
-      </div>
-      <div class="allbert-chat-hero-composer" data-chat-hero-zone="composer">
-        {render_slot(@composer)}
-      </div>
     </section>
     """
   end
@@ -451,30 +426,6 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
       </span>
       <span class="allbert-nav-pill-label">{@label}</span>
     </.link>
-    """
-  end
-
-  attr :id, :string, required: true
-  attr :title, :string, default: nil
-  attr :posture, :string, default: "neutral"
-  attr :class, :any, default: nil
-  attr :rest, :global
-  slot :inner_block, required: true
-
-  @doc "Direction C trust-posture soft card — confirmations, traces, audit posture."
-  def trust_card(assigns) do
-    ~H"""
-    <section
-      id={@id}
-      class={trust_card_class(@class)}
-      data-workspace-pattern="trust-soft-card"
-      data-workspace-variant="direction-c"
-      data-trust-posture={@posture}
-      {@rest}
-    >
-      <h2 :if={present?(@title)} class="workspace-card-title">{@title}</h2>
-      {render_slot(@inner_block)}
-    </section>
     """
   end
 

@@ -537,33 +537,6 @@ body {
   padding: var(--allbert-space-5);
 }
 
-.allbert-chat-hero {
-  display: flex;
-  flex-direction: column;
-  gap: var(--allbert-space-4);
-  min-height: 100%;
-}
-
-.allbert-chat-hero-conversation {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  background: var(--allbert-surface-1);
-  border: var(--allbert-border-width) solid var(--allbert-line);
-  border-radius: var(--allbert-radius-panel);
-  box-shadow: var(--allbert-shadow-panel);
-  padding: var(--allbert-space-5);
-}
-
-.allbert-chat-hero-composer {
-  position: sticky;
-  bottom: 0;
-  background: var(--allbert-surface-1);
-  border: var(--allbert-border-width) solid var(--allbert-line);
-  border-radius: var(--allbert-radius-control);
-  box-shadow: var(--allbert-shadow-panel);
-  padding: var(--allbert-space-3);
-}
-
 .allbert-nav-pill {
   display: flex;
   align-items: center;
@@ -599,14 +572,6 @@ body {
   border-radius: var(--allbert-radius-panel);
   box-shadow: var(--allbert-shadow-sm);
   padding: var(--allbert-space-5);
-}
-
-.allbert-trust-card[data-trust-posture="warn"] {
-  border-color: var(--allbert-warn);
-}
-
-.allbert-trust-card[data-trust-posture="danger"] {
-  border-color: var(--allbert-danger);
 }
 
 /* v0.61 M6 — brand mark + landing/marketing surface (Direction C hero + cards). */

@@ -3,7 +3,10 @@ defmodule AllbertAssistWeb.Workspace.DirectionCTokensTest do
   v0.61 M3 proof: the operator-chosen Direction C (Soft Modern Depth) visual
   language is promoted from the disposable `[data-visual-direction="c"]` preview
   delta into the canonical first-class `:root` (and dark) `--allbert-*` defaults,
-  and its four component variants render through the registry.
+  and its four Direction C patterns are wired — two reusable registry components
+  (`elevated_card`, `nav_pill`) plus two markers carried on the richer native
+  surfaces (`chat-primary-hero` on the chat pane, `trust-soft-card` on the policy
+  panel).
 
   Scoped to the `:root` / `[data-theme="dark"]` blocks so it proves *promotion*,
   not mere presence (the values also exist in the still-live c preview block until
@@ -29,14 +32,7 @@ defmodule AllbertAssistWeb.Workspace.DirectionCTokensTest do
       <Patterns.elevated_card id="dc-card" title="Panel">
         <p>Elevated body</p>
       </Patterns.elevated_card>
-      <Patterns.chat_primary_hero id="dc-hero">
-        <:conversation>Conversation</:conversation>
-        <:composer>Composer</:composer>
-      </Patterns.chat_primary_hero>
       <Patterns.nav_pill id="dc-pill" label="Workspace" navigate="/workspace" active?={true} />
-      <Patterns.trust_card id="dc-trust" title="Trust" posture="warn">
-        <p>Trust body</p>
-      </Patterns.trust_card>
       """
     end
   end
@@ -99,37 +95,40 @@ defmodule AllbertAssistWeb.Workspace.DirectionCTokensTest do
     assert hc =~ "--workspace-border: var(--allbert-line);"
   end
 
-  test "the four Direction C variants exist as first-class CSS classes on the tokens" do
+  test "the Direction C pattern classes consume the promoted tokens" do
     for {selector, token} <- [
           {".allbert-elevated-card", "var(--allbert-shadow-panel)"},
-          {".allbert-chat-hero-conversation", "var(--allbert-radius-panel)"},
           {".allbert-nav-pill", "var(--allbert-radius-pill)"},
-          {".allbert-trust-card", "var(--allbert-surface-1)"}
+          {".allbert-trust-card", "var(--allbert-surface-1)"},
+          # chat-primary-hero is carried on the native chat pane, not a component.
+          {".workspace-chat-pane", "var(--allbert-shadow-panel)"}
         ] do
       assert css_block!(selector) =~ token,
              "#{selector} must consume the promoted #{token} token"
     end
   end
 
-  test "the four Direction C variants render through the registry with pattern markers" do
+  test "the Direction C patterns are wired: two reusable components + two native markers" do
     html = render_component(&DirectionCHost.render/1, %{})
 
+    # Two reusable registry components render with their pattern markers.
     assert html =~ ~s(data-workspace-pattern="elevated-card")
-    assert html =~ ~s(data-workspace-pattern="chat-primary-hero")
     assert html =~ ~s(data-workspace-pattern="nav-pill")
-    assert html =~ ~s(data-workspace-pattern="trust-soft-card")
-
-    # All four are tagged as the Direction C variant family.
-    assert length(String.split(html, ~s(data-workspace-variant="direction-c"))) == 5
-
-    # Chat-primary hero carries both zones; nav-pill marks the active route.
-    assert html =~ ~s(data-chat-hero-zone="conversation")
-    assert html =~ ~s(data-chat-hero-zone="composer")
+    assert length(String.split(html, ~s(data-workspace-variant="direction-c"))) == 3
     assert html =~ ~s(aria-current="page")
-    assert html =~ ~s(data-trust-posture="warn")
+
+    # The other two patterns are carried on the richer native surfaces (not
+    # standalone components): chat-primary-hero on the chat pane, trust-soft-card on
+    # the surface-policy panel.
+    lib = Path.expand("../../../lib/allbert_assist_web/workspace/components", __DIR__)
+    chat = File.read!(Path.join(lib, "chat.ex"))
+    panels = File.read!(Path.join(lib, "operator_panels.ex"))
+
+    assert chat =~ ~s(data-workspace-pattern="chat-primary-hero")
+    assert panels =~ ~s(data-workspace-pattern="trust-soft-card")
 
     IO.puts(
-      "visual-language-direction-c-tokens-first-class-001 status=pass variants=4 " <>
+      "visual-language-direction-c-tokens-first-class-001 status=pass components=2 markers=2 " <>
         "promoted=root+dark authority=none"
     )
   end
@@ -139,7 +138,6 @@ defmodule AllbertAssistWeb.Workspace.DirectionCTokensTest do
     assert Patterns.elevated_card_class("extra") == ["allbert-elevated-card", "extra"]
     assert Patterns.nav_pill_class(true) == ["allbert-nav-pill", "allbert-nav-pill-active", nil]
     assert Patterns.nav_pill_class(false) == ["allbert-nav-pill", false, nil]
-    assert Patterns.trust_card_class() == ["allbert-trust-card", nil]
   end
 
   defp css_block!(selector) do
