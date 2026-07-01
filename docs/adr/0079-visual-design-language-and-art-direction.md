@@ -66,9 +66,10 @@ language is the input v0.61 implements. Concretely:
    character, chat-primary composition, accessibility fit, feasibility over the
    ADR 0074 tokens).
 2. **At least three divergent directions.** Each direction is a real, rendered
-   proposal — hero screens (workspace chat-primary view, an operator page, the
-   landing surface) styled to that direction — not a mood board of adjectives. The
-   directions must genuinely diverge, so the choice is between real alternatives.
+   proposal — the canonical hero-screen set the plan pins (four: workspace,
+   onboarding, trust, and the `launch` landing/start surface) styled to that
+   direction — not a mood board of adjectives. The directions must genuinely
+   diverge, so the choice is between real alternatives.
 3. **Comparison and selection.** The directions are evaluated against the rubric and
    the **operator chooses one** canonical direction. The choice, and its rationale
    against the rubric, is recorded in this ADR at v0.60b M5 (Accepted-with-choice).

@@ -3844,9 +3844,10 @@ Planned scope (design + disposable exploration only):
   chat-primary composition, accessibility fit, feasibility over the ADR 0074
   tokens).
 - **At least three divergent candidate visual/UX design directions**, each **viewable
-  as rendered hero screens** (workspace chat-primary view, an operator page, the
-  landing surface) — real rendered proposals, not adjective mood boards — so the
-  choice is between genuine alternatives.
+  as rendered hero screens** (the canonical four the plan pins: workspace,
+  onboarding, trust, and the `launch` landing/start surface) — real rendered
+  proposals, not adjective mood boards — so the choice is between genuine
+  alternatives.
 - **Comparison and selection**: the directions are evaluated against the rubric and
   the **operator chooses one** canonical visual language; the choice and its
   rationale are recorded in ADR 0079 at M5 (Accepted-with-choice).
