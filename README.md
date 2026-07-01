@@ -34,13 +34,18 @@ becoming opaque or unbounded.
 
 ## Current Shape
 
-The current release candidate is `v0.60.0`. v0.60 is a design-first product
-experience release: it front-loads the unified journey, information architecture,
-First-Model Path, onboarding/persona inputs, entry-point UX, design-system gap
-analysis, and a navigable placeholder walking skeleton before the remaining
-pre-1.0 product releases. It ships no new authority or runtime capability beyond
-the skeleton scaffold. The latest published release tag remains `v0.59.0` until
-the v0.60 tag is applied.
+The current release is `v0.60.1` (v0.60b, Visual Design Language & Art Direction),
+a design-first **point release** on top of `v0.60.0` (Product Experience Design).
+v0.60 front-loaded the unified journey, information architecture, First-Model Path,
+onboarding/persona inputs, entry-point UX, design-system gap analysis, and a navigable
+placeholder walking skeleton. v0.60b then designed the product's **visual language**:
+it produced three divergent candidate visual directions as rendered hero screens,
+evaluated them against a rubric, and the operator **chose Direction C (Soft Modern
+Depth)** as the canonical language that v0.61 will implement. Both are design-first and
+ship no new authority or runtime capability beyond the inert preview scaffold.
+
+The latest published release tag is `v0.60.0`; the `v0.60.1` tag is pending operator
+approval (version metadata already reports `0.60.1`).
 
 This README is the stable project orientation; release-by-release implementation
 detail belongs in [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in

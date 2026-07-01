@@ -22,24 +22,26 @@ For contributors:
 
 ## Current Release
 
+- [v0.60b plan](plans/v0.60b-plan.md)
+- [v0.60b request flow](plans/v0.60b-request-flow.md)
 - [v0.60 plan](plans/v0.60-plan.md)
 - [v0.60 request flow](plans/v0.60-request-flow.md)
-- [v0.59 release baseline](plans/v0.59-plan.md)
 - [Surface contract](developer/surface-contract.md)
 - [Web design system](developer/web-design-system.md)
 - [Operator workspace guide](operator/workspace.md)
 
-v0.60 implementation, post-implementation remediation through M9.6, and operator
-validation S0-S6 are complete; the release is ready for the `v0.60.0` tag. The
-latest published release tag remains `v0.59.0` until that tag is applied. The
-remaining pre-1.0 arc is v0.60b (0.60.1) visual design language & art direction -
-the visual-language design point release that produces at least three candidate
-directions and has the operator choose one (ADR 0079) - then v0.61 presentation
-layer overhaul, v0.62 packaging/entry points, v0.63 guided onboarding/profiles,
-and v0.64 product RC; see the [plans index](plans/README.md) and
-[roadmap](plans/roadmap.md). The v0.60 product-experience artifacts live under
-`docs/design/`; the v0.60 plan/request-flow retain the validation evidence and
-release handoff.
+The current release is `v0.60.1` (v0.60b, Visual Design Language & Art Direction), a
+design-first point release on top of `v0.60.0` (Product Experience Design). v0.60b
+produced three divergent candidate visual directions as rendered hero screens,
+evaluated them against a rubric, and the operator **chose Direction C (Soft Modern
+Depth)** (ADR 0079 Accepted-with-choice) as the canonical language v0.61 implements;
+`release.v060b` is green. The latest published release tag is `v0.60.0`; the `v0.60.1`
+tag is pending operator approval (version metadata reports `0.60.1`). The remaining
+pre-1.0 arc is v0.61 presentation layer overhaul (implements Direction C), v0.62
+packaging/entry points, v0.63 guided onboarding/profiles, and v0.64 product RC; see the
+[plans index](plans/README.md) and [roadmap](plans/roadmap.md). The v0.60/v0.60b design
+artifacts live under `docs/design/` (including `visual-directions/` rendered captures);
+the plan/request-flow docs retain the validation evidence and release handoff.
 
 ## Directory Map
 

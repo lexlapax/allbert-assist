@@ -58,9 +58,10 @@ that v0.61 implements.
 
 ## v0.60.0 - Product Experience Design
 
-Status: validation complete and release-ready for `0.60.0` on 2026-06-30.
-Operator validation S0-S6, Chrome S4.5, and `release.v060` passed; the release
-tag is pending operator approval. Version metadata reports `0.60.0`.
+Status: released; tagged `v0.60.0` (commit `643cc344`). Validation complete on
+2026-06-30 — operator validation S0-S6, Chrome S4.5, and `release.v060` passed. The
+subsequent point release v0.60.1 (v0.60b) is above; version metadata now reports
+`0.60.1`.
 
 Plan: `docs/plans/v0.60-plan.md`. Request flow:
 `docs/plans/v0.60-request-flow.md`. ADRs:

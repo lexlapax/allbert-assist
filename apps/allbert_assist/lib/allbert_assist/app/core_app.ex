@@ -20,9 +20,10 @@ defmodule AllbertAssist.App.CoreApp do
   @impl true
   # App version follows the Allbert release that last meaningfully changed
   # the app (release-pinned, not semantic-per-app). v0.60 adds the product-
-  # experience preview skeleton and its inert catalog representation.
+  # experience preview skeleton and its inert catalog representation; v0.60b
+  # (0.60.1) adds the inert visual-direction preview variants over that skeleton.
   # Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.60.0"
+  def version, do: "0.60.1"
 
   @impl true
   def validate(_opts), do: :ok
