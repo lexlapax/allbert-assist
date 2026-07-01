@@ -1,8 +1,10 @@
 # ADR 0079: Visual Design Language & Art Direction
 
-Status: Proposed (v0.60b). The chosen direction is recorded here at v0.60b M5
-(the ADR becomes Accepted-with-choice once the operator selects one canonical
-visual language from the rendered candidates).
+Status: Accepted-with-choice (v0.60b). The operator selected one canonical visual
+language — **Direction C (Soft Modern Depth)** — from the three rendered candidate
+directions at v0.60b M5; the choice and its rubric rationale are recorded in the
+"Chosen Direction" section below and specified in
+`docs/design/visual-language-selected.md`.
 Date: 2026-06-30
 Related: ADR 0077 (Product Experience Design & IA — 0077 designed the *structure*:
 the information architecture, navigation, and screen composition; 0079 designs the
@@ -82,6 +84,36 @@ The v0.60 walking skeleton remains the low-fi **structural** scaffold; v0.60b ad
 the hi-fi **visual direction** on top; **v0.61 implements the chosen aesthetic over
 the v0.60 IA**. Design (structure in v0.60, visual language in v0.60b) is separated
 from build (v0.61), and both are chosen deliberately before the freeze.
+
+## Chosen Direction (v0.60b M5)
+
+The operator evaluated the **three** divergent rendered candidate directions —
+**Direction A (Warm Editorial Calm)**, **Direction B (Precise Technical Console)**, and
+**Direction C (Soft Modern Depth)** — side-by-side against the M2 rubric (see
+`docs/design/visual-language-comparison.md`) and **chose Direction C (Soft Modern
+Depth)** as the canonical visual language.
+
+- **Chosen direction:** **Direction C — Soft Modern Depth**
+  (`docs/design/visual-direction-c.md`): tonal violet-tinted surfaces with disciplined
+  soft elevation, rounded geometric type, large radii, roomy density, and expressive-
+  but-controlled spatial motion that fully collapses under reduced-motion.
+- **Deciding axes (rubric rationale):** Direction C won on **Axis 2 ("does it feel 1.0
+  / ultra-modern")**, where it scored highest of the three — the most distinctly modern
+  and memorable identity. The operator accepted its trade-offs on Axis 1 (persona fit,
+  where Direction B led) and on implementability/a11y discipline (the largest token
+  delta and the depth/motion-collapse discipline v0.61 must carry) in exchange for the
+  strongest 1.0 visual ceiling. The full per-axis scores (C: 85 weighted; B: 95; A: 90)
+  and reasoning are in `visual-language-comparison.md`; the choice deliberately favors
+  the distinctiveness axis over the rubric-leading total.
+- **Discipline this choice commits v0.61 to:** because Direction C leans into
+  elevation/soft-shadow and spatial motion, v0.61 must build the elevation/depth scale
+  and the reduced-motion-gated motion roles as first-class tokens (not per-page
+  shadows), and hold the dark / high-contrast / reduced-motion axes (verified holding in
+  the v0.60b render check). The token/component delta is specified in
+  `docs/design/visual-language-selected.md`.
+
+This selection was rendered viewable as real pixels (the `/preview/visual/c/*` hero
+screens) before it was recorded; it is not a prose-only choice.
 
 ## Consequences
 
