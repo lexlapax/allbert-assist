@@ -296,6 +296,36 @@
     --workspace-field-fg: #0b1220;
     --workspace-field-placeholder: #475569;
   }
+
+  /* v0.61 M10.2 P0-2 — system theme + OS-dark + high-contrast must resolve to the
+     dark-HC palette instead of falling through to the light-HC white block. Covers
+     the html root and #workspace-shell (which co-locates data-theme + data-high-
+     contrast on one element). */
+  [data-theme="system"][data-high-contrast="true"],
+  [data-theme="system"] [data-high-contrast="true"] {
+    --allbert-surface-0: #000000;
+    --allbert-surface-1: #09090b;
+    --allbert-surface-2: #18181b;
+    --allbert-text-strong: #ffffff;
+    --allbert-text-soft: #f4f4f5;
+    --allbert-line: #ffffff;
+    --allbert-accent: #bfdbfe;
+    --allbert-accent-contrast: #000000;
+    --allbert-accent-soft: #172554;
+    --workspace-bg: var(--allbert-surface-0);
+    --workspace-panel: var(--allbert-surface-1);
+    --workspace-panel-muted: var(--allbert-surface-2);
+    --workspace-border: var(--allbert-line);
+    --workspace-fg: var(--allbert-text-strong);
+    --workspace-muted: var(--allbert-text-soft);
+    --workspace-accent: var(--allbert-accent);
+    --workspace-focus: var(--allbert-accent);
+    --workspace-field-bg: #ffffff;
+    --workspace-field-bg-disabled: #e5e7eb;
+    --workspace-field-border: #ffffff;
+    --workspace-field-fg: #000000;
+    --workspace-field-placeholder: #111827;
+  }
 }
 
 /*

@@ -75,6 +75,24 @@ defmodule AllbertAssistWeb.V061.AccessibilityConformanceTest do
     )
   end
 
+  test "system-theme high-contrast resolves to the dark-HC palette under OS dark" do
+    css = File.read!(@css_path)
+
+    # Inside @media (prefers-color-scheme: dark), a [data-theme="system"] high-contrast
+    # rule must carry the dark-HC surfaces (black) + the re-resolved --workspace-*
+    # aliases, so dark+HC users in system mode are not flipped to the light-HC white.
+    assert css =~ ~s([data-theme="system"] [data-high-contrast="true"] {)
+
+    [_, after_sel] =
+      String.split(css, ~s([data-theme="system"] [data-high-contrast="true"] {), parts: 2)
+
+    block = after_sel |> String.split("}", parts: 2) |> hd()
+    assert block =~ "--allbert-surface-0: #000000;"
+    assert block =~ "--workspace-accent: var(--allbert-accent);"
+
+    IO.puts("dark-high-contrast-system-resolution-001 status=pass palette=dark_hc fallback=none")
+  end
+
   defp assert_all_buttons_named!(html) do
     missing =
       ~r/<button\b([^>]*)>(.*?)<\/button>/s
