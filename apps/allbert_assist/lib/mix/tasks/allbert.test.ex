@@ -37,6 +37,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v059
       mix allbert.test release.v060
       mix allbert.test release.v060b
+      mix allbert.test release.v061
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -145,6 +146,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v059"]), do: release_v059()
   def run(["release.v060"]), do: release_v060()
   def run(["release.v060b"]), do: release_v060b()
+  def run(["release.v061"]), do: release_v061()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -3910,6 +3912,191 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  @release_v061_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "format_check",
+      title: "formatter check for v0.61 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["format", "--check-formatted"],
+      coverage: [
+        "formatter drift fails the v0.61 presentation-overhaul handoff",
+        "formatter evidence is captured inside release.v061"
+      ]
+    },
+    %{
+      id: "compile_warnings_as_errors",
+      title: "compile v0.61 release candidate with warnings as errors",
+      cwd: :root,
+      executable: "mix",
+      args: ["compile", "--warnings-as-errors"],
+      coverage: [
+        "compiler warnings fail the v0.61 presentation-overhaul handoff",
+        "compile evidence is captured inside release.v061"
+      ]
+    },
+    %{
+      id: "credo_strict",
+      title: "Credo strict check for v0.61 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["credo", "--strict"],
+      coverage: [
+        "Credo strict findings fail the v0.61 presentation-overhaul handoff",
+        "Credo evidence is captured inside release.v061"
+      ]
+    },
+    %{
+      id: "dialyzer",
+      title: "Dialyzer static analysis for v0.61 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["dialyzer"],
+      coverage: [
+        "Dialyzer warnings fail the v0.61 presentation-overhaul handoff",
+        "included because v0.61 ships substantial LiveView/CSS-token/shell code",
+        "Dialyzer evidence is captured inside release.v061"
+      ]
+    },
+    %{
+      id: "layout_system_proof",
+      title:
+        "≥3 layout systems render all nine IA surfaces in Direction C behind the preview flag",
+      cwd: :web,
+      executable: "mix",
+      args: ["test", "test/allbert_assist_web/skeleton/layout_system_proof_test.exs"],
+      coverage: [
+        "every /preview/layout/<system>/<surface> route resolves through the catalog/shell",
+        "≥3 systems each render the nine IA surfaces in the Direction C delta",
+        "no live data and no authority in the disposable exploration"
+      ]
+    },
+    %{
+      id: "redesigned_surface_proof",
+      title:
+        "the redesigned shell/screens render through the catalog with first-class Direction C",
+      cwd: :web,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist_web/workspace/direction_c_tokens_test.exs",
+        "test/allbert_assist_web/components/operator_shell_nav_test.exs",
+        "test/allbert_assist_web/workspace/chat_primary_hero_test.exs",
+        "test/allbert_assist_web/brand_landing_test.exs",
+        "test/allbert_assist_web/workspace/motion_layer_test.exs",
+        "test/allbert_assist_web/dark_mode_test.exs",
+        "test/allbert_assist_web/workspace/visual_hierarchy_test.exs",
+        "test/allbert_assist_web/controllers/page_controller_test.exs"
+      ],
+      coverage: [
+        "Direction C promoted to first-class :root/dark tokens; the four variants render",
+        "D sidebar grouped IA nav reaches all nine surfaces; no route sprawl beyond /objectives",
+        "chat-primary hero, brand + landing + static SEO/OG, motion, OS dark mode, hierarchy",
+        "high-contrast overrides the promoted palette; no operator-data leak in the landing"
+      ]
+    },
+    %{
+      id: "v061_security_sweep",
+      title: "v0.61 design-artifact and eval-inventory rows",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v061_sweep_eval_test.exs",
+        "test/security/security_eval_case_test.exs"
+      ],
+      coverage: [
+        "layout explored/selected + screenshot design-record rows File.read!/File.exists the artifacts",
+        "the :v061 row set is complete, shaped (≥3 asserts), and routed to its owning tests"
+      ]
+    },
+    %{
+      id: "docs_gate",
+      title: "docs gate and release-planning whitespace check",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "docs"],
+      coverage: [
+        "git diff --check is clean",
+        "docs gate is visible in release evidence"
+      ]
+    }
+  ]
+
+  defp release_v061 do
+    env = owned_env("release-v061", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v061")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v061_steps, &run_release_v061_step(&1, env))
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v061",
+      version: "v0.61",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; deterministic layout/redesigned-surface/visual-token proofs, design-artifact eval rows, and docs-gate checks run against local files and fixtures only",
+      notes:
+        "v0.61 implements the v0.60 IA in Layout D and the v0.60b-chosen Direction C visual language as the primary 1.0 surface; presentation-only, no new authority. Manual S0-S15 operator validation evidence is retained outside the repo",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v061-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v061 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v061 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v061_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v061 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -6003,6 +6190,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v059
       mix allbert.test release.v060
       mix allbert.test release.v060b
+      mix allbert.test release.v061
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

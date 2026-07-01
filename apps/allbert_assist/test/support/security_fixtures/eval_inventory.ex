@@ -47,6 +47,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v059
           | :v060
           | :v060b
+          | :v061
 
   @type required_surface ::
           :resource_execution
@@ -107,6 +108,11 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :design_handoff
           | :visual_language
           | :visual_direction
+          | :layout
+          | :navigation
+          | :brand
+          | :motion
+          | :dark_mode
 
   @type row :: %{
           id: String.t(),
@@ -5517,6 +5523,154 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :denied,
       assert: [:denied, :redacted_report],
       test_module: "AllbertAssist.Security.SandboxEvalTest"
+    },
+    %{
+      id: "layout-systems-rendered-001",
+      milestone: :v061,
+      surface: :layout,
+      scenario:
+        "The layout-system previews fail to render >=3 systems across all nine IA surfaces in Direction C, or leak live data / authority",
+      boundary: :design_only_rendering,
+      expected: :allowed,
+      assert: [:three_systems_rendered, :nine_surfaces_each, :no_live_data, :no_authority],
+      test_module: "AllbertAssistWeb.Skeleton.LayoutSystemProofTest"
+    },
+    %{
+      id: "visual-language-direction-c-tokens-first-class-001",
+      milestone: :v061,
+      surface: :visual_language,
+      scenario:
+        "The Direction C values are not promoted into the first-class :root / dark --allbert-* defaults, or the four variants do not render",
+      boundary: :design_system_promotion,
+      expected: :allowed,
+      assert: [:root_promoted, :dark_promoted, :four_variants_present, :a11y_axes_hold],
+      test_module: "AllbertAssistWeb.Workspace.DirectionCTokensTest"
+    },
+    %{
+      id: "ia-navigation-model-implemented-001",
+      milestone: :v061,
+      surface: :navigation,
+      scenario:
+        "The redesigned shell fails to render the five grouped IA nav groups reaching all nine surfaces via the Direction C nav-pill",
+      boundary: :ia_navigation,
+      expected: :allowed,
+      assert: [
+        :five_groups_present,
+        :nine_surfaces_reachable,
+        :nav_pill_variant,
+        :active_route_marked
+      ],
+      test_module: "AllbertAssistWeb.OperatorShellNavTest"
+    },
+    %{
+      id: "route-contract-no-sprawl-001",
+      milestone: :v061,
+      surface: :navigation,
+      scenario:
+        "A standalone models/channels/settings/trust/onboarding route is added beyond the rebuilt / and the new /objectives index",
+      boundary: :route_contract,
+      expected: :allowed,
+      assert: [:objectives_index_only, :no_standalone_panel_routes, :destinations_not_routes],
+      test_module: "AllbertAssistWeb.OperatorShellNavTest"
+    },
+    %{
+      id: "brand-asset-no-stock-logo-001",
+      milestone: :v061,
+      surface: :brand,
+      scenario:
+        "The stock Phoenix logo remains reachable, or the Allbert wordmark/mark is not applied across shell and landing",
+      boundary: :brand_asset,
+      expected: :allowed,
+      assert: [:stock_logo_retired, :mark_present, :og_present],
+      test_module: "AllbertAssistWeb.BrandLandingTest"
+    },
+    %{
+      id: "brand-identity-selected-recorded-001",
+      milestone: :v061,
+      surface: :brand,
+      scenario:
+        "The M5.1 brand-identity-selected.md fails to record one chosen mark, its Direction C rationale, and the committed renderings",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [:mark_recorded, :direction_c_rationale, :renderings_committed],
+      test_module: "AllbertAssistWeb.BrandLandingTest"
+    },
+    %{
+      id: "motion-token-driven-001",
+      milestone: :v061,
+      surface: :motion,
+      scenario:
+        "The entrance/drawer/skeleton motion roles use hardcoded durations or easings instead of the Direction C motion tokens",
+      boundary: :motion_tokens,
+      expected: :allowed,
+      assert: [:entrance_token_driven, :drawer_token_driven, :skeleton_token_driven],
+      test_module: "AllbertAssistWeb.Workspace.MotionLayerTest"
+    },
+    %{
+      id: "motion-respects-reduced-motion-001",
+      milestone: :v061,
+      surface: :motion,
+      scenario:
+        "Motion does not collapse to instant under the reduced-motion axis (transition/animation duration is not forced to ~0)",
+      boundary: :reduced_motion_axis,
+      expected: :allowed,
+      assert: [:transition_collapse, :animation_collapse, :prefers_reduced_motion_media],
+      test_module: "AllbertAssistWeb.Workspace.MotionLayerTest"
+    },
+    %{
+      id: "dark-mode-os-resolution-001",
+      milestone: :v061,
+      surface: :dark_mode,
+      scenario:
+        "The system theme mode silently falls back to light instead of resolving the Direction C dark set from the OS prefers-color-scheme",
+      boundary: :os_theme_resolution,
+      expected: :allowed,
+      assert: [:system_marker_emitted, :css_resolves_os_dark, :explicit_overrides_win],
+      test_module: "AllbertAssistWeb.DarkModeResolutionTest"
+    },
+    %{
+      id: "design-tokens-global-conformance-001",
+      milestone: :v061,
+      surface: :design_system,
+      scenario:
+        "The redesigned surface cards use hardcoded radii/shadows instead of the promoted Direction C depth tokens",
+      boundary: :token_conformance,
+      expected: :allowed,
+      assert: [:cards_token_depth, :primary_panel_radius, :empty_states_soft],
+      test_module: "AllbertAssistWeb.Workspace.VisualHierarchyTest"
+    },
+    %{
+      id: "layout-systems-explored-present-001",
+      milestone: :v061,
+      surface: :layout,
+      scenario:
+        "The layout-systems-explored.md fails to specify >=3 divergent layout systems each covering all nine IA surfaces",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [:three_systems_specified, :nine_surfaces_each, :divergence_rationale],
+      test_module: "AllbertAssist.Security.V061SweepEvalTest"
+    },
+    %{
+      id: "operator-layout-choice-recorded-001",
+      milestone: :v061,
+      surface: :layout,
+      scenario:
+        "The layout-systems-selected.md fails to record exactly one CHOSEN_LAYOUT with a rubric rationale and the per-surface build spec",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [:one_chosen_layout, :rubric_rationale_present, :per_surface_spec_present],
+      test_module: "AllbertAssist.Security.V061SweepEvalTest"
+    },
+    %{
+      id: "layout-screenshot-design-record-001",
+      milestone: :v061,
+      surface: :layout,
+      scenario:
+        "The committed docs/design/layout-systems/ screenshot design record is missing the per-surface, side-by-side, or selected-layout captures",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [:per_surface_shots, :side_by_side_shots, :selected_layout_shots],
+      test_module: "AllbertAssist.Security.V061SweepEvalTest"
     }
   ]
 
