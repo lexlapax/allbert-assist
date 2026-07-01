@@ -1,20 +1,26 @@
 # v0.61 Layout-System Screenshots
 
-Status: planned v0.61 design record.
+Status: v0.61 M1 design record (present). M2 adds the selected-layout captures once
+`CHOSEN_LAYOUT` is recorded.
 
 This directory is the committed, sanitized screenshot record for the v0.61
 layout-system exploration and operator choice. Raw browser evidence, console logs,
 and temporary captures stay under `$HOME/.allbert-release-evidence/v061` and are
 not committed.
 
-Required v0.61 captures:
+Captures present (M1) — four layout systems (a=Focused canvas, b=Workbench,
+c=Progressive shell, d=Sidebar-primary) × nine IA surfaces, all rendered in Direction
+C, plus one side-by-side composite per surface:
 
 - `layout-<system>-<surface>.png` — one screenshot for every layout system and
-  every IA surface.
-- `<surface>-side-by-side.png` — one comparison composite per IA surface, showing
-  the candidate systems side by side.
-- `selected-layout-<system>-<surface>.png` — one final selected-layout screenshot
-  per IA surface after `CHOSEN_LAYOUT` is formalized.
+  every IA surface (36 total).
+- `<surface>-side-by-side.png` — one comparison composite per IA surface, showing the
+  four candidate systems side by side (9 total).
+- `selected-layout-<system>-<surface>.png` — added in M2: one final selected-layout
+  screenshot per IA surface after `CHOSEN_LAYOUT` is formalized.
+
+Captured static-HTML (JS disabled) at 1200px wide from the local preview server; the
+composites are HTML contact sheets of the four per-system captures.
 
 Surfaces:
 

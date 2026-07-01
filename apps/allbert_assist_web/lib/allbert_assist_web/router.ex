@@ -67,6 +67,11 @@ defmodule AllbertAssistWeb.Router do
       # (a|b|c) and the M6 selected proof, each rendered under a data-visual-direction
       # token/theme delta. Placeholder-only, no live data, no authority.
       live "/visual/:direction/:screen", Skeleton.VisualPreviewLive, :visual
+
+      # v0.61 M1 disposable layout-system exploration: the ≥4 candidate layout systems
+      # (a|b|c|d) rendered across all nine IA surfaces under a data-layout-system
+      # zone-composition delta in Direction C. Placeholder-only, no live data, no authority.
+      live "/layout/:system/:surface", Skeleton.LayoutPreviewLive, :layout
     end
   end
 
