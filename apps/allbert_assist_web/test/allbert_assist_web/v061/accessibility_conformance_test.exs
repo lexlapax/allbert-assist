@@ -93,6 +93,78 @@ defmodule AllbertAssistWeb.V061.AccessibilityConformanceTest do
     IO.puts("dark-high-contrast-system-resolution-001 status=pass palette=dark_hc fallback=none")
   end
 
+  test "high-contrast primary CTA meets WCAG AA by computed contrast ratio" do
+    css = File.read!(@css_path)
+
+    # The prior "contrast" check only grepped that the selector block existed — it
+    # would pass against the pre-remediation buggy CSS. This computes the real WCAG
+    # ratio for .workspace-button-primary (background var(--workspace-accent) =
+    # var(--allbert-accent); text var(--allbert-accent-contrast)) under both HC blocks.
+    light_hc = hc_block(css, ~s([data-high-contrast="true"]))
+    assert light_hc =~ "--workspace-accent: var(--allbert-accent);"
+
+    light_ratio =
+      contrast_ratio(
+        token_hex(light_hc, "--allbert-accent-contrast"),
+        token_hex(light_hc, "--allbert-accent")
+      )
+
+    assert light_ratio >= 4.5,
+           "light-HC primary CTA contrast #{Float.round(light_ratio, 2)}:1 is below WCAG AA 4.5:1"
+
+    dark_hc = hc_block(css, ~s([data-theme="dark"][data-high-contrast="true"]))
+    assert dark_hc =~ "--workspace-accent: var(--allbert-accent);"
+
+    dark_ratio =
+      contrast_ratio(
+        token_hex(dark_hc, "--allbert-accent-contrast"),
+        token_hex(dark_hc, "--allbert-accent")
+      )
+
+    assert dark_ratio >= 4.5,
+           "dark-HC primary CTA contrast #{Float.round(dark_ratio, 2)}:1 is below WCAG AA 4.5:1"
+
+    IO.puts(
+      "a11y-contrast-ratio-computed-001 status=pass light=#{Float.round(light_ratio, 1)}:1 " <>
+        "dark=#{Float.round(dark_ratio, 1)}:1"
+    )
+  end
+
+  # Extract a CSS block body (up to the first `}`) for the rule whose selector list
+  # begins with `selector`.
+  defp hc_block(css, selector) do
+    [_, after_sel] = String.split(css, selector, parts: 2)
+
+    after_sel
+    |> String.split("{", parts: 2)
+    |> List.last()
+    |> String.split("}", parts: 2)
+    |> hd()
+  end
+
+  defp token_hex(block, name) do
+    [_, hex] = Regex.run(~r/#{Regex.escape(name)}:\s*(#[0-9a-fA-F]{6})/, block)
+    hex
+  end
+
+  defp contrast_ratio(hex1, hex2) do
+    l1 = luminance(hex1)
+    l2 = luminance(hex2)
+    {lighter, darker} = if l1 >= l2, do: {l1, l2}, else: {l2, l1}
+    (lighter + 0.05) / (darker + 0.05)
+  end
+
+  defp luminance("#" <> hex) do
+    <<r::binary-2, g::binary-2, b::binary-2>> = hex
+
+    0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+  end
+
+  defp channel(hex_pair) do
+    c = String.to_integer(hex_pair, 16) / 255
+    if c <= 0.03928, do: c / 12.92, else: :math.pow((c + 0.055) / 1.055, 2.4)
+  end
+
   defp assert_all_buttons_named!(html) do
     missing =
       ~r/<button\b([^>]*)>(.*?)<\/button>/s
