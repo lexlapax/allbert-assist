@@ -799,3 +799,151 @@ defmodule AllbertAssistWeb.Workspace.Components.SurfacePolicyPanel do
   defp next_render_mode_label("operator_report"), do: "Use Summary"
   defp next_render_mode_label(_mode), do: "Allow Report"
 end
+
+defmodule AllbertAssistWeb.Workspace.Components.ChannelsPanel do
+  @moduledoc """
+  Read-only Channels/connections panel for the `workspace:channels` destination.
+
+  v0.61 M10.3 P0-7 replaces the static placeholder with the real registered
+  `operator_channels` read (redacted channel inventory through the ADR-0073 action
+  boundary). Presentation-only: it reads channel status and grants no new channel
+  authority; configuring a channel still routes through Security Central.
+  """
+  use AllbertAssistWeb, :live_component
+
+  alias AllbertAssist.Actions.Helper, as: ActionHelper
+  alias AllbertAssistWeb.Workspace.Components.OperatorPanels, as: Support
+
+  @destination "workspace:channels"
+
+  @impl true
+  def update(assigns, socket) do
+    loaded? = Map.get(socket.assigns, :channels_loaded?, false)
+
+    socket =
+      socket
+      |> assign(assigns)
+      |> assign_new(:node, fn -> nil end)
+      |> assign_new(:renderer_context, fn -> %{} end)
+      |> assign_new(:channels_loaded?, fn -> false end)
+      |> assign_new(:channels_diagnostics, fn -> "" end)
+      |> assign_new(:channels_report, fn -> %{count: 0, channels: []} end)
+
+    open? = Support.open?(socket.assigns, @destination)
+    socket = assign(socket, :channels_panel_open?, open?)
+
+    if open? and not loaded? do
+      {:ok, refresh(socket)}
+    else
+      {:ok, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("refresh_channels", _params, socket), do: {:noreply, refresh(socket)}
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <article
+      id="workspace-channels-panel"
+      class="workspace-settings-panel workspace-operator-panel"
+      data-workspace-component="channels_panel"
+      data-workspace-renderer="component"
+      data-action-source="actions-runner"
+      aria-labelledby="workspace-channels-panel-title"
+    >
+      <header class="workspace-settings-panel-header">
+        <span class="workspace-card-icon" aria-hidden="true">
+          <.icon name="hero-signal-micro" class="size-4" />
+        </span>
+        <div class="min-w-0 flex-1">
+          <h2 id="workspace-channels-panel-title" class="workspace-card-title">Channels</h2>
+          <p class="workspace-card-summary">
+            Read-only inventory of registered channels and their configuration status.
+            Configuring a channel routes through Security Central like any other capability.
+          </p>
+        </div>
+        <button
+          type="button"
+          id="workspace-channels-refresh"
+          class={Support.button_class!("secondary")}
+          phx-click="refresh_channels"
+          phx-target={@myself}
+        >
+          Refresh
+        </button>
+      </header>
+
+      <div :if={!@channels_panel_open?} class="workspace-settings-panel-preview">
+        Open the Channels workspace tool to load the channel inventory.
+      </div>
+
+      <div :if={@channels_panel_open?} class="workspace-settings-panel-body">
+        <p :if={@channels_diagnostics != ""} id="workspace-channels-diagnostics" class="text-sm">
+          {@channels_diagnostics}
+        </p>
+
+        <p :if={channel_rows(@channels_report) == []} id="workspace-channels-empty" class="text-sm">
+          No channels are registered yet. Registered channels and their configuration status
+          appear here once a channel plugin is available.
+        </p>
+
+        <div
+          :for={channel <- channel_rows(@channels_report)}
+          id={"workspace-channel-#{Support.safe_id(channel_field(channel, :channel))}"}
+          class="workspace-operator-row"
+        >
+          <div class="min-w-0">
+            <div class="font-medium">{Support.status_label(channel_field(channel, :channel))}</div>
+            <div class="text-xs">
+              provider={Support.status_label(channel_field(channel, :provider))} identities={channel_field(
+                channel,
+                :identity_count,
+                0
+              )} release={Support.status_label(channel_field(channel, :release_status, "unknown"))}
+            </div>
+          </div>
+          <span class={["workspace-status", channel_status_class(channel)]}>
+            {channel_status_label(channel)}
+          </span>
+        </div>
+      </div>
+    </article>
+    """
+  end
+
+  defp refresh(socket) do
+    context = Support.action_context(socket.assigns)
+
+    case ActionHelper.completed_action("operator_channels", %{}, context) do
+      {:ok, response} ->
+        assign(socket,
+          channels_loaded?: true,
+          channels_diagnostics: "",
+          channels_report: response.channels
+        )
+
+      {:error, reason} ->
+        assign(socket,
+          channels_loaded?: true,
+          channels_diagnostics: inspect(reason)
+        )
+    end
+  end
+
+  defp channel_rows(report), do: Support.field(report, :channels, [])
+
+  defp channel_field(channel, key, default \\ "unknown"),
+    do: Support.field(channel, key, default)
+
+  defp channel_status_class(channel) do
+    if channel_field(channel, :enabled, false) == true,
+      do: "workspace-status-success",
+      else: "workspace-status-neutral"
+  end
+
+  defp channel_status_label(channel) do
+    if channel_field(channel, :enabled, false) == true, do: "Enabled", else: "Not configured"
+  end
+end

@@ -183,7 +183,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     end
   end
 
-  test "the channels destination resolves to a presentation-only channels panel", %{conn: conn} do
+  test "the channels destination renders the populated read-only channels panel", %{conn: conn} do
     thread = create_workspace_thread("Channels")
 
     {:ok, view, html} =
@@ -197,8 +197,13 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
     refute has_element?(view, "#workspace-shell[data-canvas-destination='output']")
 
-    # Presentation-only channels content renders (view-only).
-    assert html =~ "Connect Allbert to external channels"
+    # The panel is the real action-backed channels_panel (M10.3 P0-7), not the old
+    # static placeholder — it reads channel status through the registered action
+    # boundary and shows a real inventory row or an honest empty state.
+    assert has_element?(view, "#workspace-channels-panel[data-workspace-component='channels_panel']")
+    assert has_element?(view, "#workspace-channels-panel[data-action-source='actions-runner']")
+    assert has_element?(view, "#workspace-channels-empty") or html =~ "workspace-channel-"
+    refute html =~ "Connected channels appear here once configured."
   end
 
   test "intents panel promotion shows gate rejection without mutating review descriptor", %{

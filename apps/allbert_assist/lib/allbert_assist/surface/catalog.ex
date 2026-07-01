@@ -31,6 +31,7 @@ defmodule AllbertAssist.Surface.Catalog do
     :onboarding_panel,
     :intents_panel,
     :models_panel,
+    :channels_panel,
     :surface_policy_panel,
     :settings_panel,
     :template_create_panel,
@@ -100,6 +101,7 @@ defmodule AllbertAssist.Surface.Catalog do
     :onboarding_panel,
     :intents_panel,
     :models_panel,
+    :channels_panel,
     :surface_policy_panel,
     :settings_panel,
     :template_create_panel,
@@ -150,6 +152,7 @@ defmodule AllbertAssist.Surface.Catalog do
     onboarding_panel: {:live_component, AllbertAssistWeb.Workspace.Components.Onboarding},
     intents_panel: {:live_component, AllbertAssistWeb.Workspace.Components.IntentsPanel},
     models_panel: {:live_component, AllbertAssistWeb.Workspace.Components.ModelsPanel},
+    channels_panel: {:live_component, AllbertAssistWeb.Workspace.Components.ChannelsPanel},
     surface_policy_panel:
       {:live_component, AllbertAssistWeb.Workspace.Components.SurfacePolicyPanel},
     settings_panel: {:live_component, AllbertAssistWeb.Workspace.Components.SettingsCentral},

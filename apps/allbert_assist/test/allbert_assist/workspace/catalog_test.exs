@@ -11,7 +11,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
   test "known components returns the current workspace allow-list" do
     components = Catalog.known_components()
 
-    assert length(components) == 57
+    assert length(components) == 59
     assert Enum.uniq(components) == components
 
     assert Enum.all?(
@@ -30,6 +30,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
                :onboarding_panel,
                :intents_panel,
                :models_panel,
+               :channels_panel,
                :surface_policy_panel,
                :settings_panel,
                :template_create_panel,
@@ -78,6 +79,7 @@ defmodule AllbertAssist.Workspace.CatalogTest do
              "workspace:security",
              "workspace:intents",
              "workspace:models",
+             "workspace:channels",
              "workspace:surface_policy",
              "workspace:settings"
            ]

@@ -767,8 +767,14 @@ defmodule AllbertAssist.App.CoreApp do
           "Channels",
           "Connect Allbert to external channels and apps. This is a presentation-only " <>
             "view; configuring a channel routes through Security Central like any other " <>
-            "capability. Connected channels appear here once configured.",
-          []
+            "capability.",
+          [
+            %Node{
+              id: "channels-panel",
+              component: :channels_panel,
+              props: %{zone: "canvas", title: "Channels"}
+            }
+          ]
         )
       ]),
       panel_surface(
