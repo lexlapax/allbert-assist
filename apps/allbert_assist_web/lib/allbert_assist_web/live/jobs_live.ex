@@ -1,6 +1,21 @@
 defmodule AllbertAssistWeb.JobsLive do
   @moduledoc """
   Thin scheduled job inspection surface.
+
+  v0.61 M10.3 pins identity to a server-derived `"local"` id (`@user_id`) rather than
+  the URL-controllable `?user=` param the surface previously read verbatim — closing
+  the objectives-index IDOR's sibling here. The list is scoped to that identity, and
+  the pause/resume/run effects load the job through the ownership-scoped
+  `Jobs.get_job/2` so a crafted `phx-value-id` for another user's job cannot be read,
+  paused, resumed, or executed.
+
+  The reads/effects still resolve through the `Jobs` context directly rather than
+  registered Jido actions: unlike Objectives, Jobs has no registered
+  list/pause/resume/run actions, and adding them is a data-layer change out of the
+  v0.61 presentation scope. Migrating this surface onto a registered-action boundary
+  (ADR 0073) is deferred to the version that introduces those job actions; the
+  server-derived, ownership-scoped identity closes the disclosure and cross-user
+  effect in the meantime.
   """
 
   use AllbertAssistWeb, :live_view
@@ -15,13 +30,13 @@ defmodule AllbertAssistWeb.JobsLive do
   alias AllbertAssistWeb.Workspace.Components.Patterns
   alias AllbertAssistWeb.Workspace.Renderer, as: WorkspaceRenderer
 
-  @impl true
-  def mount(params, _session, socket) do
-    user_id = params |> Map.get("user", "local") |> blank_to_default("local")
+  @user_id "local"
 
+  @impl true
+  def mount(_params, _session, socket) do
     socket =
       socket
-      |> assign(:user_id, user_id)
+      |> assign(:user_id, @user_id)
       |> assign(:notice, nil)
       |> load_jobs()
 
@@ -31,7 +46,7 @@ defmodule AllbertAssistWeb.JobsLive do
   @impl true
   def handle_event("pause", %{"id" => id}, socket) do
     result =
-      with {:ok, job} <- Jobs.get_job(id),
+      with {:ok, job} <- Jobs.get_job(socket.assigns.user_id, id),
            {:ok, paused} <- Jobs.pause_job(job) do
         {:ok, "Paused #{paused.name}"}
       end
@@ -41,7 +56,7 @@ defmodule AllbertAssistWeb.JobsLive do
 
   def handle_event("resume", %{"id" => id}, socket) do
     result =
-      with {:ok, job} <- Jobs.get_job(id),
+      with {:ok, job} <- Jobs.get_job(socket.assigns.user_id, id),
            {:ok, resumed} <- Jobs.resume_job(job) do
         {:ok, "Resumed #{resumed.name}"}
       end
@@ -51,7 +66,8 @@ defmodule AllbertAssistWeb.JobsLive do
 
   def handle_event("run", %{"id" => id}, socket) do
     result =
-      with {:ok, %{run: run}} <- Runner.run_now(id) do
+      with {:ok, job} <- Jobs.get_job(socket.assigns.user_id, id),
+           {:ok, %{run: run}} <- Runner.run_now(job) do
         {:ok, "Run #{run.id} #{run.status}"}
       end
 
@@ -65,7 +81,7 @@ defmodule AllbertAssistWeb.JobsLive do
       <Layouts.operator_shell
         active="jobs"
         title="Scheduled Jobs"
-        subtitle={"User #{@user_id}"}
+        subtitle="Recurring runtime work, runs, and blockers"
         labelledby="jobs-page-title"
       >
         <Patterns.status_callout id="jobs-notice" message={@notice} />
@@ -297,15 +313,5 @@ defmodule AllbertAssistWeb.JobsLive do
     |> to_string()
     |> String.trim()
     |> Kernel.==("")
-  end
-
-  defp blank_to_default(value, default) do
-    value
-    |> to_string()
-    |> String.trim()
-    |> case do
-      "" -> default
-      value -> value
-    end
   end
 end

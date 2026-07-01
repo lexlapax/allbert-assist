@@ -99,6 +99,59 @@ defmodule AllbertAssistWeb.JobsLiveTest do
     assert render(view) =~ "Paused live brief"
   end
 
+  test "?user= param cannot disclose another user's jobs", %{conn: conn} do
+    assert {:ok, alice_job} =
+             Jobs.create_job(%{
+               name: "alice private brief",
+               target_type: "runtime_prompt",
+               target: %{text: "Alice only."},
+               schedule: %{kind: "manual"},
+               user_id: "alice"
+             })
+
+    assert {:ok, local_job} =
+             Jobs.create_job(%{
+               name: "local visible brief",
+               target_type: "runtime_prompt",
+               target: %{text: "Local only."},
+               schedule: %{kind: "manual"},
+               user_id: "local"
+             })
+
+    # The ?user= param is ignored: identity is server-derived "local", so alice's
+    # job is never disclosed regardless of the URL.
+    {:ok, _view, html} = live(conn, ~p"/jobs?#{[user: "alice"]}")
+
+    assert html =~ "local visible brief"
+    assert html =~ local_job.id
+    refute html =~ "alice private brief"
+    refute html =~ alice_job.id
+  end
+
+  test "crafted event ids cannot pause/resume/run another user's job", %{conn: conn} do
+    assert {:ok, alice_job} =
+             Jobs.create_job(%{
+               name: "alice active brief",
+               target_type: "runtime_prompt",
+               target: %{text: "Alice only."},
+               schedule: %{kind: "manual"},
+               user_id: "alice"
+             })
+
+    original_status = alice_job.status
+
+    {:ok, view, _html} = live(conn, ~p"/jobs")
+
+    render_click(view, "pause", %{"id" => alice_job.id})
+    assert Repo.reload!(alice_job).status == original_status
+
+    render_click(view, "run", %{"id" => alice_job.id})
+    assert [] = Jobs.list_runs(alice_job)
+
+    render_click(view, "resume", %{"id" => alice_job.id})
+    assert Repo.reload!(alice_job).status == original_status
+  end
+
   test "blocked jobs keep run and resume actions behind the confirmation", %{conn: conn} do
     assert {:ok, confirmation} = create_pending_confirmation("conf_live_blocked_job")
 
