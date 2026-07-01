@@ -893,43 +893,60 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
   end
 
   defp refresh(socket, selected_key) do
-    {:ok, settings_response} = completed_action("list_settings", %{})
-    {:ok, providers_response} = completed_action("list_provider_profiles", %{})
-    {:ok, models_response} = completed_action("list_model_profiles", %{})
-    {:ok, security_response} = completed_action("security_status", %{})
-    {:ok, pending_response} = completed_action("list_confirmations", %{status: "pending"})
-    {:ok, resolved_response} = completed_action("list_confirmations", %{status: "resolved"})
-    {:ok, resource_grants_response} = completed_action("list_resource_grants", %{})
+    # Each completed_action returns {:ok, response} | {:error, reason}; a bare match
+    # crashed the whole workspace on any permission-gate denial or action failure
+    # while the Settings destination was open. Degrade to a diagnostics message like
+    # the sibling operator panels instead (v0.61 M10.3).
+    with {:ok, settings_response} <- completed_action("list_settings", %{}),
+         {:ok, providers_response} <- completed_action("list_provider_profiles", %{}),
+         {:ok, models_response} <- completed_action("list_model_profiles", %{}),
+         {:ok, security_response} <- completed_action("security_status", %{}),
+         {:ok, pending_response} <- completed_action("list_confirmations", %{status: "pending"}),
+         {:ok, resolved_response} <- completed_action("list_confirmations", %{status: "resolved"}),
+         {:ok, resource_grants_response} <- completed_action("list_resource_grants", %{}) do
+      settings = settings_response.settings
+      providers = providers_response.providers
+      models = models_response.models
+      security_status = security_response.security_status
 
-    settings = settings_response.settings
-    providers = providers_response.providers
-    models = models_response.models
-    security_status = security_response.security_status
+      setting = Enum.find(settings, &(&1.key == selected_key)) || List.first(settings)
+      {setting_key, setting_value, explanation} = selected_setting_fields(setting, selected_key)
 
-    setting = Enum.find(settings, &(&1.key == selected_key)) || List.first(settings)
-
-    socket
-    |> assign(:settings, settings)
-    |> assign(:settings_loaded?, true)
-    |> assign(:providers, providers)
-    |> assign(:models, models)
-    |> assign(:security_status, security_status)
-    |> assign(:theme_status, ThemeStatus.summary())
-    |> assign(:pending_confirmations, pending_response.confirmations)
-    |> assign(:resolved_confirmations, recently_resolved(resolved_response.confirmations))
-    |> assign(:resource_grants, resource_grants_response.grants)
-    |> assign(
-      :liveview_confirmation_approval?,
-      SettingsHelpers.setting_bool(settings, "confirmations.allow_liveview_approval", true)
-    )
-    |> assign(:selected_key, setting.key)
-    |> assign(:selected_value, setting.value)
-    |> assign(:explanation, explanation(setting))
-    |> assign_new(:settings_notice, fn -> "" end)
-    |> assign_new(:diagnostics, fn -> "" end)
-    |> assign_new(:last_audit_path, fn -> nil end)
-    |> refresh_forms(setting.key, setting.value)
+      socket
+      |> assign(:settings, settings)
+      |> assign(:settings_loaded?, true)
+      |> assign(:diagnostics, "")
+      |> assign(:providers, providers)
+      |> assign(:models, models)
+      |> assign(:security_status, security_status)
+      |> assign(:theme_status, ThemeStatus.summary())
+      |> assign(:pending_confirmations, pending_response.confirmations)
+      |> assign(:resolved_confirmations, recently_resolved(resolved_response.confirmations))
+      |> assign(:resource_grants, resource_grants_response.grants)
+      |> assign(
+        :liveview_confirmation_approval?,
+        SettingsHelpers.setting_bool(settings, "confirmations.allow_liveview_approval", true)
+      )
+      |> assign(:selected_key, setting_key)
+      |> assign(:selected_value, setting_value)
+      |> assign(:explanation, explanation)
+      |> assign_new(:settings_notice, fn -> "" end)
+      |> assign_new(:last_audit_path, fn -> nil end)
+      |> refresh_forms(setting_key, setting_value)
+    else
+      {:error, reason} ->
+        socket
+        |> assign(:settings_loaded?, true)
+        |> assign(:diagnostics, inspect(reason))
+    end
   end
+
+  # An empty settings list leaves `setting` nil; fall back to the selected key with a
+  # blank value/explanation rather than crashing on setting.key.
+  defp selected_setting_fields(nil, selected_key), do: {selected_key, "", ""}
+
+  defp selected_setting_fields(setting, _selected_key),
+    do: {setting.key, setting.value, explanation(setting)}
 
   defp refresh_forms(socket, key, value) do
     socket
