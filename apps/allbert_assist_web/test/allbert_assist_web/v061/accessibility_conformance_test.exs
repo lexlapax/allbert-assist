@@ -81,16 +81,63 @@ defmodule AllbertAssistWeb.V061.AccessibilityConformanceTest do
     # Inside @media (prefers-color-scheme: dark), a [data-theme="system"] high-contrast
     # rule must carry the dark-HC surfaces (black) + the re-resolved --workspace-*
     # aliases, so dark+HC users in system mode are not flipped to the light-HC white.
-    assert css =~ ~s([data-theme="system"] [data-high-contrast="true"] {)
+    # M10.3: assert the rule is *contained* in the media block, not merely present in
+    # the file — a relocated/re-gated rule would otherwise reintroduce P0-2 green.
+    dark_media = media_region(css, "@media (prefers-color-scheme: dark) {")
 
-    [_, after_sel] =
-      String.split(css, ~s([data-theme="system"] [data-high-contrast="true"] {), parts: 2)
+    assert dark_media =~ ~s([data-theme="system"] [data-high-contrast="true"] {),
+           "the system dark-HC rule must live inside @media (prefers-color-scheme: dark)"
 
-    block = after_sel |> String.split("}", parts: 2) |> hd()
+    block = hc_block(dark_media, ~s([data-theme="system"] [data-high-contrast="true"]))
     assert block =~ "--allbert-surface-0: #000000;"
     assert block =~ "--workspace-accent: var(--allbert-accent);"
 
     IO.puts("dark-high-contrast-system-resolution-001 status=pass palette=dark_hc fallback=none")
+  end
+
+  test "semantic status colors clear AA on the darkest surface in every dark cell" do
+    css = File.read!(@css_path)
+    dark_media = media_region(css, "@media (prefers-color-scheme: dark) {")
+
+    # Each cell → the block that wins the cascade for it, plus the darkest surface a
+    # status foreground can land on in that cell. Before M10.3 P0-2/P0-3 the light
+    # status tokens leaked into system-dark (≈1.1–3.7:1) and the light-HC values won
+    # on the dark-HC black surfaces (≈2.3–3.0:1); this resolves the real ratios.
+    cells = [
+      {"dark", hc_block(css, ~s([data-theme="dark"])), "#14121f"},
+      {"system-dark", hc_block(dark_media, ~s([data-theme="system"])), "#14121f"},
+      {"dark-HC", hc_block(css, ~s([data-theme="dark"][data-high-contrast="true"])), "#000000"},
+      {"system-dark-HC",
+       hc_block(dark_media, ~s([data-theme="system"] [data-high-contrast="true"])), "#000000"}
+    ]
+
+    for {cell, block, surface} <- cells,
+        token <- ~w(--allbert-warn --allbert-danger --allbert-success --allbert-info) do
+      ratio = contrast_ratio(token_hex(block, token), surface)
+
+      assert ratio >= 4.5,
+             "#{cell} #{token} contrast #{Float.round(ratio, 2)}:1 on #{surface} is below WCAG AA 4.5:1"
+    end
+
+    IO.puts(
+      "a11y-status-contrast-dark-cells-001 status=pass cells=dark,system-dark,dark-hc,system-dark-hc"
+    )
+  end
+
+  test "prefers-contrast: more keeps system+OS-dark text light, not black-on-dark" do
+    css = File.read!(@css_path)
+    contrast_region = media_region(css, "@media (prefers-contrast: more) {")
+
+    # The :root branch forces black text; without a system+OS-dark counter-override
+    # the default `system` theme under OS dark lands black-on-dark (≈1.1:1). The fix
+    # nests @media (prefers-color-scheme: dark){ [data-theme="system"] } inside.
+    nested_dark = media_region(contrast_region, "@media (prefers-color-scheme: dark) {")
+    block = hc_block(nested_dark, ~s([data-theme="system"]))
+
+    assert block =~ "--allbert-text-strong: #ffffff;"
+    assert block =~ "--allbert-line: #ffffff;"
+
+    IO.puts("a11y-prefers-contrast-system-dark-001 status=pass text=light fallback=none")
   end
 
   test "high-contrast primary CTA meets WCAG AA by computed contrast ratio" do
@@ -157,6 +204,21 @@ defmodule AllbertAssistWeb.V061.AccessibilityConformanceTest do
     |> String.split("}", parts: 2)
     |> hd()
   end
+
+  # Extract the full body of an at-rule (`@media ... {`) with brace balancing, so
+  # containment can be proven for nested rules (the P0-2/P0-4 fix depends on rules
+  # sitting *inside* a media query, which a naive first-`}` split cannot verify).
+  defp media_region(css, opener) do
+    [_, after_open] = String.split(css, opener, parts: 2)
+    take_balanced(after_open, 1, "")
+  end
+
+  defp take_balanced("}" <> _rest, 1, acc), do: acc
+  defp take_balanced("{" <> rest, depth, acc), do: take_balanced(rest, depth + 1, acc <> "{")
+  defp take_balanced("}" <> rest, depth, acc), do: take_balanced(rest, depth - 1, acc <> "}")
+
+  defp take_balanced(<<c::utf8, rest::binary>>, depth, acc),
+    do: take_balanced(rest, depth, acc <> <<c::utf8>>)
 
   defp token_hex(block, name) do
     [_, hex] = Regex.run(~r/#{Regex.escape(name)}:\s*(#[0-9a-fA-F]{6})/, block)
