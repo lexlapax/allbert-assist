@@ -1703,6 +1703,10 @@ a.allbert-chip-link:focus-visible,
   gap: 0.875rem;
   min-height: 34rem;
   padding: 0.875rem;
+  /* v0.61 M5 — chat-primary hero: the conversation becomes a raised Direction C
+     card (large radius + soft violet elevation) over the promoted tokens. */
+  border-radius: var(--allbert-radius-panel);
+  box-shadow: var(--allbert-shadow-panel);
 }
 
 .workspace-chat-timeline,
@@ -1895,10 +1899,15 @@ a.allbert-chip-link:focus-visible,
 }
 
 .workspace-composer {
+  /* v0.61 M5 — chat-primary hero: the composer becomes a floating Direction C
+     card (soft elevation + control radius) beneath the raised conversation card. */
   display: grid;
   gap: 0.625rem;
-  border-top: 1px solid var(--workspace-border);
-  padding-top: 0.875rem;
+  border: var(--allbert-border-width) solid var(--allbert-line);
+  border-radius: var(--allbert-radius-control);
+  background: var(--allbert-surface-1);
+  box-shadow: var(--allbert-shadow-panel);
+  padding: 0.875rem;
 }
 
 .workspace-composer-input {
@@ -1906,7 +1915,7 @@ a.allbert-chip-link:focus-visible,
   width: 100%;
   resize: vertical;
   border: 1px solid var(--workspace-border);
-  border-radius: 0.5rem;
+  border-radius: var(--allbert-radius-control);
   background: var(--workspace-panel-muted);
   color: var(--workspace-fg);
   padding: 0.75rem;
