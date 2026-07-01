@@ -39,6 +39,7 @@ defmodule AllbertAssistWeb.Router do
     get "/workspace/media/:message_id/:index", WorkspaceMediaController, :show
     live "/workspace", WorkspaceLive
     live "/jobs", JobsLive
+    live "/objectives", ObjectivesLive
     live "/objectives/:id", ObjectiveLive
   end
 

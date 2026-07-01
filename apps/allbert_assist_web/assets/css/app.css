@@ -697,68 +697,132 @@ body {
   gap: 0.5rem;
 }
 
+/* Layout D "Sidebar-primary" (v0.61 M2 operator choice, built at M4) — a fixed left
+   sidebar (brand + grouped IA nav + primary action) beside a single content pane. */
 .operator-shell {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  gap: calc(1rem * var(--allbert-density));
+  grid-template-columns: minmax(14rem, 15rem) minmax(0, 1fr);
   min-height: 100vh;
-  padding: calc(1rem * var(--allbert-density));
 }
 
-.operator-shell-appbar {
+.operator-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: calc(1rem * var(--allbert-density));
+  padding: calc(1rem * var(--allbert-density));
+  border-right: var(--allbert-border-width) solid var(--allbert-line);
+  background: var(--allbert-surface-1);
+}
+
+.operator-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--allbert-space-2);
+  color: var(--allbert-text-strong);
+  font-weight: var(--allbert-font-weight-strong);
+  text-decoration: none;
+}
+
+.operator-sidebar-wordmark {
+  font-size: var(--allbert-font-size-lg);
+  letter-spacing: -0.01em;
+}
+
+.operator-sidebar-nav {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: calc(0.75rem * var(--allbert-density));
+  overflow-y: auto;
+}
+
+.operator-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--allbert-space-1);
+}
+
+.operator-nav-group-label {
+  padding: 0 var(--allbert-space-3);
+  color: var(--allbert-text-soft);
+  font-size: var(--allbert-font-size-xs);
+  font-weight: var(--allbert-font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.operator-sidebar-actions {
+  margin-top: auto;
+}
+
+.operator-shell-main {
+  display: flex;
+  min-width: 0;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+.operator-shell-topbar {
   position: sticky;
   top: 0;
   z-index: 20;
+  padding: calc(1rem * var(--allbert-density)) calc(1.5rem * var(--allbert-density));
+  border-bottom: var(--allbert-border-width) solid var(--allbert-line);
+  background: var(--allbert-surface-0);
 }
 
-.operator-shell-nav,
-.operator-mobile-shellbar {
+.operator-shell-body {
+  flex: 1 1 auto;
   min-width: 0;
+  padding: calc(1.5rem * var(--allbert-density));
+  overflow-y: auto;
 }
 
-.operator-shell-nav-link,
+.operator-mobile-shellbar {
+  display: none;
+}
+
 .operator-mobile-shellbar-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 2rem;
-  border: 1px solid var(--workspace-border);
+  border: var(--allbert-border-width) solid var(--allbert-line);
   border-radius: var(--allbert-radius-control);
   padding: 0.25rem 0.625rem;
-  color: var(--workspace-muted);
-  font-size: 0.75rem;
-  font-weight: 650;
+  color: var(--allbert-text-soft);
+  font-size: var(--allbert-font-size-xs);
+  font-weight: var(--allbert-font-weight-medium);
   line-height: 1rem;
   text-decoration: none;
-  transition:
-    border-color var(--allbert-motion-duration-fast) var(--allbert-motion-ease),
-    background-color var(--allbert-motion-duration-fast) var(--allbert-motion-ease),
-    color var(--allbert-motion-duration-fast) var(--allbert-motion-ease);
 }
 
-.operator-shell-nav-link:hover,
-.operator-shell-nav-link:focus-visible,
 .operator-mobile-shellbar-link:hover,
 .operator-mobile-shellbar-link:focus-visible,
-.operator-shell-nav-link-active,
 .operator-mobile-shellbar-link-active {
-  border-color: var(--workspace-accent);
+  border-color: var(--allbert-accent);
   background: var(--allbert-accent-soft);
-  color: var(--workspace-accent);
+  color: var(--allbert-accent);
 }
 
-.operator-mobile-shellbar {
-  display: none;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
-}
+/* Below the mobile breakpoint the sidebar collapses to a mobile shellbar. */
+@media (max-width: 48rem) {
+  .operator-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
 
-.operator-shell-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: calc(1rem * var(--allbert-density));
-  width: min(100%, 72rem);
-  margin-inline: auto;
+  .operator-sidebar {
+    display: none;
+  }
+
+  .operator-mobile-shellbar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
+    gap: 0.5rem;
+    padding: calc(0.75rem * var(--allbert-density));
+    border-top: var(--allbert-border-width) solid var(--allbert-line);
+    background: var(--allbert-surface-1);
+  }
 }
 
 /*

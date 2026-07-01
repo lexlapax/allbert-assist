@@ -105,6 +105,8 @@ defmodule AllbertAssistWeb.Layouts do
   slot :inner_block, required: true
 
   def operator_shell(assigns) do
+    assigns = assign(assigns, :nav_groups, nav_groups(assigns.active, assigns.nav_items))
+
     ~H"""
     <section
       id={@id}
@@ -117,34 +119,46 @@ defmodule AllbertAssistWeb.Layouts do
       role="region"
       aria-labelledby={@labelledby}
     >
-      <header class="allbert-appbar operator-shell-appbar">
-        <div class="allbert-appbar-brand">
+      <aside class="operator-sidebar" aria-label="Product navigation">
+        <.link navigate={~p"/"} class="operator-sidebar-brand">
           <span class="allbert-brand-icon" aria-hidden="true">
             <.icon name="hero-window-micro" class="size-4" />
           </span>
+          <span class="operator-sidebar-wordmark">Allbert</span>
+        </.link>
+
+        <nav class="operator-sidebar-nav" aria-label="Operator pages">
+          <div :for={group <- @nav_groups} class="operator-nav-group">
+            <p class="operator-nav-group-label">{group.label}</p>
+            <Patterns.nav_pill
+              :for={item <- group.items}
+              id={"operator-nav-#{item.key}"}
+              label={item.label}
+              navigate={item.path}
+              active?={item.active?}
+            />
+          </div>
+        </nav>
+
+        <div class="operator-sidebar-actions">
+          <.link navigate={~p"/workspace"} class={Patterns.button_class!("primary")}>
+            New chat
+          </.link>
+        </div>
+      </aside>
+
+      <div class="operator-shell-main">
+        <header class="operator-shell-topbar">
           <div class="min-w-0">
             <h1 id={@labelledby} class="allbert-appbar-title">{@title}</h1>
             <p :if={@subtitle} class="allbert-appbar-subtitle">{@subtitle}</p>
           </div>
-        </div>
+        </header>
 
-        <nav class="allbert-appbar-center operator-shell-nav" aria-label="Operator pages">
-          <.link
-            :for={item <- operator_nav_items(@active, @nav_items)}
-            navigate={item.path}
-            class={["operator-shell-nav-link", item.active? && "operator-shell-nav-link-active"]}
-            aria-current={if(item.active?, do: "page")}
-          >
-            {item.label}
-          </.link>
-        </nav>
-
-        <div class="allbert-appbar-actions">
-          <.link navigate={~p"/workspace"} class={Patterns.button_class!("secondary")}>
-            Workspace
-          </.link>
+        <div class="operator-shell-body">
+          {render_slot(@inner_block)}
         </div>
-      </header>
+      </div>
 
       <nav
         id="operator-mobile-shellbar"
@@ -152,7 +166,7 @@ defmodule AllbertAssistWeb.Layouts do
         aria-label="Operator pages"
       >
         <.link
-          :for={item <- operator_nav_items(@active, @nav_items)}
+          :for={item <- Enum.flat_map(@nav_groups, & &1.items)}
           navigate={item.path}
           class={[
             "operator-mobile-shellbar-link",
@@ -163,10 +177,6 @@ defmodule AllbertAssistWeb.Layouts do
           {item.label}
         </.link>
       </nav>
-
-      <div class="operator-shell-body">
-        {render_slot(@inner_block)}
-      </div>
     </section>
     """
   end
@@ -223,24 +233,65 @@ defmodule AllbertAssistWeb.Layouts do
   defp content_container_class("wide"), do: "mx-auto max-w-6xl space-y-4"
   defp content_container_class(_width), do: "mx-auto max-w-2xl space-y-4"
 
-  defp operator_nav_items(active, nil) do
+  # The canonical v0.60 IA navigation model (ADR 0077): five stable groups —
+  # Start / Work / Operate / Extend / Trust — reaching all nine IA surfaces in the
+  # M2-chosen Layout D sidebar. Onboarding is a start-surface affordance (seated on
+  # launch + the workspace empty state per the M4 route table), not a nav tab.
+  # models/channels/settings/trust are workspace destinations, not standalone routes.
+  defp nav_groups(active, nil) do
     [
-      %{label: "Workspace", path: ~p"/workspace", active?: active == "workspace"},
-      %{label: "Jobs", path: ~p"/jobs", active?: active == "jobs"},
-      %{label: "Objectives", path: ~p"/workspace", active?: active == "objectives"}
+      %{label: "Start", items: [nav_item(active, "launch", "Home", ~p"/")]},
+      %{
+        label: "Work",
+        items: [
+          nav_item(active, "workspace", "Workspace", ~p"/workspace"),
+          nav_item(active, "objectives", "Objectives", ~p"/objectives")
+        ]
+      },
+      %{
+        label: "Operate",
+        items: [
+          nav_item(active, "jobs", "Jobs", ~p"/jobs"),
+          nav_item(active, "models", "Models", "/workspace?destination=workspace:models")
+        ]
+      },
+      %{
+        label: "Extend",
+        items: [
+          nav_item(active, "channels", "Channels", "/workspace?destination=workspace:channels")
+        ]
+      },
+      %{
+        label: "Trust",
+        items: [
+          nav_item(active, "settings", "Settings", "/workspace?destination=workspace:settings"),
+          nav_item(active, "trust", "Trust", "/workspace?destination=workspace:surface_policy")
+        ]
+      }
     ]
   end
 
-  defp operator_nav_items(active, nav_items) when is_list(nav_items) do
-    Enum.map(nav_items, fn item ->
-      active_key = Map.get(item, :active_key) || Map.get(item, "active_key")
+  # Explicit nav items (the disposable preview surfaces) are grouped by their
+  # declared nav_group so the same D sidebar renders the walking-skeleton surfaces.
+  defp nav_groups(active, nav_items) when is_list(nav_items) do
+    nav_items
+    |> Enum.map(fn item ->
+      key = Map.get(item, :active_key) || Map.get(item, "active_key")
 
       %{
+        key: key,
         label: Map.get(item, :label) || Map.get(item, "label"),
         path: Map.get(item, :path) || Map.get(item, "path"),
-        active?: active_key == active
+        active?: key == active,
+        group: Map.get(item, :nav_group) || Map.get(item, "nav_group") || "Pages"
       }
     end)
+    |> Enum.chunk_by(& &1.group)
+    |> Enum.map(fn items -> %{label: hd(items).group, items: items} end)
+  end
+
+  defp nav_item(active, key, label, path) do
+    %{key: key, label: label, path: path, active?: key == active}
   end
 
   defp static_asset_version do
