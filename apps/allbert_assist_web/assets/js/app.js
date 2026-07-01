@@ -800,7 +800,7 @@ const workspaceShellAssets = shell => {
     shell.dataset.offlineShellUrl,
     document.querySelector("link[rel='stylesheet']")?.href,
     document.querySelector("script[src*='/assets/js/app.js']")?.src,
-    new URL("/images/logo.svg", window.location.origin).href,
+    new URL("/images/allbert-mark.svg", window.location.origin).href,
     new URL("/favicon.ico", window.location.origin).href,
   ]
 

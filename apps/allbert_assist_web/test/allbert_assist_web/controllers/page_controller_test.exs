@@ -33,20 +33,32 @@ defmodule AllbertAssistWeb.PageControllerTest do
     :ok
   end
 
-  test "GET /", %{conn: conn} do
+  test "GET / renders the M6 brand + marketing landing", %{conn: conn} do
     conn = get(conn, ~p"/")
     html = html_response(conn, 200)
 
-    assert html =~ "Signal-driven assistant workspace"
+    # Brand + marketing hero (the ADR-accepted thin-landing is retired).
+    assert html =~ ~s(class="allbert-landing")
+    assert html =~ "A personal assistant runtime that grows with you"
+    assert html =~ ~s(src="/images/allbert-mark.svg")
     assert html =~ "Open workspace"
     assert html =~ ~s(id="home-operator-shell")
     assert html =~ ~s(data-workspace-shell="operator")
-    assert html =~ ~s(data-active-page="home")
-    assert html =~ ~s(data-workspace-renderer="thin-landing")
+    assert html =~ ~s(data-active-page="launch")
     assert html =~ ~s(class="workspace-button workspace-button-primary")
     assert html =~ ~s(class="workspace-button workspace-button-secondary")
+
+    # Static SEO / OG metadata (no operator data or secrets).
+    assert html =~ ~s(<meta name="description")
+    assert html =~ ~s(property="og:title")
+    assert html =~ ~s(property="og:image")
+    assert html =~ ~s(name="twitter:card")
+    assert html =~ ~s(rel="icon" type="image/svg+xml")
+
+    # Stock Phoenix assets retired; no v0.58 accent hexes leaked into markup.
     refute html =~ "Phoenix Framework"
-    refute html =~ ~r/\bbtn\b/
+    refute html =~ "/images/logo.svg"
+    refute html =~ ~s(data-workspace-renderer="thin-landing")
     refute html =~ "text-slate-"
     refute html =~ "#e8f0f7"
     refute html =~ "#3b5b7a"

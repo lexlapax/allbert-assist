@@ -535,6 +535,60 @@ body {
   border-color: var(--allbert-danger);
 }
 
+/* v0.61 M6 — brand mark + landing/marketing surface (Direction C hero + cards). */
+.operator-brand-mark {
+  display: block;
+  border-radius: var(--allbert-radius-control);
+}
+
+.allbert-landing {
+  display: grid;
+  gap: calc(2rem * var(--allbert-density));
+  max-width: 72rem;
+  margin-inline: auto;
+}
+
+.allbert-landing-hero {
+  display: grid;
+  justify-items: center;
+  gap: var(--allbert-space-4);
+  padding: calc(2.5rem * var(--allbert-density)) var(--allbert-space-4);
+  text-align: center;
+}
+
+.allbert-landing-mark {
+  display: block;
+  border-radius: var(--allbert-radius-panel);
+  box-shadow: var(--allbert-shadow-panel);
+}
+
+.allbert-landing-title {
+  color: var(--allbert-text-strong);
+  font-size: var(--allbert-font-size-2xl);
+  font-weight: var(--allbert-font-weight-strong);
+  letter-spacing: -0.02em;
+}
+
+.allbert-landing-tagline {
+  max-width: 40rem;
+  color: var(--allbert-text-soft);
+  font-size: var(--allbert-font-size-lg);
+  line-height: var(--allbert-line-height-copy);
+}
+
+.allbert-landing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--allbert-space-3);
+}
+
+.allbert-landing-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--allbert-space-4);
+}
+
 [data-reduce-motion="true"],
 [data-reduce-motion="true"] *,
 [data-reduce-motion="true"] *::before,

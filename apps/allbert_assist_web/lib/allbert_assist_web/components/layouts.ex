@@ -121,9 +121,14 @@ defmodule AllbertAssistWeb.Layouts do
     >
       <aside class="operator-sidebar" aria-label="Product navigation">
         <.link navigate={~p"/"} class="operator-sidebar-brand">
-          <span class="allbert-brand-icon" aria-hidden="true">
-            <.icon name="hero-window-micro" class="size-4" />
-          </span>
+          <img
+            src={~p"/images/allbert-mark.svg"}
+            alt=""
+            aria-hidden="true"
+            width="28"
+            height="28"
+            class="operator-brand-mark"
+          />
           <span class="operator-sidebar-wordmark">Allbert</span>
         </.link>
 

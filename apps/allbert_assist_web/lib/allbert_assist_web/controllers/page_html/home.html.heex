@@ -1,48 +1,63 @@
 <Layouts.app flash={@flash} content_width="full">
   <Layouts.operator_shell
     id="home-operator-shell"
-    active="home"
-    title="Allbert Assist"
-    subtitle="Signal-driven assistant workspace"
+    active="launch"
+    title="Allbert"
+    subtitle="A personal assistant runtime that grows with you"
     labelledby="home-page-title"
   >
     <section
       id="home-page"
-      class="operator-catalog-page"
+      class="allbert-landing"
       data-workspace-page="home"
       aria-labelledby="home-page-title"
     >
-      <article class="workspace-card" data-workspace-renderer="thin-landing">
-        <header class="workspace-card-header">
-          <span class="workspace-card-icon" aria-hidden="true">
-            <.icon name="hero-sparkles-mini" class="size-4" />
-          </span>
-          <div class="min-w-0 flex-1">
-            <h2 class="workspace-card-title">Signal-driven assistant workspace</h2>
-            <p class="workspace-card-summary">
-              Runtime-bound requests, persistent canvas work, and focused approvals.
-            </p>
-          </div>
-        </header>
-
-        <p class="mt-4 max-w-3xl text-sm leading-6 text-base-content/70">
-          Allbert routes local operator work through the runtime/action spine,
-          renders workspace surfaces through shared contracts, and keeps
-          inspection surfaces behind the operator shell.
+      <div class="allbert-landing-hero">
+        <img
+          src={~p"/images/allbert-mark.svg"}
+          alt="Allbert"
+          width="72"
+          height="72"
+          class="allbert-landing-mark"
+        />
+        <h2 id="home-page-title" class="allbert-landing-title">Allbert</h2>
+        <p class="allbert-landing-tagline">
+          A personal assistant runtime that grows with you — local-first, inspectable,
+          and yours.
         </p>
-
-        <div class="mt-5 flex flex-wrap gap-3">
+        <div class="allbert-landing-actions">
           <.link navigate={~p"/workspace"} class={Patterns.button_class!("primary")}>
             Open workspace
           </.link>
           <.link
-            navigate={~p"/workspace?#{[destination: "workspace:settings"]}"}
+            navigate={~p"/workspace?#{[destination: "workspace:models"]}"}
             class={Patterns.button_class!("secondary")}
           >
-            Workspace settings
+            Set up a model
           </.link>
         </div>
-      </article>
+      </div>
+
+      <div class="allbert-landing-features">
+        <Patterns.elevated_card id="home-feature-runtime" title="Runtime-bound">
+          <p>
+            Local operator work routes through the runtime and action spine — every
+            effectful path stays behind Security Central.
+          </p>
+        </Patterns.elevated_card>
+        <Patterns.elevated_card id="home-feature-canvas" title="Chat-primary">
+          <p>
+            Chat is the primary surface, with durable canvas work, objectives, and jobs
+            a keystroke away.
+          </p>
+        </Patterns.elevated_card>
+        <Patterns.elevated_card id="home-feature-trust" title="Inspectable">
+          <p>
+            Confirmations, traces, and policy stay inspectable — markdown-first memory you
+            can read and carry.
+          </p>
+        </Patterns.elevated_card>
+      </div>
     </section>
   </Layouts.operator_shell>
 </Layouts.app>

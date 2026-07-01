@@ -7,6 +7,27 @@
     <.live_title default="Allbert Assist" suffix="">
       {assigns[:page_title]}
     </.live_title>
+    <meta
+      name="description"
+      content="Allbert is a personal assistant runtime that grows with you — local-first, inspectable, and yours."
+    />
+    <link rel="canonical" href={url(~p"/")} />
+    <link rel="icon" type="image/svg+xml" href={~p"/images/allbert-mark.svg"} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Allbert" />
+    <meta
+      property="og:description"
+      content="A personal assistant runtime that grows with you — local-first, inspectable, and yours."
+    />
+    <meta property="og:url" content={url(~p"/")} />
+    <meta property="og:image" content={url(~p"/images/allbert-og.svg")} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Allbert" />
+    <meta
+      name="twitter:description"
+      content="A personal assistant runtime that grows with you — local-first, inspectable, and yours."
+    />
+    <meta name="twitter:image" content={url(~p"/images/allbert-og.svg")} />
     <link
       phx-track-static
       rel="stylesheet"
