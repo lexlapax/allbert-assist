@@ -35,8 +35,8 @@ design-first point release on top of `v0.60.0` (Product Experience Design). v0.6
 produced three divergent candidate visual directions as rendered hero screens,
 evaluated them against a rubric, and the operator **chose Direction C (Soft Modern
 Depth)** (ADR 0079 Accepted-with-choice) as the canonical language v0.61 implements;
-`release.v060b` is green. The latest published release tag is `v0.60.0`; the `v0.60.1`
-tag is pending operator approval (version metadata reports `0.60.1`). The remaining
+`release.v060b` is green. The latest published release tag is `v0.60.1` (v0.60b),
+applied on top of `v0.60.0`; version metadata reports `0.60.1`. The remaining
 pre-1.0 arc is v0.61 presentation layer overhaul (implements Direction C), v0.62
 packaging/entry points, v0.63 guided onboarding/profiles, and v0.64 product RC; see the
 [plans index](plans/README.md) and [roadmap](plans/roadmap.md). The v0.60/v0.60b design

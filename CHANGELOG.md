@@ -12,8 +12,8 @@ changelog entries or release notes.
 
 ## v0.60.1 - Visual Design Language & Art Direction (v0.60b)
 
-Status: implemented and gate-green for `0.60.1` on 2026-06-30; the release tag is
-pending operator approval. A **point release** inserted between v0.60 (0.60.0) and
+Status: released; tagged `v0.60.1` on 2026-06-30, gate-green. A **point release**
+inserted between v0.60 (0.60.0) and
 v0.61 — the *visual*-direction parallel to what v0.60 did for *structural* direction.
 Design-only: no new authority, capability, egress, confirmation-floor change, or
 Settings key. `mix allbert.test release.v060b` passes (format / compile-warnings /

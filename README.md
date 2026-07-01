@@ -44,8 +44,8 @@ evaluated them against a rubric, and the operator **chose Direction C (Soft Mode
 Depth)** as the canonical language that v0.61 will implement. Both are design-first and
 ship no new authority or runtime capability beyond the inert preview scaffold.
 
-The latest published release tag is `v0.60.0`; the `v0.60.1` tag is pending operator
-approval (version metadata already reports `0.60.1`).
+The latest published release tag is `v0.60.1` (v0.60b), applied on top of `v0.60.0`;
+version metadata reports `0.60.1`.
 
 This README is the stable project orientation; release-by-release implementation
 detail belongs in [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in
