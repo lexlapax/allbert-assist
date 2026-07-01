@@ -74,6 +74,47 @@ defmodule AllbertAssistWeb.Skeleton.VisualDirectionProofTest do
     )
   end
 
+  test "the selected-direction proof renders the four hero screens as the chosen direction",
+       %{conn: conn} do
+    chosen = Atom.to_string(VisualDirectionManifest.chosen_direction())
+    screens = VisualDirectionManifest.hero_screens()
+
+    for screen <- screens do
+      path = VisualDirectionManifest.preview_path(:selected, screen)
+      {:ok, view, html} = live(conn, path)
+
+      # The proof renders as the M5-chosen direction (not a fourth one).
+      assert has_element?(view, "#v060b-visual-shell[data-visual-direction='#{chosen}']")
+
+      assert has_element?(
+               view,
+               "#v060b-visual-selected-#{screen}" <>
+                 "[data-selected-proof='true']" <>
+                 "[data-visual-requested='selected']" <>
+                 "[data-visual-direction='#{chosen}']"
+             )
+
+      # A11y axes hold + no live data / no authority on the proof.
+      assert html =~ ~s(data-keyboard-focus-ready="true")
+      assert html =~ ~s(data-high-contrast-ready="true")
+      assert html =~ ~s(data-reduced-motion-ready="true")
+      assert html =~ ~s(data-skeleton-live-data="false")
+      assert html =~ ~s(data-authority="none")
+
+      assert has_element?(view, "#v060b-visual-surface-selected-#{screen}")
+      refute html =~ "data-placeholder-component"
+      refute html =~ "unknown workspace component"
+      refute html =~ "Approve"
+      refute html =~ "Promote"
+      refute html =~ ~s(data-action-source="actions-runner")
+    end
+
+    IO.puts(
+      "styled-skeleton-proof-001 status=pass direction=#{chosen} " <>
+        "hero_screens=#{length(screens)} a11y=pass live_data=false authority=none"
+    )
+  end
+
   test "hero_paths enumerates every candidate direction x hero screen" do
     directions = VisualDirectionManifest.directions()
     screens = VisualDirectionManifest.hero_screens()

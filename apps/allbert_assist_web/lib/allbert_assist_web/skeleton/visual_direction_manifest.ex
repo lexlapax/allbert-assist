@@ -15,6 +15,10 @@ defmodule AllbertAssistWeb.Skeleton.VisualDirectionManifest do
 
   @directions [:a, :b, :c]
   @selected_direction :selected
+  # The operator's M5 choice (ADR 0079 Accepted-with-choice; see
+  # docs/design/visual-language-selected.md). The `:selected` proof route renders as
+  # this direction so M6 proves the chosen language, not a fourth one.
+  @chosen_direction :c
   @hero_screens [:workspace, :onboarding, :trust, :launch]
 
   @type direction :: :a | :b | :c
@@ -32,6 +36,21 @@ defmodule AllbertAssistWeb.Skeleton.VisualDirectionManifest do
   """
   @spec selected_direction() :: :selected
   def selected_direction, do: @selected_direction
+
+  @doc """
+  The operator's M5-chosen canonical direction (ADR 0079). The `:selected` proof route
+  renders as this direction's token/theme delta.
+  """
+  @spec chosen_direction() :: direction()
+  def chosen_direction, do: @chosen_direction
+
+  @doc """
+  Resolves a requested direction to the direction whose token/theme delta actually
+  renders: `:selected` maps to the M5-chosen direction, candidates map to themselves.
+  """
+  @spec render_direction(direction() | :selected) :: direction()
+  def render_direction(:selected), do: @chosen_direction
+  def render_direction(direction) when direction in @directions, do: direction
 
   @doc """
   The four hero screens each direction is rendered as (workspace / onboarding / trust /
