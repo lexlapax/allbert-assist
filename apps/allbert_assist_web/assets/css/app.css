@@ -104,15 +104,18 @@
    focus, and motion contract. */
 :root {
   color-scheme: light;
-  --allbert-surface-0: #f8fafc;
+  /* Direction C (Soft Modern Depth) — v0.60b operator-chosen visual language,
+     promoted from the disposable [data-visual-direction="c"] preview delta to the
+     canonical :root defaults at v0.61 M3. Every page inherits Direction C. */
+  --allbert-surface-0: #f2f1fb;
   --allbert-surface-1: #ffffff;
-  --allbert-surface-2: #eef3f8;
-  --allbert-text-strong: #0f172a;
-  --allbert-text-soft: #475569;
-  --allbert-line: #d7e0ea;
-  --allbert-accent: #3b5b7a;
+  --allbert-surface-2: #e8e5f7;
+  --allbert-text-strong: #1c1830;
+  --allbert-text-soft: #5b5478;
+  --allbert-line: #ddd8f0;
+  --allbert-accent: #7c6cf0;
   --allbert-accent-contrast: #ffffff;
-  --allbert-accent-soft: #e8f0f7;
+  --allbert-accent-soft: #ece9fd;
   --allbert-warn: #b45309;
   --allbert-warn-soft: #fffbeb;
   --allbert-danger: #b91c1c;
@@ -121,8 +124,8 @@
   --allbert-success-soft: #ecfdf5;
   --allbert-info: #0f766e;
   --allbert-info-soft: #ccfbf1;
-  --allbert-font-family:
-    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --allbert-font-family: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
+    "Quicksand", system-ui, sans-serif;
   --allbert-font-mono:
     ui-monospace,
     SFMono-Regular,
@@ -145,7 +148,7 @@
   --allbert-line-height-body: 1.5;
   --allbert-line-height-copy: 1.625;
   --allbert-font-scale: 1;
-  --allbert-density: 1;
+  --allbert-density: 1.1;
   --allbert-space-0: 0;
   --allbert-space-1: 0.25rem;
   --allbert-space-2: 0.5rem;
@@ -154,21 +157,21 @@
   --allbert-space-5: 1.5rem;
   --allbert-space-6: 2rem;
   --allbert-space-7: 3rem;
-  --allbert-radius-control: 0.375rem;
-  --allbert-radius-panel: 0.5rem;
-  --allbert-radius-modal: 0.5rem;
-  --allbert-radius-drawer: 0.5rem;
+  --allbert-radius-control: 0.875rem;
+  --allbert-radius-panel: 1.25rem;
+  --allbert-radius-modal: 1.25rem;
+  --allbert-radius-drawer: 1.25rem;
   --allbert-radius-pill: 999px;
   --allbert-radius: var(--allbert-radius-panel);
   --allbert-border-width: 1px;
   --allbert-motion-scale: 1;
-  --allbert-motion-duration-fast: 120ms;
-  --allbert-motion-duration-base: 150ms;
-  --allbert-motion-duration-slow: 220ms;
-  --allbert-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --allbert-motion-ease-emphasis: cubic-bezier(0.2, 0, 0, 1.15);
+  --allbert-motion-duration-fast: 140ms;
+  --allbert-motion-duration-base: 200ms;
+  --allbert-motion-duration-slow: 300ms;
+  --allbert-motion-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --allbert-motion-ease-emphasis: cubic-bezier(0.34, 1.4, 0.64, 1);
   --allbert-shadow-sm: 0 1px 2px rgb(15 23 42 / 8%);
-  --allbert-shadow-panel: 0 12px 24px -8px rgb(15 23 42 / 18%);
+  --allbert-shadow-panel: 0 18px 40px -12px rgb(60 40 120 / 28%);
   --allbert-shadow-overlay: 0 25px 50px -12px rgb(0 0 0 / 25%);
   --allbert-focus-ring: 2px solid var(--allbert-accent);
   --allbert-focus-offset: 2px;
@@ -189,15 +192,16 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --allbert-surface-0: #0b1220;
-  --allbert-surface-1: #111827;
-  --allbert-surface-2: #1e293b;
-  --allbert-text-strong: #f1f5f9;
-  --allbert-text-soft: #94a3b8;
-  --allbert-line: #263244;
-  --allbert-accent: #8fb3d9;
-  --allbert-accent-contrast: #0b1220;
-  --allbert-accent-soft: #17324a;
+  /* Direction C dark set — promoted to :root dark defaults at v0.61 M3. */
+  --allbert-surface-0: #14121f;
+  --allbert-surface-1: #1c1930;
+  --allbert-surface-2: #251f3d;
+  --allbert-text-strong: #efeafc;
+  --allbert-text-soft: #b3a9d6;
+  --allbert-line: #332c52;
+  --allbert-accent: #a99bf7;
+  --allbert-accent-contrast: #14121f;
+  --allbert-accent-soft: #241d3d;
   --allbert-warn: #fbbf24;
   --allbert-warn-soft: #422006;
   --allbert-danger: #f87171;
@@ -446,6 +450,89 @@ body {
   min-height: 100dvh;
   background: var(--allbert-surface-0);
   color: var(--allbert-text-strong);
+}
+
+/* v0.61 M3 — Direction C first-class component variants. Built on the promoted
+   :root tokens (elevation/depth, large radius, tonal surfaces, motion roles);
+   consumed by the M4 shell and the M5 screens as reusable registry variants. */
+.allbert-elevated-card {
+  background: var(--allbert-surface-1);
+  border: var(--allbert-border-width) solid var(--allbert-line);
+  border-radius: var(--allbert-radius-panel);
+  box-shadow: var(--allbert-shadow-panel);
+  padding: var(--allbert-space-5);
+}
+
+.allbert-chat-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--allbert-space-4);
+  min-height: 100%;
+}
+
+.allbert-chat-hero-conversation {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  background: var(--allbert-surface-1);
+  border: var(--allbert-border-width) solid var(--allbert-line);
+  border-radius: var(--allbert-radius-panel);
+  box-shadow: var(--allbert-shadow-panel);
+  padding: var(--allbert-space-5);
+}
+
+.allbert-chat-hero-composer {
+  position: sticky;
+  bottom: 0;
+  background: var(--allbert-surface-1);
+  border: var(--allbert-border-width) solid var(--allbert-line);
+  border-radius: var(--allbert-radius-control);
+  box-shadow: var(--allbert-shadow-panel);
+  padding: var(--allbert-space-3);
+}
+
+.allbert-nav-pill {
+  display: flex;
+  align-items: center;
+  gap: var(--allbert-space-2);
+  padding: var(--allbert-space-2) var(--allbert-space-3);
+  border-radius: var(--allbert-radius-pill);
+  color: var(--allbert-text-soft);
+  text-decoration: none;
+  transition:
+    background-color var(--allbert-motion-duration-fast) var(--allbert-motion-ease-standard),
+    color var(--allbert-motion-duration-fast) var(--allbert-motion-ease-standard);
+}
+
+.allbert-nav-pill:hover {
+  background: var(--allbert-surface-2);
+  color: var(--allbert-text-strong);
+}
+
+.allbert-nav-pill-active {
+  background: var(--allbert-accent-soft);
+  color: var(--allbert-accent);
+  font-weight: var(--allbert-font-weight-medium);
+}
+
+.allbert-nav-pill-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.allbert-trust-card {
+  background: var(--allbert-surface-1);
+  border: var(--allbert-border-width) solid var(--allbert-line);
+  border-radius: var(--allbert-radius-panel);
+  box-shadow: var(--allbert-shadow-sm);
+  padding: var(--allbert-space-5);
+}
+
+.allbert-trust-card[data-trust-posture="warn"] {
+  border-color: var(--allbert-warn);
+}
+
+.allbert-trust-card[data-trust-posture="danger"] {
+  border-color: var(--allbert-danger);
 }
 
 [data-reduce-motion="true"],

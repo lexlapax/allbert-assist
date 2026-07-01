@@ -362,6 +362,122 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
     """
   end
 
+  # ── Direction C (Soft Modern Depth) first-class variants (v0.61 M3) ─────────────
+  # The four component variants the v0.60b visual-language selection (ADR 0079)
+  # commits v0.61 to build, consuming the promoted :root Direction C tokens
+  # (elevation/depth, large radius, tonal surfaces). M4/M5 dress the shell and
+  # screens with these; they are reusable registry variants, not per-page HEEx.
+
+  @doc "Direction C elevated/floating card variant class (soft elevation + large radius)."
+  def elevated_card_class(extra_class \\ nil), do: ["allbert-elevated-card", extra_class]
+
+  @doc "Direction C soft nav-pill variant class for the grouped IA navigation."
+  def nav_pill_class(active? \\ false, extra_class \\ nil),
+    do: ["allbert-nav-pill", active? && "allbert-nav-pill-active", extra_class]
+
+  @doc "Direction C trust-posture soft-card variant class."
+  def trust_card_class(extra_class \\ nil), do: ["allbert-trust-card", extra_class]
+
+  attr :id, :string, required: true
+  attr :title, :string, default: nil
+  attr :class, :any, default: nil
+  attr :rest, :global
+  slot :inner_block, required: true
+
+  @doc "Direction C elevated/floating card — panels, chat surface, evidence & choice cards."
+  def elevated_card(assigns) do
+    ~H"""
+    <section
+      id={@id}
+      class={elevated_card_class(@class)}
+      data-workspace-pattern="elevated-card"
+      data-workspace-variant="direction-c"
+      {@rest}
+    >
+      <h2 :if={present?(@title)} class="workspace-card-title">{@title}</h2>
+      {render_slot(@inner_block)}
+    </section>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :class, :any, default: nil
+  attr :rest, :global
+  slot :conversation, required: true
+  slot :composer, required: true
+
+  @doc "Direction C chat-primary hero — raised conversation card + floating composer."
+  def chat_primary_hero(assigns) do
+    ~H"""
+    <section
+      id={@id}
+      class={["allbert-chat-hero", @class]}
+      data-workspace-pattern="chat-primary-hero"
+      data-workspace-variant="direction-c"
+      {@rest}
+    >
+      <div class="allbert-chat-hero-conversation" data-chat-hero-zone="conversation">
+        {render_slot(@conversation)}
+      </div>
+      <div class="allbert-chat-hero-composer" data-chat-hero-zone="composer">
+        {render_slot(@composer)}
+      </div>
+    </section>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :label, :string, required: true
+  attr :navigate, :string, required: true
+  attr :active?, :boolean, default: false
+  attr :class, :any, default: nil
+  attr :rest, :global
+  slot :icon
+
+  @doc "Direction C soft nav-pill — one entry in the grouped IA navigation."
+  def nav_pill(assigns) do
+    ~H"""
+    <.link
+      id={@id}
+      navigate={@navigate}
+      class={nav_pill_class(@active?, @class)}
+      data-workspace-pattern="nav-pill"
+      data-workspace-variant="direction-c"
+      aria-current={@active? && "page"}
+      {@rest}
+    >
+      <span :if={@icon != []} class="allbert-nav-pill-icon" aria-hidden="true">
+        {render_slot(@icon)}
+      </span>
+      <span class="allbert-nav-pill-label">{@label}</span>
+    </.link>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :title, :string, default: nil
+  attr :posture, :string, default: "neutral"
+  attr :class, :any, default: nil
+  attr :rest, :global
+  slot :inner_block, required: true
+
+  @doc "Direction C trust-posture soft card — confirmations, traces, audit posture."
+  def trust_card(assigns) do
+    ~H"""
+    <section
+      id={@id}
+      class={trust_card_class(@class)}
+      data-workspace-pattern="trust-soft-card"
+      data-workspace-variant="direction-c"
+      data-trust-posture={@posture}
+      {@rest}
+    >
+      <h2 :if={present?(@title)} class="workspace-card-title">{@title}</h2>
+      {render_slot(@inner_block)}
+    </section>
+    """
+  end
+
   defp fetch_variant!(registry, value, label) do
     normalized = normalize_variant(value)
 
