@@ -12,6 +12,10 @@ and the rubric in `docs/design/visual-language-brief.md` (§ Evaluation Rubric).
 pixels are the evidence: each score below references the rendered directions, not the
 prose.
 
+The rendered hero screens that evidence these scores are kept for posterity in
+[`visual-directions/`](visual-directions/README.md) (a side-by-side table of all three
+directions × the four hero screens).
+
 ## Rubric recap (from the M2 brief)
 
 Each direction is scored **0-5** per axis; the weighted total is

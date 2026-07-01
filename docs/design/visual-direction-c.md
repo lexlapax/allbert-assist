@@ -13,6 +13,12 @@ This is the **highest reward / highest risk** direction: the most distinctly "1.
 modern," but its depth/softness must stay disciplined to keep the a11y axes and state
 honesty intact.
 
+Rendered hero screens (design record): see
+[`visual-directions/`](visual-directions/README.md) for all four captures of this
+direction (the chosen language). Workspace hero:
+
+![Direction C workspace hero](visual-directions/direction-c-workspace.png)
+
 ## One-line character
 
 A soft, dimensional, friendly-but-serious surface: rounded geometry, tonal violet

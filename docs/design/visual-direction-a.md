@@ -10,6 +10,12 @@ Source cluster: M1 mood/direction inventory **Direction cluster A — Warm Edito
 Calm** (references: Claude, editorial/reading-first products). Brief: satisfies all six
 must-satisfy requirements in `docs/design/visual-language-brief.md`.
 
+Rendered hero screens (design record): see
+[`visual-directions/`](visual-directions/README.md) for all four captures of this
+direction. Workspace hero:
+
+![Direction A workspace hero](visual-directions/direction-a-workspace.png)
+
 ## One-line character
 
 A calm, humanist, document-like surface that reads "think here" — warm neutral

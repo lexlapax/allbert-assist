@@ -37,6 +37,11 @@ weighted; B: 95; A: 90):
   forces `#000000`, the guarded color tokens yielding to the a11y axis) before it was
   recorded.
 
+Rendered proof of the chosen language (design record): see
+[`visual-directions/`](visual-directions/README.md).
+
+![Chosen Direction C — workspace hero](visual-directions/selected-c-workspace.png)
+
 ## Canonical visual-language spec
 
 This pins Direction C definitively as the product's visual language (the full facet

@@ -12,6 +12,12 @@ six must-satisfy requirements in `docs/design/visual-language-brief.md`. This is
 **closest match to the technical-prosumer persona** and the deliberate opposite of the
 "enterprise-grey utilitarian flat" trap the current v0.60 skeleton falls into.
 
+Rendered hero screens (design record): see
+[`visual-directions/`](visual-directions/README.md) for all four captures of this
+direction. Workspace hero:
+
+![Direction B workspace hero](visual-directions/direction-b-workspace.png)
+
 ## One-line character
 
 A precise, keyboard-native console: monospace type, cool-neutral surfaces, crisp
