@@ -1544,11 +1544,26 @@ body {
 .workspace-approval-inline,
 .workspace-status-callout,
 .workspace-error-callout {
-  border: 1px solid var(--workspace-border);
-  border-radius: 0.5rem;
+  /* v0.61 M8 — token-aligned card surface: Direction C control radius + soft
+     elevation over the tonal surfaces (was a hardcoded radius/shadow). */
+  border: var(--allbert-border-width) solid var(--workspace-border);
+  border-radius: var(--allbert-radius-control);
   background: var(--workspace-panel);
   color: var(--workspace-fg);
-  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+  box-shadow: var(--allbert-shadow-sm);
+}
+
+/* v0.61 M8 — visual hierarchy: primary surface cards read as larger Direction C
+   panels; empty/first-run states are soft, legible, and clearly a next-step prompt. */
+.workspace-card {
+  border-radius: var(--allbert-radius-panel);
+}
+
+.workspace-empty-state {
+  display: grid;
+  gap: var(--allbert-space-2);
+  border-style: dashed;
+  border-radius: var(--allbert-radius-panel);
 }
 
 .workspace-card,
@@ -1578,7 +1593,7 @@ body {
   flex: 0 0 auto;
   width: 2rem;
   height: 2rem;
-  border-radius: 0.5rem;
+  border-radius: var(--allbert-radius-control);
   background: var(--allbert-accent-soft);
   color: var(--workspace-accent);
 }
