@@ -46,6 +46,34 @@ defmodule AllbertAssistWeb.ObjectivesLiveTest do
     assert_catalog_components_known!(html)
   end
 
+  test "the ?user= param is ignored — no cross-user objective disclosure (IDOR guard)", %{
+    conn: conn
+  } do
+    assert {:ok, _local} =
+             Objectives.create_objective(%{
+               user_id: "local",
+               title: "Local objective",
+               objective: "Local operator work.",
+               status: "running"
+             })
+
+    assert {:ok, _alice} =
+             Objectives.create_objective(%{
+               user_id: "alice",
+               title: "Alice private objective",
+               objective: "Must never leak via a URL param."
+             })
+
+    # Attempt the pre-M10.2 IDOR: request another user's objectives via the URL param.
+    {:ok, _view, html} = live(conn, ~p"/objectives?#{[user: "alice"]}")
+
+    # The index reads the server-derived local identity through the registered action;
+    # the param is inert — alice's objectives are never disclosed.
+    refute html =~ "Alice private objective"
+    refute html =~ "Must never leak"
+    assert html =~ "Local objective"
+  end
+
   test "renders the first-run empty state through the catalog without authority", %{conn: conn} do
     {:ok, view, html} = live(conn, ~p"/objectives")
 

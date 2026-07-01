@@ -5,30 +5,34 @@ defmodule AllbertAssistWeb.ObjectivesLive do
   v0.61 M4 adds the explicit `/objectives` index route (paired with the existing
   `/objectives/:id` detail route) as the one non-landing route the IA/navigation
   overhaul introduces, so Objectives has a stable navigation frame in the D sidebar
-  shell. M10.1 completes the content pane with the local user's real objectives list
-  through the catalog renderer; this remains presentation-only and grants no
-  authority.
+  shell. M10.1 completes the content pane with the local operator's real objectives
+  list through the catalog renderer.
+
+  v0.61 M10.2 reads that list through the registered `list_objectives` action with a
+  server-derived `"local"` identity (PermissionGate-gated, redacted `objective_map`
+  projection) rather than a direct store read with a URL-controllable user id. The
+  index reads the operator's own objectives through the ADR-0073 read-through-action
+  boundary and grants no authority.
   """
 
   use AllbertAssistWeb, :live_view
 
-  alias AllbertAssist.Objectives
-  alias AllbertAssist.Objectives.Objective
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssistWeb.Workspace.Components.Patterns
   alias AllbertAssistWeb.Workspace.Renderer, as: WorkspaceRenderer
 
   @user_id "local"
 
   @impl true
-  def mount(params, _session, socket) do
-    user_id = params |> Map.get("user", @user_id) |> blank_to_default(@user_id)
-    objectives = Objectives.list_objectives(user_id, limit: 50)
+  def mount(_params, _session, socket) do
+    objectives = list_objectives(@user_id)
 
     {:ok,
      assign(socket,
-       user_id: user_id,
+       user_id: @user_id,
        objectives: objectives,
        objectives_surface: objectives_surface(objectives)
      )}
@@ -60,7 +64,7 @@ defmodule AllbertAssistWeb.ObjectivesLive do
               navigate={~p"/objectives/#{objective.id}"}
               class={Patterns.button_class!("secondary")}
             >
-              Open {objective.title}
+              Open {Map.get(objective, :title, "objective")}
             </.link>
           </div>
 
@@ -73,6 +77,21 @@ defmodule AllbertAssistWeb.ObjectivesLive do
       </Layouts.operator_shell>
     </Layouts.app>
     """
+  end
+
+  # Reads the operator's own objectives through the registered read-only action
+  # (server-derived identity precedence + PermissionGate), never a URL-supplied user.
+  defp list_objectives(user_id) do
+    case Runner.run(
+           "list_objectives",
+           %{user_id: user_id, limit: 50},
+           ContextBuilder.live_view_context(%{user_id: user_id},
+             surface: "AllbertAssistWeb.ObjectivesLive"
+           )
+         ) do
+      {:ok, %{status: :completed, objectives: objectives}} -> objectives
+      _other -> []
+    end
   end
 
   defp objectives_surface(objectives) do
@@ -103,33 +122,27 @@ defmodule AllbertAssistWeb.ObjectivesLive do
     Enum.map(objectives, &objective_card_node/1)
   end
 
-  defp objective_card_node(%Objective{} = objective) do
+  defp objective_card_node(objective) do
     %Node{
       id: "objective-index-#{objective.id}",
       component: :objective_card,
       props: %{
         dom_id: "objective-index-#{objective.id}",
-        title: objective.title,
+        title: Map.get(objective, :title, "Objective"),
         body: objective_body(objective),
-        status: objective.status,
+        status: Map.get(objective, :status),
         external_id: objective.id
       }
     }
   end
 
-  defp objective_body(%Objective{} = objective) do
+  defp objective_body(objective) do
     [
-      "goal=#{objective.objective}",
-      "app=#{objective.active_app || "allbert"}",
-      "step=#{objective.current_step_id || "none"}",
-      "thread=#{objective.source_thread_id || "none"}"
+      "goal=#{Map.get(objective, :objective, "")}",
+      "app=#{Map.get(objective, :active_app, "allbert")}",
+      "step=#{Map.get(objective, :current_step_id, "none")}",
+      "thread=#{Map.get(objective, :source_thread_id, "none")}"
     ]
     |> Enum.join(" | ")
   end
-
-  defp blank_to_default(value, default) when is_binary(value) do
-    if String.trim(value) == "", do: default, else: value
-  end
-
-  defp blank_to_default(_value, default), do: default
 end
