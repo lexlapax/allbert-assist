@@ -28,10 +28,10 @@ defmodule AllbertAssistWeb.BrandLandingTest do
 
   test "the candidate + selected brand renderings are committed for the design record" do
     for name <- ~w(
-          candidate-1-monogram-filled.svg
-          candidate-2-monogram-outline.svg
-          candidate-3-dot-glyph.svg
-          selected-mark-lockup.svg
+          brand-candidate-1-monogram-filled.svg
+          brand-candidate-2-monogram-outline.svg
+          brand-candidate-3-dot-glyph.svg
+          brand-selected-mark-lockup.svg
         ) do
       assert File.exists?(Path.join(@brand_dir, name)),
              "missing committed brand rendering: #{name}"

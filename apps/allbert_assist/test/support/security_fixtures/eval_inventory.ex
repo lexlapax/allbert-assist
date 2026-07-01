@@ -110,9 +110,12 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :visual_direction
           | :layout
           | :navigation
+          | :landing
           | :brand
           | :motion
           | :dark_mode
+          | :affordance
+          | :accessibility
 
   @type row :: %{
           id: String.t(),
@@ -5638,6 +5641,105 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :allowed,
       assert: [:cards_token_depth, :primary_panel_radius, :empty_states_soft],
       test_module: "AllbertAssistWeb.Workspace.VisualHierarchyTest"
+    },
+    %{
+      id: "redesigned-screens-catalog-composed-001",
+      milestone: :v061,
+      surface: :design_system,
+      scenario:
+        "The redesigned workspace/jobs/objectives/settings/operator-panel screens bypass the catalog or variant registry and render bespoke page markup",
+      boundary: :catalog_rendering,
+      expected: :allowed,
+      assert: [:workspace_catalog_surface, :jobs_catalog_surface, :objectives_catalog_surface],
+      test_module: "AllbertAssistWeb.V061.RedesignedSurfaceProofTest"
+    },
+    %{
+      id: "redesign-no-new-rendering-path-001",
+      milestone: :v061,
+      surface: :design_system,
+      scenario:
+        "The presentation redesign introduces a new renderer or data path instead of passing the same DTOs through the catalog renderer",
+      boundary: :rendering_boundary,
+      expected: :allowed,
+      assert: [:workspace_renderer_used, :surface_nodes_used, :no_table_fallback],
+      test_module: "AllbertAssistWeb.V061.RedesignedSurfaceProofTest"
+    },
+    %{
+      id: "jobs-objectives-no-regression-001",
+      milestone: :v061,
+      surface: :design_system,
+      scenario:
+        "Jobs or Objectives become blank/static after the shell recomposition, or stop rendering populated durable data through catalog cards",
+      boundary: :durable_surface_rendering,
+      expected: :allowed,
+      assert: [:jobs_populated, :objectives_index_populated, :objective_detail_populated],
+      test_module: "AllbertAssistWeb.V061.RedesignedSurfaceProofTest"
+    },
+    %{
+      id: "catalog-rendering-boundary-preserved-001",
+      milestone: :v061,
+      surface: :design_system,
+      scenario:
+        "The redesigned surfaces introduce model/data-generated markup or unknown components outside the catalog/renderer/component boundary",
+      boundary: :catalog_boundary,
+      expected: :allowed,
+      assert: [:known_components_only, :surface_renderer_present, :no_unknown_placeholder],
+      test_module: "AllbertAssistWeb.V061.RedesignedSurfaceProofTest"
+    },
+    %{
+      id: "landing-catalog-shell-contract-001",
+      milestone: :v061,
+      surface: :landing,
+      scenario:
+        "The rebuilt landing page does not emit the operator shell contract, Direction C CTAs, or the v0.60 launch surface composition",
+      boundary: :landing_shell_contract,
+      expected: :allowed,
+      assert: [:operator_shell_contract, :launch_active, :direction_c_ctas],
+      test_module: "AllbertAssistWeb.PageControllerTest"
+    },
+    %{
+      id: "landing-seo-og-no-data-leak-001",
+      milestone: :v061,
+      surface: :landing,
+      scenario:
+        "Landing SEO/OG metadata includes operator runtime data, secrets, or dynamic user-state leakage",
+      boundary: :landing_static_metadata,
+      expected: :allowed,
+      assert: [:static_og_title, :static_og_image, :no_operator_secret],
+      test_module: "AllbertAssistWeb.PageControllerTest"
+    },
+    %{
+      id: "empty-state-suggested-action-view-only-001",
+      milestone: :v061,
+      surface: :affordance,
+      scenario:
+        "First-run workspace suggested actions render as effectful controls rather than inert view-only next-step affordances",
+      boundary: :suggested_action_affordance,
+      expected: :allowed,
+      assert: [:view_only_marker, :no_click_handler, :no_confirmation_control],
+      test_module: "AllbertAssistWeb.V061.RedesignedSurfaceProofTest"
+    },
+    %{
+      id: "suggested-action-dto-no-authority-001",
+      milestone: :v061,
+      surface: :affordance,
+      scenario:
+        "Suggested-action metadata names unregistered actions or grants permission/authority before operator confirmation",
+      boundary: :action_dto_authority,
+      expected: :allowed,
+      assert: [:registered_actions_named, :read_only_permissions, :no_runner_invocation],
+      test_module: "AllbertAssistWeb.V061.RedesignedSurfaceProofTest"
+    },
+    %{
+      id: "a11y-focus-contrast-conformance-001",
+      milestone: :v061,
+      surface: :accessibility,
+      scenario:
+        "FocusTrap, keyboard focus order, high-contrast, or reduced-motion regress on redesigned pages",
+      boundary: :accessibility_axes,
+      expected: :allowed,
+      assert: [:focus_trap_present, :high_contrast_overrides, :reduced_motion_suppression],
+      test_module: "AllbertAssistWeb.V061.AccessibilityConformanceTest"
     },
     %{
       id: "layout-systems-explored-present-001",

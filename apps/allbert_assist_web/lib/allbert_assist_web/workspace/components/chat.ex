@@ -274,14 +274,31 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
         <section
           :if={@conversation_messages == [] and !@response and !prompt_present?(@prompt)}
           class="workspace-chat-empty"
+          data-suggested-actions="view-only"
         >
-          <span class="workspace-empty-state-icon" aria-hidden="true">
-            <.icon name="hero-sparkles-mini" class="size-5" />
-          </span>
-          <p>
-            Ask Allbert to start a runtime turn. Canvas tiles and approvals open from the canvas
-            drawer.
-          </p>
+          <div class="workspace-chat-empty-copy">
+            <span class="workspace-empty-state-icon" aria-hidden="true">
+              <.icon name="hero-sparkles-mini" class="size-5" />
+            </span>
+            <p>
+              Ask Allbert to start a runtime turn. Canvas tiles and approvals open from the canvas
+              drawer.
+            </p>
+          </div>
+          <div class="workspace-suggested-actions" aria-label="Suggested next steps">
+            <article
+              :for={suggestion <- suggested_action_dtos()}
+              id={"workspace-suggested-action-#{suggestion.id}"}
+              class="workspace-suggested-action"
+              data-suggested-action="view-only"
+              data-registered-action={suggestion.action_name}
+              data-permission={suggestion.permission}
+              data-execution-mode={suggestion.execution_mode}
+            >
+              <span class="workspace-suggested-action-label">{suggestion.label}</span>
+              <span class="workspace-suggested-action-copy">{suggestion.copy}</span>
+            </article>
+          </div>
         </section>
       </div>
 
@@ -659,6 +676,35 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
 
   defp prompt_present?(prompt) when is_binary(prompt), do: String.trim(prompt) != ""
   defp prompt_present?(_prompt), do: false
+
+  defp suggested_action_dtos do
+    [
+      %{
+        id: "ask",
+        label: "Ask a first question",
+        copy: "Starts with the read-only direct-answer path.",
+        action_name: "direct_answer",
+        permission: "read_only",
+        execution_mode: "read_only"
+      },
+      %{
+        id: "objectives",
+        label: "Review durable work",
+        copy: "Lists existing objectives without changing them.",
+        action_name: "list_objectives",
+        permission: "read_only",
+        execution_mode: "objectives_read"
+      },
+      %{
+        id: "channels",
+        label: "Check connections",
+        copy: "Shows channel readiness before any setup action.",
+        action_name: "list_channels",
+        permission: "read_only",
+        execution_mode: "settings_read"
+      }
+    ]
+  end
 
   defp maximize_label("chat", maximized) do
     if maximized == "chat", do: "Restore split view", else: "Maximize chat"

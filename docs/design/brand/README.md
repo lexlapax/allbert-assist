@@ -10,10 +10,10 @@ for posterity (Direction C: rounded geometry, `--allbert-accent` violet, tonal s
 
 | Rendering | File | Disposition |
 |---|---|---|
-| Candidate 1 — filled violet monogram | `candidate-1-monogram-filled.svg` | **chosen** |
-| Candidate 2 — outline monogram | `candidate-2-monogram-outline.svg` | rejected (lower contrast at favicon size) |
-| Candidate 3 — chat-dots glyph | `candidate-3-dot-glyph.svg` | rejected (reads as "typing", not a brand) |
-| Selected mark + wordmark lockup | `selected-mark-lockup.svg` | the built identity |
+| Candidate 1 — filled violet monogram | `brand-candidate-1-monogram-filled.svg` | **chosen** |
+| Candidate 2 — outline monogram | `brand-candidate-2-monogram-outline.svg` | rejected (lower contrast at favicon size) |
+| Candidate 3 — chat-dots glyph | `brand-candidate-3-dot-glyph.svg` | rejected (reads as "typing", not a brand) |
+| Selected mark + wordmark lockup | `brand-selected-mark-lockup.svg` | the built identity |
 
 ## Asset inventory
 

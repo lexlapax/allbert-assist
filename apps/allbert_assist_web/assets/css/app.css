@@ -2047,16 +2047,49 @@ a.allbert-chip-link:focus-visible,
 }
 
 .workspace-chat-empty {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  display: grid;
+  gap: 0.875rem;
   border: 1px dashed var(--workspace-border);
-  border-radius: 0.5rem;
+  border-radius: var(--allbert-radius-panel);
   background: var(--workspace-panel-muted);
   color: var(--workspace-muted);
   padding: 0.875rem;
   font-size: 0.875rem;
   line-height: 1.375rem;
+}
+
+.workspace-chat-empty-copy {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.workspace-suggested-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.625rem;
+}
+
+.workspace-suggested-action {
+  display: grid;
+  gap: 0.25rem;
+  border: var(--allbert-border-width) solid var(--allbert-line);
+  border-radius: var(--allbert-radius-control);
+  background: var(--allbert-surface-1);
+  color: var(--workspace-fg);
+  padding: 0.75rem;
+}
+
+.workspace-suggested-action-label {
+  color: var(--allbert-text-strong);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.workspace-suggested-action-copy {
+  color: var(--allbert-text-soft);
+  font-size: 0.75rem;
+  line-height: 1.25rem;
 }
 
 .workspace-composer {

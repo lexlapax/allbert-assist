@@ -3994,12 +3994,16 @@ defmodule Mix.Tasks.Allbert.Test do
         "test/allbert_assist_web/workspace/motion_layer_test.exs",
         "test/allbert_assist_web/dark_mode_test.exs",
         "test/allbert_assist_web/workspace/visual_hierarchy_test.exs",
-        "test/allbert_assist_web/controllers/page_controller_test.exs"
+        "test/allbert_assist_web/controllers/page_controller_test.exs",
+        "test/allbert_assist_web/live/objectives_live_test.exs",
+        "test/allbert_assist_web/v061/redesigned_surface_proof_test.exs",
+        "test/allbert_assist_web/v061/accessibility_conformance_test.exs"
       ],
       coverage: [
         "Direction C promoted to first-class :root/dark tokens; the four variants render",
         "D sidebar grouped IA nav reaches all nine surfaces; no route sprawl beyond /objectives",
         "chat-primary hero, brand + landing + static SEO/OG, motion, OS dark mode, hierarchy",
+        "Jobs/Objectives catalog rendering, view-only suggested actions, accessibility conformance",
         "high-contrast overrides the promoted palette; no operator-data leak in the landing"
       ]
     },

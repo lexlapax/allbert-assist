@@ -62,6 +62,9 @@ defmodule AllbertAssistWeb.PageControllerTest do
     refute html =~ "text-slate-"
     refute html =~ "#e8f0f7"
     refute html =~ "#3b5b7a"
+
+    IO.puts("landing-catalog-shell-contract-001 status=pass shell=operator launch=true")
+    IO.puts("landing-seo-og-no-data-leak-001 status=pass metadata=static operator_data=false")
   end
 
   test "root layout applies global design state on non-workspace pages", %{conn: conn} do

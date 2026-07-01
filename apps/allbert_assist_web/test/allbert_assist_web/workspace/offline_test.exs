@@ -68,11 +68,13 @@ defmodule AllbertAssistWeb.Workspace.OfflineTest do
 
     assert service_worker =~ "const CACHE_NAME"
     assert service_worker =~ "/workspace-offline.html"
+    assert service_worker =~ "/images/allbert-mark.svg"
     assert service_worker =~ "request.mode === \"navigate\""
     assert service_worker =~ "url.pathname.startsWith(\"/workspace\")"
     assert service_worker =~ "fetch(request).catch(() => caches.match(OFFLINE_SHELL_URL))"
     assert service_worker =~ "isShellAsset(url)"
     assert service_worker =~ "cache.put(request, copy)"
+    refute service_worker =~ "/images/logo.svg"
     refute service_worker =~ "\"/workspace\","
   end
 

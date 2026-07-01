@@ -18,9 +18,15 @@ defmodule AllbertAssist.Security.V061SweepEvalTest do
     layout_rendering: ~w(layout-systems-rendered-001),
     visual_language: ~w(visual-language-direction-c-tokens-first-class-001),
     navigation: ~w(ia-navigation-model-implemented-001 route-contract-no-sprawl-001),
+    screens:
+      ~w(redesigned-screens-catalog-composed-001 redesign-no-new-rendering-path-001 jobs-objectives-no-regression-001 catalog-rendering-boundary-preserved-001),
     brand: ~w(brand-asset-no-stock-logo-001 brand-identity-selected-recorded-001),
+    landing: ~w(landing-catalog-shell-contract-001 landing-seo-og-no-data-leak-001),
     motion: ~w(motion-token-driven-001 motion-respects-reduced-motion-001),
     dark_mode: ~w(dark-mode-os-resolution-001),
+    affordances:
+      ~w(empty-state-suggested-action-view-only-001 suggested-action-dto-no-authority-001),
+    accessibility: ~w(a11y-focus-contrast-conformance-001),
     design_tokens: ~w(design-tokens-global-conformance-001),
     design_artifacts:
       ~w(layout-systems-explored-present-001 operator-layout-choice-recorded-001 layout-screenshot-design-record-001)
@@ -34,11 +40,23 @@ defmodule AllbertAssist.Security.V061SweepEvalTest do
       "AllbertAssistWeb.Workspace.DirectionCTokensTest",
     "ia-navigation-model-implemented-001" => "AllbertAssistWeb.OperatorShellNavTest",
     "route-contract-no-sprawl-001" => "AllbertAssistWeb.OperatorShellNavTest",
+    "redesigned-screens-catalog-composed-001" =>
+      "AllbertAssistWeb.V061.RedesignedSurfaceProofTest",
+    "redesign-no-new-rendering-path-001" => "AllbertAssistWeb.V061.RedesignedSurfaceProofTest",
+    "jobs-objectives-no-regression-001" => "AllbertAssistWeb.V061.RedesignedSurfaceProofTest",
+    "catalog-rendering-boundary-preserved-001" =>
+      "AllbertAssistWeb.V061.RedesignedSurfaceProofTest",
     "brand-asset-no-stock-logo-001" => "AllbertAssistWeb.BrandLandingTest",
     "brand-identity-selected-recorded-001" => "AllbertAssistWeb.BrandLandingTest",
+    "landing-catalog-shell-contract-001" => "AllbertAssistWeb.PageControllerTest",
+    "landing-seo-og-no-data-leak-001" => "AllbertAssistWeb.PageControllerTest",
     "motion-token-driven-001" => "AllbertAssistWeb.Workspace.MotionLayerTest",
     "motion-respects-reduced-motion-001" => "AllbertAssistWeb.Workspace.MotionLayerTest",
     "dark-mode-os-resolution-001" => "AllbertAssistWeb.DarkModeResolutionTest",
+    "empty-state-suggested-action-view-only-001" =>
+      "AllbertAssistWeb.V061.RedesignedSurfaceProofTest",
+    "suggested-action-dto-no-authority-001" => "AllbertAssistWeb.V061.RedesignedSurfaceProofTest",
+    "a11y-focus-contrast-conformance-001" => "AllbertAssistWeb.V061.AccessibilityConformanceTest",
     "design-tokens-global-conformance-001" => "AllbertAssistWeb.Workspace.VisualHierarchyTest",
     "layout-systems-explored-present-001" => "AllbertAssist.Security.V061SweepEvalTest",
     "operator-layout-choice-recorded-001" => "AllbertAssist.Security.V061SweepEvalTest",
