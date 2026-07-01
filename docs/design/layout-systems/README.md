@@ -1,7 +1,9 @@
 # v0.61 Layout-System Screenshots
 
-Status: v0.61 M1 design record (present). M2 adds the selected-layout captures once
-`CHOSEN_LAYOUT` is recorded.
+Status: v0.61 M2 design record (present). The operator chose **layout D
+(Sidebar-primary)** as `CHOSEN_LAYOUT`; the selected-layout captures are committed
+(`selected-layout-d-<surface>.png`, nine surfaces). See
+`docs/design/layout-systems-selected.md`.
 
 This directory is the committed, sanitized screenshot record for the v0.61
 layout-system exploration and operator choice. Raw browser evidence, console logs,
