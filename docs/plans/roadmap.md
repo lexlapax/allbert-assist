@@ -3735,9 +3735,9 @@ ADR: `docs/adr/0077-product-experience-design-and-information-architecture.md`
 (Experience Design & IA); `docs/adr/0078-first-model-path.md` (First-Model Path).
 
 Status: implementation complete on 2026-06-30; post-implementation remediation
-M8.1-M8.4 plus M9.1-M9.5 implemented before manual operator validation; gate
-`release.v060` is green and the release is ready for a third post-implementation
-audit pass. Design-first release inserted ahead of the four
+M8.1-M8.4 and M9.1-M9.5 implemented before manual operator validation; gate
+`release.v060` is green, but the final pre-validation audit holds operator
+validation for M9.6 third-audit polish. Design-first release inserted ahead of the four
 implementation releases (v0.61 presentation, v0.62 packaging, v0.63 onboarding,
 v0.64 RC) by the post-v0.59 product-readiness review. It adds no new authority
 and ships no new user-facing capability: it front-loads the unified
