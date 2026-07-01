@@ -414,16 +414,19 @@ scope.
     (Soft Modern Depth) as the canonical visual language v0.61 implements.**
 61. v0.61 Presentation Layer Overhaul: first of three pre-1.0 **product
     capability** releases; implements the v0.60 IA/navigation/screen-composition
-    redesign **in the v0.60b-chosen visual language** **and** lands the
-    brand/motion/visual-hierarchy/dark-mode polish over
-    it, turning the v0.58 design-system substrate into a polished product surface
-    for the technical-prosumer 1.0 audience. Brand identity (retire the stock
+    redesign **in the v0.60b-chosen visual language** and an operator-chosen
+    concrete layout system, with sanitized layout screenshots committed under
+    `docs/design/layout-systems/`, **and** lands the
+    brand/motion/visual-hierarchy/dark-mode polish over it, turning the v0.58
+    design-system substrate into a polished product surface for the
+    technical-prosumer 1.0 audience. Brand identity (retire the stock
     Phoenix logo), a motion layer, a visual-hierarchy craft pass across the
     workspace and operator pages, a real landing/marketing surface with SEO/OG,
     empty-state and suggested-action affordances, and OS dark-mode resolution —
     the web workspace carries the desktop-UX weight since a native client stays
     post-1.0, so this overhaul must precede the v1.0 freeze. ADR 0074 v0.61
-    amendment; no authority change.
+    amendment; no authority change; no standalone settings/models/channels/trust/
+    onboarding routes beyond the v0.61 route/panel contract.
 62. v0.62 Packaging & Entry Points: implements the v0.60-designed entry-point/CLI
     UX — a packaged `allbert` binary (release-built, no Elixir toolchain) with a
     Homebrew/curl install path, a unified grouped CLI dispatcher
@@ -3875,8 +3878,9 @@ implements the v0.60 IA/navigation/screen-composition redesign plus brand
 identity, motion, marketing surface, and the professional craft pass).
 
 Status: planned (pre-1.0 product capability release 1 of 3; implements the v0.60
-design **in the v0.60b-chosen visual language**; followed by the v0.64 product
-RC). Builds on the v0.60 experience design, the **v0.60b-chosen visual/UX design
+design **in the v0.60b-chosen visual language**; followed by v0.62 packaging,
+v0.63 guided onboarding, and the v0.64 product RC). Builds on the v0.60 experience
+design, the **v0.60b-chosen visual/UX design
 language** (ADR 0079), and the v0.58 design-system substrate (tokens, variant
 registry, pattern library, one shell, catalog). This release does two things at
 once: it **implements the v0.60 structural redesign** — the overhauled information
@@ -3907,7 +3911,9 @@ and is **not** a v0.61 upstream; v0.61's inputs are v0.58, v0.60, and v0.60b.)
 Expected direction:
 
 - A layout-exploration + operator-choice step: ≥3 divergent layout systems across
-  all nine IA surfaces in Direction C, previewed and chosen before the build.
+  all nine IA surfaces in Direction C, previewed and chosen before the build, with
+  sanitized screenshots committed under `docs/design/layout-systems/` for
+  posterity.
 - Implementation of the v0.60 **information-architecture, navigation, and
   screen-composition redesign** across the shell and pages, in the **operator-chosen
   layout**, rendered in the **v0.60b-chosen visual language** (Direction C — Soft
@@ -3919,12 +3925,16 @@ Expected direction:
 - A motion layer (entrance/drawer/skeleton transitions) over the existing token
   scales, respecting the reduced-motion axis.
 - A visual-hierarchy craft pass across `/workspace`, `/jobs`, `/objectives`, and
-  the operator panels — depth, emphasis, density, and empty states.
+  the operator panels — depth, emphasis, density, and empty states, with Channels
+  split into a presentation-only workspace panel instead of buried under Models.
 - A real landing/marketing surface at `/` with SEO/OG metadata, replacing the
   ADR-accepted thin-landing exception.
 - Suggested-action and "what can I do" affordances on first/empty workspace views.
 - OS-driven dark mode that resolves app tokens from the OS preference and is
   explicitly validated across all shell/page roots.
+- Route scope is bounded by the rebuilt `/`, `/workspace`, `/jobs`, the new
+  `/objectives` index plus existing `/objectives/:id`, and workspace destination
+  panels; no standalone settings/models/channels/trust/onboarding routes.
 - No model-generated UI, no internal rename, no authority change; the catalog
   stays the rendering boundary (ADR 0030/0074).
 

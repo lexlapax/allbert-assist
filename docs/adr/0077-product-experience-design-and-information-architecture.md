@@ -33,11 +33,11 @@ in build-order, blind to the consumer that should specify it:
   those entry points had been designed against a real first-run journey.
 - **The structural UX redesign was owned by nobody.** ADR 0074 delivered a strong
   token/accessibility *substrate* but was explicit that it is "a component-contract
-  baseline, not a final UX layout redesign"; the v0.61 amendment is a brand and
-  craft pass ("not a layout rebuild"). The information architecture, navigation
-  model, and screen/workspace composition — the actual *product shape* — had no
-  owning release. Each release polished or packaged a structure that no release was
-  responsible for designing.
+  baseline, not a final UX layout redesign." v0.60 therefore owns the information
+  architecture, navigation model, and screen/workspace composition rules — the
+  product-shape decision. v0.61 owns the implementation of that design and the
+  concrete all-surface layout-system choice needed to build it; that v0.61 choice
+  is an implementation composition decision, not a reopening of the IA.
 
 This matters specifically now because of the v1.0 freeze. The **web is the primary
 1.0 product surface** (a native desktop client is post-1.0; the packaged binary
@@ -87,7 +87,8 @@ Downstream releases implement slices of this one design, in the **unchanged buil
 order**:
 
 - **v0.61** — the structural UX / IA overhaul (implements §2 over the ADR 0074
-  substrate), landing *before* the v1.0 freeze.
+  substrate), including the operator-chosen concrete layout system across all nine
+  IA surfaces, landing *before* the v1.0 freeze.
 - **v0.62** — packaging & entry points (implements §5; ADR 0076).
 - **v0.63** — guided onboarding & profiles (implements §3 and §4; ADR 0069 / 0075).
 - **v0.64** — product release candidate / hardening.
@@ -101,6 +102,10 @@ order**:
   presentation contracts (Tier-2 Surface DSL catalog, workspace substrate) freeze
   the *redesigned* shapes rather than the operator-utility flat structure — no
   post-1.0 contract break to fix IA.
+- **v0.61 chooses layout without changing v0.60's IA.** v0.60 fixes the surface
+  inventory, navigation groups, composition rules, and walking skeleton; v0.61
+  renders divergent concrete layout systems for those same nine surfaces, records
+  the operator choice, and builds the chosen composition in Direction C.
 - **v0.60 ships design artifacts plus a navigable skeleton, and no new authority.**
   It is a design release: the polished surface (v0.61), the packaged entry points
   (v0.62), and the onboarding flow (v0.63) are *built* in their own releases against

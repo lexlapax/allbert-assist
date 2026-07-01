@@ -123,23 +123,30 @@ pass alone: it **implements the v0.60 IA and screen-composition redesign**
 polished product surface for the technical-prosumer 1.0 audience — without
 changing authority or the catalog rendering boundary:
 
+- **Chosen layout system** — v0.61 front-loads a layout exploration, renders
+  divergent systems across all nine IA surfaces in Direction C, records the
+  operator choice, and commits sanitized screenshots under
+  `docs/design/layout-systems/` as the design record. This implements the v0.60 IA
+  in a chosen composition; it does not reopen the IA itself.
 - **Brand identity** — a real logo/wordmark applied across the shell and a real
   landing surface, retiring the stock framework logo.
 - **Motion layer** — entrance/drawer/skeleton transitions over the existing token
   scales, gated by the reduced-motion axis already in the token system.
 - **Visual-hierarchy craft pass** — depth, emphasis, density, and populated
   empty/first-run states across `/workspace`, `/jobs`, `/objectives`, and the
-  operator panels.
+  operator panels, with Channels split into a presentation-only workspace
+  destination rather than hidden under Models.
 - **Landing/marketing surface** — a real `/` with SEO/OG metadata, replacing the
   ADR-accepted thin-landing exception.
 - **Suggested-action affordances** — "what can I do" entry points on empty/first
   workspace views (these also seat the v0.63 onboarding wizard).
 - **OS dark-mode resolution** so `system` honors the OS preference for app tokens.
 
-Guardrails unchanged: no model-generated UI, no internal rename, no new routes
-beyond the landing surface, the catalog stays the rendering boundary (ADR 0030),
-and authority is untouched. This amendment is the web-design-system contract that
-freezes (with its additive-only carve-out) at v1.0.
+Guardrails unchanged: no model-generated UI, no internal rename, no route sprawl
+beyond the rebuilt `/` landing and explicit `/objectives` index route, no
+standalone settings/models/channels/trust/onboarding routes, the catalog stays the
+rendering boundary (ADR 0030), and authority is untouched. This amendment is the
+web-design-system contract that freezes (with its additive-only carve-out) at v1.0.
 
 The concrete v0.60 M7 amendment input is
 `docs/design/design-system-gap-analysis.md`: token, component-variant, and pattern

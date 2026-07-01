@@ -37,11 +37,14 @@ evaluated them against a rubric, and the operator **chose Direction C (Soft Mode
 Depth)** (ADR 0079 Accepted-with-choice) as the canonical language v0.61 implements;
 `release.v060b` is green. The latest published release tag is `v0.60.1` (v0.60b),
 applied on top of `v0.60.0`; version metadata reports `0.60.1`. The remaining
-pre-1.0 arc is v0.61 presentation layer overhaul (implements Direction C), v0.62
+pre-1.0 arc is v0.61 presentation layer overhaul (implements Direction C and an
+operator-chosen concrete layout system), v0.62
 packaging/entry points, v0.63 guided onboarding/profiles, and v0.64 product RC; see the
 [plans index](plans/README.md) and [roadmap](plans/roadmap.md). The v0.60/v0.60b design
 artifacts live under `docs/design/` (including `visual-directions/` rendered captures);
-the plan/request-flow docs retain the validation evidence and release handoff.
+v0.61 adds the committed sanitized layout screenshot record under
+`docs/design/layout-systems/`. The plan/request-flow docs retain the validation
+evidence and release handoff.
 
 ## Directory Map
 
@@ -49,8 +52,9 @@ the plan/request-flow docs retain the validation evidence and release handoff.
 - [archives](archives/README.md) - superseded planning references retained for history.
 - [developer](developer/README.md) - implementation contracts, subsystem maps, and gates.
 - design (created by v0.60) - product-experience spec, IA, first-model path,
-  onboarding flow, persona model, entry-point/CLI UX, and design-system gap
-  artifacts consumed by v0.61-v0.63.
+  onboarding flow, persona model, entry-point/CLI UX, design-system gap artifacts,
+  visual-direction captures, and v0.61 layout-system screenshots consumed by
+  v0.61-v0.63.
 - [notes](notes/README.md) - source notes that inform the vision.
 - [operator](operator/README.md) - local operator guides and runbooks.
 - [plans](plans/README.md) - roadmap, vision, milestone plans, and request flows.
