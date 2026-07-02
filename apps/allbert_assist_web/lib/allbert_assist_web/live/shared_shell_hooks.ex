@@ -21,12 +21,15 @@ defmodule AllbertAssistWeb.Live.SharedShellHooks do
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Surfaces.ContextBuilder
 
+  @sidebar_states ~w(expanded rail hidden)
+
   def on_mount(:shell_chrome, _params, _session, socket) do
     socket =
       socket
       |> assign_new(:workspace_theme, fn -> theme_from_settings() end)
       |> assign_new(:workspace_high_contrast?, fn -> false end)
       |> assign_new(:workspace_overflow_open?, fn -> false end)
+      |> assign_new(:sidebar_state, fn -> "expanded" end)
 
     {:cont, attach_hook(socket, :shared_shell_chrome, :handle_event, &handle_event/3)}
   end
@@ -56,6 +59,30 @@ defmodule AllbertAssistWeb.Live.SharedShellHooks do
   defp handle_event("close_workspace_overflow_menu", _params, socket) do
     {:halt, assign(socket, :workspace_overflow_open?, false)}
   end
+
+  # v0.61b M8 (ADR 0080 §4): sidebar collapse — expanded ↔ rail cycle, a
+  # separate full-hide toggle, and the client restore from LayoutPrefs.
+  defp handle_event("cycle_sidebar_state", _params, socket) do
+    next =
+      case socket.assigns.sidebar_state do
+        "expanded" -> "rail"
+        _rail_or_hidden -> "expanded"
+      end
+
+    {:halt, assign(socket, :sidebar_state, next)}
+  end
+
+  defp handle_event("toggle_sidebar_hidden", _params, socket) do
+    next = if socket.assigns.sidebar_state == "hidden", do: "expanded", else: "hidden"
+    {:halt, assign(socket, :sidebar_state, next)}
+  end
+
+  defp handle_event("set_sidebar_state", %{"state" => state}, socket)
+       when state in @sidebar_states do
+    {:halt, assign(socket, :sidebar_state, state)}
+  end
+
+  defp handle_event("set_sidebar_state", _params, socket), do: {:halt, socket}
 
   defp handle_event(_event, _params, socket), do: {:cont, socket}
 

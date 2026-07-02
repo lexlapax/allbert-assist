@@ -134,6 +134,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
         labelledby="objective-page-title"
         theme={@workspace_theme}
         overflow_open?={@workspace_overflow_open?}
+        sidebar_state={@sidebar_state}
       >
         <%= if @objective do %>
           <Patterns.elevated_card id="objective-header">

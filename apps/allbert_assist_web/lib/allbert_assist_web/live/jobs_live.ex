@@ -61,6 +61,7 @@ defmodule AllbertAssistWeb.JobsLive do
         labelledby="jobs-page-title"
         theme={@workspace_theme}
         overflow_open?={@workspace_overflow_open?}
+        sidebar_state={@sidebar_state}
       >
         <Patterns.status_callout id="jobs-notice" message={@notice} />
 

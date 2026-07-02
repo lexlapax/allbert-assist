@@ -124,6 +124,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         open_tile_menu_id: nil,
         open_tile_inspector_id: nil,
         renaming_thread_id: nil,
+        rail_flyout_open?: false,
         workspace_launcher_open?: false,
         workspace_badges: [],
         composer_max_bytes: workspace_canvas_tile_body_max_bytes(settings),
@@ -346,6 +347,17 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   # v0.61b M7: the appbar thread switcher is retired (relocation row 3) — the
   # M5 sidebar Conversations section is the switcher; its toggle/close events
   # are gone with it.
+
+  # v0.61b M8 (ADR 0080 §4): the Workspace rail icon opens a click-activated
+  # flyout carrying the workspace sections (workspace-only — the context lives
+  # here); Escape/click-away closes it with focus returned to the rail icon.
+  def handle_event("toggle_rail_flyout", _params, socket) do
+    {:noreply, update(socket, :rail_flyout_open?, &(!&1))}
+  end
+
+  def handle_event("close_rail_flyout", _params, socket) do
+    {:noreply, assign(socket, :rail_flyout_open?, false)}
+  end
 
   def handle_event("toggle_workspace_launcher", _params, socket) do
     {:noreply, update(socket, :workspace_launcher_open?, &(!&1))}
@@ -767,6 +779,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         class="workspace-with-sidebar"
         data-active-page={workspace_nav_key(@canvas_destination)}
         data-launcher-open={bool_attribute(@workspace_launcher_open?)}
+        data-sidebar-state={@sidebar_state}
       >
         <Layouts.product_sidebar
           active={workspace_nav_key(@canvas_destination)}
@@ -774,6 +787,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
           theme={@workspace_theme}
           high_contrast?={@workspace_high_contrast?}
           overflow_open?={@workspace_overflow_open?}
+          sidebar_state={@sidebar_state}
         />
         <section
           id="workspace-shell"
@@ -2602,6 +2616,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       thread_id: assigns.thread_id,
       renaming_thread_id: assigns.renaming_thread_id,
       canvas_destination: assigns.canvas_destination,
+      rail_flyout_open?: assigns.rail_flyout_open?,
       destinations: sidebar_destinations(assigns)
     }
   end

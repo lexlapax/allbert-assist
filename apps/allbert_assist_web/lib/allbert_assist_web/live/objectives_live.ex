@@ -52,6 +52,7 @@ defmodule AllbertAssistWeb.ObjectivesLive do
         labelledby="objectives-page-title"
         theme={@workspace_theme}
         overflow_open?={@workspace_overflow_open?}
+        sidebar_state={@sidebar_state}
       >
         <Patterns.elevated_card id="objectives-index" title="Objectives">
           <.live_component

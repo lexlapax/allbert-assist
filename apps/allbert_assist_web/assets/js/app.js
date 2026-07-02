@@ -340,6 +340,69 @@ const WorkspaceVoiceCapture = {
 // v0.26a M33: small copy-to-clipboard helper used for mono ids, paths, signal
 // ids etc. The target text comes from `data-copy-value`; falls back to the
 // element's text content. Emits a transient "Copied" affordance via aria-live.
+// v0.61b M8 — sidebar collapse persistence + the named keyboard shortcuts
+// (Cmd/Ctrl+B cycle expanded↔rail, Cmd/Ctrl+Shift+B toggle hidden,
+// Cmd/Ctrl+\ pane toggle on /workspace). State is a server assign owned by
+// SharedShellHooks; this hook restores the persisted value on mount and
+// persists server-driven changes. Shortcuts are input-safe.
+const sidebarStateKey = "allbert.sidebar.state.v1"
+const sidebarStates = ["expanded", "rail", "hidden"]
+
+const LayoutPrefs = {
+  mounted() {
+    const stored = window.localStorage?.getItem(sidebarStateKey)
+    const current = this.el.dataset.sidebarState || "expanded"
+    if (stored && sidebarStates.includes(stored) && stored !== current) {
+      this.pushEvent("set_sidebar_state", {state: stored})
+    }
+
+    this.handleKeydown = event => {
+      const target = event.target
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return
+      }
+      if (!(event.metaKey || event.ctrlKey)) return
+
+      if (event.key.toLowerCase() === "b") {
+        event.preventDefault()
+        this.pushEvent(event.shiftKey ? "toggle_sidebar_hidden" : "cycle_sidebar_state", {})
+      } else if (event.key === "\\") {
+        // The pane toggle only exists on /workspace — guard by its elements so
+        // operator shells never receive an unhandled event.
+        if (
+          document.getElementById("workspace-node-workspace-canvas-region") ||
+          document.getElementById("workspace-canvas-reopen")
+        ) {
+          event.preventDefault()
+          this.pushEvent("toggle_canvas_focus", {})
+        }
+      }
+    }
+    window.addEventListener("keydown", this.handleKeydown)
+    this.persist()
+  },
+  updated() {
+    this.persist()
+  },
+  destroyed() {
+    window.removeEventListener("keydown", this.handleKeydown)
+  },
+  persist() {
+    const state = this.el.dataset.sidebarState
+    if (!state) return
+    try {
+      window.localStorage?.setItem(sidebarStateKey, state)
+    } catch (_error) {
+      // localStorage may be unavailable in hardened browser modes.
+    }
+  },
+}
+
 // v0.61b M4 — double-click on a thread title is the inline-rename accelerator
 // (the pencil affordance is the primary path; there is no phx-dblclick binding).
 const ThreadRenameDblclick = {
@@ -930,6 +993,7 @@ const liveSocket = csrfToken
         ChatAutoScroll,
         CopyToClipboard,
         ThreadRenameDblclick,
+        LayoutPrefs,
       },
     })
   : null

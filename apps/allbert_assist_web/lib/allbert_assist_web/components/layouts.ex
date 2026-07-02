@@ -78,6 +78,7 @@ defmodule AllbertAssistWeb.Layouts do
     doc: "v0.61b M7: current theme for the sidebar-footer toggle (SharedShellHooks assign)."
 
   attr :overflow_open?, :boolean, default: false
+  attr :sidebar_state, :string, default: "expanded"
 
   slot :inner_block, required: true
   slot :view_actions
@@ -92,6 +93,7 @@ defmodule AllbertAssistWeb.Layouts do
       data-operator-shell={@active}
       data-workspace-shell="operator"
       data-active-page={@active}
+      data-sidebar-state={@sidebar_state}
       role="region"
       aria-labelledby={@labelledby}
     >
@@ -99,6 +101,7 @@ defmodule AllbertAssistWeb.Layouts do
         nav_groups={@nav_groups}
         theme={@theme}
         overflow_open?={@overflow_open?}
+        sidebar_state={@sidebar_state}
       />
 
       <div class="operator-shell-main">
@@ -182,6 +185,13 @@ defmodule AllbertAssistWeb.Layouts do
   attr :high_contrast?, :boolean, default: false
   attr :overflow_open?, :boolean, default: false
 
+  attr :sidebar_state, :string,
+    default: "expanded",
+    values: ["expanded", "rail", "hidden"],
+    doc:
+      "v0.61b M8 (ADR 0080 §4): expanded (default) / icon rail / fully hidden. " <>
+        "Owned by SharedShellHooks; persisted client-side by the LayoutPrefs hook."
+
   def product_sidebar(assigns) do
     assigns =
       assign(
@@ -191,31 +201,100 @@ defmodule AllbertAssistWeb.Layouts do
       )
 
     ~H"""
-    <aside id="product-sidebar" class="operator-sidebar" aria-label="Product navigation">
-      <.link navigate={~p"/"} class="operator-sidebar-brand">
-        <img
-          src={~p"/images/allbert-mark.svg"}
-          alt=""
-          aria-hidden="true"
-          width="28"
-          height="28"
-          class="operator-brand-mark"
-        />
-        <span class="operator-sidebar-wordmark">Allbert</span>
-      </.link>
+    <aside
+      id="product-sidebar"
+      class="operator-sidebar"
+      aria-label="Product navigation"
+      data-sidebar-state={@sidebar_state}
+      phx-hook="LayoutPrefs"
+    >
+      <div class="operator-sidebar-top">
+        <.link navigate={~p"/"} class="operator-sidebar-brand">
+          <img
+            src={~p"/images/allbert-mark.svg"}
+            alt=""
+            aria-hidden="true"
+            width="28"
+            height="28"
+            class="operator-brand-mark"
+          />
+          <span class="operator-sidebar-wordmark">Allbert</span>
+        </.link>
+        <button
+          id="product-sidebar-toggle"
+          type="button"
+          class="allbert-icon-button operator-sidebar-toggle"
+          phx-click="cycle_sidebar_state"
+          aria-label="Toggle sidebar"
+          title="Toggle sidebar (Cmd/Ctrl+B)"
+          aria-expanded={if @sidebar_state == "expanded", do: "true", else: "false"}
+          data-sidebar-state={@sidebar_state}
+        >
+          <.icon
+            name={
+              if @sidebar_state == "expanded",
+                do: "hero-chevron-double-left-micro",
+                else: "hero-chevron-double-right-micro"
+            }
+            class="size-4"
+          />
+        </button>
+      </div>
 
       <nav class="operator-sidebar-nav" aria-label="Operator pages">
         <div :for={group <- @nav_groups} class="operator-nav-group">
           <p class="operator-nav-group-label">{group.label}</p>
           <%= for item <- group.items do %>
-            <Patterns.nav_pill
-              id={"operator-nav-#{item.key}"}
-              label={item.label}
-              navigate={item.path}
-              active?={item.active?}
-            />
-            <%= if item.key == "workspace" and @workspace do %>
-              <WorkspaceSections.workspace_sections workspace={@workspace} />
+            <%= if item.key == "workspace" and @workspace && @sidebar_state == "rail" do %>
+              <div
+                class="operator-rail-flyout-wrap"
+                phx-click-away="close_rail_flyout"
+                phx-window-keydown="close_rail_flyout"
+                phx-key="escape"
+              >
+                <button
+                  id="operator-nav-workspace"
+                  type="button"
+                  class={Patterns.nav_pill_class(item.active?)}
+                  phx-click="toggle_rail_flyout"
+                  aria-haspopup="true"
+                  aria-controls="operator-rail-flyout"
+                  aria-expanded={
+                    if Map.get(@workspace, :rail_flyout_open?), do: "true", else: "false"
+                  }
+                  aria-label="Workspace sections"
+                  title={item.label}
+                >
+                  <span class="allbert-nav-pill-icon" aria-hidden="true">
+                    <.icon name={nav_icon(item.key)} class="size-4" />
+                  </span>
+                  <span class="allbert-nav-pill-label">{item.label}</span>
+                </button>
+                <div
+                  :if={Map.get(@workspace, :rail_flyout_open?)}
+                  id="operator-rail-flyout"
+                  class="operator-rail-flyout"
+                  role="group"
+                  aria-label="Workspace sections"
+                >
+                  <WorkspaceSections.workspace_sections workspace={@workspace} />
+                </div>
+              </div>
+            <% else %>
+              <Patterns.nav_pill
+                id={"operator-nav-#{item.key}"}
+                label={item.label}
+                navigate={item.path}
+                active?={item.active?}
+                title={item.label}
+              >
+                <:icon>
+                  <.icon name={nav_icon(item.key)} class="size-4" />
+                </:icon>
+              </Patterns.nav_pill>
+              <%= if item.key == "workspace" and @workspace && @sidebar_state == "expanded" do %>
+                <WorkspaceSections.workspace_sections workspace={@workspace} />
+              <% end %>
             <% end %>
           <% end %>
         </div>
@@ -315,8 +394,37 @@ defmodule AllbertAssistWeb.Layouts do
         </div>
       </div>
     </aside>
+    <%!-- v0.61b M8: slim reopen tab, the surviving affordance when the sidebar
+    is fully hidden (autofocused so keyboard focus lands on a live control). --%>
+    <button
+      :if={@sidebar_state == "hidden"}
+      id="product-sidebar-reopen"
+      type="button"
+      class="operator-sidebar-reopen"
+      phx-click="toggle_sidebar_hidden"
+      phx-mounted={Phoenix.LiveView.JS.focus()}
+      aria-controls="product-sidebar"
+      aria-expanded="false"
+      aria-label="Reopen navigation"
+      title="Reopen navigation (Cmd/Ctrl+Shift+B)"
+    >
+      <.icon name="hero-chevron-double-right-micro" class="size-4" />
+    </button>
     """
   end
+
+  # v0.61b M8 — the nine M0-spec rail icon assignments (Trust and Intents were
+  # the two flagged non-idiomatic picks, confirmed at S2; Intents is a
+  # workspace destination, not a top-level pill, so eight keys render here).
+  defp nav_icon("launch"), do: "hero-home-micro"
+  defp nav_icon("workspace"), do: "hero-rectangle-group-micro"
+  defp nav_icon("objectives"), do: "hero-flag-micro"
+  defp nav_icon("jobs"), do: "hero-queue-list-micro"
+  defp nav_icon("models"), do: "hero-cpu-chip-micro"
+  defp nav_icon("channels"), do: "hero-signal-micro"
+  defp nav_icon("settings"), do: "hero-cog-6-tooth-micro"
+  defp nav_icon("trust"), do: "hero-shield-check-micro"
+  defp nav_icon(_key), do: "hero-squares-2x2-micro"
 
   # v0.61b M7 — the M5 dispatch rule for workspace destinations: patch (live
   # update, no re-mount) when already on /workspace, navigate elsewhere.
