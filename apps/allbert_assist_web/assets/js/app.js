@@ -419,12 +419,22 @@ const WorkspaceSplitResizer = {
 
     this.handlePointerDown = event => {
       if (!this.grid || window.matchMedia("(max-width: 767.98px)").matches) return
+      // v0.61b M6: the divider hosts the collapse control — a press on it is a
+      // click, not a drag.
+      if (event.target.closest("button")) return
 
       this.dragging = true
       this.pointerId = event.pointerId
       this.el.setPointerCapture?.(event.pointerId)
       this.handlePointerMove(event)
       event.preventDefault()
+    }
+
+    // v0.61b M6: double-click resets the split to its default ratio.
+    this.handleDblclick = event => {
+      if (event.target.closest("button")) return
+      this.applyValue(clampWorkspaceSplit(this.el.dataset.defaultValue))
+      this.persistValue()
     }
 
     this.handleKeydown = event => {
@@ -444,6 +454,7 @@ const WorkspaceSplitResizer = {
     }
 
     this.el.addEventListener("pointerdown", this.handlePointerDown)
+    this.el.addEventListener("dblclick", this.handleDblclick)
     this.el.addEventListener("keydown", this.handleKeydown)
     window.addEventListener("pointermove", this.handlePointerMove)
     window.addEventListener("pointerup", this.handlePointerUp)
@@ -451,6 +462,7 @@ const WorkspaceSplitResizer = {
 
   destroyed() {
     this.el.removeEventListener("pointerdown", this.handlePointerDown)
+    this.el.removeEventListener("dblclick", this.handleDblclick)
     this.el.removeEventListener("keydown", this.handleKeydown)
     window.removeEventListener("pointermove", this.handlePointerMove)
     window.removeEventListener("pointerup", this.handlePointerUp)

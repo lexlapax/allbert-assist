@@ -111,6 +111,16 @@ defmodule AllbertAssistWeb.Workspace.Renderer do
             phx-hook="WorkspaceSplitResizer"
           >
             <span aria-hidden="true" />
+            <button
+              id="workspace-split-collapse"
+              type="button"
+              class="workspace-split-collapse"
+              phx-click="toggle_canvas_focus"
+              aria-label="Collapse canvas pane"
+              title="Collapse canvas pane"
+            >
+              <span aria-hidden="true">›</span>
+            </button>
           </div>
         <% end %>
       </div>

@@ -2824,9 +2824,15 @@ a.allbert-chip-link:focus-visible,
   min-height: 0;
 }
 
+/* v0.61b M6 (ADR 0080 §3): the canvas/tool region is a right-docked resizable
+   split pane beside chat — nothing floats over chat. Closed → single column
+   (chat takes the width, slim reopen tab at the right edge); open → chat |
+   divider | pane, sized by the shipped WorkspaceSplitResizer's
+   --workspace-chat-ratio (clamp 35–70, persisted client-side). The ephemeral
+   region renders in the pane column below the canvas (pane tenancy:
+   replace-and-restore is destination-driven inside the region). */
 @media (min-width: 768px) {
   #workspace-shell #workspace-node-workspace-root > .workspace-root-grid {
-    /* Chat owns the main row; canvas opens as a drawer instead of a co-equal pane. */
     grid-template-rows: auto minmax(0, 1fr) auto;
     align-items: stretch;
   }
@@ -2842,30 +2848,125 @@ a.allbert-chip-link:focus-visible,
     display: none;
   }
 
-  #workspace-shell[data-maximized-pane="chat"] #workspace-node-workspace-chat {
-    grid-column: chat;
+  #workspace-shell[data-canvas-drawer="open"]
+    #workspace-node-workspace-root
+    > .workspace-root-grid {
+    grid-template-columns:
+      minmax(0, var(--workspace-chat-ratio, 55%))
+      auto
+      minmax(0, 1fr);
+    grid-template-areas:
+      "header header header"
+      "chat resizer canvas"
+      "chat resizer ephemeral";
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  #workspace-shell[data-canvas-drawer="open"] #workspace-split-resizer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    grid-area: resizer;
+    width: 0.85rem;
+    cursor: col-resize;
+    border-radius: 999px;
+    background: transparent;
+  }
+
+  #workspace-shell[data-canvas-drawer="open"] #workspace-split-resizer:hover,
+  #workspace-shell[data-canvas-drawer="open"] #workspace-split-resizer:focus-visible {
+    background: var(--allbert-accent-soft);
+  }
+
+  .workspace-split-collapse {
+    width: 1rem;
+    height: 3rem;
+    border: 1px solid var(--workspace-border);
+    border-radius: 999px;
+    background: var(--workspace-panel-muted);
+    color: var(--workspace-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   #workspace-shell #workspace-node-workspace-canvas-region {
     display: none;
-    position: fixed;
-    top: 5rem;
-    right: 1rem;
-    bottom: 1rem;
-    z-index: 35;
-    width: min(42rem, calc(100vw - 2rem));
-    max-width: calc(100vw - 2rem);
+    min-width: 0;
     overflow: hidden;
     border: 1px solid var(--workspace-border);
     border-radius: var(--allbert-radius-drawer);
     background: var(--workspace-panel);
-    box-shadow: 0 24px 80px rgb(15 23 42 / 28%);
   }
 
   #workspace-shell[data-canvas-drawer="open"] #workspace-node-workspace-canvas-region {
     display: grid;
+    grid-area: canvas;
     min-height: 0;
-    max-height: calc(100dvh - 6rem);
+  }
+
+  #workspace-shell[data-canvas-drawer="open"] #workspace-node-workspace-ephemeral-region {
+    grid-area: ephemeral;
+  }
+
+  /* Maximize collapses back to a single column for the surviving pane. */
+  #workspace-shell[data-maximized-pane="chat"]
+    #workspace-node-workspace-root
+    > .workspace-root-grid,
+  #workspace-shell[data-maximized-pane="canvas"]
+    #workspace-node-workspace-root
+    > .workspace-root-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "header"
+      "chat"
+      "ephemeral";
+  }
+
+  #workspace-shell[data-maximized-pane="canvas"]
+    #workspace-node-workspace-root
+    > .workspace-root-grid {
+    grid-template-areas:
+      "header"
+      "canvas"
+      "ephemeral";
+  }
+
+  #workspace-shell[data-maximized-pane="chat"] #workspace-node-workspace-canvas-region,
+  #workspace-shell[data-maximized-pane] #workspace-split-resizer,
+  #workspace-shell[data-maximized-pane="canvas"] #workspace-node-workspace-chat {
+    display: none;
+  }
+
+  /* Slim right-edge reopen tab when the pane is collapsed (M0 spec). */
+  #workspace-canvas-reopen {
+    position: fixed;
+    top: 50%;
+    right: 0;
+    z-index: 30;
+    transform: translateY(-50%);
+    width: 1.25rem;
+    height: 4rem;
+    border: 1px solid var(--workspace-border);
+    border-right: 0;
+    border-radius: 0.5rem 0 0 0.5rem;
+    background: var(--workspace-panel-muted);
+    color: var(--workspace-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #workspace-shell[data-canvas-drawer="open"] #workspace-canvas-reopen {
+    display: none;
+  }
+}
+
+@media (max-width: 767.98px) {
+  #workspace-canvas-reopen {
+    display: none;
   }
 }
 

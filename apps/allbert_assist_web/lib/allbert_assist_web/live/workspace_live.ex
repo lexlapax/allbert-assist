@@ -883,6 +883,18 @@ defmodule AllbertAssistWeb.WorkspaceLive do
             workspace_state={workspace_state(assigns)}
           />
 
+          <button
+            id="workspace-canvas-reopen"
+            type="button"
+            phx-click="toggle_canvas_focus"
+            aria-controls="workspace-node-workspace-canvas-region"
+            aria-expanded={bool_attribute(@canvas_focus?)}
+            aria-label="Reopen canvas"
+            title="Reopen canvas"
+          >
+            <.icon name="hero-chevron-left-micro" class="size-4" />
+          </button>
+
           <.live_component
             :if={@open_tile_inspector_tile}
             module={TileInspector}

@@ -14,10 +14,13 @@ defmodule AllbertAssistWeb.Workspace.ResponsiveTest do
     # single-column ("nav chat" gone); the product sidebar owns navigation.
     refute css =~ ~s("nav chat")
     assert css =~ ~s(#workspace-shell[data-canvas-drawer="open"])
-    refute css =~ ~s("chat resizer canvas")
+    # v0.61b M6 (ADR 0080 §3): the canvas is a docked resizable pane beside
+    # chat — the two-pane grid and the col-resize divider are now REQUIRED
+    # (this test previously refuted them while the canvas was a fixed drawer).
+    assert css =~ ~s("chat resizer canvas")
     assert css =~ ~s(#workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-chat)
     assert css =~ "#workspace-split-resizer"
-    refute css =~ "cursor: col-resize"
+    assert css =~ "cursor: col-resize"
     assert css =~ "position: sticky"
   end
 
@@ -30,7 +33,9 @@ defmodule AllbertAssistWeb.Workspace.ResponsiveTest do
     assert css =~ ~r/#workspace-shell\.workspace-shell\s*\{[^}]*100dvh/m
     assert css =~ ~r/#workspace-shell\.workspace-shell\s*\{[^}]*display:\s*flex/m
 
-    assert css =~
+    # v0.61b M6: the canvas region is a docked grid pane — hidden when the
+    # pane is closed, but NEVER position: fixed over chat.
+    refute css =~
              ~r/#workspace-shell #workspace-node-workspace-canvas-region\s*\{[^}]*position:\s*fixed/m
 
     assert css =~
