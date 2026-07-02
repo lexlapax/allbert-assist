@@ -556,6 +556,16 @@ body {
     var(--allbert-motion-ease-emphasis) both;
 }
 
+/* v0.61b M8: nav groups must not keep the animation's fill transform — a
+   `both` fill leaves a persistent identity transform, and a transformed
+   ancestor becomes the containing block for the rail flyout's
+   position: fixed, trapping it inside the sidebar's scroll clip (found in
+   the v0.61b browser sweep). `backwards` is visually identical here: the
+   final keyframe equals the natural state. */
+.operator-nav-group {
+  animation-fill-mode: backwards;
+}
+
 /* Drawer role — the utility drawer slides on the standard ease. */
 [data-workspace-pattern="drawer-shell"] {
   transition:
@@ -763,12 +773,15 @@ body {
   }
 
   .operator-rail-flyout {
-    position: absolute;
-    top: 0;
-    left: calc(100% + 0.5rem);
+    /* fixed, not absolute: the sidebar nav is an overflow-y scroll container,
+       which would clip an absolutely-positioned flyout (found in the v0.61b
+       browser sweep). */
+    position: fixed;
+    top: 5rem;
+    left: 4rem;
+    max-height: min(70vh, calc(100dvh - 6rem));
     z-index: 34;
     width: 16rem;
-    max-height: 70vh;
     overflow-y: auto;
     padding: 0.75rem;
     border: 1px solid var(--workspace-border);
@@ -1593,10 +1606,13 @@ a.allbert-chip-link:focus-visible,
   display: inline-flex;
 }
 
+/* v0.61b M7: the trigger moved from the top appbar (drop down, right-aligned)
+   to the sidebar footer (bottom-left) — the menu now opens upward,
+   left-aligned, so it stays inside the viewport. */
 .workspace-overflow-menu {
   position: absolute;
-  top: calc(100% + 0.25rem);
-  right: 0;
+  bottom: calc(100% + 0.25rem);
+  left: 0;
   z-index: 30;
   min-width: 16rem;
   display: grid;
