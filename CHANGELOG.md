@@ -12,8 +12,10 @@ changelog entries or release notes.
 
 ## v0.61.0 - Presentation Layer Overhaul
 
-Status: closeout — `mix allbert.test release.v061` gate-green (Dialyzer 0); version
-bumped to 0.61.0; git tag pending operator.
+Status: released — `mix allbert.test release.v061` gate-green (Dialyzer 0); version
+bumped to 0.61.0; tagged `v0.61.0`. The operator's manual-validation UX feedback is
+addressed by the subsequent v0.61b point release (0.61.1, planned):
+`docs/plans/v0.61b-plan.md`.
 
 Implements the v0.60 product-experience design (information architecture, navigation,
 screen composition; ADR 0077) in the operator-chosen **Layout D (Sidebar-primary)**,

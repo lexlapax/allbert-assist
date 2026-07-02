@@ -12,6 +12,7 @@ ADRs record binding design decisions. They are not release plans; use
 - [ADR 0077: Product experience design and information architecture](0077-product-experience-design-and-information-architecture.md)
 - [ADR 0078: First-model path](0078-first-model-path.md)
 - [ADR 0079: Visual design language and art direction](0079-visual-design-language-and-art-direction.md)
+- [ADR 0080: Navigation consolidation and workspace shell presentation](0080-navigation-consolidation-and-workspace-shell-presentation.md)
 - [ADR 0070: TUI operator console and read-only operator actions](0070-tui-operator-console-and-read-only-operator-actions.md)
 - [ADR 0068: Pi-mode coding surface and local coding trust tier](0068-pi-mode-coding-surface-and-local-coding-trust-tier.md)
 - [ADR 0065: Central action param contract enforcement](0065-central-action-param-contract-enforcement.md)
@@ -23,7 +24,7 @@ ADRs record binding design decisions. They are not release plans; use
 - App, plugin, surface, workspace, and catalog contracts: ADR 0015-0031.
 - Dynamic capability, sandbox, MCP, browser, workflows, and marketplace: ADR 0032-0045.
 - Provider, artifact, channel, intent, and model contracts: ADR 0046-0072.
-- v0.58 consolidation and pre-1.0 product contracts: ADR 0073-0079.
+- v0.58 consolidation and pre-1.0 product contracts: ADR 0073-0080.
 
 ## How To Read
 

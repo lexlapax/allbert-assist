@@ -427,7 +427,33 @@ scope.
     the web workspace carries the desktop-UX weight since a native client stays
     post-1.0, so this overhaul must precede the v1.0 freeze. ADR 0074 v0.61
     amendment; no authority change; no standalone settings/models/channels/trust/
-    onboarding routes beyond the v0.61 route/panel contract.
+    onboarding routes beyond the v0.61 route/panel contract. **Released as 0.61.0
+    (tagged `v0.61.0`); the operator's manual-validation UX feedback is owned by
+    the v0.61b point release.**
+61b. v0.61b UX Refinement — Navigation Consolidation & Presentation Polish — a
+    **point release** (0.61.1) inserted between v0.61 and v0.62; it does not
+    renumber v0.62-v0.64. The operator's v0.61 manual validation (2026-07-01)
+    produced eight UX-feedback items — no functional breaks — that decompose into
+    one coherent shell-composition critique (tool panels float over chat instead
+    of docking beside it; two navigation columns where one would do; per-shell
+    top bars spending vertical space; no desktop collapse) and four contained
+    refinements (inverted chat-bubble type scale, a bare status chip that
+    navigates, no thread rename, a dark palette one notch too loud). Presentation
+    feedback is cheapest to land while the presentation release's context is
+    fresh, and the v1.0 presentation-contract freeze makes composition fixes
+    time-sensitive — so they land as a point release rather than riding v0.62
+    (whose former M7 carryover moves here, leaving v0.62 pure packaging). ADR
+    0080 (navigation consolidation & workspace shell presentation) records the
+    shell revision: one product sidebar with contextually-expanding workspace
+    sections, slim per-view headers instead of top bars, a right-docked resizable
+    tool pane, icon-rail + full-hide collapse, and the
+    navigating-controls-name-their-destination rule; ADR 0077's IA structure and
+    ADR 0079's Direction C are held. No new authority, permission, or Settings
+    key; thread rename routes through the existing `:conversation_write`
+    registered-action spine. Plan `docs/plans/v0.61b-plan.md` (M0 spec + S2
+    operator sign-off gate → contained fixes M1-M4 → shell arc M5-M8 with an S4
+    early live review → M9 `release.v061b` gate incl. the `:v061` regression
+    step). Releases as 0.61.1, tag held for the operator.
 62. v0.62 Packaging & Entry Points: implements the v0.60-designed entry-point/CLI
     UX — a packaged `allbert` binary (release-built, no Elixir toolchain) with a
     Homebrew/curl install path, a unified grouped CLI dispatcher
@@ -3879,8 +3905,9 @@ implements the v0.60 IA/navigation/screen-composition redesign plus an
 operator-chosen brand identity, motion, marketing surface, and the professional
 craft pass).
 
-Status: closeout — built, manual-validated live, hardened, and `release.v061`
-gate-green (Dialyzer 0); version bumped to 0.61.0, git tag pending operator
+Status: done — built, manual-validated live, hardened, and `release.v061`
+gate-green (Dialyzer 0); released as 0.61.0, tagged `v0.61.0`; the manual-validation
+UX feedback is owned by the v0.61b point release (0.61.1)
 (pre-1.0 product capability release 1 of 3; implements the v0.60
 design **in the v0.60b-chosen visual language**; followed by v0.62 packaging,
 v0.63 guided onboarding, and the v0.64 product RC). Builds on the v0.60 experience
@@ -3951,6 +3978,36 @@ Gate `release.v061` (migrate / format / compile-warnings-as-errors / Credo stric
 Dialyzer zero-error / layout-system proof / redesigned-surface proof / `:v061`
 security sweep / docs gate); retires the `:preview_routes` flag and the walking-
 skeleton preview modules at closeout.
+
+## v0.61b: UX Refinement — Navigation Consolidation & Presentation Polish
+
+Plan: `docs/plans/v0.61b-plan.md`
+Request flow: `docs/plans/v0.61b-request-flow.md`
+ADR: `docs/adr/0080-navigation-consolidation-and-workspace-shell-presentation.md`
+(Proposed (v0.61b); Accepted at the S2 spec sign-off; pointer notes in ADR
+0077/0074).
+
+Status: planned (first pass, 2026-07-02) — a **point release** (0.61.1) inserted
+between v0.61 (0.61.0) and v0.62; does not renumber v0.62-v0.64. Implements the
+eight operator UX-feedback items from the v0.61 manual validation (captured
+2026-07-01; inventory folded into the plan; the temporary root capture file
+retires at closeout). One shell-composition arc (ADR 0080: single sidebar with
+contextually-expanding workspace sections replacing the workspace-local submenu
+column; per-shell top bars retired for slim per-view headers; the workspace tool
+pane docked as a right-hand resizable split pane instead of floating over chat;
+icon-rail + full-hide sidebar collapse with client-side persistence) plus four
+contained refinements (chat-bubble type hierarchy fixed — the timestamp rule was
+simply missing; the chat-header objective chip becomes a labeled link-chip;
+renamable conversation threads via a registered `rename_thread` action on the
+existing `:conversation_write` permission — no internal rename; a subtler
+dark-mode token pass inside Direction C, both dark blocks in lockstep, all a11y
+cells ≥ AA). No new authority, permission, Settings key, route, or capability;
+Direction C and the ADR 0077 IA structure hold. Milestones M0 (consolidated-shell
+spec + ADR 0080, S2 operator sign-off gates the shell arc) → M1-M4 contained →
+M5-M8 shell arc (S4 early live review; send-backs absorbed by M8) → M9 evals +
+`release.v061b` gate (incl. the `:v061` regression proof) + closeout. The former
+v0.62 M7 UX carryover moves here; v0.62 is reconciled to pure packaging scope.
+Releases as **0.61.1**, tag held for the operator after the S6 final validation.
 
 ## v0.62: Packaging & Entry Points
 

@@ -172,7 +172,13 @@ The shipped surface was validated live and reconciled with this amendment:
   keeps the chat-primary hero and canvas-drawer machinery intact while giving the
   primary surface the same chosen-layout navigation and active-state highlighting
   (route-derived on operator surfaces, destination-derived on `/workspace`). The
-  documented layout is `docs/design/layout-systems-selected.md`.
+  documented layout is `docs/design/layout-systems-selected.md`. **v0.61b note:**
+  this as-built composition (the second workspace-local submenu column, the
+  per-shell top bars, and the canvas rendered as a fixed drawer floating over
+  chat) is superseded by ADR 0080 (v0.61b — navigation consolidation & workspace
+  shell presentation: one sidebar with contextual workspace sections, slim
+  per-view headers, docked resizable tool pane). The token/variant/pattern
+  substrate this ADR owns is unchanged.
 - **Direction C is first-class.** Its token/component delta is promoted into the
   canonical `:root` / `[data-theme="dark"]` `--allbert-*` defaults; the component
   delta is two reusable variant components (`elevated_card`, `nav_pill`) plus two

@@ -125,3 +125,16 @@ order**:
   (ADR 0069 / ADR 0075) against the design produced here.
 - **Not a native desktop client.** The web remains the primary 1.0 product surface;
   a native client stays post-1.0 (ADR 0076).
+
+## v0.61b note — navigation presentation revised by ADR 0080
+
+The operator's v0.61 manual validation asked for a consolidation of the shipped
+navigation *presentation*: one product sidebar with contextually-expanding
+workspace sections (the workspace-local submenu column retires), per-shell top
+bars replaced by slim per-view headers, and the workspace tool pane docked
+beside chat instead of floating over it. That revision is recorded in
+`docs/adr/0080-navigation-consolidation-and-workspace-shell-presentation.md`
+(v0.61b). This ADR's structure stands: the surface inventory, the unified
+journey, the persona, the trust structure, and the navigation *groups* are
+unchanged — ADR 0080 changes how the navigation model presents, not what it
+contains.

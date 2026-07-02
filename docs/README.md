@@ -22,31 +22,31 @@ For contributors:
 
 ## Current Release
 
-- [v0.60b plan](plans/v0.60b-plan.md)
-- [v0.60b request flow](plans/v0.60b-request-flow.md)
-- [v0.60 plan](plans/v0.60-plan.md)
-- [v0.60 request flow](plans/v0.60-request-flow.md)
+- [v0.61b plan](plans/v0.61b-plan.md)
+- [v0.61b request flow](plans/v0.61b-request-flow.md)
+- [v0.61 plan](plans/v0.61-plan.md)
+- [v0.61 request flow](plans/v0.61-request-flow.md)
 - [Surface contract](developer/surface-contract.md)
 - [Web design system](developer/web-design-system.md)
 - [Operator workspace guide](operator/workspace.md)
 
-The current release is `v0.60.1` (v0.60b, Visual Design Language & Art Direction), a
-design-first point release on top of `v0.60.0` (Product Experience Design). v0.60b
-produced three divergent candidate visual directions as rendered hero screens,
-evaluated them against a rubric, and the operator **chose Direction C (Soft Modern
-Depth)** (ADR 0079 Accepted-with-choice) as the canonical language v0.61 implements;
-`release.v060b` is green. The latest published release tag is `v0.60.1` (v0.60b),
-applied on top of `v0.60.0`; version metadata reports `0.60.1`. The remaining
-pre-1.0 arc is v0.61 presentation layer overhaul (implements Direction C and an
-operator-chosen concrete layout system, then designs/records/applies an
-operator-chosen brand identity), v0.62
-packaging/entry points, v0.63 guided onboarding/profiles, and v0.64 product RC; see the
-[plans index](plans/README.md) and [roadmap](plans/roadmap.md). The v0.60/v0.60b design
-artifacts live under `docs/design/` (including `visual-directions/` rendered
-captures); v0.61 adds the committed sanitized layout screenshot record under
-`docs/design/layout-systems/` and the committed brand candidate/selected rendering
-record under `docs/design/brand/`. The plan/request-flow docs retain the validation
-evidence and release handoff.
+The current release is `v0.61.0` (Presentation Layer Overhaul): the v0.60 IA
+implemented in the operator-chosen Layout D (Sidebar-primary), dressed in the
+v0.60b-chosen Direction C (Soft Modern Depth) visual language, with brand, motion,
+visual hierarchy, landing, and dark-mode polish; `release.v061` is green and the
+tag `v0.61.0` is applied; version metadata reports `0.61.0`. In flight is
+**v0.61b** (planned, releases as `0.61.1`): a UX-refinement point release that
+implements the operator's v0.61 manual-validation feedback — navigation
+consolidation (one sidebar, docked tool pane, no top bars, collapsible rail; ADR
+0080) plus chat type-scale, status-chip labeling, renamable threads, and a subtler
+dark mode. The remaining pre-1.0 arc is v0.62 packaging/entry points, v0.63 guided
+onboarding/profiles, and v0.64 product RC; see the [plans index](plans/README.md)
+and [roadmap](plans/roadmap.md). The v0.60/v0.60b design artifacts live under
+`docs/design/` (including `visual-directions/` rendered captures); v0.61 adds the
+committed sanitized layout screenshot record under `docs/design/layout-systems/`
+and the committed brand candidate/selected rendering record under
+`docs/design/brand/`; v0.61b adds `docs/design/consolidated-shell-spec.md`. The
+plan/request-flow docs retain the validation evidence and release handoff.
 
 ## Directory Map
 
