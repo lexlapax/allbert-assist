@@ -66,14 +66,18 @@ defmodule AllbertAssistWeb.Workspace.DirectionCTokensTest do
   end
 
   test "Direction C dark tonal surfaces are promoted into the dark a11y-axis set" do
+    # v0.61b M3 reconciliation: the dark set was toned subtler within Direction C
+    # (narrower surface ladder, text pulled back from near-white, dimmer line,
+    # desaturated accent); surface-0 is unchanged by design so the dark a11y
+    # cells keep their contrast denominators.
     dark = css_block!(~s([data-theme="dark"]))
 
     assert dark =~ "--allbert-surface-0: #14121f;"
-    assert dark =~ "--allbert-surface-1: #1c1930;"
-    assert dark =~ "--allbert-surface-2: #251f3d;"
-    assert dark =~ "--allbert-text-strong: #efeafc;"
-    assert dark =~ "--allbert-accent: #a99bf7;"
-    assert dark =~ "--allbert-line: #332c52;"
+    assert dark =~ "--allbert-surface-1: #1a1828;"
+    assert dark =~ "--allbert-surface-2: #211e31;"
+    assert dark =~ "--allbert-text-strong: #e7e2f2;"
+    assert dark =~ "--allbert-accent: #9d90e2;"
+    assert dark =~ "--allbert-line: #2b2643;"
   end
 
   test "high-contrast and reduced-motion a11y axes still hold over the promoted tokens" do

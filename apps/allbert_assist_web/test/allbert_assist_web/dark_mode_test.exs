@@ -69,8 +69,10 @@ defmodule AllbertAssistWeb.DarkModeResolutionTest do
 
     assert css =~ "@media (prefers-color-scheme: dark)"
 
+    # v0.61b M3 reconciliation: the accent literal follows the subtle dark set
+    # (#a99bf7 → #9d90e2); surface-0 is unchanged by design.
     assert css =~
-             ~r/\[data-theme="system"\] \{[^}]*color-scheme: dark;[^}]*--allbert-surface-0: #14121f;[^}]*--allbert-accent: #a99bf7;/,
+             ~r/\[data-theme="system"\] \{[^}]*color-scheme: dark;[^}]*--allbert-surface-0: #14121f;[^}]*--allbert-accent: #9d90e2;/,
            "the system marker must resolve to the Direction C dark tokens"
 
     IO.puts("dark-mode-os-resolution-001 status=pass system=resolves_os_dark fallback=not_light")
