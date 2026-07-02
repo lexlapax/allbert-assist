@@ -119,38 +119,7 @@ defmodule AllbertAssistWeb.Layouts do
       role="region"
       aria-labelledby={@labelledby}
     >
-      <aside class="operator-sidebar" aria-label="Product navigation">
-        <.link navigate={~p"/"} class="operator-sidebar-brand">
-          <img
-            src={~p"/images/allbert-mark.svg"}
-            alt=""
-            aria-hidden="true"
-            width="28"
-            height="28"
-            class="operator-brand-mark"
-          />
-          <span class="operator-sidebar-wordmark">Allbert</span>
-        </.link>
-
-        <nav class="operator-sidebar-nav" aria-label="Operator pages">
-          <div :for={group <- @nav_groups} class="operator-nav-group">
-            <p class="operator-nav-group-label">{group.label}</p>
-            <Patterns.nav_pill
-              :for={item <- group.items}
-              id={"operator-nav-#{item.key}"}
-              label={item.label}
-              navigate={item.path}
-              active?={item.active?}
-            />
-          </div>
-        </nav>
-
-        <div class="operator-sidebar-actions">
-          <.link navigate={~p"/workspace"} class={Patterns.button_class!("primary")}>
-            New chat
-          </.link>
-        </div>
-      </aside>
+      <.product_sidebar nav_groups={@nav_groups} />
 
       <div class="operator-shell-main">
         <header class="operator-shell-topbar">
@@ -183,6 +152,63 @@ defmodule AllbertAssistWeb.Layouts do
         </.link>
       </nav>
     </section>
+    """
+  end
+
+  @doc """
+  The persistent Layout D product sidebar (brand + grouped IA navigation + primary
+  action). Shared by `operator_shell/1` and the `/workspace` shell so the desktop
+  navigation cannot drift between the two, and the workspace surface carries the same
+  chosen-layout navigation as every other surface (v0.61 M10.3 P0-8).
+
+  Pass either precomputed `nav_groups`, or an `active` key (and optional `nav_items`)
+  to have the canonical IA groups computed here.
+  """
+  attr :nav_groups, :list, default: nil
+  attr :active, :string, default: nil
+  attr :nav_items, :list, default: nil
+
+  def product_sidebar(assigns) do
+    assigns =
+      assign(
+        assigns,
+        :nav_groups,
+        assigns.nav_groups || nav_groups(assigns.active, assigns.nav_items)
+      )
+
+    ~H"""
+    <aside class="operator-sidebar" aria-label="Product navigation">
+      <.link navigate={~p"/"} class="operator-sidebar-brand">
+        <img
+          src={~p"/images/allbert-mark.svg"}
+          alt=""
+          aria-hidden="true"
+          width="28"
+          height="28"
+          class="operator-brand-mark"
+        />
+        <span class="operator-sidebar-wordmark">Allbert</span>
+      </.link>
+
+      <nav class="operator-sidebar-nav" aria-label="Operator pages">
+        <div :for={group <- @nav_groups} class="operator-nav-group">
+          <p class="operator-nav-group-label">{group.label}</p>
+          <Patterns.nav_pill
+            :for={item <- group.items}
+            id={"operator-nav-#{item.key}"}
+            label={item.label}
+            navigate={item.path}
+            active?={item.active?}
+          />
+        </div>
+      </nav>
+
+      <div class="operator-sidebar-actions">
+        <.link navigate={~p"/workspace"} class={Patterns.button_class!("primary")}>
+          New chat
+        </.link>
+      </div>
+    </aside>
     """
   end
 

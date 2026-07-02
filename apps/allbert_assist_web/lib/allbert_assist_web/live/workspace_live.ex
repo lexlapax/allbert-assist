@@ -745,98 +745,101 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
     ~H"""
     <Layouts.app flash={@flash} content_width="full">
-      <section
-        id="workspace-shell"
-        class={[
-          "workspace-shell min-h-screen px-4 py-4 sm:px-6 lg:px-8",
-          @workspace_high_contrast? && "workspace-high-contrast",
-          @workspace_reduce_motion? && "workspace-reduce-motion"
-        ]}
-        data-theme={theme_attribute(@workspace_theme)}
-        data-operator-shell="workspace"
-        data-workspace-shell="workspace"
-        data-layout-mode="chat-primary"
-        data-workspace-theme={@workspace_theme}
-        data-user-id={@user_id}
-        data-thread-id={@thread_id}
-        data-session-id={@session_id}
-        data-active-app={active_app_attribute(@active_app)}
-        data-canvas-destination={@canvas_destination}
-        data-high-contrast={bool_attribute(@workspace_high_contrast?)}
-        data-reduce-motion={bool_attribute(@workspace_reduce_motion?)}
-        data-mobile-tab={@workspace_mobile_tab}
-        data-launcher-open={bool_attribute(@workspace_launcher_open?)}
-        data-maximized-pane={@workspace_maximized_pane}
-        data-canvas-focus={bool_attribute(@canvas_focus?)}
-        data-canvas-drawer={canvas_drawer_state(@canvas_focus?)}
-        data-offline-enabled={bool_attribute(@workspace_offline_enabled?)}
-        data-service-worker-url={~p"/workspace-sw.js"}
-        data-service-worker-scope="/workspace"
-        data-offline-shell-url={~p"/workspace-offline.html"}
-        role="region"
-        aria-labelledby="workspace-component-title-workspace-header"
-      >
-        <Patterns.status_callout
-          id="workspace-offline-banner"
-          class="workspace-offline-banner"
-          tone="warning"
-          message={offline_banner_text(@workspace_offline_enabled?)}
-          data-state={offline_banner_state(@workspace_offline_enabled?)}
-          hidden={@workspace_offline_enabled?}
-        />
+      <div class="workspace-with-sidebar" data-active-page={workspace_nav_key(@canvas_destination)}>
+        <Layouts.product_sidebar active={workspace_nav_key(@canvas_destination)} />
+        <section
+          id="workspace-shell"
+          class={[
+            "workspace-shell min-h-screen px-4 py-4 sm:px-6 lg:px-8",
+            @workspace_high_contrast? && "workspace-high-contrast",
+            @workspace_reduce_motion? && "workspace-reduce-motion"
+          ]}
+          data-theme={theme_attribute(@workspace_theme)}
+          data-operator-shell="workspace"
+          data-workspace-shell="workspace"
+          data-layout-mode="chat-primary"
+          data-workspace-theme={@workspace_theme}
+          data-user-id={@user_id}
+          data-thread-id={@thread_id}
+          data-session-id={@session_id}
+          data-active-app={active_app_attribute(@active_app)}
+          data-canvas-destination={@canvas_destination}
+          data-high-contrast={bool_attribute(@workspace_high_contrast?)}
+          data-reduce-motion={bool_attribute(@workspace_reduce_motion?)}
+          data-mobile-tab={@workspace_mobile_tab}
+          data-launcher-open={bool_attribute(@workspace_launcher_open?)}
+          data-maximized-pane={@workspace_maximized_pane}
+          data-canvas-focus={bool_attribute(@canvas_focus?)}
+          data-canvas-drawer={canvas_drawer_state(@canvas_focus?)}
+          data-offline-enabled={bool_attribute(@workspace_offline_enabled?)}
+          data-service-worker-url={~p"/workspace-sw.js"}
+          data-service-worker-scope="/workspace"
+          data-offline-shell-url={~p"/workspace-offline.html"}
+          role="region"
+          aria-labelledby="workspace-component-title-workspace-header"
+        >
+          <Patterns.status_callout
+            id="workspace-offline-banner"
+            class="workspace-offline-banner"
+            tone="warning"
+            message={offline_banner_text(@workspace_offline_enabled?)}
+            data-state={offline_banner_state(@workspace_offline_enabled?)}
+            hidden={@workspace_offline_enabled?}
+          />
 
-        <div id="workspace-mobile-shellbar" class="workspace-mobile-shellbar">
-          <button
-            id="workspace-launcher-toggle"
-            type="button"
-            class="workspace-mobile-launcher-button"
-            phx-click="toggle_workspace_launcher"
-            aria-label="Open workspace launcher"
-            aria-controls="workspace-node-workspace-nav-rail"
-            aria-expanded={bool_attribute(@workspace_launcher_open?)}
-          >
-            <.icon name="hero-bars-3-micro" class="size-5" />
-          </button>
-          <nav
-            id="workspace-mobile-tabs"
-            class="workspace-mobile-tabs"
-            role="tablist"
-            aria-label="Workspace sections"
-          >
+          <div id="workspace-mobile-shellbar" class="workspace-mobile-shellbar">
             <button
-              :for={tab <- workspace_mobile_tabs()}
-              id={"workspace-mobile-tab-#{tab.id}"}
+              id="workspace-launcher-toggle"
               type="button"
-              class={[
-                "workspace-mobile-tab",
-                @workspace_mobile_tab == tab.id && "workspace-mobile-tab-active"
-              ]}
-              role="tab"
-              aria-selected={bool_attribute(@workspace_mobile_tab == tab.id)}
-              aria-controls={tab.controls}
-              phx-click="select_workspace_mobile_tab"
-              phx-value-tab={tab.id}
+              class="workspace-mobile-launcher-button"
+              phx-click="toggle_workspace_launcher"
+              aria-label="Open workspace launcher"
+              aria-controls="workspace-node-workspace-nav-rail"
+              aria-expanded={bool_attribute(@workspace_launcher_open?)}
             >
-              {tab.label}
+              <.icon name="hero-bars-3-micro" class="size-5" />
             </button>
-          </nav>
-        </div>
+            <nav
+              id="workspace-mobile-tabs"
+              class="workspace-mobile-tabs"
+              role="tablist"
+              aria-label="Workspace sections"
+            >
+              <button
+                :for={tab <- workspace_mobile_tabs()}
+                id={"workspace-mobile-tab-#{tab.id}"}
+                type="button"
+                class={[
+                  "workspace-mobile-tab",
+                  @workspace_mobile_tab == tab.id && "workspace-mobile-tab-active"
+                ]}
+                role="tab"
+                aria-selected={bool_attribute(@workspace_mobile_tab == tab.id)}
+                aria-controls={tab.controls}
+                phx-click="select_workspace_mobile_tab"
+                phx-value-tab={tab.id}
+              >
+                {tab.label}
+              </button>
+            </nav>
+          </div>
 
-        <.live_component
-          module={WorkspaceRenderer}
-          id="workspace-renderer"
-          surface={@workspace_surface}
-          renderer_context={renderer_context(assigns)}
-          workspace_state={workspace_state(assigns)}
-        />
+          <.live_component
+            module={WorkspaceRenderer}
+            id="workspace-renderer"
+            surface={@workspace_surface}
+            renderer_context={renderer_context(assigns)}
+            workspace_state={workspace_state(assigns)}
+          />
 
-        <.live_component
-          :if={@open_tile_inspector_tile}
-          module={TileInspector}
-          id="workspace-tile-inspector-component"
-          tile={@open_tile_inspector_tile}
-        />
-      </section>
+          <.live_component
+            :if={@open_tile_inspector_tile}
+            module={TileInspector}
+            id="workspace-tile-inspector-component"
+            tile={@open_tile_inspector_tile}
+          />
+        </section>
+      </div>
     </Layouts.app>
     """
   end
@@ -2521,6 +2524,15 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   defp canvas_drawer_state(true), do: "open"
   defp canvas_drawer_state(false), do: "closed"
+
+  # Map the active canvas destination to the Layout D product-sidebar nav key so the
+  # operator-panel destinations (models/channels/settings/trust) highlight the right
+  # sidebar item, and the plain workspace highlights "Workspace" (v0.61 M10.3 P0-8).
+  defp workspace_nav_key("workspace:models"), do: "models"
+  defp workspace_nav_key("workspace:channels"), do: "channels"
+  defp workspace_nav_key("workspace:settings"), do: "settings"
+  defp workspace_nav_key("workspace:surface_policy"), do: "trust"
+  defp workspace_nav_key(_destination), do: "workspace"
 
   defp active_app_attribute(app) when is_atom(app), do: Atom.to_string(app)
   defp active_app_attribute(app) when is_binary(app), do: app

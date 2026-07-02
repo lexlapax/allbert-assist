@@ -74,4 +74,28 @@ defmodule AllbertAssistWeb.OperatorShellNavTest do
     assert html =~ ~s(aria-current="page")
     assert html =~ "allbert-nav-pill-active"
   end
+
+  test "the workspace surface carries the persistent Layout D sidebar (Workspace active)", %{
+    conn: conn
+  } do
+    {:ok, view, html} = live(conn, "/workspace")
+
+    # v0.61 M10.3 P0-8: the primary surface is no longer a nav dead-end — the shared
+    # product sidebar renders with the five IA groups and Workspace marked current.
+    assert html =~ ~s(class="operator-sidebar")
+    assert html =~ ~s(href="/objectives")
+    assert has_element?(view, "#operator-nav-workspace.allbert-nav-pill-active")
+
+    for group <- ~w(Start Work Operate Extend Trust) do
+      assert html =~ ~s(operator-nav-group-label">#{group}</p>)
+    end
+  end
+
+  test "operator-panel destinations highlight the matching sidebar item", %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/workspace?destination=workspace:models")
+    assert has_element?(view, "#operator-nav-models.allbert-nav-pill-active")
+
+    {:ok, view, _html} = live(conn, "/workspace?destination=workspace:surface_policy")
+    assert has_element?(view, "#operator-nav-trust.allbert-nav-pill-active")
+  end
 end

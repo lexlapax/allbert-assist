@@ -996,6 +996,21 @@ body {
   color: var(--allbert-accent);
 }
 
+/* v0.61 M10.3 P0-8 — the workspace surface carries the same persistent Layout D
+   product sidebar as every other surface: a fixed left nav column + the chat-primary
+   shell filling the content pane. The workspace keeps its own internal mobile
+   launcher/tabs, so below the mobile breakpoint this outer sidebar collapses and the
+   workspace shell goes full-width. */
+.workspace-with-sidebar {
+  display: grid;
+  grid-template-columns: minmax(14rem, 15rem) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.workspace-with-sidebar > #workspace-shell {
+  min-width: 0;
+}
+
 /* Below the mobile breakpoint the sidebar collapses to a mobile shellbar. */
 @media (max-width: 48rem) {
   .operator-shell {
@@ -1004,6 +1019,10 @@ body {
 
   .operator-sidebar {
     display: none;
+  }
+
+  .workspace-with-sidebar {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .operator-mobile-shellbar {
