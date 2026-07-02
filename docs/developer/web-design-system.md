@@ -1,14 +1,121 @@
 # Web Design System
 
-Status: v0.58 shipped design-system baseline. M6-M13 tokens, variants, shared
-patterns, shell, Jobs/Objectives catalog coverage, chat-primary workspace layout,
-operator panel catalog coverage, surface-policy DTOs, consolidation, release lane,
-M13.1A-G remediation, guided M14 manual validation, and M15 closeout are complete.
+Status: v0.58 shipped the design-system baseline (tokens, variants, shared patterns,
+shell, catalog coverage, release lane, M13.1A-G remediation, M14/M15 closeout).
+**v0.61 (Presentation Layer Overhaul) shipped the product surface on top of it:** the
+v0.60 information architecture and navigation (ADR 0077) implemented in the
+operator-chosen **Layout D (Sidebar-primary)** and dressed in the v0.60b-chosen
+**Direction C (Soft Modern Depth)** visual language (ADR 0079), plus brand identity,
+a motion layer, a real landing/marketing surface, a visual-hierarchy craft pass, and
+OS dark-mode resolution. See **v0.61 Presentation Overhaul** below.
 
-Authority: `docs/adr/0074-web-design-system-and-ux-language.md`,
+Authority: `docs/adr/0074-web-design-system-and-ux-language.md` (v0.61 amendment),
+`docs/adr/0077-product-experience-design-and-information-architecture.md`,
+`docs/adr/0078-first-model-path.md`,
+`docs/adr/0079-visual-design-language-and-art-direction.md`,
 `docs/adr/0024-app-ui-contribution-and-workspace-zones.md`,
-`docs/plans/v0.58-plan.md`, and
-`docs/plans/v0.58-request-flow.md`.
+`docs/design/layout-systems-selected.md`, `docs/design/visual-language-selected.md`,
+`docs/design/brand-identity-selected.md`, `docs/plans/v0.61-plan.md`, and
+`docs/plans/v0.58-plan.md`.
+
+## v0.61 Presentation Overhaul (Layout D · Direction C)
+
+v0.61 implements the v0.60 product-experience design (IA, navigation, screen
+composition) and the v0.60b visual language (Direction C) over the v0.58 substrate,
+in the operator-chosen Layout D. It adds no new authority, no new rendering path, and
+no route sprawl; every surface still renders through the catalog boundary.
+
+### IA & navigation (ADR 0077, Layout D)
+
+The nine IA surfaces are grouped into five stable nav groups — **Start** (Home,
+onboarding affordances), **Work** (Workspace, Objectives), **Operate** (Jobs,
+Models), **Extend** (Channels), **Trust** (Settings, Trust). They are presented by a
+persistent left **product sidebar** (`Layouts.product_sidebar/1`, a shared component)
+carrying the Allbert mark, the grouped nav-pills, and a primary "New chat" action.
+The same sidebar renders on every surface — including `/workspace`, which composes it
+as a left column via `.workspace-with-sidebar` alongside its own chat/canvas shell —
+so the primary surface is not a navigation dead-end. Below the 48rem breakpoint the
+sidebar collapses to a bottom mobile shellbar that carries the brand and all nav
+pills. Active state is route-derived on the operator surfaces and destination-derived
+on `/workspace` (`workspace:models → Models`, `workspace:surface_policy → Trust`, …).
+Route contract: `/`, `/workspace`, `/jobs`, `/objectives` (index) + `/objectives/:id`
+(detail); Models/Channels/Settings/Trust are `/workspace?destination=…` panels, not
+standalone routes; there are no `/settings|/models|/channels|/trust|/onboarding`
+routes.
+
+### Screen composition (per the v0.60 IA, in Layout D)
+
+Screens recompose through the catalog and variant registry, not per-page HEEx:
+
+- `/workspace` — the chat-primary hero (raised conversation card + floating composer),
+  marked `data-workspace-pattern="chat-primary-hero"` on the native chat pane.
+- `/jobs`, `/objectives`, `/objectives/:id` — the unchanged `WorkspaceRenderer`
+  wrapped in the Direction C `elevated_card` variant (no renderer rebuild).
+- Operator panels as workspace destinations — Models (readiness matrix), **Channels**
+  (a real action-backed read-only inventory via the `operator_channels` action; the
+  earlier static placeholder is retired), Settings Central, and Surface Policy
+  (marked `trust-soft-card`).
+
+### Visual language — Direction C, first-class (ADR 0079, `visual-language-selected.md`)
+
+The Direction C token/component delta is promoted into the canonical `:root` /
+`[data-theme="dark"]` `--allbert-*` defaults (not a `[data-visual-direction]` preview
+override): the semantic elevation/depth scale + violet-tinted `--allbert-shadow-panel`,
+tonal `--allbert-surface-0/1/2` + `--allbert-line`, the large-radius scale, the
+rounded-geometric `--allbert-font-family`, the density scale, and the reduced-motion-
+gated motion roles. Component delta: **two reusable variant components** —
+`elevated_card` and the soft `nav_pill` — plus **two Direction C patterns** —
+`chat-primary-hero` and `trust-soft-card` — carried as markers on the native chat and
+policy surfaces (the native surfaces are richer than 2-zone components).
+
+### Brand identity (`brand-identity-selected.md`)
+
+- Wordmark/mark: `priv/static/images/allbert-mark.svg` (the violet rounded "A" glyph +
+  "Allbert" wordmark), applied in the sidebar brand, mobile shellbar brand, and
+  landing hero; the stock Phoenix asset is retired.
+- Favicon: `priv/static/favicon.ico` (Allbert mark) + the SVG favicon link, so
+  browsers without SVG-favicon support (Safari) still show the brand.
+- App icon: `priv/static/images/apple-touch-icon.png` (180×180) linked in the root head.
+- Social card: `priv/static/images/allbert-og.png` (1200×630, rasterized) referenced
+  by `og:image`/`twitter:image`; the SVG remains as a source-of-truth companion.
+
+### Motion layer
+
+Entrance/drawer/skeleton motion runs over the Direction C motion roles built on the
+v0.58 motion-scale tokens — `fast/base/slow = 140/200/300ms`, standard ease
+`cubic-bezier(0.2,0.8,0.2,1)`, emphasis overshoot `cubic-bezier(0.34,1.4,0.64,1)`.
+Durations/easings are token-driven (no hardcoded values); every transition is gated
+by the reduced-motion axis (`data-reduce-motion` / `prefers-reduced-motion`) and
+collapses to instant when set.
+
+### Visual hierarchy, density, empty/first-run states & affordances
+
+The redesigned surfaces carry Direction C depth (elevated cards, tonal surfaces) and
+the density scale. Empty/first-run states are populated from the registry. The
+empty-workspace **suggested-action affordances** are shaped by the First-Model Path
+(ADR 0078): the empty-handed operator is led with **"Set up your first model"**
+(local-first, BYOK alternative), followed by ask-a-question / review-objectives /
+check-connections. Each affordance renders a read-only registered-action DTO
+(view-only, no authority) and navigates to the real read surface; they seat the v0.63
+guided-onboarding wizard along the designed path.
+
+### Landing / SEO / OG
+
+`/` is a real landing/marketing surface composed through the catalog inside the shell
+data contract: brand hero, value proposition, feature cards, and variant-registry CTAs
+("Open workspace", "Set up a model"), replacing the thin-landing exception. The root
+head emits static SEO/OG metadata (title, description, canonical, OG/Twitter card, OG
+image) that exposes no operator data or secrets.
+
+### OS dark mode
+
+The `system` theme resolves app tokens to the OS `prefers-color-scheme` across all
+shell/page roots (`@media (prefers-color-scheme: dark) [data-theme="system"]`), not a
+silent fall-back to light; explicit light/dark overrides still win. The workspace
+theme toggle pushes the resolved theme to `<html data-theme>` (the `ThemeSync` hook)
+so the sidebar (root) and the workspace shell resolve the same palette. All
+theme × high-contrast × reduced-motion × OS-preference cells resolve to a readable
+palette (status tokens ≥ AA in system-dark, dark-HC, and prefers-contrast×system-dark).
 
 ## Purpose
 
@@ -163,8 +270,9 @@ Implemented M13.1E/F shared pattern baseline:
 
 One shell wraps:
 
-- `/` home page as the M13.1B accepted thin landing shape with the shell data
-  contract, tokens, and variant-registry buttons;
+- `/` home page — a thin landing shape in v0.58 (M13.1B); **rebuilt in v0.61 as a
+  real landing/marketing surface** (brand hero, feature cards, CTAs, static SEO/OG)
+  through the same shell data contract, tokens, and variant-registry buttons;
 - `/workspace`;
 - `/jobs`;
 - `/objectives/:id` objective detail pages;
@@ -188,10 +296,12 @@ Implemented M8 shell baseline:
 - `/objectives/:id` renders summary, action buttons, acceptance rows, steps, events,
   and missing state through catalog atoms; the cancel form is hosted in the shared
   modal pattern.
-- `/workspace` keeps its existing renderer-owned shell and now carries the shared
-  operator-shell data contract. The chat-primary layout changes remain M9.
-- There is still no `/objectives` list route; the Objectives nav item returns to
-  the workspace until a later route decision exists.
+- `/workspace` keeps its renderer-owned chat/canvas shell and carries the shared
+  operator-shell data contract. **v0.61 update:** it also renders the persistent
+  Layout D product sidebar as a left column (`.workspace-with-sidebar`) and the
+  Direction C chat-primary hero — see **v0.61 Presentation Overhaul** above.
+- **v0.61 update:** the explicit `/objectives` index route now exists (paired with
+  `/objectives/:id`); the Objectives nav item resolves there, not back to workspace.
 
 ## Workspace Layout
 

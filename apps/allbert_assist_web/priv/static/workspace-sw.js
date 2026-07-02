@@ -5,6 +5,8 @@ const DEFAULT_SHELL_ASSETS = [
   "/assets/css/app.css",
   "/assets/js/app.js",
   "/images/allbert-mark.svg",
+  "/images/favicon-32.png",
+  "/images/apple-touch-icon.png",
   "/favicon.ico",
 ];
 
