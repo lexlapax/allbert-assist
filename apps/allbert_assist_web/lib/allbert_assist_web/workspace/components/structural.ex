@@ -1027,6 +1027,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
           id="workspace-theme-toggle"
           type="button"
           class="workspace-theme-toggle allbert-icon-button"
+          phx-hook="ThemeSync"
           phx-click="toggle_workspace_theme"
           aria-label={theme_toggle_label(@workspace_theme)}
           title={theme_toggle_label(@workspace_theme)}

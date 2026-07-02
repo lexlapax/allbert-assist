@@ -386,7 +386,12 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
     case run_workspace_action(socket, "set_workspace_theme", %{theme: next_theme}) do
       {:ok, %{status: :completed, theme: theme}} ->
-        {:noreply, assign(socket, :workspace_theme, theme)}
+        # Push the new theme so the ThemeSync hook updates <html data-theme> in step
+        # with #workspace-shell (v0.61 M10.3 P1 — avoids a mixed light/dark surface).
+        {:noreply,
+         socket
+         |> assign(:workspace_theme, theme)
+         |> push_event("allbert:set-theme", %{theme: theme})}
 
       {:ok, response} ->
         {:noreply, assign(socket, :error, Map.get(response, :message, inspect(response)))}

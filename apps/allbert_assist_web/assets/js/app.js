@@ -59,6 +59,19 @@ const setupAllbertTheme = () => {
 
 setupAllbertTheme()
 
+// v0.61 M10.3 P1 — keep <html data-theme> in sync when the workspace theme toggle
+// changes the server-side theme. The server pushes "allbert:set-theme" after the
+// toggle; this hook forwards it to the window listener above so the root element and
+// the workspace shell resolve the same palette (previously the toggle only moved
+// #workspace-shell[data-theme], leaving <html> stale → a mixed light/dark surface).
+const ThemeSync = {
+  mounted() {
+    this.handleEvent("allbert:set-theme", ({theme}) => {
+      window.dispatchEvent(new CustomEvent("allbert:set-theme", {detail: {theme}}))
+    })
+  },
+}
+
 const focusableSelector = [
   "a[href]",
   "button:not([disabled])",
@@ -879,6 +892,7 @@ const liveSocket = csrfToken
       hooks: {
         ...colocatedHooks,
         FocusTrap,
+        ThemeSync,
         WorkspaceSplitResizer,
         WorkspaceTabs,
         WorkspaceTileEditor,
