@@ -42,9 +42,11 @@ applied to layout:
   risk of the four.
 - **A11y:** strong — a persistent vertical nav gives stable, predictable keyboard focus
   order and a consistent landmark across every surface.
-- **Accepted trade-offs:** less single-task focus than A (the sidebar always occupies
-  ~15rem) and less information density than B (single content pane, not multi-pane). The
-  operator judged navigability and familiarity across nine surfaces the higher priority.
+- **Accepted trade-offs:** less single-task focus than A (the sidebar occupies ~15rem
+  when expanded — v0.61b/ADR 0080 later added the icon-rail and fully-hidden collapse
+  states, restoring the focus mode) and less information density than B (single content
+  pane; v0.61b later docked the canvas as a resizable second pane). The operator judged
+  navigability and familiarity across nine surfaces the higher priority.
 
 The selection was made from rendered pixels (the `/preview/layout/d/*` previews and the
 committed side-by-side composites), not prose.
@@ -67,9 +69,10 @@ carries the surface's zones. Per-surface spec (all nine surfaces):
 | **settings** | brand + IA nav (Settings active) | settings + surface-policy + intents in the pane |
 | **trust** | brand + IA nav (Trust active) | trace + confirmation + approval in the pane |
 
-Responsive spine: below the mobile breakpoint the sidebar collapses to a stacked
-top-appbar + mobile shellbar (validated in the M1 previews); the content pane goes
-full-width.
+Responsive spine: below the mobile breakpoint the sidebar collapses to the mobile
+shellbar (the top-appbar validated in the M1 previews was retired by v0.61b/ADR 0080
+in favor of per-view headers); the content pane goes full-width and the workspace
+launcher opens the sidebar as an overlay drawer.
 
 ## M3-M9 build handoff
 

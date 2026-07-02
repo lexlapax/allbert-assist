@@ -1,11 +1,7 @@
 # Operator Workspace
 
-Status: released v0.58 operator guide.
-
-Note: this guide describes the released/current workspace behavior through
-v0.61.0. The planned v0.61b point release supersedes the Canvas Drawer guidance
-with ADR 0080's consolidated sidebar and docked workspace pane at closeout; until
-that ships, keep this page as the released operator reference.
+Status: released v0.58 operator guide, reconciled to the v0.61b consolidated
+shell (ADR 0080) at the v0.61b closeout.
 
 The operator workspace is `/workspace`. v0.58 keeps that route and changes the
 layout and panels on top of the existing authority spine.
@@ -13,8 +9,10 @@ layout and panels on top of the existing authority spine.
 ## What Changes In v0.58
 
 - Chat is the primary surface.
-- The left rail uses the UI label **Conversations**.
-- The canvas opens from a launcher/drawer instead of occupying a co-equal pane.
+- **Conversations** (UI label only) is a contextual section under the product
+  sidebar's Workspace entry (v0.61b) with inline thread rename.
+- The canvas/tool region opens as a right-docked resizable pane beside chat
+  (v0.61b); nothing floats over the conversation.
 - Approval and other ephemeral surfaces appear as modals or popovers.
 - Intents, Settings/Models, and Surface-Policy panels are first-class operator
   panels.
@@ -43,11 +41,17 @@ timeline and composer stay visible as the primary workspace surface. Streaming
 responses should remain in the chat column; canvas output should be opened only
 when the operator chooses it.
 
-## Canvas Drawer
+## Docked Canvas Pane
 
-Use the canvas launcher for durable output tiles, app panels, and artifact-like
-views. Closing the drawer should return to the chat-primary workspace without
-losing the conversation or selected context.
+Use the sidebar's workspace destinations (or the chat-header Canvas button) for
+durable output tiles, app panels, and artifact-like views — they open in the
+right-docked resizable pane beside chat (drag the divider; double-click resets;
+the divider button or Cmd/Ctrl+\ collapses it; a slim right-edge tab reopens
+it). Opening a destination replaces the canvas content and closing it restores
+the canvas, without losing the conversation or selected context. The sidebar
+itself collapses with the chevron (or Cmd/Ctrl+B) to an icon rail — the
+Workspace icon opens the sections as a flyout — and Cmd/Ctrl+Shift+B hides it
+fully (reopen with the left-edge tab).
 
 ## Modal Ephemerals
 
@@ -107,7 +111,7 @@ Pass:
 
 - chat-primary layout is default;
 - Conversations label appears only in UI strings;
-- canvas opens as a drawer;
+- canvas opens as a docked resizable pane (never a floating overlay);
 - ephemerals are accessible modals/popovers;
 - panels render action-backed DTOs with redaction;
 - `/jobs` and `/objectives` use the shared shell and tokens;

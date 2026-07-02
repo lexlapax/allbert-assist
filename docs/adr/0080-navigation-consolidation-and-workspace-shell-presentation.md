@@ -190,3 +190,32 @@ no-internal-rename invariant holds).
   checkpoints (operator sees the consolidated shell early and can send it back)
   rather than by candidate-direction fan-out (the pattern research points one
   way; a v0.60b-style multi-candidate pass is not warranted for composition).
+
+## As-built reconciliation (v0.61b M9, pre-S4)
+
+The build (2026-07-02, milestones M1–M8) executed the decision as specified,
+with these recorded refinements — none change the decision:
+
+- **Relocation map grew to 15 rows** during the M7 build recon: the workspace
+  status badges re-home to the chat header (row 14) and "Copy conversation id"
+  survives in the sidebar-footer overflow menu, workspace context only
+  (row 15 — the appbar thread switcher it lived in retired per row 3).
+- **§3's divider reuses the shipped splitter** — `#workspace-split-resizer` +
+  the `WorkspaceSplitResizer` hook (localStorage `allbert.workspace.
+  split_ratio.v1`, clamp 35–70) was already wired chat↔canvas and hidden; the
+  docked pane un-hides and extends it (double-click reset, collapse control)
+  rather than adding a second persistence path. The `LayoutPrefs` hook covers
+  only the §4 sidebar state (`allbert.sidebar.state.v1`) and the named
+  keyboard shortcuts.
+- **§2's cross-shell chrome is `SharedShellHooks`** — an `on_mount` +
+  `attach_hook` module owning the theme toggle, overflow menu, and §4 sidebar
+  state events on every LiveView shell, so no shell can crash on a footer
+  control it did not handle; the theme write stays on the registered
+  `set_workspace_theme` action.
+- **§4's rail flyout is workspace-only** — operator shells have no workspace
+  context, so their Workspace rail icon stays a plain navigate pill; the
+  flyout renders the same `WorkspaceSections` component the expanded sidebar
+  nests.
+- The eight refinements are proven by the `:v061b` eval rows +
+  `release.v061b`; the S4 early live review and S5/S6 operator passes remain
+  open — send-backs fold into the M8 polish window per the plan.

@@ -35,7 +35,8 @@ implemented in the operator-chosen Layout D (Sidebar-primary), dressed in the
 v0.60b-chosen Direction C (Soft Modern Depth) visual language, with brand, motion,
 visual hierarchy, landing, and dark-mode polish; `release.v061` is green and the
 tag `v0.61.0` is applied; version metadata reports `0.61.0`. In flight is
-**v0.61b** (planned, releases as `0.61.1`): a UX-refinement point release that
+**v0.61b** (built, awaiting operator validation; version metadata reports
+`0.61.1`, tag held): a UX-refinement point release that
 implements the operator's v0.61 manual-validation feedback — navigation
 consolidation (one sidebar, replace-and-restore docked tool pane, no top bars,
 collapsible rail with Workspace flyout; ADR 0080) plus chat type-scale,

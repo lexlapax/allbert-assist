@@ -38,6 +38,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v060
       mix allbert.test release.v060b
       mix allbert.test release.v061
+      mix allbert.test release.v061b
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -147,6 +148,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v060"]), do: release_v060()
   def run(["release.v060b"]), do: release_v060b()
   def run(["release.v061"]), do: release_v061()
+  def run(["release.v061b"]), do: release_v061b()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -4060,6 +4062,208 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  @release_v061b_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "format_check",
+      title: "formatter check for v0.61b release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["format", "--check-formatted"],
+      coverage: [
+        "formatter drift fails the v0.61b ux-refinement handoff",
+        "formatter evidence is captured inside release.v061b"
+      ]
+    },
+    %{
+      id: "compile_warnings_as_errors",
+      title: "compile v0.61b release candidate with warnings as errors",
+      cwd: :root,
+      executable: "mix",
+      args: ["compile", "--warnings-as-errors"],
+      coverage: [
+        "compiler warnings fail the v0.61b ux-refinement handoff",
+        "compile evidence is captured inside release.v061b"
+      ]
+    },
+    %{
+      id: "credo_strict",
+      title: "Credo strict check for v0.61b release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["credo", "--strict"],
+      coverage: [
+        "Credo strict findings fail the v0.61b ux-refinement handoff",
+        "Credo evidence is captured inside release.v061b"
+      ]
+    },
+    %{
+      id: "dialyzer",
+      title: "Dialyzer static analysis for v0.61b release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["dialyzer"],
+      coverage: [
+        "Dialyzer warnings fail the v0.61b ux-refinement handoff",
+        "included because v0.61b ships shell recomposition + a registered action",
+        "Dialyzer evidence is captured inside release.v061b"
+      ]
+    },
+    %{
+      id: "v061b_shell_proof",
+      title: "the eight v0.61b refinements hold on the consolidated shell",
+      cwd: :web,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist_web/v061b/chat_type_hierarchy_test.exs",
+        "test/allbert_assist_web/v061b/status_link_chip_test.exs",
+        "test/allbert_assist_web/v061b/dark_lockstep_test.exs",
+        "test/allbert_assist_web/v061b/thread_rename_live_test.exs",
+        "test/allbert_assist_web/v061b/sidebar_consolidation_test.exs",
+        "test/allbert_assist_web/v061b/docked_pane_test.exs",
+        "test/allbert_assist_web/v061b/topbar_retirement_test.exs",
+        "test/allbert_assist_web/v061b/sidebar_collapse_test.exs"
+      ],
+      coverage: [
+        "chat type hierarchy strict body > label > timestamp on token-resolved values",
+        "objective link-chips name destination + title + status with the >=3 overflow",
+        "dark/system-dark token-map lockstep with the AA anchors held",
+        "inline thread rename round-trip through the registered-action spine",
+        "single-sidebar consolidation + enumerated destination-inventory reachability",
+        "docked pane never floats over chat; replace-and-restore tenancy",
+        "top bars retired with the 15-row relocation map mirrored + cross-shell theme",
+        "sidebar collapse expanded/rail/hidden with a11y + persistence restore path"
+      ]
+    },
+    %{
+      id: "v061_regression_proof",
+      title: "the v0.61 proofs (as reconciled by M3/M5) still hold on the new shell",
+      cwd: :web,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist_web/workspace/direction_c_tokens_test.exs",
+        "test/allbert_assist_web/components/operator_shell_nav_test.exs",
+        "test/allbert_assist_web/workspace/chat_primary_hero_test.exs",
+        "test/allbert_assist_web/brand_landing_test.exs",
+        "test/allbert_assist_web/workspace/motion_layer_test.exs",
+        "test/allbert_assist_web/dark_mode_test.exs",
+        "test/allbert_assist_web/workspace/visual_hierarchy_test.exs",
+        "test/allbert_assist_web/controllers/page_controller_test.exs",
+        "test/allbert_assist_web/live/objectives_live_test.exs",
+        "test/allbert_assist_web/v061/redesigned_surface_proof_test.exs",
+        "test/allbert_assist_web/v061/accessibility_conformance_test.exs"
+      ],
+      coverage: [
+        "the refinement does not regress what v0.61 proved",
+        "reconciliations (dark literals, nav structure) were deliberate reviewed edits, not weakenings"
+      ]
+    },
+    %{
+      id: "v061b_security_sweep",
+      title: "v0.61b artifact, invariant, and eval-inventory rows",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v061b_sweep_eval_test.exs",
+        "test/security/security_eval_case_test.exs",
+        "test/allbert_assist/actions/conversations/rename_thread_test.exs"
+      ],
+      coverage: [
+        "shell-spec/sign-off + ADR 0080 Accepted artifact rows File.read! the docs",
+        "no-internal-rename and no-new-authority (registry diff exactly rename_thread) rows",
+        "the :v061b row set is complete, shaped (>=3 asserts), and routed to its owning tests",
+        "rename ownership/gate-deny negative tests run inside the gate"
+      ]
+    },
+    %{
+      id: "docs_gate",
+      title: "docs gate and release-planning whitespace check",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "docs"],
+      coverage: [
+        "git diff --check is clean",
+        "docs gate is visible in release evidence"
+      ]
+    }
+  ]
+
+  defp release_v061b do
+    env = owned_env("release-v061b", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v061b")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v061b_steps, &run_release_v061b_step(&1, env))
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v061b",
+      version: "v0.61b",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; deterministic shell/token/rename proofs, artifact eval rows, and docs-gate checks run against local files and fixtures only",
+      notes:
+        "v0.61b implements the eight operator UX-feedback items over the v0.61 surface per ADR 0080; presentation recomposition + one internal rename_thread action on the existing :conversation_write permission, no new authority. Manual S1-S6 operator validation evidence is retained outside the repo",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v061b-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v061b evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v061b failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v061b_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v061b #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -6154,6 +6358,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v060
       mix allbert.test release.v060b
       mix allbert.test release.v061
+      mix allbert.test release.v061b
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

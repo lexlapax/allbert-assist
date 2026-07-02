@@ -48,6 +48,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v060
           | :v060b
           | :v061
+          | :v061b
 
   @type required_surface ::
           :resource_execution
@@ -5671,6 +5672,155 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :allowed,
       assert: [:per_surface_shots, :side_by_side_shots, :selected_layout_shots],
       test_module: "AllbertAssist.Security.V061SweepEvalTest"
+    },
+
+    # ── v0.61b UX Refinement (ADR 0080) ─────────────────────────────────────
+    %{
+      id: "shell-spec-signoff-recorded-001",
+      milestone: :v061b,
+      surface: :design_handoff,
+      scenario:
+        "The v0.61b plan's M0 shell-spec/sign-off section is missing its required subsections or carries no recorded operator S2 sign-off",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [:required_subsections_present, :relocation_table_present, :s2_signoff_line_matched],
+      test_module: "AllbertAssist.Security.V061bSweepEvalTest"
+    },
+    %{
+      id: "adr-0080-accepted-001",
+      milestone: :v061b,
+      surface: :design_handoff,
+      scenario:
+        "ADR 0080 is not Accepted (v0.61b) or the pointer notes are missing from ADR 0077/0074",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [:adr_0080_accepted, :adr_0077_pointer_present, :adr_0074_pointer_present],
+      test_module: "AllbertAssist.Security.V061bSweepEvalTest"
+    },
+    %{
+      id: "chat-type-hierarchy-001",
+      milestone: :v061b,
+      surface: :web_design_system,
+      scenario:
+        "The chat-bubble type hierarchy regresses: timestamp/label out-rank the body, or the touched rules hardcode sizes",
+      boundary: :design_tokens,
+      expected: :allowed,
+      assert: [:strict_body_label_time_rank, :token_resolved_sizes, :muted_timestamp],
+      test_module: "AllbertAssistWeb.V061b.ChatTypeHierarchyTest"
+    },
+    %{
+      id: "status-chip-link-labeling-001",
+      milestone: :v061b,
+      surface: :web_design_system,
+      scenario:
+        "A navigating status chip stops naming its destination (label/aria without objective title + status) or the >=3 overflow drops",
+      boundary: :ux_language,
+      expected: :allowed,
+      assert: [:label_names_destination, :aria_names_title_and_status, :overflow_at_three],
+      test_module: "AllbertAssistWeb.V061b.StatusLinkChipTest"
+    },
+    %{
+      id: "dark-mode-lockstep-aa-001",
+      milestone: :v061b,
+      surface: :dark_mode,
+      scenario:
+        "The dark and system-resolved-dark token blocks drift apart, or the subtle set drops an AA anchor (surface-0/accent-contrast/status tokens)",
+      boundary: :accessibility_axes,
+      expected: :allowed,
+      assert: [:token_map_lockstep, :aa_anchors_unchanged, :subtle_set_values],
+      test_module: "AllbertAssistWeb.V061b.DarkLockstepTest"
+    },
+    %{
+      id: "thread-rename-ownership-001",
+      milestone: :v061b,
+      surface: :identity_context,
+      scenario:
+        "rename_thread rescopes to a params-supplied identity, renames another user's thread, or skips the PermissionGate deny path",
+      boundary: :action_identity,
+      expected: :denied,
+      assert: [:server_derived_identity, :ownership_scope_denies_cross_user, :gate_deny_exercised],
+      test_module: "AllbertAssist.Actions.Conversations.RenameThreadTest"
+    },
+    %{
+      id: "thread-rename-no-internal-rename-001",
+      milestone: :v061b,
+      surface: :surface_consistency,
+      scenario:
+        "The thread-title write path renames internal Conversations.Thread modules/atoms/topics/keys or Session.Scratchpad (v0.58 invariant)",
+      boundary: :internal_naming,
+      expected: :allowed,
+      assert: [:thread_module_unchanged, :scratchpad_unchanged, :title_field_write_only],
+      test_module: "AllbertAssist.Security.V061bSweepEvalTest"
+    },
+    %{
+      id: "single-sidebar-consolidation-001",
+      milestone: :v061b,
+      surface: :navigation,
+      scenario:
+        "A second navigation column renders, or the workspace sections stop nesting under the sidebar with contextual expansion + active highlighting",
+      boundary: :navigation_model,
+      expected: :allowed,
+      assert: [:submenu_column_retired, :sections_nested_in_sidebar, :active_highlighting],
+      test_module: "AllbertAssistWeb.V061b.SidebarConsolidationTest"
+    },
+    %{
+      id: "nav-reachability-parity-001",
+      milestone: :v061b,
+      surface: :navigation,
+      scenario:
+        "A destination in the enumerated inventory (launcher_destinations, known_destinations, nav routes) becomes unreachable or un-deep-linkable post-consolidation",
+      boundary: :navigation_model,
+      expected: :allowed,
+      assert: [:inventory_enumerated, :every_destination_reachable, :deep_links_resolve],
+      test_module: "AllbertAssistWeb.V061b.SidebarConsolidationTest"
+    },
+    %{
+      id: "docked-panel-not-floating-001",
+      milestone: :v061b,
+      surface: :layout,
+      scenario:
+        "The canvas/tool region regresses to a fixed overlay occluding chat, or the divider/collapse/persistence contract drops",
+      boundary: :screen_composition,
+      expected: :allowed,
+      assert: [:no_fixed_overlay, :docked_two_pane_grid, :replace_and_restore_tenancy],
+      test_module: "AllbertAssistWeb.V061b.DockedPaneTest"
+    },
+    %{
+      id: "topbar-retired-relocation-001",
+      milestone: :v061b,
+      surface: :navigation,
+      scenario:
+        "A persistent top-bar band returns on any shell, or a relocation-table control is missing from its new home",
+      boundary: :screen_composition,
+      expected: :allowed,
+      assert: [:no_topbar_any_shell, :relocation_map_mirrored, :cross_shell_theme_toggle],
+      test_module: "AllbertAssistWeb.V061b.TopbarRetirementTest"
+    },
+    %{
+      id: "sidebar-collapse-a11y-001",
+      milestone: :v061b,
+      surface: :accessibility,
+      scenario:
+        "The sidebar collapse states lose their a11y contract (aria-expanded, focus return, unfocusable-when-hidden, persisted restore)",
+      boundary: :accessibility_axes,
+      expected: :allowed,
+      assert: [:three_states_render, :toggle_aria_expanded, :restore_path_validated],
+      test_module: "AllbertAssistWeb.V061b.SidebarCollapseTest"
+    },
+    %{
+      id: "v061b-no-new-authority-001",
+      milestone: :v061b,
+      surface: :param_contract,
+      scenario:
+        "v0.61b adds authority: a new permission atom, Settings key, confirmation-floor change, or an agent-exposed action beyond the internal rename_thread",
+      boundary: :authority_envelope,
+      expected: :allowed,
+      assert: [
+        :registry_diff_exactly_rename_thread,
+        :existing_permission_reused,
+        :not_agent_exposed
+      ],
+      test_module: "AllbertAssist.Security.V061bSweepEvalTest"
     }
   ]
 

@@ -31,12 +31,19 @@ The nine IA surfaces are grouped into five stable nav groups — **Start** (Home
 onboarding affordances), **Work** (Workspace, Objectives), **Operate** (Jobs,
 Models), **Extend** (Channels), **Trust** (Settings, Trust). They are presented by a
 persistent left **product sidebar** (`Layouts.product_sidebar/1`, a shared component)
-carrying the Allbert mark, the grouped nav-pills, and a primary "New chat" action.
-The same sidebar renders on every surface — including `/workspace`, which composes it
-as a left column via `.workspace-with-sidebar` alongside its own chat/canvas shell —
-so the primary surface is not a navigation dead-end. Below the 48rem breakpoint the
+carrying the Allbert mark, the grouped icon nav-pills, a primary "New chat" action,
+and the sidebar footer (theme toggle + overflow menu — v0.61b M7). **v0.61b update
+(ADR 0080):** the sidebar is the ONE navigation home. On `/workspace` its Workspace
+entry auto-expands into the contextual workspace sections (Conversations with inline
+rename, Output, Apps, Workspace destinations — `WorkspaceSections`); the former
+workspace-local submenu column is retired. The sidebar collapses expanded → icon
+rail (the Workspace rail entry opens a click-activated flyout) → fully hidden (slim
+reopen tab), persisted client-side (`LayoutPrefs`, Cmd/Ctrl+B, Cmd/Ctrl+Shift+B).
+Per-shell top bars are retired: each operator view carries a slim
+`.operator-view-header` inside the content area, and `/workspace` has exactly one
+header band per pane (chat header, pane header). Below the 48rem breakpoint the
 sidebar collapses to a bottom mobile shellbar that carries the brand and all nav
-pills. Active state is route-derived on the operator surfaces and destination-derived
+pills; the workspace mobile launcher opens the sidebar as an overlay drawer. Active state is route-derived on the operator surfaces and destination-derived
 on `/workspace` (`workspace:models → Models`, `workspace:surface_policy → Trust`, …).
 Route contract: `/`, `/workspace`, `/jobs`, `/objectives` (index) + `/objectives/:id`
 (detail); Models/Channels/Settings/Trust are `/workspace?destination=…` panels, not
@@ -305,37 +312,54 @@ Implemented M8 shell baseline:
   and missing state through catalog atoms; the cancel form is hosted in the shared
   modal pattern.
 - `/workspace` keeps its renderer-owned chat/canvas shell and carries the shared
-  operator-shell data contract. **v0.61 update:** it also renders the persistent
-  Layout D product sidebar as a left column (`.workspace-with-sidebar`) and the
-  Direction C chat-primary hero — see **v0.61 Presentation Overhaul** above.
+  operator-shell data contract, beside the persistent product sidebar
+  (`.workspace-with-sidebar`) and the Direction C chat-primary hero. **v0.61b
+  update (ADR 0080):** the workspace appbar is retired; the canvas/tool region is
+  a right-docked resizable split pane (never a floating overlay) with
+  replace-and-restore tenancy between canvas content and one `workspace:*`
+  destination panel.
 - **v0.61 update:** the explicit `/objectives` index route now exists (paired with
   `/objectives/:id`); the Objectives nav item resolves there, not back to workspace.
 
 ## Workspace Layout
 
-The v0.58 workspace default is chat-primary:
+The workspace default is chat-primary (v0.61b, ADR 0080):
 
 - chat timeline and composer are the main column;
-- the left rail is labelled **Conversations** in UI strings only;
-- canvas opens through a launcher/drawer and is not co-equal by default;
-- ephemeral surfaces render through shared modal/popover patterns;
-- mobile collapses to a single-column shell with stable controls.
+- **Conversations** is a contextual sidebar section (UI strings only) with
+  inline thread rename (Enter saves, Escape cancels, double-click accelerator)
+  through the registered `rename_thread` action;
+- the canvas/tool region is a right-docked resizable split pane
+  (`WorkspaceSplitResizer`, clamp 35–70, width persisted client-side; slim
+  right-edge reopen tab when collapsed); nothing floats over chat;
+- ephemeral surfaces render through shared modal/popover patterns, in the pane
+  column on desktop;
+- mobile collapses to a single-column shell with stable controls; the launcher
+  opens the sidebar as an overlay drawer.
 
 Do not rename internal `Conversations.Thread` modules, topics, settings keys,
 events, or database concepts. Do not rename `Session.Scratchpad`.
 
+Chat message type hierarchy (v0.61b M1, ADR 0074 token contract): strict
+**body > sender label > timestamp** — body `--allbert-font-size-md`/400 in the
+product sans face (monospace stays reserved for code-like content), sender
+label `--allbert-font-size-sm`/600, timestamp `--allbert-font-size-xs`/400 on
+the muted color token. Token-driven only; no hardcoded sizes in the message
+rules.
+
 Implemented M9 workspace layout baseline:
 
 - `/workspace` emits `data-layout-mode="chat-primary"` and `data-canvas-drawer`
-  state on the shell.
-- Desktop layout is a Conversations rail plus primary Chat column. The historical
-  split resizer node remains hidden for renderer compatibility; there is no visible
-  co-equal canvas pane by default.
-- Canvas opens as a right-side drawer from the Chat header, AppBar tile-count chip,
-  launcher destination selection, and direct destination URLs.
-- User-visible rail/switcher labels say **Conversations**, **New conversation**,
-  and **Copy conversation id**. Internal `thread_id` params, DOM IDs, event names,
-  modules, and storage stay unchanged.
+  (docked open/closed) state on the shell; the shell wrappers carry
+  `data-sidebar-state` (expanded/rail/hidden).
+- Desktop layout is the primary Chat column beside the docked canvas pane when
+  open; the split resizer is visible and draggable while the pane is docked
+  (`cursor: col-resize`, double-click resets, collapse control on the divider).
+- The canvas pane opens from the Chat header Canvas button, sidebar destination
+  selection, direct destination URLs, and the right-edge reopen tab.
+- User-visible labels say **Conversations**, **New conversation**, and
+  **Copy conversation id** (now in the sidebar-footer overflow menu). Internal
+  `thread_id` params, event names, modules, and storage stay unchanged.
 - Ephemeral surfaces retain the shared modal/dialog semantics from the pattern
   library.
 
@@ -392,7 +416,7 @@ Required checks:
   exception;
 - workspace is chat-primary by default;
 - ephemerals are modal/popover patterns;
-- canvas is a drawer/launcher destination;
+- canvas is a docked resizable pane driven by destination selection (v0.61b);
 - panels render DTOs through registered actions;
 - a11y and redaction tests cover all changed pages;
 - operator evidence follows `docs/plans/v0.58-request-flow.md`.

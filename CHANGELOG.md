@@ -10,6 +10,53 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.61.1 - UX Refinement: Navigation Consolidation & Presentation Polish (v0.61b)
+
+Status: built and gate-staged — version bumped to 0.61.1; `mix allbert.test
+release.v061b` is the release gate; git tag `v0.61.1` held for the operator
+after the S1–S6 manual validation. A **point release** inserted between v0.61
+(0.61.0) and v0.62; does not renumber v0.62–v0.64.
+
+Implements the eight operator UX-feedback items from the v0.61 manual
+validation (raw capture archived at
+`docs/archives/v0.61-manual-operator-feedback.md`) per ADR 0080 (Accepted at
+the 2026-07-02 S2 sign-off):
+
+- **Shell consolidation (M5–M8):** the workspace-local submenu column and both
+  per-shell top bars retire — one product sidebar owns navigation with
+  contextual Workspace sections (Conversations with inline rename, Output,
+  Apps, Workspace destinations), slim per-view headers carry view context, the
+  theme toggle + overflow menu live in the sidebar footer on every shell
+  (SharedShellHooks owns their events cross-shell), and the canvas/tool region
+  docks as a right-hand resizable split pane (WorkspaceSplitResizer reused;
+  replace-and-restore tenancy; nothing ever floats over chat). The sidebar
+  collapses expanded → icon rail (Workspace rail flyout) → fully hidden, with
+  localStorage persistence (LayoutPrefs) and Cmd/Ctrl+B / Shift+B / Cmd/Ctrl+\\
+  shortcuts. All 15 relocation-map rows executed and mirrored in the proof.
+- **Contained refinements (M1–M4):** chat-bubble type hierarchy fixed (strict
+  body > label > timestamp on Direction C tokens; prose bodies move to the
+  sans face); the chat-header objective chips become labeled link-chips
+  (status + truncated title, "+N more" overflow at ≥3); the dark palette tones
+  subtler within Direction C (both dark blocks value-identical, AA anchors
+  held); conversation threads are renamable inline through the registered
+  `rename_thread` action on the existing `:conversation_write` permission
+  (server-derived identity, ownership-scoped; the v0.58 no-internal-rename
+  invariant holds).
+- **Drift fixes (M0.1/M0.2):** the M10.4 `dismissed_by` pass-through
+  vocabulary gap (intent-handoff approval cards never dismissed) and the
+  pre-existing core-suite reconciliation the v0.61 closeout missed
+  (known_components 57→59, validator panel list, retired
+  walking_skeleton_smoke expectation, param-contract count 226→231, five
+  missing negative-internal corpus rows + regenerated eval baseline). Four
+  behavioral + four order-dependent pre-existing failures are recorded in the
+  plan's M0.2 for explicit triage, not blind-fixed.
+
+No new authority, permission, capability class, route, or Settings Central
+key; layout preferences are client-side localStorage only. Gate:
+`release.v061b` (migrate / format / warnings-as-errors / Credo-strict /
+Dialyzer / the eight v0.61b shell proofs / the reconciled `:v061` regression
+proofs / the `:v061b` security sweep / docs gate).
+
 ## v0.61.0 - Presentation Layer Overhaul
 
 Status: released — `mix allbert.test release.v061` gate-green (Dialyzer 0); version

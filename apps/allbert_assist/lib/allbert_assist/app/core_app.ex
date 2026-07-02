@@ -19,11 +19,12 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.61 implements the v0.60 IA in
-  # the operator-chosen Layout D dressed in Direction C, with the real Channels panel
-  # and the redesigned operator surfaces; the disposable preview mechanism was retired
-  # at closeout. Convention is documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.61.0"
+  # the app (release-pinned, not semantic-per-app). v0.61b (0.61.1) consolidates
+  # the shell per ADR 0080: the workspace submenu column and per-shell top bars
+  # retire (one sidebar with contextual workspace sections), the canvas docks as
+  # a resizable pane, and the sidebar collapses to a rail. Convention is
+  # documented in DEVELOPMENT.md "App version metadata".
+  def version, do: "0.61.1"
 
   @impl true
   def validate(_opts), do: :ok

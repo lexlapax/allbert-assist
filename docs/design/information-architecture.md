@@ -76,8 +76,11 @@ The product navigation has five stable groups:
 
 Navigation rules:
 
-- The shell exposes the same groups on desktop and mobile. Desktop may use an
-  appbar plus rail; mobile may use a compact shellbar or grouped menu.
+- The shell exposes the same groups on desktop and mobile. **As built (v0.61b,
+  ADR 0080): one collapsible product sidebar is the single navigation home —
+  no appbar, no second rail column; the workspace sections nest under the
+  sidebar's Workspace entry.** Mobile uses a compact shellbar, and the
+  workspace launcher opens the sidebar as an overlay drawer.
 - Each screen has one `route_id`, one `active_key`, one title, and one nav group.
   These values must match the Preview Route Manifest so tests can compare docs to
   code.
@@ -87,21 +90,28 @@ Navigation rules:
   They are not primary navigation destinations.
 - Effectful commands, provider setup, and external channel actions appear as
   confirmed actions later. In v0.60 previews they are inert placeholders only.
-- The live `/workspace`, `/jobs`, and `/objectives/:id` routes remain unchanged
-  until v0.61 implements the presentation overhaul.
+- The live `/workspace`, `/jobs`, and `/objectives/:id` routes were implemented
+  by v0.61 and re-presented by v0.61b (ADR 0080): navigation consolidated into
+  the one sidebar, top bars retired for per-view headers, and the canvas docked
+  as a resizable pane.
 
 ## Workspace Composition
 
 The workspace is chat-primary. Its stable zones are:
 
-- Product shell: `workspace_shell` plus `nav_rail` present the IA groups, active
-  route, and operator context.
+- Product shell: `workspace_shell` beside the product sidebar presents the IA
+  groups, active route, and operator context. (As built at v0.61b the
+  `nav_rail`/`thread_list`/`app_launcher`/`header` atoms are
+  registered-but-unused — the sidebar's contextual Workspace sections carry
+  their function; ADR 0080.)
 - Primary work area: `chat`, `timeline`, and `composer` own the first useful chat
   and daily-use conversation loop.
 - Context area: `thread_list`, `objective_card`, `status_badge`, and supporting
   panels explain current work without taking over the screen.
-- Utility drawer: `utility_drawer`, `settings_panel`, `models_panel`,
-  `surface_policy_panel`, and `intents_panel` expose secondary operator controls.
+- Docked tool pane: `settings_panel`, `models_panel`, `surface_policy_panel`,
+  and `intents_panel` expose secondary operator controls inside the right-docked
+  canvas pane (replace-and-restore with canvas content; the `utility_drawer`
+  atom is registered-but-unused as built).
 - Ephemeral layer: `ephemeral_surface`, `approval_card`, `confirmation_card`, and
   `trace_viewer` render temporary trust or inspection tasks without becoming nav
   roots.
@@ -122,6 +132,13 @@ Screen-composition rules:
   every placeholder screen because v0.61 inherits this shell.
 
 ## Preview Route Manifest
+
+As-built note (v0.61b): the `/preview/*` scaffold was retired at the v0.61
+closeout, and the v0.61b shell consolidation retired the `nav_rail`/
+`utility_drawer` nodes from the live tree (the atoms stay registered). The
+manifest below is the historical v0.60 design record; the live shell renders
+`workspace_shell` + the product sidebar's contextual sections instead of the
+`nav_rail` column listed per row.
 
 | route_id | preview_path | title | nav_group | active_key | catalog_components |
 |---|---|---|---|---|---|

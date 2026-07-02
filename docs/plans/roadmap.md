@@ -3987,7 +3987,9 @@ ADR: `docs/adr/0080-navigation-consolidation-and-workspace-shell-presentation.md
 (Accepted (v0.61b) at the 2026-07-02 S2 plan sign-off; pointer notes in ADR
 0077/0074).
 
-Status: planned (second readiness pass, 2026-07-02) — a **point release**
+Status: built — awaiting operator validation (2026-07-02); version bumped to
+0.61.1, gate `release.v061b`, git tag held for the operator after S1–S6 — a
+**point release**
 (0.61.1) inserted between v0.61 (0.61.0) and v0.62; does not renumber
 v0.62-v0.64. Implements the eight operator UX-feedback items from the v0.61
 manual validation (captured 2026-07-01; inventory folded into the plan; the
