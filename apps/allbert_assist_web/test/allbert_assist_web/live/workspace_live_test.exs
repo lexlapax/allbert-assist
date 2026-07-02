@@ -2414,6 +2414,13 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert html =~ "Name: append-memory"
     assert has_element?(view, "#agent-status")
     assert html =~ "completed"
+
+    # v0.61 M10.3 P1 — the runtime-response article and the latest timeline message
+    # must not both claim id="agent-response"/"agent-status"; duplicate ids corrupt
+    # LiveView DOM patching.
+    assert length(Regex.scan(~r/id="agent-response"/, html)) <= 1
+    assert length(Regex.scan(~r/id="agent-status"/, html)) <= 1
+    assert length(Regex.scan(~r/id="agent-trace"/, html)) <= 1
   end
 
   test "default runtime renders URL summarization approval through LiveView", %{conn: conn} do

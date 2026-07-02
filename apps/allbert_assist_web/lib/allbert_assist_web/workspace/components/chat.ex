@@ -154,9 +154,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
         phx-hook="ChatAutoScroll"
       >
         <% latest_assistant_id = latest_assistant_message_id(@conversation_messages) %>
+        <% runtime_response_shown? = show_runtime_response?(@conversation_messages, @response) %>
         <article
           :for={message <- @conversation_messages}
-          id={timeline_message_dom_id(message, latest_assistant_id)}
+          id={timeline_message_dom_id(message, latest_assistant_id, runtime_response_shown?)}
           class={["workspace-message", message_class(message)]}
         >
           <div class="workspace-message-avatar" aria-hidden="true">
@@ -199,7 +200,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
             >
               {relative_time(message_time(message))}
             </time>
-            <%= if message_id(message) == latest_assistant_id do %>
+            <%= if message_id(message) == latest_assistant_id and not runtime_response_shown? do %>
               <dl class="workspace-runtime-meta">
                 <div :if={@status} id="agent-status">
                   <dt>Status</dt>
@@ -849,8 +850,14 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
 
   defp latest_assistant_message_id(_messages), do: nil
 
-  defp timeline_message_dom_id(message, latest_assistant_id) do
-    if message_id(message) == latest_assistant_id and message_role(message) == "assistant" do
+  # The standalone runtime-response article (below the timeline) also carries the
+  # `agent-response` id and the runtime-meta ids. When it is shown (the fresh response
+  # text differs from the persisted assistant message), the latest timeline message
+  # must not also claim those ids — duplicate ids corrupt LiveView DOM patching
+  # (v0.61 M10.3 P1).
+  defp timeline_message_dom_id(message, latest_assistant_id, runtime_response_shown?) do
+    if not runtime_response_shown? and message_id(message) == latest_assistant_id and
+         message_role(message) == "assistant" do
       "agent-response"
     else
       "workspace-message-#{message_id(message)}"
