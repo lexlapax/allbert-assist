@@ -1,9 +1,9 @@
 # ADR 0080: Navigation Consolidation & Workspace Shell Presentation
 
 Status: Proposed (v0.61b). Moves to Accepted (v0.61b) when the operator signs off
-the consolidated-shell UX spec at the v0.61b request-flow S2 review; the as-built
-reconciliation is recorded after the S4 early live shell review and the final
-validation pass.
+the v0.61b plan's M0 shell-spec/sign-off section at the request-flow S2 review;
+the as-built reconciliation is recorded after the S4 early live shell review and
+the final validation pass.
 Date: 2026-07-02
 Related: ADR 0077 (Product Experience Design & IA — 0077 fixed the surface
 inventory, journey, and navigation groups; 0080 revises the *presentation* of that
@@ -59,17 +59,17 @@ the revision implicit in a plan would leave both ADRs contradicted by the code;
 recording it as scattered amendments would split one coherent shell decision
 across two files. Hence a new ADR, with pointer notes in 0077/0074.
 
-External grounding (surveyed 2026-07, sources in the v0.61b plan): AI-workspace
-products (ChatGPT Canvas, Claude Artifacts, Slack right rail, Linear split view,
-VS Code side bars) converge on **docked resizable panes** beside the primary
-content, with floating reserved for transient peeks; single disclosure sidebars
-(Notion, Slack, Linear, GitLab's "super sidebar" consolidation) over second
-columns; NN/g data shows fully hiding navigation behind a hamburger roughly
-halves discoverability on desktop, so desktop products collapse to an **icon
-rail** via an edge/chevron toggle; sidebar-first products (Linear, Notion) carry
-context in a slim per-view header rather than a global top bar; and NN/g link
-guidance ("a link is a promise") requires navigating controls to name their
-destination.
+External grounding (surveyed 2026-07; sources and product-observation boundaries
+in the v0.61b plan's Research Grounding section): NN/g supports visible or
+partially visible desktop navigation, left-side primary navigation for
+applications, current-location cues, clear labels, submenu signifiers, and
+click-activated rather than hover-only submenus. That grounds the expanded
+sidebar default, icon-rail-first collapse, contextual Workspace disclosures,
+active highlighting, and destination-naming rule. Radix scale-role guidance
+grounds the dark-mode token pass. AI/workspace products (ChatGPT Canvas, Claude
+Artifacts, Slack, Linear, VS Code, Notion, GitLab) are used only as contemporary
+pattern observations for docked panes, single sidebars, rails, and slim per-view
+headers.
 
 ## Decision
 
@@ -163,7 +163,7 @@ no-internal-rename invariant holds).
   v0.61b (v0.62 plan reconciled). v0.63 onboarding and the v1.0
   presentation-contract freeze consume the consolidated shell as the baseline.
 - Risk: the shell recomposition is the largest post-v0.61 UI change before the
-  freeze; it is de-risked by the S2 spec sign-off and the S4 early live review
+  freeze; it is de-risked by the S2 plan sign-off and the S4 early live review
   checkpoints (operator sees the consolidated shell early and can send it back)
   rather than by candidate-direction fan-out (the pattern research points one
   way; a v0.60b-style multi-candidate pass is not warranted for composition).

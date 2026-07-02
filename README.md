@@ -34,20 +34,17 @@ becoming opaque or unbounded.
 
 ## Current Shape
 
-The current release is `v0.60.1` (v0.60b, Visual Design Language & Art Direction),
-a design-first **point release** on top of `v0.60.0` (Product Experience Design).
-v0.60 front-loaded the unified journey, information architecture, First-Model Path,
-onboarding/persona inputs, entry-point UX, design-system gap analysis, and a navigable
-placeholder walking skeleton. v0.60b then designed the product's **visual language**:
-it produced three divergent candidate visual directions as rendered hero screens,
-evaluated them against a rubric, and the operator **chose Direction C (Soft Modern
-Depth)** as the canonical language that v0.61 will implement over an operator-chosen
-concrete layout system; v0.61 also designs, records, and applies an operator-chosen
-brand identity. v0.60/v0.60b are design-first and ship no new authority or runtime
-capability beyond the inert preview scaffold.
+The current release is `v0.61.0` (Presentation Layer Overhaul). It implemented the
+v0.60 product-experience design in the operator-chosen Layout D
+(Sidebar-primary), dressed it in the v0.60b-chosen Direction C (Soft Modern
+Depth) visual language, added the operator-chosen brand identity, and shipped the
+polished primary web presentation layer with no new authority or runtime
+capability beyond the planned presentation surface.
 
-The latest published release tag is `v0.60.1` (v0.60b), applied on top of `v0.60.0`;
-version metadata reports `0.60.1`.
+The latest published release tag is `v0.61.0`; version metadata reports
+`0.61.0`. The next in-flight point release is `v0.61b` / `0.61.1`, which owns the
+operator's v0.61 manual-validation UX feedback before v0.62 moves on to packaging
+and entry points.
 
 This README is the stable project orientation; release-by-release implementation
 detail belongs in [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in

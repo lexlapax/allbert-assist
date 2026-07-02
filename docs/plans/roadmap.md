@@ -450,8 +450,8 @@ scope.
     navigating-controls-name-their-destination rule; ADR 0077's IA structure and
     ADR 0079's Direction C are held. No new authority, permission, or Settings
     key; thread rename routes through the existing `:conversation_write`
-    registered-action spine. Plan `docs/plans/v0.61b-plan.md` (M0 spec + S2
-    operator sign-off gate → contained fixes M1-M4 → shell arc M5-M8 with an S4
+    registered-action spine. Plan `docs/plans/v0.61b-plan.md` (M0 in-plan
+    shell-spec/sign-off gate → contained fixes M1-M4 → shell arc M5-M8 with an S4
     early live review → M9 `release.v061b` gate incl. the `:v061` regression
     step). Releases as 0.61.1, tag held for the operator.
 62. v0.62 Packaging & Entry Points: implements the v0.60-designed entry-point/CLI
@@ -3984,7 +3984,7 @@ skeleton preview modules at closeout.
 Plan: `docs/plans/v0.61b-plan.md`
 Request flow: `docs/plans/v0.61b-request-flow.md`
 ADR: `docs/adr/0080-navigation-consolidation-and-workspace-shell-presentation.md`
-(Proposed (v0.61b); Accepted at the S2 spec sign-off; pointer notes in ADR
+(Proposed (v0.61b); Accepted at the S2 plan sign-off; pointer notes in ADR
 0077/0074).
 
 Status: planned (first pass, 2026-07-02) — a **point release** (0.61.1) inserted
@@ -4002,8 +4002,9 @@ renamable conversation threads via a registered `rename_thread` action on the
 existing `:conversation_write` permission — no internal rename; a subtler
 dark-mode token pass inside Direction C, both dark blocks in lockstep, all a11y
 cells ≥ AA). No new authority, permission, Settings key, route, or capability;
-Direction C and the ADR 0077 IA structure hold. Milestones M0 (consolidated-shell
-spec + ADR 0080, S2 operator sign-off gates the shell arc) → M1-M4 contained →
+Direction C and the ADR 0077 IA structure hold. Milestones M0 (in-plan
+shell-spec/sign-off section + ADR 0080, S2 operator sign-off gates the shell arc)
+→ M1-M4 contained →
 M5-M8 shell arc (S4 early live review; send-backs absorbed by M8) → M9 evals +
 `release.v061b` gate (incl. the `:v061` regression proof) + closeout. The former
 v0.62 M7 UX carryover moves here; v0.62 is reconciled to pure packaging scope.

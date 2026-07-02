@@ -45,7 +45,8 @@ and [roadmap](plans/roadmap.md). The v0.60/v0.60b design artifacts live under
 `docs/design/` (including `visual-directions/` rendered captures); v0.61 adds the
 committed sanitized layout screenshot record under `docs/design/layout-systems/`
 and the committed brand candidate/selected rendering record under
-`docs/design/brand/`; v0.61b adds `docs/design/consolidated-shell-spec.md`. The
+`docs/design/brand/`; v0.61b records the consolidated-shell spec and S2 sign-off
+inside the v0.61b plan rather than adding a separate design artifact. The
 plan/request-flow docs retain the validation evidence and release handoff.
 
 ## Directory Map

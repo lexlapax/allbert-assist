@@ -49,9 +49,10 @@ stays the rendering boundary.
   screenshots were committed; ADR 0074 v0.61 amendment Accepted; `web-design-system.md`
   updated to describe the shipped surface.
 
-Deferred to a follow-up cycle: five operator UX-feedback items (docked tool panels,
-chat type scale, collapsible hamburger nav, renamable threads, status-chip
-naming/target) captured for v0.62.
+Manual-validation follow-up: the operator's eight UX-feedback items are owned by
+the dedicated v0.61b point release (0.61.1), not v0.62. That follow-up covers the
+shell-composition arc (one sidebar, docked pane, per-view headers, collapse) plus
+chat type scale, status-chip labeling, renamable threads, and dark-mode subtlety.
 
 ## v0.60.1 - Visual Design Language & Art Direction (v0.60b)
 
