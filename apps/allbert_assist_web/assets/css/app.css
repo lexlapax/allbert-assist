@@ -973,6 +973,20 @@ body {
   display: none;
 }
 
+.operator-mobile-shellbar-brand {
+  display: none;
+  align-items: center;
+  gap: var(--allbert-space-2);
+  color: var(--allbert-text-strong);
+  font-weight: var(--allbert-font-weight-strong);
+  text-decoration: none;
+}
+
+.operator-mobile-shellbar-wordmark {
+  font-size: var(--allbert-font-size-md);
+  letter-spacing: -0.01em;
+}
+
 .operator-mobile-shellbar-link {
   display: inline-flex;
   align-items: center;
@@ -1032,6 +1046,14 @@ body {
     padding: calc(0.75rem * var(--allbert-density));
     border-top: var(--allbert-border-width) solid var(--allbert-line);
     background: var(--allbert-surface-1);
+  }
+
+  /* v0.61 M10.3 P1 — carry the Allbert brand in the mobile shellbar (the desktop
+     sidebar with the wordmark is hidden below this breakpoint). */
+  .operator-mobile-shellbar-brand {
+    display: flex;
+    grid-column: 1 / -1;
+    padding-bottom: 0.25rem;
   }
 }
 

@@ -139,6 +139,17 @@ defmodule AllbertAssistWeb.Layouts do
         class="operator-mobile-shellbar"
         aria-label="Operator pages"
       >
+        <.link navigate={~p"/"} class="operator-mobile-shellbar-brand" aria-label="Allbert home">
+          <img
+            src={~p"/images/allbert-mark.svg"}
+            alt=""
+            aria-hidden="true"
+            width="24"
+            height="24"
+            class="operator-brand-mark"
+          />
+          <span class="operator-mobile-shellbar-wordmark">Allbert</span>
+        </.link>
         <.link
           :for={item <- Enum.flat_map(@nav_groups, & &1.items)}
           navigate={item.path}
