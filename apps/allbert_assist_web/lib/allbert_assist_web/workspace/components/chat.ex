@@ -38,7 +38,13 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
        image_input_upload: Map.get(context, :image_input_upload),
        composer_max_bytes: Map.get(context, :composer_max_bytes, 65_536),
        maximized_pane: Map.get(context, :workspace_maximized_pane),
-       canvas_focus?: Map.get(context, :canvas_focus?, false)
+       canvas_focus?: Map.get(context, :canvas_focus?, false),
+       # v0.61b M7 (relocation rows 4/6/14): the retired appbar's context
+       # indicator, objective count chip, and workspace status badges re-home
+       # into the chat header.
+       active_app: Map.get(context, :active_app, :allbert),
+       thread_id: Map.get(context, :thread_id),
+       workspace_badges: Map.get(context, :workspace_badges, [])
      )}
   end
 
@@ -58,6 +64,44 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
           <h2 id="workspace-chat-title" class="workspace-pane-title">Chat</h2>
           <p class="workspace-pane-subtitle">Runtime conversation</p>
         </div>
+        <div
+          id="workspace-context-indicator"
+          class="allbert-chip"
+          title="Routing context"
+          data-active-app={active_app_attribute(@active_app)}
+        >
+          <.icon name="hero-squares-2x2-micro" class="size-4" />
+          <span>{context_label(@active_app)}</span>
+          <button
+            :if={app_context?(@active_app)}
+            id="workspace-context-exit"
+            type="button"
+            class="allbert-chip-action"
+            phx-click="exit_app_context"
+            aria-label="Leave app context"
+            title="Leave app context"
+          >
+            <.icon name="hero-x-mark-micro" class="size-4" />
+          </button>
+        </div>
+        <.link
+          id="workspace-objective-count-chip"
+          patch={workspace_destination_path(@thread_id, "workspace:objectives")}
+          class="allbert-chip allbert-chip-link"
+          title="Open objectives"
+        >
+          <.icon name="hero-flag-micro" class="size-4" />
+          {count_label(@active_objectives, "objective")}
+        </.link>
+        <span
+          :for={badge <- @workspace_badges}
+          id={"workspace-header-badge-#{badge_id(badge)}"}
+          class="allbert-chip"
+          title={badge_label(badge)}
+        >
+          <.icon name="hero-information-circle-micro" class="size-4" />
+          {badge_label(badge)}
+        </span>
         <div :if={@active_objectives != []} id="objective-badges" class="workspace-objective-badges">
           <.link
             :for={objective <- visible_objectives(@active_objectives)}
@@ -758,6 +802,69 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
 
   defp canvas_toggle_label(true), do: "Close canvas drawer"
   defp canvas_toggle_label(false), do: "Open canvas drawer"
+
+  # v0.61b M7 — helpers for the appbar controls the chat header absorbed
+  # (relocation rows 4/6/14; lifted from the retired Header component).
+  defp active_app_attribute(app) when is_atom(app), do: Atom.to_string(app)
+  defp active_app_attribute(app) when is_binary(app), do: app
+  defp active_app_attribute(_app), do: "allbert"
+
+  defp context_label(app) do
+    if app_context?(app), do: humanize_app(app), else: "Neutral"
+  end
+
+  defp app_context?(app), do: active_app_attribute(app) not in ["", "allbert"]
+
+  defp humanize_app(:stocksage), do: "StockSage"
+  defp humanize_app(app) when is_atom(app), do: app |> Atom.to_string() |> humanize_app()
+
+  defp humanize_app(app) when is_binary(app),
+    do: String.replace(app, "_", " ") |> String.capitalize()
+
+  defp humanize_app(_app), do: "App"
+
+  defp workspace_destination_path(thread_id, destination) do
+    query =
+      []
+      |> maybe_put_thread_id(thread_id)
+      |> maybe_put_destination(destination)
+
+    ~p"/workspace?#{query}"
+  end
+
+  defp maybe_put_thread_id(query, thread_id) when is_binary(thread_id) and thread_id != "" do
+    Keyword.put(query, :thread_id, thread_id)
+  end
+
+  defp maybe_put_thread_id(query, _thread_id), do: query
+
+  defp maybe_put_destination(query, "output"), do: query
+
+  defp maybe_put_destination(query, destination),
+    do: Keyword.put(query, :destination, destination)
+
+  defp count_label(items, label) when is_list(items) do
+    count = length(items)
+    "#{count} #{pluralize(label, count)}"
+  end
+
+  defp count_label(_items, label), do: "0 #{pluralize(label, 0)}"
+
+  defp pluralize(label, 1), do: label
+  defp pluralize(label, _count), do: "#{label}s"
+
+  defp badge_id(%{id: id}) when is_binary(id), do: id
+  defp badge_id(_badge), do: "notice"
+
+  defp badge_label(%{surface: %{nodes: [%{props: props} | _nodes]}}) when is_map(props) do
+    Map.get(props, :body) ||
+      Map.get(props, "body") ||
+      Map.get(props, :title) ||
+      Map.get(props, "title") ||
+      "Workspace notice"
+  end
+
+  defp badge_label(_badge), do: "Workspace notice"
 
   # v0.61b M2 (ADR 0080 §5): navigating controls name their destination. The
   # objective chip labels status + truncated title (N identical "running" chips

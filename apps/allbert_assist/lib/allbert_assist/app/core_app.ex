@@ -845,14 +845,10 @@ defmodule AllbertAssist.App.CoreApp do
         component: :workspace_shell,
         props: %{layout: "workspace_shell"},
         children: [
-          %Node{
-            id: "workspace-header",
-            component: :header,
-            props: %{
-              title: "Allbert Workspace",
-              subtitle: "Runtime chat, canvas, and ephemeral surfaces."
-            }
-          },
+          # v0.61b M7 (ADR 0080 §2): the workspace appbar (:header node) is
+          # retired — brand lives in the sidebar header, its controls re-home
+          # per the M0 relocation table (chat header, pane header, sidebar
+          # footer). The :header atom stays registered-but-unused.
           # v0.61b M5 (ADR 0080 §1): the workspace-local submenu column
           # (nav_rail + thread_list + app_launcher nodes) is retired — its
           # sections nest under the product sidebar's Workspace entry. The

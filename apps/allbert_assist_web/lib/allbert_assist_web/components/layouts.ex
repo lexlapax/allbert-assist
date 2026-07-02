@@ -73,7 +73,14 @@ defmodule AllbertAssistWeb.Layouts do
   attr :labelledby, :string, default: "operator-shell-title"
   attr :nav_items, :list, default: nil
 
+  attr :theme, :string,
+    default: nil,
+    doc: "v0.61b M7: current theme for the sidebar-footer toggle (SharedShellHooks assign)."
+
+  attr :overflow_open?, :boolean, default: false
+
   slot :inner_block, required: true
+  slot :view_actions
 
   def operator_shell(assigns) do
     assigns = assign(assigns, :nav_groups, nav_groups(assigns.active, assigns.nav_items))
@@ -88,15 +95,24 @@ defmodule AllbertAssistWeb.Layouts do
       role="region"
       aria-labelledby={@labelledby}
     >
-      <.product_sidebar nav_groups={@nav_groups} />
+      <.product_sidebar
+        nav_groups={@nav_groups}
+        theme={@theme}
+        overflow_open?={@overflow_open?}
+      />
 
       <div class="operator-shell-main">
-        <header class="operator-shell-topbar">
+        <%!-- v0.61b M7 (ADR 0080 §2): the persistent topbar band is retired; a
+        slim per-view header carries the view context inside the content area. --%>
+        <div class="operator-view-header">
           <div class="min-w-0">
-            <h1 id={@labelledby} class="allbert-appbar-title">{@title}</h1>
-            <p :if={@subtitle} class="allbert-appbar-subtitle">{@subtitle}</p>
+            <h1 id={@labelledby} class="operator-view-title">{@title}</h1>
+            <p :if={@subtitle} class="operator-view-subtitle">{@subtitle}</p>
           </div>
-        </header>
+          <div :if={@view_actions != []} class="operator-view-actions">
+            {render_slot(@view_actions)}
+          </div>
+        </div>
 
         <div class="operator-shell-body">
           {render_slot(@inner_block)}
@@ -156,6 +172,16 @@ defmodule AllbertAssistWeb.Layouts do
         "the section events); operator shells pass nothing and render the plain " <>
         "pill — the Workspace entry is 'collapsed to its header' elsewhere."
 
+  attr :theme, :string,
+    default: nil,
+    doc:
+      "v0.61b M7 (ADR 0080 §2): current theme mode for the sidebar-footer theme " <>
+        "toggle (relocation row 9). Events are owned by SharedShellHooks on every " <>
+        "shell; nil hides the footer (non-LiveView renders)."
+
+  attr :high_contrast?, :boolean, default: false
+  attr :overflow_open?, :boolean, default: false
+
   def product_sidebar(assigns) do
     assigns =
       assign(
@@ -200,9 +226,128 @@ defmodule AllbertAssistWeb.Layouts do
           New chat
         </.link>
       </div>
+
+      <%!-- v0.61b M7 (ADR 0080 §2, relocation rows 9/10/15): theme toggle +
+      overflow menu re-home from the retired workspace appbar into the sidebar
+      footer, rendering on every shell; SharedShellHooks owns their events. --%>
+      <div :if={@theme} class="operator-sidebar-footer">
+        <button
+          id="workspace-theme-toggle"
+          type="button"
+          class="workspace-theme-toggle allbert-icon-button"
+          phx-hook="ThemeSync"
+          phx-click="toggle_workspace_theme"
+          aria-label={theme_toggle_label(@theme)}
+          title={theme_toggle_label(@theme)}
+          data-current-theme={@theme}
+          data-next-theme={next_workspace_theme(@theme)}
+          data-high-contrast={if @high_contrast?, do: "true", else: "false"}
+        >
+          <.icon name={theme_toggle_icon(@theme)} class="size-4" />
+          <span class="sr-only">{theme_toggle_label(@theme)}</span>
+        </button>
+        <div
+          class="allbert-overflow-wrap"
+          phx-click-away="close_workspace_overflow_menu"
+          phx-window-keydown="close_workspace_overflow_menu"
+          phx-key="escape"
+        >
+          <button
+            id="workspace-overflow-menu"
+            type="button"
+            class="allbert-icon-button"
+            aria-label="Workspace menu"
+            title="Workspace menu"
+            aria-haspopup="menu"
+            aria-controls="workspace-overflow-menu-items"
+            aria-expanded={if @overflow_open?, do: "true", else: "false"}
+            phx-click="toggle_workspace_overflow_menu"
+          >
+            <.icon name="hero-ellipsis-horizontal-micro" class="size-5" />
+          </button>
+          <div
+            :if={@overflow_open?}
+            id="workspace-overflow-menu-items"
+            class="workspace-overflow-menu"
+            role="menu"
+            aria-labelledby="workspace-overflow-menu"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              class="workspace-tile-menu-item"
+              phx-click="toggle_workspace_theme"
+            >
+              <.icon name={theme_toggle_icon(@theme)} class="size-4" />
+              {theme_toggle_label(@theme)}
+            </button>
+            <.link
+              id="workspace-overflow-settings-link"
+              role="menuitem"
+              class="workspace-tile-menu-item"
+              {workspace_destination_link(@workspace, "workspace:settings")}
+            >
+              <.icon name="hero-adjustments-horizontal-micro" class="size-4" /> Workspace settings
+            </.link>
+            <.link role="menuitem" class="workspace-tile-menu-item" navigate={~p"/jobs"}>
+              <.icon name="hero-clock-micro" class="size-4" /> Scheduled jobs
+            </.link>
+            <.link
+              id="workspace-overflow-objectives-link"
+              role="menuitem"
+              class="workspace-tile-menu-item"
+              {workspace_destination_link(@workspace, "workspace:objectives")}
+            >
+              <.icon name="hero-flag-micro" class="size-4" /> Objectives
+            </.link>
+            <button
+              :if={@workspace && Map.get(@workspace, :thread_id)}
+              id="workspace-thread-copy-id"
+              type="button"
+              role="menuitem"
+              class="workspace-tile-menu-item workspace-copy-target"
+              phx-hook="CopyToClipboard"
+              data-copy-value={Map.get(@workspace, :thread_id)}
+            >
+              <.icon name="hero-clipboard-document-micro" class="size-4" /> Copy conversation id
+            </button>
+          </div>
+        </div>
+      </div>
     </aside>
     """
   end
+
+  # v0.61b M7 — the M5 dispatch rule for workspace destinations: patch (live
+  # update, no re-mount) when already on /workspace, navigate elsewhere.
+  defp workspace_destination_link(workspace, destination) do
+    path =
+      case workspace && Map.get(workspace, :thread_id) do
+        thread_id when is_binary(thread_id) and thread_id != "" ->
+          ~p"/workspace?#{[thread_id: thread_id, destination: destination]}"
+
+        _no_thread ->
+          ~p"/workspace?#{[destination: destination]}"
+      end
+
+    if workspace, do: [patch: path], else: [navigate: path]
+  end
+
+  # v0.61b M7 — theme-toggle helpers lifted from the retired workspace appbar
+  # (3-state cycle kept in sync with SharedShellHooks).
+  defp next_workspace_theme("system"), do: "dark"
+  defp next_workspace_theme("dark"), do: "light"
+  defp next_workspace_theme("light"), do: "system"
+  defp next_workspace_theme(_theme), do: "dark"
+
+  defp theme_toggle_icon("dark"), do: "hero-sun-micro"
+  defp theme_toggle_icon("light"), do: "hero-computer-desktop-micro"
+  defp theme_toggle_icon(_theme), do: "hero-moon-micro"
+
+  defp theme_toggle_label("system"), do: "Theme: system (switch to dark)"
+  defp theme_toggle_label("dark"), do: "Theme: dark (switch to light)"
+  defp theme_toggle_label("light"), do: "Theme: light (switch to system)"
+  defp theme_toggle_label(_theme), do: "Switch workspace theme"
 
   @doc """
   Shows the flash group with standard titles and content.

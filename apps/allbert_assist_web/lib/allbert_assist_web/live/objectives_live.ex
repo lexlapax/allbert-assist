@@ -17,6 +17,8 @@ defmodule AllbertAssistWeb.ObjectivesLive do
 
   use AllbertAssistWeb, :live_view
 
+  on_mount {AllbertAssistWeb.Live.SharedShellHooks, :shell_chrome}
+
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
@@ -48,6 +50,8 @@ defmodule AllbertAssistWeb.ObjectivesLive do
         title="Objectives"
         subtitle="Durable goals, steps, and resumable work"
         labelledby="objectives-page-title"
+        theme={@workspace_theme}
+        overflow_open?={@workspace_overflow_open?}
       >
         <Patterns.elevated_card id="objectives-index" title="Objectives">
           <.live_component

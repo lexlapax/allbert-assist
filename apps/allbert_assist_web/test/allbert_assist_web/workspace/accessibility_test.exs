@@ -47,11 +47,13 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
     refute html =~ "Website"
     assert html =~ "GitHub"
     refute html =~ "Get Started"
-    assert has_element?(view, "#allbert-appbar")
-    assert has_element?(view, "#workspace-thread-switcher-toggle[aria-haspopup='menu']")
+    # v0.61b M7 (ADR 0080 §2): the appbar is retired — its controls live at
+    # their relocation-table homes (chat header, pane header, sidebar footer).
+    refute has_element?(view, "#allbert-appbar")
+    refute has_element?(view, "#workspace-thread-switcher-toggle")
     assert has_element?(view, "#workspace-context-indicator[data-active-app='allbert']")
     assert has_element?(view, "#workspace-objective-count-chip")
-    assert has_element?(view, "#workspace-tile-count-chip")
+    assert has_element?(view, "#workspace-ephemeral-count-chip")
     assert has_element?(view, "#workspace-shell[role='region']")
     assert has_element?(view, "#workspace-theme-toggle[aria-label]")
     assert has_element?(view, "#workspace-overflow-menu[aria-label='Workspace menu']")

@@ -14,6 +14,8 @@ defmodule AllbertAssistWeb.JobsLive do
 
   use AllbertAssistWeb, :live_view
 
+  on_mount {AllbertAssistWeb.Live.SharedShellHooks, :shell_chrome}
+
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Jobs.Job
@@ -57,6 +59,8 @@ defmodule AllbertAssistWeb.JobsLive do
         title="Scheduled Jobs"
         subtitle="Recurring runtime work, runs, and blockers"
         labelledby="jobs-page-title"
+        theme={@workspace_theme}
+        overflow_open?={@workspace_overflow_open?}
       >
         <Patterns.status_callout id="jobs-notice" message={@notice} />
 

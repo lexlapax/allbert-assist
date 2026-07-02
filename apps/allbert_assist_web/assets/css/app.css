@@ -669,44 +669,20 @@ body {
   opacity: 1;
 }
 
-.allbert-appbar {
-  display: grid;
-  grid-template-columns: minmax(12rem, 1fr) minmax(0, auto) auto;
-  gap: calc(1rem * var(--allbert-density));
-  align-items: center;
-  min-height: 56px;
-  border: var(--allbert-border-width) solid var(--workspace-border);
-  border-radius: var(--allbert-radius);
-  background: color-mix(in srgb, var(--workspace-panel) 94%, transparent);
-  color: var(--workspace-fg);
-  padding: calc(0.625rem * var(--allbert-density)) calc(0.75rem * var(--allbert-density));
-  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
-}
-
-.allbert-appbar-brand,
-.allbert-appbar-center,
-.allbert-appbar-actions {
+/* v0.61b M7 (ADR 0080 §2): the per-shell top bars are retired — each view
+   carries a slim per-view header inside the content area (context/title left,
+   view actions right), and the theme toggle + overflow menu live in the
+   sidebar footer. Vertical space returns to chat/canvas. */
+.operator-view-header {
   display: flex;
   align-items: center;
-}
-
-.allbert-appbar-brand {
-  min-width: 0;
+  justify-content: space-between;
   gap: 0.75rem;
+  min-height: 2.25rem;
+  margin-bottom: calc(0.5rem * var(--allbert-density));
 }
 
-.allbert-brand-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 0.5rem;
-  background: var(--allbert-accent-soft);
-  color: var(--allbert-accent);
-}
-
-.allbert-appbar-title {
+.operator-view-title {
   color: var(--workspace-fg);
   font-size: 1rem;
   font-weight: 700;
@@ -714,21 +690,24 @@ body {
   line-height: 1.25rem;
 }
 
-.allbert-appbar-subtitle {
+.operator-view-subtitle {
   color: var(--workspace-muted);
   font-size: 0.75rem;
   line-height: 1rem;
 }
 
-.allbert-appbar-center {
-  flex-wrap: wrap;
-  justify-content: center;
+.operator-view-actions {
+  display: flex;
+  align-items: center;
   gap: 0.5rem;
 }
 
-.allbert-appbar-actions {
-  justify-content: flex-end;
+.operator-sidebar-footer {
+  display: flex;
+  align-items: center;
   gap: 0.5rem;
+  padding-top: calc(0.5rem * var(--allbert-density));
+  border-top: var(--allbert-border-width) solid var(--allbert-line);
 }
 
 /* Layout D "Sidebar-primary" (v0.61 M2 operator choice, built at M4) — a fixed left
@@ -827,15 +806,6 @@ body {
   min-width: 0;
   min-height: 100vh;
   flex-direction: column;
-}
-
-.operator-shell-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  padding: calc(1rem * var(--allbert-density)) calc(1.5rem * var(--allbert-density));
-  border-bottom: var(--allbert-border-width) solid var(--allbert-line);
-  background: var(--allbert-surface-0);
 }
 
 .operator-shell-body {
@@ -1250,10 +1220,6 @@ body {
     display: none;
   }
 
-  #workspace-node-workspace-header {
-    grid-area: header;
-  }
-
   #workspace-node-workspace-chat {
     grid-area: chat;
   }
@@ -1271,14 +1237,6 @@ body {
   .operator-shell {
     min-height: 100dvh;
     padding: 1rem;
-  }
-
-  .operator-shell .allbert-appbar {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .operator-shell .allbert-appbar-center {
-    display: none;
   }
 
   .operator-mobile-shellbar {
@@ -1302,7 +1260,6 @@ body {
     display: block;
   }
 
-  #workspace-node-workspace-header,
   #workspace-node-workspace-chat,
   #workspace-node-workspace-canvas-region,
   #workspace-node-workspace-ephemeral-region {
@@ -2723,19 +2680,6 @@ a.allbert-chip-link:focus-visible,
     display: none;
   }
 
-  .allbert-appbar {
-    grid-template-columns: 1fr auto;
-  }
-
-  .allbert-appbar-center {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    scrollbar-width: thin;
-    padding-bottom: 0.125rem;
-  }
-
   /* v0.26a M31: the mobile pane fills the viewport remainder under the
      sticky AppBar (≈56px) and the mobile tab strip (≈60px including
      margin). The timeline / tile list inside still scrolls
@@ -2833,7 +2777,7 @@ a.allbert-chip-link:focus-visible,
    replace-and-restore is destination-driven inside the region). */
 @media (min-width: 768px) {
   #workspace-shell #workspace-node-workspace-root > .workspace-root-grid {
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto;
     align-items: stretch;
   }
 
@@ -2856,10 +2800,9 @@ a.allbert-chip-link:focus-visible,
       auto
       minmax(0, 1fr);
     grid-template-areas:
-      "header header header"
       "chat resizer canvas"
       "chat resizer ephemeral";
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto;
   }
 
   #workspace-shell[data-canvas-drawer="open"] #workspace-split-resizer {
@@ -2920,7 +2863,6 @@ a.allbert-chip-link:focus-visible,
     > .workspace-root-grid {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "header"
       "chat"
       "ephemeral";
   }
@@ -2929,7 +2871,6 @@ a.allbert-chip-link:focus-visible,
     #workspace-node-workspace-root
     > .workspace-root-grid {
     grid-template-areas:
-      "header"
       "canvas"
       "ephemeral";
   }
@@ -2982,17 +2923,6 @@ a.allbert-chip-link:focus-visible,
   border-color: var(--workspace-accent);
   color: var(--workspace-accent);
   background: var(--allbert-accent-soft);
-}
-
-/* The AppBar is rendered as the first grid row inside workspace-root. Mark
-   it sticky so chrome stays anchored even on small / portrait viewports
-   where the grid collapses into a stacked column. */
-#workspace-shell .allbert-appbar {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: var(--workspace-panel);
-  backdrop-filter: saturate(160%) blur(6px);
 }
 
 /* ---- v0.32 M3: host-owned rail, launcher, and utility zones ------------ */
@@ -3310,7 +3240,6 @@ a.allbert-chip-link:focus-visible,
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "header"
       "chat"
       "ephemeral";
     gap: 1rem;

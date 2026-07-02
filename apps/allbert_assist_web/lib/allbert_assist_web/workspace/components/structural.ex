@@ -338,7 +338,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Canvas do
        canvas_tiles: Map.get(context, :canvas_tiles, []),
        max_tiles: Map.get(context, :workspace_canvas_max_tiles_per_thread, 64),
        workspace_badges: Map.get(context, :workspace_badges, []),
-       canvas_focus?: Map.get(context, :canvas_focus?, false)
+       canvas_focus?: Map.get(context, :canvas_focus?, false),
+       # v0.61b M7 (relocation row 8): the ephemeral count chip re-homes from
+       # the retired appbar into the pane header.
+       ephemeral_surfaces: Map.get(context, :ephemeral_surfaces, [])
      )}
   end
 
@@ -374,6 +377,17 @@ defmodule AllbertAssistWeb.Workspace.Components.Canvas do
           <.icon name="hero-exclamation-triangle-micro" class="size-4" />
           {length(@workspace_badges)} notice(s)
         </span>
+        <a
+          id="workspace-ephemeral-count-chip"
+          href="#workspace-node-workspace-ephemeral-region"
+          class="allbert-chip allbert-chip-link"
+          title="Jump to ephemerals"
+        >
+          <.icon name="hero-bolt-micro" class="size-4" />
+          {length(@ephemeral_surfaces)} ephemeral{if length(@ephemeral_surfaces) == 1,
+            do: "",
+            else: "s"}
+        </a>
         <button
           id="workspace-canvas-focus"
           type="button"

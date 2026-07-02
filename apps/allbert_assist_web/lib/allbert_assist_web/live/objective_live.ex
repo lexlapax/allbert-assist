@@ -3,6 +3,8 @@ defmodule AllbertAssistWeb.ObjectiveLive do
 
   use AllbertAssistWeb, :live_view
 
+  on_mount {AllbertAssistWeb.Live.SharedShellHooks, :shell_chrome}
+
   alias AllbertAssist.Actions.ErrorExtraction
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Surface
@@ -130,6 +132,8 @@ defmodule AllbertAssistWeb.ObjectiveLive do
         title={objective_title(@objective)}
         subtitle={objective_subtitle(@objective, @objective_id)}
         labelledby="objective-page-title"
+        theme={@workspace_theme}
+        overflow_open?={@workspace_overflow_open?}
       >
         <%= if @objective do %>
           <Patterns.elevated_card id="objective-header">

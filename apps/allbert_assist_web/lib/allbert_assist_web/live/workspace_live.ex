@@ -7,6 +7,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   """
   use AllbertAssistWeb, :live_view
 
+  on_mount {AllbertAssistWeb.Live.SharedShellHooks, :shell_chrome}
+
   require Logger
 
   alias AllbertAssist.Actions.Runner
@@ -122,7 +124,6 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         open_tile_menu_id: nil,
         open_tile_inspector_id: nil,
         renaming_thread_id: nil,
-        thread_switcher_open?: false,
         workspace_launcher_open?: false,
         workspace_badges: [],
         composer_max_bytes: workspace_canvas_tile_body_max_bytes(settings),
@@ -304,12 +305,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   # v0.26a M34: AppBar overflow menu open/close. Same shape as the tile
   # kebab — purely UI state, no authority change.
-  def handle_event("toggle_workspace_overflow_menu", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:thread_switcher_open?, false)
-     |> update(:workspace_overflow_open?, &(!&1))}
-  end
+  # v0.61b M7: "toggle_workspace_overflow_menu" is owned by SharedShellHooks
+  # (the overflow menu lives in the sidebar footer on every shell now).
 
   # v0.61b M4 — inline thread rename through the registered action spine
   # (Runner → PermissionGate(:conversation_write) → ownership-scoped rename).
@@ -346,16 +343,9 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     {:noreply, assign(socket, :renaming_thread_id, nil)}
   end
 
-  def handle_event("toggle_thread_switcher", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:workspace_overflow_open?, false)
-     |> update(:thread_switcher_open?, &(!&1))}
-  end
-
-  def handle_event("close_thread_switcher", _params, socket) do
-    {:noreply, assign(socket, :thread_switcher_open?, false)}
-  end
+  # v0.61b M7: the appbar thread switcher is retired (relocation row 3) — the
+  # M5 sidebar Conversations section is the switcher; its toggle/close events
+  # are gone with it.
 
   def handle_event("toggle_workspace_launcher", _params, socket) do
     {:noreply, update(socket, :workspace_launcher_open?, &(!&1))}
@@ -369,7 +359,6 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       when is_binary(thread_id) and thread_id != "" do
     {:noreply,
      socket
-     |> assign(:thread_switcher_open?, false)
      |> assign(:workspace_launcher_open?, false)
      |> push_navigate(to: workspace_path(thread_id, socket.assigns.canvas_destination))}
   end
@@ -385,7 +374,6 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       {:ok, thread} ->
         {:noreply,
          socket
-         |> assign(:thread_switcher_open?, false)
          |> assign(:workspace_launcher_open?, false)
          |> push_navigate(to: workspace_path(thread.id, socket.assigns.canvas_destination))}
 
@@ -417,22 +405,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     {:noreply, update(socket, :canvas_focus?, &(!&1))}
   end
 
-  def handle_event("toggle_workspace_theme", _params, socket) do
-    next_theme = next_workspace_theme(socket.assigns.workspace_theme)
-
-    case run_workspace_action(socket, "set_workspace_theme", %{theme: next_theme}) do
-      {:ok, %{status: :completed, theme: theme}} ->
-        # Push the new theme so the ThemeSync hook updates <html data-theme> in step
-        # with #workspace-shell (v0.61 M10.3 P1 — avoids a mixed light/dark surface).
-        {:noreply,
-         socket
-         |> assign(:workspace_theme, theme)
-         |> push_event("allbert:set-theme", %{theme: theme})}
-
-      {:ok, response} ->
-        {:noreply, assign(socket, :error, Map.get(response, :message, inspect(response)))}
-    end
-  end
+  # v0.61b M7: "toggle_workspace_theme" is owned by SharedShellHooks (the theme
+  # toggle lives in the sidebar footer on every shell now).
 
   def handle_event("select_workspace_mobile_tab", %{"tab" => tab}, socket)
       when tab in ["chat", "canvas"] do
@@ -797,6 +771,9 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         <Layouts.product_sidebar
           active={workspace_nav_key(@canvas_destination)}
           workspace={sidebar_workspace_context(assigns)}
+          theme={@workspace_theme}
+          high_contrast?={@workspace_high_contrast?}
+          overflow_open?={@workspace_overflow_open?}
         />
         <section
           id="workspace-shell"
@@ -827,7 +804,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
           data-service-worker-scope="/workspace"
           data-offline-shell-url={~p"/workspace-offline.html"}
           role="region"
-          aria-labelledby="workspace-component-title-workspace-header"
+          aria-labelledby="workspace-chat-title"
         >
           <Patterns.status_callout
             id="workspace-offline-banner"
@@ -2566,15 +2543,6 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     end
   end
 
-  # v0.26a M34 / v0.35: theme cycles system → dark → light → system so operators
-  # reach all three workspace.theme.mode values from the AppBar without dropping
-  # to `mix allbert.settings`. Default boot starts at "system" → dark to
-  # preserve the prior light↔dark first-click semantics.
-  defp next_workspace_theme("system"), do: "dark"
-  defp next_workspace_theme("dark"), do: "light"
-  defp next_workspace_theme("light"), do: "system"
-  defp next_workspace_theme(_theme), do: "dark"
-
   defp workspace_mobile_tabs do
     [
       %{id: "chat", label: "Chat", controls: "workspace-node-workspace-chat"},
@@ -2695,7 +2663,6 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       show_approval_details?: assigns.show_approval_details?,
       voice_capture: assigns.voice_capture,
       image_input: assigns.image_input,
-      thread_switcher_open?: assigns.thread_switcher_open?,
       workspace_overflow_open?: assigns.workspace_overflow_open?
     }
   end

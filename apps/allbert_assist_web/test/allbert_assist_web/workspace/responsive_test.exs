@@ -24,12 +24,12 @@ defmodule AllbertAssistWeb.Workspace.ResponsiveTest do
     assert css =~ "position: sticky"
   end
 
-  # v0.26a M30: the AppBar is anchored so chat history scrolling does not
-  # take the workspace chrome with it.
-  test "AppBar is sticky and the workspace shell constrains to the viewport" do
+  # v0.61b M7: the AppBar is retired (ADR 0080 §2) — the shell still
+  # constrains to the viewport and the canvas region never overlays chat.
+  test "the shell constrains to the viewport with no appbar chrome" do
     css = File.read!(@css_path)
 
-    assert css =~ "#workspace-shell .allbert-appbar"
+    refute css =~ "#workspace-shell .allbert-appbar"
     assert css =~ ~r/#workspace-shell\.workspace-shell\s*\{[^}]*100dvh/m
     assert css =~ ~r/#workspace-shell\.workspace-shell\s*\{[^}]*display:\s*flex/m
 

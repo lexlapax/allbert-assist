@@ -101,7 +101,8 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#workspace-shell[data-layout-mode='chat-primary']")
     assert has_element?(view, "#workspace-shell[data-canvas-drawer='closed']")
     assert has_element?(view, "#workspace-renderer")
-    assert has_element?(view, "#allbert-appbar")
+    # v0.61b M7 (ADR 0080 §2): the appbar is retired.
+    refute has_element?(view, "#allbert-appbar")
     # v0.61b M5 (ADR 0080 §1): the workspace-local submenu column is retired;
     # its sections nest under the product sidebar's Workspace entry.
     refute has_element?(view, "#workspace-node-workspace-nav-rail")
@@ -120,17 +121,16 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
            )
 
     refute has_element?(view, "#workspace-context-exit")
-    assert has_element?(view, "#workspace-thread-switcher-toggle")
+    # v0.61b M7: the appbar thread switcher and tile-count chip are retired
+    # (relocation rows 3/7) — the sidebar Conversations section switches
+    # threads; the pane header's tiles badge is the single tile count.
+    refute has_element?(view, "#workspace-thread-switcher-toggle")
+    refute has_element?(view, "#workspace-tile-count-chip")
     assert has_element?(view, "#workspace-chat-region")
 
     assert has_element?(
              view,
              "#workspace-chat-canvas-toggle[aria-controls='workspace-node-workspace-canvas-region'][aria-expanded='false']"
-           )
-
-    assert has_element?(
-             view,
-             "#workspace-tile-count-chip[aria-controls='workspace-node-workspace-canvas-region'][aria-expanded='false']"
            )
 
     assert has_element?(view, "#agent-form")
@@ -800,7 +800,9 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#workspace-dest-output")
     refute has_element?(view, "#workspace-dest-workspace-jobs")
 
-    assert has_element?(view, "#allbert-appbar")
+    # v0.61b M7: appbar retired; the theme toggle lives in the sidebar footer
+    # and the context indicator in the chat header.
+    refute has_element?(view, "#allbert-appbar")
     assert has_element?(view, "#workspace-theme-toggle")
     assert has_element?(view, "#workspace-context-indicator")
 
@@ -1099,36 +1101,32 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
              )
   end
 
-  test "thread switcher lists, copies, switches, and creates threads", %{conn: conn} do
+  # v0.61b M7 (relocation rows 3/15): the appbar thread switcher is retired —
+  # the sidebar Conversations section lists and switches threads; "Copy
+  # conversation id" survives in the sidebar-footer overflow menu.
+  test "sidebar conversations list, overflow copy-id, switching, and creation", %{conn: conn} do
     current_thread = create_workspace_thread("Current workspace thread")
     other_thread = create_workspace_thread("Other workspace thread")
 
     {:ok, view, _html} = live(conn, ~p"/workspace?thread_id=#{current_thread.id}")
 
+    refute has_element?(view, "#workspace-thread-switcher-toggle")
+
+    sections_html = render(element(view, "#sidebar-workspace-sections"))
+    assert sections_html =~ "Current workspace thread"
+    assert sections_html =~ "Other workspace thread"
+
     menu_html =
       view
-      |> element("#workspace-thread-switcher-toggle")
+      |> element("#workspace-overflow-menu")
       |> render_click()
 
-    assert menu_html =~ "Current workspace thread"
-    assert menu_html =~ "Other workspace thread"
-    assert menu_html =~ "New conversation"
     assert menu_html =~ "Copy conversation id"
-    refute menu_html =~ "New thread"
     refute menu_html =~ "Copy thread id"
-
-    assert has_element?(
-             view,
-             "#workspace-thread-switcher-toggle[aria-haspopup='menu'][aria-expanded='true']"
-           )
-
-    assert has_element?(view, "#workspace-thread-switcher-menu[role='menu']")
-    assert has_element?(view, "#workspace-thread-item-#{other_thread.id}")
-    assert has_element?(view, "#workspace-thread-new[phx-click='new_thread']")
     assert has_element?(view, "#workspace-thread-copy-id[data-copy-value='#{current_thread.id}']")
 
     view
-    |> element("#workspace-thread-item-#{other_thread.id}")
+    |> element("#workspace-rail-thread-#{other_thread.id}")
     |> render_click()
 
     assert_redirect(view, ~p"/workspace?thread_id=#{other_thread.id}")
@@ -1136,11 +1134,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     {:ok, new_view, _html} = live(conn, ~p"/workspace?thread_id=#{current_thread.id}")
 
     new_view
-    |> element("#workspace-thread-switcher-toggle")
-    |> render_click()
-
-    new_view
-    |> element("#workspace-thread-new")
+    |> element("#sidebar-workspace-sections #workspace-launcher")
     |> render_click()
 
     {redirected_to, _flash} = assert_redirect(new_view)
