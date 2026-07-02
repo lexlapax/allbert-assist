@@ -17,7 +17,6 @@ defmodule AllbertAssistWeb.Live.SharedShellHooks do
   import Phoenix.LiveView, only: [attach_hook: 4, push_event: 3]
 
   alias AllbertAssist.Actions.Runner
-  alias AllbertAssist.Settings
   alias AllbertAssist.Settings.Schema
   alias AllbertAssist.Surfaces.ContextBuilder
 
@@ -93,19 +92,23 @@ defmodule AllbertAssistWeb.Live.SharedShellHooks do
   defp next_workspace_theme("light"), do: "system"
   defp next_workspace_theme(_theme), do: "dark"
 
+  # The theme read rides the registered resolved-settings snapshot action —
+  # the same one-spine read the workspace shell uses at mount.
   defp theme_from_settings do
-    case Schema.get_dotted(Settings.defaults(), "workspace.theme.mode") do
-      theme when theme in ["dark", "light", "system"] -> resolved_theme(theme)
-      _other -> resolved_theme("system")
-    end
-  end
+    context =
+      ContextBuilder.live_view_context(%{},
+        surface: "AllbertAssistWeb.Live.SharedShellHooks"
+      )
 
-  # Prefer the live resolved value (the root layout reads the same key); fall
-  # back to schema defaults when the settings spine is unavailable.
-  defp resolved_theme(default) do
-    case Settings.get("workspace.theme.mode") do
-      {:ok, theme} when theme in ["dark", "light", "system"] -> theme
-      _other -> default
+    case Runner.run("resolved_settings_snapshot", %{}, context) do
+      {:ok, %{status: :completed, settings: settings}} when is_map(settings) ->
+        case Schema.get_dotted(settings, "workspace.theme.mode") do
+          theme when theme in ["dark", "light", "system"] -> theme
+          _other -> "system"
+        end
+
+      _other ->
+        "system"
     end
   end
 end
