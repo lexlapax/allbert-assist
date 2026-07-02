@@ -107,6 +107,8 @@ defmodule AllbertAssistWeb.Workspace.Components.ThreadList do
     description: "Recent workspace threads",
     custom?: true
 
+  import AllbertAssistWeb.Components.ThreadRow, only: [thread_row: 1]
+
   alias AllbertAssistWeb.Workspace.Components.Base
 
   @impl true
@@ -118,7 +120,8 @@ defmodule AllbertAssistWeb.Workspace.Components.ThreadList do
      |> Base.assign_defaults(assigns)
      |> assign(
        recent_threads: Map.get(context, :recent_threads, []),
-       thread_id: Map.get(context, :thread_id)
+       thread_id: Map.get(context, :thread_id),
+       renaming_thread_id: Map.get(context, :renaming_thread_id)
      )}
   end
 
@@ -136,32 +139,16 @@ defmodule AllbertAssistWeb.Workspace.Components.ThreadList do
         Conversations
       </h3>
       <div class="workspace-rail-list" role="list">
-        <button
+        <.thread_row
           :for={thread <- @recent_threads}
-          id={"workspace-rail-thread-#{thread.id}"}
-          type="button"
-          role="listitem"
-          class={[
-            "workspace-rail-item",
-            thread.id == @thread_id && "workspace-rail-item-active"
-          ]}
-          phx-click="switch_workspace_thread"
-          phx-value-thread-id={thread.id}
-          title={thread.title}
-        >
-          <span class="workspace-rail-item-title">{thread.title}</span>
-          <span class="workspace-rail-item-meta">{short_id(thread.id)}</span>
-        </button>
+          thread={thread}
+          active?={thread.id == @thread_id}
+          renaming?={thread.id == @renaming_thread_id}
+        />
         <p :if={@recent_threads == []} class="workspace-rail-empty">No conversations yet.</p>
       </div>
     </section>
     """
-  end
-
-  defp short_id(nil), do: "conversation"
-
-  defp short_id(id) when is_binary(id) do
-    if String.length(id) > 14, do: String.slice(id, 0, 10) <> "...", else: id
   end
 end
 

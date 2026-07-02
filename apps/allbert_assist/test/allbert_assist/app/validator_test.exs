@@ -572,6 +572,9 @@ defmodule AllbertAssist.App.ValidatorTest do
              :core_security_panel,
              :core_intents_panel,
              :core_models_panel,
+             # v0.61 M10.3 P0-7 added the channels destination panel (order 48);
+             # this exact list was never reconciled at that closeout (v0.61b M0.2).
+             :core_channels_panel,
              :core_surface_policy_panel,
              :core_settings_panel,
              :plan_build_preview_panel,

@@ -320,7 +320,10 @@ defmodule AllbertAssist.Security.V059SweepEvalTest do
     empty_schema_entries = Enum.filter(catalog, &(&1.schema_type == :empty))
     empty_schema_count = length(empty_schema_entries)
 
-    assert length(catalog) == 226
+    # 231 = 226 (v0.59 baseline) + the 4 v0.61 M10.5 job-control actions
+    # (list/pause/resume/run — count never reconciled at that closeout) + the
+    # v0.61b M4 rename_thread action.
+    assert length(catalog) == 231
     assert empty_schema_count == 32
     assert Enum.all?(empty_schema_entries, &(&1.disposition == :no_params))
 

@@ -121,6 +121,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
         show_approval_details?: false,
         open_tile_menu_id: nil,
         open_tile_inspector_id: nil,
+        renaming_thread_id: nil,
         thread_switcher_open?: false,
         workspace_launcher_open?: false,
         workspace_badges: [],
@@ -308,6 +309,41 @@ defmodule AllbertAssistWeb.WorkspaceLive do
      socket
      |> assign(:thread_switcher_open?, false)
      |> update(:workspace_overflow_open?, &(!&1))}
+  end
+
+  # v0.61b M4 — inline thread rename through the registered action spine
+  # (Runner → PermissionGate(:conversation_write) → ownership-scoped rename).
+  def handle_event("start_rename_thread", %{"thread-id" => thread_id}, socket)
+      when is_binary(thread_id) and thread_id != "" do
+    {:noreply, assign(socket, :renaming_thread_id, thread_id)}
+  end
+
+  def handle_event("cancel_rename_thread", _params, socket) do
+    {:noreply, assign(socket, :renaming_thread_id, nil)}
+  end
+
+  def handle_event("submit_rename_thread", %{"thread-id" => thread_id, "title" => title}, socket)
+      when is_binary(thread_id) and thread_id != "" do
+    case run_workspace_action(socket, "rename_thread", %{thread_id: thread_id, title: title}) do
+      {:ok, %{status: :completed}} ->
+        {:noreply,
+         socket
+         |> assign(:renaming_thread_id, nil)
+         |> assign(:recent_threads, recent_threads(socket.assigns.user_id))}
+
+      {:ok, %{message: message}} ->
+        {:noreply,
+         socket
+         |> assign(:renaming_thread_id, nil)
+         |> put_flash(:error, message)}
+
+      _other ->
+        {:noreply, assign(socket, :renaming_thread_id, nil)}
+    end
+  end
+
+  def handle_event("submit_rename_thread", _params, socket) do
+    {:noreply, assign(socket, :renaming_thread_id, nil)}
   end
 
   def handle_event("toggle_thread_switcher", _params, socket) do
@@ -2577,6 +2613,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       conversation_messages: assigns.conversation_messages,
       unified_history: assigns.unified_history,
       recent_threads: assigns.recent_threads,
+      renaming_thread_id: assigns.renaming_thread_id,
       registered_apps: assigns.registered_apps,
       workspace_mobile_tab: assigns.workspace_mobile_tab,
       canvas_destination: assigns.canvas_destination,

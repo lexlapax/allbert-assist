@@ -37,6 +37,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Confirmations.ExpireConfirmations
   alias AllbertAssist.Actions.Confirmations.ListConfirmations
   alias AllbertAssist.Actions.Confirmations.ShowConfirmation
+  alias AllbertAssist.Actions.Conversations.RenameThread
   alias AllbertAssist.Actions.Conversations.ResumeThreadOnChannel
   alias AllbertAssist.Actions.DynamicPlugins.DisableLiveLoader, as: DisableDynamicLiveLoader
   alias AllbertAssist.Actions.DynamicPlugins.DiscardDraft, as: DiscardDynamicDraft
@@ -394,6 +395,9 @@ defmodule AllbertAssist.Actions.Registry do
     PauseJob,
     ResumeJob,
     RunJob,
+    # v0.61b M4: operator-surface thread rename; internal like the job controls —
+    # the UI calls it via Runner; the intent router does not route to it.
+    RenameThread,
     ManageTile,
     RevertTileRevision,
     RecordOfflineUpdate,

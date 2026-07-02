@@ -38,6 +38,14 @@ defmodule AllbertAssist.Conversations.Thread do
   end
 
   @doc false
+  def title_changeset(thread, title) do
+    thread
+    |> cast(%{title: title}, [:title])
+    |> validate_required([:title])
+    |> validate_length(:title, min: 1, max: 160)
+  end
+
+  @doc false
   def last_message_changeset(thread, timestamp) do
     thread
     |> change(last_message_at: timestamp)

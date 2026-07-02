@@ -1,8 +1,8 @@
 ---
 clarify_vs_execute:
   accuracy: 1.0
-  passed: 252
-  total: 252
+  passed: 257
+  total: 257
 confusion:
   - actual: answer
     count: 1
@@ -30,10 +30,10 @@ confusion:
     expected: execute:artifact_threads
   - actual: none
     count: 1
-    expected: execute:bash
+    expected: execute:audit_online_skill
   - actual: none
     count: 1
-    expected: execute:audit_online_skill
+    expected: execute:bash
   - actual: none
     count: 1
     expected: execute:browser_click
@@ -153,10 +153,10 @@ confusion:
     expected: execute:doctor_voice_provider
   - actual: none
     count: 1
-    expected: execute:edit_intent_descriptor
+    expected: execute:edit
   - actual: none
     count: 1
-    expected: execute:edit
+    expected: execute:edit_intent_descriptor
   - actual: none
     count: 1
     expected: execute:email_doctor
@@ -283,6 +283,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:list_intent_candidates
+  - actual: none
+    count: 1
+    expected: execute:list_jobs
   - actual: execute:list_marketplace_entries
     count: 1
     expected: execute:list_marketplace_entries
@@ -391,6 +394,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:optimize_intent_descriptors
+  - actual: none
+    count: 1
+    expected: execute:pause_job
   - actual: execute:plan_package_install
     count: 1
     expected: execute:plan_package_install
@@ -438,10 +444,10 @@ confusion:
     expected: execute:queue_analysis
   - actual: none
     count: 1
-    expected: execute:read_memory_entry
+    expected: execute:read
   - actual: none
     count: 1
-    expected: execute:read
+    expected: execute:read_memory_entry
   - actual: execute:read_note
     count: 1
     expected: execute:read_note
@@ -471,6 +477,9 @@ confusion:
     expected: execute:remember_resource_grant
   - actual: none
     count: 1
+    expected: execute:rename_thread
+  - actual: none
+    count: 1
     expected: execute:render_template
   - actual: none
     count: 1
@@ -481,6 +490,12 @@ confusion:
   - actual: none
     count: 1
     expected: execute:resolve_outcomes
+  - actual: none
+    count: 1
+    expected: execute:resolved_settings_snapshot
+  - actual: none
+    count: 1
+    expected: execute:resume_job
   - actual: execute:resume_thread_on_channel
     count: 1
     expected: execute:resume_thread_on_channel
@@ -511,6 +526,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:run_dynamic_draft_trial
+  - actual: none
+    count: 1
+    expected: execute:run_job
   - actual: none
     count: 1
     expected: execute:run_package_install
@@ -565,6 +583,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:set_workspace_theme
+  - actual: none
+    count: 1
+    expected: execute:settings_doctor
   - actual: execute:show_analysis
     count: 1
     expected: execute:show_analysis
@@ -633,12 +654,6 @@ confusion:
     expected: execute:summarize_memory_category
   - actual: none
     count: 1
-    expected: execute:resolved_settings_snapshot
-  - actual: none
-    count: 1
-    expected: execute:settings_doctor
-  - actual: none
-    count: 1
     expected: execute:surface_policy_read
   - actual: none
     count: 1
@@ -685,24 +700,24 @@ confusion:
   - actual: none
     count: 1
     expected: execute:whatsapp_doctor
+  - actual: none
+    count: 1
+    expected: execute:write
   - actual: execute:write_note
     count: 2
     expected: execute:write_note
   - actual: none
-    count: 1
-    expected: execute:write
-  - actual: none
     count: 11
     expected: none
-corpus_case_count: 264
+corpus_case_count: 269
 gate:
   failures: []
   status: pass
-generated_at: 2026-06-30T00:00:00Z
+generated_at: 2026-07-02T15:37:28Z
 id: v056-release-baseline
 negative_violations: []
 overall_accuracy: 1.0
-passed: 264
+passed: 269
 per_domain:
   adversarial:
     accuracy: 1.0
@@ -774,8 +789,8 @@ per_domain:
     total: 13
   negative-internal:
     accuracy: 1.0
-    passed: 130
-    total: 130
+    passed: 135
+    total: 135
   negative-operator:
     accuracy: 1.0
     passed: 20
@@ -843,8 +858,8 @@ per_domain:
 per_surface:
   any:
     accuracy: 1.0
-    passed: 255
-    total: 255
+    passed: 260
+    total: 260
   discord:
     accuracy: 1.0
     passed: 1
@@ -886,4 +901,4 @@ slot_accuracy:
   accuracy: 1.0
   passed: 8
   total: 8
-total: 264
+total: 269

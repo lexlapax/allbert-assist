@@ -3102,6 +3102,60 @@ a.allbert-chip-link:focus-visible,
   font-size: 0.72rem;
 }
 
+/* v0.61b M4 — thread rows split into a switch button + inline-rename affordance
+   (the row div carries the shared rail-item chrome; the switch button fills it). */
+.workspace-rail-item-row {
+  padding: 0;
+}
+
+.workspace-rail-item-switch {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 0.5rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0.55rem 0 0.55rem 0.625rem;
+  text-align: left;
+}
+
+.workspace-rail-item-rename {
+  flex: 0 0 auto;
+  margin-right: 0.25rem;
+  opacity: 0;
+  transition: opacity var(--allbert-motion-duration-fast) var(--allbert-motion-ease-standard);
+}
+
+.workspace-rail-item-row:hover .workspace-rail-item-rename,
+.workspace-rail-item-row:focus-within .workspace-rail-item-rename {
+  opacity: 1;
+}
+
+.workspace-rail-item-renaming {
+  padding: 0.3rem 0.375rem;
+}
+
+.workspace-rail-rename-form {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 0.25rem;
+}
+
+.workspace-rail-rename-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--workspace-accent);
+  border-radius: 0.375rem;
+  background: var(--workspace-field-bg);
+  color: var(--workspace-field-fg);
+  font-size: 0.85rem;
+  padding: 0.25rem 0.375rem;
+}
+
 .workspace-app-icon {
   display: inline-flex;
   flex: 0 0 auto;

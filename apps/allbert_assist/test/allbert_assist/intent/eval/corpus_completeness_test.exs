@@ -181,7 +181,9 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
     assert baseline["schema_version"] == 1
     assert baseline["id"] == "v056-release-baseline"
     assert baseline["corpus_case_count"] == length(cases)
-    assert baseline["corpus_case_count"] == 264
+    # 269 = 264 + the five v0.61b negative-internal rows (rename_thread + the
+    # four v0.61 M10.5 job-control actions whose rows were missing — M0.2).
+    assert baseline["corpus_case_count"] == 269
     assert baseline["overall_accuracy"] == 1.0
     assert is_map(baseline["per_domain"])
     assert get_in(baseline, ["gate", "status"]) == "pass"

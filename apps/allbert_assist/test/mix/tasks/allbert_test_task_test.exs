@@ -171,7 +171,7 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert source =~ ~s(args: ["test", "test/mix/tasks/allbert_conversations_test.exs"])
   end
 
-  test "release.v060 embeds dialyzer before walking skeleton smoke" do
+  test "release.v060 embeds dialyzer after credo (walking-skeleton step retired at v0.61 M10.5)" do
     release_v060_steps =
       Path.expand("../../../lib/mix/tasks/allbert.test.ex", __DIR__)
       |> File.read!()
@@ -180,13 +180,13 @@ defmodule Mix.Tasks.Allbert.TestTaskTest do
     assert release_v060_steps =~ ~s(id: "credo_strict")
     assert release_v060_steps =~ ~s(id: "dialyzer")
     assert release_v060_steps =~ ~s(args: ["dialyzer"])
-    assert release_v060_steps =~ ~s(id: "walking_skeleton_smoke")
+
+    # v0.61 M10.5 retired the /preview walking skeleton and dropped its lane
+    # step from release.v060; this test was never reconciled (v0.61b M0.2).
+    refute release_v060_steps =~ ~s(id: "walking_skeleton_smoke")
 
     assert string_position!(release_v060_steps, ~s(id: "credo_strict")) <
              string_position!(release_v060_steps, ~s(id: "dialyzer"))
-
-    assert string_position!(release_v060_steps, ~s(id: "dialyzer")) <
-             string_position!(release_v060_steps, ~s(id: "walking_skeleton_smoke"))
   end
 
   test "release secret scan includes provider-shaped key patterns" do

@@ -340,6 +340,23 @@ const WorkspaceVoiceCapture = {
 // v0.26a M33: small copy-to-clipboard helper used for mono ids, paths, signal
 // ids etc. The target text comes from `data-copy-value`; falls back to the
 // element's text content. Emits a transient "Copied" affordance via aria-live.
+// v0.61b M4 — double-click on a thread title is the inline-rename accelerator
+// (the pencil affordance is the primary path; there is no phx-dblclick binding).
+const ThreadRenameDblclick = {
+  mounted() {
+    this.handleDblclick = event => {
+      event.preventDefault()
+      event.stopPropagation()
+      const threadId = this.el.dataset.threadId
+      if (threadId) this.pushEvent("start_rename_thread", {"thread-id": threadId})
+    }
+    this.el.addEventListener("dblclick", this.handleDblclick)
+  },
+  destroyed() {
+    this.el.removeEventListener("dblclick", this.handleDblclick)
+  },
+}
+
 const CopyToClipboard = {
   mounted() {
     this.handleClick = async event => {
@@ -900,6 +917,7 @@ const liveSocket = csrfToken
         ComposerEnter,
         ChatAutoScroll,
         CopyToClipboard,
+        ThreadRenameDblclick,
       },
     })
   : null

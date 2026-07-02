@@ -74,6 +74,22 @@ defmodule AllbertAssist.Conversations do
     end
   end
 
+  @doc """
+  Rename a thread's operator-facing title, scoped to the owning `user_id`.
+
+  v0.61b M4: only the persisted `title` field value changes — internal
+  `Conversations.Thread` modules/atoms/topics/keys are untouched (v0.58
+  no-internal-rename invariant).
+  """
+  @spec rename_thread(String.t(), String.t(), String.t()) :: thread_result()
+  def rename_thread(user_id, thread_id, title) do
+    with {:ok, thread} <- get_thread(user_id, thread_id) do
+      thread
+      |> Thread.title_changeset(title)
+      |> Repo.update()
+    end
+  end
+
   @doc "Return the user's most recently updated general thread, if one exists."
   @spec recent_general_thread(String.t()) :: {:ok, Thread.t() | nil}
   def recent_general_thread(user_id) do
