@@ -1524,9 +1524,15 @@ body {
   }
 
   #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-canvas-region,
-  #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-ephemeral-region,
-  #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-chat,
-  #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-ephemeral-region {
+  #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-chat {
+    display: none;
+  }
+
+  /* v0.61 M10.3 P1 — the ephemeral region hosts intent handoff / clarification
+     dialogs (accept/decline, option buttons). It was hidden under both mobile tabs,
+     so the runtime waited on a dialog a phone operator could never answer. Show it in
+     whichever tab is active when it has active content; collapse it when empty. */
+  #workspace-shell #workspace-node-workspace-ephemeral-region:not(:has(.workspace-ephemeral-node)) {
     display: none;
   }
 
@@ -3360,12 +3366,16 @@ a.allbert-chip-link:focus-visible,
   #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-canvas-region,
   #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-utility-drawer,
   #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-objectives,
-  #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-ephemeral-region,
   #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-nav-rail,
   #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-chat,
   #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-utility-drawer,
-  #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-objectives,
-  #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-ephemeral-region {
+  #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-objectives {
+    display: none;
+  }
+
+  /* v0.61 M10.3 P1 — keep the ephemeral region reachable on mobile: hide it only
+     when empty (see the mobile-tab block above for the intent-handoff rationale). */
+  #workspace-shell #workspace-node-workspace-ephemeral-region:not(:has(.workspace-ephemeral-node)) {
     display: none;
   }
 
