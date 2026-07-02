@@ -7,7 +7,7 @@ defmodule AllbertAssist.Workspace.Ephemeral.Surface do
 
   alias AllbertAssist.Workspace.Catalog
 
-  @dismissed_by ~w[operator gc thread_closed cap_evicted]
+  @dismissed_by ~w[operator gc thread_closed cap_evicted handoff_accepted handoff_declined]
   @primary_key {:id, :string, autogenerate: false}
   @foreign_key_type :string
 
