@@ -286,18 +286,16 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
             </p>
           </div>
           <div class="workspace-suggested-actions" aria-label="Suggested next steps">
-            <article
-              :for={suggestion <- suggested_action_dtos()}
-              id={"workspace-suggested-action-#{suggestion.id}"}
-              class="workspace-suggested-action"
-              data-suggested-action="view-only"
-              data-registered-action={suggestion.action_name}
-              data-permission={suggestion.permission}
-              data-execution-mode={suggestion.execution_mode}
-            >
-              <span class="workspace-suggested-action-label">{suggestion.label}</span>
-              <span class="workspace-suggested-action-copy">{suggestion.copy}</span>
-            </article>
+            <%= for suggestion <- suggested_action_dtos() do %>
+              <.link
+                :if={suggestion.navigate}
+                navigate={suggestion.navigate}
+                class="workspace-suggested-action-navigate"
+              >
+                <.suggested_action_card suggestion={suggestion} />
+              </.link>
+              <.suggested_action_card :if={is_nil(suggestion.navigate)} suggestion={suggestion} />
+            <% end %>
           </div>
         </section>
       </div>
@@ -677,15 +675,29 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
   defp prompt_present?(prompt) when is_binary(prompt), do: String.trim(prompt) != ""
   defp prompt_present?(_prompt), do: false
 
+  # v0.61 M10.3 P1 — shaped by the First-Model Path (ADR 0078): the empty-handed
+  # first-run operator is led to set up a first model (local first, BYOK alternative)
+  # before anything else. Each affordance renders a read-only registered-action DTO and
+  # navigates to a real read surface — view-only (navigation is not authority).
   defp suggested_action_dtos do
     [
       %{
+        id: "first-model",
+        label: "Set up your first model",
+        copy: "Local first, or bring your own provider key — checks model readiness.",
+        action_name: "model_doctor",
+        permission: "read_only",
+        execution_mode: "read_only",
+        navigate: "/workspace?destination=workspace:models"
+      },
+      %{
         id: "ask",
         label: "Ask a first question",
-        copy: "Starts with the read-only direct-answer path.",
+        copy: "Once a model is ready, type in the composer to start a runtime turn.",
         action_name: "direct_answer",
         permission: "read_only",
-        execution_mode: "read_only"
+        execution_mode: "read_only",
+        navigate: nil
       },
       %{
         id: "objectives",
@@ -693,7 +705,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
         copy: "Lists existing objectives without changing them.",
         action_name: "list_objectives",
         permission: "read_only",
-        execution_mode: "objectives_read"
+        execution_mode: "objectives_read",
+        navigate: "/objectives"
       },
       %{
         id: "channels",
@@ -701,9 +714,28 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
         copy: "Shows channel readiness before any setup action.",
         action_name: "list_channels",
         permission: "read_only",
-        execution_mode: "settings_read"
+        execution_mode: "settings_read",
+        navigate: "/workspace?destination=workspace:channels"
       }
     ]
+  end
+
+  attr :suggestion, :map, required: true
+
+  defp suggested_action_card(assigns) do
+    ~H"""
+    <article
+      id={"workspace-suggested-action-#{@suggestion.id}"}
+      class="workspace-suggested-action"
+      data-suggested-action="view-only"
+      data-registered-action={@suggestion.action_name}
+      data-permission={@suggestion.permission}
+      data-execution-mode={@suggestion.execution_mode}
+    >
+      <span class="workspace-suggested-action-label">{@suggestion.label}</span>
+      <span class="workspace-suggested-action-copy">{@suggestion.copy}</span>
+    </article>
+    """
   end
 
   defp maximize_label("chat", maximized) do

@@ -2140,6 +2140,13 @@ a.allbert-chip-link:focus-visible,
   gap: 0.625rem;
 }
 
+/* v0.61 M10.3 P1 — navigable affordance wrapper; display:contents lets the inner
+   card stay the grid item so the layout is unchanged while the whole card links. */
+.workspace-suggested-action-navigate {
+  display: contents;
+  text-decoration: none;
+}
+
 .workspace-suggested-action {
   display: grid;
   gap: 0.25rem;
@@ -2148,6 +2155,12 @@ a.allbert-chip-link:focus-visible,
   background: var(--allbert-surface-1);
   color: var(--workspace-fg);
   padding: 0.75rem;
+}
+
+.workspace-suggested-action-navigate:hover .workspace-suggested-action,
+.workspace-suggested-action-navigate:focus-visible .workspace-suggested-action {
+  border-color: var(--allbert-accent);
+  background: var(--allbert-accent-soft);
 }
 
 .workspace-suggested-action-label {
