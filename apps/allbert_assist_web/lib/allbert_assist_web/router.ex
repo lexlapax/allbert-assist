@@ -50,31 +50,11 @@ defmodule AllbertAssistWeb.Router do
     live "/apps/stocksage/analyses/:id", StockSageWeb.AnalysisLive, :show
   end
 
-  if Application.compile_env(:allbert_assist_web, :preview_routes) do
-    scope "/preview", AllbertAssistWeb do
-      pipe_through :browser
-
-      live "/", Skeleton.PreviewLive, :launch
-      live "/onboarding", Skeleton.PreviewLive, :onboarding
-      live "/workspace", Skeleton.PreviewLive, :workspace
-      live "/objectives", Skeleton.PreviewLive, :objectives
-      live "/jobs", Skeleton.PreviewLive, :jobs
-      live "/models", Skeleton.PreviewLive, :models
-      live "/channels", Skeleton.PreviewLive, :channels
-      live "/settings", Skeleton.PreviewLive, :settings
-      live "/trust", Skeleton.PreviewLive, :trust
-
-      # v0.60b disposable styled-variant hero screens: the ≥3 candidate directions
-      # (a|b|c) and the M6 selected proof, each rendered under a data-visual-direction
-      # token/theme delta. Placeholder-only, no live data, no authority.
-      live "/visual/:direction/:screen", Skeleton.VisualPreviewLive, :visual
-
-      # v0.61 M1 disposable layout-system exploration: the ≥4 candidate layout systems
-      # (a|b|c|d) rendered across all nine IA surfaces under a data-layout-system
-      # zone-composition delta in Direction C. Placeholder-only, no live data, no authority.
-      live "/layout/:system/:surface", Skeleton.LayoutPreviewLive, :layout
-    end
-  end
+  # v0.61 M10.4 closeout: the disposable /preview/* walking-skeleton, visual-direction,
+  # and layout-system exploration routes were retired after manual validation captured
+  # the design screenshots. Direction C is now the canonical :root visual language and
+  # the chosen Layout D is the production shell; the design record lives under
+  # docs/design/.
 
   scope "/", AllbertAssistWeb.PublicProtocol do
     pipe_through [:api, :public_protocol_api]

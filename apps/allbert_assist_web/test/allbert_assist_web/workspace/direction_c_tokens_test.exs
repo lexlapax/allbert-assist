@@ -1,16 +1,15 @@
 defmodule AllbertAssistWeb.Workspace.DirectionCTokensTest do
   @moduledoc """
   v0.61 M3 proof: the operator-chosen Direction C (Soft Modern Depth) visual
-  language is promoted from the disposable `[data-visual-direction="c"]` preview
-  delta into the canonical first-class `:root` (and dark) `--allbert-*` defaults,
-  and its four Direction C patterns are wired — two reusable registry components
-  (`elevated_card`, `nav_pill`) plus two markers carried on the richer native
-  surfaces (`chat-primary-hero` on the chat pane, `trust-soft-card` on the policy
-  panel).
+  language is promoted into the canonical first-class `:root` (and dark) `--allbert-*`
+  defaults, and its four Direction C patterns are wired — two reusable registry
+  components (`elevated_card`, `nav_pill`) plus two markers carried on the richer
+  native surfaces (`chat-primary-hero` on the chat pane, `trust-soft-card` on the
+  policy panel).
 
-  Scoped to the `:root` / `[data-theme="dark"]` blocks so it proves *promotion*,
-  not mere presence (the values also exist in the still-live c preview block until
-  the M10 preview retirement).
+  Scoped to the `:root` / `[data-theme="dark"]` blocks. The disposable
+  `[data-visual-direction="c"]` preview override that seeded these values was retired
+  at the v0.61 closeout, so `:root` is now the sole source of the Direction C values.
   """
   use AllbertAssistWeb.ConnCase, async: false
 

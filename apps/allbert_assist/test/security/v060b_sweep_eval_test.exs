@@ -5,9 +5,10 @@ defmodule AllbertAssist.Security.V060bSweepEvalTest do
   File-backed checks for the visual-language design artifacts (research, brief, rubric,
   the ≥3 candidate directions, comparison, selected), ADR 0079 acceptance-with-choice,
   the recorded operator choice, the design-only no-authority invariant, and the
-  handoff-to-v0.61 drift-check. The hero-rendering and styled-skeleton-proof rows are
-  registered in the same inventory but asserted by the web
-  `AllbertAssistWeb.Skeleton.VisualDirectionProofTest`.
+  handoff-to-v0.61 drift-check. The disposable hero-rendering / styled-skeleton preview
+  proofs were retired at the v0.61 closeout (the preview mechanism is gone; Direction C
+  is now the canonical `:root` language and the committed screenshots are the durable
+  design record).
   """
   use AllbertAssist.SecurityEvalCase, async: false
 
@@ -19,8 +20,7 @@ defmodule AllbertAssist.Security.V060bSweepEvalTest do
     candidate_decision: ~w(three-divergent-directions-present-001 operator-choice-recorded-001),
     adr_acceptance: ~w(adr-0079-accepted-with-choice-001),
     design_only: ~w(no-new-authority-design-only-001),
-    handoff: ~w(visual-language-handoff-to-v061-no-drift-001),
-    renderings: ~w(hero-renderings-present-001 styled-skeleton-proof-001)
+    handoff: ~w(visual-language-handoff-to-v061-no-drift-001)
   ]
   @eval_ids @eval_groups |> Keyword.values() |> List.flatten()
   @sweep_owned_ids @eval_groups
@@ -33,7 +33,6 @@ defmodule AllbertAssist.Security.V060bSweepEvalTest do
                    ])
                    |> Keyword.values()
                    |> List.flatten()
-  @web_owned_ids Keyword.fetch!(@eval_groups, :renderings)
   @chosen_direction "c"
   @repo_root Path.expand("../../../../", __DIR__)
 
@@ -48,10 +47,6 @@ defmodule AllbertAssist.Security.V060bSweepEvalTest do
 
     for id <- @sweep_owned_ids do
       assert rows_by_id[id].test_module == "AllbertAssist.Security.V060bSweepEvalTest"
-    end
-
-    for id <- @web_owned_ids do
-      assert rows_by_id[id].test_module == "AllbertAssistWeb.Skeleton.VisualDirectionProofTest"
     end
   end
 

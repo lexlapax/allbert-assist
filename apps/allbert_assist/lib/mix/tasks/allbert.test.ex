@@ -3636,20 +3636,6 @@ defmodule Mix.Tasks.Allbert.Test do
       ]
     },
     %{
-      id: "walking_skeleton_smoke",
-      title: "walking-skeleton routes resolve + nav/a11y smoke",
-      cwd: :web,
-      executable: "mix",
-      args: ["test", "test/allbert_assist_web/skeleton/walking_skeleton_test.exs"],
-      coverage: [
-        "every /preview IA-sitemap route resolves through the catalog/shell",
-        "preview nav shell exposes the IA navigation model; active route resolves",
-        "route-specific composition zones render for every preview route",
-        "keyboard focus / high-contrast / reduced-motion hold across skeleton screens",
-        "placeholder screens read no business state and grant no authority"
-      ]
-    },
-    %{
       id: "v060_security_sweep",
       title: "v0.60 design-artifact, ADR-acceptance, coherence, and handoff eval rows",
       cwd: :core,
@@ -3798,20 +3784,6 @@ defmodule Mix.Tasks.Allbert.Test do
         "Dialyzer warnings fail the v0.60b visual-language handoff",
         "included because v0.60b produces styled-variant rendering code",
         "Dialyzer evidence is captured inside release.v060b"
-      ]
-    },
-    %{
-      id: "visual_direction_proof",
-      title: "≥3 candidate directions + selected proof render the four hero screens",
-      cwd: :web,
-      executable: "mix",
-      args: ["test", "test/allbert_assist_web/skeleton/visual_direction_proof_test.exs"],
-      coverage: [
-        "every /preview/visual/<direction>/<screen> route resolves through the catalog/shell",
-        "≥3 candidate directions each render the four hero screens with their token/theme delta",
-        "the selected proof renders all four hero screens as the chosen direction",
-        "a11y readiness holds; screens read no business state and grant no authority",
-        "the unknown-component placeholder fallback is absent from successful output"
       ]
     },
     %{
@@ -3964,19 +3936,6 @@ defmodule Mix.Tasks.Allbert.Test do
         "Dialyzer warnings fail the v0.61 presentation-overhaul handoff",
         "included because v0.61 ships substantial LiveView/CSS-token/shell code",
         "Dialyzer evidence is captured inside release.v061"
-      ]
-    },
-    %{
-      id: "layout_system_proof",
-      title:
-        "≥3 layout systems render all nine IA surfaces in Direction C behind the preview flag",
-      cwd: :web,
-      executable: "mix",
-      args: ["test", "test/allbert_assist_web/skeleton/layout_system_proof_test.exs"],
-      coverage: [
-        "every /preview/layout/<system>/<surface> route resolves through the catalog/shell",
-        "≥3 systems each render the nine IA surfaces in the Direction C delta",
-        "no live data and no authority in the disposable exploration"
       ]
     },
     %{

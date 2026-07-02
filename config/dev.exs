@@ -92,7 +92,6 @@ config :allbert_assist_web, AllbertAssistWeb.Endpoint,
 
 # Enable dev routes for dashboard and mailbox
 config :allbert_assist_web, dev_routes: true
-config :allbert_assist_web, preview_routes: true
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"

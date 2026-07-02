@@ -5051,65 +5051,6 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V060SweepEvalTest"
     },
     %{
-      id: "walking-skeleton-routes-resolve-001",
-      milestone: :v060,
-      surface: :walking_skeleton,
-      scenario:
-        "A preview route from the IA manifest fails to resolve through the operator shell and catalog placeholders",
-      boundary: :preview_route_manifest,
-      expected: :allowed,
-      assert: [
-        :routes_resolve,
-        :catalog_components_known,
-        :placeholder_fallback_absent
-      ],
-      test_module: "AllbertAssistWeb.Skeleton.WalkingSkeletonTest"
-    },
-    %{
-      id: "walking-skeleton-nav-shell-001",
-      milestone: :v060,
-      surface: :walking_skeleton,
-      scenario: "The walking skeleton omits grouped IA navigation or active route state",
-      boundary: :preview_navigation_shell,
-      expected: :allowed,
-      assert: [
-        :nav_model_exposed,
-        :active_route_resolves,
-        :inter_screen_links_present
-      ],
-      test_module: "AllbertAssistWeb.Skeleton.WalkingSkeletonTest"
-    },
-    %{
-      id: "walking-skeleton-a11y-smoke-001",
-      milestone: :v060,
-      surface: :walking_skeleton,
-      scenario:
-        "The preview shell omits keyboard focus, high-contrast, or reduced-motion readiness",
-      boundary: :preview_accessibility_smoke,
-      expected: :allowed,
-      assert: [
-        :keyboard_focus_ready,
-        :high_contrast_ready,
-        :reduced_motion_ready
-      ],
-      test_module: "AllbertAssistWeb.Skeleton.WalkingSkeletonTest"
-    },
-    %{
-      id: "no-new-authority-design-only-001",
-      milestone: :v060,
-      surface: :walking_skeleton,
-      scenario:
-        "The walking skeleton reads business state, exposes effectful affordances, or adds authority/settings",
-      boundary: :design_only_no_authority,
-      expected: :denied,
-      assert: [
-        :no_live_data,
-        :no_effectful_affordance,
-        :no_new_settings_key
-      ],
-      test_module: "AllbertAssistWeb.Skeleton.WalkingSkeletonTest"
-    },
-    %{
       id: "rc-design-handoff-no-drift-001",
       milestone: :v060,
       surface: :design_handoff,
@@ -5326,38 +5267,6 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.V060bSweepEvalTest"
     },
     %{
-      id: "hero-renderings-present-001",
-      milestone: :v060b,
-      surface: :visual_direction,
-      scenario:
-        "The candidate directions do not each render the four hero screens through the catalog/shell with no live data or authority",
-      boundary: :design_only_no_authority,
-      expected: :allowed,
-      assert: [
-        :three_directions_rendered,
-        :four_hero_screens_each,
-        :no_live_data,
-        :no_authority
-      ],
-      test_module: "AllbertAssistWeb.Skeleton.VisualDirectionProofTest"
-    },
-    %{
-      id: "styled-skeleton-proof-001",
-      milestone: :v060b,
-      surface: :visual_direction,
-      scenario:
-        "The chosen direction is not applied to all four skeleton hero screens as a rendered proof with a11y holding and no authority",
-      boundary: :design_only_no_authority,
-      expected: :allowed,
-      assert: [
-        :chosen_direction_proof_rendered,
-        :four_hero_screens,
-        :a11y_axes_hold,
-        :no_live_data_no_authority
-      ],
-      test_module: "AllbertAssistWeb.Skeleton.VisualDirectionProofTest"
-    },
-    %{
       id: "no-new-authority-design-only-001",
       milestone: :v060b,
       surface: :visual_direction,
@@ -5526,17 +5435,6 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :denied,
       assert: [:denied, :redacted_report],
       test_module: "AllbertAssist.Security.SandboxEvalTest"
-    },
-    %{
-      id: "layout-systems-rendered-001",
-      milestone: :v061,
-      surface: :layout,
-      scenario:
-        "The layout-system previews fail to render >=3 systems across all nine IA surfaces in Direction C, or leak live data / authority",
-      boundary: :design_only_rendering,
-      expected: :allowed,
-      assert: [:three_systems_rendered, :nine_surfaces_each, :no_live_data, :no_authority],
-      test_module: "AllbertAssistWeb.Skeleton.LayoutSystemProofTest"
     },
     %{
       id: "visual-language-direction-c-tokens-first-class-001",

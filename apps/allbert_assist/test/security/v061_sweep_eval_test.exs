@@ -15,7 +15,6 @@ defmodule AllbertAssist.Security.V061SweepEvalTest do
   @surfaces ~w(launch onboarding workspace objectives jobs models channels settings trust)
 
   @eval_groups [
-    layout_rendering: ~w(layout-systems-rendered-001),
     visual_language: ~w(visual-language-direction-c-tokens-first-class-001),
     navigation: ~w(ia-navigation-model-implemented-001 route-contract-no-sprawl-001),
     screens:
@@ -35,7 +34,6 @@ defmodule AllbertAssist.Security.V061SweepEvalTest do
   @sweep_owned_ids Keyword.fetch!(@eval_groups, :design_artifacts)
 
   @owners %{
-    "layout-systems-rendered-001" => "AllbertAssistWeb.Skeleton.LayoutSystemProofTest",
     "visual-language-direction-c-tokens-first-class-001" =>
       "AllbertAssistWeb.Workspace.DirectionCTokensTest",
     "ia-navigation-model-implemented-001" => "AllbertAssistWeb.OperatorShellNavTest",

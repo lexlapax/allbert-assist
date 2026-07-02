@@ -15,8 +15,6 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
     design_artifacts:
       ~w(product-experience-spec-present-001 information-architecture-spec-present-001 first-model-path-design-present-001 onboarding-flow-design-present-001 persona-model-design-present-001 entry-point-cli-ux-design-present-001 design-system-gap-analysis-present-001),
     adr_acceptance: ~w(adr-0077-accepted-001 adr-0078-first-model-path-accepted-001),
-    walking_skeleton:
-      ~w(walking-skeleton-routes-resolve-001 walking-skeleton-nav-shell-001 walking-skeleton-a11y-smoke-001 no-new-authority-design-only-001),
     handoff: ~w(rc-design-handoff-no-drift-001),
     coherence: ~w(first-model-persona-cross-doc-coherence-001),
     persona_preaudit: ~w(persona-seed-preaudit-001)
@@ -52,7 +50,6 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
                    ])
                    |> Keyword.values()
                    |> List.flatten()
-  @web_owned_ids Keyword.fetch!(@eval_groups, :walking_skeleton)
   @repo_root Path.expand("../../../../", __DIR__)
 
   test "v0.60 eval inventory rows are complete and routed to their owning tests" do
@@ -66,10 +63,6 @@ defmodule AllbertAssist.Security.V060SweepEvalTest do
 
     for id <- @sweep_owned_ids do
       assert rows_by_id[id].test_module == "AllbertAssist.Security.V060SweepEvalTest"
-    end
-
-    for id <- @web_owned_ids do
-      assert rows_by_id[id].test_module == "AllbertAssistWeb.Skeleton.WalkingSkeletonTest"
     end
   end
 

@@ -69,8 +69,6 @@ config :allbert_assist_web, AllbertAssistWeb.Endpoint,
   secret_key_base: "kJ5nb7nB0RUl64ivOrzlVn3dJKLBg0yhm7Cgw6j+FqFWWmcGcg7k9X5yp/pVDhDb",
   server: false
 
-config :allbert_assist_web, preview_routes: true
-
 # Print only warnings and errors during test
 config :logger, level: :warning
 
