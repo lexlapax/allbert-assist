@@ -7,6 +7,7 @@ defmodule AllbertAssistWeb.Layouts do
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Surfaces.ContextBuilder
+  alias AllbertAssistWeb.Components.WorkspaceSections
   alias AllbertAssistWeb.Workspace.Components.Patterns
 
   # Embed all files in layouts/* within this module.
@@ -147,6 +148,14 @@ defmodule AllbertAssistWeb.Layouts do
   attr :active, :string, default: nil
   attr :nav_items, :list, default: nil
 
+  attr :workspace, :map,
+    default: nil,
+    doc:
+      "v0.61b M5 (ADR 0080 §1): contextual workspace sections nested under the " <>
+        "Workspace entry. Present only on /workspace (the hosting LiveView owns " <>
+        "the section events); operator shells pass nothing and render the plain " <>
+        "pill — the Workspace entry is 'collapsed to its header' elsewhere."
+
   def product_sidebar(assigns) do
     assigns =
       assign(
@@ -156,7 +165,7 @@ defmodule AllbertAssistWeb.Layouts do
       )
 
     ~H"""
-    <aside class="operator-sidebar" aria-label="Product navigation">
+    <aside id="product-sidebar" class="operator-sidebar" aria-label="Product navigation">
       <.link navigate={~p"/"} class="operator-sidebar-brand">
         <img
           src={~p"/images/allbert-mark.svg"}
@@ -172,13 +181,17 @@ defmodule AllbertAssistWeb.Layouts do
       <nav class="operator-sidebar-nav" aria-label="Operator pages">
         <div :for={group <- @nav_groups} class="operator-nav-group">
           <p class="operator-nav-group-label">{group.label}</p>
-          <Patterns.nav_pill
-            :for={item <- group.items}
-            id={"operator-nav-#{item.key}"}
-            label={item.label}
-            navigate={item.path}
-            active?={item.active?}
-          />
+          <%= for item <- group.items do %>
+            <Patterns.nav_pill
+              id={"operator-nav-#{item.key}"}
+              label={item.label}
+              navigate={item.path}
+              active?={item.active?}
+            />
+            <%= if item.key == "workspace" and @workspace do %>
+              <WorkspaceSections.workspace_sections workspace={@workspace} />
+            <% end %>
+          <% end %>
         </div>
       </nav>
 

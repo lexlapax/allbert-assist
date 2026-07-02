@@ -10,7 +10,9 @@ defmodule AllbertAssistWeb.Workspace.ResponsiveTest do
     assert css =~ "@media (min-width: 768px)"
     assert css =~ "@media (max-width: 767.98px)"
     assert css =~ "grid-template-areas:"
-    assert css =~ ~s("nav chat")
+    # v0.61b M5: the workspace submenu column is retired — the root grid is
+    # single-column ("nav chat" gone); the product sidebar owns navigation.
+    refute css =~ ~s("nav chat")
     assert css =~ ~s(#workspace-shell[data-canvas-drawer="open"])
     refute css =~ ~s("chat resizer canvas")
     assert css =~ ~s(#workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-chat)

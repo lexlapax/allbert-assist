@@ -102,11 +102,14 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert has_element?(view, "#workspace-shell[data-canvas-drawer='closed']")
     assert has_element?(view, "#workspace-renderer")
     assert has_element?(view, "#allbert-appbar")
-    assert has_element?(view, "#workspace-node-workspace-nav-rail")
+    # v0.61b M5 (ADR 0080 §1): the workspace-local submenu column is retired;
+    # its sections nest under the product sidebar's Workspace entry.
+    refute has_element?(view, "#workspace-node-workspace-nav-rail")
+    refute has_element?(view, "#workspace-component-workspace-thread-list")
+    refute has_element?(view, "#workspace-component-workspace-app-launcher")
+    assert has_element?(view, "#sidebar-workspace-sections")
     assert has_element?(view, "#workspace-launcher")
-    assert has_element?(view, "#workspace-component-workspace-thread-list")
     assert html =~ "Conversations"
-    assert has_element?(view, "#workspace-component-workspace-app-launcher")
     refute has_element?(view, "#workspace-node-workspace-utility-drawer")
     refute has_element?(view, "#workspace-node-workspace-objectives")
 

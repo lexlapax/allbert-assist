@@ -785,6 +785,39 @@ body {
   letter-spacing: 0.04em;
 }
 
+/* v0.61b M5 (ADR 0080 §1): contextual workspace sections nested under the
+   sidebar's Workspace entry — visually subordinate (indented, bordered), one
+   disclosure depth; the Conversations list scrolls internally so the nav
+   groups below stay visible (M0 spec: Conversations containment). */
+.operator-workspace-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  margin: 0.25rem 0 0.5rem var(--allbert-space-3);
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--allbert-line);
+}
+
+.workspace-sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.workspace-sidebar-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.workspace-sidebar-conversations {
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
 .operator-sidebar-actions {
   margin-top: auto;
 }
@@ -3168,22 +3201,19 @@ a.allbert-chip-link:focus-visible,
   font-size: 0.82rem;
 }
 
+/* v0.61b M5 (ADR 0080 §1): the workspace-local submenu column is retired — the
+   root grid is single-column (the consolidated product sidebar owns navigation);
+   the horizontal band the second column occupied returns to chat/canvas. */
 @media (min-width: 768px) {
   #workspace-shell #workspace-node-workspace-root > .workspace-root-grid {
     display: grid;
-    grid-template-columns:
-      minmax(11rem, 14rem)
-      minmax(30rem, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "header header"
-      "nav chat"
-      "ephemeral ephemeral";
+      "header"
+      "chat"
+      "ephemeral";
     gap: 1rem;
     align-items: stretch;
-  }
-
-  #workspace-node-workspace-nav-rail {
-    grid-area: nav;
   }
 
   #workspace-node-workspace-utility-drawer,
@@ -3193,28 +3223,20 @@ a.allbert-chip-link:focus-visible,
 }
 
 @media (min-width: 768px) {
-  #workspace-shell[data-maximized-pane] #workspace-node-workspace-nav-rail,
   #workspace-shell[data-maximized-pane] #workspace-node-workspace-utility-drawer {
-    display: none;
-  }
-
-  #workspace-shell[data-canvas-focus="true"] #workspace-node-workspace-nav-rail {
     display: none;
   }
 }
 
 @media (max-width: 767.98px) {
-  #workspace-node-workspace-nav-rail,
   #workspace-node-workspace-utility-drawer,
   #workspace-node-workspace-objectives {
     margin-top: 1rem;
   }
 
-  #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-nav-rail,
   #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-canvas-region,
   #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-utility-drawer,
   #workspace-shell[data-mobile-tab="chat"] #workspace-node-workspace-objectives,
-  #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-nav-rail,
   #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-chat,
   #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-utility-drawer,
   #workspace-shell[data-mobile-tab="canvas"] #workspace-node-workspace-objectives {
@@ -3227,14 +3249,17 @@ a.allbert-chip-link:focus-visible,
     display: none;
   }
 
-  #workspace-shell[data-launcher-open="true"] #workspace-node-workspace-nav-rail {
+  /* v0.61b M5: the mobile launcher opens the consolidated product sidebar as an
+     overlay drawer (the retired submenu column's launcher-open overlay,
+     retargeted per the M0 relocation table row 13). */
+  .workspace-with-sidebar[data-launcher-open="true"] .operator-sidebar {
     position: fixed;
     top: 1rem;
     right: 1rem;
     bottom: var(--workspace-mobile-shellbar-space);
     left: 1rem;
     z-index: 32;
-    display: block;
+    display: flex;
     overflow: auto;
     border: 1px solid var(--workspace-border);
     border-radius: 0.5rem;

@@ -789,8 +789,15 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
     ~H"""
     <Layouts.app flash={@flash} content_width="full">
-      <div class="workspace-with-sidebar" data-active-page={workspace_nav_key(@canvas_destination)}>
-        <Layouts.product_sidebar active={workspace_nav_key(@canvas_destination)} />
+      <div
+        class="workspace-with-sidebar"
+        data-active-page={workspace_nav_key(@canvas_destination)}
+        data-launcher-open={bool_attribute(@workspace_launcher_open?)}
+      >
+        <Layouts.product_sidebar
+          active={workspace_nav_key(@canvas_destination)}
+          workspace={sidebar_workspace_context(assigns)}
+        />
         <section
           id="workspace-shell"
           class={[
@@ -837,8 +844,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
               type="button"
               class="workspace-mobile-launcher-button"
               phx-click="toggle_workspace_launcher"
-              aria-label="Open workspace launcher"
-              aria-controls="workspace-node-workspace-nav-rail"
+              aria-label="Open workspace navigation"
+              aria-controls="product-sidebar"
               aria-expanded={bool_attribute(@workspace_launcher_open?)}
             >
               <.icon name="hero-bars-3-micro" class="size-5" />
@@ -2604,6 +2611,27 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   # v0.61 M9 — emit `system` so the CSS resolves it against the OS prefers-color-scheme
   # instead of falling back to light; explicit light/dark still win.
   defp theme_attribute(_system), do: "system"
+
+  # v0.61b M5 (ADR 0080 §1): the consolidated sidebar's contextual Workspace
+  # sections consume the same reads the retired submenu column consumed —
+  # recent threads and the launcher destination inventory — via assigns; no
+  # new query paths.
+  defp sidebar_workspace_context(assigns) do
+    %{
+      recent_threads: assigns.recent_threads,
+      thread_id: assigns.thread_id,
+      renaming_thread_id: assigns.renaming_thread_id,
+      canvas_destination: assigns.canvas_destination,
+      destinations: sidebar_destinations(assigns)
+    }
+  end
+
+  defp sidebar_destinations(assigns) do
+    Layout.launcher_destinations(
+      assigns.workspace_layout,
+      WorkspaceCatalog.known_destinations(%{registered_apps: assigns.registered_apps})
+    )
+  end
 
   defp renderer_context(assigns) do
     %{

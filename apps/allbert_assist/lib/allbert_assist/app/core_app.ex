@@ -853,23 +853,11 @@ defmodule AllbertAssist.App.CoreApp do
               subtitle: "Runtime chat, canvas, and ephemeral surfaces."
             }
           },
-          %Node{
-            id: "workspace-nav-rail",
-            component: :nav_rail,
-            props: %{zone: "nav_apps"},
-            children: [
-              %Node{
-                id: "workspace-thread-list",
-                component: :thread_list,
-                props: %{title: "Threads"}
-              },
-              %Node{
-                id: "workspace-app-launcher",
-                component: :app_launcher,
-                props: %{title: "Apps"}
-              }
-            ]
-          },
+          # v0.61b M5 (ADR 0080 §1): the workspace-local submenu column
+          # (nav_rail + thread_list + app_launcher nodes) is retired — its
+          # sections nest under the product sidebar's Workspace entry. The
+          # component atoms stay registered-but-unused in Surface.Catalog
+          # (operator decision 2026-07-02).
           %Node{
             id: "workspace-chat",
             component: :chat,

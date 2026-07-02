@@ -101,7 +101,9 @@ defmodule AllbertAssist.Workspace.CatalogTest do
     assert [%Node{component: :workspace_shell, children: children}] = surface.nodes
     assert Enum.any?(children, &match?(%Node{component: :chat}, &1))
     assert Enum.any?(children, &match?(%Node{component: :canvas}, &1))
-    assert Enum.any?(children, &match?(%Node{component: :nav_rail}, &1))
+    # v0.61b M5: the submenu column nodes are no longer emitted (the atoms stay
+    # registered-but-unused in the catalog).
+    refute Enum.any?(children, &match?(%Node{component: :nav_rail}, &1))
     refute Enum.any?(children, &match?(%Node{component: :utility_drawer}, &1))
     refute Enum.any?(children, &match?(%Node{component: :badge_strip}, &1))
     assert Enum.any?(children, &match?(%Node{component: :ephemeral_surface}, &1))
