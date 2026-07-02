@@ -2,31 +2,25 @@ defmodule AllbertAssistWeb.JobsLive do
   @moduledoc """
   Thin scheduled job inspection surface.
 
-  v0.61 M10.3 pins identity to a server-derived `"local"` id (`@user_id`) rather than
-  the URL-controllable `?user=` param the surface previously read verbatim — closing
-  the objectives-index IDOR's sibling here. The list is scoped to that identity, and
-  the pause/resume/run effects load the job through the ownership-scoped
-  `Jobs.get_job/2` so a crafted `phx-value-id` for another user's job cannot be read,
-  paused, resumed, or executed.
-
-  The reads/effects still resolve through the `Jobs` context directly rather than
-  registered Jido actions: unlike Objectives, Jobs has no registered
-  list/pause/resume/run actions, and adding them is a data-layer change out of the
-  v0.61 presentation scope. Migrating this surface onto a registered-action boundary
-  (ADR 0073) is deferred to the version that introduces those job actions; the
-  server-derived, ownership-scoped identity closes the disclosure and cross-user
-  effect in the meantime.
+  Identity is a server-derived `"local"` id (`@user_id`), never the URL. Reads and the
+  pause/resume/run effects route through the registered `list_jobs` / `pause_job` /
+  `resume_job` / `run_job` Jido actions via `Runner.run/3` with a server-built context
+  (v0.61 M10.4). Those actions resolve identity with the context-supplied user id ahead
+  of any params value and load the job through the ownership-scoped `Jobs.get_job/2`, so
+  a crafted `phx-value-id` for another user's job cannot be read, paused, resumed, or
+  executed, and every effect passes the `:job_write` PermissionGate — restoring the
+  ADR-0073 read-through-action boundary for this surface.
   """
 
   use AllbertAssistWeb, :live_view
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Intent.ApprovalHandoff
-  alias AllbertAssist.Jobs
   alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Jobs.Run
-  alias AllbertAssist.Jobs.Runner
   alias AllbertAssist.Surface
   alias AllbertAssist.Surface.Node
+  alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssistWeb.Workspace.Components.Patterns
   alias AllbertAssistWeb.Workspace.Renderer, as: WorkspaceRenderer
 
@@ -45,35 +39,14 @@ defmodule AllbertAssistWeb.JobsLive do
   end
 
   @impl true
-  def handle_event("pause", %{"id" => id}, socket) do
-    result =
-      with {:ok, job} <- Jobs.get_job(socket.assigns.user_id, id),
-           {:ok, paused} <- Jobs.pause_job(job) do
-        {:ok, "Paused #{paused.name}"}
-      end
+  def handle_event("pause", %{"id" => id}, socket),
+    do: {:noreply, run_job_control(socket, "pause_job", id)}
 
-    {:noreply, handle_result(socket, result)}
-  end
+  def handle_event("resume", %{"id" => id}, socket),
+    do: {:noreply, run_job_control(socket, "resume_job", id)}
 
-  def handle_event("resume", %{"id" => id}, socket) do
-    result =
-      with {:ok, job} <- Jobs.get_job(socket.assigns.user_id, id),
-           {:ok, resumed} <- Jobs.resume_job(job) do
-        {:ok, "Resumed #{resumed.name}"}
-      end
-
-    {:noreply, handle_result(socket, result)}
-  end
-
-  def handle_event("run", %{"id" => id}, socket) do
-    result =
-      with {:ok, job} <- Jobs.get_job(socket.assigns.user_id, id),
-           {:ok, %{run: run}} <- Runner.run_now(job) do
-        {:ok, "Run #{run.id} #{run.status}"}
-      end
-
-    {:noreply, handle_result(socket, result)}
-  end
+  def handle_event("run", %{"id" => id}, socket),
+    do: {:noreply, run_job_control(socket, "run_job", id)}
 
   @impl true
   def render(assigns) do
@@ -241,30 +214,42 @@ defmodule AllbertAssistWeb.JobsLive do
     |> Enum.join(" ")
   end
 
-  defp handle_result(socket, {:ok, notice}) do
-    socket
-    |> assign(:notice, notice)
-    |> load_jobs()
-  end
+  # Effectful job controls route through the registered pause_job/resume_job/run_job
+  # actions (`:job_write` gate, ownership-scoped fetch under the server-derived
+  # identity), then refresh the list. The action's message carries the blocked-by-
+  # confirmation guidance; any non-completed status surfaces as the notice.
+  defp run_job_control(socket, action_name, id) do
+    params = %{id: id, user_id: socket.assigns.user_id}
 
-  defp handle_result(socket, {:error, reason}) do
-    assign(socket, :notice, error_notice(reason))
-  end
+    case Runner.run(action_name, params, job_context()) do
+      {:ok, %{status: :completed, message: message}} ->
+        socket |> assign(:notice, message) |> load_jobs()
 
-  defp error_notice({:blocked_by_confirmation, confirmation_id}) do
-    "Job is blocked by pending confirmation #{confirmation_id}. Inspect it with mix allbert.confirmations show #{confirmation_id}."
+      {:ok, response} ->
+        assign(socket, :notice, Map.get(response, :message, inspect(response)))
+    end
   end
-
-  defp error_notice(reason), do: "Error: #{inspect(reason)}"
 
   defp load_jobs(socket) do
-    jobs = Jobs.list_jobs(socket.assigns.user_id)
-    runs_by_job = Map.new(jobs, fn job -> {job.id, Jobs.list_runs(job, limit: 3)} end)
+    {jobs, runs_by_job} =
+      case Runner.run("list_jobs", %{user_id: socket.assigns.user_id}, job_context()) do
+        {:ok, %{status: :completed, jobs: jobs, runs_by_job: runs_by_job}} ->
+          {jobs, runs_by_job}
+
+        _other ->
+          {[], %{}}
+      end
 
     socket
     |> assign(:jobs, jobs)
     |> assign(:runs_by_job, runs_by_job)
     |> assign(:jobs_surface, jobs_surface(jobs, runs_by_job))
+  end
+
+  # Server-built context pins the identity to @user_id ahead of any params value, so
+  # the registered actions scope reads/effects to the local operator (ADR 0073).
+  defp job_context do
+    ContextBuilder.live_view_context(%{user_id: @user_id}, surface: "AllbertAssistWeb.JobsLive")
   end
 
   defp schedule_text(%{"kind" => "manual"}), do: "manual"

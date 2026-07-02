@@ -80,7 +80,11 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.RunShellCommand
   alias AllbertAssist.Actions.Intent.ShowDescriptor, as: IntentShowDescriptor
   alias AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow
+  alias AllbertAssist.Actions.Jobs.ListJobs
+  alias AllbertAssist.Actions.Jobs.PauseJob
   alias AllbertAssist.Actions.Jobs.RegistryHealth
+  alias AllbertAssist.Actions.Jobs.ResumeJob
+  alias AllbertAssist.Actions.Jobs.RunJob
   alias AllbertAssist.Actions.Jobs.TraceSummary
   alias AllbertAssist.Actions.Marketplace.Doctor, as: MarketplaceDoctor
   alias AllbertAssist.Actions.Marketplace.InspectEntry, as: InspectMarketplaceEntry
@@ -386,6 +390,10 @@ defmodule AllbertAssist.Actions.Registry do
     OnboardingStepComplete,
     RegistryHealth,
     TraceSummary,
+    ListJobs,
+    PauseJob,
+    ResumeJob,
+    RunJob,
     ManageTile,
     RevertTileRevision,
     RecordOfflineUpdate,

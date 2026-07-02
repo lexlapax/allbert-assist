@@ -56,6 +56,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
              :workflow_read,
              :workflow_run_start,
              :plan_cancel,
+             :job_write,
              :marketplace_install,
              :email_send,
              :channel_message_send,

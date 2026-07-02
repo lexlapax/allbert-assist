@@ -62,6 +62,7 @@ defmodule AllbertAssist.Security.PermissionGate do
           | :workflow_read
           | :workflow_run_start
           | :plan_cancel
+          | :job_write
           | :marketplace_install
           | :settings_secret_write
           | :settings_secret_read

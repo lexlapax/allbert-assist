@@ -55,6 +55,7 @@ defmodule AllbertAssist.Security.Policy do
     workflow_read: "permissions.workflow_read",
     workflow_run_start: "permissions.workflow_run_start",
     plan_cancel: "permissions.plan_cancel",
+    job_write: "permissions.job_write",
     marketplace_install: "permissions.marketplace_install",
     email_send: "permissions.email_send",
     channel_message_send: "permissions.channel_message_send",
@@ -112,6 +113,7 @@ defmodule AllbertAssist.Security.Policy do
     workflow_read: :allowed,
     workflow_run_start: :needs_confirmation,
     plan_cancel: :allowed,
+    job_write: :allowed,
     marketplace_install: :allowed,
     # v0.54 M10 outbound compose actions: effectful + externally visible, so they
     # default to needs_confirmation (routing never auto-sends; ADR 0063).
@@ -189,6 +191,7 @@ defmodule AllbertAssist.Security.Policy do
           | :workflow_read
           | :workflow_run_start
           | :plan_cancel
+          | :job_write
           | :marketplace_install
           | :email_send
           | :channel_message_send
@@ -250,6 +253,7 @@ defmodule AllbertAssist.Security.Policy do
       :workflow_read,
       :workflow_run_start,
       :plan_cancel,
+      :job_write,
       :marketplace_install,
       :email_send,
       :channel_message_send,
@@ -752,6 +756,15 @@ defmodule AllbertAssist.Security.Policy do
 
   defp reason(:plan_cancel, :denied, _configured, _floor, _context),
     do: "Cooperative plan cancellation is denied by current policy."
+
+  defp reason(:job_write, :allowed, _configured, _floor, _context),
+    do: "Scheduled-job control (pause/resume/run) on the operator's own jobs is allowed."
+
+  defp reason(:job_write, :needs_confirmation, _configured, _floor, _context),
+    do: "Scheduled-job control requires confirmation by current policy."
+
+  defp reason(:job_write, :denied, _configured, _floor, _context),
+    do: "Scheduled-job control is denied by current policy."
 
   defp reason(:marketplace_install, :allowed, _configured, _floor, _context),
     do: "Marketplace installs are allowed because shipped bundles land disabled and untrusted."

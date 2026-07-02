@@ -62,6 +62,7 @@ defmodule AllbertAssist.Security.Risk do
   def tier(:workflow_read), do: :low
   def tier(:workflow_run_start), do: :high
   def tier(:plan_cancel), do: :low
+  def tier(:job_write), do: :low
   def tier(:marketplace_install), do: :medium
   def tier(:skill_script_execute), do: :high
   def tier(:settings_secret_write), do: :high
@@ -172,6 +173,9 @@ defmodule AllbertAssist.Security.Risk do
   defp reasons(:workflow_read, _tier, _context), do: ["local workflow YAML read and expansion"]
   defp reasons(:workflow_run_start, _tier, _context), do: ["confirmed plan run start boundary"]
   defp reasons(:plan_cancel, _tier, _context), do: ["cooperative objective cancellation"]
+
+  defp reasons(:job_write, _tier, _context),
+    do: ["cooperative scheduled-job control on the operator's own jobs"]
 
   defp reasons(:marketplace_install, _tier, _context),
     do: ["local marketplace bundle write into disabled untrusted state"]
