@@ -200,7 +200,11 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     # The panel is the real action-backed channels_panel (M10.3 P0-7), not the old
     # static placeholder — it reads channel status through the registered action
     # boundary and shows a real inventory row or an honest empty state.
-    assert has_element?(view, "#workspace-channels-panel[data-workspace-component='channels_panel']")
+    assert has_element?(
+             view,
+             "#workspace-channels-panel[data-workspace-component='channels_panel']"
+           )
+
     assert has_element?(view, "#workspace-channels-panel[data-action-source='actions-runner']")
     assert has_element?(view, "#workspace-channels-empty") or html =~ "workspace-channel-"
     refute html =~ "Connected channels appear here once configured."
