@@ -1,9 +1,10 @@
 # ADR 0080: Navigation Consolidation & Workspace Shell Presentation
 
-Status: Proposed (v0.61b). Moves to Accepted (v0.61b) when the operator signs off
-the v0.61b plan's M0 shell-spec/sign-off section at the request-flow S2 review;
-the as-built reconciliation is recorded after the S4 early live shell review and
-the final validation pass.
+Status: Accepted (v0.61b). The operator signed off the v0.61b plan's M0
+shell-spec/sign-off section at the request-flow S2 review on 2026-07-02
+(`S2 sign-off: accepted, 2026-07-02` recorded in the plan); the as-built
+reconciliation is recorded after the S4 early live shell review and the final
+validation pass.
 Date: 2026-07-02
 Related: ADR 0077 (Product Experience Design & IA — 0077 fixed the surface
 inventory, journey, and navigation groups; 0080 revises the *presentation* of that

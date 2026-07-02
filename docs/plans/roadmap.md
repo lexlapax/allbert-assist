@@ -3984,7 +3984,7 @@ skeleton preview modules at closeout.
 Plan: `docs/plans/v0.61b-plan.md`
 Request flow: `docs/plans/v0.61b-request-flow.md`
 ADR: `docs/adr/0080-navigation-consolidation-and-workspace-shell-presentation.md`
-(Proposed (v0.61b); Accepted at the S2 plan sign-off; pointer notes in ADR
+(Accepted (v0.61b) at the 2026-07-02 S2 plan sign-off; pointer notes in ADR
 0077/0074).
 
 Status: planned (second readiness pass, 2026-07-02) — a **point release**
