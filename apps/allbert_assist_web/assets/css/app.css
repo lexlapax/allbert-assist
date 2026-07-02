@@ -957,6 +957,24 @@ body {
   white-space: nowrap;
 }
 
+/* v0.61b M2 (ADR 0080 §5): chips that navigate carry link affordances so the
+   label + affordance predict the navigation. */
+.allbert-chip-link {
+  cursor: pointer;
+  color: var(--workspace-fg);
+  text-decoration: none;
+  transition: border-color var(--allbert-motion-duration-fast)
+    var(--allbert-motion-ease-standard);
+}
+
+.allbert-chip-link:hover {
+  border-color: var(--workspace-accent);
+}
+
+.allbert-chip-link:hover span {
+  text-decoration: underline;
+}
+
 .allbert-chip-mono,
 #workspace-shell code,
 #workspace-shell pre,

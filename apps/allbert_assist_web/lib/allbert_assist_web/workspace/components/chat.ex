@@ -60,13 +60,24 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
         </div>
         <div :if={@active_objectives != []} id="objective-badges" class="workspace-objective-badges">
           <.link
-            :for={objective <- @active_objectives}
+            :for={objective <- visible_objectives(@active_objectives)}
             id={"objective-badge-#{objective.id}"}
             navigate={~p"/objectives/#{objective.id}"}
-            class="allbert-chip"
+            class="allbert-chip allbert-chip-link"
+            aria-label={objective_chip_aria_label(objective)}
+            title={objective_chip_aria_label(objective)}
           >
             <.icon name="hero-flag-micro" class="size-4" />
-            <span>{objective.status}</span>
+            <span>{objective_chip_label(objective)}</span>
+          </.link>
+          <.link
+            :if={objective_overflow_count(@active_objectives) > 0}
+            id="objective-badges-overflow"
+            navigate={~p"/objectives"}
+            class="allbert-chip allbert-chip-link"
+            aria-label={"View all objectives — #{objective_overflow_count(@active_objectives)} more active"}
+          >
+            <span>+{objective_overflow_count(@active_objectives)} more</span>
           </.link>
         </div>
         <button
@@ -747,6 +758,61 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
 
   defp canvas_toggle_label(true), do: "Close canvas drawer"
   defp canvas_toggle_label(false), do: "Open canvas drawer"
+
+  # v0.61b M2 (ADR 0080 §5): navigating controls name their destination. The
+  # objective chip labels status + truncated title (N identical "running" chips
+  # name nothing); ≥3 active objectives collapse to two chips + "+N more".
+  @objective_chip_limit 2
+  @objective_title_limit 24
+
+  defp visible_objectives(objectives) when length(objectives) > @objective_chip_limit do
+    Enum.take(objectives, @objective_chip_limit)
+  end
+
+  defp visible_objectives(objectives), do: objectives
+
+  defp objective_overflow_count(objectives) do
+    max(length(objectives) - @objective_chip_limit, 0)
+  end
+
+  defp objective_chip_label(objective) do
+    "#{objective_status_label(objective)} · #{objective_chip_title(objective)}"
+  end
+
+  defp objective_chip_aria_label(objective) do
+    "View objective #{objective_title(objective)} — status: #{objective_status(objective)}"
+  end
+
+  defp objective_chip_title(objective) do
+    title = objective_title(objective)
+
+    if String.length(title) > @objective_title_limit do
+      String.slice(title, 0, @objective_title_limit - 1) <> "…"
+    else
+      title
+    end
+  end
+
+  defp objective_title(objective) do
+    case Map.get(objective, :title) do
+      title when is_binary(title) and title != "" ->
+        title
+
+      _missing ->
+        case Map.get(objective, :objective) do
+          text when is_binary(text) and text != "" -> text
+          _missing -> "Objective"
+        end
+    end
+  end
+
+  defp objective_status(objective) do
+    objective |> Map.get(:status, "open") |> to_string()
+  end
+
+  defp objective_status_label(objective) do
+    objective |> objective_status() |> String.capitalize()
+  end
 
   defp message_id(%{id: id}) when is_binary(id), do: id
   defp message_id(_message), do: System.unique_integer([:positive])

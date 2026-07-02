@@ -191,6 +191,14 @@ Copy conventions:
   descriptor/evidence payloads.
 - Status copy must state the current state first, then the available action when
   one exists.
+- **Navigating controls name their destination (ADR 0080 §5, v0.61b).** A bare
+  status chip must not navigate. Chips that navigate carry the
+  `allbert-chip-link` affordance (hover underline, focus ring, pointer cursor)
+  and a visible label naming status + destination context — the chat-header
+  objective chips read status + the truncated objective title (e.g.
+  "Running · Ship weekly digest"), with an accessible name of the form
+  "View objective <title> — status: running"; three or more active objectives
+  collapse to two chips plus a "+N more" link to `/objectives`.
 
 ## Variant Registry
 
