@@ -3879,7 +3879,9 @@ implements the v0.60 IA/navigation/screen-composition redesign plus an
 operator-chosen brand identity, motion, marketing surface, and the professional
 craft pass).
 
-Status: planned (pre-1.0 product capability release 1 of 3; implements the v0.60
+Status: closeout — built, manual-validated live, hardened, and `release.v061`
+gate-green (Dialyzer 0); version bumped to 0.61.0, git tag pending operator
+(pre-1.0 product capability release 1 of 3; implements the v0.60
 design **in the v0.60b-chosen visual language**; followed by v0.62 packaging,
 v0.63 guided onboarding, and the v0.64 product RC). Builds on the v0.60 experience
 design, the **v0.60b-chosen visual/UX design

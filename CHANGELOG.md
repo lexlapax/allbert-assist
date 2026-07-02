@@ -10,6 +10,47 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.61.0 - Presentation Layer Overhaul
+
+Status: closeout — `mix allbert.test release.v061` gate-green (Dialyzer 0); version
+bumped to 0.61.0; git tag pending operator.
+
+Implements the v0.60 product-experience design (information architecture, navigation,
+screen composition; ADR 0077) in the operator-chosen **Layout D (Sidebar-primary)**,
+dressed in the v0.60b-chosen **Direction C (Soft Modern Depth)** visual language
+(ADR 0079), turning the v0.58 design-system substrate into the polished primary
+product surface. No new authority, no route sprawl, no substrate rebuild; the catalog
+stays the rendering boundary.
+
+- **IA & navigation:** the five-group IA (Start/Work/Operate/Extend/Trust) rendered by
+  a persistent Layout D product sidebar (shared `product_sidebar` component) on every
+  surface including `/workspace`, with route- and destination-derived active state and
+  a mobile shellbar carrying the brand.
+- **Direction C first-class:** the token/component delta promoted into the canonical
+  `:root`/dark `--allbert-*` defaults (elevation/depth, tonal surfaces, radius, rounded
+  type, density, motion roles); two reusable variant components + two pattern markers.
+- **Redesigned screens:** chat-primary workspace hero; jobs/objectives in the
+  `elevated_card` variant; Models/Channels/Settings/Trust as workspace destinations;
+  a real action-backed **Channels** inventory panel.
+- **Brand & landing:** Allbert mark/wordmark across shell/shellbar/landing; a real `/`
+  marketing surface with static SEO/OG; rasterized `favicon.ico`, apple-touch-icon, and
+  a 1200×630 OG social card; the stock Phoenix asset retired.
+- **Motion, dark mode, affordances:** token-driven entrance/drawer/skeleton motion with
+  a reduced-motion contract; `system` theme resolving to OS `prefers-color-scheme`
+  across all roots (in-sync sidebar + shell); First-Model-Path empty-state affordances.
+- **Accessibility:** readable status/text/CTA contrast proven by computed WCAG ratios
+  across light/dark, high-contrast, system-dark, and prefers-contrast cells.
+- **Authority boundary:** the Objectives index and the Jobs list + pause/resume/run
+  controls read/mutate through registered actions with a server-derived, ownership-
+  scoped identity (new low-tier `:job_write` permission).
+- **Closeout:** disposable `/preview/*` exploration mechanism retired after design
+  screenshots were committed; ADR 0074 v0.61 amendment Accepted; `web-design-system.md`
+  updated to describe the shipped surface.
+
+Deferred to a follow-up cycle: five operator UX-feedback items (docked tool panels,
+chat type scale, collapsible hamburger nav, renamable threads, status-chip
+naming/target) captured for v0.62.
+
 ## v0.60.1 - Visual Design Language & Art Direction (v0.60b)
 
 Status: released; tagged `v0.60.1` on 2026-06-30, gate-green. A **point release**
