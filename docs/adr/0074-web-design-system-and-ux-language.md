@@ -112,7 +112,8 @@ this system, not as a separate one-off re-skin.
 
 ## v0.61 Presentation Layer Overhaul amendment
 
-Proposed amendment (v0.61). The v0.58 work delivered a strong token and
+Accepted amendment (v0.61 M10.4 closeout; reconciled with the as-built surface after
+operator manual validation). The v0.58 work delivered a strong token and
 accessibility *substrate* under an operator-utility *surface*. The v0.58 maturity
 review found the gap: no coherent product motion layer yet, brand identity
 effectively absent, a thin landing page, no marketing surface, a flat visual
@@ -157,3 +158,40 @@ The concrete v0.60 M7 amendment input is
 `docs/design/design-system-gap-analysis.md`: token, component-variant, and pattern
 gaps mapped to the M2 composition rules / M6 skeleton screens and owned by the
 v0.61 Presentation Layer Overhaul.
+
+### As-built reconciliation (v0.61 M10.4)
+
+The shipped surface was validated live and reconciled with this amendment:
+
+- **Chosen layout = Layout D (Sidebar-primary), Direction C.** The persistent product
+  sidebar is realized as a shared `Layouts.product_sidebar/1` component carrying the
+  five IA nav groups. It renders on the operator surfaces (`/`, `/jobs`,
+  `/objectives`) via `operator_shell/1`, and — the one intentional deviation — on
+  `/workspace` as a left column (`.workspace-with-sidebar`) *alongside* the
+  renderer-owned chat/canvas shell rather than wrapping it in `operator_shell`. This
+  keeps the chat-primary hero and canvas-drawer machinery intact while giving the
+  primary surface the same chosen-layout navigation and active-state highlighting
+  (route-derived on operator surfaces, destination-derived on `/workspace`). The
+  documented layout is `docs/design/layout-systems-selected.md`.
+- **Direction C is first-class.** Its token/component delta is promoted into the
+  canonical `:root` / `[data-theme="dark"]` `--allbert-*` defaults; the component
+  delta is two reusable variant components (`elevated_card`, `nav_pill`) plus two
+  Direction C patterns (`chat-primary-hero`, `trust-soft-card`) carried as markers on
+  the richer native chat/policy surfaces.
+- **Preview mechanism retired.** The disposable `/preview/*` walking-skeleton,
+  visual-direction, and layout-system exploration (routes, `Skeleton.*` modules,
+  `[data-visual-direction]`/`[data-layout-system]` CSS, `:preview_routes` flag, and
+  the preview proof tests/lane steps/eval rows) was removed at closeout after the
+  design screenshots were committed; Direction C at `:root` and Layout D in production
+  supersede it. The design record under `docs/design/` is the durable evidence.
+- **Objectives/Jobs read-through-action boundary.** Both operator list surfaces read
+  through registered actions with a server-derived identity; the Jobs list and its
+  pause/resume/run controls route through registered `list_jobs`/`pause_job`/
+  `resume_job`/`run_job` actions gated by the new low-tier `:job_write` permission
+  (ownership-scoped; the prior direct-context reads are gone).
+- **Brand assets** are rasterized for real: an Allbert-mark `favicon.ico`, a 180×180
+  `apple-touch-icon.png`, and a 1200×630 `allbert-og.png` social card, with the SVG
+  mark/wordmark still applied across the sidebar, mobile shellbar, and landing.
+
+This amendment is now the accepted web-design-system contract for the v0.61 surface;
+its additive-only carve-out is what freezes at v1.0.
