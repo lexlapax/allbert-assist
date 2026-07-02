@@ -157,9 +157,12 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   @impl true
   def handle_params(%{} = params, _uri, socket) do
+    destination = resolve_canvas_destination(params)
+
     socket =
       socket
-      |> assign_canvas_destination(resolve_canvas_destination(params))
+      |> assign_canvas_destination(destination)
+      |> assign(:page_title, workspace_page_title(destination))
       |> assign_artifacts_browser_filters(resolve_artifacts_browser_filters(params))
       |> assign(:workspace_overflow_open?, false)
       |> maybe_assign_mobile_tab(param(params, "tab"))
@@ -2533,6 +2536,14 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   defp workspace_nav_key("workspace:settings"), do: "settings"
   defp workspace_nav_key("workspace:surface_policy"), do: "trust"
   defp workspace_nav_key(_destination), do: "workspace"
+
+  # Per-destination document title so the browser tab / screen-reader announcement
+  # changes as the operator navigates workspace destinations (v0.61 M10.3 P1).
+  defp workspace_page_title("workspace:models"), do: "Models"
+  defp workspace_page_title("workspace:channels"), do: "Channels"
+  defp workspace_page_title("workspace:settings"), do: "Settings"
+  defp workspace_page_title("workspace:surface_policy"), do: "Trust"
+  defp workspace_page_title(_destination), do: "Workspace"
 
   defp active_app_attribute(app) when is_atom(app), do: Atom.to_string(app)
   defp active_app_attribute(app) when is_binary(app), do: app

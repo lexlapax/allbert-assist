@@ -64,6 +64,7 @@ defmodule AllbertAssistWeb.JobsLiveTest do
     {:ok, view, html} = live(conn, ~p"/jobs")
 
     assert html =~ "Scheduled Jobs"
+    assert html =~ ~r/<title[^>]*>\s*Scheduled Jobs\s*<\/title>/
     assert has_element?(view, "#operator-shell[data-active-page='jobs']")
     assert has_element?(view, "#jobs-catalog-renderer[data-workspace-renderer='surface']")
     assert has_element?(view, "#job-#{job.id}[data-workspace-component='job_card']")

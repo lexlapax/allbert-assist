@@ -37,6 +37,7 @@ defmodule AllbertAssistWeb.JobsLive do
     socket =
       socket
       |> assign(:user_id, @user_id)
+      |> assign(:page_title, "Scheduled Jobs")
       |> assign(:notice, nil)
       |> load_jobs()
 

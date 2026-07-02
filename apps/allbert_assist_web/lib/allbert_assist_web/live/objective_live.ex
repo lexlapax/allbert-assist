@@ -28,6 +28,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
       |> assign(
         objective_id: id,
         user_id: @user_id,
+        page_title: "Objective",
         response: nil,
         objective: nil,
         steps: [],

@@ -33,6 +33,7 @@ defmodule AllbertAssistWeb.ObjectivesLive do
     {:ok,
      assign(socket,
        user_id: @user_id,
+       page_title: "Objectives",
        objectives: objectives,
        objectives_surface: objectives_surface(objectives)
      )}
