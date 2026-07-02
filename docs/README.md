@@ -37,9 +37,13 @@ visual hierarchy, landing, and dark-mode polish; `release.v061` is green and the
 tag `v0.61.0` is applied; version metadata reports `0.61.0`. In flight is
 **v0.61b** (planned, releases as `0.61.1`): a UX-refinement point release that
 implements the operator's v0.61 manual-validation feedback — navigation
-consolidation (one sidebar, docked tool pane, no top bars, collapsible rail; ADR
-0080) plus chat type-scale, status-chip labeling, renamable threads, and a subtler
-dark mode. The remaining pre-1.0 arc is v0.62 packaging/entry points, v0.63 guided
+consolidation (one sidebar, replace-and-restore docked tool pane, no top bars,
+collapsible rail with Workspace flyout; ADR 0080) plus chat type-scale,
+status-chip labeling, renamable threads, and a subtler dark mode. Pane width
+reuses `WorkspaceSplitResizer`, sidebar collapse uses client-local `LayoutPrefs`,
+and the v0.61 proof suite is reconciled only where M3/M5 intentionally change old
+literal token values or pre-M5 nav structure. The remaining pre-1.0 arc is v0.62
+packaging/entry points, v0.63 guided
 onboarding/profiles, and v0.64 product RC; see the [plans index](plans/README.md)
 and [roadmap](plans/roadmap.md). The v0.60/v0.60b design artifacts live under
 `docs/design/` (including `visual-directions/` rendered captures); v0.61 adds the

@@ -87,7 +87,8 @@ headers.
    per-view header line** inside the content area — context/title left, view
    actions right. Global affordances relocate into the sidebar: brand stays as the
    sidebar header, theme toggle and overflow move to the sidebar footer, and the
-   workspace context/status chips move to the per-view header or chat header.
+   workspace context/status chips move to the per-view header, pane header, or
+   chat header according to the v0.61b relocation map.
    Vertical space returns to chat/canvas.
 3. **Workspace tool panels dock; nothing floats over chat.** The canvas region
    (which hosts the `workspace:*` destination panels and canvas tiles) becomes a
@@ -109,11 +110,14 @@ headers.
    state persisted client-side. Expanded is the default; collapse is operator
    opt-in, never the default.
 5. **Navigating controls name their destination.** A bare status chip must not
-   navigate. The chat-header objective chip becomes a **labeled link-chip** whose
-   visible label names the destination context (status + objective), with link
-   affordances (hover underline, focus ring) and an `aria-label` of the form
-   "View objective — status: running". This is a general UX-language rule for the
-   product, recorded here and in `docs/developer/web-design-system.md`.
+   navigate. Chat-header objective chips become **labeled link-chips** whose
+   visible labels name status + the truncated objective title (for example,
+   "Running · Ship weekly digest"). With three or more active objectives, the
+   header shows the two most recent chips plus a "+N more" link to `/objectives`.
+   Link affordances (hover underline, focus ring) are required, and the accessible
+   name is of the form "View objective <title> — status: running". This is a
+   general UX-language rule for the product, recorded here and in
+   `docs/developer/web-design-system.md`.
 
 Within-contract refinements shipped alongside (recorded in the v0.61b plan, not
 decisions of this ADR): the chat-message type-scale fix (ADR 0074's typographic
@@ -150,6 +154,10 @@ no-internal-rename invariant holds).
 - **One spine.** All writes route through registered actions; the shell reads
   through the established renderer context; nothing reaches `Settings.Store` or
   business logic directly.
+- **Layout preferences stay client-local.** The docked pane reuses the existing
+  `WorkspaceSplitResizer` hook and key; sidebar collapse state uses a small
+  `LayoutPrefs` hook. Neither path creates a Settings Central key or synced
+  policy.
 
 ## Consequences
 

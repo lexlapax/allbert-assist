@@ -2,6 +2,11 @@
 
 Status: released v0.58 operator guide.
 
+Note: this guide describes the released/current workspace behavior through
+v0.61.0. The planned v0.61b point release supersedes the Canvas Drawer guidance
+with ADR 0080's consolidated sidebar and docked workspace pane at closeout; until
+that ships, keep this page as the released operator reference.
+
 The operator workspace is `/workspace`. v0.58 keeps that route and changes the
 layout and panels on top of the existing authority spine.
 

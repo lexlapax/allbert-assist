@@ -3987,28 +3987,32 @@ ADR: `docs/adr/0080-navigation-consolidation-and-workspace-shell-presentation.md
 (Proposed (v0.61b); Accepted at the S2 plan sign-off; pointer notes in ADR
 0077/0074).
 
-Status: planned (first pass, 2026-07-02) — a **point release** (0.61.1) inserted
-between v0.61 (0.61.0) and v0.62; does not renumber v0.62-v0.64. Implements the
-eight operator UX-feedback items from the v0.61 manual validation (captured
-2026-07-01; inventory folded into the plan; the temporary root capture file
-retires at closeout). One shell-composition arc (ADR 0080: single sidebar with
-contextually-expanding workspace sections replacing the workspace-local submenu
-column; per-shell top bars retired for slim per-view headers; the workspace tool
-pane docked as a right-hand resizable split pane instead of floating over chat;
-icon-rail + full-hide sidebar collapse with client-side persistence) plus four
-contained refinements (chat-bubble type hierarchy fixed — the timestamp rule was
-simply missing; the chat-header objective chip becomes a labeled link-chip;
-renamable conversation threads via a registered `rename_thread` action on the
-existing `:conversation_write` permission — no internal rename; a subtler
-dark-mode token pass inside Direction C, both dark blocks in lockstep, all a11y
-cells ≥ AA). No new authority, permission, Settings key, route, or capability;
-Direction C and the ADR 0077 IA structure hold. Milestones M0 (in-plan
-shell-spec/sign-off section + ADR 0080, S2 operator sign-off gates the shell arc)
-→ M1-M4 contained →
+Status: planned (second readiness pass, 2026-07-02) — a **point release**
+(0.61.1) inserted between v0.61 (0.61.0) and v0.62; does not renumber
+v0.62-v0.64. Implements the eight operator UX-feedback items from the v0.61
+manual validation (captured 2026-07-01; inventory folded into the plan; the
+temporary root capture file retires at closeout). One shell-composition arc (ADR
+0080: single sidebar with contextually-expanding workspace sections replacing the
+workspace-local submenu column; per-shell top bars retired for slim per-view
+headers; the workspace tool pane docked as a right-hand resizable split pane with
+replace-and-restore pane tenancy and existing `WorkspaceSplitResizer` persistence
+reuse; icon-rail + full-hide sidebar collapse with a click-activated Workspace
+rail flyout and client-side `LayoutPrefs` persistence) plus four contained
+refinements (chat-bubble type hierarchy fixed — the timestamp rule was simply
+missing; the chat-header objective chip becomes a labeled link-chip; renamable
+conversation threads via a registered `rename_thread` action on the existing
+`:conversation_write` permission — no internal rename; a subtler dark-mode token
+pass inside Direction C, both dark blocks in lockstep, all a11y cells ≥ AA). No
+new authority, permission, capability class, Settings key, or route; thread rename
+is the one operator write affordance on the existing action spine. Direction C and
+the ADR 0077 IA structure hold. Milestones M0 (in-plan shell-spec/sign-off
+section + ADR 0080, S2 operator sign-off gates the shell arc) → M1-M4 contained →
 M5-M8 shell arc (S4 early live review; send-backs absorbed by M8) → M9 evals +
-`release.v061b` gate (incl. the `:v061` regression proof) + closeout. The former
-v0.62 M7 UX carryover moves here; v0.62 is reconciled to pure packaging scope.
-Releases as **0.61.1**, tag held for the operator after the S6 final validation.
+`release.v061b` gate (incl. the `:v061` regression proof, reconciled where M3/M5
+intentionally change old literal token values or pre-M5 nav structure) + closeout.
+The former v0.62 M7 UX carryover moves here; v0.62 is reconciled to pure packaging
+scope. Releases as **0.61.1**, tag held for the operator after the S6 final
+validation.
 
 ## v0.62: Packaging & Entry Points
 
