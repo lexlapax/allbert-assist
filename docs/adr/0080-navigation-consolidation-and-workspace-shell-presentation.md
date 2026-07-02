@@ -93,12 +93,17 @@ headers.
    (which hosts the `workspace:*` destination panels and canvas tiles) becomes a
    **right-docked, resizable split pane** beside the chat pane: a draggable
    divider with min-width constraints, a collapse control on the divider, a
-   keyboard toggle, and a persisted width. Chat is never occluded. Floating
-   overlays are reserved for transient, self-dismissing content (menus, pickers),
-   which dismiss on Escape with focus return.
+   keyboard toggle, and a persisted width. Chat is never occluded. Pane tenancy
+   is replace-and-restore (operator decision 2026-07-02): the pane shows exactly
+   one of canvas content or one destination panel; opening a destination
+   replaces the canvas, closing it restores the canvas — no tab strip. Floating
+   overlays are reserved for transient, self-dismissing content (menus, pickers,
+   the rail flyout), which dismiss on Escape with focus return.
 4. **The sidebar collapses to an icon rail, with an optional full hide.** A
    chevron toggle at the sidebar edge collapses the expanded sidebar to a narrow
-   icon-only rail (top-level destinations stay visible); a second stage (from the
+   icon-only rail (top-level destinations stay visible; the workspace sections
+   open from the Workspace rail icon as a click-activated flyout — operator
+   decision 2026-07-02); a second stage (from the
    rail) fully hides it for maximum focus, with a persistent reopen affordance.
    Keyboard shortcut, `aria-expanded` on the toggle, focus return, and collapsed
    state persisted client-side. Expanded is the default; collapse is operator
@@ -128,8 +133,8 @@ no-internal-rename invariant holds).
   pane, and per-view headers are catalog/shell/component-variant work; no
   model-generated or data-generated markup, no new rendering mechanism.
 - **No internal rename.** `Conversations.Thread` modules/schema/atoms/topics/keys
-  and `Session.Scratchpad` are untouched; the thread title is a new persisted
-  field surfaced in UI strings only.
+  and `Session.Scratchpad` are untouched; the thread title is an existing
+  persisted field gaining a write path, surfaced in UI strings only.
 - **Direction C holds.** Tokens, elevation, motion roles, and the aesthetic are
   ADR 0079's chosen language; 0080 recomposes the shell, it does not restyle it.
   The dark-mode subtlety pass adjusts token *values* within the language and must
@@ -159,6 +164,15 @@ no-internal-rename invariant holds).
   submenu nodes and the Header appbar node retire; the sidebar gains contextual
   workspace sections fed by the same renderer context (threads, destinations).
   Canvas-drawer CSS (`position: fixed` overlay) is replaced by a two-pane grid.
+  The retired node atoms stay **registered-but-unused** in `Surface.Catalog`
+  (operator decision 2026-07-02): the tree stops emitting them; the catalog
+  list, type union, and their exact-list tests are untouched; pruning is a
+  deliberate later pass. They are single-emitter atoms the v1.0 component
+  carve-out exempts from name-freezing.
+- The `:v061` proof suite is reconciled, not held verbatim: proofs that pin
+  literal dark token values or the pre-consolidation nav structure are updated
+  as deliberate, reviewed edits by the milestone that changes them, then the
+  suite re-runs green in the `release.v061b` gate.
 - v0.62's packaging scope is unchanged; its former M7 UX carryover moves to
   v0.61b (v0.62 plan reconciled). v0.63 onboarding and the v1.0
   presentation-contract freeze consume the consolidated shell as the baseline.
