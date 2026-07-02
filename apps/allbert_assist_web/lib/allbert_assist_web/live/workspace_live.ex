@@ -2435,7 +2435,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
     end
   end
 
-  defp dismiss_intent_surface(socket, params, _dismissed_by) do
+  defp dismiss_intent_surface(socket, params, dismissed_by) do
     case optional_param(params, "surface-id") do
       nil ->
         socket
@@ -2443,7 +2443,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       surface_id ->
         case run_workspace_action(socket, "dismiss_workspace_ephemeral", %{
                surface_id: surface_id,
-               dismissed_by: "operator"
+               dismissed_by: dismissed_by
              }) do
           {:ok, %{status: :completed}} ->
             socket

@@ -86,7 +86,7 @@ defmodule AllbertAssistWeb.Workspace.Components.TileInspector do
               </div>
             </dl>
             <a
-              :if={trace = trace_link(@tile)}
+              :if={(trace = trace_link(@tile)) && !trace.copyable?}
               id="workspace-tile-inspector-trace-link"
               class="workspace-trace-link mt-2"
               href={trace.href}
@@ -94,6 +94,17 @@ defmodule AllbertAssistWeb.Workspace.Components.TileInspector do
               <.icon name="hero-link-micro" class="size-4" />
               <span class="workspace-mono">{trace.label}</span>
             </a>
+            <button
+              :if={(trace = trace_link(@tile)) && trace.copyable?}
+              id="workspace-tile-inspector-trace-copy"
+              type="button"
+              class="allbert-chip workspace-copy-target mt-2"
+              phx-hook="CopyToClipboard"
+              data-copy-value={trace.id}
+            >
+              <.icon name="hero-clipboard-document-micro" class="size-4" />
+              <span class="workspace-mono">{trace.label}</span>
+            </button>
             <p :if={is_nil(trace_link(@tile))} class="workspace-tile-inspector-muted">
               No trace link is attached to this tile.
             </p>
@@ -187,15 +198,20 @@ defmodule AllbertAssistWeb.Workspace.Components.TileInspector do
   defp trace_link(tile) do
     case find_trace_node(value(tile, :body)) do
       %{href: href, label: label} when is_binary(href) and href != "" and href != "#" ->
-        %{href: href, label: label || href}
+        %{href: href, label: label || href, copyable?: false}
 
       _other ->
+        # No navigable href — only a bare trace id. Surface it as a copyable value
+        # rather than a dead `href="#"` anchor (v0.61 M10.4).
         case first_present([
                metadata_value(tile, :trace_id),
                fragment_metadata_value(tile, :trace_id)
              ]) do
-          nil -> nil
-          trace_id -> %{href: "#", label: string_value(trace_id)}
+          nil ->
+            nil
+
+          trace_id ->
+            %{id: string_value(trace_id), label: string_value(trace_id), copyable?: true}
         end
     end
   end

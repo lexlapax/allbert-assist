@@ -34,7 +34,6 @@ defmodule AllbertAssistWeb.ObjectiveLive do
         steps: [],
         events: [],
         error: nil,
-        cancel_reason: "",
         show_cancel?: false
       )
       |> refresh()
@@ -61,7 +60,6 @@ defmodule AllbertAssistWeb.ObjectiveLive do
          |> assign(
            response: response_text(response),
            show_cancel?: false,
-           cancel_reason: "",
            error: nil
          )
          |> refresh()}
@@ -187,7 +185,7 @@ defmodule AllbertAssistWeb.ObjectiveLive do
                   rows="3"
                   class="textarea textarea-bordered"
                   required
-                ><%= @cancel_reason %></textarea>
+                ></textarea>
               </label>
 
               <div class="workspace-pane-actions">

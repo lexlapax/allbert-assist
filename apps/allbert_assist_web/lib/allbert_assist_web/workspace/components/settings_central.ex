@@ -320,8 +320,8 @@ defmodule AllbertAssistWeb.Workspace.Components.SettingsCentral do
               phx-target={@myself}
               phx-value-key={setting.key}
               class={[
-                "block w-full rounded border px-3 py-2 text-left text-sm transition",
-                setting.key == @selected_key && "border-blue-500 bg-blue-50",
+                "settings-list-item block w-full rounded border px-3 py-2 text-left text-sm transition",
+                setting.key == @selected_key && "settings-list-item-active",
                 setting.key != @selected_key && "border-base-300 hover:border-base-content/40"
               ]}
             >

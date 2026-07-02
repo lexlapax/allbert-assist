@@ -38,8 +38,21 @@ self.addEventListener("install", event => {
   event.waitUntil(cacheShellAssets(DEFAULT_SHELL_ASSETS).then(() => self.skipWaiting()));
 });
 
+const CACHE_PREFIX = "allbert-workspace-shell-";
+
+const purgeOldCaches = async () => {
+  const names = await caches.keys();
+  await Promise.all(
+    names
+      .filter(name => name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME)
+      .map(name => caches.delete(name))
+  );
+};
+
 self.addEventListener("activate", event => {
-  event.waitUntil(self.clients.claim());
+  // Delete superseded versioned caches (e.g. the v0.60 shell) before claiming
+  // clients, so a cache-name bump does not orphan the previous cache forever.
+  event.waitUntil(purgeOldCaches().then(() => self.clients.claim()));
 });
 
 self.addEventListener("message", event => {

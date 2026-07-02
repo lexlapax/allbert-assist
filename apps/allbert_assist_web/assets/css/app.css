@@ -2169,6 +2169,14 @@ a.allbert-chip-link:focus-visible,
   text-decoration: none;
 }
 
+/* v0.61 M10.4 — token-driven selected state for the Settings Central key list, so
+   it holds in dark / high-contrast instead of the old hardcoded light-scheme blue. */
+.settings-list-item-active {
+  border-color: var(--allbert-accent);
+  background: var(--allbert-accent-soft);
+  color: var(--allbert-text-strong);
+}
+
 .workspace-suggested-action {
   display: grid;
   gap: 0.25rem;
