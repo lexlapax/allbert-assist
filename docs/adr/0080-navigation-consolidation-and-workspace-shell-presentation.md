@@ -219,3 +219,34 @@ with these recorded refinements — none change the decision:
 - The eight refinements are proven by the `:v061b` eval rows +
   `release.v061b`; the S4 early live review and S5/S6 operator passes remain
   open — send-backs fold into the M8 polish window per the plan.
+
+### Audit amendments (v0.61b M9.1/M9.2, 2026-07-03)
+
+The six-lens post-implementation audit (plan M9.1/M9.2) found the build honest
+on the decision but caught four deviations worth recording here — the first
+was a genuine guardrail breach, now remediated; the rest are accepted
+narrowings:
+
+- **Focus-return guardrail shipped unmet, delivered by M9.1** — this ADR's
+  Guardrails section demanded transient-overlay focus return "gate-checked,
+  not best-effort", yet the rail flyout, overflow menu, and rename-cancel all
+  dropped focus to `<body>` on dismiss, and the covering eval row's assert
+  list had quietly dropped the `:focus_return` atom. M9.1 implements the
+  focus return and restores the assert.
+- **Relocation row 7 amended** — the pane-header cap chip is a static count
+  (no toggle, no `aria-controls`); pane collapse lives on the divider
+  control, the maximize control, and the chat-header Canvas button. The
+  signed M0 table said the chip itself would collapse the pane; the built
+  reading is recorded in the plan's M0 table.
+- **Sections are static groups, not disclosures** — the sidebar's workspace
+  sections render as auto-expanded headed groups without `aria-expanded`
+  disclosure buttons; nothing is collapsible inside the expanded sidebar.
+  Accepted: the sections are short and contextual.
+- **Pane tenancy close = select Output** — "closing the destination panel
+  restores the canvas" is destination-state-driven; there is no explicit
+  close control on the docked panel. The §1
+  navigating-controls-name-their-destination rule still holds (the Output row
+  names where you land).
+- **Patch-vs-navigate is partial by design** — workspace sections and
+  overflow items patch on `/workspace`; the top-level pills always
+  `navigate` (full remount). Accepted.
