@@ -4176,11 +4176,16 @@ defmodule Mix.Tasks.Allbert.Test do
         "test",
         "test/security/v061b_sweep_eval_test.exs",
         "test/security/security_eval_case_test.exs",
-        "test/allbert_assist/actions/conversations/rename_thread_test.exs"
+        "test/allbert_assist/actions/conversations/rename_thread_test.exs",
+        # M9.1: the registry/permission exact lists make no-new-authority
+        # exactness IN-gate (a second new action previously passed green —
+        # only the full core suite caught it).
+        "test/allbert_assist/actions/registry_test.exs"
       ],
       coverage: [
         "shell-spec/sign-off + ADR 0080 Accepted artifact rows File.read! the docs",
         "no-internal-rename and no-new-authority (registry diff exactly rename_thread) rows",
+        "registry exact lists in-gate — the authority envelope is enforced, not sampled",
         "the :v061b row set is complete, shaped (>=3 asserts), and routed to its owning tests",
         "rename ownership/gate-deny negative tests run inside the gate"
       ]

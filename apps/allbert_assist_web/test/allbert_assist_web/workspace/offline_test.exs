@@ -66,7 +66,15 @@ defmodule AllbertAssistWeb.Workspace.OfflineTest do
   test "service worker caches shell assets without caching dynamic agent HTML" do
     service_worker = File.read!(@service_worker_path)
 
-    assert service_worker =~ "const CACHE_NAME"
+    # v0.61b M9.1: pin the cache name to the release version — the SW is
+    # cache-first for /assets/* and the activate-time purge of superseded
+    # caches only fires when this name changes, so a missed bump (as at the
+    # 0.61.1 closeout) quietly strands old caches.
+    version = to_string(Application.spec(:allbert_assist_web, :vsn))
+
+    assert service_worker =~
+             ~s(const CACHE_NAME = "allbert-workspace-shell-v#{version}")
+
     assert service_worker =~ "/workspace-offline.html"
     assert service_worker =~ "/images/allbert-mark.svg"
     assert service_worker =~ "request.mode === \"navigate\""

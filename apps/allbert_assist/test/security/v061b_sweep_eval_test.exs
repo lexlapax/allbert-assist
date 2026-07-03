@@ -86,6 +86,36 @@ defmodule AllbertAssist.Security.V061bSweepEvalTest do
     IO.puts("shell-spec-signoff-recorded-001 status=pass subsections=present s2=recorded")
   end
 
+  test "the plan's relocation table and the proof test's mirror hold 15 rows each" do
+    # v0.61b M9.1: the M7 Tests bullet claimed a docs-gate row-count
+    # cross-check that never existed — this is it, made real. Plan table rows
+    # and the TopbarRetirementTest @relocation_map must both count 15 so
+    # neither can drift alone.
+    plan = read!("docs/plans/v0.61b-plan.md")
+
+    [table_region] =
+      Regex.run(
+        ~r/\*\*Relocation map(.*?)\*\*Per-view header inventory\*\*/s,
+        plan,
+        capture: :all_but_first
+      )
+
+    plan_rows =
+      ~r/^\| (\d+) \|/m
+      |> Regex.scan(table_region, capture: :all_but_first)
+      |> List.flatten()
+      |> Enum.map(&String.to_integer/1)
+
+    assert length(plan_rows) == 15, "plan relocation table has #{length(plan_rows)} rows, not 15"
+    assert plan_rows == Enum.to_list(1..15)
+
+    proof =
+      read!("apps/allbert_assist_web/test/allbert_assist_web/v061b/topbar_retirement_test.exs")
+
+    mirror_rows = Regex.scan(~r/^\s+\{(\d+), :/m, proof, capture: :all_but_first)
+    assert length(mirror_rows) == 15, "proof-test mirror has #{length(mirror_rows)} rows, not 15"
+  end
+
   test "ADR 0080 is Accepted (v0.61b) with pointer notes in ADR 0077/0074" do
     adr = read!("docs/adr/0080-navigation-consolidation-and-workspace-shell-presentation.md")
     assert adr =~ "Status: Accepted (v0.61b)"

@@ -41,10 +41,11 @@ Depth) visual language, added the operator-chosen brand identity, and shipped th
 polished primary web presentation layer with no new authority or runtime
 capability beyond the planned presentation surface.
 
-The latest published release tag is `v0.61.0`; version metadata reports
-`0.61.0`. The next in-flight point release is `v0.61b` / `0.61.1`, which owns the
-operator's v0.61 manual-validation UX feedback before v0.62 moves on to packaging
-and entry points.
+The latest published release tag is `v0.61.0`. The in-flight point release is
+`v0.61b` / `0.61.1` — version metadata already reports `0.61.1`, built and
+gate-green, with the tag held for operator validation. It owns the operator's
+v0.61 manual-validation UX feedback before v0.62 moves on to packaging and
+entry points.
 
 This README is the stable project orientation; release-by-release implementation
 detail belongs in [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in

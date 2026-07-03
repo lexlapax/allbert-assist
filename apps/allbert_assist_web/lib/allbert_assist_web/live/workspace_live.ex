@@ -2670,7 +2670,6 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       open_tile_menu_id: assigns.open_tile_menu_id,
       active_app: assigns.active_app,
       composer_max_bytes: assigns.composer_max_bytes,
-      workspace_overflow_open?: assigns.workspace_overflow_open?,
       workspace_maximized_pane: assigns.workspace_maximized_pane,
       canvas_focus?: assigns.canvas_focus?,
       workspace_launcher_open?: assigns.workspace_launcher_open?
@@ -2693,8 +2692,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       approval_result: assigns.approval_result,
       show_approval_details?: assigns.show_approval_details?,
       voice_capture: assigns.voice_capture,
-      image_input: assigns.image_input,
-      workspace_overflow_open?: assigns.workspace_overflow_open?
+      image_input: assigns.image_input
     }
   end
 

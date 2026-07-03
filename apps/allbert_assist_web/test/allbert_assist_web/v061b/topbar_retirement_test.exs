@@ -3,8 +3,9 @@ defmodule AllbertAssistWeb.V061b.TopbarRetirementTest do
   v0.61b M7 proof (feedback #7, ADR 0080 §2): the per-shell top bars are
   retired and every control from the plan's M0 relocation table (rows 1–15)
   has exactly one new home or an explicit retirement — nothing silently
-  dropped. `@relocation_map` mirrors the plan table row-for-row (the docs gate
-  cross-checks the count); the theme toggle works cross-shell through
+  dropped. `@relocation_map` mirrors the plan table row-for-row — the v061b
+  sweep eval test cross-checks both counts (plan table + this mirror) so
+  neither can drift alone; the theme toggle works cross-shell through
   `SharedShellHooks`.
   """
   use AllbertAssistWeb.ConnCase, async: false

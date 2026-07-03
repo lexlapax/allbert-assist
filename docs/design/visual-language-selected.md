@@ -7,6 +7,14 @@ only: v0.60b adds no runtime authority, no Settings key, no capability. The choi
 also recorded in `docs/adr/0079-visual-design-language-and-art-direction.md`
 (Accepted-with-choice (v0.60b)).
 
+> **v0.61b M3 amendment (dark palette).** The operator's v0.61 manual validation
+> asked for a subtler dark mode; v0.61b M3 (ADR 0080) revised the dark token
+> values within Direction C: surfaces `#14121f / #1a1828 / #211e31` (surface-0
+> held), text `#e7e2f2` / `#a29ac0`, line `#2b2643`, accent `#9d90e2`. The dark
+> values quoted in the original spec below (`#1c1930 / #251f3d`, accent
+> `#a99bf7`) are the as-chosen v0.60b exploration values, superseded in the
+> product — `docs/plans/v0.61b-plan.md` M3 and `app.css` are authoritative.
+
 ## Chosen direction
 
 **Chosen direction: C — Soft Modern Depth** (`docs/design/visual-direction-c.md`).
@@ -56,7 +64,8 @@ the canonical summary v0.61 builds to).
   `system-ui`; no web-font fetch).
 - **Color:** tonal violet-tinted neutrals; near-white cards lifted off a tinted canvas.
   Light `--allbert-surface-0/1/2 = #f2f1fb / #ffffff / #e8e5f7`; dark `= #14121f /
-  #1c1930 / #251f3d`; accent violet `#7c6cf0` (light) / `#a99bf7` (dark).
+  #1c1930 / #251f3d`; accent violet `#7c6cf0` (light) / `#a99bf7` (dark). *(Dark set
+  revised by v0.61b M3 — see the amendment note above.)*
 - **Spacing / density:** roomy — `--allbert-density: 1.1`, with large gaps between the
   floating cards so the depth reads clearly.
 - **Motion:** spatial, expressive-but-controlled — `--allbert-motion-duration

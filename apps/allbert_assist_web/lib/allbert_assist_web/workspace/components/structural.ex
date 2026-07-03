@@ -838,6 +838,18 @@ defmodule AllbertAssistWeb.Workspace.Components.EphemeralSurface do
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.Header do
+  @moduledoc """
+  Retained-but-unused `:header` implementation (operator decision, v0.61b
+  M0/ADR 0080: the catalog atom stays registered).
+
+  The appbar presentation this component rendered was retired at v0.61b M7 —
+  its controls re-homed to the product sidebar, chat header, and pane header
+  per the plan's relocation table. The old interior survived the retirement
+  with dead event bindings (`toggle_thread_switcher` had no handler anywhere)
+  and eight ids duplicating the live relocated controls, so M9.1 cut it to
+  this inert stub: a tree that re-adds the `:header` atom renders a safe
+  brand line — never a crash, a dead control, or a duplicate id.
+  """
   use AllbertAssistWeb.Workspace.Components.Base,
     component: :header,
     description: "Workspace header",
@@ -847,358 +859,27 @@ defmodule AllbertAssistWeb.Workspace.Components.Header do
 
   @impl true
   def update(assigns, socket) do
-    context = Map.get(assigns, :renderer_context, %{})
-    state = Map.get(assigns, :workspace_state, %{})
-
-    {:ok,
-     socket
-     |> Base.assign_defaults(assigns)
-     |> assign(
-       active_app: Map.get(context, :active_app, :allbert),
-       thread_id: Map.get(context, :thread_id),
-       recent_threads: Map.get(context, :recent_threads, []),
-       active_objectives: Map.get(context, :active_objectives, []),
-       canvas_tiles: Map.get(context, :canvas_tiles, []),
-       canvas_destination: Map.get(context, :canvas_destination, "output"),
-       canvas_focus?: Map.get(context, :canvas_focus?, false),
-       ephemeral_surfaces: Map.get(context, :ephemeral_surfaces, []),
-       workspace_badges: Map.get(context, :workspace_badges, []),
-       workspace_theme: Map.get(context, :workspace_theme, "system"),
-       workspace_high_contrast?: Map.get(context, :workspace_high_contrast?, false),
-       workspace_overflow_open?: Map.get(state, :workspace_overflow_open?, false),
-       thread_switcher_open?: Map.get(state, :thread_switcher_open?, false)
-     )}
+    {:ok, Base.assign_defaults(socket, assigns)}
   end
 
   @impl true
   def render(assigns) do
     ~H"""
     <header
-      id="allbert-appbar"
-      class="workspace-header allbert-appbar"
+      id="workspace-retained-header"
+      class="operator-view-header"
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
       aria-labelledby={Base.component_title_id(@node)}
     >
-      <div class="allbert-appbar-brand">
-        <span class="allbert-brand-icon" aria-hidden="true">
-          <.icon name="hero-sparkles-mini" class="size-5" />
-        </span>
-        <div class="min-w-0">
-          <h1 id={Base.component_title_id(@node)} class="allbert-appbar-title">
-            Allbert Assist
-          </h1>
-          <p class="allbert-appbar-subtitle">
-            Runtime, canvas, and ephemeral workspace.
-          </p>
-        </div>
-      </div>
-
-      <div class="allbert-appbar-center" aria-label="Workspace context">
-        <div
-          class="allbert-thread-switcher-wrap"
-          phx-click-away="close_thread_switcher"
-          phx-window-keydown="close_thread_switcher"
-          phx-key="escape"
-        >
-          <button
-            id="workspace-thread-switcher-toggle"
-            type="button"
-            class="allbert-chip allbert-chip-mono"
-            title={"Switch conversation: #{@thread_id}"}
-            aria-label={"Switch conversation: #{@thread_id}"}
-            aria-haspopup="menu"
-            aria-controls="workspace-thread-switcher-menu"
-            aria-expanded={bool_attribute(@thread_switcher_open?)}
-            phx-click="toggle_thread_switcher"
-          >
-            <.icon name="hero-chat-bubble-left-right-micro" class="size-4" />
-            {short_thread_id(@thread_id)}
-            <.icon name="hero-chevron-down-micro" class="size-3" />
-          </button>
-          <div
-            :if={@thread_switcher_open?}
-            id="workspace-thread-switcher-menu"
-            class="workspace-thread-switcher-menu"
-            role="menu"
-            aria-labelledby="workspace-thread-switcher-toggle"
-          >
-            <button
-              :for={thread <- @recent_threads}
-              id={"workspace-thread-item-#{thread.id}"}
-              type="button"
-              role="menuitem"
-              class={[
-                "workspace-thread-switcher-item",
-                thread.id == @thread_id && "workspace-thread-switcher-item-active"
-              ]}
-              phx-click="switch_workspace_thread"
-              phx-value-thread-id={thread.id}
-            >
-              <span class="workspace-thread-switcher-title">{thread.title}</span>
-              <span class="workspace-thread-switcher-meta">
-                {short_thread_id(thread.id)}
-                <span :if={thread.id == @thread_id}>current</span>
-              </span>
-            </button>
-            <button
-              id="workspace-thread-new"
-              type="button"
-              role="menuitem"
-              class="workspace-thread-switcher-item"
-              phx-click="new_thread"
-            >
-              <.icon name="hero-plus-micro" class="size-4" />
-              <span class="workspace-thread-switcher-title">New conversation</span>
-            </button>
-            <button
-              id="workspace-thread-copy-id"
-              type="button"
-              role="menuitem"
-              class="workspace-thread-switcher-item workspace-copy-target"
-              phx-hook="CopyToClipboard"
-              data-copy-value={@thread_id}
-            >
-              <.icon name="hero-clipboard-document-micro" class="size-4" />
-              <span class="workspace-thread-switcher-title">Copy conversation id</span>
-            </button>
-          </div>
-        </div>
-        <div
-          id="workspace-context-indicator"
-          class="allbert-chip"
-          title="Routing context"
-          data-active-app={active_app_attribute(@active_app)}
-        >
-          <.icon name="hero-squares-2x2-micro" class="size-4" />
-          <span>{context_label(@active_app)}</span>
-          <button
-            :if={app_context?(@active_app)}
-            id="workspace-context-exit"
-            type="button"
-            class="allbert-chip-action"
-            phx-click="exit_app_context"
-            aria-label="Leave app context"
-            title="Leave app context"
-          >
-            <.icon name="hero-x-mark-micro" class="size-4" />
-          </button>
-        </div>
-        <.link
-          id="workspace-objective-count-chip"
-          patch={workspace_destination_path(@thread_id, "workspace:objectives")}
-          class="allbert-chip allbert-chip-link"
-          title="Open objectives"
-        >
-          <.icon name="hero-flag-micro" class="size-4" />
-          {count_label(@active_objectives, "objective")}
-        </.link>
-        <button
-          id="workspace-tile-count-chip"
-          type="button"
-          class="allbert-chip allbert-chip-link"
-          phx-click="toggle_canvas_focus"
-          aria-controls="workspace-node-workspace-canvas-region"
-          aria-expanded={bool_attribute(@canvas_focus?)}
-          aria-label={canvas_toggle_label(@canvas_focus?, @canvas_destination)}
-          title={canvas_toggle_label(@canvas_focus?, @canvas_destination)}
-        >
-          <.icon name="hero-rectangle-stack-micro" class="size-4" />
-          {count_label(@canvas_tiles, "tile")}
-        </button>
-        <a
-          id="workspace-ephemeral-count-chip"
-          href="#workspace-node-workspace-ephemeral-region"
-          class="allbert-chip allbert-chip-link"
-          title="Jump to ephemerals"
-        >
-          <.icon name="hero-bolt-micro" class="size-4" />
-          {count_label(@ephemeral_surfaces, "ephemeral")}
-        </a>
-        <span
-          :for={badge <- @workspace_badges}
-          id={"workspace-header-badge-#{badge_id(badge)}"}
-          class="allbert-chip"
-          title={badge_label(badge)}
-        >
-          <.icon name="hero-information-circle-micro" class="size-4" />
-          {badge_label(badge)}
-        </span>
-      </div>
-
-      <div class="allbert-appbar-actions">
-        <button
-          id="workspace-theme-toggle"
-          type="button"
-          class="workspace-theme-toggle allbert-icon-button"
-          phx-hook="ThemeSync"
-          phx-click="toggle_workspace_theme"
-          aria-label={theme_toggle_label(@workspace_theme)}
-          title={theme_toggle_label(@workspace_theme)}
-          data-current-theme={@workspace_theme}
-          data-next-theme={next_workspace_theme(@workspace_theme)}
-          data-high-contrast={bool_attribute(@workspace_high_contrast?)}
-        >
-          <.icon name={theme_toggle_icon(@workspace_theme)} class="size-4" />
-          <span class="sr-only">{theme_toggle_label(@workspace_theme)}</span>
-        </button>
-        <div class="allbert-overflow-wrap">
-          <button
-            id="workspace-overflow-menu"
-            type="button"
-            class="allbert-icon-button"
-            aria-label="Workspace menu"
-            title="Workspace menu"
-            aria-haspopup="menu"
-            aria-controls="workspace-overflow-menu-items"
-            aria-expanded={bool_attribute(@workspace_overflow_open?)}
-            phx-click="toggle_workspace_overflow_menu"
-          >
-            <.icon name="hero-ellipsis-horizontal-micro" class="size-5" />
-          </button>
-          <div
-            :if={@workspace_overflow_open?}
-            id="workspace-overflow-menu-items"
-            class="workspace-overflow-menu"
-            role="menu"
-            aria-labelledby="workspace-overflow-menu"
-          >
-            <button
-              type="button"
-              role="menuitem"
-              class="workspace-tile-menu-item"
-              phx-click="toggle_workspace_theme"
-            >
-              <.icon name={theme_toggle_icon(@workspace_theme)} class="size-4" />
-              {theme_toggle_label(@workspace_theme)}
-            </button>
-            <.link
-              id="workspace-overflow-settings-link"
-              role="menuitem"
-              class="workspace-tile-menu-item"
-              patch={workspace_destination_path(@thread_id, "workspace:settings")}
-            >
-              <.icon name="hero-adjustments-horizontal-micro" class="size-4" /> Workspace settings
-            </.link>
-            <.link
-              role="menuitem"
-              class="workspace-tile-menu-item"
-              navigate="/jobs"
-            >
-              <.icon name="hero-clock-micro" class="size-4" /> Scheduled jobs
-            </.link>
-            <.link
-              id="workspace-overflow-objectives-link"
-              role="menuitem"
-              class="workspace-tile-menu-item"
-              patch={workspace_destination_path(@thread_id, "workspace:objectives")}
-            >
-              <.icon name="hero-flag-micro" class="size-4" /> Objectives
-            </.link>
-          </div>
-        </div>
+      <div class="min-w-0">
+        <h1 id={Base.component_title_id(@node)} class="operator-view-title">
+          Allbert Assist
+        </h1>
       </div>
     </header>
     """
   end
-
-  # v0.26a M34: 3-state theme cycle (system → dark → light → system) kept
-  # in sync with the parallel next_workspace_theme/1 in workspace_live.ex.
-  defp next_workspace_theme("system"), do: "dark"
-  defp next_workspace_theme("dark"), do: "light"
-  defp next_workspace_theme("light"), do: "system"
-  defp next_workspace_theme(_theme), do: "dark"
-
-  defp theme_toggle_icon("dark"), do: "hero-sun-micro"
-  defp theme_toggle_icon("light"), do: "hero-computer-desktop-micro"
-  defp theme_toggle_icon(_theme), do: "hero-moon-micro"
-
-  defp theme_toggle_label("system"), do: "Theme: system (switch to dark)"
-  defp theme_toggle_label("dark"), do: "Theme: dark (switch to light)"
-  defp theme_toggle_label("light"), do: "Theme: light (switch to system)"
-  defp theme_toggle_label(_theme), do: "Switch workspace theme"
-
-  defp workspace_destination_path(thread_id, destination) do
-    query =
-      []
-      |> maybe_put_thread_id(thread_id)
-      |> maybe_put_destination(destination)
-
-    ~p"/workspace?#{query}"
-  end
-
-  defp maybe_put_thread_id(query, thread_id) when is_binary(thread_id) and thread_id != "" do
-    Keyword.put(query, :thread_id, thread_id)
-  end
-
-  defp maybe_put_thread_id(query, _thread_id), do: query
-
-  defp maybe_put_destination(query, "output"), do: query
-
-  defp maybe_put_destination(query, destination),
-    do: Keyword.put(query, :destination, destination)
-
-  defp active_app_attribute(app) when is_atom(app), do: Atom.to_string(app)
-  defp active_app_attribute(app) when is_binary(app), do: app
-  defp active_app_attribute(_app), do: "allbert"
-
-  defp context_label(app) do
-    if app_context?(app), do: humanize_app(app), else: "Neutral"
-  end
-
-  defp canvas_toggle_label(true, _destination), do: "Close canvas drawer"
-  defp canvas_toggle_label(false, "output"), do: "Open canvas drawer"
-  defp canvas_toggle_label(false, "workspace:" <> tool), do: "Open #{humanize_app(tool)} drawer"
-  defp canvas_toggle_label(false, "app:" <> app), do: "Open #{humanize_app(app)} drawer"
-  defp canvas_toggle_label(false, _destination), do: "Open canvas drawer"
-
-  defp app_context?(app), do: active_app_attribute(app) not in ["", "allbert"]
-
-  defp humanize_app(:stocksage), do: "StockSage"
-  defp humanize_app(app) when is_atom(app), do: app |> Atom.to_string() |> humanize_app()
-
-  defp humanize_app(app) when is_binary(app),
-    do: String.replace(app, "_", " ") |> String.capitalize()
-
-  defp humanize_app(_app), do: "App"
-
-  defp short_thread_id(nil), do: "conversation"
-
-  defp short_thread_id(thread_id) when is_binary(thread_id) do
-    if String.length(thread_id) > 15 do
-      String.slice(thread_id, 0, 11) <> "..."
-    else
-      thread_id
-    end
-  end
-
-  defp count_label(items, label) when is_list(items) do
-    count = length(items)
-    "#{count} #{pluralize(label, count)}"
-  end
-
-  defp count_label(_items, label), do: "0 #{pluralize(label, 0)}"
-
-  defp badge_id(%{id: id}) when is_binary(id), do: id
-  defp badge_id(_badge), do: "notice"
-
-  defp badge_label(%{surface: %{nodes: [%{props: props} | _nodes]}}) when is_map(props) do
-    Map.get(props, :body) ||
-      Map.get(props, "body") ||
-      Map.get(props, :title) ||
-      Map.get(props, "title") ||
-      "Workspace notice"
-  end
-
-  defp badge_label(_badge), do: "Workspace notice"
-
-  defp pluralize("ephemeral", 1), do: "ephemeral"
-  defp pluralize("ephemeral", _count), do: "ephemerals"
-  defp pluralize(label, 1), do: label
-  defp pluralize(label, _count), do: "#{label}s"
-
-  defp bool_attribute(true), do: "true"
-  defp bool_attribute(false), do: "false"
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.BadgeStrip do
