@@ -120,6 +120,7 @@
   --allbert-warn: #b45309;
   --allbert-warn-soft: #fffbeb;
   --allbert-danger: #b91c1c;
+  --allbert-danger-contrast: #ffffff;
   --allbert-danger-soft: #fef2f2;
   --allbert-success: #15803d;
   --allbert-success-soft: #ecfdf5;
@@ -210,6 +211,7 @@
   --allbert-warn: #fbbf24;
   --allbert-warn-soft: #422006;
   --allbert-danger: #f87171;
+  --allbert-danger-contrast: #14121f;
   --allbert-danger-soft: #3b0a0a;
   --allbert-success: #4ade80;
   --allbert-success-soft: #052e1a;
@@ -236,6 +238,7 @@
      (the :root values sat at ~4.5:1 on the HC surfaces; these clear WCAG AA). */
   --allbert-warn: #92400e;
   --allbert-danger: #991b1b;
+  --allbert-danger-contrast: #ffffff;
   --allbert-success: #14532d;
   --allbert-info: #115e59;
   --allbert-border-width: 2px;
@@ -276,6 +279,7 @@
   --allbert-warn: #fbbf24;
   --allbert-warn-soft: #422006;
   --allbert-danger: #f87171;
+  --allbert-danger-contrast: #000000;
   --allbert-danger-soft: #3b0a0a;
   --allbert-success: #4ade80;
   --allbert-success-soft: #052e1a;
@@ -320,6 +324,7 @@
     --allbert-warn: #fbbf24;
     --allbert-warn-soft: #422006;
     --allbert-danger: #f87171;
+    --allbert-danger-contrast: #14121f;
     --allbert-danger-soft: #3b0a0a;
     --allbert-success: #4ade80;
     --allbert-success-soft: #052e1a;
@@ -352,6 +357,7 @@
     --allbert-warn: #fbbf24;
     --allbert-warn-soft: #422006;
     --allbert-danger: #f87171;
+    --allbert-danger-contrast: #000000;
     --allbert-danger-soft: #3b0a0a;
     --allbert-success: #4ade80;
     --allbert-success-soft: #052e1a;
@@ -2308,9 +2314,12 @@ a.allbert-chip-link:focus-visible,
   color: var(--workspace-accent);
 }
 
+/* v0.61b M9.1: label rides the per-theme danger-contrast token — hardcoded
+   white sat at 2.77:1 on the dark schemes' #f87171 (the AA-anchor rationale
+   covers status foregrounds on dark surfaces, not white-under-#f87171). */
 .workspace-button-danger {
   background: var(--allbert-danger);
-  color: #ffffff;
+  color: var(--allbert-danger-contrast, #ffffff);
 }
 
 .workspace-button-danger:not(:disabled):hover,
@@ -2424,7 +2433,16 @@ a.allbert-chip-link:focus-visible,
 .workspace-tile-menu-item:focus-visible {
   background: var(--allbert-accent-soft);
   color: var(--workspace-accent);
-  outline: none;
+}
+
+/* v0.61b M9.1: the item needs its own visible focus ring — the old
+   `outline: none` + background swap (~1.08:1) relied on the
+   #workspace-shell-scoped outline rule, and the sidebar-footer overflow menu
+   renders outside that shell on every view (WCAG 2.4.7). Inset so the ring
+   survives the menu's overflow: hidden. */
+.workspace-tile-menu-item:focus-visible {
+  outline: 2px solid var(--workspace-focus);
+  outline-offset: -2px;
 }
 
 .workspace-tile-menu-item-danger:hover,
@@ -3401,7 +3419,12 @@ a.allbert-chip-link:focus-visible,
     position: fixed;
     top: 1rem;
     right: 1rem;
-    bottom: var(--workspace-mobile-shellbar-space);
+
+    /* v0.61b M9.1: the shellbar-space token is declared on #workspace-shell
+       and .operator-sidebar is its sibling — without the fallback the var is
+       undefined, bottom computes to auto, and a long list runs unbounded past
+       the viewport with the tail unreachable. */
+    bottom: var(--workspace-mobile-shellbar-space, 5.75rem);
     left: 1rem;
     z-index: 32;
     display: flex;

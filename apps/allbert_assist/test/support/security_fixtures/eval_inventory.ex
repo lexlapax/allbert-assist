@@ -5804,7 +5804,14 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         "The sidebar collapse states lose their a11y contract (aria-expanded, focus return, unfocusable-when-hidden, persisted restore)",
       boundary: :accessibility_axes,
       expected: :allowed,
-      assert: [:three_states_render, :toggle_aria_expanded, :restore_path_validated],
+      # :focus_return restored by M9.1 — the scenario named it but the assert
+      # list had quietly dropped it while the behavior shipped unimplemented.
+      assert: [
+        :three_states_render,
+        :toggle_aria_expanded,
+        :restore_path_validated,
+        :focus_return
+      ],
       test_module: "AllbertAssistWeb.V061b.SidebarCollapseTest"
     },
     %{

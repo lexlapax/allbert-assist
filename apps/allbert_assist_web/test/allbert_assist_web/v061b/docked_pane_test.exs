@@ -42,6 +42,13 @@ defmodule AllbertAssistWeb.V061b.DockedPaneTest do
     assert has_element?(view, "#workspace-split-resizer[phx-hook='WorkspaceSplitResizer']")
     assert has_element?(view, "#workspace-split-collapse")
 
+    # v0.61b M9.1: the floating-drawer language retired with the presentation —
+    # no live control or copy may still say "drawer" (the pane toggle said
+    # "Open/Close canvas drawer" and the empty state pointed at "the canvas
+    # drawer" until the audit).
+    refute render(view) =~ "canvas drawer"
+    assert render(view) =~ "canvas pane"
+
     IO.puts(
       "docked-panel-not-floating-001 status=pass overlay=none divider=WorkspaceSplitResizer " <>
         "persistence=split_ratio_localStorage chat=unoccluded"

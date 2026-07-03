@@ -11,9 +11,12 @@ defmodule AllbertAssistWeb.V061b.TopbarRetirementTest do
 
   import Phoenix.LiveViewTest
 
+  alias AllbertAssist.Objectives
   alias AllbertAssist.Settings
 
   @moduletag :topbar_retirement
+
+  @css_path Path.expand("../../../assets/css/app.css", __DIR__)
 
   # Mirror of the plan's M0 relocation table (row, disposition, proof selector,
   # proof surface). Retired rows prove ABSENCE of the old control; relocated
@@ -41,9 +44,29 @@ defmodule AllbertAssistWeb.V061b.TopbarRetirementTest do
   } do
     assert length(@relocation_map) == 15
 
+    # v0.61b M9.1: row 5 needs an active objective for #objective-badges to
+    # render — without this fixture the old `<- @relocation_map` filter
+    # silently skipped the row (the one relocation nothing verified).
+    assert {:ok, _objective} =
+             Objectives.create_objective(%{
+               user_id: "local",
+               title: "Relocation row five",
+               objective: "Objective badge fixture for the relocation sweep.",
+               status: "running"
+             })
+
     {:ok, view, _html} = live(conn, ~p"/workspace")
 
-    for {row, disposition, selector, :workspace} <- @relocation_map do
+    workspace_rows =
+      Enum.filter(@relocation_map, fn {_row, _disposition, _selector, surface} ->
+        surface in [:workspace, :workspace_with_objective]
+      end)
+
+    # Rows 11 (operator) and 15 (overflow) are proven by their own tests below;
+    # everything else must resolve here — no surface tag may silently drop out.
+    assert length(workspace_rows) == 13
+
+    for {row, disposition, selector, _surface} <- workspace_rows do
       case disposition do
         :retired ->
           refute has_element?(view, selector), "row #{row}: #{selector} must be retired"
@@ -101,5 +124,31 @@ defmodule AllbertAssistWeb.V061b.TopbarRetirementTest do
     assert has_element?(view, "#workspace-overflow-settings-link")
     # No workspace thread context on operator shells — the copy-id item is absent.
     refute has_element?(view, "#workspace-thread-copy-id")
+
+    # v0.61b M9.1 (ADR 0080 focus-return guardrail): Escape closes AND returns
+    # focus to the overflow trigger via the bound JS chain.
+    wrap = render(element(view, ".allbert-overflow-wrap"))
+    assert wrap =~ "close_workspace_overflow_menu"
+    assert wrap =~ "focus"
+    assert wrap =~ "#workspace-overflow-menu"
+  end
+
+  test "the sidebar-footer overflow menu geometry and focus indicator are guarded" do
+    # v0.61b M9.1 gate hardening: both were found broken manually — the menu
+    # kept its appbar-era top/right dropdown geometry (opened off-screen from
+    # the footer) and its items lost their focus ring outside #workspace-shell.
+    css = File.read!(@css_path)
+
+    [menu] =
+      Regex.run(~r/\n\.workspace-overflow-menu\s*\{(.*?)\n\}/s, css, capture: :all_but_first)
+
+    assert menu =~ "bottom: calc(100% + 0.25rem)"
+    assert menu =~ "left: 0"
+    refute menu =~ ~r/\n  top:/
+
+    assert Regex.match?(
+             ~r/\.workspace-tile-menu-item:focus-visible\s*\{\s*outline:\s*2px solid var\(--workspace-focus\)/,
+             css
+           )
   end
 end

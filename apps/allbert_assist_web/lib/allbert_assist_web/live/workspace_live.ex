@@ -317,7 +317,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
   end
 
   def handle_event("cancel_rename_thread", _params, socket) do
-    {:noreply, assign(socket, :renaming_thread_id, nil)}
+    {:noreply, close_rename(socket)}
   end
 
   def handle_event("submit_rename_thread", %{"thread-id" => thread_id, "title" => title}, socket)
@@ -326,22 +326,22 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       {:ok, %{status: :completed}} ->
         {:noreply,
          socket
-         |> assign(:renaming_thread_id, nil)
+         |> close_rename()
          |> assign(:recent_threads, recent_threads(socket.assigns.user_id))}
 
       {:ok, %{message: message}} ->
         {:noreply,
          socket
-         |> assign(:renaming_thread_id, nil)
+         |> close_rename()
          |> put_flash(:error, message)}
 
       _other ->
-        {:noreply, assign(socket, :renaming_thread_id, nil)}
+        {:noreply, close_rename(socket)}
     end
   end
 
   def handle_event("submit_rename_thread", _params, socket) do
-    {:noreply, assign(socket, :renaming_thread_id, nil)}
+    {:noreply, close_rename(socket)}
   end
 
   # v0.61b M7: the appbar thread switcher is retired (relocation row 3) — the
@@ -1719,6 +1719,22 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       Conversations.list_threads(user_id, limit: 8)
     rescue
       DBConnection.ConnectionError -> []
+    end
+  end
+
+  # v0.61b M9.1 (ADR 0080 guardrail): dismissing the inline rename form returns
+  # focus to the row's rename control. The pencil only re-renders with the
+  # patch that closes the form, so the focus lands via a pushed `allbert:focus`
+  # window event (app.js listener) rather than a client-side JS.focus chain.
+  defp close_rename(socket) do
+    case socket.assigns.renaming_thread_id do
+      nil ->
+        socket
+
+      thread_id ->
+        socket
+        |> assign(:renaming_thread_id, nil)
+        |> push_event("allbert:focus", %{id: "workspace-rail-thread-#{thread_id}-rename-toggle"})
     end
   end
 

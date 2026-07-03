@@ -337,8 +337,8 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
               <.icon name="hero-sparkles-mini" class="size-5" />
             </span>
             <p>
-              Ask Allbert to start a runtime turn. Canvas tiles and approvals open from the canvas
-              drawer.
+              Ask Allbert to start a runtime turn. Canvas tiles and approvals open in the docked
+              canvas pane.
             </p>
           </div>
           <div class="workspace-suggested-actions" aria-label="Suggested next steps">
@@ -800,8 +800,10 @@ defmodule AllbertAssistWeb.Workspace.Components.Chat do
 
   defp maximize_label(_pane, _maximized), do: "Maximize pane"
 
-  defp canvas_toggle_label(true), do: "Close canvas drawer"
-  defp canvas_toggle_label(false), do: "Open canvas drawer"
+  # v0.61b M9.1: the pane docked in M6 — "drawer" language retired with the
+  # floating presentation.
+  defp canvas_toggle_label(true), do: "Close canvas pane"
+  defp canvas_toggle_label(false), do: "Open canvas pane"
 
   # v0.61b M7 — helpers for the appbar controls the chat header absorbed
   # (relocation rows 4/6/14; lifted from the retired Header component).

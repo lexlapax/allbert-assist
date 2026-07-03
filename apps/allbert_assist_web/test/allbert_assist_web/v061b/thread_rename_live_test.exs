@@ -56,6 +56,12 @@ defmodule AllbertAssistWeb.V061b.ThreadRenameLiveTest do
     refute has_element?(view, "#workspace-rail-thread-#{thread.id}-rename form")
     assert render(element(view, "#workspace-rail-thread-#{thread.id}")) =~ "Keep this title"
     assert Repo.reload!(thread).title == "Keep this title"
+
+    # v0.61b M9.1 (ADR 0080 focus-return guardrail): dismissing the form pushes
+    # focus back to the row's rename control (the pencil only re-renders with
+    # the closing patch, so the return rides an `allbert:focus` push event).
+    expected_focus = "workspace-rail-thread-#{thread.id}-rename-toggle"
+    assert_push_event(view, "allbert:focus", %{id: ^expected_focus})
   end
 
   test "the double-click accelerator is hook-backed on the title", %{conn: conn} do

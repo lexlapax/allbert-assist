@@ -59,6 +59,30 @@ defmodule AllbertAssistWeb.V061b.DarkLockstepTest do
     assert dark["--allbert-accent"] == "#9d90e2"
   end
 
+  test "the danger button pair clears AA in every theme block (computed ratio)" do
+    # v0.61b M9.1: hardcoded white on the dark schemes' #f87171 sat at 2.77:1 —
+    # the label now rides --allbert-danger-contrast, proven per block.
+    css = File.read!(@css_path)
+
+    light = token_map(block(css, ":root {"))
+    dark = token_map(block(css, ~s([data-theme="dark"] {)))
+
+    system_dark =
+      css
+      |> media_region("@media (prefers-color-scheme: dark) {")
+      |> block(~s([data-theme="system"] {))
+      |> token_map()
+
+    for {name, tokens} <- [light: light, dark: dark, system_dark: system_dark] do
+      background = Map.fetch!(tokens, "--allbert-danger")
+      foreground = Map.fetch!(tokens, "--allbert-danger-contrast")
+      ratio = contrast_ratio(foreground, background)
+
+      assert ratio >= 4.5,
+             "#{name}: danger button #{foreground} on #{background} = #{Float.round(ratio, 2)}:1 (< 4.5)"
+    end
+  end
+
   # -- helpers ---------------------------------------------------------------
 
   defp block(css, opener) do
@@ -93,5 +117,30 @@ defmodule AllbertAssistWeb.V061b.DarkLockstepTest do
     for key <- keys, Map.get(a, key) != Map.get(b, key) do
       {key, Map.get(a, key), Map.get(b, key)}
     end
+  end
+
+  # WCAG 2.x relative-luminance contrast (same math as the v0.61 conformance
+  # proof).
+  defp contrast_ratio(hex_a, hex_b) do
+    {la, lb} = {luminance(hex_a), luminance(hex_b)}
+    {lighter, darker} = if la >= lb, do: {la, lb}, else: {lb, la}
+    (lighter + 0.05) / (darker + 0.05)
+  end
+
+  defp luminance("#" <> hex) do
+    [r, g, b] =
+      hex
+      |> String.graphemes()
+      |> Enum.chunk_every(2)
+      |> Enum.map(fn pair -> pair |> Enum.join() |> String.to_integer(16) end)
+      |> Enum.map(fn channel ->
+        channel = channel / 255
+
+        if channel <= 0.04045,
+          do: channel / 12.92,
+          else: :math.pow((channel + 0.055) / 1.055, 2.4)
+      end)
+
+    0.2126 * r + 0.7152 * g + 0.0722 * b
   end
 end

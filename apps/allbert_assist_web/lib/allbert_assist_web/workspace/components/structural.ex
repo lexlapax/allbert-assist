@@ -411,8 +411,11 @@ defmodule AllbertAssistWeb.Workspace.Components.Canvas do
     """
   end
 
-  defp focus_label(true), do: "Close canvas drawer"
-  defp focus_label(false), do: "Open canvas drawer"
+  # v0.61b M9.1: this is the maximize/restore control on the docked pane — the
+  # old "Open/Close canvas drawer" label misnamed both the action and the
+  # retired floating presentation.
+  defp focus_label(true), do: "Restore canvas pane"
+  defp focus_label(false), do: "Maximize canvas pane"
 
   defp destination_label("output"), do: "Output"
   defp destination_label("app:" <> app_id), do: app_id |> humanize_destination()

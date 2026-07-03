@@ -246,10 +246,15 @@ defmodule AllbertAssistWeb.Layouts do
           <p class="operator-nav-group-label">{group.label}</p>
           <%= for item <- group.items do %>
             <%= if item.key == "workspace" and @workspace && @sidebar_state == "rail" do %>
+              <%!-- v0.61b M9.1: Escape returns focus to the invoking rail icon
+              (ADR 0080 guardrail); click-away closes without stealing focus —
+              the click target takes it (ARIA APG menu-button pattern). --%>
               <div
                 class="operator-rail-flyout-wrap"
                 phx-click-away="close_rail_flyout"
-                phx-window-keydown="close_rail_flyout"
+                phx-window-keydown={
+                  JS.push("close_rail_flyout") |> JS.focus(to: "#operator-nav-workspace")
+                }
                 phx-key="escape"
               >
                 <button
@@ -325,10 +330,14 @@ defmodule AllbertAssistWeb.Layouts do
           <.icon name={theme_toggle_icon(@theme)} class="size-4" />
           <span class="sr-only">{theme_toggle_label(@theme)}</span>
         </button>
+        <%!-- v0.61b M9.1: Escape returns focus to the overflow trigger; see the
+        rail-flyout note above for the click-away asymmetry. --%>
         <div
           class="allbert-overflow-wrap"
           phx-click-away="close_workspace_overflow_menu"
-          phx-window-keydown="close_workspace_overflow_menu"
+          phx-window-keydown={
+            JS.push("close_workspace_overflow_menu") |> JS.focus(to: "#workspace-overflow-menu")
+          }
           phx-key="escape"
         >
           <button

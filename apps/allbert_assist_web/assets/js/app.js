@@ -72,6 +72,18 @@ const ThemeSync = {
   },
 }
 
+// v0.61b M9.1 (ADR 0080 focus-return guardrail) — the server pushes
+// "allbert:focus" when a dismissed control only re-renders with the closing
+// patch (e.g. the rename pencil replacing the inline rename form), so a
+// client-side JS.focus chain would fire before the target exists. LiveView
+// dispatches push_event payloads as "phx:"-prefixed window events after the
+// DOM patch; the rAF defers one frame in case the patch is still settling.
+window.addEventListener("phx:allbert:focus", event => {
+  const id = event.detail?.id
+  if (!id) return
+  requestAnimationFrame(() => document.getElementById(id)?.focus())
+})
+
 const focusableSelector = [
   "a[href]",
   "button:not([disabled])",
