@@ -12,6 +12,8 @@ defmodule AllbertAssistWeb.V061b.DockedPaneTest do
 
   import Phoenix.LiveViewTest
 
+  alias AllbertAssist.Workspace.Catalog, as: WorkspaceCatalog
+
   @moduletag :docked_pane
 
   @css_path Path.expand("../../../assets/css/app.css", __DIR__)
@@ -81,7 +83,7 @@ defmodule AllbertAssistWeb.V061b.DockedPaneTest do
     tiles = [%{id: "tile-audit-1", kind: "note", title: "Audit tile"}]
 
     docked =
-      AllbertAssist.Workspace.Catalog.workspace_tree(%{
+      WorkspaceCatalog.workspace_tree(%{
         canvas_destination: "workspace:settings",
         canvas_tiles: tiles
       })
@@ -89,7 +91,7 @@ defmodule AllbertAssistWeb.V061b.DockedPaneTest do
     assert collect_components(docked.nodes) |> Enum.count(&(&1 == :tile)) == 0
 
     restored =
-      AllbertAssist.Workspace.Catalog.workspace_tree(%{
+      WorkspaceCatalog.workspace_tree(%{
         canvas_destination: "output",
         canvas_tiles: tiles
       })
