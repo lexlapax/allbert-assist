@@ -36,18 +36,24 @@ defmodule AllbertAssistWeb.V061b.SidebarCollapseTest do
     assert has_element?(view, "#sidebar-workspace-sections")
   end
 
-  test "full hide leaves the autofocused reopen tab as the surviving control", %{conn: conn} do
+  test "full hide leaves the reopen tab as the surviving, focused control", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/jobs")
 
     refute has_element?(view, "#product-sidebar-reopen")
 
+    # M9.2: focus moves as a RESULT of each hide transition (pushed
+    # allbert:focus), not via a phx-mounted autofocus that stole focus on
+    # every navigation while hidden.
     render_hook_or_event(view, "toggle_sidebar_hidden")
     assert has_element?(view, "#product-sidebar[data-sidebar-state='hidden']")
     assert has_element?(view, "#product-sidebar-reopen[aria-label='Reopen navigation']")
+    assert_push_event(view, "allbert:focus", %{id: "product-sidebar-reopen"})
+    refute has_element?(view, "#product-sidebar-reopen[phx-mounted]")
 
     view |> element("#product-sidebar-reopen") |> render_click()
     assert has_element?(view, "#product-sidebar[data-sidebar-state='expanded']")
     refute has_element?(view, "#product-sidebar-reopen")
+    assert_push_event(view, "allbert:focus", %{id: "product-sidebar-toggle"})
   end
 
   test "the LayoutPrefs restore path sets a valid persisted state", %{conn: conn} do
@@ -68,8 +74,11 @@ defmodule AllbertAssistWeb.V061b.SidebarCollapseTest do
     view |> element("#product-sidebar-toggle") |> render_click()
     assert has_element?(view, "#product-sidebar[data-sidebar-state='rail']")
 
-    # In rail mode the Workspace entry is a flyout button, not a navigate pill.
-    assert has_element?(view, "#operator-nav-workspace[aria-haspopup='true']")
+    # In rail mode the Workspace entry is a flyout disclosure button, not a
+    # navigate pill (aria-expanded + aria-controls; no aria-haspopup — the
+    # flyout is a grouped-sections panel, not a menu).
+    assert has_element?(view, "#operator-nav-workspace[aria-controls='operator-rail-flyout']")
+    refute has_element?(view, "#operator-nav-workspace[aria-haspopup]")
     refute has_element?(view, "#operator-rail-flyout")
 
     view |> element("#operator-nav-workspace") |> render_click()

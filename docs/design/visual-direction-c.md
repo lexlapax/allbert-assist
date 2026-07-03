@@ -110,6 +110,11 @@ persist; the nav collapses to the mobile shellbar.
 Tonal violet-tinted neutrals with soft elevation; surface-1 stays near-white to lift
 cards off the tinted canvas. Dark mode is a deep violet-charcoal.
 
+*(Dark column revised in the product by v0.61b M3 — subtler set: surfaces
+`#1a1828`/`#211e31`, text `#e7e2f2`/`#a29ac0`, line `#2b2643`, accent
+`#9d90e2`; `#14121f` held. This table records the v0.60b exploration as
+chosen; `app.css` is authoritative.)*
+
 | Token | Light | Dark |
 |---|---|---|
 | `--allbert-surface-0` (canvas) | `#f2f1fb` | `#14121f` |

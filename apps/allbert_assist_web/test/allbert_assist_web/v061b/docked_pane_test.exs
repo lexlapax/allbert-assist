@@ -73,6 +73,36 @@ defmodule AllbertAssistWeb.V061b.DockedPaneTest do
     assert has_element?(view, "#workspace-canvas[data-destination='output']")
   end
 
+  test "a docked destination panel replaces tiles structurally — no dual render" do
+    # v0.61b M9.2: the round-trip above asserts destination attributes; this
+    # pins the replace-half of replace-and-restore at the tree level — with a
+    # non-output destination the catalog must not emit :tile nodes even when
+    # tiles exist, so a panel can never render stacked over canvas content.
+    tiles = [%{id: "tile-audit-1", kind: "note", title: "Audit tile"}]
+
+    docked =
+      AllbertAssist.Workspace.Catalog.workspace_tree(%{
+        canvas_destination: "workspace:settings",
+        canvas_tiles: tiles
+      })
+
+    assert collect_components(docked.nodes) |> Enum.count(&(&1 == :tile)) == 0
+
+    restored =
+      AllbertAssist.Workspace.Catalog.workspace_tree(%{
+        canvas_destination: "output",
+        canvas_tiles: tiles
+      })
+
+    assert collect_components(restored.nodes) |> Enum.count(&(&1 == :tile)) == 1
+  end
+
+  defp collect_components(nodes) when is_list(nodes) do
+    Enum.flat_map(nodes, fn node ->
+      [node.component | collect_components(node.children || [])]
+    end)
+  end
+
   test "the pane collapses and the slim reopen tab brings it back", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:settings")
 

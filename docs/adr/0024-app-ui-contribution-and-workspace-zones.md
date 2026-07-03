@@ -66,7 +66,8 @@ authority paths.
 v0.35 (`docs/adr/0025-user-theming-and-override-security.md`) adds an operator
 `layout.yaml` that reorders/hides these launcher destinations and pins panels
 into Canvas destination groups **read-only** — it grants no authority, cannot
-re-mount the retired regions, leaves the AppBar as fixed chrome, and keeps the
+re-mount the retired regions, leaves the fixed chrome alone (the AppBar until
+v0.61b retired it for the product sidebar, ADR 0080), and keeps the
 Settings and Output destinations non-hideable.
 
 ## Context

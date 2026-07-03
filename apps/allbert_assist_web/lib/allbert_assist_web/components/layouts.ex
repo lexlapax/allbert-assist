@@ -257,12 +257,14 @@ defmodule AllbertAssistWeb.Layouts do
                 }
                 phx-key="escape"
               >
+                <%!-- v0.61b M9.2: disclosure pattern (aria-expanded +
+                aria-controls, no aria-haspopup) — haspopup="true" announces a
+                menu, but the flyout is a grouped-sections panel. --%>
                 <button
                   id="operator-nav-workspace"
                   type="button"
                   class={Patterns.nav_pill_class(item.active?)}
                   phx-click="toggle_rail_flyout"
-                  aria-haspopup="true"
                   aria-controls="operator-rail-flyout"
                   aria-expanded={
                     if Map.get(@workspace, :rail_flyout_open?), do: "true", else: "false"
@@ -286,12 +288,16 @@ defmodule AllbertAssistWeb.Layouts do
                 </div>
               </div>
             <% else %>
+              <%!-- v0.61b M9.2: explicit aria-label — in rail state the label
+              span is display:none and the accessible name otherwise falls
+              back to title, which is weaker than the M0 contract. --%>
               <Patterns.nav_pill
                 id={"operator-nav-#{item.key}"}
                 label={item.label}
                 navigate={item.path}
                 active?={item.active?}
                 title={item.label}
+                aria-label={item.label}
               >
                 <:icon>
                   <.icon name={nav_icon(item.key)} class="size-4" />
@@ -404,14 +410,16 @@ defmodule AllbertAssistWeb.Layouts do
       </div>
     </aside>
     <%!-- v0.61b M8: slim reopen tab, the surviving affordance when the sidebar
-    is fully hidden (autofocused so keyboard focus lands on a live control). --%>
+    is fully hidden. M9.2: focus lands here as a RESULT of the hide action
+    (SharedShellHooks pushes allbert:focus on the expanded/rail→hidden
+    transition) — a phx-mounted JS.focus() stole focus on every navigation
+    while hidden, bypassing the skip link. --%>
     <button
       :if={@sidebar_state == "hidden"}
       id="product-sidebar-reopen"
       type="button"
       class="operator-sidebar-reopen"
       phx-click="toggle_sidebar_hidden"
-      phx-mounted={Phoenix.LiveView.JS.focus()}
       aria-controls="product-sidebar"
       aria-expanded="false"
       aria-label="Reopen navigation"

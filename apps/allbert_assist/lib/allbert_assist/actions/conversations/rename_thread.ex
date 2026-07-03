@@ -119,8 +119,18 @@ defmodule AllbertAssist.Actions.Conversations.RenameThread do
   defp error_message({:thread_not_found, _id}),
     do: "Thread not found for this user."
 
+  # M9.2: a human sentence, not `inspect(changeset.errors)` — the message
+  # surfaces verbatim in the operator's flash.
   defp error_message(%Ecto.Changeset{} = changeset) do
-    "Title rejected: #{inspect(changeset.errors)}"
+    detail =
+      changeset.errors
+      |> Enum.map(fn {field, {message, _opts}} -> "#{field} #{message}" end)
+      |> Enum.join("; ")
+
+    case detail do
+      "" -> "Title rejected."
+      detail -> "Title rejected: #{detail}."
+    end
   end
 
   defp error_message(reason), do: "Rename failed: #{inspect(reason)}"

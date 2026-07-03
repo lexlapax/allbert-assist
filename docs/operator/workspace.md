@@ -6,7 +6,7 @@ shell (ADR 0080) at the v0.61b closeout.
 The operator workspace is `/workspace`. v0.58 keeps that route and changes the
 layout and panels on top of the existing authority spine.
 
-## What Changes In v0.58
+## What Changed In v0.58 (baseline; presentation since revised by v0.61/v0.61b)
 
 - Chat is the primary surface.
 - **Conversations** (UI label only) is a contextual section under the product
@@ -93,11 +93,13 @@ confirmation is required, policy cannot override that decision.
 
 ## Manual Validation Evidence
 
-For v0.58 release validation, follow
-`docs/plans/v0.58-request-flow.md`. Evidence is kept outside the repository under:
+For the current release, follow the matching request-flow document under
+`docs/plans/` (v0.61b: `docs/plans/v0.61b-request-flow.md`). Historical v0.58
+validation followed `docs/plans/v0.58-request-flow.md`; evidence is kept
+outside the repository under:
 
 ```text
-$HOME/.allbert-release-evidence/v058
+$HOME/.allbert-release-evidence/<version>
 ```
 
 Expected evidence includes browser screenshots, CLI output, one warm TUI

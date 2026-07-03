@@ -116,6 +116,24 @@ defmodule AllbertAssistWeb.V061b.TopbarRetirementTest do
     assert has_element?(view, "#workspace-theme-toggle[data-current-theme='light']")
   end
 
+  test "the shared-shell theme read falls back to system on a broken snapshot" do
+    # v0.61b M9.2: a failing/garbled resolved_settings_snapshot action must pin
+    # every shell to a safe theme, never crash the mount.
+    alias AllbertAssistWeb.Live.SharedShellHooks
+
+    good = %{"workspace" => %{"theme" => %{"mode" => "dark"}}}
+    junk = %{"workspace" => %{"theme" => %{"mode" => "neon"}}}
+
+    assert SharedShellHooks.theme_from_snapshot({:ok, %{status: :completed, settings: good}}) ==
+             "dark"
+
+    assert SharedShellHooks.theme_from_snapshot({:ok, %{status: :completed, settings: junk}}) ==
+             "system"
+
+    assert SharedShellHooks.theme_from_snapshot({:ok, %{status: :failed}}) == "system"
+    assert SharedShellHooks.theme_from_snapshot({:error, :action_denied}) == "system"
+  end
+
   test "the overflow menu works from an operator surface", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/objectives")
 

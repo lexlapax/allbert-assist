@@ -51,5 +51,5 @@ requiring codebase knowledge.
 ## Release Validation
 
 Release-specific operator validation belongs in the matching request-flow
-document under [plans](../plans/README.md). For v0.58, use
-[v0.58 request flow](../plans/v0.58-request-flow.md).
+document under [plans](../plans/README.md). For the in-flight v0.61b, use
+[v0.61b request flow](../plans/v0.61b-request-flow.md).

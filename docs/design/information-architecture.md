@@ -99,14 +99,15 @@ Navigation rules:
 
 The workspace is chat-primary. Its stable zones are:
 
-- Product shell: `workspace_shell` beside the product sidebar presents the IA
-  groups, active route, and operator context. (As built at v0.61b the
+- Product shell: the one product sidebar presents the IA groups, active
+  route, and operator context on every surface, `/workspace` included. (As built at v0.61b the
   `nav_rail`/`thread_list`/`app_launcher`/`header` atoms are
   registered-but-unused — the sidebar's contextual Workspace sections carry
   their function; ADR 0080.)
 - Primary work area: `chat`, `timeline`, and `composer` own the first useful chat
   and daily-use conversation loop.
-- Context area: `thread_list`, `objective_card`, `status_badge`, and supporting
+- Context area: the sidebar Conversations section (the `thread_list` atom is
+  registered-but-unused), `objective_card`, `status_badge`, and supporting
   panels explain current work without taking over the screen.
 - Docked tool pane: `settings_panel`, `models_panel`, `surface_policy_panel`,
   and `intents_panel` expose secondary operator controls inside the right-docked

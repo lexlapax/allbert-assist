@@ -140,7 +140,7 @@ catalog boundary, and `/workspace` stay in force.
 | Tokens | Global CSS custom properties for color, type, spacing, radius, elevation, and motion. |
 | Variants | Component variants selected by props, not ad-hoc class strings at call sites. |
 | Patterns | v0.58 baseline: shared modal/popover, catalog empty states, drawer shell, variant-controlled controls, loading state, status/error callouts, and table/list primitives. |
-| Shell | One app shell with navigation, page header/switchers, and mobile shellbar. |
+| Shell | One app shell: product-sidebar navigation, slim per-view headers, and mobile shellbar (v0.61b — top bars and the thread switcher are retired). |
 | Catalog | All operator pages render through validated catalog atoms and fragments. |
 
 Tokens are global, not scoped only to `#workspace-shell`. High contrast and reduced
@@ -181,7 +181,8 @@ existing token covers the need.
 Use consistent operator terms:
 
 - **Workspace**: the canonical operator surface at `/workspace`.
-- **Conversations**: UI label for the thread rail and switcher only; do not rename
+- **Conversations**: UI label for the sidebar Conversations section (the thread
+  list; the appbar switcher retired at v0.61b M7); do not rename
   internal `Conversations.Thread`, session, topic, setting, event, or database
   concepts.
 - **Canvas**: persistent workspace tiles and app destinations.

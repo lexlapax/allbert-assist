@@ -65,7 +65,12 @@ defmodule AllbertAssistWeb.V061b.SidebarConsolidationTest do
       Layout.current(%{})
       |> Layout.launcher_destinations(WorkspaceCatalog.known_destinations(%{registered_apps: []}))
 
-    assert destinations != []
+    # v0.61b M9.2: cardinality floor — the sweep derives its inventory from
+    # the live code, so a destination dropped from launcher_destinations would
+    # vanish from both the sidebar and the sweep at once. 19 is the M5
+    # inventory; growth is fine, silent shrinkage is not.
+    assert length(destinations) >= 19,
+           "destination inventory shrank to #{length(destinations)} (M5 established 19)"
 
     {:ok, view, _html} = live(conn, ~p"/workspace")
 

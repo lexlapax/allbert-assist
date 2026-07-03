@@ -14,7 +14,7 @@ defmodule AllbertAssistWeb.Live.SharedShellHooks do
   """
 
   import Phoenix.Component, only: [assign: 3, assign_new: 3]
-  import Phoenix.LiveView, only: [attach_hook: 4, push_event: 3]
+  import Phoenix.LiveView, only: [attach_hook: 4, connected?: 1, push_event: 3]
 
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Settings.Schema
@@ -25,7 +25,13 @@ defmodule AllbertAssistWeb.Live.SharedShellHooks do
   def on_mount(:shell_chrome, _params, _session, socket) do
     socket =
       socket
-      |> assign_new(:workspace_theme, fn -> theme_from_settings() end)
+      # M9.2: only the connected mount runs the settings-snapshot action — the
+      # disconnected HTTP render defaulted to a per-request Runner invocation
+      # any anonymous GET triggered; the root layout resolves the page theme
+      # itself, so "system" is a safe first-paint default for the toggle icon.
+      |> assign_new(:workspace_theme, fn ->
+        if connected?(socket), do: theme_from_settings(), else: "system"
+      end)
       |> assign_new(:workspace_high_contrast?, fn -> false end)
       |> assign_new(:workspace_overflow_open?, fn -> false end)
       |> assign_new(:sidebar_state, fn -> "expanded" end)
@@ -71,9 +77,24 @@ defmodule AllbertAssistWeb.Live.SharedShellHooks do
     {:halt, assign(socket, :sidebar_state, next)}
   end
 
+  # M9.2 (ADR 0080 focus-return guardrail): both hide transitions strand focus
+  # on a control the patch removes — hiding removes the whole sidebar,
+  # reopening removes the reopen tab — so each pushes focus to the surviving
+  # counterpart (the allbert:focus window listener in app.js).
   defp handle_event("toggle_sidebar_hidden", _params, socket) do
-    next = if socket.assigns.sidebar_state == "hidden", do: "expanded", else: "hidden"
-    {:halt, assign(socket, :sidebar_state, next)}
+    case socket.assigns.sidebar_state do
+      "hidden" ->
+        {:halt,
+         socket
+         |> assign(:sidebar_state, "expanded")
+         |> push_event("allbert:focus", %{id: "product-sidebar-toggle"})}
+
+      _expanded_or_rail ->
+        {:halt,
+         socket
+         |> assign(:sidebar_state, "hidden")
+         |> push_event("allbert:focus", %{id: "product-sidebar-reopen"})}
+    end
   end
 
   defp handle_event("set_sidebar_state", %{"state" => state}, socket)
@@ -100,15 +121,24 @@ defmodule AllbertAssistWeb.Live.SharedShellHooks do
         surface: "AllbertAssistWeb.Live.SharedShellHooks"
       )
 
-    case Runner.run("resolved_settings_snapshot", %{}, context) do
-      {:ok, %{status: :completed, settings: settings}} when is_map(settings) ->
-        case Schema.get_dotted(settings, "workspace.theme.mode") do
-          theme when theme in ["dark", "light", "system"] -> theme
-          _other -> "system"
-        end
+    "resolved_settings_snapshot"
+    |> Runner.run(%{}, context)
+    |> theme_from_snapshot()
+  end
 
-      _other ->
-        "system"
+  @doc """
+  Resolves the workspace theme from a `resolved_settings_snapshot` action
+  result, falling back to `"system"` on any failure or unknown value —
+  a broken snapshot action must pin the shells to a safe theme, never crash
+  the mount. Public so the fallback branch is unit-testable (M9.2).
+  """
+  def theme_from_snapshot({:ok, %{status: :completed, settings: settings}})
+      when is_map(settings) do
+    case Schema.get_dotted(settings, "workspace.theme.mode") do
+      theme when theme in ["dark", "light", "system"] -> theme
+      _other -> "system"
     end
   end
+
+  def theme_from_snapshot(_other), do: "system"
 end

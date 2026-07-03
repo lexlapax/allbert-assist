@@ -988,8 +988,12 @@ body {
   min-width: 0;
 }
 
-/* Below the mobile breakpoint the sidebar collapses to a mobile shellbar. */
-@media (max-width: 48rem) {
+/* Below the mobile breakpoint the sidebar collapses to a mobile shellbar.
+   v0.61b M9.2: 767.98px, matching every other mobile block — 48rem (768px)
+   overlapped the desktop min-width: 768px rules, so at exactly 768px (iPad
+   portrait) a persisted rail/hidden state kept the collapse grid while this
+   block hid the sidebar, auto-placing content into the 3.5rem track. */
+@media (max-width: 767.98px) {
   .operator-shell {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3254,6 +3258,14 @@ a.allbert-chip-link:focus-visible,
 .workspace-rail-item-row:hover .workspace-rail-item-rename,
 .workspace-rail-item-row:focus-within .workspace-rail-item-rename {
   opacity: 1;
+}
+
+/* v0.61b M9.2: no hover on touch — keep the rename affordance visible on
+   coarse pointers instead of a blind-tap target. */
+@media (pointer: coarse) {
+  .workspace-rail-item-rename {
+    opacity: 1;
+  }
 }
 
 .workspace-rail-item-renaming {

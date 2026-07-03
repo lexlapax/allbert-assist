@@ -130,6 +130,11 @@ retint unrelated UI.
 
 ### 8. Layout validates against a pinned source; no lockout; AppBar is fixed
 
+> **Superseded in part (v0.61b, ADR 0080):** the AppBar itself was retired at
+> v0.61b M7 — the theme toggle and destination quick-links now live in the
+> product sidebar (footer + sections). The principle stands: that chrome
+> remains fixed and out of scope for layout override.
+
 Layout override validates against an enumerable destination/panel source that
 v0.35 must add (`Workspace.Catalog.known_destinations/1`, with the grammar
 `output` | `app:<id>` | `workspace:<tool>`), registered panel surface ids, and

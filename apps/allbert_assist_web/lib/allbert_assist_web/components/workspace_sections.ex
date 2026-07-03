@@ -67,12 +67,14 @@ defmodule AllbertAssistWeb.Components.WorkspaceSections do
         <h3 class="workspace-rail-section-title workspace-rail-section-spaced">
           {section_label(section)}
         </h3>
-        <div class="workspace-rail-list" role="list">
+        <%!-- v0.61b M9.2: no list/listitem roles here — role="listitem" on a
+        <button> strips its button semantics and makes aria-pressed invalid;
+        these are toggle buttons in a headed group. --%>
+        <div class="workspace-rail-list">
           <button
             :for={destination <- destinations}
             id={"workspace-dest-#{destination.dom_id}"}
             type="button"
-            role="listitem"
             class={[
               "workspace-rail-item workspace-destination-item",
               destination.section == :apps && "workspace-app-launcher-item",

@@ -61,7 +61,7 @@ proofs / the `:v061b` security sweep / docs gate).
 
 Status: released — `mix allbert.test release.v061` gate-green (Dialyzer 0); version
 bumped to 0.61.0; tagged `v0.61.0`. The operator's manual-validation UX feedback is
-addressed by the subsequent v0.61b point release (0.61.1, planned):
+addressed by the subsequent v0.61b point release (0.61.1, built; tag held):
 `docs/plans/v0.61b-plan.md`.
 
 Implements the v0.60 product-experience design (information architecture, navigation,
