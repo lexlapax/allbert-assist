@@ -350,7 +350,8 @@ defmodule AllbertAssistWeb.WorkspaceLive do
 
   # v0.61b M8 (ADR 0080 §4): the Workspace rail icon opens a click-activated
   # flyout carrying the workspace sections (workspace-only — the context lives
-  # here); Escape/click-away closes it with focus returned to the rail icon.
+  # here); Escape returns focus to the rail icon, while click-away closes without
+  # stealing focus from the click target.
   def handle_event("toggle_rail_flyout", _params, socket) do
     {:noreply, update(socket, :rail_flyout_open?, &(!&1))}
   end

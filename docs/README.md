@@ -35,12 +35,14 @@ implemented in the operator-chosen Layout D (Sidebar-primary), dressed in the
 v0.60b-chosen Direction C (Soft Modern Depth) visual language, with brand, motion,
 visual hierarchy, landing, and dark-mode polish; `release.v061` is green and the
 tag `v0.61.0` is applied (it shipped with version metadata `0.61.0`). In flight is
-**v0.61b** (built, awaiting operator validation; version metadata reports
-`0.61.1`, tag held): a UX-refinement point release that
+**v0.61b** (built after M9.1-M9.4 audit remediation, awaiting operator
+validation; version metadata reports `0.61.1`, tag held): a UX-refinement point
+release that
 implements the operator's v0.61 manual-validation feedback — navigation
 consolidation (one sidebar, replace-and-restore docked tool pane, no top bars,
-collapsible rail with Workspace flyout; ADR 0080) plus chat type-scale,
-status-chip labeling, renamable threads, and a subtler dark mode. Pane width
+collapsible rail with eight top-level rail pills, Workspace flyout, and Intents
+as a Workspace destination; ADR 0080) plus chat type-scale, status-chip
+labeling, renamable threads, and a subtler dark mode. Pane width
 reuses `WorkspaceSplitResizer`, sidebar collapse uses client-local `LayoutPrefs`,
 and the v0.61 proof suite is reconciled only where M3/M5 intentionally change old
 literal token values or pre-M5 nav structure. The remaining pre-1.0 arc is v0.62

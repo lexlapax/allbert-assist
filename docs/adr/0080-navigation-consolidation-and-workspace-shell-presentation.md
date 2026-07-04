@@ -217,8 +217,10 @@ with these recorded refinements — none change the decision:
   flyout renders the same `WorkspaceSections` component the expanded sidebar
   nests.
 - The eight refinements are proven by the `:v061b` eval rows +
-  `release.v061b`; the S4 early live review and S5/S6 operator passes remain
-  open — send-backs fold into the M8 polish window per the plan.
+  `release.v061b`; S3-S6 operator validation remains open after the M9.1-M9.4
+  remediation passes. Post-build send-backs now reopen as named M9.x remediation
+  or block the operator-held tag; they no longer route into the closed M8 polish
+  window.
 
 ### Audit amendments (v0.61b M9.1/M9.2, 2026-07-03)
 
@@ -250,3 +252,17 @@ narrowings:
 - **Patch-vs-navigate is partial by design** — workspace sections and
   overflow items patch on `/workspace`; the top-level pills always
   `navigate` (full remount). Accepted.
+
+### Handoff amendments (v0.61b M9.3/M9.4, 2026-07-03)
+
+The second post-implementation audit found no code/security blocker for operator
+validation, but it found two handoff risks that could create false operator
+failures:
+
+- **Operator-validation flow rebased** — S1/S2 are historical confirmations of
+  the signed plan and ADR acceptance; S3-S6 are the active validation path.
+  Findings after M9.4 reopen as named M9.x remediation or block the tag.
+- **Rail icon wording narrowed** — the top-level rail renders eight pills
+  (Home, Workspace, Objectives, Jobs, Models, Channels, Settings, Trust). Intents
+  is validated as the `workspace:intents` destination with `hero-bolt`, not as a
+  top-level rail pill.

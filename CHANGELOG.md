@@ -12,9 +12,10 @@ changelog entries or release notes.
 
 ## v0.61.1 - UX Refinement: Navigation Consolidation & Presentation Polish (v0.61b)
 
-Status: built and gate-staged — version bumped to 0.61.1; `mix allbert.test
-release.v061b` is the release gate; git tag `v0.61.1` held for the operator
-after the S1–S6 manual validation. A **point release** inserted between v0.61
+Status: built and gate-staged after M9.1-M9.4 audit remediation — version
+bumped to 0.61.1; `mix allbert.test release.v061b` is the release gate; git tag
+`v0.61.1` held for the operator after the S1-S6 manual validation. A **point
+release** inserted between v0.61
 (0.61.0) and v0.62; does not renumber v0.62–v0.64.
 
 Implements the eight operator UX-feedback items from the v0.61 manual
@@ -30,7 +31,8 @@ the 2026-07-02 S2 sign-off):
   (SharedShellHooks owns their events cross-shell), and the canvas/tool region
   docks as a right-hand resizable split pane (WorkspaceSplitResizer reused;
   replace-and-restore tenancy; nothing ever floats over chat). The sidebar
-  collapses expanded → icon rail (Workspace rail flyout) → fully hidden, with
+  collapses expanded → icon rail (eight top-level rail pills, Workspace rail
+  flyout, Intents as the `workspace:intents` destination) → fully hidden, with
   localStorage persistence (LayoutPrefs) and Cmd/Ctrl+B / Shift+B / Cmd/Ctrl+\\
   shortcuts. All 15 relocation-map rows executed and mirrored in the proof.
 - **Contained refinements (M1–M4):** chat-bubble type hierarchy fixed (strict

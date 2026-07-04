@@ -3987,19 +3987,21 @@ ADR: `docs/adr/0080-navigation-consolidation-and-workspace-shell-presentation.md
 (Accepted (v0.61b) at the 2026-07-02 S2 plan sign-off; pointer notes in ADR
 0077/0074).
 
-Status: built — awaiting operator validation (2026-07-02); version bumped to
-0.61.1, gate `release.v061b`, git tag held for the operator after S1–S6 — a
-**point release**
+Status: built — awaiting operator validation after M9.1-M9.4 audit remediation
+(2026-07-03); version bumped to 0.61.1, gate `release.v061b`, git tag held for
+the operator after S1-S6 — a **point release**
 (0.61.1) inserted between v0.61 (0.61.0) and v0.62; does not renumber
 v0.62-v0.64. Implements the eight operator UX-feedback items from the v0.61
 manual validation (captured 2026-07-01; inventory folded into the plan; the
-temporary root capture file retires at closeout). One shell-composition arc (ADR
+raw capture is archived at
+`docs/archives/v0.61-manual-operator-feedback.md`). One shell-composition arc (ADR
 0080: single sidebar with contextually-expanding workspace sections replacing the
 workspace-local submenu column; per-shell top bars retired for slim per-view
 headers; the workspace tool pane docked as a right-hand resizable split pane with
 replace-and-restore pane tenancy and existing `WorkspaceSplitResizer` persistence
-reuse; icon-rail + full-hide sidebar collapse with a click-activated Workspace
-rail flyout and client-side `LayoutPrefs` persistence) plus four contained
+reuse; icon-rail + full-hide sidebar collapse with eight top-level rail pills, a
+click-activated Workspace rail flyout, Intents as the `workspace:intents`
+destination, and client-side `LayoutPrefs` persistence) plus four contained
 refinements (chat-bubble type hierarchy fixed — the timestamp rule was simply
 missing; the chat-header objective chip becomes a labeled link-chip; renamable
 conversation threads via a registered `rename_thread` action on the existing
@@ -4009,9 +4011,12 @@ new authority, permission, capability class, Settings key, or route; thread rena
 is the one operator write affordance on the existing action spine. Direction C and
 the ADR 0077 IA structure hold. Milestones M0 (in-plan shell-spec/sign-off
 section + ADR 0080, S2 operator sign-off gates the shell arc) → M1-M4 contained →
-M5-M8 shell arc (S4 early live review; send-backs absorbed by M8) → M9 evals +
-`release.v061b` gate (incl. the `:v061` regression proof, reconciled where M3/M5
-intentionally change old literal token values or pre-M5 nav structure) + closeout.
+M5-M8 shell arc → M9 evals + `release.v061b` gate (incl. the `:v061` regression
+proof, reconciled where M3/M5 intentionally change old literal token values or
+pre-M5 nav structure) + closeout → M9.1/M9.2 implementation/spec remediation →
+M9.3/M9.4 operator-handoff and rail-narrowing cleanup. S3-S6 operator validation
+is now the active path; post-build send-backs reopen named M9.x remediation or
+block the tag.
 The former v0.62 M7 UX carryover moves here; v0.62 is reconciled to pure packaging
 scope. Releases as **0.61.1**, tag held for the operator after the S6 final
 validation.

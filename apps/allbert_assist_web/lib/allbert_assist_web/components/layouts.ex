@@ -430,9 +430,9 @@ defmodule AllbertAssistWeb.Layouts do
     """
   end
 
-  # v0.61b M8 — the nine M0-spec rail icon assignments (Trust and Intents were
-  # the two flagged non-idiomatic picks, confirmed at S2; Intents is a
-  # workspace destination, not a top-level pill, so eight keys render here).
+  # v0.61b M8/M9.4 — eight top-level rail icon assignments render here. Intents
+  # keeps its flagged `hero-bolt` assignment as the workspace:intents destination,
+  # not as a top-level pill.
   defp nav_icon("launch"), do: "hero-home-micro"
   defp nav_icon("workspace"), do: "hero-rectangle-group-micro"
   defp nav_icon("objectives"), do: "hero-flag-micro"
