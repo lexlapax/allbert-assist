@@ -80,6 +80,13 @@ defmodule AllbertAssistWeb.Layouts do
   attr :overflow_open?, :boolean, default: false
   attr :sidebar_state, :string, default: "expanded"
 
+  attr :view_header?, :boolean,
+    default: true,
+    doc:
+      "v0.61b M9.5 (S4 send-back): the landing keeps its hero composition — " <>
+        "the M0 per-view header inventory assigns `/` no view-header band, so " <>
+        "the hero page suppresses it and names the region via its own heading."
+
   slot :inner_block, required: true
   slot :view_actions
 
@@ -106,8 +113,9 @@ defmodule AllbertAssistWeb.Layouts do
 
       <div class="operator-shell-main">
         <%!-- v0.61b M7 (ADR 0080 §2): the persistent topbar band is retired; a
-        slim per-view header carries the view context inside the content area. --%>
-        <div class="operator-view-header">
+        slim per-view header carries the view context inside the content area
+        (suppressed on the landing hero per the M0 inventory — M9.5). --%>
+        <div :if={@view_header?} class="operator-view-header">
           <div class="min-w-0">
             <h1 id={@labelledby} class="operator-view-title">{@title}</h1>
             <p :if={@subtitle} class="operator-view-subtitle">{@subtitle}</p>

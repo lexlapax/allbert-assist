@@ -14,7 +14,9 @@ defmodule AllbertAssistWeb.V061b.ChatTypeHierarchyTest do
   @css_path Path.expand("../../../assets/css/app.css", __DIR__)
 
   test "chat bubble type ranks strictly body > label > timestamp on token-resolved values" do
-    body_rule = last_block!(".workspace-message-body pre")
+    # First block = the M1 token rule; the last is the M9.5 scope-matched
+    # family override (no font-size).
+    body_rule = first_block!(".workspace-message-body pre")
     label_rule = last_block!(".workspace-message-label")
     time_rule = last_block!(".workspace-message-time")
 
@@ -39,7 +41,7 @@ defmodule AllbertAssistWeb.V061b.ChatTypeHierarchyTest do
     assert time_rule =~ "color: var(--workspace-muted);"
 
     for {selector, rule} <- [
-          {".workspace-message-body pre", last_block!(".workspace-message-body pre")},
+          {".workspace-message-body pre", first_block!(".workspace-message-body pre")},
           {".workspace-message-label", last_block!(".workspace-message-label")},
           {".workspace-message-time", time_rule}
         ] do
@@ -52,8 +54,16 @@ defmodule AllbertAssistWeb.V061b.ChatTypeHierarchyTest do
   end
 
   test "message bodies read in the product sans face (monospace reserved for code)" do
-    body_rule = last_block!(".workspace-message-body pre")
+    body_rule = first_block!(".workspace-message-body pre")
     assert body_rule =~ "font-family: var(--allbert-font-family);"
+
+    # v0.61b M9.5 (S3 finding): the declaration above LOST the cascade — the
+    # `#workspace-shell pre` mono rule (1-0-1) beat the class-scoped sans
+    # declaration (0-1-1), so every prose body still rendered monospace while
+    # this rule-level assert stayed green. Guard the scope-matched winner
+    # (1-1-1) explicitly.
+    winner = last_block!("#workspace-shell .workspace-message-body pre")
+    assert winner =~ "font-family: var(--allbert-font-family);"
   end
 
   # -- helpers ---------------------------------------------------------------

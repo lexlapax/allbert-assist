@@ -1884,6 +1884,15 @@ a.allbert-chip-link:focus-visible,
   color: var(--workspace-fg);
 }
 
+/* v0.61b M9.5 (S3 finding): the `#workspace-shell pre` mono rule (1-0-1)
+   beat the M1 sans declaration above (0-1-1) in the cascade, so every prose
+   message body still rendered monospace — the proof test parses rules, not
+   the cascade. Scope-matched override; `<code>` inside a body stays mono via
+   the `#workspace-shell code` rule. */
+#workspace-shell .workspace-message-body pre {
+  font-family: var(--allbert-font-family);
+}
+
 .workspace-message-label {
   font-size: var(--allbert-font-size-sm);
   font-weight: var(--allbert-font-weight-medium);

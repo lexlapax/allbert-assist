@@ -1,10 +1,13 @@
 <Layouts.app flash={@flash} content_width="full">
+  <%!-- v0.61b M9.5 (S4 send-back): the M0 per-view header inventory assigns
+  the landing NO view-header band — the hero is the composition, and its own
+  heading names the shell region. --%>
   <Layouts.operator_shell
     id="home-operator-shell"
     active="launch"
     title="Allbert"
-    subtitle="A personal assistant runtime that grows with you"
-    labelledby="home-page-title"
+    view_header?={false}
+    labelledby="home-hero-title"
   >
     <section
       id="home-page"
@@ -20,7 +23,7 @@
           height="72"
           class="allbert-landing-mark"
         />
-        <h2 id="home-hero-title" class="allbert-landing-title">Allbert</h2>
+        <h1 id="home-hero-title" class="allbert-landing-title">Allbert</h1>
         <p class="allbert-landing-tagline">
           A personal assistant runtime that grows with you — local-first, inspectable,
           and yours.

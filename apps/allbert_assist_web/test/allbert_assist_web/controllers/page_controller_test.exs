@@ -45,6 +45,13 @@ defmodule AllbertAssistWeb.PageControllerTest do
     assert html =~ ~s(id="home-operator-shell")
     assert html =~ ~s(data-workspace-shell="operator")
     assert html =~ ~s(data-active-page="launch")
+
+    # v0.61b M9.5 (S4 send-back): the M0 per-view header inventory assigns the
+    # landing NO view-header band — the hero composition is the page, its h1
+    # names the shell region, and nothing duplicates the brand line above it.
+    refute html =~ "operator-view-header"
+    assert html =~ ~s(<h1 id="home-hero-title")
+    assert html =~ ~s(aria-labelledby="home-hero-title")
     assert html =~ ~s(class="workspace-button workspace-button-primary")
     assert html =~ ~s(class="workspace-button workspace-button-secondary")
 
