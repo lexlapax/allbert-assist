@@ -442,7 +442,8 @@ scope.
     feedback is cheapest to land while the presentation release's context is
     fresh, and the v1.0 presentation-contract freeze makes composition fixes
     time-sensitive — so they land as a point release rather than riding v0.62
-    (whose former M7 carryover moves here, leaving v0.62 pure packaging). ADR
+    (whose former M7 carryover moves here, leaving v0.62's main lane as
+    packaging work plus the explicit M0.1 web-preflight exception). ADR
     0080 (navigation consolidation & workspace shell presentation) records the
     shell revision: one product sidebar with contextually-expanding workspace
     sections, slim per-view headers instead of top bars, a right-docked resizable
@@ -4017,11 +4018,12 @@ pre-M5 nav structure) + closeout → M9.1/M9.2 implementation/spec remediation �
 M9.3/M9.4 operator-handoff and rail-narrowing cleanup. S3-S6 operator validation
 is now the active path; post-build send-backs reopen named M9.x remediation or
 block the tag.
-The former v0.62 M7 UX carryover moves here; v0.62 is reconciled to pure packaging
-scope. Released as **0.61.1** (tagged `v0.61.1`, 2026-07-05, after the S6
-pass). Astryx by Meta is recorded in the v0.61/v0.61b plans as an external
-design-system reference only; no React/StyleX dependency is adopted by this
-release or implied for v0.62-v0.64.
+The former v0.62 M7 UX carryover moves here; v0.62's main lane is reconciled to
+packaging scope, with only the explicit v0.61b post-audit M0.1 web-preflight
+exception left in the v0.62 plan. Released as **0.61.1** (tagged `v0.61.1`,
+2026-07-05, after the S6 pass). Astryx by Meta is recorded in the v0.61/v0.61b
+plans as an external design-system reference only; no React/StyleX dependency
+is adopted by this release or implied for v0.62-v0.64.
 
 ## v0.62: Packaging & Entry Points
 
@@ -4031,20 +4033,25 @@ ADR: `docs/adr/0076-packaging-distribution-and-unified-cli.md`; completes the
 ADR 0070 mix-free TUI operator console convergence.
 
 Status: planned — implementation-readiness pass done 2026-07-05 (four-lens
-review folded into the triad: deep per-milestone Implementation blocks, Locked
-Decisions with four operator-signed rows, Current Code State, Research
-Grounding, 17 `:v062` eval rows, First-Model-Path broken out as its own
-milestone, ADR 0076 amended with Distribution Trust) (pre-1.0 product
+review plus second-pass doc-only corrections folded into the triad: deep
+per-milestone Implementation blocks, Locked Decisions with four operator-signed
+rows, Current Code State, Research Grounding, research evidence ledger, attach
+transport contract, M4 authority contract, 17 `:v062` eval rows,
+First-Model-Path broken out as its own milestone, ADR 0076 amended with
+Distribution Trust) (pre-1.0 product
 capability release 2 of 3; implements the v0.60
 entry-point/CLI UX design; followed by v0.63 onboarding/profiles and the v0.64
 product RC). The post-v0.58 product-readiness review moved packaging before
 guided onboarding: first-run guidance should teach the final `allbert` binary,
 CLI, daemon, and OS-vault credential model, not temporary Mix commands. The v0.60
 First-Model-Path decision (ADR 0078) is **assisted-local default + BYOK fallback**,
-so this release integrates Ollama management (detect + guided install, curated model
-pull; the runtime is a managed dependency, not bundled) — the dependency that forced
-the First-Model-Path decision early, so packaging is built once against a known
-answer rather than repackaged afterward.
+so this release integrates Ollama management (detect + guided install through
+the S4-ratified supported upstream path, curated model pull; the runtime is a
+managed dependency, not bundled) — the dependency that forced the
+First-Model-Path decision early, so packaging is built once against a known
+answer rather than repackaged afterward. The main lane is packaging/entry-point
+work; M0.1 is the only non-packaging exception and exists solely to close small
+v0.61b post-audit web-preflight tickets.
 
 Expected direction:
 
@@ -4053,16 +4060,18 @@ Expected direction:
 - A unified, grouped CLI dispatcher (`allbert ask|chat|tui|serve|admin <area>|gen`)
   that subsumes the flat Mix-task sprawl, splitting operator from dev/CI
   commands.
-- Background-daemon management (launchd/systemd/Scheduled Task) with a health
-  check, plus an `allbert serve` story for the runtime + web + channels.
+- Background-daemon management (launchd/systemd Tier 1; native Windows
+  Scheduled Task only if later promoted from Tier 2) with a health check, plus
+  an `allbert serve` story for the runtime + web + channels.
 - Completion of the ADR 0070 convergence so the mix-free TUI console absorbs the
   remaining day-to-day admin-inspection reads.
 - OS secret-vault credential handling through Settings Central references
   (macOS Keychain / Linux Secret Service required; Windows Credential Manager
   best-effort).
 - Platform support is explicitly tiered: macOS + Linux are Tier 1 and
-  freeze-blocking; Windows is Tier 2 (WSL2-supported; native packaging/daemon/
-  Credential Manager best-effort, not freeze-blocking).
+  freeze-blocking, with the exact CPU/artifact matrix settled at S2
+  (`macos-x64` explicit yes/no); Windows is Tier 2 (WSL2-supported; native
+  packaging/daemon/Credential Manager best-effort, not freeze-blocking).
 - An M0 feasibility spike proves the ERTS-bundled binary boots with the SQLite
   NIF, compiled web assets, and one plugin on a Tier-1 OS before the packaging
   mechanism is fixed.

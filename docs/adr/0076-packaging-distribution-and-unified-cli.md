@@ -3,7 +3,9 @@
 Status: Proposed (v0.62; accepted at the v0.62 request-flow S8 sign-off).
 Date: 2026-06-25 (amended 2026-07-05 by the v0.62 implementation-readiness
 pass: Bakeware struck as archived, CLI process model + vault tiering + First-
-Model-Path execution authority recorded, Distribution Trust section added).
+Model-Path execution authority recorded, Distribution Trust section added;
+second-pass readiness corrections clarified platform tiers, attach transport,
+service ownership, and Ollama authority).
 Related: ADR 0077 (Product Experience Design & IA — designs the entry-point / CLI
 UX in v0.60 M5; this release implements it in v0.62), ADR 0078 (First-Model Path —
 its chosen option requires detecting/guiding Ollama setup and managing a curated
@@ -41,22 +43,26 @@ guided onboarding and the v0.64 product RC lock in the first-run flow.
    and a **curl install script**. Artifacts are **built natively per target
    triple in CI** — cross-compilation is not viable for this dependency tree
    (rebar3-built `erlexec` and the `muontrap`/`erlexec` port *executables* are
-   invisible to or mis-built by NIF-oriented cross recompilation).
+   invisible to or mis-built by NIF-oriented cross recompilation). The
+   provisional freeze-blocking matrix is `macos-arm64`, `linux-x64`, and
+   `linux-arm64`; the M0/S2 spike sign-off must explicitly promote
+   `macos-x64` or record it as non-blocking compatibility.
 2. **Unified grouped CLI dispatcher.** A single `allbert <group> <command>`
    surface — `ask | chat | tui | serve | admin <area> | gen`, plus the
    bare-`allbert` first-run/resume dispatcher from the design artifact —
    subsuming the flat mix-task sprawl, with coherent grouped help.
    **Process model (operator decision 2026-07-05): attach-first** — commands
-   connect to a running daemon over a local attach transport; an embedded
-   runtime boots only when no daemon runs, under single-writer discipline
-   (never two BEAM writers on one SQLite file). Operator commands are separated
-   from developer/CI commands; the latter stay `mix`-only. The entry-point and CLI
-   *UX* (group/command shape, help layout, first-invocation experience) is designed
-   in the v0.60 Product Experience Design release (ADR 0077 M5); this release
-   implements it.
+   connect to a running daemon over a local-only authenticated attach transport;
+   an embedded runtime boots only when no daemon runs, under single-writer
+   discipline (never two BEAM writers on one SQLite file). Operator commands are
+   separated from developer/CI commands; the latter stay `mix`-only. The
+   entry-point and CLI *UX* (group/command shape, help layout,
+   first-invocation experience) is designed in the v0.60 Product Experience
+   Design release (ADR 0077 M5); this release implements it.
 3. **Background-daemon management.** `allbert serve` plus install/uninstall of a
-   launchd / systemd / Scheduled-Task service, with a health check the user can
-   see succeed — covering the runtime, web workspace, and channels.
+   per-user launchd / systemd service, with a health check the user can see
+   succeed — covering the runtime, web workspace, and channels. Native Windows
+   Scheduled Task support stays Tier 2 unless a later ADR promotes it.
 4. **Complete the ADR 0070 convergence.** The mix-free TUI operator console
    absorbs the remaining admin-inspection reads so operators never need raw `mix`
    for day-to-day operation.
@@ -75,9 +81,9 @@ guided onboarding and the v0.64 product RC lock in the first-run flow.
    Ollama is a managed external dependency, not bundled into the `allbert`
    binary; BYOK remains the Advanced/fallback path. **Execution authority
    (operator decision 2026-07-05): Allbert executes the guided install and
-   pull itself, through the official Ollama channels only, each step behind an
-   explicit operator confirmation with trace/egress recording** — this is its
-   own v0.62 milestone, not a packaging footnote.
+   pull itself, through the S4-ratified supported upstream path only, each step
+   behind an explicit operator confirmation with trace/egress recording** —
+   this is its own v0.62 milestone, not a packaging footnote.
 
 The concrete v0.60 M5 entry-point artifact is
 `docs/design/entry-point-cli-ux.md`: command taxonomy, grouped help model,
@@ -108,8 +114,13 @@ and inspectability promises extend to it:
   network in exactly four ways: (1) the install-script artifact fetch, (2) the
   Homebrew tap/artifact fetch, (3) the Ollama installer fetch, (4) the curated
   model pull. (3) and (4) execute only behind explicit operator confirmations
-  with trace records. Nothing else; the binary itself performs **no telemetry,
-  no phone-home, and no auto-update check**.
+  with trace records and through existing authority classes: `:external_network`
+  for metadata/model fetches, `:package_install` for Homebrew, and
+  `:command_execute` with exact argv/resource allowlists if the S4-ratified
+  path is a script/tarball. If the effect cannot fit an existing class, v0.62
+  records a blocker or invokes the BYOK-primary contingency; it does not add a
+  new permission atom during implementation. Nothing else; the binary itself
+  performs **no telemetry, no phone-home, and no auto-update check**.
 - **Verifiable artifacts.** Release artifacts publish SHA256 checksums; both
   install paths verify them (cosign-signed checksums are a recorded candidate,
   not required in v0.62). The bundled ERTS/OTP version is pinned as a CI input
@@ -125,7 +136,10 @@ and inspectability promises extend to it:
 - **Inspectable install.** Both install paths install only documented files,
   write an uninstall manifest, and leave Allbert Home untouched on uninstall
   absent an explicit `--purge`. Tap/artifact-hosting ownership (domain, repo)
-  is recorded at the v0.62 S3 sign-off.
+  is recorded at the v0.62 S3 sign-off. S3 also decides the exact Homebrew
+  package type (formula vs cask), whether Homebrew's service block is used, and
+  whether service lifecycle stays entirely under `allbert serve`; v0.62 must
+  not ship two competing service managers for the same install path.
 - **Packaged-plugin constraint.** A packaged install can never gain new plugin
   *code* (plugins compile into the artifact at build time); Home-directory
   declarative entries and operator-confirmed dynamic drafts remain the runtime
@@ -140,6 +154,9 @@ and inspectability promises extend to it:
 - The CLI dispatcher reorganizes entry points; it does not add capability or
   authority — every command still routes through the same runtime/action/settings
   spine (ADR 0073).
+- The attach transport is local-only. It must not expose a routable listener,
+  must authenticate against per-Allbert-Home runtime state, and must refuse
+  version/Home/user/protocol mismatches instead of booting a second writer.
 
 ## Platform Support Tiers And Feasibility Spike
 
@@ -147,10 +164,12 @@ Two explicit scope decisions, recorded here so they are not assumed downstream:
 
 - **Tier 1 — macOS and Linux** are fully supported and freeze-blocking for v1.0:
   the binary, Homebrew/curl install, `launchd`/`systemd` daemon, and the macOS
-  Keychain / Linux Secret Service vaults. **Tier 2 — Windows** is supported via
-  WSL2; native Windows packaging, a Scheduled-Task daemon, and Windows Credential
-  Manager are best-effort/beta and **not** v1.0 freeze-blocking unless a later ADR
-  promotes them.
+  Keychain / Linux Secret Service vaults. The CPU/artifact matrix is settled by
+  the M0/S2 spike; until then the freeze-blocking proposal is `macos-arm64`,
+  `linux-x64`, and `linux-arm64`, with `macos-x64` explicitly decided at S2.
+  **Tier 2 — Windows** is supported via WSL2; native Windows packaging, a
+  Scheduled-Task daemon, and Windows Credential Manager are best-effort/beta and
+  **not** v1.0 freeze-blocking unless a later ADR promotes them.
 - **Feasibility spike first.** Because the codebase has no packaging today, the
   packaging mechanism (Burrito 1.5.x or a hand-wrapped OTP release; Bakeware is
   archived and struck) is chosen by a time-boxed v0.62 M0 spike that must prove
