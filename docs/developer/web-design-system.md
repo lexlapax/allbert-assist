@@ -146,6 +146,14 @@ catalog boundary, and `/workspace` stay in force.
 Tokens are global, not scoped only to `#workspace-shell`. High contrast and reduced
 motion apply to `/workspace`, `/jobs`, `/objectives`, and v0.58 panels.
 
+External design-system references may inform audits and pattern reviews, but they
+do not become dependencies by mention. Astryx by Meta is recorded in the v0.61b
+plan as a useful reference for app shell, side navigation, chat/table patterns,
+resizable surfaces, themes, and agent-readable component documentation; Allbert
+still implements those ideas through Phoenix LiveView, HEEx, Tailwind, shared
+patterns, and the catalog boundary unless a later plan explicitly approves a
+React/StyleX island.
+
 ## Token Contract
 
 Built-in tokens live in `apps/allbert_assist_web/assets/css/app.css` under `:root`,

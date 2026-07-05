@@ -12,9 +12,10 @@ changelog entries or release notes.
 
 ## v0.61.1 - UX Refinement: Navigation Consolidation & Presentation Polish (v0.61b)
 
-Status: built and gate-staged after M9.1-M9.4 audit remediation — version
-bumped to 0.61.1; `mix allbert.test release.v061b` is the release gate; git tag
-`v0.61.1` held for the operator after the S1-S6 manual validation. A **point
+Status: **released — tagged `v0.61.1` (2026-07-05)** after M9.1-M9.5 audit +
+validation remediation; version 0.61.1; `mix allbert.test release.v061b` is the
+release gate; the S1-S6 validation ran as a delegated pass on 2026-07-04
+(results record in the v0.61b request flow). A **point
 release** inserted between v0.61
 (0.61.0) and v0.62; does not renumber v0.62–v0.64.
 
@@ -63,7 +64,7 @@ proofs / the `:v061b` security sweep / docs gate).
 
 Status: released — `mix allbert.test release.v061` gate-green (Dialyzer 0); version
 bumped to 0.61.0; tagged `v0.61.0`. The operator's manual-validation UX feedback is
-addressed by the subsequent v0.61b point release (0.61.1, built; tag held):
+addressed by the subsequent v0.61b point release (0.61.1, released):
 `docs/plans/v0.61b-plan.md`.
 
 Implements the v0.60 product-experience design (information architecture, navigation,

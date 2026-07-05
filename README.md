@@ -34,18 +34,18 @@ becoming opaque or unbounded.
 
 ## Current Shape
 
-The current release is `v0.61.0` (Presentation Layer Overhaul). It implemented the
+The current release line is v0.61 (Presentation Layer Overhaul, tagged
+`v0.61.0`). It implemented the
 v0.60 product-experience design in the operator-chosen Layout D
 (Sidebar-primary), dressed it in the v0.60b-chosen Direction C (Soft Modern
 Depth) visual language, added the operator-chosen brand identity, and shipped the
 polished primary web presentation layer with no new authority or runtime
 capability beyond the planned presentation surface.
 
-The latest published release tag is `v0.61.0`. The in-flight point release is
-`v0.61b` / `0.61.1` — version metadata already reports `0.61.1`, built and
-gate-green, with the tag held for operator validation. It owns the operator's
-v0.61 manual-validation UX feedback before v0.62 moves on to packaging and
-entry points.
+The latest published release tag is `v0.61.1` (the v0.61b UX Refinement point
+release — validated and tagged 2026-07-05). It implemented the operator's v0.61
+manual-validation UX feedback before v0.62 moves on to packaging and entry
+points.
 
 This README is the stable project orientation; release-by-release implementation
 detail belongs in [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in

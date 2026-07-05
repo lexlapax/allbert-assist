@@ -453,7 +453,7 @@ scope.
     registered-action spine. Plan `docs/plans/v0.61b-plan.md` (M0 in-plan
     shell-spec/sign-off gate → contained fixes M1-M4 → shell arc M5-M8 with an S4
     early live review → M9 `release.v061b` gate incl. the `:v061` regression
-    step). Releases as 0.61.1, tag held for the operator.
+    step). Released as 0.61.1 (tagged `v0.61.1`, 2026-07-05).
 62. v0.62 Packaging & Entry Points: implements the v0.60-designed entry-point/CLI
     UX — a packaged `allbert` binary (release-built, no Elixir toolchain) with a
     Homebrew/curl install path, a unified grouped CLI dispatcher
@@ -3987,9 +3987,9 @@ ADR: `docs/adr/0080-navigation-consolidation-and-workspace-shell-presentation.md
 (Accepted (v0.61b) at the 2026-07-02 S2 plan sign-off; pointer notes in ADR
 0077/0074).
 
-Status: built — awaiting operator validation after M9.1-M9.4 audit remediation
-(2026-07-03); version bumped to 0.61.1, gate `release.v061b`, git tag held for
-the operator after S1-S6 — a **point release**
+Status: **released** — tagged `v0.61.1` by the operator (2026-07-05) after the
+M9.1-M9.5 audit + validation remediation and the delegated S1-S6 pass
+(2026-07-04); version 0.61.1, gate `release.v061b` — a **point release**
 (0.61.1) inserted between v0.61 (0.61.0) and v0.62; does not renumber
 v0.62-v0.64. Implements the eight operator UX-feedback items from the v0.61
 manual validation (captured 2026-07-01; inventory folded into the plan; the
@@ -4018,8 +4018,10 @@ M9.3/M9.4 operator-handoff and rail-narrowing cleanup. S3-S6 operator validation
 is now the active path; post-build send-backs reopen named M9.x remediation or
 block the tag.
 The former v0.62 M7 UX carryover moves here; v0.62 is reconciled to pure packaging
-scope. Releases as **0.61.1**, tag held for the operator after the S6 final
-validation.
+scope. Released as **0.61.1** (tagged `v0.61.1`, 2026-07-05, after the S6
+pass). Astryx by Meta is recorded in the v0.61/v0.61b plans as an external
+design-system reference only; no React/StyleX dependency is adopted by this
+release or implied for v0.62-v0.64.
 
 ## v0.62: Packaging & Entry Points
 
