@@ -102,7 +102,9 @@ checks product state before showing a raw command list:
 
 v0.60 does not define a new persisted onboarding key. v0.62/v0.63 choose the
 read-model and storage shape, subject to Allbert Home, Settings Central, and the
-v0.59 version contract.
+v0.59 version contract. *(Resolved 2026-07-05: v0.62 M3 owns the storage shape
+and first-run detection; v0.63 owns wizard semantics — v0.62 plan Locked
+Decision 6.)*
 
 ## First-Model-State Check
 

@@ -83,7 +83,8 @@ with BYOK fallback).
 
 The concrete v0.60 M3 artifact is `docs/design/first-model-path.md`: the
 QuickStart path, option analysis, first-model-state handoff, and v0.62/v0.63
-packaging/onboarding implications.
+packaging/onboarding implications. *(Onboarding-state storage-shape ownership
+resolved 2026-07-05: v0.62 M3 — v0.62 plan Locked Decision 6.)*
 
 **Degrade path.** If robust Ollama integration proves too costly for the v0.62
 window, the acceptable-but-weaker fallback is to ship BYOK-primary for 1.0 and add

@@ -4066,13 +4066,15 @@ Expected direction:
 - Completion of the ADR 0070 convergence so the mix-free TUI console absorbs the
   remaining day-to-day admin-inspection reads.
 - OS secret-vault credential handling through Settings Central references
-  (macOS Keychain / Linux Secret Service required; Windows Credential Manager
+  (three-tier per the signed v0.62 Locked Decision 12: OS vault where available, documented encrypted-store fallback for headless, env injection; Windows Credential Manager
   best-effort).
 - Platform support is explicitly tiered: macOS + Linux are Tier 1 and
   freeze-blocking, with the exact CPU/artifact matrix settled at S2
   (`macos-x64` explicit yes/no); Windows is Tier 2 (WSL2-supported; native
   packaging/daemon/Credential Manager best-effort, not freeze-blocking).
-- An M0 feasibility spike proves the ERTS-bundled binary boots with the SQLite
+- An M0 feasibility spike (eight proofs — see the v0.62 plan M0, incl. the
+  erlexec/muontrap port executables, packaged plugin registration, TUI raw
+  mode, and the attach transport) proves the ERTS-bundled binary boots with the SQLite
   NIF, compiled web assets, and one plugin on a Tier-1 OS before the packaging
   mechanism is fixed.
 - No authority change; packaging changes how Allbert is installed and invoked,
@@ -4120,8 +4122,11 @@ Expected direction:
 Plan: `docs/plans/v0.64-plan.md`
 Request flow: `docs/plans/v0.64-request-flow.md`
 
-Status: planned (pre-1.0 integrated product release candidate). Adds no
-features. Validates the full product path after v0.61-v0.63 land, so v1.0 is not
+Status: planned (pre-1.0 integrated product release candidate). Adds no new
+capability; carries the named v0.62 packaging-trust deferrals as M0.a
+(signing/notarization incl. the Apple Developer account decision;
+rollback/restore automation; delta-upgrade decision — see v0.64-plan.md).
+Validates the full product path after v0.61-v0.63 land, so v1.0 is not
 the first time install, serve, onboarding, first chat, web smoke, CLI/TUI smoke,
 integration smoke, export/import or upgrade, uninstall, and evidence leak scans
 are exercised together.

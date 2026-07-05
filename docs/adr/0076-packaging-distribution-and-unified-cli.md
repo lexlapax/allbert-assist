@@ -115,9 +115,14 @@ and inspectability promises extend to it:
   Homebrew tap/artifact fetch, (3) the Ollama installer fetch, (4) the curated
   model pull. (3) and (4) execute only behind explicit operator confirmations
   with trace records and through existing authority classes: `:external_network`
-  for metadata/model fetches, `:package_install` for Homebrew, and
-  `:command_execute` with exact argv/resource allowlists if the S4-ratified
-  path is a script/tarball. If the effect cannot fit an existing class, v0.62
+  for metadata/model fetches (the reviewed `ExternalNetworkRequest` path, hosts
+  admitted via existing `external_services.*` values) and for the curated model
+  pull over the local Ollama API (`/api/pull`, streaming), and
+  **`:command_execute` with exact argv/resource allowlists for ALL installer
+  execution — Homebrew formula or official script** (operator decision
+  2026-07-06; `:package_install` is not applicable: its `InstallSpec` is
+  npm/pip-only and rejects global installs by design). If the effect cannot
+  fit an existing class, v0.62
   records a blocker or invokes the BYOK-primary contingency; it does not add a
   new permission atom during implementation. Nothing else; the binary itself
   performs **no telemetry, no phone-home, and no auto-update check**.
@@ -136,8 +141,10 @@ and inspectability promises extend to it:
 - **Inspectable install.** Both install paths install only documented files,
   write an uninstall manifest, and leave Allbert Home untouched on uninstall
   absent an explicit `--purge`. Tap/artifact-hosting ownership (domain, repo)
-  is recorded at the v0.62 S3 sign-off. S3 also decides the exact Homebrew
-  package type (formula vs cask), whether Homebrew's service block is used, and
+  is recorded at the v0.62 S3 sign-off — including the explicit decision that
+  release-artifact URLs are anonymously fetchable. S3 also decides the exact
+  Homebrew package type (formula vs cask — noting `brew services` blocks are
+  **formula-only**), whether Homebrew's service block is used, and
   whether service lifecycle stays entirely under `allbert serve`; v0.62 must
   not ship two competing service managers for the same install path.
 - **Packaged-plugin constraint.** A packaged install can never gain new plugin
@@ -157,6 +164,12 @@ and inspectability promises extend to it:
 - The attach transport is local-only. It must not expose a routable listener,
   must authenticate against per-Allbert-Home runtime state, and must refuse
   version/Home/user/protocol mismatches instead of booting a second writer.
+  These behaviors are binding; the concrete mechanism (UDS-first per the plan's
+  contract, with loopback distribution as the recorded fallback) is ratified at
+  the v0.62 S2 spike sign-off.
+- Signing/notarization and automated rollback are deferred with a **written
+  v0.64 intake** (`v0.64-plan.md` M0.a); the deferral is recorded on both
+  sides, not just here.
 
 ## Platform Support Tiers And Feasibility Spike
 
