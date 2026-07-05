@@ -4030,7 +4030,12 @@ Request flow: `docs/plans/v0.62-request-flow.md`
 ADR: `docs/adr/0076-packaging-distribution-and-unified-cli.md`; completes the
 ADR 0070 mix-free TUI operator console convergence.
 
-Status: planned (pre-1.0 product capability release 2 of 3; implements the v0.60
+Status: planned — implementation-readiness pass done 2026-07-05 (four-lens
+review folded into the triad: deep per-milestone Implementation blocks, Locked
+Decisions with four operator-signed rows, Current Code State, Research
+Grounding, 17 `:v062` eval rows, First-Model-Path broken out as its own
+milestone, ADR 0076 amended with Distribution Trust) (pre-1.0 product
+capability release 2 of 3; implements the v0.60
 entry-point/CLI UX design; followed by v0.63 onboarding/profiles and the v0.64
 product RC). The post-v0.58 product-readiness review moved packaging before
 guided onboarding: first-run guidance should teach the final `allbert` binary,
