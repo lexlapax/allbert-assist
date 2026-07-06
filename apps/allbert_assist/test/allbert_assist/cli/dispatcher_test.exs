@@ -127,6 +127,48 @@ defmodule AllbertAssist.CLI.DispatcherTest do
     end)
   end
 
+  test "attach rejects a missing/non-binary token in constant time (M8.16)" do
+    with_attach_home(fn ->
+      start_supervised!(Attach.Server)
+      assert {:ok, token} = Attach.read_token()
+
+      nil_token =
+        ["--version"]
+        |> Attach.request(token)
+        |> Map.put(:token, nil)
+
+      assert {:error, :token_mismatch} = Attach.run_request(nil_token)
+    end)
+  end
+
+  # v0.62 M8.16: the double-execution barrier. A reply-received result (crash,
+  # undecodable reply, non-zero exit) must NEVER fall back to the embedded
+  # runtime — only a pre-reply transport failure may.
+  test "classify_attach never re-runs a reply-received result embedded (M8.16)" do
+    # Reply received on the daemon — surface, do NOT fall back.
+    assert {:error, message} = CLI.classify_attach({:error, {:command_crashed, "boom"}})
+    assert message =~ "boom"
+
+    assert {:error, _} = CLI.classify_attach({:error, :invalid_response})
+    assert {:error, _} = CLI.classify_attach({:error, :invalid_term})
+
+    # Busy daemon owns the DB — retry message, not embedded fallback.
+    assert {:error, busy} = CLI.classify_attach({:error, :busy})
+    assert busy =~ "busy"
+
+    # Identity mismatches are hard errors, not fallback.
+    assert {:error, _} = CLI.classify_attach({:error, :token_mismatch})
+
+    # A successful reply — including a non-zero command exit — stays attached.
+    assert {:attached, "out", 0} = CLI.classify_attach({:ok, {"out", 0}})
+    assert {:attached, "boom", 3} = CLI.classify_attach({:ok, {"boom", 3}})
+
+    # Transport failed before any reply — the command did not run, so fall back.
+    for reason <- [:not_available, :closed, :timeout, :econnrefused, :enoent] do
+      assert :fallback == CLI.classify_attach({:error, reason})
+    end
+  end
+
   test "the attach token file is created owner-only, 0600 (M8.9)" do
     with_attach_home(fn ->
       start_supervised!(Attach.Server)

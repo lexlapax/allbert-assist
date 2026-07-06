@@ -105,7 +105,9 @@ defmodule AllbertAssist.Runtime.Attach do
       Map.get(request, :protocol) != @protocol_version ->
         {:error, :protocol_mismatch}
 
-      Map.get(request, :token) != token ->
+      # v0.62 M8.16: constant-time compare so a client cannot time-probe the
+      # attach token byte-by-byte.
+      not tokens_match?(Map.get(request, :token), token) ->
         {:error, :token_mismatch}
 
       Path.expand(to_string(Map.get(request, :home, ""))) != identity.home ->
@@ -126,6 +128,12 @@ defmodule AllbertAssist.Runtime.Attach do
   end
 
   def validate_request(_request, _token), do: {:error, :invalid_request}
+
+  defp tokens_match?(candidate, token) when is_binary(candidate) and is_binary(token) do
+    Plug.Crypto.secure_compare(candidate, token)
+  end
+
+  defp tokens_match?(_candidate, _token), do: false
 
   @doc "Client-side attach request."
   @spec run([String.t()]) :: response()
@@ -235,6 +243,12 @@ defmodule AllbertAssist.Runtime.Attach.Server do
 
   @accept_timeout 1_000
   @recv_timeout 5_000
+  # v0.62 M8.16: cap concurrent attached commands so a burst of clients can't
+  # spawn unbounded tasks; extra clients get a fast `:busy` instead of blocking.
+  @max_children 16
+  # Attach requests are a small argv + identity map. Cap the pre-auth `packet: 4`
+  # frame so an unauthenticated peer can't force a multi-gigabyte allocation.
+  @max_frame_bytes 1_048_576
 
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
@@ -249,6 +263,7 @@ defmodule AllbertAssist.Runtime.Attach.Server do
     case :gen_tcp.listen(0, [
            :binary,
            packet: 4,
+           packet_size: @max_frame_bytes,
            active: false,
            ifaddr: {:local, Attach.socket_path()}
          ]) do
@@ -257,8 +272,8 @@ defmodule AllbertAssist.Runtime.Attach.Server do
         acceptor = spawn_link(fn -> accept_loop(owner, listen_socket) end)
         # v0.62 M8.9: run attached commands in a supervised task (temporary
         # children) so a crashing or slow command cannot crash or block the
-        # listener GenServer.
-        {:ok, task_sup} = Task.Supervisor.start_link()
+        # listener GenServer. M8.16: bound the child count.
+        {:ok, task_sup} = Task.Supervisor.start_link(max_children: @max_children)
         Logger.info("attach listener started at #{Attach.socket_path()}")
 
         {:ok,
@@ -272,15 +287,8 @@ defmodule AllbertAssist.Runtime.Attach.Server do
   @impl true
   def handle_info({:attach_request, request, socket}, %{token: token} = state) do
     case Attach.validate_request(request, token) do
-      :ok ->
-        # Off the listener process: a crash or a long-running command must not
-        # take down or serialize the attach listener.
-        Task.Supervisor.start_child(state.task_sup, fn ->
-          reply(socket, run_attached_isolated(request.argv))
-        end)
-
-      {:error, reason} ->
-        reply(socket, {:error, reason})
+      :ok -> dispatch_command(state.task_sup, request.argv, socket)
+      {:error, reason} -> reply(socket, {:error, reason})
     end
 
     {:noreply, state}
@@ -293,6 +301,19 @@ defmodule AllbertAssist.Runtime.Attach.Server do
 
   def handle_info({:attach_accept_error, reason}, state) do
     {:stop, {:attach_accept_failed, reason}, state}
+  end
+
+  # Off the listener process: a crash or long-running command must not take down
+  # or serialize the attach listener. v0.62 M8.16: at the concurrency cap (or any
+  # spawn failure) reply `:busy` so the client fails fast instead of blocking to
+  # the recv timeout.
+  defp dispatch_command(task_sup, argv, socket) do
+    case Task.Supervisor.start_child(task_sup, fn ->
+           reply(socket, run_attached_isolated(argv))
+         end) do
+      {:ok, _pid} -> :ok
+      {:error, _reason} -> reply(socket, {:error, :busy})
+    end
   end
 
   # Run the attached command with a crash barrier so a failing command returns a

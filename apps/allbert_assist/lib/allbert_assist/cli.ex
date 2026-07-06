@@ -83,27 +83,62 @@ defmodule AllbertAssist.CLI do
     if needs_runtime?(argv) do
       db = AllbertAssist.Database.repo_database_path()
 
-      case Attach.run(argv) do
-        {:ok, {output, code}} ->
-          {:attached, output, code}
-
-        {:error, reason}
-        when reason in [
-               :protocol_mismatch,
-               :token_mismatch,
-               :home_mismatch,
-               :uid_mismatch,
-               :version_mismatch
-             ] ->
-          {:error, "Could not attach to the running Allbert daemon: #{inspect(reason)}."}
-
-        {:error, _reason} ->
-          embedded_runtime(db)
+      case classify_attach(Attach.run(argv)) do
+        :fallback -> embedded_runtime(db)
+        resolved -> resolved
       end
     else
       :ok
     end
   end
+
+  @typedoc false
+  @type attach_disposition ::
+          {:attached, String.t(), non_neg_integer()} | {:error, String.t()} | :fallback
+
+  # v0.62 M8.16: classify an Attach.run/1 result into what run_entry should do.
+  # The core invariant: only a transport failure that happened BEFORE the daemon
+  # ran the command may fall back to the embedded runtime — a reply-received
+  # result (success, a non-zero exit, or a `{:command_crashed, _}`/undecodable
+  # reply) must NEVER re-run the command embedded, or non-idempotent commands
+  # (`secrets migrate`, `model install`, `service install`) would double-execute.
+  @doc false
+  @spec classify_attach(Attach.response()) :: attach_disposition()
+  def classify_attach({:ok, {output, code}}), do: {:attached, output, code}
+
+  def classify_attach({:error, reason})
+      when reason in [
+             :protocol_mismatch,
+             :token_mismatch,
+             :home_mismatch,
+             :uid_mismatch,
+             :version_mismatch
+           ],
+      do: {:error, "Could not attach to the running Allbert daemon: #{inspect(reason)}."}
+
+  # Reply received: the command already ran on the daemon and crashed. Surface it,
+  # never re-run embedded.
+  def classify_attach({:error, {:command_crashed, message}}),
+    do: {:error, "The running Allbert daemon failed to run the command: #{message}"}
+
+  # A reply payload arrived but could not be decoded — the command was processed,
+  # so do not retry.
+  def classify_attach({:error, reason}) when reason in [:invalid_response, :invalid_term],
+    do:
+      {:error,
+       "The running Allbert daemon returned an unreadable reply (#{inspect(reason)}); " <>
+         "the command may have already run. Not retrying to avoid double execution."}
+
+  # The daemon is alive but at its concurrency cap. The command did not run, but
+  # the daemon owns the database, so the embedded fallback would only hit the
+  # single-writer lock — ask the operator to retry instead.
+  def classify_attach({:error, :busy}),
+    do: {:error, "The running Allbert daemon is busy; please retry the command."}
+
+  # Transport failed before any reply (:not_available/:closed/:timeout/
+  # :econnrefused/:enoent/posix) — the command did NOT run on the daemon, so the
+  # embedded fallback is safe.
+  def classify_attach({:error, _reason}), do: :fallback
 
   defp embedded_runtime(db) do
     cond do
