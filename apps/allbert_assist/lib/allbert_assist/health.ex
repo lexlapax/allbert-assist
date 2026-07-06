@@ -7,7 +7,6 @@ defmodule AllbertAssist.Health do
   """
 
   @doc "A bounded health snapshot: %{status:, runtime:, database:, channels:}."
-  @spec snapshot() :: map()
   def snapshot do
     runtime = runtime_status()
     database = database_status()

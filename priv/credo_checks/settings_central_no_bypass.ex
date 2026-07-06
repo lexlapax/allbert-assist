@@ -34,6 +34,7 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         "ALLBERT_PLUGINS_ROOT",
         "ALLBERT_HOLD_WRITER_LOCK",
         "ALLBERT_VAULT_BACKEND",
+        "ALLBERT_BINARY",
         "DBUS_SESSION_BUS_ADDRESS",
         "XDG_RUNTIME_DIR",
         "UID",

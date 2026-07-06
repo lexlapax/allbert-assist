@@ -36,7 +36,6 @@ defmodule AllbertAssist.Settings.Vault do
   end
 
   @doc "The active backend module."
-  @spec backend() :: backend()
   def backend, do: resolve().backend
 
   @doc "Store a secret value at its reference through the active tier."
@@ -98,7 +97,6 @@ defmodule AllbertAssist.Settings.Vault do
   defp describe(:env, notice),
     do: %{tier: :env, backend: __MODULE__.Env, notice: notice}
 
-  @spec os_backend() :: {:ok, module()} | :none
   defp os_backend do
     case :os.type() do
       {:unix, :darwin} -> {:ok, __MODULE__.MacKeychain}

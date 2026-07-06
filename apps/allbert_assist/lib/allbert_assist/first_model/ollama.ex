@@ -31,13 +31,15 @@ defmodule AllbertAssist.FirstModel.Ollama do
   def curated_model, do: @curated_model
 
   @doc "The curated model's RAM floor in GB."
-  @spec curated_floor_gb() :: pos_integer()
   def curated_floor_gb, do: @curated_floor_gb
 
   @doc "The local Ollama base URL (settings-overridable elsewhere)."
   @spec base_url() :: String.t()
   def base_url do
-    System.get_env("OLLAMA_HOST") |> normalize_host() || @default_base_url
+    case normalize_host(System.get_env("OLLAMA_HOST")) do
+      nil -> @default_base_url
+      url -> url
+    end
   end
 
   @doc """

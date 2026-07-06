@@ -17,6 +17,9 @@ defmodule AllbertAssist.CLI do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.CLI.Commands
   alias AllbertAssist.CLI.FirstRun
+  alias AllbertAssist.Portability.Export
+  alias AllbertAssist.Portability.Import
+  alias AllbertAssist.Runtime.WriterLock
   alias AllbertAssist.Surfaces.ContextBuilder
 
   @doc """
@@ -57,7 +60,7 @@ defmodule AllbertAssist.CLI do
         is_nil(db) ->
           start_apps()
 
-        AllbertAssist.Runtime.WriterLock.held_by_another?(db) ->
+        WriterLock.held_by_another?(db) ->
           {:error,
            "Another Allbert runtime is using this database (a daemon is likely " <>
              "running). Use the running instance, or stop `allbert serve` first."}
@@ -87,13 +90,15 @@ defmodule AllbertAssist.CLI do
         :pure
 
       _other ->
-        resolve_path(argv)
-        |> then(fn {path, _rest} ->
-          case Commands.lookup(path) do
-            {:ok, disposition} -> disposition
-            :error -> :pure
-          end
-        end)
+        {path, _rest} = resolve_path(argv)
+        disposition_for(path)
+    end
+  end
+
+  defp disposition_for(path) do
+    case Commands.lookup(path) do
+      {:ok, disposition} -> disposition
+      :error -> :pure
     end
   end
 
@@ -139,22 +144,19 @@ defmodule AllbertAssist.CLI do
   defp resolve_path(argv) do
     {words, flags} = Enum.split_while(argv, &(not String.starts_with?(&1, "-")))
 
-    candidate =
-      case length(words) do
-        0 ->
-          nil
-
-        n ->
-          Enum.find_value(n..1//-1, fn k ->
-            prefix = Enum.take(words, k)
-            if Map.has_key?(Commands.operator_table(), prefix), do: prefix
-          end)
-      end
-
-    case candidate do
+    case longest_table_prefix(words) do
       nil -> {words, flags}
       path -> {path, Enum.drop(words, length(path)) ++ flags}
     end
+  end
+
+  defp longest_table_prefix([]), do: nil
+
+  defp longest_table_prefix(words) do
+    Enum.find_value(length(words)..1//-1, fn k ->
+      prefix = Enum.take(words, k)
+      if Map.has_key?(Commands.operator_table(), prefix), do: prefix
+    end)
   end
 
   defp run_action(name, rest) do
@@ -190,7 +192,7 @@ defmodule AllbertAssist.CLI do
   defp run_builtin(["admin", "home", "export"], rest) do
     opts = if out = out_flag(rest), do: [out: out], else: []
 
-    case AllbertAssist.Portability.Export.build(opts) do
+    case Export.build(opts) do
       {:ok, envelope} -> {render_result(%{message: "exported", envelope: summarize(envelope)}), 0}
       {:error, reason} -> {"export failed: #{inspect(reason)}", 1}
     end
@@ -199,7 +201,7 @@ defmodule AllbertAssist.CLI do
   defp run_builtin(["admin", "home", "import"], rest) do
     case rest do
       [path | _] ->
-        case AllbertAssist.Portability.Import.dry_run(path) do
+        case Import.dry_run(path) do
           {:ok, summary} -> {render_result(%{message: "import dry-run", summary: summary}), 0}
           {:error, reason} -> {"import failed: #{inspect(reason)}", 1}
         end
@@ -218,10 +220,8 @@ defmodule AllbertAssist.CLI do
     end
   end
 
-  defp summarize(envelope) when is_map(envelope),
+  defp summarize(envelope),
     do: Map.take(envelope, [:schema_version, "schema_version", :version, "version"])
-
-  defp summarize(other), do: other
 
   # -- bare `allbert`: first-run/resume dispatcher ---------------------------
 

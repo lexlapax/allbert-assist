@@ -1,6 +1,6 @@
 # ADR 0076: Packaging, Distribution & Unified CLI Entry Points
 
-Status: Proposed (v0.62; accepted at the v0.62 request-flow S8 sign-off).
+Status: Accepted (v0.62) — ratified at the v0.62 request-flow S8 sign-off (2026-07-06).
 Date: 2026-06-25 (amended 2026-07-05 by the v0.62 implementation-readiness
 pass: Bakeware struck as archived, CLI process model + vault tiering + First-
 Model-Path execution authority recorded, Distribution Trust section added;

@@ -6,7 +6,7 @@ defmodule AllbertAssist.FirstModel.Hardware do
   """
 
   @doc "Total system RAM in GB (best-effort per OS), or nil if undetectable."
-  @spec total_ram_gb() :: number() | nil
+  @spec total_ram_gb() :: float() | nil
   def total_ram_gb do
     case :os.type() do
       {:unix, :darwin} -> darwin_ram_gb()

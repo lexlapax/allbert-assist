@@ -465,7 +465,9 @@ scope.
     a curated model pull per the v0.60 First-Model-Path decision (ADR 0078:
     assisted-local default + BYOK fallback; no runtime bundling). Lands before
     onboarding so first-run guidance teaches final entry points; adds ADR 0076.
-    No authority change.
+    No authority change. **Status: implemented (M0–M8, 2026-07-06); version
+    0.62.0; `mix allbert.test release.v062` gate + the artifact smoke harness are
+    the two verification layers; tag held for the operator.**
 63. v0.63 Guided Onboarding & Profiles: implements the v0.60 onboarding-flow
     design and applies the v0.60 persona model over the v0.62 entry points — a
     two-track wizard (QuickStart vs Advanced, plus a fastest-first-chat path) in

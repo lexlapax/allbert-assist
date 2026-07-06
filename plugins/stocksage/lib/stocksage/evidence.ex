@@ -161,11 +161,13 @@ defmodule StockSage.Evidence do
     ])
   end
 
-  @spec fixture_root() :: Path.t()
+  @spec fixture_root() :: String.t()
   def fixture_root do
     # v0.62 M1: release-safe (see AllbertAssist.Plugin.Paths).
-    AllbertAssist.Plugin.Paths.plugin_path("stocksage", ["priv", "fixtures", "native_agents"]) ||
-      Path.expand("../../priv/fixtures/native_agents", __DIR__)
+    case AllbertAssist.Plugin.Paths.plugin_path("stocksage", ["priv", "fixtures", "native_agents"]) do
+      nil -> Path.expand("../../priv/fixtures/native_agents", __DIR__)
+      path -> path
+    end
   end
 
   defp load_fixture(kind, ticker, analysis_date) do

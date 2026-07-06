@@ -9,6 +9,7 @@ defmodule AllbertBrowser.Driver.Playwright do
 
   @behaviour AllbertBrowser.Driver
 
+  alias AllbertAssist.Plugin.Paths
   alias AllbertAssist.Settings
 
   @line_max_bytes 4_194_304
@@ -308,7 +309,7 @@ defmodule AllbertBrowser.Driver.Playwright do
     # v0.62 M1: resolve through the release-safe plugins root at runtime —
     # `__DIR__` freezes the build machine's checkout path into the artifact.
     path =
-      AllbertAssist.Plugin.Paths.plugin_path("allbert.browser", [
+      Paths.plugin_path("allbert.browser", [
         "priv",
         "playwright_bridge",
         "bridge.js"

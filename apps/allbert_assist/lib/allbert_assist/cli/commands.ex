@@ -17,7 +17,7 @@ defmodule AllbertAssist.CLI.Commands do
   Ratified against `docs/design/entry-point-cli-ux.md` at request-flow S4.
   """
 
-  @typedoc "One dispatcher path, e.g. `[\"admin\", \"status\"]` or `[\"ask\"]`."
+  @typedoc ~S(One dispatcher path, e.g. `["admin", "status"]` or `["ask"]`.)
   @type path :: [String.t()]
   @type disposition ::
           {:action, String.t()}

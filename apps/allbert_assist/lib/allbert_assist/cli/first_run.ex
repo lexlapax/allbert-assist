@@ -16,6 +16,7 @@ defmodule AllbertAssist.CLI.FirstRun do
   section).
   """
 
+  alias AllbertAssist.FirstModel.Ollama
   alias AllbertAssist.Paths
 
   @onboarding_file "onboarding.json"
@@ -35,7 +36,6 @@ defmodule AllbertAssist.CLI.FirstRun do
           | :model_missing
           | :below_hardware_floor
           | :byok_ready
-          | :blocked
 
   @doc "Resolve the current first-run product state (read-only, no network)."
   @spec detect() :: state()
@@ -71,7 +71,6 @@ defmodule AllbertAssist.CLI.FirstRun do
   end
 
   @doc "A short onboarding summary map (backing `allbert admin onboarding`)."
-  @spec onboarding_summary() :: {:ok, map()}
   def onboarding_summary do
     {:ok,
      %{
@@ -126,7 +125,7 @@ defmodule AllbertAssist.CLI.FirstRun do
   # actions. The spec keeps every model-state branch reachable for callers.
   @spec default_ollama_probe() :: :model_ready | :model_missing | :unhealthy | :missing
   defp default_ollama_probe do
-    AllbertAssist.FirstModel.Ollama.probe()
+    Ollama.probe()
   end
 
   # -- Home marker -----------------------------------------------------------

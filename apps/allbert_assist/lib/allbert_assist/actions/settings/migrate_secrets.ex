@@ -103,15 +103,11 @@ defmodule AllbertAssist.Actions.Settings.MigrateSecrets do
 
   # Reference names only — never values.
   defp migratable_refs do
-    case Secrets.list_secret_status() do
-      {:ok, statuses} ->
-        statuses
-        |> Enum.filter(&(&1.status == :configured))
-        |> Enum.map(& &1.secret_ref)
+    {:ok, statuses} = Secrets.list_secret_status()
 
-      _error ->
-        []
-    end
+    statuses
+    |> Enum.filter(&(&1.status == :configured))
+    |> Enum.map(& &1.secret_ref)
   end
 
   defp result(status, permission_decision, migration) do

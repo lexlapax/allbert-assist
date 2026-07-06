@@ -10,6 +10,61 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.62.0 - Packaging & Entry Points
+
+Status: **release candidate — version 0.62.0; tag held for the operator** (per
+the plan's Locked Decision 16). `mix allbert.test release.v062` is the
+checkout-bound gate; the packaged-artifact smoke harness
+(`.github/workflows/release-artifacts.yml` + `scripts/smoke/artifact_smoke.sh`)
+is the second verification layer, since the mix gate cannot execute the binary.
+Per-OS brew/curl/service/vault rehearsals are operator S-steps. Governed by ADR
+0076 (Accepted at S8, 2026-07-06); ADR 0070 marked converged.
+
+Packages Allbert as a self-contained product with one operator entry point.
+
+- **Packaged OTP release (M0–M1):** `mix release allbert` bundles ERTS and all
+  runtime code — no Elixir/Erlang toolchain on the target. Native per-target
+  artifacts (macos-arm64, linux-x64, linux-arm64; no cross-compilation because
+  rebar3/erlexec and the muontrap port executables forbid it). macOS bundles its
+  OpenSSL dylibs at assembly and repoints the crypto NIF to `@loader_path`;
+  `SHELL` is set for erlexec; plugins register from `RELEASE_ROOT/plugins`.
+  Release-safe env detection (`RELEASE_NAME`/`RELEASE_ROOT`) replaces `Mix.env`
+  runtime probes; backup-before-migrate runs on version-changed boot.
+- **Install path & distribution trust (M2):** Homebrew formula + curl installer
+  with SHA256 verification against published checksums (cosign-signed
+  `SHA256SUMS`); uninstall consumes a manifest and leaves Allbert Home intact
+  absent `--purge`. The binary performs no telemetry, phone-home, or auto-update.
+- **Unified `allbert` CLI (M3):** one dispatcher fronts the operator surface;
+  every command maps to a named registered action or bounded read (the one-spine
+  invariant), with a disposition table separating operator commands from
+  dev/CI mix-only tasks. First-run detection performs zero network I/O without
+  explicit consent.
+- **First-Model-Path onboarding (M4):** a seven-state model-readiness machine
+  (Ollama detect/install/pull behind confirmation + dry-run preview, curated
+  `llama3.2:3b` with an 8 GB floor, `below_hardware_floor` degrading to BYOK).
+- **`allbert serve` daemon + health (M5):** a single-writer guard (held
+  `BEGIN EXCLUSIVE` on a sidecar lock DB + the attach socket as liveness probe),
+  a `/health` endpoint (200/503 JSON), and confirmation-gated per-user service
+  install/uninstall (launchd/systemd) writing only the documented unit/plist.
+- **TUI operator console convergence (M6):** the mix-free console reaches the
+  completed read inventory (`/jobs`, `/objective`, `/trace`, `/registry`,
+  `/memory`, `/health`, `/model-detect`), each internal, redacted, and off the
+  intent router (ADR 0070 converged).
+- **Three-tier secret vault (M7):** OS vault (macOS Keychain / Linux Secret
+  Service via shell-out) → encrypted `Settings.Secrets` fallback → env
+  injection, with explicit surfaced tier resolution (never silent), an
+  `ALLBERT_VAULT_BACKEND` override, `allbert admin vault` status, and a
+  confirmation-gated `allbert admin secrets migrate` that redacts every value.
+  Home export/import excludes tier-1 OS-vault values (they live outside Home).
+- **Evals & gate (M8):** 18 `:v062` eval rows in the inventory (authority
+  envelope, spine inventory, distribution trust, first-model states, vault
+  no-leak/tier/migration, documented package layout, ADR acceptance) with a
+  `V062SweepEvalTest` sweep; the `release.v062` lane wires migrate / format /
+  warnings-as-errors / credo-strict / dialyzer / the packaging + sweep proofs /
+  docs gate. Closed the accumulated intent-corpus negative-internal fixture gap
+  for all eight v0.62 internal actions (baseline recaptured to 277 cases,
+  accuracy 1.0). No new permission class or Settings key.
+
 ## v0.61.1 - UX Refinement: Navigation Consolidation & Presentation Polish (v0.61b)
 
 Status: **released — tagged `v0.61.1` (2026-07-05)** after M9.1-M9.5 audit +

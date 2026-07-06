@@ -193,11 +193,13 @@ defmodule StockSage.Agents do
     end
   end
 
-  @spec prompt_root() :: Path.t()
+  @spec prompt_root() :: String.t()
   def prompt_root do
     # v0.62 M1: release-safe (see AllbertAssist.Plugin.Paths).
-    AllbertAssist.Plugin.Paths.plugin_path("stocksage", ["priv", "prompts", "native_agents"]) ||
-      Path.expand("../../priv/prompts/native_agents", __DIR__)
+    case AllbertAssist.Plugin.Paths.plugin_path("stocksage", ["priv", "prompts", "native_agents"]) do
+      nil -> Path.expand("../../priv/prompts/native_agents", __DIR__)
+      path -> path
+    end
   end
 
   @spec prompt_path(map() | String.t()) :: Path.t()

@@ -6,6 +6,7 @@ defmodule AllbertAssist.Application do
   use Application
 
   alias AllbertAssist.Database
+  alias AllbertAssist.Runtime.WriterLock.Holder, as: WriterLockHolder
   alias AllbertAssist.Settings.ProviderCatalog
   alias AllbertAssist.Workspace.Fragment.Guard, as: FragmentGuard
   alias AllbertAssist.Workspace.Fragment.SigningSecret
@@ -50,8 +51,8 @@ defmodule AllbertAssist.Application do
   end
 
   defp writer_lock_child do
-    if AllbertAssist.Runtime.WriterLock.Holder.enabled?() do
-      AllbertAssist.Runtime.WriterLock.Holder
+    if WriterLockHolder.enabled?() do
+      WriterLockHolder
     end
   end
 

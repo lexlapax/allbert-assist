@@ -16,13 +16,7 @@ defmodule AllbertAssist.Settings.Vault.EncryptedFile do
   def put(secret_ref, value, context), do: Secrets.put_secret(secret_ref, value, context)
 
   @impl true
-  def get(secret_ref, context) do
-    case Secrets.get_secret(secret_ref, context) do
-      {:ok, value} -> {:ok, value}
-      :missing -> :missing
-      other -> other
-    end
-  end
+  def get(secret_ref, context), do: Secrets.get_secret(secret_ref, context)
 
   @impl true
   def delete(secret_ref, context), do: Secrets.delete_secret(secret_ref, context)

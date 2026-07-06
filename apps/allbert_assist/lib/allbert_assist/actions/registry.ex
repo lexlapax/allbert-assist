@@ -38,13 +38,6 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Confirmations.ListConfirmations
   alias AllbertAssist.Actions.Confirmations.ShowConfirmation
   alias AllbertAssist.Actions.Conversations.PersistApprovalMediaResponse
-  alias AllbertAssist.Actions.FirstModel.Detect, as: FirstModelDetect
-  alias AllbertAssist.Actions.FirstModel.InstallOllama
-  alias AllbertAssist.Actions.FirstModel.PullModel
-  alias AllbertAssist.Actions.Serve.ServeHealth
-  alias AllbertAssist.Actions.Serve.ServiceControl
-  alias AllbertAssist.Actions.Settings.MigrateSecrets
-  alias AllbertAssist.Actions.Settings.VaultStatus
   alias AllbertAssist.Actions.Conversations.RenameThread
   alias AllbertAssist.Actions.Conversations.ResumeThreadOnChannel
   alias AllbertAssist.Actions.DynamicPlugins.DisableLiveLoader, as: DisableDynamicLiveLoader
@@ -58,6 +51,9 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicDraft
   alias AllbertAssist.Actions.DynamicPlugins.ShowDynamicIntegration
   alias AllbertAssist.Actions.Email.SendEmail
+  alias AllbertAssist.Actions.FirstModel.Detect, as: FirstModelDetect
+  alias AllbertAssist.Actions.FirstModel.InstallOllama
+  alias AllbertAssist.Actions.FirstModel.PullModel
   alias AllbertAssist.Actions.Image.GenerateImage
   alias AllbertAssist.Actions.Integrations.OpenCalendarPanel
   alias AllbertAssist.Actions.Integrations.OpenGithubPanel
@@ -168,6 +164,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.SelfImprovement.PromoteSkillDraft
   alias AllbertAssist.Actions.SelfImprovement.PromoteTemplateDraft
   alias AllbertAssist.Actions.SelfImprovement.PromoteWorkflowDraft
+  alias AllbertAssist.Actions.Serve.ServeHealth
+  alias AllbertAssist.Actions.Serve.ServiceControl
   alias AllbertAssist.Actions.Session.ClearActiveApp
   alias AllbertAssist.Actions.Session.SetActiveApp
   alias AllbertAssist.Actions.Session.ShowSessionScratchpad
@@ -178,12 +176,14 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.ListModelProfiles
   alias AllbertAssist.Actions.Settings.ListProviderProfiles
   alias AllbertAssist.Actions.Settings.ListSettings
+  alias AllbertAssist.Actions.Settings.MigrateSecrets
   alias AllbertAssist.Actions.Settings.ModelDoctor, as: SettingsModelDoctor
   alias AllbertAssist.Actions.Settings.ReadSetting
   alias AllbertAssist.Actions.Settings.ResolvedSettingsSnapshot
   alias AllbertAssist.Actions.Settings.SetActiveModelProfile
   alias AllbertAssist.Actions.Settings.SetProviderCredential
   alias AllbertAssist.Actions.Settings.UpdateSetting
+  alias AllbertAssist.Actions.Settings.VaultStatus
   alias AllbertAssist.Actions.Skills.AuditOnlineSkill
   alias AllbertAssist.Actions.Skills.CreateSkill
   alias AllbertAssist.Actions.Skills.ImportLocalSkill

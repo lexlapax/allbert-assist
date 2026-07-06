@@ -49,6 +49,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v060b
           | :v061
           | :v061b
+          | :v062
 
   @type required_surface ::
           :resource_execution
@@ -5828,6 +5829,221 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         :not_agent_exposed
       ],
       test_module: "AllbertAssist.Security.V061bSweepEvalTest"
+    },
+
+    # ── v0.62 Packaging & Entry Points (ADR 0076) ───────────────────────────
+    %{
+      id: "packaging-no-authority-change-001",
+      milestone: :v062,
+      surface: :entry_point_cli,
+      scenario:
+        "v0.62 packaging adds authority: a new permission atom, Settings key, or route/registry entry beyond the named M0.1/M4/M5/M6/M7 internal actions",
+      boundary: :authority_envelope,
+      expected: :allowed,
+      assert: [
+        :registry_diff_named_internal_only,
+        :no_new_permission_class,
+        :no_new_settings_key
+      ],
+      test_module: "AllbertAssist.Security.V062SweepEvalTest"
+    },
+    %{
+      id: "cli-command-inventory-spine-map-001",
+      milestone: :v062,
+      surface: :entry_point_cli,
+      scenario:
+        "A dispatcher command reaches a store or context directly instead of mapping to a named registered action or bounded read",
+      boundary: :spine_inventory,
+      expected: :allowed,
+      assert: [:every_command_mapped, :actions_route_through_runner, :no_direct_store_access],
+      test_module: "AllbertAssist.CLI.DispatcherTest"
+    },
+    %{
+      id: "cli-operator-dev-split-no-new-command-001",
+      milestone: :v062,
+      surface: :entry_point_cli,
+      scenario:
+        "The packaged binary surface exposes a dev/CI mix-only command, or drops an operator command from the disposition table",
+      boundary: :spine_inventory,
+      expected: :allowed,
+      assert: [:operator_rows_present, :dev_ci_rows_absent, :disposition_table_exact],
+      test_module: "AllbertAssist.CLI.DispatcherTest"
+    },
+    %{
+      id: "cli-attach-single-writer-001",
+      milestone: :v062,
+      surface: :entry_point_cli,
+      scenario:
+        "A second writer boots against a live Home without the single-writer guard refusing, or the attach handshake accepts a wrong token/version/Home/uid",
+      boundary: :single_writer_guard,
+      expected: :denied,
+      assert: [
+        :attach_first_selection,
+        :second_writer_refused_with_guidance,
+        :auth_mismatch_refused
+      ],
+      test_module: "AllbertAssist.CLI.DispatcherTest"
+    },
+    %{
+      id: "first-run-no-silent-egress-001",
+      milestone: :v062,
+      surface: :first_model_path,
+      scenario:
+        "Bare `allbert` / first-run detection performs network I/O before explicit operator consent",
+      boundary: :resource_access,
+      expected: :allowed,
+      assert: [:zero_egress_without_consent, {:fixture_transport_calls, :external_network, 0}],
+      test_module: "AllbertAssist.CLI.FirstRunTest"
+    },
+    %{
+      id: "first-model-state-enum-001",
+      milestone: :v062,
+      surface: :first_model_path,
+      scenario:
+        "A First-Model-Path state is unreachable or below_hardware_floor fails to degrade to the BYOK path",
+      boundary: :first_run_state_machine,
+      expected: :allowed,
+      assert: [:all_seven_states_resolve, :hardware_floor_degrades_to_byok, :states_are_total],
+      test_module: "AllbertAssist.FirstModelTest"
+    },
+    %{
+      id: "ollama-install-and-pull-confirmed-001",
+      milestone: :v062,
+      surface: :first_model_path,
+      scenario:
+        "Guided Ollama install or model pull executes or egresses before an approved confirmation, or bypasses the dry-run preview",
+      boundary: :command_execute,
+      expected: :needs_confirmation,
+      assert: [
+        :dry_run_before_gate,
+        :execute_only_after_confirmation,
+        {:fixture_transport_calls, :external_network, 0}
+      ],
+      test_module: "AllbertAssist.FirstModelTest"
+    },
+    %{
+      id: "install-artifact-verified-001",
+      milestone: :v062,
+      surface: :entry_point_cli,
+      scenario:
+        "The install path accepts an artifact whose SHA256 does not match the published checksum",
+      boundary: :distribution_trust,
+      expected: :allowed,
+      assert: [
+        :sha256_verified_against_published,
+        :tampered_artifact_rejected,
+        :checksum_source_documented
+      ],
+      test_module: "AllbertAssist.InstallPathTest"
+    },
+    %{
+      id: "uninstall-preserves-home-001",
+      milestone: :v062,
+      surface: :entry_point_cli,
+      scenario: "Uninstall removes or corrupts Allbert Home absent an explicit --purge flag",
+      boundary: :distribution_trust,
+      expected: :allowed,
+      assert: [:manifest_consumed, :home_intact_without_purge, :purge_is_explicit],
+      test_module: "AllbertAssist.InstallPathTest"
+    },
+    %{
+      id: "serve-health-readonly-001",
+      milestone: :v062,
+      surface: :entry_point_cli,
+      scenario:
+        "A health surface mutates state, or service install writes outside the documented unit/plist or as a different user",
+      boundary: :read_only,
+      expected: :allowed,
+      assert: [
+        :health_paths_read_only,
+        :service_writes_documented_unit_only,
+        :invoking_user_scope
+      ],
+      test_module: "AllbertAssist.ServeTest"
+    },
+    %{
+      id: "tui-convergence-readonly-internal-001",
+      milestone: :v062,
+      surface: :entry_point_cli,
+      scenario: "A converged TUI console read is not :internal, leaks secrets, or mutates state",
+      boundary: :read_only,
+      expected: :allowed,
+      assert: [:enumerated_reads_internal, :redacted, :mutation_free],
+      test_module: "AllbertAssist.Channels.TUIConvergenceTest"
+    },
+    %{
+      id: "tui-convergence-not-intent-candidate-001",
+      milestone: :v062,
+      surface: :entry_point_cli,
+      scenario: "A converged TUI read appears among the intent-router agent candidates",
+      boundary: :spine_inventory,
+      expected: :allowed,
+      assert: [:reads_absent_from_agent_capabilities, :internal_exposure],
+      test_module: "AllbertAssist.Security.V062SweepEvalTest"
+    },
+    %{
+      id: "secret-vault-no-leak-001",
+      milestone: :v062,
+      surface: :secret_metadata,
+      scenario:
+        "A raw secret value appears in logs, traces, release evidence, or inspection output across the vault flows",
+      boundary: :secret_redaction,
+      expected: :allowed,
+      assert: [:no_secret_in_output, :error_paths_redacted, :inspection_names_only],
+      test_module: "AllbertAssist.Security.V062SweepEvalTest"
+    },
+    %{
+      id: "vault-tier-resolution-explicit-001",
+      milestone: :v062,
+      surface: :secret_metadata,
+      scenario:
+        "A vault-absent environment resolves to a tier silently, without a surfaced notice",
+      boundary: :secret_metadata,
+      expected: :allowed,
+      assert: [:resolution_names_tier_and_notice, :fallback_never_silent, :override_honored],
+      test_module: "AllbertAssist.Settings.VaultTest"
+    },
+    %{
+      id: "secret-vault-migration-redacted-001",
+      milestone: :v062,
+      surface: :secret_metadata,
+      scenario:
+        "The migrate-secrets step surfaces a raw secret value or moves without confirmation/dry-run semantics",
+      boundary: :secret_redaction,
+      expected: :needs_confirmation,
+      assert: [:migration_round_trips, :redaction_scan_green, :dry_run_moves_nothing],
+      test_module: "AllbertAssist.Settings.VaultTest"
+    },
+    %{
+      id: "home-layout-package-paths-documented-001",
+      milestone: :v062,
+      surface: :design_handoff,
+      scenario:
+        "Packaged-install paths, the extraction cache, or vault references are undocumented or drift from the as-built layout",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [:install_paths_documented, :vault_references_documented, :matches_as_built],
+      test_module: "AllbertAssist.Security.V062SweepEvalTest"
+    },
+    %{
+      id: "adr-0076-accepted-001",
+      milestone: :v062,
+      surface: :design_handoff,
+      scenario: "ADR 0076 is not Accepted (v0.62) or drops the Distribution Trust section",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [:adr_0076_accepted, :distribution_trust_section_present],
+      test_module: "AllbertAssist.Security.V062SweepEvalTest"
+    },
+    %{
+      id: "adr-0070-converged-001",
+      milestone: :v062,
+      surface: :design_handoff,
+      scenario: "ADR 0070 does not mark the TUI console convergence complete",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [:adr_0070_convergence_marked],
+      test_module: "AllbertAssist.Security.V062SweepEvalTest"
     }
   ]
 

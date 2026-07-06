@@ -223,7 +223,6 @@ defmodule AllbertAssistWeb.Workspace.Components.PatternsTest do
     assert html =~ ~s(data-workspace-pattern="loading-state")
     assert html =~ ~s(aria-busy="true")
 
-
     assert html =~ ~s(id="test-table")
     assert html =~ ~s(data-workspace-pattern="table-list")
     assert html =~ ~s(data-row-count="2")

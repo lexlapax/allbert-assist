@@ -62,12 +62,19 @@ jobs:
           tar -czf "dist/allbert-v${VERSION}-${{ matrix.target }}.tar.gz" -C _build/prod/rel allbert
           ls -la dist/
 
-      - name: Smoke-boot the artifact
+      - name: Smoke the artifact (boot, plugins, /health, attach, no-Mix, crypto linkage)
         run: |
           WORK=$(mktemp -d)
           tar -xzf dist/allbert-v*-${{ matrix.target }}.tar.gz -C "$WORK"
-          env -i HOME="$WORK" PATH=/usr/bin:/bin SHELL=/bin/sh ALLBERT_HOME="$WORK/home" LANG=C.UTF-8 \
-            "$WORK/allbert/bin/allbert" eval 'IO.puts("smoke-eval-ok " <> to_string(Application.spec(:allbert_assist, :vsn)))'
+          bash scripts/smoke/artifact_smoke.sh "$WORK/allbert" "${{ matrix.target }}" | tee "smoke-${{ matrix.target }}.log"
+
+      - name: Upload smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-${{ matrix.target }}
+          path: smoke-${{ matrix.target }}.log
+          retention-days: 30
 
       - uses: actions/upload-artifact@v4
         with:

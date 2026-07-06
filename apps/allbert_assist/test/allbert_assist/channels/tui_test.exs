@@ -10,6 +10,7 @@ defmodule AllbertAssist.Channels.TUITest do
   alias AllbertAssist.Channels.TUI.EscapeMonitor
   alias AllbertAssist.Channels.TUI.InputDriver
   alias AllbertAssist.Channels.TUI.Renderer
+  alias AllbertAssist.Channels.TUI.SlashCommands
   alias AllbertAssist.Coding.TurnSupervisor
   alias AllbertAssist.Confirmations
   alias AllbertAssist.Conversations
@@ -191,7 +192,7 @@ defmodule AllbertAssist.Channels.TUITest do
 
     assert rendered_help =~ "Available slash commands:"
 
-    for command <- AllbertAssist.Channels.TUI.SlashCommands.canonical_commands() do
+    for command <- SlashCommands.canonical_commands() do
       assert rendered_help =~ "- " <> command, "help missing #{command}"
     end
 

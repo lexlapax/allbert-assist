@@ -66,6 +66,23 @@ sh scripts/install/uninstall.sh --purge  # also removes Allbert Home
 Uninstall removes only what the install manifest recorded. **Allbert Home is
 preserved** unless you pass `--purge`.
 
+## Packaged layout
+
+The OTP release bundles its own ERTS and all runtime code, so no Elixir/Erlang
+toolchain is needed on the target. Two roots matter at runtime:
+
+- **Release root** — where the artifact is unpacked (Homebrew Cellar, or the
+  curl installer's prefix). `RELEASE_ROOT` points here; the bundled plugins live
+  under `RELEASE_ROOT/plugins` (each plugin's `allbert_plugin.json` + `priv`),
+  which is how the packaged binary registers them. `ALLBERT_PLUGINS_ROOT`
+  overrides this for advanced/dev use.
+- **Allbert Home** (`~/.allbert` by default, or `ALLBERT_HOME`) — all operator
+  data: the SQLite database, settings, the encrypted secret store, memory, and
+  artifacts. Install, upgrade, and uninstall never write here (absent
+  `--purge`). Secret values held in the tier-1 OS vault live in the OS keychain,
+  outside both roots — see the Secret Vault section of
+  [security-hardening.md](security-hardening.md).
+
 ## Upgrades
 
 Upgrading (`brew upgrade allbert`, or re-running the curl installer) replaces

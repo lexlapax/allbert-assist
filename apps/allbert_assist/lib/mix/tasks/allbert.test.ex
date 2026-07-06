@@ -39,6 +39,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v060b
       mix allbert.test release.v061
       mix allbert.test release.v061b
+      mix allbert.test release.v062
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -149,6 +150,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v060b"]), do: release_v060b()
   def run(["release.v061"]), do: release_v061()
   def run(["release.v061b"]), do: release_v061b()
+  def run(["release.v062"]), do: release_v062()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -4269,6 +4271,191 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  @release_v062_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "format_check",
+      title: "formatter check for v0.62 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["format", "--check-formatted"],
+      coverage: [
+        "formatter drift fails the v0.62 packaging handoff",
+        "formatter evidence is captured inside release.v062"
+      ]
+    },
+    %{
+      id: "compile_warnings_as_errors",
+      title: "compile v0.62 release candidate with warnings as errors",
+      cwd: :root,
+      executable: "mix",
+      args: ["compile", "--warnings-as-errors"],
+      coverage: [
+        "compiler warnings fail the v0.62 packaging handoff",
+        "compile evidence is captured inside release.v062"
+      ]
+    },
+    %{
+      id: "credo_strict",
+      title: "Credo strict check for v0.62 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["credo", "--strict"],
+      coverage: [
+        "Credo strict findings fail the v0.62 packaging handoff",
+        "infrastructure env vars are classified, not bypassing Settings Central",
+        "Credo evidence is captured inside release.v062"
+      ]
+    },
+    %{
+      id: "dialyzer",
+      title: "Dialyzer static analysis for v0.62 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["dialyzer"],
+      coverage: [
+        "Dialyzer warnings fail the v0.62 packaging handoff",
+        "included because v0.62 adds a CLI/daemon/vault runtime surface",
+        "Dialyzer evidence is captured inside release.v062"
+      ]
+    },
+    %{
+      id: "v062_packaging_proof",
+      title: "the packaged entry points, first-run, daemon, and vault hold",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/runtime_env_test.exs",
+        "test/allbert_assist/plugin/paths_test.exs",
+        "test/allbert_assist/runtime/paths_test.exs",
+        "test/allbert_assist/database_backup_test.exs",
+        "test/allbert_assist/cli/dispatcher_test.exs",
+        "test/allbert_assist/cli/commands_test.exs",
+        "test/allbert_assist/cli/first_run_test.exs",
+        "test/allbert_assist/first_model/first_model_test.exs",
+        "test/allbert_assist/runtime/writer_lock_test.exs",
+        "test/allbert_assist/serve_test.exs",
+        "test/allbert_assist/settings/vault_test.exs",
+        "test/allbert_assist/channels/tui_convergence_test.exs",
+        "test/allbert_assist/install_path_test.exs",
+        "test/allbert_assist/actions/conversations/persist_approval_media_response_test.exs"
+      ],
+      coverage: [
+        "release-safe env detection (RELEASE_NAME/RELEASE_ROOT) replaces Mix.env probes",
+        "packaged plugin root resolution + backup-before-migrate on version change",
+        "dispatcher inventory map, operator/dev split, attach single-writer + auth refusals",
+        "all seven First-Model-Path states incl. below_hardware_floor BYOK degrade",
+        "serve health read-only + documented service unit; three-tier vault resolution + migration",
+        "converged TUI console reads; the M0.1 media-response internal action"
+      ]
+    },
+    %{
+      id: "v062_security_sweep",
+      title: "v0.62 artifact, authority-envelope, and eval-inventory rows",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/v062_sweep_eval_test.exs",
+        "test/security/security_eval_case_test.exs",
+        "test/allbert_assist/actions/registry_test.exs",
+        "test/allbert_assist/intent/eval/corpus_completeness_test.exs"
+      ],
+      coverage: [
+        "no-new-authority: registry diff is exactly the named internal actions, no new class/key",
+        "ADR 0076 Accepted + Distribution Trust; ADR 0070 convergence; package paths documented",
+        "vault no-leak sweep; converged reads stay off the intent router",
+        "registry exact lists + intent-corpus completeness in-gate — enforced, not sampled",
+        "the :v062 row set is complete, shaped, and routed to its owning tests"
+      ]
+    },
+    %{
+      id: "docs_gate",
+      title: "docs gate and release-planning whitespace check",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "docs"],
+      coverage: [
+        "git diff --check is clean",
+        "docs gate is visible in release evidence"
+      ]
+    }
+  ]
+
+  defp release_v062 do
+    env = owned_env("release-v062", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v062")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v062_steps, &run_release_v062_step(&1, env))
+
+    status =
+      if Enum.all?(results, &(&1.status == "passed")) do
+        "passed"
+      else
+        "failed"
+      end
+
+    evidence = %{
+      gate: "mix allbert.test release.v062",
+      version: "v0.62",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; deterministic packaging/CLI/first-run/daemon/vault proofs, artifact eval rows, and docs-gate checks run against local files and injected transports only",
+      notes:
+        "v0.62 packages Allbert as an OTP release with a unified `allbert` CLI, first-run/First-Model-Path onboarding, an `allbert serve` daemon, and a three-tier secret vault. This checkout-bound gate cannot execute the packaged artifact; the artifact smoke harness (.github/workflows/release-artifacts.yml + scripts/) is the second verification layer. Per-OS brew/curl/service/vault rehearsals and the tag are operator S-steps.",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v062-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v062 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v062 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v062_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v062 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -6364,6 +6551,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v060b
       mix allbert.test release.v061
       mix allbert.test release.v061b
+      mix allbert.test release.v062
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate

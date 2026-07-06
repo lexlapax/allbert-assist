@@ -19,12 +19,12 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.61b (0.61.1) consolidates
-  # the shell per ADR 0080: the workspace submenu column and per-shell top bars
-  # retire (one sidebar with contextual workspace sections), the canvas docks as
-  # a resizable pane, and the sidebar collapses to a rail. Convention is
-  # documented in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.61.1"
+  # the app (release-pinned, not semantic-per-app). v0.62 (0.62.0) packages
+  # Allbert as an OTP release with a unified `allbert` CLI, first-run /
+  # First-Model-Path onboarding, an `allbert serve` daemon with a single-writer
+  # guard, and a three-tier secret vault (ADR 0076). Convention is documented
+  # in DEVELOPMENT.md "App version metadata".
+  def version, do: "0.62.0"
 
   @impl true
   def validate(_opts), do: :ok

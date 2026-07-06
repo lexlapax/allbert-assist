@@ -3,6 +3,7 @@ defmodule AllbertAssist.Plugin.Validator do
 
   alias AllbertAssist.Capabilities.ReleaseAvailability
   alias AllbertAssist.Plugin.Entry
+  alias AllbertAssist.Plugin.Paths
   alias AllbertAssist.Settings.YamlCodec
 
   @plugin_id_regex ~r/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$/
@@ -520,7 +521,7 @@ defmodule AllbertAssist.Plugin.Validator do
     with true <- function_exported?(module, :plugin_id, 0),
          plugin_id when is_binary(plugin_id) <- module.plugin_id(),
          root_path when is_binary(root_path) <-
-           AllbertAssist.Plugin.Paths.plugin_root(plugin_id),
+           Paths.plugin_root(plugin_id),
          true <- File.dir?(root_path) do
       root_path
     else
