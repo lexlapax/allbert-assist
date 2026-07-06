@@ -123,13 +123,77 @@ defmodule AllbertAssist.Database do
   end
 
   defp run_migrations_before_supervision! do
-    {:ok, _migrations, _started} =
+    maybe_backup_before_migrate()
+
+    {:ok, migrations, _started} =
       Ecto.Migrator.with_repo(
         Repo,
-        fn repo -> migrate_repo(repo, :up, all: true, log: false) end,
+        # v0.62 M2 (Locked Decision 15): migrations are LOGGED at boot, not
+        # silent — `brew upgrade` schema changes must be visible in the
+        # daemon log, not invisible (the pre-v0.62 `log: false`).
+        fn repo -> migrate_repo(repo, :up, all: true, log: migration_log_level()) end,
         pool_size: @startup_migration_pool_size
       )
 
+    if migrations != [] do
+      require Logger
+      Logger.info("startup migrations applied: #{length(migrations)}")
+    end
+
+    :ok
+  end
+
+  # Under Mix (dev/test) migrations run constantly — keep them quiet there;
+  # in a packaged release they are an operator-visible upgrade event.
+  defp migration_log_level do
+    if AllbertAssist.RuntimeEnv.release?(), do: :info, else: false
+  end
+
+  @doc """
+  v0.62 M2 (Locked Decision 15): back up the SQLite database before
+  version-changing migrations run in a packaged release. This is
+  backup-before-migrate, NOT automated rollback (deferred to v0.64) — the copy
+  gives an operator a recovery point, and a failed backup refuses the boot
+  rather than migrating unprotected. No-op under Mix and when there are no
+  pending migrations.
+  """
+  @spec maybe_backup_before_migrate() :: :ok
+  def maybe_backup_before_migrate do
+    with true <- AllbertAssist.RuntimeEnv.release?(),
+         path when is_binary(path) <- repo_database_path(),
+         true <- File.exists?(path),
+         false <- missing_or_empty?(path),
+         [_ | _] <- Ecto.Migrator.migrations(Repo, migration_paths()) |> pending_migrations() do
+      backup_database!(path)
+    else
+      _no_backup_needed -> :ok
+    end
+  rescue
+    error in [File.Error, File.CopyError] ->
+      require Logger
+
+      Logger.error("""
+      backup-before-migrate failed: #{Exception.message(error)}
+      Refusing to run migrations without a recovery point. Free disk space or
+      set ALLBERT_SKIP_BACKUP=1 to proceed at your own risk.
+      """)
+
+      unless truthy_env?("ALLBERT_SKIP_BACKUP"), do: reraise(error, __STACKTRACE__)
+      :ok
+  end
+
+  defp pending_migrations(status) do
+    Enum.filter(status, fn {state, _version, _name} -> state == :down end)
+  end
+
+  defp backup_database!(path) do
+    require Logger
+    dir = Path.join(Path.dirname(path), "backups")
+    File.mkdir_p!(dir)
+    stamp = DateTime.utc_now() |> DateTime.to_iso8601() |> String.replace(~r/[:.]/, "-")
+    target = Path.join(dir, "allbert-premigrate-#{stamp}.sqlite3")
+    File.cp!(path, target)
+    Logger.info("backup-before-migrate: wrote #{target}")
     :ok
   end
 
