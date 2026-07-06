@@ -115,6 +115,29 @@ defmodule AllbertAssist.CLI.DispatcherTest do
     end)
   end
 
+  test "the listener runs commands off-process and survives serving (M8.9)" do
+    with_attach_home(fn ->
+      pid = start_supervised!(Attach.Server)
+
+      assert {:ok, {_out1, 0}} = Attach.run(["--version"])
+      assert {:ok, {_out2, 0}} = Attach.run(["--help"])
+      # Commands run in a supervised task, so the listener is neither blocked
+      # nor crashed by serving them.
+      assert Process.alive?(pid)
+    end)
+  end
+
+  test "the attach token file is created owner-only, 0600 (M8.9)" do
+    with_attach_home(fn ->
+      start_supervised!(Attach.Server)
+      assert {:ok, _token} = Attach.read_token()
+
+      stat = File.stat!(Attach.token_path())
+      # No group/other permission bits.
+      assert Bitwise.band(stat.mode, 0o077) == 0
+    end)
+  end
+
   defp with_attach_home(fun) do
     original_paths_config = Application.get_env(:allbert_assist, Paths)
 

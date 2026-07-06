@@ -82,13 +82,18 @@ done
 [ -n "$HEALTH_OK" ] && echo "smoke:health PASS $(cat "$WORK/health.json")" \
   || { cat "$WORK/serve.out" || true; fail health "/health did not return 200 within 30s"; }
 
-# Attach round-trip: a second command against the live daemon must resolve
-# through the local attach transport. A single-writer refusal is a separate
-# guard result, not an attach pass.
-if run_cli admin status >"$WORK/attach.out" 2>&1; then
-  echo "smoke:attach PASS attach round-trip ok"
+# Attach round-trip: a second command against the live daemon must be SERVED BY
+# the daemon (M8.9 marker), not merely exit 0 — a single-writer refusal or an
+# embedded run is not an attach pass. ALLBERT_ATTACH_DEBUG surfaces the marker
+# on stderr only on the attach path.
+env -i HOME="$WORK" PATH=/usr/bin:/bin SHELL=/bin/sh LANG=C.UTF-8 \
+  ALLBERT_HOME="$HOME_DIR" ALLBERT_ATTACH_DEBUG=1 \
+  "$BIN" admin status >"$WORK/attach.out" 2>"$WORK/attach.err"
+
+if grep -q "served by the running daemon" "$WORK/attach.err"; then
+  echo "smoke:attach PASS served by the running daemon"
 else
-  cat "$WORK/attach.out" || true
+  cat "$WORK/attach.out" "$WORK/attach.err" 2>/dev/null || true
   fail attach "second command did not attach to the running daemon"
 fi
 

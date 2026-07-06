@@ -52,6 +52,7 @@ defmodule AllbertAssist.CLI do
   def run_entry(argv) do
     case ensure_runtime(argv) do
       {:attached, output, code} ->
+        maybe_attach_marker()
         {:stdout, output, code}
 
       :ok ->
@@ -60,6 +61,14 @@ defmodule AllbertAssist.CLI do
 
       {:error, message} ->
         {:stderr, message, 3}
+    end
+  end
+
+  # v0.62 M8.9: prove attach vs embedded to the smoke harness / debugging without
+  # polluting normal stdout — emit a one-line stderr marker only when asked.
+  defp maybe_attach_marker do
+    if System.get_env("ALLBERT_ATTACH_DEBUG") in ["1", "true"] do
+      IO.puts(:stderr, "allbert: served by the running daemon (attached)")
     end
   end
 

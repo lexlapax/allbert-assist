@@ -54,8 +54,12 @@ defmodule AllbertAssist.Runtime.Attach do
 
       {:error, _reason} ->
         token = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
-        File.write!(token_path(), token <> "\n")
+        # v0.62 M8.9: create the (empty) file and narrow it to 0600 BEFORE the
+        # secret is written, so the token never exists in a world/group-readable
+        # file (the parent runtime dir is already 0700).
+        File.touch!(token_path())
         chmod_owner_only(token_path())
+        File.write!(token_path(), token <> "\n")
         token
     end
   end
@@ -251,8 +255,14 @@ defmodule AllbertAssist.Runtime.Attach.Server do
       {:ok, listen_socket} ->
         owner = self()
         acceptor = spawn_link(fn -> accept_loop(owner, listen_socket) end)
+        # v0.62 M8.9: run attached commands in a supervised task (temporary
+        # children) so a crashing or slow command cannot crash or block the
+        # listener GenServer.
+        {:ok, task_sup} = Task.Supervisor.start_link()
         Logger.info("attach listener started at #{Attach.socket_path()}")
-        {:ok, %{listen_socket: listen_socket, acceptor: acceptor, token: token}}
+
+        {:ok,
+         %{listen_socket: listen_socket, acceptor: acceptor, token: token, task_sup: task_sup}}
 
       {:error, reason} ->
         {:stop, {:attach_listen_failed, reason}}
@@ -261,30 +271,43 @@ defmodule AllbertAssist.Runtime.Attach.Server do
 
   @impl true
   def handle_info({:attach_request, request, socket}, %{token: token} = state) do
-    response =
-      case Attach.validate_request(request, token) do
-        :ok ->
-          request.argv
-          |> AllbertAssist.CLI.run_attached()
-          |> then(&{:ok, &1})
+    case Attach.validate_request(request, token) do
+      :ok ->
+        # Off the listener process: a crash or a long-running command must not
+        # take down or serialize the attach listener.
+        Task.Supervisor.start_child(state.task_sup, fn ->
+          reply(socket, run_attached_isolated(request.argv))
+        end)
 
-        {:error, reason} ->
-          {:error, reason}
-      end
+      {:error, reason} ->
+        reply(socket, {:error, reason})
+    end
 
-    _ = :gen_tcp.send(socket, :erlang.term_to_binary(response))
-    :gen_tcp.close(socket)
     {:noreply, state}
   end
 
   def handle_info({:attach_invalid, reason, socket}, state) do
-    _ = :gen_tcp.send(socket, :erlang.term_to_binary({:error, reason}))
-    :gen_tcp.close(socket)
+    reply(socket, {:error, reason})
     {:noreply, state}
   end
 
   def handle_info({:attach_accept_error, reason}, state) do
     {:stop, {:attach_accept_failed, reason}, state}
+  end
+
+  # Run the attached command with a crash barrier so a failing command returns a
+  # structured error instead of taking down the task/listener.
+  defp run_attached_isolated(argv) do
+    {:ok, AllbertAssist.CLI.run_attached(argv)}
+  rescue
+    error -> {:error, {:command_crashed, Exception.message(error)}}
+  catch
+    kind, value -> {:error, {:command_crashed, inspect({kind, value})}}
+  end
+
+  defp reply(socket, response) do
+    _ = :gen_tcp.send(socket, :erlang.term_to_binary(response))
+    :gen_tcp.close(socket)
   end
 
   @impl true
