@@ -18,6 +18,11 @@ case "${1:-}" in
     # M5: foreground serve boots the tree with the web endpoint enabled and
     # holds the single-writer lock and attach listener for subsequent commands.
     PHX_SERVER=true ALLBERT_HOLD_WRITER_LOCK=1 exec "$RELEASE_BIN" start "$@" ;;
+  tui)
+    # M8.7: the interactive terminal console needs a real TTY and blocks until
+    # exit — run it via `eval` (the M0 proof-6 raw-mode-through-launcher path)
+    # rather than the pure dispatcher.
+    exec "$RELEASE_BIN" eval "AllbertAssist.CLI.Tui.launch()" ;;
   *)
     # Pass argv to the pure dispatcher; it prints and halts on its own code.
     exec "$RELEASE_BIN" eval "AllbertAssist.CLI.main(System.argv())" "$@" ;;

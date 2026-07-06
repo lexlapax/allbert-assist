@@ -10,6 +10,8 @@ defmodule AllbertAssist.CLI.Commands do
 
     * `{:action, name}`    — routes through `Actions.Runner.run/3` (the spine).
     * `{:read, mod, fun}`  — a bounded read function (no store writes).
+    * `{:area, module}`    — an area dispatcher owning its subcommands, shared
+      release-safe with `mix allbert.<area>` (`CLI.Areas.<Area>.dispatch/2`).
     * `:builtin`           — dispatcher-native (serve, first-run, help, version).
     * `:mix_only`          — developer/CI; stays a Mix task, absent from the binary.
     * `:retired`           — superseded; no command.
@@ -17,11 +19,14 @@ defmodule AllbertAssist.CLI.Commands do
   Ratified against `docs/design/entry-point-cli-ux.md` at request-flow S4.
   """
 
+  alias AllbertAssist.CLI.Areas
+
   @typedoc ~S(One dispatcher path, e.g. `["admin", "status"]` or `["ask"]`.)
   @type path :: [String.t()]
   @type disposition ::
           {:action, String.t()}
           | {:read, module(), atom()}
+          | {:area, module()}
           | :builtin
           | :mix_only
           | :retired
@@ -37,15 +42,11 @@ defmodule AllbertAssist.CLI.Commands do
     ["gen"] => :mix_only,
     # `allbert admin <area> [cmd]` — thin views over registered reads/actions.
     ["admin", "status"] => {:action, "operator_status"},
-    ["admin", "channels"] => {:action, "operator_channels"},
-    ["admin", "confirmations"] => {:action, "operator_confirmations"},
     ["admin", "events"] => {:action, "operator_events"},
-    ["admin", "settings", "get"] => {:action, "operator_setting_get"},
-    ["admin", "jobs"] => {:action, "list_jobs"},
-    ["admin", "objectives"] => {:action, "list_objectives"},
     ["admin", "trace"] => {:action, "trace_summary"},
     ["admin", "registry"] => {:action, "registry_health"},
-    ["admin", "models"] => {:action, "model_doctor"},
+    # First-Model-Path (M4): detect/install/pull stay explicit action paths
+    # under the `model` prefix; `admin models` (plural) is the Model area.
     ["admin", "model", "detect"] => {:action, "first_model_detect"},
     ["admin", "model", "install"] => {:action, "install_ollama"},
     ["admin", "model", "pull"] => {:action, "pull_model"},
@@ -56,7 +57,37 @@ defmodule AllbertAssist.CLI.Commands do
     ["admin", "onboarding"] => {:read, AllbertAssist.CLI.FirstRun, :onboarding_summary},
     # v0.59 portability boundary (read DB + file I/O; no store mutation).
     ["admin", "home", "export"] => :builtin,
-    ["admin", "home", "import"] => :builtin
+    ["admin", "home", "import"] => :builtin,
+    # v0.62 M8.7 — area dispatchers own their subcommands (the longest-prefix
+    # resolver stops at the area; the rest of argv is passed to dispatch/2).
+    # Each `{:area, mod}` shares its logic with `mix allbert.<area>`.
+    ["admin", "apps"] => {:area, Areas.Apps},
+    ["admin", "channels"] => {:area, Areas.Channels},
+    ["admin", "confirmations"] => {:area, Areas.Confirmations},
+    ["admin", "jobs"] => {:area, Areas.Jobs},
+    ["admin", "objectives"] => {:area, Areas.Objectives},
+    ["admin", "models"] => {:area, Areas.Model},
+    ["admin", "memory"] => {:area, Areas.Memory},
+    ["admin", "sessions"] => {:area, Areas.Sessions},
+    ["admin", "skills"] => {:area, Areas.Skills},
+    ["admin", "threads"] => {:area, Areas.Threads},
+    ["admin", "intent"] => {:area, Areas.Intent},
+    ["admin", "workspace"] => {:area, Areas.Workspace},
+    ["admin", "workflows"] => {:area, Areas.Workflows},
+    ["admin", "plan"] => {:area, Areas.Plan},
+    ["admin", "mcp"] => {:area, Areas.Mcp},
+    ["admin", "plugins"] => {:area, Areas.Plugins},
+    ["admin", "resources"] => {:area, Areas.Resources},
+    ["admin", "tools"] => {:area, Areas.Tools},
+    ["admin", "voice"] => {:area, Areas.Voice},
+    ["admin", "trust"] => {:area, Areas.Trust},
+    ["admin", "self-improvement"] => {:area, Areas.SelfImprovement},
+    ["admin", "public_protocol"] => {:area, Areas.PublicProtocol},
+    ["admin", "exec"] => {:area, Areas.Exec},
+    ["admin", "external"] => {:area, Areas.External},
+    ["admin", "packages"] => {:area, Areas.Packages},
+    ["admin", "settings"] => {:area, Areas.Settings},
+    ["admin", "marketplace"] => {:area, Areas.Marketplace}
   }
 
   # ---- developer / CI: Mix-only, never on the binary -----------------------
@@ -88,7 +119,7 @@ defmodule AllbertAssist.CLI.Commands do
     "apps" => {:command, ["admin", "apps"]},
     "mcp" => {:command, ["admin", "mcp"]},
     "public_protocol" => {:command, ["admin", "public_protocol"]},
-    "marketplace" => {:command, ["admin", "apps"]},
+    "marketplace" => {:command, ["admin", "marketplace"]},
     "threads" => {:command, ["admin", "threads"]},
     "conversations" => {:command, ["admin", "threads"]},
     "sessions" => {:command, ["admin", "sessions"]},

@@ -1,9 +1,18 @@
-# Mix task -> `allbert` command mapping (v0.62 M3)
+# Mix task -> `allbert` command mapping (v0.62 M3/M8.7)
 
 Generated from `AllbertAssist.CLI.Commands.task_dispositions/0` (the disposition
 table the `cli-command-inventory-spine-map-001` eval row asserts). Operator
 tasks re-front onto the unified `allbert` dispatcher; developer/CI tasks stay
 Mix-only in a checkout.
+
+**v0.62 M8.7:** every `allbert admin <area>` home below is **live in the packaged
+binary** and owns its full subcommand set through a release-safe
+`AllbertAssist.CLI.Areas.<Area>` module that is the single source of truth shared
+with `mix allbert.<area>` (identical dispatch + output on both surfaces). Run
+`allbert admin <area>` with no subcommand for its usage. `ask`/`chat`/`tui` are
+real: `ask` runs a one-shot turn, `tui` launches the terminal console, `chat`
+points at the web workspace. A `commands_test` invariant asserts every mapped
+home resolves in the operator table (no advertised-but-missing command).
 
 The table maps legacy Mix task families to product command homes. v0.62 also
 adds explicit subcommands that have no one-to-one legacy Mix task row:
@@ -33,7 +42,7 @@ install|uninstall`, `allbert admin health`, `allbert admin vault`, and
 | `mix allbert.home.import` | `allbert admin home import` |
 | `mix allbert.intent` | `allbert admin intent` |
 | `mix allbert.jobs` | `allbert admin jobs` |
-| `mix allbert.marketplace` | `allbert admin apps` |
+| `mix allbert.marketplace` | `allbert admin marketplace` |
 | `mix allbert.mcp` | `allbert admin mcp` |
 | `mix allbert.mcp_server` | `allbert serve` |
 | `mix allbert.memory` | `allbert admin memory` |

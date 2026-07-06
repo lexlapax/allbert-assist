@@ -15,6 +15,7 @@ defmodule AllbertAssist.CLI do
   """
 
   alias AllbertAssist.Actions.Runner
+  alias AllbertAssist.CLI.Ask
   alias AllbertAssist.CLI.Commands
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Portability.Export
@@ -115,8 +116,17 @@ defmodule AllbertAssist.CLI do
     case run_routing(argv) do
       {:action, _name} -> true
       {:read, _mod, _fun} -> true
+      {:area, _module} -> true
+      :builtin -> builtin_needs_runtime?(argv)
       _pure -> false
     end
+  end
+
+  # `ask` runs a live conversation turn, so it needs the embedded runtime (or a
+  # daemon attach). serve/tui are launched by the overlay; chat/home reads open
+  # their own resources.
+  defp builtin_needs_runtime?(argv) do
+    match?({["ask"], _}, resolve_path(argv))
   end
 
   defp run_routing(argv) do
@@ -169,11 +179,20 @@ defmodule AllbertAssist.CLI do
     case Commands.lookup(path) do
       {:ok, {:action, name}} -> run_action(name, rest)
       {:ok, {:read, mod, fun}} -> run_read(mod, fun, rest)
+      {:ok, {:area, module}} -> run_area(module, rest)
       {:ok, :builtin} -> run_builtin(path, rest)
       {:ok, :mix_only} -> {mix_only_message(path), 2}
       {:ok, :retired} -> {"That command was retired.", 2}
       :error -> unknown(path)
     end
+  end
+
+  # v0.62 M8.7: an area dispatcher owns its subcommands and returns
+  # {output, exit_code} from a release-safe module shared with the Mix task.
+  defp run_area(module, rest) do
+    module.dispatch(rest, ContextBuilder.cli_context(%{surface: "cli", channel: :cli}))
+  rescue
+    error -> {"error: #{Exception.message(error)}", 1}
   end
 
   # Resolve the longest matching table path (so `admin settings get` beats
@@ -216,16 +235,18 @@ defmodule AllbertAssist.CLI do
   end
 
   defp run_builtin(["serve"], _rest),
-    do: {"`allbert serve` is handled by the release launcher (M5).", 0}
+    do: {"`allbert serve` is handled by the release launcher.", 0}
 
-  defp run_builtin(["ask"], rest),
-    do: {"ask: #{Enum.join(rest, " ")}", 0}
+  defp run_builtin(["ask"], rest), do: Ask.run(rest)
 
+  # `tui` is interactive (raw mode, blocks): the launcher overlay runs it in a
+  # real TTY via `AllbertAssist.CLI.Tui.launch/0`. Reaching this pure clause
+  # means it was invoked outside the launcher (e.g. `eval`), where a blocking
+  # console cannot own the terminal — point the operator at the entry.
   defp run_builtin(["tui"], _rest),
-    do: {"`allbert tui` opens the terminal console (M6).", 0}
+    do: {"Run `allbert tui` from the installed binary (the launcher owns the TTY).", 0}
 
-  defp run_builtin(["chat"], _rest),
-    do: {"`allbert chat` opens the web workspace chat.", 0}
+  defp run_builtin(["chat"], _rest), do: {chat_message(), 0}
 
   defp run_builtin(["admin", "home", "export"], rest) do
     opts = if out = out_flag(rest), do: [out: out], else: []
@@ -250,6 +271,17 @@ defmodule AllbertAssist.CLI do
   end
 
   defp run_builtin(_path, _rest), do: {help(), 0}
+
+  defp chat_message do
+    port = System.get_env("PORT") || "4000"
+
+    """
+    Allbert web workspace chat: http://localhost:#{port}/workspace
+    Start the server first if it is not running: allbert serve
+    For a terminal session instead, run: allbert tui
+    """
+    |> String.trim()
+  end
 
   defp out_flag(rest) do
     case Enum.drop_while(rest, &(&1 != "--out")) do
@@ -373,17 +405,18 @@ defmodule AllbertAssist.CLI do
       allbert                  Resume setup or open the product
       allbert admin onboarding Review setup state
       allbert admin models     Check model/provider readiness
+      allbert admin vault      Show the secret-vault tier
 
-    Operate
-      allbert admin status
-      allbert admin settings get KEY
-      allbert admin channels
-      allbert admin jobs
-      allbert admin objectives
-      allbert admin confirmations
-      allbert admin home export|import
+    Operate (each `admin <area>` has its own subcommands; run one for usage)
+      allbert admin status | health | trace | registry | events
+      allbert admin settings | channels | jobs | objectives | confirmations
+      allbert admin threads | sessions | memory | skills | plugins | apps
+      allbert admin mcp | intent | workspace | workflows | plan | tools
+      allbert admin resources | marketplace | packages | external | exec
+      allbert admin voice | trust | self-improvement | public_protocol
+      allbert admin service | secrets migrate | home export|import
 
-    Development and CI stay under mix.
+    Development and CI stay under mix (mix allbert.<area> mirrors admin <area>).
     """
     |> String.trim_trailing()
   end

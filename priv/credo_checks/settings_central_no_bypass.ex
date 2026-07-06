@@ -38,7 +38,8 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         "DBUS_SESSION_BUS_ADDRESS",
         "XDG_RUNTIME_DIR",
         "UID",
-        "OLLAMA_HOST"
+        "OLLAMA_HOST",
+        "PORT"
       ],
       operator_setting_keys: [
         "runtime.trace_default",

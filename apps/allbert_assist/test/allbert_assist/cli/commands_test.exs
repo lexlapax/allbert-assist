@@ -27,12 +27,55 @@ defmodule AllbertAssist.CLI.CommandsTest do
       case disposition do
         {:action, name} when is_binary(name) -> :ok
         {:read, mod, fun} when is_atom(mod) and is_atom(fun) -> :ok
+        {:area, mod} when is_atom(mod) -> :ok
         :builtin -> :ok
         :mix_only -> :ok
         :retired -> :ok
         other -> flunk("command #{inspect(path)} has an invalid disposition: #{inspect(other)}")
       end
     end
+  end
+
+  # v0.62 M8.7: an area dispatcher owns its subcommands and is shared release-safe
+  # with `mix allbert.<area>`. It must export dispatch/2.
+  test "every :area disposition names a module exporting dispatch/2" do
+    for {path, {:area, mod}} <- Commands.operator_table(),
+        match?({:area, _}, {:area, mod}) do
+      Code.ensure_loaded!(mod)
+
+      assert function_exported?(mod, :dispatch, 2),
+             "command #{inspect(path)} → #{inspect(mod)}.dispatch/2 is not exported"
+    end
+  end
+
+  # v0.62 M8.7 (audit blind-spot fix): the cli-mapping doc + task_dispositions
+  # advertised ~21 `allbert admin <area>` homes that did NOT exist in the
+  # operator table (returned "unknown command"). Enforce that every command home
+  # a Mix task maps to actually resolves.
+  test "every task_disposition command home resolves in the operator table" do
+    homes =
+      Commands.task_dispositions()
+      |> Map.values()
+      |> Enum.flat_map(fn
+        {:command, path} -> [path]
+        _other -> []
+      end)
+      |> Enum.uniq()
+
+    table = Commands.operator_table()
+
+    unresolved =
+      Enum.reject(homes, fn home ->
+        # A home resolves if it (or a longest-prefix of it) is in the table.
+        Enum.any?(prefixes(home), &Map.has_key?(table, &1))
+      end)
+
+    assert unresolved == [],
+           "task_disposition homes with no operator_table entry: #{inspect(unresolved)}"
+  end
+
+  defp prefixes(path) do
+    for n <- length(path)..1//-1, do: Enum.take(path, n)
   end
 
   test "every :read disposition points at an exported zero-arg function" do

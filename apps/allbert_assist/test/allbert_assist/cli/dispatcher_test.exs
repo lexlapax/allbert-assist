@@ -51,13 +51,16 @@ defmodule AllbertAssist.CLI.DispatcherTest do
     assert out =~ "--help"
   end
 
-  test "longest-prefix resolution: admin settings get is distinct from admin settings" do
-    # `admin settings get` is in the table; `admin settings` is not (bare).
+  test "admin settings resolves to the settings area and owns its subcommands" do
+    # v0.62 M8.7: `admin settings` is now the Settings area (not "unknown"); the
+    # longest-prefix resolver stops at `["admin","settings"]` and passes the rest
+    # (`get KEY`) to the area's own dispatch.
     {_out, code} = CLI.run(["admin", "settings", "get", "workspace.theme.mode"])
     assert code in [0, 1]
 
     {out, 2} = CLI.run(["admin", "settings"])
-    assert out =~ "unknown command"
+    refute out =~ "unknown command"
+    assert out =~ "settings"
   end
 
   test "settings/service/model CLI operands are preserved" do
