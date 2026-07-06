@@ -183,34 +183,25 @@ defmodule AllbertAssist.Channels.TUITest do
                output_fun: fn line -> send(parent, {:tui_output, line}) end
              )
 
-    assert {:ok,
-            {:slash,
-             [
-               "Available slash commands:\n" <>
-                 "- /status\n" <>
-                 "- /confirmations\n" <>
-                 "- /events\n" <>
-                 "- /channels\n" <>
-                 "- /intents\n" <>
-                 "- /models\n" <>
-                 "- /settings get\n" <>
-                 "- /pi\n" <>
-                 "- /mode\n" <>
-                 "- /model\n" <>
-                 "- /clear\n" <>
-                 "- /init\n" <>
-                 "- /diff\n" <>
-                 "- /compact\n" <>
-                 "- /exit\n" <>
-                 "- /quit\n" <>
-                 "- /help"
-             ]}} = Adapter.submit(server, "/help", external_event_id: "evt-tui-slash-help")
+    # v0.62 M6: help renders every canonical command (the list grew with the
+    # ADR 0070 read set), asserted against the source of truth rather than a
+    # brittle inline snapshot.
+    assert {:ok, {:slash, [rendered_help]}} =
+             Adapter.submit(server, "/help", external_event_id: "evt-tui-slash-help")
+
+    assert rendered_help =~ "Available slash commands:"
+
+    for command <- AllbertAssist.Channels.TUI.SlashCommands.canonical_commands() do
+      assert rendered_help =~ "- " <> command, "help missing #{command}"
+    end
 
     refute_received {:runtime_request, _request}
     assert_receive {:tui_output, rendered}
     assert rendered =~ "/status"
     assert rendered =~ "/intents"
     assert rendered =~ "/models"
+    assert rendered =~ "/jobs"
+    assert rendered =~ "/health"
     assert rendered =~ "/settings get"
     assert rendered =~ "/pi"
     assert rendered =~ "/mode"

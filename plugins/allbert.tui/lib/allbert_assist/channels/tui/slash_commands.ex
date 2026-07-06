@@ -10,6 +10,13 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
     "/channels",
     "/intents",
     "/models",
+    "/jobs",
+    "/objective",
+    "/trace",
+    "/registry",
+    "/memory",
+    "/health",
+    "/model-detect",
     "/settings get",
     "/pi",
     "/mode",
@@ -124,6 +131,33 @@ defmodule AllbertAssist.Channels.TUI.SlashCommands do
 
       ["/models"] ->
         {:action, "model_doctor", operator_report_params()}
+
+      # v0.62 M6 (ADR 0070 convergence): the enumerated remaining read set —
+      # already-registered internal reads that lacked a slash surface.
+      ["/jobs"] ->
+        {:action, "list_jobs", %{}}
+
+      ["/objective", id] ->
+        {:action, "show_objective", %{objective_id: String.trim(id)}}
+
+      ["/objective"] ->
+        {:local,
+         local_response("Usage: /objective <id>", "Malformed TUI objective slash command.")}
+
+      ["/trace"] ->
+        {:action, "trace_summary", operator_report_params()}
+
+      ["/registry"] ->
+        {:action, "registry_health", operator_report_params()}
+
+      ["/memory"] ->
+        {:action, "list_memory_category_summary", %{}}
+
+      ["/health"] ->
+        {:action, "serve_health", %{}}
+
+      ["/model-detect"] ->
+        {:action, "first_model_detect", %{}}
 
       ["/settings", "get", key] ->
         key = String.trim(key)

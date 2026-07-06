@@ -1,6 +1,21 @@
 # ADR 0070: TUI Operator Console And Read-Only Operator Actions
 
-Status: Accepted (v0.55.1).
+Status: Accepted (v0.55.1); **converged (v0.62 M6)**.
+
+> **v0.62 M6 convergence note.** The mix-free TUI operator console now covers
+> the enumerated day-to-day inspection read set: the prior slashes (`/status`
+> `/confirmations` `/events` `/channels` `/intents` `/models` `/settings get`)
+> plus the remaining already-registered `:internal` read-only actions surfaced
+> here — `/jobs` (`list_jobs`), `/objective <id>` (`show_objective`), `/trace`
+> (`trace_summary`), `/registry` (`registry_health`), `/memory`
+> (`list_memory_category_summary`), `/health` (`serve_health`), and
+> `/model-detect` (`first_model_detect`). Each routes through
+> `Actions.Runner.run/3`, is `exposure: :internal`, is excluded from
+> intent-router candidates, and is redaction/truncation-bounded — an operator
+> no longer needs raw `mix` for normal inspection. Heavier one-off tasks
+> (thread/workspace/public-protocol/self-improvement introspection) remain
+> `allbert admin` CLI commands (v0.62 M3 disposition table), declared outside
+> the TUI day-to-day set.
 Accepted amendment (v0.58): the "operator operations are registered
 read-only actions; surfaces are thin views" discipline is extended to the **web**.
 The web workspace stops reading `Confirmations`/`Settings.Store` directly and
