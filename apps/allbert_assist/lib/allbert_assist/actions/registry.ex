@@ -41,6 +41,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.FirstModel.Detect, as: FirstModelDetect
   alias AllbertAssist.Actions.FirstModel.InstallOllama
   alias AllbertAssist.Actions.FirstModel.PullModel
+  alias AllbertAssist.Actions.Serve.ServeHealth
+  alias AllbertAssist.Actions.Serve.ServiceControl
   alias AllbertAssist.Actions.Conversations.RenameThread
   alias AllbertAssist.Actions.Conversations.ResumeThreadOnChannel
   alias AllbertAssist.Actions.DynamicPlugins.DisableLiveLoader, as: DisableDynamicLiveLoader
@@ -410,6 +412,10 @@ defmodule AllbertAssist.Actions.Registry do
     FirstModelDetect,
     InstallOllama,
     PullModel,
+    # v0.62 M5: serve health (read-only) + per-user service install/uninstall
+    # (command_execute, confirmed). Named internal actions, not off-spine shell.
+    ServeHealth,
+    ServiceControl,
     ManageTile,
     RevertTileRevision,
     RecordOfflineUpdate,

@@ -13,9 +13,9 @@ case "${1:-}" in
     exec "$RELEASE_BIN" "$@" ;;
   serve)
     shift
-    # M5 owns full daemon/service management; foreground serve boots the tree
-    # with the web endpoint enabled.
-    PHX_SERVER=true exec "$RELEASE_BIN" start "$@" ;;
+    # M5: foreground serve boots the tree with the web endpoint enabled and
+    # holds the single-writer lock (so a second `allbert` command refuses).
+    PHX_SERVER=true ALLBERT_HOLD_WRITER_LOCK=1 exec "$RELEASE_BIN" start "$@" ;;
   *)
     # Pass argv to the pure dispatcher; it prints and halts on its own code.
     exec "$RELEASE_BIN" eval "AllbertAssist.CLI.main(System.argv())" "$@" ;;

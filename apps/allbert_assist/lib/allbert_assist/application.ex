@@ -19,6 +19,10 @@ defmodule AllbertAssist.Application do
     children =
       [
         AllbertAssist.Repo,
+        # v0.62 M5: in serve/daemon mode only (ALLBERT_HOLD_WRITER_LOCK), hold
+        # the single-writer lock so a second `allbert` command refuses to boot
+        # a competing writer (Locked Decision 5). Absent in dev/test.
+        writer_lock_child(),
         {DNSCluster, query: Application.get_env(:allbert_assist, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: AllbertAssist.PubSub},
         {Jido.Signal.Bus, name: AllbertAssist.SignalBus},
@@ -33,6 +37,7 @@ defmodule AllbertAssist.Application do
         AllbertAssist.Intent.Router.PendingStore,
         AllbertAssist.Jido
       ]
+      |> Enum.reject(&is_nil/1)
       |> maybe_add_plugin_supervisor()
       |> maybe_add_app_supervisor()
       |> maybe_add_dynamic_plugins_supervisor()
@@ -42,6 +47,12 @@ defmodule AllbertAssist.Application do
       |> maybe_add_channels_supervisor()
 
     Supervisor.start_link(children, strategy: :one_for_one, name: AllbertAssist.Supervisor)
+  end
+
+  defp writer_lock_child do
+    if AllbertAssist.Runtime.WriterLock.Holder.enabled?() do
+      AllbertAssist.Runtime.WriterLock.Holder
+    end
   end
 
   defp maybe_add_plugin_supervisor(children) do

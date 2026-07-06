@@ -15,6 +15,14 @@ defmodule AllbertAssistWeb.Router do
     plug :accepts, ["json"]
   end
 
+  # v0.62 M5: bounded runtime health snapshot for `allbert serve` / service
+  # supervisors. Read-only JSON; 200 healthy / 503 degraded.
+  scope "/", AllbertAssistWeb do
+    pipe_through :api
+
+    get "/health", HealthController, :show
+  end
+
   pipeline :public_protocol_api do
     plug AllbertAssistWeb.Plugs.PublicProtocolHeaders
   end

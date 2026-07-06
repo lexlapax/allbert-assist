@@ -159,11 +159,14 @@ defmodule AllbertAssist.Database do
   """
   @spec maybe_backup_before_migrate() :: :ok
   def maybe_backup_before_migrate do
+    # Called only from `run_migrations_before_supervision!`, which is reached
+    # only when `skip_migrations?/0` is false — i.e. migrations ARE pending.
+    # The Repo is not started yet here, so we cannot (and need not) re-check
+    # pending migrations; a non-empty DB in a release gets a recovery copy.
     with true <- AllbertAssist.RuntimeEnv.release?(),
          path when is_binary(path) <- repo_database_path(),
          true <- File.exists?(path),
-         false <- missing_or_empty?(path),
-         [_ | _] <- Ecto.Migrator.migrations(Repo, migration_paths()) |> pending_migrations() do
+         false <- missing_or_empty?(path) do
       backup_database!(path)
     else
       _no_backup_needed -> :ok
@@ -180,10 +183,6 @@ defmodule AllbertAssist.Database do
 
       unless truthy_env?("ALLBERT_SKIP_BACKUP"), do: reraise(error, __STACKTRACE__)
       :ok
-  end
-
-  defp pending_migrations(status) do
-    Enum.filter(status, fn {state, _version, _name} -> state == :down end)
   end
 
   defp backup_database!(path) do
