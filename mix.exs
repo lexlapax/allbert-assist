@@ -34,9 +34,49 @@ defmodule AllbertAssist.Umbrella.MixProject do
         ],
         include_executables_for: [:unix],
         include_erts: true,
-        steps: [&build_web_assets/1, :assemble, &stage_plugins/1, &patch_macos_openssl/1]
+        steps: [
+          &build_web_assets/1,
+          :assemble,
+          &stage_plugins/1,
+          &patch_macos_openssl/1,
+          &install_dispatcher/1
+        ]
       ]
     ]
+  end
+
+  # v0.62 M8.6 (audit blocker fix): the OTP release generator emits `bin/allbert`
+  # (start/stop/eval/rpc/version only). The operator dispatcher — the thing that
+  # implements `serve`/`admin`/`ask`/first-run — is the `bin/allbert-dispatch`
+  # overlay. Installer/formula/service/smoke all invoke `bin/allbert`, so without
+  # this step the shipped `allbert admin …`/`allbert serve` fail with "Unknown
+  # command". Per the operator decision, install the dispatcher AS `bin/allbert`:
+  # rename the generated launcher to `bin/allbert-release` (safe — the launcher
+  # hardcodes RELEASE_NAME=allbert and derives RELEASE_ROOT from $SELF's parent,
+  # so the boot/name references do not depend on the filename), then move the
+  # dispatcher overlay onto `bin/allbert`. The overlay's RELEASE_BIN points at
+  # `allbert-release` so passthrough (start/eval/…) still reaches the generator.
+  defp install_dispatcher(release) do
+    bin = Path.join(release.path, "bin")
+    generated = Path.join(bin, "allbert")
+    renamed = Path.join(bin, "allbert-release")
+    dispatcher = Path.join(bin, "allbert-dispatch")
+
+    unless File.exists?(dispatcher) do
+      Mix.raise(
+        "install_dispatcher: overlay bin/allbert-dispatch missing from the assembled release"
+      )
+    end
+
+    File.rename!(generated, renamed)
+    File.rename!(dispatcher, generated)
+    File.chmod!(generated, 0o755)
+
+    Mix.shell().info(
+      "==> installed operator dispatcher as bin/allbert (generated launcher -> bin/allbert-release)"
+    )
+
+    release
   end
 
   # v0.62 M1: shipped plugins register from `RELEASE_ROOT/plugins` (the

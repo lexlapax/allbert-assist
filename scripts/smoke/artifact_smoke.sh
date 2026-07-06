@@ -55,7 +55,10 @@ VSN="$(run_cli eval 'IO.puts(AllbertAssist.App.CoreApp.version())' 2>/dev/null |
 [ -n "$VSN" ] && echo "smoke:version PASS version=$VSN" || fail version "no version reported"
 
 # 3) Plugins register from the packaged plugins root (RELEASE_ROOT/plugins).
-PLUGIN_COUNT="$(run_cli eval 'IO.puts(length(AllbertAssist.App.Registry.registered_apps()))' 2>/dev/null | tail -n1 || true)"
+# Bare `eval` only LOADS the apps; start them so the App.Registry GenServer is
+# up and plugin registration has run (else registered_apps/0 catches the dead
+# GenServer and returns []).
+PLUGIN_COUNT="$(run_cli eval 'Application.ensure_all_started(:allbert_assist); IO.puts(length(AllbertAssist.App.Registry.registered_apps()))' 2>/dev/null | tail -n1 || true)"
 case "$PLUGIN_COUNT" in
   ''|*[!0-9]*) fail plugins "plugin capability count not numeric: '$PLUGIN_COUNT'" ;;
   *) [ "$PLUGIN_COUNT" -gt 0 ] && echo "smoke:plugins PASS registered=$PLUGIN_COUNT" \

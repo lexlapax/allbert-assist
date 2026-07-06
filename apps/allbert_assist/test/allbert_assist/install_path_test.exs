@@ -14,6 +14,10 @@ defmodule AllbertAssist.InstallPathTest do
   @uninstall Path.join(@repo_root, "scripts/install/uninstall.sh")
   @formula Path.join(@repo_root, "homebrew/allbert.rb")
   @workflow Path.join(@repo_root, ".github/workflows/release-artifacts.yml")
+  @root_mix Path.join(@repo_root, "mix.exs")
+  @overlay Path.join(@repo_root, "rel/overlays/bin/allbert-dispatch")
+  @smoke Path.join(@repo_root, "scripts/smoke/artifact_smoke.sh")
+  @service Path.join(@repo_root, "apps/allbert_assist/lib/allbert_assist/service.ex")
 
   test "install.sh parses under /bin/sh and honors the trust contract" do
     assert File.exists?(@install)
@@ -50,6 +54,44 @@ defmodule AllbertAssist.InstallPathTest do
     # Per-platform prebuilt artifacts + checksums (placeholders filled at release).
     assert body =~ "macos-arm64" and body =~ "linux-x64" and body =~ "linux-arm64"
     assert body =~ "sha256"
+  end
+
+  # v0.62 M8.6 (audit blocker): the operator dispatcher must be installed AS
+  # `bin/allbert`. Without the install_dispatcher release step, `bin/allbert` is
+  # the generated OTP launcher and `allbert admin …`/`allbert serve` fail with
+  # "Unknown command" through the real installer/formula/service path. The
+  # executable proof is the CI smoke harness (it runs the shipped binary); these
+  # assertions guard the wiring so the class cannot silently regress.
+  test "the release installs the operator dispatcher AS bin/allbert" do
+    mix = File.read!(@root_mix)
+    # The rename step is wired into the release pipeline.
+    assert mix =~ "&install_dispatcher/1"
+    assert mix =~ "defp install_dispatcher(release)"
+    # It renames the generated launcher and moves the dispatcher onto bin/allbert.
+    assert mix =~ ~s("allbert-release")
+
+    overlay = File.read!(@overlay)
+    # The dispatcher passthrough targets the renamed generated launcher — NOT
+    # `$SELF_DIR/allbert` (which, once the overlay IS bin/allbert, self-loops).
+    assert overlay =~ ~s(RELEASE_BIN="$SELF_DIR/allbert-release")
+    refute overlay =~ ~s(RELEASE_BIN="$SELF_DIR/allbert")
+
+    # Every install surface invokes `allbert` (which the step makes the
+    # dispatcher) — none hard-codes the generated launcher under another name.
+    assert File.read!(@install) =~ ~s(ln -sf "$LIB_DIR/bin/allbert" "$BIN_DIR/allbert")
+    assert File.read!(@formula) =~ ~s{run [opt_bin/"allbert", "serve"]}
+    assert File.read!(@service) =~ ~S(ExecStart=#{binary} serve)
+  end
+
+  test "the smoke harness executes the shipped allbert and boots apps for the plugin probe" do
+    smoke = File.read!(@smoke)
+    # Targets the shipped entry (which the release step makes the dispatcher).
+    assert smoke =~ ~s(BIN="$REL_ROOT/bin/allbert")
+    # The plugin-count eval starts the OTP apps (bare `eval` only loads them, so
+    # the App.Registry GenServer would be down and the count would be 0).
+    assert smoke =~ "Application.ensure_all_started(:allbert_assist)"
+    # Proves attach and health against the live daemon, not just boot.
+    assert smoke =~ "/health" and smoke =~ "attach"
   end
 
   test "the release workflow publishes checksums and attaches to the release" do
