@@ -5,7 +5,10 @@ Date: 2026-06-25 (amended 2026-07-05 by the v0.62 implementation-readiness
 pass: Bakeware struck as archived, CLI process model + vault tiering + First-
 Model-Path execution authority recorded, Distribution Trust section added;
 second-pass readiness corrections clarified platform tiers, attach transport,
-service ownership, and Ollama authority).
+service ownership, and Ollama authority; third/fourth-pass corrections on
+2026-07-06 aligned installer execution to `:command_execute`, recorded the
+v0.64 trust intake, and confirmed full v0.62 scope with all eight M0 proofs
+binding).
 Related: ADR 0077 (Product Experience Design & IA — designs the entry-point / CLI
 UX in v0.60 M5; this release implements it in v0.62), ADR 0078 (First-Model Path —
 its chosen option requires detecting/guiding Ollama setup and managing a curated
