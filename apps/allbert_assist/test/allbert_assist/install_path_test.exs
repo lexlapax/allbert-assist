@@ -74,7 +74,13 @@ defmodule AllbertAssist.InstallPathTest do
     # The dispatcher passthrough targets the renamed generated launcher — NOT
     # `$SELF_DIR/allbert` (which, once the overlay IS bin/allbert, self-loops).
     assert overlay =~ ~s(RELEASE_BIN="$SELF_DIR/allbert-release")
-    refute overlay =~ ~s(RELEASE_BIN="$SELF_DIR/allbert")
+    refute overlay =~ ~s(RELEASE_BIN="$SELF_DIR/allbert\n")
+
+    # v0.62 M8.12: the installer/Homebrew symlink `<prefix>/bin/allbert` at the
+    # dispatcher; SELF_DIR MUST resolve through symlinks or it looks for
+    # `allbert-release` beside the symlink (where it does not exist). Regression
+    # guard for the bug the macOS install rehearsal caught.
+    assert overlay =~ "readlink" and overlay =~ "[ -L"
 
     # Every install surface invokes `allbert` (which the step makes the
     # dispatcher) — none hard-codes the generated launcher under another name.
@@ -85,8 +91,11 @@ defmodule AllbertAssist.InstallPathTest do
 
   test "the smoke harness executes the shipped allbert and boots apps for the plugin probe" do
     smoke = File.read!(@smoke)
-    # Targets the shipped entry (which the release step makes the dispatcher).
-    assert smoke =~ ~s(BIN="$REL_ROOT/bin/allbert")
+    # v0.62 M8.12: the smoke exercises the operator-style symlink
+    # (<work>/bin/allbert -> <release>/bin/allbert), not the release bin directly,
+    # so a symlink-resolution regression is caught in CI.
+    assert smoke =~ ~s(ln -sf "$REL_ROOT/bin/allbert" "$WORK/bin/allbert")
+    assert smoke =~ ~s(BIN="$WORK/bin/allbert")
     # The plugin-count eval starts the OTP apps (bare `eval` only loads them, so
     # the App.Registry GenServer would be down and the count would be 0).
     assert smoke =~ "Application.ensure_all_started(:allbert_assist)"

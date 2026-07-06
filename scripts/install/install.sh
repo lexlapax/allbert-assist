@@ -33,14 +33,23 @@ main() {
       ;;
   esac
 
-  if [ "$VERSION" = "latest" ]; then
+  # ALLBERT_BASE_URL overrides where artifacts are fetched from (a mirror, or a
+  # local file:// dir for release rehearsals); otherwise use the GitHub release.
+  if [ -n "${ALLBERT_BASE_URL:-}" ]; then
+    base="$ALLBERT_BASE_URL"
+  elif [ "$VERSION" = "latest" ]; then
     base="https://github.com/$REPO/releases/latest/download"
   else
     base="https://github.com/$REPO/releases/download/$VERSION"
   fi
 
-  artifact="allbert-${VERSION}-${target}.tar.gz"
-  [ "$VERSION" = "latest" ] && artifact="allbert-${target}.tar.gz"
+  # Canonical asset names match the release workflow: `allbert-v<version>-<target>.tar.gz`
+  # for a pinned tag, and a version-less `allbert-<target>.tar.gz` alias for `latest`.
+  if [ "$VERSION" = "latest" ]; then
+    artifact="allbert-${target}.tar.gz"
+  else
+    artifact="allbert-${VERSION}-${target}.tar.gz"
+  fi
 
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT

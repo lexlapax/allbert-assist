@@ -17,12 +17,13 @@
 # Exits non-zero on the first failed check. Every check prints `smoke:<id> ...`.
 set -euo pipefail
 
-REL_ROOT="${1:?usage: artifact_smoke.sh <release-root> [target]}"
+REL_ROOT_ARG="${1:?usage: artifact_smoke.sh <release-root> [target]}"
+# Absolute path so the operator-style symlink below never dangles.
+REL_ROOT="$(cd "$REL_ROOT_ARG" && pwd)"
 TARGET="${2:-$(uname -s)-$(uname -m)}"
-BIN="$REL_ROOT/bin/allbert"
 PORT="${SMOKE_PORT:-4137}"
 
-[ -x "$BIN" ] || { echo "smoke:fatal no executable at $BIN"; exit 1; }
+[ -x "$REL_ROOT/bin/allbert" ] || { echo "smoke:fatal no executable at $REL_ROOT/bin/allbert"; exit 1; }
 
 WORK="$(mktemp -d)"
 HOME_DIR="$WORK/home"
@@ -32,6 +33,14 @@ cleanup() {
   rm -rf "$WORK"
 }
 trap cleanup EXIT
+
+# Exercise the SAME entry an operator gets: the installer/Homebrew symlink
+# `<prefix>/bin/allbert -> <release>/bin/allbert`. This is where the dispatcher
+# must resolve its own real directory to find `bin/allbert-release`; testing the
+# release bin directly would miss a symlink-resolution regression.
+mkdir -p "$WORK/bin"
+ln -sf "$REL_ROOT/bin/allbert" "$WORK/bin/allbert"
+BIN="$WORK/bin/allbert"
 
 # A deliberately minimal environment: no Elixir/Erlang toolchain on PATH, proving
 # the release runs on its bundled ERTS. SHELL is set because erlexec requires it.

@@ -7,7 +7,18 @@
 # start; everything else runs the pure dispatcher via `eval` and exits on its
 # code.
 set -eu
-SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Resolve symlinks: the installer/Homebrew symlink `<prefix>/bin/allbert` at this
+# file, but the renamed OTP launcher (`allbert-release`) lives beside the REAL
+# file, not the symlink. Follow $0 to its target before computing SELF_DIR.
+SELF="$0"
+while [ -L "$SELF" ]; do
+  target="$(readlink "$SELF")"
+  case "$target" in
+    /*) SELF="$target" ;;
+    *) SELF="$(dirname "$SELF")/$target" ;;
+  esac
+done
+SELF_DIR="$(cd "$(dirname "$SELF")" && pwd)"
 RELEASE_BIN="$SELF_DIR/allbert-release"
 
 case "${1:-}" in
