@@ -9,11 +9,13 @@ defmodule AllbertAssist.CLI.Areas.SelfImprovement do
   `Mix.Tasks.Allbert.SelfImprovement` is a thin wrapper that prints the output
   through `Mix.shell/0`.
 
-  These subcommands are bounded reads plus one inert-draft discard; they do not
-  build an action context, so the `context` argument is accepted for the shared
-  `dispatch/2` contract but unused.
+  These subcommands are bounded reads plus one inert-draft discard. The reads stay
+  direct; the discard routes through `AllbertAssist.Actions.Runner.run/3` (via the
+  `discard_self_improvement_draft` action) so the mutation clears PermissionGate +
+  audit on the one spine (v0.62 M8.15).
   """
 
+  alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.CLI.Areas.Render
   alias AllbertAssist.Drafts.Store
   alias AllbertAssist.Surfaces.ContextBuilder
@@ -87,9 +89,14 @@ defmodule AllbertAssist.CLI.Areas.SelfImprovement do
     end
   end
 
-  defp route(["drafts", "discard", draft_id], _ctx) do
-    with {:ok, draft} <- Store.discard_draft(draft_id) do
-      {:ok, {:drafts_discard, draft}}
+  defp route(["drafts", "discard", draft_id], ctx) do
+    with {:ok, response} <-
+           ActionHelper.completed_action(
+             "discard_self_improvement_draft",
+             %{id: draft_id},
+             ctx
+           ) do
+      {:ok, {:drafts_discard, response.draft}}
     end
   end
 

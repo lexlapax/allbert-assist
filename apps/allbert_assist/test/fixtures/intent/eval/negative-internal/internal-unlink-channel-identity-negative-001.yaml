@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: unlink_channel_identity
+  kind: execute
+id: internal-unlink-channel-identity-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action unlink_channel_identity

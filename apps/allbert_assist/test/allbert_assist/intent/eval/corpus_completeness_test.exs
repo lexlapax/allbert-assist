@@ -181,11 +181,13 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
     assert baseline["schema_version"] == 1
     assert baseline["id"] == "v056-release-baseline"
     assert baseline["corpus_case_count"] == length(cases)
-    # 277 = 269 + the eight v0.62 negative-internal rows closing the accumulated
-    # internal-action fixture gap (M0.1 persist_approval_media_response; M4
-    # first_model_detect/install_ollama/pull_model; M5 serve_health/
-    # service_control; M7 vault_status/migrate_secrets) — recaptured at M7.
-    assert baseline["corpus_case_count"] == 277
+    # 289 = 277 + the twelve v0.62 M8.15 negative-internal rows for the newly
+    # registered one-spine actions (create_job; channels configure_channel_secret/
+    # configure_channel_setting/link_channel_identity/unlink_channel_identity;
+    # sessions clear_session/sweep_expired_sessions; complete_thread; protocol
+    # create/rotate/revoke_protocol_token; ensure_voice_token). 277 = 269 + the
+    # eight earlier v0.62 rows (M0.1/M4/M5/M7) recaptured at M7.
+    assert baseline["corpus_case_count"] == 289
     assert baseline["overall_accuracy"] == 1.0
     assert is_map(baseline["per_domain"])
     assert get_in(baseline, ["gate", "status"]) == "pass"

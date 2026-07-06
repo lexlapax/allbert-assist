@@ -67,8 +67,15 @@ defmodule AllbertAssist.CLI.Areas.Voice do
     end
   end
 
-  defp route(["token"], _ctx) do
-    {:ok, {:token, Auth.ensure_token!()}}
+  # `ensure_token!` persists a fresh token on first use (a mutation), so it goes
+  # on-spine through the Runner (PermissionGate + audit) rather than a direct
+  # `Auth.ensure_token!/0` call. The action returns the raw token under a
+  # `token`-named field (redacted in logs/audit) for the CLI to print.
+  defp route(["token"], ctx) do
+    case Runner.run("ensure_voice_token", %{}, ctx) do
+      {:ok, %{status: :completed, token: token}} -> {:ok, {:token, token}}
+      {:ok, response} -> {:error, {:token_failed, response}}
+    end
   end
 
   defp route(_args, _ctx), do: {:usage, @usage}
@@ -112,6 +119,10 @@ defmodule AllbertAssist.CLI.Areas.Voice do
 
   defp render({:error, {:start_failed, response}}) do
     Render.error("Local voice runtime command failed: #{response_error(response)}")
+  end
+
+  defp render({:error, {:token_failed, response}}) do
+    Render.error("Local voice runtime token command failed: #{response_error(response)}")
   end
 
   defp render({:usage, usage}), do: Render.usage(usage)

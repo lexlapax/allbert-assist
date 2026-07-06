@@ -257,6 +257,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "pause_job",
              "resume_job",
              "run_job",
+             "create_job",
              "rename_thread",
              "persist_approval_media_response",
              "first_model_detect",
@@ -285,7 +286,18 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "validate_template",
              "scaffold_template",
              "create_from_template",
-             "signal_link_device"
+             "signal_link_device",
+             "configure_channel_secret",
+             "configure_channel_setting",
+             "link_channel_identity",
+             "unlink_channel_identity",
+             "clear_session",
+             "sweep_expired_sessions",
+             "complete_thread",
+             "create_protocol_token",
+             "rotate_protocol_token",
+             "revoke_protocol_token",
+             "ensure_voice_token"
            ]
 
     assert Registry.duplicate_names() == []
@@ -481,6 +493,7 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "pause_job",
              "resume_job",
              "run_job",
+             "create_job",
              "rename_thread",
              "persist_approval_media_response",
              "first_model_detect",
@@ -509,7 +522,18 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "validate_template",
              "scaffold_template",
              "create_from_template",
-             "signal_link_device"
+             "signal_link_device",
+             "configure_channel_secret",
+             "configure_channel_setting",
+             "link_channel_identity",
+             "unlink_channel_identity",
+             "clear_session",
+             "sweep_expired_sessions",
+             "complete_thread",
+             "create_protocol_token",
+             "rotate_protocol_token",
+             "revoke_protocol_token",
+             "ensure_voice_token"
            ]
 
     assert {:ok, append_memory} = Registry.capability("append_memory")

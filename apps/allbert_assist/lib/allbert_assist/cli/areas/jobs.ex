@@ -3,24 +3,28 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
   Release-safe `jobs` admin dispatch (v0.62 M8.7).
 
   The single source of truth for `mix allbert.jobs` and `allbert admin jobs`:
-  `dispatch/2` parses the sub-argv, routes to the same `AllbertAssist.Jobs`
-  helpers and `run_job`/`Runner` calls the Mix task used, and returns
-  `{rendered_output, exit_code}` — no `Mix.*` calls, so it runs inside the
-  packaged release. `Mix.Tasks.Allbert.Jobs` is a thin wrapper that prints the
-  output through `Mix.shell/0` (raising a `Mix.Error` on failure).
+  `dispatch/2` parses the sub-argv, reads through `AllbertAssist.Jobs`, and routes
+  every mutation (create/pause/resume/run) through
+  `AllbertAssist.Actions.Runner.run/3` so each write clears PermissionGate + audit
+  on the one spine (v0.62 M8.15). It returns `{rendered_output, exit_code}` — no
+  `Mix.*` calls, so it runs inside the packaged release. `Mix.Tasks.Allbert.Jobs`
+  is a thin wrapper that prints the output through `Mix.shell/0` (raising a
+  `Mix.Error` on failure).
 
   Job commands do not consume the surface context, so `dispatch/2` accepts and
   ignores the second argument for signature parity with the other areas.
   """
 
+  alias AllbertAssist.Actions.ErrorExtraction
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.CLI.Areas.Render
   alias AllbertAssist.Intent.ApprovalHandoff
   alias AllbertAssist.Jobs
   alias AllbertAssist.Jobs.Job
   alias AllbertAssist.Jobs.Run
-  alias AllbertAssist.Jobs.Runner
   alias AllbertAssist.Jobs.Templates
   alias AllbertAssist.Runtime.Redactor
+  alias AllbertAssist.Surfaces.ContextBuilder
 
   @switches [
     active: :boolean,
@@ -101,21 +105,25 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
 
   defp route(["pause", id]) do
     with {:ok, job} <- Jobs.get_job(id),
-         {:ok, paused} <- Jobs.pause_job(job) do
-      {:ok, {:updated, paused}}
+         {:ok, _response} <- job_action("pause_job", %{id: id}, job_context(job)),
+         {:ok, updated} <- Jobs.get_job(id) do
+      {:ok, {:updated, updated}}
     end
   end
 
   defp route(["resume", id]) do
     with {:ok, job} <- Jobs.get_job(id),
-         {:ok, resumed} <- Jobs.resume_job(job) do
-      {:ok, {:updated, resumed}}
+         {:ok, _response} <- job_action("resume_job", %{id: id}, job_context(job)),
+         {:ok, updated} <- Jobs.get_job(id) do
+      {:ok, {:updated, updated}}
     end
   end
 
   defp route(["run", id]) do
-    with {:ok, result} <- Runner.run_now(id) do
-      {:ok, {:run, result}}
+    with {:ok, job} <- Jobs.get_job(id),
+         {:ok, _response} <- job_action("run_job", %{id: id}, job_context(job)),
+         {:ok, run} <- latest_run(job) do
+      {:ok, {:run, %{run: run, response: run_response(run)}}}
     end
   end
 
@@ -216,12 +224,8 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
     )
   end
 
-  defp render({:error, {:blocked_by_confirmation, confirmation_id}}) do
-    Render.error(
-      "Job is blocked by pending confirmation #{confirmation_id}. Inspect it with: mix allbert.confirmations show #{confirmation_id}"
-    )
-  end
-
+  # v0.62 M8.15: a blocked-by-confirmation now arrives through the gated action
+  # as {:error, {:message, ...}} (job_action/3), so no dedicated clause is needed.
   defp render({:error, {:message, message}}), do: Render.error(message)
   defp render({:usage, usage}), do: Render.usage(usage)
   defp render({:error, reason}), do: Render.error("Jobs command failed: #{inspect(reason)}")
@@ -266,9 +270,58 @@ defmodule AllbertAssist.CLI.Areas.Jobs do
   end
 
   defp create_job(attrs) do
-    with {:ok, job} <- Jobs.create_job(attrs) do
-      {:ok, {:created, job}}
+    ctx = cli_context(attrs[:user_id], attrs[:operator_id])
+
+    with {:ok, response} <-
+           job_action("create_job", %{attrs: attrs, user_id: attrs[:user_id]}, ctx) do
+      {:ok, {:created, response.job}}
     end
+  end
+
+  # -- action + read helpers -------------------------------------------------
+
+  defp job_action(action_name, params, ctx) do
+    case Runner.run(action_name, params, ctx) do
+      {:ok, %{status: :completed} = response} -> {:ok, response}
+      {:ok, response} -> {:error, {:message, action_message(response)}}
+    end
+  end
+
+  defp action_message(response) do
+    case Map.get(response, :message) do
+      message when is_binary(message) and message != "" ->
+        message
+
+      _other ->
+        "Jobs command failed: #{inspect(ErrorExtraction.from_response(response))}"
+    end
+  end
+
+  defp latest_run(job) do
+    case Jobs.list_runs(job, limit: 1) do
+      [run | _rest] -> {:ok, run}
+      [] -> {:error, :run_not_found}
+    end
+  end
+
+  defp run_response(%Run{action_log: action_log}) when is_map(action_log) do
+    case Map.get(action_log, "message") || Map.get(action_log, :message) do
+      message when is_binary(message) and message != "" -> %{message: message}
+      _other -> nil
+    end
+  end
+
+  defp run_response(_run), do: nil
+
+  defp job_context(%Job{} = job), do: cli_context(job.user_id, job.operator_id)
+
+  defp cli_context(user_id, operator_id) do
+    ContextBuilder.cli_context(
+      actor: user_id,
+      user_id: user_id,
+      operator_id: operator_id,
+      surface: "allbert admin jobs"
+    )
   end
 
   defp merge_common_attrs(attrs, opts) do

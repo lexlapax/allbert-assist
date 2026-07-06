@@ -65,7 +65,7 @@ defmodule AllbertAssist.CLI.Areas.Threads do
   # -- routing ---------------------------------------------------------------
 
   # allbert.threads: complete a thread.
-  defp route(["complete", thread_id | args], _ctx) do
+  defp route(["complete", thread_id | args], ctx) do
     {opts, rest, invalid} =
       OptionParser.parse(args,
         switches: [user: :string, operator: :string],
@@ -75,7 +75,7 @@ defmodule AllbertAssist.CLI.Areas.Threads do
     with :ok <- reject_invalid(invalid),
          :ok <- reject_extra(rest),
          {:ok, user_id} <- resolve_user_id(opts),
-         {:ok, thread} <- complete_thread(user_id, thread_id) do
+         {:ok, thread} <- complete_thread(user_id, thread_id, ctx) do
       {:ok, {:completed, thread}}
     end
   end
@@ -242,17 +242,34 @@ defmodule AllbertAssist.CLI.Areas.Threads do
     end
   end
 
-  defp complete_thread(user_id, thread_id) do
-    case Conversations.complete_thread(user_id, thread_id) do
-      {:ok, thread} ->
+  # Completion is a mutation: it rides the one spine through `Runner.run`, which
+  # enforces the PermissionGate + audit around `Conversations.complete_thread/2`.
+  # Identity is server-derived from the CLI context, not the caller's params.
+  defp complete_thread(user_id, thread_id, ctx) do
+    case Runner.run(
+           "complete_thread",
+           %{user_id: user_id, thread_id: thread_id},
+           complete_context(ctx, user_id)
+         ) do
+      {:ok, %{status: :completed, thread: thread}} ->
         {:ok, thread}
 
-      {:error, {:thread_not_found, _id}} ->
+      {:ok, %{status: :error, error: {:thread_not_found, _id}}} ->
         {:error, {:arg, "Thread not found"}}
 
-      {:error, reason} ->
-        {:error, {:arg, "Thread completion failed: #{inspect(reason)}"}}
+      {:ok, response} ->
+        {:error, {:arg, Map.get(response, :message) || "Thread completion failed"}}
     end
+  end
+
+  defp complete_context(ctx, user_id) do
+    ContextBuilder.cli_context(
+      actor: user_id,
+      user_id: user_id,
+      operator_id: user_id,
+      surface: Map.get(ctx, :surface) || :cli,
+      source: :operator_cli
+    )
   end
 
   defp show_history(user_id, thread_id, history_opts) do

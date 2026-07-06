@@ -19,12 +19,16 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Artifacts.PutArtifact
   alias AllbertAssist.Actions.Calendar.CreateCalendarEvent
   alias AllbertAssist.Actions.Capability
+  alias AllbertAssist.Actions.Channels.ConfigureChannelSecret
+  alias AllbertAssist.Actions.Channels.ConfigureChannelSetting
+  alias AllbertAssist.Actions.Channels.LinkChannelIdentity
   alias AllbertAssist.Actions.Channels.ListChannels
   alias AllbertAssist.Actions.Channels.SendChannelMessage
   alias AllbertAssist.Actions.Channels.SetupCheck
   alias AllbertAssist.Actions.Channels.ShowChannel
   alias AllbertAssist.Actions.Channels.SignalDoctor
   alias AllbertAssist.Actions.Channels.SignalLinkDevice
+  alias AllbertAssist.Actions.Channels.UnlinkChannelIdentity
   alias AllbertAssist.Actions.Channels.WhatsAppDoctor
   alias AllbertAssist.Actions.Coding.Bash, as: CodingBash
   alias AllbertAssist.Actions.Coding.Edit, as: CodingEdit
@@ -37,6 +41,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Confirmations.ExpireConfirmations
   alias AllbertAssist.Actions.Confirmations.ListConfirmations
   alias AllbertAssist.Actions.Confirmations.ShowConfirmation
+  alias AllbertAssist.Actions.Conversations.CompleteThread
   alias AllbertAssist.Actions.Conversations.PersistApprovalMediaResponse
   alias AllbertAssist.Actions.Conversations.RenameThread
   alias AllbertAssist.Actions.Conversations.ResumeThreadOnChannel
@@ -85,6 +90,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Intent.RunShellCommand
   alias AllbertAssist.Actions.Intent.ShowDescriptor, as: IntentShowDescriptor
   alias AllbertAssist.Actions.Intent.UnsupportedResourceWorkflow
+  alias AllbertAssist.Actions.Jobs.CreateJob
   alias AllbertAssist.Actions.Jobs.ListJobs
   alias AllbertAssist.Actions.Jobs.PauseJob
   alias AllbertAssist.Actions.Jobs.RegistryHealth
@@ -143,7 +149,10 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.PlanBuild.StartPlanRun
   alias AllbertAssist.Actions.Plugins.ListPlugins
   alias AllbertAssist.Actions.Plugins.ShowPlugin
+  alias AllbertAssist.Actions.PublicProtocol.CreateProtocolToken
   alias AllbertAssist.Actions.PublicProtocol.GetPublicCallResult
+  alias AllbertAssist.Actions.PublicProtocol.RevokeProtocolToken
+  alias AllbertAssist.Actions.PublicProtocol.RotateProtocolToken
   alias AllbertAssist.Actions.Resources.ListResourceGrants
   alias AllbertAssist.Actions.Resources.RememberResourceGrant
   alias AllbertAssist.Actions.Resources.RevokeResourceGrant
@@ -169,6 +178,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Session.ClearActiveApp
   alias AllbertAssist.Actions.Session.SetActiveApp
   alias AllbertAssist.Actions.Session.ShowSessionScratchpad
+  alias AllbertAssist.Actions.Sessions.ClearSession
+  alias AllbertAssist.Actions.Sessions.SweepExpiredSessions
   alias AllbertAssist.Actions.Settings.Doctor, as: SettingsDoctor
   alias AllbertAssist.Actions.Settings.DoctorModelProfile
   alias AllbertAssist.Actions.Settings.DoctorVoiceProvider
@@ -203,6 +214,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Tools.FindTools
   alias AllbertAssist.Actions.Trace.RecordTrace
   alias AllbertAssist.Actions.Voice.CaptureWorkspaceVoice
+  alias AllbertAssist.Actions.Voice.EnsureVoiceToken
   alias AllbertAssist.Actions.Voice.LocalRuntimeDoctor
   alias AllbertAssist.Actions.Voice.StartLocalRuntime
   alias AllbertAssist.Actions.Voice.SynthesizeVoice
@@ -403,6 +415,9 @@ defmodule AllbertAssist.Actions.Registry do
     PauseJob,
     ResumeJob,
     RunJob,
+    # v0.62 M8.15 one-spine: job create routed off the CLI area's direct
+    # Jobs.create_job onto the :job_write gate.
+    CreateJob,
     # v0.61b M4: operator-surface thread rename; internal like the job controls —
     # the UI calls it via Runner; the intent router does not route to it.
     RenameThread,
@@ -442,7 +457,22 @@ defmodule AllbertAssist.Actions.Registry do
     ValidateTemplate,
     ScaffoldTemplate,
     CreateFromTemplate,
-    SignalLinkDevice
+    SignalLinkDevice,
+    # v0.62 M8.15 one-spine: the operator-CLI config areas (channels, sessions,
+    # threads, public_protocol, voice) previously wrote to stores/services
+    # directly. These internal, Runner-only actions carry those writes through
+    # PermissionGate + audit; each reuses an existing permission class.
+    ConfigureChannelSecret,
+    ConfigureChannelSetting,
+    LinkChannelIdentity,
+    UnlinkChannelIdentity,
+    ClearSession,
+    SweepExpiredSessions,
+    CompleteThread,
+    CreateProtocolToken,
+    RotateProtocolToken,
+    RevokeProtocolToken,
+    EnsureVoiceToken
   ]
 
   @actions @agent_actions ++ @internal_actions

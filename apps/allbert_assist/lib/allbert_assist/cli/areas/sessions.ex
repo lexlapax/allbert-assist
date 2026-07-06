@@ -95,24 +95,31 @@ defmodule AllbertAssist.CLI.Areas.Sessions do
     end
   end
 
-  defp route(["clear" | rest], _ctx) do
+  defp route(["clear" | rest], ctx) do
     {opts, [], invalid} = parse_opts(rest)
 
     with :ok <- reject_invalid(invalid),
          {:ok, identity} <- identity(opts),
          {:ok, session_id} <- session_id(opts),
-         {:ok, result} <- Session.clear(identity.user_id, session_id) do
-      {:ok, {:clear, identity.user_id, session_id, result}}
+         {:ok, response} <-
+           gated_action(
+             "clear_session",
+             %{user_id: identity.user_id, session_id: session_id},
+             ctx,
+             identity
+           ) do
+      {:ok, {:clear, identity.user_id, session_id, Map.fetch!(response, :result)}}
     end
   end
 
-  defp route(["sweep" | rest], _ctx) do
+  defp route(["sweep" | rest], ctx) do
     {opts, [], invalid} = parse_opts(rest)
 
     with :ok <- reject_invalid(invalid),
-         {:ok, _identity} <- maybe_identity(opts),
-         {:ok, count} <- Session.sweep_expired() do
-      {:ok, {:sweep, count}}
+         {:ok, identity} <- maybe_identity(opts),
+         {:ok, response} <-
+           gated_action("sweep_expired_sessions", sweep_params(identity), ctx, identity) do
+      {:ok, {:sweep, Map.fetch!(response, :count)}}
     end
   end
 
@@ -171,6 +178,36 @@ defmodule AllbertAssist.CLI.Areas.Sessions do
       end
     end
   end
+
+  # Mutations (clear, sweep) ride the one spine: `Runner.run` enforces the
+  # PermissionGate + audit around the `Session` call. Identity is server-derived
+  # from the CLI context, not the caller's params.
+  defp gated_action(action, params, ctx, identity) do
+    case Runner.run(action, params, action_context(ctx, identity)) do
+      {:ok, %{status: :completed} = response} ->
+        {:ok, response}
+
+      {:ok, response} ->
+        {:error, Map.get(response, :error) || Map.get(response, :message, :action_failed)}
+    end
+  end
+
+  defp action_context(ctx, identity) do
+    user_id = identity && identity.user_id
+
+    ContextBuilder.cli_context(
+      actor: user_id,
+      user_id: user_id,
+      operator_id: user_id,
+      surface: surface(ctx),
+      source: :operator_cli
+    )
+  end
+
+  defp surface(ctx), do: Map.get(ctx, :surface) || "allbert admin sessions"
+
+  defp sweep_params(nil), do: %{}
+  defp sweep_params(identity), do: %{user_id: identity.user_id}
 
   # -- argument parsing helpers ----------------------------------------------
 

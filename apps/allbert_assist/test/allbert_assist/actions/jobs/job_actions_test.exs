@@ -61,4 +61,38 @@ defmodule AllbertAssist.Actions.Jobs.JobActionsTest do
     assert message =~ "Paused"
     assert Repo.reload!(job).status == "paused"
   end
+
+  test "create_job creates a job owned by the context identity" do
+    attrs = %{
+      name: "created via action",
+      target_type: "runtime_prompt",
+      target: %{text: "hello"},
+      schedule: %{kind: "manual"}
+    }
+
+    assert {:ok, %{status: :completed, job: job, message: message}} =
+             Runner.run("create_job", %{attrs: attrs}, %{user_id: "local"})
+
+    assert message =~ "Created"
+    assert job.user_id == "local"
+    assert Enum.any?(Jobs.list_jobs("local"), &(&1.id == job.id))
+  end
+
+  test "create_job forces ownership to the server-derived identity over spoofed attrs" do
+    attrs = %{
+      name: "spoof attempt",
+      target_type: "runtime_prompt",
+      target: %{text: "hello"},
+      schedule: %{kind: "manual"},
+      user_id: "alice",
+      operator_id: "alice"
+    }
+
+    assert {:ok, %{status: :completed, job: job}} =
+             Runner.run("create_job", %{attrs: attrs, user_id: "alice"}, %{user_id: "local"})
+
+    assert job.user_id == "local"
+    assert job.operator_id == "local"
+    assert [] = Jobs.list_jobs("alice")
+  end
 end

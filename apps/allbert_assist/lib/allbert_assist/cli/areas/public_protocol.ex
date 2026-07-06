@@ -9,12 +9,17 @@ defmodule AllbertAssist.CLI.Areas.PublicProtocol do
   packaged release. `Mix.Tasks.Allbert.PublicProtocol` is a thin wrapper that
   prints the output through `Mix.shell/0`.
 
-  The default context preserves the original task's audit-sensitive identity
-  (operator actor, `audit?: false`); token issuance/rotation/revocation is a
-  privileged operator operation, so this deviates from the generic
-  `surface: "allbert admin <area>"` default on purpose.
+  Token issuance/rotation/revocation mutate Settings-Secrets state, so
+  (v0.62 M8.15) they run through the action Runner — `create_protocol_token`,
+  `rotate_protocol_token`, `revoke_protocol_token` — which enforces the
+  PermissionGate + audit spine. `token list` is a pure read and still calls
+  `TokenAuth.list/1` directly. The registered actions return the raw token
+  under a `token`-named field so the CLI can print it once; that field name is
+  redacted in every logged signal and audit record.
   """
 
+  alias AllbertAssist.Actions.ErrorExtraction
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.CLI.Areas.Render
   alias AllbertAssist.PublicProtocol.TokenAuth
   alias AllbertAssist.Surfaces.ContextBuilder
@@ -40,9 +45,7 @@ defmodule AllbertAssist.CLI.Areas.PublicProtocol do
     ContextBuilder.cli_context(
       actor: "operator",
       user_id: "operator",
-      channel: "mix",
-      surface: "mix allbert.public_protocol",
-      audit?: false
+      surface: "allbert admin public_protocol"
     )
   end
 
@@ -50,7 +53,7 @@ defmodule AllbertAssist.CLI.Areas.PublicProtocol do
     with {:ok, opts} <- parse(rest),
          {:ok, surface} <- required(opts, :surface),
          {:ok, client} <- required(opts, :client) do
-      TokenAuth.create(surface, client, ctx)
+      run_token_action("create_protocol_token", surface, client, ctx)
     end
   end
 
@@ -58,7 +61,7 @@ defmodule AllbertAssist.CLI.Areas.PublicProtocol do
     with {:ok, opts} <- parse(rest),
          {:ok, surface} <- required(opts, :surface),
          {:ok, client} <- required(opts, :client) do
-      TokenAuth.rotate(surface, client, ctx)
+      run_token_action("rotate_protocol_token", surface, client, ctx)
     end
   end
 
@@ -66,7 +69,7 @@ defmodule AllbertAssist.CLI.Areas.PublicProtocol do
     with {:ok, opts} <- parse(rest),
          {:ok, surface} <- required(opts, :surface),
          {:ok, client} <- required(opts, :client) do
-      TokenAuth.revoke(surface, client, ctx)
+      run_token_action("revoke_protocol_token", surface, client, ctx)
     end
   end
 
@@ -78,6 +81,19 @@ defmodule AllbertAssist.CLI.Areas.PublicProtocol do
   end
 
   defp route(_args, _ctx), do: {:usage, @usage}
+
+  # Mutations go on-spine: the Runner enforces PermissionGate + audit and
+  # returns the TokenAuth result under `token_result`. Unwrapping it here keeps
+  # the existing `{:ok, token_map}` render clauses (and their exact output).
+  defp run_token_action(name, surface, client, ctx) do
+    case Runner.run(name, %{surface: surface, client: client}, ctx) do
+      {:ok, %{status: :completed, token_result: result}} ->
+        {:ok, result}
+
+      {:ok, response} ->
+        {:error, {:action_failed, ErrorExtraction.from_response(response)}}
+    end
+  end
 
   defp render({:ok, %{token: token} = result}) do
     Render.ok([
@@ -114,6 +130,10 @@ defmodule AllbertAssist.CLI.Areas.PublicProtocol do
 
   defp render({:error, {:missing_required, key}}) do
     Render.error("Missing required --#{String.replace(to_string(key), "_", "-")}")
+  end
+
+  defp render({:error, {:action_failed, reason}}) do
+    Render.error("Public protocol command failed: #{inspect(reason)}")
   end
 
   defp render({:error, reason}) do

@@ -179,29 +179,22 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     end
   end
 
-  defp route(["telegram", "set-token", token], _ctx) do
-    with {:ok, _secret} <-
-           Secrets.put_secret("secret://channels/telegram/bot_token", token, secret_context()),
-         {:ok, _setting} <-
-           Settings.put(
-             "channels.telegram.bot_token_ref",
-             "secret://channels/telegram/bot_token",
-             %{audit?: false}
-           ) do
+  defp route(["telegram", "set-token", token], ctx) do
+    with {:ok, _response} <- configure_secret(ctx, "telegram", "bot_token", token) do
       {:ok, {:secret, "telegram", "bot_token"}}
     end
   end
 
-  defp route(["telegram", "map" | rest], _ctx) do
+  defp route(["telegram", "map" | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
-    put_identity!("telegram", required!(opts, :external_user), required!(opts, :user))
+    put_identity!(ctx, "telegram", required!(opts, :external_user), required!(opts, :user))
   end
 
-  defp route(["telegram", "unmap" | rest], _ctx) do
+  defp route(["telegram", "unmap" | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
-    remove_identity!("telegram", required!(opts, :external_user))
+    remove_identity!(ctx, "telegram", required!(opts, :external_user))
   end
 
   defp route(["telegram", "simulate" | rest], _ctx) do
@@ -225,24 +218,24 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     end
   end
 
-  defp route(["email", "set-password" | rest], _ctx) do
+  defp route(["email", "set-password" | rest], ctx) do
     {opts, args, invalid} = parse!(rest)
     reject_invalid!(invalid)
     type = required!(opts, :type)
     password = single_arg!(args, "Password is required")
-    set_email_password!(type, password)
+    set_email_password!(ctx, type, password)
   end
 
-  defp route(["email", "map" | rest], _ctx) do
+  defp route(["email", "map" | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
-    put_identity!("email", required!(opts, :external_user), required!(opts, :user))
+    put_identity!(ctx, "email", required!(opts, :external_user), required!(opts, :user))
   end
 
-  defp route(["email", "unmap" | rest], _ctx) do
+  defp route(["email", "unmap" | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
-    remove_identity!("email", required!(opts, :external_user))
+    remove_identity!(ctx, "email", required!(opts, :external_user))
   end
 
   defp route(["email", "simulate" | rest], _ctx) do
@@ -266,29 +259,22 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     end
   end
 
-  defp route(["matrix", "set-token", token], _ctx) do
-    with {:ok, _secret} <-
-           Secrets.put_secret("secret://channels/matrix/access_token", token, secret_context()),
-         {:ok, _setting} <-
-           Settings.put(
-             "channels.matrix.access_token_ref",
-             "secret://channels/matrix/access_token",
-             %{audit?: false}
-           ) do
+  defp route(["matrix", "set-token", token], ctx) do
+    with {:ok, _response} <- configure_secret(ctx, "matrix", "access_token", token) do
       {:ok, {:secret, "matrix", "access_token"}}
     end
   end
 
-  defp route(["matrix", "map" | rest], _ctx) do
+  defp route(["matrix", "map" | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
-    put_identity!("matrix", required!(opts, :external_user), required!(opts, :user))
+    put_identity!(ctx, "matrix", required!(opts, :external_user), required!(opts, :user))
   end
 
-  defp route(["matrix", "unmap" | rest], _ctx) do
+  defp route(["matrix", "unmap" | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
-    remove_identity!("matrix", required!(opts, :external_user))
+    remove_identity!(ctx, "matrix", required!(opts, :external_user))
   end
 
   defp route(["matrix", "simulate" | rest], _ctx) do
@@ -312,29 +298,22 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     end
   end
 
-  defp route(["whatsapp", "set-token", token], _ctx) do
-    with {:ok, _secret} <-
-           Secrets.put_secret("secret://channels/whatsapp/access_token", token, secret_context()),
-         {:ok, _setting} <-
-           Settings.put(
-             "channels.whatsapp.access_token_ref",
-             "secret://channels/whatsapp/access_token",
-             %{audit?: false}
-           ) do
+  defp route(["whatsapp", "set-token", token], ctx) do
+    with {:ok, _response} <- configure_secret(ctx, "whatsapp", "access_token", token) do
       {:ok, {:secret, "whatsapp", "access_token"}}
     end
   end
 
-  defp route(["whatsapp", "map" | rest], _ctx) do
+  defp route(["whatsapp", "map" | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
-    put_identity!("whatsapp", required!(opts, :external_user), required!(opts, :user))
+    put_identity!(ctx, "whatsapp", required!(opts, :external_user), required!(opts, :user))
   end
 
-  defp route(["whatsapp", "unmap" | rest], _ctx) do
+  defp route(["whatsapp", "unmap" | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
-    remove_identity!("whatsapp", required!(opts, :external_user))
+    remove_identity!(ctx, "whatsapp", required!(opts, :external_user))
   end
 
   defp route(["whatsapp", "simulate" | rest], _ctx) do
@@ -377,16 +356,16 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     end
   end
 
-  defp route(["signal", "map" | rest], _ctx) do
+  defp route(["signal", "map" | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
-    put_signal_identity!(required!(opts, :aci), required!(opts, :user))
+    put_signal_identity!(ctx, required!(opts, :aci), required!(opts, :user))
   end
 
-  defp route(["signal", "unmap" | rest], _ctx) do
+  defp route(["signal", "unmap" | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
-    remove_identity!("signal", normalize_signal_aci!(required!(opts, :aci)))
+    remove_identity!(ctx, "signal", normalize_signal_aci!(required!(opts, :aci)))
   end
 
   defp route(["signal", "simulate" | rest], _ctx) do
@@ -423,7 +402,7 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     end
   end
 
-  defp route(["identity-links", "add" | rest], _ctx) do
+  defp route(["identity-links", "add" | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
 
@@ -435,8 +414,8 @@ defmodule AllbertAssist.CLI.Areas.Channels do
       external_user_id: required!(opts, :external_user)
     }
 
-    with {:ok, link} <- ChannelThread.link_identity(attrs) do
-      {:ok, {:identity_link, link}}
+    with {:ok, response} <- completed_action("link_channel_identity", attrs, ctx) do
+      {:ok, {:identity_link, response.link}}
     end
   end
 
@@ -457,7 +436,7 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     {:ok, {:identity_links, ChannelThread.list_identity_links(filters)}}
   end
 
-  defp route(["identity-links", "remove" | rest], _ctx) do
+  defp route(["identity-links", "remove" | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
 
@@ -468,52 +447,51 @@ defmodule AllbertAssist.CLI.Areas.Channels do
       external_user_id: required!(opts, :external_user)
     }
 
-    with {:ok, link} <- ChannelThread.unlink_identity(attrs) do
-      {:ok, {:identity_unlinked, link}}
+    with {:ok, response} <- completed_action("unlink_channel_identity", attrs, ctx) do
+      {:ok, {:identity_unlinked, response.link}}
     end
   end
 
-  defp route(["discord", "set-token", token_ref], _ctx) do
+  defp route(["discord", "set-token", token_ref], ctx) do
     with :ok <- validate_discord_token_ref(token_ref),
-         {:ok, _setting} <-
-           Settings.put("channels.discord.bot_token_ref", token_ref, %{audit?: false}) do
+         {:ok, _response} <- configure_setting(ctx, "discord", "bot_token_ref", token_ref) do
       {:ok, {:secret_ref, "discord", "bot_token"}}
     end
   end
 
-  defp route(["discord", "set-application-id", application_id], _ctx) do
-    with {:ok, _setting} <-
-           Settings.put("channels.discord.application_id", application_id, %{audit?: false}) do
+  defp route(["discord", "set-application-id", application_id], ctx) do
+    with {:ok, _response} <-
+           configure_setting(ctx, "discord", "application_id", application_id) do
       {:ok, {:setting, "discord", "application_id", application_id}}
     end
   end
 
-  defp route(["discord", "add-guild", guild_id], _ctx) do
-    add_setting_list_value!("discord", "allowed_guild_ids", guild_id)
+  defp route(["discord", "add-guild", guild_id], ctx) do
+    add_setting_list_value!(ctx, "discord", "allowed_guild_ids", guild_id)
   end
 
-  defp route(["discord", "remove-guild", guild_id], _ctx) do
-    remove_setting_list_value!("discord", "allowed_guild_ids", guild_id)
+  defp route(["discord", "remove-guild", guild_id], ctx) do
+    remove_setting_list_value!(ctx, "discord", "allowed_guild_ids", guild_id)
   end
 
-  defp route(["discord", "add-channel", channel_id], _ctx) do
-    add_setting_list_value!("discord", "allowed_channel_ids", channel_id)
+  defp route(["discord", "add-channel", channel_id], ctx) do
+    add_setting_list_value!(ctx, "discord", "allowed_channel_ids", channel_id)
   end
 
-  defp route(["discord", "remove-channel", channel_id], _ctx) do
-    remove_setting_list_value!("discord", "allowed_channel_ids", channel_id)
+  defp route(["discord", "remove-channel", channel_id], ctx) do
+    remove_setting_list_value!(ctx, "discord", "allowed_channel_ids", channel_id)
   end
 
-  defp route(["discord", "map" | rest], _ctx) do
+  defp route(["discord", "map" | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
-    put_identity!("discord", required!(opts, :external_user), required!(opts, :user))
+    put_identity!(ctx, "discord", required!(opts, :external_user), required!(opts, :user))
   end
 
-  defp route(["discord", "unmap" | rest], _ctx) do
+  defp route(["discord", "unmap" | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
-    remove_identity!("discord", required!(opts, :external_user))
+    remove_identity!(ctx, "discord", required!(opts, :external_user))
   end
 
   defp route(["discord", "simulate" | rest], _ctx) do
@@ -545,47 +523,44 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     end
   end
 
-  defp route(["slack", "set-token", token_ref], _ctx) do
+  defp route(["slack", "set-token", token_ref], ctx) do
     with :ok <- validate_slack_token_ref(token_ref, :bot),
-         {:ok, _setting} <-
-           Settings.put("channels.slack.bot_token_ref", token_ref, %{audit?: false}) do
+         {:ok, _response} <- configure_setting(ctx, "slack", "bot_token_ref", token_ref) do
       {:ok, {:secret_ref, "slack", "bot_token"}}
     end
   end
 
-  defp route(["slack", "set-app-token", token_ref], _ctx) do
+  defp route(["slack", "set-app-token", token_ref], ctx) do
     with :ok <- validate_slack_token_ref(token_ref, :app),
-         {:ok, _setting} <-
-           Settings.put("channels.slack.app_token_ref", token_ref, %{audit?: false}) do
+         {:ok, _response} <- configure_setting(ctx, "slack", "app_token_ref", token_ref) do
       {:ok, {:secret_ref, "slack", "app_token"}}
     end
   end
 
-  defp route(["slack", "set-team-id", team_id], _ctx) do
-    with {:ok, _setting} <-
-           Settings.put("channels.slack.workspace_team_id", team_id, %{audit?: false}) do
+  defp route(["slack", "set-team-id", team_id], ctx) do
+    with {:ok, _response} <- configure_setting(ctx, "slack", "workspace_team_id", team_id) do
       {:ok, {:setting, "slack", "workspace_team_id", team_id}}
     end
   end
 
-  defp route(["slack", "add-channel", channel_id], _ctx) do
-    add_setting_list_value!("slack", "allowed_channel_ids", channel_id)
+  defp route(["slack", "add-channel", channel_id], ctx) do
+    add_setting_list_value!(ctx, "slack", "allowed_channel_ids", channel_id)
   end
 
-  defp route(["slack", "remove-channel", channel_id], _ctx) do
-    remove_setting_list_value!("slack", "allowed_channel_ids", channel_id)
+  defp route(["slack", "remove-channel", channel_id], ctx) do
+    remove_setting_list_value!(ctx, "slack", "allowed_channel_ids", channel_id)
   end
 
-  defp route(["slack", "map" | rest], _ctx) do
+  defp route(["slack", "map" | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
-    put_identity!("slack", required!(opts, :external_user), required!(opts, :user))
+    put_identity!(ctx, "slack", required!(opts, :external_user), required!(opts, :user))
   end
 
-  defp route(["slack", "unmap" | rest], _ctx) do
+  defp route(["slack", "unmap" | rest], ctx) do
     {opts, [], invalid} = parse!(rest)
     reject_invalid!(invalid)
-    remove_identity!("slack", required!(opts, :external_user))
+    remove_identity!(ctx, "slack", required!(opts, :external_user))
   end
 
   defp route(["slack", "simulate" | rest], _ctx) do
@@ -811,7 +786,9 @@ defmodule AllbertAssist.CLI.Areas.Channels do
     %{render_mode: "operator_report", surface_policy_affordance: true}
   end
 
-  defp put_identity!(channel, external_user_id, user_id) do
+  # The identity-map read stays direct (a pure read); only the mutation is routed
+  # through the gated `configure_channel_setting` action.
+  defp put_identity!(ctx, channel, external_user_id, user_id) do
     key = "channels.#{channel}.identity_map"
     {:ok, identity_map} = Settings.get(key)
 
@@ -826,74 +803,79 @@ defmodule AllbertAssist.CLI.Areas.Channels do
       |> Enum.reject(&(identity_field(&1, "external_user_id") == external_user_id))
       |> Kernel.++([entry])
 
-    with {:ok, _setting} <- Settings.put(key, updated, %{audit?: false}) do
+    with {:ok, _response} <- configure_setting(ctx, channel, "identity_map", updated) do
       {:ok, {:identity, channel, external_user_id, user_id}}
     end
   end
 
-  defp put_signal_identity!(aci, user_id) do
+  defp put_signal_identity!(ctx, aci, user_id) do
     aci = normalize_signal_aci!(aci)
-    put_identity!("signal", aci, user_id)
+    put_identity!(ctx, "signal", aci, user_id)
   end
 
-  defp remove_identity!(channel, external_user_id) do
+  defp remove_identity!(ctx, channel, external_user_id) do
     key = "channels.#{channel}.identity_map"
     {:ok, identity_map} = Settings.get(key)
 
     updated =
       Enum.reject(identity_map, &(identity_field(&1, "external_user_id") == external_user_id))
 
-    with {:ok, _setting} <- Settings.put(key, updated, %{audit?: false}) do
+    with {:ok, _response} <- configure_setting(ctx, channel, "identity_map", updated) do
       {:ok, {:unmapped, channel, external_user_id}}
     end
   end
 
-  defp set_email_password!("imap", password) do
-    with {:ok, _secret} <-
-           Secrets.put_secret("secret://channels/email/imap_password", password, secret_context()),
-         {:ok, _setting} <-
-           Settings.put(
-             "channels.email.imap_password_ref",
-             "secret://channels/email/imap_password",
-             %{audit?: false}
-           ) do
+  defp set_email_password!(ctx, "imap", password) do
+    with {:ok, _response} <- configure_secret(ctx, "email", "imap_password", password) do
       {:ok, {:secret, "email", "imap_password"}}
     end
   end
 
-  defp set_email_password!("smtp", password) do
-    with {:ok, _secret} <-
-           Secrets.put_secret("secret://channels/email/smtp_password", password, secret_context()),
-         {:ok, _setting} <-
-           Settings.put(
-             "channels.email.smtp_password_ref",
-             "secret://channels/email/smtp_password",
-             %{audit?: false}
-           ) do
+  defp set_email_password!(ctx, "smtp", password) do
+    with {:ok, _response} <- configure_secret(ctx, "email", "smtp_password", password) do
       {:ok, {:secret, "email", "smtp_password"}}
     end
   end
 
-  defp set_email_password!(type, _password), do: {:error, {:unknown_email_password_type, type}}
+  defp set_email_password!(_ctx, type, _password),
+    do: {:error, {:unknown_email_password_type, type}}
 
-  defp add_setting_list_value!(channel, key, value) do
+  defp add_setting_list_value!(ctx, channel, key, value) do
     setting_key = "channels.#{channel}.#{key}"
     {:ok, values} = Settings.get(setting_key)
     updated = values |> Kernel.++([to_string(value)]) |> Enum.uniq()
 
-    with {:ok, _setting} <- Settings.put(setting_key, updated, %{audit?: false}) do
+    with {:ok, _response} <- configure_setting(ctx, channel, key, updated) do
       {:ok, {:list_setting, channel, key, updated}}
     end
   end
 
-  defp remove_setting_list_value!(channel, key, value) do
+  defp remove_setting_list_value!(ctx, channel, key, value) do
     setting_key = "channels.#{channel}.#{key}"
     {:ok, values} = Settings.get(setting_key)
     updated = Enum.reject(values, &(&1 == to_string(value)))
 
-    with {:ok, _setting} <- Settings.put(setting_key, updated, %{audit?: false}) do
+    with {:ok, _response} <- configure_setting(ctx, channel, key, updated) do
       {:ok, {:list_setting, channel, key, updated}}
     end
+  end
+
+  # Gated-action seams: every channel store/secret mutation goes through the
+  # Runner (PermissionGate + audit), never a direct store call.
+  defp configure_setting(ctx, channel, key, value) do
+    completed_action(
+      "configure_channel_setting",
+      %{channel: channel, key: key, value: value},
+      ctx
+    )
+  end
+
+  defp configure_secret(ctx, channel, credential, value) do
+    completed_action(
+      "configure_channel_secret",
+      %{channel: channel, credential: credential, secret_value: value},
+      ctx
+    )
   end
 
   defp simulate_telegram!(external_user_id, chat_id, text) do

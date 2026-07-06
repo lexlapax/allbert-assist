@@ -114,4 +114,50 @@ defmodule AllbertAssist.CLI.CommandsTest do
     assert Commands.mix_only?("gen.app")
     refute Commands.mix_only?("ask")
   end
+
+  # v0.62 M8.15 one-spine (grep-proof regression guard): no CLI area module may
+  # call a store/service MUTATOR directly — every mutation must route through a
+  # registered action via Runner. Pure reads (get/list/show/status) stay direct
+  # and are not in this list. Comment lines are stripped so a doc reference like
+  # `Conversations.complete_thread/2` (no call parens) doesn't trip the guard.
+  @areas_dir Path.expand("../../../lib/allbert_assist/cli/areas", __DIR__)
+
+  @banned_mutators [
+    ~r/Settings\.put\(/,
+    ~r/Secrets\.put_secret\(/,
+    ~r/Repo\.(insert|update|delete)/,
+    ~r/Store\.discard_draft\(/,
+    ~r/Session\.clear\(/,
+    ~r/Session\.sweep_expired\(/,
+    ~r/Conversations\.complete_thread\(/,
+    ~r/Jobs\.(pause_job|resume_job|create_job)\(/,
+    ~r/\.run_now\(/,
+    ~r/TokenAuth\.(create|rotate|revoke)\(/,
+    ~r/ChannelThread\.(link_identity|unlink_identity)\(/,
+    ~r/Auth\.ensure_token!\(/
+  ]
+
+  test "no CLI area calls a store/service mutator directly (spine-map-001)" do
+    offenders =
+      @areas_dir
+      |> File.ls!()
+      |> Enum.filter(&String.ends_with?(&1, ".ex"))
+      |> Enum.flat_map(fn file ->
+        code =
+          @areas_dir
+          |> Path.join(file)
+          |> File.read!()
+          |> String.split("\n")
+          |> Enum.reject(&(&1 |> String.trim_leading() |> String.starts_with?("#")))
+          |> Enum.join("\n")
+
+        for pattern <- @banned_mutators, Regex.match?(pattern, code) do
+          {file, Regex.source(pattern)}
+        end
+      end)
+
+    assert offenders == [],
+           "CLI area modules must route mutations through Runner, not call stores directly: " <>
+             inspect(offenders)
+  end
 end

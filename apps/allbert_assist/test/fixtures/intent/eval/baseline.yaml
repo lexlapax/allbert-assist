@@ -733,7 +733,7 @@ confusion:
   - actual: none
     count: 11
     expected: none
-corpus_case_count: 277
+corpus_case_count: 289
 gate:
   failures: []
   status: pass
@@ -741,7 +741,7 @@ generated_at: 2026-07-06T08:05:37Z
 id: v056-release-baseline
 negative_violations: []
 overall_accuracy: 1.0
-passed: 277
+passed: 289
 per_domain:
   adversarial:
     accuracy: 1.0
@@ -813,8 +813,8 @@ per_domain:
     total: 13
   negative-internal:
     accuracy: 1.0
-    passed: 143
-    total: 143
+    passed: 155
+    total: 155
   negative-operator:
     accuracy: 1.0
     passed: 20
