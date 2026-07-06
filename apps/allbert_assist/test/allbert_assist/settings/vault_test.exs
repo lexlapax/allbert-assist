@@ -12,6 +12,7 @@ defmodule AllbertAssist.Settings.VaultTest do
   """
   use AllbertAssist.DataCase, async: false
 
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Actions.Settings.MigrateSecrets
   alias AllbertAssist.Actions.Settings.VaultStatus
   alias AllbertAssist.Settings
@@ -173,8 +174,10 @@ defmodule AllbertAssist.Settings.VaultTest do
       assert is_list(migration.refs)
     end
 
-    test "migration round-trips into the OS vault and never surfaces a secret value" do
-      # Seed a tier-2 secret, force the OS tier, capture Keychain writes.
+    test "the first call is confirmation-gated and executes NOTHING (M8.8)" do
+      # v0.62 M8.8: migrate_secrets carries a settings_write needs_confirmation
+      # floor (Policy.safety_floor). Through the Runner (the only real path) the
+      # first invocation must return needs_confirmation and move no secret.
       assert {:ok, _} = Secrets.put_secret(@secret_ref, @secret_value, %{})
       System.put_env("ALLBERT_VAULT_BACKEND", "os")
 
@@ -187,11 +190,33 @@ defmodule AllbertAssist.Settings.VaultTest do
 
       Application.put_env(:allbert_assist, :vault_security_runner, runner)
 
-      assert {:ok, response} =
-               MigrateSecrets.run(%{}, %{user_id: "local"})
+      assert {:ok, response} = Runner.run("migrate_secrets", %{}, %{user_id: "local"})
+
+      assert response.status == :needs_confirmation
+      refute_received {:migrated, _args}
+      refute inspect(response) =~ @secret_value
+    end
+
+    test "an approved resume round-trips into the OS vault and never surfaces a secret" do
+      assert {:ok, _} = Secrets.put_secret(@secret_ref, @secret_value, %{})
+      System.put_env("ALLBERT_VAULT_BACKEND", "os")
+
+      test_pid = self()
+
+      runner = fn args ->
+        if "add-generic-password" in args, do: send(test_pid, {:migrated, args})
+        {"", 0}
+      end
+
+      Application.put_env(:allbert_assist, :vault_security_runner, runner)
+
+      # A durable approved confirmation resumes the action with an approved
+      # context (the confirmation subsystem sets this server-side, never params).
+      approved = %{user_id: "local", confirmation: %{approved?: true}}
+      assert {:ok, response} = Runner.run("migrate_secrets", %{}, approved)
 
       assert response.status in [:completed, :error]
-      # The migrate output must never carry the raw secret value anywhere.
+      assert_received {:migrated, _args}
       refute inspect(response) =~ @secret_value
     end
   end

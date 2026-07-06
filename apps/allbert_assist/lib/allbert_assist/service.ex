@@ -117,6 +117,11 @@ defmodule AllbertAssist.Service do
   # -- templates -------------------------------------------------------------
 
   defp launchd_plist(binary, home) do
+    # v0.62 M8.8: XML-escape the interpolated values (defense-in-depth; the
+    # service_control action also validates `binary` before we get here).
+    binary = xml_escape(binary)
+    home = xml_escape(home)
+
     """
     <?xml version="1.0" encoding="UTF-8"?>
     <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -159,6 +164,15 @@ defmodule AllbertAssist.Service do
     [Install]
     WantedBy=default.target
     """
+  end
+
+  defp xml_escape(value) when is_binary(value) do
+    value
+    |> String.replace("&", "&amp;")
+    |> String.replace("<", "&lt;")
+    |> String.replace(">", "&gt;")
+    |> String.replace("\"", "&quot;")
+    |> String.replace("'", "&apos;")
   end
 
   defp uid_from_id do

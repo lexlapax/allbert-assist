@@ -99,15 +99,50 @@ defmodule AllbertAssist.Actions.Serve.ServiceControl do
 
   defp execute("install", params, permission_decision) do
     binary = Map.get(params, :binary) || default_binary()
-    File.mkdir_p!(Path.dirname(Service.unit_path()))
-    File.write!(Service.unit_path(), Service.render_unit(binary))
-    run_all(Service.install_commands(), "install", permission_decision)
+
+    case validate_binary(binary) do
+      :ok ->
+        File.mkdir_p!(Path.dirname(Service.unit_path()))
+        File.write!(Service.unit_path(), Service.render_unit(binary))
+        run_all(Service.install_commands(), "install", permission_decision)
+
+      {:error, reason} ->
+        {:ok,
+         %{
+           message: reason,
+           status: :error,
+           permission_decision: permission_decision,
+           actions: [
+             action(:error, permission_decision, %{operation: "install", executed: false})
+           ]
+         }}
+    end
   end
 
   defp execute("uninstall", _params, permission_decision) do
     result = run_all(Service.uninstall_commands(), "uninstall", permission_decision)
     File.rm(Service.unit_path())
     result
+  end
+
+  # v0.62 M8.8: the `binary` param is templated into the boot-persistent
+  # plist/systemd unit — validate it is an absolute path to an existing regular
+  # executable with no shell/XML metacharacters (defense-in-depth; the service
+  # unit is also XML-escaped in AllbertAssist.Service).
+  defp validate_binary(binary) do
+    cond do
+      not (is_binary(binary) and Path.type(binary) == :absolute) ->
+        {:error, "service install: binary must be an absolute path"}
+
+      Regex.match?(~r/[<>&"'`$;|\s]/, binary) ->
+        {:error, "service install: binary path contains disallowed characters"}
+
+      not File.regular?(binary) ->
+        {:error, "service install: no executable at #{binary}"}
+
+      true ->
+        :ok
+    end
   end
 
   defp run_all(commands, operation, permission_decision) do

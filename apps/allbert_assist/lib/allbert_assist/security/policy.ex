@@ -400,6 +400,13 @@ defmodule AllbertAssist.Security.Policy do
   def safety_floor(:artifact_write, _context), do: :allowed
   def safety_floor(:artifact_delete, _context), do: :needs_confirmation
   def safety_floor(:settings_secret_read, _context), do: :denied
+  # v0.62 M8.8: migrating credentials into the OS vault is confirmation-gated even
+  # though the settings_write class defaults to :allowed — the operator approves
+  # each secret-vault migration explicitly (migrate_secrets' `confirmation:
+  # :required` contract). Other settings writes stay :allowed (line below).
+  def safety_floor(:settings_write, %{action: %{name: "migrate_secrets"}}),
+    do: :needs_confirmation
+
   def safety_floor(permission, _context) when permission in @known_permissions, do: :allowed
   def safety_floor(_permission, _context), do: :denied
 

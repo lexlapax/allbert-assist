@@ -219,11 +219,24 @@ defmodule AllbertAssist.CLI do
   defp run_action(name, rest) do
     context = ContextBuilder.cli_context(%{surface: "cli", channel: :cli})
     {:ok, result} = Runner.run(name, params_from(name, rest), context)
+    status = Map.get(result, :status)
     # The action result map carries the status; a non-completed status is a
     # non-zero exit so scripts can branch on it.
-    code = if Map.get(result, :status) in [:completed, nil], do: 0, else: 1
-    {render_result(result), code}
+    code = if status in [:completed, nil], do: 0, else: 1
+    {render_action_result(result, status), code}
   end
+
+  # v0.62 M8.8: a confirmation-gated command (model install, service install,
+  # secrets migrate, …) returns needs_confirmation; tell the operator how to
+  # complete it through the CLI approve path (no daemon/web needed).
+  defp render_action_result(result, :needs_confirmation) do
+    render_result(result) <>
+      "\n\nThis command needs operator confirmation. Review and approve:\n" <>
+      "  allbert admin confirmations list\n" <>
+      "  allbert admin confirmations approve <ID>"
+  end
+
+  defp render_action_result(result, _status), do: render_result(result)
 
   defp run_read(mod, fun, _rest) do
     case apply(mod, fun, []) do
