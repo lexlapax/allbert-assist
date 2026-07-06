@@ -6,6 +6,7 @@ defmodule AllbertAssist.Umbrella.MixProject do
       apps_path: "apps",
       version: "0.61.1",
       start_permanent: Mix.env() == :prod,
+      releases: releases(),
       deps: deps(),
       aliases: aliases(),
       listeners: [Phoenix.CodeReloader],
@@ -19,6 +20,40 @@ defmodule AllbertAssist.Umbrella.MixProject do
         "coveralls.post": :test
       ]
     ]
+  end
+
+  # v0.62 M0/M1 — the packaged `allbert` OTP release: both umbrella apps, ERTS
+  # bundled (the spike/hand-wrapped mechanism; wrapper choice recorded in the
+  # v0.62 plan M0 as-built). Web assets are built by the pre-assembly steps.
+  defp releases do
+    [
+      allbert: [
+        applications: [
+          allbert_assist: :permanent,
+          allbert_assist_web: :permanent
+        ],
+        include_executables_for: [:unix],
+        include_erts: true,
+        steps: [&build_web_assets/1, :assemble]
+      ]
+    ]
+  end
+
+  defp build_web_assets(release) do
+    Mix.shell().info("==> building web assets (npm ci + assets.deploy)")
+    web_path = Path.join(["apps", "allbert_assist_web"])
+
+    {_, 0} =
+      System.cmd("mix", ["assets.npm"], cd: web_path, into: IO.stream(:stdio, :line))
+
+    {_, 0} =
+      System.cmd("mix", ["assets.deploy"],
+        cd: web_path,
+        env: [{"MIX_ENV", to_string(Mix.env())}],
+        into: IO.stream(:stdio, :line)
+      )
+
+    release
   end
 
   def cli do

@@ -74,13 +74,14 @@ if config_env() == :prod do
 
   # ## Using releases
   #
-  # If you are doing OTP releases, you need to instruct Phoenix
-  # to start each relevant endpoint:
-  #
-  #     config :allbert_assist_web, AllbertAssistWeb.Endpoint, server: true
-  #
-  # Then you can assemble a release by calling `mix release`.
-  # See `mix help release` for more information.
+  # v0.62 M0/M1: the packaged binary starts the endpoint when PHX_SERVER is
+  # set (the release env sets it; `mix phx.server` keeps its own path). The
+  # boilerplate `server: true` comment this replaces meant a release booted
+  # but never listened (Current Code State 5 in the v0.62 plan).
+  if System.get_env("PHX_SERVER") do
+    config :allbert_assist_web, AllbertAssistWeb.Endpoint, server: true
+  end
+
 
   # ## SSL Support
   #
