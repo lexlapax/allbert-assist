@@ -112,6 +112,19 @@ defmodule AllbertAssist.CLI.DispatcherTest do
         |> Map.put(:home, "/tmp/not-this-allbert-home")
 
       assert {:error, :home_mismatch} = Attach.run_request(bad_home)
+
+      # v0.62 M8.18: cover the remaining three identity fields (all five bind a
+      # request to this exact daemon).
+      base = Attach.request(["--version"], token)
+
+      assert {:error, :protocol_mismatch} =
+               Attach.run_request(Map.put(base, :protocol, 999))
+
+      assert {:error, :uid_mismatch} =
+               Attach.run_request(Map.put(base, :uid, "999999"))
+
+      assert {:error, :version_mismatch} =
+               Attach.run_request(Map.put(base, :version, "0.0.0-not-this"))
     end)
   end
 
@@ -167,6 +180,35 @@ defmodule AllbertAssist.CLI.DispatcherTest do
     for reason <- [:not_available, :closed, :timeout, :econnrefused, :enoent] do
       assert :fallback == CLI.classify_attach({:error, reason})
     end
+  end
+
+  # v0.62 M8.18: the listener stays alive and keeps serving through a burst of
+  # concurrent attached commands (each runs in its own supervised task under the
+  # bounded Task.Supervisor). Every result is clean — an attached reply or a
+  # graceful transport error (a saturated accept backlog yields :not_available,
+  # which the client then falls back on) — never a crash, and the GenServer
+  # survives and keeps serving afterward.
+  test "the listener survives a burst of concurrent attached commands (M8.18)" do
+    with_attach_home(fn ->
+      pid = start_supervised!(Attach.Server)
+
+      results =
+        1..12
+        |> Task.async_stream(fn _ -> Attach.run(["--version"]) end,
+          max_concurrency: 12,
+          timeout: 30_000
+        )
+        |> Enum.map(fn {:ok, result} -> result end)
+
+      assert Enum.all?(results, fn r ->
+               match?({:ok, {_out, 0}}, r) or match?({:error, _}, r)
+             end)
+
+      assert Enum.any?(results, &match?({:ok, {_out, 0}}, &1))
+      assert Process.alive?(pid)
+      # Still serving after the burst.
+      assert {:ok, {_out, 0}} = Attach.run(["--version"])
+    end)
   end
 
   test "the attach token file is created owner-only, 0600 (M8.9)" do

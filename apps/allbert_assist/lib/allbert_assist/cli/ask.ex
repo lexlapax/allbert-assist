@@ -41,8 +41,13 @@ defmodule AllbertAssist.CLI.Ask do
   end
 
   defp submit(prompt, opts) do
-    channel = channel(opts[:channel])
+    case channel(opts[:channel]) do
+      {:ok, channel} -> submit_with_channel(prompt, opts, channel)
+      {:error, value} -> Render.error("Unknown --channel #{inspect(value)}.")
+    end
+  end
 
+  defp submit_with_channel(prompt, opts, channel) do
     request =
       %{text: prompt, channel: channel}
       |> put_present(:user_id, blank_to_nil(opts[:user]))
@@ -83,8 +88,15 @@ defmodule AllbertAssist.CLI.Ask do
       end)
   end
 
-  defp channel(nil), do: :cli
-  defp channel(value) when is_binary(value), do: String.to_existing_atom(value)
+  # v0.62 M8.18: an unknown `--channel` must not raise ArgumentError (un-rescued
+  # stacktrace on the Mix path) — an unmapped surface atom is a usage error.
+  defp channel(nil), do: {:ok, :cli}
+
+  defp channel(value) when is_binary(value) do
+    {:ok, String.to_existing_atom(value)}
+  rescue
+    ArgumentError -> {:error, value}
+  end
 
   defp put_present(map, _key, nil), do: map
   defp put_present(map, _key, ""), do: map

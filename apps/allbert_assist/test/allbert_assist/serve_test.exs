@@ -11,6 +11,7 @@ defmodule AllbertAssist.ServeTest do
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Actions.Serve.ServiceControl
   alias AllbertAssist.Health
+  alias AllbertAssist.Paths
   alias AllbertAssist.Service
 
   @moduletag :serve_daemon
@@ -42,6 +43,41 @@ defmodule AllbertAssist.ServeTest do
       :launchd -> assert unit =~ "WorkingDirectory" and unit =~ "serve"
       :systemd -> assert unit =~ "WorkingDirectory=" and unit =~ "ExecStart="
       :unsupported -> assert unit == ""
+    end
+  end
+
+  test "the rendered unit escapes an interpolated Home metacharacter (M8.18)" do
+    original_paths = Application.get_env(:allbert_assist, Paths)
+    original_home = System.get_env("ALLBERT_HOME")
+
+    on_exit(fn ->
+      if original_paths,
+        do: Application.put_env(:allbert_assist, Paths, original_paths),
+        else: Application.delete_env(:allbert_assist, Paths)
+
+      if original_home,
+        do: System.put_env("ALLBERT_HOME", original_home),
+        else: System.delete_env("ALLBERT_HOME")
+    end)
+
+    # ALLBERT_HOME wins only when the Paths app-env home is unset.
+    Application.delete_env(:allbert_assist, Paths)
+
+    case Service.platform() do
+      :launchd ->
+        System.put_env("ALLBERT_HOME", Path.join(System.tmp_dir!(), "allbert & home"))
+        unit = Service.render_unit("/opt/allbert/bin/allbert")
+        assert unit =~ "allbert &amp; home"
+        refute unit =~ "allbert & home"
+
+      :systemd ->
+        System.put_env("ALLBERT_HOME", Path.join(System.tmp_dir!(), "allbert%home"))
+        unit = Service.render_unit("/opt/allbert/bin/allbert")
+        # `%` is the systemd specifier prefix — it must be doubled.
+        assert unit =~ "allbert%%home"
+
+      :unsupported ->
+        assert Service.render_unit("/opt/allbert/bin/allbert") == ""
     end
   end
 
@@ -95,6 +131,31 @@ defmodule AllbertAssist.ServeTest do
 
       assert {:ok, %{status: :error, actions: [%{executed: false}]}} =
                ServiceControl.run(%{operation: "install", binary: malicious}, approved)
+    end
+
+    test "install rejects a symlink or non-executable binary (M8.18)" do
+      approved = %{user_id: "local", confirmation: %{approved?: true}}
+      dir = Path.join(System.tmp_dir!(), "allbert-svc-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(dir)
+      on_exit(fn -> File.rm_rf!(dir) end)
+
+      # A regular file with no executable bit — refused (lstat + exec-bit check).
+      non_exec = Path.join(dir, "not-exec")
+      File.write!(non_exec, "")
+      File.chmod!(non_exec, 0o644)
+
+      assert {:ok, %{status: :error, actions: [%{executed: false}]}} =
+               ServiceControl.run(%{operation: "install", binary: non_exec}, approved)
+
+      # A symlink (even to a valid executable) — refused; lstat must not follow it.
+      exec = Path.join(dir, "real-exec")
+      File.write!(exec, "")
+      File.chmod!(exec, 0o755)
+      link = Path.join(dir, "link-exec")
+      File.ln_s!(exec, link)
+
+      assert {:ok, %{status: :error, actions: [%{executed: false}]}} =
+               ServiceControl.run(%{operation: "install", binary: link}, approved)
     end
 
     test "the needs_confirmation gate persists a durable, listable record (M8.14)" do

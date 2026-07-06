@@ -182,11 +182,31 @@ defmodule AllbertAssist.Actions.Serve.ServiceControl do
       Regex.match?(~r/[<>&"'`$;|\s]/, binary) ->
         {:error, "service install: binary path contains disallowed characters"}
 
-      not File.regular?(binary) ->
-        {:error, "service install: no executable at #{binary}"}
-
       true ->
-        :ok
+        # v0.62 M8.18: use lstat (not File.regular?, which follows symlinks) so a
+        # symlink can't smuggle in a different target, and require the executable
+        # bit — the path is templated into a boot-persistent unit.
+        validate_binary_stat(binary)
+    end
+  end
+
+  defp validate_binary_stat(binary) do
+    case File.lstat(binary) do
+      {:ok, %File.Stat{type: :symlink}} ->
+        {:error, "service install: binary must not be a symlink: #{binary}"}
+
+      {:ok, %File.Stat{type: :regular, mode: mode}} ->
+        if Bitwise.band(mode, 0o111) == 0 do
+          {:error, "service install: binary is not executable: #{binary}"}
+        else
+          :ok
+        end
+
+      {:ok, _other} ->
+        {:error, "service install: binary is not a regular file: #{binary}"}
+
+      {:error, reason} ->
+        {:error, "service install: cannot stat #{binary}: #{inspect(reason)}"}
     end
   end
 

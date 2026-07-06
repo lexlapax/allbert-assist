@@ -121,6 +121,9 @@ defmodule AllbertAssist.Service do
     # service_control action also validates `binary` before we get here).
     binary = xml_escape(binary)
     home = xml_escape(home)
+    # v0.62 M8.18: log_path() also derives from Paths.home() — escape it too so a
+    # metacharacter in the Home path can't break out of the plist string.
+    log = xml_escape(log_path())
 
     """
     <?xml version="1.0" encoding="UTF-8"?>
@@ -139,14 +142,20 @@ defmodule AllbertAssist.Service do
       </dict>
       <key>KeepAlive</key><true/>
       <key>RunAtLoad</key><true/>
-      <key>StandardOutPath</key><string>#{log_path()}</string>
-      <key>StandardErrorPath</key><string>#{log_path()}</string>
+      <key>StandardOutPath</key><string>#{log}</string>
+      <key>StandardErrorPath</key><string>#{log}</string>
     </dict>
     </plist>
     """
   end
 
   defp systemd_unit(binary, home) do
+    # v0.62 M8.18: `home` is the one interpolated systemd value with no upstream
+    # guard (binary is validated in service_control). Escape `%` (the systemd
+    # specifier prefix) and strip control chars so a pathological Home path can't
+    # inject an extra directive line or a specifier.
+    home = systemd_value(home)
+
     """
     [Unit]
     Description=Allbert local assistant runtime
@@ -164,6 +173,12 @@ defmodule AllbertAssist.Service do
     [Install]
     WantedBy=default.target
     """
+  end
+
+  defp systemd_value(value) when is_binary(value) do
+    value
+    |> String.replace("%", "%%")
+    |> String.replace(~r/[\x00-\x1f]/, "")
   end
 
   defp xml_escape(value) when is_binary(value) do

@@ -54,8 +54,14 @@ defmodule AllbertAssist.CLI.Areas.External do
         |> parse_headers()
         |> parse_query()
 
-      {:ok, response} = Runner.run("external_network_request", params, ctx)
-      {:ok, response.message}
+      # v0.62 M8.18: don't hard-match `{:ok, r}` and reach for `r.message` — a
+      # response without a binary :message (e.g. an error-status result) would
+      # raise a MatchError/KeyError and dump a stacktrace on the Mix path. Degrade
+      # to a rendered error instead. (Runner.run always wraps in `{:ok, _}`.)
+      case Runner.run("external_network_request", params, ctx) do
+        {:ok, %{message: message}} when is_binary(message) -> {:ok, message}
+        {:ok, response} -> {:error, "External request failed: #{inspect(response)}"}
+      end
     end
   end
 

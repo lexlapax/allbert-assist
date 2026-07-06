@@ -5892,7 +5892,10 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         "Bare `allbert` / first-run detection performs network I/O before explicit operator consent",
       boundary: :resource_access,
       expected: :allowed,
-      assert: [:zero_egress_without_consent, :egress_gated_by_injected_probe],
+      # v0.62 M8.18: the concrete proof is the injected-probe egress gate; the
+      # broader `:zero_egress_without_consent` label had no backing assertion, so
+      # it's dropped rather than left as an overstated claim.
+      assert: [:egress_gated_by_injected_probe],
       test_module: "AllbertAssist.CLI.FirstRunTest"
     },
     %{
