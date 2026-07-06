@@ -35,6 +35,7 @@ defmodule AllbertAssist.Actions.FirstModel.InstallOllama do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Actions.Support.ConfirmationRequest
   alias AllbertAssist.Security.PermissionGate
 
   @install_script_url "https://ollama.com/install.sh"
@@ -52,7 +53,7 @@ defmodule AllbertAssist.Actions.FirstModel.InstallOllama do
         dry_run(permission_decision)
 
       not PermissionGate.allowed?(permission_decision) and not approval_resume?(context) ->
-        denied(permission_decision)
+        request_or_deny(permission_decision, context)
 
       true ->
         run_install(permission_decision)
@@ -213,14 +214,51 @@ defmodule AllbertAssist.Actions.FirstModel.InstallOllama do
      }}
   end
 
-  defp denied(permission_decision) do
-    {:ok,
-     %{
-       message: permission_decision.reason,
-       status: PermissionGate.response_status(permission_decision),
-       permission_decision: permission_decision,
-       actions: [action(:denied, permission_decision, %{executed: false})]
-     }}
+  # M8.14: persist a durable confirmation so `admin confirmations approve <id>`
+  # completes the install; genuine denials still return :denied.
+  defp request_or_deny(permission_decision, context) do
+    attrs = %{
+      target_action: %{name: name(), module: inspect(__MODULE__)},
+      target_permission: :command_execute,
+      target_execution_mode: :first_model_install,
+      params_summary: install_summary(),
+      resume_params_ref: %{}
+    }
+
+    case ConfirmationRequest.resolve(permission_decision, attrs, context) do
+      {:needs_confirmation, confirmation} ->
+        {:ok,
+         %{
+           message:
+             "Ollama install is ready for approval. Confirmation request: #{confirmation["id"]}. Nothing was installed.",
+           status: :needs_confirmation,
+           permission_decision: permission_decision,
+           confirmation: confirmation,
+           confirmation_id: confirmation["id"],
+           actions: [
+             action(:needs_confirmation, permission_decision, %{
+               executed: false,
+               confirmation_id: confirmation["id"]
+             })
+           ]
+         }}
+
+      _denied ->
+        {:ok,
+         %{
+           message: permission_decision.reason,
+           status: PermissionGate.response_status(permission_decision),
+           permission_decision: permission_decision,
+           actions: [action(:denied, permission_decision, %{executed: false})]
+         }}
+    end
+  end
+
+  defp install_summary do
+    case install_commands() do
+      {:ok, commands} -> %{commands: render_commands(commands)}
+      _error -> %{}
+    end
   end
 
   defp approval_resume?(context) do

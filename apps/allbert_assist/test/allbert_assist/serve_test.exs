@@ -96,5 +96,34 @@ defmodule AllbertAssist.ServeTest do
       assert {:ok, %{status: :error, actions: [%{executed: false}]}} =
                ServiceControl.run(%{operation: "install", binary: malicious}, approved)
     end
+
+    test "the needs_confirmation gate persists a durable, listable record (M8.14)" do
+      # v0.62 M8.14: the confirmation floor must create a Confirmations record so
+      # `admin confirmations approve <id>` can complete the service change. We
+      # assert create + listable + the operation is preserved for resume; we do
+      # NOT approve (that would write a real unit file / invoke launchctl/systemctl).
+      # command_execute defaults to :denied; grant it so the needs_confirmation
+      # floor applies.
+      assert {:ok, _} =
+               AllbertAssist.Settings.put("permissions.command_execute", "needs_confirmation", %{
+                 audit?: false
+               })
+
+      assert {:ok, gated} =
+               Runner.run("service_control", %{operation: "install"}, %{
+                 actor: "local",
+                 channel: :cli
+               })
+
+      assert gated.status == :needs_confirmation
+      assert is_binary(gated.confirmation_id)
+
+      assert {:ok, listed} =
+               Runner.run("list_confirmations", %{}, %{actor: "local", channel: :cli})
+
+      record = Enum.find(listed.confirmations, &(&1["id"] == gated.confirmation_id))
+      assert record
+      assert record["resume_params_ref"]["operation"] == "install"
+    end
   end
 end

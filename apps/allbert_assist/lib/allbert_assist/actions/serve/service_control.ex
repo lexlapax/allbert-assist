@@ -34,6 +34,7 @@ defmodule AllbertAssist.Actions.Serve.ServiceControl do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Actions.Support.ConfirmationRequest
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Service
 
@@ -69,15 +70,7 @@ defmodule AllbertAssist.Actions.Serve.ServiceControl do
          }}
 
       not PermissionGate.allowed?(permission_decision) and not approval_resume?(context) ->
-        {:ok,
-         %{
-           message: permission_decision.reason,
-           status: PermissionGate.response_status(permission_decision),
-           permission_decision: permission_decision,
-           actions: [
-             action(:denied, permission_decision, %{operation: operation, executed: false})
-           ]
-         }}
+        request_or_deny(operation, params, permission_decision, context)
 
       not Service.manager_available?() ->
         {:ok,
@@ -94,6 +87,58 @@ defmodule AllbertAssist.Actions.Serve.ServiceControl do
 
       true ->
         execute(operation, params, permission_decision)
+    end
+  end
+
+  # M8.14: persist a durable confirmation so `admin confirmations approve <id>`
+  # completes the service change (resumed with the same operation + binary).
+  defp request_or_deny(operation, params, permission_decision, context) do
+    binary = Map.get(params, :binary)
+
+    resume_ref =
+      case binary do
+        nil -> %{operation: operation}
+        value -> %{operation: operation, binary: value}
+      end
+
+    attrs = %{
+      target_action: %{name: name(), module: inspect(__MODULE__)},
+      target_permission: :command_execute,
+      target_execution_mode: :service_control,
+      params_summary: %{operation: operation, binary: binary || default_binary()},
+      resume_params_ref: resume_ref
+    }
+
+    case ConfirmationRequest.resolve(permission_decision, attrs, context) do
+      {:needs_confirmation, confirmation} ->
+        {:ok,
+         %{
+           message:
+             "Service #{operation} is ready for approval. Confirmation request: " <>
+               "#{confirmation["id"]}. Nothing was changed.",
+           status: :needs_confirmation,
+           permission_decision: permission_decision,
+           confirmation: confirmation,
+           confirmation_id: confirmation["id"],
+           actions: [
+             action(:needs_confirmation, permission_decision, %{
+               operation: operation,
+               executed: false,
+               confirmation_id: confirmation["id"]
+             })
+           ]
+         }}
+
+      _denied ->
+        {:ok,
+         %{
+           message: permission_decision.reason,
+           status: PermissionGate.response_status(permission_decision),
+           permission_decision: permission_decision,
+           actions: [
+             action(:denied, permission_decision, %{operation: operation, executed: false})
+           ]
+         }}
     end
   end
 

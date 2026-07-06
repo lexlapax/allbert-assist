@@ -32,6 +32,7 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Actions.Support.ConfirmationRequest
   alias AllbertAssist.FirstModel.Ollama
   alias AllbertAssist.Security.PermissionGate
 
@@ -55,10 +56,45 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
          }}
 
       not PermissionGate.allowed?(permission_decision) and not approval_resume?(context) ->
-        denied(permission_decision, model)
+        request_or_deny(permission_decision, model, context)
 
       true ->
         pull(model, permission_decision)
+    end
+  end
+
+  # M8.14: persist a durable confirmation so `admin confirmations approve <id>`
+  # completes the pull (resumed with the same `model`).
+  defp request_or_deny(permission_decision, model, context) do
+    attrs = %{
+      target_action: %{name: name(), module: inspect(__MODULE__)},
+      target_permission: :external_network,
+      target_execution_mode: :first_model_pull,
+      params_summary: %{model: model, endpoint: "#{Ollama.base_url()}/api/pull"},
+      resume_params_ref: %{model: model}
+    }
+
+    case ConfirmationRequest.resolve(permission_decision, attrs, context) do
+      {:needs_confirmation, confirmation} ->
+        {:ok,
+         %{
+           message:
+             "Model pull is ready for approval. Confirmation request: #{confirmation["id"]}. Nothing was pulled.",
+           status: :needs_confirmation,
+           permission_decision: permission_decision,
+           confirmation: confirmation,
+           confirmation_id: confirmation["id"],
+           actions: [
+             action(:needs_confirmation, permission_decision, %{
+               model: model,
+               executed: false,
+               confirmation_id: confirmation["id"]
+             })
+           ]
+         }}
+
+      _denied ->
+        denied(permission_decision, model)
     end
   end
 

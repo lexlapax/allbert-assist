@@ -140,6 +140,30 @@ defmodule AllbertAssist.FirstModelTest do
         refute cmd in ["sh", "bash", "zsh"] and "-c" in args
       end
     end
+
+    test "the needs_confirmation gate persists a durable, listable record (M8.14)" do
+      # v0.62 M8.14: the confirmation floor must create a Confirmations record so
+      # `admin confirmations approve <id>` can complete the install. We assert the
+      # record is created + listable + resumable (we do NOT approve — that would
+      # shell out to the real installer). command_execute defaults to :denied; the
+      # needs_confirmation floor only applies once the operator opts the permission
+      # in, so we grant it first.
+      assert {:ok, _} =
+               AllbertAssist.Settings.put("permissions.command_execute", "needs_confirmation", %{
+                 audit?: false
+               })
+
+      assert {:ok, gated} =
+               Runner.run("install_ollama", %{}, %{actor: "local", channel: :cli})
+
+      assert gated.status == :needs_confirmation
+      assert is_binary(gated.confirmation_id)
+
+      assert {:ok, listed} =
+               Runner.run("list_confirmations", %{}, %{actor: "local", channel: :cli})
+
+      assert Enum.any?(listed.confirmations, &(&1["id"] == gated.confirmation_id))
+    end
   end
 
   describe "pull_model (external_network, confirmation-gated)" do
@@ -172,6 +196,34 @@ defmodule AllbertAssist.FirstModelTest do
                PullModel.run(%{}, %{confirmation: %{approved?: true}})
 
       assert summary.status == "success"
+    end
+
+    test "the durable confirmation round-trips create → approve → pull (M8.14)" do
+      # v0.62 M8.14: the needs_confirmation floor persists a Confirmations record
+      # carrying the requested model in resume_params_ref; approving it (the real
+      # operator path, not an injected `approved?` stub) resumes the pull with that
+      # exact model against the injected loopback Req.
+      model = Ollama.curated_model()
+      Application.put_env(:allbert_assist, :first_model_req_options, plug: {Req.Test, __MODULE__})
+
+      Req.Test.expect(__MODULE__, fn %{method: "POST", request_path: "/api/pull"} = conn ->
+        assert Req.Test.raw_body(conn) =~ model
+        Req.Test.json(conn, %{"status" => "success"})
+      end)
+
+      assert {:ok, gated} =
+               Runner.run("pull_model", %{model: model}, %{actor: "local", channel: :cli})
+
+      assert gated.status == :needs_confirmation
+      assert is_binary(gated.confirmation_id)
+
+      assert {:ok, approved} =
+               Runner.run("approve_confirmation", %{id: gated.confirmation_id}, %{
+                 actor: "local",
+                 channel: :cli
+               })
+
+      assert approved.status == :completed
     end
   end
 end

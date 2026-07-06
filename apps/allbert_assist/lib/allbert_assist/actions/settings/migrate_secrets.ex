@@ -33,6 +33,7 @@ defmodule AllbertAssist.Actions.Settings.MigrateSecrets do
       actions: [type: {:list, :map}, required: true]
     ]
 
+  alias AllbertAssist.Confirmations
   alias AllbertAssist.Security.PermissionGate
   alias AllbertAssist.Settings.Secrets
   alias AllbertAssist.Settings.Vault
@@ -55,28 +56,94 @@ defmodule AllbertAssist.Actions.Settings.MigrateSecrets do
            executed: false
          })}
 
-      not PermissionGate.allowed?(permission_decision) and not approval_resume?(context) ->
+      # M8.14: an approved confirmation resumes the migration.
+      approval_resume?(context) ->
+        migrate_or_error(permission_decision, resolution, context)
+
+      # M8.14: the settings_write floor is needs_confirmation for migrate_secrets
+      # — create a durable confirmation the operator can approve.
+      PermissionGate.response_status(permission_decision) == :needs_confirmation ->
+        request_confirmation(permission_decision, resolution, context)
+
+      PermissionGate.response_status(permission_decision) == :denied ->
         {:ok,
          %{
            message: permission_decision.reason,
-           status: PermissionGate.response_status(permission_decision),
+           status: :denied,
            permission_decision: permission_decision,
            migration: %{executed: false},
            actions: [action(:denied, permission_decision, %{executed: false})]
          }}
 
-      resolution.tier != :os ->
+      # M8.14 floor self-guard: reaching :allowed means the needs_confirmation
+      # floor did NOT apply — i.e. this ran off the Runner without the
+      # migrate_secrets action identity in context. Fail closed rather than
+      # migrate unconfirmed.
+      true ->
         {:ok,
          result(:error, permission_decision, %{
            target_tier: resolution.tier,
-           target_notice: resolution.notice,
-           reason: "no OS vault reachable — migration target is not tier-1",
+           reason:
+             "migrate_secrets must run confirmation-gated through the action Runner; refusing an unidentified call",
            executed: false
          })}
-
-      true ->
-        migrate(permission_decision, resolution, context)
     end
+  end
+
+  defp migrate_or_error(permission_decision, resolution, context) do
+    if resolution.tier == :os do
+      migrate(permission_decision, resolution, context)
+    else
+      {:ok,
+       result(:error, permission_decision, %{
+         target_tier: resolution.tier,
+         target_notice: resolution.notice,
+         reason: "no OS vault reachable — migration target is not tier-1",
+         executed: false
+       })}
+    end
+  end
+
+  defp request_confirmation(permission_decision, resolution, context) do
+    if resolution.tier == :os do
+      {:ok, confirmation} =
+        Confirmations.create(%{
+          origin: origin(context),
+          target_action: %{name: name(), module: inspect(__MODULE__)},
+          target_permission: :settings_write,
+          target_execution_mode: :settings_write,
+          security_decision: permission_decision,
+          params_summary: %{target_tier: resolution.tier, refs: migratable_refs()},
+          resume_params_ref: %{}
+        })
+
+      {:ok,
+       %{
+         message:
+           "Secret migration is ready for approval. Confirmation request: #{confirmation["id"]}. Nothing was moved.",
+         status: :needs_confirmation,
+         permission_decision: permission_decision,
+         confirmation: confirmation,
+         confirmation_id: confirmation["id"],
+         migration: %{executed: false, target_tier: resolution.tier},
+         actions: [
+           action(:needs_confirmation, permission_decision, %{
+             executed: false,
+             confirmation_id: confirmation["id"]
+           })
+         ]
+       }}
+    else
+      migrate_or_error(permission_decision, resolution, context)
+    end
+  end
+
+  defp origin(context) do
+    %{
+      channel: Map.get(context, :channel, :unknown),
+      actor: Map.get(context, :actor) || get_in(context, [:request, :operator_id]) || "local",
+      surface: Map.get(context, :surface, "action")
+    }
   end
 
   defp migrate(permission_decision, resolution, context) do

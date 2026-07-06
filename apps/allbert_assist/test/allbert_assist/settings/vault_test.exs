@@ -220,6 +220,49 @@ defmodule AllbertAssist.Settings.VaultTest do
       refute inspect(response) =~ @secret_value
     end
 
+    test "the durable confirmation record round-trips create → list → approve → migrate (M8.14)" do
+      # v0.62 M8.14: the M8.8 needs_confirmation floor was non-completable — the
+      # action never persisted a Confirmations record, so `admin confirmations
+      # approve <id>` had nothing to resume. This proves the REAL operator path:
+      # the gate creates a durable record, it shows up in the list, and approving
+      # it (not an injected `approved?` stub) resumes the migration.
+      assert {:ok, _} = Secrets.put_secret(@secret_ref, @secret_value, %{})
+      System.put_env("ALLBERT_VAULT_BACKEND", "os")
+
+      test_pid = self()
+
+      runner = fn args ->
+        if "add-generic-password" in args, do: send(test_pid, {:migrated, args})
+        {"", 0}
+      end
+
+      Application.put_env(:allbert_assist, :vault_security_runner, runner)
+
+      assert {:ok, gated} =
+               Runner.run("migrate_secrets", %{}, %{actor: "local", channel: :cli})
+
+      assert gated.status == :needs_confirmation
+      confirmation_id = gated.confirmation_id
+      assert is_binary(confirmation_id)
+      refute_received {:migrated, _args}
+
+      assert {:ok, listed} =
+               Runner.run("list_confirmations", %{}, %{actor: "local", channel: :cli})
+
+      assert Enum.any?(listed.confirmations, &(&1["id"] == confirmation_id))
+
+      assert {:ok, approved} =
+               Runner.run("approve_confirmation", %{id: confirmation_id}, %{
+                 actor: "local",
+                 channel: :cli,
+                 surface: "mix allbert.confirmations"
+               })
+
+      assert approved.status == :completed
+      assert_received {:migrated, _args}
+      refute inspect(approved) =~ @secret_value
+    end
+
     test "a confirmation key smuggled into PARAMS does not authorize (M8.10)" do
       # The approval flag lives in server-derived context, never params. A
       # caller-supplied `confirmation` param is not in the action schema, so the

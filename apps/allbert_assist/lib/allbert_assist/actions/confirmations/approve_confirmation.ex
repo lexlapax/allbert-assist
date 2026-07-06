@@ -99,6 +99,10 @@ defmodule AllbertAssist.Actions.Confirmations.ApproveConfirmation do
     write
     edit
     bash
+    migrate_secrets
+    install_ollama
+    pull_model
+    service_control
   ]
 
   @impl true
