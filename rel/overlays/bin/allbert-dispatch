@@ -14,7 +14,7 @@ case "${1:-}" in
   serve)
     shift
     # M5: foreground serve boots the tree with the web endpoint enabled and
-    # holds the single-writer lock (so a second `allbert` command refuses).
+    # holds the single-writer lock and attach listener for subsequent commands.
     PHX_SERVER=true ALLBERT_HOLD_WRITER_LOCK=1 exec "$RELEASE_BIN" start "$@" ;;
   *)
     # Pass argv to the pure dispatcher; it prints and halts on its own code.

@@ -80,18 +80,13 @@ done
   || { cat "$WORK/serve.out" || true; fail health "/health did not return 200 within 30s"; }
 
 # Attach round-trip: a second command against the live daemon must resolve
-# through the attach transport (the single-writer guard refuses a second
-# writer, so this proves attach-first selection rather than a crash).
+# through the local attach transport. A single-writer refusal is a separate
+# guard result, not an attach pass.
 if run_cli admin status >"$WORK/attach.out" 2>&1; then
   echo "smoke:attach PASS attach round-trip ok"
 else
-  # A guarded refusal with guidance is an acceptable outcome; a crash is not.
-  if grep -qiE "already running|another writer|attach" "$WORK/attach.out"; then
-    echo "smoke:attach PASS single-writer refusal surfaced"
-  else
-    cat "$WORK/attach.out" || true
-    fail attach "second command neither attached nor refused with guidance"
-  fi
+  cat "$WORK/attach.out" || true
+  fail attach "second command did not attach to the running daemon"
 fi
 
 kill "$SERVE_PID" 2>/dev/null || true

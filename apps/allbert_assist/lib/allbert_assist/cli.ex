@@ -19,35 +19,52 @@ defmodule AllbertAssist.CLI do
   alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Portability.Export
   alias AllbertAssist.Portability.Import
-  alias AllbertAssist.Runtime.WriterLock
+  alias AllbertAssist.Runtime.{Attach, WriterLock}
   alias AllbertAssist.Surfaces.ContextBuilder
 
   @doc """
   Print + halt entry called by the release launcher.
 
   Commands that reach the runtime (actions and DB-backed reads) need the OTP
-  apps started — under `eval` they are only loaded. `main/1` starts them under
-  the single-writer lock for the embedded-fallback path (Locked Decision 5);
-  if a daemon already holds the lock it fails fast with guidance (attach to the
-  running daemon is M5). Pure commands (help, version, first-run detection)
-  skip runtime entirely.
+  apps started — under `eval` they are only loaded. `main/1` first tries the
+  local daemon attach transport. If no daemon is reachable, it starts the
+  embedded fallback under the single-writer lock (Locked Decision 5); if the
+  lock is held and attach is unavailable, it fails fast with repair guidance.
+  Pure commands (help, version, first-run detection) skip runtime entirely.
   """
   @spec main([String.t()]) :: no_return()
   def main(argv) do
-    code =
-      case ensure_runtime(argv) do
-        :ok ->
-          {output, code} = run(argv)
-          if output != "", do: IO.puts(output)
-          code
+    {stream, output, code} = run_entry(argv)
 
-        {:error, message} ->
-          IO.puts(:stderr, message)
-          3
+    if output != "" do
+      case stream do
+        :stderr -> IO.puts(:stderr, output)
+        :stdout -> IO.puts(output)
       end
+    end
 
     System.halt(code)
   end
+
+  @doc false
+  @spec run_entry([String.t()]) :: {:stdout | :stderr, String.t(), non_neg_integer()}
+  def run_entry(argv) do
+    case ensure_runtime(argv) do
+      {:attached, output, code} ->
+        {:stdout, output, code}
+
+      :ok ->
+        {output, code} = run(argv)
+        {:stdout, output, code}
+
+      {:error, message} ->
+        {:stderr, message, 3}
+    end
+  end
+
+  @doc false
+  @spec run_attached([String.t()]) :: {String.t(), non_neg_integer()}
+  def run_attached(argv), do: run(argv)
 
   # Start the OTP apps (embedded fallback) only when the resolved command needs
   # the runtime; guard with the writer lock so we never open a second writer
@@ -56,20 +73,41 @@ defmodule AllbertAssist.CLI do
     if needs_runtime?(argv) do
       db = AllbertAssist.Database.repo_database_path()
 
-      cond do
-        is_nil(db) ->
-          start_apps()
+      case Attach.run(argv) do
+        {:ok, {output, code}} ->
+          {:attached, output, code}
 
-        WriterLock.held_by_another?(db) ->
-          {:error,
-           "Another Allbert runtime is using this database (a daemon is likely " <>
-             "running). Use the running instance, or stop `allbert serve` first."}
+        {:error, reason}
+        when reason in [
+               :protocol_mismatch,
+               :token_mismatch,
+               :home_mismatch,
+               :uid_mismatch,
+               :version_mismatch
+             ] ->
+          {:error, "Could not attach to the running Allbert daemon: #{inspect(reason)}."}
 
-        true ->
-          start_apps()
+        {:error, _reason} ->
+          embedded_runtime(db)
       end
     else
       :ok
+    end
+  end
+
+  defp embedded_runtime(db) do
+    cond do
+      is_nil(db) ->
+        start_apps()
+
+      WriterLock.held_by_another?(db) ->
+        {:error,
+         "Another Allbert runtime is using this database, but the attach " <>
+           "transport is unavailable. Stop `allbert serve`, or repair the " <>
+           "daemon's Allbert Home runtime socket."}
+
+      true ->
+        start_apps()
     end
   end
 
@@ -161,7 +199,7 @@ defmodule AllbertAssist.CLI do
 
   defp run_action(name, rest) do
     context = ContextBuilder.cli_context(%{surface: "cli", channel: :cli})
-    {:ok, result} = Runner.run(name, params_from(rest), context)
+    {:ok, result} = Runner.run(name, params_from(name, rest), context)
     # The action result map carries the status; a non-completed status is a
     # non-zero exit so scripts can branch on it.
     code = if Map.get(result, :status) in [:completed, nil], do: 0, else: 1
@@ -256,7 +294,66 @@ defmodule AllbertAssist.CLI do
 
   # -- rendering + params ----------------------------------------------------
 
-  defp params_from(_rest), do: %{}
+  defp params_from("operator_setting_get", [key | _rest]), do: %{key: key}
+
+  defp params_from("service_control", rest) do
+    {positionals, flags, options} = split_flags(rest)
+
+    %{}
+    |> maybe_put(:operation, List.first(positionals))
+    |> maybe_put(:dry_run, flag?(flags, "--dry-run") or flag?(flags, "--dry_run"))
+    |> maybe_put(:binary, flag_value(options, "--binary"))
+  end
+
+  defp params_from("install_ollama", rest) do
+    {_positionals, flags, _options} = split_flags(rest)
+    %{dry_run: flag?(flags, "--dry-run") or flag?(flags, "--dry_run")}
+  end
+
+  defp params_from("pull_model", rest) do
+    {positionals, flags, options} = split_flags(rest)
+
+    %{}
+    |> maybe_put(:dry_run, flag?(flags, "--dry-run") or flag?(flags, "--dry_run"))
+    |> maybe_put(:model, flag_value(options, "--model") || List.first(positionals))
+  end
+
+  defp params_from(_name, _rest), do: %{}
+
+  defp split_flags(rest) do
+    parse_args(rest, [], [], %{})
+    |> then(fn {positionals, flags, options} ->
+      {Enum.reverse(positionals), Enum.reverse(flags), options}
+    end)
+  end
+
+  defp parse_args([flag, value | rest], positionals, flags, options)
+       when flag in ["--binary", "--model"] do
+    if String.starts_with?(value, "-") do
+      parse_args([value | rest], positionals, [flag | flags], options)
+    else
+      parse_args(rest, positionals, [flag | flags], Map.put(options, flag, value))
+    end
+  end
+
+  defp parse_args([flag | rest], positionals, flags, options)
+       when is_binary(flag) and byte_size(flag) > 0 and binary_part(flag, 0, 1) == "-" do
+    parse_args(rest, positionals, [flag | flags], options)
+  end
+
+  defp parse_args([positional | rest], positionals, flags, options) do
+    parse_args(rest, [positional | positionals], flags, options)
+  end
+
+  defp parse_args([], positionals, flags, options), do: {positionals, flags, options}
+
+  defp flag?(flags, flag), do: flag in flags
+
+  defp flag_value(options, flag), do: Map.get(options, flag)
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, _key, false), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp render_result(%{message: message}) when is_binary(message), do: message
   defp render_result(map) when is_map(map), do: inspect(map, pretty: true, limit: :infinity)

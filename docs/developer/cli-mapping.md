@@ -5,6 +5,12 @@ table the `cli-command-inventory-spine-map-001` eval row asserts). Operator
 tasks re-front onto the unified `allbert` dispatcher; developer/CI tasks stay
 Mix-only in a checkout.
 
+The table maps legacy Mix task families to product command homes. v0.62 also
+adds explicit subcommands that have no one-to-one legacy Mix task row:
+`allbert admin model detect|install|pull`, `allbert admin service
+install|uninstall`, `allbert admin health`, `allbert admin vault`, and
+`allbert admin secrets migrate`.
+
 | Mix task | `allbert` command |
 |---|---|
 | `mix allbert.acp_server` | `allbert serve` |

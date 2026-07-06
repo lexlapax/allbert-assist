@@ -4034,28 +4034,20 @@ Request flow: `docs/plans/v0.62-request-flow.md`
 ADR: `docs/adr/0076-packaging-distribution-and-unified-cli.md`; completes the
 ADR 0070 mix-free TUI operator console convergence.
 
-Status: planned — implementation-readiness passes done 2026-07-05/2026-07-06
-(four-lens review, second-pass doc corrections, third-pass code-truth/research
-reconciliation, and final fourth-pass doc-readiness cleanup folded into the
-triad: deep per-milestone Implementation blocks, Locked Decisions with four
-operator-signed rows, Current Code State, Research Grounding, research evidence
-ledger, attach transport contract, M4 authority contract using
-`:command_execute` for installer execution, 18 `:v062` eval rows,
-First-Model-Path broken out as its own milestone, ADR 0076 amended with
-Distribution Trust, and v0.64 trust intake recorded) (pre-1.0 product
-capability release 2 of 3; implements the v0.60
-entry-point/CLI UX design; followed by v0.63 onboarding/profiles and the v0.64
-product RC). The post-v0.58 product-readiness review moved packaging before
-guided onboarding: first-run guidance should teach the final `allbert` binary,
-CLI, daemon, and OS-vault credential model, not temporary Mix commands. The v0.60
-First-Model-Path decision (ADR 0078) is **assisted-local default + BYOK fallback**,
-so this release integrates Ollama management (detect + guided install through
-the S4-ratified supported upstream path, curated model pull; the runtime is a
-managed dependency, not bundled) — the dependency that forced the
-First-Model-Path decision early, so packaging is built once against a known
-answer rather than repackaged afterward. The main lane is packaging/entry-point
-work; M0.1 is the only non-packaging exception and exists solely to close small
-v0.61b post-audit web-preflight tickets.
+Status: implemented as release candidate `0.62.0` (M0-M8 plus
+post-implementation remediation M8.1-M8.5 on 2026-07-06); tag and manual
+operator validation remain held. The implemented scope packages Allbert as a
+self-contained OTP release with Homebrew/curl install, unified `allbert`
+dispatcher, UDS attach-first daemon command routing, First-Model-Path
+Ollama detect/install/pull through loopback `Req` and exact argv, `allbert
+serve` health/service management, ADR 0070 TUI convergence, and the three-tier
+secret vault. `release.v062` is the source gate; the remote artifact-matrix
+smoke is required evidence before manual closeout and is not claimed green until
+workflow evidence exists for the pushed commit. ADR 0076 is Accepted with
+Distribution Trust, and v0.64 trust intake remains recorded for signing and
+rollback. The main lane is packaging/entry-point work; M0.1 is the only
+non-packaging exception and exists solely to close small v0.61b post-audit
+web-preflight tickets.
 
 Expected direction:
 

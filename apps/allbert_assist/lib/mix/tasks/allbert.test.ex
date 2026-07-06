@@ -4351,7 +4351,7 @@ defmodule Mix.Tasks.Allbert.Test do
       coverage: [
         "release-safe env detection (RELEASE_NAME/RELEASE_ROOT) replaces Mix.env probes",
         "packaged plugin root resolution + backup-before-migrate on version change",
-        "dispatcher inventory map, operator/dev split, attach single-writer + auth refusals",
+        "dispatcher inventory map, operator/dev split, attach round-trip + auth refusals + embedded single-writer fallback",
         "all seven First-Model-Path states incl. below_hardware_floor BYOK degrade",
         "serve health read-only + documented service unit; three-tier vault resolution + migration",
         "converged TUI console reads; the M0.1 media-response internal action"

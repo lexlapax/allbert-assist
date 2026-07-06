@@ -37,6 +37,9 @@ defmodule AllbertAssist.Actions.FirstModel.InstallOllama do
 
   alias AllbertAssist.Security.PermissionGate
 
+  @install_script_url "https://ollama.com/install.sh"
+  @script_placeholder "<tmp>/ollama-install.sh"
+
   @impl true
   def run(params, context) do
     permission_decision = PermissionGate.authorize(:command_execute, context)
@@ -46,19 +49,9 @@ defmodule AllbertAssist.Actions.FirstModel.InstallOllama do
       # static per-OS allowlisted command, so an operator can see exactly what
       # a confirmed install would run. Real execution is gated below.
       Map.get(params, :dry_run, false) ->
-        {cmd, args} = install_command()
+        dry_run(permission_decision)
 
-        {:ok,
-         %{
-           message: "Would run: #{cmd} #{Enum.join(args, " ")}",
-           status: :completed,
-           permission_decision: permission_decision,
-           actions: [
-             action(:completed, permission_decision, %{command: [cmd | args], executed: false})
-           ]
-         }}
-
-      not PermissionGate.allowed?(permission_decision) ->
+      not PermissionGate.allowed?(permission_decision) and not approval_resume?(context) ->
         denied(permission_decision)
 
       true ->
@@ -66,51 +59,151 @@ defmodule AllbertAssist.Actions.FirstModel.InstallOllama do
     end
   end
 
-  # The allowlisted install command per OS (no shell, exact argv).
-  @spec install_command() :: {String.t(), [String.t()]}
-  def install_command do
+  @doc "The allowlisted install commands per OS (no shell pipeline, exact argv)."
+  @spec install_commands() ::
+          {:ok, [{String.t(), [String.t()]}]} | {:error, :unsupported_platform}
+  def install_commands do
     case :os.type() do
-      {:unix, :darwin} -> {"brew", ["install", "ollama"]}
-      {:unix, _linux} -> {"sh", ["-c", "curl -fsSL https://ollama.com/install.sh | sh"]}
-      _other -> {"echo", ["unsupported platform for guided Ollama install"]}
+      {:unix, :darwin} ->
+        {:ok, [{"brew", ["install", "ollama"]}]}
+
+      {:unix, _linux} ->
+        {:ok,
+         [
+           {"curl", ["-fsSL", @install_script_url, "-o", @script_placeholder]},
+           {"sh", [@script_placeholder]}
+         ]}
+
+      _other ->
+        {:error, :unsupported_platform}
+    end
+  end
+
+  @doc false
+  @spec install_command() :: {String.t(), [String.t()]} | {:error, :unsupported_platform}
+  def install_command do
+    case install_commands() do
+      {:ok, [command | _rest]} -> command
+      {:error, reason} -> {:error, reason}
     end
   end
 
   defp run_install(permission_decision) do
-    {cmd, args} = install_command()
+    case materialized_install_commands() do
+      {:ok, commands, cleanup} ->
+        results = run_commands(commands)
+        cleanup.()
 
-    case System.cmd(cmd, args, stderr_to_stdout: true) do
-      {out, 0} ->
+        if Enum.any?(results, &(&1.exit != 0)) do
+          failed(permission_decision, results)
+        else
+          completed(permission_decision, results)
+        end
+
+      {:error, reason} ->
+        unsupported(permission_decision, reason)
+    end
+  end
+
+  defp dry_run(permission_decision) do
+    case install_commands() do
+      {:ok, commands} ->
         {:ok,
          %{
-           message: "Ollama install completed.",
+           message: "Would run: #{render_commands(commands)}",
            status: :completed,
            permission_decision: permission_decision,
            actions: [
              action(:completed, permission_decision, %{
-               command: [cmd | args],
-               executed: true,
-               output: truncate(out)
+               commands: commands_for_trace(commands),
+               executed: false
              })
            ]
          }}
 
-      {out, code} ->
-        {:ok,
-         %{
-           message: "Ollama install failed (exit #{code}).",
-           status: :error,
-           permission_decision: permission_decision,
-           actions: [
-             action(:error, permission_decision, %{
-               command: [cmd | args],
-               executed: true,
-               exit: code,
-               output: truncate(out)
-             })
-           ]
-         }}
+      {:error, reason} ->
+        unsupported(permission_decision, reason)
     end
+  end
+
+  defp materialized_install_commands do
+    case install_commands() do
+      {:ok, commands} ->
+        script_path =
+          Path.join(
+            System.tmp_dir!(),
+            "allbert-ollama-install-#{System.unique_integer([:positive])}.sh"
+          )
+
+        materialized =
+          Enum.map(commands, fn {cmd, args} ->
+            {cmd, Enum.map(args, &if(&1 == @script_placeholder, do: script_path, else: &1))}
+          end)
+
+        {:ok, materialized, fn -> File.rm(script_path) end}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp run_commands(commands) do
+    commands
+    |> Enum.reduce_while([], fn {cmd, args}, acc ->
+      {out, code} = System.cmd(cmd, args, stderr_to_stdout: true)
+      result = %{command: [cmd | args], exit: code, output: truncate(out)}
+
+      if code == 0 do
+        {:cont, [result | acc]}
+      else
+        {:halt, [result | acc]}
+      end
+    end)
+    |> Enum.reverse()
+  end
+
+  defp completed(permission_decision, results) do
+    {:ok,
+     %{
+       message: "Ollama install completed.",
+       status: :completed,
+       permission_decision: permission_decision,
+       actions: [
+         action(:completed, permission_decision, %{
+           commands: Enum.map(results, & &1.command),
+           executed: true,
+           results: results
+         })
+       ]
+     }}
+  end
+
+  defp failed(permission_decision, results) do
+    exit = results |> List.last() |> Map.fetch!(:exit)
+
+    {:ok,
+     %{
+       message: "Ollama install failed (exit #{exit}).",
+       status: :error,
+       permission_decision: permission_decision,
+       actions: [
+         action(:error, permission_decision, %{
+           commands: Enum.map(results, & &1.command),
+           executed: true,
+           results: results
+         })
+       ]
+     }}
+  end
+
+  defp unsupported(permission_decision, reason) do
+    {:ok,
+     %{
+       message: "Guided Ollama install is unavailable on this platform: #{reason}.",
+       status: :error,
+       permission_decision: permission_decision,
+       actions: [action(:error, permission_decision, %{executed: false, error: reason})]
+     }}
   end
 
   defp denied(permission_decision) do
@@ -121,6 +214,11 @@ defmodule AllbertAssist.Actions.FirstModel.InstallOllama do
        permission_decision: permission_decision,
        actions: [action(:denied, permission_decision, %{executed: false})]
      }}
+  end
+
+  defp approval_resume?(context) do
+    get_in(context, [:confirmation, :approved?]) == true ||
+      get_in(context, ["confirmation", "approved?"]) == true
   end
 
   defp action(status, permission_decision, metadata) do
@@ -136,4 +234,12 @@ defmodule AllbertAssist.Actions.FirstModel.InstallOllama do
   end
 
   defp truncate(text) when is_binary(text), do: String.slice(text, 0, 2_000)
+
+  defp render_commands(commands) do
+    commands
+    |> Enum.map(fn {cmd, args} -> Enum.join([cmd | args], " ") end)
+    |> Enum.join(" followed by ")
+  end
+
+  defp commands_for_trace(commands), do: Enum.map(commands, fn {cmd, args} -> [cmd | args] end)
 end

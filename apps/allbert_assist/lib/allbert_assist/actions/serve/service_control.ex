@@ -68,7 +68,7 @@ defmodule AllbertAssist.Actions.Serve.ServiceControl do
            ]
          }}
 
-      not PermissionGate.allowed?(permission_decision) ->
+      not PermissionGate.allowed?(permission_decision) and not approval_resume?(context) ->
         {:ok,
          %{
            message: permission_decision.reason,
@@ -141,6 +141,11 @@ defmodule AllbertAssist.Actions.Serve.ServiceControl do
   defp default_binary do
     System.get_env("ALLBERT_BINARY") ||
       Path.join([System.get_env("RELEASE_ROOT") || File.cwd!(), "bin", "allbert"])
+  end
+
+  defp approval_resume?(context) do
+    get_in(context, [:confirmation, :approved?]) == true ||
+      get_in(context, ["confirmation", "approved?"]) == true
   end
 
   defp action(status, permission_decision, metadata) do

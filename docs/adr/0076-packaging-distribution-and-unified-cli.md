@@ -59,7 +59,10 @@ guided onboarding and the v0.64 product RC lock in the first-run flow.
    an embedded runtime boots only when no daemon runs, under single-writer
    discipline (never two BEAM writers on one SQLite file). Operator commands are
    separated from developer/CI commands; the latter stay `mix`-only. The
-   entry-point and CLI *UX* (group/command shape, help layout,
+   v0.62 as-built transport is a Unix-domain socket under Allbert Home
+   (`runtime/attach.sock`) with a per-Home token file and protocol/Home/user/
+   version handshake; Erlang distribution was not used. The entry-point and CLI
+   *UX* (group/command shape, help layout,
    first-invocation experience) is designed in the v0.60 Product Experience
    Design release (ADR 0077 M5); this release implements it.
 3. **Background-daemon management.** `allbert serve` plus install/uninstall of a
@@ -120,7 +123,8 @@ and inspectability promises extend to it:
   with trace records and through existing authority classes: `:external_network`
   for metadata/model fetches (the reviewed `ExternalNetworkRequest` path, hosts
   admitted via existing `external_services.*` values) and for the curated model
-  pull over the local Ollama API (`/api/pull`, streaming), and
+  pull over the loopback-only local Ollama API (`/api/pull`, implemented with
+  `Req` and `stream: false` for a bounded JSON summary), and
   **`:command_execute` with exact argv/resource allowlists for ALL installer
   execution — Homebrew formula or official script** (operator decision
   2026-07-06; `:package_install` is not applicable: its `InstallSpec` is
@@ -164,12 +168,11 @@ and inspectability promises extend to it:
 - The CLI dispatcher reorganizes entry points; it does not add capability or
   authority — every command still routes through the same runtime/action/settings
   spine (ADR 0073).
-- The attach transport is local-only. It must not expose a routable listener,
-  must authenticate against per-Allbert-Home runtime state, and must refuse
+- The attach transport is local-only. It does not expose a routable listener,
+  authenticates against per-Allbert-Home runtime state, and refuses
   version/Home/user/protocol mismatches instead of booting a second writer.
-  These behaviors are binding; the concrete mechanism (UDS-first per the plan's
-  contract, with loopback distribution as the recorded fallback) is ratified at
-  the v0.62 S2 spike sign-off.
+  v0.62 ships the UDS mechanism ratified at S2; loopback distribution remains a
+  rejected fallback, not an implementation dependency.
 - Signing/notarization and automated rollback are deferred with a **written
   v0.64 intake** (`v0.64-plan.md` M0.a); the deferral is recorded on both
   sides, not just here.

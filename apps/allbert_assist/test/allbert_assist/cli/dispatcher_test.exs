@@ -7,6 +7,8 @@ defmodule AllbertAssist.CLI.DispatcherTest do
   use AllbertAssist.DataCase, async: false
 
   alias AllbertAssist.CLI
+  alias AllbertAssist.Paths
+  alias AllbertAssist.Runtime.Attach
 
   @moduletag :cli_dispatcher
 
@@ -56,5 +58,79 @@ defmodule AllbertAssist.CLI.DispatcherTest do
 
     {out, 2} = CLI.run(["admin", "settings"])
     assert out =~ "unknown command"
+  end
+
+  test "settings/service/model CLI operands are preserved" do
+    {settings_out, settings_code} =
+      CLI.run(["admin", "settings", "get", "external_services.enabled"])
+
+    assert settings_code == 0
+    refute settings_out =~ "invalid params"
+    refute settings_out =~ "Usage"
+
+    {service_out, service_code} =
+      CLI.run(["admin", "service", "install", "--dry-run"])
+
+    assert service_code == 0
+    assert service_out =~ "Would install"
+
+    {pull_out, pull_code} =
+      CLI.run(["admin", "model", "pull", "--dry-run", "--model", "llama3.2:3b"])
+
+    assert pull_code == 0
+    assert pull_out =~ "Would pull llama3.2:3b"
+  end
+
+  test "attach client round-trips to a running local daemon listener" do
+    with_attach_home(fn ->
+      start_supervised!(Attach.Server)
+
+      assert {:ok, {out, 0}} = Attach.run(["--version"])
+      assert out =~ "allbert"
+    end)
+  end
+
+  test "attach rejects authentication and identity mismatches" do
+    with_attach_home(fn ->
+      start_supervised!(Attach.Server)
+
+      assert {:ok, token} = Attach.read_token()
+
+      bad_token =
+        ["--version"]
+        |> Attach.request(token)
+        |> Map.put(:token, "wrong-token")
+
+      assert {:error, :token_mismatch} = Attach.run_request(bad_token)
+
+      bad_home =
+        ["--version"]
+        |> Attach.request(token)
+        |> Map.put(:home, "/tmp/not-this-allbert-home")
+
+      assert {:error, :home_mismatch} = Attach.run_request(bad_home)
+    end)
+  end
+
+  defp with_attach_home(fun) do
+    original_paths_config = Application.get_env(:allbert_assist, Paths)
+
+    root =
+      Path.join(
+        System.tmp_dir!(),
+        "allbert-attach-#{System.unique_integer([:positive])}"
+      )
+
+    Application.put_env(:allbert_assist, Paths, home: root)
+
+    on_exit(fn ->
+      if original_paths_config,
+        do: Application.put_env(:allbert_assist, Paths, original_paths_config),
+        else: Application.delete_env(:allbert_assist, Paths)
+
+      File.rm_rf!(root)
+    end)
+
+    fun.()
   end
 end

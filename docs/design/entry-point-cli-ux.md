@@ -1,9 +1,10 @@
 # Entry-Point And CLI UX
 
-Status: v0.60 M5 design artifact and v0.62 design input. This document defines
-the packaged `allbert` command taxonomy, grouped help model, first-run detection,
-first-model-state check, and wizard launch sequence for ADR 0076. It is design
-only: v0.60 ships no binary, escript, release, install script, task, daemon, or
+Status: v0.60 M5 design artifact and v0.62 design input, reconciled with the
+v0.62 as-built dispatcher at M8.4. This document defines the packaged `allbert`
+command taxonomy, grouped help model, first-run detection, first-model-state
+check, and wizard launch sequence for ADR 0076. It was design-only in v0.60:
+v0.60 shipped no binary, escript, release, install script, task, daemon, or
 Allbert Home layout change.
 
 ## Current Inventory Snapshot
@@ -14,8 +15,9 @@ developer/CI tasks, generators, package/plugin tools, public protocol utilities,
 and plugin-owned commands. That is useful for development but too flat for the
 technical-prosumer install and first-run journey.
 
-M5 does not delete or rename Mix tasks. It defines the product-facing `allbert`
-taxonomy v0.62 implements while developer/CI tasks remain available through Mix.
+M5 did not delete or rename Mix tasks. It defined the product-facing `allbert`
+taxonomy that v0.62 implements while developer/CI tasks remain available through
+Mix.
 
 ## Command Taxonomy
 
@@ -179,3 +181,22 @@ v0.62 implements this taxonomy in ADR 0076 alongside packaging. It must prove th
 binary can start the product without Elixir/OTP on a Tier-1 OS, expose grouped
 help, route first-run into the v0.63 wizard target, consume M3 first-model-state,
 and keep developer/CI tasks out of the first-run product surface.
+
+## v0.62 As-Built Notes
+
+The S4-ratified v0.62 dispatcher is implemented in
+`AllbertAssist.CLI.Commands` and rendered in `docs/developer/cli-mapping.md`.
+The as-built deltas from the design-level taxonomy are:
+
+- Runtime-backed commands attach first to a running `allbert serve` daemon over
+  the local Unix-domain socket; embedded startup is only the no-daemon fallback.
+- First-run state uses an Allbert Home marker (`onboarding.json`), not a new
+  Settings Central key; v0.63 still owns wizard semantics.
+- `admin models` remains the model doctor/readiness surface; the First-Model
+  action surface is explicit as `admin model detect|install|pull`.
+- Service and vault operations are explicit admin commands:
+  `admin service install|uninstall`, `admin health`, `admin vault`, and
+  `admin secrets migrate`.
+- Developer/CI commands remain Mix-only; `gen` is retained as a grouped name in
+  the design taxonomy but is rejected by the v0.62 binary surface unless later
+  promoted.

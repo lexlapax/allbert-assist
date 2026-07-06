@@ -7,11 +7,30 @@ defmodule AllbertAssist.FirstModelTest do
   """
   use AllbertAssist.DataCase, async: false
 
-  alias AllbertAssist.Actions.FirstModel.{Detect, InstallOllama, PullModel}
+  alias AllbertAssist.Actions.FirstModel.{InstallOllama, PullModel}
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.FirstModel.{Hardware, Ollama}
 
   @moduletag :first_model_path
+
+  setup {Req.Test, :verify_on_exit!}
+
+  setup do
+    original_req_options = Application.get_env(:allbert_assist, :first_model_req_options)
+    original_host = System.get_env("OLLAMA_HOST")
+
+    on_exit(fn ->
+      if original_req_options,
+        do: Application.put_env(:allbert_assist, :first_model_req_options, original_req_options),
+        else: Application.delete_env(:allbert_assist, :first_model_req_options)
+
+      if original_host,
+        do: System.put_env("OLLAMA_HOST", original_host),
+        else: System.delete_env("OLLAMA_HOST")
+    end)
+
+    :ok
+  end
 
   describe "Ollama.probe/1 (three-way, injected)" do
     test "model_ready when server up and the curated model is present" do
@@ -44,6 +63,31 @@ defmodule AllbertAssist.FirstModelTest do
                version: fn -> :error end,
                tags: fn -> [] end
              ) == :missing
+    end
+
+    test "default localhost HTTP uses Req and parses version/tags" do
+      Application.put_env(:allbert_assist, :first_model_req_options, plug: {Req.Test, __MODULE__})
+
+      Req.Test.expect(__MODULE__, fn %{request_path: "/api/version"} = conn ->
+        Req.Test.json(conn, %{"version" => "0.5.0"})
+      end)
+
+      assert Ollama.server_version() == {:ok, "0.5.0"}
+
+      Req.Test.expect(__MODULE__, fn %{request_path: "/api/tags"} = conn ->
+        Req.Test.json(conn, %{
+          "models" => [%{"name" => Ollama.curated_model()}]
+        })
+      end)
+
+      assert Ollama.model_tags() == [Ollama.curated_model()]
+    end
+
+    test "default HTTP refuses non-loopback OLLAMA_HOST" do
+      System.put_env("OLLAMA_HOST", "https://example.com")
+
+      assert Ollama.local_url("/api/version") == {:error, :non_loopback_host}
+      assert Ollama.server_version() == :error
     end
   end
 
@@ -80,16 +124,21 @@ defmodule AllbertAssist.FirstModelTest do
     end
 
     test "dry_run reports the allowlisted command without executing" do
-      assert {:ok, %{status: :completed, actions: [%{executed: false, command: command}]}} =
+      assert {:ok, %{status: :completed, actions: [%{executed: false, commands: commands}]}} =
                Runner.run("install_ollama", %{dry_run: true}, %{user_id: "local"})
 
-      assert is_list(command)
+      assert is_list(commands)
+      assert commands != []
     end
 
-    test "the install command is allowlisted per OS (no shell injection surface)" do
-      {cmd, args} = InstallOllama.install_command()
-      assert is_binary(cmd)
-      assert is_list(args)
+    test "the install commands are allowlisted per OS (no shell pipeline)" do
+      assert {:ok, commands} = InstallOllama.install_commands()
+
+      for {cmd, args} <- commands do
+        assert is_binary(cmd)
+        assert is_list(args)
+        refute cmd in ["sh", "bash", "zsh"] and "-c" in args
+      end
     end
   end
 
@@ -109,6 +158,20 @@ defmodule AllbertAssist.FirstModelTest do
 
       assert message =~ "/api/pull"
       assert message =~ Ollama.curated_model()
+    end
+
+    test "approved pull uses Req against the loopback Ollama API" do
+      Application.put_env(:allbert_assist, :first_model_req_options, plug: {Req.Test, __MODULE__})
+
+      Req.Test.expect(__MODULE__, fn %{method: "POST", request_path: "/api/pull"} = conn ->
+        assert Req.Test.raw_body(conn) =~ Ollama.curated_model()
+        Req.Test.json(conn, %{"status" => "success"})
+      end)
+
+      assert {:ok, %{status: :completed, actions: [%{executed: true, summary: summary}]}} =
+               PullModel.run(%{}, %{confirmation: %{approved?: true}})
+
+      assert summary.status == "success"
     end
   end
 end

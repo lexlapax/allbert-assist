@@ -6,6 +6,7 @@ defmodule AllbertAssist.Application do
   use Application
 
   alias AllbertAssist.Database
+  alias AllbertAssist.Runtime.Attach
   alias AllbertAssist.Runtime.WriterLock.Holder, as: WriterLockHolder
   alias AllbertAssist.Settings.ProviderCatalog
   alias AllbertAssist.Workspace.Fragment.Guard, as: FragmentGuard
@@ -46,6 +47,7 @@ defmodule AllbertAssist.Application do
       |> maybe_add_jido_backed_supervisor()
       |> maybe_add_session_scratchpad()
       |> maybe_add_channels_supervisor()
+      |> maybe_add_attach_server()
 
     Supervisor.start_link(children, strategy: :one_for_one, name: AllbertAssist.Supervisor)
   end
@@ -53,6 +55,14 @@ defmodule AllbertAssist.Application do
   defp writer_lock_child do
     if WriterLockHolder.enabled?() do
       WriterLockHolder
+    end
+  end
+
+  defp maybe_add_attach_server(children) do
+    if WriterLockHolder.enabled?() do
+      children ++ [Attach.Server]
+    else
+      children
     end
   end
 

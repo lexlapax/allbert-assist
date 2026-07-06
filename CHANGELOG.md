@@ -16,9 +16,10 @@ Status: **release candidate — version 0.62.0; tag held for the operator** (per
 the plan's Locked Decision 16). `mix allbert.test release.v062` is the
 checkout-bound gate; the packaged-artifact smoke harness
 (`.github/workflows/release-artifacts.yml` + `scripts/smoke/artifact_smoke.sh`)
-is the second verification layer, since the mix gate cannot execute the binary.
-Per-OS brew/curl/service/vault rehearsals are operator S-steps. Governed by ADR
-0076 (Accepted at S8, 2026-07-06); ADR 0070 marked converged.
+is the required second verification layer, since the mix gate cannot execute
+the binary. Remote artifact-matrix evidence and per-OS brew/curl/service/vault
+rehearsals are operator S-steps before manual closeout. Governed by ADR 0076
+(Accepted at S8, 2026-07-06); ADR 0070 marked converged.
 
 Packages Allbert as a self-contained product with one operator entry point.
 
@@ -37,11 +38,14 @@ Packages Allbert as a self-contained product with one operator entry point.
 - **Unified `allbert` CLI (M3):** one dispatcher fronts the operator surface;
   every command maps to a named registered action or bounded read (the one-spine
   invariant), with a disposition table separating operator commands from
-  dev/CI mix-only tasks. First-run detection performs zero network I/O without
-  explicit consent.
+  dev/CI mix-only tasks. Runtime-backed commands attach first to a running
+  daemon over a local Unix-domain socket, falling back to embedded startup only
+  when no daemon is reachable. First-run detection performs zero network I/O
+  without explicit consent.
 - **First-Model-Path onboarding (M4):** a seven-state model-readiness machine
   (Ollama detect/install/pull behind confirmation + dry-run preview, curated
-  `llama3.2:3b` with an 8 GB floor, `below_hardware_floor` degrading to BYOK).
+  `llama3.2:3b` with an 8 GB floor, loopback-only `Req` calls for Ollama HTTP,
+  exact argv installer execution, and `below_hardware_floor` degrading to BYOK).
 - **`allbert serve` daemon + health (M5):** a single-writer guard (held
   `BEGIN EXCLUSIVE` on a sidecar lock DB + the attach socket as liveness probe),
   a `/health` endpoint (200/503 JSON), and confirmation-gated per-user service

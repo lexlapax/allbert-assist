@@ -5,7 +5,7 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
   Uses the local Ollama REST API (`POST /api/pull`) under the existing
   **`:external_network`** authority — its `:needs_confirmation` safety floor
   means the pull runs only behind a durable operator confirmation. The API path
-  gives structured progress and documented cancel/resume; there is no silent
+  is loopback-only and returns a bounded JSON summary; there is no silent
   egress. The trace records the model tag and outcome.
   """
 
@@ -35,6 +35,8 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
   alias AllbertAssist.FirstModel.Ollama
   alias AllbertAssist.Security.PermissionGate
 
+  @req_options_key :first_model_req_options
+
   @impl true
   def run(params, context) do
     permission_decision = PermissionGate.authorize(:external_network, context)
@@ -52,7 +54,7 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
            actions: [action(:completed, permission_decision, %{model: model, executed: false})]
          }}
 
-      not PermissionGate.allowed?(permission_decision) ->
+      not PermissionGate.allowed?(permission_decision) and not approval_resume?(context) ->
         denied(permission_decision, model)
 
       true ->
@@ -88,25 +90,39 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
     end
   end
 
-  # Injectable puller for tests; default streams POST /api/pull.
+  # Injectable puller for tests; default uses POST /api/pull with stream=false.
   defp do_pull(model) do
     puller = Application.get_env(:allbert_assist, :first_model_pull, &default_pull/1)
     puller.(model)
   end
 
   defp default_pull(model) do
-    url = String.to_charlist(Ollama.base_url() <> "/api/pull")
-    body = Jason.encode!(%{name: model, stream: false})
+    with {:ok, url} <- Ollama.local_url("/api/pull") do
+      opts =
+        [
+          method: :post,
+          url: url,
+          json: %{name: model, stream: false},
+          receive_timeout: 600_000,
+          retry: false,
+          redirect: false
+        ]
+        |> Keyword.merge(Application.get_env(:allbert_assist, @req_options_key, []))
 
-    case :httpc.request(
-           :post,
-           {url, [], ~c"application/json", String.to_charlist(body)},
-           [{:timeout, 600_000}],
-           []
-         ) do
-      {:ok, {{_v, 200, _r}, _h, resp}} -> {:ok, summarize(to_string(resp))}
-      {:ok, {{_v, code, _r}, _h, _resp}} -> {:error, {:http, code}}
-      {:error, reason} -> {:error, reason}
+      case Req.request(opts) do
+        {:ok, %{status: 200, body: resp}} -> {:ok, summarize(resp)}
+        {:ok, %{status: code}} -> {:error, {:http, code}}
+        {:error, %Req.TransportError{} = error} -> {:error, error.reason}
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
+  defp summarize(resp) when is_map(resp) do
+    case resp do
+      %{"status" => status} -> %{status: status}
+      %{status: status} -> %{status: status}
+      _other -> %{status: "completed"}
     end
   end
 
@@ -125,6 +141,11 @@ defmodule AllbertAssist.Actions.FirstModel.PullModel do
        permission_decision: permission_decision,
        actions: [action(:denied, permission_decision, %{model: model, executed: false})]
      }}
+  end
+
+  defp approval_resume?(context) do
+    get_in(context, [:confirmation, :approved?]) == true ||
+      get_in(context, ["confirmation", "approved?"]) == true
   end
 
   defp action(status, permission_decision, metadata) do

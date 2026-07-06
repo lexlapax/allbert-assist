@@ -47,14 +47,16 @@ release — validated and tagged 2026-07-05). It implemented the operator's v0.6
 manual-validation UX feedback before v0.62 moves on to packaging and entry
 points.
 
-**v0.62 Packaging & Entry Points is implemented (M0–M8, version 0.62.0) and
-awaiting the operator's release tag.** It packages Allbert as a self-contained
+**v0.62 Packaging & Entry Points is implemented (M0–M8 plus M8.x remediation,
+version 0.62.0) and awaiting operator validation/tag.** It packages Allbert as a self-contained
 OTP release with a unified `allbert` CLI, a Homebrew/curl install path with
 checksum verification, first-run and First-Model-Path onboarding, an
-`allbert serve` daemon with a single-writer guard and `/health`, the ADR 0070
+`allbert serve` daemon with attach-first command routing, a single-writer guard,
+and `/health`, the ADR 0070
 mix-free TUI console convergence, and a three-tier OS secret vault (ADR 0076).
-The `mix allbert.test release.v062` gate plus a packaged-artifact smoke harness
-are the two verification layers; no new authority.
+The `mix allbert.test release.v062` gate is the source verification layer; the
+packaged-artifact smoke harness is the required remote artifact layer before
+manual closeout. No new authority.
 
 This README is the stable project orientation; release-by-release implementation
 detail belongs in [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in

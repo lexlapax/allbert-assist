@@ -18,6 +18,7 @@ defmodule AllbertAssist.FirstModel.Ollama do
   """
 
   @default_base_url "http://127.0.0.1:11434"
+  @req_options_key :first_model_req_options
 
   # Curated default (Locked Decision 9): a ~3–4B model with an 8 GB floor.
   # Selected/refreshed in v0.62 per ADR 0078; ratified at S4.
@@ -39,6 +40,17 @@ defmodule AllbertAssist.FirstModel.Ollama do
     case normalize_host(System.get_env("OLLAMA_HOST")) do
       nil -> @default_base_url
       url -> url
+    end
+  end
+
+  @doc "Return a loopback-only Ollama URL."
+  @spec local_url(String.t()) :: {:ok, String.t()} | {:error, :non_loopback_host}
+  def local_url(path) when is_binary(path) do
+    url = base_url() <> path
+
+    case URI.parse(url) do
+      %URI{host: host} when host in ["127.0.0.1", "localhost", "::1"] -> {:ok, url}
+      _other -> {:error, :non_loopback_host}
     end
   end
 
@@ -93,21 +105,43 @@ defmodule AllbertAssist.FirstModel.Ollama do
 
   defp get(path) do
     client = Application.get_env(:allbert_assist, :first_model_http, &default_get/1)
-    client.(base_url() <> path)
+
+    case local_url(path) do
+      {:ok, url} -> client.(url)
+      {:error, _reason} -> :error
+    end
   end
 
   defp default_get(url) do
-    case :httpc.request(:get, {String.to_charlist(url), []}, [{:timeout, 1_500}], []) do
-      {:ok, {{_v, 200, _r}, _h, body}} ->
-        case Jason.decode(to_string(body)) do
-          {:ok, decoded} -> {:ok, decoded}
-          _error -> :error
-        end
+    opts =
+      [
+        method: :get,
+        url: url,
+        receive_timeout: 1_500,
+        retry: false,
+        redirect: false
+      ]
+      |> Keyword.merge(Application.get_env(:allbert_assist, @req_options_key, []))
+
+    case Req.request(opts) do
+      {:ok, %{status: 200, body: body}} ->
+        decode_body(body)
 
       _other ->
         :error
     end
   end
+
+  defp decode_body(body) when is_map(body), do: {:ok, body}
+
+  defp decode_body(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> {:ok, decoded}
+      _error -> :error
+    end
+  end
+
+  defp decode_body(_body), do: :error
 
   defp normalize_host(nil), do: nil
   defp normalize_host(""), do: nil

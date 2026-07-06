@@ -3,11 +3,11 @@ defmodule AllbertAssist.Runtime.WriterLock.Holder do
   Supervised holder of the single-writer lock (v0.62 M5). Added to the
   supervision tree **only** in daemon/serve mode (`ALLBERT_HOLD_WRITER_LOCK`
   set by the `serve` launcher), so `allbert serve` owns the database writer
-  lock for its lifetime and any second `allbert` command detects it via
-  `WriterLock.held_by_another?/1` and refuses to boot a competing writer
-  (Locked Decision 5). Dev/test starts do not hold the lock, so concurrent test
-  runs are unaffected — the guard is a daemon-coexistence protection, not a
-  test constraint.
+  lock for its lifetime. A second `allbert` command should attach to the daemon
+  first; if attach is unavailable, `WriterLock.held_by_another?/1` refuses the
+  embedded fallback instead of booting a competing writer (Locked Decision 5).
+  Dev/test starts do not hold the lock, so concurrent test runs are unaffected
+  — the guard is a daemon-coexistence protection, not a test constraint.
   """
   use GenServer
 

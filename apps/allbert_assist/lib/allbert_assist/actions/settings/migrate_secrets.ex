@@ -55,7 +55,7 @@ defmodule AllbertAssist.Actions.Settings.MigrateSecrets do
            executed: false
          })}
 
-      not PermissionGate.allowed?(permission_decision) ->
+      not PermissionGate.allowed?(permission_decision) and not approval_resume?(context) ->
         {:ok,
          %{
            message: permission_decision.reason,
@@ -130,5 +130,10 @@ defmodule AllbertAssist.Actions.Settings.MigrateSecrets do
       },
       metadata
     )
+  end
+
+  defp approval_resume?(context) do
+    get_in(context, [:confirmation, :approved?]) == true ||
+      get_in(context, ["confirmation", "approved?"]) == true
   end
 end
