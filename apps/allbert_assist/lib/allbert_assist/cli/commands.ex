@@ -172,7 +172,9 @@ defmodule AllbertAssist.CLI.Commands do
 
   @doc "Group names surfaced in `allbert --help`."
   @spec groups() :: [String.t()]
-  def groups, do: ["ask", "chat", "tui", "serve", "admin", "gen"]
+  # `gen` is developer/CI only (:mix_only) and absent from the binary surface, so
+  # it is not a product command group (v0.62 M8.11).
+  def groups, do: ["ask", "chat", "tui", "serve", "admin"]
 
   @doc "True when a Mix task is developer/CI only (must be absent from the binary)."
   @spec mix_only?(String.t()) :: boolean()

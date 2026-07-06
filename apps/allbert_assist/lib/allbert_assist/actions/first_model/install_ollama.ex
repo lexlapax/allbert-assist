@@ -68,6 +68,13 @@ defmodule AllbertAssist.Actions.FirstModel.InstallOllama do
         {:ok, [{"brew", ["install", "ollama"]}]}
 
       {:unix, _linux} ->
+        # v0.62 M8.11 note: this downloads Ollama's official install.sh over TLS
+        # and runs it — supply-chain trust in ollama.com, NOT a pinned checksum
+        # (the upstream script has no published per-release digest). It executes
+        # only behind the :command_execute confirmation. Checksum/signature
+        # pinning of third-party installers is a recorded v0.64 M0.a
+        # packaging-trust intake item (ADR 0076); until then the operator
+        # confirms the exact fetch+exec shown in the confirmation record.
         {:ok,
          [
            {"curl", ["-fsSL", @install_script_url, "-o", @script_placeholder]},
