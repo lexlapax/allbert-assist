@@ -43,6 +43,8 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.FirstModel.PullModel
   alias AllbertAssist.Actions.Serve.ServeHealth
   alias AllbertAssist.Actions.Serve.ServiceControl
+  alias AllbertAssist.Actions.Settings.MigrateSecrets
+  alias AllbertAssist.Actions.Settings.VaultStatus
   alias AllbertAssist.Actions.Conversations.RenameThread
   alias AllbertAssist.Actions.Conversations.ResumeThreadOnChannel
   alias AllbertAssist.Actions.DynamicPlugins.DisableLiveLoader, as: DisableDynamicLiveLoader
@@ -416,6 +418,11 @@ defmodule AllbertAssist.Actions.Registry do
     # (command_execute, confirmed). Named internal actions, not off-spine shell.
     ServeHealth,
     ServiceControl,
+    # v0.62 M7: three-tier secret vault — vault status (read-only) + migrate
+    # secrets into the OS vault (settings_write, confirmed). Named internal
+    # actions in the packaging-no-authority-change allowance.
+    VaultStatus,
+    MigrateSecrets,
     ManageTile,
     RevertTileRevision,
     RecordOfflineUpdate,

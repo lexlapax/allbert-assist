@@ -51,6 +51,8 @@ defmodule AllbertAssist.CLI.Commands do
     ["admin", "model", "pull"] => {:action, "pull_model"},
     ["admin", "health"] => {:action, "serve_health"},
     ["admin", "service"] => {:action, "service_control"},
+    ["admin", "vault"] => {:action, "vault_status"},
+    ["admin", "secrets", "migrate"] => {:action, "migrate_secrets"},
     ["admin", "onboarding"] => {:read, AllbertAssist.CLI.FirstRun, :onboarding_summary},
     # v0.59 portability boundary (read DB + file I/O; no store mutation).
     ["admin", "home", "export"] => :builtin,

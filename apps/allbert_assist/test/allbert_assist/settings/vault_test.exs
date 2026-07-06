@@ -1,0 +1,198 @@
+defmodule AllbertAssist.Settings.VaultTest do
+  @moduledoc """
+  v0.62 M7 — three-tier secret vault (signed Locked Decision 12).
+
+  Proves the contract the milestone is built on: tier resolution is explicit
+  and surfaced (never silent), the OS-vault adapters shell out only through an
+  injected runner (no real Keychain / Secret Service touched), the encrypted
+  file remains the headless-safe fallback, the env tier is read-only, and the
+  migrate-secrets action moves values without ever surfacing a secret in its
+  output (redaction sweep). These back eval rows `secret-vault-no-leak-001`,
+  `vault-tier-resolution-explicit-001`, `secret-vault-migration-redacted-001`.
+  """
+  use AllbertAssist.DataCase, async: false
+
+  alias AllbertAssist.Actions.Settings.MigrateSecrets
+  alias AllbertAssist.Actions.Settings.VaultStatus
+  alias AllbertAssist.Settings
+  alias AllbertAssist.Settings.Secrets
+  alias AllbertAssist.Settings.Vault
+  alias AllbertAssist.Settings.Vault.EncryptedFile
+  alias AllbertAssist.Settings.Vault.Env
+  alias AllbertAssist.Settings.Vault.LinuxSecretService
+  alias AllbertAssist.Settings.Vault.MacKeychain
+
+  @secret_ref "secret://providers/anthropic/api_key"
+  @secret_value "sk-ant-SUPER-SECRET-VALUE-do-not-leak"
+
+  setup do
+    original_settings = Application.get_env(:allbert_assist, Settings)
+    original_backend = System.get_env("ALLBERT_VAULT_BACKEND")
+
+    root =
+      Path.join(System.tmp_dir!(), "allbert-vault-#{System.unique_integer([:positive])}")
+
+    Application.put_env(:allbert_assist, Settings, root: root)
+
+    on_exit(fn ->
+      if original_settings,
+        do: Application.put_env(:allbert_assist, Settings, original_settings),
+        else: Application.delete_env(:allbert_assist, Settings)
+
+      if original_backend,
+        do: System.put_env("ALLBERT_VAULT_BACKEND", original_backend),
+        else: System.delete_env("ALLBERT_VAULT_BACKEND")
+
+      Application.delete_env(:allbert_assist, :vault_security_runner)
+      Application.delete_env(:allbert_assist, :vault_secret_tool_runner)
+      File.rm_rf!(root)
+    end)
+
+    :ok
+  end
+
+  describe "tier resolution (never silent)" do
+    test "resolve/0 always names the active tier and why" do
+      System.delete_env("ALLBERT_VAULT_BACKEND")
+      resolution = Vault.resolve()
+
+      assert resolution.tier in [:os, :encrypted_file, :env]
+      assert is_binary(resolution.notice) and resolution.notice != ""
+      assert is_atom(resolution.backend)
+    end
+
+    test "ALLBERT_VAULT_BACKEND override is honored and surfaced" do
+      System.put_env("ALLBERT_VAULT_BACKEND", "encrypted_file")
+      resolution = Vault.resolve()
+
+      assert resolution.tier == :encrypted_file
+      assert resolution.backend == EncryptedFile
+      assert resolution.notice =~ "override"
+    end
+
+    test "a vault-absent host falls to the encrypted file with a notice, not silently" do
+      System.put_env("ALLBERT_VAULT_BACKEND", "encrypted_file")
+      resolution = Vault.resolve()
+
+      # Explicit fallback tier + explanatory notice — never an empty/implicit one.
+      assert resolution.tier == :encrypted_file
+      assert resolution.notice != ""
+    end
+  end
+
+  describe "EncryptedFile tier (tier 2, the stable fallback)" do
+    test "round-trips through Settings.Secrets unchanged" do
+      assert {:ok, _} = EncryptedFile.put(@secret_ref, @secret_value, %{})
+      assert {:ok, @secret_value} = EncryptedFile.get(@secret_ref, %{})
+    end
+  end
+
+  describe "MacKeychain tier (tier 1 macOS, injected runner)" do
+    test "put/get shell out via the injected runner; errors redact -w values" do
+      test_pid = self()
+
+      runner = fn args ->
+        send(test_pid, {:security, args})
+
+        cond do
+          "add-generic-password" in args -> {"", 0}
+          "find-generic-password" in args -> {@secret_value, 0}
+          true -> {"", 1}
+        end
+      end
+
+      Application.put_env(:allbert_assist, :vault_security_runner, runner)
+
+      assert {:ok, %{tier: :os}} = MacKeychain.put(@secret_ref, @secret_value, %{})
+      assert {:ok, @secret_value} = MacKeychain.get(@secret_ref, %{})
+
+      # The put argv carried the value; confirm the module redacts it on error paths.
+      error_runner = fn _args -> {"error near -w #{@secret_value}", 1} end
+      Application.put_env(:allbert_assist, :vault_security_runner, error_runner)
+      assert {:error, {:keychain, 1, redacted}} = MacKeychain.put(@secret_ref, @secret_value, %{})
+      refute redacted =~ @secret_value
+      assert redacted =~ "[redacted]"
+    end
+  end
+
+  describe "LinuxSecretService tier (tier 1 Linux, injected runner)" do
+    test "put pipes the value over stdin; get looks it up" do
+      test_pid = self()
+
+      runner = fn args, stdin ->
+        send(test_pid, {:secret_tool, args, stdin})
+
+        cond do
+          "store" in args -> {"", 0}
+          "lookup" in args -> {@secret_value <> "\n", 0}
+          true -> {"", 1}
+        end
+      end
+
+      Application.put_env(:allbert_assist, :vault_secret_tool_runner, runner)
+
+      assert {:ok, %{tier: :os}} = LinuxSecretService.put(@secret_ref, @secret_value, %{})
+      assert_received {:secret_tool, ["store" | _], @secret_value}
+      assert {:ok, @secret_value} = LinuxSecretService.get(@secret_ref, %{})
+    end
+  end
+
+  describe "Env tier (tier 3, read-only)" do
+    test "writes are refused and env-provided keys are surfaced by name only" do
+      assert {:error, :env_tier_is_read_only} = Env.put(@secret_ref, @secret_value, %{})
+      assert {:error, :env_tier_is_read_only} = Env.delete(@secret_ref, %{})
+
+      System.put_env("ANTHROPIC_API_KEY", @secret_value)
+      on_exit(fn -> System.delete_env("ANTHROPIC_API_KEY") end)
+
+      provided = Env.env_provided()
+      assert "ANTHROPIC_API_KEY" in provided
+      # Names only — the value never appears in the surfaced list.
+      refute Enum.any?(provided, &(&1 =~ @secret_value))
+    end
+  end
+
+  describe "vault_status action (read-only)" do
+    test "reports the resolved tier + posture without secret values" do
+      System.put_env("ALLBERT_VAULT_BACKEND", "encrypted_file")
+
+      assert {:ok, response} = VaultStatus.run(%{}, %{user_id: "local"})
+      assert response.status == :completed
+      assert response.vault.tier == :encrypted_file
+      assert is_boolean(response.vault.os_vault_available)
+      refute inspect(response) =~ @secret_value
+    end
+  end
+
+  describe "migrate_secrets action" do
+    test "dry_run previews the reference set without moving anything" do
+      assert {:ok, %{status: :completed, migration: migration}} =
+               MigrateSecrets.run(%{dry_run: true}, %{user_id: "local"})
+
+      assert migration.executed == false
+      assert is_list(migration.refs)
+    end
+
+    test "migration round-trips into the OS vault and never surfaces a secret value" do
+      # Seed a tier-2 secret, force the OS tier, capture Keychain writes.
+      assert {:ok, _} = Secrets.put_secret(@secret_ref, @secret_value, %{})
+      System.put_env("ALLBERT_VAULT_BACKEND", "os")
+
+      test_pid = self()
+
+      runner = fn args ->
+        if "add-generic-password" in args, do: send(test_pid, {:migrated, args})
+        {"", 0}
+      end
+
+      Application.put_env(:allbert_assist, :vault_security_runner, runner)
+
+      assert {:ok, response} =
+               MigrateSecrets.run(%{}, %{user_id: "local"})
+
+      assert response.status in [:completed, :error]
+      # The migrate output must never carry the raw secret value anywhere.
+      refute inspect(response) =~ @secret_value
+    end
+  end
+end

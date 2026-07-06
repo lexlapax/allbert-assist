@@ -24,7 +24,20 @@ defmodule AllbertAssist.Credo.Check.SettingsCentralNoBypass do
         "ALLBERT_TUI_LOG_LEVEL",
         "ALLBERT_WEBHOOK_BASE_URL",
         "ALLBERT_SETTINGS_MASTER_KEY",
-        "ALLBERT_TEMPLATE_SMOKE"
+        "ALLBERT_TEMPLATE_SMOKE",
+        # v0.62 packaging/daemon/vault infrastructure env (not operator-tunable
+        # Settings Central keys): OTP release layout, plugin root, daemon
+        # writer-lock flag, OS session/user for service management, the Ollama
+        # endpoint probe, and the ratified vault-tier override (S5).
+        "RELEASE_NAME",
+        "RELEASE_ROOT",
+        "ALLBERT_PLUGINS_ROOT",
+        "ALLBERT_HOLD_WRITER_LOCK",
+        "ALLBERT_VAULT_BACKEND",
+        "DBUS_SESSION_BUS_ADDRESS",
+        "XDG_RUNTIME_DIR",
+        "UID",
+        "OLLAMA_HOST"
       ],
       operator_setting_keys: [
         "runtime.trace_default",

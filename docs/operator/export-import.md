@@ -65,7 +65,11 @@ inert_import_plan.applied_changes=none
 ## Secret References
 
 The envelope round-trips secret references only. Secret values stay in the source
-Home encrypted secret store and are never exported.
+Home encrypted secret store and are never exported. Values held in the tier-1 OS
+vault (macOS Keychain / Linux Secret Service — see the Secret Vault section of
+[security-hardening.md](security-hardening.md)) live outside Allbert Home, so
+they are likewise never in the archive; re-provision or re-run
+`allbert admin secrets migrate` on the destination host.
 
 If the diagnostic reports missing target refs, restore those secrets manually in
 the target Home and rerun the dry-run import:

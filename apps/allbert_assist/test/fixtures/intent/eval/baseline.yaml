@@ -1,8 +1,8 @@
 ---
 clarify_vs_execute:
   accuracy: 1.0
-  passed: 257
-  total: 257
+  passed: 265
+  total: 265
 confusion:
   - actual: answer
     count: 1
@@ -187,6 +187,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:find_tools
+  - actual: none
+    count: 1
+    expected: execute:first_model_detect
   - actual: execute:generate_image
     count: 2
     expected: execute:generate_image
@@ -229,6 +232,9 @@ confusion:
   - actual: execute:install_marketplace_bundle
     count: 1
     expected: execute:install_marketplace_bundle
+  - actual: none
+    count: 1
+    expected: execute:install_ollama
   - actual: none
     count: 1
     expected: execute:integrate_dynamic_draft
@@ -363,6 +369,9 @@ confusion:
     expected: execute:mcp_server_connect
   - actual: none
     count: 1
+    expected: execute:migrate_secrets
+  - actual: none
+    count: 1
     expected: execute:model_doctor
   - actual: none
     count: 1
@@ -397,6 +406,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:pause_job
+  - actual: none
+    count: 1
+    expected: execute:persist_approval_media_response
   - actual: execute:plan_package_install
     count: 1
     expected: execute:plan_package_install
@@ -436,6 +448,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:prune_memory_entries
+  - actual: none
+    count: 1
+    expected: execute:pull_model
   - actual: none
     count: 1
     expected: execute:put_artifact
@@ -573,6 +588,12 @@ confusion:
     expected: execute:send_email
   - actual: none
     count: 1
+    expected: execute:serve_health
+  - actual: none
+    count: 1
+    expected: execute:service_control
+  - actual: none
+    count: 1
     expected: execute:set_active_app
   - actual: execute:set_active_model_profile
     count: 1
@@ -690,6 +711,9 @@ confusion:
     expected: execute:validate_template
   - actual: none
     count: 1
+    expected: execute:vault_status
+  - actual: none
+    count: 1
     expected: execute:verify_marketplace_bundle_hash
   - actual: none
     count: 1
@@ -709,15 +733,15 @@ confusion:
   - actual: none
     count: 11
     expected: none
-corpus_case_count: 269
+corpus_case_count: 277
 gate:
   failures: []
   status: pass
-generated_at: 2026-07-02T15:37:28Z
+generated_at: 2026-07-06T08:05:37Z
 id: v056-release-baseline
 negative_violations: []
 overall_accuracy: 1.0
-passed: 269
+passed: 277
 per_domain:
   adversarial:
     accuracy: 1.0
@@ -789,8 +813,8 @@ per_domain:
     total: 13
   negative-internal:
     accuracy: 1.0
-    passed: 135
-    total: 135
+    passed: 143
+    total: 143
   negative-operator:
     accuracy: 1.0
     passed: 20
@@ -858,8 +882,8 @@ per_domain:
 per_surface:
   any:
     accuracy: 1.0
-    passed: 260
-    total: 260
+    passed: 268
+    total: 268
   discord:
     accuracy: 1.0
     passed: 1
@@ -901,4 +925,4 @@ slot_accuracy:
   accuracy: 1.0
   passed: 8
   total: 8
-total: 269
+total: 277

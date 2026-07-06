@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: persist_approval_media_response
+  kind: execute
+id: internal-persist-approval-media-response-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action persist_approval_media_response

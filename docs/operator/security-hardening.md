@@ -446,6 +446,39 @@ capabilities exist in the current release.
   of advisory output into markdown memory remains blocked unless an operator
   explicitly confirms a write path.
 
+## Secret Vault (three-tier)
+
+Settings Central always holds secret *references* (`secret://…`); where the
+*values* live is resolved in tier order, and the resolution is always explicit —
+never a silent choice:
+
+1. **OS vault (tier 1)** — macOS Keychain (`security`) or Linux Secret Service
+   (`secret-tool`). Used automatically when reachable. Values live in the OS
+   keychain, outside Allbert Home.
+2. **Encrypted file (tier 2)** — the existing `secrets.yml.enc` store, used as
+   the documented fallback where no OS vault is reachable (e.g. a headless Linux
+   daemon with no D-Bus session). The fallback is surfaced with a notice, not
+   silent.
+3. **Env injection (tier 3)** — the five provider keys read from the environment
+   for automation/CI. Read-only; surfaced in inspection as "env-provided" so it
+   is never an invisible side channel.
+
+Inspect and migrate:
+
+```sh
+allbert admin vault                 # resolved tier + why, OS-vault reachability, env-provided keys
+allbert admin secrets migrate       # move encrypted-store secrets into the OS vault (confirmation-gated)
+```
+
+`allbert admin secrets migrate` is a confirmation-floored operation; run it with
+`--dry-run` first to preview the reference set. It moves values only into a
+reachable OS vault and never prints a raw secret. Override the resolved tier
+with `ALLBERT_VAULT_BACKEND=os|encrypted_file|env` when you need to pin it.
+
+Home export/import (see [export-import.md](export-import.md)) carries references
+plus tier-2 material only; tier-1 OS-vault values are **not** in the archive —
+re-provision or re-migrate them on the destination host.
+
 ## Sandbox Gate Runner
 
 Use [sandbox-gate-runner.md](sandbox-gate-runner.md) when testing generated
