@@ -305,7 +305,14 @@ defmodule AllbertBrowser.Driver.Playwright do
   end
 
   defp bridge_path do
-    path = Path.expand("../../../priv/playwright_bridge/bridge.js", __DIR__)
+    # v0.62 M1: resolve through the release-safe plugins root at runtime —
+    # `__DIR__` freezes the build machine's checkout path into the artifact.
+    path =
+      AllbertAssist.Plugin.Paths.plugin_path("allbert.browser", [
+        "priv",
+        "playwright_bridge",
+        "bridge.js"
+      ]) || Path.expand("../../../priv/playwright_bridge/bridge.js", __DIR__)
 
     if File.exists?(path), do: {:ok, path}, else: {:error, {:playwright_bridge_missing, path}}
   end

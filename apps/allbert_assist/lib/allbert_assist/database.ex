@@ -12,10 +12,6 @@ defmodule AllbertAssist.Database do
 
   @app :allbert_assist
   @startup_migration_pool_size 1
-  @stocksage_migrations Path.expand(
-                          "../../../../plugins/stocksage/priv/repo/migrations",
-                          __DIR__
-                        )
 
   @doc "Return the canonical SQLite path derived from Allbert Home."
   @spec home_database_path() :: String.t()
@@ -100,7 +96,30 @@ defmodule AllbertAssist.Database do
       |> Application.get_env(__MODULE__, [])
       |> Keyword.get(:migration_paths, [])
 
-    [Ecto.Migrator.migrations_path(repo), @stocksage_migrations] ++ configured_paths
+    [Ecto.Migrator.migrations_path(repo)] ++ plugin_migration_paths() ++ configured_paths
+  end
+
+  # v0.62 M1: plugin migrations resolve through the release-safe plugins root
+  # at RUNTIME — the old compile-time `Path.expand(..., __DIR__)` froze the
+  # build machine's checkout path into the artifact, and the missing-dir
+  # filter then silently dropped stocksage's migrations on user machines. A
+  # missing path now logs loudly instead of vanishing.
+  defp plugin_migration_paths do
+    case AllbertAssist.Plugin.Paths.plugin_path("stocksage", ["priv", "repo", "migrations"]) do
+      nil ->
+        require Logger
+        Logger.warning("plugin migrations skipped: no plugins root resolved (stocksage)")
+        []
+
+      path ->
+        if File.dir?(path) do
+          [path]
+        else
+          require Logger
+          Logger.warning("plugin migrations skipped: missing directory #{path}")
+          []
+        end
+    end
   end
 
   defp run_migrations_before_supervision! do
@@ -141,9 +160,7 @@ defmodule AllbertAssist.Database do
   end
 
   defp test_env? do
-    Code.ensure_loaded?(Mix) and function_exported?(Mix, :env, 0) and Mix.env() == :test
-  rescue
-    _error -> false
+    AllbertAssist.RuntimeEnv.test?()
   end
 
   defp truthy_env?(name) do

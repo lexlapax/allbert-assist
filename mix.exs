@@ -34,9 +34,73 @@ defmodule AllbertAssist.Umbrella.MixProject do
         ],
         include_executables_for: [:unix],
         include_erts: true,
-        steps: [&build_web_assets/1, :assemble]
+        steps: [&build_web_assets/1, :assemble, &stage_plugins/1, &patch_macos_openssl/1]
       ]
     ]
+  end
+
+  # v0.62 M1: shipped plugins register from `RELEASE_ROOT/plugins` (the
+  # M0-proven packaged layout; AllbertAssist.Plugin.Paths) — stage each
+  # plugin's runtime folders (manifest + priv + skills, no source) into the
+  # assembled release so registration is cwd-independent.
+  defp stage_plugins(release) do
+    target = Path.join(release.path, "plugins")
+    File.mkdir_p!(target)
+
+    "plugins"
+    |> File.ls!()
+    |> Enum.each(fn plugin_id ->
+      source = Path.join("plugins", plugin_id)
+
+      if File.dir?(source) do
+        dest = Path.join(target, plugin_id)
+        File.mkdir_p!(dest)
+
+        for item <- ["allbert_plugin.json", "priv", "skills"],
+            path = Path.join(source, item),
+            File.exists?(path) do
+          File.cp_r!(path, Path.join(dest, item))
+        end
+      end
+    end)
+
+    Mix.shell().info("==> staged shipped plugins into " <> target)
+    release
+  end
+
+  # v0.62 M1 (M0 spike finding): a Homebrew/brew-built ERTS dynamically links
+  # /opt/homebrew's libcrypto — the artifact would break on machines without
+  # Homebrew OpenSSL. On darwin builds, bundle the linked OpenSSL dylibs next
+  # to the crypto NIF and repoint via install_name_tool (+ ad-hoc re-sign,
+  # mandatory on arm64 after mutation). No-op on other hosts.
+  defp patch_macos_openssl(release) do
+    case :os.type() do
+      {:unix, :darwin} -> do_patch_macos_openssl(release)
+      _other -> release
+    end
+  end
+
+  defp do_patch_macos_openssl(release) do
+    for nif <- Path.wildcard(Path.join(release.path, "lib/crypto-*/priv/lib/*.so")) do
+      {links, 0} = System.cmd("otool", ["-L", nif])
+
+      links
+      |> String.split("\n")
+      |> Enum.map(&String.trim/1)
+      |> Enum.filter(&String.contains?(&1, "openssl"))
+      |> Enum.map(&(&1 |> String.split(" ") |> hd()))
+      |> Enum.each(fn dylib ->
+        name = Path.basename(dylib)
+        dest = Path.join(Path.dirname(nif), name)
+        unless File.exists?(dest), do: File.cp!(dylib, dest)
+        {_, 0} = System.cmd("install_name_tool", ["-change", dylib, "@loader_path/" <> name, nif])
+        {_, 0} = System.cmd("codesign", ["-f", "-s", "-", dest])
+        {_, 0} = System.cmd("codesign", ["-f", "-s", "-", nif])
+        Mix.shell().info("==> bundled " <> name <> " for " <> Path.basename(nif))
+      end)
+    end
+
+    release
   end
 
   defp build_web_assets(release) do

@@ -9,6 +9,10 @@
 # move said applications out of the umbrella.
 import Config
 
+# v0.62 M1: bake the build environment so runtime checks never probe Mix
+# (absent in releases) — see AllbertAssist.RuntimeEnv.
+config :allbert_assist, env: config_env()
+
 # Configure Mix tasks and generators
 config :allbert_assist,
   ecto_repos: [AllbertAssist.Repo]

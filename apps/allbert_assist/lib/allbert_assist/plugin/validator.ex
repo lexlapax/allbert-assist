@@ -515,10 +515,12 @@ defmodule AllbertAssist.Plugin.Validator do
     end
   end
 
+  # v0.62 M1: resolve through the release-safe plugins root, not cwd.
   defp inferred_plugin_root(module) do
     with true <- function_exported?(module, :plugin_id, 0),
          plugin_id when is_binary(plugin_id) <- module.plugin_id(),
-         root_path <- Path.expand(Path.join(["plugins", plugin_id]), File.cwd!()),
+         root_path when is_binary(root_path) <-
+           AllbertAssist.Plugin.Paths.plugin_root(plugin_id),
          true <- File.dir?(root_path) do
       root_path
     else

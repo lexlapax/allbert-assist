@@ -30,19 +30,16 @@ if config_env() == :prod do
     end
   end
 
+  # v0.62 M1: a packaged install must boot without hand-set env — Allbert Home
+  # defaults to ~/.allbert (the same fallback AllbertAssist.Paths.home/0 uses;
+  # inlined here because config providers should stay dependency-light).
+  allbert_home =
+    Path.expand(env_value.("ALLBERT_HOME") || env_value.("ALLBERT_HOME_DIR") || "~/.allbert")
+
   database_path =
-    cond do
-      path = env_value.("DATABASE_PATH") ->
-        Path.expand(path)
-
-      home = env_value.("ALLBERT_HOME") || env_value.("ALLBERT_HOME_DIR") ->
-        Path.expand(Path.join([home, "db", "allbert.sqlite3"]))
-
-      true ->
-        raise """
-        environment variable ALLBERT_HOME or DATABASE_PATH is missing.
-        For example: ALLBERT_HOME=/var/lib/allbert
-        """
+    case env_value.("DATABASE_PATH") do
+      nil -> Path.join([allbert_home, "db", "allbert.sqlite3"])
+      path -> Path.expand(path)
     end
 
   File.mkdir_p!(Path.dirname(database_path))
@@ -52,17 +49,30 @@ if config_env() == :prod do
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "5"),
     busy_timeout: 15_000
 
-  # The secret key base is used to sign/encrypt cookies and other secrets.
-  # A default value is used in config/dev.exs and config/test.exs but you
-  # want to use a different value for prod and you most likely don't want
-  # to check this value into version control, so we use an environment
-  # variable instead.
+  # The secret key base signs/encrypts cookies and similar secrets. v0.62 M1
+  # (Locked Decision 13): when the env doesn't provide one, generate it on
+  # first boot and persist it mode-600 under Allbert Home — a daemon has no
+  # shell env to inherit and must never crash for want of a generated value.
   secret_key_base =
-    System.get_env("SECRET_KEY_BASE") ||
-      raise """
-      environment variable SECRET_KEY_BASE is missing.
-      You can generate one by calling: mix phx.gen.secret
-      """
+    case env_value.("SECRET_KEY_BASE") do
+      value when is_binary(value) ->
+        value
+
+      nil ->
+        skb_path = Path.join([allbert_home, "runtime", "secret_key_base"])
+
+        case File.read(skb_path) do
+          {:ok, value} when byte_size(value) >= 64 ->
+            String.trim(value)
+
+          _missing ->
+            value = 64 |> :crypto.strong_rand_bytes() |> Base.encode64(padding: false)
+            File.mkdir_p!(Path.dirname(skb_path))
+            File.write!(skb_path, value)
+            File.chmod!(skb_path, 0o600)
+            value
+        end
+    end
 
   config :allbert_assist_web, AllbertAssistWeb.Endpoint,
     http: [
@@ -81,7 +91,6 @@ if config_env() == :prod do
   if System.get_env("PHX_SERVER") do
     config :allbert_assist_web, AllbertAssistWeb.Endpoint, server: true
   end
-
 
   # ## SSL Support
   #

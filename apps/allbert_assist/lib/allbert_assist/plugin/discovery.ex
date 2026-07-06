@@ -254,13 +254,11 @@ defmodule AllbertAssist.Plugin.Discovery do
   defp shipped_root?(root_path, project_root),
     do: Path.expand(root_path) == Path.join(project_root, "plugins")
 
+  # v0.62 M1: the project root resolves release-safely (RELEASE_ROOT/plugins
+  # in the packaged layout — the M0-proven mechanism; checkout walk-up stays
+  # the dev/test fallback inside Plugin.Paths).
   defp default_project_root do
-    File.cwd!()
-    |> Path.expand()
-    |> Stream.iterate(&Path.dirname/1)
-    |> Enum.find(File.cwd!(), fn path ->
-      File.dir?(Path.join(path, "plugins")) or Path.dirname(path) == path
-    end)
+    AllbertAssist.Plugin.Paths.project_root()
   end
 
   defp manifest_key(%{"plugin_id" => plugin_id}, _folder) when is_binary(plugin_id), do: plugin_id

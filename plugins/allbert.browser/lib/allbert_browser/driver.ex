@@ -16,7 +16,7 @@ defmodule AllbertBrowser.Driver do
   def module(opts \\ []) do
     Keyword.get(opts, :driver) ||
       Application.get_env(:allbert_browser, :driver) ||
-      if Code.ensure_loaded?(Mix) and Mix.env() == :test do
+      if AllbertAssist.RuntimeEnv.test?() do
         AllbertBrowser.Driver.Stub
       else
         AllbertBrowser.Driver.Playwright

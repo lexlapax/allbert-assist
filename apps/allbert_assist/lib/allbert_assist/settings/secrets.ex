@@ -477,7 +477,9 @@ defmodule AllbertAssist.Settings.Secrets do
 
   defp redacted_key?(_key_or_ref), do: false
 
+  # v0.62 M1: release-safe — the Mix probe returned false inside an OTP
+  # release, silently disabling master-key enforcement in the artifact.
   defp production? do
-    Code.ensure_loaded?(Mix) and function_exported?(Mix, :env, 0) and Mix.env() == :prod
+    AllbertAssist.RuntimeEnv.prod?()
   end
 end

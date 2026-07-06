@@ -449,9 +449,11 @@ defmodule StockSage.TraderBridge do
   end
 
   defp bridge_script_path do
-    # __DIR__ resolves to plugins/stocksage/lib/stocksage, so the script lives
-    # two levels up under priv/python.
-    script = Path.expand("../../priv/python/bridge.py", __DIR__)
+    # v0.62 M1: release-safe (see AllbertAssist.Plugin.Paths); the __DIR__
+    # form stays only as the last-resort fallback.
+    script =
+      AllbertAssist.Plugin.Paths.plugin_path("stocksage", ["priv", "python", "bridge.py"]) ||
+        Path.expand("../../priv/python/bridge.py", __DIR__)
 
     if File.exists?(script) do
       {:ok, script}

@@ -47,7 +47,11 @@ defmodule StockSage.Plugin do
 
   @impl true
   def skill_paths do
-    [Path.expand("../../skills", __DIR__)]
+    # v0.62 M1: release-safe (see AllbertAssist.Plugin.Paths).
+    [
+      AllbertAssist.Plugin.Paths.plugin_path("stocksage", "skills") ||
+        Path.expand("../../skills", __DIR__)
+    ]
   end
 
   @impl true

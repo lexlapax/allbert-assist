@@ -7,9 +7,19 @@ defmodule AllbertAssist.Settings.ProviderCatalog do
   probe live provider APIs before reporting availability.
   """
 
-  @catalog_path Path.expand("../../../priv/provider_catalog/models.json", __DIR__)
-  @external_resource @catalog_path
-  @catalog @catalog_path |> File.read!() |> Jason.decode!()
+  # v0.62 M1: the catalog JSON ships in this app's own priv/ — resolve via
+  # :code.priv_dir at RUNTIME (release-safe) rather than a compile-time
+  # `Path.expand(..., __DIR__)` that would freeze the build checkout path. The
+  # @external_resource keeps the recompile-on-change dev ergonomics.
+  @catalog_source Path.expand("../../../priv/provider_catalog/models.json", __DIR__)
+  @external_resource @catalog_source
+
+  @spec catalog_path() :: String.t()
+  def catalog_path do
+    Path.join([:code.priv_dir(:allbert_assist), "provider_catalog", "models.json"])
+  end
+
+  @catalog @catalog_source |> File.read!() |> Jason.decode!()
   @known_capabilities ~w[
     text_generation
     speech_to_text
