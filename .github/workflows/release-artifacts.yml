@@ -129,7 +129,9 @@ jobs:
   # prerelease tag during validation). Checksums are what install.sh and the
   # Homebrew formula verify against.
   publish:
-    needs: build
+    # v0.62 M8.17: gate publish on the Linux rehearsal too, so a broken
+    # install/smoke on Linux blocks the release instead of shipping.
+    needs: [build, linux-rehearsal]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-22.04
     permissions:
@@ -146,9 +148,15 @@ jobs:
           cd dist
           # Version-less aliases so the `latest` install path resolves
           # (install.sh fetches allbert-<target>.tar.gz from releases/latest/download).
-          for f in allbert-v*-*.tar.gz; do
-            alias="$(echo "$f" | sed -E 's/allbert-v[0-9][0-9.]*-/allbert-/')"
-            cp "$f" "$alias"
+          # v0.62 M8.17: derive the alias from the KNOWN target suffix, not a
+          # version regex — a prerelease tag (allbert-v0.62.0-rc1-linux-x64.tar.gz)
+          # has a hyphen the old `v[0-9.]*-` regex mistook for the version
+          # terminator, mangling the alias to `allbert-rc1-...`.
+          for target in macos-arm64 linux-x64 linux-arm64; do
+            for f in allbert-v*-"$target".tar.gz; do
+              [ -e "$f" ] || continue
+              cp "$f" "allbert-$target.tar.gz"
+            done
           done
           # Checksums cover BOTH the versioned assets and the version-less aliases.
           sha256sum *.tar.gz > SHA256SUMS

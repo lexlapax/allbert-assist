@@ -109,6 +109,16 @@ The install and first run touch the network in exactly these ways, and no
 others: the install-script/Homebrew artifact fetch, and (only if you opt into
 the guided local-model setup) the Ollama installer fetch and model pull, each
 behind an explicit confirmation. The binary itself performs **no telemetry, no
-phone-home, and no auto-update check**. See
-`docs/adr/0076-packaging-distribution-and-unified-cli.md` (Distribution Trust)
-for the full posture.
+phone-home, and no auto-update check**.
+
+**Trust model (v0.62): trust-on-first-use over HTTPS.** The installer verifies
+the artifact against `SHA256SUMS`, but it fetches that checksum file over HTTPS
+from the *same* GitHub release origin as the artifact — so the check proves the
+download wasn't corrupted or truncated, not that it came from an independently
+trusted signer. Practically, you are trusting the GitHub HTTPS release origin on
+first use. For a stronger check, verify the cosign signature bundle out-of-band
+before installing (see below); the installer does **not** do this for you in
+v0.62. Mandatory installer-side signature verification is planned for v0.64
+(M0.a). If you need that guarantee today, do the manual cosign verification.
+See `docs/adr/0076-packaging-distribution-and-unified-cli.md` (Distribution
+Trust) for the full posture.

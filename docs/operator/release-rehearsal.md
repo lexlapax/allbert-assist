@@ -20,9 +20,25 @@ The tag push fires `.github/workflows/release-artifacts.yml`:
   `scripts/smoke/artifact_smoke.sh` per target — boot, version, plugin
   registration, `/health`, a **genuine attach round-trip**, no-Mix-modules, and
   ERTS crypto linkage, all through an operator-style symlink.
-- **publish** (tag only): collects the per-target tarballs, adds version-less
-  aliases (`allbert-<target>.tar.gz` for the `latest` install path), writes and
-  cosign-signs `SHA256SUMS`, and uploads everything to the GitHub release.
+- **publish** (tag only, and now gated on the Linux rehearsal): collects the
+  per-target tarballs, adds version-less aliases (`allbert-<target>.tar.gz` for
+  the `latest` install path), writes and cosign-signs `SHA256SUMS`, and uploads
+  everything to the GitHub release.
+
+**Trust model note (v0.62).** The published `SHA256SUMS.cosign.bundle` exists for
+**out-of-band, operator-driven manual verification** — the curl installer and the
+Homebrew formula verify only the SHA256 against `SHA256SUMS` fetched over HTTPS
+from the same release origin (trust-on-first-use over HTTPS), and add **no**
+`cosign` dependency in v0.62. Mandatory installer-side signature verification is
+a recorded v0.64 M0.a intake item. To verify a release by hand before trusting
+it:
+
+```sh
+gh release download v0.62.0 --repo lexlapax/allbert-assist \
+  --pattern 'SHA256SUMS*' --dir /tmp
+cosign verify-blob --bundle /tmp/SHA256SUMS.cosign.bundle /tmp/SHA256SUMS \
+  --certificate-identity-regexp '.*' --certificate-oidc-issuer-regexp '.*'
+```
 
 You can dry-run the build+smoke without publishing at any time:
 

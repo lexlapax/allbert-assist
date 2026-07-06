@@ -34,6 +34,10 @@ defmodule AllbertAssist.InstallPathTest do
     # Writes an uninstall manifest; never touches Allbert Home.
     assert body =~ "install-manifest"
     assert body =~ "never touched"
+    # v0.62 M8.17: a bare ALLBERT_VERSION is normalized to the v-prefixed form so
+    # it doesn't double-404, and the checksum is looked up by exact awk field.
+    assert body =~ ~s(VERSION="v${VERSION#v}")
+    assert body =~ ~s{awk -v f="$artifact" '$2 == f}
   end
 
   test "uninstall.sh parses and preserves Allbert Home absent --purge" do
@@ -82,6 +86,9 @@ defmodule AllbertAssist.InstallPathTest do
     # guard for the bug the macOS install rehearsal caught.
     assert overlay =~ "readlink" and overlay =~ "[ -L"
 
+    # v0.62 M8.17: the symlink-follow loop caps its hops so a cycle can't spin.
+    assert overlay =~ "hops" and overlay =~ "too many symlink levels"
+
     # Every install surface invokes `allbert` (which the step makes the
     # dispatcher) — none hard-codes the generated launcher under another name.
     assert File.read!(@install) =~ ~s(ln -sf "$LIB_DIR/bin/allbert" "$BIN_DIR/allbert")
@@ -111,5 +118,10 @@ defmodule AllbertAssist.InstallPathTest do
     # Native per-target matrix (no cross-compilation).
     assert body =~ "macos-arm64" and body =~ "linux-x64" and body =~ "linux-arm64"
     assert body =~ "smoke"
+    # v0.62 M8.17: publish is gated on the Linux rehearsal, and the version-less
+    # alias is derived from the known target suffix (not a version regex that a
+    # prerelease `-rc1` hyphen would mangle).
+    assert body =~ "needs: [build, linux-rehearsal]"
+    assert body =~ ~s{cp "$f" "allbert-$target.tar.gz"}
   end
 end

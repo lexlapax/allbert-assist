@@ -15,6 +15,13 @@ set -eu
 main() {
   REPO="${ALLBERT_REPO:-lexlapax/allbert-assist}"
   VERSION="${ALLBERT_VERSION:-latest}"
+  # v0.62 M8.17: release tags and canonical assets are `v`-prefixed
+  # (`v0.62.0`, `allbert-v0.62.0-<target>.tar.gz`). Normalize a bare
+  # `ALLBERT_VERSION=0.62.0` to `v0.62.0` (strip-then-add) so it doesn't
+  # double-404 on both the tag path and the asset name. `latest` stays special.
+  if [ "$VERSION" != "latest" ]; then
+    VERSION="v${VERSION#v}"
+  fi
   PREFIX="${ALLBERT_PREFIX:-$HOME/.local}"
   BIN_DIR="$PREFIX/bin"
   LIB_DIR="$PREFIX/lib/allbert"
@@ -59,7 +66,10 @@ main() {
   curl -fsSL "$base/SHA256SUMS" -o "$tmp/SHA256SUMS"
 
   echo "allbert: verifying checksum"
-  expected="$(grep " $artifact\$" "$tmp/SHA256SUMS" | awk '{print $1}')"
+  # v0.62 M8.17: match the filename as an EXACT SHA256SUMS field (not a regex —
+  # the dots in the name would be wildcards, and a plain grep would also match a
+  # longer `…tar.gz.sig` line as a prefix). awk compares field 2 verbatim.
+  expected="$(awk -v f="$artifact" '$2 == f {print $1}' "$tmp/SHA256SUMS")"
   if [ -z "$expected" ]; then
     echo "allbert: no checksum for $artifact in SHA256SUMS — refusing to install." >&2
     exit 1

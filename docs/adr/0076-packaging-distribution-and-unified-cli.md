@@ -133,9 +133,19 @@ and inspectability promises extend to it:
   records a blocker or invokes the BYOK-primary contingency; it does not add a
   new permission atom during implementation. Nothing else; the binary itself
   performs **no telemetry, no phone-home, and no auto-update check**.
-- **Verifiable artifacts.** Release artifacts publish SHA256 checksums; both
-  install paths verify them (cosign-signed checksums are a recorded candidate,
-  not required in v0.62). The bundled ERTS/OTP version is pinned as a CI input
+- **Verifiable artifacts — TOFU-over-HTTPS is the accepted v0.62 trust model
+  (operator decision 2026-07-05, restated M8.17).** Release artifacts publish
+  SHA256 checksums, and both install paths verify the downloaded artifact against
+  `SHA256SUMS` (refusing to install on a mismatch). Because the installer fetches
+  `SHA256SUMS` over HTTPS from the **same** GitHub release origin as the artifact,
+  that check proves download **integrity**, not independent provenance — trust is
+  **trust-on-first-use of the GitHub HTTPS origin**. The release also publishes
+  `SHA256SUMS.cosign.bundle` (keyless cosign), but v0.62 uses it **only for
+  optional, out-of-band, operator-driven manual verification** — no `cosign`
+  dependency is added to `install.sh` or the formula, so the installer does not
+  itself verify a signature. **Mandatory installer-side signature verification is
+  a recorded v0.64 M0.a packaging-trust intake item** (`v0.64-plan.md`), which
+  will close the TOFU gap. The bundled ERTS/OTP version is pinned as a CI input
   with portable crypto linkage; its provenance (project-built vs the packaging
   tool's CDN builds) is settled by the M0 spike and recorded here at
   acceptance.

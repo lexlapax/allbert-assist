@@ -11,7 +11,14 @@ set -eu
 # file, but the renamed OTP launcher (`allbert-release`) lives beside the REAL
 # file, not the symlink. Follow $0 to its target before computing SELF_DIR.
 SELF="$0"
+# v0.62 M8.17: cap the hops so a symlink cycle can't spin forever.
+hops=0
 while [ -L "$SELF" ]; do
+  hops=$((hops + 1))
+  if [ "$hops" -gt 40 ]; then
+    echo "allbert: too many symlink levels resolving $0" >&2
+    exit 1
+  fi
   target="$(readlink "$SELF")"
   case "$target" in
     /*) SELF="$target" ;;

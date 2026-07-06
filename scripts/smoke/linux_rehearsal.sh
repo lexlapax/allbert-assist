@@ -29,9 +29,17 @@ trap cleanup EXIT
 fail() { echo "linux-rehearsal:$1 FAIL ${2:-}"; exit 1; }
 skip() { echo "linux-rehearsal:$1 SKIP ${2:-}"; }
 
+# v0.62 M8.17: derive the target from the runner arch (matches install.sh) so the
+# rehearsal is correct on both linux-x64 and linux-arm64 runners.
+case "$(uname -m)" in
+  x86_64)  TARGET="linux-x64" ;;
+  aarch64) TARGET="linux-arm64" ;;
+  *)       fail arch "unsupported Linux arch $(uname -m)" ;;
+esac
+
 # 1) Install via the curl installer's symlink path (local file:// base).
-tar -czf "$STAGE/allbert-linux-x64.tar.gz" -C "$(dirname "$REL_ROOT")" "$(basename "$REL_ROOT")"
-( cd "$STAGE" && sha256sum allbert-linux-x64.tar.gz > SHA256SUMS )
+tar -czf "$STAGE/allbert-${TARGET}.tar.gz" -C "$(dirname "$REL_ROOT")" "$(basename "$REL_ROOT")"
+( cd "$STAGE" && sha256sum "allbert-${TARGET}.tar.gz" > SHA256SUMS )
 ALLBERT_BASE_URL="file://$STAGE" ALLBERT_VERSION="latest" ALLBERT_PREFIX="$PREFIX" \
   sh "$(dirname "$0")/../install/install.sh" >/dev/null 2>&1 || fail install "install.sh failed"
 BIN="$PREFIX/bin/allbert"

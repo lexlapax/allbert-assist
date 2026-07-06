@@ -20,8 +20,17 @@ VERSION="$(grep -oE 'allbert-v[0-9][0-9.]*-' "$SUMS" | head -1 | sed -E 's/allbe
 [ -n "$VERSION" ] || { echo "fill-sha256: could not derive version from $SUMS" >&2; exit 1; }
 
 sum() {
-  s="$(grep " allbert-v${VERSION}-$1.tar.gz\$" "$SUMS" | awk '{print $1}')"
+  # v0.62 M8.17: match the asset name as an EXACT SHA256SUMS field (awk $2 ==),
+  # not a regex whose dots are wildcards and whose value would also prefix-match
+  # a `…tar.gz.sig` line.
+  s="$(awk -v f="allbert-v${VERSION}-$1.tar.gz" '$2 == f {print $1}' "$SUMS")"
   [ -n "$s" ] || { echo "fill-sha256: no checksum for $1 in $SUMS" >&2; exit 1; }
+  # Validate it is a bare 64-hex digest before it reaches the sed replacement,
+  # so a malformed SHA256SUMS can't inject sed metacharacters into the formula.
+  case "$s" in
+    *[!0-9a-fA-F]* | "") echo "fill-sha256: malformed checksum for $1: $s" >&2; exit 1 ;;
+  esac
+  [ "${#s}" -eq 64 ] || { echo "fill-sha256: checksum for $1 is not 64 hex chars: $s" >&2; exit 1; }
   echo "$s"
 }
 
