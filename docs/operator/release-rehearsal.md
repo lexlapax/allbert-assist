@@ -112,6 +112,11 @@ brew uninstall allbert                            # if installed via Homebrew
 - **CI artifact matrix** (`release-artifacts.yml`, run on the pushed commit):
   macos-arm64, linux-x64, linux-arm64 build + smoke green (7/7 checks each,
   through the operator-style symlink).
+- **CI Linux rehearsal** (`linux-rehearsal` job, ubuntu-22.04, 2026-07-06): all
+  checks green — install (symlink) → `--version`/`admin status`/`/health`/attach
+  (*served by the daemon*) → **Secret Service vault**: `secret-tool` round-trip +
+  `admin vault` reports the `os` tier → systemd `--user` service dry-run +
+  **user systemd present** → uninstall (**Home preserved**).
 - **macOS local rehearsal (2026-07-06, on macos-arm64):** `install.sh` (checksum
   verified) → symlinked `allbert --version` / `admin status` / `admin vault`
   (Keychain `os` tier) RC 0; `allbert serve` → `/health` `status:ok` → attach
