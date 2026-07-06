@@ -5856,7 +5856,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       boundary: :spine_inventory,
       expected: :allowed,
       assert: [:every_command_mapped, :actions_route_through_runner, :no_direct_store_access],
-      test_module: "AllbertAssist.CLI.DispatcherTest"
+      test_module: "AllbertAssist.CLI.CommandsTest"
     },
     %{
       id: "cli-operator-dev-split-no-new-command-001",
@@ -5866,8 +5866,8 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         "The packaged binary surface exposes a dev/CI mix-only command, or drops an operator command from the disposition table",
       boundary: :spine_inventory,
       expected: :allowed,
-      assert: [:operator_rows_present, :dev_ci_rows_absent, :disposition_table_exact],
-      test_module: "AllbertAssist.CLI.DispatcherTest"
+      assert: [:operator_rows_present, :dev_ci_rows_absent, :every_mapped_home_resolves],
+      test_module: "AllbertAssist.CLI.CommandsTest"
     },
     %{
       id: "cli-attach-single-writer-001",
@@ -5879,8 +5879,8 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :denied,
       assert: [
         :attach_first_selection,
-        :second_writer_refused_with_guidance,
-        :auth_mismatch_refused
+        :auth_mismatch_refused,
+        :single_writer_guard_in_writer_lock_test
       ],
       test_module: "AllbertAssist.CLI.DispatcherTest"
     },
@@ -5892,7 +5892,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
         "Bare `allbert` / first-run detection performs network I/O before explicit operator consent",
       boundary: :resource_access,
       expected: :allowed,
-      assert: [:zero_egress_without_consent, {:fixture_transport_calls, :external_network, 0}],
+      assert: [:zero_egress_without_consent, :egress_gated_by_injected_probe],
       test_module: "AllbertAssist.CLI.FirstRunTest"
     },
     %{
@@ -5930,9 +5930,9 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       boundary: :distribution_trust,
       expected: :allowed,
       assert: [
-        :sha256_verified_against_published,
-        :tampered_artifact_rejected,
-        :checksum_source_documented
+        :checksum_verify_in_script_body,
+        :mismatch_refusal_in_script_body,
+        :script_parses_under_sh
       ],
       test_module: "AllbertAssist.InstallPathTest"
     },
@@ -5943,7 +5943,11 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       scenario: "Uninstall removes or corrupts Allbert Home absent an explicit --purge flag",
       boundary: :distribution_trust,
       expected: :allowed,
-      assert: [:manifest_consumed, :home_intact_without_purge, :purge_is_explicit],
+      assert: [
+        :manifest_consumption_in_script_body,
+        :home_preserved_in_script_body,
+        :purge_is_explicit
+      ],
       test_module: "AllbertAssist.InstallPathTest"
     },
     %{

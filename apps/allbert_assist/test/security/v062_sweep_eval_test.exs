@@ -44,8 +44,8 @@ defmodule AllbertAssist.Security.V062SweepEvalTest do
 
   @owners %{
     "packaging-no-authority-change-001" => "AllbertAssist.Security.V062SweepEvalTest",
-    "cli-command-inventory-spine-map-001" => "AllbertAssist.CLI.DispatcherTest",
-    "cli-operator-dev-split-no-new-command-001" => "AllbertAssist.CLI.DispatcherTest",
+    "cli-command-inventory-spine-map-001" => "AllbertAssist.CLI.CommandsTest",
+    "cli-operator-dev-split-no-new-command-001" => "AllbertAssist.CLI.CommandsTest",
     "cli-attach-single-writer-001" => "AllbertAssist.CLI.DispatcherTest",
     "first-run-no-silent-egress-001" => "AllbertAssist.CLI.FirstRunTest",
     "first-model-state-enum-001" => "AllbertAssist.FirstModelTest",

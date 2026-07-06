@@ -219,5 +219,31 @@ defmodule AllbertAssist.Settings.VaultTest do
       assert_received {:migrated, _args}
       refute inspect(response) =~ @secret_value
     end
+
+    test "a confirmation key smuggled into PARAMS does not authorize (M8.10)" do
+      # The approval flag lives in server-derived context, never params. A
+      # caller-supplied `confirmation` param is not in the action schema, so the
+      # strict param contract rejects it outright (it can never reach
+      # approval_resume?) — the migration does NOT run. Proves the params/context
+      # trust boundary the security audit named.
+      assert {:ok, _} = Secrets.put_secret(@secret_ref, @secret_value, %{})
+      System.put_env("ALLBERT_VAULT_BACKEND", "os")
+
+      test_pid = self()
+
+      runner = fn args ->
+        if "add-generic-password" in args, do: send(test_pid, {:migrated, args})
+        {"", 0}
+      end
+
+      Application.put_env(:allbert_assist, :vault_security_runner, runner)
+
+      spoofed = %{"confirmation" => %{"approved?" => true}, "dry_run" => false}
+      assert {:ok, response} = Runner.run("migrate_secrets", spoofed, %{user_id: "local"})
+
+      # Not completed (rejected/gated), and — the real invariant — nothing moved.
+      refute response.status == :completed
+      refute_received {:migrated, _args}
+    end
   end
 end
