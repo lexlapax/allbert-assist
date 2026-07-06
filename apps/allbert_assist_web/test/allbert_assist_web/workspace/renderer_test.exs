@@ -175,27 +175,10 @@ defmodule AllbertAssistWeb.Workspace.RendererTest do
     refute html =~ ">Tools<"
   end
 
-  test "drawer and table catalog atoms consume the shared pattern contract" do
-    drawer_html =
-      render_component(Renderer,
-        id: "utility-drawer-contract-renderer",
-        node: %Node{id: "utility-drawer-contract", component: :utility_drawer, props: %{}},
-        renderer_context: renderer_context(),
-        workspace_state: workspace_state()
-      )
-
-    assert_classes(drawer_html, Patterns.drawer_shell_class(retired?: true))
-
-    assert_attrs(
-      drawer_html,
-      Patterns.drawer_shell_attrs(
-        title_id: "workspace-component-title-utility-drawer-contract",
-        open?: false,
-        retired?: true,
-        hidden?: true
-      )
-    )
-
+  test "table catalog atoms consume the shared pattern contract" do
+    # v0.62 M0.1: the drawer half of this test retired with the
+    # drawer_shell_* pattern helpers — :utility_drawer is now an inert stub
+    # (covered by the dedicated inert test above); the table contract stays.
     table_html =
       render_component(Renderer,
         id: "table-contract-renderer",

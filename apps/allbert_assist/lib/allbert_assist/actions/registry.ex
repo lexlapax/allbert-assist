@@ -37,6 +37,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Confirmations.ExpireConfirmations
   alias AllbertAssist.Actions.Confirmations.ListConfirmations
   alias AllbertAssist.Actions.Confirmations.ShowConfirmation
+  alias AllbertAssist.Actions.Conversations.PersistApprovalMediaResponse
   alias AllbertAssist.Actions.Conversations.RenameThread
   alias AllbertAssist.Actions.Conversations.ResumeThreadOnChannel
   alias AllbertAssist.Actions.DynamicPlugins.DisableLiveLoader, as: DisableDynamicLiveLoader
@@ -398,6 +399,9 @@ defmodule AllbertAssist.Actions.Registry do
     # v0.61b M4: operator-surface thread rename; internal like the job controls —
     # the UI calls it via Runner; the intent router does not route to it.
     RenameThread,
+    # v0.62 M0.1: the approval-media assistant-message write, off the LiveView
+    # direct-write path and onto the spine (internal, Runner-only).
+    PersistApprovalMediaResponse,
     ManageTile,
     RevertTileRevision,
     RecordOfflineUpdate,

@@ -373,6 +373,7 @@ defmodule AllbertAssistWeb.Layouts do
             class="workspace-overflow-menu"
             role="menu"
             aria-labelledby="workspace-overflow-menu"
+            phx-hook="MenuKeys"
           >
             <button
               type="button"

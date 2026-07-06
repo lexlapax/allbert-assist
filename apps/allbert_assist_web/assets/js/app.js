@@ -72,6 +72,72 @@ const ThemeSync = {
   },
 }
 
+// v0.62 M0.1 (deferred v0.61b a11y) — roving arrow-key navigation for
+// role="menu" surfaces (the overflow menu, tile menus): ArrowDown/ArrowUp move
+// focus through the menuitems, Home/End jump, and the roving tabindex keeps
+// exactly one item tabbable (WAI-ARIA APG menu pattern; Escape/click-away
+// dismissal stays with the existing LiveView bindings).
+const MenuKeys = {
+  mounted() {
+    this.applyRoving()
+    this.handleKeydown = event => {
+      const items = this.items()
+      if (items.length === 0) return
+      const index = items.indexOf(document.activeElement)
+      let next = null
+      if (event.key === "ArrowDown") next = items[(index + 1) % items.length]
+      else if (event.key === "ArrowUp") next = items[(index - 1 + items.length) % items.length]
+      else if (event.key === "Home") next = items[0]
+      else if (event.key === "End") next = items[items.length - 1]
+      if (!next) return
+      event.preventDefault()
+      this.rove(items, next)
+      next.focus()
+    }
+    this.el.addEventListener("keydown", this.handleKeydown)
+  },
+  updated() {
+    this.applyRoving()
+  },
+  destroyed() {
+    this.el.removeEventListener("keydown", this.handleKeydown)
+  },
+  items() {
+    return [...this.el.querySelectorAll('[role="menuitem"]')].filter(el => !el.disabled)
+  },
+  applyRoving() {
+    const items = this.items()
+    if (items.length === 0) return
+    const active = items.includes(document.activeElement) ? document.activeElement : items[0]
+    this.rove(items, active)
+  },
+  rove(items, active) {
+    items.forEach(item => item.setAttribute("tabindex", item === active ? "0" : "-1"))
+  },
+}
+
+// v0.62 M0.1 (deferred v0.61b a11y) — live-toggled reduce-motion /
+// high-contrast settings only re-render #workspace-shell's data attributes;
+// the product sidebar is a shell *sibling*, so it kept animating until a full
+// reload. This hook mirrors the shell's attrs onto <body> on every update, so
+// the body-scoped CSS axes cover the sidebar too (the OS-level media queries
+// were already global).
+const A11ySync = {
+  mounted() {
+    this.sync()
+  },
+  updated() {
+    this.sync()
+  },
+  sync() {
+    for (const attr of ["data-reduce-motion", "data-high-contrast"]) {
+      const value = this.el.getAttribute(attr)
+      if (value === "true") document.body.setAttribute(attr, "true")
+      else document.body.removeAttribute(attr)
+    }
+  },
+}
+
 // v0.61b M9.1 (ADR 0080 focus-return guardrail) — the server pushes
 // "allbert:focus" when a dismissed control only re-renders with the closing
 // patch (e.g. the rename pencil replacing the inline rename form), so a
@@ -996,6 +1062,8 @@ const liveSocket = csrfToken
       hooks: {
         ...colocatedHooks,
         FocusTrap,
+        MenuKeys,
+        A11ySync,
         ThemeSync,
         WorkspaceSplitResizer,
         WorkspaceTabs,

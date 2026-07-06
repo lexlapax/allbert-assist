@@ -276,13 +276,21 @@ defmodule AllbertAssistWeb.Workspace.Components.AppLauncher do
 end
 
 defmodule AllbertAssistWeb.Workspace.Components.UtilityDrawer do
+  @moduledoc """
+  Retained-but-unused `:utility_drawer` implementation (the v0.61b/v0.62
+  registered-but-unused catalog carve-out; the Header-stub precedent).
+
+  The drawer presentation retired at v0.34 and its `drawer_shell_*` pattern
+  helpers + CSS were removed at v0.62 M0.1 — this inert stub keeps the atom
+  renderable (no dead pattern calls, no legacy classes, hidden by default) if
+  a tree ever re-adds it.
+  """
   use AllbertAssistWeb.Workspace.Components.Base,
     component: :utility_drawer,
     description: "Workspace utility drawer",
     custom?: true
 
   alias AllbertAssistWeb.Workspace.Components.Base
-  alias AllbertAssistWeb.Workspace.Components.Patterns
 
   @impl true
   def update(assigns, socket) do
@@ -294,15 +302,12 @@ defmodule AllbertAssistWeb.Workspace.Components.UtilityDrawer do
     ~H"""
     <aside
       id={"workspace-component-#{@node.id}"}
-      class={Patterns.drawer_shell_class(retired?: true)}
-      {Patterns.drawer_shell_attrs(
-        title_id: Base.component_title_id(@node),
-        open?: false,
-        retired?: true,
-        hidden?: true
-      )}
       data-workspace-component={@node.component}
       data-workspace-renderer="component"
+      data-retired="true"
+      aria-labelledby={Base.component_title_id(@node)}
+      aria-hidden="true"
+      hidden
     >
       <h2 id={Base.component_title_id(@node)} class="sr-only">Retired workspace utility drawer</h2>
       <p class="sr-only">
@@ -545,6 +550,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Tile do
             class="workspace-tile-menu"
             role="menu"
             aria-labelledby={tile_menu_button_id(@node)}
+            phx-hook="MenuKeys"
           >
             <button
               type="button"

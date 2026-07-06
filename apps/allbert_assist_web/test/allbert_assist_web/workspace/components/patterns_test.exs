@@ -38,14 +38,6 @@ defmodule AllbertAssistWeb.Workspace.Components.PatternsTest do
       <Patterns.status_callout id="test-status" title="Saved" message="The setting was saved." />
       <Patterns.error_callout id="test-error" title="Denied" message="The action was denied." />
       <Patterns.loading_state id="test-loading" label="Loading panel" detail="Fetching rows." />
-      <Patterns.drawer_shell
-        id="test-drawer"
-        title="Canvas"
-        summary="Workspace drawer"
-        data-workspace-component="utility_drawer"
-      >
-        <p>Drawer body</p>
-      </Patterns.drawer_shell>
       <Patterns.table_list
         id="test-table"
         title="Rows"
@@ -99,27 +91,9 @@ defmodule AllbertAssistWeb.Workspace.Components.PatternsTest do
     assert Patterns.button_class!(nil) == ["workspace-button workspace-button-primary", nil]
   end
 
-  test "drawer and table contract helpers expose root-safe attrs" do
-    assert Patterns.drawer_shell_class(retired?: true) == [
-             "workspace-utility-drawer-shell",
-             "workspace-utility-drawer-retired",
-             nil
-           ]
-
-    assert Patterns.drawer_shell_attrs(
-             title_id: "drawer-title",
-             open?: false,
-             retired?: true,
-             hidden?: true
-           ) == [
-             {"hidden", true},
-             {"data-workspace-pattern", "drawer-shell"},
-             {"data-state", "closed"},
-             {"data-retired", "true"},
-             {"aria-labelledby", "drawer-title"},
-             {"aria-hidden", "true"}
-           ]
-
+  test "table contract helpers expose root-safe attrs" do
+    # v0.62 M0.1: drawer_shell_class/attrs retired with the UtilityDrawer
+    # zombie chain (the stub renders no pattern contract).
     assert Patterns.table_list_class("extra") == ["workspace-table-shell", "extra"]
 
     assert Patterns.table_list_attrs(title_id: "table-title", row_count: nil, max_rows: 10) == [
@@ -233,7 +207,7 @@ defmodule AllbertAssistWeb.Workspace.Components.PatternsTest do
     assert html =~ ~s(phx-key="escape")
   end
 
-  test "shared callout, loading, drawer, and table/list patterns expose stable semantics" do
+  test "shared callout, loading, and table/list patterns expose stable semantics" do
     html = render_component(&PatternHost.render/1, %{})
 
     assert html =~ ~s(id="test-status")
@@ -249,10 +223,6 @@ defmodule AllbertAssistWeb.Workspace.Components.PatternsTest do
     assert html =~ ~s(data-workspace-pattern="loading-state")
     assert html =~ ~s(aria-busy="true")
 
-    assert html =~ ~s(id="test-drawer")
-    assert html =~ ~s(data-workspace-pattern="drawer-shell")
-    assert html =~ ~s(data-state="open")
-    assert html =~ ~s(data-workspace-component="utility_drawer")
 
     assert html =~ ~s(id="test-table")
     assert html =~ ~s(data-workspace-pattern="table-list")

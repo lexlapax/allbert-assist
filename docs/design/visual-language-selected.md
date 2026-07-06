@@ -64,7 +64,9 @@ the canonical summary v0.61 builds to).
   `system-ui`; no web-font fetch).
 - **Color:** tonal violet-tinted neutrals; near-white cards lifted off a tinted canvas.
   Light `--allbert-surface-0/1/2 = #f2f1fb / #ffffff / #e8e5f7`; dark `= #14121f /
-  #1c1930 / #251f3d`; accent violet `#7c6cf0` (light) / `#a99bf7` (dark). *(Dark set
+  #1c1930 / #251f3d`; accent violet `#7c6cf0` (light) / `#a99bf7` (dark). *(Light
+  accent deepened to `#6050e0` by v0.62 M0.1 for AA text contrast; the brand
+  mark asset keeps `#7c6cf0`. Dark set
   revised by v0.61b M3 — see the amendment note above.)*
 - **Spacing / density:** roomy — `--allbert-density: 1.1`, with large gaps between the
   floating cards so the depth reads clearly.

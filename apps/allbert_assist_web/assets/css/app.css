@@ -114,7 +114,10 @@
   --allbert-text-strong: #1c1830;
   --allbert-text-soft: #5b5478;
   --allbert-line: #ddd8f0;
-  --allbert-accent: #7c6cf0;
+  /* v0.62 M0.1 (deferred v0.61b a11y): light accent deepened #7c6cf0 -> #6050e0
+     so accent text clears AA on white (5.64:1), accent-soft (4.74:1), and
+     surface-2 (4.56:1); the brand mark asset keeps its own #7c6cf0 fill. */
+  --allbert-accent: #6050e0;
   --allbert-accent-contrast: #ffffff;
   --allbert-accent-soft: #ece9fd;
   --allbert-warn: #b45309;
@@ -572,12 +575,6 @@ body {
   animation-fill-mode: backwards;
 }
 
-/* Drawer role — the utility drawer slides on the standard ease. */
-[data-workspace-pattern="drawer-shell"] {
-  transition:
-    transform var(--allbert-motion-duration-base) var(--allbert-motion-ease-standard),
-    opacity var(--allbert-motion-duration-fast) var(--allbert-motion-ease-standard);
-}
 
 /* Skeleton/loading role — loading states pulse on the slow duration. */
 [data-workspace-pattern="loading-state"] {
@@ -1024,7 +1021,6 @@ body {
   }
 }
 
-.operator-catalog-page,
 .operator-catalog-section,
 .operator-catalog-actions {
   display: grid;
@@ -3018,13 +3014,11 @@ a.allbert-chip-link:focus-visible,
 
 .workspace-nav-rail-shell,
 .workspace-thread-list,
-.workspace-app-launcher,
-.workspace-utility-drawer-shell {
+.workspace-app-launcher {
   padding: 0.875rem;
 }
 
-.workspace-rail-head,
-.workspace-utility-head {
+.workspace-rail-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3052,8 +3046,7 @@ a.allbert-chip-link:focus-visible,
   margin-top: 1rem;
 }
 
-.workspace-rail-list,
-.workspace-utility-actions {
+.workspace-rail-list {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -3084,10 +3077,6 @@ a.allbert-chip-link:focus-visible,
   background: var(--workspace-panel-muted);
 }
 
-.workspace-utility-link-disabled {
-  cursor: default;
-  opacity: 0.58;
-}
 
 .workspace-utility-drawer-node > .workspace-node-children {
   width: 100%;

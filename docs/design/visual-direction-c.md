@@ -123,7 +123,7 @@ chosen; `app.css` is authoritative.)*
 | `--allbert-text-strong` | `#1c1830` | `#efeafc` |
 | `--allbert-text-soft` | `#5b5478` | `#b3a9d6` |
 | `--allbert-line` | `#ddd8f0` | `#332c52` |
-| `--allbert-accent` (violet) | `#7c6cf0` | `#a99bf7` |
+| `--allbert-accent` (violet) | `#7c6cf0` *(deepened to `#6050e0` in v0.62 M0.1 for AA)* | `#a99bf7` |
 | `--allbert-accent-soft` | `#ece9fd` | `#241d3d` |
 | `--allbert-shadow-panel` | `0 18px 40px -12px rgb(60 40 120 / 28%)` | (inherits) |
 

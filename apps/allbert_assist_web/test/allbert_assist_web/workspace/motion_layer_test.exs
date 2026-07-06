@@ -21,9 +21,9 @@ defmodule AllbertAssistWeb.Workspace.MotionLayerTest do
     assert css =~ "animation: allbert-card-enter var(--allbert-motion-duration-base)"
     assert css =~ "var(--allbert-motion-ease-emphasis)"
 
-    # Drawer role uses the base duration + standard ease tokens.
-    assert css =~
-             "transform var(--allbert-motion-duration-base) var(--allbert-motion-ease-standard)"
+    # v0.62 M0.1: the drawer motion role retired with the UtilityDrawer zombie
+    # chain — no [data-workspace-pattern="drawer-shell"] rule remains.
+    refute css =~ ~s([data-workspace-pattern="drawer-shell"])
 
     # Skeleton/loading role uses the slow duration token.
     assert css =~ "animation: allbert-skeleton-pulse var(--allbert-motion-duration-slow)"

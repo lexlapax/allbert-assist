@@ -79,7 +79,12 @@ defmodule AllbertAssistWeb.Workspace.DesignSystemTokensTest do
   end
 
   defp css_block!(css, selector) do
-    pattern = ~r/#{Regex.escape(selector)}\s*\{(?<body>.*?)\n\}/s
+    # Anchor to a line that STARTS with the selector so grouped rules whose
+    # last member is the selector (e.g. ".allbert-chip,\n.allbert-icon-button")
+    # don't shadow the standalone rule (v0.62 M0.1 reconciliation — a latent
+    # match ambiguity exposed when v0.61b M9.1 trimmed a group member).
+    pattern =
+      ~r/(?<!,\n)^[ \t]*#{Regex.escape(selector)}\s*\{(?<body>.*?)\n[ \t]*\}/ms
 
     case Regex.named_captures(pattern, css) do
       %{"body" => body} -> body

@@ -809,6 +809,7 @@ defmodule AllbertAssistWeb.WorkspaceLive do
           data-canvas-destination={@canvas_destination}
           data-high-contrast={bool_attribute(@workspace_high_contrast?)}
           data-reduce-motion={bool_attribute(@workspace_reduce_motion?)}
+          phx-hook="A11ySync"
           data-mobile-tab={@workspace_mobile_tab}
           data-launcher-open={bool_attribute(@workspace_launcher_open?)}
           data-maximized-pane={@workspace_maximized_pane}
@@ -956,23 +957,19 @@ defmodule AllbertAssistWeb.WorkspaceLive do
       else: persist_approval_media_response(socket, response, media_outputs)
   end
 
+  # v0.62 M0.1: the write rides the registered-action spine (Runner ->
+  # PermissionGate(:conversation_write) -> ownership-scoped get_thread ->
+  # append) instead of the former direct Conversations calls.
   defp persist_approval_media_response(socket, response, media_outputs) do
-    with {:ok, thread} <-
-           Conversations.get_thread(socket.assigns.user_id, socket.assigns.thread_id) do
-      attrs = approval_media_message_attrs(socket, response, media_outputs)
-
-      _result =
-        Conversations.append_assistant_message(thread, approval_media_message(response), attrs)
-    end
+    _result =
+      run_workspace_action(socket, "persist_approval_media_response", %{
+        thread_id: socket.assigns.thread_id,
+        message: approval_media_message(response),
+        action_log: approval_media_action_log(response),
+        metadata: approval_media_metadata(socket, media_outputs)
+      })
 
     socket
-  end
-
-  defp approval_media_message_attrs(socket, response, media_outputs) do
-    %{
-      action_log: approval_media_action_log(response),
-      metadata: approval_media_metadata(socket, media_outputs)
-    }
   end
 
   defp approval_media_action_log(response) do

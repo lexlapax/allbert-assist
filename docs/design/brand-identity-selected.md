@@ -20,7 +20,7 @@ mark so M6 implements a chosen identity rather than originating one at asset-bui
 (Soft Modern Depth):
 
 - **Mark** (`priv/static/images/allbert-mark.svg`): a `--allbert-accent` violet
-  (`#7c6cf0`) rounded square (radius echoing `--allbert-radius-panel`) carrying a white
+  (`#7c6cf0` — the brand-asset fill, distinct from the UI `--allbert-accent` text token, deepened to `#6050e0` in v0.62 M0.1) rounded square (radius echoing `--allbert-radius-panel`) carrying a white
   geometric "A" (chevron + crossbar). Pure geometry — **no font dependency**, so it
   renders identically everywhere and needs no web-font fetch (honouring the Direction C
   system-local type constraint). It doubles as the favicon (SVG) and app icon.

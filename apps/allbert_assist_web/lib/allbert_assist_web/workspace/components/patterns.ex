@@ -125,35 +125,6 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
     """
   end
 
-  @doc "Returns the canonical class list for the shared drawer shell contract."
-  def drawer_shell_class(opts \\ []) do
-    retired? = Keyword.get(opts, :retired?, false)
-    extra_class = Keyword.get(opts, :class)
-
-    [
-      "workspace-utility-drawer-shell",
-      retired? && "workspace-utility-drawer-retired",
-      extra_class
-    ]
-  end
-
-  @doc "Returns root-safe attrs for stateful or stateless drawer shell renderers."
-  def drawer_shell_attrs(opts) do
-    title_id = Keyword.fetch!(opts, :title_id)
-    open? = Keyword.get(opts, :open?, true)
-    retired? = Keyword.get(opts, :retired?, false)
-    hidden? = Keyword.get(opts, :hidden?, false) or not open?
-
-    [
-      {"data-workspace-pattern", "drawer-shell"},
-      {"data-state", if(open?, do: "open", else: "closed")},
-      {"data-retired", bool_attribute(retired?)},
-      {"aria-labelledby", title_id},
-      {"aria-hidden", bool_attribute(hidden?)}
-    ]
-    |> maybe_attr("hidden", hidden?)
-  end
-
   @doc "Returns the canonical class list for the shared table/list shell contract."
   def table_list_class(extra_class \\ nil), do: ["workspace-table-shell", extra_class]
 
@@ -210,49 +181,6 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
       {"phx-value-surface-id", Keyword.get(opts, :surface_id)}
     ]
     |> compact_attrs()
-  end
-
-  attr :id, :string, required: true
-  attr :title, :string, required: true
-  attr :summary, :string, default: nil
-  attr :open?, :boolean, default: true
-  attr :retired?, :boolean, default: false
-  attr :hidden?, :boolean, default: false
-  attr :title_id, :string, default: nil
-  attr :class, :any, default: nil
-  attr :title_class, :any, default: nil
-  attr :summary_class, :any, default: nil
-  attr :rest, :global
-
-  slot :inner_block
-
-  def drawer_shell(assigns) do
-    assigns =
-      assigns
-      |> assign(:title_id, assigns.title_id || "#{assigns.id}-title")
-      |> assign(:hidden_state?, assigns.hidden? or not assigns.open?)
-
-    ~H"""
-    <aside
-      id={@id}
-      class={drawer_shell_class(retired?: @retired?, class: @class)}
-      {drawer_shell_attrs(
-        title_id: @title_id,
-        open?: @open?,
-        retired?: @retired?,
-        hidden?: @hidden_state?
-      )}
-      {@rest}
-    >
-      <h2 id={@title_id} class={[@retired? && "sr-only", @title_class]}>
-        {@title}
-      </h2>
-      <p :if={present?(@summary)} class={[@retired? && "sr-only", @summary_class]}>
-        {@summary}
-      </p>
-      {render_slot(@inner_block)}
-    </aside>
-    """
   end
 
   attr :id, :string, required: true
@@ -456,15 +384,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Patterns do
   defp present?(nil), do: false
   defp present?(_value), do: true
 
-  defp bool_attribute(true), do: "true"
-  defp bool_attribute(false), do: "false"
-
   defp compact_attrs(attrs) do
     Enum.reject(attrs, fn {_key, value} -> is_nil(value) end)
   end
-
-  defp maybe_attr(attrs, _key, false), do: attrs
-  defp maybe_attr(attrs, key, true), do: [{key, true} | attrs]
 
   defp click_away_event(%{click_away: true, dismiss_event: event}), do: event
   defp click_away_event(_assigns), do: nil

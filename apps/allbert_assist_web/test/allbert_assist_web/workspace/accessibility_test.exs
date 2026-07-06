@@ -57,6 +57,20 @@ defmodule AllbertAssistWeb.Workspace.AccessibilityTest do
     assert has_element?(view, "#workspace-shell[role='region']")
     assert has_element?(view, "#workspace-theme-toggle[aria-label]")
     assert has_element?(view, "#workspace-overflow-menu[aria-label='Workspace menu']")
+
+    # v0.62 M0.1 (deferred v0.61b a11y): live-toggled reduce-motion/high-contrast
+    # reach the sidebar via the A11ySync body-mirror hook, and role="menu"
+    # surfaces get roving arrow-key navigation via MenuKeys.
+    assert has_element?(view, "#workspace-shell[phx-hook='A11ySync']")
+    view |> element("#workspace-overflow-menu") |> render_click()
+    assert has_element?(view, "#workspace-overflow-menu-items[phx-hook='MenuKeys']")
+    view |> element("#workspace-overflow-menu") |> render_click()
+
+    js = File.read!(Path.expand("../../../assets/js/app.js", __DIR__))
+    assert js =~ "const MenuKeys"
+    assert js =~ "const A11ySync"
+    assert js =~ "querySelectorAll('[role=" <> <<34>> <> "menuitem" <> <<34>> <> "]')"
+    assert js =~ "data-reduce-motion"
     assert has_element?(view, "#workspace-split-resizer[role='separator'][tabindex='0']")
     assert has_element?(view, "#workspace-split-resizer[aria-valuemin='35'][aria-valuemax='70']")
     assert has_element?(view, "#workspace-canvas-cap-chip")

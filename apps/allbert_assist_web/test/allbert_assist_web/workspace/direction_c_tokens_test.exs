@@ -61,7 +61,8 @@ defmodule AllbertAssistWeb.Workspace.DirectionCTokensTest do
     assert root =~ "--allbert-text-strong: #1c1830;"
     assert root =~ "--allbert-text-soft: #5b5478;"
     assert root =~ "--allbert-line: #ddd8f0;"
-    assert root =~ "--allbert-accent: #7c6cf0;"
+    # v0.62 M0.1: light accent deepened for AA (4.5:1+) on white/soft surfaces.
+    assert root =~ "--allbert-accent: #6050e0;"
     assert root =~ "--allbert-accent-soft: #ece9fd;"
   end
 
