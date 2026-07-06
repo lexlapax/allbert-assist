@@ -120,12 +120,14 @@ defmodule AllbertAssist.CLI.FirstRun do
     )
   end
 
-  # Default Ollama probe is intentionally conservative and network-free: M4
-  # replaces it with the three-way live probe. Absent that, report `:missing`
-  # so first-run degrades to BYOK rather than assuming a local model. The spec
-  # advertises the full probe union so callers keep every model-state branch.
+  # v0.62 M4: the default probe is the live three-way Ollama check (binary /
+  # localhost server / curated model). Localhost-only — no external egress in
+  # detection; the guided install and pull are separate confirmation-gated
+  # actions. The spec keeps every model-state branch reachable for callers.
   @spec default_ollama_probe() :: :model_ready | :model_missing | :unhealthy | :missing
-  defp default_ollama_probe, do: :missing
+  defp default_ollama_probe do
+    AllbertAssist.FirstModel.Ollama.probe()
+  end
 
   # -- Home marker -----------------------------------------------------------
 

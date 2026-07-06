@@ -1,0 +1,141 @@
+defmodule AllbertAssist.Actions.FirstModel.PullModel do
+  @moduledoc """
+  Pull the curated default model (v0.62 M4, ADR 0078; M4 Authority Contract).
+
+  Uses the local Ollama REST API (`POST /api/pull`) under the existing
+  **`:external_network`** authority — its `:needs_confirmation` safety floor
+  means the pull runs only behind a durable operator confirmation. The API path
+  gives structured progress and documented cancel/resume; there is no silent
+  egress. The trace records the model tag and outcome.
+  """
+
+  use AllbertAssist.Action,
+    permission: :external_network,
+    exposure: :internal,
+    execution_mode: :first_model_pull,
+    skill_backed?: false,
+    confirmation: :required,
+    resumable?: true,
+    name: "pull_model",
+    description: "Pull the curated default model via the local Ollama API (confirmation-gated).",
+    category: "first_model",
+    tags: ["first_model", "pull", "external_network", "confirmation"],
+    schema: [
+      model: [type: :string, required: false],
+      dry_run: [type: :boolean, required: false],
+      user_id: [type: :string, required: false]
+    ],
+    output_schema: [
+      message: [type: :string, required: true],
+      status: [type: :atom, required: true],
+      permission_decision: [type: :map, required: true],
+      actions: [type: {:list, :map}, required: true]
+    ]
+
+  alias AllbertAssist.FirstModel.Ollama
+  alias AllbertAssist.Security.PermissionGate
+
+  @impl true
+  def run(params, context) do
+    permission_decision = PermissionGate.authorize(:external_network, context)
+    model = Map.get(params, :model) || Ollama.curated_model()
+
+    cond do
+      # dry_run is a pre-gate PREVIEW: no egress, just names the model + local
+      # endpoint. Real pull is gated below.
+      Map.get(params, :dry_run, false) ->
+        {:ok,
+         %{
+           message: "Would pull #{model} via #{Ollama.base_url()}/api/pull",
+           status: :completed,
+           permission_decision: permission_decision,
+           actions: [action(:completed, permission_decision, %{model: model, executed: false})]
+         }}
+
+      not PermissionGate.allowed?(permission_decision) ->
+        denied(permission_decision, model)
+
+      true ->
+        pull(model, permission_decision)
+    end
+  end
+
+  defp pull(model, permission_decision) do
+    case do_pull(model) do
+      {:ok, summary} ->
+        {:ok,
+         %{
+           message: "Pulled #{model}.",
+           status: :completed,
+           permission_decision: permission_decision,
+           actions: [
+             action(:completed, permission_decision, %{
+               model: model,
+               executed: true,
+               summary: summary
+             })
+           ]
+         }}
+
+      {:error, reason} ->
+        {:ok,
+         %{
+           message: "Pull of #{model} failed: #{inspect(reason)}",
+           status: :error,
+           permission_decision: permission_decision,
+           actions: [action(:error, permission_decision, %{model: model, error: inspect(reason)})]
+         }}
+    end
+  end
+
+  # Injectable puller for tests; default streams POST /api/pull.
+  defp do_pull(model) do
+    puller = Application.get_env(:allbert_assist, :first_model_pull, &default_pull/1)
+    puller.(model)
+  end
+
+  defp default_pull(model) do
+    url = String.to_charlist(Ollama.base_url() <> "/api/pull")
+    body = Jason.encode!(%{name: model, stream: false})
+
+    case :httpc.request(
+           :post,
+           {url, [], ~c"application/json", String.to_charlist(body)},
+           [{:timeout, 600_000}],
+           []
+         ) do
+      {:ok, {{_v, 200, _r}, _h, resp}} -> {:ok, summarize(to_string(resp))}
+      {:ok, {{_v, code, _r}, _h, _resp}} -> {:error, {:http, code}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp summarize(resp) do
+    case Jason.decode(resp) do
+      {:ok, %{"status" => status}} -> %{status: status}
+      _other -> %{status: "completed"}
+    end
+  end
+
+  defp denied(permission_decision, model) do
+    {:ok,
+     %{
+       message: permission_decision.reason,
+       status: PermissionGate.response_status(permission_decision),
+       permission_decision: permission_decision,
+       actions: [action(:denied, permission_decision, %{model: model, executed: false})]
+     }}
+  end
+
+  defp action(status, permission_decision, metadata) do
+    Map.merge(
+      %{
+        name: name(),
+        status: status,
+        permission: :external_network,
+        permission_decision: permission_decision
+      },
+      metadata
+    )
+  end
+end

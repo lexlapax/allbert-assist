@@ -38,6 +38,9 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Confirmations.ListConfirmations
   alias AllbertAssist.Actions.Confirmations.ShowConfirmation
   alias AllbertAssist.Actions.Conversations.PersistApprovalMediaResponse
+  alias AllbertAssist.Actions.FirstModel.Detect, as: FirstModelDetect
+  alias AllbertAssist.Actions.FirstModel.InstallOllama
+  alias AllbertAssist.Actions.FirstModel.PullModel
   alias AllbertAssist.Actions.Conversations.RenameThread
   alias AllbertAssist.Actions.Conversations.ResumeThreadOnChannel
   alias AllbertAssist.Actions.DynamicPlugins.DisableLiveLoader, as: DisableDynamicLiveLoader
@@ -402,6 +405,11 @@ defmodule AllbertAssist.Actions.Registry do
     # v0.62 M0.1: the approval-media assistant-message write, off the LiveView
     # direct-write path and onto the spine (internal, Runner-only).
     PersistApprovalMediaResponse,
+    # v0.62 M4: First-Model-Path — detect (read-only), install (command_execute,
+    # confirmed), pull (external_network, confirmed). Internal; not agent-routable.
+    FirstModelDetect,
+    InstallOllama,
+    PullModel,
     ManageTile,
     RevertTileRevision,
     RecordOfflineUpdate,

@@ -1,0 +1,114 @@
+defmodule AllbertAssist.FirstModel.Ollama do
+  @moduledoc """
+  Ollama detection + the curated-default-model decision for the First-Model
+  Path (v0.62 M4, ADR 0078: assisted-local default + BYOK fallback).
+
+  Detection is a **three-way probe** (the M0/research finding that
+  `brew install ollama` does not auto-start the server, so "installed but not
+  running" is a real state):
+
+    1. the `ollama` binary on `PATH`;
+    2. the server answering `GET /api/version` on `127.0.0.1:11434`;
+    3. the curated model present in `GET /api/tags`.
+
+  All probe I/O is **localhost only** — no external egress in detection. The
+  guided install and the model *pull* are separate, confirmation-gated actions
+  (`InstallOllama`, `PullModel`) that carry the `:command_execute` /
+  `:external_network` authority. The HTTP client is injectable for tests.
+  """
+
+  @default_base_url "http://127.0.0.1:11434"
+
+  # Curated default (Locked Decision 9): a ~3–4B model with an 8 GB floor.
+  # Selected/refreshed in v0.62 per ADR 0078; ratified at S4.
+  @curated_model "llama3.2:3b"
+  @curated_floor_gb 8
+
+  @type probe_result :: :model_ready | :model_missing | :unhealthy | :missing
+
+  @doc "The curated default model tag."
+  @spec curated_model() :: String.t()
+  def curated_model, do: @curated_model
+
+  @doc "The curated model's RAM floor in GB."
+  @spec curated_floor_gb() :: pos_integer()
+  def curated_floor_gb, do: @curated_floor_gb
+
+  @doc "The local Ollama base URL (settings-overridable elsewhere)."
+  @spec base_url() :: String.t()
+  def base_url do
+    System.get_env("OLLAMA_HOST") |> normalize_host() || @default_base_url
+  end
+
+  @doc """
+  Three-way probe → one of `:model_ready | :model_missing | :unhealthy |
+  :missing`. `deps` injects `:binary?`, `:version`, and `:tags` for tests.
+  """
+  @spec probe(keyword()) :: probe_result()
+  def probe(deps \\ []) do
+    binary? = Keyword.get(deps, :binary?, &binary_present?/0)
+    version = Keyword.get(deps, :version, &server_version/0)
+    tags = Keyword.get(deps, :tags, &model_tags/0)
+    model = Keyword.get(deps, :model, @curated_model)
+
+    cond do
+      not binary?.() and version.() == :error -> :missing
+      version.() == :error -> :missing
+      version.() == :unhealthy -> :unhealthy
+      true -> if model in tags.(), do: :model_ready, else: :model_missing
+    end
+  end
+
+  @doc "Is the `ollama` binary on PATH?"
+  @spec binary_present?() :: boolean()
+  def binary_present? do
+    System.find_executable("ollama") != nil
+  end
+
+  @doc "Probe the local server version endpoint (localhost only)."
+  @spec server_version() :: {:ok, String.t()} | :unhealthy | :error
+  def server_version do
+    case get("/api/version") do
+      {:ok, %{"version" => v}} -> {:ok, v}
+      {:ok, _other} -> :unhealthy
+      :error -> :error
+    end
+  end
+
+  @doc "List installed model tags (localhost only)."
+  @spec model_tags() :: [String.t()]
+  def model_tags do
+    case get("/api/tags") do
+      {:ok, %{"models" => models}} when is_list(models) ->
+        Enum.map(models, &(&1["name"] || &1["model"]))
+
+      _other ->
+        []
+    end
+  end
+
+  # -- localhost HTTP (injectable) -------------------------------------------
+
+  defp get(path) do
+    client = Application.get_env(:allbert_assist, :first_model_http, &default_get/1)
+    client.(base_url() <> path)
+  end
+
+  defp default_get(url) do
+    case :httpc.request(:get, {String.to_charlist(url), []}, [{:timeout, 1_500}], []) do
+      {:ok, {{_v, 200, _r}, _h, body}} ->
+        case Jason.decode(to_string(body)) do
+          {:ok, decoded} -> {:ok, decoded}
+          _error -> :error
+        end
+
+      _other ->
+        :error
+    end
+  end
+
+  defp normalize_host(nil), do: nil
+  defp normalize_host(""), do: nil
+  defp normalize_host("http" <> _rest = url), do: url
+  defp normalize_host(hostport), do: "http://" <> hostport
+end
