@@ -82,6 +82,47 @@ jobs:
           path: dist/*.tar.gz
           retention-days: 30
 
+  # v0.62 M8.13: Linux install/serve/service/vault rehearsal on a real Ubuntu
+  # host — the automated counterpart to the manual macOS rehearsal. Installs the
+  # built linux-x64 artifact through install.sh's symlink path, smokes the CLI,
+  # and rehearses the Secret Service vault (gnome-keyring) + systemd --user
+  # service where the runner allows (both degrade gracefully, matching the
+  # documented headless fallback). Evidence uploads as an artifact.
+  linux-rehearsal:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: allbert-linux-x64
+          path: dist
+      - name: Extract the built artifact
+        run: |
+          mkdir -p work
+          tar -xzf dist/*.tar.gz -C work
+          echo "REL_ROOT=$PWD/work/allbert" >> "$GITHUB_ENV"
+      - name: Install Secret Service tooling (gnome-keyring + secret-tool)
+        run: sudo apt-get update && sudo apt-get install -y gnome-keyring libsecret-tools dbus-x11
+      - name: Linux rehearsal (install / smoke / vault / service / uninstall)
+        run: |
+          set -o pipefail
+          # A D-Bus session + an unlocked login keyring so the Secret Service
+          # (tier-1 Linux) path is exercisable; the rehearsal script SKIPs the
+          # vault step cleanly if the keyring is unavailable.
+          dbus-run-session -- bash -c '
+            echo "ci-keyring-pass" | gnome-keyring-daemon --unlock --components=secrets >/dev/null 2>&1 || true
+            eval "$(echo ci-keyring-pass | gnome-keyring-daemon --start --components=secrets 2>/dev/null)" || true
+            bash scripts/smoke/linux_rehearsal.sh "$REL_ROOT"
+          ' | tee linux-rehearsal.log
+      - name: Upload rehearsal evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-rehearsal-log
+          path: linux-rehearsal.log
+          retention-days: 30
+
   # v0.62 M2/M8: collect the per-target artifacts, publish SHA256SUMS, and
   # attach everything to the GitHub release. Tag pushes only — the operator
   # holds the real v0.62.0 tag, so this fires when they push it (or on a

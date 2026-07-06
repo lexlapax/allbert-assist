@@ -122,6 +122,21 @@ brew uninstall allbert                            # if installed via Homebrew
   **preserves Allbert Home**. This rehearsal caught and fixed a real
   symlink-resolution bug in the dispatcher (M8.12).
 
+### Scripted Linux rehearsal
+
+`scripts/smoke/linux_rehearsal.sh <extracted-release-root>` runs the whole Linux
+flow (install via symlink → CLI smoke → Secret Service vault → systemd `--user`
+service surface → uninstall). It runs automatically as the `linux-rehearsal` CI
+job on every workflow run; on a real host, run it inside a keyring session for
+the vault step:
+
+```sh
+sudo apt-get install -y gnome-keyring libsecret-tools dbus-x11
+dbus-run-session -- bash -c '
+  echo pass | gnome-keyring-daemon --unlock --components=secrets
+  bash scripts/smoke/linux_rehearsal.sh /path/to/allbert'
+```
+
 ## 5. Remaining operator S-steps
 
 - Live **Linux** install/serve/service/vault rehearsal on a real Linux host
