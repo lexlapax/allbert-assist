@@ -1510,7 +1510,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
     run_skill_action(
       "unsupported-resource-workflow",
       "unsupported_resource_workflow",
-      %{workflow: workflow, source_text: text, resource: resource},
+      %{workflow: to_string(workflow), source_text: text, resource: resource},
       text,
       context
     )
@@ -1536,7 +1536,7 @@ defmodule AllbertAssist.Agents.IntentAgent do
     run_skill_action(
       "unsupported-resource-workflow",
       "unsupported_resource_workflow",
-      %{workflow: :read_local_path, source_text: text, resource: path},
+      %{workflow: "read_local_path", source_text: text, resource: path},
       text,
       context
     )

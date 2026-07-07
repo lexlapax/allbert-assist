@@ -21,6 +21,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
   alias AllbertAssist.Coding.StreamRenderer
   alias AllbertAssist.Coding.ToolLoop
   alias AllbertAssist.Coding.TurnSupervisor
+  alias AllbertAssist.Memory
   alias AllbertAssist.Paths
   alias AllbertAssist.Plugin.Registry, as: PluginRegistry
   alias AllbertAssist.Plugins.TUI, as: TUIPlugin
@@ -91,6 +92,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
   setup do
     original_env = Map.new(@env_vars, &{&1, System.get_env(&1)})
     original_paths_config = Application.get_env(:allbert_assist, Paths)
+    original_memory_config = Application.get_env(:allbert_assist, Memory)
     original_runtime_config = Application.get_env(:allbert_assist, Runtime)
     original_settings_config = Application.get_env(:allbert_assist, Settings)
     original_trace_config = Application.get_env(:allbert_assist, Trace)
@@ -114,6 +116,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
     Enum.each(@env_vars, &System.delete_env/1)
     System.put_env("ALLBERT_HOME", home)
     Application.put_env(:allbert_assist, Paths, home: home)
+    Application.put_env(:allbert_assist, Memory, root: Path.join(home, "memory"))
     Application.put_env(:allbert_assist, Settings, root: Path.join(home, "settings"))
     Application.delete_env(:allbert_assist, Trace)
 
@@ -126,6 +129,7 @@ defmodule AllbertAssist.Security.V057CodingEvalTest do
     on_exit(fn ->
       restore_env(original_env)
       restore_app_env(Paths, original_paths_config)
+      restore_app_env(Memory, original_memory_config)
       restore_app_env(Runtime, original_runtime_config)
       restore_app_env(Settings, original_settings_config)
       restore_app_env(Trace, original_trace_config)

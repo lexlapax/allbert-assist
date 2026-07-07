@@ -19,12 +19,12 @@ defmodule AllbertAssist.App.CoreApp do
 
   @impl true
   # App version follows the Allbert release that last meaningfully changed
-  # the app (release-pinned, not semantic-per-app). v0.62 (0.62.0) packages
-  # Allbert as an OTP release with a unified `allbert` CLI, first-run /
-  # First-Model-Path onboarding, an `allbert serve` daemon with a single-writer
-  # guard, and a three-tier secret vault (ADR 0076). Convention is documented
-  # in DEVELOPMENT.md "App version metadata".
-  def version, do: "0.62.0"
+  # the app (release-pinned, not semantic-per-app). v0.62.1 closes the v0.62
+  # release-ops follow-up while v0.62.0 remains the packaged product artifact:
+  # unified `allbert` CLI, first-run / First-Model-Path onboarding,
+  # `allbert serve`, and the three-tier secret vault stay governed by ADR 0076.
+  # Convention is documented in DEVELOPMENT.md "App version metadata".
+  def version, do: "0.62.1"
 
   @impl true
   def validate(_opts), do: :ok

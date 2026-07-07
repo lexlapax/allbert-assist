@@ -42,11 +42,13 @@ command routing, a single-writer guard, `/health`, the ADR 0070 mix-free TUI
 console convergence, and a three-tier OS secret vault (ADR 0076). No new
 authority.
 
-The latest published release tag is `v0.62.0` (released 2026-07-07 and marked
-Latest). The v0.62b / 0.62.1 planning layer owns the follow-up distribution
-closeout: Homebrew tap fill, package-manager install proof, packaged TUI
-transcript, both Linux Docker rehearsals, and the reusable evidence taxonomy for
-future release operations.
+The latest packaged GitHub release remains `v0.62.0` (released 2026-07-07 and
+marked Latest) so `install.sh` and Homebrew keep resolving to the artifact set
+that includes tarballs and `SHA256SUMS`. The `0.62.1` source/docs point-release
+state is staged on `main`, with tag/release intentionally deferred: it closes the
+v0.62b distribution follow-up for Homebrew tap fill, package-manager install
+proof, packaged TUI transcript, both Linux Docker rehearsals, and the reusable
+evidence taxonomy for future release operations.
 
 This README is the stable project orientation; release-by-release implementation
 detail belongs in [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in

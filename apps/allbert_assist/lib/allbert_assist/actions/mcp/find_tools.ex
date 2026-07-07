@@ -14,7 +14,12 @@ defmodule AllbertAssist.Actions.Mcp.FindTools do
     schema: [
       query: [type: :string, required: false],
       need: [type: :string, required: false],
-      limit: [type: :integer, required: false]
+      limit: [type: :integer, required: false],
+      provider_opts: [
+        type: :map,
+        required: false,
+        doc: "Injected provider-specific registry options for tests and controlled callers."
+      ]
     ],
     output_schema: [
       message: [type: :string, required: true],

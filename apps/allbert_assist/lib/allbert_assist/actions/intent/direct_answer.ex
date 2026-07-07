@@ -197,9 +197,9 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
   defp retrieve_active_memory(text, context) do
     params = %{
       query: text,
-      user_id: context_value(context, :user_id) || context_value(context, :actor),
-      thread_id: context_value(context, :thread_id),
-      active_app: context_value(context, :active_app),
+      user_id: string_param(context_value(context, :user_id) || context_value(context, :actor)),
+      thread_id: string_param(context_value(context, :thread_id)),
+      active_app: string_param(context_value(context, :active_app)),
       now: active_memory_now(context)
     }
 
@@ -245,6 +245,11 @@ defmodule AllbertAssist.Actions.Intent.DirectAnswer do
       get_in(context, [:request, key]) ||
       get_in(context, [:request, Atom.to_string(key)])
   end
+
+  defp string_param(nil), do: nil
+  defp string_param(value) when is_binary(value), do: value
+  defp string_param(value) when is_atom(value), do: Atom.to_string(value)
+  defp string_param(value), do: to_string(value)
 
   defp coding_streaming_request?(context) do
     request = Map.get(context, :request) || Map.get(context, "request") || %{}

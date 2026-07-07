@@ -122,8 +122,8 @@ defmodule Mix.Tasks.Allbert.DynamicTest do
     assert {:ok, %{tier: "discarded"}} = DynamicPlugins.show_draft("task_discard")
   end
 
-  test "unknown subcommand raises usage" do
-    assert_raise Mix.Error, ~r/mix allbert.dynamic drafts list/, fn ->
+  test "unknown subcommand raises shared plugin usage" do
+    assert_raise Mix.Error, ~r/allbert admin plugins drafts list/, fn ->
       DynamicTask.run(["wat"])
     end
   end

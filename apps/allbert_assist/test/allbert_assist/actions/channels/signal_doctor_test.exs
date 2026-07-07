@@ -44,22 +44,23 @@ defmodule AllbertAssist.Actions.Channels.SignalDoctorTest do
     :ok
   end
 
-  test "doctor action returns local-only daemon envelope and persists state" do
+  test "doctor action returns release-blocked envelope and persists state" do
     assert {:ok, %{status: :completed} = response} =
              Runner.run("signal_doctor", %{}, %{actor: "operator"})
 
-    assert response.doctor.status == :ok
+    assert response.doctor.status == :implemented_not_released
+    assert response.doctor.release_status == :implemented_not_released
     assert response.doctor.auth_ok
-    assert response.doctor.endpoint_ok
+    refute response.doctor.endpoint_ok
     assert response.doctor.control_mode == "socket"
-    assert response.doctor.control_local_only
-    assert response.doctor.data_dir_mode == 0o700
+    refute response.doctor.control_local_only
+    assert :implemented_not_released in response.doctor.diagnostics
     refute inspect(response) =~ "+15551234567"
 
     assert {:ok, state} = Doctor.read_state()
-    assert state["status"] == "ok"
+    assert state["status"] == "implemented_not_released"
+    assert state["release_status"] == "implemented_not_released"
     assert state["control_mode"] == "socket"
-    assert state["data_dir_mode"] == 0o700
   end
 
   defp configure_signal!(root) do

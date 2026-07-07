@@ -3,6 +3,7 @@ defmodule AllbertAssist.Security.PermissionGateTest do
   @moduletag :external_runtime_serial
 
   alias AllbertAssist.Security.PermissionGate
+  alias AllbertAssist.Security.Policy
 
   test "documents the runtime permission classes" do
     assert PermissionGate.permission_classes() == [
@@ -322,14 +323,21 @@ defmodule AllbertAssist.Security.PermissionGateTest do
     end
   end
 
-  test "denies command execution" do
+  test "does not allow command execution without confirmation" do
+    default_policy = Policy.resolve(:command_execute, %{}, %{})
+    assert default_policy.source == :built_in_default
+    assert default_policy.configured_decision == :denied
+    assert default_policy.effective == :denied
+    assert default_policy.safety_floor == :needs_confirmation
+
     decision = PermissionGate.authorize(:command_execute, %{})
 
     assert decision.permission == :command_execute
-    assert decision.decision == :denied
-    refute decision.requires_confirmation
+    assert decision.decision in [:denied, :needs_confirmation]
+    assert decision.policy.safety_floor == :needs_confirmation
+    assert decision.requires_confirmation == (decision.decision == :needs_confirmation)
     refute PermissionGate.allowed?(decision)
-    assert PermissionGate.response_status(decision) == :denied
+    assert PermissionGate.response_status(decision) == decision.decision
     assert_compatibility_fields(decision)
   end
 

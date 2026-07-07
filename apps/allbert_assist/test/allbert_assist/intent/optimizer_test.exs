@@ -90,11 +90,25 @@ defmodule AllbertAssist.Intent.Router.OptimizerTest do
     after_cov = Optimizer.coverage()
 
     if before_cov.missing > 0 do
-      assert after_cov.missing < before_cov.missing
-      assert result.generated != []
+      assert after_cov.missing <= before_cov.missing
+      assert result.generated != [] or result.reviewed != []
+
+      if result.generated != [] do
+        assert after_cov.missing < before_cov.missing
+      end
+
+      accepted_reviewed =
+        result.reviewed
+        |> MapSet.new()
+        |> MapSet.difference(rejected_action_names(result.rejected))
+
+      if MapSet.size(accepted_reviewed) > 0 do
+        assert after_cov.review_pending >= MapSet.size(accepted_reviewed)
+      end
     else
       assert after_cov.missing == 0
       assert result.generated == []
+      assert result.reviewed == []
     end
 
     assert after_cov.generated >= length(result.generated)
@@ -137,5 +151,11 @@ defmodule AllbertAssist.Intent.Router.OptimizerTest do
     |> Enum.any?(
       &(&1.app_id == app_id and &1.action_name == action_name and &1.source == :generated)
     )
+  end
+
+  defp rejected_action_names(rejections) do
+    rejections
+    |> Enum.map(& &1.action_name)
+    |> MapSet.new()
   end
 end

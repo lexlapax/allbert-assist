@@ -468,12 +468,15 @@ scope.
     No authority change. **Released as 0.62.0 (tagged `v0.62.0`, 2026-07-07);
     `mix allbert.test release.v062` gate + the artifact smoke harness are the two
     verification layers.**
-62b. v0.62b Distribution Closeout & Reusable Release Ops: a planned point-release
-    / docs-evidence follow-up (0.62.1 only if a release-facing fix is needed)
-    for Homebrew tap fill, package-manager install proof, packaged TUI transcript,
-    both Linux Docker rehearsals, and the reusable release-evidence taxonomy.
-    Does not renumber v0.63-v0.64 and adds no authority, Settings key,
-    permission, runtime action, trust semantic, or product capability.
+62b. v0.62b Distribution Closeout & Reusable Release Ops: staged as a
+    source/docs point-release candidate on `main` after Homebrew tap fill,
+    package-manager install proof, packaged TUI transcript, both Linux Docker
+    rehearsals, reusable release-evidence taxonomy, and the Linux rehearsal
+    non-root guard landed. Tag/release are intentionally deferred; no packaged
+    GitHub Release is planned for v0.62.1, and v0.62.0 remains the GitHub Latest
+    packaged product release. Does not renumber v0.63-v0.64 and adds no
+    authority, Settings key, permission, runtime action, trust semantic, or
+    product capability.
 63. v0.63 Guided Onboarding & Profiles: implements the v0.60 onboarding-flow
     design and applies the v0.60 persona model over the v0.62 entry points — a
     two-track wizard (QuickStart vs Advanced, plus a fastest-first-chat path) in
@@ -4088,11 +4091,13 @@ Plan: `docs/plans/v0.62b-plan.md`
 Request flow: `docs/plans/v0.62b-request-flow.md`
 ADR: no new ADR expected; builds on ADR 0076 and ADR 0070.
 
-Status: **planned** point-release / docs-evidence follow-up, version target
-`0.62.1` only if validation finds a release-facing fix that should ship as an
-artifact. v0.62.0 remains the shipped product release. v0.62b does not renumber
-v0.63, v0.64, or v1.0 and carries no new authority, permission, Settings key,
-runtime action, install trust semantic, or product capability.
+Status: **staged** source/docs point-release candidate on `main`, version
+metadata 0.62.1, with tag/release intentionally deferred. v0.62.0 remains the
+GitHub Latest packaged product release because it carries the tarballs,
+version-less latest aliases, and `SHA256SUMS`; v0.62.1 is not planned to create
+a packaged GitHub Release. v0.62b does not renumber v0.63, v0.64, or v1.0 and
+carries no new authority, permission, Settings key, runtime action, install
+trust semantic, or product capability.
 
 Expected direction:
 

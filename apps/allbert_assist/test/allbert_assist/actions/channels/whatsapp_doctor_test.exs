@@ -1,8 +1,6 @@
 defmodule AllbertAssist.Actions.Channels.WhatsAppDoctorTest do
   use AllbertAssist.DataCase, async: false
 
-  import Plug.Conn
-
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Channels.WhatsApp.Doctor
   alias AllbertAssist.Paths
@@ -50,31 +48,22 @@ defmodule AllbertAssist.Actions.Channels.WhatsAppDoctorTest do
     :ok
   end
 
-  test "doctor action returns redacted envelope and persists state" do
-    Req.Test.expect(__MODULE__, fn conn ->
-      assert conn.method == "GET"
-      assert conn.request_path == "/v23.0/15551234567"
-      assert get_req_header(conn, "authorization") == ["Bearer whatsapp-secret"]
-
-      json(conn, %{
-        "display_phone_number" => "+15551234567",
-        "verified_name" => "Allbert Test",
-        "quality_rating" => "GREEN"
-      })
-    end)
-
+  test "doctor action returns release-blocked redacted envelope and persists state" do
     assert {:ok, %{status: :completed} = response} =
              Runner.run("whatsapp_doctor", %{}, %{actor: "operator"})
 
-    assert response.doctor.status == :ok
+    assert response.doctor.status == :implemented_not_released
+    assert response.doctor.release_status == :implemented_not_released
     assert response.doctor.auth_ok
-    assert response.doctor.endpoint_ok
+    refute response.doctor.endpoint_ok
     assert response.doctor.phone_number_id == "[REDACTED_PHONE]"
+    assert :implemented_not_released in response.doctor.diagnostics
     refute inspect(response) =~ "whatsapp-secret"
     refute inspect(response) =~ "+15551234567"
 
     assert {:ok, state} = Doctor.read_state()
-    assert state["status"] == "ok"
+    assert state["status"] == "implemented_not_released"
+    assert state["release_status"] == "implemented_not_released"
     assert state["phone_number_id"] == "[REDACTED_PHONE]"
   end
 
@@ -112,14 +101,6 @@ defmodule AllbertAssist.Actions.Channels.WhatsAppDoctorTest do
   defp restore_plugins(original_plugins) do
     PluginRegistry.clear()
     Enum.each(original_plugins, &PluginRegistry.register_entry/1)
-  end
-
-  defp json(conn, body) do
-    status = conn.status || 200
-
-    conn
-    |> put_resp_content_type("application/json")
-    |> send_resp(status, Jason.encode!(body))
   end
 
   defp restore_env(module, nil), do: Application.delete_env(:allbert_assist, module)

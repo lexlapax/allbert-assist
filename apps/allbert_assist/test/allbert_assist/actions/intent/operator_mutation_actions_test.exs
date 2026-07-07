@@ -41,8 +41,6 @@ defmodule AllbertAssist.Actions.Intent.OperatorMutationActionsTest do
     original_home_dir = System.get_env("ALLBERT_HOME_DIR")
     original_paths = Application.get_env(:allbert_assist, Paths)
     original_settings = Application.get_env(:allbert_assist, Settings)
-    original_apps = AppRegistry.registered_apps()
-    original_plugins = PluginRegistry.registered_plugins()
 
     home =
       Path.join(
@@ -81,8 +79,8 @@ defmodule AllbertAssist.Actions.Intent.OperatorMutationActionsTest do
         do: Application.put_env(:allbert_assist, Settings, original_settings),
         else: Application.delete_env(:allbert_assist, Settings)
 
-      restore_plugins!(original_plugins)
-      restore_apps!(original_apps)
+      restore_shipped_plugins!()
+      restore_shipped_apps!()
       File.rm_rf!(home)
       File.rm_rf!(fixture_root)
     end)
@@ -237,22 +235,6 @@ defmodule AllbertAssist.Actions.Intent.OperatorMutationActionsTest do
     |> Enum.uniq()
     |> Enum.each(fn module ->
       assert {:ok, _app_id} = AppRegistry.register(module)
-    end)
-  end
-
-  defp restore_plugins!(plugins) do
-    PluginRegistry.clear()
-
-    Enum.each(plugins, fn plugin ->
-      assert {:ok, _plugin_id} = PluginRegistry.register_entry(plugin)
-    end)
-  end
-
-  defp restore_apps!(apps) do
-    AppRegistry.clear()
-
-    Enum.each(apps, fn app ->
-      assert {:ok, _app_id} = AppRegistry.register(Map.fetch!(app, :module))
     end)
   end
 

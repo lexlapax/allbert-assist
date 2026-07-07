@@ -10,6 +10,44 @@ plans unless the task requires historical detail.
 Do not add AI-tool attribution, co-author trailers, or generated-by footers to
 changelog entries or release notes.
 
+## v0.62.1 - Distribution Closeout & Reusable Release Ops (v0.62b)
+
+Status: **staged on `main` — version metadata 0.62.1; tag/release intentionally
+deferred**. This point-release candidate intentionally has no packaged GitHub
+Release assets; `v0.62.0` remains the GitHub Latest packaged product release so
+`install.sh` and Homebrew keep resolving to the artifact set that contains the
+version-less latest aliases, versioned tarballs, and `SHA256SUMS`.
+
+Closes the v0.62 distribution follow-up without adding product capability,
+authority, permission, Settings key, runtime action, install trust semantic, or
+new ADR:
+
+- Filled and pushed `lexlapax/homebrew-allbert` from the published v0.62.0
+  `SHA256SUMS`; tap commit
+  `9282902d6476728b7419f5da092549db8761eb51` passed
+  `brew audit --strict --online --formula allbert`.
+- Rehearsed Homebrew install/test/uninstall from the pushed tap on macOS with a
+  disposable `ALLBERT_HOME`; packaged `allbert --version`, `admin status`,
+  `serve` + `/health`, attach-first command routing, `brew test`, uninstall,
+  and home preservation passed.
+- Captured a packaged `allbert tui` transcript from the Homebrew-installed
+  binary with `/help`, `/status`, `/channels`,
+  `/settings get channels.tui.enabled`, and `/quit`.
+- Ran both Linux Docker package rehearsals from the published v0.62.0 artifacts:
+  `linux-arm64` natively and `linux-x64` under `--platform linux/amd64` on
+  Apple Silicon Docker Desktop. Hard package checks passed; Secret Service and
+  user systemd manager rows are documented SKIPs for the container environment;
+  service dry-run passed.
+- Updated the reusable release rehearsal runbook and Linux smoke script so
+  future Docker package smokes run the packaged runtime as a non-root user,
+  record Apple Silicon x64-emulation `ERL_AFLAGS="+JMsingle true"` when needed,
+  and distinguish source gates, artifact matrices, package-manager installs,
+  containerized Linux package smokes, real-host service/vault checks, and
+  TTY/TUI transcript evidence.
+- Staged the `0.62.1` source/docs metadata and stale-test/source closeout fixes;
+  the full `MIX_ENV=test mix allbert.test release` gate passed with evidence at
+  `/var/folders/nc/r_scv0hd78x07x908ymg5mk80000gn/T/allbert_test_gates/release/p0-13827/home/release_evidence/gates/release-2026-07-07T10_06_51Z.json`.
+
 ## v0.62.0 - Packaging & Entry Points
 
 Status: **released — tagged `v0.62.0` (2026-07-07), version 0.62.0, GitHub
@@ -20,9 +58,9 @@ smoke harness (`.github/workflows/release-artifacts.yml` +
 `scripts/smoke/artifact_smoke.sh`) is the required binary verification layer.
 Homebrew tap fill, packaged TUI transcript, both Linux Docker/package rehearsals
 (`linux-arm64` native and `linux-x64` under `--platform linux/amd64`), and the
-reusable release-ops evidence taxonomy are owned by the planned v0.62b follow-up
-and do not change this shipped release's authority model. Governed by ADR 0076
-(Accepted at S8, 2026-07-06); ADR 0070 marked converged.
+reusable release-ops evidence taxonomy are staged in the v0.62.1 source/docs
+follow-up and do not change this shipped release's authority model. Governed by
+ADR 0076 (Accepted at S8, 2026-07-06); ADR 0070 marked converged.
 
 Packages Allbert as a self-contained product with one operator entry point.
 
