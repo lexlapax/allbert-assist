@@ -367,8 +367,12 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
         assert :ok = ChannelsTask.run(["setup-check", "whatsapp"])
       end)
 
-    assert whatsapp_ready =~ "whatsapp setup status=ready"
-    assert whatsapp_ready =~ "missing=none"
+    # WhatsApp is intentionally release-gated: the Cloud API adapter was
+    # implemented in v0.53 but not released for live channel use (Meta
+    # provider-blocked), so a fully-configured whatsapp reports
+    # `implemented_not_released`, not `ready`. All config/secrets are present.
+    assert whatsapp_ready =~ "whatsapp setup status=implemented_not_released"
+    assert whatsapp_ready =~ "missing=implemented_not_released"
     assert whatsapp_ready =~ "mix allbert.test external-smoke -- whatsapp"
     refute whatsapp_ready =~ "whatsapp-secret"
     refute whatsapp_ready =~ "15551234567"
@@ -401,8 +405,12 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
         assert :ok = ChannelsTask.run(["setup-check", "signal"])
       end)
 
-    assert signal_ready =~ "signal setup status=ready"
-    assert signal_ready =~ "missing=none"
+    # Signal, like WhatsApp, is intentionally release-gated: the signal-cli
+    # JSON-RPC bridge was implemented in v0.53 but not released for live channel
+    # use (operator-managed daemon/link-device onboarding), so a fully-configured
+    # signal reports `implemented_not_released`, not `ready`.
+    assert signal_ready =~ "signal setup status=implemented_not_released"
+    assert signal_ready =~ "missing=implemented_not_released"
     assert signal_ready =~ "mix allbert.test external-smoke -- signal"
     assert signal_ready =~ "pair=mix allbert.channels signal link --account <account>"
     refute signal_ready =~ "+15551234567"
@@ -634,7 +642,9 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
         assert :ok = ChannelsTask.run(["whatsapp", "doctor"])
       end)
 
-    assert whatsapp_doctor =~ "whatsapp doctor status=ok"
+    # Release-gated (see setup-check note above): the doctor reports
+    # `implemented_not_released` rather than `ok` for the parked provider.
+    assert whatsapp_doctor =~ "whatsapp doctor status=implemented_not_released"
     assert whatsapp_doctor =~ "adapter="
     refute whatsapp_doctor =~ "whatsapp-secret"
     refute whatsapp_doctor =~ "+15551234567"
@@ -658,9 +668,12 @@ defmodule Mix.Tasks.Allbert.ChannelsTest do
         assert :ok = ChannelsTask.run(["signal", "doctor"])
       end)
 
-    assert signal_doctor =~ "signal doctor status=ok"
+    # Release-gated (see setup-check note above): the doctor returns the gated
+    # envelope (`implemented_not_released`, `local_only=false`) rather than a live
+    # `ok`/`local_only=true` result for the parked provider.
+    assert signal_doctor =~ "signal doctor status=implemented_not_released"
     assert signal_doctor =~ "control=socket"
-    assert signal_doctor =~ "local_only=true"
+    assert signal_doctor =~ "local_only=false"
     refute signal_doctor =~ "+15551234567"
   end
 

@@ -5,6 +5,16 @@ defmodule AllbertAssist.StockSageRegistryCase do
   StockSage.App action validation resolves through the registered action
   boundary, so tests that register or normalize the app must seed the plugin
   contribution first.
+
+  v0.62 M8.24: `:stocksage` is now registered once for the whole suite in each
+  app's `test_helper.exs`, so in practice `known_app_id?(:stocksage)` is already
+  true and this `setup/1` is inert (it neither registers nor unregisters the app).
+  The register-if-absent + unregister-only-if-we-registered guards below are kept
+  defensively. Do NOT add an unconditional `App.Registry.unregister(:stocksage)`:
+  the App.Registry is a single global GenServer shared across async tests, and an
+  unconditional teardown would race — intermittently pulling `:stocksage` out from
+  under a concurrent test (`Handoff.new!(app_id: :stocksage)` ->
+  `{:invalid_app_id, :unknown_app}`).
   """
 
   import ExUnit.Assertions

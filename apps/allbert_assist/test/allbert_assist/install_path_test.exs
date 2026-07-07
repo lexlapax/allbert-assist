@@ -114,6 +114,11 @@ defmodule AllbertAssist.InstallPathTest do
     body = File.read!(@workflow)
     assert body =~ "sha256sum"
     assert body =~ "SHA256SUMS"
+    # v0.62 M8.25: the release must be CREATED before assets are uploaded — a
+    # pushed tag doesn't auto-create a Release, so `gh release upload` alone would
+    # fail on the first tag. Prerelease-aware for rc-tag build tests.
+    assert body =~ "gh release create" and body =~ "--verify-tag"
+    assert body =~ "--prerelease"
     assert body =~ "gh release upload"
     # Native per-target matrix (no cross-compilation).
     assert body =~ "macos-arm64" and body =~ "linux-x64" and body =~ "linux-arm64"
