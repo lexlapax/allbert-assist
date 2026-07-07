@@ -3,8 +3,8 @@ defmodule AllbertAssist.Security.V062SweepEvalTest do
   v0.62 Packaging & Entry Points sweep (ADR 0076).
 
   Inventory completeness / shape / ownership routing for the 18 `:v062` eval
-  rows, plus the sweep-owned rows: the no-new-authority envelope (registry diff
-  is exactly the named M0.1/M4/M5/M6/M7 internal actions, no new permission
+  rows, plus the sweep-owned rows: the no-new-authority envelope (the v0.62-added
+  registry entries are exactly the named internal actions, with no new permission
   class or Settings key), the converged TUI reads staying off the intent
   router, the vault no-leak posture, the documented package layout, and the
   ADR 0076 acceptance / ADR 0070 convergence artifacts. The behavioural rows are
@@ -74,7 +74,24 @@ defmodule AllbertAssist.Security.V062SweepEvalTest do
     "serve_health" => :read_only,
     "service_control" => :command_execute,
     "vault_status" => :read_only,
-    "migrate_secrets" => :settings_write
+    "migrate_secrets" => :settings_write,
+    "create_job" => :job_write,
+    "configure_channel_secret" => :settings_secret_write,
+    "configure_channel_setting" => :settings_write,
+    "link_channel_identity" => :settings_write,
+    "unlink_channel_identity" => :settings_write,
+    "clear_session" => :conversation_write,
+    "sweep_expired_sessions" => :conversation_write,
+    "complete_thread" => :conversation_write,
+    "create_protocol_token" => :settings_secret_write,
+    "rotate_protocol_token" => :settings_secret_write,
+    "revoke_protocol_token" => :settings_secret_write,
+    "ensure_voice_token" => :voice_local_runtime_manage,
+    "rotate_workspace_signing_secret" => :settings_secret_write,
+    "mcp_scan_enable" => :settings_write,
+    "mcp_scan_pause" => :job_write,
+    "mcp_scan_resume" => :job_write,
+    "mcp_scan_run_once" => :job_write
   }
 
   # The converged TUI console reads (M6 + the M4/M5 reads its slash lines route

@@ -22,8 +22,9 @@ The tag push fires `.github/workflows/release-artifacts.yml`:
   ERTS crypto linkage, all through an operator-style symlink.
 - **publish** (tag only, and now gated on the Linux rehearsal): collects the
   per-target tarballs, adds version-less aliases (`allbert-<target>.tar.gz` for
-  the `latest` install path), writes and cosign-signs `SHA256SUMS`, and uploads
-  everything to the GitHub release.
+  the `latest` install path), writes `SHA256SUMS`, creates the optional
+  out-of-band `SHA256SUMS.cosign.bundle`, and uploads everything to the GitHub
+  release.
 
 **Trust model note (v0.62).** The published `SHA256SUMS.cosign.bundle` exists for
 **out-of-band, operator-driven manual verification** — the curl installer and the
@@ -125,14 +126,20 @@ brew uninstall allbert                            # if installed via Homebrew
 
 ## 4. Verified evidence
 
-- **CI artifact matrix** (`release-artifacts.yml`, run on the pushed commit):
-  macos-arm64, linux-x64, linux-arm64 build + smoke green (7/7 checks each,
-  through the operator-style symlink).
-- **CI Linux rehearsal** (`linux-rehearsal` job, ubuntu-22.04, 2026-07-06): all
-  checks green — install (symlink) → `--version`/`admin status`/`/health`/attach
-  (*served by the daemon*) → **Secret Service vault**: `secret-tool` round-trip +
-  `admin vault` reports the `os` tier → systemd `--user` service dry-run +
-  **user systemd present** → uninstall (**Home preserved**).
+- **Historical CI artifact matrix** (`release-artifacts.yml`, run
+  `28806671962`, commit `e200eaff`, 2026-07-06): macos-arm64, linux-x64,
+  linux-arm64 build + smoke green (7/7 checks each, through the operator-style
+  symlink). Job ids: linux-x64 `85423862478`, linux-arm64 `85423862494`,
+  macos-arm64 `85423862527`.
+- **Historical CI Linux rehearsal** (`linux-rehearsal` job `85424584885`,
+  ubuntu-22.04, same run): all checks green — install (symlink) →
+  `--version`/`admin status`/`/health`/attach (*served by the daemon*) →
+  **Secret Service vault**: `secret-tool` round-trip + `admin vault` reports the
+  `os` tier → systemd `--user` service dry-run + **user systemd present** →
+  uninstall (**Home preserved**).
+- **Current-head requirement:** the evidence above predates M8.14-M8.19. Rerun
+  `release-artifacts.yml` after the final remediation push and record the new run
+  id before manual operator closeout.
 - **macOS local rehearsal (2026-07-06, on macos-arm64):** `install.sh` (checksum
   verified) → symlinked `allbert --version` / `admin status` / `admin vault`
   (Keychain `os` tier) RC 0; `allbert serve` → `/health` `status:ok` → attach

@@ -9,12 +9,12 @@ defmodule AllbertAssist.CLI.Areas.Mcp do
   wrapper that prints the output through `Mix.shell/0`.
   """
 
+  alias AllbertAssist.Actions.ErrorExtraction
   alias AllbertAssist.Actions.Helper, as: ActionHelper
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.CLI.Areas.Render
   alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssist.Tools.Discovery
-  alias AllbertAssist.Tools.Discovery.Scan
 
   @usage """
   Usage:
@@ -65,30 +65,21 @@ defmodule AllbertAssist.CLI.Areas.Mcp do
     end
   end
 
-  defp route(["scan", command | args], _ctx) when command in ["enable", "pause", "resume"] do
+  defp route(["scan", command | args], ctx) when command in ["enable", "pause", "resume"] do
     {opts, rest, invalid} = OptionParser.parse(args, strict: [user: :string])
 
     with :ok <- check_invalid(invalid),
          :ok <- check_rest(rest) do
-      command
-      |> scan_lifecycle(%{user_id: opts[:user] || "local"})
-      |> case do
-        {:ok, job} -> {:ok, {:scan_job, command, job}}
-        {:error, reason} -> {:error, reason}
-      end
+      run_scan_lifecycle(command, opts[:user], ctx)
     end
   end
 
-  defp route(["scan", "run-once" | args], _ctx) do
+  defp route(["scan", "run-once" | args], ctx) do
     {opts, rest, invalid} = OptionParser.parse(args, strict: [user: :string])
 
     with :ok <- check_invalid(invalid) do
       query = rest |> Enum.join(" ") |> String.trim()
-
-      case Scan.run_once(query, user_id: opts[:user] || "local") do
-        {:ok, result} -> {:ok, {:scan_run, result}}
-        {:error, reason} -> {:error, reason}
-      end
+      run_scan_once(query, opts[:user], ctx)
     end
   end
 
@@ -294,14 +285,31 @@ defmodule AllbertAssist.CLI.Areas.Mcp do
     end
   end
 
-  defp scan_lifecycle("enable", opts), do: Scan.enable(opts)
-  defp scan_lifecycle("pause", opts), do: Scan.pause(opts)
-  defp scan_lifecycle("resume", opts), do: Scan.resume(opts)
-
   defp nonempty_query(rest, usage) do
     query = rest |> Enum.join(" ") |> String.trim()
     if query == "", do: {:usage, usage}, else: {:ok, query}
   end
+
+  defp run_scan_lifecycle(command, user_id, ctx) do
+    action_name = "mcp_scan_#{command}"
+
+    case Runner.run(action_name, scan_params(user_id), ctx) do
+      {:ok, %{status: :completed, scan_job: job}} -> {:ok, {:scan_job, command, job}}
+      {:ok, response} -> {:error, ErrorExtraction.from_response(response)}
+    end
+  end
+
+  defp run_scan_once(query, user_id, ctx) do
+    params = user_id |> scan_params() |> Map.put(:query, query)
+
+    case Runner.run("mcp_scan_run_once", params, ctx) do
+      {:ok, %{status: :completed, scan_run: result}} -> {:ok, {:scan_run, result}}
+      {:ok, response} -> {:error, ErrorExtraction.from_response(response)}
+    end
+  end
+
+  defp scan_params(nil), do: %{}
+  defp scan_params(user_id), do: %{user_id: user_id}
 
   defp check_invalid([]), do: :ok
   defp check_invalid(invalid), do: {:error, {:raise, "Invalid option(s): #{inspect(invalid)}"}}

@@ -4035,15 +4035,17 @@ ADR: `docs/adr/0076-packaging-distribution-and-unified-cli.md`; completes the
 ADR 0070 mix-free TUI operator console convergence.
 
 Status: implemented as release candidate `0.62.0` (M0-M8 plus
-post-implementation remediation M8.1-M8.5 on 2026-07-06); tag and manual
+post-implementation remediation M8.1-M8.23 on 2026-07-06); tag and manual
 operator validation remain held. The implemented scope packages Allbert as a
 self-contained OTP release with Homebrew/curl install, unified `allbert`
 dispatcher, UDS attach-first daemon command routing, First-Model-Path
 Ollama detect/install/pull through loopback `Req` and exact argv, `allbert
 serve` health/service management, ADR 0070 TUI convergence, and the three-tier
 secret vault. `release.v062` is the source gate; the remote artifact-matrix
-smoke is required evidence before manual closeout and is not claimed green until
-workflow evidence exists for the pushed commit. ADR 0076 is Accepted with
+smoke is required evidence before manual closeout. The source gate is green
+after M8.19. Historical artifact evidence is
+green for commit `e200eaff` (run `28806671962`), but after M8.19 it must rerun on
+the final pushed commit before manual validation. ADR 0076 is Accepted with
 Distribution Trust, and v0.64 trust intake remains recorded for signing and
 rollback. The main lane is packaging/entry-point work; M0.1 is the only
 non-packaging exception and exists solely to close small v0.61b post-audit

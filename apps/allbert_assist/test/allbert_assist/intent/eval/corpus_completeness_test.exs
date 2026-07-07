@@ -181,13 +181,14 @@ defmodule AllbertAssist.Intent.Eval.CorpusCompletenessTest do
     assert baseline["schema_version"] == 1
     assert baseline["id"] == "v056-release-baseline"
     assert baseline["corpus_case_count"] == length(cases)
-    # 289 = 277 + the twelve v0.62 M8.15 negative-internal rows for the newly
+    # 294 = 277 + the twelve v0.62 M8.15 negative-internal rows for the newly
     # registered one-spine actions (create_job; channels configure_channel_secret/
     # configure_channel_setting/link_channel_identity/unlink_channel_identity;
     # sessions clear_session/sweep_expired_sessions; complete_thread; protocol
-    # create/rotate/revoke_protocol_token; ensure_voice_token). 277 = 269 + the
-    # eight earlier v0.62 rows (M0.1/M4/M5/M7) recaptured at M7.
-    assert baseline["corpus_case_count"] == 289
+    # create/rotate/revoke_protocol_token; ensure_voice_token) + five v0.62 M8.19
+    # rows (workspace signing-secret rotation and MCP scan lifecycle/run-once).
+    # 277 = 269 + the eight earlier v0.62 rows (M0.1/M4/M5/M7) recaptured at M7.
+    assert baseline["corpus_case_count"] == 294
     assert baseline["overall_accuracy"] == 1.0
     assert is_map(baseline["per_domain"])
     assert get_in(baseline, ["gate", "status"]) == "pass"

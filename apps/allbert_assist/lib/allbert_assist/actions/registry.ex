@@ -113,6 +113,10 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Mcp.ListResources, as: McpListResources
   alias AllbertAssist.Actions.Mcp.ListTools, as: McpListTools
   alias AllbertAssist.Actions.Mcp.ReadResource, as: McpReadResource
+  alias AllbertAssist.Actions.Mcp.ScanEnable, as: McpScanEnable
+  alias AllbertAssist.Actions.Mcp.ScanPause, as: McpScanPause
+  alias AllbertAssist.Actions.Mcp.ScanResume, as: McpScanResume
+  alias AllbertAssist.Actions.Mcp.ScanRunOnce, as: McpScanRunOnce
   alias AllbertAssist.Actions.Memory.CompileMemoryIndex
   alias AllbertAssist.Actions.Memory.DeleteMemoryEntry
   alias AllbertAssist.Actions.Memory.ListMemoryCategorySummary
@@ -223,6 +227,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Workspace.ManageTile
   alias AllbertAssist.Actions.Workspace.RecordOfflineUpdate
   alias AllbertAssist.Actions.Workspace.RevertTileRevision
+  alias AllbertAssist.Actions.Workspace.RotateSigningSecret
   alias AllbertAssist.Actions.Workspace.SetTheme
   alias AllbertAssist.App.Registry, as: AppRegistry
   alias AllbertAssist.DynamicPlugins.ActionsOverlay
@@ -306,6 +311,10 @@ defmodule AllbertAssist.Actions.Registry do
     McpFetchServerManifest,
     McpEvaluateServer,
     McpConnectServer,
+    McpScanEnable,
+    McpScanPause,
+    McpScanResume,
+    McpScanRunOnce,
     FindLocalTools,
     FindTools,
     DiscoverPatterns,
@@ -442,6 +451,7 @@ defmodule AllbertAssist.Actions.Registry do
     RevertTileRevision,
     RecordOfflineUpdate,
     DismissEphemeral,
+    RotateSigningSecret,
     SetTheme,
     RequestDynamicDraft,
     DiscardDynamicDraft,

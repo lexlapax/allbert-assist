@@ -14,12 +14,14 @@ changelog entries or release notes.
 
 Status: **release candidate — version 0.62.0; tag held for the operator** (per
 the plan's Locked Decision 16). `mix allbert.test release.v062` is the
-checkout-bound gate; the packaged-artifact smoke harness
+checkout-bound gate and is green after M8.19; the packaged-artifact smoke harness
 (`.github/workflows/release-artifacts.yml` + `scripts/smoke/artifact_smoke.sh`)
 is the required second verification layer, since the mix gate cannot execute
-the binary. Remote artifact-matrix evidence and per-OS brew/curl/service/vault
-rehearsals are operator S-steps before manual closeout. Governed by ADR 0076
-(Accepted at S8, 2026-07-06); ADR 0070 marked converged.
+the binary. Historical artifact-matrix evidence is green for commit `e200eaff`
+(run `28806671962`), but after M8.19 the matrix must rerun on the final pushed
+commit before manual closeout. Per-OS brew/curl/service/vault rehearsals remain
+operator S-steps. Governed by ADR 0076 (Accepted at S8, 2026-07-06); ADR 0070
+marked converged.
 
 Packages Allbert as a self-contained product with one operator entry point.
 
@@ -32,9 +34,11 @@ Packages Allbert as a self-contained product with one operator entry point.
   Release-safe env detection (`RELEASE_NAME`/`RELEASE_ROOT`) replaces `Mix.env`
   runtime probes; backup-before-migrate runs on version-changed boot.
 - **Install path & distribution trust (M2):** Homebrew formula + curl installer
-  with SHA256 verification against published checksums (cosign-signed
-  `SHA256SUMS`); uninstall consumes a manifest and leaves Allbert Home intact
-  absent `--purge`. The binary performs no telemetry, phone-home, or auto-update.
+  with SHA256 verification against published checksums; `SHA256SUMS.cosign.bundle`
+  is published for optional out-of-band manual verification only, with
+  installer-side cosign verification deferred to v0.64 M0.a. Uninstall consumes a
+  manifest and leaves Allbert Home intact absent `--purge`. The binary performs
+  no telemetry, phone-home, or auto-update.
 - **Unified `allbert` CLI (M3):** one dispatcher fronts the operator surface;
   every command maps to a named registered action or bounded read (the one-spine
   invariant), with a disposition table separating operator commands from

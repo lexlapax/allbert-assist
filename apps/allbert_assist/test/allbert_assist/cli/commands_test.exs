@@ -130,11 +130,13 @@ defmodule AllbertAssist.CLI.CommandsTest do
     ~r/Session\.clear\(/,
     ~r/Session\.sweep_expired\(/,
     ~r/Conversations\.complete_thread\(/,
-    ~r/Jobs\.(pause_job|resume_job|create_job)\(/,
+    ~r/Jobs\.(pause_job|resume_job|create_job|update_job)\(/,
     ~r/\.run_now\(/,
     ~r/TokenAuth\.(create|rotate|revoke)\(/,
     ~r/ChannelThread\.(link_identity|unlink_identity)\(/,
-    ~r/Auth\.ensure_token!\(/
+    ~r/Auth\.ensure_token!\(/,
+    ~r/SigningSecret\.(rotate|rotate!)\(/,
+    ~r/Scan\.(enable|pause|resume|run_once|ensure_job)\(/
   ]
 
   test "no CLI area calls a store/service mutator directly (spine-map-001)" do

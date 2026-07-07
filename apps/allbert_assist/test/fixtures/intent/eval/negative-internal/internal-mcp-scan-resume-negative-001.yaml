@@ -1,0 +1,11 @@
+---
+context: {}
+domain: negative-internal
+expected:
+  action: mcp_scan_resume
+  kind: execute
+id: internal-mcp-scan-resume-negative-001
+negative: true
+rationale: internal action must not be natural-language routable
+schema_version: 1
+utterance: operator inspect internal action mcp_scan_resume

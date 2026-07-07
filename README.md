@@ -54,9 +54,10 @@ checksum verification, first-run and First-Model-Path onboarding, an
 `allbert serve` daemon with attach-first command routing, a single-writer guard,
 and `/health`, the ADR 0070
 mix-free TUI console convergence, and a three-tier OS secret vault (ADR 0076).
-The `mix allbert.test release.v062` gate is the source verification layer; the
+The `mix allbert.test release.v062` gate is green after M8.19; the
 packaged-artifact smoke harness is the required remote artifact layer before
-manual closeout. No new authority.
+manual closeout and must be rerun on the final pushed commit after M8.19. No new
+authority.
 
 This README is the stable project orientation; release-by-release implementation
 detail belongs in [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in

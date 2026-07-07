@@ -11,6 +11,8 @@ defmodule AllbertAssist.CLI.Areas.Workspace do
   raised via `Mix.raise/1` become error/usage exit codes here.
   """
 
+  alias AllbertAssist.Actions.ErrorExtraction
+  alias AllbertAssist.Actions.Runner
   alias AllbertAssist.CLI.Areas.Render
   alias AllbertAssist.Runtime.Redactor
   alias AllbertAssist.Settings
@@ -18,7 +20,6 @@ defmodule AllbertAssist.CLI.Areas.Workspace do
   alias AllbertAssist.Surfaces.ContextBuilder
   alias AllbertAssist.Workspace
   alias AllbertAssist.Workspace.Catalog
-  alias AllbertAssist.Workspace.Fragment.SigningSecret
 
   @usage """
   Usage:
@@ -48,9 +49,13 @@ defmodule AllbertAssist.CLI.Areas.Workspace do
     {:workspace_error, message} -> {:error, {:raw, message}}
   end
 
-  defp do_route(["rotate-signing-secret"], _ctx) do
-    with {:ok, result} <- SigningSecret.rotate() do
-      {:ok, {:rotate, result}}
+  defp do_route(["rotate-signing-secret"], ctx) do
+    case Runner.run("rotate_workspace_signing_secret", %{}, ctx) do
+      {:ok, %{status: :completed, rotation: result}} ->
+        {:ok, {:rotate, result}}
+
+      {:ok, response} ->
+        {:error, {:action_failed, ErrorExtraction.from_response(response)}}
     end
   end
 
@@ -243,6 +248,10 @@ defmodule AllbertAssist.CLI.Areas.Workspace do
 
   defp render({:usage, usage}), do: Render.usage(usage)
   defp render({:error, {:raw, message}}), do: Render.error(message)
+
+  defp render({:error, {:action_failed, reason}}),
+    do: Render.error("Workspace command failed: #{inspect(reason)}")
+
   defp render({:error, reason}), do: Render.error("Workspace command failed: #{inspect(reason)}")
 
   defp workspace_theme do

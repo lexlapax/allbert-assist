@@ -1,8 +1,8 @@
 ---
 clarify_vs_execute:
   accuracy: 1.0
-  passed: 265
-  total: 265
+  passed: 270
+  total: 270
 confusion:
   - actual: answer
     count: 1
@@ -369,6 +369,18 @@ confusion:
     expected: execute:mcp_server_connect
   - actual: none
     count: 1
+    expected: execute:mcp_scan_enable
+  - actual: none
+    count: 1
+    expected: execute:mcp_scan_pause
+  - actual: none
+    count: 1
+    expected: execute:mcp_scan_resume
+  - actual: none
+    count: 1
+    expected: execute:mcp_scan_run_once
+  - actual: none
+    count: 1
     expected: execute:migrate_secrets
   - actual: none
     count: 1
@@ -526,6 +538,9 @@ confusion:
   - actual: none
     count: 1
     expected: execute:revoke_resource_grant
+  - actual: none
+    count: 1
+    expected: execute:rotate_workspace_signing_secret
   - actual: none
     count: 1
     expected: execute:rollback_dynamic_integration
@@ -733,7 +748,7 @@ confusion:
   - actual: none
     count: 11
     expected: none
-corpus_case_count: 289
+corpus_case_count: 294
 gate:
   failures: []
   status: pass
@@ -741,7 +756,7 @@ generated_at: 2026-07-06T08:05:37Z
 id: v056-release-baseline
 negative_violations: []
 overall_accuracy: 1.0
-passed: 289
+passed: 294
 per_domain:
   adversarial:
     accuracy: 1.0
@@ -813,8 +828,8 @@ per_domain:
     total: 13
   negative-internal:
     accuracy: 1.0
-    passed: 155
-    total: 155
+    passed: 160
+    total: 160
   negative-operator:
     accuracy: 1.0
     passed: 20
