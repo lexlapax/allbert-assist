@@ -465,9 +465,15 @@ scope.
     a curated model pull per the v0.60 First-Model-Path decision (ADR 0078:
     assisted-local default + BYOK fallback; no runtime bundling). Lands before
     onboarding so first-run guidance teaches final entry points; adds ADR 0076.
-    No authority change. **Status: implemented (M0–M8, 2026-07-06); version
-    0.62.0; `mix allbert.test release.v062` gate + the artifact smoke harness are
-    the two verification layers; tag held for the operator.**
+    No authority change. **Released as 0.62.0 (tagged `v0.62.0`, 2026-07-07);
+    `mix allbert.test release.v062` gate + the artifact smoke harness are the two
+    verification layers.**
+62b. v0.62b Distribution Closeout & Reusable Release Ops: a planned point-release
+    / docs-evidence follow-up (0.62.1 only if a release-facing fix is needed)
+    for Homebrew tap fill, package-manager install proof, packaged TUI transcript,
+    both Linux Docker rehearsals, and the reusable release-evidence taxonomy.
+    Does not renumber v0.63-v0.64 and adds no authority, Settings key,
+    permission, runtime action, trust semantic, or product capability.
 63. v0.63 Guided Onboarding & Profiles: implements the v0.60 onboarding-flow
     design and applies the v0.60 persona model over the v0.62 entry points — a
     two-track wizard (QuickStart vs Advanced, plus a fastest-first-chat path) in
@@ -4034,24 +4040,22 @@ Request flow: `docs/plans/v0.62-request-flow.md`
 ADR: `docs/adr/0076-packaging-distribution-and-unified-cli.md`; completes the
 ADR 0070 mix-free TUI operator console convergence.
 
-Status: implemented as release candidate `0.62.0` (M0-M8 plus
-post-implementation remediation M8.1-M8.23 on 2026-07-06); tag and manual
-operator validation remain held. The implemented scope packages Allbert as a
-self-contained OTP release with Homebrew/curl install, unified `allbert`
-dispatcher, UDS attach-first daemon command routing, First-Model-Path
-Ollama detect/install/pull through loopback `Req` and exact argv, `allbert
-serve` health/service management, ADR 0070 TUI convergence, and the three-tier
-secret vault. `release.v062` is the source gate; the remote artifact-matrix
-smoke is required evidence before manual closeout. The source gate is green
-after M8.19. Historical artifact evidence is
-green for commit `e200eaff` (run `28806671962`), but after M8.19 it must rerun on
-the final pushed commit before manual validation. ADR 0076 is Accepted with
-Distribution Trust, and v0.64 trust intake remains recorded for signing and
-rollback. The main lane is packaging/entry-point work; M0.1 is the only
-non-packaging exception and exists solely to close small v0.61b post-audit
+Status: **released — tagged `v0.62.0` (2026-07-07), version 0.62.0, GitHub
+release marked Latest** after M0-M8 plus post-implementation remediation
+M8.1-M8.23. The shipped scope packages Allbert as a self-contained OTP release
+with Homebrew/curl install, unified `allbert` dispatcher, UDS attach-first
+daemon command routing, First-Model-Path Ollama detect/install/pull through
+loopback `Req` and exact argv, `allbert serve` health/service management, ADR
+0070 TUI convergence, and the three-tier secret vault. `release.v062` is the
+source gate; the remote artifact-matrix smoke is the binary verification layer.
+Homebrew tap fill, packaged TUI transcript, and both Linux Docker/package
+rehearsals are owned by v0.62b as reusable release-ops closeout. ADR 0076 is
+Accepted with Distribution Trust, and v0.64 trust intake remains recorded for
+signing and rollback. The main lane was packaging/entry-point work; M0.1 was the
+only non-packaging exception and existed solely to close small v0.61b post-audit
 web-preflight tickets.
 
-Expected direction:
+Delivered shape:
 
 - A packaged `allbert` binary (release-built; no Elixir toolchain on the user's
   machine) with a Homebrew/curl install path.
@@ -4077,6 +4081,38 @@ Expected direction:
   mechanism is fixed.
 - No authority change; packaging changes how Allbert is installed and invoked,
   not what any surface may do.
+
+## v0.62b: Distribution Closeout & Reusable Release Ops
+
+Plan: `docs/plans/v0.62b-plan.md`
+Request flow: `docs/plans/v0.62b-request-flow.md`
+ADR: no new ADR expected; builds on ADR 0076 and ADR 0070.
+
+Status: **planned** point-release / docs-evidence follow-up, version target
+`0.62.1` only if validation finds a release-facing fix that should ship as an
+artifact. v0.62.0 remains the shipped product release. v0.62b does not renumber
+v0.63, v0.64, or v1.0 and carries no new authority, permission, Settings key,
+runtime action, install trust semantic, or product capability.
+
+Expected direction:
+
+- Fill and validate the `lexlapax/homebrew-allbert` tap from the published
+  v0.62.0 `SHA256SUMS`, recording tap commit, audit output, and install/test
+  evidence.
+- Rehearse packaged Homebrew install/uninstall, `allbert --version`,
+  `allbert admin status`, `allbert serve`, `/health`, attach-first behavior, and
+  Allbert Home preservation.
+- Capture one packaged `allbert tui` transcript through a disposable
+  `ALLBERT_HOME`, proving the mix-free operator console from the installed
+  binary.
+- Run **both Linux Docker package rehearsals**: `linux-arm64` natively and
+  `linux-x64` under `--platform linux/amd64`, with service/vault rows marked
+  PASS only when the container actually provides those host services and SKIP
+  otherwise.
+- Fold the reusable closeout taxonomy into operator/developer docs so future
+  releases distinguish source gates, artifact matrices, package-manager installs,
+  containerized Linux package smokes, real-host service/vault checks, and TTY/TUI
+  transcript evidence.
 
 ## v0.63: Guided Onboarding & Profiles
 

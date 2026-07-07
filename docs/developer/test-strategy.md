@@ -726,6 +726,26 @@ monolithic precommit order hides that by migrating through the core app first.
 | Release | Manual validation/release handoff. | `mix allbert.test release`: explicit full-suite phases plus Dialyzer and timing/evidence. |
 | External smoke | Machine-dependent integrations. | `mix allbert.test external-smoke -- <smoke-name>` for explicitly opted-in smokes. M6 implements Docker sandbox smokes; later browser/MCP/provider smokes must add their concrete command before use. |
 
+### External Smoke Evidence Taxonomy
+
+Plans that depend on package managers, Docker, browser drivers, provider
+endpoints, real MCP servers, TTYs, or OS services must name which evidence class
+they require. "External smoke" is a lane label, not a single proof strength.
+
+| Evidence class | Proves | Does not prove |
+| --- | --- | --- |
+| Source gate | Checkout compiles, tests, migrations, evals, and release-specific source checks pass. | Published artifacts or package-manager installs execute. |
+| Remote artifact matrix | CI-built archives boot and pass binary smoke on target runners. | Tap formula correctness, local package-manager install, or TTY interaction. |
+| Package-manager install | Homebrew/curl install path fetches, verifies, installs, starts, tests, and uninstalls the packaged binary. | Real-host Linux service/vault behavior unless run on that host. |
+| Containerized Linux package smoke | Linux artifacts install/start/attach/uninstall in Docker for a requested `--platform`. | Desktop Secret Service, user systemd, login-session, or distro-specific host policy unless explicitly provided inside the container. |
+| Real-host OS service/vault | launchd/systemd and Keychain/Secret-Service behavior on the actual operator host. | Cross-architecture artifact coverage by itself. |
+| TTY/TUI transcript | Interactive terminal behavior from a real packaged launcher. | Noninteractive CI readiness or provider/model quality. |
+
+Evidence records must distinguish current-head/current-release proof from
+historical proof. Historical runs can justify confidence and regression analysis,
+but a release closeout row must record the current tag/commit/artifact id or say
+why that row is intentionally historical.
+
 M6 implements these gates in `Mix.Tasks.Allbert.Test`. The internal
 `mix allbert.test.raw` task bypasses child-app `test` aliases only after the
 outer gate has created an owned temp home/database and run migrations; developer

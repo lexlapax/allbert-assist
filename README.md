@@ -34,30 +34,19 @@ becoming opaque or unbounded.
 
 ## Current Shape
 
-The current release line is v0.61 (Presentation Layer Overhaul, tagged
-`v0.61.0`). It implemented the
-v0.60 product-experience design in the operator-chosen Layout D
-(Sidebar-primary), dressed it in the v0.60b-chosen Direction C (Soft Modern
-Depth) visual language, added the operator-chosen brand identity, and shipped the
-polished primary web presentation layer with no new authority or runtime
-capability beyond the planned presentation surface.
-
-The latest published release tag is `v0.61.1` (the v0.61b UX Refinement point
-release — validated and tagged 2026-07-05). It implemented the operator's v0.61
-manual-validation UX feedback before v0.62 moves on to packaging and entry
-points.
-
-**v0.62 Packaging & Entry Points is implemented (M0–M8 plus M8.x remediation,
-version 0.62.0) and awaiting operator validation/tag.** It packages Allbert as a self-contained
-OTP release with a unified `allbert` CLI, a Homebrew/curl install path with
-checksum verification, first-run and First-Model-Path onboarding, an
-`allbert serve` daemon with attach-first command routing, a single-writer guard,
-and `/health`, the ADR 0070
-mix-free TUI console convergence, and a three-tier OS secret vault (ADR 0076).
-The `mix allbert.test release.v062` gate is green after M8.19; the
-packaged-artifact smoke harness is the required remote artifact layer before
-manual closeout and must be rerun on the final pushed commit after M8.19. No new
+The current release line is v0.62 (Packaging & Entry Points, tagged
+`v0.62.0`). It packages Allbert as a self-contained OTP release with a unified
+`allbert` CLI, a Homebrew/curl install path with checksum verification, first-run
+and First-Model-Path onboarding, an `allbert serve` daemon with attach-first
+command routing, a single-writer guard, `/health`, the ADR 0070 mix-free TUI
+console convergence, and a three-tier OS secret vault (ADR 0076). No new
 authority.
+
+The latest published release tag is `v0.62.0` (released 2026-07-07 and marked
+Latest). The v0.62b / 0.62.1 planning layer owns the follow-up distribution
+closeout: Homebrew tap fill, package-manager install proof, packaged TUI
+transcript, both Linux Docker rehearsals, and the reusable evidence taxonomy for
+future release operations.
 
 This README is the stable project orientation; release-by-release implementation
 detail belongs in [CHANGELOG.md](CHANGELOG.md), and forward planning belongs in

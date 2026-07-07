@@ -12,16 +12,17 @@ changelog entries or release notes.
 
 ## v0.62.0 - Packaging & Entry Points
 
-Status: **release candidate — version 0.62.0; tag held for the operator** (per
-the plan's Locked Decision 16). `mix allbert.test release.v062` is the
-checkout-bound gate and is green after M8.19; the packaged-artifact smoke harness
-(`.github/workflows/release-artifacts.yml` + `scripts/smoke/artifact_smoke.sh`)
-is the required second verification layer, since the mix gate cannot execute
-the binary. Historical artifact-matrix evidence is green for commit `e200eaff`
-(run `28806671962`), but after M8.19 the matrix must rerun on the final pushed
-commit before manual closeout. Per-OS brew/curl/service/vault rehearsals remain
-operator S-steps. Governed by ADR 0076 (Accepted at S8, 2026-07-06); ADR 0070
-marked converged.
+Status: **released — tagged `v0.62.0` (2026-07-07), version 0.62.0, GitHub
+release marked Latest**. The remote annotated tag peels to commit
+`c2fadd2f89ce69b5e946aca669b9bdb8786e55b6`. `mix allbert.test release.v062` was
+the checkout-bound source gate and is green after M8.19; the packaged-artifact
+smoke harness (`.github/workflows/release-artifacts.yml` +
+`scripts/smoke/artifact_smoke.sh`) is the required binary verification layer.
+Homebrew tap fill, packaged TUI transcript, both Linux Docker/package rehearsals
+(`linux-arm64` native and `linux-x64` under `--platform linux/amd64`), and the
+reusable release-ops evidence taxonomy are owned by the planned v0.62b follow-up
+and do not change this shipped release's authority model. Governed by ADR 0076
+(Accepted at S8, 2026-07-06); ADR 0070 marked converged.
 
 Packages Allbert as a self-contained product with one operator entry point.
 

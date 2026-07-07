@@ -1,120 +1,165 @@
-# Release & Install Rehearsal (v0.62)
+# Release & Install Rehearsal (v0.62+)
 
-The operator runbook for cutting a v0.62 release and validating the packaged
-`allbert` on each Tier-1 OS before announcing it. Two automated layers precede
-this (`mix allbert.test release.v062` and the CI artifact smoke); this doc covers
-the steps that need a real host, a published release, or your credentials.
+This is the operator runbook for cutting a v0.62-style packaged release and
+validating the packaged `allbert` on Tier-1 OS paths before announcing it.
+Two automated layers precede the manual/operator layer: the source release gate
+(`mix allbert.test release.v062` for v0.62) and the CI artifact smoke. This doc
+covers the steps that need a published release, a package manager, a TTY, Docker,
+or real host services.
 
-## 1. Publish the release (operator)
+v0.62.0 is already shipped and tagged. The v0.62b follow-up uses this runbook to
+close the reusable distribution evidence: Homebrew tap fill, packaged TUI
+transcript, and both Linux Docker rehearsals.
 
-The tag is operator-held (Locked Decision 16). Cutting the release:
+## 1. Publish the release
+
+For future packaged releases, the tag is operator-held. Cut an annotated tag on
+the reviewed commit:
 
 ```sh
-git tag v0.62.0            # on the reviewed commit
+git tag -a v0.62.0 -m "Allbert v0.62.0"
 git push origin v0.62.0
 ```
 
 The tag push fires `.github/workflows/release-artifacts.yml`:
 
 - **build** (macos-arm64, linux-x64, linux-arm64): builds the OTP release and runs
-  `scripts/smoke/artifact_smoke.sh` per target — boot, version, plugin
-  registration, `/health`, a **genuine attach round-trip**, no-Mix-modules, and
-  ERTS crypto linkage, all through an operator-style symlink.
-- **publish** (tag only, and now gated on the Linux rehearsal): collects the
-  per-target tarballs, adds version-less aliases (`allbert-<target>.tar.gz` for
-  the `latest` install path), writes `SHA256SUMS`, creates the optional
-  out-of-band `SHA256SUMS.cosign.bundle`, and uploads everything to the GitHub
-  release.
+  `scripts/smoke/artifact_smoke.sh` per target - boot, version, plugin
+  registration, `/health`, a genuine attach round-trip, no-Mix-modules, and ERTS
+  crypto linkage, all through an operator-style symlink.
+- **publish** (tag only, gated on the Linux rehearsal): collects the per-target
+  tarballs, adds version-less aliases (`allbert-<target>.tar.gz` for the `latest`
+  install path), writes `SHA256SUMS`, creates the optional out-of-band
+  `SHA256SUMS.cosign.bundle`, and uploads everything to the GitHub release.
+
+Verify release and tag state after publish:
+
+```sh
+gh release view v0.62.0 --repo lexlapax/allbert-assist \
+  --json tagName,isLatest,publishedAt,url
+git ls-remote --tags origin 'v0.62*'
+git rev-parse v0.62.0^{}
+```
 
 **Trust model note (v0.62).** The published `SHA256SUMS.cosign.bundle` exists for
-**out-of-band, operator-driven manual verification** — the curl installer and the
+out-of-band, operator-driven manual verification. The curl installer and the
 Homebrew formula verify only the SHA256 against `SHA256SUMS` fetched over HTTPS
-from the same release origin (trust-on-first-use over HTTPS), and add **no**
-`cosign` dependency in v0.62. Mandatory installer-side signature verification is
-a recorded v0.64 M0.a intake item. To verify a release by hand before trusting
-it:
+from the same release origin (trust-on-first-use over HTTPS), and add no `cosign`
+dependency in v0.62. Mandatory installer-side signature verification is a
+recorded v0.64 M0.a intake item. To verify a release by hand before trusting it:
 
 ```sh
 gh release download v0.62.0 --repo lexlapax/allbert-assist \
-  --pattern 'SHA256SUMS*' --dir /tmp
-cosign verify-blob --bundle /tmp/SHA256SUMS.cosign.bundle /tmp/SHA256SUMS \
+  --pattern 'SHA256SUMS*' --dir /tmp/allbert-v062
+cosign verify-blob --bundle /tmp/allbert-v062/SHA256SUMS.cosign.bundle \
+  /tmp/allbert-v062/SHA256SUMS \
   --certificate-identity-regexp '.*' --certificate-oidc-issuer-regexp '.*'
 ```
 
-You can dry-run the build+smoke without publishing at any time:
+You can dry-run build+smoke without publishing:
 
 ```sh
-gh workflow run release-artifacts.yml --ref main   # build + smoke, no publish
+gh workflow run release-artifacts.yml --ref main
 gh run watch
 ```
 
-## 2. Fill the Homebrew tap (operator)
+## 2. Fill The Homebrew Tap
 
 The tap lives at [`lexlapax/homebrew-allbert`](https://github.com/lexlapax/homebrew-allbert)
-(`Formula/allbert.rb`, SHA256 placeholders). After the release publishes:
+(`Formula/allbert.rb`). Fill checksums from the published release, not by hand:
 
 ```sh
-gh release download v0.62.0 --repo lexlapax/allbert-assist --pattern SHA256SUMS --dir /tmp
-git clone https://github.com/lexlapax/homebrew-allbert && cd homebrew-allbert
-# use the helper from an allbert-assist checkout:
-sh ../allbert-assist/homebrew/fill-sha256.sh /tmp/SHA256SUMS Formula/allbert.rb
-git commit -am "allbert v0.62.0" && git push
+ALLBERT_ASSIST_CHECKOUT="${ALLBERT_ASSIST_CHECKOUT:-$(pwd)}"  # run from allbert-assist checkout
+mkdir -p /tmp/allbert-v062
+gh release download v0.62.0 --repo lexlapax/allbert-assist \
+  --pattern SHA256SUMS --dir /tmp/allbert-v062
+git clone https://github.com/lexlapax/homebrew-allbert /tmp/homebrew-allbert
+sh "$ALLBERT_ASSIST_CHECKOUT/homebrew/fill-sha256.sh" \
+  /tmp/allbert-v062/SHA256SUMS \
+  /tmp/homebrew-allbert/Formula/allbert.rb
 ```
 
-## 3. Per-OS install rehearsal
+Audit and publish from the tap checkout:
 
-Do this on each Tier-1 OS. Your data (Allbert Home, `~/.allbert`) and the login
-keychain are never touched by install/uninstall (absent `--purge`).
+```sh
+cd /tmp/homebrew-allbert
+git diff -- Formula/allbert.rb
+rg -n 'PLACEHOLDER|TODO|sha256' Formula/allbert.rb
+brew audit --strict --online --formula Formula/allbert.rb
+git add Formula/allbert.rb
+git commit -m "allbert v0.62.0"
+git push origin main
+```
+
+Evidence to record: tap commit hash, audit output, the three formula SHA256 rows,
+and confirmation that no placeholder checksum remains.
+
+## 3. Per-OS Install Rehearsal
+
+Do this on each Tier-1 OS path that is in scope. Install/uninstall must not touch
+the operator's real Allbert Home (`~/.allbert`) unless `--purge` is explicitly
+requested; set a disposable `ALLBERT_HOME` for rehearsal.
 
 ### curl installer (macOS + Linux)
 
 ```sh
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v062-install.XXXXXX)"
 curl -fsSL https://raw.githubusercontent.com/lexlapax/allbert-assist/main/scripts/install/install.sh | sh
 #   ALLBERT_VERSION=v0.62.0   pin a version (default: latest)
 #   ALLBERT_PREFIX=~/.local   install prefix
 export PATH="$HOME/.local/bin:$PATH"
 allbert --version                 # allbert 0.62.0
-allbert admin status              # renders the operator status through the spine
+allbert admin status              # renders operator status through the spine
 ```
 
 ### Homebrew (macOS + Linux)
 
 ```sh
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v062-brew.XXXXXX)"
 brew tap lexlapax/allbert
-brew install allbert
+brew install lexlapax/allbert/allbert
 allbert --version
-brew services start allbert       # or: allbert serve
+allbert admin status
+brew test allbert
+```
+
+Before the tap commit is pushed, validate the local formula path instead:
+
+```sh
+brew install /tmp/homebrew-allbert/Formula/allbert.rb
 ```
 
 ### serve + health + attach
 
 ```sh
-allbert serve &                                   # foreground daemon (holds the writer lock + attach listener)
-curl -s http://localhost:4000/health              # {"status":"ok",...}
-allbert admin status                              # attaches to the running daemon (no second writer)
+allbert serve &
+ALLBERT_DAEMON_PID=$!
+curl -fsS http://localhost:4000/health
+allbert admin status              # attaches to the running daemon; no second writer
+kill "$ALLBERT_DAEMON_PID"
 ```
 
 ### service (launchd / systemd, confirmation-gated)
 
 ```sh
-allbert admin service install --dry-run           # preview the exact launchctl/systemctl commands
+allbert admin service install --dry-run           # preview exact launchctl/systemctl commands
 allbert admin service install                     # -> needs_confirmation
 allbert admin confirmations approve <ID>          # installs the per-user service
-# macOS: ~/Library/LaunchAgents/…; Linux: systemctl --user (linger for boot-start)
-allbert admin service uninstall                   # (confirmation-gated) removes the unit
+# macOS: ~/Library/LaunchAgents/...; Linux: systemctl --user (linger for boot-start)
+allbert admin service uninstall                   # confirmation-gated; removes the unit
 ```
 
 ### secret vault (macOS Keychain / Linux Secret Service)
 
 ```sh
-allbert admin vault                               # shows the resolved tier (os on a desktop)
-# set a provider key (needs the settings master key configured), then:
+allbert admin vault                               # shows the resolved tier
+# set a provider key with a settings master key configured, then:
 allbert admin secrets migrate                     # -> needs_confirmation
 allbert admin confirmations approve <ID>          # moves encrypted-store secrets into the OS vault
 ```
 
-Headless Linux (no D-Bus keyring) resolves to the encrypted-file tier with a
-surfaced notice — see [security-hardening.md](security-hardening.md).
+Headless Linux without a D-Bus keyring resolves to the encrypted-file tier with a
+surfaced notice; see [security-hardening.md](security-hardening.md).
 
 ### uninstall (Home preserved)
 
@@ -122,9 +167,113 @@ surfaced notice — see [security-hardening.md](security-hardening.md).
 sh scripts/install/uninstall.sh                   # removes installed files; Allbert Home preserved
 sh scripts/install/uninstall.sh --purge           # also removes Allbert Home
 brew uninstall allbert                            # if installed via Homebrew
+test -d "$ALLBERT_HOME"                           # expected unless --purge was used
 ```
 
-## 4. Verified evidence
+## 4. Packaged TUI Rehearsal
+
+The TUI proof must run from the packaged binary (`allbert tui`), not from
+`mix allbert.tui`.
+
+```sh
+export ALLBERT_HOME="$(mktemp -d /tmp/allbert-v062-tui.XXXXXX)"
+allbert admin settings set channels.tui.identity_map \
+  '[{"external_user_id":"default","user_id":"local","enabled":true}]'
+allbert admin settings set channels.tui.enabled true
+script "$ALLBERT_HOME/v062-tui-transcript.txt" allbert tui
+```
+
+Inside the session:
+
+```text
+/help
+/status
+/channels
+/settings get channels.tui.enabled
+/quit
+```
+
+Record the redacted transcript path and whether every slash read rendered
+in-session without using cold Mix inspection tasks.
+
+## 5. Docker Linux Package Rehearsals
+
+Docker package rehearsals are **containerized package smokes**, not complete
+real-host Linux validation. They prove Linux artifact unpack/install/startup,
+health, attach, and uninstall behavior. Mark Secret Service and user systemd rows
+PASS only when those services are actually present and exercised inside the
+container; otherwise mark SKIP with the reason.
+
+Start/check Docker Desktop before running the containers:
+
+```sh
+docker desktop status || docker desktop start
+docker info
+```
+
+Prepare the Linux artifacts:
+
+```sh
+ALLBERT_ASSIST_CHECKOUT="${ALLBERT_ASSIST_CHECKOUT:-$(pwd)}"  # run from allbert-assist checkout
+mkdir -p /tmp/allbert-v062/artifacts
+gh release download v0.62.0 --repo lexlapax/allbert-assist \
+  --pattern 'allbert-v0.62.0-linux-*.tar.gz' \
+  --pattern SHA256SUMS \
+  --dir /tmp/allbert-v062/artifacts
+```
+
+Run both Linux targets:
+
+```sh
+docker run --rm --platform linux/arm64 \
+  --mount type=bind,source=/tmp/allbert-v062,target=/work \
+  --mount type=bind,source="$ALLBERT_ASSIST_CHECKOUT",target=/repo,readonly \
+  --workdir /work \
+  ubuntu:22.04 \
+  bash -lc 'set -euo pipefail
+    apt-get update
+    apt-get install -y ca-certificates curl tar gzip libstdc++6 openssl
+    (cd artifacts && sha256sum -c SHA256SUMS --ignore-missing)
+    mkdir -p extract-arm64
+    tar -xzf artifacts/allbert-v0.62.0-linux-arm64.tar.gz -C extract-arm64
+    /repo/scripts/smoke/linux_rehearsal.sh /work/extract-arm64/allbert'
+
+docker run --rm --platform linux/amd64 \
+  --mount type=bind,source=/tmp/allbert-v062,target=/work \
+  --mount type=bind,source="$ALLBERT_ASSIST_CHECKOUT",target=/repo,readonly \
+  --workdir /work \
+  ubuntu:22.04 \
+  bash -lc 'set -euo pipefail
+    apt-get update
+    apt-get install -y ca-certificates curl tar gzip libstdc++6 openssl
+    (cd artifacts && sha256sum -c SHA256SUMS --ignore-missing)
+    mkdir -p extract-x64
+    tar -xzf artifacts/allbert-v0.62.0-linux-x64.tar.gz -C extract-x64
+    /repo/scripts/smoke/linux_rehearsal.sh /work/extract-x64/allbert'
+```
+
+If `scripts/smoke/linux_rehearsal.sh` needs to be bypassed for diagnosis, run the
+equivalent manual checks inside the container and record the commands: checksum
+verification, tar extraction, symlink/install, `allbert --version`,
+`allbert admin status`, `allbert serve`, `/health`, attach, uninstall, and
+Allbert Home preservation.
+
+## 6. Evidence Ledger
+
+Use one ledger for the release rather than splitting proof across terminal
+scrollback:
+
+| Evidence class | What it proves | Typical command/source | v0.62b owner |
+| --- | --- | --- | --- |
+| Source gate | checkout compiles, tests, and release-specific evals pass | `mix allbert.test release.v062` | v0.62 |
+| Artifact matrix | published artifacts boot and pass binary smoke | `.github/workflows/release-artifacts.yml` | v0.62 |
+| Tap fill | formula checksums match release checksums | `homebrew/fill-sha256.sh`; `brew audit --strict --online --formula` | v0.62b M1 |
+| Package-manager install | package installs and invokes packaged binary | `brew install`; `brew test`; uninstall | v0.62b M2 |
+| Packaged TUI | installed binary runs the warm console in a TTY | `script ... allbert tui` | v0.62b M3 |
+| Docker Linux package smoke | both Linux artifacts install/start/attach/uninstall in containers | `docker run --platform linux/arm64`; `docker run --platform linux/amd64` | v0.62b M4 |
+| Real-host service/vault | launchd/systemd and OS keychain integration on actual hosts | host service/vault commands | operator closeout |
+
+## 7. Historical v0.62 Evidence
 
 - **Historical CI artifact matrix** (`release-artifacts.yml`, run
   `28806671962`, commit `e200eaff`, 2026-07-06): macos-arm64, linux-x64,
@@ -132,44 +281,27 @@ brew uninstall allbert                            # if installed via Homebrew
   symlink). Job ids: linux-x64 `85423862478`, linux-arm64 `85423862494`,
   macos-arm64 `85423862527`.
 - **Historical CI Linux rehearsal** (`linux-rehearsal` job `85424584885`,
-  ubuntu-22.04, same run): all checks green — install (symlink) →
-  `--version`/`admin status`/`/health`/attach (*served by the daemon*) →
-  **Secret Service vault**: `secret-tool` round-trip + `admin vault` reports the
-  `os` tier → systemd `--user` service dry-run + **user systemd present** →
-  uninstall (**Home preserved**).
-- **Current-head requirement:** the evidence above predates M8.14-M8.19. Rerun
-  `release-artifacts.yml` after the final remediation push and record the new run
-  id before manual operator closeout.
-- **macOS local rehearsal (2026-07-06, on macos-arm64):** `install.sh` (checksum
-  verified) → symlinked `allbert --version` / `admin status` / `admin vault`
-  (Keychain `os` tier) RC 0; `allbert serve` → `/health` `status:ok` → attach
-  round-trip *served by the running daemon*; `admin secrets migrate`
-  confirmation-gated with the CLI approve guidance; the tier-1 Keychain
-  add/find/delete mechanism verified on the host; `admin service install
-  --dry-run` previews without executing; `uninstall.sh` removes the binary and
-  **preserves Allbert Home**. This rehearsal caught and fixed a real
-  symlink-resolution bug in the dispatcher (M8.12).
+  ubuntu-22.04, same run): install (symlink) -> `--version` / `admin status` /
+  `/health` / attach served by the daemon -> Secret Service vault ->
+  systemd `--user` dry-run -> uninstall with Home preserved.
+- **macOS local rehearsal (2026-07-06, macos-arm64):** `install.sh` checksum
+  verified; symlinked `allbert --version`, `admin status`, and `admin vault`
+  passed with Keychain `os` tier; `allbert serve` exposed `/health status:ok`;
+  attach round-trip was served by the running daemon; `admin secrets migrate` was
+  confirmation-gated; service install dry-run previewed without executing;
+  uninstall removed the binary and preserved Allbert Home. This rehearsal caught
+  and fixed a real symlink-resolution bug in the dispatcher (M8.12).
 
-### Scripted Linux rehearsal
+These records remain useful history, but future closeout should use the ledger
+above and record current release ids, commits, and evidence paths.
 
-`scripts/smoke/linux_rehearsal.sh <extracted-release-root>` runs the whole Linux
-flow (install via symlink → CLI smoke → Secret Service vault → systemd `--user`
-service surface → uninstall). It runs automatically as the `linux-rehearsal` CI
-job on every workflow run; on a real host, run it inside a keyring session for
-the vault step:
+## 8. Remaining Operator Follow-Ups
 
-```sh
-sudo apt-get install -y gnome-keyring libsecret-tools dbus-x11
-dbus-run-session -- bash -c '
-  echo pass | gnome-keyring-daemon --unlock --components=secrets
-  bash scripts/smoke/linux_rehearsal.sh /path/to/allbert'
-```
-
-## 5. Remaining operator S-steps
-
-- Live **Linux** install/serve/service/vault rehearsal on a real Linux host
-  (CI covers Linux build+smoke; the interactive service/keychain steps need a
-  host).
-- The full **secret-migrate → Keychain/Secret-Service** round-trip with a real
+- Fill/push the Homebrew tap and record tap audit/install/test evidence.
+- Run the packaged TUI transcript.
+- Run both Docker Linux package rehearsals (`linux-arm64` and `linux-x64`).
+- Run a real-host Linux service/vault rehearsal when a suitable host is
+  available; Docker skips for Secret Service or user systemd are not equivalent
+  to a real-host PASS.
+- Run the full secret-migrate -> Keychain/Secret-Service round-trip with a real
   settings master key configured (`ALLBERT_SETTINGS_MASTER_KEY`, valid format).
-- A live interactive `allbert tui` session (needs a TTY; not covered by CI smoke).
