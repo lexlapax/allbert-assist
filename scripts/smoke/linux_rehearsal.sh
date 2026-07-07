@@ -29,6 +29,10 @@ trap cleanup EXIT
 fail() { echo "linux-rehearsal:$1 FAIL ${2:-}"; exit 1; }
 skip() { echo "linux-rehearsal:$1 SKIP ${2:-}"; }
 
+if [ "$(id -u)" -eq 0 ]; then
+  fail user "run as a non-root user; erlexec refuses root startup without an effective user"
+fi
+
 # v0.62 M8.17: derive the target from the runner arch (matches install.sh) so the
 # rehearsal is correct on both linux-x64 and linux-arm64 runners.
 case "$(uname -m)" in

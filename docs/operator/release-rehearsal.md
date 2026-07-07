@@ -212,7 +212,10 @@ Docker package rehearsals are **containerized package smokes**, not complete
 real-host Linux validation. They prove Linux artifact unpack/install/startup,
 health, attach, and uninstall behavior. Mark Secret Service and user systemd rows
 PASS only when those services are actually present and exercised inside the
-container; otherwise mark SKIP with the reason.
+container; otherwise mark SKIP with the reason. Install container prerequisites
+as root, but run `scripts/smoke/linux_rehearsal.sh` as a non-root user: the
+packaged runtime uses `erlexec`, which refuses root startup without an explicit
+effective user.
 
 Start/check Docker Desktop before running the containers:
 
@@ -236,31 +239,53 @@ Run both Linux targets:
 
 ```sh
 docker run --rm --platform linux/arm64 \
-  --mount type=bind,source=/tmp/allbert-v062,target=/work \
+  --mount type=bind,source=/tmp/allbert-v062,target=/work,readonly \
   --mount type=bind,source="$ALLBERT_ASSIST_CHECKOUT",target=/repo,readonly \
-  --workdir /work \
+  --workdir /tmp \
   ubuntu:22.04 \
   bash -lc 'set -euo pipefail
     apt-get update
     apt-get install -y ca-certificates curl tar gzip libstdc++6 openssl
+    useradd -m -u 1000 allbert
+    mkdir -p /tmp/rehearsal
+    cp -R /work/artifacts /tmp/rehearsal/artifacts
+    chown -R allbert:allbert /tmp/rehearsal
+    su -s /bin/bash allbert -c "set -euo pipefail
+    cd /tmp/rehearsal
+    export LANG=C.UTF-8 LC_ALL=C.UTF-8
     (cd artifacts && sha256sum -c SHA256SUMS --ignore-missing)
     mkdir -p extract-arm64
     tar -xzf artifacts/allbert-v0.62.0-linux-arm64.tar.gz -C extract-arm64
-    /repo/scripts/smoke/linux_rehearsal.sh /work/extract-arm64/allbert'
+    /repo/scripts/smoke/linux_rehearsal.sh /tmp/rehearsal/extract-arm64/allbert"'
 
 docker run --rm --platform linux/amd64 \
-  --mount type=bind,source=/tmp/allbert-v062,target=/work \
+  --mount type=bind,source=/tmp/allbert-v062,target=/work,readonly \
   --mount type=bind,source="$ALLBERT_ASSIST_CHECKOUT",target=/repo,readonly \
-  --workdir /work \
+  --workdir /tmp \
   ubuntu:22.04 \
   bash -lc 'set -euo pipefail
     apt-get update
     apt-get install -y ca-certificates curl tar gzip libstdc++6 openssl
+    useradd -m -u 1000 allbert
+    mkdir -p /tmp/rehearsal
+    cp -R /work/artifacts /tmp/rehearsal/artifacts
+    chown -R allbert:allbert /tmp/rehearsal
+    su -s /bin/bash allbert -c "set -euo pipefail
+    cd /tmp/rehearsal
+    export LANG=C.UTF-8 LC_ALL=C.UTF-8 ERL_AFLAGS=\"+JMsingle true\"
     (cd artifacts && sha256sum -c SHA256SUMS --ignore-missing)
     mkdir -p extract-x64
     tar -xzf artifacts/allbert-v0.62.0-linux-x64.tar.gz -C extract-x64
-    /repo/scripts/smoke/linux_rehearsal.sh /work/extract-x64/allbert'
+    /repo/scripts/smoke/linux_rehearsal.sh /tmp/rehearsal/extract-x64/allbert"'
 ```
+
+On Apple Silicon Docker Desktop, the `linux/amd64` rehearsal runs under
+emulation. Use `ERL_AFLAGS="+JMsingle true"` there so the x64 BEAM JIT uses a
+single mapped executable memory region. Omit that flag for native x64 Linux
+hosts unless the local emulator requires it. If Docker Hub credential helpers
+hang or fail while pulling public Ubuntu images, rerun the rehearsal with a
+throwaway Docker client config such as
+`DOCKER_CONFIG=/tmp/allbert-v062-docker-config`.
 
 If `scripts/smoke/linux_rehearsal.sh` needs to be bypassed for diagnosis, run the
 equivalent manual checks inside the container and record the commands: checksum
