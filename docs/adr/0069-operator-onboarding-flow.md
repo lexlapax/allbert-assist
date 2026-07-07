@@ -91,9 +91,10 @@ the differentiator the autonomous-agent competitors cannot copy.
   applies profile presets only through Settings Central; it is not a configuration
   side channel. Secrets, provider/model, channel pairing, and `doctor` remain the
   authoritative flows the wizard drives.
-- **Credential UX uses the OS vault.** Masked-key entry writes through the v0.62
-  OS-vault reference model: Settings Central stores references, the OS vault
-  stores secret values.
+- **Credential UX uses the three-tier vault.** Masked-key entry writes through the
+  v0.62 secret backend: Settings Central stores `*_ref` references and the secret
+  value lands in the resolved tier (OS vault → encrypted-store fallback → env). The
+  wizard surfaces which tier it landed in as a trust feature.
 - **Depends on the v0.60→v0.63 arc and ADR 0075.** The wizard builds on the
   v0.60 onboarding/IA design (ADR 0077), the v0.61 Presentation Layer Overhaul
   affordances (empty states, suggested actions) the web wizard renders through,
@@ -111,4 +112,31 @@ one-click pull of a curated default) as the QuickStart default, keeps honest
 bring-your-own-key as the Advanced/fallback path, and rejects a managed-hosted
 default. The QuickStart fast path and the "first useful chat" acceptance
 criterion are built against ADR 0078's chosen option, never against an assumed
-pre-existing model.
+pre-existing model. Because assisted-local **shipped as real code in v0.62 M4**
+(`first_model_detect`/`install_ollama`/`pull_model`), ADR 0078's BYOK-primary
+*degrade* branch does not apply to v0.63.
+
+## v0.63 Build Decisions (resolved for implementation)
+
+Ratified in the v0.63 plan's Locked Decisions (2026-07-07):
+
+- **One shared state machine (Decision 1).** The existing command-sequencing
+  onboarding wizard (`apps/allbert_assist/lib/allbert_assist/onboarding.ex`) is
+  upgraded into the authoritative wizard state machine over the 8 design step IDs
+  (`welcome`→`track_select`→`model_path`→`profile_select`→`profile_review`→
+  `health_check`→`first_chat`→`optional_connect`). Its persistence **unifies** the
+  objective-status and the v0.62 `<Home>/onboarding.json` marker into one
+  "onboarding complete" source that `cli/first_run.ex` reads; the placeholder
+  `profile_reviewed`/`:profile_unreviewed` states become real states written by
+  `profile_review`.
+- **Two terminal renderings, one flow (Decision 3).** The interactive terminal
+  wizard is the TUI console (ADR 0067/0070) when a TTY is present, with a
+  line-oriented `allbert onboard` prompt fallback for headless installs — both drive
+  identical step IDs. `allbert onboard` is upgraded from the shipped `admin
+  onboarding` summary read into this wizard entry point (Decision 7).
+- **Provider choices (Decision 6).** Named local (Ollama) + hosted
+  (OpenAI/Anthropic/OpenRouter) providers **plus an OpenAI-compatible custom
+  endpoint**; provider switching writes settings and edits no config file.
+
+This ADR is Accepted at v0.63 (asserted by the plan's `adr-0069-accepted-001` eval
+row).

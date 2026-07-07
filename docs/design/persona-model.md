@@ -111,6 +111,13 @@ the review diff copy for hosted-egress/model-profile warnings. Any key not named
 as an existing safe-write key above must be treated as a v0.63 schema/design
 decision before implementation.
 
+**Resolved in v0.63 (2026-07-07):** the exact per-persona seeded values, the
+seed-only apply model, and the safe-write-key-only constraint are pinned in
+`docs/adr/0075-user-category-settings-profiles.md` (§v0.63 Build Decisions) and
+the v0.63 plan (§Settings Central Keys, §M4). Personas seed only existing
+safe-write keys; objective defaults use pinned `objectives.*` keys; anything else
+is an explicit schema decision, never a silent write.
+
 ## Review/Confirm Application Model
 
 Before applying a persona, v0.63 must show a review diff with:

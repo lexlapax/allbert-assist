@@ -76,3 +76,48 @@ application model, and v0.63 handoff.
 - **Not hosted/multi-user.** Profiles are local operator presets, not a
   multi-tenant role system.
 - Profiles never override Security Central, confirmations, or the action boundary.
+
+## v0.63 Build Decisions (resolved for implementation)
+
+Ratified in the v0.63 plan's Locked Decisions (2026-07-07):
+
+- **Storage = declarative `priv/` catalog (Decision 2).** Each persona is a
+  reviewed `priv/personas/<persona_id>.{yaml|json}` file carrying the 8-field seed
+  envelope (`persona_id`, `label`, `settings_seeds`, `suggested_apps`,
+  `suggested_channels`, `suggested_intents`, `model_purpose_map`,
+  `first_chat_prompts`). A persona **registry module** (`AllbertAssist.Personas`)
+  loads and validates the catalog at boot and **rejects** any `settings_seeds` key
+  that is not an existing Settings Central `@safe_write_key` — not Elixir modules
+  (heavier to review) and not a settings fragment (hides the standalone reviewable
+  artifact).
+- **Application = a registered, review-gated action.** `apply_persona_profile`
+  (permission `:settings_write`, exposure `:internal`, `confirmation: :required`)
+  computes a **review diff** of proposed values against current Settings and seeds
+  only through `Settings.put/3` over safe-write keys after explicit confirm. It is
+  callable inside onboarding (`profile_review` step) and standalone. Skipping never
+  blocks first useful chat.
+- **Persona ≠ system prompt (Decision 8).** A persona is a **seed-only settings
+  profile**, explicitly not a `SOUL.md`-style system-prompt/behaviour persona (the
+  competitor pattern). It changes starting *configuration*, never runtime behaviour
+  or authority — the deliberate trust-preserving contrast with OpenClaw/Msty-style
+  personas cited in Context.
+- **Exact per-persona seed values** (all seed only existing safe-write keys; enums
+  per `docs/design/persona-model.md` pre-audit). Suggested apps/channels/intents and
+  `model_purpose_map` are UI/advice only (post-first-chat), never QuickStart model
+  pulls:
+
+  | persona | `operator.communication_style` | `operator.handoff_detail` | Other seeded safe-write keys | Advice (post-first-chat) |
+  |---|---|---|---|---|
+  | `general` | `balanced` | `concrete_next_steps` | `model_preferences.primary`=local default | Workspace/Models/Settings/TUI; direct answer, memory, objectives |
+  | `researcher` | `detailed` | `full_context` | `active_memory.enabled=true` (+ tuned `top_k`); `intent.router_embedding_profile` emphasis | Local embeddings + `:capable`/`:thinking` main loop after egress review |
+  | `developer` | `concise` | (unchanged) | `coding.default_approval_mode`=conservative; `coding.model_profile` / `model_preferences.tasks.coding` after source-egress review | GitHub, Pi-mode; plan/read/grep/review intents |
+  | `writer` | `detailed` | `full_context` | `active_memory` tuning after review | Notes/mail; draft/revise/outline; image-gen provider-confirmed |
+  | `ops` | `concise` | (unchanged) | `runtime.diagnostics_verbosity=verbose`; `objectives.trace_detail=debug` | Jobs/Objectives; status/doctor/triage |
+
+  Objective defaults are seeded only via existing `objectives.*` safe-write keys with
+  pinned values (no fuzzy "objective defaults"). Any candidate not already a
+  safe-write key is a schema decision surfaced in the v0.63 plan's Settings Keys
+  section, never a silent write.
+
+This ADR is Accepted at v0.63 (asserted by the plan's `adr-0075-accepted-001` eval
+row).
