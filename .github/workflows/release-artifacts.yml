@@ -19,7 +19,33 @@ env:
   ELIXIR_VERSION: "1.19.5"
 
 jobs:
+  # v0.62b: a docs/source point release (e.g. v0.62.1) must NOT produce packaged
+  # artifacts or steal GitHub "Latest" from the product release (v0.62.0), which
+  # owns the tarballs + version-less `latest` aliases install.sh/Homebrew resolve.
+  # An annotated tag whose message contains `[skip-artifacts]` skips the whole
+  # packaged pipeline; product-release tags (no marker) build + publish as before.
+  # workflow_dispatch (no tag) always builds so dry-runs still work.
+  gate:
+    runs-on: ubuntu-22.04
+    outputs:
+      artifacts: ${{ steps.decide.outputs.artifacts }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: decide
+        run: |
+          msg="$(git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents)' 2>/dev/null || true)"
+          if printf '%s' "$msg" | grep -qF '[skip-artifacts]'; then
+            echo "artifacts=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Tag ${GITHUB_REF_NAME} is marked [skip-artifacts]; skipping packaged build/publish (docs/source point release)."
+          else
+            echo "artifacts=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: gate
+    if: needs.gate.outputs.artifacts == 'true'
     strategy:
       fail-fast: false
       matrix:

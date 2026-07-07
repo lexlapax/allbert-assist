@@ -128,5 +128,11 @@ defmodule AllbertAssist.InstallPathTest do
     # prerelease `-rc1` hyphen would mangle).
     assert body =~ "needs: [build, linux-rehearsal]"
     assert body =~ ~s{cp "$f" "allbert-$target.tar.gz"}
+    # v0.62b: a docs/source point-release tag marked `[skip-artifacts]` must NOT
+    # build or publish packaged artifacts (so v0.62.0 stays the Latest packaged
+    # release). The gate job reads the tag message; build depends on its output.
+    assert body =~ "[skip-artifacts]"
+    assert body =~ "needs.gate.outputs.artifacts == 'true'"
+    assert body =~ "needs: gate"
   end
 end

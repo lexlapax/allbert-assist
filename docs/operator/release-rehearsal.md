@@ -23,14 +23,33 @@ git push origin v0.62.0
 
 The tag push fires `.github/workflows/release-artifacts.yml`:
 
+- **gate**: reads the annotated tag message. A **product-release** tag (no marker)
+  proceeds to build + publish. A **docs/source point-release** tag whose message
+  contains `[skip-artifacts]` short-circuits here — build/publish are skipped so no
+  packaged GitHub Release is created and GitHub "Latest" is not moved.
 - **build** (macos-arm64, linux-x64, linux-arm64): builds the OTP release and runs
   `scripts/smoke/artifact_smoke.sh` per target - boot, version, plugin
   registration, `/health`, a genuine attach round-trip, no-Mix-modules, and ERTS
   crypto linkage, all through an operator-style symlink.
 - **publish** (tag only, gated on the Linux rehearsal): collects the per-target
   tarballs, adds version-less aliases (`allbert-<target>.tar.gz` for the `latest`
-  install path), writes `SHA256SUMS`, creates the optional out-of-band
+  install path), writes `SHA256SUMS`, creates the release (`--prerelease` for a
+  hyphen tag such as `v0.62.0-rc1`) + the optional out-of-band
   `SHA256SUMS.cosign.bundle`, and uploads everything to the GitHub release.
+
+### Docs/source point release (no packaged artifacts)
+
+A point release that ships only source/docs/script fixes (e.g. `v0.62.1`) must NOT
+create packaged artifacts or steal `Latest` from the product release that owns the
+tarballs + `latest` aliases (`v0.62.0`). Mark its annotated tag `[skip-artifacts]`
+so the `gate` job skips the packaged pipeline:
+
+```sh
+git tag -a v0.62.1 -m "Allbert v0.62.1 - <summary> [skip-artifacts]"
+git push origin v0.62.1
+# Verify: no v0.62.1 GitHub Release is created, and v0.62.0 stays Latest.
+gh release list --repo lexlapax/allbert-assist
+```
 
 Verify release and tag state after publish:
 

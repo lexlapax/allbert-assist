@@ -12,11 +12,15 @@ changelog entries or release notes.
 
 ## v0.62.1 - Distribution Closeout & Reusable Release Ops (v0.62b)
 
-Status: **staged on `main` — version metadata 0.62.1; tag/release intentionally
-deferred**. This point-release candidate intentionally has no packaged GitHub
-Release assets; `v0.62.0` remains the GitHub Latest packaged product release so
-`install.sh` and Homebrew keep resolving to the artifact set that contains the
-version-less latest aliases, versioned tarballs, and `SHA256SUMS`.
+Status: **released — annotated source/docs tag `v0.62.1` (`[skip-artifacts]`),
+2026-07-07; version metadata 0.62.1**. This point release intentionally has no
+packaged GitHub Release assets; `v0.62.0` remains the GitHub Latest packaged
+product release so `install.sh` and Homebrew keep resolving to the artifact set
+that contains the version-less latest aliases, versioned tarballs, and
+`SHA256SUMS`. This is now **enforced**: `release-artifacts.yml` gained a `gate`
+job that skips the packaged build/publish for any tag whose message carries
+`[skip-artifacts]`, so pushing `v0.62.1` cannot accidentally publish a packaged
+release or move GitHub "Latest".
 
 Closes the v0.62 distribution follow-up without adding product capability,
 authority, permission, Settings key, runtime action, install trust semantic, or
