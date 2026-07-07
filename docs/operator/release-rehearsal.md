@@ -144,6 +144,11 @@ allbert admin status              # attaches to the running daemon; no second wr
 kill "$ALLBERT_DAEMON_PID"
 ```
 
+Attach and health checks require host socket/port access. If running inside a
+filesystem/network sandbox, rerun this block outside that sandbox before judging
+the release; an attach-listener `:eperm` is a validation-environment failure, not
+a product pass.
+
 ### service (launchd / systemd, confirmation-gated)
 
 ```sh
