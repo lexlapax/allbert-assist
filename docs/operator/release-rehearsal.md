@@ -85,7 +85,9 @@ Audit and publish from the tap checkout:
 cd /tmp/homebrew-allbert
 git diff -- Formula/allbert.rb
 rg -n 'PLACEHOLDER|TODO|sha256' Formula/allbert.rb
-brew audit --strict --online --formula Formula/allbert.rb
+brew tap lexlapax/allbert /tmp/homebrew-allbert --custom-remote
+brew trust lexlapax/allbert
+brew audit --strict --online --formula allbert
 git add Formula/allbert.rb
 git commit -m "allbert v0.62.0"
 git push origin main
@@ -93,6 +95,9 @@ git push origin main
 
 Evidence to record: tap commit hash, audit output, the three formula SHA256 rows,
 and confirmation that no placeholder checksum remains.
+
+Homebrew 6 note: path-based `brew audit [path ...]` is disabled, and untrusted
+third-party taps are refused. Audit by tapped formula name after trusting the tap.
 
 ## 3. Per-OS Install Rehearsal
 
