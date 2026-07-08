@@ -168,3 +168,33 @@ Ratified in the v0.63 plan's Locked Decisions (2026-07-07/2026-07-08):
 
 This ADR is marked Accepted during v0.63 closeout (asserted by the plan's
 `adr-0069-accepted-001` eval row).
+
+## Post-Implementation Amendment (v0.63 M7.1–M7.8 remediation, 2026-07-08)
+
+A post-implementation adversarial audit confirmed the onboarding **foundation is
+sound** — no authority bypass, no secret leak, personas seed-only — but found that
+several *surfaces* shipped thinner than this ADR's decisions, plus eval-gate and doc
+gaps. The M7.x remediation (see the plan's Post-Implementation Audit & Remediation
+section) resolves them, with these amendments to the decisions above:
+
+- **TUI console (Decision 3), as-built + remediation.** M6 shipped only the
+  line-oriented `allbert onboard` fallback; the **TUI console rendering was not built**.
+  It is built in remediation **M7.5** (driving the same shared machine + 8 step IDs), so
+  "two terminal renderings, one flow" holds as-built only after M7.5.
+- **Persistence unification → objective-flow retirement (Decision 1).** Rather than
+  keeping the legacy objective onboarding backend coexisting with the marker, remediation
+  **M7.3 retires the objective onboarding flow entirely** (backend +
+  `mix allbert.onboard` objective path + web panel + tests); the shared wizard machine
+  over the `<Home>/onboarding.json` marker becomes the *sole* onboarding source and
+  surface, and `mix allbert.onboard` is re-pointed at it. The first-launch reconcile the
+  Upgrade § describes is implemented in **M7.6** (a one-time cancel/cleanup of any
+  pre-existing in-flight objective).
+- **`--authorize` for persona apply becomes two-step (Decision 7).** To satisfy the
+  review/confirm contract, `apply-persona <id> --authorize` (M7.4) renders the
+  `current→proposed` review diff and requires an explicit `--yes` before it runs the
+  durable create+approve path. The durable-confirmation, no-floor-bypass property is
+  unchanged.
+- **Web wizard drives M3/M4 (Decision 1/6/12).** The web wizard is completed in M7.3 to
+  render real masked provider entry, inline doctor, provider switch, and the persona
+  review diff (M5 shipped a step-ticker that drove neither); readiness copy stays
+  operator-language.
