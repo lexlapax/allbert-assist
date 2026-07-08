@@ -135,7 +135,6 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Objectives.DelegateAgent
   alias AllbertAssist.Actions.Objectives.ListObjectives
   alias AllbertAssist.Actions.Objectives.ShowObjective
-  alias AllbertAssist.Actions.Onboarding.StepComplete, as: OnboardingStepComplete
   alias AllbertAssist.Actions.Operator.Channels, as: OperatorChannels
   alias AllbertAssist.Actions.Operator.Confirmations, as: OperatorConfirmations
   alias AllbertAssist.Actions.Operator.Events, as: OperatorEvents
@@ -418,7 +417,6 @@ defmodule AllbertAssist.Actions.Registry do
     ConfirmPlanStep,
     CancelPlanRun,
     ListPlanRuns,
-    OnboardingStepComplete,
     RegistryHealth,
     TraceSummary,
     ListJobs,

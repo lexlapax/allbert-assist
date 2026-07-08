@@ -385,9 +385,6 @@ confusion:
   - actual: none
     count: 1
     expected: execute:model_doctor
-  - actual: none
-    count: 1
-    expected: execute:onboarding_step_complete
   - actual: execute:open_calendar_panel
     count: 1
     expected: execute:open_calendar_panel

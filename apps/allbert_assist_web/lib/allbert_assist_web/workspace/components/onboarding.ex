@@ -1,6 +1,12 @@
 defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   @moduledoc """
-  First-run onboarding workspace panel.
+  First-run onboarding workspace panel — the shared guided-wizard surface.
+
+  v0.63 M7.3: the legacy objective-backed panel is retired; this component drives the
+  shared `AllbertAssist.Onboarding` wizard machine exclusively. Its steps render the
+  real M3 provider setup (masked credential entry, inline doctor, provider switch, the
+  three-tier vault surface) and the M4 persona review diff (current → proposed, writes
+  nothing before an approved confirmation) — through the registered action spine.
   """
 
   use AllbertAssistWeb, :live_component
@@ -8,8 +14,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   alias AllbertAssist.Actions.ErrorExtraction
   alias AllbertAssist.Actions.Runner
   alias AllbertAssist.Onboarding, as: OnboardingContext
-  alias AllbertAssist.Surface.Renderer, as: SurfaceRenderer
-  alias AllbertAssistWeb.Workspace.Components.Patterns
+  alias AllbertAssist.Onboarding.ProviderStep
+  alias AllbertAssist.Personas
+  alias AllbertAssist.Settings
 
   # v0.63 M2/M5: operator readiness labels — the web surface never renders a raw
   # internal probe/readiness atom (Readiness Label Mapping Contract).
@@ -32,13 +39,15 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
       |> assign(assigns)
       |> assign_new(:onboarding_notice, fn -> "" end)
       |> assign_new(:onboarding_error, fn -> nil end)
+      |> assign_new(:selected_persona, fn -> nil end)
+      |> assign_new(:persona_review, fn -> nil end)
+      |> assign_new(:provider_form, fn -> provider_form() end)
 
     {:ok, refresh_state(socket)}
   end
 
-  # v0.63 M5: the shared M1 guided-wizard events. Both surfaces (web/terminal) drive
-  # identical step IDs; these call the M1 state machine directly (marker-backed, not
-  # a store write), then refresh.
+  # -- wizard events ----------------------------------------------------------
+
   @impl true
   def handle_event("wizard_start", %{"track" => track}, socket) do
     OnboardingContext.wizard_start(wizard_track(track))
@@ -64,99 +73,29 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
   def handle_event("wizard_reset", _params, socket) do
     OnboardingContext.wizard_reset()
 
-    {:noreply,
-     refresh_state(
-       reprobe(assign(socket, onboarding_notice: "Onboarding reset.", onboarding_error: nil))
-     )}
-  end
-
-  def handle_event("complete_step", %{"step-id" => step_id}, socket) do
-    {:noreply, record_step(socket, step_id, "completed", "Workspace onboarding step completed.")}
-  end
-
-  def handle_event("skip_step", %{"step-id" => step_id}, socket) do
-    {:noreply, record_step(socket, step_id, "skipped", "Workspace onboarding step skipped.")}
-  end
-
-  def handle_event("channel_choice", %{"choice" => choice, "step-id" => step_id}, socket) do
-    {outcome, note} =
-      case choice do
-        "none" ->
-          {"skipped", "Operator skipped channel registration."}
-
-        "telegram" ->
-          {"selected",
-           "Operator selected Telegram channel registration; setup is deferred until configured."}
-
-        "email" ->
-          {"selected",
-           "Operator selected email channel registration; setup is deferred until configured."}
-
-        _choice ->
-          {"skipped", "Operator skipped channel registration."}
-      end
-
-    {:noreply, record_step(socket, step_id, outcome, note)}
-  end
-
-  def handle_event("use_model_profile", %{"profile" => profile}, socket) do
-    context = action_context(socket)
-
     socket =
-      case run_action("set_active_model_profile", %{profile: profile}, context) do
-        {:ok, %{status: :completed, message: message}} ->
-          socket
-          |> record_current_step("completed", message)
-          |> put_flash_notice("Model profile saved.")
+      socket
+      |> assign(onboarding_notice: "Onboarding reset.", onboarding_error: nil)
+      |> assign(selected_persona: nil, persona_review: nil)
 
-        {:ok, response} ->
-          assign(socket, :onboarding_error, response_error(response))
-
-        {:error, reason} ->
-          assign(socket, :onboarding_error, reason)
-      end
-
-    {:noreply, socket}
+    {:noreply, refresh_state(reprobe(socket))}
   end
 
-  def handle_event("doctor_model_profile", _params, socket) do
-    context = action_context(socket)
-    profile = active_model_profile(socket)
+  # -- M3 provider setup ------------------------------------------------------
 
-    socket =
-      case run_action("doctor_model_profile", %{profile: profile}, context) do
-        {:ok, %{status: :completed, doctor: doctor} = response} ->
-          note =
-            "Doctor #{profile}: endpoint_kind=#{doctor.endpoint_kind}, endpoint_ok=#{doctor.endpoint_ok}, credential_ok=#{inspect(doctor.credential_ok)}, model_available=#{inspect(doctor.model_available)}, redacted_host=#{doctor.redacted_host}."
-
-          socket
-          |> record_current_step("completed", note)
-          |> put_flash_notice(response_text(response))
-
-        {:ok, response} ->
-          assign(socket, :onboarding_error, response_error(response))
-
-        {:error, reason} ->
-          assign(socket, :onboarding_error, reason)
-      end
-
-    {:noreply, socket}
-  end
-
-  def handle_event("set_model_assist", %{"enabled" => enabled}, socket) do
-    context = action_context(socket)
-    profile = active_model_profile(socket)
-
+  def handle_event("save_provider_key", %{"provider" => provider, "api_key" => api_key}, socket) do
     socket =
       case run_action(
-             "set_active_model_profile",
-             %{profile: profile, enable_assist: enabled == "true"},
-             context
+             "set_provider_credential",
+             %{provider: provider, mode: :set_secret, api_key: api_key},
+             action_context(socket)
            ) do
-        {:ok, %{status: :completed, message: message}} ->
-          socket
-          |> record_current_step("completed", message)
-          |> put_flash_notice("Model-assisted intent updated.")
+        {:ok, %{status: :completed}} ->
+          assign(socket,
+            onboarding_notice: "Provider key stored (masked) for #{provider}.",
+            onboarding_error: nil,
+            provider_form: provider_form(provider)
+          )
 
         {:ok, response} ->
           assign(socket, :onboarding_error, response_error(response))
@@ -165,7 +104,65 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           assign(socket, :onboarding_error, reason)
       end
 
-    {:noreply, socket}
+    {:noreply, refresh_state(reprobe(socket))}
+  end
+
+  def handle_event("run_doctor", %{"profile" => profile}, socket) do
+    socket =
+      case run_action("doctor_model_profile", %{profile: profile}, action_context(socket)) do
+        {:ok, %{doctor: doctor}} ->
+          result = ProviderStep.interpret_doctor(doctor)
+          assign(socket, onboarding_notice: doctor_notice(result), onboarding_error: nil)
+
+        {:ok, response} ->
+          assign(socket, :onboarding_error, response_error(response))
+
+        {:error, reason} ->
+          assign(socket, :onboarding_error, reason)
+      end
+
+    {:noreply, refresh_state(reprobe(socket))}
+  end
+
+  def handle_event("use_provider", %{"profile" => profile}, socket) do
+    socket =
+      case run_action("set_active_model_profile", %{profile: profile}, action_context(socket)) do
+        {:ok, %{status: :completed}} ->
+          assign(socket,
+            onboarding_notice:
+              "Active provider/model set to #{profile} (settings write, no config edit).",
+            onboarding_error: nil
+          )
+
+        {:ok, response} ->
+          assign(socket, :onboarding_error, response_error(response))
+
+        {:error, reason} ->
+          assign(socket, :onboarding_error, reason)
+      end
+
+    {:noreply, refresh_state(reprobe(socket))}
+  end
+
+  # -- M4 persona review + apply ---------------------------------------------
+
+  def handle_event("select_persona", %{"persona-id" => persona_id}, socket) do
+    # Compute the review diff via a dry-run apply — writes nothing.
+    review =
+      case run_action(
+             "apply_persona_profile",
+             %{persona_id: persona_id, dry_run: true},
+             action_context(socket)
+           ) do
+        {:ok, %{review: review}} -> review
+        _other -> nil
+      end
+
+    {:noreply, assign(socket, selected_persona: persona_id, persona_review: review)}
+  end
+
+  def handle_event("apply_persona", %{"persona-id" => persona_id}, socket) do
+    {:noreply, refresh_state(apply_persona(socket, persona_id))}
   end
 
   @impl true
@@ -184,7 +181,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
         </span>
         <div class="min-w-0 flex-1">
           <h2 id="workspace-onboarding-title" class="workspace-card-title">Onboarding</h2>
-          <p class="workspace-card-summary">First-run provider, model, and channel setup.</p>
+          <p class="workspace-card-summary">Guided first-run provider, model, and profile setup.</p>
         </div>
       </header>
 
@@ -261,6 +258,14 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           </li>
         </ol>
 
+        <div
+          :if={@onboarding_wizard.started? and !@onboarding_wizard.complete?}
+          id="workspace-wizard-step-controls"
+          class="rounded border border-base-200 p-3 text-sm"
+        >
+          {render_step_controls(assigns)}
+        </div>
+
         <div :if={@onboarding_wizard.started?}>
           <button
             type="button"
@@ -282,194 +287,133 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
           </ul>
         </section>
       </section>
-
-      <div :if={@onboarding_state} class="mt-4 space-y-4">
-        <section class="space-y-1 text-sm">
-          <div class="font-medium">{@onboarding_state.objective.title}</div>
-          <div>Status: {@onboarding_state.objective.status}</div>
-          <div>Progress: {@onboarding_state.objective.progress_summary}</div>
-          <div :if={@onboarding_state.current_step}>
-            Current: {@onboarding_state.current_step.index}. {@onboarding_state.current_step.title}
-          </div>
-          <div :if={!@onboarding_state.current_step}>Current: complete</div>
-        </section>
-
-        <section :if={@onboarding_state.current_step} class="space-y-3">
-          <div class="rounded border border-base-300 p-3 text-sm">
-            <div class="font-medium">{@onboarding_state.current_step.title}</div>
-            <p class="mt-1 text-base-content/70">
-              {step_guidance(@onboarding_state.current_step)}
-            </p>
-            <p
-              :if={@onboarding_state.current_step[:evidence]}
-              class="mt-2 text-xs text-base-content/70"
-            >
-              Evidence: {@onboarding_state.current_step.evidence}
-            </p>
-            <p
-              :if={@onboarding_state.current_step[:next_command]}
-              class="mt-1 text-xs text-base-content/70"
-            >
-              Next: <code>{@onboarding_state.current_step.next_command}</code>
-            </p>
-
-            <div
-              :if={model_profile_step?(@onboarding_state.current_step)}
-              class="mt-3 flex flex-wrap gap-2"
-            >
-              <button
-                :for={profile <- model_profiles(@onboarding_state)}
-                id={"onboarding-use-model-#{profile.name}"}
-                type="button"
-                phx-click="use_model_profile"
-                phx-target={@myself}
-                phx-value-profile={profile.name}
-                class={button_class!("secondary")}
-              >
-                {"Use #{profile.name}"}
-              </button>
-            </div>
-
-            <div
-              :if={@onboarding_state.current_step.key == "run_doctor"}
-              class="mt-3 flex flex-wrap gap-2"
-            >
-              <button
-                id="onboarding-doctor-active-profile"
-                type="button"
-                phx-click="doctor_model_profile"
-                phx-target={@myself}
-                class={button_class!("secondary")}
-              >
-                Doctor active profile
-              </button>
-            </div>
-
-            <div
-              :if={@onboarding_state.current_step.key == "toggle_model_assisted_intent"}
-              class="mt-3 flex flex-wrap gap-2"
-            >
-              <button
-                id="onboarding-enable-model-assist"
-                type="button"
-                phx-click="set_model_assist"
-                phx-target={@myself}
-                phx-value-enabled="true"
-                class={button_class!("secondary")}
-              >
-                Enable
-              </button>
-              <button
-                id="onboarding-disable-model-assist"
-                type="button"
-                phx-click="set_model_assist"
-                phx-target={@myself}
-                phx-value-enabled="false"
-                class={button_class!("secondary")}
-              >
-                Keep off
-              </button>
-            </div>
-
-            <div
-              :if={@onboarding_state.current_step.key == "optional_channel_registration"}
-              class="mt-3 flex flex-wrap gap-2"
-            >
-              <button
-                id="onboarding-channel-telegram"
-                type="button"
-                phx-click="channel_choice"
-                phx-target={@myself}
-                phx-value-choice="telegram"
-                phx-value-step-id={@onboarding_state.current_step.id}
-                class={button_class!("secondary")}
-              >
-                Telegram
-              </button>
-              <button
-                id="onboarding-channel-email"
-                type="button"
-                phx-click="channel_choice"
-                phx-target={@myself}
-                phx-value-choice="email"
-                phx-value-step-id={@onboarding_state.current_step.id}
-                class={button_class!("secondary")}
-              >
-                Email
-              </button>
-              <button
-                id="onboarding-channel-none"
-                type="button"
-                phx-click="channel_choice"
-                phx-target={@myself}
-                phx-value-choice="none"
-                phx-value-step-id={@onboarding_state.current_step.id}
-                class={button_class!("secondary")}
-              >
-                Skip
-              </button>
-              <button
-                id="onboarding-channel-configured"
-                type="button"
-                phx-click="complete_step"
-                phx-target={@myself}
-                phx-value-step-id={@onboarding_state.current_step.id}
-                class={button_class!("primary")}
-              >
-                Configured
-              </button>
-            </div>
-
-            <div
-              :if={@onboarding_state.current_step.key != "optional_channel_registration"}
-              class="mt-3 flex flex-wrap gap-2"
-            >
-              <button
-                id={"complete-onboarding-step-#{@onboarding_state.current_step.key}"}
-                type="button"
-                phx-click="complete_step"
-                phx-target={@myself}
-                phx-value-step-id={@onboarding_state.current_step.id}
-                class={button_class!("primary")}
-              >
-                Complete
-              </button>
-              <button
-                :if={@onboarding_state.current_step.optional?}
-                id={"skip-onboarding-step-#{@onboarding_state.current_step.key}"}
-                type="button"
-                phx-click="skip_step"
-                phx-target={@myself}
-                phx-value-step-id={@onboarding_state.current_step.id}
-                class={button_class!("secondary")}
-              >
-                Skip
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <section class="space-y-2">
-          <div
-            :for={step <- @onboarding_state.steps}
-            id={"onboarding-step-#{step.key}"}
-            class="rounded border border-base-300 p-3 text-sm"
-            data-status={step.status}
-            data-current={bool_string(current_step?(step, @onboarding_state.current_step))}
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0 font-medium">{step.index}. {step.title}</div>
-              <div class="shrink-0 whitespace-nowrap text-xs text-base-content/60">{step.status}</div>
-            </div>
-            <div class="text-xs text-base-content/60">
-              {step.key}{optional_label(step)}
-            </div>
-          </div>
-        </section>
-      </div>
     </article>
     """
   end
+
+  # -- per-step control panels ------------------------------------------------
+
+  defp render_step_controls(%{onboarding_wizard: %{step: "model_path"}} = assigns) do
+    ~H"""
+    <div id="workspace-wizard-provider" class="space-y-3">
+      <p class="text-xs text-base-content/70">{@tier_line}</p>
+
+      <.form
+        for={@provider_form}
+        phx-submit="save_provider_key"
+        phx-target={@myself}
+        class="space-y-2"
+      >
+        <select id="workspace-provider-select" name="provider" class="select select-sm w-full">
+          <option
+            :for={p <- @provider_profiles}
+            value={p.name}
+            selected={p.name == @provider_form.params["provider"]}
+          >
+            {p.name}
+          </option>
+        </select>
+        <input
+          id="workspace-provider-key"
+          type="password"
+          name="api_key"
+          autocomplete="off"
+          placeholder="Provider key (stored masked in the vault)"
+          class="input input-sm w-full"
+        />
+        <button type="submit" id="workspace-provider-save" class="btn btn-sm btn-primary">
+          Store key (masked)
+        </button>
+      </.form>
+
+      <div class="flex flex-wrap gap-2">
+        <button
+          :for={p <- @provider_profiles}
+          type="button"
+          id={"workspace-provider-use-#{p.name}"}
+          class="btn btn-xs"
+          phx-click="use_provider"
+          phx-target={@myself}
+          phx-value-profile={p.name}
+        >
+          Use {p.name}
+        </button>
+        <button
+          type="button"
+          id="workspace-provider-doctor"
+          class="btn btn-xs btn-ghost"
+          phx-click="run_doctor"
+          phx-target={@myself}
+          phx-value-profile="local"
+        >
+          Run doctor
+        </button>
+      </div>
+    </div>
+    """
+  end
+
+  defp render_step_controls(%{onboarding_wizard: %{step: "profile_select"}} = assigns) do
+    ~H"""
+    <div id="workspace-wizard-personas" class="flex flex-wrap gap-2">
+      <button
+        :for={persona <- Personas.all()}
+        type="button"
+        id={"workspace-persona-#{persona["persona_id"]}"}
+        class={["btn btn-xs", @selected_persona == persona["persona_id"] && "btn-primary"]}
+        phx-click="select_persona"
+        phx-target={@myself}
+        phx-value-persona-id={persona["persona_id"]}
+      >
+        {persona["label"]}
+      </button>
+    </div>
+    """
+  end
+
+  defp render_step_controls(%{onboarding_wizard: %{step: "profile_review"}} = assigns) do
+    ~H"""
+    <div id="workspace-wizard-persona-review">
+      <p :if={!@persona_review} class="text-xs text-base-content/70">
+        Pick a persona at the previous step to review what it seeds.
+      </p>
+
+      <div :if={@persona_review} id="workspace-persona-review-diff" class="space-y-2">
+        <div class="text-xs font-medium">
+          Review — {@persona_review.persona_id} ({@persona_review.change_count} change(s)). Nothing is written until you apply.
+        </div>
+        <ul class="space-y-0.5 text-xs">
+          <li :for={change <- @persona_review.changes} class="flex justify-between gap-2">
+            <span class="font-mono">{change.key}</span>
+            <span class="text-base-content/70">
+              {inspect(change.current)} → {inspect(change.proposed)}
+            </span>
+          </li>
+        </ul>
+        <button
+          type="button"
+          id="workspace-persona-apply"
+          class="btn btn-sm btn-primary"
+          phx-click="apply_persona"
+          phx-target={@myself}
+          phx-value-persona-id={@persona_review.persona_id}
+        >
+          Apply {@persona_review.persona_id}
+        </button>
+      </div>
+    </div>
+    """
+  end
+
+  defp render_step_controls(assigns) do
+    ~H"""
+    <p class="text-xs text-base-content/70">
+      Continue when this step is ready.
+    </p>
+    """
+  end
+
+  # -- state / helpers --------------------------------------------------------
 
   # M7.2: probe once per component, refreshed only on wizard actions.
   defp ensure_probe(socket) do
@@ -484,36 +428,68 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     do: assign(socket, :onboarding_probe, OnboardingContext.safe_first_model_state())
 
   defp refresh_state(socket) do
-    context = Map.get(socket.assigns, :renderer_context, %{})
-
-    # M7.2: resolve the guarded first-model probe once per component (cached in
-    # assigns) and thread it into wizard_state, so an ordinary LiveView update does
-    # not re-probe Ollama on every render. Wizard actions call reprobe/1 to refresh.
     socket = ensure_probe(socket)
 
-    socket =
-      assign(
-        socket,
-        :onboarding_wizard,
-        OnboardingContext.wizard_state(first_model_state: socket.assigns.onboarding_probe)
+    wizard =
+      OnboardingContext.wizard_state(first_model_state: socket.assigns.onboarding_probe)
+
+    socket
+    |> assign(:onboarding_wizard, wizard)
+    |> assign(:provider_profiles, provider_profiles())
+    |> assign(:tier_line, tier_line())
+  end
+
+  defp apply_persona(socket, persona_id) do
+    context = action_context(socket)
+
+    with {:ok, %{status: :needs_confirmation, confirmation_id: id}} <-
+           run_action("apply_persona_profile", %{persona_id: persona_id}, context),
+         {:ok, %{status: :completed}} <-
+           run_action(
+             "approve_confirmation",
+             %{id: id, reason: "onboarding persona apply"},
+             context
+           ) do
+      assign(socket,
+        onboarding_notice: "Applied persona #{persona_id}.",
+        onboarding_error: nil,
+        persona_review: nil
       )
-
-    case OnboardingContext.frame_or_resume(user_id(context), %{
-           channel: :live_view,
-           thread_id: field(context, :thread_id),
-           session_id: field(context, :session_id)
-         }) do
-      {:ok, state} ->
-        socket
-        |> assign(:onboarding_state, state)
-        |> assign(:onboarding_error, nil)
-
-      {:error, reason} ->
-        socket
-        |> assign(:onboarding_state, nil)
-        |> assign(:onboarding_error, reason)
+    else
+      {:ok, response} -> assign(socket, :onboarding_error, response_error(response))
+      {:error, reason} -> assign(socket, :onboarding_error, reason)
     end
   end
+
+  defp provider_profiles do
+    case Settings.list_provider_profiles() do
+      {:ok, profiles} -> profiles
+      _other -> []
+    end
+  end
+
+  defp tier_line do
+    report = ProviderStep.vault_tier_report()
+
+    if report.writable? do
+      "New provider keys are stored in: #{report.label}."
+    else
+      "This tier (#{report.label}) can't store new keys; set a provider key in the environment or enable the OS/encrypted vault."
+    end
+  rescue
+    _error -> ""
+  end
+
+  defp provider_form(provider \\ "openai") do
+    to_form(%{"provider" => provider, "api_key" => ""}, as: nil)
+  end
+
+  defp doctor_notice(%{ok?: true, headline: headline}), do: headline
+
+  defp doctor_notice(%{headline: headline, next_action: action}) when is_binary(action),
+    do: "#{headline} #{action}"
+
+  defp doctor_notice(%{headline: headline}), do: headline
 
   defp readiness_label(readiness), do: Map.get(@readiness_copy, readiness, "Unknown")
 
@@ -526,69 +502,9 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     |> String.capitalize()
   end
 
-  defp record_step(socket, step_id, outcome, note) do
-    state = socket.assigns.onboarding_state
-
-    params = %{
-      objective_id: state.objective.id,
-      step_id: step_id,
-      outcome: outcome,
-      note: note,
-      evidence: current_step_evidence(socket, step_id)
-    }
-
-    case run_action("onboarding_step_complete", params, action_context(socket)) do
-      {:ok, %{status: :completed} = response} ->
-        socket
-        |> assign(:onboarding_state, response_state(response))
-        |> assign(:onboarding_notice, "Onboarding progress recorded.")
-        |> assign(:onboarding_error, nil)
-
-      {:ok, response} ->
-        socket
-        |> assign(:onboarding_notice, "")
-        |> assign(:onboarding_error, Map.get(response, :error) || response_text(response))
-
-      {:error, reason} ->
-        socket
-        |> assign(:onboarding_notice, "")
-        |> assign(:onboarding_error, reason)
-    end
-  end
-
-  defp record_current_step(socket, outcome, note) do
-    case socket.assigns.onboarding_state.current_step do
-      %{id: step_id} -> record_step(socket, step_id, outcome, note)
-      _other -> socket
-    end
-  end
-
-  defp put_flash_notice(socket, notice), do: assign(socket, :onboarding_notice, notice)
-
-  defp response_error(response), do: ErrorExtraction.from_response(response)
-
-  defp current_step_evidence(socket, step_id) do
-    socket.assigns.onboarding_state.steps
-    |> Enum.find(&(&1.id == step_id))
-    |> case do
-      %{evidence: evidence} -> evidence
-      _other -> nil
-    end
-  end
-
-  defp response_state(response) do
-    %{
-      objective: response.objective,
-      steps: response.steps,
-      current_step: response.current_step,
-      evidence: Map.get(response, :evidence, %{}),
-      created?: false
-    }
-  end
-
   defp run_action(name, params, context), do: apply(Runner, :run, [name, params, context])
 
-  defp button_class!(variant), do: Patterns.compact_button_class!(variant)
+  defp response_error(response), do: ErrorExtraction.from_response(response)
 
   defp action_context(socket) do
     context = Map.get(socket.assigns, :renderer_context, %{})
@@ -608,66 +524,7 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
     }
   end
 
-  defp step_guidance(%{key: "welcome_scope"}) do
-    "Review the setup scope before recording progress."
-  end
-
-  defp step_guidance(%{key: "resolve_credential_or_endpoint"}) do
-    "Remote credentials use the Settings Central secret form; local endpoints are checked by the model doctor."
-  end
-
-  defp step_guidance(%{key: "run_doctor"}) do
-    "Use `mix allbert.model doctor PROFILE` or the Settings Central model doctor."
-  end
-
-  defp step_guidance(%{key: "pick_model_profile"}) do
-    "Use `mix allbert.model use PROFILE` or the Settings Central model picker."
-  end
-
-  defp step_guidance(%{key: "toggle_model_assisted_intent"}) do
-    "Use `mix allbert.model use PROFILE --enable-assist` or update `intent.model_assist_enabled`."
-  end
-
-  defp step_guidance(%{key: "optional_channel_registration"}) do
-    "Use `mix allbert.channels telegram set-token TOKEN` or `mix allbert.channels email set-password --type imap|smtp PASSWORD`, then record the choice here."
-  end
-
-  defp step_guidance(%{key: "identity_slot_preview"}) do
-    "Review the identity root, kept identity count, Active Memory flag, and direct-answer model flag. Try `mix allbert.memory retrieve --query \"concise release reports\"`; this step writes no identity memory."
-  end
-
-  defp step_guidance(%{key: "done"}), do: "Record completion when onboarding is ready to close."
-  defp step_guidance(_step), do: "Record this step when the setup action is complete."
-
-  defp model_profile_step?(%{key: key})
-       when key in ["pick_provider_profile", "pick_model_profile"],
-       do: true
-
-  defp model_profile_step?(_step), do: false
-
-  defp model_profiles(%{evidence: %{model_profiles: profiles}}) when is_list(profiles),
-    do: profiles
-
-  defp model_profiles(_state), do: []
-
-  defp active_model_profile(socket) do
-    get_in(socket.assigns, [:onboarding_state, :evidence, :active_model_profile]) || "local"
-  end
-
-  defp current_step?(_step, nil), do: false
-  defp current_step?(step, current_step), do: step.id == current_step.id
-
-  defp bool_string(true), do: "true"
-  defp bool_string(false), do: "false"
-
-  defp optional_label(%{optional?: true}), do: " optional"
-  defp optional_label(_step), do: ""
-
   defp user_id(context), do: field(context, :user_id) || "local"
-
-  defp response_text(response) do
-    SurfaceRenderer.response_text(response, %{payload: :surface_payload})
-  end
 
   defp field(map, key) when is_map(map),
     do: Map.get(map, key) || Map.get(map, Atom.to_string(key))

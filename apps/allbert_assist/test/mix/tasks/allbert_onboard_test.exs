@@ -1,12 +1,23 @@
 defmodule Mix.Tasks.Allbert.OnboardTest do
-  use AllbertAssist.DataCase, async: false
+  @moduledoc """
+  v0.63 M7.3 — `mix allbert.onboard` is re-pointed at the shared wizard machine (the
+  dev mirror of `allbert onboard`); the legacy objective flow is retired.
+  """
+  use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
 
+  alias AllbertAssist.CLI.FirstRun
   alias Mix.Tasks.Allbert.Onboard, as: OnboardTask
 
   setup do
     previous_halt = Application.get_env(:allbert_assist, Mix.Tasks.Allbert.Onboard)
+    original_home = System.get_env("ALLBERT_HOME")
+
+    home =
+      Path.join(System.tmp_dir!(), "allbert-onboard-task-#{System.unique_integer([:positive])}")
+
+    System.put_env("ALLBERT_HOME", home)
 
     Application.put_env(:allbert_assist, Mix.Tasks.Allbert.Onboard,
       halt_fun: fn code -> throw({:halt, code}) end
@@ -14,6 +25,11 @@ defmodule Mix.Tasks.Allbert.OnboardTest do
 
     on_exit(fn ->
       Mix.Task.reenable("allbert.onboard")
+      File.rm_rf!(home)
+
+      if original_home,
+        do: System.put_env("ALLBERT_HOME", original_home),
+        else: System.delete_env("ALLBERT_HOME")
 
       if previous_halt do
         Application.put_env(:allbert_assist, Mix.Tasks.Allbert.Onboard, previous_halt)
@@ -21,80 +37,45 @@ defmodule Mix.Tasks.Allbert.OnboardTest do
         Application.delete_env(:allbert_assist, Mix.Tasks.Allbert.Onboard)
       end
     end)
+
+    :ok
   end
 
-  test "frames and resumes onboarding objective" do
-    first_output =
-      capture_io(fn ->
-        assert :ok = OnboardTask.run(["--user", "alice"])
-      end)
-
-    assert first_output =~ "Onboarding objective:"
-    assert first_output =~ "Current step: 1. Welcome + scope"
-    assert first_output =~ "Evidence: Onboarding writes objective progress only."
-    assert first_output =~ "Next: mix allbert.onboard complete welcome_scope"
-    assert first_output =~ "Run doctor"
-    assert first_output =~ "action=doctor_model_profile"
+  test "starts a track and reports the wizard state" do
+    output = capture_io(fn -> assert :ok = OnboardTask.run(["--quickstart"]) end)
+    assert output =~ "track: quickstart"
+    assert output =~ "Step: welcome"
 
     Mix.Task.reenable("allbert.onboard")
-
-    second_output =
-      capture_io(fn ->
-        assert :ok = OnboardTask.run(["--user", "alice"])
-      end)
-
-    first_id =
-      first_output
-      |> String.split("Onboarding objective: ")
-      |> Enum.at(1)
-      |> String.split()
-      |> hd()
-
-    second_id =
-      second_output
-      |> String.split("Onboarding objective: ")
-      |> Enum.at(1)
-      |> String.split()
-      |> hd()
-
-    assert second_id == first_id
+    status = capture_io(fn -> assert :ok = OnboardTask.run(["status"]) end)
+    assert status =~ "onboard status="
+    assert status =~ "track=quickstart"
   end
 
-  test "records completed and skipped steps from CLI" do
+  test "advances a step through the wizard machine" do
+    capture_io(fn -> OnboardTask.run(["--quickstart"]) end)
+    Mix.Task.reenable("allbert.onboard")
+
+    output = capture_io(fn -> assert :ok = OnboardTask.run(["advance", "welcome"]) end)
+    assert output =~ "Recorded welcome."
+    assert FirstRun.read_marker()["wizard_done"] == ["welcome"]
+  end
+
+  test "confirmed --reset clears the marker" do
+    capture_io(fn -> OnboardTask.run(["--quickstart"]) end)
+    Mix.Task.reenable("allbert.onboard")
+
+    output = capture_io(fn -> assert :ok = OnboardTask.run(["--reset", "--yes"]) end)
+    assert output =~ "reset"
+    assert FirstRun.read_marker() == %{}
+  end
+
+  test "an unknown flag exits non-zero" do
     output =
       capture_io(fn ->
-        assert :ok = OnboardTask.run(["--user", "alice", "complete", "welcome_scope"])
+        assert catch_throw(OnboardTask.run(["--nope"])) == {:halt, 2}
       end)
 
-    assert output =~ "Welcome + scope [completed]"
-    assert output =~ "Current step: 2. Pick provider profile"
-
-    Mix.Task.reenable("allbert.onboard")
-
-    channel_output =
-      capture_io(fn ->
-        assert :ok = OnboardTask.run(["--user", "alice", "channel", "none"])
-      end)
-
-    assert channel_output =~ "Optional channel registration [skipped]"
-
-    Mix.Task.reenable("allbert.onboard")
-
-    selected_output =
-      capture_io(fn ->
-        assert :ok = OnboardTask.run(["--user", "bob", "channel", "telegram"])
-      end)
-
-    assert selected_output =~ "Optional channel registration [selected]"
-    assert selected_output =~ "Current step: 1. Welcome + scope"
-  end
-
-  test "operator alias must match user" do
-    assert {:halt, 66} =
-             catch_throw(
-               capture_io(:stderr, fn ->
-                 OnboardTask.run(["--user", "alice", "--operator", "bob"])
-               end)
-             )
+    assert output =~ "Unknown flag"
   end
 end

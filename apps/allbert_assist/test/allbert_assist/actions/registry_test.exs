@@ -254,7 +254,6 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "plan_step_confirm",
              "cancel_plan_run",
              "list_plan_runs",
-             "onboarding_step_complete",
              "registry_health",
              "trace_summary",
              "list_jobs",
@@ -496,7 +495,6 @@ defmodule AllbertAssist.Actions.RegistryTest do
              "plan_step_confirm",
              "cancel_plan_run",
              "list_plan_runs",
-             "onboarding_step_complete",
              "registry_health",
              "trace_summary",
              "list_jobs",
@@ -703,11 +701,6 @@ defmodule AllbertAssist.Actions.RegistryTest do
     assert {:ok, delegate_agent} = Registry.capability("delegate_agent")
     assert delegate_agent.permission == :objective_write
     assert delegate_agent.execution_mode == :objective_delegate
-
-    assert {:ok, onboarding_step_complete} = Registry.capability("onboarding_step_complete")
-    assert onboarding_step_complete.permission == :objective_write
-    assert onboarding_step_complete.exposure == :internal
-    assert onboarding_step_complete.execution_mode == :objectives_write
 
     assert {:ok, run_skill_script} = Registry.capability("run_skill_script")
     assert run_skill_script.permission == :skill_script_execute

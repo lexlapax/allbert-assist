@@ -731,31 +731,6 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     assert model_signal.data.permission_decision.permission == :settings_write
   end
 
-  test "workspace onboarding destination frames and records onboarding steps", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
-
-    assert has_element?(view, "#workspace-shell[data-canvas-destination='workspace:onboard']")
-    assert has_element?(view, "#workspace-canvas[data-destination='workspace:onboard']")
-    assert has_element?(view, "#workspace-onboarding-panel")
-    assert has_element?(view, "#onboarding-step-welcome_scope[data-current='true']")
-    assert has_element?(view, "#complete-onboarding-step-welcome_scope")
-
-    subscribe_actions()
-
-    html =
-      view
-      |> element("#complete-onboarding-step-welcome_scope")
-      |> render_click()
-
-    assert html =~ "Onboarding progress recorded."
-    assert has_element?(view, "#onboarding-step-welcome_scope[data-status='completed']")
-    assert has_element?(view, "#onboarding-step-pick_provider_profile[data-current='true']")
-
-    action_signal = receive_action_completed("onboarding_step_complete")
-    assert action_signal.data.status == :completed
-    assert action_signal.data.permission_decision.permission == :objective_write
-  end
-
   describe "v0.63 M5 guided wizard panel" do
     setup do
       # Snapshot + restore the Home onboarding marker so wizard mutations in these
@@ -799,6 +774,32 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
 
       assert has_element?(view, "#workspace-wizard-step-welcome[data-done='true']")
       assert has_element?(view, "#workspace-wizard-step-track_select[data-current='true']")
+    end
+
+    test "M7.3: the wizard drives real M3/M4 controls and has no legacy objective panel",
+         %{conn: conn} do
+      FirstRun.reset_onboarding()
+      {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
+
+      # The retired legacy objective panel is gone.
+      refute has_element?(view, "#onboarding-step-welcome_scope")
+
+      view |> element("#workspace-onboarding-start-quickstart") |> render_click()
+      view |> element("#workspace-wizard-advance-welcome") |> render_click()
+      view |> element("#workspace-wizard-advance-track_select") |> render_click()
+
+      # model_path renders real M3 masked entry + provider switch/doctor.
+      assert has_element?(view, "#workspace-provider-key[type='password']")
+      assert has_element?(view, "#workspace-provider-doctor")
+
+      # profile_select renders persona choices; selecting one computes the review diff.
+      view |> element("#workspace-wizard-advance-model_path") |> render_click()
+      assert has_element?(view, "#workspace-persona-developer")
+      view |> element("#workspace-persona-developer") |> render_click()
+
+      # profile_review shows the M4 current→proposed diff (nothing written yet).
+      view |> element("#workspace-wizard-advance-profile_select") |> render_click()
+      assert has_element?(view, "#workspace-persona-review-diff")
     end
   end
 

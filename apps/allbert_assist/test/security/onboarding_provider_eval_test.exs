@@ -16,9 +16,7 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
   @v039_eval_ids [
     "onboarding-secret-redaction-001",
     "onboarding-doctor-no-leak-001",
-    "onboarding-action-boundary-001",
     "onboarding-safe-keys-only-001",
-    "onboarding-identity-preview-no-write-001",
     "provider-doctor-credentialed-branch-001",
     "provider-doctor-local-endpoint-branch-001",
     "provider-doctor-endpoint-kind-derivation-001",
@@ -85,49 +83,6 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
     assert_allowed(redaction)
     assert_no_secret_in(redaction, [@secret])
 
-    action_boundary =
-      run_eval(
-        fixture("onboarding-action-boundary-001", %{
-          run: fn fixture ->
-            {:ok, state} = Onboarding.frame_or_resume("local", context())
-            step = hd(state.steps)
-
-            {:ok, capability} = Registry.capability("onboarding_step_complete")
-
-            {:ok, response} =
-              Runner.run(
-                "onboarding_step_complete",
-                %{
-                  objective_id: state.objective.id,
-                  step_id: step.id,
-                  outcome: "completed",
-                  note: "security eval progress"
-                },
-                context(%{user_id: "local"})
-              )
-
-            %{
-              decision: :allowed,
-              result: response,
-              trace: %{
-                fixture_id: fixture.id,
-                action: capability.name,
-                registered?: true,
-                permission: capability.permission,
-                exposure: capability.exposure,
-                status: response.status
-              }
-            }
-          end
-        })
-      )
-
-    assert_allowed(action_boundary)
-    assert action_boundary.trace.action == "onboarding_step_complete"
-    assert action_boundary.trace.permission == :objective_write
-    assert action_boundary.trace.exposure == :internal
-    assert action_boundary.trace.status == :completed
-
     safe_keys =
       run_eval(
         fixture("onboarding-safe-keys-only-001", %{
@@ -166,47 +121,6 @@ defmodule AllbertAssist.Security.OnboardingProviderEvalTest do
                "intent.model_profile",
                "providers.local_ollama.enabled"
              ])
-
-    identity_preview =
-      run_eval(
-        fixture("onboarding-identity-preview-no-write-001", %{
-          run: fn fixture ->
-            {:ok, state} = Onboarding.frame_or_resume("local", context())
-            step = Enum.find(state.steps, &(&1.key == "identity_slot_preview"))
-
-            {:ok, response} =
-              Runner.run(
-                "onboarding_step_complete",
-                %{
-                  objective_id: state.objective.id,
-                  step_id: step.id,
-                  outcome: "completed",
-                  note: "preview only"
-                },
-                context(%{user_id: "local"})
-              )
-
-            identity_root = Path.join([home, "memory", "identity"])
-
-            %{
-              decision:
-                if(response.status == :completed and not File.exists?(identity_root),
-                  do: :allowed,
-                  else: :denied
-                ),
-              result: response,
-              trace: %{
-                fixture_id: fixture.id,
-                identity_root: identity_root,
-                identity_root_exists?: File.exists?(identity_root)
-              }
-            }
-          end
-        })
-      )
-
-    assert_allowed(identity_preview)
-    refute identity_preview.trace.identity_root_exists?
   end
 
   test "provider doctor evals enforce two branches and redacted summaries" do

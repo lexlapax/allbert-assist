@@ -1179,16 +1179,6 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
     },
     %{
-      id: "onboarding-action-boundary-001",
-      milestone: :v039,
-      surface: :first_run_onboarding,
-      scenario: "onboarding step progress is recorded only by the registered action boundary",
-      boundary: :onboarding_action_boundary,
-      expected: :allowed,
-      assert: [:allowed, :registered_action_required],
-      test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
-    },
-    %{
       id: "onboarding-safe-keys-only-001",
       milestone: :v039,
       surface: :first_run_onboarding,
@@ -1196,16 +1186,6 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       boundary: :settings_central_safe_keys,
       expected: :allowed,
       assert: [:allowed, :safe_keys_only],
-      test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
-    },
-    %{
-      id: "onboarding-identity-preview-no-write-001",
-      milestone: :v039,
-      surface: :first_run_onboarding,
-      scenario: "identity slot preview completes without creating identity memory content",
-      boundary: :identity_slot_preview,
-      expected: :allowed,
-      assert: [:allowed, :identity_preview_only],
       test_module: "AllbertAssist.Security.OnboardingProviderEvalTest"
     },
     %{
