@@ -141,9 +141,9 @@ Ratified in the v0.63 plan's Locked Decisions (2026-07-07/2026-07-08):
   "onboarding complete" source that `cli/first_run.ex` reads; the placeholder
   `profile_reviewed`/`:profile_unreviewed` states become real states written by
   `profile_review`.
-- **Two terminal renderings, one flow (Decision 3).** The interactive terminal
-  wizard is the TUI console (ADR 0067/0070) when a TTY is present, with a
-  line-oriented `allbert onboard` prompt fallback for headless installs — both drive
+- **Two terminal renderings, one flow (Decision 3).** The primary interactive
+  terminal wizard is top-level `allbert onboard` when a TTY is present, with a
+  line-oriented `allbert onboard` fallback for headless installs — both drive
   identical step IDs. `allbert onboard` is upgraded from the shipped `admin
   onboarding` summary read into this wizard entry point (Decision 7).
 - **Official CLI modes (Decisions 7, 9-11).** `allbert onboard` is a **new
@@ -152,12 +152,14 @@ Ratified in the v0.63 plan's Locked Decisions (2026-07-07/2026-07-08):
   active onboarding or starts with the track chooser; `--quickstart`/`--advanced`
   select the track; confirmed `--reset` clears **both** persistence stores (the
   `<Home>/onboarding.json` marker and the in-flight objective) and nothing else;
-  `--non-interactive` suppresses prompts and canonical `--authorize`
-  pre-authorizes the confirmation-gated steps (install/pull/persona-apply)
-  **through the confirmation approve path** — a durable, traced operator
-  authorization, never a floor bypass. Deprecated `--accept-risk` remains a
-  warning compatibility alias for older automation and must route to the same
-  durable approval path. Automation refuses on missing required input.
+  `--non-interactive` suppresses prompts and canonical `--authorize` routes
+  confirmation-gated install/pull steps through the confirmation approve path — a
+  durable, traced operator authorization, never a floor bypass. Persona apply is
+  two-step: `--authorize` renders the review diff and writes nothing; `--authorize
+  --yes` is required to run the durable create+approve path. Deprecated
+  `--accept-risk` remains a warning compatibility alias for older automation and
+  must route to the same durable approval path. Automation refuses on missing
+  required input.
 - **Operator readiness copy (Decision 12).** Web and terminal surfaces render
   `Ready`, `Needs model`, `Needs credentials`, `Needs runtime`, or `Needs review`
   plus one next action. Raw first-model probe atoms are allowed in traces/tests,
@@ -177,10 +179,12 @@ several *surfaces* shipped thinner than this ADR's decisions, plus eval-gate and
 gaps. The M7.x remediation (see the plan's Post-Implementation Audit & Remediation
 section) resolves them, with these amendments to the decisions above:
 
-- **TUI console (Decision 3), as-built + remediation.** M6 shipped only the
-  line-oriented `allbert onboard` fallback; the **TUI console rendering was not built**.
-  It is built in remediation **M7.5** (driving the same shared machine + 8 step IDs), so
-  "two terminal renderings, one flow" holds as-built only after M7.5.
+- **Primary terminal surface (Decision 3), as-built + remediation.** M6 shipped the
+  line-oriented `allbert onboard` dispatcher and automation path, but not the richer
+  TTY wizard. Remediation **M7.5** makes top-level `allbert onboard` the primary TTY
+  wizard, driving the same shared machine + 8 step IDs, with the line-oriented flow as
+  the no-TTY/headless fallback. A warm `allbert tui` slash-command can link into this
+  later, but it is not the v0.63 blocking surface.
 - **Persistence unification → objective-flow retirement (Decision 1).** Rather than
   keeping the legacy objective onboarding backend coexisting with the marker, remediation
   **M7.3 retires the objective onboarding flow entirely** (backend +
@@ -188,7 +192,9 @@ section) resolves them, with these amendments to the decisions above:
   over the `<Home>/onboarding.json` marker becomes the *sole* onboarding source and
   surface, and `mix allbert.onboard` is re-pointed at it. The first-launch reconcile the
   Upgrade § describes is implemented in **M7.6** (a one-time cancel/cleanup of any
-  pre-existing in-flight objective).
+  pre-existing in-flight objective). M7.6 must land before the destructive portion of
+  M7.3, or M7.3 must preserve the source-intent metadata needed to identify stale
+  objectives.
 - **`--authorize` for persona apply becomes two-step (Decision 7).** To satisfy the
   review/confirm contract, `apply-persona <id> --authorize` (M7.4) renders the
   `current→proposed` review diff and requires an explicit `--yes` before it runs the

@@ -100,7 +100,7 @@ runtime behavior.
 | `coding.model_profile` | Existing safe-write profile reference. | Developer persona uses the exact Pi-mode coding profile pinned in the v0.63 plan/ADR after source-code egress review. |
 | `coding.default_approval_mode` | Existing safe-write enum. | Developer persona uses the pinned conservative approval default; never bypass confirmation. |
 | `coding.read.default_limit`, `coding.search.max_results`, `coding.search.max_output_bytes` | Existing safe-write bounded coding limits. | Developer persona uses the pinned reviewed limits within schema bounds. |
-| `intent.router_embedding_profile`, `intent.router_model_profile`, `intent.router_escalation_profile` | Existing safe-write router profile references. | Researcher/developer/ops personas use the exact pinned router profile emphasis after model posture review. |
+| `intent.router_embedding_profile`, `intent.router_model_profile`, `intent.router_escalation_profile` | Existing safe-write router profile references. | Researcher/ops personas use the exact pinned router profile emphasis after model posture review; developer does not seed router profile keys in the v0.63 catalog. |
 | `active_memory.enabled`, `active_memory.top_k`, `active_memory.chunk_max_bytes` | Existing safe-write active-memory tuning keys. | Researcher/writer personas use the exact pinned memory tuning after explicit review. |
 | `runtime.diagnostics_verbosity` | Existing safe-write enum: `quiet`, `normal`, `verbose`. | Ops persona uses the pinned verbosity value, without enabling new authority. |
 | `objectives.trace_detail` | Existing safe-write enum: `operator`, `debug`. | Ops persona uses the pinned trace-detail value, without changing objective authority. |

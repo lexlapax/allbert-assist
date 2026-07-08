@@ -45,18 +45,21 @@ mix allbert.security status
 mix allbert.confirmations list
 ```
 
-## v0.63 Planned Operator Onboarding
+## v0.63 Operator Onboarding Contract
 
-v0.63 replaces the old command-sequencing onboarding objective with a guided web
-and terminal wizard over the packaged `allbert` entry points. Until v0.63 lands,
-the exact commands below are the implementation contract in the v0.63 plan, not
-shipped behavior.
+v0.63 is implemented through M7, with post-implementation remediation M7.1-M7.8
+still required before final release-ready closeout. The direction below is the
+current operator contract: replace the old command-sequencing onboarding objective
+with a guided web wizard and a primary `allbert onboard` TTY wizard over the
+packaged entry points. The legacy objective path is compatibility debt to retire,
+not an alternate target UX.
 
 Operator UX requirements:
 
 - `allbert serve` starts the runtime and the web wizard auto-opens on first run.
-- `allbert onboard` resumes active onboarding or starts with a QuickStart/Advanced
-  chooser.
+- `allbert onboard` is the primary TTY wizard entry point. It resumes active
+  onboarding or starts with a QuickStart/Advanced chooser; no-TTY/headless use falls
+  back to the line-oriented flow.
 - `allbert onboard --quickstart` takes the fastest safe path to first chat.
 - `allbert onboard --advanced` exposes provider, model, profile, and optional
   integration choices up front.
@@ -67,6 +70,9 @@ Operator UX requirements:
   explicit flags/input refs, never prompts, refuses missing required inputs, and
   records durable confirmations through the existing approval path. Deprecated
   `--accept-risk` is accepted only as a warning compatibility alias.
+- Persona apply is two-step: `apply-persona <id> --authorize` shows the
+  current-to-proposed settings diff and writes nothing; only `apply-persona <id>
+  --authorize --yes` applies through the durable confirmation path.
 
 The wizard should speak in operator readiness language, not internal probe names:
 `Ready`, `Needs model`, `Needs credentials`, `Needs runtime`, and `Needs review`.
@@ -86,8 +92,8 @@ wizard can detect and verify them, but does not write to env.
 ## Historical v0.39 First-Run Onboarding
 
 This section describes the older source-checkout onboarding objective. It remains
-useful for historical troubleshooting before v0.63 lands, but it is not the
-operator UX target for v0.63 or later.
+useful for historical troubleshooting of legacy Homes and objective records, but it
+is not the operator UX target for v0.63 or later.
 
 `docs/plans/v0.39-plan.md` promotes first-run onboarding and provider/model
 control into the 1.0 arc, split across two sub-milestones:
