@@ -50,6 +50,7 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
           | :v061
           | :v061b
           | :v062
+          | :v063
 
   @type required_surface ::
           :resource_execution
@@ -6051,6 +6052,181 @@ defmodule AllbertAssist.SecurityFixtures.EvalInventory do
       expected: :allowed,
       assert: [:adr_0070_convergence_marked],
       test_module: "AllbertAssist.Security.V062SweepEvalTest"
+    },
+
+    # ── v0.63 Guided Onboarding & Profiles (ADR 0069 / 0075) ────────────────
+    %{
+      id: "onboarding-no-authority-from-profiles-001",
+      milestone: :v063,
+      surface: :first_run_onboarding,
+      scenario:
+        "Applying a persona grants a permission, egress, channel, or lowers a confirmation floor",
+      boundary: :authority_envelope,
+      expected: :allowed,
+      assert: [:persona_grants_no_authority, :review_states_grants_all_false],
+      test_module: "AllbertAssist.Onboarding.SecurityEvalTest"
+    },
+    %{
+      id: "onboarding-no-secret-leak-001",
+      milestone: :v063,
+      surface: :first_run_onboarding,
+      scenario: "A raw provider credential appears in wizard output, log, or trace",
+      boundary: :secret_metadata,
+      expected: :allowed,
+      assert: [:credential_stored_masked, :no_raw_secret_in_response],
+      test_module: "AllbertAssist.Onboarding.SecurityEvalTest"
+    },
+    %{
+      id: "onboarding-settings-central-only-writes-001",
+      milestone: :v063,
+      surface: :first_run_onboarding,
+      scenario:
+        "An onboarding write reaches a store directly instead of through Settings Central",
+      boundary: :settings_enforcement,
+      expected: :allowed,
+      assert: [:persona_seeds_via_settings_put, :safe_write_keys_only],
+      test_module: "AllbertAssist.Onboarding.SecurityEvalTest"
+    },
+    %{
+      id: "profile-seeds-defaults-only-001",
+      milestone: :v063,
+      surface: :persona_model,
+      scenario: "A persona seeds a key that is not a safe-write default/suggestion",
+      boundary: :settings_enforcement,
+      expected: :allowed,
+      assert: [:every_seed_is_safe_write_key, :suggestions_are_highlights_only],
+      test_module: "AllbertAssist.Onboarding.SecurityEvalTest"
+    },
+    %{
+      id: "provider-key-masked-vault-entry-redaction-001",
+      milestone: :v063,
+      surface: :first_run_onboarding,
+      scenario: "Masked provider-key entry echoes the value or writes it outside the vault ref",
+      boundary: :secret_metadata,
+      expected: :allowed,
+      assert: [:masked_entry, :ref_write_only, :response_redacted],
+      test_module: "AllbertAssist.Onboarding.SecurityEvalTest"
+    },
+    %{
+      id: "provider-env-tier-read-only-001",
+      milestone: :v063,
+      surface: :first_run_onboarding,
+      scenario:
+        "The wizard tries to write to the env secret tier instead of surfacing it read-only",
+      boundary: :secret_metadata,
+      expected: :allowed,
+      assert: [:env_tier_detected, :env_tier_not_writable, :env_surfaced_read_only],
+      test_module: "AllbertAssist.Onboarding.SecurityEvalTest"
+    },
+    %{
+      id: "provider-switch-no-config-edit-001",
+      milestone: :v063,
+      surface: :first_run_onboarding,
+      scenario: "Switching provider/model edits a config file instead of writing settings",
+      boundary: :settings_enforcement,
+      expected: :allowed,
+      assert: [:switch_writes_settings, :no_file_edit],
+      test_module: "AllbertAssist.Onboarding.SecurityEvalTest"
+    },
+    %{
+      id: "profile-apply-explicit-review-001",
+      milestone: :v063,
+      surface: :persona_model,
+      scenario: "A persona apply writes settings before an explicit review/confirm",
+      boundary: :operator_review,
+      expected: :needs_confirmation,
+      assert: [:writes_nothing_before_confirm, :review_diff_present],
+      test_module: "AllbertAssist.Onboarding.SecurityEvalTest"
+    },
+    %{
+      id: "onboarding-noninteractive-authorize-no-bypass-001",
+      milestone: :v063,
+      surface: :first_run_onboarding,
+      scenario:
+        "--non-interactive --authorize skips a confirmation floor, prompts, or stores an implicit secret; --accept-risk diverges from the durable approval path",
+      boundary: :authority_envelope,
+      expected: :needs_confirmation,
+      assert: [
+        :gated_step_records_durable_confirmation,
+        :approved_through_approve_path,
+        :no_approved_shortcut,
+        :refuses_missing_required_input,
+        :accept_risk_aliases_with_warning
+      ],
+      test_module: "AllbertAssist.Onboarding.SecurityEvalTest"
+    },
+    %{
+      id: "onboarding-reset-preserves-home-001",
+      milestone: :v063,
+      surface: :first_run_onboarding,
+      scenario:
+        "Confirmed --reset deletes Home data, secrets, settings, traces, memory, or caches",
+      boundary: :portability,
+      expected: :allowed,
+      assert: [:reset_clears_marker, :home_data_preserved],
+      test_module: "AllbertAssist.Onboarding.SecurityEvalTest"
+    },
+    %{
+      id: "wizard-shared-flow-no-surface-fork-001",
+      milestone: :v063,
+      surface: :onboarding_design,
+      scenario: "The web and terminal wizards drive different step IDs (a surface fork)",
+      boundary: :surface_consistency,
+      expected: :allowed,
+      assert: [:canonical_eight_steps, :both_surfaces_use_wizard_steps],
+      test_module: "AllbertAssist.Onboarding.FlowEvalTest"
+    },
+    %{
+      id: "wizard-operator-readiness-copy-001",
+      milestone: :v063,
+      surface: :onboarding_design,
+      scenario:
+        "An operator surface shows a raw probe atom instead of a mapped readiness label + next action",
+      boundary: :surface_policy,
+      expected: :allowed,
+      assert: [:mapped_readiness_labels, :one_next_action, :no_raw_probe_atom],
+      test_module: "AllbertAssist.Onboarding.FlowEvalTest"
+    },
+    %{
+      id: "trust-spine-surfaced-001",
+      milestone: :v063,
+      surface: :onboarding_design,
+      scenario: "The trust-spine confirmation surface is absent from the wizard",
+      boundary: :surface_policy,
+      expected: :allowed,
+      assert: [:trust_spine_present, :names_confirmation_permission_traces_local],
+      test_module: "AllbertAssist.Onboarding.FlowEvalTest"
+    },
+    %{
+      id: "quickstart-fastest-first-chat-001",
+      milestone: :v063,
+      surface: :first_model_path,
+      scenario:
+        "QuickStart dead-ends on a first-model probe outcome instead of reaching chat or a repair action",
+      boundary: :surface_consistency,
+      expected: :allowed,
+      assert: [:ready_reaches_chat, :every_other_outcome_repairable],
+      test_module: "AllbertAssist.Onboarding.FlowEvalTest"
+    },
+    %{
+      id: "adr-0069-accepted-001",
+      milestone: :v063,
+      surface: :design_handoff,
+      scenario: "ADR 0069 is not Accepted (v0.63)",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [:adr_0069_accepted],
+      test_module: "AllbertAssist.Security.V063SweepEvalTest"
+    },
+    %{
+      id: "adr-0075-accepted-001",
+      milestone: :v063,
+      surface: :design_handoff,
+      scenario: "ADR 0075 is not Accepted (v0.63)",
+      boundary: :design_artifact_presence,
+      expected: :allowed,
+      assert: [:adr_0075_accepted],
+      test_module: "AllbertAssist.Security.V063SweepEvalTest"
     }
   ]
 

@@ -27,6 +27,7 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
     allbert onboard status              # compact wizard status
     allbert onboard advance STEP        # record the current step done (automation)
     allbert onboard apply-persona ID    # apply a persona (needs --authorize)
+    allbert onboard trust               # the trust spine: what keeps first-run safe
     allbert onboard --reset --yes       # reset onboarding (marker only; Home preserved)
 
   Flags:
@@ -118,6 +119,15 @@ defmodule AllbertAssist.CLI.Areas.Onboarding do
 
   defp route(["apply-persona"], opts, context),
     do: apply_persona(opts[:profile], opts, context)
+
+  defp route(["trust"], _opts, _context) do
+    lines = [
+      "The trust spine — what keeps first-run safe:"
+      | Enum.map(Onboarding.trust_spine(), &("- " <> &1))
+    ]
+
+    Render.ok(lines)
+  end
 
   defp route(_other, _opts, _context), do: Render.usage([@usage])
 

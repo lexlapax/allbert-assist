@@ -20,6 +20,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
   }
 
   alias AllbertAssist.Channels.Event
+  alias AllbertAssist.CLI.FirstRun
   alias AllbertAssist.Conversations.ChannelThread
   alias AllbertAssist.Conversations.ConversationMessageRef
   alias AllbertAssist.Intent.Handoff
@@ -759,11 +760,11 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     setup do
       # Snapshot + restore the Home onboarding marker so wizard mutations in these
       # tests never leak into the seeded (already-onboarded) suite baseline.
-      saved = AllbertAssist.CLI.FirstRun.read_marker()
+      saved = FirstRun.read_marker()
 
       on_exit(fn ->
-        AllbertAssist.CLI.FirstRun.reset_onboarding()
-        if saved != %{}, do: AllbertAssist.CLI.FirstRun.merge_marker(saved)
+        FirstRun.reset_onboarding()
+        if saved != %{}, do: FirstRun.merge_marker(saved)
       end)
 
       :ok
@@ -787,7 +788,7 @@ defmodule AllbertAssistWeb.WorkspaceLiveTest do
     end
 
     test "starts a track and advances the canonical steps through M1", %{conn: conn} do
-      AllbertAssist.CLI.FirstRun.reset_onboarding()
+      FirstRun.reset_onboarding()
       {:ok, view, _html} = live(conn, ~p"/workspace?destination=workspace:onboard")
 
       view |> element("#workspace-onboarding-start-quickstart") |> render_click()

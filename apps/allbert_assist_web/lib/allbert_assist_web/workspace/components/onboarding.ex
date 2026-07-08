@@ -266,6 +266,15 @@ defmodule AllbertAssistWeb.Workspace.Components.Onboarding do
             Reset onboarding
           </button>
         </div>
+
+        <section id="workspace-onboarding-trust-spine" class="mt-2 border-t border-base-300 pt-2">
+          <div class="text-xs font-medium text-base-content/70">
+            The trust spine — what keeps first-run safe
+          </div>
+          <ul class="mt-1 space-y-0.5 text-xs text-base-content/60">
+            <li :for={line <- OnboardingContext.trust_spine()}>{line}</li>
+          </ul>
+        </section>
       </section>
 
       <div :if={@onboarding_state} class="mt-4 space-y-4">

@@ -199,6 +199,21 @@ defmodule AllbertAssist.Onboarding do
           profile_reviewed?: boolean()
         }
 
+  # v0.63 M7: the trust spine surfaced as a first-run feature — confirmation,
+  # permission scoping, traces, and local inspectability are safety properties, not
+  # setup friction. Onboarding itself grants no new authority. Shared copy for both
+  # the terminal (`allbert onboard trust`) and web surfaces.
+  @trust_spine [
+    "Confirmation: risky actions pause for your explicit approval; each approval is a durable, traced record.",
+    "Permission: every action is scoped by Security Central; onboarding grants no new authority.",
+    "Traces: what Allbert does is recorded and locally inspectable.",
+    "Local-first: your data and model stay on your machine unless you connect a hosted provider."
+  ]
+
+  @doc "The trust-spine safety properties surfaced during onboarding (M7)."
+  @spec trust_spine() :: [String.t()]
+  def trust_spine, do: @trust_spine
+
   @doc "The 8 canonical wizard step ids, in order."
   @spec wizard_steps() :: [wizard_step(), ...]
   def wizard_steps, do: @wizard_steps

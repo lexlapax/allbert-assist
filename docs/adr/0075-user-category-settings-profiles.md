@@ -1,6 +1,6 @@
 # ADR 0075: User-Category Settings Profiles (Personas)
 
-Status: Proposed (v0.63).
+Status: Accepted (v0.63).
 Date: 2026-06-25
 Related: ADR 0077 (Product Experience Design & IA — designs the persona/profile
 model in v0.60 M4; this ADR applies and builds it in v0.63), ADR 0004 / ADR 0031

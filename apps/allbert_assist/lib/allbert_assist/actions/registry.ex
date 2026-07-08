@@ -184,6 +184,7 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Session.ShowSessionScratchpad
   alias AllbertAssist.Actions.Sessions.ClearSession
   alias AllbertAssist.Actions.Sessions.SweepExpiredSessions
+  alias AllbertAssist.Actions.Settings.ApplyPersonaProfile
   alias AllbertAssist.Actions.Settings.Doctor, as: SettingsDoctor
   alias AllbertAssist.Actions.Settings.DoctorModelProfile
   alias AllbertAssist.Actions.Settings.DoctorVoiceProvider
@@ -192,7 +193,6 @@ defmodule AllbertAssist.Actions.Registry do
   alias AllbertAssist.Actions.Settings.ListProviderProfiles
   alias AllbertAssist.Actions.Settings.ListSettings
   alias AllbertAssist.Actions.Settings.MigrateSecrets
-  alias AllbertAssist.Actions.Settings.ApplyPersonaProfile
   alias AllbertAssist.Actions.Settings.ModelDoctor, as: SettingsModelDoctor
   alias AllbertAssist.Actions.Settings.ReadSetting
   alias AllbertAssist.Actions.Settings.ResolvedSettingsSnapshot

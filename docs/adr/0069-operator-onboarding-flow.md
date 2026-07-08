@@ -1,8 +1,8 @@
 # ADR 0069: Guided Onboarding Flow
 
-Status: Proposed (v0.63). Re-scoped 2026-06-25 from a v0.59 TUI-only "sequence the
+Status: Accepted (v0.63). Re-scoped 2026-06-25 from a v0.59 TUI-only "sequence the
 existing steps" hardening sliver into a real guided-onboarding capability for the
-v0.63 Guided Onboarding & Profiles release.
+v0.63 Guided Onboarding & Profiles release; built and accepted at v0.63 M7 closeout.
 Date: 2026-06-21 (re-scoped 2026-06-25)
 Related: ADR 0077 (Product Experience Design & IA — designs this onboarding flow
 in v0.60 M4; this ADR builds it in v0.63), ADR 0078 (First-Model Path — the

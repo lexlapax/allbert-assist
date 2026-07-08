@@ -40,6 +40,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v061
       mix allbert.test release.v061b
       mix allbert.test release.v062
+      mix allbert.test release.v063
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
@@ -151,6 +152,7 @@ defmodule Mix.Tasks.Allbert.Test do
   def run(["release.v061"]), do: release_v061()
   def run(["release.v061b"]), do: release_v061b()
   def run(["release.v062"]), do: release_v062()
+  def run(["release.v063"]), do: release_v063()
   def run(["external-smoke" | rest]), do: external_smoke(rest)
   def run(_args), do: usage!()
 
@@ -4456,6 +4458,157 @@ defmodule Mix.Tasks.Allbert.Test do
     }
   end
 
+  @release_v063_steps [
+    %{
+      id: "migrate",
+      title: "prepare disposable database",
+      cwd: :core,
+      executable: "mix",
+      args: ["ecto.migrate.allbert", "--quiet"],
+      coverage: ["schema boot", "release-owned DATABASE_PATH"]
+    },
+    %{
+      id: "format_check",
+      title: "formatter check for v0.63 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["format", "--check-formatted"],
+      coverage: ["formatter drift fails the v0.63 onboarding handoff"]
+    },
+    %{
+      id: "compile_warnings_as_errors",
+      title: "compile v0.63 release candidate with warnings as errors",
+      cwd: :root,
+      executable: "mix",
+      args: ["compile", "--warnings-as-errors"],
+      coverage: ["compiler warnings fail the v0.63 onboarding handoff"]
+    },
+    %{
+      id: "credo_strict",
+      title: "Credo strict check for v0.63 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["credo", "--strict"],
+      coverage: ["Credo strict findings fail the v0.63 onboarding handoff"]
+    },
+    %{
+      id: "dialyzer",
+      title: "Dialyzer static analysis for v0.63 release candidate",
+      cwd: :root,
+      executable: "mix",
+      args: ["dialyzer"],
+      coverage: ["Dialyzer warnings fail the v0.63 onboarding handoff"]
+    },
+    %{
+      id: "v063_onboarding_proof",
+      title: "the shared wizard, provider step, personas, and terminal dispatcher hold",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/allbert_assist/onboarding_test.exs",
+        "test/allbert_assist/cli/first_run_test.exs",
+        "test/allbert_assist/cli/areas/onboarding_test.exs",
+        "test/allbert_assist/personas_test.exs",
+        "test/allbert_assist/actions/apply_persona_profile_test.exs",
+        "test/allbert_assist/onboarding/provider_step_test.exs"
+      ],
+      coverage: [
+        "M1 shared state machine + marker unification + top-level onboard verb",
+        "M2 track-aware readiness guidance (no dead ends); M3 vault-tier/doctor interpretation",
+        "M4 seed-only persona catalog + confirmation-gated apply; M6 --authorize + refusal contract"
+      ]
+    },
+    %{
+      id: "v063_security_sweep",
+      title: "v0.63 onboarding security/flow eval rows + ADR acceptance",
+      cwd: :core,
+      executable: "mix",
+      args: [
+        "test",
+        "test/security/onboarding_security_eval_test.exs",
+        "test/security/onboarding_flow_eval_test.exs",
+        "test/security/v063_sweep_eval_test.exs",
+        "test/security/security_eval_case_test.exs",
+        "test/allbert_assist/actions/registry_test.exs"
+      ],
+      coverage: [
+        "no-authority-from-personas, no-secret-leak, safe-write-only, explicit review",
+        "shared step IDs, operator readiness copy, trust spine, QuickStart no-dead-end",
+        "ADR 0069 + 0075 Accepted; the :v063 row set is complete, shaped, and routed"
+      ]
+    },
+    %{
+      id: "docs_gate",
+      title: "docs gate and release-planning whitespace check",
+      cwd: :root,
+      executable: "mix",
+      args: ["allbert.test", "docs"],
+      coverage: ["git diff --check is clean", "docs gate is visible in release evidence"]
+    }
+  ]
+
+  defp release_v063 do
+    env = owned_env("release-v063", 0)
+    home = env_value(env, "ALLBERT_HOME")
+    database = env_value(env, "DATABASE_PATH")
+    evidence_dir = Path.join(home, "release_evidence/v063")
+    File.mkdir_p!(evidence_dir)
+
+    started_at = DateTime.utc_now()
+    results = Enum.map(@release_v063_steps, &run_release_v063_step(&1, env))
+
+    status = if Enum.all?(results, &(&1.status == "passed")), do: "passed", else: "failed"
+
+    evidence = %{
+      gate: "mix allbert.test release.v063",
+      version: "v0.63",
+      status: status,
+      generated_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      started_at: DateTime.to_iso8601(started_at),
+      allbert_home: home,
+      database_path: database,
+      evidence_dir: evidence_dir,
+      external_network:
+        "disabled; deterministic shared-wizard/provider-step/persona/dispatcher proofs, onboarding eval rows, and docs-gate checks run against local files and injected transports only",
+      notes:
+        "v0.63 Guided Onboarding & Profiles builds one shared wizard over web + terminal, a seed-only persona system, and a first-run trust spine — all over the existing runtime/action/settings spine, granting no new authority. The web wizard LiveView suite runs in the allbert_assist_web app and is validated separately; this core gate proves the shared machine, personas, terminal dispatcher, and the :v063 security/flow eval rows.",
+      steps: results
+    }
+
+    evidence_path = Path.join(evidence_dir, "release-v063-#{DateTime.to_unix(started_at)}.json")
+    File.write!(evidence_path, Jason.encode!(evidence, pretty: true))
+    Mix.shell().info("release.v063 evidence: #{evidence_path}")
+
+    if status != "passed" do
+      Mix.raise("release.v063 failed; evidence: #{evidence_path}")
+    end
+  end
+
+  defp run_release_v063_step(step, env) do
+    started = System.monotonic_time(:millisecond)
+    cwd = release_step_cwd(step.cwd)
+
+    {output, exit_status} =
+      System.cmd(step.executable, step.args, cd: cwd, env: env, stderr_to_stdout: true)
+
+    duration_ms = System.monotonic_time(:millisecond) - started
+    print_output("release.v063 #{step.id}", output)
+
+    %{
+      id: step.id,
+      title: step.title,
+      status: if(exit_status == 0, do: "passed", else: "failed"),
+      exit_status: exit_status,
+      duration_ms: duration_ms,
+      cwd: Path.relative_to(cwd, root()),
+      command: shell_join([step.executable | step.args]),
+      coverage: step.coverage,
+      output_sha256: sha256(output),
+      redacted_output_tail: output |> redact_release_output() |> tail(12_000)
+    }
+  end
+
   defp cleanup_release_v046_evidence!(evidence_dir) do
     evidence_dir
     |> Path.join("release-v046-*.json")
@@ -6552,6 +6705,7 @@ defmodule Mix.Tasks.Allbert.Test do
       mix allbert.test release.v061
       mix allbert.test release.v061b
       mix allbert.test release.v062
+      mix allbert.test release.v063
       mix allbert.test external-smoke list
       mix allbert.test external-smoke -- browser_research
       mix allbert.test external-smoke -- browser_research_delegate
